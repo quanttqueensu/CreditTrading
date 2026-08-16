@@ -1,0 +1,714 @@
+<title>QUANTT Credit Trading — Open Roles 2026/27</title>
+
+<style>
+  :root {
+    --ground:        #EAEBE6;
+    --ground-raised: #F3F4F0;
+    --ground-sunk:   #DEE0D9;
+    --ink:           #1A1F1C;
+    --ink-soft:      #4A5049;
+    --ink-faint:     #7A8078;
+    --rule:          #C8CBC2;
+    --accent:        #A8322D;
+    --accent-soft:   rgba(168, 50, 45, 0.10);
+    --data:          #2E5A66;
+    --data-soft:     rgba(46, 90, 102, 0.12);
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+    --measure: 34rem;
+    --gutter: 8.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:        #141815;
+      --ground-raised: #1D221E;
+      --ground-sunk:   #0E110F;
+      --ink:           #E4E7E1;
+      --ink-soft:      #AFB5AC;
+      --ink-faint:     #7C837A;
+      --rule:          #2E342F;
+      --accent:        #D4635C;
+      --accent-soft:   rgba(212, 99, 92, 0.14);
+      --data:          #6BA3B0;
+      --data-soft:     rgba(107, 163, 176, 0.15);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:        #141815;
+    --ground-raised: #1D221E;
+    --ground-sunk:   #0E110F;
+    --ink:           #E4E7E1;
+    --ink-soft:      #AFB5AC;
+    --ink-faint:     #7C837A;
+    --rule:          #2E342F;
+    --accent:        #D4635C;
+    --accent-soft:   rgba(212, 99, 92, 0.14);
+    --data:          #6BA3B0;
+    --data-soft:     rgba(107, 163, 176, 0.15);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: calc(var(--measure) + var(--gutter) + 4rem);
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* ---- notebook row: mono annotation in the left gutter, prose in the measure ---- */
+  .row {
+    display: grid;
+    grid-template-columns: var(--gutter) minmax(0, var(--measure));
+    gap: 2rem;
+    align-items: start;
+  }
+  .row > .note {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 0.5rem;
+    text-align: right;
+    border-right: 1px solid var(--rule);
+    padding-right: 1rem;
+    min-height: 1.5rem;
+  }
+  .row > .body { min-width: 0; }
+
+  @media (max-width: 46rem) {
+    :root { --gutter: 0; }
+    .row { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+    .row > .note {
+      text-align: left;
+      border-right: none;
+      border-left: 2px solid var(--accent);
+      padding-right: 0;
+      padding-left: 0.75rem;
+      padding-top: 0;
+    }
+  }
+
+  /* ---- type ---- */
+  h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 600; }
+
+  h1 {
+    font-size: clamp(2.5rem, 6.5vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    font-weight: 500;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+
+  h2 {
+    font-size: 1.75rem;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.75rem;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 1.0625rem;
+    letter-spacing: -0.005em;
+    margin-bottom: 0.35rem;
+  }
+
+  p { margin: 0 0 1.1rem; }
+  p:last-child { margin-bottom: 0; }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, .role:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  strong { font-weight: 600; }
+
+  .lede {
+    font-size: 1.1875rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+
+  .num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95em;
+  }
+
+  /* ---- hero ---- */
+  header.hero {
+    border-bottom: 1px solid var(--rule);
+    padding: clamp(3rem, 9vw, 6rem) 0 0;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 1.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+  }
+  .eyebrow .live {
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .eyebrow .live::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .hero-sub {
+    margin-top: 1.5rem;
+    font-size: 1.1875rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 32rem;
+  }
+
+  /* ---- the mechanism chart ---- */
+  .mech {
+    margin: clamp(2.5rem, 6vw, 4rem) 0 0;
+    padding-bottom: 2.5rem;
+  }
+  .mech figure { margin: 0; }
+  .mech svg { display: block; width: 100%; height: auto; }
+  .mech figcaption {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 0.9rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+  }
+  .key { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .key::before {
+    content: "";
+    width: 14px; height: 2px;
+    background: currentColor;
+  }
+  .key.price { color: var(--accent); }
+  .key.nav { color: var(--data); }
+  .key.gap { color: var(--ink-faint); }
+  .key.gap::before { height: 9px; background: var(--accent-soft); border: 1px solid var(--rule); }
+
+  .draw {
+    stroke-dasharray: 1400;
+    stroke-dashoffset: 1400;
+    animation: draw 1.9s cubic-bezier(.33,.7,.35,1) forwards;
+  }
+  .draw.delay { animation-delay: 0.28s; }
+  .fade { opacity: 0; animation: fade 1.1s ease-out 1.3s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes fade { to { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .draw, .fade { animation: none; stroke-dashoffset: 0; opacity: 1; }
+  }
+
+  /* ---- sections ---- */
+  section { padding: clamp(3rem, 7vw, 4.5rem) 0; border-bottom: 1px solid var(--rule); }
+  section:last-of-type { border-bottom: none; }
+
+  /* ---- the count strip: real measured counts, not decorative numbering ---- */
+  .counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-top: 2rem;
+  }
+  .count {
+    background: var(--ground-raised);
+    padding: 1.25rem 1.15rem;
+  }
+  .count dt {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.5rem;
+  }
+  .count dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.6rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .count dd span {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    letter-spacing: 0;
+    color: var(--ink-soft);
+    margin-top: 0.5rem;
+    line-height: 1.35;
+  }
+  .count.hit dd { color: var(--accent); }
+
+  /* ---- roles ---- */
+  .roles { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 2rem; }
+  .role { background: var(--ground-raised); padding: 1.6rem 1.5rem; }
+  .role-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .role h3 { margin: 0; }
+  .seats {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ground-raised);
+    background: var(--data);
+    padding: 0.2rem 0.5rem;
+    white-space: nowrap;
+  }
+  .role p { font-size: 1rem; margin-bottom: 0.85rem; }
+  .req {
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+    padding-top: 0.85rem;
+    margin: 0;
+  }
+  .req b {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-weight: 400;
+  }
+
+  /* ---- timeline: a genuine sequence, so dated markers carry information ---- */
+  .timeline { margin-top: 2rem; border-top: 1px solid var(--rule); }
+  .stage {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 1.5rem;
+    padding: 1.15rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .stage .when {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 0.2rem;
+  }
+  .stage .what { font-size: 1rem; }
+  .stage.key-date .when { color: var(--accent); }
+  @media (max-width: 34rem) {
+    .stage { grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+  }
+
+  /* ---- pull quote ---- */
+  .pull {
+    border-left: 2px solid var(--accent);
+    padding: 0.15rem 0 0.15rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 1.25rem;
+    line-height: 1.45;
+    font-style: italic;
+    color: var(--ink);
+  }
+
+  /* ---- closing ---- */
+  .apply {
+    background: var(--ground-sunk);
+    border: 1px solid var(--rule);
+    padding: clamp(1.75rem, 4vw, 2.5rem);
+    margin-top: 2rem;
+  }
+  .apply p:last-of-type { margin-bottom: 0; }
+
+  footer {
+    padding: 2.5rem 0 4rem;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="row">
+      <div class="note">2026/27<br>Queen's</div>
+      <div class="body">
+        <div class="eyebrow">
+          <span>QUANTT · Credit Trading</span>
+          <span class="live">$500,000 live on paper</span>
+        </div>
+        <h1>Thirteen ideas tested.<br><em>One survived.</em></h1>
+        <p class="hero-sub">
+          We run a systematic credit strategy that trades itself every weekday.
+          We are hiring researchers, engineers, and risk analysts for the coming year.
+        </p>
+      </div>
+    </div>
+
+    <div class="mech">
+      <figure>
+        <svg viewBox="0 0 800 210" role="img" aria-label="A chart showing a fund's share price wandering above and below the value of what it holds, with the gap between them shaded.">
+          <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M40 0 L0 0 0 40" fill="none" stroke="var(--rule)" stroke-width="0.5"/>
+            </pattern>
+          </defs>
+          <rect width="800" height="210" fill="url(#grid)" opacity="0.55"/>
+
+          <polygon class="fade"
+            fill="var(--accent-soft)"
+            points="0,150 50,148 100,145 150,143 200,140 250,138 300,136 350,133 400,131 450,129 500,127 550,124 600,122 650,120 700,118 750,116 800,114 800,118 750,105 700,127 650,110 600,131 550,116 500,133 450,124 400,155 350,140 300,129 250,146 200,171 150,158 100,141 50,163 0,152"/>
+
+          <polyline class="draw"
+            fill="none" stroke="var(--data)" stroke-width="2" stroke-linejoin="round"
+            points="0,150 50,148 100,145 150,143 200,140 250,138 300,136 350,133 400,131 450,129 500,127 550,124 600,122 650,120 700,118 750,116 800,114"/>
+
+          <polyline class="draw delay"
+            fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+            points="0,152 50,163 100,141 150,158 200,171 250,146 300,129 350,140 400,155 450,124 500,133 550,116 600,131 650,110 700,127 750,105 800,118"/>
+        </svg>
+        <figcaption>
+          <span class="key nav">Value of what the fund holds</span>
+          <span class="key price">Share price</span>
+          <span class="key gap">The gap we trade</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="row">
+      <div class="note">The&nbsp;desk</div>
+      <div class="body">
+        <h2>What this project is</h2>
+        <p>
+          Over the summer we built a small systematic trading desk from scratch. It runs a
+          market-neutral credit strategy on a $500,000 Interactive Brokers paper account.
+          It places its own orders every weekday on a schedule, checks its own safety before
+          every trade, records every fill, and raises an alarm if anything breaks. On a normal
+          day nobody touches it.
+        </p>
+        <p>
+          This year the team's job is to keep that system running, judge the live strategy
+          honestly against rules we wrote down before launch, and research what comes next.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="row">
+      <div class="note">The&nbsp;trade</div>
+      <div class="body">
+        <h2>The strategy, in plain terms</h2>
+        <p>
+          A closed-end fund trades on the exchange like a stock, with one twist: the number of
+          shares is fixed forever. The fund publishes what everything it owns is worth every day,
+          but the share price can drift far from that value, because nobody can create or redeem
+          shares to pull it back.
+        </p>
+        <p>
+          That is the whole point. An ordinary fund has banks who swap shares for the underlying
+          bonds and back again, so any gap gets arbitraged away within minutes. We watched that
+          machine kill our two previous strategies: the gap on high-yield funds shrank from
+          <span class="num">188</span> basis points in 2008 to <span class="num">3.8</span> by 2026.
+          A closed-end fund has no such mechanism, so its gap averages roughly
+          <span class="num">150×</span> wider.
+        </p>
+        <p>
+          Our strategy compares each fund's gap to its own history, buys the ones trading
+          unusually cheap, shorts the ones trading unusually rich, and holds equal dollars on
+          each side, so it does not care whether the market rises or falls. Across twenty years
+          of testing, <strong>99.5% of its returns are unexplained</strong> by moves in credit,
+          rates, stocks, or volatility.
+        </p>
+
+        <div class="pull">
+          We are hiring on the real numbers, not the flattering ones.
+        </div>
+
+        <p>
+          Here is the honest part. These funds are small and expensive to trade. Our first live
+          day proved that execution costs matter more than the signal does: our fills came in
+          about nine times worse than modelled, which is fatal if it persists. We found the cause
+          and shipped a fix, but we have not yet proven the fix works. After correcting for an
+          entry price the backtest assumed but we cannot actually get, the honest expected Sharpe
+          ratio is about <span class="num">0.51</span>, not the <span class="num">0.82</span> we
+          recorded at deployment.
+        </p>
+        <p>
+          Measuring execution cost and getting it down is the single largest piece of this
+          year's work.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="row">
+      <div class="note">Inherited</div>
+      <div class="body">
+        <h2>You are not starting from zero</h2>
+        <p>
+          The summer produced working infrastructure and, just as usefully, a written record of
+          twelve dead ideas so you can learn from failures you did not have to pay for.
+        </p>
+      </div>
+    </div>
+
+    <dl class="counts">
+      <div class="count hit">
+        <dt>Mechanisms tested</dt>
+        <dd>13<span>Twelve died, each with a written cause of death</span></dd>
+      </div>
+      <div class="count">
+        <dt>Bond prices daily</dt>
+        <dd>11,423<span>A free feed we built from fund filings</span></dd>
+      </div>
+      <div class="count">
+        <dt>Logged trials</dt>
+        <dd>156<span>Timestamped, so our statistics stay honest</span></dd>
+      </div>
+      <div class="count">
+        <dt>Real executions</dt>
+        <dd>257<span>From the broker, with fill prices and commissions</span></dd>
+      </div>
+      <div class="count">
+        <dt>Safety checks</dt>
+        <dd>7<span>Run before any trade is allowed to transmit</span></dd>
+      </div>
+      <div class="count">
+        <dt>Scheduled jobs</dt>
+        <dd>5<span>Trading, collection, watchdog, weekly report</span></dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="row">
+      <div class="note">Open&nbsp;roles</div>
+      <div class="body">
+        <h2>Who we are hiring</h2>
+        <p>
+          No finance background is required for any of these. Our documentation teaches the
+          finance from first principles, and assumes you know none of it.
+        </p>
+      </div>
+    </div>
+
+    <div class="roles">
+      <article class="role" tabindex="0">
+        <div class="role-head">
+          <h3>Quant Researcher</h3>
+          <span class="seats">2–4 seats</span>
+        </div>
+        <p>
+          You test new strategy ideas against our gating process. Most ideas die, and finding out
+          why quickly is the actual skill. Your first job on a promising result is to try to kill
+          it, not to report it.
+        </p>
+        <p class="req">
+          <b>What you need</b>
+          Comfortable Python with pandas. Basic statistics: regressions, t-tests, and a working
+          understanding of what overfitting is. The temperament to watch your favourite idea fail
+          a test and let it go.
+        </p>
+      </article>
+
+      <article class="role" tabindex="0">
+        <div class="role-head">
+          <h3>Execution &amp; Infrastructure</h3>
+          <span class="seats">1–2 seats</span>
+        </div>
+        <p>
+          You own the pipes: the broker connection, the schedulers, the order flow, and the
+          measurement of what trading actually costs us. This role has taught us more than any
+          backtest, because live systems fail in ways research code never reveals.
+        </p>
+        <p class="req">
+          <b>What you need</b>
+          Solid Python and real patience for debugging things that fail silently. Any experience
+          with APIs, scheduled jobs, or production systems is a strong plus.
+        </p>
+      </article>
+
+      <article class="role" tabindex="0">
+        <div class="role-head">
+          <h3>Risk &amp; Reporting</h3>
+          <span class="seats">1–2 seats</span>
+        </div>
+        <p>
+          You watch the live book. Each week you compare what the strategy did against what the
+          backtest said it should do: returns, exposures, drawdowns, and slippage. This is where
+          you learn how a real desk stays honest with itself.
+        </p>
+        <p class="req">
+          <b>What you need</b>
+          Basic Python, and the ability to write a clear plain-English summary that the whole
+          team will actually read. Precision matters more than speed here.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="row">
+      <div class="note">The&nbsp;year</div>
+      <div class="body">
+        <h2>Goals and timeline</h2>
+        <p>
+          Two dates carry real weight: the 60-session review, where we judge the strategy against
+          rules committed to in writing before launch, and January, when a second strategy trades
+          its only window of the year.
+        </p>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="stage">
+        <div class="when">September</div>
+        <div class="what">
+          Recruit and onboard. Everyone runs the backtest on their own machine and reads the
+          summer report. Get the broker connection reliable again, since the system has not
+          traded since August.
+        </div>
+      </div>
+      <div class="stage key-date">
+        <div class="when">Oct – Nov</div>
+        <div class="what">
+          Accumulate live sessions to reach the <strong>60-session review</strong>. Is live
+          performance and slippage inside what we promised ourselves we would accept? If not, we
+          shut it down, as written.
+        </div>
+      </div>
+      <div class="stage">
+        <div class="when">Nov – Dec</div>
+        <div class="what">
+          Pre-register the January trade so its rules are frozen before any money moves. Begin
+          research on the next data sources.
+        </div>
+      </div>
+      <div class="stage key-date">
+        <div class="when">January</div>
+        <div class="what">
+          Run the January trade. It has been positive in <span class="num">20 of 23</span> years
+          and moves independently of the main strategy, so the two together are worth more than
+          either alone.
+        </div>
+      </div>
+      <div class="stage">
+        <div class="when">Feb – Mar</div>
+        <div class="what">
+          Continue research. Decide whether the main book gets resized, based on measured live
+          evidence rather than confidence.
+        </div>
+      </div>
+      <div class="stage">
+        <div class="when">April</div>
+        <div class="what">
+          Final report: live results against backtest, everything we learned, and a handoff
+          document for next year's team.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="row">
+      <div class="note">Apply</div>
+      <div class="body">
+        <h2>What you get, and how to reach us</h2>
+        <p>
+          End-to-end experience running a live systematic book: signal research, honest
+          backtesting, execution, and risk. Most students see one of these pieces in a course.
+          Here you see all of them connected, with money moving every day.
+        </p>
+
+        <div class="apply">
+          <p>
+            <strong>To apply,</strong> send a short note about which role interests you and
+            anything you have built, to
+            <a href="mailto:simon.jarvis0@gmail.com">simon.jarvis0@gmail.com</a>.
+          </p>
+          <p>
+            Curious first? The code and the full written record are public at
+            <a href="https://github.com/quanttqueensu/CreditTrading">github.com/quanttqueensu/CreditTrading</a>.
+            Start with <span class="num">HOW_WE_GOT_HERE.md</span>, which tells the story of the
+            summer including every wrong turn, and assumes no finance background.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display:flex; flex-wrap:wrap; gap:0.5rem 1.5rem;">
+    <span>QUANTT · Queen's University</span>
+    <span>Credit Trading Team</span>
+    <span>Lead: Simon Jarvis</span>
+    <span>Updated 2026-08-16</span>
+  </div>
+</footer>
