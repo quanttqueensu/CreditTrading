@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$if(title)$$title$$else$$pagetitle$$endif$</title>
+$for(css)$<link rel="stylesheet" href="$css$">
+$endfor$
+</head>
+<body$if(compact)$ class="compact"$endif$>
+<header class="doc-head">
+<h1>$title$</h1>
+$if(subtitle)$
+<div class="doc-sub">
+$subtitle$
+</div>
+$endif$
+</header>
+$if(toc)$
+<nav id="TOC">
+$table-of-contents$
+</nav>
+$endif$
+$body$
+</body>
+</html>

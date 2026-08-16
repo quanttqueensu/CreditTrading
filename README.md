@@ -10,14 +10,17 @@ breaks.
 
 ## Start here
 
-| Document | Read it for |
-|---|---|
-| [`docs/PROJECT_INTRO.md`](docs/PROJECT_INTRO.md) | What this is and who we are hiring. Two pages. |
-| [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) | The full technical reference and new member onboarding. |
-| [`docs/SUMMER_2026_SUMMARY.md`](docs/SUMMER_2026_SUMMARY.md) | What we did over the summer and what the results actually were. |
+| Document | Read it for | PDF |
+|---|---|---|
+| [`docs/PROJECT_INTRO.md`](docs/PROJECT_INTRO.md) | What this is and who we are hiring. Two pages. | [PDF](docs/pdf/QUANTT-Project-Intro.pdf) |
+| [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) | The full technical reference and new member onboarding. | [PDF](docs/pdf/QUANTT-Infrastructure.pdf) |
+| [`docs/SUMMER_2026_SUMMARY.md`](docs/SUMMER_2026_SUMMARY.md) | What we did over the summer and what the results actually were. | [PDF](docs/pdf/QUANTT-Summer-2026-Summary.pdf) |
 
 New members: read `docs/INFRASTRUCTURE.md` Part 1. It takes about thirty minutes
 and gets your machine running.
+
+The PDFs are build output. Edit the markdown, then run `python3 docs/build_pdfs.py`
+and commit both. That script needs pandoc and Google Chrome.
 
 ## Background reading, in order
 

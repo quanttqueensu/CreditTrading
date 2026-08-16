@@ -1,0 +1,247 @@
+/* Print styling for the QUANTT team documents.
+   Used by docs/build_pdfs.py. Page margins and the page-number footer are set
+   in that script, not here, because Chrome handles them at print time. */
+
+:root {
+  --ink:    #16181A;
+  --soft:   #4E545A;
+  --faint:  #8A9096;
+  --rule:   #DCDFE2;
+  --hair:   #EDEFF1;
+  --accent: #8C2F39;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans:  "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono:  Menlo, "SF Mono", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--serif);
+  font-size: 10.5pt;
+  line-height: 1.58;
+  color: var(--ink);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  orphans: 3;
+  widows: 3;
+}
+
+p { margin: 0 0 0.72em; }
+
+/* ---------- title ---------- */
+
+h1 {
+  font-family: var(--sans);
+  font-size: 25pt;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.1;
+  margin: 0 0 0.5rem;
+  text-wrap: balance;
+}
+
+/* The subtitle block sitting directly under the title. */
+.doc-sub {
+  font-family: var(--sans);
+  font-size: 9pt;
+  line-height: 1.7;
+  color: var(--soft);
+  letter-spacing: 0.01em;
+  padding-top: 0.9rem;
+  border-top: 2px solid var(--ink);
+}
+.doc-sub p { margin: 0; }
+.doc-sub strong { font-weight: 600; color: var(--ink); }
+
+header.doc-head { margin-bottom: 2.3rem; }
+
+/* ---------- sections ---------- */
+
+h2 {
+  font-family: var(--sans);
+  font-size: 14pt;
+  font-weight: 600;
+  letter-spacing: -0.014em;
+  line-height: 1.22;
+  color: var(--ink);
+  margin: 2.1rem 0 0.85rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+  break-after: avoid;
+  text-wrap: balance;
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 10.5pt;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  margin: 1.5rem 0 0.45rem;
+  break-after: avoid;
+  text-wrap: balance;
+}
+
+h4 {
+  font-family: var(--sans);
+  font-size: 9pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--faint);
+  margin: 1.3rem 0 0.4rem;
+  break-after: avoid;
+}
+
+/* In the long documents pandoc emits a table of contents. Start each top-level
+   section on a fresh page there, but never in the short ones. */
+#TOC ~ h2 { break-before: page; }
+
+/* ---------- table of contents ---------- */
+
+nav#TOC {
+  margin: 0 0 0.5rem;
+  padding-bottom: 1.5rem;
+}
+nav#TOC::before {
+  content: "Contents";
+  display: block;
+  font-family: var(--sans);
+  font-size: 8.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--faint);
+  margin-bottom: 0.9rem;
+}
+nav#TOC ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+nav#TOC > ul > li {
+  font-family: var(--sans);
+  font-size: 9.5pt;
+  padding: 0.34rem 0;
+  border-bottom: 1px solid var(--hair);
+}
+nav#TOC ul ul {
+  padding-left: 1.1rem;
+  margin-top: 0.25rem;
+}
+nav#TOC ul ul li {
+  font-size: 8.5pt;
+  color: var(--soft);
+  padding: 0.1rem 0;
+  border: none;
+}
+nav#TOC a { color: inherit; text-decoration: none; }
+
+/* ---------- text detail ---------- */
+
+strong { font-weight: 600; }
+em { font-style: italic; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 0.5px solid rgba(140, 47, 57, 0.35);
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 8.6pt;
+  background: #F4F5F6;
+  padding: 0.08em 0.32em;
+  border-radius: 2px;
+  color: var(--soft);
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 8.2pt;
+  line-height: 1.5;
+  background: #F7F8F9;
+  border-left: 2px solid var(--rule);
+  padding: 0.75rem 0.9rem;
+  margin: 0 0 1rem;
+  overflow-x: auto;
+  break-inside: avoid;
+}
+pre code { background: none; padding: 0; font-size: inherit; color: var(--ink); }
+
+/* ---------- lists ---------- */
+
+ul, ol { margin: 0 0 0.9rem; padding-left: 1.15rem; }
+li { margin-bottom: 0.32em; }
+li > ul, li > ol { margin-top: 0.32em; margin-bottom: 0.2em; }
+
+/* ---------- tables ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4rem 0 1.4rem;
+  font-family: var(--sans);
+  font-size: 8.8pt;
+  font-variant-numeric: tabular-nums;
+  break-inside: avoid;
+}
+
+thead th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 7.6pt;
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  color: var(--faint);
+  padding: 0 0.7rem 0.42rem 0;
+  border-bottom: 1px solid var(--ink);
+}
+
+tbody td {
+  padding: 0.42rem 0.7rem 0.42rem 0;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
+
+th:last-child, td:last-child { padding-right: 0; }
+
+/* ---------- quotes ---------- */
+
+blockquote {
+  margin: 1.2rem 0;
+  padding: 0.15rem 0 0.15rem 1.1rem;
+  border-left: 2px solid var(--accent);
+  color: var(--ink);
+  font-size: 11pt;
+  line-height: 1.5;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+/* ---------- rules ---------- */
+
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 2rem 0;
+}
+
+img { max-width: 100%; }
+
+/* ---------- compact ----------
+   For short documents that need to hold a fixed page count, such as the
+   two-page hiring intro. Set `compact: true` in the markdown front matter. */
+
+body.compact { font-size: 9.9pt; line-height: 1.46; }
+body.compact h1 { font-size: 22pt; }
+body.compact h2 { font-size: 12pt; margin: 1.05rem 0 0.5rem; padding-bottom: 0.3rem; }
+body.compact p { margin-bottom: 0.55em; }
+body.compact header.doc-head { margin-bottom: 1.6rem; }
+body.compact .doc-sub { font-size: 8.5pt; line-height: 1.6; padding-top: 0.7rem; }
+body.compact table { font-size: 8.4pt; margin: 0.3rem 0 0.9rem; }
+body.compact tbody td { padding: 0.32rem 0.7rem 0.32rem 0; }
