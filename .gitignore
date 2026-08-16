@@ -1,0 +1,22 @@
+# Credentials — never commit. See docs/INFRASTRUCTURE.md for the required keys.
+config/.env
+.env
+
+# Market data (3.8 GB). Rebuilt with the scripts in scripts/fetch/.
+# See docs/INFRASTRUCTURE.md section "Rebuilding the data folder".
+data/
+
+# Caches and scratch
+**/__pycache__/
+*.pyc
+.pytest_cache/
+results/**/_cache_*
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Live broker state — machine-specific, regenerated each session
+ops/books/**/_desync/
+ops/logs/
+*.log

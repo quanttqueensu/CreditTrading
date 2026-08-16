@@ -1,0 +1,22 @@
+{
+  "book_id": "cef_discount_paper",
+  "description": "The credit CEF discount sleeve, deployed to the IBKR paper account. This is the first strategy in the project to clear the full gate battery: PIT universe, 9/9 purged walk-forward blocks positive, bootstrap P(SR<=0)=0.000%, deflated Sharpe 0.956, and Test 7 carry/beta at 5/5 factor limits with R-squared 0.005.",
+  "sleeves": [
+    {
+      "name": "cef_discount",
+      "enabled": true,
+      "spec_path": "ops/specs/cef_discount.frozen.json",
+      "capital_usd": 500000.0
+    }
+  ],
+  "limits": {
+    "max_gross_exposure_usd": 1300000.0,
+    "book_drawdown_suspend_pct": 0.99,
+    "per_sleeve_capital_band": [
+      0.0,
+      500000.0
+    ],
+    "book_worst_month_usd": 30000.0,
+    "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable."
+  }
+}

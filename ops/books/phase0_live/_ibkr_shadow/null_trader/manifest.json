@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "written_utc": "2026-07-31T21:33:07.930882+00:00",
+  "rebuilt_from": "broker executions (ops/rebuild_ledger.py)",
+  "files": {
+    "orders.csv": {
+      "rows": 14,
+      "last_date": null
+    },
+    "trades.csv": {
+      "rows": 13,
+      "last_date": null
+    },
+    "positions.csv": {
+      "rows": 14,
+      "last_date": "2026-07-31"
+    },
+    "nav.csv": {
+      "rows": 2,
+      "last_date": "2026-07-31"
+    }
+  }
+}

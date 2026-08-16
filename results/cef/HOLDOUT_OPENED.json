@@ -1,0 +1,53 @@
+{
+ "opened_utc": "2026-07-31T21:47:15.464430+00:00",
+ "spec_id": "cef_discount.v3.20260731",
+ "prereg": "results/cef/HOLDOUT_PREREG.md",
+ "holdout_window": [
+  "2024-01-01",
+  "2026-07-30"
+ ],
+ "config_under_test": {
+  "z_window": 63,
+  "rebalance_days": 2,
+  "shift": 2
+ },
+ "result": {
+  "n_days": 646,
+  "gross_sharpe": 1.75,
+  "net_sharpe": -0.298,
+  "net_t_stat": -0.48,
+  "cagr_pct": -2.05,
+  "vol_pct": 6.28,
+  "max_dd_pct": -11.6,
+  "turnover_per_yr": 102.6,
+  "cost_pct_of_gross": 117.2,
+  "by_year": {
+   "2024": 0.02,
+   "2025": -1.12,
+   "2026": 0.61
+  }
+ },
+ "reference_as_deployed": {
+  "z_window": 252,
+  "rebalance_days": 5,
+  "shift": 2,
+  "result": {
+   "n_days": 646,
+   "gross_sharpe": 0.962,
+   "net_sharpe": 0.352,
+   "net_t_stat": 0.56,
+   "cagr_pct": 2.09,
+   "vol_pct": 6.48,
+   "max_dd_pct": -11.08,
+   "turnover_per_yr": 32.0,
+   "cost_pct_of_gross": 63.8,
+   "by_year": {
+    "2024": 0.6,
+    "2025": 0.14,
+    "2026": 0.37
+   }
+  }
+ },
+ "verdict": "FAIL",
+ "decision_rule": ">=0.40 PASS, 0.00-0.40 WEAK, <0.00 FAIL"
+}

@@ -1,0 +1,41 @@
+{
+  "spec_id": "null_trader.phase0.20260730",
+  "status": "PAPER_CONTROL",
+  "capital_usd": 640000.0,
+  "allocation": {
+    "type": "null_trader"
+  },
+  "frozen": {
+    "universe": [
+      "HYG",
+      "JNK",
+      "USHY",
+      "SPHY",
+      "SHYG",
+      "SJNK",
+      "LQD",
+      "VCSH",
+      "VCIT",
+      "IGSB",
+      "BKLN",
+      "SRLN",
+      "EMB",
+      "JAAA"
+    ],
+    "seed": "phase0-2026-07-30",
+    "gross_leverage": 1.0,
+    "rebalance_days": 5,
+    "min_abs_weight": 0.005,
+    "warmup_days": 10
+  },
+  "risk": {
+    "kill_drawdown": 0.1
+  },
+  "provenance": {
+    "frozen_at": "2026-07-30T20:31:21.295477-04:00",
+    "purpose": "workflow Phase 0 control. Expected net P&L = -(costs). Anything better is a bug.",
+    "cadence_matches": "credit_rv mandate-compliant cell: ~5d rebalance, unit gross, 14-21 names",
+    "capital_note": "Account DUQ199038 is 100% CAD: NetLiquidation 1,000,674 CAD = 714,059 USD at USDCAD 1.4014 (2026-07-31). Sleeve capital set to 640,000 USD (90% of USD-equivalent equity) so unit gross is genuinely 1.0x on real equity, not the 1.37x that capital_usd=1,000,000 would have produced.",
+    "fx_asof": "2026-07-31 USDCAD 1.4014"
+  }
+}

@@ -1,0 +1,71 @@
+_provenance: tick floor ($0.005/price) x liquidity-tier multiple, rounded up; tiers
+  from trailing-180d median dollar volume measured in scripts/rv/build_cost_model.py.
+  ESTIMATE pending RTH IBKR re-probe. After-hours probe 2026-07-28 20:0x ET was unusable
+  (HYG 13.9bp half).
+commission_usd_per_trade: 0.0
+slippage_extra_bp: 0.0
+impact_coefficient: 1.0
+max_participation_pct: 2.0
+financing_spread_bp: 150.0
+short_borrow_bp: 50.0
+tickers:
+  AGG:
+    half_spread_bp: 0.6
+  BIL:
+    half_spread_bp: 0.6
+  EMB:
+    half_spread_bp: 0.6
+  HYG:
+    half_spread_bp: 0.7
+  IEF:
+    half_spread_bp: 0.6
+  LQD:
+    half_spread_bp: 0.5
+  SPY:
+    half_spread_bp: 0.1
+  TLT:
+    half_spread_bp: 0.6
+  VCIT:
+    half_spread_bp: 0.7
+  BKLN:
+    half_spread_bp: 4.3
+  GOVT:
+    half_spread_bp: 3.9
+  IEI:
+    half_spread_bp: 0.8
+  IGSB:
+    half_spread_bp: 1.7
+  JAAA:
+    half_spread_bp: 1.8
+  JNK:
+    half_spread_bp: 1.0
+  SHY:
+    half_spread_bp: 1.1
+  SPHY:
+    half_spread_bp: 3.8
+  SRLN:
+    half_spread_bp: 2.2
+  USHY:
+    half_spread_bp: 2.4
+  VCLT:
+    half_spread_bp: 1.2
+  VCSH:
+    half_spread_bp: 1.2
+  ANGL:
+    half_spread_bp: 5.2
+  CWB:
+    half_spread_bp: 1.5
+  FALN:
+    half_spread_bp: 5.6
+  PFF:
+    half_spread_bp: 4.9
+  SHYG:
+    half_spread_bp: 3.6
+  SJNK:
+    half_spread_bp: 6.0
+  HYGH:
+    half_spread_bp: 2.9
+  JBBB:
+    half_spread_bp: 5.3
+  LQDH:
+    half_spread_bp: 2.7

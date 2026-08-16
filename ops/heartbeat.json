@@ -1,0 +1,50 @@
+{
+  "cef": {
+    "status": "ok_not_armed",
+    "at": "2026-08-14 17:15:43",
+    "date": "2026-08-14",
+    "detail": {
+      "armed": false,
+      "rc": 0,
+      "blockers": [
+        "[FAIL] broker: nothing listening on 127.0.0.1:7497 (ConnectionRefusedError). TWS restarts daily and needs a login \u2014 start it, or let the session run collect-only."
+      ]
+    }
+  },
+  "watchdog": {
+    "status": "ok",
+    "at": "2026-08-14 19:42:52",
+    "date": "2026-08-14",
+    "detail": {
+      "stale": []
+    }
+  },
+  "collect": {
+    "status": "ok",
+    "at": "2026-08-15 04:28:29",
+    "date": "2026-08-15",
+    "detail": {
+      "failed": []
+    }
+  },
+  "weekly": {
+    "status": "ok",
+    "at": "2026-08-15 09:02:23",
+    "date": "2026-08-15",
+    "detail": {
+      "rc": 0
+    }
+  },
+  "phase0": {
+    "status": "ok_not_armed",
+    "at": "2026-08-14 10:00:44",
+    "date": "2026-08-14",
+    "detail": {
+      "armed": false,
+      "rc": 0,
+      "blockers": [
+        "[FAIL] broker: nothing listening on 127.0.0.1:7497 (ConnectionRefusedError). TWS restarts daily and needs a login \u2014 start it, or let the session run collect-only."
+      ]
+    }
+  }
+}

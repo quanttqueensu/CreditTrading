@@ -1,0 +1,40 @@
+{
+  "opened_at": "2026-07-30T20:29:41.153163-04:00",
+  "config": {
+    "universe": [
+      "HYG",
+      "JNK",
+      "USHY",
+      "SPHY",
+      "SHYG",
+      "SJNK",
+      "ANGL",
+      "FALN",
+      "LQD",
+      "VCSH",
+      "VCIT",
+      "VCLT",
+      "IGSB",
+      "LQDH",
+      "BKLN",
+      "SRLN",
+      "JAAA",
+      "JBBB",
+      "EMB",
+      "PFF",
+      "CWB"
+    ],
+    "smooth": 5,
+    "gross_leverage": 1.0,
+    "spec_id": "credit_rv.v1.20260730"
+  },
+  "n_obs": 644,
+  "sharpe": -1.435369912043367,
+  "t_stat": -2.294597423930728,
+  "cagr_at_target_vol": -0.17726385830121283,
+  "max_drawdown": -0.40392961571469865,
+  "turnover_per_yr": 50.92060525442133,
+  "gross_pct_yr": -0.19151783303574965,
+  "cost_pct_yr": 0.6812778414753491,
+  "reuse": false
+}

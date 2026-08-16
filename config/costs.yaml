@@ -1,0 +1,183 @@
+# config/costs.yaml — single source of trading-cost assumptions (Phase 2).
+# Rule (PREREGISTRATION.md): costs come from THIS file, never hardcoded.
+#
+# How the engine applies it, per side of each trade:
+#   cost = notional * (half_spread_bp + slippage_extra_bp) / 1e4  +  commission_usd_per_trade
+#
+# half_spread_bp provenance (estimated 2026-07-19):
+#   (a) issuer/exchange-reported 30-day median bid/ask spreads (iShares, SPDR,
+#       VanEck fund pages; large Treasury/HY ETFs quote penny-wide),
+#   (b) one-tick floor = $0.01 / avg close (yfinance closes 2025-07..2026-07),
+#   (c) Corwin-Schultz high-low estimate, yfinance OHLC 2025-07-01..2026-07-17,
+#       N=263/ticker (scratch script cs_spread.py). CS is contaminated by intraday
+#       vol for penny-quoted ETFs (e.g. TLT: CS 6.8bp half vs ~0.5bp true), so it
+#       is used only as an UPPER bound; (a)+(b) are the primary anchors.
+# Numbers are rounded UP from the anchors; ANGL/FALN get an extra conservative
+# bump for thin dollar volume (~$22M and ~$26M/day vs $3.3B for HYG).
+
+commission_usd_per_trade: 0.0   # commission-free retail / institutional-lite broker; knob kept for brokers that charge
+book_usd_default: 60000         # mid of the $25k-$100k per-strategy band (BUILD_PLAN decision 4)
+slippage_extra_bp: 0.0          # global extra per-side slippage on top of half-spread (stress knob; default off)
+
+# Annualized spread over the risk-free rate paid on BORROWED cash (whenever
+# target weights sum above 1.0). No broker lends at the bill rate; charging
+# borrowing at rf flatters any levered sleeve, and the vol-target strategy
+# (cap 1.5x) borrows on a large share of days. 150bp is a small-account
+# margin rate over the benchmark; revisit against the real broker's schedule
+# before funding. Only the negative cash leg is charged — uninvested cash
+# still earns rf.
+financing_spread_bp: 150.0
+
+# --- liquidity / market impact --------------------------------------------
+# Half-spread alone says a $25k book and a $100k book cost the same in percent
+# terms, which is false for a thin ETF: ANGL's MEDIAN daily dollar volume was
+# $50-70k across 2012-2014 and FALN's was $20k in 2016, so a $60k book was
+# most of a full day's trading. Backtests that ignore this bank returns from
+# an era nobody our size could trade.
+#
+# Impact uses the square-root law (Almgren et al.):
+#     impact_bp = impact_coefficient * daily_vol_bp * sqrt(participation)
+# where participation = traded_usd / that day's dollar volume. The 1.0
+# coefficient is the literature's central estimate; treat it as an order of
+# magnitude, not a precise number.
+impact_coefficient: 1.0
+# Trading more than this share of a day's volume is not a cost assumption, it
+# is a fiction. Days above it are counted and reported, loudly.
+max_participation_pct: 10.0
+
+tickers:
+  # AGG and SPY are benchmark-only legs and were the last two deployed tickers
+  # with no entry here. That is not a cosmetic gap: ops/ledger.py raises KeyError
+  # on an unknown ticker rather than defaulting, and on 2026-07-31 exactly that
+  # crash froze the shadow ledger mid-write AFTER orders had gone out, leaving
+  # both books reading flat while the account held ~$2.07M gross. Both quote a
+  # penny wide on a liquid tape, same tier as HYG/LQD/SHY/IEF.
+  AGG:                          # penny-wide on ~$98 (tick floor 1.0bp full); iShares core agg; ~$1.5B/day
+    half_spread_bp: 1.0
+  SPY:                          # penny-wide on ~$745 (tick floor 0.07bp full); the most liquid ETF listed; ~$30B/day
+    half_spread_bp: 1.0
+  HYG:                          # penny-wide quote on ~$80 (tick floor 1.2bp full); iShares 30d median spread ~0.01%; $3.3B/day
+    half_spread_bp: 1.0
+  JNK:                          # penny-wide on ~$97 (tick floor 1.0bp full); SPDR ~0.01%; $0.4B/day
+    half_spread_bp: 1.0
+  ANGL:                         # tick floor 3.4bp full on ~$29; VanEck reported spread ~0.03-0.06%; CS half 3.5bp; only ~$22M/day -> conservative
+    half_spread_bp: 3.0
+  FALN:                         # tick floor 3.7bp full on ~$27; iShares ~0.04-0.08%; CS half 3.5bp; smallest AUM/shortest history -> most conservative
+    half_spread_bp: 4.0
+  SHY:                          # penny-wide on ~$83 (tick floor 1.2bp full); CS half 0.9bp
+    half_spread_bp: 1.0
+  BIL:                          # penny-wide on ~$92; CS half 0.3bp; ultra-liquid cash proxy, $0.9B/day
+    half_spread_bp: 0.5
+  IEF:                          # penny-wide on ~$96 (tick floor 1.0bp full); $0.8B/day
+    half_spread_bp: 1.0
+  LQD:                          # penny-wide on ~$107 (tick floor 0.9bp full); iShares 30d median spread ~0.01%; ~$2-3B/day IG flagship. Serves both the duration-hedged overlay (added 2026-07-20, DEPLOY_ARCHITECTURE §6) and the null trader; the key was duplicated until 2026-07-31, which YAML silently resolved to the last one.
+    half_spread_bp: 1.0
+  TLT:                          # penny-wide on ~$88; $2.9B/day; CS 6.8bp half is vol contamination, ignored
+    half_spread_bp: 1.0
+  # --- Treasury futures (added 2026-07-21, refine cycle H3; additive — no v1
+  # path reads these). ZN 0.8 / ZB 1.3 are the FROZEN futures cost model from
+  # results/CALENDAR_v3.md; ZF derived by the same tick math (half-tick $3.91
+  # on ~$108k notional ~= 0.36bp, rounded UP to 0.5). Contract facts
+  # (multiplier/margin/tick) live in config/futures_specs.yaml.
+  ZN:                           # 10y T-Note future; tick 1/2 of 1/32 = $15.625
+    half_spread_bp: 0.8
+  ZF:                           # 5y T-Note future; tick 1/4 of 1/32 = $7.8125
+    half_spread_bp: 0.5
+  ZB:                           # 30y T-Bond future; tick 1/32 = $31.25
+    half_spread_bp: 1.3
+
+  # --- Null-trader control-experiment ETFs (added 2026-07-31) ----------------
+  # WHY THESE WERE MISSING AND WHAT IT COST US: ops/ledger.py:511 reads
+  # costs["tickers"][t]["half_spread_bp"] and KeyErrors deliberately on a miss —
+  # "a missing costs entry is a hard prerequisite, not a default" (fills.py:23).
+  # Both live books were deployed with 28 of their 31 tickers absent from this
+  # file, so every shadow-ledger advance died on the first unknown name (USHY
+  # here, NVG for the CEF sleeve). ibkr.py then swallowed the exception AFTER
+  # transmitting live orders, leaving the ledger frozen at its funding row while
+  # the account filled — which is how a config gap turned into a position-state
+  # corruption that would have doubled both books on the next run.
+  # ops/preflight.py now refuses to arm live orders if any deployed ticker is
+  # missing here, so this cannot recur silently.
+  #
+  # PROVENANCE: these are MEASUREMENTS, not the tick-floor model — IBKR
+  # historical BID_ASK, RTH closing window, 2021-08..2026-07, the same numbers
+  # in CostModel.MEASURED_HALF_SPREAD_BP (src/strategies/credit_rv/costs.py:88),
+  # validated with SPY as a control (0.068bp measured vs ~0.1bp truth). Carried
+  # over at full precision rather than rounded up, because kill rule (b) is
+  # "realised slippage > 2x modelled" — inflating modelled cost makes that gate
+  # too lenient in exactly the situation it exists to catch.
+  USHY:                         # measured 1.360bp; $392M/day
+    half_spread_bp: 1.36
+  SPHY:                         # measured 3.115bp; $104M/day — widest of the HY wrappers despite decent ADV
+    half_spread_bp: 3.115
+  SHYG:                         # measured 1.179bp; $57M/day
+    half_spread_bp: 1.179
+  SJNK:                         # measured 2.006bp; $82M/day
+    half_spread_bp: 2.006
+  VCSH:                         # measured 0.653bp; $369M/day
+    half_spread_bp: 0.653
+  VCIT:                         # measured 0.615bp; $867M/day
+    half_spread_bp: 0.615
+  IGSB:                         # measured 0.987bp; $135M/day
+    half_spread_bp: 0.987
+  BKLN:                         # measured 2.406bp; $189M/day — loan ETF, genuinely wider than its ADV implies
+    half_spread_bp: 2.406
+  SRLN:                         # measured 1.249bp; $113M/day
+    half_spread_bp: 1.249
+  EMB:                          # measured 0.554bp; $667M/day
+    half_spread_bp: 0.554
+  JAAA:                         # measured 1.826bp; $266M/day
+    half_spread_bp: 1.826
+
+  # --- Credit CEF discount sleeve (added 2026-07-31) -------------------------
+  # No IBKR BID_ASK measurement exists for any of these, so they use the SAME
+  # tick-floor model the validated backtest charged — CostModel.half_spread_bp()
+  # called WITHOUT a ticker (scripts/cef/cef_sleeve_v2.py:141), i.e.
+  #     half_spread_bp = (0.005 / price) * 1e4 * mult
+  # with mult = 2.5 for ADV < $50M. Every CEF here is below that threshold (the
+  # richest, PDI, medians $46.4M/day), so all seventeen take the thin tier.
+  # Prices are the 252-day median close to 2026-07-31; the values below are the
+  # model's exact output, NOT rounded, so live modelled cost equals what the
+  # net-Sharpe-0.82 backtest assumed.
+  #
+  # KNOWN LIMITATION: the backtest recomputes this per day from that day's price,
+  # while this file is static. A CEF that halves in price genuinely doubles its
+  # tick-floor cost in bp. ops/preflight.py re-derives the model each session and
+  # warns when drift exceeds 20%, so the staleness is surfaced rather than
+  # assumed away. These are also the numbers to replace first if we ever run
+  # measure_rth_liquidity.py against the CEF universe — a measurement beats a
+  # model, which is exactly why the ETFs above use one.
+  AWF:                          # tick floor on ~$10.63 median close; ADV $2.9M
+    half_spread_bp: 11.76
+  BIT:                          # tick floor on ~$13.12 median close; ADV $3.8M
+    half_spread_bp: 9.52
+  DSL:                          # tick floor on ~$11.28 median close; ADV $5.9M
+    half_spread_bp: 11.08
+  HYT:                          # tick floor on ~$8.88 median close; ADV $6.8M
+    half_spread_bp: 14.08
+  JFR:                          # tick floor on ~$7.77 median close; ADV $5.6M
+    half_spread_bp: 16.09
+  MHD:                          # tick floor on ~$11.72 median close; ADV $2.5M — thinnest name in the book
+    half_spread_bp: 10.67
+  MQY:                          # tick floor on ~$11.45 median close; ADV $3.3M
+    half_spread_bp: 10.92
+  NAD:                          # tick floor on ~$11.90 median close; ADV $8.0M
+    half_spread_bp: 10.50
+  NEA:                          # tick floor on ~$11.53 median close; ADV $9.7M
+    half_spread_bp: 10.85
+  NVG:                          # tick floor on ~$12.59 median close; ADV $6.8M — the name that KeyErrored on 2026-07-31
+    half_spread_bp: 9.93
+  NZF:                          # tick floor on ~$12.55 median close; ADV $6.6M
+    half_spread_bp: 9.96
+  PCN:                          # tick floor on ~$12.62 median close; ADV $4.0M
+    half_spread_bp: 9.90
+  PDI:                          # tick floor on ~$17.95 median close; ADV $46.4M — closest to the penny-wide threshold; recheck if ADV crosses $50M
+    half_spread_bp: 6.96
+  PDO:                          # tick floor on ~$13.76 median close; ADV $8.0M
+    half_spread_bp: 9.08
+  PFN:                          # tick floor on ~$7.37 median close; ADV $2.8M
+    half_spread_bp: 16.97
+  PHK:                          # tick floor on ~$4.85 median close; ADV $3.2M — cheapest share price, so much the most expensive in bp
+    half_spread_bp: 25.77
+  PTY:                          # tick floor on ~$12.96 median close; ADV $12.2M
+    half_spread_bp: 9.65

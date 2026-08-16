@@ -1,0 +1,8 @@
+{
+  "round_trip_bp": 2.2932933290063064,
+  "edge_mult": 2.5,
+  "entry_band_bp": 5.733233322515766,
+  "exit_frac": 0.25,
+  "z_stop": 4.0,
+  "window": 250
+}

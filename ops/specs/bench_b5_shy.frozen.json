@@ -1,0 +1,23 @@
+{
+  "spec_id": "bench_b5_shy.20260731",
+  "status": "PAPER_BENCHMARK",
+  "description": "B5 -- cash. The floor any strategy must clear.  Reference book, NOT an alpha claim. Runs the identical order, fill and accounting path as any strategy sleeve so the comparison is not rigged.",
+  "capital_usd": 20000.0,
+  "allocation": {
+    "type": "static_weights",
+    "weights": {
+      "SHY": 1.0
+    }
+  },
+  "frozen": {
+    "universe": [
+      "SHY"
+    ],
+    "rebalance_days": 21,
+    "gross_leverage": 1.0
+  },
+  "risk": {
+    "max_gross_exposure_usd": 21000.0,
+    "drawdown_suspend_pct": 0.35
+  }
+}

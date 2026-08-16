@@ -1,0 +1,46 @@
+{
+  "book_id": "benchmarks_paper",
+  "description": "Five reference books deployed to the IBKR paper account. They are NOT alpha claims -- they exist so any future strategy is measured against what you earn with zero skill, through the identical cost, fill and accounting path. B2 (duration-hedged HY carry), B7 (naive pair z-score) and B8 (naive raw premium/discount) require SHORT legs, which static_weights forbids, so those three continue as shadow books in results/bench/ rather than live orders.",
+  "sleeves": [
+    {
+      "name": "bench_b1_hyg",
+      "spec_path": "ops/specs/bench_b1_hyg.frozen.json",
+      "enabled": true,
+      "capital_usd": 20000.0
+    },
+    {
+      "name": "bench_b3_agg",
+      "spec_path": "ops/specs/bench_b3_agg.frozen.json",
+      "enabled": true,
+      "capital_usd": 20000.0
+    },
+    {
+      "name": "bench_b4_60_40",
+      "spec_path": "ops/specs/bench_b4_60_40.frozen.json",
+      "enabled": true,
+      "capital_usd": 20000.0
+    },
+    {
+      "name": "bench_b5_shy",
+      "spec_path": "ops/specs/bench_b5_shy.frozen.json",
+      "enabled": true,
+      "capital_usd": 20000.0
+    },
+    {
+      "name": "bench_b6_ew_credit",
+      "spec_path": "ops/specs/bench_b6_ew_credit.frozen.json",
+      "enabled": true,
+      "capital_usd": 20000.0
+    }
+  ],
+  "limits": {
+    "max_gross_exposure_usd": 105000.0,
+    "book_drawdown_suspend_pct": 0.99,
+    "per_sleeve_capital_band": [
+      0.0,
+      20000.0
+    ],
+    "book_worst_month_usd": 12000.0,
+    "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable."
+  }
+}

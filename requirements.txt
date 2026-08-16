@@ -1,0 +1,43 @@
+# QUANTT Credit Trading — Python dependencies
+#
+# Versions are the ones the live system is known to run on
+# (/opt/anaconda3/bin/python3, Python 3.13.5, as of 2026-08-16).
+#
+# Install:  python3 -m pip install -r requirements.txt
+#
+# IMPORTANT: use ib_async, NOT ib_insync. ib_insync 0.9.86 is unmaintained and
+# hangs forever in its asyncio handshake on Python 3.12+. It looks exactly like a
+# dead broker connection. We lost an hour to this before proving the socket was
+# fine by hand. ib_insync is listed only because two legacy scripts still import
+# it directly (scripts/rv/measure_rth_liquidity.py, scripts/rv/probe_ibkr_spreads.py).
+
+# Broker
+ib_async==2.1.0
+ib_insync==0.9.86        # legacy only — do not use in new code
+
+# Core data
+pandas==2.3.3
+numpy==2.3.4
+pyarrow==19.0.0          # parquet read/write
+duckdb==1.5.2            # used by src/data/r2.py for the R2 mirror
+
+# Market data
+yfinance==0.2.66
+requests==2.32.5
+
+# Stats
+scipy==1.16.3
+statsmodels==0.14.6
+
+# Plotting
+matplotlib==3.10.0
+
+# Config
+PyYAML==6.0.3
+
+# Tests
+pytest==8.3.4
+
+# Optional — only needed if you use the Cloudflare R2 / WRDS mirror.
+# Currently NOT installed on the live machine, so src/data/r2.py would fail today.
+# boto3

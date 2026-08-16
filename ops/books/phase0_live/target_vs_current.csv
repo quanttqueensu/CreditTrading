@@ -1,0 +1,15 @@
+sleeve,instrument,kind,current_qty,target_side,target_qty,target_weight,delta_qty,reason
+null_trader,HYG,ETF,0.0,LONG,,0.067203,,null trader (epoch 4132) w=+0.0672
+null_trader,JNK,ETF,0.0,LONG,,0.14364,,null trader (epoch 4132) w=+0.1436
+null_trader,USHY,ETF,0.0,FLAT,,,,null: below min weight
+null_trader,SPHY,ETF,0.0,LONG,,0.038973,,null trader (epoch 4132) w=+0.0390
+null_trader,SHYG,ETF,0.0,LONG,,0.023589,,null trader (epoch 4132) w=+0.0236
+null_trader,SJNK,ETF,0.0,SHORT,,-0.100123,,null trader (epoch 4132) w=-0.1001
+null_trader,LQD,ETF,0.0,SHORT,,-0.007031,,null trader (epoch 4132) w=-0.0070
+null_trader,VCSH,ETF,0.0,LONG,,0.085556,,null trader (epoch 4132) w=+0.0856
+null_trader,VCIT,ETF,0.0,SHORT,,-0.156463,,null trader (epoch 4132) w=-0.1565
+null_trader,IGSB,ETF,0.0,LONG,,0.06226,,null trader (epoch 4132) w=+0.0623
+null_trader,BKLN,ETF,0.0,LONG,,0.025348,,null trader (epoch 4132) w=+0.0253
+null_trader,SRLN,ETF,0.0,SHORT,,-0.156768,,null trader (epoch 4132) w=-0.1568
+null_trader,EMB,ETF,0.0,LONG,,0.05343,,null trader (epoch 4132) w=+0.0534
+null_trader,JAAA,ETF,0.0,SHORT,,-0.079615,,null trader (epoch 4132) w=-0.0796

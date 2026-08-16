@@ -1,0 +1,23 @@
+{
+  "spec_id": "bench_b3_agg.20260731",
+  "status": "PAPER_BENCHMARK",
+  "description": "B3 -- broad US bond market.  Reference book, NOT an alpha claim. Runs the identical order, fill and accounting path as any strategy sleeve so the comparison is not rigged.",
+  "capital_usd": 20000.0,
+  "allocation": {
+    "type": "static_weights",
+    "weights": {
+      "AGG": 1.0
+    }
+  },
+  "frozen": {
+    "universe": [
+      "AGG"
+    ],
+    "rebalance_days": 21,
+    "gross_leverage": 1.0
+  },
+  "risk": {
+    "max_gross_exposure_usd": 21000.0,
+    "drawdown_suspend_pct": 0.35
+  }
+}

@@ -1,0 +1,1 @@
+fill_date,decision_date,ticker,side,shares,decision_price,close_price,fill_price,half_spread_bp,impact_bp,slip_vs_decision_bp,participation_pct,over_participation_cap,notional_usd,cost_usd,reason

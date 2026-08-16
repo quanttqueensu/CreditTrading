@@ -1,0 +1,5 @@
+cell,sharpe
+signal from CLOSE|close,1.247946700504253
+signal from CLOSE|mid,-0.026470235228702853
+signal from MID|close,0.6590667762068808
+signal from MID|mid,0.8308876653365009

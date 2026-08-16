@@ -1,0 +1,2 @@
+decision_date,ticker,current_shares,target_shares,delta_shares,decision_price,target_weight,reason,status,fill_date
+2026-07-30,SHY,0.0,243.0,243.0,82.01000213623047,,funding,open,

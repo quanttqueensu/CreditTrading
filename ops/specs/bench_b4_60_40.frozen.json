@@ -1,0 +1,25 @@
+{
+  "spec_id": "bench_b4_60_40.20260731",
+  "status": "PAPER_BENCHMARK",
+  "description": "B4 -- the everyman 60/40 portfolio.  Reference book, NOT an alpha claim. Runs the identical order, fill and accounting path as any strategy sleeve so the comparison is not rigged.",
+  "capital_usd": 20000.0,
+  "allocation": {
+    "type": "static_weights",
+    "weights": {
+      "SPY": 0.6,
+      "IEF": 0.4
+    }
+  },
+  "frozen": {
+    "universe": [
+      "IEF",
+      "SPY"
+    ],
+    "rebalance_days": 21,
+    "gross_leverage": 1.0
+  },
+  "risk": {
+    "max_gross_exposure_usd": 21000.0,
+    "drawdown_suspend_pct": 0.35
+  }
+}

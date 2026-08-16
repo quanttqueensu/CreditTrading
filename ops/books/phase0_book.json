@@ -1,0 +1,22 @@
+{
+  "book_id": "phase0_null",
+  "description": "Workflow Phase 0 control experiment. A random-signal, dollar-neutral, unit-gross trader at the real strategy's cadence, routed through the identical target->order->fill->ledger path. Expected net P&L = -(costs). Anything better than that is a bug in the fill or accounting logic and must be found before any real signal is trusted. Capital is 640,000 USD = 90% of the account's USD-equivalent equity (the account is CAD-denominated); the USD gross limit is sized to that, not to a notional 1M.",
+  "sleeves": [
+    {
+      "name": "null_trader",
+      "spec_path": "ops/specs/null_trader.frozen.json",
+      "enabled": true,
+      "capital_usd": 640000.0
+    }
+  ],
+  "limits": {
+    "max_gross_exposure_usd": 750000.0,
+    "book_drawdown_suspend_pct": 0.99,
+    "per_sleeve_capital_band": [
+      0.0,
+      640000.0
+    ],
+    "book_worst_month_usd": 26000.0,
+    "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable."
+  }
+}

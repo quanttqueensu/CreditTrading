@@ -1,0 +1,11 @@
+{
+  "fetched_at": "2026-07-30T20:10:21.403805-04:00",
+  "use_rth": true,
+  "daily_duration": "5 Y",
+  "intraday_duration": "60 D",
+  "what_to_show": "BID_ASK",
+  "n_daily": 29,
+  "n_close": 29,
+  "spy_half_spread_bp": 0.06778421129559363,
+  "control_verdict": "PASS"
+}

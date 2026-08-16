@@ -1,0 +1,54 @@
+{
+  "asof": "2026-07-31",
+  "book_nav": 498855.14344827866,
+  "book_pnl": -1144.8565517213428,
+  "book_cash": 499196.5203546736,
+  "gross_exposure": 749457.663731575,
+  "net_exposure": -341.3769063949585,
+  "book_turnover": 749432.8247015263,
+  "sleeves": {
+    "cef_discount": {
+      "nav": 498855.14344827866,
+      "pnl": -1144.8565517213428,
+      "cash": 499196.5203546736,
+      "capital_usd": 500000.0,
+      "gross_exposure": 749457.663731575,
+      "net_exposure": -341.3769063949585,
+      "turnover": 749432.8247015263,
+      "enabled": true,
+      "disabled": false,
+      "review_flag": false,
+      "risk_verdict": {
+        "status": "OK",
+        "reasons": [
+          "CEF sleeve drawdown 0.0%"
+        ]
+      }
+    }
+  },
+  "limits": {
+    "max_gross_exposure_usd": {
+      "ok": true,
+      "value": 749457.663731575,
+      "cap": 1300000.0,
+      "action": null
+    },
+    "book_drawdown_suspend_pct": {
+      "ok": true,
+      "value": -0.0022897131034427254,
+      "cap": -0.009899999999999999,
+      "action": null
+    },
+    "per_sleeve_capital_band": {
+      "ok": true,
+      "breaches": [],
+      "action": null
+    },
+    "book_worst_month_usd": {
+      "ok": true,
+      "value": 0.0,
+      "budget": -30000.0,
+      "action": null
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "spec_id": "cef_discount.v5.20260731",
+  "status": "PAPER_STRATEGY",
+  "description": "Credit closed-end fund discount reversion. Long funds trading unusually cheap against their OWN discount history, short those unusually rich, dollar-neutral, 5-day rebalance, volatility-targeted to 6% annualised. A CEF has a fixed share count and no authorised participants, so nothing arbitrages price back to NAV -- which is precisely why this works here and died in ETFs, where the AP mechanism compressed the same gap from 188bp (2008) to 3.8bp (2026).",
+  "capital_usd": 500000.0,
+  "allocation": {
+    "type": "cef_discount"
+  },
+  "frozen": {
+    "universe": [
+      "AWF",
+      "BIT",
+      "DSL",
+      "HYT",
+      "JFR",
+      "MHD",
+      "MQY",
+      "NAD",
+      "NEA",
+      "NVG",
+      "NZF",
+      "PCN",
+      "PDI",
+      "PDO",
+      "PFN",
+      "PHK",
+      "PTY"
+    ],
+    "z_window": 252,
+    "_z_window_note": "REVERTED to 252 on 2026-07-31 after the sealed holdout FAILED the change. Original rationale follows, and it was wrong out-of-sample: chosen 252 -> 63 on 2026-07-31, chosen on 2005-2023 with the 2024-01+ holdout untouched (results/cef/ESTIMATOR_NOTE.md). A 252-day boxcar weights an eleven-month-old discount as heavily as yesterday's and lags by about half its window. Per-name costs, hold=2, shift=2, pre-holdout net Sharpe: 21d 0.37, 63d 0.84, 126d 0.65, 252d 0.69. 63d is an INTERIOR optimum, not a boundary. A full Kalman state-space model (theta random walk + AR(1) dislocation, phi=0.9722 measured) was built and REJECTED: net 0.81, beaten by this one-line change despite fixing the post-cut misreading the rolling window suffers.",
+    "rebalance_days": 2,
+    "_rebalance_days_note": "Changed 5 -> 2 on 2026-07-31 with user sign-off, and the sleeve gained the cadence gate that was missing entirely (see results/AUDIT_2026-07-31.md). Before this, ONLY null_trader.py read this key, so the CEF sleeve recomputed and traded every session while the spec declared 5 -- specification, code and optimum were three different values. Measured net Sharpe under the execution we actually have (MOC, so held = W.shift(2), not shift(1)): hold=1 0.62, hold=2 0.73, hold=3 0.70, hold=5 0.51, hold=10 0.30, hold=21 0.20. Costs are charged at each row's own turnover, so 2 days pays for its extra trading (36.8 vs 24.2 turns/yr) and still wins. The signal supports this: IC/sqrt(h) has a 31-day half-life, so the edge is slow, but Sharpe peaks short because IR = IC*sqrt(breadth).",
+    "vol_target_annual": 0.06,
+    "min_adv_usd": 3000000.0,
+    "max_nav_age_bd": 3,
+    "min_names": 6,
+    "min_abs_weight": 0.005,
+    "gross_leverage": 1.0,
+    "warmup_days": 332,
+    "order_type": "MOC",
+    "_order_type_note": "Market-on-close. The signal needs the fund's NAV, which only exists after the close, so the decision is necessarily made in the evening. A plain market order rests overnight and fills at the next open; on 2026-07-31 that produced fills at 07:27 ET -- two hours before the exchange opened -- at up to 2.9% from the decision price against a ~0.1% modelled cost. MOC executes in the next closing auction, which is both the deepest liquidity of the day and the execution point the backtest assumed."
+  },
+  "risk": {
+    "kill_drawdown": 0.18,
+    "halve_drawdown": 0.12,
+    "max_gross_exposure_usd": 1300000.0
+  },
+  "evidence": {
+    "validated_utc": "2026-07-31",
+    "pit_universe": true,
+    "gross_sharpe": 1.26,
+    "net_sharpe": 0.82,
+    "vol_pct": 6.0,
+    "cagr_pct": 4.85,
+    "max_dd_pct": -12.0,
+    "purged_walkforward": "9/9 blocks positive, median 1.12, worst 0.01",
+    "block_bootstrap_p_sr_le_0": 0.0,
+    "deflated_sharpe": 0.956,
+    "test7_alpha_t": 3.11,
+    "test7_r2": 0.005,
+    "test7_factor_limits": "5/5 pass",
+    "known_weaknesses": [
+      "kurtosis 41.2 -- fat tails, expect sharp single-day losses",
+      "most recent walk-forward block 0.05; 2023-26 era net Sharpe 0.30",
+      "2005-2009 net Sharpe 0.11 on a thin 2.6-fund universe"
+    ]
+  },
+  "kill_rule": "Review at 60 live sessions, not before. KILL if any of: (a) live net Sharpe < 0.0; (b) realised slippage > 2x modelled for 5 consecutive sessions; (c) cross-sectional top-minus-bottom discount spread falls below 12% (half its current 22.5%), which would mean the opportunity has gone the way of E1. No extension of rope.",
+  "sizing_note": "$500k against a $730k-equivalent paper account. At the current 1.5x volatility scalar that is ~$750k gross = ~$514k CAD initial margin, which fits alongside the Phase 0 null trader (~$438k CAD) inside $958k available funds. Raise only after live slippage is measured."
+}

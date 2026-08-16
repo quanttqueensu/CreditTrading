@@ -1,0 +1,3 @@
+date,nav,cash,invested,distributions_usd,cost_usd,traded_usd,daily_return,decision
+2026-07-30,640000.0,640000.0,0.0,0.0,0.0,0.0,,funding
+2026-07-31,639206.6224818421,639676.27,-469.647518157959,0.0,0.0,639100.9500000001,-0.0012396523721217578,rebuilt_from_broker

@@ -1,0 +1,80 @@
+{
+  "spec_id": "credit_rv.v1.20260730",
+  "status": "PAPER",
+  "capital_usd": 1000000.0,
+  "allocation": {
+    "type": "credit_rv_statarb"
+  },
+  "frozen": {
+    "universe": [
+      "HYG",
+      "JNK",
+      "USHY",
+      "SPHY",
+      "SHYG",
+      "SJNK",
+      "ANGL",
+      "FALN",
+      "LQD",
+      "VCSH",
+      "VCIT",
+      "VCLT",
+      "IGSB",
+      "LQDH",
+      "BKLN",
+      "SRLN",
+      "JAAA",
+      "JBBB",
+      "EMB",
+      "PFF",
+      "CWB"
+    ],
+    "signal_price": "hl_mid",
+    "w_beta": 120,
+    "w_resid": 60,
+    "theta": 0.6,
+    "smooth": 5,
+    "gross_leverage": 1.0,
+    "max_weight_per_name": 0.35,
+    "min_abs_weight": 0.005,
+    "min_names": 6,
+    "min_names_neutral": 7,
+    "half_spread_bp": {
+      "HYG": 0.6264,
+      "JNK": 0.5202,
+      "USHY": 1.3537,
+      "SPHY": 2.1395,
+      "SHYG": 1.1819,
+      "SJNK": 2.002,
+      "ANGL": 1.7197,
+      "FALN": 1.8471,
+      "LQD": 0.4605,
+      "VCSH": 0.6344,
+      "VCIT": 0.6079,
+      "VCLT": 0.6706,
+      "IGSB": 0.9566,
+      "LQDH": 2.6934,
+      "BKLN": 2.4432,
+      "SRLN": 1.2389,
+      "JAAA": 0.988,
+      "JBBB": 2.1117,
+      "EMB": 0.5218,
+      "PFF": 1.6184,
+      "CWB": 3.8447
+    },
+    "cost_provenance": "IBKR historical BID_ASK, RTH closing-window median, 2026-07-30; SPY control 0.068bp vs ~0.1bp truth"
+  },
+  "risk": {
+    "target_vol": 0.13,
+    "kill_drawdown": 0.25,
+    "halve_drawdown": 0.15
+  },
+  "provenance": {
+    "frozen_at": "2026-07-30T20:29:26.980744-04:00",
+    "in_sample_sharpe": 0.16,
+    "in_sample_cagr_at_13v": 1.31,
+    "implied_holding_days": 9.65,
+    "selected_by": "mandate constraint (holding<=10d), NOT best in-sample Sharpe",
+    "note": "Signal price is the (H+L)/2 mid. A close-built signal is bid-ask bounce (FINDINGS.md 8e) and is rejected by the registry validator."
+  }
+}

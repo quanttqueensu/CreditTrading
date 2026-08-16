@@ -1,0 +1,22 @@
+{
+  "book_id": "credit_rv_paper_v1",
+  "description": "Single-sleeve paper book: credit ETF relative value, bounce-free (H+L)/2 signal, executed at the next close. Costs measured from IBKR historical BID_ASK rather than modelled.",
+  "sleeves": [
+    {
+      "name": "credit_rv",
+      "spec_path": "ops/specs/credit_rv.frozen.json",
+      "enabled": true,
+      "capital_usd": 1000000.0
+    }
+  ],
+  "limits": {
+    "max_gross_exposure_usd": 2500000.0,
+    "book_drawdown_suspend_pct": 0.99,
+    "per_sleeve_capital_band": [
+      0.0,
+      1000000.0
+    ],
+    "book_worst_month_usd": 120000.0,
+    "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable."
+  }
+}
