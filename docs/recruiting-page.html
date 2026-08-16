@@ -434,15 +434,15 @@
       <div class="body">
         <h2>What this project is</h2>
         <p>
-          Over the summer we built a small systematic trading desk from scratch. It runs a
-          market-neutral credit strategy on a $500,000 Interactive Brokers paper account.
-          It places its own orders every weekday on a schedule, checks its own safety before
-          every trade, records every fill, and raises an alarm if anything breaks. On a normal
-          day nobody touches it.
+          We operate a systematic credit strategy on a $500,000 Interactive Brokers paper
+          account. The capital is simulated; the prices, orders, fills and trading costs are
+          real. The system runs unattended, refreshing its data each weekday, assessing whether
+          trading is safe, transmitting its orders, recording the executions, and raising an
+          alert on failure.
         </p>
         <p>
-          This year the team's job is to keep that system running, judge the live strategy
-          honestly against rules we wrote down before launch, and research what comes next.
+          This year we intend to keep it running, judge it against rules we committed to in
+          writing before launch, and research what comes next.
         </p>
       </div>
     </div>
@@ -482,17 +482,17 @@
         </div>
 
         <p>
-          Here is the honest part. These funds are small and expensive to trade. Our first live
-          day proved that execution costs matter more than the signal does: our fills came in
-          about nine times worse than modelled, which is fatal if it persists. We found the cause
-          and shipped a fix, but we have not yet proven the fix works. After correcting for an
-          entry price the backtest assumed but we cannot actually get, the honest expected Sharpe
-          ratio is about <span class="num">0.51</span>, not the <span class="num">0.82</span> we
-          recorded at deployment.
+          Trading costs remain the open risk. These funds are small and expensive to trade, and
+          the first live day established that execution cost is a larger constraint than signal
+          quality: our fills came in about nine times worse than modelled, which is fatal if it
+          persists. We identified the cause and shipped a correction, but have not yet been able
+          to test it. After correcting for an entry price the backtest assumed but which is not
+          obtainable, the expected Sharpe ratio is approximately <span class="num">0.51</span>,
+          not the <span class="num">0.82</span> recorded at deployment.
         </p>
         <p>
-          Measuring execution cost and getting it down is the single largest piece of this
-          year's work.
+          Measuring execution cost and reducing it is the largest single piece of this year's
+          work.
         </p>
       </div>
     </div>

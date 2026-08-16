@@ -66,12 +66,14 @@ h2 {
   letter-spacing: -0.014em;
   line-height: 1.22;
   color: var(--ink);
-  margin: 2.1rem 0 0.85rem;
+  margin: 1.9rem 0 0.8rem;
   padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--rule);
   break-after: avoid;
+  break-before: auto;
   text-wrap: balance;
 }
+h2:first-of-type { margin-top: 0; }
 
 h3 {
   font-family: var(--sans);
@@ -94,9 +96,10 @@ h4 {
   break-after: avoid;
 }
 
-/* In the long documents pandoc emits a table of contents. Start each top-level
-   section on a fresh page there, but never in the short ones. */
-#TOC ~ h2 { break-before: page; }
+/* In the long documents pandoc emits a table of contents. It takes the opening
+   page; the body then runs continuously rather than one section per page, which
+   would add several mostly-blank pages. */
+nav#TOC { break-after: page; }
 
 /* ---------- table of contents ---------- */
 
@@ -186,8 +189,12 @@ table {
   font-family: var(--sans);
   font-size: 8.8pt;
   font-variant-numeric: tabular-nums;
-  break-inside: avoid;
 }
+
+/* Long tables split across pages rather than being pushed whole, which would
+   leave large gaps. Headers repeat on the continuation; rows stay intact. */
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
 
 thead th {
   text-align: left;

@@ -3,104 +3,101 @@ title: "QUANTT Credit Trading"
 subtitle: |
   **Project introduction and open roles · 2026/27**\
   Simon Jarvis, team lead · simon.jarvis0@gmail.com\
-  Code and full write-ups: github.com/quanttqueensu/CreditTrading
+  github.com/quanttqueensu/CreditTrading
 compact: true
 ---
 
-## What we do
+## The project
 
-Over the summer we built a small trading desk from scratch. It runs one credit
-strategy on a $500,000 Interactive Brokers paper account. The money is fake.
-Everything else is real: real prices, real orders sent to a real exchange, real
-fills, real trading costs.
+We operate a systematic credit strategy on a $500,000 Interactive Brokers paper
+account. The capital is simulated; the prices, orders, fills and trading costs
+are real.
 
-The system trades by itself. Every weekday it pulls new data, checks whether it
-is safe to trade, sends its orders, records what came back, and raises an alarm
-if something went wrong. This year we want to keep it running, find out whether
-it survives real trading costs, and look for the next strategy.
+The system runs unattended. Each weekday it refreshes its data, assesses whether
+trading is safe, transmits its orders, records the executions, and raises an
+alert on failure. This year we intend to keep it running, establish whether it
+survives real trading costs, and research the next strategy.
 
 ## The strategy
 
-A closed-end fund trades on an exchange like a stock, but it issues its shares
-once and the count never changes afterwards. Every day it publishes what its
-holdings are worth, a number called the NAV. The share price is separate, and the
-two are often nowhere near each other.
+A closed-end fund trades on an exchange but issues its shares once, after which
+the share count is fixed. It publishes the value of its holdings daily as the
+NAV, while the share price is set independently by the exchange. The two diverge.
 
-With a normal ETF they stay close, because big banks can swap shares for the
-bonds inside and back again, so they trade against any gap until it closes. We
-watched that happen in our own data: the gap on high yield ETFs shrank from 188
-basis points in 2008 to 3.8 by 2026, and that collapse killed the first two
-strategies we tried. A closed-end fund has none of that machinery. Nobody can
-open the basket, so the gap opens up and just sits there.
+In an ordinary ETF they do not, because large banks can exchange shares for the
+underlying bonds and back, trading against any gap until it closes. We measured
+this: the gap on high yield ETFs compressed from 188 basis points in 2008 to 3.8
+by 2026, and that compression killed our first two strategies. Closed-end funds
+have no equivalent mechanism, so the gap opens and persists.
 
-Our strategy compares each fund's gap to that fund's own history over the past
-year. Unusually cheap funds we buy, unusually expensive ones we short, equal
-money on each side, so it makes no difference whether the market rises or falls.
+Our strategy scores each fund's gap against that fund's own history over the
+prior year, holds the unusually cheap funds long and the unusually rich funds
+short in equal dollar amounts, and is therefore indifferent to market direction.
 
-We spent much of the summer trying to prove this was an ordinary bet in disguise.
-Tested against high yield, investment grade, interest rates, stocks and
-volatility, those five explain half a percent of the returns. It also held up
-against the closed-end fund sector's own returns, the hardest test we could
-build.
+We spent much of the summer attempting to show this was a conventional exposure
+in disguise. Against high yield, investment grade, interest rates, equity and
+volatility, those five factors explain half a percent of the returns. The result
+also held against the closed-end fund sector's own returns, the strongest control
+we could construct.
 
-## Where it actually stands
+## Current position
 
-The signal looks real. The trading costs might still kill it.
+The signal is established. Trading costs remain the open risk.
 
-The strategy has to decide in the evening, because it needs the NAV and the NAV
-only comes out after the close. On our first live day the orders sat overnight
-and filled at 7:27 in the morning, two hours before the exchange opened, when
-almost nobody is trading these funds. We paid 0.94% to trade against a budget of
-about 0.10%. Priced at the numbers the strategy decided on we made $50 that day.
-Priced at what we actually paid, we lost $7,350.
+The strategy must decide in the evening, because its signal requires the NAV,
+which publishes after the close. On the first live day the orders rested
+overnight and filled at 07:27, two hours before the exchange opened, when these
+funds have negligible depth. We paid 0.94% to trade against a modelled 0.10%.
+Priced at decision prices the book was up $50; priced at fills it was down
+$7,350.
 
-We switched to orders that fill in the closing auction, the cheapest moment of
-the day, but we have not tested that fix because the broker platform has been
-down since August. Getting it back up is the first job of the year. One more
-thing worth saying before anyone joins: our backtest assumed an entry price we
-cannot really get, and correcting it takes the expected Sharpe ratio from 0.82
-down to about 0.51. We would rather recruit people on the true number.
+We moved to orders that execute in the closing auction, the deepest liquidity of
+the day, but have not tested that change because the broker platform has been
+down since August. Restoring it is our first priority.
 
-You would not be starting from a blank folder. The summer left a daily feed of
-prices for 11,423 bonds built free from public filings, five scheduled jobs that
+One further correction should be stated before anyone joins. Our backtest assumed
+an entry price that is not obtainable, and correcting it reduces the expected
+Sharpe ratio from 0.82 to approximately 0.51. We would rather recruit against the
+accurate figure.
+
+New members do not start from nothing. The summer produced a daily feed of prices
+for 11,423 bonds built from public filings at no cost, five scheduled jobs that
 run the book unattended, and a written record of twelve strategy ideas that
-failed and why.
+failed, with the cause of each.
 
-## Roles we are hiring
+## Roles
 
-No finance background is needed. Our documentation explains the finance from
-scratch and assumes you know none of it.
+No finance background is required. Our documentation covers the finance from
+first principles.
 
-**Quant Researcher, 2 to 4 people.** You test new strategy ideas and find out
-whether they are real. Most are not, and getting to that answer quickly is the
-skill. When a result looks great, your first job is to attack it. You need Python
-and pandas, basic statistics such as regressions and t-tests, and the temperament
-to drop your favourite idea when it fails a test.
+**Quant Researcher, 2 to 4 positions.** Testing new strategy ideas and
+establishing whether they are real. Most are not, and reaching that conclusion
+quickly is the core skill; promising results are attacked before they are
+reported. Requires Python and pandas, basic statistics including regressions and
+t-tests, and the discipline to abandon a preferred idea when it fails a test.
 
-**Execution and Infrastructure, 1 to 2 people.** You own the plumbing: the broker
-connection, the schedulers, the orders going out, and the measurement of what our
-trading really costs. This side has taught us more than any backtest, because
-live systems break in ways research code never shows you. You need solid Python,
-patience for things that fail silently, and ideally some experience with APIs or
-scheduled jobs.
+**Execution and Infrastructure, 1 to 2 positions.** Ownership of the broker
+connection, the schedulers, order flow, and the measurement of realised trading
+cost. This area has produced more insight than any backtest, because live systems
+fail in ways research code does not expose. Requires solid Python, patience with
+silent failures, and ideally exposure to APIs or scheduled jobs.
 
-**Risk and Reporting, 1 to 2 people.** You watch the live book, and each week you
-compare what the strategy did against what the backtest said it should do, across
-returns, exposures, drawdowns and costs. You need basic Python and the ability to
-write a short summary the team will actually read.
+**Risk and Reporting, 1 to 2 positions.** Weekly comparison of live performance
+against backtest expectation across returns, exposures, drawdowns and slippage.
+Requires basic Python and the ability to produce a concise written summary the
+team will read.
 
 ## Goals and timeline
 
-| When | What |
+| Period | Objective |
 |---|---|
-| September | Recruit and onboard. Get the backtest running on every machine and the broker connection working again. |
-| Oct – Nov | Build up to sixty live sessions, then run the review we committed to in writing before launch. If the strategy fails it, we shut it down. |
-| Dec – Jan | Freeze the rules for the January trade, then run it. Positive in 20 of the past 23 Januaries, and it moves independently of the main strategy. |
-| Feb – Apr | Keep researching, decide on resizing from live evidence, and write the final report and handover for next year's team. |
+| September | Recruit and onboard. Backtest reproduced on every machine; broker connection restored. |
+| Oct – Nov | Accumulate 60 live sessions, then execute the review committed to in writing before launch. The strategy is shut down if it fails. |
+| Dec – Jan | Pre-register the January trade, then run it. Positive in 20 of the past 23 Januaries and uncorrelated with the main strategy. |
+| Feb – Apr | Continued research, a resizing decision based on live evidence, and the final report and handover. |
 
-## To apply
+## Applications
 
-Send a short note saying which role interests you and anything you have built, to
-simon.jarvis0@gmail.com. Everything is public on GitHub if you want to look
-first, starting with `HOW_WE_GOT_HERE.md`, the story of the summer including all
-the wrong turns.
+Send a brief note stating the role of interest and any relevant work to
+simon.jarvis0@gmail.com. The repository is public. `HOW_WE_GOT_HERE.md` is the
+recommended starting point and assumes no finance background.
