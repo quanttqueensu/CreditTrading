@@ -26,6 +26,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 import websocket
+from pypdf.generic import NameObject, NumberObject
 
 DOCS = Path(__file__).resolve().parent
 CSS = DOCS / "print.css"
@@ -58,6 +59,26 @@ def free_port():
     port = s.getsockname()[1]
     s.close()
     return port
+
+
+def normalise_rotation(pdf_path):
+    """Stamp an explicit portrait orientation on every page.
+
+    Chrome leaves /Rotate unset, which means zero and renders correctly
+    everywhere we have checked. Setting it explicitly costs nothing and removes
+    any room for a viewer to apply its own remembered rotation instead.
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        return
+    reader = PdfReader(str(pdf_path))
+    writer = PdfWriter()
+    for page in reader.pages:
+        page[NameObject("/Rotate")] = NumberObject(0)
+        writer.add_page(page)
+    with open(pdf_path, "wb") as fh:
+        writer.write(fh)
 
 
 def build_html(md_path, html_path, toc):
@@ -134,6 +155,7 @@ def print_pdf(html_path, pdf_path, port, profile):
 
     import base64
     pdf_path.write_bytes(base64.b64decode(result["data"]))
+    normalise_rotation(pdf_path)
 
     ws.close()
     proc.terminate()
