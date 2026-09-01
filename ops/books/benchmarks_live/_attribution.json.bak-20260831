@@ -1,0 +1,21 @@
+{
+ "bench_b3_agg": {
+  "AGG": 204.0
+ },
+ "bench_b4_60_40": {
+  "IEF": 85.0,
+  "SPY": 16.0
+ },
+ "bench_b5_shy": {
+  "SHY": 243.0
+ },
+ "bench_b6_ew_credit": {
+  "ANGL": 86.0,
+  "EMB": 26.0,
+  "JNK": 26.0,
+  "LQD": 23.0,
+  "SHYG": 59.0,
+  "USHY": 67.0,
+  "VCIT": 30.0
+ }
+}

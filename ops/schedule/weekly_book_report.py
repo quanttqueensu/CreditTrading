@@ -34,74 +34,98 @@ def _load_json(path):
         return None
 
 
-def _sleeve_nav(state_dir):
-    p = Path(state_dir) / "nav.csv"
-    if not p.exists():
-        return None
-    nav = pd.read_csv(p, parse_dates=["date"]).sort_values("date")
-    return nav if not nav.empty else None
+# A book's live root holds its sub-ledgers under _ibkr_shadow/<sleeve>/, which
+# is where ibkr.py's shadow Simulator writes them (src/deploy/broker/ibkr.py).
+# This script used to look only at <root>/<sleeve>/nav.csv, found nothing, and
+# reported "the book has not advanced yet" for five consecutive weeks while
+# cef_discount and null_trader both held a funded ledger with real fills.
+# Shadow path first, flat path second, so either layout resolves.
+def _sleeve_nav(books_root, sleeve):
+    for cand in (Path(books_root) / "_ibkr_shadow" / sleeve / "nav.csv",
+                 Path(books_root) / sleeve / "nav.csv"):
+        if cand.exists():
+            nav = pd.read_csv(cand, parse_dates=["date"]).sort_values("date")
+            if not nav.empty:
+                return nav
+    return None
 
 
-def build(books_root, asof=None, book="ops/books/book.json"):
+# The live books, and the root each one's sub-ledgers are written under. This
+# mirrors JOBS in ~/Library/Application Support/quantt/launch_job.py plus the
+# benchmark book, which has no scheduled job of its own. The default used to be
+# a single "ops/books/book.json" that has never existed in this repo, so the
+# spec always fell back to {"sleeves": []} and every table rendered empty.
+BOOKS = [
+    ("ops/books/cef_discount_book.json", "ops/books/cef_live"),
+    ("ops/books/phase0_book.json",       "ops/books/phase0_live"),
+    ("ops/books/benchmarks_book.json",   "ops/books/benchmarks_live"),
+]
+
+
+def _dryrun_date(p):
+    """Date from dryrun_<date>.json, tolerating a __<sleeve> recovery suffix."""
+    stem = p.stem.replace("dryrun_", "").split("__")[0]
+    try:
+        return dt.date.fromisoformat(stem)
+    except ValueError:
+        return dt.date(1900, 1, 1)
+
+
+def _book_section(book_path, books_root, asof, week_start, A):
+    """Render one book. Returns True if any sub-ledger has advanced."""
     books_root = Path(books_root)
-    asof = pd.Timestamp(asof) if asof else pd.Timestamp(
-        previous_trading_day(dt.date.today() + dt.timedelta(days=1)))
-    week_start = asof - pd.Timedelta(days=6)
+    if not books_root.is_absolute():
+        books_root = REPO / books_root
+    book_spec = _load_json(REPO / book_path)
+    if book_spec is None:
+        A(f"### `{book_path}` — **spec not found**, skipped")
+        A("")
+        return False
 
-    book_spec = _load_json(REPO / book) or {"sleeves": []}
     status = _load_json(books_root / "book_status.json")
     monitor = _load_json(books_root / "book_monitor.json")
 
-    L = []
-    A = L.append
-    A(f"# Weekly book report — week ending {asof.date()}")
-    A("")
-    A(f"Book `{book_spec.get('book_id', '?')}` — read-only roll-up of the "
-      f"daily runs (window {week_start.date()}..{asof.date()}).")
-    A("")
-
-    # -- per-sleeve table --------------------------------------------------
-    A("## Sleeves")
+    A(f"### Book `{book_spec.get('book_id', '?')}`")
     A("")
     A("| sleeve | last asof | NAV | week PnL | since-inception PnL | N days | note |")
     A("|---|---|---:|---:|---:|---:|---|")
     ran_any = False
+    first_dates = []
     for entry in book_spec.get("sleeves", []):
         name = entry["name"]
-        nav = _sleeve_nav(books_root / name)
         note = entry.get("note", "")
+        if not entry.get("enabled", True):
+            note = (note + " (disabled)").strip()
+        nav = _sleeve_nav(books_root, name)
         if nav is None:
             A(f"| {name} | — | — | — | — | 0 | {note} (no ledger yet) |")
             continue
         ran_any = True
+        first_dates.append(pd.Timestamp(nav["date"].iloc[0]))
         last = nav.iloc[-1]
         week = nav[nav["date"] >= week_start]
         week_pnl = (float(week["nav"].iloc[-1]) - float(week["nav"].iloc[0])
                     if len(week) > 1 else 0.0)
         incep_pnl = float(last["nav"]) - float(nav["nav"].iloc[0])
-        A(f"| {name} | {pd.Timestamp(last['date']).date()} "
+        # A ledger whose last row predates the window is not flat, it is STALE.
+        # Saying "week PnL $0" for a book that has not marked to market since
+        # July would be the single most misleading number this report can print.
+        lag = len(pd.bdate_range(pd.Timestamp(last["date"]), asof)) - 1
+        flag = f" **STALE {lag}bd**" if lag > 1 else ""
+        A(f"| {name} | {pd.Timestamp(last['date']).date()}{flag} "
           f"| ${float(last['nav']):,.0f} | ${week_pnl:+,.0f} "
           f"| ${incep_pnl:+,.0f} | {len(nav)} | {note} |")
     A("")
     if ran_any:
-        first_dates = []
-        for entry in book_spec.get("sleeves", []):
-            nav = _sleeve_nav(books_root / entry["name"])
-            if nav is not None:
-                first_dates.append(pd.Timestamp(nav["date"].iloc[0]))
         A(f"Sample: {min(first_dates).date()}..{asof.date()} across "
-          f"{len(first_dates)} live sub-ledgers.")
+          f"{len(first_dates)} live sub-ledger(s).")
     else:
-        A("**The book has not advanced yet** — no sub-ledger has a nav.csv. "
-          "If the scheduler is in DRY_RUN=1 (the shipped default) this is "
-          "expected: dry runs log targets without writing ledgers.")
+        A("**No sub-ledger has advanced.** Either the book has never been armed, "
+          "or every session since funding ran dry.")
     A("")
 
-    # -- book rollup -------------------------------------------------------
-    A("## Book rollup (last daily run)")
-    A("")
     if status:
-        A(f"- asof **{status.get('asof')}** — NAV "
+        A(f"- rollup asof **{status.get('asof')}** — NAV "
           f"${status.get('book_nav', float('nan')):,.2f}, "
           f"PnL ${status.get('book_pnl', 0):,.2f}, "
           f"gross ${status.get('gross_exposure', 0):,.0f}, "
@@ -110,26 +134,45 @@ def build(books_root, asof=None, book="ops/books/book.json"):
             A(f"- limit `{lim}`: {'OK' if res.get('ok') else '**BREACH**'}")
     else:
         A("- no book_status.json yet (no non-dry run has completed).")
-    A("")
-
-    # -- monitor verdicts --------------------------------------------------
-    A("## Monitor (Gate S / staleness)")
-    A("")
     if monitor:
         for name, sv in (monitor.get("sleeves") or {}).items():
-            verdict = sv.get("verdict", sv.get("status", "?"))
-            A(f"- {name}: **{verdict}**")
-        stale = monitor.get("staleness") or monitor.get("data_staleness")
-        if stale:
-            A(f"- data staleness: {stale}")
-    else:
-        A("- no book_monitor.json yet.")
+            A(f"- monitor {name}: **{sv.get('verdict', sv.get('status', '?'))}**")
+    A("")
+    return ran_any
+
+
+def build(asof=None, books=None):
+    books = books or BOOKS
+    asof = pd.Timestamp(asof) if asof else pd.Timestamp(
+        previous_trading_day(dt.date.today() + dt.timedelta(days=1)))
+    week_start = asof - pd.Timedelta(days=6)
+
+    L = []
+    A = L.append
+    A(f"# Weekly book report — week ending {asof.date()}")
+    A("")
+    A(f"Read-only roll-up of the daily runs across {len(books)} live book(s) "
+      f"(window {week_start.date()}..{asof.date()}).")
     A("")
 
-    # -- the week's dry-run logs ------------------------------------------
-    dry = sorted(books_root.glob("dryrun_*.json"))
-    dry = [p for p in dry
-           if week_start.date() <= _dryrun_date(p) <= asof.date()]
+    A("## Sleeves")
+    A("")
+    ran_any = False
+    for book_path, root in books:
+        ran_any |= _book_section(book_path, root, asof, week_start, A)
+
+    # -- dry-run activity --------------------------------------------------
+    # Searched in the durable per-job directories, the live roots, and the
+    # recovery drop. Before 2026-08-31 these went to tempfile.mkdtemp() and
+    # were evicted, so this section reported "none" for the whole of August
+    # while 43 dry runs had in fact been computed.
+    dry = []
+    for pat in ("_dryruns/*/dryrun_*.json", "_recovered_dryruns/dryrun_*.json",
+                "*_live/dryrun_*.json", "dryrun_*.json"):
+        dry += list((REPO / "ops" / "books").glob(pat))
+    dry = sorted({p.resolve() for p in dry})
+    dry = [p for p in dry if week_start.date() <= _dryrun_date(p) <= asof.date()]
+
     A("## Dry-run activity this week")
     A("")
     if dry:
@@ -137,38 +180,32 @@ def build(books_root, asof=None, book="ops/books/book.json"):
             payload = _load_json(p) or {}
             n_t = sum(len(x.get("targets", []))
                       for x in payload.get("planned", []))
-            A(f"- {p.name}: {n_t} targets logged, transmitted="
-              f"{payload.get('transmitted', False)}")
+            A(f"- {p.parent.name}/{p.name}: {n_t} targets logged, "
+              f"transmitted={payload.get('transmitted', False)}")
         A("")
-        A(f"N = {len(dry)} dry-run days in {week_start.date()}..{asof.date()}.")
+        A(f"N = {len(dry)} dry-run file(s) in {week_start.date()}..{asof.date()}.")
     else:
         A(f"- none in {week_start.date()}..{asof.date()}.")
     A("")
     return "\n".join(L)
 
 
-def _dryrun_date(p):
-    try:
-        return dt.date.fromisoformat(p.stem.replace("dryrun_", ""))
-    except ValueError:
-        return dt.date(1900, 1, 1)
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--asof", default=None,
                     help="week-ending date (default: last trading day)")
-    ap.add_argument("--book", default="ops/books/book.json")
-    ap.add_argument("--books-root", default=str(REPO / "ops" / "books"))
     ap.add_argument("--out-dir", default=str(REPO / "ops" / "reports"))
+    ap.add_argument("--print", action="store_true", dest="to_stdout")
     args = ap.parse_args(argv)
 
-    text = build(args.books_root, asof=args.asof, book=args.book)
+    text = build(asof=args.asof)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     asof_tag = text.splitlines()[0].rsplit(" ", 1)[-1]
     out = out_dir / f"weekly_book_{asof_tag}.md"
     out.write_text(text)
+    if args.to_stdout:
+        print(text)
     print(f"wrote {out}")
     return 0
 

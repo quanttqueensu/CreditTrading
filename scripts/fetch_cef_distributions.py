@@ -17,7 +17,7 @@ import yfinance as yf
 
 warnings.filterwarnings("ignore")
 
-ROOT = "/Users/simonjarvis/Desktop/QUANTT/2027"
+ROOT = str(Path(__file__).resolve().parents[1])  # repo root, not hardcoded
 CEF = os.path.join(ROOT, "data", "cef")
 
 uni = pd.read_csv(os.path.join(CEF, "cef_universe.csv"))

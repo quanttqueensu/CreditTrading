@@ -378,6 +378,25 @@ class IBKRBroker(Broker):
                 # stale file cannot put a wrong share count into a live diff --
                 # it can only say which sleeve a contested symbol belongs to.
                 seed = self._attribution_seed(sleeve_name)
+            else:
+                # A ledger can never say "I own NONE of this". Ledger.positions
+                # does not carry a flat leg and the filter above drops anything
+                # within 1e-12 of zero, so for a symbol another book also trades
+                # that silence is indistinguishable from "no claim recorded" --
+                # and arm() then refuses on it. _attribution.json is the only
+                # place an explicit zero claim can live, which is why
+                # _attribution_seed keeps zeros where this filter discards them.
+                #
+                # Measured 2026-08-31: null_trader's ledger holds 13 instruments
+                # and so never consulted the file, which records USHY: 0.0 --
+                # the account's 67 USHY are all bench_b6_ew_credit's. arm()
+                # blocked the whole phase0 session on that one symbol.
+                #
+                # Take ONLY explicit zeros, and only for symbols the ledger does
+                # not mention: no quantity the ledger states is ever overridden.
+                for k, v in self._attribution_seed(sleeve_name).items():
+                    if k not in seed and abs(float(v)) <= 1e-12:
+                        seed[k] = float(v)
             if seed:
                 self._live_positions.setdefault(sleeve_name, {}).update(seed)
         except Exception:
@@ -547,6 +566,7 @@ class IBKRBroker(Broker):
         except Exception:
             pass
         trade = self.ib.placeOrder(contract, order)
+        self._record_order_attribution(trade, sleeve_name, pt.instrument, asof)
         # Side channel: raw paper fills (in $1k units, per-100-par price) are
         # recorded for reconciliation only — no P&L path reads them back
         # (FORCED_FLOW_PREREG decision 1; the shadow ledger charges the
@@ -845,6 +865,32 @@ class IBKRBroker(Broker):
             if abs(sum(tagged.values()) - float(qty)) <= 1e-6:
                 for n, q in tagged.items():
                     adopted.setdefault(n, {})[sym] = q
+            elif sym in claimed_elsewhere:
+                # Shared inside THIS process AND traded by another book, so the
+                # account net is not ours to explain and demanding that it be
+                # was a bug: the sleeves here legitimately sum to LESS than the
+                # account. Measured 2026-08-31 on HYG -- the account holds 823,
+                # of which bench_b1_hyg owns 251, bench_b6_ew_credit 31, and
+                # null_trader (another book) the remaining 541. The old test
+                # compared 282 against 823 and blocked every benchmark session.
+                #
+                # This is the same rule the single-owner branch above already
+                # applies to a contested symbol, and the same one _check_drift
+                # documents in this file: trust each claimant's own
+                # attribution, and refuse only when a claimant has none. As
+                # there, this decides ATTRIBUTION only -- never a share count
+                # taken from the account net.
+                missing = [n for n in who
+                           if self._live_positions.get(n, {}).get(sym) is None]
+                if missing:
+                    problems.append(
+                        f"{sym}: account holds {qty:+g}; {', '.join(who)} trade "
+                        f"it and so does another book, but "
+                        f"{', '.join(missing)} has no attribution entry — "
+                        f"cannot tell how much of it is ours")
+                else:
+                    for n, q in tagged.items():
+                        adopted.setdefault(n, {})[sym] = q
             else:
                 problems.append(
                     f"{sym}: account holds {qty:+g} but the tag books across "
@@ -940,10 +986,13 @@ class IBKRBroker(Broker):
                                               market_state))
                 continue
             trade = self.ib.placeOrder(self._contract(pt), self._order(pt, delta))
+            self._record_order_attribution(trade, sleeve_name, pt.instrument, asof)
             fills.extend(self._fills_from_trade(trade, pt, asof))
         for combo_id, legs in combos.items():
             trade = self._place_combo(combo_id, legs, sleeve_name)
             for pt, delta in legs:
+                self._record_order_attribution(trade, sleeve_name,
+                                               pt.instrument, asof)
                 fills.extend(self._fills_from_trade(trade, pt, asof))
 
         # Update this sleeve's tag book from the reported fills.
@@ -1052,6 +1101,51 @@ class IBKRBroker(Broker):
         order = ibi.MarketOrder(pkg_action, 1)
         order.orderRef = str(sleeve_name or "")
         return self.ib.placeOrder(bag, order)
+
+    def _record_order_attribution(self, trade, sleeve_name, instrument, asof):
+        """Append orderId -> sleeve for this placement. Never raises.
+
+        WHY. Fill attribution downstream (ops/capture_fills.py) is by SYMBOL,
+        which is only safe while no two deployed sleeves trade the same ticker.
+        bench_b1_hyg and bench_b6_ew_credit both hold HYG, so that assumption
+        breaks the moment the benchmark book is armed, and capture_fills
+        correctly refuses to guess.
+
+        orderRef cannot rescue it: this TWS build returns ref='' on every
+        execution (measured 2026-07-31, 257 fills), and the equity path never
+        set orderRef in the first place -- only the bond and combo paths do.
+
+        The placing process is the one moment the mapping is known for certain,
+        so it is written down here rather than reconstructed later. Wrapped
+        whole: an attribution record is worth having, never worth failing a
+        transmitted order over.
+        """
+        try:
+            import csv as _csv
+            from pathlib import Path as _Path
+            order = getattr(trade, "order", None)
+            row = {
+                "asof": str(asof),
+                "recorded_utc": pd.Timestamp.utcnow().isoformat(),
+                "order_id": getattr(order, "orderId", "") if order else "",
+                "perm_id": getattr(order, "permId", "") if order else "",
+                "sleeve": str(sleeve_name or ""),
+                "instrument": str(instrument),
+                "action": getattr(order, "action", "") if order else "",
+                "qty": getattr(order, "totalQuantity", "") if order else "",
+            }
+            path = _Path(self._books_root) / "_ibkr_shadow" / "_order_map.csv"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            new = not path.exists()
+            with open(path, "a", newline="") as fh:
+                w = _csv.DictWriter(fh, fieldnames=list(row))
+                if new:
+                    w.writeheader()
+                w.writerow(row)
+        except Exception as exc:
+            print(f"[ibkr] order-attribution record failed for {instrument}: "
+                  f"{exc!r} (order already transmitted; capture may fall back "
+                  f"to symbol attribution)")
 
     def snapshot(self, sleeve_name, asof, market_state) -> AccountSnapshot:
         return AccountSnapshot(cash=self.cash(sleeve_name),

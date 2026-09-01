@@ -1,4 +1,7 @@
 {
+ "bench_b1_hyg": {
+  "HYG": 251.0
+ },
  "bench_b3_agg": {
   "AGG": 204.0
  },
@@ -12,6 +15,7 @@
  "bench_b6_ew_credit": {
   "ANGL": 86.0,
   "EMB": 26.0,
+  "HYG": 31.0,
   "JNK": 26.0,
   "LQD": 23.0,
   "SHYG": 59.0,

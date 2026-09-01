@@ -1,18 +1,18 @@
 sleeve,instrument,kind,current_qty,target_side,target_qty,target_weight,delta_qty,reason
-cef_discount,AWF,ETF,5292.0,LONG,,0.10228,,cef discount z=-1.15 w=+0.1023 volscal=1.50
-cef_discount,BIT,ETF,3320.0,LONG,,0.07695,,cef discount z=-0.90 w=+0.0770 volscal=1.50
-cef_discount,DSL,ETF,4426.0,LONG,,0.094307,,cef discount z=-1.07 w=+0.0943 volscal=1.50
-cef_discount,HYT,ETF,5009.0,LONG,,0.079725,,cef discount z=-0.93 w=+0.0797 volscal=1.50
-cef_discount,JFR,ETF,-3247.0,SHORT,,-0.05048,,cef discount z=+0.33 w=-0.0505 volscal=1.50
-cef_discount,MHD,ETF,-4821.0,SHORT,,-0.110354,,cef discount z=+0.90 w=-0.1104 volscal=1.50
-cef_discount,MQY,ETF,-2976.0,SHORT,,-0.067179,,cef discount z=+0.49 w=-0.0672 volscal=1.50
-cef_discount,NAD,ETF,-6225.0,SHORT,,-0.143845,,cef discount z=+1.23 w=-0.1438 volscal=1.50
-cef_discount,NEA,ETF,-5283.0,SHORT,,-0.117861,,cef discount z=+0.98 w=-0.1179 volscal=1.50
-cef_discount,NVG,ETF,-6336.0,SHORT,,-0.155634,,cef discount z=+1.34 w=-0.1556 volscal=1.50
-cef_discount,NZF,ETF,-3762.0,SHORT,,-0.09203,,cef discount z=+0.73 w=-0.0920 volscal=1.50
-cef_discount,PCN,ETF,5020.0,LONG,,0.112272,,cef discount z=-1.24 w=+0.1123 volscal=1.50
-cef_discount,PDI,ETF,4390.0,LONG,,0.135842,,cef discount z=-1.47 w=+0.1358 volscal=1.50
-cef_discount,PDO,ETF,642.0,LONG,,0.03872,,cef discount z=-0.53 w=+0.0387 volscal=1.50
-cef_discount,PFN,ETF,-601.0,SHORT,,-0.010227,,cef discount z=-0.06 w=-0.0102 volscal=1.50
-cef_discount,PHK,ETF,0.0,FLAT,,,,cef: below min weight
-cef_discount,PTY,ETF,4651.0,LONG,,0.107515,,cef discount z=-1.20 w=+0.1075 volscal=1.50
+cef_discount,AWF,ETF,5292.0,LONG,,0.035363,,cef discount z=-0.86 w=+0.0354 volscal=1.63
+cef_discount,BIT,ETF,3320.0,LONG,,0.194939,,cef discount z=-2.81 w=+0.1949 volscal=1.63
+cef_discount,DSL,ETF,4426.0,LONG,,0.079408,,cef discount z=-1.39 w=+0.0794 volscal=1.63
+cef_discount,HYT,ETF,5009.0,LONG,,0.076334,,cef discount z=-1.36 w=+0.0763 volscal=1.63
+cef_discount,JFR,ETF,-3247.0,SHORT,,-0.049865,,cef discount z=+0.19 w=-0.0499 volscal=1.63
+cef_discount,MHD,ETF,-4821.0,SHORT,,-0.135152,,cef discount z=+1.23 w=-0.1352 volscal=1.63
+cef_discount,MQY,ETF,-2976.0,SHORT,,-0.046326,,cef discount z=+0.14 w=-0.0463 volscal=1.63
+cef_discount,NAD,ETF,-6225.0,SHORT,,-0.191307,,cef discount z=+1.92 w=-0.1913 volscal=1.63
+cef_discount,NEA,ETF,-5283.0,SHORT,,-0.165064,,cef discount z=+1.60 w=-0.1651 volscal=1.63
+cef_discount,NVG,ETF,-6336.0,SHORT,,-0.118181,,cef discount z=+1.02 w=-0.1182 volscal=1.63
+cef_discount,NZF,ETF,-3762.0,SHORT,,-0.110697,,cef discount z=+0.93 w=-0.1107 volscal=1.63
+cef_discount,PCN,ETF,5020.0,LONG,,0.038139,,cef discount z=-0.89 w=+0.0381 volscal=1.63
+cef_discount,PDI,ETF,4390.0,LONG,,0.124917,,cef discount z=-1.95 w=+0.1249 volscal=1.63
+cef_discount,PDO,ETF,642.0,LONG,,0.152709,,cef discount z=-2.29 w=+0.1527 volscal=1.63
+cef_discount,PFN,ETF,-601.0,LONG,,0.007805,,cef discount z=-0.52 w=+0.0078 volscal=1.63
+cef_discount,PHK,ETF,0.0,LONG,,0.057795,,cef discount z=-1.13 w=+0.0578 volscal=1.63
+cef_discount,PTY,ETF,4651.0,LONG,,0.049184,,cef discount z=-1.02 w=+0.0492 volscal=1.63

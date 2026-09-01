@@ -56,7 +56,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-REPO = Path("/Users/simonjarvis/Desktop/QUANTT/2027")
+REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from src.data.r2 import connect, q, r2_path  # noqa: E402

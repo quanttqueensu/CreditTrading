@@ -74,15 +74,36 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
     asof = asof or f"{datetime.now():%Y-%m-%d}"
     universes = sleeve_universes(book_path)
 
-    owner = {}
+    # Symbol attribution, plus the shared-ticker escape hatch.
+    #
+    # Symbol alone stops working the moment two sleeves of one book trade the
+    # same ticker -- bench_b1_hyg and bench_b6_ew_credit both hold HYG. This
+    # used to raise outright, which was right while there was nothing better to
+    # fall back on. There now is: the adapter writes orderId -> sleeve at
+    # placement (_record_order_attribution), which is exact, because the
+    # placing process is the one moment attribution is actually known.
+    #
+    # A shared ticker is resolved by orderId or it is NOT RECORDED. It is never
+    # split, apportioned or assigned to a best guess: a fabricated fill would
+    # corrupt the volume-weighted slippage statistic that kill rule (b) reads.
+    owner, shared = {}, {}
     for sleeve, insts in universes.items():
         for t in insts:
             if t in owner:
-                raise RuntimeError(
-                    f"{t} is claimed by both {owner[t]} and {sleeve}; symbol "
-                    f"attribution is no longer safe. Capture by orderRef "
-                    f"instead before running this again.")
+                shared.setdefault(t, {owner[t]}).add(sleeve)
+                continue
             owner[t] = sleeve
+
+    order_map = _load_order_map(books_root)
+    if shared and not order_map:
+        # Warn, do NOT raise. Raising would abandon the fills of every OTHER
+        # sleeve in the book, which are perfectly attributable -- trading one
+        # incomplete record for a completely absent one. The per-fill path
+        # below drops exactly the ambiguous rows and says so.
+        print(f"[capture] WARNING shared ticker(s) "
+              f"{ {k: sorted(v) for k, v in shared.items()} } and no "
+              f"_order_map.csv yet; those fills will be reported "
+              f"UNATTRIBUTED and skipped. Everything else still records.")
 
     cfg = IBKRConfig.from_env()
     app = ibapi.IB()
@@ -107,13 +128,24 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
     seen = _recorded_exec_ids(books_root, universes)
 
     written, skipped, dupes, by_sleeve = 0, 0, 0, {}
+    unattributed = 0
     for f in fills:
         sym = f.contract.symbol
-        sleeve = owner.get(sym)
+        e = f.execution
+        if sym in shared:
+            sleeve = order_map.get(str(getattr(e, "orderId", "")))
+            if sleeve not in shared[sym]:
+                unattributed += 1
+                print(f"[capture] UNATTRIBUTED {sym} execId={e.execId} "
+                      f"orderId={getattr(e, 'orderId', '?')}: claimed by "
+                      f"{sorted(shared[sym])} and no order-map entry. NOT "
+                      f"recorded -- this fill is missing from slippage.")
+                continue
+        else:
+            sleeve = owner.get(sym)
         if sleeve is None:
             skipped += 1           # another book's position, or a stale benchmark leg
             continue
-        e = f.execution
         if e.execId in seen.get(sleeve, set()):
             dupes += 1
             continue
@@ -140,8 +172,33 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
                   f"{Path(books_root)/'_ibkr_shadow'/s/'broker_fills.csv'}")
         print(f"[capture]   {dupes} already recorded (skipped), "
               f"{skipped} belonged to another book (ignored)")
+        if shared:
+            print(f"[capture]   shared tickers resolved by orderId: "
+                  f"{ {k: sorted(v) for k, v in shared.items()} }")
+        if unattributed:
+            print(f"[capture]   *** {unattributed} fill(s) UNATTRIBUTED and not "
+                  f"recorded -- slippage for those is incomplete ***")
     return {"total": len(fills), "written": written, "skipped": skipped,
-            "duplicates": dupes, "by_sleeve": by_sleeve}
+            "duplicates": dupes, "by_sleeve": by_sleeve,
+            "unattributed": unattributed}
+
+
+def _load_order_map(books_root) -> dict:
+    """{order_id: sleeve} written by the adapter at placement time."""
+    path = Path(books_root) / "_ibkr_shadow" / "_order_map.csv"
+    if not path.exists():
+        return {}
+    import csv as _csv
+    out = {}
+    try:
+        with open(path) as fh:
+            for row in _csv.DictReader(fh):
+                oid = str(row.get("order_id", "")).strip()
+                if oid:
+                    out[oid] = row.get("sleeve", "")
+    except Exception as exc:
+        print(f"[capture] could not read _order_map.csv: {exc!r}")
+    return out
 
 
 def _recorded_exec_ids(books_root, universes) -> dict:

@@ -1,5 +1,6 @@
-import sys, numpy as np, pandas as pd
-sys.path.insert(0,'/Users/simonjarvis/Desktop/QUANTT/2027')
+import sys
+from pathlib import Path, numpy as np, pandas as pd
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.cef.validate import load_raw, signals, run, WIN, HOLD, MIN_ADV
 
 px, nav, vol = load_raw()

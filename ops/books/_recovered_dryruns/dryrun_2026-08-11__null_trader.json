@@ -1,0 +1,155 @@
+{
+  "asof": "2026-08-11",
+  "execution_requested": "simulator",
+  "transmitted": false,
+  "planned": [
+    {
+      "asof": "2026-08-11",
+      "sleeve": "null_trader",
+      "targets": [
+        {
+          "instrument": "HYG",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.14064141812051212,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.1406"
+        },
+        {
+          "instrument": "JNK",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.09543831196897541,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.0954"
+        },
+        {
+          "instrument": "USHY",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.008514381096824961,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.0085"
+        },
+        {
+          "instrument": "SPHY",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.06991618982208776,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.0699"
+        },
+        {
+          "instrument": "SHYG",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.025318357560167547,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.0253"
+        },
+        {
+          "instrument": "SJNK",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.09267141042975695,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.0927"
+        },
+        {
+          "instrument": "LQD",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.01870704342625835,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.0187"
+        },
+        {
+          "instrument": "VCSH",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.06610753837517457,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.0661"
+        },
+        {
+          "instrument": "VCIT",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.11927724325942617,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.1193"
+        },
+        {
+          "instrument": "IGSB",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.06843490900651554,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.0684"
+        },
+        {
+          "instrument": "BKLN",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.12287670648233075,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.1229"
+        },
+        {
+          "instrument": "SRLN",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.0372946349491015,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=-0.0373"
+        },
+        {
+          "instrument": "EMB",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.12051074979078627,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.1205"
+        },
+        {
+          "instrument": "JAAA",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.014291105712082228,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "null trader (epoch 4135) w=+0.0143"
+        }
+      ],
+      "held": {},
+      "cash": null
+    }
+  ]
+}

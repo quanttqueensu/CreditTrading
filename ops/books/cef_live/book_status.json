@@ -1,20 +1,20 @@
 {
-  "asof": "2026-07-31",
-  "book_nav": 498855.14344827866,
-  "book_pnl": -1144.8565517213428,
-  "book_cash": 499196.5203546736,
-  "gross_exposure": 749457.663731575,
-  "net_exposure": -341.3769063949585,
-  "book_turnover": 749432.8247015263,
+  "asof": "2026-08-31",
+  "book_nav": 490807.69066259306,
+  "book_pnl": -9192.309337406943,
+  "book_cash": 492958.3021042053,
+  "gross_exposure": 801185.0860815048,
+  "net_exposure": -2150.6114416122437,
+  "book_turnover": 2898.177406625111,
   "sleeves": {
     "cef_discount": {
-      "nav": 498855.14344827866,
-      "pnl": -1144.8565517213428,
-      "cash": 499196.5203546736,
+      "nav": 490807.69066259306,
+      "pnl": -9192.309337406943,
+      "cash": 492958.3021042053,
       "capital_usd": 500000.0,
-      "gross_exposure": 749457.663731575,
-      "net_exposure": -341.3769063949585,
-      "turnover": 749432.8247015263,
+      "gross_exposure": 801185.0860815048,
+      "net_exposure": -2150.6114416122437,
+      "turnover": 2898.177406625111,
       "enabled": true,
       "disabled": false,
       "review_flag": false,
@@ -29,15 +29,15 @@
   "limits": {
     "max_gross_exposure_usd": {
       "ok": true,
-      "value": 749457.663731575,
+      "value": 801185.0860815048,
       "cap": 1300000.0,
       "action": null
     },
     "book_drawdown_suspend_pct": {
-      "ok": true,
-      "value": -0.0022897131034427254,
+      "ok": false,
+      "value": -0.019760259435431027,
       "cap": -0.009899999999999999,
-      "action": null
+      "action": "SUSPEND the book (Gate S, book level)"
     },
     "per_sleeve_capital_band": {
       "ok": true,
@@ -46,7 +46,7 @@
     },
     "book_worst_month_usd": {
       "ok": true,
-      "value": 0.0,
+      "value": -8047.4527856856,
       "budget": -30000.0,
       "action": null
     }

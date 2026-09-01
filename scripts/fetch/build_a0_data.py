@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-REPO = Path("/Users/simonjarvis/Desktop/QUANTT/2027/Other")
+REPO = Path(__file__).resolve().parents[2] / "Other"
 ARCHIVE = REPO / "archive" / "calendar-premia-v2"
 ADATA = ARCHIVE / "data"
 OUT = REPO / "data" / "calendar"

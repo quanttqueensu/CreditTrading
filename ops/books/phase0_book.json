@@ -11,12 +11,12 @@
   ],
   "limits": {
     "max_gross_exposure_usd": 750000.0,
-    "book_drawdown_suspend_pct": 0.99,
+    "book_drawdown_suspend_pct": 99.0,
     "per_sleeve_capital_band": [
       0.0,
       640000.0
     ],
     "book_worst_month_usd": 26000.0,
-    "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable."
+    "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable. UNITS FIX 2026-09-01: this read 0.99, and src/deploy/risk.py:152 computes cap = -abs(pct)/100 -- so the limit intended to be DISABLED at 99% was live at 0.99%, the tightest in the book, and breached 2026-08-31 at -1.84%. kill_aware_backtest.py:128 uses 100.0, confirming percent-as-whole-number. Now 99.0."
   }
 }

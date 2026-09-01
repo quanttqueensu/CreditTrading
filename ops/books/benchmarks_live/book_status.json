@@ -1,19 +1,19 @@
 {
-  "asof": "2026-07-30",
-  "book_nav": 80000.0,
-  "book_pnl": 0.0,
-  "book_cash": 80000.0,
-  "gross_exposure": 0.0,
-  "net_exposure": 0.0,
-  "book_turnover": 0.0,
+  "asof": "2026-08-31",
+  "book_nav": 80426.22059226551,
+  "book_pnl": 426.22059226551573,
+  "book_cash": 371.8710858873403,
+  "gross_exposure": 80054.34950637817,
+  "net_exposure": 80054.34950637817,
+  "book_turnover": 81.0950609520245,
   "sleeves": {
     "bench_b1_hyg": {
-      "nav": 20000.0,
-      "pnl": 0.0,
-      "cash": 20000.0,
+      "nav": 20176.932823551113,
+      "pnl": 176.93282355111296,
+      "cash": 64.81343878548732,
       "capital_usd": 20000.0,
-      "gross_exposure": 0.0,
-      "net_exposure": 0.0,
+      "gross_exposure": 20112.119384765625,
+      "net_exposure": 20112.119384765625,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -26,12 +26,12 @@
       }
     },
     "bench_b3_agg": {
-      "nav": 20000.0,
-      "pnl": 0.0,
-      "cash": 20000.0,
+      "nav": 20074.53657693418,
+      "pnl": 74.53657693418063,
+      "cash": 8.075822539648755,
       "capital_usd": 20000.0,
-      "gross_exposure": 0.0,
-      "net_exposure": 0.0,
+      "gross_exposure": 20066.46075439453,
+      "net_exposure": 20066.46075439453,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -62,12 +62,12 @@
       }
     },
     "bench_b5_shy": {
-      "nav": 20000.0,
-      "pnl": 0.0,
-      "cash": 20000.0,
+      "nav": 20032.125829981393,
+      "pnl": 32.1258299813926,
+      "cash": 50.96597890717524,
       "capital_usd": 20000.0,
-      "gross_exposure": 0.0,
-      "net_exposure": 0.0,
+      "gross_exposure": 19981.15985107422,
+      "net_exposure": 19981.15985107422,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -80,13 +80,13 @@
       }
     },
     "bench_b6_ew_credit": {
-      "nav": 20000.0,
-      "pnl": 0.0,
-      "cash": 20000.0,
+      "nav": 20142.62536179883,
+      "pnl": 142.62536179882954,
+      "cash": 248.015845655029,
       "capital_usd": 20000.0,
-      "gross_exposure": 0.0,
-      "net_exposure": 0.0,
-      "turnover": 0.0,
+      "gross_exposure": 19894.6095161438,
+      "net_exposure": 19894.6095161438,
+      "turnover": 81.0950609520245,
       "enabled": true,
       "disabled": false,
       "review_flag": false,
@@ -101,14 +101,14 @@
   "limits": {
     "max_gross_exposure_usd": {
       "ok": true,
-      "value": 0.0,
+      "value": 80054.34950637817,
       "cap": 105000.0,
       "action": null
     },
     "book_drawdown_suspend_pct": {
       "ok": true,
-      "value": 0.0,
-      "cap": -0.0034999999999999996,
+      "value": -0.0032831813334226467,
+      "cap": -0.009899999999999999,
       "action": null
     },
     "per_sleeve_capital_band": {
@@ -118,7 +118,7 @@
     },
     "book_worst_month_usd": {
       "ok": true,
-      "value": 0.0,
+      "value": 435.17828302910493,
       "budget": -12000.0,
       "action": null
     }

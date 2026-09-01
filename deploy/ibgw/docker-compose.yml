@@ -1,0 +1,67 @@
+# IB Gateway + IBC, headless.
+#
+# This is the PORTABLE path — it is the one to use on a VPS. On the single Mac
+# this repo currently runs on, the native path in README.md is lighter (no
+# daemon, no container networking) and gets you the same daily re-auth. Docker
+# is not installed on that machine as of 2026-09-01, so nothing here runs until
+# you install it. Pick one; do not run both.
+#
+# Credentials come from deploy/ibgw/.env, which is gitignored. Never inline them
+# here — this file is committed.
+#
+# VERSION PINNING: `latest` is deliberately NOT used. An image that silently
+# moves under a book that trades unattended is the same class of problem as the
+# scheduler that silently pointed at a moved repo. Check the image README for
+# the current tag and variable names before bumping; they have changed across
+# major versions of gnzsnz/ib-gateway-docker.
+
+services:
+  ibgw:
+    image: ghcr.io/gnzsnz/ib-gateway:10.30.1t
+    container_name: quantt-ibgw
+    restart: unless-stopped
+    environment:
+      TWS_USERID: ${TWS_USERID:?set TWS_USERID in deploy/ibgw/.env}
+      TWS_PASSWORD: ${TWS_PASSWORD:?set TWS_PASSWORD in deploy/ibgw/.env}
+
+      # paper | live. This repo is a PAPER deployment (account DUQ199038) and
+      # every book spec, cost model and kill rule is written on that basis.
+      # Changing this to `live` is not a config change, it is a different
+      # project with a different review.
+      TRADING_MODE: ${TRADING_MODE:-paper}
+
+      # The book must be able to transmit, so the API is not read-only. The
+      # read-only tools (preflight, capture_fills, reconcile_orders) pass
+      # readonly=True per connection instead, which is the finer-grained control.
+      READ_ONLY_API: "no"
+
+      # IBC restarts the gateway daily. Set this OUTSIDE your trading window:
+      # the CEF book decides at 17:15 ET and the benchmarks at 17:25, so a
+      # restart anywhere near then costs a session. 03:00 is clear of both.
+      AUTO_RESTART_TIME: ${AUTO_RESTART_TIME:-03:00 AM}
+      TIME_ZONE: ${TIME_ZONE:-America/New_York}
+
+      # 2FA. Paper logins do not carry live's enforcement, which is why this is
+      # tractable here at all. If you ever point this at a live account, IBKR
+      # Mobile push works with IBC and SMS does not.
+      TWOFA_TIMEOUT_ACTION: ${TWOFA_TIMEOUT_ACTION:-restart}
+
+    ports:
+      # Bind to loopback ONLY. The API port is an unauthenticated order entry
+      # socket to a brokerage account: anything that can reach it can trade.
+      # On a VPS this must stay behind a VPN or SSH tunnel, never 0.0.0.0.
+      - "127.0.0.1:4002:4004"   # paper API  (container listens on 4004)
+      - "127.0.0.1:5900:5900"   # VNC, for the one time you need to see the UI
+
+    volumes:
+      - ./ibc:/root/ibc:ro
+
+    healthcheck:
+      # Liveness only — a socket that accepts is not a gateway that is logged
+      # in. `ops/switch_broker.py --verify` is the real check: it opens an API
+      # session and confirms the account id and positions come back.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4004 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s

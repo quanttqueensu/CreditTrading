@@ -1,6 +1,10 @@
 # Credentials — never commit. See docs/INFRASTRUCTURE.md for the required keys.
+# The glob matters: ops/switch_broker.py writes config/.env.switch_broker.bak,
+# which is a byte copy of config/.env and therefore carries the same secrets.
 config/.env
+config/.env.*
 .env
+deploy/ibgw/.env
 
 # Market data (3.8 GB). Rebuilt with the scripts in scripts/fetch/.
 # See docs/INFRASTRUCTURE.md section "Rebuilding the data folder".
