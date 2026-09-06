@@ -313,6 +313,27 @@ def check_sleep(r):
         return
     if "wakeorpoweron" in sched or "poweron" in sched:
         r.add(PASS, "sleep", "a repeating wake is scheduled")
+        return
+
+    # No scheduled wake. Is the no-sudo substitute at least holding it awake?
+    # com.quantt.awake runs `caffeinate -s` 09:00-20:00 on weekdays. That is a
+    # PARTIAL fix and must not report as PASS: caffeinate prevents idle sleep
+    # but cannot WAKE a sleeping Mac, and does not defeat clamshell sleep.
+    awake = False
+    try:
+        out = subprocess.run(["launchctl", "list"], capture_output=True,
+                             text=True, timeout=20).stdout
+        awake = any(line.endswith("com.quantt.awake") or
+                    line.split("\t")[-1].strip() == "com.quantt.awake"
+                    for line in out.splitlines())
+    except Exception:
+        pass
+    if awake:
+        r.add(WARN, "sleep",
+              "no scheduled wake, but com.quantt.awake holds the machine awake "
+              "09:00-20:00 on weekdays. That covers the battery-idle case; a "
+              "CLOSED LID still sleeps and no session will fire",
+              "sudo pmset repeat wakeorpoweron MTWRF 09:20:00 (the real fix)")
     else:
         r.add(FAIL, "sleep",
               "no repeating wake — on battery this Mac sleeps after 1 minute "

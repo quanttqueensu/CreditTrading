@@ -1,8 +1,8 @@
 {
   "cef": {
     "status": "ok",
-    "at": "2026-08-31 17:15:38",
-    "date": "2026-08-31",
+    "at": "2026-09-04 17:58:31",
+    "date": "2026-09-04",
     "detail": {
       "armed": true,
       "rc": 0,
@@ -10,25 +10,17 @@
     }
   },
   "watchdog": {
-    "status": "stale",
-    "at": "2026-09-01 17:04:06",
-    "date": "2026-09-01",
+    "status": "ok",
+    "at": "2026-09-04 19:30:06",
+    "date": "2026-09-04",
     "detail": {
-      "stale": [
-        "collect: last ran 2026-08-28 (ok), 2 session(s) ago",
-        "loaded:phase0: last exit 78 (EX_CONFIG \u2014 almost always a bad path in the plist)",
-        "loaded:collect: last exit 78 (EX_CONFIG \u2014 almost always a bad path in the plist)",
-        "loaded:watchdog: last exit 78 (EX_CONFIG \u2014 almost always a bad path in the plist)",
-        "ibc: IBC is not installed. IB Gateway restarts daily and will sit at a login prompt with nothing to answer it \u2014 the book dies tomorrow exactly as it did on 2026-08-01",
-        "sleep: no repeating wake \u2014 on battery this Mac sleeps after 1 minute and launchd coalesces missed events to a single firing at wake. This ate collect and watchdog on 2026-08-31",
-        "beat:collect: last ran 2026-08-28 (ok), 2 session(s) ago"
-      ]
+      "stale": []
     }
   },
   "collect": {
     "status": "ok",
-    "at": "2026-09-01 17:06:11",
-    "date": "2026-09-01",
+    "at": "2026-09-04 19:13:20",
+    "date": "2026-09-04",
     "detail": {
       "failed": []
     }
@@ -43,20 +35,20 @@
   },
   "phase0": {
     "status": "ok_not_armed",
-    "at": "2026-08-31 10:19:01",
-    "date": "2026-08-31",
+    "at": "2026-09-04 09:49:15",
+    "date": "2026-09-04",
     "detail": {
       "armed": false,
       "rc": 0,
       "blockers": [
-        "[FAIL] broker: nothing listening on 127.0.0.1:7497 (ConnectionRefusedError). TWS restarts daily and needs a login \u2014 start it, or let the session run collect-only."
+        "[FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login \u2014 start it, or let the session run collect-only."
       ]
     }
   },
   "benchmarks": {
     "status": "ok",
-    "at": "2026-08-31 18:16:33",
-    "date": "2026-08-31",
+    "at": "2026-09-04 17:58:31",
+    "date": "2026-09-04",
     "detail": {
       "armed": true,
       "rc": 0,

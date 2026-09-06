@@ -950,6 +950,7 @@ class IBKRBroker(Broker):
         held = dict(self._live_positions.get(sleeve_name, {}))
 
         desired, pt_by_inst = {}, {}
+        unpriceable = set()
         for pt in targets:
             q = self._resolve_qty(pt, market_state, asof, sleeve_name)
             if q is None:
@@ -957,11 +958,32 @@ class IBKRBroker(Broker):
                 print(f"[ibkr] WARNING {asof.date()} {sleeve_name}: cannot size "
                       f"weight target for {pt.instrument} (no local price); no "
                       f"live order sent for this leg.")
+                unpriceable.add(pt.instrument)
                 continue
             desired[pt.instrument] = q
             pt_by_inst[pt.instrument] = pt
         # Held-but-unmentioned -> drive to flat (mirror the sub-ledger).
+        #
+        # "Unmentioned" must mean the sleeve DID NOT ASK for this instrument —
+        # not "the sleeve asked but we could not price it". Those are opposite
+        # intents and conflating them liquidates a leg the strategy still wants:
+        # an unpriceable target `continue`d out of `desired` above, and this
+        # loop then read its absence as an instruction to sell the whole
+        # position. The warning immediately above promised "no live order sent
+        # for this leg" while this loop sent the largest possible one.
+        #
+        # Measured, both on live paper sessions:
+        #   2026-08-31  SPY unpriceable -> bench_b4_60_40 sold all 16 SPY.
+        #               A 60/40 book became 100% IEF.
+        #   2026-09-01  ANGL unpriceable (yfinance JSONDecodeError) ->
+        #               bench_b6_ew_credit sold all 86 ANGL, 8 legs became 7.
+        #
+        # A pricing failure is a reason to do NOTHING with a leg, never to
+        # flatten it. Leaving the position untouched keeps the book one day
+        # stale; flattening it silently changes what the book is.
         for inst, qh in held.items():
+            if inst in unpriceable:
+                continue
             if inst not in desired and abs(float(qh)) > 1e-9:
                 desired[inst] = 0.0
                 pt_by_inst.setdefault(

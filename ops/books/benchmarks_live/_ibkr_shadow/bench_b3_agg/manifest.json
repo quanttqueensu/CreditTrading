@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "written_utc": "2026-08-31T22:16:31.176264+00:00",
+  "written_utc": "2026-09-04T21:58:27.701659+00:00",
   "files": {
     "orders.csv": {
-      "rows": 23,
+      "rows": 27,
       "last_date": null
     },
     "trades.csv": {
@@ -11,12 +11,12 @@
       "last_date": null
     },
     "positions.csv": {
-      "rows": 45,
-      "last_date": "2026-08-31"
+      "rows": 53,
+      "last_date": "2026-09-04"
     },
     "nav.csv": {
-      "rows": 23,
-      "last_date": "2026-08-31"
+      "rows": 27,
+      "last_date": "2026-09-04"
     }
   }
 }

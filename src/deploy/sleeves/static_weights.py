@@ -53,6 +53,26 @@ class StaticWeightsSleeve(Sleeve):
                 continue
             out.append(PositionTarget(
                 instrument=tk, side=LONG, kind=ETF, weight=wt,
+                # MOC, for the same reason cef_discount uses it, and because
+                # these books exist to be measured against it.
+                #
+                # The book spec says these sleeves "run the identical order,
+                # fill and accounting path as any strategy sleeve so the
+                # comparison is not rigged". Until 2026-09-01 they did not:
+                # they sent plain market orders that rested and filled outside
+                # regular hours -- bench_b4_60_40's SPY went off at 767.30 at
+                # 18:16 ET on 2026-08-31 -- while cef_discount executed in the
+                # closing auction. That is the execution path which cost the
+                # CEF book 100.5bp of one-directional slippage on 2026-07-31,
+                # versus 3.4bp once it moved to MOC.
+                #
+                # A benchmark trading a materially WORSE path than the strategy
+                # flatters the strategy, which is the one direction a reference
+                # book must never be wrong in. This implements the spec's stated
+                # intent rather than changing it; `order_type` in the frozen
+                # spec still overrides.
+                meta={"order_type": str(
+                    self.frozen.get("order_type", "MOC")).upper()},
                 reason=f"benchmark static weight {wt:.4f}"))
         return out
 
