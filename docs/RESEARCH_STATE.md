@@ -427,7 +427,17 @@ $500k capital. Deployed at $751,463 gross, long $375,678 / short $375,784,
 **Scheduler:** `ops/schedule/run_cef.sh` + `cef.env` at RUNG-2, plist rendered to
 `ops/schedule/rendered/com.quantt.cef.daily.plist`, weekdays 17:15 local. The
 runner refreshes price AND NAV first and **aborts rather than trading if the
-refresh fails** — a stale NAV silently turns this signal into noise.
+refresh fails** — a stale NAV silently turns this signal into noise. Since
+2026-09-08 it also **waits for the day's NAV** (`scripts/cef/wait_for_nav.py`,
+deadline 21:30) and requires today's pair complete before deciding; see
+`docs/INFRASTRUCTURE.md` §6.1. Every session before that date decided on the
+previous day's pair.
+
+**2026-09-08:** band HOLD targets qty-expressed; dust orders eliminated; not a
+trial — 12 orders/session of share-rounding drift on names the band had told us
+to leave alone, $3,019 gross, ~$14.91/session = 0.75%/yr of the book and 1.52x/yr
+of phantom turnover against the band's pre-registered 17.6x readout;
+`min_trade_usd = 517` added as a backstop (`results/cef/DUST_ORDERS_2026-09.md`).
 
 ---
 

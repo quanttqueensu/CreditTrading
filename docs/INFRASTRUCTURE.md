@@ -403,13 +403,27 @@ exists.
 | Job | Schedule | Function |
 |---|---|---|
 | com.quantt.phase0.daily | 09:35 Mon–Fri | Null trader control experiment |
-| com.quantt.cef.daily | 17:15 Mon–Fri | CEF strategy, MOC for the next close |
+| com.quantt.cef.daily | 17:15 Mon–Fri, decides once the day's NAV is published (deadline 21:30) | CEF strategy, MOC for the next close |
 | com.quantt.collect.daily | 18:30 Mon–Fri | Data collection |
 | com.quantt.watchdog.daily | 19:30 Mon–Fri | Alerts on any job that did not run |
 | com.quantt.weekly | Sat 09:00 | Book roll-up report |
 
 All five execute a single file,
 `~/Library/Application Support/quantt/launch_job.py`.
+
+**Same-day NAV (2026-09-08).** The CEF signal is price minus NAV, inner-joined
+on date, and sponsors publish the day's NAV after 17:15. Until 2026-09-08 the
+session decided at 17:15 on the last *complete* pair — yesterday's — one day
+behind the backtest's convention (decide on the pair at t, fill at t+1), and
+the cause of the "dust" orders (the band judged held weights on yesterday's
+prices while the executor sized on today's). The job now fires at 17:15 and
+runs `scripts/cef/wait_for_nav.py`, which polls yfinance (the panel's source)
+and CEFConnect for every deployed name until today's NAV is on both halves of
+the pair; `fetch_daily.py --require-asof` then proves the pair complete (filling
+a yfinance gap from CEFConnect's dated row, logged to
+`data/cef/nav_fallback_log.csv`) or the session **stands down and alerts**. It
+never decides on a lagged pair. `NAV_DEADLINE` / `NAV_POLL_SECONDS` live in
+`cef.env`; the keep-awake agent now holds the machine to 22:30.
 
 ### 6.2 The TCC constraint
 

@@ -1,23 +1,22 @@
 {
   "version": 1,
-  "written_utc": "2026-07-31T21:33:07.930882+00:00",
-  "rebuilt_from": "broker executions (ops/rebuild_ledger.py)",
+  "written_utc": "2026-09-08T13:35:18.090350+00:00",
   "files": {
     "orders.csv": {
-      "rows": 14,
+      "rows": 378,
       "last_date": null
     },
     "trades.csv": {
-      "rows": 13,
+      "rows": 220,
       "last_date": null
     },
     "positions.csv": {
-      "rows": 14,
-      "last_date": "2026-07-31"
+      "rows": 353,
+      "last_date": "2026-09-08"
     },
     "nav.csv": {
-      "rows": 2,
-      "last_date": "2026-07-31"
+      "rows": 28,
+      "last_date": "2026-09-08"
     }
   }
 }

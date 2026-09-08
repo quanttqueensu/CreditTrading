@@ -1,19 +1,19 @@
 {
-  "asof": "2026-09-03",
-  "book_nav": 0.0,
+  "asof": "2026-09-08",
+  "book_nav": 500000.0,
   "book_pnl": 0.0,
-  "book_cash": 0.0,
-  "gross_exposure": 0.0,
-  "net_exposure": 0.0,
+  "book_cash": 484965.26076984406,
+  "gross_exposure": 813681.6011552811,
+  "net_exposure": 15034.739230155967,
   "book_turnover": 0.0,
   "sleeves": {
     "cef_discount": {
-      "nav": NaN,
+      "nav": 500000.0,
       "pnl": 0.0,
-      "cash": 0.0,
+      "cash": 484965.26076984406,
       "capital_usd": 500000.0,
-      "gross_exposure": 0.0,
-      "net_exposure": 0.0,
+      "gross_exposure": 813681.6011552811,
+      "net_exposure": 15034.739230155967,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -29,8 +29,14 @@
   "limits": {
     "max_gross_exposure_usd": {
       "ok": true,
-      "value": 0.0,
+      "value": 813681.6011552811,
       "cap": 1300000.0,
+      "action": null
+    },
+    "book_drawdown_suspend_pct": {
+      "ok": true,
+      "value": 0.0,
+      "cap": -0.99,
       "action": null
     },
     "per_sleeve_capital_band": {

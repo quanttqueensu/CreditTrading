@@ -352,6 +352,10 @@ class IBKRBroker(Broker):
         self._sleeves[sleeve_name] = {"alloc_type": alloc_type,
                                       "instruments": list(instruments),
                                       "capital_usd": float(capital_usd),
+                                      # kept so place_targets can read the same
+                                      # rebalance.min_trade_usd the sub-ledger
+                                      # already honours (2026-09-08)
+                                      "spec": spec,
                                       "mark_fn": mark_fn, "greeks_fn": greeks_fn}
         # Wire the matching shadow sub-ledger (idempotent; reloads on-disk state).
         self._shadow().register_sleeve(
@@ -989,12 +993,40 @@ class IBKRBroker(Broker):
                 pt_by_inst.setdefault(
                     inst, PositionTarget(instrument=inst, side=FLAT, qty=0.0))
 
+        # MINIMUM TRADE. The same `rebalance.min_trade_usd` the sub-ledger has
+        # always read (exec_ledger._make_orders), applied here so the LIVE path
+        # cannot send an order the shadow path would have dropped. It is belt
+        # and braces, not the fix: the CEF band's dust orders were cured at
+        # source by expressing a HOLD in shares (2026-09-08). This catches the
+        # next small order from a path nobody has thought about yet, and every
+        # skip is printed with the ticker, delta and notional — never silent.
+        min_trade = float((self._sleeves.get(sleeve_name, {}).get("spec") or {})
+                          .get("rebalance", {}).get("min_trade_usd", 0.0))
+
         combos, singles = {}, []
         for inst, tqty in desired.items():
             delta = float(tqty) - float(held.get(inst, 0.0))
             if abs(delta) < 1e-9:
                 continue
             pt = pt_by_inst[inst]
+            # Never applied to an option leg (no local close; the short-vol
+            # sleeve sizes in contracts and a dropped leg is a naked position),
+            # to a combo leg (the legs fill atomically — dropping one is worse
+            # than a small trade), or to a bond leg (priced per 100 par against
+            # a $1k face unit, so |delta| x price is not its notional). An
+            # unpriceable leg is not filtered either: a missing close is a
+            # reason to know nothing, not a reason to call the trade small.
+            if (min_trade > 0 and pt.kind != OPTION and pt.combo_id is None
+                    and not self._is_bond(pt)):
+                px = self._last_close(getattr(market_state, "prices", None),
+                                      inst, asof)
+                mult = float((pt.meta or {}).get("multiplier", 1.0)) or 1.0
+                if px is not None and abs(delta) * px * mult < min_trade:
+                    print(f"[ibkr] {asof.date()} {sleeve_name}: SKIP {inst} "
+                          f"{delta:+.0f} @ {px:.2f} = "
+                          f"${abs(delta) * px * mult:,.0f} < min_trade_usd "
+                          f"${min_trade:,.0f}; no order sent")
+                    continue
             # Bond legs are never BAG combo legs (recon §4) — always singles.
             if pt.combo_id is not None and not self._is_bond(pt):
                 combos.setdefault(pt.combo_id, []).append((pt, delta))

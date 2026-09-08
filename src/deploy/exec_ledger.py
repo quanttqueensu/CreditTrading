@@ -48,19 +48,37 @@ TRADING_DAYS = ops_common.TRADING_DAYS
 # ===========================================================================
 
 def _target_shares_for(pt: PositionTarget, price, nav_today) -> float:
-    """Absolute target share count a long-only PositionTarget implies.
+    """SIGNED target share count a PositionTarget implies for this ledger.
 
-    FLAT -> 0. qty-expressed -> floor(|qty|) (whole shares). weight-expressed
-    -> floor(nav_today * weight / price), the same sizing the ops ledger uses
-    for a static weight. Long-only, so the result is always >= 0.
+    FLAT -> 0. qty-expressed -> floor(signed qty). weight-expressed ->
+    floor(nav_today * weight / price), the same sizing the ops ledger uses for
+    a static weight. `weight` is already signed, so both branches carry the
+    side's sign and `floor` rounds a short AWAY from zero exactly as it always
+    has for a negative weight.
+
+    THE SIGN IS NOT COSMETIC. This ledger backs every sleeve that is not in
+    DERIVATIVES_TYPES, and that includes the dollar-neutral CEF book: its
+    shadow positions.csv holds negative share counts, produced by this
+    function's weight branch. Returning floor(|qty|) here — as it did until
+    2026-09-08, when no sleeve had ever handed it a SHORT qty target — would
+    have read the CEF band's qty-expressed HOLD of -5,862 MHD as a target of
+    +5,862 and written an order to buy 11,724 shares to "hold" the position.
+    A LONG qty target is unaffected: floor(|q|) == floor(q) for q >= 0.
+
+    A qty target is NOT priced. Only the weight branch needs a close, and a
+    qty target that consulted one would inherit the very price round trip the
+    CEF band's HOLD targets exist to avoid: an unpriced held name would read
+    as a target of 0, i.e. "sell all of it". `_make_orders` still writes no
+    order for a name it cannot price — loudly — so the flatten never reached
+    the tape, but the intent recorded here must be the position, not zero.
     """
     if pt.side == FLAT:
         return 0.0
-    if not np.isfinite(price) or price <= 0:
-        return 0.0
     if pt.qty is not None:
-        return float(math.floor(abs(float(pt.qty))))
+        return float(math.floor(pt.signed_qty()))
     if pt.weight is not None:
+        if not np.isfinite(price) or price <= 0:
+            return 0.0
         return float(math.floor(nav_today * float(pt.weight) / price))
     return 0.0
 
@@ -103,6 +121,16 @@ class LongOnlySleeveLedger(Ledger):
             target_shares = float(desired[t])
             current = float(shares.get(t, 0.0))
             delta = target_shares - current
+            # An unchanged position is not an order. The derivatives ledger has
+            # always had this guard; this one did not, so a book that held its
+            # target wrote a zero-share ORDER row that the fill path then marked
+            # "skipped" (11 of them, plus 2 left "open", in the pre-epoch CEF
+            # ledger). Harmless to P&L — it never became a trade — but it is a
+            # phantom order in the count that the band's pre-registered turnover
+            # readout is built from. Added 2026-09-08 with the dust-order fix,
+            # whose whole point is that a HOLD leaves no trace anywhere.
+            if abs(delta) < 1e-9:
+                continue
             if abs(delta * price) < min_trade:
                 continue
             rows.append({"decision_date": d, "ticker": t,

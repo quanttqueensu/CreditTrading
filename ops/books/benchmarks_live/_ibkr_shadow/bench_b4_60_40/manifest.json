@@ -18,5 +18,10 @@
       "rows": 0,
       "last_date": null
     }
-  }
+  },
+  "epoch": "2026-09-08",
+  "epoch_nav": 20000.0,
+  "epoch_reason": "pre-epoch ledger booked 22 sessions of fills the account never made (broker port misconfigured 2026-08-03..2026-09-03); archived, not deleted",
+  "epoch_archive": "_pre_epoch_bench_b4_60_40_20260907_161916",
+  "epoch_written_utc": "20260907_161916"
 }

@@ -154,10 +154,29 @@ class PortfolioOrchestrator:
             prices = self.price_loader(sleeve.instruments(), asof,
                                        sleeve.history_warmup_trading_days())
             holdings = self.broker.sync_positions(name)
+            # Sleeve NAV, passed through so a sleeve can express a decision in
+            # WEIGHT space against what it actually holds. Added 2026-09-06 for
+            # the CEF no-trade band, which must compare a target weight to a
+            # held weight; without this a sleeve can only see signed QUANTITIES
+            # and would have to guess a denominator.
+            #
+            # It is deliberately the SAME quantity the broker sizes targets with
+            # (`IBKRBroker._sleeve_nav`: the shadow sub-ledger's marked NAV,
+            # falling back to registered capital). A band computed against a
+            # different denominator than the one used to convert its own output
+            # into shares would be quietly miscalibrated by the book's P&L.
+            extras = {}
+            if hasattr(self.broker, "ledger"):
+                lg = self.broker.ledger(name)
+                if lg is not None and not lg.nav.empty:
+                    nav_i = float(lg.nav_series().iloc[-1])
+                    if nav_i > 0:
+                        extras["sleeve_nav"] = nav_i
+            extras.setdefault("sleeve_nav", float(self.capital.get(name, 0.0)))
             ms = MarketState(asof=asof, prices=prices, holdings=holdings,
                              mark_fn=self.mark_fns.get(name),
                              greeks_fn=self.greeks_fns.get(name),
-                             events=self.events)
+                             events=self.events, extras=extras)
 
             # A killed sleeve keeps advancing FLAT until its position is wound
             # down (the exit order fills T+1 like any other), then goes quiet.

@@ -24,17 +24,29 @@ if ! "$PY" "$CAL" --check "$TODAY" >> "$LOG" 2>&1; then
   stamp "not an NYSE trading day — skip"; exit 0
 fi
 
+# Same-day NAV (2026-09-08): sponsors publish after 17:15, so the session waits
+# for today's NAV on every deployed name and then REQUIRES the pair complete.
+# Standing down beats deciding on yesterday's discounts -- an MOC placed at
+# 20:00 fills in the same auction as one placed at 17:15. Mirrors launch_job.py,
+# which is what launchd actually runs; this script is for manual use.
+stamp "waiting for today's NAV (deadline ${NAV_DEADLINE:-21:30})"
+"$PY" "$REPO/scripts/cef/wait_for_nav.py" --asof "$TODAY" \
+    --deadline "${NAV_DEADLINE:-21:30}" --interval "${NAV_POLL_SECONDS:-600}" \
+    --book "$BOOK" >> "$LOG" 2>&1
+wrc=$?
 stamp "refreshing CEF price + NAV"
-if ! "$PY" "$REPO/scripts/cef/fetch_daily.py" >> "$LOG" 2>&1; then
+"$PY" "$REPO/scripts/cef/fetch_daily.py" --require-asof "$TODAY" \
+    --nav-fallback cefconnect --book "$BOOK" >> "$LOG" 2>&1
+rrc=$?
+if [ $wrc -ne 0 ] && [ $wrc -ne 3 ]; then
+  stamp "TODAY'S NAV NOT PUBLISHED by ${NAV_DEADLINE:-21:30} — standing down"; exit 1
+fi
+if [ $rrc -eq 4 ]; then
+  stamp "TODAY'S PAIR INCOMPLETE — standing down, will not trade on a lagged pair"; exit 1
+elif [ $rrc -ne 0 ]; then
   stamp "DATA REFRESH FAILED — aborting, will not trade on stale NAV"; exit 1
 fi
 
-# Fires after the US close, so TODAY is the right as-of: today's close and NAV
-# are both published by 17:15 ET. If the NAV has not landed yet the panel simply
-# has no row for today (price and NAV are inner-joined on date) and the sleeve
-# falls back to the last complete pair on its own. Do NOT substitute a flag the
-# calendar does not implement -- an unrecognised flag exits non-zero and the
-# fallback would silently pick a date nobody chose.
 ASOF="$TODAY"
 ARGS=(--asof "$ASOF" --book "$BOOK" --source yfinance)
 

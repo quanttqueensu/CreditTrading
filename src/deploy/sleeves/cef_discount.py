@@ -32,6 +32,7 @@ dropped for the day rather than traded.
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +65,24 @@ class CEFDiscountSleeve(Sleeve):
     @property
     def _vol_target(self) -> float:
         return float(self.frozen.get("vol_target_annual", 0.06))
+
+    @property
+    def _band_width(self) -> "float | None":
+        """No-trade band half-width, in weight units. ABSENT MEANS OFF.
+
+        When set, this REPLACES the `rebalance_days` calendar: the signal is
+        computed every session and a position is left alone unless it is more
+        than `band_width` from its target, in which case it is traded back to
+        the BAND EDGE -- not to target. Constantinides (1986), Davis & Norman
+        (1990): under proportional cost the optimal policy is a band, and the
+        boundary is where you stop, not where you aim.
+
+        Absent, this sleeve behaves exactly as before. That is deliberate --
+        the code change alone must be a no-op, so that turning the policy on is
+        a single visible edit to the frozen spec and nothing else.
+        """
+        v = self.frozen.get("band_width")
+        return None if v in (None, "") else float(v)
 
     @property
     def _rebal_days(self) -> int:
@@ -138,7 +157,13 @@ class CEFDiscountSleeve(Sleeve):
         # different things. Measured net Sharpe under real (MOC, T+1) execution:
         # hold=1 0.62, hold=2 0.73, hold=5 0.51, hold=21 0.20.
         pos = len(z.index) - 1
-        sig_pos = pos - (pos % self._rebal_days)
+        # A band and a calendar are two answers to the same question, and running
+        # both would compound them: the calendar would freeze the signal for k
+        # days and the band would then refuse to close the gap it had just let
+        # open. Under a band the signal is recomputed every session; the band
+        # alone decides whether anything trades.
+        band_w = self._band_width
+        sig_pos = pos if band_w is not None else pos - (pos % self._rebal_days)
         last = z.index[sig_pos]
         max_age = int(self.frozen.get("max_nav_age_bd", 3))
         row, dropped = {}, []
@@ -186,9 +211,112 @@ class CEFDiscountSleeve(Sleeve):
                 w = keep / denom * scal * float(
                     self.frozen.get("gross_leverage", 1.0))
 
+        # ---- NO-TRADE BAND ---------------------------------------------------
+        # Applied HERE and not earlier: the min-weight block above re-neutralises
+        # and re-normalises to unit gross, which would silently undo the band.
+        #
+        # Policy (Constantinides 1986; Davis & Norman 1990): hold unless a name
+        # is more than `band_width` from target, then trade back to the BAND
+        # EDGE, not to target. Measured over 5,452 sessions the band dominates
+        # the rebalance calendar at every width tested AND at matched turnover
+        # -- net Sharpe 0.33 -> 0.66 at 15bp on 43% less trading -- because a
+        # calendar's information loss compounds with its interval while a band
+        # only ever discards small moves. See docs/PLAN.md Part 2.
+        #
+        # THE COMPARISON IS AGAINST WHAT WE ACTUALLY HOLD, not against a stored
+        # previous target. That is the deliberate difference from the backtest,
+        # which has no failed fills. It makes the policy self-correcting: if a
+        # session does not arm, or an order does not fill, the real position
+        # simply sits further from target and the band closes it on a later day
+        # rather than the sleeve believing in a book it never got.
+        band_w = self._band_width
+        band_note = {}
+        held_q = {}          # ticker -> signed held qty, for the HOLD targets below
+        if band_w is not None:
+            nav_now = float((getattr(market_state, "extras", None) or {})
+                            .get("sleeve_nav", 0.0))
+            if nav_now <= 0:
+                # No denominator, no band. Refusing is correct: sizing the band
+                # off a guessed NAV would move real money on an invented number.
+                return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                       reason="cef: band on but sleeve NAV unknown")
+                        for t in uni]
+            holds = getattr(market_state, "holdings", None) or {}
+            held_w = {}
+            for tk in uni:
+                q = float(holds.get(tk, 0.0) or 0.0)
+                pr = float(px[tk].iloc[-1]) if tk in px.columns else float("nan")
+                if q and np.isfinite(pr) and pr > 0:
+                    held_w[tk] = q * pr / nav_now
+                    held_q[tk] = q
+            banded = {}
+            for tk in set(w.index) | set(held_w):
+                tgt = float(w.get(tk, 0.0))
+                cur = float(held_w.get(tk, 0.0))
+                gap = tgt - cur
+                if abs(gap) > band_w:
+                    banded[tk] = tgt - math.copysign(band_w, gap)   # to the EDGE
+                    band_note[tk] = "trade"
+                else:
+                    banded[tk] = cur                                # leave alone
+                    band_note[tk] = "hold"
+            w = pd.Series(banded)
+
         out = []
         for tk in uni:
             wt = float(w.get(tk, 0.0))
+            # A banded HOLD must survive the min-weight filter, or a small held
+            # position would be flattened by the very rule that decided not to
+            # trade it -- turning "leave it alone" into "sell all of it".
+            #
+            # A HOLD IS EXPRESSED IN SHARES, NOT IN WEIGHT (fixed 2026-09-08,
+            # results/cef/DUST_ORDERS_2026-09.md). "Leave it alone" is a
+            # statement about the position, and only a share count says it
+            # exactly. Emitting the held WEIGHT instead sent the decision on a
+            # round trip through two different prices: the band computes
+            # cur = q * px[-1] / nav from the last close in the SIGNAL panel,
+            # and the executor converts that weight back with
+            # floor(nav * |w| / price) using the close it reads on the SIZING
+            # date -- routinely one session newer, because price and NAV are
+            # inner-joined and a fund's NAV publishes later than its close.
+            # Different price, different floor, and a name the band told us to
+            # leave alone emitted a few shares of rounding drift as a live MOC
+            # order. Measured on the 2026-09-03 signal sized off the 09-04
+            # close: 12 orders, $3,019 gross, ~$15/session in commission and
+            # half-spread = ~0.75%/yr of a $500k book against a policy whose
+            # whole expectation is ~2.3%/yr -- and every one of them counted as
+            # turnover against the band's pre-registered primary readout.
+            #
+            # Expressed as qty the executor's diff is EXACTLY zero whatever
+            # close it sizes on (`_resolve_qty` / `_target_shares_for` return a
+            # qty target unchanged, never touching a price), which is the only
+            # tolerance that is honest here: any tolerance in shares would be a
+            # threshold below which we still trade.
+            if band_note.get(tk) == "hold" and wt != 0.0:
+                q = float(held_q.get(tk, 0.0))
+                if q == 0.0:
+                    # Cannot happen: wt != 0 for a HOLD means banded[tk] = cur =
+                    # q*pr/nav_now was non-zero, so q was non-zero. Raise rather
+                    # than emit a zero qty, which the executor would read as
+                    # "sell the whole position" -- the exact opposite of a hold.
+                    raise ValueError(
+                        f"cef band HOLD for {tk} carries weight {wt:+.6f} but no "
+                        f"held quantity; refusing to emit a zero-qty target")
+                out.append(PositionTarget(
+                    instrument=tk, side=LONG if q > 0 else SHORT, kind=ETF,
+                    qty=q,
+                    meta={"order_type": str(
+                        self.frozen.get("order_type", "MOC")).upper()},
+                    reason=f"cef band hold: |gap|<={band_w:.4f} w={wt:+.4f}"))
+                continue
+            # KNOWN INTERACTION, band mode: if the band EDGE lands inside
+            # min_abs_weight the dust filter flattens the name instead, which
+            # trades slightly more than the band asked for and lands outside the
+            # band. The window is narrow (|edge| < min_abs_weight) and going flat
+            # rather than holding a few hundred dollars of a $4 fund is the
+            # behaviour we want, so the filter deliberately wins. Worth knowing
+            # that it is a small, bounded divergence from the backtested policy,
+            # which models no minimum weight at all.
             if abs(wt) < minw:
                 why = dict(dropped).get(tk, "below min weight")
                 out.append(PositionTarget(instrument=tk, side=FLAT, kind=ETF,

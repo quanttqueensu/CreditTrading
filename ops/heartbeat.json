@@ -1,26 +1,24 @@
 {
   "cef": {
-    "status": "ok",
-    "at": "2026-09-04 17:58:31",
-    "date": "2026-09-04",
-    "detail": {
-      "armed": true,
-      "rc": 0,
-      "blockers": []
-    }
+    "status": "skipped_non_trading_day",
+    "at": "2026-09-07 17:15:06",
+    "date": "2026-09-07",
+    "detail": {}
   },
   "watchdog": {
-    "status": "ok",
-    "at": "2026-09-04 19:30:06",
-    "date": "2026-09-04",
+    "status": "stale",
+    "at": "2026-09-08 07:10:09",
+    "date": "2026-09-08",
     "detail": {
-      "stale": []
+      "stale": [
+        "broker: 127.0.0.1:4002 does not answer the API (ConnectionError('Socket disconnect')) \u2014 no book can trade"
+      ]
     }
   },
   "collect": {
     "status": "ok",
-    "at": "2026-09-04 19:13:20",
-    "date": "2026-09-04",
+    "at": "2026-09-07 19:02:53",
+    "date": "2026-09-07",
     "detail": {
       "failed": []
     }
@@ -34,25 +32,19 @@
     }
   },
   "phase0": {
-    "status": "ok_not_armed",
-    "at": "2026-09-04 09:49:15",
-    "date": "2026-09-04",
-    "detail": {
-      "armed": false,
-      "rc": 0,
-      "blockers": [
-        "[FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login \u2014 start it, or let the session run collect-only."
-      ]
-    }
-  },
-  "benchmarks": {
     "status": "ok",
-    "at": "2026-09-04 17:58:31",
-    "date": "2026-09-04",
+    "at": "2026-09-08 09:35:19",
+    "date": "2026-09-08",
     "detail": {
       "armed": true,
       "rc": 0,
       "blockers": []
     }
+  },
+  "benchmarks": {
+    "status": "skipped_non_trading_day",
+    "at": "2026-09-07 17:25:05",
+    "date": "2026-09-07",
+    "detail": {}
   }
 }

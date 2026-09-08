@@ -1,0 +1,3 @@
+recorded_utc,fill_date,instrument,side,qty,price,source,note
+2026-08-31T22:16:33.727037+00:00,2026-08-31,HYG,SELL,1.0,79.71,ibkr_paper,execId=00012ec5.6b077c20.01.01 orderRef='' commission=0.79894 time=2026-08-31 22:16:31+00:00
+2026-09-01T21:22:15.537871+00:00,2026-09-01,HYG,BUY,3.0,79.1,ibkr_paper,execId=00012ec5.6b1249b5.01.01 orderRef='' commission=1.000009 time=2026-09-01 21:22:13+00:00
