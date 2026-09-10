@@ -452,12 +452,43 @@ Capture read at `13:43:09–13:43:10Z` and saw **60**.
     python3 -c "import json,collections;s=json.load(open('results/ops/BROKER_SNAPSHOT_2026-09-10.json'));e=s['executions_this_tws_session'];d=collections.defaultdict(list);[d[x['symbol']].append(x['time']) for x in e];[print(k,len(v),min(v)[11:19],max(v)[11:19]) for k,v in sorted(d.items())]"
     python3 -c "import pandas as pd;b=pd.read_csv('ops/books/phase0_live/_ibkr_shadow/null_trader/broker_fills.csv');t=b[b.fill_date.astype(str)=='2026-09-10'];print(len(t));print(t.groupby('instrument').size())"
 
+> **⚠ §3.7 IS STALE — CORRECTED 2026-09-10 evening.** The table above and
+> consequence 1 below were true when this note was written at **11:50:48** and
+> stopped being true at **12:08:09**, when something re-ran capture and
+> backfilled the missing 512. `broker_fills.csv` now holds **572 of 572** for
+> 2026-09-10, matching the broker's per-symbol counts exactly — USHY 33, SPHY
+> 18, SHYG 16, VCIT 18, IGSB 3, VCSH 42, BKLN 25, SRLN 241, SJNK 176. **The
+> "never will" in consequence 1 did not survive eighteen minutes.** The command
+> this section itself prints returns 572; run it before quoting the table.
+>
+> **Consequence 2 was right, and the corrected number is worse.** With all nine
+> symbols now costed, 2026-09-10 for `null_trader` reads:
+>
+> | convention | realised | modelled | ratio |
+> |---|---:|---:|---:|
+> | simple mean — what `ops/capture_fills.py` and the dashboard actually print | **+8.03bp** | +3.67bp | **2.19×** |
+> | volume-weighted — what kill rule (b) is written against | **+7.83bp** | +3.92bp | **2.00×** |
+>
+> against the **1.13×** the session logged from the partial 60-execution sample.
+> The bias argued for below was real and in the direction claimed.
+>
+> **Kill rule (b) does NOT trip on this.** It requires **5 consecutive**
+> sessions above 2.0×, and `null_trader`'s `slippage.csv` has rows for exactly
+> **two** dates ever — 2026-07-31 and 2026-09-10. It is also `phase0`, not the
+> $500k CEF book. Recorded because one session at 2.0–2.2× is the first of five,
+> not because anything trips today.
+>
+> Reproduce:
+> `python3 -c "import pandas as pd;d=pd.read_csv('ops/books/phase0_live/_ibkr_shadow/null_trader/slippage.csv');d=d[d.fill_date.astype(str)=='2026-09-10'];w=d.real_qty.abs();print('simple',d.realised_bp.mean()/d.modelled_bp.mean());print('vw',(d.realised_bp*w).sum()/w.sum()/((d.modelled_bp*w).sum()/w.sum()))"`
+
 Three consequences:
 
-1. **`broker_fills.csv` is not the fill record it is documented to be.** Its own
-   docstring (`ops/capture_fills.py`) exists because "a fill not captured today is
-   gone" — TWS discards executions at its daily restart. Six of the nine symbols
-   that traded today have **no** record of it anywhere, and never will.
+1. ~~**`broker_fills.csv` is not the fill record it is documented to be.**~~
+   **SUPERSEDED — see the banner immediately above.** Its own docstring
+   (`ops/capture_fills.py`) exists because "a fill not captured today is gone" —
+   TWS discards executions at its daily restart. That risk is real and the
+   partial capture at 09:43 was real; but the 12:08 re-run caught all of it, so
+   no execution from 2026-09-10 was lost.
 2. **Kill rule (b) is being evaluated on a biased sample.** The `1.13x` printed
    above is computed from 16 matched fills — **2.8% of the day's 572 executions**
    — and not a random 2.8%: it is precisely the executions that completed within
@@ -844,3 +875,72 @@ against `_attribution.json`, (c) the `nav = cash + invested` residual per row, a
 symbol, and `null_trader/trades.csv` filtered to `fill_date == 2026-09-10`.
 
 Single-command checks used above are quoted inline in §1.1, §1.2, §3.2 and §7.
+
+---
+
+## Addendum 2026-09-10 evening — the two dollar figures that did not reconcile
+
+Both are now settled, from the read-only 11:35 snapshot plus the phase0
+ledger's own 2026-09-10 closes (the marks the halt file uses). `[V]`
+
+**1. `$260,515.10` vs `$260,418.10` — the difference is exactly `$97.00`, and it
+is AGG.** This note carries both figures four lines apart in the same headline
+paragraph (§ at :28 and :32) and explains neither; it explains a *different*
+$433 gap against a third figure instead. AGG diverges by **1 share** and is
+**unpriced in the phase0 ledger's marks**, so a total built from those marks
+omits it ($260,418.10) and one that prices it from elsewhere includes it
+($260,515.10). Both are right. Neither said why.
+
+**2. `$2,078.32` for "10 others" is WRONG. The figure is `$1,786.32`.**
+Recomputed per symbol:
+
+| sym | gap (ledger−broker) | mark | $ |
+|---|---:|---:|---:|
+| BKLN | −12 | 20.5750 | 246.90 |
+| USHY | +11 | 36.4112 | 400.52 |
+| VCIT | −6 | 79.9400 | 479.64 |
+| SHYG | −4 | 41.8350 | 167.34 |
+| SRLN | +4 | 40.5150 | 162.06 |
+| IGSB | −2 | 51.6650 | 103.33 |
+| SPHY | +2 | 23.0302 | 46.06 |
+| VCSH | +2 | 77.9199 | 155.84 |
+| SJNK | −1 | 24.6250 | 24.62 |
+| AGG | +1 | **unpriced** | — |
+| | | **total** | **1,786.32** |
+
+`258,631.78 + 1,786.32 = 260,418.10`, which is the gross this note and
+`~/prod/QUANTT/ops/HALT_phase0_null.md:100` both state. **`258,631.78 +
+2,078.32 = 260,710.10`, which appears nowhere.** So the halt file's own
+arithmetic does not close, by exactly `$292.00`, and `$2,078.32` reproduces
+from no file. It is not averaged with anything and not silently replaced —
+`$1,786.32` is used because it is the one that reconciles the stated total.
+
+Reproduce:
+
+```bash
+python3 - <<'PY'
+import json, pandas as pd, pathlib
+snap=json.load(open("results/ops/BROKER_SNAPSHOT_2026-09-10.json"))
+bro={p["symbol"]: float(p["position"]) for p in snap["positions_account_net"]}
+led={}
+for f in sorted(pathlib.Path("ops/books").glob("*_live/_ibkr_shadow/*/positions.csv")):
+    if f.parts[4].startswith("_"): continue
+    d=pd.read_csv(f); last=d[d["date"].astype(str)==sorted(d["date"].astype(str))[-1]]
+    for _,r in last.iterrows():
+        if str(r["ticker"])!="CASH": led[str(r["ticker"])]=led.get(str(r["ticker"]),0.)+float(r["shares"])
+p=pd.read_csv("ops/books/phase0_live/_ibkr_shadow/null_trader/positions.csv")
+mk={str(r["ticker"]):float(r["close"]) for _,r in p[p["date"].astype(str)=="2026-09-10"].iterrows()}
+top5={"JAAA","LQD","HYG","JNK","EMB"}
+gaps=[(s, led.get(s,0.)-bro.get(s,0.)) for s in sorted(set(bro)|set(led))]
+gaps=[(s,g) for s,g in gaps if abs(g)>1e-6]
+print("top5 ", round(sum(abs(g)*mk[s] for s,g in gaps if s in top5 and s in mk),2))
+print("others", round(sum(abs(g)*mk[s] for s,g in gaps if s not in top5 and s in mk),2))
+PY
+```
+
+**3. Sign convention, undisclosed in three of four documents.** This note states
+its convention (`ledger − broker`, :204-206). `HALT_PHASE0_ATTRIBUTION`,
+`~/prod/QUANTT/ops/HALT_phase0_null.md` and `ops/reconcile_orders.py:202` all
+use **`broker − ledger`** and say so nowhere. Same magnitudes, opposite signs,
+four documents, two conventions, one disclosure. Read the sign off the
+`which way it is wrong` column, never off the number.
