@@ -1,0 +1,52 @@
+raw universe 44 CEFs, 1998-10-29 -> 2026-09-09
+
+====================================================================================
+1. POINT-IN-TIME UNIVERSE (no hindsight on survival or liquidity)
+====================================================================================
+  eligible funds per day: min 1  median 8  max 25
+  gross Sharpe 0.94   net Sharpe 0.51   vol 6.04%
+  CAGR 2.93%   maxDD -14.3%
+  by era:
+    2005-2009: gross -0.18  net -0.30  universe  2.6 funds
+    2010-2014: gross  1.26  net  0.96  universe  6.3 funds
+    2015-2019: gross  0.89  net  0.39  universe  9.3 funds
+    2020-2022: gross  1.74  net  1.07  universe 11.8 funds
+    2023-2026: gross  0.83  net  0.26  universe 12.3 funds
+
+====================================================================================
+2. PURGED WALK-FORWARD (10 blocks, 5d embargo either side)
+====================================================================================
+  2007-03-14..2009-04-28       536   -0.45  ----
+  2009-05-13..2011-06-27       536    1.11  +++++++++++
+  2011-07-13..2013-08-28       536    0.55  +++++
+  2013-09-13..2015-10-28       536    0.94  +++++++++
+  2015-11-12..2017-12-27       535    0.63  ++++++
+  2018-01-12..2020-02-28       535   -0.30  ---
+  2020-03-16..2022-04-27       535    1.02  ++++++++++
+  2022-05-12..2024-06-28       535    0.99  +++++++++
+  2024-07-16..2026-09-09       540    0.34  +++
+  7/9 blocks positive, median 0.63, worst -0.45
+
+====================================================================================
+3. BLOCK BOOTSTRAP (5,000 draws, 21-day blocks)
+====================================================================================
+  observed net Sharpe   0.51
+  bootstrap mean        0.49
+  5th / 95th pct        0.20 / 0.79
+  P(Sharpe <= 0)        0.300%
+
+====================================================================================
+4. DEFLATED SHARPE (haircut for 48 specs tried on this source)
+====================================================================================
+  observed Sharpe 0.51   null best-of-48 0.60   skew +2.03  kurt 44.7
+  ^ the observed Sharpe is BELOW the best-of-48 null. On this many trials a no-edge source is expected to throw up a 0.60; we measured 0.51.
+  trials N = 48 (from --trials)   deflated-Sharpe bar sqrt(2 ln N) = 2.783
+  DEFLATED SHARPE RATIO (prob the edge is real): 0.333   FAIL
+  ^ this verdict is AT N=48. It is not a property of the edge alone. The same series at other counts:
+      N=10    bar 2.146   DSR 0.588   FAIL
+      N=48    bar 2.783   DSR 0.333   FAIL  <- as run
+      N=49    bar 2.790   DSR 0.330   FAIL
+      N=162   bar 3.190   DSR 0.197   FAIL
+  Quote N whenever you quote the verdict.
+
+wrote /Users/simonjarvis/Desktop/2027/QUANTT/2027/results/cef/cef_validated_daily.parquet

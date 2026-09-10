@@ -25,6 +25,26 @@ EXECUTION CONVENTION. Everything below is scored at shift(2): decide at t, MOC
 fill at t+1's close, earn the t+2 return. See EXEC_LAG. This file scored shift(1)
 from the day it was written until 2026-09-10, which is an unobtainable entry
 price -- the signal needs t's NAV and the fund publishes that after t's close.
+
+WHERE THE RESULTS GO. This script PRINTS sections 1-4 and persists only
+cef_validated_daily.parquet, so until 2026-09-10 no run of this battery had ever
+left a record: every walk-forward and deflated-Sharpe figure in the repo existed
+as prose transcribed by hand into a document, which is how "9/9 blocks positive"
+outlived its own reproduction in five files. The correcting run is stored, with
+all three measurements verbatim and the band_frontier control beside it:
+
+    results/cef/EXECUTION_CONVENTION_2026-09-10.md    the record and what it means
+    results/cef/runs/validate_2026-09-10_*.txt        raw stdout, A/B/C
+    results/cef/runs/band_frontier_2026-09-10_*.txt   the untouched control
+
+If you re-run this battery and the numbers move, ADD a dated file there rather
+than editing that one -- it records what was measured on its date, the way
+ops/specs/*.frozen.json records what was believed on its.
+
+WHAT THIS SCRIPT DOES NOT MEASURE. HOLD = 5 below: this is a 5-day-hold CALENDAR
+sleeve, RETIRED 2026-09-06. The deployed policy is band 4.8% and it is scored by
+band_frontier.py, not here. The band has never been walk-forwarded, bootstrapped
+or deflated by anything. Do not quote a number from this file as the live book's.
 """
 from __future__ import annotations
 
