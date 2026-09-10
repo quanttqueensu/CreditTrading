@@ -45,12 +45,55 @@ TODAY="$(date +%Y-%m-%d)"
 HHMM="$(date +%H%M)"
 
 # 1. session window -------------------------------------------------------
+# THE END OF THE WINDOW IS DERIVED FROM THE SESSION'S OWN DEADLINE, NOT WRITTEN
+# HERE. It was the literal 2230 until 2026-09-10, and `ops/schedule/cef.env`
+# has carried `NAV_DEADLINE=23:30` since 09-08 -- so there was a full hour,
+# 22:30 to 23:30, in which this gate said "not in the session window" while the
+# cef session was still polling for NAV and had not yet placed its orders.
+# Promoting there is exactly what the window exists to prevent: `git checkout`
+# swapping the tree under a running session. Measured 2026-09-10: the 17:15 run
+# logged `deadline 23:30, poll every 900s`, and cef.env's own comment records
+# that yfinance publishes the day's NAVs at ~22:45 ET.
+#
+# Deriving it means the two can never drift apart again. A missing or
+# unparseable NAV_DEADLINE REFUSES rather than falling back to a literal: the
+# whole defect was a literal that stopped matching reality, and a default here
+# would rebuild it.
+CEF_ENV="$PROD/ops/schedule/cef.env"
+if [ ! -f "$CEF_ENV" ]; then
+  stamp "REFUSED $TAG: $CEF_ENV is missing, so the session window cannot be derived"
+  exit 2
+fi
+NAV_DEADLINE="$(sed -n 's/^NAV_DEADLINE=//p' "$CEF_ENV" | tr -d ' \r' | tail -1)"
+case "$NAV_DEADLINE" in
+  [0-2][0-9]:[0-5][0-9]) : ;;
+  *) stamp "REFUSED $TAG: NAV_DEADLINE=${NAV_DEADLINE:-<unset>} in $CEF_ENV is not HH:MM;"
+     stamp "  refusing rather than guessing a window end."
+     exit 2 ;;
+esac
+WINDOW_END="${NAV_DEADLINE%%:*}${NAV_DEADLINE##*:}"
+
 if "$PY" "$CAL" --check "$TODAY" >/dev/null 2>&1; then
-  if [ "$HHMM" -ge 1630 ] && [ "$HHMM" -le 2230 ] && [ "$FORCE" != "--force" ]; then
-    stamp "REFUSED $TAG: $HHMM is inside the session window (16:30-22:30) on a trading day"
+  if [ "$HHMM" -ge 1630 ] && [ "$HHMM" -le "$WINDOW_END" ] && [ "$FORCE" != "--force" ]; then
+    stamp "REFUSED $TAG: $HHMM is inside the session window (16:30-$NAV_DEADLINE) on a trading day"
     exit 2
   fi
 fi
+
+# 1b. A LIVE SESSION PROCESS REFUSES, CLOCK OR NO CLOCK -- and `--force` does
+# NOT bypass this one. The window above is a proxy for "is a session running";
+# this is the question itself, and it is the honest guard. A session that
+# overran its deadline, was kicked by hand, or is still writing its ledger and
+# capturing fills is just as unsafe to check out from under, and no hour of the
+# day proves it is not. `--force` exists for the clock, never for this.
+for job in cef benchmarks phase0; do
+  pid="$(launchctl list 2>/dev/null | awk -v L="com.quantt.$job.daily" '$3==L{print $1}')"
+  if [ -n "$pid" ] && [ "$pid" != "-" ]; then
+    stamp "REFUSED $TAG: com.quantt.$job.daily is RUNNING (pid $pid) -- a checkout"
+    stamp "  would swap the tree under a live session. Wait for it to exit."
+    exit 2
+  fi
+done
 
 # 2. clean prod -----------------------------------------------------------
 # The question is "did anyone edit prod CODE", not "did the book trade". The

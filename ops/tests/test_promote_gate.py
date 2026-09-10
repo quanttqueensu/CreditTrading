@@ -143,3 +143,82 @@ def test_state_moved_pathspec_counts_the_ledgers(prodlike):
         f"it saw {names}")
     assert any("heartbeat" in n for n in names), (
         f"STATE_MOVED pathspec {specs} missed the heartbeat; it saw {names}")
+
+
+# --------------------------------------------------------------------------
+# The session window, and the guard that does not trust a clock.
+#
+# WHY. Until 2026-09-10 the window end was the literal `2230`, while
+# `ops/schedule/cef.env` had carried `NAV_DEADLINE=23:30` since 09-08. So for a
+# full hour every trading night the gate said "not in the session window" while
+# the cef session was still polling for NAV and had not placed its orders --
+# and a promotion there checks out a different tag under a running session.
+# Measured that evening: the 17:15 run logged `deadline 23:30, poll every
+# 900s`. The two numbers lived in different files and nothing compared them.
+# --------------------------------------------------------------------------
+
+WINDOW_SNIPPET = r"""
+CEF_ENV="$1"
+NAV_DEADLINE="$(sed -n 's/^NAV_DEADLINE=//p' "$CEF_ENV" | tr -d ' \r' | tail -1)"
+case "$NAV_DEADLINE" in
+  [0-2][0-9]:[0-5][0-9]) : ;;
+  *) echo "REFUSED-UNPARSEABLE"; exit 2 ;;
+esac
+WINDOW_END="${NAV_DEADLINE%%:*}${NAV_DEADLINE##*:}"
+HHMM="$2"
+if [ "$HHMM" -ge 1630 ] && [ "$HHMM" -le "$WINDOW_END" ]; then
+  echo "REFUSED-INSIDE-WINDOW $WINDOW_END"
+else
+  echo "ALLOWED $WINDOW_END"
+fi
+"""
+
+
+def _window(tmp_path, deadline_line, hhmm):
+    env = tmp_path / "cef.env"
+    env.write_text(f"# comment\n{deadline_line}\nNAV_POLL_SECONDS=900\n")
+    snip = tmp_path / "w.sh"
+    snip.write_text(WINDOW_SNIPPET)
+    return subprocess.run(["bash", str(snip), str(env), str(hhmm)],
+                          capture_output=True, text=True).stdout.strip()
+
+
+def test_window_end_is_derived_from_nav_deadline_not_a_literal(tmp_path):
+    """22:45 is INSIDE the window when the deadline is 23:30. It used to be outside."""
+    assert _window(tmp_path, "NAV_DEADLINE=23:30", 2245) == "REFUSED-INSIDE-WINDOW 2330"
+    assert _window(tmp_path, "NAV_DEADLINE=23:30", 2330) == "REFUSED-INSIDE-WINDOW 2330"
+    assert _window(tmp_path, "NAV_DEADLINE=23:30", 2331).startswith("ALLOWED")
+    assert _window(tmp_path, "NAV_DEADLINE=23:30", 1629).startswith("ALLOWED")
+    assert _window(tmp_path, "NAV_DEADLINE=23:30", 1630) == "REFUSED-INSIDE-WINDOW 2330"
+
+
+def test_window_follows_the_deadline_when_it_moves(tmp_path):
+    """Change the deadline and the window changes with it -- the point of deriving."""
+    assert _window(tmp_path, "NAV_DEADLINE=21:30", 2245).startswith("ALLOWED")
+    assert _window(tmp_path, "NAV_DEADLINE=23:30", 2245) == "REFUSED-INSIDE-WINDOW 2330"
+
+
+def test_an_unparseable_deadline_refuses_rather_than_defaulting(tmp_path):
+    """NO SILENT FALLBACKS. A default here would rebuild the exact defect."""
+    assert _window(tmp_path, "NAV_DEADLINE=", 2245) == "REFUSED-UNPARSEABLE"
+    assert _window(tmp_path, "NAV_DEADLINE=half past eleven", 2245) == "REFUSED-UNPARSEABLE"
+    assert _window(tmp_path, "# NAV_DEADLINE absent entirely", 2245) == "REFUSED-UNPARSEABLE"
+
+
+def test_promote_sh_derives_the_window_and_does_not_carry_the_old_literal():
+    """Pin it in the real script, not just in the snippet above."""
+    src = PROMOTE.read_text()
+    assert "NAV_DEADLINE" in src, "the window end must be derived from cef.env"
+    assert 'WINDOW_END="${NAV_DEADLINE%%:*}${NAV_DEADLINE##*:}"' in src
+    assert '-le 2230' not in src, "the 2230 literal is the defect; it must not return"
+
+
+def test_promote_sh_refuses_while_a_session_process_is_live():
+    """The clock is a proxy; a live pid is the question itself, and --force
+    must not bypass it."""
+    src = PROMOTE.read_text()
+    assert "com.quantt.$job.daily" in src
+    assert "is RUNNING (pid" in src
+    guard = src.split("# 1b.", 1)[1].split("# 2.", 1)[0]
+    assert "FORCE" not in guard, (
+        "--force exists for the clock, never for a running session")
