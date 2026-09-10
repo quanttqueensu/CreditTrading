@@ -173,8 +173,8 @@ Keeping these separate is the most important discipline in this project.
 | The edge exists | IC −0.074, t −11.6, 27 years, present in **every** sub-period |
 | It is not credit beta | β +0.013, R² 0.0008, alpha +17.7%/yr |
 | It is not one name | leave-one-out gross Sharpe spans 2.23–2.93 |
-| It survives out of sample | purged walk-forward **8/9** (re-measured 2026-09-10; this said 9/9), worst block −0.15; **gross 1.23 IS → 1.75 OOS** |
-| It clears the multiplicity haircut | **NO.** DSR **0.870 FAIL** at N=48, bar 2.783. The only row here that does not pass |
+| It survives out of sample | **NO, and this row has been wrong three ways.** Purged walk-forward is **7/9** (median 0.63, worst −0.45), re-measured 2026-09-10 evening at `shift(2)` with the embargo applied; it said 9/9, then 8/9, both `shift(1)`. "gross 1.23 IS → 1.75 OOS" is withdrawn: 1.23 reproduces from nothing, and **1.75 is the *gross* of a holdout whose recorded verdict is FAIL** — `results/cef/HOLDOUT_OPENED.json` has `net_sharpe: -0.298`. Quoting it as out-of-sample evidence is the same defect as quoting DSR without its N |
+| It clears the multiplicity haircut | **NO.** DSR **0.333 FAIL** at N=48 (bar 2.783), and FAIL at every other count too — 0.588 at N=10, 0.330 at N=49. Observed 0.51 is **below** the best-of-48 null of 0.60 |
 | It is not luck | block bootstrap, 5,000 draws, P(SR≤0) = 0.000% |
 | Reversal does not explain it | price-only control IC −0.046 vs −0.074 |
 

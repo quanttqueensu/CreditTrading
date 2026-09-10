@@ -41,18 +41,35 @@ Reproduction: `scripts/cef/plan_diagnostics.py` and §8.2.
 | Present in **every** sub-period, 1998→2026 | same |
 | Beta +0.013, R² 0.0008 — not credit risk in costume | same |
 | Leave-one-out Sharpe 2.23–2.93 — no single name carries it | same |
-| Purged walk-forward — **8/9** blocks positive, median 1.05, worst −0.15 | re-measured 2026-09-10, `scripts/cef/validate.py --trials 48`. **This row said 9/9 and cited `RESEARCH_STATE.md`** — a decision rule keyed on a number in a document (H14). Run the command. |
-| Block bootstrap, 5,000 draws, **P(SR≤0) = 0.000%** | same |
-| Test 7: alpha t 3.11, R² 0.005, 5/5 factor limits | same |
-| **Gross Sharpe 1.23 in-sample → 1.75 out-of-sample** | `ESTIMATOR_NOTE.md` |
+| Purged walk-forward — **7/9** blocks positive, median **0.63**, worst **−0.45** | re-measured 2026-09-10 **evening** at `shift(2)` with the embargo applied, `scripts/cef/validate.py --trials 48`. **This row has said 9/9, then 8/9 — both `shift(1)`.** Run the command. |
+| Block bootstrap, 5,000 draws, **P(SR≤0) = 0.300%** | same. Read 0.000% at `shift(1)` |
+| Test 7: alpha t 3.11, R² 0.005, 5/5 factor limits | same — but **not re-run since the fix** and scored on the contaminated series; assume stale `[U]` |
+| ~~Gross Sharpe 1.23 in-sample → 1.75 out-of-sample~~ **WITHDRAWN** | `ESTIMATOR_NOTE.md`. See below |
 
-That last row is the important one. When the 2024+ holdout was opened, the signal
-did not merely hold up — it got **stronger** out of sample. The mechanism is
-structural: a closed-end fund has a fixed share count and no authorised
-participants, so nothing arbitrages price back to NAV. That is why this works
-where the same idea died in ETFs.
+**⚠ The last row is withdrawn, and it used to be the one this section leaned on.**
+It read *"Gross Sharpe 1.23 in-sample → 1.75 out-of-sample"*, followed by: *"That
+last row is the important one. When the 2024+ holdout was opened, the signal did
+not merely hold up — it got stronger out of sample."* Both halves fail:
 
-**The edge is real, it is not decaying, and it is not a factor tilt. Done.**
+- **1.23 reproduces from nothing** currently runnable (`CLAUDE.md`, 2026-09-10).
+- **1.75 is the *gross* of a holdout whose recorded verdict is FAIL.**
+  `results/cef/HOLDOUT_OPENED.json` reads `net_sharpe: -0.298`,
+  `verdict: "FAIL"`, `cost_pct_of_gross: 117.2`. The signal generalised; the
+  **turnover did not** — 102.6×/yr in the holdout against 45.3×/yr in sample, and
+  costs ate 117% of gross. Citing the gross of that run as out-of-sample support
+  inverts what it measured, and `ESTIMATOR_NOTE.md` says so directly: *"the
+  `z_window=63` change is rejected"*.
+
+The structural argument still stands on its own: a closed-end fund has a fixed
+share count and no authorised participants, so nothing arbitrages price back to
+NAV. That is why this works where the same idea died in ETFs. But it is a
+*mechanism*, not a measurement.
+
+**~~The edge is real, it is not decaying, and it is not a factor tilt. Done.~~**
+**Not "done".** At an obtainable entry price the calendar sleeve this evidence
+describes returns net **0.51** with DSR **0.333 (FAIL at every trial count)**, and
+the policy actually deployed — band 4.8% — has **never** been walk-forwarded,
+bootstrapped or deflated at all.
 
 ### 0.2 The objective: capture ratio
 

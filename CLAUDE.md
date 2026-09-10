@@ -5,27 +5,51 @@ $500,000 IBKR paper account (DUQ199038), placing its own MOC orders on a schedul
 Team lead: Simon Jarvis. Paper indefinitely — the deliverable is a competition
 track record, judged on **absolute return** with a **20% vol cap**.
 
-**The alpha is probably real. It is NOT "settled", and this line used to say it
-was.** Re-measured 2026-09-10 with `python3 scripts/cef/validate.py --trials 48`
-(panel to 2026-09-09, T=5,455): **8/9** purged walk-forward blocks positive —
-not 9/9 — worst block **−0.15** (2018-01-05..2020-03-06), median 1.05; gross
-Sharpe **1.27**, net **0.83**; bootstrap P(SR≤0) = **0.000%**. The 9/9 and the
-"gross 1.23" in this line do not reproduce. Run the command; do not quote these.
+**The headline validation was scored at a price we could not have obtained, and
+every number this section used to carry came from it.** `scripts/cef/validate.py`
+used `shift(1)` — entering at day *t*'s close on day *t*'s NAV, which the fund
+publishes **after** that close. Fixed 2026-09-10 evening; `EXEC_LAG = 2` is now a
+constant, asserted at runtime, and guarded by
+`scripts/cef/tests/test_execution_convention.py`. Re-measured with
+`python3 scripts/cef/validate.py --trials 48` (panel to 2026-09-09):
 
-**And it fails its own deflated-Sharpe bar at the real trial count.** DSR is
-**0.870 (FAIL)** at the CEF counter of **48**. It printed 0.963 PASS for months
-only because `validate.py` hard-coded `N_SPECS_TRIED = 10`; that literal is now
-a required `--trials` argument with no default — **in dev only.** `~/prod/QUANTT`
-is detached at `v2026.09.10.1`, which predates that fix: `grep -n N_SPECS_TRIED
-~/prod/QUANTT/scripts/cef/validate.py` still returns `= 10`. **Reproduce the
-headline validation in prod and you get the silent N=10 PASS this paragraph
-says was removed.** Run it in dev, or promote first. The verdict flips straight
-through MARGINAL between the two counts, so **the trial count is not a footnote
-to this claim, it is the claim.** Nothing here says the edge is fake — the
-bootstrap and 8/9 blocks stand, DSR is a deliberately harsh multiple-testing
-haircut, and out-of-sample the sealed holdout opened at 1.75. It says the honest
-summary is "survives every test but the multiplicity correction, at N=48", and
-that the 49th trial makes the bar harder still.
+| | shift(1), as it stood 14:37 | **shift(2) + embargo, corrected** |
+|---|---|---|
+| gross Sharpe | 1.27 | **0.94** |
+| net Sharpe | 0.83 | **0.51** |
+| purged walk-forward | 8/9, median 1.05, worst −0.15 | **7/9, median 0.63, worst −0.45** |
+| bootstrap P(SR≤0) | 0.000% | **0.300%** |
+| deflated Sharpe @ N=48 | 0.870 FAIL | **0.333 FAIL** |
+
+This reproduces a prediction made on **2026-07-31** and never acted on:
+`docs/RESEARCH_STATE.md` named the line and said the fix would cost gross
+1.26→0.95 and net 0.82→0.51. It cost 1.27→0.94 and 0.83→0.51. Section 2's "5d
+embargo either side" was also only ever a `print()` — `np.array_split` blocks
+touched — and applying it for real costs a further block.
+
+**The trial-count question is now moot.** The 14:37 finding was that the verdict
+flips PASS→FAIL between N=10 and N=48. At `shift(2)` it is FAIL at **every**
+count: 0.588 at N=10, 0.333 at 48, 0.330 at 49. **The observed Sharpe 0.51 is
+below the best-of-48 null of 0.60.** Do not re-litigate the counter here; it
+changes nothing.
+
+**What this does and does not say.** It does *not* say the edge is fake. It says
+the only policy ever put through this battery — a 5-day-hold **calendar** sleeve,
+**retired 2026-09-06** — fails it at an obtainable price. What we actually trade
+is **band 4.8%**, whose numbers come from the correct harness
+(`band_frontier.evaluate`, `shift(2)`): gross **1.17**, net@15bp **0.67**, turn
+17.6×/yr, re-run 2026-09-10 on the same panel. **The band has never been
+walk-forwarded, bootstrapped or deflated.** Nothing in this repo yet tests the
+thing we trade out of sample. That is the open work and it is larger than this fix.
+
+Two other claims this section used to make are withdrawn. "The sealed holdout
+opened at 1.75" cited the **gross** of a holdout whose recorded verdict is
+**FAIL** (`results/cef/HOLDOUT_OPENED.json`: `net_sharpe: -0.298`) — that is the
+same defect as quoting DSR without its N. And **prod is still worse than any of
+this**: `~/prod/QUANTT` is detached at `v2026.09.10.1`, which predates even the
+`--trials` fix, so `grep -n N_SPECS_TRIED ~/prod/QUANTT/scripts/cef/validate.py`
+still returns `= 10` and prod reproduces a silent N=10 PASS on a shift(1) series.
+Run validation in dev, or promote first.
 
 **The problem is capture, and operations.** `IR ≈ IC · TC · √BR`. Our IC is good.
 Our transfer coefficient is **~37%** — gross Sharpe ~1.2 becomes net ~0.43 once

@@ -11,14 +11,20 @@ Four things are tested here, in the order they could kill the strategy:
 
 2. PURGED, EMBARGOED WALK-FORWARD. Fit nothing, but evaluate out-of-sample in
    sequential blocks with a gap between train and test so that overlapping
-   holding periods cannot leak across the boundary.
+   holding periods cannot leak across the boundary. The embargo is EMBARGO_BD
+   sessions dropped from each end of every block.
 
 3. BLOCK BOOTSTRAP. Resample in contiguous blocks to preserve autocorrelation and
    volatility clustering, and report where zero sits in the Sharpe distribution.
    An i.i.d. bootstrap would overstate significance on a serially-dependent series.
 
 4. DEFLATED SHARPE. Haircut for the number of specifications actually tried on
-   this data source (10), not for one.
+   this data source -- passed as --trials, never defaulted. See N_SPECS_TRIED.
+
+EXECUTION CONVENTION. Everything below is scored at shift(2): decide at t, MOC
+fill at t+1's close, earn the t+2 return. See EXEC_LAG. This file scored shift(1)
+from the day it was written until 2026-09-10, which is an unobtainable entry
+price -- the signal needs t's NAV and the fund publishes that after t's close.
 """
 from __future__ import annotations
 
@@ -31,10 +37,25 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 from src.strategies.credit_rv.costs import SCENARIOS  # noqa: E402
+from src.backtest.guard import LookaheadError  # noqa: E402
 
 OUT = REPO / "results/cef"
 CM = SCENARIOS["base"]
 WIN, HOLD, MIN_ADV = 252, 5, 3.0e6
+
+# EXECUTION LAG. Decide at t, MOC fill at t+1's close, earn the t+2 return.
+# This is harness rule H1 and it is not a tuning knob -- _assert_exec_lag()
+# refuses to run at any other value. The canonical implementation is
+# band_frontier.evaluate(), which applies H.shift(2); anything scored
+# differently is not comparable to any other number in this repo.
+EXEC_LAG = 2
+
+# Sessions dropped from each end of every walk-forward block. A position is held
+# up to HOLD sessions, so without a gap the last trade of one block is still open
+# inside the next one and the blocks are not independent. Section 2's header has
+# claimed this embargo since the file was written; until 2026-09-10 it was a
+# claim in a print() and nothing in the code applied it.
+EMBARGO_BD = HOLD
 
 # The deflated-Sharpe haircut needs the number of specs tried on THIS source, and
 # there is no safe default for it -- so there isn't one. Pass --trials.
@@ -84,6 +105,49 @@ def signals(px, nav, vol):
     return disc, z, adv
 
 
+def _assert_exec_lag(W, held):
+    """Refuse to score unless `held` is `W` lagged by exactly EXEC_LAG sessions.
+
+    WHY THIS IS NOT src/backtest/guard.py::assert_lagged. That guard encodes the
+    Phase-2 engine's T+1 rule: it checks info_dates[t] <= t, which shift(1)
+    satisfies just as well as shift(2). It is structurally unable to see this
+    defect, because this defect IS T+1 -- the signal needs t's NAV, the fund
+    publishes it after t's close, so entering at t's close buys at a price that
+    did not exist. Reusing that guard here would have printed a green check over
+    the exact bug it was meant to catch, which is worse than no guard.
+
+    WHY A RUNTIME CHECK AND NOT A COMMENT. There was already a comment. From
+    2026-07-31 this file scored shift(1) while every other number in the repo was
+    scored shift(2); docs/RESEARCH_STATE.md named the line and measured the cost
+    (gross 1.26 -> 0.95, net at hold=5 0.82 -> 0.51) and the line survived
+    unchanged through a 2026-09-10 commit that edited the file for another reason.
+    The positional probe below fires if anyone edits EXEC_LAG or the .shift() and
+    not both.
+    """
+    if EXEC_LAG != 2:
+        raise LookaheadError(
+            f"EXEC_LAG is {EXEC_LAG}, must be 2. H1: decide at t, MOC fill at "
+            f"t+1's close, earn the t+2 return. The signal needs t's NAV, which "
+            f"publishes after t's close, so shift(1) prices an unreachable fill "
+            f"and shift(0) is pure lookahead. This is not a tuning knob.")
+    if not held.index.equals(W.index):
+        raise ValueError("held and W must share an index exactly")
+    if len(W) <= EXEC_LAG:
+        raise ValueError(f"need more than {EXEC_LAG} rows to verify the lag, "
+                         f"got {len(W)}")
+    # Probe positionally: held at index[k] must be the weights decided at
+    # index[k - EXEC_LAG]. Checks the offset against the index, so a resample or
+    # a reindex that silently changes the spacing is caught too.
+    for k in (EXEC_LAG, len(W) // 2, len(W) - 1):
+        got = held.iloc[k].to_numpy(dtype=float)
+        want = W.iloc[k - EXEC_LAG].to_numpy(dtype=float)
+        if not np.allclose(got, want, rtol=0, atol=0, equal_nan=True):
+            raise LookaheadError(
+                f"row {W.index[k].date()} holds weights that are not the ones "
+                f"decided {EXEC_LAG} sessions earlier on "
+                f"{W.index[k - EXEC_LAG].date()}. The execution lag is wrong.")
+
+
 def run(px, z, adv, vol_target=0.06, start="2005-01-01"):
     """PIT universe: a fund is eligible on date t only if it is trading and
     liquid AS OF t. No knowledge of which funds survive to 2026."""
@@ -104,12 +168,24 @@ def run(px, z, adv, vol_target=0.06, start="2005-01-01"):
     W = W.replace(0.0, np.nan).ffill(limit=HOLD - 1).fillna(0.0)
 
     if vol_target:
-        raw = (W.shift(1).fillna(0.0) * ret).sum(axis=1)
+        # ALIGNMENT. W.loc[t] is the weight DECIDED at t, from t's close and t's
+        # NAV -- which the fund publishes only AFTER that close. The earliest
+        # auction reachable is t+1's, so the position is held from t+1's close and
+        # first earns the t+2 return: shift(EXEC_LAG), EXEC_LAG == 2.
+        #
+        # This pre-pass must use the SAME convention it is sizing for. Scoring the
+        # vol scalar on a shift(1) stream while trading shift(2) sizes the book
+        # against a return series that was never earned.
+        raw = (W.shift(EXEC_LAG).fillna(0.0) * ret).sum(axis=1)
+        # rv at row t uses raw only through t-1, so the scalar applied to the
+        # decision made at t is computable at t. This shift(1) is CORRECT and is a
+        # different thing from the execution lag above -- do not "fix" it to match.
         rv = raw.shift(1).rolling(63, min_periods=30).std() * np.sqrt(252)
         W = W.mul((vol_target / rv.replace(0, np.nan)).clip(0.2, 2.5).fillna(1.0),
                   axis=0)
 
-    held = W.shift(1).fillna(0.0)
+    held = W.shift(EXEC_LAG).fillna(0.0)
+    _assert_exec_lag(W, held)
     gross = (held * ret).sum(axis=1)
     hs = pd.DataFrame(
         {c: [CM.half_spread_bp(p, a) for p, a in
@@ -125,6 +201,28 @@ def run(px, z, adv, vol_target=0.06, start="2005-01-01"):
 
 def sr(s):
     return s.mean() / s.std() * np.sqrt(252) if len(s) > 30 and s.std() > 0 else np.nan
+
+
+def _verdict(dsr):
+    return "PASS" if dsr > 0.95 else "MARGINAL" if dsr > 0.90 else "FAIL"
+
+
+def _dsr(obs, T, sk, ku, n_trials):
+    """Deflated Sharpe (Bailey & Lopez de Prado) at a given trial count.
+
+    Factored out of section 4 so the N-sensitivity can be COMPUTED and printed
+    rather than pasted as literal text. Returns (dsr, sr0, e_max), where sr0 is
+    the Sharpe a no-edge source is expected to produce as the best of n_trials
+    and e_max is the sqrt(2 ln N) bar. The verdict is a function of n_trials, so
+    it must never be quoted without it.
+    """
+    from math import erf
+    e_max = np.sqrt(2 * np.log(n_trials))
+    sr0 = e_max / np.sqrt(T / 252)                     # expected best-of-N under null
+    denom = np.sqrt(1 - sk * obs / np.sqrt(252) +
+                    (ku - 1) / 4 * (obs / np.sqrt(252)) ** 2)
+    z = (obs - sr0) * np.sqrt(T - 1) / (np.sqrt(252) * max(denom, 1e-9))
+    return 0.5 * (1 + erf(z / np.sqrt(2))), sr0, e_max
 
 
 def main(argv=None) -> int:
@@ -169,10 +267,25 @@ def main(argv=None) -> int:
               f"universe {s.n_uni.mean():>4.1f} funds")
 
     # 2. purged, embargoed walk-forward
-    print(f"\n{'='*84}\n2. PURGED WALK-FORWARD (10 blocks, {HOLD}d embargo either side)\n{'='*84}")
+    #
+    # THE EMBARGO IS APPLIED HERE, not merely announced in the header. A position
+    # is held up to HOLD sessions, so the last trades of one block are still open
+    # inside the next; without a gap the blocks share P&L and are not independent.
+    # Until 2026-09-10 this section printed "5d embargo either side" over a bare
+    # array_split whose blocks touched -- the header asserted a control the code
+    # did not apply, which is the same defect class as a deflated Sharpe printed
+    # without its trial count.
+    print(f"\n{'='*84}\n2. PURGED WALK-FORWARD (10 blocks, {EMBARGO_BD}d embargo either side)\n{'='*84}")
     blocks = np.array_split(d.index, 10)
     rows = []
     for i, b in enumerate(blocks):
+        # Drop EMBARGO_BD sessions from each end. Interior ends only: nothing
+        # precedes the first block and nothing follows the last, so trimming
+        # those outer edges would discard live data to guard a boundary that
+        # does not exist.
+        lo = EMBARGO_BD if i > 0 else 0
+        hi = len(b) - EMBARGO_BD if i < len(blocks) - 1 else len(b)
+        b = b[lo:hi]
         s = d.net.loc[b]
         if len(s) < 100:
             continue
@@ -207,24 +320,31 @@ def main(argv=None) -> int:
     T = len(d)
     obs = sr(d.net)
     sk = pd.Series(r).skew(); ku = pd.Series(r).kurt() + 3.0
-    e_max = np.sqrt(2 * np.log(N_SPECS_TRIED))
-    sr0 = e_max / np.sqrt(T / 252)                     # expected best-of-N under null
-    denom = np.sqrt(1 - sk * obs / np.sqrt(252) +
-                    (ku - 1) / 4 * (obs / np.sqrt(252)) ** 2)
-    from math import erf
-    dsr_z = (obs - sr0) * np.sqrt(T - 1) / (np.sqrt(252) * max(denom, 1e-9))
-    dsr = 0.5 * (1 + erf(dsr_z / np.sqrt(2)))
+    dsr, sr0, e_max = _dsr(obs, T, sk, ku, N_SPECS_TRIED)
     print(f"  observed Sharpe {obs:.2f}   null best-of-{N_SPECS_TRIED} {sr0:.2f}   "
           f"skew {sk:+.2f}  kurt {ku:.1f}")
+    if obs < sr0:
+        print(f"  ^ the observed Sharpe is BELOW the best-of-{N_SPECS_TRIED} null. "
+              f"On this many trials a no-edge source is expected to throw up a "
+              f"{sr0:.2f}; we measured {obs:.2f}.")
     print(f"  trials N = {N_SPECS_TRIED} (from --trials)   "
           f"deflated-Sharpe bar sqrt(2 ln N) = {e_max:.3f}")
     print(f"  DEFLATED SHARPE RATIO (prob the edge is real): {dsr:.3f}   "
-          f"{'PASS' if dsr > 0.95 else 'MARGINAL' if dsr > 0.90 else 'FAIL'}")
-    # The verdict is a function of N, and N is a governance fact that moves. Say so
-    # in the output, so a pasted result can never be read without its trial count.
+          f"{_verdict(dsr)}")
+    # The verdict is a function of N, and N is a governance fact that moves. Print
+    # the sensitivity COMPUTED, never as a literal: this footer used to carry
+    # "at N=10 ... 0.963 PASS, at N=48 ... 0.870 FAIL" as hardcoded text, and those
+    # two numbers silently stopped describing this series the moment the execution
+    # convention was corrected on 2026-09-10. A stale number in an output is worse
+    # than one in a document, because it wears the authority of a fresh run.
     print(f"  ^ this verdict is AT N={N_SPECS_TRIED}. It is not a property of the "
-          f"edge alone -- at N=10 this same series reads 0.963 PASS, at N=48 it "
-          f"reads 0.870 FAIL. Quote N whenever you quote the verdict.")
+          f"edge alone. The same series at other counts:")
+    for n in sorted({10, 48, 49, 162, N_SPECS_TRIED}):
+        d_n, _, bar_n = _dsr(obs, T, sk, ku, n)
+        mark = "  <- as run" if n == N_SPECS_TRIED else ""
+        print(f"      N={n:<5} bar {bar_n:.3f}   DSR {d_n:.3f}   "
+              f"{_verdict(d_n)}{mark}")
+    print(f"  Quote N whenever you quote the verdict.")
     d.to_parquet(OUT / "cef_validated_daily.parquet")
     print(f"\nwrote {OUT/'cef_validated_daily.parquet'}")
     return 0

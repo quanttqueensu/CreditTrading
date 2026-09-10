@@ -114,6 +114,16 @@ group beta ≤ 0.025. This is the strongest result the project has produced.
    `held = W.shift(1)`, entering at day *t*'s close using day *t*'s NAV — which
    publishes after that close. An MOC fills at *t+1*'s close = `shift(2)`. Cost:
    gross SR 1.26 → 0.95, net SR at hold=5 **0.82 → 0.51 (−38%)**.
+   **✅ FIXED 2026-09-10 evening, six weeks after this was written.** The
+   prediction was accurate: measured 1.27 → **0.94** gross and 0.83 → **0.51**
+   net. The line had moved to `:112` and survived a 2026-09-10 14:37 commit that
+   edited this same file for another reason. `EXEC_LAG = 2` is now a constant,
+   asserted at runtime, and guarded behaviourally by
+   `scripts/cef/tests/test_execution_convention.py`. **The lesson is not that the
+   bug existed — it is that it was correctly diagnosed, written down with its line
+   number and its cost, and left in the code for six weeks while the number it
+   produced was quoted as the headline validation.** A finding in a document is not
+   a fix.
 3. **No sealed holdout.** `credit_rv` got 141 trials *and* a sealed holdout before
    being killed. CEF got 10 specs, no holdout, and $500k — the one discipline this
    project held religiously, dropped on the one strategy that got money.
@@ -450,13 +460,33 @@ evidence, not more variants.
 > what runs today; the middle column is kept because someone is relying on the
 > old number somewhere.
 
-| test | result AS RUN 2026-07-31 | **re-measured 2026-09-10** |
-|---|---|---|
-| Point-in-time universe (no survival/liquidity hindsight) | gross 1.26, **net 0.82**, vol 6.00%, CAGR 4.85%, maxDD -12.0% | gross **1.27**, net **0.83**, vol 6.01%, CAGR 4.94%, maxDD -12.0% — PASS |
-| Purged walk-forward, 10 blocks, 5d embargo | **9/9 positive**, median 1.12, worst 0.01 | **8/9 positive**, median **1.05**, worst **-0.15** (2018-01-05..2020-03-06) — the 9/9 does **not** reproduce |
-| Block bootstrap, 5,000 draws, 21d blocks | 5th/95th 0.52/1.11, **P(SR<=0) = 0.000%** | 5th/95th **0.52/1.11**, **P(SR<=0) = 0.000%** — reproduces exactly |
-| Deflated Sharpe | **0.956** at N=10 — PASS | **0.870 at N=48 — FAIL.** Bar sqrt(2 ln 48) = **2.783**. (validate.py prints **0.963** at N=10, not 0.956; the 0.956 in this row reproduces from nothing currently runnable) |
-| Test 7 carry/beta | alpha t 3.11, R2 0.005, **5/5 factor limits** | not re-run 2026-09-10 — `[S]` |
+**⚠ BOTH COLUMNS BELOW ARE `shift(1)`.** A third column was added 2026-09-10
+evening after `validate.py` was corrected to `shift(2)` — the convention every
+other number in this repo uses. **Read the third column.** The first two are kept
+only because someone may be relying on them somewhere.
+
+| test | AS RUN 2026-07-31 `shift(1)` | re-measured 2026-09-10 14:37 `shift(1)` | **CORRECTED 2026-09-10 evening — `shift(2)` + embargo applied** |
+|---|---|---|---|
+| Point-in-time universe (no survival/liquidity hindsight) | gross 1.26, net 0.82, vol 6.00%, CAGR 4.85%, maxDD -12.0% | gross 1.27, net 0.83, vol 6.01%, CAGR 4.94%, maxDD -12.0% | gross **0.94**, net **0.51**, vol 6.04%, CAGR **2.93%**, maxDD **-14.3%** |
+| Purged walk-forward, 10 blocks, 5d embargo | 9/9 positive, median 1.12, worst 0.01 | 8/9 positive, median 1.05, worst -0.15 | **7/9 positive**, median **0.63**, worst **-0.45** (2007-03-14..2009-04-28). First run in which the 5d embargo was actually *applied* rather than only printed |
+| Block bootstrap, 5,000 draws, 21d blocks | 5th/95th 0.52/1.11, P(SR<=0) = 0.000% | 5th/95th 0.52/1.11, P(SR<=0) = 0.000% | 5th/95th **0.20/0.79**, **P(SR<=0) = 0.300%** |
+| Deflated Sharpe | 0.956 at N=10 — PASS | 0.870 at N=48 — FAIL | **0.333 at N=48 — FAIL**, and FAIL at every count: **0.588 at N=10**, 0.330 at N=49, 0.197 at N=162. Observed Sharpe **0.51 is BELOW the best-of-48 null of 0.60** |
+| Test 7 carry/beta | alpha t 3.11, R2 0.005, 5/5 factor limits | not re-run — `[S]` | not re-run — `[S]`. **It is scored on the same contaminated series and should be assumed stale** |
+
+**The trial counter stays at 48, and it no longer matters.** A lookahead fix
+re-measures an existing trial rather than adding a specification, so no trial was
+spent. The question is moot regardless: the verdict is FAIL at N=10, 48, 49 and
+162, so nothing about the counter changes it. This is recorded rather than
+debated because the 14:37 finding *was* a counter argument, and it has been
+overtaken.
+
+**What the corrected column does not say.** It is not a measurement of the live
+book. `validate.py` scores a **5-day-hold calendar** sleeve that was **retired
+2026-09-06**. The deployed policy is **band 4.8%**, measured by the correct
+harness at gross **1.17**, net@15bp **0.67** (`band_frontier.py`, re-run
+2026-09-10, same panel). **The band has never been walk-forwarded, bootstrapped
+or deflated** — every number in the table above belongs to a policy we no longer
+trade. Pointing this battery at the band is the open work.
 
 **What the re-measurement does and does not say.** The bootstrap is unchanged
 and the point-in-time result is marginally *better*. What moved is the

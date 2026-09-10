@@ -84,7 +84,8 @@
    "deflated_sharpe_n_trials": 48,
    "deflated_sharpe_bar": 2.783,
    "deflated_sharpe_verdict": "FAIL",
-   "note": "The 9/9 does NOT reproduce; it is 8/9 with one negative block. The bootstrap reproduces exactly. DSR fails only because the counter is 48 rather than the 10 assumed at freeze time -- the same series reads 0.963 PASS at N=10 (not 0.956, which reproduces from nothing currently runnable). DSR is a deliberately harsh multiple-testing haircut; the honest summary is 'survives every test but the multiplicity correction, at N=48'. Re-run the command; do not quote these."
+   "note": "The 9/9 does NOT reproduce; it is 8/9 with one negative block. The bootstrap reproduces exactly. DSR fails only because the counter is 48 rather than the 10 assumed at freeze time -- the same series reads 0.963 PASS at N=10 (not 0.956, which reproduces from nothing currently runnable). DSR is a deliberately harsh multiple-testing haircut; the honest summary is 'survives every test but the multiplicity correction, at N=48'. Re-run the command; do not quote these.",
+   "_superseded_by": "_recheck_2026_09_10_execution_corrected. EVERY FIGURE IN THIS BLOCK IS SCORED shift(1) AND IS NOT COMPARABLE TO ANY OTHER NUMBER IN THIS REPO. Kept unaltered because this block records what was believed at 14:37 on 2026-09-10; read the corrected block instead. The claim above that DSR 'fails ONLY because the counter is 48' is false at shift(2): it fails at every trial count including 10."
   }
  },
  "kill_rule": "Review at 60 live sessions, not before. KILL if any of: (a) live net Sharpe < 0.0; (b) realised slippage > 2x modelled for 5 consecutive sessions; (c) cross-sectional top-minus-bottom discount spread falls below 12% (half its current 22.5%), which would mean the opportunity has gone the way of E1. No extension of rope.",

@@ -103,10 +103,10 @@ retained its edge per opportunity; only the opportunity count collapsed.
 
 | Test | Result | Verdict |
 |---|---|---|
-| Point-in-time universe, no survivorship or liquidity hindsight | Gross 1.26, net 0.82, volatility 6.00%, max drawdown −12.0% | Pass, and better than the biased construction |
-| Purged walk-forward, 10 blocks, 5-day embargo | 9 of 9 positive, median 1.12, worst 0.01 | Pass |
-| Block bootstrap, 5,000 draws | 5th/95th percentile 0.52/1.11, P(SR ≤ 0) = 0.000% | Pass |
-| Deflated Sharpe | **0.870 at N=48 — FAIL** (re-measured 2026-09-10). This row read "adjusted for 10 specifications, 0.956, Pass"; the counter is 48, the bar is 2.783, and validate.py prints 0.963 at N=10, not 0.956 | FAIL at the real N |
+| Point-in-time universe, no survivorship or liquidity hindsight | **Gross 0.94, net 0.51**, volatility 6.04%, max drawdown −14.3% (re-measured 2026-09-10 evening at `shift(2)`; read gross 1.26, net 0.82, maxDD −12.0% at `shift(1)`) | Pass on construction; the economics are the corrected ones |
+| Purged walk-forward, 10 blocks, 5-day embargo | **7 of 9 positive, median 0.63, worst −0.45** (re-measured 2026-09-10 evening; read "9 of 9 positive, median 1.12, worst 0.01" — `shift(1)`, and the embargo was printed but never applied) | Weak |
+| Block bootstrap, 5,000 draws | **5th/95th 0.20/0.79, P(SR ≤ 0) = 0.300%** (re-measured 2026-09-10 evening; read 0.52/1.11 and 0.000% at `shift(1)`) | Pass |
+| Deflated Sharpe | **0.333 at N=48 — FAIL** (re-measured 2026-09-10 evening at `shift(2)`). This row has now been wrong twice: it read "0.956, Pass" at N=10, then "0.870 FAIL, fails only because the counter is 48". At an obtainable entry price it fails at **every** count — 0.588 at N=10, 0.333 at 48, 0.330 at 49 — and the observed 0.51 sits **below** the best-of-48 null of 0.60 | FAIL at every N |
 | Factor exposure | Alpha t 3.11, R² 0.005, 5 of 5 factor limits | Pass |
 
 An R² of 0.005 means 99.5% of the return is unexplained by high yield, investment

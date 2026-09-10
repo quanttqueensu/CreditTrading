@@ -541,9 +541,14 @@ Over 5,427 trading days, from January 2005 to July 2026:
 
 We cut the 21 years into 10 consecutive blocks and scored each independently.
 
-**9 out of 9 measurable blocks were positive.** Median 1.12. The worst was 0.01 —
-flat, not negative. There is no period in two decades where this lost money over a
-two-year stretch.
+**⚠ SUPERSEDED 2026-09-10 evening — this paragraph is wrong twice over.**
+It read: *"9 out of 9 measurable blocks were positive. Median 1.12. The worst was
+0.01 — flat, not negative. There is no period in two decades where this lost money
+over a two-year stretch."* Scored at an obtainable price (`shift(2)`) and with the
+5-day embargo actually applied rather than only printed, it is **7 of 9 positive,
+median 0.63, worst −0.45** (2007-03-14..2009-04-28). Two blocks are negative, so
+the last sentence is false as well as the count. Re-run
+`python3 scripts/cef/validate.py --trials 48`.
 
 ## 5.3 Bootstrap: could this be luck?
 

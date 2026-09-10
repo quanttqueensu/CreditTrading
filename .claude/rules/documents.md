@@ -17,8 +17,16 @@ the register that is already there.
 most important discipline in this project. Never let a conditional number drift
 into the established column because it has been repeated a few times.
 
-- *Established*: IC −0.074 (t −11.6), 27 years, every sub-period; 9/9 purged
-  walk-forward; bootstrap P(SR≤0) = 0.000%; not credit beta (β +0.013, R² 0.0008).
+- *Established*: IC −0.074 (t −11.6), 27 years, every sub-period; not credit beta
+  (β +0.013, R² 0.0008).
+  **The walk-forward and bootstrap were REMOVED from this list on 2026-09-10.**
+  They read "9/9 purged walk-forward; bootstrap P(SR≤0) = 0.000%". Both were
+  scored `shift(1)` — an unobtainable entry price. Corrected: **7/9** (median
+  0.63, worst −0.45) and **0.300%**. This entry is the cautionary example for the
+  rule above it: 9/9 was superseded on 2026-09-10 at 14:37, and it still sat in
+  the *Established* column of the file that tells agents what is established.
+- *Superseded, and do not restore*: 9/9 walk-forward; gross 1.26/1.27; net
+  0.82/0.83; DSR 0.870 "fails only on multiplicity". All `shift(1)`.
 - *Measured but conditional*: borrow at 1.22%/yr ≈ 0.23 Sharpe — **measured once**,
   on 2026-09-06, and applied to 21 years. A forward estimate, not a historical cost.
 - *Unknown, and the unknowns dominate*: what execution actually costs (n = 1,
