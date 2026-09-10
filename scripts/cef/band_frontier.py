@@ -32,12 +32,29 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
 
-UNIVERSE = ["AWF", "BIT", "DSL", "HYT", "JFR", "MHD", "MQY", "NAD", "NEA",
-            "NVG", "NZF", "PCN", "PDI", "PDO", "PFN", "PHK", "PTY"]
-Z_WINDOW, MIN_PERIODS = 252, 120
-VOL_TARGET, VOL_LOOKBACK, MIN_ADV = 0.06, 63, 3e6
-MIN_NAMES, SAMPLE_START = 6, "2005-01-03"
+# Parameters the LIVE BOOK owns come from the frozen spec, never from a literal
+# here. Until 2026-09-10 these were module constants that happened to agree with
+# the spec; "happened to agree" stops being true at the next spec bump, and a
+# baseline measured against a policy nobody deployed is worse than no baseline.
+# See scripts/cef/spec.py for the full argument.
+import sys                                                          # noqa: E402
+sys.path.insert(0, str(REPO))
+from scripts.cef.spec import (  # noqa: E402
+    BAND_WIDTH, GROSS_LEVERAGE, LIVE_POLICY, MIN_ADV_USD, MIN_NAMES,
+    REBALANCE_DAYS, UNIVERSE, VOL_TARGET, Z_WINDOW, summary,
+)
+
+MIN_ADV = MIN_ADV_USD
+# Not spec-owned: estimation choices local to this harness.
+MIN_PERIODS, VOL_LOOKBACK = 120, 63
+SAMPLE_START = "2005-01-03"
 COSTS_BP = [5, 10, 15, 20, 30]
+
+# The width sweep is a DELIBERATE variation -- characterising the policy class is
+# the entire point of this script, and H8 permits it explicitly. The live width
+# is unioned in so the sweep always contains the deployed policy, whatever it is.
+BAND_SWEEP = sorted({0.002, 0.004, 0.008, 0.016, 0.024, 0.032,
+                     0.048, 0.064, 0.096, 0.128, BAND_WIDTH})
 
 
 def build_targets():
@@ -122,23 +139,56 @@ def row(label, H, R):
     return r, nets
 
 
+# --- labels -----------------------------------------------------------------
+# Which row is LIVE is read from the frozen spec, never asserted here. Three
+# scripts in this directory labelled "calendar 2d (LIVE)" for four days after
+# the band replaced it on 2026-09-06, and PLAN.md carried the same claim in five
+# tables. A label that can go stale silently is the same bug as a hardcoded
+# baseline, one layer up.
+LIVE_TAG = "  <-- LIVE"
+
+
+def _cal_is_live(k: int) -> bool:
+    from scripts.cef.spec import BAND_IS_LIVE
+    return (not BAND_IS_LIVE) and k == REBALANCE_DAYS
+
+
+def _band_is_live(b: float) -> bool:
+    from scripts.cef.spec import BAND_IS_LIVE
+    return BAND_IS_LIVE and abs(b - BAND_WIDTH) < 1e-12
+
+
+def _lab_cal(k: int) -> str:
+    return f"calendar {k}d" + (LIVE_TAG if _cal_is_live(k) else "")
+
+
+def _lab_band(b: float) -> str:
+    return f"band {b * 100:.1f}%" + (LIVE_TAG if _band_is_live(b) else "")
+
+
 def main():
     T, R = build_targets()
+    print(summary())
     print(f"sample {T.index[0].date()} .. {T.index[-1].date()}  ({len(T)} days)\n")
 
     hdr = (f"{'policy':<22}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn/yr':>9}{'hold(d)':>9}"
            + "".join(f"{'net@' + str(c) + 'bp':>11}" for c in COSTS_BP))
     print(hdr, "-" * len(hdr), sep="\n")
     for k in (1, 2, 5, 10):
-        row(f"calendar {k}d" + (" (LIVE)" if k == 2 else ""), calendar(T, k), R)
-    for b in (0.002, 0.004, 0.008, 0.016, 0.024, 0.032, 0.048, 0.064, 0.096, 0.128):
-        row(f"band {b * 100:.1f}% of gross", band(T, b), R)
+        row(f"calendar {k}d" + (LIVE_TAG if _cal_is_live(k) else ""), calendar(T, k), R)
+    for b in BAND_SWEEP:
+        row(f"band {b * 100:.1f}% of gross" + (LIVE_TAG if _band_is_live(b) else ""),
+            band(T, b), R)
 
     print("\n\n=== matched on turnover: the only honest comparison ===")
+    print("H2: pairs must match turn/yr within 5%. Note that pairing calendar 5d")
+    print("with the LIVE band is a near-exact match, where the retired 6.4%")
+    print("baseline this block used until 2026-09-10 was ~19% adrift -- i.e. that")
+    print("row was violating the rule it exists to demonstrate.\n")
     print(f"{'policy':<22}{'turn/yr':>9}{'grossSR':>9}{'net@15bp':>10}")
     for lab, H in [("calendar 1d", calendar(T, 1)), ("band 0.2%", band(T, 0.002)),
-                   ("calendar 2d (LIVE)", calendar(T, 2)), ("band 1.6%", band(T, 0.016)),
-                   ("calendar 5d", calendar(T, 5)), ("band 6.4%", band(T, 0.064))]:
+                   (_lab_cal(2), calendar(T, 2)), (_lab_band(0.016), band(T, 0.016)),
+                   ("calendar 5d", calendar(T, 5)), (_lab_band(BAND_WIDTH), band(T, BAND_WIDTH))]:
         r = evaluate(H, R)
         net = (r["ann_ret"] - r["turn"] * 15 / 1e4) / r["vol"]
         print(f"{lab:<22}{r['turn']:9.1f}{r['gross_sr']:9.2f}{net:10.2f}")
@@ -149,9 +199,10 @@ def main():
     eras = [("2015-2019", "2015", "2019"), ("2020-2022", "2020", "2022"),
             ("2023-2026", "2023", "2026")]
     print(f"{'policy':<22}" + "".join(f"{e[0]:>11}" for e in eras) + f"{'mean':>8}{'sd/mean':>9}")
-    for lab, H in [("calendar 1d", calendar(T, 1)), ("calendar 2d (LIVE)", calendar(T, 2)),
-                   ("calendar 5d", calendar(T, 5)), ("band 1.6%", band(T, 0.016)),
-                   ("band 2.4%", band(T, 0.024)), ("band 6.4%", band(T, 0.064))]:
+    era_widths = sorted({0.016, 0.024, BAND_WIDTH})
+    for lab, H in ([("calendar 1d", calendar(T, 1)), (_lab_cal(2), calendar(T, 2)),
+                    ("calendar 5d", calendar(T, 5))]
+                   + [(_lab_band(b), band(T, b)) for b in era_widths]):
         t = evaluate(H, R)["turn_series"]
         v = np.array([t.loc[a:b].mean() * 252 for _, a, b in eras])
         print(f"{lab:<22}" + "".join(f"{x:11.1f}" for x in v)
@@ -159,9 +210,10 @@ def main():
 
     print("\n\n=== sensitivity to being wrong about cost — the robustness that matters ===")
     print(f"{'policy':<22}{'turn/yr':>9}{'net@5bp':>10}{'net@30bp':>10}{'span':>8}{'flips?':>9}")
-    for lab, H in [("calendar 1d", calendar(T, 1)), ("calendar 2d (LIVE)", calendar(T, 2)),
-                   ("calendar 5d", calendar(T, 5)), ("band 2.4%", band(T, 0.024)),
-                   ("band 4.8%", band(T, 0.048)), ("band 6.4%", band(T, 0.064))]:
+    widths = sorted({0.024, 0.064, BAND_WIDTH})
+    for lab, H in ([("calendar 1d", calendar(T, 1)), (_lab_cal(2), calendar(T, 2)),
+                    ("calendar 5d", calendar(T, 5))]
+                   + [(_lab_band(b), band(T, b)) for b in widths]):
         r = evaluate(H, R)
         lo = (r["ann_ret"] - r["turn"] * 5 / 1e4) / r["vol"]
         hi = (r["ann_ret"] - r["turn"] * 30 / 1e4) / r["vol"]
