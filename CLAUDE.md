@@ -5,9 +5,23 @@ $500,000 IBKR paper account (DUQ199038), placing its own MOC orders on a schedul
 Team lead: Simon Jarvis. Paper indefinitely — the deliverable is a competition
 track record, judged on **absolute return** with a **20% vol cap**.
 
-**The alpha is settled and is not the problem.** IC −0.074 (t −11.6) over 27 years,
-9/9 purged walk-forward blocks positive, bootstrap P(SR≤0) = 0.000%, gross Sharpe
-1.23 in-sample → 1.75 out-of-sample when the sealed holdout was opened.
+**The alpha is probably real. It is NOT "settled", and this line used to say it
+was.** Re-measured 2026-09-10 with `python3 scripts/cef/validate.py --trials 48`
+(panel to 2026-09-09, T=5,455): **8/9** purged walk-forward blocks positive —
+not 9/9 — worst block **−0.15** (2018-01-05..2020-03-06), median 1.05; gross
+Sharpe **1.27**, net **0.83**; bootstrap P(SR≤0) = **0.000%**. The 9/9 and the
+"gross 1.23" in this line do not reproduce. Run the command; do not quote these.
+
+**And it fails its own deflated-Sharpe bar at the real trial count.** DSR is
+**0.870 (FAIL)** at the CEF counter of **48**. It printed 0.963 PASS for months
+only because `validate.py` hard-coded `N_SPECS_TRIED = 10`; that literal is now
+a required `--trials` argument with no default. The verdict flips straight
+through MARGINAL between the two counts, so **the trial count is not a footnote
+to this claim, it is the claim.** Nothing here says the edge is fake — the
+bootstrap and 8/9 blocks stand, DSR is a deliberately harsh multiple-testing
+haircut, and out-of-sample the sealed holdout opened at 1.75. It says the honest
+summary is "survives every test but the multiplicity correction, at N=48", and
+that the 49th trial makes the bar harder still.
 
 **The problem is capture, and operations.** `IR ≈ IC · TC · √BR`. Our IC is good.
 Our transfer coefficient is **~37%** — gross Sharpe ~1.2 becomes net ~0.43 once

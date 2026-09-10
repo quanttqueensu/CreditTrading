@@ -27,7 +27,7 @@ at "about 2%/yr" measured **−0.01%/yr**.
 | borrow drag on net Sharpe | `scripts/cef/borrow_impact.py` |
 | where availability binds, capacity | `scripts/cef/borrow_capacity.py` |
 | the joint cost-aware optimiser | `scripts/cef/joint_cost_optimiser.py` |
-| the original backtest | `scripts/cef/validate.py` |
+| the original backtest | `scripts/cef/validate.py --trials 48` (`--trials` is required, no default — read N off the **CEF** row of `docs/RESEARCH_STATE.md`'s counter table, and re-read it, because the verdict flips with N: 0.963 PASS at 10, 0.870 FAIL at 48) |
 | live P&L attribution vs IBKR | `scripts/audit/live_pnl_attribution.py` |
 | realised vs modelled execution | `/fill-audit` |
 | live factor concentration | `curl -s http://127.0.0.1:8787/api/factors \| jq .` |

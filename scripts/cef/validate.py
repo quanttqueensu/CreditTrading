@@ -35,7 +35,33 @@ from src.strategies.credit_rv.costs import SCENARIOS  # noqa: E402
 OUT = REPO / "results/cef"
 CM = SCENARIOS["base"]
 WIN, HOLD, MIN_ADV = 252, 5, 3.0e6
-N_SPECS_TRIED = 10
+
+# The deflated-Sharpe haircut needs the number of specs tried on THIS source, and
+# there is no safe default for it -- so there isn't one. Pass --trials.
+#
+# WHY THIS IS NOT A LITERAL ANY MORE. It was `N_SPECS_TRIED = 10` from the day
+# this script was written. The CEF counter reached 48 (docs/RESEARCH_STATE.md's
+# counter table, which CLAUDE.md declares canonical), and nothing connected the
+# two, so section 4 kept haircutting for ten trials and printing PASS. Measured
+# 2026-09-10 on T=5,455 days, observed net Sharpe 0.832, varying only N:
+#
+#     N=10  (the old literal)   bar sqrt(2lnN) 2.146   DSR 0.963   PASS
+#     N=48  (the CEF counter)   bar            2.783   DSR 0.870   FAIL
+#     N=162 (LEGACY, for scale) bar            3.190   DSR 0.760   FAIL
+#
+# The verdict does not merely weaken at the true count, it FLIPS -- straight
+# through MARGINAL. So the single most optimistic number this script printed was
+# an artifact of a stale constant, on the project's headline validation. That is
+# the `fee.fillna(fee.median())` failure mode exactly: a confident-looking total
+# with an invented input, dormant for months.
+#
+# A default would reintroduce it silently the next time the counter moves, which
+# is why this RAISES instead (CLAUDE.md: NO SILENT FALLBACKS -- raise, naming what
+# was missing). The caller must state the count and therefore has to go and look
+# it up. Reading RESEARCH_STATE.md from here would be worse, not better: rule H14
+# says no decision rule may key on a number written in a document, and the
+# deflated-Sharpe bar is a decision rule.
+N_SPECS_TRIED = None    # set from --trials; see above. Never give this a default.
 
 
 def load_raw():
@@ -101,7 +127,25 @@ def sr(s):
     return s.mean() / s.std() * np.sqrt(252) if len(s) > 30 and s.std() > 0 else np.nan
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    global N_SPECS_TRIED
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Validate the CEF discount edge. --trials is REQUIRED: the "
+                    "deflated-Sharpe haircut is meaningless without the real "
+                    "number of specs tried on this source, and a default is how "
+                    "this script came to print PASS for months at N=10 while the "
+                    "CEF counter stood at 48.")
+    ap.add_argument("--trials", type=int, required=True, metavar="N",
+                    help="specs tried on THIS source. Read it off the counter "
+                         "table in docs/RESEARCH_STATE.md (canonical); for the "
+                         "CEF source that is the CEF row, not LEGACY.")
+    a = ap.parse_args(argv)
+    if a.trials < 1:
+        raise ValueError(f"--trials must be >= 1, got {a.trials}; one spec tried "
+                         f"is still one spec")
+    N_SPECS_TRIED = a.trials
+
     px, nav, vol = load_raw()
     disc, z, adv = signals(px, nav, vol)
     print(f"raw universe {px.shape[1]} CEFs, {px.index.min().date()} -> "
@@ -172,8 +216,15 @@ def main() -> int:
     dsr = 0.5 * (1 + erf(dsr_z / np.sqrt(2)))
     print(f"  observed Sharpe {obs:.2f}   null best-of-{N_SPECS_TRIED} {sr0:.2f}   "
           f"skew {sk:+.2f}  kurt {ku:.1f}")
+    print(f"  trials N = {N_SPECS_TRIED} (from --trials)   "
+          f"deflated-Sharpe bar sqrt(2 ln N) = {e_max:.3f}")
     print(f"  DEFLATED SHARPE RATIO (prob the edge is real): {dsr:.3f}   "
           f"{'PASS' if dsr > 0.95 else 'MARGINAL' if dsr > 0.90 else 'FAIL'}")
+    # The verdict is a function of N, and N is a governance fact that moves. Say so
+    # in the output, so a pasted result can never be read without its trial count.
+    print(f"  ^ this verdict is AT N={N_SPECS_TRIED}. It is not a property of the "
+          f"edge alone -- at N=10 this same series reads 0.963 PASS, at N=48 it "
+          f"reads 0.870 FAIL. Quote N whenever you quote the verdict.")
     d.to_parquet(OUT / "cef_validated_daily.parquet")
     print(f"\nwrote {OUT/'cef_validated_daily.parquet'}")
     return 0
