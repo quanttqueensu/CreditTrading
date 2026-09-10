@@ -298,6 +298,94 @@ def check_heartbeat(job, asof, max_missed=1) -> Check:
                  f"last beat {beat['date']} ({beat['status']})", blocking=False)
 
 
+def check_phantom_books(book_path=None) -> Check:
+    """Warn when a book spec claims symbols but has never held a share.
+
+    NOT BLOCKING. This reports a bookkeeping fault that degrades OTHER books; it
+    is never a reason to stop the book in front of us from trading.
+
+    `IBKRBroker._foreign_book_claims()` treats every `*.json` in `ops/books/`
+    carrying a `sleeves` list as a live sibling book in the shared paper account,
+    and adds its whole universe to the symbols `arm()` may not adopt from the
+    account net. A dead book still votes: it makes symbols *contested* for the
+    books that are still trading, so `arm()` demands a per-sleeve ledger entry
+    for them and blocks the session when one is missing.
+
+    Measured 2026-09-10. `credit_rv` was killed 2026-07-30 (sealed holdout net
+    SR -1.44) but its spec stayed in `ops/books/`, claiming 21 symbols it could
+    never hold. That is what halted benchmarks_paper on 2026-09-09 17:25:
+
+        arm: BLOCKED ANGL: account holds +87 and bench_b6_ew_credit trades it,
+        but so does another book and this sleeve's ledger has no entry
+
+    ANGL was contested by a book that had been dead for six weeks. Retiring it to
+    `ops/books/retired/` (the glob is non-recursive) freed ANGL for bench_b6 and
+    six more symbols for null_trader.
+
+    "Has never held a share" is tested directly -- a shadow sub-ledger directory,
+    or an `_attribution.json` entry, for any of its sleeves -- rather than derived
+    from the filename, because the ledger directory is not named after the spec
+    (`cef_discount_book.json` -> `ops/books/cef_live/`).
+    """
+    books_dir = REPO_ROOT / "ops" / "books"
+    shadow = "_ibkr" + "_shadow"        # read-only glob; never written here
+    try:
+        traded = set()
+        for d in books_dir.glob(f"*/{shadow}/*"):
+            if d.is_dir():
+                traded.add(d.name)
+        for f in books_dir.glob("*/_attribution.json"):
+            try:
+                traded.update(json.loads(f.read_text()).keys())
+            except Exception:
+                continue
+
+        phantoms = []
+        for f in sorted(books_dir.glob("*.json")):
+            try:
+                spec = json.loads(f.read_text())
+            except Exception:
+                continue
+            sleeves = spec.get("sleeves")
+            if not isinstance(sleeves, list) or not sleeves:
+                continue
+            names = [s.get("name") for s in sleeves if isinstance(s, dict)]
+            if any(n in traded for n in names):
+                continue
+            n_claims = 0
+            for s in sleeves:
+                if not isinstance(s, dict):
+                    continue
+                frozen = s.get("spec")
+                if frozen is None and s.get("spec_path"):
+                    try:
+                        frozen = json.loads(
+                            (REPO_ROOT / s["spec_path"]).read_text())
+                    except Exception:
+                        continue
+                frozen = (frozen or {}).get("frozen", frozen) or {}
+                for key in ("universe", "instruments", "tickers"):
+                    if isinstance(frozen.get(key), (list, tuple)):
+                        n_claims += len(frozen[key])
+                        break
+                else:
+                    if isinstance(frozen.get("weights"), dict):
+                        n_claims += len(frozen["weights"])
+            if n_claims:
+                phantoms.append(
+                    f"{f.name} ({'/'.join(str(n) for n in names)}, "
+                    f"{n_claims} symbols)")
+
+        if phantoms:
+            return Check("phantom_books", False,
+                         "never traded but contests symbols for live books; "
+                         "move to ops/books/retired/: " + "; ".join(phantoms),
+                         blocking=False)
+        return Check("phantom_books", True, "no dead books claiming symbols")
+    except Exception as exc:
+        return Check("phantom_books", True, f"not checked ({exc})")
+
+
 # -- the gate -------------------------------------------------------------
 
 def run(job, book_path, asof, want_live=True, notify=True) -> dict:
@@ -319,7 +407,8 @@ def run(job, book_path, asof, want_live=True, notify=True) -> dict:
 
     checks = [*check_halt(book_id), check_costs(book_path),
               check_cost_drift(book_path),
-              check_data(asof), check_heartbeat(job, asof)]
+              check_data(asof), check_heartbeat(job, asof),
+              check_phantom_books(book_path)]
     if want_live:
         broker = check_broker()
         checks.append(broker)
