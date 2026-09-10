@@ -1,4 +1,38 @@
-# `ops/` — the daily paper-trading simulator
+# `ops/` — SUPERSEDED. Do not build against this document.
+
+> **⛔ THIS FILE IS WRONG IN EVERY MATERIAL RESPECT. Marked 2026-09-10.**
+>
+> It was written 2026-07-28 for a strategy that has not run since July, and it
+> is the first file most readers open in this directory. Every statement below
+> that describes the system is false today:
+>
+> - **"There is no broker here. Nothing in this directory can place an order."**
+>   **False, and it is the dangerous one.** Seven files here open IBKR sockets —
+>   `preflight.py`, `capture_fills.py`, `cancel_open_orders.py`,
+>   `reconcile_orders.py`, `reset_epoch.py`, `rebuild_ledger.py` and
+>   `switch_broker.py`. The book transmits real MOC orders to a paper account on
+>   a schedule. Treat everything in `ops/` as live-trading code.
+> - **The strategy described (a 37.2% ANGL / 62.8% BIL book on $60,000)** is
+>   retired. The live books are the CEF discount sleeve ($500k), the null trader
+>   ($640k, slated for retirement) and five benchmarks ($20k each).
+> - **`ops/daily_run.py`, `ops/monitor.py`, `ops/weekly_report.py` and
+>   `ops/smoke_test.py`** all crash on a missing `ops/spec/frozen_spec.json`;
+>   neither `ops/spec/` nor `ops/state/` exists. The live daily unit is
+>   `python -m src.deploy.run_book`, invoked by the launchd entry point that
+>   lives outside the repo.
+> - **Every path in the cron examples** uses the pre-2026-08-31 repo location.
+>
+> **Read instead:** `CLAUDE.md` at the repo root for the current state,
+> `docs/prompts/00_BRIEF.md` for the standing brief, and `ops/AUTOMATION.md` for
+> the schedule — noting that AUTOMATION is itself partly stale and says "all
+> five jobs" when six are loaded.
+>
+> `docs/prompts/W0_repo_hygiene.md` Part G owns rewriting or retiring this file.
+> Until then, everything below is historical.
+
+---
+
+## Historical text (2026-07-28)
 
 This runs the one strategy that survived the build, on paper, so we can find
 out whether anything is actually left in it before any money is committed.

@@ -1,5 +1,25 @@
 # How We Do This: Research, Methodology, and What We Found
 
+> **CORRECTED 2026-09-10. This document is dated 31 July 2026. Read every
+> "today", "current" and "live" in it as of that date, not this one.** Three of
+> its statements are now materially false and would misdirect an agent:
+>
+> - **"Rebalance every 5 trading days" (line ~467)** - the live policy has been a
+>   **4.8% no-trade band** since 2026-09-06. It was not a 5-day calendar even in
+>   July; this file's own audit says so.
+> - **"We tried 10 different configurations" and the DSR bar of 2.15 (line ~553)**
+>   - the CEF trial counter is **48**, so the deflated-Sharpe bar is
+>   sqrt(2 ln 48) = **2.78**, not 2.15. The 0.956 DSR quoted was computed against
+>   N=10 and does not hold at N=48. **Do not clear a new result against the old
+>   bar.**
+> - **"We have zero live fills" (line ~650)** - there are **294 broker-confirmed
+>   executions** across three capture dates in the CEF shadow ledger, with a
+>   realised-vs-modelled decomposition for 31 of them. The cost model is
+>   partially validated, not unvalidated.
+>
+> The "today's actual live position" snapshot around line 470 is a 31 July
+> holding and bears no relation to the current book.
+
 **QUANTT credit strategy programme · written 31 July 2026**
 
 This document assumes you know nothing about finance. Every term is explained the

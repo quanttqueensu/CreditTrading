@@ -475,7 +475,7 @@ days using the sleeve's own weights:
 | component | share | what it is |
 |---|---:|---|
 | PC1 | 3.6% | market direction — correctly neutralised ✅ |
-| **PC2** | **65.7%** | **muni vs taxable** (+0.32 on all six Nuveen munis, negative on all eleven others) |
+| **PC2** | **65.7%** | **muni vs taxable** (+0.32 on **four Nuveen munis (NAD, NEA, NZF, NVG) plus two BlackRock (MQY, MHD)** — corrected 2026-09-10; earlier text said "six Nuveen munis", which matters because the two sponsors lever differently (Nuveen via SIFMA-linked tender option bonds, BlackRock via preferred shares) and so cannot share a financing conditioner, negative on all eleven others) |
 | PC3 | 9.6% | quality / duration residual |
 | PC4–17 | 21.1% | genuinely idiosyncratic |
 
@@ -702,7 +702,7 @@ model changes sizing, not the signal, and §3 handles sizing.
 **Cointegration / Johansen pairs.** Already killed — `pair-reversion`, D2 +
 capacity, gross 1.03 → net −0.16, needing 32.8× leverage against a 2× ceiling.
 
-**Stochastic volatility (Heston/SABR).** We trade no derivatives.
+**Stochastic volatility (Heston/SABR).** We trade no derivatives. *Amended 2026-09-09:* an options programme now exists (`docs/prompts/gamma/`) with its own trial counter, and a convexity overlay is gated on the CEF book's measured stress beta (`W14_options.md`). The verdict here still stands for its own reason: that programme inverts trade prints and hedges deltas with a model we own, and needs no calibrated smile dynamic. Revisit only if something requires one.
 
 **Almgren–Chriss scheduling.** We execute in one auction at <1% participation.
 Nothing to schedule. (§5 is about *order type*, which is a different question.)

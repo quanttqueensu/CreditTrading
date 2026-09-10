@@ -13,8 +13,21 @@ counter (156) covers all ETF-price/PD work done to date.
 | DISP | PD dispersion / staleness decomposition | 3 |
 | DEALER | NY Fed primary dealer inventory | 1 |
 | MBS | mortgage prepayment staleness | 0 |
-| **CEF** | **credit closed-end fund discounts (NEW SOURCE)** | **18** |
+| **CEF** | **credit closed-end fund discounts** | **48** |
+| **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
+
+> **⚠ CORRECTED 2026-09-09.** The CEF row read **18** until today, which was its
+> value on 2026-07-31 when this file was last updated. It missed the +29 that
+> `results/cef/ESTIMATOR_NOTE.md` recorded that same session (9 distribution-cut
+> + 16 Kalman sweeps + 4 window control) and the band trial that followed.
+> **48 is correct**, and it is the figure `SYSTEM_AND_STRATEGY.md` §9,
+> `PREREG_BAND_2026-09-06.md` and `DUST_ORDERS_2026-09.md` have been using.
+> A second counter, **GAMMA**, was opened by the 2026-09-08 standing decisions
+> for the options programme (`docs/prompts/gamma/`); it has its own
+> deflated-Sharpe bar and the combined book is judged on the joint record.
+> **This table is the canonical record — update it in the same commit as any
+> trial, not at the end of a session.**
 
 ---
 
@@ -403,7 +416,7 @@ date sees only funds already trading and already liquid IMPROVED the result
 (0.72 -> 0.82), because it admits more funds over time (median 8, max 25) while
 dropping illiquid ones dynamically.
 
-**Live configuration:** 17-fund universe, 252d z-window, 5-day rebalance, 6%
+**Live configuration:** 17-fund universe, 252d z-window, **4.8% no-trade band** (CORRECTED 2026-09-10: this said "5-day rebalance", wrong when written and wrong now - the band replaced the calendar on 2026-09-06), 6%
 annualised vol target, $3m minimum ADV, NAV staleness cut-off 3 business days,
 $500k capital. Deployed at $751,463 gross, long $375,678 / short $375,784,
 **net -$106 (0.014bp of gross)**.
@@ -586,9 +599,33 @@ discount the WRONG way vs the thesis (+10 to +29bp net of control) and are not
 monotone in cut size (dose-response t -1.77). Raises show pre-event drift, so the
 post-event move is ordinary reversion we already trade.
 
-**Data note:** our price series is RAW, not dividend-adjusted (ex-date moves are
--1x the distribution). Had it been adjusted, every historical discount would have
-been wrong. yfinance exposes no fund size or expense ratio for CEFs -- only
+**Data note:** our price series is RAW, not dividend-adjusted. Had it been
+adjusted, every historical discount would have been wrong, because NAV is
+unadjusted and the two must share a convention.
+
+> **⚠ AMENDED 2026-09-09 — the same fact has a second consequence nobody drew.**
+> Raw prices are correct for the *discount*. They are **not** correct for the
+> *return*: `scripts/cef/band_frontier.py:54` builds returns as
+> `px.pct_change()` on those raw closes, and nothing in the CEF path reads
+> `cef_distributions.parquet`. So the harness books the ex-date price drop as a
+> return and never books the cash — **the long is never credited its
+> distribution and the short is never debited its payment in lieu.**
+> For a dollar-neutral book the bias is `Σ_i w_i·y_i`, the yield-weighted net
+> exposure. **Measured 2026-09-09 on the band's own holdings path (3,962
+> ex-dates, 2005–2026): −0.01%/yr full sample** — the two legs' yields net out
+> almost exactly, because the book is not systematically long or short yield.
+> **But it swings by era** (−0.77%/yr in 2010–14, +0.25 to +0.36 since 2015)
+> and its standard deviation is 1.23%/yr, so it is material to any
+> era-conditional claim and it adds noise to every measured Sharpe even where
+> its mean is nil.
+> `W4_artifact_battery.md` Part A corrects the convention and quantifies the
+> bias. Correcting a wrong return convention is **not a trial**; no
+> specification was chosen with sight of P&L.
+>
+> Note also the ±50% single-day return filter in `build_targets` silently drops
+> any day where an unadjusted split would appear as a jump, and
+> `data/cef/cef_splits.parquet` (one row: BIT 2025-08-19) is not applied in the
+> harness at all. yfinance exposes no fund size or expense ratio for CEFs -- only
 `debtToEquity` (29/44) and `priceToBook` (32/44). **Leverage is the most promising
 untested structural variable.**
 

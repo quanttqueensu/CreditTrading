@@ -1,4 +1,29 @@
-# ops/schedule — the book runs itself after each close (macOS)
+# ops/schedule — SUPERSEDED. Do not build against this document.
+
+> **⛔ Marked 2026-09-10.** Written 2026-07-28 for a layout that no longer
+> exists. It wires `ops/books/book.json` (**does not exist**) through
+> `src.deploy.run_daily` (**nothing invokes it; its default book path is
+> missing**) and `run_after_close.sh` / `run_weekly.sh` (**their plists are not
+> loaded** and point at the pre-2026-08-31 repo path).
+>
+> **What actually runs:** six launchd jobs, all executing the single entry point
+> that lives outside the repo — cef 17:15, benchmarks 17:25, phase0 09:35,
+> collect 18:30, watchdog 19:30, weekly Sat 09:00. `install.sh` and the
+> `.plist.template` files here can only render the two dead `com.quantt.book.*`
+> jobs, and everything under `rendered/` hardcodes the old path.
+>
+> **Two files here are live and must not be swept**: `nyse_calendar.py` (the
+> trading-day gate) and `weekly_book_report.py` (the weekly job). The `*.env`
+> files are live too — they are read at session start.
+>
+> **The `run_*.sh` wrappers arm and trade, and they skip preflight, the halt
+> check and the same-day guard.** Never run one to "test" something.
+>
+> `docs/prompts/W0_repo_hygiene.md` owns rewriting this. Historical text follows.
+
+---
+
+## Historical text (2026-07-28) — the book runs itself after each close (macOS)
 
 Wires the 5-sleeve book (`ops/books/book.json`) to launchd (or cron) so that:
 

@@ -118,7 +118,7 @@ document a January effect in exactly this universe and tie it directly to
 prior-year-end tax-loss selling, with abnormal January returns correlated to
 year-end volume ([study](https://www.bus.umich.edu/pdf/mitsui/workshopdocs/ZhengJanuaryEffect.pdf);
 [revisited 2024](https://onlinelibrary.wiley.com/doi/abs/10.1111/jfir.12384)).
-**Six of our seventeen names are Nuveen munis.** A December widening in a muni
+**Four of our seventeen names are Nuveen munis and two more are BlackRock munis (corrected 2026-09-10 — the two sponsors lever differently, so a single SIFMA-based conditioner across all six is wrong).** A December widening in a muni
 CEF is therefore not a random OU excursion — it has a known seasonal cause and a
 known reversal window, and it argues for *extending* the hold through year-end
 rather than exiting on the drawdown.
@@ -134,8 +134,25 @@ sleeve knows a campaign exists. Saba paused its UK campaign for three years in
 May 2026 ([CNBC](https://www.cnbc.com/2026/05/07/saba-capital-herald-investment-trust-deal-activism-pause.html)),
 so the intensity is time-varying and currently lower.
 
-**Distribution cycles.** These funds pay monthly. The ex-date mechanically moves
-price and not NAV, which injects a sawtooth into the discount that is not
+**Distribution cycles.** These funds pay monthly.
+
+> **⛔ CORRECTED 2026-09-09.** The sentence that stood here — "the ex-date
+> mechanically moves price and not NAV" — is **wrong**. The distribution leaves
+> the fund's assets, so **NAV falls on the ex-date too**. With price and NAV both
+> falling by *D*, a discount `(P−N)/N` becomes `(P−N)/(N−D)`: for a 10% discount
+> and a 0.75% monthly distribution that is about **7bp, not the ~75bp** the
+> "price only" reading implies. Bali & Hite (1998) add a second-order effect —
+> the realised price drop is slightly *less* than the distribution because of
+> tick discreteness — so the discount may narrow marginally on the ex-date
+> rather than widen. `W4_artifact_battery.md` Part A measures the real
+> coefficient in our own panel; use that number, not either assumption.
+>
+> The sawtooth is therefore an order of magnitude smaller than this section
+> assumed, and the case for an ex-date exit blackout is correspondingly weaker.
+> What the ex-date *does* still move materially is the **return series** — see
+> the correction in `RESEARCH_STATE.md`'s data note.
+
+The ex-date injects a small sawtooth into the discount that is not
 dislocation. `docs/PLAN.md` §6 records two failed attempts to use distribution
 data as a *signal*; using it as an **exit blackout** is a different and untested
 question.

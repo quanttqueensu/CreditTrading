@@ -7,6 +7,7 @@ Outputs:
   data/cef/_raw_info.json              raw .info dicts (audit trail)
 """
 import json
+from pathlib import Path
 import os
 import time
 import warnings

@@ -1,5 +1,7 @@
 import sys
-from pathlib import Path, numpy as np, pandas as pd
+from pathlib import Path
+import numpy as np
+import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.cef.validate import load_raw, signals, MIN_ADV, HOLD
 px,nav,vol = load_raw(); disc,z,adv = signals(px,nav,vol)

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "permissions": {
+    "deny": [
+      "Read(./config/.env)",
+      "Read(./config/.env.*)",
+      "Read(./deploy/ibgw/.env)",
+      "Read(~/ibc/**)",
+      "Read(**/.env)",
+      "Edit(./config/.env)",
+      "Edit(./config/.env.*)",
+      "Edit(~/ibc/**)"
+    ],
+    "ask": [
+      "Edit(/ops/specs/**)",
+      "Edit(/ops/books/**)",
+      "Edit(/config/**)",
+      "Edit(/data/**)",
+      "Bash(git push*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)",
+      "Bash(pip install*)",
+      "Bash(python3 -m pip install*)",
+      "Bash(crontab*)"
+    ],
+    "allow": [
+      "Bash(python3 -m pytest*)",
+      "Bash(python3 -m ops.doctor*)",
+      "Bash(python3 -m ops.preflight*)",
+      "Bash(python3 ops/doctor.py*)",
+      "Bash(python3 ops/monitor.py*)",
+      "Bash(python3 ops/portfolio_monitor.py*)",
+      "Bash(python3 scripts/*)",
+      "Bash(python3 .claude/hooks/*)",
+      "Bash(python3 -c *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git blame*)",
+      "Bash(rg *)",
+      "Bash(jq *)",
+      "Bash(curl -s http://127.0.0.1:8787/api/*)",
+      "Bash(curl http://127.0.0.1:8787/api/*)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:www.interactivebrokers.com)",
+      "WebFetch(domain:www.sec.gov)",
+      "WebFetch(domain:www.nyse.com)",
+      "WebFetch(domain:www.finra.org)",
+      "WebFetch(domain:www.federalreserve.gov)",
+      "WebFetch(domain:papers.ssrn.com)",
+      "WebFetch(domain:www.cefconnect.com)"
+    ]
+  },
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_order_path.py",
+            "args": [],
+            "timeout": 15,
+            "statusMessage": "Checking the order path..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/post_edit_check.py",
+            "args": [],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/session_context.py",
+            "args": [],
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  },
+
+  "statusLine": {
+    "type": "command",
+    "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/statusline.py",
+    "padding": 1
+  }
+}

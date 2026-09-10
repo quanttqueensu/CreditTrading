@@ -8,7 +8,10 @@ deploy/ibgw/.env
 
 # Market data (3.8 GB). Rebuilt with the scripts in scripts/fetch/.
 # See docs/INFRASTRUCTURE.md section "Rebuilding the data folder".
-data/
+# LEADING SLASH IS LOAD-BEARING (fixed 2026-09-10): a bare `data/` also
+# matched src/data/, silently untracking r2.py and __init__.py, and would
+# swallow any future src/**/data/ module the same way.
+/data/
 
 # Caches and scratch
 **/__pycache__/

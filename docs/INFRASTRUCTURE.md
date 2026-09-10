@@ -1,4 +1,20 @@
 ---
+
+> **CORRECTED 2026-09-10 - READ BEFORE COPYING ANY VALUE FROM THIS DOCUMENT.**
+> Written 2026-08-16, only partially patched since. Several "current
+> configuration" statements are stale and one was actively dangerous: it gave
+> the broker port as **7497**, the exact misconfiguration that made **21
+> consecutive sessions dry-run silently** between 2026-08-03 and 08-28. The live
+> gateway serves **4002** (switched 2026-09-01). Every occurrence corrected.
+>
+> Also stale below: the frozen spec is **v6.20260906**, not v5; the live policy
+> is a **4.8% no-trade band**, not a 2-day rebalance calendar (`rebalance_days`
+> is inert while `band_width` is set); the sleeve is 367 lines, not 239;
+> `src/analysis/` is not empty; and "no trading since 1 August" is false - the
+> book armed on 09-01, 02, 03, 04, 08 and 09.
+>
+> **The authority on any live parameter is
+> `ops/specs/cef_discount.frozen.json`, never this document.**
 title: "Infrastructure and Onboarding"
 subtitle: |
   **QUANTT Credit Trading · technical reference**\
@@ -268,7 +284,7 @@ exists to avoid. Residual is now 1e-6.
 
 ### 5.1 Broker interface
 
-Interactive Brokers TWS, paper account DUQ199038, at 127.0.0.1:7497.
+Interactive Brokers TWS, paper account DUQ199038, at 127.0.0.1:4002.
 
 The account is denominated in Canadian dollars, so all US dollar sizing converts.
 Net liquidation of 1,000,674 CAD was 714,059 USD at the 31 July rate.
@@ -296,7 +312,7 @@ Credentials live in `config/.env`, excluded from git:
 
 ```
 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET
-IBKR_HOST=127.0.0.1 / IBKR_PORT=7497 / IBKR_CLIENT_ID=17
+IBKR_HOST=127.0.0.1 / IBKR_PORT=4002 / IBKR_CLIENT_ID=17
 ```
 
 Each scheduled job overrides the client id to prevent collisions. The CEF job
@@ -425,7 +441,50 @@ a yfinance gap from CEFConnect's dated row, logged to
 never decides on a lagged pair. `NAV_DEADLINE` / `NAV_POLL_SECONDS` live in
 `cef.env`; the keep-awake agent now holds the machine to 22:30.
 
-### 6.2 The TCC constraint
+### 6.2 IBKR API client ids
+
+IB allows **one session per client id**. A second connect on an id already in
+use silently evicts the first, which then reports a dead broker — so every
+caller needs its own, and a collision is a real fault, not a tidiness issue.
+
+| caller | client id | where it comes from |
+|---|---|---|
+| cef session | 45 | `ops/schedule/cef.env` |
+| benchmarks session | 46 | `ops/schedule/benchmarks.env` |
+| phase0 session | *inherited* | **no `IBKR_CLIENT_ID` in `phase0.env`** — falls back to the shared broker config, so it uses whatever that holds |
+| `capture_fills` | session id + 50 | `ops/capture_fills.py` |
+| `preflight` | session id + 60 | `ops/preflight.py` |
+| `reconcile_orders` | session id + 70 | `ops/reconcile_orders.py` |
+| `fetch_borrow_rates` | 77 | `IB_CLIENT_ID` |
+| `fetch_borrow_history` | 78 | `IB_CLIENT_ID` |
+| `rebuild_ledger` | 110 | hardcoded |
+| epoch reset tool | 120 | hardcoded (**was 96 until 2026-09-10 — that is `capture_fills` for the benchmarks book, 46 + 50**) |
+| `switch_broker` probe | 199 | `PROBE_CLIENT_ID` |
+| dashboard `_probe_broker` | 205 | hardcoded |
+| dashboard `_portfolio` | 302 | hardcoded |
+
+Two faults found on 2026-09-10 and fixed:
+
+1. **The dashboard opened a session per widget refresh.** `/api/live` polls
+   every 5s against what was a 4s cache TTL, and `/api/verify` called the same
+   `_portfolio` under a *second* cache key — so two threads could hold client
+   302 at once and evict each other. Roughly 17,000 connect/disconnect cycles a
+   day, seven sockets still held `CLOSED` by the process after 38 hours, and
+   the gateway answering **10197 "No market data during competing live
+   session"** to the borrow-availability tick. Fixed by making `cached()`
+   single-flight (one lock per key), sharing one portfolio snapshot between
+   both endpoints, serialising `_portfolio` on a process-wide broker lock, and
+   raising the TTL to 12s. The durable fix — one long-lived session owned by
+   the server, subscribing to events instead of polling — is `W9`.
+2. **The epoch reset tool defaulted to 96**, the benchmarks book's
+   `capture_fills` id, and it runs during exactly the recovery window where
+   capture is most likely to be running too. Moved to 120.
+
+**`phase0.env` still has no id of its own.** Give it one before the null trader
+is retired, or the retirement session will contend with whatever else reads the
+shared broker config.
+
+### 6.2b The TCC constraint
 
 No scheduled job may run through the shell. The repository sits under `~/Desktop`,
 which macOS protects with TCC. A launchd agent holds no Full Disk Access, so
@@ -566,7 +625,7 @@ edge rather than excessive cost, and it changed no verdict.
 ## 8. Open issues
 
 **No trading since 1 August.** TWS has not been running. Every session since ends
-`ok_not_armed` with the blocker "nothing listening on 127.0.0.1:7497". Collection,
+`ok_not_armed` with the blocker "nothing listening on 127.0.0.1:4002". Collection,
 reporting and the watchdog have continued without fault, which is the four-phase
 design working as intended, but no orders have transmitted since 31 July.
 Restarting TWS requires an interactive login; automating around that is our first

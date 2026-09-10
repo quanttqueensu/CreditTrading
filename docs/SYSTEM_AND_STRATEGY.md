@@ -350,7 +350,7 @@ Decomposing book variance on the sleeve's own weights:
 | component | share | what it is |
 |---|---:|---|
 | PC1 | 3.6% | market direction — correctly neutralised |
-| **PC2** | **65.7%** | **muni vs taxable** (+0.32 on all six Nuveen munis, negative on the other eleven) |
+| **PC2** | **65.7%** | **muni vs taxable** (+0.32 on **four Nuveen munis (NAD, NEA, NZF, NVG) plus two BlackRock (MQY, MHD)** — corrected 2026-09-10; earlier text said "six Nuveen munis", which matters because the two sponsors lever differently (Nuveen via SIFMA-linked tender option bonds, BlackRock via preferred shares) and so cannot share a financing conditioner, negative on the other eleven) |
 | PC3 | 9.6% | quality / duration |
 | PC4–17 | 21.1% | genuinely idiosyncratic |
 
@@ -450,6 +450,12 @@ the IC does **not** drop out — it sets the alpha-to-cost ratio.
 - **Trials are counted permanently.** `docs/RESEARCH_STATE.md`. The CEF counter is
   at 47; the band is trial 48. The deflated-Sharpe haircut is $\sqrt{2\ln N}$, so
   every trial raises the bar for every result.
+  **Amended 2026-09-09:** there are now **two** counters — **CEF (48)** and
+  **GAMMA (0)** — each with its own bar, per the 2026-09-08 standing decisions.
+  Note that `RESEARCH_STATE.md`'s own table still shows CEF at 18; that file has
+  not been updated since 2026-07-31 and **48 is the canonical figure**, carried
+  by `ESTIMATOR_NOTE.md` (+29 that session), `PREREG_BAND_2026-09-06.md`
+  ("trial 48") and `DUST_ORDERS_2026-09.md` ("the CEF counter stays at 48").
 - **Pre-register before the session that trades it.** See
   `results/cef/PREREG_BAND_2026-09-06.md` for the shape: what changes, why, what
   is committed in advance, what would falsify it, and the divergences from
