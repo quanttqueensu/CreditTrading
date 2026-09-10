@@ -1,5 +1,6 @@
 # G5 — The paper book: what sixty sessions can and cannot establish
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md` (§2 and §6 especially), `G3_hedging.md`.
 **Settles:** whether the machinery works, what the P&L decomposition looks like
 in reality, and what delta hedging actually costs us. **It settles nothing about
@@ -77,7 +78,8 @@ volatility regime.**
 
 ## Design
 
-- **Book:** `ops/books/gamma_book.json`, sleeve `gamma_scalp`, capital $50,000,
+- **Book:** `ops/books/gamma_book.json` — **to be created by this prompt; it
+  does not exist** — sleeve `gamma_scalp`, capital $50,000,
   `max_gross_option_notional_usd: 50000`, its own IBKR client id, its own
   launchd job at **08:45** (after `cef`), with capture riding on `cef_pm` at
   17:30. Never netted with, or attributed to, any other book.

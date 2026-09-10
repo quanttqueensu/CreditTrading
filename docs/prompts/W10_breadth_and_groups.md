@@ -1,5 +1,6 @@
 # W10 — Breadth: make seventeen names into more than one bet
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §1 (the law), §2 (mechanisms M3, M4, M5), §3
 (how these instruments trade), §5 (harness).
 **Lever:** BR. The book's effective breadth is **1.17** today (2.24

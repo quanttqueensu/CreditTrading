@@ -1,5 +1,6 @@
 # G3 — The hedging specification, and the one benchmark that grades it
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md` (§1, the identity), `G1_option_math.md`.
 **Settles:** how we hedge, how often, at what price, and — the part that is
 easiest to get wrong and most expensive when you do — **which realised-volatility

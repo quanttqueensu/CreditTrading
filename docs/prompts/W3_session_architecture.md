@@ -1,5 +1,6 @@
 # W3 — The session: decide in the morning, source the data twice, be loud when it fails
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §3 (how these instruments trade), §5 (harness),
 §6 (house rules), §7 (standing decisions).
 **Lever:** TC and reliability. The book armed on 3 of 26 sessions and nobody

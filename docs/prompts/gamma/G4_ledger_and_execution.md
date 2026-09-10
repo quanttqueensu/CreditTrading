@@ -1,5 +1,6 @@
 # G4 — The machinery: four live defects, and a ledger that survives an expiry
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md` §5, `00_BRIEF.md` §6.
 **Settles:** whether an option can be booked, marked, rolled, expired, assigned
 and reconciled without a human noticing. Today it cannot.

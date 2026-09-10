@@ -1,5 +1,6 @@
 # W8 — The short leg: what it costs to hold, what can be borrowed, what gets recalled
 
+**Status:** in progress — done: Part A's method measured dead (`results/cef/BORROW_AVAILABILITY_2026-09-10.md`, `80b458e`). remains: all of it; Part A needs a new method.
 **Reads first:** `00_BRIEF.md` §3 (how these instruments trade), §5 (harness),
 §7 (standing decisions).
 **Lever:** TC. Borrow scales with *holdings*, not turnover, so trading less
@@ -34,10 +35,12 @@ You are a quant researcher on the QUANTT CEF book. Read
 3. `scripts/cef/borrow_capacity.py` (the φ = 0.25 rule and the
    capital-at-which-it-binds table), `borrow_impact.py`,
    `fetch_borrow_rates.py`.
-   > **⚠ `borrow_impact.py:101` baselines against `band(T, 0.064)`** — the 6.4%
-   > width superseded on 2026-09-06. Its published drag comparison is therefore
-   > against a policy the book does not run. Read the width from the frozen spec
-   > and re-run before quoting any of its numbers.
+   > **RESOLVED 2026-09-10. This read: "`borrow_impact.py:101` baselines
+   > against `band(T, 0.064)`, so its published drag comparison is against a
+   > policy the book does not run."** **Fixed 2026-09-10** (`0b74658`, `9409762`, `666fab9`): all five scripts now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads the frozen spec, and tests hold it shut. `borrow_impact.py`'s one
+   > remaining `0.064` is a deliberate, labelled `("band 6.4%", ...)` comparison
+   > row. Its numbers are quotable again — but re-run it anyway, because the
+   > panel has moved since they were published.
 4. `data/cef/cef_borrow.csv` — `date, ticker, fee_rate_pct, rebate_rate_pct,
    available_shares, api_shortable_shares`. Append-only, one row per name per
    day, starts 2026-09-06.
@@ -88,12 +91,28 @@ These are cheap corrections that change every number downstream.
    Availability is the entire premise of the cap, so Part B is unsafe until this
    is settled. The tick only answers when no other client session holds market
    data (it returned NaN under error 10197 until the dashboard stopped opening a
-   session per widget refresh), which is why the two were never compared. Take
-   paired readings for a week — same minute, both sources where the file still
-   has a mirror, plus FINRA short interest as the third leg — and establish
-   whether they measure the same thing: indicative pool vs currently-shortable,
-   and whether shares already lent to us are netted out. Report the
-   disagreement; do not average them and do not silently pick one.
+   session per widget refresh), which is why the two were never compared.
+
+   > **⚠ MEASURED 2026-09-10, and it kills the plan this paragraph used to
+   > state.** The instruction here was "take paired readings for a week — same
+   > minute, both sources". `results/cef/BORROW_AVAILABILITY_2026-09-10.md`
+   > re-read the panel (`data/cef/cef_borrow.csv`, 4 dates, 17 names) and found
+   > **paired readings in the panel: zero.** The public file answered on 09-06
+   > and 09-08 and has answered on **no** date since; the API answered on
+   > **09-10** and on no date before. The file stopped exactly when the API
+   > started, and IBKR's public shortstock file is now a permanent 404. **No
+   > amount of waiting produces a pair.**
+   >
+   > So Part A must first design a *different* method — a mirror of the retired
+   > file if one exists, FINRA short interest as the bridge, or an accepted
+   > statement that the two quantities were never comparable and the cap rests
+   > on the API alone. **Do not start the daily reading.** Read that note before
+   > anything else in this prompt.
+
+   Whatever method replaces it must still establish whether the two measure the
+   same thing — indicative pool vs currently-shortable, and whether shares
+   already lent to us are netted out. Report the disagreement; do not average
+   them and do not silently pick one.
 4. **Add short interest as a free cross-check.** FINRA publishes short interest
    twice monthly for all exchange-listed securities, CEFs included, about seven
    business days after the settlement date, free. Stage it into

@@ -55,10 +55,21 @@ Run validation in dev, or promote first.
 Our transfer coefficient is **~37%** — gross Sharpe ~1.2 becomes net ~0.43 once
 costs and measured borrow are charged. Our effective breadth is **1.17** against a
 nominal 17 names, because 92.5% of book variance is one factor (muni vs taxable).
-And the book has armed on **5 of 29** CEF sessions (measured 2026-09-10:
-`grep -la 'ARMED:' ops/schedule/logs/cef_*.log | wc -l` over
-`ls ops/schedule/logs/cef_*.log | wc -l`; the "3 of 26" this line carried until
-then was never dated and was wrong). Work that raises TC or uptime beats work
+And the book armed on **5 of 29** CEF sessions as measured 2026-09-10 ~17:00 —
+**but that command reads one tree and there are now two.** The session logs
+bifurcated when prod took over on 2026-09-10: dev's newest is `cef_2026-09-09`
+and every new log lands only in `~/prod/QUANTT/ops/schedule/logs/`. Run it in
+dev, which is where this file is, and it is frozen at 5/29 and undercounts by
+one more every session — there have already been **30**. Name both trees:
+
+```bash
+L=~/prod/QUANTT/ops/schedule/logs; D=ops/schedule/logs
+echo "$(grep -la 'ARMED:' $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l) of \
+$(ls $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l)"
+```
+
+This is the same trap as `ls ops/HALT*.md` two sections below, and the "3 of 26"
+this line carried until 2026-09-10 was never dated and was wrong. Work that raises TC or uptime beats work
 that sharpens IC, every time.
 
 Read `docs/prompts/00_BRIEF.md` before any research. It is the standing brief and

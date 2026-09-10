@@ -25,9 +25,23 @@ print('halt active:', (s.get('halt') or {}).get('active'))
 
 ## The ranking rule
 
-`IR ≈ IC · TC · √BR`. Our **IC is settled and good**. Our **TC is ~37%**. Our
-**effective breadth is 1.17** against a nominal 17. And the book has armed on **3 of
-26 sessions**.
+`IR ≈ IC · TC · √BR`. Our **TC is ~37%** and our **effective breadth is 1.17**
+against a nominal 17 — both measured, both the binding problem.
+
+**Do not take an uptime figure from this file.** It said "3 of 26 sessions"
+until 2026-09-10, undated and wrong, and any number written here is wrong again
+the next time the book runs. Measure it, and note that the logs live in **prod**
+since 2026-09-10 — run in dev alone and you undercount:
+
+```bash
+L=~/prod/QUANTT/ops/schedule/logs; D=$(git rev-parse --show-toplevel)/ops/schedule/logs
+echo "$(grep -la 'ARMED:' $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l) armed of \
+$(ls $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l) sessions"
+```
+
+On the IC, read `CLAUDE.md`'s opening section rather than this file: the
+headline validation was re-scored on 2026-09-10 after a `shift(1)` entry-price
+defect was found, and the numbers moved.
 
 So the order is almost always:
 
@@ -44,9 +58,17 @@ fills/session, 60 sessions gives SE ≈ 0.84bp against a 32.6bp breakeven. We ha
 **n = 1** for the live method. Everything about whether this strategy is viable
 turns on that number.
 
-**3. Reconcile ledger vs broker.** Reported P&L is currently wrong on all 17
-positions. Sizing is unaffected, but no live statistic can be trusted until this is
-closed.
+**3. Reconcile ledger vs broker.** **Both halves of what this item used to say
+are retracted (2026-09-10).** It read "reported P&L is currently wrong on all 17
+positions. Sizing is unaffected." Measured from
+`results/ops/BROKER_SNAPSHOT_2026-09-10.json` (read-only, 11:35:29 ET): the 17
+CEF names match the broker **share for share**; the divergences are 15
+`null_trader`/benchmark names, worst JAAA at 1,503 shares. And "sizing is
+unaffected because `arm()` re-seeds from the broker" is **false where the broker
+holds zero** — IBKR emits no row for a flattened position, so `arm()` never
+visits that symbol and a stale ledger quantity reaches `place_targets`. That is
+a **trading** fault, not a reporting one, and it is why `ops/HALT_phase0_null.md`
+exists. Re-measure before quoting any magnitude.
 
 **4. Decide the vol target.** We run 6% — roughly 1/12 Kelly, realising 4.95%.
 **Doubling it doubles return at unchanged Sharpe, which is larger than every signal
@@ -67,8 +89,17 @@ window, per-name κ lost to pooled.
 
 `docs/prompts/00_BRIEF.md` §8 carries the ordered queue and its dependencies:
 
-**W0 → W1 → W2 → W4 → W3 → W5 → W7 → W6 §A → W9 Stage 1 → F1 → W8 → W10 §A/§B →
-W9 Stages 2–4 → W11 → W12 → F2 → W10 §C/§E/§F → W13 → F3 → W6 §B.**
+**W0 → W0b → W0c → W1 → W2 → W4 → W3 → W5 → W7 → W6 §A → W9 Stage 1 → F1 →
+W8 → W10 §A/§B → W9 Stages 2–4 → W11 → W12 → F2 → W10 §C/§E/§F → W13 → F3 →
+W6 §B.**
+
+**W0 and W0b are executed; W0c, W2, W5 and W8 are part-done.** Do not start one
+of those four without reading its evidence row first, or you will redo work
+that has already landed. What is actually true right now:
+
+```bash
+python3 ops/prompt_status.py        # status, derived; the index is a finding aid
+```
 
 Gamma runs beside it: **G1 → G4 → G3 → G2 → G6 → G5 → G7.**
 

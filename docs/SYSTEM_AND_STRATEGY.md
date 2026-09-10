@@ -17,7 +17,9 @@ number appears, it was measured, and the script that reproduces it is named.
 > - **"armed on 3 of 26 sessions"**, in three places → re-measured 2026-09-10:
 >   **5 of 29**. Corrected in place; the ratio is the one number here that moves
 >   every session, so re-run the command rather than quoting either figure.
->   `echo "$(grep -la 'ARMED:' ops/schedule/logs/cef_*.log | wc -l) of $(ls ops/schedule/logs/cef_*.log | wc -l)"`
+>   **Count both trees** — since 2026-09-10 new logs land only in prod, so a
+>   dev-only glob is frozen at 5/29 and undercounts by one more every session:
+>   `L=~/prod/QUANTT/ops/schedule/logs; D=ops/schedule/logs; echo "$(grep -la 'ARMED:' $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l) of $(ls $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l)"`
 > - **"only 2026-07-31 and 2026-09-01 have broker-confirmed executions"** (:284)
 >   → **2026-09-08 has 18 more**; 294 fills over three dates. And those 18 are
 >   **uncosted** — `slippage.csv` has no 09-08 row.

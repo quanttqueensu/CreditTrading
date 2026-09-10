@@ -1,5 +1,6 @@
 # F3 — Seventeen sleeves, one book: per-fund budgets and what neutrality means
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §1 (BR and the law), §4 (the scoreboard), §5, §7.
 **Lever:** BR and attribution. Seventeen funds become seventeen bets with
 seventeen P&L lines, each of which can be judged, sized or switched off alone.

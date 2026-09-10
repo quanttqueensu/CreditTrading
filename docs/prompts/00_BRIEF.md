@@ -501,16 +501,16 @@ returns silently.
 - **Never hand-copy a data series.** Anything fetched gets a fetcher and a
   source note.
 - **The frozen spec is the only authority on a live parameter. Read it; never
-  hardcode it.** Verified 2026-09-10: four analysis scripts
-  (`joint_cost_optimiser.py`, `covariance_construction.py`, `borrow_impact.py`,
-  `ou_score.py`) still baseline against `band(T, 0.064)` — the 6.4% width the
-  book left behind on 2026-09-06. **Any comparison they produce is against a
-  book that is not live, and nothing about it errors or looks wrong.** Before
-  extending any analysis script, check every parameter it hardcodes against
-  `ops/specs/cef_discount.frozen.json`, and fix by *reading the spec*, not by
-  editing the literal. W0 Part A does this once, properly, with a single-reader
-  module; until it lands, check by hand. A script that deliberately *sweeps* a
-  parameter is fine and should say so in a comment.
+  hardcode it.** The rule stands; the defect it was written about is gone.
+  Four analysis scripts once baselined against `band(T, 0.064)` — the 6.4%
+  width the book left behind on 2026-09-06 — so every comparison they produced
+  was against a book that is not live, and **nothing about it errored or looked
+  wrong.** **Fixed 2026-09-10** (`0b74658`, `9409762`, `666fab9`): all five scripts now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads the frozen spec, and tests hold it shut. Before extending any analysis script, check every
+  parameter it hardcodes against `ops/specs/cef_discount.frozen.json`, and fix
+  by *reading the spec*, not by editing the literal. A script that deliberately
+  *sweeps* a parameter is fine and should say so in a comment — `grep -n
+  '0\.064' scripts/cef/*.py` returns seven literals and all seven are of that
+  kind. **Re-run the grep; do not trust this count.**
 
 ---
 

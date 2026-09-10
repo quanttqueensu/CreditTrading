@@ -28,6 +28,7 @@
 > prod's `data/` is still a symlink back to dev, and the live ledgers are still
 > tracked by git. What follows is kept as the record of why and how.
 
+**Status:** executed — 2026-09-10 — `c6fc9b1`. Verify with `git worktree list`, not with this line.
 **Reads first:** `CLAUDE.md` §4 (safety), `00_BRIEF.md` §6.
 **Lever:** the single largest operational risk in the repo. **Trials:** 0.
 **Touches the live book:** **yes, profoundly** — it changes which tree the

@@ -1,5 +1,6 @@
 # W4 — Is the edge real? The artifact battery, and the missing distribution
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §2 (mechanisms), §3 (how these instruments
 trade), §5 (harness).
 **Lever:** none — this prompt can only *subtract*. It is the highest-value hour

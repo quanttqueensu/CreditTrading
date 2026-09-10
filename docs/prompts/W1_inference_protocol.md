@@ -1,5 +1,6 @@
 # W1 — The inference protocol: holdout, counters, and the statistics that decide
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §5 (harness), §6 (house rules), §7 (standing decisions).
 **Lever:** inference. Every other prompt's decision rule inherits what this one builds.
 **Trials:** 0. **Touches the live book:** no.

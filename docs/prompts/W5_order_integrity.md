@@ -1,5 +1,6 @@
 # W5 — Order integrity: the ledger must decide what the broker decides
 
+**Status:** in progress — done: P0.1 dust orders (`9636502`, `results/cef/DUST_ORDERS_2026-09.md`). remains: everything else.
 **Reads first:** `00_BRIEF.md` §5, §6.
 **Lever:** the integrity of the record every statistic is computed from.
 **Trials:** 0. **Touches the live book:** the shadow ledger and an append-only

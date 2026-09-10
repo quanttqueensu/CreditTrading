@@ -1,5 +1,6 @@
 # F2 — Four mechanisms, seventeen parameter sets: group forms with fund-level shrinkage
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §1, §2 (M4), §3, §5.
 **Lever:** IC, via a fair value that knows what kind of fund it is looking at and
 how much that particular fund's own history can be trusted.
@@ -22,12 +23,14 @@ You are a quant researcher on the QUANTT CEF book. Read
 Then:
 
 1. `docs/PER_NAME_ARCHITECTURE.md` in full, and `scripts/cef/per_name_resolution.py`
-   in full. **Note that `scripts/cef/ou_score.py:198` — the script recording the
-   per-name κ failure this prompt must not repeat — baselines against
-   `band(T, 0.064)`, the 6.4% width superseded on 2026-09-06.** Its comparison
-   table is against a policy the book does not run. That does not overturn its
-   verdict (κ lost at every setting, including against the calendar), but re-run
-   it at the live width before quoting its numbers. **Note two things about that script that the document does not say:
+   in full. **Corrected 2026-09-10. This read: "`scripts/cef/ou_score.py:198`
+   — the script recording the per-name κ failure this prompt must not repeat —
+   baselines against `band(T, 0.064)`, the 6.4% width superseded on
+   2026-09-06."** **Fixed 2026-09-10** (`0b74658`, `9409762`, `666fab9`): all five scripts now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads the frozen spec, and tests hold it shut. `ou_score.py` now carries no `0.064` at all.
+   Its published comparison table was nonetheless produced against the retired
+   width, so **re-run it at the live width before quoting its numbers** — which
+   does not overturn its verdict (κ lost at every setting, including against
+   the calendar). **Note two things about that script that the document does not say:
    it writes no files — it prints to stdout only — and its `eb()` function
    returns shrinkage weights but never applies them.** The only place in the
    repo that actually applies empirical-Bayes shrinkage is

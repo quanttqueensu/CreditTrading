@@ -1,5 +1,6 @@
 # F1 — The per-fund characteristics panel: what is knowable about each fund, and when
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §3 (how these instruments trade), §5 (harness),
 §6 (house rules).
 **Lever:** none directly. This is the data foundation without which F2 and F3

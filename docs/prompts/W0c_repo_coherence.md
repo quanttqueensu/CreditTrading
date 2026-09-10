@@ -1,5 +1,6 @@
 # W0c — Repo coherence: make the repo agree with itself, and with the machine
 
+**Status:** in progress — done: 5 of 6 §8 items (`cb6f3a7`, `0b828dc`). remains: the push — `main` is ahead of `origin/main`.
 **Reads first:** `00_BRIEF.md` (all of it), `CLAUDE.md`, and rule **H14** — no
 decision rule may key on a number written in a document. W0 enforced H14 on a
 handful of files. This prompt enforces it on the repo as a whole, and on

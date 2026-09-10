@@ -1,5 +1,6 @@
 # G1 — The option math we own: pricing, greeks, and implied vol from a trade print
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md`, `00_BRIEF.md` §6 (house rules).
 **Settles:** the model every other prompt in this programme inverts, prices and
 hedges with. **Trials:** 0 — nothing here is evaluated on P&L.

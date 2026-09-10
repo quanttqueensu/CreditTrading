@@ -1,5 +1,6 @@
 # G2 — The surface from trade prints: what "implied vol" is allowed to mean here
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md`, `G1_option_math.md` (this prompt inverts with
 that module), `00_BRIEF.md` §6.
 **Settles:** the implied-vol series every later prompt compares realised against.

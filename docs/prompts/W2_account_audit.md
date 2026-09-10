@@ -1,5 +1,6 @@
 # W2 — What the account can actually do, and retiring the control book
 
+**Status:** in progress — done: per-book halt scoping (`43ec054`, `26a5336`). remains: the account audit itself, and the benchmark fill dedupe.
 **Reads first:** `00_BRIEF.md` §6 (house rules), §7 (standing decisions).
 **Lever:** prerequisites. Nothing in W14 (options) can start until this note
 says "permitted", and W6's sizing memo cannot be written until the margin type

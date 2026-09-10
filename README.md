@@ -170,10 +170,15 @@ of these will be stale when you read them:
 * **294 broker-confirmed executions** across three fill dates — 2026-07-31 (257),
   2026-09-01 (19), 2026-09-08 (18).
   `wc -l ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv`
-* **The book armed on 5 of 29 CEF sessions.** Uptime, not signal quality, is the
-  binding constraint.
-  `grep -la 'ARMED:' ops/schedule/logs/cef_*.log | wc -l` over
-  `ls ops/schedule/logs/cef_*.log | wc -l`
+* **The book armed on 5 of 29 CEF sessions** as measured 2026-09-10 ~17:00.
+  Uptime, not signal quality, is the binding constraint. **Count both trees** —
+  since 2026-09-10 new session logs land only in prod, so the single-tree
+  command this line used to give undercounts by one more every session:
+  ```bash
+  L=~/prod/QUANTT/ops/schedule/logs; D=ops/schedule/logs
+  echo "$(grep -la 'ARMED:' $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l) of \
+  $(ls $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l)"
+  ```
 * **Only broker-confirmed fills count** toward any live statistic. Most ledger
   trade dates are modelled fills for sessions that never traded, and a modelled
   session is not evidence.

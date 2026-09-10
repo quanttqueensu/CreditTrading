@@ -1,5 +1,6 @@
 # W9 — The dashboard: five questions, one broker session, push not poll
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §4 (the scoreboard), §6 (house rules).
 **Lever:** the desk's instrument. **Trials:** 0. **Touches the live book:** no.
 The dashboard stays **read-only with exactly one POST route** (`/api/connect`,

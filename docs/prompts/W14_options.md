@@ -1,5 +1,6 @@
 # W14 — Is the book short vol, and is a convexity overlay worth its carry?
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §2 (M9), §3, §5, §7 — and
 `gamma/G0_BRIEF.md`, which holds the option mechanics, the market facts and the
 programme's own rules. **This prompt is the CEF book's *use* of options; the

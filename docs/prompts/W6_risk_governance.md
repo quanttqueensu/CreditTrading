@@ -1,5 +1,6 @@
 # W6 — Risk governance: arm the controls, replace the kill rule, then size the book
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §4 (the scoreboard), §7 (standing decisions).
 **Lever:** governance, then return at unchanged Sharpe.
 **Trials:** 0. Part A changes spec keys and code paths; Part B produces a

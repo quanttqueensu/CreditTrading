@@ -1,5 +1,6 @@
 # G7 — The timed sleeve, and the budget that may be zero
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md`, `G6_vrp_research.md` and its pre-registration,
 `G3_hedging.md`, `00_BRIEF.md` §5.
 **Settles:** whether the gamma programme trades at all, and at what size.

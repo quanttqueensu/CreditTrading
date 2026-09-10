@@ -1,5 +1,6 @@
 # G6 — Realised against implied in credit: does a timing signal exist at all?
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `G0_BRIEF.md` (§2 and §4 especially), `G3_hedging.md` Part C
 (which defines the only benchmark this prompt may use), `G2_surface.md`.
 **Settles:** whether long gamma in credit can be timed, and if so by what.

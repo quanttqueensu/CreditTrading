@@ -1,5 +1,6 @@
 # W11 — The policy layer: per-name bands, conviction, a turnover controller, a cost tilt
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §1 (TC is the highest-value work per hour), §5.
 **Lever:** TC — the holding period decided by the signal and by each fund's own
 dynamics instead of by one constant, and net Sharpe made robust to being wrong

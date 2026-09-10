@@ -14,6 +14,7 @@
 > prompt and `CLAUDE.md` disagree, `CLAUDE.md` is newer — and where either
 > states a number, re-measure it. Its successor is `W0c_repo_coherence.md`.
 
+**Status:** executed — 2026-09-10 — `0c81d3f`, `W0-A`…`W0-G`, `80b458e`; `results/ops/REPO_HYGIENE_2026-09-10.md`.
 **Reads first:** `00_BRIEF.md` §6 (house rules), and rule **H14** — no decision
 rule may key on a number written in a document. This prompt is partly about
 enforcing that rule on the repo itself.

@@ -1,5 +1,6 @@
 # W13 — NAV quality and the horizon question
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §2 (M2), §3 (how these instruments trade), §5.
 **Lever:** IC, via the measurement error in the NAV itself — and, separately,
 whether the same logic works at a horizon we have never tested.

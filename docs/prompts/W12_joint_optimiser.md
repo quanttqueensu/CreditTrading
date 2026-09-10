@@ -1,5 +1,6 @@
 # W12 — The joint optimiser: derive the cost coefficient, structure the covariance, shadow it
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §1, §5, §6.
 **Lever:** TC and BR together. The joint L1 mean-variance book nets **0.90 vs
 the band's 0.70 at matched turnover**, with gross 1.33 vs 1.10.
@@ -33,14 +34,15 @@ You are a quant developer on the QUANTT CEF book. Read
 4. `scripts/cef/joint_cost_optimiser.py` — how λ is set per date, how Σ is
    estimated (Ledoit-Wolf, 252d ending the day before, refit monthly), how
    ADV-ineligible names are CLOSED, and `_cov_window`.
-   > **⚠ Before you extend it, fix its baseline.** Verified 2026-09-10, this
-   > file compares against `band(..., 0.064)` at lines 395, 403, 412, 413 and
-   > 560 — **the 6.4% width, superseded by 4.8% on 2026-09-06.** Every
-   > "plain_band" and "inv_band" row it produces is measured against a policy
-   > the book does not run. `covariance_construction.py:151` has the same bug.
-   > **Read `band_width` from the frozen spec and re-run the baseline before
-   > comparing anything to it**, or your comparison is against the wrong
-   > reference and will not announce itself.
+   > **RESOLVED 2026-09-10. This read: "before you extend it, fix its
+   > baseline — this file compares against `band(..., 0.064)` at lines 395,
+   > 403, 412, 413 and 560, the 6.4% width superseded by 4.8% on 2026-09-06,
+   > and `covariance_construction.py:151` has the same bug."** **Fixed 2026-09-10** (`0b74658`, `9409762`, `666fab9`): all five scripts now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads the frozen spec, and tests hold it shut.
+   > Its remaining `0.064`s are a sweep grid and a historical comment.
+   > **What still stands is the reason the warning existed:** a baseline
+   > against the wrong reference does not announce itself. Any figure this
+   > script published *before* 2026-09-10 was measured against a policy the
+   > book does not run — re-run before quoting one.
 5. `scripts/cef/covariance_construction.py` in full: why Σ⁻¹α is the standard
    fix for a book whose variance is 65.7% one factor; **why shrinkage is
    mandatory** (an unshrunk inverse loads the worst-estimated eigenvectors and

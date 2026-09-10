@@ -1,5 +1,6 @@
 # W7 — What it costs to trade, and whether the band is actually trading less
 
+**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §3 (how these instruments trade), §4 (the
 scoreboard), §5 (harness).
 **Lever:** measurement that gates every capture decision. Cost is the
