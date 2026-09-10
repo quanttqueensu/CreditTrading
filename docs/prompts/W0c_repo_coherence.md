@@ -163,11 +163,21 @@ ops/books/retired  ops/books/_dryruns   .claude/skills/graveyard
 write it down once, in `README.md`, with one line on what belongs in each. Then:
 
 - **`docs/`** — 13 top-level `.md` files with no index, spanning July to
-  September, several superseded. Add the two missing correction banners (item 3),
-  then move anything whose conclusions are fully absorbed elsewhere into
-  `docs/_superseded/` with a one-line pointer to what replaced it. `PLAN.md`,
+  September. Add the two missing correction banners (item 3). `PLAN.md`,
   `INFRASTRUCTURE.md` and `RESEARCH_AND_METHODOLOGY.md` already have banners —
-  leave them in place, they are still cited.
+  leave them, they are still cited.
+
+  **DONE 2026-09-10, and the answer was "move nothing".** This item originally
+  said to move anything "fully absorbed elsewhere" into `docs/_superseded/`.
+  Measured against citation counts, that set is **empty**, and `docs/_superseded/`
+  was deliberately NOT created. The two PREREGs and `HOW_WE_GOT_HERE.md` are
+  protected historical records that `W0-G` (`9db624e`) already marked *"Not
+  maintained, and MUST NOT BE"* — **archiving a pre-registration destroys the
+  thing it exists to prove**, which is that a claim was committed to before the
+  result was known. `EXIT_RESEARCH` (8 citations, written three days prior) and
+  `SYSTEM_AND_STRATEGY` (33 citations) are live. Do not re-run this as a filing
+  exercise: an instruction to archive is not evidence that anything should be,
+  and the honest output of a tidy-up can be that the repo was already right.
 - **Repo root** — `HANDOFF_2026-09-10.md` and `wu_paper_archive.html` sit beside
   `CLAUDE.md` and `README.md`. Handoffs are dated artifacts: give them
   `docs/handoffs/`. The stray HTML belongs in `docs/` or `results/`.
