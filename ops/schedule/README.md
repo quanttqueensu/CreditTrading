@@ -12,6 +12,16 @@
 > `.plist.template` files here can only render the two dead `com.quantt.book.*`
 > jobs, and everything under `rendered/` hardcodes the old path.
 >
+> **The one current scheduler artifact in this directory is the state backup.**
+> `install_backup.sh` renders `com.quantt.backup.daily` (23:55, every day) into
+> `rendered_backup/`, and it archives **`~/prod/QUANTT`, not this tree** — the
+> live ledgers moved to the prod worktree on 2026-09-10. It deliberately does
+> *not* dispatch through the outside-the-repo entry point: the backup has to
+> keep working in the case where the session machinery is what broke. It is
+> rendered into `rendered_backup/` rather than `rendered/` so that a live
+> artifact is not filed among ones the banner above tells you not to trust.
+> See `results/ops/BACKUP_SCHEDULE_2026-09-10.md`.
+>
 > **Two files here are live and must not be swept**: `nyse_calendar.py` (the
 > trading-day gate) and `weekly_book_report.py` (the weekly job). The `*.env`
 > files are live too — they are read at session start.
