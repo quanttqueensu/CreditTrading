@@ -8,6 +8,33 @@ This document is deliberately opinionated about what is *established*, what is
 treated very differently here and you should treat them differently too. Where a
 number appears, it was measured, and the script that reproduces it is named.
 
+> **⚠ CORRECTED 2026-09-10 — THIS FILE HAD NO BANNER AND STATES TWO CLAIMS THE
+> REPO HAS SINCE RETRACTED.** Its own header promises that "where a number
+> appears, it was measured, and the script that reproduces it is named". Three
+> of its live numbers no longer reproduce, and §7.3 was a *trading* fault
+> described as a reporting one:
+>
+> - **"armed on 3 of 26 sessions"**, in three places → re-measured 2026-09-10:
+>   **5 of 29**. Corrected in place; the ratio is the one number here that moves
+>   every session, so re-run the command rather than quoting either figure.
+>   `echo "$(grep -la 'ARMED:' ops/schedule/logs/cef_*.log | wc -l) of $(ls ops/schedule/logs/cef_*.log | wc -l)"`
+> - **"only 2026-07-31 and 2026-09-01 have broker-confirmed executions"** (:284)
+>   → **2026-09-08 has 18 more**; 294 fills over three dates. And those 18 are
+>   **uncosted** — `slippage.csv` has no 09-08 row.
+> - **"the ledger disagrees with the broker on all 17 positions (~$223k), order
+>   sizing is *unaffected* — `arm()` re-seeds from the broker"** (:285-287) →
+>   **both halves are false.** All 17 CEF names match the broker share-for-share
+>   (CEF gross divergence $0.00); 15 non-CEF symbols diverge. And the re-seed
+>   does **not** protect you in two cases: where the broker reports **no row at
+>   all** for a flattened symbol, `arm()` never visits it (JAAA), and where a
+>   symbol is **contested** by two books, `arm()` deliberately adopts the ledger
+>   rather than the account net (LQD). Both are trading faults. See
+>   `results/ops/LEDGER_DIVERGENCE_2026-09-10.md` and CLAUDE.md landmine 3.
+> - **120.6bp at :309 and 100.5bp at :115 are the same session** (2026-07-31),
+>   194 lines apart, and are *different statistics* — 120.6 is the simple mean
+>   of the 16 rows, 100.5 the share-weighted mean. Neither is labelled as such.
+>   `ops/capture_fills.py` and the dashboard both report the simple mean.
+
 ---
 
 ## 0. Orientation in one page
@@ -34,7 +61,7 @@ in-sample → 1.75 out-of-sample** when the sealed holdout was opened.
 was **0.33**, and **0.10** once the short leg is charged its measured borrow. The
 entire research agenda is: *how much of a real edge can we actually keep?*
 
-**The other problem is operational.** The book has armed on **3 of 26 sessions**.
+**The other problem is operational.** The book has armed on **5 of 29 sessions** (re-measured 2026-09-10).
 Most of the "live" track record is modelled fills for sessions that never traded.
 Fixing that is worth more than any research in this document.
 
@@ -274,17 +301,28 @@ separate "our signal is bad" from "our execution is bad".
 
 **Read this before trusting any live number.**
 
-1. **The book has armed on 3 of 26 sessions.** 08-03→08-28 (21 sessions) were all
+1. **The book has armed on 5 of 29 sessions** (re-measured 2026-09-10; this
+   said 3 of 26). 08-03→08-28 (21 sessions) were all
    dry runs because `config/.env` had `IBKR_PORT=7497` (TWS paper) while the
    gateway serves **4002**. Corrected by `ops/switch_broker.py` at 2026-09-01
    16:58. Two more sessions lost to the gateway being down. Preflight caught every
    one correctly and refused to trade — the system behaved properly, it just was
    not trading.
 2. **22 of 24 ledger trade dates are modelled fills** for sessions that never
-   traded. Only 2026-07-31 and 2026-09-01 have broker-confirmed executions.
-3. **The ledger disagrees with the broker on all 17 positions** (~$223k notional
-   account-wide). Order sizing is *unaffected* — `arm()` re-seeds from the broker —
-   but reported NAV and P&L are wrong.
+   traded. Broker-confirmed executions exist on **three** dates, not two —
+   2026-07-31 (257), 2026-09-01 (19) and **2026-09-08 (18)**, 294 in total
+   (corrected 2026-09-10; this said "only 07-31 and 09-01"). The 09-08 fills
+   are **uncosted**: `slippage.csv` carries no row for that date.
+3. **RETRACTED 2026-09-10 — this read "the ledger disagrees with the broker on
+   all 17 positions (~$223k), order sizing is *unaffected* because `arm()`
+   re-seeds from the broker".** Both halves are false. Measured from
+   `results/ops/BROKER_SNAPSHOT_2026-09-10.json` (read-only, 11:35:29 ET):
+   **all 17 CEF names match the broker share-for-share**, CEF gross divergence
+   **$0.00**. **15** symbols diverge, all `null_trader`/benchmark names, worst
+   JAAA 1,503 then LQD 858. And the re-seed does not protect sizing where the
+   broker reports no row (a flattened symbol is never visited) or where a
+   symbol is contested by two books (`arm()` adopts the ledger by design).
+   Reported NAV and P&L are wrong *and so is sizing*, on those two paths.
 4. **A non-armed session is silent.** It writes `ok_not_armed` to the heartbeat
    and raises no alert, which is why a 21-session outage went unnoticed for a
    month. **This is the highest-value operational fix available.**
@@ -476,7 +514,7 @@ the IC does **not** drop out — it sets the alpha-to-cost ratio.
 ### 8.2 Ranked list
 
 1. **Gateway uptime + alert on non-armed sessions.** Nothing else matters if the
-   book does not trade. 3 of 26.
+   book does not trade. 5 of 29.
 2. **Accumulate the fill record.** Cost converges ~60× faster than Sharpe: at ~15
    fills/session, 60 sessions gives SE ≈ 0.84bp against a 32.6bp breakeven.
 3. **Reconcile ledger vs broker.** Reported P&L is currently wrong.
