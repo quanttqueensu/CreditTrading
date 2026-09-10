@@ -90,6 +90,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(REPO))
 
 from ou_score import panel                                          # noqa: E402
+from spec import BAND_WIDTH, LIVE_POLICY  # noqa: E402  spec-owned width, never a literal
 from band_frontier import (UNIVERSE, Z_WINDOW, MIN_PERIODS, VOL_TARGET,       # noqa: E402
                            VOL_LOOKBACK, MIN_ADV, MIN_NAMES, SAMPLE_START,
                            calendar, band, evaluate)
@@ -392,27 +393,31 @@ def main() -> int:
     Tp, Rp, _ = build("plain")
     base["plain_cal1"] = stats(calendar(Tp, 1), Rp, E)
     base["plain_cal2"] = stats(calendar(Tp, 2), Rp, E)
-    base["plain_band"] = stats(band(Tp, 0.064), Rp, E)
+    # The band baseline is the LIVE width from the frozen spec. This read 0.064
+    # until 2026-09-10 -- the width deliberately NOT chosen on 2026-09-06 -- so
+    # every joint-optimiser comparison below was scored against a book nobody
+    # runs. The LIVE tag is derived for the same reason.
+    base["plain_band"] = stats(band(Tp, BAND_WIDTH), Rp, E)
     line("w ~ alpha, calendar 1d", base["plain_cal1"])
-    line("w ~ alpha, calendar 2d  (LIVE)", base["plain_cal2"])
-    line("w ~ alpha, band 6.4%", base["plain_band"])
+    line("w ~ alpha, calendar 2d", base["plain_cal2"])
+    line(f"w ~ alpha, {LIVE_POLICY}  <-- LIVE", base["plain_band"])
 
     Ti, Ri, bri = build("inv_alpha")
     base["inv_cal1"] = stats(calendar(Ti, 1), Ri, E, bri)
     base["inv_cal2"] = stats(calendar(Ti, 2), Ri, E, bri)
-    base["inv_band"] = stats(band(Ti, 0.064), Ri, E, bri)
+    base["inv_band"] = stats(band(Ti, BAND_WIDTH), Ri, E, bri)
     line("w ~ Sig^-1 a, calendar 1d", base["inv_cal1"])
     line("w ~ Sig^-1 a, calendar 2d", base["inv_cal2"])
-    line("w ~ Sig^-1 a, band 6.4%", base["inv_band"])
+    line(f"w ~ Sig^-1 a, {LIVE_POLICY}", base["inv_band"])
 
     print()
     print("CONTROL: the same bands, but ineligible names closed at once instead of")
     print("being walked to the band edge -- the ADV hygiene the optimiser is given.")
     print("-" * len(HDR))
-    base["plain_bandX"] = stats(band_hard_exit(Tp, 0.064, E), Rp, E)
-    base["inv_bandX"] = stats(band_hard_exit(Ti, 0.064, E), Ri, E, bri)
-    line("w ~ alpha, band 6.4% + ADV exit", base["plain_bandX"])
-    line("w ~ Sig^-1 a, band 6.4% + ADV exit", base["inv_bandX"])
+    base["plain_bandX"] = stats(band_hard_exit(Tp, BAND_WIDTH, E), Rp, E)
+    base["inv_bandX"] = stats(band_hard_exit(Ti, BAND_WIDTH, E), Ri, E, bri)
+    line(f"w ~ alpha, {LIVE_POLICY} + ADV exit", base["plain_bandX"])
+    line(f"w ~ Sig^-1 a, {LIVE_POLICY} + ADV exit", base["inv_bandX"])
 
     print()
     print("=" * len(HDR))
@@ -497,10 +502,10 @@ def main() -> int:
         print(f"{lab:<40}{s['turn']:>9.1f}{s['gross']:>7.2f}{br}"
               + "".join(f"{s['net' + str(c2)]:>9.2f}" for c2 in COSTS_BP))
 
-    mrow("w ~ alpha, band 6.4%  (reference)", ref)
+    mrow(f"w ~ alpha, {LIVE_POLICY}  (reference)", ref)
     mrow(f"w ~ alpha, band {b_m * 100:.1f}% + ADV exit", sb_m)
     mrow(f"w ~ Sig^-1 a, band {bi_m * 100:.1f}% + ADV exit", sbi_m)
-    mrow("w ~ Sig^-1 a, band 6.4% (sequential)", base["inv_band"])
+    mrow(f"w ~ Sig^-1 a, {LIVE_POLICY} (sequential)", base["inv_band"])
     mrow(f"joint, c_model={c_m * 1e4:.1f}bp", s_m)
 
     print()
@@ -557,7 +562,7 @@ def main() -> int:
     eras = [("2013-2016", "2013", "2016"), ("2017-2020", "2017", "2020"),
             ("2021-2026", "2021", "2026"), ("2013-2026 all", "2013", "2026")]
     Hj, Rj, _ = run_joint(c_m, z, vol_i, ret, adv, adv_mode="exit")
-    era_books = [("w ~ alpha, band 6.4%", band(Tp, 0.064), Rp),
+    era_books = [(f"w ~ alpha, {LIVE_POLICY}", band(Tp, BAND_WIDTH), Rp),
                  (f"w ~ alpha, band {b_m * 100:.1f}% + ADV exit",
                   band_hard_exit(Tp, b_m, E), Rp),
                  (f"w ~ Sig^-1 a, band {bi_m * 100:.1f}% + ADV exit",
@@ -589,9 +594,9 @@ def main() -> int:
     sh = (f"{'construction':<40}{'illiq%':>8}"
           + "".join(f"{'netI@' + str(c):>10}" for c in COSTS_BP))
     print(sh); print("-" * len(sh))
-    for lab, st in (("w ~ alpha, band 6.4%", ref),
+    for lab, st in ((f"w ~ alpha, {LIVE_POLICY}", ref),
                     (f"w ~ alpha, band {b_m * 100:.1f}% + ADV exit", sb_m),
-                    ("w ~ Sig^-1 a, band 6.4%", base["inv_band"]),
+                    (f"w ~ Sig^-1 a, {LIVE_POLICY}", base["inv_band"]),
                     (f"joint, c_model={c_m * 1e4:.1f}bp", s_m)):
         print(f"{lab:<40}{st['inelig'] * 100:>8.1f}"
               + "".join(f"{st['netI' + str(c2)]:>10.2f}" for c2 in COSTS_BP))
