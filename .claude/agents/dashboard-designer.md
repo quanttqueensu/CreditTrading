@@ -50,7 +50,8 @@ Corollaries:
 4. **Effective breadth / factor concentration** — `/api/factors`. The headline
    number is **1.17**, not 17.
 5. **Borrow desk** — fee, availability, and which names are unbuildable. NAD's pool
-   supports ~$45,000 against an 8,129-share short.
+   figures are **disputed** as of 2026-09-10 — show BOTH sources and their
+   disagreement rather than a single number.
 6. **Event calendar** — ex-dates, tenders, rights offerings, 13Ds. Being short into
    a NAV-priced tender is a known, avoidable loss.
 

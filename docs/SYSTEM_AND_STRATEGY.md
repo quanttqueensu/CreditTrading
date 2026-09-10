@@ -346,9 +346,29 @@ Premium does not predict borrow cost here.
 ### 5.3 Capacity — the first estimate this programme has
 
 Availability is a separate constraint from cost and binds on different names.
-**NAD's borrow pool supports ~$45,000 of capital**; NVG ~$278,000. At the actual
-$500k, **11.4% of the desired short book is unbuildable**; 27.8% at $5m, 52.5% at
-$25m. **Capacity is roughly $5m at this construction.**
+On the retired public file's pools, **NAD's borrow pool supports ~$45,000 of
+capital**, NVG ~$278,000; at the actual $500k **11.4% of the desired short book
+is unbuildable**, 27.8% at $5m, 52.5% at $25m, and capacity is roughly $5m.
+
+> **⚠ DISPUTED 2026-09-10 — do not size anything on these figures.** Every number
+> in this section comes from IBKR's public `shortstock` file, which was **retired
+> on 2026-09-09**. Its documented equivalent, TWS **tick 236**, had been returning
+> NaN under error 10197 because the dashboard was opening a broker session per
+> widget refresh; with that fixed the tick answers, and on the first day the two
+> could be compared they disagreed badly on the name the whole thesis rests on:
+>
+> | | we short | file (09-08) | tick 236 (09-10) | ratio |
+> |---|---:|---:|---:|---:|
+> | NAD | 6,550 | **3,000** | **83,942** | 28× |
+> | NVG | 4,679 | 20,000 | 149,125 | 7× |
+> | MHD | 8,856 | 250,000 | 102,491 | 0.4× |
+>
+> On the file's pools 18.7% of today's short book is unbuildable; **on the tick's,
+> 0%.** That is the difference between a constraint worth a pre-registered spec
+> change and no constraint at all. One paired observation cannot settle it — the
+> two may measure different things (indicative pool vs currently-shortable, and
+> whether shares already lent to us are netted out). **W8 Part A pairs them over a
+> week and owns the resolution.** Until then this section is unverified.
 
 ---
 

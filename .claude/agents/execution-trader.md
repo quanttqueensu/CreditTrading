@@ -73,9 +73,25 @@ NVG (3.70%)**; two are Nuveen munis, the same names carrying the PC2 concentrati
 policy's short weights. Re-measure with `borrow_impact.py` rather than quoting it.)
 The premium hypothesis is refuted: PHK at a +22.6% premium borrows at 1.06%.
 
-Availability binds on *different* names than cost does. **NAD's borrow pool
-supports ~$45,000 of capital**; NVG ~$278,000. At $500k, **11.4% of the desired
-short book is unbuildable**; 52.5% at $25m. Capacity is roughly $5m.
+Availability binds on *different* names than cost does — but **the availability
+numbers are DISPUTED as of 2026-09-10 and must not be quoted or sized on.** The
+retired public shortstock file and TWS tick 236 were believed to report the same
+exact-share figure. On the first day both could be compared they did not:
+
+| | we short | file (09-08) | tick 236 (09-10) | |
+|---|---:|---:|---:|---|
+| NAD | 6,550 | **3,000** | **83,942** | 28× |
+| NVG | 4,679 | 20,000 | 149,125 | 7× |
+| MHD | 8,856 | 250,000 | 102,491 | 0.4× |
+
+On the file's pools **18.7%** of the short book is unbuildable; on the tick's,
+**0%**. That is the difference between a constraint worth a pre-registered spec
+change and no constraint at all. They may be measuring different things —
+indicative pool vs currently-shortable, and whether shares already lent to us are
+netted. **W8 Part A pairs them over a week; until then treat "11.4% unbuildable"
+and "capacity is roughly $5m" as unverified.** Tick 236 only answers when no
+other client session holds market data, which is why the comparison had never
+been made.
 
 The pool cannot grow with demand: fixed share count, only fully-paid and
 excess-margin shares are loan-eligible, and the marginal CEF holder is a retired

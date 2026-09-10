@@ -60,7 +60,9 @@ this wrong.
   share, one cent is 2.9–10.7bp against a 32.6bp breakeven. Measured +0.16 net in
   July, recommendation "Adopt", **never deployed**.
 - **Borrow.** HYT 10.56%, NAD 10.21%, NVG 3.70% — three names are ~67% of the bill,
-  and NAD's pool supports only ~$45,000 of capital against our 8,129-share short.
+  and NAD's borrow pool is **disputed** (the retired public file said 3,000 shares,
+  TWS tick 236 said 83,942 two days later) — do not quote a capacity figure until
+  W8 Part A pairs the two sources.
 - **Events.** Tenders (NAV-priced on the last day — never be short into one),
   rights offerings (transferable vs not is the field that matters), mergers,
   open-endings (Bradley, Brav, Goldstein & Jiang 2010: successful open-endings cut

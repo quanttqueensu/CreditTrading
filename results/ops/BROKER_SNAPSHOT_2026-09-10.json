@@ -1,0 +1,733 @@
+{
+  "read_at_local": "2026-09-10T11:34:47.177846-04:00",
+  "read_at_utc": "2026-09-10T15:34:47.177846+00:00",
+  "host": "127.0.0.1",
+  "port": 4002,
+  "client_id": 115,
+  "readonly_connection": true,
+  "open_orders": [
+    {
+      "symbol": "JFR",
+      "secType": "STK",
+      "exchange": "SMART",
+      "action": "SELL",
+      "totalQuantity": 4630.0,
+      "filledQuantity": 1.7976931348623157e+308,
+      "orderType": "MOC",
+      "tif": "DAY",
+      "lmtPrice": 0.0,
+      "status": "PreSubmitted",
+      "filled": 0.0,
+      "remaining": 4630.0,
+      "avgFillPrice": 0.0,
+      "orderId": 22,
+      "permId": 260360466,
+      "clientId": 45,
+      "orderRef": "",
+      "account": "DUQ199038",
+      "parentId": 0,
+      "whyHeld": ""
+    },
+    {
+      "symbol": "MHD",
+      "secType": "STK",
+      "exchange": "SMART",
+      "action": "BUY",
+      "totalQuantity": 115.0,
+      "filledQuantity": 1.7976931348623157e+308,
+      "orderType": "MOC",
+      "tif": "DAY",
+      "lmtPrice": 0.0,
+      "status": "PreSubmitted",
+      "filled": 0.0,
+      "remaining": 115.0,
+      "avgFillPrice": 0.0,
+      "orderId": 23,
+      "permId": 260360467,
+      "clientId": 45,
+      "orderRef": "",
+      "account": "DUQ199038",
+      "parentId": 0,
+      "whyHeld": ""
+    },
+    {
+      "symbol": "MQY",
+      "secType": "STK",
+      "exchange": "SMART",
+      "action": "BUY",
+      "totalQuantity": 185.0,
+      "filledQuantity": 1.7976931348623157e+308,
+      "orderType": "MOC",
+      "tif": "DAY",
+      "lmtPrice": 0.0,
+      "status": "PreSubmitted",
+      "filled": 0.0,
+      "remaining": 185.0,
+      "avgFillPrice": 0.0,
+      "orderId": 24,
+      "permId": 260360468,
+      "clientId": 45,
+      "orderRef": "",
+      "account": "DUQ199038",
+      "parentId": 0,
+      "whyHeld": ""
+    },
+    {
+      "symbol": "NEA",
+      "secType": "STK",
+      "exchange": "SMART",
+      "action": "SELL",
+      "totalQuantity": 4458.0,
+      "filledQuantity": 1.7976931348623157e+308,
+      "orderType": "MOC",
+      "tif": "DAY",
+      "lmtPrice": 0.0,
+      "status": "PreSubmitted",
+      "filled": 0.0,
+      "remaining": 4458.0,
+      "avgFillPrice": 0.0,
+      "orderId": 25,
+      "permId": 260360469,
+      "clientId": 45,
+      "orderRef": "",
+      "account": "DUQ199038",
+      "parentId": 0,
+      "whyHeld": ""
+    }
+  ],
+  "n_open_orders": 4,
+  "positions_account_net": [
+    {
+      "account": "DUQ199038",
+      "symbol": "AGG",
+      "secType": "STK",
+      "conId": 25985141,
+      "position": 205.0,
+      "avgCost": 98.009439
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "ANGL",
+      "secType": "STK",
+      "conId": 229725522,
+      "position": 87.0,
+      "avgCost": 28.8114977
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "AWF",
+      "secType": "STK",
+      "conId": 4704,
+      "position": 1926.0,
+      "avgCost": 10.2369942
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "BIT",
+      "secType": "STK",
+      "conId": 123288383,
+      "position": 6842.0,
+      "avgCost": 12.11146165
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "BKLN",
+      "secType": "STK",
+      "conId": 319359400,
+      "position": -1201.0,
+      "avgCost": 20.59340815
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "DSL",
+      "secType": "STK",
+      "conId": 126660684,
+      "position": 3720.0,
+      "avgCost": 10.985003
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "EMB",
+      "secType": "STK",
+      "conId": 47649504,
+      "position": 550.0,
+      "avgCost": 94.69563945
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "HYG",
+      "secType": "STK",
+      "conId": 43652089,
+      "position": 383.0,
+      "avgCost": 79.45483315
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "HYT",
+      "secType": "STK",
+      "conId": 41122203,
+      "position": 3210.0,
+      "avgCost": 8.455003
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "IEF",
+      "secType": "STK",
+      "conId": 15547844,
+      "position": 86.0,
+      "avgCost": 94.72951045
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "IGSB",
+      "secType": "STK",
+      "conId": 42455799,
+      "position": 1207.0,
+      "avgCost": 51.73878095
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "JFR",
+      "secType": "STK",
+      "conId": 28828789,
+      "position": -5837.0,
+      "avgCost": 7.6258612
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "JNK",
+      "secType": "STK",
+      "conId": 356312840,
+      "position": 26.0,
+      "avgCost": 95.65500385
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "LQD",
+      "secType": "STK",
+      "conId": 15547816,
+      "position": -881.0,
+      "avgCost": 105.5430874
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "MHD",
+      "secType": "STK",
+      "conId": 41122080,
+      "position": -8856.0,
+      "avgCost": 11.3054599
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "MQY",
+      "secType": "STK",
+      "conId": 41122110,
+      "position": -1750.0,
+      "avgCost": 11.1143215
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "NAD",
+      "secType": "STK",
+      "conId": 6608344,
+      "position": -6550.0,
+      "avgCost": 11.6509588
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "NEA",
+      "secType": "STK",
+      "conId": 17085357,
+      "position": -7118.0,
+      "avgCost": 11.20308475
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "NVG",
+      "secType": "STK",
+      "conId": 14732309,
+      "position": -4679.0,
+      "avgCost": 12.30378545
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "NZF",
+      "secType": "STK",
+      "conId": 15548118,
+      "position": -271.0,
+      "avgCost": 12.0045546
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "PCN",
+      "secType": "STK",
+      "conId": 6608373,
+      "position": 720.0,
+      "avgCost": 11.75500305
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "PDI",
+      "secType": "STK",
+      "conId": 107976119,
+      "position": 3746.0,
+      "avgCost": 16.165003
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "PDO",
+      "secType": "STK",
+      "conId": 467524601,
+      "position": 7311.0,
+      "avgCost": 12.5058278
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "PFN",
+      "secType": "STK",
+      "conId": 31815560,
+      "position": 1555.0,
+      "avgCost": 6.90219275
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "PHK",
+      "secType": "STK",
+      "conId": 17966274,
+      "position": 7089.0,
+      "avgCost": 4.5259862
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "PTY",
+      "secType": "STK",
+      "conId": 16825380,
+      "position": 630.0,
+      "avgCost": 11.815003
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "SHY",
+      "secType": "STK",
+      "conId": 15547851,
+      "position": 244.0,
+      "avgCost": 82.02011105
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "SHYG",
+      "secType": "STK",
+      "conId": 136374385,
+      "position": 1009.0,
+      "avgCost": 42.02417925
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "SJNK",
+      "secType": "STK",
+      "conId": 104158269,
+      "position": -3530.0,
+      "avgCost": 24.72021615
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "SPHY",
+      "secType": "STK",
+      "conId": 109385195,
+      "position": 196.0,
+      "avgCost": 23.265003
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "SRLN",
+      "secType": "STK",
+      "conId": 125373044,
+      "position": -1958.0,
+      "avgCost": 40.4839679
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "USHY",
+      "secType": "STK",
+      "conId": 293893522,
+      "position": -1273.0,
+      "avgCost": 36.38405235
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "VCIT",
+      "secType": "STK",
+      "conId": 70363051,
+      "position": 423.0,
+      "avgCost": 79.955003
+    },
+    {
+      "account": "DUQ199038",
+      "symbol": "VCSH",
+      "secType": "STK",
+      "conId": 70363037,
+      "position": 412.0,
+      "avgCost": 78.4893
+    }
+  ],
+  "n_positions": 34,
+  "portfolio": [
+    {
+      "symbol": "AGG",
+      "position": 205.0,
+      "marketPrice": 96.23999785,
+      "marketValue": 19729.2,
+      "averageCost": 98.009439,
+      "unrealizedPNL": -362.74,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "ANGL",
+      "position": 87.0,
+      "marketPrice": 28.61898805,
+      "marketValue": 2489.85,
+      "averageCost": 28.8114977,
+      "unrealizedPNL": -16.75,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "AWF",
+      "position": 1926.0,
+      "marketPrice": 10.00609685,
+      "marketValue": 19271.74,
+      "averageCost": 10.2369942,
+      "unrealizedPNL": -444.71,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "BIT",
+      "position": 6842.0,
+      "marketPrice": 11.8236332,
+      "marketValue": 80897.3,
+      "averageCost": 12.11146165,
+      "unrealizedPNL": -1969.32,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "BKLN",
+      "position": -1201.0,
+      "marketPrice": 20.5760002,
+      "marketValue": -24711.78,
+      "averageCost": 20.59340815,
+      "unrealizedPNL": 20.91,
+      "realizedPNL": -33.67,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "DSL",
+      "position": 3720.0,
+      "marketPrice": 10.4743538,
+      "marketValue": 38964.6,
+      "averageCost": 10.985003,
+      "unrealizedPNL": -1899.62,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "EMB",
+      "position": 550.0,
+      "marketPrice": 93.66000365,
+      "marketValue": 51513.0,
+      "averageCost": 94.69563945,
+      "unrealizedPNL": -569.6,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "HYG",
+      "position": 383.0,
+      "marketPrice": 78.75808715,
+      "marketValue": 30164.35,
+      "averageCost": 79.45483315,
+      "unrealizedPNL": -266.85,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "HYT",
+      "position": 3210.0,
+      "marketPrice": 8.1939993,
+      "marketValue": 26302.74,
+      "averageCost": 8.455003,
+      "unrealizedPNL": -837.82,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "IEF",
+      "position": 86.0,
+      "marketPrice": 91.33999635,
+      "marketValue": 7855.24,
+      "averageCost": 94.72951045,
+      "unrealizedPNL": -291.5,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "IGSB",
+      "position": 1207.0,
+      "marketPrice": 51.6399994,
+      "marketValue": 62329.48,
+      "averageCost": 51.73878095,
+      "unrealizedPNL": -119.23,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "JFR",
+      "position": -5837.0,
+      "marketPrice": 7.63999985,
+      "marketValue": -44594.68,
+      "averageCost": 7.6258612,
+      "unrealizedPNL": -82.53,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "JNK",
+      "position": 26.0,
+      "marketPrice": 94.76000215,
+      "marketValue": 2463.76,
+      "averageCost": 95.65500385,
+      "unrealizedPNL": -23.27,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "LQD",
+      "position": -881.0,
+      "marketPrice": 104.65399935,
+      "marketValue": -92200.17,
+      "averageCost": 105.5430874,
+      "unrealizedPNL": 783.29,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "MHD",
+      "position": -8856.0,
+      "marketPrice": 10.97999955,
+      "marketValue": -97238.88,
+      "averageCost": 11.3054599,
+      "unrealizedPNL": 2882.28,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "MQY",
+      "position": -1750.0,
+      "marketPrice": 10.5760002,
+      "marketValue": -18508.0,
+      "averageCost": 11.1143215,
+      "unrealizedPNL": 942.06,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "NAD",
+      "position": -6550.0,
+      "marketPrice": 10.97000025,
+      "marketValue": -71853.5,
+      "averageCost": 11.6509588,
+      "unrealizedPNL": 4460.28,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "NEA",
+      "position": -7118.0,
+      "marketPrice": 10.86499975,
+      "marketValue": -77337.07,
+      "averageCost": 11.20308475,
+      "unrealizedPNL": 2406.49,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "NVG",
+      "position": -4679.0,
+      "marketPrice": 11.5100012,
+      "marketValue": -53855.3,
+      "averageCost": 12.30378545,
+      "unrealizedPNL": 3714.12,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "NZF",
+      "position": -271.0,
+      "marketPrice": 11.52999975,
+      "marketValue": -3124.63,
+      "averageCost": 12.0045546,
+      "unrealizedPNL": 128.6,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "PCN",
+      "position": 720.0,
+      "marketPrice": 11.56400015,
+      "marketValue": 8326.08,
+      "averageCost": 11.75500305,
+      "unrealizedPNL": -137.52,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "PDI",
+      "position": 3746.0,
+      "marketPrice": 15.1499996,
+      "marketValue": 56751.9,
+      "averageCost": 16.165003,
+      "unrealizedPNL": -3802.2,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "PDO",
+      "position": 7311.0,
+      "marketPrice": 12.6359997,
+      "marketValue": 92381.79,
+      "averageCost": 12.5058278,
+      "unrealizedPNL": 951.69,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "PFN",
+      "position": 1555.0,
+      "marketPrice": 6.80999995,
+      "marketValue": 10589.55,
+      "averageCost": 6.90219275,
+      "unrealizedPNL": -143.36,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "PHK",
+      "position": 7089.0,
+      "marketPrice": 4.49399995,
+      "marketValue": 31857.97,
+      "averageCost": 4.5259862,
+      "unrealizedPNL": -226.75,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "PTY",
+      "position": 630.0,
+      "marketPrice": 11.70400045,
+      "marketValue": 7373.52,
+      "averageCost": 11.815003,
+      "unrealizedPNL": -69.93,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "SHY",
+      "position": 244.0,
+      "marketPrice": 81.4847946,
+      "marketValue": 19882.29,
+      "averageCost": 82.02011105,
+      "unrealizedPNL": -130.62,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "SHYG",
+      "position": 1009.0,
+      "marketPrice": 41.83600235,
+      "marketValue": 42212.53,
+      "averageCost": 42.02417925,
+      "unrealizedPNL": -189.87,
+      "realizedPNL": -21.19,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "SJNK",
+      "position": -3530.0,
+      "marketPrice": 24.62599945,
+      "marketValue": -86929.78,
+      "averageCost": 24.72021615,
+      "unrealizedPNL": 332.58,
+      "realizedPNL": 0.0,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "SPHY",
+      "position": 196.0,
+      "marketPrice": 23.04599955,
+      "marketValue": 4517.02,
+      "averageCost": 23.265003,
+      "unrealizedPNL": -42.92,
+      "realizedPNL": -178.53,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "SRLN",
+      "position": -1958.0,
+      "marketPrice": 40.4860039,
+      "marketValue": -79271.6,
+      "averageCost": 40.4839679,
+      "unrealizedPNL": -3.99,
+      "realizedPNL": -1138.83,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "USHY",
+      "position": -1273.0,
+      "marketPrice": 36.4259987,
+      "marketValue": -46370.3,
+      "averageCost": 36.38405235,
+      "unrealizedPNL": -53.4,
+      "realizedPNL": -841.5,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "VCIT",
+      "position": 423.0,
+      "marketPrice": 79.8899994,
+      "marketValue": 33793.47,
+      "averageCost": 79.955003,
+      "unrealizedPNL": -27.5,
+      "realizedPNL": 1297.9,
+      "account": "DUQ199038"
+    },
+    {
+      "symbol": "VCSH",
+      "position": 412.0,
+      "marketPrice": 77.87999725,
+      "marketValue": 32086.56,
+      "averageCost": 78.4893,
+      "unrealizedPNL": -251.03,
+      "realizedPNL": -356.47,
+      "account": "DUQ199038"
+    }
+  ],
+  "accounts": [
+    "DUQ199038"
+  ],
+  "account_values": {
+    "DUQ199038": {
+      "Cushion": {
+        "value": 0.225752,
+        "currency": ""
+      }
+    }
+  },
+  "managed_accounts": [
+    "DUQ199038"
+  ],
+  "read_completed_local": "2026-09-10T11:34:49.444576-04:00",
+  "command": "python3 /private/tmp/claude-501/-Users-simonjarvis-Desktop-2027-QUANTT-2027/841aece8-f162-4823-9d5f-5b06181ab990/scratchpad/broker_snapshot.py   # ib_async IB().connect(host,port,clientId=115,readonly=True); reqAllOpenOrders/openTrades/positions/portfolio/accountValues",
+  "note": "READ-ONLY. No order was placed, modified or cancelled. positions_account_net is the ACCOUNT NET across all three books sharing DUQ199038 -- never attribute a symbol from it (CLAUDE.md landmine 7)."
+}
