@@ -326,18 +326,30 @@ def check_phantom_books(book_path=None) -> Check:
     or an `_attribution.json` entry, for any of its sleeves -- rather than derived
     from the filename, because the ledger directory is not named after the spec
     (`cef_discount_book.json` -> `ops/books/cef_live/`).
+
+    Only `*_live` roots vouch for a sleeve, and archive directories do not.
+    Measured 2026-09-10: the unrestricted glob returned 17 directories of which
+    10 were not live sub-ledgers -- nine `_pre_epoch_*`/`_prerebuild_*` archives,
+    and `phase0_preflight/<sleeve>`, a PREFLIGHT SCRATCH root. That last one is
+    the fault that matters: it vouches for `null_trader` on its own, so if the
+    real book were retired this check would stay silent about it. The archives
+    are inert only by luck -- their directory name carries a timestamp and so
+    never equals a sleeve name -- and relying on that is not a test.
     """
     books_dir = REPO_ROOT / "ops" / "books"
     shadow = "_ibkr" + "_shadow"        # read-only glob; never written here
     try:
         traded = set()
-        for d in books_dir.glob(f"*/{shadow}/*"):
-            if d.is_dir():
+        for d in books_dir.glob(f"*_live/{shadow}/*"):
+            if d.is_dir() and not d.name.startswith(("_pre_epoch_",
+                                                     "_prerebuild_", "_")):
                 traded.add(d.name)
-        for f in books_dir.glob("*/_attribution.json"):
+        for f in books_dir.glob("*_live/_attribution.json"):
             try:
                 traded.update(json.loads(f.read_text()).keys())
-            except Exception:
+            except Exception as exc:
+                print(f"[preflight] WARNING: {f} is unreadable ({exc!r}); a "
+                      f"book known only through it may be reported as a phantom")
                 continue
 
         phantoms = []
@@ -383,7 +395,13 @@ def check_phantom_books(book_path=None) -> Check:
                          blocking=False)
         return Check("phantom_books", True, "no dead books claiming symbols")
     except Exception as exc:
-        return Check("phantom_books", True, f"not checked ({exc})")
+        # NOT ok=True. A crashed check reporting [PASS] is the silent fallback
+        # CLAUDE.md forbids, and it would hide the very fault this exists to
+        # surface. Still non-blocking: a broken advisory check must not stop a
+        # book trading, but it must say it is broken.
+        return Check("phantom_books", False,
+                     f"CHECK FAILED, so nothing was verified: {exc!r}",
+                     blocking=False)
 
 
 # -- the gate -------------------------------------------------------------
