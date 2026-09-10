@@ -21,7 +21,9 @@
       "Bash(git clean*)",
       "Bash(pip install*)",
       "Bash(python3 -m pip install*)",
-      "Bash(crontab*)"
+      "Bash(crontab*)",
+      "Bash(~/prod/QUANTT/ops/promote.sh*)",
+      "Bash(/Users/simonjarvis/prod/QUANTT/ops/promote.sh*)"
     ],
     "allow": [
       "Bash(python3 -m pytest*)",
@@ -50,7 +52,14 @@
       "WebFetch(domain:www.finra.org)",
       "WebFetch(domain:www.federalreserve.gov)",
       "WebFetch(domain:papers.ssrn.com)",
-      "WebFetch(domain:www.cefconnect.com)"
+      "WebFetch(domain:www.cefconnect.com)",
+      "Read(~/prod/QUANTT/**)",
+      "Bash(git -C ~/prod/QUANTT status*)",
+      "Bash(git -C ~/prod/QUANTT log*)",
+      "Bash(git tag*)",
+      "Bash(diff *)",
+      "Bash(launchctl list*)",
+      "Bash(tar -tzf *)"
     ]
   },
   "hooks": {
