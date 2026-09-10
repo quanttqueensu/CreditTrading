@@ -238,3 +238,111 @@ pathspec too, which is why `.1`'s own promote.sh can carry `.3` in.
   pushed to origin. `v2026.09.10.4` is **local only** — `promote.sh` resolves
   local tags so it would still work, but push it before promoting it. `[V]`
 - `ops/tests/test_promote_gate.py` passes (4 tests). `[V]`
+
+---
+
+# FINAL, 17:35 — do NOT promote tonight. The cost is three destructive acts, and nothing needs it.
+
+Measured after the 17:25 benchmarks session, which **traded**. `[V]`
+
+## What changed in ten minutes
+
+The benchmarks session wrote **19 more tracked ledger files** plus
+`ops/heartbeat.json`. Prod's dirty set under `.1`'s broken pathspecs went from
+**2 lines to 22**. The gate refuses on all of them.
+
+## Why the obvious fix is now destructive
+
+`git checkout -- ops/books` no longer costs only timestamps.
+
+| what | cost |
+|---|---|
+| `phase0_live` broker_fills | safe — identical 677-execId set to `.3`, **only `recorded_utc` differs** |
+| `benchmarks_live` bench_b6 broker_fills | **67 broker-confirmed executions destroyed.** `.3` has 141 rows, prod has 208; the 67 are 2026-09-10 SHYG/USHY/VCIT. **`.3` does not contain them and cannot restore them.** |
+| `ops/books/benchmarks_live/report_2026-09-10.md` | **untracked**, so a checkout cannot clear it — and `.1`'s pathspecs do not exclude it |
+
+That last row is the one that settles it. **After discarding every tracked
+ledger, `.1`'s gate STILL refuses**, because one untracked file remains:
+
+```
+under .1's pathspecs, dirty now:                        22
+after `git checkout -- ops/books ops/heartbeat.json`:    1   <- the untracked report
+under .3's CORRECTED pathspecs:                          0
+```
+
+So promoting `.3` *through `.1`'s promote.sh* costs **three** destructive acts —
+discard 67 real executions, discard the phase0 timestamps, and move or delete
+tonight's benchmarks report — to deliver a fix whose entire purpose is to stop
+the gate refusing on live state. That trade is not worth making, and the
+executions are the paper track record, which is the one thing this desk cannot
+re-create.
+
+## Nothing needs it tonight
+
+- The 17:25 benchmarks session **armed and traded**, rc 0.
+- `ops.doctor --quick` from prod exits **0**, no FAIL.
+- `ops/HALT_phase0_null.md` is in place and blocks phase0; `cef_discount` and
+  `benchmarks` are not blocked.
+- The CEF session is running normally, waiting for NAV to 23:30.
+
+`.3` fixes *future* promotions. It changes nothing about tomorrow's trading.
+
+## Do it on Saturday 2026-09-12, and carry the untracking with it
+
+`2026-09-12` is **non-trading** `[V]` (`nyse_calendar.py --check`), so:
+no session fires, the state does not move under the operation, `promote.sh`'s
+window check does not apply at all, and the restore can be verified at leisure.
+
+**And it should carry the ledger untracking (`NEXT_2026-09-11.md` §4), because
+the preserve/restore dance is needed exactly once either way.** Doing it on the
+untracking tag means it is never needed again. Prerequisite, currently unmet:
+`com.quantt.backup.daily` **last exit 1** — see below.
+
+## Two things found while establishing the above
+
+**1. The nightly state backup is failing, invisibly.** `com.quantt.backup.daily`
+(23:55) reports `last exit 1`, and its log holds one line: `backup FAILED
+rc=1`. **`doctor` never checks it** — `JOBS = ["cef", "benchmarks", "phase0",
+"collect", "watchdog", "weekly"]` (`ops/doctor.py:48`) does not include
+`backup`. So the job that is meant to replace git history as the ledgers'
+off-machine copy, and which the untracking is explicitly gated on, has been
+failing with nothing to say so.
+
+Run **interactively** it exits **0** and writes a complete archive
+(`state_20260910_1729.tgz`, 175,744 bytes, 225 entries, containing tonight's
+benchmarks fills — 209 lines, matching prod exactly — and `ops/heartbeat.json`).
+So it is the launchd TCC boundary, not the script logic: under launchd it runs
+as `/bin/bash` with no Full Disk Access and `data/` in prod is a symlink into
+`~/Desktop`. `.1`'s copy collapses every failure to `exit 1`; `.3` rewrites the
+script (+68/−12) to distinguish "archive written but incomplete" (exit 2, which
+`promote.sh` tolerates) from "no archive" (exit 1, which refuses). **Another
+thing `.3` fixes that cannot be delivered until `.3` lands.**
+
+**2. `backup_state.sh` does not archive the halt file, though its own docstring
+says it does.** Its header lists "the shadow ledgers, the heartbeat, **the halt
+file**, the order maps...". `tar -tzf … | grep HALT` returns **nothing**. Not
+urgent — the halt files are untracked, so no checkout can remove them — but the
+docstring is wrong and someone will rely on it during a recovery.
+
+## The sequence for Saturday, if promoting `.3` alone
+
+Ordered so that nothing is discarded before it is archived, and so the restore
+names an unambiguous file. **`promote.sh` runs `backup_state.sh` itself, after
+our checkout — so its archive would contain the already-discarded state. Pin
+the good archive to a fixed name first; do not `ls -t` for it afterwards.**
+
+```bash
+~/prod/QUANTT/ops/backup_state.sh
+cp "$(ls -t ~/prod-backups/*.tgz | head -1)" ~/prod-backups/PRE_PROMOTE.tgz
+mv ~/prod/QUANTT/ops/books/benchmarks_live/report_2026-09-10.md ~/prod-backups/
+git -C ~/prod/QUANTT checkout -- ops/books ops/heartbeat.json
+~/prod/QUANTT/ops/promote.sh v2026.09.10.3
+tar -xzf ~/prod-backups/PRE_PROMOTE.tgz -C ~/prod/QUANTT \
+    ops/books/cef_live ops/books/benchmarks_live ops/books/phase0_live ops/heartbeat.json
+mv ~/prod-backups/report_2026-09-10.md ~/prod/QUANTT/ops/books/benchmarks_live/
+```
+
+**Never `tar -xzf … -C $PROD ops/books` wholesale.** The archive contains
+`ops/books/credit_rv_book.json` and the other book JSONs, and
+`_foreign_book_claims` globs that directory **from disk** — restoring it would
+silently resurrect the retired book that this promotion is retiring.
