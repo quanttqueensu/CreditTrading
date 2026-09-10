@@ -169,35 +169,57 @@ live path. `data/` is 3.9 GB and gitignored — read the parquet, never grep it.
 Audited 2026-09-10 by four parallel agents. The trap is what each says without
 its banner.
 
-**Do not trust this section to have banner-ed them.** It claimed all six carried
-one; re-measured 2026-09-10 ~13:00, **two do not** — `docs/RESEARCH_STATE.md`
-(header still reads "Last updated: 2026-07-31" with no warning) and
-`docs/PER_NAME_ARCHITECTURE.md` (no warning, while this table says three of its
-seven bands must not be deployed). `PLAN.md`, `INFRASTRUCTURE.md`,
-`RESEARCH_AND_METHODOLOGY.md` and both `ops/README.md`s do carry one. Check with
-`head -12 <file>` before believing either the banner claim or the row. A table
-that asserts its own remedy is applied is worse than one that only warns,
-because it stops the reader looking.
+**Do not trust this section to have banner-ed them.** All seven files in the
+table below now carry a banner — re-measured 2026-09-10 ~17:00 with
+`head -16 <file>`. This paragraph twice said otherwise: first it claimed all
+six carried one when two did not, then it claimed `RESEARCH_STATE.md` and
+`PER_NAME_ARCHITECTURE.md` still did not, *after both had been banner-ed*. Use
+`head -16`, not `head -12` — `PER_NAME_ARCHITECTURE.md`'s banner runs to line
+41 and `head -12` truncates it mid-argument. A table that asserts its own
+remedy is applied is worse than one that only warns, because it stops the
+reader looking; a table that asserts the remedy is *missing* when it is not is
+the same defect wearing the opposite sign, and costs a re-fix.
+
+**The banner is not the whole remedy.** In three of these files the banner is
+correct and the *body* was never patched, which is what a reader actually
+copies: `INFRASTRUCTURE.md:171` still names spec `v5.20260731` (actual
+`v6.20260906`), `PER_NAME_ARCHITECTURE.md:150` still carries PHK's pooled
+constant, and `ops/README.md:40` still says "There is no broker here".
+
+**Not in this table, and the most dangerous of the lot:
+`docs/SYSTEM_AND_STRATEGY.md` has NO banner** and states at :284-287 both of
+the claims this file retracts — "only 07-31 and 09-01 have broker-confirmed
+executions" (09-08 has 18 more) and "the ledger disagrees with the broker on
+all 17 positions (~$223k), order sizing is *unaffected* — `arm()` re-seeds from
+the broker". Measured 2026-09-10: all 17 CEF names match the broker
+share-for-share, and the re-seed claim is false where the broker holds zero.
+Its own header promises "Where a number appears, it was measured, and the
+script that reproduces it is named."
 
 | file | the trap |
 |---|---|
-| `docs/PLAN.md` | Five tables label the **2-day calendar as "LIVE"**. The band replaced it 2026-09-06. Its headline **0.10** net Sharpe is the retired policy's; the band's is **0.66** pre-borrow, ~0.43 after. Also: its "Drop PHK" item is contradicted by the later `PER_NAME_ARCHITECTURE.md`, and its "fill capture is not wired" claim is false — capture runs unconditionally. |
-| `docs/INFRASTRUCTURE.md` | Gave the broker port as **7497** — the exact misconfiguration that dry-ran **21 consecutive sessions silently**. Live is **4002**. Also names spec v5 (actual v6) and has no `band_width` row. |
+| `docs/PLAN.md` | The **"LIVE"** label is gone (2026-09-10: `grep -n LIVE` returns 3 hits, all inside the banner). What remains: of five `calendar 2d` rows, **two are still unmarked** — :154 and :174 — and the banner names only three. Its headline **0.10** net Sharpe is the retired policy's; the band's is **0.66** pre-borrow, ~0.43 after, and :304 still calls 0.10 "**the live configuration's true net Sharpe**" in bold. Its "Drop PHK" item (:842) is contradicted by `PER_NAME_ARCHITECTURE.md:214`. Its capture claim (:848) is narrower than this row used to say: it states `capture_fills` is "not called by `ops/schedule/run_cef.sh`", which is **literally true and operationally irrelevant** — launchd runs `launch_job.py`, whose phase 4 calls capture unconditionally. Its conclusion, "2 sessions captured out of 25", is false; there are 294 fills over 3 sessions. |
+| `docs/INFRASTRUCTURE.md` | **7497** now survives only inside its own banner; all five body references say **4002** (`grep -c 4002` → 5). The live hazard is elsewhere: :171 still names spec `cef_discount.v5.20260731` — actual is **`v6.20260906`** — and §3.4 still has no `band_width` row while reading `| Rebalance | 2 days |`, which the frozen spec marks **INERT while `band_width` is set** (0.048). |
 | `docs/RESEARCH_AND_METHODOLOGY.md` | Dated 31 July. Its deflated-Sharpe bar assumes **10 trials**; the counter is **48**, so the bar is 2.78 not 2.15. Says "zero live fills"; there are **294**. Its "today's live position" is a July snapshot. |
 | `docs/RESEARCH_STATE.md` | Header claims "last updated 2026-07-31" while containing September amendments. Its **counter table is canonical**; its prose is not. |
-| `docs/PER_NAME_ARCHITECTURE.md` | Its derived band table silently mixes **target-weight** κ_w with **discount** κ_d, and PHK's row carries the *pooled* constant rather than PHK's own. Three of seven bands (MHD ≈130 obs, MQY ≈365, PDO ≈1,286) rest on fewer observations than this repo's own identification budget allows. **Do not deploy those three.** |
-| `ops/README.md`, `ops/schedule/README.md` | Superseded in full. The first opens *"There is no broker here"* — false; seven files in `ops/` open IBKR sockets. Both use the pre-2026-08-31 repo path and reference directories that do not exist. |
+| `docs/PER_NAME_ARCHITECTURE.md` | **This row carried a retracted claim until 2026-09-10.** "The table mixes κ_w with κ_d" was withdrawn *inside that file* (:172-181) by recomputation: the column is target-weight κ_w throughout and six of seven rows reproduce exactly — "**one row is wrong, not the column**" (:28). The real defects: the column is **unlabelled** (:148), and **PHK's row (:150) still carries the pooled 24.6** against its own κ_w ≈ 37.0, giving a 7.35% band. Three of seven bands (MHD ≈130 obs, MQY ≈365, PDO ≈1,286) rest on fewer observations than this repo's identification budget allows. **Do not deploy those three.** |
+| `ops/README.md`, `ops/schedule/README.md` | Superseded in full; both now open with a ⛔ banner. `ops/README.md` **buries** *"There is no broker here"* at **:40**, where the banner does not reach a skimming reader — false; **exactly seven** files in `ops/` open IBKR sockets (`cancel_open_orders`, `capture_fills`, `preflight`, `rebuild_ledger`, `reconcile_orders`, `reset_epoch`, `switch_broker`). Both use the pre-2026-08-31 path `…/Desktop/QUANTT/2027`. `ops/README.md` references `ops/state/`, `ops/spec/` and `state/` — none exist. `ops/schedule/README.md`'s only missing reference is a **file**, `ops/books/book.json`; its directories all exist. |
 
 **FIXED 2026-09-10.** This read: "four analysis scripts baseline against
 `band(T, 0.064)`, the 6.4% width retired on 2026-09-06". All four —
 `joint_cost_optimiser.py`, `covariance_construction.py`, `borrow_impact.py`,
 `ou_score.py` — now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads
 the frozen spec. The rule stands and is now enforced by tests: **read
-`band_width` from the frozen spec; never write the literal.** Four `0.064`s
-remain and are all legitimate — two historical comments, one sweep grid, and one
-explicitly labelled `("band 6.4%", ...)` comparison row. Verify with
-`grep -n '0\.064' scripts/cef/*.py` before believing either this paragraph or
-its predecessor.
+`band_width` from the frozen spec; never write the literal.** **Seven** `0.064`s
+remain and all seven are legitimate — three historical comments/docstrings
+(`covariance_construction.py:153`, `joint_cost_optimiser.py:396`,
+`spec.py:10`), three sweep grids (`band_frontier.py:57`, `:213`,
+`joint_cost_optimiser.py:539`), and one labelled `("band 6.4%", ...)`
+comparison row (`borrow_impact.py:106`). Re-counted 2026-09-10 ~17:00; this
+paragraph said **four** and missed three, including the one in its own new
+`spec.py`. Verify with `grep -n '0\.064' scripts/cef/*.py` before believing
+this paragraph or either of its predecessors — the count is the part that keeps
+rotting, not the rule.
 
 **This working tree is NO LONGER production (since 2026-09-10).** `~/prod/QUANTT`
 is a git worktree detached at a tag, and the scheduler, the dashboard and every
@@ -208,9 +230,12 @@ three documents that each named the concept and none of which gave the command:
 
 ```
 $ git worktree list
-~/Desktop/2027/QUANTT/2027   6bdd5ea [cleanup/...]   <- dev, you are probably here
+~/Desktop/2027/QUANTT/2027   <sha> [main]            <- dev, you are probably here
 ~/prod/QUANTT                2a7c486 (detached HEAD) <- prod, == a release tag
 ```
+
+The dev sha moves every commit, so it is deliberately not written here; run the
+command. Prod's `2a7c486` is `v2026.09.10.1` and only moves on a promotion.
 
 "detached HEAD" on prod is the intended steady state, not a problem to fix. Editing here is safe; nothing you change reaches a
 session until someone tags it and runs `ops/promote.sh <tag>`, which refuses
@@ -249,18 +274,23 @@ The shape, which outlives any count:
 
 - `src/backtest/walkforward.py` is the single largest block, and nothing on the
   live path imports it.
-- **`.claude/hooks/tests/` is GONE.** It was the second-largest block (57-60
-  tests) and it tested the order-path guard; `7ad3a82` removed the guard and its
-  tests together on the team lead's instruction, 2026-09-10. If you are reading a
-  count from before that, it is ~60 too high — which is exactly how this section
-  came to claim 271 while the suite passed 211 the same afternoon. Run pytest.
+- **`.claude/hooks/tests/` is GONE.** It was a large block and it tested the
+  order-path guard; `7ad3a82` removed the guard and its tests together on the
+  team lead's instruction, 2026-09-10. A count read from before that commit is
+  substantially too high — which is exactly how this section came to quote a
+  number far above what the suite actually passed the same afternoon. It was a
+  single file, parametrised, not a directory of many. Run pytest.
 - **`ops/promote.sh`'s gate is covered** (`ops/tests/test_promote_gate.py`) —
   written 2026-09-10 after both its pathspecs were found to match nothing.
 - **`arm()` attribution is now covered** (`src/deploy/tests/test_arm_attribution.py`,
-  17 tests, one per real incident) and so are three preflight checks
+  one test per real incident) and so are three preflight checks
   (`ops/tests/test_preflight_checks.py`). Both were written 2026-09-10; before
   that the most incident-prone function in the repo had none.
-- **Still zero** for `capture_fills`, `doctor`, `ops/ledger.py`,
+- **`capture_fills` now has two suites** (`ops/tests/test_capture_fills_cross_book.py`,
+  `ops/tests/test_capture_fills_no_silent_fallback.py`), written 2026-09-10.
+  They cover the cross-book dedup defect and the two bare-`except` readers —
+  **not** `capture()` itself, which still needs a broker and has none.
+- **Still zero** for `doctor`, `ops/ledger.py`,
   `src/deploy/{portfolio,run_book,registry}.py`, the simulator broker, and
   `dashboard/`.
 
@@ -303,10 +333,20 @@ for the order path. Do not widen `testpaths`.
    reporting one, and it is why `ops/HALT_phase0_null.md` exists.
    **Re-measure before quoting a magnitude — do not carry the old one.**
    `python3 -m ops.reconcile_orders --book ops/books/cef_discount_book.json
-   --books-root ops/books/cef_live --check-broker` prints it. Measured 2026-09-10:
-   **none of the 17 CEFs diverge**; all 13 divergent symbols belong to `null_trader`
-   and the benchmark books (worst 3,924 shares, SRLN). The earlier "all 17, ~$223k"
-   reading predates the 2026-09-08 epoch re-seed and no longer reproduces.
+   --books-root ops/books/cef_live --check-broker` prints it, but it opens a
+   broker socket; the same answer comes out of
+   `results/ops/BROKER_SNAPSHOT_2026-09-10.json` with no connection at all.
+   Measured 2026-09-10 from that snapshot (read 11:35:29 ET): **none of the 17
+   CEFs diverge** — they match share-for-share — and **15** symbols diverge, all
+   `null_trader`/benchmark names. **The worst is JAAA at 1,503 shares**, then LQD
+   858, HYG 604, JNK 420, EMB 58; the remaining ten are 1–12 shares each.
+   This entry said "**13** divergent, worst **3,924 shares, SRLN**" until
+   2026-09-10 ~17:00. Both halves were wrong: SRLN diverges by **4** shares, and
+   3,924 is close to the quantity SRLN *traded* that day, i.e. a reading taken
+   mid-session and never re-taken. `reconcile_orders` sums across all books
+   regardless of `--books-root`, so scope does not explain the gap. The earlier
+   "all 17, ~$223k" reading predates the 2026-09-08 epoch re-seed and no longer
+   reproduces at all.
    Two things this entry does not say, both from a read-only broker query at
    2026-09-10 11:35:29 ET (`results/ops/BROKER_SNAPSHOT_2026-09-10.json`):
    **(a)** the divergence is not drift. Five `null_trader` orders transmitted
