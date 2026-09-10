@@ -23,17 +23,23 @@ Provenance labels: `[V]` re-derived here from the named file by the named comman
    **CLAUDE.md landmine #3 ("disagrees with the broker on all 17 positions,
    ~$223k account-wide") is out of date and should be rewritten.** It described
    the state before the 2026-09-08 epoch reseed.
-2. **The account-wide divergence is real but it is the null trader's, and 99.3%
-   of it was created today.** Gross **$260,515.10**, net **+$106,427.64**, across
-   **15 of 35** symbols `[V]`. Five orders the null trader transmitted this
-   morning never filled at the broker, and the shadow ledger booked all five as
-   filled anyway. Those five symbols alone are **$258,631.78** of the
-   **$260,418.10** measured on the null-trader/benchmark symbol set `[V]`.
-3. **The CEF book has two NAV observations, not a track record.** `nav.csv` holds
+2. **The account-wide divergence is real, it is the null trader's, and it is a
+   worse class of fault than drift: the ledger marked five orders filled that
+   never executed.** Gross **$260,515.10**, net **+$106,427.64**, across **15 of
+   35** symbols `[V]`. Five orders the null trader transmitted at 09:43:09 ET
+   today produced **zero executions** and are **not resting at the broker**, yet
+   `trades.csv` books all five as filled. Those five symbols alone are
+   **$258,631.78** of the **$260,418.10** measured on the null-trader/benchmark
+   symbol set — **99.3%** `[V]`. See §2.1 and §2.2.
+3. **Fill capture read the broker one second after transmission and caught 60 of
+   the day's 572 executions.** The session's own kill-rule (b) slippage statistic
+   was computed on 16 matched fills — **2.8% of the day's executions**, and a
+   biased 2.8%. See §3.7.
+4. **The CEF book has two NAV observations, not a track record.** `nav.csv` holds
    exactly two rows: a declared epoch of $500,000.00 at 2026-09-08 and one
    mark-to-market at 2026-09-09. `trades.csv` is **empty**. The reported
    +$4,573.20 is a two-session mark on a base that was asserted, not measured.
-4. **The order record disagrees with itself and with the broker**, and the reason
+5. **The order record disagrees with itself and with the broker**, and the reason
    is not a lost row — it is **two sizing paths using two different NAVs**. Both
    paths agree about current shares. See §1.
 
@@ -183,8 +189,21 @@ from whichever sub-ledger carries it; the mark date is stated. `[V]`
 **35 symbols reconciled, 15 diverge. Gross |$| = 260,515.10. Net = +106,427.64.**
 **The 17 CEF names contribute 0 of the 15 and $0.00 of the gross.**
 
-The prior [U] measurement of "~15 symbols, worst case JAAA at ledger −1,503 vs
+The prior `[U]` measurement of "~15 symbols, worst case JAAA at ledger −1,503 vs
 broker 0" is **confirmed**, independently re-derived `[V]`.
+
+**Two figures for the same quantity, reported rather than averaged.** A parallel
+measurement gives the gross divergence as **≈$260,948**; this note gives
+**$260,515.10**. The gap is **$433** and it is entirely a choice of mark, not of
+share counts — the two agree on all 15 symbols and all 35 share counts. This note
+marks each symbol at its most recent close from whichever sub-ledger carries it,
+and prints the mark date per row (above), so the four benchmark-only symbols are
+marked at 2026-09-08 and the rest at 2026-09-10. **I would use $260,515.10**
+because every mark in it is dated in the table and reproducible from the named
+file; but the difference is immaterial to every conclusion here, and neither
+figure is more than a valuation of the same position gap. Sign convention in this
+note is **ledger − broker**; a parallel table using **broker − ledger** will show
+every sign flipped.
 
 Reproduce (script written to the session scratchpad, reproduced verbatim in §10):
 
@@ -214,18 +233,52 @@ Cross-referencing `_order_map.csv` (transmitted), the snapshot's
 | **LQD** | **+861** | +863 | **0** | **NOT FILLED — ledger booked it** |
 
 Those five are not resting either — the snapshot's `open_orders` contains only
-the four CEF MOC orders `[V]`. So they were rejected or cancelled between
-09:43 ET and 11:35 ET. **Which of the two, and why, cannot be determined from
-artefacts on disk** — `_order_map.csv` records placement only, never status, and
-`orders.csv` marks all eleven of today's null-trader rows `open` with no
-`fill_date` `[V]`. JAAA is a short and the plausible explanation is no borrow
-availability; the four buys are not explained by that and I will not guess.
+the four CEF MOC orders `[V]`.
 
 Those five symbols account for **$258,631.78** of the **$260,418.10** measured on
-this symbol set — **99.3%**. Stripping today out, the residual pre-existing
+this symbol set — **99.3%** `[V]`. Stripping today out, the residual pre-existing
 divergence across the same 14 symbols is **49 shares, $2,105.92 gross** `[V]` —
 the accumulated drift from the same modelled-vs-transmitted quantity gap seen in
 the first nine rows (1–5 shares per name per session).
+
+### 2.2 The five non-fills: what is established, and what is not
+
+**Established `[V]`:**
+
+- The five were transmitted. `_order_map.csv` records them at
+  `2026-09-10T13:43:09Z` with order ids 19 (HYG), 20 (JNK), 25 (LQD), 31 (EMB),
+  32 (JAAA).
+- They produced **no execution at all**. The snapshot's 572
+  `executions_this_tws_session` span `13:43:09Z → 13:44:59Z` and cover exactly
+  nine symbols; none of the five appears once.
+- They are **not resting**. `open_orders` holds only the four CEF MOC orders.
+- The session log records **no rejection, no warning, and `status=ok`**
+  (`ops/schedule/logs/phase0_2026-09-10.log`, 33 lines, 09:43:04 → 09:43:10).
+- The ledger booked all five as filled: `null_trader/trades.csv` carries a
+  2026-09-10 row for each, with a modelled `fill_price` and a `cost_usd`.
+
+**Ruled out `[V]`:** *"the process disconnected before the orders were routed."*
+The run exited at 13:43:10Z, yet executions for the other nine symbols continued
+until **13:44:59Z — 109 seconds after the disconnect**. Orders plainly survived
+it. The five were not lost to the disconnect.
+
+**Not established:** why those five and not the other nine. They are not
+clustered in the placement sequence (ids 19, 20, 25, 31, 32 interleave with the
+nine that filled), not one-sided (four buys and one sell), and not distinguished
+by whether another book shares the ticker (SHYG, VCIT and USHY are shared too and
+all filled). JAAA is a short and no-borrow is the obvious candidate for that one;
+it explains none of the four buys. **I will not guess.** Settling it needs TWS
+order-status history or the API log — `_order_map.csv` records placement only,
+never status, and `orders.csv` marks all eleven of today's null-trader rows
+`open` with no `fill_date` `[V]`.
+
+**Why this is the serious finding.** Quantity drift (§1.3) is a book that is
+slightly wrong. This is a book that is *confidently* wrong: the ledger asserts
+positions, cash movements and costs for trades that did not happen, the session
+reported `ok`, and no artefact on disk contradicts it. It is the same failure
+class as the 2026-08-03 → 09-03 port misconfiguration that forced the CEF epoch —
+22 sessions of booked fills the account never made — recurring in a book that was
+*not* misconfigured.
 
 ---
 
@@ -363,6 +416,69 @@ one — but it is the archive a future auditor would open first.
 
 ---
 
+### 3.7 Fill capture ran one second after transmission and missed 89.5% of the day
+
+`ops/schedule/logs/phase0_2026-09-10.log` `[V]`, the whole session in six seconds:
+
+    [2026-09-10 09:43:04] launchd start (job=phase0)
+    [2026-09-10 09:43:06] ARMED: EXECUTION=ibkr books-root=ops/books/phase0_live asof=2026-09-10
+    [2026-09-10 09:43:09] book run ok
+    [2026-09-10 09:43:09] capturing broker executions (TWS forgets these at its daily restart)
+    [capture] 60 execution(s) in the TWS session
+    [capture]   null_trader: 60 new -> .../null_trader/broker_fills.csv
+    [capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+    [slippage] null_trader: 16 matched fill(s) -> .../null_trader/slippage.csv
+    [slippage]   realised +15.8bp  modelled +14.0bp  excess +1.9bp
+    [slippage]   realised/modelled = 1.13x (kill rule (b) trips above 2.0x for 5 straight sessions)
+    [2026-09-10 09:43:10] done status=ok
+
+The broker's own execution record for the same session, from the snapshot, spans
+`13:43:09Z → 13:44:59Z` and contains **572 executions across 9 symbols** `[V]`.
+Capture read at `13:43:09–13:43:10Z` and saw **60**.
+
+| symbol | executions at broker | window | captured into `broker_fills.csv` |
+|---|---:|---|---:|
+| USHY | 33 | 13:43:09 → 13:43:09 | 33 |
+| SPHY | 18 | 13:43:09 → 13:43:09 | 18 |
+| SHYG | 16 | 13:43:10 → 13:43:42 | **9** |
+| VCIT | 18 | 13:43:12 → 13:43:29 | **0** |
+| IGSB | 3 | 13:43:18 → 13:43:36 | **0** |
+| VCSH | 42 | 13:43:19 → 13:44:24 | **0** |
+| BKLN | 25 | 13:43:31 → 13:44:28 | **0** |
+| SRLN | 241 | 13:43:11 → 13:44:53 | **0** |
+| SJNK | 176 | 13:43:13 → 13:44:59 | **0** |
+| **total** | **572** | | **60 (10.5%)** |
+
+    python3 -c "import json,collections;s=json.load(open('results/ops/BROKER_SNAPSHOT_2026-09-10.json'));e=s['executions_this_tws_session'];d=collections.defaultdict(list);[d[x['symbol']].append(x['time']) for x in e];[print(k,len(v),min(v)[11:19],max(v)[11:19]) for k,v in sorted(d.items())]"
+    python3 -c "import pandas as pd;b=pd.read_csv('ops/books/phase0_live/_ibkr_shadow/null_trader/broker_fills.csv');t=b[b.fill_date.astype(str)=='2026-09-10'];print(len(t));print(t.groupby('instrument').size())"
+
+Three consequences:
+
+1. **`broker_fills.csv` is not the fill record it is documented to be.** Its own
+   docstring (`ops/capture_fills.py`) exists because "a fill not captured today is
+   gone" — TWS discards executions at its daily restart. Six of the nine symbols
+   that traded today have **no** record of it anywhere, and never will.
+2. **Kill rule (b) is being evaluated on a biased sample.** The `1.13x` printed
+   above is computed from 16 matched fills — **2.8% of the day's 572 executions**
+   — and not a random 2.8%: it is precisely the executions that completed within
+   one second, i.e. the *easiest* fills of the day. SRLN and SJNK, which took 100+
+   seconds and 417 executions between them to work, contribute nothing. A
+   slippage statistic sampled on the fastest fills is biased **low**, in the
+   direction that makes the kill rule less likely to trip.
+3. **`0 belonged to another book (ignored)`** confirms §3.3 from the other side:
+   the cross-book attribution guard did not fire once, because within the phase0
+   book every ticker looks solely owned.
+
+Also visible in the log and worth recording: `[ibkr] arm: ARMED` appears **twice**,
+each preceded by its own `arm: account has 34 position(s)` `[V]`. Arming twice in
+one session is not the same as trading twice, but the trade phase is not
+idempotent and this is the log line that would look identical if it were.
+
+The same six-second shape appears in the CEF session: `_order_map.csv` recorded
+its four orders at `2026-09-10T01:46:28.63Z` and the manifest was written at
+`01:46:28.65Z` — 20 milliseconds later `[V]`.
+
+
 ## §4 Staleness
 
 Trading days established with the repo's own calendar
@@ -435,11 +551,31 @@ i.e. a near-market-neutral book, which is why the net is so small.
   and a `book_nav` of 80,088.91 that is the sum of the *other four* sleeves
   (20,013.13 + 19,990.08 + 19,983.33 + 20,102.37 = 80,088.91, `[V]`). A sleeve
   whose NAV is NaN was silently dropped from the book total.
-- The account's `NetLiquidation` is reported by IBKR as **999,975.56 CAD** and
-  `TotalCashValue` as **1,020,632.94 CAD** `[S]`; the snapshot carries no USD or
-  BASE row. The three books together claim 504,573.20 + 641,105.36 + 80,088.91 =
-  **1,225,767.47 USD**. These are not comparable without an FX rate the snapshot
-  does not contain, and I did not fetch one. **Flagged, not reconciled.**
+- **The account is denominated in CAD; every book NAV is quoted in USD.** All 13
+  account-value rows in the snapshot carry the `.CAD` suffix and there is no USD
+  or BASE row `[V]`:
+
+  | tag | value | currency |
+  |---|---:|---|
+  | NetLiquidation | 999,975.56 | CAD |
+  | TotalCashValue | 1,020,632.94 | CAD |
+  | GrossPositionValue | 1,903,746.87 | CAD |
+  | ExcessLiquidity | 225,746.27 | CAD |
+  | AvailableFunds | 225,746.27 | CAD |
+  | FullInitMarginReq / FullMaintMarginReq | 774,229.28 | CAD |
+  | Cushion | 0.225752 | — |
+
+      python3 -c "import json;a=json.load(open('results/ops/BROKER_SNAPSHOT_2026-09-10.json'))['account_values']['DUQ199038'];[print(k,a[k]['value'],a[k]['currency']) for k in sorted(a)]"
+
+  The three books together claim 504,573.20 + 641,105.36 + 80,088.91 =
+  **1,225,767.47 USD**. That is not comparable to 999,975.56 CAD without an FX
+  rate the snapshot does not carry, and I did not fetch one. **The currency tag
+  is part of the figure: do not net a USD book NAV against a CAD account value.**
+  `run_book` prints `NAV $641,105.36` with a bare dollar sign and no currency
+  qualifier (`ops/schedule/logs/phase0_2026-09-10.log`) `[V]`, and the same
+  session's preflight prints `excess liquidity 193,172` with no unit at all —
+  against 225,746.27 CAD in the 11:35 snapshot, two hours later. **Flagged, not
+  reconciled.**
 
 ---
 
@@ -506,8 +642,16 @@ a single number without knowing at what prices each historical divergence opened
   a full cash-flow reconstruction from executions plus commissions plus
   distributions, per book, since 2026-07-30 — the executions for which were lost
   before 2026-07-31 (302 executions, `ops/capture_fills.py` docstring `[S]`).
-- **Why the five orders did not fill.** Needs `reqOpenOrders` status history or
-  the TWS log; not on disk.
+- **Why the five orders did not fill (§2.2).** The session log exists and was
+  read: it records no rejection and `status=ok`. The client disconnect is ruled
+  out — executions continued for 109 seconds after it. Settling it needs TWS
+  order-status history or the API log, neither of which is on disk.
+- **How much of the pre-today null-trader divergence is phantom fills versus
+  quantity drift.** Only today's session has a broker execution list to check
+  against; earlier sessions' executions are gone (TWS daily restart), and
+  `broker_fills.csv` for those sessions is both incomplete (§3.7) and
+  cross-contaminated (§3.3). The residual is small ($2,105.92 gross, §2.1) but
+  its composition cannot be established.
 - **The USD/CAD question in §5.** Needs an FX rate and an account-currency
   determination I did not fetch.
 - **The `bench_b1`/`bench_b6` shared-symbol rows** (HYG, USHY, VCIT, EMB, JNK,
@@ -602,17 +746,31 @@ Stated as conditions, not instructions. None of this was done.
    `ops/capture_fills.py` needs the union of all three books' `_order_map.csv`
    files, or an account-level order map. Its current shared-ticker check is
    correct in logic and wrong in scope.
-5. **`_attribution.json` must be regenerated or retired.** The CEF one is 28
+5. **Fill capture must run after the fills exist.** Today it ran one second
+   after transmission and caught 60 of 572 executions (§3.7). The other 512 are
+   unrecoverable — TWS discards them at its daily restart, which is the entire
+   premise of the file. A capture that runs at the end of the session rather than
+   the end of the *process* is the fix; the evening capture job described in `W3`
+   is planned, not built. Until then the kill-rule (b) statistic is sampled on
+   the fastest fills of the day and is biased low.
+6. **A session must not report `ok` when its orders did not execute.** Nothing
+   in today's phase0 run — preflight, `run_book`, capture, slippage, the
+   heartbeat — noticed that five of fourteen transmitted orders produced no
+   execution. A post-trade check comparing `_order_map.csv` against
+   `ib.reqExecutions`/`openOrders` at the end of the session would have caught
+   all five, and would have caught the 2026-08-03 → 09-03 port incident on day
+   one.
+7. **`_attribution.json` must be regenerated or retired.** The CEF one is 28
    sessions stale, the benchmark one 7, and it claims 16 SPY the account does not
    hold. Regenerating it requires a broker call
    (`scripts/ops/reconcile_attribution.py --write`, which also defaults to
    **port 7497** at line 107 — the misconfiguration that dry-ran 21 sessions).
-6. **A NAV that is corroborated by something.** Today every consumer reads the
+8. **A NAV that is corroborated by something.** Today every consumer reads the
    same unverified two-row file. A second, independent NAV — reconstructed from
    `broker_fills.csv` plus marks — would have caught all of this. It is buildable
    from artefacts already on disk for the CEF sleeve, whose 294 fills cumulate
    exactly to its positions (§3.4).
-7. **A decision about the track record.** With 0 trades and 2 NAV rows post-epoch,
+9. **A decision about the track record.** With 0 trades and 2 NAV rows post-epoch,
    the competition deliverable currently has no live history. Either the epoch is
    the declared inception and that is stated plainly wherever a return is quoted,
    or the pre-epoch series is rehabilitated — which cannot be done, because the
