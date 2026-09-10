@@ -1,15 +1,15 @@
 sleeve,instrument,kind,current_qty,target_side,target_qty,target_weight,delta_qty,reason
-null_trader,HYG,ETF,541.0,LONG,,0.012264,,null trader (epoch 4140) w=+0.0123
-null_trader,JNK,ETF,961.0,FLAT,,,,null: below min weight
-null_trader,USHY,ETF,0.0,LONG,,0.120234,,null trader (epoch 4140) w=+0.1202
-null_trader,SPHY,ETF,1072.0,LONG,,0.036438,,null trader (epoch 4140) w=+0.0364
-null_trader,SHYG,ETF,358.0,SHORT,,-0.011779,,null trader (epoch 4140) w=-0.0118
-null_trader,SJNK,ETF,-2578.0,SHORT,,-0.064037,,null trader (epoch 4140) w=-0.0640
-null_trader,LQD,ETF,-42.0,SHORT,,-0.149268,,null trader (epoch 4140) w=-0.1493
-null_trader,VCSH,ETF,696.0,LONG,,0.123604,,null trader (epoch 4140) w=+0.1236
-null_trader,VCIT,ETF,-1230.0,SHORT,,-0.142582,,null trader (epoch 4140) w=-0.1426
-null_trader,IGSB,ETF,763.0,LONG,,0.005679,,null trader (epoch 4140) w=+0.0057
-null_trader,BKLN,ETF,796.0,SHORT,,-0.132332,,null trader (epoch 4140) w=-0.1323
-null_trader,SRLN,ETF,-2484.0,LONG,,0.124366,,null trader (epoch 4140) w=+0.1244
-null_trader,EMB,ETF,360.0,LONG,,0.077415,,null trader (epoch 4140) w=+0.0774
-null_trader,JAAA,ETF,-1005.0,FLAT,,,,null: below min weight
+null_trader,HYG,ETF,99.0,LONG,,0.086776,,null trader (epoch 4141) w=+0.0868
+null_trader,JNK,ETF,0.0,LONG,,0.062284,,null trader (epoch 4141) w=+0.0623
+null_trader,USHY,ETF,2105.0,SHORT,,-0.075767,,null trader (epoch 4141) w=-0.0758
+null_trader,SPHY,ETF,1008.0,LONG,,0.007157,,null trader (epoch 4141) w=+0.0072
+null_trader,SHYG,ETF,-180.0,LONG,,0.061866,,null trader (epoch 4141) w=+0.0619
+null_trader,SJNK,ETF,-1662.0,SHORT,,-0.135848,,null trader (epoch 4141) w=-0.1358
+null_trader,LQD,ETF,-908.0,SHORT,,-0.007423,,null trader (epoch 4141) w=-0.0074
+null_trader,VCSH,ETF,1013.0,LONG,,0.050519,,null trader (epoch 4141) w=+0.0505
+null_trader,VCIT,ETF,-1136.0,LONG,,0.048467,,null trader (epoch 4141) w=+0.0485
+null_trader,IGSB,ETF,70.0,LONG,,0.097345,,null trader (epoch 4141) w=+0.0973
+null_trader,BKLN,ETF,-4117.0,SHORT,,-0.038937,,null trader (epoch 4141) w=-0.0389
+null_trader,SRLN,ETF,1965.0,SHORT,,-0.123482,,null trader (epoch 4141) w=-0.1235
+null_trader,EMB,ETF,525.0,LONG,,0.085585,,null trader (epoch 4141) w=+0.0856
+null_trader,JAAA,ETF,0.0,SHORT,,-0.118543,,null trader (epoch 4141) w=-0.1185

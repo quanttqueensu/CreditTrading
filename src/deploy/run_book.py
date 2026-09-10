@@ -439,13 +439,23 @@ def main(argv=None):
         if not report["ok"]:
             from ops.halt import write_halt
             detail = "\n".join(f"  - {p}" for p in report["problems"])
+            # SCOPED to this book (2026-09-10). arm() only ever refuses on
+            # symbols the book being armed trades, so an arming failure is that
+            # book's bookkeeping, not the account's. Twice in two days a
+            # $20k control/benchmark book wrote a GLOBAL halt over its own
+            # missing ledger row and stopped the $500k strategy: phase0/JNK on
+            # 09-09 09:37 and bench_b6/ANGL at 17:25. Other books now see this
+            # as a preflight WARNING and keep trading. A fault that genuinely
+            # spans books (a desync, an unexplainable account) still writes the
+            # global file.
+            book_id = book_spec.get("book_id") or Path(args.book).stem
             write_halt(reason="broker arming failed — position attribution is ambiguous",
                        detail=f"`arm()` could not explain the account with the "
                               f"registered sleeves:\n\n{detail}\n\nNo order was "
                               f"transmitted. Resolve the attribution (usually by "
                               f"rebuilding the shadow ledger from broker fills) "
                               f"before the next session.",
-                       source="run_book.arm")
+                       source="run_book.arm", book=book_id)
             print("[run_book] NOT ARMED — no orders will be transmitted this session.")
             return 3
 

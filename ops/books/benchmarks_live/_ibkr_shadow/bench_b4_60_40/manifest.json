@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "written_utc": "2026-09-04T21:58:27.962046+00:00",
+  "written_utc": "2026-09-09T17:48:50.311745+00:00",
   "files": {
     "orders.csv": {
       "rows": 0,
@@ -11,12 +11,12 @@
       "last_date": null
     },
     "positions.csv": {
-      "rows": 0,
-      "last_date": null
+      "rows": 1,
+      "last_date": "2026-09-08"
     },
     "nav.csv": {
-      "rows": 0,
-      "last_date": null
+      "rows": 1,
+      "last_date": "2026-09-08"
     }
   },
   "epoch": "2026-09-08",

@@ -56,7 +56,12 @@ if str(REPO) not in sys.path:
 import pandas as pd  # noqa: E402
 
 
-def broker_positions(universe, client_id=96):
+def broker_positions(universe, client_id=120):
+    # 120, not 96. 96 is `capture_fills` for the benchmarks book (its session
+    # id 46, + 50). IB allows one session per client id, so the second connect
+    # evicts the first -- and this tool runs during exactly the recovery window
+    # where capture is most likely to be running too. Full inventory of the
+    # ids this repo uses: docs/INFRASTRUCTURE.md 6.2.
     """What the ACCOUNT actually holds, with the broker's own marks.
 
     Returns (positions, marks). The marks matter: the staged parquet stores are
@@ -223,6 +228,20 @@ def main(argv=None) -> int:
 
     man = root / "manifest.json"
     m = json.loads(man.read_text()) if man.exists() else {}
+    # The manifest's row counts MUST describe the files just written.
+    # 2026-09-08: this block carried the archived book's counts forward
+    # (orders 425, file 0 ...), so ops/ledger.py::_verify_manifest refused
+    # every re-seeded book at the next session -- the cef run at 22:44 and
+    # the five benchmark books at 17:25 all crashed in register_sleeve,
+    # armed, before placing anything. Same shape as LongOnlySleeveLedger.save.
+    m["files"] = {}
+    for f in ("orders.csv", "trades.csv", "positions.csv", "nav.csv"):
+        df = pd.read_csv(root / f)
+        m["files"][f] = {"rows": int(len(df)),
+                         "last_date": (str(df["date"].max())[:10]
+                                       if len(df) and "date" in df else None)}
+    m["version"] = m.get("version", 1)
+    m["written_utc"] = pd.Timestamp.utcnow().isoformat()
     m.update({"epoch": a.asof, "epoch_nav": a.nav,
               "epoch_reason": "pre-epoch ledger booked 22 sessions of fills the "
                               "account never made (broker port misconfigured "

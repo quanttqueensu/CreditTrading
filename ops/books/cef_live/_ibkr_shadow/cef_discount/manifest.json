@@ -1,27 +1,22 @@
 {
   "version": 1,
-  "written_utc": "2026-09-04T21:58:29.430830+00:00",
+  "written_utc": "2026-09-10T01:46:28.651113+00:00",
   "files": {
     "orders.csv": {
-      "rows": 425,
+      "rows": 3,
       "last_date": null
     },
     "trades.csv": {
-      "rows": 397,
+      "rows": 0,
       "last_date": null
     },
     "positions.csv": {
-      "rows": 431,
-      "last_date": "2026-09-03"
+      "rows": 35,
+      "last_date": "2026-09-09"
     },
     "nav.csv": {
-      "rows": 25,
-      "last_date": "2026-09-03"
+      "rows": 2,
+      "last_date": "2026-09-09"
     }
-  },
-  "epoch": "2026-09-08",
-  "epoch_nav": 500000.0,
-  "epoch_reason": "pre-epoch ledger booked 22 sessions of fills the account never made (broker port misconfigured 2026-08-03..2026-09-03); archived, not deleted",
-  "epoch_archive": "_pre_epoch_cef_discount_20260907_155225",
-  "epoch_written_utc": "20260907_155225"
+  }
 }

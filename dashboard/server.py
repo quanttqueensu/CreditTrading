@@ -48,6 +48,7 @@ import json
 import math
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -89,6 +90,15 @@ BENCH_LABEL = {k: LABEL[k] for k in
                 "bench_b5_shy", "bench_b6_ew_credit")}
 
 _cache: dict = {}
+# One lock per cache key, plus one lock for the whole broker. See cached().
+_cache_locks: dict = {}
+_cache_locks_guard = threading.Lock()
+_broker_lock = threading.Lock()
+# The page polls /api/live every 5s. A 4s TTL meant a fresh IBKR session on
+# nearly every poll -- roughly 17,000 connect/disconnect cycles a day, each
+# leaving a socket behind. 12s keeps the monitor live to the eye and cuts the
+# churn by two thirds. Portfolio marks do not move faster than this matters.
+LIVE_TTL = 12
 
 
 def clean(o):
@@ -125,14 +135,39 @@ def sjson(payload):
 
 
 def cached(key, ttl, fn):
-    """Broker probes are slow and the page polls; never hit TWS per widget."""
+    """Broker probes are slow and the page polls; never hit TWS per widget.
+
+    SINGLE FLIGHT, added 2026-09-10. The cache alone was not enough. Flask
+    serves requests on threads, so two requests that miss the same key both
+    ran `fn()`, and when `fn` is `_portfolio` that means two sockets opening
+    with the SAME IBKR client id. IB allows one session per client id: the
+    second connect silently evicts the first, which then reports a dead
+    broker. Measured on the running server: 7 CLOSED sockets to port 4002
+    still held by this process after 38h, `/api/live` polling every 5s
+    against a 4s TTL, and `factor_pos` calling `_portfolio` (client 302) on
+    its own key at the same time. That churn is also what makes the gateway
+    answer 10197 "No market data during competing live session" to the
+    borrow-availability tick.
+
+    So: one lock per key, and the winner recomputes while everyone else
+    waits and takes the fresh value. The double-check inside the lock is what
+    makes the waiters cheap — they return the value the winner just stored
+    instead of queueing another broker round trip.
+    """
     now = time.time()
     hit = _cache.get(key)
     if hit and now - hit[0] < ttl:
         return hit[1]
-    val = fn()
-    _cache[key] = (now, val)
-    return val
+    with _cache_locks_guard:
+        lock = _cache_locks.setdefault(key, threading.Lock())
+    with lock:
+        # Someone may have refreshed it while we waited for the lock.
+        hit = _cache.get(key)
+        if hit and time.time() - hit[0] < ttl:
+            return hit[1]
+        val = fn()
+        _cache[key] = (time.time(), val)
+        return val
 
 
 # ---------------------------------------------------------------- broker ----
@@ -1165,6 +1200,10 @@ def _portfolio():
     from src.deploy.broker.ibkr import IBKRConfig
     cfg = IBKRConfig.from_env()
     app = ibapi.IB()
+    # Held for the whole session, not just the connect: the id is only free
+    # once disconnect() has run. Without this, /api/live and /api/verify can
+    # each be inside their own cache lock and still collide on client 302.
+    _broker_lock.acquire()
     try:
         app.connect(cfg.host, int(cfg.port), clientId=302, readonly=True, timeout=10)
     except Exception as exc:
@@ -1189,6 +1228,7 @@ def _portfolio():
             app.disconnect()
         except Exception:
             pass
+        _broker_lock.release()
 
 
 def _owner_map():
@@ -1296,7 +1336,7 @@ def _reconcile(broker_pos, marks):
 
 @app.get("/api/live")
 def api_live():
-    d = cached("live", 4, _portfolio)
+    d = cached("live", LIVE_TTL, _portfolio)
     if not d.get("ok"):
         return sjson({"ok": False, "error": d.get("error", "broker unreachable")})
     own, own_problems = _owner_map()
@@ -1575,7 +1615,9 @@ def api_factors():
             res["current"] = {"ok": False, "reason": f"frozen spec unreadable: {exc}"}
             return res
         shares = {}
-        pos = cached("factor_pos", 20, _portfolio)
+        # SAME key as /api/live on purpose: identical call, identical client
+        # id. Two keys meant two concurrent sessions as 302 (see cached()).
+        pos = cached("live", LIVE_TTL, _portfolio)
         if pos.get("ok"):
             for row in pos.get("positions") or []:
                 t = row.get("ticker")

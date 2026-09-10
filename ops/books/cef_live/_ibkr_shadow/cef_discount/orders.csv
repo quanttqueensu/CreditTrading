@@ -1,1 +1,4 @@
 decision_date,ticker,current_shares,target_shares,delta_shares,decision_price,target_weight,reason,status,fill_date
+2026-09-09,JFR,-5837.0,-10564.0,-4727.0,7.670000076293945,,target,open,
+2026-09-09,MQY,-1750.0,-1581.0,169.0,10.699999809265137,,target,open,
+2026-09-09,NEA,-7118.0,-11683.0,-4565.0,10.960000038146973,,target,open,

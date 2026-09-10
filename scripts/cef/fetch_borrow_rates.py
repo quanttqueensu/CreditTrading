@@ -104,6 +104,57 @@ def from_file(tickers: list[str], url: str = SHORTSTOCK_URL) -> pd.DataFrame:
     return df
 
 
+def from_api_fee(tickers: list[str]) -> pd.DataFrame:
+    """Fee and rebate rates from IBKR's historical-data service.
+
+    `reqHistoricalData(whatToShow="FEE_RATE")` returns one daily bar per
+    session whose close is the annual borrow fee as a decimal (verified
+    2026-09-10: HYT 0.1056, PDI 0.0028 -- the same numbers the file carried
+    on 09-04). REBATE_RATE is requested the same way but has timed out on
+    every name tried; it is best-effort and None when absent. No market-data
+    subscription is involved, so this works during a "competing live
+    session" (error 10197) when tick 236 does not.
+
+    Sequential, one name at a time, one retry: the first request after a
+    connection warms up the service and can time out on its own.
+    """
+    from ib_insync import IB, Stock, util
+
+    util.logToConsole(50)
+    ib = IB()
+    ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID, readonly=True, timeout=20)
+    rows = []
+    try:
+        cts = ib.qualifyContracts(*[Stock(t, "SMART", "USD") for t in tickers])
+
+        def last_close(c, what, tries=2):
+            for _ in range(tries):
+                try:
+                    bars = ib.reqHistoricalData(
+                        c, endDateTime="", durationStr="5 D",
+                        barSizeSetting="1 day", whatToShow=what, useRTH=True,
+                        formatDate=1, timeout=30)
+                except Exception:
+                    bars = []
+                if bars:
+                    return float(bars[-1].close), str(bars[-1].date)
+            return None, None
+
+        for c in cts:
+            fee, fee_d = last_close(c, "FEE_RATE")
+            reb, _ = last_close(c, "REBATE_RATE", tries=1)
+            rows.append({"ticker": c.symbol,
+                         "fee_rate_pct": None if fee is None else round(fee * 100, 4),
+                         "rebate_rate_pct": None if reb is None else round(reb * 100, 4),
+                         "available_shares": None,
+                         "_fee_date": fee_d})
+    finally:
+        ib.disconnect()
+    df = pd.DataFrame(rows)
+    df.attrs["stamp"] = "IBKR API FEE_RATE bars"
+    return df
+
+
 def from_api(tickers: list[str]) -> pd.DataFrame:
     """TWS cross-check. Availability only -- there is no fee-rate tick."""
     from ib_insync import IB, Stock, util
@@ -161,8 +212,27 @@ def main() -> int:
     a = ap.parse_args()
 
     u = universe()
-    df = from_file(u)
-    print(f"IBKR shortstock file {df.attrs.get('stamp','')} -- {len(df)}/{len(u)} names")
+    # The public file 404s since 2026-09-09 (www.interactivebrokers.com/shortstock/
+    # usa.txt; the ftp hosts do not answer either). The fee -- the number that
+    # matters -- now comes from the API's FEE_RATE bars; the file is tried first
+    # and used if it ever comes back, because it also carries availability.
+    try:
+        df = from_file(u)
+        print(f"IBKR shortstock file {df.attrs.get('stamp','')} -- {len(df)}/{len(u)} names")
+    except Exception as e:
+        print(f"IBKR shortstock file unavailable ({type(e).__name__}: {str(e)[:80]}); "
+              f"fees from the API instead")
+        df = pd.DataFrame(columns=["ticker", "fee_rate_pct", "rebate_rate_pct",
+                                   "available_shares"])
+    if df.empty or df["fee_rate_pct"].isna().all():
+        api = from_api_fee(u)
+        got = api["fee_rate_pct"].notna().sum()
+        print(f"IBKR API FEE_RATE -- {got}/{len(u)} names"
+              + (f" (fee dated {api['_fee_date'].dropna().max()})" if got else ""))
+        df = api.drop(columns=["_fee_date"])
+        if got == 0:
+            print("  no fee rate from either source; not writing a row")
+            return 1
 
     missing = sorted(set(u) - set(df.ticker))
     if missing:
@@ -179,9 +249,14 @@ def main() -> int:
 
     print(f"\n{'SYM':6}{'fee %':>9}{'rebate %':>10}{'avail':>12}" + (f"{'API avail':>12}" if has_api else ""))
     print("-" * (37 + 12 * has_api))
+    def fmt(v, spec):
+        # rebate and availability are None when only the API answered
+        return "--" if v is None or v != v else format(v, spec)
+
     for r in df.itertuples():
-        line = (f"{r.ticker:6}{r.fee_rate_pct:>9.2f}{r.rebate_rate_pct:>10.2f}"
-                f"{r.available_shares:>12,.0f}")
+        line = (f"{r.ticker:6}{fmt(r.fee_rate_pct, '.2f'):>9}"
+                f"{fmt(r.rebate_rate_pct, '.2f'):>10}"
+                f"{fmt(r.available_shares, ',.0f'):>12}")
         if has_api:
             v = getattr(r, "api_shortable_shares", None)
             line += f"{'--' if v is None or v != v else format(v, ',.0f'):>12}"

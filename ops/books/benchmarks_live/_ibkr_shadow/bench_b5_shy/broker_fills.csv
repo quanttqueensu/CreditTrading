@@ -1,3 +1,4 @@
 recorded_utc,fill_date,instrument,side,qty,price,source,note
 2026-08-31T22:16:33.739438+00:00,2026-08-31,SHY,BUY,1.0,82.0,ibkr_paper,execId=00012ec5.6b077c45.01.01 orderRef='' commission=0.820003 time=2026-08-31 22:16:31+00:00
 2026-09-01T21:22:15.543417+00:00,2026-09-01,SHY,BUY,1.0,81.64,ibkr_paper,execId=00012ec5.6b1249b7.01.01 orderRef='' commission=0.816403 time=2026-09-01 21:22:14+00:00
+2026-09-08T21:25:09.141294+00:00,2026-09-08,SHY,SELL,1.0,81.66,ibkr_paper,execId=00012ec5.6b434141.01.01 orderRef='' commission=0.82148 time=2026-09-08 19:59:31+00:00

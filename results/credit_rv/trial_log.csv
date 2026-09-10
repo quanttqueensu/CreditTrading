@@ -155,3 +155,202 @@ n,ts,tag,sharpe,cagr,vol,maxdd,median_hold_days,avg_gross,cost_drag_pct_yr,note
 154,2026-07-31T01:44:18+00:00,S3_angl_hyg_unconditional,0.37,1.86,5.32,-19.0,999.0,1.0,0.1,
 155,2026-07-31T01:44:18+00:00,S3_faln_hyg_unconditional,0.22,0.86,4.27,-15.0,999.0,1.0,0.08,
 156,2026-07-31T01:44:18+00:00,S3_raw_flow_z_credit_pooled,0.0,0.0,0.0,0.0,5.0,0.0,0.0,
+157,2026-09-10T00:15:37,BREAKEVEN_x0.0,0.6357,0.05803,0.0758,-0.116,6.0,2.823,0.0,cost-scaling break-even curve
+158,2026-09-10T00:15:39,BREAKEVEN_x0.1,0.4803,0.04543,0.07531,-0.1169,6.0,2.824,0.841,cost-scaling break-even curve
+159,2026-09-10T00:15:40,BREAKEVEN_x0.25,0.231,0.02595,0.07507,-0.1625,6.0,2.771,1.995,cost-scaling break-even curve
+160,2026-09-10T00:15:41,BREAKEVEN_x0.5,-0.085,0.00192,0.07501,-0.1964,6.0,2.665,3.531,cost-scaling break-even curve
+161,2026-09-10T00:15:43,BREAKEVEN_x0.75,-0.2407,-0.00859,0.07139,-0.2078,7.0,2.55,4.773,cost-scaling break-even curve
+162,2026-09-10T00:15:44,BREAKEVEN_x1.0,-0.5535,-0.03096,0.0722,-0.3587,7.0,2.363,5.826,cost-scaling break-even curve
+163,2026-09-10T00:15:45,CHEAPPAIRS_e1.5,-1.8224,-0.06966,0.04516,-0.592,6.0,3.242,6.639,"HYG/JNK + LQD/VCIT only, 1-2bp legs"
+164,2026-09-10T00:15:45,CHEAPPAIRS_e2.0,-1.5498,-0.04679,0.03765,-0.4561,7.0,1.794,3.403,"HYG/JNK + LQD/VCIT only, 1-2bp legs"
+165,2026-09-10T00:15:46,CHEAPPAIRS_e2.5,-0.7211,-0.00846,0.0267,-0.1557,5.0,0.51,1.198,"HYG/JNK + LQD/VCIT only, 1-2bp legs"
+166,2026-09-10T00:15:53,CEILING_v0.13_e1.5,0.6314,0.07603,0.10766,-0.2311,6.0,6.568,0.0,FREE execution ceiling
+167,2026-09-10T00:15:54,CEILING_v0.13_e2.0,0.5056,0.05594,0.09453,-0.1447,6.0,3.649,0.0,FREE execution ceiling
+168,2026-09-10T00:15:56,CEILING_v0.13_e2.5,0.3719,0.03402,0.066,-0.1779,5.5,1.145,0.0,FREE execution ceiling
+169,2026-09-10T00:15:57,CEILING_v0.2_e1.5,0.5134,0.08653,0.16721,-0.3742,6.0,9.546,0.0,FREE execution ceiling
+170,2026-09-10T00:15:58,CEILING_v0.2_e2.0,0.4026,0.0624,0.15111,-0.2538,6.0,5.426,0.0,FREE execution ceiling
+171,2026-09-10T00:16:00,CEILING_v0.2_e2.5,0.3395,0.04173,0.10372,-0.2639,5.5,1.667,0.0,FREE execution ceiling
+172,2026-09-10T00:16:01,CEILING_v0.3_e1.5,0.413,0.08261,0.22867,-0.5541,6.0,12.332,0.0,FREE execution ceiling
+173,2026-09-10T00:16:03,CEILING_v0.3_e2.0,0.3007,0.05368,0.2118,-0.5194,6.0,7.107,0.0,FREE execution ceiling
+174,2026-09-10T00:16:04,CEILING_v0.3_e2.5,0.3414,0.05282,0.15347,-0.4143,5.5,2.18,0.0,FREE execution ceiling
+175,2026-09-10T00:16:33,GROSS_ZERO_cost_(signal_only),0.5573,0.0515,0.07527,-0.1183,6.0,2.846,0.0,cost decomposition diagnostic
+176,2026-09-10T00:16:34,"GROSS_spreads_only,_no_impact",0.3716,0.03623,0.073,-0.1202,7.0,2.364,1.715,cost decomposition diagnostic
+177,2026-09-10T00:16:35,GROSS_half_spreads,-0.6931,-0.04195,0.0739,-0.4181,6.0,2.664,5.663,cost decomposition diagnostic
+178,2026-09-10T00:16:37,GROSS_full_model_(as_traded),-0.6153,-0.0349,0.07162,-0.363,7.0,2.373,5.774,cost decomposition diagnostic
+179,2026-09-10T00:16:38,GROSS_double_spreads_(G-COST),-0.6268,-0.03337,0.06815,-0.4017,6.5,1.807,5.564,cost decomposition diagnostic
+180,2026-09-10T00:17:25,MID_smooth1,-0.6226,-0.0855,0.13,-0.744,1,1.0,2.367,"mid-signal, close-executed, EWMA smoothing"
+181,2026-09-10T00:17:25,MID_smooth3,-0.0542,-0.01535,0.13,-0.4334,3,1.0,1.248,"mid-signal, close-executed, EWMA smoothing"
+182,2026-09-10T00:17:26,MID_smooth5,0.0856,0.0027,0.13,-0.319,5,1.0,0.899,"mid-signal, close-executed, EWMA smoothing"
+183,2026-09-10T00:17:26,MID_smooth10,0.1677,0.01346,0.13,-0.2502,10,1.0,0.565,"mid-signal, close-executed, EWMA smoothing"
+184,2026-09-10T00:17:27,MID_smooth20,0.1404,0.00985,0.13,-0.202,20,1.0,0.347,"mid-signal, close-executed, EWMA smoothing"
+185,2026-09-10T00:17:28,MID_smooth40,-0.0083,-0.00951,0.13,-0.347,40,1.0,0.197,"mid-signal, close-executed, EWMA smoothing"
+186,2026-09-10T00:17:31,CHEAP_h0.8_s1,-0.227,-0.03726,0.13,0.0,1,1.0,0.72,"cost-restricted universe, mid signal, close execution"
+187,2026-09-10T00:17:35,CHEAP_h0.8_s5,-0.1716,-0.03034,0.13,0.0,5,1.0,0.304,"cost-restricted universe, mid signal, close execution"
+188,2026-09-10T00:17:38,CHEAP_h0.8_s10,-0.2653,-0.04212,0.13,0.0,10,1.0,0.194,"cost-restricted universe, mid signal, close execution"
+189,2026-09-10T00:17:42,CHEAP_h0.8_s20,-0.0274,-0.01196,0.13,0.0,20,1.0,0.117,"cost-restricted universe, mid signal, close execution"
+190,2026-09-10T00:17:46,CHEAP_h1.2_s1,-0.3124,-0.04786,0.13,0.0,1,1.0,0.907,"cost-restricted universe, mid signal, close execution"
+191,2026-09-10T00:17:50,CHEAP_h1.2_s5,0.05,-0.00188,0.13,0.0,5,1.0,0.369,"cost-restricted universe, mid signal, close execution"
+192,2026-09-10T00:17:54,CHEAP_h1.2_s10,0.0828,0.00238,0.13,0.0,10,1.0,0.237,"cost-restricted universe, mid signal, close execution"
+193,2026-09-10T00:17:58,CHEAP_h1.2_s20,0.1895,0.01629,0.13,0.0,20,1.0,0.146,"cost-restricted universe, mid signal, close execution"
+194,2026-09-10T00:18:03,CHEAP_h1.8_s1,-0.2674,-0.04247,0.13,0.0,1,1.0,1.14,"cost-restricted universe, mid signal, close execution"
+195,2026-09-10T00:18:07,CHEAP_h1.8_s5,-0.0052,-0.0091,0.13,0.0,5,1.0,0.451,"cost-restricted universe, mid signal, close execution"
+196,2026-09-10T00:18:12,CHEAP_h1.8_s10,0.0761,0.0014,0.13,0.0,10,1.0,0.29,"cost-restricted universe, mid signal, close execution"
+197,2026-09-10T00:18:16,CHEAP_h1.8_s20,0.2359,0.02232,0.13,0.0,20,1.0,0.181,"cost-restricted universe, mid signal, close execution"
+198,2026-09-10T00:18:21,CHEAP_h2.5_s1,-0.4879,-0.06946,0.13,0.0,1,1.0,1.427,"cost-restricted universe, mid signal, close execution"
+199,2026-09-10T00:18:26,CHEAP_h2.5_s5,0.0901,0.00328,0.13,0.0,5,1.0,0.562,"cost-restricted universe, mid signal, close execution"
+200,2026-09-10T00:18:31,CHEAP_h2.5_s10,0.1837,0.01558,0.13,0.0,10,1.0,0.359,"cost-restricted universe, mid signal, close execution"
+201,2026-09-10T00:18:36,CHEAP_h2.5_s20,0.2022,0.01796,0.13,0.0,20,1.0,0.224,"cost-restricted universe, mid signal, close execution"
+202,2026-09-10T00:18:47,OPT_base,-0.486,-0.01592,0.05298,-0.2831,1754.0,4.797,6.784,cost-aware mean-variance optimiser
+203,2026-09-10T00:18:53,OPT_pessimistic,-1.1317,-0.04934,0.05325,-0.4666,1070.0,4.732,8.238,cost-aware mean-variance optimiser
+204,2026-09-10T00:18:59,OPT_legacy_wrong,-0.7251,-0.02786,0.05239,-0.3236,1025.0,4.758,7.251,cost-aware mean-variance optimiser
+205,2026-09-10T00:19:05,OPT_optimistic,0.1951,0.02024,0.05298,-0.1948,738.0,4.8,4.436,cost-aware mean-variance optimiser
+206,2026-09-10T00:19:11,T004_cluster_pairs,-1.2644,-0.04246,0.0424,-0.4452,7.0,1.414,3.697,cluster-peer hedge replaces 6-leg synthetic hedge
+207,2026-09-10T00:19:18,SC_base_e1.25,-0.926,-0.06991,0.08622,-0.5992,5.0,4.779,11.307,cost scenario base
+208,2026-09-10T00:19:19,SC_base_e1.5,-0.8083,-0.05842,0.08385,-0.5489,6.0,4.245,9.288,cost scenario base
+209,2026-09-10T00:19:21,SC_base_e2.0,-0.1737,-0.00423,0.07298,-0.191,6.0,2.601,5.534,cost scenario base
+210,2026-09-10T00:19:22,SC_base_e2.5,0.0956,0.01498,0.05595,-0.178,5.5,0.801,1.975,cost scenario base
+211,2026-09-10T00:19:23,SC_pessimistic_e1.25,-1.6205,-0.12375,0.08608,-0.7976,6.0,4.559,16.536,cost scenario pessimistic
+212,2026-09-10T00:19:25,SC_pessimistic_e1.5,-1.2797,-0.09441,0.08345,-0.7059,6.0,4.004,13.312,cost scenario pessimistic
+213,2026-09-10T00:19:26,SC_pessimistic_e2.0,-0.5552,-0.02849,0.06791,-0.3446,7.0,2.417,7.988,cost scenario pessimistic
+214,2026-09-10T00:19:28,SC_pessimistic_e2.5,-0.018,0.00869,0.05438,-0.1585,7.0,0.752,2.878,cost scenario pessimistic
+215,2026-09-10T00:19:29,SC_legacy_wrong_e1.25,-1.0093,-0.07574,0.08541,-0.6269,6.0,4.757,12.014,cost scenario legacy_wrong
+216,2026-09-10T00:19:30,SC_legacy_wrong_e1.5,-0.8412,-0.06042,0.08317,-0.5768,6.0,4.221,9.771,cost scenario legacy_wrong
+217,2026-09-10T00:19:32,SC_legacy_wrong_e2.0,-0.1979,-0.0057,0.07194,-0.2126,6.0,2.583,5.772,cost scenario legacy_wrong
+218,2026-09-10T00:19:33,SC_legacy_wrong_e2.5,0.0887,0.01457,0.05551,-0.1827,6.0,0.798,2.034,cost scenario legacy_wrong
+219,2026-09-10T00:19:35,SC_optimistic_e1.25,-0.4771,-0.03417,0.08802,-0.4008,5.0,4.809,7.054,cost scenario optimistic
+220,2026-09-10T00:19:36,SC_optimistic_e1.5,-0.2752,-0.01571,0.08482,-0.3302,6.0,4.288,5.782,cost scenario optimistic
+221,2026-09-10T00:19:37,SC_optimistic_e2.0,0.1877,0.02262,0.07497,-0.1279,6.0,2.672,3.298,cost scenario optimistic
+222,2026-09-10T00:19:39,SC_optimistic_e2.5,0.2341,0.02308,0.05711,-0.1714,5.5,0.804,1.135,cost scenario optimistic
+223,2026-09-10T00:19:46,S_e1.5_m1.0_b0.01_h0.05,-1.5856,-0.11878,0.0845,-0.7925,6.0,4.504,13.398,sweep: general book
+224,2026-09-10T00:19:48,S_e1.5_m1.0_b0.01_h0.2,-1.5331,-0.13016,0.09525,-0.825,6.0,4.206,12.765,sweep: general book
+225,2026-09-10T00:19:49,S_e1.5_m1.0_b0.05_h0.05,-1.5727,-0.11795,0.08459,-0.7901,6.0,4.508,13.32,sweep: general book
+226,2026-09-10T00:19:50,S_e1.5_m1.0_b0.05_h0.2,-1.5303,-0.12991,0.09523,-0.8242,6.0,4.211,12.703,sweep: general book
+227,2026-09-10T00:19:52,S_e1.5_m3.0_b0.01_h0.05,-1.125,-0.08549,0.08601,-0.673,6.0,3.889,10.205,sweep: general book
+228,2026-09-10T00:19:53,S_e1.5_m3.0_b0.01_h0.2,-1.1565,-0.09381,0.09118,-0.7062,6.0,3.74,10.069,sweep: general book
+229,2026-09-10T00:19:55,S_e1.5_m3.0_b0.05_h0.05,-1.1157,-0.08486,0.08611,-0.6704,6.0,3.901,10.166,sweep: general book
+230,2026-09-10T00:19:56,S_e1.5_m3.0_b0.05_h0.2,-1.1602,-0.09427,0.09133,-0.7079,6.0,3.765,10.029,sweep: general book
+231,2026-09-10T00:19:57,S_e1.5_m6.0_b0.01_h0.05,-1.048,-0.07437,0.08118,-0.6473,6.0,3.19,8.402,sweep: general book
+232,2026-09-10T00:19:59,S_e1.5_m6.0_b0.01_h0.2,-1.161,-0.08426,0.08244,-0.6753,6.0,3.114,8.39,sweep: general book
+233,2026-09-10T00:20:00,S_e1.5_m6.0_b0.05_h0.05,-1.0461,-0.07424,0.0812,-0.6464,6.0,3.193,8.366,sweep: general book
+234,2026-09-10T00:20:01,S_e1.5_m6.0_b0.05_h0.2,-1.1506,-0.08343,0.0824,-0.6731,6.0,3.118,8.365,sweep: general book
+235,2026-09-10T00:20:03,S_e2.0_m1.0_b0.01_h0.05,-0.9431,-0.05984,0.07427,-0.5396,6.0,2.774,7.415,sweep: general book
+236,2026-09-10T00:20:04,S_e2.0_m1.0_b0.01_h0.2,-0.8672,-0.0569,0.07695,-0.543,6.0,2.711,7.282,sweep: general book
+237,2026-09-10T00:20:05,S_e2.0_m1.0_b0.05_h0.05,-0.9396,-0.05963,0.0743,-0.5369,6.0,2.791,7.384,sweep: general book
+238,2026-09-10T00:20:07,S_e2.0_m1.0_b0.05_h0.2,-0.856,-0.05657,0.0775,-0.5406,6.0,2.731,7.253,sweep: general book
+239,2026-09-10T00:20:08,S_e2.0_m3.0_b0.01_h0.05,-0.6331,-0.03604,0.07148,-0.3726,7.0,2.353,5.792,sweep: general book
+240,2026-09-10T00:20:09,S_e2.0_m3.0_b0.01_h0.2,-0.8778,-0.05116,0.06971,-0.5107,7.0,2.336,5.747,sweep: general book
+241,2026-09-10T00:20:11,S_e2.0_m3.0_b0.05_h0.05,-0.6153,-0.0349,0.07162,-0.363,7.0,2.373,5.774,sweep: general book
+242,2026-09-10T00:20:12,S_e2.0_m3.0_b0.05_h0.2,-0.8711,-0.05093,0.06995,-0.5109,7.0,2.355,5.73,sweep: general book
+243,2026-09-10T00:20:13,S_e2.0_m6.0_b0.01_h0.05,-0.503,-0.02491,0.06768,-0.3538,6.5,1.793,4.588,sweep: general book
+244,2026-09-10T00:20:15,S_e2.0_m6.0_b0.01_h0.2,-0.4994,-0.02424,0.06688,-0.3338,6.5,1.786,4.598,sweep: general book
+245,2026-09-10T00:20:16,S_e2.0_m6.0_b0.05_h0.05,-0.493,-0.02444,0.06801,-0.3574,6.5,1.801,4.574,sweep: general book
+246,2026-09-10T00:20:17,S_e2.0_m6.0_b0.05_h0.2,-0.4888,-0.02373,0.06721,-0.3379,6.5,1.791,4.584,sweep: general book
+247,2026-09-10T00:20:19,S_e2.5_m1.0_b0.01_h0.05,-0.2303,-0.00366,0.05699,-0.227,6.0,0.799,2.478,sweep: general book
+248,2026-09-10T00:20:20,S_e2.5_m1.0_b0.01_h0.2,-0.1258,0.00226,0.0572,-0.1658,6.0,0.797,2.462,sweep: general book
+249,2026-09-10T00:20:22,S_e2.5_m1.0_b0.05_h0.05,-0.2126,-0.00278,0.05746,-0.2254,6.0,0.811,2.472,sweep: general book
+250,2026-09-10T00:20:23,S_e2.5_m1.0_b0.05_h0.2,-0.1223,0.00237,0.05765,-0.1692,6.0,0.808,2.454,sweep: general book
+251,2026-09-10T00:20:24,S_e2.5_m3.0_b0.01_h0.05,-0.0761,0.00569,0.0529,-0.1481,6.5,0.668,2.114,sweep: general book
+252,2026-09-10T00:20:26,S_e2.5_m3.0_b0.01_h0.2,-0.3434,-0.00718,0.04971,-0.2341,6.5,0.672,2.022,sweep: general book
+253,2026-09-10T00:20:27,S_e2.5_m3.0_b0.05_h0.05,-0.0573,0.00663,0.05352,-0.1442,6.5,0.681,2.11,sweep: general book
+254,2026-09-10T00:20:28,S_e2.5_m3.0_b0.05_h0.2,-0.3293,-0.00666,0.05018,-0.2351,6.5,0.686,2.016,sweep: general book
+255,2026-09-10T00:20:30,S_e2.5_m6.0_b0.01_h0.05,-0.1127,0.00469,0.0471,-0.2189,7.0,0.515,1.537,sweep: general book
+256,2026-09-10T00:20:31,S_e2.5_m6.0_b0.01_h0.2,-0.1614,0.0025,0.04657,-0.2151,7.0,0.513,1.528,sweep: general book
+257,2026-09-10T00:20:32,S_e2.5_m6.0_b0.05_h0.05,-0.103,0.0051,0.04743,-0.2169,7.0,0.521,1.533,sweep: general book
+258,2026-09-10T00:20:34,S_e2.5_m6.0_b0.05_h0.2,-0.1336,0.0037,0.04712,-0.2069,7.0,0.522,1.523,sweep: general book
+259,2026-09-10T00:20:41,e1.5_r1_m0.2_i1.0,-1.1711,-0.0883,0.0853,-0.6901,6.0,3.845,10.565,sweep2: breadth x rebalance freq x impact coef
+260,2026-09-10T00:20:42,e1.5_r1_m0.2_i0.5,-0.8306,-0.06126,0.08511,-0.568,6.0,3.825,7.052,sweep2: breadth x rebalance freq x impact coef
+261,2026-09-10T00:20:43,e1.5_r1_m0.35_i1.0,-1.2011,-0.09145,0.08601,-0.7019,6.0,3.862,10.436,sweep2: breadth x rebalance freq x impact coef
+262,2026-09-10T00:20:45,e1.5_r1_m0.35_i0.5,-0.864,-0.06464,0.08592,-0.5852,6.0,3.862,7.011,sweep2: breadth x rebalance freq x impact coef
+263,2026-09-10T00:20:45,e1.5_r5_m0.2_i1.0,-0.8463,-0.0677,0.09105,-0.6298,10.0,3.592,4.479,sweep2: breadth x rebalance freq x impact coef
+264,2026-09-10T00:20:46,e1.5_r5_m0.2_i0.5,-0.6814,-0.05359,0.09104,-0.5618,10.0,3.585,2.929,sweep2: breadth x rebalance freq x impact coef
+265,2026-09-10T00:20:47,e1.5_r5_m0.35_i1.0,-0.8715,-0.06933,0.09049,-0.6374,10.0,3.625,4.357,sweep2: breadth x rebalance freq x impact coef
+266,2026-09-10T00:20:47,e1.5_r5_m0.35_i0.5,-0.7091,-0.05551,0.09042,-0.5735,10.0,3.62,2.872,sweep2: breadth x rebalance freq x impact coef
+267,2026-09-10T00:20:48,e1.5_r10_m0.2_i1.0,-0.6844,-0.05042,0.08638,-0.539,20.0,3.115,2.651,sweep2: breadth x rebalance freq x impact coef
+268,2026-09-10T00:20:48,e1.5_r10_m0.2_i0.5,-0.5734,-0.04118,0.08622,-0.4895,20.0,3.108,1.72,sweep2: breadth x rebalance freq x impact coef
+269,2026-09-10T00:20:48,e1.5_r10_m0.35_i1.0,-0.8032,-0.06019,0.08645,-0.596,20.0,3.127,2.563,sweep2: breadth x rebalance freq x impact coef
+270,2026-09-10T00:20:49,e1.5_r10_m0.35_i0.5,-0.6976,-0.05158,0.08647,-0.5555,20.0,3.125,1.677,sweep2: breadth x rebalance freq x impact coef
+271,2026-09-10T00:20:50,e2.0_r1_m0.2_i1.0,-0.6977,-0.04003,0.07087,-0.4062,7.0,2.346,5.897,sweep2: breadth x rebalance freq x impact coef
+272,2026-09-10T00:20:51,e2.0_r1_m0.2_i0.5,-0.4296,-0.02153,0.07069,-0.289,7.0,2.34,3.861,sweep2: breadth x rebalance freq x impact coef
+273,2026-09-10T00:20:53,e2.0_r1_m0.35_i1.0,-0.6026,-0.03406,0.07167,-0.3539,7.0,2.353,5.88,sweep2: breadth x rebalance freq x impact coef
+274,2026-09-10T00:20:54,e2.0_r1_m0.35_i0.5,-0.3339,-0.01524,0.0716,-0.2389,7.0,2.348,3.858,sweep2: breadth x rebalance freq x impact coef
+275,2026-09-10T00:20:55,e2.0_r5_m0.2_i1.0,-0.6535,-0.03566,0.06889,-0.4152,10.0,1.594,1.79,sweep2: breadth x rebalance freq x impact coef
+276,2026-09-10T00:20:55,e2.0_r5_m0.2_i0.5,-0.5624,-0.02972,0.0691,-0.3802,10.0,1.593,1.144,sweep2: breadth x rebalance freq x impact coef
+277,2026-09-10T00:20:56,e2.0_r5_m0.35_i1.0,-0.5615,-0.02778,0.06604,-0.3559,10.0,1.608,1.799,sweep2: breadth x rebalance freq x impact coef
+278,2026-09-10T00:20:56,e2.0_r5_m0.35_i0.5,-0.4724,-0.02209,0.06612,-0.3207,10.0,1.586,1.151,sweep2: breadth x rebalance freq x impact coef
+279,2026-09-10T00:20:57,e2.0_r10_m0.2_i1.0,-0.2379,-0.00708,0.06703,-0.2339,10.0,0.973,0.996,sweep2: breadth x rebalance freq x impact coef
+280,2026-09-10T00:20:57,e2.0_r10_m0.2_i0.5,-0.1814,-0.00327,0.06686,-0.2079,10.0,0.972,0.634,sweep2: breadth x rebalance freq x impact coef
+281,2026-09-10T00:20:58,e2.0_r10_m0.35_i1.0,-0.2452,-0.00928,0.07245,-0.2852,10.0,0.97,1.036,sweep2: breadth x rebalance freq x impact coef
+282,2026-09-10T00:20:58,e2.0_r10_m0.35_i0.5,-0.1908,-0.00538,0.07249,-0.267,10.0,0.971,0.658,sweep2: breadth x rebalance freq x impact coef
+283,2026-09-10T00:22:09,BREAKEVEN_x0.0,0.6357,0.05803,0.0758,-0.116,6.0,2.823,0.0,cost-scaling break-even curve
+284,2026-09-10T00:22:10,BREAKEVEN_x0.1,0.4803,0.04543,0.07531,-0.1169,6.0,2.824,0.841,cost-scaling break-even curve
+285,2026-09-10T00:22:12,BREAKEVEN_x0.25,0.231,0.02595,0.07507,-0.1625,6.0,2.771,1.995,cost-scaling break-even curve
+286,2026-09-10T00:22:13,BREAKEVEN_x0.5,-0.085,0.00192,0.07501,-0.1964,6.0,2.665,3.531,cost-scaling break-even curve
+287,2026-09-10T00:22:14,BREAKEVEN_x0.75,-0.2407,-0.00859,0.07139,-0.2078,7.0,2.55,4.773,cost-scaling break-even curve
+288,2026-09-10T00:22:16,BREAKEVEN_x1.0,-0.5535,-0.03096,0.0722,-0.3587,7.0,2.363,5.826,cost-scaling break-even curve
+289,2026-09-10T00:22:16,CHEAPPAIRS_e1.5,-1.8224,-0.06966,0.04516,-0.592,6.0,3.242,6.639,"HYG/JNK + LQD/VCIT only, 1-2bp legs"
+290,2026-09-10T00:22:17,CHEAPPAIRS_e2.0,-1.5498,-0.04679,0.03765,-0.4561,7.0,1.794,3.403,"HYG/JNK + LQD/VCIT only, 1-2bp legs"
+291,2026-09-10T00:22:18,CHEAPPAIRS_e2.5,-0.7211,-0.00846,0.0267,-0.1557,5.0,0.51,1.198,"HYG/JNK + LQD/VCIT only, 1-2bp legs"
+292,2026-09-10T00:22:25,CEILING_v0.13_e1.5,0.6314,0.07603,0.10766,-0.2311,6.0,6.568,0.0,FREE execution ceiling
+293,2026-09-10T00:22:27,CEILING_v0.13_e2.0,0.5056,0.05594,0.09453,-0.1447,6.0,3.649,0.0,FREE execution ceiling
+294,2026-09-10T00:22:28,CEILING_v0.13_e2.5,0.3719,0.03402,0.066,-0.1779,5.5,1.145,0.0,FREE execution ceiling
+295,2026-09-10T00:22:29,CEILING_v0.2_e1.5,0.5134,0.08653,0.16721,-0.3742,6.0,9.546,0.0,FREE execution ceiling
+296,2026-09-10T00:22:31,CEILING_v0.2_e2.0,0.4026,0.0624,0.15111,-0.2538,6.0,5.426,0.0,FREE execution ceiling
+297,2026-09-10T00:22:32,CEILING_v0.2_e2.5,0.3395,0.04173,0.10372,-0.2639,5.5,1.667,0.0,FREE execution ceiling
+298,2026-09-10T00:22:34,CEILING_v0.3_e1.5,0.413,0.08261,0.22867,-0.5541,6.0,12.332,0.0,FREE execution ceiling
+299,2026-09-10T00:22:35,CEILING_v0.3_e2.0,0.3007,0.05368,0.2118,-0.5194,6.0,7.107,0.0,FREE execution ceiling
+300,2026-09-10T00:22:36,CEILING_v0.3_e2.5,0.3414,0.05282,0.15347,-0.4143,5.5,2.18,0.0,FREE execution ceiling
+301,2026-09-10T00:23:07,GROSS_ZERO_cost_(signal_only),0.5573,0.0515,0.07527,-0.1183,6.0,2.846,0.0,cost decomposition diagnostic
+302,2026-09-10T00:23:08,"GROSS_spreads_only,_no_impact",0.3716,0.03623,0.073,-0.1202,7.0,2.364,1.715,cost decomposition diagnostic
+303,2026-09-10T00:23:09,GROSS_half_spreads,-0.6931,-0.04195,0.0739,-0.4181,6.0,2.664,5.663,cost decomposition diagnostic
+304,2026-09-10T00:23:11,GROSS_full_model_(as_traded),-0.6153,-0.0349,0.07162,-0.363,7.0,2.373,5.774,cost decomposition diagnostic
+305,2026-09-10T00:23:12,GROSS_double_spreads_(G-COST),-0.6268,-0.03337,0.06815,-0.4017,6.5,1.807,5.564,cost decomposition diagnostic
+306,2026-09-10T00:24:04,MID_smooth1,-0.6226,-0.0855,0.13,-0.744,1,1.0,2.367,"mid-signal, close-executed, EWMA smoothing"
+307,2026-09-10T00:24:04,MID_smooth3,-0.0542,-0.01535,0.13,-0.4334,3,1.0,1.248,"mid-signal, close-executed, EWMA smoothing"
+308,2026-09-10T00:24:05,MID_smooth5,0.0856,0.0027,0.13,-0.319,5,1.0,0.899,"mid-signal, close-executed, EWMA smoothing"
+309,2026-09-10T00:24:05,MID_smooth10,0.1677,0.01346,0.13,-0.2502,10,1.0,0.565,"mid-signal, close-executed, EWMA smoothing"
+310,2026-09-10T00:24:06,MID_smooth20,0.1404,0.00985,0.13,-0.202,20,1.0,0.347,"mid-signal, close-executed, EWMA smoothing"
+311,2026-09-10T00:24:06,MID_smooth40,-0.0083,-0.00951,0.13,-0.347,40,1.0,0.197,"mid-signal, close-executed, EWMA smoothing"
+312,2026-09-10T00:24:10,CHEAP_h0.8_s1,-0.227,-0.03726,0.13,0.0,1,1.0,0.72,"cost-restricted universe, mid signal, close execution"
+313,2026-09-10T00:24:14,CHEAP_h0.8_s5,-0.1716,-0.03034,0.13,0.0,5,1.0,0.304,"cost-restricted universe, mid signal, close execution"
+314,2026-09-10T00:24:17,CHEAP_h0.8_s10,-0.2653,-0.04212,0.13,0.0,10,1.0,0.194,"cost-restricted universe, mid signal, close execution"
+315,2026-09-10T00:24:21,CHEAP_h0.8_s20,-0.0274,-0.01196,0.13,0.0,20,1.0,0.117,"cost-restricted universe, mid signal, close execution"
+316,2026-09-10T00:24:25,CHEAP_h1.2_s1,-0.3124,-0.04786,0.13,0.0,1,1.0,0.907,"cost-restricted universe, mid signal, close execution"
+317,2026-09-10T00:24:39,OPT_base,-0.486,-0.01592,0.05298,-0.2831,1754.0,4.797,6.784,cost-aware mean-variance optimiser
+318,2026-09-10T00:24:45,OPT_pessimistic,-1.1317,-0.04934,0.05325,-0.4666,1070.0,4.732,8.238,cost-aware mean-variance optimiser
+319,2026-09-10T00:24:51,OPT_legacy_wrong,-0.7205,-0.02763,0.05238,-0.3216,1014.0,4.755,7.26,cost-aware mean-variance optimiser
+320,2026-09-10T00:24:57,OPT_optimistic,0.1951,0.02024,0.05298,-0.1948,738.0,4.8,4.436,cost-aware mean-variance optimiser
+321,2026-09-10T00:25:03,T004_cluster_pairs,-1.2644,-0.04246,0.0424,-0.4452,7.0,1.414,3.697,cluster-peer hedge replaces 6-leg synthetic hedge
+322,2026-09-10T00:25:11,SC_base_e1.25,-0.926,-0.06991,0.08622,-0.5992,5.0,4.779,11.307,cost scenario base
+323,2026-09-10T00:25:12,SC_base_e1.5,-0.8083,-0.05842,0.08385,-0.5489,6.0,4.245,9.288,cost scenario base
+324,2026-09-10T00:25:14,SC_base_e2.0,-0.1737,-0.00423,0.07298,-0.191,6.0,2.601,5.534,cost scenario base
+325,2026-09-10T00:25:15,SC_base_e2.5,0.0956,0.01498,0.05595,-0.178,5.5,0.801,1.975,cost scenario base
+326,2026-09-10T00:25:16,SC_pessimistic_e1.25,-1.6205,-0.12375,0.08608,-0.7976,6.0,4.559,16.536,cost scenario pessimistic
+327,2026-09-10T00:25:18,SC_pessimistic_e1.5,-1.2797,-0.09441,0.08345,-0.7059,6.0,4.004,13.312,cost scenario pessimistic
+328,2026-09-10T00:25:19,SC_pessimistic_e2.0,-0.5552,-0.02849,0.06791,-0.3446,7.0,2.417,7.988,cost scenario pessimistic
+329,2026-09-10T00:25:21,SC_pessimistic_e2.5,-0.018,0.00869,0.05438,-0.1585,7.0,0.752,2.878,cost scenario pessimistic
+330,2026-09-10T00:25:22,SC_legacy_wrong_e1.25,-1.0093,-0.07574,0.08541,-0.6269,6.0,4.757,12.014,cost scenario legacy_wrong
+331,2026-09-10T00:25:33,S_e1.5_m1.0_b0.01_h0.05,-1.5856,-0.11878,0.0845,-0.7925,6.0,4.504,13.398,sweep: general book
+332,2026-09-10T00:25:34,S_e1.5_m1.0_b0.01_h0.2,-1.5331,-0.13016,0.09525,-0.825,6.0,4.206,12.765,sweep: general book
+333,2026-09-10T00:25:35,S_e1.5_m1.0_b0.05_h0.05,-1.5727,-0.11795,0.08459,-0.7901,6.0,4.508,13.32,sweep: general book
+334,2026-09-10T00:25:37,S_e1.5_m1.0_b0.05_h0.2,-1.5303,-0.12991,0.09523,-0.8242,6.0,4.211,12.703,sweep: general book
+335,2026-09-10T00:25:38,S_e1.5_m3.0_b0.01_h0.05,-1.125,-0.08549,0.08601,-0.673,6.0,3.889,10.205,sweep: general book
+336,2026-09-10T00:25:39,S_e1.5_m3.0_b0.01_h0.2,-1.1565,-0.09381,0.09118,-0.7062,6.0,3.74,10.069,sweep: general book
+337,2026-09-10T00:25:41,S_e1.5_m3.0_b0.05_h0.05,-1.1157,-0.08486,0.08611,-0.6704,6.0,3.901,10.166,sweep: general book
+338,2026-09-10T00:25:42,S_e1.5_m3.0_b0.05_h0.2,-1.1602,-0.09427,0.09133,-0.7079,6.0,3.765,10.029,sweep: general book
+339,2026-09-10T00:25:44,S_e1.5_m6.0_b0.01_h0.05,-1.048,-0.07437,0.08118,-0.6473,6.0,3.19,8.402,sweep: general book
+340,2026-09-10T00:25:45,S_e1.5_m6.0_b0.01_h0.2,-1.161,-0.08426,0.08244,-0.6753,6.0,3.114,8.39,sweep: general book
+341,2026-09-10T00:25:53,e1.5_r1_m0.2_i1.0,-1.1711,-0.0883,0.0853,-0.6901,6.0,3.845,10.565,sweep2: breadth x rebalance freq x impact coef
+342,2026-09-10T00:25:54,e1.5_r1_m0.2_i0.5,-0.8306,-0.06126,0.08511,-0.568,6.0,3.825,7.052,sweep2: breadth x rebalance freq x impact coef
+343,2026-09-10T00:25:56,e1.5_r1_m0.35_i1.0,-1.2011,-0.09145,0.08601,-0.7019,6.0,3.862,10.436,sweep2: breadth x rebalance freq x impact coef
+344,2026-09-10T00:25:57,e1.5_r1_m0.35_i0.5,-0.864,-0.06464,0.08592,-0.5852,6.0,3.862,7.011,sweep2: breadth x rebalance freq x impact coef
+345,2026-09-10T00:25:58,e1.5_r5_m0.2_i1.0,-0.8463,-0.0677,0.09105,-0.6298,10.0,3.592,4.479,sweep2: breadth x rebalance freq x impact coef
+346,2026-09-10T00:25:58,e1.5_r5_m0.2_i0.5,-0.6814,-0.05359,0.09104,-0.5618,10.0,3.585,2.929,sweep2: breadth x rebalance freq x impact coef
+347,2026-09-10T00:25:59,e1.5_r5_m0.35_i1.0,-0.8715,-0.06933,0.09049,-0.6374,10.0,3.625,4.357,sweep2: breadth x rebalance freq x impact coef
+348,2026-09-10T00:25:59,e1.5_r5_m0.35_i0.5,-0.7091,-0.05551,0.09042,-0.5735,10.0,3.62,2.872,sweep2: breadth x rebalance freq x impact coef
+349,2026-09-10T00:26:00,e1.5_r10_m0.2_i1.0,-0.6844,-0.05042,0.08638,-0.539,20.0,3.115,2.651,sweep2: breadth x rebalance freq x impact coef
+350,2026-09-10T00:26:00,e1.5_r10_m0.2_i0.5,-0.5734,-0.04118,0.08622,-0.4895,20.0,3.108,1.72,sweep2: breadth x rebalance freq x impact coef
+351,2026-09-10T00:26:01,e1.5_r10_m0.35_i1.0,-0.8032,-0.06019,0.08645,-0.596,20.0,3.127,2.563,sweep2: breadth x rebalance freq x impact coef
+352,2026-09-10T00:26:01,e1.5_r10_m0.35_i0.5,-0.6976,-0.05158,0.08647,-0.5555,20.0,3.125,1.677,sweep2: breadth x rebalance freq x impact coef
+353,2026-09-10T00:26:02,e2.0_r1_m0.2_i1.0,-0.6977,-0.04003,0.07087,-0.4062,7.0,2.346,5.897,sweep2: breadth x rebalance freq x impact coef
+354,2026-09-10T00:26:04,e2.0_r1_m0.2_i0.5,-0.4296,-0.02153,0.07069,-0.289,7.0,2.34,3.861,sweep2: breadth x rebalance freq x impact coef
+355,2026-09-10T00:26:05,e2.0_r1_m0.35_i1.0,-0.6026,-0.03406,0.07167,-0.3539,7.0,2.353,5.88,sweep2: breadth x rebalance freq x impact coef

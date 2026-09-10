@@ -42,6 +42,43 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HALT_PATH = REPO_ROOT / "ops" / "HALT.md"
 HALT_ARCHIVE = REPO_ROOT / "ops" / "halts"
 
+
+def scoped_path(book: str) -> Path:
+    """`ops/HALT_<book>.md` — a halt that blocks ONE book.
+
+    WHY SCOPED HALTS EXIST (2026-09-10). `ops/HALT.md` blocks every book, which
+    is right for a fault nobody can explain and wrong for a fault that belongs
+    to one book. Three halts in three days proved it:
+
+      * 09-09 09:37  phase0 could not attribute JNK  -> blocked the CEF book
+      * 09-09 17:25  bench_b6 could not attribute ANGL (its own $2.5k fill,
+                     placed before its ledger was re-seeded) -> would have
+                     blocked the CEF session at 22:45
+      * both cleared by hand, both about a book that is not the strategy
+
+    A $20,000 benchmark book must not be able to stop a $500,000 strategy over
+    its own bookkeeping. `arm()` only ever refuses on symbols the book being
+    armed trades, so an arming failure is inherently that book's problem.
+
+    The scope is a DOWNGRADE for other books, never a dismissal: preflight
+    reports another book's scoped halt as a non-blocking WARNING naming the
+    book, so the operator still sees it on every session. A human halt, and
+    anything whose cause is not provably one book's, stays global.
+
+    Same directory and prefix as `HALT.md` on purpose: `ls ops/HALT*.md` shows
+    everything that is currently blocking anything.
+    """
+    safe = "".join(c if (c.isalnum() or c in "-_") else "_" for c in str(book))
+    if not safe:
+        raise ValueError("scoped_path needs a book name")
+    return REPO_ROOT / "ops" / f"HALT_{safe}.md"
+
+
+def _halt_paths(book=None):
+    """(path this call writes/reads, human label)."""
+    return (HALT_PATH, "ops/HALT.md") if book is None else (
+        scoped_path(book), f"ops/{scoped_path(book).name}")
+
 DEFAULT_ALERT_TO = "simon.jarvis0@gmail.com"
 
 
@@ -68,45 +105,69 @@ def _cfg(key, default=None):
 
 # -- the durable record ---------------------------------------------------
 
-def write_halt(reason: str, detail: str = "", source: str = "") -> Path:
-    """Record a halt and alert on it. Returns the path to `ops/HALT.md`.
+def write_halt(reason: str, detail: str = "", source: str = "",
+               book: str | None = None) -> Path:
+    """Record a halt and alert on it. Returns the path written.
+
+    `book=None` writes the GLOBAL `ops/HALT.md` and blocks every book — the
+    default, and correct for a human halt or a fault nobody can attribute.
+    `book="cef_discount_paper"` writes `ops/HALT_cef_discount_paper.md` and
+    blocks only that book; see `scoped_path` for why.
 
     Writing the file is deliberately NOT wrapped in try/except: if we cannot
     persist the halt we would rather crash than continue believing the book is
     protected. Every alert channel after it IS wrapped, for the opposite reason.
     """
     stamp = datetime.now()
-    HALT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    path, label = _halt_paths(book)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    existing = HALT_PATH.read_text() if HALT_PATH.exists() else ""
+    scope = (f"trading is BLOCKED for **{book}** until this file is cleared "
+             f"(other books are warned, not blocked)" if book else
+             "trading is BLOCKED until this file is cleared")
+    clear_arg = f"clear_halt('what you fixed', book='{book}')" if book else \
+                "clear_halt('what you fixed')"
+
+    existing = path.read_text() if path.exists() else ""
     entry = (f"## {stamp:%Y-%m-%d %H:%M:%S}  {reason}\n\n"
              f"- **source**: `{source or 'unspecified'}`\n"
-             f"- **state**: trading is BLOCKED until this file is cleared\n\n"
+             f"- **state**: {scope}\n\n"
              f"{detail.strip()}\n\n"
              f"To clear once the cause is genuinely fixed:\n\n"
              f"    python3 -c \"from ops.halt import clear_halt; "
-             f"clear_halt('what you fixed')\"\n\n---\n\n")
+             f"{clear_arg}\"\n\n---\n\n")
 
-    header = ("# HALT — automated trading is blocked\n\n"
-              "`ops/preflight.py` reads this file before every scheduled session "
-              "and will not arm live orders while it exists. Data collection and "
-              "logging continue regardless: a halted book still records, it just "
-              "does not trade.\n\n"
-              "Most recent halt first.\n\n---\n\n")
+    if book:
+        header = (f"# HALT — {book}\n\n"
+                  f"`ops/preflight.py` reads this file before every session of "
+                  f"**{book}** and will not arm live orders for it while this "
+                  f"file exists. Other books see it as a WARNING and continue: "
+                  f"an arming failure is about the symbols the failing book "
+                  f"trades, and one book's bookkeeping must not stop another's "
+                  f"strategy. Data collection and logging continue regardless.\n\n"
+                  f"Most recent halt first.\n\n---\n\n")
+    else:
+        header = ("# HALT — automated trading is blocked\n\n"
+                  "`ops/preflight.py` reads this file before every scheduled "
+                  "session and will not arm live orders while it exists. Data "
+                  "collection and logging continue regardless: a halted book "
+                  "still records, it just does not trade.\n\n"
+                  "Most recent halt first.\n\n---\n\n")
     body = existing.split("---\n\n", 1)[1] if "---\n\n" in existing else ""
-    HALT_PATH.write_text(header + entry + body)
+    path.write_text(header + entry + body)
 
-    alert(subject=f"QUANTT HALT: {reason}",
-          body=f"{reason}\n\nsource: {source}\n\n{detail}",
-          speak="Quant book halted. Trading is blocked.")
-    return HALT_PATH
+    who = f"QUANTT HALT [{book}]" if book else "QUANTT HALT"
+    alert(subject=f"{who}: {reason}",
+          body=f"{reason}\n\nsource: {source}\nscope: {label}\n\n{detail}",
+          speak=(f"Quant book {book} halted." if book
+                 else "Quant book halted. Trading is blocked."))
+    return path
 
 
-def read_halt():
-    """The active halt as {'reason', 'when', 'text'}, or None if clear."""
-    if not HALT_PATH.exists():
+def _parse_halt(path, book=None):
+    if not path.exists():
         return None
-    text = HALT_PATH.read_text()
+    text = path.read_text()
     reason, when = "unknown", ""
     for line in text.splitlines():
         if line.startswith("## "):
@@ -114,28 +175,75 @@ def read_halt():
             when, _, reason = head.partition("  ")
             break
     return {"reason": reason.strip() or "unknown", "when": when.strip(),
-            "text": text, "path": str(HALT_PATH)}
+            "text": text, "path": str(path), "book": book,
+            "scope": book or "global"}
 
 
-def clear_halt(note: str = "") -> bool:
-    """Archive the active halt. Deliberately a manual, attributed act.
+def read_halt(book: str | None = None):
+    """The halt that BLOCKS `book`, or None.
+
+    Global first: `ops/HALT.md` blocks everything, so it wins over a scoped
+    file. With `book=None` this is exactly the pre-2026-09-10 behaviour —
+    global only — which is what keeps every existing caller correct.
+    """
+    active = _parse_halt(HALT_PATH)
+    if active is not None:
+        return active
+    if book is None:
+        return None
+    return _parse_halt(scoped_path(book), book=book)
+
+
+def other_book_halts(book: str | None = None) -> list:
+    """Scoped halts that do NOT block `book` — advisory, for every session.
+
+    A scoped halt is a downgrade for other books, not a dismissal: preflight
+    surfaces these as non-blocking warnings so an unattended benchmark book
+    sitting halted for a week cannot go unnoticed just because the strategy
+    kept trading.
+    """
+    mine = scoped_path(book).name if book else None
+    out = []
+    for p in sorted((REPO_ROOT / "ops").glob("HALT_*.md")):
+        if p.name == mine:
+            continue
+        h = _parse_halt(p, book=p.stem[len("HALT_"):])
+        if h:
+            out.append(h)
+    return out
+
+
+def clear_halt(note: str = "", book: str | None = None) -> bool:
+    """Archive one halt. Deliberately a manual, attributed act.
 
     Self-clearing would defeat the point: the preflight gate can re-arm itself
     when its CHECKS pass, but a desync that required a ledger rebuild needs a
     human to say the rebuild happened and was correct.
+
+    `book=None` clears the global `ops/HALT.md` only — it never touches a
+    scoped halt, because clearing "the halt" must not silently unblock a book
+    whose fault nobody looked at. Any scoped halts still standing are listed.
     """
-    if not HALT_PATH.exists():
-        print("[halt] no active halt")
+    path, label = _halt_paths(book)
+    if not path.exists():
+        print(f"[halt] no active halt at {label}")
+        if book is None:
+            for h in other_book_halts():
+                print(f"[halt] still blocking {h['book']}: {h['reason']} "
+                      f"({h['when']}) — clear with "
+                      f"clear_halt('...', book='{h['book']}')")
         return False
     HALT_ARCHIVE.mkdir(parents=True, exist_ok=True)
-    dest = HALT_ARCHIVE / f"HALT_{datetime.now():%Y%m%d_%H%M%S}.md"
-    shutil.move(str(HALT_PATH), dest)
+    tag = f"_{book}" if book else ""
+    dest = HALT_ARCHIVE / f"HALT{tag}_{datetime.now():%Y%m%d_%H%M%S}.md"
+    shutil.move(str(path), dest)
     if note:
         dest.write_text(dest.read_text() +
                         f"\n\nCLEARED {datetime.now():%Y-%m-%d %H:%M:%S}: {note}\n")
-    print(f"[halt] cleared -> {dest}")
-    alert(subject="QUANTT halt cleared",
-          body=f"{note}\n\narchived to {dest}", speak="Quant halt cleared.")
+    print(f"[halt] cleared {label} -> {dest}")
+    alert(subject=f"QUANTT halt cleared ({book or 'global'})",
+          body=f"{note}\n\nscope: {label}\narchived to {dest}",
+          speak="Quant halt cleared.")
     return True
 
 

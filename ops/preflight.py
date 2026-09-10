@@ -58,13 +58,38 @@ class Check:
 
 # -- individual checks ----------------------------------------------------
 
-def check_halt() -> Check:
-    active = halt_mod.read_halt()
+def check_halt(book_id=None) -> list:
+    """Halt checks for this book: at most one blocker, plus advisory warnings.
+
+    Two scopes since 2026-09-10 (see `ops.halt.scoped_path`). `ops/HALT.md`
+    blocks everything. `ops/HALT_<book>.md` blocks only that book, and reaches
+    every OTHER book as a non-blocking warning — loud enough that a benchmark
+    book sitting halted for a week is visible on every session, but unable to
+    stop a strategy over a symbol the strategy does not trade.
+
+    Returns a list so `run()` can append both kinds. With `book_id=None` the
+    behaviour is the pre-2026-09-10 one: global file only.
+    """
+    out = []
+    active = halt_mod.read_halt(book_id)
     if active is None:
-        return Check("halt", True, "no active halt")
-    return Check("halt", False,
-                 f"ops/HALT.md is active ({active['when']}: {active['reason']}). "
-                 f"Clear it with ops.halt.clear_halt() once genuinely fixed.")
+        out.append(Check("halt", True, "no active halt"))
+    else:
+        where = active.get("path", "ops/HALT.md").split("/")[-1]
+        who = (f"blocks THIS book ({active['book']})" if active.get("book")
+               else "blocks every book")
+        clear = (f"clear_halt('...', book='{active['book']}')"
+                 if active.get("book") else "clear_halt('...')")
+        out.append(Check("halt", False,
+                         f"ops/{where} is active ({active['when']}: "
+                         f"{active['reason']}) — {who}. Clear with "
+                         f"ops.halt.{clear} once genuinely fixed."))
+    for h in halt_mod.other_book_halts(book_id):
+        out.append(Check(f"halt[{h['book']}]", False,
+                         f"{h['book']} is halted ({h['when']}: {h['reason']}). "
+                         f"That book is not trading; this one is unaffected.",
+                         blocking=False))
+    return out
 
 
 def deployed_tickers(book_path) -> dict:
@@ -282,7 +307,18 @@ def run(job, book_path, asof, want_live=True, notify=True) -> dict:
     only thing that authorises an order; `collect` is true unconditionally,
     because data we do not capture today cannot be captured tomorrow.
     """
-    checks = [check_halt(), check_costs(book_path), check_cost_drift(book_path),
+    # The book's own id, so a scoped halt is matched to the book it belongs to
+    # rather than to the job name (they differ: job "cef" -> book
+    # "cef_discount_paper"). Unreadable spec is not fatal here — check_costs
+    # reports that properly a line later; the halt check just falls back to
+    # global-only, which is the safe direction.
+    try:
+        book_id = json.loads(Path(book_path).read_text()).get("book_id")
+    except Exception:
+        book_id = None
+
+    checks = [*check_halt(book_id), check_costs(book_path),
+              check_cost_drift(book_path),
               check_data(asof), check_heartbeat(job, asof)]
     if want_live:
         broker = check_broker()

@@ -27,6 +27,14 @@ by a few shares each.
 An MOC order rests until the next auction whatever time it is placed, so
 waiting for the NAV costs nothing in execution. It only costs the wait.
 
+MEASURED 2026-09-08 (first night): yfinance had 0/17 at 21:18 and 17/17 at
+22:43, all names at once; CEFConnect had 0/17 at 22:43. So the evening
+decision waits until ~22:45, and the morning decision (docs/prompts P8.1)
+is the durable answer. Each poll iteration can itself take an hour when
+yfinance throttles (21:18 -> 22:43 was ONE iteration), which is why the
+deadline is checked after the completeness check and why the poll should
+stay light.
+
 The poll is deliberately light: one NAV request per deployed name per
 iteration, prices only once the NAVs are in, and one CEFConnect request per
 name so the log records WHEN each source publishes. That record is what
@@ -96,6 +104,9 @@ def main(argv=None) -> int:
     ap.add_argument("--interval", type=int, default=600, help="seconds between polls")
     ap.add_argument("--book", default=str(REPO / "ops/books/cef_discount_book.json"))
     ap.add_argument("--once", action="store_true", help="one poll, no waiting")
+    ap.add_argument("--no-cefconnect", action="store_true",
+                    help="skip the CEFConnect probe (evening: it had 0/17 at "
+                         "22:43 on 2026-09-08 while yfinance had 17/17)")
     ap.add_argument("--cc-grace", type=int, default=30,
                     help="minutes to keep waiting for yfinance once CEFConnect "
                          "already has every name; then use CEFConnect")
@@ -113,7 +124,8 @@ def main(argv=None) -> int:
     while True:
         now = datetime.now()
         yf_nav = {t for t in names if yf_has(f"X{t}X", asof, need_volume=False)}
-        cc_nav = {t for t in names if cefconnect_nav(t, asof) is not None}
+        cc_nav = (set() if a.no_cefconnect
+                  else {t for t in names if cefconnect_nav(t, asof) is not None})
         for t in yf_nav:
             seen_yf.setdefault(t, f"{now:%H:%M}")
         for t in cc_nav:
