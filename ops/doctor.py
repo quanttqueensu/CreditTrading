@@ -45,7 +45,38 @@ if str(REPO_ROOT) not in sys.path:
 
 LAUNCH_JOB = Path.home() / "Library/Application Support/quantt/launch_job.py"
 AGENTS = Path.home() / "Library/LaunchAgents"
-JOBS = ["cef", "benchmarks", "phase0", "collect", "watchdog", "weekly"]
+JOBS = ["cef", "benchmarks", "phase0", "collect", "watchdog", "weekly", "backup"]
+
+# Exit codes that are NOT a failure for a given job, and what they mean.
+#
+# `backup` was missing from JOBS entirely until 2026-09-10, so the job whose
+# whole purpose is to replace git history as the ledgers' off-machine copy --
+# and which the untracking is explicitly gated on -- had been reporting
+# `last exit 1` since it was scheduled, with nothing anywhere to say so.
+#
+# It is added with a tolerated code rather than plainly, because plainly would
+# have rebuilt the promotion deadlock in a new place: `promote.sh` rolls back on
+# ANY non-zero doctor, and `ops/backup_state.sh` exits 2 for "archive written,
+# but a file it wanted was unreadable" -- in practice the borrow panel, on the
+# far side of the launchd TCC boundary. A FAIL there would block every promotion
+# over a file that has nothing to do with what a checkout can destroy, which is
+# exactly the class of failure that sank the 11:36 promotion on 2026-09-10.
+# WARN is the honest level: the ledgers ARE in the archive, and something else
+# is not.
+# A non-zero exit here is reported but NEVER escalated to FAIL, per job.
+JOB_NEVER_FAILS = {
+    "backup": ("the nightly state archive failed, so the ledgers have no "
+               "off-machine copy tonight. This does NOT stop the book trading, "
+               "which is why it is a WARN — but it is the prerequisite for "
+               "untracking the live ledgers, and that must not proceed while "
+               "this is non-zero"),
+}
+# Codes that carry a specific meaning worth printing instead of the generic one.
+JOB_CODE_MEANING = {
+    ("backup", "2"): "archive written but INCOMPLETE — the ledgers are in it, "
+                     "something under data/ was not (launchd TCC boundary)",
+    ("backup", "1"): "NO archive was written",
+}
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
 
@@ -168,7 +199,13 @@ def check_launchd(r):
                   f"launchctl bootstrap gui/$(id -u) {p}" if p else "")
             continue
         code = loaded[label]
-        if code not in ("0", "-"):
+        if code not in ("0", "-") and job in JOB_NEVER_FAILS:
+            meaning = JOB_CODE_MEANING.get((job, code), "")
+            r.add(WARN, f"loaded:{job}",
+                  f"last exit {code}"
+                  + (f" — {meaning}" if meaning else "")
+                  + f". {JOB_NEVER_FAILS[job]}")
+        elif code not in ("0", "-"):
             hint = (" (EX_CONFIG — almost always a bad path in the plist)"
                     if code == "78" else "")
             r.add(FAIL, f"loaded:{job}", f"last exit {code}{hint}",
