@@ -152,8 +152,18 @@ live path. `data/` is 3.9 GB and gitignored — read the parquet, never grep it.
 
 ## Documents that will mislead you
 
-Audited 2026-09-10 by four parallel agents. Each file below now carries a
-correction banner at its top; the trap is what it says without one.
+Audited 2026-09-10 by four parallel agents. The trap is what each says without
+its banner.
+
+**Do not trust this section to have banner-ed them.** It claimed all six carried
+one; re-measured 2026-09-10 ~13:00, **two do not** — `docs/RESEARCH_STATE.md`
+(header still reads "Last updated: 2026-07-31" with no warning) and
+`docs/PER_NAME_ARCHITECTURE.md` (no warning, while this table says three of its
+seven bands must not be deployed). `PLAN.md`, `INFRASTRUCTURE.md`,
+`RESEARCH_AND_METHODOLOGY.md` and both `ops/README.md`s do carry one. Check with
+`head -12 <file>` before believing either the banner claim or the row. A table
+that asserts its own remedy is applied is worse than one that only warns,
+because it stops the reader looking.
 
 | file | the trap |
 |---|---|
@@ -177,7 +187,18 @@ its predecessor.
 
 **This working tree is NO LONGER production (since 2026-09-10).** `~/prod/QUANTT`
 is a git worktree detached at a tag, and the scheduler, the dashboard and every
-live ledger live there. Editing here is safe; nothing you change reaches a
+live ledger live there. **`git worktree list` is how you see this** — it is not a
+branch and will never appear in `git branch`, which is exactly why the team lead
+asked "what is prod/dev? i dont see it on the git" on 2026-09-10 after reading
+three documents that each named the concept and none of which gave the command:
+
+```
+$ git worktree list
+~/Desktop/2027/QUANTT/2027   6bdd5ea [cleanup/...]   <- dev, you are probably here
+~/prod/QUANTT                2a7c486 (detached HEAD) <- prod, == a release tag
+```
+
+"detached HEAD" on prod is the intended steady state, not a problem to fix. Editing here is safe; nothing you change reaches a
 session until someone tags it and runs `ops/promote.sh <tag>`, which refuses
 inside the session window or on a prod tree with uncommitted **code**, archives
 live state, checks out the tag, then smoke-tests it (doctor → NAV wait →
@@ -204,18 +225,23 @@ one, and clearing the global never silently clears a scoped one.
 
 A green suite here is more reassuring than it should be.
 
-**Get the count by running `python3 -m pytest`, never from this file.** The
-figure quoted here was 126 while the suite passed 271, and it moved three times
-during the afternoon of 2026-09-10 as tests were added. A test count in a
-document is stale the day after it is written; the shape below is what is worth
-carrying.
+**Get the count by running `python3 -m pytest`, never from this file.** This
+paragraph has been wrong in both directions inside 24 hours: it said 126 while
+the suite passed 271, then said 271 while it passed **211**. A test count in a
+document is stale the day after it is written, and this file is the proof — so
+no count is quoted below, by design. If you find one here again, delete it.
 
-Measured 2026-09-10 ~12:00, **271 passing**:
+The shape, which outlives any count:
 
-- `src/backtest/walkforward.py` is the single largest block (~13%), and nothing
-  on the live path imports it.
-- **`.claude/hooks/tests/`** is the next largest (57) — it tests the guard that
-  stops you reaching the order path, not the order path.
+- `src/backtest/walkforward.py` is the single largest block, and nothing on the
+  live path imports it.
+- **`.claude/hooks/tests/` is GONE.** It was the second-largest block (57-60
+  tests) and it tested the order-path guard; `7ad3a82` removed the guard and its
+  tests together on the team lead's instruction, 2026-09-10. If you are reading a
+  count from before that, it is ~60 too high — which is exactly how this section
+  came to claim 271 while the suite passed 211 the same afternoon. Run pytest.
+- **`ops/promote.sh`'s gate is covered** (`ops/tests/test_promote_gate.py`) —
+  written 2026-09-10 after both its pathspecs were found to match nothing.
 - **`arm()` attribution is now covered** (`src/deploy/tests/test_arm_attribution.py`,
   17 tests, one per real incident) and so are three preflight checks
   (`ops/tests/test_preflight_checks.py`). Both were written 2026-09-10; before
@@ -224,9 +250,10 @@ Measured 2026-09-10 ~12:00, **271 passing**:
   `src/deploy/{portfolio,run_book,registry}.py`, the simulator broker, and
   `dashboard/`.
 
-So a green suite tells you the backtest engine, the guard hooks and — since
-2026-09-10 — arm()'s attribution branches are sound. **It still tells you little
-about the code that places orders.** Write a test with any change to the live
+So a green suite tells you the backtest engine and — since 2026-09-10 — arm()'s
+attribution branches and the promotion gate are sound. It no longer tells you
+anything about a guard on the order path, because there is no longer one.
+**It still tells you little about the code that places orders.** Write a test with any change to the live
 path, and never treat a passing count as evidence that a session-path edit is
 safe. The cwd defect fixed on 2026-09-10 was found by *writing* such a test, not
 by running the suite: it passed green throughout.
@@ -245,8 +272,22 @@ for the order path. Do not widen `testpaths`.
 2. `ops/schedule/rendered/*.plist` are **stale** and point at the old path. launchd
    runs `launch_job.py` directly; those plists are not what runs.
 3. `_sleeve_nav` reads the shadow ledger, which can disagree with the broker; when it
-   does, sizing is unaffected (`arm()` re-seeds from the broker) but reported NAV and
-   P&L are wrong. **Re-measure before quoting a magnitude — do not carry the old one.**
+   does, reported NAV and P&L are wrong.
+   **⚠ "Sizing is unaffected because `arm()` re-seeds from the broker" is FALSE when
+   the broker holds ZERO of a symbol, and this line said it for weeks.** Measured
+   2026-09-10 ~12:58 ET (read-only, client id 133): `ib.positions()` returned 34
+   rows, **JAAA absent, and nothing at exactly 0.0** — IBKR emits no row for a
+   flattened position. `arm()` iterates `account.items()` (`ibkr.py:842`), so a
+   symbol the broker has none of is **never visited**, the re-seed cannot reach it,
+   and the ledger's stale quantity survives into `place_targets`, which diffs
+   against `_live_positions` (`ibkr.py:954`). On 2026-09-11 that would have had
+   phase0 trade against a phantom 1,503-share JAAA short: if the day's random
+   target omitted JAAA, the held-but-unmentioned path (`ibkr.py:988`) sends
+   **BUY 1,503** to close a short that does not exist. The re-seed protects you
+   only where the broker reports a position. Where it reports nothing, the ledger
+   is unchallenged — so a divergence of this shape is a **trading** fault, not a
+   reporting one, and it is why `ops/HALT_phase0_null.md` exists.
+   **Re-measure before quoting a magnitude — do not carry the old one.**
    `python3 -m ops.reconcile_orders --book ops/books/cef_discount_book.json
    --books-root ops/books/cef_live --check-broker` prints it. Measured 2026-09-10:
    **none of the 17 CEFs diverge**; all 13 divergent symbols belong to `null_trader`
