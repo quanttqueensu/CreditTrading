@@ -753,9 +753,31 @@ class IBKRBroker(Broker):
         counts as a book spec if it parses and carries a `sleeves` list; anything
         whose sleeves are all registered HERE is this book and is skipped.
 
-        Deliberately fail-open on unreadable files but fail-safe on ambiguity: a
-        spec we cannot parse simply contributes no claims, and the shared-symbol
-        branch in `arm()` then refuses on a missing ledger entry anyway.
+        `spec_path` is stored REPO-RELATIVE in every book spec, so it is resolved
+        against the repo root derived from `books_root` — NOT against the process
+        working directory, and NOT against a module-level constant. Both of those
+        are wrong here, for different reasons:
+
+          * A bare `open(s["spec_path"])` resolves against the cwd. Measured
+            2026-09-10: 36 claims from the repo root, **0 from /tmp** — and the
+            `except` below swallowed the miss silently. Every contested symbol
+            then looks solely owned and `arm()` adopts the account NET, which is
+            exactly the 2026-07-31 HYG mis-attribution (account 823, this book's
+            282) that this function exists to prevent. `launch_job.py` happens to
+            pass `cwd=REPO` to every session, so this was latent rather than
+            live, but nothing here should depend on a caller's cwd.
+          * A module-level REPO_ROOT would cross the prod/dev boundary: since
+            2026-09-10 the scheduler runs `~/prod/QUANTT` while dev is edited
+            freely, and a prod broker must read prod's specs. Deriving it from
+            `books_root` keeps the specs in the same tree as the ledgers.
+
+        Fail-open on an unreadable file, but LOUDLY. The claim that this is
+        fail-safe was wrong and is worth stating plainly: a spec we cannot parse
+        contributes no claims, so a symbol only that book trades stops being
+        contested, takes the solely-owned branch in `arm()`, and is adopted from
+        the account net — it is NOT refused. The refusal the old docstring relied
+        on only covers symbols shared *within* this process. Silence here is
+        therefore the dangerous direction, which is why the miss is now printed.
         """
         from pathlib import Path
         claims, mine = set(), set(self._sleeves)
@@ -763,11 +785,15 @@ class IBKRBroker(Broker):
             root = Path(self._books_root).resolve().parent
         except Exception:
             return claims
+        repo_root = root.parent.parent      # <repo>/ops/books -> <repo>
         for path in sorted(root.glob("*.json")):
             try:
                 with open(path) as fh:
                     spec = json.load(fh)
-            except Exception:
+            except Exception as exc:
+                print(f"[ibkr] WARNING: sibling book spec {path} is unreadable "
+                      f"({exc!r}); its symbols will NOT be treated as contested, "
+                      f"so arm() may adopt them from the account net")
                 continue
             sleeves = spec.get("sleeves")
             if not isinstance(sleeves, list) or not sleeves:
@@ -781,10 +807,17 @@ class IBKRBroker(Broker):
                     continue
                 frozen = s.get("spec")
                 if frozen is None and s.get("spec_path"):
+                    sp = Path(s["spec_path"])
+                    if not sp.is_absolute():
+                        sp = repo_root / sp
                     try:
-                        with open(s["spec_path"]) as fh:
+                        with open(sp) as fh:
                             frozen = json.load(fh)
-                    except Exception:
+                    except Exception as exc:
+                        print(f"[ibkr] WARNING: frozen spec {sp} for sibling "
+                              f"sleeve {s.get('name')!r} is unreadable ({exc!r}); "
+                              f"its symbols will NOT be treated as contested, so "
+                              f"arm() may adopt them from the account net")
                         continue
                 for key in ("universe", "instruments", "tickers"):
                     found = _deep_get(frozen, key)

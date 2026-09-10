@@ -95,8 +95,14 @@ def _books(tmp_path):
     `_foreign_book_claims()` globs the PARENT of `books_root`, mirroring the
     real layout (`ops/books/phase0_live` -> `ops/books`), so the returned dir is
     where sibling specs go.
+
+    The `ops/` level is real, not decoration: a repo-relative `spec_path` is
+    resolved against the repo root derived as `<books_root>/../..`, so a fixture
+    that flattened this would put the repo root in the wrong place and a
+    `spec_path` test would fail for a reason that has nothing to do with the
+    behaviour under test.
     """
-    books = tmp_path / "books"
+    books = tmp_path / "ops" / "books"
     (books / "this_live").mkdir(parents=True)
     return books
 
@@ -105,9 +111,9 @@ def _sibling(books, filename, sleeves, subdir=None):
     """Write a sibling book spec claiming a universe.
 
     The universe goes INLINE under `spec.frozen.universe` rather than behind a
-    `spec_path`, because `_foreign_book_claims()` opens a `spec_path` relative
-    to the process working directory (see the xfail at the end of this file) and
-    these tests are about the claim logic, not that defect.
+    `spec_path`, to keep these tests about the claim logic alone. The
+    `spec_path` route is covered separately by the cwd regression test at the
+    end of this file.
     """
     d = books / subdir if subdir else books
     d.mkdir(parents=True, exist_ok=True)
@@ -475,19 +481,6 @@ def test_a_spec_with_no_sleeves_list_contributes_no_claims(tmp_path):
     assert b.arm()["ok"] is True
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "KNOWN BUG, found 2026-09-10 while writing these tests. "
-    "_foreign_book_claims() opens a sibling's `spec_path` with a bare "
-    "open(s['spec_path']) (ibkr.py:786), so the RELATIVE path in every real "
-    "book spec resolves against the process working directory, and the "
-    "`except Exception: continue` two lines down swallows the miss. Measured: "
-    "36 claims from the repo root, 0 from /tmp. A session whose cwd is not the "
-    "repo root therefore sees no sibling claims at all, every contested symbol "
-    "looks solely owned, and arm() adopts the account net -- the exact "
-    "2026-07-31 HYG 823-vs-541 mis-attribution this function exists to "
-    "prevent. Fix: resolve against the book spec's own parent directory, or "
-    "against REPO_ROOT as ops/preflight.py:359 already does. Remove this "
-    "marker with the fix."))
 def test_sibling_claims_do_not_depend_on_the_processs_working_directory(
         tmp_path, monkeypatch):
     """A claim must not disappear because launchd started us somewhere else.
@@ -495,15 +488,25 @@ def test_sibling_claims_do_not_depend_on_the_processs_working_directory(
     Every book spec in `ops/books/` points at its frozen spec through a
     repo-relative `spec_path`; none carries an inline `spec`. So this is not a
     hypothetical layout — it is the only layout in use.
+
+    REGRESSION, fixed 2026-09-10. `_foreign_book_claims()` opened `spec_path`
+    with a bare `open()`, resolving it against the process working directory,
+    and the `except` below it swallowed the miss silently. Measured before the
+    fix: 36 claims from the repo root, **0 from /tmp**. Every contested symbol
+    then looks solely owned and `arm()` adopts the account NET — the exact
+    2026-07-31 HYG 823-vs-541 mis-attribution the function exists to prevent.
+    `launch_job.py:210` passes `cwd=REPO` to every scheduled session, so this
+    was latent rather than live, but nothing here may depend on a caller's cwd.
     """
     books = _books(tmp_path)
-    (books / "specs").mkdir()
-    (books / "specs" / "sib.frozen.json").write_text(
+    repo_root = books.parent.parent          # <repo>/ops/books -> <repo>
+    (repo_root / "ops" / "specs").mkdir(parents=True)
+    (repo_root / "ops" / "specs" / "sib.frozen.json").write_text(
         json.dumps({"frozen": {"universe": ["ANGL", "HYG"]}}))
     (books / "phase0_book.json").write_text(json.dumps({
         "book_id": "phase0_null",
         "sleeves": [{"name": "null_trader", "enabled": True,
-                     "spec_path": "specs/sib.frozen.json"}],
+                     "spec_path": "ops/specs/sib.frozen.json"}],
     }))
     b = _broker(books / "this_live",
                 sleeves={"bench_b6_ew_credit": ["ANGL"]},
