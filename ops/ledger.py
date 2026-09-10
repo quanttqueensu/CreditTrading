@@ -46,7 +46,27 @@ TRADE_COLUMNS = ["fill_date", "decision_date", "ticker", "side", "shares",
                  "decision_price", "close_price", "fill_price",
                  "half_spread_bp", "impact_bp", "slip_vs_decision_bp",
                  "participation_pct", "over_participation_cap",
-                 "notional_usd", "cost_usd", "reason"]
+                 "notional_usd", "cost_usd", "reason",
+                 "modelled_fill_price", "exec_ids"]
+
+# `modelled_fill_price` and `exec_ids` were added 2026-09-10 with the real-fill
+# path (see `Ledger.execution_record`). Both are written by BOTH fill paths, so
+# the column means the same thing in every row:
+#
+#   modelled_fill_price  what `_simulate_fill` WOULD have charged. On the
+#                        simulated path it equals `fill_price` by construction.
+#                        On the real-fill path it is the counterfactual, and it
+#                        is what keeps KILL RULE (b) computable: `slippage_report`
+#                        measures realised against modelled, and once `fill_price`
+#                        carries the broker's own price the two would otherwise be
+#                        identical by construction, `excess_bp` would be exactly
+#                        0.0 on every row, and the rule could never trip again. A
+#                        kill rule that cannot fire is worse than none, because it
+#                        reports "1.00x" forever and reads like evidence.
+#   exec_ids             ";"-joined IBKR execIds backing the row, "" on the
+#                        simulated path. This is what makes "no booked fill
+#                        without an execution" auditable after the fact rather
+#                        than only enforced at write time.
 
 POSITION_COLUMNS = ["date", "ticker", "shares", "close", "market_value",
                     "weight"]
@@ -55,6 +75,113 @@ NAV_COLUMNS = ["date", "nav", "cash", "invested", "distributions_usd",
                "cost_usd", "traded_usd", "daily_return", "decision"]
 
 CASH = "CASH"
+
+
+class NoCommissionReport(RuntimeError):
+    """A real execution arrived with no commission we could read.
+
+    Raised rather than defaulted. `cost_usd` and the cash leg are computed from
+    the commission, so substituting `costs['commission_usd_per_trade']` here
+    would charge a configured guess against a real trade and label it realised —
+    the same shape as the `fee.fillna(fee.median())` this repo has already been
+    bitten by, and just as invisible inside a confident-looking total.
+    """
+
+
+class ExecutionRecordGap(RuntimeError):
+    """The ledger must book a fill on a date the execution record cannot answer for.
+
+    `ib.fills()` serves the CURRENT TWS session only; it cannot reach back past
+    the daily restart, and there is no historical execution endpoint that can.
+    So a ledger that has fallen behind CANNOT be caught up from the broker, and
+    the two ways of continuing are both wrong: booking simulated fills for the
+    uncovered day rebuilds the exact fault the real-fill path was written to
+    stop, and booking them `skipped` asserts that nothing traded, which we do
+    not know either. Stop instead, and rebuild from the captured record
+    (`python3 -m ops.rebuild_ledger`), which is durable and does reach back.
+    """
+
+
+class Execution:
+    """One broker execution, as the ledger needs it.
+
+    `qty` is UNSIGNED, exactly as IBKR reports it; `side` carries the sign.
+    Keeping the broker's own convention here rather than normalising at the
+    edges means a mis-signed short shows up as an assertion in one place
+    instead of as a plausible-looking position.
+    """
+
+    __slots__ = ("instrument", "side", "qty", "price", "commission", "exec_id")
+
+    def __init__(self, instrument, side, qty, price, commission, exec_id):
+        self.instrument = str(instrument)
+        self.side = str(side).upper()
+        self.qty = abs(float(qty))
+        self.price = float(price)
+        self.commission = None if commission is None else float(commission)
+        self.exec_id = str(exec_id)
+
+    @property
+    def signed_qty(self):
+        return self.qty if self.side.startswith("B") else -self.qty
+
+
+class ExecutionRecord:
+    """What the broker actually executed, keyed by (instrument, date).
+
+    WHY THE LEDGER TAKES THIS AT ALL (2026-09-10)
+    ---------------------------------------------
+    Until today the shadow sub-ledger was handed the sleeve's TARGETS and never
+    its fills (`IBKRBroker.place_targets` -> `Simulator.place_targets`), so it
+    filled every pending order at the next close by construction. It could not
+    tell a rejected order from an executed one, and it did not try. On
+    2026-09-10 `null_trader` booked fourteen orders as `filled`; five of them —
+    EMB +57, HYG +605, JAAA -1503, JNK +420, LQD +861 — had **zero** executions
+    at the broker and nothing resting, and the remaining nine each disagreed
+    with the broker by 1 to 5 shares. The day's nav.csv row charged
+    cost_usd $291.68 and traded_usd $941,272 against that. The invented
+    1,503-share JAAA short is what `ops/HALT_phase0_null.md` exists for.
+
+    Every execId this returns has been reported by the broker. An instrument
+    with no entry did not trade, and `_broker_fill` closes its order `skipped`
+    rather than inventing one.
+
+    ATTRIBUTION IS THE CALLER'S JOB. This object is built per-sleeve and holds
+    only that sleeve's executions; it has no view of the other books sharing
+    the account, so it cannot and does not resolve a shared ticker. See
+    `IBKRBroker._execution_record` for how the sleeve's rows are selected.
+    """
+
+    def __init__(self, source="", covers=()):
+        self._by_key = {}
+        self.source = str(source)
+        #: The dates this record can speak to. NOT the dates it happens to hold
+        #: executions for -- those are two different claims, and conflating them
+        #: is what would let "the broker reports nothing for LQD today" and "we
+        #: cannot see today" produce the same, silently wrong, answer.
+        self.covers = {pd.Timestamp(c).normalize() for c in covers}
+
+    def covers_date(self, date):
+        return pd.Timestamp(date).normalize() in self.covers
+
+    def add(self, execution, date):
+        key = (str(execution.instrument), pd.Timestamp(date).normalize())
+        self._by_key.setdefault(key, []).append(execution)
+
+    def executions(self, instrument, date):
+        """Executions for this instrument on this date. [] means it did not trade."""
+        return list(self._by_key.get(
+            (str(instrument), pd.Timestamp(date).normalize()), []))
+
+    def dates(self):
+        return sorted({k[1] for k in self._by_key})
+
+    def exec_ids_on(self, date):
+        d = pd.Timestamp(date).normalize()
+        return {e.exec_id for k, v in self._by_key.items() if k[1] == d for e in v}
+
+    def __len__(self):
+        return sum(len(v) for v in self._by_key.values())
 
 
 def _empty(cols):
@@ -86,6 +213,18 @@ def _read(path, cols, date_cols):
 
 class Ledger:
     """Position and trade book for one strategy, persisted under ``state_dir``."""
+
+    #: An `ExecutionRecord`, or None for the pure simulator.
+    #:
+    #: None is the default and keeps every backtest, every research script and
+    #: every sim-path book byte-identical: `advance` then fills from the cost
+    #: model exactly as it always has. `IBKRBroker` installs one for the
+    #: duration of a single shadow advance (`Simulator.place_targets`), and the
+    #: ledger books the broker's own executions instead. It is deliberately NOT
+    #: a constructor argument: a ledger that carried a fill record across calls
+    #: could book the same execIds twice, and the whole point is that the record
+    #: is scoped to the one advance that has just queried the broker.
+    execution_record = None
 
     def __init__(self, state_dir=common.DEFAULT_STATE_DIR):
         self.state_dir = Path(state_dir)
@@ -304,9 +443,10 @@ class Ledger:
             # -- 2. fill yesterday's order at TODAY's close ----------------
             day_cost, day_traded = 0.0, 0.0
             pending = self._pending_before(d, new_orders)
+            book_fill = (self._simulate_fill if self.execution_record is None
+                         else self._broker_fill)
             for order in self._sells_then_buys(pending):
-                fill = self._simulate_fill(
-                    order, d, close, vol, vol_bp, costs, cash)
+                fill = book_fill(order, d, close, vol, vol_bp, costs, cash)
                 if fill is None:
                     self._close_order(order, "skipped", d)
                     continue
@@ -315,7 +455,14 @@ class Ledger:
                 if abs(shares[t]) < 1e-9:
                     shares.pop(t, None)
                 cash -= fill["shares"] * fill["fill_price"]
-                cash -= float(costs["commission_usd_per_trade"])
+                # The broker's commission when we have one, the configured
+                # per-trade charge when we are simulating. Spelled out rather
+                # than `.get(..., default)` so that a real fill arriving with no
+                # commission cannot quietly take the configured number --
+                # `_broker_fill` raises NoCommissionReport before it gets here.
+                cash -= (float(costs["commission_usd_per_trade"])
+                         if fill["commission_usd"] is None
+                         else float(fill["commission_usd"]))
                 day_cost += fill["cost_usd"]
                 day_traded += abs(fill["notional_usd"])
                 self._close_order(order, "filled", d)
@@ -508,6 +655,182 @@ class Ledger:
             if delta <= 0:
                 return None
 
+        q = self._modelled_quote(t, d, delta, price, vol, vol_bp, costs)
+        fill_price, side = q["fill_price"], q["side"]
+        cost_usd = abs(delta) * abs(fill_price - price)
+        dec_price = float(order["decision_price"])
+        slip_bp = (fill_price / dec_price - 1.0) * 1e4 * side
+
+        row = {
+            "fill_date": d, "decision_date": pd.Timestamp(order["decision_date"]),
+            "ticker": t, "side": "BUY" if side > 0 else "SELL",
+            "shares": abs(delta), "decision_price": dec_price,
+            "close_price": price, "fill_price": fill_price,
+            "half_spread_bp": q["half_bp"], "impact_bp": q["impact_bp"],
+            "slip_vs_decision_bp": slip_bp,
+            "participation_pct": (q["participation"] * 100.0
+                                  if np.isfinite(q["participation"]) else np.nan),
+            "over_participation_cap": q["over_cap"],
+            "notional_usd": delta * fill_price, "cost_usd": cost_usd,
+            "reason": order.get("reason", ""),
+            # Identical by construction on this path -- see TRADE_COLUMNS.
+            "modelled_fill_price": fill_price,
+            "exec_ids": "",
+        }
+        return {"shares": delta, "fill_price": fill_price,
+                "cost_usd": cost_usd, "notional_usd": delta * fill_price,
+                "commission_usd": None, "row": row}
+
+    def _broker_fill(self, order, d, close, vol, vol_bp, costs, cash):
+        """Book what the BROKER executed for this order, at the price it got.
+
+        Returns the same shape as `_simulate_fill`, or None when the broker
+        executed nothing — in which case `advance` closes the order `skipped`,
+        which is the truth: no trade happened.
+
+        WHAT IS REAL HERE AND WHAT IS NOT
+        ---------------------------------
+        Real, from the broker: that the fill happened, how many shares, at what
+        price, and the commission. Modelled, and carried alongside in
+        `modelled_fill_price`: what the cost model WOULD have charged.
+
+        THE PRICE IS THE BROKER'S, BY DECISION OF THE TEAM LEAD, 2026-09-10.
+
+        Eight files in this repo call that a violation of "FORCED_FLOW_PREREG
+        locked decision 1", which they state as "the modelled cost is the sole
+        P&L source". Read against the pre-registration itself, it is not.
+        Decision 1 is scoped to BOND legs — "IBKR *paper* fills on bonds are
+        unrealistically kind -> every bond leg is charged the measured odd-lot
+        cost model in the ledger regardless of paper fill" — and no bond leg is
+        deployed in any live book. The blanket reading is an over-extension that
+        entered through docstrings (`ops/capture_fills.py:24`,
+        `src/deploy/broker/ibkr.py:107`, `ops/rebuild_ledger.py:20`) and was
+        never in the decision. Booking a real equity fill price does not touch
+        it. `src/deploy/lib/odd_lot.py` still charges the bond model, unchanged,
+        and `Simulator.place_targets` refuses the real-fill path for a
+        DerivativesLedger, which is where a bond leg would live.
+
+        WHAT REMAINS TRUE, AND IS NOT A GOVERNANCE POINT BUT AN ECONOMIC ONE:
+        an IBKR *paper* fill is generated against top of book with no dealer
+        layer, so reported P&L here is flattered by however much the paper venue
+        is kinder than a real one. That amount is measurable and is exactly
+        `excess_bp` in slippage.csv, which is why `modelled_fill_price` is kept
+        beside the real one rather than discarded. See
+        `results/ops/PREREG_AMENDMENT_REAL_FILLS_2026-09-10.md` before quoting a
+        net return from this ledger.
+
+        Note what did NOT change: `cost_usd` still means "slippage against the
+        close", the same quantity it means on the simulated path, so the column
+        is comparable across every row in the file. Commission is charged
+        separately by `advance`, as it always was — from the broker's number
+        here, from `costs['commission_usd_per_trade']` on the simulated path.
+        """
+        t = order["ticker"]
+        price = float(close.get(t, np.nan))
+        if not np.isfinite(price) or price <= 0:
+            return None
+
+        if not self.execution_record.covers_date(d):
+            covered = sorted(self.execution_record.covers)
+            raise ExecutionRecordGap(
+                f"{d.date()} {t}: a pending order must be booked on this date, "
+                f"but the execution record ({self.execution_record.source}) "
+                f"covers only "
+                f"{', '.join(str(c.date()) for c in covered) or '<nothing>'}. "
+                f"The ledger is behind the account and cannot be caught up from "
+                f"a live broker query. Rebuild it from the captured record: "
+                f"python3 -m ops.rebuild_ledger --books-root <root> "
+                f"--sleeve <sleeve>.")
+
+        execs = self.execution_record.executions(t, d)
+        if not execs:
+            # NOT a silent skip: an order the broker never executed is the exact
+            # fault this path was built for, and it must be visible in the log
+            # of the session that discovered it, not only in the CSV.
+            print(f"[ledger] NO EXECUTION {d.date()} {t}: the order to trade "
+                  f"{float(order['delta_shares']):+,.0f} share(s) has no "
+                  f"execution at the broker ({self.execution_record.source}). "
+                  f"Booking it as SKIPPED, not filled. The position is "
+                  f"unchanged and the next session re-diffs against it.")
+            return None
+
+        missing = [e.exec_id for e in execs if e.commission is None]
+        if missing:
+            raise NoCommissionReport(
+                f"{d.date()} {t}: {len(missing)} of {len(execs)} execution(s) "
+                f"carry no commission report ({', '.join(missing[:5])}). "
+                f"cost_usd and the cash leg are computed from it; refusing to "
+                f"substitute costs['commission_usd_per_trade'], which would "
+                f"charge a configured guess against a real trade and report it "
+                f"as realised.")
+
+        gross = sum(e.qty for e in execs)
+        if gross <= 0:
+            raise ValueError(f"{d.date()} {t}: {len(execs)} execution(s) sum to "
+                             f"zero shares; the fill record is malformed.")
+        delta = sum(e.signed_qty for e in execs)
+        if delta == 0:
+            raise ValueError(
+                f"{d.date()} {t}: {len(execs)} execution(s) net to zero shares "
+                f"({gross:,.0f} gross). A round trip inside one fill date is not "
+                f"something this ledger can represent as one trade row.")
+        vwap = sum(e.price * e.qty for e in execs) / gross
+        commission = sum(e.commission for e in execs)
+
+        # Modelled counterfactual, priced on the shares that ACTUALLY traded so
+        # the two are comparable. `warn=False`: see `_modelled_quote`.
+        q = self._modelled_quote(t, d, delta, price, vol, vol_bp, costs,
+                                 warn=False)
+        side = 1.0 if delta > 0 else -1.0
+
+        ordered = float(order["delta_shares"])
+        if abs(delta - ordered) > 1e-9:
+            print(f"[ledger] PARTIAL {d.date()} {t}: ordered {ordered:+,.0f}, "
+                  f"broker executed {delta:+,.0f} over {len(execs)} execution(s). "
+                  f"Booking what executed; the residual returns as tomorrow's "
+                  f"diff against the position.")
+
+        dec_price = float(order["decision_price"])
+        cost_usd = abs(delta) * abs(vwap - price)
+        slip_bp = (vwap / dec_price - 1.0) * 1e4 * side
+
+        row = {
+            "fill_date": d, "decision_date": pd.Timestamp(order["decision_date"]),
+            "ticker": t, "side": "BUY" if side > 0 else "SELL",
+            "shares": abs(delta), "decision_price": dec_price,
+            "close_price": price, "fill_price": vwap,
+            # A real fill does not decompose into spread and impact -- nothing
+            # observable separates them -- so the realised total goes in
+            # half_spread_bp and impact_bp is NaN, meaning "not observable",
+            # never 0.0, which would read as "there was no impact".
+            "half_spread_bp": (vwap / price - 1.0) * 1e4 * side,
+            "impact_bp": np.nan,
+            "slip_vs_decision_bp": slip_bp,
+            "participation_pct": (q["participation"] * 100.0
+                                  if np.isfinite(q["participation"]) else np.nan),
+            "over_participation_cap": q["over_cap"],
+            "notional_usd": delta * vwap, "cost_usd": cost_usd,
+            "reason": order.get("reason", ""),
+            "modelled_fill_price": q["fill_price"],
+            "exec_ids": ";".join(e.exec_id for e in execs),
+        }
+        return {"shares": delta, "fill_price": vwap, "cost_usd": cost_usd,
+                "notional_usd": delta * vwap, "commission_usd": commission,
+                "row": row}
+
+    def _modelled_quote(self, t, d, delta, price, vol, vol_bp, costs, warn=True):
+        """The cost model's view of trading `delta` shares of `t` at `price`.
+
+        Split out of `_simulate_fill` on 2026-09-10 because the REAL-fill path
+        needs the same number as a counterfactual (`modelled_fill_price`), and
+        computing it twice in two places is how the two would drift apart. The
+        arithmetic is unchanged, byte for byte; only its address moved.
+
+        `warn` is False when the caller is pricing a counterfactual rather than
+        a fill — the liquidity warning describes an order we are about to
+        simulate, and printing it about a trade that has ALREADY executed at a
+        real price would be telling the operator to worry about the wrong thing.
+        """
         half_bp = (float(costs["tickers"][t]["half_spread_bp"])
                    + float(costs["slippage_extra_bp"]))
         notional = abs(delta) * price
@@ -520,33 +843,15 @@ class Ledger:
 
         side = 1.0 if delta > 0 else -1.0
         fill_price = price * (1.0 + side * (half_bp + impact_bp) / 1e4)
-        cost_usd = abs(delta) * abs(fill_price - price)
 
         cap = float(costs.get("max_participation_pct", 100.0)) / 100.0
         over_cap = bool(np.isfinite(participation) and participation > cap)
-        if over_cap:
+        if over_cap and warn:
             print(f"[ledger] LIQUIDITY WARNING {d.date()} {t}: this trade is "
                   f"{participation:.1%} of the day's dollar volume, above the "
                   f"{cap:.0%} cap in config/costs.yaml. The fill is simulated "
                   "anyway and flagged — a real order this size would not fill "
                   "at the close.")
-
-        dec_price = float(order["decision_price"])
-        slip_bp = (fill_price / dec_price - 1.0) * 1e4 * side
-
-        row = {
-            "fill_date": d, "decision_date": pd.Timestamp(order["decision_date"]),
-            "ticker": t, "side": "BUY" if side > 0 else "SELL",
-            "shares": abs(delta), "decision_price": dec_price,
-            "close_price": price, "fill_price": fill_price,
-            "half_spread_bp": half_bp, "impact_bp": impact_bp,
-            "slip_vs_decision_bp": slip_bp,
-            "participation_pct": (participation * 100.0
-                                  if np.isfinite(participation) else np.nan),
-            "over_participation_cap": over_cap,
-            "notional_usd": delta * fill_price, "cost_usd": cost_usd,
-            "reason": order.get("reason", ""),
-        }
-        return {"shares": delta, "fill_price": fill_price,
-                "cost_usd": cost_usd, "notional_usd": delta * fill_price,
-                "row": row}
+        return {"fill_price": fill_price, "half_bp": half_bp,
+                "impact_bp": impact_bp, "participation": participation,
+                "over_cap": over_cap, "side": side}

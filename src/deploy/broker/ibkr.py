@@ -1095,7 +1095,9 @@ class IBKRBroker(Broker):
         prices = getattr(market_state, "prices", None)
         if prices is not None and not getattr(prices, "empty", True):
             try:
-                self._shadow().place_targets(sleeve_name, targets, asof, market_state)
+                self._shadow().place_targets(
+                    sleeve_name, targets, asof, market_state,
+                    execution_record=self._execution_record(sleeve_name, asof))
             except Exception as exc:
                 self._record_desync(sleeve_name, asof, fills, exc)
                 raise ShadowLedgerDesync(
@@ -1105,6 +1107,108 @@ class IBKRBroker(Broker):
                     f"saved to _desync/ and ops/HALT.md is written; the next "
                     f"session will refuse to trade until the ledger is rebuilt.") from exc
         return fills
+
+    def _execution_record(self, sleeve_name, asof):
+        """This sleeve's REAL executions for `asof`, for the shadow ledger to book.
+
+        WHY THIS IS QUERIED HERE AND NOT READ FROM broker_fills.csv
+        ----------------------------------------------------------
+        `ops/capture_fills.py` owns the durable record, and it runs at the END
+        of the session -- phase 4, after the trading step, deliberately, so that
+        a failed trading run still captures its fills. Measured on the
+        2026-09-10 phase0 log: `book run ok 09:43:09`, then `capturing broker
+        executions 09:43:09`. So at the moment the shadow ledger advances,
+        today's executions are in TWS but NOT yet on disk, and a ledger that
+        read the CSV would see nothing and book every order `skipped`. The live
+        query is the only source that is current at the point of need. Nothing
+        here writes broker_fills.csv; capture_fills still does, from the same
+        `ib.fills()`, and the two agree because they read one source.
+
+        COVERAGE. `ib.fills()` serves the CURRENT TWS session only, so the
+        record declares that it covers exactly `asof` and nothing else. If the
+        ledger has fallen behind and needs an earlier day, `_broker_fill` raises
+        `ExecutionRecordGap` rather than guessing -- see that class.
+
+        ATTRIBUTION. Symbols this sleeve alone trades are its own. A symbol two
+        registered sleeves both trade is resolved by the order map the adapter
+        writes at placement time (`_record_order_attribution`); an execution on
+        a shared symbol with no map entry is DROPPED and named, never guessed
+        into this sleeve, because guessing would move a real position between
+        two live books. That is the same rule capture_fills applies, for the
+        same reason -- and it is why `_order_map.csv` needing a globally unique
+        key is a correctness problem and not bookkeeping.
+        """
+        from ops.ledger import Execution, ExecutionRecord
+
+        asof = pd.Timestamp(asof)
+        mine = set(self._sleeves.get(sleeve_name, {}).get("instruments", []))
+        shared = {sym for other, cfg in self._sleeves.items()
+                  if other != sleeve_name
+                  for sym in cfg.get("instruments", []) if sym in mine}
+
+        record = ExecutionRecord(
+            source=f"ib.fills() @ {pd.Timestamp.utcnow().isoformat()}",
+            covers=[asof])
+
+        order_map = self._order_map_by_id()
+        dropped = []
+        for f in (self.ib.fills() or []):
+            ex = getattr(f, "execution", None)
+            if ex is None or not getattr(ex, "execId", ""):
+                continue
+            sym = f.contract.symbol
+            if sym not in mine:
+                continue                       # another book's symbol entirely
+            if sym in shared:
+                owner = order_map.get(str(getattr(ex, "orderId", "")))
+                if owner != sleeve_name:
+                    if owner is None:
+                        dropped.append((sym, ex.execId,
+                                        getattr(ex, "orderId", "?")))
+                    continue
+            rep = getattr(f, "commissionReport", None)
+            commission = getattr(rep, "commission", None) if rep is not None else None
+            record.add(
+                Execution(instrument=sym,
+                          side=("BUY" if str(ex.side).upper().startswith("B")
+                                else "SELL"),
+                          qty=ex.shares, price=ex.price,
+                          commission=commission, exec_id=ex.execId),
+                date=str(ex.time)[:10])
+
+        if dropped:
+            print(f"[ibkr] {sleeve_name} @ {asof.date()}: {len(dropped)} "
+                  f"execution(s) on shared symbol(s) have no order-map entry "
+                  f"and are NOT booked: "
+                  f"{', '.join(f'{s} execId={e} orderId={o}' for s, e, o in dropped[:5])}"
+                  f"{' ...' if len(dropped) > 5 else ''}. The ledger will book "
+                  f"those orders SKIPPED. Fix the order map, then rebuild.")
+        if self.verbose:
+            print(f"[ibkr] {sleeve_name} @ {asof.date()}: execution record holds "
+                  f"{len(record)} execution(s) for the ledger to book")
+        return record
+
+    def _order_map_by_id(self):
+        """{order_id: sleeve} from `_order_map.csv`. Missing file -> {}.
+
+        An UNREADABLE map raises. A partial map is indistinguishable from a
+        complete one to the caller above, and the difference decides whether a
+        real execution is booked into a live book or dropped -- so it has to be
+        exact or absent, never partial and unlabelled. Same rule, and the same
+        reasoning, as `ops.capture_fills._load_order_map`.
+        """
+        import csv as _csv
+        from pathlib import Path as _Path
+        path = _Path(self._books_root) / "_ibkr_shadow" / "_order_map.csv"
+        if not path.exists():
+            return {}
+        out = {}
+        with open(path, newline="") as fh:
+            for row in _csv.DictReader(fh):
+                oid = str(row.get("order_id", "")).strip()
+                if oid:
+                    out[oid] = str(row.get("sleeve", "")).strip()
+        return out
 
     def _record_desync(self, sleeve_name, asof, fills, exc):
         """Persist everything a desync would otherwise destroy, then halt the book.

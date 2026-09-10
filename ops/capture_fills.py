@@ -271,12 +271,20 @@ def dedupe(books_root, universes, verbose=True) -> dict:
     return out
 
 
+def _ratio(m):
+    """realised/modelled on `m`. nan when there is nothing left to compare."""
+    if m.empty:
+        return float("nan")
+    return abs(m["realised_bp"].mean()) / max(abs(m["modelled_bp"].mean()), 1e-9)
+
+
 def slippage_report(books_root, sleeve, verbose=True):
     """Realised (broker) vs modelled (ledger) average fill price, per ticker.
 
     This is the number kill rule (b) is written against and which nothing has
     ever been able to compute. Positive bp = we paid MORE than the model said.
     """
+    import numpy as np
     import pandas as pd
 
     state = Path(books_root) / "_ibkr_shadow" / sleeve
@@ -297,8 +305,49 @@ def slippage_report(books_root, sleeve, verbose=True):
     model = pd.read_csv(tr)
     model["fill_date"] = model["fill_date"].astype(str).str[:10]
     model = model.rename(columns={"ticker": "instrument"})
+
+    # THE MODELLED PRICE COMES FROM ITS OWN COLUMN, NOT FROM `fill_price`
+    # (2026-09-10). It used to read `fill_price`, which was safe only while the
+    # ledger always simulated. Since the team lead's decision to book the
+    # broker's real price, `fill_price` IS the realised price on any row with an
+    # execId -- so `modelled_bp` would equal `realised_bp` by construction,
+    # `excess_bp` would be exactly 0.0 on every row, and the ratio below would
+    # print "1.00x" forever. Kill rule (b) would have become structurally unable
+    # to trip, while still reporting a number that reads like evidence that it
+    # had been checked. `modelled_fill_price` is written by BOTH fill paths and
+    # is the counterfactual on the real one; see ops/ledger.py TRADE_COLUMNS.
+    # A row written before 2026-09-10 has neither column. For such a row the
+    # ledger simulated, so `fill_price` IS the modelled price -- by construction,
+    # not by assumption -- and `exec_ids` is what distinguishes the two cases.
+    # This is deliberately NOT a fillna: a row that carries an execId and yet has
+    # no modelled price is a real fill whose counterfactual was lost, and there
+    # is no honest value to put there, so it raises and names itself.
+    if "exec_ids" not in model.columns:
+        model["exec_ids"] = ""
+    is_real = model["exec_ids"].fillna("").astype(str).str.len() > 0
+    if "modelled_fill_price" not in model.columns:
+        model["modelled_fill_price"] = pd.NA
+    model["modelled_fill_price"] = model["modelled_fill_price"].where(
+        model["modelled_fill_price"].notna(), model["fill_price"].where(~is_real))
+    # A row that carries an execId but no modelled price is a real fill whose
+    # counterfactual was never recorded -- `ops/rebuild_ledger.py` books real
+    # prices and cannot reconstruct what the model would have charged. Such a
+    # row is DROPPED from the comparison rather than defaulted, and the drop is
+    # reported. Using `fill_price` there would set excess_bp to exactly 0.0 and
+    # pull the ratio toward 1.00x, which is worse than a smaller sample: it
+    # reads like evidence the rule was checked.
+    orphan = model[is_real & model["modelled_fill_price"].isna()]
+    if not orphan.empty and verbose:
+        print(f"[slippage] {sleeve}: {len(orphan)} real fill(s) have no "
+              f"modelled price and are EXCLUDED from kill rule (b) "
+              f"({', '.join(orphan['instrument'].astype(str).head(5))}"
+              f"{' ...' if len(orphan) > 5 else ''}). Their counterfactual was "
+              f"never recorded and cannot be reconstructed.")
+    model = model[~(is_real & model["modelled_fill_price"].isna())]
+    model["modelled_fill_price"] = model["modelled_fill_price"].astype(float)
     m = agg.merge(model[["fill_date", "instrument", "fill_price", "close_price",
-                         "shares", "side", "half_spread_bp"]],
+                         "shares", "side", "half_spread_bp",
+                         "modelled_fill_price"]],
                   on=["fill_date", "instrument"], how="inner")
     if m.empty:
         if verbose:
@@ -308,7 +357,8 @@ def slippage_report(books_root, sleeve, verbose=True):
     # Signed so that "worse for us" is always positive, on both sides.
     dirn = m["side"].str.upper().map({"BUY": 1.0, "SELL": -1.0}).fillna(1.0)
     m["realised_bp"] = dirn * (m["real_vwap"] - m["close_price"]) / m["close_price"] * 1e4
-    m["modelled_bp"] = dirn * (m["fill_price"] - m["close_price"]) / m["close_price"] * 1e4
+    m["modelled_bp"] = (dirn * (m["modelled_fill_price"] - m["close_price"])
+                        / m["close_price"] * 1e4)
     m["excess_bp"] = m["realised_bp"] - m["modelled_bp"]
 
     out = state / "slippage.csv"
@@ -322,6 +372,22 @@ def slippage_report(books_root, sleeve, verbose=True):
                  max(abs(m["modelled_bp"].mean()), 1e-9))
         print(f"[slippage]   realised/modelled = {ratio:.2f}x "
               f"(kill rule (b) trips above 2.0x for 5 straight sessions)")
+        # A row whose realised and modelled bp are IDENTICAL contributes a
+        # guaranteed zero excess and pulls the mean toward "no slippage". That
+        # happens when the ledger row was itself written from the real price --
+        # `ops/rebuild_ledger.py` does exactly that -- so the comparison is
+        # against itself. Before 2026-09-10 nothing recorded which rows those
+        # were, and a rebuilt row is indistinguishable from a modelled row that
+        # happened to be exactly right. Count them so the ratio is never read
+        # without its own dilution visible.
+        tied = int(np.isclose(m["excess_bp"], 0.0, atol=1e-6).sum())
+        if tied:
+            print(f"[slippage]   NOTE {tied} of {len(m)} row(s) show excess "
+                  f"0.0bp exactly, i.e. modelled == realised by construction, "
+                  f"and dilute the ratio toward 1.00x. Rows written before "
+                  f"2026-09-10 cannot be distinguished from genuinely modelled "
+                  f"ones. Excluding them the ratio is "
+                  f"{_ratio(m[~np.isclose(m['excess_bp'], 0.0, atol=1e-6)]):.2f}x.")
     return m
 
 

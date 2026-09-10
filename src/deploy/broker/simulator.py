@@ -84,10 +84,23 @@ class Simulator(Broker):
     def cash(self, sleeve_name) -> float:
         return float(self._ledger[sleeve_name].cash)
 
-    def place_targets(self, sleeve_name, targets, asof, market_state) -> list:
+    def place_targets(self, sleeve_name, targets, asof, market_state,
+                      execution_record=None) -> list:
         """Advance the sleeve's sub-ledger one day to `asof`, deciding today's
         order from `targets` (fills at the next close). Returns the fills booked
-        THIS call as `Fill`s."""
+        THIS call as `Fill`s.
+
+        `execution_record` (an `ops.ledger.ExecutionRecord`) is passed only by
+        `IBKRBroker`, which is shadowing a REAL account: the ledger then books
+        the broker's own executions rather than simulating them. None -- every
+        sim-path caller, every backtest -- keeps the previous behaviour
+        byte-for-byte.
+
+        It is installed for the duration of ONE advance and removed in a
+        `finally`. A fill record that outlived its call could book the same
+        execIds into a second day, and the ledger has no execId-level dedup of
+        its own: `broker_fills.csv` has one, `trades.csv` does not.
+        """
         cfg = self._cfg[sleeve_name]
         lg = self._ledger[sleeve_name]
         asof = pd.Timestamp(asof)
@@ -97,13 +110,31 @@ class Simulator(Broker):
         target_fn = lambda spec, d, prices_: list(targets)
         start = asof if lg.last_date is None else None
 
-        if cfg["kind"] == "derivatives":
-            lg.advance(prices, cfg["run_spec"], cfg["costs"], target_fn,
-                       through=asof, start=start, mark_fn=cfg["mark_fn"],
-                       verbose=self.verbose)
-        else:
-            lg.advance(prices, cfg["run_spec"], cfg["costs"], target_fn,
-                       through=asof, start=start, verbose=self.verbose)
+        if execution_record is not None and cfg["kind"] == "derivatives":
+            # DerivativesLedger has its own advance() and its own _fill_order,
+            # and neither consults execution_record. Setting the attribute would
+            # be accepted in silence and the sleeve would keep booking simulated
+            # fills against a real account -- the precise fault being fixed.
+            # No DERIVATIVES_TYPES sleeve is deployed, so this raises rather
+            # than growing a second implementation nothing exercises.
+            raise NotImplementedError(
+                f"{sleeve_name}: real-fill booking is implemented for "
+                f"LongOnlySleeveLedger only. DerivativesLedger would ignore the "
+                f"execution record and simulate, which is what this path exists "
+                f"to stop. Port _broker_fill into DerivativesLedger._fill_order "
+                f"before deploying a derivatives sleeve to a live account.")
+
+        lg.execution_record = execution_record
+        try:
+            if cfg["kind"] == "derivatives":
+                lg.advance(prices, cfg["run_spec"], cfg["costs"], target_fn,
+                           through=asof, start=start, mark_fn=cfg["mark_fn"],
+                           verbose=self.verbose)
+            else:
+                lg.advance(prices, cfg["run_spec"], cfg["costs"], target_fn,
+                           through=asof, start=start, verbose=self.verbose)
+        finally:
+            lg.execution_record = None
 
         return self._fills_since(lg, n_trades_before, cfg["kind"])
 
