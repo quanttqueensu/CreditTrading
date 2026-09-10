@@ -1,38 +1,13 @@
 # W0b — Deploy the prod/dev split (designed, written, never deployed)
 
-> ## ✅ EXECUTED 2026-09-10 — the split is deployed. Do not run it again.
+> ## ✅ EXECUTED 2026-09-10 11:00 ET. Do not run this prompt again.
 >
-> Marked executed in `c6fc9b1`. **Verify against the machine, not this file:**
+> **Verify against the machine, not against this file:**
 >
 > ```bash
 > git worktree list                        # 2 trees: dev, and prod detached
 > git -C ~/prod/QUANTT describe --tags     # the tag prod actually runs
 > ```
->
-> `~/prod/QUANTT` is now a git worktree detached at a tag; the scheduler, the
-> dashboard and every live ledger run there. Editing the dev tree reaches no
-> session until someone tags it and runs `ops/promote.sh <tag>`.
->
-> **The human-at-the-keyboard warning below still applies to any RE-run or
-> rollback.** Two things this prompt describes as future are still open: prod
-> does not yet own its own `data/` (it is a symlink back into the dev tree, so a
-> research script can still corrupt what the sleeve prices from — the reversal
-> is `ops/sync_dev_data.sh`), and the live ledgers are still tracked in git
-> (`git ls-files ops/books/cef_live` is non-empty).
-
-**Reads first:** `CLAUDE.md` §4 (safety), `00_BRIEF.md` §6.
-**Lever:** the single largest operational risk in the repo. **Trials:** 0.
-**Touches the live book:** **yes, profoundly** — it changes which tree the
-scheduler executes.
-**Run second, after W0.**
-**⚠ THIS PROMPT REQUIRES A HUMAN AT THE KEYBOARD.** It repoints live trading
-infrastructure. Do not execute the final two steps autonomously, do not run any
-of it inside the session window, and do not run it on a day the book must trade.
-**New 2026-09-10.**
-
----
-
-> ## ✅ EXECUTED 2026-09-10 11:00 ET. Do not run this prompt again.
 >
 > `~/prod/QUANTT` is a worktree detached at **v2026.09.10.1**;
 > `launch_job.py:REPO` and the dashboard plist both point at it. Verified before
@@ -50,6 +25,19 @@ of it inside the session window, and do not run it on a day the book must trade.
 > re-litigation of this design** — see `NEXT_2026-09-11.md` items 4 and 5:
 > prod's `data/` is still a symlink back to dev, and the live ledgers are still
 > tracked by git. What follows is kept as the record of why and how.
+
+**Reads first:** `CLAUDE.md` §4 (safety), `00_BRIEF.md` §6.
+**Lever:** the single largest operational risk in the repo. **Trials:** 0.
+**Touches the live book:** **yes, profoundly** — it changes which tree the
+scheduler executes.
+**Run second, after W0.**
+**⚠ THIS PROMPT REQUIRES A HUMAN AT THE KEYBOARD.** It repoints live trading
+infrastructure. Do not execute the final two steps autonomously, do not run any
+of it inside the session window, and do not run it on a day the book must trade.
+**New 2026-09-10.**
+
+---
+
 
 ## Paste from here
 
