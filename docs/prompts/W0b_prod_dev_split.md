@@ -12,6 +12,25 @@ of it inside the session window, and do not run it on a day the book must trade.
 
 ---
 
+> ## ✅ EXECUTED 2026-09-10 11:00 ET. Do not run this prompt again.
+>
+> `~/prod/QUANTT` is a worktree detached at **v2026.09.10.1**;
+> `launch_job.py:REPO` and the dashboard plist both point at it. Verified before
+> the switch: 126 tests, preflight arms against the live gateway, a dry-run
+> session builds all 17 targets, dashboard imports and resolves prod.
+>
+> Three things had to be fixed to make it work, all committed: the `.env` files
+> pinned absolute `~/Desktop` paths for `BOOK`/`BOOKS_ROOT` (the launchd entry
+> point ignores them but `run_*.sh` does not — a manual run would have advanced
+> a *different* ledger than the scheduler); phase0 had no `IBKR_CLIENT_ID` and
+> fell back to the shared config; and the promotion gate's clean-tree check was
+> tripped by the book having traded, so it could never have promoted twice.
+>
+> **Two deliberate compromises remain and are the next session's work, not
+> re-litigation of this design** — see `NEXT_2026-09-11.md` items 4 and 5:
+> prod's `data/` is still a symlink back to dev, and the live ledgers are still
+> tracked by git. What follows is kept as the record of why and how.
+
 ## Paste from here
 
 You are working in the QUANTT repo. **Establish the current state before
