@@ -1,4 +1,4 @@
-# The promotion deadlock has three layers, not one, and the third is machine state
+# The promotion deadlock has four layers, not one; the third is machine state and the fourth is an hour of every night
 
 **Measured 2026-09-10 evening, read-only. No broker connection was opened and
 nothing was promoted.** `[V]` verified by re-running the command shown, `[S]`
@@ -6,15 +6,16 @@ sourced not re-read, `[U]` uncertain.
 
 ## The short version
 
-Prod runs `v2026.09.10.1`. The fix it needs is in `.3`. **Three separate things
-block the promotion, and only the first is the one everybody has been talking
+Prod runs `v2026.09.10.1`. The fix it needs is in `.3`. **Four separate things
+bear on the promotion, and only the first is the one everybody has been talking
 about.**
 
 | # | blocker | cleared by | cleared by a promotion? |
 |---|---|---|---|
 | 1 | prod has 2 dirty phase0 ledger files, and `.1`'s promote.sh has the broken pathspec that refuses on them | `git checkout -- ops/books/phase0_live` | — |
-| 2 | the 16:30–22:30 session window | waiting until after 22:30 | — |
+| 2 | the session window | waiting until the cef session has **exited** — not merely 22:30, see layer 4 | — |
 | 3 | **`doctor` FAILs on `loaded:benchmarks last exit 3`** | a successful benchmarks run, or a launchd reload | **NO — see below** |
+| 4 | `promote.sh`'s window ends **22:30** while the session runs to **23:30** | fixed in `.4`; tonight, check the cef pid | — |
 
 ## Layer 3 is the one that matters, and it has already sunk one promotion
 
