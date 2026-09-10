@@ -13,8 +13,11 @@ track record, judged on **absolute return** with a **20% vol cap**.
 Our transfer coefficient is **~37%** — gross Sharpe ~1.2 becomes net ~0.43 once
 costs and measured borrow are charged. Our effective breadth is **1.17** against a
 nominal 17 names, because 92.5% of book variance is one factor (muni vs taxable).
-And the book has armed on **3 of 26 sessions**. Work that raises TC or uptime beats
-work that sharpens IC, every time.
+And the book has armed on **5 of 29** CEF sessions (measured 2026-09-10:
+`grep -la 'ARMED:' ops/schedule/logs/cef_*.log | wc -l` over
+`ls ops/schedule/logs/cef_*.log | wc -l`; the "3 of 26" this line carried until
+then was never dated and was wrong). Work that raises TC or uptime beats work
+that sharpens IC, every time.
 
 Read `docs/prompts/00_BRIEF.md` before any research. It is the standing brief and
 every prompt in that directory opens with it.
@@ -158,10 +161,16 @@ correction banner at its top; the trap is what it says without one.
 | `docs/PER_NAME_ARCHITECTURE.md` | Its derived band table silently mixes **target-weight** κ_w with **discount** κ_d, and PHK's row carries the *pooled* constant rather than PHK's own. Three of seven bands (MHD ≈130 obs, MQY ≈365, PDO ≈1,286) rest on fewer observations than this repo's own identification budget allows. **Do not deploy those three.** |
 | `ops/README.md`, `ops/schedule/README.md` | Superseded in full. The first opens *"There is no broker here"* — false; seven files in `ops/` open IBKR sockets. Both use the pre-2026-08-31 repo path and reference directories that do not exist. |
 
-**Four analysis scripts baseline against `band(T, 0.064)`** — the 6.4% width
-retired on 2026-09-06 — in `joint_cost_optimiser.py`, `covariance_construction.py`,
-`borrow_impact.py` and `ou_score.py`. Every one is named in a prompt as something
-to extend. Read `band_width` from the frozen spec; never edit the literal.
+**FIXED 2026-09-10.** This read: "four analysis scripts baseline against
+`band(T, 0.064)`, the 6.4% width retired on 2026-09-06". All four —
+`joint_cost_optimiser.py`, `covariance_construction.py`, `borrow_impact.py`,
+`ou_score.py` — now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads
+the frozen spec. The rule stands and is now enforced by tests: **read
+`band_width` from the frozen spec; never write the literal.** Four `0.064`s
+remain and are all legitimate — two historical comments, one sweep grid, and one
+explicitly labelled `("band 6.4%", ...)` comparison row. Verify with
+`grep -n '0\.064' scripts/cef/*.py` before believing either this paragraph or
+its predecessor.
 
 **This working tree is NO LONGER production (since 2026-09-10).** `~/prod/QUANTT`
 is a git worktree detached at a tag, and the scheduler, the dashboard and every
@@ -190,22 +199,34 @@ one, and clearing the global never silently clears a scoped one.
 
 ## What the test suite does and does not cover
 
-A green suite here is more reassuring than it should be. Measured 2026-09-10:
+A green suite here is more reassuring than it should be.
 
-- **~33% of tests exercise `src/backtest/walkforward.py`**, which nothing on the
-  live path imports.
-- **5 tests cover the live strategy** (`test_band_hold_dust.py` — the band-HOLD
-  dust fix).
-- **11 cover the halt gate** (`test_halt_scope.py` — global vs per-book scope).
-- **57 cover the order-path guard** (`.claude/hooks/tests/`).
-- **Zero tests** for the rest of `ops/` (preflight beyond `check_halt`,
-  capture_fills, doctor, ledger), for `src/deploy/{portfolio,run_book,registry}.py`,
-  for either broker adapter, or for `dashboard/`.
+**Get the count by running `python3 -m pytest`, never from this file.** The
+figure quoted here was 126 while the suite passed 271, and it moved three times
+during the afternoon of 2026-09-10 as tests were added. A test count in a
+document is stale the day after it is written; the shape below is what is worth
+carrying.
 
-So a green suite tells you the backtest engine and the walk-forward harness are
-sound. **It tells you almost nothing about the code that places orders.** Write a
-test with any change to the live path, and never treat a passing count as evidence
-that a session-path edit is safe.
+Measured 2026-09-10 ~12:00, **271 passing**:
+
+- `src/backtest/walkforward.py` is the single largest block (~13%), and nothing
+  on the live path imports it.
+- **`.claude/hooks/tests/`** is the next largest (57) — it tests the guard that
+  stops you reaching the order path, not the order path.
+- **`arm()` attribution is now covered** (`src/deploy/tests/test_arm_attribution.py`,
+  17 tests, one per real incident) and so are three preflight checks
+  (`ops/tests/test_preflight_checks.py`). Both were written 2026-09-10; before
+  that the most incident-prone function in the repo had none.
+- **Still zero** for `capture_fills`, `doctor`, `ops/ledger.py`,
+  `src/deploy/{portfolio,run_book,registry}.py`, the simulator broker, and
+  `dashboard/`.
+
+So a green suite tells you the backtest engine, the guard hooks and — since
+2026-09-10 — arm()'s attribution branches are sound. **It still tells you little
+about the code that places orders.** Write a test with any change to the live
+path, and never treat a passing count as evidence that a session-path edit is
+safe. The cwd defect fixed on 2026-09-10 was found by *writing* such a test, not
+by running the suite: it passed green throughout.
 
 `pytest.ini` scopes collection to the real suites. Before it existed, a bare
 `python3 -m pytest` failed at *collection* with `ConnectionRefusedError`, because
@@ -220,9 +241,27 @@ for the order path. Do not widen `testpaths`.
    job. Do not "fix" this.
 2. `ops/schedule/rendered/*.plist` are **stale** and point at the old path. launchd
    runs `launch_job.py` directly; those plists are not what runs.
-3. `_sleeve_nav` reads the shadow ledger, which disagrees with the broker on all 17
-   positions (~$223k account-wide). Sizing is unaffected (`arm()` re-seeds from the
-   broker); reported NAV and P&L are wrong.
+3. `_sleeve_nav` reads the shadow ledger, which can disagree with the broker; when it
+   does, sizing is unaffected (`arm()` re-seeds from the broker) but reported NAV and
+   P&L are wrong. **Re-measure before quoting a magnitude — do not carry the old one.**
+   `python3 -m ops.reconcile_orders --book ops/books/cef_discount_book.json
+   --books-root ops/books/cef_live --check-broker` prints it. Measured 2026-09-10:
+   **none of the 17 CEFs diverge**; all 13 divergent symbols belong to `null_trader`
+   and the benchmark books (worst 3,924 shares, SRLN). The earlier "all 17, ~$223k"
+   reading predates the 2026-09-08 epoch re-seed and no longer reproduces.
+   Two things this entry does not say, both from a read-only broker query at
+   2026-09-10 11:35:29 ET (`results/ops/BROKER_SNAPSHOT_2026-09-10.json`):
+   **(a)** the divergence is not drift. Five `null_trader` orders transmitted
+   09:43:09 that day are marked **`filled` in the ledger with no execution at the
+   broker and nothing resting** (worst: JAAA ledger −1,503, broker 0). A ledger
+   booking fills that never happened is a different and worse fault than a stale
+   count, and it corrupts P&L directly. **(b)** sizing and reporting can disagree
+   with **no** position error at all: `_sleeve_nav` returns the sub-ledger's
+   *last* NAV row, which after an epoch reseed is the epoch value. On 2026-09-09
+   it sized four MOC orders against $500,000.00 while the book was marked
+   $504,573.20 — so those orders are ~0.91% smaller than the book's own NAV would
+   size them, and `orders.csv` and `_order_map.csv` disagree for that reason
+   alone. Never diagnose that gap as a position error; it is not one.
 4. **HYT lags the price panel by a day.** `px.iloc[-1]` can be NaN for a name — use
    `px.ffill().iloc[-1]` where you need that name's own last close.
 5. **`PositionTarget.weight` is signed.** Do not multiply by the side sign again.
