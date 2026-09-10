@@ -41,7 +41,7 @@ Reproduction: `scripts/cef/plan_diagnostics.py` and §8.2.
 | Present in **every** sub-period, 1998→2026 | same |
 | Beta +0.013, R² 0.0008 — not credit risk in costume | same |
 | Leave-one-out Sharpe 2.23–2.93 — no single name carries it | same |
-| Purged walk-forward **9/9 blocks positive** | `RESEARCH_STATE.md` |
+| Purged walk-forward — **8/9** blocks positive, median 1.05, worst −0.15 | re-measured 2026-09-10, `scripts/cef/validate.py --trials 48`. **This row said 9/9 and cited `RESEARCH_STATE.md`** — a decision rule keyed on a number in a document (H14). Run the command. |
 | Block bootstrap, 5,000 draws, **P(SR≤0) = 0.000%** | same |
 | Test 7: alpha t 3.11, R² 0.005, 5/5 factor limits | same |
 | **Gross Sharpe 1.23 in-sample → 1.75 out-of-sample** | `ESTIMATOR_NOTE.md` |

@@ -52,10 +52,17 @@ basket, so no mechanism drags price back to NAV. The identical idea in ETFs died
 as the AP mechanism compressed the gap from 188bp (2008) to 3.8bp (2026). Credit
 CEFs sit at discounts averaging −3.2% with a standard deviation near 6%.
 
-**The alpha is settled and is not the problem.** IC −0.074 (t −11.6) at the traded
-horizon over 27 years, present in every sub-period, 9/9 purged walk-forward blocks
-positive, block bootstrap P(SR≤0) = 0.000%, and gross Sharpe went **1.23
-in-sample → 1.75 out-of-sample** when the sealed holdout was opened.
+**The alpha is probably real. It is NOT "settled", and this line used to say it
+was.** IC −0.074 (t −11.6) at the traded horizon over 27 years, present in every
+sub-period; block bootstrap P(SR≤0) = 0.000%; and gross Sharpe went **1.23
+in-sample → 1.75 out-of-sample** when the sealed holdout was opened. But
+**8/9** purged walk-forward blocks positive, not 9/9 — re-measured 2026-09-10,
+`python3 scripts/cef/validate.py --trials 48`, panel to 2026-09-09: worst block
+**−0.15** (2018-01-05..2020-03-06), median 1.05, gross 1.27, net 0.83. And it
+**fails its deflated-Sharpe bar at the real trial count**: DSR **0.870 FAIL**
+at CEF = 48 against a bar of 2.783. It printed PASS for months only because
+`validate.py` hard-coded `N_SPECS_TRIED = 10`. Run the command; do not quote
+these.
 
 **The problem is capture.** Gross Sharpe ~1.2; net Sharpe after realistic costs
 was **0.33**, and **0.10** once the short leg is charged its measured borrow. The
@@ -166,7 +173,8 @@ Keeping these separate is the most important discipline in this project.
 | The edge exists | IC −0.074, t −11.6, 27 years, present in **every** sub-period |
 | It is not credit beta | β +0.013, R² 0.0008, alpha +17.7%/yr |
 | It is not one name | leave-one-out gross Sharpe spans 2.23–2.93 |
-| It survives out of sample | purged walk-forward 9/9; **gross 1.23 IS → 1.75 OOS** |
+| It survives out of sample | purged walk-forward **8/9** (re-measured 2026-09-10; this said 9/9), worst block −0.15; **gross 1.23 IS → 1.75 OOS** |
+| It clears the multiplicity haircut | **NO.** DSR **0.870 FAIL** at N=48, bar 2.783. The only row here that does not pass |
 | It is not luck | block bootstrap, 5,000 draws, P(SR≤0) = 0.000% |
 | Reversal does not explain it | price-only control IC −0.046 vs −0.074 |
 

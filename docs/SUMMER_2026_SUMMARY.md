@@ -106,7 +106,7 @@ retained its edge per opportunity; only the opportunity count collapsed.
 | Point-in-time universe, no survivorship or liquidity hindsight | Gross 1.26, net 0.82, volatility 6.00%, max drawdown −12.0% | Pass, and better than the biased construction |
 | Purged walk-forward, 10 blocks, 5-day embargo | 9 of 9 positive, median 1.12, worst 0.01 | Pass |
 | Block bootstrap, 5,000 draws | 5th/95th percentile 0.52/1.11, P(SR ≤ 0) = 0.000% | Pass |
-| Deflated Sharpe, adjusted for 10 specifications | 0.956 | Pass |
+| Deflated Sharpe | **0.870 at N=48 — FAIL** (re-measured 2026-09-10). This row read "adjusted for 10 specifications, 0.956, Pass"; the counter is 48, the bar is 2.783, and validate.py prints 0.963 at N=10, not 0.956 | FAIL at the real N |
 | Factor exposure | Alpha t 3.11, R² 0.005, 5 of 5 factor limits | Pass |
 
 An R² of 0.005 means 99.5% of the return is unexplained by high yield, investment

@@ -69,7 +69,23 @@
    "kurtosis 41.2 -- fat tails, expect sharp single-day losses",
    "most recent walk-forward block 0.05; 2023-26 era net Sharpe 0.30",
    "2005-2009 net Sharpe 0.11 on a thin 2.6-fund universe"
-  ]
+  ],
+  "_evidence_is_the_freeze_time_record": "The figures in this block are what the 2026-07-31 DEPLOYMENT DECISION rested on and are deliberately NOT overwritten -- a frozen spec records what was believed when it was frozen. Four of them no longer reproduce. See _recheck_2026_09_10 below. Nothing in this repo READS this block; it is provenance, not configuration.",
+  "deflated_sharpe_n_trials": 10,
+  "_deflated_sharpe_n_trials_note": "THE N WAS NEVER RECORDED BESIDE THE NUMBER, which is the whole defect. A deflated Sharpe without its trial count is not a verdict. 0.956 was computed at N=10 by a validate.py that hard-coded N_SPECS_TRIED = 10.",
+  "_recheck_2026_09_10": {
+   "command": "python3 scripts/cef/validate.py --trials 48",
+   "panel_end": "2026-09-09",
+   "gross_sharpe": 1.27,
+   "net_sharpe": 0.83,
+   "purged_walkforward": "8/9 blocks positive, median 1.05, worst -0.15 (2018-01-05..2020-03-06)",
+   "block_bootstrap_p_sr_le_0": 0.0,
+   "deflated_sharpe": 0.87,
+   "deflated_sharpe_n_trials": 48,
+   "deflated_sharpe_bar": 2.783,
+   "deflated_sharpe_verdict": "FAIL",
+   "note": "The 9/9 does NOT reproduce; it is 8/9 with one negative block. The bootstrap reproduces exactly. DSR fails only because the counter is 48 rather than the 10 assumed at freeze time -- the same series reads 0.963 PASS at N=10 (not 0.956, which reproduces from nothing currently runnable). DSR is a deliberately harsh multiple-testing haircut; the honest summary is 'survives every test but the multiplicity correction, at N=48'. Re-run the command; do not quote these."
+  }
  },
  "kill_rule": "Review at 60 live sessions, not before. KILL if any of: (a) live net Sharpe < 0.0; (b) realised slippage > 2x modelled for 5 consecutive sessions; (c) cross-sectional top-minus-bottom discount spread falls below 12% (half its current 22.5%), which would mean the opportunity has gone the way of E1. No extension of rope.",
  "sizing_note": "$500k against a $730k-equivalent paper account. At the current 1.5x volatility scalar that is ~$750k gross = ~$514k CAD initial margin, which fits alongside the Phase 0 null trader (~$438k CAD) inside $958k available funds. Raise only after live slippage is measured.",
