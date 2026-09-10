@@ -163,9 +163,20 @@ retired on 2026-09-06 — in `joint_cost_optimiser.py`, `covariance_construction
 `borrow_impact.py` and `ou_score.py`. Every one is named in a prompt as something
 to extend. Read `band_width` from the frozen spec; never edit the literal.
 
-**This working tree *is* production.** `~/prod/` does not exist and the release
-gate `ops/promote.sh` describes was never deployed, so any edit here is live at
-the next session. **The session architecture is still the evening one** — the
+**This working tree is NO LONGER production (since 2026-09-10).** `~/prod/QUANTT`
+is a git worktree detached at a tag, and the scheduler, the dashboard and every
+live ledger live there. Editing here is safe; nothing you change reaches a
+session until someone tags it and runs `ops/promote.sh <tag>`, which refuses
+inside the session window or on a prod tree with uncommitted **code**, archives
+live state, checks out the tag, then smoke-tests it (doctor → NAV wait →
+`fetch_daily --require-asof` → dry-run session → dashboard import) and rolls
+back on any failure. The whole boundary is one line — `REPO` in
+`~/Library/Application Support/quantt/launch_job.py`. Two things are still
+shared, deliberately and temporarily: `data/` is a symlink from prod back to
+this tree (so a research script *can* still corrupt what the sleeve prices
+from — `ops/sync_dev_data.sh` reverses it once prod owns the panels), and the
+live ledgers are still tracked in git, which is why the promotion gate has to
+exclude them by pathspec. **The session architecture is still the evening one** — the
 08:30 decision, 12:00 retry and evening capture job described in `W3` are planned,
 not built. **Halts have two scopes since 2026-09-10.** `ops/HALT.md` is global
 and blocks every book — a human halt, or a fault nobody can attribute.

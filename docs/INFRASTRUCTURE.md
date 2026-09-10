@@ -414,6 +414,55 @@ exists.
 
 ## 6. Automation
 
+### 6.0 Prod and dev (2026-09-10)
+
+Two checkouts of one repository:
+
+| | path | what it is |
+|---|---|---|
+| **prod** | `~/prod/QUANTT` | a git worktree **detached at a tag**. The scheduler, the dashboard and the live ledgers run here. Nobody edits it. |
+| **dev** | `~/Desktop/2027/QUANTT/2027` | where work happens. Its HEAD moves freely; nothing it contains reaches a session. |
+
+The boundary is one line: `REPO` in `~/Library/Application Support/quantt/launch_job.py`,
+which every path in the scheduler is derived from. The dashboard plist points at
+`~/prod/QUANTT/dashboard/server.py` for the same reason — a monitor reading the
+dev tree would show a book frozen at the split and look entirely normal doing it.
+
+Code reaches prod only through `ops/promote.sh <tag>`, which refuses inside the
+session window (16:30–22:30 on a trading day) or when prod has uncommitted
+*code*, archives live state, checks out the tag, and smoke-tests it — doctor,
+NAV wait, `fetch_daily --require-asof`, a dry-run session, dashboard import —
+rolling back to the previous tag on any failure.
+
+**Why.** In the week of 2026-09-07 an epoch re-seed left a stale manifest and
+the next armed session crashed before placing anything; `fetch_daily.py` and the
+launchd entry point were both edited four hours before a live session; three
+halts in three days came from books whose bookkeeping had changed that day. The
+common factor was not carelessness — it was that an edit and a session shared
+one tree, so the running system was never fixed.
+
+**Two things are still shared, deliberately and temporarily:**
+
+1. `~/prod/QUANTT/data` is a **symlink back to the dev tree's `data/`**. Prod
+   therefore prices from panels a research script can still overwrite. The
+   intended end state is the reverse — prod owns the panels and
+   `ops/sync_dev_data.sh` rsyncs a copy to dev — and the move is deferred only
+   because it relocates 3.9 GB on a trading day.
+2. The **live ledgers are still tracked in git**, so prod's tree is dirty after
+   every session. That is why the promotion gate excludes live state by
+   pathspec and archives before checkout. Untracking them
+   (`git rm -r --cached ops/books/*_live ops/heartbeat.json`, they are already
+   in `.gitignore`'s intent) is a one-command follow-up gated on
+   `ops/backup_state.sh` running nightly, since git history is currently their
+   only off-machine backup.
+
+`~/prod/QUANTT/config/.env` does not exist — it is gitignored, so the worktree
+did not get one. Verified harmless for trading: prod resolves the identical
+broker config (127.0.0.1:4002, and the per-job `IBKR_CLIENT_ID` comes from
+`ops/schedule/*.env`), and its preflight arms against the live gateway. What it
+does lack is `ALERT_*` (email alerting, which is not configured anywhere yet)
+and `R2_*` (unused by the local backup). Copy it over before configuring alerts.
+
 ### 6.1 Scheduled jobs
 
 | Job | Schedule | Function |
