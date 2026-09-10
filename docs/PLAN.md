@@ -2,6 +2,25 @@
 
 **QUANTT credit programme · written 6 September 2026 · revised same day**
 
+> ## ⚠ READ THIS FIRST — three tables below label a RETIRED policy as LIVE
+>
+> **Added 2026-09-10.** This document was written on the morning of 2026-09-06,
+> hours before the **4.8% no-trade band replaced the 2-day calendar**. Its
+> argument is what *caused* that change, and the argument is sound. But three
+> tables (§2.2, §2.3's sensitivity block, §3.3) still carry the row
+> **"calendar 2d — LIVE"**, and it has not been live since the afternoon this
+> was written.
+>
+> **The headline "we keep 0.33" and "0.10 after borrow" are the RETIRED
+> policy's.** The live band's figures are **net@15bp 0.66 pre-borrow, ~0.43
+> after** — the capture ratio is ~37%, not 8%. §0.2's table is the retired
+> configuration throughout.
+>
+> Every *comparison* in this document remains valid; only the LIVE label and the
+> headline capture figure are stale. Where a band row appears, that is the live
+> book. `scripts/cef/band_frontier.py` prints which policy is live, read from
+> the frozen spec, and is the reproduction for every table here.
+
 The alpha is established. This document does not re-test it. The question here is
 narrower and more useful: **we generate a gross Sharpe near 1.2–1.75 and keep
 about 0.33 of it. Where does the other two-thirds go, and how much can we get
@@ -118,7 +137,7 @@ execution. Gross return is before costs; `net` charges bp per unit of turnover.
 | policy | gross SR | ann % | turn/yr | hold (d) | net@5bp | net@15bp | net@30bp |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | calendar 1d | 1.39 | 7.32 | 45.7 | 4.4 | 0.95 | 0.09 | −1.21 |
-| **calendar 2d — LIVE** | **1.20** | **6.40** | **31.1** | **6.4** | **0.91** | **0.33** | **−0.55** |
+| calendar 2d *(retired 2026-09-06)* | **1.20** | **6.40** | **31.1** | **6.4** | **0.91** | **0.33** | **−0.55** |
 | calendar 5d | 0.84 | 4.39 | 17.6 | 11.3 | 0.67 | 0.34 | −0.17 |
 | calendar 10d | 0.51 | 2.65 | 11.2 | 17.6 | 0.40 | 0.19 | −0.14 |
 | band 1.6% | 1.31 | 6.93 | 30.3 | 6.9 | 1.02 | 0.45 | −0.41 |
@@ -165,7 +184,7 @@ is wrong — and cost is the one parameter we do not know:
 | policy | turn/yr | net@5bp | net@30bp | span | flips sign? |
 |---|---:|---:|---:|---:|---|
 | calendar 1d | 45.7 | 0.95 | −1.21 | 2.16 | **YES** |
-| **calendar 2d — LIVE** | 31.1 | 0.91 | −0.55 | 1.46 | **YES** |
+| calendar 2d *(retired 2026-09-06)* | 31.1 | 0.91 | −0.55 | 1.46 | **YES** |
 | calendar 5d | 17.6 | 0.67 | −0.17 | 0.85 | **YES** |
 | band 2.4% | 25.9 | 1.02 | −0.20 | 1.22 | **YES** |
 | **band 4.8%** | 17.6 | 0.99 | **0.17** | 0.83 | no |
@@ -274,7 +293,7 @@ name.** Median fee 0.83%, mean 2.29%, max 10.56%.
 
 | policy | gross SR | +spread@15bp | +50bp assumed | **+measured borrow** |
 |---|---:|---:|---:|---:|
-| **calendar 2d — LIVE** | 1.20 | 0.33 | 0.29 | **0.10** |
+| calendar 2d *(retired 2026-09-06)* | 1.20 | 0.33 | 0.29 | **0.10** |
 | band 4.8% | 1.16 | 0.66 | 0.62 | **0.43** |
 | **band 6.4%** | **1.11** | **0.71** | **0.67** | **0.48** |
 
@@ -430,8 +449,21 @@ Two cautions: shrink $\kappa_i$ toward the pooled $\phi=0.9722$ by empirical Bay
 $\phi$), and evaluate jointly with the band, since any score change moves turnover.
 
 **PHK fails on four independent measures** — slowest reversion, widest discount sd
-(6.92pp), most expensive tick (**10.65bp** on a $4.69 share), and leave-one-out
-Sharpe *rises* 2.49 → 2.93 without it. Dropping it needs no new mathematics.
+(6.92pp), most expensive tick (**10.65bp** on a $4.69 share — a *half*-tick; see
+the convention table in `00_BRIEF.md` §3, the ledger charges **25.77bp**), and
+leave-one-out Sharpe *rises* 2.49 → 2.93 without it. Dropping it needs no new
+mathematics.
+
+> **⚠ Two numbers in this section are disputed; see
+> `docs/PER_NAME_ARCHITECTURE.md` §4 and `00_BRIEF.md` §3 (2026-09-10).**
+> (a) **The half-life column here is the DISCOUNT half-life (κ_d)**, not the
+> target-weight half-life (κ_w) that the cube-root band law takes. Six of seven
+> rows reconcile once labelled; **PHK does not** — this section's 41.9 and
+> `PER_NAME_ARCHITECTURE`'s 24.6 are different quantities, and PHK's own κ_w is
+> ≈37.0 while 24.6 is the *pooled* figure. PHK's row is what this section's
+> argument rests on. `perfund/F2` Part C recomputes all seventeen and owns the
+> reconciliation. (b) **The tick figure is a half-tick**, not what the ledger
+> charges. Neither is resolved by picking a number here.
 
 *A fifth measure was claimed here and is withdrawn.* This section argued PHK was
 "the largest premium in the book and so the most likely hard-to-borrow." Measured

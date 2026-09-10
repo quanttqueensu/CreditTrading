@@ -88,6 +88,14 @@ class PositionTarget:
 class LegGreeks:
     """Everything the delta hedge / rate-beta needs for one leg, in one object.
 
+    NOT YET CALLED -- threaded, with a dated owner. `gamma/G4` Part C gives this
+    and `MarketState.greeks_fn` their first producer and consumer, and pins the
+    signature. Do NOT delete either as dead code: they are threaded through six
+    files, and removing them means re-threading the same parameter through the
+    same six files a fortnight later. Contrast `mark_fn`, which is threaded
+    identically and IS called -- check for a call site before judging.
+    (Audited 2026-09-10, W0 Part C.)
+
     `price` is the mark (same number `mark_fn` returns). `delta` is per-leg
     dPrice/dUnderlier (forward Black delta for an option). The forward inputs
     (F, K, T, sigma, df) are exposed so the short-vol sleeve can re-derive the
@@ -120,6 +128,8 @@ class MarketState:
     prices: pd.DataFrame
     holdings: dict = field(default_factory=dict)
     mark_fn: "callable | None" = None
+    # Threaded but not yet called; first producer lands in gamma/G4 Part C.
+    # See LegGreeks above. Not dead code -- scaffolding with a dated owner.
     greeks_fn: "callable | None" = None
     events: "pd.DataFrame | None" = None
     extras: dict = field(default_factory=dict)

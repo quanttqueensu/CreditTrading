@@ -166,6 +166,31 @@ move markets at the live screen (0.7% of ADV); **we pay ticks** — a one-cent
 spread is 10.7bp on a $4.69 share and 2.9bp on a $17 share, against a 32.6bp
 breakeven.
 
+#### The tick convention — defined once here, cited everywhere else
+
+**Added 2026-09-10, resolving W0 Part F.** Three documents quoted three
+different numbers for PHK's tick and none stated its convention, so they read as
+a dispute. They are three different quantities:
+
+| quantity | PHK | what it is |
+|---|---:|---|
+| **half-tick** | 10.65bp | half a cent on $4.69 — `docs/PLAN.md` §4.1 |
+| **full tick** | 22.22bp | one cent on $4.51 — `docs/PER_NAME_ARCHITECTURE.md` §4 |
+| **charged half-spread** | 25.77bp | `config/costs.yaml`, **1.25× the full tick**, and that multiplier holds for all 17 CEFs |
+
+**The ledger charges 25.77bp — 2.4× what PLAN's prose implies.** So:
+
+- **State the convention wherever a tick figure appears.** A bare "PHK's tick is
+  X" is ambiguous and has already been read three ways.
+- **The number that enters a cost calculation is the charged half-spread**, from
+  `config/costs.yaml`, because that is what the ledger actually applies.
+- **The 1.25× multiplier is itself an assumption**, not a measurement. `W7` Part C
+  measures spreads independently; if it disagrees with the yaml, the yaml is
+  wrong and every net figure computed from it moves.
+
+Per **H14**, do not key a rule on the numbers in this table — re-read
+`config/costs.yaml` and say which convention you used.
+
 **The auction rules differ by venue, and getting them from one fact sheet is how
 you end up with a wrong specification.** Verified against rule text 2026-09-09:
 

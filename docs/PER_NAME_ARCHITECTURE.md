@@ -149,7 +149,10 @@ cost. Zero fitted parameters.
 >    tick on $4.51; `config/costs.yaml`'s 25.77bp is **1.25× the full tick** on
 >    $4.85 — and that 1.25 multiplier holds for all 17 CEFs. **The ledger charges
 >    25.77**, i.e. 2.4× what PLAN's prose implies. None of the three documents
->    states its convention. Define it once and make all three cite it.
+>    states its convention. **Defined 2026-09-10 in `00_BRIEF.md` §3 ("The tick
+>    convention"); this table's column is the FULL tick, and the number that
+>    enters a cost calculation is the charged half-spread from
+>    `config/costs.yaml`.**
 >
 > 5. **Three of the seven bands rest on fewer observations than this repo's own
 >    identification budget allows.** `docs/REFERENCES.md` sets the bound at
