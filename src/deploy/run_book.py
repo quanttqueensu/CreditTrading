@@ -325,9 +325,24 @@ def wire_runtime(book_spec, verbose=True):
             continue
         if entry.get("mark_fn") is not None:      # already wired (test path)
             continue
-        # lazy import: only a short-vol book pulls in the vrp math
-        from src.deploy.sleeves.spy_shortvol_marks import (
-            SpyVrpMarks, load_vrp_costs)
+        # lazy import: only a short-vol book pulls in the vrp math.
+        # The module does not exist yet (2026-09-10). It is the option marks
+        # provider that docs/prompts/gamma/G5 builds, alongside the Black-76
+        # pricer in gamma/G1. Until then no book may declare
+        # short_vol_straddle, and registry.py still permits the alloc type --
+        # so fail with the reason rather than a bare ModuleNotFoundError.
+        try:
+            from src.deploy.sleeves.spy_shortvol_marks import (
+                SpyVrpMarks, load_vrp_costs)
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                f"sleeve {entry.get('name')!r} declares alloc_type "
+                "'short_vol_straddle', but src/deploy/sleeves/"
+                "spy_shortvol_marks.py does not exist. It is built by "
+                "docs/prompts/gamma/G5 (the paper book) on top of "
+                "gamma/G1 (the option math). Either build it or remove the "
+                "sleeve from the book spec."
+            ) from exc
         if provider is None:
             provider = SpyVrpMarks()
             if verbose:

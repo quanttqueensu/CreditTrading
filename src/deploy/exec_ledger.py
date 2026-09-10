@@ -776,7 +776,7 @@ class DerivativesLedger:
         price = float(close.get(inst, np.nan))
         if not np.isfinite(price) or price <= 0:
             return None                    # skipped, resumable (ETF semantics)
-        from .v2.odd_lot import odd_lot_fill_price   # lazy: v1 import graph unchanged
+        from .lib.odd_lot import odd_lot_fill_price   # lazy: v1 import graph unchanged
         fp = odd_lot_fill_price(cfg, delta, price, mult)
         if fp is None:
             return None

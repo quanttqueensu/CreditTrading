@@ -578,7 +578,7 @@ class IBKRBroker(Broker):
         for f in getattr(trade, "fills", []) or []:
             try:
                 from pathlib import Path
-                from ..v2.odd_lot import record_broker_fill
+                from ..lib.odd_lot import record_broker_fill
                 ex = f.execution
                 record_broker_fill(
                     Path(self._books_root) / "_ibkr_shadow" / str(sleeve_name),
