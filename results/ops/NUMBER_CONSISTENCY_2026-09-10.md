@@ -458,7 +458,7 @@ name it inline, and date it.
 | **What is the sleeve NAV / P&L?** | `.../cef_discount/nav.csv` | Modelled, epoch-seeded. `book_status.json`, `report_*.md`, the log's `BOOK asof` line and the dashboard all restate it — they are not corroboration. |
 | **What is the account worth?** | broker `NetLiquidation` | CAD, whole account, all three books. Not comparable to a sleeve NAV without an FX and an attribution step. |
 | **What are the live strategy parameters?** | `ops/specs/cef_discount.frozen.json` | Named as the authority by `INFRASTRUCTURE.md`'s own banner. `band_width` 0.048, universe 17, spec `v6.20260906`. Prose about parameters is always downstream. |
-| **What width do analysis scripts baseline against?** | `scripts/cef/spec.py` (`BAND_WIDTH`, `LIVE_POLICY`) | Single reader over the frozen spec, enforced by `scripts/cef/tests/test_spec_is_single_source.py` (29 tests). |
+| **What width do analysis scripts baseline against?** | `scripts/cef/spec.py` (`BAND_WIDTH`, `LIVE_POLICY`) | Single reader over the frozen spec, enforced by `scripts/cef/tests/test_spec_is_single_source.py` (**27** tests, re-counted 2026-09-10 evening; this said 29). |
 | **How many trials have been spent?** | `docs/RESEARCH_STATE.md` counter table (**not** its prose, **not** its header) | Declared canonical by `.claude/rules/documents.md`. CEF 48, GAMMA 0. The header's 156 vs the table's 162 is a known defect. |
 | **How many tests pass?** | `python3 -m pytest`, run now | Moved by 16 during the 100 seconds I spent measuring it. Never quote a stored count. |
 | **Did a session arm, and why not?** | `ops/schedule/logs/cef_<date>.log` — the `ARMED:` / `NOT ARMED ->` line | `heartbeat.json` carries only the last beat per job. The log carries the blocker text. |

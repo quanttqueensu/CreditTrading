@@ -11,7 +11,9 @@
 >
 > `~/prod/QUANTT` is a worktree detached at **v2026.09.10.1**;
 > `launch_job.py:REPO` and the dashboard plist both point at it. Verified before
-> the switch: 126 tests, preflight arms against the live gateway, a dry-run
+> the switch: 126 tests *as the suite stood on 2026-09-10 morning* (it is
+> larger now -- run pytest, never quote this), preflight arms against the live
+> gateway, a dry-run
 > session builds all 17 targets, dashboard imports and resolves prod.
 >
 > Three things had to be fixed to make it work, all committed: the `.env` files

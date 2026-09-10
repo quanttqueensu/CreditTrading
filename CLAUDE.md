@@ -15,7 +15,11 @@ Sharpe **1.27**, net **0.83**; bootstrap P(SR≤0) = **0.000%**. The 9/9 and the
 **And it fails its own deflated-Sharpe bar at the real trial count.** DSR is
 **0.870 (FAIL)** at the CEF counter of **48**. It printed 0.963 PASS for months
 only because `validate.py` hard-coded `N_SPECS_TRIED = 10`; that literal is now
-a required `--trials` argument with no default. The verdict flips straight
+a required `--trials` argument with no default — **in dev only.** `~/prod/QUANTT`
+is detached at `v2026.09.10.1`, which predates that fix: `grep -n N_SPECS_TRIED
+~/prod/QUANTT/scripts/cef/validate.py` still returns `= 10`. **Reproduce the
+headline validation in prod and you get the silent N=10 PASS this paragraph
+says was removed.** Run it in dev, or promote first. The verdict flips straight
 through MARGINAL between the two counts, so **the trial count is not a footnote
 to this claim, it is the claim.** Nothing here says the edge is fake — the
 bootstrap and 8/9 blocks stand, DSR is a deliberately harsh multiple-testing
@@ -256,9 +260,20 @@ and blocks every book — a human halt, or a fault nobody can attribute.
 preflight *warning*; `arm()` failures write this one, because arm only ever
 refuses on symbols the failing book trades. Two small books had stopped the
 $500k strategy over their own bookkeeping in two days before this existed
-(phase0/JNK, bench_b6/ANGL). `ls ops/HALT*.md` shows everything active;
-`clear_halt(note)` clears the global one, `clear_halt(note, book=...)` a scoped
-one, and clearing the global never silently clears a scoped one.
+(phase0/JNK, bench_b6/ANGL). `clear_halt(note)` clears the global one,
+`clear_halt(note, book=...)` a scoped one, and clearing the global never
+silently clears a scoped one.
+
+**`ls ops/HALT*.md` shows everything active — but only in the tree it is run
+in, and halts are written in PROD.** Run it in dev, which is where you and this
+file are, and it returns *nothing at all* while `phase0_null` is halted. This
+paragraph said that command "shows everything active" without saying where, so
+`ls ~/prod/QUANTT/ops/HALT*.md` is the one that answers the question. The halt
+files are **untracked**, so they never arrive through a promotion and never
+appear in `git status` as anything but `??` — which is also what makes a
+promotion safe for them: `git checkout` cannot remove an untracked file, so a
+scoped halt survives a tag change by accident rather than by design. Nothing
+tests that.
 
 ## What the test suite does and does not cover
 
