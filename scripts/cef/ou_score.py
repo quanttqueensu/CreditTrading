@@ -53,6 +53,7 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from spec import BAND_WIDTH, LIVE_POLICY, summary as spec_summary  # noqa: E402  spec-owned params, never literals
 from band_frontier import (UNIVERSE, Z_WINDOW, MIN_PERIODS, VOL_TARGET,
                            VOL_LOOKBACK, MIN_ADV, MIN_NAMES, SAMPLE_START,
                            calendar, band, evaluate)          # noqa: E402
@@ -195,7 +196,9 @@ def main() -> int:
     print(hdr); print("-" * len(hdr))
     for name, sc in scores.items():
         T, R = build(sc, ret, adv)
-        for pol, H in (("calendar 2d", calendar(T, 2)), ("band 6.4%", band(T, 0.064))):
+        # Live policy from the frozen spec; was hardcoded 6.4% until 2026-09-10.
+        for pol, H in (("calendar 2d", calendar(T, 2)),
+                       (LIVE_POLICY, band(T, BAND_WIDTH))):
             r = evaluate(H, R)
             net = (r["ann_ret"] - r["turn"] * 15 / 1e4) / r["vol"]
             print(f"{name:<24}{pol:<14}{r['gross_sr']:>10.2f}"

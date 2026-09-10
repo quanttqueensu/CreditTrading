@@ -34,6 +34,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from band_frontier import build_targets, calendar, band, evaluate  # noqa: E402
+from spec import BAND_WIDTH, LIVE_POLICY  # noqa: E402  spec-owned, never a literal
 
 BORROW = REPO / "data" / "cef" / "cef_borrow.csv"
 SPREAD_BP = 15.0          # the mid-case in PLAN.md 2.2
@@ -97,14 +98,23 @@ def main() -> int:
     hdr = (f"{'policy':<20}{'gross':>8}{'+spread':>10}{'+50bp GC':>11}"
            f"{'+MEASURED':>11}{'borrow%':>10}{'ann ret%':>9}")
     print(hdr); print("-" * len(hdr))
-    pols = [("calendar 2d (LIVE)", calendar(T, 2)), ("band 4.8%", band(T, 0.048)),
+    # The LIVE row is whichever policy the frozen spec currently declares. Until
+    # 2026-09-10 this table labelled "calendar 2d (LIVE)" and baselined 6.4%,
+    # four days after the 4.8% band replaced the calendar.
+    pols = [("calendar 2d", calendar(T, 2)),
+            (LIVE_POLICY + "  <-- LIVE", band(T, BAND_WIDTH)),
             ("band 6.4%", band(T, 0.064))]
     res = {lab: line(lab, H, R, fee) for lab, H in pols}
     print("-" * len(hdr))
     print(f"spread charged at {SPREAD_BP:.0f}bp/turnover; borrow on held short MV.\n")
 
-    # Where the drag comes from -- this is the actionable part.
-    H = calendar(T, 2)
+    # Where the drag comes from -- this is the actionable part, and it must be
+    # computed on the policy the book ACTUALLY RUNS. It used calendar(T, 2)
+    # until 2026-09-10: the per-name borrow bill was being attributed across the
+    # average short weights of a retired policy. Borrow scales with HOLDINGS,
+    # and the band holds a different book from the calendar, so the per-name
+    # shares this table reports were not the shares we are paying.
+    H = band(T, BAND_WIDTH)
     shorts = (-H).clip(lower=0.0)
     rate = fee[list(H.columns)] / 100.0
     per = shorts.mean() * rate

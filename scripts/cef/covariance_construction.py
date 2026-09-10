@@ -56,6 +56,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ou_score import panel                                    # noqa: E402
+from spec import BAND_WIDTH, LIVE_POLICY, summary as spec_summary  # noqa: E402  spec-owned params, never literals
 from band_frontier import (UNIVERSE, Z_WINDOW, MIN_PERIODS, VOL_TARGET,
                            VOL_LOOKBACK, MIN_ADV, MIN_NAMES, SAMPLE_START,
                            calendar, band, evaluate)          # noqa: E402
@@ -143,12 +144,16 @@ def main() -> int:
            f"{'turn':>7}{'net@15':>8}{'BR_eff':>8}")
     print(hdr); print("-" * len(hdr))
     for mode, label, shr in (
-            ("plain",     "w ~ alpha  (LIVE)",              True),
+            ("plain",     "w ~ alpha  (live construction)",  True),
             ("inv_z",     "w ~ Sigma^-1 z   (LW shrunk)",   True),
             ("inv_alpha", "w ~ Sigma^-1 (sig*z) (LW)",      True),
             ("inv_alpha", "w ~ Sigma^-1 (sig*z) UNSHRUNK",  False)):
         T, R, br = build(mode, shrink=shr)
-        for pol, H in (("calendar 2d", calendar(T, 2)), ("band 6.4%", band(T, 0.064))):
+        # Baseline against the LIVE policy, read from the frozen spec. This read
+        # `band(T, 0.064)` until 2026-09-10 -- the width deliberately NOT chosen
+        # on 2026-09-06, so every row was measured against a book nobody runs.
+        for pol, H in (("calendar 2d", calendar(T, 2)),
+                       (LIVE_POLICY, band(T, BAND_WIDTH))):
             r = evaluate(H, R)
             net = (r["ann_ret"] - r["turn"] * 15 / 1e4) / r["vol"]
             print(f"{label:<30}{pol:<11}{r['gross_sr']:>8.2f}{r['ann_ret']*100:>7.2f}"
