@@ -67,8 +67,10 @@ is nothing to schedule.
 
 Measured 2026-09-06: median fee 0.83%, mean 2.29%, **max 10.56%**. Drag 1.22%/yr
 ≈ 0.23 Sharpe, and it scales with **holdings, not turnover** — *trading less does
-not reduce it*. **Three names are 70% of the cost: HYT (10.56%), NAD (9.98%),
-NVG (4.23%)**; two are Nuveen munis, the same names carrying the PC2 concentration.
+not reduce it*. **Three names are ~67% of the cost: HYT (10.56%), NAD (10.21%),
+NVG (3.70%)**; two are Nuveen munis, the same names carrying the PC2 concentration.
+(Corrected 2026-09-10 — the "70%" that circulated was apportioned across a retired
+policy's short weights. Re-measure with `borrow_impact.py` rather than quoting it.)
 The premium hypothesis is refuted: PHK at a +22.6% premium borrows at 1.06%.
 
 Availability binds on *different* names than cost does. **NAD's borrow pool

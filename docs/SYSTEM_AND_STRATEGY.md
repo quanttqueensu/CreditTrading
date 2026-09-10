@@ -325,9 +325,20 @@ the old FTP host is retired). Cross-checked against TWS generic tick 236.
 Median fee 0.83%, mean 2.29%, **max 10.56%**. Drag **1.22%/yr ≈ 0.23 Sharpe**,
 which scales with *holdings*, not turnover — **trading less does not reduce it.**
 
-**Three names are 70% of the cost: HYT (10.56%), NAD (9.98%), NVG (4.23%).** Two
-are Nuveen munis, i.e. the same names carrying PC2 (§6.1). The concentration
+**Three names are ~67% of the cost: HYT (10.56%), NAD (10.21%), NVG (3.70%).**
+Two are Nuveen munis, i.e. the same names carrying PC2 (§6.1). The concentration
 problem and the borrow bill are the same trade.
+
+> **⚠ CORRECTED 2026-09-10.** This read *"70% of the cost"* with fees 9.98% and
+> 4.23% for NAD and NVG. The share was computed by `borrow_impact.py`, which
+> apportioned the bill across the average short weights of **`calendar(T, 2)`** —
+> the retired policy — rather than the live band. Borrow scales with *holdings*,
+> and the band holds a different book, so the per-name shares were not the shares
+> we pay. On the live 4.8% band the top three are **28.2 / 27.1 / 12.1 = 67.4%**,
+> and two names move materially: **JFR 2.3% → 3.7%** and **AWF 1.7% → 2.8%**.
+> The conclusion is unchanged and the ranking is stable; only the arithmetic
+> moved. Fee levels quoted here are the panel's own, re-read 2026-09-10.
+> The script now takes the width from the frozen spec.
 
 The premium hypothesis was **refuted**: PHK (+22.6% premium) borrows at 1.06%.
 Premium does not predict borrow cost here.
@@ -406,8 +417,24 @@ $$\max_w \; w'\alpha - \tfrac{\lambda}{2}w'\Sigma w - c\lVert w-w_{t-1}\rVert_1
 The $\ell_1$ term induces a no-trade region *directly*, so the band is **derived**
 rather than bolted on — and it is Σ-aware, unlike a per-name scalar band.
 
-Turnover-matched at 14.2/yr: **net@15bp 0.90 vs the band's 0.70**, +0.28 over
-sequential composition. Gross holds at 1.33 where sequential collapses to 1.07.
+Turnover-matched at 17.6/yr — the **live** band's rate — **net@15bp 0.91 vs the
+band's 0.67**, +0.24. Gross holds at 1.43 where sequential composition reaches
+1.41 at 29.8 turns/yr, i.e. the joint objective gets there on 41% less trading.
+Derived cost coefficient `c_model` = 20.1bp.
+
+> **⚠ CORRECTED 2026-09-10.** This read *"matched at 14.2/yr: net@15bp 0.90 vs
+> the band's 0.70, +0.28"*. Those figures were measured against `band(T, 0.064)`
+> — the 6.4% width that was **deliberately not chosen** on 2026-09-06 — because
+> `joint_cost_optimiser.py` hardcoded it as its baseline, in five places, and
+> kept doing so for four days after the 4.8% band went live. Re-run against the
+> live band the *conclusion strengthens*: the joint objective's edge over the
+> deployed policy is **+0.24 at 15bp and +0.26 at 5bp**, not +0.19/+0.21 as the
+> retired comparison implied. `c_model` moved 25.4 → 20.1bp because it is solved
+> to match the baseline's turnover and the baseline's turnover changed.
+> The scripts now read the width from the frozen spec
+> (`scripts/cef/spec.py`), and a test fails the build if a `band()` call takes a
+> bare literal again. **The "why not deployed" argument below is unaffected** —
+> it rests on turnover stability and the ADV fork, neither of which this touches.
 
 Implementation `src/analysis/l1_meanvar.py` (FISTA on $d = w-w_{prev}$, joint prox
 for the ℓ1 term *and* the neutrality indicator, then an active-set KKT polish;

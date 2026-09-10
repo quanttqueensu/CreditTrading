@@ -288,16 +288,28 @@ we can measure this year. This does not weaken Part 2 — it converts it. The ba
 was an improvement from 0.33 to 0.71; it is now the difference between a strategy
 that is indistinguishable from nothing and one that is not.
 
-**Three names are 70% of the cost:**
+**Three names are ~67% of the cost**, measured on the **live 4.8% band**
+(re-run 2026-09-10; see the correction note below):
 
 | ticker | avg short wt | fee % | drag %/yr | share of drag |
 |---|---:|---:|---:|---:|
-| **HYT** | 0.0338 | **10.56** | 0.357 | **29.2%** |
-| **NAD** | 0.0327 | **9.98** | 0.327 | **26.7%** |
-| **NVG** | 0.0403 | **4.23** | 0.170 | **13.9%** |
-| NEA | 0.0321 | 3.06 | 0.098 | 8.0% |
-| NZF | 0.0355 | 2.58 | 0.091 | 7.5% |
-| **total** | 0.3962 | | **1.225** | 100% |
+| **HYT** | 0.0322 | **10.56** | 0.340 | **28.2%** |
+| **NAD** | 0.0320 | **10.21** | 0.327 | **27.1%** |
+| **NVG** | 0.0392 | **3.70** | 0.145 | **12.1%** |
+| NEA | 0.0311 | 3.26 | 0.102 | 8.4% |
+| NZF | 0.0373 | 2.40 | 0.090 | 7.4% |
+| JFR | 0.0322 | 1.39 | 0.045 | 3.7% |
+| AWF | 0.0102 | 3.27 | 0.033 | 2.8% |
+
+> **⚠ CORRECTED 2026-09-10.** The previous table apportioned the bill across the
+> average short weights of **`calendar(T, 2)`**, the policy retired on
+> 2026-09-06, because `borrow_impact.py` hardcoded it. Borrow scales with
+> *holdings*, and the band holds a different book, so those were not the weights
+> we pay on. The ranking is stable and the conclusion is unchanged, but two names
+> move materially — **JFR 2.3% → 3.7%** and **AWF 1.7% → 2.8%** — and the
+> headline is **67.4%**, not 70%. Reproduce with
+> `python3 scripts/cef/borrow_impact.py`, which now reads the width from the
+> frozen spec.
 
 NAD and NVG are Nuveen munis — **the same names carrying PC2, the 65.7% risk
 factor of §4.2.** The concentration problem and the borrow bill are the same

@@ -59,7 +59,7 @@ this wrong.
   higher-priced funds revert better *and* cost fewer ticks. At $4.69–$17.07 a
   share, one cent is 2.9–10.7bp against a 32.6bp breakeven. Measured +0.16 net in
   July, recommendation "Adopt", **never deployed**.
-- **Borrow.** HYT 10.56%, NAD 9.98%, NVG 4.23% — three names are 70% of the bill,
+- **Borrow.** HYT 10.56%, NAD 10.21%, NVG 3.70% — three names are ~67% of the bill,
   and NAD's pool supports only ~$45,000 of capital against our 8,129-share short.
 - **Events.** Tenders (NAV-priced on the last day — never be short into one),
   rights offerings (transferable vs not is the field that matters), mergers,

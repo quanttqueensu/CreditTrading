@@ -180,7 +180,10 @@ Inside `joint_cost_optimiser.py`'s loop, holding everything else fixed (signal,
 choices — Ledoit-Wolf (current), **sample (unshrunk; the known-bad control)**,
 structured two-factor, LW shrunk toward structured — reporting free parameters
 and condition number (median and p95 over dates), then, turnover-matched to the
-band at 14.2/yr **and** at the joint's own natural turnover:
+band at **its live rate, read from `scripts/cef/spec.py` rather than written here**
+(17.6/yr for the 4.8% band as of 2026-09-10; the "14.2/yr" this line carried until
+then was the retired 6.4% band's rate, per H14) **and** at the joint's own natural
+turnover:
 
 | Σ | turn/yr | gross | net@5 | net@15 | net@30 | BR_eff | PC2 share | era sd/mean of turnover | 2013–16 net@15 | names traded/session | Jaccard of the traded set |
 

@@ -70,8 +70,10 @@ deployment. **No extension of rope.** Do not soften it and do not grade it early
 
 The **joint cost-aware optimiser** is built, measured, and deliberately not
 deployed: `max_w w'α − (λ/2)w'Σw − c‖w−w_prev‖₁` s.t. `1'w = 0`. Turnover-matched
-at 14.2/yr it earns **net@15bp 0.90 vs the band's 0.70**, and gross holds at 1.33
-where sequential composition collapses to 1.07. Why not deployed: turnover
+at the live band's 17.6/yr it earns **net@15bp 0.91 vs the band's 0.67** (+0.24),
+and **+0.26 at 5bp**. Derived `c_model` = 20.1bp. (Figures re-measured 2026-09-10
+against the live 4.8% band; the widely-quoted "0.90 vs 0.70 at 14.2/yr" was
+against the retired 6.4% width and understated the edge.) Why not deployed: turnover
 stability 36.9% vs 11.9% sd/mean across eras; it *loses* 2013–16 on a thin
 universe; and the ADV treatment is a real fork — letting ineligible names stay as
 decision variables puts 28% of gross in untradeable names and loses.
