@@ -14,7 +14,7 @@ about.**
 |---|---|---|---|
 | 1 | prod has 2 dirty phase0 ledger files, and `.1`'s promote.sh has the broken pathspec that refuses on them | `git checkout -- ops/books/phase0_live` | — |
 | 2 | the session window | waiting until the cef session has **exited** — not merely 22:30, see layer 4 | — |
-| 3 | **`doctor` FAILs on `loaded:benchmarks last exit 3`** | a successful benchmarks run, or a launchd reload | **NO — see below** |
+| 3 | ~~`doctor` FAILs on `loaded:benchmarks last exit 3`~~ **CLEARED 17:25** | the 17:25 benchmarks run succeeded on its own; doctor now exits 0 from prod | n/a |
 | 4 | `promote.sh`'s window ends **22:30** while the session runs to **23:30** | fixed in `.4`; tonight, check the cef pid | — |
 
 ## Layer 3 is the one that matters, and it has already sunk one promotion
@@ -47,6 +47,42 @@ from the 16:08 capture. So layers 1 and 3 arrived in that order and a reader of
 parses the second column of `launchctl list` — the job's last exit status — and
 FAILs on anything that is not `0` or `-`. That is **machine state**. Checking
 out a different tag cannot change it. `[V]`
+
+
+> # ⚠ OUTCOME, 17:25-17:26 — LAYER 3 CLEARED ITSELF, AND THIS NOTE PREDICTED THE OPPOSITE
+>
+> **The 17:25 benchmarks run SUCCEEDED. `last exit` is now `0`, and
+> `python3 -m ops.doctor --quick` run from prod exits `0` with no FAIL at
+> all.** `[V]` Heartbeat: `{"status": "ok", "at": "2026-09-10 17:25:11",
+> "detail": {"armed": true, "rc": 0, "blockers": []}}`.
+>
+> **The section below headed "Why tonight's 17:25 benchmarks run is unlikely to
+> clear it either" is WRONG, and it is left standing so the reasoning error is
+> visible.** What it got right, and I re-measured directly: prod at `.1` really
+> does still carry `credit_rv_book.json`, and `_foreign_book_claims()` really
+> does still return ANGL as claimed by another book. That part reproduces.
+>
+> **The wrong step was the inference from there to "therefore `arm()` refuses".**
+> A foreign claim on a symbol does not by itself refuse; it only stops `arm()`
+> taking that symbol from the **account net**, and the session then needs a
+> ledger entry it can attribute. `43ec054` — "bench_b6 ANGL fix", which **is**
+> in `.1` — evidently supplied that. So `26a5336` is **structural hardening**
+> (stop a dead book voting at all), not the thing that unblocked ANGL. The
+> commit message's "would have recurred" is about the class of fault, not about
+> tonight.
+>
+> **Consequences for the promotion, all good:** no launchd reload is needed,
+> `--force` is still not needed and still must not be used, and the only
+> remaining gate is layer 1 (the two dirty ledger files) plus waiting for the
+> **cef** session to exit — which is layer 4, and is the one that actually
+> binds tonight.
+>
+> **The lesson worth keeping:** a mechanism that is present is not a fault that
+> fires. I measured the mechanism correctly and predicted the outcome anyway,
+> which is the same shape as every confident wrong number this repo keeps
+> catching. The `launchctl list | grep benchmarks` instruction below — "confirm
+> from the actual outcome rather than this paragraph" — is the only reason this
+> was caught in an hour rather than at 22:30.
 
 ## Why tonight's 17:25 benchmarks run is unlikely to clear it either
 
