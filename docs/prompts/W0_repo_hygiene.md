@@ -1,5 +1,19 @@
 # W0 — Repo hygiene: fix what is broken, archive what is finished, date what is stale
 
+> ## ✅ EXECUTED 2026-09-10 — this prompt is history. Do not run it again.
+>
+> Landed across `0c81d3f` (hygiene note), the `W0-A` … `W0-G` commits, and
+> `80b458e` (archive the orphaned sleeves, complete the hygiene note). Verify:
+>
+> ```bash
+> git log --oneline --grep='^W0' 
+> ```
+>
+> **Read it for WHY, not for WHAT TO DO.** Its findings are absorbed into
+> `CLAUDE.md` and the correction banners on the documents it audited. Where this
+> prompt and `CLAUDE.md` disagree, `CLAUDE.md` is newer — and where either
+> states a number, re-measure it. Its successor is `W0c_repo_coherence.md`.
+
 **Reads first:** `00_BRIEF.md` §6 (house rules), and rule **H14** — no decision
 rule may key on a number written in a document. This prompt is partly about
 enforcing that rule on the repo itself.

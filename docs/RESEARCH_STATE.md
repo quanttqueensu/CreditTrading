@@ -1,6 +1,37 @@
 # RESEARCH STATE
 Last updated: 2026-07-31 (overnight run 2)  |  Global trial count: 156 + per-source counters below  |  Nights run: 2
 
+> **⚠ CORRECTED 2026-09-10 — THE HEADER DATE ABOVE IS WRONG, AND IT IS THE
+> FIRST THING YOU READ.** This file says "Last updated: 2026-07-31" while
+> carrying amendments dated 2026-09-09 and 2026-09-10 (the CEF counter
+> correction below, the live-configuration correction in the DEPLOYED section,
+> and the 2026-09-09 borrow amendment). A reader who trusts the header dates
+> every number here to July and discards the September work; a reader who
+> trusts the September amendments assumes the July prose was refreshed with
+> them. Both are wrong. **This file has two ages and no single "as of".**
+>
+> **What is canonical here, and what is not:**
+>
+> * **The counter table immediately below IS canonical.** Update it in the same
+>   commit as any trial. As of 2026-09-10 it reads **CEF 48, GAMMA 0**; do not
+>   quote those from here without re-reading the table, which is the only place
+>   they are maintained.
+> * **The prose is NOT canonical.** In particular the `DEPLOYED` section below
+>   is a **broker snapshot taken 2026-07-31 16:45 ET** and is labelled as such.
+>   It is not "today's position" and has not been true since. Re-measure with
+>   `python3 .claude/hooks/book_state.py -p`, or
+>   `python3 -m ops.reconcile_orders --book ops/books/cef_discount_book.json
+>   --books-root ops/books/cef_live --check-broker`.
+>
+> **Live state is measured, never read from this file** (`CLAUDE.md`, rule H14:
+> no decision rule may key on a number written in a document). Two commands
+> that answer "what is actually true right now":
+>
+> ```bash
+> python3 .claude/hooks/book_state.py -p     # live book state as JSON
+> python3 -m pytest                          # the suite; never quote a count
+> ```
+
 Trial budgeting (per user decision 2026-07-31): the deflated-Sharpe bar applies
 WITHIN a data source. Each genuinely new source gets its own counter; the legacy
 counter (156) covers all ETF-price/PD work done to date.

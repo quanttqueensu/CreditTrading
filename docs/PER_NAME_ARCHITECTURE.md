@@ -2,6 +2,45 @@
 
 **2026-09-07.** Reproduce: `scripts/cef/per_name_resolution.py`.
 
+> **⚠ CORRECTED 2026-09-10 — THIS DOCUMENT'S CENTRAL TABLE IS ILLUSTRATIVE, NOT
+> DEPLOYABLE, AND THE WARNING THAT SAYS SO IS 120 LINES BELOW THIS ONE.**
+>
+> The derived-band table in §4 ("at what resolution should bands differ") carries
+> a six-point amendment immediately beneath it. Everything in that amendment
+> stands — this banner exists because a reader who takes the table and stops
+> reading never reaches it. **Read the amendment under the table before using
+> any number in it.** The three findings that change what you may do:
+>
+> 1. **No code in this repo computes that table.** `per_name_resolution.py`
+>    does not compute `σ_w,i` at all, which is the formula's numerator. Grep
+>    for the cube-root law and you get prose only. So the table cannot be
+>    reproduced by running anything here, which is the repo's usual test of
+>    whether a number is real.
+> 2. **Three of the seven bands rest on too few observations to identify:**
+>    MHD ≈130, MQY ≈365, PDO ≈1,286 non-zero target-weight observations against
+>    `docs/REFERENCES.md`'s own bound of T ≥ ~1,854. MHD is handed the
+>    *narrowest* band in the table off roughly 130 observations. **Do not
+>    deploy MHD, MQY or PDO bands.**
+> 3. **PHK's row is a real error, and it is the row the section's argument rests
+>    on.** Its 24.6 is the *pooled discount* half-life; PHK's own target-weight
+>    half-life is ≈37.0. The other six rows are correctly target-weight and do
+>    reproduce — the column is simply unlabelled. This is narrower than
+>    "the table mixes κ_w and κ_d": one row is wrong, not the column.
+>
+> **The live book applies one band to all seventeen names.** Its width is read
+> from the frozen spec, never from this document:
+>
+> ```bash
+> python3 -c "from scripts.cef.spec import BAND_WIDTH; print(BAND_WIDTH)"
+> ```
+>
+> **Editorial defect, unresolved:** the amendment below announces "Four things a
+> reader must know" and then lists six, numbering them 1, 2, 3, 4, 5, 4 — two
+> items share the number 4. Nothing is missing; the count and the numbering are
+> both wrong. Left as found rather than silently renumbered, because the
+> duplicate 4 is how you can tell two separate amendment passes were merged
+> without reconciliation.
+
 The goal is to treat each fund as its own instrument. This document establishes
 **at what resolution that is estimable**, which is a different question from
 whether the funds differ. They obviously differ. The question is whether we can

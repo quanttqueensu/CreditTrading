@@ -346,3 +346,21 @@ to funds that did **not** convert); the NYSE imbalance (published once, not
 refreshing); the rights-offering price (95% formula, 90% NAV floor); the recall
 notice period (contractual, not Reg SHO); and the Aragon −74% figure (withdrawn
 as unverifiable).
+
+### A fetch artifact that was never a source (moved 2026-09-10, W0c §4)
+
+`wu_paper_archive.html` sat at the **repo root**, beside `README.md` and
+`CLAUDE.md`, named as though it were an archived copy of a Wu paper. **It is
+not.** Opened and read 2026-09-10: it is a 4.6 KB Internet Archive error page
+whose entire content is *"The Wayback Machine has not archived that URL"* for
+`http://faculty.baruch.cuny.edu/lwu/` (Liuren Wu's faculty page). It contains no
+paper, no abstract and no figure, and **nothing in the repo ever cited it**.
+
+It is now `results/ops/wu_faculty_page_wayback_MISS_2026-09-09.html` — renamed,
+not deleted, because the failed fetch is itself a small piece of evidence: it
+records that the archive route to that page was tried on 2026-09-09 and returned
+nothing. **A file whose name asserts a provenance it does not have is worse than
+no file**, which is the only reason this note exists rather than a silent move.
+
+The Carr & Wu (2009) and Wang, Zhou & Zhou (2011) entries above are unaffected —
+both were read in full from their own primary sources and are marked `[V]`.

@@ -1,5 +1,25 @@
 # W0b — Deploy the prod/dev split (designed, written, never deployed)
 
+> ## ✅ EXECUTED 2026-09-10 — the split is deployed. Do not run it again.
+>
+> Marked executed in `c6fc9b1`. **Verify against the machine, not this file:**
+>
+> ```bash
+> git worktree list                        # 2 trees: dev, and prod detached
+> git -C ~/prod/QUANTT describe --tags     # the tag prod actually runs
+> ```
+>
+> `~/prod/QUANTT` is now a git worktree detached at a tag; the scheduler, the
+> dashboard and every live ledger run there. Editing the dev tree reaches no
+> session until someone tags it and runs `ops/promote.sh <tag>`.
+>
+> **The human-at-the-keyboard warning below still applies to any RE-run or
+> rollback.** Two things this prompt describes as future are still open: prod
+> does not yet own its own `data/` (it is a symlink back into the dev tree, so a
+> research script can still corrupt what the sleeve prices from — the reversal
+> is `ops/sync_dev_data.sh`), and the live ledgers are still tracked in git
+> (`git ls-files ops/books/cef_live` is non-empty).
+
 **Reads first:** `CLAUDE.md` §4 (safety), `00_BRIEF.md` §6.
 **Lever:** the single largest operational risk in the repo. **Trials:** 0.
 **Touches the live book:** **yes, profoundly** — it changes which tree the
