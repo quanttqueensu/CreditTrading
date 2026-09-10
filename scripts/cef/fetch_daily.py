@@ -39,6 +39,9 @@ import yfinance as yf
 
 warnings.filterwarnings("ignore")
 REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:            # run as a script, not -m
+    sys.path.insert(0, str(REPO))
+from ops.common import atomic_write      # noqa: E402
 OUT = REPO / "data" / "cef"
 PX_PATH = OUT / "cef_prices.parquet"
 NAV_PATH = OUT / "cef_nav.parquet"
@@ -149,8 +152,10 @@ def refresh(period: str = "6mo", require_asof=None, nav_fallback=None,
                       f"{'no NAV' if t not in have_nav else ''}"
                       for t in names if t not in have_px or t not in have_nav]
 
-    P.to_parquet(PX_PATH, index=False)
-    N.to_parquet(NAV_PATH, index=False)
+    # Atomic: these two ARE what the sleeve prices from, and the session
+    # holding them open overlaps this write. See ops.common.atomic_write.
+    atomic_write(P, PX_PATH)
+    atomic_write(N, NAV_PATH)
 
     print(f"  prices {len(P):,} rows -> {P.date.max().date()}")
     print(f"  NAV    {len(N):,} rows -> {N.date.max().date()}")

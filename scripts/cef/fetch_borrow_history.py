@@ -37,6 +37,9 @@ from pathlib import Path
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:            # run as a script, not -m
+    sys.path.insert(0, str(REPO))
+from ops.common import atomic_write      # noqa: E402
 OUT = REPO / "data/cef/cef_borrow_history.parquet"
 UNIVERSE_CSV = REPO / "data/cef/cef_universe.csv"
 SPEC = REPO / "ops/specs/cef_discount.frozen.json"
@@ -103,7 +106,7 @@ def main(argv=None) -> int:
         new = (pd.concat([old, new], ignore_index=True)
                  .drop_duplicates(subset=["date", "ticker"], keep="last"))
     new = new.sort_values(["ticker", "date"]).reset_index(drop=True)
-    new.to_parquet(OUT, index=False)
+    atomic_write(new, OUT)
     print(f"wrote {OUT.relative_to(REPO)}: {len(new):,} rows, {new.ticker.nunique()} names, "
           f"{new.date.min().date()} -> {new.date.max().date()}")
     if failed:

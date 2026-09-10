@@ -26,6 +26,10 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from ops.common import atomic_write   # noqa: E402
+
 warnings.filterwarnings("ignore")
 
 ROOT = str(Path(__file__).resolve().parents[1])  # repo root, not hardcoded
@@ -107,10 +111,10 @@ splits = acts[acts["stock_split"] > 0][["ticker", "ex_date", "stock_split"]].cop
 splits = splits.sort_values(["ticker", "ex_date"]).reset_index(drop=True)
 
 out_dist = os.path.join(CEF, "cef_distributions.parquet")
-dist.to_parquet(out_dist, index=False)
+atomic_write(dist, out_dist)
 print(f"\nwrote {out_dist}  {dist.shape}")
 if len(splits):
-    splits.to_parquet(os.path.join(CEF, "cef_splits.parquet"), index=False)
+    atomic_write(splits, os.path.join(CEF, "cef_splits.parquet"))
     print(f"wrote cef_splits.parquet  {splits.shape}")
 
 # ---------------------------------------------------------------- 2. features
@@ -177,7 +181,7 @@ cols = [
 ]
 f = f[cols].sort_values(["ticker", "ex_date"]).reset_index(drop=True)
 out_feat = os.path.join(CEF, "cef_dist_features.parquet")
-f.to_parquet(out_feat, index=False)
+atomic_write(f, out_feat)
 print(f"wrote {out_feat}  {f.shape}")
 
 # ---------------------------------------------------------------- 3. facts
@@ -243,7 +247,7 @@ facts = pd.DataFrame(fact_rows)
 facts.insert(0, "fetched_at", pd.Timestamp.utcnow().tz_localize(None).isoformat(timespec="seconds"))
 
 out_facts = os.path.join(CEF, "cef_facts.csv")
-facts.to_csv(out_facts, index=False)
+atomic_write(facts, out_facts)
 print(f"wrote {out_facts}  {facts.shape}  (fetched_at stamped; this is a SNAPSHOT,")
 print("  not a panel -- do not join it to history without reading its header note)")
 

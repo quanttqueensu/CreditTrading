@@ -54,6 +54,9 @@ from pathlib import Path
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:            # run as a script, not -m
+    sys.path.insert(0, str(REPO))
+from ops.common import atomic_write      # noqa: E402
 SPEC = REPO / "ops" / "specs" / "cef_discount.frozen.json"
 OUT = REPO / "data" / "cef" / "cef_borrow.csv"
 POSITIONS = REPO / "ops/books/cef_live/_ibkr_shadow/cef_discount/positions.csv"
@@ -206,7 +209,7 @@ def append(df: pd.DataFrame, asof: str) -> None:
         prev = pd.read_csv(OUT)
         prev = prev[prev.date != asof]          # idempotent re-run
         df = pd.concat([prev, df], ignore_index=True)
-    df.sort_values(["date", "ticker"]).to_csv(OUT, index=False)
+    atomic_write(df.sort_values(["date", "ticker"]), OUT)
 
 
 def main() -> int:

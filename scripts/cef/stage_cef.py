@@ -28,6 +28,9 @@ import yfinance as yf
 
 warnings.filterwarnings("ignore")
 REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:            # run as a script, not -m
+    sys.path.insert(0, str(REPO))
+from ops.common import atomic_write      # noqa: E402
 OUT = REPO / "data" / "cef"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -89,10 +92,10 @@ def main() -> int:
         print("nothing staged"); return 1
     P = pd.concat(rows, ignore_index=True)
     N = pd.concat(navs, ignore_index=True)
-    P.to_parquet(OUT / "cef_prices.parquet", index=False)
-    N.to_parquet(OUT / "cef_nav.parquet", index=False)
+    atomic_write(P, OUT / "cef_prices.parquet")
+    atomic_write(N, OUT / "cef_nav.parquet")
     M = pd.DataFrame(meta).sort_values("adv_musd", ascending=False)
-    M.to_csv(OUT / "cef_universe.csv", index=False)
+    atomic_write(M, OUT / "cef_universe.csv")
     print(f"\n  staged {len(M)} credit CEFs, {len(P):,} price rows, {len(N):,} NAV rows")
     print(f"  tradable at $640k (ADV > $3M): {(M.adv_musd > 3).sum()}")
     print(f"  wrote {OUT}/cef_prices.parquet, cef_nav.parquet, cef_universe.csv")

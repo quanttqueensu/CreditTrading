@@ -320,3 +320,50 @@ def banner(title):
 
 def money(x):
     return f"-${abs(x):,.2f}" if x < 0 else f"${x:,.2f}"
+
+
+# ---------------------------------------------------------------------------
+# Atomic panel writes
+# ---------------------------------------------------------------------------
+
+def atomic_write(frame, path, *, index=False, csv=None):
+    """Write a panel to a temp file beside it, fsync, then rename.
+
+    WHY THIS EXISTS (2026-09-10). Every fetcher that feeds the live book wrote
+    with a bare `to_parquet`/`to_csv`, which TRUNCATES the target and then
+    streams into it. A reader during that window gets a short or unparseable
+    file. That matters here more than in most repos, for three reasons:
+
+      * `data/` in prod is a SYMLINK back into the dev tree, so a research
+        script writing a panel writes what the live sleeve prices from.
+      * The panels are on the live path, not beside it. `cef_prices.parquet`
+        and `cef_nav.parquet` are what the sleeve marks and sizes against, and
+        `cef_distributions.parquet` supplies the cash distribution on every
+        ex-date -- `run_book.py` notes that dropping it "would understate the
+        book's return by roughly its entire expected alpha".
+      * The overlap window is not small. The CEF session runs in the evening
+        and polls for NAV until 23:30 (`ops/schedule/cef.env`), so it is
+        holding those files open for roughly seven hours of every trading day.
+
+    ATOMICITY IS NECESSARY AND NOT SUFFICIENT. A rename still changes what the
+    sleeve prices from between two reads. Do not refresh a live-path panel
+    while a session is running -- `launchctl list | grep com.quantt.cef.daily`
+    and check the first column for a pid. This removes the corruption failure
+    mode, not the inconsistency one.
+
+    Mirrors the discipline `ops.ledger.Ledger.save` already applies to the
+    ledger CSVs, and for the same reason: a crash mid-write must leave the
+    previous good file, not half of a new one.
+    """
+    import os
+    path = str(path)
+    if csv is None:
+        csv = path.endswith(".csv")
+    tmp = f"{path}.tmp"
+    if csv:
+        frame.to_csv(tmp, index=index)
+    else:
+        frame.to_parquet(tmp, index=index)
+    with open(tmp, "rb") as fh:
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
