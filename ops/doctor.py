@@ -446,6 +446,11 @@ PANELS = [
      "ETF proxies in W10/W13 and gamma/G3's variance work"),
     ("data/cef/cef_borrow.csv", 10,
      "borrow cost and availability; drives short-side sizing"),
+    # Fund attributes change slowly, so the limit is a quarter rather than a
+    # fortnight -- but "slowly" is not "never", and an undated snapshot silently
+    # applying today's attributes to 2005 is the look-ahead this flags.
+    ("data/cef/cef_facts.csv", 63,
+     "per-fund attributes; a SNAPSHOT, never join it to history un-dated"),
 ]
 
 # Undated snapshots that LOOK like fact tables. Joining one to a historical
@@ -483,7 +488,13 @@ def _panel_last_date(path):
             df = pd.read_csv(path)
         else:
             df = pd.read_parquet(path)
-        cols = [c for c in df.columns if "date" in str(c).lower()]
+        # `fetched_at` counts: a snapshot's stamp is its date. Without this a
+        # file stamped by the fetcher would still read as undated.
+        cols = [c for c in df.columns
+                if "date" in str(c).lower() or "fetched" in str(c).lower()]
+        # A stamp beats a content date -- it says when we LEARNED the row, which
+        # is what staleness means for a snapshot.
+        cols.sort(key=lambda c: 0 if "fetched" in str(c).lower() else 1)
         for col in cols:
             parsed = pd.to_datetime(df[col], errors="coerce").dropna()
             if parsed.empty:

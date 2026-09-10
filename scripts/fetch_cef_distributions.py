@@ -4,6 +4,16 @@ Outputs:
   data/cef/cef_distributions.parquet   raw ex-date/amount panel (+ splits)
   data/cef/cef_dist_features.parquet   per-ticker/per-ex-date event features
   data/cef/cef_facts.csv               static/structural facts from .info
+                                       *** A DATED SNAPSHOT, NOT A PANEL. ***
+                                       Carries fetched_at. Every row holds the
+                                       fund's attributes AS OF THAT INSTANT and
+                                       there is no history behind them, so
+                                       joining it to the 27-year panel applies
+                                       today's facts to 2005 -- look-ahead with
+                                       no error message. 13 of 46 columns were
+                                       100% null and 5 constant across all 44
+                                       rows at the 2026-07-31 fetch. Superseded
+                                       by docs/prompts/perfund/F1.
   data/cef/_raw_info.json              raw .info dicts (audit trail)
 """
 import json
@@ -219,9 +229,23 @@ for i, tk in enumerate(TICKERS, 1):
     time.sleep(0.3)
 
 facts = pd.DataFrame(fact_rows)
+
+# STAMP THE SNAPSHOT. Without this column cef_facts.csv looks like a fact table
+# and is not one: it is a single yfinance .info snapshot taken on one afternoon,
+# with no history. Joining it to the 27-year price/NAV panel applies TODAY's
+# fund attributes to every historical date -- a look-ahead error that produces
+# no error message. Measured 2026-09-10 on the 2026-07-31 snapshot: 13 of its
+# 46 columns are 100% null (netAssets, netExpenseRatio, fundFamily,
+# fundInceptionDate among them) and quoteType/typeDisp/sector/industry are
+# constant across all 44 rows, so most of what looks like per-fund data is not.
+# ops/doctor.py warns until this column exists. See docs/prompts/perfund/F1,
+# which supersedes this file with a dated characteristics panel.
+facts.insert(0, "fetched_at", pd.Timestamp.utcnow().tz_localize(None).isoformat(timespec="seconds"))
+
 out_facts = os.path.join(CEF, "cef_facts.csv")
 facts.to_csv(out_facts, index=False)
-print(f"wrote {out_facts}  {facts.shape}")
+print(f"wrote {out_facts}  {facts.shape}  (fetched_at stamped; this is a SNAPSHOT,")
+print("  not a panel -- do not join it to history without reading its header note)")
 
 with open(os.path.join(CEF, "_raw_info.json"), "w") as fh:
     json.dump({k: {kk: (str(vv) if not isinstance(vv, (int, float, str, bool, type(None))) else vv)
