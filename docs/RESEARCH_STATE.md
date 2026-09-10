@@ -428,19 +428,43 @@ is sqrt(2*ln 10) = 2.15; alpha t of 3.11 clears it, but further spec-hunting
 would be fitting rather than research. The remaining work is validation and live
 evidence, not more variants.
 
+> **⚠ CORRECTED 2026-09-10 — THE COUNTER IS 48, NOT 10, AND IT IS 379 LINES
+> ABOVE THIS PARAGRAPH IN THIS SAME FILE.** The search did not stop at 10. The
+> canonical counter table at the top of this file reads **CEF 48**, so the bar
+> is **sqrt(2 ln 48) = 2.783**, not 2.15. Re-measured
+> `python3 scripts/cef/validate.py --trials 48` on 2026-09-10 evening, panel to
+> 2026-09-09: **DSR 0.870 — FAIL.** The same series reads 0.963 PASS at N=10,
+> which is why the trial count is not a footnote to this claim, it *is* the
+> claim.
+
 ---
 
 ## DEPLOYED 2026-07-31 — credit CEF discount reversion
 
 **Full validation battery, all passed:**
 
-| test | result | verdict |
+> **⚠ THIS TABLE IS THE 2026-07-31 RUN AND FOUR OF ITS FIVE ROWS NO LONGER
+> REPRODUCE.** Re-measured 2026-09-10 evening,
+> `python3 scripts/cef/validate.py --trials 48`, panel to 2026-09-09
+> (raw universe 44 CEFs, 1998-10-29 -> 2026-09-09). The right-hand column is
+> what runs today; the middle column is kept because someone is relying on the
+> old number somewhere.
+
+| test | result AS RUN 2026-07-31 | **re-measured 2026-09-10** |
 |---|---|---|
-| Point-in-time universe (no survival/liquidity hindsight) | gross 1.26, **net 0.82**, vol 6.00%, CAGR 4.85%, maxDD -12.0% | PASS — *better* than the biased version |
-| Purged walk-forward, 10 blocks, 5d embargo | **9/9 positive**, median 1.12, worst 0.01 | PASS |
-| Block bootstrap, 5,000 draws, 21d blocks | 5th/95th 0.52/1.11, **P(SR<=0) = 0.000%** | PASS |
-| Deflated Sharpe (haircut for 10 specs) | **0.956** | PASS |
-| Test 7 carry/beta | alpha t 3.11, R2 0.005, **5/5 factor limits** | PASS |
+| Point-in-time universe (no survival/liquidity hindsight) | gross 1.26, **net 0.82**, vol 6.00%, CAGR 4.85%, maxDD -12.0% | gross **1.27**, net **0.83**, vol 6.01%, CAGR 4.94%, maxDD -12.0% — PASS |
+| Purged walk-forward, 10 blocks, 5d embargo | **9/9 positive**, median 1.12, worst 0.01 | **8/9 positive**, median **1.05**, worst **-0.15** (2018-01-05..2020-03-06) — the 9/9 does **not** reproduce |
+| Block bootstrap, 5,000 draws, 21d blocks | 5th/95th 0.52/1.11, **P(SR<=0) = 0.000%** | 5th/95th **0.52/1.11**, **P(SR<=0) = 0.000%** — reproduces exactly |
+| Deflated Sharpe | **0.956** at N=10 — PASS | **0.870 at N=48 — FAIL.** Bar sqrt(2 ln 48) = **2.783**. (validate.py prints **0.963** at N=10, not 0.956; the 0.956 in this row reproduces from nothing currently runnable) |
+| Test 7 carry/beta | alpha t 3.11, R2 0.005, **5/5 factor limits** | not re-run 2026-09-10 — `[S]` |
+
+**What the re-measurement does and does not say.** The bootstrap is unchanged
+and the point-in-time result is marginally *better*. What moved is the
+walk-forward (8/9, not 9/9 — one negative block, 2018-2020) and the
+multiple-testing haircut, which fails only because the counter is 48 rather
+than the 10 this section assumed. DSR is a deliberately harsh correction; the
+honest summary is "survives every test but the multiplicity correction, at
+N=48", and the 49th trial makes the bar harder still.
 
 The survivorship correction is worth noting: rebuilding the universe so that each
 date sees only funds already trading and already liquid IMPROVED the result
