@@ -47,7 +47,15 @@ ERRLOG="$(mktemp)"
 INCLUDE=(ops/books ops/heartbeat.json)
 MISSING=()
 UNREADABLE=()
-for rel in ops/HALT.md data/cef/nav_fallback_log.csv data/cef/cef_borrow.csv; do
+# EVERY halt file, not just the global one. The header has always promised "the
+# halt file"; `tar -tzf <archive> | grep HALT` returned nothing on 2026-09-10,
+# because `ops/HALT.md` usually does not exist while `ops/HALT_<book>.md` does --
+# scoped halts arrived 2026-09-10 and nothing here was told. They are untracked,
+# so no promotion carries them and this archive is their only copy.
+HALTS=()
+while IFS= read -r h; do [ -n "$h" ] && HALTS+=("${h#$PROD/}"); done < <(
+  ls "$PROD"/ops/HALT*.md 2>/dev/null)
+for rel in "${HALTS[@]}" data/cef/nav_fallback_log.csv data/cef/cef_borrow.csv; do
   if [ -r "$PROD/$rel" ]; then
     INCLUDE+=("$rel")
   elif [ -e "$PROD/$rel" ]; then

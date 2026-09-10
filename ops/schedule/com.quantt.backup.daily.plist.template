@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
+  NOTE: a doubled hyphen is ILLEGAL inside an XML comment, and this file had
+  three of them. Apple's own parser is lenient, so launchd loaded the plist and
+  `plutil -p` printed it happily, while every strict reader rejected it and
+  `ops/doctor.py` reported the plist as unreadable. Rules here are `===` and
+  dashes are em dashes. Do not reinstate ASCII rules in this block.
+
   Nightly archive of PROD STATE. Rendered by ops/schedule/install_backup.sh.
 
   WHY THIS JOB DOES NOT GO THROUGH launch_job.py
-  ----------------------------------------------
+  ==============================================
   Every trading job (cef, phase0, benchmarks, collect, watchdog, weekly) is
   dispatched by ~/Library/Application Support/quantt/launch_job.py, which owns
   the dev/prod boundary in its REPO constant. This job deliberately does not.
   Two reasons:
 
-    1. launch_job.py sets up a SESSION -- env file, calendar gate, heartbeat,
+    1. launch_job.py sets up a SESSION — env file, calendar gate, heartbeat,
        halt check. A tar of a state directory needs none of that, and every
        line of session machinery it borrowed would be a line that could fail
        and take the backup with it.
@@ -28,7 +34,7 @@
   (2026-09-08, which spent ~10 min capturing 1,529 executions). Worst realistic
   finish is therefore ~23:40, so 23:55 clears it with margin and still lands the
   archive on the trading date. A session that somehow overran would give one
-  torn archive out of the 90 retained -- acceptable; missing the day's fills
+  torn archive out of the 90 retained — acceptable; missing the day's fills
   entirely would not be.
   Runs all seven days, not just weekdays: state can change on a weekend by hand,
   and an archive of an unchanged tree costs 164 KB.
