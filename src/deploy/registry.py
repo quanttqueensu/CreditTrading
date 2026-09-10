@@ -39,6 +39,38 @@ CREDIT_RV_ALLOC_TYPE = "credit_rv_statarb"
 NULL_TRADER_ALLOC_TYPE = "null_trader"
 CEF_DISCOUNT_ALLOC_TYPE = "cef_discount"
 
+# DECLARED BUT NOT IMPLEMENTED (audited 2026-09-10).
+#
+# Each of these validates happily and then raises at run time, because no Sleeve
+# subclass registers under it. That is the worst ordering: a book spec passes
+# every check the governance path applies, and fails in the session instead.
+#
+# W0 Part C's rule decides what to do with each: *unused scaffolding with a
+# dated owner is not dead code; unused scaffolding with no owner is.* So each
+# entry below either names the prompt that will build it, or is a fossil.
+#
+# They are kept rather than deleted because deleting an alloc type is not free:
+# `register()` raises on an unknown type, so a half-built sleeve on a branch
+# stops importing. Instead `validate_spec` now refuses them EARLY, with a message
+# saying which case applies -- the gap becomes visible at spec-validation time
+# instead of mid-session.
+UNIMPLEMENTED_ALLOC_TYPES = {
+    # Owned: gamma/G5 needs a short-vol sleeve and gamma/G4 pins its ledger.
+    "short_vol_straddle":
+        "planned -- docs/prompts/gamma/G5 builds the sleeve, G4 its ledger",
+    # Owned: W0 Part B names it; no builder prompt yet.
+    "duration_hedged_overlay":
+        "declared, no builder prompt -- named only in docs/prompts/W0 Part B",
+    # Fossils: no active prompt names any of these, and the package the four
+    # FF trackers lived in (src/deploy/v2/ff_sleeves/) no longer exists.
+    "eom_duration": "FOSSIL -- no owner, no module, no active prompt",
+    "fomc_event": "FOSSIL -- no owner, no module, no active prompt",
+    "ff_t1_seasonal_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
+    "ff_t2_firesale_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
+    "ff_t3_downgrade_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
+    "ff_t4_m3_moc_strict_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
+}
+
 ALLOWED_ALLOC_TYPES = {"static_weights", "eom_duration", "fomc_event",
                        "short_vol_straddle", "duration_hedged_overlay",
                        CREDIT_RV_ALLOC_TYPE, NULL_TRADER_ALLOC_TYPE,
@@ -106,6 +138,15 @@ def _validate_common(spec):
     t = _require(alloc, "type", "allocation")
     if t not in ALLOWED_ALLOC_TYPES:
         raise ValueError(f"unsupported allocation type {t!r}")
+    # Fail HERE, not mid-session. An alloc type with no registered Sleeve class
+    # used to pass every governance check and then raise when the orchestrator
+    # tried to build it -- a book spec that looks approved and is not runnable.
+    # See UNIMPLEMENTED_ALLOC_TYPES for which case each one is.
+    if t in UNIMPLEMENTED_ALLOC_TYPES:
+        raise ValueError(
+            f"allocation type {t!r} is declared but NOT IMPLEMENTED: "
+            f"{UNIMPLEMENTED_ALLOC_TYPES[t]}. No Sleeve class registers under "
+            "it, so a book naming it would validate and then fail in-session.")
     _validate_capital(spec)
     return t
 
