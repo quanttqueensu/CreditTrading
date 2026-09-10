@@ -215,6 +215,28 @@ marginal CEF holder is a retired retail income investor in a cash account —
 precisely the holder whose shares are not in the pool.** Hence NAD's 3,000
 visible lendable shares against our 8,129 short.
 
+**⚠ That last number is now disputed and must be re-measured before any
+availability work (2026-09-10).** The retired public file and TWS **tick 236**
+were believed to report the same exact-share figure. On the first day both
+could be compared they did not:
+
+| | we short | file (09-08) | tick 236 (09-10) | |
+|---|---:|---:|---:|---|
+| NAD | 6,550 | **3,000** | **83,942** | 28× |
+| NVG | 4,679 | 20,000 | 149,125 | 7× |
+| MHD | 8,856 | 250,000 | 102,491 | 0.4× |
+| NZF | 271 | 150,000 | 275,577 | 2× |
+
+On the file's numbers 18.7% of today's short book is unbuildable; on the API's,
+**0%**. The entire premise of the availability cap turns on which is right, and
+one observation two days apart cannot settle it — the two could be measuring
+different things (indicative pool vs currently-shortable, and whether shares
+already lent to us are netted out). Until W8 Part A resolves it with a week of
+paired observations, treat "11.4% of the short book is unbuildable" as
+**unverified**, and do not size a cap on either number. Tick 236 only answers
+when no other client session is holding market data — it returned NaN under
+error 10197 all morning, which is why the comparison had never been made.
+
 IBKR's public file (`shortstock/usa.txt`) was retired on 2026-09-09 (404; the
 ftp hosts do not answer). The fee now comes from the API's FEE_RATE bars —
 which also carry five years of history (H4); availability comes only from
@@ -331,7 +353,7 @@ The numbers the capture work moves. Each is measurable faster than P&L.
 | Cost robustness | net@5bp 0.99, net@30bp 0.17: never flips | never flips | harness, 5/15/30bp |
 | Turnover stability, era sd/mean | 11.9% (band) vs 36.9% (joint) | ≤ band's | harness by era |
 | Borrow drag | 1.22%/yr on today's fees (**understated: PIMCO names cost 13–30%/yr to borrow 2021–23**); 3.62% on today's book | cut by shorting different names; re-measure on `cef_borrow_history.parquet` first | cef_borrow_history.parquet |
-| Availability | 11.4% of desired short book unbuildable at $500k; NAD short 8,129 vs 3,000 pool | 0% unbuildable | borrow_capacity |
+| Availability | **disputed, 2026-09-10** — 18.7% of today's short book unbuildable on the retired file's pools, **0% on TWS tick 236** (NAD 3,000 vs 83,942). Do not act on either until W8 Part A pairs them | 0% unbuildable | tick 236 + FINRA; the public file is gone |
 | Effective breadth | **1.17** today, 2.24 historical | ≥ 4 | /api/factors |
 | Execution | 2.8bp (1 MOC session), 120.6bp (abandoned method) | below 32.6bp breakeven, SE < 1bp after 60 sessions | shortfall log |
 | Uptime | armed 3 of 26 sessions | every trading day, or an alert | heartbeat |

@@ -80,6 +80,20 @@ These are cheap corrections that change every number downstream.
    retired retail income investor in a cash account: **precisely the holder
    whose shares are not in the pool.** That is the structural reason NAD shows
    3,000 lendable shares against our 8,129 short, and it will not improve.
+
+   **⚠ RESOLVE THIS BEFORE PART B (2026-09-10).** The 3,000 comes from the
+   retired public file. TWS **tick 236**, which the brief says reports the same
+   exact-share figure, said **83,942** for NAD two days later — and on its
+   numbers **0%** of the short book is unbuildable, against 18.7% on the file's.
+   Availability is the entire premise of the cap, so Part B is unsafe until this
+   is settled. The tick only answers when no other client session holds market
+   data (it returned NaN under error 10197 until the dashboard stopped opening a
+   session per widget refresh), which is why the two were never compared. Take
+   paired readings for a week — same minute, both sources where the file still
+   has a mirror, plus FINRA short interest as the third leg — and establish
+   whether they measure the same thing: indicative pool vs currently-shortable,
+   and whether shares already lent to us are netted out. Report the
+   disagreement; do not average them and do not silently pick one.
 4. **Add short interest as a free cross-check.** FINRA publishes short interest
    twice monthly for all exchange-listed securities, CEFs included, about seven
    business days after the settlement date, free. Stage it into
