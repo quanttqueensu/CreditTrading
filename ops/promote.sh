@@ -60,8 +60,24 @@ fi
 # untracking, because git history is currently their only off-machine backup
 # (ops/backup_state.sh is the replacement; untrack them once it runs nightly).
 # Anything else dirty in prod is a human editing production, and still refuses.
-STATE_EXCLUDES=(':!ops/books/*_live' ':!ops/heartbeat.json' ':!ops/HALT.md'
-                ':!ops/HALT_*.md' ':!ops/halts' ':!ops/schedule/logs')
+#
+# THE `/**` IS LOAD-BEARING, MEASURED 2026-09-10. These were written as
+# ':!ops/books/*_live' and ':!ops/halts', and those two exclusions matched
+# NOTHING: a git pathspec `*` does not cross `/`, and no TRACKED path is
+# literally named `…_live` -- the tracked paths are `ops/books/cef_live/…`.
+# So the live ledgers were never excluded, and this gate REFUSED every
+# promotion the moment a session wrote one. Measured that morning: prod was
+# dirty with two phase0 ledger files, `status --porcelain -- . <excludes>`
+# returned 3 lines, and the same call with `/**` returned 1 (the untracked
+# halt file, which ':!ops/HALT_*.md' then excludes). That one is the reason
+# this was hard to see: four of the six exclusions DO work, because they name
+# a real single-segment path. Only the two directory patterns were inert.
+#
+# An exclusion that matches nothing is indistinguishable from one that matched
+# and found nothing clean, which is why ops/tests/test_promote_gate.py now
+# pins the pathspecs against a fixture repo rather than trusting this comment.
+STATE_EXCLUDES=(':!ops/books/*_live/**' ':!ops/heartbeat.json' ':!ops/HALT.md'
+                ':!ops/HALT_*.md' ':!ops/halts/**' ':!ops/schedule/logs/**')
 DIRTY="$(git -C "$PROD" status --porcelain -- . "${STATE_EXCLUDES[@]}")"
 if [ -n "$DIRTY" ]; then
   stamp "REFUSED $TAG: prod has uncommitted CODE changes -- nobody edits prod:"
@@ -71,7 +87,11 @@ fi
 # Live state that moved since the last promotion is expected; record it so the
 # promotion log says what the book had done, and so `checkout` below is never
 # a surprise.
-STATE_MOVED="$(git -C "$PROD" status --porcelain -- 'ops/books/*_live' \
+# Same `/**` trap as STATE_EXCLUDES above, in the INCLUSIVE direction, so it
+# failed the other way round: measured 2026-09-10, this returned 0 where the
+# corrected pathspec returns 2, so the note below had never once fired and the
+# promotion log silently claimed no live state had moved on every promotion.
+STATE_MOVED="$(git -C "$PROD" status --porcelain -- 'ops/books/*_live/**' \
               'ops/heartbeat.json' | wc -l | tr -d ' ')"
 [ "$STATE_MOVED" != "0" ] && stamp "note: $STATE_MOVED live-state file(s) have advanced since the last promotion (expected)"
 PREV="$(git -C "$PROD" describe --tags --always 2>/dev/null)"
@@ -87,9 +107,23 @@ fi
 # contents differ would overwrite the running book's record with a snapshot
 # from whenever dev last committed -- and that record is the only evidence the
 # paper track record rests on. The archive costs ~160KB and a second.
+#
+# EXIT 2 IS NOT A FAILURE HERE. ops/backup_state.sh exits 2 for "archive
+# written, but a file it wanted was unreadable" -- in practice the borrow panel,
+# on the far side of the TCC boundary when `data/` is a symlink into ~/Desktop.
+# Treating that as a refusal would block every promotion over a file that has
+# nothing to do with what the checkout below can destroy: the LEDGERS are in the
+# archive either way, and they are the irreplaceable part. So warn loudly and
+# continue. Only a missing-or-empty archive (exit 1) refuses.
 if [ -x "$PROD/ops/backup_state.sh" ]; then
-  "$PROD/ops/backup_state.sh" >> "$LOG" 2>&1 \
-    || { stamp "REFUSED $TAG: could not archive live state before checkout"; exit 1; }
+  "$PROD/ops/backup_state.sh" >> "$LOG" 2>&1; brc=$?
+  if [ "$brc" = "2" ]; then
+    stamp "WARNING $TAG: state archived but INCOMPLETE (backup_state.sh rc=2) --"
+    stamp "  the ledgers are in it; something under data/ was unreadable. See above."
+  elif [ "$brc" != "0" ]; then
+    stamp "REFUSED $TAG: could not archive live state before checkout (rc=$brc)"
+    exit 1
+  fi
 else
   stamp "REFUSED $TAG: ops/backup_state.sh missing -- refusing to checkout over live state"
   exit 1
@@ -100,6 +134,26 @@ stamp "promoting $PREV -> $TAG"
 # two commits (the normal case for live state) instead of refusing, and stops
 # loudly on a genuine conflict rather than clobbering. Once the ledgers are
 # untracked this is a plain checkout and the flag is inert.
+#
+# ONE-TIME HAZARD, WHEN THE UNTRACKING TAG IS EVENTUALLY PROMOTED. Promoting the
+# tag that performs `git rm --cached` on the ledgers, onto a prod tree that still
+# TRACKS them, DELETES them: git removes files the target commit does not
+# contain, and on a clean tree there is no local modification for `--merge` to
+# protect. Measured 2026-09-10 in a scratch worktree -- checkout returned rc=0,
+# said nothing, and left ops/books/*_live empty. The smoke test does not catch it
+# either: a missing ops/heartbeat.json is only a WARN, so doctor still exits 0
+# and the promotion reports success. Restore from the archive taken immediately
+# above, BEFORE the next session:
+#   tar -xzf <archive> -C $PROD ops/books/cef_live ops/books/benchmarks_live \
+#                               ops/books/phase0_live ops/heartbeat.json
+# Restore ONLY those paths -- `tar -xzf <archive> -C $PROD ops/books` also
+# rewinds the book JSONs and puts retired books back on disk, and
+# `_foreign_book_claims` globs that directory from DISK, so it would silently
+# undo the retirement the promotion was carrying. (That is not hypothetical:
+# retiring credit_rv_book.json is what stops a dead book claiming ANGL.)
+# Every promotion after that one transition is unaffected.
+# As of 2026-09-10 the ledgers are STILL TRACKED -- `git ls-files
+# ops/books/cef_live` returns 30 -- so this hazard is documented, not yet live.
 if ! git -C "$PROD" checkout --detach --merge --quiet "$TAG"; then
   stamp "FAILED $TAG: checkout conflicted with live state. The archive above has "
   stamp "  it; untrack the ledgers (git rm -r --cached ops/books/*_live ops/heartbeat.json)"
