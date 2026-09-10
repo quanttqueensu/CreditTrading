@@ -31,6 +31,7 @@ means it will break later or you will not hear about it when it does.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import plistlib
@@ -394,12 +395,174 @@ def failures(quick=False) -> list[str]:
                      (check_launchd, ()), (check_env_paths, ()),
                      (check_broker, (quick,)), (check_ibc, ()),
                      (check_sleep, ()), (check_heartbeats, ()),
-                     (check_alerts, ())):
+                     (check_alerts, ()), (check_panels, ())):
         try:
             fn(r, *args)
         except Exception as exc:
             r.add(WARN, fn.__name__, f"check raised {exc!r}")
     return [f"{n}: {m}" for lvl, n, m, _ in r.rows if lvl == FAIL]
+
+
+# ---------------------------------------------------------------------------
+# Panel staleness.
+#
+# WHY THIS IS A DOCTOR CHECK AND NOT A PREFLIGHT CHECK
+# ----------------------------------------------------
+# Preflight already gates the two panels the SESSION cannot trade without --
+# price and NAV -- and refuses to arm on a stale pair, because a stale NAV is a
+# blind signal, not a cheap fund. That is the right behaviour for the order
+# path.
+#
+# This is the other half: the panels that RESEARCH depends on, which no session
+# ever blocks on. Those rot quietly. Measured 2026-09-10, with the price panel
+# current to the previous session:
+#
+#     cef_distributions.parquet   48 days behind   feeds the return convention
+#                                                  and the ex-date calendar
+#     etf_ohlc.parquet            43 days behind   feeds every ETF proxy
+#     etf_daily.parquet           52 days behind
+#
+# Nothing announced any of that. A script joining a 48-day-old distribution
+# panel to a current price panel does not fail; it silently applies the wrong
+# correction, or none, and returns a number.
+#
+# "A stale input that fails loudly is an inconvenience; a stale input that
+# fails silently is a wrong number."
+#
+# WARN rather than FAIL on purpose: a stale research panel does not stop the
+# book trading tonight, and doctor's FAIL level means "unattended operation is
+# broken right now". Overloading it would train the operator to ignore it.
+# ---------------------------------------------------------------------------
+
+# (path, max sessions behind the price panel before it is worth saying, why)
+PANELS = [
+    ("data/cef/cef_prices.parquet", 3,
+     "the signal's own price panel"),
+    ("data/cef/cef_nav.parquet", 3,
+     "the signal's own NAV panel"),
+    ("data/cef/cef_distributions.parquet", 21,
+     "total-return convention (W4) and the ex-date calendar (W9)"),
+    ("data/rv/etf_ohlc.parquet", 21,
+     "ETF proxies in W10/W13 and gamma/G3's variance work"),
+    ("data/cef/cef_borrow.csv", 10,
+     "borrow cost and availability; drives short-side sizing"),
+]
+
+# Undated snapshots that LOOK like fact tables. Joining one to a historical
+# panel is a look-ahead error with no error message.
+UNDATED = [
+    ("data/cef/cef_facts.csv", "fetched_at",
+     "a single undated yfinance snapshot: 13 of 46 columns are 100% null and "
+     "sector/industry are constant across all rows. Anything joining it to a "
+     "27-year panel is committing look-ahead"),
+]
+
+
+# A date this project could plausibly hold. Outside this window the column is
+# not dates, whatever it is called.
+_PLAUSIBLE = (dt.date(1985, 1, 1), dt.date.today() + dt.timedelta(days=370))
+
+
+def _panel_last_date(path):
+    """Newest plausible date in a panel, or None.
+
+    Never raises -- a monitor that dies on a malformed input is the failure
+    mode it exists to catch.
+
+    The plausibility window is not decoration. `pd.to_datetime` reads a bare
+    integer as NANOSECONDS SINCE EPOCH, so a column named `date` holding 3
+    returns 1970-01-01, and one holding 20260909 returns 1970 as well. Without
+    this guard the check would confidently report a panel as ~20,000 sessions
+    stale, or -- for the right integer -- as current. That is precisely the
+    class of silent wrong answer this check exists to catch, so it must not
+    commit it itself. Caught by ops/tests/test_doctor_panels.py.
+    """
+    try:
+        import pandas as pd
+        if path.suffix == ".csv":
+            df = pd.read_csv(path)
+        else:
+            df = pd.read_parquet(path)
+        cols = [c for c in df.columns if "date" in str(c).lower()]
+        for col in cols:
+            parsed = pd.to_datetime(df[col], errors="coerce").dropna()
+            if parsed.empty:
+                continue
+            last = parsed.max()
+            if _PLAUSIBLE[0] <= last.date() <= _PLAUSIBLE[1]:
+                return last
+        return None
+    except Exception:
+        return None
+
+
+def check_panels(r):
+    """Are the panels research depends on current enough to trust?"""
+    try:
+        import pandas as pd
+    except ImportError:
+        r.add(WARN, "panels", "pandas unavailable; cannot check staleness")
+        return
+
+    ref_path = REPO_ROOT / "data/cef/cef_prices.parquet"
+    ref = _panel_last_date(ref_path)
+    if ref is None:
+        r.add(WARN, "panels", "cannot read the price panel; staleness unknown")
+        return
+
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "ops/schedule"))
+        import nyse_calendar as cal
+    except Exception:
+        cal = None
+
+    def sessions_between(a, b):
+        """NYSE sessions strictly after a, through b. Calendar days if the
+        calendar module is unavailable -- stated, not silently substituted."""
+        if cal is None:
+            return (b - a).days, "cal-days"
+        n, d = 0, a
+        while d < b and n < 400:
+            d += dt.timedelta(days=1)
+            if cal.is_trading_day(d):
+                n += 1
+        return n, "sessions"
+
+    for rel, limit, why in PANELS:
+        path = REPO_ROOT / rel
+        name = f"panel:{Path(rel).stem}"
+        if not path.exists():
+            r.add(WARN, name, f"missing — {why}")
+            continue
+        last = _panel_last_date(path)
+        if last is None:
+            r.add(WARN, name,
+                  f"no date column; freshness unknowable — {why}",
+                  fix="add a date or fetched_at column to the fetcher's output")
+            continue
+        n, unit = sessions_between(last.date(), ref.date())
+        if n > limit:
+            r.add(WARN, name,
+                  f"{n} {unit} behind the price panel "
+                  f"(ends {last.date()}, prices end {ref.date()}) — {why}",
+                  fix=f"refresh it; any note quoting it must state {last.date()}")
+        else:
+            r.add(PASS, name, f"{n} {unit} behind prices (ends {last.date()})")
+
+    for rel, wanted, why in UNDATED:
+        path = REPO_ROOT / rel
+        name = f"panel:{Path(rel).stem}"
+        if not path.exists():
+            continue
+        try:
+            head = path.read_text(errors="replace").splitlines()[0]
+        except Exception:
+            continue
+        if wanted not in head:
+            r.add(WARN, name, f"has no `{wanted}` column — {why}",
+                  fix=f"add {wanted} in the fetcher, or supersede the file")
+        else:
+            r.add(PASS, name, f"carries `{wanted}`")
 
 
 def main(argv=None):
@@ -421,6 +584,7 @@ def main(argv=None):
     check_sleep(r)
     check_heartbeats(r)
     check_alerts(r)
+    check_panels(r)
     return r.render()
 
 
