@@ -106,7 +106,15 @@ def test_a_readable_order_map_is_parsed(tmp_path):
         "asof,recorded_utc,order_id,perm_id,sleeve,instrument,action,qty\n"
         "2026-09-08 00:00:00,2026-09-08T13:35:18+00:00,3,0,null_trader,HYG,SELL,442.0\n")
 
-    assert capture_fills._load_order_map(tmp_path / "phase0_live") == {"3": "null_trader"}
+    # Three keys per row since 2026-09-10, most specific first. A LEGACY row
+    # like this one carries no perm_id and no client_id, so it contributes only
+    # the two ambiguous keys and no ("perm", ...) key at all -- see
+    # ops/tests/test_capture_fills_cross_book.py for why that ambiguity is left
+    # visible rather than papered over.
+    assert capture_fills._load_order_map(tmp_path / "phase0_live") == {
+        ("cid", "", "3"): "null_trader",
+        ("day", "2026-09-08", "3"): "null_trader",
+    }
 
 
 def test_an_unreadable_order_map_raises_rather_than_returning_a_partial_map(tmp_path):

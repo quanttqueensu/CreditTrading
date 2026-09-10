@@ -133,7 +133,8 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
         sym = f.contract.symbol
         e = f.execution
         if sym in shared:
-            sleeve = order_map.get(str(getattr(e, "orderId", "")))
+            sleeve = order_map_owner(order_map, e,
+                                     client_id=int(client_id or (cfg.client_id + 50)))
             if sleeve not in shared[sym]:
                 unattributed += 1
                 print(f"[capture] UNATTRIBUTED {sym} execId={e.execId} "
@@ -207,9 +208,47 @@ def _load_order_map(books_root) -> dict:
     with open(path) as fh:
         for row in _csv.DictReader(fh):
             oid = str(row.get("order_id", "")).strip()
+            sleeve = row.get("sleeve", "")
+            pid = str(row.get("perm_id", "") or "").strip()
+            cid = str(row.get("client_id", "") or "").strip()
+            # THREE KEYS PER ROW, MOST SPECIFIC FIRST (2026-09-10).
+            #   ("perm", permId)          globally unique at IBKR, stable across
+            #                             client ids -- the only key that can
+            #                             attribute an execution account-wide.
+            #   ("cid", clientId, orderId) unique BY CONSTRUCTION: IBKR order ids
+            #                             are per-client-id sequences.
+            #   ("day", asof, orderId)    the legacy key. Known to collide across
+            #                             books -- 8 times in the 100 rows written
+            #                             before the adapter recorded the two
+            #                             fields above. Kept only because those
+            #                             rows carry nothing better, and consulted
+            #                             last.
+            # Rows written before 2026-09-10 have neither perm_id nor client_id,
+            # so they contribute only the legacy key and remain exactly as
+            # ambiguous as they always were. Nothing here invents a key for them.
+            if pid and pid != "0":
+                out[("perm", pid)] = sleeve
             if oid:
-                out[oid] = row.get("sleeve", "")
+                out[("cid", cid, oid)] = sleeve
+                out[("day", str(row.get("asof", ""))[:10], oid)] = sleeve
     return out
+
+
+def order_map_owner(order_map, execution, client_id=""):
+    """Which sleeve placed `execution`, or None. Most specific key wins.
+
+    Split out so the adapter and this module cannot drift apart about what the
+    map means -- they resolve the same fill from the same file, and a
+    disagreement between them would move a real position between two live books.
+    """
+    for key in (("perm", str(getattr(execution, "permId", "") or "")),
+                ("cid", str(client_id), str(getattr(execution, "orderId", ""))),
+                ("day", str(getattr(execution, "time", ""))[:10],
+                 str(getattr(execution, "orderId", "")))):
+        owner = order_map.get(key)
+        if owner is not None:
+            return owner
+    return None
 
 
 def _recorded_exec_ids(books_root, universes) -> dict:

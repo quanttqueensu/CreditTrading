@@ -1076,21 +1076,29 @@ class IBKRBroker(Broker):
             else:
                 singles.append((pt, delta))
 
-        fills = []
+        fills, placed = [], []
         for pt, delta in singles:
             if self._is_bond(pt):
                 fills.extend(self._place_bond(pt, delta, sleeve_name, asof,
                                               market_state))
                 continue
             trade = self.ib.placeOrder(self._contract(pt), self._order(pt, delta))
+            placed.append(trade)
             self._record_order_attribution(trade, sleeve_name, pt.instrument, asof)
             fills.extend(self._fills_from_trade(trade, pt, asof))
         for combo_id, legs in combos.items():
             trade = self._place_combo(combo_id, legs, sleeve_name)
+            placed.append(trade)
             for pt, delta in legs:
                 self._record_order_attribution(trade, sleeve_name,
                                                pt.instrument, asof)
                 fills.extend(self._fills_from_trade(trade, pt, asof))
+
+        # TWS assigns permId asynchronously, so the rows written above carry 0.
+        # Now that every order has been sent and acknowledged, write back the
+        # ones that have arrived -- perm_id is the only key that attributes an
+        # execution to a book account-wide, across client ids.
+        self._backfill_perm_ids(placed)
 
         # Update this sleeve's tag book from the reported fills.
         lp = self._live_positions.setdefault(sleeve_name, {})
@@ -1276,8 +1284,21 @@ class IBKRBroker(Broker):
             if sym not in mine:
                 continue                       # another book's symbol entirely
             if sym in shared:
-                owner = order_map.get((str(ex.time)[:10],
-                                       str(getattr(ex, "orderId", ""))))
+                # Most specific key first. perm_id is globally unique;
+                # (client_id, order_id) is unique by construction because IBKR
+                # order ids are per-client sequences; (day, order_id) is the
+                # legacy key and is known to collide across books -- 8 times in
+                # the 100 rows written before 2026-09-10 -- so it is consulted
+                # last and only because those rows carry nothing better.
+                owner = None
+                for key in (("perm", str(getattr(ex, "permId", "") or "")),
+                            ("cid", str(getattr(self.config, "client_id", "")),
+                             str(getattr(ex, "orderId", ""))),
+                            ("day", str(ex.time)[:10],
+                             str(getattr(ex, "orderId", "")))):
+                    owner = order_map.get(key)
+                    if owner is not None:
+                        break
                 if owner != sleeve_name:
                     if owner is None:
                         dropped.append((sym, ex.execId,
@@ -1322,6 +1343,118 @@ class IBKRBroker(Broker):
                   f"{len(record)} execution(s) for the ledger to book")
         return record
 
+    ORDER_MAP_COLUMNS = ["asof", "recorded_utc", "order_id", "perm_id",
+                         "client_id", "book_id", "sleeve", "instrument",
+                         "action", "qty"]
+
+    def _order_map_path(self):
+        from pathlib import Path as _Path
+        return _Path(self._books_root) / "_ibkr_shadow" / "_order_map.csv"
+
+    def _append_order_map_row(self, row):
+        """Append one attribution row, MIGRATING the header if it is older.
+
+        `csv.DictWriter` writes values in `fieldnames` order and does not look
+        at the file it is appending to. The three live maps were written with an
+        8-field header; appending a 10-field row to one of them would put
+        `client_id` under `sleeve` and shift every later column, and nothing
+        would raise -- the file would simply start lying, in a way that reads as
+        a plausible attribution. So the header is checked, and a file whose
+        header is shorter is rewritten in full with the new columns blank on the
+        old rows, before anything is appended.
+
+        Blank, not guessed: those rows really were written without a client id,
+        and inventing one would put a false global key on exactly the rows the
+        cross-book work exists to distrust.
+        """
+        import csv as _csv
+        import os as _os
+        cols = list(self.ORDER_MAP_COLUMNS)
+        path = self._order_map_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        if path.exists():
+            with open(path, newline="") as fh:
+                rdr = _csv.reader(fh)
+                header = next(rdr, None)
+            if header is not None and header != cols:
+                with open(path, newline="") as fh:
+                    old_rows = list(_csv.DictReader(fh))
+                tmp = path.with_suffix(".csv.tmp")
+                with open(tmp, "w", newline="") as fh:
+                    w = _csv.DictWriter(fh, fieldnames=cols)
+                    w.writeheader()
+                    for r in old_rows:
+                        w.writerow({c: r.get(c, "") for c in cols})
+                    fh.flush()
+                    _os.fsync(fh.fileno())
+                _os.replace(tmp, path)
+                print(f"[ibkr] order map migrated to {len(cols)} columns "
+                      f"({len(old_rows)} existing row(s) kept, new fields blank)")
+
+        new = not path.exists()
+        with open(path, "a", newline="") as fh:
+            w = _csv.DictWriter(fh, fieldnames=cols)
+            if new:
+                w.writeheader()
+            w.writerow({c: row.get(c, "") for c in cols})
+
+    def _backfill_perm_ids(self, placed):
+        """Write the permIds TWS has assigned since the orders were recorded.
+
+        `perm_id` is the only IBKR field that is globally unique and stable
+        across client ids, which makes it the only key that can attribute an
+        execution to a book account-wide. It is 0 at placement because TWS
+        assigns it asynchronously, and recording it at placement and never
+        looking again is why all 100 rows of the three live maps carry 0.
+
+        Best effort and never raises: the attribution row already exists with
+        `(client_id, order_id, book_id)`, which is unique by construction, so a
+        missing permId degrades the key from "global" to "needs the client id",
+        not to "absent". Failing a session over it would be the wrong trade --
+        the orders are already at the exchange by the time this runs.
+        """
+        import csv as _csv
+        import os as _os
+        try:
+            found = {}
+            for tr in placed:
+                order = getattr(tr, "order", None)
+                pid = int(getattr(order, "permId", 0) or 0) if order else 0
+                oid = str(getattr(order, "orderId", "")) if order else ""
+                if pid and oid:
+                    found[oid] = pid
+            if not found:
+                return
+            path = self._order_map_path()
+            if not path.exists():
+                return
+            with open(path, newline="") as fh:
+                rows = list(_csv.DictReader(fh))
+            cols = list(self.ORDER_MAP_COLUMNS)
+            n = 0
+            for r in rows:
+                oid = str(r.get("order_id", ""))
+                if oid in found and str(r.get("perm_id", "0")) in ("", "0"):
+                    r["perm_id"] = found[oid]
+                    n += 1
+            if not n:
+                return
+            tmp = path.with_suffix(".csv.tmp")
+            with open(tmp, "w", newline="") as fh:
+                w = _csv.DictWriter(fh, fieldnames=cols)
+                w.writeheader()
+                for r in rows:
+                    w.writerow({c: r.get(c, "") for c in cols})
+                fh.flush()
+                _os.fsync(fh.fileno())
+            _os.replace(tmp, path)
+            if self.verbose:
+                print(f"[ibkr] order map: backfilled perm_id on {n} row(s)")
+        except Exception as exc:
+            print(f"[ibkr] perm_id backfill failed: {exc!r} (attribution still "
+                  f"keyed on (client_id, order_id, book_id))")
+
     def _order_map_by_id(self):
         """{order_id: sleeve} from `_order_map.csv`. Missing file -> {}.
 
@@ -1348,14 +1481,15 @@ class IBKRBroker(Broker):
         out = {}
         with open(path, newline="") as fh:
             for row in _csv.DictReader(fh):
+                sleeve = str(row.get("sleeve", "")).strip()
                 oid = str(row.get("order_id", "")).strip()
-                if not oid:
-                    continue
-                asof = str(row.get("asof", ""))[:10]
-                # `.strip()` matches ops.capture_fills._load_order_map, which
-                # does not strip; a trailing space in one and not the other
-                # would make the two disagree about attribution.
-                out[(asof, oid)] = str(row.get("sleeve", "")).strip()
+                pid = str(row.get("perm_id", "")).strip()
+                cid = str(row.get("client_id", "")).strip()
+                if pid and pid != "0":
+                    out[("perm", pid)] = sleeve      # globally unique
+                if oid:
+                    out[("cid", cid, oid)] = sleeve  # unique per client id
+                    out[("day", str(row.get("asof", ""))[:10], oid)] = sleeve
         return out
 
     def _record_desync(self, sleeve_name, asof, fills, exc):
@@ -1461,27 +1595,34 @@ class IBKRBroker(Broker):
         transmitted order over.
         """
         try:
-            import csv as _csv
-            from pathlib import Path as _Path
             order = getattr(trade, "order", None)
             row = {
                 "asof": str(asof),
                 "recorded_utc": pd.Timestamp.utcnow().isoformat(),
                 "order_id": getattr(order, "orderId", "") if order else "",
                 "perm_id": getattr(order, "permId", "") if order else "",
+                # THE TWO FIELDS THAT MAKE THE ROW GLOBALLY IDENTIFIABLE.
+                # IBKR order ids are per-CLIENT-ID sequences, so (asof,
+                # order_id) collides across books by construction, not by bad
+                # luck: measured 2026-09-10 over the 100 rows of the three live
+                # maps, 8 (day, order_id) keys resolve to two different sleeves
+                # in two different books -- ('2026-09-01', 3) is bench_b1_hyg
+                # HYG BUY in benchmarks AND cef_discount AWF SELL in cef.
+                # `client_id` is what disambiguates them, and `book_id` names
+                # the owner so a reader never has to infer it from the file's
+                # path. perm_id is still the real global key and is backfilled
+                # by `_backfill_perm_ids` once TWS assigns it -- it is 0 here
+                # because TWS has not answered yet, which is exactly why every
+                # row written before today carried 0.
+                "client_id": getattr(getattr(self, "config", None),
+                                     "client_id", ""),
+                "book_id": self._book_id() or "",
                 "sleeve": str(sleeve_name or ""),
                 "instrument": str(instrument),
                 "action": getattr(order, "action", "") if order else "",
                 "qty": getattr(order, "totalQuantity", "") if order else "",
             }
-            path = _Path(self._books_root) / "_ibkr_shadow" / "_order_map.csv"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            new = not path.exists()
-            with open(path, "a", newline="") as fh:
-                w = _csv.DictWriter(fh, fieldnames=list(row))
-                if new:
-                    w.writeheader()
-                w.writerow(row)
+            self._append_order_map_row(row)
         except Exception as exc:
             print(f"[ibkr] order-attribution record failed for {instrument}: "
                   f"{exc!r} (order already transmitted; capture may fall back "
