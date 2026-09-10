@@ -447,8 +447,26 @@ def main(argv=None):
     # Arm AFTER the sleeves are registered (the orchestrator's constructor does
     # that) and BEFORE any target is placed. arm() adopts the broker's position
     # counts into the per-sleeve tag books, so a shadow ledger that fell behind
-    # can no longer make a held book look flat. Refusing to arm is not a crash:
-    # the run continues and still reports, it just never transmits.
+    # can no longer make a held book look flat.
+    #
+    # This call is also what makes the adapter's NotArmed guard reachable.
+    # Without it `place_targets` raises on every live sleeve and the run silently
+    # transmits nothing -- which is exactly what happened on the first two armed
+    # CEF runs of 2026-07-31, both of which exited 0 having sent no orders.
+    #
+    # A refusal is FATAL on purpose (return 3, below). The alternative is diffing
+    # targets against a position book we know is wrong, and on 2026-07-31 that
+    # would have re-bought $2.07M of already-held positions.
+    #
+    # ONE CALL, NOT TWO (fixed 2026-09-10). This block and a second, near-identical
+    # `if execution == "ibkr" and not args.dry_run: broker.arm()` sat back to back
+    # with nothing between them but this comment, so every live session armed
+    # twice and every log carried two "[ibkr] arm: ARMED" lines -- two full
+    # account syncs, and a second copy whose failure path returned 2 WITHOUT
+    # writing the halt this one writes, so a refusal was reported inconsistently
+    # depending on which copy you read. The two comments had also drifted into
+    # contradicting each other about whether a refusal is fatal. Keep this one:
+    # it is the copy that writes the scoped halt.
     if not args.dry_run and execution == "ibkr":
         report = broker.arm()
         if not report["ok"]:
@@ -473,29 +491,6 @@ def main(argv=None):
                        source="run_book.arm", book=book_id)
             print("[run_book] NOT ARMED — no orders will be transmitted this session.")
             return 3
-
-    # ARM BEFORE TRANSMITTING. The orchestrator has now registered every sleeve,
-    # so the broker can compare the account against the sleeves that claim it.
-    # `arm()` adopts broker QUANTITIES while keeping the ledger's ATTRIBUTION,
-    # and refuses when a shared symbol is genuinely ambiguous.
-    #
-    # This call is what makes the adapter's NotArmed guard reachable. Without it
-    # `place_targets` raises on every live sleeve and the run silently transmits
-    # nothing -- which is exactly what happened on the first two armed CEF runs
-    # of 2026-07-31, both of which exited 0 having sent no orders.
-    #
-    # A refusal is fatal on purpose: the alternative is diffing targets against a
-    # position book we know is wrong, and on 2026-07-31 that would have re-bought
-    # $2.07M of already-held positions.
-    if execution == "ibkr" and not args.dry_run:
-        report = broker.arm()
-        if not report.get("ok"):
-            print(f"[run_book] ABORT: broker.arm() refused to arm — "
-                  f"{len(report.get('problems', []))} unexplainable position(s). "
-                  f"No orders transmitted.")
-            for p in report.get("problems", []):
-                print(f"[run_book]   {p}")
-            return 2
 
     if args.replay_start:
         days = replay_calendar(book_spec, asof, args.replay_start)

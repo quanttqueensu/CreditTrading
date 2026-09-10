@@ -256,12 +256,23 @@ for the order path. Do not widen `testpaths`.
    broker and nothing resting** (worst: JAAA ledger −1,503, broker 0). A ledger
    booking fills that never happened is a different and worse fault than a stale
    count, and it corrupts P&L directly. **(b)** sizing and reporting can disagree
-   with **no** position error at all: `_sleeve_nav` returns the sub-ledger's
-   *last* NAV row, which after an epoch reseed is the epoch value. On 2026-09-09
-   it sized four MOC orders against $500,000.00 while the book was marked
-   $504,573.20 — so those orders are ~0.91% smaller than the book's own NAV would
-   size them, and `orders.csv` and `_order_map.csv` disagree for that reason
-   alone. Never diagnose that gap as a position error; it is not one.
+   with **no** position error at all. On 2026-09-09 the adapter sized four MOC
+   orders against a **$500,000.00** base while the book was marked
+   **$504,573.20**, so those orders are ~0.91% smaller than the book's own NAV
+   would size them, and `orders.csv` and `_order_map.csv` disagree for that
+   reason alone. Never diagnose that gap as a position error; it is not one.
+   `floor(500000·|w|/close)` reproduces all four sent quantities *and* the log's
+   `SKIP NAD +37 @ 11.15 = $413`; $504,573.20 reproduces none of the five.
+
+   **Which code path produced the $500,000 is NOT established, and the two are
+   numerically indistinguishable** — `_sleeve_nav` (`ibkr.py:610`) returns the
+   sub-ledger's last NAV row, which after the 09-08 reseed was the epoch row
+   `500000.0`, and its `except Exception: pass` falls back to `capital_usd`,
+   which for `cef_discount` is *also* exactly `500000.0`. Do not assert either
+   without checking whether the day's NAV row is written before or after sizing.
+   The `except Exception: pass` on the sizing path is a defect either way: if it
+   ever fires it silently sizes against registered capital instead of marked NAV,
+   and says nothing.
 4. **HYT lags the price panel by a day.** `px.iloc[-1]` can be NaN for a name — use
    `px.ffill().iloc[-1]` where you need that name's own last close.
 5. **`PositionTarget.weight` is signed.** Do not multiply by the side sign again.

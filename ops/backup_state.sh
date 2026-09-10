@@ -5,11 +5,20 @@
 #
 #   ~/prod/QUANTT/ops/backup_state.sh            # -> ~/prod-backups/state_<stamp>.tgz
 #
-# WHY: ledgers were tracked in git until 2026-09-08, which made "git status" in
-# the live tree permanently dirty and every promotion a merge with state. They
-# are state, not code, so they came out of git. This is what replaces the
-# commit as their backup. Keeps the last 90 archives. Prices/NAV parquets are
-# NOT included: yfinance serves them again; what it cannot serve is here.
+# WHY: the ledgers are state, not code. Tracking them makes "git status" in the
+# live tree permanently dirty and every promotion a merge with state, which is
+# why ops/promote.sh carries pathspec exclusions and --merge. They are meant to
+# come out of git, and this job is what replaces the commit history as their
+# off-machine copy. Keeps the last 90 archives. Prices/NAV parquets are NOT
+# included: yfinance serves them again; what it cannot serve is here.
+#
+# STATUS 2026-09-10: they are STILL TRACKED — 30 files under ops/books/cef_live,
+# 74 under benchmarks_live, 20 under phase0_live, plus ops/heartbeat.json.
+# Untracking is deliberately gated on THIS job being scheduled, because until it
+# is, git history is their only backup and removing them would leave none. Do
+# not describe the untracking as done until `git ls-files ops/books/cef_live`
+# is empty. The .gitignore stanza and the ordering (untrack in DEV, then tag and
+# promote — never in the detached prod worktree) are written up in .gitignore.
 set -uo pipefail
 PROD="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${BACKUP_DIR:-$HOME/prod-backups}"; mkdir -p "$DEST"
