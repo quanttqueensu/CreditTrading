@@ -88,10 +88,19 @@ def last_broker_fill() -> dict:
 
 
 def ledger_nav() -> dict:
-    """Latest shadow-ledger NAV. NOTE: the ledger disagrees with the broker on
-    all 17 positions (~$223k account-wide). Order SIZING is unaffected because
-    arm() re-seeds from ib.positions(), but reported NAV and P&L are wrong.
-    Displayed with that caveat, never as truth."""
+    """Latest shadow-ledger NAV, displayed as indicative and never as truth.
+
+    The ledger is a local reconstruction; the account is the fact. When the two
+    diverge, order SIZING is unaffected because arm() re-seeds from
+    ib.positions(), but reported NAV and P&L are wrong.
+
+    DO NOT hardcode a divergence magnitude here. The figure that circulated for
+    weeks -- "all 17 positions, ~$223k account-wide" -- predates the 2026-09-08
+    epoch re-seed and no longer reproduces. Measured 2026-09-10 against a broker
+    snapshot: NONE of the 17 CEFs diverge; every divergent symbol belongs to
+    null_trader and the benchmark books. Re-measure with
+    `ops/reconcile_orders.py --check-broker` rather than quoting any number.
+    """
     out = {"date": None, "nav": None}
     path = CEF_SHADOW / "nav.csv"
     try:

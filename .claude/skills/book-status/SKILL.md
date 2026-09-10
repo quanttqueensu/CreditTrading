@@ -59,10 +59,23 @@ Preflight refused correctly every time. Nobody was reading preflight.
 alert. That is the failure mode this readout exists to defeat, and making it loud is
 the highest-value operational fix outstanding.
 
-**The shadow-ledger NAV is not the broker's NAV.** They disagree on all 17
-positions, ~$223k account-wide. Order *sizing* is unaffected because `arm()`
-re-seeds from `ib.positions()` before every session; reported NAV and P&L are wrong.
-Quote ledger P&L as indicative and say so.
+**The shadow-ledger NAV is a local reconstruction; the account is the fact.**
+When the two diverge, order *sizing* is unaffected because `arm()` re-seeds from
+`ib.positions()` before every session, but reported NAV and P&L are wrong. Quote
+ledger P&L as indicative and say so.
+
+**Do not carry a divergence magnitude from memory or from a document.** The
+figure that circulated for weeks — "all 17 positions, ~$223k account-wide" —
+predates the 2026-09-08 epoch re-seed and no longer reproduces. Measured
+2026-09-10 against a broker snapshot: **none of the 17 CEFs diverge.** Every
+divergent symbol belongs to `null_trader` and the benchmark books, and five of
+those are *phantom fills* — orders the ledger booked as filled that produced no
+execution at all. Re-measure before quoting:
+
+```bash
+python3 -m ops.reconcile_orders --book ops/books/cef_discount_book.json \
+    --books-root ops/books/cef_live --check-broker
+```
 
 **Modelled fills are not evidence.** 22 of 24 ledger trade dates are modelled fills
 for sessions that never traded. Only rows in `broker_fills.csv` count toward any

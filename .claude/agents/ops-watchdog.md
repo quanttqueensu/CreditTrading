@@ -47,10 +47,16 @@ Work outward from the thing that cannot lie.
 6. **`python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live`**
    — the gate itself, with the broker probe skipped. Checks: halt, costs,
    cost_drift, data freshness, broker reachability, heartbeat.
-7. **Ledger vs broker** — `ops/reconcile_orders.py`. The ledger currently disagrees
-   with the broker on all 17 positions (~$223k account-wide). **Sizing is
-   unaffected** because `arm()` re-seeds from `ib.positions()`; reported NAV and
-   P&L are wrong. Do not "fix" the ledger by trusting it.
+7. **Ledger vs broker** — `ops/reconcile_orders.py --check-broker`. **Sizing is
+   unaffected** by any divergence because `arm()` re-seeds from `ib.positions()`;
+   reported NAV and P&L are not. Do not "fix" the ledger by trusting it.
+   **Re-measure the magnitude — never quote one from a document.** "All 17
+   positions, ~$223k" circulated for weeks and stopped being true at the
+   2026-09-08 epoch re-seed. Measured 2026-09-10: **none of the 17 CEFs
+   diverge**; every divergent symbol is `null_trader`'s or a benchmark's — and
+   five of those are **phantom fills**, orders the ledger booked as filled that
+   produced no execution at all. A ledger that invents a fill is a worse class
+   of fault than one that drifts, and it is the one to look for.
 
 ## Things that look like bugs and are not
 

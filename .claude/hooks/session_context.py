@@ -61,8 +61,8 @@ def main() -> int:
     led = s.get("ledger") or {}
     if led.get("nav"):
         out.append(f"  Shadow-ledger NAV ${led['nav']:,.0f} as of "
-                   f"{led.get('date')} — NOTE the ledger disagrees with the "
-                   "broker on all 17 positions; treat P&L as indicative only.")
+                   f"{led.get('date')} — a local reconstruction, indicative "
+                   "only; the account is the fact.")
 
     g = s.get("git") or {}
     out.append(f"  git {g.get('branch')}, {g.get('dirty')} file(s) uncommitted.")
