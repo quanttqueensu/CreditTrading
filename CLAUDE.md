@@ -367,6 +367,23 @@ for the order path. Do not widen `testpaths`.
    runs `launch_job.py` directly; those plists are not what runs.
 3. `_sleeve_nav` reads the shadow ledger, which can disagree with the broker; when it
    does, reported NAV and P&L are wrong.
+   **⚠ THIS LANDMINE IS BEING FIXED IN DEV AND IS UNCHANGED IN PROD (2026-09-10
+   evening).** The shadow ledger was handed the sleeve's TARGETS and never its
+   fills, so it filled every pending order at the next close by construction:
+   on 09-10 `null_trader` booked five orders — EMB +57, HYG +605, JAAA −1503,
+   JNK +420, LQD +861 — with **zero** executions at the broker, and the other
+   nine disagreed by 1–5 shares. In dev the ledger now books the broker's real
+   executions, at the broker's price, by the team lead's decision; see
+   `results/ops/PREREG_AMENDMENT_REAL_FILLS_2026-09-10.md`, which also shows
+   that "FORCED_FLOW_PREREG locked decision 1" is scoped to BOND legs and that
+   the document is not in this repo at all. The null_trader ledger was repaired
+   by reversing only the unexecuted fills, NOT by the rebuild every note that
+   day prescribed — that rebuild reconciles 2 of 14 symbols and would have
+   introduced 14,346 shares of error (`results/ops/NULL_TRADER_UNBOOK_2026-09-10.md`).
+   **`~/prod/QUANTT` has none of this**; it is detached at `v2026.09.10.1`.
+   Until a promotion carries it, `ops/HALT_phase0_null.md` in prod is the only
+   thing between the phantom JAAA short and an armed session. Verify prod's
+   `positions.csv` reads `LQD −907` with no `JAAA` row before clearing it.
    **⚠ "Sizing is unaffected because `arm()` re-seeds from the broker" is FALSE when
    the broker holds ZERO of a symbol, and this line said it for weeks.** Measured
    2026-09-10 ~12:58 ET (read-only, client id 133): `ib.positions()` returned 34
