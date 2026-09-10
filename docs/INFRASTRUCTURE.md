@@ -168,13 +168,16 @@ the alpha is unchanged.
 
 ### 3.4 Live configuration
 
-Frozen spec: `ops/specs/cef_discount.frozen.json`, id `cef_discount.v5.20260731`.
+Frozen spec: `ops/specs/cef_discount.frozen.json`, id **`cef_discount.v6.20260906`**
+(corrected 2026-09-10; this said `v5.20260731`. Verify with
+`python3 -c "import json;print(json.load(open('ops/specs/cef_discount.frozen.json'))['spec_id'])"`).
 
 | Parameter | Value | Note |
 |---|---|---|
 | Universe | 17 funds | AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY |
 | z-window | 252 days | Reverted from 63 after the sealed holdout failed that change |
-| Rebalance | 2 days | Reduced from 5; 2 is the measured optimum |
+| **Band width** | **4.8%** | **THE LIVE REBALANCE RULE since 2026-09-06.** Recompute every session; leave a position alone until it is >4.8% in weight from target, then trade back to the *band edge*, not to target. Derived from the cube-root law, not swept — 6.4% topped the sweep and was deliberately **not** chosen. `frozen.band_width` |
+| ~~Rebalance~~ | ~~2 days~~ | **INERT while `band_width` is set.** The key is still `2` in the spec and is *not* what runs; deleting `band_width` is the documented revert path. This row said "2 is the measured optimum" and was the last thing here still describing the retired calendar policy |
 | Volatility target | 6% p.a. | |
 | Minimum ADV | $3,000,000 | |
 | Maximum NAV age | 3 business days | A stale NAV produces a blind signal, not a cheap fund |

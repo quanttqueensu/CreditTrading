@@ -146,15 +146,40 @@ the same cube-root law that set the current single 4.8% band, evaluated with
 **that fund's own** measured target-weight volatility, reversion rate and tick
 cost. Zero fitted parameters.
 
-| ticker | grp | half-life | tick bp | **derived band** | vs 4.8% |
+**Column definitions, added 2026-09-10** (the amendment above asked for this and
+it had not been done): **half-life** is the **target-weight** half-life feeding
+κ_w — *not* the discount half-life that `docs/PLAN.md` §4.1 tabulates.
+**tick bp** is the **FULL** tick, per `00_BRIEF.md` §3; the number that enters a
+cost calculation is the charged half-spread in `config/costs.yaml`, which is
+1.25× the full tick.
+
+| ticker | grp | half-life (κ_w, target-weight) | tick bp (full) | **derived band** | vs 4.8% |
 |---|---|---:|---:|---:|---:|
-| PHK | multi | 24.6 | 22.22 | **7.35%** | +2.55 |
+| PHK | multi | ⚠ **24.6 IS WRONG** | 22.22 | ⚠ **7.35% IS WRONG** | +2.55 |
 | HYT | hy | 9.2 | 12.09 | 4.73% | −0.07 |
 | DSL | multi | 12.3 | 9.51 | 4.43% | −0.37 |
 | NAD | muni | 17.5 | 8.73 | 3.72% | −1.08 |
 | PDO | multi | 8.8 | 7.80 | 2.44% | −2.36 |
 | MQY | muni | 6.1 | 9.20 | 1.68% | −3.12 |
 | MHD | muni | 8.7 | 8.91 | **1.07%** | −3.73 |
+
+**⚠ PHK's row is knowingly wrong and is NOT corrected here.** Its `24.6` is the
+*pooled discount* half-life (φ = 0.9722), not PHK's own target-weight
+half-life, and the amendment above records PHK's own κ_w as **≈ 37.0**. The
+derived band of 7.35% therefore rests on the wrong input, and PHK's row is the
+one this section's argument leans on hardest.
+
+**No corrected band is written here on purpose.** Under the cube-root law
+h\* ∝ κ_w^(−1/3), rescaling 7.35% by the ratio of the two figures gives ≈8.4%
+— but that is only valid if `37.0` is a *half-life* in the same units as the
+column, and the amendment states it as a **κ_w**, which is the reciprocal
+quantity. The two readings give different answers and nothing in either
+document says which is meant. Recompute it with
+`scripts/cef/per_name_resolution.py` and write the result, with its σ_w and
+cost inputs, rather than rescaling. A number without provenance is a rumour.
+
+The other six rows reproduce (recomputed κ_w: HYT 9.3, DSL 12.3, NAD 17.5,
+PDO 8.9, MQY 5.9 against the table's 9.2, 12.3, 17.5, 8.8, 6.1).
 
 **Range 1.07%–7.35%, a 6.9× spread** where we currently apply one number.
 

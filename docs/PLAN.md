@@ -151,7 +151,7 @@ execution. Gross return is before costs; `net` charges bp per unit of turnover.
 
 | turnover | calendar | band | gross SR | net@15bp |
 |---:|---|---|---|---|
-| ~31×/yr | calendar 2d | — | 1.20 | 0.33 |
+| ~31×/yr | calendar 2d *(retired 2026-09-06)* | — | 1.20 | 0.33 |
 | ~30×/yr | — | band 1.6% | **1.31** | **0.45** (+36%) |
 | ~18×/yr | calendar 5d | — | 0.84 | 0.34 |
 | ~14×/yr | — | band 6.4% | **1.11** | **0.71** (+109%) |
@@ -171,7 +171,7 @@ The claim I made before measuring — that band turnover is more stable — is
 
 | policy | 2015–19 | 2020–22 | 2023–26 | sd/mean |
 |---|---:|---:|---:|---:|
-| calendar 2d | 52.1 | 62.2 | 46.4 | **12.2%** |
+| calendar 2d *(retired 2026-09-06)* | 52.1 | 62.2 | 46.4 | **12.2%** |
 | band 2.4% | 47.1 | 52.5 | 33.6 | 17.8% |
 | band 6.4% | 27.4 | 28.0 | 17.0 | 20.9% |
 
@@ -301,7 +301,10 @@ Borrow costs **1.22%/yr on held short market value = 0.23 of Sharpe**, near-cons
 across policies because it scales with *holdings*, not turnover. **Trading less does
 not reduce it.** Only shorting different names does.
 
-**The live configuration's true net Sharpe is 0.10.** Against Lo (2002)'s ~2.05
+**The RETIRED calendar configuration's true net Sharpe is 0.10.** (Corrected
+2026-09-10: this read "the live configuration's". The band replaced the 2-day
+calendar on 2026-09-06; the live band's net is **0.66** pre-borrow, ~0.43 after.
+The standard-error argument below is unaffected and applies to both.) Against Lo (2002)'s ~2.05
 standard error over 60 sessions, that is not distinguishable from zero by anything
 we can measure this year. This does not weaken Part 2 — it converts it. The band
 was an improvement from 0.33 to 0.71; it is now the difference between a strategy
