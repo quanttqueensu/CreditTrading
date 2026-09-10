@@ -7,6 +7,12 @@ subtitle: |
 compact: true
 ---
 
+> **⚠ HISTORICAL RECORD as of 16 August 2026. Not maintained.** Added
+> 2026-09-10. This is a recruiting document and its timeline and status
+> references are as-issued. The strategy's trading policy changed on 2026-09-06
+> (a 4.8% no-trade band replaced the 2-day rebalance calendar), and the live
+> session count has moved on. Current state: `docs/SYSTEM_AND_STRATEGY.md`.
+
 ## The project
 
 We operate a systematic credit strategy on a $500,000 Interactive Brokers paper

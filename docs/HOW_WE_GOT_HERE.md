@@ -2,6 +2,12 @@
 
 **QUANTT credit strategy programme · written 31 July 2026**
 
+> **HISTORICAL RECORD as of 31 July 2026. Not maintained, and correct as of
+> its date — this is the story of how the work happened, so updating it would
+> destroy what it is for.** Marker added 2026-09-10 (W0 Part G). For the
+> current state read `docs/SYSTEM_AND_STRATEGY.md`; for what is dead and why,
+> `docs/RESEARCH_STATE.md`.
+
 This is the story of the work itself — what we did, in what order, why we made
 each decision, what we got wrong, and how we caught it. It is a companion to
 `RESEARCH_AND_METHODOLOGY.md`, which covers *what* we found. This one covers *how

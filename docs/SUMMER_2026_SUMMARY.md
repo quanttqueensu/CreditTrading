@@ -6,6 +6,23 @@ subtitle: |
   github.com/quanttqueensu/CreditTrading
 ---
 
+> **⚠ HISTORICAL RECORD as of 16 August 2026. Not maintained. Read every
+> "current", "today" and "live" as of that date.** Added 2026-09-10 because this
+> is an orientation document and its §4.2 would misdirect a new reader on day
+> one. Three statements are now materially false:
+>
+> - **§4.2 gives the broker endpoint as `127.0.0.1:7497`.** That WAS the fault,
+>   not the fix: the gateway serves **4002**, and the 7497 setting is precisely
+>   what dry-ran 21 consecutive sessions in silence. Corrected 2026-09-01.
+> - **"One day of live evidence."** There are now **three** broker-confirmed
+>   sessions and **294** real executions (2026-07-31, 09-01, 09-08).
+> - **§2.1's description of the strategy is the pre-band configuration.** The
+>   2-day rebalance calendar was replaced by a **4.8% no-trade band** on
+>   2026-09-06.
+>
+> For the current state read `docs/SYSTEM_AND_STRATEGY.md`, and run
+> `/book-status` for what the book is actually doing.
+
 ## 1. Summary
 
 We set out to build a credit strategy that performs independently of market

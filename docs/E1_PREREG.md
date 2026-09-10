@@ -1,6 +1,12 @@
 # E1 — RELATIVE ETF PREMIUM/DISCOUNT REVERSION (HYG vs JNK)
 
 **Pre-registered 2026-07-30, BEFORE any return of this signal was examined.**
+
+> **HISTORICAL RECORD. Not maintained, and MUST NOT BE.** A pre-registration
+> is evidence precisely because it was frozen before the result was known;
+> editing it destroys the thing it exists to prove. E1's verdict is recorded
+> in `docs/RESEARCH_STATE.md` (D1 → reclassified D5: the edge per opportunity
+> survived, the opportunity count collapsed). Marker added 2026-09-10.
 Written to satisfy `credit_rv_agent_workflow.md` §5.1. Nothing below may change after the
 first backtest; changes require a numbered amendment that increments the trial counter.
 

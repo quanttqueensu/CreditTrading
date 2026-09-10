@@ -1,6 +1,12 @@
 # CREDIT ETF STATISTICAL ARBITRAGE — PRE-REGISTRATION
 
-**Frozen 2026-07-28, before any return analysis of the signal.** Nothing below may be changed
+**Frozen 2026-07-28, before any return analysis of the signal.**
+
+> **HISTORICAL RECORD. Not maintained, and MUST NOT BE.** A pre-registration
+> is evidence precisely because it was frozen before the result was known;
+> editing it destroys the thing it exists to prove. credit_rv's verdict is
+> recorded in `docs/RESEARCH_STATE.md` (D1, killed 2026-07-30: gross edge
+> NEGATIVE before costs, sealed-holdout net SR −1.44). Marker added 2026-09-10. Nothing below may be changed
 after the first backtest is run. Changes require a new numbered amendment appended at the end,
 each of which increments the trial counter.
 
