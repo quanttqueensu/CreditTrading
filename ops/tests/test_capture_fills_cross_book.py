@@ -49,6 +49,44 @@ one owner -- then `test_dedup_is_blind_to_the_same_execution_in_another_book`
 and `test_dedupe_cannot_repair_a_cross_book_duplicate` SHOULD start failing.
 Update them deliberately; do not delete them.
 
+WHY THE FIX IS STILL BLOCKED, MEASURED 2026-09-10
+-------------------------------------------------
+Deduping account-wide on execId alone is only half a fix, and the missing half
+is the dangerous one. execId IS globally unique at IBKR, so an account-wide
+`seen` set does stop the second write -- but it stops it by letting whichever
+book captures FIRST keep the execution. That makes ownership a race between two
+launchd jobs, and this module's own rule is that a shared ticker "is resolved by
+orderId or it is NOT RECORDED... never split, apportioned or assigned to a best
+guess". First-capture-wins is a best guess wearing a timestamp.
+
+Resolving it properly needs an account-wide order map, and the recorded maps
+cannot supply one. Measured over all 96 rows of the three live
+`_order_map.csv` files on 2026-09-10:
+
+  * `order_id` alone            -> 20 keys map to more than one sleeve
+  * `(asof, order_id)`          ->  8 keys map to more than one sleeve, e.g.
+                                    ('2026-09-01', 3) is bench_b1_hyg/HYG BUY 3
+                                    in benchmarks AND cef_discount/AWF SELL 37
+                                    in cef. IBKR order ids are per-CLIENT-ID
+                                    sequences and the three books use different
+                                    client ids, so they collide by construction.
+  * `perm_id`                   -> literally 0 on all 96 rows. This is the one
+                                    IBKR field that is globally unique and
+                                    stable across client ids, and the adapter
+                                    records it before TWS has assigned it.
+
+`(asof, order_id, instrument)` and `(instrument, asof)` happen to be unique
+across today's 96 rows, but neither is unique by construction -- both break the
+first day two books trade the same ticker on the same date, which is exactly
+the situation this file is about. Choosing one because it currently has no
+collisions is the `z_window = 63` mistake in another costume.
+
+So the blocker is upstream, in `_record_order_attribution`: until the adapter
+records a globally unique order key (perm_id, or at minimum client_id
+alongside order_id), account-wide attribution cannot be made exact, and this
+module must not pretend otherwise. `test_the_order_map_cannot_key_attribution_across_books`
+below pins that, and is the test that should start failing when the key lands.
+
 NO BROKER, NO NETWORK, NO LIVE LEDGERS. Everything below is built in tmp_path.
 Reading `ops/books/*_live/` from a test is against this suite's own rule -- it
 holds the only record of real fills -- so the live measurement above lives in
@@ -151,3 +189,68 @@ def test_within_book_duplicate_is_still_repaired(tmp_path):
     out = capture_fills.dedupe(root, ["null_trader"], verbose=False)
 
     assert out["null_trader"] == {"before": 2, "after": 1}
+
+
+def _write_order_map(root: Path, rows: str) -> Path:
+    d = root / "_ibkr_shadow"
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / "_order_map.csv"
+    p.write_text("asof,recorded_utc,order_id,perm_id,sleeve,instrument,action,qty\n" + rows)
+    return p
+
+
+def test_the_order_map_cannot_key_attribution_across_books(tmp_path):
+    """THE BLOCKER on the account-wide fix, in the shape the live maps have.
+
+    Two books both hold an order_id 3 placed on the SAME date, because IBKR
+    order ids are per-client-id sequences and the books use different client
+    ids. `_load_order_map` is keyed on order_id, so merging the two maps loses
+    one owner -- and nothing in either row says which owner is right.
+    """
+    cef = tmp_path / "cef_live"
+    bench = tmp_path / "benchmarks_live"
+    _write_order_map(cef, "2026-09-01 00:00:00,2026-09-01T21:15:36+00:00,"
+                          "3,0,cef_discount,AWF,SELL,37.0\n")
+    _write_order_map(bench, "2026-09-01 00:00:00,2026-09-01T21:25:08+00:00,"
+                            "3,0,bench_b1_hyg,HYG,BUY,3.0\n")
+
+    m_cef = capture_fills._load_order_map(cef)
+    m_bench = capture_fills._load_order_map(bench)
+
+    # Each book is internally consistent...
+    assert m_cef == {"3": "cef_discount"}
+    assert m_bench == {"3": "bench_b1_hyg"}
+
+    # ...and the union is not a map at all: one key, two owners, no tiebreak.
+    assert m_cef["3"] != m_bench["3"], (
+        "if this ever stops holding, re-measure the live maps before assuming "
+        "the collision is gone -- it is a property of the data, not the fixture")
+    merged = {**m_cef, **m_bench}
+    assert merged["3"] == "bench_b1_hyg", (
+        "a naive dict merge silently resolves the collision by iteration order, "
+        "which is how an account-wide attribution would pick a wrong owner "
+        "without saying anything")
+
+
+def test_perm_id_is_the_missing_global_key(tmp_path):
+    """perm_id is IBKR's globally unique order id, and the adapter records 0.
+
+    This is what has to change before account-wide attribution can be exact.
+    When `_record_order_attribution` starts recording a real perm_id, this test
+    should be updated to assert the key is usable -- and only then can the two
+    characterisation tests above be flipped to assert fixed behaviour.
+    """
+    import csv as _csv
+
+    root = tmp_path / "phase0_live"
+    p = _write_order_map(root, "2026-09-08 00:00:00,2026-09-08T13:35:18+00:00,"
+                               "3,0,null_trader,HYG,SELL,442.0\n"
+                               "2026-09-08 00:00:00,2026-09-08T13:35:18+00:00,"
+                               "4,0,null_trader,JNK,SELL,961.0\n")
+
+    with open(p) as fh:
+        perm_ids = [r["perm_id"] for r in _csv.DictReader(fh)]
+
+    assert perm_ids == ["0", "0"], (
+        "perm_id is unpopulated, so there is no globally unique order key on "
+        "disk and account-wide attribution cannot be made exact")

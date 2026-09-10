@@ -184,25 +184,50 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
 
 
 def _load_order_map(books_root) -> dict:
-    """{order_id: sleeve} written by the adapter at placement time."""
+    """{order_id: sleeve} written by the adapter at placement time.
+
+    A MISSING map is a legitimate state (no order has been placed from this
+    book yet) and returns {}. An UNREADABLE map is not, and now raises.
+
+    It used to `except Exception: print(...)` and return whatever it had parsed
+    so far. That is a silent fallback of the worst shape here, because the
+    caller cannot tell a partial map from a complete one: the only consumer is
+    the shared-ticker branch, which asks `order_map.get(orderId)` and, on a
+    miss, declares the fill UNATTRIBUTED and DOES NOT RECORD IT. So a CSV that
+    went unreadable half way through would quietly drop real executions out of
+    the slippage record while printing one line and continuing to exit 0 --
+    the same failure mode as the fills this module was written to stop losing.
+    Attribution has to be exact or absent, never partial and unlabelled.
+    """
     path = Path(books_root) / "_ibkr_shadow" / "_order_map.csv"
     if not path.exists():
         return {}
     import csv as _csv
     out = {}
-    try:
-        with open(path) as fh:
-            for row in _csv.DictReader(fh):
-                oid = str(row.get("order_id", "")).strip()
-                if oid:
-                    out[oid] = row.get("sleeve", "")
-    except Exception as exc:
-        print(f"[capture] could not read _order_map.csv: {exc!r}")
+    with open(path) as fh:
+        for row in _csv.DictReader(fh):
+            oid = str(row.get("order_id", "")).strip()
+            if oid:
+                out[oid] = row.get("sleeve", "")
     return out
 
 
 def _recorded_exec_ids(books_root, universes) -> dict:
-    """{sleeve: set(execId)} already present in each broker_fills.csv."""
+    """{sleeve: set(execId)} already present in each broker_fills.csv.
+
+    A missing broker_fills.csv means the sleeve has never recorded a fill, and
+    is an empty set. A PRESENT-BUT-UNREADABLE one raises, naming the file.
+
+    This is the dedup the module docstring calls LOAD-BEARING, and the old
+    `except Exception: out[sleeve] = set()` disarmed it precisely when it was
+    needed. An empty `seen` set is indistinguishable from "nothing recorded
+    yet", so a broker_fills.csv that was truncated, half-written or missing its
+    `note` column would make the very next capture re-write every execution it
+    already held -- silently doubling the file, and with it the volume-weighted
+    slippage statistic kill rule (b) is evaluated against. Measured 2026-07-31:
+    three blind captures of one session produced 514 rows for 257 executions.
+    A corrupt file is the one input that must stop the run, not be read as zero.
+    """
     import pandas as pd
 
     out = {}
@@ -211,11 +236,14 @@ def _recorded_exec_ids(books_root, universes) -> dict:
         if not path.exists():
             out[sleeve] = set()
             continue
-        try:
-            note = pd.read_csv(path)["note"].astype(str)
-            out[sleeve] = set(note.str.extract(r"execId=(\S+)")[0].dropna())
-        except Exception:
-            out[sleeve] = set()
+        d = pd.read_csv(path)
+        if "note" not in d.columns:
+            raise ValueError(
+                f"{path} has no 'note' column, so no execId can be read from it "
+                f"and the dedup would silently treat this sleeve as having "
+                f"recorded nothing. Columns present: {list(d.columns)}")
+        note = d["note"].astype(str)
+        out[sleeve] = set(note.str.extract(r"execId=(\S+)")[0].dropna())
     return out
 
 
