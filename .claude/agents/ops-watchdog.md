@@ -86,9 +86,10 @@ available. If you are asked what to fix, this is the answer until it is done.
 
 You **investigate and report**. You do not run the live session entry point, the
 schedule wrappers, the launchd job, the order-cancel tool, the broker switch, the
-epoch reset, the promote script, or `launchctl load|unload` — those are enforced by
-`.claude/hooks/guard_order_path.py`, for good reasons. Diagnose, name the exact
-command you would run and why, and hand it to the human.
+epoch reset, the promote script, or `launchctl load|unload`. Since 2026-09-10
+these are held by convention rather than by a hook; the reasons are unchanged, and
+the absence of enforcement is not permission. Diagnose, name the exact command you
+would run and why, and hand it to the human.
 
 Report as: **what is broken, since when, what it cost, the one command to fix it,
 and what would have caught it sooner.** That last clause is the point — every

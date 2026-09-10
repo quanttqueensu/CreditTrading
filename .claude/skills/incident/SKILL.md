@@ -87,8 +87,8 @@ What was changed. What was deliberately NOT changed and why.
   able to mask the fault it reports: an SMTP timeout cannot be allowed to prevent
   the durable record. That ordering is deliberate in `ops/halt.py`.
 - **Do not clear a halt to make a symptom go away.** A halt is cleared deliberately,
-  with a written record — never with `rm`. `.claude/hooks/guard_order_path.py`
-  blocks both the clear and the delete.
+  with a written record — never with `rm`. The hook that used to block both was
+  removed 2026-09-10; the rule stands without it.
 - **Capture fills before anything else**, even after a failure. `ib.fills()` serves
   the current TWS session only and TWS force-restarts daily. A fill not captured
   today is gone.

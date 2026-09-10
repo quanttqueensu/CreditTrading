@@ -69,10 +69,10 @@ src/deploy/broker/ibkr.py.bak-20260831
 
 An eighth, `ops/books/benchmarks_live/_attribution.json.bak-20260831`, is
 **still present**. It is tracked and therefore recoverable like the others, but
-it sits under `ops/books/`, which `.claude/hooks/guard_order_path.py` protects
-because that tree holds the only record of real executions. The guard cannot
-tell a backup of an attribution file from a live ledger, and the safe direction
-is to refuse — so removing it is left to the operator. It is inert either way.
+it sits under `ops/books/`, the tree that holds the only record of real
+executions. It was left for the operator when a `PreToolUse` guard still refused
+agent writes there; that guard was removed 2026-09-10. Inert either way — remove
+it or leave it.
 
 They carry nothing git does not already hold, and a `.bak` sitting beside a live
 file is an active hazard: `ibkr.py.bak-20260831` still contains the pre-rename

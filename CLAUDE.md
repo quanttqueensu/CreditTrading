@@ -26,7 +26,10 @@ every prompt in that directory opens with it.
 
 ## Hard rules — the order path
 
-Enforced by `.claude/hooks/guard_order_path.py`, not merely requested.
+**These are not enforced.** The `PreToolUse` hook that blocked them was removed on
+2026-09-10 at the team lead's instruction, so they hold only as far as they are
+followed. Treat them as absolute anyway: each names an action that **cannot be
+undone**, and there is now nothing behind them.
 
 1. **Never run anything that can transmit an order.** The live session entry point,
    the `ops/schedule/run_*.sh` wrappers, the launchd job, the MOC routing probe,

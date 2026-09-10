@@ -60,6 +60,7 @@ whether the gateway answers.
 
 Do not run the live session entry point, the schedule wrappers or the launchd job
 to "test" anything — with `ops/schedule/cef.env` at RUNG-2 they transmit real MOC
-orders, and the trade phase is not idempotent. `.claude/hooks/guard_order_path.py`
-blocks them. If you need a real session run, say so and let the operator run it
+orders, and the trade phase is not idempotent. The hook that used to block these
+was removed 2026-09-10; nothing stops you now, which is exactly why you should
+not. If you need a real session run, say so and let the operator run it
 with `! <command>`.

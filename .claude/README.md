@@ -20,36 +20,45 @@ A hook fires regardless. Anything that must hold every time lives here.
 
 | hook | event | what it does |
 |---|---|---|
-| `guard_order_path.py` | `PreToolUse(Bash)` | **Denies** any command that can transmit an order, read a credential, or destroy live state. 37 test cases, 0 failures. |
-| `post_edit_check.py` | `PostToolUse(Edit\|Write)` | Advisory. Flags the four bug classes this repo has actually shipped, on the lines you just added. |
+| `post_edit_check.py` | `PostToolUse(Edit\|Write)` | Advisory, never blocks. Flags the four bug classes this repo has actually shipped, on the lines you just added. |
 | `session_context.py` | `SessionStart` | Prints trading days since the last **broker-confirmed** fill, heartbeat problems, halt state. |
 | `statusline.py` | status line | Model · git · context · cost · **fill −Nd**, colour-coded green/yellow/red. |
-| `book_state.py` | *(library)* | One reader for live book state, shared by the three above and `/book-status`, so they can never disagree. |
+| `book_state.py` | *(library)* | One reader for live book state, shared by the two above and `/book-status`, so they can never disagree. |
 
-**What the guard blocks** — the live session entry point, the `ops/schedule/run_*.sh`
-wrappers, the launchd job, the MOC routing probe, `promote.sh`,
-`cancel_open_orders.py`, `switch_broker.py`, `reset_epoch.py`, `rebuild_ledger.py`,
-`launchctl load|unload`, halt clears and `rm` of `HALT.md`; reads of `config/.env`
-and `~/ibc/config.ini`; deletion or truncation of `ops/books/**` and the shadow
-ledgers.
+**There is no blocking hook.** `guard_order_path.py`, a `PreToolUse(Bash)` deny
+rule covering the order path, credentials and the fill record, was **removed on
+the team lead's instruction, 2026-09-10** (commit below). Nothing now stops an
+agent running `run_book.py`, the schedule wrappers, `switch_broker.py`,
+`reset_epoch.py` or `launchctl load|unload`.
 
-**Why those and not more.** They are the actions that **cannot be undone**. An NYSE
-MOC order cannot be cancelled after 15:50 ET, not even to correct a legitimate
-error. The trade phase is not idempotent, so a second armed run stacks a second
-order set that fills in the same auction and doubles the book. A fill not captured
-before the daily TWS restart is gone permanently — there is no historical execution
-endpoint. Everything else is deliberately open.
+The rules in `CLAUDE.md` — "never run anything that can transmit an order", "the
+trade phase is not idempotent", "never print credentials" — still stand, but they
+are now **context rather than enforcement**: Claude reads them and tries to follow
+them, and that is a different guarantee from a hook that fires regardless.
 
-**The escape hatch is the point, not a limitation.** When Claude needs one of these
-run, it says so and you type `! <command>` at the prompt. That takes two seconds and
-leaves the decision, and the record of it, with a human.
+The four things that made it a hook rather than a note are unchanged facts:
 
-Run the hook tests any time:
+- An NYSE MOC order **cannot be cancelled after 15:50 ET**, not even to correct a
+  legitimate error.
+- The trade phase **is not idempotent** — a second armed run stacks a second order
+  set, and `arm()` re-seeds from `ib.positions()`, which do not include unfilled
+  MOC orders, so both fill in the same auction and the book doubles.
+- A fill not captured before the daily TWS restart is **gone permanently**; there
+  is no historical execution endpoint.
+- `config/.env.switch_broker.bak` is a gitignored, unrecoverable copy of the live
+  credentials.
+
+**To restore it**, recover the file and re-add the hook block:
 
 ```bash
-python3 .claude/hooks/guard_order_path.py < /dev/null   # should print nothing, exit 0
-python3 .claude/hooks/book_state.py -p                  # live state as JSON
+git show <commit>^:.claude/hooks/guard_order_path.py > .claude/hooks/guard_order_path.py
+git show <commit>^:.claude/hooks/tests/test_guard_order_path.py > .claude/hooks/tests/test_guard_order_path.py
+chmod +x .claude/hooks/guard_order_path.py
+# then re-add the PreToolUse block to .claude/settings.json and
+# .claude/hooks/tests to pytest.ini's testpaths
 ```
+
+`python3 .claude/hooks/book_state.py -p` still prints live book state as JSON.
 
 ## Rules — path-scoped, load only when relevant
 

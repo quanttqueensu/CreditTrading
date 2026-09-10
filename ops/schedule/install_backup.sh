@@ -24,9 +24,10 @@
 # rendered/ is documented as stale, and a live artifact must not be filed with
 # artifacts nobody trusts.
 #
-# --enable is the HUMAN's switch. .claude/hooks/guard_order_path.py blocks an
-# agent from running launchctl at all, because a stopped agent is a silently
-# non-trading book and that failure has already cost this project a month. An
+# --enable is the HUMAN's switch. (A PreToolUse guard used to block an agent from
+# running launchctl at all -- removed 2026-09-10 -- because a stopped agent is a
+# silently non-trading book and that failure has already cost this project a
+# month. The reasoning outlived the guard, so the convention holds here. An
 # agent may run this script only in its default render mode; --install,
 # --enable and --disable are for a person. Note also that the only label this
 # script ever touches is com.quantt.backup.daily: it can neither start nor stop
