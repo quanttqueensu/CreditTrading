@@ -1,5 +1,19 @@
 # phase0 halt — the divergence is two faults, and the halt file mislabels three of five symbols
 
+> **⚠ SUPERSEDED ON ONE ROW — 2026-09-10 evening.** This note's LQD row is
+> **wrong**, and it is the row that asks for a decision that would transmit an
+> order. LQD is **not** "broker holds what no ledger claims". It is
+> `null_trader`'s, all 904 shares broker-confirmed by execId, and its ledger
+> reads −46 only because a **BUY 861 that never executed was booked as filled**
+> on 2026-09-10. It belongs in the *same phantom-fill class* as JAAA/HYG/JNK/EMB
+> — which is exactly where `results/ops/LEDGER_DIVERGENCE_2026-09-10.md:233` had
+> already put it at 11:50, four hours before this note was written.
+> **No attribute-or-flatten call is needed and flattening would be wrong.**
+> Full working, with the reproduce block: `results/ops/LQD_ATTRIBUTION_2026-09-10.md`.
+> The genuinely unattributed remainder is `bench_b6_ew_credit`'s **+23 shares
+> (~$2,408)**, not $89,841.18.
+
+
 **Written 2026-09-10, dev tree. Read-only: no broker connection was opened for
 this note.** Every figure below is recomputed from
 `results/ops/BROKER_SNAPSHOT_2026-09-10.json` (a read-only probe at
@@ -31,7 +45,7 @@ closes, as the halt used.
 | sym | broker | Σ ledgers | gap | abs $ | which way it is wrong |
 |---|---:|---:|---:|---:|---|
 | JAAA | 0 | −1,503 | **+1,503** | 76,021.89 | ledger claims what the broker does **not** hold |
-| LQD | −881 | −23 | **−858** | 89,841.18 | **broker holds what no ledger claims** |
+| LQD | −881 | −23 | **−858** | 89,841.18 | ~~broker holds what no ledger claims~~ **WRONG — corrected 2026-09-10 evening: ledger booked a phantom BUY 861; `null_trader` really holds −904, all broker-confirmed. See LQD_ATTRIBUTION_2026-09-10.md** |
 | HYG | 383 | 987 | **−604** | 47,558.96 | ledger claims what the broker does **not** hold |
 | JNK | 26 | 446 | **−420** | 39,782.40 | ledger claims what the broker does **not** hold |
 | EMB | 550 | 608 | **−58** | 5,427.35 | ledger claims what the broker does **not** hold |
@@ -52,8 +66,13 @@ AGG   bench_b3_agg +206 vs broker 205  (−1, the halt's unpriced row)
 
 | | $ | what fixes it |
 |---|---:|---|
-| **ledger overclaim** — JAAA, HYG, JNK, EMB | **168,790.60** | rebuilding the ledger from broker-confirmed executions. No position decision, no order. |
-| **genuinely unattributed** — LQD short | **89,841.18** | a decision: attribute the 858-share short to a book, or flatten it. **Flattening transmits an order.** |
+| **ledger overclaim** — JAAA, HYG, JNK, EMB **and LQD** | **258,631.78** | rebuilding the ledger from broker-confirmed executions. No position decision, no order. **LQD moved into this row 2026-09-10 evening.** |
+| **genuinely unattributed** — `bench_b6_ew_credit`'s LQD **+23** | **~2,408** | an IBKR activity statement for 2026-07: it predates fill capture, so `reqExecutions()` cannot reach it. 23 shares. No order, no decision, not urgent. |
+
+**The row above previously read "genuinely unattributed — LQD short,
+$89,841.18, a decision: attribute the 858-share short to a book, or flatten
+it."** That was wrong; see the banner. Nothing in this table now calls for an
+action that transmits an order.
 
 The halt's remediation paragraph asks for both at once ("the ~$182.6k of
 unattributed LQD/HYG/JNK/EMB has to be attributed to a book or deliberately
