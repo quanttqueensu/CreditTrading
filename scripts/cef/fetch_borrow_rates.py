@@ -118,7 +118,12 @@ def from_api_fee(tickers: list[str]) -> pd.DataFrame:
     Sequential, one name at a time, one retry: the first request after a
     connection warms up the service and can time out on its own.
     """
-    from ib_insync import IB, Stock, util
+    # LANDMINE 8: ib_async first. ib_insync 0.9.86 hangs in its asyncio
+    # handshake on Python 3.12+ and looks exactly like a dead broker.
+    try:
+        from ib_async import IB, Stock, util
+    except ImportError:
+        from ib_insync import IB, Stock, util
 
     util.logToConsole(50)
     ib = IB()
@@ -157,7 +162,12 @@ def from_api_fee(tickers: list[str]) -> pd.DataFrame:
 
 def from_api(tickers: list[str]) -> pd.DataFrame:
     """TWS cross-check. Availability only -- there is no fee-rate tick."""
-    from ib_insync import IB, Stock, util
+    # LANDMINE 8: ib_async first. ib_insync 0.9.86 hangs in its asyncio
+    # handshake on Python 3.12+ and looks exactly like a dead broker.
+    try:
+        from ib_async import IB, Stock, util
+    except ImportError:
+        from ib_insync import IB, Stock, util
 
     util.logToConsole(50)          # 10089 warnings are expected and handled below
     ib = IB()

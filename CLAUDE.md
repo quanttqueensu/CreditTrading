@@ -396,6 +396,14 @@ for the order path. Do not widen `testpaths`.
    **Never take a symbol from the account net.**
 8. Use `ib_async`, never `ib_insync` — the latter hangs forever in its asyncio
    handshake on Python 3.12+ and looks exactly like a dead broker connection.
+   This machine runs **Python 3.13.5**. As of 2026-09-10 there are **no
+   unconditional `ib_insync` imports left**: `ops/reset_epoch.py` and the two in
+   `scripts/cef/fetch_borrow_rates.py` now use the same
+   `try: ib_async / except ImportError: ib_insync` preference as
+   `src/deploy/broker/ibkr.py:333`. `reset_epoch.py` was the one that mattered —
+   a **recovery** tool that would have hung every time, during the window where
+   you least want to be debugging a client library. Re-check with
+   `grep -rn '^ *from ib_insync' ops/ src/ scripts/ | grep -v ImportError`.
 
 ## The desk
 

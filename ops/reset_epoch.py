@@ -69,7 +69,19 @@ def broker_positions(universe, client_id=120):
     while the account is marked continuously, so for a broker-sourced seed the
     broker's price is both fresher and the one the position is actually worth.
     """
-    from ib_insync import IB, util
+    # LANDMINE 8. `ib_async` first, `ib_insync` only as a fallback -- the same
+    # order `src/deploy/broker/ibkr.py:333-337` uses, and for the same reason:
+    # `ib_insync` 0.9.86 is unmaintained and hangs forever in its asyncio
+    # handshake on Python 3.12+, while TWS answers a raw socket handshake
+    # normally. It looks exactly like a dead broker connection, and an hour was
+    # lost to that before the socket was proved fine by hand. This machine runs
+    # Python 3.13.5, so the bare `from ib_insync import ...` that stood here
+    # would hang every time -- on a RECOVERY tool, during the window where you
+    # least want to be debugging the client library.
+    try:
+        from ib_async import IB, util
+    except ImportError:
+        from ib_insync import IB, util
     util.logToConsole(50)
     ib = IB()
     ib.connect("127.0.0.1", 4002, clientId=client_id, readonly=True, timeout=20)
