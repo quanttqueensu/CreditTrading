@@ -111,6 +111,45 @@ as **WARN**, not FAIL (`doctor.py:167`). So a botched reload would leave
 benchmarks dead *and let the promotion pass*. Verify the job is present in
 `launchctl list` with exit `0` or `-`, not merely that doctor went green.
 
+## A fourth thing, found while waiting for the 17:25 run: the window is an hour short
+
+**`ops/schedule/cef.env:51` sets `NAV_DEADLINE=23:30`. `promote.sh`'s window
+ended at `22:30`.** `[V]` Both trees carry the same env file; the `21:30` in
+`launch_job.py:243` and `wait_for_nav.py:103` is the **code default**, which the
+env file overrides — which is why every document that says "the cef session
+waits for NAV until 21:30" is wrong, including CLAUDE.md.
+
+Tonight's session log, read at 17:15:
+
+```
+[2026-09-10 17:15:05] waiting for today's NAV on every deployed name (deadline 23:30)
+waiting for NAV dated 2026-09-10 on 17 deployed names; deadline 23:30, poll every 900s
+```
+
+`cef.env`'s own comment records why: *"Measured 2026-09-08: yfinance publishes
+the day's NAVs at ~22:45 ET, in one batch; CEFConnect later still."*
+
+So there was **a full hour every trading night, 22:30 to 23:30, in which the
+gate said "not in the session window" while the session was still running and
+had not yet placed its orders.** Promoting there checks out a different tag
+under a live session — exactly what the window exists to prevent. The two
+numbers lived in different files and nothing compared them, so each looked
+right on its own.
+
+**Fixed in dev (`v2026.09.10.4`):** the window end is now derived from
+`NAV_DEADLINE`, an unparseable one refuses rather than defaulting, and a live
+session **pid** refuses outright — with `--force` unable to bypass that one,
+asserted by test. A clock is a proxy for "is a session running"; a pid is the
+question itself.
+
+**This does not help tonight.** Prod runs `.1`'s `promote.sh`, which still has
+the `22:30` literal. **So tonight's promotion must be timed by checking that
+the cef job's pid is gone, not by the clock:**
+
+```
+launchctl list | grep com.quantt.cef.daily     # first column must be "-"
+```
+
 ## `--force` is inert against all of this
 
 `--force` is tested in exactly one place — the session-window branch. It does
