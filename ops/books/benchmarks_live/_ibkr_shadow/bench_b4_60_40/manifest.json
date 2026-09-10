@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "written_utc": "2026-09-09T17:48:50.311745+00:00",
+  "written_utc": "2026-09-10T21:25:09.365157+00:00",
   "files": {
     "orders.csv": {
       "rows": 0,
@@ -18,10 +18,5 @@
       "rows": 1,
       "last_date": "2026-09-08"
     }
-  },
-  "epoch": "2026-09-08",
-  "epoch_nav": 20000.0,
-  "epoch_reason": "pre-epoch ledger booked 22 sessions of fills the account never made (broker port misconfigured 2026-08-03..2026-09-03); archived, not deleted",
-  "epoch_archive": "_pre_epoch_bench_b4_60_40_20260907_161916",
-  "epoch_written_utc": "20260907_161916"
+  }
 }

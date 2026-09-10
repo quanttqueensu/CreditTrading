@@ -1,19 +1,19 @@
 {
-  "asof": "2026-09-04",
-  "book_nav": 80088.90807682487,
-  "book_pnl": 88.90807682486411,
-  "book_cash": 444.066386761389,
-  "gross_exposure": 79644.84169006348,
-  "net_exposure": 79644.84169006348,
-  "book_turnover": 0.0,
+  "asof": "2026-09-10",
+  "book_nav": 99438.67039413618,
+  "book_pnl": -561.3296058638189,
+  "book_cash": 12452.779503887841,
+  "gross_exposure": 86985.89089024834,
+  "net_exposure": 86985.89089024834,
+  "book_turnover": 28.541363527050578,
   "sleeves": {
     "bench_b1_hyg": {
-      "nav": 20013.13436163705,
-      "pnl": 13.13436163705046,
-      "cash": 64.81343878548732,
+      "nav": 19863.91976928711,
+      "pnl": -136.08023071289062,
+      "cash": 51.6790771484375,
       "capital_usd": 20000.0,
-      "gross_exposure": 19948.320922851562,
-      "net_exposure": 19948.320922851562,
+      "gross_exposure": 19812.240692138672,
+      "net_exposure": 19812.240692138672,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -26,12 +26,12 @@
       }
     },
     "bench_b3_agg": {
-      "nav": 19990.07582253965,
-      "pnl": -9.92417746035062,
-      "cash": 8.075822539648755,
+      "nav": 19804.30062866211,
+      "pnl": -195.69937133789062,
+      "cash": 18.0,
       "capital_usd": 20000.0,
-      "gross_exposure": 19982.0,
-      "net_exposure": 19982.0,
+      "gross_exposure": 19786.30062866211,
+      "net_exposure": 19786.30062866211,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -44,12 +44,12 @@
       }
     },
     "bench_b4_60_40": {
-      "nav": NaN,
+      "nav": 20000.0,
       "pnl": 0.0,
-      "cash": 0.0,
+      "cash": 12069.0798968,
       "capital_usd": 20000.0,
-      "gross_exposure": 0.0,
-      "net_exposure": 0.0,
+      "gross_exposure": 7930.9201032,
+      "net_exposure": 7930.9201032,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -62,12 +62,12 @@
       }
     },
     "bench_b5_shy": {
-      "nav": 19983.3265746103,
-      "pnl": -16.67342538970115,
-      "cash": 50.96597890717524,
+      "nav": 19934.11895751953,
+      "pnl": -65.88104248046875,
+      "cash": 67.639404296875,
       "capital_usd": 20000.0,
-      "gross_exposure": 19932.360595703125,
-      "net_exposure": 19932.360595703125,
+      "gross_exposure": 19866.479553222656,
+      "net_exposure": 19866.479553222656,
       "turnover": 0.0,
       "enabled": true,
       "disabled": false,
@@ -80,13 +80,13 @@
       }
     },
     "bench_b6_ew_credit": {
-      "nav": 20102.371318037865,
-      "pnl": 102.37131803786542,
-      "cash": 320.2111465290777,
+      "nav": 19836.33103866743,
+      "pnl": -163.66896133256887,
+      "cash": 246.38112564252918,
       "capital_usd": 20000.0,
-      "gross_exposure": 19782.16017150879,
-      "net_exposure": 19782.16017150879,
-      "turnover": 0.0,
+      "gross_exposure": 19589.949913024902,
+      "net_exposure": 19589.949913024902,
+      "turnover": 28.541363527050578,
       "enabled": true,
       "disabled": false,
       "review_flag": false,
@@ -101,13 +101,13 @@
   "limits": {
     "max_gross_exposure_usd": {
       "ok": true,
-      "value": 79644.84169006348,
+      "value": 86985.89089024834,
       "cap": 105000.0,
       "action": null
     },
     "book_drawdown_suspend_pct": {
       "ok": true,
-      "value": -0.008938253798669749,
+      "value": -0.005613296058638251,
       "cap": -0.99,
       "action": null
     },
@@ -118,7 +118,7 @@
     },
     "book_worst_month_usd": {
       "ok": true,
-      "value": -337.3125154406516,
+      "value": 0.0,
       "budget": -12000.0,
       "action": null
     }

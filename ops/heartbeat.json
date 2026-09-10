@@ -51,12 +51,12 @@
     }
   },
   "benchmarks": {
-    "status": "failed",
-    "at": "2026-09-09 17:25:11",
-    "date": "2026-09-09",
+    "status": "ok",
+    "at": "2026-09-10 17:25:11",
+    "date": "2026-09-10",
     "detail": {
       "armed": true,
-      "rc": 3,
+      "rc": 0,
       "blockers": []
     }
   }

@@ -1,1 +1,2 @@
 decision_date,ticker,current_shares,target_shares,delta_shares,decision_price,target_weight,reason,status,fill_date
+2026-09-09,ANGL,87.0,86.0,-1.0,28.729999542236328,,target,filled,2026-09-10
