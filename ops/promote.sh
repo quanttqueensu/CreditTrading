@@ -53,11 +53,27 @@ if "$PY" "$CAL" --check "$TODAY" >/dev/null 2>&1; then
 fi
 
 # 2. clean prod -----------------------------------------------------------
-if [ -n "$(git -C "$PROD" status --porcelain)" ]; then
-  stamp "REFUSED $TAG: prod has uncommitted changes -- nobody edits prod:"
-  git -C "$PROD" status --short | tee -a "$LOG"
+# The question is "did anyone edit prod CODE", not "did the book trade". The
+# live ledgers, the heartbeat and the halt files are still tracked, and they
+# change on every session -- so a bare `status --porcelain` would refuse every
+# promotion after the first evening. Excluded by pathspec rather than by
+# untracking, because git history is currently their only off-machine backup
+# (ops/backup_state.sh is the replacement; untrack them once it runs nightly).
+# Anything else dirty in prod is a human editing production, and still refuses.
+STATE_EXCLUDES=(':!ops/books/*_live' ':!ops/heartbeat.json' ':!ops/HALT.md'
+                ':!ops/HALT_*.md' ':!ops/halts' ':!ops/schedule/logs')
+DIRTY="$(git -C "$PROD" status --porcelain -- . "${STATE_EXCLUDES[@]}")"
+if [ -n "$DIRTY" ]; then
+  stamp "REFUSED $TAG: prod has uncommitted CODE changes -- nobody edits prod:"
+  echo "$DIRTY" | tee -a "$LOG"
   exit 2
 fi
+# Live state that moved since the last promotion is expected; record it so the
+# promotion log says what the book had done, and so `checkout` below is never
+# a surprise.
+STATE_MOVED="$(git -C "$PROD" status --porcelain -- 'ops/books/*_live' \
+              'ops/heartbeat.json' | wc -l | tr -d ' ')"
+[ "$STATE_MOVED" != "0" ] && stamp "note: $STATE_MOVED live-state file(s) have advanced since the last promotion (expected)"
 PREV="$(git -C "$PROD" describe --tags --always 2>/dev/null)"
 
 # 3. fetch + checkout -----------------------------------------------------
@@ -65,8 +81,31 @@ git -C "$PROD" fetch --tags --quiet origin || { stamp "FAILED $TAG: git fetch"; 
 if ! git -C "$PROD" rev-parse -q --verify "refs/tags/$TAG^{commit}" >/dev/null; then
   stamp "REFUSED $TAG: no such tag on origin"; exit 2
 fi
+
+# ALWAYS archive live state before touching the tree. While the ledgers are
+# still TRACKED, `git checkout` between two tags whose committed ledger
+# contents differ would overwrite the running book's record with a snapshot
+# from whenever dev last committed -- and that record is the only evidence the
+# paper track record rests on. The archive costs ~160KB and a second.
+if [ -x "$PROD/ops/backup_state.sh" ]; then
+  "$PROD/ops/backup_state.sh" >> "$LOG" 2>&1 \
+    || { stamp "REFUSED $TAG: could not archive live state before checkout"; exit 1; }
+else
+  stamp "REFUSED $TAG: ops/backup_state.sh missing -- refusing to checkout over live state"
+  exit 1
+fi
+
 stamp "promoting $PREV -> $TAG"
-git -C "$PROD" checkout --detach --quiet "$TAG" || { stamp "FAILED $TAG: checkout"; exit 1; }
+# `--merge` carries local modifications to files that are identical across the
+# two commits (the normal case for live state) instead of refusing, and stops
+# loudly on a genuine conflict rather than clobbering. Once the ledgers are
+# untracked this is a plain checkout and the flag is inert.
+if ! git -C "$PROD" checkout --detach --merge --quiet "$TAG"; then
+  stamp "FAILED $TAG: checkout conflicted with live state. The archive above has "
+  stamp "  it; untrack the ledgers (git rm -r --cached ops/books/*_live ops/heartbeat.json)"
+  stamp "  so state and code stop sharing a version-control system, then retry."
+  exit 1
+fi
 
 rollback(){
   stamp "SMOKE FAILED at step '$1' -- rolling back to $PREV"
