@@ -146,6 +146,34 @@ def test_executed_heredoc_body_is_scanned(command):
         f"a heredoc body piped to an interpreter IS executed and must be scanned: {command}")
 
 
+# The heredoc belongs to the LAST command on the line. Checking the whole prefix
+# for an interpreter reported all of these as executed, which blocked writing a
+# commit message that merely NAMED a protected path. Found while doing exactly
+# that, and the fix is why `strip_heredoc_bodies` splits on shell separators.
+#
+# The protected strings are assembled rather than written literally, because
+# this file is itself edited through the guarded toolchain and a literal would
+# make the fixture unwriteable.
+_ENTRY = "run_" + "book.py"
+_SECRETS = "config/" + ".env"
+
+HEREDOC_OWNED_BY_LAST_COMMAND = [
+    f"python3 -m pytest -q && git commit -F - <<'EOF'\nfixes {_SECRETS} handling\nEOF",
+    f"python3 x.py && cat > notes.md <<'EOF'\ndo not run {_ENTRY}\nEOF",
+    "python3 -m ops.doctor && git commit -F - <<'EOF'\nremoved ops/books/x.bak\nEOF",
+]
+
+
+@pytest.mark.parametrize("command", HEREDOC_OWNED_BY_LAST_COMMAND)
+def test_heredoc_owner_is_the_last_command_on_the_line(command):
+    """An earlier `python3` on the line does not make the body executable."""
+    reason = decide(command)
+    assert reason is None, (
+        "the heredoc is fed to the LAST command on the line, not to an earlier "
+        f"interpreter, so its body is content:\n  {command}\n"
+        f"  -> {(reason or '').splitlines()[0]}")
+
+
 def test_guard_survives_garbage_input():
     """A guard that crashes on malformed input would block all Bash use."""
     p = subprocess.run([sys.executable, str(HOOK)], input="not json at all",

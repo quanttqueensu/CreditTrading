@@ -163,7 +163,14 @@ def strip_heredoc_bodies(command: str) -> str:
         out.append(line)
         m = _HEREDOC.search(line)
         if m:
-            executed = bool(_INTERPRETER.search(line.split("<<")[0]))
+            # The heredoc belongs to the LAST command on the line, not to any
+            # earlier one. `python3 -m x && git commit -F - <<'EOF'` feeds the
+            # body to git, not to python -- checking the whole prefix reported
+            # every such line as executed, which blocked writing a commit
+            # message that merely NAMED a protected path.
+            prefix = line.split("<<")[0]
+            owner = re.split(r"&&|\|\||;|\||&", prefix)[-1]
+            executed = bool(_INTERPRETER.search(owner))
             terminator = m.group(1)
             j, body = i + 1, []
             while j < len(lines) and lines[j].strip() != terminator:
