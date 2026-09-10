@@ -160,6 +160,15 @@ class ShadowLedgerDesync(RuntimeError):
     """
 
 
+class ShadowLedgerBehind(RuntimeError):
+    """The shadow ledger cannot account for today, so nothing may be sent.
+
+    Raised BEFORE transmission, deliberately. Its sibling `ExecutionRecordGap`
+    catches the same condition from inside the ledger, but by then the orders
+    are at the exchange and an NYSE MOC cannot be cancelled after 15:50.
+    """
+
+
 class NotArmed(RuntimeError):
     """`place_targets` was called before `arm()` confirmed the account is
     explainable by the registered sleeves. Never transmit on unverified state."""
@@ -984,6 +993,7 @@ class IBKRBroker(Broker):
                 f"sleeves. Diffing targets against an unverified position book "
                 f"is what would have doubled both books on 2026-07-31.")
         asof = pd.Timestamp(asof)
+        self._refuse_if_ledger_is_behind(sleeve_name, asof, market_state)
         held = dict(self._live_positions.get(sleeve_name, {}))
 
         desired, pt_by_inst = {}, {}
@@ -1108,6 +1118,96 @@ class IBKRBroker(Broker):
                     f"session will refuse to trade until the ledger is rebuilt.") from exc
         return fills
 
+    def _book_id(self):
+        """This book's `book_id`, for scoping a halt. None -> global halt.
+
+        A desync is provably ONE book's problem: the sleeve is named, the ledger
+        is that book's, and no other book's ability to trade depends on it. A
+        global `ops/HALT.md` here would stop the $500,000 CEF strategy over a
+        $20,000 benchmark's bookkeeping, which is the exact failure
+        `ops/halt.py`'s scoped halts were introduced for on 2026-09-10 after it
+        had happened twice in two days (phase0/JNK, bench_b6/ANGL).
+
+        Returning None on any doubt is the safe direction: it falls back to the
+        global halt, which is louder than warranted but never quieter.
+        """
+        import json as _json
+        from pathlib import Path as _Path
+        try:
+            root = _Path(self._books_root).resolve().parent
+            mine = set(self._sleeves)
+            for cand in sorted(root.glob("*_book.json")):
+                spec = _json.loads(cand.read_text())
+                names = {s.get("name") for s in spec.get("sleeves", [])}
+                if names & mine and spec.get("book_id"):
+                    return str(spec["book_id"])
+        except Exception as exc:
+            print(f"[ibkr] could not resolve book_id for halt scoping "
+                  f"({exc!r}); falling back to a GLOBAL halt")
+        return None
+
+    def _refuse_if_ledger_is_behind(self, sleeve_name, asof, market_state):
+        """Refuse BEFORE transmitting if the shadow ledger cannot book today.
+
+        `_execution_record` covers exactly `asof`, because `ib.fills()` serves
+        the current TWS session and cannot reach back past its daily restart. So
+        if the ledger still holds orders it will try to book on an EARLIER date,
+        `_broker_fill` raises `ExecutionRecordGap` -- correctly, but inside the
+        shadow advance, which runs AFTER the orders have gone to the exchange.
+        For the CEF book those are MOC orders that NYSE will not cancel after
+        15:50 "even to correct a legitimate error".
+
+        So the same question is asked here, before anything is sent, where the
+        answer is still free. This is not hypothetical: measured 2026-09-10,
+        `cef_live`'s ledger ends 2026-09-09 and holds three orders decided that
+        day still open (JFR -4,727, MQY +169, NEA -4,565). The next armed session
+        on any later date would book them on 2026-09-10, which no live query can
+        cover -- and would find that out one step after transmitting.
+        """
+        import pandas as _pd
+        from ops import common as _common
+        lg = self.ledger(sleeve_name)
+        if getattr(lg, "orders", None) is None or lg.orders.empty:
+            return
+        asof = _pd.Timestamp(asof).normalize()
+        open_rows = lg.orders[lg.orders["status"].astype(str) == "open"]
+        if open_rows.empty:
+            return
+        last = lg.last_date
+        if last is None or _pd.Timestamp(last).normalize() >= asof:
+            return
+        stale = open_rows[_pd.to_datetime(open_rows["decision_date"]).dt.normalize()
+                          < asof]
+        if stale.empty:
+            return
+
+        # THE TEST IS "IS THE NEXT TRADING BAR `asof`", NOT "IS asof ONE DAY
+        # LATER". `advance` steps over the PRICE PANEL's own index, so a Friday
+        # close followed by a Monday session is one step, not three -- and a
+        # calendar-day test would refuse the book every Monday and on the far
+        # side of every holiday. Deriving the calendar from `market_state.prices`
+        # uses the identical source `advance` will use, so the two cannot
+        # disagree about what "the next day" is.
+        prices = getattr(market_state, "prices", None)
+        if prices is None or getattr(prices, "empty", True):
+            return          # unit stubs; the advance is skipped too
+        cal = _common.wide(prices, "close").index
+        after = cal[(cal > _pd.Timestamp(last)) & (cal <= asof)]
+        if len(after) and _pd.Timestamp(after[0]).normalize() == asof:
+            return          # ordinary single-bar advance; today's record covers it
+
+        raise ShadowLedgerBehind(
+            f"refusing to transmit for {sleeve_name}: its shadow ledger ends "
+            f"{None if last is None else _pd.Timestamp(last).date()} and holds "
+            f"{len(stale)} order(s) decided before {asof.date()} "
+            f"({', '.join(stale['ticker'].astype(str).head(5))}). Advancing it "
+            f"would book those on a date no live broker query can cover, and "
+            f"`ib.fills()` cannot reach back past a TWS restart. Catch the "
+            f"ledger up from the captured record first "
+            f"(python3 -m ops.rebuild_ledger / ops.unbook_unexecuted_fills). "
+            f"Refusing BEFORE the order goes, not after -- an MOC cannot be "
+            f"cancelled after 15:50.")
+
     def _execution_record(self, sleeve_name, asof):
         """This sleeve's REAL executions for `asof`, for the shadow ledger to book.
 
@@ -1142,9 +1242,25 @@ class IBKRBroker(Broker):
 
         asof = pd.Timestamp(asof)
         mine = set(self._sleeves.get(sleeve_name, {}).get("instruments", []))
+        # CONTESTED MEANS CONTESTED ACROSS BOOKS, NOT JUST ACROSS SLEEVES.
+        # `self._sleeves` holds one BOOK's sleeves -- each book runs as its own
+        # process against one shared paper account -- so a scan of it alone
+        # reports HYG as solely owned inside the phase0 process while
+        # bench_b1_hyg and bench_b6_ew_credit both trade it from another. And
+        # `ib.fills()` really does return the other books' executions:
+        # `ops/schedule/logs/cef_2026-09-08.log` records `1511 belonged to
+        # another book (ignored)`. Taking `sym in mine` as sufficient would book
+        # a benchmark's HYG buy into null_trader's P&L, and the benchmarks
+        # process would symmetrically book null_trader's into bench_b6 -- one
+        # real execution counted twice, in two live ledgers. That is strictly
+        # worse than the phantom this whole path exists to remove.
+        #
+        # `_foreign_book_claims()` already computes exactly this set for arm(),
+        # by the same reasoning and with the same prod/dev path care.
         shared = {sym for other, cfg in self._sleeves.items()
                   if other != sleeve_name
                   for sym in cfg.get("instruments", []) if sym in mine}
+        shared |= {sym for sym in self._foreign_book_claims() if sym in mine}
 
         record = ExecutionRecord(
             source=f"ib.fills() @ {pd.Timestamp.utcnow().isoformat()}",
@@ -1160,14 +1276,32 @@ class IBKRBroker(Broker):
             if sym not in mine:
                 continue                       # another book's symbol entirely
             if sym in shared:
-                owner = order_map.get(str(getattr(ex, "orderId", "")))
+                owner = order_map.get((str(ex.time)[:10],
+                                       str(getattr(ex, "orderId", ""))))
                 if owner != sleeve_name:
                     if owner is None:
                         dropped.append((sym, ex.execId,
                                         getattr(ex, "orderId", "?")))
                     continue
+            # A COMMISSION OF None MEANS "NO REPORT", AND `rep.commission` CANNOT
+            # SAY THAT. ib_async builds every Fill with a default
+            # `CommissionReport()` whose `commission` is 0.0, and patches the real
+            # one in later from the asynchronous commissionReport() callback --
+            # dropping it entirely when the execution belongs to another client.
+            # So `rep` is never None and `rep.commission` is never None, and
+            # reading it directly would hand `_broker_fill` a confident 0.0 for
+            # every execution whose report is still in flight. NoCommissionReport
+            # could then never fire, and the guard written to stop an invented
+            # cost would itself invent one: phase0's 2026-09-10 fills carry real
+            # commissions (HYG 2.706623, JNK 1.0003), and booking them at zero
+            # puts cash and NAV permanently ~$95 high with nothing printed.
+            #
+            # A defaulted report has `execId == ""`. That is the reliable test for
+            # "the report actually arrived", and `commission is None` is not.
             rep = getattr(f, "commissionReport", None)
-            commission = getattr(rep, "commission", None) if rep is not None else None
+            commission = None
+            if rep is not None and getattr(rep, "execId", "") == ex.execId:
+                commission = getattr(rep, "commission", None)
             record.add(
                 Execution(instrument=sym,
                           side=("BUY" if str(ex.side).upper().startswith("B")
@@ -1202,12 +1336,26 @@ class IBKRBroker(Broker):
         path = _Path(self._books_root) / "_ibkr_shadow" / "_order_map.csv"
         if not path.exists():
             return {}
+        # KEYED ON (asof, order_id), NOT order_id. TWS restarts its order-id
+        # sequence every session, so ids collide across dates: measured
+        # 2026-09-10 in cef_live's map, 55 rows carry only 38 distinct ids and
+        # ids 3-12 appear under both 2026-09-01 and 2026-09-04. A plain
+        # order_id map is last-wins, and in the benchmarks book -- where
+        # bench_b1_hyg and bench_b6_ew_credit both trade HYG -- last-wins
+        # resolves a contested fill to whichever sleeve happened to place that
+        # id most recently. It would take the silent `continue` in
+        # `_execution_record`, so nothing would print.
         out = {}
         with open(path, newline="") as fh:
             for row in _csv.DictReader(fh):
                 oid = str(row.get("order_id", "")).strip()
-                if oid:
-                    out[oid] = str(row.get("sleeve", "")).strip()
+                if not oid:
+                    continue
+                asof = str(row.get("asof", ""))[:10]
+                # `.strip()` matches ops.capture_fills._load_order_map, which
+                # does not strip; a trailing space in one and not the other
+                # would make the two disagree about attribution.
+                out[(asof, oid)] = str(row.get("sleeve", "")).strip()
         return out
 
     def _record_desync(self, sleeve_name, asof, fills, exc):
@@ -1253,6 +1401,7 @@ class IBKRBroker(Broker):
         try:
             from ops.halt import write_halt
             write_halt(
+                book=self._book_id(),
                 reason=f"shadow ledger desync in {sleeve_name} @ {asof.date()}",
                 detail=(f"{exc!r}\n\n{len(fills)} fill(s) were transmitted to the "
                         f"broker but NOT recorded in the shadow sub-ledger. The "

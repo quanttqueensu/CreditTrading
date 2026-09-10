@@ -88,6 +88,17 @@ class NoCommissionReport(RuntimeError):
     """
 
 
+class UnbookedExecution(RuntimeError):
+    """The broker executed something no ledger order can account for.
+
+    The mirror of a phantom fill: a real execution that the book would simply
+    not contain. It is the more dangerous direction of the two, because a
+    position that is too SMALL produces no visible error -- the sleeve keeps
+    re-deriving the same delta, the adapter keeps declining to send it, and
+    nothing reconciles the two.
+    """
+
+
 class ExecutionRecordGap(RuntimeError):
     """The ledger must book a fill on a date the execution record cannot answer for.
 
@@ -442,6 +453,7 @@ class Ledger:
 
             # -- 2. fill yesterday's order at TODAY's close ----------------
             day_cost, day_traded = 0.0, 0.0
+            booked_exec_ids = set()
             pending = self._pending_before(d, new_orders)
             book_fill = (self._simulate_fill if self.execution_record is None
                          else self._broker_fill)
@@ -467,7 +479,35 @@ class Ledger:
                 day_traded += abs(fill["notional_usd"])
                 self._close_order(order, "filled", d)
                 new_trades.append(fill["row"])
+                booked_exec_ids.update(
+                    str(fill["row"].get("exec_ids", "")).split(";"))
                 n_fills += 1
+
+            # EVERY EXECUTION MUST FIND AN ORDER. `_broker_fill` is order-driven:
+            # it asks "what did the broker do for THIS pending order". An
+            # execution on an instrument with no pending order is therefore never
+            # consulted, and would vanish without a word -- the original incident
+            # with the sign reversed. The ledger position would then stay stale
+            # forever, because `_make_orders` re-derives the same delta every
+            # cycle while the adapter, which diffs against broker-seeded
+            # positions, sends nothing.
+            #
+            # The adapter and the ledger can genuinely disagree about which names
+            # to trade -- they size from different NAV bases (CLAUDE.md landmine
+            # 3) -- so this is a real and reachable state, not a theoretical one.
+            if self.execution_record is not None:
+                seen = self.execution_record.exec_ids_on(d)
+                unbooked = seen - booked_exec_ids
+                if unbooked:
+                    raise UnbookedExecution(
+                        f"{d.date()}: the broker reports {len(unbooked)} "
+                        f"execution(s) that no ledger order accounts for "
+                        f"({', '.join(sorted(unbooked)[:5])}"
+                        f"{' ...' if len(unbooked) > 5 else ''}). The ledger "
+                        f"cannot represent them, and booking the day without "
+                        f"them would understate the position permanently. "
+                        f"Reconcile with `python3 -m ops.reconcile_orders` and "
+                        f"repair before advancing.")
 
             # -- 3. mark to today's close ----------------------------------
             invested = sum(sh * float(close[t]) for t, sh in shares.items())
@@ -719,6 +759,17 @@ class Ledger:
         `results/ops/PREREG_AMENDMENT_REAL_FILLS_2026-09-10.md` before quoting a
         net return from this ledger.
 
+        WHICH SESSION SHAPE THIS IS ALIGNED FOR. The CEF evening session decides
+        at D-1, transmits MOC that fills in D's closing auction, and the ledger
+        books D-1's order at D's close -- so the executions the record holds on
+        session day D really are the fills of the order being closed. Aligned.
+        Phase0 runs at 09:43 with market orders that fill in seconds, so the
+        record holds TODAY's executions while the ledger is closing YESTERDAY's
+        order. Each execution is still booked exactly once and the position is
+        right, but `decision_price`, `slip_vs_decision_bp` and the `PARTIAL`
+        line below compare across a one-day gap, so the PARTIAL warning fires
+        routinely there and means little. Read it as a CEF-session signal.
+
         Note what did NOT change: `cost_usd` still means "slippage against the
         close", the same quantity it means on the simulated path, so the column
         is comparable across every row in the file. Commission is charged
@@ -727,8 +778,6 @@ class Ledger:
         """
         t = order["ticker"]
         price = float(close.get(t, np.nan))
-        if not np.isfinite(price) or price <= 0:
-            return None
 
         if not self.execution_record.covers_date(d):
             covered = sorted(self.execution_record.covers)
@@ -763,6 +812,24 @@ class Ledger:
                 f"substitute costs['commission_usd_per_trade'], which would "
                 f"charge a configured guess against a real trade and report it "
                 f"as realised.")
+
+        # The price check comes AFTER the executions are known, and raises rather
+        # than returning None. On the simulated path an unusable close honestly
+        # means "we did not trade"; here it would mean "the broker traded, we are
+        # holding the executions, and we are dropping them" -- and `advance`
+        # would write that as `skipped`, silently. `close_price` is needed for
+        # cost_usd and for the slippage record, so there is no booking it without
+        # one. HYT lags the price panel by a day (CLAUDE.md landmine 4) and
+        # `advance`'s step-0 gap guard only covers held-or-targeted names, so a
+        # pending order on a name that is flat and out of the spec is not
+        # covered by it.
+        if not np.isfinite(price) or price <= 0:
+            raise ValueError(
+                f"{d.date()} {t}: the broker executed {len(execs)} fill(s) "
+                f"({';'.join(e.exec_id for e in execs)}) but there is no usable "
+                f"close for {t} on {d.date()}, so the fill cannot be priced or "
+                f"marked. Refusing to drop a real execution. Backfill the price "
+                f"store for {t} and re-run -- the ledger resumes from here.")
 
         gross = sum(e.qty for e in execs)
         if gross <= 0:

@@ -207,7 +207,17 @@ def build(spec, state_dir, asof=None, refresh_status=True, report_dir=None,
         tr = lg.trades.copy()
         side = np.where(tr["side"] == "BUY", 1.0, -1.0)
         tr["market_move_bp"] = (tr["close_price"] / tr["decision_price"] - 1.0) * 1e4 * side
-        tr["cost_bp"] = tr["half_spread_bp"] + tr["impact_bp"]
+        # DERIVED FROM THE TWO PRICES, NOT SUMMED FROM THE TWO COLUMNS. On the
+        # simulated path fill_price = close * (1 + side*(half + impact)/1e4), so
+        # this is identically `half_spread_bp + impact_bp` -- a no-op. On a REAL
+        # fill (ops/ledger.py `_broker_fill`, and every row ops/rebuild_ledger.py
+        # writes) `impact_bp` is NaN, because nothing observable separates spread
+        # from impact in an execution, and the sum made this column -- and the
+        # size-weighted headline below it -- NaN for the whole table. Filling the
+        # NaN with 0.0 would have been the wrong repair: it reads as "there was
+        # no impact" rather than "it is not separable".
+        _side = np.where(tr["side"] == "BUY", 1.0, -1.0)
+        tr["cost_bp"] = (tr["fill_price"] / tr["close_price"] - 1.0) * 1e4 * _side
         A(f"Decisions are made on one close and filled at the NEXT close, so "
           f"the gap has two parts: the spread and impact we chose to pay "
           f"(known in advance, from `config/costs.yaml`), and the overnight "

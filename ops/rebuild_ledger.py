@@ -97,6 +97,13 @@ def rebuild(books_root, sleeve, capital_usd, asof, broker_positions=None,
     vwap = fills.groupby("instrument").apply(
         lambda g: (g["price"] * g["qty"]).sum() / g["qty"].sum(),
         include_groups=False)
+    # The execIds this row is built FROM. Dropping them here threw away the
+    # audit trail at exactly the moment it is most wanted -- a rebuild is the
+    # one operation that replaces a book's entire history, and `exec_ids` is
+    # what lets a later reader prove each row came from a real execution.
+    exec_ids = fills.groupby("instrument")["note"].apply(
+        lambda g: ";".join(sorted(
+            set(g.astype(str).str.extract(r"execId=(\S+)")[0].dropna()))))
 
     # -- safety: the fills must explain the CURRENT broker position ---------
     if broker_positions is not None:
@@ -134,6 +141,14 @@ def rebuild(books_root, sleeve, capital_usd, asof, broker_positions=None,
         "notional_usd": float(net[t]) * float(vwap[t]),
         "cost_usd": 0.0,
         "reason": "rebuilt from broker executions (real fills, not modelled)",
+        "exec_ids": exec_ids.get(t, ""),
+        # Left NaN deliberately. A rebuild books the REAL price, and what the
+        # cost model would have charged for a trade that already happened cannot
+        # be reconstructed after the fact. `capture_fills.slippage_report`
+        # excludes such rows from kill rule (b) and says how many -- which is the
+        # honest treatment. Copying `fill_price` in here would make every rebuilt
+        # row report excess_bp = 0.0 and pull the ratio toward 1.00x.
+        "modelled_fill_price": float("nan"),
     } for t in sorted(net.index) if abs(float(net[t])) > 1e-9],
         columns=TRADE_COLUMNS)
 
