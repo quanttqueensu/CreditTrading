@@ -67,12 +67,11 @@ ops/schedule/weekly_book_report.py.bak-20260831
 src/deploy/broker/ibkr.py.bak-20260831
 ```
 
-An eighth, `ops/books/benchmarks_live/_attribution.json.bak-20260831`, is
-**still present**. It is tracked and therefore recoverable like the others, but
-it sits under `ops/books/`, the tree that holds the only record of real
-executions. It was left for the operator when a `PreToolUse` guard still refused
-agent writes there; that guard was removed 2026-09-10. Inert either way — remove
-it or leave it.
+An eighth, `ops/books/benchmarks_live/_attribution.json.bak-20260831`, was
+removed later the same day, once the `PreToolUse` guard that refused agent writes
+under `ops/books/` had been removed. Verified superseded first: a strict subset of
+the live `_attribution.json`, missing `bench_b1_hyg` entirely and HYG from
+`bench_b6_ew_credit` — a pre-2026-08-31 snapshot. Recoverable from `HEAD`.
 
 They carry nothing git does not already hold, and a `.bak` sitting beside a live
 file is an active hazard: `ibkr.py.bak-20260831` still contains the pre-rename

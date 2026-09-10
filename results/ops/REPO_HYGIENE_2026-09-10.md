@@ -316,28 +316,27 @@ relying on the old number somewhere.
 
 ## Still open
 
-### ⚠ Needs an operator, not an agent
+### ~~Needs an operator, not an agent~~ — CLOSED 2026-09-10
 
-**`config/.env.switch_broker.bak` should be deleted outright.** It is a byte copy
-of the live credentials file, written by `ops/switch_broker.py`, and it is
-**gitignored — therefore genuinely unrecoverable, unlike every other `.bak` here.**
-`.gitignore`'s own comment anticipates exactly this file. W0 says delete rather
-than archive, and that is right: archiving a credentials copy moves the hazard
-instead of removing it. It was world-readable until 2026-09-10; that has been
-corrected, but the right end state is that it does not exist.
+Both items are done. **No `.bak` file remains anywhere in the tree** outside
+`data/`.
 
-Not done here because deleting it is **irreversible and touches credentials**,
-which is an operator action. `.claude/hooks/guard_order_path.py` refuses even to
-`stat` it, which is over-broad but the safe direction.
+**`config/.env.switch_broker.bak`** — a gitignored, therefore genuinely
+unrecoverable, byte copy of the live credentials written by
+`ops/switch_broker.py`. `.gitignore`'s own comment anticipates exactly this file.
+**Deleted** (not archived — archiving a credentials copy moves the hazard rather
+than removing it). `config/.env` itself is intact at mode `-rw-------`,
+owner-only. It had been world-readable until 2026-09-10.
 
-```
-rm config/.env.switch_broker.bak
-```
+**`ops/books/benchmarks_live/_attribution.json.bak-20260831`** — **deleted**,
+recoverable from `HEAD` if ever wanted. Verified superseded before removal: it is
+a strict subset of the live `_attribution.json`, missing `bench_b1_hyg` entirely
+and HYG from `bench_b6_ew_credit`, i.e. a pre-2026-08-31 snapshot. The live file
+carries 5 books and 13 symbols and is untouched.
 
-**`ops/books/benchmarks_live/_attribution.json.bak-20260831`** is tracked and
-recoverable, but sits under `ops/books/`, which the guard protects because that
-tree holds the only record of real executions. The guard cannot tell a backup of
-an attribution file from a live ledger. Inert either way; remove it or leave it.
+Both were originally left for a human because the `PreToolUse` guard refused
+agent writes to `config/` and `ops/books/`. That guard was removed on 2026-09-10
+at the team lead's instruction, so the block no longer applied.
 
 ### Research and data
 
