@@ -119,7 +119,17 @@ done
 # An exclusion that matches nothing is indistinguishable from one that matched
 # and found nothing clean, which is why ops/tests/test_promote_gate.py now
 # pins the pathspecs against a fixture repo rather than trusting this comment.
-STATE_EXCLUDES=(':!ops/books/*_live/**' ':!ops/heartbeat.json' ':!ops/HALT.md'
+#
+# `_dryruns` IS STATE TOO, AND LEAVING IT OUT STILL REFUSED EVERY PROMOTION.
+# Measured 2026-09-11 against prod: with the corrected pathspecs above the gate
+# still saw two dirty lines, both `ops/books/_dryruns/phase0/`. Eighteen files
+# under that directory are TRACKED, and a session that does not arm rewrites
+# them -- which is most sessions, the book having armed on 5 of 29. So the
+# `/**` fix alone bought nothing in practice: it moved the refusal from the live
+# ledgers to the dry-run artefacts. They are output, not code, and a human has
+# not edited production by producing one.
+STATE_EXCLUDES=(':!ops/books/*_live/**' ':!ops/books/_dryruns/**'
+                ':!ops/heartbeat.json' ':!ops/HALT.md'
                 ':!ops/HALT_*.md' ':!ops/halts/**' ':!ops/schedule/logs/**')
 DIRTY="$(git -C "$PROD" status --porcelain -- . "${STATE_EXCLUDES[@]}")"
 if [ -n "$DIRTY" ]; then

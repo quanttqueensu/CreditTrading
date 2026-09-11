@@ -46,6 +46,7 @@ def prodlike(tmp_path):
     r = tmp_path / "repo"
     (r / "ops/books/cef_live/_ibkr_shadow/cef_discount").mkdir(parents=True)
     (r / "ops/books/phase0_live/_ibkr_shadow/null_trader").mkdir(parents=True)
+    (r / "ops/books/_dryruns/phase0").mkdir(parents=True)
     (r / "ops/halts").mkdir(parents=True)
     (r / "ops/schedule/logs").mkdir(parents=True)
     _git(r.parent, "init", "--quiet", str(r))
@@ -57,6 +58,8 @@ def prodlike(tmp_path):
     phase0 = r / "ops/books/phase0_live/_ibkr_shadow/null_trader/nav.csv"
     phase0.write_text("date,nav\n2026-09-09,500000\n")
     (r / "ops/heartbeat.json").write_text('{"cef": "2026-09-09"}\n')
+    dry = r / "ops/books/_dryruns/phase0/book_status_dryrun.json"
+    dry.write_text('{"asof": "2026-09-09"}\n')
     (r / "ops/promote.sh").write_text("# code\n")
     _git(r, "add", "-A")
     _git(r, "commit", "--quiet", "-m", "seed")
@@ -66,6 +69,12 @@ def prodlike(tmp_path):
     phase0.write_text("date,nav\n2026-09-09,500000\n2026-09-10,504573\n")
     (r / "ops/heartbeat.json").write_text('{"cef": "2026-09-10"}\n')
     (r / "ops/HALT_phase0_null.md").write_text("# HALT\n")   # untracked, scoped
+    # ...and a session that did NOT arm wrote its dry-run artefacts. That is the
+    # COMMON case -- the CEF book armed on 5 of 29 sessions -- and until
+    # 2026-09-11 these were the files that refused the promotion even after the
+    # `/**` fix, measured against prod: two dirty lines, both under _dryruns.
+    dry.write_text('{"asof": "2026-09-10"}\n')
+    (r / "ops/books/_dryruns/phase0/dryrun_2026-09-10.json").write_text("{}\n")
     return r
 
 
@@ -98,7 +107,7 @@ def test_state_excludes_are_all_nonvacuous(prodlike):
     # that has neither a global halt nor an archived one; only assert on the
     # patterns this fixture exercises.
     exercised = {e for e in ex if any(
-        k in e for k in ("_live", "heartbeat", "HALT_"))}
+        k in e for k in ("_live", "_dryruns", "heartbeat", "HALT_"))}
     assert not (set(vacuous) & exercised), (
         f"these exclusions matched nothing despite the fixture containing such "
         f"paths: {sorted(set(vacuous) & exercised)} -- a '*' that must cross '/' "
@@ -222,3 +231,23 @@ def test_promote_sh_refuses_while_a_session_process_is_live():
     guard = src.split("# 1b.", 1)[1].split("# 2.", 1)[0]
     assert "FORCE" not in guard, (
         "--force exists for the clock, never for a running session")
+
+
+def test_a_session_that_did_not_arm_does_not_wedge_the_gate(prodlike):
+    """The case that made the `/**` fix worth nothing in practice.
+
+    `ops/books/_dryruns/` holds 18 TRACKED files in this repo and a NOT-ARMED
+    session rewrites them. The book has armed on 5 of 29 sessions, so the usual
+    outcome of an evening is a dirty _dryruns and a clean everything else. Until
+    2026-09-11 the gate counted those, so the corrected pathspecs had merely
+    moved the refusal from the live ledgers to the dry-run output. Measured
+    against prod that day: 0 dirty under the live-ledger excludes alone, 2 once
+    _dryruns was counted -- both dry-run artefacts.
+
+    Producing a dry run is not a human editing production, which is the only
+    thing this gate is meant to catch.
+    """
+    dirty = _git(prodlike, "status", "--porcelain", "--", ".",
+                 *_excludes_from_script())
+    assert "_dryruns" not in dirty, (
+        f"a NOT-ARMED session wedges the gate; unexcluded:\n{dirty}")
