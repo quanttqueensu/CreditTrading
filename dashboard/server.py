@@ -32,6 +32,7 @@ ENDPOINTS (every one a GET and a pure read, except /api/connect)
   /api/doctor      scheduler / plumbing checks
   /api/provenance  which ledger sessions have real broker fills   [read-only]
   /api/risk        the book's own limit state from book_status.json [read-only]
+  /api/sessions    per-session ARM/miss outcomes, both log trees   [read-only]
 
 NO SILENT FALLBACKS
 -------------------
@@ -1763,6 +1764,39 @@ def api_doctor():
         except Exception as exc:
             return [{"level": "WARN", "name": "doctor", "msg": repr(exc)}]
     return sjson({"rows": cached("doctor", 30, run)})
+
+
+@app.get("/api/sessions")
+def api_sessions():
+    """READ-ONLY. Did each eligible session ARM, and if not which blocker fired.
+
+    This is the panel the 2026-08 outage needed and did not have: twenty-one
+    sessions logged `ok`, wrote a heartbeat and advanced a ledger while
+    transmitting nothing, because nothing was listening on the configured broker
+    port. Every other panel on this page reads calm in that state — NAV moves,
+    positions are there, the signal computes — because all of them read the
+    shadow ledger, which does not know whether an order was ever sent.
+
+    The measurement is `ops.session_uptime`, the same module the CLI prints, so
+    the screen and the command can never disagree. It reads the UNION of this
+    tree's `ops/schedule/logs` and `~/prod/QUANTT`'s: the logs bifurcated on
+    2026-09-10 when prod took over the scheduler, and a tally from one tree
+    undercounts by one more every session.
+
+    Returns `ok: false` with a reason rather than raising. A 500 here takes the
+    whole tab down, and the tab that goes down is the one that would have told
+    the operator the book is not trading.
+    """
+    def run():
+        try:
+            from ops import session_uptime as su
+            return su.measure()
+        except Exception as exc:
+            return {"ok": False, "complete": False,
+                    "reason": f"session_uptime crashed: {exc!r}"}
+    # 120s: session logs advance once a day. The only reason to poll at all is so
+    # the panel notices tonight's session without a page reload.
+    return sjson(cached("sessions", 120, run))
 
 
 @app.get("/")

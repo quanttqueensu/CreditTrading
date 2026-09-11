@@ -381,6 +381,29 @@ svg{display:block;overflow:visible;max-width:100%}
        border-color:var(--ink)}
 td.sl{font:600 9px var(--sans);letter-spacing:.05em;text-transform:uppercase;
       color:var(--ink-muted);text-align:left;font-variant-numeric:normal}
+
+/* ------------------------------------------------------- session strip ---- */
+/* One cell per ELIGIBLE session, oldest left. Three channels per cell --
+   a glyph, a tint and a solid bottom rule -- because colour alone is not a
+   status: this strip has to survive a greyscale screenshot and a reader who
+   cannot tell red from green. Tints are the *-bg/*-ink pairs the chips already
+   use, so legibility is guaranteed in both themes without a new colour. */
+.sstrip{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0 0}
+.sstrip b{width:20px;height:25px;border-radius:3px;flex:none;
+          display:flex;align-items:center;justify-content:center;
+          font:700 10px var(--mono);border-bottom:2px solid transparent}
+.sstrip b.armed  {background:var(--good-bg);   color:var(--good-ink);
+                  border-bottom-color:var(--good)}
+.sstrip b.caveat {background:var(--warn-bg);   color:var(--warn-ink);
+                  border-bottom-color:var(--warn)}
+.sstrip b.blocked{background:var(--crit-bg);   color:var(--crit-ink);
+                  border-bottom-color:var(--crit)}
+.sstrip b.indet  {background:var(--serious-bg);color:var(--serious-ink);
+                  border-bottom-color:var(--serious)}
+.sstrip b.nolog  {background:var(--neutral-bg);color:var(--neutral-ink);
+                  border-bottom-color:var(--ink-muted)}
+.sstrip b.today  {outline:2px solid var(--s1);outline-offset:1px}
+tr.dim td{color:var(--ink-muted)}
 .vis-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
 </head>
@@ -406,6 +429,7 @@ td.sl{font:600 9px var(--sans);letter-spacing:.05em;text-transform:uppercase;
   <!-- ============================================ 1. SYSTEM STATE ======== -->
   <nav class="mtabs" role="tablist">
   <button class="mtab" data-tab="book"       role="tab">Book</button>
+  <button class="mtab" data-tab="sessions"   role="tab">Sessions</button>
   <button class="mtab" data-tab="positions"  role="tab">Positions</button>
   <button class="mtab" data-tab="trades"     role="tab">Trades</button>
   <button class="mtab" data-tab="benchmarks" role="tab">Benchmarks</button>
@@ -428,6 +452,52 @@ td.sl{font:600 9px var(--sans);letter-spacing:.05em;text-transform:uppercase;
       </div>
     </div>
     <div class="state" id="stateStrip" style="margin-top:12px"></div>
+  </section>
+
+  <!-- ============================================ 1b. SESSIONS =========== -->
+  <!-- The panel the 2026-08 outage needed and did not have. Twenty-one
+       consecutive sessions logged "ok", wrote a heartbeat and advanced a ledger
+       while transmitting nothing. Every other tab on this page reads calm in
+       that state, because every other tab reads the shadow ledger and the
+       shadow ledger does not know whether an order was ever sent. -->
+  <section class="sec" id="tab-sessions">
+    <div id="sessLead"></div>
+    <div class="tiles" id="sessTiles" style="margin-bottom:12px"></div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-hd"><h3>Every eligible session</h3>
+          <div class="spacer"></div>
+          <span class="chip"><span class="gl">▢</span>read-only</span>
+          <div id="sessChip"></div></div>
+        <div class="legend" id="sessLegend"></div>
+        <div id="sessStrip"></div>
+        <div class="frange" id="sessRange"></div>
+        <div id="sessAnom" style="margin-top:10px"></div>
+        <div class="note src" id="sessTrees"></div>
+      </div>
+
+      <div class="card c7">
+        <div class="card-hd"><h3>Per session, newest first</h3>
+          <div class="spacer"></div>
+          <div class="tabs" id="sessFilter"></div></div>
+        <div class="scroll tall"><table id="sessTable">
+          <thead><tr>
+            <th style="text-align:left">Date</th>
+            <th style="text-align:left">Outcome</th>
+            <th style="text-align:left">Armed at</th>
+            <th style="text-align:left">Blocker, or what was wrong with the arm</th>
+            <th>Turnover<u>modelled USD</u></th>
+          </tr></thead><tbody></tbody></table></div>
+        <div class="note src">Turnover is the shadow ledger's own figure and is
+          <b>modelled</b>. It is not evidence of a fill — see Trades for
+          broker-confirmed executions.</div>
+      </div>
+
+      <div class="card c5">
+        <div class="card-hd"><h3>What blocked the book</h3></div>
+        <div id="sessBlockers"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ============================================ 2. POSITIONS =========== -->
@@ -1612,6 +1682,224 @@ async function loadDoctor(){
     `<div class="grp" style="margin-bottom:0">${pass} check(s) passing<hr></div>`;
 }
 
+/* --------------------------------------------------------------- sessions */
+/* Did today's session ARM, and if not which blocker fired. The highest-value
+   panel here and the only one that can catch a silently non-trading book:
+   between 2026-08-03 and 2026-08-28 twenty consecutive sessions logged "ok",
+   wrote a heartbeat and advanced a ledger while transmitting nothing, because
+   nothing was listening on the configured broker port. Preflight caught it every
+   time. Nobody was reading preflight.
+
+   So this panel is built to look WRONG when it is wrong. It leads with the
+   blocker, not the count; an absent measurement says why it is absent; and
+   "armed" and "armed cleanly" are two different numbers, because two sessions on
+   record armed and still placed nothing (2026-09-08 crashed after the arm line;
+   2026-09-10 armed seventeen hours late, the next morning). */
+let SESS=null, SESSFILTER="all";
+const SKIND={
+  armed:        {g:"A", c:"armed",   s:"armed",             t:"armed cleanly"},
+  caveat:       {g:"a", c:"caveat",  s:"armed, not cleanly",
+                 t:"armed, but late or the book run failed"},
+  blocked:      {g:"×", c:"blocked", s:"blocked",      t:"blocked by preflight"},
+  no_log:       {g:"–", c:"nolog",   s:"no log",       t:"no session log at all"},
+  indeterminate:{g:"?", c:"indet",   s:"indeterminate",
+                 t:"the log never said whether it armed"},
+};
+const sKind=r=>r.outcome==="armed"?(r.clean?"armed":"caveat"):r.outcome;
+/* The lead banner's severity, from the ONE state that matters most today. */
+const TODAY_BANNER={
+  armed:  ["good","✓","Today's session armed"],
+  caveat: ["crit","⚠","Today's session armed, but not cleanly"],
+  blocked:["crit","⚠","Today's session did not arm"],
+  indeterminate:["crit","⚠","Today's session never said whether it armed"],
+  no_log: ["crit","⚠","Today's session left no log"],
+  not_yet:["warn","◷","Today's session has not run yet"],
+  closed: ["good","▢","Today is not a session"],
+};
+
+async function loadSessions(){
+  const el=$("#sessStrip"),tb=$("#sessTable tbody"),chip=$("#sessChip");
+  /* No measurement is itself an alert, and the loudest one on this page: the
+     outage this panel exists for looked exactly like a quiet screen. So both
+     failure branches raise the tab dot and print a CRIT chip — never a blank
+     card, which reads as "nothing to report". */
+  const dead=why=>{
+    el.innerHTML=nodata("Uptime could not be measured",why);
+    chip.innerHTML=`<span class="chip crit"><span class="gl">!</span>no
+      measurement</span>`;
+    $("#sessTiles").innerHTML="";tb.innerHTML="";
+    $("#sessLead").innerHTML="";$("#sessBlockers").innerHTML="";
+    $("#sessTrees").innerHTML="";$("#sessRange").innerHTML="";
+    $("#sessLegend").innerHTML="";$("#sessFilter").innerHTML="";
+    $("#sessAnom").innerHTML="";
+    tabAlerts({sessions:true});
+  };
+  let d;
+  try{ d=await(await fetch("/api/sessions")).json(); }
+  catch(e){ dead("/api/sessions did not answer: "+String(e)); return; }
+  SESS=d;
+  if(!d||!d.ok){
+    dead((d&&d.reason)||"the server returned no result and no reason");return;
+  }
+
+  /* ---- today, first, because it is the only row that is still actionable -- */
+  const t=d.today||{}, bn=TODAY_BANNER[t.state]||["warn","◷","Today"];
+  $("#sessLead").innerHTML=`<div class="banner ${bn[0]}">
+    <span class="bi">${bn[1]}</span><div>
+    <h3>${esc(bn[2])} — ${esc(t.date||"?")}</h3>
+    <p>${esc(t.note||"")}${t.session&&t.session.tree
+      ? ` <b>${esc(t.session.tree)}</b>`:""}</p></div></div>`;
+
+  /* ---- the counts. Two rates, never one: see the comment above. ---------- */
+  const lowArm=isNum(d.arm_rate_pct)&&d.arm_rate_pct<100;
+  $("#sessTiles").innerHTML=[
+    tileEl("Armed, of eligible sessions",`${num(d.n_armed)} of ${num(d.n_eligible)}`,
+           "",lowArm?"down":"up"),
+    tileEl("Armed cleanly",`${num(d.n_clean)} of ${num(d.n_eligible)}`,"",
+           d.n_clean<d.n_eligible?"down":"up"),
+    tileEl(`Clean streak, target ${num(d.target_consecutive)}`,
+           `${num(d.streak_clean)} of ${num(d.target_consecutive)}`,"",
+           d.target_met?"up":"down"),
+    tileEl("Missed",num(d.n_missed),"",d.n_missed>0?"down":"up"),
+  ].join("");
+
+  chip.innerHTML=d.complete
+    ? (d.target_met
+        ? `<span class="chip good"><span class="gl">✓</span>${
+             num(d.streak_clean)} consecutive clean</span>`
+        : `<span class="chip crit"><span class="gl">!</span>${
+             num(d.arm_rate_pct,1)}% armed</span>`)
+    : `<span class="chip warn"><span class="gl">!</span>measurement incomplete</span>`;
+
+  /* ---- the strip. Oldest left, one cell per eligible session. ------------ */
+  const ss=d.sessions||[];
+  if(!ss.length){
+    el.innerHTML=nodata("No eligible sessions in the window",
+      `${esc(d.window&&d.window.since)} to ${esc(d.window&&d.window.through)} `+
+      "contains no NYSE trading day");
+  }else{
+    el.innerHTML=`<div class="sstrip">${ss.map((r,i)=>{
+      const k=SKIND[sKind(r)]||SKIND.indeterminate;
+      return `<b class="${k.c}" data-i="${i}" tabindex="0">${k.g}</b>`;}).join("")}</div>`;
+    el.querySelector(".sstrip").onmousemove=ev=>{
+      const b=ev.target.closest("b[data-i]");if(!b){hideTip();return;}
+      const r=ss[+b.dataset.i],k=SKIND[sKind(r)]||SKIND.indeterminate;
+      showTip(ev,`<b>${esc(r.date)}</b> · ${esc(k.t)}<br>`+
+        (r.armed_at?`armed <b>${esc(r.armed_at)}</b><br>`:"")+
+        (r.done_status?`done status=<b>${esc(r.done_status)}</b><br>`:"")+
+        esc(sWhy(r)));
+    };
+    el.querySelector(".sstrip").onmouseleave=hideTip;
+  }
+  $("#sessLegend").innerHTML=Object.keys(SKIND).map(k=>
+    `<span class="k"><i class="sq" style="background:var(--${
+      {armed:"good",caveat:"warn",blocked:"crit",no_log:"ink-muted",
+       indeterminate:"serious"}[k]})"></i>${esc(SKIND[k].g)} ${
+      esc(SKIND[k].t)}</span>`).join("");
+  const w=d.window||{};
+  $("#sessRange").innerHTML=`<span>${esc(w.since||"?")}</span>
+    <span>${esc(w.through||"?")}</span>`;
+
+  /* Anomalies are NOT folded into the rate — they answer "is this record
+     trustworthy", not "did the book trade" — so they get their own banner rather
+     than a number. Notes are designed behaviour, recorded so the same thing is
+     not re-diagnosed as a fault next month; they are quiet on purpose. */
+  $("#sessAnom").innerHTML=((d.anomalies||[]).map(a=>
+      `<div class="banner crit"><span class="bi">⚠</span><div>
+       <h3>${esc(a.date)}</h3><p>${a.items.map(esc).join("<br>")}</p>
+       </div></div>`).join(""))
+    + ((d.notes||[]).map(a=>
+      `<div class="note src">${esc(a.date)} — ${a.items.map(esc).join("; ")}
+       </div>`).join(""));
+
+  /* ---- provenance of the measurement itself. Both trees, named. ---------- */
+  const trees=(d.trees||[]).map(x=>x.present
+    ? `${esc(x.tree)} — ${num(x.n_logs)} log(s) ${esc(x.first)}..${esc(x.last)}`
+    : `${esc(x.tree)} — <b>MISSING</b>, so this rate is a lower bound`).join("<br>");
+  const dups=(d.duplicates||[]).map(x=>
+    `${esc(x.date)} appears in both trees (${x.agree?"they agree":
+      "<b>THEY DISAGREE</b>: "+esc(x.outcomes.join(" / "))}); used ${
+      esc(x.used)}`).join("<br>");
+  $("#sessTrees").innerHTML=
+    `Reproduce: <b>${esc(d.reproducer||"")}</b> · measured ${
+      esc(d.measured_at||"?")}<br>${trees}` +
+    (dups?`<br>${dups}`:"") +
+    (w.excluded_today?`<br>${esc(w.excluded_today)}`:"") +
+    (d.complete?"":`<br>${nodata("This rate is not a measurement",
+        (d.incomplete_reasons||[]).join(" · ")
+        ||"the server did not say why")}`) +
+    `<br>Done when: ${esc(d.target_definition||"")}`;
+
+  /* ---- the table ------------------------------------------------------- */
+  $("#sessFilter").innerHTML=[["all","Every session"],["miss","Misses only"]]
+    .map(([k,lab])=>`<button data-sf="${k}" aria-pressed="${
+      SESSFILTER===k}">${esc(lab)}</button>`).join("");
+  $("#sessFilter").querySelectorAll("button").forEach(b=>
+    b.onclick=()=>{SESSFILTER=b.dataset.sf;renderSessTable();});
+  renderSessTable();
+
+  /* ---- blockers -------------------------------------------------------- */
+  const bl=d.blockers||[];
+  $("#sessBlockers").innerHTML=bl.length
+    ? `<div class="scroll"><table class="ftab">
+        <thead><tr><th>BLOCKER</th><th class="num">SESSIONS</th>
+          <th class="num">LONGEST<span>run</span></th><th>WHAT IT WAS</th>
+        </tr></thead><tbody>${bl.map(b=>{
+          const w2=Math.max(0.6,100*b.sessions/Math.max(1,d.n_eligible));
+          return `<tr><td class="mono">${esc(b.code)}</td>
+            <td class="num">${num(b.sessions)}</td>
+            <td class="num">${num(b.longest_run)}</td>
+            <td>${esc(b.label||"")}${(b.endpoints||[]).length
+              ? ` <span class="mono">${esc(b.endpoints.join(", "))}</span>`:""}
+              <div class="fbar" style="width:100%"><i class="bad"
+                style="width:${w2}%"></i></div>
+              <span class="na">${esc(b.first)}..${esc(b.last)}</span></td>
+          </tr>`;}).join("")}</tbody></table></div>
+       <div class="note src">A session blocked by two checks is counted in both
+         rows, so these sum to more than the ${num(d.n_missed)} missed.</div>`
+    : nodata("No blockers in this window",
+        "every eligible session in the window armed — the count below is the "+
+        "one to watch, not this card");
+
+  tabAlerts({sessions:!d.complete||!d.target_met||(d.anomalies||[]).length>0
+             ||["blocked","indeterminate","no_log","caveat"].includes(t.state)});
+}
+
+/* Why a session is not a clean arm, in the session's own words. */
+function sWhy(r){
+  if(r.outcome==="armed") return r.clean?"" :(r.caveat||"armed, not cleanly");
+  const p=r.primary;
+  return p ? `[${p.code}] ${p.check?p.check+": ":""}${p.text}`
+           : (r.reason||"no reason reported");
+}
+
+function renderSessTable(){
+  const tb=$("#sessTable tbody");if(!tb)return;
+  const d=SESS;if(!d||!d.ok){tb.innerHTML="";return;}
+  const rows=(d.sessions||[]).slice().reverse()
+    .filter(r=>SESSFILTER==="all"||!(r.outcome==="armed"&&r.clean));
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="5">${nodata("Nothing to show",
+      SESSFILTER==="miss"?"every eligible session in the window armed cleanly"
+                        :"the window contains no eligible session")}</td></tr>`;
+    return;
+  }
+  tb.innerHTML=rows.map(r=>{
+    const k=SKIND[sKind(r)]||SKIND.indeterminate;
+    const clean=r.outcome==="armed"&&r.clean;
+    /* Modelled turnover, and only where the log actually carried one. A zero
+       where the figure is absent would read as "it traded nothing", which is a
+       different and much worse claim than "nobody wrote it down". */
+    return `<tr class="${clean?"dim":""}">
+      <td class="mono">${esc(r.date)}</td>
+      <td><span class="chip ${k.c==="armed"?"good":k.c==="caveat"?"warn"
+          :k.c==="nolog"?"":"crit"}" title="${esc(k.t)}">${k.g} ${
+          esc(k.s)}</span></td>
+      <td class="mono">${r.armed_at?esc(r.armed_at):ND}</td>
+      <td>${esc(sWhy(r))||"<span class=\"na\">—</span>"}</td>
+      <td class="num">${money(r.modelled_turnover_usd,0)}</td></tr>`;}).join("");
+}
+
 /* ---------------------------------------------------------------- factors */
 /* The most important risk number in this book and the one no other card shows:
    it is dollar-neutral, so market direction is gone, and almost everything that
@@ -1753,7 +2041,7 @@ function drawScoreboard(){
 }
 
 /* ------------------------------------------------------------------ tabs */
-const TABS=["book","positions","trades","benchmarks","signal","controls"];
+const TABS=["book","sessions","positions","trades","benchmarks","signal","controls"];
 function showTab(name){
   if(TABS.indexOf(name)<0) name="book";
   TABS.forEach(t=>{
@@ -1775,6 +2063,7 @@ function showTab(name){
   if(name==="trades"){ try{loadTrades();drawSlippage();}catch(e){} }
   if(name==="signal"){ try{drawZ();drawSignal();}catch(e){} }
   if(name==="positions"){ try{loadFactors();}catch(e){} }
+  if(name==="sessions"){ try{loadSessions();}catch(e){} }
   window.scrollTo(0,0);
 }
 document.querySelectorAll(".mtab").forEach(b=>
@@ -1838,6 +2127,9 @@ async function boot(){
   await step("risk",loadRisk);
   await step("doctor",loadDoctor);
   await step("factors",loadFactors);
+  /* Last in boot(), first in importance: it reads two log trees off disk, so it
+     is slower than a ledger read and must not delay the live numbers. */
+  await step("sessStrip",loadSessions);
 }
 boot();
 // Poll each thing at the rate it actually changes. The broker moves tick by
@@ -1848,7 +2140,8 @@ setInterval(()=>step("liveTiles",loadLive),5000);
 setInterval(()=>step("conn",loadStatus),30000);
 setInterval(loadSlow,120000);
 setInterval(()=>{step("verify",loadVerify);step("risk",loadRisk);
-                 step("doctor",loadDoctor);},300000);
+                 step("doctor",loadDoctor);
+                 step("sessStrip",loadSessions);},300000);
 addEventListener("visibilitychange",()=>{if(!document.hidden)loadLive();});
 let rt;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawAll,150);});
 </script>

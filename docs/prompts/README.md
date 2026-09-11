@@ -1,6 +1,6 @@
 # `docs/prompts/` — the work orders, and which of them are live
 
-**Index written 2026-09-10 (W0c §4).** Twenty-one entries live here. Three of
+**Index written 2026-09-10 (W0c §4); `W15` added 2026-09-11.** Twenty-two entries live here. Three of
 them matter on any given day and eighteen do not, and until this file existed
 the only way to tell was to open all twenty-one.
 
@@ -71,6 +71,7 @@ below with `python3 ops/prompt_status.py`; do not trust the table.
 | `W12_joint_optimiser.md` | **TC and BR together** | 0 shadowing; 1 promoted | no — computes alongside | **queued** | — |
 | `W13_nav_quality_and_horizon.md` | IC, via NAV measurement error | 2 | no | **queued** | — |
 | `W14_options.md` | Part A measurement; then GAMMA | 0 / 1 / 1 | no | **queued** | blocked on `W2` saying "options: permitted"; Parts B/C moved to `gamma/G5`, `G7` |
+| `W15_schedule_reliability.md` | **uptime — 6 of 29 eligible sessions armed; a missed session has IC 0** | 0 | **yes, lanes A/B/E** | **in progress** | written 2026-09-11. **done:** Lane F — `ops/session_uptime.py` is the named reproducer for every uptime figure, with `ops/tests/test_session_uptime.py`, `ops/tests/test_dashboard_sessions_route.py` and a read-only `GET /api/sessions` panel; it measures **6 armed of 29 eligible, 4 cleanly**, and refutes this prompt's own "of 30" (30 counts Labor Day `cef_2026-09-07.log` as eligible). **remains:** lanes A–E, and G is gated behind them. Lane A is blocking: prod runs `ops-guards-20260911`, NOT an ancestor of `main`, forked at `ac83a26` — but five of its eight commits are patch-id-identical to `main`, so the only true delta is live ledger state, not code |
 | `NEXT_2026-09-11.md` | — dated work order, not a prompt | — | — | **dated artifact** | — |
 | `gamma/` (`G0`–`G7`) | the options programme | GAMMA counter | no | **queued** | `G0_BRIEF.md` is **standing**; GAMMA counter still 0 |
 | `perfund/` (`F1`–`F3`) | per-name resolution | CEF counter | no | **queued** | `F2` supersedes `W10` Part D |
