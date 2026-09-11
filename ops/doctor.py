@@ -214,6 +214,147 @@ def check_launchd(r):
             r.add(PASS, f"loaded:{job}", "loaded, last exit 0")
 
 
+def _session_deadline_minutes(job):
+    """Minutes from a job's scheduled start to the latest it may still be alive.
+
+    Derived, not written down. The cef session's own ceiling is its NAV
+    deadline: `ops/schedule/cef.env` carries `NAV_DEADLINE=23:30` and the plist
+    says it starts at 17:15, so 6h15m plus an hour of slack for the trade and
+    capture phases. The other sessions do not wait for NAV at all and are
+    minutes long; two hours is generous.
+
+    An unparseable NAV_DEADLINE returns None and the check SKIPS rather than
+    guessing a ceiling. The same rule promote.sh applies to the same file: the
+    whole defect class here is a literal that stopped matching reality, and a
+    default would rebuild it.
+    """
+    if job != "cef":
+        return 120
+    env = REPO_ROOT / "ops" / "schedule" / "cef.env"
+    if not env.exists():
+        return None
+    raw = ""
+    for line in env.read_text().splitlines():
+        if line.startswith("NAV_DEADLINE="):
+            raw = line.split("=", 1)[1].strip()
+    try:
+        hh, mm = (int(x) for x in raw.split(":"))
+    except Exception:
+        return None
+    start = _plist_start_minutes(job)
+    if start is None:
+        return None
+    end = hh * 60 + mm
+    if end <= start:
+        return None
+    return (end - start) + 60
+
+
+def _plist_start_minutes(job):
+    """Minutes-past-midnight of a job's StartCalendarInterval, or None."""
+    import plistlib
+    path = _plist_path(job)
+    if path is None:
+        return None
+    try:
+        with open(path, "rb") as fh:
+            d = plistlib.load(fh)
+    except Exception:
+        return None
+    cal = d.get("StartCalendarInterval")
+    if isinstance(cal, dict):
+        cal = [cal]
+    if not cal:
+        return None
+    return int(cal[0].get("Hour", 0)) * 60 + int(cal[0].get("Minute", 0))
+
+
+def _pid_age_minutes(pid):
+    """Elapsed minutes of a running pid via `ps -o etime=`, or None."""
+    try:
+        out = subprocess.run(["ps", "-p", str(pid), "-o", "etime="],
+                             capture_output=True, text=True, timeout=10).stdout.strip()
+    except Exception:
+        return None
+    if not out:
+        return None
+    days, _, rest = out.partition("-")
+    if not rest:
+        days, rest = "0", out
+    parts = [int(x) for x in rest.split(":")]
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    h, m, _sec = parts
+    return int(days) * 1440 + h * 60 + m
+
+
+def check_stuck_sessions(r):
+    """A session still alive long after its own deadline is a STUCK session.
+
+    WHY THIS EXISTS (2026-09-11). The 2026-09-10 cef session started 17:15, got
+    NAV 0/17 from both sources all evening, and was still alive at 10:32 the
+    NEXT DAY -- 17h17m, 0% CPU, no log line for 45 minutes, hung in the borrow
+    fetch. It never armed, so nothing was transmitted; what it did was block the
+    promotion, block the data refresh, and sit on the CEF book's whole trading
+    day while every existing guard read green.
+
+    Nothing could see it, and that is the point of putting the check HERE:
+
+      * `wait_for_nav` checks completeness BEFORE the deadline (deliberately),
+        so a poll that sleeps through 23:30 and wakes at 09:46 to find the data
+        returns 0 and the session proceeds -- ten hours late, on a stale
+        decision. The deadline bounds the WAIT, not the session.
+      * `check_launchd` reads a pid as "running", which is what "hung" looks
+        like.
+      * `run_watchdog` compares heartbeat DATES, so a session that has not
+        finished has not written one, and the arithmetic only trips after two
+        business days. On the evening it broke it computed `missed = 1` and
+        said all clear.
+
+    So this is deliberately not a heartbeat check and not an exit-code check:
+    it asks the one question none of those ask -- is a session still running
+    that cannot possibly still be doing useful work. FAIL, because unlike the
+    backup job this one does stop the book trading: a stuck session holds the
+    day and the next one may collide with it.
+    """
+    try:
+        out = subprocess.run(["launchctl", "list"], capture_output=True,
+                             text=True, timeout=20).stdout
+    except Exception as exc:
+        r.add(WARN, "stuck-session", f"could not query launchctl: {exc!r}")
+        return
+    running = {}
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 3 and parts[2].startswith("com.quantt.") and parts[0] != "-":
+            running[parts[2]] = parts[0]
+
+    for job in ("cef", "phase0", "benchmarks"):
+        label = f"com.quantt.{job}.daily"
+        pid = running.get(label)
+        if pid is None:
+            continue
+        age = _pid_age_minutes(pid)
+        ceiling = _session_deadline_minutes(job)
+        if age is None or ceiling is None:
+            r.add(WARN, f"stuck:{job}",
+                  f"running (pid {pid}) but its age or ceiling could not be "
+                  f"derived, so staleness cannot be judged")
+            continue
+        if age > ceiling:
+            r.add(FAIL, f"stuck:{job}",
+                  f"pid {pid} has been running {age // 60}h{age % 60:02d}m, past "
+                  f"its {ceiling // 60}h{ceiling % 60:02d}m ceiling. It cannot "
+                  f"still be doing useful work, it holds the session slot, and "
+                  f"the next run may collide with it",
+                  f"check the tail of ops/schedule/logs/{job}_*.log, then "
+                  f"launchctl kill TERM gui/$(id -u)/{label}")
+        else:
+            r.add(PASS, f"stuck:{job}",
+                  f"running (pid {pid}) {age // 60}h{age % 60:02d}m, within "
+                  f"{ceiling // 60}h{ceiling % 60:02d}m")
+
+
 def check_env_paths(r):
     """BOOK / BOOKS_ROOT in the job envs must exist.
 
@@ -429,7 +570,8 @@ def failures(quick=False) -> list[str]:
     """
     r = Report()
     for fn, args in ((check_entrypoint, ()), (check_plists, ()),
-                     (check_launchd, ()), (check_env_paths, ()),
+                     (check_launchd, ()), (check_stuck_sessions, ()),
+                     (check_env_paths, ()),
                      (check_broker, (quick,)), (check_ibc, ()),
                      (check_sleep, ()), (check_heartbeats, ()),
                      (check_alerts, ()), (check_panels, ())):
@@ -626,6 +768,7 @@ def main(argv=None):
     check_entrypoint(r)
     check_plists(r)
     check_launchd(r)
+    check_stuck_sessions(r)
     check_env_paths(r)
     check_broker(r, quick=a.quick)
     check_ibc(r)
