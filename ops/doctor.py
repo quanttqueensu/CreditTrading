@@ -483,42 +483,217 @@ def check_ibc(r):
               "~/Library/LaunchAgents/com.quantt.ibgateway.plist")
 
 
-def check_sleep(r):
+# ---------------------------------------------------------------------------
+# Sleep.
+#
+# WHY THIS CHECK MEASURES INSTEAD OF LECTURING
+# --------------------------------------------
+# The old version of this check read `pmset -g sched`, and if no repeating wake
+# was scheduled it printed a fixed sentence about closed lids. It said exactly
+# the same thing on a machine plugged in with the lid open (which runs the
+# session fine) as on a machine on battery at 20% with the lid shut (which
+# loses it). A guard that cannot tell those two apart is a lecture, not a
+# check, and on 2026-09-10 it stood at WARN while the session died.
+#
+# WHAT ACTUALLY HAPPENED, 2026-09-10 (all times local, from `pmset -g log`)
+#
+#   17:15:05  cef session starts, polls for the day's NAV every 900s
+#   19:45:30  last poll before the gap
+#   19:51:36  "Entering Sleep state due to 'Clamshell Sleep' ... Using Batt
+#             (Charge:20%)"           <- lid shut, charger off. Session frozen.
+#   21:26:57  DarkWake from an unrelated rtc/SleepService timer
+#   21:27:24  ONE poll gets through
+#   21:28:54  "Sleep Service Back to Sleep"    <- awake for 117 seconds
+#   09:46:26  next poll, the following morning
+#
+# That 21:26:57 wake is the most useful thing in the log, because it is the
+# accidental experiment for the remedy everyone reaches for first. A wake DID
+# fire during the session window. It bought 117 seconds and one poll, because
+# nothing held an assertion that survives on battery, so the machine went
+# straight back to sleep. `sudo pmset repeat wakeorpoweron` alone would have
+# reproduced exactly this. A wake is worth having, but it is not the fix, and
+# this check must not report PASS on the strength of it.
+#
+# THE TWO REASONS THE NO-SUDO SUBSTITUTE DID NOT HOLD
+#   1. `caffeinate -s` is documented "valid only when system is running on AC
+#      power" (man caffeinate). At 19:51 this machine was on battery, so the
+#      com.quantt.awake job was holding nothing at all.
+#   2. A closed lid beats it even on AC. At 2026-09-10 00:46:31 clamshell sleep
+#      fired while a caffeinate PreventSystemSleep assertion had been held for
+#      10h54m, on AC at 100%. Only `sudo pmset disablesleep 1` or an open lid
+#      defeats clamshell.
+#
+# So the machine survives the evening only if BOTH hold: it is on AC (or the
+# assertion in force is one that works on battery), AND the lid is open (or
+# sleep is disabled outright). The session runs 17:15 until its NAV deadline --
+# observed NAV arrivals 21:45 on 2026-09-09 and 22:43 on 2026-09-08 -- so this
+# is six hours after the point at which a laptop normally gets shut.
+#
+# WHY THIS NEVER RETURNS FAIL
+# ---------------------------
+# `ops/promote.sh` rolls back on ANY non-zero `ops.doctor`, and power source,
+# lid angle and wake schedule are MACHINE state that a `git checkout` cannot
+# change. A FAIL here would refuse every promotion for as long as the lid was
+# shut -- including the promotion carrying the fix for whatever else is broken.
+# That is the same layer-3 deadlock `JOB_NEVER_FAILS` exists to prevent for
+# `backup`, and the same severity argument applies: a sleeping Mac does not
+# make the code wrong, it makes the box unable to run it. See
+# ops/tests/test_doctor_sleep.py, which pins this.
+
+
+def _cmd(argv):
+    """stdout of `argv`, or None if it cannot be run. Never raises.
+
+    Doctor is called by the watchdog, and a check that raises takes down the
+    one job that reports every other job (the 2026-09-01 fault). Every probe
+    below is allowed to be unavailable; unavailable is reported as unknown and
+    never silently treated as healthy.
+    """
     try:
-        sched = subprocess.run(["pmset", "-g", "sched"], capture_output=True,
-                               text=True, timeout=20).stdout.lower()
-    except Exception as exc:
-        r.add(WARN, "sleep", f"could not read pmset: {exc!r}")
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=20)
+    except Exception:
+        return None
+    return out.stdout
+
+
+def on_battery():
+    """True on battery, False on AC, None if `pmset -g ps` is unreadable.
+
+    This is the condition that voids `caffeinate -s` entirely (man caffeinate:
+    "valid only when system is running on AC power"), which is why it is not
+    folded into a general 'power looks fine' boolean.
+    """
+    out = _cmd(["pmset", "-g", "ps"])
+    if out is None:
+        return None
+    head = out.lower()
+    if "drawing from 'ac power'" in head:
+        return False
+    if "drawing from 'battery power'" in head:
+        return True
+    return None
+
+
+def lid_closed():
+    """True if the clamshell is shut, False if open, None if unreadable.
+
+    Clamshell sleep ignores caffeinate assertions, so this is read directly
+    from IOKit rather than inferred from anything pmset reports.
+    """
+    out = _cmd(["ioreg", "-r", "-k", "AppleClamshellState", "-d", "4"])
+    if out is None:
+        return None
+    for line in out.splitlines():
+        if "AppleClamshellState" in line:
+            return "Yes" in line
+    return None       # no clamshell key: a desktop, or IOKit said nothing
+
+
+def sleep_disabled():
+    """True if `pmset disablesleep 1` is in force -- the only setting that
+    defeats clamshell sleep. None if unreadable."""
+    out = _cmd(["pmset", "-g"])
+    if out is None:
+        return None
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == "disablesleep":
+            return parts[1] == "1"
+    return False      # pmset omits the key entirely when it is 0
+
+
+def awake_window():
+    """(start, end) as 'HH:MM' for com.quantt.awake, or None.
+
+    Derived from the plist -- the StartCalendarInterval hour/minute plus the
+    `-t` seconds handed to caffeinate -- rather than written down here. The
+    sentence this replaces said "09:00-20:00" while the job had been running
+    `-t 54000` (15h, so 09:00-00:00) for as long as it had existed. A window
+    quoted in prose goes stale the first time the plist is edited; a window
+    computed from the plist cannot.
+    """
+    path = AGENTS / "com.quantt.awake.plist"
+    if not path.exists():
+        return None
+    try:
+        with path.open("rb") as fh:
+            plist = plistlib.load(fh)
+        argv = [str(a) for a in plist.get("ProgramArguments", [])]
+        secs = int(argv[argv.index("-t") + 1])
+        cal = plist.get("StartCalendarInterval") or []
+        if isinstance(cal, dict):
+            cal = [cal]
+        start = min((int(d.get("Hour", 0)) * 60 + int(d.get("Minute", 0)))
+                    for d in cal)
+    except Exception:
+        return None
+    end = (start + secs // 60) % (24 * 60)
+    return (f"{start // 60:02d}:{start % 60:02d}",
+            f"{end // 60:02d}:{end % 60:02d}")
+
+
+def check_sleep(r):
+    sched = _cmd(["pmset", "-g", "sched"])
+    if sched is None:
+        r.add(WARN, "sleep", "could not read pmset")
         return
-    if "wakeorpoweron" in sched or "poweron" in sched:
-        r.add(PASS, "sleep", "a repeating wake is scheduled")
+    wake = "wakeorpoweron" in sched.lower() or "poweron" in sched.lower()
+
+    batt, lid, disabled = on_battery(), lid_closed(), sleep_disabled()
+    win = awake_window()
+    held = "com.quantt.awake" in (_cmd(["launchctl", "list"]) or "")
+
+    # Each entry is a condition that ENDS the evening session on its own.
+    blockers = []
+    if batt is True:
+        blockers.append("on BATTERY, which voids `caffeinate -s` entirely "
+                        "(it is valid only on AC) and idle-sleeps in 1 minute")
+    if lid is True and not disabled:
+        blockers.append("lid is CLOSED and disablesleep is off, so clamshell "
+                        "sleep wins over any caffeinate assertion")
+    if batt is None or lid is None:
+        blockers.append("could not read power source or lid state")
+
+    # An unparseable plist is NOT the same as an absent one, and saying
+    # nothing about it is the silent fallback this repo keeps being bitten by.
+    # Demonstrated while writing this check: adding a comment containing `--`
+    # to the awake plist left `plutil -lint` saying OK and made plistlib
+    # (expat) refuse the file, so the window silently became "unknown". If the
+    # job is loaded, its plist must be readable; if it is not, say so.
+    plist_there = (AGENTS / "com.quantt.awake.plist").exists()
+    if win:
+        window = f" ({win[0]}-{win[1]})"
+    elif plist_there:
+        window = " (plist present but UNREADABLE, so its window is unknown)"
+    else:
+        window = " (no plist)"
+    holding = (f"com.quantt.awake is loaded{window}" if held
+               else "com.quantt.awake is NOT loaded")
+
+    if not blockers:
+        if wake:
+            r.add(PASS, "sleep",
+                  f"on AC, lid usable, repeating wake scheduled; {holding}")
+        else:
+            r.add(PASS, "sleep",
+                  f"on AC and the lid will not sleep it; {holding}. No "
+                  "repeating wake, so nothing recovers it if it does sleep",
+                  "sudo pmset repeat wakeorpoweron MTWRF 17:00:00")
         return
 
-    # No scheduled wake. Is the no-sudo substitute at least holding it awake?
-    # com.quantt.awake runs `caffeinate -s` 09:00-20:00 on weekdays. That is a
-    # PARTIAL fix and must not report as PASS: caffeinate prevents idle sleep
-    # but cannot WAKE a sleeping Mac, and does not defeat clamshell sleep.
-    awake = False
-    try:
-        out = subprocess.run(["launchctl", "list"], capture_output=True,
-                             text=True, timeout=20).stdout
-        awake = any(line.endswith("com.quantt.awake") or
-                    line.split("\t")[-1].strip() == "com.quantt.awake"
-                    for line in out.splitlines())
-    except Exception:
-        pass
-    if awake:
-        r.add(WARN, "sleep",
-              "no scheduled wake, but com.quantt.awake holds the machine awake "
-              "09:00-20:00 on weekdays. That covers the battery-idle case; a "
-              "CLOSED LID still sleeps and no session will fire",
-              "sudo pmset repeat wakeorpoweron MTWRF 09:20:00 (the real fix)")
-    else:
-        r.add(FAIL, "sleep",
-              "no repeating wake — on battery this Mac sleeps after 1 minute "
-              "and launchd coalesces missed events to a single firing at wake. "
-              "This ate collect and watchdog on 2026-08-31",
-              "sudo pmset repeat wakeorpoweron MTWRF 09:20:00")
+    # A scheduled wake is explicitly NOT an excuse here: 2026-09-10 21:26:57
+    # is the measurement that says a wake without a valid assertion is worth
+    # 117 seconds.
+    recovery = ("a repeating wake is scheduled, but 2026-09-10 21:26:57 "
+                "measured a wake without a holding assertion at 117 seconds "
+                "and one poll" if wake else
+                "Nothing brings it back either: no repeating wake is scheduled")
+    r.add(WARN, "sleep",
+          "THE EVENING SESSION IS UNPROTECTED, which is how 2026-09-10 was "
+          "lost: " + "; ".join(blockers)
+          + f". {recovery}. {holding}",
+          "plug in the charger and open the lid, or: sudo pmset -a disablesleep 1 "
+          "&& sudo pmset -b sleep 0 && sudo pmset repeat wakeorpoweron MTWRF 17:00:00")
 
 
 def check_heartbeats(r):
