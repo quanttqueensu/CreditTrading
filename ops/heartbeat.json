@@ -1,33 +1,29 @@
 {
   "cef": {
     "status": "ok",
-    "at": "2026-09-09 21:46:29",
-    "date": "2026-09-09",
+    "at": "2026-09-11 10:38:32",
+    "date": "2026-09-11",
     "detail": {
       "armed": true,
       "rc": 0,
       "blockers": [],
       "nav_via": "yfinance",
-      "nav_ready_at": "21:45",
-      "pair_date": "2026-09-09"
+      "nav_ready_at": "09:46",
+      "pair_date": "2026-09-10"
     }
   },
   "watchdog": {
-    "status": "stale",
-    "at": "2026-09-09 19:30:11",
-    "date": "2026-09-09",
+    "status": "ok",
+    "at": "2026-09-10 19:30:05",
+    "date": "2026-09-10",
     "detail": {
-      "stale": [
-        "loaded:cef: last exit 1",
-        "loaded:benchmarks: last exit 3",
-        "loaded:phase0: last exit 3"
-      ]
+      "stale": []
     }
   },
   "collect": {
     "status": "ok",
-    "at": "2026-09-09 18:32:19",
-    "date": "2026-09-09",
+    "at": "2026-09-10 18:31:57",
+    "date": "2026-09-10",
     "detail": {
       "failed": []
     }
@@ -41,13 +37,15 @@
     }
   },
   "phase0": {
-    "status": "ok",
-    "at": "2026-09-10 09:43:10",
-    "date": "2026-09-10",
+    "status": "ok_not_armed",
+    "at": "2026-09-11 09:46:34",
+    "date": "2026-09-11",
     "detail": {
-      "armed": true,
+      "armed": false,
       "rc": 0,
-      "blockers": []
+      "blockers": [
+        "[FAIL] halt: ops/HALT_phase0_null.md is active (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.) \u2014 blocks THIS book (phase0_null). Clear with ops.halt.clear_halt('...', book='phase0_null') once genuinely fixed."
+      ]
     }
   },
   "benchmarks": {
