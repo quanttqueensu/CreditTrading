@@ -49,9 +49,13 @@ STATES = [(b, l, d, w)
           for w in (True, False)]
 
 
-def _run(monkeypatch, batt, lid, disabled, wake, held=True):
+def _run(monkeypatch, batt, lid, disabled, wake, held=True, causes=True):
+    # `causes` is macOS's own AppleClamshellCausesSleep. It defaults to True so
+    # every pre-existing case keeps testing the dangerous configuration; the
+    # clamshell-mode case passes causes=False explicitly.
     monkeypatch.setattr(doctor, "on_battery", lambda: batt)
     monkeypatch.setattr(doctor, "lid_closed", lambda: lid)
+    monkeypatch.setattr(doctor, "clamshell_causes_sleep", lambda: causes)
     monkeypatch.setattr(doctor, "sleep_disabled", lambda: disabled)
     monkeypatch.setattr(doctor, "awake_window", lambda: ("09:00", "00:00"))
     monkeypatch.setattr(doctor, "_cmd", lambda argv: (
@@ -84,11 +88,49 @@ def test_battery_is_reported_because_it_voids_caffeinate(monkeypatch):
 
 def test_closed_lid_is_reported_even_on_ac(monkeypatch):
     """Clamshell sleep beat a caffeinate PreventSystemSleep assertion that had
-    been held 10h54m, on AC at 100%, at 2026-09-10 00:46:31."""
+    been held 10h54m, on AC at 100%, at 2026-09-10 00:46:31.
+
+    AC alone does not make a shut lid safe -- clamshell MODE also needs an
+    external display attached, and macOS reports the combined verdict in
+    AppleClamshellCausesSleep. That night it said Yes.
+    """
     level, _, msg, _ = _run(monkeypatch, batt=False, lid=True,
-                            disabled=False, wake=False)
+                            disabled=False, wake=False, causes=True)
     assert level == doctor.WARN
     assert "CLOSED" in msg
+
+
+def test_clamshell_mode_is_not_an_alarm(monkeypatch):
+    """THE FALSE POSITIVE, found 2026-09-11 by the team lead asking "what lid?".
+
+    This desk runs a MacBook Air (Mac14,2) lid-shut on AC with an external
+    display -- ordinary clamshell mode. macOS reports:
+
+        "AppleClamshellCausesSleep" = No
+        "AppleClamshellState"       = Yes
+
+    The first version read only the second line and announced "THE EVENING
+    SESSION IS UNPROTECTED" in the configuration the desk runs in every day.
+    That is exactly the defect the rewrite existed to remove -- the old check
+    "said the same words on a plugged-in machine with the lid open" -- rebuilt
+    one IOKit key over. A guard that cries wolf in the normal case gets read
+    past, and is then worth less than nothing.
+    """
+    level, _, msg, _ = _run(monkeypatch, batt=False, lid=True,
+                            disabled=False, wake=False, causes=False)
+    assert level == doctor.PASS, f"clamshell mode must not alarm: {msg}"
+    assert "will not sleep" in msg
+    assert "Losing AC flips that" in msg, (
+        "a PASS on a shut lid must still name the thing that would change it")
+
+
+def test_an_unreadable_clamshell_verdict_stays_conservative(monkeypatch):
+    """Unknown is treated as dangerous: a false alarm costs a line in a report,
+    a false all-clear costs a session."""
+    level, _, msg, _ = _run(monkeypatch, batt=False, lid=True,
+                            disabled=False, wake=False, causes=None)
+    assert level == doctor.WARN
+    assert "could not be read" in msg
 
 
 def test_disablesleep_clears_the_closed_lid(monkeypatch):

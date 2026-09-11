@@ -589,6 +589,45 @@ def lid_closed():
     return None       # no clamshell key: a desktop, or IOKit said nothing
 
 
+def clamshell_causes_sleep():
+    """True if shutting the lid will actually sleep this machine, else False.
+    None if unreadable or the key is absent (a desktop).
+
+    ASK THE SYSTEM, DO NOT INFER FROM THE LID ANGLE. `AppleClamshellState` says
+    only whether the lid is shut; the neighbouring `AppleClamshellCausesSleep`
+    is macOS's own answer to the question this check actually asks, and the two
+    routinely disagree. Clamshell MODE -- lid shut, machine awake -- is
+    supported on AC with an external display and an input device, and is a
+    normal way to run a laptop.
+
+    MEASURED 2026-09-11 on this machine (MacBook Air, Mac14,2, external 1080p
+    display, AC at 96%):
+
+        "AppleClamshellCausesSleep" = No
+        "AppleClamshellState"       = Yes
+
+    The first version of this check read only the second line and reported
+    "THE EVENING SESSION IS UNPROTECTED" in the desk's ordinary operating
+    configuration. That is the precise failure the rewrite was meant to end --
+    the old check "said the same words on a plugged-in machine with the lid
+    open" -- rebuilt one key over. A guard that cries wolf in the normal case
+    gets read past, and then it is worth less than nothing.
+
+    It does NOT excuse the closed lid in general: on BATTERY clamshell mode is
+    not supported, this flips to Yes, and the lid sleeps the machine. That is
+    what happened at 19:51:36 on 2026-09-10 -- `pmset -g log` recorded
+    "Clamshell Sleep ... Using Batt (Charge:20%)". The lid was a proximate
+    cause; losing AC was the real one.
+    """
+    out = _cmd(["ioreg", "-r", "-k", "AppleClamshellState", "-d", "4"])
+    if out is None:
+        return None
+    for line in out.splitlines():
+        if "AppleClamshellCausesSleep" in line:
+            return "Yes" in line
+    return None
+
+
 def sleep_disabled():
     """True if `pmset disablesleep 1` is in force -- the only setting that
     defeats clamshell sleep. None if unreadable."""
@@ -648,9 +687,16 @@ def check_sleep(r):
     if batt is True:
         blockers.append("on BATTERY, which voids `caffeinate -s` entirely "
                         "(it is valid only on AC) and idle-sleeps in 1 minute")
-    if lid is True and not disabled:
-        blockers.append("lid is CLOSED and disablesleep is off, so clamshell "
-                        "sleep wins over any caffeinate assertion")
+    causes = clamshell_causes_sleep()
+    if lid is True and causes is not False and not disabled:
+        # `causes is not False` rather than `causes is True`: an unreadable key
+        # is treated as dangerous, because the cost of a false alarm is a line
+        # in a report and the cost of a false all-clear is a lost session.
+        detail = ("and macOS says it WILL sleep the machine"
+                  if causes is True else
+                  "and whether that sleeps the machine could not be read")
+        blockers.append(f"lid is CLOSED {detail}, with disablesleep off -- "
+                        f"clamshell sleep wins over any caffeinate assertion")
     if batt is None or lid is None:
         blockers.append("could not read power source or lid state")
 
@@ -669,6 +715,13 @@ def check_sleep(r):
         window = " (no plist)"
     holding = (f"com.quantt.awake is loaded{window}" if held
                else "com.quantt.awake is NOT loaded")
+    if lid is True and causes is False:
+        # Worth naming, because it is the configuration the desk actually runs
+        # in and a reader who knows the lid is shut will otherwise distrust a
+        # PASS. It also names the thing that would change the answer.
+        holding += ("; lid is shut but macOS reports it will not sleep "
+                    "(clamshell mode -- external display on AC). Losing AC "
+                    "flips that, which is how 2026-09-10 was lost")
 
     if not blockers:
         if wake:
