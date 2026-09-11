@@ -67,6 +67,26 @@ fi
 # The whole job is one path. If it is wrong the job silently archives nothing,
 # which is the exact failure this backup exists to insure against -- so refuse
 # to render rather than emit a plist that looks fine and tars air.
+# THE JOB RUNS THE SCRIPT THROUGH PYTHON, NOT BASH DIRECTLY. macOS TCC grants
+# Full Disk Access per BINARY, and `data/` in prod is a symlink into ~/Desktop.
+# /opt/anaconda3/bin/python3 has that grant -- the cef, phase0 and benchmarks
+# jobs read those parquets under launchd every day -- and /bin/bash does not, so
+# `tar` spawned from bash silently omitted every path under data/. Measured
+# 2026-09-10: the launchd archive had 223 entries and NO data/ entries, while
+# the same script run by hand produced one containing data/cef/cef_borrow.csv,
+# and backup_state.sh reported that difference as a flat "FAILED rc=1".
+PY_BIN="${PYTHON:-/opt/anaconda3/bin/python3}"
+[ -x "$PY_BIN" ] || {
+    echo "ERROR: PYTHON=$PY_BIN is not executable. That binary is what carries" >&2
+    echo "       the Full Disk Access this job needs; rendering it wrong gives" >&2
+    echo "       a job that archives everything EXCEPT data/, silently." >&2
+    exit 2
+}
+[ -f "$SCHED/backup_state_launchd.py" ] || {
+    echo "ERROR: $SCHED/backup_state_launchd.py missing -- that is what the" >&2
+    echo "       job actually runs." >&2
+    exit 2
+}
 [ -x "$PROD/ops/backup_state.sh" ] || {
     echo "ERROR: $PROD/ops/backup_state.sh missing or not executable." >&2
     echo "       That path is what the job runs; rendering it wrong gives a" >&2
@@ -77,8 +97,13 @@ fi
 mkdir -p "$SCHED/rendered_backup" "$SUPPORT"
 OUT="$SCHED/rendered_backup/$PLIST"
 sed -e "s|__PROD__|$PROD|g" -e "s|__SUPPORT__|$SUPPORT|g" \
+    -e "s|__PYTHON__|$PY_BIN|g" \
     -e "s|__HOUR__|$HOUR|g" -e "s|__MINUTE__|$MINUTE|g" \
     "$SCHED/$PLIST.template" > "$OUT"
+# The wrapper has to be beside launch_job.py BEFORE the plist naming it is
+# loaded, and it has to be outside the repo: a prod worktree checked out to a
+# different tag must not be able to take the entry point with it.
+install -m 0755 "$SCHED/backup_state_launchd.py" "$SUPPORT/backup_state_launchd.py"
 plutil -lint "$OUT"
 
 echo ""

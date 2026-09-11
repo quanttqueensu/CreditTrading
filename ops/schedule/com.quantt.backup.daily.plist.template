@@ -50,8 +50,8 @@
 	<string>com.quantt.backup.daily</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/bin/bash</string>
-		<string>__PROD__/ops/backup_state.sh</string>
+		<string>__PYTHON__</string>
+		<string>__SUPPORT__/backup_state_launchd.py</string>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>
