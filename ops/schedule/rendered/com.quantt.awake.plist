@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Hold the machine awake 08:00 -> midnight, which covers cef
+	     08:30 and 12:00, benchmarks 17:25, cef_pm 17:30 and its 23:30 NAV
+	     deadline on a fallback evening, collect 18:30 and watchdog 19:30.
+
+	     Was 09:00 + 15h, which did not reach an 08:30 session at all.
+
+	     -s is AC-only (man caffeinate), which is why -i is there: on
+	     2026-09-10 the cef session started 17:15, the charger came off, and
+	     the machine clamshell-slept at 19:51:36 on battery at 20%. The next
+	     poll was 09:46 the following morning. Four MOC orders had filled at
+	     the 09-10 close and their execution records were destroyed by IB's
+	     03:00 restart before capture ran. A CLOSED LID still defeats both;
+	     only `sudo pmset -a disablesleep 1` or an open lid survives that. -->
+	<key>Label</key>
+	<string>com.quantt.awake</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/caffeinate</string>
+		<string>-s</string>
+		<string>-i</string>
+		<string>-t</string>
+		<string>57600</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/simonjarvis/Library/Application Support/quantt/launchd_awake.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/simonjarvis/Library/Application Support/quantt/launchd_awake.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>1</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>2</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>3</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>4</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>5</integer></dict>
+	</array>
+</dict>
+</plist>

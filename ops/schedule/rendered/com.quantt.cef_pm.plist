@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- EVENING: capture today's fills before IB's 03:00 restart destroys them, write tonight's pair, and decide ONLY if the morning could not. -->
+	<key>Label</key>
+	<string>com.quantt.cef_pm</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/anaconda3/bin/python3</string>
+		<string>/Users/simonjarvis/Library/Application Support/quantt/launch_job.py</string>
+		<string>cef_pm</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/simonjarvis/Library/Application Support/quantt/launchd_cef_pm.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/simonjarvis/Library/Application Support/quantt/launchd_cef_pm.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>1</integer></dict>
+		<dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>2</integer></dict>
+		<dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>3</integer></dict>
+		<dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>4</integer></dict>
+		<dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>5</integer></dict>
+	</array>
+</dict>
+</plist>

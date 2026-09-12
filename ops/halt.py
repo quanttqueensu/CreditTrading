@@ -359,6 +359,31 @@ def beat(job: str, status: str, detail: dict | None = None) -> Path:
     return HEARTBEAT_PATH
 
 
+def all_beats() -> dict:
+    """Every job's last beat, as one dict.
+
+    `last_beat` answers "what did THIS job do", which is the only question the
+    same-day guard ever had to ask. The two-session cef schedule (ops/
+    session_plan.py) asks a different one -- "has ANY cef job already armed on
+    this pair, or on this date" -- and that cannot be answered one job at a
+    time, because the session it has to catch is the OTHER one: yesterday
+    evening's fallback, whose beat is filed under `cef_pm` and dated a
+    different day.
+
+    Returns {} rather than raising on a missing or corrupt file, which is the
+    safe direction HERE and only here: an empty beat history makes both guards
+    find no prior decision, and the callers treat "no evidence of a decision"
+    as a reason to run preflight normally, not as authorisation to transmit.
+    """
+    if not HEARTBEAT_PATH.exists():
+        return {}
+    try:
+        data = json.loads(HEARTBEAT_PATH.read_text())
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def last_beat(job: str):
     if not HEARTBEAT_PATH.exists():
         return None

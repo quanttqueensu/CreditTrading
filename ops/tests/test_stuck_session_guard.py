@@ -114,3 +114,59 @@ def test_it_is_wired_into_the_watchdog_path():
     import inspect
     src = inspect.getsource(doctor.failures)
     assert "check_stuck_sessions" in src
+
+
+# -- the two-session split (2026-09-11) -----------------------------------
+#
+# The ceiling used to assume "cef is the job that waits for NAV". When cef
+# moved to 08:30 that assumption computed 23:30 - 08:30 + 1h = 16 HOURS for a
+# session that does not wait at all -- generous enough that the 17h17m hang
+# this whole check exists for would have passed it. These pin the replacement,
+# which reads the installed plist instead of assuming, so that it is right
+# before the schedule changes, after it changes, and if it is rolled back.
+
+def _ceiling(monkeypatch, starts):
+    monkeypatch.setattr(doctor, "_plist_start_minutes",
+                        lambda job: starts.get(job))
+    return {job: doctor._session_deadline_minutes(job) for job in starts}
+
+
+def test_a_pre_close_fire_gets_the_ordinary_ceiling_not_the_nav_deadline(monkeypatch):
+    """08:30 cannot be waiting for a NAV that has not been struck yet.
+
+    cef.env still carries NAV_DEADLINE=23:30 and must -- promote.sh derives its
+    session window from that line. So the ceiling cannot key on the line's mere
+    presence; it keys on the fire being after the close.
+    """
+    assert _ceiling(monkeypatch, {"cef": 8 * 60 + 30})["cef"] == 120
+
+
+def test_the_evening_fire_still_gets_its_nav_deadline(monkeypatch):
+    """cef_pm at 17:30 against a 23:30 deadline: 6h + 1h of slack."""
+    got = _ceiling(monkeypatch, {"cef_pm": 17 * 60 + 30})["cef_pm"]
+    assert got == (23 * 60 + 30) - (17 * 60 + 30) + 60 == 420
+
+
+def test_the_ceiling_is_correct_before_the_split_is_installed(monkeypatch):
+    """Rolled back, or simply not installed yet: 17:15 -> 23:30 is 7h15m.
+
+    The dev tree changes before the plists do, so there is always a window
+    where the code is new and the schedule is old. It has to be right there
+    too, or promoting this change alone would false-alarm on every legitimate
+    evening session.
+    """
+    assert _ceiling(monkeypatch, {"cef": 17 * 60 + 15})["cef"] == 435
+
+
+def test_a_post_close_job_with_no_nav_deadline_is_not_skipped(monkeypatch):
+    """benchmarks fires at 17:25 and never waits; it must get a real ceiling.
+
+    Returning None here would SKIP the stuck check for it entirely, which is
+    how a guard quietly stops covering a job.
+    """
+    assert _ceiling(monkeypatch, {"benchmarks": 17 * 60 + 25})["benchmarks"] == 120
+
+
+def test_cef_pm_is_in_the_doctor_job_list():
+    """A job absent from JOBS is unchecked by plists, launchd and stuck-session."""
+    assert "cef_pm" in doctor.JOBS

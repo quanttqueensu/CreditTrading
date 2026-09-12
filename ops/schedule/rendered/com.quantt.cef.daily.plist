@@ -2,19 +2,33 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.quantt.cef.daily</string>
-  <key>ProgramArguments</key>
-  <array><string>/Users/simonjarvis/Desktop/QUANTT/2027/ops/schedule/run_cef.sh</string></array>
-  <key>StartCalendarInterval</key>
-  <array>
-    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer></dict>
-    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer></dict>
-    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer></dict>
-    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer></dict>
-    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer></dict>
-  </array>
-  <key>StandardOutPath</key><string>/Users/simonjarvis/Desktop/QUANTT/2027/ops/schedule/logs/cef_launchd.out</string>
-  <key>StandardErrorPath</key><string>/Users/simonjarvis/Desktop/QUANTT/2027/ops/schedule/logs/cef_launchd.err</string>
-  <key>RunAtLoad</key><false/>
+	<!-- MORNING DECISION + noon retry (W3 Part A, 2026-09-11). Was 17:15, which raced the NAV publication; see ops/session_plan.py. -->
+	<key>Label</key>
+	<string>com.quantt.cef.daily</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/anaconda3/bin/python3</string>
+		<string>/Users/simonjarvis/Library/Application Support/quantt/launch_job.py</string>
+		<string>cef</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/simonjarvis/Library/Application Support/quantt/launchd_cef.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/simonjarvis/Library/Application Support/quantt/launchd_cef.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>1</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>2</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>3</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>4</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer><key>Weekday</key><integer>5</integer></dict>
+		<dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>1</integer></dict>
+		<dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>2</integer></dict>
+		<dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>3</integer></dict>
+		<dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>4</integer></dict>
+		<dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Weekday</key><integer>5</integer></dict>
+	</array>
 </dict>
 </plist>

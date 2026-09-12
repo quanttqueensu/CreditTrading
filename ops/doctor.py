@@ -45,7 +45,8 @@ if str(REPO_ROOT) not in sys.path:
 
 LAUNCH_JOB = Path.home() / "Library/Application Support/quantt/launch_job.py"
 AGENTS = Path.home() / "Library/LaunchAgents"
-JOBS = ["cef", "benchmarks", "phase0", "collect", "watchdog", "weekly", "backup"]
+JOBS = ["cef", "cef_pm", "benchmarks", "phase0", "collect",
+        "watchdog", "weekly", "backup"]
 
 # Exit codes that are NOT a failure for a given job, and what they mean.
 #
@@ -217,33 +218,57 @@ def check_launchd(r):
 def _session_deadline_minutes(job):
     """Minutes from a job's scheduled start to the latest it may still be alive.
 
-    Derived, not written down. The cef session's own ceiling is its NAV
-    deadline: `ops/schedule/cef.env` carries `NAV_DEADLINE=23:30` and the plist
-    says it starts at 17:15, so 6h15m plus an hour of slack for the trade and
-    capture phases. The other sessions do not wait for NAV at all and are
-    minutes long; two hours is generous.
+    Derived, not written down -- and the derivation had to change on 2026-09-11
+    when cef split into two fires. It used to read: cef waits for NAV, so its
+    ceiling is `cef.env`'s NAV_DEADLINE minus its plist start, plus an hour of
+    slack for the trade and capture phases. That hard-coded "cef is the job
+    that waits", which stopped being true. The 08:30 cef session does not wait
+    at all -- the pair published the previous evening -- and `cef_pm` at 17:30
+    is now the fire that can sit on a NAV poll.
 
-    An unparseable NAV_DEADLINE returns None and the check SKIPS rather than
-    guessing a ceiling. The same rule promote.sh applies to the same file: the
-    whole defect class here is a literal that stopped matching reality, and a
-    default would rebuild it.
+    Left alone the old rule computed 23:30 - 08:30 + 1h = 16 HOURS for the
+    morning session: a ceiling so generous that the exact incident this check
+    exists for, a session hung all day, would have sailed through it.
+
+    THE RULE, and why it is shaped to survive the transition rather than to be
+    flipped by hand. A job can be waiting on NAV only if BOTH of two artefacts
+    that actually exist on this machine say so: its env carries a parseable
+    NAV_DEADLINE, and its installed plist fires AFTER the 16:00 close. A fire
+    before the close cannot be waiting for a NAV that has not been struck yet.
+    Nothing here has to be told which schedule is installed -- it reads it --
+    so the ceiling is correct on both sides of the change, in either order, and
+    correct again if the split is rolled back.
+
+    NAV_DEADLINE deliberately stays in `cef.env` even once the morning fire has
+    stopped reading it: `ops/promote.sh` derives the session window it refuses
+    inside from that same line, and deleting it would refuse every promotion
+    (ops/tests/test_promote_gate.py::..._unparseable).
+
+    A post-close job with an unparseable deadline returns None and the check
+    SKIPS rather than guessing. The whole defect class here is a literal that
+    stopped matching reality, and a default would rebuild it.
     """
-    if job != "cef":
-        return 120
-    env = REPO_ROOT / "ops" / "schedule" / "cef.env"
-    if not env.exists():
+    start = _plist_start_minutes(job)
+    if start is None:
         return None
+    # Before the close: the session cannot be waiting on today's NAV, so its
+    # ceiling is the ordinary one. Two hours is generous for a session whose
+    # phases are minutes long.
+    if start < 16 * 60:
+        return 120
+    env = REPO_ROOT / "ops" / "schedule" / f"{job}.env"
+    if not env.exists():
+        return 120
     raw = ""
     for line in env.read_text().splitlines():
         if line.startswith("NAV_DEADLINE="):
             raw = line.split("=", 1)[1].strip()
+    if not raw:
+        return 120          # a post-close job that does not wait (benchmarks)
     try:
         hh, mm = (int(x) for x in raw.split(":"))
     except Exception:
-        return None
-    start = _plist_start_minutes(job)
-    if start is None:
-        return None
+        return None         # it DOES wait, and we cannot say until when
     end = hh * 60 + mm
     if end <= start:
         return None
