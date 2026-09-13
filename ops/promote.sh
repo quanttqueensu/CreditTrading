@@ -128,9 +128,19 @@ done
 # `/**` fix alone bought nothing in practice: it moved the refusal from the live
 # ledgers to the dry-run artefacts. They are output, not code, and a human has
 # not edited production by producing one.
+# ops/reports/** ADDED 2026-09-13, the THIRD time this gate has refused a
+# promotion over generated output. `ops/weekly_report.py` writes
+# ops/reports/weekly_book_<date>.md into whichever tree runs it, and that tree
+# is prod. The directory is TRACKED (five files are committed), so each new
+# weekly report lands as an untracked `??` inside a tracked directory -- which
+# is exactly the shape the earlier `*_live` and `_dryruns` misses had. Measured
+# on prod today: `ops/reports/weekly_book_2026-09-11.md`, one dirty line, gate
+# REFUSED. Reports are output, not code; a human editing prod code is still
+# caught, which is what test_gate_still_refuses_a_code_edit pins.
 STATE_EXCLUDES=(':!ops/books/*_live/**' ':!ops/books/_dryruns/**'
                 ':!ops/heartbeat.json' ':!ops/HALT.md'
-                ':!ops/HALT_*.md' ':!ops/halts/**' ':!ops/schedule/logs/**')
+                ':!ops/HALT_*.md' ':!ops/halts/**' ':!ops/schedule/logs/**'
+                ':!ops/reports/**')
 DIRTY="$(git -C "$PROD" status --porcelain -- . "${STATE_EXCLUDES[@]}")"
 if [ -n "$DIRTY" ]; then
   stamp "REFUSED $TAG: prod has uncommitted CODE changes -- nobody edits prod:"

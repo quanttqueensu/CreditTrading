@@ -251,3 +251,28 @@ def test_a_session_that_did_not_arm_does_not_wedge_the_gate(prodlike):
                  *_excludes_from_script())
     assert "_dryruns" not in dirty, (
         f"a NOT-ARMED session wedges the gate; unexcluded:\n{dirty}")
+
+
+def test_generated_weekly_reports_do_not_wedge_the_gate(prodlike):
+    """ops/weekly_report.py writes into the tree that RUNS it, which is prod.
+
+    Third occurrence of one defect: a tracked directory that accumulates
+    generated files, so each new one lands as an untracked `??` and refuses the
+    promotion. It was ops/books/*_live, then ops/books/_dryruns, and on
+    2026-09-13 `ops/reports/weekly_book_2026-09-11.md` refused a promotion
+    carrying the decision-age guard. Output is not code.
+    """
+    (prodlike / "ops/reports").mkdir(parents=True, exist_ok=True)
+    (prodlike / "ops/reports/weekly_book_2026-09-11.md").write_text("# week\n")
+    dirty = _git(prodlike, "status", "--porcelain", "--", ".",
+                 *_excludes_from_script())
+    assert dirty.strip() == "", (
+        f"a generated weekly report wedged the gate; unexcluded:\n{dirty}")
+
+
+def test_the_reports_exclusion_does_not_swallow_code_under_ops(prodlike):
+    """The exclusion must be narrow: ops/reports only, not ops/ generally."""
+    (prodlike / "ops/promote.sh").write_text("# code\n# edited in prod\n")
+    dirty = _git(prodlike, "status", "--porcelain", "--", ".",
+                 *_excludes_from_script())
+    assert "ops/promote.sh" in dirty
