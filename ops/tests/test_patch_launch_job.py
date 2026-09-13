@@ -101,3 +101,49 @@ def test_the_plan_can_only_remove_permission_to_arm():
     out = p.build(src) if p.MARKER not in src else src
     assert "if plan is not None and not plan.may_arm:\n        live = False" in out
     assert "live = True" not in out
+
+
+def test_the_sleeve_is_told_which_schedule_it_belongs_to():
+    """arm()'s decision-age guard is INERT without `--job`.
+
+    The job is not derivable from the book -- preflight records that job "cef"
+    maps to book "cef_discount_paper", and since the split "cef" (08:30) and
+    "cef_pm" (17:30) share one book and one books-root while having different
+    plists and therefore different ceilings. If this ever stops being passed,
+    the guard that exists because 2026-09-10 armed 17h23m late goes quiet with
+    no error at all, which is the failure shape this repo keeps paying for.
+    """
+    p = _patcher()
+    out = p.build(_source(p))
+    assert '"--job", job,' in out
+
+
+def test_the_panel_phase_is_bounded_by_the_session_ceiling():
+    """"Non-fatal to the verdict" is not "non-blocking in time".
+
+    The panel phase is the one phase explicitly allowed to fail, and it is
+    still serial-blocking: it cannot stop a session by failing, only by not
+    returning. The budget must be DERIVED from the session ceiling, never
+    written as a literal -- a literal that stopped matching reality is the
+    whole defect class here.
+    """
+    p = _patcher()
+    out = p.build(_source(p))
+    assert "budget_min=phase_budget(reserve_min=20)" in out
+    assert "def run(args, budget_min=None" in out
+    assert "_session_deadline_minutes(job)" in out
+    # the budget is measured from the SESSION, not from the phase
+    assert "session_started = datetime.now()" in out
+
+
+def test_an_underivable_ceiling_gets_no_timeout_rather_than_a_guessed_one():
+    """NO SILENT FALLBACKS, in the direction that matters here.
+
+    A guessed budget would kill a healthy session; an absent one only leaves it
+    as unbounded as it is today. So `phase_budget` returns None -- and `run`
+    treats None as "no timeout" -- when the ceiling cannot be derived.
+    """
+    p = _patcher()
+    out = p.build(_source(p))
+    assert "if ceiling is None:\n            return None" in out
+    assert "if budget_min is None:" in out

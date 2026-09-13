@@ -408,6 +408,16 @@ def main(argv=None):
     ap.add_argument("--book", required=True, help="path to the book spec JSON")
     ap.add_argument("--source", default="local", choices=["local", "yfinance"])
     ap.add_argument("--books-root", default="ops/books")
+    # The SCHEDULE this session belongs to ("cef", "cef_pm", "phase0", ...),
+    # which is not derivable from the book: preflight's own comment records
+    # that job "cef" maps to book "cef_discount_paper", and since 2026-09-11
+    # two jobs ("cef" at 08:30, "cef_pm" at 17:30) share one book and one
+    # books-root while having different plists and therefore different session
+    # ceilings. arm() needs it to derive how old a decision may be. Optional,
+    # so a by-hand run and ops/rebuild_ledger.py still work; the scheduler is
+    # held to passing it by ops/doctor.py, which reports when it does not.
+    ap.add_argument("--job", default=None,
+                    help="scheduler job name, for the decision-age ceiling")
     ap.add_argument("--replay-start", default=None,
                     help="loop the orchestrator day-by-day from here to --asof")
     ap.add_argument("--no-report", action="store_true",
@@ -468,7 +478,22 @@ def main(argv=None):
     # contradicting each other about whether a refusal is fatal. Keep this one:
     # it is the copy that writes the scoped halt.
     if not args.dry_run and execution == "ibkr":
-        report = broker.arm()
+        # A STALE DECISION STANDS DOWN, AND DOES NOT WRITE A HALT. The other
+        # arm() refusals below are bookkeeping faults that persist until a
+        # human resolves them, so they earn a scoped halt. A decision that is
+        # merely too old heals itself at the next session: halting on it would
+        # convert one late night into an outage that blocks every following
+        # session too, which is the shape of the phase0/JNK and bench_b6/ANGL
+        # incidents the scoped halt was introduced for. rc=4 distinguishes it
+        # from rc=3 so the scheduler can alert differently.
+        from src.deploy.broker.ibkr import DecisionTooOld
+        try:
+            report = broker.arm(decision_date=asof.date(), job=args.job)
+        except DecisionTooOld as e:
+            print(f"[run_book] NOT ARMED — decision too old to act on: {e}")
+            print("[run_book] Standing down. No orders transmitted, no halt "
+                  "written; the next session decides afresh.")
+            return 4
         if not report["ok"]:
             from ops.halt import write_halt
             detail = "\n".join(f"  - {p}" for p in report["problems"])

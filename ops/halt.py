@@ -352,8 +352,30 @@ def beat(job: str, status: str, detail: dict | None = None) -> Path:
             hist = json.loads(HEARTBEAT_PATH.read_text())
         except Exception:
             hist = {}
-    hist[job] = {"status": status, "at": f"{datetime.now():%Y-%m-%d %H:%M:%S}",
-                 "date": f"{datetime.now():%Y-%m-%d}", "detail": detail or {}}
+    # `date` IS THE DATE THIS BEAT WAS FILED, NOT THE SESSION IT DESCRIBES, and
+    # that distinction cost a trading day. On 2026-09-10 the session slept and
+    # filed its beat at 10:38 on 2026-09-11, stamping date=2026-09-11 with
+    # armed=true. launch_job.py's same-day guard compares `prior["date"]`
+    # against the session's own `today`, so the 09-11 session was refused --
+    # correctly, given what it was told, since the trade phase is not
+    # idempotent. One power event, two lost sessions.
+    #
+    # `session_date` is the decision the beat is ABOUT. Recorded ALONGSIDE
+    # `date`, never instead of it: `date` answers "is this system alive right
+    # now", which preflight's staleness check needs, and `session_date` answers
+    # "which decision did this describe", which the guards need. Collapsing
+    # them in either direction rebuilds the defect with the opposite sign.
+    #
+    # Additive on purpose. Nothing is rekeyed here -- the same-day guard lives
+    # in the out-of-repo launch_job.py and is out of scope for this change --
+    # so a reader of the old field sees exactly what it saw before.
+    now = datetime.now()
+    d = dict(detail or {})
+    session_date = d.get("pair_date") or d.get("asof")
+    hist[job] = {"status": status, "at": f"{now:%Y-%m-%d %H:%M:%S}",
+                 "date": f"{now:%Y-%m-%d}",
+                 "session_date": str(session_date)[:10] if session_date else None,
+                 "detail": d}
     HEARTBEAT_PATH.parent.mkdir(parents=True, exist_ok=True)
     HEARTBEAT_PATH.write_text(json.dumps(hist, indent=2))
     return HEARTBEAT_PATH

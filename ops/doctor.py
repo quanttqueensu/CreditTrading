@@ -147,6 +147,57 @@ def check_entrypoint(r):
     return repo
 
 
+def check_decision_age_wiring(r):
+    """Is arm()'s decision-age guard actually reachable from the scheduler?
+
+    The guard refuses to arm on a decision too old to be the one the backtest
+    scored -- the fix for 2026-09-10, where the Mac slept and the book armed
+    17h23m late, which then cost the 09-11 session too via the same-day guard.
+
+    It is OPT-IN at the signature: `arm(decision_date=..., job=...)` both
+    default to None so ops/rebuild_ledger.py, a recovery tool with neither a
+    decision nor a schedule, still arms. That default is a deliberate hole and
+    it has two halves. The in-repo half is held shut structurally by
+    src/deploy/tests/test_arm_called_once.py. The SCHEDULER half cannot be:
+    launch_job.py lives outside the repo, is not in git and is not gated by
+    ops/promote.sh, so a green suite says nothing about whether the installed
+    copy passes `--job`.
+
+    Hence this check. Without it the guard fails OPEN and silently -- the exact
+    shape of every incident in this repo -- and the first symptom would be
+    another late arm nobody was warned about.
+
+    WARN, not FAIL: ops/promote.sh rolls back on any non-zero doctor, and this
+    is a property of an un-promotable file, so a FAIL here would block the very
+    promotion that ships the guard. It reaches a human through
+    doctor.failures()... which filters to FAIL -- so say it loudly in the row
+    text instead, and let the affirmative session check carry the alerting.
+    """
+    if not LAUNCH_JOB.exists():
+        return                      # check_entrypoint already FAILed on this
+    try:
+        src = LAUNCH_JOB.read_text()
+    except Exception as exc:
+        r.add(WARN, "decision-age", f"could not read {LAUNCH_JOB}: {exc!r}")
+        return
+    if "src.deploy.run_book" not in src:
+        r.add(WARN, "decision-age",
+              "launch_job.py does not invoke run_book -- cannot tell whether "
+              "the decision-age guard is wired")
+        return
+    if '"--job"' in src:
+        r.add(PASS, "decision-age",
+              "launch_job.py passes --job, so arm() can judge how old a "
+              "decision is")
+    else:
+        r.add(WARN, "decision-age",
+              "THE DECISION-AGE GUARD IS INERT: launch_job.py does not pass "
+              "--job to run_book, so arm() cannot derive a session ceiling and "
+              "will arm on a decision of any age. This is how 2026-09-10 armed "
+              "17h23m late and cost two sessions",
+              "python3 ops/schedule/patch_launch_job_w3am.py --apply")
+
+
 def check_plists(r):
     """The 2026-09-01 fault: a stale WorkingDirectory stops launchd spawning."""
     for job in JOBS:
@@ -354,9 +405,21 @@ def check_stuck_sessions(r):
         if len(parts) == 3 and parts[2].startswith("com.quantt.") and parts[0] != "-":
             running[parts[2]] = parts[0]
 
-    for job in ("cef", "phase0", "benchmarks"):
-        label = f"com.quantt.{job}.daily"
-        pid = running.get(label)
+    # cef_pm ADDED 2026-09-13. The two-fire split made `cef_pm` the only cef
+    # job that still performs an unbounded multi-hour NAV wait -- and it was
+    # the ONLY cef job with no stuck-session guard, because this tuple and the
+    # label below were both written when every job was "<job>.daily". The job
+    # most able to hang was the one least watched.
+    #
+    # The label shape differs: the rendered plist is `com.quantt.cef_pm`, not
+    # `com.quantt.cef_pm.daily`. Try both, exactly as _plist_path() already
+    # does, so neither naming convention silently drops a job out of the loop.
+    for job in ("cef", "cef_pm", "phase0", "benchmarks"):
+        pid = label = None
+        for cand in (f"com.quantt.{job}.daily", f"com.quantt.{job}"):
+            if cand in running:
+                label, pid = cand, running[cand]
+                break
         if pid is None:
             continue
         age = _pid_age_minutes(pid)
@@ -824,6 +887,7 @@ def failures(quick=False) -> list[str]:
     r = Report()
     for fn, args in ((check_entrypoint, ()), (check_plists, ()),
                      (check_launchd, ()), (check_stuck_sessions, ()),
+                     (check_decision_age_wiring, ()),
                      (check_env_paths, ()),
                      (check_broker, (quick,)), (check_ibc, ()),
                      (check_sleep, ()), (check_heartbeats, ()),
@@ -1022,6 +1086,11 @@ def main(argv=None):
     check_plists(r)
     check_launchd(r)
     check_stuck_sessions(r)
+    # NOTE: this list and the one in failures() are maintained separately, so a
+    # check added to one is invisible in the other. check_decision_age_wiring
+    # was added to failures() first and did not appear here at all -- caught
+    # only by running the tool. Add to both, or make them one list.
+    check_decision_age_wiring(r)
     check_env_paths(r)
     check_broker(r, quick=a.quick)
     check_ibc(r)

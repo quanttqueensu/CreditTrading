@@ -163,9 +163,16 @@ EDITS.append((
         live = False'''))
 
 # -- 8. the sleeve decides on the pair, not on the calendar date --------------
+# `--job` rides along here because this edit already owns the line. arm()
+# derives how old a decision may be from the job's plist and env, and the job
+# is NOT derivable from the book: preflight records that job "cef" maps to book
+# "cef_discount_paper", and since the split "cef" (08:30) and "cef_pm" (17:30)
+# share one book and one books-root while having different plists and therefore
+# different ceilings. Without it the decision-age guard is silently inert.
 EDITS.append((
     '''            "--asof", today, "--book", str(REPO / cfg["book"]),''',
-    '''            "--asof", asof, "--book", str(REPO / cfg["book"]),'''))
+    '''            "--asof", asof, "--book", str(REPO / cfg["book"]),
+            "--job", job,'''))
 EDITS.append((
     '''        stamp(f"ARMED: EXECUTION=ibkr books-root={cfg['root']} asof={today}")''',
     '''        stamp(f"ARMED: EXECUTION=ibkr books-root={cfg['root']} asof={asof}")'''))
@@ -210,6 +217,81 @@ EDITS.append((
     '''    if cfg.get("wait") and nav_via is None:''',
     '''    if cfg.get("wait") and (plan is None or plan.wait) and nav_via is None:'''))
 
+
+# -- 11. NO PHASE MAY OUTLIVE THE SESSION -------------------------------------
+# `run()` took no timeout and NO caller passed one, across all six call sites.
+# Phases 1, 2, 3, 6 and 7 are serial-blocking, so a hang in any of them holds
+# the book's trading day. The same file already does this correctly for
+# `run_collect` (timeout=1200) -- a job that CANNOT hurt trading. The cheap
+# thing was bounded and the expensive thing was left open.
+#
+# THE BUDGET IS DERIVED, NOT WRITTEN. A phase gets whatever the session's own
+# ceiling leaves it after a reserve for the phases that must still follow. The
+# ceiling comes from ops/doctor.py::_session_deadline_minutes -- the same
+# derivation the stuck-session guard uses -- so the two cannot drift apart, and
+# a job whose ceiling cannot be derived gets NO timeout rather than a guessed
+# one (the whole defect class here is a literal that stopped matching reality).
+#
+# HONEST LIMIT, SO NOBODY MISREADS THIS AS THE SLEEP FIX: subprocess timeouts
+# are measured on a monotonic clock, which on Darwin does not advance across
+# system sleep. This would NOT have caught 2026-09-11, where the Mac
+# clamshell-slept at 22:06 and resumed at 07:09. It bounds a hung child, a real
+# and separate class -- `qualifyContracts` and `ib.sleep(15)` in
+# scripts/cef/fetch_borrow_rates.py have no bound at all. Sleep is fixed with
+# `sudo pmset -a disablesleep 1`, not here.
+EDITS.append((
+    '''    def run(args, **kw) -> int:
+        with open(log, "a") as fh:
+            return subprocess.call(args, stdout=fh, stderr=fh, cwd=str(REPO), **kw)''',
+    '''    def phase_budget(reserve_min: int):
+        """Minutes this phase may run: the session ceiling, less what the
+        session has already spent, less a reserve for the phases still to come.
+        None when the ceiling cannot be derived -- unbounded beats invented."""
+        try:
+            from ops import doctor as _doc
+            ceiling = _doc._session_deadline_minutes(job)
+        except Exception:
+            return None
+        if ceiling is None:
+            return None
+        spent = (datetime.now() - session_started).total_seconds() / 60.0
+        return max(1, int(ceiling - spent - reserve_min))
+
+    def run(args, budget_min=None, **kw) -> int:
+        with open(log, "a") as fh:
+            if budget_min is None:
+                return subprocess.call(args, stdout=fh, stderr=fh,
+                                       cwd=str(REPO), **kw)
+            try:
+                return subprocess.call(args, stdout=fh, stderr=fh,
+                                       cwd=str(REPO), timeout=budget_min * 60,
+                                       **kw)
+            except subprocess.TimeoutExpired:
+                stamp(f"TIMEOUT: {' '.join(str(a) for a in args[-3:])} exceeded "
+                      f"its {budget_min}m budget and was killed. The budget is "
+                      f"the session ceiling less time already spent; see "
+                      f"ops/doctor.py::_session_deadline_minutes.")
+                return 124'''))
+
+# The session's own start, so a budget is measured from the session rather than
+# from whenever a phase happens to begin. Wall clock deliberately: a monotonic
+# clock does not advance across system sleep on Darwin, and a session that
+# slept HAS burned its window even though no CPU time passed.
+EDITS.append((
+    '''    sys.path.insert(0, str(REPO))
+    today = f"{datetime.now():%Y-%m-%d}"''',
+    '''    sys.path.insert(0, str(REPO))
+    session_started = datetime.now()
+    today = f"{datetime.now():%Y-%m-%d}"'''))
+
+# The panel phase is the one explicitly allowed to FAIL, and it is still
+# serial-blocking -- "non-fatal to the verdict" is not "non-blocking in time".
+# Reserve 20 minutes for preflight, trade and capture; capture alone measured
+# 9m48s on the 1,529-execution session of 2026-09-08.
+EDITS.append((
+    '''        prc = run([PY_BIN, "-u", str(REPO / panel)])''',
+    '''        prc = run([PY_BIN, "-u", str(REPO / panel)],
+                  budget_min=phase_budget(reserve_min=20))'''))
 
 def build(src: str) -> str:
     for i, (old, new) in enumerate(EDITS, 1):

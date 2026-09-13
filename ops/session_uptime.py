@@ -379,8 +379,25 @@ def parse_log(path: Path) -> dict:
         rec["modelled_turnover_usd"] = gov["book_turnover"]
     else:
         rec["dryrun_turnover_usd"] = gov["book_turnover"]
+    # asof != log date IS THE NORMAL CASE UNDER THE MORNING SCHEDULE, and this
+    # check predates it. The 08:30 `cef` fire deliberately decides on the
+    # PREVIOUS trading day's pair -- that is the point of the split: the pair
+    # published the previous evening, so the decision stops racing NAV
+    # publication. Left as first written, EVERY good morning session would be
+    # reported as an anomaly, and a tool whose anomaly column is always full is
+    # a tool nobody reads.
+    #
+    # What is still genuinely anomalous is a gap of more than one SESSION:
+    # asof == the log's own date is the evening convention, asof == the
+    # previous trading day is the morning convention, and anything further back
+    # means the session decided on a pair it should long since have passed on
+    # -- which is what a slept-through session looks like.
     if rec["asof"] and rec["asof"] != date:
-        rec["anomalies"].append(f"armed with asof={rec['asof']} on a {date} log")
+        prev = str(cal.previous_trading_day(dt.date.fromisoformat(date)))
+        if rec["asof"] != prev:
+            rec["anomalies"].append(
+                f"armed with asof={rec['asof']} on a {date} log — more than one "
+                f"session stale (evening convention {date}, morning {prev})")
 
     if gov["skipped"]:
         rec["outcome"] = "closed"

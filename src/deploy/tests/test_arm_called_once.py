@@ -100,3 +100,29 @@ def test_arming_failure_writes_a_scoped_halt():
         "blocks only the failing book. A global halt here stopped the $500k "
         "strategy twice in two days over a $20k book's bookkeeping."
     )
+
+
+def test_the_live_arm_call_passes_a_decision_date_and_a_job():
+    """The decision-age check is opt-in at the signature, so hold the LIVE
+    call site to opting in -- structurally, where a reviewer cannot miss it.
+
+    `arm(decision_date=..., job=...)` are keyword-only and default to None so
+    that ops/rebuild_ledger.py, a recovery tool with neither a decision nor a
+    schedule, still arms. That default is a deliberate hole, and this test is
+    the thing that stops the live path falling through it. Without it, deleting
+    one kwarg would silently disable the guard that exists because the
+    2026-09-10 session armed 17h23m late and cost two sessions.
+    """
+    tree = _tree()
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Attribute)
+             and n.func.attr == "arm"]
+    assert len(calls) == 1, "see test_exactly_one_arm_call_site"
+    kwargs = {k.arg for k in calls[0].keywords}
+    missing = {"decision_date", "job"} - kwargs
+    assert not missing, (
+        f"run_book's arm() call is missing {sorted(missing)}; the decision-age "
+        f"guard is silently inert without them (src/deploy/broker/ibkr.py, "
+        f"arm(): the check runs only when BOTH are not None)."
+    )

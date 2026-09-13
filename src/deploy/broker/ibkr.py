@@ -174,6 +174,25 @@ class NotArmed(RuntimeError):
     explainable by the registered sleeves. Never transmit on unverified state."""
 
 
+class DecisionTooOld(NotArmed):
+    """The decision is no longer the decision the backtest scored.
+
+    Subclasses NotArmed deliberately: every existing `except NotArmed` call
+    site should treat a stale decision the same way it treats unverified state
+    -- as a reason not to transmit -- without being taught a new name.
+
+    Raised by `arm()` BEFORE any broker round-trip. See ops/decision_age.py for
+    the two conditions and why neither alone is sufficient; in short, the
+    2026-09-10 session armed 17h23m late and still reached the CORRECT auction,
+    so an auction-identity test alone would have let it through.
+
+    The refusal must not write a durable halt. arm()'s other failures are
+    bookkeeping faults that persist until someone looks; a stale decision heals
+    itself by the next session, and turning it into a halt would convert one
+    late night into an outage.
+    """
+
+
 @dataclass
 class IBKRConfig:
     host: str = "127.0.0.1"
@@ -835,7 +854,7 @@ class IBKRBroker(Broker):
                         break
         return claims
 
-    def arm(self, adopt=True) -> dict:
+    def arm(self, adopt=True, *, decision_date=None, job=None, now=None) -> dict:
         """Adopt BROKER truth into the per-sleeve tag books, then decide whether
         it is safe to transmit orders. Returns the arming report; sets `_armed`.
 
@@ -869,9 +888,28 @@ class IBKRBroker(Broker):
         Adopting 823 would have made the next run sell 282 shares it never
         bought. So sibling book specs are consulted too, and a symbol another
         book also trades is never adopted from the account net.
+
+        DECISION AGE. `decision_date` is the PAIR date the sleeve decided on
+        (run_book's `asof`), NOT today -- under the morning schedule they
+        differ by one session, which is the point of that schedule. Both new
+        arguments are optional so ops/rebuild_ledger.py, a recovery tool with
+        no decision and no schedule, still arms. The LIVE path is held to
+        passing them structurally instead, by test_arm_called_once.py, because
+        a default here that skipped the check would be the exact silent
+        fallback this repo keeps getting hurt by.
         """
         if self.ib is None:
             raise RuntimeError("IBKRBroker.connect() must be called first")
+
+        # BEFORE sync_positions, so a session that must not trade makes no
+        # broker round-trip and `_armed` cannot be set on the way past.
+        if decision_date is not None and job is not None:
+            from ops.decision_age import refusal
+            why = refusal(job, decision_date, now=now)
+            if why:
+                self._armed = False
+                raise DecisionTooOld(why)
+
         account = self.sync_positions(None)
         claimed_elsewhere = self._foreign_book_claims()
 
