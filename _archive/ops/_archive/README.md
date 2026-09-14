@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `ops/_archive/README.md`.
+> Now owned by: `_archive/README.md` (this folder's index); the v5 spec it describes is the band's revert path. Numbers: `python3 -m ops.orient`.
+
 # ops/_archive
 
 Files kept because deleting them would destroy the sole record of a published

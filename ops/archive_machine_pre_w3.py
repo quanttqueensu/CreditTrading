@@ -7,7 +7,8 @@ WHY THIS EXISTS
 ---------------
 The team lead decided on 2026-09-13: finish the W3 morning schedule, start the
 track record from it, and archive the old schedule and stale files. The repo
-half rode the go-live promotion (`ops/_archive/schedule_pre_w3_2026-09-13/`).
+half rode the go-live promotion (`ops/_archive/schedule_pre_w3_2026-09-13/`, folded into
+`_archive/ops/_archive/` on 2026-09-14).
 This is the half git cannot reach: backups of the out-of-repo scheduler and
 plist backups sitting beside the live LaunchAgents, where the next reader has to
 work out which of six `*.plist.bak-*` files, if any, is what runs.

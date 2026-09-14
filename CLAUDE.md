@@ -40,7 +40,7 @@ names an action that cannot be undone.
 1. **Never run anything that can transmit an order.** The live session entry
    point (`python3 -m src.deploy.run_book`), the launchd jobs and
    `launch_job.py`, the old shell wrappers (archived in
-   `ops/_archive/schedule_pre_w3_2026-09-13/`, still live if run), the MOC routing
+   `_archive/ops/_archive/schedule_pre_w3_2026-09-13/`, still live if run), the MOC routing
    probe, the promote/cancel/reset-epoch/switch-broker tools, `launchctl
    load|unload|bootstrap|bootout`. Propose it, explain why, and let the human run
    it with `! <command>`.

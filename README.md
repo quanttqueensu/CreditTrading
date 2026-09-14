@@ -83,9 +83,10 @@ data/            panels, gitignored, symlinked from prod
 archived document opens with a banner naming what now owns its subject, and
 `_archive/README.md` says what each is wrong about. The folder is gitignored so
 search skips it, while everything in it stays tracked; `python3 -m ops.doc_audit`
-checks every brick. Two older folders still hold archived code
-(`scripts/_archive/`, `ops/_archive/` — the latter includes the band's revert
-spec), and `ops/books/retired/` holds killed book specs and **must not move**:
+checks every brick. The two older archive folders were folded in on 2026-09-14
+(archived at `_archive/ops/_archive/`, which holds the band's revert spec, and
+`_archive/scripts/_archive/`). `ops/books/retired/` holds killed book specs and
+**must not move**:
 `_foreign_book_claims()` globs `ops/books/*.json` non-recursively.
 
 *What does deleting it cost if you are wrong?* When in doubt, archive.

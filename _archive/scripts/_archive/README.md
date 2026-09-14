@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `scripts/_archive/README.md`.
+> Now owned by: `_archive/README.md`. Numbers: `python3 -m ops.orient`.
+
 # scripts/_archive
 
 Research code kept because it is the **sole code behind a number that is still

@@ -43,8 +43,6 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `.claude/skills/*/SKILL.md` | desk | one workflow each | `ops.doc_audit` (desk inventory) |
 | `.claude/agents/*.md` | desk | one specialist seat each | `ops.doc_audit` (desk inventory) |
 | `deploy/ibgw/README.md` | reference | IB Gateway and IBC setup | — |
-| `ops/_archive/README.md` | convention | archived operations code, including the v5 spec revert path | — |
-| `scripts/_archive/README.md` | convention | archived research code | — |
 
 **Not indexed, by design:** `results/**` (dated records, each true as of its
 date; `ops.doc_audit` checks their reproducers and pre-registration shape),

@@ -75,7 +75,7 @@ Work outward from the thing that cannot lie.
   "fix" this.** There is a fatal path check before any `mkdir` for the 2026-08-31
   reason.
 - **launchd runs `launch_job.py`, never a shell wrapper.** The old wrappers are
-  archived in `ops/_archive/schedule_pre_w3_2026-09-13/`.
+  archived in `_archive/ops/_archive/schedule_pre_w3_2026-09-13/`.
 - **What is loaded is what runs** — `launchctl list | grep quantt` and
   `~/Library/LaunchAgents`, not whatever is rendered in `ops/schedule/rendered/`.
 - **A failing check downgrades the session, it does not cancel it.** Clearing `arm`

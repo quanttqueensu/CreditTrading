@@ -46,7 +46,7 @@ then:
    `scripts/cef/wait_for_nav.py`, `src/deploy/sleeves/cef_discount.py::_panel`,
    `src/deploy/run_book.py::_load_cef`.
 7. `~/Library/LaunchAgents/com.quantt.*.plist`, `ops/schedule/render_cef_plists.py`
-   (`install.sh` was archived 2026-09-13 to `ops/_archive/schedule_pre_w3_2026-09-13/`),
+   (`install.sh` was archived 2026-09-13 to `_archive/ops/_archive/schedule_pre_w3_2026-09-13/`),
    `com.quantt.awake.plist`.
 
 Four parts. A and B change the schedule and the data path and must land

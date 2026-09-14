@@ -77,9 +77,9 @@ is where a number came from — and is never *authority* for what is true today.
    `_archive/claude_layer/`.
 6. **Nothing imports from here.** `ops.doc_audit` checks all of the above.
 
-Two older archive folders predate this one and still hold code:
-`ops/_archive/` (including the v5 frozen spec, which is the band's revert path)
-and `scripts/_archive/`. They fold in here when research code is archived.
+The two older archive folders, `ops/_archive/` and `scripts/_archive/`, were
+folded in on 2026-09-14 and keep their inner layout: `_archive/ops/_archive/`
+holds the v5 frozen spec, which is the band's revert path.
 `ops/books/retired/` never moves — `IBKRBroker._foreign_book_claims` globs
 `ops/books/*.json` non-recursively, and its location is what keeps a retired
 book's symbols out of that check.
@@ -123,3 +123,5 @@ substance, so that a reader who does open it knows which sentence not to copy.
 | `_archive/docs/INFRASTRUCTURE_2026-09-14.md` | snapshot of `docs/INFRASTRUCTURE.md` | 2026-09-14 | `docs/SYSTEM.md`; `docs/INFRASTRUCTURE.md` | The 2026-08-16 technical reference before its overview, strategy, schedule and open-issues parts moved out. Its overview says the book "targets 6% annualised volatility"; §3.4 shows the retired 2-day rebalance with no band row; §6.1 is the evening schedule; §8's "no trading since 1 August" was long false; §2.4's expected Sharpes were `shift(1)` figures. |
 | `_archive/CLAUDE_md_2026-09-14.md` | snapshot of `CLAUDE.md` | 2026-09-14 | `CLAUDE.md`; `docs/SYSTEM.md`; this index | The agent brief before it was cut to rules. Named `CLAUDE_md` so Claude Code never auto-loads it. Most of its length was incident narrative and dated figures: a prod tag two promotions stale; "prod has none of this" after prod had it; "the session architecture is still the evening one" after W3; `walkforward.py` "on no live path" when `ops/common.py` reaches it; a hooks directory described as the enforcement layer with no blocking hook in it. Its hard rules survive in substance in the new file. |
 | `_archive/README_md_2026-09-14.md` | snapshot of `README.md` | 2026-09-14 | `README.md`; `docs/SYSTEM.md` | The human entry point before it was cut to pointers. Its "Status" block gave 294 fills and "5 of 29" armed as of 2026-09-10; it sent new readers to four historical documents first, named a `docs/_superseded/` that never existed, cited INFRASTRUCTURE sections by the wrong numbers, and ran `validate.py` without the `--trials` it now requires. |
+| `_archive/ops/_archive/` | `ops/_archive/` | 2026-09-14 (folded in) | `_archive/README.md` | The operations archive before there was one archive. Holds the **v5 frozen spec, which is the band's revert path and half of its pre-registration — never delete it**; the one-off `fix_bench_b6_angl_20260909.py` that mutated a fill file; and the pre-W3 scheduling layer (`schedule_pre_w3_2026-09-13/`: shell wrappers, `install.sh`, book plists). The wrappers still transmit if run — they are archived, not disarmed. Its own README explains each. |
+| `_archive/scripts/_archive/` | `scripts/_archive/` | 2026-09-14 (folded in) | `_archive/README.md` | `cef_sleeve.py` and `cef_sleeve_v2.py`, the research sleeves that produced parquets still cited in `results/cef/`. Superseded by `src/deploy/sleeves/cef_discount.py`. |

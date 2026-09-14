@@ -738,8 +738,9 @@ CITATION_SCOPE_FILES = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INDEX.
                         "docs/RESEARCH_STATE.md", "docs/INFRASTRUCTURE.md",
                         "docs/REFERENCES.md")
 CITATION_SCOPE_GLOBS = (".claude/**/*.md",)
-# A path to a FILE inside the top-level archive. `ops/_archive/` and
-# `scripts/_archive/` are different folders, and `_archive/README.md` is the
+# A path to a FILE inside the top-level archive. The lookbehind keeps a nested
+# `<dir>/_archive/` (the pre-2026-09-14 layout) from matching, and
+# `_archive/README.md` is the
 # archive's own index, which is exactly what these files should point at.
 ARCHIVE_CITE_RE = re.compile(r"(?<![\w/])_archive/[\w./-]+\.\w+")
 

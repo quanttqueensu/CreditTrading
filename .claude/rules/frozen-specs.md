@@ -30,8 +30,9 @@ these paths behind an `ask` rule for exactly this reason.
    GAMMA counter. `results/cef/PREREG_BAND_2026-09-06.md` is the shape. Use
    `/prereg`, then `/spec-change`.
 5. **Bump `spec_id` and set `_supersedes`.** Never edit a spec in place without a
-   new id; the old file is archived as `ops/_archive/<spec_id>.frozen.json`. The v5
-   spec there is the band's revert path and half of its pre-registration — never
+   new id; the old file is archived as `_archive/ops/specs/<spec_id>.frozen.json`
+   (earlier ones sit in the archived `_archive/ops/_archive/`). The v5 spec there
+   is the band's revert path and half of its pre-registration — never
    delete it.
 6. **Update `docs/RESEARCH_STATE.md` in the same commit** as the trial.
 

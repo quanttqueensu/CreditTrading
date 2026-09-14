@@ -109,7 +109,7 @@ every session; a position is left alone unless it is more than `band_width`
 — the proportional-cost optimum (Constantinides 1986; Davis & Norman 1990). The
 width was derived from a cube-root law, not swept. `rebalance_days` is inert
 while `band_width` is set; deleting `band_width` restores the previous calendar
-policy exactly, which is the revert path (`ops/_archive/cef_discount.v5.20260731.frozen.json`).
+policy exactly, which is the revert path (the archived `_archive/ops/_archive/cef_discount.v5.20260731.frozen.json`).
 Pre-registration: `results/cef/PREREG_BAND_2026-09-06.md`.
 
 **Execution: MOC, and `shift(2)`.** Decide at *t*, fill in the closing auction
