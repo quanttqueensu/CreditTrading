@@ -38,7 +38,7 @@ counter (156) covers all ETF-price/PD work done to date.
 > **48 is correct**, and it is the figure `SYSTEM_AND_STRATEGY.md` §9 (archived),
 > `PREREG_BAND_2026-09-06.md` and `DUST_ORDERS_2026-09.md` have been using.
 > A second counter, **GAMMA**, was opened by the 2026-09-08 standing decisions
-> for the options programme (`docs/prompts/gamma/`); it has its own
+> for the options programme (its prompts, now archived, are under `_archive/docs/prompts/gamma/`); it has its own
 > deflated-Sharpe bar and the combined book is judged on the joint record.
 > **This table is the canonical record — update it in the same commit as any
 > trial, not at the end of a session.**

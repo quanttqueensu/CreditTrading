@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/gamma/G1_option_math.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (G6) and KILLED (gamma-timing-C3); `docs/SYSTEM.md` §5; `python3 -m ops.gamma_status`. Numbers: `python3 -m ops.orient`.
+
 # G1 — The option math we own: pricing, greeks, and implied vol from a trade print
 
 **Status:** in progress — **DONE 2026-09-11**: `src/deploy/lib/optmath.py` (three pricers, greeks, identifiability-guarded `implied_vol`, OCC exercise-by-exception), `src/deploy/tests/test_optmath.py`, `scripts/gamma/early_exercise_grid.py`, `results/gamma/OPTION_MATH_2026-09-11.md`. 0 trials. **Two deviations, both measured not assumed:** Bjerksund-Stensland 2002 is NOT implemented (Part D's premium table decides whether a fast American form is needed; the tree is sub-ms at our sizes), and Part C's "under 1e-4 at 2,000 steps" is **unachievable with plain CRR** — measured `gap x n = 0.640`, so 1e-4 needs n ~ 6,400. **Remains:** Part C test 6, the `atm_iv_daily` reconciliation.

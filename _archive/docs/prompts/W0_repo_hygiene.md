@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/W0_repo_hygiene.md`.
+> Now owned by: nothing — executed 2026-09-10; its outcome is `_archive/docs/prompts/` history and `results/ops/REPO_HYGIENE_2026-09-10.md`. Numbers: `python3 -m ops.orient`.
+
 # W0 — Repo hygiene: fix what is broken, archive what is finished, date what is stale
 
 > ## ✅ EXECUTED 2026-09-10 — this prompt is history. Do not run it again.

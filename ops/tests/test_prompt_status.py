@@ -32,11 +32,30 @@ from ops import prompt_status as ps
 REAL = ps.PROMPTS
 
 
+# A real commit on main (W0's landing, 2026-09-10). The executed work orders
+# that used to serve as fixtures were archived on 2026-09-14, so the tests plant
+# their own executed prompt citing a commit that is known to be reachable.
+PLANTED_SHA = "0c81d3f"
+PLANTED = "WX_planted_executed.md"
+PLANTED_BANNER = f"> ## ✅ EXECUTED 2026-09-10 — landed in `{PLANTED_SHA}`."
+
+
 @pytest.fixture
 def tree(tmp_path):
-    """A throwaway copy of the real prompts, so a mutation proves something."""
+    """A throwaway copy of the real prompts plus one planted executed prompt, so
+    a mutation proves something whatever the live tree currently holds."""
     dst = tmp_path / "prompts"
     shutil.copytree(REAL, dst)
+    (dst / PLANTED).write_text(
+        f"# WX — planted\n\n{PLANTED_BANNER}\n\n"
+        f"**Status:** executed — 2026-09-10 — `{PLANTED_SHA}`\n"
+        "**Reads first:** nothing.\n\n## Part A\n\nDone.\n")
+    idx = dst / "README.md"
+    text = idx.read_text()
+    header = "|---|---|---:|---|---|---|\n"
+    assert text.count(header) == 1, "fixture could not find the index table"
+    idx.write_text(text.replace(header, header + (
+        f"| `{PLANTED}` | planted | 0 | no | **executed** | 2026-09-10 — `{PLANTED_SHA}` |\n")))
     return dst
 
 
@@ -55,16 +74,16 @@ def test_index_disagreeing_with_a_prompt_is_drift(tree):
     prompt another, and the reader believes whichever they opened first."""
     idx = tree / "README.md"
     idx.write_text(idx.read_text().replace(
-        "| **executed** | 2026-09-10 — `0c81d3f`",
-        "| **queued** | 2026-09-10 — `0c81d3f`", 1))
-    assert "W0_repo_hygiene.md" in drift_text(tree)
+        f"| **executed** | 2026-09-10 — `{PLANTED_SHA}`",
+        f"| **queued** | 2026-09-10 — `{PLANTED_SHA}`", 1))
+    assert PLANTED in drift_text(tree)
     assert "authoritative" in drift_text(tree)
 
 
 def test_a_sha_that_does_not_resolve_is_drift(tree):
     """Catches a rebase, a squash, or a sha copied out of another tree."""
-    for f in (tree / "README.md", tree / "W0b_prod_dev_split.md"):
-        f.write_text(f.read_text().replace("c6fc9b1", "0badc0f"))
+    for f in (tree / "README.md", tree / PLANTED):
+        f.write_text(f.read_text().replace(PLANTED_SHA, "0badc0f"))
     assert "0badc0f" in drift_text(tree)
     assert "unknown" in drift_text(tree)
 
@@ -127,13 +146,16 @@ def test_evidence_citing_a_note_that_does_not_exist_is_drift(tree):
 # ------------------------------------------------------- the checker stays honest
 
 def test_the_banner_extractor_is_not_a_grep():
-    """`W0c:185` QUOTES W0b's banner as an instruction to apply elsewhere, so
-    `grep -n 'EXECUTED'` -- which W0c:188 itself recommends -- marks the one
-    in-progress prompt executed. The banner is the leading blockquote only."""
-    w0c = (REAL / "W0c_repo_coherence.md").read_text()
-    assert "EXECUTED" in w0c, "fixture assumption: W0c still quotes the banner"
-    assert "EXECUTED" not in ps.leading_banner(w0c)
-    assert "EXECUTED" in ps.leading_banner((REAL / "W0_repo_hygiene.md").read_text())
+    """W0c once QUOTED W0b's banner as an instruction to apply elsewhere, so
+    `grep -n 'EXECUTED'` -- which W0c itself recommended -- marked the one
+    in-progress prompt executed. The banner is the leading blockquote only.
+    (Both prompts are archived; the shapes are rebuilt here.)"""
+    quoting = ("# W0c\n\n**Status:** in progress — x\n\nCopy this banner:\n\n"
+               f"{PLANTED_BANNER}\n")
+    executed = f"# W0\n\n{PLANTED_BANNER}\n\n**Status:** executed — x\n"
+    assert "EXECUTED" in quoting
+    assert "EXECUTED" not in ps.leading_banner(quoting)
+    assert "EXECUTED" in ps.leading_banner(executed)
 
 
 def test_no_check_keys_on_a_number_written_in_a_document(monkeypatch, tree):

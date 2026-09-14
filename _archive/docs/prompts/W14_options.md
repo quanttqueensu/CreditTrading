@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/W14_options.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (W14-A) and `docs/SYSTEM.md` §5 (options closed). Numbers: `python3 -m ops.orient`.
+
 # W14 — Is the book short vol, and is a convexity overlay worth its carry?
 
 **Status:** in progress — **Part A is DONE and its gate CLOSED Part B** (2026-09-11): `scripts/cef/stress_beta.py`, `results/cef/STRESS_BETA_2026-09-11.md`, the `evaluate` → `pnl` extension and `scripts/cef/tests/test_pnl_series.py`. 0 trials spent, as Part A specifies. **Remains:** Part C, which is blocked on `gamma/G2`'s HYG surface — its input does not exist and VIX is its own negative control. Part B is closed, not pending; re-open it only by re-running the script and clearing both gate conditions.

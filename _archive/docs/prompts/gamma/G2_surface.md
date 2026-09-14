@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/gamma/G2_surface.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (G6) and KILLED (gamma-timing-C3); `docs/SYSTEM.md` §5; `python3 -m ops.gamma_status`. Numbers: `python3 -m ops.orient`.
+
 # G2 — The surface from trade prints: what "implied vol" is allowed to mean here
 
 **Status:** queued — no commit references it, no deliverable of its exists, no trial spent.

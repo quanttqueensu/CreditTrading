@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/gamma/G0_BRIEF.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (G6) and KILLED (gamma-timing-C3); `docs/SYSTEM.md` §5; `python3 -m ops.gamma_status`. Numbers: `python3 -m ops.orient`.
+
 # The gamma programme: standing brief
 
 **Every prompt in `docs/prompts/gamma/` opens by reading this file and

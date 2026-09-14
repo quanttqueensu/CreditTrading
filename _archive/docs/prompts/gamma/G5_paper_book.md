@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/gamma/G5_paper_book.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (G6) and KILLED (gamma-timing-C3); `docs/SYSTEM.md` §5; `python3 -m ops.gamma_status`. Numbers: `python3 -m ops.orient`.
+
 # G5 — The paper book: what sixty sessions can and cannot establish
 
 **Status:** queued — no commit references it, no deliverable of its exists, no trial spent.

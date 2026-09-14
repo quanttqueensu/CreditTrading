@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/gamma/G6_vrp_research.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (G6) and KILLED (gamma-timing-C3); `docs/SYSTEM.md` §5; `python3 -m ops.gamma_status`. Numbers: `python3 -m ops.orient`.
+
 # G6 — Realised against implied in credit: does a timing signal exist at all?
 
 **Status:** queued — no commit references it, no deliverable of its exists, no trial spent.

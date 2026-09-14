@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/gamma/G4_ledger_and_execution.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` CLOSED (G6) and KILLED (gamma-timing-C3); `docs/SYSTEM.md` §5; `python3 -m ops.gamma_status`. Numbers: `python3 -m ops.orient`.
+
 # G4 — The machinery: four live defects, and a ledger that survives an expiry
 
 **Status:** in progress — **Part A DONE 2026-09-11**, with a correction: there are **three** live order-path defects, not four. A1 (`conId=0`), A2 ($0.00 limit) and A3 (MarketOrder on a BAG) are fixed in `src/deploy/broker/ibkr.py` behind a `_validate_option_targets` pass that runs before ANY order transmits — which is how the raise Part A asks for avoids the half-sent basket the bond path's warn-and-skip was avoiding. **A4 was already fixed before this prompt was read**: `exec_ledger.py:779` imports from `.lib.odd_lot` and `src/deploy/v2` does not exist — `G0` §5 and `G2` Part D still assert otherwise. Tests: `test_option_order_path.py`, `test_order_path_noop_for_shares.py`, each verified to fail against the defect it guards. **Remains:** Parts B/C/D — expiry, assignment, greeks, cost reconciliation.

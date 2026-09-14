@@ -54,9 +54,6 @@ below with `python3 ops/prompt_status.py`; do not trust the table.
 | prompt | lever | trials | touches live book | status | evidence |
 |---|---|---:|---|---|---|
 | `00_BRIEF.md` | — standing brief, read first | — | no | **standing** | — |
-| `W0_repo_hygiene.md` | none directly; unblocks reading | 0 | two import fixes | **executed** | 2026-09-10 — `0c81d3f`, the `W0-A`…`W0-G` commits, `80b458e`; `results/ops/REPO_HYGIENE_2026-09-10.md` |
-| `W0b_prod_dev_split.md` | largest operational risk in the repo | 0 | **yes, profoundly** | **executed** | 2026-09-10 — `c6fc9b1`; verify against the machine with `git worktree list` |
-| `W0c_repo_coherence.md` | agent-hours; kills a class of incident | 0 | one gate fix in `ops/promote.sh` | **in progress** | done: 5 of its 6 §8 items — `cb6f3a7` gate fix + `ops/tests/test_promote_gate.py`, `0b828dc` CLAUDE.md, this index. **remains:** "28 commits pushed" — `main` is ahead of `origin/main` and tags `v2026.09.10.4`/`.5` are local-only |
 | `W1_inference_protocol.md` | inference — every other prompt inherits it | 0 | no | **queued** | — |
 | `W2_account_audit.md` | prerequisites; W14 blocks on it | 0 | no | **in progress** | done: per-book halt scoping — `43ec054`, `26a5336`, pinned by `src/deploy/tests/test_halt_scope.py`; the prompt says so in its own body. **remains:** the account audit itself (options permission, margin type, commission plan), and deduping the benchmark fill files |
 | `W3_session_architecture.md` | TC and reliability | 0 | **yes** | **in progress** | done: Part A, the morning decision (`939af5c`, `b442986`, `e4ac1ed`), live since 2026-09-13 (`results/ops/GO_LIVE_W3_2026-09-13.md`); the post-close verifier toward Part C (`5a92b70`, `da83a87`). **remains:** Parts B and D not assessed; `cef_pm` at DRY_RUN=1 until a morning cycle is watched |
@@ -70,9 +67,7 @@ below with `python3 ops/prompt_status.py`; do not trust the table.
 | `W11_trading_policy.md` | **TC** — holding period and per-name bands | 2 | no | **queued** | — |
 | `W12_joint_optimiser.md` | **TC and BR together** | 0 shadowing; 1 promoted | no — computes alongside | **queued** | — |
 | `W13_nav_quality_and_horizon.md` | IC, via NAV measurement error | 2 | no | **queued** | — |
-| `W14_options.md` | Part A measurement; then GAMMA | 0 / 1 / 1 | no | **in progress** | done: **Part A, 2026-09-11** — `scripts/cef/stress_beta.py`, `results/cef/STRESS_BETA_2026-09-11.md`, the `evaluate`→`pnl` extension, `scripts/cef/tests/test_pnl_series.py`. **0 trials spent.** Its gate **CLOSED Part B**: β_ΔVIX is insignificant and 0 of 10 worst windows start in the top VIX quintile. **remains:** Part C, blocked on `gamma/G2`'s HYG surface (VIX is its own negative control, so it cannot substitute). Part A never needed `W2` — `00_BRIEF.md` §8 says so |
 | `W15_schedule_reliability.md` | **uptime — 6 of 29 eligible sessions armed; a missed session has IC 0** | 0 | **yes, lanes A/B/E** | **in progress** | written 2026-09-11. **done:** Lane F — `ops/session_uptime.py` is the named reproducer for every uptime figure, with `ops/tests/test_session_uptime.py`, `ops/tests/test_dashboard_sessions_route.py` and a read-only `GET /api/sessions` panel; it measures **6 armed of 29 eligible, 4 cleanly**, and refutes this prompt's own "of 30" (30 counts Labor Day `cef_2026-09-07.log` as eligible). **remains:** lanes A–E, and G is gated behind them. Lane A is blocking: prod runs `ops-guards-20260911`, NOT an ancestor of `main`, forked at `ac83a26` — but five of its eight commits are patch-id-identical to `main`, so the only true delta is live ledger state, not code |
-| `gamma/` (`G0`–`G7`) | the options programme | GAMMA counter | no | **queued** | `G0_BRIEF.md` is **standing**; GAMMA counter still 0 |
 | `perfund/` (`F1`–`F3`) | per-name resolution | CEF counter | no | **queued** | `F2` supersedes `W10` Part D |
 
 **The trial counters are in `docs/RESEARCH_STATE.md` and that table is
@@ -83,9 +78,14 @@ session.
 
 ## Archived prompts
 
-The original P-series (fifty-two files, including `00_README.md`, the method
-note the series shared) and the dated `NEXT_2026-09-11.md` work order moved to
-`_archive/docs/prompts/` on 2026-09-13. They are provenance, not instructions:
+The original P-series (including `00_README.md`, the method note the series
+shared) and the dated `NEXT_2026-09-11.md` work order moved to
+`_archive/docs/prompts/` on 2026-09-13. On 2026-09-14 the executed and closed
+work orders followed: `W0`, `W0b` and `W0c` (executed), `W14` (Part A done, its
+gate closed Part B, Part C needed the gamma surface), and the whole `gamma/`
+programme (`G0_BRIEF`, `G1`–`G7`; options are recorded closed in
+`docs/SYSTEM.md` §5 and `docs/RESEARCH_STATE.md`, and `python3 -m ops.gamma_status`
+still reports the programme's state). They are provenance, not instructions:
 nothing there should be executed, and `_archive/README.md` lists what they are
 wrong about.
 

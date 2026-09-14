@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/W0b_prod_dev_split.md`.
+> Now owned by: `docs/SYSTEM.md` §4.1 (the split it deployed). Numbers: `python3 -m ops.orient`.
+
 # W0b — Deploy the prod/dev split (designed, written, never deployed)
 
 > ## ✅ EXECUTED 2026-09-10 11:00 ET. Do not run this prompt again.

@@ -321,7 +321,8 @@ the day's orders were sized on.
 ## 5. Standing decisions
 
 Moved **as recorded** from `docs/prompts/00_BRIEF.md` §7 and `CLAUDE.md`, in the
-order they were made. Nothing here was re-decided when this document was
+order they were made. Work-order ids in the rows (W14, `gamma/`, P-numbers) name
+prompts that have since closed; the archived copies are under `_archive/docs/prompts/`. Nothing here was re-decided when this document was
 written. A later entry on the same question supersedes an earlier one only
 where it says so; changing a row needs the team lead's name and a date (§7).
 

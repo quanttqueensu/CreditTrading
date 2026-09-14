@@ -36,7 +36,6 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/handoffs/README.md` | convention | how dated session handoffs are kept | — |
 | `docs/prompts/README.md` | canonical | the work-order index and its status vocabulary | `ops.prompt_status` |
 | `docs/prompts/00_BRIEF.md` | reference | the edge's theory, CEF market structure, and harness rules H1–H15 | `ops.prompt_status` |
-| `docs/prompts/gamma/G0_BRIEF.md` | reference | the gamma programme's standing brief | `ops.prompt_status` |
 | `docs/prompts/**/*.md` | work-order | one unit of work each | `ops.prompt_status` |
 | `.claude/README.md` | desk | the map of the agent layer | — |
 | `.claude/rules/*.md` | desk | path-scoped rules loaded when matching files are opened | `ops.doc_audit` |

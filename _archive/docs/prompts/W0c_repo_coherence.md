@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `docs/prompts/W0c_repo_coherence.md`.
+> Now owned by: `docs/INDEX.md` and `ops/doc_audit.py` (the coherence it asked for, now checked). Numbers: `python3 -m ops.orient`.
+
 # W0c — Repo coherence: make the repo agree with itself, and with the machine
 
 **Status:** in progress — done: 5 of 6 §8 items (`cb6f3a7`, `0b828dc`). remains: the push — `main` is ahead of `origin/main`.
