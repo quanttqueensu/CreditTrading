@@ -1,6 +1,6 @@
 # G1 — The option math we own: pricing, greeks, and implied vol from a trade print
 
-**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
+**Status:** in progress — **DONE 2026-09-11**: `src/deploy/lib/optmath.py` (three pricers, greeks, identifiability-guarded `implied_vol`, OCC exercise-by-exception), `src/deploy/tests/test_optmath.py`, `scripts/gamma/early_exercise_grid.py`, `results/gamma/OPTION_MATH_2026-09-11.md`. 0 trials. **Two deviations, both measured not assumed:** Bjerksund-Stensland 2002 is NOT implemented (Part D's premium table decides whether a fast American form is needed; the tree is sub-ms at our sizes), and Part C's "under 1e-4 at 2,000 steps" is **unachievable with plain CRR** — measured `gap x n = 0.640`, so 1e-4 needs n ~ 6,400. **Remains:** Part C test 6, the `atm_iv_daily` reconciliation.
 **Reads first:** `G0_BRIEF.md`, `00_BRIEF.md` §6 (house rules).
 **Settles:** the model every other prompt in this programme inverts, prices and
 hedges with. **Trials:** 0 — nothing here is evaluated on P&L.

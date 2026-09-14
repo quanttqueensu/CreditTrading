@@ -1,6 +1,6 @@
 # G4 — The machinery: four live defects, and a ledger that survives an expiry
 
-**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
+**Status:** in progress — **Part A DONE 2026-09-11**, with a correction: there are **three** live order-path defects, not four. A1 (`conId=0`), A2 ($0.00 limit) and A3 (MarketOrder on a BAG) are fixed in `src/deploy/broker/ibkr.py` behind a `_validate_option_targets` pass that runs before ANY order transmits — which is how the raise Part A asks for avoids the half-sent basket the bond path's warn-and-skip was avoiding. **A4 was already fixed before this prompt was read**: `exec_ledger.py:779` imports from `.lib.odd_lot` and `src/deploy/v2` does not exist — `G0` §5 and `G2` Part D still assert otherwise. Tests: `test_option_order_path.py`, `test_order_path_noop_for_shares.py`, each verified to fail against the defect it guards. **Remains:** Parts B/C/D — expiry, assignment, greeks, cost reconciliation.
 **Reads first:** `G0_BRIEF.md` §5, `00_BRIEF.md` §6.
 **Settles:** whether an option can be booked, marked, rolled, expired, assigned
 and reconciled without a human noticing. Today it cannot.

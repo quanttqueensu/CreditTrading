@@ -242,6 +242,21 @@ class IBKRConfig:
                             in ("1", "true", "yes"))
 
 
+def _option_multiplier(pt) -> float:
+    """Shares per option contract. One definition, so the cap cannot disagree.
+
+    `exec_ledger._multiplier` already defaults OPTION to 100.0; this is the same
+    rule on the broker side, for the gamma sleeve's `max_underlying_notional_usd`.
+
+    NOTE, because an audit got this wrong: the two `.get("multiplier", 1.0)`
+    defaults elsewhere in this module are NOT bugs. Both sit behind an explicit
+    `kind != OPTION` guard -- `_resolve_qty` returns None for a weight-expressed
+    option before reaching its default, and the min-trade block excludes OPTION
+    by name -- so an option never reads them, and 1.0 is right for what does.
+    """
+    return float((getattr(pt, "meta", None) or {}).get("multiplier", 100.0)) or 100.0
+
+
 class IBKRBroker(Broker):
     """Lazy-`ib_insync` broker. Pass `ib_insync_module` to unit-test against a
     stub; leave it None in production and `connect()` imports the real one."""
@@ -486,6 +501,92 @@ class IBKRBroker(Broker):
             return c
         return ibi.Stock(pt.instrument, "SMART", "USD")
 
+    # -- option legs (gamma programme, G4 Part A) --------------------------
+
+    OPTION_META_KEYS = ("underlier", "expiry", "strike", "opt_type")
+
+    def _qualify(self, con, instrument):
+        """Resolve a locally-built contract to IB's conId, or raise.
+
+        A1. `ib_async.Option(...)` constructed in this process has `conId == 0`
+        until `ib.qualifyContracts()` looks it up. That call appeared NOWHERE in
+        `src/` before 2026-09-11 (`grep -rn qualifyContracts src/` was empty),
+        so every BAG order this repo could build carried unresolved legs. IB
+        rejects them, and the failure mode when it does not is worse: a leg that
+        resolves to a DIFFERENT contract than the one the sleeve priced.
+
+        Raises rather than proceeding with a zero, because a zero conId is not a
+        degraded order, it is a different order.
+        """
+        if getattr(con, "conId", 0):
+            return con
+        try:
+            out = self.ib.qualifyContracts(con)
+        except Exception as exc:                      # noqa: BLE001 - re-raised
+            raise ValueError(
+                f"could not qualify option contract for {instrument!r}: "
+                f"{exc!r}. Refusing to transmit a leg with conId=0.") from exc
+        resolved = (out or [None])[0]
+        if resolved is None or not getattr(resolved, "conId", 0):
+            raise ValueError(
+                f"IB could not qualify option contract for {instrument!r} "
+                f"(conId still 0). The contract may not exist, may be expired, "
+                f"or the strike/expiry may be wrong. Refusing to transmit.")
+        return resolved
+
+    def _validate_option_targets(self, targets):
+        """Refuse a malformed option leg BEFORE a single order is transmitted.
+
+        WHY THIS IS A SEPARATE PASS AND NOT A CHECK INSIDE THE LOOP
+        ----------------------------------------------------------
+        The bond path meets the identical situation -- a leg with no usable
+        limit price -- and chooses to WARN AND SKIP (`_place_bond`, "bonds are
+        LIMIT-ONLY"). `docs/prompts/gamma/G4` Part A says options must RAISE.
+        Both are right and they conflict only if the raise happens mid-loop:
+        raising after leg 1 of a straddle has been sent leaves a NAKED LEG at
+        the broker, which is worse than either policy. Validating the whole
+        basket first makes the raise free of that cost.
+
+        Two refusals, both of which were silent before 2026-09-11:
+
+        * **A missing or non-positive `limit_price`.** `_order` used to read
+          `float(meta.get("limit_price", 0.0))`, so a missing key became a
+          LIMIT order at $0.00 -- unfillable on a buy, and on a sell an offer
+          to hit any bid in the book. This is the house rule on silent
+          fallbacks applied to the one code path that can lose money.
+        * **A missing contract key.** `_contract` does a bare `m["underlier"]`
+          lookup, so an incomplete meta surfaced as a `KeyError` one line
+          before transmission, with no instrument named.
+
+        Shares and bonds pass through untouched; this is a no-op for every book
+        trading today, which is what `test_shares_are_untouched_by_option_validation`
+        and the byte-for-byte dry-run diff both check.
+        """
+        for pt in targets or ():
+            if getattr(pt, "kind", None) != OPTION:
+                continue
+            meta = pt.meta or {}
+            missing = [k for k in self.OPTION_META_KEYS if meta.get(k) is None]
+            if missing:
+                raise ValueError(
+                    f"option target {pt.instrument!r} is missing contract "
+                    f"meta {missing} -- _contract() would raise KeyError one "
+                    f"line before transmit. Every option leg needs "
+                    f"{list(self.OPTION_META_KEYS)}.")
+            raw = meta.get("limit_price")
+            try:
+                lim = float(raw)
+            except (TypeError, ValueError):
+                lim = 0.0
+            if not lim > 0:
+                raise ValueError(
+                    f"option target {pt.instrument!r} has no usable "
+                    f"limit_price (got {raw!r}). Options are LIMIT-ONLY here: "
+                    f"a missing key used to become a $0.00 limit, which is "
+                    f"unfillable on a buy and sells at any price on a sell. "
+                    f"Price it from our own surface -- never the broker's "
+                    f"model value (gamma/G4 defect A2).")
+
     def _order(self, pt, qty):
         """A MarketOrder for equities, a marketable limit for options. Bond
         legs NEVER come through here — `_place_bond` builds their limit-only
@@ -506,7 +607,20 @@ class IBKRBroker(Broker):
         action = "SELL" if qty < 0 else "BUY"
         want = str((pt.meta or {}).get("order_type", "")).upper()
         if pt.kind == OPTION:
-            lim = float((pt.meta or {}).get("limit_price", 0.0))
+            # NO SILENT FALLBACK. This read `.get("limit_price", 0.0)` until
+            # 2026-09-11, so a missing key became a $0.00 limit. `place_targets`
+            # validates the whole basket before transmitting anything, so by the
+            # time we get here this raise should be unreachable -- it is kept as
+            # the second gate because `_order` is also callable directly.
+            raw = (pt.meta or {}).get("limit_price")
+            try:
+                lim = float(raw)
+            except (TypeError, ValueError):
+                lim = 0.0
+            if not lim > 0:
+                raise ValueError(
+                    f"option {pt.instrument!r} has no usable limit_price "
+                    f"(got {raw!r}); options are LIMIT-ONLY (gamma/G4 A2)")
             return ibi.LimitOrder(action, abs(qty), lim)
         if want in ("MOC", "MARKETONCLOSE"):
             o = ibi.Order()
@@ -1114,6 +1228,15 @@ class IBKRBroker(Broker):
             else:
                 singles.append((pt, delta))
 
+        # Validate EVERY option leg before a single order goes out. A raise
+        # after leg 1 of a straddle is transmitted leaves a naked leg at the
+        # broker; this is what lets the option path raise (gamma/G4 A2) without
+        # inheriting the half-sent-basket problem the bond path's warn-and-skip
+        # was avoiding. No-op for shares and bonds.
+        self._validate_option_targets([pt for pt, _ in singles]
+                                      + [pt for legs_ in combos.values()
+                                         for pt, _ in legs_])
+
         fills, placed = [], []
         for pt, delta in singles:
             if self._is_bond(pt):
@@ -1596,21 +1719,45 @@ class IBKRBroker(Broker):
         bag.secType = "BAG"
         bag.currency = "USD"
         bag.exchange = "SMART"
-        combo_legs = []
+        self._validate_option_targets([pt for pt, _ in legs])
+
+        combo_legs, pkg_limit = [], 0.0
         for pt, delta in legs:
             con = self._contract(pt)
+            # A1. `ib_async.Option(...)` built locally carries conId == 0 until
+            # qualifyContracts resolves it against IB's contract database, and
+            # that call appeared NOWHERE in src/ before 2026-09-11 -- so every
+            # BAG this repo could build had unresolved legs, which IB rejects
+            # or, worse, mis-resolves. Raise rather than send a zero.
+            con = self._qualify(con, pt.instrument)
             leg = ibi.ComboLeg()
-            leg.conId = getattr(con, "conId", 0)
+            leg.conId = con.conId
+            # IB combo semantics: contracts = ratio x package quantity. Ratio
+            # carries the size and the package is one unit -- that encoding is
+            # correct and is NOT the defect an earlier audit called A7. What is
+            # guarded here is the truncation `int()` would do to a fractional
+            # delta, which cannot arise while contracts are integral.
+            if abs(delta) != int(abs(delta)):
+                raise ValueError(
+                    f"combo leg {pt.instrument!r} has a fractional delta "
+                    f"{delta!r}; option contracts are integral and int() would "
+                    f"silently truncate it")
             leg.ratio = int(abs(delta)) or 1
             leg.action = "SELL" if delta < 0 else "BUY"
             leg.exchange = "SMART"
             combo_legs.append(leg)
+            pkg_limit += float((pt.meta or {}).get("limit_price"))
         bag.comboLegs = combo_legs
         # One unit of the BAG; the per-leg ratios carry the size. Direction of
         # the package follows the first leg's delta (all legs of a straddle move
         # together — both sold to open, both bought to close).
         pkg_action = "SELL" if legs[0][1] < 0 else "BUY"
-        order = ibi.MarketOrder(pkg_action, 1)
+        # A3. This was `MarketOrder(pkg_action, 1)` until 2026-09-11 -- a market
+        # order on a multi-leg option spread, i.e. crossing two spreads at once,
+        # in a module whose single-leg path is deliberately limit-only. The
+        # package limit is the sum of the legs' own limits, which come from OUR
+        # surface (G2) via G1's pricer, never from IBKR's model value.
+        order = ibi.LimitOrder(pkg_action, 1, round(pkg_limit, 2))
         order.orderRef = str(sleeve_name or "")
         return self.ib.placeOrder(bag, order)
 
