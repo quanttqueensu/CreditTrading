@@ -41,9 +41,15 @@ Writes: a raw snapshot of every broker answer and the verdict, under
 and a heartbeat under `verify_<book_id>`. The snapshot is the durable copy of
 D's executions -- IB's gateway forgets them at its nightly restart.
 
-Never touches: a ledger, the order map, `broker_fills.csv`, a halt. It does
-NOT decide what the ledger books -- `broker_fills.csv` is the canonical durable
-fill record; the archive here is raw evidence of what the broker said. It connects
+With `--capture` (the launchd job passes it) it first runs
+`ops.capture_fills.capture`, which appends the day's executions to each
+sleeve's `broker_fills.csv` -- deduped by execId -- and writes the capture-log
+row that lets the next morning's ledger book them after IB's 03:00 restart
+(`IBKRBroker._execution_record`). That makes the durable fill record depend on
+TWO jobs, this one at 16:20 and cef_pm at 17:30, instead of one.
+`broker_fills.csv` is the canonical record; the archive here is raw evidence.
+
+Never touches: a ledger, the order map, a halt. It connects
 with `readonly=True`, so the API session itself refuses to transmit, and there
 is no placeOrder / cancelOrder / reqGlobalCancel anywhere in this file.
 
@@ -470,7 +476,8 @@ def _summary(book_id, auction, status, checks) -> tuple[str, str]:
 
 
 def run(book: Path, books_root: Path, client_id: int, auction=None,
-        now=None, send_alert=True, jobs=("cef", "cef_pm")) -> int:
+        now=None, send_alert=True, jobs=("cef", "cef_pm"),
+        capture=False) -> int:
     from ops import halt as halt_mod
     from ops.decision_age import EXCHANGE_TZ
     from ops.preflight import deployed_tickers
@@ -484,6 +491,27 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
     archive.mkdir(parents=True, exist_ok=True)
     stamp = f"{now_et:%Y%m%d_%H%M%S}"
 
+    # CAPTURE FIRST: the durable fill record matters more than this run's
+    # verdict, so nothing below -- an unreadable ledger, a broker hiccup --
+    # may prevent it.
+    capture_check = None
+    if capture:
+        from ops import capture_fills
+        try:
+            res = capture_fills.capture(str(book), str(books_root),
+                                        client_id=client_id, verbose=True)
+            capture_check = Check(
+                "capture", PASS if not res.get("unattributed") else WARN,
+                f"captured {res.get('written', 0)} new execution(s) to "
+                f"broker_fills.csv ({res.get('duplicates', 0)} already there, "
+                f"{res.get('unattributed', 0)} unattributed)")
+        except Exception as exc:                      # noqa: BLE001 - reported
+            capture_check = Check(
+                "capture", FAIL,
+                f"capture_fills FAILED ({exc!r}). Unless cef_pm captures before "
+                f"IB's nightly restart, tomorrow morning's ledger cannot book "
+                f"today's fills and will refuse (ExecutionRecordGap).")
+
     try:
         universe = {k: set(v) for k, v in deployed_tickers(book).items()}
         contested = contested_symbols(book)
@@ -491,6 +519,7 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
         rows = po.read_order_map(books_root / "_ibkr_shadow" / "_order_map.csv")
     except Exception as exc:                          # noqa: BLE001 - reported
         checks = [Check("inputs", UNVERIFIED, f"local records unreadable: {exc!r}")]
+        checks += [capture_check] if capture_check else []
         return _finish(halt_mod, job, book_id, auction, checks, archive, stamp,
                        send_alert, snapshot=None)
 
@@ -501,6 +530,7 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
                         f"could not read the broker read-only as client "
                         f"{client_id}: {exc!r}. If the gateway is down after "
                         f"the close, tomorrow's session cannot trade either.")]
+        checks += [capture_check] if capture_check else []
         return _finish(halt_mod, job, book_id, auction, checks, archive, stamp,
                        send_alert, snapshot=None)
 
@@ -513,6 +543,7 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
         checks = [Check("broker", UNVERIFIED,
                         f"an open order returned by the broker was unreadable: "
                         f"{exc}")]
+        checks += [capture_check] if capture_check else []
         return _finish(halt_mod, job, book_id, auction, checks, archive, stamp,
                        send_alert, snapshot=None)
     snapshot = {"measured_et": now_et.isoformat(), "auction": auction.isoformat(),
@@ -534,6 +565,8 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
     n_sent = next((len(c.rows) for c in checks if c.name == "transmitted"), 0)
     checks.insert(0, decision_check(auction, cal.previous_trading_day(auction),
                                     halt_mod.all_beats(), jobs, n_sent))
+    if capture_check is not None:
+        checks.append(capture_check)
     return _finish(halt_mod, job, book_id, auction, checks, archive, stamp,
                    send_alert, snapshot=snapshot)
 
@@ -582,6 +615,8 @@ def main(argv=None) -> int:
     ap.add_argument("--auction", default=None,
                     help="YYYY-MM-DD; default the most recent completed close")
     ap.add_argument("--no-alert", action="store_true")
+    ap.add_argument("--capture", action="store_true",
+                    help="run ops.capture_fills first (the launchd job does)")
     ap.add_argument("--jobs", default="cef,cef_pm",
                     help="heartbeat jobs that can decide for this book")
     a = ap.parse_args(argv)
@@ -599,7 +634,8 @@ def main(argv=None) -> int:
             return 0
     return run(a.book, a.books_root, a.client_id, auction=auction,
                send_alert=not a.no_alert,
-               jobs=tuple(j.strip() for j in a.jobs.split(",") if j.strip()))
+               jobs=tuple(j.strip() for j in a.jobs.split(",") if j.strip()),
+               capture=a.capture)
 
 
 if __name__ == "__main__":

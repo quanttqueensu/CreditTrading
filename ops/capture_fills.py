@@ -150,9 +150,16 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
         if e.execId in seen.get(sleeve, set()):
             dupes += 1
             continue
+        # Same test as IBKRBroker._execution_record: ib_async builds every Fill
+        # with a DEFAULT CommissionReport whose commission is 0.0 and whose
+        # execId is "", and patches the real one in later. Reading
+        # `rep.commission` alone would record a confident 0.0 for a report still
+        # in flight -- and this file is now what the W3 morning ledger books
+        # from, so an invented zero here becomes an invented zero in cash.
         commission = None
         rep = getattr(f, "commissionReport", None)
-        if rep is not None and getattr(rep, "commission", None) is not None:
+        if (rep is not None and getattr(rep, "execId", "") == e.execId
+                and getattr(rep, "commission", None) is not None):
             commission = float(rep.commission)
         record_broker_fill(
             Path(books_root) / "_ibkr_shadow" / sleeve,
@@ -164,6 +171,13 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
         written += 1
         seen.setdefault(sleeve, set()).add(e.execId)
         by_sleeve[sleeve] = by_sleeve.get(sleeve, 0) + 1
+
+    # LAST, after every attributable fill is on disk: the row is a claim that
+    # this capture is complete for the dates it saw, and the W3 morning ledger
+    # books from broker_fills.csv on the strength of it. A capture that raised
+    # part-way never reaches here and so never makes the claim.
+    _append_capture_log(books_root, client_id=int(client_id or (cfg.client_id + 50)),
+                        fills=fills, written=written, unattributed=unattributed)
 
     if verbose:
         print(f"[capture] {len(fills)} execution(s) in the TWS session")
@@ -182,6 +196,106 @@ def capture(book_path, books_root, client_id=None, asof=None, verbose=True) -> d
     return {"total": len(fills), "written": written, "skipped": skipped,
             "duplicates": dupes, "by_sleeve": by_sleeve,
             "unattributed": unattributed}
+
+
+CAPTURE_LOG = "_capture_log.csv"
+CAPTURE_LOG_COLUMNS = ["captured_utc", "client_id", "n_executions",
+                       "execution_dates", "written", "unattributed"]
+
+
+def _capture_log_path(books_root) -> Path:
+    return Path(books_root) / "_ibkr_shadow" / CAPTURE_LOG
+
+
+def _append_capture_log(books_root, client_id, fills, written, unattributed):
+    """One row per COMPLETED capture, including a capture that found nothing.
+
+    WHY A ZERO-EXECUTION CAPTURE MUST LEAVE A TRACE. broker_fills.csv can only
+    say what was captured; it cannot say "a capture ran after that close and the
+    broker had nothing for this sleeve". Without this row those two states are
+    the same empty file, and a ledger booking from it would have to choose
+    between inventing a gap and inventing a non-fill.
+    """
+    import csv as _csv
+    path = _capture_log_path(books_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    dates = sorted({str(f.execution.time)[:10] for f in fills})
+    new = not path.exists()
+    with open(path, "a", newline="") as fh:
+        w = _csv.DictWriter(fh, fieldnames=CAPTURE_LOG_COLUMNS)
+        if new:
+            w.writeheader()
+        w.writerow({"captured_utc": datetime.now().astimezone().isoformat(),
+                    "client_id": client_id, "n_executions": len(fills),
+                    "execution_dates": ";".join(dates), "written": written,
+                    "unattributed": unattributed})
+
+
+def capture_covers(books_root, date):
+    """Evidence that broker_fills.csv is complete for `date`, or None.
+
+    A capture completed on `date`'s own calendar day (exchange time) at or after
+    the 16:00 close ran in the same gateway session as that close -- IB's
+    nightly restart is after midnight -- so it saw every execution the day had.
+    Paper MOC fills on 2026-09-08 are stamped 15:59:33-15:59:59 ET
+    (cef_live broker_fills.csv), inside that window.
+
+    NOT COVERED, AND NAMED: a MANUAL gateway restart between the close and the
+    capture would make a capture after it incomplete. Nothing here can see one.
+
+    A missing log is None (no capture has ever completed). An unreadable one
+    raises.
+    """
+    import csv as _csv
+    import datetime as _dt
+    from ops.decision_age import EXCHANGE_TZ
+    path = _capture_log_path(books_root)
+    if not path.exists():
+        return None
+    want = _dt.date.fromisoformat(str(date)[:10])
+    with open(path, newline="") as fh:
+        rows = list(_csv.DictReader(fh))
+    for r in rows:
+        ts = _dt.datetime.fromisoformat(str(r["captured_utc"]).strip())
+        if ts.tzinfo is None:
+            raise ValueError(f"{path}: naive captured_utc {r['captured_utc']!r}")
+        et = ts.astimezone(EXCHANGE_TZ)
+        if et.date() == want and et.time() >= _dt.time(16, 0):
+            return (f"capture completed {et:%Y-%m-%d %H:%M:%S} ET, after the "
+                    f"{want} close ({r['n_executions']} execution(s) in session)")
+    return None
+
+
+def captured_executions(state_dir, date) -> list:
+    """This sleeve's captured executions on `date`, as dicts, from broker_fills.csv.
+
+    Every row must carry an execId: it is the dedup key against the live
+    session and the audit trail back to the broker. A row without one raises
+    rather than being booked anonymously or skipped.
+    """
+    import re
+    import pandas as pd
+    path = Path(state_dir) / "broker_fills.csv"
+    if not path.exists():
+        return []
+    df = pd.read_csv(path, dtype={"note": str})
+    df = df[df["fill_date"].astype(str).str[:10] == str(date)[:10]]
+    out = []
+    for r in df.itertuples():
+        note = str(r.note)
+        m = re.search(r"execId=(\S+)", note)
+        if not m:
+            raise ValueError(f"{path}: {r.instrument} {r.fill_date} row has no "
+                             f"execId in its note ({note[:80]!r})")
+        c = re.search(r"commission=(\S+)", note)
+        commission = None
+        if c and c.group(1) not in ("None", ""):
+            commission = float(c.group(1))
+        out.append({"instrument": str(r.instrument), "side": str(r.side),
+                    "qty": float(r.qty), "price": float(r.price),
+                    "commission": commission, "exec_id": m.group(1),
+                    "date": str(r.fill_date)[:10]})
+    return out
 
 
 def _load_order_map(books_root) -> dict:
