@@ -220,6 +220,12 @@ Directory names are self-describing; these four facts are not.
 are governance objects, not config. `scripts/` is research and is **never** on the
 live path. `data/` is 3.9 GB and gitignored — read the parquet, never grep it.
 
+**`_archive/` is the record of what we did, never evidence of what is true.**
+It is tracked but gitignored, so `rg` and `grep -r` skip it unless pointed at it;
+`find` and `git grep` do not, so every file there opens with an ARCHIVED banner.
+Cite it as provenance only, never as authority; `git add -f` new files; never
+create a `CLAUDE.md` inside it. The rules: `_archive/README.md`.
+
 ## Documents that will mislead you
 
 **Run the audit; do not trust this section's specifics.**

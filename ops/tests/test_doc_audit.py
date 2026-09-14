@@ -130,6 +130,153 @@ def test_a_prereg_is_not_asked_for_a_reproducer(fake_repo):
     assert by["results_reproducers"].status == M.NOTE
 
 
+# -- the archive wall ------------------------------------------------------
+
+BANNER = ("> **ARCHIVED 2026-09-13 — not evidence of current state.** "
+          "Was `{origin}`.\n> Now owned by: `docs/SYSTEM.md`.\n")
+
+
+def _wall(root: Path, rows=("_archive/docs/",)):
+    """A minimal archive that passes every brick of the wall."""
+    (root / ".gitignore").write_text("# wall\n/_archive/\n")
+    (root / "_archive/docs").mkdir(parents=True)
+    (root / "_archive/README.md").write_text(
+        "# index\n\n| path | was |\n|---|---|\n"
+        + "".join(f"| `{r}` | x |\n" for r in rows))
+    (root / "_archive/docs/OLD.md").write_text(
+        BANNER.format(origin="docs/OLD.md") + "\n# Old\nBody.\n")
+
+
+def _status(rep, key):
+    return {f.key: f.status for f in rep.findings}[key]
+
+
+def test_the_minimal_wall_passes(fake_repo):
+    _wall(fake_repo)
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert not rep.drift, [(f.key, f.detail) for f in rep.drift]
+
+
+def test_archive_wall_requires_the_ignore_line(fake_repo):
+    """Without it every archived body is searchable again, and nothing else
+    would say so -- the folder still looks like an archive."""
+    _wall(fake_repo)
+    (fake_repo / ".gitignore").write_text("# wall\n# /_archive/  (commented out)\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:ignore") == M.DRIFT
+    (fake_repo / ".gitignore").write_text("/_archive/\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:ignore") == M.OK
+
+
+def test_an_archived_file_git_is_not_tracking_is_drift(fake_repo):
+    """The ignore line hides a NEW file from `git add -A`, so an archive move
+    done with plain `mv` would look finished and live on one machine."""
+    import subprocess
+    _wall(fake_repo)
+    git = lambda *a: subprocess.run(["git", *a], cwd=fake_repo, check=True,
+                                    capture_output=True)
+    git("init", "-q")
+    git("add", "-A")
+    git("add", "-f", "_archive")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:tracked") == M.OK
+    (fake_repo / "_archive/docs/NEW.md").write_text(
+        BANNER.format(origin="docs/NEW.md") + "Body.\n")
+    git("add", "-A")                      # the command that silently skips it
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:tracked") == M.DRIFT
+    git("add", "-f", "_archive/docs/NEW.md")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:tracked") == M.OK
+
+
+def test_archive_wall_requires_a_banner(fake_repo):
+    """Glob is not walled, so the banner is what a reader who opens a listed
+    path meets first."""
+    _wall(fake_repo)
+    (fake_repo / "_archive/docs/OLD.md").write_text("# Old\nStraight to the body.\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:banners") == M.DRIFT
+
+
+def test_archive_banner_must_name_its_mirror_path(fake_repo):
+    _wall(fake_repo)
+    (fake_repo / "_archive/docs/OLD.md").write_text(
+        BANNER.format(origin="docs/SOMETHING_ELSE.md") + "Body.\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:mirror") == M.DRIFT
+
+
+def test_a_snapshot_must_be_of_a_document_that_still_exists(fake_repo):
+    _wall(fake_repo)
+    snap = ("> **ARCHIVED 2026-09-13 — not evidence of current state.** "
+            "Snapshot of `docs/LIVE.md` at `abc1234`.\n")
+    (fake_repo / "_archive/docs/LIVE_2026-09-13.md").write_text(snap + "Body.\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:mirror") == M.DRIFT
+    (fake_repo / "docs/LIVE.md").write_text("# Live, trimmed\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:mirror") == M.OK
+
+
+def test_archive_wall_rejects_a_nested_claude_md(fake_repo):
+    """Claude Code auto-loads a nested CLAUDE.md for files in its subtree -- a
+    verbatim snapshot under that name would re-issue a superseded rulebook."""
+    _wall(fake_repo)
+    (fake_repo / "_archive/CLAUDE.md").write_text(
+        BANNER.format(origin="CLAUDE.md") + "old rules\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:nested_claude") == M.DRIFT
+    (fake_repo / "_archive/CLAUDE.md").unlink()
+    (fake_repo / "_archive/.claude/agents").mkdir(parents=True)
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:nested_claude") == M.DRIFT
+
+
+def test_an_unindexed_binary_is_drift(fake_repo):
+    """A PDF cannot carry a banner, so its row in the index is its only label."""
+    _wall(fake_repo, rows=("_archive/docs/OLD.md",))
+    (fake_repo / "_archive/docs/deck.pdf").write_bytes(b"%PDF-1.4")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:index") == M.DRIFT
+    readme = fake_repo / "_archive/README.md"
+    readme.write_text(readme.read_text() + "| `_archive/docs/deck.pdf` | x |\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:index") == M.OK
+
+
+def test_live_code_may_not_import_from_the_archive(fake_repo):
+    _wall(fake_repo)
+    (fake_repo / "ops/uses_old.py").write_text("from _archive.ops import old\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:imports") == M.DRIFT
+    (fake_repo / "ops/uses_old.py").write_text("PATH = '_archive/ops/old.py'  # a string\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:imports") == M.OK
+
+
+def test_the_real_sentinel_token_exists_only_in_the_archive():
+    """The wall's verification searches for this token with no path. If it is
+    ever copied outside `_archive/` -- into a test, a note, this file -- that
+    search stops meaning anything, so the token is read, never spelled."""
+    sentinel = REPO / "_archive/ARCHIVE_WALL_SENTINEL.md"
+    token = next(ln.strip() for ln in sentinel.read_text().splitlines()
+                 if ln.startswith("    ") and ln.strip())
+    outside = []
+    for p in REPO.rglob("*"):
+        rel = p.relative_to(REPO)
+        if (p.is_dir() or rel.parts[0] in ("_archive", ".git", "data")
+                or "__pycache__" in rel.parts or p.stat().st_size > 2_000_000):
+            continue
+        try:
+            if token in p.read_text(errors="ignore"):
+                outside.append(str(rel))
+        except OSError:
+            continue
+    assert not outside, f"sentinel token copied outside _archive/: {outside}"
+
+
 # -- the severity split ----------------------------------------------------
 
 def test_note_does_not_fail_the_gate_but_drift_does(fake_repo):

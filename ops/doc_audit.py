@@ -353,9 +353,184 @@ _KNOWN_DESK_NAMES = {
 }
 
 
+# -- the archive wall --------------------------------------------------------
+
+ARCHIVE = "_archive"
+# Exempt from the banner rule: the index itself, and the file that exists only
+# to be searched for.
+ARCHIVE_UNBANNERED = {"_archive/README.md", "_archive/ARCHIVE_WALL_SENTINEL.md"}
+ARCHIVE_BANNER_RE = re.compile(
+    r"^>\s*\*\*ARCHIVED (\d{4}-\d{2}-\d{2}) (?:—|--) not evidence of current "
+    r"state\.\*\*\s*(Was|Snapshot of) `([^`]+)`", re.M)
+# Where live code lives. An import from the archive in any of these puts a
+# superseded module back on a path something runs.
+LIVE_CODE_ROOTS = ("ops", "src", "scripts", "dashboard", ".claude/hooks")
+
+
+def _archive_rows(readme: str) -> set:
+    """Backticked `_archive/...` paths in the index's first column."""
+    rows = set()
+    for line in readme.splitlines():
+        m = re.match(r"^\|\s*`(_archive/[^`]+)`\s*\|", line)
+        if m:
+            rows.add(m.group(1))
+    return rows
+
+
+def _covered(rel: str, rows: set) -> bool:
+    """A file is indexed if its own path, or a directory above it, has a row."""
+    if rel in rows:
+        return True
+    parts = rel.split("/")
+    return any("/".join(parts[:i]) + "/" in rows for i in range(1, len(parts)))
+
+
+def _untracked_in_archive() -> list[str] | None:
+    """Files under _archive/ that git is NOT tracking. None if there is no git.
+
+    The wall is a .gitignore line on a tracked directory, so a file created
+    here is invisible to `git status` and skipped by `git add -A`. Without this
+    a freshly archived document would look committed and exist on one machine.
+    """
+    import subprocess
+    if not (REPO / ".git").exists():
+        return None
+    r = subprocess.run(["git", "ls-files", "--others", "--ignored",
+                        "--exclude-standard", "--", ARCHIVE],
+                       cwd=REPO, capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        raise RuntimeError(f"git ls-files failed: {r.stderr.strip()[:120]}")
+    return [ln for ln in r.stdout.splitlines()
+            if ln.strip() and "__pycache__" not in ln and not ln.endswith(".DS_Store")]
+
+
+def check_archive_wall(rep: Report) -> None:
+    """The archive is only a wall if every brick is checked.
+
+    WHY. Superseded documents used to sit beside current ones under a banner,
+    and a banner does not stop an agent that found a file by SEARCHING from
+    quoting its body. `/_archive/` in `.gitignore` keeps archived bodies out of
+    ripgrep and out of the ugrep-backed `grep` that Claude Code's shell runs --
+    both skip gitignored paths unless pointed at them. (`.ignore` was tried
+    first: ripgrep reads it, grep -r does not, and walked straight through.)
+    `find`, `ls` and `git grep` still see the folder, so the banner is the
+    second line of defence and is enforced here, together with the ways the
+    wall fails silently:
+
+      * the ignore line goes -> every archived body is searchable again;
+      * a file is archived but never `git add -f`ed -> it exists on one machine;
+      * a nested CLAUDE.md or .claude/ lands in here -> Claude Code auto-loads a
+        superseded rulebook for anyone who opens a path in that subtree;
+      * live code imports from here -> a retired module is back on a run path.
+
+    A banner's `Was` path must be the file's own location with `_archive/`
+    stripped, so a reader can tell where it came from without `git log`. A
+    `Snapshot of` path must still exist in the live tree -- that is what makes
+    it a snapshot of a document that was trimmed, not a move.
+    """
+    root = REPO / ARCHIVE
+    if not root.exists():
+        rep.add("archive:wall", GONE, f"{ARCHIVE}/ does not exist",
+                "the archive wall is part of the document contract; restore it")
+        return
+    ignore = _read(".gitignore") or ""
+    if "/_archive/" not in {ln.strip() for ln in ignore.splitlines()}:
+        rep.add("archive:ignore", DRIFT,
+                ".gitignore does not list /_archive/ -- archived bodies are searchable",
+                "restore the line `/_archive/` in .gitignore")
+    else:
+        rep.add("archive:ignore", OK, ".gitignore walls /_archive/ from rg and grep")
+
+    untracked = _untracked_in_archive()
+    if untracked is None:
+        rep.add("archive:tracked", NOTE, "no .git here; tracking not checked")
+    elif untracked:
+        rep.add("archive:tracked", DRIFT,
+                f"{len(untracked)} file(s) under _archive/ are not in git: "
+                f"{', '.join(untracked[:8])}",
+                "git add -f them -- .gitignore hides new files from git add -A")
+    else:
+        rep.add("archive:tracked", OK, "every file under _archive/ is tracked")
+
+    readme = _read(f"{ARCHIVE}/README.md")
+    if readme is None:
+        rep.add("archive:readme", GONE, f"{ARCHIVE}/README.md does not exist",
+                "the index is what makes an archived file findable on purpose")
+        readme = ""
+    rows = _archive_rows(readme)
+
+    unbannered, misplaced, unindexed, nested = [], [], [], []
+    for p in sorted(root.rglob("*")):
+        rel = p.relative_to(REPO).as_posix()
+        if p.name.lower() == "claude.md" or (p.is_dir() and p.name == ".claude"):
+            nested.append(rel)
+        if p.is_dir():
+            continue
+        if rel not in ARCHIVE_UNBANNERED and not _covered(rel, rows):
+            unindexed.append(rel)
+        if p.suffix != ".md" or rel in ARCHIVE_UNBANNERED:
+            continue
+        head = "\n".join(p.read_text(errors="replace").splitlines()[:BANNER_WITHIN])
+        m = ARCHIVE_BANNER_RE.search(head)
+        if not m:
+            unbannered.append(rel)
+            continue
+        kind, origin = m.group(2), m.group(3)
+        if kind == "Was" and origin != rel[len(ARCHIVE) + 1:]:
+            misplaced.append(f"{rel} says Was `{origin}`")
+        elif kind == "Snapshot of" and not (REPO / origin).exists():
+            misplaced.append(f"{rel} is a snapshot of `{origin}`, which does not exist")
+
+    for key, bad, what, fix in (
+        ("archive:nested_claude", nested,
+         "a CLAUDE.md or .claude/ inside the archive would auto-load",
+         "rename a CLAUDE.md snapshot to CLAUDE_md_<date>.md; move agent files "
+         "under _archive/claude_layer/"),
+        ("archive:banners", unbannered,
+         "archived .md with no ARCHIVED banner in the first "
+         f"{BANNER_WITHIN} lines", "add the banner from _archive/README.md rule 3"),
+        ("archive:mirror", misplaced,
+         "banner origin does not match the file's location",
+         "mirror the original path, or correct the banner"),
+        ("archive:index", unindexed,
+         "archived file with no row (or directory row) in _archive/README.md",
+         "add a row saying what it was and what it is wrong about"),
+    ):
+        if bad:
+            rep.add(key, DRIFT, f"{len(bad)} {what}: {', '.join(bad[:8])}"
+                    + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else ""), fix)
+        else:
+            rep.add(key, OK, "none")
+
+    importers = []
+    for top in LIVE_CODE_ROOTS:
+        base = REPO / top
+        if not base.exists():
+            continue
+        for p in base.rglob("*.py"):
+            if ARCHIVE in p.relative_to(REPO).parts:
+                continue
+            try:
+                tree = ast.parse(p.read_text(errors="replace"))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                mods = ([a.name for a in node.names] if isinstance(node, ast.Import)
+                        else [node.module or ""] if isinstance(node, ast.ImportFrom)
+                        else [])
+                if any(m.split(".")[0] == ARCHIVE for m in mods):
+                    importers.append(p.relative_to(REPO).as_posix())
+                    break
+    rep.add("archive:imports", DRIFT if importers else OK,
+            (f"live code imports from {ARCHIVE}/: {', '.join(sorted(importers))}"
+             if importers else f"no live module imports from {ARCHIVE}/"),
+            "restore the module to a live path, or stop importing it"
+            if importers else "")
+
+
 CHECKS = [check_banners, check_spec_id, check_dsr_bar, check_ops_broker_claim,
           check_band_width_literals, check_results_notes_have_reproducers,
-          check_prereg_shape, check_desk_inventory]
+          check_prereg_shape, check_desk_inventory, check_archive_wall]
 
 
 def run() -> Report:

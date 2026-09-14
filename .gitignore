@@ -52,3 +52,14 @@ ops/heartbeat.json
 # existed since 2026-08-31 while still looking authoritative (CLAUDE.md landmine
 # #2). The TEMPLATE is the tracked artifact; the render is local output.
 ops/schedule/rendered_backup/
+
+# The agent search wall (2026-09-13). See _archive/README.md.
+# _archive/ is TRACKED -- this line does not untrack anything already committed,
+# the same shape as the live ledgers above. What it does is keep archived bodies
+# out of search: ripgrep and the `grep` Claude Code's shell runs (ugrep with
+# --ignore-files) both skip gitignored paths unless pointed at them, so a search
+# for a phrase lands on the current document, not a superseded one. `.ignore`
+# was tried first and only ripgrep reads it; grep -r walked straight through.
+# The price: a NEW file here needs `git add -f`, and ops.doc_audit fails on any
+# file under _archive/ that git is not tracking, so none is silently left behind.
+/_archive/
