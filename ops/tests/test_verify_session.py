@@ -219,3 +219,50 @@ def test_the_verifier_cannot_transmit():
     for forbidden in ("placeOrder(", "cancelOrder(", "reqGlobalCancel("):
         assert forbidden not in body
     assert "readonly=True" in body
+
+
+# -- a book that silently stood down must not read as a band hold -------------
+
+# The prod heartbeat's cef entry as read 2026-09-13 21:50, verbatim in shape.
+BEAT_2026_09_12 = {"status": "ok_already_traded", "at": "2026-09-12 07:09:15",
+                   "date": "2026-09-12",
+                   "detail": {"armed": True, "rc": 0, "blockers": [],
+                              "nav_via": "yfinance", "nav_ready_at": "22:00",
+                              "pair_date": "2026-09-11"}}
+
+
+def test_the_same_day_guards_armed_flag_is_not_a_decision():
+    """launch_job files ok_already_traded with armed=True and pair 09-11 for a
+    pair that was never traded. Read naively, Monday's close looks decided."""
+    c = vs.decision_check(dt.date(2026, 9, 14), dt.date(2026, 9, 11),
+                          {"cef": BEAT_2026_09_12}, ("cef", "cef_pm"), 0)
+    assert c.status == vs.FAIL
+    assert "NO session decided pair 2026-09-11" in c.message
+
+
+def test_a_refused_fire_fails_even_with_nothing_else_wrong():
+    """The 2026-09-14 configuration: W3 scheduler, old 17:15 plist, every fire
+    refused past the cutoff. Zero orders, nothing resting -- still a FAIL."""
+    beat = {"status": "ok_not_armed", "at": "2026-09-14 17:15:07",
+            "session_date": "2026-09-11",
+            "detail": {"armed": False, "rc": 0,
+                       "blockers": ["past the 15:50 ET MOC entry cutoff"]}}
+    c = vs.decision_check(dt.date(2026, 9, 15), dt.date(2026, 9, 14),
+                          {"cef": beat}, ("cef", "cef_pm"), 0)
+    assert c.status == vs.FAIL and "cutoff" in c.message
+
+
+def test_an_armed_decision_with_no_orders_is_a_band_hold():
+    beat = {"status": "ok", "at": "2026-09-09 21:46:40", "date": "2026-09-09",
+            "detail": {"armed": True, "rc": 0, "pair_date": "2026-09-09"}}
+    c = vs.decision_check(dt.date(2026, 9, 10), dt.date(2026, 9, 9),
+                          {"cef": beat}, ("cef", "cef_pm"), 0)
+    assert c.status == vs.PASS and "band hold" in c.message
+
+
+def test_the_evening_fallback_counts_under_its_own_job_name():
+    beat = {"status": "ok", "at": "2026-09-14 21:50:00",
+            "session_date": "2026-09-14", "detail": {"armed": True}}
+    c = vs.decision_check(dt.date(2026, 9, 15), dt.date(2026, 9, 14),
+                          {"cef_pm": beat}, ("cef", "cef_pm"), 4)
+    assert c.status == vs.PASS

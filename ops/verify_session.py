@@ -281,6 +281,56 @@ def evaluate(*, auction: dt.date, universe: dict, contested: set,
     return checks
 
 
+def decision_check(auction: dt.date, prev_pair: dt.date, beats: dict,
+                   jobs, n_sent: int) -> Check:
+    """Did any session actually DECIDE the pair that trades into `auction`?
+
+    Without this, a book that silently stood down reads exactly like a band
+    hold: zero orders, nothing resting, positions == ledger, every check
+    PASS. That is the 2026-09-14 configuration as measured on 2026-09-13 --
+    the W3 launch_job patch applied, the old 17:15 plist still installed, and
+    session_plan refusing every fire as past the MOC cutoff -- and the daily
+    message would have said OK every day the book did not trade.
+
+    "Decided" means a beat from one of `jobs` with status `ok`, detail.armed
+    true, and a session date equal to `prev_pair`. NOT `armed` alone: the
+    same-day guard files `ok_already_traded` with armed=true (launch_job keeps
+    the flag so a third run cannot slip through), and on 2026-09-12 that beat
+    carried pair_date 2026-09-11 for a pair that was never traded.
+    """
+    rows = []
+    hit = None
+    for job in jobs:
+        b = beats.get(job)
+        if not b:
+            rows.append({"job": job, "beat": None})
+            continue
+        d = b.get("detail") or {}
+        pair = b.get("session_date") or d.get("pair_date") or d.get("asof")
+        rows.append({"job": job, "status": b.get("status"), "at": b.get("at"),
+                     "pair": pair, "armed": d.get("armed"),
+                     "blockers": d.get("blockers")})
+        if (b.get("status") == "ok" and d.get("armed") is True
+                and str(pair)[:10] == prev_pair.isoformat()):
+            hit = rows[-1]
+    if hit:
+        return Check("decision", PASS,
+                     f"pair {prev_pair} was decided by {hit['job']} at "
+                     f"{hit['at']}"
+                     + ("" if n_sent else "; no orders were needed (band hold)"),
+                     rows)
+    return Check("decision", FAIL,
+                 f"NO session decided pair {prev_pair} for the {auction} close, "
+                 f"so the book did not trade today and nothing traded by "
+                 f"choice. Latest beats: " + "; ".join(
+                     f"{r['job']}: " + ("never" if r.get("beat", 1) is None else
+                                        f"{r['status']} @ {r['at']} pair "
+                                        f"{r['pair']} armed={r['armed']}"
+                                        + (f" blockers={r['blockers']}"
+                                           if r.get("blockers") else ""))
+                     for r in rows), rows)
+
+
 def overall(checks: list[Check]) -> str:
     worst = max((_RANK[c.status] for c in checks), default=0)
     return {0: PASS, 1: WARN, 2: UNVERIFIED, 3: FAIL}[worst]
@@ -389,7 +439,7 @@ def _summary(book_id, auction, status, checks) -> tuple[str, str]:
 
 
 def run(book: Path, books_root: Path, client_id: int, auction=None,
-        now=None, send_alert=True) -> int:
+        now=None, send_alert=True, jobs=("cef", "cef_pm")) -> int:
     from ops import halt as halt_mod
     from ops.decision_age import EXCHANGE_TZ
     from ops.preflight import deployed_tickers
@@ -440,6 +490,11 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
                           order_map_rows=rows, ledger=ledger)
     except VerifyInputError as exc:
         checks = [Check("inputs", UNVERIFIED, str(exc))]
+    sys.path.insert(0, str(REPO_ROOT / "ops" / "schedule"))
+    import nyse_calendar as cal
+    n_sent = next((len(c.rows) for c in checks if c.name == "transmitted"), 0)
+    checks.insert(0, decision_check(auction, cal.previous_trading_day(auction),
+                                    halt_mod.all_beats(), jobs, n_sent))
     return _finish(halt_mod, job, book_id, auction, checks, archive, stamp,
                    send_alert, snapshot=snapshot)
 
@@ -488,6 +543,8 @@ def main(argv=None) -> int:
     ap.add_argument("--auction", default=None,
                     help="YYYY-MM-DD; default the most recent completed close")
     ap.add_argument("--no-alert", action="store_true")
+    ap.add_argument("--jobs", default="cef,cef_pm",
+                    help="heartbeat jobs that can decide for this book")
     a = ap.parse_args(argv)
     auction = dt.date.fromisoformat(a.auction) if a.auction else None
     if auction is None:
@@ -502,7 +559,8 @@ def main(argv=None) -> int:
             print(f"[verify] {today} is not an NYSE trading day; nothing closed")
             return 0
     return run(a.book, a.books_root, a.client_id, auction=auction,
-               send_alert=not a.no_alert)
+               send_alert=not a.no_alert,
+               jobs=tuple(j.strip() for j in a.jobs.split(",") if j.strip()))
 
 
 if __name__ == "__main__":
