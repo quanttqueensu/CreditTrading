@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/RESEARCH_AND_METHODOLOGY.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` (the D1–D7 legend, moved verbatim) and `docs/prompts/00_BRIEF.md` §5 (harness rules). Numbers: `python3 -m ops.orient`.
+
 # How We Do This: Research, Methodology, and What We Found
 
 > **CORRECTED 2026-09-10. This document is dated 31 July 2026. Read every

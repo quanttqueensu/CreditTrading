@@ -22,20 +22,20 @@ You are a quant researcher on the QUANTT CEF book. Read
 `docs/prompts/00_BRIEF.md` and `results/cef/ARTIFACT_BATTERY_<date>.md` (W4)
 first — quote its stale-NAV numbers in your own note's opening. Then:
 
-1. `docs/SYSTEM_AND_STRATEGY.md` §11: Getmansky, Lo & Makarov (2004, JFE
+1. `_archive/docs/SYSTEM_AND_STRATEGY.md` §11: Getmansky, Lo & Makarov (2004, JFE
    74(3):529–609) — return smoothing from stale marks; **our NAV autocorrelation
    is 0.388 and unmodelled.**
-2. `docs/PER_NAME_ARCHITECTURE.md` §5 and §3 (the resolution principle: apply
+2. `_archive/docs/PER_NAME_ARCHITECTURE.md` §5 and §3 (the resolution principle: apply
    per-group treatment where it is absent from the construction; **the z-score
    knows nothing about NAV quality**).
 3. `results/cef/DIST_CUT_NOTE.md` and `ESTIMATOR_NOTE.md` — what has already
    failed on the *level*: a Kalman fair-value model lost to a shorter rolling
    window. **This prompt is not about the level. It is about measurement error
    in the NAV itself.**
-4. `docs/EXIT_RESEARCH_2026-09-07.md` §3 and §5.2 — the reasons intraday
+4. `_archive/docs/EXIT_RESEARCH_2026-09-07.md` §3 and §5.2 — the reasons intraday
    *entry* was ruled out. Find that section and quote it; Part C exists to test,
    with data, whether it still holds for the two most liquid names.
-5. `docs/E1_PREREG.md` §6 — the promotion gate that killed the predecessor:
+5. `_archive/docs/E1_PREREG.md` §6 — the promotion gate that killed the predecessor:
    **gross edge per round trip ≥ 2.5× modelled cost**, measured before anything
    else.
 

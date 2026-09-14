@@ -17,7 +17,7 @@ at TWS 7497 while the gateway served 4002. Preflight caught it correctly every
 single time and refused to arm. Nobody was reading preflight. A non-armed
 session is silent by design, so a month went by.
 
-docs/SYSTEM_AND_STRATEGY.md 12 -- "if you change one thing" -- says to make
+SYSTEM_AND_STRATEGY.md 12 (archived: _archive/docs/) -- "if you change one thing" -- said to make
 that visible. This puts it in the status line and at the top of every session.
 
 Prints JSON on stdout. Never raises: every field is independently guarded and

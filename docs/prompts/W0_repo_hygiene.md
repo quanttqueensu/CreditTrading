@@ -348,8 +348,8 @@ number.**
 
 Two survive and neither has an owner:
 
-1. **Per-name half-lives.** `docs/PER_NAME_ARCHITECTURE.md` §4's derived-band
-   table gives PHK 24.6 and DSL 12.3; `docs/PLAN.md` §4.1 gives PHK 41.9 and
+1. **Per-name half-lives.** `_archive/docs/PER_NAME_ARCHITECTURE.md` §4's derived-band
+   table gives PHK 24.6 and DSL 12.3; `_archive/docs/PLAN.md` §4.1 gives PHK 41.9 and
    DSL 11.9. Two different estimation windows are evidently in play and **no
    document says which produced which.** `perfund/F2` Part C recomputes all
    seventeen and owns the reconciliation — **cross-reference it from both

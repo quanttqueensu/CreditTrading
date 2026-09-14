@@ -52,7 +52,7 @@ counter (156) covers all ETF-price/PD work done to date.
 > value on 2026-07-31 when this file was last updated. It missed the +29 that
 > `results/cef/ESTIMATOR_NOTE.md` recorded that same session (9 distribution-cut
 > + 16 Kalman sweeps + 4 window control) and the band trial that followed.
-> **48 is correct**, and it is the figure `SYSTEM_AND_STRATEGY.md` §9,
+> **48 is correct**, and it is the figure `SYSTEM_AND_STRATEGY.md` §9 (archived),
 > `PREREG_BAND_2026-09-06.md` and `DUST_ORDERS_2026-09.md` have been using.
 > A second counter, **GAMMA**, was opened by the 2026-09-08 standing decisions
 > for the options programme (`docs/prompts/gamma/`); it has its own
@@ -302,6 +302,62 @@ pre-registered.** A 2.77x premium is an argument against paying it. Carr & Wu
 (2009) find the edge in selling into an implied run-up — a different risk shape
 (short convexity, the tail the premium exists to pay for), needing its own
 prompt, pre-registration, trial and a margin budget this account does not have.
+
+---
+
+## Verdict legend — D1–D7
+
+> Moved verbatim on 2026-09-13 from §2.2 of `RESEARCH_AND_METHODOLOGY.md`
+> (archived: `_archive/docs/RESEARCH_AND_METHODOLOGY.md`, dated 2026-07-31).
+> Every verdict in the tables below uses these codes.
+
+"It didn't work" is not a diagnosis and cannot be acted on. We classify every
+failure into one of seven types, because the correct response is different for
+each, and the wrong response wastes weeks.
+
+| code | what happened | what it means | what to do |
+|---|---|---|---|
+| **D1** | No edge even *before* trading costs | The effect does not exist | Kill it. No amount of tuning creates something from nothing |
+| **D2** | Edge exists but costs eat it | A trading problem, not an idea problem | Trade less often, in bigger, better-chosen bets |
+| **D3** | Great in old data, bad in new | Either overfitted, or the world changed | Check if the *mechanism* still holds. If yes, it's a regime shift. If no, we fooled ourselves |
+| **D4** | Good numbers, but it's just market exposure | A risk premium wearing a costume | Demote it. It is not skill and must never be counted as skill |
+| **D5** | Everything passes, Sharpe 0.3–0.6 | **This is not a failure. This is inventory** | Keep it. Several mediocre-but-different strategies beat one good one |
+| **D6** | Works in one environment, not others | A conditional strategy, correctly identified | Only run it when its environment is present, and size it accordingly |
+| **D7** | Fewer than ~250 independent trades | Not a result at all | You cannot conclude anything. Get more instruments, not more history |
+
+D5 deserves emphasis because it is the most expensive mistake available. A
+strategy with a Sharpe of 0.5 sounds disappointing. But five *unrelated* strategies
+each at 0.5 combine to about 1.1 — because their bad days do not line up. Throwing
+away 0.5s while hunting for a 1.5 is how people end up with nothing.
+
+---
+
+## KILLED — CEF construction variants
+
+> Moved verbatim on 2026-09-13 from §7 of `SYSTEM_AND_STRATEGY.md`, written
+> 2026-09-06 (archived: `_archive/docs/SYSTEM_AND_STRATEGY.md`). Figures are as
+> measured then; section references (§1.2, §8.1) are to that archived document.
+
+Each was measured and failed. Rebuilding one is a wasted week.
+
+| idea | verdict |
+|---|---|
+| **`z_window = 63`** | Chosen on 2005–2023 with the holdout sealed. Opened hours later: **gross 1.75 but net −0.298**. Reverted to 252. *The canonical lesson: picking the argmax of a swept column.* |
+| **OU / per-name κ score** | Measured 2026-09-06, **withdrawn**. κ exposure curve is flat below 0 and declining above; live setting is at the top. **Mechanism:** OU stationary variance is $\sigma^2/2\kappa$, so $\sigma^d\propto\sigma/\sqrt\kappa$ — the live z-score **already carries $\kappa^{1/2}$**. Measured slope of $\log\sigma^d$ on $\log\kappa$ = **−0.463** vs theory's −0.500. Multiplying by $(1-\phi^h)$ double-counts. |
+| **Signal combination with price reversal** | Optimal combined \|IC\| 0.0748 vs 0.0747 for discount alone = **+0.1%**. Price signal 95% subsumed (weights −0.95/−0.05). |
+| **Hard group (muni) neutrality** | Gross Sharpe 0.97 → 0.82. |
+| **Sizing up on \|z\|** | Every threshold above zero *lowers* Sharpe: 0.81 → 0.40 → 0.29 → 0.27. |
+| **Sizing up on dislocation** | Best in *calm* markets (§1.2). Produced −12.9% at 35.8% vol in 2008. |
+| **Distribution data** | Failed twice — as a universe filter (1 of 8 variants beat baseline, chosen after looking at 8) and inside the Kalman (1.60 → 1.28). |
+| **Cointegration pairs** | Gross 1.03 → net −0.16; needed 32.8× leverage against a 2× ceiling. |
+| **Sequential Σ⁻¹α + band** | At matched turnover gross **1.07 — below plain α's 1.10**. The scalar band destroys what Σ⁻¹ buys. Use the joint objective instead (§8.1). |
+
+**Also do not build:** machine learning (17 names, one feature, IC 0.075 — the
+bias-variance trade-off is emphatically against it); regime-switching (the
+dispersion-quintile table *is* the regime study, and vol targeting already
+exploits it continuously); jump-diffusion (changes sizing, not signal);
+Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
+<1% participation — there is nothing to schedule).
 
 ---
 

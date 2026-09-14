@@ -3,7 +3,7 @@
 **The one document that says what this book is, how it runs, and what we know
 about it.** Written 2026-09-13 from the documents it replaces: the
 strategy, system and decision sections of `CLAUDE.md`, `docs/INFRASTRUCTURE.md`,
-`docs/prompts/00_BRIEF.md`, the retired `SYSTEM_AND_STRATEGY.md` and `PLAN.md`,
+`docs/prompts/00_BRIEF.md`, the retired `SYSTEM_AND_STRATEGY.md` and `PLAN.md` (both archived under `_archive/docs/`),
 and `results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12.
 
 **It holds no figures that move.** Where a number matters, this document names

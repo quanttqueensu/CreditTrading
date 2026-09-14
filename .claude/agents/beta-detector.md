@@ -14,7 +14,7 @@ Assume the claim is false. Your job is to find the boring explanation.
 
 ## The D-taxonomy
 
-Assign a verdict from `docs/RESEARCH_AND_METHODOLOGY.md` §2.2:
+Assign a verdict from the D1–D7 legend in `docs/RESEARCH_STATE.md`:
 
 - **D1** no gross edge before costs
 - **D2** gross positive, net ≤ 0 *(re-open any D2 reached on full-sample costs —

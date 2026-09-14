@@ -66,7 +66,7 @@ def test_banner_must_be_near_the_top_not_merely_present(fake_repo, monkeypatch):
     assert rep.findings[0].status == M.DRIFT
 
 
-# -- the "no broker here" claim -------------------------------------------
+# -- which ops modules reach the broker -----------------------------------
 
 def _write_broker_module(d: Path, name: str, real: bool):
     d.joinpath(name).write_text(
@@ -74,19 +74,14 @@ def _write_broker_module(d: Path, name: str, real: bool):
         "SEARCH_FOR = 'ib_async'   # a string, not an import\n")
 
 
-def test_ops_broker_check_distinguishes_assertion_from_retraction(fake_repo):
+def test_ops_broker_modules_lists_real_importers_only(fake_repo):
+    """The README whose "There is no broker here" this used to police is
+    archived; the measurement survives, and must still not count a mention."""
     _write_broker_module(fake_repo / "ops", "trader.py", real=True)
-
-    (fake_repo / "ops/README.md").write_text(
-        "# ops\n\n**There is no broker here.** Nothing can place an order.\n")
-    rep = M.Report(); M.check_ops_broker_claim(rep)
-    assert rep.findings[0].status == M.DRIFT
-
-    (fake_repo / "ops/README.md").write_text(
-        "# ops\n\n**⚠ RETRACTED 2026-09-13 — this said \"There is no broker "
-        "here\" and it is false.**\n")
-    rep = M.Report(); M.check_ops_broker_claim(rep)
-    assert rep.findings[0].status == M.OK
+    _write_broker_module(fake_repo / "ops", "orient_like.py", real=False)
+    rep = M.Report(); M.check_ops_broker_modules(rep)
+    assert "trader.py" in rep.findings[0].detail
+    assert "orient_like.py" not in rep.findings[0].detail
 
 
 def test_opens_ib_socket_is_ast_not_grep(fake_repo):
@@ -411,6 +406,55 @@ def test_a_missing_module_command_is_dead(fake_repo, monkeypatch):
     (fake_repo / "docs/SYSTEM.md").write_text("`python3 -m ops.no_such_tool --check`\n")
     rep = M.Report(); M.check_pointers(rep)
     assert _status(rep, "pointers:docs/SYSTEM.md") == M.DRIFT
+
+
+# -- citing the archive ------------------------------------------------------
+
+def test_an_unmarked_archive_citation_in_an_owner_document_is_drift(fake_repo):
+    """Reads exactly like a live citation, which is the whole danger."""
+    (fake_repo / "CLAUDE.md").write_text(
+        "Rules.\n\nFor the capture numbers see `_archive/docs/PLAN.md` §3.\n")
+    rep = M.Report(); M.check_archive_citations(rep)
+    assert _status(rep, "archive:citations") == M.DRIFT
+    (fake_repo / "CLAUDE.md").write_text(
+        "Rules.\n\nThe archived `_archive/docs/PLAN.md` §3 has the old numbers.\n")
+    rep = M.Report(); M.check_archive_citations(rep)
+    assert _status(rep, "archive:citations") == M.OK
+
+
+def test_archive_citation_rules_reach_the_agent_layer(fake_repo):
+    (fake_repo / ".claude/skills/x").mkdir(parents=True)
+    (fake_repo / ".claude/skills/x/SKILL.md").write_text("Read `_archive/ops/AUTOMATION.md`.\n")
+    rep = M.Report(); M.check_archive_citations(rep)
+    assert _status(rep, "archive:citations") == M.DRIFT
+
+
+def test_prompts_other_archive_folders_and_the_index_are_exempt(fake_repo):
+    """Work orders may read archived studies; ops/_archive is a different
+    folder; the archive's own README is the right thing to point at."""
+    (fake_repo / "docs/prompts").mkdir()
+    (fake_repo / "docs/prompts/W1.md").write_text("Read `_archive/docs/PLAN.md` §7.1.\n")
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "Revert path: `ops/_archive/cef_discount.v5.20260731.frozen.json`.\n"
+        "Rules: `_archive/README.md`.\n")
+    rep = M.Report(); M.check_archive_citations(rep)
+    assert _status(rep, "archive:citations") == M.OK
+
+
+def test_code_citing_a_moved_document_is_a_note_never_drift(fake_repo):
+    """The frozen spec and the live sleeve cite documents in comments and cannot
+    be edited casually. Visible backlog, not a failing gate."""
+    (fake_repo / "src").mkdir()
+    (fake_repo / "_archive/docs").mkdir(parents=True)
+    (fake_repo / "_archive/docs/PLAN.md").write_text("old\n")
+    (fake_repo / "src/sleeve.py").write_text("# see docs/PLAN.md Part 2\n")
+    rep = M.Report(); M.check_code_doc_pointers(rep)
+    f = rep.findings[0]
+    assert f.status == M.NOTE and "now _archive/" in f.detail
+    assert not rep.drift
+    (fake_repo / "src/sleeve.py").write_text("# see _archive/docs/PLAN.md Part 2 (archived)\n")
+    rep = M.Report(); M.check_code_doc_pointers(rep)
+    assert rep.findings[0].status == M.OK
 
 
 # -- the severity split ----------------------------------------------------

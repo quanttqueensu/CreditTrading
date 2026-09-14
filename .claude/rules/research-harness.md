@@ -85,7 +85,7 @@ name-date, the harness **raises**; it never falls back to price returns silently
 
 ## The failure taxonomy
 
-Verdicts are D1–D7 (`docs/RESEARCH_AND_METHODOLOGY.md` §2.2). The common ones here:
+Verdicts are D1–D7 (the legend in `docs/RESEARCH_STATE.md`). The common ones here:
 
 - **D1** — no gross edge before costs.
 - **D2** — gross edge positive, net ≤ 0. Any D2 reached on full-sample costs must be

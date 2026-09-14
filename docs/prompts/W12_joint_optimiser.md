@@ -18,12 +18,12 @@ it), W11 Part C (the turnover controller's joint variant folds in here).
 You are a quant developer on the QUANTT CEF book. Read
 `docs/prompts/00_BRIEF.md`, then:
 
-1. `docs/SYSTEM_AND_STRATEGY.md` §8.1 — **why it is not deployed**: turnover
+1. `_archive/docs/SYSTEM_AND_STRATEGY.md` §8.1 — **why it is not deployed**: turnover
    stability 36.9% sd/mean across eras against the band's 11.9%; it loses
    2013–16 in the thin universe; letting ADV-ineligible names stay as decision
    variables puts 28% of gross in untradeable names and loses. *"Deploy after
    the band has live evidence, not before."*
-2. `docs/PLAN.md` §4.5 in full (the objective, the `c_model` derivation, the
+2. `_archive/docs/PLAN.md` §4.5 in full (the objective, the `c_model` derivation, the
    turnover-matched table, the corrections to the naive theory) and §2.4 (the IC
    term structure: 0.040 at 1d rising to 0.103 at 42d, with IC/√h decaying on a
    31-day half-life — *"the edge is slow"*).

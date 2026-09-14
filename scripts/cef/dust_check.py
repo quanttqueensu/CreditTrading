@@ -15,7 +15,7 @@ orders. See results/cef/DUST_ORDERS_2026-09.md.
 `targets` serialises every target the sleeve emits over the last five trading
 days at full precision, under a spec copy with `band_width` DELETED as well as
 under the live spec. Diffing the band-absent block across a code change is the
-house rule for any new frozen-spec key (SYSTEM_AND_STRATEGY.md 9.1: "the code
+house rule for any new frozen-spec key (now CLAUDE.md, "Hard rules — code"; was SYSTEM_AND_STRATEGY.md 9.1: "the code
 change alone should be a provable no-op"). Run it before the change, run it
 after, diff the two files.
 

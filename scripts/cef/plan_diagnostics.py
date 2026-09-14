@@ -1,4 +1,4 @@
-"""Diagnostics behind PLAN.md (2026-09-06).
+"""Diagnostics behind PLAN.md (2026-09-06; archived: _archive/docs/PLAN.md).
 
 Every measured number in PLAN.md comes from here. Run it to reproduce them, and
 re-run it whenever the panel is restaged -- several of these are claims about the

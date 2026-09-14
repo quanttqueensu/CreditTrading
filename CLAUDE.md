@@ -212,7 +212,7 @@ python3 -m ops.gamma_status                       # the options programme: phase
 python3 -m ops.doctor --quick                     # can this machine run unattended?
 python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live
 python3 scripts/cef/band_frontier.py              # the trading-policy frontier
-python3 scripts/cef/plan_diagnostics.py           # reproduces every number in docs/PLAN.md
+python3 scripts/cef/plan_diagnostics.py           # IC, kappa, PCA, ADV, vol scalar (and the archived PLAN.md's numbers)
 python3 dashboard/server.py                       # read-only monitor on :8787
 python3 .claude/hooks/book_state.py -p            # live book state as JSON
 ```
@@ -261,12 +261,9 @@ will copy. Read the banner, then distrust the body.
 
 | file | the trap, in substance |
 |---|---|
-| `docs/PLAN.md` | Its headline **0.10** net Sharpe is the **retired calendar policy's**, not the band's — the band is **0.66** pre-borrow, ~0.43 after. The document still calls 0.10 "the live configuration's true net Sharpe" in bold. Its capture conclusion ("2 sessions captured out of 25") is false: launchd runs `launch_job.py`, whose phase 4 calls capture unconditionally, and there are 294 fills over 3 sessions. Its "Drop PHK" item is contradicted by `PER_NAME_ARCHITECTURE.md`. |
 | `docs/INFRASTRUCTURE.md` | §3.4 still shows `\| Rebalance \| 2 days \|` with **no `band_width` row**, and the frozen spec marks `rebalance_days` **INERT while `band_width` is set**. So the one table a reader consults for "what does the sleeve do" describes a policy that has not run since 2026-09-06. |
-| `docs/RESEARCH_AND_METHODOLOGY.md` | Dated **31 July**. Read every "today", "current" and "live" as of that date. It says "zero live fills"; there are **294**. Its deflated-Sharpe discussion is keyed to an old trial count — `ops.doc_audit` derives the live bar from the canonical counter and fails if the document contradicts it. |
+| `_archive/**` | **Archived 2026-09-13:** `PLAN.md`, `SYSTEM_AND_STRATEGY.md`, `RESEARCH_AND_METHODOLOGY.md`, `PER_NAME_ARCHITECTURE.md`, the ops READMEs and `AUTOMATION.md`. What each is wrong about, in substance, is the last column of `_archive/README.md`. |
 | `docs/RESEARCH_STATE.md` | Its **counter table is canonical and its prose is not.** The `DEPLOYED` section is a broker snapshot from 2026-07-31 16:45 ET, labelled as such, and has not been true since. |
-| `docs/PER_NAME_ARCHITECTURE.md` | The substantive hazard is **not** the PHK row, which is now flagged in place. It is that **three of seven derived bands (MHD ≈130 obs, MQY ≈365, PDO ≈1,286) rest on fewer observations than this repo's identification budget allows. Do not deploy those three.** The table is illustrative, not deployable, and says so. |
-| `ops/README.md`, `ops/schedule/README.md` | Superseded in full; both open with a ⛔ banner. `ops/README.md`'s "There is no broker here" is **retracted in the body** as of 2026-09-13 — **seven** modules in `ops/` import an IB client and several transmit (`ops.doc_audit` names them by AST, not grep, because a grep counts `ops/orient.py`, which contains the string only as a literal it searches for). Both still use the pre-2026-08-31 path `…/Desktop/QUANTT/2027`, and `ops/README.md` references `ops/state/`, `ops/spec/` and `state/`, none of which exist. |
 
 **FIXED 2026-09-10.** This read: "four analysis scripts baseline against
 `band(T, 0.064)`, the 6.4% width retired on 2026-09-06". All four —

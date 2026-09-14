@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/PER_NAME_ARCHITECTURE.md`.
+> Now owned by: `docs/prompts/perfund/F2_group_forms_fund_params.md` and `F3_seventeen_sleeves.md`. Three of its seven bands rest on too few observations: do not deploy them. Numbers: `python3 -m ops.orient`.
+
 # Per-name architecture — at what resolution should funds differ?
 
 **2026-09-07.** Reproduce: `scripts/cef/per_name_resolution.py`.

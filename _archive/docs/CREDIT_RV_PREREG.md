@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/CREDIT_RV_PREREG.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` (credit_rv is KILLED). Numbers: `python3 -m ops.orient`.
+
 # CREDIT ETF STATISTICAL ARBITRAGE — PRE-REGISTRATION
 
 **Frozen 2026-07-28, before any return analysis of the signal.**

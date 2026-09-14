@@ -7,7 +7,7 @@ validate.py:93` computes cost as half-spread only, and the live ledger's
 `FinancingModel` applies a flat +50bp calibrated -- by its own docstring -- for
 "liquid Treasury/IG ETFs (general collateral bucket)". Credit CEFs are not
 general collateral. Every Sharpe this programme has quoted is before the cost of
-financing the short leg, and PLAN.md 3.3 makes that the gate on the entire
+financing the short leg, and PLAN.md 3.3 (archived: _archive/docs/PLAN.md) makes that the gate on the entire
 leverage decision.
 
 So: measure it, daily, and keep the series.

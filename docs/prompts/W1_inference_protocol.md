@@ -15,12 +15,12 @@ You are a quant researcher on the QUANTT credit closed-end-fund book: 17 CEFs,
 dollar-neutral cross-sectional discount reversion, MOC at T+1, 4.8% no-trade
 band, $500k IBKR paper capital. Read `docs/prompts/00_BRIEF.md` in full, then:
 
-1. `docs/RESEARCH_AND_METHODOLOGY.md` §2.1 (the deflated-Sharpe haircut
+1. `_archive/docs/RESEARCH_AND_METHODOLOGY.md` §2.1 (the deflated-Sharpe haircut
    √(2 ln N); the permanent trial counter) and §2.3 (walk-forward, bootstrap,
    negative controls).
 2. `docs/RESEARCH_STATE.md` — the CEF trial counter (48 after the band) and
    whatever per-trial Sharpes are recorded.
-3. `docs/PLAN.md` §7.1 (Lo 2002: Sharpe SE ≈ 2.05 over 60 sessions; cost
+3. `_archive/docs/PLAN.md` §7.1 (Lo 2002: Sharpe SE ≈ 2.05 over 60 sessions; cost
    converges ~60× faster) and §7.4 (the P&L kill rule fires 34% of the time
    on a true 0.82).
 4. `scripts/cef/band_frontier.py` — where dates enter every harness run, and
@@ -28,7 +28,7 @@ band, $500k IBKR paper capital. Read `docs/prompts/00_BRIEF.md` in full, then:
    the set a PBO test needs).
 5. `results/cef/ALPHA_AUDIT_2026-09-05.md` "What this audit does NOT
    establish" (the survivorship paragraph) and
-   `docs/RESEARCH_AND_METHODOLOGY.md` §5.4 (the point-in-time rebuild, which
+   `_archive/docs/RESEARCH_AND_METHODOLOGY.md` §5.4 (the point-in-time rebuild, which
    *raised* the Sharpe — that precedent cuts both ways and must be cited).
 
 This prompt has three parts. Part A is a protocol and a helper other prompts

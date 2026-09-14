@@ -48,8 +48,8 @@ So the order is almost always:
 **1. Uptime before everything.** If `gap_sessions ≥ 3`, stop and fix that. Nothing
 else matters if the book does not trade — a book that trades on 3 sessions in 5
 weeks cannot learn anything about itself no matter how good the mathematics gets.
-The named highest-value change in `docs/SYSTEM_AND_STRATEGY.md` §12 is still
-outstanding: **make a non-armed session raise an alert.** It currently writes
+The highest-value change named by the archived `_archive/docs/SYSTEM_AND_STRATEGY.md`
+§12 was: **make a non-armed session raise an alert.** It currently writes
 `ok_not_armed` and is silent, which is exactly how a 21-session outage went
 unnoticed for a month.
 

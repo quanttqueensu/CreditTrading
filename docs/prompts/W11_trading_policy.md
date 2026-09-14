@@ -21,7 +21,7 @@ measured spreads, not only from the one-cent tick).
 You are a quant researcher on the QUANTT CEF book. Read
 `docs/prompts/00_BRIEF.md`, then:
 
-1. `docs/EXIT_RESEARCH_2026-09-07.md` in full. The measured optimum of expected
+1. `_archive/docs/EXIT_RESEARCH_2026-09-07.md` in full. The measured optimum of expected
    return per unit time, net of a 30bp round trip, by entry |z|:
 
    | entry \|z\| | optimal hold | net bp/day | n |
@@ -34,10 +34,10 @@ You are a quant researcher on the QUANTT CEF book. Read
 
    *"Optimal holding period shortens as conviction rises"*; a stop-loss destroys
    value (adverse moves have the highest forward return, t 9.4).
-2. `docs/PLAN.md` §3.1 — **every |z| threshold lowers portfolio Sharpe** (0.81 →
+2. `_archive/docs/PLAN.md` §3.1 — **every |z| threshold lowers portfolio Sharpe** (0.81 →
    0.40 → 0.29 → 0.27). Per-name alpha and portfolio Sharpe are different
    objects: **conviction may change the holding period, never the membership.**
-3. `docs/PER_NAME_ARCHITECTURE.md` §3–§4 and §7 Phase A: the cube-root law
+3. `_archive/docs/PER_NAME_ARCHITECTURE.md` §3–§4 and §7 Phase A: the cube-root law
    `h* = (3·c_i·σ_w,i² / 2κ_w,i)^(1/3)` evaluated with each fund's own measured
    target-weight volatility, reversion rate and tick cost gives bands from 1.07%
    (MHD) to 7.35% (PHK) — *"a 6.9× spread where we currently apply one

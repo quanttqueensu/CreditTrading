@@ -29,7 +29,7 @@ then:
 4. `ops/books/cef_discount_book.json` — `book_drawdown_suspend_pct: 99.0` and
    the UNITS FIX note (it was 0.99, read as 0.99%, the tightest limit in the
    book, breached at −1.84% on 2026-08-31). Leave it alone; the fix is correct.
-5. `docs/PLAN.md` §7.4, §3.1, §3.2; `docs/SYSTEM_AND_STRATEGY.md` §4 item 5, §5.
+5. `_archive/docs/PLAN.md` §7.4, §3.1, §3.2; `_archive/docs/SYSTEM_AND_STRATEGY.md` §4 item 5, §5.
 6. `src/deploy/lib/vol_target.py`, `lib/margin.py`, `lib/broker/margin_broker.py`.
 
 ---

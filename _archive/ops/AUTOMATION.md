@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `ops/AUTOMATION.md`.
+> Now owned by: `docs/SYSTEM.md` §4.2 and §4.6. Numbers: `python3 -m ops.orient`.
+
 # Unattended operation — what runs, what stops it, what tells you
 
 Built 2026-07-31, in response to a day on which the book traded $2.07M gross and

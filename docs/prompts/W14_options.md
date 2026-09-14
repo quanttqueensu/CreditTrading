@@ -31,7 +31,7 @@ convexity, and would buying it be worth the carry?**
 
 Read `docs/prompts/00_BRIEF.md`, `docs/prompts/gamma/G0_BRIEF.md`, then:
 
-1. `docs/E1_PREREG.md` §5 — the factor set the previous book was tested against,
+1. `_archive/docs/E1_PREREG.md` §5 — the factor set the previous book was tested against,
    **including the short-ATM-straddle proxy** built from
    `data/vrp/marks_SPY.parquet`. That regressor exists because a mean-reversion
    book can be "short vol in disguise": every position bounded, the portfolio

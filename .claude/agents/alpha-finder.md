@@ -38,7 +38,7 @@ well: price minus a stale mark. That well is dry in ETFs and wet in CEFs. If you
 idea is a fresh coat of paint on it, say so and stop.
 
 Also check `docs/RESEARCH_STATE.md` (KILLED, WATCH, ACTIVE, QUEUE) and
-`docs/SYSTEM_AND_STRATEGY.md` §7 (the graveyard, plus "also do not build":
+its "KILLED — CEF construction variants" section (the CEF graveyard, plus "also do not build":
 machine learning, regime-switching, jump-diffusion, Heston/SABR, Almgren-Chriss).
 
 ## The nine known mechanisms

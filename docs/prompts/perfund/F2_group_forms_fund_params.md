@@ -22,7 +22,7 @@ You are a quant researcher on the QUANTT CEF book. Read
 `results/cef/CHARACTERISTICS_COVERAGE_<date>.md` (F1) before anything else.
 Then:
 
-1. `docs/PER_NAME_ARCHITECTURE.md` in full, and `scripts/cef/per_name_resolution.py`
+1. `_archive/docs/PER_NAME_ARCHITECTURE.md` in full, and `scripts/cef/per_name_resolution.py`
    in full. **Corrected 2026-09-10. This read: "`scripts/cef/ou_score.py:198`
    — the script recording the per-name κ failure this prompt must not repeat —
    baselines against `band(T, 0.064)`, the 6.4% width superseded on
@@ -35,7 +35,7 @@ Then:
    returns shrinkage weights but never applies them.** The only place in the
    repo that actually applies empirical-Bayes shrinkage is
    `scripts/cef/ou_score.py::shrink`.
-2. `docs/PLAN.md` §4.1, the withdrawal, in full. This is the prior failure this
+2. `_archive/docs/PLAN.md` §4.1, the withdrawal, in full. This is the prior failure this
    prompt must explain rather than repeat:
 
    | construction | gross | net@15bp |
@@ -380,7 +380,7 @@ repo currently computes**:
 - **h\*_i**, the derived per-name band, `h*_i = (3·c_i·σ_w,i² / 2·κ_w,i)^(1/3)`.
   **No code in the repo computes this.** The table in
   `PER_NAME_ARCHITECTURE.md` §4 is prose, covers only 7 of 17 names, and its
-  half-lives disagree with `docs/PLAN.md` §4.1 (the doc says PHK 24.6 and DSL
+  half-lives disagree with `_archive/docs/PLAN.md` §4.1 (the doc says PHK 24.6 and DSL
   12.3; PLAN says PHK 41.9 and DSL 11.9) and its tick figures disagree with
   both `config/costs.yaml` and PLAN §4.1. **Two different estimation windows
   are evidently in play and no document says which produced the table.**

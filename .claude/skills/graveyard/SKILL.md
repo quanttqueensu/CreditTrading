@@ -75,5 +75,5 @@ before running the test, never after (H12).
 be re-opened. Modern-era cost is 1.73bp/trade against a full-sample 6.36bp, and
 charging 2007 illiquidity to a 2024 signal manufactures a fake obstacle.
 
-Full detail: `docs/RESEARCH_STATE.md` (KILLED/WATCH/ACTIVE/QUEUE) and
-`docs/SYSTEM_AND_STRATEGY.md` §7.
+Full detail: `docs/RESEARCH_STATE.md` — KILLED, "KILLED — CEF construction variants",
+WATCH and ACTIVE.

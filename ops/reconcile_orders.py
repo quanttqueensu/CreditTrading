@@ -16,7 +16,7 @@ modelled trades that were never transmitted, including $366k of turnover on
 Nothing caught it. Every existing guard compares the account to the TAG BOOK
 (`_live_positions`), and `arm()` overwrites the tag book from `ib.positions()`
 at the start of every session -- so `_check_drift` was comparing the broker to
-itself and reporting OK. The LEDGER, which `AUTOMATION.md` names as the sole
+itself and reporting OK. The LEDGER, which `AUTOMATION.md` (archived: _archive/ops/AUTOMATION.md) names as the sole
 P&L source, was never in that comparison at all.
 
 Two things are therefore checked here, and they are different questions:

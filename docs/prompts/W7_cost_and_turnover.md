@@ -19,12 +19,12 @@ You are a trading engineer on the QUANTT CEF book. The strategy's economics
 hinge on one number nobody knows: what it costs to trade. Read
 `docs/prompts/00_BRIEF.md`, then:
 
-1. `docs/PLAN.md` §7.1 (Sharpe SE ≈ 2.05 over 60 sessions; cost SE ≈ 0.84bp
+1. `_archive/docs/PLAN.md` §7.1 (Sharpe SE ≈ 2.05 over 60 sessions; cost SE ≈ 0.84bp
    over 60) and §5 (the order-type question).
 2. `results/cef/ALPHA_AUDIT_2026-09-05.md` "Economics": breakeven **32.6bp per
    unit turnover** (28.9bp for 2021–26); one MOC session at 2.8bp with ±25bp
    per-fill dispersion, mostly penny rounding on $4–12 names.
-3. `docs/SYSTEM_AND_STRATEGY.md` §1.4 (why MOC: overnight market orders
+3. `_archive/docs/SYSTEM_AND_STRATEGY.md` §1.4 (why MOC: overnight market orders
    realised 100.5bp on 2026-07-31) and §5.1.
 4. `results/cef/PREREG_BAND_2026-09-06.md` "Committed in advance": the primary
    readout is **turnover**, expected ~17.6×/yr against 31.1 on the old

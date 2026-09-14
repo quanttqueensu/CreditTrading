@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/E1_PREREG.md`.
+> Now owned by: `docs/RESEARCH_STATE.md` (E1 is KILLED; E1-band is on WATCH). Numbers: `python3 -m ops.orient`.
+
 # E1 — RELATIVE ETF PREMIUM/DISCOUNT REVERSION (HYG vs JNK)
 
 **Pre-registered 2026-07-30, BEFORE any return of this signal was examined.**

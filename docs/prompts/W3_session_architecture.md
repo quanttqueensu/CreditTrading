@@ -310,7 +310,7 @@ every instant.
   first week, the sponsor endpoint documented (URL pattern, fields, observed
   publication time), and what the 1940 Act actually requires.
 - `ops/reports/ALERTING_2026-09.md`: what alerts exist, what each means, the
-  test evidence. `ops/AUTOMATION.md` gains a table: condition → channel → what
+  test evidence. `docs/SYSTEM.md` §4.6 gains a table (was `ops/AUTOMATION.md`, archived 2026-09-13): condition → channel → what
   the human should do. `docs/INFRASTRUCTURE.md` §4.1 and the data section
   rewritten.
 - `session_progress.json` and `/api/session`.

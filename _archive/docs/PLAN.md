@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/PLAN.md`.
+> Now owned by: `docs/SYSTEM.md` §2–§3; its numbers are reproduced by `scripts/cef/plan_diagnostics.py`. Its headline 0.10 net Sharpe is the RETIRED calendar policy. Numbers: `python3 -m ops.orient`.
+
 # PLAN — maximising what we extract from the CEF discount edge
 
 **QUANTT credit programme · written 6 September 2026 · revised same day**

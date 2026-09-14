@@ -70,16 +70,16 @@ bearing and are listed in `CLAUDE.md` under "Documents that will mislead you".
 1. `_archive/docs/HOW_WE_GOT_HERE.md` (archived) — the story of the summer,
    including every wrong turn, correct as of 2026-07-31. Assumes no finance
    background.
-2. [`docs/RESEARCH_AND_METHODOLOGY.md`](docs/RESEARCH_AND_METHODOLOGY.md) — how we
-   decide whether a result is real. The most important document here, and it is
-   dated 31 July: read its banner first.
+2. `_archive/docs/RESEARCH_AND_METHODOLOGY.md` (archived) — how we decided
+   whether a result is real, dated 31 July. Its D1–D7 verdict legend now lives in
+   `docs/RESEARCH_STATE.md`.
 3. [`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md) — the living state: what is
    deployed, what is dead and why, what is queued. **Its trial-counter table is
    canonical; its prose is not.**
 4. [`results/AUDIT_2026-07-31.md`](results/AUDIT_2026-07-31.md) — the end-to-end
    audit that found three things wrong with the deployed strategy.
-5. [`ops/AUTOMATION.md`](ops/AUTOMATION.md) — how the daily automation works and
-   what stops it.
+5. `docs/SYSTEM.md` §4 — how the daily automation works and what stops it
+   (replacing the archived `ops/AUTOMATION.md`).
 
 Work orders live in [`docs/prompts/`](docs/prompts/) and that directory has its
 own index saying which are executed and which are queued.

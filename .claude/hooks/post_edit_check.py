@@ -12,7 +12,7 @@ tests, and they surface months later inside a confident-looking number.
      displayed target against an invented $500k book. `fee.fillna(fee.median())`
      charged an unmeasured name 0.83%/yr inside a total that looked measured.
      House rule: raise, naming what was missing.
-     (docs/SYSTEM_AND_STRATEGY.md 9.1)
+     (CLAUDE.md, "Hard rules — code")
 
   B. EXECUTION CONVENTION. `validate.py:86` used `held = W.shift(1)` -- an
      entry at day t's close using day t's NAV, which publishes AFTER that

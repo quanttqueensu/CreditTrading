@@ -41,7 +41,7 @@ into the established column because it has been repeated a few times.
    snapshotted one afternoon, a variance decomposition on a panel that ends six
    weeks ago — several figures in these documents have already gone stale. Date
    them so the reader can tell.
-3. **Record negative results against yourself.** `docs/PLAN.md` §0.3 records a claim
+3. **Record negative results against yourself.** The archived `_archive/docs/PLAN.md` §0.3 records a claim
    its own author made and then measured to be false. Do that. The graveyard is the
    most valuable artefact this project has.
 4. **No decision rule may key on a number written in a document** (H14). If a
@@ -61,10 +61,9 @@ into the established column because it has been repeated a few times.
 | file | holds |
 |---|---|
 | `docs/prompts/00_BRIEF.md` | the standing brief every research prompt opens with |
-| `docs/PLAN.md` | what to do next about capture, with the measurements behind it |
-| `docs/RESEARCH_STATE.md` | **canonical trial counters**, killed/watch/active/queue |
-| `docs/SYSTEM_AND_STRATEGY.md` | the system and strategy for a cold reader |
-| `docs/RESEARCH_AND_METHODOLOGY.md` | D1–D7, how we decide something is real |
+| `docs/RESEARCH_STATE.md` | **canonical trial counters**, the D1–D7 legend, killed/watch/active |
+| `docs/SYSTEM.md` | what we trade, how it runs, what we know, standing decisions |
+| `docs/INDEX.md` | which file owns which question |
 | `docs/REFERENCES.md` | every external claim, with a verification status |
 | `results/<family>/` | dated findings notes and pre-registrations |
 | `ops/halts/HALT_<ts>.md` | incident records |

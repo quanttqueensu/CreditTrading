@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `ops/schedule/README.md`.
+> Now owned by: `docs/SYSTEM.md` §4.2. Numbers: `python3 -m ops.orient`.
+
 # ops/schedule — SUPERSEDED. Do not build against this document.
 
 > **⛔ Marked 2026-09-10.** Written 2026-07-28 for a layout that no longer

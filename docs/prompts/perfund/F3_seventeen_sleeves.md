@@ -36,7 +36,7 @@ You are a quant researcher and developer on the QUANTT CEF book. Read
 2. `src/deploy/portfolio.py` and `src/deploy/registry.py` — how multiple sleeves
    are declared, budgeted and combined today, and how `_attribution.json` keeps
    two books' positions in the same ticker apart.
-3. `docs/PLAN.md` §4.2 — **hard group neutrality was tested and lost gross
+3. `_archive/docs/PLAN.md` §4.2 — **hard group neutrality was tested and lost gross
    Sharpe 0.97 → 0.82**, and `docs/RESEARCH_STATE.md` line 365 on why: *"With
    only 18 funds across 5 groups, several groups hold 2-3 members, so
    within-group demeaning throws away most of the cross-section. The cross-group

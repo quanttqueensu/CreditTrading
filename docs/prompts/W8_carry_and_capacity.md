@@ -30,7 +30,7 @@ You are a quant researcher on the QUANTT CEF book. Read
    are 70% of the drag (HYT 10.56%, NAD 9.98%, NVG 4.23%); drag 1.22%/yr
    historically ≈ 0.23 Sharpe, **3.62% on today's book** ($13,732/yr, 2.75% of
    capital) because the signal has us short the whole Nuveen muni complex.
-2. `docs/PLAN.md` §3.3 in full (including "Availability is a second
+2. `_archive/docs/PLAN.md` §3.3 in full (including "Availability is a second
    constraint") and §3.4.
 3. `scripts/cef/borrow_capacity.py` (the φ = 0.25 rule and the
    capital-at-which-it-binds table), `borrow_impact.py`,

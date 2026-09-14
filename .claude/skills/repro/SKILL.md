@@ -21,7 +21,7 @@ at "about 2%/yr" measured **−0.01%/yr**.
 
 | claim | script |
 |---|---|
-| every number in `docs/PLAN.md` | `scripts/cef/plan_diagnostics.py` |
+| every number in the archived `_archive/docs/PLAN.md` | `scripts/cef/plan_diagnostics.py` |
 | the trading-policy frontier (band vs calendar, all cost columns) | `scripts/cef/band_frontier.py` |
 | Σ, Σ⁻¹α, effective breadth `BR_eff` | `scripts/cef/covariance_construction.py` |
 | borrow drag on net Sharpe | `scripts/cef/borrow_impact.py` |

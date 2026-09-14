@@ -21,7 +21,7 @@ row).
 You are a quant researcher on the QUANTT CEF book. Read
 `docs/prompts/00_BRIEF.md`, then:
 
-1. `docs/PLAN.md` §4.2 (PC2 is 65.7% of book variance historically; BR_eff 2.24
+1. `_archive/docs/PLAN.md` §4.2 (PC2 is 65.7% of book variance historically; BR_eff 2.24
    of 17; *"the dollar-neutral construction kills market beta and then puts
    two-thirds of the risk into one unmanaged spread bet"*; **hard group
    neutrality was tested and lost gross Sharpe 0.97 → 0.82**, so the factor is
@@ -30,7 +30,7 @@ You are a quant researcher on the QUANTT CEF book. Read
 2. `dashboard/server.py::_decompose` and `curl -s :8787/api/factors`: today PC2
    is **92.5%**, BR_eff **1.17**, net muni weight **−74.9%**. The book is, today,
    one trade.
-3. `docs/PER_NAME_ARCHITECTURE.md` §5 (the groups are different instruments
+3. `_archive/docs/PER_NAME_ARCHITECTURE.md` §5 (the groups are different instruments
    with different holders) and §6 item 4 ("no group statistics on n = 1").
 4. `results/cef/BORROW_NOTE_2026-09-06.md` (the muni shorts carry 91% of the
    borrow bill) and `results/cef/ESTIMATOR_NOTE.md` (the Kalman fair-value

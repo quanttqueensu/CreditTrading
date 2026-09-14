@@ -60,10 +60,10 @@ two or three members.
 | Order | Document | Content |
 |---|---|---|
 | 1 | `_archive/docs/HOW_WE_GOT_HERE.md` | Archived. Chronological account of the summer, including failed approaches. No finance background assumed. |
-| 2 | `RESEARCH_AND_METHODOLOGY.md` | Our criteria for establishing that a result is real. |
+| 2 | `_archive/docs/RESEARCH_AND_METHODOLOGY.md` | Archived. Our criteria for establishing that a result is real; the D1–D7 legend is now in `docs/RESEARCH_STATE.md`. |
 | 3 | `RESEARCH_STATE.md` | Live project state: deployed, killed, queued. Read first and written last in every research session. |
 | 4 | `results/AUDIT_2026-07-31.md` | End-to-end audit identifying three defects in the deployed configuration. |
-| 5 | `ops/AUTOMATION.md` | Automation runbook. |
+| 5 | `docs/SYSTEM.md` §4 | How it runs (replaces the archived `ops/AUTOMATION.md`). |
 
 ### 2.3 Reconstructing the data directory
 
@@ -704,12 +704,12 @@ would fail. `src/analysis/` is empty. No defence exists against distribution cut
 | Document | Content |
 |---|---|
 | `_archive/docs/HOW_WE_GOT_HERE.md` | Archived. Chronological account of the summer |
-| `RESEARCH_AND_METHODOLOGY.md` | Criteria for establishing a result |
+| `_archive/docs/RESEARCH_AND_METHODOLOGY.md` | Archived. Criteria for establishing a result |
 | `RESEARCH_STATE.md` | Live state: deployed, killed, queued |
 | `results/AUDIT_2026-07-31.md` | End-to-end audit |
 | `_archive/results/ACADEMIC_REPORT_2026-07-31.md` | Archived. Formal write-up of the pre-CEF programme |
-| `ops/AUTOMATION.md` | Automation runbook |
-| `CREDIT_RV_PREREG.md`, `E1_PREREG.md` | Pre-registrations for two killed strategies |
+| `docs/SYSTEM.md` §4 | How it runs (replaces the archived automation runbook) |
+| `_archive/docs/CREDIT_RV_PREREG.md`, `_archive/docs/E1_PREREG.md` | Archived. Pre-registrations for two killed strategies |
 | `results/cef/HOLDOUT_PREREG.md` | Sealed holdout rules, written before opening |
 
 ### 9.2 Scripts

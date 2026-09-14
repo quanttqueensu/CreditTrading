@@ -174,8 +174,8 @@ a dispute. They are three different quantities:
 
 | quantity | PHK | what it is |
 |---|---:|---|
-| **half-tick** | 10.65bp | half a cent on $4.69 — `docs/PLAN.md` §4.1 |
-| **full tick** | 22.22bp | one cent on $4.51 — `docs/PER_NAME_ARCHITECTURE.md` §4 |
+| **half-tick** | 10.65bp | half a cent on $4.69 — `_archive/docs/PLAN.md` §4.1 |
+| **full tick** | 22.22bp | one cent on $4.51 — `_archive/docs/PER_NAME_ARCHITECTURE.md` §4 |
 | **charged half-spread** | 25.77bp | `config/costs.yaml`, **1.25× the full tick**, and that multiplier holds for all 17 CEFs |
 
 **The ledger charges 25.77bp — 2.4× what PLAN's prose implies.** So:

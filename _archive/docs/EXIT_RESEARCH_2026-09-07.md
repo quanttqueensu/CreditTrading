@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/EXIT_RESEARCH_2026-09-07.md`.
+> Now owned by: `docs/prompts/W11_trading_policy.md` (the policy layer that consumes it). Numbers: `python3 -m ops.orient`.
+
 # When to leave a trade — a systematic study of exit for the CEF book
 
 **2026-09-07.** Reproduce: `scripts/cef/exit_study.py`.

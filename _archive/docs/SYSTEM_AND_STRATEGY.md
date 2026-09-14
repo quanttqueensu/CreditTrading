@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `docs/SYSTEM_AND_STRATEGY.md`.
+> Now owned by: `docs/SYSTEM.md`; its §7 graveyard moved verbatim to `docs/RESEARCH_STATE.md`. Numbers: `python3 -m ops.orient`.
+
 # QUANTT — the system, the strategy, and everything known about both
 
 **Written 2026-09-06. Audience: a competent agent (human or otherwise) picking

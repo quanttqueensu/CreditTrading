@@ -79,8 +79,8 @@ Work outward from the thing that cannot lie.
 
 **Make a non-armed session raise an alert.** It currently writes `ok_not_armed` and
 is silent, which is precisely how a 21-session outage went unnoticed for a month.
-`docs/SYSTEM_AND_STRATEGY.md` §12 names this as the single highest-value change
-available. If you are asked what to fix, this is the answer until it is done.
+The archived `_archive/docs/SYSTEM_AND_STRATEGY.md` §12 named this the single
+highest-value change available. If you are asked what to fix, this is the answer until it is done.
 
 ## Your limits
 

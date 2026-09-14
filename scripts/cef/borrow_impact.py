@@ -1,6 +1,6 @@
 """What the short leg actually costs, and what it does to the answer.
 
-PLAN.md 3.3 flagged that no Sharpe this programme has ever quoted charges the
+PLAN.md 3.3 (archived: _archive/docs/PLAN.md) flagged that no Sharpe this programme has ever quoted charges the
 short leg a borrow cost. `scripts/cef/fetch_borrow_rates.py` now measures the
 rate. This applies it.
 

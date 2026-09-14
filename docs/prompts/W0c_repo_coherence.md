@@ -136,7 +136,7 @@ own rule to itself.
 |---|---|
 | "Measured 2026-09-10 ~12:00, **271 passing**" | **211** (`7ad3a82` removed 60 guard tests the same afternoon) |
 | "`.claude/hooks/tests/` is the next largest (57)" | directory **does not exist** |
-| "Each file below now carries a correction banner at its top" | **false for 2 of 6** — `docs/RESEARCH_STATE.md` and `docs/PER_NAME_ARCHITECTURE.md` have none |
+| "Each file below now carries a correction banner at its top" | **false for 2 of 6** — `docs/RESEARCH_STATE.md` and `_archive/docs/PER_NAME_ARCHITECTURE.md` have none |
 | landmine 3: divergence "leaves sizing unaffected, `arm()` re-seeds from the broker" | **false when the broker holds zero.** `ib.positions()` emits no row for a flat symbol (measured: 34 rows, JAAA absent, nothing at exactly 0.0), so the re-seed cannot reach it and the stale ledger quantity survives into `place_targets` |
 
 That last one is not a documentation nit — it is the reassurance that would have

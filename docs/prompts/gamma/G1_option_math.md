@@ -190,6 +190,6 @@ pass:
 - Do not assume a continuous dividend yield for a monthly-distributing ETF; use
   the discrete schedule from the data.
 - Do not mix a per-year theta with a per-day gamma term anywhere.
-- Do not add a stochastic-volatility model. `docs/PLAN.md` already recorded the
+- Do not add a stochastic-volatility model. `_archive/docs/PLAN.md` already recorded the
   verdict on Heston/SABR for this desk, and nothing in this programme needs one:
   we are inverting prints and hedging deltas, not calibrating a smile dynamic.

@@ -96,15 +96,12 @@ def _read(rel: str) -> str | None:
 
 # -- 1. banners -------------------------------------------------------------
 
+# Six of the original eight moved to _archive/ on 2026-09-13, where
+# `check_archive_wall` requires a stricter banner of every file. What remains
+# here are live documents that still carry stale passages under a warning.
 BANNERED = [
-    "docs/PLAN.md",
     "docs/INFRASTRUCTURE.md",
-    "docs/RESEARCH_AND_METHODOLOGY.md",
     "docs/RESEARCH_STATE.md",
-    "docs/PER_NAME_ARCHITECTURE.md",
-    "docs/SYSTEM_AND_STRATEGY.md",
-    "ops/README.md",
-    "ops/schedule/README.md",
 ]
 
 
@@ -148,29 +145,10 @@ def check_spec_id(rep: Report) -> None:
                                      f"corrections" if others else ""))
 
 
-def check_dsr_bar(rep: Report) -> None:
-    """A deflated-Sharpe bar keyed to a stale trial count is a wrong decision rule.
-
-    The counter is read through `ops.orient.trials()` rather than re-parsed here.
-    Two parsers for one canonical table is two things to drift, and this table's
-    shape has already changed once.
-    """
-    from ops import orient
-    try:
-        n = orient.trials()["counters"]["CEF"]["trials"]
-        bar = orient.trials()["counters"]["CEF"]["dsr_bar"]
-    except Exception as e:                                       # noqa: BLE001
-        rep.add("dsr_bar", DRIFT,
-                f"cannot read the CEF counter ({type(e).__name__}: {e})",
-                "the counter table is canonical; keep its shape parseable")
-        return
-    meth = _read("docs/RESEARCH_AND_METHODOLOGY.md") or ""
-    stale = "2.15" in meth and f"{bar:.2f}" not in meth and "2.78" not in meth
-    rep.add("dsr_bar", DRIFT if stale else OK,
-            f"CEF counter {n} -> bar sqrt(2 ln {n}) = {bar:.2f}"
-            + ("; RESEARCH_AND_METHODOLOGY quotes 2.15 with no corrected figure"
-               if stale else "; corrected figure present or 2.15 absent"),
-            "state the bar against the current counter" if stale else "")
+# `check_dsr_bar` was retired 2026-09-13. It guarded one sentence in
+# RESEARCH_AND_METHODOLOGY.md (a deflated-Sharpe bar quoted against a stale trial
+# count); that document is archived, and the bar is derived live by
+# `python3 -m ops.orient` TRIALS rather than written anywhere.
 
 
 def _opens_ib_socket(path: Path) -> bool:
@@ -194,40 +172,19 @@ def _opens_ib_socket(path: Path) -> bool:
     return False
 
 
-def check_ops_broker_claim(rep: Report) -> None:
-    """ops/README.md says "There is no broker here". Count the modules that are one."""
-    mods = sorted(p.name for p in (REPO / "ops").glob("*.py")
-                  if _opens_ib_socket(p))
-    text = _read("ops/README.md") or ""
-    # The phrase may legitimately appear inside the banner that retracts it, or
-    # inside an in-body retraction that QUOTES it -- a correction has to restate
-    # what it corrects or the reader cannot tell what changed. So look for it as
-    # a standing ASSERTION: an occurrence with no retraction marker on the same
-    # line or in the three lines before it.
-    claim = "There is no broker here" in text
-    lines = text.splitlines()
-    RETRACT = ("RETRACTED", "is false", "it is false", "said", "CORRECTED",
-               "no longer", "WRONG")
-    asserted = []
-    for i, line in enumerate(lines):
-        if "There is no broker here" not in line:
-            continue
-        if line.lstrip().startswith(">"):
-            continue                                   # inside the banner
-        window = " ".join(lines[max(0, i - 3):i + 1])
-        if not any(k in window for k in RETRACT):
-            asserted.append(i + 1)
-    if asserted:
-        rep.add("ops_broker", DRIFT,
-                f"ops/README.md asserts 'There is no broker here' at line(s) "
-                f"{asserted}; {len(mods)} module(s) import an IB client: "
-                f"{', '.join(mods)}",
-                "retract it in the body, not only in the banner")
-    else:
-        rep.add("ops_broker", OK,
-                f"{len(mods)} ops module(s) open IB sockets ({', '.join(mods)}); "
-                f"the claim survives only inside the banner"
-                if claim else f"{len(mods)} ops module(s) open IB sockets")
+def check_ops_broker_modules(rep: Report) -> None:
+    """Which ops modules open an IB socket. Measured, and asserted nowhere.
+
+    This used to police the sentence "There is no broker here" in ops/README.md,
+    which was false and had to be retracted in its own body. That README is
+    archived; the measurement it contradicted is the durable part, so it is
+    reported here for anyone about to run an ops module and wondering whether it
+    can reach the broker.
+    """
+    mods = sorted(p.name for p in (REPO / "ops").glob("*.py") if _opens_ib_socket(p))
+    rep.add("ops_broker", OK,
+            f"{len(mods)} ops module(s) import an IB client: {', '.join(mods)}"
+            if mods else "no ops module imports an IB client")
 
 
 def check_band_width_literals(rep: Report) -> None:
@@ -759,10 +716,98 @@ def check_pointers(rep: Report) -> None:
                 "repoint to where the file went, or drop the pointer" if dead else "")
 
 
-CHECKS = [check_banners, check_spec_id, check_dsr_bar, check_ops_broker_claim,
+# Files that may never lean on the archive as authority. Work orders are
+# exempt: a prompt legitimately reads an archived study as background.
+CITATION_SCOPE_FILES = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INDEX.md",
+                        "docs/RESEARCH_STATE.md", "docs/INFRASTRUCTURE.md",
+                        "docs/REFERENCES.md")
+CITATION_SCOPE_GLOBS = (".claude/**/*.md",)
+# A path to a FILE inside the top-level archive. `ops/_archive/` and
+# `scripts/_archive/` are different folders, and `_archive/README.md` is the
+# archive's own index, which is exactly what these files should point at.
+ARCHIVE_CITE_RE = re.compile(r"(?<![\w/])_archive/[\w./-]+\.\w+")
+
+
+def _citation_scope() -> list[str]:
+    out = [f for f in CITATION_SCOPE_FILES if (REPO / f).exists()]
+    for g in CITATION_SCOPE_GLOBS:
+        rx = _glob_re(g)
+        out += [p.relative_to(REPO).as_posix() for p in REPO.rglob("*.md")
+                if rx.match(p.relative_to(REPO).as_posix())]
+    return sorted(set(out))
+
+
+def check_archive_citations(rep: Report) -> None:
+    """An owner document may cite the archive only while SAYING it is archived.
+
+    The failure this prevents is quiet: a rule file or skill that says "see
+    `_archive/docs/PLAN.md` §3" reads exactly like one that cited the same
+    file before it moved, and the reader goes and copies a retired figure. The word
+    "archived" on the same line (or the one either side, for wrapped prose) is
+    what turns a citation into provenance.
+    """
+    bad = []
+    for rel in _citation_scope():
+        lines = (_read(rel) or "").splitlines()
+        for i, line in enumerate(lines):
+            hits = [m.group(0) for m in ARCHIVE_CITE_RE.finditer(line)
+                    if m.group(0) != "_archive/README.md"]
+            if not hits:
+                continue
+            window = " ".join(lines[max(0, i - 1):i + 2]).lower()
+            if "archived" not in window:
+                bad.append(f"{rel}:{i + 1} {hits[0]}")
+    rep.add("archive:citations", DRIFT if bad else OK,
+            (f"{len(bad)} citation(s) of the archive not marked archived: "
+             f"{', '.join(bad[:8])}" if bad else "every archive citation says so"),
+            "say 'archived' beside it, or cite the current owner instead" if bad else "")
+
+
+CODE_DOC_ROOTS = ("ops", "src", "scripts", "dashboard", "config", ".claude/hooks")
+CODE_DOC_SUFFIXES = {".py", ".json", ".env", ".template", ".sh", ".yaml", ".yml"}
+CODE_DOC_RE = re.compile(r"(?<![\w/])docs/[\w/.-]+\.md")
+
+
+def check_code_doc_pointers(rep: Report) -> None:
+    """Code comments that cite a document which has moved. NOTE, never DRIFT.
+
+    Docstrings are where this repo keeps its incident history, so they cite
+    documents constantly, and some of those citations sit in files that cannot
+    be touched casually -- the frozen spec needs /spec-change, the live sleeve
+    needs a test. A stale pointer there misleads but breaks nothing, so it is a
+    visible backlog rather than a failing gate, with the archive path offered.
+    """
+    stale = []
+    for top in CODE_DOC_ROOTS:
+        base = REPO / top
+        if not base.exists():
+            continue
+        for p in base.rglob("*"):
+            if (not p.is_file() or p.suffix not in CODE_DOC_SUFFIXES
+                    or "_archive" in p.relative_to(REPO).parts
+                    or "tests" in p.relative_to(REPO).parts   # fixtures, not citations
+                    or "__pycache__" in p.parts):
+                continue
+            text = p.read_text(errors="replace")
+            for m in set(CODE_DOC_RE.findall(text)):
+                if (REPO / m).exists():
+                    continue
+                moved = (REPO / ARCHIVE / m).exists()
+                stale.append(f"{p.relative_to(REPO).as_posix()} -> {m}"
+                             + (" (now _archive/)" if moved else " (gone)"))
+    rep.add("code_doc_pointers", NOTE if stale else OK,
+            (f"{len(stale)} code/config citation(s) of a moved document: "
+             + "; ".join(sorted(stale)[:10]) if stale
+             else "no code or config cites a document that has moved"),
+            "repoint when the file is next edited; the frozen spec via /spec-change"
+            if stale else "")
+
+
+CHECKS = [check_banners, check_spec_id, check_ops_broker_modules,
           check_band_width_literals, check_results_notes_have_reproducers,
           check_prereg_shape, check_desk_inventory, check_archive_wall,
-          check_manifest, check_entry_points, check_pointers]
+          check_manifest, check_entry_points, check_pointers,
+          check_archive_citations, check_code_doc_pointers]
 
 
 def run() -> Report:

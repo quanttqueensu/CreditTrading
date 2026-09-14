@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-13 — not evidence of current state.** Was `ops/README.md`.
+> Now owned by: `docs/SYSTEM.md` §4. Numbers: `python3 -m ops.orient`.
+
 # `ops/` — SUPERSEDED. Do not build against this document.
 
 > **⛔ THIS FILE IS WRONG IN EVERY MATERIAL RESPECT. Marked 2026-09-10.**

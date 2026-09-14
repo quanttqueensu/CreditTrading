@@ -21,7 +21,6 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | **work-order** | A prompt in `docs/prompts/`. Status comes from `python3 -m ops.prompt_status`, not from the file. |
 | **desk** | Agent-layer files Claude Code loads: rules, skills, subagents. Must point at owners, not restate them. |
 | **convention** | Explains how a directory is used. |
-| **superseded** | Scheduled to move to `_archive/`. Do not cite; read its banner. Transitional only. |
 
 ## The index
 
@@ -46,16 +45,6 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `deploy/ibgw/README.md` | reference | IB Gateway and IBC setup | — |
 | `ops/_archive/README.md` | convention | archived operations code, including the v5 spec revert path | — |
 | `scripts/_archive/README.md` | convention | archived research code | — |
-| `docs/PLAN.md` | superseded | — | `ops.doc_audit` (banner) |
-| `docs/SYSTEM_AND_STRATEGY.md` | superseded | — | `ops.doc_audit` (banner) |
-| `docs/RESEARCH_AND_METHODOLOGY.md` | superseded | — | `ops.doc_audit` (banner) |
-| `docs/PER_NAME_ARCHITECTURE.md` | superseded | — | `ops.doc_audit` (banner) |
-| `docs/EXIT_RESEARCH_2026-09-07.md` | superseded | — | — |
-| `docs/E1_PREREG.md` | superseded | — | — |
-| `docs/CREDIT_RV_PREREG.md` | superseded | — | — |
-| `ops/README.md` | superseded | — | `ops.doc_audit` (banner) |
-| `ops/schedule/README.md` | superseded | — | `ops.doc_audit` (banner) |
-| `ops/AUTOMATION.md` | superseded | — | — |
 
 **Not indexed, by design:** `results/**` (dated records, each true as of its
 date; `ops.doc_audit` checks their reproducers and pre-registration shape),
