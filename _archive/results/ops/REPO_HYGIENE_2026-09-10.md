@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/ops/REPO_HYGIENE_2026-09-10.md`.
+> Now owned by: nothing — W0's output, archived with W0. Numbers: `python3 -m ops.orient`.
+
 # W0 — repo hygiene, 2026-09-10
 
 **Scope: Parts A, C, D, E, F and G**, plus the document corrections those parts

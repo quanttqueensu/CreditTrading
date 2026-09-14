@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/credit_rv/_smoketest/README.md`.
+> Now owned by: nothing — labelled NOT REAL DATA. Numbers: `python3 -m ops.orient`.
+
 # NOT REAL DATA
 
 These files were produced by running `scripts/rv/measure_rth_liquidity.py --force`

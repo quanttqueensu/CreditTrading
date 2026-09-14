@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/ops/HALT_PHASE0_ATTRIBUTION_2026-09-10.md`.
+> Now owned by: `results/ops/LEDGER_DIVERGENCE_2026-09-10.md`, `results/ops/LQD_ATTRIBUTION_2026-09-10.md` and the halt file itself in prod. Numbers: `python3 -m ops.orient`.
+
 # phase0 halt — the divergence is two faults, and the halt file mislabels three of five symbols
 
 > **⚠ SUPERSEDED ON ONE ROW — 2026-09-10 evening.** This note's LQD row is

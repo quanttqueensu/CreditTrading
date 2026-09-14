@@ -4,7 +4,7 @@
 about it.** Written 2026-09-13 from the documents it replaces: the
 strategy, system and decision sections of `CLAUDE.md`, `docs/INFRASTRUCTURE.md`,
 `docs/prompts/00_BRIEF.md`, the retired `SYSTEM_AND_STRATEGY.md` and `PLAN.md` (both archived under `_archive/docs/`),
-and `results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12.
+and §12 of the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md`.
 
 **It holds no figures that move.** Where a number matters, this document names
 the command that produces it. Run the command. The only figures written here
@@ -36,7 +36,7 @@ pick one silently.
 **Which artifact answers which question.** Keyed by question, not by quantity,
 because most contradictions in this repo's history were two artifacts
 answering different questions. (Adapted from
-`results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12, figures removed.)
+the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12, figures removed.)
 
 | question | authoritative artifact |
 |---|---|

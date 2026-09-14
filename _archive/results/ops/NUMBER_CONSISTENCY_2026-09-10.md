@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/ops/NUMBER_CONSISTENCY_2026-09-10.md`.
+> Now owned by: `docs/SYSTEM.md` §0 (its §12 question → artifact table, reused there) and `python3 -m ops.orient`. Numbers: `python3 -m ops.orient`.
+
 # Number consistency — every quantity this project states about itself
 
 **Measured 2026-09-10, 11:34–11:45 ET, from the dev tree

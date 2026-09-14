@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/ops/PROMOTION_DEADLOCK_2026-09-10.md`.
+> Now owned by: `docs/SYSTEM.md` §4.1 (prod now runs a tag cut from `main`). Numbers: `python3 -m ops.orient`.
+
 # The promotion deadlock has four layers, not one; the third is machine state and the fourth is an hour of every night
 
 **Measured 2026-09-10 evening, read-only. No broker connection was opened and

@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/ops/BACKUP_SCHEDULE_2026-09-10.md`.
+> Now owned by: the installed `com.quantt.backup.daily` job (`launchctl list | grep quantt`) and `ops/backup_state.sh`. Numbers: `python3 -m ops.orient`.
+
 # Scheduling the state backup — 2026-09-10
 
 **Status: PREPARED, NOT INSTALLED.** The plist is rendered and linted; no

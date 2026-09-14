@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/ops/DEAD_ENTRY_AUDIT_2026-09-10.md`.
+> Now owned by: nothing — a completed audit of 2026-09-10. Numbers: `python3 -m ops.orient`.
+
 # Dead-entry audit — directory scans on the live path
 
 **Date:** 2026-09-10 · **Tree:** `/Users/simonjarvis/Desktop/2027/QUANTT/2027` (dev; prod is

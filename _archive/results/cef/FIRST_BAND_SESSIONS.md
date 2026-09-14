@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-14 — not evidence of current state.** Was `results/cef/FIRST_BAND_SESSIONS.md`.
+> Now owned by: the broker record: `broker_fills.csv` and `ops/verify_session.py`'s daily archive (orient BOOK); the clean record starts at the 2026-09-11 epoch. Numbers: `python3 -m ops.orient`.
+
 # First band sessions — a running record
 
 The band policy replaced the 2-day calendar on 2026-09-06. Everything before that
