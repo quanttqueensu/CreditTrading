@@ -72,7 +72,7 @@ chmod +x .claude/hooks/guard_order_path.py
 | file | loads when you open |
 |---|---|
 | `live-order-path.md` | `src/deploy/**`, `ops/**` |
-| `research-harness.md` | `scripts/**`, `src/backtest/**`, `src/analysis/**`, `src/strategies/**`, `notebooks/**` |
+| `research-harness.md` | `scripts/**`, `src/backtest/**`, `src/analysis/**`, `src/strategies/**` |
 | `frozen-specs.md` | `ops/specs/**`, `ops/books/*.json`, `config/*.yaml` |
 | `dashboard.md` | `dashboard/**` |
 | `documents.md` | `docs/**`, `results/**`, `README.md` |

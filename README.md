@@ -58,17 +58,7 @@ runs, what we know and what has been decided. It is the one document that owns
 those questions; [`docs/INDEX.md`](docs/INDEX.md) says which file owns every
 other one.
 
-| Document | Read it for | PDF |
-|---|---|---|
-| [`docs/PROJECT_INTRO.md`](docs/PROJECT_INTRO.md) | What this is and who we are hiring. Two pages. | [PDF](docs/pdf/QUANTT-Project-Intro.pdf) |
-| [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) | The full technical reference and new member onboarding. **Carries a correction banner — read it.** | [PDF](docs/pdf/QUANTT-Infrastructure.pdf) |
-| [`docs/SUMMER_2026_SUMMARY.md`](docs/SUMMER_2026_SUMMARY.md) | What we did over the summer and what the results actually were. | [PDF](docs/pdf/QUANTT-Summer-2026-Summary.pdf) |
-
-New members: read `docs/INFRASTRUCTURE.md` Part 1. It takes about thirty minutes
-and gets your machine running.
-
-The PDFs are build output. Edit the markdown, then run `python3 docs/build_pdfs.py`
-and commit both. That script needs pandoc and Google Chrome.
+New members: `docs/INFRASTRUCTURE.md` Part 2 gets your machine running.
 
 **`CLAUDE.md` is the working brief** — the hard rules on the order path, on data,
 and on research. Read it before changing anything. Several documents in `docs/`
@@ -77,8 +67,9 @@ bearing and are listed in `CLAUDE.md` under "Documents that will mislead you".
 
 ## Background reading, in order
 
-1. [`docs/HOW_WE_GOT_HERE.md`](docs/HOW_WE_GOT_HERE.md) — the story of the summer,
-   including every wrong turn. Assumes no finance background.
+1. `_archive/docs/HOW_WE_GOT_HERE.md` (archived) — the story of the summer,
+   including every wrong turn, correct as of 2026-07-31. Assumes no finance
+   background.
 2. [`docs/RESEARCH_AND_METHODOLOGY.md`](docs/RESEARCH_AND_METHODOLOGY.md) — how we
    decide whether a result is real. The most important document here, and it is
    dated 31 July: read its banner first.
@@ -153,13 +144,15 @@ data/            gigabytes of panels, gitignored, symlinked from prod (du -sh da
 
 ## Where finished work goes
 
-**One convention, four directories, and no fifth.** Archiving is a `git mv`,
-never a delete, and every move leaves a pointer behind saying what replaced it.
+**One archive, `_archive/`, mirroring original paths.** Archiving is a `git mv`,
+never a delete, and every archived document opens with a banner naming what now
+owns its subject. The folder is gitignored so `rg` and `grep -r` skip it, while
+everything in it stays tracked. Its rules and index: `_archive/README.md`.
 
 | directory | holds | rule |
 |---|---|---|
-| `scripts/_archive/`, `ops/_archive/` | **code** | Kept because deleting it would destroy the sole record of a published number, an incident, or a decision. Nothing here is imported; nothing is on a live path. |
-| `docs/_superseded/`, `docs/prompts/_superseded/` | **documents and work orders** | Superseded prose whose conclusions are fully absorbed elsewhere. Nothing here should be executed. |
+| `_archive/` | **superseded documents, work orders and history** | The record of what we did, never evidence of what is true. `ops.doc_audit` checks every file has a banner and an index row. |
+| `scripts/_archive/`, `ops/_archive/` | **code** (to fold into `_archive/`) | Kept because deleting it would destroy the sole record of a published number, an incident, or a decision. Nothing here is imported; nothing is on a live path. |
 | `ops/books/retired/` | **book specs** | Killed books. This one is **load-bearing, not cosmetic**: `_foreign_book_claims()` globs `ops/books/*.json` non-recursively, so a dead spec left in `ops/books/` still claims its symbols and can block a live book from arming. |
 | `ops/books/_dryruns/` | **dry-run output** | Scratch ledgers from `--dry-run`. Never evidence of anything. |
 

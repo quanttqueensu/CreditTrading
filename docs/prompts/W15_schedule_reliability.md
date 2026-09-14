@@ -5,7 +5,7 @@ that "something breaks literally everyday" — which is measurably true, and the
 measurement is the useful part.
 **Reads first:** `00_BRIEF.md` (standing brief), `CLAUDE.md` (hard rules — the
 order path especially), `results/ops/HALT_20260911_103200.md` (the 17h20m
-session), `docs/prompts/NEXT_2026-09-11.md` §0b (the promotion deadlock).
+session), `_archive/docs/prompts/NEXT_2026-09-11.md` §0b (archived) (the promotion deadlock).
 **Lever:** uptime, which is the `√BR` and the `TC` in `IR ≈ IC · TC · √BR` at
 once. A session that does not arm has IC 0.
 **Trials:** 0. This prompt spends none. **Touches the live book:** lanes A, B, E

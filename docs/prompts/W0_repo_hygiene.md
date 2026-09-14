@@ -384,7 +384,7 @@ Six files under `docs/` have not been touched since July or August:
   configuration or the null trader as live, they are misleading a new reader on
   day one.
 
-Also check whether `docs/pdf/`, `recruiting-page.html`, `template.html`,
+Also check whether `docs/pdf/` (archived 2026-09-13 to `_archive/docs/pdf/`), `recruiting-page.html`, `template.html`,
 `print.css` and `build_pdfs.py` are still used by anything. If they are a
 finished deliverable, archive them together.
 

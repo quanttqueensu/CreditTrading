@@ -4,7 +4,6 @@ paths:
   - "src/backtest/**"
   - "src/analysis/**"
   - "src/strategies/**"
-  - "notebooks/**"
 ---
 
 # The research harness — H1 to H15

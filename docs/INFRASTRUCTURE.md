@@ -59,7 +59,7 @@ two or three members.
 
 | Order | Document | Content |
 |---|---|---|
-| 1 | `HOW_WE_GOT_HERE.md` | Chronological account of the summer, including failed approaches. No finance background assumed. |
+| 1 | `_archive/docs/HOW_WE_GOT_HERE.md` | Archived. Chronological account of the summer, including failed approaches. No finance background assumed. |
 | 2 | `RESEARCH_AND_METHODOLOGY.md` | Our criteria for establishing that a result is real. |
 | 3 | `RESEARCH_STATE.md` | Live project state: deployed, killed, queued. Read first and written last in every research session. |
 | 4 | `results/AUDIT_2026-07-31.md` | End-to-end audit identifying three defects in the deployed configuration. |
@@ -703,11 +703,11 @@ would fail. `src/analysis/` is empty. No defence exists against distribution cut
 
 | Document | Content |
 |---|---|
-| `HOW_WE_GOT_HERE.md` | Chronological account of the summer |
+| `_archive/docs/HOW_WE_GOT_HERE.md` | Archived. Chronological account of the summer |
 | `RESEARCH_AND_METHODOLOGY.md` | Criteria for establishing a result |
 | `RESEARCH_STATE.md` | Live state: deployed, killed, queued |
 | `results/AUDIT_2026-07-31.md` | End-to-end audit |
-| `results/ACADEMIC_REPORT_2026-07-31.md` | Formal write-up |
+| `_archive/results/ACADEMIC_REPORT_2026-07-31.md` | Archived. Formal write-up of the pre-CEF programme |
 | `ops/AUTOMATION.md` | Automation runbook |
 | `CREDIT_RV_PREREG.md`, `E1_PREREG.md` | Pre-registrations for two killed strategies |
 | `results/cef/HOLDOUT_PREREG.md` | Sealed holdout rules, written before opening |
@@ -728,7 +728,6 @@ would fail. `src/analysis/` is empty. No defence exists against distribution cut
 | `ops/preflight.py` | The seven safety checks |
 | `ops/capture_fills.py` | Pulls real executions from the broker |
 | `ops/rebuild_ledger.py` | Rebuilds a ledger from broker truth |
-| `docs/build_pdfs.py` | Rebuilds the three team PDFs from markdown |
 
 ### 9.3 Literature
 
@@ -762,5 +761,6 @@ external sources go in section 7.1; new shared scripts in section 9.2. Items
 fixed in Part 8 are deleted rather than marked done, so that list always
 represents the live set of problems.
 
-The PDFs in `docs/pdf/` are build output. The markdown is edited, then
-`python3 docs/build_pdfs.py` regenerates them and both are committed.
+The team PDFs and their builder were archived on 2026-09-13
+(`_archive/docs/pdf/`, `_archive/docs/build_pdfs.py`); they predated the
+correction banners and were never rebuilt.

@@ -50,13 +50,9 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/SYSTEM_AND_STRATEGY.md` | superseded | — | `ops.doc_audit` (banner) |
 | `docs/RESEARCH_AND_METHODOLOGY.md` | superseded | — | `ops.doc_audit` (banner) |
 | `docs/PER_NAME_ARCHITECTURE.md` | superseded | — | `ops.doc_audit` (banner) |
-| `docs/HOW_WE_GOT_HERE.md` | superseded | — | — |
-| `docs/SUMMER_2026_SUMMARY.md` | superseded | — | — |
-| `docs/PROJECT_INTRO.md` | superseded | — | — |
 | `docs/EXIT_RESEARCH_2026-09-07.md` | superseded | — | — |
 | `docs/E1_PREREG.md` | superseded | — | — |
 | `docs/CREDIT_RV_PREREG.md` | superseded | — | — |
-| `docs/handoffs/HANDOFF_2026-09-10.md` | superseded | — | — |
 | `ops/README.md` | superseded | — | `ops.doc_audit` (banner) |
 | `ops/schedule/README.md` | superseded | — | `ops.doc_audit` (banner) |
 | `ops/AUTOMATION.md` | superseded | — | — |

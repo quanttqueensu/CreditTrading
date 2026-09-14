@@ -72,7 +72,6 @@ below with `python3 ops/prompt_status.py`; do not trust the table.
 | `W13_nav_quality_and_horizon.md` | IC, via NAV measurement error | 2 | no | **queued** | — |
 | `W14_options.md` | Part A measurement; then GAMMA | 0 / 1 / 1 | no | **in progress** | done: **Part A, 2026-09-11** — `scripts/cef/stress_beta.py`, `results/cef/STRESS_BETA_2026-09-11.md`, the `evaluate`→`pnl` extension, `scripts/cef/tests/test_pnl_series.py`. **0 trials spent.** Its gate **CLOSED Part B**: β_ΔVIX is insignificant and 0 of 10 worst windows start in the top VIX quintile. **remains:** Part C, blocked on `gamma/G2`'s HYG surface (VIX is its own negative control, so it cannot substitute). Part A never needed `W2` — `00_BRIEF.md` §8 says so |
 | `W15_schedule_reliability.md` | **uptime — 6 of 29 eligible sessions armed; a missed session has IC 0** | 0 | **yes, lanes A/B/E** | **in progress** | written 2026-09-11. **done:** Lane F — `ops/session_uptime.py` is the named reproducer for every uptime figure, with `ops/tests/test_session_uptime.py`, `ops/tests/test_dashboard_sessions_route.py` and a read-only `GET /api/sessions` panel; it measures **6 armed of 29 eligible, 4 cleanly**, and refutes this prompt's own "of 30" (30 counts Labor Day `cef_2026-09-07.log` as eligible). **remains:** lanes A–E, and G is gated behind them. Lane A is blocking: prod runs `ops-guards-20260911`, NOT an ancestor of `main`, forked at `ac83a26` — but five of its eight commits are patch-id-identical to `main`, so the only true delta is live ledger state, not code |
-| `NEXT_2026-09-11.md` | — dated work order, not a prompt | — | — | **dated artifact** | — |
 | `gamma/` (`G0`–`G7`) | the options programme | GAMMA counter | no | **queued** | `G0_BRIEF.md` is **standing**; GAMMA counter still 0 |
 | `perfund/` (`F1`–`F3`) | per-name resolution | CEF counter | no | **queued** | `F2` supersedes `W10` Part D |
 
@@ -82,11 +81,13 @@ The `trials` column above is what a prompt *budgets*, not what has been spent.
 Update the counter in the same commit as the trial, never at the end of a
 session.
 
-## `_superseded/`
+## Archived prompts
 
-Fifty-two finished or replaced prompts, including the original P-series. Its
-`00_README.md` is the method note the whole series shares and is still worth
-reading. Nothing in `_superseded/` should be executed.
+The original P-series (fifty-two files, including `00_README.md`, the method
+note the series shared) and the dated `NEXT_2026-09-11.md` work order moved to
+`_archive/docs/prompts/` on 2026-09-13. They are provenance, not instructions:
+nothing there should be executed, and `_archive/README.md` lists what they are
+wrong about.
 
 **Archiving is a `git mv`, never a delete, and every move leaves a pointer.**
 See the repo `README.md` for the one archive convention this repo uses.
