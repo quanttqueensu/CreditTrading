@@ -23,7 +23,14 @@ A hook fires regardless. Anything that must hold every time lives here.
 | `post_edit_check.py` | `PostToolUse(Edit\|Write)` | Advisory, never blocks. Flags the four bug classes this repo has actually shipped, on the lines you just added. |
 | `session_context.py` | `SessionStart` | Prints trading days since the last **broker-confirmed** fill, heartbeat problems, halt state. |
 | `statusline.py` | status line | Model · git · context · cost · **fill −Nd**, colour-coded green/yellow/red. |
-| `book_state.py` | *(library)* | One reader for live book state, shared by the two above and `/book-status`, so they can never disagree. |
+| `book_state.py` | *(library)* | One reader for live book state, shared by the two above and `/book-status`, so they can never disagree. Reads **both worktrees** — halts and session logs are written in prod, and halt files are untracked so they never reach dev at all. Covered by `hooks/tests/test_book_state_trees.py`. |
+
+**Before anything else, run `python3 -m ops.orient`** (~3s). It prints the
+volatile facts — which tree is which, every halt in either tree, last
+broker-confirmed fill, arm rate, live spec, panel dates, trial counters, hygiene
+greps — each beside the command that produced it, and `UNMEASURED` with a reason
+where it cannot measure. `CLAUDE.md` holds the rules; that command holds the
+numbers.
 
 **There is no blocking hook.** `guard_order_path.py`, a `PreToolUse(Bash)` deny
 rule covering the order path, credentials and the fill record, was **removed on

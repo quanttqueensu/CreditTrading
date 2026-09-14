@@ -145,6 +145,16 @@ RE_RUNG = re.compile(_TS + r" (RUNG-\d) dry run ->")
 # designed behaviour rather than the doubling hazard, and the two must not be
 # reported the same way.
 RE_GUARD = re.compile(_TS + r" SAME-DAY GUARD: ")
+# The wall-clock session deadline (launch_job.py, patch edit 16). A stood-down
+# session writes neither `ARMED:` nor `NOT ARMED ->` -- it returns LATE_RC
+# before phase 3 -- so without this it reads as `indeterminate`, and one late
+# night makes the whole uptime rate refuse to stand (exit 3, see the module
+# docstring). It is a clean stand-down with a stated reason, which is exactly
+# what `blocked` means here: the session ran, decided not to transmit, and said
+# why. Reading it as a crash would send a human looking for a traceback that
+# does not exist, when the thing to fix is the machine sleeping.
+RE_LATE = re.compile(_TS + r" SESSION DEADLINE: .*STANDING DOWN at the (.+?) "
+                           r"boundary")
 RE_DONE = re.compile(_TS + r" done status=(\S+)")
 RE_BOOK_RUN = re.compile(_TS + r" book run (ok|FAILED rc=\d+)")
 RE_ASOF = re.compile(r"\basof=(\d{4}-\d{2}-\d{2})\b")
@@ -272,6 +282,12 @@ def _parse_run(lines: list[str], job: str, date: str, rec: dict) -> dict:
             r["skipped"] = True
         elif RE_GUARD.match(line):
             r["same_day_guard"] = True
+        elif mm := RE_LATE.match(line):
+            r["reason"] = (f"session deadline exceeded at the {mm.group(3)} "
+                           f"boundary — the fire outlived its window and stood "
+                           f"down; nothing transmitted")
+            r["blockers"] = [{"level": "FAIL", "check": None,
+                              "text": r["reason"], "code": "session_deadline"}]
         elif mm := RE_ARMED.match(line):
             r["n_arm_lines"] += 1
             r["armed_at"] = f"{mm.group(1)} {mm.group(2)}"

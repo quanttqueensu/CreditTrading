@@ -55,22 +55,18 @@ Run validation in dev, or promote first.
 Our transfer coefficient is **~37%** — gross Sharpe ~1.2 becomes net ~0.43 once
 costs and measured borrow are charged. Our effective breadth is **1.17** against a
 nominal 17 names, because 92.5% of book variance is one factor (muni vs taxable).
-And the book armed on **5 of 29** CEF sessions as measured 2026-09-10 ~17:00 —
-**but that command reads one tree and there are now two.** The session logs
-bifurcated when prod took over on 2026-09-10: dev's newest is `cef_2026-09-09`
-and every new log lands only in `~/prod/QUANTT/ops/schedule/logs/`. Run it in
-dev, which is where this file is, and it is frozen at 5/29 and undercounts by
-one more every session — there have already been **30**. Name both trees:
+And the book arms on a minority of CEF sessions — **the rate is not written here
+on purpose.** Three figures for this one quantity were in circulation inside two
+days ("3 of 26", "5 of 29", "6 of 30"), none dated, all hand-tallied by shell
+one-liners that read a single log tree while the logs had bifurcated. It now has
+a named reproducer that reads both trees, reports duplicates rather than
+collapsing them, and refuses to answer at all rather than undercount:
 
 ```bash
-L=~/prod/QUANTT/ops/schedule/logs; D=ops/schedule/logs
-echo "$(grep -la 'ARMED:' $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l) of \
-$(ls $L/cef_*.log $D/cef_*.log 2>/dev/null | wc -l)"
+python3 -m ops.session_uptime          # the table, the streak and the verdict
 ```
 
-This is the same trap as `ls ops/HALT*.md` two sections below, and the "3 of 26"
-this line carried until 2026-09-10 was never dated and was wrong. Work that raises TC or uptime beats work
-that sharpens IC, every time.
+Work that raises TC or uptime beats work that sharpens IC, every time.
 
 Read `docs/prompts/00_BRIEF.md` before any research. It is the standing brief and
 every prompt in that directory opens with it.
@@ -186,8 +182,27 @@ asserted at "about 2%/yr" measured **−0.01%/yr**.
 
 ## Commands
 
+**Start here, every session:**
+
 ```bash
-python3 -m pytest                                 # ~5s. pytest.ini scopes collection — see the file
+python3 -m ops.orient                             # ~3s. Where am I, what is true NOW
+```
+
+It prints, freshly measured and each beside the command that produced it: which
+worktree is which and what prod is detached at; every halt active in **either**
+tree; the last broker-confirmed fill; arm rate; the live spec's `band_width` and
+universe; panel dates; the trial counters with their deflated-Sharpe bar; and the
+three hygiene greps this file has quoted wrongly. A section that cannot measure
+prints `UNMEASURED` and the reason — never a plausible value.
+
+**Read this file for the RULES, which do not rot. Read `ops.orient` for the
+FIGURES, which do.** Any number in any document here — including this one — is a
+dated observation, not an input (H14). If you are about to quote one, re-measure
+it or state it as a gap.
+
+```bash
+python3 -m pytest                                 # pytest.ini scopes collection — see the file
+python3 -m ops.session_uptime                     # is the book actually arming?
 python3 -m ops.doctor --quick                     # can this machine run unattended?
 python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live
 python3 scripts/cef/band_frontier.py              # the trading-policy frontier
@@ -249,16 +264,14 @@ script that reproduces it is named."
 `joint_cost_optimiser.py`, `covariance_construction.py`, `borrow_impact.py`,
 `ou_score.py` — now import `BAND_WIDTH` from `scripts/cef/spec.py`, which reads
 the frozen spec. The rule stands and is now enforced by tests: **read
-`band_width` from the frozen spec; never write the literal.** **Seven** `0.064`s
-remain and all seven are legitimate — three historical comments/docstrings
-(`covariance_construction.py:153`, `joint_cost_optimiser.py:396`,
-`spec.py:10`), three sweep grids (`band_frontier.py:57`, `:213`,
-`joint_cost_optimiser.py:539`), and one labelled `("band 6.4%", ...)`
-comparison row (`borrow_impact.py:106`). Re-counted 2026-09-10 ~17:00; this
-paragraph said **four** and missed three, including the one in its own new
-`spec.py`. Verify with `grep -n '0\.064' scripts/cef/*.py` before believing
-this paragraph or either of its predecessors — the count is the part that keeps
-rotting, not the rule.
+`band_width` from the frozen spec; never write the literal.**
+
+**The count of remaining `0.064`s is deliberately not written here.** This
+paragraph has carried three different counts — four, then seven — each correct
+for a scope it did not state, and the survivors are all legitimate anyway
+(historical comments, sweep grids, one labelled comparison row). `python3 -m
+ops.orient` prints the count and `--json` lists the files. **The count is the
+part that keeps rotting; the rule is the part that does not.**
 
 **This working tree is NO LONGER production (since 2026-09-10).** `~/prod/QUANTT`
 is a git worktree detached at a tag, and the scheduler, the dashboard and every
@@ -303,12 +316,22 @@ silently clears a scoped one.
 in, and halts are written in PROD.** Run it in dev, which is where you and this
 file are, and it returns *nothing at all* while `phase0_null` is halted. This
 paragraph said that command "shows everything active" without saying where, so
-`ls ~/prod/QUANTT/ops/HALT*.md` is the one that answers the question. The halt
-files are **untracked**, so they never arrive through a promotion and never
-appear in `git status` as anything but `??` — which is also what makes a
+`ls ~/prod/QUANTT/ops/HALT*.md` is the one that answers the question, and
+`python3 -m ops.orient` reads both trees so the question cannot be asked wrong.
+The halt files are **untracked**, so they never arrive through a promotion and
+never appear in `git status` as anything but `??` — which is also what makes a
 promotion safe for them: `git checkout` cannot remove an untracked file, so a
 scoped halt survives a tag change by accident rather than by design. Nothing
 tests that.
+
+**The SessionStart banner had this same bug until 2026-09-11**, which is worse
+than a document having it: `.claude/hooks/book_state.py` resolved halts and
+session logs against the tree it was running in, and knew only about global
+`ops/HALT.md` — never `ops/HALT_<book>.md`, four weeks after scoped halts
+shipped. So the first thing every agent read reported a clean book while
+`HALT_phase0_null.md` was up in prod. Fixed, and pinned by
+`.claude/hooks/tests/test_book_state_trees.py`, whose tests were each checked to
+fail against the old behaviour before being kept.
 
 ## What the test suite does and does not cover
 
@@ -324,12 +347,15 @@ The shape, which outlives any count:
 
 - `src/backtest/walkforward.py` is the single largest block, and nothing on the
   live path imports it.
-- **`.claude/hooks/tests/` is GONE.** It was a large block and it tested the
-  order-path guard; `7ad3a82` removed the guard and its tests together on the
-  team lead's instruction, 2026-09-10. A count read from before that commit is
-  substantially too high — which is exactly how this section came to quote a
-  number far above what the suite actually passed the same afternoon. It was a
-  single file, parametrised, not a directory of many. Run pytest.
+- **`.claude/hooks/tests/` was removed and has been re-added for a different
+  reason.** `7ad3a82` deleted it along with the order-path guard it tested, on
+  the team lead's instruction, 2026-09-10. A count read from before that commit
+  is substantially too high — which is exactly how this section came to quote a
+  number far above what the suite actually passed the same afternoon. Since
+  2026-09-11 the directory exists again, holding
+  `test_book_state_trees.py` only: **not** a guard on the order path, but the
+  monitor that tells you whether the book is trading, which had been reading the
+  wrong worktree since the prod split.
 - **`ops/promote.sh`'s gate is covered** (`ops/tests/test_promote_gate.py`) —
   written 2026-09-10 after both its pathspecs were found to match nothing.
 - **`arm()` attribution is now covered** (`src/deploy/tests/test_arm_attribution.py`,
@@ -356,7 +382,10 @@ by running the suite: it passed green throughout.
 `python3 -m pytest` failed at *collection* with `ConnectionRefusedError`, because
 `scripts/audit/moc_routing_test.py` matches the default discovery pattern and opens
 a live broker connection at import — the safest-looking command in the repo reached
-for the order path. Do not widen `testpaths`.
+for the order path. **The danger is those four files, not the length of the list:**
+a directory is safe to add iff nothing it imports opens a socket at import time,
+and the comment in `pytest.ini` names the four that do. Do not widen `testpaths`
+without checking that, and do not add `scripts/audit/`.
 
 ## Landmines
 
@@ -448,14 +477,24 @@ for the order path. Do not widen `testpaths`.
    **Never take a symbol from the account net.**
 8. Use `ib_async`, never `ib_insync` — the latter hangs forever in its asyncio
    handshake on Python 3.12+ and looks exactly like a dead broker connection.
-   This machine runs **Python 3.13.5**. As of 2026-09-10 there are **no
-   unconditional `ib_insync` imports left**: `ops/reset_epoch.py` and the two in
-   `scripts/cef/fetch_borrow_rates.py` now use the same
+   This machine runs **Python 3.13.5**. `ops/reset_epoch.py` and the two in
+   `scripts/cef/fetch_borrow_rates.py` use the same
    `try: ib_async / except ImportError: ib_insync` preference as
    `src/deploy/broker/ibkr.py:333`. `reset_epoch.py` was the one that mattered —
    a **recovery** tool that would have hung every time, during the window where
-   you least want to be debugging a client library. Re-check with
-   `grep -rn '^ *from ib_insync' ops/ src/ scripts/ | grep -v ImportError`.
+   you least want to be debugging a client library.
+   **The re-check this entry prescribed cannot express what it checks, and the
+   claim it supported was wrong.** It said to run
+   `grep -rn '^ *from ib_insync' ops/ src/ scripts/ | grep -v ImportError` and
+   asserted the answer was zero. Run it: the `except ImportError:` that makes an
+   import safe is on a **different line** from the import, so `grep -v` filters
+   nothing, and it returns **5**. The true count of imports with no `ib_async`
+   preference is **2** — `scripts/rv/measure_rth_liquidity.py` and
+   `scripts/rv/probe_ibkr_spreads.py`, which is exactly what
+   `.claude/rules/live-order-path.md` has said all along ("two legacy scripts
+   still import it; do not add a third"). `python3 -m ops.orient` walks the AST
+   instead and names the files; `ops/tests/test_orient.py` pins the classifier
+   against both shapes, and fails if a third appears.
 
 ## The desk
 

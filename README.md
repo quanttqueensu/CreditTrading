@@ -43,6 +43,16 @@ git -C ~/prod/QUANTT log -1 --oneline    # the commit behind it
 
 ## Start here
 
+```bash
+python3 -m ops.orient     # ~3s — where you are and what is true right now
+```
+
+Run it before reading anything below. Every document in this repo is a dated
+observation; that command is a measurement, and where the two disagree the
+command is right. It reports both worktrees, every active halt in either, the
+last broker-confirmed fill, the arm rate, the live spec, panel dates and the
+trial counters — each beside the command that produced it.
+
 | Document | Read it for | PDF |
 |---|---|---|
 | [`docs/PROJECT_INTRO.md`](docs/PROJECT_INTRO.md) | What this is and who we are hiring. Two pages. | [PDF](docs/pdf/QUANTT-Project-Intro.pdf) |

@@ -160,24 +160,84 @@ def _armed_beats(beats: dict) -> dict:
     return out
 
 
+def _session_date(beat: dict) -> str | None:
+    """The decision a beat was ABOUT, or None if the beat does not say.
+
+    `ops/halt.py::beat` records a top-level `session_date` -- derived there from
+    `detail.pair_date or detail.asof`, so it covers writers that name the
+    decision date under either key. It is read FIRST because it is the field
+    beat() guarantees for every writer, including ones that never learn about
+    `pair_date`.
+
+    `detail.pair_date` is the fallback and is NOT optional. Every beat in the
+    live heartbeat on 2026-09-13 predates the top-level field -- including the
+    armed cef beat filed 2026-09-11 10:38:32, whose `date` is 2026-09-11 and
+    whose `detail.pair_date` is 2026-09-10, i.e. the LIMIT C incident itself.
+    Reading only the new field would make each of those an armed beat with no
+    recorded pair, take the fail-closed branch in pair_already_decided(), and
+    refuse the first fire after the promotion for no reason at all.
+
+    ABSENT AND None ARE DELIBERATELY NOT DISTINGUISHED, and the caller must not
+    try to. Absent means "filed before the field existed"; None means "beat()
+    ran and the detail named no decision". Both say the same thing to a guard --
+    this beat does not tell you which decision it was about -- and the only
+    defensible answer to that from an ARMED beat is to fail closed. A beat that
+    did not arm never reaches here: _armed_beats() drops it first, which is why
+    a dry run or a stand-down (pair_date None by construction) cannot lock the
+    book out.
+    """
+    recorded = beat.get("session_date")
+    if recorded is None:
+        recorded = (beat.get("detail") or {}).get("pair_date")
+    return str(recorded)[:10] if recorded else None
+
+
 def pair_already_decided(beats: dict, pair_date: str) -> str | None:
     """Which job already armed on `pair_date`, or None.
 
-    Reads `detail.pair_date`, which launch_job.py has written since 2026-09-08.
-    A beat that armed but recorded NO pair_date is treated as a MATCH for any
+    Keyed on the beat's SESSION DATE -- the decision it was about -- and never
+    on `date`, which is the calendar date the beat was FILED. Those two differ
+    whenever a session crosses midnight, and on 2026-09-10 one did: a session
+    that started 17:15 on 09-10 filed at 10:38 on 09-11 (ops/decision_age.py).
+    A pair question keyed on the filing date cannot see yesterday evening's
+    fallback at all, which is the hole this function exists to close.
+
+    A beat that armed but records NO session date is treated as a MATCH for any
     pair, because the alternative is to let an unlabelled armed session through
     the guard, and this module may never resolve an ambiguity in the direction
     of transmitting.
     """
+    wanted = str(pair_date)[:10]
     for job, beat in _armed_beats(beats).items():
-        recorded = (beat.get("detail") or {}).get("pair_date")
-        if recorded is None or str(recorded) == str(pair_date):
+        recorded = _session_date(beat)
+        if recorded is None or recorded == wanted:
             return job
     return None
 
 
 def decided_today(beats: dict, today: str) -> str | None:
-    """Which job already armed on the calendar date `today`, or None."""
+    """Which job already armed on the calendar date `today`, or None.
+
+    Keyed on `date` -- the day the beat was FILED, which is the closest proxy
+    this system records for the day the order set was TRANSMITTED. The beat is
+    written after phase 3, at most one capture phase later (capture measured
+    9m48s on the 1,529-execution session of 2026-09-08).
+
+    THAT PROXY IS WHAT THE SAME-AUCTION QUESTION NEEDS AND THE SESSION DATE
+    CANNOT ANSWER. Two fires on DIFFERENT pairs both reaching the trade phase
+    before the 15:50 ET freeze put two order sets into the SAME closing
+    auction, and `arm()` cannot see the first one: `grep -n reqOpenOrders
+    src/deploy/broker/ibkr.py` returns nothing, so the blindness is structural.
+    So this question stays, keyed on `date`, ALONGSIDE pair_already_decided()
+    and never in place of it. Re-keying it on the pair would have let the
+    2026-09-11 session transmit a second set on a day one had already gone out.
+
+    KNOWN LIMIT, named rather than papered over: a set transmitted at 23:55 and
+    filed at 00:02 is recorded under the following day, and a set transmitted
+    at 15:45 whose beat lands at 15:55 reaches today's auction while nothing in
+    the beat says which auction that was. Closing either needs a transmit
+    timestamp in the beat, which no writer produces today.
+    """
     for job, beat in _armed_beats(beats).items():
         if str(beat.get("date")) == str(today):
             return job

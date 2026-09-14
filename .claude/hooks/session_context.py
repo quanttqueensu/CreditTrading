@@ -35,6 +35,17 @@ def main() -> int:
         out.append(f"  HALT ACTIVE — ops/HALT.md: {halt.get('reason')}")
         out.append("  Preflight treats this as a hard gate. Nothing trades "
                    "until it is cleared deliberately.")
+    # Scoped halts block ONE book and reach the others as a preflight warning,
+    # so they are reported by name rather than as a global stop. Until
+    # 2026-09-11 they were not reported at all and neither was a halt in the
+    # prod tree -- which is where halts are written, and they are untracked, so
+    # they never reach dev by any promotion. This banner read clean while
+    # HALT_phase0_null.md was up.
+    for sc in (halt.get("scoped") or [])[:3]:
+        out.append(f"  HALT (book-scoped) — {sc.get('book')}: "
+                   f"{(sc.get('reason') or '')[:110]}")
+        out.append(f"    blocks that book only; others get a preflight WARNING."
+                   f"  {sc.get('path')}")
 
     f = s.get("fills") or {}
     gap, last = f.get("gap_sessions"), f.get("date")

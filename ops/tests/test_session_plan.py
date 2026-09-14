@@ -7,8 +7,15 @@ individually correct and which together stack two order sets into one closing
 auction. That only shows up across fires, so the tests run across fires.
 
 The heartbeat shape is the real one: ops/halt.py::beat writes
-{job: {"status", "at", "date", "detail": {...}}} and launch_job.py puts
-"armed" and "pair_date" in the detail.
+{job: {"status", "at", "date", "session_date", "detail": {...}}} and
+launch_job.py puts "armed" and "pair_date" in the detail.
+
+TWO BEAT SHAPES, AND BOTH ARE LIVE. `session_date` was added 2026-09-13; every
+beat in ops/heartbeat.json that day predates it and has only the other four
+keys. The `beat()` factory below writes the OLD shape and is what the original
+cases use; `modern()` and `legacy()`, further down, are the pair that makes the
+difference testable. A guard that reads only the new field would refuse the
+first fire after the promotion, on beats it could not label.
 """
 import pytest
 
@@ -186,3 +193,160 @@ def test_every_deciding_plan_demands_its_pair():
                       beats={}, minutes_now=17 * 60 + 30)
     for p in (morning, evening):
         assert p.decides and p.require_asof, p
+
+
+# =========================================================================
+# LIMIT C (2026-09-13): the two questions, and the beats that predate the
+# `session_date` field.
+#
+# The incident: a cef session started 17:15 on 2026-09-10, the Mac
+# clamshell-slept, and the beat landed 10:38:32 on 2026-09-11 with
+# `date` 2026-09-11 and `armed` true -- for a decision about 2026-09-10. Both
+# guards used to read `date`, so the pair question could not see yesterday
+# evening's fallback at all, and the date question refused the 09-11 session on
+# a beat that described 09-10. One power event, two lost sessions
+# (ops/decision_age.py).
+#
+# The fix is NOT to re-key both questions. It is to key them on DIFFERENT
+# fields, because they are different questions -- which is what the
+# anti-collapse test below exists to keep true.
+# =========================================================================
+
+def modern(date, *, armed, session_date=None, pair_date=None):
+    """A beat as ops/halt.py::beat writes one since `session_date` existed."""
+    return {"status": "ok", "at": f"{date} 10:38:32", "date": date,
+            "session_date": session_date,
+            "detail": {"armed": armed, "pair_date": pair_date}}
+
+
+def legacy(date, *, armed, pair_date=None):
+    """A beat with NO top-level `session_date` key at all.
+
+    Not hypothetical: on 2026-09-13 every beat in ops/heartbeat.json has
+    exactly these four top-level keys. If the pair question read only the new
+    field, every one of them would be an armed beat with no recorded pair --
+    the fail-closed branch -- and the first fire after the promotion would be
+    refused for no reason at all.
+    """
+    return {"status": "ok", "at": f"{date} 10:38:32", "date": date,
+            "detail": {"armed": armed, "pair_date": pair_date}}
+
+
+# The 2026-09-11 10:38:32 beat, as the heartbeat would record it today.
+LIMIT_C = {"cef": {"status": "ok", "at": "2026-09-11 10:38:32",
+                   "date": "2026-09-11", "session_date": "2026-09-10",
+                   "detail": {"armed": True, "pair_date": "2026-09-10"}}}
+
+
+def test_the_pair_question_reads_session_date_not_the_filing_date():
+    """The 09-10 session filed on 09-11. The pair it decided is 09-10."""
+    assert sp.pair_already_decided(LIMIT_C, "2026-09-10") == "cef"
+    assert sp.pair_already_decided(LIMIT_C, "2026-09-11") is None
+
+
+def test_the_today_question_reads_the_filing_date_not_the_pair():
+    """And it must keep doing so: that beat's order set went out on 09-11.
+
+    `ops/decision_age.py` already calls the 09-11 refusal CORRECT. Re-keying
+    this question on the pair would have let that session transmit a second set
+    into an auction one had already gone into.
+    """
+    assert sp.decided_today(LIMIT_C, "2026-09-11") == "cef"
+    assert sp.decided_today(LIMIT_C, "2026-09-10") is None
+
+
+def test_neither_question_can_answer_the_other():
+    """THE ANTI-COLLAPSE TEST. Do not "simplify" the guard back into one.
+
+    One beat, asked about 2026-09-10: the pair question says "cef", the today
+    question says None. Point either at the other's key and this flips.
+    """
+    assert sp.pair_already_decided(LIMIT_C, "2026-09-10") == "cef"
+    assert sp.decided_today(LIMIT_C, "2026-09-10") is None
+
+
+def test_a_beat_that_predates_session_date_falls_back_to_detail_pair_date():
+    """The live heartbeat on 2026-09-13 is entirely of this shape."""
+    beats = {"cef": legacy("2026-09-11", armed=True, pair_date="2026-09-10")}
+    assert "session_date" not in beats["cef"]
+    assert sp.pair_already_decided(beats, "2026-09-10") == "cef"
+    assert sp.pair_already_decided(beats, "2026-09-11") is None
+
+
+def test_an_armed_beat_with_session_date_absent_and_no_pair_date_blocks_any_pair():
+    """Absent must NOT silently pass. An unlabelled armed set is a live set."""
+    beats = {"cef_pm": legacy("2026-09-14", armed=True, pair_date=None)}
+    for pair in ("2026-09-11", "2026-09-14", "1999-01-01"):
+        assert sp.pair_already_decided(beats, pair) == "cef_pm", pair
+
+
+def test_an_armed_beat_with_session_date_explicitly_null_blocks_any_pair():
+    """Present-and-None is treated exactly like absent, and for one reason.
+
+    Absent means "filed before the field existed"; None means "beat() ran and
+    the detail named no decision". Both say the same thing to a guard -- this
+    beat does not tell you which decision it was about -- and the only
+    defensible answer to that from an ARMED beat is to fail closed.
+    """
+    beats = {"cef_pm": modern("2026-09-14", armed=True, session_date=None,
+                              pair_date=None)}
+    assert beats["cef_pm"]["session_date"] is None
+    assert sp.pair_already_decided(beats, "2026-09-11") == "cef_pm"
+
+
+def test_a_stand_down_with_no_session_date_never_blocks_anything():
+    """The fail-closed branch is reachable only from an ARMED beat.
+
+    Otherwise a quiet week -- every beat armed=False, session_date None by
+    construction -- would lock the book out of every later fire, which fails in
+    the direction this desk pays for in uptime rather than in safety.
+    """
+    beats = {"cef": modern("2026-09-14", armed=False, session_date=None),
+             "cef_pm": legacy("2026-09-14", armed=False)}
+    assert sp.pair_already_decided(beats, "2026-09-11") is None
+    assert sp.decided_today(beats, "2026-09-14") is None
+
+
+def test_the_top_level_field_wins_over_a_stale_detail_pair_date():
+    """Read ORDER is pinned, not incidental: session_date first, then detail."""
+    beats = {"cef": modern("2026-09-14", armed=True,
+                           session_date="2026-09-11", pair_date="1999-01-01")}
+    assert sp.pair_already_decided(beats, "2026-09-11") == "cef"
+    assert sp.pair_already_decided(beats, "1999-01-01") is None
+
+
+def test_a_decision_date_carrying_a_time_still_matches_the_pair():
+    """Ten characters on BOTH sides, and neither side may assume the other.
+
+    `ops/halt.py::beat` already truncates what it writes, so the beat side of
+    this looks redundant -- it is not. The two writers are in different trees
+    and only one is behind ops/promote.sh: `beat()` is in the repo, and the
+    detail dict it truncates comes from launch_job.py, which is outside git and
+    can be hand-edited live. A guard that silently stops matching because a
+    caller passed "2026-09-10 16:00:00" instead of "2026-09-10" fails OPEN --
+    it reports no prior decision, which is read as permission to transmit.
+
+    Dropping either `[:10]` breaks this test and nothing else in the suite;
+    that was measured 2026-09-13 by mutation, not assumed.
+    """
+    beats = {"cef": modern("2026-09-11", armed=True,
+                           session_date="2026-09-10 16:00:00")}
+    assert sp.pair_already_decided(beats, "2026-09-10") == "cef"
+    assert sp.pair_already_decided(beats, "2026-09-10 16:00:00") == "cef"
+    assert sp.pair_already_decided(beats, "2026-09-11") is None
+
+
+def test_a_different_pair_on_the_same_day_is_caught_only_by_the_today_question():
+    """Two fires, different pairs, both before the 15:50 freeze: ONE auction.
+
+    `plan()` asks only the PAIR question for the morning job, and it passes
+    here -- asserted in code rather than described, because that pass is the
+    whole reason launch_job.py has to ask the second question immediately
+    before the order goes out.
+    """
+    beats = {"cef": modern("2026-09-15", armed=True,
+                           session_date="2026-09-14", pair_date="2026-09-14")}
+    p = sp.plan("cef", today="2026-09-15", prev_trading_day="2026-09-11",
+                beats=beats, minutes_now=AM)
+    assert p.may_arm, "the pair question genuinely does not see this"
+    assert sp.decided_today(beats, "2026-09-15") == "cef"

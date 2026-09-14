@@ -196,6 +196,50 @@ def test_a_log_with_no_verdict_is_indeterminate_and_refuses_a_rate(tree):
     assert any("2026-09-09" in r for r in m["incomplete_reasons"])
 
 
+# --------------------------------------- the wall-clock session deadline --
+# Copied from the built output of ops/schedule/patch_launch_job_w3am.py (edit
+# 16), not paraphrased, and with the arithmetic of the real incident in it:
+# 2026-09-11 cef started 17:15:05, slept, and resumed 07:09:11 the next
+# morning -- 13h54m against the 7h15m ceiling the installed plist and cef.env
+# derive. The tool has to read what is WRITTEN, so this string is the contract.
+LATE_LINE = (
+    "[2026-09-12 07:09:11] SESSION DEADLINE: started 2026-09-11 17:15:05, it "
+    "is now 2026-09-12 07:09:11 -- 13h54m against a 7h15m ceiling derived from "
+    "the installed plist and cef.env. STANDING DOWN at the 3. TRADE boundary; "
+    "this fire transmitted nothing. No halt file is written, so the next "
+    "scheduled fire runs normally.\n")
+
+
+def test_a_stood_down_session_is_blocked_and_not_indeterminate(tree):
+    """A stand-down writes neither `ARMED:` nor `NOT ARMED ->`, and that is the
+    trap. The session returns LATE_RC before phase 3, so the two lines this
+    parser keys on are both absent and it would otherwise fall through to
+    `indeterminate` -- which makes `complete` False and the whole uptime rate
+    refuse to stand (exit 3). The guard that exists to RAISE uptime would then
+    have silently broken the measurement of it.
+
+    `blocked` is the honest reading: the session ran, decided not to transmit,
+    and said why. That is the same shape as a preflight refusal, and it must
+    carry a code of its own so the fix ("stop the machine sleeping") is not
+    confused with a broker port or a stale panel.
+    """
+    t = tree("dev", {"2026-09-11": HEAD.format(d="2026-09-11") + LATE_LINE})
+    m = _m([t], since=dt.date(2026, 9, 11), through=dt.date(2026, 9, 11),
+           today=dt.date(2026, 9, 12))
+    (s,) = m["sessions"]
+    assert s["outcome"] == "blocked"
+    assert s["armed_at"] is None
+    assert m["n_indeterminate"] == 0
+    assert m["complete"] is True
+    (b,) = s["blockers"]
+    assert b["code"] == "session_deadline"
+    assert b["level"] == "FAIL"
+    # The phase survives, because WHERE it stood down is the whole difference
+    # between "nothing was transmitted" and "it may already have traded".
+    assert "3. TRADE" in s["reason"]
+    assert "outlived its window" in s["reason"]
+
+
 def test_a_dry_runs_zero_turnover_is_not_the_books_turnover(tree):
     """A not-armed session still prints `BOOK asof ... turnover $0`, because it
     downgrades to a dry run against a $0.00 book by design. Filing that 0 under
