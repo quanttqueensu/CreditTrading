@@ -228,3 +228,21 @@ class TestNeverBreaksItsConsumers:
         assert t["read"] == [str(prod.resolve()), str(dev.resolve())]
         assert t["prod_present"] is True
         assert t["running_in"] == str(dev)
+
+
+# ------------------------------------------- executions per fill date --
+class TestExecutionsByDate:
+    def test_counts_each_fill_date_from_the_evidence_file(self, two_trees):
+        """Two counts for 2026-07-31's real executions circulated at once. The
+        per-date tally from broker_fills.csv is what settles that, so it must
+        count rows per date and not collapse or reorder them."""
+        mod, dev, prod = two_trees
+        p = prod / mod.SHADOW_SUBDIR / "broker_fills.csv"
+        p.parent.mkdir(parents=True)
+        p.write_text("fill_date,symbol,qty\n"
+                     "2026-09-08,HYT,10\n2026-07-31,PDI,5\n"
+                     "2026-09-08,PTY,3\n2026-09-08,BTZ,1\n,NOTE,0\n")
+        f = mod.last_broker_fill()
+        assert f["by_date"] == {"2026-07-31": 1, "2026-09-08": 3}
+        assert list(f["by_date"]) == ["2026-07-31", "2026-09-08"]
+        assert f["n_fills"] == sum(f["by_date"].values())

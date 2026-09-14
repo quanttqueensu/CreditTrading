@@ -135,7 +135,36 @@ def trees() -> dict:
     # from. `ops/sync_dev_data.sh` reverses it once prod owns the panels.
     d = PROD_TREE / "data"
     out["prod"]["data_symlink"] = str(d.resolve()) if d.is_symlink() else None
+    try:
+        out["delta"] = tree_delta(out["prod"]["sha"], "HEAD")
+    except Unmeasured as exc:
+        out["delta"] = {"UNMEASURED": str(exc)}
     return out
+
+
+def tree_delta(prod: str, dev: str, cwd: Path | None = None,
+               show: int = 8) -> dict:
+    """What dev has that prod does not, and the reverse. Measured, never written.
+
+    Every document that said what prod runs was wrong within a day of being
+    written: "prod is detached at v2026.09.10.1" stood in CLAUDE.md while prod
+    had moved twice, and "the morning session is planned, not built" stood while
+    it was committed in dev and not yet promoted. "Is this fix live?" is a git
+    question, so it gets a git answer. The two trees share one object store, so
+    this needs no network and no prod checkout.
+
+    `dev_lacks` is normally zero. When it is not, prod carries commits dev does
+    not (a hotfix tag cut off the prod tag), and a promotion from dev would
+    silently drop them -- which is the case worth printing.
+    """
+    rng = f"{prod}..{dev}"
+    lacks = int(_run(["git", "rev-list", "--count", rng], cwd=cwd).strip())
+    behind = int(_run(["git", "rev-list", "--count", f"{dev}..{prod}"],
+                      cwd=cwd).strip())
+    subjects = [l for l in _run(["git", "log", "--oneline", f"-{show}", rng],
+                                cwd=cwd).splitlines() if l.strip()]
+    return {"reproducer": f"git log --oneline {rng}",
+            "prod_lacks": lacks, "dev_lacks": behind, "newest": subjects}
 
 
 # ------------------------------------------------------------------- halts --
@@ -193,11 +222,25 @@ def spec() -> dict:
     sys.path.insert(0, str(REPO / "scripts/cef"))
     import importlib
     sp = importlib.import_module("spec")
-    s = sp.spec()
+    return spec_fields(sp.spec())
+
+
+def spec_fields(s: dict) -> dict:
+    """The live spec's decision-relevant keys, with ABSENT kept distinct from a value.
+
+    `vol_target_annual` is here because documents disagreed about the vol
+    target while the spec held one number: "we target 6%" in three places, "the
+    20% cap" in two, and neither said which the sleeve actually reads. When the
+    key is missing this reports None and says the sleeve's own default applies
+    -- it does not print that default, because a number shown here gets quoted
+    as the spec's, and a code default is not a governance decision.
+    """
     fr = s.get("frozen", {})
     return {"reproducer": "python3 -c \"import sys; sys.path.insert(0,"
                           "'scripts/cef'); import spec; print(spec.summary())\"",
             "spec_id": s.get("spec_id"), "status": s.get("status"),
+            "vol_target_annual": fr.get("vol_target_annual"),
+            "vol_target_absent": "vol_target_annual" not in fr,
             "capital_usd": s.get("capital_usd"),
             "band_width": fr.get("band_width"),
             "rebalance_days": fr.get("rebalance_days"),
@@ -393,9 +436,25 @@ def doc_drift() -> dict:
                        cwd=REPO, capture_output=True, text=True, timeout=120)
     d = json.loads(r.stdout) if r.stdout.strip() else {}
     findings = d.get("findings") or []
-    return {"reproducer": "python3 -m ops.prompt_status --check",
-            "n_findings": len(findings),
-            "findings": [f for f in findings][:5]}
+    out = {"reproducer": "python3 -m ops.prompt_status --check  ·  "
+                         "python3 -m ops.doc_audit --check",
+           "n_findings": len(findings),
+           "findings": [f for f in findings][:5]}
+    # The document audit, run as a subprocess for the same reason as above: it
+    # imports this module, and a report that imports its own auditor in-process
+    # is one refactor from a cycle.
+    r = subprocess.run([sys.executable, "-m", "ops.doc_audit", "--json"],
+                       cwd=REPO, capture_output=True, text=True, timeout=120)
+    try:
+        rows = json.loads(r.stdout)
+        drift = [f"{x['key']}: {x['detail']}" for x in rows
+                 if x.get("status") in ("DRIFT", "GONE")]
+        out["doc_audit_drift"] = len(drift)
+        out["doc_audit_rows"] = drift[:5]
+    except (json.JSONDecodeError, TypeError, KeyError) as exc:
+        out["doc_audit_drift"] = (f"UNMEASURED ({type(exc).__name__}; "
+                                  f"rc={r.returncode} {r.stderr.strip()[:80]})")
+    return out
 
 
 # ------------------------------------------------------------------ render --
@@ -455,6 +514,19 @@ def render(d: dict) -> None:
             if pr.get("data_symlink"):
                 _p("data/", f"prod -> {pr['data_symlink']}  (SHARED: a research "
                             "script can corrupt what the sleeve prices from)")
+            dl = sec.get("delta") or {}
+            if "UNMEASURED" in dl:
+                _p("prod lacks", f"UNMEASURED — {dl['UNMEASURED']}")
+            elif dl:
+                _p("prod lacks", f"{dl['prod_lacks']} commit(s) in dev   "
+                                 f"({dl['reproducer']})")
+                for line in dl["newest"]:
+                    _p("", f"  {line[:96]}")
+                if dl["prod_lacks"] > len(dl["newest"]):
+                    _p("", f"  … {dl['prod_lacks'] - len(dl['newest'])} more")
+                if dl["dev_lacks"]:
+                    _p("dev lacks", f"{dl['dev_lacks']} commit(s) that prod has "
+                                    "— a promotion from dev would DROP them")
         else:
             _p("prod", f"{pr['path']} — NOT PRESENT on this machine")
         print()
@@ -478,6 +550,10 @@ def render(d: dict) -> None:
            f"{'  <-- STALE' if (gap or 0) >= 3 else ''}")
         _p("", f"{f.get('n_sessions')} session(s), {f.get('n_fills')} executions"
                f"   [{f.get('tree')}]")
+        by = f.get("by_date") or {}
+        if by:
+            _p("executions by fill date", "   ".join(
+                f"{d} {n}" for d, n in list(by.items())[-6:]))
         ls = sec["last_session"]
         _p("last CEF session log", f"{ls.get('date')} armed={ls.get('armed')} "
                                    f"status={ls.get('status')}")
@@ -500,6 +576,10 @@ def render(d: dict) -> None:
 
     if (sec := head("SPEC")) is not None:
         _p("spec_id", f"{sec['spec_id']}   ({sec['status']})")
+        _p("vol_target_annual",
+           "ABSENT from the frozen spec — the sleeve applies its own code "
+           "default (src/deploy/sleeves/cef_discount.py _vol_target)"
+           if sec["vol_target_absent"] else f"{sec['vol_target_annual']}")
         _p("band_width", f"{sec['band_width']}   "
                          f"z_window {sec['z_window']}   "
                          f"{sec['n_universe']} names   {sec['order_type']}")
@@ -541,6 +621,9 @@ def render(d: dict) -> None:
 
     if (sec := head("DOC DRIFT")) is not None:
         _p("prompt-index findings", str(sec["n_findings"]))
+        _p("doc-audit DRIFT", str(sec.get("doc_audit_drift")))
+        for row in sec.get("doc_audit_rows") or []:
+            _p("", f"  {row[:96]}")
         print()
 
     print("Read CLAUDE.md for the RULES. Read this for the FIGURES.\n"

@@ -135,6 +135,10 @@ def last_broker_fill() -> dict:
             return out
         out["n_fills"] = len(dates)
         out["n_sessions"] = len(set(dates))
+        # Executions per fill date. Two counts for one day's real executions were
+        # in circulation ("302 exist nowhere" vs "257 broker-confirmed"); the
+        # per-date count from the file that is the evidence settles which.
+        out["by_date"] = {d: dates.count(d) for d in sorted(set(dates))}
         out["date"] = max(dates)
         last = dt.date.fromisoformat(out["date"])
         out["gap_sessions"] = _trading_days_between(last, dt.date.today())

@@ -176,3 +176,66 @@ class TestDerivedFigures:
         t = orient.trials()
         assert "[doc" in t["reproducer"]
         assert "RESEARCH_STATE" in t["source"]
+
+
+# ----------------------------------------------------- measured, not written --
+class TestTreeDelta:
+    """`prod lacks` replaced a sentence ("prod is detached at v2026.09.10.1")
+    that was wrong within a day in three documents. It must count exactly, in
+    both directions, from git alone."""
+
+    def _repo(self, tmp_path):
+        import subprocess
+        def git(*a):
+            return subprocess.run(["git", *a], cwd=tmp_path, check=True,
+                                  capture_output=True, text=True).stdout.strip()
+        git("init", "-q")
+        for name in ("base", "fix one", "fix two"):
+            (tmp_path / "f.txt").write_text(name)
+            git("add", "f.txt")
+            git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", name)
+        return git
+
+    def test_counts_what_prod_lacks_and_names_it(self, tmp_path):
+        git = self._repo(tmp_path)
+        prod = git("rev-parse", "HEAD~2")
+        d = orient.tree_delta(prod, "HEAD", cwd=tmp_path)
+        assert d["prod_lacks"] == 2 and d["dev_lacks"] == 0
+        assert [s.split(" ", 1)[1] for s in d["newest"]] == ["fix two", "fix one"]
+
+    def test_a_prod_commit_dev_lacks_is_reported(self, tmp_path):
+        """A hotfix cut off the prod tag: promoting dev would drop it."""
+        git = self._repo(tmp_path)
+        git("checkout", "-q", "-b", "hotfix", "HEAD~1")
+        (tmp_path / "g.txt").write_text("hotfix")
+        git("add", "g.txt")
+        git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "hotfix")
+        prod = git("rev-parse", "HEAD")
+        git("checkout", "-q", "-")
+        d = orient.tree_delta(prod, "HEAD", cwd=tmp_path)
+        assert d["dev_lacks"] == 1 and d["prod_lacks"] == 1
+
+    def test_an_unknown_sha_is_unmeasured_not_zero(self, tmp_path):
+        self._repo(tmp_path)
+        with pytest.raises(orient.Unmeasured):
+            orient.tree_delta("deadbeef", "HEAD", cwd=tmp_path)
+
+
+class TestSpecFields:
+    def test_vol_target_is_read_from_the_spec(self):
+        f = orient.spec_fields({"frozen": {"vol_target_annual": 0.11}})
+        assert f["vol_target_annual"] == 0.11 and f["vol_target_absent"] is False
+
+    def test_absent_vol_target_is_absent_not_the_code_default(self, capsys):
+        """The sleeve has a code default for this key. Printing it here would
+        make a code constant read as a governance decision."""
+        f = orient.spec_fields({"frozen": {"band_width": 0.048}})
+        assert f["vol_target_annual"] is None and f["vol_target_absent"] is True
+        d = {"measured_at": "t", "sections": {
+            n: {"UNMEASURED": "not under test"} for n, _ in orient.SECTIONS}}
+        d["sections"]["SPEC"] = {**f, "status": "X", "min_trade_usd": 1,
+                                 "capital_usd": 1}
+        orient.render(d)
+        out = capsys.readouterr().out
+        assert "ABSENT from the frozen spec" in out
+        assert "0.06" not in out
