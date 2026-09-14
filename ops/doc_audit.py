@@ -98,10 +98,11 @@ def _read(rel: str) -> str | None:
 
 # Six of the original eight moved to _archive/ on 2026-09-13, where
 # `check_archive_wall` requires a stricter banner of every file. What remains
-# here are live documents that still carry stale passages under a warning.
+# here is the one live document that still carries old passages under a
+# warning. RESEARCH_STATE.md was trimmed to its ledger on 2026-09-14 and
+# needs none.
 BANNERED = [
     "docs/INFRASTRUCTURE.md",
-    "docs/RESEARCH_STATE.md",
 ]
 
 
@@ -126,23 +127,38 @@ def check_banners(rep: Report) -> None:
 
 # -- 2. claims that must match a measured source ----------------------------
 
+SPEC_ID_SCOPE = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INFRASTRUCTURE.md",
+                 "docs/REFERENCES.md", "docs/prompts/00_BRIEF.md")
+
+
 def check_spec_id(rep: Report) -> None:
-    """INFRASTRUCTURE.md names the frozen spec. The frozen spec is the authority."""
+    """A live document that names a spec id must name the live one.
+
+    WHY. INFRASTRUCTURE.md once named spec v5 for three weeks after v6 went live,
+    and the one table a reader consults for "what does the sleeve do" described a
+    policy that no longer ran. A superseded id is fine inside a correction that
+    also names the live one; an old id standing alone is the defect. This used to
+    look at INFRASTRUCTURE.md only, and the same sentence can be written anywhere
+    a reader starts.
+    """
     spec = json.loads((REPO / "ops/specs/cef_discount.frozen.json").read_text())
     live = spec["spec_id"]
-    text = _read("docs/INFRASTRUCTURE.md") or ""
-    others = {s for s in re.findall(r"cef_discount\.v\d+\.\d{8}", text)} - {live}
-    # A superseded id is fine inside a correction that names it; flag only an
-    # id that appears with NO mention of the live one anywhere in the file.
-    if live not in text:
-        rep.add("spec_id", DRIFT,
-                f"INFRASTRUCTURE.md never names the live spec {live}"
-                + (f"; it names {sorted(others)}" if others else ""),
-                f"quote {live}, from ops/specs/cef_discount.frozen.json")
-    else:
-        rep.add("spec_id", OK,
-                f"{live} present" + (f"; superseded {sorted(others)} kept in "
-                                     f"corrections" if others else ""))
+    for rel in SPEC_ID_SCOPE:
+        text = _read(rel)
+        if text is None:
+            continue
+        # An id inside a path is a filename (the archived v5 revert spec), not a claim.
+        named = set(re.findall(r"(?<![/\w])cef_discount\.v\d+\.\d{8}", text))
+        if not named:
+            rep.add(f"spec_id:{rel}", OK, "names no spec id")
+        elif live in named:
+            others = sorted(named - {live})
+            rep.add(f"spec_id:{rel}", OK, f"{live} present"
+                    + (f"; superseded {others} kept beside it" if others else ""))
+        else:
+            rep.add(f"spec_id:{rel}", DRIFT,
+                    f"names {sorted(named)} but never the live spec {live}",
+                    f"quote {live}, from ops/specs/cef_discount.frozen.json")
 
 
 # `check_dsr_bar` was retired 2026-09-13. It guarded one sentence in

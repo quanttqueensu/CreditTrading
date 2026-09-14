@@ -471,3 +471,28 @@ def test_the_real_repo_has_no_drift():
     """The whole point. If this fails, a document contradicts the repo."""
     rep = M.run()
     assert not rep.drift, "\n".join(f"{f.key}: {f.detail}" for f in rep.drift)
+
+
+# -- spec ids --------------------------------------------------------------
+
+def test_an_old_spec_id_standing_alone_is_drift_anywhere_a_reader_starts(fake_repo, monkeypatch):
+    (fake_repo / "ops/specs").mkdir()
+    (fake_repo / "ops/specs/cef_discount.frozen.json").write_text(
+        '{"spec_id": "cef_discount.v6.20260906"}')
+    (fake_repo / "docs/SYSTEM.md").write_text("The sleeve runs cef_discount.v5.20260731.\n")
+    rep = M.Report(); M.check_spec_id(rep)
+    assert _status(rep, "spec_id:docs/SYSTEM.md") == M.DRIFT
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "cef_discount.v6.20260906 replaced cef_discount.v5.20260731.\n")
+    rep = M.Report(); M.check_spec_id(rep)
+    assert _status(rep, "spec_id:docs/SYSTEM.md") == M.OK
+
+
+def test_a_spec_id_inside_a_filename_is_not_a_claim(fake_repo):
+    (fake_repo / "ops/specs").mkdir()
+    (fake_repo / "ops/specs/cef_discount.frozen.json").write_text(
+        '{"spec_id": "cef_discount.v6.20260906"}')
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "Revert path: `ops/_archive/cef_discount.v5.20260731.frozen.json`.\n")
+    rep = M.Report(); M.check_spec_id(rep)
+    assert _status(rep, "spec_id:docs/SYSTEM.md") == M.OK

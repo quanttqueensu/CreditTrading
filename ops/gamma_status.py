@@ -277,16 +277,23 @@ def phase6() -> Phase:
 
 
 def _trial_counters() -> dict:
-    """CEF and GAMMA from RESEARCH_STATE's canonical table, or {} if unreadable."""
-    p = REPO / "docs/RESEARCH_STATE.md"
-    if not p.exists():
+    """CEF and GAMMA from RESEARCH_STATE's canonical table, or {} if unreadable.
+
+    Delegated to `ops.orient.trials()` (2026-09-14). This used to be a third
+    regex over the same table, and a greedy one: `|.*|` let any bold-cell row
+    with a bold number in a LATER column read as a counter, where orient's
+    parser requires the number in the third cell. The table was trimmed that day
+    and now sits between other tables of bold rows, and
+    `ops/tests/test_orient.py::TestOneCounterTableThreeReaders` planted exactly
+    that row and watched this parser disagree. One parser, one answer. An
+    unreadable table still returns {} -- the caller prints UNMEASURED for a
+    missing counter, never a zero.
+    """
+    from ops import orient
+    try:
+        return {k: v["trials"] for k, v in orient.trials()["counters"].items()}
+    except orient.Unmeasured:
         return {}
-    out = {}
-    for line in p.read_text().splitlines():
-        m = re.match(r"^\|\s*\*\*([A-Z]+)\*\*\s*\|.*\|\s*\*\*(\d+)\*\*\s*\|", line)
-        if m:
-            out[m.group(1)] = int(m.group(2))
-    return out
 
 
 # ---------------------------------------------------------------------------

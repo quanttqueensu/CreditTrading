@@ -1,43 +1,20 @@
----
+# Infrastructure and onboarding — reference
 
-> **CORRECTED 2026-09-10 - READ BEFORE COPYING ANY VALUE FROM THIS DOCUMENT.**
-> Written 2026-08-16, only partially patched since. Several "current
-> configuration" statements are stale and one was actively dangerous: it gave
-> the broker port as **7497**, the exact misconfiguration that made **21
-> consecutive sessions dry-run silently** between 2026-08-03 and 08-28. The live
-> gateway serves **4002** (switched 2026-09-01). Every occurrence corrected.
->
-> Also stale below: the frozen spec is **v6.20260906**, not v5; the live policy
-> is a **4.8% no-trade band**, not a 2-day rebalance calendar (`rebalance_days`
-> is inert while `band_width` is set); the sleeve is 367 lines, not 239;
-> `src/analysis/` is not empty; and "no trading since 1 August" is false - the
-> book armed on 09-01, 02, 03, 04, 08 and 09.
->
-> **The authority on any live parameter is
-> `ops/specs/cef_discount.frozen.json`, never this document.**
-title: "Infrastructure and Onboarding"
-subtitle: |
-  **QUANTT Credit Trading · technical reference**\
-  Version 1.0 · 16 August 2026\
-  github.com/quanttqueensu/CreditTrading
----
+> **⚠ CORRECTED 2026-09-14 — REFERENCE MATERIAL, NOT THE SYSTEM DESCRIPTION.**
+> What the book is and how it runs is `docs/SYSTEM.md`; any number is
+> `python3 -m ops.orient`; the authority on a live parameter is
+> `ops/specs/cef_discount.frozen.json` (the live spec was
+> `cef_discount.v6.20260906` when this was written — orient SPEC is the check).
+> Parts 1, 3, 8, 9 and sections 6.0, 6.1, 6.3 and 6.5 moved to `docs/SYSTEM.md`
+> and are stubs here, numbered so existing citations still land. Parts 2, 4, 5,
+> 7 and sections 6.2, 6.2b and 6.4 were first written 2026-08-16 and patched
+> since: read them as reference, and verify anything that looks like a current
+> state. The full pre-trim text is the archived snapshot
+> `_archive/docs/INFRASTRUCTURE_2026-09-14.md`.
 
 ## 1. Overview
 
-We operate a systematic credit strategy on a $500,000 Interactive Brokers paper
-account. The strategy trades closed-end fund discounts, holds equal dollars long
-and short, and targets 6% annualised volatility. Five scheduled jobs run the book
-unattended on weekdays, and seven preflight checks gate every trade.
-
-This document is our technical reference. Part 2 covers onboarding for new
-members. Parts 3 to 7 are reference material. Part 8 lists open issues and is
-maintained as a live list. Each part is self-contained so sections can be revised
-independently through the year. Any change to the system requires a changelog
-entry below.
-
-| Date | Version | Change | Author |
-|---|---|---|---|
-| 2026-08-16 | 1.0 | First issue, reflecting the state of the system at the end of the summer | S. Jarvis |
+**Moved to `docs/SYSTEM.md` §1 and §4.** The earlier overview ("targets 6% annualised volatility", "five scheduled jobs") is in the archived snapshot `_archive/docs/INFRASTRUCTURE_2026-09-14.md`.
 
 ## 2. Onboarding
 
@@ -59,11 +36,12 @@ two or three members.
 
 | Order | Document | Content |
 |---|---|---|
-| 1 | `_archive/docs/HOW_WE_GOT_HERE.md` | Archived. Chronological account of the summer, including failed approaches. No finance background assumed. |
-| 2 | `_archive/docs/RESEARCH_AND_METHODOLOGY.md` | Archived. Our criteria for establishing that a result is real; the D1–D7 legend is now in `docs/RESEARCH_STATE.md`. |
-| 3 | `RESEARCH_STATE.md` | Live project state: deployed, killed, queued. Read first and written last in every research session. |
-| 4 | `results/AUDIT_2026-07-31.md` | End-to-end audit identifying three defects in the deployed configuration. |
-| 5 | `docs/SYSTEM.md` §4 | How it runs (replaces the archived `ops/AUTOMATION.md`). |
+| 1 | `CLAUDE.md` | The hard rules: order path, code, data, research. |
+| 2 | `docs/SYSTEM.md` | What we trade, how it runs, what we know, standing decisions. |
+| 3 | `docs/RESEARCH_STATE.md` | The research ledger: trial counters, D1–D7 legend, what is dead and why. |
+| 4 | `docs/INDEX.md` | Which document owns which question. |
+
+Run `python3 -m ops.orient` before reading any of them.
 
 ### 2.3 Reconstructing the data directory
 
@@ -90,12 +68,14 @@ source.
 New members run the validation battery before anything else:
 
 ```
-python3 scripts/cef/validate.py
+python3 scripts/cef/validate.py --trials <CEF counter from docs/RESEARCH_STATE.md>
 ```
 
-Expected output is a gross Sharpe near 1.26 and a net Sharpe near 0.82. Any
-deviation is treated as a finding and reported to the team rather than assumed to
-be local error.
+`--trials` is required and has no default. **Read the numbers it prints; do not
+compare them with a number written in a document.** It scores the retired
+calendar policy at `shift(2)`; what that battery established is
+`results/cef/EXECUTION_CONVENTION_2026-09-10.md`. Any surprise is a finding to
+report, not a local error to assume.
 
 ### 2.5 Working standards
 
@@ -110,126 +90,14 @@ Every test is counted. `RESEARCH_STATE.md` holds a running total that never
 resets. At 10 trials the best pure-noise result scores approximately 2.1; at 162
 trials, approximately 3.2. Results are assessed against the running total.
 
-Every failure is classified into one of the seven categories defined in the
-methodology document. "It did not work" is not an acceptable entry.
+Every failure is classified into one of the seven D1–D7 categories in
+`docs/RESEARCH_STATE.md`. "It did not work" is not an acceptable entry.
 
 Shutdown rules are written before deployment, not after.
 
 ## 3. Strategy
 
-### 3.1 Mechanism
-
-A closed-end fund trades on an exchange but issues its shares once, after which
-the share count is fixed. It publishes the value of its holdings daily as the
-NAV. The share price is set independently by the exchange, and the two diverge.
-
-An ordinary ETF has authorised participants who exchange shares for the
-underlying bonds and back, closing any gap within minutes. We measured this
-mechanism operating: the gap on high yield ETFs compressed from 188 basis points
-in 2008 to 3.8 by 2026, and that compression is what killed our two earlier
-strategies. Closed-end funds have no equivalent mechanism. Credit closed-end
-funds trade at a mean discount of 3.16% with a standard deviation of 5.95%,
-roughly 150 times the ETF gap.
-
-### 3.2 Implementation
-
-For each fund we compute the discount, z-score it against that fund's own
-trailing 252 trading days, and rank the cross-section. We hold the cheapest
-funds long and the richest short in equal dollar amounts, then scale the book to
-a 6% annualised volatility target. Scoring each fund against its own history
-rather than against peers is deliberate, since several funds carry a permanent
-structural discount that carries no information.
-
-### 3.3 Evidence
-
-The test that killed the ETF version reverses here. For an ETF the discount
-predicts the NAV, with t-statistics of +15 to +24, meaning a lagging valuation
-converges to a price that was already correct; trading it means opposing genuine
-price discovery. For closed-end funds the discount predicts the price, with a
-mean t of −1.75 and 6 of 18 funds beyond −2, and predicts the NAV only weakly.
-
-Against high yield, investment grade, rates, equity and volatility, the
-R-squared is 0.005 and alpha is +2.68% per year at t = 3.11.
-
-We then attempted twice to invalidate the result. The live book is 66% net short
-municipal funds and 57% net long taxable funds, so the natural hypothesis was a
-disguised sector position, which is what one earlier candidate proved to be.
-
-| Control set | Alpha p.a. | t | R² |
-|---|---|---|---|
-| Base factor set | +8.21% | +5.67 | 0.0037 |
-| Plus municipal ETFs | +8.88% | +5.69 | 0.0117 |
-| Plus municipal ETFs and duration spread | +8.83% | +5.67 | 0.0125 |
-| All five closed-end fund group factors | +7.63% | +5.90 | 0.0057 |
-
-The final row is the decisive control, since municipal closed-end fund discounts
-do not track municipal ETFs. Under it every group beta is at or below 0.025 and
-the alpha is unchanged.
-
-### 3.4 Live configuration
-
-Frozen spec: `ops/specs/cef_discount.frozen.json`, id **`cef_discount.v6.20260906`**
-(corrected 2026-09-10; this said `v5.20260731`. Verify with
-`python3 -c "import json;print(json.load(open('ops/specs/cef_discount.frozen.json'))['spec_id'])"`).
-
-| Parameter | Value | Note |
-|---|---|---|
-| Universe | 17 funds | AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY |
-| z-window | 252 days | Reverted from 63 after the sealed holdout failed that change |
-| **Band width** | **4.8%** | **THE LIVE REBALANCE RULE since 2026-09-06.** Recompute every session; leave a position alone until it is >4.8% in weight from target, then trade back to the *band edge*, not to target. Derived from the cube-root law, not swept — 6.4% topped the sweep and was deliberately **not** chosen. `frozen.band_width` |
-| ~~Rebalance~~ | ~~2 days~~ | **INERT while `band_width` is set.** The key is still `2` in the spec and is *not* what runs; deleting `band_width` is the documented revert path. This row said "2 is the measured optimum" and was the last thing here still describing the retired calendar policy |
-| Volatility target | 6% p.a. | |
-| Minimum ADV | $3,000,000 | |
-| Maximum NAV age | 3 business days | A stale NAV produces a blind signal, not a cheap fund |
-| Minimum names | 6 | |
-| Order type | Market-on-close | See section 5.5 |
-| Capital | $500,000 | |
-| Gross cap | $1,300,000 | |
-
-Every modified parameter carries a note field in the spec recording the
-measurement that justified it. No value is changed without one.
-
-### 3.5 Declared weaknesses
-
-All of the following were recorded before capital was committed and remain true.
-
-The honest net Sharpe of the deployed configuration is 0.51, not 0.82. The
-backtest entered at day *t*'s close using day *t*'s NAV, which publishes after
-that close; a market-on-close order fills at *t+1*'s close. The correction costs
-38% of the Sharpe.
-
-Kurtosis is 41.2, so sharp single-day losses are expected. Recent performance is
-flat: the most recent walk-forward block scored 0.05 and the 2023 to 2026 net
-Sharpe is 0.30.
-
-The strategy performs better in calm markets than dislocated ones, which is the
-opposite of our initial hypothesis. Net Sharpe by dispersion quintile runs 1.24,
-0.59, 0.80, −0.23, 0.68 from calmest to most dislocated. Sizing up into
-dislocation produced a 31.5% drawdown in 2008.
-
-The spec contains no group exposure limit. The 66% municipal tilt does not
-register as a return risk in the regressions but is unmonitored.
-
-Distribution data is fetched and unused. `data/cef/cef_dist_features.parquet`
-holds 11,988 rows flagging cuts and raises. A distribution cut re-rates a
-discount permanently wider, which is the standard loss mode for this strategy,
-and no defence exists. Our event study found cuts move the discount against the
-obvious trade, so this is a risk control problem rather than a signal. It remains
-open.
-
-### 3.6 Kill rule
-
-Committed before deployment and reviewed at 60 live sessions, not before. The
-strategy is killed if live net Sharpe falls below zero, if realised slippage
-exceeds twice modelled for five consecutive sessions, or if the top-minus-bottom
-discount spread falls below 12%, half its current level.
-
-Automatic enforcement is currently disabled. Sleeve kills return OK and log a
-warning, and book drawdown suspension is set to 99%. The paper deployment exists
-to generate evidence, and a strategy that suspends itself stops producing the
-data it was deployed to collect; with no capital at risk the usual reason to cut
-a losing book does not apply. The kill rule is therefore a checklist applied by a
-human at session 60. Broker margin limits remain in force.
+**Moved to `docs/SYSTEM.md` §1–§2** (mechanism, implementation, evidence, live configuration; §3.4's table described the retired 2-day calendar). The kill rule and declared weaknesses of 2026-08-16 are in the archived snapshot `_archive/docs/INFRASTRUCTURE_2026-09-14.md` §3.5–§3.6; the live kill-rule keys are in the frozen spec.
 
 ## 4. Code
 
@@ -419,79 +287,11 @@ exists.
 
 ### 6.0 Prod and dev (2026-09-10)
 
-Two checkouts of one repository:
-
-| | path | what it is |
-|---|---|---|
-| **prod** | `~/prod/QUANTT` | a git worktree **detached at a tag**. The scheduler, the dashboard and the live ledgers run here. Nobody edits it. |
-| **dev** | `~/Desktop/2027/QUANTT/2027` | where work happens. Its HEAD moves freely; nothing it contains reaches a session. |
-
-The boundary is one line: `REPO` in `~/Library/Application Support/quantt/launch_job.py`,
-which every path in the scheduler is derived from. The dashboard plist points at
-`~/prod/QUANTT/dashboard/server.py` for the same reason — a monitor reading the
-dev tree would show a book frozen at the split and look entirely normal doing it.
-
-Code reaches prod only through `ops/promote.sh <tag>`, which refuses inside the
-session window (16:30–22:30 on a trading day) or when prod has uncommitted
-*code*, archives live state, checks out the tag, and smoke-tests it — doctor,
-NAV wait, `fetch_daily --require-asof`, a dry-run session, dashboard import —
-rolling back to the previous tag on any failure.
-
-**Why.** In the week of 2026-09-07 an epoch re-seed left a stale manifest and
-the next armed session crashed before placing anything; `fetch_daily.py` and the
-launchd entry point were both edited four hours before a live session; three
-halts in three days came from books whose bookkeeping had changed that day. The
-common factor was not carelessness — it was that an edit and a session shared
-one tree, so the running system was never fixed.
-
-**Two things are still shared, deliberately and temporarily:**
-
-1. `~/prod/QUANTT/data` is a **symlink back to the dev tree's `data/`**. Prod
-   therefore prices from panels a research script can still overwrite. The
-   intended end state is the reverse — prod owns the panels and
-   `ops/sync_dev_data.sh` rsyncs a copy to dev — and the move is deferred only
-   because it relocates 3.9 GB on a trading day.
-2. The **live ledgers are still tracked in git**, so prod's tree is dirty after
-   every session. That is why the promotion gate excludes live state by
-   pathspec and archives before checkout. Untracking them
-   (`git rm -r --cached ops/books/*_live ops/heartbeat.json`, they are already
-   in `.gitignore`'s intent) is a one-command follow-up gated on
-   `ops/backup_state.sh` running nightly, since git history is currently their
-   only off-machine backup.
-
-`~/prod/QUANTT/config/.env` does not exist — it is gitignored, so the worktree
-did not get one. Verified harmless for trading: prod resolves the identical
-broker config (127.0.0.1:4002, and the per-job `IBKR_CLIENT_ID` comes from
-`ops/schedule/*.env`), and its preflight arms against the live gateway. What it
-does lack is `ALERT_*` (email alerting, which is not configured anywhere yet)
-and `R2_*` (unused by the local backup). Copy it over before configuring alerts.
+**Moved to `docs/SYSTEM.md` §4.1.**
 
 ### 6.1 Scheduled jobs
 
-| Job | Schedule | Function |
-|---|---|---|
-| com.quantt.phase0.daily | 09:35 Mon–Fri | Null trader control experiment |
-| com.quantt.cef.daily | 17:15 Mon–Fri, decides once the day's NAV is published (deadline 21:30) | CEF strategy, MOC for the next close |
-| com.quantt.collect.daily | 18:30 Mon–Fri | Data collection |
-| com.quantt.watchdog.daily | 19:30 Mon–Fri | Alerts on any job that did not run |
-| com.quantt.weekly | Sat 09:00 | Book roll-up report |
-
-All five execute a single file,
-`~/Library/Application Support/quantt/launch_job.py`.
-
-**Same-day NAV (2026-09-08).** The CEF signal is price minus NAV, inner-joined
-on date, and sponsors publish the day's NAV after 17:15. Until 2026-09-08 the
-session decided at 17:15 on the last *complete* pair — yesterday's — one day
-behind the backtest's convention (decide on the pair at t, fill at t+1), and
-the cause of the "dust" orders (the band judged held weights on yesterday's
-prices while the executor sized on today's). The job now fires at 17:15 and
-runs `scripts/cef/wait_for_nav.py`, which polls yfinance (the panel's source)
-and CEFConnect for every deployed name until today's NAV is on both halves of
-the pair; `fetch_daily.py --require-asof` then proves the pair complete (filling
-a yfinance gap from CEFConnect's dated row, logged to
-`data/cef/nav_fallback_log.csv`) or the session **stands down and alerts**. It
-never decides on a lagged pair. `NAV_DEADLINE` / `NAV_POLL_SECONDS` live in
-`cef.env`; the keep-awake agent now holds the machine to 22:30.
+**Moved to `docs/SYSTEM.md` §4.2.** The table that stood here was the evening schedule, replaced by the W3 morning schedule on 2026-09-13; what is loaded is `launchctl list | grep quantt`.
 
 ### 6.2 IBKR API client ids
 
@@ -556,22 +356,7 @@ They are retained for manual use only.
 
 ### 6.3 Session structure
 
-```
-1. REFRESH    fetch prices and NAV        fail -> no trading, still logs
-2. PREFLIGHT  assess trading safety       fail -> no trading, still logs
-3. TRADE      run the book                fail -> halt and alert
-4. CAPTURE    record real executions      always runs, even after 1-3 fail
-```
-
-Trading is dangerous when state is wrong and fails closed. Data collection is
-lost only if it does not occur, since issuers maintain no archive, so a missed day
-is permanent. The previous design conflated the two, so any fault also cost that
-day's data.
-
-Phase 4 is unconditional because `ib.fills()` serves the current TWS session only
-and the daily restart destroys it. A capture running only after a successful
-trade would lose precisely the fills worth having, which is what happened to 302
-executions on 31 July.
+**Moved to `docs/SYSTEM.md` §4.2** (the four-phase session contract, whose canonical text is the `launch_job.py` docstring).
 
 ### 6.4 Preflight checks
 
@@ -599,20 +384,7 @@ preflight agrees, not trade unconditionally.
 
 ### 6.5 Alerting
 
-`ops/halt.py` escalates across three channels: a file in `ops/halts`, which
-preflight reads as a hard gate and which survives reboots; a macOS banner and
-spoken alert; and email. Each channel is wrapped separately so an SMTP timeout
-cannot prevent a halt being recorded. The file write occurs first and unguarded.
-
-Halts are cleared manually and with attribution:
-
-```
-python3 -c "from ops.halt import clear_halt; clear_halt('what was fixed')"
-```
-
-Email is not yet configured. It requires a Google App Password, since Gmail
-rejects account passwords over SMTP. `ALERT_SMTP_USER` and `ALERT_SMTP_PASS` must
-be added to `config/.env`.
+**Moved to `docs/SYSTEM.md` §4.4 (halts) and §4.6 (alerting and verification).**
 
 ## 7. Data and external sources
 
@@ -676,91 +448,8 @@ edge rather than excessive cost, and it changed no verdict.
 
 ## 8. Open issues
 
-**No trading since 1 August.** TWS has not been running. Every session since ends
-`ok_not_armed` with the blocker "nothing listening on 127.0.0.1:4002". Collection,
-reporting and the watchdog have continued without fault, which is the four-phase
-design working as intended, but no orders have transmitted since 31 July.
-Restarting TWS requires an interactive login; automating around that is our first
-infrastructure priority.
-
-**Books over-committed.** CEF at $500,000 plus phase 0 at $640,000 is $1.14M
-claimed against approximately $722,000 of equity, or 158%, at a margin cushion of
-0.166. The margin check blocks new exposure below 0.10, but that is a backstop
-rather than a fix. Resizing is a decision, not a defect.
-
-**Two dead scheduled jobs.** `com.quantt.book.daily` and `com.quantt.book.weekly`
-still invoke `/bin/bash` wrappers, which TCC blocks, and reference
-`ops/books/v2/book_v2_ff.json`, which does not exist. Both should be removed.
-
-**Minor.** `data/README.md` is stale and states two parquet files are unbuilt when
-both exist. `boto3` is not installed on the trading machine, so `src/data/r2.py`
-would fail. `src/analysis/` is empty. No defence exists against distribution cuts
-(section 3.5), and the frozen spec carries no group exposure limit.
+**Removed 2026-09-14.** Every item listed here on 2026-08-16 had been resolved or overtaken (no trading since 1 August; dead `book.*` jobs; an empty `src/analysis/`). Open work lives in `docs/prompts/README.md`. The old list is in the archived snapshot `_archive/docs/INFRASTRUCTURE_2026-09-14.md` §8.
 
 ## 9. Reference
 
-### 9.1 Documents
-
-| Document | Content |
-|---|---|
-| `_archive/docs/HOW_WE_GOT_HERE.md` | Archived. Chronological account of the summer |
-| `_archive/docs/RESEARCH_AND_METHODOLOGY.md` | Archived. Criteria for establishing a result |
-| `RESEARCH_STATE.md` | Live state: deployed, killed, queued |
-| `results/AUDIT_2026-07-31.md` | End-to-end audit |
-| `_archive/results/ACADEMIC_REPORT_2026-07-31.md` | Archived. Formal write-up of the pre-CEF programme |
-| `docs/SYSTEM.md` §4 | How it runs (replaces the archived automation runbook) |
-| `_archive/docs/CREDIT_RV_PREREG.md`, `_archive/docs/E1_PREREG.md` | Archived. Pre-registrations for two killed strategies |
-| `results/cef/HOLDOUT_PREREG.md` | Sealed holdout rules, written before opening |
-
-### 9.2 Scripts
-
-| Script | Function |
-|---|---|
-| `scripts/cef/fetch_daily.py` | Daily price and NAV refresh, idempotent |
-| `scripts/cef/validate.py` | Four-test validation battery |
-| `scripts/cef/open_holdout.py` | One-shot sealed holdout opener |
-| `scripts/cef/reconcile_prices.py` | Our prices against the broker's |
-| `scripts/audit/live_pnl_attribution.py` | Live P&L by strategy, reconciled to IBKR |
-| `scripts/audit/cef_factor_audit.py` | Factor exposures and control regressions |
-| `scripts/audit/moc_routing_test.py` | Places one share, cancels, verifies routing |
-| `scripts/holdings/ingest_holdings.py` | Daily bond price collector |
-| `scripts/bench/run_benchmarks.py` | Nine benchmark books, one accounting path |
-| `ops/preflight.py` | The seven safety checks |
-| `ops/capture_fills.py` | Pulls real executions from the broker |
-| `ops/rebuild_ledger.py` | Rebuilds a ledger from broker truth |
-
-### 9.3 Literature
-
-Lee, Shleifer and Thaler (1991), "Investor Sentiment and the Closed-End Fund
-Puzzle", *Journal of Finance* 46(1), and Pontiff (1996), "Costly Arbitrage:
-Evidence from Closed-End Funds", *Quarterly Journal of Economics* 111(4), on why
-these discounts exist and persist.
-
-Ellul, Jotikasthira and Lundblad (2011), "Regulatory Pressure and Fire Sales in
-the Corporate Bond Market", *Journal of Financial Economics* 101(3), the
-mechanism behind the fallen-angel work in `results/s3/`.
-
-Getmansky, Lo and Makarov (2004), "An Econometric Model of Serial Correlation and
-Illiquidity in Hedge Fund Returns", *Journal of Financial Economics* 74(3), whose
-unsmoothing method sits at rank 4 in our research queue.
-
-Bailey and López de Prado (2014), "The Deflated Sharpe Ratio", *Journal of
-Portfolio Management* 40(5), the source of our deflated Sharpe calculation, and
-Harvey, Liu and Zhu (2016), "...and the Cross-Section of Expected Returns",
-*Review of Financial Studies* 29(1), on significance thresholds under multiple
-testing.
-
-Almgren et al. (2005), "Direct Estimation of Equity Market Impact", *Risk*, the
-square-root law used in our impact model.
-
-### 9.4 Maintaining this document
-
-Parts are numbered for reference in messages and pull requests. Any system change
-requires editing the owning part and adding a changelog row in Part 1. New
-external sources go in section 7.1; new shared scripts in section 9.2. Items
-fixed in Part 8 are deleted rather than marked done, so that list always
-represents the live set of problems.
-
-The team PDFs and their builder were archived on 2026-09-13
-(`_archive/docs/pdf/`, `_archive/docs/build_pdfs.py`); they predated the
-correction banners and were never rebuilt.
+**Moved.** Documents: `docs/INDEX.md`. Commands: `docs/SYSTEM.md` §0. Literature: `docs/REFERENCES.md`. The earlier tables are in the archived snapshot `_archive/docs/INFRASTRUCTURE_2026-09-14.md` §9.

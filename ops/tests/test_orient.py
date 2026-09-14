@@ -239,3 +239,43 @@ class TestSpecFields:
         out = capsys.readouterr().out
         assert "ABSENT from the frozen spec" in out
         assert "0.06" not in out
+
+
+class TestOneCounterTableThreeReaders:
+    """Three modules parse the RESEARCH_STATE counter table, with three regexes:
+    `orient.trials`, `prompt_status.counters` and `gamma_status._trial_counters`
+    (the last greedy). The file was trimmed to its ledger on 2026-09-14 and grew
+    tables of bold-cell rows above and below the counters; a reader that picked
+    up one of those would lower or raise a deflated-Sharpe bar silently."""
+
+    def _all(self, path, monkeypatch):
+        from ops import gamma_status, prompt_status
+        monkeypatch.setattr(orient, "RESEARCH_STATE", path)
+        monkeypatch.setattr(gamma_status, "REPO", path.parent.parent)
+        return ({k: v["trials"] for k, v in orient.trials()["counters"].items()},
+                prompt_status.counters(path),
+                gamma_status._trial_counters())
+
+    def test_they_agree_on_the_real_file(self, monkeypatch):
+        from ops import gamma_status, prompt_status
+        a = {k: v["trials"] for k, v in orient.trials()["counters"].items()}
+        b = prompt_status.counters()
+        c = gamma_status._trial_counters()
+        assert a["CEF"] == b["CEF"] == c["CEF"]
+        assert a["GAMMA"] == b["GAMMA"] == c["GAMMA"]
+
+    def test_they_agree_beside_other_bold_tables(self, tmp_path, monkeypatch):
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        f = docs / "RESEARCH_STATE.md"
+        f.write_text(
+            "| counter | source | trials used |\n|---|---|---|\n"
+            "| **CEF** | **credit closed-end fund discounts** | **48** |\n"
+            "| **GAMMA** | **options** | **0** |\n\n"
+            "| code | what happened | what it means | what to do |\n"
+            "| **D1** | No edge | x | Kill it |\n\n"
+            "| id | hypothesis | phase | gate |\n"
+            "| **CEF-DISC** | **reversion** | **DEPLOYED 2026-07-31, $500k paper** | none |\n"
+            "| **KAPPA** | x | y | **12** | z |\n")
+        a, b, c = self._all(f, monkeypatch)
+        assert a == b == c == {"CEF": 48, "GAMMA": 0}

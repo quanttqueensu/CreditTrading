@@ -37,7 +37,7 @@ stale-price artifact**. The generation side of this project keeps returning to o
 well: price minus a stale mark. That well is dry in ETFs and wet in CEFs. If your
 idea is a fresh coat of paint on it, say so and stop.
 
-Also check `docs/RESEARCH_STATE.md` (KILLED, WATCH, ACTIVE, QUEUE) and
+Also check `docs/RESEARCH_STATE.md` (KILLED, WATCH, ACTIVE, CLOSED), including
 its "KILLED — CEF construction variants" section (the CEF graveyard, plus "also do not build":
 machine learning, regime-switching, jump-diffusion, Heston/SABR, Almgren-Chriss).
 
