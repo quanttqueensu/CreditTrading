@@ -98,6 +98,10 @@ RUNTIME_ARTEFACTS = (
     re.compile(r"^ops/halts/"),
     re.compile(r"^ops/books/\w+_live/"),
     re.compile(r"^ops/reports/"),
+    # Session logs: gitignored, written by whichever tree ran the session (prod
+    # since 2026-09-10), so a fresh checkout has none and a prompt citing a log
+    # as evidence is citing session output, not a file in the repo.
+    re.compile(r"^ops/schedule/logs/"),
     re.compile(r"^ops/heartbeat\.json$"),
 )
 

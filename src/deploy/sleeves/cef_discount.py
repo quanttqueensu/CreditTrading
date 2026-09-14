@@ -54,17 +54,34 @@ class CEFDiscountSleeve(Sleeve):
     alloc_type = "cef_discount"
 
     # ---- config ------------------------------------------------------------
+    # Every knob below is REQUIRED in the frozen spec, and a missing one raises
+    # naming the key. Until 2026-09-14 each was `frozen.get(key, <number>)`: a
+    # spec that lost `vol_target_annual` would have sized the book at a 6%
+    # target that no document or decision had set, silently, and the same for
+    # the z window, the ADV floor, the name floor, leverage and the order type.
+    # The live spec carries every one of these keys, so for it this is a
+    # proven no-op (sleeve targets diffed byte-for-byte before and after on the
+    # last six panel dates). `band_width` is the one deliberate exception:
+    # ABSENT MEANS OFF, by design, and it keeps its `.get`.
+    def _req(self, key: str):
+        if key not in self.frozen:
+            raise KeyError(
+                f"cef_discount frozen spec has no '{key}'. Every sizing and "
+                f"signal knob must be set in ops/specs/cef_discount.frozen.json; "
+                f"the sleeve will not invent one (CLAUDE.md, no silent fallbacks).")
+        return self.frozen[key]
+
     @property
     def _win(self) -> int:
-        return int(self.frozen.get("z_window", 252))
+        return int(self._req("z_window"))
 
     @property
     def _min_adv(self) -> float:
-        return float(self.frozen.get("min_adv_usd", 3.0e6))
+        return float(self._req("min_adv_usd"))
 
     @property
     def _vol_target(self) -> float:
-        return float(self.frozen.get("vol_target_annual", 0.06))
+        return float(self._req("vol_target_annual"))
 
     @property
     def _band_width(self) -> "float | None":
@@ -86,10 +103,10 @@ class CEFDiscountSleeve(Sleeve):
 
     @property
     def _rebal_days(self) -> int:
-        return max(1, int(self.frozen.get("rebalance_days", 2)))
+        return max(1, int(self._req("rebalance_days")))
 
     def instruments(self) -> list[str]:
-        return sorted(self.frozen.get("universe", []))
+        return sorted(self._req("universe"))
 
     def history_warmup_trading_days(self) -> int:
         return self._win + 80
@@ -165,7 +182,7 @@ class CEFDiscountSleeve(Sleeve):
         band_w = self._band_width
         sig_pos = pos if band_w is not None else pos - (pos % self._rebal_days)
         last = z.index[sig_pos]
-        max_age = int(self.frozen.get("max_nav_age_bd", 3))
+        max_age = int(self._req("max_nav_age_bd"))
         row, dropped = {}, []
         for tk in px.columns:
             zi = z.loc[last, tk]
@@ -182,7 +199,7 @@ class CEFDiscountSleeve(Sleeve):
                 dropped.append((tk, f"NAV {age}bd stale")); continue
             row[tk] = float(zi)
 
-        if len(row) < int(self.frozen.get("min_names", 6)):
+        if len(row) < int(self._req("min_names")):
             return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                    reason=f"cef: only {len(row)} eligible names")
                     for t in uni]
@@ -196,20 +213,20 @@ class CEFDiscountSleeve(Sleeve):
         hist = (ret[list(row)].mul(w, axis=1)).sum(axis=1).tail(63)
         rv = hist.std() * np.sqrt(252)
         scal = float(np.clip(self._vol_target / rv, 0.2, 2.5)) if rv > 0 else 1.0
-        w = w * scal * float(self.frozen.get("gross_leverage", 1.0))
+        w = w * scal * float(self._req("gross_leverage"))
 
         # Drop sub-threshold names FIRST, then re-neutralise and re-normalise on
         # the survivors. Filtering after neutralising leaves a small net
         # directional position -- the first dry run came out 0.37% net short --
         # which is exactly the credit beta this book exists to avoid carrying.
-        minw = float(self.frozen.get("min_abs_weight", 0.005))
+        minw = float(self._req("min_abs_weight"))
         keep = w[w.abs() >= minw]
-        if len(keep) >= int(self.frozen.get("min_names", 6)):
+        if len(keep) >= int(self._req("min_names")):
             keep = keep - keep.mean()
             denom = keep.abs().sum()
             if denom > 0:
                 w = keep / denom * scal * float(
-                    self.frozen.get("gross_leverage", 1.0))
+                    self._req("gross_leverage"))
 
         # ---- NO-TRADE BAND ---------------------------------------------------
         # Applied HERE and not earlier: the min-weight block above re-neutralises
@@ -306,7 +323,7 @@ class CEFDiscountSleeve(Sleeve):
                     instrument=tk, side=LONG if q > 0 else SHORT, kind=ETF,
                     qty=q,
                     meta={"order_type": str(
-                        self.frozen.get("order_type", "MOC")).upper()},
+                        self._req("order_type")).upper()},
                     reason=f"cef band hold: |gap|<={band_w:.4f} w={wt:+.4f}"))
                 continue
             # KNOWN INTERACTION, band mode: if the band EDGE lands inside
@@ -332,7 +349,7 @@ class CEFDiscountSleeve(Sleeve):
                 # instruments trading $3-45m. MOC executes in the closing
                 # auction instead, which is what the research measured.
                 meta={"order_type": str(
-                    self.frozen.get("order_type", "MOC")).upper()},
+                    self._req("order_type")).upper()},
                 reason=f"cef discount z={row.get(tk, float('nan')):+.2f} "
                        f"w={wt:+.4f} volscal={scal:.2f}"))
         return out

@@ -94,8 +94,15 @@ def test_an_executed_banner_on_a_queued_prompt_is_drift(tree):
 
 def test_a_status_outside_the_vocabulary_raises_naming_it(tree):
     """NO SILENT FALLBACKS: it says what it found and what it allows."""
+    # Replaces whatever status W3 carries, not the literal "queued": the prompt
+    # moved to "in progress" on 2026-09-14 and a fixture keyed on one status
+    # word stopped planting anything -- the test passed vacuously for no one.
+    import re
     p = tree / "W3_session_architecture.md"
-    p.write_text(p.read_text().replace("**Status:** queued", "**Status:** donezo", 1))
+    text, n = re.subn(r"^\*\*Status:\*\* .*$", "**Status:** donezo", p.read_text(),
+                      count=1, flags=re.M)
+    assert n == 1, "fixture could not find W3's status line to corrupt"
+    p.write_text(text)
     with pytest.raises(ps.PromptStatusError) as e:
         findings(tree)
     assert "donezo" in str(e.value) and "vocabulary" in str(e.value)

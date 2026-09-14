@@ -356,6 +356,16 @@ where it says so; changing a row needs the team lead's name and a date (§7).
 | Gamma scalping | **A standalone programme with its own counter and track record** (`gamma/`), **and** the hedge-overlay use case kept in the CEF queue (`W14`), gated on stress-beta evidence. |
 | Sources | Every external claim lives in **`docs/REFERENCES.md`** with a verification status. Prompts cite it; they do not re-derive it. |
 
+### Team lead, 2026-09-14
+
+Recorded during the documentation cleanup, in answer to two contradictions the
+new documents exposed. Neither changes what trades.
+
+| question | decision |
+|---|---|
+| Vol target until W6 | **The frozen spec's `vol_target_annual` stays in force** (0.06 when this was decided) **until W6 derives a new value** under the 2026-09-08 "derive it, cap 20%" decision. Until then the two are not in conflict: one is the setting, the other is how its replacement will be chosen. |
+| Retiring the null trader | **Open, not yet actioned.** The 2026-09-08 decision stands; `phase0_null` is still a registered book and is halted in prod. Retiring it needs broker-side work a human runs (W2). |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A
