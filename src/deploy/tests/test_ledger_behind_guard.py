@@ -65,9 +65,20 @@ def _broker(ledger):
 
 
 def _check(last_date, asof, open_tickers=("JFR", "MQY", "NEA"),
-           decision_date="2026-09-09", dates=PANEL):
+           decision_date="2026-09-09", dates=PANEL, now=None):
+    # THE CLOCK IS PINNED (2026-09-13). The guard now asks whether the session
+    # runs on asof's own day -- under W3 the morning books YESTERDAY, which no
+    # live query can cover after the 03:00 restart. Every case in this file was
+    # written for the evening session, which queries on asof's day, so that is
+    # the default; the W3 cases below pass a morning clock explicitly.
+    import datetime as _dt
+    from ops.decision_age import EXCHANGE_TZ
+    if now is None:
+        d = pd.Timestamp(asof)
+        now = _dt.datetime(d.year, d.month, d.day, 21, 46, tzinfo=EXCHANGE_TZ)
     _broker(_Ledger(last_date, open_tickers, decision_date)) \
-        ._refuse_if_ledger_is_behind("cef_discount", asof, _MarketState(dates))
+        ._refuse_if_ledger_is_behind("cef_discount", asof, _MarketState(dates),
+                                     now=now)
 
 
 def test_ordinary_next_day_advance_is_allowed():
@@ -109,3 +120,40 @@ def test_ledger_already_current_never_refuses():
 def test_empty_panel_does_not_refuse():
     """Unit stubs supply no prices and the shadow advance is skipped too."""
     _check("2026-09-09", "2026-09-14", dates=[])
+
+
+# -- W3: the morning books yesterday (2026-09-13 review, finding 1) ----------
+
+def _morning(tmp_path, capture_at=None, live=()):
+    import datetime as _dt
+    import types
+    from ops import capture_fills as cf
+    from ops.decision_age import EXCHANGE_TZ
+    if capture_at is not None:
+        path = cf._capture_log_path(tmp_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(",".join(cf.CAPTURE_LOG_COLUMNS) + "\n"
+                        f"{capture_at.isoformat()},95,4,2026-09-11,4,0\n")
+    b = _broker(_Ledger("2026-09-10", ("JFR", "MHD", "NAD", "NEA"),
+                        "2026-09-10"))
+    b._books_root = str(tmp_path)
+    b.ib = types.SimpleNamespace(fills=lambda: list(live))
+    monday = _dt.datetime(2026, 9, 14, 8, 30, tzinfo=EXCHANGE_TZ)
+    return lambda: b._refuse_if_ledger_is_behind(
+        "cef_discount", "2026-09-11", _MarketState(PANEL), now=monday)
+
+
+def test_a_W3_morning_with_no_capture_refuses_BEFORE_transmitting(tmp_path):
+    """prod's cef ledger as measured 2026-09-13: ends 09-10 with JFR/MHD/NAD/NEA
+    open, no _capture_log.csv. The 08:30 Monday session books 09-11. The first
+    version of the fix raised only inside the shadow advance, after the MOC
+    orders had gone -- and then halted."""
+    with pytest.raises(ShadowLedgerBehind, match="no capture completed"):
+        _morning(tmp_path)()
+
+
+def test_a_W3_morning_after_an_evening_capture_proceeds(tmp_path):
+    import datetime as _dt
+    from ops.decision_age import EXCHANGE_TZ
+    _morning(tmp_path, capture_at=_dt.datetime(2026, 9, 11, 17, 30,
+                                               tzinfo=EXCHANGE_TZ))()

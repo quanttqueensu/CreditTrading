@@ -240,8 +240,16 @@ def capture_covers(books_root, date):
     Paper MOC fills on 2026-09-08 are stamped 15:59:33-15:59:59 ET
     (cef_live broker_fills.csv), inside that window.
 
-    NOT COVERED, AND NAMED: a MANUAL gateway restart between the close and the
-    capture would make a capture after it incomplete. Nothing here can see one.
+    NOT COVERED, AND NAMED:
+      * a MANUAL gateway restart between the close and the capture would make
+        a capture after it incomplete. Nothing here can see one.
+      * executions are dated by their UTC date (`str(e.time)[:10]`, the same
+        convention the live path has always used) while this window is in ET.
+        For the MOC book the fills print 15:59 ET, inside both. An AFTER-HOURS
+        execution later than the capture (benchmarks have filled at 17:22 and
+        18:16 ET) is not seen by an earlier capture that still vouches for the
+        day. Latent for cef; must be closed before an after-hours book relies
+        on the later-day path.
 
     A missing log is None (no capture has ever completed). An unreadable one
     raises.
@@ -260,6 +268,10 @@ def capture_covers(books_root, date):
         if ts.tzinfo is None:
             raise ValueError(f"{path}: naive captured_utc {r['captured_utc']!r}")
         et = ts.astimezone(EXCHANGE_TZ)
+        # A capture that dropped contested fills as UNATTRIBUTED did not record
+        # everything it saw; it cannot vouch for the day (review, 2026-09-13).
+        if str(r.get("unattributed", "0")).strip() not in ("0", ""):
+            continue
         if et.date() == want and et.time() >= _dt.time(16, 0):
             return (f"capture completed {et:%Y-%m-%d %H:%M:%S} ET, after the "
                     f"{want} close ({r['n_executions']} execution(s) in session)")

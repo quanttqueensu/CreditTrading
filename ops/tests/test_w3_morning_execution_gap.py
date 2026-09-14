@@ -79,6 +79,7 @@ def _broker(tmp_path, fills=()):
     b._foreign_book_claims = lambda: set()
     b._order_map_by_id = lambda: {}
     b.verbose = False
+    b.config = types.SimpleNamespace(client_id=45)
     return b
 
 
@@ -223,3 +224,45 @@ def test_the_ledger_gap_guard_is_what_turns_empty_covers_into_a_stop():
     """Unchanged ledger behaviour the fix relies on."""
     rec = ExecutionRecord(source="nothing", covers=[])
     assert not rec.covers_date(D_MINUS_1)
+
+
+# -- second review, 2026-09-13 ----------------------------------------------------
+
+def test_a_contested_fill_the_live_loop_drops_is_not_readmitted_from_the_file(tmp_path):
+    """Finding 2. HYG execId 00012ec5.6b3b4043.01.01 sits in BOTH null_trader's
+    and bench_b1_hyg's broker_fills.csv in prod. When the live session still
+    spans the day it is the only source; the file is not merged at all."""
+    eid = "00012ec5.6b3b4043.01.01"
+    live = [_fill("HYG", eid, dt.datetime(2026, 9, 11, 13, 43,
+                                          tzinfo=dt.timezone.utc))]
+    _capture_row(tmp_path, EVENING_D_MINUS_1)
+    record_broker_fill(tmp_path / "_ibkr_shadow" / SLEEVE, instrument="HYG",
+                       side="BUY", qty=605.0, price=80.1, fill_date="2026-09-11",
+                       note=f"execId={eid} commission=2.7")
+    b = _broker(tmp_path, live)
+    b._sleeves = {SLEEVE: {"instruments": ["HYG"]}}
+    b._foreign_book_claims = lambda: {"HYG"}             # another book trades it
+    rec = b._execution_record(SLEEVE, D_MINUS_1, now=MORNING_D)
+    assert rec.covers_date(D_MINUS_1)
+    assert rec.executions("HYG", D_MINUS_1) == []
+
+
+def test_a_contested_symbol_in_the_file_is_not_booked_when_the_file_is_the_source(tmp_path):
+    _capture_row(tmp_path, EVENING_D_MINUS_1)
+    record_broker_fill(tmp_path / "_ibkr_shadow" / SLEEVE, instrument="HYG",
+                       side="BUY", qty=605.0, price=80.1, fill_date="2026-09-11",
+                       note="execId=x9 commission=2.7")
+    b = _broker(tmp_path)
+    b._sleeves = {SLEEVE: {"instruments": ["HYG"]}}
+    b._foreign_book_claims = lambda: {"HYG"}
+    rec = b._execution_record(SLEEVE, D_MINUS_1, now=MORNING_D)
+    assert rec.executions("HYG", D_MINUS_1) == []
+
+
+def test_a_capture_that_dropped_unattributed_fills_does_not_vouch(tmp_path):
+    """Finding 3."""
+    path = cf._capture_log_path(tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(",".join(cf.CAPTURE_LOG_COLUMNS) + "\n"
+                    f"{EVENING_D_MINUS_1.isoformat()},95,17,2026-09-11,15,2\n")
+    assert cf.capture_covers(tmp_path, "2026-09-11") is None

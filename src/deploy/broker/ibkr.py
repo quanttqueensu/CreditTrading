@@ -160,6 +160,12 @@ class ShadowLedgerDesync(RuntimeError):
     """
 
 
+def _dt_now_et():
+    import datetime as _dt
+    from ops.decision_age import EXCHANGE_TZ
+    return _dt.datetime.now(EXCHANGE_TZ)
+
+
 class ShadowLedgerBehind(RuntimeError):
     """The shadow ledger cannot account for today, so nothing may be sent.
 
@@ -1483,7 +1489,8 @@ class IBKRBroker(Broker):
             print(f"[ibkr] pending-order check: nothing resting or recorded "
                   f"pending on {len(instruments)} instrument(s)")
 
-    def _refuse_if_ledger_is_behind(self, sleeve_name, asof, market_state):
+    def _refuse_if_ledger_is_behind(self, sleeve_name, asof, market_state,
+                                    now=None):
         """Refuse BEFORE transmitting if the shadow ledger cannot book today.
 
         `_execution_record` covers exactly `asof`, because `ib.fills()` serves
@@ -1531,7 +1538,25 @@ class IBKRBroker(Broker):
         cal = _common.wide(prices, "close").index
         after = cal[(cal > _pd.Timestamp(last)) & (cal <= asof)]
         if len(after) and _pd.Timestamp(after[0]).normalize() == asof:
-            return          # ordinary single-bar advance; today's record covers it
+            # Ordinary single-bar advance. "Today's record covers it" was true
+            # only while every session queried on asof's own day; under W3 the
+            # morning books yesterday, so ask the SAME coverage question the
+            # record builder will ask -- here, while refusing is still free.
+            if (now or _dt_now_et()).date() <= asof.date():
+                return      # same-day query: the live record covers it, as before
+            later_day, evidence, _ = self._coverage_for(asof, now=now)
+            if later_day and not evidence:
+                raise ShadowLedgerBehind(
+                    f"refusing to transmit for {sleeve_name}: its ledger must "
+                    f"book {len(stale)} order(s) at the {asof.date()} close "
+                    f"({', '.join(stale['ticker'].astype(str).head(5))}), this "
+                    f"session runs on a later day, the gateway restart has "
+                    f"emptied ib.fills(), and no capture completed after that "
+                    f"close (no qualifying row in _capture_log.csv). Booking "
+                    f"would raise AFTER the MOC orders were sent. Run a capture "
+                    f"before the next restart (cef_pm / verify_session "
+                    f"--capture), or reset the epoch from broker positions.")
+            return
 
         raise ShadowLedgerBehind(
             f"refusing to transmit for {sleeve_name}: its shadow ledger ends "
@@ -1544,6 +1569,38 @@ class IBKRBroker(Broker):
             f"(python3 -m ops.rebuild_ledger / ops.unbook_unexecuted_fills). "
             f"Refusing BEFORE the order goes, not after -- an MOC cannot be "
             f"cancelled after 15:50.")
+
+    def _coverage_for(self, asof, now=None):
+        """(later_day, evidence, live_fills) for booking `asof`.
+
+        ONE DEFINITION, CALLED TWICE: by `_refuse_if_ledger_is_behind` BEFORE
+        anything is transmitted, and by `_execution_record` after. A review of
+        the first version (2026-09-13) found the coverage test lived only in the
+        second, so a W3 morning with no capture would transmit its MOC orders
+        and only then raise -- ExecutionRecordGap -> ShadowLedgerDesync -> a
+        halt, with orders NYSE will not cancel. The two callers must never
+        disagree, so neither computes it itself.
+
+        `later_day` is False for a query on `asof`'s own exchange day (every
+        session running today): evidence is then None and irrelevant, and the
+        caller keeps the old behaviour. Otherwise `evidence` is a string saying
+        why `asof` is covered, or None when nothing covers it.
+        """
+        import datetime as _dt
+        from ops.decision_age import EXCHANGE_TZ
+        asof = pd.Timestamp(asof)
+        now_et = (_dt.datetime.now(EXCHANGE_TZ) if now is None
+                  else now.astimezone(EXCHANGE_TZ))
+        if now_et.date() <= asof.date():
+            return False, None, list(self.ib.fills() or [])
+        live_fills = list(self.ib.fills() or [])
+        day = asof.strftime("%Y-%m-%d")
+        if any(str(getattr(getattr(f, "execution", None), "time", ""))[:10] == day
+               for f in live_fills):
+            return True, f"the live session holds executions dated {day}", live_fills
+        from ops import capture_fills as _cap
+        ev = _cap.capture_covers(self._books_root, day)
+        return True, (f"broker_fills.csv: {ev}" if ev else None), live_fills
 
     def _execution_record(self, sleeve_name, asof, now=None):
         """This sleeve's REAL executions for `asof`, for the shadow ledger to book.
@@ -1623,43 +1680,35 @@ class IBKRBroker(Broker):
                   for sym in cfg.get("instruments", []) if sym in mine}
         shared |= {sym for sym in self._foreign_book_claims() if sym in mine}
 
-        import datetime as _dt
-        from ops.decision_age import EXCHANGE_TZ
-        now_et = (_dt.datetime.now(EXCHANGE_TZ) if now is None
-                  else now.astimezone(EXCHANGE_TZ))
-        live_fills = list(self.ib.fills() or [])
-        later_day = now_et.date() > asof.date()
-
+        later_day, evidence, live_fills = self._coverage_for(asof, now=now)
+        day = asof.strftime("%Y-%m-%d")
+        durable = []
         if not later_day:
             record = ExecutionRecord(
                 source=f"ib.fills() @ {pd.Timestamp.utcnow().isoformat()}",
                 covers=[asof])
-            durable, evidence = [], None
         else:
-            from ops import capture_fills as _cap
-            day = asof.strftime("%Y-%m-%d")
-            spans = any(str(getattr(getattr(f, "execution", None), "time", ""))[:10]
-                        == day for f in live_fills)
-            evidence = ("the live session holds executions dated " + day
-                        if spans else _cap.capture_covers(self._books_root, day))
-            from pathlib import Path as _Path_
-            durable = (_cap.captured_executions(
-                _Path_(self._books_root) / "_ibkr_shadow" / sleeve_name, day)
-                if evidence else [])
             record = ExecutionRecord(
-                source=(f"ib.fills() + broker_fills.csv @ "
-                        f"{pd.Timestamp.utcnow().isoformat()} ({evidence})"
+                source=(f"{pd.Timestamp.utcnow().isoformat()} ({evidence})"
                         if evidence else
-                        f"NOTHING covers {day}: queried {now_et:%Y-%m-%d %H:%M} "
-                        f"ET, after the gateway restart"),
+                        f"NOTHING covers {day}: queried after the gateway restart"),
                 covers=[asof] if evidence else [])
+            if evidence and evidence.startswith("broker_fills.csv"):
+                # Only when the LIVE session cannot speak for the day. When it
+                # can, it is the single source, exactly as on a same-day query;
+                # merging the file too would re-admit executions the live loop
+                # below deliberately drops (another book's fill on a contested
+                # symbol -- 127 execIds in prod sit in more than one sleeve's
+                # file, because capture_fills resolves sharing within a book).
+                from ops import capture_fills as _cap
+                from pathlib import Path as _Path_
+                durable = _cap.captured_executions(
+                    _Path_(self._books_root) / "_ibkr_shadow" / sleeve_name, day)
             if not evidence:
-                print(f"[ibkr] {sleeve_name} @ {day}: this session runs on "
-                      f"{now_et.date()}, after the gateway restart that empties "
-                      f"ib.fills(), and no capture completed after the {day} "
-                      f"close. The ledger will REFUSE to book {day} rather than "
-                      f"call its orders unexecuted. Recover with "
-                      f"`python3 -m ops.rebuild_ledger`.")
+                print(f"[ibkr] {sleeve_name} @ {day}: queried after the gateway "
+                      f"restart that empties ib.fills(), and no capture "
+                      f"completed after the {day} close. The ledger will REFUSE "
+                      f"to book {day} rather than call its orders unexecuted.")
 
         order_map = self._order_map_by_id()
         dropped = []
@@ -1719,12 +1768,21 @@ class IBKRBroker(Broker):
                 date=str(ex.time)[:10])
 
         if durable:
-            have = set()
-            for d in record.dates():
-                have |= record.exec_ids_on(d)
-            added = 0
+            # Every execId the live session REPORTED, booked or not -- a dropped
+            # execution must stay dropped.
+            have = {str(getattr(getattr(f, "execution", None), "execId", ""))
+                    for f in live_fills}
+            added, unattributable = 0, []
             for x in durable:
                 if x["exec_id"] in have:
+                    continue
+                if x["instrument"] not in mine:
+                    continue
+                if x["instrument"] in shared:
+                    # The file carries no orderId/permId, so the order map
+                    # cannot attribute it. Same rule as the live loop: never
+                    # guess a contested fill into this sleeve.
+                    unattributable.append((x["instrument"], x["exec_id"]))
                     continue
                 record.add(Execution(instrument=x["instrument"], side=x["side"],
                                      qty=x["qty"], price=x["price"],
@@ -1735,6 +1793,11 @@ class IBKRBroker(Broker):
                 added += 1
             print(f"[ibkr] {sleeve_name} @ {asof.date()}: booked {added} "
                   f"execution(s) from broker_fills.csv ({evidence})")
+            if unattributable:
+                print(f"[ibkr] {sleeve_name} @ {asof.date()}: "
+                      f"{len(unattributable)} captured execution(s) on contested "
+                      f"symbol(s) NOT booked -- the file cannot attribute them: "
+                      f"{unattributable[:5]}")
 
         if dropped:
             print(f"[ibkr] {sleeve_name} @ {asof.date()}: {len(dropped)} "

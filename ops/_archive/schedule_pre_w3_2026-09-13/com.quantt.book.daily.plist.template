@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.quantt.book.daily</string>
+
+    <!-- Fire every weekday at __HOUR__:__MINUTE__ LOCAL time (must be after the
+         4:00pm ET close — adjust via install.sh if this Mac is not in ET).
+         The wrapper itself no-ops on NYSE holidays/special closures. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>__HOUR__</integer><key>Minute</key><integer>__MINUTE__</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>__HOUR__</integer><key>Minute</key><integer>__MINUTE__</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>__HOUR__</integer><key>Minute</key><integer>__MINUTE__</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>__HOUR__</integer><key>Minute</key><integer>__MINUTE__</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>__HOUR__</integer><key>Minute</key><integer>__MINUTE__</integer></dict>
+    </array>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__REPO__/ops/schedule/run_after_close.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PYTHON</key>
+        <string>__PYTHON__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__REPO__/ops/schedule/logs/launchd_daily.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO__/ops/schedule/logs/launchd_daily.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <!-- Missed while asleep: launchd coalesces to one firing at wake; days the
+         Mac was OFF are caught up by the wrapper's - -replay-start gap check. -->
+</dict>
+</plist>
