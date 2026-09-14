@@ -528,9 +528,241 @@ def check_archive_wall(rep: Report) -> None:
             if importers else "")
 
 
+# -- the manifest: one owner per question -----------------------------------
+
+MANIFEST = "docs/INDEX.md"
+# Authored markdown lives everywhere except these. results/ is dated records,
+# _archive/ has its own index, and the ops/ entries are written by the running
+# system, not by a person.
+UNINDEXED_PREFIXES = ("results/", "_archive/", "data/", "ops/books/",
+                      "ops/reports/", "ops/halts/", ".pytest_cache/", ".git/")
+UNINDEXED_RE = re.compile(r"^ops/HALT.*\.md$")
+
+
+def _glob_re(pattern: str) -> re.Pattern:
+    """`**/` spans directories (including none), `*` stays inside one."""
+    out, i = "", 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out += r"(?:.*/)?"
+            i += 3
+        elif pattern[i] == "*":
+            out += r"[^/]*"
+            i += 1
+        else:
+            out += re.escape(pattern[i])
+            i += 1
+    return re.compile(out + r"\Z")
+
+
+def read_manifest(text: str) -> tuple[set, list]:
+    """Roles vocabulary and index rows, both read from the file itself.
+
+    Same design as `ops/prompt_status.py:read_index`: the vocabulary is never
+    hard-coded in the checker, so the file cannot drift from its own checker.
+    """
+    roles, rows, section = set(), [], None
+    for n, line in enumerate(text.splitlines(), 1):
+        if line.startswith("## "):
+            section = line[3:].strip().lower()
+            continue
+        if section == "roles":
+            m = re.match(r"^\|\s*\*\*([a-z-]+)\*\*\s*\|", line)
+            if m:
+                roles.add(m.group(1))
+        elif section == "the index":
+            m = re.match(r"^\|\s*`([^`]+)`\s*\|\s*([a-z-]+)\s*\|\s*([^|]*)\|", line)
+            if m:
+                rows.append({"path": m.group(1), "role": m.group(2),
+                             "owns": m.group(3).strip(), "line": n})
+    return roles, rows
+
+
+def _authored_markdown() -> list[str]:
+    out = []
+    for p in REPO.rglob("*.md"):
+        rel = p.relative_to(REPO).as_posix()
+        if rel.startswith(UNINDEXED_PREFIXES) or UNINDEXED_RE.match(rel):
+            continue
+        if "__pycache__" in rel or "/.pytest_cache/" in rel:
+            continue
+        out.append(rel)
+    return sorted(out)
+
+
+def check_manifest(rep: Report) -> None:
+    """Every authored document is registered, once, with a role and an owner.
+
+    WHY. On 2026-09-13 six documents each presented themselves as the place to
+    start, "how the strategy works" was written six times, and the copies
+    disagreed about the arm rate, the vol target and which tag prod ran. Nobody
+    had decided any of that; each document had simply been written without
+    knowing the others existed. A manifest makes "who owns this question?" a
+    lookup, and this check makes a new document without an answer fail loudly
+    instead of quietly becoming the seventh.
+
+    An exact row beats a glob, so `docs/prompts/README.md` can be canonical
+    while `docs/prompts/**/*.md` are work orders. Two GLOB rows matching one
+    file with no exact row is ambiguous and is drift.
+    """
+    text = _read(MANIFEST)
+    if text is None:
+        rep.add("manifest", GONE, f"{MANIFEST} does not exist",
+                "restore the index; every authored document needs an owner row")
+        return
+    roles, rows = read_manifest(text)
+    if not roles or not rows:
+        rep.add("manifest", DRIFT,
+                f"{MANIFEST}: could not parse "
+                + ("a '## Roles' table" if not roles else "a '## The index' table"),
+                "keep `| **role** | meaning |` and `| `path` | role | owns | ... |` rows")
+        return
+
+    bad_roles = [f"{r['path']} ({r['role']})" for r in rows if r["role"] not in roles]
+    ghosts = [r["path"] for r in rows
+              if not any(c in r["path"] for c in "*?[") and not (REPO / r["path"]).exists()]
+    owners: dict = {}
+    for r in rows:
+        if r["role"] in ("canonical", "ledger") and r["owns"] not in ("", "—"):
+            owners.setdefault(r["owns"].lower(), []).append(r["path"])
+    dup_owners = [f"'{q}': {', '.join(ps)}" for q, ps in owners.items() if len(ps) > 1]
+
+    exact = {r["path"] for r in rows if not any(c in r["path"] for c in "*?[")}
+    globs = [(r["path"], _glob_re(r["path"])) for r in rows
+             if any(c in r["path"] for c in "*?[")]
+    unregistered, ambiguous = [], []
+    for rel in _authored_markdown():
+        if rel in exact:
+            continue
+        hits = [g for g, rx in globs if rx.match(rel)]
+        if not hits:
+            unregistered.append(rel)
+        elif len(hits) > 1:
+            ambiguous.append(f"{rel} <- {hits}")
+
+    for key, bad, what, fix in (
+        ("manifest:roles", bad_roles, "row(s) with a role not in the Roles table",
+         "use a listed role or add it to the table with its meaning"),
+        ("manifest:ghosts", ghosts, "row(s) naming a file that does not exist",
+         "delete the row, or point it at the file's new home"),
+        ("manifest:owners", dup_owners, "question(s) with two canonical owners",
+         "one question, one owner: merge, or link from one to the other"),
+        ("manifest:unregistered", unregistered,
+         "authored document(s) with no row in docs/INDEX.md",
+         "add a row naming what it owns, or archive it"),
+        ("manifest:ambiguous", ambiguous, "document(s) matched by two globs",
+         "add an exact row for it"),
+    ):
+        rep.add(key, DRIFT if bad else OK,
+                f"{len(bad)} {what}" + (": " + "; ".join(bad[:8]) if bad else ""),
+                fix if bad else "")
+
+
+ENTRY_FILES = ("CLAUDE.md", "README.md")
+ENTRY_POINTERS = ("ops.orient", "docs/SYSTEM.md")
+START_HERE_RE = re.compile(r"\b(?:start|begin) here\b", re.I)
+START_HERE_ALLOWED = {"CLAUDE.md", "README.md", ".claude/README.md"}
+
+
+def check_entry_points(rep: Report) -> None:
+    """Two entry files, both pointing at the two owners, and no seventh door.
+
+    The documents that used to call themselves the starting point each sent the
+    reader somewhere different, and four of the five that README.md listed first
+    were historical. An entry file that forgets orient or SYSTEM.md sends the
+    next reader back into that maze; any other file that says "start here" is
+    building a new one.
+    """
+    for rel in ENTRY_FILES:
+        text = _read(rel)
+        if text is None:
+            rep.add(f"entry:{rel}", GONE, "file does not exist")
+            continue
+        missing = [p for p in ENTRY_POINTERS if p not in text]
+        rep.add(f"entry:{rel}", DRIFT if missing else OK,
+                (f"does not point at {missing}" if missing
+                 else "points at ops.orient and docs/SYSTEM.md"),
+                "an entry file names the command for figures and the owner for "
+                "everything else" if missing else "")
+    doors = []
+    for rel in _authored_markdown():
+        if rel in START_HERE_ALLOWED:
+            continue
+        text = _read(rel) or ""
+        if START_HERE_RE.search(text):
+            doors.append(rel)
+    rep.add("entry:others", DRIFT if doors else OK,
+            (f"{len(doors)} other file(s) present themselves as the start: "
+             f"{', '.join(doors)}" if doors else "no other file claims to be the start"),
+            "point at CLAUDE.md / README.md instead" if doors else "")
+
+
+# Files whose pointers must resolve. Widened as each file is rewritten to
+# point at owners rather than restate them.
+POINTER_SCOPE = ("docs/SYSTEM.md", "docs/INDEX.md")
+POINTER_ROOTS = ("ops/", "src/", "scripts/", "results/", "docs/", "config/",
+                 "dashboard/", "deploy/", "_archive/", ".claude/")
+POINTER_TOP = {"CLAUDE.md", "README.md", "pytest.ini", ".gitignore",
+               "requirements.txt"}
+
+
+def _pointer_targets(text: str) -> list[tuple[str, str]]:
+    """(kind, spec) for each backticked repo path or `python3 ...` command."""
+    out = []
+    for tok in re.findall(r"`([^`\n]+)`", text):
+        tok = tok.strip()
+        m = re.match(r"^python3 -m ((?:ops|src|scripts|dashboard)(?:\.\w+)+)", tok)
+        if m:
+            out.append(("module", m.group(1)))
+            continue
+        m = re.match(r"^python3 ((?:ops|src|scripts|dashboard|\.claude)/\S+\.py)", tok)
+        if m:
+            out.append(("path", m.group(1)))
+            continue
+        if " " in tok:
+            continue
+        if tok.startswith(POINTER_ROOTS) or tok in POINTER_TOP:
+            out.append(("path", tok))
+    return out
+
+
+def _resolves(kind: str, spec: str) -> bool:
+    from ops import prompt_status as ps
+    if kind == "module":
+        base = REPO / spec.replace(".", "/")
+        return base.with_suffix(".py").exists() or (base / "__init__.py").exists()
+    if spec.startswith(("data/", "config/.env")) or ps.is_runtime_artefact(spec):
+        return True                    # gitignored panels, secrets, session output
+    if "<" in spec or "{" in spec or "..." in spec:
+        return True                    # a placeholder, not a pointer
+    return bool(ps.resolve(spec, REPO))
+
+
+def check_pointers(rep: Report) -> None:
+    """A path an owner document tells you to open must exist.
+
+    The owner documents replaced prose with pointers, which moves the failure
+    mode rather than removing it: a pointer at a file that has moved is a dead
+    end that looks authoritative. `ops/prompt_status.py` already checks this for
+    work orders; this applies the same resolver to the documents that own
+    questions, including `_archive/` paths, which prompt_status does not read.
+    """
+    for rel in POINTER_SCOPE:
+        text = _read(rel)
+        if text is None:
+            continue
+        dead = sorted({spec for kind, spec in _pointer_targets(text)
+                       if not _resolves(kind, spec)})
+        rep.add(f"pointers:{rel}", DRIFT if dead else OK,
+                (f"{len(dead)} pointer(s) to nothing: {', '.join(dead[:10])}"
+                 if dead else "every pointer resolves"),
+                "repoint to where the file went, or drop the pointer" if dead else "")
+
+
 CHECKS = [check_banners, check_spec_id, check_dsr_bar, check_ops_broker_claim,
           check_band_width_literals, check_results_notes_have_reproducers,
-          check_prereg_shape, check_desk_inventory, check_archive_wall]
+          check_prereg_shape, check_desk_inventory, check_archive_wall,
+          check_manifest, check_entry_points, check_pointers]
 
 
 def run() -> Report:

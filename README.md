@@ -53,6 +53,11 @@ command is right. It reports both worktrees, every active halt in either, the
 last broker-confirmed fill, the arm rate, the live spec, panel dates and the
 trial counters — each beside the command that produced it.
 
+Then read **[`docs/SYSTEM.md`](docs/SYSTEM.md)**: what we trade, how the system
+runs, what we know and what has been decided. It is the one document that owns
+those questions; [`docs/INDEX.md`](docs/INDEX.md) says which file owns every
+other one.
+
 | Document | Read it for | PDF |
 |---|---|---|
 | [`docs/PROJECT_INTRO.md`](docs/PROJECT_INTRO.md) | What this is and who we are hiring. Two pages. | [PDF](docs/pdf/QUANTT-Project-Intro.pdf) |

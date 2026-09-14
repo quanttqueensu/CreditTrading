@@ -277,6 +277,142 @@ def test_the_real_sentinel_token_exists_only_in_the_archive():
     assert not outside, f"sentinel token copied outside _archive/: {outside}"
 
 
+# -- the manifest ----------------------------------------------------------
+
+def _manifest(root: Path, rows: str):
+    (root / "docs/INDEX.md").write_text(
+        "# Index\n\n## Roles\n\n| role | meaning |\n|---|---|\n"
+        "| **canonical** | owns a question |\n| **work-order** | a prompt |\n"
+        "| **manifest** | this |\n\n## The index\n\n"
+        "| path | role | owns | checked by |\n|---|---|---|---|\n"
+        "| `docs/INDEX.md` | manifest | the index | x |\n" + rows)
+
+
+def test_an_unregistered_document_is_drift(fake_repo):
+    """The seventh 'how the system works' document starts life exactly like this."""
+    _manifest(fake_repo, "| `docs/SYSTEM.md` | canonical | how it runs | x |\n")
+    (fake_repo / "docs/SYSTEM.md").write_text("# System\n")
+    (fake_repo / "docs/ANOTHER_OVERVIEW.md").write_text("# How it all works\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:unregistered") == M.DRIFT
+    assert "ANOTHER_OVERVIEW" in {f.key: f.detail for f in rep.findings}["manifest:unregistered"]
+    (fake_repo / "docs/ANOTHER_OVERVIEW.md").unlink()
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:unregistered") == M.OK
+
+
+def test_results_and_archive_need_no_row(fake_repo):
+    _manifest(fake_repo, "")
+    (fake_repo / "results/NOTE_2026-09-13.md").write_text("# dated\n")
+    (fake_repo / "_archive/docs").mkdir(parents=True)
+    (fake_repo / "_archive/docs/OLD.md").write_text("# old\n")
+    (fake_repo / "ops/HALT_book.md").write_text("# halt\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:unregistered") == M.OK
+
+
+def test_a_ghost_row_is_drift(fake_repo):
+    _manifest(fake_repo, "| `docs/MOVED_AWAY.md` | canonical | x | x |\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:ghosts") == M.DRIFT
+
+
+def test_an_unknown_role_is_drift(fake_repo):
+    _manifest(fake_repo, "| `docs/A.md` | authoritative-ish | x | x |\n")
+    (fake_repo / "docs/A.md").write_text("# A\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:roles") == M.DRIFT
+
+
+def test_one_question_two_owners_is_drift(fake_repo):
+    _manifest(fake_repo, "| `docs/A.md` | canonical | how it runs | x |\n"
+                         "| `docs/B.md` | canonical | How it runs | x |\n")
+    (fake_repo / "docs/A.md").write_text("# A\n")
+    (fake_repo / "docs/B.md").write_text("# B\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:owners") == M.DRIFT
+
+
+def test_exact_row_beats_glob_and_two_globs_are_ambiguous(fake_repo):
+    (fake_repo / "docs/prompts/sub").mkdir(parents=True)
+    (fake_repo / "docs/prompts/README.md").write_text("# index\n")
+    (fake_repo / "docs/prompts/sub/W1.md").write_text("# w1\n")
+    _manifest(fake_repo, "| `docs/prompts/README.md` | canonical | queue | x |\n"
+                         "| `docs/prompts/**/*.md` | work-order | — | x |\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:unregistered") == M.OK
+    assert _status(rep, "manifest:ambiguous") == M.OK
+    _manifest(fake_repo, "| `docs/prompts/**/*.md` | work-order | — | x |\n"
+                         "| `docs/prompts/sub/*.md` | work-order | — | x |\n")
+    rep = M.Report(); M.check_manifest(rep)
+    assert _status(rep, "manifest:ambiguous") == M.DRIFT
+
+
+def test_glob_double_star_spans_zero_or_more_directories():
+    rx = M._glob_re("docs/prompts/**/*.md")
+    assert rx.match("docs/prompts/W1.md")
+    assert rx.match("docs/prompts/gamma/G1.md")
+    assert not rx.match("docs/other/W1.md")
+    assert not M._glob_re(".claude/rules/*.md").match(".claude/rules/sub/x.md")
+
+
+# -- entry points and pointers ---------------------------------------------
+
+def test_entry_file_must_point_at_orient_and_system(fake_repo):
+    (fake_repo / "CLAUDE.md").write_text("Run `python3 -m ops.orient`.\n")
+    (fake_repo / "README.md").write_text("`python3 -m ops.orient`, then `docs/SYSTEM.md`.\n")
+    rep = M.Report(); M.check_entry_points(rep)
+    assert _status(rep, "entry:CLAUDE.md") == M.DRIFT
+    assert _status(rep, "entry:README.md") == M.OK
+    (fake_repo / "CLAUDE.md").write_text("`python3 -m ops.orient` then `docs/SYSTEM.md`\n")
+    rep = M.Report(); M.check_entry_points(rep)
+    assert _status(rep, "entry:CLAUDE.md") == M.OK
+
+
+def test_a_seventh_front_door_is_drift(fake_repo):
+    for f in ("CLAUDE.md", "README.md"):
+        (fake_repo / f).write_text("ops.orient docs/SYSTEM.md\n## Start here\n")
+    (fake_repo / "docs/PROJECT_INTRO.md").write_text("# Intro\n\n**Start here.**\n")
+    rep = M.Report(); M.check_entry_points(rep)
+    assert _status(rep, "entry:others") == M.DRIFT
+    (fake_repo / "docs/PROJECT_INTRO.md").write_text("# Intro\n\nSee README.md.\n")
+    rep = M.Report(); M.check_entry_points(rep)
+    assert _status(rep, "entry:others") == M.OK
+
+
+def test_a_dead_pointer_in_an_owner_document_is_drift(fake_repo, monkeypatch):
+    monkeypatch.setattr(M, "POINTER_SCOPE", ("docs/SYSTEM.md",))
+    (fake_repo / "ops/real.py").write_text("")
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "Run `python3 -m ops.real`, read `docs/GONE.md` and `_archive/docs/X.md`.\n")
+    rep = M.Report(); M.check_pointers(rep)
+    detail = {f.key: f.detail for f in rep.findings}["pointers:docs/SYSTEM.md"]
+    assert _status(rep, "pointers:docs/SYSTEM.md") == M.DRIFT
+    assert "docs/GONE.md" in detail and "_archive/docs/X.md" in detail
+    assert "ops.real" not in detail
+    (fake_repo / "docs/SYSTEM.md").write_text("Run `python3 -m ops.real`.\n")
+    rep = M.Report(); M.check_pointers(rep)
+    assert _status(rep, "pointers:docs/SYSTEM.md") == M.OK
+
+
+def test_runtime_artefacts_placeholders_and_panels_are_not_dead(fake_repo, monkeypatch):
+    """Halts live in prod, ledgers are session output, data/ is gitignored, and
+    `<book>` is a placeholder. None is a pointer into this tree."""
+    monkeypatch.setattr(M, "POINTER_SCOPE", ("docs/SYSTEM.md",))
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "`ops/HALT_phase0.md` `ops/books/cef_live/x.csv` `data/cef/p.parquet` "
+        "`ops/books/<book>/_order_map.csv` `config/.env`\n")
+    rep = M.Report(); M.check_pointers(rep)
+    assert _status(rep, "pointers:docs/SYSTEM.md") == M.OK
+
+
+def test_a_missing_module_command_is_dead(fake_repo, monkeypatch):
+    monkeypatch.setattr(M, "POINTER_SCOPE", ("docs/SYSTEM.md",))
+    (fake_repo / "docs/SYSTEM.md").write_text("`python3 -m ops.no_such_tool --check`\n")
+    rep = M.Report(); M.check_pointers(rep)
+    assert _status(rep, "pointers:docs/SYSTEM.md") == M.DRIFT
+
+
 # -- the severity split ----------------------------------------------------
 
 def test_note_does_not_fail_the_gate_but_drift_does(fake_repo):

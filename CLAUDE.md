@@ -195,6 +195,10 @@ universe; panel dates; the trial counters with their deflated-Sharpe bar; and th
 three hygiene greps this file has quoted wrongly. A section that cannot measure
 prints `UNMEASURED` and the reason — never a plausible value.
 
+Then **`docs/SYSTEM.md`** — what we trade, how it runs, what we know and what has
+been decided, with a command in place of every figure. **`docs/INDEX.md`** says
+which file owns which question.
+
 **Read this file for the RULES, which do not rot. Read `ops.orient` for the
 FIGURES, which do.** Any number in any document here — including this one — is a
 dated observation, not an input (H14). If you are about to quote one, re-measure
