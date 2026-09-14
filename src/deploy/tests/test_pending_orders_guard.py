@@ -224,12 +224,24 @@ def test_an_unreadable_trade_refuses():
         po.resting_at_broker([broken], ["NVG"])
 
 
-def test_inactive_counts_as_resting_and_only_done_states_do_not():
+def test_done_states_match_the_installed_library():
+    """Review finding 5: Inactive is done in ib_async, and the guard must agree
+    with the library it reads, or openTrades() and reqAllOpenOrders() disagree
+    about the same order."""
+    OrderStatus = pytest.importorskip("ib_async.order").OrderStatus
+    assert po.DONE_STATUSES == frozenset(OrderStatus.DoneStates)
     trades = [_Trade("NVG", status=s) for s in
               ("Filled", "Cancelled", "ApiCancelled", "Inactive",
-               "PreSubmitted", "Submitted", "PendingCancel")]
+               "PendingSubmit", "PreSubmitted", "Submitted", "PendingCancel")]
     got = sorted(r["status"] for r in po.resting_at_broker(trades, ["NVG"]))
-    assert got == ["Inactive", "PendingCancel", "PreSubmitted", "Submitted"]
+    assert got == ["PendingCancel", "PendingSubmit", "PreSubmitted", "Submitted"]
+
+
+def test_a_blank_instrument_row_refuses_rather_than_being_skipped():
+    rows = [_row("", "2026-09-14T13:00:00+00:00")]
+    with pytest.raises(po.PendingOrdersUnknown, match="no instrument"):
+        po.pending_in_order_map(rows, ["NVG"],
+                                dt.datetime(2026, 9, 14, 9, tzinfo=ET))
 
 
 # -- scope: never a false positive that costs a session ----------------------
@@ -316,3 +328,49 @@ def test_run_book_stands_down_on_it_without_writing_a_halt():
     block = src[i:i + 600]
     assert "return 5" in block
     assert "write_halt" not in block
+
+
+# -- review findings, 2026-09-13 ------------------------------------------------
+
+def test_two_processes_cannot_both_pass_the_check(tmp_path):
+    """Finding 3: launchd delivering two coalesced fires on wake. Neither source
+    can see an order still being placed, so the second must refuse on the lock.
+    Two broker objects = two open file descriptions, which flock treats exactly
+    as it treats two processes."""
+    now = dt.datetime(2026, 9, 14, 8, 30, tzinfo=ET)
+    first = _broker(tmp_path, _StubIB())
+    first._refuse_if_orders_pending(now=now)
+    second = _broker(tmp_path, _StubIB())
+    with pytest.raises(OrdersAlreadyPending, match="already transmitting"):
+        second._refuse_if_orders_pending(now=now)
+    first._release_transmit_lock()
+    third = _broker(tmp_path, _StubIB())
+    third._refuse_if_orders_pending(now=now)          # released -> passes
+    third._release_transmit_lock()
+
+
+def test_a_refusal_releases_the_lock(tmp_path):
+    now = dt.datetime(2026, 9, 14, 8, 30, tzinfo=ET)
+    b = _broker(tmp_path, _StubIB(resting=[_Trade("NVG")]))
+    with pytest.raises(OrdersAlreadyPending):
+        b._refuse_if_orders_pending(now=now)
+    ok = _broker(tmp_path, _StubIB())
+    ok._refuse_if_orders_pending(now=now)
+    ok._release_transmit_lock()
+
+
+def test_not_knowing_is_distinguished_from_pending(tmp_path):
+    """Finding 4: a gateway hiccup is a fault, not a pending set. Both stop the
+    transmission; only one of them clears at the close."""
+    from src.deploy.broker.ibkr import PendingStateUnknown
+    b = _broker(tmp_path, _StubIB(raises=TimeoutError("reqAllOpenOrders")))
+    with pytest.raises(PendingStateUnknown):
+        b._refuse_if_orders_pending(now=dt.datetime(2026, 9, 14, 9, tzinfo=ET))
+    b2 = _broker(tmp_path, _StubIB(resting=[_Trade("NVG")]))
+    with pytest.raises(OrdersAlreadyPending) as exc:
+        b2._refuse_if_orders_pending(now=dt.datetime(2026, 9, 14, 9, tzinfo=ET))
+    assert not isinstance(exc.value, PendingStateUnknown)
+    src = (REPO / "src" / "deploy" / "run_book.py").read_text()
+    assert src.index("except PendingStateUnknown") < src.index(
+        "except OrdersAlreadyPending"), "the subclass must be caught first"
+    assert "return 6" in src

@@ -41,7 +41,9 @@ Writes: a raw snapshot of every broker answer and the verdict, under
 and a heartbeat under `verify_<book_id>`. The snapshot is the durable copy of
 D's executions -- IB's gateway forgets them at its nightly restart.
 
-Never touches: a ledger, the order map, `broker_fills.csv`, a halt. It connects
+Never touches: a ledger, the order map, `broker_fills.csv`, a halt. It does
+NOT decide what the ledger books -- `broker_fills.csv` is the canonical durable
+fill record; the archive here is raw evidence of what the broker said. It connects
 with `readonly=True`, so the API session itself refuses to transmit, and there
 is no placeOrder / cancelOrder / reqGlobalCancel anywhere in this file.
 
@@ -143,13 +145,42 @@ def evaluate(*, auction: dt.date, universe: dict, contested: set,
             raise VerifyInputError(
                 f"_order_map.csv row for {inst} has an unparseable "
                 f"recorded_utc {r.get('recorded_utc')!r}") from exc
+        raw_qty = str(r.get("qty", "")).strip()
+        if not raw_qty:
+            raise VerifyInputError(
+                f"_order_map.csv row for {inst} has a blank qty; a blank is not "
+                f"zero shares")
         sent.append({"instrument": inst, "sleeve": str(r.get("sleeve", "")),
                      "action": str(r.get("action", "")),
-                     "qty": float(r.get("qty") or 0),
-                     "signed": _signed(r.get("action", ""), r.get("qty") or 0),
+                     "qty": float(raw_qty),
+                     "signed": _signed(r.get("action", ""), raw_qty),
                      "auction": auc,
                      "recorded_utc": str(r.get("recorded_utc", ""))})
     for_d = [s for s in sent if s["auction"] == auction]
+
+    # A STACKED SET THAT WROTE ITS OWN MAP ROWS. place_targets sends at most one
+    # order per instrument per call, so two rows for one (sleeve, instrument,
+    # auction) are two order sets into one auction. Without this the stacked
+    # set passes every other check: sent sums to executed, and ledger + sent
+    # sums to the broker (review finding 1, 2026-09-13).
+    seen: dict = {}
+    for s in for_d:
+        seen.setdefault((s["sleeve"], s["instrument"]), []).append(s)
+    stacked = {k: v for k, v in seen.items() if len(v) > 1}
+    if stacked:
+        checks.append(Check(
+            "one_set_per_auction", FAIL,
+            f"{len(stacked)} symbol(s) have MORE THAN ONE order sent for the "
+            f"{auction} close -- two order sets reached one auction: " + "; ".join(
+                f"{inst} x{len(v)} ("
+                + ", ".join(f"{x['action']} {x['qty']:.0f} @ {x['recorded_utc']}"
+                            for x in v) + ")"
+                for (_, inst), v in sorted(stacked.items())),
+            [{"sleeve": k[0], "instrument": k[1], "orders": len(v)}
+             for k, v in stacked.items()]))
+    else:
+        checks.append(Check("one_set_per_auction", PASS,
+                            f"at most one order per symbol for the {auction} close"))
     checks.append(Check(
         "transmitted", INFO,
         f"{len(for_d)} order(s) on {len({s['instrument'] for s in for_d})} "
@@ -474,8 +505,16 @@ def run(book: Path, books_root: Path, client_id: int, auction=None,
                        send_alert, snapshot=None)
 
     mine = set().union(*universe.values()) if universe else set()
-    resting = po.resting_at_broker(broker["trades"],
-                                   mine | set(ledger_syms(ledger)))
+    try:
+        resting = po.resting_at_broker(broker["trades"],
+                                       mine | set(ledger_syms(ledger)))
+    except po.PendingOrdersUnknown as exc:
+        # Still send the day's message: a crash here would be the one silent day.
+        checks = [Check("broker", UNVERIFIED,
+                        f"an open order returned by the broker was unreadable: "
+                        f"{exc}")]
+        return _finish(halt_mod, job, book_id, auction, checks, archive, stamp,
+                       send_alert, snapshot=None)
     snapshot = {"measured_et": now_et.isoformat(), "auction": auction.isoformat(),
                 "client_id": client_id, "positions": broker["positions"],
                 "resting": resting,

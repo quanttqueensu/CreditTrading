@@ -67,11 +67,15 @@ import csv
 import datetime as dt
 from pathlib import Path
 
-# ib_async / ib_insync `OrderStatus.DoneStates`. Everything else -- including
-# `Inactive`, which IB also uses for an order it is holding but not working --
-# counts as resting. Excluding Inactive would be a guess about which kind of
-# inactive it is, made in the direction that transmits.
-DONE_STATUSES = frozenset({"Filled", "Cancelled", "ApiCancelled"})
+# ib_async 2.1.0's `OrderStatus.DoneStates`, measured 2026-09-13:
+# {Filled, Cancelled, ApiCancelled, Inactive}. `Inactive` IS done: IB defines it
+# as an order the system received but that is no longer active because it was
+# rejected or cancelled. An earlier draft counted it as resting "to fail
+# closed", which a review showed would refuse every session until TWS restarted
+# whenever one rejected MOC stayed listed -- and `openTrades()` already drops it
+# while `reqAllOpenOrders()` returns it, so the two calls disagreed about the
+# same order. `test_done_states_match_the_installed_library` pins the match.
+DONE_STATUSES = frozenset({"Filled", "Cancelled", "ApiCancelled", "Inactive"})
 
 NYSE_CLOSE = dt.time(16, 0)
 
@@ -162,6 +166,14 @@ def pending_in_order_map(rows, instruments, now_et: dt.datetime) -> list[dict]:
     out = []
     for i, r in enumerate(rows):
         inst = str(r.get("instrument", "")).strip()
+        if not inst:
+            # A blank instrument is a malformed row, not an out-of-scope one --
+            # a column shift is exactly how it would arise
+            # (`_append_order_map_row`'s migration exists for that defect), and
+            # skipping it is how a pending order becomes an unpending one.
+            raise PendingOrdersUnknown(
+                f"_order_map.csv row {i + 2} has no instrument; the map may be "
+                f"column-shifted, so no row in it can be trusted to scope")
         if inst not in wanted:
             continue
         raw = str(r.get("recorded_utc", "")).strip()

@@ -266,3 +266,24 @@ def test_the_evening_fallback_counts_under_its_own_job_name():
     c = vs.decision_check(dt.date(2026, 9, 15), dt.date(2026, 9, 14),
                           {"cef_pm": beat}, ("cef", "cef_pm"), 4)
     assert c.status == vs.PASS
+
+
+def test_a_stacked_set_that_wrote_its_own_map_rows_fails():
+    """Review finding 1: both sets came from place_targets, so both are in the
+    map. Sent sums to executed and ledger + sent sums to the broker -- every
+    other check agrees, and only the duplicate row gives it away."""
+    rows = [_row("JFR", "SELL", 4630, "2026-09-11T12:30:00+00:00"),
+            _row("JFR", "SELL", 4630, "2026-09-11T16:00:00+00:00")]
+    c = _eval(order_map_rows=rows,
+              executions=[_ex("JFR", "SLD", 4630), _ex("JFR", "SLD", 4630)],
+              broker_positions={"JFR": -9260.0, "NAD": -6550.0,
+                                "NEA": -11683.0},
+              ledger={"cef_discount": (L, {"NAD": -6550.0, "NEA": -11683.0})})
+    assert c["fills"].status == vs.PASS and c["positions"].status == vs.PASS
+    assert c["one_set_per_auction"].status == vs.FAIL
+    assert vs.overall(list(c.values())) == vs.FAIL
+
+
+def test_a_blank_qty_is_not_zero_shares():
+    with pytest.raises(vs.VerifyInputError, match="blank qty"):
+        _eval(order_map_rows=[_row("NAD", "BUY", "")])

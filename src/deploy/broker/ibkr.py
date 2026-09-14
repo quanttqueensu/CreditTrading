@@ -208,6 +208,18 @@ class OrdersAlreadyPending(NotArmed):
     """
 
 
+class PendingStateUnknown(OrdersAlreadyPending):
+    """The pending-order question could not be ANSWERED -- the broker query
+    raised, the order map is unreadable or malformed, or it cannot be written.
+
+    Separate from "an order set IS pending" because they call for different
+    responses: pending clears itself at the auction's close, while unknown is a
+    fault (a gateway hiccup, a corrupt map) that a human may need to fix, and a
+    retry may succeed once it clears. run_book returns rc=6 for this and rc=5
+    for pending, so the scheduler and the heartbeat can tell them apart.
+    """
+
+
 @dataclass
 class IBKRConfig:
     host: str = "127.0.0.1"
@@ -1361,6 +1373,59 @@ class IBKRBroker(Broker):
         """
         if getattr(self, "_pending_checked", False):
             return
+        self._acquire_transmit_lock()
+        try:
+            self._check_pending(extra_instruments, now)
+        except BaseException:
+            self._release_transmit_lock()
+            raise
+
+    def _acquire_transmit_lock(self):
+        """One transmitting process per book, held until this process exits.
+
+        THE CHECK AND THE FIRST ORDER ARE NOT ATOMIC WITHOUT THIS. A review
+        (2026-09-13) named the race: the Mac sleeps through two scheduled fires,
+        launchd delivers both on wake, both reach place_targets, both ask the
+        broker before either order is acknowledged, and both transmit. Neither
+        source can see an order that is still being placed.
+
+        `flock` on `<books_root>/_ibkr_shadow/.transmit.lock`, non-blocking: a
+        second process REFUSES rather than waits, because by the time it got the
+        lock the first set would be resting and it would refuse anyway. The
+        kernel releases the lock when the process exits -- including a crash --
+        so it cannot go stale the way a pid file does.
+        """
+        import fcntl
+        import os as _os
+        from pathlib import Path as _Path
+        path = _Path(self._books_root) / "_ibkr_shadow" / ".transmit.lock"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fd = _os.open(path, _os.O_RDWR | _os.O_CREAT, 0o644)
+        except OSError as exc:
+            raise PendingStateUnknown(
+                f"cannot open the transmit lock {path} ({exc!r})") from exc
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            _os.close(fd)
+            raise OrdersAlreadyPending(
+                f"another process is already transmitting for this book (it "
+                f"holds {path}). Two runs checking at the same moment cannot "
+                f"see each other's orders; this one stands down.")
+        _os.ftruncate(fd, 0)
+        _os.write(fd, f"pid {_os.getpid()} {pd.Timestamp.utcnow().isoformat()}\n"
+                  .encode())
+        self._transmit_lock_fd = fd
+
+    def _release_transmit_lock(self):
+        import os as _os
+        fd = getattr(self, "_transmit_lock_fd", None)
+        if fd is not None:
+            _os.close(fd)            # closing the descriptor releases the flock
+            self._transmit_lock_fd = None
+
+    def _check_pending(self, extra_instruments, now):
         from ops import pending_orders as po
         from ops.decision_age import EXCHANGE_TZ
         import datetime as _dt
@@ -1380,7 +1445,7 @@ class IBKRBroker(Broker):
             trades += [t for t in (self.ib.openTrades() or [])
                        if id(t) not in seen]
         except Exception as exc:                  # noqa: BLE001 - re-raised
-            raise OrdersAlreadyPending(
+            raise PendingStateUnknown(
                 f"could not ask the broker what is resting ({exc!r}). Not "
                 f"knowing is not the same as nothing pending; refusing to "
                 f"transmit.") from exc
@@ -1392,7 +1457,21 @@ class IBKRBroker(Broker):
                       else now.astimezone(EXCHANGE_TZ))
             pending = po.pending_in_order_map(rows, instruments, now_et)
         except po.PendingOrdersUnknown as exc:
-            raise OrdersAlreadyPending(str(exc)) from exc
+            raise PendingStateUnknown(str(exc)) from exc
+
+        # The map is one of this guard's two sources, and
+        # `_record_order_attribution` swallows a failed write so that a
+        # transmitted order is never un-sent over bookkeeping. So the likely
+        # causes of that failure are ruled out HERE, before anything is sent,
+        # rather than discovered after the first order.
+        import os as _os
+        map_dir = self._order_map_path().parent
+        map_dir.mkdir(parents=True, exist_ok=True)
+        if not _os.access(map_dir, _os.W_OK):
+            raise PendingStateUnknown(
+                f"{map_dir} is not writable, so this session's orders could not "
+                f"be recorded and the next session's guard would be blind to "
+                f"them; refusing to transmit")
 
         why = po.refusal(resting, pending)
         if why:

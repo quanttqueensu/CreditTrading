@@ -535,9 +535,16 @@ def main(argv=None):
         # half-sent book to clean up. rc=5 so the scheduler's `rc != 0` branch
         # alerts on it -- a second fire reaching the trade phase is a scheduler
         # fault a human should see, even though nothing was sent.
-        from src.deploy.broker.ibkr import OrdersAlreadyPending
+        from src.deploy.broker.ibkr import (OrdersAlreadyPending,
+                                            PendingStateUnknown)
         try:
             view = orch.advance(asof, source=args.source)
+        except PendingStateUnknown as e:
+            print(f"[run_book] NOT TRANSMITTED — could not establish whether "
+                  f"an order set is pending:\n{e}")
+            print("[run_book] Standing down. No orders transmitted, no halt "
+                  "written; this is a fault, not a pending set (rc=6).")
+            return 6
         except OrdersAlreadyPending as e:
             print(f"[run_book] NOT TRANSMITTED — an order set is already "
                   f"pending at the broker or in this book's order map:\n{e}")
