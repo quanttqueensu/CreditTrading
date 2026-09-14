@@ -1,8 +1,8 @@
 # `docs/prompts/` — the work orders, and which of them are live
 
-**Index written 2026-09-10 (W0c §4); `W15` added 2026-09-11.** Twenty-two entries live here. Three of
-them matter on any given day and eighteen do not, and until this file existed
-the only way to tell was to open all twenty-one.
+**Index written 2026-09-10; executed and closed prompts archived 2026-09-14.**
+Only work orders that still have open parts live here. Until this file existed
+the only way to tell which of them mattered on a given day was to open all of them.
 
 **Every prompt in this directory opens with `00_BRIEF.md`.** Read that first;
 it is the standing brief, not a prompt, and the others assume it.
@@ -24,12 +24,19 @@ python3 ops/prompt_status.py --check   # exit 1 if this file disagrees with the 
 drifts from its prompt, an `EXECUTED` banner citing a commit that does not
 exist, and a status citing a `results/` note that was never written all turn
 `python3 -m pytest` red. What the tool does **not** do is decide a status —
-it cannot know that `W8` Part A's method is dead or that `W14` is blocked on
-`W2`. It checks that whatever a human claimed is backed by something.
+it cannot know that `W8` Part A's method is dead. It checks that whatever a human claimed is backed by something.
 
-`IR ≈ IC · TC · √BR`. The lever column says which term a prompt moves. Our IC
-is settled; **TC (~37%) and BR (1.17 effective against 17 nominal) are the
-problem**, so a TC or BR prompt outranks an IC prompt at equal cost.
+`IR ≈ IC · TC · √BR`. The lever column says which term a prompt moves. The IC is
+good; **TC and effective breadth are the problem** (`docs/SYSTEM.md` §3 names
+the command that measures each), so a TC or BR prompt outranks an IC prompt at
+equal cost.
+
+**When a part of a work order closes, its `**Status:**` line says so in the same
+commit** — done parts with their commits, remaining parts by name, and parts
+overtaken by other work marked as such. **When nothing remains, the prompt is
+archived** (`git mv` to `_archive/docs/prompts/`), not left in this index as
+"in progress". `ops.doc_audit` holds these files to the same no-stale-figures
+check as `CLAUDE.md`.
 
 ## Status vocabulary
 
@@ -63,7 +70,7 @@ below with `python3 ops/prompt_status.py`; do not trust the table.
 | `W7_cost_and_turnover.md` | measurement gating every capture decision | 0 | no | **queued** | — |
 | `W8_carry_and_capacity.md` | **TC** — borrow scales with holdings | ≤2 | no | **in progress** | done: Part A's *method* is measured **dead** — `results/cef/BORROW_AVAILABILITY_2026-09-10.md` (`80b458e`) shows the two disputed sources never reported on the same date and one is permanently 404, so "a week of paired readings" settles nothing. **remains:** all of it; Part A needs a new method first |
 | `W9_dashboard.md` | the desk's instrument | 0 | no | **queued** | — |
-| `W10_breadth_and_groups.md` | **BR** — effective breadth is 1.17 | ≤5 | no | **queued** | Part D superseded by `perfund/F2` |
+| `W10_breadth_and_groups.md` | **BR** — effective breadth is a small fraction of the name count | ≤5 | no | **queued** | Part D superseded by `perfund/F2` |
 | `W11_trading_policy.md` | **TC** — holding period and per-name bands | 2 | no | **queued** | — |
 | `W12_joint_optimiser.md` | **TC and BR together** | 0 shadowing; 1 promoted | no — computes alongside | **queued** | — |
 | `W13_nav_quality_and_horizon.md` | IC, via NAV measurement error | 2 | no | **queued** | — |

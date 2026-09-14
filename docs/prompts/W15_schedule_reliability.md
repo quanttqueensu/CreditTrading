@@ -21,7 +21,7 @@ not an input to a decision rule (H14) — **re-measure before acting.**
 ## 0. The state as measured, 2026-09-11 ~11:50 ET
 
 ```
-prod        ~/prod/QUANTT     7fe3ad8, tag v2026.09.11.2, detached      [V]
+prod        ~/prod/QUANTT     7fe3ad8, tag of 2026-09-11, detached      [V]
 dev         ~/Desktop/2027/QUANTT/2027   main @ 8f5c111, clean          [V]
 third tree  /private/tmp/claude-501/.../ops2  branch ops-guards-20260911 [V]
 gateway     java pid 37143 LISTEN on 127.0.0.1:4002                     [V]

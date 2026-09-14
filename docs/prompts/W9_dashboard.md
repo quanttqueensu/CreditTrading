@@ -142,8 +142,8 @@ with volatile fields stripped. `python3 -m pytest src -q` green.
 2. **Is it real?** Which sessions have broker-confirmed fills and which are
    modelled; realised cost against the 32.6bp breakeven; realised turnover
    against the pre-registered 17.6×/yr; the NAV line broken at the first
-   unconfirmed session. This book armed on 3 of 26 sessions and 22 of 24 ledger
-   dates were modelled until the epoch reset. **The second question exists
+   unconfirmed session. This book armed on a minority of its sessions and most
+   ledger dates were modelled until the epoch reset (`python3 -m ops.session_uptime`). **The second question exists
    because of that history.**
 3. **What do we hold and what is the risk?** The blotter, group subtotals,
    gross, net, effective breadth, the muni-vs-taxable share of variance, net

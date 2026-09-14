@@ -62,7 +62,7 @@ one it is doing:
    the right volatility, never send an order the strategy did not ask for, and
    measure execution fast enough to act on it (W5, W7, W8, W11, W12).
 3. **Add a genuinely new IC source** only where a *mechanism* says one should
-   exist and the current signal is provably blind (W10, W13, W14).
+   exist and the current signal is provably blind (W10, W13; W14 closed 2026-09-13).
 
 ---
 
@@ -82,7 +82,7 @@ each named work order now stands.
 | M6 | **Corporate events.** Tenders, rights offerings, mergers, open-endings, activist 13Ds move a discount to a known level on a known date | Boards that resist activists; holders who sell before the tender | dated | Not staged. Calendar only → W9 Stage 3. **Regime change: see §3** |
 | M7 | **Distribution policy.** Cuts re-rate a fund permanently; the rolling mean takes a year to notice | Yield-screening retail | months | Tested twice, failed at a 2-day hold. **Do not rebuild** |
 | M8 | **Fund health / price level.** Low-priced CEFs have eroded capital through return-of-capital; higher-priced funds revert better AND cost fewer ticks | Yield chasers in eroded funds | — | Measured +0.16 net in July, "Adopt", **never deployed** → W11 §D |
-| M9 | **Volatility state.** Discounts widen together in credit sell-offs and revert fastest afterwards; the options market prices tomorrow's volatility today. Two uses: a *hedge* (long gamma pays exactly then, but costs the variance risk premium every other day) and *information* (a band width and vol target that know a shock is on) | Nobody, for the hedge — it is insurance, priced rich. For the information use: the book's own lagging estimates | days to weeks | Unmeasured on the CEF book → W14 |
+| M9 | **Volatility state.** Discounts widen together in credit sell-offs and revert fastest afterwards; the options market prices tomorrow's volatility today. Two uses: a *hedge* (long gamma pays exactly then, but costs the variance risk premium every other day) and *information* (a band width and vol target that know a shock is on) | Nobody, for the hedge — it is insurance, priced rich. For the information use: the book's own lagging estimates | days to weeks | **Closed 2026-09-13**: the book is not short vol in a way a hedge could use, and no declared conditioner times credit gamma (`docs/RESEARCH_STATE.md` CLOSED: W14-A, G6) |
 
 ---
 
@@ -363,7 +363,7 @@ payoff across the ETFs examined was about **−74%**. A systematic long-gamma bo
 **IBKR paper fills options at the displayed price, from top of book, with no
 market impact**, and does not support penny-increment option fills in paper.
 Paper option P&L cannot establish that any option strategy has positive expected
-value (W14 §C).
+value (this was W14 §C; W14 is archived and options are closed).
 
 Basis risk is real: in March 2020 CEF discounts widened by more than 1,600bp
 while HYG's own price-to-NAV deviation reached −5% to −8% intraday and its

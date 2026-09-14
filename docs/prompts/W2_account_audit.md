@@ -2,9 +2,10 @@
 
 **Status:** in progress — done: Part A's tool and note (`ops/account_audit.py`, `results/ops/ACCOUNT_AUDIT_2026-09-12.md`): margin type measured; the options questions it asked are moot now options are closed; the commission plan was NOT measured. Part B, per-book halt scoping (`43ec054`, `26a5336`). remains: the commission plan (W5's `min_trade_usd` waits on it); Part C, retiring the null trader — prepared, not executed (`b12dec3`, `results/ops/PHASE0_RETIRED_2026-09-13.md`; open in `docs/SYSTEM.md` §5); the benchmark fill dedupe.
 **Reads first:** `00_BRIEF.md` §6 (house rules), §7 (standing decisions).
-**Lever:** prerequisites. Nothing in W14 (options) can start until this note
-says "permitted", and W6's sizing memo cannot be written until the margin type
-is known. **Trials:** 0. **Touches the live book:** no; it winds down a
+**Lever:** prerequisites. W6's sizing memo needs the margin type (measured) and
+W5's `min_trade_usd` needs the commission plan (not yet measured). The options
+questions below gated W14 and the gamma programme, both closed 2026-09-13; they
+are kept as the record of what was asked. **Trials:** 0. **Touches the live book:** no; it winds down a
 different book.
 **Run second, after W1.** **Supersedes:** P8.3.
 
@@ -19,7 +20,7 @@ blocked the CEF session's preflight at 22:45.
 `ops/HALT_<book>.md`, which blocks that book and reaches every other book as a
 non-blocking preflight warning; the global file keeps its old meaning for human
 halts and unattributable faults. `ops.halt.scoped_path` carries the reasoning,
-`src/deploy/tests/test_halt_scope.py` pins it (11 tests), and the drill replaying
+`src/deploy/tests/test_halt_scope.py` pins it, and the drill replaying
 the 09-09 incident showed benchmarks blocked with the CEF book warned and armed.
 
 **Still to do here:** dedupe the benchmark fill files. `capture_fills` attributes

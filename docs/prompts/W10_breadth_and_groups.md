@@ -3,9 +3,10 @@
 **Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
 **Reads first:** `00_BRIEF.md` §1 (the law), §2 (mechanisms M3, M4, M5), §3
 (how these instruments trade), §5 (harness).
-**Lever:** BR. The book's effective breadth is **1.17** today (2.24
-historically) because 92.5% of its variance is one factor: municipal CEFs
-against taxable ones. **This is the biggest hole in the strategy.**
+**Lever:** BR. The book's effective breadth is a small fraction of its name
+count — 1.17 on the live weights and 2.24 historically when this was written
+(2026-09-09 [S]; re-measure with the dashboard's `/api/factors`) — because most
+of its variance is one factor: municipal CEFs against taxable ones. **This is the biggest hole in the strategy.**
 **Trials:** up to 5 on the **CEF** counter — Part B is 0 (a decomposition),
 Part C is 1, Part D is 1 per group tested (up to 4), Part E is 1, Part F is 1.
 Count them as you spend them; do not run all of them.

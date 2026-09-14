@@ -880,9 +880,20 @@ def _agent_layer() -> list[str]:
                   if "__pycache__" not in p.parts)
 
 
+def _live_prompts() -> list[str]:
+    """Live work orders and their index. Executed and closed ones are archived."""
+    base = REPO / "docs/prompts"
+    if not base.exists():
+        return []
+    return sorted(p.relative_to(REPO).as_posix() for p in base.rglob("*.md"))
+
+
 def _rotting_extra() -> list[str]:
-    """The agent layer is read before any document, so it is held to the same bar."""
-    return _agent_layer()
+    """The agent layer is read before any document, and a live work order is
+    pasted straight into a session, so both are held to the same bar. Added for
+    prompts 2026-09-14, when W3's header still gave the arm rate as "3 of 26"
+    two weeks and a schedule change after it was measured."""
+    return _agent_layer() + _live_prompts()
 
 
 CHECKS = [check_banners, check_spec_id, check_ops_broker_modules,

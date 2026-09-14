@@ -555,3 +555,14 @@ def test_one_index_row_may_cover_several_archived_paths(fake_repo):
     (fake_repo / "_archive/results/x/a.csv").write_text("a\n")
     rep = M.Report(); M.check_archive_wall(rep)
     assert _status(rep, "archive:index") == M.OK
+
+
+def test_live_prompts_are_held_to_the_figure_bar(fake_repo):
+    (fake_repo / "docs/prompts").mkdir()
+    w = fake_repo / "docs/prompts/W3_x.md"
+    w.write_text("**Lever:** reliability. The book armed on 3 of 26 sessions.\n")
+    rep = M.Report(); M.check_rotting_figures(rep)
+    assert _status(rep, "figures:docs/prompts/W3_x.md") == M.DRIFT
+    w.write_text("**Lever:** reliability (`python3 -m ops.session_uptime`).\n")
+    rep = M.Report(); M.check_rotting_figures(rep)
+    assert _status(rep, "figures:docs/prompts/W3_x.md") == M.OK

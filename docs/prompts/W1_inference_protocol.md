@@ -142,7 +142,7 @@ because it is correct and free, but do not present it as a fix for anything
 here. Where it will matter: the repo's **NAV** autocorrelation is 0.388, at
 which naive √252 would overstate an annualised Sharpe by **50%** — so any
 statistic computed on a NAV-derived or unsmoothed series (W13), or on the
-gamma book's χ²-shaped P&L (gamma/G5), needs it.
+gamma book's χ²-shaped P&L (the archived `_archive/docs/prompts/gamma/G5_paper_book.md`; options are closed), needs it.
 
 **One property worth stating in the code comment:** η scales the Sharpe estimate
 and its standard error by the same factor, so **the t-statistic is unchanged**.
