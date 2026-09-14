@@ -528,7 +528,22 @@ def main(argv=None):
     else:
         if verbose:
             print(f"[run_book] EXECUTION={execution} single day asof={asof.date()}")
-        view = orch.advance(asof, source=args.source)
+        # AN ORDER SET ALREADY PENDING STANDS DOWN, AND DOES NOT WRITE A HALT.
+        # Same reasoning as DecisionTooOld above: it clears itself when that
+        # auction closes, and a halt would turn a double fire into an outage.
+        # It is raised before this process transmits anything, so there is no
+        # half-sent book to clean up. rc=5 so the scheduler's `rc != 0` branch
+        # alerts on it -- a second fire reaching the trade phase is a scheduler
+        # fault a human should see, even though nothing was sent.
+        from src.deploy.broker.ibkr import OrdersAlreadyPending
+        try:
+            view = orch.advance(asof, source=args.source)
+        except OrdersAlreadyPending as e:
+            print(f"[run_book] NOT TRANSMITTED — an order set is already "
+                  f"pending at the broker or in this book's order map:\n{e}")
+            print("[run_book] Standing down. No orders transmitted, no halt "
+                  "written.")
+            return 5
 
     if args.dry_run:
         out = Path(args.books_root) / f"dryrun_{asof.date()}.json"

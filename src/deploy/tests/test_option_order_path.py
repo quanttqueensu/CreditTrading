@@ -447,6 +447,10 @@ def test_place_targets_validates_before_transmitting_anything():
     b._live_positions = {"gamma_scalp": {}}
     b._bond_instruments = set()
     b._refuse_if_ledger_is_behind = lambda *a, **k: None
+    # Pinned in its own file (test_pending_orders_guard.py); stubbed here for
+    # the same reason as the ledger guard above -- this test is about option
+    # validation, not about what is resting at the broker.
+    b._refuse_if_orders_pending = lambda *a, **k: None
     b._record_order_attribution = lambda *a, **k: None
     b._fills_from_trade = lambda *a, **k: []
 
@@ -470,6 +474,10 @@ def test_place_targets_still_sends_a_well_formed_option_basket():
     b._live_positions = {"gamma_scalp": {}}
     b._bond_instruments = set()
     b._refuse_if_ledger_is_behind = lambda *a, **k: None
+    # Pinned in its own file (test_pending_orders_guard.py); stubbed here for
+    # the same reason as the ledger guard above -- this test is about option
+    # validation, not about what is resting at the broker.
+    b._refuse_if_orders_pending = lambda *a, **k: None
     b._record_order_attribution = lambda *a, **k: None
     b._fills_from_trade = lambda *a, **k: []
 

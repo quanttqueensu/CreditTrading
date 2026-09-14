@@ -193,6 +193,21 @@ class DecisionTooOld(NotArmed):
     """
 
 
+class OrdersAlreadyPending(NotArmed):
+    """An order set is already on its way to an auction this run would reach.
+
+    Raised by `place_targets` BEFORE the first transmission of the process,
+    from broker truth (`reqAllOpenOrders`) and this book's own order map --
+    never from a heartbeat or a wall-clock date. See ops/pending_orders.py for
+    why both sources, and why either one alone has a documented blind spot.
+
+    Subclasses NotArmed for the same reason DecisionTooOld does: any
+    `except NotArmed` site must treat it as a reason not to transmit. Like
+    DecisionTooOld it heals itself (at the auction's close) and so must not
+    write a durable halt.
+    """
+
+
 @dataclass
 class IBKRConfig:
     host: str = "127.0.0.1"
@@ -1145,6 +1160,11 @@ class IBKRBroker(Broker):
                 f"sleeves. Diffing targets against an unverified position book "
                 f"is what would have doubled both books on 2026-07-31.")
         asof = pd.Timestamp(asof)
+        # FIRST, before any other check can spend a broker round trip and
+        # before anything in this process has been transmitted. Broker truth,
+        # not a heartbeat: see OrdersAlreadyPending.
+        self._refuse_if_orders_pending(
+            extra_instruments=[pt.instrument for pt in targets or ()])
         self._refuse_if_ledger_is_behind(sleeve_name, asof, market_state)
         held = dict(self._live_positions.get(sleeve_name, {}))
 
@@ -1314,6 +1334,75 @@ class IBKRBroker(Broker):
             print(f"[ibkr] could not resolve book_id for halt scoping "
                   f"({exc!r}); falling back to a GLOBAL halt")
         return None
+
+    def _refuse_if_orders_pending(self, extra_instruments=(), now=None):
+        """Refuse the whole session if an order set is already headed for an
+        auction this run could reach. Runs ONCE per process, on the first
+        `place_targets` call, i.e. before this process has transmitted anything.
+
+        ONCE, NOT PER SLEEVE, AND THAT IS LOAD-BEARING. The benchmarks book
+        runs bench_b1_hyg and bench_b6_ew_credit in one process and both trade
+        HYG. Checked per call, sleeve 2 would see sleeve 1's after-hours HYG
+        order resting and refuse -- a false positive on every session, and a
+        half-transmitted book. Checked once, the scope is every instrument of
+        every sleeve registered in this process, so a prior run's orders on any
+        of them stop the session before its first order, and this run's own
+        orders can never trip it.
+
+        SCOPE. Registered instruments, plus everything any sleeve currently
+        holds, plus the first call's own targets. Option legs are matched on
+        the contract's localSymbol (the OCC code), which is not a sleeve's
+        instrument name, so this guard does NOT cover a resting option order
+        yet. No book that trades today has one; gamma/G5 must extend it before
+        it transmits.
+
+        Fails closed on every doubt: a broker query that raises, an order map
+        that cannot be read, a row whose timestamp cannot be parsed.
+        """
+        if getattr(self, "_pending_checked", False):
+            return
+        from ops import pending_orders as po
+        from ops.decision_age import EXCHANGE_TZ
+        import datetime as _dt
+
+        instruments = {str(i) for i in extra_instruments or ()}
+        for meta in (self._sleeves or {}).values():
+            instruments.update(str(i) for i in meta.get("instruments", ()) or ())
+        for book in (self._live_positions or {}).values():
+            instruments.update(str(i) for i in book)
+
+        try:
+            trades = list(self.ib.reqAllOpenOrders() or [])
+            # reqAllOpenOrders returns the trades it was sent; openTrades() is
+            # the wrapper's full not-done set. Take both: a trade missing from
+            # one and present in the other is still a trade.
+            seen = {id(t) for t in trades}
+            trades += [t for t in (self.ib.openTrades() or [])
+                       if id(t) not in seen]
+        except Exception as exc:                  # noqa: BLE001 - re-raised
+            raise OrdersAlreadyPending(
+                f"could not ask the broker what is resting ({exc!r}). Not "
+                f"knowing is not the same as nothing pending; refusing to "
+                f"transmit.") from exc
+
+        try:
+            resting = po.resting_at_broker(trades, instruments)
+            rows = po.read_order_map(self._order_map_path())
+            now_et = (_dt.datetime.now(EXCHANGE_TZ) if now is None
+                      else now.astimezone(EXCHANGE_TZ))
+            pending = po.pending_in_order_map(rows, instruments, now_et)
+        except po.PendingOrdersUnknown as exc:
+            raise OrdersAlreadyPending(str(exc)) from exc
+
+        why = po.refusal(resting, pending)
+        if why:
+            print(f"[ibkr] NOT TRANSMITTING -- an order set is already pending:"
+                  f"\n{why}")
+            raise OrdersAlreadyPending(why)
+        self._pending_checked = True
+        if self.verbose:
+            print(f"[ibkr] pending-order check: nothing resting or recorded "
+                  f"pending on {len(instruments)} instrument(s)")
 
     def _refuse_if_ledger_is_behind(self, sleeve_name, asof, market_state):
         """Refuse BEFORE transmitting if the shadow ledger cannot book today.
