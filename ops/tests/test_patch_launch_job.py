@@ -26,9 +26,32 @@ def _patcher():
 
 
 def _source(p):
+    """An UNPATCHED launch_job.py to exercise the patcher against.
+
+    These tests used to read `p.TARGET` directly, which made them depend on the
+    machine's state: the moment the patch was actually applied -- 2026-09-13
+    21:27 -- twelve of them failed, not because the patcher broke but because
+    its own output is idempotent and correctly answered "already applied,
+    nothing to do". A test that goes red when the thing it tests SUCCEEDS is
+    worse than no test, because the next person silences it.
+
+    So: prefer the live file while it is unpatched, and otherwise fall back to
+    the newest timestamped backup the patcher itself wrote before applying.
+    That is a genuine pre-patch file rather than a fixture someone hand-copied,
+    so the anchors it exercises are the anchors that really existed.
+    """
     if not p.TARGET.exists():
         pytest.skip(f"launch_job.py not on this machine ({p.TARGET})")
-    return p.TARGET.read_text()
+    live = p.TARGET.read_text()
+    if p.MARKER not in live:
+        return live
+    baks = sorted(p.TARGET.parent.glob(p.TARGET.name + ".bak-*"), reverse=True)
+    for b in baks:
+        text = b.read_text(errors="replace")
+        if p.MARKER not in text:
+            return text
+    pytest.skip("launch_job.py is patched and no pre-patch backup remains; "
+                "nothing unpatched to exercise the patcher against")
 
 
 def test_every_anchor_matches_exactly_once():

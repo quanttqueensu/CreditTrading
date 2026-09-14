@@ -350,3 +350,65 @@ def test_a_different_pair_on_the_same_day_is_caught_only_by_the_today_question()
                 beats=beats, minutes_now=AM)
     assert p.may_arm, "the pair question genuinely does not see this"
     assert sp.decided_today(beats, "2026-09-15") == "cef"
+
+
+# ---------------------------------------------------------------------------
+# `armed` is not evidence of a transmission. Added 2026-09-13 from prod.
+# ---------------------------------------------------------------------------
+
+def _beat(status, armed=True, pair="2026-09-11", date="2026-09-12"):
+    return {"cef": {"status": status, "date": date,
+                    "detail": {"armed": armed, "pair_date": pair}}}
+
+
+def test_a_stand_down_beat_does_not_count_as_a_decision():
+    """The exact beat sitting in prod's heartbeat on 2026-09-13.
+
+    The 2026-09-11 session stood down -- its log reads `NOT ARMED -> dry run
+    ... Reason: already traded today (same-day guard)` -- yet its beat records
+    `armed: true` with `pair_date: 2026-09-11`, because launch_job keeps that
+    flag True on a guarded re-run by design. Keyed on `armed` alone, the first
+    W3 morning refused with "pair 2026-09-11 was already decided" and the book
+    would not have traded on day one of the new schedule.
+    """
+    assert sp.pair_already_decided(
+        _beat("ok_already_traded"), "2026-09-11") is None
+
+
+def test_a_not_armed_beat_does_not_count_either():
+    assert sp.pair_already_decided(
+        _beat("ok_not_armed"), "2026-09-11") is None
+
+
+def test_a_real_armed_beat_still_blocks_the_same_pair():
+    """The guard must still do its job, or the test above proves nothing."""
+    assert sp.pair_already_decided(
+        _beat("ok"), "2026-09-11") == "cef"
+
+
+def test_an_UNRECOGNISED_status_counts_as_armed():
+    """Fail CLOSED. This is the direction that matters.
+
+    Requiring `status == "ok"` would be the obvious fix and is wrong: a status
+    this module has not heard of -- a future "ok_partial", a "halted" written
+    after the trade phase -- would read as "never armed" and let a second order
+    set into the same auction. There is no dedupe at the broker.
+    """
+    assert sp.pair_already_decided(
+        _beat("some_status_from_the_future"), "2026-09-11") == "cef"
+
+
+def test_the_exclusion_list_is_by_name_not_by_prefix():
+    """`ok_` is not a safe prefix to exclude on -- "ok" itself starts with it."""
+    for s in sp.NON_TRANSMITTING_STATUSES:
+        assert s != "ok", "excluding plain 'ok' would disable the guard entirely"
+    assert "ok" not in sp.NON_TRANSMITTING_STATUSES
+
+
+def test_the_monday_after_the_stand_down_may_arm():
+    """End to end, with prod's real beat shape: the first W3 morning trades."""
+    p = sp.plan("cef", today="2026-09-14",
+                          prev_trading_day="2026-09-11",
+                          beats=_beat("ok_already_traded"),
+                          minutes_now=8 * 60 + 30, force=False)
+    assert p.may_arm and p.refusal is None and p.asof == "2026-09-11"

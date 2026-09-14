@@ -142,6 +142,16 @@ class SessionPlan:
         return self.mode in (MORNING, EVENING)
 
 
+# Statuses that mean THIS FIRE TRANSMITTED NOTHING, by name. Anything not in
+# this set counts as armed when `detail.armed` is true -- see `_armed_beats`.
+# Add to it only for a status whose code path provably cannot reach the trade
+# phase; the cost of a wrong entry here is two order sets in one auction.
+NON_TRANSMITTING_STATUSES = frozenset({
+    "ok_already_traded",   # the same-day guard blocked it; it dry-ran instead
+    "ok_not_armed",        # preflight or the plan refused before the trade phase
+})
+
+
 def _armed_beats(beats: dict) -> dict:
     """The cef-family beats that represent a real armed decision.
 
@@ -150,13 +160,43 @@ def _armed_beats(beats: dict) -> dict:
     them as a decision would make the guards refuse sessions that never traded
     -- which fails in the dangerous direction for uptime rather than for safety,
     but fails silently either way.
+
+    `detail.armed` ALONE IS NOT THAT EVIDENCE, and this function used to treat it
+    as if it were -- the paragraph above stated the right rule and the code below
+    did not implement it. `launch_job.py` deliberately keeps `armed` True on a
+    guarded re-run, so that a missing pair hits the fail-closed branch of
+    `pair_already_decided`. The live consequence, measured in prod's heartbeat on
+    2026-09-13:
+
+        {"status": "ok_already_traded", "date": "2026-09-12",
+         "detail": {"armed": true, "pair_date": "2026-09-11", ...}}
+
+    That beat was written by the 2026-09-11 session, which **stood down** -- its
+    log reads `NOT ARMED -> dry run ... Reason: already traded today (same-day
+    guard)`. Nothing was transmitted on pair 2026-09-11. Keyed on `armed` alone,
+    the first W3 morning would have refused with "pair 2026-09-11 was already
+    decided", and the book would not have traded on its first day of the new
+    schedule -- an uptime failure produced by a safety guard reading a field that
+    does not mean what it appears to.
+
+    SO THE STATUS IS CONSULTED, AND THE EXCLUSION IS BY NAME RATHER THAN THE
+    INCLUSION. Requiring `status == "ok"` would be the obvious fix and it fails
+    in the wrong direction: any status this module has not heard of -- a future
+    "ok_partial", a "halted" written after a transmit -- would read as "never
+    armed" and let a SECOND order set into the same auction. The trade phase is
+    not idempotent and there is no dedupe at the broker (CLAUDE.md hard rule 2),
+    so an unrecognised status must count AS armed. Only statuses known to mean
+    "this fire transmitted nothing" are excluded.
     """
     out = {}
     for job in CEF_JOBS:
         beat = (beats or {}).get(job) or {}
         detail = beat.get("detail") or {}
-        if detail.get("armed"):
-            out[job] = beat
+        if not detail.get("armed"):
+            continue
+        if beat.get("status") in NON_TRANSMITTING_STATUSES:
+            continue
+        out[job] = beat
     return out
 
 

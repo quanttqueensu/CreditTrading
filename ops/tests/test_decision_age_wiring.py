@@ -73,7 +73,23 @@ def test_the_real_patcher_produces_a_wired_file(tmp_path):
     p = _patcher()
     if not p.TARGET.exists():
         pytest.skip(f"launch_job.py not on this machine ({p.TARGET})")
-    assert _row(tmp_path, p.build(p.TARGET.read_text()))[0][0] == doctor.PASS
+    # The patcher is idempotent and `build()` exits on an already-patched file.
+    # Once the patch was really applied (2026-09-13 21:27) this test went red
+    # for the one reason that should never turn a test red: the thing it tests
+    # SUCCEEDED. So take the live file while it is unpatched, and otherwise the
+    # newest pre-patch backup the patcher wrote itself.
+    src = p.TARGET.read_text()
+    if p.MARKER in src:
+        baks = sorted(p.TARGET.parent.glob(p.TARGET.name + ".bak-*"), reverse=True)
+        src = next((t for b in baks
+                    if p.MARKER not in (t := b.read_text(errors="replace"))), None)
+        if src is None:
+            # Already applied and no pre-patch copy left: check the LIVE file
+            # directly, which is the real question anyway -- is what is
+            # installed wired?
+            assert _row(tmp_path, p.TARGET.read_text())[0][0] == doctor.PASS
+            return
+    assert _row(tmp_path, p.build(src))[0][0] == doctor.PASS
 
 
 def test_a_file_that_does_not_run_the_book_says_so_rather_than_passing(tmp_path):
