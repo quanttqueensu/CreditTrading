@@ -163,6 +163,148 @@ validated alloc type with no sleeve class behind it.
 
 ---
 
+## W14 PART A 2026-09-11 — the book is not short vol; the convexity overlay is closed
+
+**Trials spent: ZERO, on either counter. The table above does not move, and
+that is the point** — Part A adopts nothing and chooses nothing; it describes a
+P&L series the book already had. `results/cef/STRESS_BETA_2026-09-11.md` is the
+note and `python3 scripts/cef/stress_beta.py` reproduces every figure in it.
+**Re-measure before quoting any of them (H14).**
+
+W14's Part B gate was written before the run: it opens only on β_ΔVIX < 0 with
+|t| ≥ 2.5 **and** ≥ 7 of 10 worst drawdown windows starting in the top VIX
+quintile. **It fails on both.**
+
+| gate condition | measured | verdict |
+|---|---|---|
+| β_ΔVIX < 0, \|t\| ≥ 2.5 | −0.000092/pt, t −0.69 (NW5, n = 2,742) = **$−46 per VIX point** on $500k. Univariate −0.000343 (t −2.80); dropping the straddle leg for the longest window, −0.000247 (t −1.93, n = 3,291) — the least favourable reading, still short of the bar | FAIL |
+| ≥ 7 of 10 worst 21-session windows start in top VIX quintile | **0 of 10** (6 of 10 merely contain one) | FAIL |
+
+**Part B — the long-gamma overlay, 1 GAMMA trial — is CLOSED, not deferred.**
+
+**What the gate does NOT say, stated because it cuts the other way.** Two
+readings point toward a short-vol exposure and neither is in the gate:
+`SHORTVOL` — the only *tradeable* vol factor in the panel, a short-ATM-straddle
+return — loads **+0.105 (t +1.34)** full sample and **+0.190 (t +1.90)** on the
+2023-26 holdout, and a POSITIVE loading on a short-straddle return is the
+short-vol sign; and **univariate ΔVIX is −0.000343 (t −2.80)**, which clears the
+gate's own |t| ≥ 2.5 bar on its own. The gate is specified on the full factor
+set and was read that way, but the verdict is specification-dependent in that
+one respect. So the correct claim is **"the book carries a mild short-volatility
+exposure, and it is not the kind an option can profitably hedge"** — not "the
+book has no vol exposure". The exposure is real and small; the hedge is what
+does not pay.
+
+Three findings behind it, each of which matters beyond this prompt:
+
+1. **The drawdowns are single-name premium-regime events.** Across the ten
+   worst windows one fund is a median **60%** of the loss: PHK leads three,
+   DSL three, PTY two. In Feb–Mar 2020 — the only genuine credit vol event this
+   book has traded — the book lost 3.98% while **PHK alone lost 8.37% and the
+   other sixteen names made +4.39%**. An index put would have hedged the part
+   that was working. This is the same concentration the effective breadth of
+   ~1.2 against 17 nominal names describes, seen from the tail.
+
+2. **The signal is 2.39× stronger in stress**, not weaker: IC by VIX tercile at
+   signal time −0.0392 / −0.0417 / **−0.0936** (t −2.88 / −2.95 / −6.27), and
+   the 21 sessions a top-decile-VIX decision actually earns (*t+2*..*t+22*)
+   return **+1.60%** against +0.84% unconditionally. The book *is* hurt on the day volatility
+   jumps (−7.9bp against +4.0bp unconditionally on the top-5% ΔVIX days, −33.6bp
+   on the top 1%) — but that is under one daily standard deviation, is not
+   distinguishable from zero, and is repaid several times over within the month.
+   **The hedge would be short the reversion.**
+
+3. **The live band holds nothing before 2013-06-14.** 2,126 of 5,456 panel
+   sessions are exactly flat. Landmine 6's dilution is arithmetically confirmed
+   (1.209 ÷ √(3,330/5,456) = 1.547 against 1.550 measured on traded sessions),
+   and the consequence is larger than the arithmetic: **this book has never
+   traded a credit crisis**, so every era, drawdown and stress claim about it —
+   including the three above — is a statement about 2013–2026 and nothing else.
+
+**What is UNMEASURED and why.** β on ΔHYG-IV and the credit `rich_ratio` cannot
+be computed: **no credit option data exists anywhere in this repo**
+(`data/vrp/atm_iv_daily.parquet` and both marks files carry SPY and QQQ only).
+That is `gamma/G2`. The E1 §5 short-ATM-straddle regressor had to be **rebuilt**
+from `data/vrp/marks_SPY.parquet` because
+`results/vrp/refute_tail_ledger_SPY.csv`, which `src/deploy/lib/attribution.py`
+names as its source, **does not exist** — nor does `results/vrp/`.
+
+**What would reverse it.** A re-run clearing both gate conditions, or G2's HYG
+surface showing β_ΔHYG-IV negative with |t| ≥ 2.5 where β_ΔVIX was not. The
+book's R² on HYG's own excess return is **0.0126**, which is the prior on how
+likely that is.
+
+**Part C — vol state as information, 1 CEF trial — is BLOCKED, not closed.** Its
+input is HYG ATM implied vol from G2's surface; VIX is Part C's own declared
+negative control and cannot substitute for the treatment. Measured at zero cost
+in the meantime: the high-VIX tercile earns the most gross (11.48%/yr) and keeps
+**0.85** net@15 against the mid tercile's **1.06**, because it trades 1.41× as
+much. **That is a transfer-coefficient problem, not a convexity one**, and it is
+the lever this desk already knows is the largest. The cube-root law on the
+measured σ_w ratio (1.05×) implies a band only 1.03× wider in stress, 4.8% →
+5.0% — recorded now so Part C cannot later pick a width and call it derived.
+
+---
+
+## G6 2026-09-13 — credit gamma costs 2.77x equity gamma, and no conditioner times it
+
+**Trials spent: ZERO, on either counter.** G6 is measurement plus a
+pre-registration; G7 was the prompt that would have spent the GAMMA trial, and
+it does not run. `results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md` is the
+deliverable, `results/gamma/CREDIT_BASE_RATE_2026-09-13.md` and
+`results/gamma/CONDITIONERS_2026-09-13.md` the two measurements behind it.
+Reproduce with `python3 scripts/gamma/credit_base_rate.py` and
+`python3 scripts/gamma/conditioners.py`. **Re-measure before quoting any figure
+here (H14).**
+
+**Part A — the base rate W14 Part A had to record as UNMEASURED.** VXHYG (Cboe,
+fetched by `scripts/gamma/fetch_cboe_vol_indices.py`) against HYG close-to-close,
+2015-04-22 → 2026-07-30 — the HYG panel ends 43 days before VXHYG's, and
+`ops/doctor.py` flags it:
+
+| underlier | median implied | median forward realised | **variance ratio** |
+|---|---:|---:|---:|
+| HYG (credit) | 7.78% | 4.68% | **2.77x** |
+| SPY (equity) | 14.02% | 12.40% | **1.28x** |
+
+Implied sat below subsequent realised — the state long gamma wants — on **9.1%**
+of days over the full sample and **1.8%** in 2023–26. This confirms a prior G6
+stated in advance from Wang, Zhou & Zhou (FEDS 2011-02, VRP rising monotonically
+7 at AAA → 82 at CCC): HYG is a high-yield basket, so a large premium is what
+that literature predicts.
+
+**Part B — the three conditioners, all declared before running.** C1 (VRP level,
+−1.0 sd, 504d) is the literature baseline. C2 (term structure) is **DECLARED AND
+UNAVAILABLE** — it needs per-strike historical option prints and IBKR serves
+none. C3 (CEF stress nowcast, > 1.5, 252d) is the only one that is ours.
+
+**C3 fails on the holdout.** In sample, beside C1: β **+0.0097**, t **+2.42**,
+incremental R² **+0.0358**, and it survives the control for the target and C1
+sharing an IV_t term (against forward realised vol alone: β **+0.02105**,
+t **+3.95**, n = 4,851). On the 2023–26 holdout the coefficient falls to **24%**
+of full sample (+0.02085 → +0.00490, t **+1.69**) and on the stated target it is
+**−0.20**. G6's rule requires both halves. **This is the `z_window = 63` shape.**
+
+**The part that does not depend on the holdout at all:** no state, under either
+conditioner, at any threshold reported, has a positive mean target. The best cell
+in the table is C3 > 2.0 at **−0.0113** — 62 days in eleven years, still paying
+1.13 vol points annualised of premium before any spread or hedge cost.
+
+**What G6 could NOT measure, kept separate from what it refuted.** Part D's
+economic battery — Sharpe, Calmar, carry, P&L in the CEF book's ten worst windows
+at 1x/2x/3x spread — needs per-strike option prices and is **UNMEASURABLE, not
+failed**. It does not rescue anything: the regression is a prerequisite to it,
+and option costs can only make the mean-target column worse.
+
+**The implication points at the other side of the trade, and it is not
+pre-registered.** A 2.77x premium is an argument against paying it. Carr & Wu
+(2009) put the Sharpe of *shorting* S&P variance at 0.98 and Goyal & Saretto
+(2009) find the edge in selling into an implied run-up — a different risk shape
+(short convexity, the tail the premium exists to pay for), needing its own
+prompt, pre-registration, trial and a margin budget this account does not have.
+
+---
+
 ## KILLED — never re-test without new data
 | id | hypothesis | cause of death | evidence | date |
 |---|---|---|---|---|
@@ -176,6 +318,7 @@ validated alloc type with no sleeve class behind it.
 | dealer-constraint | primary-dealer corporate inventory predicts credit excess returns (intermediary asset pricing) | **D1** ZERO credit names significant at any horizon 5-63d (best t=1.59, ANGL 42d); UST control shows the SAME magnitude (mean t 0.95-1.50), so even the sign that is there is not credit-specific | `results/s4/dealer_constraint.csv` | 2026-07-31 |
 | pair-reversion | within-class wrapper pairs mean-revert; combine 22 for breadth | **D2 + capacity.** Combination thesis CONFIRMED: mean pairwise correlation +0.027, combined **GROSS Sharpe +1.03**. But (a) costs do NOT diversify while vol does, so the cost drag in Sharpe terms grows ~sqrt(N) and net falls to **-0.16**; (b) combined vol is 0.37%, so reaching the 12% mandate needs **32.8x leverage** against a ~2x Reg T ceiling. Per-pair signal is weak and honest: mean t -1.17 at h=1, 5/22 individually significant (IGLB/VCLT -3.58, SPLB/IGLB -3.20, SPHY/USHY -2.78), UST control +0.12 with 0/3 | `results/ou/pair_sleeve_v2.csv` | 2026-07-31 |
 | short-pressure | crowded credit hedges (FINRA daily short volume) unwind and reverse | **D1** credit mean t 0.28/0.03/-0.20/-0.42 at h=1/3/5/10d, 2/10 names significant at the best horizon; the RATES comparison group scores HIGHER (1.01/0.92/1.05/0.45), so nothing here is credit-specific | `results/positioning/short_pressure.csv` | 2026-07-31 |
+| gamma-timing-C3 | CEF discount stress nowcasts HYG realised vol, so long credit gamma can be timed | **D1 holdout.** In sample it works and is not an artifact: beside C1, β +0.0097 (t +2.42), incremental R² +0.0358, and against forward realised vol with no IV term anywhere β +0.02105 (t +3.95, n 4,851), real mean target at the 100th percentile of 20 shuffled draws. On the 2023–26 holdout the coefficient falls to **24%** of full sample (t +1.69) and on the stated target it is **−0.20**. Separately fatal: no state at any reported threshold has a positive mean target — the best is C3 > 2.0 at −0.0113, i.e. still paying 1.13 vol points. C2 is declared and UNAVAILABLE, not tested | `results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md` | 2026-09-13 |
 | raw-flow-z | ETF creation/redemption z-score predicts returns | **D1** precise zero: 28,025 obs, all \|t\|<0.8; Treasury control equally flat. Informed and forced flow cancel when pooled | `results/s3/flow_regression.csv` | 2026-07-30 |
 
 ---
