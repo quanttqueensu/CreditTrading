@@ -170,9 +170,10 @@ The details are `docs/SYSTEM.md` §4.1.
 
 **Halts are written in prod and are untracked**, so `ls ops/HALT*.md` in dev
 shows nothing while prod is halted. Read both trees (orient HALTS). A global
-`ops/HALT.md` blocks every book; `ops/HALT_<book>.md` blocks one. Clear with
-attribution via `clear_halt`, after reading every entry in the file and checking
-it against the broker, not the ledger. `docs/SYSTEM.md` §4.4.
+`ops/HALT.md` blocks every book; `ops/HALT_<book_id>.md` blocks one. A human
+clears one with attribution via `clear_halt`, **run in the prod tree** (it resolves
+paths from where it is imported), after reading every entry in the file and
+checking it against the broker, not the ledger. `docs/SYSTEM.md` §4.4.
 
 ## Landmines
 

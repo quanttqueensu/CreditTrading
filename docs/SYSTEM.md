@@ -275,8 +275,12 @@ that location is what keeps a retired book's symbols out of the check.
   `ls ~/prod/QUANTT/ops/HALT*.md`.
 - Clear with attribution, never by deleting the file:
   `python3 -c "from ops.halt import clear_halt; clear_halt('what was fixed')"`,
-  or `clear_halt(note, book=...)` for a scoped one. Clearing the global never
-  silently clears a scoped halt. Cleared halts are archived to `ops/halts/`.
+  or `clear_halt(note, book='<book_id>')` for a scoped one — the `book_id` inside
+  the book file (e.g. `phase0_null`), not the file's name. Clearing the global
+  never silently clears a scoped halt. Cleared halts are archived to `ops/halts/`.
+- **`ops/halt.py` resolves paths from the tree it is imported from**, so
+  `clear_halt` must run **in `~/prod/QUANTT`**; run from dev it finds no halt and
+  returns False. Clearing changes what trades, so it is a human action (`!`).
 - Untracked files survive a promotion by accident rather than design — `git
   checkout` cannot remove them — and nothing tests that.
 
