@@ -496,3 +496,35 @@ def test_a_spec_id_inside_a_filename_is_not_a_claim(fake_repo):
         "Revert path: `ops/_archive/cef_discount.v5.20260731.frozen.json`.\n")
     rep = M.Report(); M.check_spec_id(rep)
     assert _status(rep, "spec_id:docs/SYSTEM.md") == M.OK
+
+
+# -- rotting figures ---------------------------------------------------------
+
+@pytest.mark.parametrize("line", [
+    "The suite passes 211 tests.",
+    "The book has armed on 5 of 29 sessions.",
+    "Two counters: **CEF = 48**, **GAMMA = 0**.",
+    "python3 scripts/cef/validate.py --trials 48",
+    "Thirteen dead mechanisms are listed.",
+    "Prod is detached at v2026.09.10.1.",
+])
+def test_each_rotting_shape_is_caught_in_claude_md(fake_repo, line):
+    """Every one of these stood in CLAUDE.md or README.md and went wrong."""
+    (fake_repo / "CLAUDE.md").write_text(f"# Rules\n\n{line}\n")
+    rep = M.Report(); M.check_rotting_figures(rep)
+    assert _status(rep, "figures:CLAUDE.md") == M.DRIFT, line
+
+
+def test_a_dated_labelled_observation_is_allowed(fake_repo):
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "The ledger was re-seeded (2026-09-13 [V], prod manifest), CEF = 48 then.\n")
+    rep = M.Report(); M.check_rotting_figures(rep)
+    assert _status(rep, "figures:docs/SYSTEM.md") == M.OK
+
+
+def test_decisions_and_commands_are_not_figures(fake_repo):
+    (fake_repo / "README.md").write_text(
+        "Keep the 17. Cap 20%. `python3 scripts/cef/validate.py --trials <CEF counter>`.\n"
+        "Cost grid 5 / 15 / 30bp on every table.\n")
+    rep = M.Report(); M.check_rotting_figures(rep)
+    assert _status(rep, "figures:README.md") == M.OK

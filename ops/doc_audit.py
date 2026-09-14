@@ -672,7 +672,7 @@ def check_entry_points(rep: Report) -> None:
 
 # Files whose pointers must resolve. Widened as each file is rewritten to
 # point at owners rather than restate them.
-POINTER_SCOPE = ("docs/SYSTEM.md", "docs/INDEX.md")
+POINTER_SCOPE = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INDEX.md")
 POINTER_ROOTS = ("ops/", "src/", "scripts/", "results/", "docs/", "config/",
                  "dashboard/", "deploy/", "_archive/", ".claude/")
 POINTER_TOP = {"CLAUDE.md", "README.md", "pytest.ini", ".gitignore",
@@ -819,11 +819,62 @@ def check_code_doc_pointers(rep: Report) -> None:
             if stale else "")
 
 
+# Files that must carry no figure that moves. Each pattern is a shape this repo
+# actually wrote into one of these files and then had to correct -- kept narrow on
+# purpose, because a check that fires on every number teaches people to ignore it.
+ROTTING_SCOPE = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INDEX.md")
+ROTTING_PATTERNS = (
+    (re.compile(r"\b\d+ (?:tests|passed)\b"), "a test count"),
+    (re.compile(r"\barmed (?:on )?\d+ of \d+|\b\d+ of \d+ (?:eligible |CEF )?sessions\b"),
+     "an arm rate"),
+    (re.compile(r"\b(?:CEF|GAMMA)\b\*{0,2}\s*(?:=|\(|:)\s*\*{0,2}\d+"), "a trial counter"),
+    (re.compile(r"--trials \d+"), "a trial count baked into a command"),
+    (re.compile(r"\b(?:thirteen|\d+) (?:dead|killed) mechanisms\b", re.I), "a graveyard count"),
+    (re.compile(r"\bv20\d\d\.\d\d\.\d\d\.\d+\b"), "a release tag"),
+)
+DATED_LABEL_RE = re.compile(r"\b20\d\d-\d\d-\d\d\b.*\[(?:V|S|U)\]|\[(?:V|S|U)\].*\b20\d\d-\d\d-\d\d\b")
+
+
+def check_rotting_figures(rep: Report) -> None:
+    """The entry, rule and owner documents may not carry a figure that moves.
+
+    Every pattern below was once written into CLAUDE.md or README.md and went
+    wrong: a test count that read 126, 271 and 211 inside a day; an arm rate
+    that existed as four fractions at once; "CEF = 48" beside a table that is
+    the only place the counter is maintained; a prod tag that was two
+    promotions stale. The owner of each is a command. A line that carries a
+    date AND a provenance label ([V]/[S]/[U]) is a dated observation and is
+    allowed -- that is how the data rules say a figure should be written.
+    """
+    for rel in ROTTING_SCOPE + tuple(_rotting_extra()):
+        text = _read(rel)
+        if text is None:
+            continue
+        hits = []
+        for i, line in enumerate(text.splitlines(), 1):
+            if DATED_LABEL_RE.search(line):
+                continue
+            for rx, what in ROTTING_PATTERNS:
+                m = rx.search(line)
+                if m:
+                    hits.append(f"{rel}:{i} {what} ({m.group(0)!r})")
+        rep.add(f"figures:{rel}", DRIFT if hits else OK,
+                f"{len(hits)} rotting figure(s): {'; '.join(hits[:6])}" if hits
+                else "no figure that moves",
+                "replace it with the command that measures it, or date and label it"
+                if hits else "")
+
+
+def _rotting_extra() -> list[str]:
+    """Agent-layer files join the scope once they point at owners (see CHECKS)."""
+    return []
+
+
 CHECKS = [check_banners, check_spec_id, check_ops_broker_modules,
           check_band_width_literals, check_results_notes_have_reproducers,
           check_prereg_shape, check_desk_inventory, check_archive_wall,
           check_manifest, check_entry_points, check_pointers,
-          check_archive_citations, check_code_doc_pointers]
+          check_archive_citations, check_code_doc_pointers, check_rotting_figures]
 
 
 def run() -> Report:
