@@ -1,5 +1,10 @@
 # Retiring `phase0_null` — the prepared sequence
 
+**Reproduce:** `python3 -m pytest src/deploy/tests/test_null_trader_winddown.py`
+pins the mechanism in §3; `python3 -m ops.gamma_status` prints the margin figures
+in §4 step 7. The position table in §1 is a read of prod's
+`ops/books/phase0_live/_ibkr_shadow/null_trader/positions.csv`.
+
 **Prepared 2026-09-13. NOT EXECUTED.** Everything below that could be verified
 without transmitting an order has been. The steps that reach the book are for
 the team lead to run, and they are marked **HUMAN**.

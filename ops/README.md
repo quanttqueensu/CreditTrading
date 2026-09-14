@@ -37,10 +37,24 @@
 This runs the one strategy that survived the build, on paper, so we can find
 out whether anything is actually left in it before any money is committed.
 
-**There is no broker here.** Nothing in this directory can place an order.
-Fills are simulated against closing prices from the same cost model the
-backtests used. If you ever want it to trade for real, that is a different
-project with a different review.
+**⚠ RETRACTED 2026-09-13 — this paragraph said "There is no broker here.
+Nothing in this directory can place an order", and it is false.** It is
+corrected HERE, in the body, because the banner at the top of this file does
+not reach a reader who skims to the section they need, and this is the
+paragraph they land on.
+
+**Seven modules in this directory import an IB client**, measured by AST rather
+than grep (`python3 -m ops.doc_audit`, which names them and fails if the count
+moves): `account_audit`, `cancel_open_orders`, `capture_fills`, `preflight`,
+`reconcile_orders`, `reset_epoch`, `switch_broker`. Several of them transmit.
+`ops/schedule/run_*.sh` and the launchd job reach the live order path, and
+`cancel_open_orders` and `switch_broker` are named in CLAUDE.md's hard rule 1
+as things a human runs.
+
+Fills are **not** simulated. Since 2026-09-10 the ledger books the broker's real
+executions at the broker's price (`results/ops/PREREG_AMENDMENT_REAL_FILLS_2026-09-10.md`).
+The account is an IBKR **paper** account, which is what makes this safe to run —
+not any property of this directory.
 
 ---
 

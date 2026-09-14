@@ -203,6 +203,8 @@ it or state it as a gap.
 ```bash
 python3 -m pytest                                 # pytest.ini scopes collection — see the file
 python3 -m ops.session_uptime                     # is the book actually arming?
+python3 -m ops.doc_audit                          # do this repo's documents still say true things?
+python3 -m ops.gamma_status                       # the options programme: phase, hazards, next action
 python3 -m ops.doctor --quick                     # can this machine run unattended?
 python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live
 python3 scripts/cef/band_frontier.py              # the trading-policy frontier
@@ -220,44 +222,41 @@ live path. `data/` is 3.9 GB and gitignored — read the parquet, never grep it.
 
 ## Documents that will mislead you
 
-Audited 2026-09-10 by four parallel agents. The trap is what each says without
-its banner.
+**Run the audit; do not trust this section's specifics.**
 
-**Do not trust this section to have banner-ed them.** All seven files in the
-table below now carry a banner — re-measured 2026-09-10 ~17:00 with
-`head -16 <file>`. This paragraph twice said otherwise: first it claimed all
-six carried one when two did not, then it claimed `RESEARCH_STATE.md` and
-`PER_NAME_ARCHITECTURE.md` still did not, *after both had been banner-ed*. Use
-`head -16`, not `head -12` — `PER_NAME_ARCHITECTURE.md`'s banner runs to line
-41 and `head -12` truncates it mid-argument. A table that asserts its own
-remedy is applied is worse than one that only warns, because it stops the
-reader looking; a table that asserts the remedy is *missing* when it is not is
-the same defect wearing the opposite sign, and costs a re-fix.
+```bash
+python3 -m ops.doc_audit          # every checkable claim, measured now
+python3 -m ops.doc_audit --check  # exit 1 on DRIFT
+```
 
-**The banner is not the whole remedy.** In three of these files the banner is
-correct and the *body* was never patched, which is what a reader actually
-copies: `INFRASTRUCTURE.md:171` still names spec `v5.20260731` (actual
-`v6.20260906`), `PER_NAME_ARCHITECTURE.md:150` still carries PHK's pooled
-constant, and `ops/README.md:40` still says "There is no broker here".
+**2026-09-13: this section had become the thing it warns about.** It carried a
+list of body defects "never patched" — `INFRASTRUCTURE.md` naming spec
+`v5.20260731`, two unmarked `calendar 2d` rows in `PLAN.md`, PHK's pooled
+constant in `PER_NAME_ARCHITECTURE.md`, `SYSTEM_AND_STRATEGY.md` having **no
+banner** at all. Audited against the filesystem, **every one of them had already
+been fixed**: the spec id reads `v6.20260906`, all five `calendar 2d` rows are
+marked retired, PHK's row is flagged `⚠ 24.6 IS WRONG` in place, and
+`SYSTEM_AND_STRATEGY.md`'s banner sits at line 11. This section's own words were
+*"a table that asserts the remedy is missing when it is not is the same defect
+wearing the opposite sign, and costs a re-fix"* — and it cost one.
 
-**Not in this table, and the most dangerous of the lot:
-`docs/SYSTEM_AND_STRATEGY.md` has NO banner** and states at :284-287 both of
-the claims this file retracts — "only 07-31 and 09-01 have broker-confirmed
-executions" (09-08 has 18 more) and "the ledger disagrees with the broker on
-all 17 positions (~$223k), order sizing is *unaffected* — `arm()` re-seeds from
-the broker". Measured 2026-09-10: all 17 CEF names match the broker
-share-for-share, and the re-seed claim is false where the broker holds zero.
-Its own header promises "Where a number appears, it was measured, and the
-script that reproduces it is named."
+So the line numbers, the counts and the banner claims moved into `ops/doc_audit.py`,
+where they are **checked** rather than asserted, and `ops/tests/test_doc_audit.py`
+pins that each check can still fail. What stays here is the part that does not
+rot: **what each document is wrong ABOUT**, in substance.
 
-| file | the trap |
+**The banner is not the remedy, it is the warning.** A banner tells you the
+document is superseded; it does not tell you which sentence in the body a reader
+will copy. Read the banner, then distrust the body.
+
+| file | the trap, in substance |
 |---|---|
-| `docs/PLAN.md` | The **"LIVE"** label is gone (2026-09-10: `grep -n LIVE` returns 3 hits, all inside the banner). What remains: of five `calendar 2d` rows, **two are still unmarked** — :154 and :174 — and the banner names only three. Its headline **0.10** net Sharpe is the retired policy's; the band's is **0.66** pre-borrow, ~0.43 after, and :304 still calls 0.10 "**the live configuration's true net Sharpe**" in bold. Its "Drop PHK" item (:842) is contradicted by `PER_NAME_ARCHITECTURE.md:214`. Its capture claim (:848) is narrower than this row used to say: it states `capture_fills` is "not called by `ops/schedule/run_cef.sh`", which is **literally true and operationally irrelevant** — launchd runs `launch_job.py`, whose phase 4 calls capture unconditionally. Its conclusion, "2 sessions captured out of 25", is false; there are 294 fills over 3 sessions. |
-| `docs/INFRASTRUCTURE.md` | **7497** now survives only inside its own banner; all five body references say **4002** (`grep -c 4002` → 5). The live hazard is elsewhere: :171 still names spec `cef_discount.v5.20260731` — actual is **`v6.20260906`** — and §3.4 still has no `band_width` row while reading `| Rebalance | 2 days |`, which the frozen spec marks **INERT while `band_width` is set** (0.048). |
-| `docs/RESEARCH_AND_METHODOLOGY.md` | Dated 31 July. Its deflated-Sharpe bar assumes **10 trials**; the counter is **48**, so the bar is 2.78 not 2.15. Says "zero live fills"; there are **294**. Its "today's live position" is a July snapshot. |
-| `docs/RESEARCH_STATE.md` | Header claims "last updated 2026-07-31" while containing September amendments. Its **counter table is canonical**; its prose is not. |
-| `docs/PER_NAME_ARCHITECTURE.md` | **This row carried a retracted claim until 2026-09-10.** "The table mixes κ_w with κ_d" was withdrawn *inside that file* (:172-181) by recomputation: the column is target-weight κ_w throughout and six of seven rows reproduce exactly — "**one row is wrong, not the column**" (:28). The real defects: the column is **unlabelled** (:148), and **PHK's row (:150) still carries the pooled 24.6** against its own κ_w ≈ 37.0, giving a 7.35% band. Three of seven bands (MHD ≈130 obs, MQY ≈365, PDO ≈1,286) rest on fewer observations than this repo's identification budget allows. **Do not deploy those three.** |
-| `ops/README.md`, `ops/schedule/README.md` | Superseded in full; both now open with a ⛔ banner. `ops/README.md` **buries** *"There is no broker here"* at **:40**, where the banner does not reach a skimming reader — false; **exactly seven** files in `ops/` open IBKR sockets (`cancel_open_orders`, `capture_fills`, `preflight`, `rebuild_ledger`, `reconcile_orders`, `reset_epoch`, `switch_broker`). Both use the pre-2026-08-31 path `…/Desktop/QUANTT/2027`. `ops/README.md` references `ops/state/`, `ops/spec/` and `state/` — none exist. `ops/schedule/README.md`'s only missing reference is a **file**, `ops/books/book.json`; its directories all exist. |
+| `docs/PLAN.md` | Its headline **0.10** net Sharpe is the **retired calendar policy's**, not the band's — the band is **0.66** pre-borrow, ~0.43 after. The document still calls 0.10 "the live configuration's true net Sharpe" in bold. Its capture conclusion ("2 sessions captured out of 25") is false: launchd runs `launch_job.py`, whose phase 4 calls capture unconditionally, and there are 294 fills over 3 sessions. Its "Drop PHK" item is contradicted by `PER_NAME_ARCHITECTURE.md`. |
+| `docs/INFRASTRUCTURE.md` | §3.4 still shows `\| Rebalance \| 2 days \|` with **no `band_width` row**, and the frozen spec marks `rebalance_days` **INERT while `band_width` is set**. So the one table a reader consults for "what does the sleeve do" describes a policy that has not run since 2026-09-06. |
+| `docs/RESEARCH_AND_METHODOLOGY.md` | Dated **31 July**. Read every "today", "current" and "live" as of that date. It says "zero live fills"; there are **294**. Its deflated-Sharpe discussion is keyed to an old trial count — `ops.doc_audit` derives the live bar from the canonical counter and fails if the document contradicts it. |
+| `docs/RESEARCH_STATE.md` | Its **counter table is canonical and its prose is not.** The `DEPLOYED` section is a broker snapshot from 2026-07-31 16:45 ET, labelled as such, and has not been true since. |
+| `docs/PER_NAME_ARCHITECTURE.md` | The substantive hazard is **not** the PHK row, which is now flagged in place. It is that **three of seven derived bands (MHD ≈130 obs, MQY ≈365, PDO ≈1,286) rest on fewer observations than this repo's identification budget allows. Do not deploy those three.** The table is illustrative, not deployable, and says so. |
+| `ops/README.md`, `ops/schedule/README.md` | Superseded in full; both open with a ⛔ banner. `ops/README.md`'s "There is no broker here" is **retracted in the body** as of 2026-09-13 — **seven** modules in `ops/` import an IB client and several transmit (`ops.doc_audit` names them by AST, not grep, because a grep counts `ops/orient.py`, which contains the string only as a literal it searches for). Both still use the pre-2026-08-31 path `…/Desktop/QUANTT/2027`, and `ops/README.md` references `ops/state/`, `ops/spec/` and `state/`, none of which exist. |
 
 **FIXED 2026-09-10.** This read: "four analysis scripts baseline against
 `band(T, 0.064)`, the 6.4% width retired on 2026-09-06". All four —
@@ -508,5 +507,21 @@ files. Workflows are skills — `/book-status`, `/preflight`, `/morning-brief`,
 map, and `.claude/hooks/` is the enforcement layer — what it blocks, and why those
 actions and not others.
 
-**Before proposing any idea, check the graveyard** (`/graveyard`). Thirteen
-mechanisms are dead, and six of them died the same way: a stale-price artifact.
+**Before proposing any idea, check the graveyard** (`/graveyard`). The count is
+deliberately not written here — it moves, and this file has rotted every count it
+ever held. The KILLED table in `docs/RESEARCH_STATE.md` is the list. The part
+that does not move: **the single most common cause of death is a stale-price
+artifact**, and the second is a control group scoring as well as the treatment.
+
+**Options are closed, and it is recorded rather than remembered.** `W14` Part A
+measured that this book is not short volatility in any sense that gives a hedging
+option a job (β to ΔVIX ≈ −$46 per VIX point, t −0.69; 0 of 10 worst windows start
+in the top VIX quintile). `G6` then measured that credit gamma costs **2.77×** in
+variance against equity's **1.28×**, and that no conditioner times it — C3 clears
+in sample and fails the 2023–26 holdout, and no state under any conditioner at any
+declared threshold has a positive mean outcome. `G7` does not run and the **GAMMA
+counter stays at 0**. The pre-registration
+(`results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md`) records what would reopen it;
+`python3 -m ops.gamma_status` prints where the programme actually stands. The
+option-pricing library and the fixed order path stay — they were worth building
+and three real defects fell out of it — but nothing trades them.
