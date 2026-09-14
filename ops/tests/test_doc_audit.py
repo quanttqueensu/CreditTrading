@@ -543,3 +543,15 @@ def test_the_agent_layer_is_held_to_the_same_bar(fake_repo):
     rep = M.Report(); M.check_rotting_figures(rep); M.check_pointers(rep)
     assert _status(rep, "figures:.claude/skills/spec-change/SKILL.md") == M.OK
     assert _status(rep, "pointers:.claude/skills/spec-change/SKILL.md") == M.OK
+
+
+def test_one_index_row_may_cover_several_archived_paths(fake_repo):
+    """A killed research line's scripts and results share one row."""
+    _wall(fake_repo, rows=())
+    readme = fake_repo / "_archive/README.md"
+    readme.write_text(readme.read_text()
+                      + "| `_archive/docs/OLD.md`, `_archive/results/x/` | x |\n")
+    (fake_repo / "_archive/results/x").mkdir(parents=True)
+    (fake_repo / "_archive/results/x/a.csv").write_text("a\n")
+    rep = M.Report(); M.check_archive_wall(rep)
+    assert _status(rep, "archive:index") == M.OK

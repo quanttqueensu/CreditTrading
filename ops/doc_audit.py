@@ -341,12 +341,17 @@ LIVE_CODE_ROOTS = ("ops", "src", "scripts", "dashboard", ".claude/hooks")
 
 
 def _archive_rows(readme: str) -> set:
-    """Backticked `_archive/...` paths in the index's first column."""
+    """Backticked `_archive/...` paths in the index's first column.
+
+    A row may name several paths (a research line's scripts and its results
+    move together and share one "what it is wrong about"), so every backticked
+    archive path in the first cell counts.
+    """
     rows = set()
     for line in readme.splitlines():
-        m = re.match(r"^\|\s*`(_archive/[^`]+)`\s*\|", line)
+        m = re.match(r"^\|([^|]*)\|", line)
         if m:
-            rows.add(m.group(1))
+            rows.update(re.findall(r"`(_archive/[^`]+)`", m.group(1)))
     return rows
 
 
