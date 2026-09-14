@@ -45,7 +45,8 @@ then:
    `--nav-fallback cefconnect`, the before-16:05 guard),
    `scripts/cef/wait_for_nav.py`, `src/deploy/sleeves/cef_discount.py::_panel`,
    `src/deploy/run_book.py::_load_cef`.
-7. `~/Library/LaunchAgents/com.quantt.*.plist`, `ops/schedule/install.sh`,
+7. `~/Library/LaunchAgents/com.quantt.*.plist`, `ops/schedule/render_cef_plists.py`
+   (`install.sh` was archived 2026-09-13 to `ops/_archive/schedule_pre_w3_2026-09-13/`),
    `com.quantt.awake.plist`.
 
 Four parts. A and B change the schedule and the data path and must land
@@ -113,7 +114,7 @@ empties it. So capture moves to a small evening job. Two jobs, two questions:
 ### Scheduling
 
 Plists: `com.quantt.cef.daily` → 08:30 and 12:00 Mon–Fri; new
-`com.quantt.cef.pm` → 17:30 Mon–Fri. Render with `install.sh`; the human
+`com.quantt.cef.pm` → 17:30 Mon–Fri. Render with `ops/schedule/render_cef_plists.py`; the human
 enables. `com.quantt.awake`: caffeinate from **08:00** to 22:30. Phase0 (being
 retired in W2) and benchmarks (17:25) keep their slots; confirm no client id is
 shared with the new jobs. Doctor checks the new plists and the new window.

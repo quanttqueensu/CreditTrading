@@ -146,7 +146,7 @@ a ledger desync.
 ## Deliverables
 
 - `src/deploy/sleeves/gamma_scalp.py`, `ops/books/gamma_book.json`, the `.env`,
-  the launchd plist rendered by `ops/schedule/install.sh`, and an `arm()`
+  the launchd plist rendered the way `ops/schedule/render_cef_plists.py` does (`install.sh` archived 2026-09-13), and an `arm()`
   refusal test for the shared-ETF case.
 - Dashboard: a **Gamma** tab — three tiles (gamma − theta today, close-to-close
   realised vs implied over 21 sessions, unexplained %) and the decomposition
