@@ -65,7 +65,7 @@ The one thing that must not be done here is the obvious thing. Applying the
 soft-threshold and THEN projecting onto 1'w = 0 destroys the no-trade region: the
 projection puts a small non-zero number into every coordinate, so every name trades
 and the sparsity the prox just created is gone. This repo already has that scar --
-`src/strategies/credit_rv/optimizer.py` had to abandon the equality constraint
+`src/strategies/credit_rv/optimizer.py` (archived 2026-09-14 to `_archive/`) had to abandon the equality constraint
 entirely and hedge neutrality with separate legs because of it. The fix is to take
 the prox of the L1 term and the neutrality indicator TOGETHER:
 
