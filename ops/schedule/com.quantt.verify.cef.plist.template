@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Post-close verification of the cef book. PREPARED, NOT LOADED.
+
+  WHAT: ops/verify_session.py, read-only (connect readonly=True), 16:20 local
+  Mon-Fri. This Mac's zone is America/Toronto, which carries the same offsets
+  as the exchange's America/New_York. It archives the broker's executions
+  before the gateway's nightly restart forgets them, compares sent / executed /
+  held / ledger / resting, and sends ONE message a trading day, pass or fail.
+
+  WHY IT DOES NOT GO THROUGH launch_job.py: that file is outside the repo,
+  outside the promotion gate, and has an unapplied W3 patch pending against
+  it (ops/schedule/patch_launch_job_w3am.py). This job needs none of its
+  plumbing -- no NAV wait, no refresh, no trade phase -- so it runs the module
+  directly from the PROD tree, and a promotion is what changes its code.
+
+  16:20, NOT 16:00: MOC prints land at 16:00 and executions arrive seconds to
+  minutes later. 16:20 still leaves ten hours before the 03:00 restart.
+
+  CLIENT ID 125 = the cef session's 45 + 80. Free in docs/INFRASTRUCTURE.md
+  §6.2's table (capture +50, preflight +60, reconcile +70).
+
+  INSTALL (a human, after the promotion that ships ops/verify_session.py):
+    cp ops/schedule/com.quantt.verify.cef.plist.template \
+       ~/Library/LaunchAgents/com.quantt.verify.cef.plist
+    plutil -lint ~/Library/LaunchAgents/com.quantt.verify.cef.plist
+    launchctl load ~/Library/LaunchAgents/com.quantt.verify.cef.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.quantt.verify.cef</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/anaconda3/bin/python3</string>
+    <string>/Users/simonjarvis/prod/QUANTT/ops/verify_session.py</string>
+    <string>--book</string>
+    <string>ops/books/cef_discount_book.json</string>
+    <string>--books-root</string>
+    <string>ops/books/cef_live</string>
+    <string>--client-id</string>
+    <string>125</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/simonjarvis/prod/QUANTT</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/simonjarvis/Library/Application Support/quantt/launchd_verify_cef.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/simonjarvis/Library/Application Support/quantt/launchd_verify_cef.log</string>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>20</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>20</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>20</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>20</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>20</integer></dict>
+  </array>
+</dict>
+</plist>
