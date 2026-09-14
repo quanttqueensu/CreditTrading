@@ -126,6 +126,16 @@ def risk(key: str) -> Any:
 # ---------------------------------------------------------------------------
 SPEC_ID: str = _SPEC.get("spec_id", "<unknown>")
 
+# capital_usd sits at the TOP level of the spec, not inside "frozen", so it
+# has its own read. Analysis that converts a book RETURN into dollars needs
+# it, and $500,000 is exactly the literal that has twice been written by hand
+# into a sizing path (see CLAUDE.md landmine 3: `nav_now = _nav_last(...) or
+# 500000.0`, and the 2026-09-09 orders sized against a $500,000 base while
+# the book was marked $504,573.20).
+if "capital_usd" not in _SPEC:
+    raise SpecError(f"{SPEC_PATH} has no capital_usd")
+CAPITAL_USD: float = float(_SPEC["capital_usd"])
+
 UNIVERSE: list[str] = list(frozen("universe"))
 BAND_WIDTH: float = float(frozen("band_width"))
 Z_WINDOW: int = int(frozen("z_window"))

@@ -40,7 +40,7 @@ REPO = Path(__file__).resolve().parents[2]
 import sys                                                          # noqa: E402
 sys.path.insert(0, str(REPO))
 from scripts.cef.spec import (  # noqa: E402
-    BAND_WIDTH, GROSS_LEVERAGE, LIVE_POLICY, MIN_ADV_USD, MIN_NAMES,
+    BAND_WIDTH, LIVE_POLICY, MIN_ADV_USD, MIN_NAMES,
     REBALANCE_DAYS, UNIVERSE, VOL_TARGET, Z_WINDOW, summary,
 )
 
@@ -57,13 +57,43 @@ BAND_SWEEP = sorted({0.002, 0.004, 0.008, 0.016, 0.024, 0.032,
                      0.048, 0.064, 0.096, 0.128, BAND_WIDTH})
 
 
-def build_targets():
-    """Frictionless daily target weights, exactly as the sleeve would build them."""
+def build_panel(end=None):
+    """The signal panel `build_targets` is built from: px, nav, ret, disc, z, adv.
+
+    `end` truncates the RAW price and NAV history before anything is computed,
+    so a caller can ask "what did this panel look like on date X" and get an
+    answer that exercises the pivot, the return filter and the ADV window --
+    not merely the rolling mean. `scripts/cef/tests/test_pnl_series.py` uses it
+    to test no-lookahead end to end. `end=None` is the production path and is
+    byte-identical to the version before this argument existed.
+
+    WHY THIS IS SPLIT OUT (2026-09-11, W14 Part A)
+    ----------------------------------------------
+    `z` never left this function, so anything that needed the SIGNAL rather than
+    the POSITIONS -- a conditional IC, a per-group split, a diagnostic on the
+    clip -- had to re-derive the z-score from the panel. Two copies of a
+    signal definition is the same class of defect as two copies of the
+    execution convention: they agree until one of them is edited.
+
+    `build_targets` now calls this and is otherwise UNCHANGED. The no-op was
+    proved by hashing `pickle.dumps((T, R))` before and after the split:
+    sha256 2ee89432...4ed5 both times (see
+    scripts/cef/tests/test_pnl_series.py::test_build_panel_is_a_noop, which
+    re-derives the targets from the panel and compares them element-wise).
+
+    ALIGNMENT (H7): `mu`, `sd` and `adv` are all `.shift(1)` -- the z-score on
+    date t is standardised against a window ending at t-1, and eligibility uses
+    ADV through t-1. `disc` itself is date-t information (t's close against t's
+    published NAV), which is why the execution convention is shift(2) and not
+    shift(1): t's NAV is published AFTER t's close.
+    """
     P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
     N = pd.read_parquet(REPO / "data/cef/cef_nav.parquet")
     P, N = P[P.ticker.isin(UNIVERSE)], N[N.ticker.isin(UNIVERSE)]
     d = P.merge(N, on=["date", "ticker"], how="inner")
     d["date"] = pd.to_datetime(d["date"])
+    if end is not None:
+        d = d[d["date"] <= pd.Timestamp(end)]
     d = d[(d.nav > 0.5) & (d.close > 0.5)]
     piv = lambda c: d.pivot_table(index="date", columns="ticker", values=c).sort_index()
     px, nav, vol = piv("close"), piv("nav"), piv("volume")
@@ -74,6 +104,13 @@ def build_targets():
     sd = disc.rolling(Z_WINDOW, min_periods=MIN_PERIODS).std().shift(1)
     z = ((disc - mu) / sd.replace(0, np.nan)).clip(-4, 4)
     adv = (px * vol).rolling(63, min_periods=21).mean().shift(1)
+    return dict(px=px, nav=nav, vol=vol, ret=ret, disc=disc, mu=mu, sd=sd, z=z, adv=adv)
+
+
+def build_targets():
+    """Frictionless daily target weights, exactly as the sleeve would build them."""
+    p = build_panel()
+    ret, z, adv = p["ret"], p["z"], p["adv"]
 
     tgt = pd.DataFrame(0.0, index=z.index, columns=UNIVERSE)
     start = z.index.searchsorted(pd.Timestamp(SAMPLE_START))
@@ -116,7 +153,33 @@ def band(T, b):
 
 
 def evaluate(H, R):
-    """H.loc[t] = weights decided at t. MOC fills at t+1 -> earns the t+2 return."""
+    """H.loc[t] = weights decided at t. MOC fills at t+1 -> earns the t+2 return.
+
+    Returns the summary statistics AND the daily P&L series that produced them
+    (`pnl`), added 2026-09-11 for W14 Part A.
+
+    WHY `pnl` IS RETURNED
+    ---------------------
+    Every number this function reports is a moment of one series, and until now
+    that series was discarded at the return statement. Anything that asks a
+    question about the SHAPE of the P&L rather than its first two moments -- a
+    factor regression, a drawdown census, a conditional-state split -- therefore
+    had to rebuild `(H.shift(2) * R).sum(axis=1)` for itself, and a second copy
+    of the execution convention is exactly the defect `EXEC_LAG = 2` exists to
+    prevent (see scripts/cef/tests/test_execution_convention.py, and the
+    shift(1) incident of 2026-09-10 that cost gross 1.27 -> 0.94).
+
+    This is an ADDITIVE extension: the existing keys and their values are
+    untouched, and `pnl` is the identical object the statistics are computed
+    from, not a recomputation. scripts/cef/tests/test_pnl_series.py holds that
+    shut.
+
+    `R` is whatever return matrix the caller supplies. The default from
+    `build_targets()` is PRICE returns; `total_returns()` in this module adds
+    the distribution leg. The choice belongs to the caller and is stated in
+    every table, because the two conventions differ by era (RESEARCH_STATE.md,
+    2026-09-09: -0.01%/yr full sample but -0.77%/yr in 2010-14).
+    """
     pnl = (H.shift(2).fillna(0.0) * R).sum(axis=1)
     turn = H.diff().abs().sum(axis=1).fillna(0.0)
     gross_v = H.abs().sum(axis=1).mean()
@@ -127,7 +190,148 @@ def evaluate(H, R):
         turn=turn.sum() * 252 / len(pnl),
         hold=gross_v / turn.mean() if turn.mean() > 0 else np.inf,
         turn_series=turn,
+        pnl=pnl,
     )
+
+
+def distribution_yield(index, columns):
+    """D_it / P_i,t-1 on each ex-date -- the cash leg the price panel omits.
+
+    WHY THIS IS NOT OPTIONAL FOR A FACTOR REGRESSION
+    ------------------------------------------------
+    The price panel is RAW (unadjusted), which is CORRECT for the discount --
+    NAV is unadjusted too and the two must share a convention -- but it is
+    wrong for the RETURN: `px.pct_change()` books the ex-date price drop and
+    never books the cash, so the long is never credited its distribution and
+    the short is never debited its payment in lieu.
+
+    On the band's holdings path the mean bias nets to -0.01%/yr over 2005-2026
+    (RESEARCH_STATE.md, measured 2026-09-09 over 3,962 ex-dates) because the
+    book is not systematically long or short yield. Its standard deviation is
+    1.23%/yr and it swings by era. For a Sharpe that hardly matters; for a
+    LOADING on any factor correlated with the distribution calendar it matters
+    a great deal, which is why W14 Part A insists on the total-return series.
+
+    ALIGNMENT (H7): the yield is booked on the ex-date `t` itself, divided by
+    the close of `t-1`, which is the last price that contains the distribution.
+    Nothing here reads a date later than `t`.
+
+    NO SILENT FALLBACK: raises if the distribution panel cannot cover a name
+    that the caller asked for, rather than returning zeros -- a zero here is
+    indistinguishable from "this fund paid nothing", and the two have opposite
+    meanings for the bias above.
+    """
+    dist = pd.read_parquet(REPO / "data/cef/cef_distributions.parquet")
+    dist["ex_date"] = pd.to_datetime(dist["ex_date"])
+    missing = sorted(set(columns) - set(dist["ticker"].unique()))
+    if missing:
+        raise ValueError(
+            "cef_distributions.parquet has no rows for "
+            f"{missing} -- cannot build a total-return series for the "
+            "universe requested. Fix the panel; do not fall back to price "
+            "returns silently (house rule: no silent fallbacks).")
+    dist = dist[dist.ticker.isin(columns)]
+
+    P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
+    P = P[P.ticker.isin(columns)]
+    P["date"] = pd.to_datetime(P["date"])
+    px = P.pivot_table(index="date", columns="ticker", values="close").sort_index()
+    prev = px.shift(1)                       # close of t-1, cum-distribution
+
+    amt = (dist.groupby(["ex_date", "ticker"])["amount"].sum()
+               .unstack().reindex(index=index, columns=list(columns)))
+    y = amt / prev.reindex(index=index, columns=list(columns))
+
+    # THE TWO SILENT PATHS, MADE LOUD. `.fillna(0.0)` below is correct for the
+    # common case -- a date with no ex-date for a name IS a genuine zero cash
+    # flow -- but it is indistinguishable from two real failures:
+    #   (a) an ex-date that falls on a date absent from `index`, which
+    #       `.reindex` drops with no trace;
+    #   (b) an ex-date with no prior close, which divides to NaN and becomes a
+    #       zero yield.
+    # Landmine 4 (HYT lags the price panel by a day) is exactly shape (b). So
+    # count what went in against what came out and raise on any gap, rather
+    # than asserting the paths are unreachable.
+    window = dist[(dist.ex_date >= index[0]) & (dist.ex_date <= index[-1])]
+    expected = int(window.groupby(["ex_date", "ticker"]).ngroups)
+    booked = int((y.notna() & (y != 0)).sum().sum())
+    if booked != expected:
+        raise ValueError(
+            f"{expected - booked} of {expected} ex-dates in "
+            f"{index[0].date()}..{index[-1].date()} did not reach the yield "
+            "matrix — either the ex-date is not a session in this index, or "
+            "the prior close is missing (landmine 4: HYT lags the price panel "
+            "by a day). A zero here is indistinguishable from 'this fund paid "
+            "nothing' and means the opposite, so this raises rather than "
+            "filling.")
+    return y.fillna(0.0)
+
+
+def split_factor(index, columns):
+    """Share-count multiplier on each ex-split date; 1.0 everywhere else.
+
+    WHY THIS SITS BESIDE THE DISTRIBUTION LEG AND NOT SOMEWHERE ELSE
+    ---------------------------------------------------------------
+    `RESEARCH_STATE.md`'s 2026-09-09 amendment on the raw price panel makes TWO
+    points, and only the first was ever acted on. The second: "the +-50% single
+    day return filter in `build_targets` silently drops any day where an
+    unadjusted split would appear as a jump, and `data/cef/cef_splits.parquet`
+    (one row: BIT 2025-08-19) is not applied in the harness at all."
+
+    A 2.9% split is nowhere near the +-50% filter, so nothing is dropped and
+    nothing looks wrong -- the harness simply books the split as a loss. On
+    2025-08-19 BIT's raw close went 14.47 -> 13.84, a -4.354% "return", of
+    which -2.818% (= 1/1.029 - 1) is the split and only -1.578% is price. The
+    band held w_BIT = +0.0335 that day, so the phantom half is about -9.4bp of
+    a -18.0bp session -- inside the 2023-26 holdout.
+
+    RAW PRICES STAY RAW FOR THE DISCOUNT. NAV is unadjusted too and drops by
+    the same factor, so price/NAV is unaffected and `build_panel` is untouched.
+    It is only the RETURN that needs this, which is why it lives here with the
+    other return-convention correction rather than in the panel.
+
+    NO SILENT FALLBACK: raises if a split and a distribution ever land on the
+    same name-date, because the per-share amount is then ambiguous (pre- or
+    post-split) and this function cannot tell which. That has never happened in
+    this panel; if it does, someone must decide rather than inherit a guess.
+    """
+    path = REPO / "data/cef/cef_splits.parquet"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing. The harness cannot build a split-correct "
+            "return series without it, and booking a split as a return is a "
+            "silent loss -- see this function's docstring.")
+    sp = pd.read_parquet(path)
+    sp["ex_date"] = pd.to_datetime(sp["ex_date"])
+    sp = sp[sp.ticker.isin(columns)]
+    k = (sp.groupby(["ex_date", "ticker"])["stock_split"].prod()
+           .unstack().reindex(index=index, columns=list(columns)))
+    return k.fillna(1.0)
+
+
+def total_returns(R):
+    """Price returns corrected for splits, plus the distribution leg.
+
+    Kept separate from `build_targets()` on purpose. Every baseline in this
+    repo was measured on the raw price-return convention; silently switching
+    what `build_targets` hands back would move nine scripts' numbers at once
+    with nothing erroring. The caller opts in, and says which convention it
+    used.
+
+    r_total = (1 + r_px) * k - 1 + D/P_{t-1}, where k is the share-count
+    multiplier. The two corrections never coincide on a name-date in this
+    panel, and `split_factor` raises if they ever do.
+    """
+    y = distribution_yield(R.index, R.columns).reindex_like(R)
+    k = split_factor(R.index, R.columns).reindex_like(R)
+    clash = ((k != 1.0) & (y != 0.0))
+    if clash.any().any():
+        where = [(str(d.date()), c) for d, c in zip(*np.where(clash.values))]
+        raise ValueError(
+            f"a split and a distribution fall on the same name-date ({where}). "
+            "The per-share distribution amount is then ambiguous -- pre- or "
+            "post-split -- and this function will not guess.")
+    return (1.0 + R) * k - 1.0 + y
 
 
 def row(label, H, R):

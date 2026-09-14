@@ -1,6 +1,6 @@
 # W14 — Is the book short vol, and is a convexity overlay worth its carry?
 
-**Status:** queued — no commit references it, no deliverable of its exists, no trial spent.
+**Status:** in progress — **Part A is DONE and its gate CLOSED Part B** (2026-09-11): `scripts/cef/stress_beta.py`, `results/cef/STRESS_BETA_2026-09-11.md`, the `evaluate` → `pnl` extension and `scripts/cef/tests/test_pnl_series.py`. 0 trials spent, as Part A specifies. **Remains:** Part C, which is blocked on `gamma/G2`'s HYG surface — its input does not exist and VIX is its own negative control. Part B is closed, not pending; re-open it only by re-running the script and clearing both gate conditions.
 **Reads first:** `00_BRIEF.md` §2 (M9), §3, §5, §7 — and
 `gamma/G0_BRIEF.md`, which holds the option mechanics, the market facts and the
 programme's own rules. **This prompt is the CEF book's *use* of options; the
@@ -9,8 +9,11 @@ options machinery itself lives in `docs/prompts/gamma/`.**
 have any job here. Part B is the book's drawdown. Part C is TC and timing.
 **Trials:** Part A 0; Part B 1 on the **GAMMA** counter; Part C 1 on the **CEF**
 counter.
-**Prerequisites:** W2 must say "options: permitted". Parts B and C are gated on
-Part A's verdict. Part B additionally needs `gamma/G1` (the pricer), `G2` (the
+**Prerequisites:** W2 must say "options: permitted" — **for Parts B and C
+only.** `00_BRIEF.md` §8 is explicit that Part A "can start any time (it is a
+measurement on an existing P&L series)", and it did, on 2026-09-11, with W2's
+account audit still outstanding. Nothing in Part A touches a broker or an
+option. Parts B and C are gated on Part A's verdict. Part B additionally needs `gamma/G1` (the pricer), `G2` (the
 surface), `G3` (the hedge rule) and `G4` (a ledger that survives an expiry) —
 **do not backtest an overlay with machinery that cannot book one.**
 **Moved out 2026-09-09:** the learning book is now `gamma/G5_paper_book.md` and
