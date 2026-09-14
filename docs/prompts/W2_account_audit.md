@@ -1,6 +1,6 @@
 # W2 — What the account can actually do, and retiring the control book
 
-**Status:** in progress — done: per-book halt scoping (`43ec054`, `26a5336`). remains: the account audit itself, and the benchmark fill dedupe.
+**Status:** in progress — done: Part A's tool and note (`ops/account_audit.py`, `results/ops/ACCOUNT_AUDIT_2026-09-12.md`): margin type measured; the options questions it asked are moot now options are closed; the commission plan was NOT measured. Part B, per-book halt scoping (`43ec054`, `26a5336`). remains: the commission plan (W5's `min_trade_usd` waits on it); Part C, retiring the null trader — prepared, not executed (`b12dec3`, `results/ops/PHASE0_RETIRED_2026-09-13.md`; open in `docs/SYSTEM.md` §5); the benchmark fill dedupe.
 **Reads first:** `00_BRIEF.md` §6 (house rules), §7 (standing decisions).
 **Lever:** prerequisites. Nothing in W14 (options) can start until this note
 says "permitted", and W6's sizing memo cannot be written until the margin type

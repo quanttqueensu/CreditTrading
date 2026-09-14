@@ -1,6 +1,6 @@
 # W3 — The session: decide in the morning, source the data twice, be loud when it fails
 
-**Status:** in progress — done: Part A, the morning decision on yesterday's pair (`939af5c`, `b442986`, `e4ac1ed`), live since the 2026-09-13 go-live (`results/ops/GO_LIVE_W3_2026-09-13.md`); toward Part C, the post-close verifier that FAILs a day on which no deciding job armed (`5a92b70`, `da83a87`). remains: Parts B and D not assessed against this prompt; the 17:30 `cef_pm` job runs DRY_RUN=1 until one morning cycle has been watched.
+**Status:** in progress — done: Part A, the morning decision on yesterday's pair (`939af5c`, `b442986`, `e4ac1ed`), live since the 2026-09-13 go-live (`results/ops/GO_LIVE_W3_2026-09-13.md`); toward Part C, the post-close verifier that FAILs a day on which no deciding job armed (`5a92b70`, `da83a87`) and the pre-transmit refusal (`fa53395`, `cda493c`). remains: Part B (none of its deliverables exist: no IBKR price fetcher, no NAV-channel or price-source logs, no DATA_SOURCES note); Part C's alerting note and doctor passing on alerts (email is still a WARN); Part D (no `session_progress.json`, no `/api/session`); the 17:30 `cef_pm` job runs DRY_RUN=1 until one morning cycle has been watched.
 **Reads first:** `00_BRIEF.md` §3 (how these instruments trade), §5 (harness),
 §6 (house rules), §7 (standing decisions).
 **Lever:** TC and reliability. The book armed on 3 of 26 sessions and nobody

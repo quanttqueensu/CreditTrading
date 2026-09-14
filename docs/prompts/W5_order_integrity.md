@@ -1,6 +1,6 @@
 # W5 — Order integrity: the ledger must decide what the broker decides
 
-**Status:** in progress — done: P0.1 dust orders (`9636502`, `results/cef/DUST_ORDERS_2026-09.md`). remains: everything else.
+**Status:** in progress — done: P0.1 dust orders (`9636502`, `results/cef/DUST_ORDERS_2026-09.md`). remains: Part A is UNVERIFIED — since 2026-09-08 band HOLDs are qty-expressed, which stops the ledger's lag-day flatten, but the per-executor unpriced-name test Part A asks for was not found; Part B, the order lifecycle (no `order_events.csv`, no `/api/orders`, no session journal); re-deriving `min_trade_usd` once W2 measures the commission plan.
 **Reads first:** `00_BRIEF.md` §5, §6.
 **Lever:** the integrity of the record every statistic is computed from.
 **Trials:** 0. **Touches the live book:** the shadow ledger and an append-only

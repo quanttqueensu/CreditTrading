@@ -1,7 +1,8 @@
 # W15 — A trading schedule that does not break: uptime as the first-class deliverable
 
-**Status:** in progress — written 2026-09-11 ~12:00 ET. Written after the desk lead's observation
-that "something breaks literally everyday" — which is measurably true, and the
+**Status:** in progress — done: Lane A, prod reunified on `main` (prod runs a tag cut from `main`; the `ops-guards-20260911` fork was deleted 2026-09-14 with its commits kept by tag; `main` is pushed); Lane B, the decision-age refusal (`2b682f5`) — but three of its timeline tests in `src/deploy/tests/test_decision_age_clock.py` FAIL on `main` as of 2026-09-14 and need re-deriving for the morning schedule; Lane E, `launch_job.py` runs each panel under the session's phase budget (verified by reading it, 2026-09-14); Lane F, `ops/session_uptime.py` and `GET /api/sessions`; toward Lane D, the stuck-session doctor check (`81c0658`) and the post-close verifier (`5a92b70`). remains: Lane B's failing tests; Lane A step 5, a doctor check for stray worktrees; Lane C, the repeating wake (a sudo command for the human, which doctor prints); Lane D, email alerting still a WARN not a FAIL and the watchdog still firing once, at 19:30; Lane G stays gated behind A–F.
+**Written** 2026-09-11 ~12:00 ET, after the desk lead's observation that
+"something breaks literally everyday" — which is measurably true, and the
 measurement is the useful part.
 **Reads first:** `00_BRIEF.md` (standing brief), `CLAUDE.md` (hard rules — the
 order path especially), `results/ops/HALT_20260911_103200.md` (the 17h20m
