@@ -409,8 +409,9 @@ Do not build a new backtester. Use the canonical one and extend it visibly.
 
 ```python
 from scripts.cef.band_frontier import build_targets, band, calendar, evaluate
+from scripts.cef.spec import BAND_WIDTH     # never write the width as a literal
 T, R = build_targets()          # frictionless daily targets as the sleeve builds them
-H_live = band(T, 0.048)         # the live policy
+H_live = band(T, BAND_WIDTH)    # the live policy, read from the frozen spec
 H_old  = calendar(T, 2)         # the previous configuration
 res    = evaluate(H, R)         # applies H.shift(2): decide t, MOC fill t+1, earn t+2
 ```

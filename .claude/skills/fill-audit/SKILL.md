@@ -11,9 +11,13 @@ allowed-tools: Bash(python3 *) Read Grep Glob
 ```!
 python3 - <<'PY'
 import csv, collections, pathlib, statistics
-p = pathlib.Path("ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv")
-if not p.exists():
-    raise SystemExit("no broker_fills.csv — no real executions on record")
+# Prod writes the evidence file; dev's tracked copy stops at the last promotion.
+rel = "ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv"
+trees = [pathlib.Path.home() / "prod/QUANTT", pathlib.Path(".")]
+p = next((t / rel for t in trees if (t / rel).exists()), None)
+if p is None:
+    raise SystemExit("no broker_fills.csv in either tree — no real executions on record")
+print(f"[{p}]")
 rows = [r for r in csv.DictReader(p.open(newline="")) if r.get("fill_date")]
 by = collections.defaultdict(list)
 for r in rows:

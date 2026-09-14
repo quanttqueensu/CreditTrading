@@ -64,7 +64,7 @@ Read the docstrings first — this codebase keeps its incident history in them, 
 a docstring often tells you why an apparently odd line is deliberate. Do not
 "clean up" something whose comment explains an incident.
 
-Run the tests: `python3 -m pytest -q` (115 tests, ~6s). If you changed behaviour
+Run the tests: `python3 -m pytest` (never quote a count; it moves). If you changed behaviour
 and no test failed, that is a finding in itself.
 
 ## Output

@@ -528,3 +528,18 @@ def test_decisions_and_commands_are_not_figures(fake_repo):
         "Cost grid 5 / 15 / 30bp on every table.\n")
     rep = M.Report(); M.check_rotting_figures(rep)
     assert _status(rep, "figures:README.md") == M.OK
+
+
+def test_the_agent_layer_is_held_to_the_same_bar(fake_repo):
+    """Skills and subagents are read before any document. "115 tests" and
+    "thirteen dead mechanisms" both stood in them after they were wrong."""
+    (fake_repo / ".claude/skills/spec-change").mkdir(parents=True)
+    skill = fake_repo / ".claude/skills/spec-change/SKILL.md"
+    skill.write_text("python3 -m pytest -q   # 115 tests\nRead `docs/prompts/W4`.\n")
+    rep = M.Report(); M.check_rotting_figures(rep); M.check_pointers(rep)
+    assert _status(rep, "figures:.claude/skills/spec-change/SKILL.md") == M.DRIFT
+    assert _status(rep, "pointers:.claude/skills/spec-change/SKILL.md") == M.DRIFT
+    skill.write_text("python3 -m pytest   # never quote the count\n")
+    rep = M.Report(); M.check_rotting_figures(rep); M.check_pointers(rep)
+    assert _status(rep, "figures:.claude/skills/spec-change/SKILL.md") == M.OK
+    assert _status(rep, "pointers:.claude/skills/spec-change/SKILL.md") == M.OK

@@ -1,7 +1,7 @@
 ---
 name: book-status
 description: Full readout of what the live book is doing right now — broker-confirmed fills, heartbeat, halt state, preflight blockers, ledger-vs-broker disagreement, and today's session log. Use when asked how the book is doing, whether it traded, what happened today, or before starting any work that assumes the book is healthy.
-allowed-tools: Bash(python3 .claude/hooks/book_state.py*) Bash(python3 -m ops.doctor*) Bash(python3 -m ops.preflight*) Bash(cat ops/heartbeat.json) Bash(tail *) Read Grep Glob
+allowed-tools: Bash(python3 -m ops.orient*) Bash(python3 .claude/hooks/book_state.py*) Bash(python3 -m ops.doctor*) Bash(python3 -m ops.preflight*) Bash(cat ops/heartbeat.json) Bash(tail *) Read Grep Glob
 ---
 
 # Book status
@@ -12,10 +12,19 @@ allowed-tools: Bash(python3 .claude/hooks/book_state.py*) Bash(python3 -m ops.do
 python3 .claude/hooks/book_state.py -p
 ```
 
-## Today's session log (tail)
+## Halts, in both trees
+
+Halts are written in **prod** and are untracked; a dev-only `ls` shows nothing
+while prod is halted.
 
 ```!
-ls -t ops/schedule/logs/cef_*.log 2>/dev/null | head -1 | xargs tail -25 2>/dev/null || echo "no cef log found"
+python3 -m ops.orient --no-tests 2>/dev/null | sed -n '/^HALTS/,/^$/p'
+```
+
+## The newest session log, from either tree (tail)
+
+```!
+ls -t ~/prod/QUANTT/ops/schedule/logs/cef_*.log ops/schedule/logs/cef_*.log 2>/dev/null | head -1 | xargs tail -25 2>/dev/null || echo "no cef log found in either tree"
 ```
 
 ## Recent broker-confirmed fills
@@ -23,10 +32,14 @@ ls -t ops/schedule/logs/cef_*.log 2>/dev/null | head -1 | xargs tail -25 2>/dev/
 ```!
 python3 - <<'PY'
 import csv, collections, pathlib
-p = pathlib.Path("ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv")
-if not p.exists():
-    print("no broker_fills.csv — the book has never recorded a real execution")
+# Prod writes the evidence file; dev's tracked copy stops at the last promotion.
+rel = "ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv"
+trees = [pathlib.Path.home() / "prod/QUANTT", pathlib.Path(".")]
+p = next((t / rel for t in trees if (t / rel).exists()), None)
+if p is None:
+    print("no broker_fills.csv in either tree — no real execution on record")
 else:
+    print(f"[{p}]")
     rows = list(csv.DictReader(p.open(newline="")))
     by = collections.Counter(r["fill_date"] for r in rows if r.get("fill_date"))
     print(f"{len(rows)} executions across {len(by)} session(s)")
@@ -55,37 +68,35 @@ Preflight refused correctly every time. Nobody was reading preflight.
 - **6+ or none** — it is not trading. Escalate to `/preflight`, then the
   `ops-watchdog` subagent.
 
-**A non-armed session is silent by design.** It writes `ok_not_armed` and raises no
-alert. That is the failure mode this readout exists to defeat, and making it loud is
-the highest-value operational fix outstanding.
+**A non-armed session raises no alert of its own.** It writes `ok_not_armed`.
+Since the W3 go-live, `ops/verify_session.py` FAILs a day on which no deciding job
+armed and sends one message per trading day; whether that message leaves the
+machine is `python3 -m ops.doctor --quick`. This readout still exists to catch the
+day nobody reads it.
 
 **The shadow-ledger NAV is a local reconstruction; the account is the fact.**
-When the two diverge, order *sizing* is unaffected because `arm()` re-seeds from
-`ib.positions()` before every session, but reported NAV and P&L are wrong. Quote
-ledger P&L as indicative and say so.
+Quote ledger P&L as indicative and say so. And a divergence can reach order
+*sizing*: `arm()` re-seeds from `ib.positions()`, which has no row for a symbol the
+broker holds none of, so a stale ledger quantity there goes unchallenged
+(`CLAUDE.md` landmine 3).
 
-**Do not carry a divergence magnitude from memory or from a document.** The
-figure that circulated for weeks — "all 17 positions, ~$223k account-wide" —
-predates the 2026-09-08 epoch re-seed and no longer reproduces. Measured
-2026-09-10 against a broker snapshot: **none of the 17 CEFs diverge.** Every
-divergent symbol belongs to `null_trader` and the benchmark books, and five of
-those are *phantom fills* — orders the ledger booked as filled that produced no
-execution at all. Re-measure before quoting:
+**Do not carry a divergence magnitude from memory or from a document** — every
+one this desk has written down went stale within days, including one taken
+mid-session and never re-taken. Re-measure before quoting (opens a broker socket):
 
 ```bash
 python3 -m ops.reconcile_orders --book ops/books/cef_discount_book.json \
     --books-root ops/books/cef_live --check-broker
 ```
 
-**Modelled fills are not evidence.** 22 of 24 ledger trade dates are modelled fills
-for sessions that never traded. Only rows in `broker_fills.csv` count toward any
-live statistic.
+**Modelled fills are not evidence.** Only rows in `broker_fills.csv` count toward
+any live statistic.
 
 ## If something is wrong
 
 | symptom | next step |
 |---|---|
-| halt active | read `ops/HALT.md` and the matching `ops/halts/HALT_*.md`; do not clear it yourself |
+| halt active | read the halt file orient HALTS names (in prod) — every entry; do not clear it yourself |
 | gap ≥ 3 sessions | `/preflight`, then the `ops-watchdog` subagent |
 | heartbeat job `failed`/`stale` | `python3 -m ops.doctor --quick` |
 | ledger ≠ broker | `python3 ops/reconcile_orders.py` — expected today; note it, do not "fix" the ledger |

@@ -9,11 +9,11 @@ argument-hint: [what went wrong]
 ## Current state
 
 ```!
-python3 .claude/hooks/book_state.py -p 2>/dev/null | head -40
-echo "--- HALT ---"
-[ -f ops/HALT.md ] && cat ops/HALT.md || echo "no active halt"
-echo "--- recent halts ---"
-ls -t ops/halts/HALT_*.md 2>/dev/null | head -3
+python3 -m ops.orient --no-tests 2>/dev/null | sed -n '1,45p'
+echo "--- active halts, both trees (written in prod, untracked) ---"
+ls ~/prod/QUANTT/ops/HALT*.md ops/HALT*.md 2>/dev/null || echo "no active halt in either tree"
+echo "--- recently cleared halts ---"
+ls -t ~/prod/QUANTT/ops/halts/HALT_*.md ops/halts/HALT_*.md 2>/dev/null | head -3
 ```
 
 ---
@@ -22,12 +22,13 @@ ls -t ops/halts/HALT_*.md 2>/dev/null | head -3
 
 1. **`broker_fills.csv`** — the last `fill_date` is the only honest answer to "did
    it trade". Everything else can read "ok" for a book that has not traded in a month.
-2. **`ops/HALT.md`** — if present, preflight hard-gates. Read the matching
-   `ops/halts/HALT_*.md` for the reason.
+2. **The halt files, in prod** — `ops/HALT.md` hard-gates every book,
+   `ops/HALT_<book>.md` one book. They are untracked and written in prod, so read
+   them where orient HALTS says they are. Every entry, not the first line.
 3. **`ops/heartbeat.json`** — per-job status. `ok_not_armed` means the session ran
    and *declined* to trade. That is the silent case, and it raises no alert.
-4. **`ops/schedule/logs/cef_<date>.log`** — `[FAIL]` lines, the `ARMED:` line,
-   `status=`.
+4. **`~/prod/QUANTT/ops/schedule/logs/cef_<date>.log`** — `[FAIL]` lines, the
+   `ARMED:` line, `status=`. Logs land in prod; dev's copies stop at the split.
 5. **`python3 -m ops.doctor --quick`** — the out-of-band plumbing check.
 6. **`python3 -m ops.preflight --book … --no-live`** — the gate itself.
 7. **`python3 ops/reconcile_orders.py`** — ledger vs broker.

@@ -15,16 +15,17 @@ that breaks one of them is not comparable to any number in this repo.
 
 ```python
 from scripts.cef.band_frontier import build_targets, band, calendar, evaluate
+from scripts.cef.spec import BAND_WIDTH     # never write the width as a literal
 T, R = build_targets()          # frictionless daily targets as the sleeve builds them
-H_live = band(T, 0.048)         # the live policy
+H_live = band(T, BAND_WIDTH)    # the live policy, read from the frozen spec
 H_old  = calendar(T, 2)         # the previous configuration
 res    = evaluate(H, R)         # applies H.shift(2)
 ```
 
 **H1. Execution convention is `shift(2)`.** Decide at *t*, MOC fill at *t+1*, earn
 the *t+2* return. `validate.py` once used `shift(1)` — entering at day *t*'s close
-on day *t*'s NAV, which publishes after that close. Cost: gross SR 1.26 → 0.95, net
-SR at hold=5 0.82 → 0.51.
+on day *t*'s NAV, which publishes after that close. What the correction cost is
+measured in `results/cef/EXECUTION_CONVENTION_2026-09-10.md`.
 
 **H2. Turnover-matched comparisons only.** Find the band width or cost coefficient
 that matches the reference's turn/yr within 5%, and compare there.
@@ -58,8 +59,9 @@ was deliberately not chosen.
 run on them once, on the combined spec, before promotion. **Trading any of them
 consumes the set.**
 
-**H10. Count trials.** Two counters, each with its own √(2 ln N) bar: **CEF (48)**
-and **GAMMA (0)**. Say which one you increment. The combined book is judged on the
+**H10. Count trials.** Two counters, **CEF** and **GAMMA**, each with its own
+√(2 ln N) bar; read both from the table in `docs/RESEARCH_STATE.md` (orient TRIALS
+derives the bar). Say which one you increment. The combined book is judged on the
 joint record.
 
 **H11. Pre-register before the session that trades it.**

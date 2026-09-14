@@ -22,6 +22,10 @@ except Exception:
     sys.exit(0)
 
 
+POINTER = ("  Numbers: python3 -m ops.orient · what the system is and has decided: "
+           "docs/SYSTEM.md · _archive/ is history, never current state.")
+
+
 def main() -> int:
     try:
         s = collect()
@@ -79,6 +83,10 @@ def main() -> int:
     out.append(f"  git {g.get('branch')}, {g.get('dirty')} file(s) uncommitted.")
     out.append("  Run /book-status for the full readout, /preflight to test "
                "the gate without trading.")
+    # The one pointer every session needs before it reads anything. Six
+    # documents once each claimed to be where to start; the answer now has two
+    # owners and a folder that is explicitly not one (docs/INDEX.md).
+    out.append(POINTER)
     print("\n".join(out))
     return 0
 

@@ -1,7 +1,7 @@
 ---
 name: preflight
 description: Run the trading gate and the machine health check without trading anything. Use before any session, when the book has not traded, when a job failed, or to answer "is it safe / is it able to run". Read-only — it transmits nothing.
-allowed-tools: Bash(python3 -m ops.preflight*) Bash(python3 -m ops.doctor*) Bash(cat ops/HALT.md) Read Grep Glob
+allowed-tools: Bash(python3 -m ops.preflight*) Bash(python3 -m ops.doctor*) Bash(python3 -m ops.orient*) Read Grep Glob
 ---
 
 # Preflight and plumbing
@@ -10,6 +10,15 @@ allowed-tools: Bash(python3 -m ops.preflight*) Bash(python3 -m ops.doctor*) Bash
 
 ```!
 python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live --quiet-alerts 2>&1 | tail -30
+```
+
+## Halts, in both trees
+
+**Run from dev, preflight's `halt` check reads dev's halt files, and halts are
+written in prod.** A clean `halt` row here does not mean prod is unblocked:
+
+```!
+python3 -m ops.orient --no-tests 2>/dev/null | sed -n '/^HALTS/,/^$/p'
 ```
 
 ## The machine
@@ -29,7 +38,7 @@ doctor runs *outside* every job for that reason.
 
 | check | the failure it exists to catch |
 |---|---|
-| `halt` | an active `ops/HALT.md` — the hard gate that actually stops the money |
+| `halt` | an active `ops/HALT.md` (every book) or `ops/HALT_<book>.md` (one book) **in the tree preflight runs in** — the hard gate that actually stops the money |
 | `costs` | every deployed ticker priced — the NVG/USHY KeyError that crashed the ledger mid-write **after** orders had transmitted |
 | `cost_drift` | yaml drifting from the tick-floor model — silent staleness |
 | `data` | price/NAV freshness — trading a blind signal. A stale NAV is not a cheap fund |
@@ -58,9 +67,9 @@ whether the gateway answers.
 
 ## Do not
 
-Do not run the live session entry point, the schedule wrappers or the launchd job
-to "test" anything — with `ops/schedule/cef.env` at RUNG-2 they transmit real MOC
-orders, and the trade phase is not idempotent. The hook that used to block these
+Do not run the live session entry point, `launch_job.py` or a launchd job to
+"test" anything — with DRY_RUN=0 in the job's env they transmit real MOC orders,
+and the trade phase is not idempotent. The hook that used to block these
 was removed 2026-09-10; nothing stops you now, which is exactly why you should
 not. If you need a real session run, say so and let the operator run it
 with `! <command>`.

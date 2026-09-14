@@ -58,19 +58,25 @@ into the established column because it has been repeated a few times.
 
 ## Where things belong
 
+**`docs/INDEX.md` is the list** — every authored document, its role, and the one
+question it owns; `python3 -m ops.doc_audit` fails on a document with no row. The
+short version:
+
 | file | holds |
 |---|---|
-| `docs/prompts/00_BRIEF.md` | the standing brief every research prompt opens with |
-| `docs/RESEARCH_STATE.md` | **canonical trial counters**, the D1–D7 legend, killed/watch/active |
 | `docs/SYSTEM.md` | what we trade, how it runs, what we know, standing decisions |
-| `docs/INDEX.md` | which file owns which question |
+| `docs/RESEARCH_STATE.md` | **canonical trial counters**, the D1–D7 legend, killed/watch/active/closed |
+| `docs/prompts/00_BRIEF.md` | the theory, market structure and harness rules every prompt opens with |
 | `docs/REFERENCES.md` | every external claim, with a verification status |
 | `results/<family>/` | dated findings notes and pre-registrations |
-| `ops/halts/HALT_<ts>.md` | incident records |
+| `_archive/` | superseded documents — provenance, never authority (`_archive/README.md`) |
+
+**Before writing a fact into a document, find its owner in the index and link to
+it.** A second copy is how this repo came to hold four different arm rates.
 
 `docs/RESEARCH_STATE.md` is the canonical trial record — **update it in the same
-commit as the trial, not at the end of a session.** It has already drifted once:
-the CEF counter read 18 for five weeks while the true figure was 48.
+commit as the trial, not at the end of a session.** It has already drifted once,
+for five weeks.
 
 ## Pre-registrations
 

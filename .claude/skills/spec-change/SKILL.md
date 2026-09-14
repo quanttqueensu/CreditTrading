@@ -82,7 +82,7 @@ inert key; it is the revert path.
 ## After the edit
 
 ```bash
-python3 -m pytest -q                       # 115 tests
+python3 -m pytest                          # never quote the count
 python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live
 ```
 

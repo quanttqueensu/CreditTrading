@@ -25,8 +25,9 @@ Four phases with **different failure policies**. Do not collapse them.
 Phase 4 is unconditional because `ib.fills()` serves the current TWS session only
 and TWS force-restarts daily. There is no historical execution endpoint that
 reaches back past the restart. **A fill not captured today is gone.** The old
-design captured fills as a side effect of a successful run, which is why 302 real
-executions from 2026-07-31 exist nowhere.
+design captured fills as a side effect of a successful run, which is how
+executions from 2026-07-31 went unrecorded at the time. What `broker_fills.csv`
+holds per date: orient BOOK.
 
 A failed check must **downgrade** the session, not cancel it: clear `arm`, leave
 `collect` true. Today's closing prices, NAVs and holdings are not re-fetchable
@@ -40,16 +41,22 @@ later — the issuers publish no archive — so a day skipped is a day gone.
   fire would have re-bought the entire book against 164,500 CAD of excess
   liquidity at 83% margin use. `arm()` raises `NotArmed` rather than transmitting
   on unverified state.
-- **The same-day guard.** The trade phase is not idempotent and there is no dedupe
-  at the broker. A second armed run stacks a second order set — worse than a
-  duplicate, because `arm()` reads positions that do not include the still-unfilled
-  MOC orders, so both sets fill in the same auction and the book doubles.
-- **Sibling-book attribution.** Three books share one IBKR account with overlapping
+- **The pending-order refusal.** The trade phase is not idempotent and there is no
+  dedupe at the broker. A second armed run stacks a second order set — worse than
+  a duplicate, because `arm()` reads positions that do not include the
+  still-unfilled MOC orders, so both sets fill in the same auction and the book
+  doubles. `place_targets` refuses before its first transmission if the broker
+  (`reqAllOpenOrders`) or `_order_map.csv` shows a set headed for an auction that
+  has not closed (`ops/pending_orders.py`); an unanswerable query refuses too.
+  The launch-time same-day guards remain beside it.
+- **Sibling-book attribution.** Several books share one IBKR account with overlapping
   tickers. `_live_positions` is per-sleeve; `reconcile()` checks the tagged books
   sum to `ib.positions()`. **Never take a symbol from the account net.**
 - **`DRY_RUN=1` is a human hard halt** and always wins.
-- **The halt file is a hard gate.** `ops/HALT.md` is durable, greppable and read by
-  preflight. It survives reboots and outlives any notification. Alerting is
+- **The halt file is a hard gate.** `ops/HALT.md` (every book) and
+  `ops/HALT_<book>.md` (one book) are durable, greppable and read by preflight **in
+  the tree the session runs in — prod**. They are untracked, so dev never sees
+  them; read both trees with `python3 -m ops.orient` (HALTS). It survives reboots and outlives any notification. Alerting is
   best-effort and must never be able to mask the fault it reports: the file write
   happens first and unguarded, and every notification path is individually wrapped.
 
@@ -60,10 +67,12 @@ starts, and a guard that shares a broken assumption with the thing it guards is 
 a guard.** That is why `ops/doctor.py` runs outside every job and checks plumbing
 rather than strategy.
 
-A non-armed session is currently silent — it writes `ok_not_armed` to the heartbeat
-and raises nothing, which is why a 21-session outage went unnoticed for a month.
-This is the highest-value operational fix available and it is what `docs/prompts/W3`
-covers. If you touch alerting, make a non-armed session loud.
+A non-armed session still raises nothing of its own — it writes `ok_not_armed` to
+the heartbeat, which is how a 21-session outage went unnoticed for a month. The
+answer that shipped is outcome-based: `ops/verify_session.py` asks the broker after
+the close and FAILs a day on which no deciding job armed, one message per trading
+day, pass or fail. If you touch alerting, keep that property: silence must never
+read as success. Where the work order stands: `python3 -m ops.prompt_status`.
 
 ## When you change anything here
 

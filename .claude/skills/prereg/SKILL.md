@@ -69,7 +69,7 @@ Updated in docs/RESEARCH_STATE.md in this same commit: yes/no.
 - **Update `docs/RESEARCH_STATE.md` in the same commit.** That table is the
   canonical trial record and it has already drifted once — the CEF counter read 18
   for five weeks while the true figure was 48.
-- **Say which counter.** CEF (48) and GAMMA (0) each carry their own deflated-Sharpe
+- **Say which counter.** CEF and GAMMA (read from the table) each carry their own deflated-Sharpe
   bar; the combined book is judged on the joint record.
 - **Kill rules are pre-committed and not softened later.** The CEF book's is
   reviewed at 60 live sessions and not before: (a) live net Sharpe < 0; (b) realised

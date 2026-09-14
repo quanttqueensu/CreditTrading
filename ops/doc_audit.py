@@ -720,7 +720,7 @@ def check_pointers(rep: Report) -> None:
     work orders; this applies the same resolver to the documents that own
     questions, including `_archive/` paths, which prompt_status does not read.
     """
-    for rel in POINTER_SCOPE:
+    for rel in POINTER_SCOPE + tuple(_agent_layer()):
         text = _read(rel)
         if text is None:
             continue
@@ -865,9 +865,18 @@ def check_rotting_figures(rep: Report) -> None:
                 if hits else "")
 
 
+def _agent_layer() -> list[str]:
+    """Every markdown file Claude Code loads as rules, skills or subagents."""
+    base = REPO / ".claude"
+    if not base.exists():
+        return []
+    return sorted(p.relative_to(REPO).as_posix() for p in base.rglob("*.md")
+                  if "__pycache__" not in p.parts)
+
+
 def _rotting_extra() -> list[str]:
-    """Agent-layer files join the scope once they point at owners (see CHECKS)."""
-    return []
+    """The agent layer is read before any document, so it is held to the same bar."""
+    return _agent_layer()
 
 
 CHECKS = [check_banners, check_spec_id, check_ops_broker_modules,

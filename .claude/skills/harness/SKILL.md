@@ -9,9 +9,10 @@ description: How to run a backtest or policy comparison correctly in this repo �
 
 ```python
 from scripts.cef.band_frontier import build_targets, band, calendar, evaluate
+from scripts.cef.spec import BAND_WIDTH     # never write the width as a literal
 
 T, R  = build_targets()        # frictionless daily targets as the sleeve builds them
-H_live = band(T, 0.048)        # the live policy
+H_live = band(T, BAND_WIDTH)    # the live policy, read from the frozen spec
 H_old  = calendar(T, 2)        # the previous configuration
 res    = evaluate(H, R)        # applies H.shift(2): decide t, MOC fill t+1, earn t+2
 ```
@@ -33,7 +34,7 @@ number in this repo**.
 | **H7** | **No lookahead.** State the alignment in a comment; assert it at runtime. |
 | **H8** | **No sweeping and picking.** Derive, then verify it lands on a plateau. |
 | **H9** | **The 27 untouched names** are the comparison set. Trading one consumes it. |
-| **H10** | **Count trials** — CEF (48) or GAMMA (0), each with its own √(2 ln N) bar. |
+| **H10** | **Count trials** — CEF or GAMMA, each with its own √(2 ln N) bar; read both from `docs/RESEARCH_STATE.md`. |
 | **H11** | **Pre-register** before the session that trades it. |
 | **H12** | **Negative controls.** Test where the mechanism *cannot* operate. |
 | **H13** | **Time holdout** — fit before 2023-01-01, report a 2023–26 holdout row. |

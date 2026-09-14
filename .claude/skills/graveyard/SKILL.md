@@ -1,12 +1,13 @@
 ---
 name: graveyard
-description: The thirteen dead mechanisms, how each died, and the patterns behind them. Use BEFORE proposing any new signal or research direction, when an idea feels familiar, or when asked what has already been tried. Rebuilding one of these is a wasted week.
+description: The dead mechanisms, how each died, and the patterns behind them. Use BEFORE proposing any new signal or research direction, when an idea feels familiar, or when asked what has already been tried. Rebuilding one of these is a wasted week.
 ---
 
 # The graveyard
 
-**Check this before proposing anything.** Six of thirteen deaths were the same
-mistake wearing different clothes.
+**Check this before proposing anything.** The canonical list is the KILLED tables
+in `docs/RESEARCH_STATE.md`; this skill is the reading guide. Many of the deaths
+were the same mistake wearing different clothes.
 
 ## Dead — never re-test without new data
 

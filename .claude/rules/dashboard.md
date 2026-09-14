@@ -21,7 +21,8 @@ human. Adding a mutating route is a decision for the team lead, not a refactor.
 ## Routes
 
 `GET /api/status · /api/risk · /api/signal · /api/trades · /api/provenance ·
-/api/pnl · /api/benchmarks · /api/live · /api/factors · /api/verify · /api/doctor`
+/api/pnl · /api/benchmarks · /api/live · /api/factors · /api/verify · /api/doctor ·
+/api/sessions`
 and `POST /api/connect`.
 
 Every handler is defensive: the book state it reads is written by processes that
@@ -67,7 +68,7 @@ It is the only surface that can catch a silently non-trading book. Design every
 addition against that: **make the failure visible, not the success pretty.** The
 2026-08 outage ran 21 sessions where every log, heartbeat and ledger read "ok".
 
-The highest-value panels, in order (`docs/prompts/W9`):
+The highest-value panels, in order (`docs/prompts/W9_dashboard.md`):
 
 1. **Session watch** — did today's session arm, and if not, which blocker fired.
 2. **Order lifecycle journal** — decided → sent → acknowledged → filled, per name,

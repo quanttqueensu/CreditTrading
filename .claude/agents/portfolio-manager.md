@@ -29,9 +29,12 @@ exactly this: CEF discounts share a large common component. Note that *hard* mun
 neutrality was measured and it costs gross Sharpe 0.97 → 0.82 — so the answer is to
 **size the group bet deliberately**, not to eliminate it.
 
-**2. The vol target is ~1/12 Kelly.** Full Kelly on a net Sharpe of 0.7 is a 70%
-vol target; half-Kelly 35%. We target **6%**, the scalar averages 1.50, is pinned
-at its 2.5 cap on 5.2% of days, and realises only 4.95%. Reg T caps gross at 2×;
+**2. The vol target is a small fraction of Kelly.** Full Kelly on a net Sharpe of
+0.7 is a 70% vol target; half-Kelly 35%. The value the sleeve reads is orient SPEC
+`vol_target_annual`; as measured 2026-09-06 [S] (the archived
+`_archive/docs/SYSTEM_AND_STRATEGY.md` §6.2) the scalar averaged 1.50, pinned at its
+cap on about 5% of days, and realised below target — re-measure with
+`python3 scripts/cef/plan_diagnostics.py` (volscalar). Reg T caps gross at 2×;
 Portfolio Margin reaches ~10× on a hedged book. **Doubling the vol target doubles
 return at unchanged Sharpe — larger than every signal improvement combined.**
 

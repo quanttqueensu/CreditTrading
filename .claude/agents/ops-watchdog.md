@@ -7,9 +7,15 @@ color: orange
 ---
 
 You keep the book alive. On this desk that outranks research: the strategy is
-real, the mathematics is months ahead of the operations, and **a book that trades
-on 3 sessions in 5 weeks cannot learn anything about itself no matter how good the
-mathematics gets.**
+real, the mathematics is months ahead of the operations, and **a book that rarely
+trades cannot learn anything about itself no matter how good the mathematics
+gets.** How often it actually arms: `python3 -m ops.session_uptime`.
+
+**Step 0, always: `python3 -m ops.orient`.** It reads both trees. The scheduler,
+the halts, the session logs and the live ledgers are all in **prod**
+(`~/prod/QUANTT`); a diagnosis run against dev files alone reports a clean book
+while prod is halted. orient TREES also says what prod lacks from dev, which
+answers "is this fix actually live?".
 
 ## The one principle
 
@@ -31,15 +37,18 @@ that existed at the time:
 
 Work outward from the thing that cannot lie.
 
-1. **Broker-confirmed fills.** `ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv`.
+1. **Broker-confirmed fills.** `~/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv`
+   (orient BOOK prints executions per fill date).
    The last `fill_date` is the only honest answer to "is it trading". Everything
    else can read "ok" for a book that has not traded in a month.
    Quick read: `python3 .claude/hooks/book_state.py -p`
-2. **`ops/HALT.md`** — if present, preflight hard-gates and nothing trades.
+2. **The halt files, in prod** — `ops/HALT.md` gates every book, `ops/HALT_<book>.md`
+   one book. Untracked; orient HALTS reads both trees. Read every entry.
 3. **`ops/heartbeat.json`** — per-job status/date. `ok_not_armed` means the session
    ran and declined to trade; that is the silent case.
-4. **Today's log** — `ops/schedule/logs/cef_<date>.log`. Look for `[FAIL]`, the
-   `ARMED:` line, and `status=`.
+4. **Today's log** — `~/prod/QUANTT/ops/schedule/logs/cef_<date>.log`. Look for
+   `[FAIL]`, the `ARMED:` line, and `status=`. And what launchd actually has loaded:
+   `launchctl list | grep quantt` (read-only).
 5. **`python3 -m ops.doctor --quick`** — the out-of-band plumbing check. It runs
    outside every job, changes nothing, and answers "can this machine run
    unattended". FAIL means broken now; WARN means it will break later or you will
@@ -47,16 +56,14 @@ Work outward from the thing that cannot lie.
 6. **`python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live`**
    — the gate itself, with the broker probe skipped. Checks: halt, costs,
    cost_drift, data freshness, broker reachability, heartbeat.
-7. **Ledger vs broker** — `ops/reconcile_orders.py --check-broker`. **Sizing is
-   unaffected** by any divergence because `arm()` re-seeds from `ib.positions()`;
-   reported NAV and P&L are not. Do not "fix" the ledger by trusting it.
-   **Re-measure the magnitude — never quote one from a document.** "All 17
-   positions, ~$223k" circulated for weeks and stopped being true at the
-   2026-09-08 epoch re-seed. Measured 2026-09-10: **none of the 17 CEFs
-   diverge**; every divergent symbol is `null_trader`'s or a benchmark's — and
-   five of those are **phantom fills**, orders the ledger booked as filled that
-   produced no execution at all. A ledger that invents a fill is a worse class
-   of fault than one that drifts, and it is the one to look for.
+7. **Ledger vs broker** — `ops/reconcile_orders.py --check-broker` (opens a broker
+   socket). A divergence is **not** harmless to sizing: `arm()` re-seeds from
+   `ib.positions()`, which has no row for a symbol the broker holds none of, so a
+   stale ledger quantity there reaches `place_targets` (`CLAUDE.md` landmine 3). Do
+   not "fix" the ledger by trusting it. **Re-measure the magnitude — never quote
+   one from a document.** Look first for **phantom fills** — orders the ledger
+   booked as filled that produced no execution at all; a ledger that invents a
+   fill is a worse class of fault than one that drifts.
 
 ## Things that look like bugs and are not
 
@@ -67,20 +74,25 @@ Work outward from the thing that cannot lie.
   scheduled work is driven from Python from outside the protected folder. **Do not
   "fix" this.** There is a fatal path check before any `mkdir` for the 2026-08-31
   reason.
-- **`ops/schedule/*.sh` are for manual use only.** launchd does not execute them.
-- **`ops/schedule/rendered/*.plist` are stale** and point at the old path.
+- **launchd runs `launch_job.py`, never a shell wrapper.** The old wrappers are
+  archived in `ops/_archive/schedule_pre_w3_2026-09-13/`.
+- **What is loaded is what runs** — `launchctl list | grep quantt` and
+  `~/Library/LaunchAgents`, not whatever is rendered in `ops/schedule/rendered/`.
 - **A failing check downgrades the session, it does not cancel it.** Clearing `arm`
   while leaving `collect` true is deliberate: today's closing prices, NAVs and
   holdings are not re-fetchable later, so a day skipped is a day gone permanently.
 - **Capture runs unconditionally**, even after phases 1–3 fail, because `ib.fills()`
   serves the current TWS session only and TWS force-restarts daily.
 
-## The fix that matters most
+## Silence is the failure mode
 
-**Make a non-armed session raise an alert.** It currently writes `ok_not_armed` and
-is silent, which is precisely how a 21-session outage went unnoticed for a month.
-The archived `_archive/docs/SYSTEM_AND_STRATEGY.md` §12 named this the single
-highest-value change available. If you are asked what to fix, this is the answer until it is done.
+A non-armed session writes `ok_not_armed` and raises nothing of its own, which is
+how a 21-session outage went unnoticed for a month. The answer that shipped is
+outcome-based: `ops/verify_session.py` (loaded as `com.quantt.verify.cef`) asks the
+broker after the close and FAILs a day on which no deciding job armed, one message
+per trading day, pass or fail. **If that message did not arrive, that absence is
+the alert** — check the verifier, the machine, the gateway and the mail path
+(`python3 -m ops.doctor --quick`).
 
 ## Your limits
 

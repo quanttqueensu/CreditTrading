@@ -30,7 +30,8 @@ volatile facts — which tree is which, every halt in either tree, last
 broker-confirmed fill, arm rate, live spec, panel dates, trial counters, hygiene
 greps — each beside the command that produced it, and `UNMEASURED` with a reason
 where it cannot measure. `CLAUDE.md` holds the rules; that command holds the
-numbers.
+numbers. `docs/SYSTEM.md` holds what the system is and has decided, and
+`docs/INDEX.md` says which file owns every other question.
 
 **There is no blocking hook.** `guard_order_path.py`, a `PreToolUse(Bash)` deny
 rule covering the order path, credentials and the fill record, was **removed on
@@ -88,7 +89,7 @@ not need to be in context for every session.
 | `/preflight` | run the gate and the plumbing check without trading |
 | `/morning-brief` | pre-session: state, data freshness, constraints that bind |
 | `/next-task` | what to work on, ranked against the actual constraints |
-| `/graveyard` | the 13 dead mechanisms — **read before proposing anything** |
+| `/graveyard` | the dead mechanisms and how each died — **read before proposing anything** |
 | `/harness` | how to run a backtest that is comparable to existing numbers |
 | `/repro` | reproduce a number before quoting it; check panel freshness |
 | `/prereg` | write a pre-registration before a change trades |
@@ -129,8 +130,9 @@ it is a deliberate human act:
 - open `/permissions` and add the entries, or
 - paste its `permissions` block into `.claude/settings.json`.
 
-It does **not** open the order path; that stays behind the hook. To lift that too,
-delete the `PreToolUse` block from `settings.json` — knowingly.
+It does **not** open the order path — and nothing else closes it either: there is no
+blocking hook (see above). The order path is held by `CLAUDE.md`'s hard rules and
+by convention.
 
 ## Maintaining this
 
