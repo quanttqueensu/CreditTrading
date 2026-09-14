@@ -334,6 +334,14 @@ def decision_check(auction: dt.date, prev_pair: dt.date, beats: dict,
     same-day guard files `ok_already_traded` with armed=true (launch_job keeps
     the flag so a third run cannot slip through), and on 2026-09-12 that beat
     carried pair_date 2026-09-11 for a pair that was never traded.
+
+    THE OPPOSITE DEFAULT TO session_plan's GUARD, AND BOTH ARE RIGHT. The
+    transmit guard (`session_plan._armed_beats`) excludes non-transmitting
+    statuses BY NAME and reads anything unrecognised as armed, because an
+    unknown status must refuse a second order set. This monitor requires
+    `ok` and reads anything unrecognised as NOT decided, because an unknown
+    status must produce a loud FAIL rather than a quiet OK. Same field,
+    opposite defaults; neither spelling is a bug.
     """
     rows = []
     hit = None

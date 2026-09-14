@@ -89,3 +89,32 @@ copy would be moving the hazard, not removing it.
 It is left in place as of 2026-09-10 because deleting it is irreversible and
 touches credentials, which is an operator action, not an agent one. See the
 "Still open" section of `results/ops/REPO_HYGIENE_2026-09-10.md`.
+
+---
+
+## `schedule_pre_w3_2026-09-13/`
+
+The **pre-launch_job scheduling layer**: the `run_*.sh` wrappers, `install.sh`
+and its `com.quantt.book.*` templates, `smoke_schedule.py`, `schedule.env`, and
+three rendered plists that no longer match anything installed.
+
+**Why it is dead, measured 2026-09-13 rather than asserted.** Every
+`com.quantt.*` LaunchAgent that is loaded runs
+`~/Library/Application Support/quantt/launch_job.py <job>` directly (`plutil
+-extract ProgramArguments` on each); none runs a `run_*.sh`. The only references
+left in live code are comments (`launch_job.py:10`, `:832`). `doctor.py`'s
+`check_env_paths` already called `schedule.env` "a leftover pointing at a v2
+book that was never built". `rendered/com.quantt.phase0.daily.plist` differs
+from the installed plist. `com.quantt.book.daily` / `.weekly` are not loaded.
+
+**Why archived and not deleted.** `run_cef.sh` is the wrapper CLAUDE.md hard
+rule 1 names as able to transmit, and `.claude/settings.autonomy.json` still
+denies it by path; the history of how sessions were launched before
+2026-08-31 lives in these files and their comments.
+
+**What was deliberately NOT archived with it.** `run_*.sh` are the only files
+here that ever could transmit; `weekly_book_report.py` (launch_job's weekly job
+calls it), `nyse_calendar.py`, the per-job `*.env` files and the W3 rendered
+plists (`rendered/com.quantt.cef.daily.plist`, `cef_pm`, `awake`) all stay in
+`ops/schedule/`. So do the `_pre_epoch_*` ledger directories: they are tracked
+live state, and moving a tracked path through a promotion removes prod's copy.
