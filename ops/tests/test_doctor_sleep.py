@@ -219,3 +219,35 @@ def test_an_unreadable_plist_is_reported_not_silently_blank(monkeypatch, tmp_pat
     r = doctor.Report()
     doctor.check_sleep(r)
     assert "UNREADABLE" in r.rows[0][2]
+
+
+# -- the parser, which every test above monkeypatches away -------------------
+
+PMSET_G_2026_09_13 = """System-wide power settings:
+ SleepDisabled		1
+Currently in use:
+ standby              0
+ Sleep On Power Button 1
+ hibernatefile        /var/vm/sleepimage
+ networkoversleep     0
+ disksleep            10
+ sleep                0 (sleep prevented by powerd, caffeinate, caffeinate)
+ displaysleep         2
+"""
+
+
+def test_sleep_disabled_reads_what_pmset_actually_prints(monkeypatch):
+    """`pmset -g` spells the setting `SleepDisabled`, not `disablesleep`.
+
+    Every test above replaces `sleep_disabled` with a lambda, so the parser
+    itself was never run by the suite -- and it looked only for the lowercase
+    setter name. Measured 2026-09-13 21:40 with sleep genuinely disabled: it
+    returned False, and doctor warned of clamshell sleep that could not happen.
+    The text above is that measurement, trimmed to the lines that matter.
+    """
+    monkeypatch.setattr(doctor, "_cmd", lambda argv: PMSET_G_2026_09_13)
+    assert doctor.sleep_disabled() is True
+    monkeypatch.setattr(doctor, "_cmd", lambda argv:
+                        PMSET_G_2026_09_13.replace("SleepDisabled\t\t1",
+                                                   "SleepDisabled\t\t0"))
+    assert doctor.sleep_disabled() is False

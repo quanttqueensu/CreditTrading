@@ -722,9 +722,17 @@ def sleep_disabled():
     out = _cmd(["pmset", "-g"])
     if out is None:
         return None
+    # THE SETTING AND ITS REPORT ARE SPELLED DIFFERENTLY. You set it with
+    # `pmset -a disablesleep 1`; `pmset -g` reports it as `SleepDisabled 1`
+    # (measured on this machine 2026-09-13 21:40, Darwin 23.4.0). This matched
+    # only the lowercase setter name, so it returned False with sleep disabled
+    # and the doctor, the watchdog and every session log told the operator the
+    # box would sleep on a closed lid when it would not -- a false alarm that
+    # teaches people to ignore the real one. Both spellings are accepted.
     for line in out.splitlines():
         parts = line.split()
-        if len(parts) >= 2 and parts[0] == "disablesleep":
+        if len(parts) >= 2 and parts[0].lower() in ("disablesleep",
+                                                     "sleepdisabled"):
             return parts[1] == "1"
     return False      # pmset omits the key entirely when it is 0
 
