@@ -1,0 +1,281 @@
+[
+ {
+  "id": "WS0",
+  "title": "Safety harness, rc table, freeze record, release gate, settings proposal, docs hygiene (merges first)",
+  "scope": "Steps 0.1-0.5. Socket kill-switch shared by pytest and the rehearsal; root conftest (netguard, data-write guard, launchctl subprocess guard, alert recorder, hermetic AGENTS, panel-hash session check); ops/session_rc.py constants; FREEZE.md and evidence dirs with auditor templates; release_check.sh with 10 checks; settings_proposed.json (team lead applies); cherry-pick 687936e; RESEARCH_STATE counter walk; /incident record. No other workstream branches until this is on hardening.",
+  "files": [
+   "conftest.py (NEW)",
+   "ops/netguard.py (NEW)",
+   "ops/session_rc.py (NEW)",
+   "ops/release_check.sh (NEW)",
+   "results/ops/hardening_2026-09-21/** (NEW)",
+   "docs/RESEARCH_STATE.md",
+   "docs/INDEX.md",
+   "results/ops/LEDGER_NOOP_MORNING_2026-09-15.md"
+  ],
+  "tests": [
+   "ops/tests/test_netguard.py",
+   "ops/tests/test_session_rc.py",
+   "ops/tests/test_release_check.py",
+   "ops/tests/test_no_ng_imports.py",
+   ".claude/hooks/tests/test_settings_order_path.py"
+  ],
+  "depends_on": [],
+  "needs_worktree": true,
+  "touches_live_path": false
+ },
+ {
+  "id": "WS1",
+  "title": "Schedule truth: hermetic schedule tests, noon retry, armed-beat carry",
+  "scope": "Steps 2.1.1-2.1.3 (D2, B9v, B2, C4, D1, B3, C7v, C7a). Must ship in the same tag as WS2.",
+  "files": [
+   "ops/decision_age.py",
+   "ops/doctor.py (_plist_start_minutes_all only)",
+   "ops/halt.py (beat)",
+   "ops/session_plan.py (_armed_beats)",
+   "ops/verify_session.py (decision_check)",
+   "src/deploy/tests/test_decision_age_clock.py",
+   "ops/tests/test_stuck_session_guard.py"
+  ],
+  "tests": [
+   "src/deploy/tests/test_decision_age_clock.py",
+   "ops/tests/test_stuck_session_guard.py",
+   "ops/tests/test_halt_beat_session_date.py",
+   "ops/tests/test_session_plan.py (per-rc launcher-shaped beats)"
+  ],
+  "depends_on": [
+   "WS0"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS4a",
+  "title": "Fetchers: fetch_daily completeness and fail-fast, borrow REBATE opt-in, distributions refactor then merge-forward",
+  "scope": "Steps 2.4.2, 2.4.3 (F1 fetch half, F2, B7v, D4v, F8v, F6, G3, G7v). Distributions: commit A is a pure refactor proved by an AST test (nothing executed against old code); commit B merge-forward with all-four-files validation and --out-dir. Every test redirects PX_PATH/NAV_PATH/OUT to tmp_path. Merges early so human step 9 can run.",
+  "files": [
+   "scripts/cef/fetch_daily.py",
+   "scripts/cef/fetch_borrow_rates.py",
+   "scripts/fetch_cef_distributions.py"
+  ],
+  "tests": [
+   "scripts/cef/tests/test_fetch_daily_completeness.py",
+   "scripts/cef/tests/test_fetch_daily_offline.py",
+   "scripts/cef/tests/test_fetch_daily_counts.py",
+   "scripts/cef/tests/test_distributions_merge_forward.py",
+   "scripts/cef/tests/test_distributions_module_is_importable_safely.py (AST)"
+  ],
+  "depends_on": [
+   "WS0"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS2",
+  "title": "Ledger and order integrity (the incident)",
+  "scope": "Steps 2.2.0-2.2.8 as one unit (A1, C1, C8v, A6v, C2, A3, C7, A8v, A7, A9, A6, C13): clock seam gated on netguard; write-ahead order rows and n_placed; uncovered day raises; multi-day coverage; dry_advance refusal before transmit with a same-day-branch test; preflight ledger check with LIVE_ROOTS and --books-root; rc 7; desync lists orders; reconcile_orders truthfulness; rebuild/reset string sweep. Sim-path no-op proof required.",
+  "files": [
+   "ops/clock.py (NEW)",
+   "ops/ledger.py",
+   "ops/ledger_check.py (NEW)",
+   "ops/live_roots.py (NEW)",
+   "src/deploy/broker/ibkr.py",
+   "src/deploy/broker/simulator.py",
+   "src/deploy/run_book.py (rc 7)",
+   "ops/preflight.py (ledger check, books_root)",
+   "ops/capture_fills.py (clock only)",
+   "ops/reconcile_orders.py"
+  ],
+  "tests": [
+   "src/deploy/tests/test_transmitted_orders_never_orphaned.py",
+   "src/deploy/tests/test_two_session_replay.py",
+   "ops/tests/test_ledger_uncovered_day.py",
+   "src/deploy/tests/test_multi_bar_catch_up.py",
+   "src/deploy/tests/test_refuse_before_transmit.py",
+   "src/deploy/tests/test_run_book_refusal_rc.py",
+   "src/deploy/tests/test_desync_records_orders.py",
+   "ops/tests/test_reconcile_orders.py",
+   "ops/tests/test_preflight_checks.py",
+   "ops/tests/test_clock_seam.py",
+   "ops/tests/test_no_rebuild_advice.py",
+   "changed: ops/tests/test_w3_morning_execution_gap.py, src/deploy/tests/test_ledger_behind_guard.py"
+  ],
+  "depends_on": [
+   "WS0"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS3",
+  "title": "Order-path safety: MOC exits, DRY_RUN/halt/--job in run_book, margin fail-closed, NAV no-fallback, deferred-book lock",
+  "scope": "Steps 2.3.1-2.3.5 (C3, C5, C6v, G2, C9, F8, G5, C10, D16). Branches from the WS2 tip. Keeps the existing MKT pin test untouched and adds place_targets-level MOC tests with negative controls. DRY_RUN=1 path runs nothing and writes nothing (rc 9).",
+  "files": [
+   "src/deploy/broker/ibkr.py",
+   "src/deploy/run_book.py",
+   "ops/preflight.py (check_margin)",
+   "src/deploy/portfolio.py (line 175, kill-switch flatten type)",
+   "ops/schedule/benchmarks.env",
+   "ops/schedule/phase0.env"
+  ],
+  "tests": [
+   "src/deploy/tests/test_moc_every_leg.py",
+   "src/deploy/tests/test_dry_run_always_wins.py",
+   "src/deploy/tests/test_run_book_respects_halt.py",
+   "ops/tests/test_margin_fail_closed.py",
+   "src/deploy/tests/test_sleeve_nav_no_fallback.py",
+   "ops/tests/test_deferred_books_locked.py"
+  ],
+  "depends_on": [
+   "WS2"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS4b",
+  "title": "Sleeve: a missing input is never a liquidation; distributions file required",
+  "scope": "Step 2.4.1 (F1, D3v, D3, C3 item 3). SleeveCannotDecide, rc 8, orchestrator skips place_targets entirely on the live path. Sleeve no-op proof over the full 2013+ panel with three reported numbers and expected-difference controls; raise frequency reported for D8.",
+  "files": [
+   "src/deploy/sleeves/cef_discount.py",
+   "src/deploy/portfolio.py (advance)",
+   "src/deploy/run_book.py (_cef_px, rc 8 handler)"
+  ],
+  "tests": [
+   "src/deploy/tests/test_cef_missing_pair_never_flattens.py",
+   "src/deploy/tests/test_cef_px_requires_distributions.py",
+   "src/deploy/tests/test_run_book_refusal_rc.py (rc 8 pair)"
+  ],
+  "depends_on": [
+   "WS3"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS5",
+  "title": "Alerting, watchdog truth, doctor machine checks, capture alert, dashboard guard, dead-man",
+  "scope": "Steps 3.2-3.5, 3.8 (B4, F3, B8v, F4, B7, F5, B1, B6, F6, F10, D3). Dashboard tests monkeypatch dashboard.server.subprocess.run with a recorder before any POST. alert_receipt.json under ops/schedule/logs with a promote-gate test.",
+  "files": [
+   "ops/halt.py (main, all_active_halts)",
+   "ops/doctor.py",
+   "ops/capture_fills.py (main alert)",
+   "dashboard/server.py",
+   "ops/verify_session.py (ping)",
+   "ops/preflight.py (ping)"
+  ],
+  "tests": [
+   "ops/tests/test_alert_delivery.py",
+   "ops/tests/test_watchdog_sees_scoped_halts.py",
+   "ops/tests/test_capture_failure_alerts.py",
+   "ops/tests/test_doctor_ibgateway.py",
+   "ops/tests/test_doctor_reboot.py",
+   "ops/tests/test_doctor_distributions.py",
+   "ops/tests/test_dashboard_sessions_route.py (additions)",
+   "ops/tests/test_deadman_ping.py"
+  ],
+  "depends_on": [
+   "WS1",
+   "WS3"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS6",
+  "title": "Uptime measurement: the definition of done becomes measurable",
+  "scope": "Step 3.7 (B5). Exact-name log filter, auction-date keying, wider guard regex, clean requires no DESYNC/REFUSE line and a verifier verdict exactly PASS.",
+  "files": [
+   "ops/session_uptime.py",
+   ".claude/hooks/book_state.py"
+  ],
+  "tests": [
+   "ops/tests/test_session_uptime.py",
+   ".claude/hooks/tests (book_state log selection)"
+  ],
+  "depends_on": [
+   "WS0"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": false
+ },
+ {
+  "id": "WS7",
+  "title": "promote.sh hardening and restore_state.sh",
+  "scope": "Step 3.10 (E2, E4v, E5v, E6v): pre-checkout doctor, pid guard over all loaded quantt jobs, remote-tag check, conflict-marker refusal, checked -f rollback with archive pre-verification and post-restore diff, morning clock window, smoke-budget guard. Protects the promotion after the RC.",
+  "files": [
+   "ops/promote.sh",
+   "ops/restore_state.sh (NEW)",
+   "docs/SYSTEM.md (4.1 rule)"
+  ],
+  "tests": [
+   "ops/tests/test_promote_gate.py (forward conflict refuses; failed rollback halts; local-only tag refused; cef_pm/verify.cef pid refuses even with --force; restore_state refuses ops/books; alert_receipt not dirty)"
+  ],
+  "depends_on": [
+   "WS0"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ },
+ {
+  "id": "WS8a",
+  "title": "Repair tool, independent cross-check, order preview",
+  "scope": "Steps 2.5.1-2.5.3 (A2, G6v, G1). replay_ledger with required args, --allow-prod, active-halt and no-session guards, append-only _replay_log.jsonl, incremental-extension test; crosscheck_positions against the 09-14..09-17 broker snapshots (replaces the nextgen cross-check, which its schema check refuses); preview_orders that refuses off-tag, on an incomplete pair or on holdings divergence. New-tool tests use named mutations.",
+  "files": [
+   "ops/replay_ledger.py (NEW)",
+   "ops/crosscheck_positions.py (NEW)",
+   "ops/preview_orders.py (NEW)"
+  ],
+  "tests": [
+   "ops/tests/test_replay_ledger.py",
+   "ops/tests/test_crosscheck_positions.py",
+   "ops/tests/test_preview_orders.py"
+  ],
+  "depends_on": [
+   "WS2",
+   "WS3"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": false
+ },
+ {
+  "id": "WS8b",
+  "title": "Rehearsal harness, multi-session live-path test, no-op proof driver",
+  "scope": "Steps 4.0, 2.5.4, P.5 (A4). Harness runs plan -> preflight -> run_book live branch with stub-ib broker -> beat -> real capture() against stub fills -> verify checks, per simulated day under the clock seam, root outside every git work tree, subprocess forbidden, REPO_ROOT-scoped halt paths redirected. Runs R2-R7 and records outputs in the evidence directory.",
+  "files": [
+   "ops/rehearsal.py (NEW)",
+   "ops/noop_proof.py (NEW)"
+  ],
+  "tests": [
+   "ops/tests/test_rehearsal_guards.py",
+   "src/deploy/tests/test_live_path_multi_session.py",
+   "src/deploy/tests/test_every_halting_exception_is_tested.py"
+  ],
+  "depends_on": [
+   "WS2",
+   "WS3",
+   "WS4b",
+   "WS8a"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": false
+ },
+ {
+  "id": "WS9",
+  "title": "Launcher patch tool (human applies after promotion)",
+  "scope": "Step 3.6 (C5, B7v, F8v, F5). Pure _human_halt function with truth-table test on a temp copy; refresh budget; refresh stand-down alert; timestamped watchdog print. --apply on the default target refuses under pytest or without a tty; calls nothing absent from the promoted tag or the rollback target; beat() stays first in the report phase.",
+  "files": [
+   "ops/schedule/patch_launch_job_hardening.py (NEW)"
+  ],
+  "tests": [
+   "ops/tests/test_patch_launch_job_hardening.py"
+  ],
+  "depends_on": [
+   "WS0",
+   "WS5"
+  ],
+  "needs_worktree": true,
+  "touches_live_path": true
+ }
+]
