@@ -1,0 +1,110 @@
+Named-mutation record, WS0-A (PLAN.md P.5: new tools have no old behaviour).
+Candidate commit: f9bb2655a07f694fbe58813c8706e5078762ebde
+Each mutation is ONE edit applied to a throwaway copy of the tree under
+wt/_scratch/ws0a/mut_tree (never committed), the test file is run there, and
+the file is restored. The copy's .git is a FILE naming a synthetic main tree.
+Runner: wt/_scratch/ws0a/run_mutations.py (scratch, not committed).
+
+CONTROL (no mutation), in the throwaway copy
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 0
+........                                                                 [100%]
+8 passed in 0.02s
+
+MUTATION rc-1 a reused number
+  file: ops/session_rc.py
+  - 'RC_PRE_TRANSMIT_REFUSAL = 7'
+  + 'RC_PRE_TRANSMIT_REFUSAL = 5'
+  expected red: ['test_the_codes_are_the_ones_P6_assigns']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:32: AssertionError: assert {'RC_ARM_REFU...RROR': 1, ...} == {'RC_ARM_REFU...RROR': 1, ...}
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:64: assert frozenset({4, 5, 8, 9, 10}) == frozenset({4, 7, 8, 9, 10})
+  FAILED ops/tests/test_session_rc.py::test_the_codes_are_the_ones_P6_assigns
+  FAILED ops/tests/test_session_rc.py::test_the_non_transmitting_set_is_exactly_the_proven_no_rows
+  2 failed, 6 passed in 0.02s
+
+MUTATION rc-2 a row built from the wrong constant
+  file: ops/session_rc.py
+  - 'RcRow(RC_HALT_ACTIVE, "RC_HALT_ACTIVE",'
+  + 'RcRow(RC_DRY_RUN_HALT, "RC_HALT_ACTIVE",'
+  expected red: ['test_every_row_is_a_module_constant_of_the_same_name_and_value']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:32: AssertionError: assert {'RC_ARM_REFU...RROR': 1, ...} == {'RC_ARM_REFU...RROR': 1, ...}
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:55: AssertionError: RC_HALT_ACTIVE
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:64: assert frozenset({4, 7, 8, 9}) == frozenset({4, 7, 8, 9, 10})
+  FAILED ops/tests/test_session_rc.py::test_the_codes_are_the_ones_P6_assigns
+  FAILED ops/tests/test_session_rc.py::test_every_row_is_a_module_constant_of_the_same_name_and_value
+  FAILED ops/tests/test_session_rc.py::test_the_non_transmitting_set_is_exactly_the_proven_no_rows
+  3 failed, 5 passed in 0.02s
+
+MUTATION rc-3 rc 5 admitted to the set
+  file: ops/session_rc.py
+  - '"OrdersAlreadyPending (existing)",\n          "possible in a multi-sleeve book",\n          False),'
+  + '"OrdersAlreadyPending (existing)",\n          "possible in a multi-sleeve book",\n          True),'
+  expected red: ['test_the_non_transmitting_set_is_exactly_the_proven_no_rows']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:64: assert frozenset({4, 5, 7, 8, 9, 10}) == frozenset({4, 7, 8, 9, 10})
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:94: AssertionError: RcRow(rc=5, name='RC_ORDERS_ALREADY_PENDING', raised_by='OrdersAlreadyPending (existing)', order_may_have_left='possible in a multi-sleeve book', non_transmitting=True)
+  FAILED ops/tests/test_session_rc.py::test_the_non_transmitting_set_is_exactly_the_proven_no_rows
+  FAILED ops/tests/test_session_rc.py::test_a_row_in_the_set_says_no_order_can_have_left
+  2 failed, 6 passed in 0.02s
+
+MUTATION rc-4 rc 3 admitted before its proof
+  file: ops/session_rc.py
+  - '"no, arm precedes every place_targets",\n          False),'
+  + '"no, arm precedes every place_targets",\n          True),'
+  expected red: ['test_arm_refused_waits_outside_the_set_until_it_is_proved']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:64: assert frozenset({3, 4, 7, 8, 9, 10}) == frozenset({4, 7, 8, 9, 10})
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:76: assert not (frozenset({3}) & frozenset({3, 4, 7, 8, 9, 10}))
+  FAILED ops/tests/test_session_rc.py::test_the_non_transmitting_set_is_exactly_the_proven_no_rows
+  FAILED ops/tests/test_session_rc.py::test_arm_refused_waits_outside_the_set_until_it_is_proved
+  2 failed, 6 passed in 0.02s
+
+MUTATION rc-5 a mutable set
+  file: ops/session_rc.py
+  - 'NON_TRANSMITTING_RCS = frozenset(r.rc for'
+  + 'NON_TRANSMITTING_RCS = set(r.rc for'
+  expected red: ['test_the_set_is_derived_from_the_table_and_is_immutable']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:83: assert False
+  FAILED ops/tests/test_session_rc.py::test_the_set_is_derived_from_the_table_and_is_immutable
+  1 failed, 7 passed in 0.02s
+
+MUTATION rc-6 an in-set row that says an order may have left
+  file: ops/session_rc.py
+  - '"SleeveCannotDecide and n_placed == 0",\n          "no",'
+  + '"SleeveCannotDecide and n_placed == 0",\n          "yes",'
+  expected red: ['test_a_row_in_the_set_says_no_order_can_have_left']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:94: AssertionError: RcRow(rc=8, name='RC_SLEEVE_CANNOT_DECIDE', raised_by='SleeveCannotDecide and n_placed == 0', order_may_have_left='yes', non_transmitting=True)
+  FAILED ops/tests/test_session_rc.py::test_a_row_in_the_set_says_no_order_can_have_left
+  1 failed, 7 passed in 0.02s
+
+MUTATION rc-7 14 collides with INCOMPLETE
+  file: ops/session_rc.py
+  - 'FETCH_VENDOR_EMPTY = 14'
+  + 'FETCH_VENDOR_EMPTY = 4'
+  expected red: ['test_the_fetcher_and_launcher_codes']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:99: assert (0, 1, 4, 4) == (0, 1, 4, 14)
+  FAILED ops/tests/test_session_rc.py::test_the_fetcher_and_launcher_codes - as...
+  1 failed, 7 passed in 0.02s
+
+MUTATION rc-8 the module grows an import
+  file: ops/session_rc.py
+  - 'from typing import NamedTuple'
+  + 'from typing import NamedTuple\nimport os'
+  expected red: ['test_the_module_is_constants_only_and_imports_nothing_from_the_repo']
+$ python3 -m pytest ops/tests/test_session_rc.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_session_rc.py:117: AssertionError: assert ['__future__', 'os', 'typing'] == ['__future__', 'typing']
+  FAILED ops/tests/test_session_rc.py::test_the_module_is_constants_only_and_imports_nothing_from_the_repo
+  1 failed, 7 passed in 0.02s
