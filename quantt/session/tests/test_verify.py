@@ -565,7 +565,8 @@ def test_end_to_end_through_the_real_client_shapes(state, tmp_path):
                                 "fractionable": True}
 
     def auctions(params):
-        day = params["start"]
+        day = params["start"][:10]     # "YYYY-MM-DDT04:00:00Z": the ET day starts 04:00Z in EDT
+        assert params["end"] == f"{day}T20:30:00Z", params   # never a bare date (Basic-plan 403)
         px = {"2026-09-29": 10.5, "2026-09-28": 10.0}[day]
         return {"auctions": {"AAA": [{"d": day, "o": [], "c": [
             {"t": f"{day}T20:00:00Z", "x": "N", "p": px, "c": "M"},

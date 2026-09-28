@@ -71,8 +71,11 @@ import time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import NamedTuple
+from zoneinfo import ZoneInfo
 
 from quantt.broker.alpaca_probe import MissingCredential, env_names
+
+NY = ZoneInfo("America/New_York")   # the exchange clock; auction windows are ET days
 
 # The only two hosts this client will ever address. Not configurable on
 # purpose: the constructor accepts the arguments RUNNER.md names so a caller
@@ -812,11 +815,24 @@ class AlpacaClient:
             raise ValueError(f"no primary-exchange SIP code for {no_code}; another venue's "
                              f"print is never used")
 
+        # EXPLICIT TIMESTAMPS, NOT A BARE DATE. With end=<date> Alpaca reads the
+        # window as running up to now, and the Basic plan refuses any SIP query
+        # that touches the last 15 minutes: HTTP 403 "subscription does not
+        # permit querying recent SIP data", for every symbol, every day [V: run
+        # 2026-09-28 19:50 ET against the cef paper account]. The same query
+        # with start/end as timestamps returned the day's prints. The window is
+        # the whole ET calendar day up to 16:30 ET -- the closing auction prints
+        # at 16:00 (13:00 on an early close), and verify runs at 17:30, so the
+        # end is always more than 15 minutes old by then.
+        start_ts = dt.datetime.combine(date, dt.time(0, 0), NY).astimezone(dt.timezone.utc)
+        end_ts = dt.datetime.combine(date, dt.time(16, 30), NY).astimezone(dt.timezone.utc)
         days: dict[str, list] = {}
         token = None
         for _ in range(MAX_PAGES):
-            params = {"symbols": ",".join(syms), "start": date.isoformat(),
-                      "end": date.isoformat(), "feed": "sip", "limit": AUCTIONS_MAX_LIMIT}
+            params = {"symbols": ",".join(syms),
+                      "start": start_ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                      "end": end_ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                      "feed": "sip", "limit": AUCTIONS_MAX_LIMIT}
             if token is not None:
                 params["page_token"] = token
             body = self._get(self._data, "/v2/stocks/auctions", params)

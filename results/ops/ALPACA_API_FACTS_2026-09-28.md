@@ -296,6 +296,13 @@ RFC-3339 with offset (example `"2025-06-24T16:00:00-04:00"`). There is a newer
   than 15 minutes is free. These two statements pull in different directions. Whether
   our paper key can read SIP auctions/bars older than 15 minutes is [U] until probed.
   <https://docs.alpaca.markets/us/docs/paper-trading>
+  **Probed 2026-09-28 19:50 ET [V]:** yes, with explicit timestamps. `start=end=<date>`
+  returns HTTP 403 *"subscription does not permit querying recent SIP data"* even hours
+  after the close (the bare-date window runs up to now). `start=<date>T04:00:00Z`,
+  `end=<date>T20:30:00Z` returned closing prints for all 13 names on 2026-09-25 and
+  2026-09-28. NYSE (`N`) prints at `M` and `6` were equal on the two names inspected
+  (PDI 13.90, MHD 10.27 on 09-28); the `N`/`M` prints matched the yfinance closes in
+  `data/cef/cef_prices.parquet` within half a cent on all 26 name-days.
 - **GET /v2/stocks/auctions** [V] <https://docs.alpaca.markets/us/reference/stockauctions-1>
   - Params: `symbols` (required, comma list), `start`, `end` (inclusive, RFC-3339 or
     YYYY-MM-DD), `limit` (default 1000, max 10000, *"applies to the total number of data
@@ -377,7 +384,8 @@ RFC-3339 with offset (example `"2025-06-24T16:00:00-04:00"`). There is a newer
 6. When and at what price does a paper `cls` fill happen (at submit, or near 16:00)?
    Does it produce a FILL activity?
 7. Can the Basic-plan paper key read `feed=sip` auctions and daily bars older than 15
-   minutes (FAQ says yes; Paper page says "only IEX")?
+   minutes (FAQ says yes; Paper page says "only IEX")? **Answered 2026-09-28: yes for auctions, with timestamp
+   start/end (see above) [V].**
 8. Which exchange code and condition (`M` vs `6`) define "the official closing auction
    print" for NYSE-listed CEFs? This needs `/v2/stocks/meta/exchanges`.
 9. Can HTB names be shorted on paper (locates are unavailable on paper)?

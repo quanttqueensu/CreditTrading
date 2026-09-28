@@ -518,7 +518,21 @@ def test_auction_returns_the_official_close_not_the_closing_trade(env_file, slee
     assert out["PDI"]["price"] == 18.50 and out["PDI"]["condition"] == "M"
     url, params = s.gets[0]
     assert url == al.DATA_BASE + "/v2/stocks/auctions"
-    assert params["feed"] == "sip" and params["start"] == params["end"] == "2026-09-29"
+    # Timestamps, never a bare date: end=<date> means "up to now" at Alpaca and
+    # the Basic plan 403s any SIP query touching the last 15 minutes (2026-09-28).
+    # 2026-09-29 is EDT (UTC-4): 00:00 ET = 04:00Z, 16:30 ET = 20:30Z.
+    assert params["feed"] == "sip"
+    assert params["start"] == "2026-09-29T04:00:00Z" and params["end"] == "2026-09-29T20:30:00Z"
+
+
+def test_auction_window_follows_the_ny_clock_in_winter(env_file, sleeps):
+    """EST (UTC-5) shifts the window an hour; a fixed UTC end would cut the auction."""
+    w = dt.date(2026, 12, 1)
+    body = auction_body({"PDI": [day([pr("N", 18.50, "M", t="2026-12-01T21:00:00Z")], d="2026-12-01")]})
+    c, s = client(env_file, sleeps, route({"/v2/stocks/auctions": body}))
+    c.closing_auction_prints(["PDI"], w, exchange_codes={"PDI": "N"})
+    _, params = s.gets[0]
+    assert params["start"] == "2026-12-01T05:00:00Z" and params["end"] == "2026-12-01T21:30:00Z"
 
 
 def test_auction_missing_symbols_raise_by_name_and_no_bar_close_is_used(env_file, sleeps):
