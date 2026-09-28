@@ -37,7 +37,9 @@ fetchers, the research memory, `quantt/`, and the agent layer.
 ## Phase 3 — how Alpaca actually behaves (paper, before any code relies on it)
 
 Each is an order-path action: the agent drafts it, shows the orders, the team lead
-says go.
+says go. **Team lead, 2026-09-28: design around them, no probe orders.** The runner
+never relies on the uncertain answer (flips deferred, one netted order per symbol,
+ids never reused); the first armed session's real orders answer 3.1 and 3.5.
 
 | # | question | status |
 |---|---|---|
@@ -50,7 +52,8 @@ says go.
 ## Phase 4 — build the runner (`quantt/`)
 
 Tests first; each shown to fail against the wrong behaviour; `quant-reviewer` on
-every piece.
+every piece. **Built 2026-09-28** (`docs/RUNNER.md`, release `release-20260928-1`);
+4.1–4.7 done, 4.2 decided (day one trades to full target); 4.8 open.
 
 | # | piece | status |
 |---|---|---|
@@ -65,11 +68,18 @@ every piece.
 
 ## Phase 5 — shadow on paper
 
+**Skipped by the team lead, 2026-09-28:** armed on 2026-09-29 after one dry run,
+with the first order list shown before transmit.
+
 Run the full session daily with `DRY_RUN=1` against both paper accounts: decide,
 gate, reconcile, score — send nothing. Exit when the team lead is satisfied with a
 run of clean sessions (the length is the team lead's call, recorded here when made).
 
 ## Phase 6 — prod on the cloud VM
+
+**Interim, team lead 2026-09-28: prod is this laptop** — `~/prod/quantt-alpaca` at
+`release-20260928-1`, launchd jobs `com.quantt.alpaca.cef.{session,verify}`,
+`DRY_RUN=1` until the go (`docs/RUNBOOK.md`). The VM steps below still apply later.
 
 **The rule for prod: it contains only this repository at a tag, and nothing else.**
 No copies of old trees, no IBKR software, no hand-edited files.
