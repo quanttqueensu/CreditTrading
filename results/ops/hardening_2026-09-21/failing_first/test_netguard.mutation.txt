@@ -1,0 +1,435 @@
+Named-mutation record, WS0-A (PLAN.md P.5: new tools have no old behaviour).
+Candidate commit: f9bb2655a07f694fbe58813c8706e5078762ebde
+Each mutation is ONE edit applied to a throwaway copy of the tree under
+wt/_scratch/ws0a/mut_tree (never committed), the test file is run there, and
+the file is restored. The copy's .git is a FILE naming a synthetic main tree.
+Runner: wt/_scratch/ws0a/run_mutations.py (scratch, not committed).
+
+CONTROL (no mutation), in the throwaway copy
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 0
+....................................................                     [100%]
+52 passed in 0.05s
+
+MUTATION ng-1 THE BRIEF'S MUTATION: install() removed (body -> return)
+  file: ops/netguard.py
+  - 'for owner, name, guard in _GUARDS:\n        setattr(owner, name, guard)'
+  + 'return\n    for owner, name, guard in _GUARDS:\n        setattr(owner, name, guard)'
+  expected red: ['test_netguard_is_active_under_pytest']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.netguard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.netguard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.netguard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.netguard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.netguard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.netguard']
+  ERROR ops/tests/test_netguard.py::test_netguard_is_active_under_pytest - conf...
+  ERROR ops/tests/test_netguard.py::test_connect_raises - conftest.HarnessMisco...
+  ERROR ops/tests/test_netguard.py::test_connect_ex_raises_rather_than_returning_an_errno
+  ERROR ops/tests/test_netguard.py::test_create_connection_raises_before_any_name_is_resolved
+  ERROR ops/tests/test_netguard.py::test_asyncio_open_connection_raises - conft...
+  ERROR ops/tests/test_netguard.py::test_a_refusal_is_recorded_even_if_the_caller_swallows_it
+  ERROR ops/tests/test_netguard.py::test_only_undeclared_refusals_reach_the_end_of_run_report
+  ERROR ops/tests/test_netguard.py::test_is_active_is_measured_not_remembered
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - confte...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - conft...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  ... 40 more red
+  52 errors in 0.07s
+
+MUTATION ng-2 connect guard returns instead of raising
+  file: ops/netguard.py
+  - '_refuse("socket.connect", address)'
+  + 'return None'
+  expected red: ['test_connect_raises', 'test_asyncio_open_connection_raises']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:66: Failed: DID NOT RAISE <class 'ops.netguard.NetGuardViolation'>
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:104: Failed: DID NOT RAISE <class 'ops.netguard.NetGuardViolation'>
+  FAILED ops/tests/test_netguard.py::test_connect_raises - Failed: DID NOT RAIS...
+  FAILED ops/tests/test_netguard.py::test_asyncio_open_connection_raises - Fail...
+  2 failed, 50 passed in 0.06s
+
+MUTATION ng-3 connect_ex guard returns an errno
+  file: ops/netguard.py
+  - '_refuse("socket.connect_ex", address)'
+  + 'return 61'
+  expected red: ['test_connect_ex_raises_rather_than_returning_an_errno']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:78: Failed: DID NOT RAISE <class 'ops.netguard.NetGuardViolation'>
+  FAILED ops/tests/test_netguard.py::test_connect_ex_raises_rather_than_returning_an_errno
+  1 failed, 51 passed in 0.06s
+
+MUTATION ng-4 create_connection guard raises the error callers expect
+  file: ops/netguard.py
+  - '_refuse("socket.create_connection", address)'
+  + 'raise OSError("refused")'
+  expected red: ['test_create_connection_raises_before_any_name_is_resolved']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/netguard.py:117: OSError: refused
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:121: AssertionError: assert () == (('socket.cre....1', 52061)),)
+  FAILED ops/tests/test_netguard.py::test_create_connection_raises_before_any_name_is_resolved
+  FAILED ops/tests/test_netguard.py::test_a_refusal_is_recorded_even_if_the_caller_swallows_it
+  2 failed, 50 passed in 0.06s
+
+MUTATION ng-5 refusals not recorded
+  file: ops/netguard.py
+  - '_VIOLATIONS.append((what, address))'
+  + ''
+  expected red: ['test_a_refusal_is_recorded_even_if_the_caller_swallows_it']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:121: AssertionError: assert () == (('socket.cre....1', 52068)),)
+  FAILED ops/tests/test_netguard.py::test_a_refusal_is_recorded_even_if_the_caller_swallows_it
+  1 failed, 51 passed in 0.05s
+
+MUTATION ng-6 is_active remembered, not measured
+  file: ops/netguard.py
+  - 'return all(getattr(owner, name, None) is guard'
+  + 'return True or all(getattr(owner, name, None) is guard'
+  expected red: ['test_is_active_is_measured_not_remembered']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:156: assert not True
+  FAILED ops/tests/test_netguard.py::test_is_active_is_measured_not_remembered
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-19 the end-of-run report lists the declared refusals instead
+  file: conftest.py
+  - 'if not expected:\n            out.append((what, address, where))'
+  + 'if expected:\n            out.append((what, address, where))'
+  expected red: ['test_only_undeclared_refusals_reach_the_end_of_run_report']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:141: AssertionError: assert [('socket.con....py::test_a')] == [('socket.con... a fixture)')]
+  FAILED ops/tests/test_netguard.py::test_only_undeclared_refusals_reach_the_end_of_run_report
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-1 subprocess guard never installed
+  file: conftest.py
+  - '_install_subprocess_guard()'
+  + ''
+  expected red: ['test_launchctl_bootout_raises']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['subprocess.run guard', 'subprocess.call guard', 'subprocess.check_call guard', 'subprocess.check_output guard', 'subprocess.Popen guard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['subprocess.run guard', 'subprocess.call guard', 'subprocess.check_call guard', 'subprocess.check_output guard', 'subprocess.Popen guard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['subprocess.run guard', 'subprocess.call guard', 'subprocess.check_call guard', 'subprocess.check_output guard', 'subprocess.Popen guard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['subprocess.run guard', 'subprocess.call guard', 'subprocess.check_call guard', 'subprocess.check_output guard', 'subprocess.Popen guard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['subprocess.run guard', 'subprocess.call guard', 'subprocess.check_call guard', 'subprocess.check_output guard', 'subprocess.Popen guard']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['subprocess.run guard', 'subprocess.call guard', 'subprocess.check_call guard', 'subprocess.check_output guard', 'subprocess.Popen guard']
+  ERROR ops/tests/test_netguard.py::test_netguard_is_active_under_pytest - conf...
+  ERROR ops/tests/test_netguard.py::test_connect_raises - conftest.HarnessMisco...
+  ERROR ops/tests/test_netguard.py::test_connect_ex_raises_rather_than_returning_an_errno
+  ERROR ops/tests/test_netguard.py::test_create_connection_raises_before_any_name_is_resolved
+  ERROR ops/tests/test_netguard.py::test_asyncio_open_connection_raises - conft...
+  ERROR ops/tests/test_netguard.py::test_a_refusal_is_recorded_even_if_the_caller_swallows_it
+  ERROR ops/tests/test_netguard.py::test_only_undeclared_refusals_reach_the_end_of_run_report
+  ERROR ops/tests/test_netguard.py::test_is_active_is_measured_not_remembered
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - confte...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - conft...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  ... 40 more red
+  52 errors in 0.07s
+
+MUTATION ct-2 bootout allowed
+  file: conftest.py
+  - 'LAUNCHCTL_READ_ONLY_VERBS = frozenset({"list", "print", "print-disabled"})'
+  + 'LAUNCHCTL_READ_ONLY_VERBS = frozenset({"list", "print", "print-disabled", "bootout"})'
+  expected red: ['test_launchctl_bootout_raises']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['/bin/launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - ops.t...
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - ops....
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[Popen] - ops...
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv7]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv8]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[launchctl list | grep quantt; launchctl bootout gui/0/synthetic]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv13]
+  9 failed, 43 passed in 0.06s
+
+MUTATION ct-3 list refused
+  file: conftest.py
+  - 'LAUNCHCTL_READ_ONLY_VERBS = frozenset({"list", "print", "print-disabled"})'
+  + 'LAUNCHCTL_READ_ONLY_VERBS = frozenset({"print", "print-disabled"})'
+  expected red: ['test_launchctl_list_passes_through_to_the_stub']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[run]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[call]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[check_call]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[check_output]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[Popen]
+  FAILED ops/tests/test_netguard.py::test_read_only_argv_reaches_the_spawn_point[launchctl list | grep quantt]
+  6 failed, 46 passed in 0.05s
+
+MUTATION ct-4 argv never checked
+  file: conftest.py
+  - 'tokens = _argv_tokens(args)\n    for tok in tokens:'
+  + 'return\n    tokens = _argv_tokens(args)\n    for tok in tokens:'
+  expected red: ['test_every_order_path_argv_raises']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'bootout', 'gui/0/com.quantt.synthetic-not-a-job']
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:171: ops.tests.test_netguard._WouldHaveSpawned: ['launchctl', 'load', '-w', '/synthetic/com.quantt.synthetic.plist']
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - ops.t...
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - ops....
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  FAILED ops/tests/test_netguard.py::test_launchctl_bootout_raises[Popen] - ops...
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv0]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv1]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv2]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv3]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv4]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv5]
+  FAILED ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv6]
+  ... 7 more red
+  19 failed, 33 passed in 0.05s
+
+MUTATION ct-5 no read-only verbs at all
+  file: conftest.py
+  - 'LAUNCHCTL_READ_ONLY_VERBS = frozenset({"list", "print", "print-disabled"})'
+  + 'LAUNCHCTL_READ_ONLY_VERBS = frozenset()'
+  expected red: ['test_read_only_argv_reaches_the_spawn_point']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[run]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[call]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[check_call]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[check_output]
+  FAILED ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[Popen]
+  FAILED ops/tests/test_netguard.py::test_read_only_argv_reaches_the_spawn_point[argv0]
+  FAILED ops/tests/test_netguard.py::test_read_only_argv_reaches_the_spawn_point[argv1]
+  FAILED ops/tests/test_netguard.py::test_read_only_argv_reaches_the_spawn_point[launchctl list | grep quantt]
+  8 failed, 44 passed in 0.06s
+
+MUTATION ct-6 guarded Popen is no longer a Popen
+  file: conftest.py
+  - 'class _GuardedPopen(subprocess.Popen):'
+  + 'class _GuardedPopen(object):'
+  expected red: ['test_guarded_popen_is_still_a_popen']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  E   AttributeError: <class 'conftest._GuardedPopen'> has no attribute '_execute_child'
+  E   AttributeError: <class 'conftest._GuardedPopen'> has no attribute '_execute_child'
+  E   AttributeError: <class 'conftest._GuardedPopen'> has no attribute '_execute_child'
+  E   AttributeError: <class 'conftest._GuardedPopen'> has no attribute '_execute_child'
+  E   AttributeError: <class 'conftest._GuardedPopen'> has no attribute '_execute_child'
+  E   AttributeError: <class 'conftest._GuardedPopen'> has no attribute '_execute_child'
+  FAILED ops/tests/test_netguard.py::test_guarded_popen_is_still_a_popen - Asse...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - Attrib...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - Attri...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[Popen] - Attr...
+  ERROR ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[run]
+  ERROR ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[check_call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[check_output]
+  ERROR ops/tests/test_netguard.py::test_launchctl_list_passes_through_to_the_stub[Popen]
+  ERROR ops/tests/test_netguard.py::test_every_order_path_argv_raises[argv0] - ...
+  ... 17 more red
+  1 failed, 23 passed, 28 errors in 0.06s
+
+MUTATION ct-7 atomic_write never wrapped
+  file: conftest.py
+  - '_common.atomic_write = _guarded_atomic_write'
+  + ''
+  expected red: ['test_the_name_a_fetcher_binds_is_the_wrapper']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.common.atomic_write wrapper']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.common.atomic_write wrapper']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.common.atomic_write wrapper']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.common.atomic_write wrapper']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.common.atomic_write wrapper']
+  E   conftest.HarnessMisconfigured: safety harness not in force at session start: ['ops.common.atomic_write wrapper']
+  ERROR ops/tests/test_netguard.py::test_netguard_is_active_under_pytest - conf...
+  ERROR ops/tests/test_netguard.py::test_connect_raises - conftest.HarnessMisco...
+  ERROR ops/tests/test_netguard.py::test_connect_ex_raises_rather_than_returning_an_errno
+  ERROR ops/tests/test_netguard.py::test_create_connection_raises_before_any_name_is_resolved
+  ERROR ops/tests/test_netguard.py::test_asyncio_open_connection_raises - conft...
+  ERROR ops/tests/test_netguard.py::test_a_refusal_is_recorded_even_if_the_caller_swallows_it
+  ERROR ops/tests/test_netguard.py::test_only_undeclared_refusals_reach_the_end_of_run_report
+  ERROR ops/tests/test_netguard.py::test_is_active_is_measured_not_remembered
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - confte...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - conft...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  ... 40 more red
+  52 errors in 0.07s
+
+MUTATION ct-8 path guard checks nothing
+  file: conftest.py
+  - 'spellings = {Path(os.path.abspath(path)), Path(os.path.realpath(path))}'
+  + 'return\n    spellings = {Path(os.path.abspath(path)), Path(os.path.realpath(path))}'
+  expected red: ['test_atomic_write_under_every_guarded_root_raises']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:259: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/data/cef/cef_prices.parquet.tmp
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:259: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/data/cef/cef_nav.parquet.tmp
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:259: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/data/cef/cef_distributions.parquet.tmp
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:262: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/data/cef/any.csv.tmp
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:259: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/synthetic_main/data/cef/cef_prices.parquet.tmp
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:259: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/prod/QUANTT/data/cef/cef_nav.parquet.tmp
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[cef_prices.parquet]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[cef_nav.parquet]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[cef_distributions.parquet]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[any.csv]
+  FAILED ops/tests/test_netguard.py::test_the_main_dev_trees_data_is_a_guarded_root
+  FAILED ops/tests/test_netguard.py::test_prods_symlinked_spelling_is_caught - ...
+  6 failed, 46 passed in 0.06s
+
+MUTATION ct-9 main dev tree's data/ not a guarded root
+  file: conftest.py
+  - '_ROOTS_AS_WRITTEN.append(MAIN_TREE / "data")'
+  + 'pass'
+  expected red: ['test_the_main_dev_trees_data_is_a_guarded_root']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:299: AssertionError: assert (PosixPath('/Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/synthetic_main') / 'data') in (PosixPath('/Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/data'
+  FAILED ops/tests/test_netguard.py::test_the_main_dev_trees_data_is_a_guarded_root
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-10 prod not a guarded root
+  file: conftest.py
+  - '_ROOTS_AS_WRITTEN = [REPO / "data", PROD_TREE]'
+  + '_ROOTS_AS_WRITTEN = [REPO / "data"]'
+  expected red: ['test_prods_symlinked_spelling_is_caught']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:259: ops.tests.test_netguard._WouldHaveWritten: /Users/simonjarvis/prod/QUANTT/data/cef/cef_nav.parquet.tmp
+  FAILED ops/tests/test_netguard.py::test_prods_symlinked_spelling_is_caught - ...
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-11 path guard refuses everything
+  file: conftest.py
+  - 'spellings = {Path(os.path.abspath(path)), Path(os.path.realpath(path))}'
+  + 'raise PanelWriteGuard("mutant")\n    spellings = {Path(os.path.abspath(path)), Path(os.path.realpath(path))}'
+  expected red: ['test_atomic_write_to_tmp_path_passes_through']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:286: AssertionError: Regex pattern did not match.
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:286: AssertionError: Regex pattern did not match.
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:286: AssertionError: Regex pattern did not match.
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:286: AssertionError: Regex pattern did not match.
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[cef_prices.parquet]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[cef_nav.parquet]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[cef_distributions.parquet]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_under_every_guarded_root_raises[any.csv]
+  FAILED ops/tests/test_netguard.py::test_atomic_write_to_tmp_path_passes_through
+  5 failed, 47 passed in 0.05s
+
+MUTATION ct-12 prod root follows $HOME
+  file: conftest.py
+  - 'return Path(pwd.getpwuid(os.getuid()).pw_dir)'
+  + 'return Path.home()'
+  expected red: ['test_the_prod_root_does_not_follow_HOME']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:333: AssertionError: assert PosixPath('/private/var/folders/h1/tfb7mk6s7cdg62nzlpq5ttp00000gn/T/pytest-of-simonjarvis/pytest-90/test_the_prod_root_does_not_fo0') != PosixPath('/private/var/folders/h1/tfb7mk6s
+  FAILED ops/tests/test_netguard.py::test_the_prod_root_does_not_follow_HOME - ...
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-13 main tree not read from .git
+  file: conftest.py
+  - 'return Path(*parts[:parts.index(".git")])'
+  + 'return repo'
+  expected red: ['test_the_main_tree_is_read_from_dot_git']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:351: AssertionError: assert PosixPath('/private/var/folders/h1/tfb7mk6s7cdg62nzlpq5ttp00000gn/T/pytest-of-simonjarvis/pytest-91/test_the_main_tree_is_read_fro0/linked') == PosixPath('/private/var/folders/h1/t
+  FAILED ops/tests/test_netguard.py::test_the_main_tree_is_read_from_dot_git - ...
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-14 a changed panel does not fail the session
+  file: conftest.py
+  - 'session.exitstatus = pytest.ExitCode.TESTS_FAILED'
+  + 'pass'
+  expected red: ['test_a_changed_panel_is_reported_and_fails_the_session']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:384: AssertionError: assert 0 == <ExitCode.TESTS_FAILED: 1>
+  FAILED ops/tests/test_netguard.py::test_a_changed_panel_is_reported_and_fails_the_session
+  1 failed, 51 passed in 0.06s
+
+MUTATION ct-15 alert recorder never installed
+  file: conftest.py
+  - '_halt.alert = _recording_alert'
+  + ''
+  expected red: ['test_the_alert_recorder_records']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  E   conftest.HarnessMisconfigured: ops.halt.alert is not the recorder at session start
+  E   conftest.HarnessMisconfigured: ops.halt.alert is not the recorder at session start
+  E   conftest.HarnessMisconfigured: ops.halt.alert is not the recorder at session start
+  E   conftest.HarnessMisconfigured: ops.halt.alert is not the recorder at session start
+  E   conftest.HarnessMisconfigured: ops.halt.alert is not the recorder at session start
+  E   conftest.HarnessMisconfigured: ops.halt.alert is not the recorder at session start
+  ERROR ops/tests/test_netguard.py::test_netguard_is_active_under_pytest - conf...
+  ERROR ops/tests/test_netguard.py::test_connect_raises - conftest.HarnessMisco...
+  ERROR ops/tests/test_netguard.py::test_connect_ex_raises_rather_than_returning_an_errno
+  ERROR ops/tests/test_netguard.py::test_create_connection_raises_before_any_name_is_resolved
+  ERROR ops/tests/test_netguard.py::test_asyncio_open_connection_raises - conft...
+  ERROR ops/tests/test_netguard.py::test_a_refusal_is_recorded_even_if_the_caller_swallows_it
+  ERROR ops/tests/test_netguard.py::test_only_undeclared_refusals_reach_the_end_of_run_report
+  ERROR ops/tests/test_netguard.py::test_is_active_is_measured_not_remembered
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[run] - confte...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[call] - conft...
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_call]
+  ERROR ops/tests/test_netguard.py::test_launchctl_bootout_raises[check_output]
+  ... 40 more red
+  52 errors in 0.07s
+
+MUTATION ct-16 real_alert leaves smtplib real
+  file: conftest.py
+  - 'monkeypatch.setattr(smtplib, "SMTP", _SMTP)'
+  + ''
+  expected red: ['test_real_alert_runs_the_real_code_against_stubs_only']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:425: assert {'email': 'fa...speech': True} == {'email': Tru...speech': True}
+  FAILED ops/tests/test_netguard.py::test_real_alert_runs_the_real_code_against_stubs_only
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-17 EXECUTION left pointing at the broker
+  file: conftest.py
+  - 'mp.setenv("EXECUTION", "simulator")'
+  + 'mp.setenv("EXECUTION", "ibkr")'
+  expected red: ['test_the_environment_points_at_nothing']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:436: AssertionError: assert 'ibkr' == 'simulator'
+  FAILED ops/tests/test_netguard.py::test_the_environment_points_at_nothing - A...
+  1 failed, 51 passed in 0.05s
+
+MUTATION ct-18 doctor.AGENTS left on this machine's LaunchAgents
+  file: conftest.py
+  - 'mp.setattr(doctor, "AGENTS", empty_agents)'
+  + ''
+  expected red: ['test_doctor_reads_an_empty_launchagents_not_this_machines']
+$ python3 -m pytest ops/tests/test_netguard.py -p no:cacheprovider --tb=line --color=no -q -o addopts=--strict-markers -rfE
+exit 1   expected tests red: True
+  /Users/simonjarvis/Desktop/2027/QUANTT/wt/_scratch/ws0a/mut_tree/ops/tests/test_netguard.py:446: AssertionError: assert [PosixPath('/....plist'), ...] == []
+  FAILED ops/tests/test_netguard.py::test_doctor_reads_an_empty_launchagents_not_this_machines
+  1 failed, 51 passed in 0.05s
