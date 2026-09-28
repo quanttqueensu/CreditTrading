@@ -317,6 +317,25 @@ Answered interactively; the full record (the migration manifest) is at tag
 | Universe on Alpaca | **Drop NAD, NEA, NVG, NZF** (not shortable on the Alpaca paper account, probe 2026-09-28). 17 → 13. |
 | v7 on Alpaca | **`max_gross_stress` 1.80** (re-derived: Reg T **50%** margin); **`group_cap` off** (its rule gives k = 0 on 13 names, the killed hard-neutrality variant); **`min_trade_usd` $0** (the formula with no per-order fee; whole shares only); capital $100k. The 13-name backtest was **report only, not a gate**. Spec `cef_discount.v7.20260928`; `results/cef/PREREG_ALPACA_V7_2026-09-28.md`; CEF counter 48 → 50. |
 
+### Team lead, 2026-09-28 (evening) — the runner and go-live
+
+Answered interactively while the runner was built. The design they shape is
+`docs/RUNNER.md`; the Alpaca facts behind them are
+`results/ops/ALPACA_API_FACTS_2026-09-28.md`.
+
+| question | decision |
+|---|---|
+| Go-live | **Armed on 2026-09-29.** The first session's order list is shown to the team lead before transmit. |
+| Where prod runs | **This laptop for now**, a clone at a release tag scheduled by launchd. No VM yet; the free Google Cloud e2-micro was offered and declined for now. |
+| After the first go | **The scheduled runner trades daily on its own**, behind the nine gates. Rule 1 in `CLAUDE.md` governs agents in a chat. |
+| Day one | **Trade to full target** (`extras["opening_session"]`), not to the band edge. |
+| Phase 3 probes | **Design around them**; no probe orders on the account. |
+| If `cls` is rejected | **No trade, then ask the team lead.** No fallback to `day`. |
+| Hard-to-borrow shorts | **Allowed if `shortable`**; hard-to-borrow is a warning in the preview. |
+| A rejected order mid-batch | **Skip that name, send the rest**; the day is FAIL, naming it. An ambiguous submit still stops the batch. |
+| Key file for the scheduled job | **Stays `config/.env`**; whether launchd can read it under `~/Downloads` is tested on install, and fails loudly if not. |
+| Research and backtest | **Saved workflows** (`.claude/workflows/`); research data from the R2 WRDS mirror (`docs/DATA.md`), never on the live path. |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A

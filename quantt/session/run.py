@@ -540,7 +540,17 @@ def hard_to_borrow_short_opens(orders, positions: dict, assets: dict) -> list[st
 
 def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
               session_date: dt.date, cutoff: dt.datetime) -> int:
-    """POST each order in list order; stop the batch on any failure.
+    """POST each order in list order.
+
+    A REJECTED order (Alpaca answered 4xx: it definitely does not exist) skips
+    that symbol and the rest are still sent -- team lead, 2026-09-28: better
+    fill coverage, accepting that the book can be net long or short that day.
+    The day is still FAIL, loudly, naming every rejection. If EVERY order is
+    rejected (e.g. paper refuses `cls` outright) nothing was sent, and the
+    team lead decides the substitute: there is no fallback to `day` (team
+    lead, 2026-09-28; CLAUDE.md rule 3). Anything whose outcome is UNKNOWN --
+    an ambiguous submit, an unexpected error, a clock that cannot be read or
+    has crossed the cutoff -- still stops the batch.
 
     Before EVERY POST the Alpaca clock is read again and the batch stops if it
     is at/after `cutoff` or no longer `session_date` (ET): an order sent past
@@ -549,10 +559,15 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
     either line. A clock read that fails also stops the batch -- an unmeasured
     time is not "before the cutoff".
     """
-    from quantt.broker.alpaca import AmbiguousSubmit
+    from quantt.broker.alpaca import AmbiguousSubmit, OrderRejected
     now = deps.utcnow
-    sent, failed = [], None
+    sent, failed, rejected = [], None, []
     for o in orders:
+        if o.symbol in {r[1] for r in rejected}:
+            # a later leg for a symbol whose earlier leg was rejected
+            rec.append_jsonl(log, {"event": "skipped_after_rejection", "at": now(),
+                                   "client_order_id": o.client_order_id})
+            continue
         try:
             ts = c.clock()["timestamp"]
         except Exception as e:
@@ -588,6 +603,12 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
                                        "error": f"{type(le).__name__}: {le}"})
             failed = f"AmbiguousSubmit on {o.client_order_id}; batch stopped"
             break
+        except OrderRejected as e:
+            rec.append_jsonl(log, {"event": "rejected", "at": now(),
+                                   "client_order_id": o.client_order_id, "error": str(e)})
+            rejected.append((o.client_order_id, o.symbol))
+            print(f"  REJECTED {o.client_order_id}: {e}", file=out)
+            continue
         except Exception as e:
             rec.append_jsonl(log, {"event": "error", "at": now(),
                                    "client_order_id": o.client_order_id,
@@ -612,7 +633,13 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
         if not ok:
             missing.append(o.client_order_id)
     record["sent"] = [o.client_order_id for o in sent]
+    record["rejected"] = [cid for cid, _ in rejected]
     record["confirm_missing"] = missing
+    if rejected and not failed:
+        failed = (f"{len(rejected)} order(s) rejected by Alpaca "
+                  f"{[cid for cid, _ in rejected]}; "
+                  + ("NOTHING was sent -- team lead decides (no fallback to day)"
+                     if not sent else f"{len(sent)} other order(s) sent"))
     if failed:
         record["transmit_failure"] = failed
         print(f"FAIL {failed}", file=out)

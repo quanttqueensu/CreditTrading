@@ -87,8 +87,13 @@ settled these points. Alpaca facts, each with its source and status:
   like that are not supported [S]. So a long↔short flip sends only the closing leg
   today and logs `flip deferred`; the band opens the new side next session.
 - **`cls` availability is [U].** Alpaca Learn says CLS orders are for Elite Smart
-  Router users. The first real `cls` order answers it. A rejection raises
-  `OrderRejected` and stops the batch; the runner never falls back to `day`.
+  Router users. The first real `cls` order answers it. The runner never falls back
+  to `day`; if every order is rejected nothing was sent and the team lead decides.
+- **A rejected order skips its symbol and the rest are sent** (team lead,
+  2026-09-28); the day is FAIL naming it. Anything with an unknown outcome
+  (ambiguous submit, unexpected error, clock) still stops the batch.
+- **Gate 7** checks `shortable` only; hard-to-borrow is a preview warning (team
+  lead, 2026-09-28).
 - **Gate 4** re-reads the Alpaca clock at the gate and again before every POST; the
   refresh subprocess's timeout is the time left to the cutoff.
 - **Gate 5** requires an as-of **NAV** as well as an as-of close for every name.

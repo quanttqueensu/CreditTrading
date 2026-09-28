@@ -275,12 +275,31 @@ def test_ambiguous_submit_stops_batch_and_looks_up(tmp_path):
     assert log == ["submit", "ambiguous", "lookup"]
 
 
-def test_rejection_stops_batch(tmp_path):
+def test_rejection_skips_that_name_and_sends_the_rest(tmp_path):
+    """Team lead 2026-09-28: a rejected order skips its symbol, the rest go,
+    and the day is FAIL naming the rejection."""
     rej = OrderRejected("403", status=403, client_order_id="cef-20260929-BBB-1")
     c, deps, state, _, _ = make(tmp_path, submit={"cef-20260929-BBB-1": rej})
     (state / "AUTO_ARMED").touch()
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
-    assert len(c.submits()) == 1
+    assert [s[1] for s in c.submits()] == ["cef-20260929-BBB-1", "cef-20260929-AAA-1"]
+    runs = sorted((state / D.isoformat() / "runs").glob("*.json"))
+    run_rec = json.loads(runs[-1].read_text())
+    assert run_rec["rejected"] == ["cef-20260929-BBB-1"]
+    assert run_rec["sent"] == ["cef-20260929-AAA-1"]
+
+
+def test_every_order_rejected_sends_nothing_and_fails(tmp_path):
+    """The `cls`-not-allowed case: every order rejected -> nothing sent, FAIL,
+    and never a resend as `day`."""
+    rej = lambda cid: OrderRejected("422 cls", status=422, client_order_id=cid)
+    c, deps, state, _, out = make(tmp_path, submit={
+        "cef-20260929-BBB-1": rej("cef-20260929-BBB-1"),
+        "cef-20260929-AAA-1": rej("cef-20260929-AAA-1")})
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert len(c.submits()) == 2
+    assert "NOTHING was sent" in "".join(out)
 
 
 def test_confirm_miss_is_fail(tmp_path):
