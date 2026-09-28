@@ -21,10 +21,10 @@ fetchers, the research memory, `quantt/`, and the agent layer.
 
 | # | step | who | status |
 |---|---|---|---|
-| 1.1 | Create two Alpaca **paper** accounts at $100k: `cef` and `b6`. Regenerate the key pasted into the 2026-09-28 chat. | TL | open |
-| 1.2 | Put `ALPACA_CEF_KEY_ID`, `ALPACA_CEF_SECRET_KEY`, `ALPACA_B6_KEY_ID`, `ALPACA_B6_SECRET_KEY` in `config/.env` with a text editor. Never paste them into a chat. | TL | open |
-| 1.3 | `python3 -m quantt.broker.alpaca_probe --check-keys`, then the probe itself: which of the 17 CEFs and b6's 8 ETFs are tradable, shortable, easy- or hard-to-borrow, marginable. | A | open |
-| 1.4 | **Universe decision** if any name is untradable or hard-to-borrow — this can change the strategy. | TL | blocked on 1.3 |
+| 1.1 | Create two Alpaca **paper** accounts at $100k: `cef` and `b6`. Regenerate the key pasted into the 2026-09-28 chat. | TL | `cef` done 2026-09-28; `b6` later (TL) |
+| 1.2 | Put `ALPACA_CEF_KEY_ID`, `ALPACA_CEF_SECRET_KEY`, `ALPACA_B6_KEY_ID`, `ALPACA_B6_SECRET_KEY` in `config/.env` with a text editor. Never paste them into a chat. | TL | `cef` pair set 2026-09-28; `b6` later |
+| 1.3 | `python3 -m quantt.broker.alpaca_probe --check-keys`, then the probe itself: which of the 17 CEFs and b6's 8 ETFs are tradable, shortable, easy- or hard-to-borrow, marginable. | A | `cef` done 2026-09-28 (`results/ops/alpaca_probe/2026-09-28_cef.json`): all 17 tradable; **4 not shortable, hard-to-borrow** — orient ALPACA lists them. `b6` after 1.2 |
+| 1.4 | **Universe decision** if any name is untradable or hard-to-borrow — this can change the strategy. | TL | **open — needed now** (see 1.3) |
 
 ## Phase 2 — the spec on Alpaca
 
