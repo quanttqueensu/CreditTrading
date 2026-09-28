@@ -1,0 +1,246 @@
+{
+ "planned_at": "2026-09-28T15:04:18.571594-04:00",
+ "mode": "dry_run",
+ "client_id": 131,
+ "account": "DUQ199038",
+ "orders": [
+  {
+   "symbol": "AGG",
+   "conId": 25985141,
+   "position": 206,
+   "action": "SELL",
+   "quantity": 206
+  },
+  {
+   "symbol": "ANGL",
+   "conId": 229725522,
+   "position": 86,
+   "action": "SELL",
+   "quantity": 86
+  },
+  {
+   "symbol": "AWF",
+   "conId": 4704,
+   "position": 1288,
+   "action": "SELL",
+   "quantity": 1288
+  },
+  {
+   "symbol": "BIT",
+   "conId": 123288383,
+   "position": 6842,
+   "action": "SELL",
+   "quantity": 6842
+  },
+  {
+   "symbol": "BKLN",
+   "conId": 319359400,
+   "position": -1201,
+   "action": "BUY",
+   "quantity": 1201
+  },
+  {
+   "symbol": "DSL",
+   "conId": 126660684,
+   "position": 3720,
+   "action": "SELL",
+   "quantity": 3720
+  },
+  {
+   "symbol": "EMB",
+   "conId": 47649504,
+   "position": 550,
+   "action": "SELL",
+   "quantity": 550
+  },
+  {
+   "symbol": "HYG",
+   "conId": 43652089,
+   "position": 385,
+   "action": "SELL",
+   "quantity": 385
+  },
+  {
+   "symbol": "HYT",
+   "conId": 41122203,
+   "position": 3210,
+   "action": "SELL",
+   "quantity": 3210
+  },
+  {
+   "symbol": "IEF",
+   "conId": 15547844,
+   "position": 87,
+   "action": "SELL",
+   "quantity": 87
+  },
+  {
+   "symbol": "IGSB",
+   "conId": 42455799,
+   "position": 1207,
+   "action": "SELL",
+   "quantity": 1207
+  },
+  {
+   "symbol": "JFR",
+   "conId": 28828789,
+   "position": -8720,
+   "action": "BUY",
+   "quantity": 8720
+  },
+  {
+   "symbol": "JNK",
+   "conId": 356312840,
+   "position": 26,
+   "action": "SELL",
+   "quantity": 26
+  },
+  {
+   "symbol": "LQD",
+   "conId": 15547816,
+   "position": -881,
+   "action": "BUY",
+   "quantity": 881
+  },
+  {
+   "symbol": "MHD",
+   "conId": 41122080,
+   "position": -8741,
+   "action": "BUY",
+   "quantity": 8741
+  },
+  {
+   "symbol": "MQY",
+   "conId": 41122110,
+   "position": -1565,
+   "action": "BUY",
+   "quantity": 1565
+  },
+  {
+   "symbol": "NAD",
+   "conId": 6608344,
+   "position": -5237,
+   "action": "BUY",
+   "quantity": 5237
+  },
+  {
+   "symbol": "NEA",
+   "conId": 17085357,
+   "position": -10672,
+   "action": "BUY",
+   "quantity": 10672
+  },
+  {
+   "symbol": "NVG",
+   "conId": 14732309,
+   "position": -4679,
+   "action": "BUY",
+   "quantity": 4679
+  },
+  {
+   "symbol": "NZF",
+   "conId": 15548118,
+   "position": -271,
+   "action": "BUY",
+   "quantity": 271
+  },
+  {
+   "symbol": "PCN",
+   "conId": 6608373,
+   "position": 720,
+   "action": "SELL",
+   "quantity": 720
+  },
+  {
+   "symbol": "PDI",
+   "conId": 107976119,
+   "position": 3746,
+   "action": "SELL",
+   "quantity": 3746
+  },
+  {
+   "symbol": "PDO",
+   "conId": 467524601,
+   "position": 6402,
+   "action": "SELL",
+   "quantity": 6402
+  },
+  {
+   "symbol": "PFN",
+   "conId": 31815560,
+   "position": 5280,
+   "action": "SELL",
+   "quantity": 5280
+  },
+  {
+   "symbol": "PHK",
+   "conId": 17966274,
+   "position": 8478,
+   "action": "SELL",
+   "quantity": 8478
+  },
+  {
+   "symbol": "PTY",
+   "conId": 16825380,
+   "position": 630,
+   "action": "SELL",
+   "quantity": 630
+  },
+  {
+   "symbol": "SHY",
+   "conId": 15547851,
+   "position": 244,
+   "action": "SELL",
+   "quantity": 244
+  },
+  {
+   "symbol": "SHYG",
+   "conId": 136374385,
+   "position": 1009,
+   "action": "SELL",
+   "quantity": 1009
+  },
+  {
+   "symbol": "SJNK",
+   "conId": 104158269,
+   "position": -3530,
+   "action": "BUY",
+   "quantity": 3530
+  },
+  {
+   "symbol": "SPHY",
+   "conId": 109385195,
+   "position": 196,
+   "action": "SELL",
+   "quantity": 196
+  },
+  {
+   "symbol": "SRLN",
+   "conId": 125373044,
+   "position": -1958,
+   "action": "BUY",
+   "quantity": 1958
+  },
+  {
+   "symbol": "USHY",
+   "conId": 293893522,
+   "position": -1273,
+   "action": "BUY",
+   "quantity": 1273
+  },
+  {
+   "symbol": "VCIT",
+   "conId": 70363051,
+   "position": 423,
+   "action": "SELL",
+   "quantity": 423
+  },
+  {
+   "symbol": "VCSH",
+   "conId": 70363037,
+   "position": 412,
+   "action": "SELL",
+   "quantity": 412
+  }
+ ]
+}

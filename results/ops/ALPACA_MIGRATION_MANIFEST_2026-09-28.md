@@ -217,3 +217,24 @@ Each of these can transmit an order or change what the scheduler runs
    orders in one symbol; `client_order_id` reuse after fill.
 4. Design and build the `quantt` adapter, reconciliation from
    `/v2/account/activities` + `trade_updates`, dual scoring, and the VM runner.
+
+---
+
+## 7. What happened to the IBKR account (2026-09-28, appended)
+
+- 14:5x ET: all 12 `com.quantt.*` launchd jobs unloaded by the agent, at the team
+  lead's instruction ("just run all the commands"). `launchctl list | grep quantt`
+  empty afterwards [V].
+- 15:04 ET: team lead logged in to IB Gateway (paper, port 4002).
+- Dry run [V]: account `DUQ199038`, 34 whole-share USD stock positions, nothing
+  refused, no open orders.
+- 15:05:36 ET: team lead said "go"; 34 MOC/DAY orders transmitted by
+  `ops/flatten_ibkr_account.py`, record `results/ops/ibkr_flatten/2026-09-28.json`.
+  ib_async logged "open orders request timed out" at connect.
+- 15:05:57 ET, read-only re-read [V]: exactly 34 open orders at the broker, all MOC,
+  no duplicates, **all `PendingSubmit`** — the gateway held them without IB
+  acknowledging them, most likely behind an order-precaution dialog.
+- **Team lead, ~15:07 ET: "it doesn't matter if we leave or close them, let's just
+  forget about it now."** Nothing was cancelled or resent. **Whether the account
+  ended flat is unknown and will not be checked**; IBKR is abandoned as is. The
+  "archive only after verified flat" gate in §4 and §5.4 is waived by this.
