@@ -1,0 +1,100 @@
+[2026-09-21 09:35:05] launchd start (job=phase0)
+2026-09-21 TRADING
+[preflight] [FAIL] halt: ops/HALT_phase0_null.md is active (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.) — blocks THIS book (phase0_null). Clear with ops.halt.clear_halt('...', book='phase0_null') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[cef_discount_paper]: cef_discount_paper is halted (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 14 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-18 (1bd); NAV -> 2026-09-18 (1bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-18 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login — start it, or let the session run collect-only.
+[2026-09-21 09:35:07] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/phase0. Reason: [FAIL] halt: ops/HALT_phase0_null.md is active (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.) — blocks THIS book (phase0_null). Clear with ops.halt.clear_halt('...', book='phase0_null') once genuinely fixed.; [FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login — start it, or let the session run collect-only.
+[run_book] EXECUTION=simulator single day asof=2026-09-21
+[dry-run] null_trader: LONG  HYG                      w=0.164884   held=0  (null trader (epoch 4143) w=+0.1649)
+[dry-run] null_trader: SHORT JNK                      w=-0.158101  held=0  (null trader (epoch 4143) w=-0.1581)
+[dry-run] null_trader: SHORT USHY                     w=-0.162167  held=0  (null trader (epoch 4143) w=-0.1622)
+[dry-run] null_trader: LONG  SPHY                     w=0.00961346 held=0  (null trader (epoch 4143) w=+0.0096)
+[dry-run] null_trader: LONG  SHYG                     w=0.0363295  held=0  (null trader (epoch 4143) w=+0.0363)
+[dry-run] null_trader: LONG  SJNK                     w=0.132661   held=0  (null trader (epoch 4143) w=+0.1327)
+[dry-run] null_trader: SHORT LQD                      w=-0.0110614 held=0  (null trader (epoch 4143) w=-0.0111)
+[dry-run] null_trader: LONG  VCSH                     w=0.032132   held=0  (null trader (epoch 4143) w=+0.0321)
+[dry-run] null_trader: SHORT VCIT                     w=-0.104072  held=0  (null trader (epoch 4143) w=-0.1041)
+[dry-run] null_trader: LONG  IGSB                     w=0.0524256  held=0  (null trader (epoch 4143) w=+0.0524)
+[dry-run] null_trader: LONG  BKLN                     w=0.0719545  held=0  (null trader (epoch 4143) w=+0.0720)
+[dry-run] null_trader: SHORT SRLN                     w=-0.010657  held=0  (null trader (epoch 4143) w=-0.0107)
+[dry-run] null_trader: SHORT EMB                      w=-0.0434706 held=0  (null trader (epoch 4143) w=-0.0435)
+[dry-run] null_trader: SHORT JAAA                     w=-0.0104711 held=0  (null trader (epoch 4143) w=-0.0105)
+
+[run_book] DRY-RUN asof 2026-09-21: 14 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/phase0/dryrun_2026-09-21.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-21  NAV $0.00  PnL $0.00  turnover $0  gross $0
+[run_book]   null_trader: NAV n/a  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-21 09:35:09] book run ok
+[2026-09-21 09:35:09] capturing broker executions (TWS forgets these at its daily restart)
+API connection failed: ConnectionRefusedError(61, "Connect call failed ('127.0.0.1', 4002)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 586, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 576, in main
+    capture(a.book, a.books_root, client_id=a.client_id, asof=a.asof)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 110, in capture
+    app.connect(cfg.host, int(cfg.port),
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                clientId=int(client_id or (cfg.client_id + 50)),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                readonly=True, timeout=30)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-21 09:35:09] fill capture failed rc=1 (real fills for 2026-09-21 may be lost)
+[2026-09-21 09:35:09] done status=ok_not_armed

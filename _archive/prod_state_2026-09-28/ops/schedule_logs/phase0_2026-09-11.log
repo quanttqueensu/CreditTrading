@@ -1,0 +1,42 @@
+[2026-09-11 09:46:06] launchd start (job=phase0)
+2026-09-11 TRADING
+[preflight] [FAIL] halt: ops/HALT_phase0_null.md is active (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.) — blocks THIS book (phase0_null). Clear with ops.halt.clear_halt('...', book='phase0_null') once genuinely fixed.
+[preflight] [PASS] costs: all 14 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-09 (2bd); NAV -> 2026-09-09 (2bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-10 (ok)
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.153, gross/NLV 2.04x, excess liquidity 151,675
+[2026-09-11 09:46:30] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/phase0. Reason: [FAIL] halt: ops/HALT_phase0_null.md is active (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.) — blocks THIS book (phase0_null). Clear with ops.halt.clear_halt('...', book='phase0_null') once genuinely fixed.
+[run_book] EXECUTION=simulator single day asof=2026-09-11
+[dry-run] null_trader: LONG  HYG                      w=0.0867765  held=0  (null trader (epoch 4141) w=+0.0868)
+[dry-run] null_trader: LONG  JNK                      w=0.062284   held=0  (null trader (epoch 4141) w=+0.0623)
+[dry-run] null_trader: SHORT USHY                     w=-0.0757668 held=0  (null trader (epoch 4141) w=-0.0758)
+[dry-run] null_trader: LONG  SPHY                     w=0.00715703 held=0  (null trader (epoch 4141) w=+0.0072)
+[dry-run] null_trader: LONG  SHYG                     w=0.0618659  held=0  (null trader (epoch 4141) w=+0.0619)
+[dry-run] null_trader: SHORT SJNK                     w=-0.135848  held=0  (null trader (epoch 4141) w=-0.1358)
+[dry-run] null_trader: SHORT LQD                      w=-0.00742312 held=0  (null trader (epoch 4141) w=-0.0074)
+[dry-run] null_trader: LONG  VCSH                     w=0.0505192  held=0  (null trader (epoch 4141) w=+0.0505)
+[dry-run] null_trader: LONG  VCIT                     w=0.0484669  held=0  (null trader (epoch 4141) w=+0.0485)
+[dry-run] null_trader: LONG  IGSB                     w=0.0973454  held=0  (null trader (epoch 4141) w=+0.0973)
+[dry-run] null_trader: SHORT BKLN                     w=-0.038937  held=0  (null trader (epoch 4141) w=-0.0389)
+[dry-run] null_trader: SHORT SRLN                     w=-0.123482  held=0  (null trader (epoch 4141) w=-0.1235)
+[dry-run] null_trader: LONG  EMB                      w=0.085585   held=0  (null trader (epoch 4141) w=+0.0856)
+[dry-run] null_trader: SHORT JAAA                     w=-0.118543  held=0  (null trader (epoch 4141) w=-0.1185)
+
+[run_book] DRY-RUN asof 2026-09-11: 14 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/phase0/dryrun_2026-09-11.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-11  NAV $0.00  PnL $0.00  turnover $0  gross $0
+[run_book]   null_trader: NAV n/a  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-11 09:46:33] book run ok
+[2026-09-11 09:46:33] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   null_trader: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/phase0_live/_ibkr_shadow/null_trader/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] null_trader: 22 matched fill(s) -> /Users/simonjarvis/prod/QUANTT/ops/books/phase0_live/_ibkr_shadow/null_trader/slippage.csv
+[slippage]   realised +12.9bp  modelled +11.1bp  excess +1.8bp
+[slippage]   realised/modelled = 1.16x (kill rule (b) trips above 2.0x for 5 straight sessions)
+[2026-09-11 09:46:34] done status=ok_not_armed

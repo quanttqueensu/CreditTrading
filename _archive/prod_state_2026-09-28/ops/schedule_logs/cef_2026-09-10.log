@@ -1,0 +1,66 @@
+[2026-09-10 17:15:05] launchd start (job=cef)
+2026-09-10 TRADING
+[2026-09-10 17:15:05] waiting for today's NAV on every deployed name (deadline 23:30)
+waiting for NAV dated 2026-09-10 on 17 deployed names; deadline 23:30, poll every 900s
+[17:15:06] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[17:30:09] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[17:45:11] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:00:13] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:15:16] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:30:18] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:45:20] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:00:23] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:15:25] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:30:28] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:45:30] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[21:27:24] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[09:46:26] yfinance NAV 17/17  cefconnect NAV 0/17  close 17/17  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+today's pair is complete on yfinance at 09:46 (first NAV seen 09:46, last 09:46)
+[2026-09-11 09:46:33] today's NAV is published (yfinance) at 09:46
+[2026-09-11 09:46:33] refreshing market data
+  09:46 is before the close: any bar dated 2026-09-11 is a partial session and will not be written
+  prices 266,870 rows -> 2026-09-10
+  NAV    234,049 rows -> 2026-09-10
+  STALE NAV (1 funds, >3 business days old) — the sleeve must not trade these:
+    FCT    last NAV 2026-08-06  (26 bd old)
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-10
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+IBKR API FEE_RATE -- 0/17 names
+  no fee rate from either source; not writing a row
+[2026-09-11 10:38:29] panel scripts/cef/fetch_borrow_rates.py FAILED rc=1 (session continues)
+[preflight] [PASS] halt: no active halt
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-10 (0bd); NAV -> 2026-09-10 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-09 (ok)
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.152, gross/NLV 2.04x, excess liquidity 150,919
+[2026-09-11 10:38:30] ARMED: EXECUTION=ibkr books-root=ops/books/cef_live asof=2026-09-10
+[ibkr] arm: account has 34 position(s), 17 belonging to another book (ignored)
+[ibkr] arm: ADOPTED broker truth cef_discount/JFR: ledger -5837 -> broker -10467
+[ibkr] arm: ADOPTED broker truth cef_discount/MHD: ledger -8856 -> broker -8741
+[ibkr] arm: ADOPTED broker truth cef_discount/NEA: ledger -7118 -> broker -11576
+[ibkr] arm: ADOPTED broker truth cef_discount/MQY: ledger -1750 -> broker -1565
+[ibkr] arm: ARMED
+[ibkr] arm: account has 34 position(s), 17 belonging to another book (ignored)
+[ibkr] arm: ARMED
+[run_book] EXECUTION=ibkr single day asof=2026-09-10
+/Users/simonjarvis/prod/QUANTT/ops/common.py:302: FutureWarning: The default fill_method='pad' in DataFrame.pct_change is deprecated and will be removed in a future version. Either fill in any non-leading NA values prior to calling pct_change or specify 'fill_method=None' to not fill NA values.
+  rets = px.pct_change()
+[report] wrote /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/report_2026-09-10.md
+[report] wrote /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/target_vs_current.csv
+
+[run_book] BOOK asof 2026-09-10  NAV $504,030.09  PnL $4,030.09  turnover $87,003  gross $820,199
+[run_book]   cef_discount: NAV $504,030.09  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit book_drawdown_suspend_pct: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-11 10:38:31] book run ok
+[2026-09-11 10:38:31] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   cef_discount: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] cef_discount: no overlapping fill dates yet
+[2026-09-11 10:38:32] done status=ok

@@ -1,0 +1,332 @@
+[2026-09-21 08:30:04] launchd start (job=cef)
+2026-09-21 TRADING
+[2026-09-21 08:30:04] plan: mode=morning asof=2026-09-18 may_arm=True (today=2026-09-21, prev trading day=2026-09-18)
+[2026-09-21 08:30:04] refreshing market data
+  08:30 is before the close: any bar dated 2026-09-21 is a partial session and will not be written
+$XFCTX: possibly delisted; no price data found  (period=6mo)
+  prices 267,128 rows -> 2026-09-18
+  NAV    234,307 rows -> 2026-09-18
+  all 44 NAV series fresh within 3 bd
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-18
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+Traceback (most recent call last):
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 307, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 241, in main
+    api = from_api_fee(u)
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 133, in from_api_fee
+    ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID, readonly=True, timeout=20)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-21 08:30:26] panel scripts/cef/fetch_borrow_rates.py FAILED rc=1 (session continues)
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-18 (0bd); NAV -> 2026-09-18 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-18 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login — start it, or let the session run collect-only.
+[2026-09-21 08:30:28] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.; [FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login — start it, or let the session run collect-only.
+[run_book] EXECUTION=simulator single day asof=2026-09-18
+[dry-run] cef_discount: SHORT AWF                      w=-0.0395709 held=1743  (cef discount z=-0.96 w=-0.0396 volscal=1.78)
+[dry-run] cef_discount: LONG  BIT                      w=0.134145   held=8137  (cef discount z=-2.26 w=+0.1341 volscal=1.78)
+[dry-run] cef_discount: LONG  DSL                      qty=3723     held=3723  (cef band hold: |gap|<=0.0480 w=+0.0759)
+[dry-run] cef_discount: LONG  HYT                      w=0.0619529  held=4598  (cef discount z=-1.72 w=+0.0620 volscal=1.78)
+[dry-run] cef_discount: SHORT JFR                      w=-0.183932  held=-3234  (cef discount z=+0.12 w=-0.1839 volscal=1.78)
+[dry-run] cef_discount: SHORT MHD                      qty=-5862    held=-5862  (cef band hold: |gap|<=0.0480 w=-0.1262)
+[dry-run] cef_discount: SHORT MQY                      w=-0.016267  held=-2089  (cef discount z=-1.85 w=-0.0163 volscal=1.78)
+[dry-run] cef_discount: SHORT NAD                      w=-0.0165674 held=-8129  (cef discount z=-1.85 w=-0.0166 volscal=1.78)
+[dry-run] cef_discount: SHORT NEA                      w=-0.0766688 held=-7319  (cef discount z=-1.40 w=-0.0767 volscal=1.78)
+[dry-run] cef_discount: SHORT NVG                      w=-0.215673  held=-4852  (cef discount z=+0.36 w=-0.2157 volscal=1.78)
+[dry-run] cef_discount: SHORT NZF                      qty=-4533    held=-4533  (cef band hold: |gap|<=0.0480 w=-0.1037)
+[dry-run] cef_discount: LONG  PCN                      qty=2120     held=2120  (cef band hold: |gap|<=0.0480 w=+0.0471)
+[dry-run] cef_discount: LONG  PDI                      qty=4102     held=4102  (cef band hold: |gap|<=0.0480 w=+0.1182)
+[dry-run] cef_discount: LONG  PDO                      qty=6099     held=6099  (cef band hold: |gap|<=0.0480 w=+0.1463)
+[dry-run] cef_discount: LONG  PFN                      w=0.0807834  held=559  (cef discount z=-2.58 w=+0.0808 volscal=1.78)
+[dry-run] cef_discount: LONG  PHK                      w=0.117457   held=6392  (cef discount z=-2.86 w=+0.1175 volscal=1.78)
+[dry-run] cef_discount: FLAT  PTY                                   held=2084  (cef: below min weight)
+
+[run_book] DRY-RUN asof 2026-09-18: 17 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef/dryrun_2026-09-18.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-18  NAV $500,000.00  PnL $0.00  turnover $0  gross $813,682
+[run_book]   cef_discount: NAV $500,000.00  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit book_drawdown_suspend_pct: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-21 08:30:28] book run ok
+[2026-09-21 08:30:28] capturing broker executions (TWS forgets these at its daily restart)
+API connection failed: ConnectionRefusedError(61, "Connect call failed ('127.0.0.1', 4002)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 586, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 576, in main
+    capture(a.book, a.books_root, client_id=a.client_id, asof=a.asof)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 110, in capture
+    app.connect(cfg.host, int(cfg.port),
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                clientId=int(client_id or (cfg.client_id + 50)),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                readonly=True, timeout=30)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-21 08:30:29] fill capture failed rc=1 (real fills for 2026-09-21 may be lost)
+[2026-09-21 08:30:29] done status=ok_not_armed
+[2026-09-21 12:00:04] launchd start (job=cef)
+2026-09-21 TRADING
+[2026-09-21 12:00:04] plan: mode=morning asof=2026-09-18 may_arm=True (today=2026-09-21, prev trading day=2026-09-18)
+[2026-09-21 12:00:04] refreshing market data
+  12:00 is before the close: any bar dated 2026-09-21 is a partial session and will not be written
+$XFCTX: possibly delisted; no price data found  (period=6mo)
+  prices 267,128 rows -> 2026-09-18
+  NAV    234,307 rows -> 2026-09-18
+  all 44 NAV series fresh within 3 bd
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-18
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+Traceback (most recent call last):
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 307, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 241, in main
+    api = from_api_fee(u)
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 133, in from_api_fee
+    ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID, readonly=True, timeout=20)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-21 12:00:17] panel scripts/cef/fetch_borrow_rates.py FAILED rc=1 (session continues)
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-18 (0bd); NAV -> 2026-09-18 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-21 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login — start it, or let the session run collect-only.
+[2026-09-21 12:00:18] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.; [FAIL] broker: nothing listening on 127.0.0.1:4002 (ConnectionRefusedError). TWS restarts daily and needs a login — start it, or let the session run collect-only.
+[run_book] EXECUTION=simulator single day asof=2026-09-18
+[dry-run] cef_discount: SHORT AWF                      w=-0.0395709 held=1743  (cef discount z=-0.96 w=-0.0396 volscal=1.78)
+[dry-run] cef_discount: LONG  BIT                      w=0.134145   held=8137  (cef discount z=-2.26 w=+0.1341 volscal=1.78)
+[dry-run] cef_discount: LONG  DSL                      qty=3723     held=3723  (cef band hold: |gap|<=0.0480 w=+0.0759)
+[dry-run] cef_discount: LONG  HYT                      w=0.0619529  held=4598  (cef discount z=-1.72 w=+0.0620 volscal=1.78)
+[dry-run] cef_discount: SHORT JFR                      w=-0.183932  held=-3234  (cef discount z=+0.12 w=-0.1839 volscal=1.78)
+[dry-run] cef_discount: SHORT MHD                      qty=-5862    held=-5862  (cef band hold: |gap|<=0.0480 w=-0.1262)
+[dry-run] cef_discount: SHORT MQY                      w=-0.016267  held=-2089  (cef discount z=-1.85 w=-0.0163 volscal=1.78)
+[dry-run] cef_discount: SHORT NAD                      w=-0.0165674 held=-8129  (cef discount z=-1.85 w=-0.0166 volscal=1.78)
+[dry-run] cef_discount: SHORT NEA                      w=-0.0766688 held=-7319  (cef discount z=-1.40 w=-0.0767 volscal=1.78)
+[dry-run] cef_discount: SHORT NVG                      w=-0.215673  held=-4852  (cef discount z=+0.36 w=-0.2157 volscal=1.78)
+[dry-run] cef_discount: SHORT NZF                      qty=-4533    held=-4533  (cef band hold: |gap|<=0.0480 w=-0.1037)
+[dry-run] cef_discount: LONG  PCN                      qty=2120     held=2120  (cef band hold: |gap|<=0.0480 w=+0.0471)
+[dry-run] cef_discount: LONG  PDI                      qty=4102     held=4102  (cef band hold: |gap|<=0.0480 w=+0.1182)
+[dry-run] cef_discount: LONG  PDO                      qty=6099     held=6099  (cef band hold: |gap|<=0.0480 w=+0.1463)
+[dry-run] cef_discount: LONG  PFN                      w=0.0807834  held=559  (cef discount z=-2.58 w=+0.0808 volscal=1.78)
+[dry-run] cef_discount: LONG  PHK                      w=0.117457   held=6392  (cef discount z=-2.86 w=+0.1175 volscal=1.78)
+[dry-run] cef_discount: FLAT  PTY                                   held=2084  (cef: below min weight)
+
+[run_book] DRY-RUN asof 2026-09-18: 17 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef/dryrun_2026-09-18.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-18  NAV $500,000.00  PnL $0.00  turnover $0  gross $813,682
+[run_book]   cef_discount: NAV $500,000.00  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit book_drawdown_suspend_pct: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-21 12:00:19] book run ok
+[2026-09-21 12:00:19] capturing broker executions (TWS forgets these at its daily restart)
+API connection failed: ConnectionRefusedError(61, "Connect call failed ('127.0.0.1', 4002)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 586, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 576, in main
+    capture(a.book, a.books_root, client_id=a.client_id, asof=a.asof)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 110, in capture
+    app.connect(cfg.host, int(cfg.port),
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                clientId=int(client_id or (cfg.client_id + 50)),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                readonly=True, timeout=30)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-21 12:00:19] fill capture failed rc=1 (real fills for 2026-09-21 may be lost)
+[2026-09-21 12:00:19] done status=ok_not_armed

@@ -1,0 +1,10 @@
+{
+  "sleeve": "bench_b3_agg",
+  "asof": "2026-09-14",
+  "error": "UnbookedExecution('2026-09-14: the broker reports 1 execution(s) that no ledger order accounts for (00012ec5.6b7cff97.01.01). The ledger cannot represent them, and booking the day without them would understate the position permanently. Reconcile with `python3 -m ops.reconcile_orders` and repair before advancing.')",
+  "traceback": "Traceback (most recent call last):\n  File \"/Users/simonjarvis/prod/QUANTT/src/deploy/broker/ibkr.py\", line 1315, in place_targets\n    self._shadow().place_targets(\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        sleeve_name, targets, asof, market_state,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        execution_record=self._execution_record(sleeve_name, asof))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/simonjarvis/prod/QUANTT/src/deploy/broker/simulator.py\", line 134, in place_targets\n    lg.advance(prices, cfg[\"run_spec\"], cfg[\"costs\"], target_fn,\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n               through=asof, start=start, verbose=self.verbose)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/simonjarvis/prod/QUANTT/ops/ledger.py\", line 502, in advance\n    raise UnbookedExecution(\n    ...<7 lines>...\n        f\"repair before advancing.\")\nops.ledger.UnbookedExecution: 2026-09-14: the broker reports 1 execution(s) that no ledger order accounts for (00012ec5.6b7cff97.01.01). The ledger cannot represent them, and booking the day without them would understate the position permanently. Reconcile with `python3 -m ops.reconcile_orders` and repair before advancing.\n",
+  "transmitted_fills": [],
+  "tag_book_after_fills": {
+    "AGG": 206.0
+  }
+}

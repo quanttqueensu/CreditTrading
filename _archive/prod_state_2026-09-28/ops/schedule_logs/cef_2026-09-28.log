@@ -1,0 +1,368 @@
+[2026-09-28 08:30:05] launchd start (job=cef)
+2026-09-28 TRADING
+[2026-09-28 08:30:05] plan: mode=morning asof=2026-09-25 may_arm=True (today=2026-09-28, prev trading day=2026-09-25)
+[2026-09-28 08:30:05] refreshing market data
+no staged panel; run scripts/cef/stage_cef.py first
+[2026-09-28 08:30:07] DATA REFRESH FAILED - will not trade on stale data
+IBKR shortstock file unavailable (URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>); fees from the API instead
+Traceback (most recent call last):
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 307, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 241, in main
+    api = from_api_fee(u)
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 133, in from_api_fee
+    ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID, readonly=True, timeout=20)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-28 08:30:07] panel scripts/cef/fetch_borrow_rates.py FAILED rc=1 (session continues)
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: no CEF price store to compare
+[preflight] [FAIL] data: prices: MISSING cef_prices.parquet; NAV: MISSING cef_nav.parquet
+[preflight] [PASS] heartbeat: last beat 2026-09-25 (failed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[2026-09-28 08:30:10] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.; [FAIL] data: prices: MISSING cef_prices.parquet; NAV: MISSING cef_nav.parquet
+[run_book] EXECUTION=simulator single day asof=2026-09-25
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 588, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 541, in main
+    view = orch.advance(asof, source=args.source)
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/portfolio.py", line 154, in advance
+    prices = self.price_loader(sleeve.instruments(), asof,
+                               sleeve.history_warmup_trading_days())
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 280, in book_price_loader
+    known = _panel_tickers()
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 114, in _panel_tickers
+    t = pd.read_parquet(ops_common.PANEL_PATH, columns=["ticker"])["ticker"]
+        ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/parquet.py", line 669, in read_parquet
+    return impl.read(
+           ~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<6 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/parquet.py", line 258, in read
+    path_or_handle, handles, filesystem = _get_path_or_handle(
+                                          ~~~~~~~~~~~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<2 lines>...
+        mode="rb",
+        ^^^^^^^^^^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/parquet.py", line 141, in _get_path_or_handle
+    handles = get_handle(
+        path_or_handle, mode, is_text=False, storage_options=storage_options
+    )
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/common.py", line 882, in get_handle
+    handle = open(handle, ioargs.mode)
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/simonjarvis/prod/QUANTT/data/etf_daily.parquet'
+[2026-09-28 08:30:11] book run FAILED rc=1
+[2026-09-28 08:30:11] capturing broker executions (TWS forgets these at its daily restart)
+API connection failed: ConnectionRefusedError(61, "Connect call failed ('127.0.0.1', 4002)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 586, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 576, in main
+    capture(a.book, a.books_root, client_id=a.client_id, asof=a.asof)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 110, in capture
+    app.connect(cfg.host, int(cfg.port),
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                clientId=int(client_id or (cfg.client_id + 50)),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                readonly=True, timeout=30)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-28 08:30:11] fill capture failed rc=1 (real fills for 2026-09-28 may be lost)
+[2026-09-28 08:30:13] done status=failed
+[2026-09-28 12:00:05] launchd start (job=cef)
+2026-09-28 TRADING
+[2026-09-28 12:00:05] plan: mode=morning asof=2026-09-25 may_arm=True (today=2026-09-28, prev trading day=2026-09-25)
+[2026-09-28 12:00:05] refreshing market data
+no staged panel; run scripts/cef/stage_cef.py first
+[2026-09-28 12:00:06] DATA REFRESH FAILED - will not trade on stale data
+IBKR shortstock file #BOF|2026.09.24|07:02:49 -- 17/17 names
+
+SYM       fee %  rebate %       avail
+-------------------------------------
+NVG        5.53     -1.65     100,000
+NAD        4.61     -0.73     300,000
+NEA        3.65      0.23     950,000
+NZF        2.58      1.30     300,000
+JFR        2.04      1.84   1,300,000
+PTY        1.36      2.52   6,200,000
+HYT        1.34      2.54   3,300,000
+AWF        1.17      2.71     350,000
+PDO        0.76      3.12   2,500,000
+BIT        0.73      3.15     150,000
+PHK        0.69      3.19   2,800,000
+DSL        0.58      3.30   1,100,000
+PCN        0.55      3.33   2,500,000
+MQY        0.55      3.33     200,000
+MHD        0.44      3.44     500,000
+PFN        0.39      3.49   1,600,000
+PDI        0.28      3.60  10,000,000
+Traceback (most recent call last):
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 307, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 301, in main
+    append(df, a.asof)
+    ~~~~~~^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py", line 212, in append
+    atomic_write(df.sort_values(["date", "ticker"]), OUT)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/common.py", line 364, in atomic_write
+    frame.to_csv(tmp, index=index)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/util/_decorators.py", line 333, in wrapper
+    return func(*args, **kwargs)
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/core/generic.py", line 3989, in to_csv
+    return DataFrameRenderer(formatter).to_csv(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        path_or_buf,
+        ^^^^^^^^^^^^
+    ...<14 lines>...
+        storage_options=storage_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/formats/format.py", line 1014, in to_csv
+    csv_formatter.save()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/formats/csvs.py", line 251, in save
+    with get_handle(
+         ~~~~~~~~~~^
+        self.filepath_or_buffer,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        storage_options=self.storage_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ) as handles:
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/common.py", line 749, in get_handle
+    check_parent_directory(str(handle))
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/common.py", line 616, in check_parent_directory
+    raise OSError(rf"Cannot save file into a non-existent directory: '{parent}'")
+OSError: Cannot save file into a non-existent directory: '/Users/simonjarvis/prod/QUANTT/data/cef'
+[2026-09-28 12:00:10] panel scripts/cef/fetch_borrow_rates.py FAILED rc=1 (session continues)
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: no CEF price store to compare
+[preflight] [FAIL] data: prices: MISSING cef_prices.parquet; NAV: MISSING cef_nav.parquet
+[preflight] [PASS] heartbeat: last beat 2026-09-28 (failed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[2026-09-28 12:00:13] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.; [FAIL] data: prices: MISSING cef_prices.parquet; NAV: MISSING cef_nav.parquet
+[run_book] EXECUTION=simulator single day asof=2026-09-25
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 588, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 541, in main
+    view = orch.advance(asof, source=args.source)
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/portfolio.py", line 154, in advance
+    prices = self.price_loader(sleeve.instruments(), asof,
+                               sleeve.history_warmup_trading_days())
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 280, in book_price_loader
+    known = _panel_tickers()
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 114, in _panel_tickers
+    t = pd.read_parquet(ops_common.PANEL_PATH, columns=["ticker"])["ticker"]
+        ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/parquet.py", line 669, in read_parquet
+    return impl.read(
+           ~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<6 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/parquet.py", line 258, in read
+    path_or_handle, handles, filesystem = _get_path_or_handle(
+                                          ~~~~~~~~~~~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<2 lines>...
+        mode="rb",
+        ^^^^^^^^^^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/parquet.py", line 141, in _get_path_or_handle
+    handles = get_handle(
+        path_or_handle, mode, is_text=False, storage_options=storage_options
+    )
+  File "/opt/anaconda3/lib/python3.13/site-packages/pandas/io/common.py", line 882, in get_handle
+    handle = open(handle, ioargs.mode)
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/simonjarvis/prod/QUANTT/data/etf_daily.parquet'
+[2026-09-28 12:00:13] book run FAILED rc=1
+[2026-09-28 12:00:13] capturing broker executions (TWS forgets these at its daily restart)
+API connection failed: ConnectionRefusedError(61, "Connect call failed ('127.0.0.1', 4002)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 586, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 576, in main
+    capture(a.book, a.books_root, client_id=a.client_id, asof=a.asof)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/capture_fills.py", line 110, in capture
+    app.connect(cfg.host, int(cfg.port),
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                clientId=int(client_id or (cfg.client_id + 50)),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                readonly=True, timeout=30)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 369, in connect
+    return self._run(
+           ~~~~~~~~~^
+        self.connectAsync(
+        ^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 428, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/util.py", line 360, in run
+    result = loop.run_until_complete(task)
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/ib.py", line 2043, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/client.py", line 216, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/opt/anaconda3/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/site-packages/ib_async/connection.py", line 38, in connectAsync
+    self.transport, _ = await loop.create_connection(lambda: self, host, port)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1166, in create_connection
+    raise exceptions[0]
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1141, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+        exceptions, addrinfo, laddr_infos)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/base_events.py", line 1044, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 641, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/asyncio/selector_events.py", line 681, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 4002)
+[2026-09-28 12:00:13] fill capture failed rc=1 (real fills for 2026-09-28 may be lost)
+[2026-09-28 12:00:15] done status=failed

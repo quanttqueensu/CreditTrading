@@ -1,0 +1,185 @@
+{
+  "asof": "2026-09-14",
+  "execution_requested": "simulator",
+  "transmitted": false,
+  "planned": [
+    {
+      "asof": "2026-09-14",
+      "sleeve": "cef_discount",
+      "targets": [
+        {
+          "instrument": "AWF",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef: below min weight"
+        },
+        {
+          "instrument": "BIT",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.1032596724576484,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-3.28 w=+0.1033 volscal=1.51"
+        },
+        {
+          "instrument": "DSL",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.019761505988160663,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-2.26 w=+0.0198 volscal=1.51"
+        },
+        {
+          "instrument": "HYT",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef: below min weight"
+        },
+        {
+          "instrument": "JFR",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.03533059162649789,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-0.42 w=-0.0353 volscal=1.51"
+        },
+        {
+          "instrument": "MHD",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.13499540348873362,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=+0.79 w=-0.1350 volscal=1.51"
+        },
+        {
+          "instrument": "MQY",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef: below min weight"
+        },
+        {
+          "instrument": "NAD",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.025264504458868325,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-0.54 w=-0.0253 volscal=1.51"
+        },
+        {
+          "instrument": "NEA",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.133026726195411,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=+0.77 w=-0.1330 volscal=1.51"
+        },
+        {
+          "instrument": "NVG",
+          "side": "SHORT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": -0.07776907272536927,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=+0.10 w=-0.0778 volscal=1.51"
+        },
+        {
+          "instrument": "NZF",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef: below min weight"
+        },
+        {
+          "instrument": "PCN",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef: below min weight"
+        },
+        {
+          "instrument": "PDI",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.05526169250107288,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-2.69 w=+0.0553 volscal=1.51"
+        },
+        {
+          "instrument": "PDO",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.1138610943300397,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-3.40 w=+0.1139 volscal=1.51"
+        },
+        {
+          "instrument": "PFN",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.06865163795381583,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-2.85 w=+0.0687 volscal=1.51"
+        },
+        {
+          "instrument": "PHK",
+          "side": "LONG",
+          "kind": "ETF",
+          "qty": null,
+          "weight": 0.04125272092761101,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef discount z=-2.52 w=+0.0413 volscal=1.51"
+        },
+        {
+          "instrument": "PTY",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "cef: below min weight"
+        }
+      ],
+      "held": {},
+      "cash": null
+    }
+  ]
+}

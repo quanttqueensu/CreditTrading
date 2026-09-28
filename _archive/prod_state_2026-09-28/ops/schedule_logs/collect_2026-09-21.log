@@ -1,0 +1,78 @@
+[2026-09-21 18:30:04] collect start
+[2026-09-21 18:30:04] running scripts/holdings/ingest_holdings.py
+OK  HYG   iShares  asof=2026-09-18 rows=1,339  priced=1,339  cusips=1,329
+OK  LQD   iShares  asof=2026-09-18 rows=3,172  priced=3,172  cusips=3,171
+OK  SHYG  iShares  asof=2026-09-18 rows=1,157  priced=1,157  cusips=1,144
+OK  IGSB  iShares  asof=2026-09-18 rows=4,737  priced=4,737  cusips=4,733
+OK  IGIB  iShares  asof=2026-09-18 rows=3,041  priced=3,041  cusips=3,040
+OK  EMB   iShares  asof=2026-09-18 rows=  618  priced=  618  cusips=  278
+OK  AGG   iShares  asof=2026-09-18 rows=13,428  priced=13,428  cusips=13,416
+OK  GOVT  iShares  asof=2026-09-18 rows=  220  priced=  220  cusips=  219
+OK  SHY   iShares  asof=2026-09-18 rows=   93  priced=   93  cusips=   92
+OK  IEI   iShares  asof=2026-09-18 rows=   85  priced=   85  cusips=   84
+OK  IEF   iShares  asof=2026-09-18 rows=   18  priced=   18  cusips=   17
+OK  TLT   iShares  asof=2026-09-18 rows=   49  priced=   49  cusips=   48
+OK  TLH   iShares  asof=2026-09-18 rows=   63  priced=   63  cusips=   62
+OK  JNK   SSGA     asof=2026-09-18 rows=1,200  priced=1,157  cusips=1,185
+OK  SRLN  SSGA     asof=2026-09-18 rows=  732  priced=  725  cusips=  396
+/Users/simonjarvis/prod/QUANTT/scripts/holdings/ingest_holdings.py:266: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  new = pd.concat(frames, ignore_index=True)
+
+wrote /Users/simonjarvis/prod/QUANTT/data/holdings/etf_holdings_daily.parquet
+  rows=941,648  funds=15  dates=34  failed=none
+[2026-09-21 18:30:31] scripts/holdings/ingest_holdings.py -> rc=0
+[2026-09-21 18:30:31] running scripts/holdings/fetch_nav_multi.py
+OK HYG   pid=239565  N=4,898  2007-04-04 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK LQD   pid=239566  N=6,082  2002-07-22 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK SHYG  pid=258100  N=3,253  2013-10-15 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK IGSB  pid=239451  N=4,960  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK IGIB  pid=239463  N=4,960  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK EMB   pid=239572  N=4,722  2007-12-17 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK AGG   pid=239458  N=5,787  2003-09-22 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK GOVT  pid=239468  N=3,672  2012-02-14 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK SHY   pid=239452  N=6,082  2002-07-22 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK IEI   pid=239455  N=4,959  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK IEF   pid=239456  N=6,082  2002-07-22 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK TLT   pid=239454  N=6,082  2002-07-22 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK TLH   pid=239453  N=4,959  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK MBB   pid=239465  N=4,915  2007-03-13 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK GNMA  pid=239461  N=3,672  2012-02-14 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK CMBS  pid=239459  N=3,672  2012-02-14 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK IGLB  pid=239423  N=4,222  2009-12-08 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK USIG  pid=239460  N=4,961  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK QLTA  pid=239431  N=3,672  2012-02-14 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK AGZ   pid=239457  N=4,496  2008-11-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK TIP   pid=239467  N=5,737  2003-12-04 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK STIP  pid=239450  N=3,975  2010-12-01 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK GBF   pid=239462  N=4,959  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK GVI   pid=239464  N=4,959  2007-01-05 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+OK ILTB  pid=239424  N=4,222  2009-12-08 -> 2026-09-18  | 
+The iShares Funds are distributed by BlackRock Inve
+
+Wrote /Users/simonjarvis/prod/QUANTT/data/holdings/ishares_nav_daily.parquet  rows=119,960  funds=25
+[2026-09-21 18:32:08] scripts/holdings/fetch_nav_multi.py -> rc=0
+[2026-09-21 18:32:08] collect done status=ok

@@ -1,0 +1,54 @@
+{
+  "asof": "2026-09-10",
+  "book_nav": 641105.3578633905,
+  "book_pnl": 1105.357863390469,
+  "book_cash": 642261.566336596,
+  "gross_exposure": 639524.0104827881,
+  "net_exposure": -1156.2084732055664,
+  "book_turnover": 941271.6187752318,
+  "sleeves": {
+    "null_trader": {
+      "nav": 641105.3578633905,
+      "pnl": 1105.357863390469,
+      "cash": 642261.566336596,
+      "capital_usd": 640000.0,
+      "gross_exposure": 639524.0104827881,
+      "net_exposure": -1156.2084732055664,
+      "turnover": 941271.6187752318,
+      "enabled": true,
+      "disabled": false,
+      "review_flag": false,
+      "risk_verdict": {
+        "status": "OK",
+        "reasons": [
+          "null trader drawdown 0.0%"
+        ]
+      }
+    }
+  },
+  "limits": {
+    "max_gross_exposure_usd": {
+      "ok": true,
+      "value": 639524.0104827881,
+      "cap": 750000.0,
+      "action": null
+    },
+    "book_drawdown_suspend_pct": {
+      "ok": true,
+      "value": -0.0012738345276233076,
+      "cap": -0.99,
+      "action": null
+    },
+    "per_sleeve_capital_band": {
+      "ok": true,
+      "breaches": [],
+      "action": null
+    },
+    "book_worst_month_usd": {
+      "ok": true,
+      "value": 199.39631406252738,
+      "budget": -26000.0,
+      "action": null
+    }
+  }
+}

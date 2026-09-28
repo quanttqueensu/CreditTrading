@@ -1,0 +1,23 @@
+{
+  "book_id": "cef_discount_paper",
+  "auction": "2026-09-22",
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "broker",
+      "status": "UNVERIFIED",
+      "message": "could not read the broker read-only as client 125: ConnectionRefusedError(61, \"Connect call failed ('127.0.0.1', 4002)\"). If the gateway is down after the close, tomorrow's session cannot trade either.",
+      "rows": []
+    },
+    {
+      "name": "capture",
+      "status": "FAIL",
+      "message": "capture_fills FAILED (ConnectionRefusedError(61, \"Connect call failed ('127.0.0.1', 4002)\")). Unless cef_pm captures before IB's nightly restart, tomorrow morning's ledger cannot book today's fills and will refuse (ExecutionRecordGap).",
+      "rows": []
+    }
+  ],
+  "alert": {
+    "notification": true,
+    "email": "not configured \u2014 add ALERT_SMTP_USER and ALERT_SMTP_PASS (a Google App Password) to config/.env to enable email alerts"
+  }
+}

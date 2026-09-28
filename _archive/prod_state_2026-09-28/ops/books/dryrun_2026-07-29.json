@@ -1,0 +1,155 @@
+{
+  "asof": "2026-07-29",
+  "execution_requested": "simulator",
+  "transmitted": false,
+  "planned": [
+    {
+      "asof": "2026-07-29",
+      "sleeve": "credit_rv",
+      "targets": [
+        {
+          "instrument": "HYG",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "JNK",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "USHY",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "SPHY",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "SHYG",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "SJNK",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "LQD",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "VCSH",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "VCIT",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "IGSB",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "BKLN",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "SRLN",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "EMB",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        },
+        {
+          "instrument": "ANGL",
+          "side": "FLAT",
+          "kind": "ETF",
+          "qty": null,
+          "weight": null,
+          "combo_id": null,
+          "held_qty": 0.0,
+          "reason": "credit_rv: no signal (only 0 names with high/low history)"
+        }
+      ],
+      "held": {},
+      "cash": null
+    }
+  ]
+}

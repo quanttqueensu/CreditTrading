@@ -1,0 +1,74 @@
+{
+  "book_id": "cef_discount_paper",
+  "auction": "2026-09-17",
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "decision",
+      "status": "FAIL",
+      "message": "NO session decided pair 2026-09-16 for the 2026-09-17 close, so the book did not trade today and nothing traded by choice. Latest beats: cef: ok_not_armed @ 2026-09-17 12:09:05 pair None armed=False blockers=[\"[FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) \u2014 blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.\"]; cef_pm: ok_not_armed @ 2026-09-16 22:54:59 pair None armed=False blockers=[\"[FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) \u2014 blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.\"]",
+      "rows": [
+        {
+          "job": "cef",
+          "status": "ok_not_armed",
+          "at": "2026-09-17 12:09:05",
+          "pair": null,
+          "armed": false,
+          "blockers": [
+            "[FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) \u2014 blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed."
+          ]
+        },
+        {
+          "job": "cef_pm",
+          "status": "ok_not_armed",
+          "at": "2026-09-16 22:54:59",
+          "pair": null,
+          "armed": false,
+          "blockers": [
+            "[FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) \u2014 blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "one_set_per_auction",
+      "status": "PASS",
+      "message": "at most one order per symbol for the 2026-09-17 close",
+      "rows": []
+    },
+    {
+      "name": "transmitted",
+      "status": "INFO",
+      "message": "0 order(s) on 0 symbol(s) were transmitted for the 2026-09-17 close -- a band hold, a stand-down, or a session that never reached the trade phase; the session log says which",
+      "rows": []
+    },
+    {
+      "name": "fills",
+      "status": "PASS",
+      "message": "every order sent for the 2026-09-17 close executed in full (0 symbol(s), 0 execution(s))",
+      "rows": []
+    },
+    {
+      "name": "positions",
+      "status": "PASS",
+      "message": "broker == ledger + orders sent since, share for share, on 17 position(s)",
+      "rows": []
+    },
+    {
+      "name": "resting",
+      "status": "PASS",
+      "message": "nothing resting on book symbols",
+      "rows": []
+    },
+    {
+      "name": "capture",
+      "status": "PASS",
+      "message": "captured 0 new execution(s) to broker_fills.csv (0 already there, 0 unattributed)",
+      "rows": []
+    }
+  ],
+  "alert": {
+    "notification": true,
+    "email": "not configured \u2014 add ALERT_SMTP_USER and ALERT_SMTP_PASS (a Google App Password) to config/.env to enable email alerts"
+  }
+}

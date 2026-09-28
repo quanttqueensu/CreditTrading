@@ -1,0 +1,251 @@
+[2026-09-17 08:30:02] launchd start (job=cef)
+2026-09-17 TRADING
+[2026-09-17 08:30:02] plan: mode=morning asof=2026-09-16 may_arm=True (today=2026-09-17, prev trading day=2026-09-16)
+[2026-09-17 08:30:02] refreshing market data
+  08:30 is before the close: any bar dated 2026-09-17 is a partial session and will not be written
+$AWF: possibly delisted; no price data found  (period=6mo)
+$XAWFX: possibly delisted; no price data found  (period=6mo)
+$BGB: possibly delisted; no price data found  (period=6mo)
+$XBGBX: possibly delisted; no price data found  (period=6mo)
+$BGH: possibly delisted; no price data found  (period=6mo)
+$XBGHX: possibly delisted; no price data found  (period=6mo)
+$BGT: possibly delisted; no price data found  (period=6mo)
+$XBGTX: possibly delisted; no price data found  (period=6mo)
+$BIT: possibly delisted; no price data found  (period=6mo)
+$XBITX: possibly delisted; no price data found  (period=6mo)
+$BSL: possibly delisted; no price data found  (period=6mo)
+$XBSLX: possibly delisted; no price data found  (period=6mo)
+$DBL: possibly delisted; no price data found  (period=6mo)
+$XDBLX: possibly delisted; no price data found  (period=6mo)
+$DHY: possibly delisted; no price data found  (period=6mo)
+$XDHYX: possibly delisted; no price data found  (period=6mo)
+$DSL: possibly delisted; no price data found  (period=6mo)
+$XDSLX: possibly delisted; no price data found  (period=6mo)
+$EAD: possibly delisted; no price data found  (period=6mo)
+$XEADX: possibly delisted; no price data found  (period=6mo)
+$EDD: possibly delisted; no price data found  (period=6mo)
+$XEDDX: possibly delisted; no price data found  (period=6mo)
+$EDF: possibly delisted; no price data found  (period=6mo)
+$XEDFX: possibly delisted; no price data found  (period=6mo)
+$EFR: possibly delisted; no price data found  (period=6mo)
+$XEFRX: possibly delisted; no price data found  (period=6mo)
+$EFT: possibly delisted; no price data found  (period=6mo)
+$XEFTX: possibly delisted; no price data found  (period=6mo)
+$EMD: possibly delisted; no price data found  (period=6mo)
+$XEMDX: possibly delisted; no price data found  (period=6mo)
+$FCT: possibly delisted; no price data found  (period=6mo)
+$XFCTX: possibly delisted; no price data found  (period=6mo)
+$GHY: possibly delisted; no price data found  (period=6mo)
+$XGHYX: possibly delisted; no price data found  (period=6mo)
+$HIO: possibly delisted; no price data found  (period=6mo)
+$XHIOX: possibly delisted; no price data found  (period=6mo)
+$HYT: possibly delisted; no price data found  (period=6mo)
+$XHYTX: possibly delisted; no price data found  (period=6mo)
+$ISD: possibly delisted; no price data found  (period=6mo)
+$XISDX: possibly delisted; no price data found  (period=6mo)
+$JFR: possibly delisted; no price data found  (period=6mo)
+$XJFRX: possibly delisted; no price data found  (period=6mo)
+$MFM: possibly delisted; no price data found  (period=6mo)
+$XMFMX: possibly delisted; no price data found  (period=6mo)
+$MHD: possibly delisted; no price data found  (period=6mo)
+$XMHDX: possibly delisted; no price data found  (period=6mo)
+$MQY: possibly delisted; no price data found  (period=6mo)
+$XMQYX: possibly delisted; no price data found  (period=6mo)
+$MSD: possibly delisted; no price data found  (period=6mo)
+$XMSDX: possibly delisted; no price data found  (period=6mo)
+$NAD: possibly delisted; no price data found  (period=6mo)
+$XNADX: possibly delisted; no price data found  (period=6mo)
+$NAN: possibly delisted; no price data found  (period=6mo)
+$XNANX: possibly delisted; no price data found  (period=6mo)
+$NEA: possibly delisted; no price data found  (period=6mo)
+$XNEAX: possibly delisted; no price data found  (period=6mo)
+$NIM: possibly delisted; no price data found  (period=6mo)
+$XNIMX: possibly delisted; no price data found  (period=6mo)
+$NVG: possibly delisted; no price data found  (period=6mo)
+$XNVGX: possibly delisted; no price data found  (period=6mo)
+$NXP: possibly delisted; no price data found  (period=6mo)
+$XNXPX: possibly delisted; no price data found  (period=6mo)
+$NZF: possibly delisted; no price data found  (period=6mo)
+$XNZFX: possibly delisted; no price data found  (period=6mo)
+$PCN: possibly delisted; no price data found  (period=6mo)
+$XPCNX: possibly delisted; no price data found  (period=6mo)
+$PDI: possibly delisted; no price data found  (period=6mo)
+$XPDIX: possibly delisted; no price data found  (period=6mo)
+$PDO: possibly delisted; no price data found  (period=6mo)
+$XPDOX: possibly delisted; no price data found  (period=6mo)
+$PFL: possibly delisted; no price data found  (period=6mo)
+$XPFLX: possibly delisted; no price data found  (period=6mo)
+$PFN: possibly delisted; no price data found  (period=6mo)
+$XPFNX: possibly delisted; no price data found  (period=6mo)
+$PHK: possibly delisted; no price data found  (period=6mo)
+$XPHKX: possibly delisted; no price data found  (period=6mo)
+$PMM: possibly delisted; no price data found  (period=6mo)
+$XPMMX: possibly delisted; no price data found  (period=6mo)
+$PTY: possibly delisted; no price data found  (period=6mo)
+$XPTYX: possibly delisted; no price data found  (period=6mo)
+$TEI: possibly delisted; no price data found  (period=6mo)
+$XTEIX: possibly delisted; no price data found  (period=6mo)
+$VKQ: possibly delisted; no price data found  (period=6mo)
+$XVKQX: possibly delisted; no price data found  (period=6mo)
+$VMO: possibly delisted; no price data found  (period=6mo)
+$XVMOX: possibly delisted; no price data found  (period=6mo)
+$VVR: possibly delisted; no price data found  (period=6mo)
+$XVVRX: possibly delisted; no price data found  (period=6mo)
+  prices 267,042 rows -> 2026-09-16
+  NAV    234,221 rows -> 2026-09-16
+  all 44 NAV series fresh within 3 bd
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-16
+IBKR shortstock file unavailable (URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>); fees from the API instead
+IBKR API FEE_RATE -- 17/17 names (fee dated 2026-09-17)
+
+SYM       fee %  rebate %       avail
+-------------------------------------
+NAD        9.19        --          --
+NVG        4.13        --          --
+NEA        3.74        --          --
+NZF        2.97        --          --
+JFR        1.76        --          --
+PTY        1.32        --          --
+AWF        1.10        --          --
+BIT        0.95        --          --
+PCN        0.81        --          --
+HYT        0.75        --          --
+PHK        0.68        --          --
+PDO        0.53        --          --
+PFN        0.50        --          --
+DSL        0.43        --          --
+MQY        0.41        --          --
+MHD        0.41        --          --
+PDI        0.41        --          --
+/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py:211: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat([prev, df], ignore_index=True)
+
+wrote data/cef/cef_borrow.csv (2026-09-17)
+[2026-09-17 09:49:02] panel scripts/cef/fetch_borrow_rates.py -> rc=0
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-16 (0bd); NAV -> 2026-09-16 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-16 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.178, gross/NLV 2.00x, excess liquidity 176,163
+[2026-09-17 09:49:07] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[run_book] EXECUTION=simulator single day asof=2026-09-16
+[dry-run] cef_discount: FLAT  AWF                                   held=1743  (cef: below min weight)
+[dry-run] cef_discount: LONG  BIT                      qty=8137     held=8137  (cef band hold: |gap|<=0.0480 w=+0.1878)
+[dry-run] cef_discount: LONG  DSL                      qty=3723     held=3723  (cef band hold: |gap|<=0.0480 w=+0.0757)
+[dry-run] cef_discount: LONG  HYT                      qty=4598     held=4598  (cef band hold: |gap|<=0.0480 w=+0.0733)
+[dry-run] cef_discount: SHORT JFR                      w=-0.0839422 held=-3234  (cef discount z=-0.39 w=-0.0839 volscal=1.63)
+[dry-run] cef_discount: SHORT MHD                      qty=-5862    held=-5862  (cef band hold: |gap|<=0.0480 w=-0.1267)
+[dry-run] cef_discount: SHORT MQY                      qty=-2089    held=-2089  (cef band hold: |gap|<=0.0480 w=-0.0433)
+[dry-run] cef_discount: SHORT NAD                      w=-0.0767436 held=-8129  (cef discount z=-1.31 w=-0.0767 volscal=1.63)
+[dry-run] cef_discount: SHORT NEA                      qty=-7319    held=-7319  (cef band hold: |gap|<=0.0480 w=-0.1531)
+[dry-run] cef_discount: SHORT NVG                      w=-0.13138   held=-4852  (cef discount z=+0.04 w=-0.1314 volscal=1.63)
+[dry-run] cef_discount: SHORT NZF                      w=-0.0832143 held=-4533  (cef discount z=-1.25 w=-0.0832 volscal=1.63)
+[dry-run] cef_discount: LONG  PCN                      w=0.0332099  held=2120  (cef discount z=-1.43 w=+0.0332 volscal=1.63)
+[dry-run] cef_discount: LONG  PDI                      qty=4102     held=4102  (cef band hold: |gap|<=0.0480 w=+0.1175)
+[dry-run] cef_discount: LONG  PDO                      qty=6099     held=6099  (cef band hold: |gap|<=0.0480 w=+0.1461)
+[dry-run] cef_discount: LONG  PFN                      w=0.0637867  held=559  (cef discount z=-2.56 w=+0.0638 volscal=1.63)
+[dry-run] cef_discount: LONG  PHK                      qty=6392     held=6392  (cef band hold: |gap|<=0.0480 w=+0.0552)
+[dry-run] cef_discount: LONG  PTY                      w=0.014738   held=2084  (cef discount z=-1.27 w=+0.0147 volscal=1.63)
+
+[run_book] DRY-RUN asof 2026-09-16: 17 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef/dryrun_2026-09-16.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-16  NAV $500,000.00  PnL $0.00  turnover $0  gross $813,682
+[run_book]   cef_discount: NAV $500,000.00  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit book_drawdown_suspend_pct: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-17 09:49:08] book run ok
+[2026-09-17 09:49:08] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   cef_discount: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] cef_discount: no overlapping fill dates yet
+[2026-09-17 09:49:09] done status=ok_not_armed
+[2026-09-17 12:00:05] launchd start (job=cef)
+2026-09-17 TRADING
+[2026-09-17 12:00:05] plan: mode=morning asof=2026-09-16 may_arm=True (today=2026-09-17, prev trading day=2026-09-16)
+[2026-09-17 12:00:05] refreshing market data
+  12:00 is before the close: any bar dated 2026-09-17 is a partial session and will not be written
+$XFCTX: possibly delisted; no price data found  (period=6mo)
+  prices 267,042 rows -> 2026-09-16
+  NAV    234,221 rows -> 2026-09-16
+  all 44 NAV series fresh within 3 bd
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-16
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+IBKR API FEE_RATE -- 17/17 names (fee dated 2026-09-17)
+
+SYM       fee %  rebate %       avail
+-------------------------------------
+NAD        9.19        --          --
+NVG        4.05        --          --
+NEA        3.74        --          --
+NZF        2.98        --          --
+JFR        1.75        --          --
+PTY        1.32        --          --
+AWF        1.10        --          --
+BIT        0.93        --          --
+PCN        0.81        --          --
+PHK        0.70        --          --
+PDO        0.63        --          --
+HYT        0.55        --          --
+PFN        0.50        --          --
+MQY        0.44        --          --
+DSL        0.44        --          --
+MHD        0.41        --          --
+PDI        0.31        --          --
+/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py:211: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat([prev, df], ignore_index=True)
+
+wrote data/cef/cef_borrow.csv (2026-09-17)
+[2026-09-17 12:08:57] panel scripts/cef/fetch_borrow_rates.py -> rc=0
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-16 (0bd); NAV -> 2026-09-16 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-17 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.176, gross/NLV 2.00x, excess liquidity 174,515
+[2026-09-17 12:09:03] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[run_book] EXECUTION=simulator single day asof=2026-09-16
+[dry-run] cef_discount: FLAT  AWF                                   held=1743  (cef: below min weight)
+[dry-run] cef_discount: LONG  BIT                      qty=8137     held=8137  (cef band hold: |gap|<=0.0480 w=+0.1878)
+[dry-run] cef_discount: LONG  DSL                      qty=3723     held=3723  (cef band hold: |gap|<=0.0480 w=+0.0757)
+[dry-run] cef_discount: LONG  HYT                      qty=4598     held=4598  (cef band hold: |gap|<=0.0480 w=+0.0733)
+[dry-run] cef_discount: SHORT JFR                      w=-0.0839422 held=-3234  (cef discount z=-0.39 w=-0.0839 volscal=1.63)
+[dry-run] cef_discount: SHORT MHD                      qty=-5862    held=-5862  (cef band hold: |gap|<=0.0480 w=-0.1267)
+[dry-run] cef_discount: SHORT MQY                      qty=-2089    held=-2089  (cef band hold: |gap|<=0.0480 w=-0.0433)
+[dry-run] cef_discount: SHORT NAD                      w=-0.0767436 held=-8129  (cef discount z=-1.31 w=-0.0767 volscal=1.63)
+[dry-run] cef_discount: SHORT NEA                      qty=-7319    held=-7319  (cef band hold: |gap|<=0.0480 w=-0.1531)
+[dry-run] cef_discount: SHORT NVG                      w=-0.13138   held=-4852  (cef discount z=+0.04 w=-0.1314 volscal=1.63)
+[dry-run] cef_discount: SHORT NZF                      w=-0.0832143 held=-4533  (cef discount z=-1.25 w=-0.0832 volscal=1.63)
+[dry-run] cef_discount: LONG  PCN                      w=0.0332099  held=2120  (cef discount z=-1.43 w=+0.0332 volscal=1.63)
+[dry-run] cef_discount: LONG  PDI                      qty=4102     held=4102  (cef band hold: |gap|<=0.0480 w=+0.1175)
+[dry-run] cef_discount: LONG  PDO                      qty=6099     held=6099  (cef band hold: |gap|<=0.0480 w=+0.1461)
+[dry-run] cef_discount: LONG  PFN                      w=0.0637867  held=559  (cef discount z=-2.56 w=+0.0638 volscal=1.63)
+[dry-run] cef_discount: LONG  PHK                      qty=6392     held=6392  (cef band hold: |gap|<=0.0480 w=+0.0552)
+[dry-run] cef_discount: LONG  PTY                      w=0.014738   held=2084  (cef discount z=-1.27 w=+0.0147 volscal=1.63)
+
+[run_book] DRY-RUN asof 2026-09-16: 17 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef/dryrun_2026-09-16.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-16  NAV $500,000.00  PnL $0.00  turnover $0  gross $813,682
+[run_book]   cef_discount: NAV $500,000.00  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit book_drawdown_suspend_pct: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-17 12:09:04] book run ok
+[2026-09-17 12:09:04] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   cef_discount: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] cef_discount: no overlapping fill dates yet
+[2026-09-17 12:09:05] done status=ok_not_armed

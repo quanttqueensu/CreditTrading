@@ -1,0 +1,105 @@
+[2026-09-18 17:30:04] launchd start (job=cef_pm)
+2026-09-18 TRADING
+[2026-09-18 17:30:04] plan: mode=evening asof=2026-09-18 may_arm=True (today=2026-09-18, prev trading day=2026-09-17)
+[2026-09-18 17:30:04] plan: no armed session today - falling back to the evening NAV wait
+[2026-09-18 17:30:04] waiting for today's NAV on every deployed name (deadline 23:30)
+waiting for NAV dated 2026-09-18 on 17 deployed names; deadline 23:30, poll every 900s
+[17:30:04] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[17:45:07] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:00:09] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:15:12] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:30:14] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[18:45:17] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:00:19] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:15:21] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:30:23] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[19:45:25] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[20:00:27] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[20:15:29] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[20:30:31] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[20:45:34] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[21:00:36] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[21:15:38] yfinance NAV 0/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[21:30:40] yfinance NAV 13/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: BIT DSL PDI PDO  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[21:45:42] yfinance NAV 13/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: BIT DSL PDI PDO  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[22:00:44] yfinance NAV 13/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: BIT DSL PDI PDO  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[22:15:47] yfinance NAV 13/17  cefconnect NAV 0/17  close 0/17  missing on yfinance: BIT DSL PDI PDO  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+[22:30:49] yfinance NAV 17/17  cefconnect NAV 0/17  close 17/17  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+today's pair is complete on yfinance at 22:30 (first NAV seen 21:30, last 22:30)
+[2026-09-18 22:30:53] today's NAV is published (yfinance) at 22:30
+[2026-09-18 22:30:53] refreshing market data
+$XFCTX: possibly delisted; no price data found  (period=6mo)
+  prices 267,128 rows -> 2026-09-18
+  NAV    234,307 rows -> 2026-09-18
+  all 44 NAV series fresh within 3 bd
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-18
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+IBKR API FEE_RATE -- 17/17 names (fee dated 2026-09-18)
+
+SYM       fee %  rebate %       avail
+-------------------------------------
+NAD        6.53        --          --
+NEA        4.51        --          --
+NVG        3.72        --          --
+NZF        2.85        --          --
+JFR        1.88        --          --
+PTY        1.36        --          --
+AWF        1.28        --          --
+PDI        1.12        --          --
+PCN        0.92        --          --
+BIT        0.90        --          --
+PHK        0.67        --          --
+PFN        0.66        --          --
+PDO        0.56        --          --
+HYT        0.55        --          --
+MQY        0.49        --          --
+MHD        0.42        --          --
+DSL        0.32        --          --
+/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py:211: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat([prev, df], ignore_index=True)
+
+wrote data/cef/cef_borrow.csv (2026-09-18)
+[2026-09-18 22:39:48] panel scripts/cef/fetch_borrow_rates.py -> rc=0
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-18 (0bd); NAV -> 2026-09-18 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-17 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[2026-09-18 22:39:52] DRY_RUN=1 in the job env - human hard halt, computing targets only
+[2026-09-18 22:39:52] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef_pm. Reason: human halt (DRY_RUN=1)
+[run_book] EXECUTION=simulator single day asof=2026-09-18
+[dry-run] cef_discount: SHORT AWF                      w=-0.0395709 held=0  (cef discount z=-0.96 w=-0.0396 volscal=1.78)
+[dry-run] cef_discount: LONG  BIT                      w=0.0381447  held=0  (cef discount z=-2.26 w=+0.0381 volscal=1.78)
+[dry-run] cef_discount: LONG  DSL                      w=0.0722761  held=0  (cef discount z=-2.52 w=+0.0723 volscal=1.78)
+[dry-run] cef_discount: FLAT  HYT                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: SHORT JFR                      w=-0.183932  held=0  (cef discount z=+0.12 w=-0.1839 volscal=1.78)
+[dry-run] cef_discount: SHORT MHD                      w=-0.0491077 held=0  (cef discount z=-0.89 w=-0.0491 volscal=1.78)
+[dry-run] cef_discount: FLAT  MQY                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: FLAT  NAD                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: FLAT  NEA                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: SHORT NVG                      w=-0.215673  held=0  (cef discount z=+0.36 w=-0.2157 volscal=1.78)
+[dry-run] cef_discount: SHORT NZF                      w=-0.0835357 held=0  (cef discount z=-0.63 w=-0.0835 volscal=1.78)
+[dry-run] cef_discount: FLAT  PCN                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: LONG  PDI                      w=0.0626257  held=0  (cef discount z=-2.45 w=+0.0626 volscal=1.78)
+[dry-run] cef_discount: LONG  PDO                      w=0.126373   held=0  (cef discount z=-2.92 w=+0.1264 volscal=1.78)
+[dry-run] cef_discount: LONG  PFN                      w=0.0807834  held=0  (cef discount z=-2.58 w=+0.0808 volscal=1.78)
+[dry-run] cef_discount: LONG  PHK                      w=0.117457   held=0  (cef discount z=-2.86 w=+0.1175 volscal=1.78)
+[dry-run] cef_discount: FLAT  PTY                                   held=0  (cef: below min weight)
+
+[run_book] DRY-RUN asof 2026-09-18: 17 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef_pm/dryrun_2026-09-18.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-18  NAV $0.00  PnL $0.00  turnover $0  gross $0
+[run_book]   cef_discount: NAV n/a  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-18 22:39:53] book run ok
+[2026-09-18 22:39:53] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   cef_discount: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] cef_discount: no overlapping fill dates yet
+[2026-09-18 22:39:54] done status=ok_not_armed

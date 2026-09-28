@@ -1,0 +1,209 @@
+[2026-09-15 08:30:05] launchd start (job=cef)
+2026-09-15 TRADING
+[2026-09-15 08:30:05] plan: mode=morning asof=2026-09-14 may_arm=True (today=2026-09-15, prev trading day=2026-09-14)
+[2026-09-15 08:30:05] refreshing market data
+  08:30 is before the close: any bar dated 2026-09-15 is a partial session and will not be written
+  prices 266,956 rows -> 2026-09-14
+  NAV    234,135 rows -> 2026-09-14
+  STALE NAV (1 funds, >3 business days old) — the sleeve must not trade these:
+    FCT    last NAV 2026-08-06  (28 bd old)
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-14
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+IBKR API FEE_RATE -- 17/17 names (fee dated 2026-09-14)
+
+SYM       fee %  rebate %       avail
+-------------------------------------
+NAD       10.34        --          --
+NVG        3.74        --          --
+NEA        3.72        --          --
+NZF        2.52        --          --
+JFR        1.79        --          --
+PTY        1.33        --          --
+AWF        1.11        --          --
+PHK        0.90        --          --
+PCN        0.80        --          --
+BIT        0.66        --          --
+MQY        0.58        --          --
+PDI        0.54        --          --
+PDO        0.49        --          --
+HYT        0.48        --          --
+MHD        0.42        --          --
+DSL        0.35        --          --
+PFN        0.33        --          --
+/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py:211: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat([prev, df], ignore_index=True)
+
+wrote data/cef/cef_borrow.csv (2026-09-15)
+[2026-09-15 08:39:01] panel scripts/cef/fetch_borrow_rates.py -> rc=0
+[preflight] [PASS] halt: no active halt
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-14 (0bd); NAV -> 2026-09-14 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-14 (ok_not_armed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.173, gross/NLV 2.00x, excess liquidity 171,635
+[2026-09-15 08:39:03] ARMED: EXECUTION=ibkr books-root=ops/books/cef_live asof=2026-09-14
+[ibkr] arm: account has 34 position(s), 17 belonging to another book (ignored)
+[ibkr] arm: ADOPTED broker truth cef_discount/JFR: ledger -10467 -> broker -10166
+[ibkr] arm: ADOPTED broker truth cef_discount/PHK: ledger +7089 -> broker +8478
+[ibkr] arm: ADOPTED broker truth cef_discount/PDO: ledger +7311 -> broker +6402
+[ibkr] arm: ADOPTED broker truth cef_discount/PFN: ledger +1555 -> broker +2159
+[ibkr] arm: ARMED
+[run_book] EXECUTION=ibkr single day asof=2026-09-14
+[ibkr] pending-order check: nothing resting or recorded pending on 17 instrument(s)
+[ibkr] cef_discount @ 2026-09-14: booked 4 execution(s) from broker_fills.csv (broker_fills.csv: capture completed 2026-09-14 16:20:05 ET, after the 2026-09-14 close (7 execution(s) in session))
+[ibkr] cef_discount @ 2026-09-14: execution record holds 4 execution(s) for the ledger to book
+/Users/simonjarvis/prod/QUANTT/ops/common.py:302: FutureWarning: The default fill_method='pad' in DataFrame.pct_change is deprecated and will be removed in a future version. Either fill in any non-leading NA values prior to calling pct_change or specify 'fill_method=None' to not fill NA values.
+  rets = px.pct_change()
+[ibkr] DESYNC cef_discount @ 2026-09-14: shadow ledger did NOT record 0 transmitted fill(s)
+Traceback (most recent call last):
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/broker/ibkr.py", line 1315, in place_targets
+    self._shadow().place_targets(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sleeve_name, targets, asof, market_state,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        execution_record=self._execution_record(sleeve_name, asof))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/broker/simulator.py", line 134, in place_targets
+    lg.advance(prices, cfg["run_spec"], cfg["costs"], target_fn,
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               through=asof, start=start, verbose=self.verbose)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/ledger.py", line 502, in advance
+    raise UnbookedExecution(
+    ...<7 lines>...
+        f"repair before advancing.")
+ops.ledger.UnbookedExecution: 2026-09-14: the broker reports 4 execution(s) that no ledger order accounts for (00012ec5.6b7cfde6.01.01, 00012ec5.6b7cff8e.01.01, 00012ec5.6b7cffdc.01.01, 00012ec5.6b7cffe0.01.01). The ledger cannot represent them, and booking the day without them would understate the position permanently. Reconcile with `python3 -m ops.reconcile_orders` and repair before advancing.
+
+[ibkr] transmitted fills saved to /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/_desync/cef_discount_2026-09-14.json
+[alert] email: not configured — add ALERT_SMTP_USER and ALERT_SMTP_PASS (a Google App Password) to config/.env to enable email alerts
+Traceback (most recent call last):
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/broker/ibkr.py", line 1315, in place_targets
+    self._shadow().place_targets(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sleeve_name, targets, asof, market_state,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        execution_record=self._execution_record(sleeve_name, asof))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/broker/simulator.py", line 134, in place_targets
+    lg.advance(prices, cfg["run_spec"], cfg["costs"], target_fn,
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               through=asof, start=start, verbose=self.verbose)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/ops/ledger.py", line 502, in advance
+    raise UnbookedExecution(
+    ...<7 lines>...
+        f"repair before advancing.")
+ops.ledger.UnbookedExecution: 2026-09-14: the broker reports 4 execution(s) that no ledger order accounts for (00012ec5.6b7cfde6.01.01, 00012ec5.6b7cff8e.01.01, 00012ec5.6b7cffdc.01.01, 00012ec5.6b7cffe0.01.01). The ledger cannot represent them, and booking the day without them would understate the position permanently. Reconcile with `python3 -m ops.reconcile_orders` and repair before advancing.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 588, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/run_book.py", line 541, in main
+    view = orch.advance(asof, source=args.source)
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/portfolio.py", line 193, in advance
+    self.broker.place_targets(name, targets, asof, ms)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/prod/QUANTT/src/deploy/broker/ibkr.py", line 1320, in place_targets
+    raise ShadowLedgerDesync(
+    ...<4 lines>...
+        f"session will refuse to trade until the ledger is rebuilt.") from exc
+src.deploy.broker.ibkr.ShadowLedgerDesync: cef_discount @ 2026-09-14: the shadow sub-ledger failed to record 0 fill(s) that were ALREADY TRANSMITTED to the broker (UnbookedExecution('2026-09-14: the broker reports 4 execution(s) that no ledger order accounts for (00012ec5.6b7cfde6.01.01, 00012ec5.6b7cff8e.01.01, 00012ec5.6b7cffdc.01.01, 00012ec5.6b7cffe0.01.01). The ledger cannot represent them, and booking the day without them would understate the position permanently. Reconcile with `python3 -m ops.reconcile_orders` and repair before advancing.')). The fills are saved to _desync/ and ops/HALT.md is written; the next session will refuse to trade until the ledger is rebuilt.
+[2026-09-15 08:39:08] book run FAILED rc=1
+[2026-09-15 08:39:08] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   cef_discount: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] cef_discount: no overlapping fill dates yet
+[2026-09-15 08:39:11] done status=failed
+[2026-09-15 12:00:05] launchd start (job=cef)
+2026-09-15 TRADING
+[2026-09-15 12:00:05] plan: mode=morning asof=2026-09-14 may_arm=False (today=2026-09-15, prev trading day=2026-09-14)
+[2026-09-15 12:00:05] plan: WILL NOT DECIDE - pair 2026-09-14 was already decided by an armed cef session; refusing a second order set into the same auction
+[2026-09-15 12:00:05] refreshing market data
+  12:00 is before the close: any bar dated 2026-09-15 is a partial session and will not be written
+  prices 266,956 rows -> 2026-09-14
+  NAV    234,135 rows -> 2026-09-14
+  STALE NAV (1 funds, >3 business days old) — the sleeve must not trade these:
+    FCT    last NAV 2026-08-06  (28 bd old)
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-14
+IBKR shortstock file unavailable (HTTPError: HTTP Error 404: Not Found); fees from the API instead
+IBKR API FEE_RATE -- 17/17 names (fee dated 2026-09-15)
+
+SYM       fee %  rebate %       avail
+-------------------------------------
+NAD       10.44        --          --
+NEA        4.09        --          --
+NVG        3.87        --          --
+NZF        2.50        --          --
+JFR        1.90        --          --
+PTY        1.36        --          --
+AWF        1.11        --          --
+PFN        0.93        --          --
+PHK        0.75        --          --
+PCN        0.72        --          --
+BIT        0.68        --          --
+PDI        0.68        --          --
+PDO        0.59        --          --
+HYT        0.48        --          --
+MHD        0.42        --          --
+MQY        0.32        --          --
+DSL        0.31        --          --
+/Users/simonjarvis/prod/QUANTT/scripts/cef/fetch_borrow_rates.py:211: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat([prev, df], ignore_index=True)
+
+wrote data/cef/cef_borrow.csv (2026-09-15)
+[2026-09-15 12:09:14] panel scripts/cef/fetch_borrow_rates.py -> rc=0
+[preflight] [FAIL] halt: ops/HALT_cef_discount_paper.md is active (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14) — blocks THIS book (cef_discount_paper). Clear with ops.halt.clear_halt('...', book='cef_discount_paper') once genuinely fixed.
+[preflight] [WARN] halt[benchmarks_paper]: benchmarks_paper is halted (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 17 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-14 (0bd); NAV -> 2026-09-14 (0bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-15 (failed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.180, gross/NLV 1.98x, excess liquidity 178,511
+[2026-09-15 12:09:18] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef. Reason: pair 2026-09-14 was already decided by an armed cef session; refusing a second order set into the same auction
+[run_book] EXECUTION=simulator single day asof=2026-09-14
+[dry-run] cef_discount: LONG  AWF                      w=0.0256169  held=1743  (cef discount z=-1.16 w=+0.0256 volscal=1.51)
+[dry-run] cef_discount: LONG  BIT                      qty=8137     held=8137  (cef band hold: |gap|<=0.0480 w=+0.1891)
+[dry-run] cef_discount: LONG  DSL                      qty=3723     held=3723  (cef band hold: |gap|<=0.0480 w=+0.0771)
+[dry-run] cef_discount: LONG  HYT                      qty=4598     held=4598  (cef band hold: |gap|<=0.0480 w=+0.0742)
+[dry-run] cef_discount: SHORT JFR                      qty=-3234    held=-3234  (cef band hold: |gap|<=0.0480 w=-0.0487)
+[dry-run] cef_discount: SHORT MHD                      w=-0.134995  held=-5862  (cef discount z=+0.79 w=-0.1350 volscal=1.51)
+[dry-run] cef_discount: SHORT MQY                      qty=-2089    held=-2089  (cef band hold: |gap|<=0.0480 w=-0.0441)
+[dry-run] cef_discount: SHORT NAD                      w=-0.121265  held=-8129  (cef discount z=-0.54 w=-0.1213 volscal=1.51)
+[dry-run] cef_discount: SHORT NEA                      qty=-7319    held=-7319  (cef band hold: |gap|<=0.0480 w=-0.1571)
+[dry-run] cef_discount: SHORT NVG                      qty=-4852    held=-4852  (cef band hold: |gap|<=0.0480 w=-0.1122)
+[dry-run] cef_discount: SHORT NZF                      w=-0.0822084 held=-4533  (cef discount z=-1.02 w=-0.0822 volscal=1.51)
+[dry-run] cef_discount: LONG  PCN                      qty=2120     held=2120  (cef band hold: |gap|<=0.0480 w=+0.0476)
+[dry-run] cef_discount: LONG  PDI                      qty=4102     held=4102  (cef band hold: |gap|<=0.0480 w=+0.1184)
+[dry-run] cef_discount: LONG  PDO                      qty=6099     held=6099  (cef band hold: |gap|<=0.0480 w=+0.1466)
+[dry-run] cef_discount: LONG  PFN                      w=0.0686516  held=559  (cef discount z=-2.85 w=+0.0687 volscal=1.51)
+[dry-run] cef_discount: LONG  PHK                      qty=6392     held=6392  (cef band hold: |gap|<=0.0480 w=+0.0555)
+[dry-run] cef_discount: LONG  PTY                      qty=2084     held=2084  (cef band hold: |gap|<=0.0480 w=+0.0468)
+
+[run_book] DRY-RUN asof 2026-09-14: 17 targets across 1 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/cef/dryrun_2026-09-14.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-14  NAV $500,000.00  PnL $0.00  turnover $0  gross $813,682
+[run_book]   cef_discount: NAV $500,000.00  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit book_drawdown_suspend_pct: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-15 12:09:19] book run ok
+[2026-09-15 12:09:19] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 0 execution(s) in the TWS session
+[capture]   cef_discount: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/cef_live/_ibkr_shadow/cef_discount/broker_fills.csv
+[capture]   0 already recorded (skipped), 0 belonged to another book (ignored)
+[slippage] cef_discount: no overlapping fill dates yet
+[2026-09-15 12:09:20] done status=ok_not_armed

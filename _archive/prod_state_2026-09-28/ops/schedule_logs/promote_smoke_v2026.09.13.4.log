@@ -1,0 +1,84 @@
+[doctor] repo   /Users/simonjarvis/prod/QUANTT
+[doctor] python /opt/anaconda3/bin/python3
+
+  [PASS] repo-path                /Users/simonjarvis/prod/QUANTT
+  [PASS] plist:cef                paths resolve
+  [WARN] plist:cef_pm             no plist installed
+  [PASS] plist:benchmarks         paths resolve
+  [PASS] plist:phase0             paths resolve
+  [PASS] plist:collect            paths resolve
+  [PASS] plist:watchdog           paths resolve
+  [PASS] plist:weekly             paths resolve
+  [PASS] plist:backup             paths resolve
+  [PASS] loaded:cef               loaded, last exit 0
+  [WARN] loaded:cef_pm            not loaded — it will never fire
+  [PASS] loaded:benchmarks        loaded, last exit 0
+  [PASS] loaded:phase0            loaded, last exit 0
+  [PASS] loaded:collect           loaded, last exit 0
+  [PASS] loaded:watchdog          loaded, last exit 0
+  [PASS] loaded:weekly            loaded, last exit 0
+  [PASS] loaded:backup            loaded, last exit 0
+  [PASS] decision-age             launch_job.py passes --job, so arm() can judge how old a decision is
+  [PASS] env:benchmarks           book paths resolve
+  [PASS] env:cef                  book paths resolve
+  [PASS] env:cef_pm               book paths resolve
+  [PASS] env:phase0               book paths resolve
+  [PASS] broker                   127.0.0.1:4002 account=['DUQ199038'] 34 position(s)
+  [PASS] ibc                      IBC is managing the gateway
+  [WARN] sleep                    THE EVENING SESSION IS UNPROTECTED, which is how 2026-09-10 was lost: on BATTERY, which voids `caffeinate -s` entirely (it is valid only on AC) and idle-sleeps in 1 minute. Nothing brings it back either: no repeating wake is scheduled. com.quantt.awake is loaded (09:00-00:00)
+  [PASS] beat:cef                 2026-09-12 (ok_already_traded)
+  [PASS] beat:benchmarks          2026-09-11 (ok)
+  [PASS] beat:phase0              2026-09-11 (ok_not_armed)
+  [PASS] beat:collect             2026-09-11 (ok)
+  [WARN] alerts                   email not configured — alerts reach only the macOS banner and the speech synthesiser, which is nobody when you are away from the machine
+  [PASS] panel:cef_prices         0 sessions behind prices (ends 2026-09-11)
+  [PASS] panel:cef_nav            0 sessions behind prices (ends 2026-09-11)
+  [PASS] panel:cef_distributions  1 sessions behind prices (ends 2026-09-10)
+  [WARN] panel:etf_ohlc           31 sessions behind the price panel (ends 2026-07-29, prices end 2026-09-11) — ETF proxies in W10/W13 and gamma/G3's variance work
+  [PASS] panel:cef_borrow         1 sessions behind prices (ends 2026-09-10)
+  [PASS] panel:cef_facts          0 sessions behind prices (ends 2026-09-11)
+  [PASS] panel:cef_facts          carries `fetched_at`
+
+WILL BREAK LATER, OR YOU WILL NOT HEAR ABOUT IT:
+  - plist:cef_pm: no plist installed
+  - loaded:cef_pm: not loaded — it will never fire
+  - sleep: THE EVENING SESSION IS UNPROTECTED, which is how 2026-09-10 was lost: on BATTERY, which voids `caffeinate -s` entirely (it is valid only on AC) and idle-sleeps in 1 minute. Nothing brings it back either: no repeating wake is scheduled. com.quantt.awake is loaded (09:00-00:00)
+      fix: plug in the charger and open the lid, or: sudo pmset -a disablesleep 1 && sudo pmset -b sleep 0 && sudo pmset repeat wakeorpoweron MTWRF 17:00:00
+  - alerts: email not configured — alerts reach only the macOS banner and the speech synthesiser, which is nobody when you are away from the machine
+      fix: add ALERT_SMTP_USER and ALERT_SMTP_PASS (a Google App Password) to config/.env
+  - panel:etf_ohlc: 31 sessions behind the price panel (ends 2026-07-29, prices end 2026-09-11) — ETF proxies in W10/W13 and gamma/G3's variance work
+      fix: refresh it; any note quoting it must state 2026-07-29
+waiting for NAV dated 2026-09-11 on 17 deployed names; deadline 21:30, poll every 600s
+[23:04:28] yfinance NAV 17/17  cefconnect NAV 0/17  close 17/17  missing on cefconnect: AWF BIT DSL HYT JFR MHD MQY NAD NEA NVG NZF PCN PDI PDO PFN PHK PTY
+today's pair is complete on yfinance at 23:04 (first NAV seen 23:04, last 23:04)
+  prices 266,913 rows -> 2026-09-11
+  NAV    234,092 rows -> 2026-09-11
+  STALE NAV (1 funds, >3 business days old) — the sleeve must not trade these:
+    FCT    last NAV 2026-08-06  (26 bd old)
+  today's pair complete: every deployed name has a close and a NAV dated 2026-09-11
+[run_book] EXECUTION=simulator single day asof=2026-09-11
+[dry-run] cef_discount: FLAT  AWF                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: LONG  BIT                      w=0.122846   held=0  (cef discount z=-2.83 w=+0.1228 volscal=1.58)
+[dry-run] cef_discount: LONG  DSL                      w=0.0499068  held=0  (cef discount z=-2.06 w=+0.0499 volscal=1.58)
+[dry-run] cef_discount: LONG  HYT                      w=0.0111733  held=0  (cef discount z=-1.65 w=+0.0112 volscal=1.58)
+[dry-run] cef_discount: SHORT JFR                      w=-0.0585303 held=0  (cef discount z=+0.11 w=-0.0585 volscal=1.58)
+[dry-run] cef_discount: SHORT MHD                      w=-0.163013  held=0  (cef discount z=+1.22 w=-0.1630 volscal=1.58)
+[dry-run] cef_discount: FLAT  MQY                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: SHORT NAD                      w=-0.0350349 held=0  (cef discount z=-0.14 w=-0.0350 volscal=1.58)
+[dry-run] cef_discount: SHORT NEA                      w=-0.185942  held=0  (cef discount z=+1.46 w=-0.1859 volscal=1.58)
+[dry-run] cef_discount: SHORT NVG                      w=-0.0757875 held=0  (cef discount z=+0.29 w=-0.0758 volscal=1.58)
+[dry-run] cef_discount: FLAT  NZF                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: FLAT  PCN                                   held=0  (cef: below min weight)
+[dry-run] cef_discount: LONG  PDI                      w=0.0683425  held=0  (cef discount z=-2.25 w=+0.0683 volscal=1.58)
+[dry-run] cef_discount: LONG  PDO                      w=0.0622694  held=0  (cef discount z=-2.19 w=+0.0623 volscal=1.58)
+[dry-run] cef_discount: LONG  PFN                      w=0.0286812  held=0  (cef discount z=-1.83 w=+0.0287 volscal=1.58)
+[dry-run] cef_discount: LONG  PHK                      w=0.0739308  held=0  (cef discount z=-2.31 w=+0.0739 volscal=1.58)
+[dry-run] cef_discount: FLAT  PTY                                   held=0  (cef: below min weight)
+
+[run_book] DRY-RUN asof 2026-09-11: 17 targets across 1 sleeve-days logged to /var/folders/h1/tfb7mk6s7cdg62nzlpq5ttp00000gn/T/tmp.6aj6RQgvID/dryrun_2026-09-11.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-11  NAV $0.00  PnL $0.00  turnover $0  gross $0
+[run_book]   cef_discount: NAV n/a  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK

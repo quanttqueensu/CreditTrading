@@ -1,0 +1,55 @@
+[2026-09-15 17:25:04] launchd start (job=benchmarks)
+2026-09-15 TRADING
+[preflight] [FAIL] halt: ops/HALT_benchmarks_paper.md is active (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14) — blocks THIS book (benchmarks_paper). Clear with ops.halt.clear_halt('...', book='benchmarks_paper') once genuinely fixed.
+[preflight] [WARN] halt[cef_discount_paper]: cef_discount_paper is halted (2026-09-15 08:39:04: shadow ledger desync in cef_discount @ 2026-09-14). That book is not trading; this one is unaffected.
+[preflight] [WARN] halt[phase0_null]: phase0_null is halted (2026-09-10 16:04:42: CORRECTION to the entry below: $168,790.60 is ledger overclaim (rebuild, no position call); only LQD's $89,841.18 is unattributed. Total $260,418.10 unchanged. Block unchanged.). That book is not trading; this one is unaffected.
+[preflight] [PASS] costs: all 13 deployed ticker(s) priced
+[preflight] [PASS] cost_drift: static costs still match the model
+[preflight] [PASS] data: prices -> 2026-09-14 (1bd); NAV -> 2026-09-14 (1bd)
+[preflight] [PASS] heartbeat: last beat 2026-09-14 (failed)
+[preflight] [PASS] phantom_books: no dead books claiming symbols
+[preflight] [PASS] broker: TWS/Gateway listening on 127.0.0.1:4002
+[preflight] [PASS] margin: cushion 0.188, gross/NLV 1.97x, excess liquidity 187,303
+[2026-09-15 17:25:08] NOT ARMED -> dry run in /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/benchmarks. Reason: [FAIL] halt: ops/HALT_benchmarks_paper.md is active (2026-09-14 17:25:10: shadow ledger desync in bench_b3_agg @ 2026-09-14) — blocks THIS book (benchmarks_paper). Clear with ops.halt.clear_halt('...', book='benchmarks_paper') once genuinely fixed.
+[run_book] EXECUTION=simulator single day asof=2026-09-15
+[dry-run] bench_b1_hyg: LONG  HYG                      w=1          held=0  (benchmark static weight 1.0000)
+[dry-run] bench_b3_agg: LONG  AGG                      w=1          held=0  (benchmark static weight 1.0000)
+[dry-run] bench_b4_60_40: LONG  IEF                      w=0.4        held=0  (benchmark static weight 0.4000)
+[dry-run] bench_b4_60_40: LONG  SPY                      w=0.6        held=0  (benchmark static weight 0.6000)
+[dry-run] bench_b5_shy: LONG  SHY                      w=1          held=0  (benchmark static weight 1.0000)
+[dry-run] bench_b6_ew_credit: LONG  ANGL                     w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  EMB                      w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  HYG                      w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  JNK                      w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  LQD                      w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  SHYG                     w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  USHY                     w=0.125      held=0  (benchmark static weight 0.1250)
+[dry-run] bench_b6_ew_credit: LONG  VCIT                     w=0.125      held=0  (benchmark static weight 0.1250)
+
+[run_book] DRY-RUN asof 2026-09-15: 13 targets across 5 sleeve-days logged to /Users/simonjarvis/prod/QUANTT/ops/books/_dryruns/benchmarks/dryrun_2026-09-15.json — NO orders transmitted, NO ledger writes.
+
+[run_book] BOOK asof 2026-09-15  NAV $0.00  PnL $0.00  turnover $0  gross $0
+[run_book]   bench_b1_hyg: NAV n/a  verdict OK  enabled
+[run_book]   bench_b3_agg: NAV n/a  verdict OK  enabled
+[run_book]   bench_b4_60_40: NAV n/a  verdict OK  enabled
+[run_book]   bench_b5_shy: NAV n/a  verdict OK  enabled
+[run_book]   bench_b6_ew_credit: NAV n/a  verdict OK  enabled
+[run_book]   limit max_gross_exposure_usd: OK
+[run_book]   limit per_sleeve_capital_band: OK
+[run_book]   limit book_worst_month_usd: OK
+[2026-09-15 17:25:12] book run ok
+[2026-09-15 17:25:12] capturing broker executions (TWS forgets these at its daily restart)
+[capture] 4 execution(s) in the TWS session
+[capture]   bench_b1_hyg: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/benchmarks_live/_ibkr_shadow/bench_b1_hyg/broker_fills.csv
+[capture]   bench_b3_agg: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/benchmarks_live/_ibkr_shadow/bench_b3_agg/broker_fills.csv
+[capture]   bench_b4_60_40: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/benchmarks_live/_ibkr_shadow/bench_b4_60_40/broker_fills.csv
+[capture]   bench_b5_shy: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/benchmarks_live/_ibkr_shadow/bench_b5_shy/broker_fills.csv
+[capture]   bench_b6_ew_credit: 0 new -> /Users/simonjarvis/prod/QUANTT/ops/books/benchmarks_live/_ibkr_shadow/bench_b6_ew_credit/broker_fills.csv
+[capture]   0 already recorded (skipped), 4 belonged to another book (ignored)
+[capture]   shared tickers resolved by orderId: {'HYG': ['bench_b1_hyg', 'bench_b6_ew_credit']}
+[slippage] bench_b1_hyg: no overlapping fill dates yet
+[slippage] bench_b3_agg: no overlapping fill dates yet
+[slippage] bench_b4_60_40: no overlapping fill dates yet
+[slippage] bench_b5_shy: no overlapping fill dates yet
+[slippage] bench_b6_ew_credit: no overlapping fill dates yet
+[2026-09-15 17:25:13] done status=ok_not_armed
