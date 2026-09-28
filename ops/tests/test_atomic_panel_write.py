@@ -95,8 +95,8 @@ def test_every_live_path_fetcher_uses_it():
     fetchers = [
         "scripts/cef/fetch_daily.py",          # cef_prices, cef_nav
         "scripts/cef/stage_cef.py",            # cef_prices, cef_nav, universe
-        "scripts/cef/fetch_borrow_rates.py",   # cef_borrow
-        "scripts/cef/fetch_borrow_history.py",  # cef_borrow_history
+        # fetch_borrow_rates.py / fetch_borrow_history.py archived 2026-09-28:
+        # both read IBKR's borrow feeds, which went with the broker.
         "scripts/fetch_cef_distributions.py",  # cef_distributions  <- live path
     ]
     offenders = []

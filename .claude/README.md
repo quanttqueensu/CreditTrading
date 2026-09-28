@@ -66,17 +66,23 @@ chmod +x .claude/hooks/guard_order_path.py
 # .claude/hooks/tests to pytest.ini's testpaths
 ```
 
-`python3 .claude/hooks/book_state.py -p` still prints live book state as JSON.
+`python3 .claude/hooks/book_state.py -p` prints what the banner and status line
+read, as JSON. Since 2026-09-28 that is "no live book" plus the Alpaca probe
+snapshots; the IBKR-era reader is in `_archive/claude_layer/hooks/`.
 
 ## Rules — path-scoped, load only when relevant
 
 | file | loads when you open |
 |---|---|
-| `live-order-path.md` | `src/deploy/**`, `ops/**` |
 | `research-harness.md` | `scripts/**`, `src/backtest/**`, `src/analysis/**`, `src/strategies/**` |
 | `frozen-specs.md` | `ops/specs/**`, `ops/books/*.json`, `config/*.yaml` |
-| `dashboard.md` | `dashboard/**` |
 | `documents.md` | `docs/**`, `results/**`, `README.md` |
+
+The IBKR-era `live-order-path.md` and `dashboard.md`, the skills `/book-status`,
+`/preflight`, `/incident`, `/fill-audit`, `/dashboard-ui` and the agents
+`ops-watchdog`, `dashboard-designer` were archived 2026-09-28 to
+`_archive/claude_layer/`. The Alpaca order path gets its own rule file when it is
+built.
 
 This keeps `CLAUDE.md` short. Detail that only matters in one part of the tree does
 not need to be in context for every session.
@@ -85,8 +91,6 @@ not need to be in context for every session.
 
 | skill | use it for |
 |---|---|
-| `/book-status` | is the book trading? Fills, heartbeat, halt, today's log |
-| `/preflight` | run the gate and the plumbing check without trading |
 | `/morning-brief` | pre-session: state, data freshness, constraints that bind |
 | `/next-task` | what to work on, ranked against the actual constraints |
 | `/graveyard` | the dead mechanisms and how each died — **read before proposing anything** |
@@ -94,9 +98,6 @@ not need to be in context for every session.
 | `/repro` | reproduce a number before quoting it; check panel freshness |
 | `/prereg` | write a pre-registration before a change trades |
 | `/spec-change` | safely change a frozen-spec key |
-| `/fill-audit` | what execution actually costs, split by session and method |
-| `/dashboard-ui` | add or rework a dashboard panel |
-| `/incident` | diagnose and write up a live failure |
 
 ## Agents — specialist seats
 
@@ -113,8 +114,6 @@ describe the task and let Claude route.
 | `market-structure-analyst` | how the instruments actually trade — plumbing, from primary sources |
 | `equity-research` | per-name fundamentals across the seventeen funds |
 | `quant-reviewer` | lookahead, silent fallbacks, convention and unit errors |
-| `dashboard-designer` | dashboard information architecture and build |
-| `ops-watchdog` | why the book is not trading |
 
 ## Autonomy
 

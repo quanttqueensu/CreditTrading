@@ -34,7 +34,6 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from ops import halt as halt_mod          # noqa: E402
-from ops import preflight                 # noqa: E402
 
 STRATEGY = "cef_discount_paper"
 BENCH = "benchmarks_paper"
@@ -99,32 +98,6 @@ def test_other_books_are_warned_not_blocked(halt_dir):
     others = halt_mod.other_book_halts(STRATEGY)
     assert [h["book"] for h in others] == [BENCH]
     assert halt_mod.other_book_halts(BENCH) == [], "not warned about itself"
-
-
-def test_preflight_blocks_the_halted_book(halt_dir):
-    _write(book=BENCH)
-    checks = preflight.check_halt(BENCH)
-    blocking = [c for c in checks if not c.ok and c.blocking]
-    assert len(blocking) == 1 and blocking[0].name == "halt"
-
-
-def test_preflight_only_warns_the_other_book(halt_dir):
-    _write(book=BENCH)
-    checks = preflight.check_halt(STRATEGY)
-    assert not [c for c in checks if not c.ok and c.blocking], \
-        "another book's halt must never block this one"
-    warns = [c for c in checks if not c.ok and not c.blocking]
-    assert len(warns) == 1 and BENCH in warns[0].name
-    # and the halt check itself passes
-    assert [c for c in checks if c.name == "halt"][0].ok
-
-
-def test_preflight_with_no_book_is_global_only(halt_dir):
-    """Callers that pass no book keep the old behaviour."""
-    _write(book=BENCH)
-    assert [c for c in preflight.check_halt() if not c.ok and c.blocking] == []
-    _write(book=None)
-    assert len([c for c in preflight.check_halt() if not c.ok and c.blocking]) == 1
 
 
 # -- clearing -------------------------------------------------------------

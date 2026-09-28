@@ -391,11 +391,13 @@ def test_a_dead_pointer_in_an_owner_document_is_drift(fake_repo, monkeypatch):
 
 
 def test_runtime_artefacts_placeholders_and_panels_are_not_dead(fake_repo, monkeypatch):
-    """Halts live in prod, ledgers are session output, data/ is gitignored, and
-    `<book>` is a placeholder. None is a pointer into this tree."""
+    """Halt files and probe snapshots are written at run time, data/ is
+    gitignored, and `<book>` is a placeholder. None is a pointer into this tree.
+    (The IBKR shadow ledgers under `ops/books/*_live/` were the run-time example
+    here until they were archived on 2026-09-28.)"""
     monkeypatch.setattr(M, "POINTER_SCOPE", ("docs/SYSTEM.md",))
     (fake_repo / "docs/SYSTEM.md").write_text(
-        "`ops/HALT_phase0.md` `ops/books/cef_live/x.csv` `data/cef/p.parquet` "
+        "`ops/HALT_phase0.md` `results/ops/alpaca_probe/2026-09-29_cef.json` `data/cef/p.parquet` "
         "`ops/books/<book>/_order_map.csv` `config/.env`\n")
     rep = M.Report(); M.check_pointers(rep)
     assert _status(rep, "pointers:docs/SYSTEM.md") == M.OK

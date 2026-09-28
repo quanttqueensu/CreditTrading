@@ -236,20 +236,3 @@ def test_min_trade_usd_filters_the_small_order_and_keeps_the_large_one(tmp_path)
     assert rows[0]["delta_shares"] == pytest.approx(137.0)
 
 
-def test_ibkr_resolve_qty_never_prices_a_qty_target():
-    """The live path's half of the same guarantee: a qty target returns the
-    signed quantity without a price lookup, so a HOLD in a name the price store
-    lags (HYT, landmine 7) is no longer 'cannot size weight target' — which the
-    caller answers by sending nothing for that leg.
-
-    Called unbound with `self=None` on purpose: passing no instance is the
-    proof that neither the price store nor the sleeve NAV is consulted.
-    """
-    from src.deploy.broker.ibkr import IBKRBroker
-
-    pt = PositionTarget(instrument="HYT", side=LONG, kind=ETF, qty=4598.0)
-    ms = MarketState(asof="2026-09-04", prices=pd.DataFrame(), holdings={})
-    assert IBKRBroker._resolve_qty(None, pt, ms, "2026-09-04", "cef_discount") == 4598.0
-
-    short = PositionTarget(instrument="MHD", side=SHORT, kind=ETF, qty=-5862.0)
-    assert IBKRBroker._resolve_qty(None, short, ms, "2026-09-04", "cef_discount") == -5862.0

@@ -10,7 +10,7 @@ You research **plumbing**. Most of this desk's expensive mistakes were not
 statistical — they were assumptions about how an instrument works that nobody
 checked against a rulebook or a filing.
 
-`docs/prompts/00_BRIEF.md` §3 is the canonical write-up. `docs/REFERENCES.md`
+`docs/BRIEF.md` §3 is the canonical write-up. `docs/REFERENCES.md`
 carries every external claim with a verification status. **Cite them; do not
 re-derive them.** Your job is to extend and correct that record.
 

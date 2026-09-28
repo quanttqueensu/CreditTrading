@@ -66,7 +66,7 @@ short version:
 |---|---|
 | `docs/SYSTEM.md` | what we trade, how it runs, what we know, standing decisions |
 | `docs/RESEARCH_STATE.md` | **canonical trial counters**, the D1–D7 legend, killed/watch/active/closed |
-| `docs/prompts/00_BRIEF.md` | the theory, market structure and harness rules every prompt opens with |
+| `docs/BRIEF.md` | the theory, market structure and harness rules every prompt opens with |
 | `docs/REFERENCES.md` | every external claim, with a verification status |
 | `results/<family>/` | dated findings notes and pre-registrations |
 | `_archive/` | superseded documents — provenance, never authority (`_archive/README.md`) |

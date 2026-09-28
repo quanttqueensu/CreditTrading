@@ -64,7 +64,7 @@ def _cefconnect_nav(ticker: str, asof: pd.Timestamp):
 
 def _deployed(book_path) -> list:
     sys.path.insert(0, str(REPO))
-    from ops.preflight import deployed_tickers
+    from ops.common import deployed_tickers
     return sorted({t for insts in deployed_tickers(Path(book_path)).values() for t in insts})
 
 

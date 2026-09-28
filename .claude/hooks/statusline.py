@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
-"""Status line: model, context, git — and whether the book is actually trading.
+"""Status line: model, context, git — and whether anything is actually trading.
 
-The last segment is the point. It shows trading days since the last
-BROKER-CONFIRMED fill, colour-coded, permanently, in front of the operator:
-
-    green   0-2 sessions   the book traded recently
-    yellow  3-5 sessions   check it
-    red     6+ / none      it is not trading and nothing else will tell you
-
-A 21-session silent outage went unnoticed for a month here because every
-surface that could have shown it — logs, heartbeat, ledger, reports — read
-"ok" for a book that was refusing to arm. This is the one surface that can't.
+The last segment is the point. A 21-session silent outage went unnoticed for a
+month here because every surface read "ok" for a book that was refusing to arm.
+Until 2026-09-28 this segment showed trading days since the last IBKR
+broker-confirmed fill (`_archive/claude_layer/hooks/statusline_2026-09-28.py`).
+IBKR is retired and no Alpaca book trades yet, so it now reads "no live book" in
+red, permanently, until there is a book whose fills it can measure.
 
 Book state is read at most once every 45s and cached under the session id;
 the status line re-runs on every assistant message and the state changes at
@@ -55,17 +51,9 @@ def cached_book_state(session_id: str) -> dict:
 
 
 def book_segment(state: dict) -> str:
-    halt = (state.get("halt") or {})
-    if halt.get("active"):
-        return f"{RED}{BOLD}HALTED{R}"
-    f = state.get("fills") or {}
-    gap = f.get("gap_sessions")
-    if f.get("date") is None:
-        return f"{RED}no fills{R}"
-    if gap is None:
-        return f"{DIM}fill {f['date']}{R}"
-    colour = GREEN if gap <= 2 else (YELLOW if gap <= 5 else RED)
-    return f"{colour}fill −{gap}d{R}"
+    if not state.get("live_book"):
+        return f"{RED}no live book{R}"
+    return f"{DIM}live book: unmeasured{R}"
 
 
 def ctx_bar(pct: float) -> str:

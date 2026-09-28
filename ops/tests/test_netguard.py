@@ -438,11 +438,3 @@ def test_the_environment_points_at_nothing(harness):
     assert port not in harness.IBKR_DEFAULT_PORTS
 
 
-def test_doctor_reads_an_empty_launchagents_not_this_machines():
-    """MUTATION: delete `mp.setattr(doctor, "AGENTS", empty_agents)`."""
-    from ops import doctor
-
-    assert doctor.AGENTS.is_dir()
-    assert list(doctor.AGENTS.iterdir()) == []
-    assert "Library" not in doctor.AGENTS.parts
-    assert doctor._plist_start_minutes("cef") is None

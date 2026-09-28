@@ -128,7 +128,7 @@ def check_banners(rep: Report) -> None:
 # -- 2. claims that must match a measured source ----------------------------
 
 SPEC_ID_SCOPE = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INFRASTRUCTURE.md",
-                 "docs/REFERENCES.md", "docs/prompts/00_BRIEF.md")
+                 "docs/REFERENCES.md", "docs/BRIEF.md")
 
 
 def check_spec_id(rep: Report) -> None:
@@ -318,7 +318,10 @@ def check_desk_inventory(rep: Report) -> None:
 _KNOWN_DESK_NAMES = {
     "skill": {"book-status", "preflight", "morning-brief", "next-task",
               "graveyard", "harness", "repro", "prereg", "spec-change",
-              "fill-audit", "dashboard-ui", "incident"},
+              "fill-audit", "dashboard-ui", "incident"},   # the IBKR-era five
+              # (book-status, preflight, incident, fill-audit, dashboard-ui)
+              # were archived 2026-09-28; kept here so CLAUDE.md naming one is
+              # caught as a ghost rather than read as an unrelated backtick.
     "agent": {"alpha-finder", "beta-detector", "unique-angle-researcher",
               "execution-trader", "portfolio-manager", "market-structure-analyst",
               "equity-research", "quant-reviewer", "dashboard-designer",
@@ -380,6 +383,26 @@ def _untracked_in_archive() -> list[str] | None:
         raise RuntimeError(f"git ls-files failed: {r.stderr.strip()[:120]}")
     return [ln for ln in r.stdout.splitlines()
             if ln.strip() and "__pycache__" not in ln and not ln.endswith(".DS_Store")]
+
+
+# Two archive subtrees are deliberately NOT literal mirrors (2026-09-28):
+# rule 5 of _archive/README.md sends agent-layer files to `claude_layer/` so
+# no `.claude/` directory ever exists in here, and the IBKR prod snapshot came
+# from a tree outside this repo.
+_MIRROR_PREFIXES = (
+    ("claude_layer/", ".claude/"),
+    ("prod_state_2026-09-28/", "~/prod/QUANTT/"),
+)
+
+
+def _mirror_origins(rel: str) -> set:
+    """The `Was` paths a banner at `rel` may truthfully name."""
+    inner = rel[len(ARCHIVE) + 1:]
+    out = {inner}
+    for arch, live in _MIRROR_PREFIXES:
+        if inner.startswith(arch):
+            out.add(live + inner[len(arch):])
+    return out
 
 
 def check_archive_wall(rep: Report) -> None:
@@ -454,7 +477,7 @@ def check_archive_wall(rep: Report) -> None:
             unbannered.append(rel)
             continue
         kind, origin = m.group(2), m.group(3)
-        if kind == "Was" and origin != rel[len(ARCHIVE) + 1:]:
+        if kind == "Was" and origin not in _mirror_origins(rel):
             misplaced.append(f"{rel} says Was `{origin}`")
         elif kind == "Snapshot of" and not (REPO / origin).exists():
             misplaced.append(f"{rel} is a snapshot of `{origin}`, which does not exist")
@@ -704,16 +727,40 @@ def _pointer_targets(text: str) -> list[tuple[str, str]]:
     return out
 
 
+# Moved here 2026-09-28 from `ops/prompt_status.py`, archived with the work
+# orders it indexed. Paths that are written at run time rather than authored:
+# a pointer to one is a pointer to output, not a missing file.
+RUNTIME_ARTEFACTS = (
+    re.compile(r"^results/ops/alpaca_probe/"),
+    re.compile(r"^ops/HALT.*\.md$"),
+)
+
+
+def _is_runtime_artefact(spec: str) -> bool:
+    return any(rx.match(spec) for rx in RUNTIME_ARTEFACTS)
+
+
+def _resolve(spec: str, root: Path) -> list[Path]:
+    """Resolve a named path. `<date>` is a placeholder -> prefix glob."""
+    spec = spec.rstrip(".,;:").split("::")[0]
+    spec = re.sub(r":\d+$", "", spec)
+    if "<" in spec:
+        spec = re.sub(r"<[^>]+>", "*", spec)
+    if any(ch in spec for ch in "*?["):
+        return sorted(root.glob(spec))
+    p = root / spec
+    return [p] if p.exists() else []
+
+
 def _resolves(kind: str, spec: str) -> bool:
-    from ops import prompt_status as ps
     if kind == "module":
         base = REPO / spec.replace(".", "/")
         return base.with_suffix(".py").exists() or (base / "__init__.py").exists()
-    if spec.startswith(("data/", "config/.env")) or ps.is_runtime_artefact(spec):
+    if spec.startswith(("data/", "config/.env")) or _is_runtime_artefact(spec):
         return True                    # gitignored panels, secrets, session output
     if "<" in spec or "{" in spec or "..." in spec:
         return True                    # a placeholder, not a pointer
-    return bool(ps.resolve(spec, REPO))
+    return bool(_resolve(spec, REPO))
 
 
 def check_pointers(rep: Report) -> None:
@@ -721,9 +768,8 @@ def check_pointers(rep: Report) -> None:
 
     The owner documents replaced prose with pointers, which moves the failure
     mode rather than removing it: a pointer at a file that has moved is a dead
-    end that looks authoritative. `ops/prompt_status.py` already checks this for
-    work orders; this applies the same resolver to the documents that own
-    questions, including `_archive/` paths, which prompt_status does not read.
+    end that looks authoritative. This applies one resolver to the documents
+    that own questions and to the agent layer, including `_archive/` paths.
     """
     for rel in POINTER_SCOPE + tuple(_agent_layer()):
         text = _read(rel)

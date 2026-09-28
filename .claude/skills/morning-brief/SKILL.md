@@ -1,14 +1,16 @@
 ---
 name: morning-brief
 description: The pre-session brief — book state, data freshness, what the signal wants today, borrow and availability constraints, and anything that would stop the session. Use at the start of a trading day or before a decision window. Read-only; it computes and reports, it never trades.
-allowed-tools: Bash(python3 *) Bash(curl -s http://127.0.0.1:8787/api/*) Read Grep Glob
+allowed-tools: Bash(python3 *) Read Grep Glob
 ---
 
 # Morning brief
 
-The standing decision (from Thursday 2026-09-10) is **morning primary, evening
-fallback**: decide at 08:30 on yesterday's complete price/NAV pair, MOC for today's
-close; 12:00 retry; 17:30 capture.
+**Nothing trades right now** (IBKR retired 2026-09-28; the Alpaca runner is not
+built). This brief still answers the data and signal questions, which do not
+depend on a broker. The IBKR-era session timing (08:30 decision on yesterday's
+complete pair, MOC for today's close) is the design brief the Alpaca runner
+inherits, not a schedule that runs.
 
 ## 1. Is the book alive
 
@@ -44,11 +46,14 @@ print("A stale NAV is a blind signal, not a cheap fund — the session stands do
 PY
 ```
 
-## 3. Preflight
+## 3. The Alpaca accounts (read-only snapshot, no network)
 
 ```!
-python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live --quiet-alerts 2>&1 | tail -18
+python3 -m ops.orient --no-tests 2>/dev/null | sed -n '/^ALPACA/,/^$/p'
 ```
+
+The IBKR preflight gate is archived (`_archive/ops/preflight.py`); the Alpaca
+runner will need its own.
 
 ---
 

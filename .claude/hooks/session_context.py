@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""SessionStart hook: open every session knowing whether the book is trading.
+"""SessionStart hook: open every session knowing whether anything is trading.
 
 Prints a short plain-text block, which Claude Code shows to Claude on
-SessionStart. Deliberately under ~15 lines: this cost is paid on every single
-session, so it carries only what changes and only what changes a decision.
+SessionStart. Deliberately a few lines: this cost is paid on every session.
 
-The one line that justifies the whole file is `LAST BROKER-CONFIRMED FILL`.
-Everything else in this repo -- heartbeats, logs, ledgers, reports -- can read
-"ok" while the book has silently not traded for a month, and once did.
+REWRITTEN 2026-09-28 for the Alpaca migration. The IBKR-era banner (last
+broker-confirmed fill, halts, heartbeats) is at
+`_archive/claude_layer/hooks/session_context_2026-09-28.py`. Its one principle
+stands: say plainly when nothing is trading, rather than printing nothing.
 """
 from __future__ import annotations
 
@@ -30,59 +30,20 @@ def main() -> int:
     try:
         s = collect()
     except Exception:
-        return 0
+        s = {}
 
-    out = ["QUANTT live-book state (.claude/hooks/session_context.py):"]
-
-    halt = s.get("halt") or {}
-    if halt.get("active"):
-        out.append(f"  HALT ACTIVE — ops/HALT.md: {halt.get('reason')}")
-        out.append("  Preflight treats this as a hard gate. Nothing trades "
-                   "until it is cleared deliberately.")
-    # Scoped halts block ONE book and reach the others as a preflight warning,
-    # so they are reported by name rather than as a global stop. Until
-    # 2026-09-11 they were not reported at all and neither was a halt in the
-    # prod tree -- which is where halts are written, and they are untracked, so
-    # they never reach dev by any promotion. This banner read clean while
-    # HALT_phase0_null.md was up.
-    for sc in (halt.get("scoped") or [])[:3]:
-        out.append(f"  HALT (book-scoped) — {sc.get('book')}: "
-                   f"{(sc.get('reason') or '')[:110]}")
-        out.append(f"    blocks that book only; others get a preflight WARNING."
-                   f"  {sc.get('path')}")
-
-    f = s.get("fills") or {}
-    gap, last = f.get("gap_sessions"), f.get("date")
-    if last is None:
-        out.append("  LAST BROKER-CONFIRMED FILL: none on record.")
-    else:
-        gap_txt = f"{gap} trading day(s) ago" if gap is not None else "unknown gap"
-        flag = "  <-- STALE, the book may not be trading" if (gap or 0) >= 3 else ""
-        out.append(f"  LAST BROKER-CONFIRMED FILL: {last} ({gap_txt}); "
-                   f"{f.get('n_sessions', 0)} session(s) with real fills, "
-                   f"{f.get('n_fills', 0)} executions total.{flag}")
-
-    hb = s.get("heartbeat") or {}
-    bad = [f"{k}:{v.get('status')}" for k, v in hb.items()
-           if v.get("status") not in (None, "ok")]
-    out.append("  Heartbeat: " + (", ".join(bad) if bad else "all jobs ok")
-               + f" (cef last beat {hb.get('cef', {}).get('date')}).")
-
-    t = s.get("today") or {}
-    if t.get("blockers"):
-        out.append(f"  Last CEF session {t.get('date')} blockers: "
-                   + "; ".join(t["blockers"][:2]))
-
-    led = s.get("ledger") or {}
-    if led.get("nav"):
-        out.append(f"  Shadow-ledger NAV ${led['nav']:,.0f} as of "
-                   f"{led.get('date')} — a local reconstruction, indicative "
-                   "only; the account is the fact.")
-
+    out = ["QUANTT state (.claude/hooks/session_context.py):"]
+    if not s.get("live_book"):
+        out.append("  NO LIVE BOOK. IBKR retired 2026-09-28; the Alpaca system "
+                   "(quantt/) is being built. Nothing trades.")
+        out.append("  Plan and steps: results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md")
+    probes = s.get("probes") or {}
+    if probes:
+        out.append("  Alpaca probe snapshots: " + ", ".join(
+            f"{b} {p or 'NONE'}" for b, p in probes.items()))
     g = s.get("git") or {}
-    out.append(f"  git {g.get('branch')}, {g.get('dirty')} file(s) uncommitted.")
-    out.append("  Run /book-status for the full readout, /preflight to test "
-               "the gate without trading.")
+    if g:
+        out.append(f"  git {g.get('branch')}, {g.get('dirty')} file(s) uncommitted.")
     # The one pointer every session needs before it reads anything. Six
     # documents once each claimed to be where to start; the answer now has two
     # owners and a folder that is explicitly not one (docs/INDEX.md).

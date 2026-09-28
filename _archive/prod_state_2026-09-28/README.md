@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-28 — not evidence of current state.** Was `~/prod/QUANTT/README.md`.
+> Now owned by: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` (IBKR retired 2026-09-28; this is the prod tree's state that day). Numbers: `python3 -m ops.orient`.
+
 > **ARCHIVED 2026-09-28 — not evidence of current state.** Snapshot of the untracked and modified live state in `~/prod/QUANTT` (worktree detached at `v2026.09.13.4`) on the day IBKR was retired.
 > Now owned by: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md`. Numbers: `python3 -m ops.orient`.
 

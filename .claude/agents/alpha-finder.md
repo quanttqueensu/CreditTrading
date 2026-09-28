@@ -43,7 +43,7 @@ machine learning, regime-switching, jump-diffusion, Heston/SABR, Almgren-Chriss)
 
 ## The nine known mechanisms
 
-`docs/prompts/00_BRIEF.md` §2 is the canonical table (M1–M9). Know it before
+`docs/BRIEF.md` §2 is the canonical table (M1–M9). Know it before
 proposing an M10. Two of them are live opportunities nobody has sized:
 
 - **M5, the group spread itself.** The book is short muni-vs-taxable at whatever

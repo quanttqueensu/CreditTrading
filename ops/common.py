@@ -367,3 +367,32 @@ def atomic_write(frame, path, *, index=False, csv=None):
     with open(tmp, "rb") as fh:
         os.fsync(fh.fileno())
     os.replace(tmp, path)
+
+
+def deployed_tickers(book_path) -> dict:
+    """{sleeve_name: [instrument, ...]} for every ENABLED sleeve in the book.
+
+    Uses the sleeve object's own `instruments()` rather than reading a spec key,
+    because that is the exact list the runner will trade -- a spec-key shortcut
+    would drift from reality the moment a sleeve computes its universe.
+
+    MOVED HERE 2026-09-28 from `ops/preflight.py`, which was archived with IBKR.
+    The price/NAV fetchers (`scripts/cef/fetch_daily.py`, `wait_for_nav.py`)
+    are kept and need it; the body is unchanged.
+    """
+    import json
+    from src.deploy import registry
+
+    spec_book = json.loads(Path(book_path).read_text())
+    out = {}
+    for entry in spec_book.get("sleeves", []):
+        if not entry.get("enabled", True):
+            continue
+        spec = entry.get("spec")
+        if spec is None and entry.get("spec_path"):
+            spec = json.loads((REPO_ROOT / entry["spec_path"]).read_text())
+        if spec is None:
+            continue
+        sleeve = registry.build_sleeve(spec, entry.get("capital_usd", 0.0))
+        out[entry["name"]] = list(sleeve.instruments())
+    return out

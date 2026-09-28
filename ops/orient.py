@@ -43,9 +43,16 @@ tells you less than one that reports nine facts and one gap, and an orientation
 tool that invented a plausible value for the tenth would be the exact failure
 this desk has paid for most often.
 
-TRANSMITS NOTHING. Reads files and runs `git`, `pytest --collect-only` and two
-read-only sibling modules. No broker socket is opened anywhere in this path, and
-none of the modules it imports opens one at import time.
+TRANSMITS NOTHING. Reads files and runs `git`, `pytest --collect-only` and
+`ops.doc_audit`. No broker socket is opened anywhere in this path, and none of
+the modules it imports opens one at import time. It never reads `config/.env`.
+
+REWRITTEN 2026-09-28 FOR THE ALPACA MIGRATION. IBKR was retired that day
+(results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md). The sections that read
+the IBKR prod tree -- TREES' prod half, HALTS, BOOK, UPTIME -- described a
+system that no longer runs, so they were replaced by ALPACA, which reads the
+read-only probe's snapshots. The pre-migration module is at
+`_archive/ops/orient_2026-09-28.py`.
 """
 from __future__ import annotations
 
@@ -61,8 +68,10 @@ REPO = Path(__file__).resolve().parent.parent
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-# Same convention as ops/session_uptime.py:114 and .claude/hooks/book_state.py.
+# The IBKR-era prod worktree. Retired 2026-09-28; reported only if it lingers,
+# because a leftover detached tree is the one place old code could still run.
 PROD_TREE = Path.home() / "prod" / "QUANTT"
+PROBE_DIR = REPO / "results/ops/alpaca_probe"
 
 RESEARCH_STATE = REPO / "docs/RESEARCH_STATE.md"
 PANELS = {
@@ -100,15 +109,14 @@ def _trading_days_since(d: dt.date) -> int | None:
 
 # ------------------------------------------------------------------- trees --
 def trees() -> dict:
-    """Which worktree is which, and what prod is actually detached at.
+    """Where you are, and whether the retired IBKR prod tree is still around.
 
-    `git worktree list` is the only command that shows this. Prod is a detached
-    worktree, so it will NEVER appear in `git branch` -- which is exactly why
-    the team lead asked "what is prod/dev? i dont see it on the git" after
-    reading three documents that each named the concept and none of which gave
-    the command.
+    Until 2026-09-28 this compared dev with a detached prod worktree. That tree
+    ran the IBKR book and was retired with it; the Alpaca prod runs on a cloud
+    VM (team lead, 2026-09-28) and is not built yet. `ibkr-final` tags the last
+    IBKR-era commit, so "what did the old system run" stays a git question.
     """
-    out = {"reproducer": "git worktree list", "dev": {}, "prod": {}}
+    out = {"reproducer": "git status  ·  git describe --tags  ·  git tag -l ibkr-final"}
     out["dev"] = {
         "path": str(REPO),
         "branch": _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip(),
@@ -116,104 +124,46 @@ def trees() -> dict:
         "uncommitted": len([l for l in _run(
             ["git", "status", "--porcelain"]).splitlines() if l.strip()]),
     }
-    if not PROD_TREE.is_dir():
-        out["prod"] = {"path": str(PROD_TREE), "present": False}
-        return out
-    out["prod"] = {
-        "path": str(PROD_TREE),
-        "present": True,
-        "sha": _run(["git", "-C", str(PROD_TREE), "rev-parse",
-                     "--short", "HEAD"]).strip(),
-    }
-    try:
-        out["prod"]["tag"] = _run(
-            ["git", "-C", str(PROD_TREE), "describe", "--tags"]).strip()
-    except Unmeasured as exc:
-        out["prod"]["tag"] = f"UNMEASURED ({exc})"
-    # data/ is a symlink from prod back to dev, deliberately and temporarily:
-    # a research script in dev can still corrupt what the live sleeve prices
-    # from. `ops/sync_dev_data.sh` reverses it once prod owns the panels.
-    d = PROD_TREE / "data"
-    out["prod"]["data_symlink"] = str(d.resolve()) if d.is_symlink() else None
-    try:
-        out["delta"] = tree_delta(out["prod"]["sha"], "HEAD")
-    except Unmeasured as exc:
-        out["delta"] = {"UNMEASURED": str(exc)}
+    out["ibkr_final"] = _run(["git", "tag", "-l", "ibkr-final"]).strip() or None
+    out["legacy_prod_present"] = PROD_TREE.is_dir()
     return out
 
 
-def tree_delta(prod: str, dev: str, cwd: Path | None = None,
-               show: int = 8) -> dict:
-    """What dev has that prod does not, and the reverse. Measured, never written.
+# ------------------------------------------------------------------ alpaca --
+def alpaca() -> dict:
+    """What the latest read-only probe of each Alpaca paper account recorded.
 
-    Every document that said what prod runs was wrong within a day of being
-    written: "prod is detached at v2026.09.10.1" stood in CLAUDE.md while prod
-    had moved twice, and "the morning session is planned, not built" stood while
-    it was committed in dev and not yet promoted. "Is this fix live?" is a git
-    question, so it gets a git answer. The two trees share one object store, so
-    this needs no network and no prod checkout.
-
-    `dev_lacks` is normally zero. When it is not, prod carries commits dev does
-    not (a hotfix tag cut off the prod tag), and a promotion from dev would
-    silently drop them -- which is the case worth printing.
+    Reads `results/ops/alpaca_probe/<date>_<book>.json`, written by
+    `python3 -m quantt.broker.alpaca_probe`. Never calls Alpaca itself and
+    never reads keys: orientation must work on a machine with no credentials.
+    A book with no snapshot is UNMEASURED by name, not assumed tradable.
+    `borrow_status` moves daily, so the snapshot's date is always printed.
     """
-    rng = f"{prod}..{dev}"
-    lacks = int(_run(["git", "rev-list", "--count", rng], cwd=cwd).strip())
-    behind = int(_run(["git", "rev-list", "--count", f"{dev}..{prod}"],
-                      cwd=cwd).strip())
-    subjects = [l for l in _run(["git", "log", "--oneline", f"-{show}", rng],
-                                cwd=cwd).splitlines() if l.strip()]
-    return {"reproducer": f"git log --oneline {rng}",
-            "prod_lacks": lacks, "dev_lacks": behind, "newest": subjects}
-
-
-# ------------------------------------------------------------------- halts --
-def halts() -> dict:
-    """Every halt file active in EITHER tree. Halts are WRITTEN IN PROD and are
-    untracked, so `ls ops/HALT*.md` in dev returns nothing while the book is
-    halted -- the trap this section exists to close."""
-    sys.path.insert(0, str(REPO / ".claude/hooks"))
-    import book_state
-    h = book_state.halted()
-    return {"reproducer": "ls ~/prod/QUANTT/ops/HALT*.md  ·  "
-                          "python3 .claude/hooks/book_state.py -p",
-            "global": {"active": h["active"], "reason": h.get("reason")},
-            "scoped": h.get("scoped") or [],
-            "trees_read": h.get("trees_read") or []}
-
-
-# -------------------------------------------------------------------- book --
-def book() -> dict:
-    sys.path.insert(0, str(REPO / ".claude/hooks"))
-    import book_state
-    s = book_state.collect()
-    hb = {k: v.get("status") for k, v in (s.get("heartbeat") or {}).items()
-          if isinstance(v, dict) and v.get("status") not in (None, "ok")}
-    return {"reproducer": "python3 .claude/hooks/book_state.py -p",
-            "fills": s.get("fills") or {},
-            "last_session": s.get("today") or {},
-            "heartbeat_not_ok": hb,
-            "ledger_nav": s.get("ledger") or {}}
-
-
-# ------------------------------------------------------------------ uptime --
-def uptime() -> dict:
-    """Delegated whole to `ops.session_uptime`, which reads BOTH log trees.
-
-    Not recomputed here. Three different figures for this one quantity were in
-    circulation inside two days because it was being hand-tallied with shell
-    one-liners against a single tree; a second implementation is how that
-    happens again.
-    """
-    d = json.loads(_run([sys.executable, "-m", "ops.session_uptime", "--json"]))
-    return {"reproducer": d.get("reproducer", "python3 -m ops.session_uptime"),
-            "complete": d.get("complete"),
-            "n_eligible": d.get("n_eligible"), "n_armed": d.get("n_armed"),
-            "n_clean": d.get("n_clean"), "arm_rate_pct": d.get("arm_rate_pct"),
-            "streak_clean": d.get("streak_clean"),
-            "target": d.get("target_consecutive"),
-            "target_met": d.get("target_met"),
-            "window": d.get("window"), "trees": d.get("trees")}
+    from quantt.broker.alpaca_probe import BOOK_SPECS
+    out = {"reproducer": "python3 -m quantt.broker.alpaca_probe", "books": {}}
+    for book in BOOK_SPECS:
+        snaps = sorted(PROBE_DIR.glob(f"*_{book}.json"))
+        if not snaps:
+            out["books"][book] = {"snapshot": None}
+            continue
+        d = json.loads(snaps[-1].read_text())
+        assets = d.get("assets") or {}
+        def names(pred):
+            return sorted(k for k, a in assets.items() if pred(a))
+        acct = d.get("account") or {}
+        out["books"][book] = {
+            "snapshot": snaps[-1].name,
+            "fetched_at_utc": d.get("fetched_at_utc"),
+            "equity": acct.get("equity"),
+            "n_assets": len(assets),
+            "not_found": names(lambda a: "_probe" in a),
+            "not_tradable": names(lambda a: "_probe" not in a and a.get("tradable") is not True),
+            "not_shortable": names(lambda a: "_probe" not in a and a.get("shortable") is not True),
+            "hard_to_borrow": names(lambda a: a.get("borrow_status") == "hard_to_borrow"),
+            "positions": len(d.get("positions") or []),
+            "open_orders": len(d.get("open_orders") or []),
+        }
+    return out
 
 
 # -------------------------------------------------------------------- spec --
@@ -430,19 +380,11 @@ def _unguarded_ib_insync(root: Path | None = None) -> list[str]:
 
 # -------------------------------------------------------------------- docs --
 def doc_drift() -> dict:
-    """Delegated to `ops.prompt_status`, which derives each work order's real
-    status from the repo and checks the hand-typed index against it."""
-    r = subprocess.run([sys.executable, "-m", "ops.prompt_status", "--json"],
-                       cwd=REPO, capture_output=True, text=True, timeout=120)
-    d = json.loads(r.stdout) if r.stdout.strip() else {}
-    findings = d.get("findings") or []
-    out = {"reproducer": "python3 -m ops.prompt_status --check  ·  "
-                         "python3 -m ops.doc_audit --check",
-           "n_findings": len(findings),
-           "findings": [f for f in findings][:5]}
-    # The document audit, run as a subprocess for the same reason as above: it
-    # imports this module, and a report that imports its own auditor in-process
-    # is one refactor from a cycle.
+    """The document audit, run as a subprocess: it imports this module, and a
+    report that imports its own auditor in-process is one refactor from a cycle.
+    (The work-order index check, `ops.prompt_status`, was archived with
+    `docs/prompts/` on 2026-09-28.)"""
+    out = {"reproducer": "python3 -m ops.doc_audit --check"}
     r = subprocess.run([sys.executable, "-m", "ops.doc_audit", "--json"],
                        cwd=REPO, capture_output=True, text=True, timeout=120)
     try:
@@ -459,7 +401,7 @@ def doc_drift() -> dict:
 
 # ------------------------------------------------------------------ render --
 SECTIONS = [
-    ("TREES", trees), ("HALTS", halts), ("BOOK", book), ("UPTIME", uptime),
+    ("TREES", trees), ("ALPACA", alpaca),
     ("SPEC", spec), ("TRIALS", trials), ("PANELS", panels),
     ("HYGIENE", hygiene), ("DOC DRIFT", doc_drift),
 ]
@@ -505,73 +447,31 @@ def render(d: dict) -> None:
         return sec
 
     if (sec := head("TREES")) is not None:
-        dv, pr = sec["dev"], sec["prod"]
+        dv = sec["dev"]
         _p("dev  (you are here)", f"{dv['path']}  {dv['branch']} {dv['sha']}"
                                   f"  {dv['uncommitted']} uncommitted")
-        if pr.get("present"):
-            _p("prod (what trades)", f"{pr['path']}  {pr.get('tag')} "
-                                     f"{pr.get('sha')} (detached)")
-            if pr.get("data_symlink"):
-                _p("data/", f"prod -> {pr['data_symlink']}  (SHARED: a research "
-                            "script can corrupt what the sleeve prices from)")
-            dl = sec.get("delta") or {}
-            if "UNMEASURED" in dl:
-                _p("prod lacks", f"UNMEASURED — {dl['UNMEASURED']}")
-            elif dl:
-                _p("prod lacks", f"{dl['prod_lacks']} commit(s) in dev   "
-                                 f"({dl['reproducer']})")
-                for line in dl["newest"]:
-                    _p("", f"  {line[:96]}")
-                if dl["prod_lacks"] > len(dl["newest"]):
-                    _p("", f"  … {dl['prod_lacks'] - len(dl['newest'])} more")
-                if dl["dev_lacks"]:
-                    _p("dev lacks", f"{dl['dev_lacks']} commit(s) that prod has "
-                                    "— a promotion from dev would DROP them")
-        else:
-            _p("prod", f"{pr['path']} — NOT PRESENT on this machine")
+        _p("ibkr-final tag", sec["ibkr_final"] or "MISSING — the IBKR-era record has no tag")
+        _p("prod", "none — the IBKR prod tree was retired 2026-09-28; the Alpaca "
+                   "prod (cloud VM) is not built")
+        if sec["legacy_prod_present"]:
+            _p("", f"  {PROD_TREE} still exists on this machine (retired; "
+                   "nothing is scheduled to run it)")
         print()
 
-    if (sec := head("HALTS")) is not None:
-        g = sec["global"]
-        _p("global", f"HALT ACTIVE — {g['reason']}" if g["active"]
-           else "none — no global halt in either tree")
-        for sc in sec["scoped"]:
-            _p(f"scoped: {sc['book']}", f"BLOCKED — {(sc.get('reason') or '')[:90]}")
-            _p("", f"  {sc['path']}")
-        if not sec["scoped"]:
-            _p("scoped", "none")
-        print()
-
-    if (sec := head("BOOK")) is not None:
-        f = sec["fills"]
-        gap = f.get("gap_sessions")
-        _p("last broker-confirmed fill",
-           f"{f.get('date')}  ({gap} trading day(s) ago)"
-           f"{'  <-- STALE' if (gap or 0) >= 3 else ''}")
-        _p("", f"{f.get('n_sessions')} session(s), {f.get('n_fills')} executions"
-               f"   [{f.get('tree')}]")
-        by = f.get("by_date") or {}
-        if by:
-            _p("executions by fill date", "   ".join(
-                f"{d} {n}" for d, n in list(by.items())[-6:]))
-        ls = sec["last_session"]
-        _p("last CEF session log", f"{ls.get('date')} armed={ls.get('armed')} "
-                                   f"status={ls.get('status')}")
-        if sec["heartbeat_not_ok"]:
-            _p("heartbeat not ok", str(sec["heartbeat_not_ok"]))
-        nav = sec["ledger_nav"]
-        if nav.get("nav"):
-            _p("shadow-ledger NAV", f"${nav['nav']:,.0f} as of {nav.get('date')}"
-                                    "  (indicative; the account is the fact)")
-        print()
-
-    if (sec := head("UPTIME")) is not None:
-        _p("armed", f"{sec['n_armed']} of {sec['n_eligible']} eligible sessions "
-                    f"({sec['arm_rate_pct']}%)   clean {sec['n_clean']}")
-        _p("clean streak", f"{sec['streak_clean']} / {sec['target']}   "
-                           f"{'MET' if sec['target_met'] else 'NOT MET'}")
-        if not sec.get("complete"):
-            _p("", "INCOMPLETE — see the reproducer for why")
+    if (sec := head("ALPACA")) is not None:
+        _p("live book", "NONE — nothing trades until the Alpaca adapter is built "
+                        "and armed")
+        for book, b in sec["books"].items():
+            if not b.get("snapshot"):
+                _p(f"account: {book}", "UNMEASURED — no probe snapshot yet")
+                continue
+            _p(f"account: {book}", f"{b['snapshot']}  equity {b['equity']}  "
+                                   f"{b['positions']} position(s), "
+                                   f"{b['open_orders']} open order(s)")
+            _p("", f"  {b['n_assets']} spec names; not found {b['not_found'] or 'none'}; "
+                   f"not tradable {b['not_tradable'] or 'none'}")
+            _p("", f"  not shortable {b['not_shortable'] or 'none'}; "
+                   f"hard-to-borrow {b['hard_to_borrow'] or 'none'}")
         print()
 
     if (sec := head("SPEC")) is not None:
@@ -620,7 +520,6 @@ def render(d: dict) -> None:
         print()
 
     if (sec := head("DOC DRIFT")) is not None:
-        _p("prompt-index findings", str(sec["n_findings"]))
         _p("doc-audit DRIFT", str(sec.get("doc_audit_drift")))
         for row in sec.get("doc_audit_rows") or []:
             _p("", f"  {row[:96]}")

@@ -95,11 +95,11 @@ class TestIbInsyncClassifier:
         _src(tmp_path, "ops/bad.py", "from ib_insync import IB\n")
         assert orient._unguarded_ib_insync(tmp_path) == ["ops/bad.py:1"]
 
-    def test_matches_the_live_tree_and_the_rule_file(self):
-        """Against the real repo. `.claude/rules/live-order-path.md` says two
-        legacy scripts still import it; if a third appears, this fails and the
-        rule file is what needs updating — deliberately, not by accident."""
-        assert len(orient._unguarded_ib_insync()) == 2
+    def test_matches_the_live_tree(self):
+        """Against the real repo. Two legacy scripts imported bare `ib_insync`
+        until 2026-09-28, when both were archived with IBKR. Zero now: any
+        new one is a regression, not a legacy."""
+        assert orient._unguarded_ib_insync() == []
 
 
 # ------------------------------------------------------ honest degradation --
@@ -179,46 +179,6 @@ class TestDerivedFigures:
 
 
 # ----------------------------------------------------- measured, not written --
-class TestTreeDelta:
-    """`prod lacks` replaced a sentence ("prod is detached at v2026.09.10.1")
-    that was wrong within a day in three documents. It must count exactly, in
-    both directions, from git alone."""
-
-    def _repo(self, tmp_path):
-        import subprocess
-        def git(*a):
-            return subprocess.run(["git", *a], cwd=tmp_path, check=True,
-                                  capture_output=True, text=True).stdout.strip()
-        git("init", "-q")
-        for name in ("base", "fix one", "fix two"):
-            (tmp_path / "f.txt").write_text(name)
-            git("add", "f.txt")
-            git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", name)
-        return git
-
-    def test_counts_what_prod_lacks_and_names_it(self, tmp_path):
-        git = self._repo(tmp_path)
-        prod = git("rev-parse", "HEAD~2")
-        d = orient.tree_delta(prod, "HEAD", cwd=tmp_path)
-        assert d["prod_lacks"] == 2 and d["dev_lacks"] == 0
-        assert [s.split(" ", 1)[1] for s in d["newest"]] == ["fix two", "fix one"]
-
-    def test_a_prod_commit_dev_lacks_is_reported(self, tmp_path):
-        """A hotfix cut off the prod tag: promoting dev would drop it."""
-        git = self._repo(tmp_path)
-        git("checkout", "-q", "-b", "hotfix", "HEAD~1")
-        (tmp_path / "g.txt").write_text("hotfix")
-        git("add", "g.txt")
-        git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "hotfix")
-        prod = git("rev-parse", "HEAD")
-        git("checkout", "-q", "-")
-        d = orient.tree_delta(prod, "HEAD", cwd=tmp_path)
-        assert d["dev_lacks"] == 1 and d["prod_lacks"] == 1
-
-    def test_an_unknown_sha_is_unmeasured_not_zero(self, tmp_path):
-        self._repo(tmp_path)
-        with pytest.raises(orient.Unmeasured):
-            orient.tree_delta("deadbeef", "HEAD", cwd=tmp_path)
 
 
 class TestSpecFields:
@@ -241,30 +201,16 @@ class TestSpecFields:
         assert "0.06" not in out
 
 
-class TestOneCounterTableThreeReaders:
-    """Three modules parse the RESEARCH_STATE counter table, with three regexes:
-    `orient.trials`, `prompt_status.counters` and `gamma_status._trial_counters`
-    (the last greedy). The file was trimmed to its ledger on 2026-09-14 and grew
-    tables of bold-cell rows above and below the counters; a reader that picked
-    up one of those would lower or raise a deflated-Sharpe bar silently."""
+class TestTheCounterTableReader:
+    """`orient.trials` parses the RESEARCH_STATE counter table. It is the only
+    reader left: `prompt_status.counters` and `gamma_status._trial_counters`
+    were archived on 2026-09-28 (the three-reader agreement test is at
+    `_archive/ops/tests/test_orient_2026-09-28.py`). The file carries other
+    tables of bold-cell rows; a reader that picked one up would move a
+    deflated-Sharpe bar silently."""
 
-    def _all(self, path, monkeypatch):
-        from ops import gamma_status, prompt_status
-        monkeypatch.setattr(orient, "RESEARCH_STATE", path)
-        monkeypatch.setattr(gamma_status, "REPO", path.parent.parent)
-        return ({k: v["trials"] for k, v in orient.trials()["counters"].items()},
-                prompt_status.counters(path),
-                gamma_status._trial_counters())
-
-    def test_they_agree_on_the_real_file(self, monkeypatch):
-        from ops import gamma_status, prompt_status
-        a = {k: v["trials"] for k, v in orient.trials()["counters"].items()}
-        b = prompt_status.counters()
-        c = gamma_status._trial_counters()
-        assert a["CEF"] == b["CEF"] == c["CEF"]
-        assert a["GAMMA"] == b["GAMMA"] == c["GAMMA"]
-
-    def test_they_agree_beside_other_bold_tables(self, tmp_path, monkeypatch):
+    def test_reads_only_the_counter_rows_beside_other_bold_tables(
+            self, tmp_path, monkeypatch):
         docs = tmp_path / "docs"
         docs.mkdir()
         f = docs / "RESEARCH_STATE.md"
@@ -277,5 +223,6 @@ class TestOneCounterTableThreeReaders:
             "| id | hypothesis | phase | gate |\n"
             "| **CEF-DISC** | **reversion** | **DEPLOYED 2026-07-31, $500k paper** | none |\n"
             "| **KAPPA** | x | y | **12** | z |\n")
-        a, b, c = self._all(f, monkeypatch)
-        assert a == b == c == {"CEF": 48, "GAMMA": 0}
+        monkeypatch.setattr(orient, "RESEARCH_STATE", f)
+        got = {k: v["trials"] for k, v in orient.trials()["counters"].items()}
+        assert got == {"CEF": 48, "GAMMA": 0}

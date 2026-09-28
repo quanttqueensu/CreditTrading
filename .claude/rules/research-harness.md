@@ -8,7 +8,7 @@ paths:
 
 # The research harness — H1 to H15
 
-These are the rules every research prompt in `docs/prompts/` inherits. A result
+These are the rules every piece of research inherits (the full text: `docs/BRIEF.md` §5). A result
 that breaks one of them is not comparable to any number in this repo.
 
 **Do not build a new backtester.** Use the canonical one and extend it visibly:

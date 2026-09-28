@@ -66,10 +66,10 @@ should be undone at the end:
   5. EXECUTION=simulator and IBKR_PORT=<a port measured closed>. A second
      layer under netguard: if some path does build a broker config from the
      environment, it is pointed at nothing.
-  6. `ops.doctor.AGENTS` points at an EMPTY directory, so a test that has not
-     supplied its own fixture plist gets "no plist installed" (in
-     `ops.decision_age`, DecisionAgeUnknown) instead of a verdict that depends
-     on this machine's schedule.
+  6. (RETIRED 2026-09-28 with IBKR.) `ops.doctor.AGENTS` was pointed at an
+     EMPTY directory so no test depended on this machine's installed launchd
+     schedule. `ops.doctor` and `ops.decision_age` are archived; nothing left
+     reads the schedule.
   7. Asserts 1-4 are still in force.
 
 At session start and finish the three live CEF panels are hashed; a change
@@ -411,13 +411,11 @@ def _quantt_safety_harness(tmp_path_factory):
         raise HarnessMisconfigured(
             "ops.halt.alert is not the recorder at session start")
 
-    import ops.doctor as doctor
-
-    empty_agents = tmp_path_factory.mktemp("empty_LaunchAgents")
+    # `ops.doctor` (and its AGENTS patch) was archived with IBKR on 2026-09-28;
+    # nothing left in the tree reads ~/Library/LaunchAgents.
     mp = pytest.MonkeyPatch()
     mp.setenv("EXECUTION", "simulator")
     mp.setenv("IBKR_PORT", str(_a_closed_port()))
-    mp.setattr(doctor, "AGENTS", empty_agents)
     try:
         yield
     finally:

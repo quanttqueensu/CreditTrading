@@ -1,24 +1,28 @@
 # QUANTT — Credit Trading
 
-A systematic **credit closed-end-fund discount-reversion** book on an IBKR paper
-account, placing its own MOC orders on a schedule. Team lead: Simon Jarvis.
-Paper indefinitely — a competition track record, judged on absolute return under
-a vol cap.
+A systematic **credit closed-end-fund discount-reversion** book, moving from IBKR
+to **Alpaca paper** (team lead, 2026-09-28): one paper account per book, prod on a
+cloud VM, MOC orders on a schedule. Team lead: Simon Jarvis. Paper indefinitely —
+a competition track record, judged on absolute return under a vol cap.
+
+**Right now nothing trades.** IBKR was retired on 2026-09-28 and its code is in
+`_archive/`; the Alpaca system is being built in `quantt/`. The plan, the
+decisions and what is left: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md`.
 
 **This file holds the rules, which do not rot. It holds no figures about the
 book, which do.** Start every session with:
 
 ```bash
-python3 -m ops.orient      # ~3s: both trees, what prod lacks, halts, fills, uptime, spec, counters, panels
+python3 -m ops.orient      # ~3s: where you are, the Alpaca accounts, spec, counters, panels
 ```
 
 Then **`docs/SYSTEM.md`** — what we trade, how it runs, what we know, what has
 been decided. **`docs/INDEX.md`** says which file owns every other question.
-Read `docs/prompts/00_BRIEF.md` before any research.
+Read `docs/BRIEF.md` before any research.
 
 | you want | ask |
 |---|---|
-| any number about the book, the spec, the trees or the counters | `python3 -m ops.orient` (a section that cannot measure says `UNMEASURED`, never a guess) |
+| any number about the accounts, the spec or the counters | `python3 -m ops.orient` (a section that cannot measure says `UNMEASURED`, never a guess) |
 | what the system is, how it runs, the standing decisions | `docs/SYSTEM.md` |
 | trial counters, D1–D7, what is dead | `docs/RESEARCH_STATE.md` |
 | whether a document still says true things | `python3 -m ops.doc_audit` |
@@ -33,30 +37,28 @@ create a `CLAUDE.md` inside it. The rules: `_archive/README.md`.
 
 ## Hard rules — the order path
 
-**Not enforced by any hook** (the blocking `PreToolUse` hook was removed
-2026-09-10 at the team lead's instruction). Treat them as absolute anyway: each
-names an action that cannot be undone.
+**Not enforced by any hook.** Treat them as absolute anyway: each names an action
+that cannot be undone.
 
-1. **Never run anything that can transmit an order.** The live session entry
-   point (`python3 -m src.deploy.run_book`), the launchd jobs and
-   `launch_job.py`, the old shell wrappers (archived in
-   `_archive/ops/_archive/schedule_pre_w3_2026-09-13/`, still live if run), the MOC routing
-   probe, the promote/cancel/reset-epoch/switch-broker tools, `launchctl
-   load|unload|bootstrap|bootout`. Propose it, explain why, and let the human run
-   it with `! <command>`.
-2. **The trade phase is not idempotent, and the broker does not dedupe.** `arm()`
-   re-seeds from `ib.positions()`, which excludes unfilled MOC orders, so a second
-   armed run's orders fill in the same auction and the book doubles.
-   `place_targets` now refuses before transmitting if the broker or the order map
-   shows a set already headed for an unclosed auction (`ops/pending_orders.py`).
-   That is a backstop, not permission.
-3. **Order type stays MOC.** Overnight market orders realised 100.5bp against a
-   32.6bp breakeven on 2026-07-31. NYSE MOC cannot be cancelled after 15:50 ET,
-   not even to correct a legitimate error.
-4. **`DRY_RUN=1` is a human hard halt and always wins.** `DRY_RUN=0` means "trade
-   *if preflight agrees*", not "trade".
+1. **Never transmit an order on your own initiative.** Anything that can send,
+   replace or cancel an order at a broker runs only when the team lead has asked
+   for it in the session — and even then, **show the concrete order list and get
+   an explicit go before transmitting.** (Until 2026-09-28 the rule was "the human
+   runs it with `!`"; the team lead asked agents to run the migration commands
+   themselves, and this is that instruction made durable.)
+2. **The trade phase is not idempotent, and the broker does not dedupe.** Open
+   positions exclude unfilled MOC orders, so a second armed run's orders fill in
+   the same auction and the book doubles. At Alpaca, `client_order_id` is unique
+   only among *active* orders [V: docs, 2026-09-28]. Any runner must refuse before
+   transmitting if the broker shows a set already headed for an unclosed auction,
+   and must record that it started before its first order goes.
+3. **Order type stays MOC** (Alpaca `time_in_force=cls`). Overnight market orders
+   realised 100.5bp against a 32.6bp breakeven on 2026-07-31. Alpaca rejects `cls`
+   entries from 15:50 ET; NYSE cancels no MOC after 15:50.
+4. **`DRY_RUN=1` is a human hard halt and always wins.**
 5. **Never print, copy or transmit credentials.** To test whether a key is set,
-   print the boolean, never the value.
+   print the boolean, never the value. Alpaca keys live in `config/.env`
+   (`ALPACA_<BOOK>_KEY_ID` / `_SECRET_KEY`), which agents never read.
 
 ## Hard rules — code
 
@@ -73,8 +75,9 @@ names an action that cannot be undone.
 - **The frozen spec is the only authority on a live parameter.** Read it (through
   `scripts/cef/spec.py`); never write the literal. Scripts once baselined against
   a band width the book had left, and nothing errored.
-- **The dashboard is read-only.** Exactly one non-GET route (`/api/connect`). No
-  code path from it transmits an order.
+- **Any monitor is read-only.** The IBKR-era dashboard is archived; the team
+  lead will have a new one built later. No code path from a monitor transmits an
+  order.
 - **Docstrings explain WHY.** Most of this codebase's knowledge, especially its
   incident history, lives in them. Match that density.
 - **Never hand-copy a data series.** Anything fetched gets a fetcher and a source
@@ -91,8 +94,9 @@ recall of any specific figure is wrong until you have fetched it.**
   value to keep an analysis moving. If you do not have it, the output is a stated
   gap. **A number without provenance is a rumour.**
 - **Real data or nothing**, in this order: (1) the repo's own panels — check the
-  last date first; (2) **IBKR through the gateway**, the authority on our account
-  and instruments; (3) a **primary external source you actually fetched** —
+  last date first; (2) **Alpaca through its API**, the authority on our accounts and
+  on what is tradable and shortable (`python3 -m quantt.broker.alpaca_probe`,
+  read-only); (3) a **primary external source you actually fetched** —
   EDGAR, FINRA, FRED, an exchange rulebook, a fund filing, the paper itself;
   (4) a script in this repo, **re-run now**. If none yields it: say so, name what
   you tried, and stop.
@@ -129,7 +133,9 @@ recall of any specific figure is wrong until you have fetched it.**
   time holdout**.
 - **Pre-register before the session that trades it** (`/prereg`).
 - **Modelled sessions are not evidence.** Only broker-confirmed fills count
-  toward any live statistic.
+  toward any live statistic. On Alpaca paper, record both the fill Alpaca reports
+  (the official record) and the P&L at the official closing-auction print, labelled
+  separately (team lead, 2026-09-28) — paper does not simulate the auction.
 - **No decision rule may key on a number written in a document** (H14). Re-measure
   at run time and say what you do under either outcome.
 - **Check the graveyard before proposing anything** (`/graveyard`). The most
@@ -141,92 +147,78 @@ recall of any specific figure is wrong until you have fetched it.**
 ```bash
 python3 -m ops.orient                  # first, every session
 python3 -m pytest                      # pytest.ini scopes collection; never quote a count
-python3 -m ops.session_uptime          # is the book arming? (both log trees)
 python3 -m ops.doc_audit               # do the documents still say true things?
-python3 -m ops.prompt_status           # where each work order stands
-python3 -m ops.gamma_status            # the options programme
-python3 -m ops.doctor --quick          # can this machine run unattended?
-python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live
+python3 -m quantt.broker.alpaca_probe --check-keys   # which Alpaca keys are SET (no network)
+python3 -m quantt.broker.alpaca_probe  # read-only snapshot of each paper account
 python3 scripts/cef/band_frontier.py   # the trading-policy frontier
 python3 scripts/cef/plan_diagnostics.py  # IC, kappa, PCA, ADV, vol scalar
-python3 dashboard/server.py            # read-only monitor on :8787
-python3 .claude/hooks/book_state.py -p # live book state as JSON, both trees
+python3 .claude/hooks/book_state.py -p # what the banner and status line read
 ```
 
 ## Layout
 
 `src/deploy/sleeves/cef_discount.py` **is** the strategy. `ops/specs/*.frozen.json`
-are governance objects, not config. `scripts/` is research and is never on the
-live path. `data/` is gigabytes and gitignored — read the parquet, never grep it.
-`.claude/rules/` loads path-scoped rules when you open matching files.
+are governance objects, not config. `quantt/` is the new Alpaca run package.
+`scripts/` is research and is never on the live path. `data/` is gigabytes and
+gitignored — read the parquet, never grep it. `.claude/rules/` loads path-scoped
+rules when you open matching files.
 
-## Two trees, and halts
+## Where it runs
 
-**This working tree is dev. Prod is `~/prod/QUANTT`, a git worktree detached at a
-tag** — `git worktree list` shows it; `git branch` never will. Nothing edited
-here reaches a session until it is tagged and promoted with `ops/promote.sh`, and
-orient TREES says what prod lacks. Detached HEAD on prod is the intended state.
-The details are `docs/SYSTEM.md` §4.1.
-
-**Halts are written in prod and are untracked**, so `ls ops/HALT*.md` in dev
-shows nothing while prod is halted. Read both trees (orient HALTS). A global
-`ops/HALT.md` blocks every book; `ops/HALT_<book_id>.md` blocks one. A human
-clears one with attribution via `clear_halt`, **run in the prod tree** (it resolves
-paths from where it is imported), after reading every entry in the file and
-checking it against the broker, not the ledger. `docs/SYSTEM.md` §4.4.
+**There is no prod right now.** The IBKR prod worktree (`~/prod/QUANTT`) and its
+launchd jobs were retired on 2026-09-28; the jobs are unloaded and the tree's
+state is in `_archive/prod_state_2026-09-28/`. The Alpaca prod will run on a cloud
+VM (team lead, 2026-09-28) and does not exist yet. `ibkr-final` tags the last
+IBKR-era commit.
 
 ## Landmines
 
-1. **`launch_job.py` lives outside the repo** (`~/Library/Application Support/quantt/`)
-   because macOS TCC denies launchd `~/Desktop`, and its `REPO` line is the whole
-   prod/dev boundary. Do not move it, and do not "fix" it.
-2. **What launchd runs is what is loaded**, not what is in `ops/schedule/`:
-   `launchctl list | grep quantt` and the plists in `~/Library/LaunchAgents`.
-3. **The ledger is a local reconstruction; the account is the fact.** `arm()`'s
-   re-seed from the broker cannot reach a symbol the broker holds none of (IBKR
-   emits no row for a flattened position), so a stale ledger quantity there goes
-   straight into order sizing. And `_sleeve_nav` swallows any exception and sizes
-   against registered capital instead of marked NAV, silently.
-   `results/ops/LEDGER_DIVERGENCE_2026-09-10.md`.
-4. **HYT lags the price panel by a day.** `px.iloc[-1]` can be NaN for a name;
+1. **Alpaca paper does not simulate the closing auction.** Staff say paper fills
+   MOC at the current quote [V: forum staff post, 2026-09-28]. Paper also charges
+   no borrow, no dividends and no regulatory fees [V: docs]. Paper P&L on this
+   book is structurally different from a live auction fill; score both (research
+   rules above).
+2. **Alpaca rejects opposite-side orders in one symbol as wash trades**, paper
+   included [V: docs]. That is why each book has its own account. Within a book,
+   net each symbol into one order.
+3. **Fractional shares cannot be shorted or sent `cls`** [V: docs]. Whole shares
+   only.
+4. **A long→short flip may need two orders** (close, then open) [U: 2020 staff
+   post; test it on paper before relying on either answer].
+5. **`borrow_status` changes daily.** A probe snapshot is true on its date only.
+6. **HYT lags the price panel by a day.** `px.iloc[-1]` can be NaN for a name;
    use `px.ffill().iloc[-1]` for that name's own last close.
-5. **`PositionTarget.weight` is signed.** Do not multiply by the side sign again.
-6. **The years before 2013 are flat** — too few names clear the ADV filter — so
+7. **`PositionTarget.weight` is signed.** Do not multiply by the side sign again.
+8. **The years before 2013 are flat** — too few names clear the ADV filter — so
    full-sample turnover is diluted and full-sample Sharpes are depressed. Report
    by era (H5).
-7. **Several books share one IBKR account with overlapping tickers.** Attribution
-   is per sleeve; never take a symbol from the account net. `ops/books/retired/`
-   must not move. `docs/SYSTEM.md` §4.3.
-8. **Use `ib_async`, never bare `ib_insync`** — the latter hangs forever in its
-   asyncio handshake on Python 3.12+ and looks exactly like a dead broker. The
-   safe shape is `try: ib_async / except ImportError: ib_insync`. orient HYGIENE
-   names every unguarded import by AST (a grep cannot express the check); do not
-   add one.
-9. **Prod prices from dev's `data/`.** `~/prod/QUANTT/data` is a symlink to this
-   tree's `data/`, so a research script that rewrites a panel here rewrites what
-   the live sleeve decides on. Write research output somewhere else.
+9. **The live sleeve decides on `data/`.** A research script that rewrites a
+   panel there rewrites what the book trades on. Write research output elsewhere.
+10. **Use `ib_async`, never bare `ib_insync`**, if IBKR code is ever revived from
+    the archive — the latter hangs forever on Python 3.12+. orient HYGIENE
+    counts unguarded imports by AST.
 
 ## Tests
 
 **Never quote a test count; run `python3 -m pytest`.** A green suite says little
-about the code that places orders. `pytest.ini` scopes collection because
-`scripts/audit/moc_routing_test.py` opens a live broker connection at import, and
-a bare collection once reached for the order path. A directory is safe to add to
-`testpaths` only if nothing it imports opens a socket at import time; never add
-`scripts/audit/`.
+about the code that places orders. `pytest.ini` scopes collection because a
+script that opened a live broker connection at import (now archived) was once
+collected by a bare run. A directory is safe to add to `testpaths` only if
+nothing it imports opens a socket at import time. The root `conftest.py` blocks
+every network connection during tests (`ops/netguard.py`).
 
 ## The desk
 
 `.claude/README.md` is the map. `.claude/hooks/` is **advisory** — the
 SessionStart banner, a post-edit check and the status line; nothing blocks.
 
-Skills: `/book-status`, `/preflight`, `/morning-brief`, `/next-task`,
-`/graveyard`, `/harness`, `/repro`, `/prereg`, `/spec-change`, `/fill-audit`,
-`/dashboard-ui`, `/incident`.
+Skills: `/morning-brief`, `/next-task`, `/graveyard`, `/harness`, `/repro`,
+`/prereg`, `/spec-change`. (The IBKR-run skills — book-status, preflight,
+incident, fill-audit, dashboard-ui — are in `_archive/claude_layer/`.)
 
 Subagents: `alpha-finder`, `beta-detector`, `unique-angle-researcher`,
 `execution-trader`, `portfolio-manager`, `market-structure-analyst`,
-`equity-research`, `quant-reviewer`, `dashboard-designer`, `ops-watchdog`.
+`equity-research`, `quant-reviewer`.
 
 **Options are closed, and it is recorded rather than remembered**:
-`docs/SYSTEM.md` §5 and `python3 -m ops.gamma_status`.
+`docs/SYSTEM.md` §5.

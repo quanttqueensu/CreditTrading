@@ -35,12 +35,30 @@ def test_banner_points_at_orient_system_and_the_archive(monkeypatch, capsys):
     assert "_archive/" in out
 
 
-def test_pointer_survives_a_halted_book(monkeypatch, capsys):
+def test_pointer_survives_any_state(monkeypatch, capsys):
     """The state lines above it vary; the pointer must not depend on them."""
     mod = _load()
     monkeypatch.setattr(mod, "collect", lambda: {
-        "halt": {"active": True, "reason": "test", "scoped": [
-            {"book": "x", "reason": "r", "path": "p"}]},
-        "fills": {"date": "2026-09-08", "gap_sessions": 4}})
+        "live_book": None, "probes": {"cef": None, "b6": "2026-09-29_b6.json"},
+        "git": {"branch": "x", "dirty": 0}})
     mod.main()
     assert mod.POINTER in capsys.readouterr().out
+
+
+def test_no_live_book_is_said_out_loud(monkeypatch, capsys):
+    """Silence must never read as success: with nothing trading, the banner
+    says so, rather than printing nothing about the book."""
+    mod = _load()
+    monkeypatch.setattr(mod, "collect", lambda: {"live_book": None})
+    mod.main()
+    assert "NO LIVE BOOK" in capsys.readouterr().out
+
+
+def test_a_broken_reader_still_prints_the_warning(monkeypatch, capsys):
+    mod = _load()
+    def boom():
+        raise RuntimeError("x")
+    monkeypatch.setattr(mod, "collect", boom)
+    assert mod.main() == 0
+    out = capsys.readouterr().out
+    assert "NO LIVE BOOK" in out and mod.POINTER in out

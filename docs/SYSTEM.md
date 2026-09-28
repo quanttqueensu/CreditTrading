@@ -3,7 +3,7 @@
 **The one document that says what this book is, how it runs, and what we know
 about it.** Written 2026-09-13 from the documents it replaces: the
 strategy, system and decision sections of `CLAUDE.md`, `docs/INFRASTRUCTURE.md`,
-`docs/prompts/00_BRIEF.md`, the retired `SYSTEM_AND_STRATEGY.md` and `PLAN.md` (both archived under `_archive/docs/`),
+`docs/BRIEF.md`, the retired `SYSTEM_AND_STRATEGY.md` and `PLAN.md` (both archived under `_archive/docs/`),
 and §12 of the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md`.
 
 **It holds no figures that move.** Where a number matters, this document names
@@ -40,26 +40,17 @@ the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12, figur
 
 | question | authoritative artifact |
 |---|---|
-| Where am I, what does prod lack, what is halted, what is the spec? | `python3 -m ops.orient` |
-| What is resting at the broker right now? | `ib.reqAllOpenOrders()`, one read-only connection. Nothing in the repo can say an order is still working. |
-| What was transmitted, and when? | `ops/books/<book>/_ibkr_shadow/_order_map.csv` — written at placement, carries the IBKR `orderId` |
-| What did the strategy decide, and why? | `ops/books/<book>/target_vs_current.csv` — target weights, z-score, band/hold reason per name |
-| What actually filled? | `.../cef_discount/broker_fills.csv` — **the only evidence of a fill.** `trades.csv` contains modelled fills. orient BOOK prints executions per fill date. |
-| Did today's trades happen? | `python3 -m ops.verify_session` — asks the broker after the close, one message per trading day (§4.6) |
-| What is actually held? | broker `ib.positions()` — three books share one account; never attribute a symbol from the account net (§4.3) |
-| What does the ledger believe is held? | `.../cef_discount/positions.csv` — a local reconstruction; verify against the broker, do not assume |
-| What is the sleeve NAV / P&L? | `.../cef_discount/nav.csv` — modelled, epoch-seeded. The dashboard and `report_*.md` restate it; they are not corroboration. |
-| What is the account worth? | broker `NetLiquidation` — whole account, all books, not comparable to a sleeve NAV without attribution |
+| Where am I, what is the spec, what do the Alpaca accounts look like? | `python3 -m ops.orient` |
+| Is anything trading? | **No** (2026-09-28): IBKR is retired and the Alpaca runner is not built. The SessionStart banner and status line say so until it is. |
+| What is held, resting or executed at the broker? | The Alpaca paper account for that book — `python3 -m quantt.broker.alpaca_probe` (read-only snapshot, one account per book). The broker is the fact. |
+| Is a name tradable / shortable / hard-to-borrow at Alpaca? | The probe snapshot's `assets`, dated — `borrow_status` changes daily |
+| What did the IBKR book hold, send and fill? | History only: `_archive/prod_state_2026-09-28/` and `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §7 |
 | What are the live parameters? | orient SPEC, which reads the frozen spec through `scripts/cef/spec.py` |
 | Gross / net Sharpe and turnover of the live policy? | `python3 scripts/cef/band_frontier.py`, re-run |
 | IC, persistence, PCA, ADV, vol scalar? | `python3 scripts/cef/plan_diagnostics.py`, re-run |
-| Effective breadth? | dashboard `/api/factors` — a live quantity with no stored value |
-| Is the book arming? | `python3 -m ops.session_uptime` (reads both log trees; refuses rather than undercounts) |
-| Did one session arm, and why not? | `ops/schedule/logs/cef_<date>.log` in **prod** — the `ARMED:` / `NOT ARMED ->` line |
 | How many trials have been spent? | `docs/RESEARCH_STATE.md` counter table (not its prose); orient TRIALS derives the deflated-Sharpe bar |
 | How many tests pass? | `python3 -m pytest`, run now. Never quote a stored count. |
-| What is running in production? | orient TREES, or `git -C ~/prod/QUANTT describe --tags` |
-| Where is a work order? | `python3 -m ops.prompt_status` |
+| What is left to do for the Alpaca system? | `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §5–§6 |
 | Is an external claim verified? | `docs/REFERENCES.md` |
 | Do the documents still say true things? | `python3 -m ops.doc_audit` |
 
@@ -67,8 +58,9 @@ the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12, figur
 
 ## 1. What we trade
 
-A **systematic credit closed-end-fund discount-reversion book** on an IBKR paper
-account, placing its own MOC orders on a schedule. The account id, capital and
+A **systematic credit closed-end-fund discount-reversion book** that places its
+own MOC orders on a schedule. It ran on an IBKR paper account until 2026-09-28
+and is moving to Alpaca paper (§4); nothing trades in between. Capital and
 universe are in the frozen spec. **Mandate** (§5): paper indefinitely, a
 competition track record, judged on absolute return under a vol cap.
 
@@ -79,9 +71,9 @@ shares trade at whatever the market pays. Buy funds unusually cheap against
 **Why it is not arbitraged away.** A CEF has a fixed share count and no
 authorised participants. Nothing creates or redeems shares against the basket,
 so no mechanism drags price back to NAV. The mechanisms, who is on the other
-side and why they stay there: `docs/prompts/00_BRIEF.md` §2. How the
+side and why they stay there: `docs/BRIEF.md` §2. How the
 instruments actually trade — NAV timing, ex-distribution arithmetic, the
-closing auction, the short side, corporate events: `00_BRIEF.md` §3.
+closing auction, the short side, corporate events: `docs/BRIEF.md` §3.
 
 **Signal.** For fund *i* on day *t*, discount `d = 100·(P − N)/N`; z-score it
 against that fund's own rolling mean and standard deviation, both **shifted one
@@ -150,18 +142,19 @@ a later note** — this section records the state as of its date.
 - **Borrow drag** was first charged from one day of fees; the daily fee history
   (`data/cef/cef_borrow_history.parquet`) shows much higher historical borrow on
   some names, so any net-of-borrow figure computed on one day's fees is suspect
-  until re-measured. `results/cef/BORROW_NOTE_2026-09-06.md`, `00_BRIEF.md` H4.
+  until re-measured. `results/cef/BORROW_NOTE_2026-09-06.md`, `docs/BRIEF.md` H4.
 
 ### Unknown, and the unknowns dominate
 
 - **What execution actually costs.** Very few broker-confirmed MOC sessions
-  exist; the standard error is too wide to act on. `/fill-audit`.
+  exist (all IBKR, archived); the standard error is too wide to act on. Alpaca
+  paper fills MOC at the quote rather than in the auction [V: staff forum post,
+  2026-09-28], so its paper fills cannot settle this either.
 - **Whether the paper record means anything.** The pre-epoch ledger booked
   fills for sessions the account never made; only broker-confirmed fills count.
-  The CEF sleeve's ledger was re-seeded from broker positions at an epoch dated
-  2026-09-11, with the old ledger archived beside it (2026-09-13 [V], `epoch`
-  and `epoch_reason` in prod's `ops/books/cef_live/_ibkr_shadow/cef_discount/manifest.json`;
-  procedure in `results/ops/GO_LIVE_W3_2026-09-13.md`).
+  The IBKR record ended on 2026-09-28 with 34 flatten orders left unacknowledged
+  and the account's final state unknown by decision; the Alpaca book starts a new
+  track record.
 - **Survivorship.** The panel holds only funds alive today; every CEF that
   closed or merged is absent. The bias is upward and unmeasured.
 
@@ -171,7 +164,7 @@ a later note** — this section records the state as of its date.
 
 The book earns through one relation, Grinold's fundamental law in the Clarke,
 de Silva & Thorley (2002) form: **IR ≈ IC · TC · √BR**. Derivation and the three
-meanings of "finding alpha": `00_BRIEF.md` §1.
+meanings of "finding alpha": `docs/BRIEF.md` §1.
 
 - **IC** is good, and sharpening it has repeatedly been the least productive
   work.
@@ -180,8 +173,11 @@ meanings of "finding alpha": `00_BRIEF.md` §1.
   ÷ gross from `band_frontier.py` with borrow charged.
 - **BR, breadth** — the book holds many names but most of its variance is one
   factor, municipal CEFs against taxable ones, so its effective breadth is a
-  small fraction of its name count. Measure on today's weights: `/api/factors`.
-- **Uptime** — a session that does not arm earns nothing. `python3 -m ops.session_uptime`.
+  small fraction of its name count. Measure on today's weights (the IBKR-era
+  dashboard's `/api/factors` did this; it is archived and has no replacement yet).
+- **Uptime** — a session that does not arm earns nothing. On IBKR the book armed
+  on a small minority of eligible sessions (`_archive/prod_state_2026-09-28/`);
+  the Alpaca runner must measure its own from day one.
 
 **Work that raises TC or uptime beats work that sharpens IC, every time.**
 
@@ -189,130 +185,57 @@ meanings of "finding alpha": `00_BRIEF.md` §1.
 
 ## 4. How it runs
 
-### 4.1 Two trees, and promotion
+**Rewritten 2026-09-28.** The IBKR-era description — prod worktree and
+promotion, launchd sessions, the shared account, halts, verification — is the
+archived snapshot `_archive/docs/SYSTEM_2026-09-28.md` §4. None of it runs any more.
 
-```
-$ git worktree list
-~/Desktop/2027/QUANTT/2027   <sha> [main]            <- dev: where work happens
-~/prod/QUANTT                <sha> (detached HEAD)   <- prod: == a release tag
-```
+### 4.1 Where things are
 
-Prod is a git worktree **detached at a tag**; the scheduler, the dashboard and
-the live ledgers run there, and nobody edits it. It never appears in
-`git branch`. "Detached HEAD" is the intended steady state. What prod lacks
-from dev: orient TREES.
+- **Nothing trades.** IBKR was retired on 2026-09-28: the scheduler's jobs were
+  unloaded, a final flatten was sent and then abandoned (the team lead chose not
+  to follow it up), and the code, prod state and agent tooling went to
+  `_archive/`. `ibkr-final` tags the last IBKR-era commit.
+- **The strategy is unchanged in kind**: `src/deploy/sleeves/cef_discount.py` and
+  its frozen spec. v7's constraint code is present with its keys off; the spec
+  change to v7 on Alpaca is pending (§5, 2026-09-28).
+- **The new run package is `quantt/`.** So far it holds one read-only tool:
+  `python3 -m quantt.broker.alpaca_probe`, which records what each Alpaca paper
+  account holds and whether each spec name is tradable and shortable.
+- **Prod will be a cloud VM** (team lead, 2026-09-28). It does not exist yet.
 
-The whole boundary is one line — `REPO` in
-`~/Library/Application Support/quantt/launch_job.py`, which lives **outside** the
-repo because macOS TCC denies launchd access to `~/Desktop`. Code reaches prod
-only through `ops/promote.sh <tag>`, which refuses inside the session window or
-on a prod tree with uncommitted code, archives live state, checks out the tag,
-smoke-tests it (doctor, NAV wait, fetch, dry-run session, dashboard import) and
-rolls back on any failure. **Never cut a tag off the prod tag** — it would not
-be an ancestor of `main`, and the next promotion from dev would drop it (orient
-TREES prints `dev lacks` when this has happened).
+### 4.2 What the Alpaca system must be
 
-Shared deliberately and temporarily: `~/prod/QUANTT/data` is a symlink to dev's
-`data/`, so a research script can still corrupt what the sleeve prices from
-(`ops/sync_dev_data.sh` reverses it); and the live ledgers are gitignored but
-still tracked, which is why the promotion gate excludes them by pathspec.
+Settled by the team lead on 2026-09-28 (§5) or measured from Alpaca's own
+documentation the same day [V unless marked]. The design work is still ahead;
+this is the brief it answers to.
 
-### 4.2 Sessions
+- **One Alpaca paper account per book**: the CEF book and the b6 equal-weight
+  credit benchmark. Alpaca rejects opposite-side orders in one symbol as wash
+  trades, so books cannot share an account safely.
+- **MOC via `time_in_force=cls`**, whole shares only (fractional orders cannot
+  be `cls` or short). Alpaca rejects `cls` entries between 15:50 and 19:00 ET.
+- **Not idempotent.** A runner must refuse to send while a set is already
+  headed for an unclosed auction; Alpaca's `client_order_id` is unique only
+  among *active* orders.
+- **The broker is the fact.** Reconcile from Alpaca's positions, orders and
+  account activities, not from a local ledger. The IBKR design's ledger
+  desyncs halted all three books in September.
+- **Score both P&Ls on paper.** Alpaca paper fills MOC at the quote [V: staff
+  forum post], so record Alpaca's fill as the official record and the P&L at the
+  official closing-auction print (`/v2/stocks/auctions`, SIP feed) beside it,
+  labelled. Gross P&L only (D19/D20, 2026-09-15).
+- **Alerting is dashboard and logs only** (hardening D3/D4, 2026-09-21,
+  confirmed 2026-09-28). A monitor will be rebuilt later.
 
-**Schedule** (2026-09-13 [V], `launchctl list | grep quantt` and the plists in
-`~/Library/LaunchAgents`): since the W3 go-live the CEF book **decides in the
-morning on yesterday's complete price/NAV pair** and sends MOC orders for that
-day's close (`com.quantt.cef.daily`, with a midday retry); an evening job
-(`com.quantt.cef_pm`) and a post-close verifier (`com.quantt.verify.cef`,
-§4.6) follow. Why the evening decision was abandoned — NAV-wait sleeps and IB's
-nightly restart destroying fill records — is in `results/ops/GO_LIVE_W3_2026-09-13.md`.
-Which plan a given fire follows: `ops/session_plan.py`. The machine's own
-readiness to run unattended: `python3 -m ops.doctor --quick`.
+### 4.3 What counts as evidence
 
-**The session contract** (the `launch_job.py` docstring is canonical). Four
-phases with **different failure policies**:
+**Only broker-confirmed fills** count toward any live statistic. Modelled
+sessions are not evidence. On Alpaca paper the fill price itself is simulated
+(above), which is why the auction-print P&L is kept beside it.
 
-| phase | on failure |
-|---|---|
-| 1. REFRESH prices/NAV | do not trade, still log — a stale NAV is a blind signal |
-| 2. PREFLIGHT | do not trade, still log |
-| 3. TRADE | halt + alert |
-| 4. CAPTURE fills | **always runs**, even after 1–3 fail — IB forgets executions at its daily restart |
+### 4.4 Setting up, and reference
 
-The trade phase is **not idempotent**, `DRY_RUN=1` always wins, and the order
-type stays MOC: `CLAUDE.md`, order-path rules. What the preflight gate checks:
-`docs/INFRASTRUCTURE.md` §6.4 and `python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live`.
-
-### 4.3 Books and the shared account
-
-Several books share **one IBKR account with overlapping tickers**; the books are
-`ops/books/*_book.json`. Attribution is per sleeve (`_attribution.json`,
-`_order_map.csv`); `reconcile()` checks the tagged books sum to
-`ib.positions()`. **Never take a symbol from the account net.**
-
-`arm()` re-seeds each sleeve from the broker before a live session because the
-ledger is a local reconstruction and the account is the fact — **but the
-re-seed cannot reach a symbol the broker holds none of** (IBKR emits no row for a
-flattened position), so a stale ledger quantity there goes unchallenged into
-order sizing. A ledger-vs-broker divergence of that shape is a trading fault,
-not a reporting one (`results/ops/LEDGER_DIVERGENCE_2026-09-10.md`).
-
-`ops/books/retired/` holds retired book specs and **must not move**:
-`IBKRBroker._foreign_book_claims` globs `ops/books/*.json` non-recursively, and
-that location is what keeps a retired book's symbols out of the check.
-
-### 4.4 Halts
-
-**This section is the one place halts are described.**
-
-- `ops/HALT.md` is **global** and blocks every book — a human halt, or a fault
-  nobody can attribute.
-- `ops/HALT_<book>.md` blocks **one** book and reaches the others as a
-  non-blocking preflight warning. `arm()` failures write this one, because arm
-  only refuses on symbols the failing book trades.
-- **Halts are written in prod and are untracked.** `ls ops/HALT*.md` in dev
-  returns nothing while prod is halted. Read both trees: orient HALTS, or
-  `ls ~/prod/QUANTT/ops/HALT*.md`.
-- Clear with attribution, never by deleting the file:
-  `python3 -c "from ops.halt import clear_halt; clear_halt('what was fixed')"`,
-  or `clear_halt(note, book='<book_id>')` for a scoped one — the `book_id` inside
-  the book file (e.g. `phase0_null`), not the file's name. Clearing the global
-  never silently clears a scoped halt. Cleared halts are archived to `ops/halts/`.
-- **`ops/halt.py` resolves paths from the tree it is imported from**, so
-  `clear_halt` must run **in `~/prod/QUANTT`**; run from dev it finds no halt and
-  returns False. Clearing changes what trades, so it is a human action (`!`).
-- Untracked files survive a promotion by accident rather than design — `git
-  checkout` cannot remove them — and nothing tests that.
-
-### 4.5 What counts as evidence
-
-**Only broker-confirmed fills** (`broker_fills.csv`) count toward any live
-statistic. Modelled sessions — ledger rows for sessions that never traded — are
-not evidence. A sizing difference between `orders.csv` and `_order_map.csv` can
-arise with no position error at all (sized against registered capital vs marked
-NAV); never diagnose that gap as a position error without checking which base
-the day's orders were sized on.
-
-### 4.6 Alerting and verification
-
-- `ops/halt.py` escalates across a halt file (read by preflight as a hard gate,
-  survives reboots), a macOS banner and email; each channel is guarded
-  separately so a mail failure cannot prevent the halt being recorded.
-- `ops/verify_session.py` asks the broker after the close whether the day's
-  trades happened — what was transmitted, executed, held, believed and resting
-  — and sends **one message per trading day, pass or fail**, so silence is
-  itself the alert.
-- Whether email delivery is configured on this machine is a measurement, not a
-  fact to carry: `python3 -m ops.doctor --quick`.
-- The read-only monitor: `python3 dashboard/server.py` on :8787, including
-  `/api/sessions` (per-session arm/miss across both log trees).
-
-### 4.7 Setting up, and reference
-
-- Environment, data rebuild, verification: `docs/INFRASTRUCTURE.md` §2.
-- IBKR API client ids (one session per id; a collision evicts silently):
-  `docs/INFRASTRUCTURE.md` §6.2.
-- IB Gateway and IBC: `deploy/ibgw/README.md`.
+- Environment and data rebuild: `docs/INFRASTRUCTURE.md` §2.
 - Credentials live in `config/.env`, which is never printed, copied or read by
   an agent (`CLAUDE.md`, order-path rule 5).
 
@@ -320,7 +243,7 @@ the day's orders were sized on.
 
 ## 5. Standing decisions
 
-Moved **as recorded** from `docs/prompts/00_BRIEF.md` §7 and `CLAUDE.md`, in the
+Moved **as recorded** from `docs/BRIEF.md` §7 and `CLAUDE.md`, in the
 order they were made. Work-order ids in the rows (W14, `gamma/`, P-numbers) name
 prompts that have since closed; the archived copies are under `_archive/docs/prompts/`. Nothing here was re-decided when this document was
 written. A later entry on the same question supersedes an earlier one only
@@ -367,6 +290,27 @@ new documents exposed. Neither changes what trades.
 | Vol target until W6 | **The frozen spec's `vol_target_annual` stays in force** (0.06 when this was decided) **until W6 derives a new value** under the 2026-09-08 "derive it, cap 20%" decision. Until then the two are not in conflict: one is the setting, the other is how its replacement will be chosen. |
 | Retiring the null trader | **Open, not yet actioned.** The 2026-09-08 decision stands; `phase0_null` is still a registered book and is halted in prod. Retiring it needs broker-side work a human runs (W2). |
 
+### Team lead, 2026-09-28 — IBKR retired, move to Alpaca
+
+Answered interactively; recorded in full in
+`results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §2 and §7.
+
+| question | decision |
+|---|---|
+| Broker | **Alpaca paper**, our own choice (not a competition requirement). |
+| IBKR | **Flatten, archive everything, forget it.** The flatten was sent and left unconfirmed by decision. |
+| New system | **Fresh package (`quantt/`), reusing parts.** |
+| Books | **The CEF strategy and the b6 equal-weight credit benchmark.** phase0/null trader, b1/b3/b4/b5 and credit_rv retire. |
+| Accounts | **One Alpaca paper account per book**, $100k each (the default). |
+| Scoring | **Record both**: Alpaca's paper fill is the official record; the closing-auction-print P&L is logged beside it. |
+| Hosting | **Cloud VM.** |
+| Alerting | **Dashboard and logs only** (keeps hardening D3/D4). |
+| Spec | **v7 from day one on Alpaca**, superseding hardening D14. `max_gross_stress` is re-derived on the Alpaca account; `min_trade_usd` and capital re-sized through `/spec-change`. |
+| CEF trial counter | **48 is authoritative**; adopting v7 makes it 49. |
+| Work orders, dashboard | **Archived**; new work orders as needed; a dashboard rebuilt later. `00_BRIEF` stays live as `docs/BRIEF.md`. |
+| Who runs order-path commands | **The agent may, when the team lead asks in the session, after showing the concrete order list and getting a go.** |
+| `CLAUDE.md` / settings | **The agent edits them directly for the migration** (supersedes hardening D15/D18 for this work). |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A
@@ -376,8 +320,8 @@ equity gamma, and that no conditioner times it — C3 clears in sample and fails
 the 2023–26 holdout, and no state under any conditioner at any declared
 threshold has a positive mean outcome. `G7` does not run and the **GAMMA counter
 stays at 0**. The pre-registration (`results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md`)
-records what would reopen it; `python3 -m ops.gamma_status` prints where the
-programme actually stands. The option-pricing library and the fixed order path
+records what would reopen it. (Its status tool, `ops.gamma_status`, was archived
+2026-09-28 with the work orders it read.) The option-pricing library and the fixed order path
 stay, but nothing trades them.
 
 ---
@@ -388,12 +332,12 @@ stay, but nothing trades them.
 |---|---|
 | Hard rules: order path, code, data, research | `CLAUDE.md` |
 | Trial counters and the killed list | `docs/RESEARCH_STATE.md` (counter table and KILLED table are canonical) |
-| Harness rules H1–H15 (`shift(2)`, turnover matching, cost grid, eras, IC, holdouts, H14) | `docs/prompts/00_BRIEF.md` §5, and `/harness` |
+| Harness rules H1–H15 (`shift(2)`, turnover matching, cost grid, eras, IC, holdouts, H14) | `docs/BRIEF.md` §5, and `/harness` |
 | Pre-registration | `/prereg`; shape: `results/cef/PREREG_BAND_2026-09-06.md` |
 | Changing a frozen spec key | `/spec-change` |
 | Dead mechanisms — check before proposing anything | `/graveyard`, and the KILLED table |
 | External claims | `docs/REFERENCES.md` |
-| Work orders and their status | `docs/prompts/README.md`, checked by `python3 -m ops.prompt_status` |
+| Work orders | None live: all archived 2026-09-28 (`_archive/docs/prompts/`). The migration's remaining steps: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` |
 | Which document owns which question | `docs/INDEX.md`, checked by `python3 -m ops.doc_audit` |
 
 ---
@@ -403,3 +347,4 @@ stay, but nothing trades them.
 | date | change | by |
 |---|---|---|
 | 2026-09-13 | Written, replacing six overlapping descriptions of the system. §5 moved verbatim; no decision re-made. | documentation cleanup, for the team lead |
+| 2026-09-28 | §0, §4 rewritten for the IBKR retirement and the move to Alpaca; §5 gains the 2026-09-28 decisions; §2 and §6 repointed. Earlier text (archived): `_archive/docs/SYSTEM_2026-09-28.md`. | Alpaca migration, for the team lead |

@@ -60,7 +60,7 @@ CC_HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 
 
 def deployed(book_path: Path) -> list[str]:
-    from ops.preflight import deployed_tickers
+    from ops.common import deployed_tickers
     return sorted({t for insts in deployed_tickers(book_path).values() for t in insts})
 
 

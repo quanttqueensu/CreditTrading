@@ -1,3 +1,6 @@
+> **ARCHIVED 2026-09-28 — not evidence of current state.** Was `~/prod/QUANTT/ops/HALT_benchmarks_paper.md`.
+> Now owned by: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` (IBKR retired 2026-09-28; this is the prod tree's state that day). Numbers: `python3 -m ops.orient`.
+
 # HALT — benchmarks_paper
 
 `ops/preflight.py` reads this file before every session of **benchmarks_paper** and will not arm live orders for it while this file exists. Other books see it as a WARNING and continue: an arming failure is about the symbols the failing book trades, and one book's bookkeeping must not stop another's strategy. Data collection and logging continue regardless.
