@@ -27,6 +27,10 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/INDEX.md` | manifest | which file owns which question | `ops.doc_audit` (manifest) |
 | `docs/SYSTEM.md` | canonical | what we trade, how it runs, what we know, standing decisions | `ops.doc_audit` (pointers) |
 | `docs/ROADMAP.md` | ledger | every step from here to the Alpaca book in prod, and its status | `ops.doc_audit` (pointers) |
+| `docs/RUNNER.md` | canonical | the Alpaca runner's design: the session, module boundaries, the nine gates | `ops.doc_audit` (pointers) |
+| `docs/RUNBOOK.md` | reference | release, install, arm, disarm and check the laptop prod clone | `ops.doc_audit` (pointers) |
+| `docs/DATA.md` | reference | which data source feeds what (live vs research), the R2 layout | `ops.doc_audit` (pointers) |
+| `.claude/workflows/*.js` | desk | saved multi-agent workflows: research-idea, backtest-request, release-check, daily-ops | — |
 | `docs/RESEARCH_STATE.md` | ledger | trial counters and the killed list | `ops.orient` TRIALS |
 | `docs/BRIEF.md` | reference | the edge's theory, CEF market structure, and harness rules H1–H15 | `ops.doc_audit` (spec id) |
 | `docs/REFERENCES.md` | reference | every external claim and its verification status | — |

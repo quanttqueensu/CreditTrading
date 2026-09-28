@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.quantt.alpaca.cef.session : the CEF book's trading session on Alpaca paper.
+
+  RENDERED by quantt/deploy/install_prod.py from release tag ${TAG}. Do not
+  hand-edit the installed copy: re-run the installer (docs/RUNBOOK.md). The
+  installer re-checks every key below after rendering, so an edit here that
+  changes the command, the schedule or the environment keys fails the install.
+
+  Schedule: 08:30 and 12:00 local, Monday to Friday. Local time is
+  US/Eastern on the prod machine (the installer refuses otherwise). The 12:00
+  run is the retry for a morning whose data was not ready; the runner itself
+  checks the NYSE calendar and refuses a second set for the same auction
+  (docs/RUNNER.md gate 6). launchd runs a missed interval once on wake, so a
+  machine asleep at 08:30 runs this on waking; the runner's clock gate
+  (15:45 ET) is what stops a late wake from trading.
+
+  DRY_RUN is "1" unless the installer was given armed mode. The runner transmits only
+  when DRY_RUN is exactly "0" AND it is armed (docs/RUNNER.md gate 2).
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.quantt.alpaca.cef.session</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>${PYTHON}</string>
+		<string>-m</string>
+		<string>quantt.session</string>
+		<string>run</string>
+		<string>--book</string>
+		<string>cef</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>${PROD_DIR}</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DRY_RUN</key>
+		<string>${DRY_RUN}</string>
+		<key>QUANTT_STATE_DIR</key>
+		<string>${STATE_DIR}</string>
+		<key>QUANTT_ENV_FILE</key>
+		<string>${ENV_FILE}</string>
+		<key>PATH</key>
+		<string>${PATH}</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>${LOG_DIR}/session.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>${LOG_DIR}/session.err.log</string>
+</dict>
+</plist>

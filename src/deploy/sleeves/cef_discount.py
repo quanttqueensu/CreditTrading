@@ -532,10 +532,85 @@ class CEFDiscountSleeve(Sleeve):
         # session does not arm, or an order does not fill, the real position
         # simply sits further from target and the band closes it on a later day
         # rather than the sleeve believing in a book it never got.
+        #
+        # ---- OPENING SESSION: FULL TARGET, BAND SKIPPED ----------------------
+        # Decision (team lead, 2026-09-28, docs/RUNNER.md "Day one (flat
+        # book)"): the FIRST session of a book trades to FULL TARGET, not to the
+        # band edge; the band applies from the second session on.
+        #
+        # WHY. From a flat book the band trades every name only to its EDGE,
+        # i.e. target minus `band_width` toward zero, and names whose target is
+        # inside the band not at all. The edge-shrink is not symmetric across
+        # the long and short sides, so the opening book is NOT dollar-neutral:
+        # measured on the last three panel dates at the time of the decision,
+        # net -0.05 to -0.10 of NAV (docs/RUNNER.md 4.2; v6 on 17 names did the
+        # same). A dollar-neutral book that opens 5-10% net short carries
+        # exactly the credit beta it exists to avoid, and only drifts back as
+        # the band happens to trade. Trading to target once removes that.
+        #
+        # WHERE. The switch replaces ONLY the band: every name goes to its full
+        # target `w` as it stands here -- after normalisation, the vol scalar,
+        # the min-weight re-neutralisation and the group cap -- and the gross /
+        # margin cap below STILL applies, because margin is charged on the
+        # opening book like any other.
+        #
+        # WHO SAYS IT IS THE OPENING SESSION. The runner, through
+        # `MarketState.extras["opening_session"]`. The sleeve does not infer it
+        # from empty holdings: a flat book is also what a failed day, a
+        # manual flatten or a broker read that came back empty looks like, and
+        # silently re-targeting in those cases would move the policy on a
+        # guess. Conversely a runner that sets the flag against a LIVE book has
+        # a bug -- full-target trading of a held book discards the band's
+        # entire cost saving and churns every name -- so that RAISES rather
+        # than trades.
+        #
+        # THE VALUE MUST BE EXACTLY `True` or `False`. Absent or False is the
+        # unchanged path, byte-for-byte (proved by
+        # `src/deploy/tests/test_opening_session.py`). Anything else -- 1,
+        # "true", None, a numpy bool -- raises: a flag that decides whether the
+        # band exists must not be decided by Python truthiness.
+        extras = getattr(market_state, "extras", None) or {}
+        opening = extras.get("opening_session", False)
+        if opening is not True and opening is not False:
+            raise TypeError(
+                f"cef: extras['opening_session'] must be exactly True or False, "
+                f"got {opening!r} ({type(opening).__name__}); refusing to decide "
+                f"whether the band applies from a truthy value")
+        if opening:
+            holds0 = getattr(market_state, "holdings", None) or {}
+            live = []
+            for k, v in holds0.items():
+                try:
+                    q0 = float(v)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        f"cef: opening_session=True but holding {k!r} has "
+                        f"quantity {v!r}; cannot prove the book is flat") from exc
+                if q0 != 0.0:            # NaN != 0.0 too: unmeasurable is not flat
+                    live.append(str(k))
+            live.sort()
+            if live:
+                raise ValueError(
+                    f"cef: opening_session=True but the book already holds "
+                    f"{live}. The opening session trades a FLAT book to full "
+                    f"target; re-targeting a live book past its band is a "
+                    f"runner bug, not a policy. Nothing decided.")
+
         band_w = self._band_width
         band_note = {}
         held_q = {}          # ticker -> signed held qty, for the HOLD targets below
-        if band_w is not None:
+        if band_w is not None and opening:
+            # The book is flat (checked above), so there is no HOLD to express
+            # and `held_q` stays empty; `w` passes through untouched. The NAV
+            # check is kept on this path too: the runner sizes these weights
+            # against the same `sleeve_nav`, and an unknown NAV must refuse on
+            # day one exactly as it refuses on every other day.
+            nav_now = float(extras.get("sleeve_nav", 0.0))
+            if nav_now <= 0:
+                return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                       reason="cef: band on but sleeve NAV unknown")
+                        for t in uni]
+        elif band_w is not None:
             nav_now = float((getattr(market_state, "extras", None) or {})
                             .get("sleeve_nav", 0.0))
             if nav_now <= 0:
@@ -602,6 +677,10 @@ class CEFDiscountSleeve(Sleeve):
             cap_tag += f" gmax={gross_cap:.4f}"
             if gross_scal != 1.0:
                 cap_tag += f"*x{gross_scal:.4f}"
+        # Opening-session targets say so in the log. Appended only when the
+        # flag is True, so absent/False reasons are unchanged byte-for-byte.
+        if opening:
+            cap_tag += " opening-session: full target, band skipped"
 
         out = []
         for tk in uni:

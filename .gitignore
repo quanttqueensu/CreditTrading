@@ -17,3 +17,11 @@ results/**/_cache_*
 
 # macOS
 .DS_Store
+
+# Runtime halt/heartbeat records (ops/halt.py). Written inside the prod clone at
+# run time; untracked so a (cleared) halt never blocks the installer's clean-tree
+# check. The runner reads the halt at run time, so ignoring it here cannot let a
+# standing halt be skipped.
+/ops/HALT*.md
+/ops/halts/
+/ops/heartbeat.json

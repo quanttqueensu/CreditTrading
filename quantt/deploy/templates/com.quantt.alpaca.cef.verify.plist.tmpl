@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.quantt.alpaca.cef.verify : the CEF book's post-close verification.
+
+  RENDERED by quantt/deploy/install_prod.py from release tag ${TAG}. Do not
+  hand-edit the installed copy: re-run the installer (docs/RUNBOOK.md).
+
+  Schedule: 17:30 local (US/Eastern, checked by the installer), Monday to
+  Friday. Reconciles fills from the broker, scores both P&Ls and appends ONE
+  line, PASS or FAIL, to QUANTT_STATE_DIR/verify.log. Read-only against the
+  broker (docs/RUNNER.md), so it carries DRY_RUN only for uniformity: the same
+  value as the session job, so one glance at either plist says whether the
+  book is armed.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.quantt.alpaca.cef.verify</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>${PYTHON}</string>
+		<string>-m</string>
+		<string>quantt.session</string>
+		<string>verify</string>
+		<string>--book</string>
+		<string>cef</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>${PROD_DIR}</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DRY_RUN</key>
+		<string>${DRY_RUN}</string>
+		<key>QUANTT_STATE_DIR</key>
+		<string>${STATE_DIR}</string>
+		<key>QUANTT_ENV_FILE</key>
+		<string>${ENV_FILE}</string>
+		<key>PATH</key>
+		<string>${PATH}</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>30</integer></dict>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>${LOG_DIR}/verify.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>${LOG_DIR}/verify.err.log</string>
+</dict>
+</plist>
