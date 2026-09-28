@@ -376,7 +376,7 @@ def deployed_tickers(book_path) -> dict:
     because that is the exact list the runner will trade -- a spec-key shortcut
     would drift from reality the moment a sleeve computes its universe.
 
-    MOVED HERE 2026-09-28 from `ops/preflight.py`, which was archived with IBKR.
+    MOVED HERE 2026-09-28 from `ops/preflight.py`, which was deleted with IBKR.
     The price/NAV fetchers (`scripts/cef/fetch_daily.py`, `wait_for_nav.py`)
     are kept and need it; the body is unchanged.
     """

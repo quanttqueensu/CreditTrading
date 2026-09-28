@@ -37,7 +37,6 @@ here is not a statement that a document is trustworthy. Read the banner.
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import re
 import sys
@@ -96,38 +95,10 @@ def _read(rel: str) -> str | None:
 
 # -- 1. banners -------------------------------------------------------------
 
-# Six of the original eight moved to _archive/ on 2026-09-13, where
-# `check_archive_wall` requires a stricter banner of every file. What remains
-# here is the one live document that still carries old passages under a
-# warning. RESEARCH_STATE.md was trimmed to its ledger on 2026-09-14 and
-# needs none.
-BANNERED = [
-    "docs/INFRASTRUCTURE.md",
-]
-
-
-def check_banners(rep: Report) -> None:
-    """Every document known to be superseded must warn a reader who does not scroll."""
-    for rel in BANNERED:
-        text = _read(rel)
-        if text is None:
-            rep.add(f"banner:{rel}", GONE, "file does not exist",
-                    "remove it from BANNERED or restore the file")
-            continue
-        head = "\n".join(text.splitlines()[:BANNER_WITHIN])
-        m = BANNER_RE.search(head)
-        if m:
-            line = head[:m.start()].count("\n") + 1
-            rep.add(f"banner:{rel}", OK, f"banner at line {line}")
-        else:
-            rep.add(f"banner:{rel}", DRIFT,
-                    f"no banner in the first {BANNER_WITHIN} lines",
-                    "a superseded document must say so before its body")
-
 
 # -- 2. claims that must match a measured source ----------------------------
 
-SPEC_ID_SCOPE = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INFRASTRUCTURE.md",
+SPEC_ID_SCOPE = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/ROADMAP.md",
                  "docs/REFERENCES.md", "docs/BRIEF.md")
 
 
@@ -165,42 +136,6 @@ def check_spec_id(rep: Report) -> None:
 # RESEARCH_AND_METHODOLOGY.md (a deflated-Sharpe bar quoted against a stale trial
 # count); that document is archived, and the bar is derived live by
 # `python3 -m ops.orient` TRIALS rather than written anywhere.
-
-
-def _opens_ib_socket(path: Path) -> bool:
-    """Does this module import an IB client AT MODULE OR FUNCTION level?
-
-    AST, not grep. `ops/orient.py` mentions `ib_insync` only as a STRING it
-    searches other files for, and a grep counts it as a broker module -- which
-    is how the hand-maintained count in ops/README.md drifted in the first place.
-    """
-    try:
-        tree = ast.parse(path.read_text(errors="replace"))
-    except SyntaxError:
-        return False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            if any(a.name.split(".")[0] in ("ib_async", "ib_insync") for a in node.names):
-                return True
-        elif isinstance(node, ast.ImportFrom):
-            if (node.module or "").split(".")[0] in ("ib_async", "ib_insync"):
-                return True
-    return False
-
-
-def check_ops_broker_modules(rep: Report) -> None:
-    """Which ops modules open an IB socket. Measured, and asserted nowhere.
-
-    This used to police the sentence "There is no broker here" in ops/README.md,
-    which was false and had to be retracted in its own body. That README is
-    archived; the measurement it contradicted is the durable part, so it is
-    reported here for anyone about to run an ops module and wondering whether it
-    can reach the broker.
-    """
-    mods = sorted(p.name for p in (REPO / "ops").glob("*.py") if _opens_ib_socket(p))
-    rep.add("ops_broker", OK,
-            f"{len(mods)} ops module(s) import an IB client: {', '.join(mods)}"
-            if mods else "no ops module imports an IB client")
 
 
 def check_band_width_literals(rep: Report) -> None:
@@ -327,206 +262,6 @@ _KNOWN_DESK_NAMES = {
               "equity-research", "quant-reviewer", "dashboard-designer",
               "ops-watchdog"},
 }
-
-
-# -- the archive wall --------------------------------------------------------
-
-ARCHIVE = "_archive"
-# Exempt from the banner rule: the index itself, and the file that exists only
-# to be searched for.
-ARCHIVE_UNBANNERED = {"_archive/README.md", "_archive/ARCHIVE_WALL_SENTINEL.md"}
-ARCHIVE_BANNER_RE = re.compile(
-    r"^>\s*\*\*ARCHIVED (\d{4}-\d{2}-\d{2}) (?:—|--) not evidence of current "
-    r"state\.\*\*\s*(Was|Snapshot of) `([^`]+)`", re.M)
-# Where live code lives. An import from the archive in any of these puts a
-# superseded module back on a path something runs.
-LIVE_CODE_ROOTS = ("ops", "src", "scripts", "dashboard", ".claude/hooks")
-
-
-def _archive_rows(readme: str) -> set:
-    """Backticked `_archive/...` paths in the index's first column.
-
-    A row may name several paths (a research line's scripts and its results
-    move together and share one "what it is wrong about"), so every backticked
-    archive path in the first cell counts.
-    """
-    rows = set()
-    for line in readme.splitlines():
-        m = re.match(r"^\|([^|]*)\|", line)
-        if m:
-            rows.update(re.findall(r"`(_archive/[^`]+)`", m.group(1)))
-    return rows
-
-
-def _covered(rel: str, rows: set) -> bool:
-    """A file is indexed if its own path, or a directory above it, has a row."""
-    if rel in rows:
-        return True
-    parts = rel.split("/")
-    return any("/".join(parts[:i]) + "/" in rows for i in range(1, len(parts)))
-
-
-def _untracked_in_archive() -> list[str] | None:
-    """Files under _archive/ that git is NOT tracking. None if there is no git.
-
-    The wall is a .gitignore line on a tracked directory, so a file created
-    here is invisible to `git status` and skipped by `git add -A`. Without this
-    a freshly archived document would look committed and exist on one machine.
-    """
-    import subprocess
-    if not (REPO / ".git").exists():
-        return None
-    r = subprocess.run(["git", "ls-files", "--others", "--ignored",
-                        "--exclude-standard", "--", ARCHIVE],
-                       cwd=REPO, capture_output=True, text=True, timeout=30)
-    if r.returncode != 0:
-        raise RuntimeError(f"git ls-files failed: {r.stderr.strip()[:120]}")
-    return [ln for ln in r.stdout.splitlines()
-            if ln.strip() and "__pycache__" not in ln and not ln.endswith(".DS_Store")]
-
-
-# Two archive subtrees are deliberately NOT literal mirrors (2026-09-28):
-# rule 5 of _archive/README.md sends agent-layer files to `claude_layer/` so
-# no `.claude/` directory ever exists in here, and the IBKR prod snapshot came
-# from a tree outside this repo.
-_MIRROR_PREFIXES = (
-    ("claude_layer/", ".claude/"),
-    ("prod_state_2026-09-28/", "~/prod/QUANTT/"),
-)
-
-
-def _mirror_origins(rel: str) -> set:
-    """The `Was` paths a banner at `rel` may truthfully name."""
-    inner = rel[len(ARCHIVE) + 1:]
-    out = {inner}
-    for arch, live in _MIRROR_PREFIXES:
-        if inner.startswith(arch):
-            out.add(live + inner[len(arch):])
-    return out
-
-
-def check_archive_wall(rep: Report) -> None:
-    """The archive is only a wall if every brick is checked.
-
-    WHY. Superseded documents used to sit beside current ones under a banner,
-    and a banner does not stop an agent that found a file by SEARCHING from
-    quoting its body. `/_archive/` in `.gitignore` keeps archived bodies out of
-    ripgrep and out of the ugrep-backed `grep` that Claude Code's shell runs --
-    both skip gitignored paths unless pointed at them. (`.ignore` was tried
-    first: ripgrep reads it, grep -r does not, and walked straight through.)
-    `find`, `ls` and `git grep` still see the folder, so the banner is the
-    second line of defence and is enforced here, together with the ways the
-    wall fails silently:
-
-      * the ignore line goes -> every archived body is searchable again;
-      * a file is archived but never `git add -f`ed -> it exists on one machine;
-      * a nested CLAUDE.md or .claude/ lands in here -> Claude Code auto-loads a
-        superseded rulebook for anyone who opens a path in that subtree;
-      * live code imports from here -> a retired module is back on a run path.
-
-    A banner's `Was` path must be the file's own location with `_archive/`
-    stripped, so a reader can tell where it came from without `git log`. A
-    `Snapshot of` path must still exist in the live tree -- that is what makes
-    it a snapshot of a document that was trimmed, not a move.
-    """
-    root = REPO / ARCHIVE
-    if not root.exists():
-        rep.add("archive:wall", GONE, f"{ARCHIVE}/ does not exist",
-                "the archive wall is part of the document contract; restore it")
-        return
-    ignore = _read(".gitignore") or ""
-    if "/_archive/" not in {ln.strip() for ln in ignore.splitlines()}:
-        rep.add("archive:ignore", DRIFT,
-                ".gitignore does not list /_archive/ -- archived bodies are searchable",
-                "restore the line `/_archive/` in .gitignore")
-    else:
-        rep.add("archive:ignore", OK, ".gitignore walls /_archive/ from rg and grep")
-
-    untracked = _untracked_in_archive()
-    if untracked is None:
-        rep.add("archive:tracked", NOTE, "no .git here; tracking not checked")
-    elif untracked:
-        rep.add("archive:tracked", DRIFT,
-                f"{len(untracked)} file(s) under _archive/ are not in git: "
-                f"{', '.join(untracked[:8])}",
-                "git add -f them -- .gitignore hides new files from git add -A")
-    else:
-        rep.add("archive:tracked", OK, "every file under _archive/ is tracked")
-
-    readme = _read(f"{ARCHIVE}/README.md")
-    if readme is None:
-        rep.add("archive:readme", GONE, f"{ARCHIVE}/README.md does not exist",
-                "the index is what makes an archived file findable on purpose")
-        readme = ""
-    rows = _archive_rows(readme)
-
-    unbannered, misplaced, unindexed, nested = [], [], [], []
-    for p in sorted(root.rglob("*")):
-        rel = p.relative_to(REPO).as_posix()
-        if p.name.lower() == "claude.md" or (p.is_dir() and p.name == ".claude"):
-            nested.append(rel)
-        if p.is_dir():
-            continue
-        if rel not in ARCHIVE_UNBANNERED and not _covered(rel, rows):
-            unindexed.append(rel)
-        if p.suffix != ".md" or rel in ARCHIVE_UNBANNERED:
-            continue
-        head = "\n".join(p.read_text(errors="replace").splitlines()[:BANNER_WITHIN])
-        m = ARCHIVE_BANNER_RE.search(head)
-        if not m:
-            unbannered.append(rel)
-            continue
-        kind, origin = m.group(2), m.group(3)
-        if kind == "Was" and origin not in _mirror_origins(rel):
-            misplaced.append(f"{rel} says Was `{origin}`")
-        elif kind == "Snapshot of" and not (REPO / origin).exists():
-            misplaced.append(f"{rel} is a snapshot of `{origin}`, which does not exist")
-
-    for key, bad, what, fix in (
-        ("archive:nested_claude", nested,
-         "a CLAUDE.md or .claude/ inside the archive would auto-load",
-         "rename a CLAUDE.md snapshot to CLAUDE_md_<date>.md; move agent files "
-         "under _archive/claude_layer/"),
-        ("archive:banners", unbannered,
-         "archived .md with no ARCHIVED banner in the first "
-         f"{BANNER_WITHIN} lines", "add the banner from _archive/README.md rule 3"),
-        ("archive:mirror", misplaced,
-         "banner origin does not match the file's location",
-         "mirror the original path, or correct the banner"),
-        ("archive:index", unindexed,
-         "archived file with no row (or directory row) in _archive/README.md",
-         "add a row saying what it was and what it is wrong about"),
-    ):
-        if bad:
-            rep.add(key, DRIFT, f"{len(bad)} {what}: {', '.join(bad[:8])}"
-                    + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else ""), fix)
-        else:
-            rep.add(key, OK, "none")
-
-    importers = []
-    for top in LIVE_CODE_ROOTS:
-        base = REPO / top
-        if not base.exists():
-            continue
-        for p in base.rglob("*.py"):
-            if ARCHIVE in p.relative_to(REPO).parts:
-                continue
-            try:
-                tree = ast.parse(p.read_text(errors="replace"))
-            except SyntaxError:
-                continue
-            for node in ast.walk(tree):
-                mods = ([a.name for a in node.names] if isinstance(node, ast.Import)
-                        else [node.module or ""] if isinstance(node, ast.ImportFrom)
-                        else [])
-                if any(m.split(".")[0] == ARCHIVE for m in mods):
-                    importers.append(p.relative_to(REPO).as_posix())
-                    break
-    rep.add("archive:imports", DRIFT if importers else OK,
-            (f"live code imports from {ARCHIVE}/: {', '.join(sorted(importers))}"
-             if importers else f"no live module imports from {ARCHIVE}/"),
-            "restore the module to a live path, or stop importing it"
-            if importers else "")
 
 
 # -- the manifest: one owner per question -----------------------------------
@@ -727,7 +462,7 @@ def _pointer_targets(text: str) -> list[tuple[str, str]]:
     return out
 
 
-# Moved here 2026-09-28 from `ops/prompt_status.py`, archived with the work
+# Moved here 2026-09-28 from `ops/prompt_status.py`, deleted with the work
 # orders it indexed. Paths that are written at run time rather than authored:
 # a pointer to one is a pointer to output, not a missing file.
 RUNTIME_ARTEFACTS = (
@@ -769,7 +504,7 @@ def check_pointers(rep: Report) -> None:
     The owner documents replaced prose with pointers, which moves the failure
     mode rather than removing it: a pointer at a file that has moved is a dead
     end that looks authoritative. This applies one resolver to the documents
-    that own questions and to the agent layer, including `_archive/` paths.
+    that own questions and to the agent layer.
     """
     for rel in POINTER_SCOPE + tuple(_agent_layer()):
         text = _read(rel)
@@ -781,54 +516,6 @@ def check_pointers(rep: Report) -> None:
                 (f"{len(dead)} pointer(s) to nothing: {', '.join(dead[:10])}"
                  if dead else "every pointer resolves"),
                 "repoint to where the file went, or drop the pointer" if dead else "")
-
-
-# Files that may never lean on the archive as authority. Work orders are
-# exempt: a prompt legitimately reads an archived study as background.
-CITATION_SCOPE_FILES = ("CLAUDE.md", "README.md", "docs/SYSTEM.md", "docs/INDEX.md",
-                        "docs/RESEARCH_STATE.md", "docs/INFRASTRUCTURE.md",
-                        "docs/REFERENCES.md")
-CITATION_SCOPE_GLOBS = (".claude/**/*.md",)
-# A path to a FILE inside the top-level archive. The lookbehind keeps a nested
-# `<dir>/_archive/` (the pre-2026-09-14 layout) from matching, and
-# `_archive/README.md` is the
-# archive's own index, which is exactly what these files should point at.
-ARCHIVE_CITE_RE = re.compile(r"(?<![\w/])_archive/[\w./-]+\.\w+")
-
-
-def _citation_scope() -> list[str]:
-    out = [f for f in CITATION_SCOPE_FILES if (REPO / f).exists()]
-    for g in CITATION_SCOPE_GLOBS:
-        rx = _glob_re(g)
-        out += [p.relative_to(REPO).as_posix() for p in REPO.rglob("*.md")
-                if rx.match(p.relative_to(REPO).as_posix())]
-    return sorted(set(out))
-
-
-def check_archive_citations(rep: Report) -> None:
-    """An owner document may cite the archive only while SAYING it is archived.
-
-    The failure this prevents is quiet: a rule file or skill that says "see
-    `_archive/docs/PLAN.md` §3" reads exactly like one that cited the same
-    file before it moved, and the reader goes and copies a retired figure. The word
-    "archived" on the same line (or the one either side, for wrapped prose) is
-    what turns a citation into provenance.
-    """
-    bad = []
-    for rel in _citation_scope():
-        lines = (_read(rel) or "").splitlines()
-        for i, line in enumerate(lines):
-            hits = [m.group(0) for m in ARCHIVE_CITE_RE.finditer(line)
-                    if m.group(0) != "_archive/README.md"]
-            if not hits:
-                continue
-            window = " ".join(lines[max(0, i - 1):i + 2]).lower()
-            if "archived" not in window:
-                bad.append(f"{rel}:{i + 1} {hits[0]}")
-    rep.add("archive:citations", DRIFT if bad else OK,
-            (f"{len(bad)} citation(s) of the archive not marked archived: "
-             f"{', '.join(bad[:8])}" if bad else "every archive citation says so"),
-            "say 'archived' beside it, or cite the current owner instead" if bad else "")
 
 
 CODE_DOC_ROOTS = ("ops", "src", "scripts", "dashboard", "config", ".claude/hooks")
@@ -843,7 +530,7 @@ def check_code_doc_pointers(rep: Report) -> None:
     documents constantly, and some of those citations sit in files that cannot
     be touched casually -- the frozen spec needs /spec-change, the live sleeve
     needs a test. A stale pointer there misleads but breaks nothing, so it is a
-    visible backlog rather than a failing gate, with the archive path offered.
+    visible backlog rather than a failing gate.
     """
     stale = []
     for top in CODE_DOC_ROOTS:
@@ -852,7 +539,6 @@ def check_code_doc_pointers(rep: Report) -> None:
             continue
         for p in base.rglob("*"):
             if (not p.is_file() or p.suffix not in CODE_DOC_SUFFIXES
-                    or "_archive" in p.relative_to(REPO).parts
                     or "tests" in p.relative_to(REPO).parts   # fixtures, not citations
                     or "__pycache__" in p.parts):
                 continue
@@ -860,14 +546,13 @@ def check_code_doc_pointers(rep: Report) -> None:
             for m in set(CODE_DOC_RE.findall(text)):
                 if (REPO / m).exists():
                     continue
-                moved = (REPO / ARCHIVE / m).exists()
-                stale.append(f"{p.relative_to(REPO).as_posix()} -> {m}"
-                             + (" (now _archive/)" if moved else " (gone)"))
+                stale.append(f"{p.relative_to(REPO).as_posix()} -> {m} (gone)")
     rep.add("code_doc_pointers", NOTE if stale else OK,
-            (f"{len(stale)} code/config citation(s) of a moved document: "
+            (f"{len(stale)} code/config citation(s) of a document that no longer exists "
+             "(recover it from tag pre-clean-slate if needed): "
              + "; ".join(sorted(stale)[:10]) if stale
-             else "no code or config cites a document that has moved"),
-            "repoint when the file is next edited; the frozen spec via /spec-change"
+             else "no code or config cites a missing document"),
+            "repoint or drop the citation when the file is next edited; the frozen spec via /spec-change"
             if stale else "")
 
 
@@ -927,7 +612,8 @@ def _agent_layer() -> list[str]:
 
 
 def _live_prompts() -> list[str]:
-    """Live work orders and their index. Executed and closed ones are archived."""
+    """Live work orders under docs/prompts/, if that folder is ever re-created.
+    None exist since the 2026-09-28 clean slate."""
     base = REPO / "docs/prompts"
     if not base.exists():
         return []
@@ -942,11 +628,13 @@ def _rotting_extra() -> list[str]:
     return _agent_layer() + _live_prompts()
 
 
-CHECKS = [check_banners, check_spec_id, check_ops_broker_modules,
-          check_band_width_literals, check_results_notes_have_reproducers,
-          check_prereg_shape, check_desk_inventory, check_archive_wall,
-          check_manifest, check_entry_points, check_pointers,
-          check_archive_citations, check_code_doc_pointers, check_rotting_figures]
+# The archive-wall, archive-citation, banner and IB-socket checks were removed
+# on 2026-09-28 with the clean slate: there is no `_archive/` and no IBKR code
+# left to police. They are at tag `pre-clean-slate`.
+CHECKS = [check_spec_id, check_band_width_literals,
+          check_results_notes_have_reproducers, check_prereg_shape,
+          check_desk_inventory, check_manifest, check_entry_points,
+          check_pointers, check_code_doc_pointers, check_rotting_figures]
 
 
 def run() -> Report:

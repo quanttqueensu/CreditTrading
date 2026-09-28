@@ -5,9 +5,9 @@ to **Alpaca paper** (team lead, 2026-09-28): one paper account per book, prod on
 cloud VM, MOC orders on a schedule. Team lead: Simon Jarvis. Paper indefinitely —
 a competition track record, judged on absolute return under a vol cap.
 
-**Right now nothing trades.** IBKR was retired on 2026-09-28 and its code is in
-`_archive/`; the Alpaca system is being built in `quantt/`. The plan, the
-decisions and what is left: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md`.
+**Right now nothing trades.** IBKR was retired on 2026-09-28 and the repo was cut
+to a clean slate the same day; the Alpaca system is being built in `quantt/`. **The
+plan, step by step, is `docs/ROADMAP.md`.**
 
 **This file holds the rules, which do not rot. It holds no figures about the
 book, which do.** Start every session with:
@@ -27,11 +27,11 @@ Read `docs/BRIEF.md` before any research.
 | trial counters, D1–D7, what is dead | `docs/RESEARCH_STATE.md` |
 | whether a document still says true things | `python3 -m ops.doc_audit` |
 
-**`_archive/` is the record of what we did, never evidence of what is true.**
-It is tracked but gitignored, so `rg` and `grep -r` skip it unless pointed at it;
-`find` and `git grep` do not, so every file there opens with an ARCHIVED banner.
-Cite it as provenance only, never as authority; `git add -f` new files; never
-create a `CLAUDE.md` inside it. The rules: `_archive/README.md`.
+**There is no archive.** Everything from before 2026-09-28 — the IBKR system, the
+research notes, the old research families — lives only in git at the tag
+`pre-clean-slate` (`docs/HISTORY.md` says what was there and how to recover it).
+It is provenance, never evidence of what is true now. Do not rebuild an `pre-clean-slate:_archive/`
+folder: delete what is dead, and let git keep it.
 
 ---
 
@@ -75,7 +75,7 @@ that cannot be undone.
 - **The frozen spec is the only authority on a live parameter.** Read it (through
   `scripts/cef/spec.py`); never write the literal. Scripts once baselined against
   a band width the book had left, and nothing errored.
-- **Any monitor is read-only.** The IBKR-era dashboard is archived; the team
+- **Any monitor is read-only.** The IBKR-era dashboard is deleted; the team
   lead will have a new one built later. No code path from a monitor transmits an
   order.
 - **Docstrings explain WHY.** Most of this codebase's knowledge, especially its
@@ -170,9 +170,10 @@ rules when you open matching files.
 
 **There is no prod right now.** The IBKR prod worktree (`~/prod/QUANTT`) and its
 launchd jobs were retired on 2026-09-28; the jobs are unloaded and the tree's
-state is in `_archive/prod_state_2026-09-28/`. The Alpaca prod will run on a cloud
-VM (team lead, 2026-09-28) and does not exist yet. `ibkr-final` tags the last
-IBKR-era commit.
+state is at tag `pre-clean-slate` (`pre-clean-slate:_archive/prod_state_2026-09-28/`). The Alpaca
+prod will run on a cloud VM (team lead, 2026-09-28) and does not exist yet; its
+rule is that it holds this repository at a tag and nothing else
+(`docs/ROADMAP.md` phase 6). `ibkr-final` tags the last IBKR-era commit.
 
 ## Landmines
 
@@ -198,14 +199,14 @@ IBKR-era commit.
 9. **The live sleeve decides on `data/`.** A research script that rewrites a
    panel there rewrites what the book trades on. Write research output elsewhere.
 10. **Use `ib_async`, never bare `ib_insync`**, if IBKR code is ever revived from
-    the archive — the latter hangs forever on Python 3.12+. orient HYGIENE
-    counts unguarded imports by AST.
+    tag `pre-clean-slate` — the latter hangs forever on Python 3.12+. orient
+    HYGIENE counts unguarded imports by AST.
 
 ## Tests
 
 **Never quote a test count; run `python3 -m pytest`.** A green suite says little
 about the code that places orders. `pytest.ini` scopes collection because a
-script that opened a live broker connection at import (now archived) was once
+script that opened a live broker connection at import (since deleted) was once
 collected by a bare run. A directory is safe to add to `testpaths` only if
 nothing it imports opens a socket at import time. The root `conftest.py` blocks
 every network connection during tests (`ops/netguard.py`).
@@ -216,8 +217,8 @@ every network connection during tests (`ops/netguard.py`).
 SessionStart banner, a post-edit check and the status line; nothing blocks.
 
 Skills: `/morning-brief`, `/next-task`, `/graveyard`, `/harness`, `/repro`,
-`/prereg`, `/spec-change`. (The IBKR-run skills — book-status, preflight,
-incident, fill-audit, dashboard-ui — are in `_archive/claude_layer/`.)
+`/prereg`, `/spec-change`. (The IBKR-run skills were deleted 2026-09-28; they are
+at tag `pre-clean-slate` under `pre-clean-slate:_archive/claude_layer/`.)
 
 Subagents: `alpha-finder`, `beta-detector`, `unique-angle-researcher`,
 `execution-trader`, `portfolio-manager`, `market-structure-analyst`,

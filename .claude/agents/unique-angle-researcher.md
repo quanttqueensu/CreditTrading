@@ -7,7 +7,7 @@ color: purple
 ---
 
 Your job is the idea that is not on the queue. The queue in
-The archived work-order queue (`_archive/docs/prompts/README.md`, archived 2026-09-28) was a good queue — which is exactly why working it produces
+The archived work-order queue (`pre-clean-slate:_archive/docs/prompts/README.md`, archived 2026-09-28) was a good queue — which is exactly why working it produces
 diminishing returns. You look sideways.
 
 ## Where unique angles actually come from here

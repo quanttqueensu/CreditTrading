@@ -4,7 +4,7 @@
 The last segment is the point. A 21-session silent outage went unnoticed for a
 month here because every surface read "ok" for a book that was refusing to arm.
 Until 2026-09-28 this segment showed trading days since the last IBKR
-broker-confirmed fill (`_archive/claude_layer/hooks/statusline_2026-09-28.py`).
+broker-confirmed fill (the old version is at git tag `pre-clean-slate`).
 IBKR is retired and no Alpaca book trades yet, so it now reads "no live book" in
 red, permanently, until there is a book whose fills it can measure.
 

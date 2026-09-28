@@ -1,16 +1,10 @@
-# Credentials — never commit. See docs/INFRASTRUCTURE.md for the required keys.
-# The glob matters: ops/switch_broker.py writes config/.env.switch_broker.bak,
-# which is a byte copy of config/.env and therefore carries the same secrets.
+# Credentials — never commit. Alpaca keys: ALPACA_<BOOK>_KEY_ID / _SECRET_KEY.
 config/.env
 config/.env.*
 .env
-deploy/ibgw/.env
 
-# Market data (3.8 GB). Rebuilt with the scripts in scripts/fetch/.
-# See docs/INFRASTRUCTURE.md section "Rebuilding the data folder".
-# LEADING SLASH IS LOAD-BEARING (fixed 2026-09-10): a bare `data/` also
-# matched src/data/, silently untracking r2.py and __init__.py, and would
-# swallow any future src/**/data/ module the same way.
+# Market data (gigabytes). Rebuilt by the fetchers in scripts/cef/.
+# LEADING SLASH IS LOAD-BEARING: a bare `data/` would also match any src/**/data/.
 /data/
 
 # Caches and scratch
@@ -19,47 +13,7 @@ deploy/ibgw/.env
 .pytest_cache/
 results/**/_cache_*
 .ipynb_checkpoints/
+*.log
 
 # macOS
 .DS_Store
-
-# Live broker state — machine-specific, regenerated each session
-ops/books/**/_desync/
-ops/logs/
-*.log
-
-# Live ledgers and heartbeat — STATE, not code.
-# Tracking these made prod's tree permanently dirty (every session writes them),
-# so ops/promote.sh had to exclude them by pathspec and check out with --merge
-# just to get past its own "clean tree" gate. A governance gate that has to be
-# weakened to pass is not a gate. They come out of git; ops/backup_state.sh is
-# what replaces the commit history as their off-machine copy, which is why
-# untracking is gated on that job actually being SCHEDULED — until then git is
-# their only backup.
-# Untrack (human runs this, in the DEV tree, then tag and promote — see below):
-#   git rm -r --cached ops/books/cef_live ops/books/benchmarks_live \
-#                      ops/books/phase0_live ops/heartbeat.json
-# NOT in the prod worktree: prod is detached at a tag, so a commit there is
-# dangling. Untrack in dev, commit, tag, promote — prod then checks out a tree
-# in which they were never tracked.
-ops/books/cef_live/
-ops/books/benchmarks_live/
-ops/books/phase0_live/
-ops/heartbeat.json
-
-# Rendered launchd plists — machine-specific absolute paths, so committing them
-# is how ops/schedule/rendered/*.plist came to point at a repo path that has not
-# existed since 2026-08-31 while still looking authoritative (CLAUDE.md landmine
-# #2). The TEMPLATE is the tracked artifact; the render is local output.
-ops/schedule/rendered_backup/
-
-# The agent search wall (2026-09-13). See _archive/README.md.
-# _archive/ is TRACKED -- this line does not untrack anything already committed,
-# the same shape as the live ledgers above. What it does is keep archived bodies
-# out of search: ripgrep and the `grep` Claude Code's shell runs (ugrep with
-# --ignore-files) both skip gitignored paths unless pointed at them, so a search
-# for a phrase lands on the current document, not a superseded one. `.ignore`
-# was tried first and only ripgrep reads it; grep -r walked straight through.
-# The price: a NEW file here needs `git add -f`, and ops.doc_audit fails on any
-# file under _archive/ that git is not tracking, so none is silently left behind.
-/_archive/

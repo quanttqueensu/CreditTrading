@@ -41,7 +41,7 @@ into the established column because it has been repeated a few times.
    snapshotted one afternoon, a variance decomposition on a panel that ends six
    weeks ago — several figures in these documents have already gone stale. Date
    them so the reader can tell.
-3. **Record negative results against yourself.** The archived `_archive/docs/PLAN.md` §0.3 records a claim
+3. **Record negative results against yourself.** The archived `pre-clean-slate:_archive/docs/PLAN.md` §0.3 records a claim
    its own author made and then measured to be false. Do that. The graveyard is the
    most valuable artefact this project has.
 4. **No decision rule may key on a number written in a document** (H14). If a
@@ -69,7 +69,7 @@ short version:
 | `docs/BRIEF.md` | the theory, market structure and harness rules every prompt opens with |
 | `docs/REFERENCES.md` | every external claim, with a verification status |
 | `results/<family>/` | dated findings notes and pre-registrations |
-| `_archive/` | superseded documents — provenance, never authority (`_archive/README.md`) |
+| `pre-clean-slate:_archive/` | superseded documents — provenance, never authority (`pre-clean-slate:_archive/README.md`) |
 
 **Before writing a fact into a document, find its owner in the index and link to
 it.** A second copy is how this repo came to hold four different arm rates.

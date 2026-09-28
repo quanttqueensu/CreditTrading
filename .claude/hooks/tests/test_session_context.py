@@ -5,7 +5,8 @@ WHY THIS FILE EXISTS
 On 2026-09-13 six documents each presented themselves as the place to start, and
 an agent that began from any of them read figures that had been wrong for days.
 The fix gave every question an owner -- `ops.orient` for numbers, `docs/SYSTEM.md`
-for the system -- and put superseded documents in `_archive/`. The banner is the
+for the system -- and, since 2026-09-28, git tag `pre-clean-slate` for anything
+older (`docs/HISTORY.md`). The banner is the
 one thing every session reads before any document, so that is where the pointer
 has to be, and a refactor of the banner must not quietly drop it.
 """
@@ -25,14 +26,15 @@ def _load():
     return mod
 
 
-def test_banner_points_at_orient_system_and_the_archive(monkeypatch, capsys):
+def test_banner_points_at_orient_system_roadmap_and_history(monkeypatch, capsys):
     mod = _load()
     monkeypatch.setattr(mod, "collect", lambda: {})
     assert mod.main() == 0
     out = capsys.readouterr().out
     assert "python3 -m ops.orient" in out
     assert "docs/SYSTEM.md" in out
-    assert "_archive/" in out
+    assert "docs/ROADMAP.md" in out
+    assert "pre-clean-slate" in out
 
 
 def test_pointer_survives_any_state(monkeypatch, capsys):

@@ -52,7 +52,7 @@ PY
 python3 -m ops.orient --no-tests 2>/dev/null | sed -n '/^ALPACA/,/^$/p'
 ```
 
-The IBKR preflight gate is archived (`_archive/ops/preflight.py`); the Alpaca
+The IBKR preflight gate was deleted (`pre-clean-slate:_archive/ops/preflight.py`); the Alpaca
 runner will need its own.
 
 ---

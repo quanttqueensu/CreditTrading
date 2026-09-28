@@ -2,8 +2,6 @@
 paths:
   - "scripts/**"
   - "src/backtest/**"
-  - "src/analysis/**"
-  - "src/strategies/**"
 ---
 
 # The research harness — H1 to H15
@@ -25,7 +23,7 @@ res    = evaluate(H, R)         # applies H.shift(2)
 **H1. Execution convention is `shift(2)`.** Decide at *t*, MOC fill at *t+1*, earn
 the *t+2* return. `validate.py` once used `shift(1)` — entering at day *t*'s close
 on day *t*'s NAV, which publishes after that close. What the correction cost is
-measured in `results/cef/EXECUTION_CONVENTION_2026-09-10.md`.
+measured in `pre-clean-slate:results/cef/EXECUTION_CONVENTION_2026-09-10.md`.
 
 **H2. Turnover-matched comparisons only.** Find the band width or cost coefficient
 that matches the reference's turn/yr within 5%, and compare there.

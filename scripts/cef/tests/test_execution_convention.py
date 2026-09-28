@@ -113,7 +113,7 @@ def test_signal_predicting_t_plus_1_is_not_captured():
         "return is unreachable: it requires trading at t's close on t's NAV, "
         "which publishes after that close. The execution lag has regressed to "
         "shift(1) -- see results/cef/EXECUTION_CONVENTION_2026-09-10.md, and the "
-        "2026-07-31 measurement in the archived _archive/docs/RESEARCH_STATE_2026-09-14.md")
+        "2026-07-31 measurement at git tag pre-clean-slate, _archive/docs/RESEARCH_STATE_2026-09-14.md")
 
 
 def test_guard_fires_if_the_lag_is_changed(monkeypatch):

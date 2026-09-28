@@ -4,8 +4,8 @@ status line.
 
 REWRITTEN 2026-09-28. Until then this read the IBKR prod tree: broker-confirmed
 fills, halts, heartbeats, the shadow ledger. IBKR was retired that day
-(results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md) and the IBKR reader is at
-`_archive/claude_layer/hooks/book_state_2026-09-28.py`.
+and the IBKR reader is at git tag `pre-clean-slate`
+(`_archive/claude_layer/hooks/book_state_2026-09-28.py`).
 
 WHAT IT PRESERVES. The old reader existed because a 21-session outage went
 unnoticed while every surface read "ok". The property that matters is that

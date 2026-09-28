@@ -21,12 +21,12 @@ at "about 2%/yr" measured **−0.01%/yr**.
 
 | claim | script |
 |---|---|
-| every number in the archived `_archive/docs/PLAN.md` | `scripts/cef/plan_diagnostics.py` |
+| every number in the archived `pre-clean-slate:_archive/docs/PLAN.md` | `scripts/cef/plan_diagnostics.py` |
 | the trading-policy frontier (band vs calendar, all cost columns) | `scripts/cef/band_frontier.py` |
-| Σ, Σ⁻¹α, effective breadth `BR_eff` | `scripts/cef/covariance_construction.py` |
-| borrow drag on net Sharpe | `scripts/cef/borrow_impact.py` |
-| where availability binds, capacity | `scripts/cef/borrow_capacity.py` |
-| the joint cost-aware optimiser | `scripts/cef/joint_cost_optimiser.py` |
+| Σ, Σ⁻¹α, effective breadth `BR_eff` | `pre-clean-slate:scripts/cef/covariance_construction.py` |
+| borrow drag on net Sharpe | `pre-clean-slate:scripts/cef/borrow_impact.py` |
+| where availability binds, capacity | `pre-clean-slate:scripts/cef/borrow_capacity.py` |
+| the joint cost-aware optimiser | `pre-clean-slate:scripts/cef/joint_cost_optimiser.py` |
 | the original backtest (the retired calendar policy) | `scripts/cef/validate.py --trials <N>` (`--trials` is required, no default — read N off the **CEF** row of `docs/RESEARCH_STATE.md`'s counter table every time; the deflated-Sharpe verdict depends on it) |
 
 ## Panel freshness — check this first

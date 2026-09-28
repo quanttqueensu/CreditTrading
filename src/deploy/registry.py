@@ -1,85 +1,23 @@
 """alloc_type -> Sleeve-class map + per-type spec validation.
 
-Two responsibilities, both framework-level (they do NOT depend on the four quant
-sleeves being implemented yet):
-
-  * `validate_spec(spec)` — structural accept/reject of a frozen spec for any
-    allowed `allocation.type`. `ops.common.load_spec` delegates here for every
-    non-`static_weights` type. This runs today, before any sleeve exists.
+  * `validate_spec(spec)` — structural accept/reject of a frozen spec.
+    `ops.common.load_spec` delegates here.
   * `build_sleeve(spec, capital)` — instantiate the concrete Sleeve. Sleeve
-    modules register themselves with `@register`; until a sleeve lands,
-    `build_sleeve` raises a clear "not yet implemented" error rather than a
-    KeyError. The framework ships only `StaticWeightsSleeve` registered.
+    modules register themselves with `@register`.
 
-`is_weight_expressible(alloc_type)` is True ONLY for `static_weights` — the sole
-type the standalone `ops/daily_run.py` path can serve (EOM/FOMC/etc. are
-calendar-timed and carry the §1 spec shape; they run under PortfolioOrchestrator).
+TRIMMED 2026-09-28 (clean slate before the Alpaca build). Only the two types the
+Alpaca system runs remain: `cef_discount` (the strategy) and `static_weights`
+(the b6 benchmark). The credit_rv, null_trader, forced-flow tracker and
+declared-but-unimplemented types went with their sleeves; the full file is at
+tag `pre-clean-slate`.
 """
 
-# Forced-flow ZERO-CAPITAL paper trackers (build B1, 2026-07-26 cycle).
-# Additive widen, same pattern as the FUTURES kind widen: no existing type's
-# validation or error strings change. Trackers carry capital_usd == 0 and an
-# all-FLAT target book by construction (src/deploy/v2/ff_sleeves/); they are
-# NOT weight-expressible and never run on the standalone ops path.
-FF_TRACKER_ALLOC_TYPES = {"ff_t1_seasonal_tracker", "ff_t2_firesale_tracker",
-                          "ff_t3_downgrade_tracker",
-                          # cycle-2 close 2026-07-26 (ADDITIVE widen): M3
-                          # month-end MOC residue on STRICT counts, zero cap
-                          "ff_t4_m3_moc_strict_tracker"}
-
-# Credit ETF relative value (2026-07-30, ADDITIVE widen). A long/short,
-# factor-neutral, weight-expressed sleeve; see src/deploy/sleeves/credit_rv.py.
-# No existing type's validation or error strings change.
-CREDIT_RV_ALLOC_TYPE = "credit_rv_statarb"
-
-# Phase 0 control experiment (workflow §9). A random-signal trader at the real
-# strategy's cadence and size, used to prove the fill/P&L path does not flatter
-# results. Registered like any sleeve so it runs through the IDENTICAL code path
-# — that is the entire point of it.
-NULL_TRADER_ALLOC_TYPE = "null_trader"
 CEF_DISCOUNT_ALLOC_TYPE = "cef_discount"
 
-# DECLARED BUT NOT IMPLEMENTED (audited 2026-09-10).
-#
-# Each of these validates happily and then raises at run time, because no Sleeve
-# subclass registers under it. That is the worst ordering: a book spec passes
-# every check the governance path applies, and fails in the session instead.
-#
-# W0 Part C's rule decides what to do with each: *unused scaffolding with a
-# dated owner is not dead code; unused scaffolding with no owner is.* So each
-# entry below either names the prompt that will build it, or is a fossil.
-#
-# They are kept rather than deleted because deleting an alloc type is not free:
-# `register()` raises on an unknown type, so a half-built sleeve on a branch
-# stops importing. Instead `validate_spec` now refuses them EARLY, with a message
-# saying which case applies -- the gap becomes visible at spec-validation time
-# instead of mid-session.
-UNIMPLEMENTED_ALLOC_TYPES = {
-    # Owned: gamma/G5 needs a short-vol sleeve and gamma/G4 pins its ledger.
-    "short_vol_straddle":
-        "planned -- docs/prompts/gamma/G5 builds the sleeve, G4 its ledger",
-    # Owned: W0 Part B names it; no builder prompt yet.
-    "duration_hedged_overlay":
-        "declared, no builder prompt -- named only in docs/prompts/W0 Part B",
-    # Fossils: no active prompt names any of these, and the package the four
-    # FF trackers lived in (src/deploy/v2/ff_sleeves/) no longer exists.
-    "eom_duration": "FOSSIL -- no owner, no module, no active prompt",
-    "fomc_event": "FOSSIL -- no owner, no module, no active prompt",
-    "ff_t1_seasonal_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
-    "ff_t2_firesale_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
-    "ff_t3_downgrade_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
-    "ff_t4_m3_moc_strict_tracker": "FOSSIL -- src/deploy/v2/ff_sleeves/ is gone",
-}
-
-ALLOWED_ALLOC_TYPES = {"static_weights", "eom_duration", "fomc_event",
-                       "short_vol_straddle", "duration_hedged_overlay",
-                       CREDIT_RV_ALLOC_TYPE, NULL_TRADER_ALLOC_TYPE,
-                       CEF_DISCOUNT_ALLOC_TYPE} \
-                      | FF_TRACKER_ALLOC_TYPES
+ALLOWED_ALLOC_TYPES = {"static_weights", CEF_DISCOUNT_ALLOC_TYPE}
 
 WEIGHT_EXPRESSIBLE = {"static_weights"}
 
-# Populated by @register on each concrete Sleeve subclass.
 _REGISTRY = {}
 
 
@@ -138,15 +76,6 @@ def _validate_common(spec):
     t = _require(alloc, "type", "allocation")
     if t not in ALLOWED_ALLOC_TYPES:
         raise ValueError(f"unsupported allocation type {t!r}")
-    # Fail HERE, not mid-session. An alloc type with no registered Sleeve class
-    # used to pass every governance check and then raise when the orchestrator
-    # tried to build it -- a book spec that looks approved and is not runnable.
-    # See UNIMPLEMENTED_ALLOC_TYPES for which case each one is.
-    if t in UNIMPLEMENTED_ALLOC_TYPES:
-        raise ValueError(
-            f"allocation type {t!r} is declared but NOT IMPLEMENTED: "
-            f"{UNIMPLEMENTED_ALLOC_TYPES[t]}. No Sleeve class registers under "
-            "it, so a book naming it would validate and then fail in-session.")
     _validate_capital(spec)
     return t
 
@@ -192,120 +121,9 @@ def _validate_cef_discount(spec):
                          "cannot assume it can trade names that do not trade")
 
 
-def _validate_frozen_and_risk(spec):
-    _require_dict(spec, "frozen")
-    _require_dict(spec, "risk")
-
-
-def _validate_eom(spec):
-    _validate_frozen_and_risk(spec)
-
-
-def _validate_fomc(spec):
-    _validate_frozen_and_risk(spec)
-
-
-def _validate_short_vol(spec):
-    _validate_frozen_and_risk(spec)
-
-
-def _validate_overlay(spec):
-    _validate_frozen_and_risk(spec)
-    frozen = spec["frozen"]
-    win = frozen.get("rate_beta_window_days", frozen.get("rate_beta_window"))
-    if win is not None and int(win) <= 0:
-        raise ValueError("duration_hedged_overlay rate_beta_window must be positive")
-
-
-def _validate_ff_tracker(spec):
-    """A forced-flow paper tracker MUST carry zero capital and the tracker
-    status — the structural guarantee that the 2026-07 cycle deploys nothing
-    (STRATEGY_SPEC.md: deployed set is EMPTY; trackers are measurement-only)."""
-    _validate_frozen_and_risk(spec)
-    cap = float(spec.get("capital_usd", spec.get("book_usd", 0.0)) or 0.0)
-    if cap != 0.0:
-        raise ValueError(
-            f"forced-flow paper tracker specs must carry capital_usd == 0 "
-            f"(got {cap:.0f}). The 2026-07-26 assembly deployed ZERO capital; "
-            "promotion requires a fresh pre-registration, not a spec edit.")
-    status = str(spec.get("status", ""))
-    if status != "PAPER_TRACKER_ZERO_CAPITAL":
-        raise ValueError(
-            f"forced-flow tracker status must be 'PAPER_TRACKER_ZERO_CAPITAL' "
-            f"(got {status!r}) — use src.deploy.lib.ff_sleeves.load_tracker_spec "
-            "to wrap the governance draft JSON.")
-
-
-def _validate_credit_rv(spec):
-    """Structural check for the credit RV sleeve.
-
-    The two things worth failing loudly on are the ones that would silently turn
-    this into a different strategy than the one that was tested: a signal built
-    on the wrong price, and an unbounded gross.
-    """
-    _validate_frozen_and_risk(spec)
-    f = spec.get("frozen", {})
-
-    uni = f.get("universe")
-    if not isinstance(uni, list) or len(uni) < 6:
-        raise ValueError(
-            f"credit_rv frozen.universe must be a list of >=6 tickers "
-            f"(got {uni!r}). Below that the factor neutralisation has fewer "
-            "names than factors and the book stops being neutral.")
-
-    src = str(f.get("signal_price", ""))
-    if src != "hl_mid":
-        raise ValueError(
-            f"credit_rv frozen.signal_price must be 'hl_mid' (got {src!r}). "
-            "Phase 0 (FINDINGS.md §8e) showed a CLOSE-built signal scores "
-            "Sharpe -0.41 against mid returns — it predicts its own bid-ask "
-            "bounce, not fair value. The close is not an allowed signal price.")
-
-    gl = float(f.get("gross_leverage", 0.0))
-    if not (0.0 < gl <= 4.0):
-        raise ValueError(
-            f"credit_rv frozen.gross_leverage must be in (0, 4] (got {gl}). "
-            "The measured Sharpe degrades with leverage; an unbounded gross "
-            "buys drawdown, not return.")
-
-    sm = int(f.get("smooth", 0))
-    if sm < 1:
-        raise ValueError(
-            f"credit_rv frozen.smooth must be >=1 (got {sm}). Smoothing is the "
-            "only turnover control this sleeve has; it is not optional.")
-
-
-def _validate_null_trader(spec):
-    """The null trader must be recognisable as a control, never as a strategy."""
-    _validate_frozen_and_risk(spec)
-    f = spec.get("frozen", {})
-    uni = f.get("universe")
-    if not isinstance(uni, list) or len(uni) < 2:
-        raise ValueError(f"null_trader frozen.universe must list >=2 tickers (got {uni!r})")
-    if "seed" not in f:
-        raise ValueError(
-            "null_trader frozen.seed is required — the random book must be "
-            "reproducible from the spec (workflow §1.4), not drawn afresh per run.")
-    gl = float(f.get("gross_leverage", 0.0))
-    if not (0.0 < gl <= 2.0):
-        raise ValueError(
-            f"null_trader frozen.gross_leverage must be in (0, 2] (got {gl}). "
-            "It exists to measure costs, not to take risk.")
-
-
 _TYPE_VALIDATORS = {
     CEF_DISCOUNT_ALLOC_TYPE: _validate_cef_discount,
     "static_weights": _validate_static_weights,
-    CREDIT_RV_ALLOC_TYPE: _validate_credit_rv,
-    NULL_TRADER_ALLOC_TYPE: _validate_null_trader,
-    "eom_duration": _validate_eom,
-    "fomc_event": _validate_fomc,
-    "short_vol_straddle": _validate_short_vol,
-    "duration_hedged_overlay": _validate_overlay,
-    "ff_t1_seasonal_tracker": _validate_ff_tracker,
-    "ff_t2_firesale_tracker": _validate_ff_tracker,
-    "ff_t3_downgrade_tracker": _validate_ff_tracker,
-    "ff_t4_m3_moc_strict_tracker": _validate_ff_tracker,
 }
 
 
@@ -316,28 +134,21 @@ def validate_spec(spec) -> None:
     _TYPE_VALIDATORS[t](spec)
 
 
+
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
 
 def build_sleeve(spec, capital_usd):
-    """Instantiate the Sleeve for this spec. Validates first."""
+    """Instantiate the Sleeve for this spec. Validates first. The import is
+    not wrapped: a sleeve module that fails to import must fail loudly here,
+    not degrade into a misleading "not implemented" message."""
     validate_spec(spec)
     t = spec["allocation"]["type"]
-    # Trigger self-registration of the shipped sleeves without a hard dependency
-    # on the four quant sleeves existing yet.
-    try:
-        from . import sleeves  # noqa: F401  (imports register the built sleeves)
-    except Exception:
-        pass
-    try:
-        from .v2 import ff_sleeves  # noqa: F401  (registers the FF paper trackers)
-    except Exception:
-        pass
+    from . import sleeves  # noqa: F401  (imports register the built sleeves)
     cls = _REGISTRY.get(t)
     if cls is None:
         raise NotImplementedError(
-            f"allocation type {t!r} is allowed and its spec validates, but the "
-            f"sleeve class is not implemented yet (next build phase). Registered "
-            f"today: {sorted(_REGISTRY)}.")
+            f"allocation type {t!r} validates but no sleeve class registers "
+            f"under it. Registered: {sorted(_REGISTRY)}.")
     return cls(spec, capital_usd)

@@ -6,7 +6,7 @@ SessionStart. Deliberately a few lines: this cost is paid on every session.
 
 REWRITTEN 2026-09-28 for the Alpaca migration. The IBKR-era banner (last
 broker-confirmed fill, halts, heartbeats) is at
-`_archive/claude_layer/hooks/session_context_2026-09-28.py`. Its one principle
+at git tag `pre-clean-slate`. Its one principle
 stands: say plainly when nothing is trading, rather than printing nothing.
 """
 from __future__ import annotations
@@ -23,7 +23,8 @@ except Exception:
 
 
 POINTER = ("  Numbers: python3 -m ops.orient · what the system is and has decided: "
-           "docs/SYSTEM.md · _archive/ is history, never current state.")
+           "docs/SYSTEM.md · the plan to prod: docs/ROADMAP.md · anything older is "
+           "git tag pre-clean-slate (docs/HISTORY.md), never current state.")
 
 
 def main() -> int:
@@ -36,7 +37,6 @@ def main() -> int:
     if not s.get("live_book"):
         out.append("  NO LIVE BOOK. IBKR retired 2026-09-28; the Alpaca system "
                    "(quantt/) is being built. Nothing trades.")
-        out.append("  Plan and steps: results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md")
     probes = s.get("probes") or {}
     if probes:
         out.append("  Alpaca probe snapshots: " + ", ".join(

@@ -32,7 +32,7 @@ neutrality was measured and it costs gross Sharpe 0.97 → 0.82 — so the answe
 **2. The vol target is a small fraction of Kelly.** Full Kelly on a net Sharpe of
 0.7 is a 70% vol target; half-Kelly 35%. The value the sleeve reads is orient SPEC
 `vol_target_annual`; as measured 2026-09-06 [S] (the archived
-`_archive/docs/SYSTEM_AND_STRATEGY.md` §6.2) the scalar averaged 1.50, pinned at its
+`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` §6.2) the scalar averaged 1.50, pinned at its
 cap on about 5% of days, and realised below target — re-measure with
 `python3 scripts/cef/plan_diagnostics.py` (volscalar). Reg T caps gross at 2×;
 Portfolio Margin reaches ~10× on a hedged book. **Doubling the vol target doubles

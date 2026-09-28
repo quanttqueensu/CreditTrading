@@ -97,7 +97,7 @@ class TestIbInsyncClassifier:
 
     def test_matches_the_live_tree(self):
         """Against the real repo. Two legacy scripts imported bare `ib_insync`
-        until 2026-09-28, when both were archived with IBKR. Zero now: any
+        until 2026-09-28, when both were deleted with IBKR. Zero now: any
         new one is a regression, not a legacy."""
         assert orient._unguarded_ib_insync() == []
 
@@ -204,8 +204,8 @@ class TestSpecFields:
 class TestTheCounterTableReader:
     """`orient.trials` parses the RESEARCH_STATE counter table. It is the only
     reader left: `prompt_status.counters` and `gamma_status._trial_counters`
-    were archived on 2026-09-28 (the three-reader agreement test is at
-    `_archive/ops/tests/test_orient_2026-09-28.py`). The file carries other
+    were deleted on 2026-09-28 (the three-reader agreement test is at git tag
+    `pre-clean-slate`). The file carries other
     tables of bold-cell rows; a reader that picked one up would move a
     deflated-Sharpe bar silently."""
 

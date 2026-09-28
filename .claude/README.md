@@ -1,97 +1,55 @@
 # The desk — how this repo is configured for Claude Code
 
 Four layers, each doing what it is best at. `CLAUDE.md` is the always-on context;
-everything here is the machinery around it.
+everything here is the machinery around it. Rewritten for the 2026-09-28 clean
+slate; the IBKR-era desk is at tag `pre-clean-slate`.
 
 ```
 .claude/
-├── settings.json            permissions + hooks + status line   (active)
-├── settings.autonomy.json   proposed wider permissions          (NOT active — see below)
-├── hooks/                   enforcement, deterministic
-├── rules/                   path-scoped context, loads on demand
-├── skills/                  invocable workflows  (/name)
-└── agents/                  specialist seats     (subagents)
+├── settings.json   permissions + hooks + status line
+├── hooks/          advisory scripts; nothing blocks
+├── rules/          path-scoped context, loads on demand
+├── skills/         invocable workflows  (/name)
+└── agents/         specialist seats     (subagents)
 ```
 
-## Hooks — the only layer that is enforcement
+**Before anything else, run `python3 -m ops.orient`** (~3s). It prints where you
+are, each Alpaca paper account's latest read-only snapshot, the live spec, panel
+dates and trial counters — each beside the command that produced it, and
+`UNMEASURED` with a reason where it cannot measure. `CLAUDE.md` holds the rules;
+`docs/SYSTEM.md` what the system is and has decided; `docs/ROADMAP.md` the plan to
+prod; `docs/INDEX.md` which file owns every other question.
 
-`CLAUDE.md` and skills are *context*: Claude reads them and tries to follow them.
-A hook fires regardless. Anything that must hold every time lives here.
+## Hooks — advisory
 
 | hook | event | what it does |
 |---|---|---|
-| `post_edit_check.py` | `PostToolUse(Edit\|Write)` | Advisory, never blocks. Flags the four bug classes this repo has actually shipped, on the lines you just added. |
-| `session_context.py` | `SessionStart` | Prints trading days since the last **broker-confirmed** fill, heartbeat problems, halt state. |
-| `statusline.py` | status line | Model · git · context · cost · **fill −Nd**, colour-coded green/yellow/red. |
-| `book_state.py` | *(library)* | One reader for live book state, shared by the two above and `/book-status`, so they can never disagree. Reads **both worktrees** — halts and session logs are written in prod, and halt files are untracked so they never reach dev at all. Covered by `hooks/tests/test_book_state_trees.py`. |
+| `post_edit_check.py` | `PostToolUse(Edit\|Write)` | Never blocks. Flags the bug classes this repo has actually shipped, on the lines you just added. |
+| `session_context.py` | `SessionStart` | Says whether anything trades (today: no live book), the Alpaca probe snapshots, and where to start. |
+| `statusline.py` | status line | Model · git · context · **no live book** in red until a book trades. |
+| `book_state.py` | *(library)* | The one reader behind the two above. Files and git only; no network, no keys. |
 
-**Before anything else, run `python3 -m ops.orient`** (~3s). It prints the
-volatile facts — which tree is which, every halt in either tree, last
-broker-confirmed fill, arm rate, live spec, panel dates, trial counters, hygiene
-greps — each beside the command that produced it, and `UNMEASURED` with a reason
-where it cannot measure. `CLAUDE.md` holds the rules; that command holds the
-numbers. `docs/SYSTEM.md` holds what the system is and has decided, and
-`docs/INDEX.md` says which file owns every other question.
-
-**There is no blocking hook.** `guard_order_path.py`, a `PreToolUse(Bash)` deny
-rule covering the order path, credentials and the fill record, was **removed on
-the team lead's instruction, 2026-09-10** (commit below). Nothing now stops an
-agent running `run_book.py`, the schedule wrappers, `switch_broker.py`,
-`reset_epoch.py` or `launchctl load|unload`.
-
-The rules in `CLAUDE.md` — "never run anything that can transmit an order", "the
-trade phase is not idempotent", "never print credentials" — still stand, but they
-are now **context rather than enforcement**: Claude reads them and tries to follow
-them, and that is a different guarantee from a hook that fires regardless.
-
-The four things that made it a hook rather than a note are unchanged facts:
-
-- An NYSE MOC order **cannot be cancelled after 15:50 ET**, not even to correct a
-  legitimate error.
-- The trade phase **is not idempotent** — a second armed run stacks a second order
-  set, and `arm()` re-seeds from `ib.positions()`, which do not include unfilled
-  MOC orders, so both fill in the same auction and the book doubles.
-- A fill not captured before the daily TWS restart is **gone permanently**; there
-  is no historical execution endpoint.
-- `config/.env.switch_broker.bak` is a gitignored, unrecoverable copy of the live
-  credentials.
-
-**To restore it**, recover the file and re-add the hook block:
-
-```bash
-git show <commit>^:.claude/hooks/guard_order_path.py > .claude/hooks/guard_order_path.py
-git show <commit>^:.claude/hooks/tests/test_guard_order_path.py > .claude/hooks/tests/test_guard_order_path.py
-chmod +x .claude/hooks/guard_order_path.py
-# then re-add the PreToolUse block to .claude/settings.json and
-# .claude/hooks/tests to pytest.ini's testpaths
-```
-
-`python3 .claude/hooks/book_state.py -p` prints what the banner and status line
-read, as JSON. Since 2026-09-28 that is "no live book" plus the Alpaca probe
-snapshots; the IBKR-era reader is in `_archive/claude_layer/hooks/`.
+**There is no blocking hook.** The order-path rules in `CLAUDE.md` are context,
+not enforcement. The facts behind them are unchanged: an NYSE MOC cannot be
+cancelled after 15:50 ET, and the trade phase is not idempotent — a second armed
+run doubles the book.
 
 ## Rules — path-scoped, load only when relevant
 
 | file | loads when you open |
 |---|---|
-| `research-harness.md` | `scripts/**`, `src/backtest/**`, `src/analysis/**`, `src/strategies/**` |
+| `research-harness.md` | `scripts/**`, `src/backtest/**` |
 | `frozen-specs.md` | `ops/specs/**`, `ops/books/*.json`, `config/*.yaml` |
 | `documents.md` | `docs/**`, `results/**`, `README.md` |
 
-The IBKR-era `live-order-path.md` and `dashboard.md`, the skills `/book-status`,
-`/preflight`, `/incident`, `/fill-audit`, `/dashboard-ui` and the agents
-`ops-watchdog`, `dashboard-designer` were archived 2026-09-28 to
-`_archive/claude_layer/`. The Alpaca order path gets its own rule file when it is
-built.
-
-This keeps `CLAUDE.md` short. Detail that only matters in one part of the tree does
-not need to be in context for every session.
+The Alpaca order path will get its own rule file when it is built
+(`docs/ROADMAP.md` phase 4).
 
 ## Skills — workflows you or Claude can invoke
 
 | skill | use it for |
 |---|---|
-| `/morning-brief` | pre-session: state, data freshness, constraints that bind |
+| `/morning-brief` | data freshness, what the signal wants today, the Alpaca accounts |
 | `/next-task` | what to work on, ranked against the actual constraints |
 | `/graveyard` | the dead mechanisms and how each died — **read before proposing anything** |
 | `/harness` | how to run a backtest that is comparable to existing numbers |
@@ -114,24 +72,6 @@ describe the task and let Claude route.
 | `market-structure-analyst` | how the instruments actually trade — plumbing, from primary sources |
 | `equity-research` | per-name fundamentals across the seventeen funds |
 | `quant-reviewer` | lookahead, silent fallbacks, convention and unit errors |
-
-## Autonomy
-
-`settings.json` is deliberately permissive on everything reversible and stops only
-at the irreversible broker surface.
-
-`settings.autonomy.json` widens it further — `Bash(python3 *)`, edits across the
-tree, the primary data sources this desk cites — so a session can work overnight
-without stopping for approvals. **It is not active.** Claude Code's classifier
-blocks an agent from writing its own broad allowlist, which is correct, so applying
-it is a deliberate human act:
-
-- open `/permissions` and add the entries, or
-- paste its `permissions` block into `.claude/settings.json`.
-
-It does **not** open the order path — and nothing else closes it either: there is no
-blocking hook (see above). The order path is held by `CLAUDE.md`'s hard rules and
-by convention.
 
 ## Maintaining this
 

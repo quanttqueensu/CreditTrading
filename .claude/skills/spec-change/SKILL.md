@@ -52,7 +52,7 @@ the key, and the exact **REVERT** (usually "delete this key").
 ## The units trap
 
 `book_drawdown_suspend_pct` read `0.99` when it was meant to be *disabled*.
-`src/deploy/risk.py` computes `cap = -abs(pct)/100`, so the limit intended to be
+`pre-clean-slate:src/deploy/risk.py` computes `cap = -abs(pct)/100`, so the limit intended to be
 off at 99% was live at **0.99% — the tightest in the book** — and breached at
 −1.84% on 2026-08-31. It is now `99.0`.
 

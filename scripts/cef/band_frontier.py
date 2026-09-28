@@ -1,4 +1,4 @@
-"""Part 2 of PLAN.md (archived: _archive/docs/PLAN.md) — the trading policy frontier.
+"""Part 2 of PLAN.md (at git tag pre-clean-slate: _archive/docs/PLAN.md) — the trading policy frontier.
 
 Asks one question: at a given amount of trading, which policy keeps more of the
 gross edge, a fixed rebalance calendar or a no-trade band?

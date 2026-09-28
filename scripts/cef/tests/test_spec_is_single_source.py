@@ -62,10 +62,9 @@ KNOWN_DIRECT_READERS = {
 
 # The scripts converted on 2026-09-10. If one of these starts reading the spec
 # JSON directly again, the single-reader property has been lost.
-CONVERTED = {
-    "band_frontier.py", "covariance_construction.py",
-    "ou_score.py", "borrow_impact.py",
-}
+# (covariance_construction, ou_score and borrow_impact were deleted in the
+# 2026-09-28 clean slate.)
+CONVERTED = {"band_frontier.py"}
 
 
 def _scripts() -> list[Path]:

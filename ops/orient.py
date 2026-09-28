@@ -48,11 +48,11 @@ TRANSMITS NOTHING. Reads files and runs `git`, `pytest --collect-only` and
 the modules it imports opens one at import time. It never reads `config/.env`.
 
 REWRITTEN 2026-09-28 FOR THE ALPACA MIGRATION. IBKR was retired that day
-(results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md). The sections that read
+(`docs/ROADMAP.md`). The sections that read
 the IBKR prod tree -- TREES' prod half, HALTS, BOOK, UPTIME -- described a
 system that no longer runs, so they were replaced by ALPACA, which reads the
-read-only probe's snapshots. The pre-migration module is at
-`_archive/ops/orient_2026-09-28.py`.
+read-only probe's snapshots. The pre-migration module is at git tag
+`pre-clean-slate`.
 """
 from __future__ import annotations
 
@@ -382,8 +382,8 @@ def _unguarded_ib_insync(root: Path | None = None) -> list[str]:
 def doc_drift() -> dict:
     """The document audit, run as a subprocess: it imports this module, and a
     report that imports its own auditor in-process is one refactor from a cycle.
-    (The work-order index check, `ops.prompt_status`, was archived with
-    `docs/prompts/` on 2026-09-28.)"""
+    (The work-order index check, `ops.prompt_status`, was deleted with the work
+    orders on 2026-09-28.)"""
     out = {"reproducer": "python3 -m ops.doc_audit --check"}
     r = subprocess.run([sys.executable, "-m", "ops.doc_audit", "--json"],
                        cwd=REPO, capture_output=True, text=True, timeout=120)

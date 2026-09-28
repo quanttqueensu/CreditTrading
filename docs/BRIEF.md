@@ -1,5 +1,9 @@
 # The standing brief
 
+> **Citations written `pre-clean-slate:<path>`** name files deleted in the
+> 2026-09-28 clean slate. Read one with `git show pre-clean-slate:<path>`;
+> `docs/HISTORY.md` explains. They are provenance, not current state.
+
 **Every prompt in this directory opens by reading this file.** It holds what
 they all share — the theory of the edge, the mechanisms, how these instruments
 actually trade, and the harness rules — so that no prompt repeats it and every
@@ -9,8 +13,8 @@ prompt can cite it by section.
 > today" figures (`python3 -m ops.orient` and the named commands measure them).
 > §6, §7 and §8 are stubs, numbered so citations still land: the house rules are
 > `CLAUDE.md`, the standing decisions `docs/SYSTEM.md` §5. (The work-order queue
-> was archived 2026-09-28 and this file moved here from `docs/prompts/00_BRIEF.md`.) The full earlier text is the archived snapshot
-> `_archive/docs/prompts/00_BRIEF_2026-09-14.md`. Figures left in §1–§3 and §5
+> was deleted 2026-09-28 and this file moved here from `docs/prompts/00_BRIEF.md`.) The full earlier text is the snapshot at git tag `pre-clean-slate`
+> `pre-clean-slate:_archive/docs/prompts/00_BRIEF_2026-09-14.md`. Figures left in §1–§3 and §5
 > are dated observations, not inputs (H14).
 
 Written 2026-09-07 from a full read of the repo and the live dashboard;
@@ -29,7 +33,7 @@ the form Clarke, de Silva & Thorley (2002, FAJ) generalised:
 - **IC**, the information coefficient: how well the signal ranks tomorrow's
   returns. Ours measured **−0.074 (t −11.6)** at the traded 2-day / T+1 horizon
   over 27 years, in every sub-period (2026-09-05 [S],
-  `results/cef/ALPHA_AUDIT_2026-09-05.md`; re-measure with
+  `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md`; re-measure with
   `python3 scripts/cef/plan_diagnostics.py`). The repo has
   measured many times that sharpening it is the least productive place to work
   (price reversal adds +0.1%; the Kalman lost to a shorter window; per-name
@@ -69,8 +73,8 @@ one it is doing:
 ## 2. Where alpha comes from in closed-end funds
 
 Before any test, name who is on the other side and why they stay there. The
-status column is as of 2026-09-09 [S]; the work orders it names were archived
-2026-09-28 (`_archive/docs/prompts/`, archived) and `docs/RESEARCH_STATE.md` says
+status column is as of 2026-09-09 [S]; the work orders it names were deleted
+2026-09-28 (`pre-clean-slate:_archive/docs/prompts/`, archived) and `docs/RESEARCH_STATE.md` says
 what is killed, watched or closed.
 
 | # | mechanism | who loses, and why they keep doing it | horizon | status |
@@ -189,8 +193,8 @@ a dispute. They are three different quantities:
 
 | quantity | PHK | what it is |
 |---|---:|---|
-| **half-tick** | 10.65bp | half a cent on $4.69 — `_archive/docs/PLAN.md` §4.1 |
-| **full tick** | 22.22bp | one cent on $4.51 — `_archive/docs/PER_NAME_ARCHITECTURE.md` §4 |
+| **half-tick** | 10.65bp | half a cent on $4.69 — `pre-clean-slate:_archive/docs/PLAN.md` §4.1 |
+| **full tick** | 22.22bp | one cent on $4.51 — `pre-clean-slate:_archive/docs/PER_NAME_ARCHITECTURE.md` §4 |
 | **charged half-spread** | 25.77bp | `config/costs.yaml`, **1.25× the full tick**, and that multiplier holds for all 17 CEFs |
 
 **The ledger charges 25.77bp — 2.4× what PLAN's prose implies.** So:
@@ -364,7 +368,7 @@ payoff across the ETFs examined was about **−74%**. A systematic long-gamma bo
 **IBKR paper fills options at the displayed price, from top of book, with no
 market impact**, and does not support penny-increment option fills in paper.
 Paper option P&L cannot establish that any option strategy has positive expected
-value (this was W14 §C; W14 is archived and options are closed).
+value (this was W14 §C; W14 is deleted and options are closed).
 
 Basis risk is real: in March 2020 CEF discounts widened by more than 1,600bp
 while HYG's own price-to-NAV deviation reached −5% to −8% intraday and its
@@ -506,8 +510,8 @@ returns silently.
 ## 6. House rules for code
 
 **Moved 2026-09-14.** The house rules for code are `CLAUDE.md`, "Hard rules —
-code", which every agent loads. The earlier copy here is in the archived snapshot
-`_archive/docs/prompts/00_BRIEF_2026-09-14.md` §6.
+code", which every agent loads. The earlier copy here is in the snapshot at git tag `pre-clean-slate`
+`pre-clean-slate:_archive/docs/prompts/00_BRIEF_2026-09-14.md` §6.
 
 ---
 
@@ -520,8 +524,8 @@ re-ask a question that table answers; departures from it must be explicit.
 
 ## 8. The queue
 
-**Moved 2026-09-14; the queue itself archived 2026-09-28.** Every work order is
-under `_archive/docs/prompts/` (archived); the open work is
-`results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §5–§6. The
-ordering rationale and trial budget as written on 2026-09-09 are in the archived
-snapshot `_archive/docs/prompts/00_BRIEF_2026-09-14.md` §8.
+**Moved 2026-09-14; the queue itself deleted 2026-09-28; the plan is `docs/ROADMAP.md`.** Every work order is
+under `pre-clean-slate:_archive/docs/prompts/` (git tag `pre-clean-slate`); the open work is
+`pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §5–§6. The
+ordering rationale and trial budget as written on 2026-09-09 are in the (deleted)
+snapshot `pre-clean-slate:_archive/docs/prompts/00_BRIEF_2026-09-14.md` §8.

@@ -13,7 +13,7 @@ Outputs:
                                        no error message. 13 of 46 columns were
                                        100% null and 5 constant across all 44
                                        rows at the 2026-07-31 fetch. Superseded
-                                       by docs/prompts/perfund/F1.
+                                       by work order perfund/F1 (git tag pre-clean-slate).
   data/cef/_raw_info.json              raw .info dicts (audit trail)
 """
 import json
@@ -242,7 +242,7 @@ facts = pd.DataFrame(fact_rows)
 # 46 columns are 100% null (netAssets, netExpenseRatio, fundFamily,
 # fundInceptionDate among them) and quoteType/typeDisp/sector/industry are
 # constant across all 44 rows, so most of what looks like per-fund data is not.
-# ops/doctor.py warns until this column exists. See docs/prompts/perfund/F1,
+# (ops/doctor.py, now deleted, warned until this column existed.) See work order perfund/F1 at git tag pre-clean-slate,
 # which supersedes this file with a dated characteristics panel.
 facts.insert(0, "fetched_at", pd.Timestamp.utcnow().tz_localize(None).isoformat(timespec="seconds"))
 

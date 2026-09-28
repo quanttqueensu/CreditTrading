@@ -1,10 +1,8 @@
 # QUANTT — the system
 
 **The one document that says what this book is, how it runs, and what we know
-about it.** Written 2026-09-13 from the documents it replaces: the
-strategy, system and decision sections of `CLAUDE.md`, `docs/INFRASTRUCTURE.md`,
-`docs/BRIEF.md`, the retired `SYSTEM_AND_STRATEGY.md` and `PLAN.md` (both archived under `_archive/docs/`),
-and §12 of the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md`.
+about it.** Written 2026-09-13; rewritten for the move to Alpaca and the clean
+slate on 2026-09-28 (the documents it replaced are at tag `pre-clean-slate`).
 
 **It holds no figures that move.** Where a number matters, this document names
 the command that produces it. Run the command. The only figures written here
@@ -15,7 +13,9 @@ into prose about its own state was contradicted by another document within
 days — the arm rate existed as four different fractions at once.
 
 `docs/INDEX.md` lists which document owns which question. `CLAUDE.md` holds the
-rules. `_archive/` holds the superseded record and is never authority.
+rules. `docs/ROADMAP.md` is the plan to prod. `docs/HISTORY.md` says what existed
+before the clean slate; git (tag `pre-clean-slate`) holds it, as provenance, never
+authority.
 
 ---
 
@@ -31,12 +31,11 @@ pick one silently.
 3. **A measuring command, run now** — `python3 -m ops.orient` first.
 4. **This document** — the shape of the system and the standing decisions.
 5. **A dated results note** in `results/` — true as of its date, by its method.
-6. **`_archive/`** — provenance only.
+6. **Git history** (tag `pre-clean-slate`) — provenance only.
 
 **Which artifact answers which question.** Keyed by question, not by quantity,
 because most contradictions in this repo's history were two artifacts
-answering different questions. (Adapted from
-the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12, figures removed.)
+answering different questions.
 
 | question | authoritative artifact |
 |---|---|
@@ -44,13 +43,13 @@ the archived `_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` §12, figur
 | Is anything trading? | **No** (2026-09-28): IBKR is retired and the Alpaca runner is not built. The SessionStart banner and status line say so until it is. |
 | What is held, resting or executed at the broker? | The Alpaca paper account for that book — `python3 -m quantt.broker.alpaca_probe` (read-only snapshot, one account per book). The broker is the fact. |
 | Is a name tradable / shortable / hard-to-borrow at Alpaca? | The probe snapshot's `assets`, dated — `borrow_status` changes daily |
-| What did the IBKR book hold, send and fill? | History only: `_archive/prod_state_2026-09-28/` and `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §7 |
+| What did the IBKR book hold, send and fill? | History only, at tag `pre-clean-slate`: `pre-clean-slate:_archive/prod_state_2026-09-28/` and `pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §7 |
 | What are the live parameters? | orient SPEC, which reads the frozen spec through `scripts/cef/spec.py` |
 | Gross / net Sharpe and turnover of the live policy? | `python3 scripts/cef/band_frontier.py`, re-run |
 | IC, persistence, PCA, ADV, vol scalar? | `python3 scripts/cef/plan_diagnostics.py`, re-run |
 | How many trials have been spent? | `docs/RESEARCH_STATE.md` counter table (not its prose); orient TRIALS derives the deflated-Sharpe bar |
 | How many tests pass? | `python3 -m pytest`, run now. Never quote a stored count. |
-| What is left to do for the Alpaca system? | `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §5–§6 |
+| What is left to do for the Alpaca system? | `docs/ROADMAP.md` |
 | Is an external claim verified? | `docs/REFERENCES.md` |
 | Do the documents still say true things? | `python3 -m ops.doc_audit` |
 
@@ -101,7 +100,8 @@ every session; a position is left alone unless it is more than `band_width`
 — the proportional-cost optimum (Constantinides 1986; Davis & Norman 1990). The
 width was derived from a cube-root law, not swept. `rebalance_days` is inert
 while `band_width` is set; deleting `band_width` restores the previous calendar
-policy exactly, which is the revert path (the archived `_archive/ops/_archive/cef_discount.v5.20260731.frozen.json`).
+policy exactly, which is the revert path (the v5 spec file itself is at tag
+`pre-clean-slate`, `pre-clean-slate:_archive/ops/_archive/cef_discount.v5.20260731.frozen.json`).
 Pre-registration: `results/cef/PREREG_BAND_2026-09-06.md`.
 
 **Execution: MOC, and `shift(2)`.** Decide at *t*, fill in the closing auction
@@ -127,11 +127,11 @@ a later note** — this section records the state as of its date.
 
 | claim | settle it with |
 |---|---|
-| The discount signal has a real, persistent IC at the traded horizon, present across sub-periods | `python3 scripts/cef/plan_diagnostics.py`; `results/cef/ALPHA_AUDIT_2026-09-05.md` |
-| It is not credit beta, not one name, not reversal | `results/cef/ALPHA_AUDIT_2026-09-05.md` |
-| The **retired calendar policy fails** the validation battery at an obtainable price (`shift(2)`): deflated Sharpe FAIL at every trial count tried | `python3 scripts/cef/validate.py --trials <CEF counter>`; `results/cef/EXECUTION_CONVENTION_2026-09-10.md` |
-| The sealed CEF holdout was opened and its recorded verdict is **FAIL** on net Sharpe; its gross figure is not out-of-sample evidence | `results/cef/HOLDOUT_OPENED.json` |
-| The book is not short volatility in a sense that gives a hedging option a job; credit gamma is not timeable by any declared conditioner | `results/cef/STRESS_BETA_2026-09-11.md`; `results/gamma/CONDITIONERS_2026-09-13.md` |
+| The discount signal has a real, persistent IC at the traded horizon, present across sub-periods | `python3 scripts/cef/plan_diagnostics.py`; `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` |
+| It is not credit beta, not one name, not reversal | `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` |
+| The **retired calendar policy fails** the validation battery at an obtainable price (`shift(2)`): deflated Sharpe FAIL at every trial count tried | `python3 scripts/cef/validate.py --trials <CEF counter>`; `pre-clean-slate:results/cef/EXECUTION_CONVENTION_2026-09-10.md` |
+| The sealed CEF holdout was opened and its recorded verdict is **FAIL** on net Sharpe; its gross figure is not out-of-sample evidence | `pre-clean-slate:results/cef/HOLDOUT_OPENED.json` |
+| The book is not short volatility in a sense that gives a hedging option a job; credit gamma is not timeable by any declared conditioner | `pre-clean-slate:results/cef/STRESS_BETA_2026-09-11.md`; `pre-clean-slate:results/gamma/CONDITIONERS_2026-09-13.md` |
 
 ### Measured but conditional
 
@@ -142,12 +142,12 @@ a later note** — this section records the state as of its date.
 - **Borrow drag** was first charged from one day of fees; the daily fee history
   (`data/cef/cef_borrow_history.parquet`) shows much higher historical borrow on
   some names, so any net-of-borrow figure computed on one day's fees is suspect
-  until re-measured. `results/cef/BORROW_NOTE_2026-09-06.md`, `docs/BRIEF.md` H4.
+  until re-measured. `pre-clean-slate:results/cef/BORROW_NOTE_2026-09-06.md`, `docs/BRIEF.md` H4.
 
 ### Unknown, and the unknowns dominate
 
 - **What execution actually costs.** Very few broker-confirmed MOC sessions
-  exist (all IBKR, archived); the standard error is too wide to act on. Alpaca
+  exist (all IBKR, now deleted); the standard error is too wide to act on. Alpaca
   paper fills MOC at the quote rather than in the auction [V: staff forum post,
   2026-09-28], so its paper fills cannot settle this either.
 - **Whether the paper record means anything.** The pre-epoch ledger booked
@@ -174,9 +174,9 @@ meanings of "finding alpha": `docs/BRIEF.md` §1.
 - **BR, breadth** — the book holds many names but most of its variance is one
   factor, municipal CEFs against taxable ones, so its effective breadth is a
   small fraction of its name count. Measure on today's weights (the IBKR-era
-  dashboard's `/api/factors` did this; it is archived and has no replacement yet).
+  dashboard's `/api/factors` did this; it was deleted and has no replacement yet).
 - **Uptime** — a session that does not arm earns nothing. On IBKR the book armed
-  on a small minority of eligible sessions (`_archive/prod_state_2026-09-28/`);
+  on a small minority of eligible sessions (session logs at tag `pre-clean-slate`);
   the Alpaca runner must measure its own from day one.
 
 **Work that raises TC or uptime beats work that sharpens IC, every time.**
@@ -186,15 +186,16 @@ meanings of "finding alpha": `docs/BRIEF.md` §1.
 ## 4. How it runs
 
 **Rewritten 2026-09-28.** The IBKR-era description — prod worktree and
-promotion, launchd sessions, the shared account, halts, verification — is the
-archived snapshot `_archive/docs/SYSTEM_2026-09-28.md` §4. None of it runs any more.
+promotion, launchd sessions, the shared account, halts, verification — is at tag
+`pre-clean-slate` (`pre-clean-slate:_archive/docs/SYSTEM_2026-09-28.md` §4). None of it runs any more.
 
 ### 4.1 Where things are
 
 - **Nothing trades.** IBKR was retired on 2026-09-28: the scheduler's jobs were
   unloaded, a final flatten was sent and then abandoned (the team lead chose not
-  to follow it up), and the code, prod state and agent tooling went to
-  `_archive/`. `ibkr-final` tags the last IBKR-era commit.
+  to follow it up), and the repo was cut to a clean slate: everything not needed
+  for the Alpaca system was deleted (tag `pre-clean-slate`; `docs/HISTORY.md`).
+  `ibkr-final` tags the last IBKR-era commit.
 - **The strategy is unchanged in kind**: `src/deploy/sleeves/cef_discount.py` and
   its frozen spec. v7's constraint code is present with its keys off; the spec
   change to v7 on Alpaca is pending (§5, 2026-09-28).
@@ -235,7 +236,8 @@ sessions are not evidence. On Alpaca paper the fill price itself is simulated
 
 ### 4.4 Setting up, and reference
 
-- Environment and data rebuild: `docs/INFRASTRUCTURE.md` §2.
+- Environment and data: `README.md` (setup).
+- The plan to prod: `docs/ROADMAP.md`.
 - Credentials live in `config/.env`, which is never printed, copied or read by
   an agent (`CLAUDE.md`, order-path rule 5).
 
@@ -245,7 +247,7 @@ sessions are not evidence. On Alpaca paper the fill price itself is simulated
 
 Moved **as recorded** from `docs/BRIEF.md` §7 and `CLAUDE.md`, in the
 order they were made. Work-order ids in the rows (W14, `gamma/`, P-numbers) name
-prompts that have since closed; the archived copies are under `_archive/docs/prompts/`. Nothing here was re-decided when this document was
+prompts that have since closed; their text is at tag `pre-clean-slate` under `pre-clean-slate:_archive/docs/prompts/`. Nothing here was re-decided when this document was
 written. A later entry on the same question supersedes an earlier one only
 where it says so; changing a row needs the team lead's name and a date (§7).
 
@@ -292,8 +294,8 @@ new documents exposed. Neither changes what trades.
 
 ### Team lead, 2026-09-28 — IBKR retired, move to Alpaca
 
-Answered interactively; recorded in full in
-`results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §2 and §7.
+Answered interactively; the full record (the migration manifest) is at tag
+`pre-clean-slate`, `pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §2 and §7.
 
 | question | decision |
 |---|---|
@@ -310,6 +312,8 @@ Answered interactively; recorded in full in
 | Work orders, dashboard | **Archived**; new work orders as needed; a dashboard rebuilt later. `00_BRIEF` stays live as `docs/BRIEF.md`. |
 | Who runs order-path commands | **The agent may, when the team lead asks in the session, after showing the concrete order list and getting a go.** |
 | `CLAUDE.md` / settings | **The agent edits them directly for the migration** (supersedes hardening D15/D18 for this work). |
+| Clean slate | **Delete everything not needed to run the strategy on Alpaca**, now, before building — supersedes the "never delete, archive" rule. Kept: the strategy and spec, research harness and fetchers, research memory (`RESEARCH_STATE`, `BRIEF`, `REFERENCES`), the band and group-cap pre-registrations, the agents and skills. Old research replaced by `docs/HISTORY.md`. Everything is recoverable from tag `pre-clean-slate`. |
+| Research tables | **Gross P&L headline, cost grid beside it, labelled, never mixed.** |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
@@ -319,10 +323,9 @@ option a job. `G6` then measured that credit gamma costs more in variance than
 equity gamma, and that no conditioner times it — C3 clears in sample and fails
 the 2023–26 holdout, and no state under any conditioner at any declared
 threshold has a positive mean outcome. `G7` does not run and the **GAMMA counter
-stays at 0**. The pre-registration (`results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md`)
-records what would reopen it. (Its status tool, `ops.gamma_status`, was archived
-2026-09-28 with the work orders it read.) The option-pricing library and the fixed order path
-stay, but nothing trades them.
+stays at 0**. The pre-registration (`pre-clean-slate:results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md`)
+records what would reopen it. The options status tool, the option-pricing library
+and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`).
 
 ---
 
@@ -337,7 +340,7 @@ stay, but nothing trades them.
 | Changing a frozen spec key | `/spec-change` |
 | Dead mechanisms — check before proposing anything | `/graveyard`, and the KILLED table |
 | External claims | `docs/REFERENCES.md` |
-| Work orders | None live: all archived 2026-09-28 (`_archive/docs/prompts/`). The migration's remaining steps: `results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` |
+| Work orders and the plan | `docs/ROADMAP.md`. The old work orders were deleted 2026-09-28 (tag `pre-clean-slate`). |
 | Which document owns which question | `docs/INDEX.md`, checked by `python3 -m ops.doc_audit` |
 
 ---
@@ -347,4 +350,5 @@ stay, but nothing trades them.
 | date | change | by |
 |---|---|---|
 | 2026-09-13 | Written, replacing six overlapping descriptions of the system. §5 moved verbatim; no decision re-made. | documentation cleanup, for the team lead |
-| 2026-09-28 | §0, §4 rewritten for the IBKR retirement and the move to Alpaca; §5 gains the 2026-09-28 decisions; §2 and §6 repointed. Earlier text (archived): `_archive/docs/SYSTEM_2026-09-28.md`. | Alpaca migration, for the team lead |
+| 2026-09-28 | §0, §4 rewritten for the IBKR retirement and the move to Alpaca; §5 gains the 2026-09-28 decisions; §2 and §6 repointed. Earlier text at tag `pre-clean-slate`. | Alpaca migration, for the team lead |
+| 2026-09-28 | Clean slate: archive references replaced by the tag; plan moved to `docs/ROADMAP.md`. | clean slate, for the team lead |

@@ -30,16 +30,17 @@ these paths behind an `ask` rule for exactly this reason.
    GAMMA counter. `results/cef/PREREG_BAND_2026-09-06.md` is the shape. Use
    `/prereg`, then `/spec-change`.
 5. **Bump `spec_id` and set `_supersedes`.** Never edit a spec in place without a
-   new id; the old file is archived as `_archive/ops/specs/<spec_id>.frozen.json`
-   (earlier ones sit in the archived `_archive/ops/_archive/`). The v5 spec there
-   is the band's revert path and half of its pre-registration — never
-   delete it.
+   new id. Since the 2026-09-28 clean slate there is no archive folder: the old
+   version lives in git — **tag the commit that changes the spec**
+   (`git tag spec-<old spec_id>` on the commit *before* the change) so its revert
+   path is one `git show` away. The v5 spec, the band's revert path, is at tag
+   `pre-clean-slate`: `git show pre-clean-slate:_archive/ops/_archive/cef_discount.v5.20260731.frozen.json`.
 6. **Update `docs/RESEARCH_STATE.md` in the same commit** as the trial.
 
 ## Units are a real hazard here
 
 `book_drawdown_suspend_pct` read `0.99` when it was meant to be *disabled*.
-`src/deploy/risk.py` computes `cap = -abs(pct)/100`, so the limit intended to be off
+`pre-clean-slate:src/deploy/risk.py` computes `cap = -abs(pct)/100`, so the limit intended to be off
 at 99% was live at **0.99%** — the tightest in the book — and breached at −1.84% on
 2026-08-31. It is now `99.0`. **Percent keys in this repo are whole numbers.** State
 the unit in the note.

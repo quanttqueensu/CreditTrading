@@ -46,7 +46,7 @@ Assign a verdict from the D1–D7 legend in `docs/RESEARCH_STATE.md`:
    everyone with every trial. CEF is at 48 (bar ~2.80). Is this result above *its*
    bar, not a generic 2.0?
 6. **Bid-ask bounce, ex-date arithmetic, stale NAV.** The three mechanical effects
-   that produce exactly a negative-IC discount-reversion signature. `_archive/docs/prompts/W4_artifact_battery.md` (archived)
+   that produce exactly a negative-IC discount-reversion signature. `pre-clean-slate:_archive/docs/prompts/W4_artifact_battery.md` (archived)
    is the battery; until it has run, every IC number in this repo is conditional.
 7. **Survivorship.** The panel contains only funds alive today. Every CEF that
    closed or merged across 27 years is absent, and the universe is shrinking — 402

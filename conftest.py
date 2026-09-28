@@ -68,7 +68,7 @@ should be undone at the end:
      environment, it is pointed at nothing.
   6. (RETIRED 2026-09-28 with IBKR.) `ops.doctor.AGENTS` was pointed at an
      EMPTY directory so no test depended on this machine's installed launchd
-     schedule. `ops.doctor` and `ops.decision_age` are archived; nothing left
+     schedule. `ops.doctor` and `ops.decision_age` were deleted; nothing left
      reads the schedule.
   7. Asserts 1-4 are still in force.
 
@@ -411,7 +411,7 @@ def _quantt_safety_harness(tmp_path_factory):
         raise HarnessMisconfigured(
             "ops.halt.alert is not the recorder at session start")
 
-    # `ops.doctor` (and its AGENTS patch) was archived with IBKR on 2026-09-28;
+    # `ops.doctor` (and its AGENTS patch) was deleted with IBKR on 2026-09-28;
     # nothing left in the tree reads ~/Library/LaunchAgents.
     mp = pytest.MonkeyPatch()
     mp.setenv("EXECUTION", "simulator")

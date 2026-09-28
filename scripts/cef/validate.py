@@ -56,7 +56,7 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-from src.strategies.credit_rv.costs import SCENARIOS  # noqa: E402
+from src.backtest.cost_model import SCENARIOS  # noqa: E402
 from src.backtest.guard import LookaheadError  # noqa: E402
 
 OUT = REPO / "results/cef"

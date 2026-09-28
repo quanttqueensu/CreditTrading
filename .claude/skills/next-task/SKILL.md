@@ -13,7 +13,7 @@ python3 -m ops.orient --no-tests 2>/dev/null | sed -n '1,60p'
 ```
 
 ```!
-sed -n '/^## 5\./,/^## 6\./p;/^## 6\. Next/,$p' results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md 2>/dev/null | head -60
+grep -nE "^\| [0-9]|^## Phase" docs/ROADMAP.md 2>/dev/null | head -60
 ```
 
 ---
@@ -24,16 +24,14 @@ sed -n '/^## 5\./,/^## 6\./p;/^## 6\. Next/,$p' results/ops/ALPACA_MIGRATION_MAN
 coefficient** and **effective breadth** are the binding problems, and uptime
 multiplies all three. **Take no figure from this file.** Measure TC with
 `python3 scripts/cef/band_frontier.py`; breadth and uptime have no live
-measurement until the Alpaca runner exists (the IBKR-era tools are archived).
+measurement until the Alpaca runner exists (the IBKR-era tools were deleted).
 
 So the order is almost always:
 
 **1. Get a book trading again.** Since 2026-09-28 nothing trades: IBKR is
 retired and the Alpaca system is not built. Until it is, every other item below
-is research on a book with no uptime. The remaining steps, in order, are
-`results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §5–§6 — the keys, the
-read-only probe, the v7 spec change on Alpaca, the paper order-behaviour probes,
-then the runner, reconciliation and the VM.
+is research on a book with no uptime. The steps, in order, with owners and
+status, are `docs/ROADMAP.md` — take the first open one you can do.
 
 **2. Build the fill record from the first Alpaca session.** Execution cost
 converges far faster than Sharpe. Alpaca paper fills MOC at the quote, so keep
@@ -41,7 +39,7 @@ the auction-print P&L beside every paper fill (`CLAUDE.md`, research rules).
 
 **3. The broker is the fact.** Reconcile from Alpaca's positions and account
 activities, never from a local reconstruction: the IBKR design's ledger desyncs
-halted every book in September (`_archive/prod_state_2026-09-28/`).
+halted every book in September (`pre-clean-slate:_archive/prod_state_2026-09-28/`).
 
 **4. The vol target.** The value in force is orient SPEC `vol_target_annual`; the
 standing decision on how it should be set is `docs/SYSTEM.md` §5. Sizing is a
@@ -60,10 +58,9 @@ productive place to work (see the same KILLED table).
 
 ## The queue
 
-There are no live work orders: every one was archived on 2026-09-28
-(`_archive/docs/prompts/`, archived) with the move to Alpaca. The research ideas in
-them are provenance for new orders, not a queue. Until new ones are written, the
-queue is the migration manifest's §5–§6.
+`docs/ROADMAP.md` is the queue. The old work orders were deleted in the
+2026-09-28 clean slate (git tag `pre-clean-slate`); their research ideas are
+provenance for new work, not a queue.
 
 ## Budget discipline
 
