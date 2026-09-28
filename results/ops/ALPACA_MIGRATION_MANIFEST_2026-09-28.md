@@ -188,9 +188,15 @@ Each of these can transmit an order or change what the scheduler runs
 2. **Bring IB Gateway up and log in by hand** — the flatten needs it.
 3. **Flatten the whole IBKR paper account with MOC orders**, not market orders
    (order-path rule 3). Everything goes, so the account net is the target — the
-   one time "take a symbol from the account net" is correct. Needs an agent-drafted,
-   dry-run-first script; not yet written.
-4. **Verify flat at the broker** the next morning (positions and open orders),
+   one time "take a symbol from the account net" is correct. Tool:
+   `ops/flatten_ibkr_account.py` (agent-written, tested against a fake broker,
+   never run). Dry run first — it connects read-only and prints the plan:
+   `python3 -m ops.flatten_ibkr_account`, then
+   `python3 -m ops.flatten_ibkr_account --transmit --account <id it printed>`
+   before 15:40 ET. It refuses a second send the same day, any open order at
+   the broker, non-stock/non-USD/fractional positions, and `DRY_RUN=1`.
+4. **Verify flat at the broker** the next morning
+   (`python3 -m ops.flatten_ibkr_account --verify`, read-only, exit 0 = flat),
    then snapshot the final account and fills into `_archive/`.
 5. Create the two Alpaca paper accounts (CEF, b6) at $100k, and put
    `ALPACA_CEF_KEY_ID`, `ALPACA_CEF_SECRET_KEY`, `ALPACA_B6_KEY_ID`,

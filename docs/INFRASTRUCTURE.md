@@ -311,6 +311,7 @@ caller needs its own, and a collision is a real fault, not a tidiness issue.
 | `fetch_borrow_history` | 78 | `IB_CLIENT_ID` |
 | `rebuild_ledger` | 110 | hardcoded |
 | epoch reset tool | 120 | hardcoded (**was 96 until 2026-09-10 — that is `capture_fills` for the benchmarks book, 46 + 50**) |
+| `flatten_ibkr_account` (IBKR retirement, 2026-09-28) | 131 | hardcoded |
 | `switch_broker` probe | 199 | `PROBE_CLIENT_ID` |
 | dashboard `_probe_broker` | 205 | hardcoded |
 | dashboard `_portfolio` | 302 | hardcoded |
