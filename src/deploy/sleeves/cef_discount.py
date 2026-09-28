@@ -29,6 +29,32 @@ STALE NAV IS THE ONE THING THAT SILENTLY BREAKS THIS. The whole signal is
 price-minus-NAV, so a fund whose NAV has not updated is not a cheap fund, it is a
 blind one. Any fund whose NAV is older than `max_nav_age_bd` business days is
 dropped for the day rather than traded.
+
+TWO CONSTRAINTS SIT ON TOP OF THE SIGNAL, and both are OFF unless the frozen spec
+turns them on. Neither is a return idea; each removes a way this book has been
+measured to go wrong.
+
+  `group_cap`         The cross-sectional demeaning above removes the market,
+                      not the MANDATE. Measured on the live book at 2026-09-11,
+                      92.5%-style concentration had become literal: the
+                      rolling-252 R^2 of the book's own P&L to the in-panel
+                      muni-minus-taxable spread was 0.746 (beta -0.62, NW
+                      t -11.8) and effective breadth had fallen to 2.27 bets on
+                      a nominal 17 names. `group_cap` bounds |sum(muni w) -
+                      sum(taxable w)|. It buys risk and breadth, not return --
+                      the paired return difference is statistically zero on
+                      every window measured. `ng/05_research_group_neutrality.md`
+                      (GN-N2, CEF trial 55).
+
+  `max_gross_stress`  The vol scalar targets 6% of volatility; nothing targets
+                      MARGIN, and margin is what this account is actually short
+                      of. At the 2026-09-15 16:50 ET account read the fundable
+                      gross under a worst-week buffer was 1.931x the $500k book,
+                      and the book as it runs exceeds that on 17.0% of traded
+                      days with nothing on the live path stopping it.
+                      `max_gross_stress` scales the held book down -- never up,
+                      never flat -- until it fits.
+                      `ng/05_research_no_borrow_rescore.md` §6.2, §8.2.
 """
 from __future__ import annotations
 
@@ -45,6 +71,145 @@ from ..sleeve import MarketState, PositionTarget, RiskVerdict, Sleeve
 REPO = Path(__file__).resolve().parents[3]
 PX_PATH = REPO / "data/cef/cef_prices.parquet"
 NAV_PATH = REPO / "data/cef/cef_nav.parquet"
+
+# The group axis is read from the SAME file the prices come from, because it is
+# the same column the research harness read (`gn_common.load_groups()` ->
+# `cef_prices.parquet` `grp`, itself the security master's STATIC_ASSUMED
+# attribute, `ng/data/secmaster.py:142`). A second source for the grouping is a
+# second thing to disagree; the point of naming it here is that it is one path,
+# patchable in tests exactly like PX_PATH.
+GRP_PATH = PX_PATH
+
+# Float dust, not a parameter. A dollar-neutral target row where one group is
+# entirely unheld has net group weight 0 - 0 == 0 in exact arithmetic and ~1e-17
+# in floating point; without this the k=0 identity check reports hundreds of
+# "breaches" that are all 1e-17. Same constant, same reason, as the research
+# harness (`gn_common.soft_cap`).
+_GROUP_TOL = 1e-12
+
+
+def _cap_net_group_weight(w: pd.Series, side: dict, k: float) -> tuple[pd.Series, bool]:
+    """Shrink |net muni-minus-taxable weight| to at most `k`, dollar-neutrally.
+
+    THE OPERATOR, AND WHY IT IS THIS ONE. `g = sum(w over muni) - sum(w over
+    taxable)`. Shift every HELD muni weight by `-d_m` and every HELD taxable
+    weight by `+d_t`. Dollar neutrality (the row's signed sum must not move)
+    forces `n_m*d_m == n_t*d_t`; the cap forces `g - 2*n_m*d_m == sign(g)*k`.
+    With `D = |g| - k > 0` that gives::
+
+        d_m = sign(g)*D/(2*n_m)     d_t = sign(g)*D/(2*n_t)
+
+    Rows already inside the cap are returned UNTOUCHED, which is what makes this
+    a cap and not a tilt. The shift is uniform within a group because any other
+    allocation needs a second parameter (a per-name penalty), and this change is
+    allowed one.
+
+    THIS IS NOT A PROPORTIONAL RESCALING OF THE OFFENDING SIDE, and the
+    difference is the whole point: a rescaling shrinks the names that carry the
+    tilt AND the names that oppose it, so it throws away name selection to buy
+    group neutrality. The uniform shift only moves the group's centre. It also
+    never drops a name -- a name whose weight crosses zero keeps trading, it
+    simply changes side, which is the signal's own instruction once the group
+    bet is removed.
+
+    `n_m` / `n_t` count names HELD IN THIS ROW (non-zero weight), not the 6/11
+    nominal group sizes: shifting a name the book does not hold would open a
+    position the signal never asked for.
+
+    NO SILENT FALLBACK. If the row breaches the cap while one entire side is
+    unheld, no dollar-neutral uniform shift exists -- there is nothing to shift
+    it against. Raise, rather than leave the row uncapped wearing a capped
+    label.
+
+    THE SAME OPERATOR GN-N2 WAS SCORED WITH, and the agreement is measured
+    rather than claimed (`ng/store/deploy/gc_score.py` pins 3a/3b/3c, run over
+    the full panel before it will print a table):
+
+      * against a ROW-WISE transcription of `gn_common.soft_cap`'s algebra,
+        max abs difference **exactly 0.0** -- same arithmetic, same order;
+      * against `gn_common.soft_cap` VECTORISED over the frame -- the call
+        `gn_score.py` actually made -- **5.551e-17** on 1,608 of 92,769 cells.
+        That residual is numpy's summation order, not semantics: `g` is a sum
+        of 6 and of 11 floats, and reducing a (17 x 5457) block along axis 1
+        orders the additions differently from a 17-element row. Control: the
+        identical pandas expression on `build_targets()`'s C-contiguous frame
+        and on `T.copy()`'s F-contiguous one disagrees by 4.441e-16.
+      * no reported statistic moves (gross SR, annual return, vol, turnover all
+        agree to exactly 0.0), and the resulting book reproduces GN-N2's
+        published traded row.
+
+    See `ng/08_strategy_change.md` §3 and `src/deploy/tests/test_group_cap.py`.
+
+    Returns `(weights, bound)` where `bound` says whether the cap moved the row.
+    """
+    if k < 0:
+        raise ValueError(f"group_cap must be >= 0, got {k}")
+    muni = [t for t in w.index if side[t] == "muni"]
+    tax = [t for t in w.index if side[t] == "taxable"]
+    g = float(w[muni].sum() - w[tax].sum()) if (muni or tax) else 0.0
+    if not np.isfinite(g):
+        raise ValueError("cef group_cap: net group weight is not finite; "
+                         "refusing to cap a book it cannot measure")
+    if abs(g) <= k + _GROUP_TOL:
+        return w, False
+    held_m = int((w[muni] != 0).sum())
+    held_t = int((w[tax] != 0).sum())
+    if held_m == 0 or held_t == 0:
+        raise ValueError(
+            f"cef group_cap: net group weight {g:+.6f} breaches k={k} but "
+            f"{'muni' if held_m == 0 else 'taxable'} side is entirely unheld "
+            f"({held_m} muni / {held_t} taxable names held); no dollar-neutral "
+            f"uniform shift exists. Decide, do not default.")
+    D = abs(g) - k
+    s = math.copysign(1.0, g)
+    d_m = s * D / (2.0 * held_m)
+    d_t = s * D / (2.0 * held_t)
+    out = w.copy()
+    for c in muni:
+        if out[c] != 0:
+            out[c] = out[c] - d_m
+    for c in tax:
+        if out[c] != 0:
+            out[c] = out[c] + d_t
+    return out, True
+
+
+def _cap_gross(w: pd.Series, cap: float) -> tuple[pd.Series, float]:
+    """Scale the whole book down until gross exposure is at most `cap` x NAV.
+
+    WHY A CAP AND NOT A TARGET. This never scales the book UP. At the
+    2026-09-15 16:50 ET account read the margin the account can fund is
+    G_stress = 1.931x the $500k book, and the book as it runs today exceeds that
+    on 17.0% of traded days with NOTHING on the live path enforcing it
+    (`ng/05_research_no_borrow_rescore.md` §6.2/§8.2). Levering UP to the cap is
+    a different construction -- book (b) in that note, +14.2% CAGR at 8.55% vol
+    -- which is a sizing decision with its own evidence and its own trial. This
+    key only removes the breach.
+
+    WHY IT SCALES RATHER THAN DROPS NAMES. One uniform multiplier is the only
+    reduction that leaves every relative bet, the dollar-neutrality and the net
+    group weight's RATIO to gross exactly where the signal put them. Dropping
+    names to fit a margin line would silently re-select the book against a
+    constraint that has nothing to do with the signal.
+
+    It cannot flatten the book: `f = cap/gross` is in (0, 1) whenever it binds,
+    and a zero-gross book returns unscaled. A name can still be dropped
+    downstream if scaling takes it under `min_abs_weight` -- that is the
+    pre-existing dust rule, its effect here is to reduce gross slightly FURTHER
+    (never to increase it), and it is disclosed rather than special-cased.
+
+    Returns `(weights, f)`; `f == 1.0` exactly when the cap did not bind.
+    """
+    if not (cap > 0):
+        raise ValueError(f"max_gross_stress must be > 0, got {cap}")
+    gross = float(w.abs().sum())
+    if not np.isfinite(gross):
+        raise ValueError("cef max_gross_stress: gross exposure is not finite; "
+                         "refusing to size against a book it cannot measure")
+    if gross <= cap or gross == 0.0:
+        return w, 1.0
+    f = cap / gross
+    return w * f, f
 
 
 @register
@@ -102,8 +267,99 @@ class CEFDiscountSleeve(Sleeve):
         return None if v in (None, "") else float(v)
 
     @property
+    def _group_cap(self) -> "float | None":
+        """Max |net muni-minus-taxable weight| on the final target. ABSENT MEANS OFF.
+
+        Absent (or null), this sleeve behaves exactly as before -- the code
+        change alone is a no-op, so that turning the constraint on is a single
+        visible edit to the frozen spec and nothing else, exactly as
+        `band_width` was activated. The no-op is PROVED, not asserted:
+        `src/deploy/tests/test_group_cap.py::test_absent_and_null_are_byte_identical`.
+
+        Adopted from GN-N2 (`ng/05_research_group_neutrality.md`), CEF trial 55,
+        already spent. What it buys is measured and is NOT a return improvement:
+        the paired daily return difference against the uncapped band is
+        statistically zero on every window (traded -0.71 %/yr, NW t -1.06). It
+        buys lower vol (5.56% vs 6.57%), lower turnover (25.9 vs 28.8), lower
+        gross (1.23x vs 1.44x) and two-thirds of the breadth recovery
+        (last-12m ENB 2.27 -> 4.38, rolling-252 R^2 to the factor 0.746 -> 0.121).
+        """
+        v = self.frozen.get("group_cap")
+        return None if v in (None, "") else float(v)
+
+    @property
+    def _max_gross_stress(self) -> "float | None":
+        """Hard ceiling on gross exposure, as a multiple of sleeve NAV. ABSENT MEANS OFF.
+
+        Absent (or null), this sleeve behaves exactly as before. This is a
+        MARGIN constraint, not a sizing decision: it only ever scales the book
+        down. See `_cap_gross`.
+
+        NOT the same object as `risk.max_gross_exposure_usd` (a dollar limit
+        read by the book-level risk layer). This one is a multiple of the
+        sleeve's own marked NAV and is applied inside the sleeve, after the
+        band, before anything is emitted.
+        """
+        v = self.frozen.get("max_gross_stress")
+        return None if v in (None, "") else float(v)
+
+    @property
     def _rebal_days(self) -> int:
         return max(1, int(self._req("rebalance_days")))
+
+    def _groups(self) -> dict:
+        """muni vs taxable by STATED MANDATE, read from the price panel's `grp`.
+
+        ONE SOURCE, THE SAME ONE THE RESEARCH USED. `gn_common.load_groups()`
+        read `cef_prices.parquet`'s `grp` column, which is the security master's
+        STATIC_ASSUMED `grp` attribute (`ng/data/secmaster.py:142`, basis
+        "cef_prices.parquet grp column (current mandate)"). Defining the groups
+        by MANDATE rather than by a return clustering is the point: a grouping
+        fitted to returns would be fitted to the very thing the cap exists to
+        neutralise, and the neutrality would be circular.
+
+        KNOWN CAVEAT, carried from the research and not re-derived here: `grp`
+        is the CURRENT mandate applied over all history. Two of the 17 have
+        recorded CRSP mandate changes (AWF 2007-01-29, PFN 2010-03-01) and
+        NEITHER crosses the muni/taxable line, so the binary split is
+        unaffected. A five-group split would not be.
+
+        The axis is muni vs NOT-muni: the panel's `grp` takes the values
+        muni / hy / loan / multi, and everything that is not `muni` is taxable.
+
+        NO SILENT FALLBACK, three ways. A missing column, a ticker with two
+        different `grp` values, or a universe name with no `grp` row all raise
+        naming what is missing. A defaulted mandate would put a name on the
+        wrong side of the very constraint being applied, and nothing downstream
+        would notice.
+        """
+        if not GRP_PATH.exists():
+            raise FileNotFoundError(
+                f"cef group_cap is set but the group source {GRP_PATH} does not "
+                f"exist. The muni/taxable axis is read from the price panel's "
+                f"`grp` column; there is no second source and no default.")
+        try:
+            P = pd.read_parquet(GRP_PATH, columns=["ticker", "grp"])
+        except Exception as exc:                      # noqa: BLE001 -- re-raised
+            raise ValueError(
+                f"cef group_cap is set but {GRP_PATH} has no readable "
+                f"ticker/grp columns ({exc}). Refusing to guess a mandate."
+            ) from exc
+        P = P.drop_duplicates()
+        n = P.groupby("ticker")["grp"].nunique()
+        ambiguous = sorted(n[n != 1].index)
+        if ambiguous:
+            raise ValueError(
+                f"cef group_cap: {GRP_PATH} gives more than one `grp` for "
+                f"{ambiguous}; the mandate axis must be unique per name.")
+        g = P.groupby("ticker")["grp"].first().to_dict()
+        uni = self.instruments()
+        missing = sorted(set(uni) - set(g))
+        if missing:
+            raise ValueError(
+                f"cef group_cap: no `grp` for {missing} in {GRP_PATH}; "
+                f"refusing to guess a mandate.")
+        return {t: ("muni" if g[t] == "muni" else "taxable") for t in uni}
 
     def instruments(self) -> list[str]:
         return sorted(self._req("universe"))
@@ -228,6 +484,36 @@ class CEFDiscountSleeve(Sleeve):
                 w = keep / denom * scal * float(
                     self._req("gross_leverage"))
 
+        # ---- GROUP CAP (muni minus taxable) ---------------------------------
+        # Applied HERE, to the FINAL target -- after normalisation, after the
+        # vol scalar, after the min-weight re-neutralisation -- and BEFORE the
+        # band. Two reasons, both load-bearing:
+        #
+        #  (1) k is DEFINED on the final target. The 0.30 was derived as the
+        #      median |net group weight| the live book ran on its own targets
+        #      over the traded era before 2023 (0.304953), which is the same
+        #      object whose net group weight 05_verify measured at -1.24 over
+        #      the last 12 months. Capping an intermediate vector would cap a
+        #      different quantity wearing the same name.
+        #  (2) It reproduces the scored construction. The research applied
+        #      `soft_cap` to the target frame and then `band(.)`; anything else
+        #      is not the thing that was measured.
+        #
+        # The cap is deliberately NOT followed by a re-normalisation: that would
+        # undo it. The small change in gross is a consequence, is reported
+        # rather than hidden, and is in the direction that helps (mean traded
+        # gross 1.44x -> 1.23x).
+        #
+        # ADOPTION, NOT A NEW SEARCH. CEF trial 55 (GN-N2) is already spent on
+        # this operator and this k. What is claimed is risk and breadth, not
+        # return: the paired return difference is statistically zero on every
+        # window, including -1.13 %/yr (t -1.67) on the only window that is out
+        # of sample for k. See results/cef/PREREG_GROUP_CAP_2026-09-16.md.
+        group_cap = self._group_cap
+        gcap_bound = False
+        if group_cap is not None:
+            w, gcap_bound = _cap_net_group_weight(w, self._groups(), group_cap)
+
         # ---- NO-TRADE BAND ---------------------------------------------------
         # Applied HERE and not earlier: the min-weight block above re-neutralises
         # and re-normalises to unit gross, which would silently undo the band.
@@ -279,6 +565,44 @@ class CEFDiscountSleeve(Sleeve):
                     band_note[tk] = "hold"
             w = pd.Series(banded)
 
+        # ---- GROSS / MARGIN CAP ----------------------------------------------
+        # Applied AFTER the band, because the band is what decides what the book
+        # will actually HOLD, and margin is charged on what is held, not on what
+        # was wanted. A cap applied to the target would let the band carry a
+        # stale position over the line and report itself compliant.
+        #
+        # THE BAND'S HOLDS BECOME TRADES WHEN THIS BINDS, and that is correct
+        # rather than a regression of the 2026-09-08 dust fix. A HOLD is
+        # expressed in shares precisely because "leave it alone" must cost
+        # nothing; when the margin cap binds we are NOT leaving the book alone,
+        # we are reducing it, so every line is a genuine order and belongs in
+        # weight space where the executor sizes it against the close it trades
+        # on. `rebalance.min_trade_usd` ($517) still drops the resize orders too
+        # small to be worth sending, which is what keeps a hairline breach from
+        # churning the whole book.
+        #
+        # This can only ever REDUCE exposure (f in (0,1) when it binds, and
+        # exactly 1.0 otherwise). Nothing here levers the book up to the cap;
+        # that is a different construction with its own evidence and its own
+        # trial (`ng/05_research_no_borrow_rescore.md` §6.3 book (b)).
+        gross_cap = self._max_gross_stress
+        gross_scal = 1.0
+        if gross_cap is not None:
+            w, gross_scal = _cap_gross(w, gross_cap)
+            if gross_scal != 1.0:
+                band_note = {tk: "trade" for tk in band_note}
+
+        # Provenance tag on every reason string, and EMPTY when neither cap is
+        # configured -- which is what keeps the code change a byte-for-byte
+        # no-op with the keys absent.
+        cap_tag = ""
+        if group_cap is not None:
+            cap_tag += f" gcap={group_cap:.4f}{'*' if gcap_bound else ''}"
+        if gross_cap is not None:
+            cap_tag += f" gmax={gross_cap:.4f}"
+            if gross_scal != 1.0:
+                cap_tag += f"*x{gross_scal:.4f}"
+
         out = []
         for tk in uni:
             wt = float(w.get(tk, 0.0))
@@ -324,7 +648,8 @@ class CEFDiscountSleeve(Sleeve):
                     qty=q,
                     meta={"order_type": str(
                         self._req("order_type")).upper()},
-                    reason=f"cef band hold: |gap|<={band_w:.4f} w={wt:+.4f}"))
+                    reason=f"cef band hold: |gap|<={band_w:.4f} w={wt:+.4f}"
+                           f"{cap_tag}"))
                 continue
             # KNOWN INTERACTION, band mode: if the band EDGE lands inside
             # min_abs_weight the dust filter flattens the name instead, which
@@ -337,7 +662,7 @@ class CEFDiscountSleeve(Sleeve):
             if abs(wt) < minw:
                 why = dict(dropped).get(tk, "below min weight")
                 out.append(PositionTarget(instrument=tk, side=FLAT, kind=ETF,
-                                          reason=f"cef: {why}"))
+                                          reason=f"cef: {why}{cap_tag}"))
                 continue
             out.append(PositionTarget(
                 instrument=tk, side=LONG if wt > 0 else SHORT, kind=ETF,
@@ -351,7 +676,7 @@ class CEFDiscountSleeve(Sleeve):
                 meta={"order_type": str(
                     self._req("order_type")).upper()},
                 reason=f"cef discount z={row.get(tk, float('nan')):+.2f} "
-                       f"w={wt:+.4f} volscal={scal:.2f}"))
+                       f"w={wt:+.4f} volscal={scal:.2f}{cap_tag}"))
         return out
 
     # ---- risk --------------------------------------------------------------

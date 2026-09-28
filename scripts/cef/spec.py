@@ -156,10 +156,37 @@ MIN_TRADE_USD: float = float(rebalance("min_trade_usd"))
 # exactly. Analysis code comparing the two policies wants both.
 BAND_IS_LIVE: bool = "band_width" in (_SPEC.get("frozen") or {})
 
+
+def _optional(key: str) -> "float | None":
+    """A frozen key whose ABSENCE is a legitimate configuration, not an error.
+
+    `frozen()` raises on a missing key, and that is right for a parameter the
+    sleeve cannot run without. `group_cap` and `max_gross_stress` are
+    constraints that DEFAULT TO OFF: absent and null both mean "no cap", which
+    is exactly the v6 behaviour they must revert to. A raising accessor would
+    make every analysis script that reads them refuse to run against a spec
+    that has deliberately turned them off, which is the opposite of the
+    revert path those keys are required to have.
+
+    This is NOT a silent fallback. Nothing is invented: the return value is
+    `None`, which every consumer must branch on, and `None` means "the
+    constraint is not applied", never "applied at some guessed level".
+    """
+    v = (_SPEC.get("frozen") or {}).get(key)
+    return None if v in (None, "") else float(v)
+
+
+# Both are None when the constraint is off. Read them; never write the literal.
+GROUP_CAP: "float | None" = _optional("group_cap")
+MAX_GROSS_STRESS: "float | None" = _optional("max_gross_stress")
+
 # The live policy label, for table headers, so a chart cannot silently claim to
-# show a policy the book is not running.
-LIVE_POLICY: str = (f"band {BAND_WIDTH:.1%}" if BAND_IS_LIVE
-                    else f"calendar {REBALANCE_DAYS}d")
+# show a policy the book is not running. A constraint appears only when it is
+# ON, so a v6 header is unchanged and a v7 header cannot be mistaken for it.
+LIVE_POLICY: str = (
+    (f"band {BAND_WIDTH:.1%}" if BAND_IS_LIVE else f"calendar {REBALANCE_DAYS}d")
+    + (f" + gcap {GROUP_CAP:.2f}" if GROUP_CAP is not None else "")
+    + (f" + gmax {MAX_GROSS_STRESS:.2f}x" if MAX_GROSS_STRESS is not None else ""))
 
 
 def summary() -> str:
@@ -169,7 +196,8 @@ def summary() -> str:
 
 if __name__ == "__main__":
     print(summary())
-    for name in ("universe", "band_width", "z_window", "vol_target_annual",
+    for name in ("universe", "band_width", "group_cap", "max_gross_stress",
+                 "z_window", "vol_target_annual",
                  "min_adv_usd", "min_names", "min_abs_weight",
                  "max_nav_age_bd", "gross_leverage", "rebalance_days"):
         value = frozen(name)
