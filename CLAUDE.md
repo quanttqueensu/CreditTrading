@@ -118,9 +118,12 @@ recall of any specific figure is wrong until you have fetched it.**
   the *t+2* return. Canonical implementation: `evaluate()` in
   `scripts/cef/band_frontier.py`. **Do not build a new backtester** — extend that
   one, visibly. `/harness`.
-- **Turnover-matched comparisons only** (within 5% turn/yr). **Cost grid
-  5 / 15 / 30bp on every table**; the answer must not flip sign across it. Borrow
-  is charged separately and labelled.
+- **Turnover-matched comparisons only** (within 5% turn/yr). **Every table shows
+  gross P&L as the headline** — the paper account is scored on gross P&L with no
+  borrow or execution cost (team lead, D19/D20, 2026-09-15) — **and the cost grid
+  5 / 15 / 30bp beside it as the real-money view, labelled, never mixed into one
+  column** (team lead, 2026-09-28). Say whether the answer flips sign across the
+  grid. Borrow is charged separately and labelled.
 - **No sweeping and picking.** Derive a parameter, then check it lands on a
   plateau. The argmax of a swept `z_window` column failed out of sample within
   hours.
