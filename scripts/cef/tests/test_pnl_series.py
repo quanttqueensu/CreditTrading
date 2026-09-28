@@ -192,7 +192,11 @@ def test_total_returns_composes_the_two_corrections():
     y = BF.distribution_yield(R.index, R.columns)
     k = BF.split_factor(R.index, R.columns)
     assert (y >= 0).all().all()
-    assert (y > 0).sum().sum() > 3000, "the 17 have thousands of ex-dates since 2005"
+    # Scaled to the universe (2026-09-28: 17 -> 13 names; the old literal 3000
+    # was a 17-name count). Monthly payers since 2005 give ~250 each; the
+    # youngest name in the 13 (PDO) has 68, so 150/name is a floor, not a fit.
+    n = len(R.columns)
+    assert (y > 0).sum().sum() > 150 * n, f"the {n} names have thousands of ex-dates since 2005"
     assert y.max().max() < 0.25, "a CEF distribution is not a quarter of its price"
     pd.testing.assert_frame_equal(BF.total_returns(R), (1.0 + R) * k - 1.0 + y)
 

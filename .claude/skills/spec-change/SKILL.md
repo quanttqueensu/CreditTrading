@@ -45,7 +45,11 @@ what was derived and how, the measured inputs, **the value that topped the sweep
 and was deliberately not chosen**, the consequence accepted knowingly, what reads
 the key, and the exact **REVERT** (usually "delete this key").
 
-**5. Bump `spec_id`, set `_supersedes`, keep the old file** as `*.bak-<date>`.
+**5. Bump `spec_id`, set `_supersedes`, and tag the commit BEFORE the change**
+`spec-<old spec_id>` (and push the tag). The old spec is then one
+`git show spec-<old spec_id>:ops/specs/cef_discount.frozen.json` away — that is the
+revert path. No `.bak` copies (clean slate, 2026-09-28). Example:
+`spec-cef_discount.v6.20260906`.
 
 **6. Update `docs/RESEARCH_STATE.md` in the same commit** as the trial.
 
@@ -83,8 +87,13 @@ inert key; it is the revert path.
 
 ```bash
 python3 -m pytest                          # never quote the count
-python3 -m ops.preflight --book ops/books/cef_discount_book.json --no-live
+python3 -m ops.doc_audit --check           # the spec id and notes still agree with the docs
+python3 -m ops.orient --no-tests           # SPEC shows the new id and values
 ```
+
+Then build the sleeve on the new spec for the last few panel dates and look at
+the targets (names, gross, net) before anything trades. The IBKR preflight gate
+was deleted; the Alpaca runner's gate is `docs/ROADMAP.md` 4.3.
 
 If you changed behaviour and no test failed, that is itself a finding — add the
 test.

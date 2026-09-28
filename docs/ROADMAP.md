@@ -24,15 +24,15 @@ fetchers, the research memory, `quantt/`, and the agent layer.
 | 1.1 | Create two Alpaca **paper** accounts at $100k: `cef` and `b6`. Regenerate the key pasted into the 2026-09-28 chat. | TL | `cef` done 2026-09-28; `b6` later (TL) |
 | 1.2 | Put `ALPACA_CEF_KEY_ID`, `ALPACA_CEF_SECRET_KEY`, `ALPACA_B6_KEY_ID`, `ALPACA_B6_SECRET_KEY` in `config/.env` with a text editor. Never paste them into a chat. | TL | `cef` pair set 2026-09-28; `b6` later |
 | 1.3 | `python3 -m quantt.broker.alpaca_probe --check-keys`, then the probe itself: which of the 17 CEFs and b6's 8 ETFs are tradable, shortable, easy- or hard-to-borrow, marginable. | A | `cef` done 2026-09-28 (`results/ops/alpaca_probe/2026-09-28_cef.json`): all 17 tradable; **4 not shortable, hard-to-borrow** — orient ALPACA lists them. `b6` after 1.2 |
-| 1.4 | **Universe decision** if any name is untradable or hard-to-borrow — this can change the strategy. | TL | **open — needed now** (see 1.3) |
+| 1.4 | **Universe decision** if any name is untradable or hard-to-borrow — this can change the strategy. | TL | done 2026-09-28: drop NAD, NEA, NVG, NZF (17 → 13) |
 
 ## Phase 2 — the spec on Alpaca
 
 | # | step | who | status |
 |---|---|---|---|
-| 2.1 | Re-derive `max_gross_stress` with the pre-registered rule (`results/cef/PREREG_GROUP_CAP_2026-09-16.md`) on the Alpaca account: Reg T, one book per account. | A | open |
-| 2.2 | Re-derive `min_trade_usd` (its old derivation used IBKR's $1 minimum commission; Alpaca charges none) and re-size capital to $100k. | A | open |
-| 2.3 | One `/spec-change` to v7-on-Alpaca: `group_cap`, `max_gross_stress`, capital, min trade. No-op proof, pre-registration (`/prereg`), CEF counter 48 → 49 in the same commit. | A, TL approves | open |
+| 2.1 | Re-derive `max_gross_stress` with the pre-registered rule (`results/cef/PREREG_GROUP_CAP_2026-09-16.md`) on the Alpaca account: Reg T, one book per account. | A | done 2026-09-28: 1.80 (and `group_cap` left off — its rule gives k = 0 on 13 names) |
+| 2.2 | Re-derive `min_trade_usd` (its old derivation used IBKR's $1 minimum commission; Alpaca charges none) and re-size capital to $100k. | A | done 2026-09-28: $0 (whole shares), $100k |
+| 2.3 | One `/spec-change` to v7-on-Alpaca: universe, `max_gross_stress`, capital, min trade. Pre-registration, CEF counter in the same commit. | A, TL approves | done 2026-09-28: `cef_discount.v7.20260928`, `results/cef/PREREG_ALPACA_V7_2026-09-28.md`, CEF 48 → 50, revert tag `spec-cef_discount.v6.20260906` |
 
 ## Phase 3 — how Alpaca actually behaves (paper, before any code relies on it)
 
@@ -55,7 +55,7 @@ every piece.
 | # | piece | status |
 |---|---|---|
 | 4.1 | Data refresh: prices + NAV panels, freshness gate (stale NAV → no trade, still log). | open |
-| 4.2 | Decision: sleeve targets from the frozen spec → whole-share orders, netted per symbol, flips split per 3.2. | open |
+| 4.2 | Decision: sleeve targets from the frozen spec → whole-share orders, netted per symbol, flips split per 3.2. Note: from a flat book the band trades each name only to its band edge, so the first session's book is not exactly dollar-neutral (net −0.05 to −0.10 of NAV on the last three panel dates; v6 on 17 names does the same). Decide before the first armed session whether the opening session trades to target instead. | open |
 | 4.3 | Pre-trade gate: `DRY_RUN`, halt file, buying power, borrow status, the "a set is already headed for this auction" refusal, record-before-first-order. | open |
 | 4.4 | Transmit: MOC via `cls` before 15:50 ET, idempotent per 3.4. | open |
 | 4.5 | Reconcile from the broker (positions, orders, activities, `trade_updates`), never a local ledger. | open |

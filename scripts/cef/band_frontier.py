@@ -57,7 +57,7 @@ BAND_SWEEP = sorted({0.002, 0.004, 0.008, 0.016, 0.024, 0.032,
                      0.048, 0.064, 0.096, 0.128, BAND_WIDTH})
 
 
-def build_panel(end=None):
+def build_panel(end=None, universe=None):
     """The signal panel `build_targets` is built from: px, nav, ret, disc, z, adv.
 
     `end` truncates the RAW price and NAV history before anything is computed,
@@ -89,7 +89,13 @@ def build_panel(end=None):
     """
     P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
     N = pd.read_parquet(REPO / "data/cef/cef_nav.parquet")
-    P, N = P[P.ticker.isin(UNIVERSE)], N[N.ticker.isin(UNIVERSE)]
+    # `universe` (added 2026-09-28): a caller may score a candidate universe
+    # before it is in the spec -- the Alpaca v7 derivation drops four names that
+    # Alpaca will not let us short. None means the spec's universe, and the
+    # production path is byte-identical to before the argument existed
+    # (sha256 of pickle.dumps(build_targets()) 6fdd49b4...c09f both sides).
+    U = UNIVERSE if universe is None else list(universe)
+    P, N = P[P.ticker.isin(U)], N[N.ticker.isin(U)]
     d = P.merge(N, on=["date", "ticker"], how="inner")
     d["date"] = pd.to_datetime(d["date"])
     if end is not None:
@@ -107,12 +113,15 @@ def build_panel(end=None):
     return dict(px=px, nav=nav, vol=vol, ret=ret, disc=disc, mu=mu, sd=sd, z=z, adv=adv)
 
 
-def build_targets():
-    """Frictionless daily target weights, exactly as the sleeve would build them."""
-    p = build_panel()
+def build_targets(universe=None):
+    """Frictionless daily target weights, exactly as the sleeve would build them.
+
+    `universe=None` is the spec's universe; see `build_panel`."""
+    U = UNIVERSE if universe is None else list(universe)
+    p = build_panel(universe=U)
     ret, z, adv = p["ret"], p["z"], p["adv"]
 
-    tgt = pd.DataFrame(0.0, index=z.index, columns=UNIVERSE)
+    tgt = pd.DataFrame(0.0, index=z.index, columns=U)
     start = z.index.searchsorted(pd.Timestamp(SAMPLE_START))
     for i in range(start, len(z.index)):
         row = z.iloc[i].dropna()
@@ -125,9 +134,9 @@ def build_targets():
         hist = ret[list(row.index)].iloc[:i + 1].mul(w, axis=1).sum(axis=1).tail(VOL_LOOKBACK)
         rv = hist.std() * np.sqrt(252)
         scal = float(np.clip(VOL_TARGET / rv, 0.2, 2.5)) if rv > 0 else 1.0
-        tgt.iloc[i] = (w * scal).reindex(UNIVERSE).fillna(0.0).values
+        tgt.iloc[i] = (w * scal).reindex(U).fillna(0.0).values
     T = tgt.iloc[start:]
-    return T, ret.reindex(T.index)[UNIVERSE].fillna(0.0)
+    return T, ret.reindex(T.index)[U].fillna(0.0)
 
 
 def calendar(T, k):
@@ -148,6 +157,36 @@ def band(T, b):
         mv = np.abs(gap) > b
         cur = cur.copy()
         cur[mv] = A[i][mv] - np.sign(gap[mv]) * b
+        H[i] = cur
+    return pd.DataFrame(H, index=T.index, columns=T.columns)
+
+
+def band_gross_capped(T, b, cap):
+    """`band()` with the frozen `max_gross_stress` ceiling applied to the HELD
+    book after the band, exactly where the sleeve applies it (added 2026-09-28).
+
+    The sleeve bands against what it actually HOLDS, and the ceiling scales that
+    held book by one uniform `f = cap / gross` whenever gross exceeds `cap`
+    (`src/deploy/sleeves/cef_discount.py::_cap_gross`, which this calls, so the
+    operator has one definition). The scaled book is then tomorrow's `cur`, so a
+    binding ceiling feeds back into the next day's band -- which is why this is
+    not `band(T, b)` followed by a row-wise rescale.
+
+    `cap = inf` reproduces `band(T, b)` exactly (tested in
+    scripts/cef/tests/test_band_gross_capped.py).
+    """
+    from src.deploy.sleeves.cef_discount import _cap_gross
+    A, cur = T.values, np.zeros(T.shape[1])
+    H = np.zeros_like(A)
+    cols = T.columns
+    for i in range(len(A)):
+        gap = A[i] - cur
+        mv = np.abs(gap) > b
+        cur = cur.copy()
+        cur[mv] = A[i][mv] - np.sign(gap[mv]) * b
+        if np.isfinite(cap):
+            w, _ = _cap_gross(pd.Series(cur, index=cols), cap)
+            cur = w.values
         H[i] = cur
     return pd.DataFrame(H, index=T.index, columns=T.columns)
 

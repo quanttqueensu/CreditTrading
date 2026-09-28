@@ -466,23 +466,22 @@ def test_nonsense_cap_values_raise(panel):
 # the frozen spec's own keys must be readable and the revert path must exist
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Code ported to main 2026-09-28 ahead of the spec. The spec gains both keys "
-    "in ONE /spec-change for the Alpaca book, after max_gross_stress is "
-    "re-derived from the Alpaca account (its 1.90 was derived from the IBKR-Canada "
-    "account, which is being retired). strict: this XPASSes -- and fails the "
-    "suite -- the moment the keys land, so the marker cannot outlive its reason."))
-def test_the_frozen_spec_carries_both_keys_with_sibling_notes():
-    """/spec-change step 4: every new key has a `_<key>_note` that names its REVERT."""
+def test_the_frozen_spec_carries_the_adopted_key_with_its_note():
+    """/spec-change step 4: the adopted key has a `_<key>_note` naming how it was
+    DERIVED and its REVERT. On Alpaca (v7.20260928) only `max_gross_stress` is
+    adopted; `group_cap` is deliberately ABSENT -- its rule gives k = 0 on the
+    13-name universe, which is the killed hard-neutrality variant (team lead,
+    2026-09-28; results/cef/PREREG_ALPACA_V7_2026-09-28.md section 3a). A group_cap
+    that appears in the spec without a new pre-registration fails this test."""
     import json
     from pathlib import Path
     repo = Path(cefmod.__file__).resolve().parents[3]
     spec = json.loads((repo / "ops/specs/cef_discount.frozen.json").read_text())
     frozen = spec["frozen"]
-    for key in ("group_cap", "max_gross_stress"):
-        assert key in frozen, f"{key} is not in the frozen spec"
-        note = frozen.get(f"_{key}_note")
-        assert note, f"{key} has no sibling _note"
-        assert "REVERT" in note, f"{key}'s note does not name its revert path"
-        assert "DERIVED" in note, f"{key}'s note does not say how it was derived"
+    assert "max_gross_stress" in frozen
+    note = frozen.get("_max_gross_stress_note")
+    assert note and "REVERT" in note and "DERIVED" in note
+    assert "group_cap" not in frozen, (
+        "group_cap is in the spec: that needs its own pre-registration, because "
+        "its rule gives k = 0 (killed hard neutrality) on the 13-name universe")
     assert spec["_supersedes"] == "cef_discount.v6.20260906"

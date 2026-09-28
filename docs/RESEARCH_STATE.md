@@ -30,9 +30,15 @@ counter (156) covers all ETF-price/PD work done to date.
 | DISP | PD dispersion / staleness decomposition | 3 |
 | DEALER | NY Fed primary dealer inventory | 1 |
 | MBS | mortgage prepayment staleness | 0 |
-| **CEF** | **credit closed-end fund discounts** | **48** |
+| **CEF** | **credit closed-end fund discounts** | **50** |
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
+
+> **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
+> the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
+> 50: `max_gross_stress` adopted and re-derived for the Alpaca account. The team lead
+> ruled on 2026-09-28 that this counter (48 on `main`), not the nextgen branch's
+> 53–56, is authoritative; the nextgen trials were shadow research.
 
 > **⚠ CORRECTED 2026-09-09.** The CEF row read **18** until today, which was its
 > value on 2026-07-31 when this file was last updated. It missed the +29 that
