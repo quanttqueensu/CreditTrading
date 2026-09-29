@@ -22,7 +22,7 @@ on a panel whose last date is somebody else's choice.
 | **Live: NAV** | yfinance NAV symbol `X<TK>X`, with CEFConnect's dated row as an explicit, logged fallback (`--nav-fallback cefconnect`, every fill written to `data/cef/nav_fallback_log.csv`) | `scripts/cef/fetch_daily.py` → `data/cef/cef_nav.parquet` | The session runs it with `--require-asof`. Stale data never trades (`docs/RUNNER.md` step 1). |
 | **Research / backtest** | Cloudflare R2 bucket, a WRDS mirror | `src/data/r2.py` (DuckDB over httpfs, read-only) | §3. Never live. |
 | **Broker truth** (positions, fills, tradability, shortability) | Alpaca Trading API, paper | `quantt/broker/` | The authority on our accounts (`CLAUDE.md` data rule 2). |
-| **Later cross-check** | Alpaca Market Data API (bars, closing-auction prints) | not built | A second live-era price source beside yfinance. The auction prints are also the second P&L score (`docs/RUNNER.md`, verify step). Coverage and feed tier for CEFs are **not yet measured**. |
+| **Official closes, cross-check** | Alpaca Market Data API, closing-auction prints (condition M, primary exchange) | `quantt/collect` → `data/cef/alpaca_official_close.parquet` (§5) | A second live-era price source beside yfinance. The auction prints are also the second P&L score (`docs/RUNNER.md`, verify step). CEF coverage on the Basic plan is **not yet measured** over any run. |
 
 The other files in `data/cef/` (distributions, borrow, splits, universe, facts) have
 their own fetchers. This file does not describe them.
@@ -127,7 +127,47 @@ last date was 2024-12-31. Verdict **FAIL**, for these findings (full detail in t
   2023-05-26). So the panel is **not** adjusted for those events. Which corporate action
   each `cfacpr` step reflects is not established here.
 
-## 5. Open questions
+## 5. The nightly collector (`quantt/collect`, 2026-09-29)
+
+`python3 -m quantt.collect --book cef` records every trading day, whether or not the
+book traded. It is meant to run from launchd every 30 minutes, all day. When the day is
+already complete it reads Alpaca's clock and calendar, prints `IDLE <D> complete` and
+exits 0. The launchd template is not built yet: `quantt/deploy/` belongs to the runner
+work. The module docstring has the full design.
+
+- **Data day D.** D is the latest date that both Alpaca's `/v2/calendar` and
+  `ops/schedule/nyse_calendar` call a trading day, and whose close + 45 minutes has
+  passed by Alpaca's clock. If the two calendars disagree, the run raises and names both.
+- **Steps.** Each step is idempotent and recorded in
+  `$QUANTT_STATE_DIR/data/<D>/status.json`. A failed step is retried next slot, and a
+  step that completed is not run again.
+  1. `prices_nav` runs `fetch_daily.py --require-asof D`, with the session's flags and a
+     15-minute timeout.
+  2. `nav_crosscheck` compares each deployed name's panel NAV with CEFConnect.
+  3. `official_closes` fetches the Alpaca auction prints into
+     `data/cef/alpaca_official_close.parquet`, de-duplicated on (date, ticker).
+  4. `close_crosscheck` compares each official close with the panel close.
+  5. `account_snapshot` writes `<D>/account.json` and one row per day in
+     `$QUANTT_STATE_DIR/equity.csv`. It is taken only before the next session opens.
+  6. `distributions` runs `scripts/fetch_cef_distributions.py`, with a 20-minute timeout.
+- **Where it writes.** Each run that did work writes `<D>/report.json` (steps, flags,
+  gaps) and appends one line to `$QUANTT_STATE_DIR/data.log`:
+  `<D> DATA COMPLETE|INCOMPLETE <failed steps> flags=<n> gaps=<n>`.
+- **Exit codes.** 0 means complete or idle. 5 means incomplete and will be retried.
+  20 means an unexpected error: it is recorded in data.log and the traceback goes to
+  stderr.
+- **Report only (team lead, 2026-09-29).** A cross-check disagreement of more than
+  $0.005 is a *flag*. The flag names both sources and both values. It never blocks
+  trading and never fails a step, and the two values are never averaged. A value that one
+  source lacks is a *gap* naming the fund. Suppose the panel's NAV for D was itself
+  filled from CEFConnect (`nav_fallback_log.csv`). Then that name is a gap, because
+  comparing a source with itself is not a check.
+- **Panel lock.** The session and the collector both run `fetch_daily.py`. Its
+  read-modify-write of the price and NAV panels holds an exclusive `flock` on
+  `data/cef/.fetch.lock`. A second run waits up to 10 minutes, then exits 3 and names
+  the lock (`fetch_daily.py` docstring, LOCKING).
+
+## 6. Open questions
 
 1. `crsp_q_mutualfunds.daily_nav`: does it cover our CEFs? If it does, it would be an
    independent NAV source for the history.
