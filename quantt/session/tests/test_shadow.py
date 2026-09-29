@@ -114,3 +114,16 @@ def test_a_shadow_failure_never_changes_the_verify_verdict(tmp_path, monkeypatch
     assert vf.main(["verify", "--book", "cef"]) == 0            # PASS stays PASS
     r = rows(tmp_path)[0]
     assert r["date"] == D.isoformat() and "no prints" in r["unmeasured"]
+
+
+def test_a_plan_refused_at_send_is_carried_not_intended(tmp_path):
+    plan(tmp_path, P, {"AAA": 100})
+    plan(tmp_path, D, {"AAA": 999})
+    p = json.loads((tmp_path / D.isoformat() / "plan.json").read_text())
+    p.update(execution="late_market", status="decided")
+    (tmp_path / D.isoformat() / "plan.json").write_text(json.dumps(p))
+    (tmp_path / D.isoformat() / "send.json").write_text(json.dumps(
+        {"refusals": [{"gate": "halt", "detail": "manual"}], "exit": "REFUSED"}))
+    r = sh.run_day(None, tmp_path, D, fetch=prices({P: {"AAA": 10.0}, D: {"AAA": 11.0}}),
+                   prev=P, now_utc=NOW)
+    assert json.loads(r["book_out_json"]) == {"AAA": 100} and r["book_out_source"].startswith("carried")

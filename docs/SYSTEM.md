@@ -349,6 +349,8 @@ After the first armed session (13 `cls` orders accepted at 10:33 ET, plan_sha
 | Two data sources disagree | **Report only.** The panel (yfinance) is traded on; the disagreement is written to the daily data report. It never blocks and is never averaged. |
 | Rollout | **Deploy after the 2026-09-29 verify; the evening run stays DRY** until the team lead approves a list. The first real evening send also tests Alpaca's overnight `cls` queue on paper. |
 | Paper under-fills `cls` (2 of 13 filled on 2026-09-29) | First: keep `cls` with a shadow benchmark. **Superseded the same evening:** "obviously this is unacceptable" -- **paper sends market `day` orders 15:52–15:58 ET** (decided in the evening, sent from the saved plan), a recorded exception to rule 3 for the paper account only. The shadow benchmark stays; fills are scored against the official close in bp. |
+| Arming for the 15:52 send | **Fully automatic from 2026-09-29 evening:** prod installed with DRY_RUN=0 and `AUTO_ARMED`; every decided plan is sent in the late window without a per-day go. `ops/HALT.md` or reinstalling dry stops it. |
+| Cloud server | **Not yet**; the laptop stays prod. Revisit after a week of fills. |
 | The two unhedged longs left by that day (PHK 4,019, PFN 1,529) | **Not flattened.** Both are part of the target; the next session trades from them (the band applies: it is no longer the opening session). |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13

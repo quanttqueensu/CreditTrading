@@ -66,8 +66,19 @@ class ShadowError(RuntimeError):
 
 
 def _plan(state_dir: Path, day: dt.date) -> dict | None:
-    p = state_dir / day.isoformat() / "plan.json"
-    return json.loads(p.read_text()) if p.exists() else None
+    """plan.json, with a late-market SEND refusal folded in (send.json): a plan
+    the send refused on anything but dry-run/arming was not an intention to
+    trade that day, exactly as a decide-time refusal is not (review 2026-09-29)."""
+    d = state_dir / day.isoformat()
+    p = d / "plan.json"
+    if not p.exists():
+        return None
+    plan = json.loads(p.read_text())
+    s = d / "send.json"
+    if plan.get("execution") == "late_market" and s.exists():
+        plan = dict(plan, refusals=list(plan.get("refusals") or [])
+                    + list(json.loads(s.read_text()).get("refusals") or []))
+    return plan
 
 
 def intended_book(plan: dict | None) -> dict | None:

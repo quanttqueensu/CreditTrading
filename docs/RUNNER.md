@@ -136,6 +136,15 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
   late clock, no-set, shortability, exposure and sanity are re-evaluated on fresh
   broker reads. Sent as `type=market, time_in_force=day`, the window re-checked
   before every POST.
+- **A decided plan is never overwritten** -- not by a later manual run, and never
+  by `--preview` (which would re-size on intraday equity). To re-decide on purpose,
+  delete `<D>/plan.json` and `<D>/DECIDED` first.
+- **A name that turned unshortable since the decision is skipped at send and the
+  rest go** (team lead 2026-09-28, "skip that name, send the rest"); the arming
+  check still binds to the decided plan's sha, so what goes is a subset of it.
+- **The send records its outcome** in `<D>/send.json` (exit, refusals, skipped);
+  verify explains a no-trade day from it, and a decided plan with no send record
+  is FAIL "no send ran in the late window".
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.

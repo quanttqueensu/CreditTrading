@@ -263,6 +263,30 @@ def no_trade_reason(plan: dict, day: dt.date, book: str) -> tuple[str | None, st
                   f"STARTED: the session stopped between deciding and recording")
 
 
+def late_no_trade_reason(plan: dict, send: dict | None, day: dt.date,
+                         book: str) -> tuple[str | None, str | None]:
+    """The late-market analogue of `no_trade_reason` (paper execution,
+    2026-09-29). The DECIDE phase writes plan.json; the SEND phase writes
+    send.json with its own refusals. A day with no STARTED is explained by the
+    plan's refusals (not decided), an empty plan, or the send's refusals. A
+    decided plan with orders and NO send record means no send ran in the window
+    (machine asleep or offline): FAIL, saying so."""
+    if plan.get("status") != "decided":
+        return no_trade_reason(plan, day, book)
+    if not plan.get("orders"):
+        return "the plan had no orders", None
+    if send is None:
+        return None, (f"plan decided with {len(plan['orders'])} order(s) but no send ran in "
+                      f"the late window {plan.get('send_window')} (machine asleep or offline?)")
+    texts = [_refusal_text(r) for r in send.get("refusals") or []]
+    if texts:
+        return "refused at send: " + "; ".join(texts), None
+    if send.get("exit") == "NOTHING_TO_SEND":
+        return "nothing left to send (every order skipped at send: " + \
+            "; ".join(send.get("skipped") or []) + ")", None
+    return None, f"send.json says {send.get('exit')!r} but there is no STARTED"
+
+
 # ------------------------------------------------------------ broker helpers
 
 def _whole(v, what: str) -> int:
@@ -412,7 +436,14 @@ def verify_day(client, state_dir: Path, book: str, day: dt.date | None = None, *
             problems.append("no STARTED and no plan.json: the session left no record")
         else:
             try:
-                why_no_trade, problem = no_trade_reason(_read_json(plan_path), day, book)
+                plan_d = _read_json(plan_path)
+                if plan_d.get("execution") == "late_market":
+                    send_path = day_dir / "send.json"
+                    why_no_trade, problem = late_no_trade_reason(
+                        plan_d, _read_json(send_path) if send_path.exists() else None,
+                        day, book)
+                else:
+                    why_no_trade, problem = no_trade_reason(plan_d, day, book)
             except RecordError as e:
                 why_no_trade, problem = None, str(e)
             if problem:

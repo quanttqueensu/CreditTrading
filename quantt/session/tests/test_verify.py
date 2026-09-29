@@ -652,3 +652,19 @@ def test_a_refusal_not_in_runs_shape_is_a_record_error(state):
     (state / D.isoformat() / "plan.json").write_text(json.dumps(p))
     v = run(state, FakeClient())
     assert not v.ok and "is not {'gate': str, 'detail': str}" in v.reason
+
+
+def test_late_market_days_are_explained_by_the_send_record():
+    from quantt.session.verify import late_no_trade_reason as why
+    plan = {"book": "cef", "session_date": D.isoformat(), "mode": "run", "execution": "late_market",
+            "status": "decided", "orders": [{"x": 1}], "refusals": [], "send_window": ["a", "b"]}
+    ok, prob = why(plan, {"refusals": [{"gate": "dry_run", "detail": "DRY_RUN is '1'"}],
+                          "exit": "DRY"}, D, "cef")
+    assert prob is None and "refused at send: [dry_run]" in ok
+    ok, prob = why(plan, None, D, "cef")
+    assert ok is None and "no send ran" in prob                 # asleep: FAIL, said plainly
+    ok, prob = why(dict(plan, orders=[]), None, D, "cef")
+    assert prob is None
+    refused = dict(plan, status="refused", refusals=[{"gate": "data", "detail": "stale"}])
+    ok, prob = why(refused, None, D, "cef")
+    assert prob is None and "[data]" in ok

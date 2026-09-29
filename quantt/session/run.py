@@ -667,8 +667,19 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan.update(execution="late_market", send_window=list(win), closes=closes,
                         status="refused" if shown else "decided",
                         refusals=[{"gate": r.gate, "detail": r.detail} for r in shown])
-        if not (day / "STARTED").exists():
+        # Late-market (review 2026-09-29): a DECIDED plan is what gets sent at
+        # 15:52, so nothing overwrites it -- not a later manual run, and never a
+        # --preview (which re-sizes on intraday equity and could replace the
+        # evening's plan, or overwrite it with a refused one). To re-decide on
+        # purpose, delete <D>/plan.json and <D>/DECIDED first (RUNBOOK).
+        existing = _read_plan(day) if late else None
+        keep = late and (preview or (existing or {}).get("status") == "decided")
+        if not (day / "STARTED").exists() and not keep:
             rec.write_json_atomic(day / "plan.json", plan)
+        elif late and (existing or {}).get("status") == "decided" and not preview:
+            print(f"  a DECIDED plan already exists for {session_date} (plan_sha "
+                  f"{existing.get('plan_sha')}); NOT overwritten -- it is the one sent "
+                  f"in the window", file=out)
 
         print(f"{book.name} session {session_date} (as-of {asof}), equity ${equity:,.2f}, "
               f"opening_session={opening}", file=out)
@@ -762,6 +773,11 @@ def load_decided_plan(day: Path, session_date: dt.date) -> tuple[dict, tuple]:
     return plan, orders
 
 
+def _read_plan(day: Path) -> dict | None:
+    p = day / "plan.json"
+    return json.loads(p.read_text()) if p.exists() else None
+
+
 def approval_for(day: Path) -> str | None:
     """The plan_sha the team lead approved for this session (<D>/APPROVED), or None."""
     p = day / "APPROVED"
@@ -792,6 +808,24 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     # The plan was sized on these holdings; if they moved, it is not the plan any more.
     moved = {s: {"plan": t["current"], "now": pos.get(s, 0)}
              for s, t in plan["targets"].items() if pos.get(s, 0) != t["current"]}
+    # A name whose `shortable` flipped since the decision (landmine 5: it changes
+    # daily) is skipped at send and the rest go -- the team lead's rule for a
+    # name that cannot trade (2026-09-28: "skip that name, send the rest"). The
+    # arming check still binds to the DECIDED plan's sha: what goes is a subset
+    # of what was approved, never anything else. Logged in send.json.
+    skipped = []
+    keep_orders = []
+    for o in orders:
+        cur = pos.get(o.symbol, 0)
+        opens_short = o.side == "sell" and cur - o.qty < 0
+        if opens_short and shortable.get(o.symbol) is not True:
+            skipped.append(f"{o.client_order_id}: {o.symbol} shortable="
+                           f"{shortable.get(o.symbol)!r} at send; skipped, the rest go")
+        else:
+            keep_orders.append(o)
+    orders = tuple(keep_orders)
+    record["skipped_at_send"] = skipped
+    borrow_warnings = hard_to_borrow_short_opens(orders, pos, assets)
     approve_sha = approve or approval_for(day)
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
@@ -820,17 +854,28 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
           f"${acct['equity']:,.2f}, window {win[0]:%H:%M}-{win[1]:%H:%M} ET", file=out)
     print(order_table(orders), file=out)
     print(f"plan_sha {plan['plan_sha']}", file=out)
+    for x in skipped:
+        print(f"  SKIPPED {x}", file=out)
+    for w in borrow_warnings:
+        print(f"  WARNING {w}", file=out)
     for r in refusals:
         print(f"  REFUSED {r}", file=out)
     if preview:
         return _finish(record, day, stamp, mode, EXIT_PREVIEW, out)
+
+    def outcome(code):
+        # verify and shadow read this (review 2026-09-29): without it a day the
+        # SEND refused (dry run, halt, moved positions) read as a crash.
+        rec.write_json_atomic(day / "send.json", {
+            "session_date": session_date, "plan_sha": plan["plan_sha"], "at": stamp,
+            "exit": EXIT_NAMES[code], "refusals": record["refusals"], "skipped": skipped})
+        return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
     gates_hit = {r.gate for r in refusals}
     if refusals:
-        code = EXIT_DRY if ("dry_run" in gates_hit and gates_hit <= {"dry_run", "arming"}) \
-            else EXIT_REFUSED
-        return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
+        return outcome(EXIT_DRY if ("dry_run" in gates_hit and gates_hit <= {"dry_run", "arming"})
+                       else EXIT_REFUSED)
     if not orders:
-        return _finish(record, day, stamp, mode, EXIT_NOTHING, out, scheduled=scheduled)
+        return outcome(EXIT_NOTHING)
     started = {"plan_sha": plan["plan_sha"], "session_date": session_date, "pid": os.getpid(),
                "written_utc": deps.utcnow(), "execution": "late_market",
                "client_order_ids": [o.client_order_id for o in orders], "plan": plan}
@@ -840,7 +885,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     code = _transmit(c, orders, day / "orders.jsonl", record, deps, out,
                      in_window=lambda ts: win[0] <= ts < win[1],
                      window_text=f"late-market window {win[0]:%Y-%m-%d %H:%M}-{win[1]:%H:%M} ET")
-    return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
+    return outcome(code)
 
 
 def approve_main(argv=None) -> int:

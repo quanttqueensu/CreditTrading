@@ -906,3 +906,40 @@ def test_execution_absent_is_cls_and_unknown_raises(tmp_path):
     b.write_text(json.dumps({"execution": {"mode": "twap"}}))
     with pytest.raises(rn.SessionError):
         rn.execution_for(book)
+
+
+# review 2026-09-29 fixes -------------------------------------------------------
+
+def test_late_preview_and_manual_runs_never_overwrite_a_decided_plan(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    path = state / D.isoformat() / "plan.json"
+    before = path.read_text()
+    later = dt.datetime(2026, 9, 29, 10, 0, tzinfo=ET)
+    to_send_time(c, deps, later)
+    c.regt_bp = 150_000.0                                  # anything that could re-size
+    assert rn.run_session(BOOK, SPEC, deps, preview=True) == rn.EXIT_PREVIEW
+    assert path.read_text() == before
+    deps.refresh = lambda asof, t: rn.RefreshResult(exit=4, tail="stale")   # a failing re-run
+    rn.run_session(BOOK, SPEC, deps)
+    assert path.read_text() == before
+
+
+def test_late_send_skips_a_name_that_became_unshortable_and_sends_the_rest(tmp_path):
+    c, deps, state, plan = decided(tmp_path)               # BBB is the short
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c._assets = {"BBB": {"shortable": False}}
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    sent = [x[1] for x in c.submits()]
+    assert sent and not any("-BBB-" in cid for cid in sent)
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert send["skipped"] and "BBB" in send["skipped"][0]
+
+
+def test_late_send_records_its_refusals_for_verify(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    to_send_time(c, deps)
+    deps.env["DRY_RUN"] = "1"
+    rn.run_session(BOOK, SPEC, deps)
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert send["exit"] == "DRY" and {r["gate"] for r in send["refusals"]} >= {"dry_run"}
