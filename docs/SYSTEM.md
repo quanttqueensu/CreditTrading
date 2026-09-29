@@ -348,7 +348,7 @@ After the first armed session (13 `cls` orders accepted at 10:33 ET, plan_sha
 | Data gathering | **A standalone nightly collector**: prices and NAVs cross-checked, Alpaca official closes, an account and fills snapshot, distributions and splits. |
 | Two data sources disagree | **Report only.** The panel (yfinance) is traded on; the disagreement is written to the daily data report. It never blocks and is never averaged. |
 | Rollout | **Deploy after the 2026-09-29 verify; the evening run stays DRY** until the team lead approves a list. The first real evening send also tests Alpaca's overnight `cls` queue on paper. |
-| Paper under-fills `cls` (2 of 13 filled on 2026-09-29) | **Keep `cls`** (rule 3 unchanged), **add a shadow benchmark** (the intended book at official closing prints, labelled MODELLED), and **revisit the order type after a week** of both side by side. |
+| Paper under-fills `cls` (2 of 13 filled on 2026-09-29) | First: keep `cls` with a shadow benchmark. **Superseded the same evening:** "obviously this is unacceptable" -- **paper sends market `day` orders 15:52–15:58 ET** (decided in the evening, sent from the saved plan), a recorded exception to rule 3 for the paper account only. The shadow benchmark stays; fills are scored against the official close in bp. |
 | The two unhedged longs left by that day (PHK 4,019, PFN 1,529) | **Not flattened.** Both are part of the target; the next session trades from them (the band applies: it is no longer the opening session). |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13

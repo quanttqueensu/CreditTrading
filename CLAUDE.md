@@ -54,7 +54,13 @@ that cannot be undone.
    and must record that it started before its first order goes.
 3. **Order type stays MOC** (Alpaca `time_in_force=cls`). Overnight market orders
    realised 100.5bp against a 32.6bp breakeven on 2026-07-31. Alpaca rejects `cls`
-   entries from 15:50 ET; NYSE cancels no MOC after 15:50.
+   entries from 15:50 ET; NYSE cancels no MOC after 15:50. **One recorded
+   exception (team lead, 2026-09-29), the paper account only:** paper runs no
+   closing auction and under-fills `cls` (11 of 13 expired on 2026-09-29), so the
+   book's json sets `execution.mode = late_market`: the plan is decided in the
+   evening and sent as market `day` orders 8 to 2 minutes before the close
+   (`docs/RUNNER.md` "Paper execution"). Delete that block to return to `cls`.
+   It never applies to a live-money account.
 4. **`DRY_RUN=1` is a human hard halt and always wins.**
 5. **Never print, copy or transmit credentials.** To test whether a key is set,
    print the boolean, never the value. Alpaca keys live in `config/.env`

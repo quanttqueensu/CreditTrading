@@ -174,13 +174,13 @@ def test_keys_never_reach_repr_or_any_error_message(env_file, sleeps):
                          "/v2/clock": FakeResp(503, text=echo)}),
                   lambda u, j: FakeResp(403, text=echo))
     msgs = [repr(c), str(c)]
-    for call in (c.account, c.clock, lambda: c.submit_order("PDI", 1, "buy", "cef-1")):
+    for call in (c.account, c.clock, lambda: c.submit_order("PDI", 1, "buy", "cef-1", time_in_force="cls")):
         with pytest.raises(al.AlpacaError) as e:
             call()
         msgs.append(str(e.value))
     s._p = lambda u, j: requests.ReadTimeout(f"timeout {SECRET}")
     with pytest.raises(al.AmbiguousSubmit) as e:
-        c.submit_order("PDI", 1, "buy", "cef-2")
+        c.submit_order("PDI", 1, "buy", "cef-2", time_in_force="cls")
     msgs.append(str(e.value))
     blob = "\n".join(msgs)
     assert KEY_ID not in blob and SECRET not in blob
@@ -422,11 +422,33 @@ def echo_ok(url, j):
 
 def test_submit_sends_exactly_one_market_cls_whole_share_order(env_file, sleeps):
     c, s = client(env_file, sleeps, post=echo_ok)
-    o = c.submit_order("PDI", 37, "sell", "cef-20260929-PDI-0")
+    o = c.submit_order("PDI", 37, "sell", "cef-20260929-PDI-0", time_in_force="cls")
     assert o["id"] == "ord-1"
     assert s.posts == [(al.PAPER_BASE + "/v2/orders",
                         {"symbol": "PDI", "qty": "37", "side": "sell", "type": "market",
                          "time_in_force": "cls", "client_order_id": "cef-20260929-PDI-0"})]
+
+
+def test_submit_day_is_the_paper_late_market_order(env_file, sleeps):
+    """team lead 2026-09-29: paper only, market `day` in the last minutes."""
+    c, s = client(env_file, sleeps, post=echo_ok)
+    c.submit_order("PDI", 37, "sell", "cef-20260929-PDI-1", time_in_force="day")
+    assert s.posts[0][1]["time_in_force"] == "day" and s.posts[0][1]["type"] == "market"
+
+
+@pytest.mark.parametrize("tif", ["gtc", "opg", "ioc", "", None, "CLS"])
+def test_submit_refuses_any_other_time_in_force(env_file, sleeps, tif):
+    c, s = client(env_file, sleeps, post=echo_ok)
+    with pytest.raises(ValueError, match="time_in_force"):
+        c.submit_order("PDI", 1, "buy", "cef-1", time_in_force=tif)
+    assert s.posts == []
+
+
+def test_submit_has_no_default_time_in_force(env_file, sleeps):
+    c, s = client(env_file, sleeps, post=echo_ok)
+    with pytest.raises(TypeError):
+        c.submit_order("PDI", 1, "buy", "cef-1")
+    assert s.posts == []
 
 
 @pytest.mark.parametrize("sym, qty, side, cid", [
@@ -438,7 +460,7 @@ def test_submit_sends_exactly_one_market_cls_whole_share_order(env_file, sleeps)
 def test_submit_refuses_bad_input_before_sending_anything(env_file, sleeps, sym, qty, side, cid):
     c, s = client(env_file, sleeps, post=echo_ok)
     with pytest.raises(ValueError):
-        c.submit_order(sym, qty, side, cid)
+        c.submit_order(sym, qty, side, cid, time_in_force="cls")
     assert s.posts == []
 
 
@@ -446,7 +468,7 @@ def test_submit_refuses_a_non_paper_base_even_if_tampered_after_construction(env
     c, s = client(env_file, sleeps, post=echo_ok)
     c._base = "https://api.alpaca.markets"
     with pytest.raises(ValueError, match="non-paper"):
-        c.submit_order("PDI", 1, "buy", "cef-1")
+        c.submit_order("PDI", 1, "buy", "cef-1", time_in_force="cls")
     assert s.posts == []
 
 
@@ -457,7 +479,7 @@ def test_submit_refuses_a_non_paper_base_even_if_tampered_after_construction(env
 def test_an_ambiguous_submit_raises_once_and_is_never_retried(env_file, sleeps, exc):
     c, s = client(env_file, sleeps, post=lambda u, j: exc)
     with pytest.raises(al.AmbiguousSubmit) as e:
-        c.submit_order("PDI", 5, "buy", "cef-20260929-PDI-0")
+        c.submit_order("PDI", 5, "buy", "cef-20260929-PDI-0", time_in_force="cls")
     assert len(s.posts) == 1 and sleeps == [] and s.gets == []
     assert e.value.client_order_id == "cef-20260929-PDI-0"
     assert "do NOT resend" in str(e.value) and "order_by_client_id" in str(e.value)
@@ -468,7 +490,7 @@ def test_a_4xx_submit_is_a_rejection_and_is_not_retried(env_file, sleeps, status
     c, s = client(env_file, sleeps, post=lambda u, j: FakeResp(status, {"code": 40010001,
                                                                      "message": "client_order_id must be unique"}))
     with pytest.raises(al.OrderRejected) as e:
-        c.submit_order("PDI", 5, "buy", "cef-1")
+        c.submit_order("PDI", 5, "buy", "cef-1", time_in_force="cls")
     assert e.value.status == status and len(s.posts) == 1 and sleeps == []
 
 
@@ -478,7 +500,7 @@ def test_a_4xx_submit_is_a_rejection_and_is_not_retried(env_file, sleeps, status
 def test_an_accepted_order_that_echoes_something_else_raises_but_says_it_exists(env_file, sleeps, field, value):
     c, s = client(env_file, sleeps, post=lambda u, j: FakeResp(200, {**echo_ok(u, j)._payload, field: value}))
     with pytest.raises(al.SubmitResponseInvalid, match="ACCEPTED") as e:
-        c.submit_order("PDI", 5, "buy", "cef-1")
+        c.submit_order("PDI", 5, "buy", "cef-1", time_in_force="cls")
     assert field in str(e.value) and len(s.posts) == 1
 
 
@@ -491,10 +513,16 @@ def test_the_module_has_no_cancel_replace_or_generic_request_path():
     assert len(posts) == 1, "exactly one POST call site: submit_order"
 
 
-def test_submit_order_payload_has_no_tif_or_type_parameter():
+def test_submit_order_has_no_type_parameter_and_a_required_keyword_tif():
+    """`type` is always market. `time_in_force` became a parameter on 2026-09-29
+    (team lead: paper-only late market orders, a recorded exception to rule 3);
+    it is keyword-only with NO default, and only cls/day pass (tests above)."""
     import inspect
-    params = set(inspect.signature(al.AlpacaClient.submit_order).parameters)
-    assert params == {"self", "symbol", "qty", "side", "client_order_id"}
+    sig = inspect.signature(al.AlpacaClient.submit_order)
+    assert set(sig.parameters) == {"self", "symbol", "qty", "side", "client_order_id",
+                                   "time_in_force"}
+    p = sig.parameters["time_in_force"]
+    assert p.kind is inspect.Parameter.KEYWORD_ONLY and p.default is inspect.Parameter.empty
 
 
 # ------------------------------------------------------ auction prints

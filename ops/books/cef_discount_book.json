@@ -18,5 +18,13 @@
   ],
   "book_worst_month_usd": 30000.0,
   "_suspend_note": "Effectively disabled 2026-07-31 on standing instruction: paper deployment exists to generate data and a suspended book stops producing it. Drawdown is reported in the daily log for human review. Broker margin limits still apply and are not ours to disable. UNITS FIX 2026-09-01: this read 0.99, and src/deploy/risk.py:152 computes cap = -abs(pct)/100 -- so the limit intended to be DISABLED at 99% was live at 0.99%, the tightest in the book, and breached 2026-08-31 at -1.84%. kill_aware_backtest.py:128 uses 100.0, confirming percent-as-whole-number. Now 99.0."
+ },
+ "execution": {
+  "mode": "late_market",
+  "window_minutes_before_close": [
+   8,
+   2
+  ],
+  "_note": "PAPER ONLY; a recorded exception to CLAUDE.md rule 3 (team lead, 2026-09-29). Alpaca paper runs no closing auction: staff say it treats cls as a market order at the close with random partial fills (forum, 2026-06-24), and on 2026-09-29 eleven of thirteen cls orders expired unfilled although every NYSE closing auction printed more shares than we asked for. So the plan is DECIDED in the evening (morning backstop) and SENT as market day orders 8 to 2 minutes before the calendar close (15:52-15:58 ET; 12:52-12:58 on a 13:00 early close). Verify scores every fill against the official closing print, in bp. Revisit after a week of fills. REVERT: delete this block (the runner then sends cls exactly as before). Not for a live-money account, where the auction exists and rule 3 stands."
  }
 }

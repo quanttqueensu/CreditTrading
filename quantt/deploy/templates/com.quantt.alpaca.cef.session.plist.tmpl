@@ -18,6 +18,8 @@
   interval once on wake; the runner's clock gate (19:15 ET on the as-of date
   to 15:45 ET on the session date) is what stops a late wake from trading,
   and gate 6 refuses a second set for the same auction (docs/RUNNER.md).
+  The weekday 15:52/15:55 (and 12:52/12:55, early close) firings are the
+  paper account's late-market send window (team lead 2026-09-29).
 
   DRY_RUN is "1" unless the installer was given armed mode. The runner transmits only
   when DRY_RUN is exactly "0" AND it is armed (docs/RUNNER.md gate 2).
@@ -55,6 +57,26 @@
 	<array>
 		<dict><key>Minute</key><integer>0</integer></dict>
 		<dict><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>55</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>52</integer></dict>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>55</integer></dict>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>

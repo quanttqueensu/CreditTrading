@@ -245,6 +245,55 @@ def gate_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
     return out
 
 
+# ------------------------------------------------ paper late-market execution
+
+def late_window_et(session_date: dt.date, calendar_close: str,
+                   minutes_before_close: tuple) -> tuple[dt.datetime, dt.datetime]:
+    """[close - a, close - b) ET for the book's `execution.window_minutes_before_close`
+    = (a, b). Measured from the CALENDAR close, so an early close (13:00) moves the
+    window with it (12:52-12:58 for (8, 2)).
+
+    WHY LATE MARKET ORDERS AT ALL (team lead 2026-09-29, a recorded exception to
+    CLAUDE.md rule 3 for the PAPER account only): paper runs no closing auction;
+    Alpaca staff say it treats `cls` as a market order at the close with random
+    partial fills, and on 2026-09-29 eleven of thirteen `cls` orders expired
+    unfilled. A plain market order sent in the last minutes fills at the quote
+    (paper docs: matched against the NBBO; a partial fill's remainder is
+    re-evaluated while marketable) -- the nearest paper gets to the close.
+    """
+    a, b = minutes_before_close
+    if not (isinstance(a, int) and isinstance(b, int) and a > b > 0):
+        raise ValueError(f"window_minutes_before_close {minutes_before_close!r} must be two "
+                         f"ints a > b > 0")
+    if not re.fullmatch(r"\d{2}:\d{2}", calendar_close or ""):
+        raise ValueError(f"calendar close {calendar_close!r} is not HH:MM")
+    hh, mm = map(int, calendar_close.split(":"))
+    close = dt.datetime.combine(session_date, dt.time(hh, mm), tzinfo=ET)
+    return close - dt.timedelta(minutes=a), close - dt.timedelta(minutes=b)
+
+
+def gate_late_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
+                    window) -> list[Refusal]:
+    """Gate 4 for late-market execution: the session date is a trading day by BOTH
+    calendars and Alpaca's clock is inside the send window on that date. Before
+    it, a market order fills at a quote too far from the close to stand for it;
+    after it, too near the close to be sure it fills."""
+    if clock_ts.tzinfo is None:
+        return [Refusal("clock", f"Alpaca clock timestamp {clock_ts!r} has no timezone")]
+    out = []
+    alpaca_trading = len(calendar_today) == 1
+    if alpaca_trading != nyse_trading_today:
+        out.append(Refusal("clock", f"calendars disagree on {session_date}: Alpaca "
+                                    f"trading={alpaca_trading}, nyse_calendar "
+                                    f"trading={nyse_trading_today}"))
+    now = clock_ts.astimezone(ET)
+    lo, hi = window
+    if not (lo <= now < hi):
+        out.append(Refusal("clock", f"Alpaca clock {now:%Y-%m-%d %H:%M:%S} ET is outside the "
+                                    f"late-market send window {lo:%Y-%m-%d %H:%M}-{hi:%H:%M} ET"))
+    return out
+
+
 def gate_data(asof, refresh_exit, close_dates, nav_dates, universe) -> list[Refusal]:
     """Gate 5. The refresh exited 0 for the required as-of date (or was skipped
     by --skip-refresh), AND every universe name has BOTH a close and a NAV dated

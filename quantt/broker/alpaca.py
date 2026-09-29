@@ -537,11 +537,15 @@ class AlpacaClient:
                                      f"{o['client_order_id']!r}")
         return o
 
-    def submit_order(self, symbol: str, qty: int, side: str, client_order_id: str) -> dict:
-        """POST /v2/orders: one market-on-close order. Called once; never retried here.
+    def submit_order(self, symbol: str, qty: int, side: str, client_order_id: str, *,
+                     time_in_force: str) -> dict:
+        """POST /v2/orders: one market order. Called once; never retried here.
 
-        Always `type=market, time_in_force=cls` (CLAUDE.md rule 3; there is no
-        argument for either). `qty` is a positive Python int -- a float, even
+        Always `type=market`. `time_in_force` is REQUIRED and is `cls` (CLAUDE.md
+        rule 3) or `day` -- the latter only for the paper account's late-market
+        execution (team lead 2026-09-29, recorded exception: paper runs no
+        closing auction). Nothing else is accepted; there is no default, so a
+        caller cannot send the wrong kind by omission. `qty` is a positive Python int -- a float, even
         100.0, is refused, because a float qty is how a fraction gets in. The
         refusals happen before anything is sent.
 
@@ -566,10 +570,13 @@ class AlpacaClient:
             raise ValueError(f"side {side!r} must be 'buy' or 'sell'")
         if not isinstance(client_order_id, str) or not _CID_RE.match(client_order_id):
             raise ValueError(f"client_order_id {client_order_id!r} must be 1-128 of [A-Za-z0-9._-]")
+        if time_in_force not in ("cls", "day"):
+            raise ValueError(f"time_in_force {time_in_force!r} must be 'cls' or 'day'")
+        tif = time_in_force
 
         import requests
         payload = {"symbol": symbol, "qty": str(qty), "side": side, "type": "market",
-                   "time_in_force": "cls", "client_order_id": client_order_id}
+                   "time_in_force": tif, "client_order_id": client_order_id}
         cid = client_order_id
         look = f"look it up with order_by_client_id({cid!r}); do NOT resend"
         try:
@@ -581,7 +588,7 @@ class AlpacaClient:
         status = r.status_code
         if 400 <= status < 500:
             raise OrderRejected(self._scrub(
-                f"POST /v2/orders {cid} ({side} {qty} {symbol} cls) rejected: "
+                f"POST /v2/orders {cid} ({side} {qty} {symbol} {tif}) rejected: "
                 f"HTTP {status}: {r.text[:300]}"), status=status, client_order_id=cid)
         if not 200 <= status < 300:
             raise AmbiguousSubmit(self._scrub(
@@ -602,7 +609,7 @@ class AlpacaClient:
             problems.append(f"body is {type(o).__name__}, not an object")
         else:
             for f, want in (("client_order_id", cid), ("symbol", symbol), ("side", side),
-                            ("type", "market"), ("time_in_force", "cls")):
+                            ("type", "market"), ("time_in_force", tif)):
                 if o.get(f) != want:
                     problems.append(f"{f}={o.get(f)!r} (sent {want!r})")
             try:

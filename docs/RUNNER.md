@@ -113,6 +113,33 @@ settled these points. Alpaca facts, each with its source and status:
 - **Records:** `<state>/<D>/plan.json`, `orders.jsonl` (event log), `STARTED`,
   `reconcile.json`; `<state>/verify.log` (one line per day) and `scores.csv`.
 
+## Paper execution (2026-09-29): decide in the evening, send as market orders at 15:52
+
+Team lead, 2026-09-29, after the first armed session: paper filled 2 of 13 `cls`
+orders (PHK 4,019/4,019, PFN 1,529/2,227; eleven expired), and Alpaca staff confirm
+paper treats `cls` as a market order at the close with random partial fills. Rule 3
+gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
+`execution = {mode: late_market, window_minutes_before_close: [8, 2]}`.
+
+- **DECIDE** (evening 22:00–01:00 ET, morning backstop 06:00–15:15): refresh, read,
+  decide, and every gate except dry-run, arming and clock. The plan is saved as
+  `status: decided` with its `plan_sha`; nothing is sent (exit 6 PLANNED; `DECIDED`
+  marker for scheduled runs).
+- **APPROVE** (until `AUTO_ARMED`): `python3 -m quantt.session approve --book cef
+  --date D --sha <plan_sha>` writes `<D>/APPROVED`, only for the decided plan with
+  that sha, only before STARTED. Run on the team lead's explicit go (rule 1).
+- **SEND** (15:52–15:58 ET, from the calendar close; 12:52–12:58 on a 13:00 close;
+  launchd fires 15:52 and 15:55): the SAVED plan is loaded -- never re-decided,
+  because intraday equity moves the sizing and what was approved must be what goes
+  -- its orders must still hash to its sha, positions must still equal its
+  "current", and dry-run, arming (`--approve`, `APPROVED` or `AUTO_ARMED`), halt,
+  late clock, no-set, shortability, exposure and sanity are re-evaluated on fresh
+  broker reads. Sent as `type=market, time_in_force=day`, the window re-checked
+  before every POST.
+- **Scoring is unchanged:** verify marks every fill against the official closing
+  print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
+- **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
 ## As built (2026-09-29): evening decision, morning backstop, nightly data
 
 Team lead, 2026-09-29: *"we dont have to do it at 830 why have it a hard time -

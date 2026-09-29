@@ -203,7 +203,10 @@ def test_rendered_plists_are_dry_by_default_and_complete(world, capsys, no_readi
         assert d["RunAtLoad"] is False
     # session: every :00/:30, every day -- the runner picks its slots (team
     # lead 2026-09-29); collector: every :10/:40; verify: 17:30 on weekdays.
-    assert sess["StartCalendarInterval"] == [{"Minute": 0}, {"Minute": 30}]
+    assert sess["StartCalendarInterval"][:2] == [{"Minute": 0}, {"Minute": 30}]
+    late = sorted((x["Weekday"], x["Hour"], x["Minute"]) for x in sess["StartCalendarInterval"][2:])
+    assert late == sorted((w, h, m) for w in range(1, 6)
+                          for h, m in ((15, 52), (15, 55), (12, 52), (12, 55)))
     assert col["StartCalendarInterval"] == [{"Minute": 10}, {"Minute": 40}]
     when = lambda d: sorted((x["Weekday"], x["Hour"], x["Minute"])
                             for x in d["StartCalendarInterval"])

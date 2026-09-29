@@ -98,15 +98,16 @@ class FakeClient:
         a.update(self._assets.get(sym, {}))
         return a
 
-    def submit_order(self, symbol, qty, side, client_order_id):
+    def submit_order(self, symbol, qty, side, client_order_id, *, time_in_force):
         started = (self.state / D.isoformat() / "STARTED").exists()
         self.calls.append(("submit", client_order_id, started))
         what = self._submit.get(client_order_id, "ok")
         if isinstance(what, Exception):
             raise what
+        self.tifs = getattr(self, "tifs", []) + [time_in_force]
         o = {"id": f"id-{client_order_id}", "client_order_id": client_order_id,
              "symbol": symbol, "side": side, "qty": str(qty), "type": "market",
-             "time_in_force": "cls", "status": "accepted"}
+             "time_in_force": time_in_force, "status": "accepted"}
         if what != "noconfirm":
             self.accepted[client_order_id] = o
         return o
@@ -128,7 +129,8 @@ def targets_book(asof, holdings, equity, opening):
 
 
 def make(tmp_path, env=None, *, client=None, refresh_exit=0, targets=targets_book,
-         closes=None, navs=None, halts=None, refresh_incomplete=None, now_utc=None, **ck):
+         closes=None, navs=None, halts=None, refresh_incomplete=None, now_utc=None,
+         execution=None, **ck):
     state = tmp_path / "state"
     state.mkdir(parents=True, exist_ok=True)
     c = client or FakeClient(state, **ck)
@@ -153,7 +155,8 @@ def make(tmp_path, env=None, *, client=None, refresh_exit=0, targets=targets_boo
                    navs=navs or (lambda asof, uni: {s: asof for s in uni}),
                    targets=tg, halts=lambda: halts or [],
                    utcnow=lambda: now_utc or dt.datetime(2026, 9, 29, 12, 30, tzinfo=dt.timezone.utc),
-                   out=SimpleNamespace(write=out.append, flush=lambda: None))
+                   out=SimpleNamespace(write=out.append, flush=lambda: None),
+                   execution=execution or {"mode": "cls"})
     return c, deps, state, seen, out
 
 
@@ -723,3 +726,183 @@ def test_scheduled_run_writes_no_record_when_idle(tmp_path):
     c, deps, state, _, out = make(tmp_path, now_utc=utc(t), clock_ts=t)
     assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_IDLE
     assert not any(state.rglob("*.json"))
+
+
+# ------------------------------------ paper late-market execution (team lead 2026-09-29)
+
+LATE = {"mode": "late_market", "window_minutes_before_close": (8, 2)}
+SEND = dt.datetime(2026, 9, 29, 15, 53, tzinfo=ET)
+
+
+def decided(tmp_path, **kw):
+    """Decide D's plan in the evening; return (client, deps, state, plan)."""
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE, **kw)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    plan = json.loads((state / D.isoformat() / "plan.json").read_text())
+    return c, deps, state, plan
+
+
+def to_send_time(c, deps, t=SEND):
+    c._clock = t
+    deps.utcnow = lambda: t.astimezone(dt.timezone.utc)
+
+
+def test_late_decide_saves_a_decided_plan_of_day_orders_and_sends_nothing(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    assert c.submits() == []
+    assert plan["status"] == "decided" and plan["execution"] == "late_market"
+    assert {o["time_in_force"] for o in plan["orders"]} == {"day"}
+    assert plan["send_window"][0].startswith("2026-09-29 15:52") or \
+        plan["send_window"][0].startswith("2026-09-29T15:52")
+    assert not (state / D.isoformat() / "STARTED").exists()
+
+
+def test_late_decide_with_stale_data_is_refused_not_decided(tmp_path):
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE, refresh_exit=4)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    plan = json.loads((state / D.isoformat() / "plan.json").read_text())
+    assert plan["status"] == "refused" and c.submits() == []
+
+
+def test_late_send_sends_the_saved_plan_as_day_orders_when_auto_armed(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    assert [x[1] for x in c.submits()] == [o["client_order_id"] for o in plan["orders"]]
+    assert set(c.tifs) == {"day"}
+    assert all(x[2] for x in c.submits())                 # STARTED before every order
+
+
+def test_late_send_never_redecides(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    calls = []
+    deps.targets = lambda *a: calls.append(a) or []
+    deps.refresh = lambda *a: calls.append(a)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    assert calls == []
+
+
+def test_late_send_needs_the_approval_of_that_exact_plan(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED          # no approval
+    assert c.submits() == []
+    day = state / D.isoformat()
+    (day / "APPROVED").write_text(json.dumps({"plan_sha": "0" * 64}))
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED          # someone else's plan
+    (day / "APPROVED").write_text(json.dumps({"plan_sha": plan["plan_sha"]}))
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+
+
+def test_late_send_refuses_when_positions_moved_since_the_plan(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c._pos = {"AAA": 7}
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
+
+
+def test_late_send_refuses_a_tampered_plan(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    path = state / D.isoformat() / "plan.json"
+    plan["orders"][0]["qty"] += 1
+    path.write_text(json.dumps(plan))
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert c.submits() == []
+
+
+def test_late_send_with_no_decided_plan_sends_nothing(tmp_path):
+    c, deps, state, seen, out = make(tmp_path, clock_ts=SEND, execution=LATE)
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert c.submits() == [] and "nothing was decided" in "".join(out)
+
+
+def test_late_send_dry_run_never_sends(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    deps.env["DRY_RUN"] = "1"
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_DRY
+    assert c.submits() == []
+
+
+def test_late_send_stops_when_the_clock_leaves_the_window_mid_batch(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    deps.utcnow = lambda: SEND.astimezone(dt.timezone.utc)
+    # start, gate, before order 1 inside; before order 2 at 15:58
+    c._clock_seq = [SEND] * 3 + [dt.datetime(2026, 9, 29, 15, 58, tzinfo=ET)]
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert len(c.submits()) == 1
+
+
+@pytest.mark.parametrize("t,want", [
+    (dt.datetime(2026, 9, 29, 15, 51, 59, tzinfo=ET), ["clock"]),
+    (dt.datetime(2026, 9, 29, 15, 52, tzinfo=ET), []),
+    (dt.datetime(2026, 9, 29, 15, 57, 59, tzinfo=ET), []),
+])
+def test_late_clock_gate_edges(t, want):
+    w = rn.gt.late_window_et(D, "16:00", (8, 2))
+    cal = [{"date": D, "open": "09:30", "close": "16:00"}]
+    assert [r.gate for r in rn.gt.gate_late_clock(t, D, cal, True, w)] == want
+
+
+def test_late_window_follows_an_early_close():
+    lo, hi = rn.gt.late_window_et(dt.date(2026, 11, 27), "13:00", (8, 2))
+    assert (lo.hour, lo.minute, hi.hour, hi.minute) == (12, 52, 12, 58)
+
+
+def test_late_session_date_rolls_at_the_window_end_not_1545(tmp_path):
+    cut = lambda d, close: rn.gt.late_window_et(d, close, (8, 2))[1]
+    cal = FakeClient(Path(".")).calendar(D - dt.timedelta(days=14), D + dt.timedelta(days=14))
+    assert rn.session_for(dt.datetime(2026, 9, 29, 15, 55, tzinfo=ET), cal, cut) == D
+    assert rn.session_for(dt.datetime(2026, 9, 29, 15, 58, tzinfo=ET), cal, cut) == \
+        dt.date(2026, 9, 30)
+
+
+def test_late_scheduled_decides_once_then_sends_once(tmp_path):
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE,
+                                     now_utc=utc(EVE))
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_PLANNED
+    later = dt.datetime(2026, 9, 29, 8, 0, tzinfo=ET)          # morning slot: already decided
+    to_send_time(c, deps, later)
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_IDLE
+    to_send_time(c, deps, SEND)
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_SENT
+    n = len(c.submits())
+    to_send_time(c, deps, dt.datetime(2026, 9, 29, 15, 55, tzinfo=ET))
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_IDLE
+    assert len(c.submits()) == n
+
+
+def test_approve_writes_approved_only_for_the_decided_plan(tmp_path, monkeypatch, capsys):
+    c, deps, state, plan = decided(tmp_path)
+    monkeypatch.setenv("QUANTT_STATE_DIR", str(state))
+    args = ["--book", "cef", "--date", D.isoformat(), "--sha"]
+    assert rn.approve_main(args + ["f" * 64]) == rn.EXIT_REFUSED
+    assert not (state / D.isoformat() / "APPROVED").exists()
+    assert rn.approve_main(args + [plan["plan_sha"]]) == 0
+    assert rn.approval_for(state / D.isoformat()) == plan["plan_sha"]
+    (state / D.isoformat() / "STARTED").write_text("{}")
+    assert rn.approve_main(args + [plan["plan_sha"]]) == rn.EXIT_REFUSED
+
+
+def test_execution_absent_is_cls_and_unknown_raises(tmp_path):
+    b = tmp_path / "book.json"
+    b.write_text(json.dumps({"book_id": "x"}))
+    book = rn.Book("cef", "cef", Path("s"), b)
+    assert rn.execution_for(book) == {"mode": "cls"}
+    b.write_text(json.dumps({"execution": {"mode": "late_market",
+                                           "window_minutes_before_close": [8, 2]}}))
+    assert rn.execution_for(book)["mode"] == "late_market"
+    b.write_text(json.dumps({"execution": {"mode": "twap"}}))
+    with pytest.raises(rn.SessionError):
+        rn.execution_for(book)

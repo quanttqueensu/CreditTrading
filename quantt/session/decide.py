@@ -120,6 +120,13 @@ FLIP_SAME_SESSION = False
 
 ORDER_TYPE = "market"
 TIME_IN_FORCE = "cls"
+# "day" exists for the PAPER account only (team lead 2026-09-29, a recorded
+# exception to CLAUDE.md rule 3): Alpaca paper runs no closing auction and
+# treats `cls` as a market order at the close with random partial fills -- on
+# 2026-09-29, 11 of 13 `cls` orders expired unfilled -- so on paper the book is
+# sent as plain market orders in the last minutes before the close instead
+# (docs/RUNNER.md "Paper execution"). The default stays `cls`.
+ALLOWED_TIME_IN_FORCE = ("cls", "day")
 
 
 class DecisionError(ValueError):
@@ -138,6 +145,12 @@ class Order:
     target: int              # signed shares the sleeve wants after this session
     est_price: float         # the as-of close used for sizing/estimates (not sent)
     reason: str              # the sleeve's reason string + what this leg does
+    time_in_force: str = TIME_IN_FORCE   # sent; "cls" unless the book's execution says otherwise
+
+    def __post_init__(self):
+        if self.time_in_force not in ALLOWED_TIME_IN_FORCE:
+            raise DecisionError(f"{self.client_order_id}: time_in_force {self.time_in_force!r} "
+                                f"not in {ALLOWED_TIME_IN_FORCE}")
 
     @property
     def signed_qty(self) -> int:
@@ -151,7 +164,7 @@ class Order:
         """Exactly the fields that go to Alpaca (and into plan_sha)."""
         return {"client_order_id": self.client_order_id, "symbol": self.symbol,
                 "side": self.side, "qty": self.qty, "type": ORDER_TYPE,
-                "time_in_force": TIME_IN_FORCE}
+                "time_in_force": self.time_in_force}
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -253,7 +266,8 @@ def _opens_or_increases_short(cur: int, after: int) -> bool:
 
 def decide(targets, positions: dict, equity: float, closes: dict, shortable: dict, *,
            session_date: dt.date, universe, cid_prefix: str, min_trade_usd: float,
-           flip_same_session: bool = FLIP_SAME_SESSION) -> Decision:
+           flip_same_session: bool = FLIP_SAME_SESSION,
+           time_in_force: str = TIME_IN_FORCE) -> Decision:
     """Turn the sleeve's targets into this session's orders. See the module docstring.
 
     targets       the sleeve's PositionTargets, exactly one per universe symbol
@@ -343,7 +357,7 @@ def decide(targets, positions: dict, equity: float, closes: dict, shortable: dic
             orders.append(Order(symbol=sym, side=side, qty=int(qty), leg=leg,
                                 client_order_id=client_order_id(cid_prefix, session_date, sym, leg),
                                 current=a, target=b, est_price=price,
-                                reason=f"{what}; {t.reason}"))
+                                reason=f"{what}; {t.reason}", time_in_force=time_in_force))
     orders = transmit_sequence(orders)
     return Decision(orders=orders, targets=tgt_out,
                     notes={k: v for k, v in notes.items() if v}, plan_sha=plan_sha(orders))

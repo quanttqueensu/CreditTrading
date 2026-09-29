@@ -178,10 +178,16 @@ JOBS = (
     # flexible". Until then it ran at 08:30 and 12:00, and the 08:30 run of
     # 2026-09-29 died on a DNS failure as the machine woke. The windows live
     # in quantt/session/run.py (one place, tested), not in this schedule.
+    # Plus two firings inside the late-market send window (paper execution, team
+    # lead 2026-09-29: market orders 8 to 2 minutes before the close), on
+    # weekdays, for a 16:00 close (15:52, 15:55) and a 13:00 early close
+    # (12:52, 12:55). The runner sends only inside the window computed from
+    # the calendar close; every other firing idles.
     Job("com.quantt.alpaca.cef.session",
         "quantt/deploy/templates/com.quantt.alpaca.cef.session.plist.tmpl",
         ("-m", "quantt.session", "run", "--book", BOOK, "--scheduled"),
-        EVERY_HALF_HOUR_AT_00_30, "session"),
+        EVERY_HALF_HOUR_AT_00_30 + _weekdays_at((15, 52), (15, 55), (12, 52), (12, 55)),
+        "session"),
     # 17:30: after the close and the auction prints; read-only reconcile + verdict.
     Job("com.quantt.alpaca.cef.verify",
         "quantt/deploy/templates/com.quantt.alpaca.cef.verify.plist.tmpl",

@@ -35,6 +35,23 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
   7. confirm   every sent id is re-read from Alpaca by client_order_id; one
                missing or different is FAIL.
 
+PAPER EXECUTION (team lead 2026-09-29; recorded exception to CLAUDE.md rule 3,
+paper account only). When the book's json has `execution.mode = late_market`
+the session runs in two phases:
+  DECIDE  (evening 22:00-01:00 ET, or the morning backstop 06:00-15:15 ET):
+          steps 1-4 as above, with every gate except dry-run, arming and clock;
+          the plan is saved with `status: decided` and its plan_sha. Nothing is
+          sent. Exit 6 PLANNED.
+  SEND    (inside `late_window_et`, e.g. 15:52-15:58 ET): the SAVED plan is
+          loaded and sent as market `day` orders -- never re-decided, because
+          intraday equity moves the sizing, and what the team lead approved must
+          be what goes. Positions must still equal the plan's "current" for
+          every name; dry-run, arming (--approve, <D>/APPROVED, or AUTO_ARMED),
+          halt, late clock, no-set, shortability, exposure and sanity are
+          re-evaluated on fresh broker reads.
+Why: paper runs no closing auction and under-fills `cls` (11 of 13 expired on
+2026-09-29). Absent the key, the book runs as `cls` exactly as before.
+
 OPENING SESSION. True only when Alpaca shows no positions AND no order in the
 account's history has ever filled. The sleeve is told explicitly (it never
 infers it from a flat book: a failed day or a manual flatten also looks flat),
@@ -45,6 +62,8 @@ EXIT CODES (distinct, for launchd logs and the operator):
     3  NOTHING_TO_SEND  every gate passed and the order list is empty
     4  PREVIEW          --preview: the list was printed; never sends
     5  IDLE             --scheduled: not a slot, or this session is already done
+    6  PLANNED          late-market execution: the plan is decided and saved; it
+                        is sent in the late window (see "PAPER EXECUTION")
    10  DRY              DRY_RUN not "0" (and nothing else refused except arming)
    11  REFUSED          a gate refused; nothing sent
    20  FAIL             an error, a rejected/ambiguous submit, or a confirm miss
@@ -69,10 +88,11 @@ from quantt.session import records as rec
 
 REPO = Path(__file__).resolve().parents[2]
 
-EXIT_SENT, EXIT_NOTHING, EXIT_PREVIEW, EXIT_IDLE = 0, 3, 4, 5
+EXIT_SENT, EXIT_NOTHING, EXIT_PREVIEW, EXIT_IDLE, EXIT_PLANNED = 0, 3, 4, 5, 6
 EXIT_DRY, EXIT_REFUSED, EXIT_FAIL = 10, 11, 20
 EXIT_NAMES = {EXIT_SENT: "SENT", EXIT_NOTHING: "NOTHING_TO_SEND", EXIT_PREVIEW: "PREVIEW",
-              EXIT_IDLE: "IDLE", EXIT_DRY: "DRY", EXIT_REFUSED: "REFUSED", EXIT_FAIL: "FAIL"}
+              EXIT_IDLE: "IDLE", EXIT_PLANNED: "PLANNED", EXIT_DRY: "DRY",
+              EXIT_REFUSED: "REFUSED", EXIT_FAIL: "FAIL"}
 
 # A hung fetcher must not hold the job past the next scheduled attempt: launchd
 # never starts a second instance of a running job, so a refresh that hangs
@@ -95,6 +115,9 @@ MORNING_FROM, MORNING_UNTIL = dt.time(6, 0), dt.time(15, 15)
 # not log a failed Alpaca call every 30 minutes all day); it never permits one:
 # the Alpaca clock decides. Five minutes of slack for local clock drift.
 LOCAL_SLACK = dt.timedelta(minutes=5)
+# The late-market send windows the pre-check must never skip: 16:00 and 13:00
+# (early) closes, generously wider than any window_minutes_before_close we use.
+LATE_LOCAL_RANGES = ((dt.time(15, 40), dt.time(16, 0)), (dt.time(12, 40), dt.time(13, 0)))
 
 
 class SessionError(RuntimeError):
@@ -144,7 +167,7 @@ def spec_params(spec: dict) -> dict:
 
 # ------------------------------------------------------------ dates and data
 
-def session_for(now: dt.datetime, calendar_rows: list) -> dt.date:
+def session_for(now: dt.datetime, calendar_rows: list, cutoff_of=None) -> dt.date:
     """The auction an order sent NOW would be for: today, if today is a trading
     day and the clock is before today's cls cutoff; otherwise the next trading
     day after today. Both Alpaca's calendar and nyse_calendar must agree, or
@@ -168,7 +191,8 @@ def session_for(now: dt.datetime, calendar_rows: list) -> dt.date:
         raise SessionError(f"calendars disagree on {today}: nyse_calendar trading="
                            f"{is_trading_day(today)}, Alpaca rows={len(rows_today)}; "
                            f"not choosing one")
-    if rows_today and now < gt.cutoff_et(today, rows_today[0]["close"]):
+    cutoff_of = cutoff_of or gt.cutoff_et      # late-market: the send window's end
+    if rows_today and now < cutoff_of(today, rows_today[0]["close"]):
         return today
     ours = next_trading_day(today)
     after = [d for d in alpaca_days if d > today]
@@ -203,7 +227,8 @@ def near_a_slot_locally(local_now: dt.datetime) -> bool:
         hi = (dt.datetime.combine(t.date(), b, tzinfo=gt.ET) + LOCAL_SLACK).time()
         x = t.time()
         return (lo <= x < hi) if lo < hi else (x >= lo or x < hi)
-    return within(EVENING_FROM, EVENING_UNTIL) or within(MORNING_FROM, MORNING_UNTIL)
+    return (within(EVENING_FROM, EVENING_UNTIL) or within(MORNING_FROM, MORNING_UNTIL)
+            or any(within(a, b) for a, b in LATE_LOCAL_RANGES))
 
 
 def done_reason(day: Path, env) -> str | None:
@@ -221,6 +246,13 @@ def done_reason(day: Path, env) -> str | None:
         return f"done: {(day / 'DONE').read_text().strip()}"
     if (day / "DRY_DONE").exists() and env.get("DRY_RUN") != "0":
         return f"dry run done: {(day / 'DRY_DONE').read_text().strip()}"
+    return None
+
+
+def decided_reason(day: Path) -> str | None:
+    """Late-market DECIDE slots idle once a plan is decided (it waits for the send)."""
+    if (day / "DECIDED").exists():
+        return f"plan decided, waiting for the send window: {(day / 'DECIDED').read_text().strip()}"
     return None
 
 
@@ -387,6 +419,25 @@ def halts_for(book: Book) -> list:
 
 # ------------------------------------------------------------------ plumbing
 
+def execution_for(book: Book) -> dict:
+    """The book json's `execution` block. ABSENT means `cls`, today's behaviour
+    (CLAUDE.md: a new key defaults to current behaviour). `late_market` needs
+    `window_minutes_before_close: [a, b]`; anything else raises."""
+    ex = json.loads(book.book_path.read_text()).get("execution")
+    if ex is None:
+        return {"mode": "cls"}
+    mode = ex.get("mode")
+    if mode == "cls":
+        return {"mode": "cls"}
+    if mode == "late_market":
+        w = ex.get("window_minutes_before_close")
+        if not (isinstance(w, list) and len(w) == 2):
+            raise SessionError(f"{book.book_path}: execution.window_minutes_before_close "
+                               f"{w!r} must be [a, b]")
+        return {"mode": "late_market", "window_minutes_before_close": (w[0], w[1])}
+    raise SessionError(f"{book.book_path}: execution.mode {mode!r} is not cls or late_market")
+
+
 @dataclass
 class Deps:
     """Everything the session touches outside itself; tests pass fakes."""
@@ -399,6 +450,7 @@ class Deps:
     halts: Callable[[], list]
     utcnow: Callable[[], dt.datetime] = field(default=lambda: dt.datetime.now(dt.timezone.utc))
     out: object = field(default_factory=lambda: sys.stdout)
+    execution: dict = field(default_factory=lambda: {"mode": "cls"})   # execution_for(book)
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
@@ -415,6 +467,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         navs=lambda asof, uni: last_navs(cefmod.NAV_PATH, asof, uni),
         targets=lambda asof, h, eq, op: sleeve_targets(spec, p["capital_usd"], asof, h, eq, op),
         halts=lambda: halts_for(book),
+        execution=execution_for(book),
     )
 
 
@@ -467,18 +520,41 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         clock = c.clock()
         today_et = clock["timestamp"].astimezone(gt.ET).date()
         cal = c.calendar(today_et - dt.timedelta(days=14), today_et + dt.timedelta(days=14))
-        session_date = session_for(clock["timestamp"], cal)
+        late = deps.execution["mode"] == "late_market"
+        mins = deps.execution.get("window_minutes_before_close")
+        cutoff_of = (lambda d, close: gt.late_window_et(d, close, mins)[1]) if late \
+            else gt.cutoff_et
+        session_date = session_for(clock["timestamp"], cal, cutoff_of)
         asof = asof_for(session_date, cal)
+        record["execution"] = deps.execution["mode"]
+        win, in_send = None, False
+        if late:
+            rows = [r for r in cal if r["date"] == session_date]
+            if len(rows) != 1:
+                raise SessionError(f"Alpaca calendar has {len(rows)} rows for {session_date}")
+            win = gt.late_window_et(session_date, rows[0]["close"], mins)
+            in_send = win[0] <= clock["timestamp"] < win[1]
         if scheduled:
-            slot = scheduled_slot(clock["timestamp"], session_date, asof)
-            why = (None if slot else "outside the scheduled windows") or \
-                done_reason(rec.day_dir(state, session_date), deps.env)
+            dday = rec.day_dir(state, session_date)
+            if in_send:
+                slot, why = "send", done_reason(dday, deps.env)
+            else:
+                slot = scheduled_slot(clock["timestamp"], session_date, asof)
+                why = (None if slot else "outside the scheduled windows") or \
+                    done_reason(dday, deps.env) or (decided_reason(dday) if late else None)
             if why:
                 print(f"IDLE {session_date}: {why} (Alpaca clock "
                       f"{clock['timestamp'].astimezone(gt.ET):%Y-%m-%d %H:%M} ET)", file=out)
                 return EXIT_IDLE
             record["slot"] = slot
         day = rec.day_dir(state, session_date)
+        if late and in_send:
+            record["phase"] = "send"
+            return _send_planned(book, spec, deps, record, state=state, day=day, stamp=stamp,
+                                 mode=mode, session_date=session_date, clock=clock, cal=cal,
+                                 win=win, approve=approve, preview=preview, scheduled=scheduled)
+        if late:
+            record["phase"] = "decide"
         record.update(session_date=session_date, asof=asof,
                       clock={k: clock[k] for k in ("timestamp", "is_open", "next_open",
                                                    "next_close")})
@@ -494,7 +570,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                             f"{session_date}")
             record["refresh"] = {"not_run": refresh_exit}
         else:
-            cut = gt.cutoff_et(session_date, cal_today[0]["close"])
+            cut = cutoff_of(session_date, cal_today[0]["close"])
             left = (cut - clock["timestamp"]).total_seconds()
             if left <= 0:
                 refresh_exit = f"not run: Alpaca clock is at/after the cls cutoff {cut:%H:%M} ET"
@@ -545,7 +621,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             decision = dec.decide(targets, pos, equity, closes, shortable,
                                   session_date=session_date, universe=p["universe"],
                                   cid_prefix=book.cid_prefix,
-                                  min_trade_usd=p["min_trade_usd"])
+                                  min_trade_usd=p["min_trade_usd"],
+                                  time_in_force="day" if late else dec.TIME_IN_FORCE)
         record["decision"] = decision.to_dict()
         borrow_warnings = hard_to_borrow_short_opens(decision.orders, pos, assets)
         record["borrow_warnings"] = borrow_warnings
@@ -583,6 +660,13 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 "asof": asof, "equity": equity, "opening_session": opening,
                 **decision.to_dict(), "refusals": record["refusals"],
                 "borrow_warnings": borrow_warnings, "mode": mode}
+        shown = refusals
+        if late:
+            # DECIDE phase: dry-run, arming and the clock belong to the SEND phase.
+            shown = [r for r in refusals if r.gate not in ("dry_run", "arming", "clock")]
+            plan.update(execution="late_market", send_window=list(win), closes=closes,
+                        status="refused" if shown else "decided",
+                        refusals=[{"gate": r.gate, "detail": r.detail} for r in shown])
         if not (day / "STARTED").exists():
             rec.write_json_atomic(day / "plan.json", plan)
 
@@ -596,8 +680,21 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         for w in borrow_warnings:
             print(f"  WARNING {w}", file=out)
         print(f"plan_sha {decision.plan_sha}", file=out)
-        for r in refusals:
+        for r in shown:
             print(f"  REFUSED {r}", file=out)
+
+        if late:
+            print(f"  execution: late-market; send window {win[0]:%Y-%m-%d %H:%M}-"
+                  f"{win[1]:%H:%M} ET as market `day` orders", file=out)
+            if preview:
+                return _finish(record, day, stamp, mode, EXIT_PREVIEW, out)
+            if shown:
+                return _finish(record, day, stamp, mode, EXIT_REFUSED, out, scheduled=scheduled)
+            if not decision.orders:
+                return _finish(record, day, stamp, mode, EXIT_NOTHING, out, scheduled=scheduled)
+            print(f"  approve: python3 -m quantt.session approve --book {book.name} "
+                  f"--date {session_date} --sha {decision.plan_sha}", file=out)
+            return _finish(record, day, stamp, mode, EXIT_PLANNED, out, scheduled=scheduled)
 
         if preview:
             return _finish(record, day, stamp, mode, EXIT_PREVIEW, out)
@@ -625,7 +722,10 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         # 6-7. transmit and confirm
         cut = gt.cutoff_et(session_date, cal_today[0]["close"])     # gate 4 passed: one row
         code = _transmit(c, decision.orders, day / "orders.jsonl", record, deps, out,
-                         session_date=session_date, asof=asof, cutoff=cut)
+                         in_window=lambda ts: gt.in_send_window(ts, asof, cut),
+                         window_text=(f"the send window for the {session_date} auction "
+                                      f"({gt.queue_open_et(asof):%Y-%m-%d %H:%M} ET evening, "
+                                      f"to {cut:%Y-%m-%d %H:%M} ET)"))
         return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
     except Exception as e:  # recorded and surfaced, never swallowed: exit FAIL
         record["error"] = f"{type(e).__name__}: {e}"
@@ -633,6 +733,147 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         print(f"FAIL {type(e).__name__}: {e}", file=out)
         print(traceback.format_exc(), file=sys.stderr)
         return _finish(record, day, stamp, mode, EXIT_FAIL, out, state=state)
+
+
+ORDER_FIELDS = ("symbol", "side", "qty", "leg", "client_order_id", "current", "target",
+                "est_price", "reason", "time_in_force")
+
+
+def load_decided_plan(day: Path, session_date: dt.date) -> tuple[dict, tuple]:
+    """The saved late-market plan for `session_date` and its orders, rebuilt
+    exactly. Raises unless the plan is decided, for this date, and its orders
+    still hash to its plan_sha (a hand-edited plan never goes out)."""
+    path = day / "plan.json"
+    if not path.exists():
+        raise SessionError(f"no plan for {session_date}: nothing was decided before the "
+                           f"send window ({path})")
+    plan = json.loads(path.read_text())
+    if plan.get("execution") != "late_market" or plan.get("status") != "decided":
+        raise SessionError(f"{path} is not a decided late-market plan (execution="
+                           f"{plan.get('execution')!r}, status={plan.get('status')!r})")
+    if plan.get("session_date") != session_date.isoformat():
+        raise SessionError(f"{path} is for {plan.get('session_date')}, not {session_date}")
+    orders = tuple(dec.Order(**{k: o[k] for k in ORDER_FIELDS}) for o in plan["orders"])
+    if dec.plan_sha(orders) != plan.get("plan_sha"):
+        raise SessionError(f"{path}: its orders hash to {dec.plan_sha(orders)}, the file says "
+                           f"{plan.get('plan_sha')}; refusing a plan that is not what was decided")
+    if any(o.time_in_force != "day" for o in orders):
+        raise SessionError(f"{path}: a late-market plan holds a non-`day` order")
+    return plan, orders
+
+
+def approval_for(day: Path) -> str | None:
+    """The plan_sha the team lead approved for this session (<D>/APPROVED), or None."""
+    p = day / "APPROVED"
+    if not p.exists():
+        return None
+    return json.loads(p.read_text())["plan_sha"]
+
+
+def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Path, day: Path,
+                  stamp: str, mode: str, session_date: dt.date, clock: dict, cal: list,
+                  win: tuple, approve: str | None, preview: bool, scheduled: bool) -> int:
+    """The SEND phase (see "PAPER EXECUTION"): the saved plan, re-gated on fresh
+    broker reads, sent as market `day` orders inside the late window."""
+    out, c = deps.out, deps.client
+    p = spec_params(spec)
+    plan, orders = load_decided_plan(day, session_date)
+    record.update(plan_sha=plan["plan_sha"], asof=plan["asof"])
+    acct = c.account()
+    pos = c.positions().qty
+    asof = dt.date.fromisoformat(plan["asof"])
+    midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0), tzinfo=gt.ET)
+    orders_recent = c.orders(status="all", after=midnight)
+    orders_open = c.orders(status="open")
+    assets = {s: c.asset(s) for s in p["universe"]}
+    shortable = {s: a["shortable"] for s, a in assets.items()}
+    record.update(account={k: v for k, v in acct.items() if k != "raw"}, positions=pos,
+                  orders_open=[_order_summary(o) for o in orders_open])
+    # The plan was sized on these holdings; if they moved, it is not the plan any more.
+    moved = {s: {"plan": t["current"], "now": pos.get(s, 0)}
+             for s, t in plan["targets"].items() if pos.get(s, 0) != t["current"]}
+    approve_sha = approve or approval_for(day)
+    clock_gate = c.clock()
+    record["clock_at_gate"] = clock_gate["timestamp"]
+    cal_today = [r for r in cal if r["date"] == session_date]
+    closes = {k: float(v) for k, v in plan["closes"].items()}
+    refusals = [
+        *gt.gate_dry_run(deps.env.get("DRY_RUN")),
+        *gt.gate_arming(approve_sha, plan["plan_sha"], (state / "AUTO_ARMED").exists()),
+        *gt.gate_halt(deps.halts()),
+        *gt.gate_late_clock(clock_gate["timestamp"], session_date, cal_today,
+                            _nyse_trading(session_date), win),
+        *gt.gate_no_set_in_auction((day / "STARTED").exists(), orders_recent, orders_open,
+                                   book.cid_prefix, session_date),
+        *gt.gate_shortability(orders, pos, shortable, acct["shorting_enabled"]),
+        *gt.gate_exposure(orders, pos, closes, acct["equity"],
+                          min(acct["buying_power"], acct["regt_buying_power"]),
+                          p["max_gross_usd"], p["max_gross_stress"]),
+        *gt.gate_sanity(orders, p["universe"], pos, book.cid_prefix, session_date,
+                        {k: acct[k] for k in ("trading_blocked", "account_blocked",
+                                              "trade_suspended_by_user")}),
+    ]
+    if moved:
+        refusals.append(gt.Refusal("sanity", f"positions moved since the plan was decided: {moved}"))
+    record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
+    print(f"{book.name} SEND {session_date} (plan decided on as-of {plan['asof']}), equity "
+          f"${acct['equity']:,.2f}, window {win[0]:%H:%M}-{win[1]:%H:%M} ET", file=out)
+    print(order_table(orders), file=out)
+    print(f"plan_sha {plan['plan_sha']}", file=out)
+    for r in refusals:
+        print(f"  REFUSED {r}", file=out)
+    if preview:
+        return _finish(record, day, stamp, mode, EXIT_PREVIEW, out)
+    gates_hit = {r.gate for r in refusals}
+    if refusals:
+        code = EXIT_DRY if ("dry_run" in gates_hit and gates_hit <= {"dry_run", "arming"}) \
+            else EXIT_REFUSED
+        return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
+    if not orders:
+        return _finish(record, day, stamp, mode, EXIT_NOTHING, out, scheduled=scheduled)
+    started = {"plan_sha": plan["plan_sha"], "session_date": session_date, "pid": os.getpid(),
+               "written_utc": deps.utcnow(), "execution": "late_market",
+               "client_order_ids": [o.client_order_id for o in orders], "plan": plan}
+    if not rec.create_exclusive(day / "STARTED", started):
+        print("  REFUSED [no_set_in_auction] STARTED appeared between gate and record", file=out)
+        return _finish(record, day, stamp, mode, EXIT_REFUSED, out)
+    code = _transmit(c, orders, day / "orders.jsonl", record, deps, out,
+                     in_window=lambda ts: win[0] <= ts < win[1],
+                     window_text=f"late-market window {win[0]:%Y-%m-%d %H:%M}-{win[1]:%H:%M} ET")
+    return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
+
+
+def approve_main(argv=None) -> int:
+    """`python3 -m quantt.session approve --book cef --date D --sha PLAN_SHA`.
+
+    Records the team lead's go for ONE decided late-market plan, so the
+    scheduled send in the late window may transmit it (gate 2). Run only on the
+    team lead's explicit go on the shown order list (CLAUDE.md order-path rule 1).
+    Refuses unless the plan exists, is decided, is for D, hashes to its sha, and
+    that sha is the one given; refuses once a set has STARTED.
+    """
+    ap = argparse.ArgumentParser(prog="python3 -m quantt.session approve")
+    ap.add_argument("--book", required=True, choices=sorted(BOOKS))
+    ap.add_argument("--date", required=True, type=dt.date.fromisoformat)
+    ap.add_argument("--sha", required=True)
+    a = ap.parse_args(argv)
+    try:
+        state = rec.state_dir_from_env(os.environ)
+        day = rec.day_dir(state, a.date)
+        if (day / "STARTED").exists():
+            raise SessionError(f"a set already STARTED for {a.date}; nothing to approve")
+        plan, _ = load_decided_plan(day, a.date)
+        if plan["plan_sha"] != a.sha:
+            raise SessionError(f"plan for {a.date} is {plan['plan_sha']}, not {a.sha}")
+    except Exception as e:
+        print(f"REFUSED: {type(e).__name__}: {e}")
+        return EXIT_REFUSED
+    rec.write_json_atomic(day / "APPROVED", {
+        "plan_sha": a.sha, "session_date": a.date,
+        "approved_utc": dt.datetime.now(dt.timezone.utc), "orders": len(plan["orders"])})
+    print(f"APPROVED {a.date} plan_sha {a.sha} ({len(plan['orders'])} orders); it is sent in "
+          f"the window {plan['send_window'][0]} -> {plan['send_window'][1]} if every gate passes")
+    return 0
 
 
 def _nyse_trading(d: dt.date) -> bool:
@@ -669,7 +910,7 @@ def hard_to_borrow_short_opens(orders, positions: dict, assets: dict) -> list[st
 
 
 def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
-              session_date: dt.date, asof: dt.date, cutoff: dt.datetime) -> int:
+              in_window: Callable[[dt.datetime], bool], window_text: str) -> int:
     """POST each order in list order.
 
     A REJECTED order (Alpaca answered 4xx: it definitely does not exist) skips
@@ -682,9 +923,9 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
     an ambiguous submit, an unexpected error, a clock that cannot be read or
     has crossed the cutoff -- still stops the batch.
 
-    Before EVERY POST the Alpaca clock is read again and the batch stops if it
-    is outside this auction's send window, [19:15 ET on the as-of date,
-    `cutoff`) (gate.in_send_window): an order sent past 15:50 is rejected and
+    Before EVERY POST the Alpaca clock is read again and the batch stops if
+    `in_window` says it is outside the send window (gate.in_send_window for
+    `cls`; the late window for late-market): an order sent past 15:50 is rejected and
     one sent after 19:00 is queued into the next day's auction [V], and a POST
     retry or a slow response can carry a batch across either line. A clock read that fails also stops the batch -- an unmeasured
     time is not "before the cutoff".
@@ -707,18 +948,17 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
             failed = f"clock read failed before {o.client_order_id}; batch stopped"
             break
         t_et = ts.astimezone(gt.ET)
-        if not gt.in_send_window(ts, asof, cutoff):
+        if not in_window(ts):
             rec.append_jsonl(log, {"event": "cutoff", "at": now(), "clock": ts,
                                    "client_order_id": o.client_order_id,
-                                   "cutoff": cutoff})
+                                   "window": window_text})
             failed = (f"Alpaca clock {t_et:%Y-%m-%d %H:%M:%S} ET is outside the send window "
-                      f"for the {session_date} auction ({gt.queue_open_et(asof):%Y-%m-%d %H:%M} "
-                      f"to {cutoff:%Y-%m-%d %H:%M} ET) before {o.client_order_id}; "
-                      f"batch stopped")
+                      f"-- {window_text} -- before {o.client_order_id}; batch stopped")
             break
         rec.append_jsonl(log, {"event": "submit", "at": now(), **o.wire()})
         try:
-            resp = c.submit_order(o.symbol, o.qty, o.side, o.client_order_id)
+            resp = c.submit_order(o.symbol, o.qty, o.side, o.client_order_id,
+                                  time_in_force=o.time_in_force)
         except AmbiguousSubmit as e:
             rec.append_jsonl(log, {"event": "ambiguous", "at": now(),
                                    "client_order_id": o.client_order_id, "error": str(e)})
@@ -799,7 +1039,8 @@ def _finish(record, day, stamp, mode, code, out, state=None, scheduled=False) ->
     # a retry cannot improve is marked; REFUSED and FAIL leave the next slot
     # free to try again (STARTED already stops any retry after a send began).
     if scheduled and day is not None:
-        marker = {EXIT_SENT: "DONE", EXIT_NOTHING: "DONE", EXIT_DRY: "DRY_DONE"}.get(code)
+        marker = {EXIT_SENT: "DONE", EXIT_NOTHING: "DONE", EXIT_DRY: "DRY_DONE",
+                  EXIT_PLANNED: "DECIDED"}.get(code)
         if marker:
             (day / marker).write_text(f"{EXIT_NAMES[code]} at {stamp} (runs/{stamp}-{mode}.json)\n")
     print(f"exit {code} {EXIT_NAMES[code]}", file=out)
