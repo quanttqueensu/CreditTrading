@@ -25,11 +25,27 @@ and NAV, so a stale or missing NAV silently turns the signal into noise. The
 freshness of every fund's NAV is therefore checked and reported, and any fund
 whose NAV has not updated in three business days is flagged so the sleeve can
 drop it rather than trade on a stale number.
+
+LOCKING (2026-09-29). Two things now run this script against the same two
+panels: the trading session (`quantt/session/run.py`, step 1) and the nightly
+data collector (`quantt/collect`, every 30 minutes). Each run READS both panels,
+spends minutes fetching, then REPLACES them. `atomic_write` stops a reader
+seeing half a file, but not two writers interleaving: run A reads, run B reads,
+B writes its new rows, A writes its own copy -- and B's rows are gone, with no
+error anywhere. So the whole read-modify-write runs under an exclusive
+`fcntl.flock` on `data/cef/.fetch.lock`. A second run waits for it, at most
+LOCK_WAIT_S, then exits 3 naming the lock rather than waiting forever: the
+session has a cls cutoff and the collector has its next 30-minute slot, and
+neither may be blocked indefinitely by a hung fetch. Exit 3 is a refusal to
+refresh, never a partial write.
 """
 from __future__ import annotations
 
 import argparse
+import fcntl
+import os
 import sys
+import time
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -48,6 +64,57 @@ NAV_PATH = OUT / "cef_nav.parquet"
 STALE_BD = 3
 FALLBACK_LOG = OUT / "nav_fallback_log.csv"
 CC_HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+LOCK_PATH = OUT / ".fetch.lock"
+# Bounded wait for the panel lock (module docstring, LOCKING). Ten minutes is
+# longer than a healthy refresh and shorter than the collector's 30-minute slot.
+LOCK_WAIT_S = 600.0
+LOCK_POLL_S = 1.0
+EXIT_LOCKED = 3
+
+
+class PanelLockTimeout(RuntimeError):
+    """Another fetch held the panel lock for longer than the bounded wait."""
+
+
+class panel_lock:
+    """Exclusive `flock` on `path` for the life of the `with` block.
+
+    Polls with LOCK_NB rather than blocking, because flock has no timeout of
+    its own and an unbounded wait is the hang this exists to prevent. The
+    holder writes its pid and start time into the file and a timeout names
+    them, so a stuck run can be found. The kernel releases the lock if the
+    holder dies, so a crash can never leave it held.
+    """
+
+    def __init__(self, path, wait_s: float = LOCK_WAIT_S, poll_s: float = LOCK_POLL_S):
+        self.path, self.wait_s, self.poll_s = Path(path), float(wait_s), float(poll_s)
+        self._fd = None
+
+    def __enter__(self):
+        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
+        deadline = time.monotonic() + self.wait_s
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    holder = os.pread(fd, 200, 0).decode("utf-8", "replace").strip()
+                    os.close(fd)
+                    raise PanelLockTimeout(
+                        f"panel lock {self.path} still held after {self.wait_s:.0f}s "
+                        f"(holder: {holder or 'unrecorded'}); not refreshing") from None
+                time.sleep(self.poll_s)
+        os.ftruncate(fd, 0)
+        os.pwrite(fd, f"pid {os.getpid()} since {datetime.now().isoformat()}\n".encode(), 0)
+        self._fd = fd
+        return self
+
+    def __exit__(self, *exc):
+        fd, self._fd = self._fd, None
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return False
 
 
 def _cefconnect_nav(ticker: str, asof: pd.Timestamp):
@@ -73,6 +140,12 @@ def refresh(period: str = "6mo", require_asof=None, nav_fallback=None,
     if not PX_PATH.exists():
         print("no staged panel; run scripts/cef/stage_cef.py first")
         return 1
+    # The read below and the write at its end are one transaction (LOCKING).
+    with panel_lock(LOCK_PATH, LOCK_WAIT_S, LOCK_POLL_S):
+        return _refresh_locked(period, require_asof, nav_fallback, book)
+
+
+def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     P, N = pd.read_parquet(PX_PATH), pd.read_parquet(NAV_PATH)
     now = datetime.now()
     today = pd.Timestamp(now.date())
@@ -185,7 +258,11 @@ def main(argv=None) -> int:
                     help="book json; with --require-asof, only its deployed "
                          "names must be complete (default: the whole panel)")
     a = ap.parse_args(argv)
-    return refresh(a.period, a.require_asof, a.nav_fallback, a.book)
+    try:
+        return refresh(a.period, a.require_asof, a.nav_fallback, a.book)
+    except PanelLockTimeout as e:
+        print(f"  LOCKED: {e}")
+        return EXIT_LOCKED
 
 
 if __name__ == "__main__":
