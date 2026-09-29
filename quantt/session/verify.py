@@ -639,8 +639,10 @@ def main(argv=None) -> int:
         print(f"QUANTT_STATE_DIR {state_dir} is not a directory", file=sys.stderr)
         return 2
 
+    client = None
     try:
-        v = verify_day(_make_client(args.book), state_dir, args.book, args.date,
+        client = _make_client(args.book)
+        v = verify_day(client, state_dir, args.book, args.date,
                        condition=args.condition)
     except Exception as e:  # noqa: BLE001 -- every failure becomes a FAIL line naming it
         # The date labels the line only. Without the broker's clock the best
@@ -650,7 +652,33 @@ def main(argv=None) -> int:
                     reason=f"verify error: {type(e).__name__}: {e}")
     v = write_outputs(state_dir, v)
     print(v.line())
+    if client is not None:
+        run_shadow(client, state_dir, v.date, condition=args.condition)
     return 0 if v.ok else 1
+
+
+def run_shadow(client, state_dir: Path, day: dt.date, *, condition: str) -> None:
+    """The MODELLED shadow score (quantt/session/shadow.py), after the verdict is
+    written and never able to change it (team lead 2026-09-29: keep cls, compare
+    against the intended book at official closes for a week). A failure here is
+    recorded as an UNMEASURED shadow row naming it -- not swallowed, not a FAIL
+    of the real session."""
+    from ops.schedule.nyse_calendar import is_trading_day, previous_trading_day
+    from quantt.session import shadow
+    now = dt.datetime.now(dt.timezone.utc)
+    if not is_trading_day(day):
+        return
+    prev = previous_trading_day(day)
+
+    def fetch(symbols, d):
+        r = fetch_prints(client, symbols, d, condition=condition)
+        return r.prices, r.gaps
+    try:
+        row = shadow.run_day(client, state_dir, day, fetch=fetch, prev=prev, now_utc=now)
+        print(f"shadow {day}: {row['shadow_pnl_usd']} USD ({shadow.LABEL})")
+    except Exception as e:  # noqa: BLE001 -- recorded as an UNMEASURED shadow row
+        shadow.record_error(state_dir, day, prev, f"{type(e).__name__}: {e}", now)
+        print(f"shadow {day}: UNMEASURED ({type(e).__name__}: {e})")
 
 
 if __name__ == "__main__":

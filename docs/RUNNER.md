@@ -141,3 +141,12 @@ laptop woke. What changed:
   and :40): prices and NAVs, Alpaca's official closes, cross-checks between
   sources (**report only**, team lead 2026-09-29), an account snapshot and the
   distribution/split panels. Read-only at Alpaca. `docs/DATA.md`.
+- **Shadow benchmark** (`quantt/session/shadow.py`, run by verify after the
+  verdict, never able to change it): the runner's intended book, as if every
+  order filled at the official closing print, marked close to close. One row per
+  day in `<state>/shadow.csv`, labelled MODELLED; its state is
+  `<state>/shadow_book.json`. Why: on 2026-09-29 paper filled 2 of 13 `cls`
+  orders (PHK 4,019/4,019, PFN 1,529/2,227; eleven expired) although every NYSE
+  auction printed more shares than we asked for; Alpaca staff confirm paper treats
+  `cls` as a market order at the close with random partial fills (forum,
+  2026-06-24).
