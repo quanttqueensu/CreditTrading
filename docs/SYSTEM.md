@@ -336,6 +336,19 @@ Answered interactively while the runner was built. The design they shape is
 | Key file for the scheduled job | **Stays `config/.env`**; whether launchd can read it under `~/Downloads` is tested on install, and fails loudly if not. |
 | Research and backtest | **Saved workflows** (`.claude/workflows/`); research data from the R2 WRDS mirror (`docs/DATA.md`), never on the live path. |
 
+### Team lead, 2026-09-29 — flexible schedule and nightly data
+
+After the first armed session (13 `cls` orders accepted at 10:33 ET, plan_sha
+`74154e1e…`, sent on the team lead's go). Design: `docs/RUNNER.md` "As built
+(2026-09-29)".
+
+| question | decision |
+|---|---|
+| When the session runs | **Evening primary and morning backstop.** Evening 22:00 ET, retrying every 30 min until 01:00; morning every 30 min 06:00–15:15 ET. No fixed time. |
+| Data gathering | **A standalone nightly collector**: prices and NAVs cross-checked, Alpaca official closes, an account and fills snapshot, distributions and splits. |
+| Two data sources disagree | **Report only.** The panel (yfinance) is traded on; the disagreement is written to the daily data report. It never blocks and is never averaged. |
+| Rollout | **Deploy after the 2026-09-29 verify; the evening run stays DRY** until the team lead approves a list. The first real evening send also tests Alpaca's overnight `cls` queue on paper. |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A

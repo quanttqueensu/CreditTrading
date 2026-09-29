@@ -22,8 +22,8 @@ repository at a release tag and nothing else (`docs/ROADMAP.md` phase 6).
 | code | `~/prod/quantt-alpaca`: a `git clone` of `origin`, **detached at the tag** | `install_prod` |
 | price/NAV panels | `~/prod/quantt-alpaca/data/cef/cef_prices.parquet`, `cef_nav.parquet`. Copied once from the dev tree, then prod's own. | `install_prod` seeds them; `fetch_daily` appends to them |
 | runtime records (`QUANTT_STATE_DIR`) | `~/quantt_state/cef/`: `<date>/STARTED`, `verify.log`, `AUTO_ARMED` | `quantt.session` (and the TL for `AUTO_ARMED`) |
-| job logs | `~/quantt_state/cef/logs/{session,verify}.{out,err}.log` | launchd |
-| schedule | `~/Library/LaunchAgents/com.quantt.alpaca.cef.session.plist` (08:30 and 12:00 ET, Mon–Fri) and `...cef.verify.plist` (17:30 ET, Mon–Fri) | `install_prod`, rendered from the tag's templates |
+| job logs | `~/quantt_state/cef/logs/{session,verify,collect}.{out,err}.log` | launchd |
+| schedule | `~/Library/LaunchAgents/com.quantt.alpaca.cef.session.plist` (every 30 min at :00/:30, every day, `--scheduled`: the runner tries only 22:00–01:00 ET after the as-of close and 06:00–15:15 ET on the session date), `...cef.verify.plist` (17:30 ET, Mon–Fri) and `...cef.collect.plist` (every 30 min at :10/:40, every day) | `install_prod`, rendered from the tag's templates |
 | Alpaca keys (`QUANTT_ENV_FILE`) | a file **outside** the prod clone, mode 600 | TL only. `install_prod` checks it exists and is private, and never reads it. |
 
 **Never touch** the retired IBKR prod: `~/prod/QUANTT` and the old
@@ -57,7 +57,7 @@ refuses a layout that overlaps `~/prod/QUANTT`, and it writes only the two
    2026-09-28 that was `/opt/anaconda3/bin/python3`, Python 3.13.5), with
    `requirements.txt` installed in it. Step 2.3 (the test suite in the prod
    clone) proves the dependencies are there.
-4. **Awake at 08:30.** See section 7.
+4. **Awake in the evening (22:00–01:00 ET) or the morning (06:00–15:15 ET).** See section 7.
 
 ## 1. Release (A, with TL approval to push)
 
@@ -234,10 +234,14 @@ python3 -m quantt.broker.alpaca_probe --book cef   # read-only account snapshot 
 ## 7. Keeping the laptop awake
 
 launchd runs a missed calendar job **once on wake**, and coalesces several
-missed runs into one (`man launchd.plist`, StartCalendarInterval). A laptop
-asleep at 08:30 therefore runs the session when it wakes. The runner's clock
-gate (15:45 ET) stops a late wake from trading. A laptop that stays asleep all
-day trades nothing, and its verify line is missing, which counts as a FAIL.
+missed runs into one (`man launchd.plist`, StartCalendarInterval). Since
+2026-09-29 the session job fires every 30 minutes and the runner picks its own
+slots (evening 22:00–01:00 ET, morning 06:00–15:15 ET), so the laptop needs to
+be awake and online for **one** slot, not at one minute. The 2026-09-29 08:30
+run failed on DNS as the machine woke; under the new schedule the next slot
+simply tries again. The runner's clock gate (19:15 ET on the as-of date to
+15:45 ET on the session date) stops a late wake from trading. A laptop that
+misses both windows trades nothing, and its verify line is a FAIL.
 
 **Measured 2026-09-28 (`pmset -g`, `pmset -g sched`):** `SleepDisabled 1`;
 `sleep 0 (sleep prevented by caffeinate, powerd)`; no scheduled or repeating

@@ -128,7 +128,7 @@ def targets_book(asof, holdings, equity, opening):
 
 
 def make(tmp_path, env=None, *, client=None, refresh_exit=0, targets=targets_book,
-         closes=None, navs=None, halts=None, refresh_incomplete=None, **ck):
+         closes=None, navs=None, halts=None, refresh_incomplete=None, now_utc=None, **ck):
     state = tmp_path / "state"
     state.mkdir(parents=True, exist_ok=True)
     c = client or FakeClient(state, **ck)
@@ -152,7 +152,7 @@ def make(tmp_path, env=None, *, client=None, refresh_exit=0, targets=targets_boo
                    closes=closes or (lambda asof, uni: {s: (CLOSES[s], ASOF) for s in uni}),
                    navs=navs or (lambda asof, uni: {s: asof for s in uni}),
                    targets=tg, halts=lambda: halts or [],
-                   utcnow=lambda: dt.datetime(2026, 9, 29, 12, 30, tzinfo=dt.timezone.utc),
+                   utcnow=lambda: now_utc or dt.datetime(2026, 9, 29, 12, 30, tzinfo=dt.timezone.utc),
                    out=SimpleNamespace(write=out.append, flush=lambda: None))
     return c, deps, state, seen, out
 
@@ -490,10 +490,19 @@ def test_clock_is_reread_at_the_gate_and_a_slow_refresh_past_cutoff_refuses(tmp_
     assert "[clock]" in "".join(out)
 
 
-def test_refresh_timeout_is_the_time_left_to_the_cutoff(tmp_path):
+def test_refresh_timeout_is_capped_below_the_30_minute_slot(tmp_path):
+    # 08:30 -> 15:45 is 7h15m left, but a hung fetch must not block the next
+    # scheduled slot (launchd never starts a second instance of a running job).
     c, deps, state, seen, _ = make(tmp_path)          # clock 08:30, close 16:00
     rn.run_session(BOOK, SPEC, deps, preview=True)
-    assert seen.timeouts == [pytest.approx((7 * 60 + 15) * 60)]     # 08:30 -> 15:45
+    assert seen.timeouts == [pytest.approx(rn.REFRESH_TIMEOUT_CAP_S)]
+    assert rn.REFRESH_TIMEOUT_CAP_S < 30 * 60
+
+
+def test_refresh_timeout_is_the_time_left_when_that_is_shorter(tmp_path):
+    c, deps, state, seen, _ = make(tmp_path, clock_ts=dt.datetime(2026, 9, 29, 15, 35, tzinfo=ET))
+    rn.run_session(BOOK, SPEC, deps, preview=True)
+    assert seen.timeouts == [pytest.approx(10 * 60)]                # 15:35 -> 15:45
 
 
 def test_refresh_timeout_refuses_on_data(tmp_path):
@@ -504,12 +513,16 @@ def test_refresh_timeout_refuses_on_data(tmp_path):
     assert "did not complete: timed out" in "".join(out)
 
 
-def test_refresh_not_run_after_cutoff(tmp_path):
+def test_after_the_cutoff_the_session_is_the_next_auction_and_the_clock_refuses(tmp_path):
+    # 16:00 on the 29th: the next order could only join the 30th's auction, and
+    # 15:50-19:00 Alpaca rejects cls [V] -- so gate 4 refuses, nothing is sent.
     late = dt.datetime(2026, 9, 29, 16, 0, tzinfo=ET)
-    c, deps, state, seen, _ = make(tmp_path, clock_ts=late)
+    c, deps, state, seen, out = make(tmp_path, clock_ts=late)
     (state / "AUTO_ARMED").touch()
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
-    assert seen.refresh == [] and c.submits() == []
+    assert c.submits() == []
+    assert seen.refresh == [D]                      # as-of for the 30th is the 29th
+    assert "[clock]" in "".join(out) and "2026-09-30" in "".join(out)
 
 
 def test_transmit_stops_when_the_clock_crosses_the_cutoff_mid_batch(tmp_path):
@@ -563,3 +576,150 @@ def test_last_navs_duplicate_rows_raise(tmp_path):
                   "nav": [1.0, 2.0]}).to_parquet(p)
     with pytest.raises(rn.SessionError, match="duplicate"):
         rn.last_navs(p, ASOF, ["AAA"])
+
+
+# ------------------------------------------- evening decision (team lead 2026-09-29)
+
+EVE = dt.datetime(2026, 9, 28, 22, 0, tzinfo=ET)          # Monday evening, for Tuesday
+
+
+def test_evening_run_trades_the_next_auction_on_the_evenings_pair(tmp_path):
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE)
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    assert seen.refresh == [ASOF]                         # decided on the 28th's close+NAV
+    cids = [x[1] for x in c.submits()]
+    assert cids and all(cid.startswith("cef-20260929-") for cid in cids)
+    assert all(x[2] for x in c.submits())                 # STARTED before every order
+    assert (state / D.isoformat() / "STARTED").exists()
+
+
+def test_evening_and_morning_runs_make_the_same_plan(tmp_path):
+    eve = sha_of(tmp_path / "e", clock_ts=EVE)
+    morn = sha_of(tmp_path / "m")
+    assert eve == morn
+
+
+def test_orders_since_the_night_before_the_asof_are_read(tmp_path):
+    # a Friday-evening set for Monday must be visible to a Monday-morning run
+    mon = dt.datetime(2026, 10, 5, 8, 30, tzinfo=ET)
+    c, deps, state, _, _ = make(tmp_path, clock_ts=mon,
+                                closes=lambda asof, uni: {s: (CLOSES[s], asof) for s in uni})
+    rn.run_session(BOOK, SPEC, deps, preview=True)
+    afters = [x[2] for x in c.calls if x[0] == "orders" and x[1] == "all"]
+    assert afters == [dt.datetime(2026, 10, 1, 0, 0, tzinfo=ET)]   # Thu 00:00 before Fri as-of
+
+
+def test_transmit_stops_when_the_clock_leaves_the_evening_window(tmp_path):
+    # start and gate at 22:00 on the 28th; before order 2 the clock reads 19:00
+    # on the 28th (impossible in life, but the window is what is checked).
+    seq = [EVE] * 3 + [dt.datetime(2026, 9, 28, 19, 0, tzinfo=ET)]
+    c, deps, state, _, out = make(tmp_path, clock_seq=seq)
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert len(c.submits()) == 1
+    assert "outside the send window" in "".join(out)
+
+
+@pytest.mark.parametrize("now,want", [
+    (dt.datetime(2026, 9, 29, 8, 30, tzinfo=ET), dt.date(2026, 9, 29)),    # morning: today
+    (dt.datetime(2026, 9, 29, 15, 44, tzinfo=ET), dt.date(2026, 9, 29)),
+    (dt.datetime(2026, 9, 29, 15, 45, tzinfo=ET), dt.date(2026, 9, 30)),   # past cutoff
+    (dt.datetime(2026, 9, 28, 22, 0, tzinfo=ET), dt.date(2026, 9, 29)),    # evening
+    (dt.datetime(2026, 9, 29, 0, 30, tzinfo=ET), dt.date(2026, 9, 29)),    # after midnight
+    (dt.datetime(2026, 10, 2, 22, 0, tzinfo=ET), dt.date(2026, 10, 5)),    # Fri -> Mon
+    (dt.datetime(2026, 10, 3, 0, 30, tzinfo=ET), dt.date(2026, 10, 5)),    # Sat 00:30 -> Mon
+    (dt.datetime(2026, 11, 25, 22, 0, tzinfo=ET), dt.date(2026, 11, 27)),  # Thanksgiving skipped
+])
+def test_session_for(now, want):
+    cal = FakeClient(Path("."), clock_ts=now).calendar(now.date() - dt.timedelta(days=14),
+                                                       now.date() + dt.timedelta(days=14))
+    assert rn.session_for(now, cal) == want
+
+
+def test_session_for_refuses_when_the_calendars_disagree():
+    now = dt.datetime(2026, 9, 28, 22, 0, tzinfo=ET)
+    cal = [{"date": dt.date(2026, 9, 28), "open": "09:30", "close": "16:00"},
+           {"date": dt.date(2026, 9, 30), "open": "09:30", "close": "16:00"}]   # 29th missing
+    with pytest.raises(rn.SessionError, match="disagrees"):
+        rn.session_for(now, cal)
+
+
+# ------------------------------------------------------------- --scheduled
+
+def utc(et):
+    return et.astimezone(dt.timezone.utc)
+
+
+def test_scheduled_outside_the_windows_idles_without_calling_alpaca(tmp_path):
+    for t in (dt.datetime(2026, 9, 29, 17, 0, tzinfo=ET), dt.datetime(2026, 9, 29, 3, 0, tzinfo=ET)):
+        c, deps, state, _, out = make(tmp_path, now_utc=utc(t), clock_ts=t)
+        assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_IDLE
+        assert c.calls == []
+        assert not (state / D.isoformat()).exists()
+
+
+def test_scheduled_evening_sends_then_later_slots_idle(tmp_path):
+    c, deps, state, _, out = make(tmp_path, now_utc=utc(EVE), clock_ts=EVE)
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_SENT
+    assert (state / D.isoformat() / "DONE").exists()
+    n = len(c.submits())
+    for t in (dt.datetime(2026, 9, 28, 22, 30, tzinfo=ET), dt.datetime(2026, 9, 29, 8, 0, tzinfo=ET)):
+        deps.utcnow = lambda t=t: utc(t)
+        c._clock = t
+        assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_IDLE
+    assert len(c.submits()) == n
+
+
+def test_scheduled_refusal_leaves_the_next_slot_free_to_retry(tmp_path):
+    c, deps, state, seen, _ = make(tmp_path, now_utc=utc(EVE), clock_ts=EVE, refresh_exit=4)
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_REFUSED
+    day = state / D.isoformat()
+    assert not (day / "DONE").exists() and not (day / "DRY_DONE").exists()
+    assert rn.done_reason(day, deps.env) is None
+
+
+def test_scheduled_dry_run_is_done_only_while_dry(tmp_path):
+    c, deps, state, _, _ = make(tmp_path, {"DRY_RUN": "1"}, now_utc=utc(EVE), clock_ts=EVE)
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_DRY
+    day = state / D.isoformat()
+    assert (day / "DRY_DONE").exists()
+    assert rn.done_reason(day, {"DRY_RUN": "1"}) is not None
+    # armed later the same night: the next slot must trade, not idle behind the dry run
+    assert rn.done_reason(day, {"DRY_RUN": "0"}) is None
+    later = dt.datetime(2026, 9, 28, 22, 30, tzinfo=ET)
+    deps.utcnow = lambda: utc(later)
+    c._clock = later
+    deps.env["DRY_RUN"] = "0"
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_SENT
+
+
+@pytest.mark.parametrize("now,slot", [
+    (dt.datetime(2026, 9, 28, 21, 59, tzinfo=ET), None),
+    (dt.datetime(2026, 9, 28, 22, 0, tzinfo=ET), "evening"),
+    (dt.datetime(2026, 9, 29, 0, 59, tzinfo=ET), "evening"),
+    (dt.datetime(2026, 9, 29, 1, 0, tzinfo=ET), None),
+    (dt.datetime(2026, 9, 29, 5, 59, tzinfo=ET), None),
+    (dt.datetime(2026, 9, 29, 6, 0, tzinfo=ET), "morning"),
+    (dt.datetime(2026, 9, 29, 15, 14, tzinfo=ET), "morning"),
+    (dt.datetime(2026, 9, 29, 15, 15, tzinfo=ET), None),
+])
+def test_scheduled_slot_edges(now, slot):
+    assert rn.scheduled_slot(now, D, ASOF) == slot
+
+
+def test_scheduled_friday_evening_slots_run_past_midnight_into_saturday():
+    mon, fri = dt.date(2026, 10, 5), dt.date(2026, 10, 2)
+    assert rn.scheduled_slot(dt.datetime(2026, 10, 3, 0, 30, tzinfo=ET), mon, fri) == "evening"
+    assert rn.scheduled_slot(dt.datetime(2026, 10, 3, 22, 0, tzinfo=ET), mon, fri) is None
+    assert rn.scheduled_slot(dt.datetime(2026, 10, 5, 9, 0, tzinfo=ET), mon, fri) == "morning"
+
+
+def test_scheduled_run_writes_no_record_when_idle(tmp_path):
+    t = dt.datetime(2026, 9, 29, 16, 30, tzinfo=ET)       # after the cutoff, before evening
+    c, deps, state, _, out = make(tmp_path, now_utc=utc(t), clock_ts=t)
+    assert rn.run_session(BOOK, SPEC, deps, scheduled=True) == rn.EXIT_IDLE
+    assert not any(state.rglob("*.json"))

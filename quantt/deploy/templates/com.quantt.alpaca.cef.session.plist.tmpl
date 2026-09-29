@@ -8,13 +8,16 @@
   installer re-checks every key below after rendering, so an edit here that
   changes the command, the schedule or the environment keys fails the install.
 
-  Schedule: 08:30 and 12:00 local, Monday to Friday. Local time is
-  US/Eastern on the prod machine (the installer refuses otherwise). The 12:00
-  run is the retry for a morning whose data was not ready; the runner itself
-  checks the NYSE calendar and refuses a second set for the same auction
-  (docs/RUNNER.md gate 6). launchd runs a missed interval once on wake, so a
-  machine asleep at 08:30 runs this on waking; the runner's clock gate
-  (15:45 ET) is what stops a late wake from trading.
+  Schedule: every 30 minutes (:00 and :30), every day, in scheduled mode (run.py `scheduled`).
+  The RUNNER decides whether a firing is a slot to try in (evening 22:00-01:00
+  ET after the as-of close, when that day's NAVs are in; morning 06:00-15:15
+  ET on the session date as the backstop; team lead 2026-09-29) and whether
+  the session is already done; any other firing prints one IDLE line and
+  exits 5 without touching the broker's order endpoints. Local time must be
+  US/Eastern (the installer refuses otherwise). launchd runs a missed
+  interval once on wake; the runner's clock gate (19:15 ET on the as-of date
+  to 15:45 ET on the session date) is what stops a late wake from trading,
+  and gate 6 refuses a second set for the same auction (docs/RUNNER.md).
 
   DRY_RUN is "1" unless the installer was given armed mode. The runner transmits only
   when DRY_RUN is exactly "0" AND it is armed (docs/RUNNER.md gate 2).
@@ -31,6 +34,7 @@
 		<string>run</string>
 		<string>--book</string>
 		<string>cef</string>
+		<string>--scheduled</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>${PROD_DIR}</string>
@@ -49,16 +53,8 @@
 	</dict>
 	<key>StartCalendarInterval</key>
 	<array>
-		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
-		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
-		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
-		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
-		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
-		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-		<dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-		<dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-		<dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Minute</key><integer>30</integer></dict>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>

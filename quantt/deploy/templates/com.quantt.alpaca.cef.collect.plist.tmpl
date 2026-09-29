@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.quantt.alpaca.cef.collect : the CEF book's nightly data collector (read-only).
+
+  RENDERED by quantt/deploy/install_prod.py from release tag ${TAG}. Do not
+  hand-edit the installed copy: re-run the installer (docs/RUNBOOK.md). The
+  installer re-checks every key below after rendering, so an edit here that
+  changes the command, the schedule or the environment keys fails the install.
+
+  Schedule: every 30 minutes (:10 and :40), every day. The collector works
+  out the latest data day itself (a trading day whose close is 45 min past),
+  runs each unfinished step (prices+NAV, cross-checks, Alpaca official
+  closes, account snapshot, distributions), and prints one IDLE line once the
+  day is complete. It is READ-ONLY at Alpaca: no order endpoint is called
+  (quantt/collect tests assert it). Offset 10 minutes from the session job.
+
+  DRY_RUN is rendered for uniformity with the other jobs; the collector never
+  transmits whatever its value.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.quantt.alpaca.cef.collect</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>${PYTHON}</string>
+		<string>-m</string>
+		<string>quantt.collect</string>
+		<string>--book</string>
+		<string>cef</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>${PROD_DIR}</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DRY_RUN</key>
+		<string>${DRY_RUN}</string>
+		<key>QUANTT_STATE_DIR</key>
+		<string>${STATE_DIR}</string>
+		<key>QUANTT_ENV_FILE</key>
+		<string>${ENV_FILE}</string>
+		<key>PATH</key>
+		<string>${PATH}</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Minute</key><integer>10</integer></dict>
+		<dict><key>Minute</key><integer>40</integer></dict>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>${LOG_DIR}/collect.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>${LOG_DIR}/collect.err.log</string>
+</dict>
+</plist>

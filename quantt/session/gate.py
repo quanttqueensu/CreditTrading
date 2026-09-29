@@ -46,6 +46,18 @@ CLS_CUTOFF_ET = dt.time(15, 45)
 # Early-close days: no Alpaca page documents the cls cutoff [U]. RUNNER.md's
 # own margin: the calendar's close minus ten minutes.
 EARLY_CLOSE_MARGIN = dt.timedelta(minutes=10)
+# The EVENING side of the window (team lead 2026-09-29: decide in the evening,
+# once the day's NAVs are in, with a morning backstop). Alpaca: "CLS orders
+# submitted after 3:50pm but before 7:00pm ET will be rejected. CLS orders
+# submitted after 7:00pm will be queued and routed to the following day's
+# closing auction" [V, docs "orders-at-alpaca"]. 19:15 leaves fifteen minutes
+# after Alpaca's line, as 15:45 leaves five before 15:50. So an order for the
+# auction on date S may be sent from 19:15 ET on the previous trading day
+# (the as-of date) until the cutoff on S; outside that window it would be
+# rejected, or -- worse -- queued into an auction nobody decided for.
+# Whether paper honours the queue exactly as documented is [U] until the first
+# evening send is confirmed at Alpaca.
+QUEUE_OPEN_ET = dt.time(19, 15)
 
 # Gate 8. Alpaca values a market short order at "(3% above the current ask
 # price) * order quantity" for buying power [V, docs "orders-at-alpaca"]. The
@@ -157,23 +169,43 @@ def cutoff_et(session_date: dt.date, calendar_close: str) -> dt.datetime:
                close - EARLY_CLOSE_MARGIN)
 
 
-def gate_clock(clock_ts, session_date, calendar_today, nyse_trading_today) -> list[Refusal]:
-    """Gate 4. Today is a trading day by BOTH Alpaca's calendar and the repo's
-    NYSE rules, and Alpaca's clock is before the cls cutoff.
+def queue_open_et(asof: dt.date) -> dt.datetime:
+    """The first moment (ET) a cls order for the auction after `asof` may be
+    sent: 19:15 ET on the as-of date (see QUEUE_OPEN_ET)."""
+    return dt.datetime.combine(asof, QUEUE_OPEN_ET, tzinfo=ET)
 
-    `is_open` from /v2/clock is NOT used: it means "open right now" [V], and the
-    08:30 session runs before the open. A run after 19:00 ET would be queued
-    for the NEXT day's auction by Alpaca [V] -- a real order nobody decided
-    for that day -- so "before the cutoff on the session date" is enforced here,
-    not left to the broker.
+
+def in_send_window(clock_ts: dt.datetime, asof: dt.date, cutoff: dt.datetime) -> bool:
+    """True when an order sent at `clock_ts` joins the auction whose as-of date
+    is `asof` and whose cutoff is `cutoff`: queue_open_et(asof) <= now < cutoff."""
+    now = clock_ts.astimezone(ET)
+    return queue_open_et(asof) <= now < cutoff
+
+
+def gate_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
+               asof) -> list[Refusal]:
+    """Gate 4. The session date is a trading day by BOTH Alpaca's calendar and
+    the repo's NYSE rules, and Alpaca's clock is inside that auction's send
+    window: from 19:15 ET on the as-of date (the previous trading day) to the
+    cls cutoff on the session date.
+
+    `is_open` from /v2/clock is NOT used: it means "open right now" [V], and
+    both the evening and the morning runs happen while the market is shut.
+    Before 19:00 ET on the as-of date Alpaca rejects cls, and after the cutoff
+    on the session date an order is rejected or queued for the auction AFTER
+    this one [V] -- a real order nobody decided for that day -- so the window
+    is enforced here, not left to the broker. (Until 2026-09-29 the window was
+    the session date only; the team lead moved the decision to the evening.)
     """
     out = []
     if clock_ts.tzinfo is None:
         return [Refusal("clock", f"Alpaca clock timestamp {clock_ts!r} has no timezone")]
     now = clock_ts.astimezone(ET)
-    if now.date() != session_date:
-        out.append(Refusal("clock", f"Alpaca clock says {now.date()} ET but the session "
-                                    f"is for {session_date}"))
+    qo = queue_open_et(asof)
+    if now < qo:
+        out.append(Refusal("clock", f"Alpaca clock {now:%Y-%m-%d %H:%M:%S} ET is before "
+                                    f"{qo:%Y-%m-%d %H:%M} ET, when Alpaca starts queueing cls "
+                                    f"for the {session_date} auction (as-of {asof})"))
     if len(calendar_today) > 1:
         out.append(Refusal("clock", f"Alpaca calendar has {len(calendar_today)} rows for "
                                     f"{session_date}"))
@@ -188,7 +220,7 @@ def gate_clock(clock_ts, session_date, calendar_today, nyse_trading_today) -> li
         return out
     cut = cutoff_et(session_date, calendar_today[0]["close"])
     if now >= cut:
-        out.append(Refusal("clock", f"Alpaca clock {now:%H:%M:%S} ET is at/after the cls "
+        out.append(Refusal("clock", f"Alpaca clock {now:%Y-%m-%d %H:%M:%S} ET is at/after the cls "
                                     f"cutoff {cut:%H:%M} ET (calendar close "
                                     f"{calendar_today[0]['close']}, read as ET)"))
     return out
@@ -384,7 +416,8 @@ def evaluate(f: GateFacts) -> list[Refusal]:
         *gate_dry_run(f.env_dry_run),
         *gate_arming(f.approve_sha, f.plan_sha, f.auto_armed),
         *gate_halt(f.halts),
-        *gate_clock(f.clock_ts, f.session_date, f.calendar_today, f.nyse_trading_today),
+        *gate_clock(f.clock_ts, f.session_date, f.calendar_today, f.nyse_trading_today,
+                    f.asof),
         *gate_data(f.asof, f.refresh_exit, f.close_dates, f.nav_dates, f.universe),
         *gate_no_set_in_auction(f.started_exists, f.orders_recent, f.orders_open,
                                 f.cid_prefix, f.session_date),

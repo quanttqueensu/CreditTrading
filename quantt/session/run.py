@@ -44,6 +44,7 @@ EXIT CODES (distinct, for launchd logs and the operator):
     0  SENT             orders transmitted and every one confirmed at Alpaca
     3  NOTHING_TO_SEND  every gate passed and the order list is empty
     4  PREVIEW          --preview: the list was printed; never sends
+    5  IDLE             --scheduled: not a slot, or this session is already done
    10  DRY              DRY_RUN not "0" (and nothing else refused except arming)
    11  REFUSED          a gate refused; nothing sent
    20  FAIL             an error, a rejected/ambiguous submit, or a confirm miss
@@ -68,10 +69,32 @@ from quantt.session import records as rec
 
 REPO = Path(__file__).resolve().parents[2]
 
-EXIT_SENT, EXIT_NOTHING, EXIT_PREVIEW = 0, 3, 4
+EXIT_SENT, EXIT_NOTHING, EXIT_PREVIEW, EXIT_IDLE = 0, 3, 4, 5
 EXIT_DRY, EXIT_REFUSED, EXIT_FAIL = 10, 11, 20
 EXIT_NAMES = {EXIT_SENT: "SENT", EXIT_NOTHING: "NOTHING_TO_SEND", EXIT_PREVIEW: "PREVIEW",
-              EXIT_DRY: "DRY", EXIT_REFUSED: "REFUSED", EXIT_FAIL: "FAIL"}
+              EXIT_IDLE: "IDLE", EXIT_DRY: "DRY", EXIT_REFUSED: "REFUSED", EXIT_FAIL: "FAIL"}
+
+# A hung fetcher must not hold the job past the next scheduled attempt: launchd
+# never starts a second instance of a running job, so a refresh that hangs
+# until the cutoff (the old bound, ~17 h away for an evening run) would
+# silently cancel every retry behind it. The fetch took 58 s on 2026-09-28 and
+# may wait up to 10 min for the collector's panel lock; 25 min < the 30-min slot.
+REFRESH_TIMEOUT_CAP_S = 25 * 60
+
+# SCHEDULED WINDOWS (team lead 2026-09-29: "we dont have to do it at 830 ...
+# should be flexible"). launchd fires `run --scheduled` every 30 minutes; the
+# runner itself decides whether this is a slot to try in. EVENING: 22:00-01:00
+# ET after the as-of close, because the as-of NAVs land ~21:30 ET (measured
+# 2026-09-28: 0/13 at 21:21, 13/13 at 21:51). MORNING BACKSTOP: 06:00-15:15 ET
+# on the session date, for a night whose data never came or whose machine was
+# asleep or offline (2026-09-29 08:30: DNS failure on wake). The first attempt
+# that gets through is the day; later ones find it done and idle.
+EVENING_FROM, EVENING_UNTIL = dt.time(22, 0), dt.time(1, 0)
+MORNING_FROM, MORNING_UNTIL = dt.time(6, 0), dt.time(15, 15)
+# The local-clock pre-check only ever SKIPS a slot (so an offline machine does
+# not log a failed Alpaca call every 30 minutes all day); it never permits one:
+# the Alpaca clock decides. Five minutes of slack for local clock drift.
+LOCAL_SLACK = dt.timedelta(minutes=5)
 
 
 class SessionError(RuntimeError):
@@ -120,6 +143,86 @@ def spec_params(spec: dict) -> dict:
 
 
 # ------------------------------------------------------------ dates and data
+
+def session_for(now: dt.datetime, calendar_rows: list) -> dt.date:
+    """The auction an order sent NOW would be for: today, if today is a trading
+    day and the clock is before today's cls cutoff; otherwise the next trading
+    day after today. Both Alpaca's calendar and nyse_calendar must agree, or
+    this raises rather than pick one.
+
+    WHY. Until 2026-09-29 the session date was simply the clock's date, so a
+    run could only trade the same day. The team lead moved the decision to the
+    evening: at 22:00 ET on the 28th the auction is the 29th's, decided on the
+    28th's close and NAV -- the same pair, and so the same plan, as a morning run
+    on the 29th (shift(2) is unchanged). Between the cutoff and 19:15 ET this
+    names tomorrow and gate 4 refuses (Alpaca rejects cls then [V]).
+    """
+    from ops.schedule.nyse_calendar import is_trading_day, next_trading_day
+    now = now.astimezone(gt.ET)
+    today = now.date()
+    alpaca_days = sorted(r["date"] for r in calendar_rows)
+    rows_today = [r for r in calendar_rows if r["date"] == today]
+    if len(rows_today) > 1:
+        raise SessionError(f"Alpaca calendar has {len(rows_today)} rows for {today}")
+    if is_trading_day(today) != bool(rows_today):
+        raise SessionError(f"calendars disagree on {today}: nyse_calendar trading="
+                           f"{is_trading_day(today)}, Alpaca rows={len(rows_today)}; "
+                           f"not choosing one")
+    if rows_today and now < gt.cutoff_et(today, rows_today[0]["close"]):
+        return today
+    ours = next_trading_day(today)
+    after = [d for d in alpaca_days if d > today]
+    if not after:
+        raise SessionError(f"Alpaca calendar returned no trading day after {today}")
+    if after[0] != ours:
+        raise SessionError(f"next trading day disagrees: nyse_calendar {ours}, Alpaca "
+                           f"calendar {after[0]}; not choosing one")
+    return ours
+
+
+def scheduled_slot(now: dt.datetime, session_date: dt.date, asof: dt.date) -> str | None:
+    """'evening' or 'morning' if NOW (ET) is a scheduled slot for this
+    session, else None. Evening = from 22:00 on the as-of date to 01:00 the
+    next calendar day; morning = 06:00-15:15 on the session date."""
+    now = now.astimezone(gt.ET)
+    t, d = now.time(), now.date()
+    if (d == asof and t >= EVENING_FROM) or \
+            (d == asof + dt.timedelta(days=1) and t < EVENING_UNTIL):
+        return "evening"
+    if d == session_date and MORNING_FROM <= t < MORNING_UNTIL:
+        return "morning"
+    return None
+
+
+def near_a_slot_locally(local_now: dt.datetime) -> bool:
+    """Local-clock pre-check (see LOCAL_SLACK): could this be ANY slot on ANY
+    day? False only when the ET time of day is well outside both windows."""
+    t = local_now.astimezone(gt.ET)
+    def within(a, b):          # [a - slack, b + slack) on the time of day, wrapping midnight
+        lo = (dt.datetime.combine(t.date(), a, tzinfo=gt.ET) - LOCAL_SLACK).time()
+        hi = (dt.datetime.combine(t.date(), b, tzinfo=gt.ET) + LOCAL_SLACK).time()
+        x = t.time()
+        return (lo <= x < hi) if lo < hi else (x >= lo or x < hi)
+    return within(EVENING_FROM, EVENING_UNTIL) or within(MORNING_FROM, MORNING_UNTIL)
+
+
+def done_reason(day: Path, env) -> str | None:
+    """Why a scheduled run has nothing left to do for this session, or None.
+
+    STARTED: a set went (or began to go) -- never again (CLAUDE.md rule 2).
+    DONE: a scheduled run finished SENT or NOTHING_TO_SEND.
+    DRY_DONE: a scheduled run finished DRY; honoured only while DRY_RUN is not
+    "0", so arming (DRY_RUN=0 + AUTO_ARMED) makes the next slot trade rather
+    than idle behind a dry run of the same day.
+    """
+    if (day / "STARTED").exists():
+        return "a set was already started for this session (STARTED)"
+    if (day / "DONE").exists():
+        return f"done: {(day / 'DONE').read_text().strip()}"
+    if (day / "DRY_DONE").exists() and env.get("DRY_RUN") != "0":
+        return f"dry run done: {(day / 'DRY_DONE').read_text().strip()}"
+    return None
+
 
 def asof_for(session_date: dt.date, calendar_rows: list) -> dt.date:
     """The previous trading day, from nyse_calendar AND Alpaca; raise if they differ."""
@@ -333,14 +436,26 @@ def _order_summary(o: dict) -> dict:
 # --------------------------------------------------------------- the session
 
 def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
-                approve: str | None = None, skip_refresh: bool = False) -> int:
-    """The session. Returns an EXIT_* code; records everything it measured."""
+                approve: str | None = None, skip_refresh: bool = False,
+                scheduled: bool = False) -> int:
+    """The session. Returns an EXIT_* code; records everything it measured.
+
+    `scheduled` (launchd, every 30 min): try only in a scheduled slot and only
+    if this session is not done (see `scheduled_slot`, `done_reason`); else
+    print one IDLE line and exit EXIT_IDLE without writing a run record.
+    """
     out = deps.out
     stamp = deps.utcnow().strftime("%Y%m%dT%H%M%SZ")
     mode = "preview" if preview else "run"
+    if scheduled and preview:
+        raise SessionError("--scheduled and --preview are exclusive")
+    if scheduled and not near_a_slot_locally(deps.utcnow()):
+        print(f"IDLE outside the scheduled windows (local clock "
+              f"{deps.utcnow().astimezone(gt.ET):%Y-%m-%d %H:%M} ET)", file=out)
+        return EXIT_IDLE
     record: dict = {"book": book.name, "mode": mode, "started_utc": stamp,
                     "argv": {"preview": preview, "approve": approve,
-                             "skip_refresh": skip_refresh}}
+                             "skip_refresh": skip_refresh, "scheduled": scheduled}}
     state = day = None
     try:
         state = rec.state_dir_from_env(deps.env)    # required; nothing runs without it
@@ -348,10 +463,20 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         record["spec_id"] = p["spec_id"]
         c = deps.client
         clock = c.clock()
-        session_date = clock["timestamp"].astimezone(gt.ET).date()
-        day = rec.day_dir(state, session_date)
-        cal = c.calendar(session_date - dt.timedelta(days=14), session_date)
+        today_et = clock["timestamp"].astimezone(gt.ET).date()
+        cal = c.calendar(today_et - dt.timedelta(days=14), today_et + dt.timedelta(days=14))
+        session_date = session_for(clock["timestamp"], cal)
         asof = asof_for(session_date, cal)
+        if scheduled:
+            slot = scheduled_slot(clock["timestamp"], session_date, asof)
+            why = (None if slot else "outside the scheduled windows") or \
+                done_reason(rec.day_dir(state, session_date), deps.env)
+            if why:
+                print(f"IDLE {session_date}: {why} (Alpaca clock "
+                      f"{clock['timestamp'].astimezone(gt.ET):%Y-%m-%d %H:%M} ET)", file=out)
+                return EXIT_IDLE
+            record["slot"] = slot
+        day = rec.day_dir(state, session_date)
         record.update(session_date=session_date, asof=asof,
                       clock={k: clock[k] for k in ("timestamp", "is_open", "next_open",
                                                    "next_close")})
@@ -373,6 +498,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 refresh_exit = f"not run: Alpaca clock is at/after the cls cutoff {cut:%H:%M} ET"
                 record["refresh"] = {"not_run": refresh_exit}
             else:
+                left = min(left, REFRESH_TIMEOUT_CAP_S)
                 r = deps.refresh(asof, left)
                 refresh_exit = r.incomplete if r.incomplete is not None else r.exit
                 record["refresh"] = {"exit": r.exit, "incomplete": r.incomplete,
@@ -388,7 +514,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         # 2. read
         acct = c.account()
         pos = c.positions().qty
-        midnight = dt.datetime.combine(session_date - dt.timedelta(days=1), dt.time(0),
+        # From midnight before the as-of date: an evening run's set (sent on the
+        # as-of date, possibly a Friday for a Monday auction) must be in view.
+        midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0),
                                        tzinfo=gt.ET)
         orders_recent = c.orders(status="all", after=midnight)
         orders_open = c.orders(status="open")
@@ -475,9 +603,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if refusals:
             code = EXIT_DRY if ("dry_run" in gates_hit and gates_hit <= {"dry_run", "arming"}) \
                 else EXIT_REFUSED
-            return _finish(record, day, stamp, mode, code, out)
+            return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
         if not decision.orders:
-            return _finish(record, day, stamp, mode, EXIT_NOTHING, out)
+            return _finish(record, day, stamp, mode, EXIT_NOTHING, out, scheduled=scheduled)
 
         # 5. record BEFORE the first order
         started = {"plan_sha": decision.plan_sha, "session_date": session_date,
@@ -495,8 +623,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         # 6-7. transmit and confirm
         cut = gt.cutoff_et(session_date, cal_today[0]["close"])     # gate 4 passed: one row
         code = _transmit(c, decision.orders, day / "orders.jsonl", record, deps, out,
-                         session_date=session_date, cutoff=cut)
-        return _finish(record, day, stamp, mode, code, out)
+                         session_date=session_date, asof=asof, cutoff=cut)
+        return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
     except Exception as e:  # recorded and surfaced, never swallowed: exit FAIL
         record["error"] = f"{type(e).__name__}: {e}"
         record["traceback"] = traceback.format_exc()
@@ -539,7 +667,7 @@ def hard_to_borrow_short_opens(orders, positions: dict, assets: dict) -> list[st
 
 
 def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
-              session_date: dt.date, cutoff: dt.datetime) -> int:
+              session_date: dt.date, asof: dt.date, cutoff: dt.datetime) -> int:
     """POST each order in list order.
 
     A REJECTED order (Alpaca answered 4xx: it definitely does not exist) skips
@@ -553,10 +681,10 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
     has crossed the cutoff -- still stops the batch.
 
     Before EVERY POST the Alpaca clock is read again and the batch stops if it
-    is at/after `cutoff` or no longer `session_date` (ET): an order sent past
-    15:50 is rejected and one sent after 19:00 is queued into the next day's
-    auction [V], and a POST retry or a slow response can carry a batch across
-    either line. A clock read that fails also stops the batch -- an unmeasured
+    is outside this auction's send window, [19:15 ET on the as-of date,
+    `cutoff`) (gate.in_send_window): an order sent past 15:50 is rejected and
+    one sent after 19:00 is queued into the next day's auction [V], and a POST
+    retry or a slow response can carry a batch across either line. A clock read that fails also stops the batch -- an unmeasured
     time is not "before the cutoff".
     """
     from quantt.broker.alpaca import AmbiguousSubmit, OrderRejected
@@ -577,12 +705,13 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
             failed = f"clock read failed before {o.client_order_id}; batch stopped"
             break
         t_et = ts.astimezone(gt.ET)
-        if t_et >= cutoff or t_et.date() != session_date:
+        if not gt.in_send_window(ts, asof, cutoff):
             rec.append_jsonl(log, {"event": "cutoff", "at": now(), "clock": ts,
                                    "client_order_id": o.client_order_id,
                                    "cutoff": cutoff})
-            failed = (f"Alpaca clock {t_et:%Y-%m-%d %H:%M:%S} ET is at/after the cls cutoff "
-                      f"{cutoff:%H:%M} ET on {session_date} before {o.client_order_id}; "
+            failed = (f"Alpaca clock {t_et:%Y-%m-%d %H:%M:%S} ET is outside the send window "
+                      f"for the {session_date} auction ({gt.queue_open_et(asof):%Y-%m-%d %H:%M} "
+                      f"to {cutoff:%Y-%m-%d %H:%M} ET) before {o.client_order_id}; "
                       f"batch stopped")
             break
         rec.append_jsonl(log, {"event": "submit", "at": now(), **o.wire()})
@@ -657,13 +786,20 @@ def _same_qty(v, want: int) -> bool:
         return False
 
 
-def _finish(record, day, stamp, mode, code, out, state=None) -> int:
+def _finish(record, day, stamp, mode, code, out, state=None, scheduled=False) -> int:
     record["exit"] = {"code": code, "name": EXIT_NAMES[code]}
     target = day if day is not None else state
     if target is not None:
         runs = target / "runs"
         runs.mkdir(exist_ok=True)
         rec.write_json_atomic(runs / f"{stamp}-{mode}.json", record)
+    # Done markers for later scheduled slots (done_reason). Only an outcome that
+    # a retry cannot improve is marked; REFUSED and FAIL leave the next slot
+    # free to try again (STARTED already stops any retry after a send began).
+    if scheduled and day is not None:
+        marker = {EXIT_SENT: "DONE", EXIT_NOTHING: "DONE", EXIT_DRY: "DRY_DONE"}.get(code)
+        if marker:
+            (day / marker).write_text(f"{EXIT_NAMES[code]} at {stamp} (runs/{stamp}-{mode}.json)\n")
     print(f"exit {code} {EXIT_NAMES[code]}", file=out)
     return code
 
@@ -680,6 +816,9 @@ def main(argv=None) -> int:
                     help="send only if the recomputed plan_sha equals this (gate 2)")
     ap.add_argument("--skip-refresh", action="store_true",
                     help="do not run the fetcher; the panel must still end on the as-of date")
+    ap.add_argument("--scheduled", action="store_true",
+                    help="launchd mode: try only in the evening/morning slots, and only "
+                         "until the session is done; otherwise exit 5 IDLE")
     a = ap.parse_args(argv)
     book = BOOKS[a.book]
     try:
@@ -690,4 +829,4 @@ def main(argv=None) -> int:
         print(f"exit {EXIT_FAIL} FAIL")
         return EXIT_FAIL
     return run_session(book, spec, deps, preview=a.preview, approve=a.approve,
-                       skip_refresh=a.skip_refresh)
+                       skip_refresh=a.skip_refresh, scheduled=a.scheduled)

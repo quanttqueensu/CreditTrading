@@ -126,6 +126,48 @@ def test_clock_evening_run_refuses_next_day_auction():
     assert "clock" in gates(good(clock_ts=dt.datetime(2026, 9, 29, 20, 0, tzinfo=ET)))
 
 
+# The evening side (team lead 2026-09-29): an order for D's auction may go from
+# 19:15 ET on the as-of date. Alpaca rejects cls 15:50-19:00 and queues after
+# 19:00 into the next day's auction [V].
+
+def test_clock_evening_of_the_asof_date_passes():
+    assert gates(good(clock_ts=dt.datetime(2026, 9, 28, 22, 0, tzinfo=ET))) == []
+    assert gates(good(clock_ts=dt.datetime(2026, 9, 29, 0, 30, tzinfo=ET))) == []
+
+
+def test_clock_evening_window_opens_at_1915_not_before():
+    assert gates(good(clock_ts=dt.datetime(2026, 9, 28, 19, 15, tzinfo=ET))) == []
+    assert gates(good(clock_ts=dt.datetime(2026, 9, 28, 19, 14, 59, tzinfo=ET))) == ["clock"]
+
+
+def test_clock_between_asof_close_and_queue_open_refuses():
+    # 15:50-19:00 ET Alpaca rejects cls outright [V]
+    assert gates(good(clock_ts=dt.datetime(2026, 9, 28, 17, 0, tzinfo=ET))) == ["clock"]
+
+
+def test_clock_before_the_asof_date_refuses():
+    assert gates(good(clock_ts=dt.datetime(2026, 9, 27, 22, 0, tzinfo=ET))) == ["clock"]
+
+
+def test_clock_friday_evening_for_monday_auction_passes():
+    mon, fri = dt.date(2026, 10, 5), dt.date(2026, 10, 2)
+    base = dict(session_date=mon, asof=fri,
+                calendar_today=[{"date": mon, "open": "09:30", "close": "16:00"}],
+                close_dates={s: fri for s in UNI}, nav_dates={s: fri for s in UNI},
+                orders=())
+    assert gates(good(clock_ts=dt.datetime(2026, 10, 2, 22, 0, tzinfo=ET), **base)) == []
+    assert gates(good(clock_ts=dt.datetime(2026, 10, 3, 11, 0, tzinfo=ET), **base)) == []
+    assert gates(good(clock_ts=dt.datetime(2026, 10, 5, 15, 45, tzinfo=ET), **base)) == ["clock"]
+
+
+def test_in_send_window_matches_the_gate():
+    cut = gt.cutoff_et(D, "16:00")
+    assert gt.in_send_window(dt.datetime(2026, 9, 28, 22, 0, tzinfo=ET), ASOF, cut)
+    assert gt.in_send_window(dt.datetime(2026, 9, 29, 15, 44, tzinfo=ET), ASOF, cut)
+    assert not gt.in_send_window(dt.datetime(2026, 9, 29, 15, 45, tzinfo=ET), ASOF, cut)
+    assert not gt.in_send_window(dt.datetime(2026, 9, 28, 19, 0, tzinfo=ET), ASOF, cut)
+
+
 def test_clock_not_a_trading_day_refuses():
     assert "clock" in gates(good(calendar_today=[], nyse_trading_today=False))
 

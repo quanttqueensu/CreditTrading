@@ -93,7 +93,7 @@ class World:
             (d / job.template).parent.mkdir(parents=True, exist_ok=True)
             (d / job.template).write_text((REAL_REPO / job.template).read_text())
         (d / "data" / "cef").mkdir(parents=True)
-        for name in ip.SEED_FILES + ip.SEED_WRITE_ONLY:
+        for name in ip.SEED_FILES + ip.SEED_WRITE_ONLY + ip.SEED_SUPPORT:
             (d / "data" / "cef" / name).write_bytes(f"dev bytes of {name}".encode())
         (d / "data" / "cef" / "cef_borrow.csv").write_text("not read by the live path")
         git("add", "-A", cwd=d)
@@ -154,7 +154,7 @@ def test_dry_run_writes_nothing_and_shows_the_plists(world, capsys, no_reading_k
     assert not world.layout.state_dir.exists()
     assert not world.layout.agents_dir.exists()
     assert "WOULD 1. git clone" in out and "DOING" not in out
-    assert out.count("<key>Label</key>") == 2
+    assert out.count("<key>Label</key>") == len(ip.JOBS) == 3
     assert "DRY RUN: nothing was written" in out
     assert [v for v in world.launchctl.verbs() if v != "print"] == []
 
@@ -175,11 +175,12 @@ def test_apply_builds_prod_at_the_tag(world, capsys, no_reading_keys):
     assert oct(world.layout.state_dir.stat().st_mode & 0o777) == "0o700"
 
 
-def test_apply_seeds_only_the_files_the_live_path_reads(world, capsys):
+def test_apply_seeds_the_live_and_support_files_and_nothing_else(world, capsys):
     world.run("--apply", capsys=capsys)
     data = world.layout.prod_dir / "data" / "cef"
-    assert sorted(p.name for p in data.iterdir()) == sorted(ip.SEED_FILES)
-    for name in ip.SEED_FILES:
+    want = ip.SEED_FILES + ip.SEED_SUPPORT
+    assert sorted(p.name for p in data.iterdir()) == sorted(want)   # not cef_borrow.csv
+    for name in want:
         assert not (data / name).is_symlink()
         assert (data / name).read_bytes() == (world.dev / "data/cef" / name).read_bytes()
 
@@ -187,9 +188,11 @@ def test_apply_seeds_only_the_files_the_live_path_reads(world, capsys):
 def test_rendered_plists_are_dry_by_default_and_complete(world, capsys, no_reading_keys):
     world.run("--apply", capsys=capsys)
     py = str(Path(sys.executable))
-    sess, ver = world.plist(0), world.plist(1)
-    for d, sub in ((sess, "run"), (ver, "verify")):
-        assert d["ProgramArguments"] == [py, "-m", "quantt.session", sub, "--book", "cef"]
+    sess, ver, col = world.plist(0), world.plist(1), world.plist(2)
+    for d, args in ((sess, ["quantt.session", "run", "--book", "cef", "--scheduled"]),
+                    (ver, ["quantt.session", "verify", "--book", "cef"]),
+                    (col, ["quantt.collect", "--book", "cef"])):
+        assert d["ProgramArguments"] == [py, "-m", *args]
         assert d["WorkingDirectory"] == str(world.layout.prod_dir)
         env = d["EnvironmentVariables"]
         assert env["DRY_RUN"] == "1"
@@ -198,9 +201,12 @@ def test_rendered_plists_are_dry_by_default_and_complete(world, capsys, no_readi
         assert env["PATH"].split(":")[0] == str(Path(py).parent)
         assert d["StandardOutPath"].startswith(str(world.layout.log_dir))
         assert d["RunAtLoad"] is False
+    # session: every :00/:30, every day -- the runner picks its slots (team
+    # lead 2026-09-29); collector: every :10/:40; verify: 17:30 on weekdays.
+    assert sess["StartCalendarInterval"] == [{"Minute": 0}, {"Minute": 30}]
+    assert col["StartCalendarInterval"] == [{"Minute": 10}, {"Minute": 40}]
     when = lambda d: sorted((x["Weekday"], x["Hour"], x["Minute"])
                             for x in d["StartCalendarInterval"])
-    assert when(sess) == sorted((w, h, m) for w in range(1, 6) for h, m in ((8, 30), (12, 0)))
     assert when(ver) == [(w, 17, 30) for w in range(1, 6)]
     for p in world.layout.agents_dir.iterdir():
         assert SENTINEL not in p.read_text()
@@ -242,7 +248,7 @@ def test_load_reloads_a_loaded_job(world, capsys):
     rc, _ = world.run("--apply", "--load", "--armed", capsys=capsys)
     assert rc == 0
     v = world.launchctl.verbs()
-    assert v.count("bootout") == 2 and v.count("bootstrap") == 2
+    assert v.count("bootout") == len(ip.JOBS) and v.count("bootstrap") == len(ip.JOBS)
     assert v.index("bootout") < v.index("bootstrap")
 
 

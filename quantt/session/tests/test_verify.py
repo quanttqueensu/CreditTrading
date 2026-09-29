@@ -300,6 +300,17 @@ def test_yesterdays_runner_orders_are_not_foreign(state):
     assert v.ok, v.reason
 
 
+def test_the_next_auctions_evening_orders_are_not_foreign(state):
+    """The runner decides from 22:00 ET for the next auction (team lead
+    2026-09-29); a verify re-run late on D sees those orders and they are ours."""
+    started(state, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+    c = traded_day()
+    c._orders.append(order("AAA", "buy", 7, c=cid("AAA", day=dt.date(2026, 9, 30)),
+                           oid="id-next", ts="2026-09-30T02:00:00Z"))   # 22:00 ET on D
+    v = run(state, c)
+    assert v.ok, v.reason
+
+
 def test_fills_that_do_not_sum_to_filled_qty_fail(state):
     started(state, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
     c = traded_day(fills=[fill("AAA", "sell", 30, 10.4), fill("CCC", "buy", 20, 5.05)],

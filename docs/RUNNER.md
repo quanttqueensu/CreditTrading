@@ -18,12 +18,18 @@ the book: those come from `python3 -m ops.orient`.
 
 ## The session, in order
 
-Decide in the morning on **yesterday's complete price+NAV pair**, MOC for **today's**
-close (standing decision, team lead 2026-09-08). This matches the research's
-`shift(2)`: decide on *t*'s data, fill at *t+1*'s close, earn *t+2*.
+Decide on the **as-of day's complete price+NAV pair**, MOC for the **next trading
+day's** close. This matches the research's `shift(2)`: decide on *t*'s data, fill
+at *t+1*'s close, earn *t+2*. **When** (team lead 2026-09-29): in the **evening**
+of *t*, 22:00–01:00 ET, once *t*'s NAVs are in (they landed 21:21–21:51 ET on
+2026-09-28), with a **morning backstop** 06:00–15:15 ET on *t+1*. The evening and
+morning runs decide on the same pair and make the same plan; an order sent after
+19:00 ET is queued by Alpaca for the next day's auction [V: docs; first paper
+evening send confirms it]. See "As built (2026-09-29)" below.
 
 ```
-08:30 ET  python3 -m quantt.session run --book cef      # scheduled; 12:00 ET retry
+every 30 min  python3 -m quantt.session run --book cef --scheduled
+              (idles outside the evening/morning slots and once the session is done)
           1. refresh    scripts/cef/fetch_daily.py --require-asof <prev trading day>
                         --nav-fallback cefconnect --book ops/books/cef_discount_book.json
                         exit != 0  -> NO TRADE today, logged (stale data never trades)
@@ -61,7 +67,7 @@ close (standing decision, team lead 2026-09-08). This matches the research's
 1. `DRY_RUN` — transmits only if the environment variable is **exactly `"0"`**. Unset, empty, `1`, anything else → dry. Always wins.
 2. **Arming** — transmit additionally needs **either** `--approve <plan_sha>` equal to the sha256 of the freshly recomputed order list (the interactive first session: what was approved is what is sent) **or** the file `<state>/AUTO_ARMED` (created after the team lead's first go).
 3. **Halt** — `ops/halt.read_halt(book)` returns a halt → refuse.
-4. **Clock** — Alpaca `/v2/clock` says the market is open today and it is before **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
+4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: from **19:15 ET on the as-of date** (Alpaca queues `cls` sent after 19:00 into the next auction) to **15:45 ET on the session date** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
 5. **Data** — the refresh exited 0 for the required as-of date.
 6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
@@ -106,3 +112,32 @@ settled these points. Alpaca facts, each with its source and status:
   UNMEASURED and the day FAIL. It is never substituted.
 - **Records:** `<state>/<D>/plan.json`, `orders.jsonl` (event log), `STARTED`,
   `reconcile.json`; `<state>/verify.log` (one line per day) and `scores.csv`.
+
+## As built (2026-09-29): evening decision, morning backstop, nightly data
+
+Team lead, 2026-09-29: *"we dont have to do it at 830 why have it a hard time -
+should be flexible"*. The 08:30 run of that morning died on a DNS failure as the
+laptop woke. What changed:
+
+- **The session date is the auction an order sent now would join**
+  (`run.session_for`): today before today's cutoff, else the next trading day.
+  Both calendars must agree. `<D>` in every record is that auction's date.
+- **Gate 4 and the per-POST check use one window** (`gate.in_send_window`):
+  19:15 ET on the as-of date to the cutoff on the session date.
+- **`--scheduled`** (launchd fires it every 30 minutes, every day): tries only
+  in the evening slot (22:00 on the as-of date to 01:00) or the morning slot
+  (06:00–15:15 on the session date), and only while the session is not done.
+  Otherwise it prints one `IDLE` line and exits **5** with no record. A local-clock
+  pre-check skips obviously-idle firings without calling Alpaca; it never permits
+  one. Done means `STARTED`, `DONE` (a scheduled SENT or NOTHING_TO_SEND), or
+  `DRY_DONE` (a scheduled DRY, honoured only while `DRY_RUN` is not `"0"`, so
+  arming lets the next slot trade). REFUSED and FAIL leave the next slot free.
+- **The refresh timeout is capped at 25 minutes**, so a hung fetch cannot hold
+  the job past the next slot (launchd never runs two instances of one job).
+- **Gate 6 reads orders from midnight before the as-of date**, so a Friday
+  evening set is in view on Monday morning.
+- **Verify** treats the next auction's runner orders as the runner's, not foreign.
+- **Nightly data collector** (`quantt.collect`, launchd every 30 minutes at :10
+  and :40): prices and NAVs, Alpaca's official closes, cross-checks between
+  sources (**report only**, team lead 2026-09-29), an account snapshot and the
+  distribution/split panels. Read-only at Alpaca. `docs/DATA.md`.

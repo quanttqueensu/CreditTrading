@@ -110,6 +110,17 @@ WEEKDAYS = (1, 2, 3, 4, 5)
 # again rather than silently going stale.
 SEED_FILES = ("cef_prices.parquet", "cef_nav.parquet")
 SEED_WRITE_ONLY = ("nav_fallback_log.csv",)
+# Not read by the live path, but needed in prod all the same, and seeded the
+# same way (copied once, only when absent, then prod's own):
+#   cef_universe.csv         scripts/fetch_cef_distributions.py reads it; the
+#                            nightly collector (quantt.collect) runs that script
+#                            and asks Alpaca for every universe ticker's close.
+#   cef_distributions.parquet, cef_splits.parquet
+#                            scripts/cef/tests read them; RUNBOOK 2.3 requires
+#                            the prod clone's own pytest to be clean before its
+#                            jobs are loaded. MEASURED 2026-09-28: without them
+#                            5 tests failed in the prod clone (FileNotFoundError).
+SEED_SUPPORT = ("cef_universe.csv", "cef_distributions.parquet", "cef_splits.parquet")
 
 # What the scheduled command needs at the tag. Checked BEFORE anything is
 # written: a plist pointing at a tag with no `quantt/session` would fail at
@@ -117,6 +128,8 @@ SEED_WRITE_ONLY = ("nav_fallback_log.csv",)
 # whoever reads the log.
 REQUIRED_AT_TAG = (
     "quantt/session/__main__.py",
+    "quantt/collect/__main__.py",
+    "scripts/fetch_cef_distributions.py",
     "src/deploy/sleeves/cef_discount.py",
     "scripts/cef/fetch_daily.py",
     "ops/books/cef_discount_book.json",
@@ -143,22 +156,45 @@ class InstallRefused(RuntimeError):
 class Job:
     label: str
     template: str          # repo-relative path, read AT THE TAG
-    subcommand: str        # quantt.session subcommand
-    times: tuple           # ((hour, minute), ...) local time, every weekday
+    args: tuple            # ProgramArguments after the interpreter
+    schedule: tuple        # StartCalendarInterval dicts, exactly as installed
     log_stem: str
 
 
+def _weekdays_at(*times) -> tuple:
+    return tuple({"Weekday": wd, "Hour": h, "Minute": m} for wd in WEEKDAYS for (h, m) in times)
+
+
+# Every 30 minutes, every day. A launchd dict with only "Minute" fires every
+# hour at that minute (`man launchd.plist`: omitted keys are wildcards).
+EVERY_HALF_HOUR_AT_00_30 = ({"Minute": 0}, {"Minute": 30})
+EVERY_HALF_HOUR_AT_10_40 = ({"Minute": 10}, {"Minute": 40})
+
 JOBS = (
-    # 08:30: decide on yesterday's complete price+NAV pair (docs/RUNNER.md).
-    # 12:00: the retry for a morning whose data was not ready; gate 6 stops it
-    # from sending a second set if 08:30 already sent one.
+    # The session tries every 30 minutes and decides for itself whether this is
+    # a slot (evening 22:00-01:00 ET after the as-of close, morning 06:00-15:15
+    # ET backstop) and whether the day is already done -- team lead 2026-09-29:
+    # "we dont have to do it at 830 why have it a hard time - should be
+    # flexible". Until then it ran at 08:30 and 12:00, and the 08:30 run of
+    # 2026-09-29 died on a DNS failure as the machine woke. The windows live
+    # in quantt/session/run.py (one place, tested), not in this schedule.
     Job("com.quantt.alpaca.cef.session",
         "quantt/deploy/templates/com.quantt.alpaca.cef.session.plist.tmpl",
-        "run", ((8, 30), (12, 0)), "session"),
+        ("-m", "quantt.session", "run", "--book", BOOK, "--scheduled"),
+        EVERY_HALF_HOUR_AT_00_30, "session"),
     # 17:30: after the close and the auction prints; read-only reconcile + verdict.
     Job("com.quantt.alpaca.cef.verify",
         "quantt/deploy/templates/com.quantt.alpaca.cef.verify.plist.tmpl",
-        "verify", ((17, 30),), "verify"),
+        ("-m", "quantt.session", "verify", "--book", BOOK),
+        _weekdays_at((17, 30)), "verify"),
+    # The nightly data collector (read-only at Alpaca): it works out the latest
+    # data day itself and idles once that day is complete, so it can simply
+    # run every 30 minutes; offset 10 minutes from the session so the two
+    # rarely contend for the panel lock.
+    Job("com.quantt.alpaca.cef.collect",
+        "quantt/deploy/templates/com.quantt.alpaca.cef.collect.plist.tmpl",
+        ("-m", "quantt.collect", "--book", BOOK),
+        EVERY_HALF_HOUR_AT_10_40, "collect"),
 )
 
 
@@ -439,22 +475,20 @@ def check_rendered(text: str, job: Job, *, python: Path, layout: Layout,
     if not job.label.startswith(LABEL_PREFIX):
         problems.append(f"label {job.label} does not start {LABEL_PREFIX}")
     want("Label", job.label)
-    want("ProgramArguments",
-         [str(python), "-m", "quantt.session", job.subcommand, "--book", BOOK])
+    want("ProgramArguments", [str(python), *job.args])
     want("WorkingDirectory", str(layout.prod_dir))
     want("EnvironmentVariables", env)
     want("RunAtLoad", False)
     want("StandardOutPath", str(layout.log_dir / f"{job.log_stem}.out.log"))
     want("StandardErrorPath", str(layout.log_dir / f"{job.log_stem}.err.log"))
     sched = d.get("StartCalendarInterval")
+    key = lambda x: sorted(x.items())
     got = None
     if isinstance(sched, list) and all(isinstance(x, dict) for x in sched):
-        got = sorted((x.get("Weekday"), x.get("Hour"), x.get("Minute"), len(x))
-                     for x in sched)
-    exp = sorted((wd, h, m, 3) for wd in WEEKDAYS for (h, m) in job.times)
+        got = sorted((key(x) for x in sched))
+    exp = sorted(key(x) for x in job.schedule)
     if got != exp:
-        problems.append(f"StartCalendarInterval is {sched!r}, expected weekdays "
-                        f"{WEEKDAYS} at {job.times}")
+        problems.append(f"StartCalendarInterval is {sched!r}, expected {list(job.schedule)!r}")
     extra = set(d) - {"Label", "ProgramArguments", "WorkingDirectory",
                       "EnvironmentVariables", "RunAtLoad", "StandardOutPath",
                       "StandardErrorPath", "StartCalendarInterval"}
@@ -594,7 +628,7 @@ def build_plan(*, tag: str, env_file: Path, layout: Layout, dev_repo: Path,
 
     # -- data
     data_dir = prod / "data" / "cef"
-    for name in SEED_FILES:
+    for name in SEED_FILES + SEED_SUPPORT:
         src, dest = dev_repo / "data" / "cef" / name, data_dir / name
         if dest.exists():
             steps.append(Step(f"leave {dest} untouched (prod already has it; prod's "

@@ -421,6 +421,12 @@ def verify_day(client, state_dir: Path, book: str, day: dt.date | None = None, *
     # --- orders at the broker ------------------------------------------
     prefix_d = f"{book}-{day:%Y%m%d}-"
     prefix_prev = f"{book}-{prev:%Y%m%d}-"
+    # The NEXT auction's set can already be at Alpaca when verify runs: the
+    # runner decides in the evening from 22:00 ET (team lead 2026-09-29), so a
+    # verify re-run late on D sees the runner's own orders for D's successor.
+    # They are the runner's, not foreign; they are scored on their own day.
+    from ops.schedule.nyse_calendar import next_trading_day
+    prefix_next = f"{book}-{next_trading_day(day):%Y%m%d}-"
     after = dt.datetime.combine(prev, dt.time(0, 0), tzinfo=ET)
     until = dt.datetime.combine(day + dt.timedelta(days=1), dt.time(0, 0), tzinfo=ET)
     window = client.orders(status="all", after=after, until=until)
@@ -428,7 +434,8 @@ def verify_day(client, state_dir: Path, book: str, day: dt.date | None = None, *
                    if o["client_order_id"].startswith(prefix_d)}
     foreign = sorted(o["client_order_id"] for o in window
                      if not (o["client_order_id"].startswith(prefix_d)
-                             or o["client_order_id"].startswith(prefix_prev)))
+                             or o["client_order_id"].startswith(prefix_prev)
+                             or o["client_order_id"].startswith(prefix_next)))
     if foreign:
         problems.append(f"{len(foreign)} order(s) at Alpaca not placed by the runner: {foreign}")
     if not started and ours_listed:
