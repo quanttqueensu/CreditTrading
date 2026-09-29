@@ -92,7 +92,7 @@ class GateFacts:
     halts: list                      # the non-None results of ops.halt.read_halt(...)
     # 4
     clock_ts: dt.datetime            # Alpaca /v2/clock timestamp (aware)
-    session_date: dt.date            # the date the orders are for (ET)
+    session_date: dt.date            # the auction the orders are for (ET)
     calendar_today: list             # Alpaca /v2/calendar rows whose date == session_date
     nyse_trading_today: bool         # ops/schedule/nyse_calendar.is_trading_day(session_date)
     # 5
@@ -102,7 +102,7 @@ class GateFacts:
     nav_dates: dict                  # symbol -> date of the last finite, positive NAV <= as-of
     # 6
     started_exists: bool
-    orders_recent: list              # Alpaca orders (status=all) since the prior ET midnight
+    orders_recent: list              # Alpaca orders (status=all) since 00:00 ET the day before the as-of date
     orders_open: list                # Alpaca orders (status=open), any age
     cid_prefix: str
     # 7
@@ -175,11 +175,25 @@ def queue_open_et(asof: dt.date) -> dt.datetime:
     return dt.datetime.combine(asof, QUEUE_OPEN_ET, tzinfo=ET)
 
 
+# The evening part of the window ends at 01:00 ET the next calendar day (the end
+# of the scheduled evening slot). Review 2026-09-29: a window running straight
+# from the as-of evening to the session cutoff also covered the DAYTIME of any
+# non-trading day in between (a Saturday afternoon, Thanksgiving morning), and
+# what Alpaca does with a `cls` sent then is undocumented [U] -- it documents only
+# "before 15:50 -> today's close, 15:50-19:00 rejected, after 19:00 -> the
+# following day's close". So only the documented stretches are open.
+EVENING_WINDOW_END = dt.time(1, 0)
+
+
 def in_send_window(clock_ts: dt.datetime, asof: dt.date, cutoff: dt.datetime) -> bool:
     """True when an order sent at `clock_ts` joins the auction whose as-of date
-    is `asof` and whose cutoff is `cutoff`: queue_open_et(asof) <= now < cutoff."""
+    is `asof` and whose cutoff is `cutoff`: either the as-of evening
+    [19:15 ET on `asof`, 01:00 ET the next day) or the session day itself
+    [00:00 ET on the cutoff's date, cutoff)."""
     now = clock_ts.astimezone(ET)
-    return queue_open_et(asof) <= now < cutoff
+    eve_end = dt.datetime.combine(asof + dt.timedelta(days=1), EVENING_WINDOW_END, tzinfo=ET)
+    day_start = dt.datetime.combine(cutoff.astimezone(ET).date(), dt.time(0, 0), tzinfo=ET)
+    return queue_open_et(asof) <= now < eve_end or day_start <= now < cutoff
 
 
 def gate_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
@@ -206,6 +220,11 @@ def gate_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
         out.append(Refusal("clock", f"Alpaca clock {now:%Y-%m-%d %H:%M:%S} ET is before "
                                     f"{qo:%Y-%m-%d %H:%M} ET, when Alpaca starts queueing cls "
                                     f"for the {session_date} auction (as-of {asof})"))
+    elif now.date() != session_date and not in_send_window(
+            clock_ts, asof, dt.datetime.combine(session_date, CLS_CUTOFF_ET, tzinfo=ET)):
+        out.append(Refusal("clock", f"Alpaca clock {now:%Y-%m-%d %H:%M:%S} ET is between the "
+                                    f"as-of evening (ends 01:00 ET) and {session_date}; Alpaca "
+                                    f"does not document where a cls sent now is routed [U]"))
     if len(calendar_today) > 1:
         out.append(Refusal("clock", f"Alpaca calendar has {len(calendar_today)} rows for "
                                     f"{session_date}"))
@@ -282,8 +301,8 @@ def gate_no_set_in_auction(started_exists, orders_recent, orders_open, cid_prefi
     ours = sorted({o.get("client_order_id") or "" for o in orders_recent
                    if (o.get("client_order_id") or "").startswith(pfx)})
     if ours:
-        out.append(Refusal("no_set_in_auction", f"Alpaca already has today's order ids "
-                                                f"{ours}"))
+        out.append(Refusal("no_set_in_auction", f"Alpaca already has order ids for the "
+                                                f"{session_date} auction {ours}"))
     # ANY open order, not only cls (review 2026-09-28): a day/GTC order left by a
     # manual probe reserves shares (positions are read from `qty`, not
     # `qty_available`) and may fill against today's set. Each book has its own

@@ -227,7 +227,8 @@ def test_fetch_daily_is_run_with_the_sessions_flags(env):
     run = FakeRun()
     co.collect(make_ctx(env, run=run))
     cmd = next(c for c in run.cmds if c[1].endswith("fetch_daily.py"))
-    assert cmd[2:] == ["--require-asof", D.isoformat(), "--nav-fallback", "cefconnect",
+    assert "--nav-fallback" not in cmd      # CEFConnect stays independent (review 2026-09-29)
+    assert cmd[2:] == ["--require-asof", D.isoformat(),
                        "--book", "ops/books/cef_discount_book.json"]
 
 
@@ -291,6 +292,25 @@ def test_missing_print_for_a_non_deployed_name_is_a_gap_only(env):
     assert co.collect(make_ctx(env, client)) == co.EXIT_OK
     d = status(env)["steps"]["official_closes"]
     assert d["ok"] and [g["fund"] for g in d["detail"]["gaps"]] == ["CCC"]
+
+
+def test_a_transient_error_on_a_non_deployed_name_is_retried_not_a_gap(env):
+    # review 2026-09-29: a 5xx used to become a permanent hole in the file
+    client = FakeClient()
+    real = client.closing_auction_prints
+
+    def flaky(symbols, date, **kw):
+        if symbols[0] == "CCC":
+            raise al.AlpacaHTTPError("GET /v2/stocks/auctions -> HTTP 503", status=503)
+        return real(symbols, date, **kw)
+    client.closing_auction_prints = flaky
+    assert co.collect(make_ctx(env, client)) == co.EXIT_INCOMPLETE
+    d = status(env)["steps"]["official_closes"]
+    assert not d["ok"] and d["detail"]["gaps"] == []
+    assert "CCC" in d["detail"]["transient_errors"][0]
+    client.closing_auction_prints = real                             # next slot: it answers
+    co.collect(make_ctx(env, client))
+    assert status(env)["steps"]["official_closes"]["ok"]
 
 
 def test_missing_print_for_a_deployed_name_fails_the_step(env):

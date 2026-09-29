@@ -49,6 +49,7 @@ import time
 import warnings
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
@@ -62,6 +63,17 @@ OUT = REPO / "data" / "cef"
 PX_PATH = OUT / "cef_prices.parquet"
 NAV_PATH = OUT / "cef_nav.parquet"
 STALE_BD = 3
+ET = ZoneInfo("America/New_York")
+
+
+def before_close(now: datetime) -> bool:
+    """True before 16:05 ET, when a bar dated today is still a partial session.
+
+    ET, not the machine's zone (review 2026-09-29): prod will move to a cloud VM
+    that may run in UTC, where 12:30 ET is 16:30 local and the old local-clock
+    test would have written a morning's partial bar as that day's close."""
+    t = now.astimezone(ET)
+    return t.hour < 16 or (t.hour == 16 and t.minute < 5)
 FALLBACK_LOG = OUT / "nav_fallback_log.csv"
 CC_HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 LOCK_PATH = OUT / ".fetch.lock"
@@ -147,9 +159,9 @@ def refresh(period: str = "6mo", require_asof=None, nav_fallback=None,
 
 def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     P, N = pd.read_parquet(PX_PATH), pd.read_parquet(NAV_PATH)
-    now = datetime.now()
+    now = datetime.now(ET)
     today = pd.Timestamp(now.date())
-    session_open = now.hour < 16 or (now.hour == 16 and now.minute < 5)
+    session_open = before_close(now)
     if session_open:
         print(f"  {now:%H:%M} is before the close: any bar dated {today.date()} "
               f"is a partial session and will not be written")

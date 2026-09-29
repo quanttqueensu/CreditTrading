@@ -52,6 +52,7 @@ def naive_date(idx):
 rows = []
 errors = {}
 empty = []
+failed = []   # tickers whose fetch failed after every retry (see the write guard below)
 
 for i, tk in enumerate(TICKERS, 1):
     got = None
@@ -74,6 +75,7 @@ for i, tk in enumerate(TICKERS, 1):
             time.sleep(2 + 2 * attempt)
     if got is None:
         print(f"  [{i:2d}/{len(TICKERS)}] {tk:5s} FAILED  {errors.get(tk)}")
+        failed.append(tk)
         continue
     if len(got) == 0:
         empty.append(tk)
@@ -94,6 +96,15 @@ for i, tk in enumerate(TICKERS, 1):
 
 if not rows:
     raise SystemExit("NO distribution data fetched at all - aborting, nothing written.")
+# The panels below are REPLACED wholesale, so a ticker whose fetch failed would
+# vanish from them -- its whole distribution history deleted, exit 0. Harmless
+# while this was run by hand; since 2026-09-29 the nightly collector runs it
+# unattended (review 2026-09-29), so a failure now aborts with nothing written,
+# and the collector retries next slot.
+if failed:
+    raise SystemExit(f"fetch FAILED for {failed} ({ {t: errors.get(t) for t in failed} }) - "
+                     f"aborting, nothing written (the panels are replaced whole, so writing "
+                     f"now would delete these tickers' history).")
 
 acts = pd.concat(rows, ignore_index=True)
 for c in ("Dividends", "Stock Splits"):

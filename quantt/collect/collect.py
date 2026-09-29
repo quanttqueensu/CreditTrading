@@ -80,7 +80,13 @@ if str(REPO) not in sys.path:            # `scripts.cef.spec`, `ops.*` resolve f
 
 from ops.schedule.nyse_calendar import (is_trading_day, next_trading_day,  # noqa: E402
                                         previous_trading_day)
-from quantt.broker.alpaca import AlpacaError  # noqa: E402
+from quantt.broker.alpaca import (AlpacaError, AssetNotFound, MissingAuctionPrint,  # noqa: E402
+                                  UnmappedExchange)
+# A definite answer that there is no print to be had for (name, D): recorded as
+# a gap and not asked again. Anything else (5xx, network, an unexpected shape) is
+# "not measured", retried next slot (review 2026-09-29: a transient error on a
+# non-deployed name used to become a permanent hole in the official-close file).
+FINAL_PRINT_GAPS = (MissingAuctionPrint, AssetNotFound, UnmappedExchange)
 from quantt.session.records import (StateDirError, state_dir_from_env,  # noqa: E402
                                     write_json_atomic)
 
@@ -262,11 +268,20 @@ def _compare(fund, source_a, value_a, source_b, value_b) -> dict | None:
 # Each returns a detail dict with "flags" and "gaps" lists, or raises StepFailed.
 
 def step_prices_nav(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
-    """fetch_daily as the session runs it, for D. Its exit code is the verdict:
-    0 = every deployed name has a close and a NAV dated D. 4 is the expected
-    answer before the evening's NAVs land; 3 is the panel lock (another fetch)."""
+    """fetch_daily for D WITHOUT the CEFConnect fallback. Its exit code is the
+    verdict: 0 = every deployed name has a close and a yfinance NAV dated D. 4
+    is the expected answer before the evening's NAVs land; 3 is the panel lock.
+
+    WHY NO FALLBACK (review 2026-09-29). With it, a name CEFConnect had before
+    yfinance was written FROM CEFConnect, the step was done for good, and the
+    cross-check then skipped that name as "same source" -- while the session's
+    later refresh overwrote it with yfinance's value, the one actually traded,
+    which nothing then compared. Without it, this step completes only on
+    yfinance NAVs, and nav_crosscheck compares exactly those against CEFConnect,
+    an independent source. The SESSION still uses the fallback (RUNNER.md step 1);
+    a name it filled from CEFConnect is still reported as a same-source gap."""
     cmd = [sys.executable, "scripts/cef/fetch_daily.py", "--require-asof", day.isoformat(),
-           "--nav-fallback", "cefconnect", "--book", ctx.book_path]
+           "--book", ctx.book_path]
     code, tail = ctx.run(cmd, PRICES_NAV_TIMEOUT_S)
     detail = {"exit": code, "tail": tail, "flags": [], "gaps": []}
     if code is None:
@@ -347,15 +362,18 @@ def step_official_closes(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
     have = set(_on_day(old, day)["ticker"]) if old is not None else set()
 
     exchanges = ctx.client.stock_exchanges()
-    rows, gaps = [], []
+    rows, gaps, transient = [], [], []
     fetched_at = _utc_now()
     for sym in [s for s in symbols if s not in have]:
         try:
             code = ctx.client.primary_sip_code(sym, exchanges)
             got = ctx.client.closing_auction_prints([sym], day, exchange_codes={sym: code},
                                                     condition="M")
-        except AlpacaError as e:
+        except FINAL_PRINT_GAPS as e:
             gaps.append({"fund": sym, "reason": f"{type(e).__name__}: {e}"})
+            continue
+        except AlpacaError as e:
+            transient.append(f"{sym}: {type(e).__name__}: {e}")
             continue
         if sym not in got:
             raise ValueError(f"closing_auction_prints returned no row and no error for {sym}")
@@ -371,9 +389,13 @@ def step_official_closes(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
         common.atomic_write(frame, path)
     stored = have | {r["ticker"] for r in rows}
     missing = [t for t in ctx.deployed if t not in stored]
-    detail = {"flags": [], "gaps": gaps, "stored_now": len(rows), "stored_before": len(have)}
+    detail = {"flags": [], "gaps": gaps, "stored_now": len(rows), "stored_before": len(have),
+              "transient_errors": transient}
     if missing:
         raise StepFailed(f"no official close for deployed name(s) {missing}", detail)
+    if transient:
+        raise StepFailed(f"{len(transient)} name(s) not measured (transient errors); "
+                         f"retrying next slot", detail)
     return detail
 
 

@@ -67,7 +67,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 1. `DRY_RUN` — transmits only if the environment variable is **exactly `"0"`**. Unset, empty, `1`, anything else → dry. Always wins.
 2. **Arming** — transmit additionally needs **either** `--approve <plan_sha>` equal to the sha256 of the freshly recomputed order list (the interactive first session: what was approved is what is sent) **or** the file `<state>/AUTO_ARMED` (created after the team lead's first go).
 3. **Halt** — `ops/halt.read_halt(book)` returns a halt → refuse.
-4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: from **19:15 ET on the as-of date** (Alpaca queues `cls` sent after 19:00 into the next auction) to **15:45 ET on the session date** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
+4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: the as-of evening from **19:15 ET** (Alpaca queues `cls` sent after 19:00 into the next auction) to 01:00 ET, or the session day until **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
 5. **Data** — the refresh exited 0 for the required as-of date.
 6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
@@ -122,8 +122,22 @@ laptop woke. What changed:
 - **The session date is the auction an order sent now would join**
   (`run.session_for`): today before today's cutoff, else the next trading day.
   Both calendars must agree. `<D>` in every record is that auction's date.
-- **Gate 4 and the per-POST check use one window** (`gate.in_send_window`):
-  19:15 ET on the as-of date to the cutoff on the session date.
+- **Gate 4 and the per-POST check use one window** (`gate.in_send_window`): the
+  as-of evening, 19:15 ET to 01:00 ET the next day, and the session day itself,
+  00:00 ET to the cutoff. Not the daytime of a weekend or holiday in between:
+  Alpaca documents no `cls` routing for those hours [U] (review 2026-09-29).
+- **Known limit, kept deliberately:** `STARTED` is written before the first POST
+  and blocks every later slot for that auction (CLAUDE.md rule 2). So if every
+  evening order is rejected, or the clock read fails before the first POST, the
+  morning backstop does not retry; the day is FAIL and the team lead decides
+  (as for a `cls` rejection, 2026-09-28). Whether paper accepts an evening `cls`
+  is [U] until the first evening send, which is watched live.
+- **Nightly collector checks against an independent source:** it runs
+  `fetch_daily` without the CEFConnect fallback, so its NAV cross-check compares
+  yfinance (what is traded) against CEFConnect. The distributions script now
+  writes nothing if any ticker fails, rather than dropping that ticker's
+  history; transient print errors are retried, not recorded as gaps (review
+  2026-09-29).
 - **`--scheduled`** (launchd fires it every 30 minutes, every day): tries only
   in the evening slot (22:00 on the as-of date to 01:00) or the morning slot
   (06:00–15:15 on the session date), and only while the session is not done.

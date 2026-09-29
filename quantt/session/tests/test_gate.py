@@ -156,8 +156,28 @@ def test_clock_friday_evening_for_monday_auction_passes():
                 close_dates={s: fri for s in UNI}, nav_dates={s: fri for s in UNI},
                 orders=())
     assert gates(good(clock_ts=dt.datetime(2026, 10, 2, 22, 0, tzinfo=ET), **base)) == []
-    assert gates(good(clock_ts=dt.datetime(2026, 10, 3, 11, 0, tzinfo=ET), **base)) == []
+    assert gates(good(clock_ts=dt.datetime(2026, 10, 3, 0, 59, tzinfo=ET), **base)) == []
+    assert gates(good(clock_ts=dt.datetime(2026, 10, 5, 0, 0, tzinfo=ET), **base)) == []
     assert gates(good(clock_ts=dt.datetime(2026, 10, 5, 15, 45, tzinfo=ET), **base)) == ["clock"]
+
+
+def test_clock_refuses_the_daytime_of_an_intervening_non_trading_day():
+    # review 2026-09-29: Alpaca documents no cls routing for a Saturday afternoon
+    # or a holiday morning [U]; the window is only the as-of evening + session day.
+    mon, fri = dt.date(2026, 10, 5), dt.date(2026, 10, 2)
+    base = dict(session_date=mon, asof=fri,
+                calendar_today=[{"date": mon, "open": "09:30", "close": "16:00"}],
+                close_dates={s: fri for s in UNI}, nav_dates={s: fri for s in UNI},
+                orders=())
+    for t in (dt.datetime(2026, 10, 3, 1, 0, tzinfo=ET), dt.datetime(2026, 10, 3, 16, 30, tzinfo=ET),
+              dt.datetime(2026, 10, 4, 22, 0, tzinfo=ET)):
+        assert gates(good(clock_ts=t, **base)) == ["clock"], t
+    fri_b, wed = dt.date(2026, 11, 27), dt.date(2026, 11, 25)       # Thanksgiving between
+    base2 = dict(base, session_date=fri_b, asof=wed,
+                 calendar_today=[{"date": fri_b, "open": "09:30", "close": "13:00"}],
+                 close_dates={s: wed for s in UNI}, nav_dates={s: wed for s in UNI})
+    assert gates(good(clock_ts=dt.datetime(2026, 11, 26, 10, 0, tzinfo=ET), **base2)) == ["clock"]
+    assert gates(good(clock_ts=dt.datetime(2026, 11, 25, 22, 0, tzinfo=ET), **base2)) == []
 
 
 def test_in_send_window_matches_the_gate():

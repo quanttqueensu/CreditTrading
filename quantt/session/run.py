@@ -11,8 +11,8 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                than pick one (CLAUDE.md: two sources that disagree are reported,
                never averaged or silently chosen). A non-zero exit is a gate-5
                refusal: stale data never trades. The child is killed at
-               today's cls cutoff (a timeout derived from Alpaca's clock,
-               not chosen), and a timeout is also a gate-5 refusal. Gate 5
+               the session's cls cutoff or after REFRESH_TIMEOUT_CAP_S,
+               whichever is sooner, and a timeout is also a gate-5 refusal. Gate 5
                checks each name's CLOSE and NAV are dated as-of, so
                --skip-refresh cannot trade a name the sleeve silently dropped.
   2. read      Alpaca clock, calendar, account, positions, orders, assets.
@@ -318,9 +318,10 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     TIMEOUT (review 2026-09-28). A fetch that hangs (cefconnect has no
     timeout of its own here) once meant the session could reach the gate after
     19:00 ET, when Alpaca queues cls orders into the NEXT day's auction [V].
-    The timeout is not a chosen number: `run_session` passes the seconds left
-    until today's cls cutoff by Alpaca's clock, because a refresh that ends
-    after the cutoff cannot lead to an order today anyway. A timeout is a
+    `run_session` passes the seconds left until the session's cls cutoff by
+    Alpaca's clock (a refresh that ends after it cannot lead to an order for
+    that auction), capped at REFRESH_TIMEOUT_CAP_S (2026-09-29) so a hung fetch
+    cannot swallow the next scheduled slot. A timeout is a
     gate-5 refusal, recorded with whatever the fetcher printed.
     """
     cmd = [sys.executable, str(REPO / "scripts/cef/fetch_daily.py"),
@@ -331,7 +332,8 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     except subprocess.TimeoutExpired as e:
         tail = "\n".join((_text(e.stdout) + _text(e.stderr)).splitlines()[-40:])
         return RefreshResult(exit=None, tail=tail,
-                             incomplete=f"timed out after {timeout_s:.0f}s (the cls cutoff)")
+                             incomplete=f"timed out after {timeout_s:.0f}s (the sooner of the "
+                                        f"cls cutoff and the {REFRESH_TIMEOUT_CAP_S}s cap)")
     tail = "\n".join((p.stdout + p.stderr).splitlines()[-40:])
     return RefreshResult(exit=p.returncode, tail=tail)
 
