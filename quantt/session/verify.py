@@ -309,16 +309,27 @@ def _price(v, what: str) -> float:
     return x
 
 
+# A FILL activity that opens or increases a short says side "sell_short" while
+# its ORDER says "sell" [V: measured 2026-09-30 and 10-01 on the cef account --
+# JFR, MHD, MQY, PTY fills "sell_short", their orders "sell"]. The docs' buy|sell
+# was wrong for activities, and verify crashed on both of the first two
+# market-order days, so neither was scored. It is a sell for every purpose here
+# (quantity sign, matching the order); only this one value is mapped, anything
+# else still raises.
+FILL_SIDE_ALIASES = {"sell_short": "sell"}
+
+
 def parse_fill(a: dict) -> Fill:
-    """An Alpaca FILL activity row -> Fill. Side must be buy|sell: the docs say
-    so [V], and a value this was not built for raises rather than being mapped."""
+    """An Alpaca FILL activity row -> Fill. Side must be buy|sell after the one
+    measured alias above; any other value raises rather than being guessed."""
     w = f"fill {a.get('id')!r}"
-    if a["side"] not in ("buy", "sell"):
-        raise ValueError(f"{w}: side {a['side']!r} is not buy|sell")
+    side = FILL_SIDE_ALIASES.get(a["side"], a["side"])
+    if side not in ("buy", "sell"):
+        raise ValueError(f"{w}: side {a['side']!r} is not buy|sell|sell_short")
     qty = _whole(a["qty"], f"{w} qty")
     if qty <= 0:
         raise ValueError(f"{w}: qty {a['qty']!r} is not positive")
-    return Fill(symbol=a["symbol"], side=a["side"], qty=qty,
+    return Fill(symbol=a["symbol"], side=side, qty=qty,
                 price=_price(a["price"], f"{w} price"), order_id=a["order_id"])
 
 

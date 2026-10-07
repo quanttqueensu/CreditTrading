@@ -668,3 +668,25 @@ def test_late_market_days_are_explained_by_the_send_record():
     refused = dict(plan, status="refused", refusals=[{"gate": "data", "detail": "stale"}])
     ok, prob = why(refused, None, D, "cef")
     assert prob is None and "[data]" in ok
+
+
+def test_a_short_sale_fill_reported_as_sell_short_scores_as_a_sell(tmp_path):
+    """Measured 2026-09-30/10-01: Alpaca's FILL activity says "sell_short" for a
+    fill that opens a short, while the order says "sell". Verify crashed on it."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    for st in (a, b):
+        (st / D.isoformat()).mkdir(parents=True)
+        started(st, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+    plain = run(a, traded_day())
+    state = b
+    c = traded_day(fills=[fill("AAA", "sell_short", 30, 10.4, i=0),
+                          fill("AAA", "sell", 20, 10.6, i=1), fill("CCC", "buy", 20, 5.05)])
+    v = run(state, c)
+    assert v.ok, v.reason
+    assert v.score.auction_pnl == plain.score.auction_pnl
+
+
+def test_an_unknown_fill_side_still_raises():
+    from quantt.session.verify import parse_fill
+    with pytest.raises(ValueError, match="buy|sell"):
+        parse_fill(fill("AAA", "buy_to_cover", 1, 10.0))
