@@ -464,5 +464,211 @@ def main():
               f"{('YES' if hi < 0 else 'no'):>9}")
 
 
+# =============================================================================
+# SLOWER POLICIES ON THE FIT PERIOD ONLY (added 2026-10-07, report, no trial)
+# =============================================================================
+# WHY THIS BLOCK EXISTS
+# ---------------------
+# Published CEF discount half-lives are 7.7-12 MONTHS (monthly data, mostly
+# equity CEFs). Our measured target-weight half-life is 14.3 DAYS
+# (PREREG_BAND_2026-09-06.md). If the literature's number were the relevant one
+# for our credit panel, a much slower policy -- a monthly calendar, or a band
+# wider than the 12.8% top of BAND_SWEEP -- should keep more of the edge per
+# unit of trading than the live 4.8% band. This block asks that question.
+#
+# WHY FIT PERIOD ONLY
+# -------------------
+# These are NEW candidate policies. The 2023-01-01 time holdout (H13) is sealed
+# and is opened once, by a pre-registered trial. So T and R are truncated BEFORE
+# any policy is applied: no 2023+ number for these candidates is ever computed,
+# not merely never printed. `fit_only` asserts it. (Truncating first is exact,
+# not an approximation: `calendar`, `band` and `build_targets` are all causal --
+# the targets on date t use data through t only, see build_panel's H7 note.)
+#
+# WHY THE WIDE-BAND WIDTHS ARE A SWEEP
+# ------------------------------------
+# 16 / 19.2 / 25.6% continue BAND_SWEEP's grid past its top. This is a
+# deliberate characterisation of the policy class (H8 permits it; it is the
+# point of this script), and no width here is a candidate for the spec. Nothing
+# in this block selects anything on P&L. The turnover-matched partners ARE
+# chosen -- by bisection on TURNOVER alone, which is the H2 procedure, never on
+# Sharpe.
+#
+# RETURN CONVENTION: both are printed, labelled. Price returns are what every
+# row above and PREREG_BAND_2026-09-06 used; total returns (splits +
+# distributions, `total_returns`) are the convention the paper book is scored
+# on (PREREG_ALPACA_V7 section 4).
+HOLDOUT_START = pd.Timestamp("2023-01-01")
+SLOW_CALENDARS = (21,)                       # monthly, ~21 sessions
+SLOW_BANDS = (0.16, 0.192, 0.256)            # deliberate sweep beyond 12.8%
+CONTEXT_CALENDARS = (5, 10)
+CONTEXT_BANDS = (0.096, 0.128)
+FIT_ERAS = [("fit 2005-22", None, "2022-12-31"),
+            ("2015-2019", "2015-01-01", "2019-12-31"),
+            ("2020-2022", "2020-01-01", "2022-12-31")]
+MATCH_TOL = 0.05                             # H2
+
+
+def fit_only(T, R):
+    """Truncate to strictly before the 2023-01-01 holdout, and assert it."""
+    Tf, Rf = T.loc[T.index < HOLDOUT_START], R.loc[R.index < HOLDOUT_START]
+    assert Tf.index.max() < HOLDOUT_START and Rf.index.max() < HOLDOUT_START, \
+        "holdout leak: a fit-period frame reaches 2023-01-01 or later"
+    assert Tf.index.equals(Rf.index)
+    return Tf, Rf
+
+
+def calendar_offset(T, k, offset):
+    """`calendar(T, k)` with the refresh dates shifted by `offset` sessions.
+
+    A monthly calendar's result depends on WHICH day of the cycle it refreshes;
+    the spread across all k offsets is the honest error bar on one phase, and
+    reporting only phase 0 would be picking one draw of 21. Before the first
+    refresh the book is flat (0.0), exactly as `calendar` is before index 0."""
+    if not 0 <= offset < k:
+        raise ValueError(f"offset {offset} outside [0, {k})")
+    H = T.copy()
+    keep = np.zeros(len(T), bool)
+    keep[offset::k] = True
+    H[~keep] = np.nan
+    return H.ffill().fillna(0.0)
+
+
+def _stats(pnl, turn):
+    """Gross SR and the 5/15/30bp net SRs from a P&L and turnover slice."""
+    ann, vol = pnl.mean() * 252, pnl.std() * np.sqrt(252)
+    t = turn.mean() * 252
+    nets = [(ann - t * c / 1e4) / vol for c in (5, 15, 30)]
+    return dict(sr=ann / vol, ann=ann, vol=vol, turn=t, nets=nets)
+
+
+def _era_stats(H, R):
+    r = evaluate(H, R)
+    out = {}
+    for lab, a, b in FIT_ERAS:
+        out[lab] = _stats(r["pnl"].loc[a:b], r["turn_series"].loc[a:b])
+    return out
+
+
+def match_band_width(T, R, target_turn, lo=0.0005, hi=0.60, iters=40):
+    """Band width whose fit-period turnover equals `target_turn` (bisection).
+
+    Chosen on TURNOVER ONLY -- the H2 matching procedure -- never on P&L.
+    Raises if the bracket cannot reach the target rather than returning the
+    nearest edge (no silent fallback)."""
+    f = lambda b: evaluate(band(T, b), R)["turn"]
+    tlo, thi = f(lo), f(hi)
+    if not (thi <= target_turn <= tlo):
+        raise ValueError(f"turnover {target_turn:.2f} outside the band bracket "
+                         f"[{thi:.2f} @ {hi}, {tlo:.2f} @ {lo}]")
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        if f(mid) > target_turn:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def nearest_calendar(T, R, target_turn, ks=range(1, 253)):
+    """Integer calendar k with fit turnover nearest `target_turn`, and its gap."""
+    best = min(((abs(evaluate(calendar(T, k), R)["turn"] / target_turn - 1), k)
+                for k in ks))
+    return best[1], best[0]
+
+
+def slower_policy_report():
+    """Print the fit-period slower-policy tables. Report only; spends no trial."""
+    T, R_px = build_targets()
+    T, R_px = fit_only(T, R_px)
+    R_tr = total_returns(R_px)
+    assert R_tr.index.max() < HOLDOUT_START
+    print(summary())
+    print(f"FIT PERIOD ONLY: {T.index[0].date()} .. {T.index[-1].date()} "
+          f"({len(T)} days). 2023+ is the sealed H13 holdout and is not computed.\n")
+
+    live = (_lab_band(BAND_WIDTH), band(T, BAND_WIDTH))
+    rows = ([live]
+            + [(f"calendar {k}d", calendar(T, k)) for k in CONTEXT_CALENDARS + SLOW_CALENDARS]
+            + [(f"band {b * 100:.1f}%", band(T, b)) for b in CONTEXT_BANDS + SLOW_BANDS])
+
+    for conv, R in (("TOTAL returns (splits + distributions; the paper score)", R_tr),
+                    ("PRICE returns (the convention of every frontier row above)", R_px)):
+        print(f"=== {conv} ===")
+        print("GROSS SR is the headline; net@5/15/30bp is the real-money cost "
+              "grid, labelled, not mixed in. No borrow charged.\n")
+        hdr = (f"{'policy':<22}{'era':<13}{'grossSR':>8}{'ann%':>7}{'turn/yr':>9}"
+               f"{'net@5':>8}{'net@15':>8}{'net@30':>8}{'flips?':>8}")
+        print(hdr, "-" * len(hdr), sep="\n")
+        for lab, H in rows:
+            es = _era_stats(H, R)
+            for era, s in es.items():
+                n5, n15, n30 = s["nets"]
+                flip = "YES" if (np.sign(n5) != np.sign(n30)) else "no"
+                print(f"{lab:<22}{era:<13}{s['sr']:8.2f}{s['ann'] * 100:7.2f}"
+                      f"{s['turn']:9.1f}{n5:8.2f}{n15:8.2f}{n30:8.2f}{flip:>8}")
+            tv = np.array([es[e]["turn"] for e in ("2015-2019", "2020-2022")])
+            print(f"{'':<22}{'turn sd/mean (2015-19, 2020-22)':<45}{tv.std() / tv.mean():8.1%}")
+        print()
+
+    # --- H2: matched pairs ---------------------------------------------------
+    live_turn = evaluate(live[1], R_px)["turn"]
+    print("=== H2 turnover matching (fit period; turnover is convention-free) ===")
+    print(f"live {live[0].strip()} fit turnover {live_turn:.1f}/yr. Candidates "
+          f"within {MATCH_TOL:.0%}:")
+    any_match = False
+    for lab, H in rows[1:]:
+        t = evaluate(H, R_px)["turn"]
+        ok = abs(t / live_turn - 1) <= MATCH_TOL
+        any_match |= ok and (lab.startswith("calendar 21") or
+                             any(lab == f"band {b * 100:.1f}%" for b in SLOW_BANDS))
+        print(f"  {lab:<20}{t:7.1f}/yr  gap {t / live_turn - 1:+7.1%}  "
+              f"{'MATCH' if ok else 'no match'}")
+    print(f"  -> slower candidate matched to the live band: "
+          f"{'yes' if any_match else 'NONE (they trade less by construction)'}\n")
+
+    print("=== class comparison at the SLOWER policies' own turnover ===")
+    print("Each slower candidate against a partner of the other class whose fit")
+    print("turnover is matched by bisection on turnover alone (H2), never on P&L.\n")
+    for conv, R in (("TOTAL", R_tr), ("PRICE", R_px)):
+        print(f"[{conv} returns]")
+        print(f"{'policy':<38}{'era':<13}{'grossSR':>8}{'turn/yr':>9}"
+              f"{'net@5':>8}{'net@15':>8}{'net@30':>8}")
+        for k in SLOW_CALENDARS:
+            Hc = calendar(T, k)
+            tc = evaluate(Hc, R_px)["turn"]
+            b = match_band_width(T, R_px, tc)
+            pairs = [(f"calendar {k}d", Hc), (f"band {b * 100:.2f}% (matched)", band(T, b))]
+            for lab, H in pairs:
+                for era, s in _era_stats(H, R).items():
+                    print(f"{lab:<38}{era:<13}{s['sr']:8.2f}{s['turn']:9.1f}"
+                          + "".join(f"{n:8.2f}" for n in s["nets"]))
+            print()
+        for bw in SLOW_BANDS:
+            Hb = band(T, bw)
+            tb = evaluate(Hb, R_px)["turn"]
+            k, gap = nearest_calendar(T, R_px, tb)
+            tag = "matched" if gap <= MATCH_TOL else f"NOT matched, gap {gap:.1%}"
+            pairs = [(f"band {bw * 100:.1f}%", Hb), (f"calendar {k}d ({tag})", calendar(T, k))]
+            for lab, H in pairs:
+                for era, s in _era_stats(H, R).items():
+                    print(f"{lab:<38}{era:<13}{s['sr']:8.2f}{s['turn']:9.1f}"
+                          + "".join(f"{n:8.2f}" for n in s["nets"]))
+            print()
+
+    # --- phase robustness of the monthly calendar -----------------------------
+    print("=== calendar 21d: spread across all 21 refresh phases (fit, TOTAL) ===")
+    for k in SLOW_CALENDARS:
+        res = [_era_stats(calendar_offset(T, k, o), R_tr)["fit 2005-22"] for o in range(k)]
+        for key, f in (("grossSR", lambda s: s["sr"]), ("turn/yr", lambda s: s["turn"]),
+                       ("net@15", lambda s: s["nets"][1]), ("net@30", lambda s: s["nets"][2])):
+            v = np.array([f(s) for s in res])
+            print(f"  calendar {k}d {key:<8} min {v.min():6.2f}  median "
+                  f"{np.median(v):6.2f}  max {v.max():6.2f}")
+
+
 if __name__ == "__main__":
-    main()
+    if "--slower" in sys.argv[1:]:
+        slower_policy_report()
+    else:
+        main()
