@@ -430,6 +430,10 @@ def margin_limits(positions_after: dict, closes: dict, equity: float, current_gr
         out.append(f"projected Reg T initial margin ${REG_T_INITIAL * gross:,.2f} "
                    f"(50% of gross ${gross:,.2f}) > equity ${equity:,.2f}")
     if current_gross > 0:
+        if maintenance_margin <= 0:
+            out.append(f"maintenance_margin {maintenance_margin} with current gross "
+                       f"{current_gross:,.2f}: the ratio cannot be measured; not assumed")
+            return out
         ratio = maintenance_margin / current_gross
         if ratio * gross > equity:
             out.append(f"projected maintenance ${ratio * gross:,.2f} (measured "

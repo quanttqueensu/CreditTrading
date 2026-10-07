@@ -25,13 +25,32 @@ def test_a_traded_day_writes_one_tca_row_with_fill_rate_and_signed_slippage(stat
     assert float(r["slip_bp_buy"]) == pytest.approx(100.0, abs=0.01)
 
 
-def test_residual_is_positions_after_vs_plan_target_at_the_official_close():
+def test_residual_is_positions_after_vs_the_sent_orders_targets():
     detail = {"orders": [], "positions_after": {"AAA": 90, "BBB": -50},
               "auction_prints_d": {"prices": {"AAA": 10.0, "BBB": 20.0}}}
-    plan = {"targets": {"AAA": {"target": 100}, "BBB": {"target": -50}}}
+    plan = {"targets": {"AAA": {"current": 0, "target": 100}, "BBB": {"current": -50, "target": -50}},
+            "orders": [{"symbol": "AAA", "target": 100}]}
     r = tca.tca_row("2026-09-29", "cef", detail, [], plan)
     assert r["residual_gross_usd"] == "100.00" and r["residual_net_usd"] == "-100.00"
     assert r["residual_names"] == "AAA:-10"
+
+
+def test_a_deliberate_scale_down_is_not_a_fill_shortfall():
+    # sleeve wanted 100, bp_shortfall scaled the order to 60, all 60 filled
+    detail = {"orders": [], "positions_after": {"AAA": 60},
+              "auction_prints_d": {"prices": {"AAA": 10.0}}}
+    plan = {"targets": {"AAA": {"current": 0, "target": 100}},
+            "orders": [{"symbol": "AAA", "target": 60}]}
+    r = tca.tca_row("2026-09-29", "cef", detail, [], plan)
+    assert r["residual_gross_usd"] == "0.00" and r["residual_names"] == ""
+
+
+def test_a_residual_priced_off_the_prior_close_says_so():
+    detail = {"orders": [], "positions_after": {}, "auction_prints_d": {"prices": {}}}
+    plan = {"targets": {"AAA": {"current": 0, "target": 0}}, "closes": {"AAA": 9.0},
+            "orders": [{"symbol": "AAA", "target": -10}]}
+    r = tca.tca_row("2026-09-29", "cef", detail, [], plan)
+    assert "AAA:+10(prior close)" in r["residual_names"]
 
 
 def test_a_foreign_header_refuses(tmp_path):

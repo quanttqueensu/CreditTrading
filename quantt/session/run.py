@@ -845,11 +845,19 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     orders = tuple(keep_orders)
     record["skipped_at_send"] = skipped
     borrow_warnings = hard_to_borrow_short_opens(orders, pos, assets)
+    # Re-fit on the LIVE account (review 2026-10-07): a plan scaled to the limit
+    # at decide would otherwise be refused by any small adverse move by 15:52.
+    # Only ever shrinks opening orders: what goes stays a subset of the plan.
+    closes = {k: float(v) for k, v in plan["closes"].items()}
+    if deps.execution.get("bp_shortfall") == "scale" and orders:
+        orders, kept, binding = fit_to_buying_power(
+            orders, pos, closes, acct["equity"], acct["buying_power"], _gross_now(acct),
+            acct["maintenance_margin"])
+        record["bp_scale_at_send"] = {"kept": kept, "binding": binding}
     approve_sha = approve or approval_for(day)
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
     cal_today = [r for r in cal if r["date"] == session_date]
-    closes = {k: float(v) for k, v in plan["closes"].items()}
     refusals = [
         *gt.gate_dry_run(deps.env.get("DRY_RUN")),
         *gt.gate_arming(approve_sha, plan["plan_sha"], (state / "AUTO_ARMED").exists()),
@@ -958,50 +966,112 @@ def _opening_part(o, cur: int) -> int:
 def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
                         buying_power: float, current_gross: float,
                         maintenance_margin: float) -> tuple[tuple, float, str | None]:
-    """Scale every OPENING order by one factor f in (0, 1] so the plan fits
-    Alpaca's order-time buying power and the overnight margin limits
-    (gate.buying_power_needed / gate.margin_limits); reducing orders are kept
-    in full. Returns (orders, f, binding constraint or None when f == 1).
+    """Scale the plan so it fits Alpaca's order-time buying power and the
+    overnight margin limits (gate.buying_power_needed / gate.margin_limits).
+    Returns (orders, kept, binding constraint or None when nothing was scaled);
+    `kept` is the share of the plan's traded notional kept.
 
-    WHY (team lead 2026-10-07, after the execution-desk review): refusing a
-    plan that does not fit leaves yesterday's stale book in place; skipping
-    names breaks dollar-neutrality arbitrarily. One factor on every opening
-    order -- long and short alike -- keeps the book balanced and lands it
-    proportionally short of target; the next session closes the gap. It is the
-    same uniform scale-down the sleeve's gross cap uses. Flips are deferred
-    (decide.FLIP_SAME_SESSION), so each order is wholly opening or reducing.
-    Whole shares are floored, so the scaled plan never exceeds the limit at
-    the as-of closes; the SEND re-checks on live numbers and refuses if not.
+    WHY (team lead 2026-10-07, after the execution-desk review): refusing a plan
+    that does not fit leaves yesterday's stale book; skipping names breaks
+    neutrality arbitrarily.
+
+    NEUTRALITY (review 2026-10-07): scaling only the openings is NOT neutral
+    when a plan rotates a leg -- covering one short in full while opening the
+    replacement short scaled ended +$20.9k net long in the review's case. So
+    four factors are chosen -- opening buys, opening sells, reducing buys,
+    reducing sells -- to (1) satisfy every limit, (2) keep the post-trade net
+    closest to the full plan's post-trade net, (3) then keep the most traded
+    notional. Searched on a 0.05 grid, then refined on 0.01 around the best.
+    Reductions consume no buying power (Alpaca: they do not replenish it until
+    executed, and they never use it), so they are scaled only when neutrality
+    needs it. Whole shares are floored afterwards, so the result never exceeds
+    a limit at the prices used. Called at DECIDE (as-of closes, evening
+    account) and again at SEND on the live account, so a plan sitting on the
+    limit at decide is not refused by a small adverse move by 15:52.
+
+    Flips are deferred (decide.FLIP_SAME_SESSION), so every order is wholly
+    opening or wholly reducing; a leg-2 order is refused here rather than
+    mis-sized. A name without a close is left to the gate's clean refusal.
     """
     import dataclasses
-    need = gt.buying_power_needed(orders, positions, closes)
-    opening = {o.client_order_id: _opening_part(o, positions.get(o.symbol, 0)) for o in orders}
-    g_inc = sum(opening[o.client_order_id] * closes[o.symbol] for o in orders)
-    fixed = gt.projected_positions([o for o in orders if not opening[o.client_order_id]],
-                                   positions)
-    g_fixed = sum(abs(q) * closes[s] for s, q in fixed.items())
-    caps = {"order-time buying_power": buying_power / need if need > 0 else float("inf")}
-    if g_inc > 0:
-        caps["overnight Reg T initial margin"] = (equity / gt.REG_T_INITIAL - g_fixed) / g_inc
-        if current_gross > 0:
-            ratio = maintenance_margin / current_gross
-            caps["overnight maintenance (measured ratio)"] = (equity / ratio - g_fixed) / g_inc
-    binding = min(caps, key=caps.get)
-    f = min(1.0, caps[binding])
-    if f >= 1.0:
+    import itertools
+    if any(o.leg != 1 for o in orders):
+        raise SessionError("fit_to_buying_power: same-session flip legs are not supported "
+                           "(FLIP_SAME_SESSION is False); refusing to size them")
+    names = set(positions) | {o.symbol for o in orders}
+    if any(not isinstance(closes.get(s), (int, float)) or closes[s] <= 0 for s in names):
         return tuple(orders), 1.0, None
-    f = max(0.0, f)
+    ratio = None
+    if current_gross > 0:
+        if maintenance_margin <= 0:
+            raise SessionError(f"maintenance_margin {maintenance_margin} with current gross "
+                               f"{current_gross}: the maintenance ratio cannot be measured")
+        ratio = maintenance_margin / current_gross
+
+    def bucket(o):
+        opening = _opening_part(o, positions.get(o.symbol, 0)) > 0
+        return ("o" if opening else "r") + ("b" if o.side == "buy" else "s")
+    buckets = ("ob", "os", "rb", "rs")
+    by = {o.client_order_id: bucket(o) for o in orders}
+    untouched = {s: q for s, q in positions.items() if s not in {o.symbol for o in orders}}
+
+    def book(f):
+        """Post-trade positions with each order scaled by its bucket's factor."""
+        after = dict(untouched)
+        for o in orders:
+            cur = positions.get(o.symbol, 0)
+            after[o.symbol] = cur + f[by[o.client_order_id]] * o.signed_qty
+        return after
+
+    def evaluate(f):
+        after = book(f)
+        gross = sum(abs(q) * closes[s] for s, q in after.items())
+        net = sum(q * closes[s] for s, q in after.items())
+        need = sum(f[by[o.client_order_id]] * o.qty * closes[o.symbol]
+                   * (gt.SHORT_ORDER_BP_MULTIPLIER if o.side == "sell" else 1.0)
+                   for o in orders if by[o.client_order_id][0] == "o")
+        why = ("order-time buying_power" if need > buying_power else
+               "overnight Reg T initial margin" if gt.REG_T_INITIAL * gross > equity else
+               "overnight maintenance (measured ratio)"
+               if ratio is not None and ratio * gross > equity else None)
+        traded = sum(f[by[o.client_order_id]] * o.qty * closes[o.symbol] for o in orders)
+        return why, net, traded
+
+    full = {b: 1.0 for b in buckets}
+    binding, full_net, full_traded = evaluate(full)
+    if binding is None:
+        return tuple(orders), 1.0, None
+    present = {b for b in by.values()}
+
+    def search(values):
+        best = None
+        for combo in itertools.product(*[(values(b) if b in present else (1.0,)) for b in buckets]):
+            f = dict(zip(buckets, combo))
+            why, net, traded = evaluate(f)
+            if why:
+                continue
+            key = (round(abs(net - full_net), 2), -traded)
+            if best is None or key < best[0]:
+                best = (key, f)
+        return best
+    coarse = search(lambda b: [i / 20 for i in range(21)])     # all-zero always fits
+    c0 = coarse[1]
+    fine = search(lambda b: sorted({min(1.0, max(0.0, round(c0[b] + d / 100, 2)))
+                                    for d in range(-5, 6)}))
+    f = (fine or coarse)[1]
     out = []
     for o in orders:
-        if not opening[o.client_order_id]:
+        k = f[by[o.client_order_id]]
+        if k >= 1.0:
             out.append(o)
             continue
-        q = math.floor(o.qty * f)
+        q = math.floor(o.qty * k)
         if q <= 0:
             continue
         out.append(dataclasses.replace(o, qty=q, target=o.current + (q if o.side == "buy" else -q),
-                                       reason=f"{o.reason}; scaled x{f:.4f} to fit {binding}"))
-    return dec.transmit_sequence(out), f, binding
+                                       reason=f"{o.reason}; scaled x{k:.2f} to fit {binding}"))
+    _, _, traded = evaluate(f)
+    return dec.transmit_sequence(out), (traded / full_traded if full_traded else 1.0), binding
 
 
 def _gross_now(acct: dict) -> float:
@@ -1059,10 +1129,19 @@ def _poll_final(c, sent, log: Path, record: dict, deps: Deps, out, until: dt.dat
     # advancing must never turn this into an endless loop past the close.
     max_polls = max(1, int((until - deps.utcnow()).total_seconds() // POLL_EVERY_S) + 1)
     polls = 0
+    errors = {}
     while pending:
         polls += 1
         for cid, o in list(pending.items()):
-            got = c.order_by_client_id(cid)
+            if deps.utcnow() >= until:              # per order: one slow pass cannot overrun
+                break
+            try:
+                got = c.order_by_client_id(cid)
+            except Exception as e:  # noqa: BLE001 -- recorded as not_final, never a FAIL of a sent day
+                errors[cid] = f"{type(e).__name__}: {e}"
+                rec.append_jsonl(log, {"event": "poll_error", "at": deps.utcnow(),
+                                       "client_order_id": cid, "error": errors[cid]})
+                continue
             if got is not None and got.get("status") in FINAL_ORDER_STATES:
                 filled = int(Decimal(str(got.get("filled_qty") or 0)))
                 final[cid] = {"status": got["status"], "filled": filled,
@@ -1079,6 +1158,7 @@ def _poll_final(c, sent, log: Path, record: dict, deps: Deps, out, until: dt.dat
                                "client_order_id": cid})
     record["final"] = final
     record["not_final"] = sorted(pending)
+    record["poll_errors"] = errors
     unfilled = {cid: f["unfilled"] for cid, f in final.items() if f["unfilled"]}
     record["unfilled"] = unfilled
     n_full = sum(1 for f in final.values() if not f["unfilled"])

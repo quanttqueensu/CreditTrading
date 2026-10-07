@@ -23,7 +23,7 @@ COLUMNS = ("date", "book", "n_orders", "n_full", "shares_ordered", "shares_fille
            "fill_rate_shares", "slip_bp_buy", "slip_bp_sell", "slip_bp_all", "slip_unmeasured",
            "residual_gross_usd", "residual_net_usd", "residual_names", "basis")
 BASIS = ("fills vs primary-exchange official close (condition M), notional-weighted; "
-         "residual = positions after the close vs the plan's target shares at the official close")
+         "residual = positions after the close vs the plan's ORDER targets at the official close")
 
 
 def _wavg(rows) -> float | None:
@@ -53,18 +53,29 @@ def tca_row(date: str, book: str, detail: dict, per_symbol: list, plan: dict | N
     prices = (detail.get("auction_prints_d") or {}).get("prices") or {}
     if plan and plan.get("targets"):
         after = detail.get("positions_after") or {}
+        # Intended = what the SENT plan's orders aimed at (a deliberate bp_shortfall
+        # scale-down is not a fill shortfall; review 2026-10-07), else unchanged.
+        intended = {s: int(t["current"]) for s, t in plan["targets"].items()}
+        for o in plan.get("orders") or []:
+            intended[o["symbol"]] = int(o["target"])
         res_g = res_n = 0.0
-        for s, t in plan["targets"].items():
-            gap = int(after.get(s, 0)) - int(t["target"])
+        for s, tgt in intended.items():
+            gap = int(after.get(s, 0)) - tgt
             if not gap:
                 continue
-            px = prices.get(s) or (plan.get("closes") or {}).get(s)
+            # Official close when verify fetched one; otherwise the plan's as-of
+            # close, TAGGED (review 2026-10-07): never passed off as today's print.
+            tag = ""
+            px = prices.get(s)
+            if px is None:
+                px = (plan.get("closes") or {}).get(s)
+                tag = "(prior close)"
             if px is None:
                 names.append(f"{s}:{gap:+d}(unpriced)")
                 continue
             res_g += abs(gap) * px
             res_n += gap * px
-            names.append(f"{s}:{gap:+d}")
+            names.append(f"{s}:{gap:+d}{tag}")
     f = lambda x: "" if x is None else f"{x:.2f}"
     return {"date": date, "book": book, "n_orders": len(orders), "n_full": n_full,
             "shares_ordered": ordered, "shares_filled": filled,

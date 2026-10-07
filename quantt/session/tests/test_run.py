@@ -977,7 +977,8 @@ def test_scale_fits_opening_orders_pro_rata_and_keeps_reductions_whole():
     out, f, why = rn.fit_to_buying_power((reduce_, open_long, open_short), {"AAA": 1000}, closes,
                                          equity=1e6, buying_power=10_150.0,
                                          current_gross=10_000.0, maintenance_margin=4_780.0)
-    assert why == "order-time buying_power" and f == pytest.approx(0.5)
+    # kept = share of the plan's traded notional: (5,000 reduction + 0.5 x 20,000) / 25,000
+    assert why == "order-time buying_power" and f == pytest.approx(0.6)
     q = {o.symbol: o.qty for o in out}
     assert q == {"AAA": 500, "BBB": 500, "CCC": 500}                 # one factor, longs and shorts
     assert rn.gt.buying_power_needed(out, {"AAA": 1000}, closes) <= 10_150.0
@@ -1031,3 +1032,73 @@ def test_polling_stops_at_its_bound_even_if_the_clock_never_moves(tmp_path):
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
     send = json.loads((state / D.isoformat() / "send.json").read_text())
     assert send["not_final"] and len(slept) < 400     # 15:53 -> 15:59:30 at 2 s, bounded
+
+
+# review 2026-10-07 (execution desk) ---------------------------------------------
+
+def _o(sym, side, qty, cur, px=10.0):
+    return Order(symbol=sym, side=side, qty=qty, leg=1, client_order_id=f"cef-20260929-{sym}-1",
+                 current=cur, target=cur + (qty if side == "buy" else -qty), est_price=px,
+                 reason="t", time_in_force="day")
+
+
+def test_scaling_a_rotation_keeps_the_book_neutral():
+    # held L +5000 / A -5000 ($50k each); rotate the short: cover A in full, short B.
+    pos = {"L": 5000, "A": -5000}
+    closes = {"L": 10.0, "A": 10.0, "B": 10.0}
+    orders = (_o("A", "buy", 5000, -5000), _o("B", "sell", 5000, 0))
+    out, kept, why = rn.fit_to_buying_power(orders, pos, closes, equity=1e6, buying_power=30_000.0,
+                                            current_gross=100_000.0, maintenance_margin=47_800.0)
+    after = rn.gt.projected_positions(out, pos)
+    net = sum(q * closes[s] for s, q in after.items())
+    full_net = sum(q * closes[s] for s, q in rn.gt.projected_positions(orders, pos).items())
+    assert why == "order-time buying_power"
+    assert abs(net - full_net) <= 10.0 * 1           # within one share's notional of the full plan's net
+
+
+def test_scaling_respects_reg_t_on_the_post_trade_book():
+    out, kept, why = rn.fit_to_buying_power((_o("B", "buy", 10_000, 0), _o("C", "sell", 10_000, 0)),
+                                            {}, {"B": 10.0, "C": 10.0}, equity=60_000.0,
+                                            buying_power=1e9, current_gross=0.0,
+                                            maintenance_margin=0.0)
+    assert why == "overnight Reg T initial margin"
+    gross = sum(o.qty * 10.0 for o in out)
+    assert 0.5 * gross <= 60_000.0 and gross > 100_000.0
+
+
+def test_zero_maintenance_with_a_book_is_named_not_divided():
+    with pytest.raises(rn.SessionError, match="maintenance"):
+        rn.fit_to_buying_power((_o("B", "buy", 10, 0),), {"L": 10}, {"B": 10.0, "L": 10.0},
+                               1e6, 1.0, current_gross=100.0, maintenance_margin=0.0)
+
+
+def test_send_refits_on_the_live_account_instead_of_refusing(tmp_path):
+    ex = dict(LATE, bp_shortfall="scale")
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=ex)
+    c.bp = 5_000.0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED       # scaled to fit $5,000
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c.bp = 4_000.0                                                   # a little less by 15:52
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    run = sorted((state / D.isoformat() / "runs").glob("*-run.json"))[-1]
+    assert json.loads(run.read_text())["bp_scale_at_send"]["binding"] == "order-time buying_power"
+
+
+def test_a_polling_error_is_recorded_not_a_fail_of_a_sent_day(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c.day_status = "new"
+    calls = {"n": 0}
+
+    def flaky(cid):
+        calls["n"] += 1
+        if calls["n"] > len(plan["orders"]):                         # confirm passes, polling fails
+            raise rn.SessionError("HTTP 429 after retries")
+        return c.accepted.get(cid)
+    c._lookup = flaky
+    deps.sleep = lambda s: None
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert send["not_final"]

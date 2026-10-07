@@ -213,3 +213,18 @@ band 11.99% 0.49 vs calendar 21d 0.21; calendar 91d 0.31 vs band 19.2% 0.12.
 3. **On the motivation.** The published 7.7–12-month half-lives [U] do not
    carry over to this book's band width. Measured on our credit panels, the
    monthly and very-wide policies throw away most of the gross edge.
+
+
+## Caveats added on review (quant-reviewer, 2026-10-07)
+
+- The "very slow calendar beats wide bands" comparison (section B3) uses calendar
+  91d/217d at refresh phase 0 only; the phase spread was computed for 21d alone,
+  and calendar 217d refreshes ~21 times in 18 years. Treat it as one draw.
+- The era rows printed "(matched)" are matched on FIT-period turnover; within an
+  era several pairs differ by ~14% or more (e.g. band 16.0% vs calendar 48d 2.8 vs
+  3.2/yr in 2015-19), which breaks H2. They are context, not matched comparisons.
+- The slower block's `flips?` column is sign(net@5) != sign(net@30), while main()
+  uses net@30 < 0; band 19.2% in 2020-22 reads "no" under the former though every
+  net is negative.
+- None of this touches the verdict: no slower policy matches the live band's
+  turnover, and every one loses to it on the fit period, gross and net.
