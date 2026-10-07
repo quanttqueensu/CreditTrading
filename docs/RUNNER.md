@@ -149,6 +149,27 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
 
+## As built (2026-10-07): buying power, scale-to-fit, fills, TCA
+
+Execution-desk review after the first week (plan: items 3–5).
+- **Gate 8 is two checks.** Order-time: opening notional (shorts ×1.03) ≤ Alpaca's
+  live `buying_power` -- what Alpaca enforces. Overnight: on the book AFTER the
+  plan, Reg T initial margin (50% of gross) ≤ equity, and maintenance at the
+  account's live measured ratio (`maintenance_margin / current gross`, 47.8% on
+  2026-10-06) ≤ equity. The old `min(buying_power, regt_buying_power)` refused
+  2026-10-06's catch-up plan that Alpaca would have accepted.
+- **`execution.bp_shortfall = scale`** (absent = refuse): a plan that does not fit
+  is scaled with four factors (opening/reducing × buy/sell) that satisfy every
+  limit and keep the post-trade net closest to the full plan's, at DECIDE and again
+  at SEND on the live account. What goes is always a subset of the decided plan.
+- **Fills are polled** to a final state (to close − 30 s) and recorded in
+  `orders.jsonl` / `send.json`; unfilled shares are reported, never topped up.
+- **`<state>/tca.csv`**, one row per traded day: fill rate, signed slippage vs the
+  official close (buy/sell), residual vs the sent orders' targets.
+  `scripts/ops/tca_backfill.py` scores past days read-only.
+- Slower rebalancing was re-tested (`results/cef/FRONTIER_REPRO_2026-10-07.md`):
+  no slower policy matches or beats the live band on the fit period; no trial spent.
+
 ## As built (2026-09-29): evening decision, morning backstop, nightly data
 
 Team lead, 2026-09-29: *"we dont have to do it at 830 why have it a hard time -
