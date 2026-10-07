@@ -40,7 +40,8 @@ def good(**over):
         orders=(order("AAA", "buy", 100), order("BBB", "sell", 50)),
         positions={}, shortable={s: True for s in UNI}, shorting_enabled=True,
         closes={"AAA": 10.0, "BBB": 20.0, "CCC": 30.0}, equity=100_000.0,
-        buying_power=200_000.0, max_gross_usd=260_000.0, max_gross_stress=1.8,
+        buying_power=200_000.0, current_gross=0.0, maintenance_margin=0.0,
+        max_gross_usd=260_000.0, max_gross_stress=1.8,
         universe=UNI,
         account_flags={"trading_blocked": False, "account_blocked": False,
                        "trade_suspended_by_user": False})
@@ -362,3 +363,29 @@ def test_blocked_account_refuses(flag):
 def test_refusal_names_a_real_gate():
     with pytest.raises(ValueError):
         gt.Refusal("made_up", "x")
+
+
+# ------------------------------------------- 8 overnight margin (review 2026-10-07)
+
+def test_overnight_reg_t_initial_margin_on_the_book_after_the_plan():
+    # held 1,000 AAA long and 1,000 BBB short; buying 1,000 more AAA -> gross 2,000*10+20,000
+    f = good(positions={"AAA": 1000, "BBB": -1000}, orders=(order("AAA", "buy", 9000, cur=1000),),
+             equity=50_000.0, buying_power=1e9)
+    # projected gross = 10,000*10 + 1,000*20 = 120,000 -> 50% = 60,000 > equity 50,000
+    r = gt.evaluate(f)
+    assert any(x.gate == "exposure" and "Reg T initial margin" in x.detail for x in r)
+
+
+def test_overnight_maintenance_uses_the_live_measured_ratio_not_a_literal():
+    base = dict(positions={"AAA": 1000}, orders=(order("AAA", "buy", 500, cur=1000),),
+                equity=14_000.0, buying_power=1e9, max_gross_stress=None)
+    # projected gross 15,000; Reg T 7,500 <= 14,000 passes. Maintenance at a
+    # measured 100% of gross (maintenance 10,000 on current gross 10,000) = 15,000 > 14,000.
+    assert any("maintenance" in x.detail for x in gt.evaluate(
+        good(current_gross=10_000.0, maintenance_margin=10_000.0, **base)))
+    # at a measured 47.8% it passes
+    assert gt.evaluate(good(current_gross=10_000.0, maintenance_margin=4_780.0, **base)) == []
+
+
+def test_margin_limits_skip_maintenance_when_there_is_no_gross_to_measure():
+    assert gt.margin_limits({"AAA": 100}, {"AAA": 10.0}, 10_000.0, 0.0, 0.0) == []

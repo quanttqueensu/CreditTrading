@@ -73,6 +73,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import os
 import subprocess
 import sys
@@ -425,16 +426,22 @@ def execution_for(book: Book) -> dict:
     `window_minutes_before_close: [a, b]`; anything else raises."""
     ex = json.loads(book.book_path.read_text()).get("execution")
     if ex is None:
-        return {"mode": "cls"}
+        return {"mode": "cls", "bp_shortfall": "refuse"}
     mode = ex.get("mode")
+    # bp_shortfall (2026-10-07): ABSENT = "refuse", today's behaviour.
+    short = ex.get("bp_shortfall", "refuse")
+    if short not in ("refuse", "scale"):
+        raise SessionError(f"{book.book_path}: execution.bp_shortfall {short!r} is not "
+                           f"refuse or scale")
     if mode == "cls":
-        return {"mode": "cls"}
+        return {"mode": "cls", "bp_shortfall": short}
     if mode == "late_market":
         w = ex.get("window_minutes_before_close")
         if not (isinstance(w, list) and len(w) == 2):
             raise SessionError(f"{book.book_path}: execution.window_minutes_before_close "
                                f"{w!r} must be [a, b]")
-        return {"mode": "late_market", "window_minutes_before_close": (w[0], w[1])}
+        return {"mode": "late_market", "window_minutes_before_close": (w[0], w[1]),
+                "bp_shortfall": short}
     raise SessionError(f"{book.book_path}: execution.mode {mode!r} is not cls or late_market")
 
 
@@ -451,6 +458,7 @@ class Deps:
     utcnow: Callable[[], dt.datetime] = field(default=lambda: dt.datetime.now(dt.timezone.utc))
     out: object = field(default_factory=lambda: sys.stdout)
     execution: dict = field(default_factory=lambda: {"mode": "cls"})   # execution_for(book)
+    sleep: Callable[[float], None] = field(default=lambda s: __import__("time").sleep(s))
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
@@ -623,6 +631,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                                   cid_prefix=book.cid_prefix,
                                   min_trade_usd=p["min_trade_usd"],
                                   time_in_force="day" if late else dec.TIME_IN_FORCE)
+        if decision.orders and deps.execution.get("bp_shortfall") == "scale":
+            scaled, factor, binding = fit_to_buying_power(
+                decision.orders, pos, closes, equity, acct["buying_power"], _gross_now(acct),
+                acct["maintenance_margin"])
+            record["bp_scale"] = {"factor": factor, "binding": binding}
+            if binding is not None:
+                decision = dec.Decision(orders=scaled, targets=decision.targets,
+                                        notes={**decision.notes, "*": list(decision.notes.get("*", []))
+                                               + [f"opening orders scaled x{factor:.4f} to fit "
+                                                  f"{binding}"]},
+                                        plan_sha=dec.plan_sha(scaled))
         record["decision"] = decision.to_dict()
         borrow_warnings = hard_to_borrow_short_opens(decision.orders, pos, assets)
         record["borrow_warnings"] = borrow_warnings
@@ -645,10 +664,10 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             orders_open=orders_open, cid_prefix=book.cid_prefix,
             orders=decision.orders, positions=pos, shortable=shortable,
             shorting_enabled=acct["shorting_enabled"], closes=closes, equity=equity,
-            # The book holds MOC positions OVERNIGHT, where Reg T (2x) binds, not
-            # the 4x intraday `buying_power` (review 2026-09-28): gate on the
-            # tighter of the two.
-            buying_power=min(acct["buying_power"], acct["regt_buying_power"]),
+            # Order-time: Alpaca's live buying_power. Overnight Reg T is checked on
+            # the book AFTER the plan (gate.margin_limits; review 2026-10-07).
+            buying_power=acct["buying_power"], current_gross=_gross_now(acct),
+            maintenance_margin=acct["maintenance_margin"],
             max_gross_usd=p["max_gross_usd"],
             max_gross_stress=p["max_gross_stress"], universe=p["universe"],
             account_flags={k: acct[k] for k in ("trading_blocked", "account_blocked",
@@ -840,9 +859,10 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         *gt.gate_no_set_in_auction((day / "STARTED").exists(), orders_recent, orders_open,
                                    book.cid_prefix, session_date),
         *gt.gate_shortability(orders, pos, shortable, acct["shorting_enabled"]),
-        *gt.gate_exposure(orders, pos, closes, acct["equity"],
-                          min(acct["buying_power"], acct["regt_buying_power"]),
-                          p["max_gross_usd"], p["max_gross_stress"]),
+        *gt.gate_exposure(orders, pos, closes, acct["equity"], acct["buying_power"],
+                          p["max_gross_usd"], p["max_gross_stress"],
+                          current_gross=_gross_now(acct),
+                          maintenance_margin=acct["maintenance_margin"]),
         *gt.gate_sanity(orders, p["universe"], pos, book.cid_prefix, session_date,
                         {k: acct[k] for k in ("trading_blocked", "account_blocked",
                                               "trade_suspended_by_user")}),
@@ -868,7 +888,9 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         # SEND refused (dry run, halt, moved positions) read as a crash.
         rec.write_json_atomic(day / "send.json", {
             "session_date": session_date, "plan_sha": plan["plan_sha"], "at": stamp,
-            "exit": EXIT_NAMES[code], "refusals": record["refusals"], "skipped": skipped})
+            "exit": EXIT_NAMES[code], "refusals": record["refusals"], "skipped": skipped,
+            "final": record.get("final", {}), "unfilled": record.get("unfilled", {}),
+            "not_final": record.get("not_final", [])})
         return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
     gates_hit = {r.gate for r in refusals}
     if refusals:
@@ -882,9 +904,13 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     if not rec.create_exclusive(day / "STARTED", started):
         print("  REFUSED [no_set_in_auction] STARTED appeared between gate and record", file=out)
         return _finish(record, day, stamp, mode, EXIT_REFUSED, out)
+    close_h, close_m = map(int, cal_today[0]["close"].split(":"))
+    poll_until = (dt.datetime.combine(session_date, dt.time(close_h, close_m), tzinfo=gt.ET)
+                  - dt.timedelta(seconds=30))
     code = _transmit(c, orders, day / "orders.jsonl", record, deps, out,
                      in_window=lambda ts: win[0] <= ts < win[1],
-                     window_text=f"late-market window {win[0]:%Y-%m-%d %H:%M}-{win[1]:%H:%M} ET")
+                     window_text=f"late-market window {win[0]:%Y-%m-%d %H:%M}-{win[1]:%H:%M} ET",
+                     poll_until=poll_until)
     return outcome(code)
 
 
@@ -921,6 +947,68 @@ def approve_main(argv=None) -> int:
     return 0
 
 
+def _opening_part(o, cur: int) -> int:
+    """Shares of order `o` that open or increase a position (the rest reduce)."""
+    after = cur + o.signed_qty
+    if o.side == "buy":
+        return max(0, after - max(cur, 0))
+    return max(0, min(cur, 0) - after)
+
+
+def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
+                        buying_power: float, current_gross: float,
+                        maintenance_margin: float) -> tuple[tuple, float, str | None]:
+    """Scale every OPENING order by one factor f in (0, 1] so the plan fits
+    Alpaca's order-time buying power and the overnight margin limits
+    (gate.buying_power_needed / gate.margin_limits); reducing orders are kept
+    in full. Returns (orders, f, binding constraint or None when f == 1).
+
+    WHY (team lead 2026-10-07, after the execution-desk review): refusing a
+    plan that does not fit leaves yesterday's stale book in place; skipping
+    names breaks dollar-neutrality arbitrarily. One factor on every opening
+    order -- long and short alike -- keeps the book balanced and lands it
+    proportionally short of target; the next session closes the gap. It is the
+    same uniform scale-down the sleeve's gross cap uses. Flips are deferred
+    (decide.FLIP_SAME_SESSION), so each order is wholly opening or reducing.
+    Whole shares are floored, so the scaled plan never exceeds the limit at
+    the as-of closes; the SEND re-checks on live numbers and refuses if not.
+    """
+    import dataclasses
+    need = gt.buying_power_needed(orders, positions, closes)
+    opening = {o.client_order_id: _opening_part(o, positions.get(o.symbol, 0)) for o in orders}
+    g_inc = sum(opening[o.client_order_id] * closes[o.symbol] for o in orders)
+    fixed = gt.projected_positions([o for o in orders if not opening[o.client_order_id]],
+                                   positions)
+    g_fixed = sum(abs(q) * closes[s] for s, q in fixed.items())
+    caps = {"order-time buying_power": buying_power / need if need > 0 else float("inf")}
+    if g_inc > 0:
+        caps["overnight Reg T initial margin"] = (equity / gt.REG_T_INITIAL - g_fixed) / g_inc
+        if current_gross > 0:
+            ratio = maintenance_margin / current_gross
+            caps["overnight maintenance (measured ratio)"] = (equity / ratio - g_fixed) / g_inc
+    binding = min(caps, key=caps.get)
+    f = min(1.0, caps[binding])
+    if f >= 1.0:
+        return tuple(orders), 1.0, None
+    f = max(0.0, f)
+    out = []
+    for o in orders:
+        if not opening[o.client_order_id]:
+            out.append(o)
+            continue
+        q = math.floor(o.qty * f)
+        if q <= 0:
+            continue
+        out.append(dataclasses.replace(o, qty=q, target=o.current + (q if o.side == "buy" else -q),
+                                       reason=f"{o.reason}; scaled x{f:.4f} to fit {binding}"))
+    return dec.transmit_sequence(out), f, binding
+
+
+def _gross_now(acct: dict) -> float:
+    """Current gross from Alpaca's own marks: long_market_value + |short_market_value|."""
+    return float(acct["long_market_value"]) + abs(float(acct["short_market_value"]))
+
+
 def _nyse_trading(d: dt.date) -> bool:
     from ops.schedule.nyse_calendar import is_trading_day
     return is_trading_day(d)
@@ -954,8 +1042,54 @@ def hard_to_borrow_short_opens(orders, positions: dict, assets: dict) -> list[st
     return out
 
 
+FINAL_ORDER_STATES = {"filled", "canceled", "expired", "rejected", "done_for_day", "replaced"}
+POLL_EVERY_S = 2.0
+
+
+def _poll_final(c, sent, log: Path, record: dict, deps: Deps, out, until: dt.datetime) -> None:
+    """Poll every sent order until it reaches a final state or `until` (late-
+    market: 30 s before the close). Review 2026-10-07: the confirm read came ~1 s
+    after submit, when on 2026-10-07 4 orders were still `new` and 5
+    `partially_filled`, and the run exited SENT without ever seeing the fills.
+    Records each order's final status and filled/unfilled shares; NEVER tops up
+    a remainder (CLAUDE.md order-path rule 1: that is the team lead's call)."""
+    pending = {o.client_order_id: o for o in sent}
+    final = {}
+    # Bounded by a poll COUNT as well as the clock: a clock source that stops
+    # advancing must never turn this into an endless loop past the close.
+    max_polls = max(1, int((until - deps.utcnow()).total_seconds() // POLL_EVERY_S) + 1)
+    polls = 0
+    while pending:
+        polls += 1
+        for cid, o in list(pending.items()):
+            got = c.order_by_client_id(cid)
+            if got is not None and got.get("status") in FINAL_ORDER_STATES:
+                filled = int(Decimal(str(got.get("filled_qty") or 0)))
+                final[cid] = {"status": got["status"], "filled": filled,
+                              "unfilled": o.qty - filled,
+                              "filled_avg_price": got.get("filled_avg_price")}
+                rec.append_jsonl(log, {"event": "final", "at": deps.utcnow(),
+                                       "client_order_id": cid, **final[cid]})
+                del pending[cid]
+        if not pending or deps.utcnow() >= until or polls >= max_polls:
+            break
+        deps.sleep(POLL_EVERY_S)
+    for cid in pending:
+        rec.append_jsonl(log, {"event": "not_final_at_deadline", "at": deps.utcnow(),
+                               "client_order_id": cid})
+    record["final"] = final
+    record["not_final"] = sorted(pending)
+    unfilled = {cid: f["unfilled"] for cid, f in final.items() if f["unfilled"]}
+    record["unfilled"] = unfilled
+    n_full = sum(1 for f in final.values() if not f["unfilled"])
+    print(f"  fills: {n_full}/{len(sent)} fully filled"
+          + (f"; UNFILLED {unfilled}" if unfilled else "")
+          + (f"; not final by {until:%H:%M:%S}: {sorted(pending)}" if pending else ""), file=out)
+
+
 def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
-              in_window: Callable[[dt.datetime], bool], window_text: str) -> int:
+              in_window: Callable[[dt.datetime], bool], window_text: str,
+              poll_until: dt.datetime | None = None) -> int:
     """POST each order in list order.
 
     A REJECTED order (Alpaca answered 4xx: it definitely does not exist) skips
@@ -1051,6 +1185,9 @@ def _transmit(c, orders, log: Path, record: dict, deps: Deps, out, *,
     record["sent"] = [o.client_order_id for o in sent]
     record["rejected"] = [cid for cid, _ in rejected]
     record["confirm_missing"] = missing
+    if poll_until is not None and sent:
+        _poll_final(c, [o for o in sent if o.client_order_id not in missing], log, record,
+                    deps, out, poll_until)
     if rejected and not failed:
         failed = (f"{len(rejected)} order(s) rejected by Alpaca "
                   f"{[cid for cid, _ in rejected]}; "

@@ -633,6 +633,13 @@ def write_outputs(state_dir: Path, v: Verdict) -> Verdict:
     try:
         if v.score is not None:
             append_score(state_dir / "scores.csv", score_row(v))
+        if v.score is not None and v.detail and v.traded:
+            # Daily TCA (quantt/session/tca.py; execution-desk review 2026-10-07).
+            from quantt.session import tca
+            d = v.date.isoformat()
+            tca.append(state_dir / "tca.csv",
+                       tca.tca_row(d, v.book, v.detail, v.score.per_symbol,
+                                   tca.plan_for(state_dir, d)))
         if v.detail:
             day_dir = state_dir / v.date.isoformat()
             day_dir.mkdir(exist_ok=True)

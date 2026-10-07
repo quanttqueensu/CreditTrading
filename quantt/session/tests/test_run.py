@@ -78,8 +78,11 @@ class FakeClient:
     def account(self):
         self.calls.append(("account",))
         return {"id": "x", "status": "ACTIVE", "currency": "USD", "multiplier": "2",
-                "equity": 100_000.0, "buying_power": 200_000.0,
+                "equity": 100_000.0, "buying_power": getattr(self, "bp", 200_000.0),
                 "regt_buying_power": getattr(self, "regt_bp", 200_000.0), "shorting_enabled": True,
+                "long_market_value": getattr(self, "long_mv", 0.0),
+                "short_market_value": getattr(self, "short_mv", 0.0),
+                "maintenance_margin": getattr(self, "maint", 0.0),
                 "trading_blocked": False, "account_blocked": False,
                 "trade_suspended_by_user": False, "raw": {}}
 
@@ -105,9 +108,11 @@ class FakeClient:
         if isinstance(what, Exception):
             raise what
         self.tifs = getattr(self, "tifs", []) + [time_in_force]
+        status = getattr(self, "day_status", "filled") if time_in_force == "day" else "accepted"
         o = {"id": f"id-{client_order_id}", "client_order_id": client_order_id,
              "symbol": symbol, "side": side, "qty": str(qty), "type": "market",
-             "time_in_force": time_in_force, "status": "accepted"}
+             "time_in_force": time_in_force, "status": status,
+             "filled_qty": str(qty) if status == "filled" else "0"}
         if what != "noconfirm":
             self.accepted[client_order_id] = o
         return o
@@ -216,16 +221,26 @@ def test_auto_armed_sends(tmp_path):
     assert len(c.submits()) == 2
 
 
-def test_overnight_regt_buying_power_binds_not_intraday(tmp_path):
-    """The book holds overnight: Reg T buying power, not the 4x intraday
-    figure, must bind (review 2026-09-28). ~$10.2k needed vs $5k Reg T."""
+def test_regt_headroom_no_longer_refuses_a_plan_alpaca_would_accept(tmp_path):
+    """2026-10-06: the gate compared opening notional with regt_buying_power
+    (today's overnight headroom) and refused a plan Alpaca would have taken and
+    that ended inside every limit. Reg T is now checked on the book AFTER the
+    plan (gate.margin_limits); the order-time check is Alpaca's buying_power."""
     c, deps, state, _, _ = make(tmp_path)
-    c.regt_bp = 5_000.0
+    c.regt_bp = 5_000.0                       # tiny headroom: no longer binding
+    (state / "AUTO_ARMED").touch()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+
+
+def test_alpacas_buying_power_still_refuses_at_order_time(tmp_path):
+    c, deps, state, _, _ = make(tmp_path)
+    c.bp = 5_000.0                            # ~$10.2k of opening orders
     (state / "AUTO_ARMED").touch()
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
     assert c.submits() == []
     plan = json.loads((state / D.isoformat() / "plan.json").read_text())
-    assert "exposure" in [r["gate"] for r in plan["refusals"]]
+    assert any(r["gate"] == "exposure" and "buying power" in r["detail"]
+               for r in plan["refusals"])
 
 
 # ------------------------------------------------------ record before send
@@ -899,7 +914,7 @@ def test_execution_absent_is_cls_and_unknown_raises(tmp_path):
     b = tmp_path / "book.json"
     b.write_text(json.dumps({"book_id": "x"}))
     book = rn.Book("cef", "cef", Path("s"), b)
-    assert rn.execution_for(book) == {"mode": "cls"}
+    assert rn.execution_for(book) == {"mode": "cls", "bp_shortfall": "refuse"}   # today's behaviour
     b.write_text(json.dumps({"execution": {"mode": "late_market",
                                            "window_minutes_before_close": [8, 2]}}))
     assert rn.execution_for(book)["mode"] == "late_market"
@@ -943,3 +958,76 @@ def test_late_send_records_its_refusals_for_verify(tmp_path):
     rn.run_session(BOOK, SPEC, deps)
     send = json.loads((state / D.isoformat() / "send.json").read_text())
     assert send["exit"] == "DRY" and {r["gate"] for r in send["refusals"]} >= {"dry_run"}
+
+
+# ---------------------------------- bp_shortfall = scale (team lead 2026-10-07)
+
+def test_scale_fits_opening_orders_pro_rata_and_keeps_reductions_whole():
+    A = dict(symbol="AAA", leg=1, est_price=10.0, reason="t", time_in_force="day")
+    reduce_ = Order(side="sell", qty=500, client_order_id="cef-20260929-AAA-1", current=1000,
+                    target=500, **A)
+    B = dict(A, symbol="BBB")
+    open_long = Order(side="buy", qty=1000, client_order_id="cef-20260929-BBB-1", current=0,
+                      target=1000, **{k: v for k, v in B.items() if k != "symbol"}, symbol="BBB")
+    C = dict(A, symbol="CCC")
+    open_short = Order(side="sell", qty=1000, client_order_id="cef-20260929-CCC-1", current=0,
+                       target=-1000, **{k: v for k, v in C.items() if k != "symbol"}, symbol="CCC")
+    closes = {"AAA": 10.0, "BBB": 10.0, "CCC": 10.0}
+    # opening need = 10,000 + 10,300 = 20,300 > buying power 10,150 -> f = 0.5
+    out, f, why = rn.fit_to_buying_power((reduce_, open_long, open_short), {"AAA": 1000}, closes,
+                                         equity=1e6, buying_power=10_150.0,
+                                         current_gross=10_000.0, maintenance_margin=4_780.0)
+    assert why == "order-time buying_power" and f == pytest.approx(0.5)
+    q = {o.symbol: o.qty for o in out}
+    assert q == {"AAA": 500, "BBB": 500, "CCC": 500}                 # one factor, longs and shorts
+    assert rn.gt.buying_power_needed(out, {"AAA": 1000}, closes) <= 10_150.0
+
+
+def test_scale_is_a_no_op_when_the_plan_fits():
+    o = Order(symbol="AAA", side="buy", qty=10, leg=1, client_order_id="cef-20260929-AAA-1",
+              current=0, target=10, est_price=10.0, reason="t")
+    out, f, why = rn.fit_to_buying_power((o,), {}, {"AAA": 10.0}, 1e6, 1e6, 0.0, 0.0)
+    assert out == (o,) and f == 1.0 and why is None
+
+
+def test_scale_at_decide_turns_a_shortfall_refusal_into_a_fitting_plan(tmp_path):
+    ex = dict(LATE, bp_shortfall="scale")
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=ex)
+    c.bp = 5_000.0                                    # ~$10.2k of opening orders wanted
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    plan = json.loads((state / D.isoformat() / "plan.json").read_text())
+    assert plan["status"] == "decided"
+    total = sum(o["qty"] * o["est_price"] * (1.03 if o["side"] == "sell" else 1.0)
+                for o in plan["orders"])
+    assert 0 < total <= 5_000.0
+
+
+def test_refuse_stays_the_default_when_bp_is_short(tmp_path):
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE)
+    c.bp = 5_000.0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+
+
+# ------------------------------------ poll to final (review 2026-10-07)
+
+def test_late_send_polls_to_final_and_records_fills(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert send["unfilled"] == {} and set(send["final"]) == {o["client_order_id"] for o in plan["orders"]}
+    events = [json.loads(l)["event"] for l in (state / D.isoformat() / "orders.jsonl").open()]
+    assert events.count("final") == len(plan["orders"])
+
+
+def test_polling_stops_at_its_bound_even_if_the_clock_never_moves(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)                      # utcnow frozen at 15:53
+    c.day_status = "new"                       # never reaches a final state
+    slept = []
+    deps.sleep = slept.append
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert send["not_final"] and len(slept) < 400     # 15:53 -> 15:59:30 at 2 s, bounded

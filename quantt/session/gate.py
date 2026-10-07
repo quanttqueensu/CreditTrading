@@ -113,7 +113,9 @@ class GateFacts:
     # 8
     closes: dict                     # symbol -> as-of close
     equity: float
-    buying_power: float
+    buying_power: float              # Alpaca's live `buying_power` (the order-time check)
+    current_gross: float             # long_market_value + |short_market_value| now
+    maintenance_margin: float        # Alpaca's maintenance_margin now (measured ratio)
     max_gross_usd: float             # spec risk.max_gross_exposure_usd
     max_gross_stress: float | None   # spec frozen.max_gross_stress (None = key absent)
     # 9
@@ -410,12 +412,48 @@ def buying_power_needed(orders, positions, closes) -> float:
     return need
 
 
+REG_T_INITIAL = 0.5   # Reg T initial margin, 50% of gross [V: Alpaca margin docs;
+                      # measured 2026-10-06: initial_margin = 50.0% of gross]
+
+
+def margin_limits(positions_after: dict, closes: dict, equity: float, current_gross: float,
+                  maintenance_margin: float) -> list[str]:
+    """The OVERNIGHT check (review 2026-10-07): after the orders fill, Reg T
+    initial margin (50% of projected gross) <= equity, and projected maintenance
+    at the account's LIVE measured ratio (maintenance_margin / current gross,
+    47.8% on 2026-10-06 [V], never a literal) <= equity. With no current gross
+    the ratio cannot be measured; the initial-margin check then stands alone
+    (on these names it is the stricter of the two: 50% > 47.8% measured)."""
+    gross = sum(abs(q) * closes[s] for s, q in positions_after.items())
+    out = []
+    if REG_T_INITIAL * gross > equity:
+        out.append(f"projected Reg T initial margin ${REG_T_INITIAL * gross:,.2f} "
+                   f"(50% of gross ${gross:,.2f}) > equity ${equity:,.2f}")
+    if current_gross > 0:
+        ratio = maintenance_margin / current_gross
+        if ratio * gross > equity:
+            out.append(f"projected maintenance ${ratio * gross:,.2f} (measured "
+                       f"{ratio:.1%} of gross) > equity ${equity:,.2f}")
+    return out
+
+
 def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd,
-                  max_gross_stress) -> list[Refusal]:
+                  max_gross_stress, *, current_gross: float,
+                  maintenance_margin: float) -> list[Refusal]:
     """Gate 8. After the orders fill as sent: gross <= risk.max_gross_exposure_usd,
-    gross <= max_gross_stress x equity (when the spec sets it), and the buying
-    power the orders consume <= Alpaca's buying_power. A name with a position
-    or an order and no close refuses (it cannot be valued), never counts as 0.
+    gross <= max_gross_stress x equity (when the spec sets it); the ORDER-TIME
+    check -- buying power the opening orders consume <= Alpaca's live
+    `buying_power`, which is what Alpaca enforces at submission [V]; and the
+    OVERNIGHT check (`margin_limits`). A name with a position or an order and
+    no close refuses (it cannot be valued), never counts as 0.
+
+    WHY TWO CHECKS (review 2026-10-07). Until then the gate compared opening
+    notional with min(buying_power, regt_buying_power) -- the overnight Reg T
+    HEADROOM left by today's book, with no credit for what the same plan
+    closes. On 2026-10-06 that refused a catch-up plan ($82.8k opening vs
+    $80.8k regt) that Alpaca would have accepted ($188.5k buying_power) and that
+    ended at 1.57x gross, inside every limit. The overnight limit is now checked
+    on the book AFTER the plan, which is what it is about.
     """
     out = []
     proj = projected_positions(orders, positions)
@@ -436,6 +474,8 @@ def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd
         out.append(Refusal("exposure", f"orders need ~${need:,.2f} of buying power "
                                        f"(est. at as-of closes) > Alpaca buying_power "
                                        f"${buying_power:,.2f}"))
+    for m in margin_limits(proj, closes, equity, current_gross, maintenance_margin):
+        out.append(Refusal("exposure", m))
     return out
 
 
@@ -491,7 +531,8 @@ def evaluate(f: GateFacts) -> list[Refusal]:
                                 f.cid_prefix, f.session_date),
         *gate_shortability(f.orders, f.positions, f.shortable, f.shorting_enabled),
         *gate_exposure(f.orders, f.positions, f.closes, f.equity, f.buying_power,
-                       f.max_gross_usd, f.max_gross_stress),
+                       f.max_gross_usd, f.max_gross_stress, current_gross=f.current_gross,
+                       maintenance_margin=f.maintenance_margin),
         *gate_sanity(f.orders, f.universe, f.positions, f.cid_prefix, f.session_date,
                      f.account_flags),
     ]

@@ -106,6 +106,21 @@ def _real_dates(n=3):
     return [str(x.date()) for x in sorted(pd.to_datetime(d).unique())[-n:]]
 
 
+# PINNED for the HOLD-branch no-op test (2026-10-07). The latest panel dates are
+# a function of today's market: after the vol scalar jumped 1.38 -> 2.15 the
+# held book traded every name on 2026-10-05/06, the HOLD control failed, and the
+# prod suite went red with nothing wrong in the code. Panels are append-only, so
+# these dates are stable; each was checked to reach "band hold" on both the dev
+# and the prod panels. The latest dates still run, byte-identity only.
+HOLD_DATES = ("2026-09-23", "2026-09-24", "2026-09-25")
+
+
+def _pinned_dates():
+    d = pd.read_parquet(cefmod.PX_PATH, columns=["date"])["date"]
+    have = {str(x.date()) for x in pd.to_datetime(d).unique()}
+    return [x for x in HOLD_DATES if x in have]
+
+
 def _real_close(asof):
     P = pd.read_parquet(cefmod.PX_PATH, columns=["date", "ticker", "close"])
     P = P[pd.to_datetime(P.date) <= pd.Timestamp(asof)]
@@ -130,7 +145,7 @@ def _held_book(targets, nav, close):
 # ---------------------------------------------------------------------------
 
 @needs_panel
-@pytest.mark.parametrize("asof", _real_dates() if cefmod.PX_PATH.exists() else [])
+@pytest.mark.parametrize("asof", _pinned_dates() if cefmod.PX_PATH.exists() else [])
 def test_real_panel_absent_and_false_are_byte_identical(asof):
     # The held book is what day one would have bought (full target, gross-
     # capped), so on the next call the band sees gaps smaller than its width
@@ -149,6 +164,18 @@ def test_real_panel_absent_and_false_are_byte_identical(asof):
     assert any("band hold" in t.reason
                for t in _run(LIVE_SPEC, LIVE_NAV, asof, held)), \
         f"{asof}: no HOLD emitted for the held book; the no-op test is partial"
+
+
+@needs_panel
+@pytest.mark.parametrize("asof", _real_dates() if cefmod.PX_PATH.exists() else [])
+def test_latest_panel_dates_absent_and_false_are_byte_identical(asof):
+    """New data still exercises the switch: byte-identity on the latest dates,
+    for a flat and a held book, without the HOLD control (see HOLD_DATES)."""
+    day_one = _run(LIVE_SPEC, LIVE_NAV, asof, {}, opening=True)
+    held = _held_book(day_one, LIVE_NAV, _real_close(asof))
+    for holdings in ({}, held):
+        a = _fingerprint(_run(LIVE_SPEC, LIVE_NAV, asof, holdings))
+        assert a and a == _fingerprint(_run(LIVE_SPEC, LIVE_NAV, asof, holdings, opening=False))
 
 
 def test_synthetic_absent_and_false_are_byte_identical(tmp_path, monkeypatch):
