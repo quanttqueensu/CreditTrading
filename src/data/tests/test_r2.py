@@ -34,6 +34,27 @@ GOOD = {
 }
 
 
+
+def _httpfs_installed() -> bool:
+    """Is DuckDB's httpfs extension installed on this machine? Read-only: it never
+    installs. src/data/r2.py requires a deliberate one-time `INSTALL httpfs` on a
+    research machine and refuses otherwise (R2ConfigError). A prod machine, which
+    holds only the repo at a tag, never has it (the VM, 2026-10-08)."""
+    row = duckdb.connect().execute(
+        "SELECT installed FROM duckdb_extensions() WHERE extension_name = 'httpfs'"
+    ).fetchone()
+    return bool(row and row[0])
+
+
+# The two tests that open a real DuckDB connection through r2.connect() need httpfs.
+# Skipped, and saying why, where it is not installed (the prod VM); they run on the
+# research machine that has it. Everything else in this file runs everywhere.
+needs_httpfs = pytest.mark.skipif(
+    not _httpfs_installed(),
+    reason="DuckDB httpfs extension not installed: a deliberate one-time research-machine "
+           "step (src/data/r2.py); prod machines (the VM) do not carry it")
+
+
 def _envfile(tmp_path: Path, values: dict) -> dict:
     p = tmp_path / "test.env"
     p.write_text("".join(f"{k}={v}\n" for k, v in values.items()))
@@ -174,6 +195,7 @@ def test_check_keys_prints_booleans_only(tmp_path, monkeypatch, capsys):
 # The DuckDB connection: a scoped, in-memory secret, not global SETs
 # --------------------------------------------------------------------------
 
+@needs_httpfs
 def test_connect_creates_temporary_scoped_secret(tmp_path):
     cfg = r2.load_config(_envfile(tmp_path, GOOD))
     con = r2.connect(cfg)
@@ -190,6 +212,7 @@ def test_connect_creates_temporary_scoped_secret(tmp_path):
     assert con.execute("SELECT current_setting('s3_access_key_id')").fetchone()[0] in ("", None)
 
 
+@needs_httpfs
 def test_secret_with_quote_is_escaped_not_injected(tmp_path):
     cfg = r2.load_config(_envfile(tmp_path, dict(GOOD, R2_SECRET_ACCESS_KEY="ab'c")))
     con = r2.connect(cfg)
