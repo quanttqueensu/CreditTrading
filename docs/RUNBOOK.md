@@ -714,7 +714,18 @@ cancels an order already at Alpaca.
    channels are wrapped, so a missing macOS banner or speech engine does not
    stop it. Halt files are gitignored, so a standing halt does not block the
    installer.
-2. **Remove AUTO_ARMED:** `sudo rm /home/quantt/quantt_state/cef/AUTO_ARMED`.
+2. **Remove AUTO_ARMED and any unsent day's APPROVED.** A per-day approval
+   (`<state>/<D>/APPROVED`, written by `quantt.session approve`) arms that day's
+   send on its own, without AUTO_ARMED. That is how the cut-over day (8.5) sends,
+   so removing AUTO_ARMED alone would not stop it (corrected 2026-10-08,
+   release-check #8). Only the runner reads APPROVED, so removing it for a day
+   that has not sent is safe:
+   ```bash
+   sudo bash -c 'rm -f /home/quantt/quantt_state/cef/AUTO_ARMED
+     for d in /home/quantt/quantt_state/cef/20*/; do
+       [ -e "$d/APPROVED" ] && [ ! -e "$d/STARTED" ] && rm -v "$d/APPROVED"; done; true'
+   ```
+   When in doubt, step 1 (the halt file) stops every send, however it is armed.
 3. **DRY_RUN=1:** re-install without `--armed` (`qi ... --apply`). **Not inside
    15:30–16:00 or 12:30–13:00 ET on a weekday**: the installer refuses there,
    because its timer restart could replay a send slot (8.3). Inside those
@@ -731,7 +742,8 @@ cancels an order already at Alpaca.
      them back and names any left stopped.
    - **If it refuses after the reload**, systemd is **now** running the
      configuration shown in the refusal. Halt at once with step 1 or 2
-     (`ops/HALT.md`, or remove AUTO_ARMED), then find the cause.
+     (`ops/HALT.md`, or remove AUTO_ARMED and any unsent day's APPROVED), then
+     find the cause.
 4. **Nothing runs at all, verify included:**
    `sudo systemctl disable --now quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
 

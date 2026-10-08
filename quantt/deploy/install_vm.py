@@ -775,8 +775,17 @@ def verify_loaded(run_cmd: Callable, layout: "Layout", unit: str, expect: dict) 
         raise InstallRefused(
             f"after daemon-reload systemd's {unit} is not the unit written: "
             + "; ".join(problems) + ". systemd is NOW running the configuration shown. "
-            "Halt now with docs/RUNBOOK.md 8.6 halting step 1 or 2 (ops/HALT.md, or "
-            "remove AUTO_ARMED), then find the cause")
+            + HALT_ADVICE + ", then find the cause")
+
+
+# How to halt NOW, named in every refusal that leaves systemd running something
+# unexpected. The halt file comes first because it stops every send, whatever
+# arms it. On the cut-over day the VM sends from <state>/<D>/APPROVED with no
+# AUTO_ARMED (RUNBOOK 8.5), so removing AUTO_ARMED alone would halt nothing
+# (release-check #8, 2026-10-08).
+HALT_ADVICE = ("Halt now with docs/RUNBOOK.md 8.6 halting step 1 or 2: the halt file "
+               "(ops/HALT.md), which stops every send; or remove AUTO_ARMED AND the "
+               "APPROVED file of any session not yet sent (<state>/<D>/APPROVED)")
 
 
 def late_window_at(now_utc: dt.datetime, ranges=PLAN_REFUSE_RANGES_ET):
@@ -969,8 +978,7 @@ def _stop_if_a_job_ran(run_cmd: Callable, read_environ: Callable) -> None:
                          f"definition systemd has loaded when it starts")
     raise JobDuringInstall(
         "a quantt job is running or queued after the reload: " + "; ".join(parts)
-        + ". Halt now with docs/RUNBOOK.md 8.6 halting step 1 or 2 (ops/HALT.md, or "
-          "remove AUTO_ARMED), then check Alpaca for any order it sent")
+        + ". " + HALT_ADVICE + ", then check Alpaca for any order it sent")
 
 
 # -- the plan ---------------------------------------------------------------

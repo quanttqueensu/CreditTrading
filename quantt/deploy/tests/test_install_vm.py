@@ -1598,3 +1598,15 @@ def test_bootstrap_refuses_on_a_live_vm(tmp_path, live, want):
     assert r.returncode == want, (r.stdout, r.stderr)
     if want:
         assert "live" in r.stderr
+
+
+def test_halt_advice_names_the_per_day_approval_as_well_as_auto_armed():
+    """release-check #8: on the cut-over day the VM sends from <D>/APPROVED with no
+    AUTO_ARMED (RUNBOOK 8.5), so "remove AUTO_ARMED" alone halts nothing. Every
+    halt instruction the installer prints must name the halt file first and the
+    unsent day's APPROVED next to AUTO_ARMED."""
+    advice = iv.HALT_ADVICE
+    assert "ops/HALT.md" in advice
+    assert "AUTO_ARMED" in advice and "APPROVED" in advice
+    src = Path(iv.__file__).read_text()
+    assert "remove AUTO_ARMED)" not in src, "a halt message still names AUTO_ARMED alone"
