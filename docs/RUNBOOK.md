@@ -62,14 +62,16 @@ refuses a layout that overlaps `~/prod/QUANTT`, and it writes only the two
 ## 1. Release (A, with TL approval to push)
 
 A release is an annotated tag on a commit whose suite is green. The repo's tag
-names follow `vYYYY.MM.DD.N`.
+names follow `release-YYYYMMDD-N`, for example `release-20261007-2`.
+(Corrected 2026-10-08: this section said `vYYYY.MM.DD.N`, but every release
+tag actually cut, `git tag -l 'release-*'`, uses `release-YYYYMMDD-N`.)
 
 ```bash
 cd "<dev repo>"
 python3 -m pytest                    # green; never quote a count
 python3 -m ops.doc_audit --check
-git tag -a v2026.09.29.1 -m "Alpaca runner: <one line>"
-git push origin v2026.09.29.1        # the installer refuses a tag that is not on origin
+git tag -a release-20261007-2 -m "Alpaca runner: <one line>"
+git push origin release-20261007-2   # the installer refuses a tag that is not on origin
 ```
 
 Which branch the tag sits on (`alpaca-runner` or `main` after a merge) is the
@@ -81,12 +83,12 @@ the dev repo's tag and origin's tag name different commits.
 ```bash
 cd "<dev repo>"
 # 2.1 dry run: every check, then the exact steps and both rendered plists. Writes nothing.
-python3 -m quantt.deploy.install_prod --tag v2026.09.29.1 --env-file ~/.config/quantt/alpaca.env
+python3 -m quantt.deploy.install_prod --tag release-20261007-2 --env-file ~/.config/quantt/alpaca.env
 #       (add --accept-timezone America/Toronto if section 0.1 chose that)
 
 # 2.2 apply: clone/fetch, checkout the tag detached, seed panels if absent,
 #     make the state dir, write the plists with DRY_RUN=1. Does NOT load them.
-python3 -m quantt.deploy.install_prod --tag v2026.09.29.1 --env-file ~/.config/quantt/alpaca.env --apply
+python3 -m quantt.deploy.install_prod --tag release-20261007-2 --env-file ~/.config/quantt/alpaca.env --apply
 ```
 
 2.3 **Prove the prod clone before scheduling it** (`docs/ROADMAP.md` 6.3). Use
@@ -510,13 +512,29 @@ because an RBAC refusal's message names the tenant, object ids and the
 **On `--apply` the timers are stopped for the run.** The installer stops every
 running quantt-cef timer first, so no firing can start a job mid-install. It
 then checks for a running or queued job, does the checkout, writes and
-reloads, and checks again. At the end it restarts the timers that were running,
-or enables them all with `--enable`. Restarting does not replay slots missed
-while stopped [V: measured on the VM, 2026-10-08, Persistent=false].
+reloads, and checks again. Then, still with no timer running, it:
+- **restarts `quantt-secret.service`**, so `/run/quantt/alpaca.env` matches
+  the unit just loaded: a changed `--vault`, or keys rotated in the vault. It
+  confirms the service is active and the file is 0600 and owned by quantt,
+  using stat only;
+- **starts every enabled timer**, plus any that was running, or enables them
+  all with `--enable`;
+- **reads back** from systemd that each is active, and refuses if one is not.
 
-- **If it refuses after stopping them**, the timers stay **STOPPED**, and the
-  message says so. Nothing trades and no verify line is written until you
-  re-run the installer or `sudo systemctl start` them.
+The end state is set by enablement, so a re-run after a refusal does leave the
+timers running. To keep one timer off, disable it. Restarting does not replay
+slots missed while stopped [V: measured on the VM, 2026-10-08,
+Persistent=false].
+
+- **If it fails after stopping them**, whether by a refusal, a failed key
+  fetch or an unexpected error, it reads the timers back and prints `timers
+  left STOPPED: …` for each one that is not running. Nothing trades and no
+  verify line is written until you re-run the installer or `sudo systemctl
+  start` them.
+- **A venv built from another `requirements.txt`** is refused at planning. The
+  venv records the sha256 of the file it was built from
+  (`/home/quantt/venv/.quantt-requirements.sha256`, written by bootstrap and
+  by the 8.6 dependency step). The message gives the exact command.
 - **Exit 3** (`ALERT at step …`) means a job ran or was queued after the reload,
   which should be impossible with the timers stopped. The message names the
   job, its MainPID and the DRY_RUN it started with, or says that is unknown.
@@ -640,8 +658,9 @@ cancels an order already at Alpaca.
      on disk, because a drop-in could keep DRY_RUN=0 in force. When the halt
      is needed **now**, use step 1 or 2 first.
    - It stops the running timers for the length of the run, so no firing can
-     start the old, armed unit mid-disarm. At the end it restarts them. If it
-     refuses part-way, they are left stopped, and it says so.
+     start the old, armed unit mid-disarm. At the end it starts every enabled
+     timer and reads back that each is running. If it fails part-way, it reads
+     them back and names any left stopped.
    - **If it refuses after the reload**, systemd is **now** running the
      configuration shown in the refusal. Halt at once with step 1 or 2
      (`ops/HALT.md`, or remove AUTO_ARMED), then find the cause.
@@ -665,9 +684,17 @@ cancels an order already at Alpaca.
    or the installer: with the timers still stopped, check out the tag as
    `quantt`:
    `sudo -u quantt git -C /home/quantt/prod/quantt-alpaca checkout --detach <new>`.
-   If `requirements.txt` changed, also run
-   `sudo -u quantt env HOME=/home/quantt /home/quantt/.uv/bin/uv pip install --no-build --python /home/quantt/venv/bin/python -r /home/quantt/prod/quantt-alpaca/requirements.txt`.
-   The installer does not install dependencies.
+   If `requirements.txt` changed (the dry run refuses and says so), also run
+   the following, which installs wheels only and records which file the venv
+   was built from:
+   ```bash
+   sudo -u quantt env HOME=/home/quantt /home/quantt/.uv/bin/uv pip install --no-build \
+     --python /home/quantt/venv/bin/python -r /home/quantt/prod/quantt-alpaca/requirements.txt &&
+   sha256sum /home/quantt/prod/quantt-alpaca/requirements.txt | cut -d' ' -f1 |
+     sudo -u quantt tee /home/quantt/venv/.quantt-requirements.sha256
+   ```
+   The installer does not install dependencies. It refuses a venv whose record
+   does not match the tag's `requirements.txt`.
 4. **Apply and re-enable, only through the installer:**
    `qi --tag <new> --vault <vault-name> --apply --enable`, adding `--armed` if
    the VM is armed. **A re-install without `--armed` disarms.**
@@ -679,11 +706,15 @@ Otherwise nothing trades, and no verify line is written.
 **Rolling back** is the same procedure with the previous tag.
 
 **Rotating the keys:** the TL adds a new version of both secrets in the portal,
-and the latest version is what gets fetched. Then
-`sudo systemctl restart quantt-secret.service`, outside every job window.
-Restarting removes and re-creates `/run/quantt`, so a job starting at that
-instant would find no key file and fail loudly. Because the job units use
-`Wants=` and not `Requires=`, a running job is never stopped by the restart.
+and the latest version is what gets fetched. Then re-run the installer
+(`qi --tag <current> --vault <vault-name> --apply`, adding `--armed` if the
+VM is armed). That is the safe way: it restarts `quantt-secret.service` while
+the timers are stopped and no job is running, and confirms the key file. A bare
+`sudo systemctl restart quantt-secret.service` also works, but only outside
+every job window. Restarting removes and re-creates `/run/quantt`, so a job
+starting at that instant would find no key file and fail loudly. Because the
+job units use `Wants=` and not `Requires=`, a running job is never stopped by
+the restart.
 
 ### 8.7 Cost, and the credit that keeps the book alive
 

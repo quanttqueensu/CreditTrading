@@ -62,6 +62,7 @@ PY_VERSION="3.13.5"
 SWAP_FILE="/swapfile"
 SWAP_SIZE="2G"
 ROOT="${ROOT:-}"        # prefix for the files step_apt writes; empty on the VM, a tmp dir in tests
+REQUIREMENTS_RECORD=".quantt-requirements.sha256"   # = install_vm.REQUIREMENTS_RECORD
 
 die() { echo "REFUSED: $*" >&2; exit 2; }
 step() { echo "== $*"; }
@@ -171,6 +172,11 @@ step_requirements() {
   # compiling on a 1 GiB VM. Not --quiet: a failure must show what failed.
   step "Python packages from ${TAG}'s requirements.txt (wheels only)"
   as_quantt "${UV}" pip install --no-build --python "${VENV}/bin/python" -r "${PROD}/requirements.txt"
+  # Record WHICH requirements.txt the venv was built from. install_vm refuses
+  # a tag whose requirements.txt hashes differently (install_vm.REQUIREMENTS_RECORD).
+  local digest
+  digest="$(sha256sum "${PROD}/requirements.txt" | cut -d' ' -f1)"
+  as_quantt sh -c 'printf "%s\n" "$1" > "$2"' _ "${digest}" "${VENV}/${REQUIREMENTS_RECORD}"
 }
 
 main() {

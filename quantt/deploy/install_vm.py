@@ -76,12 +76,24 @@ DRY_RUN=1 loaded. So `--apply` runs in this order:
   4. check again. A job found now exits 3 (EXIT_JOB_DURING_INSTALL), naming
      the job, its MainPID and the DRY_RUN it started with, read from /proc and
      never guessed;
-  5. restart the timers that were running before, or enable them all with
-     `--enable`.
+  5. restart quantt-secret.service and confirm it is active and the key file is
+     a 0600 file owned by quantt (stat only). A oneshot with RemainAfterExit is
+     otherwise never re-run, so a changed --vault or rotated keys would leave
+     the old keys in /run/quantt while the run reported success (release-check
+     #2). It is done here, while no job can run, because the restart removes and
+     re-creates /run/quantt;
+  6. start every ENABLED timer, plus any that was running, or enable them all
+     with `--enable`, then READ BACK that each is active, and refuse if one is
+     not. The end state is set by enablement, not by what happened to be
+     running. Otherwise a re-run after a refusal that had stopped the timers
+     would exit 0 with all three still stopped (release-check #2).
 
 Restarting does not replay the slots missed while stopped (measured, see the
-parser comment). Any refusal after step 1 leaves the timers STOPPED and says
-so: nothing trades until the installer is re-run or the timers are started.
+parser comment). Any failure after step 1, a refusal or an unexpected
+exception, reads the timers back and reports any that are STOPPED: nothing
+trades until the installer is re-run or the timers are started. Planning also
+refuses a venv built from a requirements.txt other than the tag's
+(REQUIREMENTS_RECORD, written by bootstrap.sh).
 
 TIMEZONE: ONE MECHANISM
 -----------------------
@@ -150,9 +162,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import os
 import pwd
 import re
+import stat
 import subprocess
 import sys
 from collections import Counter
@@ -195,6 +209,10 @@ SESSION_SUCCESS_EXIT = (3, 4, 5, 6, 10)
 # was queued after the reload, which with the timers stopped should be
 # impossible, so the run says so loudly instead of reporting success.
 EXIT_JOB_DURING_INSTALL = 3
+
+# sha256 of the requirements.txt the venv was built from, written by bootstrap.sh
+# (and by the RUNBOOK 8.6 dependency step) into the venv directory.
+REQUIREMENTS_RECORD = ".quantt-requirements.sha256"
 
 # Every rendered value must match this pattern. It excludes the space (which
 # would split ExecStart's argv), '%' (a systemd specifier), '$' (variable
@@ -274,6 +292,10 @@ class Layout:
     @property
     def venv_python(self) -> Path:
         return self.home / "venv" / "bin" / "python"
+
+    @property
+    def requirements_record(self) -> Path:
+        return self.home / "venv" / REQUIREMENTS_RECORD
 
     def unit_path(self, unit_file: str) -> Path:
         return self.units_dir / unit_file
@@ -455,15 +477,16 @@ class Git:
     def __init__(self, repo: Path, as_user: list, home: Path):
         self.repo, self.as_user, self.home = repo, as_user, home
 
-    def __call__(self, *args, allow_fail=False):
+    def __call__(self, *args, allow_fail=False, raw=False):
         env = dict(os.environ, GIT_TERMINAL_PROMPT="0", HOME=str(self.home))
         r = subprocess.run([*self.as_user, "git", "-C", str(self.repo), *args],
-                           capture_output=True, text=True, env=env)
+                           capture_output=True, text=not raw, env=env)
         if r.returncode != 0:
             if allow_fail:
                 return None
+            err = r.stderr.decode("utf-8", "replace") if raw else r.stderr
             raise InstallRefused(f"`git {' '.join(args)}` failed (exit {r.returncode}): "
-                                 f"{r.stderr.strip()}")
+                                 f"{err.strip()}")
         return r.stdout
 
 
@@ -684,6 +707,62 @@ def verify_loaded(run_cmd: Callable, layout: "Layout", unit: str, expect: dict) 
             "remove AUTO_ARMED), then find the cause")
 
 
+def deps_command(layout: "Layout") -> str:
+    """The RUNBOOK 8.6 dependency step, with the record bootstrap.sh also writes."""
+    req = layout.prod_dir / "requirements.txt"
+    return (f"sudo -u {SERVICE_USER} env HOME={layout.home} {layout.home}/.uv/bin/uv pip "
+            f"install --no-build --python {layout.venv_python} -r {req} && "
+            f"sha256sum {req} | cut -d' ' -f1 | sudo -u {SERVICE_USER} tee "
+            f"{layout.requirements_record}")
+
+
+def _refuse_if_venv_is_stale(git: "Git", commit: str, tag: str, layout: "Layout") -> None:
+    """The venv must have been built from the TAG's requirements.txt.
+
+    The installer does not install dependencies. Without this check, a release
+    that changed requirements.txt would run its new code against the old
+    packages, and nothing would say so until something failed at run time.
+    bootstrap.sh (and the RUNBOOK 8.6 step) record the sha256 of the
+    requirements.txt they installed; it is compared here with the tag's blob.
+    """
+    want = hashlib.sha256(git("show", f"{commit}:requirements.txt", raw=True)).hexdigest()
+    rec = layout.requirements_record
+    try:
+        words = rec.read_text().split()
+    except FileNotFoundError:
+        words = []
+    if not words:
+        raise InstallRefused(
+            f"{rec} is missing or empty, so the venv has no record of the "
+            f"requirements.txt it was built from. With the timers stopped and the clone "
+            f"at {tag} (docs/RUNBOOK.md 8.6 steps 1 and 3), run: {deps_command(layout)}")
+    if words[0] != want:
+        raise InstallRefused(
+            f"the venv was built from a requirements.txt with sha256 {words[0][:12]}..., but "
+            f"{tag}'s has {want[:12]}...: its packages do not match the release. With the "
+            f"timers stopped, check out {tag} (docs/RUNBOOK.md 8.6 step 3), then run: "
+            f"{deps_command(layout)}")
+
+
+def _confirm_key_file(layout: "Layout", uid: int) -> None:
+    """The key file exists, is a regular 0600 file, and is owned by the service
+    user. The check uses stat only: the file is never opened."""
+    f = layout.sysroot / ENV_FILE.relative_to("/")
+    try:
+        st = os.lstat(f)
+    except FileNotFoundError:
+        raise InstallRefused(f"{SECRET_UNIT} is active but {ENV_FILE} does not exist") from None
+    problems = []
+    if not stat.S_ISREG(st.st_mode):
+        problems.append("is not a regular file")
+    if st.st_mode & 0o777 != 0o600:
+        problems.append(f"has mode {oct(st.st_mode & 0o777)}, expected 0o600")
+    if st.st_uid != uid:
+        problems.append(f"is owned by uid {st.st_uid}, not {SERVICE_USER} ({uid})")
+    if problems:
+        raise InstallRefused(f"{ENV_FILE} {' and '.join(problems)}")
+
+
 class JobDuringInstall(InstallRefused):
     """A quantt job ran or was queued AFTER the reload. That should be
     impossible with the timers stopped, so it is a separate exit code and a
@@ -849,6 +928,7 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
                if git("cat-file", "-e", f"{commit}:{p}", allow_fail=True) is None]
     if missing:
         raise InstallRefused(f"tag {tag} lacks files the VM units need: {', '.join(missing)}")
+    _refuse_if_venv_is_stale(git, commit, tag, layout)
 
     dry_run = "0" if armed else "1"
     env = ip.expected_env(dry_run, layout, ENV_FILE, python)
@@ -903,7 +983,22 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     enabled = [t for t in timers if run_cmd(["systemctl", "is-enabled", "--quiet", t]).returncode == 0]
     running = [t for t in timers
                if _one(systemd_show(run_cmd, t, ["ActiveState"]), "ActiveState", t) == "active"]
-    run_state = {"stopped": []}
+    secret_on = (run_cmd(["systemctl", "is-enabled", "--quiet", SECRET_UNIT]).returncode == 0
+                 or _one(systemd_show(run_cmd, SECRET_UNIT, ["ActiveState"]), "ActiveState",
+                         SECRET_UNIT) == "active")
+
+    def active_now(t):
+        return _one(systemd_show(run_cmd, t, ["ActiveState"]), "ActiveState", t) == "active"
+
+    # THE END STATE IS SET BY ENABLEMENT (release-check #2, 2026-10-08): after a
+    # successful --apply every enabled timer is running, read back from
+    # systemd. Restarting only "what was running" let a re-run after a refusal
+    # exit 0 with every timer stopped: no decide, no send, no verify line.
+    # `targets` is what must be running at the end. A failure reads it back
+    # and reports any that are stopped; the run never claims a state it did not read.
+    run_state = {"targets": list(timers) if enable else
+                 [t for t in timers if t in set(enabled) | set(running)]}
+    run_state["stopped_now"] = lambda: [t for t in run_state["targets"] if not active_now(t)]
 
     def systemctl(*args):
         r = run_cmd(["systemctl", *args])
@@ -918,11 +1013,9 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     # restarts them at the end. A refusal after this point leaves them stopped,
     # and says so. Restarting does not replay the missed slots (measured (b)).
     if running:
-        def stop_timers():
-            systemctl("stop", *running)
-            run_state["stopped"] = list(running)
         steps.append(Step(f"systemctl stop {' '.join(running)} (no firing can start a job "
-                          f"during the install; restarted at the end)", stop_timers))
+                          f"during the install; every enabled timer is started at the end)",
+                          lambda: systemctl("stop", *running)))
     steps.append(Step("confirm no quantt job is running or queued",
                       lambda: _refuse_if_busy(run_cmd)))
 
@@ -1026,28 +1119,81 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     steps.append(Step("confirm from systemd that no quantt job ran or was queued during "
                       "the install", lambda: _stop_if_a_job_ran(run_cmd, read_environ)))
 
-    def restarted():
-        run_state["stopped"] = []
+    # THE KEYS (release-check #2): quantt-secret is oneshot + RemainAfterExit, so
+    # unless it is restarted, /run/quantt/alpaca.env keeps the keys fetched for
+    # the OLD unit (another vault, or keys since rotated) while the run reports
+    # success. It is re-fetched on every apply, now, while the timers are stopped
+    # and no job is busy, so restarting it (which removes and re-creates
+    # /run/quantt) cannot pull the file from under a job.
     if enable:
-        steps.append(Step(f"systemctl enable --now {SECRET_UNIT} (fetch the keys now; "
-                          f"again at every boot)", lambda: systemctl("enable", "--now", SECRET_UNIT)))
+        steps.append(Step(f"systemctl enable {SECRET_UNIT} (the keys at every boot)",
+                          lambda: systemctl("enable", SECRET_UNIT)))
+    if enable or secret_on:
+        def refresh_keys():
+            systemctl("restart", SECRET_UNIT)
+            st = _one(systemd_show(run_cmd, SECRET_UNIT, ["ActiveState"]), "ActiveState",
+                      SECRET_UNIT)
+            if st != "active":
+                raise InstallRefused(f"{SECRET_UNIT} is {st} after its restart; the keys "
+                                     f"were not fetched (see its log, secret.err.log)")
+            _confirm_key_file(layout, uid)
+        steps.append(Step(f"systemctl restart {SECRET_UNIT} (re-fetch the keys for the unit "
+                          f"just loaded, while no job can run); confirm it is active and "
+                          f"{ENV_FILE} is a 0600 file owned by {SERVICE_USER} (stat only)",
+                          refresh_keys))
+
+    if enable:
         steps.append(Step(f"systemctl enable --now {' '.join(timers)}",
-                          lambda: (systemctl("enable", "--now", *timers), restarted())))
+                          lambda: systemctl("enable", "--now", *timers)))
     else:
-        if running:
-            steps.append(Step(f"systemctl start {' '.join(running)} (the timers that were "
-                              f"running before this install)",
-                              lambda: (systemctl("start", *running), restarted())))
-        if enabled:
-            notes.append(f"timers already enabled ({', '.join(enabled)}): their next "
-                         f"firing runs the units written by this install")
-        else:
-            notes.append("timers are NOT enabled by this run (pass --apply --enable)")
+        def start_enabled():
+            now_enabled = {t for t in timers
+                           if run_cmd(["systemctl", "is-enabled", "--quiet", t]).returncode == 0}
+            run_state["targets"] = [t for t in timers if t in now_enabled | set(running)]
+            if run_state["targets"]:
+                systemctl("start", *run_state["targets"])
+        steps.append(Step("systemctl start every enabled timer (and any that was running "
+                          "before this install)", start_enabled))
+
+    def read_back():
+        want = run_state["targets"]
+        states = {t: _one(systemd_show(run_cmd, t, ["ActiveState"]), "ActiveState", t)
+                  for t in want}
+        bad = [t for t in want if states[t] != "active"]
+        if bad:
+            raise InstallRefused(
+                f"{', '.join(f'{t} is {states[t]}' for t in bad)}: not active after the "
+                f"start, so it will not fire (see `systemctl status {bad[0]}`)")
+        print(f"  timers active (read back from systemd): "
+              f"{', '.join(want) if want else 'none (no timer is enabled)'}")
+    steps.append(Step("read back from systemd that every enabled timer is active", read_back))
+
+    if not enable:
+        notes.append(f"timers enabled now: {', '.join(enabled) or 'none'}; running now: "
+                     f"{', '.join(running) or 'none'}. The run ends by starting every enabled "
+                     f"timer and reading back that each is active"
+                     + ("" if enabled or running else
+                        " (none is enabled, so none will run: NOT enabled by this run; pass "
+                        "--apply --enable)"))
 
     if armed:
         warnings.append(f"ARMED: units get DRY_RUN=0. A scheduled session also needs "
                         f"{layout.state_dir}/AUTO_ARMED to transmit (docs/RUNNER.md gate 2)")
     return Plan(notes, warnings, steps, rendered, run_state)
+
+
+def _report_stopped_timers(plan: Plan) -> None:
+    """After a failed step: which timers that must be running are not, READ
+    BACK from systemd. If the read fails, say so; never claim either way."""
+    try:
+        stopped = plan.state["stopped_now"]()
+    except Exception as e:                       # reported, and the caller still fails
+        print(f"timers: could not read their state back ({type(e).__name__}: {e}); "
+              f"treat them as STOPPED and check `systemctl list-timers 'quantt-*'`")
+        return
+    if stopped:
+        print(f"timers left STOPPED: {' '.join(stopped)}. Nothing will run until you "
+              f"re-run the installer or start them (`sudo systemctl start {' '.join(stopped)}`)")
 
 
 def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_URL,
@@ -1102,11 +1248,14 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
             except InstallRefused as e:
                 alert = isinstance(e, JobDuringInstall)
                 print(f"{'ALERT' if alert else 'REFUSED'} at step {i}: {e}")
-                if plan.state["stopped"]:
-                    print(f"timers left STOPPED: {' '.join(plan.state['stopped'])}. Nothing "
-                          f"will run until you re-run the installer or start them "
-                          f"(`sudo systemctl start {' '.join(plan.state['stopped'])}`)")
+                _report_stopped_timers(plan)
                 return EXIT_JOB_DURING_INSTALL if alert else 2
+            except BaseException:
+                # Not swallowed: re-raised with its traceback. But the operator
+                # must still learn that the timers may be stopped.
+                print(f"ERROR at step {i}: unexpected exception (traceback follows)")
+                _report_stopped_timers(plan)
+                raise
     if not a.apply:
         for name, text in plan.rendered.items():
             print(f"\n----- {layout.unit_path(name)} (rendered, not written)\n{text}")

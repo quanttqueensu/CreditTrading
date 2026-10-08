@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import hashlib
 import plistlib
 import re
 import subprocess
@@ -105,12 +106,43 @@ class FakeSystemd:
         self.race_fire = False
         self.fired = False
         self.start_at_reload = None
+        # the key service: started? its restarts (the vault in the LOADED unit
+        # at each restart), a failing fetch, the mode the file gets
+        self.secret_started = False
+        self.secret_restarts = []
+        self.secret_fails = False
+        self.secret_mode = 0o600
+        self.start_refuses = set()    # timers that stay inactive when started
+        self.raise_on = {}            # argv prefix -> exception raised by run_cmd
 
     def _cp(self, args, rc=0, out=""):
         return subprocess.CompletedProcess(args, rc, out, "")
 
+    def key_file(self):
+        return self.sysroot / "run" / "quantt" / "alpaca.env"
+
+    def _start_secret(self):
+        exec_start = [v for k, v in self.loaded.get(iv.SECRET_UNIT, {}).get("Service", [])
+                      if k == "ExecStart"]
+        vault = re.search(r"--config vault=(\S+)", exec_start[0]).group(1) if exec_start else None
+        self.secret_restarts.append(vault)
+        if self.secret_fails:
+            self.active[iv.SECRET_UNIT] = "failed"
+            return False
+        f = self.key_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(f.parent, 0o700)
+        f.write_text("ALPACA_CEF_KEY_ID=x\nALPACA_CEF_SECRET_KEY=y\n")
+        os.chmod(f, self.secret_mode)
+        self.active.pop(iv.SECRET_UNIT, None)
+        self.secret_started = True
+        return True
+
     def __call__(self, args):
         self.calls.append(list(args))
+        for prefix, exc in self.raise_on.items():
+            if tuple(args[:len(prefix)]) == prefix:
+                raise exc
         for prefix, rc in self.fail.items():
             if tuple(args[:len(prefix)]) == prefix:
                 return subprocess.CompletedProcess(args, rc, "", "rejected by stub")
@@ -150,11 +182,20 @@ class FakeSystemd:
             self.timer_active -= set(args[2:])
             return self._cp(args)
         if args[:2] == ["systemctl", "start"]:
-            self.timer_active |= {u for u in args[2:] if u.endswith(".timer")}
+            self.timer_active |= {u for u in args[2:] if u.endswith(".timer")} - self.start_refuses
             return self._cp(args)
+        if args[:3] == ["systemctl", "restart", iv.SECRET_UNIT]:
+            ok = self._start_secret()
+            return subprocess.CompletedProcess(args, 0 if ok else 1, "",
+                                               "" if ok else "Job failed. See journalctl")
         if args[:3] == ["systemctl", "enable", "--now"]:
-            self.timer_active |= {u for u in args[3:] if u.endswith(".timer")}
-            self.enabled |= {u for u in args[3:] if u.endswith(".timer")}
+            self.timer_active |= {u for u in args[3:] if u.endswith(".timer")} - self.start_refuses
+            self.enabled |= set(args[3:])
+            if iv.SECRET_UNIT in args[3:]:
+                self._start_secret()
+            return self._cp(args)
+        if args[:2] == ["systemctl", "enable"]:
+            self.enabled |= set(args[2:])
             return self._cp(args)
         if args[:2] == ["systemctl", "is-enabled"]:
             return self._cp(args, 0 if args[-1] in self.enabled else 1)
@@ -189,7 +230,8 @@ class FakeSystemd:
                 if unit.endswith(".timer"):
                     state = "active" if unit in self.timer_active else "inactive"
                 else:
-                    state = self.active.get(unit, "active" if unit == iv.SECRET_UNIT else "inactive")
+                    default = "active" if unit == iv.SECRET_UNIT and self.secret_started else "inactive"
+                    state = self.active.get(unit, default)
                 lines.append(f"ActiveState={state}")
             elif prop == "Job":
                 lines.append("Job=" + self.jobs.get(unit, ""))
@@ -242,6 +284,12 @@ class World:
         # what bootstrap.sh does: clone, detach at the tag
         git("clone", "-q", str(self.origin), str(self.layout.prod_dir), cwd=tmp)
         git("checkout", "-q", "--detach", "refs/tags/v1", cwd=self.layout.prod_dir)
+        # what bootstrap.sh records after installing the tag's requirements.txt
+        self.record_requirements()
+
+    def record_requirements(self):
+        digest = hashlib.sha256((self.layout.prod_dir / "requirements.txt").read_bytes()).hexdigest()
+        self.layout.requirements_record.write_text(digest + "\n")
 
     def set_tz(self, zone):
         if self.localtime.is_symlink():
@@ -471,7 +519,8 @@ def test_enable_starts_the_key_service_then_the_timers(world, capsys):
     assert rc == 0
     assert world.cmds.mutating() == [
         ["systemctl", "daemon-reload"],
-        ["systemctl", "enable", "--now", iv.SECRET_UNIT],
+        ["systemctl", "enable", iv.SECRET_UNIT],
+        ["systemctl", "restart", iv.SECRET_UNIT],         # the keys match the loaded unit
         ["systemctl", "enable", "--now", *[vj.timer for vj in iv.VM_JOBS]]]
 
 
@@ -493,10 +542,13 @@ def test_armed_renders_dry_run_zero_and_warns_and_reinstall_disarms(world, capsy
     assert world.cmds.mutating().count(["systemctl", "daemon-reload"]) == 2
 
 
-def test_already_enabled_timers_are_noted(world, capsys):
+def test_enabled_timers_are_started_and_read_back(world, capsys):
+    """Enabled means running after the install, read back from systemd."""
     world.cmds.enabled = {vj.timer for vj in iv.VM_JOBS}
     rc, out = world.run("--apply", capsys=capsys)
-    assert rc == 0 and "timers already enabled" in out
+    assert rc == 0, out
+    assert world.cmds.timer_active == set(TIMERS)
+    assert "read back" in out and "their next firing" not in out
 
 
 def test_installer_never_writes_auto_armed(world, capsys):
@@ -738,16 +790,19 @@ def test_a_firing_cannot_start_the_old_unit_between_the_last_look_and_the_reload
     assert world.cmds.timer_active == set(TIMERS)
 
 
-def test_only_the_timers_that_were_running_are_restarted(world, capsys):
+def test_every_enabled_timer_is_running_at_the_end_even_one_stopped_by_hand(world, capsys):
+    """The end state is set by ENABLEMENT, not by what happened to be running:
+    a timer that is enabled is running after a successful install. To keep
+    one off, disable it."""
     armed_and_running(world, capsys)
-    world.cmds.timer_active.discard("quantt-cef-collect.timer")   # stopped by hand
+    world.cmds.timer_active.discard("quantt-cef-collect.timer")   # stopped by hand, still enabled
     running = [t for t in TIMERS if t != "quantt-cef-collect.timer"]
     rc, out = world.run("--apply", capsys=capsys)
     assert rc == 0, out
     calls = world.cmds.mutating()
     assert calls[0] == ["systemctl", "stop", *running]
-    assert calls[-1] == ["systemctl", "start", *running]
-    assert world.cmds.timer_active == set(running)
+    assert calls[-1] == ["systemctl", "start", *TIMERS]
+    assert world.cmds.timer_active == set(TIMERS)
 
 
 def test_enable_starts_every_timer_after_the_checks(world, capsys):
@@ -805,6 +860,107 @@ def test_a_refusal_before_stopping_leaves_the_timers_running(world, capsys):
     assert rc == 2 and "timers left STOPPED" not in out
     assert world.cmds.timer_active == set(TIMERS)
     assert world.cmds.mutating() == []
+
+
+# -- release-check #2 (2026-10-08): no silent stop, no stale keys ---------------------
+
+def test_a_rerun_after_a_refusal_restarts_every_enabled_timer(world, capsys):
+    """The silent stop: a refusal after the stop leaves the timers stopped (and
+    says so); the re-run the message asks for must leave them RUNNING, read
+    back. Before the fix it exited 0 with all three still stopped."""
+    world.commit_and_tag("v2", lambda d: (d / "ops/halt.py").write_text("# v2\n"))
+    armed_and_running(world, capsys)
+    seen = {"n": 0}
+    real = world.cmds.__call__
+
+    def racing(args):
+        if args[:3] == ["systemctl", "show", "quantt-cef-verify.service"] and "ActiveState" in args:
+            seen["n"] += 1
+            if seen["n"] > 1:
+                world.cmds.active["quantt-cef-verify.service"] = "activating"
+        return real(args)
+    rc, out = world.run("--apply", "--armed", tag="v2", run_cmd=racing, capsys=capsys)
+    assert rc == 2 and "timers left STOPPED" in out
+    world.cmds.active["quantt-cef-verify.service"] = "inactive"      # the job finished
+    rc, out = world.run("--apply", "--armed", tag="v2", capsys=capsys)
+    assert rc == 0, out
+    assert world.cmds.timer_active == set(TIMERS)
+
+
+def test_an_enabled_timer_that_will_not_start_refuses_loudly(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.start_refuses = {"quantt-cef-verify.timer"}
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and "quantt-cef-verify.timer" in out and "not active" in out, out
+    assert "timers left STOPPED: quantt-cef-verify.timer" in out
+
+
+def test_a_changed_vault_restarts_the_key_service(world, capsys):
+    """The key service is oneshot + RemainAfterExit: never restarted, it would
+    keep serving the old vault's keys after a successful install."""
+    assert world.run("--apply", "--enable", vault="example-vault-x1", capsys=capsys)[0] == 0
+    world.cmds.calls.clear()
+    rc, out = world.run("--apply", vault="example-vault-x2", capsys=capsys)
+    assert rc == 0, out
+    assert world.cmds.secret_restarts[-1] == "example-vault-x2"
+    calls = world.cmds.mutating()
+    assert calls.index(["systemctl", "restart", iv.SECRET_UNIT]) > \
+        max(i for i, c in enumerate(calls) if c == ["systemctl", "daemon-reload"])
+
+
+def test_the_key_service_is_restarted_on_every_apply_while_the_timers_are_stopped(world, capsys):
+    armed_and_running(world, capsys)
+    n = len(world.cmds.secret_restarts)
+    rc, out = world.run("--apply", "--armed", capsys=capsys)       # same vault
+    assert rc == 0, out
+    assert len(world.cmds.secret_restarts) == n + 1
+    calls = world.cmds.mutating()
+    assert calls.index(["systemctl", "stop", *TIMERS]) < \
+        calls.index(["systemctl", "restart", iv.SECRET_UNIT]) < \
+        calls.index(["systemctl", "start", *TIMERS])
+
+
+def test_a_failing_key_fetch_refuses_with_the_timers_left_stopped(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.secret_fails = True
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and iv.SECRET_UNIT in out, out
+    assert "timers left STOPPED" in out and world.cmds.timer_active == set()
+
+
+def test_a_key_file_with_the_wrong_mode_refuses(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.secret_mode = 0o644
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and "0o644" in out and "timers left STOPPED" in out, out
+
+
+def test_a_first_install_without_enable_starts_no_key_service(world, capsys):
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 0, out
+    assert world.cmds.secret_restarts == []
+
+
+def test_an_unexpected_error_after_the_stop_still_reports_the_stopped_timers(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.raise_on = {("systemctl", "daemon-reload"): RuntimeError("dbus went away")}
+    with pytest.raises(RuntimeError, match="dbus went away"):
+        world.run("--apply", capsys=capsys)
+    out = capsys.readouterr().out
+    assert "timers left STOPPED" in out, out
+
+
+def test_a_venv_built_from_other_requirements_is_refused(world, capsys):
+    world.commit_and_tag("v2", lambda d: (d / "requirements.txt").write_text("pandas==9.9.9\n"))
+    rc, out = world.run("--apply", tag="v2", capsys=capsys)
+    assert rc == 2 and "requirements.txt" in out and "uv pip install --no-build" in out, out
+    assert world.head() == world.tag_commit("v1") and units_written(world) == []
+
+
+def test_a_venv_with_no_requirements_record_is_refused(world, capsys):
+    world.layout.requirements_record.unlink()
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and str(world.layout.requirements_record) in out, out
 
 
 def test_the_key_service_being_active_is_normal(world, capsys):
@@ -1098,10 +1254,16 @@ def test_bootstrap_installs_wheels_only_and_loudly(tmp_path):
     stub = tmp_path / "uv"
     stub.write_text(f"#!/bin/sh\necho \"$@\" >> {rec}\n")
     os.chmod(stub, 0o755)
-    r = bootstrap_fn(f"UV={str(stub)!r}; VENV=/v; PROD=/p; TAG=t; step_requirements", tmp_path)
+    venv, prod = tmp_path / "v", tmp_path / "p"
+    venv.mkdir()
+    prod.mkdir()
+    (prod / "requirements.txt").write_text("x==1\n")
+    r = bootstrap_fn(f"UV={str(stub)!r}; VENV={str(venv)!r}; PROD={str(prod)!r}; TAG=t; "
+                     f"step_requirements", tmp_path)
     assert r.returncode == 0, r.stderr
     args = rec.read_text().split()
     assert args[:2] == ["pip", "install"] and "--no-build" in args and "--quiet" not in args
+    assert args[args.index("--python") + 1] == f"{venv}/bin/python"
     assert "--only-binary=:all:" in BOOTSTRAP.read_text()       # the pip that installs uv
 
 
@@ -1114,3 +1276,21 @@ def test_bootstrap_keeps_both_apt_timers_out_of_the_job_windows(tmp_path):
         assert "OnCalendar=\nOnCalendar=*-*-* 02:00\n" in conf, timer
         assert "RandomizedDelaySec=30m" in conf and "Persistent=false" in conf, timer
     assert 'Automatic-Reboot "false"' in (root / "etc/apt/apt.conf.d/52quantt").read_text()
+
+
+def test_bootstrap_records_the_requirements_it_installed(tmp_path):
+    rec = tmp_path / "uv-args"
+    stub = tmp_path / "uv"
+    stub.write_text(f"#!/bin/sh\necho \"$@\" >> {rec}\n")
+    os.chmod(stub, 0o755)
+    venv, prod = tmp_path / "venv", tmp_path / "prod"
+    venv.mkdir()
+    prod.mkdir()
+    (prod / "requirements.txt").write_text("pandas==2.3.3\n")
+    r = bootstrap_fn(f"UV={str(stub)!r}; VENV={str(venv)!r}; PROD={str(prod)!r}; TAG=t; "
+                     f"step_requirements", tmp_path)
+    assert r.returncode == 0, r.stderr
+    want = hashlib.sha256(b"pandas==2.3.3\n").hexdigest()
+    assert (venv / iv.REQUIREMENTS_RECORD).read_text().strip() == want
+    assert iv.Layout(Path("/home/quantt")).requirements_record == \
+        Path("/home/quantt/venv") / iv.REQUIREMENTS_RECORD

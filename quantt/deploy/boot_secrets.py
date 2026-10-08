@@ -22,7 +22,8 @@ writes the same file format into /run/quantt, where:
   * the file is mode 0600.
 
 A SUCCESSFUL fetch runs once per boot (`RemainAfterExit=yes` keeps the service
-active), so secret reads stay negligible. A FAILED fetch leaves the service
+active), and again on every installer --apply, which restarts the service so the
+file matches the unit just loaded. Secret reads stay negligible. A FAILED fetch leaves the service
 inactive, and every job start pulls it in again (`Wants=`). That is
 self-healing: a role assignment fixed later works at the next firing. The cost
 is that each job waits for the retry, up to about 4 minutes when every request
