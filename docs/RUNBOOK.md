@@ -198,9 +198,14 @@ cancels an order already at Alpaca.**
 **Cancelling an order already sent** is an order-path action: the TL only.
 NYSE accepts no MOC cancel after 15:50 ET (`CLAUDE.md` order-path rule 3).
 
-Note: a halt file and the `ops/halts/` archive are files inside the prod clone.
-They are not gitignored, so the installer sees them as local modifications and
-refuses to update while they exist. See the open question at the end of this file.
+Note (corrected 2026-10-07): this note used to say that halt files are not
+gitignored, so the installer sees them as local modifications and refuses to
+update while they exist. That is no longer true. `.gitignore` now ignores
+`/ops/HALT*.md`, `/ops/halts/` and `/ops/heartbeat.json`, and gives its reason
+beside them, so a halt, standing or cleared, no longer makes the installer
+refuse. What follows is the consequence open question 2 named: an update can
+proceed while a halt stands. The halt still stops trading, because the runner
+reads it at run time.
 
 ## 5. Check a day's verdict
 
@@ -265,39 +270,439 @@ event (`man pmset`), so this replaces any existing repeating wake. Undo with
 Unmeasured, and the TL's call: behaviour with the lid closed, on battery or
 without network. Keep the laptop on power and online on trading days.
 
-## 8. Moving to the VM later
+## 8. The prod VM (Azure)
 
-`docs/ROADMAP.md` phase 6 is the plan. What changes from this laptop:
+**Decided by the TL on 2026-10-07:** prod moves from this laptop to an Azure
+VM, on the Azure for Students subscription. The reason is the laptop's record:
+from 2026-09-30 to 10-07 no order went out on 10-02, 10-05 or 10-06, because
+the laptop was asleep or offline (`~/quantt_state/cef/verify.log`).
+`docs/ROADMAP.md` phase 6 is the plan. This section is the procedure. The prod
+rule is unchanged: the VM holds this repository at a tag and nothing else.
 
-- **Secrets:** use the provider's secrets manager, not a copied file
-  (`ROADMAP` 6.2). The runner only needs `QUANTT_ENV_FILE` to point at a
-  dotenv-format file with mode 600 at run time. How the secrets manager
-  produces that file is a 6.2 decision.
-- **Schedule:** use the VM's scheduler instead of launchd, with the same
-  commands (`python3 -m quantt.session run|verify --book cef`), the same
-  environment variables and the same times in America/New_York. Set the VM's
-  zone to America/New_York, or set the scheduler's own timezone explicitly.
-  This installer is macOS/launchd-specific. A VM installer, whether systemd
-  timers or cron, is a new piece of `quantt/deploy/` with its own tests, not an
-  edit to this one.
-- **Cut-over, so there is never two armed schedulers:** halt the laptop book
-  (section 4.1), unload its jobs (section 4.4), and remove its `AUTO_ARMED`.
-  Then install the VM at the same tag with DRY_RUN=1, shadow it, and arm it.
-  Two machines armed for the same account would each pass gate 6 on their own
-  state dir. Only the Alpaca-side check (orders with the day's
-  `client_order_id` prefix) would stand between them and a doubled book.
-- **Panels:** seed the VM's `data/cef/` from the laptop **prod** panels, the
-  newest copy and the one prod has been trading on. Record where they came from.
+**This repository is public.** Never write the VM's IP address, the vault's
+name, the subscription ID or the TL's IP address into a tracked file. They
+appear below only as `<placeholders>`. The vault name is an installer argument.
 
+| thing | where on the VM | made by |
+|---|---|---|
+| the VM | `quantt-prod` in resource group `quantt-prod`: Standard_B2pts_v2 (aarch64, 2 vCPU, 1 GiB), Ubuntu 24.04 LTS, Standard SSD 32 GB, region chosen within the subscription's allowed-locations policy | TL, 8.1 |
+| admin login | `azureuser`, SSH key only, port 22 open to the TL's IP address only | TL, 8.1 |
+| service user | `quantt` (no login shell); owns everything below except the units | `quantt/deploy/vm/bootstrap.sh` |
+| code | `/home/quantt/prod/quantt-alpaca`: a clone of `origin`, **detached at the tag** | bootstrap, then `quantt.deploy.install_vm` |
+| Python | `/home/quantt/venv`: Python 3.13.5 from uv, with `requirements.txt` installed | bootstrap |
+| price/NAV panels | `<code>/data/cef/`, copied once from the laptop **prod** panels (`--seed-from`), and prod's own after that. Provenance goes in `<state>/seed.log` | `install_vm`, then the collector |
+| state (`QUANTT_STATE_DIR`) | `/home/quantt/quantt_state/cef/` | `install_vm`, the runner |
+| job logs | `<state>/logs/{session,verify,collect,secret}.{out,err}.log` | systemd (`StandardOutput=append:`) |
+| schedule | `/etc/systemd/system/quantt-cef-{session,verify,collect}.{service,timer}`, rendered from `quantt/deploy/templates/systemd/` **at the tag**. Same commands, environment and times as the launchd jobs (a test expands both over a week) | `install_vm` |
+| Alpaca keys | Key Vault secrets `alpaca-cef-key-id` and `alpaca-cef-secret-key` (vault in RBAC mode). At boot `quantt-secret.service` writes `/run/quantt/alpaca.env` (tmpfs, dir 0700, file 0600), which becomes `QUANTT_ENV_FILE`. That is once per boot when the fetch succeeds; a failed fetch is retried at every job start (see 8.3 d) | TL puts the values in the vault; `quantt.deploy.boot_secrets` writes the file |
+
+Everything specific to Azure is in `quantt/deploy/azure_keyvault.py`, the
+provider module behind `boot_secrets --provider azure-keyvault`. The units, the
+bootstrap and the installer are plain Ubuntu/systemd.
+
+**A known gap, accepted (review 2026-10-07):** the installer runs as root, but
+it executes code from the venv and the clone, and both are writable by
+`quantt`. So `quantt`, or anything running as `quantt`, can make root run code
+at the next install. The impact is low, because `quantt` already holds the
+Alpaca keys and runs the book. Closing it would need a root-owned copy of the
+installer and its interpreter.
+
+### 8.1 Account, VM and vault (TL; an agent may run `az` with the TL's go)
+
+These are the commands run on 2026-10-07, with placeholders:
+
+```bash
+brew install azure-cli
+az login
+# A new student subscription starts with these providers NotRegistered.
+az provider register --namespace Microsoft.Compute
+az provider register --namespace Microsoft.Network
+az provider register --namespace Microsoft.KeyVault
+# Where may this subscription deploy? Read the policy; never assume a region.
+az policy assignment list --query "[].parameters.listOfAllowedLocations.value"
+# Is the size offered in that region? (2026-10-07: Standard_B2ats_v2 was not
+# offered in canadacentral; Standard_B2pts_v2 was.)
+az vm list-skus -l <region> --size Standard_B2pts_v2 --output table
+az group create -n quantt-prod -l <region>
+az vm create -g quantt-prod -n quantt-prod \
+  --image Canonical:ubuntu-24_04-lts:server-arm64:latest --size Standard_B2pts_v2 \
+  --admin-username azureuser --ssh-key-values ~/.ssh/quantt_azure.pub \
+  --assign-identity --nsg-rule NONE \
+  --storage-sku StandardSSD_LRS --os-disk-size-gb 32 --public-ip-sku Standard
+az network nsg rule create -g quantt-prod --nsg-name quantt-prodNSG -n ssh-from-team-lead \
+  --priority 1000 --direction Inbound --access Allow --protocol Tcp \
+  --destination-port-ranges 22 --source-address-prefixes <TL's IP>/32
+az keyvault create -g quantt-prod -n <vault-name> -l <region> --enable-rbac-authorization true
+# The VM's identity may READ secrets. The TL may also WRITE them.
+az role assignment create --role "Key Vault Secrets User" --scope <vault resource id> \
+  --assignee-object-id <VM identity principalId> --assignee-principal-type ServicePrincipal
+az role assignment create --role "Key Vault Secrets Officer" --scope <vault resource id> \
+  --assignee-object-id <TL's object id> --assignee-principal-type User
+```
+
+Then the **TL** creates the two secrets in the portal (Key Vault, Secrets,
+Generate/Import):
+
+- `alpaca-cef-key-id` holds the key ID;
+- `alpaca-cef-secret-key` holds the secret.
+
+Each value is one line with no surrounding spaces; `boot_secrets` refuses
+anything else and names the variable. Two secrets are needed, not one dotenv
+blob, because a secret name allows only `0-9 a-z A-Z -` and the portal's value
+box is a single line. The keys never go into a chat or into a file in the repo.
+
+**Measured from the VM on 2026-10-07:**
+- An IMDS token (`api-version=2018-02-01`, `resource=https://vault.azure.net`,
+  header `Metadata: true`) plus
+  `GET https://<vault-name>.vault.azure.net/secrets/<name>?api-version=7.4`
+  returned both secret values.
+- Those keys authenticated to Alpaca paper (HTTP 200, account ACTIVE).
+
+`azure_keyvault.py` sends exactly these requests. Its docstring cites the
+Microsoft Learn pages.
+
+If the TL's IP address changes, SSH is refused. Update the rule (`az network
+nsg rule update ... --source-address-prefixes <new IP>/32`). Log in with
+`ssh -i ~/.ssh/quantt_azure azureuser@<vm-ip>`.
+
+### 8.2 Bootstrap the VM (TL runs it, because it needs sudo)
+
+The tag must contain `quantt/deploy/vm/bootstrap.sh` and
+`quantt/deploy/install_vm.py`. **No tag does yet:** the first one is cut after
+that code is reviewed and merged.
+
+```bash
+curl -fsSLo bootstrap.sh \
+  https://raw.githubusercontent.com/quanttqueensu/CreditTrading/<tag>/quantt/deploy/vm/bootstrap.sh
+less bootstrap.sh                       # read it before running it as root
+sudo bash bootstrap.sh <tag>
+```
+
+What it does, and why each step is there, is in the script's header:
+- timezone America/New_York;
+- unattended security upgrades, with **no automatic reboot**, moved to 02:00–02:30 ET;
+- needrestart set to list only;
+- 2 GB swap;
+- the `quantt` user;
+- uv (pinned) and Python 3.13.5;
+- the clone at `<tag>`, with `requirements.txt` installed.
+
+**Re-running.** The system steps (zone, apt settings, swap, user, uv,
+Python) are safe to repeat. The clone step is not an update path. On an
+existing clone it refuses unless HEAD is already the tag's commit, because
+moving prod between tags is the installer's job (8.6).
+
+**Nothing compiles.** `requirements.txt` is installed with `--no-build`, and uv
+itself with `--only-binary=:all:`. Every compiled dependency has an aarch64
+wheel (measured 2026-10-07, the script's header), so a missing wheel fails the
+install loudly instead of starting a compile the 1 GiB VM cannot finish.
+
+**Reboots.** A kernel update still needs one. The TL does it by hand, on a
+weekend. `Persistent=false` means a firing missed while the VM was **down** is
+not replayed at boot.
+
+**A firing that passes while its job is still running is not dropped.**
+Measured on the VM, 2026-10-07 (systemd 255.4-1ubuntu8.17): it starts the job
+again the moment the running one exits, even with `Persistent=false`. A
+one-minute calendar timer on a 90-second job ran its 23:14:00 firing at
+23:14:30. For this book: the 15:52 send polls until 15:59:30, so the 15:55
+firing starts a session straight after it. That session idles only because
+of the runner's gates: STARTED, and the Alpaca-clock send window. **Those
+gates are the only guard on that path**, and
+`quantt/session/tests/test_run.py::test_late_scheduled_decides_once_then_sends_once`
+covers it. `DeferReactivation=` would remove the late start, but it needs
+systemd 256 or later, and Ubuntu 24.04 ships 255.
+
+### 8.3 Install, dry (an agent runs it; the TL approves `--enable`)
+
+`/home/quantt` is mode 750, so `azureuser` cannot `cd` into the clone. Run the
+installer through this helper instead. It runs as root, with `-B` (no root-owned
+`__pycache__` in quantt's tree), `-P` (the caller's working directory is not
+on `sys.path`), and the clone on `PYTHONPATH`:
+
+```bash
+qi() { sudo env PYTHONPATH=/home/quantt/prod/quantt-alpaca \
+         /home/quantt/venv/bin/python -B -P -m quantt.deploy.install_vm "$@"; }
+```
+
+**a. Seed the panels** from the laptop **prod** panels, which are the newest
+and the ones prod trades on. These are the files `install_prod` seeds:
+
+```bash
+# on the laptop
+ssh -i ~/.ssh/quantt_azure azureuser@<vm-ip> mkdir -p /tmp/quantt-seed
+scp -i ~/.ssh/quantt_azure ~/prod/quantt-alpaca/data/cef/{cef_prices.parquet,cef_nav.parquet,cef_universe.csv,cef_distributions.parquet,cef_splits.parquet} \
+    azureuser@<vm-ip>:/tmp/quantt-seed/
+```
+
+**b. Dry run, then apply.** The dry run prints every check, the steps and all
+seven rendered units, and writes nothing except fetched tags. Apply writes the
+units with DRY_RUN=1, runs `systemctl daemon-reload`, and **enables nothing**:
+
+```bash
+qi --tag <tag> --vault <vault-name> --seed-from /tmp/quantt-seed
+qi --tag <tag> --vault <vault-name> --seed-from /tmp/quantt-seed --apply
+```
+
+**c. Prove the clone** (`docs/ROADMAP.md` 6.3), as `quantt`, before anything
+is scheduled:
+
+```bash
+sudo -u quantt env HOME=/home/quantt bash -c 'cd /home/quantt/prod/quantt-alpaca &&
+  /home/quantt/venv/bin/python -m pytest &&
+  /home/quantt/venv/bin/python -m ops.doc_audit --check &&
+  /home/quantt/venv/bin/python -m ops.orient'
+```
+
+**d. Enable, still dry** (TL approves). This starts the key service and the
+three timers:
+
+```bash
+qi --tag <tag> --vault <vault-name> --apply --enable
+systemctl list-timers 'quantt-*'                 # next firings, shown in EDT/EST
+systemctl status quantt-secret.service           # "active (exited)"
+sudo ls -l /run/quantt/                          # alpaca.env -rw------- quantt; never cat it
+sudo tail -n 20 /home/quantt/quantt_state/cef/logs/secret.err.log
+sudo systemctl start quantt-cef-session.service  # one dry session now; it idles outside a slot
+sudo tail -n 50 /home/quantt/quantt_state/cef/logs/session.out.log /home/quantt/quantt_state/cef/logs/session.err.log
+```
+
+**If the key fetch fails**, `quantt-secret.service` is left inactive, and
+every job start retries it (`Wants=`). That is self-healing: a role assignment
+fixed later works at the next firing. Each job waits for the retry, though, up
+to about 4 minutes when every request times out (IMDS about 142 s, then about
+47 s per secret). A 4xx answer ends the fetch at once. The log carries only
+the HTTP status, Azure's error codes and a hint, never the message body,
+because an RBAC refusal's message names the tenant, object ids and the
+`/subscriptions/...` resource id.
+
+**The installer refuses on any of these:**
+- not root;
+- no `-B`;
+- no `quantt` user;
+- a system zone other than America/New_York;
+- a vault name that is not a Key Vault name;
+- a tag that is not on origin, has moved, or lacks the files the units need;
+- a clone with local modifications or untracked files;
+- a template at the tag whose command, environment, schedule, dependencies or
+  options differ from the contract;
+- a calendar line `systemd-analyze` rejects;
+- missing panels and no `--seed-from`;
+- **a drop-in on any quantt unit**, found two ways: by asking systemd
+  (`systemctl show`), and by **scanning the disk**. Scanning is needed because
+  a drop-in written without `daemon-reload` is invisible to `systemctl show`,
+  and would go live at the installer's own reload (measured on the VM,
+  2026-10-07). The scan covers every directory in `systemd-analyze
+  unit-paths`, plus `system.control` and `transient`. It looks for:
+  - `<unit>.d/`;
+  - every dash prefix (`quantt-.service.d/`, `quantt-cef-.service.d/`, …);
+  - the type-wide `service.d/` and `timer.d/` [S: since systemd 253].
+  It also refuses a same-named unit file that outranks the installer's, or a
+  unit systemd loads from any other file. Read the drop-in, remove it
+  (`systemctl revert <unit>`, or delete the file), and re-run;
+- **any `quantt-cef-*.service` running** (active, activating, deactivating).
+  This is checked at planning, again before the checkout, and again before
+  the units change.
+
+After `daemon-reload` the installer asks systemd (`systemctl show`) for every
+unit's FragmentPath, DropInPaths, Environment and ExecStart (and
+TimersCalendar for timers), and refuses unless they match what it wrote. A
+disarm is therefore confirmed from what systemd loaded, not from the file.
+
+Each refusal names the problem.
+
+### 8.4 Shadow (DRY_RUN=1) beside the armed laptop
+
+Both machines decide on their own panels. The VM sends nothing (gate 1), and
+its collector and verify are read-only at Alpaca. Each evening after the
+decision window, compare the VM's `<state>/<date>/plan.json` order list with
+the laptop's. With the same inputs they should match. A difference names a
+data or environment difference, to be explained before arming.
+
+**The VM's verify FAILs on every shadow day the laptop trades, by design.**
+Both machines share one Alpaca account. On such a day Alpaca holds orders with
+the day's `client_order_id` prefix that the VM did not record, so the VM's
+verify fails rules 2 to 4 (`quantt/session/verify.py`): orders not in its
+`orders.jsonl`, no STARTED but orders with the day's prefix, fills that belong
+to none of its orders. A shadow FAIL of exactly that form is expected. **Any
+other FAIL reason is not**, and must be explained before arming.
+
+**Watch especially** the collector logs for Yahoo rate limiting from an Azure
+address. It is unmeasured [U], and a block means a stale panel, which means
+no trade. How long to shadow is the TL's call; record it in `docs/ROADMAP.md`.
+
+### 8.5 Cut-over: never two armed schedulers
+
+Two machines armed for one account would each pass gate 6 on their own state
+dir. Only the Alpaca-side check (the day's `client_order_id` prefix) would
+stand between them and a doubled book (`CLAUDE.md` order-path rule 2). Do it
+in this order, **after a 17:30 verify and before 22:00 ET**, which is before
+the evening decide:
+
+1. **Laptop off, for good.** `launchctl bootout` alone is not enough: the
+   plists stay in `~/Library/LaunchAgents` with DRY_RUN=0, and launchd loads
+   them again at the next login. So:
+   ```bash
+   cd "<dev repo>"
+   # a. disarm the plists themselves (add --accept-timezone if section 0.1 chose it)
+   python3 -m quantt.deploy.install_prod --tag <laptop's current tag> --env-file <key file> --apply --load
+   # b. unload AND disable all three jobs, so no login or reboot loads them again
+   for j in session verify collect; do
+     launchctl bootout gui/$(id -u)/com.quantt.alpaca.cef.$j
+     launchctl disable gui/$(id -u)/com.quantt.alpaca.cef.$j
+   done
+   launchctl print-disabled gui/$(id -u) | grep com.quantt.alpaca     # all three "disabled"
+   # c. and the second key: no AUTO_ARMED
+   rm ~/quantt_state/cef/AUTO_ARMED
+   ```
+   Then confirm with the read-only probe that no order is open at Alpaca.
+2. **Stop the VM's timers:**
+   `sudo systemctl stop quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
+3. **Carry the laptop's records across.** The opening session is decided from
+   the broker (`is_opening_session`), so a fresh state dir would not re-open
+   the book. But the shadow benchmark (`shadow_book.json`, `shadow.csv`),
+   `scores.csv`, `equity.csv`, `verify.log` and each day's `plan.json` live in
+   the state dir, and a fresh one would restart them. Move the VM's shadow
+   records aside and copy the laptop's in:
+   ```bash
+   # laptop
+   tar -C ~/quantt_state -czf /tmp/cef-state.tgz --exclude cef/AUTO_ARMED --exclude cef/logs cef
+   scp -i ~/.ssh/quantt_azure /tmp/cef-state.tgz azureuser@<vm-ip>:/tmp/
+   # VM
+   sudo mv /home/quantt/quantt_state/cef /home/quantt/quantt_state/cef.shadow-<date>
+   sudo tar -C /home/quantt/quantt_state -xzf /tmp/cef-state.tgz
+   sudo chown -R quantt:quantt /home/quantt/quantt_state/cef
+   ```
+   The panels' provenance (`seed.log`) stays in `cef.shadow-<date>`.
+4. **Arm the VM** (TL): `qi --tag <tag> --vault <vault-name> --armed --apply --enable`,
+   then `sudo -u quantt touch /home/quantt/quantt_state/cef/AUTO_ARMED`
+   (`docs/RUNNER.md` gate 2). A scheduled send needs both.
+5. **Watch** the first 22:00 decide, the next 15:52 send and the 17:30 verify.
+
+**Rolling back to the laptop** after step 1 runs it in reverse. First halt the
+VM (8.6) and disarm it; never have two armed schedulers. Step 1b disabled the
+launchd jobs, so `install_prod --load` alone does not bring them back. Enable
+them first:
+`for j in session verify collect; do launchctl enable gui/$(id -u)/com.quantt.alpaca.cef.$j; done`.
+Then run `install_prod --tag <tag> --env-file <key file> --apply --load`, adding
+`--armed` and `AUTO_ARMED` only on the TL's go (section 3.4).
+
+### 8.6 Daily reading, halting and updating on the VM
+
+**The verdict:**
+
+```bash
+ssh -i ~/.ssh/quantt_azure azureuser@<vm-ip> sudo tail -n 5 /home/quantt/quantt_state/cef/verify.log
+systemctl list-timers 'quantt-*'; systemctl --failed     # on the VM
+```
+
+No line for a trading day counts as a FAIL. The session unit counts IDLE,
+NOTHING_TO_SEND, PREVIEW, PLANNED and DRY as success (`SuccessExitStatus`), so
+`systemctl --failed` shows REFUSED and FAIL. The collector's INCOMPLETE (exit
+5) also shows as failed, on purpose: one that never clears is worth seeing.
+
+**Halting**, the VM equivalents of section 4, fastest first. None of them
+cancels an order already at Alpaca.
+
+1. **Halt file** in the prod clone, as `quantt`:
+   ```bash
+   sudo -u quantt env HOME=/home/quantt bash -c 'cd /home/quantt/prod/quantt-alpaca &&
+     /home/quantt/venv/bin/python -c "from ops.halt import write_halt; write_halt(\"why\", source=\"runbook\", book=\"cef\")"'
+   ```
+   The file is written before any alert channel is tried, and the alert
+   channels are wrapped, so a missing macOS banner or speech engine does not
+   stop it. Halt files are gitignored, so a standing halt does not block the
+   installer.
+2. **Remove AUTO_ARMED:** `sudo rm /home/quantt/quantt_state/cef/AUTO_ARMED`.
+3. **DRY_RUN=1:** re-install without `--armed` (`qi ... --apply`). It takes
+   effect at the installer's `daemon-reload`, and the installer then confirms
+   from systemd that DRY_RUN=1 is what is loaded.
+   - **This step is not fast.** The installer refuses while any job runs (an
+     evening decide can take minutes), and it refuses any drop-in on disk,
+     because a drop-in could keep DRY_RUN=0 in force. When the halt is needed
+     **now**, use step 1 or 2 first.
+   - **If it refuses after the reload**, systemd is **now** running the
+     configuration shown in the refusal. Halt at once with step 1 or 2
+     (`ops/HALT.md`, or remove AUTO_ARMED), then find the cause.
+4. **Nothing runs at all, verify included:**
+   `sudo systemctl disable --now quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
+
+**Updating** to a new release. Never change code under a running job:
+
+1. **Stop the timers** at a quiet moment (not 15:45–16:00 ET, not 17:30):
+   `sudo systemctl stop quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`,
+   then check that `systemctl is-active quantt-cef-session.service
+   quantt-cef-verify.service quantt-cef-collect.service` shows no `active` or
+   `activating`. The installer refuses while a job runs anyway, but a manual
+   `git checkout` has no such guard.
+2. **Dry run:** `qi --tag <new> --vault <vault-name>`.
+3. **Only if** the old installer refuses because the release changed the units
+   or the installer: with the timers still stopped, check out the tag as
+   `quantt`:
+   `sudo -u quantt git -C /home/quantt/prod/quantt-alpaca checkout --detach <new>`.
+   If `requirements.txt` changed, also run
+   `sudo -u quantt env HOME=/home/quantt /home/quantt/.uv/bin/uv pip install --no-build --python /home/quantt/venv/bin/python -r /home/quantt/prod/quantt-alpaca/requirements.txt`.
+   The installer does not install dependencies.
+4. **Apply and re-enable, only through the installer:**
+   `qi --tag <new> --vault <vault-name> --apply --enable`, adding `--armed` if
+   the VM is armed. **A re-install without `--armed` disarms.**
+
+**If you abandon an update after step 1**, start the timers again:
+`sudo systemctl start quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
+Otherwise nothing trades, and no verify line is written.
+
+**Rolling back** is the same procedure with the previous tag.
+
+**Rotating the keys:** the TL adds a new version of both secrets in the portal,
+and the latest version is what gets fetched. Then
+`sudo systemctl restart quantt-secret.service`, outside every job window.
+Restarting removes and re-creates `/run/quantt`, so a job starting at that
+instant would find no key file and fail loudly. Because the job units use
+`Wants=` and not `Requires=`, a running job is never stopped by the restart.
+
+### 8.7 Cost, and the credit that keeps the book alive
+
+Azure for Students gives $100 of credit and a limited quantity of free
+services for 12 months. "Once your credit runs out, Azure disables your
+services and subscription", and the same happens when the 12 months end.
+**A disabled subscription stops the VM, and with it the book.** Reactivation
+means upgrading to pay-as-you-go through Azure support [V: Microsoft Learn,
+"Reactivate disabled Azure for Students subscription", fetched 2026-10-07].
+
+Check the remaining credit and its expiry date at
+`https://www.microsoftazuresponsorships.com/balance`. Sign in with the student
+account. The expiry date is under the credit chart, and *Usage* shows the
+spend per service. Measure it there; do not project from the prices below. If
+the credit will not last to the end of the paper period, the TL decides
+between pay-as-you-go and another host before it runs out.
+
+Prices [V: Azure Retail Prices API, canadacentral, 2026-10-07]:
+
+| item | price |
+|---|---|
+| Standard static public IPv4 | $0.005/hour |
+| Standard SSD E4 (the 32 GB OS disk) | $2.64/month |
+| Key Vault | $0.03 per 10,000 operations (one fetch per boot) |
+
+The VM's compute price was not measured here, so this table is not a total.
+
+### 8.8 Open items for the VM
+
+- **Yahoo from an Azure address** is unmeasured [U]. See 8.4.
+- **Dependencies are pinned only at the top level** (`requirements.txt`), so
+  transitive versions on the VM can differ from the laptop's. A lockfile would
+  fix that. It is a TL decision, not made here.
+- **Burstable CPU:** B-series sizes are burstable [S]: they run below full
+  speed once their burst credit is spent. Whether that slows the evening decide or a pytest run on
+  the VM is unmeasured.
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`
    through the installer's equivalence check? (Section 0.1.)
-2. **Halt files inside the prod clone** (`ops/HALT*.md`, `ops/halts/`,
-   `ops/heartbeat.json`) are not gitignored. A halt, or any halt ever cleared,
-   leaves untracked files that make the installer refuse every later update
-   until they are removed by hand. One option is adding `/ops/HALT*.md`,
-   `/ops/halts/` and `/ops/heartbeat.json` to `.gitignore`. That has a
-   consequence of its own: an update could then proceed while a halt stands.
+2. ~~**Halt files inside the prod clone** are not gitignored.~~ **Closed
+   (corrected 2026-10-07):** `.gitignore` has ignored `/ops/HALT*.md`,
+   `/ops/halts/` and `/ops/heartbeat.json` since commit `23eb7bc`
+   (2026-09-28). The runner reads the halt at run time, so ignoring the files
+   cannot let a standing halt be skipped. This item was stale from that commit on.
 3. **Key file location** (section 0.2): keep `config/.env` in `~/Downloads`
    (unproven under launchd) or move it to `~/.config/quantt/`?

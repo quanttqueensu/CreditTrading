@@ -86,10 +86,10 @@ No copies of old trees, no IBKR software, no hand-edited files.
 
 | # | step | who |
 |---|---|---|
-| 6.1 | Choose the provider and region; create the VM. | TL |
-| 6.2 | Secrets on the VM through the provider's secrets manager, not a file copied from a laptop. | TL |
+| 6.1 | Choose the provider and region; create the VM. **Chosen 2026-10-07: Azure for Students, `Standard_B2pts_v2` (Arm64, like the laptop), `canadacentral`**, the allowed region closest to New York (`docs/SYSTEM.md` §5). `Standard_B2ats_v2` is not offered there. **Created 2026-10-07**: Ubuntu 24.04, Standard SSD 32 GB, SSH from the team lead's IP only. | TL |
+| 6.2 | Secrets on the VM through the provider's secrets manager, not a file copied from a laptop. **Azure Key Vault, secrets `alpaca-cef-key-id` and `alpaca-cef-secret-key`**, read through the VM's managed identity into a tmpfs file: once per boot when it succeeds, and again at every job start after a failure (`docs/RUNBOOK.md` §8). **Vault created 2026-10-07**; the two secrets are the team lead's to paste. | TL |
 | 6.3 | Clone at a release tag; install `requirements.txt`; run `python3 -m pytest`, `python3 -m ops.doc_audit --check`, `python3 -m ops.orient` — all clean before anything is scheduled. | A |
-| 6.4 | Schedule the session (the VM's scheduler), `DRY_RUN=1` first. | A, TL approves |
+| 6.4 | Schedule the session (the VM's scheduler), `DRY_RUN=1` first. The systemd installer is being built (2026-10-07). Then shadow alongside the armed laptop; the cut-over follows `docs/RUNBOOK.md` §8. | A, TL approves |
 | 6.5 | Arm: `DRY_RUN=0` after the team lead's go. The first armed session's orders are shown before transmit. | TL |
 | 6.6 | Retire this laptop's leftovers: `~/prod/QUANTT` (old IBKR worktree), `~/Library/LaunchAgents/com.quantt.*.plist`, `~/Library/Application Support/quantt/`, `~/ibc`, IB Gateway. | TL decides, A runs |
 | 6.7 | Monitoring per the standing decision: dashboard and logs only (a dashboard rebuild is a later item). | A |

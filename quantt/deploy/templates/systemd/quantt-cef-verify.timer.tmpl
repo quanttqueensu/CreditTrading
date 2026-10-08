@@ -1,0 +1,18 @@
+# quantt-cef-verify.timer : 17:30 ET Mon-Fri, after the close and the auction
+# prints. The runner, not this schedule, knows NYSE holidays.
+#
+# RENDERED by quantt/deploy/install_vm.py from release tag ${TAG}. The schedule
+# is the launchd job's (install_prod.JOBS), checked line by line by the installer.
+# Local time (the system zone must be America/New_York); Persistent=false;
+# AccuracySec=1s. See quantt-cef-session.timer for why.
+[Unit]
+Description=QUANTT cef verify schedule (release ${TAG})
+
+[Timer]
+OnCalendar=Mon,Tue,Wed,Thu,Fri *-*-* 17:30:00
+AccuracySec=1s
+Persistent=false
+Unit=quantt-cef-verify.service
+
+[Install]
+WantedBy=timers.target

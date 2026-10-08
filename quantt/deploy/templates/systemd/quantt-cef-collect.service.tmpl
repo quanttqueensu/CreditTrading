@@ -1,0 +1,28 @@
+# quantt-cef-collect.service : the nightly data collector. It is read-only at
+# Alpaca, and it appends to prod's own price/NAV panels.
+#
+# RENDERED by quantt/deploy/install_vm.py from release tag ${TAG}. Do not
+# hand-edit the installed copy. Started only by quantt-cef-collect.timer. The
+# command and the environment are the launchd job's (com.quantt.alpaca.cef.collect).
+# The collector exits 5 (INCOMPLETE) when a step is not yet ok, which it retries
+# the next slot, or when another collector holds its lock (quantt/collect/collect.py,
+# EXIT CODES). systemd shows that as failed. It is left that way on purpose: an
+# INCOMPLETE that never clears is worth seeing.
+[Unit]
+Description=QUANTT cef data collector (release ${TAG})
+Wants=quantt-secret.service
+After=quantt-secret.service
+
+[Service]
+Type=oneshot
+User=${USER}
+Group=${USER}
+WorkingDirectory=${PROD_DIR}
+Environment=DRY_RUN=${DRY_RUN}
+Environment=QUANTT_STATE_DIR=${STATE_DIR}
+Environment=QUANTT_ENV_FILE=${ENV_FILE}
+Environment=PATH=${PATH}
+Environment=PYTHONUNBUFFERED=1
+ExecStart=${PYTHON} -m quantt.collect --book cef
+StandardOutput=append:${LOG_DIR}/collect.out.log
+StandardError=append:${LOG_DIR}/collect.err.log

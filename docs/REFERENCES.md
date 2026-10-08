@@ -407,3 +407,30 @@ no file**, which is the only reason this note exists rather than a silent move.
 
 The Carr & Wu (2009) and Wang, Zhou & Zhou (2011) entries above are unaffected —
 both were read in full from their own primary sources and are marked `[V]`.
+
+---
+
+## 11. Hosting — the cloud VM (added 2026-10-07)
+
+Why prod moved to Azure, and the facts the VM installer (`quantt/deploy/install_vm.py`,
+`docs/RUNBOOK.md` §8) relies on. Identifiers of the live resources (IP address,
+vault name, subscription) are deliberately absent: this repository is public.
+
+| claim | source | status |
+|---|---|---|
+| **Azure for Students** needs no credit card; full-time university students, school email, renewed yearly; $100 credit for 12 months; 750 h/month each of B1s, B2pts v2 and B2ats v2 Linux VMs free for 12 months. When the credit or the year runs out the subscription is **disabled** unless moved to pay-as-you-go (which needs a card) | azure.microsoft.com/en-us/free/students/ and /pricing/purchase-options/azure-account, fetched 2026-10-07 | [V] |
+| Neither page lists free amounts for managed disks, public IPs, bandwidth or Key Vault on the student offer | same pages, 2026-10-07 | [V] (a gap: read actual spend in Cost Management) |
+| A student subscription may deploy only to the regions in its "Allowed resource deployment regions" policy. The list varies by student (Microsoft Q&A moderator); this one allows belgiumcentral, canadacentral, mexicocentral, northcentralus, denmarkeast | `az policy assignment list`, 2026-10-07; learn.microsoft.com/answers/a/12768007 | [V] list / [S] "varies" |
+| `Standard_B2pts_v2` = 2 vCPU, 1 GiB, Arm64, offered without restriction in canadacentral and northcentralus; `Standard_B2ats_v2` (2 vCPU, 1 GiB, x64) is **not offered** in canadacentral | `az vm list-skus`, 2026-10-07; Basv2 size page on learn.microsoft.com | [V] |
+| The Bv1 series (B1s) is in the End of Life lifecycle stage with an announced retirement | learn.microsoft.com/.../sizes/general-purpose/bv1-series, fetched 2026-10-07 | [V] |
+| canadacentral list prices: Standard static public IPv4 $0.005/h; Standard SSD E4 (32 GB) $2.64/month; Premium P4 $5.28, P6 $10.208/month; Standard HDD S4 $1.69/month; Key Vault $0.03 per 10k operations (the hourly "Standard Instance" meter in that query is Azure Dedicated HSM, not Key Vault); B2pts v2 Linux $0.0092/h | Azure Retail Prices API (prices.azure.com/api/retail/prices), queried 2026-10-07 | [V] |
+| From the VM, the managed identity's IMDS token (api-version 2018-02-01, resource `https://vault.azure.net`) and Key Vault `GET /secrets/<name>?api-version=7.4` return both Alpaca secrets, which authenticate to Alpaca paper (`/v2/account` HTTP 200, `ACTIVE`) | measured on the VM, 2026-10-07; the Learn pages for both endpoints are cited in `quantt/deploy/azure_keyvault.py` | [V] |
+| **systemd 255** (Ubuntu 24.04): a calendar timer firing that passes while its service is still running fires **as soon as the service exits**, even with `Persistent=false`. `DeferReactivation=` (systemd ≥ 256) would prevent it | measured on the VM with a throwaway `systemd-run` timer, 2026-10-07 23:12–23:18 UTC | [V] |
+| `systemctl show` formats parsed by the installer (`ExecStart={ path=… ; argv[]=… ; … }`, `TimersCalendar={ OnCalendar=… ; … }`, space-separated `DropInPaths`; a missing unit gives `LoadState=not-found`, empty `FragmentPath`, exit 0) | run on the VM, systemd 255.4-1ubuntu8.17, 2026-10-07 | [V] |
+| On systemd 255, for a service kept loaded by an active timer, a drop-in written **without** `daemon-reload` is invisible to `systemctl show` (empty `DropInPaths`, old `Environment`) and **`NeedDaemonReload` stays `no`**. The drop-in appears only after a reload. So only a scan of the drop-in folders on disk finds a dormant override. For an unreferenced, inactive unit, systemd re-reads the disk on query, so a naive probe looks fine | throwaway unit and timer on the VM, 2026-10-07 | [V] |
+| systemd keeps `Environment=` assignments in file order in `systemctl show` | throwaway unit on the VM, 2026-10-07 | [V] |
+| From the VM's Azure IP, Yahoo's chart endpoint, cefconnect and Alpaca all answered (200, 200, 401 without a key) | one request each from the VM, 2026-10-07 | [V] once. Whether Yahoo keeps serving an Azure IP is **[U]** until the shadow period measures it |
+| Reports of Yahoo rate-limiting yfinance are anecdotal and mixed; no official statement that cloud IP ranges are blocked | github.com/ranaroussi/yfinance discussions/2431, issues/2422; pythonanywhere.com forum 35201 | [S] |
+| GitHub Actions `schedule` "can be delayed during periods of high loads"; "some queued jobs may be dropped"; disabled in a public repo after 60 days without activity — why it was not used for a 15:52–15:58 send | docs.github.com, events that trigger workflows, fetched 2026-10-07 | [V] |
+| Google Cloud's free tier needs a Cloud Billing account, and its free trial needs a card or other payment method. Oracle Cloud asks for a card for identity checks | docs.cloud.google.com/free/docs/free-cloud-features, fetched 2026-10-07; Oracle free-tier FAQ (via search) | [V] / [S] |
+| uv lists Python 3.13.5 for linux-aarch64; uv 0.12.15 and every compiled requirement have aarch64 wheels | checked by the installer build, 2026-10-07 (GitHub releases API, PyPI JSON API); not re-read | [S] |

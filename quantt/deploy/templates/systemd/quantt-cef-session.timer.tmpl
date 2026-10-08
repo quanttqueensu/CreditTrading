@@ -1,0 +1,42 @@
+# quantt-cef-session.timer : when the CEF session is tried.
+#
+# RENDERED by quantt/deploy/install_vm.py from release tag ${TAG}. The schedule
+# is the launchd job's (install_prod.JOBS, whose plists are the authority),
+# written in systemd's calendar syntax. The installer refuses a template whose
+# lines differ from that translation, and runs `systemd-analyze calendar` on
+# each one.
+#
+#   every :00 and :30, every day. The runner decides whether this is a slot
+#     (evening 22:00-01:00 ET, morning 06:00-15:15 ET) and otherwise idles.
+#   15:52 and 15:55 Mon-Fri: the paper account's late-market send window for a
+#     16:00 close. 12:52 and 12:55: the same window for a 13:00 early close.
+#
+# No timezone suffix: the lines are local time, and the installer refuses
+# unless the system zone is America/New_York. Persistent=false: a firing missed
+# while the VM was DOWN never runs at boot. AccuracySec=1s: the default (1min)
+# lets systemd move a 15:52 firing anywhere up to 15:53.
+#
+# MEASURED 2026-10-07 on the VM (systemd 255): a firing that passes while the
+# session is STILL RUNNING starts it again the moment it exits, even with
+# Persistent=false. The 15:52 send polls to 15:59:30, so the 15:55 firing
+# starts a session right after; that session idles only because of the
+# runner's gates (STARTED, the Alpaca-clock window). Those gates are the only
+# guard on that path (test_late_scheduled_decides_once_then_sends_once).
+# DeferReactivation= would stop it, but it needs systemd >= 256, and Ubuntu
+# 24.04 ships 255. See install_vm.py, SCHEDULE.
+[Unit]
+Description=QUANTT cef session schedule (release ${TAG})
+
+[Timer]
+OnCalendar=*-*-* *:00:00
+OnCalendar=*-*-* *:30:00
+OnCalendar=Mon,Tue,Wed,Thu,Fri *-*-* 15:52:00
+OnCalendar=Mon,Tue,Wed,Thu,Fri *-*-* 15:55:00
+OnCalendar=Mon,Tue,Wed,Thu,Fri *-*-* 12:52:00
+OnCalendar=Mon,Tue,Wed,Thu,Fri *-*-* 12:55:00
+AccuracySec=1s
+Persistent=false
+Unit=quantt-cef-session.service
+
+[Install]
+WantedBy=timers.target

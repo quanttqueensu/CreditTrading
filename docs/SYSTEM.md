@@ -353,6 +353,19 @@ After the first armed session (13 `cls` orders accepted at 10:33 ET, plan_sha
 | Cloud server | **Not yet**; the laptop stays prod. Revisit after a week of fills. |
 | The two unhedged longs left by that day (PHK 4,019, PFN 1,529) | **Not flattened.** Both are part of the target; the next session trades from them (the band applies: it is no longer the opening session). |
 
+### Team lead, 2026-10-07 — the cloud VM
+
+The "revisit after a week of fills" above. The evidence: from 2026-09-30 to
+2026-10-07 the laptop sent no orders on 2026-10-02, 2026-10-05 and 2026-10-06,
+each time because it was asleep or offline (`~/quantt_state/cef/verify.log` and
+the day folders beside it, read 2026-10-07). The plan is `docs/ROADMAP.md`
+phase 6; the procedure is `docs/RUNBOOK.md` §8.
+
+| question | decision |
+|---|---|
+| Cloud server | **Azure for Students** (no card), a `Standard_B2pts_v2` VM (Arm64, like the laptop) in `canadacentral`, the allowed region closest to New York. Supersedes "Not yet" above. The laptop stays prod until the cut-over. Google Cloud's free-tier e2-micro was chosen first the same day and dropped because it needs a card. |
+| What it costs | The VM size is free for 12 months; anything else (disk, public IP, Key Vault) comes out of the $100 student credit. When the credit or the 12 months run out the subscription is disabled and **the book stops**: check the balance in the portal and renew yearly while a student. |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A
@@ -390,3 +403,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-09-13 | Written, replacing six overlapping descriptions of the system. §5 moved verbatim; no decision re-made. | documentation cleanup, for the team lead |
 | 2026-09-28 | §0, §4 rewritten for the IBKR retirement and the move to Alpaca; §5 gains the 2026-09-28 decisions; §2 and §6 repointed. Earlier text at tag `pre-clean-slate`. | Alpaca migration, for the team lead |
 | 2026-09-28 | Clean slate: archive references replaced by the tag; plan moved to `docs/ROADMAP.md`. | clean slate, for the team lead |
+| 2026-10-07 | §5 gains the cloud-VM decision. | cloud VM, for the team lead |

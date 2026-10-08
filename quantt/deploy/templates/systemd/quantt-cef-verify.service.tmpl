@@ -1,0 +1,26 @@
+# quantt-cef-verify.service : the CEF book's post-close verification, one
+# verify.log line per trading day, pass or fail.
+#
+# RENDERED by quantt/deploy/install_vm.py from release tag ${TAG}. Do not
+# hand-edit the installed copy. Started only by quantt-cef-verify.timer. The
+# command and the environment are the launchd job's (com.quantt.alpaca.cef.verify).
+# The service is read-only at the broker. A FAIL day exits non-zero, and systemd
+# marks the unit failed, which is correct.
+[Unit]
+Description=QUANTT cef verify (release ${TAG})
+Wants=quantt-secret.service
+After=quantt-secret.service
+
+[Service]
+Type=oneshot
+User=${USER}
+Group=${USER}
+WorkingDirectory=${PROD_DIR}
+Environment=DRY_RUN=${DRY_RUN}
+Environment=QUANTT_STATE_DIR=${STATE_DIR}
+Environment=QUANTT_ENV_FILE=${ENV_FILE}
+Environment=PATH=${PATH}
+Environment=PYTHONUNBUFFERED=1
+ExecStart=${PYTHON} -m quantt.session verify --book cef
+StandardOutput=append:${LOG_DIR}/verify.out.log
+StandardError=append:${LOG_DIR}/verify.err.log

@@ -1,0 +1,21 @@
+# quantt-cef-collect.timer : every :10 and :40, every day. The collector works
+# out the latest data day itself and idles once that day is complete. The
+# 10-minute offset from the session keeps the two from contending for the panel
+# lock.
+#
+# RENDERED by quantt/deploy/install_vm.py from release tag ${TAG}. The schedule
+# is the launchd job's (install_prod.JOBS), checked line by line by the installer.
+# Local time (the system zone must be America/New_York); Persistent=false;
+# AccuracySec=1s.
+[Unit]
+Description=QUANTT cef data collector schedule (release ${TAG})
+
+[Timer]
+OnCalendar=*-*-* *:10:00
+OnCalendar=*-*-* *:40:00
+AccuracySec=1s
+Persistent=false
+Unit=quantt-cef-collect.service
+
+[Install]
+WantedBy=timers.target

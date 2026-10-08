@@ -1,0 +1,33 @@
+# quantt-cef-session.service : the CEF book's trading session on Alpaca paper.
+#
+# RENDERED by quantt/deploy/install_vm.py from release tag ${TAG}. Do not
+# hand-edit the installed copy: re-run the installer (docs/RUNBOOK.md section 8).
+# Started only by quantt-cef-session.timer. The command and the environment are
+# the launchd job's (com.quantt.alpaca.cef.session); the installer checks both
+# against install_prod's.
+#
+# DRY_RUN is "1" unless the installer was given --armed. The runner transmits
+# only when DRY_RUN is exactly "0" AND AUTO_ARMED exists (docs/RUNNER.md gate 2).
+# SuccessExitStatus: IDLE, NOTHING_TO_SEND, PREVIEW, PLANNED and DRY are normal
+# outcomes (quantt/session/run.py EXIT_*), so systemd does not mark them failed.
+# REFUSED and FAIL stay failures. The day's verdict is verify.log, not this
+# unit's state.
+[Unit]
+Description=QUANTT cef session (release ${TAG})
+Wants=quantt-secret.service
+After=quantt-secret.service
+
+[Service]
+Type=oneshot
+User=${USER}
+Group=${USER}
+WorkingDirectory=${PROD_DIR}
+Environment=DRY_RUN=${DRY_RUN}
+Environment=QUANTT_STATE_DIR=${STATE_DIR}
+Environment=QUANTT_ENV_FILE=${ENV_FILE}
+Environment=PATH=${PATH}
+Environment=PYTHONUNBUFFERED=1
+ExecStart=${PYTHON} -m quantt.session run --book cef --scheduled
+SuccessExitStatus=3 4 5 6 10
+StandardOutput=append:${LOG_DIR}/session.out.log
+StandardError=append:${LOG_DIR}/session.err.log
