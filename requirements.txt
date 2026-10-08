@@ -18,6 +18,12 @@ requests==2.32.5
 # Credentials loader (quantt.broker.alpaca_probe reads config/.env)
 python-dotenv==1.1.0
 
+# Research data layer (src/data/r2.py reads the R2 WRDS mirror; never on the live
+# path). Listed so a clean install passes its own tests: the 2026-10-08 VM install
+# failed collection on src/data/tests/test_r2.py without it (the laptop's Anaconda
+# had it). 1.5.2 is the version on the laptop; it has a cp313 aarch64 wheel.
+duckdb==1.5.2
+
 # Stats
 scipy==1.16.3
 statsmodels==0.14.6
