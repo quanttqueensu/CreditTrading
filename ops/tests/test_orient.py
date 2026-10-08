@@ -138,7 +138,13 @@ class TestNeverInventsAndNeverDies:
         p = orient.panels()["panels"]["cef_prices"]
         assert p["last"] is None and "missing" in p["error"]
 
-    def test_collect_is_json_serialisable(self):
+    def test_collect_is_json_serialisable(self, monkeypatch):
+        # PROD reads this machine's launchd and would ssh to the VM; stub it so
+        # the test does not depend on what happens to be installed here
+        # (conftest.py) -- prod_state also refuses real ssh under netguard.
+        monkeypatch.setattr(orient, "SECTIONS", [
+            (n, (lambda: _prod_section(_m("DRY"), _m("ARMED"))) if n == "PROD" else f)
+            for n, f in orient.SECTIONS])
         d = orient.collect(run_tests=False)
         assert json.loads(json.dumps(d, default=str))["sections"]
 
@@ -226,3 +232,94 @@ class TestTheCounterTableReader:
         monkeypatch.setattr(orient, "RESEARCH_STATE", f)
         got = {k: v["trials"] for k, v in orient.trials()["counters"].items()}
         assert got == {"CEF": 48, "GAMMA": 0}
+
+
+# ------------------------------------------------------- PROD and ALPACA --
+# Until 2026-10-08 TREES printed "prod none ... the Alpaca prod (cloud VM) is not
+# built" and ALPACA "live book NONE -- nothing trades", both constants, through
+# the first armed session (2026-09-29) and every one after; ALPACA also showed
+# the 2026-09-28 probe snapshot's equity as if it were current. These pin the
+# replacement: PROD measured (ops.prod_state), live equity from the armed
+# machine's broker-confirmed equity.csv, the probe labelled with its age.
+
+def _m(arming, equity="222.22", date="2026-01-06", where="x/equity.csv"):
+    return {"machine": "?", "arming": arming, "arming_why": f"because {arming}",
+            "cautions": [], "clone": "c", "state_dir": "s", "tag": {"value": "t"},
+            "jobs": {}, "auto_armed": {"value": arming == "ARMED"},
+            "verify_last": {"absent": "none"}, "dry_run": {"value": "0"},
+            "timers": {"value": {}}, "timers_enabled": {"value": {}}, "alias": "quantt-vm",
+            "equity": {"value": {"date": date, "equity": equity, "read_at_utc": None,
+                                 "source": where}}}
+
+
+def _prod_section(laptop, vm):
+    from ops import prod_state
+    machines = {"laptop": laptop, "vm": vm}
+    return {"reproducer": "python3 -m ops.prod_state", "machines": machines,
+            "verdict": prod_state.verdict(machines)}
+
+
+def _render_with(capsys, **sections):
+    d = {"measured_at": "t", "sections": {
+        n: {"UNMEASURED": "not under test"} for n, _ in orient.SECTIONS}}
+    d["sections"].update(sections)
+    orient.render(d)
+    return capsys.readouterr().out
+
+
+TREES_SEC = {"reproducer": "git", "dev": {"path": "p", "branch": "b", "sha": "s",
+                                         "uncommitted": 0},
+             "ibkr_final": "ibkr-final", "legacy_prod_present": False}
+ALPACA_SEC = {"reproducer": "probe", "books": {"cef": {
+    "snapshot": "2026-09-28_cef.json", "fetched_at_utc": "2026-09-28T19:56:38+00:00",
+    "age_days": 10, "equity_at_snapshot": "99999.99", "equity": "99999.99",
+    "n_assets": 17, "not_found": [], "not_tradable": [], "not_shortable": ["NAD"],
+    "hard_to_borrow": ["NAD"], "positions": 0, "open_orders": 0}}}
+
+
+class TestProdIsMeasuredNotWritten:
+    def test_trees_no_longer_says_prod_is_not_built(self, capsys):
+        out = _render_with(capsys, TREES=TREES_SEC)
+        assert "not built" not in out
+        assert "PROD" in out
+
+    def test_orient_has_a_prod_section(self):
+        assert "PROD" in [n for n, _ in orient.SECTIONS]
+
+    def test_laptop_armed_is_prod(self, capsys):
+        out = _render_with(capsys, PROD=_prod_section(_m("ARMED"), _m("DRY")))
+        assert "prod is the laptop: ARMED" in out
+
+    def test_laptop_disarmed_is_not_prod(self, capsys):
+        out = _render_with(capsys, PROD=_prod_section(_m("DRY"), _m("DRY")))
+        assert "no machine is measured armed" in out and "nothing is sent" in out
+
+    def test_both_armed_prints_the_warning(self, capsys):
+        out = _render_with(capsys, PROD=_prod_section(_m("ARMED"), _m("ARMED")))
+        assert "WARNING: TWO ARMED SCHEDULERS ON ONE ALPACA ACCOUNT" in out
+
+    def test_vm_unreachable_reads_unmeasured(self, capsys):
+        from ops import prod_state
+        vm = prod_state.vm_unmeasured("`ssh ... quantt-vm 'sh -s'` did not finish within 10s")
+        out = _render_with(capsys, PROD=_prod_section(_m("ARMED"), vm))
+        assert "UNMEASURED — `ssh" in out and "not ruled out" in out
+
+    def test_live_equity_is_the_armed_machines_not_the_probe_snapshots(self, capsys):
+        out = _render_with(capsys, ALPACA=ALPACA_SEC,
+                           PROD=_prod_section(_m("DRY", equity="1.00"),
+                                              _m("ARMED", equity="222.22")))
+        assert "live book" not in out and "nothing trades" not in out
+        assert "$222.22 at the 2026-01-06 close — broker-confirmed" in out
+        assert "99999.99" not in out and "99,999.99" not in out
+        assert "snapshot 2026-09-28, 10 day(s) old — tradability/borrow only" in out
+
+    def test_no_armed_machine_means_no_live_equity(self, capsys):
+        out = _render_with(capsys, ALPACA=ALPACA_SEC,
+                           PROD=_prod_section(_m("DRY"), _m("OFF")))
+        assert "none — no machine is measured armed" in out
+
+    def test_snapshot_age_is_measured_from_its_own_timestamp(self):
+        import datetime as dt
+        assert orient._snapshot_age_days("2026-09-28T19:56:38+00:00",
+                                         today=dt.date(2026, 10, 8)) == 10
+        assert orient._snapshot_age_days(None) is None

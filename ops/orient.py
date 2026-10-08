@@ -43,9 +43,11 @@ tells you less than one that reports nine facts and one gap, and an orientation
 tool that invented a plausible value for the tenth would be the exact failure
 this desk has paid for most often.
 
-TRANSMITS NOTHING. Reads files and runs `git`, `pytest --collect-only` and
-`ops.doc_audit`. No broker socket is opened anywhere in this path, and none of
-the modules it imports opens one at import time. It never reads `config/.env`.
+TRANSMITS NOTHING. Reads files and runs `git`, `pytest --collect-only`,
+`ops.doc_audit`, `launchctl list` / `print-disabled`, and one `ssh` to the VM
+that runs a fixed read-only script (`ops/prod_state.py`). No broker socket is
+opened anywhere in this path, and none of the modules it imports opens one at
+import time. It never reads `config/.env` or the VM's key file.
 
 REWRITTEN 2026-09-28 FOR THE ALPACA MIGRATION. IBKR was retired that day
 (`docs/ROADMAP.md`). The sections that read
@@ -53,6 +55,15 @@ the IBKR prod tree -- TREES' prod half, HALTS, BOOK, UPTIME -- described a
 system that no longer runs, so they were replaced by ALPACA, which reads the
 read-only probe's snapshots. The pre-migration module is at git tag
 `pre-clean-slate`.
+
+PROD ADDED 2026-10-08 (`docs/ROADMAP.md` 4.8). The rewrite above hard-coded
+"prod none ... the Alpaca prod is not built" and "live book NONE -- nothing
+trades". The book armed on 2026-09-29 and both lines stayed, because a string
+cannot notice it has become false. PROD now measures both prod machines (the
+laptop's launchd jobs and the Azure VM's systemd units) and says which one is
+armed; ALPACA takes live equity from the armed machine's broker-confirmed
+`equity.csv` and labels the probe snapshot with its age, since that snapshot is
+evidence of tradability and borrow on its date and of nothing else.
 """
 from __future__ import annotations
 
@@ -112,9 +123,11 @@ def trees() -> dict:
     """Where you are, and whether the retired IBKR prod tree is still around.
 
     Until 2026-09-28 this compared dev with a detached prod worktree. That tree
-    ran the IBKR book and was retired with it; the Alpaca prod runs on a cloud
-    VM (team lead, 2026-09-28) and is not built yet. `ibkr-final` tags the last
-    IBKR-era commit, so "what did the old system run" stays a git question.
+    ran the IBKR book and was retired with it. Which machine runs the Alpaca
+    prod, at which tag, armed or not, is PROD's question (`prod()`), not this
+    one's: it moves, and this section once printed a constant answer to it.
+    `ibkr-final` tags the last IBKR-era commit, so "what did the old system
+    run" stays a git question.
     """
     out = {"reproducer": "git status  ·  git describe --tags  ·  git tag -l ibkr-final"}
     out["dev"] = {
@@ -129,7 +142,32 @@ def trees() -> dict:
     return out
 
 
+# -------------------------------------------------------------------- prod --
+def prod() -> dict:
+    """Which machine is prod, at which tag, and whether it is armed.
+
+    All of it is `ops.prod_state.measure()`, shared with the SessionStart
+    banner and the status line so the three cannot disagree. orient gives the
+    VM the long ssh budget (`prod_state.VM_TIMEOUT_S`); the banner a short one.
+    """
+    from ops import prod_state
+    return prod_state.measure()
+
+
 # ------------------------------------------------------------------ alpaca --
+def _snapshot_age_days(fetched_at_utc, today: dt.date | None = None):
+    """Calendar days since the probe ran, from its own `fetched_at_utc`. None
+    when the snapshot does not say when it ran: an age is never guessed from
+    the file name, which is the date it was written under, not measured at."""
+    if not fetched_at_utc:
+        return None
+    try:
+        when = dt.datetime.fromisoformat(str(fetched_at_utc)).date()
+    except ValueError:
+        return None
+    return ((today or dt.date.today()) - when).days
+
+
 def alpaca() -> dict:
     """What the latest read-only probe of each Alpaca paper account recorded.
 
@@ -137,10 +175,16 @@ def alpaca() -> dict:
     `python3 -m quantt.broker.alpaca_probe`. Never calls Alpaca itself and
     never reads keys: orientation must work on a machine with no credentials.
     A book with no snapshot is UNMEASURED by name, not assumed tradable.
-    `borrow_status` moves daily, so the snapshot's date is always printed.
+    `borrow_status` moves daily, so the snapshot's date and age are printed.
+
+    The snapshot's account figures (equity, positions, orders) are kept in the
+    JSON but NOT rendered: until 2026-10-08 the readout printed the
+    2026-09-28 snapshot's equity beside the account as if it were today's.
+    Live equity is the armed prod's broker-confirmed `equity.csv` (PROD).
     """
     from quantt.broker.alpaca_probe import BOOK_SPECS
-    out = {"reproducer": "python3 -m quantt.broker.alpaca_probe", "books": {}}
+    out = {"reproducer": "python3 -m quantt.broker.alpaca_probe   (snapshots; "
+                         "live equity is PROD's)", "books": {}}
     for book in BOOK_SPECS:
         snaps = sorted(PROBE_DIR.glob(f"*_{book}.json"))
         if not snaps:
@@ -154,7 +198,8 @@ def alpaca() -> dict:
         out["books"][book] = {
             "snapshot": snaps[-1].name,
             "fetched_at_utc": d.get("fetched_at_utc"),
-            "equity": acct.get("equity"),
+            "age_days": _snapshot_age_days(d.get("fetched_at_utc")),
+            "equity_at_snapshot": acct.get("equity"),
             "n_assets": len(assets),
             "not_found": names(lambda a: "_probe" in a),
             "not_tradable": names(lambda a: "_probe" not in a and a.get("tradable") is not True),
@@ -401,7 +446,7 @@ def doc_drift() -> dict:
 
 # ------------------------------------------------------------------ render --
 SECTIONS = [
-    ("TREES", trees), ("ALPACA", alpaca),
+    ("TREES", trees), ("PROD", prod), ("ALPACA", alpaca),
     ("SPEC", spec), ("TRIALS", trials), ("PANELS", panels),
     ("HYGIENE", hygiene), ("DOC DRIFT", doc_drift),
 ]
@@ -421,6 +466,27 @@ def collect(run_tests: bool = True) -> dict:
 
 
 LABEL_W = 30
+
+
+def _live_equity(prod_sec: dict) -> str:
+    """The armed prod's last equity.csv row, or why there is none.
+
+    Only the ARMED (or per-day) machine's file is the live ledger: a shadow's
+    copy, or the laptop's after cut-over, describes the same account through a
+    scheduler that is not sending, so it is shown under its machine in PROD and
+    never promoted to here.
+    """
+    from ops import prod_state
+    if "UNMEASURED" in prod_sec:
+        return f"UNMEASURED — PROD could not be measured ({prod_sec['UNMEASURED']})"
+    v = prod_sec.get("verdict") or {}
+    if v.get("warning"):
+        return ("not chosen — two machines are armed (PROD WARNING), so there is no "
+                "one prod to read it from; each machine's last row is shown there")
+    if not v.get("prod"):
+        return ("none — no machine is measured armed (PROD); each machine's last "
+                "row is shown there")
+    return f"{prod_state.equity_text(v.get('equity'))}  [{v['prod']}]"
 
 
 def _p(label: str, value: str = "") -> None:
@@ -451,23 +517,29 @@ def render(d: dict) -> None:
         _p("dev  (you are here)", f"{dv['path']}  {dv['branch']} {dv['sha']}"
                                   f"  {dv['uncommitted']} uncommitted")
         _p("ibkr-final tag", sec["ibkr_final"] or "MISSING — the IBKR-era record has no tag")
-        _p("prod", "none — the IBKR prod tree was retired 2026-09-28; the Alpaca "
-                   "prod (cloud VM) is not built")
+        _p("prod", "measured in PROD below (which machine, which tag, armed or not)")
         if sec["legacy_prod_present"]:
-            _p("", f"  {PROD_TREE} still exists on this machine (retired; "
-                   "nothing is scheduled to run it)")
+            _p("", f"  {PROD_TREE} (the retired IBKR tree) still exists on this "
+                   "machine; it is not the Alpaca prod")
+        print()
+
+    if (sec := head("PROD")) is not None:
+        from ops import prod_state
+        prod_state.render_lines(sec, _p)
         print()
 
     if (sec := head("ALPACA")) is not None:
-        _p("live book", "NONE — nothing trades until the Alpaca adapter is built "
-                        "and armed")
+        _p("live equity", _live_equity(s.get("PROD") or {}))
         for book, b in sec["books"].items():
             if not b.get("snapshot"):
                 _p(f"account: {book}", "UNMEASURED — no probe snapshot yet")
                 continue
-            _p(f"account: {book}", f"{b['snapshot']}  equity {b['equity']}  "
-                                   f"{b['positions']} position(s), "
-                                   f"{b['open_orders']} open order(s)")
+            age = b.get("age_days")
+            when = (str(b.get("fetched_at_utc"))[:10] if b.get("fetched_at_utc")
+                    else f"UNDATED ({b['snapshot']} has no fetched_at_utc)")
+            _p(f"account: {book}", f"snapshot {when}, "
+               + (f"{age} day(s) old" if age is not None else "age UNMEASURED")
+               + " — tradability/borrow only")
             _p("", f"  {b['n_assets']} spec names; not found {b['not_found'] or 'none'}; "
                    f"not tradable {b['not_tradable'] or 'none'}")
             _p("", f"  not shortable {b['not_shortable'] or 'none'}; "

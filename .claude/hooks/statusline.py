@@ -4,13 +4,19 @@
 The last segment is the point. A 21-session silent outage went unnoticed for a
 month here because every surface read "ok" for a book that was refusing to arm.
 Until 2026-09-28 this segment showed trading days since the last IBKR
-broker-confirmed fill (the old version is at git tag `pre-clean-slate`).
-IBKR is retired and no Alpaca book trades yet, so it now reads "no live book" in
-red, permanently, until there is a book whose fills it can measure.
+broker-confirmed fill (the old version is at git tag `pre-clean-slate`). From
+then until 2026-10-08 it read "no live book" in red from a constant, nine days
+past the first armed Alpaca session (`docs/ROADMAP.md` 4.8).
+
+It now shows `ops.prod_state` through `book_state.collect(vm="cached")`: which
+machine is prod and how it is armed, the prod's last verify verdict, and the
+other machine's state. Two armed machines read `TWO ARMED` in bold red. The VM
+part is the SessionStart banner's ssh reading, shown with its age in minutes;
+the status line itself never opens ssh (`book_state.py` says why).
 
 Book state is read at most once every 45s and cached under the session id;
 the status line re-runs on every assistant message and the state changes at
-most once a day.
+most a few times a day.
 """
 from __future__ import annotations
 
@@ -40,7 +46,7 @@ def cached_book_state(session_id: str) -> dict:
         pass
     try:
         from book_state import collect
-        state = collect()
+        state = collect(vm="cached")
         try:
             cache.write_text(json.dumps(state))
         except Exception:
@@ -50,10 +56,48 @@ def cached_book_state(session_id: str) -> dict:
         return {}
 
 
+SHORT = {"ARMED": "ARMED", "PER_DAY": "per-day", "DRY": "dry", "OFF": "off",
+         "NOT_INSTALLED": "none", "UNMEASURED": "?"}
+COLOUR = {"ARMED": GREEN, "PER_DAY": YELLOW, "UNMEASURED": RED}
+NAME = {"laptop": "laptop", "vm": "VM"}
+
+
+def _machine(name: str, m: dict) -> str:
+    a = m.get("arming", "UNMEASURED")
+    age = m.get("cached_age_s")
+    mark = "!" if m.get("cautions") else ""
+    return (f"{COLOUR.get(a, DIM)}{NAME.get(name, name)} {SHORT.get(a, a)}{mark}"
+            + (f" {age // 60}m" if isinstance(age, int) else "") + R)
+
+
 def book_segment(state: dict) -> str:
-    if not state.get("live_book"):
-        return f"{RED}no live book{R}"
-    return f"{DIM}live book: unmeasured{R}"
+    """`prod VM per-day 10-07 PASS · laptop off!`, or `TWO ARMED laptop+VM`.
+
+    Silence never reads as success: an unreadable state is red `prod ?`, and
+    a state with no armed machine is red `nothing armed`, never blank.
+    """
+    p = (state or {}).get("prod") or {}
+    v, ms = p.get("verdict"), p.get("machines") or {}
+    if not v:
+        return f"{RED}prod ?{R}"
+    if v.get("warning"):
+        return f"{RED}{BOLD}TWO ARMED {'+'.join(NAME.get(n, n) for n in v.get('hot', {}))}{R}"
+    parts = []
+    if v.get("prod"):
+        name = v["prod"]
+        seg = f"prod {_machine(name, ms.get(name) or {})}"
+        vl = (ms.get(name) or {}).get("verify_last") or {}
+        if "value" in vl and vl["value"].get("verdict"):
+            d, verdict = vl["value"].get("date"), vl["value"]["verdict"]
+            when = d[5:] if d else "undated"
+            seg += f" {GREEN if verdict == 'PASS' else RED}{when} {verdict}{R}"
+        else:
+            seg += f" {RED}no verdict{R}"
+        parts.append(seg)
+    else:
+        parts.append(f"{RED}nothing armed{R}")
+    parts += [_machine(n, m) for n, m in ms.items() if n != v.get("prod")]
+    return f" {DIM}·{R} ".join(parts)
 
 
 def ctx_bar(pct: float) -> str:
