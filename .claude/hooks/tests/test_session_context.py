@@ -28,7 +28,7 @@ def _load():
 
 def test_banner_points_at_orient_system_roadmap_and_history(monkeypatch, capsys):
     mod = _load()
-    monkeypatch.setattr(mod, "collect", lambda: {})
+    monkeypatch.setattr(mod, "collect", lambda **k: {})
     assert mod.main() == 0
     out = capsys.readouterr().out
     assert "python3 -m ops.orient" in out
@@ -38,29 +38,36 @@ def test_banner_points_at_orient_system_roadmap_and_history(monkeypatch, capsys)
 
 
 def test_pointer_survives_any_state(monkeypatch, capsys):
-    """The state lines above it vary; the pointer must not depend on them."""
+    """The state lines above it vary; the pointer must not depend on them --
+    not even on a state shaped the way this banner no longer expects (the
+    pre-2026-10-08 `live_book` / string-probe shape below)."""
     mod = _load()
-    monkeypatch.setattr(mod, "collect", lambda: {
+    monkeypatch.setattr(mod, "collect", lambda **k: {
         "live_book": None, "probes": {"cef": None, "b6": "2026-09-29_b6.json"},
         "git": {"branch": "x", "dirty": 0}})
     mod.main()
-    assert mod.POINTER in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert mod.POINTER in out and "UNMEASURED" in out
 
 
-def test_no_live_book_is_said_out_loud(monkeypatch, capsys):
-    """Silence must never read as success: with nothing trading, the banner
-    says so, rather than printing nothing about the book."""
+def test_nothing_armed_is_said_out_loud(monkeypatch, capsys):
+    """Silence must never read as success: with no machine armed, the banner
+    says so, rather than printing nothing about the book. (Until 2026-10-08
+    this said "NO LIVE BOOK" from a constant, armed or not.)"""
     mod = _load()
-    monkeypatch.setattr(mod, "collect", lambda: {"live_book": None})
+    monkeypatch.setattr(mod, "collect", lambda **k: {"prod": {"machines": {}, "verdict": {
+        "line": "no machine is measured armed (laptop DRY, vm DRY): nothing is sent",
+        "prod": None, "warning": None, "cautions": []}}})
     mod.main()
-    assert "NO LIVE BOOK" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "No machine is measured armed" in out and "NO LIVE BOOK" not in out
 
 
 def test_a_broken_reader_still_prints_the_warning(monkeypatch, capsys):
     mod = _load()
-    def boom():
+    def boom(**k):
         raise RuntimeError("x")
     monkeypatch.setattr(mod, "collect", boom)
     assert mod.main() == 0
     out = capsys.readouterr().out
-    assert "NO LIVE BOOK" in out and mod.POINTER in out
+    assert "PROD UNMEASURED" in out and mod.POINTER in out

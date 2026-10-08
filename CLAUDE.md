@@ -5,15 +5,18 @@ to **Alpaca paper** (team lead, 2026-09-28): one paper account per book, prod on
 cloud VM, MOC orders on a schedule. Team lead: Simon Jarvis. Paper indefinitely —
 a competition track record, judged on absolute return under a vol cap.
 
-**Right now nothing trades.** IBKR was retired on 2026-09-28 and the repo was cut
-to a clean slate the same day; the Alpaca system is being built in `quantt/`. **The
-plan, step by step, is `docs/ROADMAP.md`.**
+**The book trades on Alpaca paper**, run by `quantt/` from a prod clone of this
+repository held at a release tag (IBKR was retired on 2026-09-28). Prod is moving
+from the team lead's laptop (launchd) to an Azure VM (systemd): `docs/RUNBOOK.md`
+§8, `docs/ROADMAP.md` phase 6. **Which machine is prod, and whether it is armed,
+is never written here: `python3 -m ops.orient` measures it.** **The plan, step by
+step, is `docs/ROADMAP.md`.**
 
 **This file holds the rules, which do not rot. It holds no figures about the
 book, which do.** Start every session with:
 
 ```bash
-python3 -m ops.orient      # ~3s: where you are, the Alpaca accounts, spec, counters, panels
+python3 -m ops.orient      # ~3s: where you are, which machine is prod and armed, the Alpaca accounts, spec, counters, panels
 ```
 
 Then **`docs/SYSTEM.md`** — what we trade, how it runs, what we know, what has
@@ -23,6 +26,7 @@ Read `docs/BRIEF.md` before any research.
 | you want | ask |
 |---|---|
 | any number about the accounts, the spec or the counters | `python3 -m ops.orient` (a section that cannot measure says `UNMEASURED`, never a guess) |
+| which machine is prod, at which tag, armed or not | `python3 -m ops.orient` PROD (alone: `python3 -m ops.prod_state`) |
 | what the system is, how it runs, the standing decisions | `docs/SYSTEM.md` |
 | trial counters, D1–D7, what is dead | `docs/RESEARCH_STATE.md` |
 | whether a document still says true things | `python3 -m ops.doc_audit` |
@@ -174,12 +178,19 @@ rules when you open matching files.
 
 ## Where it runs
 
-**There is no prod right now.** The IBKR prod worktree (`~/prod/QUANTT`) and its
-launchd jobs were retired on 2026-09-28; the jobs are unloaded and the tree's
-state is at tag `pre-clean-slate` (`pre-clean-slate:_archive/prod_state_2026-09-28/`). The Alpaca
-prod will run on a cloud VM (team lead, 2026-09-28) and does not exist yet; its
-rule is that it holds this repository at a tag and nothing else
-(`docs/ROADMAP.md` phase 6). `ibkr-final` tags the last IBKR-era commit.
+**Prod is a clone of this repository at a release tag, and nothing else**
+(`docs/ROADMAP.md` phase 6). It is moving from the team lead's laptop, under
+launchd (`docs/RUNBOOK.md`), to an Azure VM under systemd (`docs/RUNBOOK.md` §8).
+The cut-over (§8.5) must never leave two schedulers armed for one Alpaca account.
+Which machine is prod right now, at which tag, and whether it is armed, is
+`python3 -m ops.orient` PROD; it prints a WARNING if both machines are armed. The
+VM is reached only through its ssh alias. **This repository is public: the VM's
+address, the vault's name and the subscription never go in a tracked file.**
+
+The IBKR prod worktree (`~/prod/QUANTT`) and its launchd jobs were retired on
+2026-09-28; the jobs are unloaded and the tree's state is at tag
+`pre-clean-slate` (`pre-clean-slate:_archive/prod_state_2026-09-28/`). It is not
+the Alpaca prod. `ibkr-final` tags the last IBKR-era commit.
 
 ## Landmines
 

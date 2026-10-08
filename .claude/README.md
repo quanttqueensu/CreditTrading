@@ -25,9 +25,9 @@ prod; `docs/INDEX.md` which file owns every other question.
 | hook | event | what it does |
 |---|---|---|
 | `post_edit_check.py` | `PostToolUse(Edit\|Write)` | Never blocks. Flags the bug classes this repo has actually shipped, on the lines you just added. |
-| `session_context.py` | `SessionStart` | Says whether anything trades (today: no live book), the Alpaca probe snapshots, and where to start. |
-| `statusline.py` | status line | Model · git · context · **no live book** in red until a book trades. |
-| `book_state.py` | *(library)* | The one reader behind the two above. Files and git only; no network, no keys. |
+| `session_context.py` | `SessionStart` | Which machine is prod and whether it is armed (a WARNING first if two are), its tag, last verdict and broker-confirmed equity, the probe snapshots' ages, and where to start. |
+| `statusline.py` | status line | Model · git · context · prod machine, its arming and last verdict (`TWO ARMED` in red if two are). Never opens ssh: the VM part is the banner's reading, with its age. |
+| `book_state.py` | *(library)* | The one reader behind the two above: `ops/prod_state.py` (launchd and files on the laptop; one read-only ssh call to the VM, 3 s budget, banner only), git, probe file names. No broker connection, no keys. |
 
 **There is no blocking hook.** The order-path rules in `CLAUDE.md` are context,
 not enforcement. The facts behind them are unchanged: an NYSE MOC cannot be

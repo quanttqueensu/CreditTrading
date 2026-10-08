@@ -53,7 +53,7 @@ ids never reused); the first armed session's real orders answer 3.1 and 3.5.
 
 Tests first; each shown to fail against the wrong behaviour; `quant-reviewer` on
 every piece. **Built 2026-09-28** (`docs/RUNNER.md`, release `release-20260928-1`);
-4.1–4.7 done, 4.2 decided (day one trades to full target); 4.8 open.
+4.1–4.7 done, 4.2 decided (day one trades to full target); 4.8 done 2026-10-08.
 
 | # | piece | status |
 |---|---|---|
@@ -64,7 +64,7 @@ every piece. **Built 2026-09-28** (`docs/RUNNER.md`, release `release-20260928-1
 | 4.5 | Reconcile from the broker (positions, orders, activities, `trade_updates`), never a local ledger. | open |
 | 4.6 | Scoring: Alpaca's fill P&L (official) and closing-auction-print P&L, side by side, gross. | open |
 | 4.7 | Post-close verification: one log line per trading day, pass or fail — silence never reads as success. | open |
-| 4.8 | `orient` / banner / status line read the live book's broker-confirmed fills. | open |
+| 4.8 | `orient` / banner / status line read the live book's broker-confirmed fills. | done 2026-10-08: `ops/prod_state.py` measures both prod machines (laptop launchd; VM systemd over one read-only ssh call): which is armed (`DRY_RUN` + `AUTO_ARMED`, gates 1–2), tag, last verify verdict, the broker-confirmed `equity.csv`, and a WARNING if both are armed. orient PROD/ALPACA, the SessionStart banner and the status line all read it; the probe snapshot is labelled with its age. |
 
 ## Phase 5 — shadow on paper
 
