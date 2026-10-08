@@ -835,10 +835,14 @@ def deps_script(layout: "Layout") -> str:
     stopped. Here everything runs as quantt under `set -euo pipefail`. The hash
     is computed first; the record is written only if the hash is non-empty, via a
     temp file and `mv`, so it is never left truncated.
+
+    It first changes into the service user's home: uv reads uv.toml from the
+    working directory, and from the admin's home (unreadable to quantt) it failed
+    "Permission denied" (measured on the VM, 2026-10-08).
     """
     q = shlex.quote
     req, rec = layout.prod_dir / "requirements.txt", layout.requirements_record
-    return (f"set -euo pipefail; "
+    return (f"set -euo pipefail; cd {q(str(layout.home))}; "
             f"{q(str(layout.home / '.uv' / 'bin' / 'uv'))} pip install --no-build "
             f"--python {q(str(layout.venv_python))} -r {q(str(req))}; "
             f"h=$(sha256sum {q(str(req))} | cut -d' ' -f1); "

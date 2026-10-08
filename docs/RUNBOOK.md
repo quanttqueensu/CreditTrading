@@ -774,7 +774,7 @@ minutes. On an early close, the same applies before 12:30 or after 13:00.
    the following, which installs wheels only and records which file the venv
    was built from:
    ```bash
-   sudo -u quantt env HOME=/home/quantt bash -c 'set -euo pipefail
+   sudo -u quantt env HOME=/home/quantt bash -c 'set -euo pipefail; cd /home/quantt
      /home/quantt/.uv/bin/uv pip install --no-build --python /home/quantt/venv/bin/python \
        -r /home/quantt/prod/quantt-alpaca/requirements.txt
      h=$(sha256sum /home/quantt/prod/quantt-alpaca/requirements.txt | cut -d" " -f1)
@@ -782,7 +782,9 @@ minutes. On an early close, the same applies before 12:30 or after 13:00.
      printf "%s\n" "$h" > /home/quantt/venv/.quantt-requirements.sha256.tmp
      mv /home/quantt/venv/.quantt-requirements.sha256.tmp /home/quantt/venv/.quantt-requirements.sha256'
    ```
-   All of it runs as `quantt`. The admin user cannot read `/home/quantt`
+   It changes into `/home/quantt` first: uv reads `uv.toml` from the working
+   directory, and from the admin's home it failed with "Permission denied"
+   (measured on the VM, 2026-10-08). All of it runs as `quantt`. The admin user cannot read `/home/quantt`
    (mode 750). An earlier form here hashed the file as the admin user and
    piped it to `tee`, so a failed hash truncated the record (corrected
    2026-10-08). Now the record is written only after a successful hash. The

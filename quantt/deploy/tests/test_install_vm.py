@@ -1610,3 +1610,14 @@ def test_halt_advice_names_the_per_day_approval_as_well_as_auto_armed():
     assert "AUTO_ARMED" in advice and "APPROVED" in advice
     src = Path(iv.__file__).read_text()
     assert "remove AUTO_ARMED)" not in src, "a halt message still names AUTO_ARMED alone"
+
+
+
+def test_the_deps_script_changes_to_the_service_home_before_uv_runs():
+    """Measured on the VM, 2026-10-08: uv reads uv.toml from the working
+    directory, and run from the admin's home (mode 750 to quantt) it failed
+    "failed to open file /home/azureuser/uv.toml: Permission denied". The script
+    must cd into the service user's own home before it calls uv."""
+    script = iv.deps_script(iv.Layout(Path("/home/quantt")))
+    before_uv = script.split("pip install")[0]
+    assert "cd /home/quantt;" in before_uv, script
