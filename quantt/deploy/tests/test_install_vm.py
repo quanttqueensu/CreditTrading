@@ -25,8 +25,11 @@ against the templates that will ship.
 from __future__ import annotations
 
 import datetime as dt
-import os
+import fcntl
 import hashlib
+import os
+import shutil
+import sys
 import plistlib
 import re
 import subprocess
@@ -979,7 +982,8 @@ def et(h, m, s=0, day=7):
     return dt.datetime(2026, 10, day, h, m, s, tzinfo=ET).astimezone(dt.timezone.utc)
 
 
-@pytest.mark.parametrize("t", [et(15, 40), et(15, 52), et(15, 59, 59), et(12, 40), et(12, 59)])
+@pytest.mark.parametrize("t", [et(15, 30), et(15, 40), et(15, 52), et(15, 59, 59),
+                               et(12, 30), et(12, 40), et(12, 59)])
 def test_an_install_inside_a_late_window_is_refused_at_planning(world, capsys, t):
     armed_and_running(world, capsys)
     rc, out = world.run("--apply", clock=lambda: t, capsys=capsys)
@@ -988,27 +992,39 @@ def test_an_install_inside_a_late_window_is_refused_at_planning(world, capsys, t
     assert world.cmds.timer_active == set(TIMERS)
 
 
-@pytest.mark.parametrize("t", [et(15, 39, 59), et(16, 0), et(12, 39), et(13, 0),
+@pytest.mark.parametrize("t", [et(15, 29, 59), et(16, 0), et(12, 29, 59), et(13, 0),
                                et(15, 45, day=10)])                 # Saturday
 def test_outside_the_late_windows_or_at_the_weekend_the_install_runs(world, capsys, t):
     rc, out = world.run("--apply", clock=lambda: t, capsys=capsys)
     assert rc == 0, out
 
 
-def test_the_late_ranges_are_the_runners():
-    """Mirrored, not imported: the installer never imports quantt.session."""
+def test_the_windows_cover_the_runners_late_ranges_and_the_books_send_window():
+    """Mirrored, not imported: the installer never imports quantt.session.
+
+      * planning refuses a SUPERSET of the runner's LATE_LOCAL_RANGES;
+      * the restart guard starts exactly where the book's send window starts
+        (close - window_minutes_before_close[0]) and runs to the close, for a
+        16:00 and a 13:00 close.
+    """
     from quantt.session import run
-    assert iv.LATE_RANGES_ET == run.LATE_LOCAL_RANGES
+    for a, b in run.LATE_LOCAL_RANGES:
+        assert any(pa <= a and b <= pb for pa, pb in iv.PLAN_REFUSE_RANGES_ET), (a, b)
+    first = run.execution_for(run.BOOKS["cef"])["window_minutes_before_close"][0]
+    want = tuple(((dt.datetime.combine(dt.date(2026, 10, 7), close)
+                   - dt.timedelta(minutes=first)).time(), close)
+                 for close in (dt.time(16, 0), dt.time(13, 0)))
+    assert iv.RESTART_REFUSE_RANGES_ET == want
 
 
 @pytest.mark.parametrize("extra", [(), ("--enable",)])
 def test_a_restart_that_would_land_in_a_late_window_leaves_the_timers_stopped(world, capsys,
                                                                              extra):
     armed_and_running(world, capsys)
-    times = iter([et(15, 39, 50)])            # planning; every later read is 15:40:05
+    times = iter([et(15, 29, 50)])            # planning; every later read is 15:52:00
 
     def clock():
-        return next(times, et(15, 40, 5))
+        return next(times, et(15, 52))
     rc, out = world.run("--apply", "--armed", *extra, clock=clock, capsys=capsys)
     assert rc == 2 and "not restarting" in out and "16:00" in out, out
     assert "timers left STOPPED" in out
@@ -1092,6 +1108,100 @@ def test_the_deps_script_never_truncates_the_record_when_the_hash_fails(world, t
         os.chmod(req, 0o644)
     assert r.returncode != 0
     assert rec.read_text() == "old-record\n"
+
+
+def test_a_restart_before_the_send_window_goes_ahead(world, capsys):
+    """15:30-15:52 can only replay a :00/:30 session slot (decide or idle) or a
+    :40 collect, never a send, so the restart is allowed."""
+    armed_and_running(world, capsys)
+    times = iter([et(15, 29, 50)])
+
+    def clock():
+        return next(times, et(15, 51, 59))
+    rc, out = world.run("--apply", "--armed", clock=clock, capsys=capsys)
+    assert rc == 0, out
+    assert world.cmds.timer_active == set(TIMERS)
+
+
+# -- one install at a time (release-check #5) ---------------------------------------
+
+def hold_lock(world, pid="4242"):
+    path = world.layout.sysroot / iv.INSTALL_LOCK.relative_to("/")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    os.ftruncate(fd, 0)
+    os.write(fd, f"{pid}\n".encode())
+    return fd
+
+
+def lock_is_free(world):
+    path = world.layout.sysroot / iv.INSTALL_LOCK.relative_to("/")
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False
+    finally:
+        os.close(fd)
+
+
+def test_a_second_install_refuses_before_touching_anything(world, capsys):
+    """The race: a disarm confirmed DRY_RUN=1 and exited 0 while an armed update
+    was still running, which then wrote DRY_RUN=0 and restarted the timers."""
+    head = world.head()
+    fd = hold_lock(world)
+    try:
+        rc, out = world.run("--apply", capsys=capsys)
+    finally:
+        os.close(fd)
+    assert rc == 2 and "another install" in out and "4242" in out, out
+    assert world.cmds.calls == [] and world.head() == head and units_written(world) == []
+
+
+def test_the_dry_run_takes_the_lock_too(world, capsys):
+    fd = hold_lock(world)
+    try:
+        rc, out = world.run(capsys=capsys)
+    finally:
+        os.close(fd)
+    assert rc == 2 and "another install" in out
+
+
+def test_the_lock_is_released_on_success_refusal_and_exception(world, capsys):
+    assert world.run("--apply", capsys=capsys)[0] == 0
+    assert lock_is_free(world)
+    assert world.run("--apply", euid=1000, capsys=capsys)[0] == 2      # refused
+    assert lock_is_free(world)
+    armed_and_running(world, capsys)
+    world.cmds.raise_on = {("systemctl", "daemon-reload"): RuntimeError("boom")}
+    with pytest.raises(RuntimeError):
+        world.run("--apply", capsys=capsys)
+    assert lock_is_free(world)
+
+
+def test_the_bootstrap_takes_the_same_lock():
+    assert _sh_var("LOCK_FILE") == str(iv.INSTALL_LOCK)
+
+
+# -- a halt during an install (release-check #5, own pass) --------------------------
+
+@pytest.mark.parametrize("extra", [(), ("--enable",)])
+def test_a_timer_disabled_during_the_install_is_not_started_or_re_enabled(world, capsys, extra):
+    """Halt step 4 (`systemctl disable --now` the timers) issued while an install
+    runs must not be undone by the install's restart, nor by --enable."""
+    armed_and_running(world, capsys)
+    real = world.cmds.__call__
+
+    def halting(args):
+        if args[:2] == ["systemctl", "daemon-reload"]:
+            world.cmds.enabled.discard("quantt-cef-session.timer")   # the operator's disable
+        return real(args)
+    rc, out = world.run("--apply", "--armed", *extra, run_cmd=halting, capsys=capsys)
+    assert rc == 2 and "disabled during this install" in out, out
+    assert "quantt-cef-session.timer" not in world.cmds.timer_active
+    assert not [c for c in world.cmds.mutating() if c[:3] == ["systemctl", "enable", "--now"]]
 
 
 def test_the_key_service_being_active_is_normal(world, capsys):
@@ -1425,3 +1535,66 @@ def test_bootstrap_records_the_requirements_it_installed(tmp_path):
     assert (venv / iv.REQUIREMENTS_RECORD).read_text().strip() == want
     assert iv.Layout(Path("/home/quantt")).requirements_record == \
         Path("/home/quantt/venv") / iv.REQUIREMENTS_RECORD
+
+
+def flock_path(tmp_path):
+    """A PATH with util-linux `flock`, or (absent, as on macOS) a stand-in with
+    the same semantics for `flock -n FD`: flock(2) on the inherited descriptor,
+    whose open file description the calling shell keeps holding after the
+    child exits."""
+    if shutil.which("flock"):
+        return os.environ["PATH"]
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    stub = bindir / "flock"
+    stub.write_text(f"#!{sys.executable}\nimport fcntl, sys\nassert sys.argv[1] == '-n'\n"
+                    f"try:\n    fcntl.flock(int(sys.argv[2]), fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+                    f"except BlockingIOError:\n    sys.exit(1)\n")
+    os.chmod(stub, 0o755)
+    return f"{bindir}:{os.environ['PATH']}"
+
+
+def bootstrap_locked(snippet, tmp_path):
+    script = f"""set -euo pipefail
+source {str(BOOTSTRAP)!r}
+as_quantt() {{ "$@"; }}
+ROOT={str(tmp_path / 'root')!r}
+{snippet}
+"""
+    return subprocess.run(["bash", "-c", script], cwd=tmp_path, capture_output=True, text=True,
+                          env=dict(os.environ, PATH=flock_path(tmp_path)))
+
+
+def test_bootstrap_refuses_while_an_install_holds_the_lock(tmp_path):
+    path = tmp_path / "root" / "run" / "lock" / "quantt-install.lock"
+    path.parent.mkdir(parents=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    os.write(fd, b"4242\n")
+    try:
+        r = bootstrap_locked("step_lock", tmp_path)
+    finally:
+        os.close(fd)
+    assert r.returncode == 2 and "another install" in r.stderr and "4242" in r.stderr, r.stderr
+
+
+def test_bootstrap_takes_the_lock_and_records_its_pid(tmp_path):
+    r = bootstrap_locked('step_lock; cat "${ROOT}${LOCK_FILE}"', tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip().isdigit()
+
+
+@pytest.mark.parametrize("live,want", [
+    ('[[ "$1" == is-active && "$3" == quantt-cef-session.timer ]] && return 0; '
+     '[[ "$1" == is-active ]] && return 3; return 0', 2),
+    ('[[ "$1" == is-active ]] && return 3; '
+     '[[ "$1" == list-jobs ]] && echo "77 quantt-cef-verify.service start waiting"; return 0', 2),
+    ('[[ "$1" == is-active ]] && return 3; return 0', 0),
+])
+def test_bootstrap_refuses_on_a_live_vm(tmp_path, live, want):
+    """Re-running bootstrap reinstalls packages into the venv; never under a
+    running or queued job, and never with the timers running."""
+    r = bootstrap_fn(f"systemctl() {{ {live}; }}; step_not_live", tmp_path)
+    assert r.returncode == want, (r.stdout, r.stderr)
+    if want:
+        assert "live" in r.stderr

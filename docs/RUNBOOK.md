@@ -513,6 +513,13 @@ because an RBAC refusal's message names the tenant, object ids and the
     VM, 2026-10-08];
   - the key service `activating`, because jobs may be queued behind it.
 
+**One install at a time.** The installer, including a dry run, takes an
+exclusive lock (`/run/lock/quantt-install.lock`) before any planning, and
+`bootstrap.sh` takes the same lock. A second run refuses, naming the holder's
+pid. Without the lock, a disarm could confirm DRY_RUN=1 and exit 0 while an
+armed update already in flight went on to write DRY_RUN=0 and restart the
+timers. The lock lives on tmpfs, so a reboot clears it.
+
 **On `--apply` the timers are stopped for the run.** The installer stops every
 running quantt-cef timer first, so no firing can start a job mid-install. It
 then checks for a running or queued job, does the checkout, writes and
@@ -533,11 +540,18 @@ timers running. To keep one timer off, disable it.
 one boot across a missed slot, fires at once on the restart. (This corrects an
 earlier line here that said it did not.) So an install that spans 15:52/15:55,
 or 12:52/12:55 on an early close, would replay the send slot into a late,
-partial send. **That is why the installer refuses on weekdays inside
-15:40–16:00 and 12:40–13:00 ET** (the runner's own late ranges). It also checks
-the clock again just before restarting the timers. If that check falls inside
-a window, it leaves the timers **stopped** and says so; re-run after 16:00, or
-13:00. Other replays are harmless:
+partial send. **That is why the installer has two weekday windows** (narrowed
+2026-10-08, release-check #5):
+- **it will not start an install inside 15:30–16:00 or 12:30–13:00 ET**. That
+  is a superset of the runner's late ranges, and leaves room for a run of
+  about 4 minutes;
+- **it will not restart the timers inside 15:52–16:00 or 12:52–13:00 ET**, the
+  book's send window to the close. It checks the clock again just before the
+  restart. If that check falls inside the window, it leaves the timers
+  **stopped** and says so; re-run after 16:00, or 13:00.
+
+A restart between 15:30 and 15:52 can only replay a :00/:30 session or a :40
+collect, never a send. Other replays are harmless:
 - a replayed :00/:30 session idles outside its slots;
 - a replayed collect is just a collect;
 - a replayed 17:30 verify writes the day's line;
@@ -549,7 +563,9 @@ a window, it leaves the timers **stopped** and says so; re-run after 16:00, or
   verify line is written until they are started again. **Prefer to re-run the
   installer**, which enforces the late-window guard. If you start them by hand
   (`sudo systemctl start …`), do it **not on a weekday inside 15:40–16:00 or
-  12:40–13:00 ET**: wait until after 16:00, or 13:00 on an early close. A start
+  12:40–13:00 ET**: wait until after 16:00, or 13:00 on an early close. (This
+  is deliberately wider than the installer's 15:52 restart window, because a
+  person is slower than a clock check.) A start
   inside 15:52–15:58 replays the missed send slot, which is a late and possibly
   partial send. Check first which DRY_RUN systemd has **loaded**, because that
   is what a start runs. The notice prints it, or `UNKNOWN` if it could not be
@@ -634,11 +650,32 @@ the evening decide:
    sudo chown -R quantt:quantt /home/quantt/quantt_state/cef
    ```
    The panels' provenance (`seed.log`) stays in `cef.shadow-<date>`.
-4. **Arm the VM** (TL), not inside 15:40–16:00 or 12:40–13:00 ET on a weekday
-   (the installer refuses there; 8.3): `qi --tag <tag> --vault <vault-name> --armed --apply --enable`,
-   then `sudo -u quantt touch /home/quantt/quantt_state/cef/AUTO_ARMED`
-   (`docs/RUNNER.md` gate 2). A scheduled send needs both.
-5. **Watch** the first 22:00 decide, the next 15:52 send and the 17:30 verify.
+4. **Arm the VM, without AUTO_ARMED** (TL). Do it before 15:30 or after 16:00
+   ET on a weekday (12:30/13:00 on an early close); the installer refuses
+   inside those windows (8.3):
+   `qi --tag <tag> --vault <vault-name> --armed --apply --enable`.
+   Do **not** create AUTO_ARMED yet. The VM's first armed send is planned from
+   its own panels and its unmeasured Azure collector, so its order list is
+   shown to the TL first (`CLAUDE.md` order-path rule 1, `docs/ROADMAP.md`
+   6.5). With DRY_RUN=0 and no AUTO_ARMED, a scheduled send transmits only a
+   plan that carries a recorded approval (gate 2).
+5. **Show the first decided plan to the TL.** After the 22:00 decide (or the
+   morning backstop), the plan for session date D is in
+   `/home/quantt/quantt_state/cef/<D>/plan.json`, with its order list and
+   `plan_sha`. Show it with `sudo cat /home/quantt/quantt_state/cef/<D>/plan.json`.
+6. **On the TL's go, and only then**, record the approval for that plan:
+   ```bash
+   sudo -u quantt env HOME=/home/quantt QUANTT_STATE_DIR=/home/quantt/quantt_state/cef \
+     bash -c 'cd /home/quantt/prod/quantt-alpaca &&
+       /home/quantt/venv/bin/python -m quantt.session approve --book cef --date <D> --sha <plan_sha>'
+   ```
+   It refuses unless the plan for D is decided and hashes to that sha, and it
+   refuses once a set has STARTED (`quantt/session/run.py`, `approve_main`). The
+   scheduled 15:52 send then transmits that plan and nothing else.
+7. **Watch** the 15:52 send and the 17:30 verify. **Create AUTO_ARMED only after
+   that verify line PASSes** (TL):
+   `sudo -u quantt touch /home/quantt/quantt_state/cef/AUTO_ARMED`. From then on
+   each decided plan is sent without a per-day approval (`docs/RUNNER.md` gate 2).
 
 **Rolling back to the laptop** after step 1 runs it in reverse. First halt the
 VM (8.6) and disarm it; never have two armed schedulers. Step 1b disabled the
@@ -676,7 +713,7 @@ cancels an order already at Alpaca.
    installer.
 2. **Remove AUTO_ARMED:** `sudo rm /home/quantt/quantt_state/cef/AUTO_ARMED`.
 3. **DRY_RUN=1:** re-install without `--armed` (`qi ... --apply`). **Not inside
-   15:40–16:00 or 12:40–13:00 ET on a weekday**: the installer refuses there,
+   15:30–16:00 or 12:30–13:00 ET on a weekday**: the installer refuses there,
    because its timer restart could replay a send slot (8.3). Inside those
    windows, halt with step 1 or 2. It takes
    effect at the installer's `daemon-reload`, and the installer then confirms
@@ -696,12 +733,12 @@ cancels an order already at Alpaca.
    `sudo systemctl disable --now quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
 
 **Updating** to a new release. Never change code under a running job.
-**Start any `--apply` before 15:30 ET, or after 16:00.** The key fetch can
-take about 4 minutes, and the installer refuses to restart the timers from
-15:40 onwards, which would leave them stopped. On an early close, the same
-applies before 12:30 or after 13:00.
+**Start any `--apply` before 15:30 ET, or after 16:00.** The installer
+refuses to start inside 15:30–16:00. It also refuses to restart the timers
+from 15:52, which would leave them stopped, and the key fetch can take about 4
+minutes. On an early close, the same applies before 12:30 or after 13:00.
 
-1. **Stop the timers** at a quiet moment: not 15:40–16:00 ET, not 12:40–13:00 ET
+1. **Stop the timers** at a quiet moment: not 15:30–16:00 ET, not 12:30–13:00 ET
    (an early close's send window), not 17:30. The installer refuses inside the
    two late windows anyway.
    The installer also stops them for its own run, but a manual `git checkout`
@@ -757,9 +794,14 @@ partial send.
 
 **Rolling back** is the same procedure with the previous tag.
 
+**Re-running `bootstrap.sh` is not an update path.** It refuses while any quantt
+timer runs or a quantt job runs or is queued, because it reinstalls packages
+into the venv. It refuses while an install holds the lock, and on an existing
+clone not already at the tag (8.2).
+
 **Rotating the keys:** the TL adds a new version of both secrets in the portal,
-and the latest version is what gets fetched. Then, **not inside 15:40–16:00 or
-12:40–13:00 ET on a weekday** (the installer refuses there), re-run the installer
+and the latest version is what gets fetched. Then, **not inside 15:30–16:00 or
+12:30–13:00 ET on a weekday** (the installer refuses there), re-run the installer
 (`qi --tag <current> --vault <vault-name> --apply`, adding `--armed` if the
 VM is armed). That is the safe way: it restarts `quantt-secret.service` while
 the timers are stopped and no job is running, and confirms the key file. A bare
@@ -768,6 +810,35 @@ every job window. Restarting removes and re-creates `/run/quantt`, so a job
 starting at that instant would find no key file and fail loudly. Because the
 job units use `Wants=` and not `Requires=`, a running job is never stopped by
 the restart.
+
+**Hazards of the same class, accepted (own review, 2026-10-08).** Each one
+was weighed and left, with the reason:
+- **Reboot mid-install.** Each unit file is written atomically, but a crash
+  between two unit writes leaves a mix, and at boot systemd loads whatever is
+  on disk. Enabled timers then start at boot. A missed slot is not replayed
+  at boot (M2). **Until an install exits 0, assume the previous state,
+  possibly armed.** If it must be halted now, use halting step 1 or 2. The
+  lock is on tmpfs, so a reboot never leaves it stale.
+- **Operator `systemctl` commands during an install.**
+  - A drop-in written mid-run is caught by the last disk scan, or after the
+    reload by `confirm_loaded` ("systemd is NOW running…").
+  - A job started by hand is caught by the post-reload job check (exit 3).
+  - A timer disabled mid-run (halting step 4) makes the install refuse rather
+    than restart or re-enable it.
+  - What is NOT caught: a job started by hand that has already finished by the
+    post-reload check. The planning window rules out a send slot during an
+    install, so such a job could only be a decide, an idle or a collect.
+- **A halt file during an install.** The runner reads `ops/HALT.md` at run
+  time, and the installer never touches it, so the halt holds.
+- **Clock and DST.** The installer's windows use America/New_York via zoneinfo,
+  so DST is handled. The system clock is chrony-synced. If it were wrong, the
+  runner's own gates use Alpaca's clock as the second guard.
+- **Holidays and early closes.** Both windows are guarded on every weekday. On
+  a holiday the installer refuses for nothing, which is harmless. It needs no
+  calendar to stay out of the way.
+- **`--python` skips the venv check in effect.** The requirements record that
+  is checked is always `/home/quantt/venv`'s, so a custom `--python` runs an
+  interpreter whose packages are not checked. Use the default.
 
 ### 8.7 Cost, and the credit that keeps the book alive
 

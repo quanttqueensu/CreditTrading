@@ -31,8 +31,10 @@
 #   the clone                  the repository at <TAG>, detached, with requirements.txt
 #                              installed from wheels only (--no-build).
 #
-# Re-running: the system steps (zone, apt settings, swap, user, uv, Python) are
-# safe to repeat. The clone step is NOT a way to update: on an existing clone it
+# Re-running: it takes the install lock (the same one install_vm takes), and
+# refuses while any quantt timer runs or any quantt job runs or is queued,
+# because it reinstalls packages into the venv. With prod stopped, the system
+# steps (zone, apt settings, swap, user, uv, Python) are safe to repeat. The clone step is NOT a way to update: on an existing clone it
 # refuses unless HEAD is already the tag's commit. Moving prod from one tag to
 # another is install_vm's job, with its checks (docs/RUNBOOK.md section 8.6).
 #
@@ -63,6 +65,7 @@ SWAP_FILE="/swapfile"
 SWAP_SIZE="2G"
 ROOT="${ROOT:-}"        # prefix for the files step_apt writes; empty on the VM, a tmp dir in tests
 REQUIREMENTS_RECORD=".quantt-requirements.sha256"   # = install_vm.REQUIREMENTS_RECORD
+LOCK_FILE="/run/lock/quantt-install.lock"             # = install_vm.INSTALL_LOCK
 
 die() { echo "REFUSED: $*" >&2; exit 2; }
 step() { echo "== $*"; }
@@ -77,6 +80,36 @@ step_checks() {
     ubuntu:24.04|debian:12) ;;
     *) die "untested OS ${ID} ${VERSION_ID}; expected Ubuntu 24.04 or Debian 12" ;;
   esac
+}
+
+step_lock() {
+  # One install or bootstrap at a time: the same lock install_vm takes
+  # (INSTALL_LOCK). Held on fd 9 until this script exits. Opened for append,
+  # so the holder's pid is not wiped before we own the lock.
+  mkdir -p "$(dirname "${ROOT}${LOCK_FILE}")"
+  exec 9>>"${ROOT}${LOCK_FILE}"
+  if ! flock -n 9; then
+    local holder
+    holder="$(cat "${ROOT}${LOCK_FILE}")"
+    die "another install or bootstrap is running (lock ${LOCK_FILE}, held by pid ${holder:-unknown})"
+  fi
+  printf '%s\n' "$$" > "${ROOT}${LOCK_FILE}"
+}
+
+step_not_live() {
+  # A re-run reinstalls packages into the venv, so it must never happen under
+  # a live book: not with a timer running, and not with a quantt job running
+  # or queued. `is-active` misses a queued start, hence list-jobs (measured on
+  # the VM 2026-10-08, install_vm.py parser comment).
+  local u busy="" jobs
+  for u in quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer \
+           quantt-cef-session.service quantt-cef-verify.service quantt-cef-collect.service; do
+    if systemctl is-active --quiet "${u}"; then busy="${busy} ${u}"; fi
+  done
+  jobs="$(systemctl list-jobs --no-legend 'quantt-*')" || die "cannot list systemd jobs"
+  [[ -z "${jobs}" ]] || busy="${busy} (queued: ${jobs})"
+  [[ -z "${busy}" ]] \
+    || die "prod is live:${busy}. Stop the timers and wait for the jobs first (docs/RUNBOOK.md 8.6 step 1)"
 }
 
 step_timezone() {
@@ -182,6 +215,8 @@ step_requirements() {
 main() {
   TAG="${1:?usage: sudo bash bootstrap.sh <release-tag>}"
   step_checks
+  step_lock
+  step_not_live
   step_timezone
   step_packages
   step_apt

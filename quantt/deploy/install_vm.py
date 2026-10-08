@@ -94,8 +94,10 @@ restarted within one boot across a missed slot, fires at once on the restart.
 (This corrects an earlier note in this file, which said restarting did not
 replay; parser comment (b).) So an install that spans 15:52/15:55 (12:52/12:55
 on an early close) would replay the send slot into a late, partial send. To
-prevent that, the installer refuses at planning on a weekday inside 15:40-16:00
-or 12:40-13:00 ET (LATE_RANGES_ET, the runner's LATE_LOCAL_RANGES), and checks
+prevent that, the installer refuses at planning on a weekday inside 15:30-16:00
+or 12:30-13:00 ET (PLAN_REFUSE_RANGES_ET, a superset of the runner's
+LATE_LOCAL_RANGES). It refuses the timer restart inside 15:52-16:00 or
+12:52-13:00 (RESTART_REFUSE_RANGES_ET, the send window to the close), and checks
 the clock again before restarting the timers, leaving them stopped if it is
 now inside a window. Other replays are harmless: a replayed :00/:30 session
 idles outside its slots, a replayed collect is a collect, a replayed 17:30
@@ -176,6 +178,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import hashlib
 import os
 import pwd
@@ -226,11 +229,50 @@ SESSION_SUCCESS_EXIT = (3, 4, 5, 6, 10)
 # impossible, so the run says so loudly instead of reporting success.
 EXIT_JOB_DURING_INSTALL = 3
 
-# The late-market send windows (16:00 and 13:00 early closes), the same ranges
-# the runner's local pre-check never skips (quantt/session/run.py
-# LATE_LOCAL_RANGES). They are MIRRORED, not imported: the installer never
-# imports quantt.session. test_the_late_ranges_are_the_runners pins the two equal.
-LATE_RANGES_ET = ((dt.time(15, 40), dt.time(16, 0)), (dt.time(12, 40), dt.time(13, 0)))
+# One install (or bootstrap) at a time (release-check #5). Without it, a disarm
+# run could confirm DRY_RUN=1 from systemd and exit 0 while an armed update,
+# already in flight, went on to write DRY_RUN=0 and restart the timers: the
+# next slot would send after a confirmed halt (CLAUDE.md order-path rule 4).
+# An exclusive, non-blocking flock(2) on a root-owned file in /run/lock (tmpfs,
+# so a reboot clears it), taken before ANY planning and held until the process
+# exits; bootstrap.sh takes the same lock with `flock -n`.
+INSTALL_LOCK = Path("/run/lock/quantt-install.lock")
+
+
+def acquire_install_lock(path: Path) -> int:
+    """Take the install lock or raise InstallRefused naming the holder's pid.
+    Returns the fd; closing it (or exiting) releases the lock."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        holder = os.read(fd, 64).decode("utf-8", "replace").strip() or "unknown"
+        os.close(fd)
+        raise InstallRefused(
+            f"another install or bootstrap is running (lock {path}, held by pid "
+            f"{holder}). Never run two at once: one could undo the other's disarm. "
+            f"Wait for it to finish") from None
+    os.ftruncate(fd, 0)
+    os.write(fd, f"{os.getpid()}\n".encode())
+    return fd
+
+# Two windows, weekdays, for a 16:00 and a 13:00 (early) close. Release-check #5
+# narrowed the restart window, so fewer days are lost for the same safety.
+#   PLAN_REFUSE_RANGES_ET: no install STARTS inside these. They are a superset of
+#     the runner's LATE_LOCAL_RANGES (15:40/12:40), and start at 15:30/12:30 so a
+#     run, whose key fetch can take about 4 minutes, finishes before the send
+#     window (docs/RUNBOOK.md 8.6: "start any --apply before 15:30").
+#   RESTART_REFUSE_RANGES_ET: the timers are not RESTARTED inside these. They run
+#     from the book's send window start (close - window_minutes_before_close[0]
+#     = 15:52/12:52) to the close. A restart there replays a missed 15:52/15:55
+#     slot into a late, partial send (M1). A restart in 15:30-15:52 can only
+#     replay a :00/:30 session (decide or idle) or a :40 collect, never a send.
+# Both are MIRRORED, not imported: the installer never imports quantt.session.
+# test_the_windows_cover_the_runners_late_ranges_and_the_books_send_window pins
+# them to the runner's ranges and to the book's window.
+PLAN_REFUSE_RANGES_ET = ((dt.time(15, 30), dt.time(16, 0)), (dt.time(12, 30), dt.time(13, 0)))
+RESTART_REFUSE_RANGES_ET = ((dt.time(15, 52), dt.time(16, 0)), (dt.time(12, 52), dt.time(13, 0)))
 
 # sha256 of the requirements.txt the venv was built from, written by bootstrap.sh
 # (and by the RUNBOOK 8.6 dependency step) into the venv directory.
@@ -734,8 +776,8 @@ def verify_loaded(run_cmd: Callable, layout: "Layout", unit: str, expect: dict) 
             "remove AUTO_ARMED), then find the cause")
 
 
-def late_window_at(now_utc: dt.datetime):
-    """(start, end, local time) if `now_utc` is a weekday inside a late window, else None.
+def late_window_at(now_utc: dt.datetime, ranges=PLAN_REFUSE_RANGES_ET):
+    """(start, end, local time) if `now_utc` is a weekday inside one of `ranges`, else None.
 
     Every weekday is guarded for both ranges, as the runner's pre-check does:
     which days close early is a calendar fact the installer does not need to
@@ -744,25 +786,27 @@ def late_window_at(now_utc: dt.datetime):
     t = now_utc.astimezone(ZoneInfo(REQUIRED_TZ))
     if t.weekday() >= 5:
         return None
-    for a, b in LATE_RANGES_ET:
+    for a, b in ranges:
         if a <= t.time() < b:
             return a, b, t
     return None
 
 
-def _refuse_if_late(clock: Callable, what: str) -> None:
+def _refuse_if_late(clock: Callable, what: str, ranges=PLAN_REFUSE_RANGES_ET) -> None:
     """Why (release-check #3, measured on the VM 2026-10-08): an ENABLED
     Persistent=false timer, stopped and restarted within one boot across a
     missed slot, FIRES AT ONCE on the restart. An --apply stops the timers, so
     one that spans 15:52/15:55 (12:52/12:55) would replay the send slot at its
     restart: a late, partial send. So: no install inside the windows, and no
-    restart of the timers inside them."""
-    hit = late_window_at(clock())
+    restart of the timers inside them. The planning window is the wider one
+    (see PLAN_REFUSE_RANGES_ET)."""
+    hit = late_window_at(clock(), ranges)
     if hit:
         a, b, t = hit
         raise InstallRefused(
             f"{what}: it is {t:%H:%M:%S} ET on a weekday, inside the late-market window "
-            f"{a:%H:%M}-{b:%H:%M} ET. A timer restarted across a missed slot fires at "
+            f"{a:%H:%M}-{b:%H:%M} ET (start any --apply before 15:30, or 12:30 on an "
+            f"early close, or after the close). A timer restarted across a missed slot fires at "
             f"once (measured on the VM, 2026-10-08), so stopping and restarting the timers "
             f"here could replay the 15:52/15:55 (12:52/12:55) send slot into a late, "
             f"partial send. Re-run after {b:%H:%M} ET (after 16:00, or 13:00 on an early "
@@ -1084,6 +1128,19 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     run_state["stopped_now"] = lambda: [t for t in run_state["targets"] if not active_now(t)]
     run_state["loaded_dry_run"] = lambda: loaded_dry_run(run_cmd)
 
+    def _refuse_if_disabled_meanwhile():
+        """A timer enabled at planning but disabled now was disabled DURING this
+        install, most likely halt step 4 (docs/RUNBOOK.md 8.6). The install
+        must not undo a halt: no restart, and no --enable (own review pass,
+        release-check #5)."""
+        dropped = [t for t in enabled
+                   if run_cmd(["systemctl", "is-enabled", "--quiet", t]).returncode != 0]
+        if dropped:
+            raise InstallRefused(
+                f"{', '.join(dropped)} was disabled during this install (a halt, "
+                f"docs/RUNBOOK.md 8.6 step 4?). Not starting or enabling any timer. "
+                f"Re-run the installer once the halt is lifted on purpose")
+
     def systemctl(*args):
         r = run_cmd(["systemctl", *args])
         if r.returncode != 0:
@@ -1229,13 +1286,15 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
 
     if enable:
         def enable_timers():
-            _refuse_if_late(clock, "not restarting the timers")
+            _refuse_if_late(clock, "not restarting the timers", RESTART_REFUSE_RANGES_ET)
+            _refuse_if_disabled_meanwhile()
             systemctl("enable", "--now", *timers)
         steps.append(Step(f"systemctl enable --now {' '.join(timers)} (not inside a late "
                           f"window: a restart there could replay a send slot)", enable_timers))
     else:
         def start_enabled():
-            _refuse_if_late(clock, "not restarting the timers")
+            _refuse_if_late(clock, "not restarting the timers", RESTART_REFUSE_RANGES_ET)
+            _refuse_if_disabled_meanwhile()
             now_enabled = {t for t in timers
                            if run_cmd(["systemctl", "is-enabled", "--quiet", t]).returncode == 0}
             run_state["targets"] = [t for t in timers if t in now_enabled | set(running)]
@@ -1338,6 +1397,22 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
         ap.error("--enable needs --apply: enabled timers are what trade")
 
     layout = layout or Layout(Path("/home") / SERVICE_USER)
+    try:
+        lock_fd = acquire_install_lock(layout.sysroot / INSTALL_LOCK.relative_to("/"))
+    except InstallRefused as e:
+        print(f"REFUSED: {e}")
+        return 2
+    try:
+        return _main_locked(a, layout, origin_url=origin_url, localtime=localtime,
+                            run_cmd=run_cmd, as_user=as_user, euid=euid,
+                            dont_write_bytecode=dont_write_bytecode, user_ids=user_ids,
+                            now_utc=now_utc, read_environ=read_environ, clock=clock)
+    finally:
+        os.close(lock_fd)                        # released on success, refusal and exception
+
+
+def _main_locked(a, layout: Layout, *, origin_url, localtime, run_cmd, as_user, euid,
+                 dont_write_bytecode, user_ids, now_utc, read_environ, clock) -> int:
     try:
         plan = build_plan(
             tag=a.tag, vault=a.vault, layout=layout, python=a.python or layout.venv_python,

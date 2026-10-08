@@ -30,9 +30,9 @@
 # timer is ENABLED and Persistent=false, and if it is stopped and restarted
 # within one boot across a missed slot, it FIRES AT ONCE on the restart. An
 # install stops the timers and restarts them at the end, so one spanning
-# 15:52/15:55 (12:52/12:55) would replay the send slot late. install_vm refuses
-# inside 15:40-16:00 and 12:40-13:00 ET on weekdays, and re-checks before it
-# restarts (_refuse_if_late).
+# 15:52/15:55 (12:52/12:55) would replay the send slot late. install_vm will not
+# start an install inside 15:30-16:00 or 12:30-13:00 ET on weekdays, and will not
+# restart the timers inside 15:52-16:00 or 12:52-13:00 (_refuse_if_late).
 [Unit]
 Description=QUANTT cef session schedule (release ${TAG})
 
