@@ -6,11 +6,13 @@ allowed-tools: Bash(python3 *) Read Grep Glob
 
 # Morning brief
 
-**Nothing trades right now** (IBKR retired 2026-09-28; the Alpaca runner is not
-built). This brief still answers the data and signal questions, which do not
-depend on a broker. The IBKR-era session timing (08:30 decision on yesterday's
-complete pair, MOC for today's close) is the design brief the Alpaca runner
-inherits, not a schedule that runs.
+**Start from the measured prod state**: `python3 -m ops.orient` PROD says which
+machine is prod, at which tag, and whether it is armed. The book trades on
+Alpaca paper (`docs/SYSTEM.md` §4). The schedule is `docs/RUNNER.md`: decide in
+the evening (backstop in the morning), send 15:52–15:58 ET, verify 17:30. The
+day's plan, once decided, is in the prod state dir's `<D>/plan.json`. This brief
+answers the data and signal questions, which do not depend on which machine
+runs.
 
 ## 1. Is the book alive
 

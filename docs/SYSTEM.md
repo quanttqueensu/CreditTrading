@@ -40,7 +40,7 @@ answering different questions.
 | question | authoritative artifact |
 |---|---|
 | Where am I, what is the spec, what do the Alpaca accounts look like? | `python3 -m ops.orient` |
-| Is anything trading? | **No** (2026-09-28): IBKR is retired and the Alpaca runner is not built. The SessionStart banner and status line say so until it is. |
+| Is anything trading, and from where? | `python3 -m ops.orient` PROD: which machine is prod, at which tag, and whether it is armed, measured each run. The SessionStart banner and status line read the same measurement (`ops/prod_state.py`). |
 | What is held, resting or executed at the broker? | The Alpaca paper account for that book — `python3 -m quantt.broker.alpaca_probe` (read-only snapshot, one account per book). The broker is the fact. |
 | Is a name tradable / shortable / hard-to-borrow at Alpaca? | The probe snapshot's `assets`, dated — `borrow_status` changes daily |
 | What did the IBKR book hold, send and fill? | History only, at tag `pre-clean-slate`: `pre-clean-slate:_archive/prod_state_2026-09-28/` and `pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` §7 |
@@ -59,7 +59,7 @@ answering different questions.
 
 A **systematic credit closed-end-fund discount-reversion book** that places its
 own MOC orders on a schedule. It ran on an IBKR paper account until 2026-09-28
-and is moving to Alpaca paper (§4); nothing trades in between. Capital and
+and has traded on Alpaca paper since 2026-09-29 (§4). Capital and
 universe are in the frozen spec. **Mandate** (§5): paper indefinitely, a
 competition track record, judged on absolute return under a vol cap.
 
@@ -191,18 +191,26 @@ promotion, launchd sessions, the shared account, halts, verification — is at t
 
 ### 4.1 Where things are
 
-- **Nothing trades.** IBKR was retired on 2026-09-28: the scheduler's jobs were
-  unloaded, a final flatten was sent and then abandoned (the team lead chose not
-  to follow it up), and the repo was cut to a clean slate: everything not needed
-  for the Alpaca system was deleted (tag `pre-clean-slate`; `docs/HISTORY.md`).
-  `ibkr-final` tags the last IBKR-era commit.
+*Updated 2026-10-08: this list said "nothing trades" and "prod does not exist
+yet", both true when written on 2026-09-28 and false from 2026-09-29.*
+
+- **The book trades on Alpaca paper** from a prod clone of this repository at a
+  release tag. The first armed session was 2026-09-29, from the laptop under
+  launchd. On 2026-10-08 prod moved to an Azure VM under systemd (§5,
+  `docs/RUNBOOK.md` §8). **Which machine is prod now, at which tag, and whether
+  it is armed: `python3 -m ops.orient` PROD.** It is never written here.
+- **IBKR was retired on 2026-09-28.** The scheduler's jobs were unloaded, a final
+  flatten was sent and then abandoned (the team lead chose not to follow it up),
+  and the repo was cut to a clean slate: everything not needed for the Alpaca
+  system was deleted (tag `pre-clean-slate`; `docs/HISTORY.md`). `ibkr-final`
+  tags the last IBKR-era commit.
 - **The strategy is unchanged in kind**: `src/deploy/sleeves/cef_discount.py` and
-  its frozen spec. v7's constraint code is present with its keys off; the spec
-  change to v7 on Alpaca is pending (§5, 2026-09-28).
-- **The new run package is `quantt/`.** So far it holds one read-only tool:
-  `python3 -m quantt.broker.alpaca_probe`, which records what each Alpaca paper
-  account holds and whether each spec name is tradable and shortable.
-- **Prod will be a cloud VM** (team lead, 2026-09-28). It does not exist yet.
+  its frozen spec, v7 on Alpaca since 2026-09-28 (§5). `python3 -m ops.orient`
+  SPEC gives the live spec id.
+- **The run package is `quantt/`**: the broker client and probe
+  (`quantt/broker/`), the session runner (`quantt/session/`, design
+  `docs/RUNNER.md`), the nightly collector (`quantt/collect/`) and the prod
+  installers (`quantt/deploy/`: launchd and systemd).
 
 ### 4.2 What the Alpaca system must be
 

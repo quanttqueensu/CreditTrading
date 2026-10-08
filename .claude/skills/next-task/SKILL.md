@@ -1,6 +1,6 @@
 ---
 name: next-task
-description: Decide what to work on next, ranked by value per hour against the book's actual constraints. Use at the start of a work session, when the queue is unclear, or when asked what matters most right now. Reads live state first, because operations outrank research when the book is not trading — and since 2026-09-28 nothing trades until the Alpaca system is built.
+description: Decide what to work on next, ranked by value per hour against the book's actual constraints. Use at the start of a work session, when the queue is unclear, or when asked what matters most right now. Reads live state first (python3 -m ops.orient PROD: which machine is prod and whether it is armed), because operations outrank research whenever the book is not trading cleanly.
 allowed-tools: Bash(python3 -m ops.orient*) Read Grep Glob
 ---
 
@@ -28,10 +28,12 @@ measurement until the Alpaca runner exists (the IBKR-era tools were deleted).
 
 So the order is almost always:
 
-**1. Get a book trading again.** Since 2026-09-28 nothing trades: IBKR is
-retired and the Alpaca system is not built. Until it is, every other item below
-is research on a book with no uptime. The steps, in order, with owners and
-status, are `docs/ROADMAP.md` — take the first open one you can do.
+**1. Keep the book trading.** Measure it first: `python3 -m ops.orient` PROD
+says which machine is prod and whether it is armed, and the last verify line
+says whether the last session PASSed. A FAIL, a missed send, or an unarmed prod
+outranks everything below, because research on a book with no uptime is wasted.
+The open operations steps, with owners, are `docs/ROADMAP.md`; take the first
+open one you can do.
 
 **2. Build the fill record from the first Alpaca session.** Execution cost
 converges far faster than Sharpe. Alpaca paper fills MOC at the quote, so keep

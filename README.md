@@ -2,9 +2,10 @@
 
 **QUANTT, Queen's University. Credit Trading Team.** Team lead: Simon Jarvis.
 
-A systematic credit **closed-end-fund discount-reversion** strategy, being rebuilt
-on **Alpaca paper**: one account per book, prod on a cloud VM. **Nothing trades
-yet.** The plan from here to prod is [`docs/ROADMAP.md`](docs/ROADMAP.md).
+A systematic credit **closed-end-fund discount-reversion** strategy, trading on
+**Alpaca paper**: one account per book, run from a prod clone of this repository at
+a release tag. Which machine is prod, and whether it is armed, is measured by
+`python3 -m ops.orient`. The plan is [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 This repository was cut to a clean slate on 2026-09-28: it holds only what the
 Alpaca system needs. Everything earlier — the IBKR system, the archive, old research

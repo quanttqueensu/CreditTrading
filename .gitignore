@@ -25,3 +25,6 @@ results/**/_cache_*
 /ops/HALT*.md
 /ops/halts/
 /ops/heartbeat.json
+
+# Background agents' git worktrees (Claude Code); second copies of the repo.
+/.claude/worktrees/

@@ -267,11 +267,16 @@ _KNOWN_DESK_NAMES = {
 # -- the manifest: one owner per question -----------------------------------
 
 MANIFEST = "docs/INDEX.md"
+# A background agent's git worktree is a second copy of the repo at some other
+# commit. Its documents are not this tree's: auditing them reported 12-13 DRIFT
+# that was all inside it (2026-10-07, 2026-10-08).
+WORKTREES = ".claude/worktrees/"
 # Authored markdown lives everywhere except these. results/ is dated records,
 # _archive/ has its own index, and the ops/ entries are written by the running
 # system, not by a person.
 UNINDEXED_PREFIXES = ("results/", "_archive/", "data/", "ops/books/",
-                      "ops/reports/", "ops/halts/", ".pytest_cache/", ".git/")
+                      "ops/reports/", "ops/halts/", ".pytest_cache/", ".git/",
+                      WORKTREES)
 UNINDEXED_RE = re.compile(r"^ops/HALT.*\.md$")
 
 
@@ -539,6 +544,7 @@ def check_code_doc_pointers(rep: Report) -> None:
             continue
         for p in base.rglob("*"):
             if (not p.is_file() or p.suffix not in CODE_DOC_SUFFIXES
+                    or p.relative_to(REPO).as_posix().startswith(WORKTREES)
                     or "tests" in p.relative_to(REPO).parts   # fixtures, not citations
                     or "__pycache__" in p.parts):
                 continue
@@ -608,7 +614,8 @@ def _agent_layer() -> list[str]:
     if not base.exists():
         return []
     return sorted(p.relative_to(REPO).as_posix() for p in base.rglob("*.md")
-                  if "__pycache__" not in p.parts)
+                  if "__pycache__" not in p.parts
+                  and not p.relative_to(REPO).as_posix().startswith(WORKTREES))
 
 
 def _live_prompts() -> list[str]:

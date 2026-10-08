@@ -331,3 +331,20 @@ def test_live_prompts_are_held_to_the_figure_bar(fake_repo):
     w.write_text("**Lever:** reliability (`python3 -m ops.session_uptime`).\n")
     rep = M.Report(); M.check_rotting_figures(rep)
     assert _status(rep, "figures:docs/prompts/W3_x.md") == M.OK
+
+
+def test_agent_worktrees_are_not_audited(tmp_path, monkeypatch):
+    """A background agent's git worktree (.claude/worktrees/<agent>/) is a full
+    second copy of the repo at some commit. Auditing it reported its old
+    documents as this tree's drift (2026-10-07 and 2026-10-08: 12-13 DRIFT, all
+    inside .claude/worktrees/). Its files are not this tree's documents."""
+    import ops.doc_audit as da
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "INDEX.md").write_text("# index\n")
+    wt = tmp_path / ".claude" / "worktrees" / "agent-x" / "docs"
+    wt.mkdir(parents=True)
+    (wt / "OLD.md").write_text("an unregistered copy\n")
+    (tmp_path / ".claude" / "README.md").write_text("map\n")
+    monkeypatch.setattr(da, "REPO", tmp_path)
+    assert not [p for p in da._authored_markdown() if p.startswith(".claude/worktrees/")]
+    assert not [p for p in da._agent_layer() if p.startswith(".claude/worktrees/")]

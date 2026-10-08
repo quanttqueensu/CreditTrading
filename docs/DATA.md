@@ -130,10 +130,10 @@ last date was 2024-12-31. Verdict **FAIL**, for these findings (full detail in t
 ## 5. The nightly collector (`quantt/collect`, 2026-09-29)
 
 `python3 -m quantt.collect --book cef` records every trading day, whether or not the
-book traded. It is meant to run from launchd every 30 minutes, all day. When the day is
+book traded. It runs every 30 minutes, all day. When the day is
 already complete it reads Alpaca's clock and calendar, prints `IDLE <D> complete` and
-exits 0. The launchd template is not built yet: `quantt/deploy/` belongs to the runner
-work. The module docstring has the full design.
+exits 0. Prod schedules it every 30 minutes at :10 and :40 (`quantt/deploy/`: a launchd job
+on the laptop, a systemd timer on the VM). The module docstring has the full design.
 
 - **Data day D.** D is the latest date that both Alpaca's `/v2/calendar` and
   `ops/schedule/nyse_calendar` call a trading day, and whose close + 45 minutes has
