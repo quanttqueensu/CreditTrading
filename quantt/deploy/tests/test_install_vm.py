@@ -94,6 +94,17 @@ class FakeSystemd:
         self.reload_takes_effect = True
         self.loaded = {}
         self.calls = []
+        self.timer_active = set()     # timers currently running (waiting for their next elapse)
+        self.jobs = {}                # unit -> queued job id (`systemctl show -p Job`)
+        self.pids = {}                # unit -> MainPID of a running job
+        self.environ = {}             # pid -> {VAR: value}, or an exception to raise
+        # race_fire: if the session timer is still active when daemon-reload
+        # runs, it fires first and starts the OLD session unit (the release-check
+        # race, 2026-10-08). start_at_reload: (unit, pid, env), started right
+        # after the reload whatever the timers do (a manual start).
+        self.race_fire = False
+        self.fired = False
+        self.start_at_reload = None
 
     def _cp(self, args, rc=0, out=""):
         return subprocess.CompletedProcess(args, rc, out, "")
@@ -110,6 +121,14 @@ class FakeSystemd:
                                      f"Normalized form: {normalize(args[2])}\n"
                                      f"    Next elapse: Thu 2026-10-08 15:52:00 EDT\n")
         if args[:2] == ["systemctl", "daemon-reload"]:
+            if self.race_fire and "quantt-cef-session.timer" in self.timer_active:
+                old_env = dict(v.split("=", 1) for k, v in
+                               self.loaded.get("quantt-cef-session.service", {}).get("Service", [])
+                               if k == "Environment")
+                self.active["quantt-cef-session.service"] = "activating"
+                self.pids["quantt-cef-session.service"] = "4242"
+                self.environ["4242"] = old_env
+                self.fired = True
             if self.reload_takes_effect:
                 self.loaded = {p.name: iv.parse_unit(p.read_text(), p.name)
                                for p in self.units_dir.iterdir()
@@ -117,6 +136,25 @@ class FakeSystemd:
                     if self.units_dir.exists() else {}
                 for u, paths in self.drop_ins_after_reload.items():
                     self.drop_ins.setdefault(u, []).extend(paths)
+            if self.start_at_reload:
+                unit, pid, env = self.start_at_reload
+                self.active[unit] = "activating"
+                if pid:
+                    self.pids[unit] = pid
+                    self.environ[pid] = env
+                else:
+                    self.active[unit] = "inactive"
+                    self.jobs[unit] = "77"
+            return self._cp(args)
+        if args[:2] == ["systemctl", "stop"]:
+            self.timer_active -= set(args[2:])
+            return self._cp(args)
+        if args[:2] == ["systemctl", "start"]:
+            self.timer_active |= {u for u in args[2:] if u.endswith(".timer")}
+            return self._cp(args)
+        if args[:3] == ["systemctl", "enable", "--now"]:
+            self.timer_active |= {u for u in args[3:] if u.endswith(".timer")}
+            self.enabled |= {u for u in args[3:] if u.endswith(".timer")}
             return self._cp(args)
         if args[:2] == ["systemctl", "is-enabled"]:
             return self._cp(args, 0 if args[-1] in self.enabled else 1)
@@ -147,6 +185,18 @@ class FakeSystemd:
                     if k == "ExecStart":
                         lines.append(f"ExecStart={{ path={v.split()[0]} ; argv[]={v} ; "
                                      f"ignore_errors=no ; start_time=[n/a] ; pid=0 }}")
+            elif prop == "ActiveState":
+                if unit.endswith(".timer"):
+                    state = "active" if unit in self.timer_active else "inactive"
+                else:
+                    state = self.active.get(unit, "active" if unit == iv.SECRET_UNIT else "inactive")
+                lines.append(f"ActiveState={state}")
+            elif prop == "Job":
+                lines.append("Job=" + self.jobs.get(unit, ""))
+            elif prop == "MainPID":
+                lines.append("MainPID=" + self.pids.get(unit, "0"))
+            elif prop == "LoadState":
+                lines.append("LoadState=" + ("loaded" if u else "not-found"))
             elif prop == "TimersCalendar":
                 for k, v in (u or {}).get("Timer", []):
                     if k == "OnCalendar":
@@ -155,6 +205,14 @@ class FakeSystemd:
             else:
                 raise AssertionError(f"installer asked for unexpected property {prop}")
         return "\n".join(lines) + "\n"
+
+    def read_environ(self, pid):
+        got = self.environ.get(str(pid))
+        if isinstance(got, Exception):
+            raise got
+        if got is None:
+            raise FileNotFoundError(f"/proc/{pid}/environ")
+        return dict(got)
 
     def mutating(self):
         read_only = {"is-enabled", "is-active", "show"}
@@ -229,7 +287,8 @@ class World:
             argv += ["--seed-from", str(self.seed)]
         opts = dict(layout=self.layout, origin_url=str(self.origin), localtime=self.localtime,
                     run_cmd=self.cmds, as_user=[], euid=0, dont_write_bytecode=True,
-                    user_ids=lambda u: (os.getuid(), os.getgid()), now_utc=NOW)
+                    user_ids=lambda u: (os.getuid(), os.getgid()), now_utc=NOW,
+                    read_environ=self.cmds.read_environ)
         opts.update(kw)
         rc = iv.main(argv, **opts)
         out = capsys.readouterr().out if capsys else ""
@@ -562,12 +621,15 @@ def test_a_lower_priority_copy_and_a_non_conf_file_are_not_overrides(world, caps
 
 
 def test_a_drop_in_appearing_after_planning_is_caught_before_the_units_change(world, capsys):
+    seen = {"n": 0}
     real = world.cmds.__call__
 
     def racing(args):
-        # planning has run once the first "is-active" round is done; plant it then
-        if args[:2] == ["systemctl", "is-active"] and args[-1] == "quantt-cef-collect.service":
-            dormant(world, "etc/systemd/system/quantt-cef-verify.service.d/late.conf")
+        # plant it once planning's busy look at the collector is done
+        if args[:3] == ["systemctl", "show", "quantt-cef-collect.service"] and "ActiveState" in args:
+            seen["n"] += 1
+            if seen["n"] == 1:
+                dormant(world, "etc/systemd/system/quantt-cef-verify.service.d/late.conf")
         return real(args)
     rc, out = world.run("--apply", run_cmd=racing, capsys=capsys)
     assert rc == 2 and "late.conf" in out and "REFUSED at step" in out, out
@@ -628,21 +690,121 @@ def test_install_is_refused_while_a_job_runs(world, capsys, state):
 
 
 def test_a_job_that_starts_after_planning_stops_the_install_before_checkout(world, capsys):
+    """And because the run had already stopped the timers, it says they are
+    left stopped (RUNBOOK 8.6: an abandoned update must restart them)."""
     world.commit_and_tag("v2", lambda d: (d / "ops/halt.py").write_text("# v2\n"))
-    calls = {"n": 0}
+    world.run("--apply", "--enable", capsys=capsys)              # timers active
+    seen = {"n": 0}
     real = world.cmds.__call__
 
     def racing(args):
-        # the first is-active round (planning) sees nothing running; the next does
-        if args[:2] == ["systemctl", "is-active"] and args[-1] == "quantt-cef-verify.service":
-            calls["n"] += 1
-            if calls["n"] > 1:
-                world.cmds.calls.append(list(args))
-                return subprocess.CompletedProcess(args, 3, "activating\n", "")
+        if args[:3] == ["systemctl", "show", "quantt-cef-verify.service"] and "ActiveState" in args:
+            seen["n"] += 1
+            if seen["n"] > 1:                                    # after planning's look
+                world.cmds.active["quantt-cef-verify.service"] = "activating"
         return real(args)
+    world.cmds.calls.clear()
     rc, out = world.run("--apply", tag="v2", run_cmd=racing, capsys=capsys)
-    assert rc == 2 and "REFUSED at step 1" in out, out
+    assert rc == 2 and "REFUSED at step" in out and "timers left STOPPED" in out, out
     assert world.head() == world.tag_commit("v1")
+    assert world.cmds.timer_active == set()
+    assert not [c for c in world.cmds.calls if c[:2] == ["systemctl", "start"]]
+
+
+# -- the timers are stopped for the run (release-check NO-GO, 2026-10-08) -------------
+
+TIMERS = [vj.timer for vj in iv.VM_JOBS]
+
+
+def armed_and_running(world, capsys):
+    """An armed VM with its timers running: the state a disarm starts from."""
+    assert world.run("--apply", "--armed", "--enable", capsys=capsys)[0] == 0
+    assert world.cmds.timer_active == set(TIMERS)
+    world.cmds.calls.clear()
+
+
+def test_a_firing_cannot_start_the_old_unit_between_the_last_look_and_the_reload(world, capsys):
+    """The race: a 15:52 firing after the last busy look but before daemon-reload
+    would start the OLD unit (DRY_RUN=0) while the disarm reports DRY_RUN=1."""
+    armed_and_running(world, capsys)
+    world.cmds.race_fire = True
+    rc, out = world.run("--apply", capsys=capsys)            # the disarm
+    assert rc == 0, out
+    assert not world.cmds.fired                               # no job could start
+    calls = world.cmds.mutating()
+    stop = calls.index(["systemctl", "stop", *TIMERS])
+    assert stop < calls.index(["systemctl", "daemon-reload"])
+    assert calls[-1] == ["systemctl", "start", *TIMERS]       # restored, last
+    assert world.cmds.timer_active == set(TIMERS)
+
+
+def test_only_the_timers_that_were_running_are_restarted(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.timer_active.discard("quantt-cef-collect.timer")   # stopped by hand
+    running = [t for t in TIMERS if t != "quantt-cef-collect.timer"]
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 0, out
+    calls = world.cmds.mutating()
+    assert calls[0] == ["systemctl", "stop", *running]
+    assert calls[-1] == ["systemctl", "start", *running]
+    assert world.cmds.timer_active == set(running)
+
+
+def test_enable_starts_every_timer_after_the_checks(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.timer_active.clear()                          # an update stopped them (8.6)
+    rc, out = world.run("--apply", "--armed", "--enable", capsys=capsys)
+    assert rc == 0, out
+    calls = world.cmds.mutating()
+    assert ["systemctl", "stop", *TIMERS] not in calls       # nothing was running to stop
+    assert calls[-1] == ["systemctl", "enable", "--now", *TIMERS]
+
+
+@pytest.mark.parametrize("environ,shown", [({"DRY_RUN": "0"}, "DRY_RUN=0"),
+                                           (PermissionError("denied"), "unreadable")])
+def test_a_job_running_after_the_reload_stops_the_run_with_its_own_code(world, capsys,
+                                                                       environ, shown):
+    armed_and_running(world, capsys)
+    world.cmds.start_at_reload = ("quantt-cef-session.service", "4242", environ)
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == iv.EXIT_JOB_DURING_INSTALL != 2, out
+    assert "quantt-cef-session.service" in out and "4242" in out and shown in out, out
+    assert "8.6" in out and "timers left STOPPED" in out
+    assert world.cmds.timer_active == set()
+    assert not [c for c in world.cmds.mutating() if c[:2] == ["systemctl", "start"]]
+
+
+def test_a_job_queued_after_the_reload_also_stops_the_run(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.start_at_reload = ("quantt-cef-verify.service", None, None)
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == iv.EXIT_JOB_DURING_INSTALL and "quantt-cef-verify.service" in out
+    assert "queued" in out, out
+
+
+def test_a_queued_job_counts_as_busy(world, capsys):
+    """MEASURED on the VM (2026-10-08): a start queued behind its After=
+    dependency reads is-active `inactive`, but `show -p Job` is non-empty."""
+    world.cmds.jobs["quantt-cef-session.service"] = "1234"
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and "quantt-cef-session.service" in out and "queued" in out, out
+    assert units_written(world) == []
+
+
+def test_the_key_service_activating_counts_as_busy(world, capsys):
+    """A job may be queued behind it (After=quantt-secret.service)."""
+    world.cmds.active[iv.SECRET_UNIT] = "activating"
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and iv.SECRET_UNIT in out and "activating" in out, out
+
+
+def test_a_refusal_before_stopping_leaves_the_timers_running(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.active["quantt-cef-session.service"] = "activating"   # seen at planning
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and "timers left STOPPED" not in out
+    assert world.cmds.timer_active == set(TIMERS)
+    assert world.cmds.mutating() == []
 
 
 def test_the_key_service_being_active_is_normal(world, capsys):

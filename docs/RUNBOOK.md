@@ -500,9 +500,27 @@ because an RBAC refusal's message names the tenant, object ids and the
   It also refuses a same-named unit file that outranks the installer's, or a
   unit systemd loads from any other file. Read the drop-in, remove it
   (`systemctl revert <unit>`, or delete the file), and re-run;
-- **any `quantt-cef-*.service` running** (active, activating, deactivating).
-  This is checked at planning, again before the checkout, and again before
-  the units change.
+- **any quantt job running or queued**:
+  - a `quantt-cef-*.service` that is active, activating or deactivating;
+  - one with a queued `Job`. A start queued behind its dependency reads
+    `is-active` inactive, so `is-active` alone misses it [V: measured on the
+    VM, 2026-10-08];
+  - the key service `activating`, because jobs may be queued behind it.
+
+**On `--apply` the timers are stopped for the run.** The installer stops every
+running quantt-cef timer first, so no firing can start a job mid-install. It
+then checks for a running or queued job, does the checkout, writes and
+reloads, and checks again. At the end it restarts the timers that were running,
+or enables them all with `--enable`. Restarting does not replay slots missed
+while stopped [V: measured on the VM, 2026-10-08, Persistent=false].
+
+- **If it refuses after stopping them**, the timers stay **STOPPED**, and the
+  message says so. Nothing trades and no verify line is written until you
+  re-run the installer or `sudo systemctl start` them.
+- **Exit 3** (`ALERT at step …`) means a job ran or was queued after the reload,
+  which should be impossible with the timers stopped. The message names the
+  job, its MainPID and the DRY_RUN it started with, or says that is unknown.
+  Halt with 8.6 step 1 or 2, and check Alpaca for any order it sent.
 
 After `daemon-reload` the installer asks systemd (`systemctl show`) for every
 unit's FragmentPath, DropInPaths, Environment and ExecStart (and
@@ -617,10 +635,13 @@ cancels an order already at Alpaca.
 3. **DRY_RUN=1:** re-install without `--armed` (`qi ... --apply`). It takes
    effect at the installer's `daemon-reload`, and the installer then confirms
    from systemd that DRY_RUN=1 is what is loaded.
-   - **This step is not fast.** The installer refuses while any job runs (an
-     evening decide can take minutes), and it refuses any drop-in on disk,
-     because a drop-in could keep DRY_RUN=0 in force. When the halt is needed
-     **now**, use step 1 or 2 first.
+   - **This step is not fast.** The installer refuses while any job runs or is
+     queued (an evening decide can take minutes), and it refuses any drop-in
+     on disk, because a drop-in could keep DRY_RUN=0 in force. When the halt
+     is needed **now**, use step 1 or 2 first.
+   - It stops the running timers for the length of the run, so no firing can
+     start the old, armed unit mid-disarm. At the end it restarts them. If it
+     refuses part-way, they are left stopped, and it says so.
    - **If it refuses after the reload**, systemd is **now** running the
      configuration shown in the refusal. Halt at once with step 1 or 2
      (`ops/HALT.md`, or remove AUTO_ARMED), then find the cause.
@@ -629,11 +650,15 @@ cancels an order already at Alpaca.
 
 **Updating** to a new release. Never change code under a running job:
 
-1. **Stop the timers** at a quiet moment (not 15:45–16:00 ET, not 17:30):
+1. **Stop the timers** at a quiet moment (not 15:45–16:00 ET, not 17:30).
+   The installer also stops them for its own run, but a manual `git checkout`
+   (step 3) happens outside that run, so stop them here first:
    `sudo systemctl stop quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`,
-   then check that `systemctl is-active quantt-cef-session.service
+   then check that `systemctl list-jobs 'quantt-*'` lists no job and
+   `systemctl show -p ActiveState quantt-cef-session.service
    quantt-cef-verify.service quantt-cef-collect.service` shows no `active` or
-   `activating`. The installer refuses while a job runs anyway, but a manual
+   `activating`. `is-active` alone misses a queued start [V, 2026-10-08]. The
+   installer refuses while a job runs or is queued anyway, but a manual
    `git checkout` has no such guard.
 2. **Dry run:** `qi --tag <new> --vault <vault-name>`.
 3. **Only if** the old installer refuses because the release changed the units

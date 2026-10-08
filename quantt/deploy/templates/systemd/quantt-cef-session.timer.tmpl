@@ -24,6 +24,11 @@
 # guard on that path (test_late_scheduled_decides_once_then_sends_once).
 # DeferReactivation= would stop it, but it needs systemd >= 256, and Ubuntu
 # 24.04 ships 255. See install_vm.py, SCHEDULE.
+#
+# MEASURED 2026-10-08 on the VM [V]: with Persistent=false, starting this timer
+# after it was stopped across a slot does NOT fire that slot. The next run is
+# the next elapse. install_vm stops the timers for each install and restarts
+# them at the end, and this is why that restart cannot send late.
 [Unit]
 Description=QUANTT cef session schedule (release ${TAG})
 

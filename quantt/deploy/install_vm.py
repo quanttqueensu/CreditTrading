@@ -61,6 +61,28 @@ Arming takes two things: `--armed` (DRY_RUN=0 in the units) and AUTO_ARMED in
 the state dir (docs/RUNNER.md gate 2). AUTO_ARMED is the team lead's act; this
 module never writes it.
 
+THE TIMERS ARE STOPPED FOR THE RUN (release-check NO-GO, 2026-10-08)
+--------------------------------------------------------------------
+Checking `is-active` at the right moments is not enough. A 15:52 firing that
+lands between the last look and daemon-reload starts the OLD unit, say
+DRY_RUN=0, and with AUTO_ARMED it sends, while a disarm run would report
+DRY_RUN=1 loaded. So `--apply` runs in this order:
+
+  1. stop every quantt-cef timer that is running;
+  2. check that no job is running or QUEUED. A queued start reads `is-active`
+     inactive, so the check uses ActiveState and Job (measured, see the parser
+     comment). The key service `activating` also counts;
+  3. checkout, write, daemon-reload, confirm_loaded;
+  4. check again. A job found now exits 3 (EXIT_JOB_DURING_INSTALL), naming
+     the job, its MainPID and the DRY_RUN it started with, read from /proc and
+     never guessed;
+  5. restart the timers that were running before, or enable them all with
+     `--enable`.
+
+Restarting does not replay the slots missed while stopped (measured, see the
+parser comment). Any refusal after step 1 leaves the timers STOPPED and says
+so: nothing trades until the installer is re-run or the timers are started.
+
 TIMEZONE: ONE MECHANISM
 -----------------------
 The timers' OnCalendar lines carry no zone, so systemd reads them as
@@ -168,6 +190,11 @@ SECRET_MAP = (("alpaca-cef-key-id", "ALPACA_CEF_KEY_ID"),
 # NOTHING_TO_SEND 3, PREVIEW 4, IDLE 5, PLANNED 6, DRY 10). REFUSED 11 and FAIL 20
 # stay failures. `test_session_success_exits_match_run_py` re-reads run.py.
 SESSION_SUCCESS_EXIT = (3, 4, 5, 6, 10)
+
+# Exit codes: 0 done, 2 refused (nothing unsafe happened), 3 a quantt job ran or
+# was queued after the reload, which with the timers stopped should be
+# impossible, so the run says so loudly instead of reporting success.
+EXIT_JOB_DURING_INSTALL = 3
 
 # Every rendered value must match this pattern. It excludes the space (which
 # would split ExecStart's argv), '%' (a systemd specifier), '$' (variable
@@ -483,6 +510,18 @@ def remote_tag_commit(git: Git, url: str, tag: str) -> str:
 #     scans the disk instead. (A naive probe on an inactive, unreferenced unit
 #     looks fine, because systemd re-reads that from disk on query; the
 #     measurement used a unit held loaded by an active timer.)
+# MEASURED on the VM (systemd 255.4-1ubuntu8.17, 2026-10-08 ~01:10 UTC) [V]:
+#   (a) A start queued behind its After= dependency (the dependency
+#       `activating`) reads `systemctl is-active` = inactive, ActiveState=
+#       inactive, SubState=dead. But `show -p Job` is a job id, and
+#       `list-jobs` shows `<id> <unit> start waiting`. So `is-active` alone
+#       misses a queued job; `job_states` reads ActiveState AND Job.
+#   (b) With Persistent=false, `systemctl start` on a timer that was stopped
+#       across a missed slot does NOT fire at once. Stopped 01:12:01, slot
+#       01:13:00 passed, restarted 01:13:20: no run, NextElapse 01:14:00,
+#       LastTriggerUSec empty. So restarting the timers at the end of an install
+#       does not replay the slots the install stopped them across. The worry
+#       from systemd issue #40949 did not reproduce for Persistent=false.
 
 # Directories where set-property and transient units live. On a system manager
 # `systemd-analyze unit-paths` lists them already [S]; they are added anyway,
@@ -645,29 +684,86 @@ def verify_loaded(run_cmd: Callable, layout: "Layout", unit: str, expect: dict) 
             "remove AUTO_ARMED), then find the cause")
 
 
-def busy_jobs(run_cmd: Callable) -> list:
-    """Job services that are running now (`systemctl is-active` state), or raise
-    on a state this code does not know. The key service is not a job: it stays
-    `active` by design (RemainAfterExit=yes)."""
-    busy = []
-    for vj in VM_JOBS:
-        r = run_cmd(["systemctl", "is-active", vj.service])
-        state = (r.stdout or "").strip()
-        if state in BUSY_STATES:
-            busy.append(f"{vj.service} is {state}")
-        elif state not in IDLE_STATES:
-            raise InstallRefused(f"`systemctl is-active {vj.service}` said {state!r}; cannot "
-                                 f"confirm no job is running")
-    return busy
+class JobDuringInstall(InstallRefused):
+    """A quantt job ran or was queued AFTER the reload. That should be
+    impossible with the timers stopped, so it is a separate exit code and a
+    louder message than a refusal."""
+
+
+def job_states(run_cmd: Callable) -> list:
+    """Every quantt service that is running or has a job queued, as dicts.
+
+    Busy means one of:
+      * a job service whose ActiveState is active, activating, deactivating,
+        reloading or refreshing;
+      * a job service with a non-empty `Job` (queued, which `is-active` misses;
+        measured, see (a) above);
+      * the key service `activating`, or with a queued Job, because jobs may be
+        queued behind it (After=). The key service being `active` is normal
+        (RemainAfterExit=yes).
+    A state this code does not know refuses.
+    """
+    rows = []
+    for unit in [*(vj.service for vj in VM_JOBS), SECRET_UNIT]:
+        props = systemd_show(run_cmd, unit, ["ActiveState", "Job", "MainPID"])
+        state = _one(props, "ActiveState", unit).strip()
+        job = _one(props, "Job", unit).strip()
+        pid = _one(props, "MainPID", unit).strip()
+        if state not in BUSY_STATES | IDLE_STATES:
+            raise InstallRefused(f"`systemctl show {unit} -p ActiveState` said {state!r}; "
+                                 f"cannot confirm no job is running")
+        busy = (state == "activating" if unit == SECRET_UNIT else state in BUSY_STATES)
+        if busy or job:
+            rows.append({"unit": unit, "state": state, "job": job, "pid": pid})
+    return rows
+
+
+def _describe(row: dict) -> str:
+    queued = f", queued job {row['job']}" if row["job"] else ""
+    return f"{row['unit']} is {row['state']}{queued}"
 
 
 def _refuse_if_busy(run_cmd: Callable) -> None:
-    busy = busy_jobs(run_cmd)
-    if busy:
+    rows = job_states(run_cmd)
+    if rows:
         raise InstallRefused(
-            f"{'; '.join(busy)}: never install under a running job (it could be "
-            f"mid-send, and a checkout would change its code). Wait for it to finish, "
-            f"or stop the timers first (docs/RUNBOOK.md section 8.6)")
+            f"{'; '.join(_describe(r) for r in rows)}: never install under a running or "
+            f"queued job (it could be mid-send, and a checkout would change its code). "
+            f"Wait for it to finish (docs/RUNBOOK.md section 8.6)")
+
+
+def _read_environ(pid: str) -> dict:
+    """A running process's environment, from /proc (needs root for another user's)."""
+    raw = Path(f"/proc/{pid}/environ").read_bytes().decode("utf-8", "replace")
+    return dict(item.split("=", 1) for item in raw.split("\0") if "=" in item)
+
+
+def _stop_if_a_job_ran(run_cmd: Callable, read_environ: Callable) -> None:
+    """After the reload, with the timers stopped, no job should run or be queued.
+    If one is, name it, its MainPID and the DRY_RUN it STARTED with. That is
+    read from /proc, never inferred: an unreadable environment is reported as
+    unknown."""
+    rows = job_states(run_cmd)
+    if not rows:
+        return
+    parts = []
+    for r in rows:
+        if r["pid"] and r["pid"] != "0":
+            try:
+                env = read_environ(r["pid"])
+                how = (f"started with DRY_RUN={env['DRY_RUN']}" if "DRY_RUN" in env
+                       else "started with NO DRY_RUN in its environment")
+            except OSError as e:
+                how = (f"the DRY_RUN it started with is UNKNOWN: /proc/{r['pid']}/environ "
+                       f"unreadable ({type(e).__name__}: {e})")
+            parts.append(f"{_describe(r)}, MainPID {r['pid']}, {how}")
+        else:
+            parts.append(f"{_describe(r)}, not started yet (queued): it will run whatever "
+                         f"definition systemd has loaded when it starts")
+    raise JobDuringInstall(
+        "a quantt job is running or queued after the reload: " + "; ".join(parts)
+        + ". Halt now with docs/RUNBOOK.md 8.6 halting step 1 or 2 (ops/HALT.md, or "
+          "remove AUTO_ARMED), then check Alpaca for any order it sent")
 
 
 # -- the plan ---------------------------------------------------------------
@@ -684,6 +780,7 @@ class Plan:
     warnings: list
     steps: list
     rendered: dict       # unit file name -> text
+    state: dict          # run-time facts main() reports, e.g. timers this run left stopped
 
 
 def _mkdir_owned(path: Path, uid: int, gid: int) -> None:
@@ -695,7 +792,8 @@ def _mkdir_owned(path: Path, uid: int, gid: int) -> None:
 def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: bool,
                enable: bool, seed_from, origin_url: str, localtime: Path,
                run_cmd: Callable, as_user: list, euid: int, dont_write_bytecode: bool,
-               user_ids: Callable, now_utc: dt.datetime) -> Plan:
+               user_ids: Callable, now_utc: dt.datetime,
+               read_environ: Callable = _read_environ) -> Plan:
     """Run every check, then return the steps an install would take.
 
     Everything that can refuse does so HERE, before any step runs. A refusal
@@ -803,10 +901,30 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
 
     timers = [vj.timer for vj in VM_JOBS]
     enabled = [t for t in timers if run_cmd(["systemctl", "is-enabled", "--quiet", t]).returncode == 0]
+    running = [t for t in timers
+               if _one(systemd_show(run_cmd, t, ["ActiveState"]), "ActiveState", t) == "active"]
+    run_state = {"stopped": []}
 
-    # A timer can fire between planning and acting, so look again before the
-    # first change (the checkout) and again before the units change.
-    steps.append(Step("confirm no quantt-cef job is running", lambda: _refuse_if_busy(run_cmd)))
+    def systemctl(*args):
+        r = run_cmd(["systemctl", *args])
+        if r.returncode != 0:
+            raise InstallRefused(f"systemctl {' '.join(args)} failed: "
+                                 f"{(r.stderr or r.stdout).strip()}")
+
+    # THE TIMERS ARE STOPPED FIRST (release-check NO-GO, 2026-10-08). Without
+    # that, a 15:52 firing between the last busy look and daemon-reload would
+    # start the OLD unit (say DRY_RUN=0) while this run reported DRY_RUN=1
+    # loaded. With the timers stopped, no firing can start a job until the run
+    # restarts them at the end. A refusal after this point leaves them stopped,
+    # and says so. Restarting does not replay the missed slots (measured (b)).
+    if running:
+        def stop_timers():
+            systemctl("stop", *running)
+            run_state["stopped"] = list(running)
+        steps.append(Step(f"systemctl stop {' '.join(running)} (no firing can start a job "
+                          f"during the install; restarted at the end)", stop_timers))
+    steps.append(Step("confirm no quantt job is running or queued",
+                      lambda: _refuse_if_busy(run_cmd)))
 
     # -- code
     head = git("rev-parse", "HEAD").strip()
@@ -895,11 +1013,6 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
             unit_file != SECRET_UNIT else ""
         steps.append(Step(f"write {dest}{dr}", write))
 
-    def systemctl(*args):
-        r = run_cmd(["systemctl", *args])
-        if r.returncode != 0:
-            raise InstallRefused(f"systemctl {' '.join(args)} failed: "
-                                 f"{(r.stderr or r.stdout).strip()}")
     steps.append(Step("systemctl daemon-reload (systemd runs the new units from here on)",
                       lambda: systemctl("daemon-reload")))
 
@@ -910,12 +1023,21 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
                       "with no drop-in, and with the expected environment, command and "
                       "calendar", confirm_loaded))
 
+    steps.append(Step("confirm from systemd that no quantt job ran or was queued during "
+                      "the install", lambda: _stop_if_a_job_ran(run_cmd, read_environ)))
+
+    def restarted():
+        run_state["stopped"] = []
     if enable:
         steps.append(Step(f"systemctl enable --now {SECRET_UNIT} (fetch the keys now; "
                           f"again at every boot)", lambda: systemctl("enable", "--now", SECRET_UNIT)))
         steps.append(Step(f"systemctl enable --now {' '.join(timers)}",
-                          lambda: systemctl("enable", "--now", *timers)))
+                          lambda: (systemctl("enable", "--now", *timers), restarted())))
     else:
+        if running:
+            steps.append(Step(f"systemctl start {' '.join(running)} (the timers that were "
+                              f"running before this install)",
+                              lambda: (systemctl("start", *running), restarted())))
         if enabled:
             notes.append(f"timers already enabled ({', '.join(enabled)}): their next "
                          f"firing runs the units written by this install")
@@ -925,14 +1047,14 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     if armed:
         warnings.append(f"ARMED: units get DRY_RUN=0. A scheduled session also needs "
                         f"{layout.state_dir}/AUTO_ARMED to transmit (docs/RUNNER.md gate 2)")
-    return Plan(notes, warnings, steps, rendered)
+    return Plan(notes, warnings, steps, rendered, run_state)
 
 
 def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_URL,
          localtime: Path = Path("/etc/localtime"), run_cmd: Callable = _real_run,
          as_user: list | None = None, euid: int | None = None,
          dont_write_bytecode: bool | None = None, user_ids: Callable = _user_ids,
-         now_utc: dt.datetime | None = None) -> int:
+         now_utc: dt.datetime | None = None, read_environ: Callable | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--tag", required=True, help="release tag, already pushed to origin")
     ap.add_argument("--vault", required=True,
@@ -961,7 +1083,8 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
             euid=os.geteuid() if euid is None else euid,
             dont_write_bytecode=(sys.flags.dont_write_bytecode
                                  if dont_write_bytecode is None else dont_write_bytecode),
-            user_ids=user_ids, now_utc=now_utc or dt.datetime.now(dt.timezone.utc))
+            user_ids=user_ids, now_utc=now_utc or dt.datetime.now(dt.timezone.utc),
+            read_environ=read_environ or _read_environ)
     except InstallRefused as e:
         print(f"REFUSED: {e}")
         return 2
@@ -977,8 +1100,13 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
             try:
                 s.run()
             except InstallRefused as e:
-                print(f"REFUSED at step {i}: {e}")
-                return 2
+                alert = isinstance(e, JobDuringInstall)
+                print(f"{'ALERT' if alert else 'REFUSED'} at step {i}: {e}")
+                if plan.state["stopped"]:
+                    print(f"timers left STOPPED: {' '.join(plan.state['stopped'])}. Nothing "
+                          f"will run until you re-run the installer or start them "
+                          f"(`sudo systemctl start {' '.join(plan.state['stopped'])}`)")
+                return EXIT_JOB_DURING_INSTALL if alert else 2
     if not a.apply:
         for name, text in plan.rendered.items():
             print(f"\n----- {layout.unit_path(name)} (rendered, not written)\n{text}")
