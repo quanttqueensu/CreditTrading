@@ -16,7 +16,10 @@ sleeps are recorded, not slept. The output files live under tmp_path.
 from __future__ import annotations
 
 import ast
+import http.client
+import json
 import os
+import urllib.error
 import sys
 import types
 from pathlib import Path
@@ -247,6 +250,107 @@ def test_redirects_are_refused_so_the_token_never_follows_one():
     included, to wherever a 3xx points."""
     assert akv._NoRedirect().redirect_request(None, None, 302, "Found", {},
                                               "https://elsewhere.example/") is None
+
+
+# -- http_get: a response cut short (release-check #3) -----------------------------
+
+PARTIAL = b'{"value": "PARTIAL-SECRET-BODY'
+
+
+class FakeResp:
+    def __init__(self, status=200, body=b"", read_exc=None):
+        self.status, self.body, self.read_exc = status, body, read_exc
+
+    def read(self):
+        if self.read_exc:
+            raise self.read_exc
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class FakeOpener:
+    """Stands in for urllib's opener: answers by URL from scripted lists (the
+    last answer repeats). Nothing here opens a socket."""
+
+    def __init__(self, script):
+        self.script = script
+
+    def open(self, req, timeout):
+        url = req.full_url
+        key = "imds" if url.startswith("http://169.254.169.254/") else \
+            url.split("/secrets/", 1)[1].split("?", 1)[0]
+        answers = self.script[key]
+        a = answers.pop(0) if len(answers) > 1 else answers[0]
+        if isinstance(a, Exception):
+            raise a
+        return a
+
+
+def ok_resp(doc):
+    return FakeResp(200, json.dumps(doc).encode())
+
+
+def cut_short():
+    return FakeResp(200, read_exc=http.client.IncompleteRead(PARTIAL, 40))
+
+
+def use_opener(monkeypatch, script):
+    opener = FakeOpener(script)
+    monkeypatch.setattr(akv.urllib.request, "build_opener", lambda *handlers: opener)
+
+
+def test_a_cut_short_body_is_a_transport_error_and_never_shows_the_body(monkeypatch):
+    use_opener(monkeypatch, {"a": [cut_short()]})
+    with pytest.raises(akv.TransportError) as e:
+        akv.http_get(kv_url("a"), {}, timeout=1, proxy=True)
+    assert "IncompleteRead" in str(e.value) and "PARTIAL" not in str(e.value)
+
+
+def test_an_error_whose_body_is_cut_short_is_a_transport_error(monkeypatch):
+    class Cut:
+        def read(self, *a):
+            raise http.client.IncompleteRead(PARTIAL, 40)
+
+        def close(self):
+            pass
+    err = urllib.error.HTTPError(kv_url("a"), 503, "busy", {}, Cut())
+    use_opener(monkeypatch, {"a": [err]})
+    with pytest.raises(akv.TransportError) as e:
+        akv.http_get(kv_url("a"), {}, timeout=1, proxy=True)
+    assert "PARTIAL" not in str(e.value)
+
+
+def test_a_cut_short_secret_is_retried_on_the_same_schedule(monkeypatch):
+    use_opener(monkeypatch, {"imds": [ok_resp({"access_token": TOKEN})],
+                             "alpaca-cef-key-id": [cut_short(), ok_resp({"value": KEY_ID})],
+                             "alpaca-cef-secret-key": [ok_resp({"value": SECRET})]})
+    sleeps = Sleeps()
+    assert akv.fetch({"vault": VAULT}, NAMES, http=akv.http_get, sleep=sleeps) == VALUES
+    assert sleeps == [akv.KEYVAULT_DELAYS[0]]
+
+
+def test_a_secret_that_keeps_being_cut_short_fails_without_the_body(monkeypatch):
+    use_opener(monkeypatch, {"imds": [ok_resp({"access_token": TOKEN})],
+                             "alpaca-cef-key-id": [cut_short()]})
+    sleeps = Sleeps()
+    with pytest.raises(akv.SecretFetchError) as e:
+        akv.fetch({"vault": VAULT}, NAMES, http=akv.http_get, sleep=sleeps)
+    assert "after 4 attempts" in str(e.value) and "PARTIAL" not in str(e.value)
+    assert sleeps == list(akv.KEYVAULT_DELAYS)
+
+
+def test_a_cut_short_token_is_retried_on_the_imds_schedule(monkeypatch):
+    use_opener(monkeypatch, {"imds": [cut_short(), ok_resp({"access_token": TOKEN})],
+                             "alpaca-cef-key-id": [ok_resp({"value": KEY_ID})],
+                             "alpaca-cef-secret-key": [ok_resp({"value": SECRET})]})
+    sleeps = Sleeps()
+    assert akv.fetch({"vault": VAULT}, NAMES, http=akv.http_get, sleep=sleeps) == VALUES
+    assert sleeps == [akv.IMDS_DELAYS[0]]
 
 
 # -- boot_secrets: the file ---------------------------------------------------

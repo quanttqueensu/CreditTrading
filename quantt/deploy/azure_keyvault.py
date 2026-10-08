@@ -93,6 +93,7 @@ WHAT IT NEVER DOES
 """
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -134,7 +135,10 @@ class Response(NamedTuple):
 
 
 class TransportError(Exception):
-    """No HTTP status came back (DNS failure, refused connection, timeout)."""
+    """No usable HTTP response came back: a DNS failure, a refused connection, a
+    timeout, or a response cut short (http.client.IncompleteRead and its kin).
+    It is retried on the caller's schedule. The message never carries a body: a
+    cut-short Key Vault body may hold part of a secret."""
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -161,7 +165,16 @@ def http_get(url: str, headers: dict, *, timeout: float, proxy: bool) -> Respons
         with opener.open(req, timeout=timeout) as r:
             return Response(r.status, r.read())
     except urllib.error.HTTPError as e:
-        return Response(e.code, e.read())
+        try:
+            body = e.read()
+        except (http.client.HTTPException, OSError) as e2:
+            raise TransportError(f"HTTP {e.code}, then {type(e2).__name__} reading its "
+                                 f"body") from e2
+        return Response(e.code, body)
+    except http.client.HTTPException as e:
+        # IncompleteRead and friends: the connection broke mid-response. Only the
+        # class name is shown; str(e) is not used, and the partial data never is.
+        raise TransportError(f"{type(e).__name__} reading the response") from e
     except (urllib.error.URLError, OSError) as e:      # TimeoutError is an OSError
         raise TransportError(f"{type(e).__name__}: {e}") from e
 

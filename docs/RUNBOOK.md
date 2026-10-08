@@ -401,7 +401,10 @@ install loudly instead of starting a compile the 1 GiB VM cannot finish.
 
 **Reboots.** A kernel update still needs one. The TL does it by hand, on a
 weekend. `Persistent=false` means a firing missed while the VM was **down** is
-not replayed at boot.
+not replayed at boot [V: measured on the VM, 2026-10-08. Powered off across
+the slots 04:46–04:54; after booting at 04:55:07 the next run was the regular
+04:56:00]. A stop and restart **within** one boot is different: it does replay
+(8.3).
 
 **A firing that passes while its job is still running is not dropped.**
 Measured on the VM, 2026-10-07 (systemd 255.4-1ubuntu8.17): it starts the job
@@ -522,9 +525,22 @@ reloads, and checks again. Then, still with no timer running, it:
 - **reads back** from systemd that each is active, and refuses if one is not.
 
 The end state is set by enablement, so a re-run after a refusal does leave the
-timers running. To keep one timer off, disable it. Restarting does not replay
-slots missed while stopped [V: measured on the VM, 2026-10-08,
-Persistent=false].
+timers running. To keep one timer off, disable it.
+
+**A restart replays a slot missed during the run** [V: measured on the VM,
+2026-10-08]. An enabled `Persistent=false` timer, stopped and restarted within
+one boot across a missed slot, fires at once on the restart. (This corrects an
+earlier line here that said it did not.) So an install that spans 15:52/15:55,
+or 12:52/12:55 on an early close, would replay the send slot into a late,
+partial send. **That is why the installer refuses on weekdays inside
+15:40–16:00 and 12:40–13:00 ET** (the runner's own late ranges). It also checks
+the clock again just before restarting the timers. If that check falls inside
+a window, it leaves the timers **stopped** and says so; re-run after 16:00, or
+13:00. Other replays are harmless:
+- a replayed :00/:30 session idles outside its slots;
+- a replayed collect is just a collect;
+- a replayed 17:30 verify writes the day's line;
+- a replayed 22:00 decide decides once.
 
 - **If it fails after stopping them**, whether by a refusal, a failed key
   fetch or an unexpected error, it reads the timers back and prints `timers
@@ -610,7 +626,8 @@ the evening decide:
    sudo chown -R quantt:quantt /home/quantt/quantt_state/cef
    ```
    The panels' provenance (`seed.log`) stays in `cef.shadow-<date>`.
-4. **Arm the VM** (TL): `qi --tag <tag> --vault <vault-name> --armed --apply --enable`,
+4. **Arm the VM** (TL), not inside 15:40–16:00 or 12:40–13:00 ET on a weekday
+   (the installer refuses there; 8.3): `qi --tag <tag> --vault <vault-name> --armed --apply --enable`,
    then `sudo -u quantt touch /home/quantt/quantt_state/cef/AUTO_ARMED`
    (`docs/RUNNER.md` gate 2). A scheduled send needs both.
 5. **Watch** the first 22:00 decide, the next 15:52 send and the 17:30 verify.
@@ -650,7 +667,10 @@ cancels an order already at Alpaca.
    stop it. Halt files are gitignored, so a standing halt does not block the
    installer.
 2. **Remove AUTO_ARMED:** `sudo rm /home/quantt/quantt_state/cef/AUTO_ARMED`.
-3. **DRY_RUN=1:** re-install without `--armed` (`qi ... --apply`). It takes
+3. **DRY_RUN=1:** re-install without `--armed` (`qi ... --apply`). **Not inside
+   15:40–16:00 or 12:40–13:00 ET on a weekday**: the installer refuses there,
+   because its timer restart could replay a send slot (8.3). Inside those
+   windows, halt with step 1 or 2. It takes
    effect at the installer's `daemon-reload`, and the installer then confirms
    from systemd that DRY_RUN=1 is what is loaded.
    - **This step is not fast.** The installer refuses while any job runs or is
@@ -669,7 +689,9 @@ cancels an order already at Alpaca.
 
 **Updating** to a new release. Never change code under a running job:
 
-1. **Stop the timers** at a quiet moment (not 15:45–16:00 ET, not 17:30).
+1. **Stop the timers** at a quiet moment: not 15:40–16:00 ET, not 12:40–13:00 ET
+   (an early close's send window), not 17:30. The installer refuses inside the
+   two late windows anyway.
    The installer also stops them for its own run, but a manual `git checkout`
    (step 3) happens outside that run, so stop them here first:
    `sudo systemctl stop quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`,
@@ -697,7 +719,9 @@ cancels an order already at Alpaca.
    does not match the tag's `requirements.txt`.
 4. **Apply and re-enable, only through the installer:**
    `qi --tag <new> --vault <vault-name> --apply --enable`, adding `--armed` if
-   the VM is armed. **A re-install without `--armed` disarms.**
+   the VM is armed. **A re-install without `--armed` disarms.** The restart at
+   the end replays any slot missed while the timers were stopped (8.3). That is
+   harmless outside the late windows, and the installer refuses inside them.
 
 **If you abandon an update after step 1**, start the timers again:
 `sudo systemctl start quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
@@ -706,7 +730,8 @@ Otherwise nothing trades, and no verify line is written.
 **Rolling back** is the same procedure with the previous tag.
 
 **Rotating the keys:** the TL adds a new version of both secrets in the portal,
-and the latest version is what gets fetched. Then re-run the installer
+and the latest version is what gets fetched. Then, **not inside 15:40–16:00 or
+12:40–13:00 ET on a weekday** (the installer refuses there), re-run the installer
 (`qi --tag <current> --vault <vault-name> --apply`, adding `--armed` if the
 VM is armed). That is the safe way: it restarts `quantt-secret.service` while
 the timers are stopped and no job is running, and confirms the key file. A bare

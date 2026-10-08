@@ -88,8 +88,19 @@ DRY_RUN=1 loaded. So `--apply` runs in this order:
      running. Otherwise a re-run after a refusal that had stopped the timers
      would exit 0 with all three still stopped (release-check #2).
 
-Restarting does not replay the slots missed while stopped (measured, see the
-parser comment). Any failure after step 1, a refusal or an unexpected
+Restarting DOES replay a slot missed while the timers were stopped. Measured
+on the VM, 2026-10-08 [V]: an ENABLED Persistent=false timer, stopped and
+restarted within one boot across a missed slot, fires at once on the restart.
+(This corrects an earlier note in this file, which said restarting did not
+replay; parser comment (b).) So an install that spans 15:52/15:55 (12:52/12:55
+on an early close) would replay the send slot into a late, partial send. To
+prevent that, the installer refuses at planning on a weekday inside 15:40-16:00
+or 12:40-13:00 ET (LATE_RANGES_ET, the runner's LATE_LOCAL_RANGES), and checks
+the clock again before restarting the timers, leaving them stopped if it is
+now inside a window. Other replays are harmless: a replayed :00/:30 session
+idles outside its slots, a replayed collect is a collect, a replayed 17:30
+verify writes the day's line, and a replayed 22:00 decide decides once
+(DECIDED). Any failure after step 1, a refusal or an unexpected
 exception, reads the timers back and reports any that are STOPPED: nothing
 trades until the installer is re-run or the timers are started. Planning also
 refuses a venv built from a requirements.txt other than the tag's
@@ -106,7 +117,10 @@ own ET clock gates are the second guard.
 SCHEDULE
 --------
 * `Persistent=false`: a firing missed while the VM was DOWN never runs at boot
-  (systemd.timer(5)).
+  (systemd.timer(5)). Measured on the VM, 2026-10-08 04:43-04:56 UTC [V]: last
+  run 04:44:00, then powered off; slots 04:46-04:54 passed while down; boot at
+  04:55:07; next run at the regular 04:56:00. A stop and restart WITHIN one
+  boot is different: it replays (see THE TIMERS ARE STOPPED FOR THE RUN).
 * A firing that passes WHILE ITS SERVICE IS STILL RUNNING is not dropped.
   MEASURED on the VM, 2026-10-07 (Ubuntu 24.04.4, systemd 255.4-1ubuntu8.17): a
   transient timer firing every minute at :00 (AccuracySec=1s, Persistent=false)
@@ -174,6 +188,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from string import Template
 from typing import Callable
+from zoneinfo import ZoneInfo
 
 from quantt.deploy import azure_keyvault as akv
 from quantt.deploy import install_prod as ip
@@ -209,6 +224,12 @@ SESSION_SUCCESS_EXIT = (3, 4, 5, 6, 10)
 # was queued after the reload, which with the timers stopped should be
 # impossible, so the run says so loudly instead of reporting success.
 EXIT_JOB_DURING_INSTALL = 3
+
+# The late-market send windows (16:00 and 13:00 early closes), the same ranges
+# the runner's local pre-check never skips (quantt/session/run.py
+# LATE_LOCAL_RANGES). They are MIRRORED, not imported: the installer never
+# imports quantt.session. test_the_late_ranges_are_the_runners pins the two equal.
+LATE_RANGES_ET = ((dt.time(15, 40), dt.time(16, 0)), (dt.time(12, 40), dt.time(13, 0)))
 
 # sha256 of the requirements.txt the venv was built from, written by bootstrap.sh
 # (and by the RUNBOOK 8.6 dependency step) into the venv directory.
@@ -539,12 +560,17 @@ def remote_tag_commit(git: Git, url: str, tag: str) -> str:
 #       inactive, SubState=dead. But `show -p Job` is a job id, and
 #       `list-jobs` shows `<id> <unit> start waiting`. So `is-active` alone
 #       misses a queued job; `job_states` reads ActiveState AND Job.
-#   (b) With Persistent=false, `systemctl start` on a timer that was stopped
-#       across a missed slot does NOT fire at once. Stopped 01:12:01, slot
-#       01:13:00 passed, restarted 01:13:20: no run, NextElapse 01:14:00,
-#       LastTriggerUSec empty. So restarting the timers at the end of an install
-#       does not replay the slots the install stopped them across. The worry
-#       from systemd issue #40949 did not reproduce for Persistent=false.
+#   (b) CORRECTED 2026-10-08 (release-check #3). This note first said a
+#       restart does NOT replay a missed slot. That came from a probe on a
+#       started-but-NOT-ENABLED timer, which is likely unloaded on stop and
+#       so forgets its last trigger. It does not apply to our enabled timers.
+#       MEASURED on the VM [V: 2026-10-08 04:38-04:41 UTC; OnCalendar *:*:00
+#       and *:*:30, enabled]: fired 04:39:00, stopped 04:39:00, slots
+#       04:39:30 and 04:40:00 missed, `systemctl start` at 04:40:15 -> ran at
+#       04:40:15, LastTriggerUSec=04:40:15. So an ENABLED Persistent=false
+#       timer restarted within one boot across a missed slot fires AT ONCE.
+#       That is why the installer refuses inside the late windows and
+#       re-checks the clock before it restarts the timers (_refuse_if_late).
 
 # Directories where set-property and transient units live. On a system manager
 # `systemd-analyze unit-paths` lists them already [S]; they are added anyway,
@@ -705,6 +731,41 @@ def verify_loaded(run_cmd: Callable, layout: "Layout", unit: str, expect: dict) 
             + "; ".join(problems) + ". systemd is NOW running the configuration shown. "
             "Halt now with docs/RUNBOOK.md 8.6 halting step 1 or 2 (ops/HALT.md, or "
             "remove AUTO_ARMED), then find the cause")
+
+
+def late_window_at(now_utc: dt.datetime):
+    """(start, end, local time) if `now_utc` is a weekday inside a late window, else None.
+
+    Every weekday is guarded for both ranges, as the runner's pre-check does:
+    which days close early is a calendar fact the installer does not need to
+    get right in order to stay out of the way.
+    """
+    t = now_utc.astimezone(ZoneInfo(REQUIRED_TZ))
+    if t.weekday() >= 5:
+        return None
+    for a, b in LATE_RANGES_ET:
+        if a <= t.time() < b:
+            return a, b, t
+    return None
+
+
+def _refuse_if_late(clock: Callable, what: str) -> None:
+    """Why (release-check #3, measured on the VM 2026-10-08): an ENABLED
+    Persistent=false timer, stopped and restarted within one boot across a
+    missed slot, FIRES AT ONCE on the restart. An --apply stops the timers, so
+    one that spans 15:52/15:55 (12:52/12:55) would replay the send slot at its
+    restart: a late, partial send. So: no install inside the windows, and no
+    restart of the timers inside them."""
+    hit = late_window_at(clock())
+    if hit:
+        a, b, t = hit
+        raise InstallRefused(
+            f"{what}: it is {t:%H:%M:%S} ET on a weekday, inside the late-market window "
+            f"{a:%H:%M}-{b:%H:%M} ET. A timer restarted across a missed slot fires at "
+            f"once (measured on the VM, 2026-10-08), so stopping and restarting the timers "
+            f"here could replay the 15:52/15:55 (12:52/12:55) send slot into a late, "
+            f"partial send. Re-run after {b:%H:%M} ET (after 16:00, or 13:00 on an early "
+            f"close)")
 
 
 def deps_command(layout: "Layout") -> str:
@@ -872,7 +933,8 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
                enable: bool, seed_from, origin_url: str, localtime: Path,
                run_cmd: Callable, as_user: list, euid: int, dont_write_bytecode: bool,
                user_ids: Callable, now_utc: dt.datetime,
-               read_environ: Callable = _read_environ) -> Plan:
+               read_environ: Callable = _read_environ,
+               clock: Callable = lambda: dt.datetime.now(dt.timezone.utc)) -> Plan:
     """Run every check, then return the steps an install would take.
 
     Everything that can refuse does so HERE, before any step runs. A refusal
@@ -893,6 +955,7 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
                              f"are local wall-clock time written in US/Eastern. Set it: "
                              f"`sudo timedatectl set-timezone {REQUIRED_TZ}`")
     notes.append(f"system timezone {zone}")
+    _refuse_if_late(clock, "refusing to install")
     try:
         akv.check_vault_name(vault)
     except akv.SecretFetchError as e:
@@ -1011,7 +1074,8 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     # start the OLD unit (say DRY_RUN=0) while this run reported DRY_RUN=1
     # loaded. With the timers stopped, no firing can start a job until the run
     # restarts them at the end. A refusal after this point leaves them stopped,
-    # and says so. Restarting does not replay the missed slots (measured (b)).
+    # and says so. The restart DOES replay a slot missed meanwhile (measured
+    # (b)), so it is never done inside a late window (_refuse_if_late).
     if running:
         steps.append(Step(f"systemctl stop {' '.join(running)} (no firing can start a job "
                           f"during the install; every enabled timer is started at the end)",
@@ -1143,17 +1207,22 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
                           refresh_keys))
 
     if enable:
-        steps.append(Step(f"systemctl enable --now {' '.join(timers)}",
-                          lambda: systemctl("enable", "--now", *timers)))
+        def enable_timers():
+            _refuse_if_late(clock, "not restarting the timers")
+            systemctl("enable", "--now", *timers)
+        steps.append(Step(f"systemctl enable --now {' '.join(timers)} (not inside a late "
+                          f"window: a restart there could replay a send slot)", enable_timers))
     else:
         def start_enabled():
+            _refuse_if_late(clock, "not restarting the timers")
             now_enabled = {t for t in timers
                            if run_cmd(["systemctl", "is-enabled", "--quiet", t]).returncode == 0}
             run_state["targets"] = [t for t in timers if t in now_enabled | set(running)]
             if run_state["targets"]:
                 systemctl("start", *run_state["targets"])
         steps.append(Step("systemctl start every enabled timer (and any that was running "
-                          "before this install)", start_enabled))
+                          "before this install), not inside a late window: a restart there "
+                          "could replay a send slot", start_enabled))
 
     def read_back():
         want = run_state["targets"]
@@ -1200,7 +1269,8 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
          localtime: Path = Path("/etc/localtime"), run_cmd: Callable = _real_run,
          as_user: list | None = None, euid: int | None = None,
          dont_write_bytecode: bool | None = None, user_ids: Callable = _user_ids,
-         now_utc: dt.datetime | None = None, read_environ: Callable | None = None) -> int:
+         now_utc: dt.datetime | None = None, read_environ: Callable | None = None,
+         clock: Callable | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--tag", required=True, help="release tag, already pushed to origin")
     ap.add_argument("--vault", required=True,
@@ -1230,7 +1300,8 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
             dont_write_bytecode=(sys.flags.dont_write_bytecode
                                  if dont_write_bytecode is None else dont_write_bytecode),
             user_ids=user_ids, now_utc=now_utc or dt.datetime.now(dt.timezone.utc),
-            read_environ=read_environ or _read_environ)
+            read_environ=read_environ or _read_environ,
+            clock=clock or (lambda: dt.datetime.now(dt.timezone.utc)))
     except InstallRefused as e:
         print(f"REFUSED: {e}")
         return 2

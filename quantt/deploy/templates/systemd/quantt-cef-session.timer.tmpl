@@ -13,7 +13,8 @@
 #
 # No timezone suffix: the lines are local time, and the installer refuses
 # unless the system zone is America/New_York. Persistent=false: a firing missed
-# while the VM was DOWN never runs at boot. AccuracySec=1s: the default (1min)
+# while the VM was DOWN never runs at boot [V: measured on the VM, 2026-10-08,
+# poweroff across slots, next run at the regular slot]. AccuracySec=1s: the default (1min)
 # lets systemd move a 15:52 firing anywhere up to 15:53.
 #
 # MEASURED 2026-10-07 on the VM (systemd 255): a firing that passes while the
@@ -25,10 +26,13 @@
 # DeferReactivation= would stop it, but it needs systemd >= 256, and Ubuntu
 # 24.04 ships 255. See install_vm.py, SCHEDULE.
 #
-# MEASURED 2026-10-08 on the VM [V]: with Persistent=false, starting this timer
-# after it was stopped across a slot does NOT fire that slot. The next run is
-# the next elapse. install_vm stops the timers for each install and restarts
-# them at the end, and this is why that restart cannot send late.
+# MEASURED 2026-10-08 on the VM [V] (this corrects an earlier note here): this
+# timer is ENABLED and Persistent=false, and if it is stopped and restarted
+# within one boot across a missed slot, it FIRES AT ONCE on the restart. An
+# install stops the timers and restarts them at the end, so one spanning
+# 15:52/15:55 (12:52/12:55) would replay the send slot late. install_vm refuses
+# inside 15:40-16:00 and 12:40-13:00 ET on weekdays, and re-checks before it
+# restarts (_refuse_if_late).
 [Unit]
 Description=QUANTT cef session schedule (release ${TAG})
 

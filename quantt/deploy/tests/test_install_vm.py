@@ -39,6 +39,9 @@ from quantt.deploy import install_vm as iv
 
 REAL_REPO = Path(iv.__file__).resolve().parents[2]
 NOW = dt.datetime(2026, 10, 7, 20, 0, tzinfo=dt.timezone.utc)
+# The installer's wall clock in tests: Wednesday 10:00 ET, far from any late window.
+CLOCK = dt.datetime(2026, 10, 7, 14, 0, tzinfo=dt.timezone.utc)
+ET = dt.timezone(dt.timedelta(hours=-4))          # EDT on these October dates
 VAULT = "example-vault-x1"
 GITC = ["-c", "user.name=t", "-c", "user.email=t@example.invalid",
         "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"]
@@ -336,7 +339,7 @@ class World:
         opts = dict(layout=self.layout, origin_url=str(self.origin), localtime=self.localtime,
                     run_cmd=self.cmds, as_user=[], euid=0, dont_write_bytecode=True,
                     user_ids=lambda u: (os.getuid(), os.getgid()), now_utc=NOW,
-                    read_environ=self.cmds.read_environ)
+                    read_environ=self.cmds.read_environ, clock=lambda: CLOCK)
         opts.update(kw)
         rc = iv.main(argv, **opts)
         out = capsys.readouterr().out if capsys else ""
@@ -961,6 +964,57 @@ def test_a_venv_with_no_requirements_record_is_refused(world, capsys):
     world.layout.requirements_record.unlink()
     rc, out = world.run("--apply", capsys=capsys)
     assert rc == 2 and str(world.layout.requirements_record) in out, out
+
+
+# -- the late-window guard (release-check #3, 2026-10-08) ----------------------------
+#
+# MEASURED on the VM [V, 2026-10-08 04:38-04:41 UTC]: an ENABLED Persistent=false
+# timer stopped and restarted within one boot across a missed slot FIRES AT
+# ONCE on the restart. An --apply stops the timers, so one that spans 15:52 or
+# 15:55 (12:52/12:55 on an early close) would replay the send slot at its
+# restart: a late, partial send. Hence the guard.
+
+def et(h, m, s=0, day=7):
+    """A UTC instant for h:m:s ET on 2026-10-<day> (the 7th is a Wednesday)."""
+    return dt.datetime(2026, 10, day, h, m, s, tzinfo=ET).astimezone(dt.timezone.utc)
+
+
+@pytest.mark.parametrize("t", [et(15, 40), et(15, 52), et(15, 59, 59), et(12, 40), et(12, 59)])
+def test_an_install_inside_a_late_window_is_refused_at_planning(world, capsys, t):
+    armed_and_running(world, capsys)
+    rc, out = world.run("--apply", clock=lambda: t, capsys=capsys)
+    assert rc == 2 and "late" in out and "16:00" in out, out
+    assert world.cmds.mutating() == []
+    assert world.cmds.timer_active == set(TIMERS)
+
+
+@pytest.mark.parametrize("t", [et(15, 39, 59), et(16, 0), et(12, 39), et(13, 0),
+                               et(15, 45, day=10)])                 # Saturday
+def test_outside_the_late_windows_or_at_the_weekend_the_install_runs(world, capsys, t):
+    rc, out = world.run("--apply", clock=lambda: t, capsys=capsys)
+    assert rc == 0, out
+
+
+def test_the_late_ranges_are_the_runners():
+    """Mirrored, not imported: the installer never imports quantt.session."""
+    from quantt.session import run
+    assert iv.LATE_RANGES_ET == run.LATE_LOCAL_RANGES
+
+
+@pytest.mark.parametrize("extra", [(), ("--enable",)])
+def test_a_restart_that_would_land_in_a_late_window_leaves_the_timers_stopped(world, capsys,
+                                                                             extra):
+    armed_and_running(world, capsys)
+    times = iter([et(15, 39, 50)])            # planning; every later read is 15:40:05
+
+    def clock():
+        return next(times, et(15, 40, 5))
+    rc, out = world.run("--apply", "--armed", *extra, clock=clock, capsys=capsys)
+    assert rc == 2 and "not restarting" in out and "16:00" in out, out
+    assert "timers left STOPPED" in out
+    assert world.cmds.timer_active == set()
+    assert not [c for c in world.cmds.mutating()
+                if c[:2] == ["systemctl", "start"] or c[:3] == ["systemctl", "enable", "--now"]]
 
 
 def test_the_key_service_being_active_is_normal(world, capsys):
