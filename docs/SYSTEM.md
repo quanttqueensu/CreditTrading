@@ -366,6 +366,15 @@ phase 6; the procedure is `docs/RUNBOOK.md` §8.
 | Cloud server | **Azure for Students** (no card), a `Standard_B2pts_v2` VM (Arm64, like the laptop) in `canadacentral`, the allowed region closest to New York. Supersedes "Not yet" above. The laptop stays prod until the cut-over. Google Cloud's free-tier e2-micro was chosen first the same day and dropped because it needs a card. |
 | What it costs | The VM size is free for 12 months; anything else (disk, public IP, Key Vault) comes out of the $100 student credit. When the credit or the 12 months run out the subscription is disabled and **the book stops**: check the balance in the portal and renew yearly while a student. |
 
+### Team lead, 2026-10-08 — cut over to the VM today, fully automated
+
+| question | decision |
+|---|---|
+| Shadow length | **Skipped.** "Why don't we just deploy everything to the VM and see if it can trade today?" The 3-trading-day shadow proposed on 2026-10-07 was replaced by one morning of dry runs on the VM. That covered the full decide from start to finish, keys and account reads, and a plan matching the laptop's (same 8 orders; 2 names 1 share apart, explained by equity read 0.02% apart). |
+| Cut-over | **2026-10-08 11:32–11:38 ET**, `docs/RUNBOOK.md` §8.5, steps 1b–4. Laptop launchd jobs unloaded and disabled, laptop `AUTO_ARMED` removed (kept renamed), laptop state copied to the VM, VM armed (`DRY_RUN=0`) at `release-20261008-2`. Step 1a (re-installing the laptop plists disarmed) was blocked by the agent's permission classifier, so the disabled laptop plists still say `DRY_RUN=0` on disk. |
+| First VM send | **2026-10-08, the laptop's decided plan `c5f20357…` (8 orders)**, approved by the team lead ("go") and recorded with `quantt.session approve`, sent by the VM's 15:52 timer. |
+| Automation | **"I want the VM fully automated and deployed, gathering trade data and doing trades on PROD while we make improvements here on non-prod to push to VM prod."** `AUTO_ARMED` is created on the VM after the first armed send's verify PASSes. Improvements are developed in the dev tree, pass release-check, and reach the VM as release tags through `install_vm` (`docs/RUNBOOK.md` §8.6). |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A
@@ -404,3 +413,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-09-28 | §0, §4 rewritten for the IBKR retirement and the move to Alpaca; §5 gains the 2026-09-28 decisions; §2 and §6 repointed. Earlier text at tag `pre-clean-slate`. | Alpaca migration, for the team lead |
 | 2026-09-28 | Clean slate: archive references replaced by the tag; plan moved to `docs/ROADMAP.md`. | clean slate, for the team lead |
 | 2026-10-07 | §5 gains the cloud-VM decision. | cloud VM, for the team lead |
+| 2026-10-08 | §5 records the cut-over to the VM and full automation. | cloud VM, for the team lead |
