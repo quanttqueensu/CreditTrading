@@ -1017,6 +1017,83 @@ def test_a_restart_that_would_land_in_a_late_window_leaves_the_timers_stopped(wo
                 if c[:2] == ["systemctl", "start"] or c[:3] == ["systemctl", "enable", "--now"]]
 
 
+# -- release-check #4 (2026-10-08): advice that starts timers, and the deps step -------
+
+def test_the_stopped_timers_notice_warns_about_the_late_windows_and_names_the_loaded_dry_run(
+        world, capsys):
+    """A bare `systemctl start` inside 15:52-15:58 replays the send slot (M1).
+    The notice must say so, prefer re-running the installer, and name the DRY_RUN
+    systemd has LOADED, since that is what a start would run."""
+    armed_and_running(world, capsys)
+    world.cmds.secret_fails = True                       # refuses after the reload (DRY_RUN=1 loaded)
+    rc, out = world.run("--apply", capsys=capsys)
+    assert rc == 2 and "timers left STOPPED" in out, out
+    for want in ("15:40-16:00", "12:40-13:00", "after 16:00", "re-run the installer",
+                 "DRY_RUN=1 LOADED for quantt-cef-session.service"):
+        assert want in out, (want, out)
+
+
+def test_the_notice_says_unknown_when_the_loaded_dry_run_cannot_be_read(world, capsys):
+    armed_and_running(world, capsys)
+    world.cmds.secret_fails = True
+    real = world.cmds.__call__
+    after = {"restart": False}
+
+    def flaky(args):
+        if args[:3] == ["systemctl", "restart", iv.SECRET_UNIT]:
+            after["restart"] = True
+        if after["restart"] and args[:3] == ["systemctl", "show", "quantt-cef-session.service"]:
+            world.cmds.calls.append(list(args))
+            return subprocess.CompletedProcess(args, 1, "", "Failed to connect to bus")
+        return real(args)
+    rc, out = world.run("--apply", run_cmd=flaky, capsys=capsys)
+    assert rc == 2 and "timers left STOPPED" in out
+    assert "DRY_RUN UNKNOWN" in out and "DRY_RUN=0 LOADED" not in out \
+        and "DRY_RUN=1 LOADED" not in out, out
+
+
+def run_deps_script(world, tmp_path):
+    """Run the dependency step's script as this user (the `sudo -u quantt`
+    prefix is what makes it quantt's on the VM), with a stub uv."""
+    uv = world.layout.home / ".uv" / "bin" / "uv"
+    uv.parent.mkdir(parents=True, exist_ok=True)
+    uv.write_text("#!/bin/sh\nexit 0\n")
+    os.chmod(uv, 0o755)
+    return subprocess.run(["bash", "-c", iv.deps_script(world.layout)], capture_output=True,
+                          text=True, env=dict(os.environ, HOME=str(world.layout.home)))
+
+
+def test_the_deps_command_hashes_as_quantt_and_writes_through_no_pipe():
+    lay = iv.Layout(Path("/home/quantt"))
+    cmd = iv.deps_command(lay)
+    assert cmd.startswith("sudo -u quantt env HOME=/home/quantt bash -c ")
+    assert "| sudo" not in cmd and "tee" not in cmd           # nothing hashed as azureuser
+    script = iv.deps_script(lay)
+    assert "set -euo pipefail" in script and "--no-build" in script
+
+
+def test_the_deps_script_records_the_hash_when_it_succeeds(world, tmp_path):
+    rec = world.layout.requirements_record
+    rec.write_text("old\n")
+    r = run_deps_script(world, tmp_path)
+    assert r.returncode == 0, r.stderr
+    want = hashlib.sha256((world.layout.prod_dir / "requirements.txt").read_bytes()).hexdigest()
+    assert rec.read_text() == want + "\n"
+
+
+def test_the_deps_script_never_truncates_the_record_when_the_hash_fails(world, tmp_path):
+    rec = world.layout.requirements_record
+    rec.write_text("old-record\n")
+    req = world.layout.prod_dir / "requirements.txt"
+    os.chmod(req, 0)                                          # unreadable: sha256sum fails
+    try:
+        r = run_deps_script(world, tmp_path)
+    finally:
+        os.chmod(req, 0o644)
+    assert r.returncode != 0
+    assert rec.read_text() == "old-record\n"
+
+
 def test_the_key_service_being_active_is_normal(world, capsys):
     world.cmds.active[iv.SECRET_UNIT] = "active"
     assert world.run("--apply", capsys=capsys)[0] == 0

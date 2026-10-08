@@ -180,6 +180,7 @@ import hashlib
 import os
 import pwd
 import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -768,13 +769,32 @@ def _refuse_if_late(clock: Callable, what: str) -> None:
             f"close)")
 
 
+def deps_script(layout: "Layout") -> str:
+    """The RUNBOOK 8.6 dependency step as one bash script, run as the service user.
+
+    Why this shape (release-check #4): an earlier form hashed requirements.txt as
+    the admin user, who cannot read /home/quantt (mode 750), and piped the result
+    into `tee` without pipefail. A failed hash then still TRUNCATED the record,
+    so the installer refused again with the same advice, and the timers stayed
+    stopped. Here everything runs as quantt under `set -euo pipefail`. The hash
+    is computed first; the record is written only if the hash is non-empty, via a
+    temp file and `mv`, so it is never left truncated.
+    """
+    q = shlex.quote
+    req, rec = layout.prod_dir / "requirements.txt", layout.requirements_record
+    return (f"set -euo pipefail; "
+            f"{q(str(layout.home / '.uv' / 'bin' / 'uv'))} pip install --no-build "
+            f"--python {q(str(layout.venv_python))} -r {q(str(req))}; "
+            f"h=$(sha256sum {q(str(req))} | cut -d' ' -f1); "
+            f'[ -n "$h" ]; '
+            f"printf '%s\\n' \"$h\" > {q(str(rec) + '.tmp')}; "
+            f"mv {q(str(rec) + '.tmp')} {q(str(rec))}")
+
+
 def deps_command(layout: "Layout") -> str:
-    """The RUNBOOK 8.6 dependency step, with the record bootstrap.sh also writes."""
-    req = layout.prod_dir / "requirements.txt"
-    return (f"sudo -u {SERVICE_USER} env HOME={layout.home} {layout.home}/.uv/bin/uv pip "
-            f"install --no-build --python {layout.venv_python} -r {req} && "
-            f"sha256sum {req} | cut -d' ' -f1 | sudo -u {SERVICE_USER} tee "
-            f"{layout.requirements_record}")
+    """deps_script, run as the service user: the whole step is quantt's."""
+    return (f"sudo -u {SERVICE_USER} env HOME={shlex.quote(str(layout.home))} "
+            f"bash -c {shlex.quote(deps_script(layout))}")
 
 
 def _refuse_if_venv_is_stale(git: "Git", commit: str, tag: str, layout: "Layout") -> None:
@@ -1062,6 +1082,7 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     run_state = {"targets": list(timers) if enable else
                  [t for t in timers if t in set(enabled) | set(running)]}
     run_state["stopped_now"] = lambda: [t for t in run_state["targets"] if not active_now(t)]
+    run_state["loaded_dry_run"] = lambda: loaded_dry_run(run_cmd)
 
     def systemctl(*args):
         r = run_cmd(["systemctl", *args])
@@ -1251,9 +1272,29 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     return Plan(notes, warnings, steps, rendered, run_state)
 
 
+def loaded_dry_run(run_cmd: Callable) -> str:
+    """`DRY_RUN=<x>` as systemd has it LOADED for the session unit, or
+    `DRY_RUN UNKNOWN (<why>)`. It is read, never inferred from a file or flag."""
+    unit = VM_JOBS[0].service
+    try:
+        env = _one(systemd_show(run_cmd, unit, ["Environment"]), "Environment", unit).split()
+    except Exception as e:                       # reported as UNKNOWN, never guessed
+        return f"DRY_RUN UNKNOWN ({type(e).__name__}: {e})"
+    vals = [a.split("=", 1)[1] for a in env if a.startswith("DRY_RUN=")]
+    return f"DRY_RUN={vals[0]}" if len(vals) == 1 else \
+        f"DRY_RUN UNKNOWN (systemd reports {len(vals)} DRY_RUN values)"
+
+
 def _report_stopped_timers(plan: Plan) -> None:
     """After a failed step: which timers that must be running are not, READ
-    BACK from systemd. If the read fails, say so; never claim either way."""
+    BACK from systemd. If the read fails, say so; never claim either way.
+
+    Starting them is an order-path act (release-check #4): inside 15:52-15:58
+    ET, a start replays the missed send slot (M1, measured), which means a
+    late and possibly partial send. So the advice prefers re-running the
+    installer, which enforces the window guard. It names the late windows, and
+    the DRY_RUN systemd has LOADED, because that is what a start would run.
+    """
     try:
         stopped = plan.state["stopped_now"]()
     except Exception as e:                       # reported, and the caller still fails
@@ -1261,8 +1302,15 @@ def _report_stopped_timers(plan: Plan) -> None:
               f"treat them as STOPPED and check `systemctl list-timers 'quantt-*'`")
         return
     if stopped:
-        print(f"timers left STOPPED: {' '.join(stopped)}. Nothing will run until you "
-              f"re-run the installer or start them (`sudo systemctl start {' '.join(stopped)}`)")
+        loaded = plan.state["loaded_dry_run"]()
+        print(f"timers left STOPPED: {' '.join(stopped)}. Nothing will run until they are "
+              f"started. Prefer to re-run the installer: it refuses inside the late windows. "
+              f"If you start them by hand, NOT on a weekday inside 15:40-16:00 or "
+              f"12:40-13:00 ET; wait until after 16:00 (13:00 on an early close). A start "
+              f"there replays the missed send slot: a late, possibly partial send. "
+              f"systemd has {loaded} LOADED for quantt-cef-session.service, and that is "
+              f"what starting them would run "
+              f"(`sudo systemctl start {' '.join(stopped)}`)")
 
 
 def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_URL,

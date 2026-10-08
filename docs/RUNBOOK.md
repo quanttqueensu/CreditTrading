@@ -468,7 +468,8 @@ systemctl list-timers 'quantt-*'                 # next firings, shown in EDT/ES
 systemctl status quantt-secret.service           # "active (exited)"
 sudo ls -l /run/quantt/                          # alpaca.env -rw------- quantt; never cat it
 sudo tail -n 20 /home/quantt/quantt_state/cef/logs/secret.err.log
-sudo systemctl start quantt-cef-session.service  # one dry session now; it idles outside a slot
+sudo systemctl start quantt-cef-session.service  # one DRY session now; it idles outside a slot.
+                                                 # Only while DRY_RUN=1, and never inside 15:40-16:00 / 12:40-13:00 ET
 sudo tail -n 50 /home/quantt/quantt_state/cef/logs/session.out.log /home/quantt/quantt_state/cef/logs/session.err.log
 ```
 
@@ -545,8 +546,15 @@ a window, it leaves the timers **stopped** and says so; re-run after 16:00, or
 - **If it fails after stopping them**, whether by a refusal, a failed key
   fetch or an unexpected error, it reads the timers back and prints `timers
   left STOPPED: …` for each one that is not running. Nothing trades and no
-  verify line is written until you re-run the installer or `sudo systemctl
-  start` them.
+  verify line is written until they are started again. **Prefer to re-run the
+  installer**, which enforces the late-window guard. If you start them by hand
+  (`sudo systemctl start …`), do it **not on a weekday inside 15:40–16:00 or
+  12:40–13:00 ET**: wait until after 16:00, or 13:00 on an early close. A start
+  inside 15:52–15:58 replays the missed send slot, which is a late and possibly
+  partial send. Check first which DRY_RUN systemd has **loaded**, because that
+  is what a start runs. The notice prints it, or `UNKNOWN` if it could not be
+  read; read it yourself with
+  `systemctl show -p Environment quantt-cef-session.service`.
 - **A venv built from another `requirements.txt`** is refused at planning. The
   venv records the sha256 of the file it was built from
   (`/home/quantt/venv/.quantt-requirements.sha256`, written by bootstrap and
@@ -687,7 +695,11 @@ cancels an order already at Alpaca.
 4. **Nothing runs at all, verify included:**
    `sudo systemctl disable --now quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
 
-**Updating** to a new release. Never change code under a running job:
+**Updating** to a new release. Never change code under a running job.
+**Start any `--apply` before 15:30 ET, or after 16:00.** The key fetch can
+take about 4 minutes, and the installer refuses to restart the timers from
+15:40 onwards, which would leave them stopped. On an early close, the same
+applies before 12:30 or after 13:00.
 
 1. **Stop the timers** at a quiet moment: not 15:40–16:00 ET, not 12:40–13:00 ET
    (an early close's send window), not 17:30. The installer refuses inside the
@@ -710,12 +722,20 @@ cancels an order already at Alpaca.
    the following, which installs wheels only and records which file the venv
    was built from:
    ```bash
-   sudo -u quantt env HOME=/home/quantt /home/quantt/.uv/bin/uv pip install --no-build \
-     --python /home/quantt/venv/bin/python -r /home/quantt/prod/quantt-alpaca/requirements.txt &&
-   sha256sum /home/quantt/prod/quantt-alpaca/requirements.txt | cut -d' ' -f1 |
-     sudo -u quantt tee /home/quantt/venv/.quantt-requirements.sha256
+   sudo -u quantt env HOME=/home/quantt bash -c 'set -euo pipefail
+     /home/quantt/.uv/bin/uv pip install --no-build --python /home/quantt/venv/bin/python \
+       -r /home/quantt/prod/quantt-alpaca/requirements.txt
+     h=$(sha256sum /home/quantt/prod/quantt-alpaca/requirements.txt | cut -d" " -f1)
+     [ -n "$h" ]
+     printf "%s\n" "$h" > /home/quantt/venv/.quantt-requirements.sha256.tmp
+     mv /home/quantt/venv/.quantt-requirements.sha256.tmp /home/quantt/venv/.quantt-requirements.sha256'
    ```
-   The installer does not install dependencies. It refuses a venv whose record
+   All of it runs as `quantt`. The admin user cannot read `/home/quantt`
+   (mode 750). An earlier form here hashed the file as the admin user and
+   piped it to `tee`, so a failed hash truncated the record (corrected
+   2026-10-08). Now the record is written only after a successful hash. The
+   installer prints this same command (`deps_command`) when it refuses. The
+   installer does not install dependencies, and it refuses a venv whose record
    does not match the tag's `requirements.txt`.
 4. **Apply and re-enable, only through the installer:**
    `qi --tag <new> --vault <vault-name> --apply --enable`, adding `--armed` if
@@ -723,9 +743,17 @@ cancels an order already at Alpaca.
    the end replays any slot missed while the timers were stopped (8.3). That is
    harmless outside the late windows, and the installer refuses inside them.
 
-**If you abandon an update after step 1**, start the timers again:
+**If you abandon an update after step 1**, the timers must run again, or
+nothing trades and no verify line is written. **Prefer to re-run the
+installer** at the current tag (`qi --tag <current> --vault <vault-name>
+--apply`, with `--armed` if armed). It enforces the late-window guard and
+reads back the result. If you start them by hand, check first which DRY_RUN
+systemd has loaded (`systemctl show -p Environment
+quantt-cef-session.service`; that is what will run). Then, **not on a weekday
+inside 15:40–16:00 or 12:40–13:00 ET** (wait until after 16:00, or 13:00), run
 `sudo systemctl start quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
-Otherwise nothing trades, and no verify line is written.
+A start inside 15:52–15:58 replays the missed send slot: a late, possibly
+partial send.
 
 **Rolling back** is the same procedure with the previous tag.
 
