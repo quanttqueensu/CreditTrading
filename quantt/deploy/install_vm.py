@@ -128,11 +128,14 @@ SCHEDULE
   transient timer firing every minute at :00 (AccuracySec=1s, Persistent=false)
   on a 90-second job started the next run the moment the previous one exited.
   The 23:14:00 firing ran at 23:14:30. For this book that means:
-    - the 15:52 send polls until 30 s before the close (`_poll_final`, 15:59:30
-      for a 16:00 close);
-    - the 15:55 firing then starts a session at once, which can fall inside or
-      after the window;
-    - that session must idle on STARTED and the Alpaca-clock send window.
+    - the 15:52 send polls its orders until each is final (`_poll_final`). That
+      usually ends within seconds; in the worst case it runs to 30 s before the
+      close (15:59:30 for a 16:00 close);
+    - so the 15:55 firing usually lands INSIDE the window, while the send is
+      still running or just after, and then idles on STARTED. In the worst case
+      it starts after the window, where the date roll idles it;
+    - either way the session must idle on STARTED and the Alpaca-clock send
+      window.
   The runner's gates are the ONLY guard on that path, not a second one. The
   test that covers the idle is quantt/session/tests/test_run.py::
   test_late_scheduled_decides_once_then_sends_once. `DeferReactivation=`

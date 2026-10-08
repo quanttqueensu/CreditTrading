@@ -296,7 +296,7 @@ appear below only as `<placeholders>`. The vault name is an installer argument.
 | state (`QUANTT_STATE_DIR`) | `/home/quantt/quantt_state/cef/` | `install_vm`, the runner |
 | job logs | `<state>/logs/{session,verify,collect,secret}.{out,err}.log` | systemd (`StandardOutput=append:`) |
 | schedule | `/etc/systemd/system/quantt-cef-{session,verify,collect}.{service,timer}`, rendered from `quantt/deploy/templates/systemd/` **at the tag**. Same commands, environment and times as the launchd jobs (a test expands both over a week) | `install_vm` |
-| Alpaca keys | Key Vault secrets `alpaca-cef-key-id` and `alpaca-cef-secret-key` (vault in RBAC mode). At boot `quantt-secret.service` writes `/run/quantt/alpaca.env` (tmpfs, dir 0700, file 0600), which becomes `QUANTT_ENV_FILE`. That is once per boot when the fetch succeeds; a failed fetch is retried at every job start (see 8.3 d) | TL puts the values in the vault; `quantt.deploy.boot_secrets` writes the file |
+| Alpaca keys | Key Vault secrets `alpaca-cef-key-id` and `alpaca-cef-secret-key` (vault in RBAC mode). At boot `quantt-secret.service` writes `/run/quantt/alpaca.env` (tmpfs, dir 0700, file 0600), which becomes `QUANTT_ENV_FILE`. That is once per boot when the fetch succeeds; a failed fetch is retried at every job start (see 8.3 d). Our code never writes the keys to disk, only to tmpfs. But the kernel can page process memory (tmpfs included) to the unencrypted `/swapfile` that bootstrap creates; Azure managed disks are encrypted at rest by default [S: Azure docs, not re-read] | TL puts the values in the vault; `quantt.deploy.boot_secrets` writes the file |
 
 Everything specific to Azure is in `quantt/deploy/azure_keyvault.py`, the
 provider module behind `boot_secrets --provider azure-keyvault`. The units, the
@@ -410,9 +410,12 @@ the slots 04:46–04:54; after booting at 04:55:07 the next run was the regular
 Measured on the VM, 2026-10-07 (systemd 255.4-1ubuntu8.17): it starts the job
 again the moment the running one exits, even with `Persistent=false`. A
 one-minute calendar timer on a 90-second job ran its 23:14:00 firing at
-23:14:30. For this book: the 15:52 send polls until 15:59:30, so the 15:55
-firing starts a session straight after it. That session idles only because
-of the runner's gates: STARTED, and the Alpaca-clock send window. **Those
+23:14:30. For this book: the 15:52 send polls its orders until each is final.
+That usually takes seconds, and **in the worst case runs to 15:59:30**. So the
+15:55 firing usually starts a session inside the window, where it idles on
+STARTED. In the worst case it starts just after the window, where the date
+roll idles it. That session idles only because of the runner's gates:
+STARTED, and the Alpaca-clock send window. **Those
 gates are the only guard on that path**, and
 `quantt/session/tests/test_run.py::test_late_scheduled_decides_once_then_sends_once`
 covers it. `DeferReactivation=` would remove the late start, but it needs

@@ -16,7 +16,11 @@ lead wrote that file. ROADMAP 6.2 says that on the VM the keys come from the
 provider's secrets manager, never from a copied file. So at boot this module
 writes the same file format into /run/quantt, where:
 
-  * /run is a tmpfs, so the keys never reach a disk (systemd.exec(5));
+  * /run is a tmpfs, so our code never writes the keys to disk (systemd.exec(5)).
+    That is not the same as "never on disk": the kernel can page process
+    memory, tmpfs pages included, to the swap file bootstrap.sh creates
+    (/swapfile, which we do not encrypt). Azure managed disks are encrypted at
+    rest by default [S: Azure docs, not re-read];
   * the directory is mode 0700, owned by the service user, and removed when
     the service stops (RuntimeDirectory=);
   * the file is mode 0600.

@@ -278,6 +278,12 @@ def late_no_trade_reason(plan: dict, send: dict | None, day: dt.date,
     if send is None:
         return None, (f"plan decided with {len(plan['orders'])} order(s) but no send ran in "
                       f"the late window {plan.get('send_window')} (machine asleep or offline?)")
+    if send.get("budget_short"):
+        # Release-check #6: a set refused because the window had too little time
+        # left for it (gate.gate_late_send_budget) is a day the book should have
+        # traded and did not. That is a FAIL, not an explained no-trade like a
+        # halt or a dry run.
+        return None, f"refused at send for time: {send['budget_short']}"
     texts = [_refusal_text(r) for r in send.get("refusals") or []]
     if texts:
         return "refused at send: " + "; ".join(texts), None

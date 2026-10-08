@@ -11,8 +11,11 @@ because it was asleep or offline). ROADMAP 6.2: the Alpaca keys reach the VM
 through the provider's secrets manager, never as a file copied from a laptop.
 The VM has a system-assigned managed identity holding "Key Vault Secrets User"
 on one vault. At boot, `quantt-secret.service` runs boot_secrets, which calls
-`fetch` here. No credential is ever written to the VM's disk, and no
-credential is needed to obtain one: the identity is the VM itself.
+`fetch` here. Our code never writes a credential to the VM's disk, only to
+tmpfs (/run/quantt), though the kernel can page process memory to the swap file
+bootstrap.sh creates (/swapfile; Azure managed disks are encrypted at rest by
+default [S: Azure docs, not re-read]). And no credential is needed to obtain
+one: the identity is the VM itself.
 
 THE PROVIDER SEAM
 -----------------

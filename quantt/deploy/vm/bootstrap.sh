@@ -23,7 +23,9 @@
 #                              missed run at boot.
 #   needrestart list-only      it must never restart a service on its own after an upgrade.
 #   2 GB swap                  the VM has 1 GiB of RAM, and the test suite peaked at
-#                              568 MB RSS on the laptop (2026-10-07).
+#                              568 MB RSS on the laptop (2026-10-07). Not encrypted by
+#                              us: the kernel can page the tmpfs key file here (see
+#                              boot_secrets.py; Azure disks are encrypted at rest [S]).
 #   user quantt                owns the clone, the venv and the state; no login shell.
 #   uv + Python 3.13.5         the laptop prod's interpreter (RUNBOOK section 0.3). uv is
 #                              pinned and installed from a wheel via pip; there is no

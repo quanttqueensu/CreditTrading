@@ -858,12 +858,17 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
     cal_today = [r for r in cal if r["date"] == session_date]
+    budget_short = gt.gate_late_send_budget(clock_gate["timestamp"], win, len(orders))
+    record["send_budget_s"] = gt.send_budget_s(len(orders)) if orders else 0
     refusals = [
         *gt.gate_dry_run(deps.env.get("DRY_RUN")),
         *gt.gate_arming(approve_sha, plan["plan_sha"], (state / "AUTO_ARMED").exists()),
         *gt.gate_halt(deps.halts()),
         *gt.gate_late_clock(clock_gate["timestamp"], session_date, cal_today,
                             _nyse_trading(session_date), win),
+        # A set the rest of the window cannot finish is not started (release-check
+        # #6): see gate.gate_late_send_budget for the budget and its provenance.
+        *budget_short,
         *gt.gate_no_set_in_auction((day / "STARTED").exists(), orders_recent, orders_open,
                                    book.cid_prefix, session_date),
         *gt.gate_shortability(orders, pos, shortable, acct["shorting_enabled"]),
@@ -898,7 +903,10 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
             "session_date": session_date, "plan_sha": plan["plan_sha"], "at": stamp,
             "exit": EXIT_NAMES[code], "refusals": record["refusals"], "skipped": skipped,
             "final": record.get("final", {}), "unfilled": record.get("unfilled", {}),
-            "not_final": record.get("not_final", [])})
+            "not_final": record.get("not_final", []),
+            # verify FAILs a day refused for time (late_no_trade_reason): the book
+            # should have traded and could not, unlike a halt or a dry run.
+            "budget_short": "; ".join(r.detail for r in budget_short) or None})
         return _finish(record, day, stamp, mode, code, out, scheduled=scheduled)
     gates_hit = {r.gate for r in refusals}
     if refusals:

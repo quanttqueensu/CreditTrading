@@ -19,9 +19,11 @@
 #
 # MEASURED 2026-10-07 on the VM (systemd 255): a firing that passes while the
 # session is STILL RUNNING starts it again the moment it exits, even with
-# Persistent=false. The 15:52 send polls to 15:59:30, so the 15:55 firing
-# starts a session right after; that session idles only because of the
-# runner's gates (STARTED, the Alpaca-clock window). Those gates are the only
+# Persistent=false. The 15:52 send polls its orders until each is final, which
+# usually takes seconds and at worst runs to 15:59:30. So the 15:55 firing
+# usually starts a session inside the window, and at worst just after it. That
+# session idles only because of the runner's gates (STARTED, the Alpaca-clock
+# window). Those gates are the only
 # guard on that path (test_late_scheduled_decides_once_then_sends_once).
 # DeferReactivation= would stop it, but it needs systemd >= 256, and Ubuntu
 # 24.04 ships 255. See install_vm.py, SCHEDULE.

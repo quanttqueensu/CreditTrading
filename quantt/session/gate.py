@@ -296,6 +296,67 @@ def gate_late_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
     return out
 
 
+# The late-send BUDGET (release-check #6, 2026-10-08). A set is not started
+# unless the send window has room for all of it:
+#     budget = n_orders x SEND_ALLOWANCE_PER_ORDER_S + SEND_MARGIN_S
+# Provenance:
+#   MEASURED_MAX_ORDER_CYCLE_S: the slowest per-order cycle the runner has
+#     recorded. A cycle is one clock GET plus one POST, from one `submit`
+#     event to the next in orders.jsonl. Over 33 cycles on the 4 real send
+#     days (2026-09-29, 09-30, 10-01, 10-07; laptop prod orders.jsonl, read
+#     2026-10-08) the slowest was 0.259 s, the median about 0.09 s, and the
+#     largest batch, 13 orders, took 1.18 s.
+#   SEND_ALLOWANCE_PER_ORDER_S = 2 + 1 = 3 s:
+#     - 2 s is the client's own first retry backoff (alpaca.GET_BACKOFF_S[0]),
+#       so each order may have its clock read retried once;
+#     - 1 s is the measured worst cycle, rounded up to a whole second, about
+#       four times what was seen.
+#   SEND_MARGIN_S = 30 s, the client's read timeout (alpaca.TIMEOUT_S[1]), so
+#     one request in the batch may stall to its timeout and the set still ends
+#     inside the window.
+# They are not imported from quantt.broker (gate.py stays free of broker code);
+# test_late_send_budget pins them to the client's constants.
+# At the live size (13 orders) the budget is 69 s. A set may start until 15:56:51
+# (12:56:51 on an early close), which leaves the 15:52 send and the 15:55 retry
+# untouched.
+MEASURED_MAX_ORDER_CYCLE_S = 0.259
+SEND_ALLOWANCE_PER_ORDER_S = 2 + math.ceil(MEASURED_MAX_ORDER_CYCLE_S)
+SEND_MARGIN_S = 30
+
+
+def send_budget_s(n_orders: int) -> float:
+    """Seconds of send window a set of `n_orders` needs (see the constants above)."""
+    return n_orders * SEND_ALLOWANCE_PER_ORDER_S + SEND_MARGIN_S
+
+
+def gate_late_send_budget(clock_ts, window, n_orders: int) -> list[Refusal]:
+    """Gate 4, the late-market budget: refuse to START a set that the time left in
+    the send window cannot finish.
+
+    Why: once STARTED is written, a batch that runs past the window's end stops
+    there (`_transmit` re-checks the clock before every POST). That leaves a
+    partial book, a FAIL, and STARTED blocking any retry that day. Refusing here,
+    before STARTED and before any POST, sends nothing instead. A decide that
+    hangs until 15:57 and a timer firing queued behind it reach exactly this
+    point. The time left is measured on Alpaca's clock, the same reading
+    `gate_late_clock` uses. A set started before the window opens is that gate's
+    refusal, not this one's.
+    """
+    if n_orders <= 0:
+        return []
+    now = clock_ts.astimezone(ET)
+    hi = window[1]
+    left = (hi - now).total_seconds()
+    need = send_budget_s(n_orders)
+    if left < need:
+        return [Refusal("clock", (
+            f"SEND BUDGET: {left:.0f}s left in the send window (until {hi:%H:%M:%S} ET, "
+            f"Alpaca clock {now:%H:%M:%S} ET) for {n_orders} order(s); the set needs "
+            f"{need:.0f}s ({n_orders} x {SEND_ALLOWANCE_PER_ORDER_S}s + {SEND_MARGIN_S}s). "
+            f"Starting it would end in a partial batch: nothing sent, no STARTED written"))]
+    return []
+
+
 def gate_data(asof, refresh_exit, close_dates, nav_dates, universe) -> list[Refusal]:
     """Gate 5. The refresh exited 0 for the required as-of date (or was skipped
     by --skip-refresh), AND every universe name has BOTH a close and a NAV dated
