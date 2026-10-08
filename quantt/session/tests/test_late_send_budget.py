@@ -50,8 +50,10 @@ def at(h, m, s=0, day=D):
 def test_the_budget_constants_come_from_the_clients_schedule_and_the_measured_cycle():
     assert gt.SEND_ALLOWANCE_PER_ORDER_S == \
         alpaca.GET_BACKOFF_S[0] + math.ceil(gt.MEASURED_MAX_ORDER_CYCLE_S)
-    assert gt.SEND_MARGIN_S == alpaca.TIMEOUT_S[1]
-    assert gt.send_budget_s(13) == 13 * 3 + 30
+    # release-check #7: one stalled request can take connect + read timeouts
+    # plus the first retry backoff, not the read timeout alone.
+    assert gt.SEND_MARGIN_S == sum(alpaca.TIMEOUT_S) + alpaca.GET_BACKOFF_S[0]
+    assert gt.send_budget_s(13) == 13 * 3 + 42
 
 
 def test_the_live_book_is_the_size_these_tests_assume():
@@ -121,7 +123,7 @@ def test_the_runner_refuses_a_set_at_155755_and_writes_no_started(tmp_path, sche
 def test_verify_fails_a_day_whose_send_was_refused_for_time():
     """Other send refusals (a halt, a dry run) explain a no-trade day. This one
     does not: the book should have traded and could not, so the day is a FAIL."""
-    detail = "SEND BUDGET: 5s left in the send window for 13 order(s); the set needs 69s"
+    detail = "SEND BUDGET: 5s left in the send window for 13 order(s); the set needs 81s"
     plan = {"status": "decided", "orders": [{"client_order_id": "cef-20260929-AAA-1"}],
             "send_window": [str(WIN[0]), str(WIN[1])]}
     send = {"exit": "REFUSED", "refusals": [{"gate": "clock", "detail": detail}],
@@ -135,3 +137,20 @@ def test_verify_still_explains_an_ordinary_refusal():
     send = {"exit": "REFUSED", "refusals": [{"gate": "halt", "detail": "halt active"}]}
     why, problem = vf.late_no_trade_reason(plan, send, D, "cef")
     assert problem is None and "halt active" in why
+
+
+def test_verify_explains_a_halted_or_dry_day_even_when_it_was_also_short_of_time():
+    """release-check #7: a send refused by a halt, a dry run or the arming gate is
+    an explained no-trade even if the budget refusal fired too. The budget FAIL
+    is for a day whose only obstacle was the clock."""
+    detail = "SEND BUDGET: 5s left in the send window for 13 order(s); the set needs 81s"
+    plan = {"status": "decided", "orders": [{"client_order_id": "cef-20260929-AAA-1"}],
+            "send_window": [str(WIN[0]), str(WIN[1])]}
+    for gate, why_text in [("halt", "halt active"), ("dry_run", "DRY_RUN=1"),
+                           ("arming", "not armed")]:
+        send = {"exit": "REFUSED", "budget_short": detail,
+                "refusals": [{"gate": gate, "detail": why_text},
+                             {"gate": "clock", "detail": detail}]}
+        why, problem = vf.late_no_trade_reason(plan, send, D, "cef")
+        assert problem is None, (gate, problem)
+        assert why_text in why and "SEND BUDGET" in why, (gate, why)

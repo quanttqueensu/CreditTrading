@@ -148,12 +148,14 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **A set the window cannot finish is not started** (added 2026-10-08,
   release-check #6). `gate.gate_late_send_budget` refuses before STARTED and before
   any POST unless the time left on Alpaca's clock is at least
-  `n_orders × 3 s + 30 s`; the constants and their provenance are in `gate.py`. At
-  13 orders a set may start until 15:56:51, so the 15:52 send and the 15:55 retry
-  are unaffected. The case it closes: a decide that hangs until about 15:57,
+  `n_orders × 3 s + 42 s`; the constants and their provenance are in `gate.py`. The
+  42 s margin is the connect and read timeouts plus one retry backoff (corrected
+  from 30 s, release-check #7). At 13 orders a set may start until 15:56:39, so the
+  15:52 send and the 15:55 retry are unaffected. The case it closes: a decide that hangs until about 15:57,
   followed by a timer firing queued behind it, would otherwise send a partial
   batch cut off at 15:58. Such a refusal is recorded as `budget_short` in
-  `send.json`, and verify FAILs the day.
+  `send.json`. verify FAILs the day when time was the only obstacle; a halt, dry run
+  or arming refusal on the same send explains the day instead.
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.

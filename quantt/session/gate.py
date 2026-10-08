@@ -311,17 +311,20 @@ def gate_late_clock(clock_ts, session_date, calendar_today, nyse_trading_today,
 #       so each order may have its clock read retried once;
 #     - 1 s is the measured worst cycle, rounded up to a whole second, about
 #       four times what was seen.
-#   SEND_MARGIN_S = 30 s, the client's read timeout (alpaca.TIMEOUT_S[1]), so
-#     one request in the batch may stall to its timeout and the set still ends
-#     inside the window.
+#   SEND_MARGIN_S = 42 s = connect timeout 10 s + read timeout 30 s
+#     (alpaca.TIMEOUT_S) + the first retry backoff 2 s (alpaca.GET_BACKOFF_S[0]),
+#     so one request in the batch may stall through both timeouts and be retried
+#     once and the set still ends inside the window. (Corrected 2026-10-08,
+#     release-check #7: it was 30 s, the read timeout alone, which let a set
+#     admitted in the last ~40 s be cut short by one stalled request.)
 # They are not imported from quantt.broker (gate.py stays free of broker code);
 # test_late_send_budget pins them to the client's constants.
-# At the live size (13 orders) the budget is 69 s. A set may start until 15:56:51
-# (12:56:51 on an early close), which leaves the 15:52 send and the 15:55 retry
+# At the live size (13 orders) the budget is 81 s. A set may start until 15:56:39
+# (12:56:39 on an early close), which leaves the 15:52 send and the 15:55 retry
 # untouched.
 MEASURED_MAX_ORDER_CYCLE_S = 0.259
 SEND_ALLOWANCE_PER_ORDER_S = 2 + math.ceil(MEASURED_MAX_ORDER_CYCLE_S)
-SEND_MARGIN_S = 30
+SEND_MARGIN_S = 10 + 30 + 2
 
 
 def send_budget_s(n_orders: int) -> float:
