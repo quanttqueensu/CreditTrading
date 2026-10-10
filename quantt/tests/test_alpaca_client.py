@@ -648,3 +648,78 @@ def test_auction_a_different_day_raises(env_file, sleeps):
     c, _ = client(env_file, sleeps, route({"/v2/stocks/auctions": body}))
     with pytest.raises(al.UnexpectedResponse, match="not the requested"):
         c.closing_auction_prints(["PDI"], D, exchange_codes={"PDI": "N"})
+
+
+# ------------------------------------------------------ distributions (corporate actions)
+
+def ca_body(cash=(), cg=(), token=None):
+    return FakeResp(200, {"corporate_actions": {"cash_dividends": list(cash),
+                                                "capital_gains_distributions": list(cg)},
+                          "next_page_token": token})
+
+
+def cash(sym, ex, rate, i=None, **kw):
+    r = {"id": i or f"{sym}-{ex}", "symbol": sym, "cusip": "x", "ex_date": ex, "rate": rate,
+         "special": False, "foreign": False, "process_date": ex}
+    r.update(kw)
+    return r
+
+
+def test_distributions_parse_cash_and_capital_gains_and_ask_for_both_types(env_file, sleeps):
+    body = ca_body(cash=[cash("PDI", "2026-10-13", 0.2205)],
+                   cg=[{"id": "cg1", "symbol": "PDI", "cusip": "x", "ex_date": "2026-12-26",
+                        "process_date": "2027-01-08", "long_term_rate": 0.4, "short_term_rate": 0.1}])
+    c, s = client(env_file, sleeps, route({"/v1/corporate-actions": body}))
+    out = c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2027, 2, 1))
+    assert [(e["kind"], e["ex_date"], e["amount"]) for e in out] == [
+        ("cash_dividend", dt.date(2026, 10, 13), 0.2205),
+        ("capital_gains_distribution", dt.date(2026, 12, 26), pytest.approx(0.5))]
+    url, params = s.gets[0]
+    assert url == al.DATA_BASE + "/v1/corporate-actions"
+    assert params["types"] == "cash_dividend,capital_gains_distribution"
+    assert params["start"] == "2026-09-01" and params["end"] == "2027-02-01"
+
+
+def test_distributions_refuse_an_unrequested_symbol(env_file, sleeps):
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cash=[cash("PTY", "2026-10-13", 0.1)])}))
+    with pytest.raises(al.UnexpectedResponse, match="unrequested symbol"):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+
+
+@pytest.mark.parametrize("bad", [{"rate": None}, {"ex_date": "13/10/2026"}, {"rate": -0.1}])
+def test_distributions_never_default_a_bad_field(env_file, sleeps, bad):
+    r = cash("PDI", "2026-10-13", 0.2)
+    r.update(bad)
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cash=[r])}))
+    with pytest.raises(al.UnexpectedResponse):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+
+
+def test_distributions_a_missing_rate_raises_not_keyerror(env_file, sleeps):
+    r = cash("PDI", "2026-10-13", 0.2)
+    del r["rate"]
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cash=[r])}))
+    with pytest.raises(al.UnexpectedResponse, match="rate"):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+
+
+def test_distributions_a_capital_gains_event_with_no_rate_raises(env_file, sleeps):
+    cg = {"id": "cg1", "symbol": "PDI", "cusip": "x", "ex_date": "2026-12-26", "process_date": "2027-01-08"}
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cg=[cg])}))
+    with pytest.raises(al.UnexpectedResponse, match="neither"):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2027, 2, 1))
+
+
+def test_distributions_page_on_next_page_token_and_drop_repeats(env_file, sleeps):
+    pages = {None: ca_body(cash=[cash("PDI", "2026-10-13", 0.2205, i="e1")], token="t2"),
+             "t2": ca_body(cash=[cash("PDI", "2026-10-13", 0.2205, i="e1"),
+                                 cash("PDI", "2026-11-12", 0.2205, i="e2")])}
+    c, s = client(env_file, sleeps, route({"/v1/corporate-actions": lambda p: pages[p.get("page_token")]}))
+    out = c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+    assert [e["id"] for e in out] == ["e1", "e2"] and len(s.gets) == 2
+
+
+def test_distributions_refuse_an_inverted_window(env_file, sleeps):
+    c, _ = client(env_file, sleeps)
+    with pytest.raises(ValueError, match="before start"):
+        c.distributions(["PDI"], dt.date(2026, 12, 1), dt.date(2026, 9, 1))

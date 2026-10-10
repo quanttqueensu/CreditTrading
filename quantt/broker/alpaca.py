@@ -65,6 +65,7 @@ Source for every [V]/[S]/[U] claim: `results/ops/ALPACA_API_FACTS_2026-09-28.md`
 from __future__ import annotations
 
 import datetime as dt
+import math
 import os
 import re
 import time
@@ -904,6 +905,104 @@ class AlpacaClient:
                 f"{ {s: exchange_codes[s] for s in missing} }; another venue's print and a bar "
                 f"close are not substituted", symbols=missing)
         return out
+
+    def distributions(self, symbols, start: dt.date, end: dt.date) -> list[dict]:
+        """Cash dividends and capital-gains distributions for `symbols`, from the data API.
+
+        GET {DATA_BASE}/v1/corporate-actions, types=cash_dividend,
+        capital_gains_distribution, every page [V: endpoint reference, fetched
+        2026-10-09]. Returns one dict per event:
+            {"id", "symbol", "ex_date": date, "amount": float, "kind",
+             "special": bool | None, "sub_type": str | None}
+        `amount` is the cash per share: a cash dividend's `rate`, or a capital-gains
+        event's `long_term_rate` + `short_term_rate` (the reference says at least one
+        is always present; one that has neither raises).
+
+        WHY. Alpaca paper credits no dividends [V: paper-trading docs], so the
+        distribution-adjusted P&L line (team lead 2026-10-09, `docs/SYSTEM.md` §5)
+        needs every ex-date and amount from somewhere other than the account.
+
+        WHAT `start`/`end` FILTER IS NOT DOCUMENTED. The reference says only that results
+        are "sorted by their process_date". A cash dividend's process date is near
+        its PAYABLE date, weeks after the ex-date (the reference's own example: ex
+        2023-05-04, process 2023-05-19). So the caller queries a wide window and
+        filters on `ex_date` itself; this method returns what the window holds and
+        never infers an ex-date.
+
+        ABSENCE IS NOT PROOF. Alpaca: "Currently Alpaca has no guarantees on the
+        creation time of corporate actions ... may not be available immediately
+        after they are announced" [V]. A symbol with no event here may still have
+        one; the caller must not treat absence as a measured zero without a second
+        source (`quantt/session/dist_score.py`).
+        """
+        start = _date_param(start, "start")
+        end = _date_param(end, "end")
+        if end < start:
+            raise ValueError(f"end {end} is before start {start}")
+        if isinstance(symbols, str):
+            raise ValueError("symbols must be a list of symbols, not one string")
+        syms = sorted(set(symbols))
+        if not syms:
+            raise ValueError("symbols is empty")
+        for s in syms:
+            if not isinstance(s, str) or not _SYMBOL_RE.match(s):
+                raise ValueError(f"symbol {s!r} is not an upper-case equity symbol")
+
+        w = "GET /v1/corporate-actions"
+        out, seen = [], set()
+        token = None
+        for _ in range(MAX_PAGES):
+            params = {"symbols": ",".join(syms),
+                      "types": "cash_dividend,capital_gains_distribution",
+                      "start": start.isoformat(), "end": end.isoformat(), "limit": 1000}
+            if token is not None:
+                params["page_token"] = token
+            body = self._get(self._data, "/v1/corporate-actions", params)
+            _require(body, ("corporate_actions",), w)
+            ca = body["corporate_actions"] or {}
+            if not isinstance(ca, dict):
+                raise UnexpectedResponse(f"{w}: corporate_actions is {type(ca).__name__}, not an object")
+            for kind, key in (("cash_dividend", "cash_dividends"),
+                              ("capital_gains_distribution", "capital_gains_distributions")):
+                rows = ca.get(key) or []
+                if not isinstance(rows, list):
+                    raise UnexpectedResponse(f"{w}: {key} is not a list")
+                for i, r in enumerate(rows):
+                    where = f"{w} {key}[{i}]"
+                    _require(r, ("id", "symbol", "ex_date"), where)
+                    sym = r["symbol"]
+                    if sym not in syms:
+                        raise UnexpectedResponse(f"{where}: returned unrequested symbol {sym!r}")
+                    if not (isinstance(r["ex_date"], str) and _DATE_RE.match(r["ex_date"])):
+                        raise UnexpectedResponse(f"{where}: ex_date {r['ex_date']!r} is not YYYY-MM-DD")
+                    if kind == "cash_dividend":
+                        _require(r, ("rate",), where)
+                        amount = _num(r, "rate", where)
+                        special = _bool(r, "special", where) if "special" in r else None
+                    else:
+                        legs = [k for k in ("long_term_rate", "short_term_rate") if r.get(k) is not None]
+                        if not legs:
+                            raise UnexpectedResponse(f"{where}: neither long_term_rate nor short_term_rate")
+                        amount = sum(_num(r, k, where) for k in legs)
+                        special = None
+                    if not math.isfinite(amount) or amount < 0:
+                        raise UnexpectedResponse(f"{where}: amount {amount!r} is not a finite cash amount >= 0")
+                    if r["id"] in seen:
+                        continue          # the same event repeated across pages
+                    seen.add(r["id"])
+                    out.append({"id": r["id"], "symbol": sym,
+                                "ex_date": dt.date.fromisoformat(r["ex_date"]),
+                                "amount": float(amount), "kind": kind, "special": special,
+                                "sub_type": r.get("sub_type")})
+            nxt = body.get("next_page_token")
+            if not nxt:
+                break
+            if nxt == token:
+                raise UnexpectedResponse(f"{w}: next_page_token did not advance")
+            token = nxt
+        else:
+            raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
+        return sorted(out, key=lambda e: (e["symbol"], e["ex_date"], e["kind"], e["id"]))
 
 
 def _load_keys(book: str, env_file: Path) -> tuple[str, str]:

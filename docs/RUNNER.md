@@ -14,7 +14,7 @@ the book: those come from `python3 -m ops.orient`.
 | After the first go | **The scheduled runner trades daily on its own**, behind every gate below. `CLAUDE.md` order-path rule 1 governs agents in a chat, not the scheduled runner. Stop it with the halt file or `DRY_RUN=1`. |
 | Day one (flat book) | **Trade to full target**, not to the band edge, so the book starts dollar-neutral. The band applies from the second session. |
 | Phase 3 probes | **Design around them.** Never reuse a `client_order_id`, one netted order per symbol per session, a long↔short flip is two orders (close, then open), and never assume the uncertain answer. Day one's real orders answer 3.1 and 3.5. |
-| Scoring | Alpaca's fill (official) **and** the official closing-auction print, side by side, gross. |
+| Scoring | Alpaca's fill (official) **and** the official closing-auction print, side by side, gross. **Third line from 2026-10-09** (team lead): auction-marked P&L **plus distributions** on shares held at the start of each ex-date (credited long, charged short), because Alpaca paper credits none. It is written to `distribution_scores.csv` and never changes the verdict (`quantt/session/dist_score.py`). |
 
 ## The session, in order
 
@@ -112,6 +112,17 @@ settled these points. Alpaca facts, each with its source and status:
   UNMEASURED and the day FAIL. It is never substituted.
 - **Records:** `<state>/<D>/plan.json`, `orders.jsonl` (event log), `STARTED`,
   `reconcile.json`; `<state>/verify.log` (one line per day) and `scores.csv`.
+- **Distribution-adjusted score** (third line, 2026-10-09): after the verdict, as
+  with the shadow score, `quantt/session/dist_score.py` appends one row per
+  trading day to `<state>/distribution_scores.csv`. The row holds
+  `distribution_pnl_usd` and `auction_pnl_with_distributions_usd`.
+  - **Primary source:** Alpaca corporate actions (`AlpacaClient.distributions`),
+    which list declared ex-dates weeks ahead.
+  - **Cross-check:** the yfinance panel, within 0.0005 per share of rounding.
+  - **Gaps:** a real conflict, or an ex-date only the panel lists, makes that
+    name UNMEASURED, naming both values.
+  - **Failures:** a failure is an UNMEASURED row naming it, never a FAIL.
+    `scores.csv`'s columns are unchanged.
 
 ## Paper execution (2026-09-29): decide in the evening, send as market orders at 15:52
 

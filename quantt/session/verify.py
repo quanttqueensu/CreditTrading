@@ -24,7 +24,8 @@ exit code is then 2 and the missing line is itself the FAIL.
 
 READ-ONLY. This module calls only GETs on `quantt.broker.alpaca.AlpacaClient`
 (clock, calendar, orders, order_by_client_id, activities_fills, positions,
-account, stock_exchanges, asset via primary_sip_code, closing_auction_prints). It never imports or calls `submit_order`; a
+account, stock_exchanges, asset via primary_sip_code, closing_auction_prints, and --
+through `dist_score.py` -- distributions). It never imports or calls `submit_order`; a
 test walks this file's AST to keep it that way. An `AmbiguousSubmit` from the
 morning is resolved here the only safe way: by looking the id up.
 
@@ -717,7 +718,33 @@ def main(argv=None) -> int:
     print(v.line())
     if client is not None:
         run_shadow(client, state_dir, v.date, condition=args.condition)
+        run_distributions(client, state_dir, v)
     return 0 if v.ok else 1
+
+
+def run_distributions(client, state_dir: Path, v: Verdict) -> None:
+    """The distribution-adjusted third score (quantt/session/dist_score.py), after
+    the verdict is written and never able to change it (team lead 2026-10-09:
+    Alpaca paper credits no dividends, so carry a third line). A failure is
+    recorded as an UNMEASURED row naming it -- not swallowed, not a FAIL."""
+    from ops.schedule.nyse_calendar import is_trading_day
+    from quantt.session import dist_score
+    now = dt.datetime.now(dt.timezone.utc)
+    if not is_trading_day(v.date):
+        return
+    try:
+        if v.score is None or "held_into_close" not in v.detail:
+            raise dist_score.DistError(f"verify produced no score for {v.date}: {v.reason[:200]}")
+        row = dist_score.run_day(client, state_dir, v.date, held=v.detail["held_into_close"],
+                                 auction_pnl=v.score.auction_pnl, now_utc=now)
+        if row is None:
+            print(f"distributions {v.date}: already scored; not appended twice")
+        else:
+            print(f"distributions {v.date}: {row['distribution_pnl_usd']} USD; "
+                  f"auction + distributions {row['auction_pnl_with_distributions_usd']} USD")
+    except Exception as e:  # noqa: BLE001 -- recorded as an UNMEASURED row
+        dist_score.record_error(state_dir, v.date, f"{type(e).__name__}: {e}", now)
+        print(f"distributions {v.date}: UNMEASURED ({type(e).__name__}: {e})")
 
 
 def run_shadow(client, state_dir: Path, day: dt.date, *, condition: str) -> None:
