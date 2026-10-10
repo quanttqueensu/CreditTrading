@@ -301,6 +301,114 @@ def last_closes(px_path: Path, asof: dt.date, universe) -> dict:
     return out
 
 
+def close_history(px_path: Path, asof: dt.date, universe, rows: int):
+    """The last `rows` closes on or before `asof`: a date-indexed frame, one column
+    per name, each name forward-filled over its own gaps (landmine 6). Same
+    discipline as `last_closes`: rows after `asof` are dropped before anything
+    is read (NO LOOKAHEAD, asserted), and a duplicate (date, ticker) raises."""
+    import pandas as pd
+    P = pd.read_parquet(px_path, columns=["date", "ticker", "close"])
+    P = P[P["ticker"].isin(list(universe))].copy()
+    P["date"] = pd.to_datetime(P["date"]).dt.normalize()
+    P = P[P["date"] <= pd.Timestamp(asof)]
+    dup = P[P.duplicated(["date", "ticker"], keep=False)]
+    if len(dup):
+        raise SessionError(f"{px_path}: duplicate (date, ticker) rows, e.g. "
+                           f"{dup.head(3).to_dict('records')}")
+    wide = P.pivot(index="date", columns="ticker", values="close").sort_index().ffill()
+    assert wide.index.max().date() <= asof, f"lookahead: close history past {asof}"
+    return wide.iloc[-rows:]
+
+
+# THE PRE-FLIGHT (team lead's go 2026-10-09, after that day's two refused sends).
+# The evening DECIDE re-runs the SEND phase's exposure path -- the re-fit when
+# bp_shortfall is "scale", then gate 8 -- on an account whose equity is lower by
+# the worst one-day loss of the book held NOW over the last
+# PREFLIGHT_WINDOW_SESSIONS close-to-close changes up to the as-of date. That is
+# the book whose marks move equity between the decide and the 15:52 send. If an
+# ordinary bad day would get tomorrow's send refused or scaled, the decide says
+# so tonight: a day's notice instead of none.
+# 252 sessions = one year of the book's own names, so the worst day comes from
+# the regime the book trades in now. The pre-flight sizes a WARNING and decides
+# nothing (H14): the send re-measures everything on live reads at 15:52.
+# Buying power is held at its decide-time value: how Alpaca's buying_power moves
+# with equity intraday is not modelled.
+PREFLIGHT_WINDOW_SESSIONS = 252
+
+
+def worst_day_loss(history, book: dict, window: int) -> tuple[float, dt.date | None]:
+    """(dollars, date): the largest one-day loss of holding `book` (signed
+    shares) over the last `window` close-to-close changes in `history`
+    (`close_history`). Price changes only -- no distributions, no borrow: a
+    stress size, not a P&L. 0.0 for a flat book. Raises naming any held name
+    without a close on every one of the window's rows; it never assumes one."""
+    names = sorted(s for s, q in book.items() if q)
+    if not names:
+        return 0.0, None
+    missing = [s for s in names if s not in history.columns]
+    tail = history.iloc[-(window + 1):]
+    gaps = [s for s in names if s not in missing and tail[s].isna().any()]
+    if missing or gaps or len(tail) < window + 1:
+        raise SessionError(f"pre-flight: {len(tail)} rows of close history, {window + 1} "
+                           f"needed; no column for {missing}; gaps in {gaps}")
+    import pandas as pd
+    pnl = tail[names].diff().iloc[1:].mul(pd.Series({s: book[s] for s in names})).sum(axis=1)
+    return max(0.0, -float(pnl.min())), pnl.idxmin().date()
+
+
+def preflight_send(orders, positions: dict, closes: dict, acct: dict, p: dict,
+                   execution: dict, *, sized_equity: float, history) -> dict:
+    """See PREFLIGHT_WINDOW_SESSIONS. Returns what the SEND phase would do if
+    equity were the worst day lower: {"ok", "shock_usd", "shock_date",
+    "equity_stressed", "scaled", "refusals"}."""
+    loss, on = worst_day_loss(history, positions, PREFLIGHT_WINDOW_SESSIONS)
+    eq = float(acct["equity"]) - loss
+    out_orders, binding = tuple(orders), None
+    if execution.get("bp_shortfall") == "scale" and out_orders:
+        out_orders, _, binding = fit_to_buying_power(
+            out_orders, positions, closes, eq, acct["buying_power"], _gross_now(acct),
+            acct["maintenance_margin"], max_gross_stress=p["max_gross_stress"],
+            sized_equity=sized_equity)
+    refusals = gt.gate_exposure(out_orders, positions, closes, eq, acct["buying_power"],
+                                p["max_gross_usd"], p["max_gross_stress"],
+                                sized_equity=sized_equity, current_gross=_gross_now(acct),
+                                maintenance_margin=acct["maintenance_margin"])
+    return {"ok": not refusals and binding is None, "shock_usd": round(loss, 2),
+            "shock_date": on, "window_sessions": PREFLIGHT_WINDOW_SESSIONS,
+            "equity_stressed": round(eq, 2), "scaled": binding,
+            "refusals": [{"gate": r.gate, "detail": r.detail} for r in refusals]}
+
+
+def _preflight(deps, orders, positions, closes, acct, p, asof, *, sized_equity) -> dict:
+    """`preflight_send`, recorded whatever happens. A pre-flight that cannot run
+    records UNMEASURED and the reason, in plan.json and the log. It is advisory:
+    it must never stop the plan it describes from being saved, because a lost
+    plan is a missed day. So its errors are caught here, and written down."""
+    if deps.history is None:
+        return {"unmeasured": "no close-history reader in this session's deps"}
+    try:
+        hist = deps.history(asof, p["universe"], PREFLIGHT_WINDOW_SESSIONS + 1)
+        return preflight_send(orders, positions, closes, acct, p, deps.execution,
+                              sized_equity=sized_equity, history=hist)
+    except Exception as e:  # recorded in plan.json and printed, never swallowed (docstring)
+        return {"unmeasured": f"{type(e).__name__}: {e}"}
+
+
+def preflight_line(pf: dict) -> str:
+    """One line for the session log; orient reads plan.json's "preflight"."""
+    if "unmeasured" in pf:
+        return f"  PRE-FLIGHT UNMEASURED: {pf['unmeasured']}"
+    at = (f"at equity ${pf['equity_stressed']:,.2f} (${pf['shock_usd']:,.2f} lower: the worst "
+          f"one-day loss of the book held now over the last {pf['window_sessions']} sessions"
+          + (f", on {pf['shock_date']}" if pf["shock_date"] else "") + ")")
+    if pf["refusals"]:
+        return (f"  PRE-FLIGHT WARNING: {at} the send would be REFUSED: "
+                + "; ".join(f"[{r['gate']}] {r['detail']}" for r in pf["refusals"]))
+    if pf["scaled"]:
+        return f"  PRE-FLIGHT WARNING: {at} the send would scale the plan to fit {pf['scaled']}"
+    return f"  PRE-FLIGHT ok: {at} the send still goes whole"
+
+
 def last_navs(nav_path: Path, asof: dt.date, universe) -> dict:
     """{symbol: date or None} -- the date of each name's last finite, positive
     NAV on or before `asof`, for gate 5.
@@ -459,6 +567,9 @@ class Deps:
     out: object = field(default_factory=lambda: sys.stdout)
     execution: dict = field(default_factory=lambda: {"mode": "cls"})   # execution_for(book)
     sleep: Callable[[float], None] = field(default=lambda s: __import__("time").sleep(s))
+    # (asof, universe, rows) -> close_history frame, for the pre-flight. None
+    # means not wired; the pre-flight then records itself UNMEASURED, never ok.
+    history: Callable[[dt.date, tuple, int], object] | None = None
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
@@ -473,6 +584,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         refresh=lambda asof, timeout_s: refresh_subprocess(asof, book, timeout_s),
         closes=lambda asof, uni: last_closes(cefmod.PX_PATH, asof, uni),
         navs=lambda asof, uni: last_navs(cefmod.NAV_PATH, asof, uni),
+        history=lambda asof, uni, rows: close_history(cefmod.PX_PATH, asof, uni, rows),
         targets=lambda asof, h, eq, op: sleeve_targets(spec, p["capital_usd"], asof, h, eq, op),
         halts=lambda: halts_for(book),
         execution=execution_for(book),
@@ -634,7 +746,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if decision.orders and deps.execution.get("bp_shortfall") == "scale":
             scaled, factor, binding = fit_to_buying_power(
                 decision.orders, pos, closes, equity, acct["buying_power"], _gross_now(acct),
-                acct["maintenance_margin"])
+                acct["maintenance_margin"], max_gross_stress=p["max_gross_stress"],
+                sized_equity=equity)
             record["bp_scale"] = {"factor": factor, "binding": binding}
             if binding is not None:
                 decision = dec.Decision(orders=scaled, targets=decision.targets,
@@ -664,6 +777,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             orders_open=orders_open, cid_prefix=book.cid_prefix,
             orders=decision.orders, positions=pos, shortable=shortable,
             shorting_enabled=acct["shorting_enabled"], closes=closes, equity=equity,
+            sized_equity=equity,               # decide: the plan is sized on this equity
             # Order-time: Alpaca's live buying_power. Overnight Reg T is checked on
             # the book AFTER the plan (gate.margin_limits; review 2026-10-07).
             buying_power=acct["buying_power"], current_gross=_gross_now(acct),
@@ -686,6 +800,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan.update(execution="late_market", send_window=list(win), closes=closes,
                         status="refused" if shown else "decided",
                         refusals=[{"gate": r.gate, "detail": r.detail} for r in shown])
+            if not shown and decision.orders:
+                plan["preflight"] = _preflight(deps, decision.orders, pos, closes, acct, p,
+                                               asof, sized_equity=equity)
         # Late-market (review 2026-09-29): a DECIDED plan is what gets sent at
         # 15:52, so nothing overwrites it -- not a later manual run, and never a
         # --preview (which re-sizes on intraday equity and could replace the
@@ -716,6 +833,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if late:
             print(f"  execution: late-market; send window {win[0]:%Y-%m-%d %H:%M}-"
                   f"{win[1]:%H:%M} ET as market `day` orders", file=out)
+            if "preflight" in plan:
+                print(preflight_line(plan["preflight"]), file=out)
             if preview:
                 return _finish(record, day, stamp, mode, EXIT_PREVIEW, out)
             if shown:
@@ -789,6 +908,12 @@ def load_decided_plan(day: Path, session_date: dt.date) -> tuple[dict, tuple]:
                            f"{plan.get('plan_sha')}; refusing a plan that is not what was decided")
     if any(o.time_in_force != "day" for o in orders):
         raise SessionError(f"{path}: a late-market plan holds a non-`day` order")
+    eq = plan.get("equity")
+    if not (isinstance(eq, (int, float)) and not isinstance(eq, bool)
+            and math.isfinite(eq) and eq > 0):
+        # The send judges the stress cap on this number (gate.stress_breach);
+        # it is never assumed.
+        raise SessionError(f"{path}: the plan's sized equity {eq!r} is not a positive number")
     return plan, orders
 
 
@@ -849,10 +974,14 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     # at decide would otherwise be refused by any small adverse move by 15:52.
     # Only ever shrinks opening orders: what goes stays a subset of the plan.
     closes = {k: float(v) for k, v in plan["closes"].items()}
+    # The stress cap is judged on the equity the plan was SIZED on, never the
+    # live one (gate.stress_breach: the 2026-10-09 refusal).
+    sized_equity = float(plan["equity"])
     if deps.execution.get("bp_shortfall") == "scale" and orders:
         orders, kept, binding = fit_to_buying_power(
             orders, pos, closes, acct["equity"], acct["buying_power"], _gross_now(acct),
-            acct["maintenance_margin"])
+            acct["maintenance_margin"], max_gross_stress=p["max_gross_stress"],
+            sized_equity=sized_equity)
         record["bp_scale_at_send"] = {"kept": kept, "binding": binding}
     approve_sha = approve or approval_for(day)
     clock_gate = c.clock()
@@ -874,7 +1003,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         *gt.gate_shortability(orders, pos, shortable, acct["shorting_enabled"]),
         *gt.gate_exposure(orders, pos, closes, acct["equity"], acct["buying_power"],
                           p["max_gross_usd"], p["max_gross_stress"],
-                          current_gross=_gross_now(acct),
+                          sized_equity=sized_equity, current_gross=_gross_now(acct),
                           maintenance_margin=acct["maintenance_margin"]),
         *gt.gate_sanity(orders, p["universe"], pos, book.cid_prefix, session_date,
                         {k: acct[k] for k in ("trading_blocked", "account_blocked",
@@ -973,11 +1102,26 @@ def _opening_part(o, cur: int) -> int:
 
 def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
                         buying_power: float, current_gross: float,
-                        maintenance_margin: float) -> tuple[tuple, float, str | None]:
-    """Scale the plan so it fits Alpaca's order-time buying power and the
-    overnight margin limits (gate.buying_power_needed / gate.margin_limits).
-    Returns (orders, kept, binding constraint or None when nothing was scaled);
-    `kept` is the share of the plan's traded notional kept.
+                        maintenance_margin: float, *, max_gross_stress: float | None,
+                        sized_equity: float) -> tuple[tuple, float, str | None]:
+    """Scale the plan so it fits Alpaca's order-time buying power, the
+    overnight margin limits and the spec's stress cap (gate.buying_power_needed /
+    gate.margin_limits / gate.stress_breach). Returns (orders, kept, binding
+    constraint or None when nothing was scaled); `kept` is the share of the
+    plan's traded notional kept.
+
+    THE STRESS CAP (2026-10-09). Scaling reductions for neutrality (below) can
+    leave more gross than the plan, so a fitted plan could break
+    `gate.stress_breach` when the full plan did not. The cap is therefore one of
+    the limits fitted to, read exactly as the gate reads it: against the equity
+    the plan was SIZED on, and only when the plan adds to the gross held now.
+    All-zero (send nothing) never breaks it.
+
+    NOTHING FITS (2026-10-09 audit). If the book held now already breaks a
+    limit and no scaling of the plan fixes that, the plan is returned UNSCALED,
+    with the binding limit named. The gate then refuses it with its own
+    sentence. Until then `coarse[1]` raised a TypeError on None, and the session
+    ended FAIL with a traceback instead of a refusal saying why.
 
     WHY (team lead 2026-10-07, after the execution-desk review): refusing a plan
     that does not fit leaves yesterday's stale book; skipping names breaks
@@ -1022,6 +1166,7 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
     buckets = ("ob", "os", "rb", "rs")
     by = {o.client_order_id: bucket(o) for o in orders}
     untouched = {s: q for s, q in positions.items() if s not in {o.symbol for o in orders}}
+    held = sum(abs(q) * closes[s] for s, q in positions.items())
 
     def book(f):
         """Post-trade positions with each order scaled by its bucket's factor."""
@@ -1041,7 +1186,9 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
         why = ("order-time buying_power" if need > buying_power else
                "overnight Reg T initial margin" if gt.REG_T_INITIAL * gross > equity else
                "overnight maintenance (measured ratio)"
-               if ratio is not None and ratio * gross > equity else None)
+               if ratio is not None and ratio * gross > equity else
+               "max_gross_stress (on the sized equity)"
+               if gt.stress_breach(gross, held, max_gross_stress, sized_equity) else None)
         traded = sum(f[by[o.client_order_id]] * o.qty * closes[o.symbol] for o in orders)
         return why, net, traded
 
@@ -1062,7 +1209,11 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
             if best is None or key < best[0]:
                 best = (key, f)
         return best
-    coarse = search(lambda b: [i / 20 for i in range(21)])     # all-zero always fits
+    coarse = search(lambda b: [i / 20 for i in range(21)])
+    if coarse is None:
+        # Even all-zero breaks a limit: the book held NOW is past it (docstring,
+        # NOTHING FITS). Unscaled, so the gate refuses it and says which limit.
+        return tuple(orders), 1.0, f"{binding} (no scaling fits: the book held now is past it)"
     c0 = coarse[1]
     fine = search(lambda b: sorted({min(1.0, max(0.0, round(c0[b] + d / 100, 2)))
                                     for d in range(-5, 6)}))

@@ -71,7 +71,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 5. **Data** — the refresh exited 0 for the required as-of date.
 6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
-8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd` and ≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power.
+8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the equity the plan was **sized** on, unless the plan does not add to the gross held now (2026-10-09); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
 9. **Sanity** — every qty a positive integer, every symbol in the frozen universe, no symbol with two opposite-side orders.
 
 ## Rules the code must obey
@@ -106,6 +106,8 @@ settled these points. Alpaca facts, each with its source and status:
 - **Gate 6** refuses on **any** open order in the account, not only `cls`.
 - **Gate 8** checks buying power against `min(buying_power, regt_buying_power)`: the
   book holds overnight, where Reg T binds, not the 4× intraday figure.
+  *Superseded 2026-10-07 ("As built (2026-10-07)"): it refused a plan Alpaca would
+  have accepted. Gate 8 is now an order-time and an overnight check.*
 - **Send order** is `transmit_sequence` (decide.py), not alphabetical.
 - **Scoring** uses only the primary listing exchange's official-close print
   (condition `M`, exchange `N` for NYSE); a missing print leaves that name
@@ -155,10 +157,78 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
   followed by a timer firing queued behind it, would otherwise send a partial
   batch cut off at 15:58. Such a refusal is recorded as `budget_short` in
   `send.json`. verify FAILs the day when time was the only obstacle; a halt, dry run
-  or arming refusal on the same send explains the day instead.
+  or arming refusal on the same send explains the day instead. (Since 2026-10-09
+  every refusal but those three is a FAIL: "As built (2026-10-09)".)
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-09): the stress cap on the sized equity, missed days FAIL, the pre-flight
+
+**The incident.** On Friday 2026-10-09 the book did not trade. Gate 8 refused both
+the 15:52 send and the 15:55 retry: "projected gross $182,154.75 > max_gross_stress
+1.8 x equity $100,666.16". The plan had been decided at 22:00 ET on 2026-10-08,
+sized at 1.7994× that evening's equity ($101,229.74), where the sleeve's cap
+binds. Equity was 0.56% lower at 15:52, so the same plan was 1.8095× the live
+equity. The plan took gross **down**, from $183,413.36 to $182,154.75 at the
+as-of closes, and refusing it left the book at 1.83× at that close. The verify
+line read `PASS ... no trade: refused at send`. Nobody saw it until the team lead
+asked how Friday went. All figures are from the prod VM's `2026-10-09/plan.json`,
+`send.json` and `runs/*-run.json`.
+
+**The audit** (`python3 -m ops.replay_exposure <copy of the prod state>`, run
+2026-10-09 on all 40 recorded runs, 38 replayable). The old rule passed 2026-10-07
+by $168 and 2026-10-08 by $765, both only because equity rose between the
+evening decide and the send. It refused 2026-10-09 by $956 at 15:52 and $702 at
+15:55. On every day the cap binds, the old rule refused whenever equity fell
+before 15:52. The new code refuses none of the 38 runs. The only other
+refusals of this kind on record, 2026-10-06's 21 buying-power refusals, were
+already fixed on 2026-10-07; the replay confirms the new code passes them too.
+
+What changed (team lead's go, 2026-10-09):
+
+- **The stress cap is judged on the equity the plan was sized on.** The spec
+  defines `max_gross_stress` in weight space, against the sleeve NAV at decide.
+  The send now reads the plan's own `equity` (`gate.stress_breach`). A plan
+  without one is refused, never assumed. What the account can bear on the day
+  is still checked on live numbers: buying power, and the overnight Reg T and
+  maintenance limits, unchanged. The cap 1.80 already leaves 0.043× below the
+  derived G_stress 1.843 for exactly this movement (spec `_max_gross_stress_note`).
+- **A plan that does not add gross always passes the stress cap**, even when the
+  book is above it. A ceiling stops the book adding past it; it must never block
+  a plan that brings gross down.
+- **The re-fit fits the stress cap too** (`fit_to_buying_power`). Scaling
+  reductions for neutrality can leave more gross than the plan, so the cap is
+  one of its limits, read as the gate reads it. **When nothing fits** (the book
+  held now is already past a limit and no scaling fixes it), the plan is
+  returned unscaled with the limit named, and the gate refuses it. Until now
+  that case raised `TypeError` (`coarse[1]` on `None`): a FAIL with a traceback.
+- **A missed day is a FAIL** (`verify.DELIBERATE_GATES`). A no-trade day is
+  explained only by a human's choice: `DRY_RUN`, no arming, or a halt. Any other
+  refusal, at decide or at send, gives a FAIL line beginning `MISSED:`. It
+  exits 1, so it also shows in `systemctl --failed` on the VM, and orient and
+  the status line show it red.
+- **The evening pre-flight** (`run.preflight_send`). After a plan is decided,
+  the decide re-runs the send's exposure path (re-fit, then gate 8) on an
+  account whose equity is lower by the worst one-day loss of the book held now
+  over the last 252 sessions. That book moves equity until 15:52. The result goes
+  into `plan.json` (`preflight`) and the session log, as `PRE-FLIGHT ok`,
+  `PRE-FLIGHT WARNING` or `PRE-FLIGHT UNMEASURED`. It decides nothing, and a
+  pre-flight that cannot run never stops the plan being saved. Buying power is
+  held at its decide-time value. On the book held into 2026-10-12 the worst day
+  was $2,074.61 (2.06% of equity) on 2026-03-20, measured on the laptop's panel
+  ending 2026-09-28.
+- **Orient shows the newest plan** (`ops.prod_state`, `newest plan`): its date,
+  status, order count, whether it was sent, and its pre-flight. A WARNING on an
+  unsent plan is a PROD caution. Only counts and verdicts leave the VM, never
+  positions.
+
+**Left as it was, for the team lead.** The overnight margin checks still refuse
+a plan that leaves the book past Reg T even when the plan reduces gross. That
+needs equity to fall about 8.5% with gross unchanged (the book was 1.83× at the
+2026-10-09 close: equity.csv). The principle above says such a
+plan should go. The team lead kept those checks unchanged on 2026-10-09, so the
+question is open.
 
 ## As built (2026-10-07): buying power, scale-to-fit, fills, TCA
 

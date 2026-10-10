@@ -112,7 +112,9 @@ class GateFacts:
     shorting_enabled: bool           # account.shorting_enabled
     # 8
     closes: dict                     # symbol -> as-of close
-    equity: float
+    equity: float                    # Alpaca's equity now (the live margin checks)
+    sized_equity: float              # the equity the plan was sized on (the stress cap):
+                                     # = equity at decide; the plan's own "equity" at send
     buying_power: float              # Alpaca's live `buying_power` (the order-time check)
     current_gross: float             # long_market_value + |short_market_value| now
     maintenance_margin: float        # Alpaca's maintenance_margin now (measured ratio)
@@ -505,15 +507,55 @@ def margin_limits(positions_after: dict, closes: dict, equity: float, current_gr
     return out
 
 
+def stress_breach(gross_after: float, gross_before: float, max_gross_stress,
+                  sized_equity: float) -> str | None:
+    """Why the book AFTER a plan breaks the spec's `max_gross_stress`, or None.
+
+    It breaks it only when BOTH hold: gross after the plan > max_gross_stress x
+    the equity the plan was SIZED on, AND the plan adds to the gross held now.
+    Both grosses are valued at the same as-of closes.
+
+    WHY THE SIZED EQUITY (incident 2026-10-09, team lead's go the same day). The
+    spec defines the cap in weight space: gross = sum|w| of the held book after
+    the band, w = q x px / sleeve_nav, with sleeve_nav the equity at DECIDE
+    (cef_discount.py `_cap_gross`; `_max_gross_stress_note`). This gate used to
+    compare that plan, at the as-of closes, with the cap times Alpaca's LIVE
+    equity at 15:52. When the cap binds, the plan sits at 1.80x the decide
+    equity, so ANY fall in equity between the evening decide and the send
+    refused the whole set. On 2026-10-09 the plan was $182,154.75 = 1.7994x
+    $101,229.74 (decide); equity at 15:52 was $100,666.16, the cap $181,199.09,
+    and both the 15:52 send and the 15:55 retry were refused. The book did not
+    trade. The 0.043x of headroom up to the derived G_stress 1.843 exists for
+    exactly this movement (spec note: "NOT CHOSEN: 1.843 itself (no room for
+    its own movement)"). What the account can bear on the day is checked on
+    LIVE numbers by the order-time and overnight checks below; they are unchanged.
+
+    WHY A PLAN THAT DOES NOT ADD GROSS ALWAYS PASSES. The refused 2026-10-09
+    plan took gross DOWN, from $183,413.36 to $182,154.75 at the as-of closes.
+    Refusing it left the book at 1.83x at that close: above the cap, by more
+    than the plan would have. A ceiling is there to stop the book adding gross
+    past it. It must never block a plan that brings gross down.
+    """
+    if max_gross_stress is None:
+        return None
+    cap = max_gross_stress * sized_equity
+    if gross_after <= cap or gross_after <= gross_before:
+        return None
+    return (f"projected gross ${gross_after:,.2f} > max_gross_stress {max_gross_stress} x "
+            f"${sized_equity:,.2f}, the equity the plan was sized on (${cap:,.2f}), and the "
+            f"plan adds to the gross held now (${gross_before:,.2f})")
+
+
 def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd,
-                  max_gross_stress, *, current_gross: float,
+                  max_gross_stress, *, sized_equity: float, current_gross: float,
                   maintenance_margin: float) -> list[Refusal]:
-    """Gate 8. After the orders fill as sent: gross <= risk.max_gross_exposure_usd,
-    gross <= max_gross_stress x equity (when the spec sets it); the ORDER-TIME
-    check -- buying power the opening orders consume <= Alpaca's live
-    `buying_power`, which is what Alpaca enforces at submission [V]; and the
-    OVERNIGHT check (`margin_limits`). A name with a position or an order and
-    no close refuses (it cannot be valued), never counts as 0.
+    """Gate 8. After the orders fill as sent: gross <= risk.max_gross_exposure_usd;
+    `stress_breach` against the equity the plan was SIZED on (when the spec sets
+    max_gross_stress); the ORDER-TIME check -- buying power the opening orders
+    consume <= Alpaca's live `buying_power`, which is what Alpaca enforces at
+    submission [V]; and the OVERNIGHT check (`margin_limits`) on live equity. A
+    name with a position or an order and no close refuses (it cannot be
+    valued), never counts as 0.
 
     WHY TWO CHECKS (review 2026-10-07). Until then the gate compared opening
     notional with min(buying_power, regt_buying_power) -- the overnight Reg T
@@ -522,10 +564,13 @@ def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd
     $80.8k regt) that Alpaca would have accepted ($188.5k buying_power) and that
     ended at 1.57x gross, inside every limit. The overnight limit is now checked
     on the book AFTER the plan, which is what it is about.
+
+    Why the stress cap uses the SIZED equity, not the live one (2026-10-09):
+    `stress_breach`.
     """
     out = []
     proj = projected_positions(orders, positions)
-    unpriced = sorted(s for s in set(proj) | {o.symbol for o in orders}
+    unpriced = sorted(s for s in set(proj) | set(positions) | {o.symbol for o in orders}
                       if not (isinstance(closes.get(s), (int, float))
                               and math.isfinite(closes[s]) and closes[s] > 0))
     if unpriced:
@@ -534,9 +579,10 @@ def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd
     if gross > max_gross_usd:
         out.append(Refusal("exposure", f"projected gross ${gross:,.2f} > spec "
                                        f"max_gross_exposure_usd ${max_gross_usd:,.2f}"))
-    if max_gross_stress is not None and gross > max_gross_stress * equity:
-        out.append(Refusal("exposure", f"projected gross ${gross:,.2f} > max_gross_stress "
-                                       f"{max_gross_stress} x equity ${equity:,.2f}"))
+    held = sum(abs(q) * closes[s] for s, q in positions.items())
+    why = stress_breach(gross, held, max_gross_stress, sized_equity)
+    if why:
+        out.append(Refusal("exposure", why))
     need = buying_power_needed(orders, positions, closes)
     if need > buying_power:
         out.append(Refusal("exposure", f"orders need ~${need:,.2f} of buying power "
@@ -599,7 +645,8 @@ def evaluate(f: GateFacts) -> list[Refusal]:
                                 f.cid_prefix, f.session_date),
         *gate_shortability(f.orders, f.positions, f.shortable, f.shorting_enabled),
         *gate_exposure(f.orders, f.positions, f.closes, f.equity, f.buying_power,
-                       f.max_gross_usd, f.max_gross_stress, current_gross=f.current_gross,
+                       f.max_gross_usd, f.max_gross_stress, sized_equity=f.sized_equity,
+                       current_gross=f.current_gross,
                        maintenance_margin=f.maintenance_margin),
         *gate_sanity(f.orders, f.universe, f.positions, f.cid_prefix, f.session_date,
                      f.account_flags),

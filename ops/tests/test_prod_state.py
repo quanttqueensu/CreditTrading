@@ -28,6 +28,7 @@ the file's own header is what gets read.
 """
 from __future__ import annotations
 
+import json
 import plistlib
 import subprocess
 
@@ -105,14 +106,19 @@ def make_laptop(home, dry_run="0", auto_armed=True, plists=True, equity=EQUITY):
     return lay
 
 
+NEWEST_PLAN = ('{"session_date": "2026-01-07", "status": "decided", "orders": 4, "sent": false, '
+               '"preflight": "ok", "shock_usd": 2074.61}')
+
+
 def vm_reply(dry="DRY_RUN=0", auto="present", timers="active active active",
-             enabled="enabled enabled enabled", end=True, load="loaded"):
+             enabled="enabled enabled enabled", end=True, load="loaded", newest=NEWEST_PLAN):
     rows = [("tag", 0, "release-vm-1"), ("load_state", 0, load), ("dry_run", 0, dry),
             ("timers", 0 if timers == "active active active" else 3, timers),
             ("timers_enabled", 0, enabled), ("auto_armed", 0, auto),
             ("verify", 0, "2026-01-06 PASS cef traded 2 order(s), 2 filled"),
             ("equity_header", 0, "date,equity,read_at_utc"),
-            ("equity_last", 0, "2026-01-06,333.33,2026-01-06T21:10:00+00:00")]
+            ("equity_last", 0, "2026-01-06,333.33,2026-01-06T21:10:00+00:00"),
+            ("newest_plan", 0, newest)]
     if end:
         rows.append(("END", 0, "quantt-prod-state"))
     return "".join(f"{k}\t{rc}\t{v}\n" for k, rc, v in rows)
@@ -355,3 +361,58 @@ def test_measure_and_render_end_to_end(tmp_path, ssh_config):
     ps.render_lines(d, lambda label, value="": lines.append(f"{label} {value}"))
     out = "\n".join(lines)
     assert "prod is the VM: ARMED" in out and "caution" in out
+
+
+# ------------------------------------------- the newest plan and its pre-flight (2026-10-09)
+class TestNewestPlan:
+    def test_ok_is_shown_and_raises_no_caution(self, ssh_config):
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply()))
+        assert m["newest_plan"]["value"]["preflight"] == "ok"
+        assert ps.plan_text(m["newest_plan"]) == ("2026-01-07: decided, 4 order(s), not sent yet; "
+                                                  "pre-flight ok (worst-day shock $2,074.61)")
+        assert not any("PRE-FLIGHT" in c for c in m["cautions"])
+
+    def test_a_warning_on_an_unsent_plan_is_a_caution(self, ssh_config):
+        w = NEWEST_PLAN.replace('"ok"', '"warning"')
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply(newest=w)))
+        assert any("PRE-FLIGHT WARNING" in c and "2026-01-07" in c for c in m["cautions"])
+        assert "pre-flight WARNING" in ps.plan_text(m["newest_plan"])
+
+    def test_a_warning_on_a_sent_plan_is_history_not_a_caution(self, ssh_config):
+        w = NEWEST_PLAN.replace('"ok"', '"warning"').replace("false", "true")
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply(newest=w)))
+        assert not any("PRE-FLIGHT" in c for c in m["cautions"])
+
+    def test_a_plan_from_before_the_preflight_says_so(self, ssh_config):
+        old = NEWEST_PLAN.replace('"ok"', "null").replace("2074.61", "null")
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply(newest=old)))
+        assert "pre-flight not run" in ps.plan_text(m["newest_plan"])
+
+    def test_no_plan_is_absent_and_garbage_is_unmeasured(self, ssh_config):
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply(newest="NO-PLAN")))
+        assert "value" not in m["newest_plan"] and ps.UNMEASURED not in m["newest_plan"]
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply(newest="{not json")))
+        assert ps.UNMEASURED in m["newest_plan"]
+
+    def test_the_remote_line_runs_and_its_quoting_survives_the_shell(self, tmp_path):
+        """The real line from REMOTE_SCRIPT, `sudo -n` removed, run by sh on a state dir
+        holding two days; the newest is summarised, and no position leaves it."""
+        import shlex
+        import subprocess
+        state = tmp_path / "state"
+        for d, plan in (("2026-01-06", {"status": "decided", "orders": [{}]}),
+                        ("2026-01-07", {"session_date": "2026-01-07", "status": "decided",
+                                        "orders": [{}, {}], "targets": {"AAA": {"current": 5}},
+                                        "preflight": {"ok": False, "shock_usd": 9.5}})):
+            (state / d).mkdir(parents=True)
+            (state / d / "plan.json").write_text(json.dumps(plan))
+        (state / "2026-01-06" / "STARTED").write_text("{}")
+        lines = ps.REMOTE_SCRIPT.splitlines()
+        line = next(ln for ln in lines if ln.startswith("q newest_plan")).replace("sudo -n ", "")
+        script = f"{lines[0]}\nS={shlex.quote(str(state))}\n{line}\n"
+        r = subprocess.run(["sh", "-c", script], capture_output=True, text=True, timeout=30)
+        key, rc, out = r.stdout.rstrip("\n").split("\t")
+        assert (key, rc) == ("newest_plan", "0"), r.stderr
+        assert json.loads(out) == {"session_date": "2026-01-07", "status": "decided", "orders": 2,
+                                   "sent": False, "preflight": "warning", "shock_usd": 9.5}
+        assert "AAA" not in out

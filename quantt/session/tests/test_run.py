@@ -78,7 +78,8 @@ class FakeClient:
     def account(self):
         self.calls.append(("account",))
         return {"id": "x", "status": "ACTIVE", "currency": "USD", "multiplier": "2",
-                "equity": 100_000.0, "buying_power": getattr(self, "bp", 200_000.0),
+                "equity": getattr(self, "equity", 100_000.0),
+                "buying_power": getattr(self, "bp", 200_000.0),
                 "regt_buying_power": getattr(self, "regt_bp", 200_000.0), "shorting_enabled": True,
                 "long_market_value": getattr(self, "long_mv", 0.0),
                 "short_market_value": getattr(self, "short_mv", 0.0),
@@ -135,7 +136,7 @@ def targets_book(asof, holdings, equity, opening):
 
 def make(tmp_path, env=None, *, client=None, refresh_exit=0, targets=targets_book,
          closes=None, navs=None, halts=None, refresh_incomplete=None, now_utc=None,
-         execution=None, **ck):
+         execution=None, history=None, **ck):
     state = tmp_path / "state"
     state.mkdir(parents=True, exist_ok=True)
     c = client or FakeClient(state, **ck)
@@ -161,7 +162,7 @@ def make(tmp_path, env=None, *, client=None, refresh_exit=0, targets=targets_boo
                    targets=tg, halts=lambda: halts or [],
                    utcnow=lambda: now_utc or dt.datetime(2026, 9, 29, 12, 30, tzinfo=dt.timezone.utc),
                    out=SimpleNamespace(write=out.append, flush=lambda: None),
-                   execution=execution or {"mode": "cls"})
+                   execution=execution or {"mode": "cls"}, history=history)
     return c, deps, state, seen, out
 
 
@@ -751,7 +752,8 @@ SEND = dt.datetime(2026, 9, 29, 15, 53, tzinfo=ET)
 
 def decided(tmp_path, **kw):
     """Decide D's plan in the evening; return (client, deps, state, plan)."""
-    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE, **kw)
+    kw.setdefault("execution", LATE)
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, **kw)
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
     plan = json.loads((state / D.isoformat() / "plan.json").read_text())
     return c, deps, state, plan
@@ -976,7 +978,8 @@ def test_scale_fits_opening_orders_pro_rata_and_keeps_reductions_whole():
     # opening need = 10,000 + 10,300 = 20,300 > buying power 10,150 -> f = 0.5
     out, f, why = rn.fit_to_buying_power((reduce_, open_long, open_short), {"AAA": 1000}, closes,
                                          equity=1e6, buying_power=10_150.0,
-                                         current_gross=10_000.0, maintenance_margin=4_780.0)
+                                         current_gross=10_000.0, maintenance_margin=4_780.0,
+                                         max_gross_stress=None, sized_equity=1e6)
     # kept = share of the plan's traded notional: (5,000 reduction + 0.5 x 20,000) / 25,000
     assert why == "order-time buying_power" and f == pytest.approx(0.6)
     q = {o.symbol: o.qty for o in out}
@@ -987,7 +990,8 @@ def test_scale_fits_opening_orders_pro_rata_and_keeps_reductions_whole():
 def test_scale_is_a_no_op_when_the_plan_fits():
     o = Order(symbol="AAA", side="buy", qty=10, leg=1, client_order_id="cef-20260929-AAA-1",
               current=0, target=10, est_price=10.0, reason="t")
-    out, f, why = rn.fit_to_buying_power((o,), {}, {"AAA": 10.0}, 1e6, 1e6, 0.0, 0.0)
+    out, f, why = rn.fit_to_buying_power((o,), {}, {"AAA": 10.0}, 1e6, 1e6, 0.0, 0.0,
+                                     max_gross_stress=1.8, sized_equity=1e6)
     assert out == (o,) and f == 1.0 and why is None
 
 
@@ -1048,7 +1052,8 @@ def test_scaling_a_rotation_keeps_the_book_neutral():
     closes = {"L": 10.0, "A": 10.0, "B": 10.0}
     orders = (_o("A", "buy", 5000, -5000), _o("B", "sell", 5000, 0))
     out, kept, why = rn.fit_to_buying_power(orders, pos, closes, equity=1e6, buying_power=30_000.0,
-                                            current_gross=100_000.0, maintenance_margin=47_800.0)
+                                            current_gross=100_000.0, maintenance_margin=47_800.0,
+                                            max_gross_stress=None, sized_equity=1e6)
     after = rn.gt.projected_positions(out, pos)
     net = sum(q * closes[s] for s, q in after.items())
     full_net = sum(q * closes[s] for s, q in rn.gt.projected_positions(orders, pos).items())
@@ -1060,7 +1065,8 @@ def test_scaling_respects_reg_t_on_the_post_trade_book():
     out, kept, why = rn.fit_to_buying_power((_o("B", "buy", 10_000, 0), _o("C", "sell", 10_000, 0)),
                                             {}, {"B": 10.0, "C": 10.0}, equity=60_000.0,
                                             buying_power=1e9, current_gross=0.0,
-                                            maintenance_margin=0.0)
+                                            maintenance_margin=0.0, max_gross_stress=None,
+                                            sized_equity=60_000.0)
     assert why == "overnight Reg T initial margin"
     gross = sum(o.qty * 10.0 for o in out)
     assert 0.5 * gross <= 60_000.0 and gross > 100_000.0
@@ -1069,7 +1075,8 @@ def test_scaling_respects_reg_t_on_the_post_trade_book():
 def test_zero_maintenance_with_a_book_is_named_not_divided():
     with pytest.raises(rn.SessionError, match="maintenance"):
         rn.fit_to_buying_power((_o("B", "buy", 10, 0),), {"L": 10}, {"B": 10.0, "L": 10.0},
-                               1e6, 1.0, current_gross=100.0, maintenance_margin=0.0)
+                               1e6, 1.0, current_gross=100.0, maintenance_margin=0.0,
+                               max_gross_stress=None, sized_equity=1e6)
 
 
 def test_send_refits_on_the_live_account_instead_of_refusing(tmp_path):
@@ -1102,3 +1109,190 @@ def test_a_polling_error_is_recorded_not_a_fail_of_a_sent_day(tmp_path):
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
     send = json.loads((state / D.isoformat() / "send.json").read_text())
     assert send["not_final"]
+
+
+# ------------------------------ the stress cap at send (incident 2026-10-09, team lead's go)
+
+def at_the_cap(asof, holdings, equity, opening):
+    """Weights summing to exactly max_gross_stress (1.8): AAA 9,000 x 10 + BBB 4,500 x 20
+    = $180,000 on $100,000 -- the sleeve's own `_cap_gross` output when the cap binds."""
+    return [PositionTarget("AAA", LONG, weight=0.9, reason="z=-2"),
+            PositionTarget("BBB", SHORT, weight=-0.9, reason="z=+2"),
+            PositionTarget("CCC", FLAT, reason="flat")]
+
+
+def test_a_plan_at_the_cap_is_sent_after_equity_dips_before_1552(tmp_path):
+    """2026-10-09: the plan was sized at the cap on the evening's equity, equity fell
+    0.56% by 15:52, and both sends were refused on max_gross_stress x LIVE equity."""
+    c, deps, state, plan = decided(tmp_path, targets=at_the_cap)
+    assert sum(o["qty"] * o["est_price"] for o in plan["orders"]) == 180_000.0
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c.equity = 99_900.0                               # 1.8 x 99,900 = 179,820 < 180,000
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    assert len(c.submits()) == 2
+
+
+def test_a_plan_at_the_cap_is_sent_after_a_dip_with_scaling_on(tmp_path):
+    c, deps, state, plan = decided(tmp_path, targets=at_the_cap,
+                                   execution=dict(LATE, bp_shortfall="scale"))
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c.equity = 99_900.0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    run = sorted((state / D.isoformat() / "runs").glob("*-run.json"))[-1]
+    assert json.loads(run.read_text())["bp_scale_at_send"]["binding"] is None   # sent whole
+
+
+def cut_to_190k(asof, holdings, equity, opening):
+    return [PositionTarget("AAA", LONG, weight=0.95, reason="z=-2"),
+            PositionTarget("BBB", SHORT, weight=-0.95, reason="z=+2"),
+            PositionTarget("CCC", FLAT, reason="flat")]
+
+
+def test_a_plan_that_takes_gross_down_is_decided_and_sent_even_above_the_cap(tmp_path):
+    """Held 2.0x; the plan takes it to 1.9x. Until 2026-10-09 the gate refused it
+    because 1.9x > 1.8x, which left the book at 2.0x."""
+    c, deps, state, plan = decided(tmp_path, targets=cut_to_190k,
+                                   positions={"AAA": 10_000, "BBB": -5_000})
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    for cl in (c,):
+        cl.long_mv, cl.short_mv, cl.maint = 100_000.0, -100_000.0, 60_000.0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+
+
+def test_the_send_refuses_a_plan_whose_sized_equity_is_missing(tmp_path):
+    c, deps, state, plan = decided(tmp_path)
+    (state / "AUTO_ARMED").touch()
+    path = state / D.isoformat() / "plan.json"
+    plan.pop("equity")
+    path.write_text(json.dumps(plan))
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert c.submits() == []
+
+
+def test_fit_scales_a_plan_that_adds_gross_past_the_cap_on_the_sized_equity():
+    orders = (_o("B", "buy", 10_000, 0), _o("C", "sell", 10_000, 0))      # 200,000 from flat
+    out, kept, why = rn.fit_to_buying_power(orders, {}, {"B": 10.0, "C": 10.0}, equity=1e6,
+                                            buying_power=1e9, current_gross=0.0,
+                                            maintenance_margin=0.0, max_gross_stress=1.8,
+                                            sized_equity=100_000.0)
+    assert why == "max_gross_stress (on the sized equity)"
+    gross = sum(o.qty * 10.0 for o in out)
+    assert 0 < gross <= 180_000.0
+    assert rn.gt.stress_breach(gross, 0.0, 1.8, 100_000.0) is None
+
+
+def test_fit_with_nothing_that_fits_returns_the_plan_for_the_gate_to_refuse():
+    """The book held now is already past Reg T (300,000 gross on 100,000), and the plan
+    only opens. Until 2026-10-09 `coarse[1]` raised TypeError on None: a FAIL with a
+    traceback instead of a refusal naming the limit."""
+    orders = (_o("B", "buy", 100, 0),)
+    out, kept, why = rn.fit_to_buying_power(orders, {"L": 30_000}, {"B": 10.0, "L": 10.0},
+                                            equity=100_000.0, buying_power=1e9,
+                                            current_gross=300_000.0, maintenance_margin=90_000.0,
+                                            max_gross_stress=1.8, sized_equity=100_000.0)
+    assert out == orders and kept == 1.0 and "no scaling fits" in why
+    r = rn.gt.gate_exposure(out, {"L": 30_000}, {"B": 10.0, "L": 10.0}, 100_000.0, 1e9,
+                            1e9, 1.8, sized_equity=100_000.0, current_gross=300_000.0,
+                            maintenance_margin=90_000.0)
+    assert any("Reg T" in x.detail for x in r)
+
+
+# ------------------------------------------- the evening pre-flight (team lead's go 2026-10-09)
+
+def flat_history(shock=None, n=rn.PREFLIGHT_WINDOW_SESSIONS + 1):
+    """n rows of constant CLOSES; `shock` = (row, symbol, change) moves one name on one
+    row and back the next, so exactly one close-to-close change is that size against it."""
+    idx = pd.bdate_range(end=pd.Timestamp(ASOF), periods=n)
+    h = pd.DataFrame({s: [CLOSES[s]] * n for s in UNI}, index=idx)
+    if shock:
+        row, sym, chg = shock
+        h.iloc[row:row + 1, h.columns.get_loc(sym)] += chg
+    return h
+
+
+def plan_of(state):
+    return json.loads((state / D.isoformat() / "plan.json").read_text())
+
+
+def test_preflight_ok_is_recorded_in_the_plan_and_the_log(tmp_path):
+    # held AAA 1,000 long; one day AAA fell $1 -> the worst day cost $1,000
+    hist = flat_history(shock=(100, "AAA", -1.0))
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE,
+                                     positions={"AAA": 1_000, "BBB": -500},
+                                     history=lambda asof, uni, rows: hist)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    pf = plan_of(state)["preflight"]
+    assert pf["ok"] is True and pf["shock_usd"] == 1_000.0 and pf["equity_stressed"] == 99_000.0
+    assert pf["shock_date"] == str(hist.index[100].date())
+    assert "PRE-FLIGHT ok" in "".join(out)
+
+
+def near_reg_t(asof, holdings, equity, opening):
+    return [PositionTarget("AAA", LONG, weight=0.89, reason="z=-2"),
+            PositionTarget("BBB", SHORT, weight=-0.9, reason="z=+2"),
+            PositionTarget("CCC", FLAT, reason="flat")]
+
+
+@pytest.mark.parametrize("ex", [LATE, dict(LATE, bp_shortfall="scale")])
+def test_preflight_warns_tonight_when_a_bad_day_would_refuse_tomorrows_send(tmp_path, ex):
+    """Held 180,000 gross on 100,000; the plan takes it to 179,000. A day like the
+    worst one (AAA -$1.50 on 9,000 shares = -$13,500) leaves Reg T initial margin
+    (89,500) above equity (86,500): the send would be refused."""
+    hist = flat_history(shock=(10, "AAA", -1.5))
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=ex,
+                                     positions={"AAA": 9_000, "BBB": -4_500}, targets=near_reg_t,
+                                     history=lambda asof, uni, rows: hist)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED       # still decided
+    pf = plan_of(state)["preflight"]
+    assert pf["ok"] is False and pf["shock_usd"] == 13_500.0
+    assert any("Reg T" in r["detail"] for r in pf["refusals"])
+    assert "PRE-FLIGHT WARNING" in "".join(out) and "REFUSED" in "".join(out)
+
+
+def test_a_preflight_that_cannot_run_is_unmeasured_and_never_blocks_the_plan(tmp_path):
+    def broken(asof, uni, rows):
+        raise OSError("panel unreadable")
+    c, deps, state, seen, out = make(tmp_path, clock_ts=EVE, execution=LATE,
+                                     positions={"AAA": 1_000}, history=broken)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    plan = plan_of(state)
+    assert plan["status"] == "decided" and "panel unreadable" in plan["preflight"]["unmeasured"]
+    assert "PRE-FLIGHT UNMEASURED" in "".join(out)
+
+
+def test_preflight_not_wired_says_so():
+    deps = SimpleNamespace(history=None)
+    assert rn._preflight(deps, (), {}, {}, {}, {}, ASOF, sized_equity=1.0) == \
+        {"unmeasured": "no close-history reader in this session's deps"}
+
+
+def test_worst_day_loss_signs_dates_and_gaps():
+    hist = flat_history(shock=(50, "BBB", +2.0))               # BBB up $2 for one day
+    loss, on = rn.worst_day_loss(hist, {"BBB": -100, "AAA": 0}, rn.PREFLIGHT_WINDOW_SESSIONS)
+    assert loss == 200.0 and on == hist.index[50].date()       # a short loses when it rises
+    assert rn.worst_day_loss(hist, {}, 5) == (0.0, None)
+    assert rn.worst_day_loss(flat_history(), {"AAA": 10}, 5)[0] == 0.0
+    gappy = hist.copy()
+    gappy.iloc[-3, gappy.columns.get_loc("AAA")] = float("nan")
+    with pytest.raises(rn.SessionError, match="gaps in \\['AAA'\\]"):
+        rn.worst_day_loss(gappy, {"AAA": 10}, 5)
+    with pytest.raises(rn.SessionError, match="no column for \\['ZZZ'\\]"):
+        rn.worst_day_loss(hist, {"ZZZ": 10}, 5)
+    with pytest.raises(rn.SessionError, match="rows of close history"):
+        rn.worst_day_loss(hist.iloc[-3:], {"AAA": 10}, 5)
+
+
+def test_close_history_ffills_per_name_and_never_looks_ahead(tmp_path):
+    rows = [("2026-09-24", "AAA", 8.0), ("2026-09-25", "AAA", 9.0), ("2026-09-28", "AAA", 10.0),
+            ("2026-09-24", "HYT", 5.0),                               # HYT stops printing
+            ("2026-09-29", "AAA", 99.0)]                              # after as-of: ignored
+    p = tmp_path / "px.parquet"
+    pd.DataFrame(rows, columns=["date", "ticker", "close"]).assign(
+        date=lambda d: pd.to_datetime(d["date"])).to_parquet(p)
+    h = rn.close_history(p, ASOF, ["AAA", "HYT"], rows=2)
+    assert list(h.index.date) == [dt.date(2026, 9, 25), ASOF]
+    assert list(h["AAA"]) == [9.0, 10.0] and list(h["HYT"]) == [5.0, 5.0]

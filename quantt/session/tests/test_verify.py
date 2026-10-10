@@ -665,9 +665,53 @@ def test_late_market_days_are_explained_by_the_send_record():
     assert ok is None and "no send ran" in prob                 # asleep: FAIL, said plainly
     ok, prob = why(dict(plan, orders=[]), None, D, "cef")
     assert prob is None
+    # 2026-10-09: a refusal no human chose is a missed day, at decide as at send
     refused = dict(plan, status="refused", refusals=[{"gate": "data", "detail": "stale"}])
     ok, prob = why(refused, None, D, "cef")
-    assert prob is None and "[data]" in ok
+    assert ok is None and prob.startswith("MISSED") and "[data]" in prob
+    halted = dict(plan, status="refused", refusals=[{"gate": "halt", "detail": "HALT.md"}])
+    ok, prob = why(halted, None, D, "cef")
+    assert prob is None and "[halt]" in ok
+
+
+# The 2026-10-09 send.json from the prod VM, verbatim but for the plan_sha.
+FRI_SEND = {"at": "20261009T195501Z", "budget_short": None, "exit": "REFUSED", "final": {},
+            "not_final": [], "plan_sha": "146bb8b2", "skipped": [], "unfilled": {},
+            "session_date": "2026-10-09",
+            "refusals": [{"gate": "exposure", "detail": "projected gross $182,154.75 > "
+                          "max_gross_stress 1.8 x equity $100,806.81"}]}
+
+
+def test_the_2026_10_09_refusal_is_a_fail_not_a_pass():
+    """That day's verify line read "PASS cef no trade: refused at send: [exposure] ..."."""
+    from quantt.session.verify import late_no_trade_reason as why
+    plan = {"book": "cef", "session_date": D.isoformat(), "mode": "run", "execution": "late_market",
+            "status": "decided", "orders": [{"x": 1}] * 13, "refusals": [], "send_window": ["a", "b"]}
+    ok, prob = why(plan, FRI_SEND, D, "cef")
+    assert ok is None and prob.startswith("MISSED") and "[exposure]" in prob
+
+
+@pytest.mark.parametrize("gate,missed", [("dry_run", False), ("arming", False), ("halt", False),
+                                         ("exposure", True), ("shortability", True),
+                                         ("sanity", True), ("no_set_in_auction", True),
+                                         ("clock", True), ("data", True)])
+def test_only_a_humans_choice_explains_a_refused_send(gate, missed):
+    from quantt.session.verify import late_no_trade_reason as why
+    plan = {"book": "cef", "session_date": D.isoformat(), "mode": "run", "execution": "late_market",
+            "status": "decided", "orders": [{"x": 1}], "refusals": [], "send_window": ["a", "b"]}
+    ok, prob = why(plan, {"exit": "REFUSED", "refusals": [{"gate": gate, "detail": "d"}]},
+                   D, "cef")
+    assert (prob is not None) is missed and (ok is None) is missed
+
+
+def test_a_human_refusal_beside_a_missed_one_explains_the_day_and_lists_both():
+    from quantt.session.verify import late_no_trade_reason as why
+    plan = {"book": "cef", "session_date": D.isoformat(), "mode": "run", "execution": "late_market",
+            "status": "decided", "orders": [{"x": 1}], "refusals": [], "send_window": ["a", "b"]}
+    ok, prob = why(plan, {"exit": "REFUSED", "refusals": [{"gate": "halt", "detail": "h"},
+                                                          {"gate": "exposure", "detail": "e"}]},
+                   D, "cef")
+    assert prob is None and "[halt]" in ok and "[exposure]" in ok
 
 
 def test_a_short_sale_fill_reported_as_sell_short_scores_as_a_sell(tmp_path):

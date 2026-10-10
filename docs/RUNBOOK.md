@@ -222,6 +222,12 @@ python3 -m quantt.broker.alpaca_probe --book cef   # read-only account snapshot 
 **No line for a trading day counts as a FAIL.** Silence never counts as success
 (`docs/ROADMAP.md` 4.7).
 
+**A FAIL line beginning `MISSED:` is a day the book should have traded and did
+not** (since 2026-10-09). A refusal explains a no-trade day only when a human
+chose it: `DRY_RUN`, no arming, or a halt. Any other refusal is a miss, and the
+line names the gate. Until 2026-10-09 such a day read `PASS ... no trade: refused`,
+and that is how 2026-10-09 went unseen (`docs/RUNNER.md` "As built (2026-10-09)").
+
 ## 6. On FAIL
 
 1. **If orders may be at risk, or the cause is unknown, halt first** (section
@@ -697,9 +703,17 @@ ssh -i ~/.ssh/quantt_azure azureuser@<vm-ip> sudo tail -n 5 /home/quantt/quantt_
 systemctl list-timers 'quantt-*'; systemctl --failed     # on the VM
 ```
 
-No line for a trading day counts as a FAIL. The session unit counts IDLE,
+No line for a trading day counts as a FAIL, and a `MISSED:` FAIL is a day that
+should have traded (section 5). The session unit counts IDLE,
 NOTHING_TO_SEND, PREVIEW, PLANNED and DRY as success (`SuccessExitStatus`), so
-`systemctl --failed` shows REFUSED and FAIL. The collector's INCOMPLETE (exit
+`systemctl --failed` shows REFUSED and FAIL. Verify exits 1 on a FAIL line, so a
+missed day shows there too.
+
+**Tonight's plan:** `python3 -m ops.orient` PROD prints the VM's `newest plan`:
+its date, status, order count, whether it was sent, and its evening pre-flight.
+`PRE-FLIGHT WARNING` means a day as bad as the worst of the last year would get
+tomorrow's send refused or scaled. The detail is in that day's `plan.json`
+(`preflight`) and the session log (`docs/RUNNER.md` "As built (2026-10-09)"). The collector's INCOMPLETE (exit
 5) also shows as failed, on purpose: one that never clears is worth seeing.
 
 **Halting**, the VM equivalents of section 4, fastest first. None of them
@@ -766,6 +780,17 @@ minutes. On an early close, the same applies before 12:30 or after 13:00.
    installer refuses while a job runs or is queued anyway, but a manual
    `git checkout` has no such guard.
 2. **Dry run:** `qi --tag <new> --vault <vault-name>`.
+   If the release changes `quantt/session/gate.py` or the send path
+   (`quantt/session/run.py`), first replay the book's history through it. Copy
+   the VM's day records to a scratch directory **outside the repo** (they hold
+   the account's positions), then run, from the dev tree at the new tag:
+   ```bash
+   mkdir -p /tmp/qstate && ssh quantt-vm 'sudo tar czf - -C /home/quantt/quantt_state/cef \
+       --exclude="*/data" $(sudo ls /home/quantt/quantt_state/cef | grep -E "^20")' | tar xzf - -C /tmp/qstate
+   python3 -m ops.replay_exposure /tmp/qstate
+   ```
+   Every run the new code refuses ("now") must be one that should be refused.
+   2026-10-09's refusal was this check's reason to exist.
 3. **Only if** the old installer refuses because the release changed the units
    or the installer: with the timers still stopped, check out the tag as
    `quantt`:

@@ -489,9 +489,30 @@ q auto_armed sudo -n sh -c "if [ -e $S/AUTO_ARMED ]; then echo present; elif [ -
 q verify sudo -n sh -c "if [ -e $S/verify.log ]; then tail -n1 $S/verify.log; else echo NO-FILE; fi"
 q equity_header sudo -n sh -c "if [ -e $S/equity.csv ]; then head -n1 $S/equity.csv; else echo NO-FILE; fi"
 q equity_last sudo -n sh -c "if [ -e $S/equity.csv ]; then tail -n1 $S/equity.csv; else echo NO-FILE; fi"
+q newest_plan sudo -n python3 -I -c "@PLAN_PY@" "$S"
 printf 'END\t0\tquantt-prod-state\n'
 """
+# The newest day's plan.json, summarised ON the VM to one JSON line (the plan
+# holds the account's positions; only counts and verdicts leave the machine).
+# `preflight` is the evening pre-flight's verdict (quantt/session/run.py
+# PREFLIGHT_WINDOW_SESSIONS, 2026-10-09): ok, warning, unmeasured, or null for
+# a plan decided before the pre-flight existed. No `$`, backtick or double
+# quote inside: it sits in a double-quoted shell word.
+_PLAN_PY = ("import json,os,sys; s=sys.argv[1]; "
+            "ds=sorted(d for d in os.listdir(s) if d[:2]=='20' "
+            "and os.path.isfile(os.path.join(s,d,'plan.json'))); "
+            "d=os.path.join(s,ds[-1]) if ds else None; "
+            "p=json.load(open(os.path.join(d,'plan.json'))) if d else None; "
+            "f=(p or {}).get('preflight'); "
+            "print('NO-PLAN' if p is None else json.dumps({'session_date': p.get('session_date'), "
+            "'status': p.get('status'), 'orders': len(p.get('orders') or []), "
+            "'sent': os.path.exists(os.path.join(d,'STARTED')), "
+            "'preflight': None if f is None else 'unmeasured' if 'unmeasured' in f "
+            "else 'ok' if f.get('ok') else 'warning', "
+            "'shock_usd': (f or {}).get('shock_usd')}))")
+assert not set(_PLAN_PY) & set('$`"'), "the plan summary must survive double quotes"
 REMOTE_SCRIPT = (_REMOTE_TEMPLATE
+                 .replace("@PLAN_PY@", _PLAN_PY)
                  .replace("@STATE@", shlex.quote(str(_VM_LAYOUT.state_dir)))
                  .replace("@PROD@", shlex.quote(str(_VM_LAYOUT.prod_dir)))
                  .replace("@USER@", iv.SERVICE_USER)
@@ -624,6 +645,17 @@ def _vm_from_readings(got: dict, alias: str) -> dict:
         out["equity"] = _unm(f"`sudo -n head/tail {_VM_LAYOUT.state_dir}/equity.csv` exited "
                              f"{rh}/{rl}: {scrub(hv or lv or '')}")
 
+    rc, v = reading("newest_plan")
+    if rc == 0 and v == "NO-PLAN":
+        out["newest_plan"] = _absent("no plan.json in any day directory yet")
+    elif rc == 0 and v:
+        try:
+            out["newest_plan"] = _val(json.loads(v))
+        except json.JSONDecodeError:
+            out["newest_plan"] = _unm(f"the newest plan summary is not JSON: {scrub(v)[:120]}")
+    else:
+        out["newest_plan"] = _unm(f"`sudo -n python3` plan summary exited {rc}: {scrub(v or '')}")
+
     out["cautions"] = []
     if UNMEASURED in installed:
         out["arming"], out["arming_why"] = UNMEASURED, show(installed)
@@ -634,6 +666,12 @@ def _vm_from_readings(got: dict, alias: str) -> dict:
         out["scheduled"] = _systemd_scheduled(out["timers"], out["timers_enabled"])
         out["arming"], out["arming_why"], out["cautions"] = _arming(
             dry, out["auto_armed"], out["scheduled"])
+    np_ = out["newest_plan"].get("value") or {}
+    if np_.get("preflight") == "warning" and not np_.get("sent"):
+        out["cautions"] = list(out["cautions"]) + [
+            f"VM plan for {np_.get('session_date')}: PRE-FLIGHT WARNING -- a day as bad as the "
+            f"worst of the last year (${np_.get('shock_usd')}) would get its send refused or "
+            f"scaled; the detail is in its plan.json and the session log"]
     return out
 
 
@@ -749,6 +787,20 @@ def verify_text(r: dict | None) -> str:
             + (f"   ({age} trading day(s) ago)" if age is not None else ""))
 
 
+def plan_text(r: dict | None) -> str:
+    """`2026-10-12: decided, 4 order(s), not sent yet; pre-flight ok (worst-day shock $2,074.61)`."""
+    if not isinstance(r, dict) or "value" not in r:
+        return show(r)
+    n = r["value"]
+    pf = n.get("preflight")
+    pf_text = ("pre-flight not run (decided before it existed)" if pf is None else
+               f"pre-flight {'WARNING' if pf == 'warning' else pf}"
+               + (f" (worst-day shock ${n['shock_usd']:,.2f})"
+                  if isinstance(n.get("shock_usd"), (int, float)) else ""))
+    return (f"{n.get('session_date')}: {n.get('status')}, {n.get('orders')} order(s), "
+            f"{'sent' if n.get('sent') else 'not sent yet'}; {pf_text}")
+
+
 def render_lines(d: dict, p: Callable[[str, str], None]) -> None:
     """Print the PROD block through `p(label, value)` (orient's `_p`)."""
     ms = d["machines"]
@@ -780,6 +832,7 @@ def render_lines(d: dict, p: Callable[[str, str], None]) -> None:
         p("  AUTO_ARMED", _bool_text(v.get("auto_armed"), f"{v['state_dir']}/AUTO_ARMED"))
         p("  last verdict", verify_text(v.get("verify_last")))
         p("  equity.csv last row", equity_text(v.get("equity")))
+        p("  newest plan", plan_text(v.get("newest_plan")))
     vd = d["verdict"]
     for c in vd.get("cautions") or []:
         p("  caution", c)
