@@ -180,7 +180,9 @@ to reflect real income degradation than a smoothing-policy choice.
 
 ### The secondary market and the closing auction
 
-Our names run from about $3m a day (JFR) to $43m (PDI) in dollar ADV. We do not
+Our names run from about $3m a day (JFR) to $43m (PDI) in dollar ADV (undated,
+17-name book; on CRSP 2024 the 13 ran from $1.26m (MHD) to $31.5m (PDI),
+`results/data/universe_2026-10-08/`; re-measure before relying on either). We do not
 move markets at the live screen (0.7% of ADV); **we pay ticks** — a one-cent
 spread is 10.7bp on a $4.69 share and 2.9bp on a $17 share, against a 32.6bp
 breakeven.
@@ -233,7 +235,9 @@ NOII **does** refresh — every 10 seconds from 15:50, then every second from
 
 **NYSE Arca** (HYG, LQD, SPY): Rule 7.35-E is parallel in architecture but
 **its cutoff and threshold could not be verified** and vendor sources only
-suggest parity with NYSE. **Confirm before routing.**
+suggest parity with NYSE. **Confirm before routing.** (2026-10-08: a 2018 SEC
+release puts Arca's closing imbalance freeze at 15:59. That is not the current
+rule text; `docs/REFERENCES.md` §3.)
 
 Our clips are one to three orders of magnitude below 50,000 shares, so we never
 register as a published imbalance. NYSE's **Closing IO Order** (Rule
@@ -312,10 +316,17 @@ activist-forced tenders 2015–2022, excess discount versus peers averaged −4.
 the year before the initial 13D, narrowed to −1.2% pre-tender and −0.2% during
 the tender, **then widened back to −3.3% the year after** — the effect largely
 round-trips within a year, and 75% of activists fully exit within a year (48%
-within three months). Bradley, Brav, Goldstein & Jiang (2010, JFE) found
-successful open-endings cut discounts to roughly **half** their original level.
+within three months). Bradley, Brav, Goldstein & Jiang (2010, JFE): a
+successful open-ending **eliminates** the discount; the "roughly **half**" figure
+describes funds that were attacked and did **not** convert.
 
-**But on 11 June 2026 the Supreme Court ruled unanimously that §47(b) of the
+> **CORRECTED 2026-10-08.** Until today this paragraph said open-endings "cut
+> discounts to roughly half" and that the Supreme Court ruled "unanimously". Both
+> had already been corrected in `docs/REFERENCES.md` §5 ([V], read in full) and
+> never carried back here: the half figure is the non-converters' path, and the
+> vote was **6–3**.
+
+**But on 11 June 2026 the Supreme Court held, 6–3, that §47(b) of the
 1940 Act creates no implied private right of action**, narrowing the activist
 litigation toolkit against control-share provisions. Historical
 activism-driven convergence should not be assumed to repeat at the same rate.
