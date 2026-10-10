@@ -60,8 +60,8 @@ answering different questions.
 A **systematic credit closed-end-fund discount-reversion book** that places its
 own MOC orders on a schedule. It ran on an IBKR paper account until 2026-09-28
 and has traded on Alpaca paper since 2026-09-29 (§4). Capital and
-universe are in the frozen spec. **Mandate** (§5): paper indefinitely, a
-competition track record, judged on absolute return under a vol cap.
+universe are in the frozen spec. **Mandate** (§5): on paper now, with **real capital
+planned** (team lead, 2026-10-09); judged on absolute return under a vol cap.
 
 **The trade.** A closed-end fund publishes a net asset value daily and its
 shares trade at whatever the market pays. Buy funds unusually cheap against
@@ -275,7 +275,7 @@ where it says so; changing a row needs the team lead's name and a date (§7).
 | Holdout | **Keep the 27 and add a 2023–2026 time holdout** to every fit. |
 | Trial counters | **Two**: CEF and GAMMA, each its own bar. |
 | Risk controls | **Arm HALVE/KILL on broker-confirmed NAV** once W6 §A lands. |
-| Capital | **Paper indefinitely; a competition track record.** No real capital planned. |
+| Capital | **Paper indefinitely; a competition track record.** No real capital planned. *(Superseded 2026-10-09: real capital soon, below.)* |
 | Judged on | **Absolute return.** Derive the vol target, **cap 20%**, with kill-probability and margin-cushion constraints. |
 | Options permission | **Unknown** → W2 audits it first; every options part refuses to start without "permitted". |
 | Other books | **Keep the five benchmarks; retire the null trader.** |
@@ -383,8 +383,27 @@ phase 6; the procedure is `docs/RUNBOOK.md` §8.
 | First VM send | **2026-10-08, the laptop's decided plan `c5f20357…` (8 orders)**, approved by the team lead ("go") and recorded with `quantt.session approve`, sent by the VM's 15:52 timer. |
 | Automation | **"I want the VM fully automated and deployed, gathering trade data and doing trades on PROD while we make improvements here on non-prod to push to VM prod."** `AUTO_ARMED` is created on the VM after the first armed send's verify PASSes. Improvements are developed in the dev tree, pass release-check, and reach the VM as release tags through `install_vm` (`docs/RUNBOOK.md` §8.6). |
 
+### Team lead, 2026-10-09 — real capital, the research programme, and how it is counted
+
+Answered interactively after the 2026-10-08/09 research passes
+(`results/cef/RESEARCH_AGENDA_2026-10-08.md`, `results/cef/SCALING_RESEARCH_2026-10-08.md`).
+The programme these rulings shape is `results/cef/RESEARCH_PLAN_2026-10-09.md`.
+
+| question | decision |
+|---|---|
+| Capital | **Real capital soon.** This supersedes 2026-09-08's "Paper indefinitely; no real capital planned". Timing, size and broker are still open. Two consequences: (1) **the real-money cost re-run is the gate for deploying any capital**: measured borrow, distributions owed on shorts, real auction fills; (2) the paper `late_market` exception never applies to a live account (`CLAUDE.md` order-path rule 3). |
+| Instruments in bounds | **Alpaca-listed, cash bonds, futures and swaps through another broker, and options.** Options reopen **only** through a pre-registered, standalone short-premium test that meets the six conditions in `SCALING_RESEARCH_2026-10-08.md` §7.2. This partly supersedes "options are closed" (2026-09-13, below). |
+| Target and leverage | **≥10%/yr absolute return, measured gross of costs, with net shown beside it.** Reg T for now (`max_gross_stress` 1.80). The vol target is derived under W6 (cap 20%). Portfolio margin and a futures account are research items, not assumptions. |
+| The 27-name holdout (H9) | **Opened for the event trades** (merger pair, corporate-action layer, CEF IPO pair, term CEFs). It supersedes 2026-09-08's "Keep the 27". The set is **consumed by the first pre-registered test that computes returns on a name in `data/cef/cef_universe.csv`**, and that pre-registration must say so. After that, H9 has no name comparison set. **The 2023-01-01 time holdout stays sealed.** |
+| Trial counters | **A new counter per data source:** EVENTS (corporate actions from EDGAR and CRSP: the merger pair, CEF IPOs, convertible issuance, term and tender events) and XASSET (the cross-asset ETF and futures slate, declared up front). Options are on GAMMA. Changes to the live CEF book stay on CEF. *The author's reading, flag it if wrong:* the discount z-score on other CEF families (agenda B1) is the same data and signal, so it goes on CEF. |
+| TLT short-volatility data | **Fit and decide on Cboe VXTLT, 2004–2022.** The 2023+ strike data is the GAMMA holdout, opened once for the defined-risk version. |
+| Where a passing sleeve runs | **Inside the CEF account, one combined book.** Consistent with 2026-09-09's "seventeen sleeves, one combined book". |
+| Deliberate beta | **No: alpha only.** A sleeve must earn beyond beta (D4). Beta is tolerated only as residual exposure, never as a sized sleeve. Carry (agenda Track D) is closed. |
+| Dividends on paper | **Add a third P&L line**, distribution-adjusted: it credits distributions on longs and charges them on shorts. It sits beside Alpaca's fill and the auction-print P&L, because Alpaca paper credits no dividends. |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
+*(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A
 measured that this book is not short volatility in any sense that gives a hedging
 option a job. `G6` then measured that credit gamma costs more in variance than

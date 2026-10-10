@@ -71,9 +71,13 @@ The following are consequences of those dates. Re-measure before you act on any 
 - The only options underlyings present are SPY, QQQ, TLT, IWM, GLD and SLV. **There is no
   HYG or LQD.** `docs/SYSTEM.md` names "the R2 trades source if it carries HYG/LQD/TLT"
   for options. As of this run, R2 carries only TLT of those three.
-- Whether `crsp_q_mutualfunds.daily_nav` covers closed-end funds at all is **not
-  measured**. Do not assume it does. It is the obvious candidate for an independent NAV
-  check, and nobody has tried it yet.
+- **`crsp_q_mutualfunds` does not hold our CEFs** (measured 2026-10-08 by
+  `python3 scripts/data/r2_signal_coverage.py` → `results/data/R2_SIGNAL_COVERAGE.md`).
+  None of the 44 CEF tickers appears in `fund_hdr` or `fund_hdr_hist`, so it is not an
+  independent NAV source. It does hold the **open-end** credit funds, by Lipper class.
+  Those funds share the CEFs' retail base, which makes them a candidate flow series
+  (`results/cef/RESEARCH_AGENDA_2026-10-08.md` §4, parked). *Until 2026-10-08 this bullet
+  read "not measured".*
 
 ### Credentials
 
@@ -169,8 +173,9 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
 
 ## 6. Open questions
 
-1. `crsp_q_mutualfunds.daily_nav`: does it cover our CEFs? If it does, it would be an
-   independent NAV source for the history.
+1. ~~`crsp_q_mutualfunds.daily_nav`: does it cover our CEFs?~~ **Answered 2026-10-08:
+   no** (§3, `results/data/R2_SIGNAL_COVERAGE.md`). An independent NAV history for the
+   CEFs is still missing.
 2. Alpaca Market Data: the feed tier, and CEF coverage of daily bars and closing-auction
    prints. Measure it before relying on either.
 3. Should the JFR 2004-03-25 bar be dropped from the live panel? That is a panel change

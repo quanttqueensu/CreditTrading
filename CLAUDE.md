@@ -2,8 +2,9 @@
 
 A systematic **credit closed-end-fund discount-reversion** book, moving from IBKR
 to **Alpaca paper** (team lead, 2026-09-28): one paper account per book, prod on a
-cloud VM, MOC orders on a schedule. Team lead: Simon Jarvis. Paper indefinitely —
-a competition track record, judged on absolute return under a vol cap.
+cloud VM, MOC orders on a schedule. Team lead: Simon Jarvis. On paper now, with
+**real capital planned** (team lead, 2026-10-09, `docs/SYSTEM.md` §5); judged on
+absolute return under a vol cap.
 
 **The book trades on Alpaca paper**, run by `quantt/` from a prod clone of this
 repository held at a release tag (IBKR was retired on 2026-09-28). Prod is moving
@@ -241,5 +242,6 @@ Subagents: `alpha-finder`, `beta-detector`, `unique-angle-researcher`,
 `execution-trader`, `portfolio-manager`, `market-structure-analyst`,
 `equity-research`, `quant-reviewer`.
 
-**Options are closed, and it is recorded rather than remembered**:
+**Options are closed, except through one pre-registered standalone short-premium
+test (team lead, 2026-10-09), and that is recorded rather than remembered**:
 `docs/SYSTEM.md` §5.

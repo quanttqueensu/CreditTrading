@@ -33,6 +33,17 @@ counter (156) covers all ETF-price/PD work done to date.
 | **CEF** | **credit closed-end fund discounts** | **50** |
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
+| **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **0** |
+| **XASSET** | **cross-asset ETF/futures slate, declared up front (NEW SOURCE 2026-10-09)** | **0** |
+
+> **2026-10-09: EVENTS and XASSET opened at 0** (team lead, `docs/SYSTEM.md` §5,
+> 2026-10-09). Opening a counter spends no trial. **XASSET is a declared slate**: its
+> five tests (`results/cef/RESEARCH_PLAN_2026-10-09.md` §3) are listed before any runs,
+> and each is judged against the bar for the slate's full size, √(2 ln 5) = 1.79, not
+> the running count. Options stay on GAMMA. Changes to the live CEF book stay on CEF.
+> **The 27-name holdout is opened for event trades.** It is consumed by the first
+> pre-registered test that computes returns on a `cef_universe.csv` name. The
+> 2023-01-01 time holdout stays sealed.
 
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial

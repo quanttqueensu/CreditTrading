@@ -96,7 +96,7 @@ why `W4_artifact_battery.md` runs before any further trial.
 | **CORRECTION — the NYSE Closing Imbalance publishes ONCE at 15:50 and does not refresh.** An earlier version of this file said "refreshed every second"; that is Nasdaq's NOII | SEC Rel. 34-106126 (SR-NYSE-2026-36) | [V] |
 | **Nasdaq differs materially: MOC until 15:55, LOC until 15:58**, IO until 16:00; cancel/modify frozen from 15:50. **NOII refreshes every 10s from 15:50, every 1s from 15:55**, with no share threshold | Nasdaq Closing Cross FAQ | [V] |
 | NYSE **Closing IO Order** (Rule 7.31(c)(2)(D)) is limit-only, auction-only, and may be entered on **both sides up to 16:00**. **Being amended now** — SR-NYSE-2026-36, implementation by Q1 2027 | RM-24-02; SR-NYSE-2026-36 | [V] |
-| **NYSE Arca's cutoff and imbalance threshold could NOT be verified** — and Arca lists HYG, LQD and SPY | — | **[U]** |
+| **NYSE Arca's cutoff and imbalance threshold could NOT be verified** — and Arca lists HYG, LQD and SPY. *2026-10-08: SEC Rel. 34-84804 (SR-NYSE-2018-58, 12 Dec 2018) states Arca "initiates its 'Closing Auction Imbalance Freeze' for all MOC and LOC Orders at 3:59 p.m.", citing Arca Rule 7.35-E(d)(2). That is a 2018 secondary statement, not the current rule text* | SEC Rel. 34-84804, https://www.sec.gov/files/rules/sro/nyse/2018/34-84804.pdf | **[U]** current rule; [S] 2018 statement |
 | **NYSE retains DMM discretion** (7.35B(b)–(c)): may close without a trade, may run the auction manually. Arca and Nasdaq have no equivalent | RM-24-02 | [V] |
 | Closing auctions matched **$55.5bn/day = 9.44% of US notional**, Q2 2024; NYSE-listed share 10.52%. Large indexed names have a *higher* auction share than the broad universe | NYSE Data Insights | [V] |
 | **~3.3% of NYSE auction volume goes unfilled; 6.3% for non-Russell-1000 names** — the category all 17 CEFs are in | NYSE Research Insights, Q1 2026 | [V] |
@@ -148,7 +148,7 @@ why `W4_artifact_battery.md` runs before any further trial.
 | The CEF rights-offering paper is **Khorana, Wahal & Zenner (2002), *JFQA* 37(2)**, "Agency Conflicts in Closed-End Funds: The Case of Rights Offerings" — 120 offerings, 1988–1998. Funds trade at a **premium** on announcement and **"this premium turns into a discount over the course of the offering"**; the decline is larger where the advisor's fee gain from the enlarged asset base is bigger. (An earlier pass half-remembered this as "Kadapakkam" — that was a misattribution) | JFQA 37(2), DOI 10.2307/3595002 | [V] abstract; full text unreachable |
 | **Section 19(a) notices have no EDGAR form** — sponsor sites and wire services only. PIMCO's site returns HTTP 403 to automated fetches | verified against a fund's full form census, 2026-09-09 | [V] |
 | Fund-of-CEF ETFs: PCEF ~$809m, XMPT ~$216m AUM — small against the sector but potentially large against a single constituent's float | stockanalysis.com | [V] |
-| Tax-loss selling drives the turn-of-year effect **specifically in municipal CEFs**; *"funds associated with brokerage firms display more tax-loss-selling behavior"*. **Direction only — the magnitudes, the December volume effect, the size of the affiliation difference and the sample period are all paywalled and could NOT be obtained** | Starks, Yong & Zheng (2006), *J. Finance* 61(6):3049–3067 | [V] abstract; **[U]** on every magnitude |
+| Tax-loss selling drives the turn-of-year effect **specifically in municipal CEFs**; *"funds associated with brokerage firms display more tax-loss-selling behavior"*. **Direction only — the magnitudes, the December volume effect, the size of the affiliation difference and the sample period are all paywalled and could NOT be obtained**. *2026-10-08: the 2002 working paper's magnitudes are in §12; the published tables are still unobtained* | Starks, Yong & Zheng (2006), *J. Finance* 61(6):3049–3067 | [V] abstract; **[U]** on every published magnitude |
 
 ---
 
@@ -437,3 +437,148 @@ vault name, subscription) are deliberately absent: this repository is public.
 | GitHub Actions `schedule` "can be delayed during periods of high loads"; "some queued jobs may be dropped"; disabled in a public repo after 60 days without activity — why it was not used for a 15:52–15:58 send | docs.github.com, events that trigger workflows, fetched 2026-10-07 | [V] |
 | Google Cloud's free tier needs a Cloud Billing account, and its free trial needs a card or other payment method. Oracle Cloud asks for a card for identity checks | docs.cloud.google.com/free/docs/free-cloud-features, fetched 2026-10-07; Oracle free-tier FAQ (via search) | [V] / [S] |
 | uv lists Python 3.13.5 for linux-aarch64; uv 0.12.15 and every compiled requirement have aarch64 wheels | checked by the installer build, 2026-10-07 (GitHub releases API, PyPI JSON API); not re-read | [S] |
+
+---
+
+## 12. Signal-agenda pass (added 2026-10-08)
+
+Sources behind `results/cef/RESEARCH_AGENDA_2026-10-08.md`. They were gathered
+by a deep-research workflow on 2026-10-08. Each claim marked [V] was put to three
+adversarial verifiers, who fetched the source in that session; two refutes out of
+three killed a claim. **The note's author did not re-read them.** "Abstract"
+means only the abstract was reachable. Search-phase leads that never went to the
+vote are [S].
+
+| claim | source | status |
+|---|---|---|
+| Working paper (Nov 2002), 168 muni CEFs, 1990–2000: January price return +2.21%/month against −0.19% in other months; January abnormal return rises with the Nov–Dec volume ratio (significant in 10 of 11 years, panel R² 0.38). The paper's "underlying assets" are a muni bond **index** used as a NAV proxy, not the funds' own NAVs | Starks, Yong & Zheng, working-paper version of the 2006 *J. Finance* paper | [V] WP only; published figures may differ |
+| The muni-CEF January effect "has become stronger in recent years"; muni ETFs show a smaller January effect that tax-loss selling does not explain. **A standalone claim built on this abstract failed 1–2, and the claim that a muni-ETF hedge isolates the effect was refuted 0–3** | Carrion & Zhang (2024), *J. Financial Research* 47(4):1207–1227 | [V] abstract |
+| No January effect since 1993 in muni funds generally | Cusatis & Tawatnuntachai (2011) | [S] |
+| "Differences in leverage are reflected in the discount on closed-end bond funds in a manner consistent with the advantage of leverage"; 332 CEFs, about 1996–2006, before auction-rate preferreds failed. **The time-series claim (leverage benefit predicts discount changes) was refuted 0–3: its wording came from a secondary summary, not the source** | Elton, Gruber, Blake & Shachar (2013), *JFQA* 48(2):405–425 | [V] abstract |
+| Activist targeting probit: the raw DISCOUNT coefficient is 0.034 (t 9.53), about +0.66pp attack probability per 1pp of discount; base rate 13.3% a year. For non-converting funds the excess discount effect is 3.36pp at t+1 and insignificant by t+2/t+3. **The sample excludes taxable bond, muni, preferred and convertible funds** | Bradley, Brav, Goldstein & Jiang (2010), *JFE* 95(1), Tables 3–4 (WP) | [V] WP read in full (Dec 2008 manuscript). **CONTESTED 2026-10-08:** a second pass refuted 0–3 claims citing the same +0.66pp from the 2006 Wharton WP version, and left open whether bond and muni CEFs are in the sample. Key no decision on these figures |
+| "Short-run fluctuations in discounts … are directly affected by taxable distributions". **A follow-on claim of a predictable short-horizon move was refuted 1–2** | Day, Li & Xu (2011), *JFE* 100(3):579–593 | [V] abstract |
+| Corporate-bond-fund NAVs did not move on 31% of days, 2009–2023; outflows before FOMC meetings about double in funds with stale NAVs | Kuong, O'Donovan & Zhang (2023 WP), via the UCLA Anderson Review summary | [S] |
+| After Lehman the median equity-CEF discount went 10.7% → 15.7% in one week and 20.3% by the week of 10 Oct 2008, and stayed wide to March 2009; attributed to forced selling as prime brokers withdrew financing | Mitchell & Pulvino (2012), *JFE*, "Arbitrage Crashes and the Speed of Capital", §7.2 (NBER 2010 draft) | [S] §7.2 read by a search agent, not put to the vote |
+| COVID as an outside shock to retail sentiment: discounts widened more for CEFs with a higher sentiment beta or more retail ownership; liquidity, expense, payout and leverage rejected as the channel | Ma (2024), *Financial Management* 53(1):119–143 | [S] abstract |
+| CEF discounts move around time-varying trends with breaks (RALS-LM, 31 funds); level shifts alone do not explain persistence | Durmaz, Kim, Lee & Sun (2023), Auburn WP 2023-08 | [V] abstract |
+| CEF discounts break both static and dynamic arbitrage bounds; portfolios built to exploit the mispricing earn negative Fama–French-adjusted returns, 462 US and Canadian CEFs, 1985–2001 | Flynn (2012), *J. Financial Markets* 15(1) | [S] |
+| Implied volatility explains little of CEF discount levels except in severe stress (32 CEFs, 2004–2011) | Anderson, Beard, Kim & Stern (2013), *Applied Economics Letters* 20(10) | [S] |
+| Covenant-constrained CLOs fire-sell distressed loans; their loans earn lower cumulative returns | Kundu (2024), *Management Science* 70(2) | [S] abstract |
+| Combined credit-factor portfolio (value, momentum, carry, defensive): Sharpe 2.19 gross (5.4% on 2.5% vol), Jan 1997–Apr 2015; standalone value 1.75, defensive 1.11, momentum 0.85, carry 0.35; the long-only version nets 1.03 against 0.69 for the benchmark; rolling alpha weakens after about 2010. **The claim that it is diversifying against traditional premia was refuted 1–2** | Israel, Palhares & Richardson (2018), *J. Investment Management* 16(2) | [V] full text |
+| Only 23% of corporate-bond factors the literature calls significant keep significant alphas (18% after Benjamini–Hochberg). Survivors include bond age, short duration, book-to-price, equity momentum, short-term reversal and credit spread. **The claims that credit-spread value is the one survivor (0–3) and that only 6% survive (1–2) were refuted** | Dick-Nielsen, Feldhütter, Pedersen & Stolborg, "Corporate Bond Factors: Replication Failures and a New Framework" (forthcoming *RFS*; Dec 2023 version) | [V] full text |
+| Six-month bond momentum earns 0.00%/month (t 0.01) without ex-post winsorization; twelve-month −0.13%/month; the IPR value premium falls from 0.96% to 0.51%/month on TRACE after a measurement-error correction | Dickerson, Robotti & Rossetti (2026), arXiv 2604.07880, unrefereed | [V] |
+| Carry predicts returns across asset classes, credit included; carry strategies all fall together in global recessions and are exposed to liquidity and volatility risk. *Credit carry: Sharpe 0.47 at 0.52% vol, 1973–2012, liquidity loading 3.89 (t 3.34); carry "suffers extreme negative returns … around recessions"* (accepted manuscript, read 2026-10-08) | Koijen, Moskowitz, Pedersen & Vrugt (2018), *JFE* 127(2):197–225 | [V] accepted manuscript |
+| Time-series momentum works across 82 instruments, credit default swap indices among them. The CDX-specific statistics were not retrieved | Babu, Levine & Ooi, "Trends Everywhere", *J. Investment Management* (AQR) | [S]; **[U]** on any credit figure |
+| Corporate-bond momentum, 1973–2011, concentrated in non-investment-grade bonds. This predates the replication papers above | Jostova, Nikolova, Philipov & Stahel (2013), *RFS* | [S]; **[U]** on magnitudes |
+| **REFUTED 0–3, do not cite:** three claims about muni CEF discounts, 1999–2009 — slow reversion (daily φ 0.979), a uniform negative S&P beta, weak rate sensitivity. The paper's Tables 3 and 4 disagree on the sign of the S&P coefficient | Koutmos & Tucker (2013), *J. Finance and Investment Analysis* 2(3) | refuted |
+
+### 12b. Broadened pass: cross-asset, structural and venue sources (added 2026-10-08)
+
+These come from three desk agents (alpha-finder, unique-angle-researcher and
+market-structure-analyst) on 2026-10-08. Each [V] was fetched and read by that
+agent; the note's author did not re-read them.
+
+| claim | source | status |
+|---|---|---|
+| Rebalancing by balanced funds and pensions is predictable from calendar and drift signals. A 1sd signal moves equities −16/−17bp and bonds +4/+2bp the **next day**, reverting within two weeks. Strategy Sharpe 1.11 (10.20%/yr at 9.17% vol), skew +5.23, 0.90 excluding crises, 1997-09-10 to 2023-03-17. It earns 17.96%/yr when liquidity risk is high and 3.79%/yr when it is low; only significant from the early 2000s | Harvey, Mazzoleni & Melone, "The Unintended Consequences of Rebalancing" (Jan 2026 version; NBER w33554), https://www.edhec.edu/sites/default/files/2026-03/Scientific%20paper.%20ssrn-5122748.pdf | [V] |
+| 10y Treasury returns over the last 3 days of the month are +0.25%/month (SE 0.05), Sharpe 0.88, 1990–2018; other days are not significant; positive in every 5-year window, and 2015–19 still +0.27 (SE 0.10). 30y futures last 3 days +0.27 (SE 0.03) | Hartley & Schwarz (2019), "Predictable End-of-Month Treasury Returns", https://rodneywhitecenter.wharton.upenn.edu/wp-content/uploads/2019/12/17-19.Schwarz.pdf | [V] full text |
+| Since 2020, last-day-of-month Treasury volume is +46% and price impact −28% | NY Fed, Liberty Street Economics, "End-of-Month Liquidity in the Treasury Market" (2024, revised 2025) | [V] |
+| Institutional liquidity needs create a monthly cycle in asset prices tied to settlement timing; the timing moved when settlement went to T+2 in Sept 2017 | Etula, Rinne, Suominen & Vaittinen (2020), *RFS*, "Dash for Cash" | [V] |
+| US securities settlement moved to T+1 on 2024-05-28 | SEC press release 2023-29 | [V] |
+| Treasury auction cycle: 8.62bp/month (t 3.65), 1980–2008; unprofitable net of costs for holds of 6 days or less | Lou, Yan & Zhang (2013), *RFS* (May 2013 draft) | [V] |
+| The post-auction recovery has reportedly disappeared after 2010 | Somogyi, Wallen & Xu (2025) | [S] (PDF 404) |
+| Per 10bp FOMC surprise, the 10y yield rises 1.7bp the same day and 14bp after 50 days (51 target changes, 1989–2007) | Brooks, Katz & Lustig, NBER w25127 | [V] |
+| Market returns on top-quintile dividend-payment days are 4× the bottom quintile; price multipliers 1.5–2.3 | Hartzmark & Solomon, NBER w30688 | [V] abstract |
+| PDI's plan agent buys in the open market "on or shortly after the payment date" when the fund trades at a discount, and the fund issues new shares when it trades at a premium | PDI dividend reinvestment plan (2012), EDGAR | [V] 2012 text; current N-CSR [S] |
+| YYY index: semiannual; ranks on yield, then discount, then liquidity; effective at the open after the 3rd Friday of Jan/Jul; announced 6 trading days before; 3.5% cap; 45 → 60 funds on 2024-07-22 | Nasdaq, Methodology_YLDA.pdf | [V] |
+| S-Network CEF index family (PCEF): reconstitutes at the close of each quarter's last business day | S-Network Custom CEF Index Family Methodology (VettaFi) | [V] |
+| ARCC's NAV per share is filed 28–35 days after quarter-end | SEC XBRL companyconcept, CIK 1287750 | [V] |
+| The SEC BDC Report 2026 CSV (212 rows) **omits Ares Capital (ARCC)**, so it is not an exhaustive BDC list | sec.gov BDC report 2026 CSV | [V] read in full |
+| Trend 1880–2013: 14.9%/yr gross of fees, Sharpe 0.77 net of 2/20, correlation to equities 0.00; "mixed since 2008" | Hurst, Ooi & Pedersen, "A Century of Evidence on Trend-Following Investing" (2014 update) | [V] full text |
+| Out-of-sample factor premiums (1800–1980 and 2012–16 new samples): bond trend Sharpe 0.53 (t 2.94) replication, 0.49 (t 7.22) new sample; multi-asset trend 1.09 / 0.98; bond carry 0.71 / 0.44; bond value 0.29 / 0.28; country-bond momentum 0.29 / 0.31; country-bond BAB new sample −0.02 (t −0.29); bond seasonality −0.09 / 0.73 | Baltussen, Swinkels & van Vliet, "Global Factor Premiums" (WP Jan 2019; *JFE* 2021), Tables I, II, IV, VI | [V] WP; published figures may differ |
+| Time-series momentum: "speculators profit … at the expense of hedgers" | Moskowitz, Ooi & Pedersen (2012), *JFE* | [V] abstract and intro |
+| Little asset-by-asset evidence for TSMOM; the strategy performs about the same as a rule that uses only the historical sample mean | Huang, Li, Wang & Zhou (2020), *JFE* 135(3) | [V] abstract |
+| Treasury BAB Sharpe 0.81, α 0.17%/month (t 6.26); credit BAB Sharpe 0.82 | Frazzini & Pedersen (2014), *JFE* | [V] |
+| Volatility scaling lifts equity Sharpe 0.40 → 0.48–0.51, "slightly" for credit, negligibly for bonds; smaller left tails everywhere | Harvey et al. (2018), "The Impact of Volatility Targeting", *JPM* | [V] text |
+| In real time, 53 of 103 volatility-managed portfolios beat their unmanaged versions, against a null expectation of 66 | Cederburg, O'Doherty, Wang & Yan (2020), *JFE* | [V] |
+| Forward-rate models do not beat no-predictability out of sample, and get worse | Thornton & Valente, St Louis Fed WP 2010-034 | [V] abstract |
+| Evidence for bond-return predictors beyond the level and slope of the curve is "much weaker" | Bauer & Hamilton, NBER w23480 | [V] abstract |
+| 97 equity predictors: returns 26% lower out of sample and 58% lower after publication | McLean & Pontiff (2016), *J. Finance* | [V] abstract |
+| Lagged stock returns predict daily IG and HY index returns, 2002–10 | Hong, Lin & Wu (2012), *JBF* 36(8) | [V] abstract |
+| Stock-to-bond momentum spillover; issuer quality predicts credit returns; HY corporate index December returns abnormally high; BDC alpha 0 on market value vs 2.74% on NAV; leveraged-ETF rebalancing impact insignificant once flows are counted; announcement-day premia | Gebhardt, Hvidkjaer & Swaminathan (2005); Haesen, Houweling & van Zundert (2017); Greenwood & Hanson (NBER w17197); Kotomin (2021, *JEF*); Suhonen (*FAJ*); Ivanov & Lenkey (FEDS 2018); Savor & Wilson (2013); Jones, Lamont & Lumsdaine (1998) | [S] |
+| **Alpaca paper does not simulate dividends.** Long-yield positions are understated on paper and short-yield positions flattered | docs.alpaca.markets/docs/paper-trading | [V] |
+| Alpaca fixed income is **Broker API only** ("All trading and data retrieval is executed via the Broker API"): T-bills now (notes and bonds "planned"); corporates IG and HY non-144A per the guide, but **IG only per the FAQ (sources disagree)**; market/limit **day** orders, no `cls`; $1,000 face increments. A 2026-07-06 changelog adds `treasury` and `corporate` to the Trading API `AssetClass`. **Whether a paper account can list or trade either is [U]** | Alpaca Fixed Income guide (updated 2026-03-31) and FAQ (2026-01-19); changelog 2026-07-06 | [V] pages; [U] paper eligibility |
+| Cboe BZX: "Users may submit MOC orders until 3:55 p.m." (Rule 11.23(c)(1)(A)) | SR-CboeBZX-2025-086, Exhibit 5 | [S] proposed text; whether it is new or approved is unknown |
+
+### 12c. Scaling pass: how firms earn 10%+ (added 2026-10-08)
+
+Sources behind `results/cef/SCALING_RESEARCH_2026-10-08.md`, from a second
+deep-research workflow (three-vote adversarial checks; [V] means the verifiers
+fetched the source). Search-phase leads that were never voted on are [S].
+
+| claim | source | status |
+|---|---|---|
+| Saba CEFS ETF NAV return: 11.23%/yr since 2017-03-20, 13.53% over 5 years, 10.17% in FY to 2025-11-30. S&P 500 over the same periods: 14.86, 15.28 and 15.00. About 2/3 equity and 1/3 fixed-income CEFs. Bought at an average 10.30% discount and sold at 5.30%, "aided by corporate actions such as tenders, liquidations, and open-end conversions". Line of credit with $61.46M collateral pledged (17.6% of $348.4M net assets). Short S&P, Russell 2000 and 5/10-year Treasury futures. The filing says performance was "primarily driven by the broader increase in prices for underlying equity assets" | Exchange Listed Funds Trust, Form N-CSR filed 2026-01-27, https://www.sec.gov/Archives/edgar/data/1547950/000121390026008248/ea0272650-01_ncsr.htm | [V] audited |
+| Activist attempts, all-sample matched-adjusted discount: −10.78, −8.99 and −8.41pp (SE 1.65) through t+3. Funds that stayed closed-end: −5.27 (attempt year), −3.36, −0.21, +2.07 (t+3); "the result disappears two years after the attack" | Bradley, Brav, Goldstein & Jiang (JFE 2010), Dec 2008 manuscript | [V]. Sample scope contested; see §12 |
+| OFR Form PF, relative-value hedge funds at 2026-06-30: GAV/NAV 23.3× gross-asset-weighted, 8.1× aggregate; secured borrowing $1.187T against $217bn NAV (5.47×); 141 funds. Credit funds: GAV/NAV 2.25×. Relative-value net return 7.24%/yr over 2013Q1–2026Q2 (gross-asset-weighted, winsorised); gross of fees 10.56% (gross-asset-weighted) and 10.24% (NAV-weighted). **A GNE/NAV of 31.6× was refuted 0–3; contested, do not use** | OFR Hedge Fund Monitor (chart-27; API series FPF-STRATEGY_RV_* and _CREDIT_*), updated 2026-09-16 | [V]; sibling series [V, not separately voted] |
+| CEF IPOs underperform seasoned size-matched funds: −8.52% at 6 months, −11.05% at 1 year; 84% underperform; similar across 1986–92, 1993–2004 and 2005–13 (993 IPOs); calendar-time about 0.85%/month | Shao & Ritter (2018), *Critical Finance Review* 7(2), https://cfr.ivo-welch.org/published/papers/shao-ritter.pdf | [V] |
+| The Supreme Court's opinion in *FS Credit Opportunities Corp. v. Saba*, No. 24-345, 608 U.S. 608 (2026-06-11), 6–3: §47(b) creates no implied private right of action. The §18(i) merits question was not decided | supremecourt.gov preliminary print, https://www.supremecourt.gov/opinions/25pdf/608us2r47_m64o.pdf | [V] (see §5 row) |
+| Routes still open to activists after the ruling: state-law claims, §36(b)/fiduciary claims, SEC enforcement. Counsel call the ruling "minor" for traditional activists | MoFo (2026-06-15), Lowenstein Sandler (2026-06-17), Stradley Ronon / The Deal (2026-06-17) | [S] law-firm alerts; Stradley paywalled |
+| Saba, Karpus and Bulldog held stakes in 44% of CEFs at end-2024 (Saba 25%, Karpus 26%, Bulldog 9%). Of 44 forced tenders (2015 to June 2023), the activist exited within 1 year in 75% and within 3 months in 48%; activists "most commonly settle for a tender offer at or close to NAV" | ICI, "Closed-End Fund Activism" fact sheet (data to Dec 2024), https://www.ici.org/files/2024/cef-activism.pdf | [V]; **the source is the fund industry's lobby** |
+| Saba–BlackRock (Jan 2025): BIGZ to tender for 50% and BMEZ for 40%, both at 99.5% of NAV, with a 3-year standstill | Hedgeweek, 2025-01-22 | [S] |
+| Bulldog's SPE: 2025 NAV return 11.59%; about 51% CEFs and 18% SPACs; 2022 issuer tender at 97% of NAV | SPE N-CSR and SC TO-I (EDGAR CIK 897802), via search summary | [S]; the audited return table was not retrieved |
+| Karpus 13D/A on NRK (muni CEF), stake 23.9% | EDGAR, via search summary | [S] |
+| UK: Herald tender for up to 66% at NAV less costs, letting Saba exit under a 3-year standstill | QuotedData, Jan 2026 | [S]; **a different market (no control-share statutes)** |
+| Treasury cash-futures basis: $260–352bn in 2023–24 (TRACE proxy); "typically highly leveraged"; rapid unwinds contributed to the March 2020 stress | Federal Reserve FEDS Note, 2024-03-08 | [V] |
+| The basis trade reached "as much as half of all hedge fund Treasury positions"; its March 2020 unwind was "likely a consequence rather than the primary cause of the stress". **Disagrees with the FEDS note on causation; both reported** | Barth & Kahn, OFR WP 21-01 | [V] abstract |
+| Quant credit fund assets fell 27% in 2022 to $52bn; funds averaged −15% in 2022 as transaction costs more than doubled, then about +10% in 2023 | IFRE, "Quant credit rebounds after tough period" (eVestment, MarketAxess and sell-side quotes) | [V] page; the year is inferred, and these are vendor figures |
+| Robeco systematic credit live since 2015 (HY since 2018); no live performance figures on the page | Robeco insight, Sept 2026 | [V] page |
+| In equity CEFs, leverage causes higher premia (quasi-natural experiment); investors get more volatility, not better performance | Dam, Davies & Moon (2024), *RAPS* 14(1):1–39 | [V] abstract; different market (equity CEFs) |
+| CEFs issue equity mostly by rights offers: negative returns during subscription, weak rebound; same-sector peers fall at the announcement | Brigham (2000, LSU dissertation); Higgins, Howton & Howton (2002, *Financial Review* 37(4)) | [V] abstracts; no magnitudes; about 25 years old |
+| Costly-arbitrage bounds on CEF discounts (158 UK funds) | Gemmill & Thomas (2002), *J. Finance* 57(6) | [S]; different market |
+| CEF short interest rises with the premium but does not speed reversion | Flynn, Vassar WP 63 | [S]; possibly the version with a data error [U] |
+| Costliest-to-short stock quintile about 411bp/yr | Henderson, Jostova & Philipov, via a Swedroe summary | [S]; a different market |
+| **REFUTED, do not use:** ~~BDC zero market-value alpha (1–2) and 2.74% NAV alpha (0–3), Suhonen FAJ 2024~~ **(CORRECTED 2026-10-09: the abstract states both verbatim, "the alpha of BDCs is zero on a market-value basis but a statistically significant 2.74% per annum based on net asset value (NAV) valuations" — [V] abstract, full text 403. The refutation was wrong; use as [V] abstract)**; portfolio-trading cost saving of 44.6% (Barclays, 0–3); hedge-fund repo +104% 2022–24 (0–3); systematic bond capacity (Ivashchenko & Kosowski FAJ 2024, 0–3 twice); three activism claims from the 2006 Wharton WP (0–3) | as listed | refuted |
+
+### 12d. Targeted pass: eight topics (added 2026-10-09)
+
+Sources behind `results/cef/SCALING_RESEARCH_2026-10-08.md` §7, from six desk
+agents (execution-trader, equity-research, alpha-finder ×2,
+unique-angle-researcher, market-structure-analyst). [V] means the agent fetched
+and read the source. **The note's author did not re-read them.** The agents'
+own measurements (CRSP, TRACE, R2 options, Alpaca GET) are scratch-only; re-run
+them in the repo before relying on any figure.
+
+| claim | source | status |
+|---|---|---|
+| Alpaca options: levels 1–3 (paper gets level 3 automatically); **no uncovered short calls or puts**; spreads margined at maximum loss; index options (SPX/XSP) live from 2026-09-02 at $0.50/contract plus exchange fees; the free options feed is "indicative", not OPRA | docs.alpaca.markets options-trading, options-level-3-trading, index-options, historical-option-data; Alpaca support and blog pages | [V] |
+| Cboe iBoxx futures: IBHY about $180.6k notional per contract, maintenance $3,800; IBIG about $141.3k, $2,590; IEMD about $15.6k, $250. 2025 average daily volume IBHY 599, IBIG 561; their options show zero volume and open interest | Cboe CFE margin file 2026-04-15; CFE-2026-011 filing; Cboe settlement and statistics pages (fetched 2026-10-09) | [V] |
+| CDX access: a Tradition SEF minimum of $25mm (IG) and $5mm (HY) (2018); CFTC block sizes IG $200m and HY $50m (from 2024-10); all 33 ICE Clear Credit participants are dealers or banks | Tradition SEF Notice 18-07; CFTC Part 43 block thresholds 2024; ice.com clear-credit participants | [V] |
+| CDX option short straddle: Sharpe 1.744 against 0.659 for SPX, 2012-02 to 2020-04, skew −2.2, gross of costs; median trade $100mm | Collin-Dufresne, Junge & Trolle (2024), *J. Finance* | [V] |
+| CDX index-vs-constituent arbitrage: Sharpe 2.34 gross, 2006–12; the basis widened after 2015 with balance-sheet cost | Junge & Trolle WP (2013); NY Fed *EPR* 2018 (Boyarchenko et al.) | [V] |
+| Bond variance risk premium: Sharpe "almost two" after costs and margin | Choi, Mueller & Vedolin (2017), *Review of Finance* | [V] abstract |
+| Cboe volatility indices VXTLT, VXHYG, VXLQD and VIX (daily CSVs). **VXHYG has a corrupt row (2017-10-30) and no rows from 2021-09-24 to 2025-05-14** | cdn.cboe.com daily_prices CSVs | [V] |
+| Audited returns of the specialists' vehicles: SPE (N-CSR to 2025-12-31), BRW and SABA (to 2025-10-31), RIV and OPP (to 2026-06-30), RNCOX (to 2024-09-30), MDCEX and MDFIX (N-CSR/A to 2026-03-31), PCEF and FCEF (497K to 2024-12-31), YYY (issuer page to 2026-09-30). Figures are in SCALING §7.3 | SEC EDGAR N-CSR, N-CSR/A and 497K filings; amplifyetfs.com | [V] |
+| Matisse attributes discount capture of +490bp (MDCEX, return 20.73%) and +147bp (MDFIX, 4.31%) to the year to 2026-03-31 | Matisse N-CSR/A, 2026 | [V] |
+| CLIG FY26 (to 2026-06-30): Karpus Taxable Fixed Income +5.2% against +3.3%; Tax-Sensitive +7.5% against +7.1% (1 year, net) | CLIG final results RNS, 2026-09-15 | [V] |
+| Form ADV regulatory AUM: Karpus $4.30bn; CLIM $8.06bn; Bulldog $561m; 1607 $3.49bn; Almitas $1.07bn; RiverNorth $6.17bn; Matisse $1.63bn; Saba $18.30bn. **Saba's flagship press figures (about $1.9bn; −6.5% YTD 2025) disagree with the ADV gross asset values**; both reported | adviserinfo.sec.gov Form ADV PDFs; Hedgeweek 2025-12-09 | [V] ADV; [S] press |
+| 13F (2026Q2): RiverNorth holds 11 of the deployed 13. Karpus 13G: 11.03% of MHD (event 2026-02-27). Saba SC 13D on JFR: 10.1% (2020-09-09), falling to 4.73% (2021-07-02) via open-market sales | EDGAR 13F, 13G and 13D filings | [V] |
+| Merger arbitrage: Mitchell & Pulvino (2001) about 4%/yr after risk adjustment; Baker & Savasoglu (2002) 0.6–0.9%/month; spreads compressed (Jetley & Ji 2010) | *J. Finance* 56(6); *JFE* 64; *FAJ* 2010 | [V] abstracts |
+| Capital-structure arbitrage: 0.705%/month at 10% vol, t 1.70 (2001–04); convergence "for only a small fraction" of trades | Duarte, Longstaff & Yu (2007), *RFS* | [V] full text |
+| Security-based swaps with a non-eligible contract participant are unlawful off-exchange; ECP requires more than $10m of total assets (entities) | Exchange Act §6(l), 15 USC 78f; CEA §1a(18), 7 USC 1a | [V] statute |
+| CEF and BDC mergers exchange at relative NAV, set at a determination date at least 48 hours before the effective time; the ratio is rounded to 4 decimals (BDCs); aggregate NAV in equals aggregate NAV out (Eaton Vance N-14) | OCSL and SLRC 8-Ks; FSK 425; Eaton Vance N-14 (2018); GOF press release (2021) | [V] |
+| Convertible arbitrage: arbs held "up to 75%" of the market; more than 20% of capital was redeemed in Q1 2005; median cheapness 2.7% in May 2005; **10.9% in Nov 2008 (8.7 SD), 13.7% at the peak on 2008-12-04**; prime brokers lent at about fed funds +35bp | Mitchell, Pedersen & Pulvino (2007), NBER w12877; Mitchell & Pulvino (2010 draft, JFE 2012) | [V] |
+| Abnormal returns at convertible issuance: −1.69% (1984–99), −4.59% (2000–08), −9.12% (crisis) | Duca, Dutordoir, Veld & Verwijmeren (2012), *JBF* 36(11) | [V] abstract |
+| Convertible-arbitrage alphas "essentially disappear" once liquidity risk is controlled for, except near issuance | Batta, Chacko & Dharan (2010) | [V] abstract |
+| HFRI Convertible Arbitrage annual returns 2013–2023: 8.02, 1.55, 1.92, 8.10, 5.95, −3.08, 10.35, 12.84, 7.71, −1.01, 4.83 | HFR Media Reference Guide, 2024-08-15 | [V] |
+| Rule 144A qualified institutional buyer: $100M of securities owned and invested ($10M for a registered dealer). Reg T: convertibles are margin securities at 50% | 17 CFR 230.144A; 12 CFR 220.2 and 220.12 | [V] |
+| BAC Series L conversion ratio 20; WFC Series L 6.3814 | BAC 424B5 (2008) and 10-K FY2025 Ex. 4.32; WFC 10-K FY2025 Ex. 4(c) | [V] |
+| A registered CEF may not sell common below current NAV (within 48 hours), except in rights offerings. A BDC may do so only with annual approval by a majority of holders and a majority of unaffiliated holders. Asset coverage 200%, or 150% with approval | 15 USC 80a-23(b), 80a-62(2), 80a-60(a) | [V] statute |
+| BDC Inline XBRL compliance: 2022-08-01 (seasoned filers) or 2023-02-01 (others) | SEC structured-data announcement on the CEF taxonomy (Rel. 33-10771) | [V] |
+| ECC publishes a monthly NAV range within 15 days of month-end (497AD); OXLC publishes NAV estimates and cumulative at-the-market sales in 424B3 supplements: 78.6M shares for $516.5M net, 2020-06-04 to 2022-12-06 | ECC 497AD; OXLC 424B3 supplements | [V] |
+| PDO limited term: dissolution "on or about January 27, 2033"; the board may extend by 1 year plus 6 months; an eligible tender for 100% at NAV may be offered in the final 12 months, with a $200M floor | PDO 424B1, 2021-01-28 | [V] |
+| JHY target term: return $9.85 by 2020-11-01; board may extend by 6 months. It liquidated at $9.53 | JHY 497 (2015); Nuveen N-CSRs 2019 and 2020 | [V] |
+| BTT (old, 1988–2000) objective: "return $10 per share … on or shortly before December 31, 2000" | N-30D, FY1998 | [V] |
+| DMO removed its term by shareholder vote with no tender (2019), while trading at a premium. ETX's term is 2028-06-30, with a 12-month extension | DMO DEF 14A, 2019-09-26; ETX DEF 14A, 2026-09-24 | [V] |
+| Tender-then-convert outcomes: JLS (2019, 65.5% tendered), JPT (2022), IGI/GDO/HYI (2024–25), JPI (2024), MMD (2024, 32.8%); XFLT removed its term by vote with no tender (2024) | Business Wire and sponsor press releases | [S] |
+| No study of US term or target-term CEF discount convergence was found. The nearest is Brauer (1984): discounts fade before a scheduled open-ending | search | [S]; a negative search result |

@@ -12,8 +12,10 @@ of what** the book holds, and you own the consequences.
 ## The mandate
 
 **Judged on absolute return**, vol target **derived** with a **cap of 20%**,
-subject to kill-probability and margin-cushion constraints. Paper indefinitely —
-the deliverable is a competition track record. No real capital planned.
+subject to kill-probability and margin-cushion constraints. On paper now, with
+**real capital planned** (team lead, 2026-10-09, `docs/SYSTEM.md` §5). Target: at
+least 10%/yr gross, with net beside it, on Reg T for now. Alpha only: deliberate
+beta is not a sleeve.
 
 ## The two structural problems
 

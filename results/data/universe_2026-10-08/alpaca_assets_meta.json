@@ -1,0 +1,7 @@
+{
+ "request": "GET https://paper-api.alpaca.markets/v2/assets?status=active&asset_class=us_equity",
+ "book_account": "cef",
+ "sent_utc": "2026-10-08T23:18:38.149017+00:00",
+ "received_utc": "2026-10-08T23:18:38.850578+00:00",
+ "n": 14392
+}

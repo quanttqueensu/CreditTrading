@@ -98,4 +98,10 @@ No copies of old trees, no IBKR software, no hand-edited files.
 
 - A read-only dashboard, rebuilt fresh.
 - New research work orders, written against `docs/BRIEF.md` and checked against
-  `/graveyard` first.
+  `/graveyard` first. **The programme from 2026-10-09 is
+  `results/cef/RESEARCH_PLAN_2026-10-09.md`.** It covers foundations
+  (0 trials), zero-trial gates, then trials on the CEF, EVENTS, XASSET and GAMMA
+  counters, under the team lead's rulings of 2026-10-09 (`docs/SYSTEM.md` §5).
+  Two of its foundation items touch the live path, so each goes through a test
+  and `/release-check`: the official-close mapping beyond NYSE, and the
+  distribution-adjusted third P&L line.
