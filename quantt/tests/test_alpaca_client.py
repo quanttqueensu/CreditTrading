@@ -723,3 +723,49 @@ def test_distributions_refuse_an_inverted_window(env_file, sleeps):
     c, _ = client(env_file, sleeps)
     with pytest.raises(ValueError, match="before start"):
         c.distributions(["PDI"], dt.date(2026, 12, 1), dt.date(2026, 9, 1))
+
+
+# ------------------------------------------------------ the whole asset list
+
+def bulk_asset_row(sym, **kw):
+    r = {"symbol": sym, "status": "active", "exchange": "NYSE", "tradable": True,
+         "shortable": True, "marginable": True, "fractionable": False,
+         "easy_to_borrow": True, "borrow_status": "easy_to_borrow",
+         "maintenance_margin_requirement": 30, "margin_requirement_long": "30",
+         "margin_requirement_short": "30"}
+    r.update(kw)
+    return r
+
+
+def test_assets_parse_flags_and_ask_for_active_us_equity(env_file, sleeps):
+    body = FakeResp(200, [bulk_asset_row("PDI"), bulk_asset_row("AWF", shortable=False, easy_to_borrow=False,
+                                                      borrow_status="hard_to_borrow")])
+    c, s = client(env_file, sleeps, route({"/v2/assets": body}))
+    out = c.assets()
+    assert [(r["symbol"], r["shortable"], r["easy_to_borrow"]) for r in out] == [
+        ("PDI", True, True), ("AWF", False, False)]
+    assert out[0]["maintenance_margin_requirement"] == 30.0
+    assert s.gets[0][1] == {"status": "active", "asset_class": "us_equity"}
+
+
+def test_assets_absent_optional_fields_are_none_never_guessed(env_file, sleeps):
+    r = bulk_asset_row("PDI")
+    for k in ("easy_to_borrow", "borrow_status", "maintenance_margin_requirement"):
+        del r[k]
+    c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [r])}))
+    row, = c.assets()
+    assert row["easy_to_borrow"] is None and row["borrow_status"] is None
+    assert row["maintenance_margin_requirement"] is None
+
+
+@pytest.mark.parametrize("bad", [{"shortable": "true"}, {"borrow_status": "maybe"}])
+def test_assets_refuse_an_untyped_flag(env_file, sleeps, bad):
+    c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [bulk_asset_row("PDI", **bad)])}))
+    with pytest.raises(al.UnexpectedResponse):
+        c.assets()
+
+
+def test_assets_refuse_a_symbol_listed_twice(env_file, sleeps):
+    c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [bulk_asset_row("PDI"), bulk_asset_row("PDI")])}))
+    with pytest.raises(al.UnexpectedResponse, match="twice"):
+        c.assets()

@@ -99,6 +99,19 @@ class FakeClient:
         self.calls.append(("fills", date))
         return []
 
+    # Borrow flags by symbol; a test may replace `self.flags` to change a day.
+    flags = {"AAA": (True, True, True), "BBB": (True, True, True), "ZZZ": (True, False, False)}
+
+    def assets(self, *, status="active", asset_class="us_equity"):
+        assert status == "active" and asset_class == "us_equity"
+        self.calls.append("assets")
+        return [{"symbol": s, "exchange": "NYSE", "status": "active", "tradable": tr,
+                 "shortable": sh, "marginable": True, "fractionable": False,
+                 "easy_to_borrow": etb, "borrow_status": "easy_to_borrow" if etb else "hard_to_borrow",
+                 "maintenance_margin_requirement": 30.0, "margin_requirement_long": 30.0,
+                 "margin_requirement_short": 30.0}
+                for s, (tr, sh, etb) in sorted(self.flags.items())]
+
 
 class FakeRun:
     def __init__(self, codes=None):
@@ -441,3 +454,58 @@ def test_collect_package_never_names_the_transmit_method():
     for f in pkg.glob("*.py"):
         assert "submit_order" not in f.read_text(), f"{f.name} names submit_order"
     assert not hasattr(FakeClient, "submit_order")
+
+
+# ------------------------------------------------------------------ borrow snapshot
+
+def _assets(env, day=D):
+    import pandas as pd
+    return pd.read_parquet(env[0] / "data" / day.isoformat() / co.ASSETS_FILE)
+
+
+def test_borrow_snapshot_writes_the_whole_list_with_its_read_time(env):
+    co.collect(make_ctx(env))
+    a = _assets(env)
+    assert sorted(a["symbol"]) == ["AAA", "BBB", "ZZZ"] and a["read_at_utc"].notna().all()
+    d = status(env)["steps"]["borrow_snapshot"]
+    assert d["ok"] and d["detail"]["n_assets"] == 3 and d["detail"]["deployed_not_shortable"] == []
+    assert d["detail"]["compared_with"] == "no previous snapshot"
+
+
+def test_a_deployed_name_whose_borrow_flipped_is_a_flag_and_others_are_not(env):
+    import pandas as pd
+    prev_dir = env[0] / "data" / PREV.isoformat()
+    prev_dir.mkdir(parents=True)
+    pd.DataFrame([{"symbol": "AAA", "tradable": True, "shortable": True, "easy_to_borrow": True},
+                  {"symbol": "BBB", "tradable": True, "shortable": True, "easy_to_borrow": True},
+                  {"symbol": "ZZZ", "tradable": True, "shortable": True, "easy_to_borrow": True}]
+                 ).to_parquet(prev_dir / co.ASSETS_FILE)
+    client = FakeClient()
+    client.flags = {"AAA": (True, False, False), "BBB": (True, True, True), "ZZZ": (True, False, False)}
+    assert co.collect(make_ctx(env, client)) == co.EXIT_OK      # report only: never fails the run
+    d = status(env)["steps"]["borrow_snapshot"]["detail"]
+    got = {(f["fund"], f["field"], f["previous"], f["now"]) for f in d["flags"]}
+    assert got == {("AAA", "shortable", True, False), ("AAA", "easy_to_borrow", True, False)}
+    assert d["deployed_not_shortable"] == ["AAA"] and d["compared_with"] == PREV.isoformat()
+
+
+def test_a_deployed_name_missing_from_alpacas_list_is_a_gap(env):
+    client = FakeClient()
+    client.flags = {"AAA": (True, True, True)}
+    co.collect(make_ctx(env, client))
+    gaps = status(env)["steps"]["borrow_snapshot"]["detail"]["gaps"]
+    assert [g["fund"] for g in gaps] == ["BBB"]
+
+
+def test_borrow_is_not_recorded_once_the_next_session_has_opened(env):
+    client = FakeClient(now=et(NEXT, 10), is_open=True, next_open=et(dt.date(2026, 10, 1), 9, 30))
+    co.collect(make_ctx(env, client))
+    assert not status(env)["steps"]["borrow_snapshot"]["ok"]
+    assert "assets" not in client.calls
+
+
+def test_an_empty_asset_list_fails_the_step_so_it_is_retried(env):
+    client = FakeClient()
+    client.flags = {}
+    assert co.collect(make_ctx(env, client)) == co.EXIT_INCOMPLETE
+    assert "empty" in status(env)["steps"]["borrow_snapshot"]["err"]

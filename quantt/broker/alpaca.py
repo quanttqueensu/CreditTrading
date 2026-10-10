@@ -700,6 +700,55 @@ class AlpacaClient:
             raise UnexpectedResponse(f"{w}: borrow_status {raw['borrow_status']!r} is not a documented value")
         return raw
 
+    def assets(self, *, status: str = "active", asset_class: str = "us_equity") -> list[dict]:
+        """GET /v2/assets: every asset in one response, as compact typed rows.
+
+        One row per asset: symbol, exchange, status, the ASSET_BOOL flags, and,
+        when Alpaca sends them, easy_to_borrow, borrow_status and the margin
+        requirements. An absent optional field is None, never a guessed value.
+
+        WHY. The daily borrow snapshot (collector step `borrow_snapshot`,
+        `results/cef/RESEARCH_PLAN_2026-10-09.md` 0.3). Borrow flags change daily:
+        AWF and MHD were shortable on 2026-09-28 and not on 2026-10-08. Research
+        on short sleeves needs the history, and Alpaca keeps none. A row is true
+        at its read time only.
+
+        The response is one unpaged list [V: one call returned 14,392 rows,
+        2026-10-08]. A repeated symbol raises: two rows for one name cannot both
+        be the flag.
+        """
+        if status not in ("active", "inactive"):
+            raise ValueError(f"status {status!r} must be active|inactive")
+        if asset_class not in ("us_equity",):
+            raise ValueError(f"asset_class {asset_class!r}: only us_equity is used here")
+        raw = self._get(self._base, "/v2/assets", {"status": status, "asset_class": asset_class})
+        w = "GET /v2/assets"
+        if not isinstance(raw, list):
+            raise UnexpectedResponse(f"{w}: expected a list, got {type(raw).__name__}")
+        out, seen = [], set()
+        for i, a in enumerate(raw):
+            wi = f"{w}[{i}]"
+            _require(a, ("symbol", "status", "exchange", *self.ASSET_BOOL), wi)
+            sym = a["symbol"]
+            if not isinstance(sym, str) or not sym:
+                raise UnexpectedResponse(f"{wi}: symbol {sym!r} is not a non-empty string")
+            if sym in seen:
+                raise UnexpectedResponse(f"{wi}: symbol {sym!r} listed twice")
+            seen.add(sym)
+            row = {"symbol": sym, "exchange": a["exchange"], "status": a["status"]}
+            for f in self.ASSET_BOOL:
+                row[f] = _bool(a, f, wi)
+            row["easy_to_borrow"] = _bool(a, "easy_to_borrow", wi) if a.get("easy_to_borrow") is not None else None
+            bs = a.get("borrow_status")
+            if bs is not None and bs not in ("easy_to_borrow", "hard_to_borrow"):
+                raise UnexpectedResponse(f"{wi}: borrow_status {bs!r} is not a documented value")
+            row["borrow_status"] = bs
+            for f in ("maintenance_margin_requirement", "margin_requirement_long",
+                      "margin_requirement_short"):
+                row[f] = _num(a, f, wi) if a.get(f) not in (None, "") else None
+            out.append(row)
+        return out
+
     FILL_FIELDS = ("id", "activity_type", "order_id", "symbol", "side", "qty", "price",
                    "cum_qty", "leaves_qty", "transaction_time", "type", "order_status")
 

@@ -162,6 +162,15 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
   5. `account_snapshot` writes `<D>/account.json` and one row per day in
      `$QUANTT_STATE_DIR/equity.csv`. It is taken only before the next session opens.
   6. `distributions` runs `scripts/fetch_cef_distributions.py`, with a 20-minute timeout.
+  7. `borrow_snapshot` (added 2026-10-09) reads Alpaca's whole active US-equity
+     asset list in one GET. It writes `<D>/assets.parquet`: per symbol, tradable,
+     shortable, easy_to_borrow, borrow_status, margin requirements and the read
+     time. A deployed name whose flags changed since the previous trading day's
+     snapshot is a report-only flag; one missing from the list is a gap. Like
+     `account_snapshot`, it refuses once the next session has opened. Why:
+     Alpaca keeps no borrow history, and the flags churn daily. AWF and MHD were
+     shortable on 2026-09-28, not on 2026-10-08, and shortable again on
+     2026-10-09, when PHK was not.
 - **Where it writes.** Each run that did work writes `<D>/report.json` (steps, flags,
   gaps) and appends one line to `$QUANTT_STATE_DIR/data.log`:
   `<D> DATA COMPLETE|INCOMPLETE <failed steps> flags=<n> gaps=<n>`.
