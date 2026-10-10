@@ -522,9 +522,13 @@ def step_borrow_snapshot(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
     actually be borrowed (results/cef/RESEARCH_PLAN_2026-10-09.md 0.3, gate G1a).
     The rows are written to <state>/data/<D>/assets.parquet with the read time.
 
-    WHEN. The same rule as account_snapshot: valid only until the next session
-    opens. Flags read after that describe a later day, so the step refuses rather
-    than labelling them D.
+    WHEN. Read on D's own ET evening, and nowhere else (review 2026-10-09). The
+    clock read at the start of the run can be ~35 minutes stale by now, since the
+    subprocess steps run first, so it is re-read here just before the GET. The
+    read must be on D's ET calendar date, with the market shut and the next open
+    being the session after D. A retry that only succeeds the next morning would
+    carry Alpaca's overnight refresh, whose time is [U], under D's label. So that
+    day gets no snapshot (the step fails, visibly) rather than a mislabelled one.
 
     REPORT ONLY. A deployed name whose tradable / shortable / easy_to_borrow
     changed since the previous trading day's snapshot is a flag. A deployed name
@@ -533,12 +537,14 @@ def step_borrow_snapshot(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
     """
     import pandas as pd
     nxt = next_trading_day(day)
-    next_open = clk["next_open"].astimezone(ET)
-    if clk["is_open"] or next_open.date() != nxt:
+    fresh = ctx.client.clock()                     # not the run's clock: see WHEN
+    now_et = fresh["timestamp"].astimezone(ET)
+    next_open = fresh["next_open"].astimezone(ET)
+    if fresh["is_open"] or next_open.date() != nxt or now_et.date() != day:
         raise StepFailed(
-            f"the asset list no longer describes {day}'s close (market open={clk['is_open']}, "
-            f"next open {next_open.isoformat()}, first trading day after {day} is {nxt}); "
-            f"not recorded rather than recorded under the wrong day",
+            f"the asset list would not describe {day}'s evening (now {now_et.isoformat()}, "
+            f"market open={fresh['is_open']}, next open {next_open.isoformat()}, first trading "
+            f"day after {day} is {nxt}); not recorded rather than recorded under the wrong day",
             {"flags": [], "gaps": []})
     read_at = _utc_now()
     rows = ctx.client.assets(status="active", asset_class="us_equity")

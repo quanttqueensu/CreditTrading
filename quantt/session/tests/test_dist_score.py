@@ -1,30 +1,41 @@
 """`quantt/session/dist_score.py`: the distribution-adjusted third score.
 
-What these pin (team lead 2026-10-09, `docs/SYSTEM.md` §5; the module docstring):
-  * the entitlement rule: shares held at the START of the ex-date are credited if
-    long and charged if short; D's fills earn nothing;
+What these pin (team lead 2026-10-09, `docs/SYSTEM.md` §5; the module docstring;
+the review of 2026-10-09):
+  * entitlement: shares held at the START of the ex-date, as verify recorded them
+    (`held_into_close`), are credited if long and charged if short. D's fills,
+    and the end-of-day positions, are not what is entitled;
   * the two-source rule: Alpaca primary, the yfinance panel a cross-check within
-    rounding; a real conflict, or an ex-date only the panel lists, is UNMEASURED
-    naming both; never averaged;
-  * a missing term makes the sum UNMEASURED, as in `score.py`;
-  * it writes only its own file, never scores.csv, never twice for one day, and a
-    failure is a row naming it, never a changed verdict.
-Hermetic: a fake client, a temporary state dir, an in-memory panel.
+    rounding; a real conflict, or panel-only, is UNMEASURED naming both; never
+    averaged;
+  * a zero needs BOTH sources silent with the panel current, i.e. rewritten after
+    the close of the session following D. Alpaca's silence alone is UNMEASURED;
+  * the lag: D is scored only once two sessions have closed after it;
+  * records: one row per D; an UNMEASURED row is replaced by a later measurement,
+    a measured row never is; a failure is a row naming it;
+  * inside verify: never the verdict, never the exit code.
+Hermetic: a fake client, a temporary state dir, a temporary panel file.
 """
 import ast
 import csv
 import datetime as dt
 import inspect
+import json
+import os
 
 import pandas as pd
 import pytest
 
+from ops.schedule.nyse_calendar import next_trading_day, previous_trading_day
 from quantt.session import dist_score as ds
-from quantt.session import score as sc
 from quantt.session import verify as vf
 
-D = dt.date(2026, 10, 13)
-NOW = dt.datetime(2026, 10, 13, 21, 30, tzinfo=dt.timezone.utc)
+D = dt.date(2026, 10, 14)          # Wednesday: the ex-date under test
+NEXT = dt.date(2026, 10, 15)       # the session after D
+TODAY = dt.date(2026, 10, 16)      # two sessions after D: D is due
+NOW = dt.datetime(2026, 10, 16, 21, 30, tzinfo=dt.timezone.utc)
+ET = ds.ET
+CAL = dict(previous_trading_day=previous_trading_day, next_trading_day=next_trading_day)
 
 
 def ev(sym, amount, ex=D, kind="cash_dividend", i=None):
@@ -35,6 +46,18 @@ def ev(sym, amount, ex=D, kind="cash_dividend", i=None):
 def panel(rows):
     return pd.DataFrame(rows, columns=["ticker", "ex_date", "amount"]).assign(
         ex_date=lambda d: pd.to_datetime(d["ex_date"]))
+
+
+def write_panel(tmp_path, rows, *, written_et):
+    p = tmp_path / "panel.parquet"
+    panel(rows).to_parquet(p)
+    ts = written_et.timestamp()
+    os.utime(p, (ts, ts))
+    return p
+
+
+AFTER_NEXT_CLOSE = dt.datetime.combine(NEXT, dt.time(18, 0), ET)    # current for D
+BEFORE_NEXT_CLOSE = dt.datetime.combine(NEXT, dt.time(15, 0), ET)   # not yet current
 
 
 class FakeClient:
@@ -48,10 +71,32 @@ class FakeClient:
         return list(self.events)
 
 
+def session(state, day=D, *, held=None, auction="50.00", positions_after=None, extra_rows=()):
+    """What verify leaves behind for `day`: reconcile.json and a scores.csv row."""
+    d = state / day.isoformat()
+    d.mkdir(parents=True, exist_ok=True)
+    rec = {"verdict": "x", "held_into_close": held if held is not None else {"PDI": 100},
+           "positions_after": positions_after or {}}
+    (d / "reconcile.json").write_text(json.dumps(rec))
+    p = state / "scores.csv"
+    new = not p.exists()
+    with p.open("a", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=vf.SCORES_COLUMNS)
+        if new:
+            w.writeheader()
+        for a in (auction, *extra_rows):
+            w.writerow({**{c: "" for c in vf.SCORES_COLUMNS}, "date": day.isoformat(),
+                        "auction_pnl_usd": a})
+
+
 def rows_of(state):
     p = state / "distribution_scores.csv"
     with p.open(newline="") as fh:
         return list(csv.DictReader(fh))
+
+
+def run(state, client, panel_path, today=TODAY):
+    return ds.run_pending(client, state, today, now_utc=NOW, panel_path=panel_path, **CAL)
 
 
 # ------------------------------------------------------------------ the rule
@@ -63,13 +108,8 @@ def test_a_long_is_credited_and_a_short_is_charged():
     assert by["PDI"]["dist_pnl"] > 0 and by["PTY"]["dist_pnl"] < 0
 
 
-def test_no_distribution_on_d_is_an_explicit_zero():
-    pnl, rows, un = ds.score({"PDI": 100}, {"PDI": 0.0}, {})
-    assert pnl == 0.0 and rows[0]["dist_pnl"] == 0.0 and un == []
-
-
 def test_a_missing_term_makes_the_sum_unmeasured():
-    pnl, rows, un = ds.score({"PDI": 100, "PTY": 50}, {"PDI": 0.22}, {"PTY": "sources disagree"})
+    pnl, _, un = ds.score({"PDI": 100, "PTY": 50}, {"PDI": 0.22}, {"PTY": "sources disagree"})
     assert pnl is None and un == ["PTY: sources disagree"]
 
 
@@ -91,127 +131,165 @@ def test_a_per_share_amount_must_be_a_finite_non_negative_number(a):
         ds.score({"PDI": 100}, {"PDI": a}, {})
 
 
+def test_entitlement_is_the_book_held_into_d_not_the_end_of_day_positions(tmp_path):
+    """D's fills (here: PDI covered and PTY bought on D) earn nothing: positions_after
+    differs from held_into_close, and only the latter is scored."""
+    session(tmp_path, held={"PDI": -100}, positions_after={"PTY": 300})
+    p = write_panel(tmp_path, [("PDI", D, 0.221), ("PTY", D, 0.119)], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([ev("PDI", 0.2205), ev("PTY", 0.1188)]), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == f"{-100 * 0.2205:.2f}"
+    assert [x["symbol"] for x in json.loads(r["per_symbol_json"])] == ["PDI"]
+
+
 # ------------------------------------------------------- the two-source rule
 
+def _resolve(alp, pan, current=True):
+    return ds.resolve(["S"], D, alp, panel(pan), panel_current=current, panel_note="n")
+
+
 def test_agreement_within_rounding_uses_alpacas_more_precise_amount():
-    ps, gaps, notes = ds.resolve(["MHD"], D, [ev("MHD", 0.0595)], panel([("MHD", D, 0.060)]))
-    assert ps == {"MHD": 0.0595} and gaps == {} and "Alpaca used" in notes["MHD"]
+    ps, gaps, notes, events = _resolve([ev("S", 0.0595)], [("S", D, 0.060)])
+    assert ps == {"S": 0.0595} and gaps == {} and "Alpaca used" in notes["S"]
+    assert events["S"] == [{"id": "S-2026-10-14-0.0595", "kind": "cash_dividend", "amount": 0.0595}]
 
 
 def test_a_real_conflict_is_unmeasured_naming_both_and_never_averaged():
-    ps, gaps, _ = ds.resolve(["PDI"], D, [ev("PDI", 0.2205)], panel([("PDI", D, 0.25)]))
-    assert ps == {} and "Alpaca 0.2205" in gaps["PDI"] and "0.25" in gaps["PDI"]
-    assert "not averaged" in gaps["PDI"]
+    ps, gaps, _, _ = _resolve([ev("S", 0.2205)], [("S", D, 0.25)])
+    assert ps == {} and "Alpaca 0.2205" in gaps["S"] and "0.25" in gaps["S"] and "not averaged" in gaps["S"]
 
 
 def test_only_alpaca_listing_d_uses_alpaca():
-    ps, gaps, notes = ds.resolve(["PDI"], D, [ev("PDI", 0.2205)], panel([]))
-    assert ps == {"PDI": 0.2205} and "does not list" in notes["PDI"]
+    ps, gaps, notes, _ = _resolve([ev("S", 0.2205)], [])
+    assert ps == {"S": 0.2205} and "does not list" in notes["S"]
 
 
 def test_only_the_panel_listing_d_is_unmeasured_because_silence_is_not_zero():
-    ps, gaps, _ = ds.resolve(["PDI"], D, [], panel([("PDI", D, 0.221)]))
-    assert ps == {} and "silence is not a zero" in gaps["PDI"]
+    ps, gaps, _, _ = _resolve([], [("S", D, 0.221)])
+    assert ps == {} and "silence is not a zero" in gaps["S"]
 
 
-def test_neither_source_listing_d_is_zero_and_says_so():
-    other_day = D - dt.timedelta(days=30)
-    ps, gaps, notes = ds.resolve(["PDI"], D, [ev("PDI", 0.2205, ex=other_day)],
-                                 panel([("PDI", other_day, 0.221)]))
-    assert ps == {"PDI": 0.0} and gaps == {} and "none listed" in notes["PDI"]
+def test_neither_listing_d_is_zero_only_when_the_panel_is_current():
+    ps, gaps, notes, _ = _resolve([], [], current=True)
+    assert ps == {"S": 0.0} and "none listed" in notes["S"]
+    ps, gaps, _, _ = _resolve([], [], current=False)
+    assert ps == {} and "not yet current" in gaps["S"]
 
 
-def test_two_events_on_one_ex_date_are_summed_with_a_wider_tolerance():
-    alp = [ev("PDI", 0.2205, i="a"), ev("PDI", 0.5, i="b")]
-    ps, gaps, _ = ds.resolve(["PDI"], D, alp, panel([("PDI", D, 0.221), ("PDI", D, 0.5)]))
-    assert ps["PDI"] == pytest.approx(0.7205) and gaps == {}
+def test_two_events_on_one_ex_date_are_summed_and_both_recorded():
+    alp = [ev("S", 0.2205, i="a"), ev("S", 0.5, i="b", kind="capital_gains_distribution")]
+    ps, gaps, _, events = _resolve(alp, [("S", D, 0.221), ("S", D, 0.5)])
+    assert ps["S"] == pytest.approx(0.7205) and gaps == {}
+    assert {e["kind"] for e in events["S"]} == {"cash_dividend", "capital_gains_distribution"}
 
 
-def test_split_rows_with_zero_amount_in_the_panel_are_not_distributions():
-    ps, gaps, _ = ds.resolve(["PDI"], D, [], panel([("PDI", D, 0.0)]))
-    assert ps == {"PDI": 0.0} and gaps == {}
+def test_the_panel_is_current_only_after_the_next_sessions_close():
+    need = ds._session_close_utc(NEXT)
+    assert ds.panel_judgement(D, need, D, NEXT)[0] is True
+    assert ds.panel_judgement(D, need - dt.timedelta(seconds=1), D, NEXT)[0] is False
+    assert ds.panel_judgement(D, None, None, NEXT) == (False, "panel absent")
 
 
-def test_no_panel_at_all_still_resolves_and_says_the_second_source_was_absent():
-    ps, gaps, notes = ds.resolve(["PDI"], D, [ev("PDI", 0.2205)], None)
-    assert ps == {"PDI": 0.2205} and "panel absent" in notes["PDI"]
+# ------------------------------------------------------------- the run and its records
 
-
-# ------------------------------------------------------------- the records
-
-def test_run_day_writes_its_own_file_with_the_combined_line(tmp_path):
-    p = tmp_path / "panel.parquet"
-    panel([("PDI", D, 0.221)]).to_parquet(p)
+def test_d_is_scored_two_sessions_later_with_the_combined_line(tmp_path):
+    session(tmp_path, held={"PDI": 100, "PTY": -200}, auction="50.00")
+    p = write_panel(tmp_path, [("PDI", D, 0.221), ("PTY", D, 0.119)], written_et=AFTER_NEXT_CLOSE)
     c = FakeClient([ev("PDI", 0.2205), ev("PTY", 0.1188)])
-    row = ds.run_day(c, tmp_path, D, held={"PDI": 100, "PTY": -200}, auction_pnl=50.0,
-                     now_utc=NOW, panel_path=p)
+    assert run(tmp_path, c, p) == [(D, f"{100 * 0.2205 - 200 * 0.1188:.2f}")]
+    r, = rows_of(tmp_path)
     want = 100 * 0.2205 - 200 * 0.1188
-    assert row["distribution_pnl_usd"] == f"{want:.2f}"
-    assert row["auction_pnl_with_distributions_usd"] == f"{50.0 + want:.2f}"
-    assert not (tmp_path / "scores.csv").exists()
-    assert tuple(rows_of(tmp_path)[0]) == ds.COLUMNS
-    # The query window brackets D widely: the API's date filter is not the ex-date.
+    assert r["auction_pnl_with_distributions_usd"] == f"{50.0 + want:.2f}"
+    assert not (tmp_path / "scores.csv").read_text().count("distribution")
     (syms, start, end), = c.calls
-    assert syms == ("PDI", "PTY") and start < D - dt.timedelta(days=30) and end > D + dt.timedelta(days=60)
+    assert syms == ("PDI", "PTY") and start == D - dt.timedelta(days=120) and end == D + dt.timedelta(days=120)
 
 
-def test_an_unmeasured_auction_makes_the_combined_line_unmeasured(tmp_path):
-    row = ds.run_day(FakeClient([ev("PDI", 0.2205)]), tmp_path, D, held={"PDI": 100},
-                     auction_pnl=None, now_utc=NOW, panel_path=tmp_path / "none.parquet")
-    assert row["distribution_pnl_usd"] == "22.05"
-    assert row["auction_pnl_with_distributions_usd"] == ds.UNMEASURED
+def test_a_session_younger_than_the_lag_is_not_scored_yet(tmp_path):
+    session(tmp_path, day=NEXT)
+    p = write_panel(tmp_path, [], written_et=AFTER_NEXT_CLOSE)
+    assert run(tmp_path, FakeClient(), p) == []
+    assert not (tmp_path / "distribution_scores.csv").exists()
 
 
-def test_a_day_is_scored_once_even_if_verify_is_rerun(tmp_path):
-    args = dict(held={"PDI": 100}, auction_pnl=1.0, now_utc=NOW, panel_path=tmp_path / "x.parquet")
-    assert ds.run_day(FakeClient([ev("PDI", 0.2205)]), tmp_path, D, **args) is not None
-    assert ds.run_day(FakeClient([ev("PDI", 0.2205)]), tmp_path, D, **args) is None
-    assert len(rows_of(tmp_path)) == 1
+def test_a_stale_panel_leaves_the_day_unmeasured_and_a_later_run_measures_it(tmp_path):
+    session(tmp_path, held={"PDI": 100})
+    stale = write_panel(tmp_path, [], written_et=BEFORE_NEXT_CLOSE)
+    run(tmp_path, FakeClient([]), stale)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == ds.UNMEASURED and "not yet current" in r["unmeasured"]
+    fresh = write_panel(tmp_path, [], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([]), fresh)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == "0.00"
+
+
+def test_an_error_row_is_replaced_by_a_later_measurement(tmp_path):
+    session(tmp_path, held={"PDI": 100})
+    p = write_panel(tmp_path, [("PDI", D, 0.221)], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient(exc=RuntimeError("data API 503")), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == ds.UNMEASURED and "503" in r["unmeasured"]
+    run(tmp_path, FakeClient([ev("PDI", 0.2205)]), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == "22.05"
+
+
+def test_a_measured_row_is_final(tmp_path):
+    session(tmp_path, held={"PDI": 100})
+    p = write_panel(tmp_path, [("PDI", D, 0.221)], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([ev("PDI", 0.2205)]), p)
+    c = FakeClient([ev("PDI", 9.99)])
+    assert run(tmp_path, c, p) == [] and c.calls == []
+    assert rows_of(tmp_path)[0]["distribution_pnl_usd"] == "22.05"
+    with pytest.raises(ds.DistError, match="measured row"):
+        ds.upsert(tmp_path / "distribution_scores.csv", {**rows_of(tmp_path)[0]})
+
+
+def test_scores_rows_that_disagree_are_named_never_picked(tmp_path):
+    session(tmp_path, auction="50.00", extra_rows=("51.00",))
+    p = write_panel(tmp_path, [], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([]), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == ds.UNMEASURED and "disagree" in r["unmeasured"]
+
+
+def test_an_unmeasured_auction_makes_only_the_combined_line_unmeasured(tmp_path):
+    session(tmp_path, held={"PDI": 100}, auction=ds.UNMEASURED)
+    p = write_panel(tmp_path, [("PDI", D, 0.221)], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([ev("PDI", 0.2205)]), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == "22.05" and r["auction_pnl_with_distributions_usd"] == ds.UNMEASURED
 
 
 def test_no_positions_means_nothing_is_entitled_and_no_query(tmp_path):
+    session(tmp_path, held={})
     c = FakeClient()
-    row = ds.run_day(c, tmp_path, D, held={}, auction_pnl=0.0, now_utc=NOW)
-    assert row["distribution_pnl_usd"] == "0.00" and c.calls == []
+    run(tmp_path, c, tmp_path / "absent.parquet")
+    assert rows_of(tmp_path)[0]["distribution_pnl_usd"] == "0.00" and c.calls == []
 
 
-def test_a_file_with_foreign_columns_is_refused(tmp_path):
-    (tmp_path / "distribution_scores.csv").write_text("a,b\n1,2\n")
-    with pytest.raises(ds.DistError, match="header"):
-        ds.run_day(FakeClient([ev("PDI", 0.1)]), tmp_path, D, held={"PDI": 1}, auction_pnl=0.0,
-                   now_utc=NOW, panel_path=tmp_path / "x.parquet")
+def test_a_day_with_no_session_folder_is_skipped(tmp_path):
+    assert run(tmp_path, FakeClient(), tmp_path / "absent.parquet") == []
 
 
 # ------------------------------------------------- inside verify, never the verdict
 
-def _verdict(ok=True, held=None, score=True):
-    # The DayScore is built empty; the hook reads only `auction_pnl` from it and
-    # takes the held book from `detail`, as verify writes it.
-    s = sc.score_day(held={}, fills=[], auction_d=sc.AuctionPrints(),
-                     auction_prev=sc.AuctionPrints(), equity=1.0, last_equity=1.0) if score else None
-    return vf.Verdict(date=D, book="cef", ok=ok, reason="r", score=s,
-                      detail={"held_into_close": held or {}} if score else {})
-
-
-def test_verify_hook_records_a_failure_as_an_unmeasured_row_and_leaves_the_verdict(tmp_path):
-    v = _verdict(ok=True, held={"PDI": 100})
-    vf.run_distributions(FakeClient(exc=RuntimeError("data API down")), tmp_path, v)
-    assert v.ok is True
-    r, = rows_of(tmp_path)
-    assert r["distribution_pnl_usd"] == ds.UNMEASURED and "data API down" in r["unmeasured"]
-
-
-def test_verify_hook_with_no_score_says_why(tmp_path):
-    v = _verdict(ok=False, score=False)
-    vf.run_distributions(FakeClient(), tmp_path, v)
-    r, = rows_of(tmp_path)
-    assert "verify produced no score" in r["unmeasured"]
+def test_verify_main_exits_0_on_a_pass_even_if_the_distribution_file_is_foreign(monkeypatch, tmp_path):
+    """Review 2026-10-09: a failure inside a hook's error handling escaped main() and
+    turned a PASS day into exit 1. Each hook is now guarded on its own."""
+    from quantt.session.tests.test_verify import D as VD, FakeClient as VerifyClient, plan, log_lines
+    monkeypatch.setenv("QUANTT_STATE_DIR", str(tmp_path))
+    (tmp_path / VD.isoformat()).mkdir()                 # what test_verify's `state` fixture does
+    plan(tmp_path, refusals=[("halt", "x")])
+    (tmp_path / "distribution_scores.csv").write_text("a,b\n1,2\n")
+    monkeypatch.setattr(vf, "_make_client", lambda book: VerifyClient())
+    assert vf.main(["--book", "cef"]) == 0
+    assert log_lines(tmp_path)[0].startswith("2026-09-29 PASS")
 
 
 def test_verify_hook_skips_non_trading_days(tmp_path):
-    v = _verdict()
-    v.date = dt.date(2026, 10, 10)            # a Saturday
-    vf.run_distributions(FakeClient(), tmp_path, v)
+    vf.run_distributions(FakeClient(), tmp_path, dt.date(2026, 10, 10))      # a Saturday
     assert not (tmp_path / "distribution_scores.csv").exists()
 
 

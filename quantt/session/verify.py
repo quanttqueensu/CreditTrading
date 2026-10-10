@@ -717,34 +717,37 @@ def main(argv=None) -> int:
     v = write_outputs(state_dir, v)
     print(v.line())
     if client is not None:
-        run_shadow(client, state_dir, v.date, condition=args.condition)
-        run_distributions(client, state_dir, v)
+        # Each post-verdict hook is guarded on its own (review 2026-10-09): a failure
+        # inside a hook's own error recording must not escape and turn a PASS day's
+        # exit code into 1, nor stop the next hook. The verdict line is already
+        # written; the error goes to stderr (the job log), naming the hook.
+        for name, hook in (
+                ("shadow", lambda: run_shadow(client, state_dir, v.date, condition=args.condition)),
+                ("distributions", lambda: run_distributions(client, state_dir, v.date))):
+            try:
+                hook()
+            except Exception as e:  # noqa: BLE001 -- reported on stderr; the verdict stands
+                print(f"{name} hook error (verdict unaffected): {type(e).__name__}: {e}",
+                      file=sys.stderr)
     return 0 if v.ok else 1
 
 
-def run_distributions(client, state_dir: Path, v: Verdict) -> None:
+def run_distributions(client, state_dir: Path, today: dt.date) -> None:
     """The distribution-adjusted third score (quantt/session/dist_score.py), after
     the verdict is written and never able to change it (team lead 2026-10-09:
-    Alpaca paper credits no dividends, so carry a third line). A failure is
-    recorded as an UNMEASURED row naming it -- not swallowed, not a FAIL."""
-    from ops.schedule.nyse_calendar import is_trading_day
+    Alpaca paper credits no dividends, so carry a third line). It scores every
+    session at least two sessions old that has no measured row yet, from that
+    day's reconcile.json and scores.csv, so the yfinance cross-check has caught
+    up (review 2026-10-09). A day it cannot measure is an UNMEASURED row, retried."""
+    from ops.schedule.nyse_calendar import is_trading_day, next_trading_day, previous_trading_day
     from quantt.session import dist_score
-    now = dt.datetime.now(dt.timezone.utc)
-    if not is_trading_day(v.date):
+    if not is_trading_day(today):
         return
-    try:
-        if v.score is None or "held_into_close" not in v.detail:
-            raise dist_score.DistError(f"verify produced no score for {v.date}: {v.reason[:200]}")
-        row = dist_score.run_day(client, state_dir, v.date, held=v.detail["held_into_close"],
-                                 auction_pnl=v.score.auction_pnl, now_utc=now)
-        if row is None:
-            print(f"distributions {v.date}: already scored; not appended twice")
-        else:
-            print(f"distributions {v.date}: {row['distribution_pnl_usd']} USD; "
-                  f"auction + distributions {row['auction_pnl_with_distributions_usd']} USD")
-    except Exception as e:  # noqa: BLE001 -- recorded as an UNMEASURED row
-        dist_score.record_error(state_dir, v.date, f"{type(e).__name__}: {e}", now)
-        print(f"distributions {v.date}: UNMEASURED ({type(e).__name__}: {e})")
+    now = dt.datetime.now(dt.timezone.utc)
+    for d, status in dist_score.run_pending(client, state_dir, today, now_utc=now,
+                                            previous_trading_day=previous_trading_day,
+                                            next_trading_day=next_trading_day):
+        print(f"distributions {d}: {status} USD ({dist_score.LABEL.split(':')[0]})")
 
 
 def run_shadow(client, state_dir: Path, day: dt.date, *, condition: str) -> None:

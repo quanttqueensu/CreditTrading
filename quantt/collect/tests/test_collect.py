@@ -497,11 +497,30 @@ def test_a_deployed_name_missing_from_alpacas_list_is_a_gap(env):
     assert [g["fund"] for g in gaps] == ["BBB"]
 
 
-def test_borrow_is_not_recorded_once_the_next_session_has_opened(env):
-    client = FakeClient(now=et(NEXT, 10), is_open=True, next_open=et(dt.date(2026, 10, 1), 9, 30))
+def _borrow_refused(env, client):
     co.collect(make_ctx(env, client))
-    assert not status(env)["steps"]["borrow_snapshot"]["ok"]
-    assert "assets" not in client.calls
+    s = status(env)["steps"]["borrow_snapshot"]
+    return (not s["ok"]) and "assets" not in client.calls
+
+
+def test_borrow_is_not_read_while_the_market_is_open(env):
+    """Only the is_open half of the guard: D's evening date and the right next open."""
+    client = FakeClient(now=et(D, 21), is_open=True, next_open=et(NEXT, 9, 30))
+    assert _borrow_refused(env, client)
+
+
+def test_borrow_is_not_read_when_the_next_open_is_not_the_session_after_d(env):
+    """Only the next_open half of the guard."""
+    client = FakeClient(now=et(D, 21), is_open=False, next_open=et(dt.date(2026, 10, 1), 9, 30))
+    assert _borrow_refused(env, client)
+
+
+def test_borrow_is_not_read_the_next_morning_under_ds_label(env):
+    """Market shut and the next open right, but the read would be on D+1's date:
+    Alpaca's overnight refresh may be in it. The account snapshot is still fine."""
+    client = FakeClient(now=et(NEXT, 8, 30), is_open=False, next_open=et(NEXT, 9, 30))
+    assert _borrow_refused(env, client)
+    assert status(env)["steps"]["account_snapshot"]["ok"]
 
 
 def test_an_empty_asset_list_fails_the_step_so_it_is_retried(env):
