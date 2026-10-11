@@ -1,0 +1,7 @@
+period,tier,events,groups_acq_x_date,groups_date,groups_acq,groups_sponsor_x_year_heuristic
+2010-22,a: no universe name,192,115,84,101,67
+2010-22,b: the 27 opened (deployed 17 excluded),206,122,88,107,69
+2010-22,c: all events,238,136,96,114,73
+2023-24 (count only),a: no universe name,28,19,14,16,14
+2023-24 (count only),b: the 27 opened (deployed 17 excluded),29,20,15,17,15
+2023-24 (count only),c: all events,34,22,16,19,15

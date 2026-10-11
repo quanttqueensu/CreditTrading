@@ -28,3 +28,16 @@ results/**/_cache_*
 
 # Background agents' git worktrees (Claude Code); second copies of the repo.
 /.claude/worktrees/
+
+# Row-level tables derived from licensed WRDS data (CRSP, TRACE): permnos, CUSIPs,
+# delisting records and per-event returns. This repository is public, so they stay
+# on disk only; the scripts named in results/events/REPRO_*_2026-10-11.md rebuild
+# them. Aggregates (*_summary.json, run logs, per-fund beta tables) are tracked.
+results/events/merger_events_2010_2022.csv
+results/events/merger_pairs_fixed_offset.csv
+results/events/merger_acquirers_2010_2022.csv
+results/events/merger_ann_sample.csv
+results/events/alpaca_acquirers_2026-10-11.csv
+results/events/term_pull_to_par_measure.csv
+results/events/term_cef_census.csv
+results/events/convert_issuance_events.csv
