@@ -3,10 +3,12 @@ shift(2) via evaluate) correlated with raw ETF returns, and the gap between its
 price-return and total-return P&L (= the distribution leg paper does not credit).
 No new signal is constructed or scored.
 INPUT PANELS. `data/rv/etf_ohlc*.parquet`, `data/rv/etf_panel.parquet` and
-`data/riskfree_daily.parquet` were staged before the 2026-09-28 clean slate; their
-fetchers (`scripts/rv/stage_ohlc.py`, `stage_ohlc_extended.py`) exist only at tag
-`pre-clean-slate`. CLAUDE.md requires a fetcher for anything fetched, so restore
-them (with a docs/REFERENCES.md source note) before any TRIAL uses these panels.
+`data/riskfree_daily.parquet` were staged before the 2026-09-28 clean slate. The
+`data/rv/` fetchers were restored on 2026-10-11 (`scripts/rv/stage_ohlc.py`,
+`stage_ohlc_extended.py`, `stage_universe.py`; source notes in docs/REFERENCES.md
+§8) and the panels rebuilt: yfinance up to their old last dates, Alpaca after.
+`data/riskfree_daily.parquet` still has no fetcher; CLAUDE.md requires one, so
+restore it before any TRIAL uses that panel.
 This script is a zero-trial description and runs on them as they stand; it prints
 each panel's last date. Written 2026-10-08 for results/cef/RESEARCH_AGENDA_2026-10-08.md.
 """
