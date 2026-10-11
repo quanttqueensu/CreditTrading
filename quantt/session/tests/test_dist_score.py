@@ -9,7 +9,8 @@ the review of 2026-10-09):
     rounding; a real conflict, or panel-only, is UNMEASURED naming both; never
     averaged;
   * a zero needs BOTH sources silent with the panel current, i.e. rewritten after
-    the close of the session following D. Alpaca's silence alone is UNMEASURED;
+    the close of the session following D, AND holding rows for the name. Alpaca's
+    silence alone is UNMEASURED (review 2026-10-11: an uncovered name was a zero);
   * the lag: D is scored only once two sessions have closed after it;
   * records: one row per D; an UNMEASURED row is replaced by a later measurement,
     a measured row never is; a failure is a row naming it;
@@ -170,10 +171,18 @@ def test_only_the_panel_listing_d_is_unmeasured_because_silence_is_not_zero():
 
 
 def test_neither_listing_d_is_zero_only_when_the_panel_is_current():
-    ps, gaps, notes, _ = _resolve([], [], current=True)
+    covers_s = [("S", D - dt.timedelta(days=30), 0.22)]           # S's last payout, a month before D
+    ps, gaps, notes, _ = _resolve([], covers_s, current=True)
     assert ps == {"S": 0.0} and "none listed" in notes["S"]
-    ps, gaps, _, _ = _resolve([], [], current=False)
+    ps, gaps, _, _ = _resolve([], covers_s, current=False)
     assert ps == {} and "not yet current" in gaps["S"]
+
+
+def test_a_name_the_panel_does_not_cover_is_never_a_zero():
+    """Review 2026-10-11: a current panel FILE with no rows for the name (an empty
+    yfinance fetch, or a name outside the panel's universe) is one silent source."""
+    ps, gaps, notes, _ = _resolve([], [("OTHER", D, 0.10)], current=True)
+    assert ps == {} and "no rows for S" in gaps["S"] and "not a zero" in gaps["S"]
 
 
 def test_two_events_on_one_ex_date_are_summed_and_both_recorded():
@@ -214,14 +223,29 @@ def test_a_session_younger_than_the_lag_is_not_scored_yet(tmp_path):
 
 def test_a_stale_panel_leaves_the_day_unmeasured_and_a_later_run_measures_it(tmp_path):
     session(tmp_path, held={"PDI": 100})
-    stale = write_panel(tmp_path, [], written_et=BEFORE_NEXT_CLOSE)
+    pdi_earlier = [("PDI", D - dt.timedelta(days=30), 0.221)]
+    stale = write_panel(tmp_path, pdi_earlier, written_et=BEFORE_NEXT_CLOSE)
     run(tmp_path, FakeClient([]), stale)
     r, = rows_of(tmp_path)
     assert r["distribution_pnl_usd"] == ds.UNMEASURED and "not yet current" in r["unmeasured"]
-    fresh = write_panel(tmp_path, [], written_et=AFTER_NEXT_CLOSE)
+    fresh = write_panel(tmp_path, pdi_earlier, written_et=AFTER_NEXT_CLOSE)
     run(tmp_path, FakeClient([]), fresh)
     r, = rows_of(tmp_path)
     assert r["distribution_pnl_usd"] == "0.00"
+
+
+def test_an_uncovered_held_name_leaves_the_day_open_until_alpaca_lists_it(tmp_path):
+    """Review 2026-10-11, synthetic: FCT held long, absent from a current panel, and
+    Alpaca not yet listing its ex-date. The old rule wrote a final −23.76 (PTY only);
+    the day must stay UNMEASURED and take FCT's amount once Alpaca lists it."""
+    session(tmp_path, held={"FCT": 500, "PTY": -200})
+    p = write_panel(tmp_path, [("PTY", D, 0.119)], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([ev("PTY", 0.1188)]), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == ds.UNMEASURED and "no rows for FCT" in r["unmeasured"]
+    run(tmp_path, FakeClient([ev("PTY", 0.1188), ev("FCT", 0.07)]), p)
+    r, = rows_of(tmp_path)
+    assert r["distribution_pnl_usd"] == f"{500 * 0.07 - 200 * 0.1188:.2f}"
 
 
 def test_an_error_row_is_replaced_by_a_later_measurement(tmp_path):
@@ -252,6 +276,19 @@ def test_scores_rows_that_disagree_are_named_never_picked(tmp_path):
     run(tmp_path, FakeClient([]), p)
     r, = rows_of(tmp_path)
     assert r["distribution_pnl_usd"] == ds.UNMEASURED and "disagree" in r["unmeasured"]
+
+
+@pytest.mark.parametrize("first,second", [("50.00", ds.UNMEASURED), (ds.UNMEASURED, "50.00")])
+def test_an_unmeasured_scores_row_beside_a_measured_one_is_not_a_disagreement(tmp_path, first, second):
+    """Review 2026-10-11: a same-evening verify re-run left one UNMEASURED and one
+    measured auction row for D, which raised "disagree" and made the whole day an
+    error row for good. The measured auction value stands, in either order."""
+    session(tmp_path, held={"PDI": 100}, auction=first, extra_rows=(second,))
+    p = write_panel(tmp_path, [("PDI", D, 0.221)], written_et=AFTER_NEXT_CLOSE)
+    run(tmp_path, FakeClient([ev("PDI", 0.2205)]), p)
+    r, = rows_of(tmp_path)
+    assert (r["auction_pnl_usd"], r["distribution_pnl_usd"], r["auction_pnl_with_distributions_usd"]) \
+        == ("50.00", "22.05", "72.05")
 
 
 def test_an_unmeasured_auction_makes_only_the_combined_line_unmeasured(tmp_path):

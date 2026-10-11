@@ -60,8 +60,20 @@ more. The resolution rules:
   both list D, |diff| > ROUNDING_TOL            -> UNMEASURED, naming both values
   only Alpaca lists D                           -> Alpaca's amount (noted)
   only the panel lists D                        -> UNMEASURED: Alpaca's silence is not a zero
-  neither lists D, the panel is current         -> 0.0, naming the panel's write time
+  neither lists D, the panel is current and
+    has rows for the name                       -> 0.0, naming the panel's write time
+  neither lists D, the panel has no rows for
+    the name                                    -> UNMEASURED: one silent source is not two
   neither lists D, the panel is not current     -> UNMEASURED; retried next run
+
+WHY "HAS ROWS FOR THE NAME" (review 2026-10-11). A current panel FILE says the
+fetch ran, not that it covered every name. `scripts/fetch_cef_distributions.py`
+skips a ticker whose yfinance response is empty and still rewrites the panel, and
+the panel never covers a name outside `data/cef/cef_universe.csv` (passing
+sleeves run in the CEF account under the 2026-10-09 ruling). Both happen: the
+2026-09-11 fetch listed FCT, a monthly payer, as empty, and that panel holds 43 of
+44 tickers. Without this rule a held FCT on an Alpaca-silent ex-date was a
+measured, final 0.0.
 
 Never averaged. Every name's row records the rule that applied and the Alpaca
 event ids and kinds behind its amount, so a payout listed under two types could
@@ -164,7 +176,9 @@ def resolve(symbols, day: dt.date, alpaca_events: list, panel, *, panel_current:
         if e["ex_date"] == day:
             alp.setdefault(e["symbol"], []).append(e)
     pan: dict[str, list] = {}
+    covered: set = set()          # names the panel has any row for (module docstring)
     if panel is not None:
+        covered = set(panel["ticker"])
         for sym, ex, amt in zip(panel["ticker"], panel["ex_date"], panel["amount"]):
             if hasattr(ex, "date"):
                 ex = ex.date()
@@ -192,9 +206,13 @@ def resolve(symbols, day: dt.date, alpaca_events: list, panel, *, panel_current:
         elif p:
             gaps[sym] = (f"the yfinance panel lists ex {day} at {sum(p):g} but Alpaca lists "
                          f"none; Alpaca's silence is not a zero")
-        elif panel_current:
+        elif panel_current and sym in covered:
             per_share[sym] = 0.0
             notes[sym] = f"none listed for ex {day} by Alpaca or the panel ({panel_note})"
+        elif panel_current:
+            gaps[sym] = (f"Alpaca lists none for ex {day} and the yfinance panel has no rows "
+                         f"for {sym} at all (an empty fetch, or a name outside its universe), "
+                         f"so only one source is silent; not a zero")
         else:
             gaps[sym] = (f"Alpaca lists none for ex {day} and the panel is not yet current "
                          f"({panel_note}); retried on a later run")
@@ -246,8 +264,14 @@ def held_for(state_dir: Path, day: dt.date) -> dict:
 def auction_pnl_for(state_dir: Path, day: dt.date) -> float | None:
     """D's auction_pnl_usd from scores.csv: a float, or None when UNMEASURED.
 
-    verify may be re-run, so D can have several rows. They must agree. Two
-    different measured values raise naming both: neither is picked.
+    verify may be re-run, so D can have several rows. Two different measured
+    values raise naming both: neither is picked. An UNMEASURED row beside a
+    measured one is a run that could not mark the auction (a re-run on D's
+    evening before the print, a `--condition 6` re-run); it contradicts nothing,
+    so the measured value stands. Until 2026-10-11 the pair counted as a
+    disagreement: the whole day became an error row, including a distribution
+    P&L that was measurable, and scores.csv is append-only, so the identical
+    retry failed for every remaining session of the lookback (review 2026-10-11).
     """
     p = state_dir / "scores.csv"
     if not p.exists():
@@ -256,12 +280,12 @@ def auction_pnl_for(state_dir: Path, day: dt.date) -> float | None:
         vals = [r["auction_pnl_usd"] for r in csv.DictReader(fh) if r.get("date") == day.isoformat()]
     if not vals:
         raise DistError(f"scores.csv has no row for {day}")
-    distinct = sorted(set(vals))
+    distinct = sorted(set(vals) - {UNMEASURED})
     if len(distinct) > 1:
         raise DistError(f"scores.csv rows for {day} disagree on auction_pnl_usd: {distinct}")
-    v = distinct[0]
-    if v == UNMEASURED:
+    if not distinct:
         return None
+    v = distinct[0]
     try:
         x = float(v)
     except ValueError:

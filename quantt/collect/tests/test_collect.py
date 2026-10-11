@@ -523,6 +523,17 @@ def test_borrow_is_not_read_the_next_morning_under_ds_label(env):
     assert status(env)["steps"]["account_snapshot"]["ok"]
 
 
+def test_the_borrow_guard_judges_its_own_fresh_clock_not_the_runs(env):
+    """Review 2026-10-11: this fake's clock never moved, so judging the run's
+    start-of-run clock passed every test above. Here the run starts at 23:50 on
+    D, and the borrow step's own read lands at 00:05 on D+1: it must refuse."""
+    class Late(FakeClient):
+        def clock(self):
+            c = super().clock()
+            return {**c, "timestamp": et(NEXT, 0, 5)} if self.calls.count("clock") > 1 else c
+    assert _borrow_refused(env, Late(now=et(D, 23, 50)))
+
+
 def test_an_empty_asset_list_fails_the_step_so_it_is_retried(env):
     client = FakeClient()
     client.flags = {}
