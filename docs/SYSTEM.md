@@ -401,6 +401,18 @@ The programme these rulings shape is `results/cef/RESEARCH_PLAN_2026-10-09.md`.
 | Deliberate beta | **No: alpha only.** A sleeve must earn beyond beta (D4). Beta is tolerated only as residual exposure, never as a sized sleeve. Carry (agenda Track D) is closed. |
 | Dividends on paper | **Add a third P&L line**, distribution-adjusted: it credits distributions on longs and charges them on shorts. It sits beside Alpaca's fill and the auction-print P&L, because Alpaca paper credits no dividends. |
 
+### Team lead, 2026-10-09 and 2026-10-11 — the missed day and the stress cap
+
+On 2026-10-09 the VM refused both sends on `max_gross_stress` × live equity, for a
+plan that took gross down; the book did not trade and verify said PASS. The
+incident and the audit are `docs/RUNNER.md`, "As built (2026-10-09, amended
+2026-10-11)".
+
+| question | decision |
+|---|---|
+| The fix (2026-10-09) | **"Go"**, to "what can you do to make sure this never happens again": a plan that does not add gross always passes the stress cap; the send-time re-fit fits the cap as one of its limits; a no-trade day not explained by `DRY_RUN`, arming or a halt is a `MISSED:` FAIL; an advisory evening pre-flight at equity minus the held book's worst one-day loss. |
+| Which equity the cap is judged on (2026-10-11) | **The lower of the equity the plan was sized on and live equity**, for a plan that adds gross. Chosen over "sizing rule only" (the sized equity alone, which the 2026-10-11 release-check showed lets an adding plan exceed the derived G_stress 1.843 × live once equity falls more than 2.34% after decide) and over a new live-bound spec key. With `bp_shortfall = scale` the send's re-fit scales such a plan to fit instead of refusing it. Uses the existing `max_gross_stress`; no new key. |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -441,3 +453,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-09-28 | Clean slate: archive references replaced by the tag; plan moved to `docs/ROADMAP.md`. | clean slate, for the team lead |
 | 2026-10-07 | §5 gains the cloud-VM decision. | cloud VM, for the team lead |
 | 2026-10-08 | §5 records the cut-over to the VM and full automation. | cloud VM, for the team lead |
+| 2026-10-11 | §5 records the 2026-10-09 missed-day fix and the 2026-10-11 stress-cap ruling. | release work, for the team lead |
