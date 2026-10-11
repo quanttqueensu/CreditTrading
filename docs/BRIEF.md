@@ -40,6 +40,13 @@ the form Clarke, de Silva & Thorley (2002, FAJ) generalised:
   kappa lost to pooled). **But see W4: the IC has never been tested against the
   three mechanical effects that produce exactly this signature, and every
   number below is conditional on that battery.**
+  > **W4 ran on 2026-10-11** (`results/cef/W4_ARTIFACTS_2026-10-11.md`, fit
+  > period only, 0 trials). Bounce, stale NAV, ex-dates and crises each explain
+  > little or none of the IC. But −0.074 is the **17-name, no-ADV-filter**
+  > figure (it reproduces as −0.078 on 2005–22). The **deployed** 13-name
+  > signal, as the sleeve filters it, measures about half that and is not
+  > significant in any single era. Quote that note's baseline, not this line,
+  > for anything about the book that trades.
 - **BR**, breadth: the number of *independent* bets per year. We hold 17 names
   and pretend that is 17 bets. It is not. The book's effective breadth is a
   small fraction of its name count — 1.17 on the live weights and 2.24
@@ -170,6 +177,13 @@ find the realised price drop is slightly *less* than the distribution because of
 tick discreteness. **Earlier prompts asserting that an ex-date "moves price and
 not NAV" were wrong; W4 §A measures the real coefficient and corrects every
 string.**
+
+> **Measured 2026-10-11 (W4, `results/cef/W4_ARTIFACTS_2026-10-11.md` §1):** on
+> our 13 names, 2005–22, the arithmetic above is swamped by a price pattern.
+> The discount *falls* on the ex-date and keeps falling for two more sessions,
+> and the price drops by slightly *more* than the distribution, not less. Do
+> not assume either the 7bp arithmetic or Bali & Hite's direction for these
+> funds; read the note.
 
 2023 traditional-CEF distributions were 67% income, 13% capital gains and **20%
 return of capital** — which is the substance behind M8. Managed distribution
