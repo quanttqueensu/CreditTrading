@@ -1,0 +1,114 @@
+Alpaca clock 2026-10-11T15:58:08.238987-04:00 ET; last completed session 2026-10-09
+assets: active 14393, inactive 19170; convertible-named rows written to results/events/alpaca_convertible_assets_2026-10-11.csv
+
+== census, active list, flags as of 2026-10-11
+                     n  tradable  shortable  etb
+kind                                            
+fund_or_etf         18        18          5    5
+listed_conv_note     1         1          0    0
+mandatory           24        24          8    8
+optional_conv_pref  13        11          1    1
+
+== liquidity: agent's statistic (median daily $ volume, 2026-07-01..2026-10-07) and the sleeve's (63-session mean to 2026-10-09); floor = spec min_adv_usd
+                        kind  shortable  easy_to_borrow  bars_agentwin  med_m  clears_agent  bars_63  adv63_m  clears_sleeve_def
+symbol                                                                                                                          
+GOOGN              mandatory       True            True           69.0  64.72          True     63.0    77.79               True
+GOOGM              mandatory       True            True           69.0  56.59          True     63.0    73.56               True
+BA.PRA             mandatory      False           False           69.0  31.39          True     63.0    55.67               True
+SMCIP              mandatory       True            True           69.0  29.95          True     63.0    46.07               True
+ORCL.PRD           mandatory       True            True           69.0  27.71          True     63.0    73.44               True
+DUKU               mandatory      False           False           37.0  20.65          True     38.0    22.93               True
+HPE.PRC            mandatory       True            True           69.0  14.37          True     63.0    28.51               True
+WFC.PRL   optional_conv_pref      False           False           69.0   9.80          True     63.0    10.70               True
+BAC.PRL   optional_conv_pref      False           False           69.0   9.61          True     63.0    12.42               True
+ALB.PRA            mandatory      False           False           69.0   6.92          True     63.0    14.87               True
+NEE.PRV            mandatory      False           False           69.0   6.06          True     63.0    10.61               True
+MCHPP              mandatory       True            True           69.0   4.56          True     63.0    14.73               True
+KKR.PRD            mandatory      False           False           69.0   3.46          True     63.0    13.68               True
+ARES.PRB           mandatory      False           False           69.0   3.08          True     63.0     7.17               True
+QXO.PRB            mandatory      False           False           69.0   2.82         False     63.0     5.03               True
+NEE.PRS            mandatory       True            True           69.0   2.69         False     63.0     7.87               True
+NEE.PRT            mandatory       True            True           69.0   2.34         False     63.0    12.09               True
+SOMN               mandatory      False           False           69.0   2.06         False     63.0    14.45               True
+WHR.PRA            mandatory      False           False           69.0   1.58         False     63.0     2.52              False
+PPLC               mandatory      False           False           69.0   1.40         False     63.0     9.16               True
+NFEGP              mandatory      False           False           18.0   1.39         False     19.0      NaN              False
+BRKRP              mandatory      False           False           69.0   1.30         False     63.0     3.23               True
+FOUR.PRA           mandatory      False           False           69.0   1.17         False     63.0     2.69              False
+VSECU              mandatory      False           False           69.0   0.70         False     63.0     1.73              False
+BTSGU              mandatory      False           False           69.0   0.49         False     63.0     3.64               True
+RLJ.PRA   optional_conv_pref       True            True           69.0   0.42         False     63.0     0.47              False
+NOVTU              mandatory      False           False           69.0   0.32         False     63.0     2.18              False
+LXP.PRC   optional_conv_pref      False           False           69.0   0.13         False     63.0     0.35              False
+BHR.PRB   optional_conv_pref      False           False           69.0   0.10         False     63.0     0.12              False
+EPR.PRC   optional_conv_pref      False           False           69.0   0.07         False     63.0     0.15              False
+EPR.PRE   optional_conv_pref      False           False           69.0   0.05         False     63.0     0.15              False
+RC.PRC    optional_conv_pref      False           False           69.0   0.01         False     63.0     0.02              False
+HL.PRB    optional_conv_pref      False           False           69.0   0.00         False     63.0     0.02              False
+KIM.PRN   optional_conv_pref      False           False           69.0   0.00         False     63.0     0.01              False
+WHLRL       listed_conv_note      False           False           69.0   0.00         False     63.0     0.05              False
+FBYDP     optional_conv_pref      False           False            NaN    NaN         False      NaN      NaN              False
+   mandatory           n 24 | agent stat: clear 12, clear & shortable today 6 | sleeve def: clear 19, clear & shortable today 8 | shortable today 8
+   optional_conv_pref  n 11 | agent stat: clear 2, clear & shortable today 0 | sleeve def: clear 2, clear & shortable today 0 | shortable today 1
+   listed_conv_note    n  1 | agent stat: clear 0, clear & shortable today 0 | sleeve def: clear 0, clear & shortable today 0 | shortable today 0
+
+== hedged residual vol, weekly, 2019-01-01..2022-12-30 (structure only: no mean, no Sharpe)
+adjustment mandatory common  weeks      first       last  beta  corr  vol_mand_pct  vol_common_pct  resid_vol_pct
+       raw   DHR.PRA    DHR    162 2019-03-06 2022-04-14  0.82  0.89         24.30           26.30          11.28
+       raw   DHR.PRB    DHR    137 2020-05-15 2022-12-30  0.78  0.84         25.38           27.47          13.72
+       raw      BDXB    BDX    134 2020-06-03 2022-12-30  0.68  0.92         16.76           22.69           6.46
+       raw  AVTR.PRA   AVTR    156 2019-05-17 2022-05-13  0.90  0.99         36.72           40.42           6.16
+       all   DHR.PRA    DHR    162 2019-03-06 2022-04-14  0.82  0.89         24.25           26.31          11.27
+       all   DHR.PRB    DHR    137 2020-05-15 2022-12-30  0.78  0.84         25.47           27.47          13.82
+       all      BDXB    BDX    134 2020-06-03 2022-12-30  0.69  0.94         16.58           22.63           5.78
+       all  AVTR.PRA   AVTR    156 2019-05-17 2022-05-13  0.91  0.99         37.12           40.42           5.89
+
+== G4: mandatory-named symbols on Alpaca's active + inactive lists, SIP bars 2016-01-01..2022-12-30
+            status                                                          name  first_bar   last_bar  bars  span_years  suspect_reuse
+symbol                                                                                                                                 
+CCI.PRA   inactive  Crown Castle International Corp. 6.875% Mandatory Convertibl 2016-01-04 2020-07-31  1153        4.57           True
+NEE.PRQ   inactive                   NextEra Energy, Inc. 6.219% Corporate Units 2016-01-04 2022-12-30  1762        6.99           True
+NEE.PRR   inactive                   NextEra Energy, Inc. 6.926% Corporate Units 2016-08-31 2022-12-30  1595        6.33           True
+SRE.PRA   inactive  Sempra Energy 6% Mandatory Convertible Preferred Stock, Seri 2018-01-12 2021-01-14   757        3.01          False
+PPLC        active                               PPL Corporation Corporate Units 2018-02-15 2020-09-25   658        2.61          False
+AIZP      inactive  Assurant, Inc. 6.50% Series D Mandatory Convertible Preferre 2018-03-15 2021-03-12   754        2.99          False
+NBR.PRA   inactive  Nabors Industries Ltd. 6.00% Mandatory Convertible Preferred 2018-05-17 2021-04-30   744        2.95          False
+FTV.PRA   inactive  Fortive Corporation 5.00% Mandatory Convertible Preferred St 2018-07-05 2021-06-30   753        2.99          False
+SRE.PRB   inactive  Sempra 6.75% Mandatory Convertible Preferred Stock, Series B 2018-07-18 2021-07-14   753        2.99          False
+IFFT      inactive  International Flavors & Fragrances Inc. 6.00% Tangible Equit 2018-09-19 2021-09-14   752        2.99          False
+CFXA      inactive                Colfax Corporation 5.75% Tangible Equity Units 2019-01-16 2022-01-14   757        3.00          False
+ENR.PRA   inactive  Energizer Holdings, Inc. 7.50% Series A Mandatory Convertibl 2019-01-23 2022-01-14   753        2.98          False
+DHR.PRA   inactive  Danaher Corporation 4.75% Mandatory Convertible Preferred St 2019-03-06 2022-04-14   786        3.11          False
+WTRU      inactive          Essential Utilities, Inc.6.00% Tangible Equity Units 2019-04-26 2022-04-29   760        3.01          False
+AVTR.PRA  inactive  Avantor, Inc. Series A Mandatory Convertible Preferred Stock 2019-05-17 2022-05-13   755        2.99          False
+DCUE      inactive           Dominion Energy, Inc. 2019 Series A Corporate Units 2019-06-19 2022-05-31   744        2.95          False
+CHNGU     inactive                  Change Healthcare Inc. Tangible Equity Units 2019-06-27 2022-06-29   758        3.01          False
+NEE.PRO   inactive                   NextEra Energy, Inc. 4.872% Corporate Units 2019-09-11 2022-08-31   750        2.97          False
+AEPPL     inactive          American Electric Power Company, Inc. Corporate Unit 2020-10-01 2022-03-14   365        1.45          False
+ALB.PRA     active  Albemarle Corporation Depositary Shares each representing a         NaT        NaT     0         NaN          False
+ARES.PRB    active  Ares Management Corporation 6.75% Series B Mandatory Convert        NaT        NaT     0         NaN          False
+BA.PRA      active  The Boeing Company Depositary Shares, each representing a 1/        NaT        NaT     0         NaN          False
+BRKRP       active  Bruker Corporation 6.375% Mandatory Convertible Preferred St        NaT        NaT     0         NaN          False
+BTSGU       active       BrightSpring Health Services, Inc. Tangible Equity Unit        NaT        NaT     0         NaN          False
+DUKU        active                       Duke Energy Corporation Corporate Units        NaT        NaT     0         NaN          False
+FOUR.PRA    active  Shift4 Payments, Inc. 6.00% Series A Mandatory Convertible P        NaT        NaT     0         NaN          False
+GOOGM       active  Alphabet Inc. Depositary Shares representing a 1/20th Intere        NaT        NaT     0         NaN          False
+GOOGN       active  Alphabet Inc. Depositary Shares representing a 1/20th Intere        NaT        NaT     0         NaN          False
+HPE.PRC     active  Hewlett Packard Enterprise Company 7.625% Series C Mandatory        NaT        NaT     0         NaN          False
+KKR.PRD     active  KKR & Co. Inc. 6.25% Series D Mandatory Convertible Preferre        NaT        NaT     0         NaN          False
+MCHPP       active  Microchip Technology Incorporated Depositary Shares Each Rep        NaT        NaT     0         NaN          False
+NEE.PRS     active                   NextEra Energy, Inc. 7.299% Corporate Units        NaT        NaT     0         NaN          False
+NEE.PRT     active                   NextEra Energy, Inc. 7.234% Corporate Units        NaT        NaT     0         NaN          False
+NEE.PRV     active                   NextEra Energy, Inc. 7.375% Corporate Units        NaT        NaT     0         NaN          False
+NFEGP       active  New Fortress Energy Inc. Series A Mandatorily Convertible Pr        NaT        NaT     0         NaN          False
+NOVTU       active                            Novanta Inc. Tangible Equity Units        NaT        NaT     0         NaN          False
+ORCL.PRD    active  Oracle Corporation Depositary Shares, each representing a 1/        NaT        NaT     0         NaN          False
+QXO.PRB     active  QXO, Inc. Depositary Shares, each representing a 1/20th inte        NaT        NaT     0         NaN          False
+SMCIP       active  Super Micro Computer, Inc. Depositary Shares representing a         NaT        NaT     0         NaN          False
+SOMN        active            The Southern Company 2025 Series A Corporate Units        NaT        NaT     0         NaN          False
+VSECU       active                         VSE Corporation Tangible Equity Units        NaT        NaT     0         NaN          False
+WHR.PRA     active  Whirlpool Corporation Depositary Shares, each representing a        NaT        NaT     0         NaN          False
+SRCU      inactive                       Spire Inc Corporate Unit Exp 03/01/2024        NaT        NaT     0         NaN          False
+TSFGN     inactive  South Financial Group Inc. (The) Pfd Mandatory Conv Ser (200        NaT        NaT     0         NaN          False
+   with any bar in the window: 19; with >= 250 bars: 19; of which span <= 3.5 years (no suspected ticker reuse): 16; of 44 mandatory-named symbols on the lists
+   agent-probed pre-2023 mandatories NOT on either list but with bars: ['DHR.PRB', 'BDXB']

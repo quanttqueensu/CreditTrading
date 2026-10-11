@@ -1,0 +1,87 @@
+CRSP returns read: 2010-09-01 .. 2022-12-30 (R2 dsf ends 2024-12-31; nothing on or after 2023-01-01 is read)
+
+== convert: new 144A CUSIPs with day 0 in 2011-01-01..2022-10-31: 1044; matched events 761 (500 permnos); complete windows 755
+
+== straight-debt control: new 144A CUSIPs with day 0 in 2011-01-01..2022-10-31: 15026; matched events 1650 (855 permnos); complete windows 1625
+
+share-class duplicates: convert 59 of 755 spec-A events collapse (spec B n=696); control 51 of 1625 (spec B n=1574)
+
+== window statistics (abnormal = stock ret - SPY ret, summed; t: plain, clustered by date, by week)
+     spec         window    n  mean_pct  median_pct  t_plain  t_cl_date  clusters_date  t_cl_week  clusters_week
+A convert     pre[-5,-2]  755      1.45        0.48     4.93       4.68            535       4.60            328
+A convert      evt[-1,0]  755     -4.41       -2.95   -12.65     -11.64            535     -11.41            328
+A convert    post[+1,+5]  755      0.53        0.13     2.17       2.03            535       1.96            328
+A convert   post[+1,+20]  755      0.41        0.37     0.89       0.84            535       0.75            328
+A convert   post[+1,+60]  755      0.51        1.06     0.59       0.54            535       0.46            328
+A convert  shift2[+2,+5]  755      0.54        0.38     2.56       2.37            535       2.24            328
+A convert shift2[+2,+20]  755      0.43        0.31     0.98       0.92            535       0.82            328
+A control     pre[-5,-2] 1625      1.03        0.32     3.68       3.40           1118       3.46            503
+A control      evt[-1,0] 1625     -0.64       -0.19    -4.75      -4.67           1118      -4.58            503
+A control    post[+1,+5] 1625     -0.20       -0.32    -1.44      -1.37           1118      -1.28            503
+A control   post[+1,+20] 1625     -0.53       -0.08    -1.90      -1.78           1118      -1.59            503
+A control   post[+1,+60] 1625     -1.47       -0.68    -2.88      -2.65           1118      -2.41            503
+A control  shift2[+2,+5] 1625     -0.17       -0.11    -1.26      -1.16           1118      -1.11            503
+A control shift2[+2,+20] 1625     -0.50       -0.08    -1.78      -1.65           1118      -1.49            503
+B convert     pre[-5,-2]  696      1.64        0.65     5.15       5.02            535       4.90            328
+B convert      evt[-1,0]  696     -4.86       -3.65   -13.10     -13.15            535     -12.94            328
+B convert    post[+1,+5]  696      0.53        0.12     2.06       1.95            535       1.89            328
+B convert   post[+1,+20]  696      0.35        0.08     0.72       0.68            535       0.61            328
+B convert   post[+1,+60]  696      0.32        0.82     0.34       0.32            535       0.27            328
+B convert  shift2[+2,+5]  696      0.54        0.35     2.39       2.22            535       2.10            328
+B convert shift2[+2,+20]  696      0.36        0.27     0.78       0.74            535       0.65            328
+B control     pre[-5,-2] 1574      1.04        0.34     3.65       3.43           1118       3.47            503
+B control      evt[-1,0] 1574     -0.67       -0.23    -4.87      -4.91           1118      -4.72            503
+B control    post[+1,+5] 1574     -0.21       -0.33    -1.49      -1.44           1118      -1.35            503
+B control   post[+1,+20] 1574     -0.58       -0.18    -2.04      -1.97           1118      -1.75            503
+B control   post[+1,+60] 1574     -1.59       -0.77    -3.07      -2.92           1118      -2.64            503
+B control  shift2[+2,+5] 1574     -0.17       -0.13    -1.25      -1.18           1118      -1.12            503
+B control shift2[+2,+20] 1574     -0.53       -0.10    -1.88      -1.82           1118      -1.63            503
+
+== calendar-time portfolio, shift2[+2,+5] (equal weight across events held each day; spec A)
+   A convert  days 1448, mean +16.3bp/day (x4 = +0.65%), t +2.58, Newey-West(4) t +2.45
+   A control  days 2327, mean -8.0bp/day (x4 = -0.32%), t -1.98, Newey-West(4) t -1.86
+
+== robustness: beta-adjusted shift2[+2,+5] (beta on days -260..-11, no intercept; spec A)
+   A convert  n 708 of 755 (short estimation history left out); median beta 1.19; beta-adjusted +0.51% (t_cl_week +2.19) vs market-adjusted on the same events +0.52% (t_cl_week +2.05)
+   A control  n 1491 of 1625 (short estimation history left out); median beta 1.21; beta-adjusted -0.18% (t_cl_week -1.21) vs market-adjusted on the same events -0.12% (t_cl_week -0.79)
+
+== convert minus control (pooled regression, SE clustered by calendar week)
+   spec A evt[-1,0]      diff -3.77%  t -10.20  (530 weeks)
+   spec B evt[-1,0]      diff -4.19%  t -11.71  (530 weeks)
+   spec A shift2[+2,+5]  diff +0.71%  t +2.82  (530 weeks)
+   spec B shift2[+2,+5]  diff +0.71%  t +2.68  (530 weeks)
+
+== eras (H5), shift2[+2,+5] and evt[-1,0]; t clustered by week; the 2023-26 era is the sealed holdout
+   A convert  2010-14: n  171  [-1,0] -3.77% (t -6.38)  [+2,+5] +1.02% (t +2.44)
+   A convert  2015-19: n  305  [-1,0] -3.74% (t -6.92)  [+2,+5] +0.14% (t +0.55)
+   A convert  2020-22: n  279  [-1,0] -5.55% (t -7.41)  [+2,+5] +0.69% (t +1.28)
+   A convert  2011-16: n  256  [-1,0] -4.25% (t -8.13)  [+2,+5] +0.64% (t +1.90)
+   A convert  2017-22: n  499  [-1,0] -4.50% (t -8.64)  [+2,+5] +0.49% (t +1.52)
+   A control  2010-14: n  558  [-1,0] -0.61% (t -2.73)  [+2,+5] -0.51% (t -2.26)
+   A control  2015-19: n  576  [-1,0] -0.39% (t -1.89)  [+2,+5] -0.41% (t -2.10)
+   A control  2020-22: n  491  [-1,0] -0.97% (t -3.23)  [+2,+5] +0.52% (t +1.51)
+   A control  2011-16: n  781  [-1,0] -0.52% (t -2.66)  [+2,+5] -0.44% (t -2.25)
+   A control  2017-22: n  844  [-1,0] -0.75% (t -3.77)  [+2,+5] +0.09% (t +0.40)
+   B convert  2010-14: n  168  [-1,0] -3.82% (t -6.32)  [+2,+5] +1.04% (t +2.47)
+   B convert  2015-19: n  265  [-1,0] -4.38% (t -8.38)  [+2,+5] +0.12% (t +0.43)
+   B convert  2020-22: n  263  [-1,0] -6.01% (t -8.40)  [+2,+5] +0.65% (t +1.16)
+   B convert  2011-16: n  245  [-1,0] -4.50% (t -8.72)  [+2,+5] +0.71% (t +2.06)
+   B convert  2017-22: n  451  [-1,0] -5.06% (t -10.02)  [+2,+5] +0.45% (t +1.29)
+
+== convert minus control by era, shift2[+2,+5] (spec A, week-clustered): does the control score as well? (H12)
+   2010-14: convert +1.02% vs control -0.51% -> diff +1.53% (t +3.43, 181 weeks)
+   2015-19: convert +0.14% vs control -0.41% -> diff +0.55% (t +1.84, 226 weeks)
+   2020-22: convert +0.69% vs control +0.52% -> diff +0.17% (t +0.32, 123 weeks)
+
+== cost grid (H3): long day +1 MOC to day +5 MOC, one round trip = 2 x one-way; borrow none (long only)
+   A convert  gross +54bp per event | net 5bp: +44bp  15bp: +24bp  30bp: -6bp
+   B convert  gross +54bp per event | net 5bp: +44bp  15bp: +24bp  30bp: -6bp
+   A control  gross -17bp per event | net 5bp: -27bp  15bp: -47bp  30bp: -77bp
+
+== clustering of issue dates (G3)
+   spec A convert events per year: {2011: 37, 2012: 25, 2013: 63, 2014: 46, 2015: 44, 2016: 41, 2017: 62, 2018: 92, 2019: 66, 2020: 130, 2021: 118, 2022: 31}
+   busiest day: 9 events; busiest week: 13 events; weeks with any event: 328
+
+   tickers shared with data/cef/cef_universe.csv: none
+
+wrote results/events/convert_issuance_events.csv (2380 rows, spec A)

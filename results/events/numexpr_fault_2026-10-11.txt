@@ -1,0 +1,18 @@
+agent's pandas path, compute.use_numexpr=True: frame 1,555,605 cells, 756 events
+   denormal-like window sums: {'pre[-5,-2]': 176, 'evt[-1,0]': 195, 'post[+1,+5]': 176, 'post[+1,+20]': 46, 'post[+1,+60]': 0, 'shift2[+2,+5]': 185, 'shift2[+2,+20]': 55}
+   window means %: {'pre[-5,-2]': 0.42, 'evt[-1,0]': -1.2, 'post[+1,+5]': 0.21, 'post[+1,+20]': 0.41, 'post[+1,+60]': 0.72, 'shift2[+2,+5]': 0.13, 'shift2[+2,+20]': 0.33}
+agent's pandas path, compute.use_numexpr=False: frame 1,555,605 cells, 755 events
+   denormal-like window sums: {'pre[-5,-2]': 0, 'evt[-1,0]': 0, 'post[+1,+5]': 0, 'post[+1,+20]': 0, 'post[+1,+60]': 0, 'shift2[+2,+5]': 0, 'shift2[+2,+20]': 0}
+   window means %: {'pre[-5,-2]': 1.45, 'evt[-1,0]': -4.41, 'post[+1,+5]': 0.53, 'post[+1,+20]': 0.41, 'post[+1,+60]': 0.51, 'shift2[+2,+5]': 0.54, 'shift2[+2,+20]': 0.43}
+pandas 2.3.3, numpy 2.3.4, numexpr 2.10.1, frame of 1,555,605 cells
+compute.use_numexpr=True:
+   df.sub(col, axis=0)        wrong cells: 790,400
+   df - df.mean()             wrong cells: 1,125,004
+   df.div(rowsum, axis=0)     wrong cells: 790,674
+   df + df (no broadcast)     wrong cells: 0
+compute.use_numexpr=False:
+   df.sub(col, axis=0)        wrong cells: 0
+   df - df.mean()             wrong cells: 0
+   df.div(rowsum, axis=0)     wrong cells: 0
+   df + df (no broadcast)     wrong cells: 0
+FAULT PRESENT: broadcast arithmetic on large frames is wrong here

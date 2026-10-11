@@ -1,0 +1,7 @@
+{
+ "asof_et": "2026-10-11T15:58:08.238987-04:00",
+ "endpoint": "GET /v2/assets?asset_class=us_equity (paper, cef key)",
+ "n_active": 14393,
+ "n_inactive": 19170,
+ "n_convertible_named": 113
+}
