@@ -1,0 +1,41 @@
+{
+ "read_date": "2026-10-11",
+ "all_tickers_original_set": {
+  "tickers": 97,
+  "not_found": 11,
+  "inactive": 25,
+  "active": 61,
+  "active_shortable": 34,
+  "active_not_shortable": 27,
+  "active_easy_to_borrow": 34,
+  "active_muni_by_name": 23,
+  "active_muni_shortable": 7
+ },
+ "same_fund_same_ticker_at_crsp_end": {
+  "tickers": 68,
+  "not_found": 0,
+  "inactive": 7,
+  "active": 61,
+  "active_shortable": 34,
+  "active_not_shortable": 27,
+  "active_easy_to_borrow": 34,
+  "active_muni_by_name": 23,
+  "active_muni_shortable": 7
+ },
+ "feed_future_dated_any_issuer": [
+  [
+   "2027-03-31",
+   "NSC",
+   "UNP"
+  ]
+ ],
+ "feed_future_dated_cef_bdc": 0,
+ "last_365d_and_future": {
+  "feed_rows": 41,
+  "mergers": 31,
+  "acquirers": 16,
+  "acquirers_shortable": 10,
+  "acquirers_not_shortable": 6,
+  "mergers_with_shortable_acquirer": 20
+ }
+}

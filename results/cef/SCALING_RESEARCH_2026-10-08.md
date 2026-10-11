@@ -267,6 +267,42 @@ a holdout name. Their scratch scripts are under the session scratchpad and are
 2026-10-08/09 and must be **re-run in the repo before a pre-registration rests on
 it**. Sources are in `docs/REFERENCES.md` §12d.
 
+> **Correction, 2026-10-11: rows 1 and 7 and the §7.4 census are now in the
+> repo and re-run** (plan item 0.9, two of its six analyses). The scripts are
+> `scripts/events/merger_pairs.py`, `scripts/events/acquirer_shortability.py`,
+> `scripts/events/term_pull_to_par.py`, `scripts/events/fetch_term_cef_live.py`
+> and `scripts/data/term_cef_census.py` (filter fixed). The full table is
+> `results/events/REPRO_CEF_EVENTS_2026-10-11.md`; sources are
+> `docs/REFERENCES.md` §12e. The sentence above still holds for rows 2–6 and
+> 8–15 and for §7.3. What changed:
+>
+> - **Row 1 reproduces** to the basis point: +129 vs +25bp, munis +148 vs −43,
+>   equity +36 vs +214, at announcement +35bp on N=36 in 12 groups. Three
+>   corrections:
+>   - one of the 168 events (SBW into ESD, 2016) has a comparison-set acquirer:
+>     ESD is today's EMD. Without it, +128 vs +26;
+>   - the +35bp rests on 7 announcement dates taken from search summaries. On
+>     the 6 groups whose dates the agent read in EDGAR (18 events), the median
+>     is **−19bp**;
+>   - "26 of 59 acquirers not shortable" reproduces from the 2026-10-08 map.
+>     Read from Alpaca on 2026-10-11, **27 of the 61 still-active acquirers are
+>     not shortable** (16 of the 23 munis), and 11 of the 59 flags changed in
+>     three days.
+>
+>   The "$0.5m per deal" capacity has no recorded formula; only its ADV inputs
+>   reproduce ($262k target, $587k acquirer).
+> - **Row 7 reproduces**: 19 modern funds, all CRSP code 450; price +0.20% from
+>   terminal value at 24 months; JCO $8.02 and EFL $8.66. Two corrections:
+>   - the beta-adjusted −0.07 / +0.22 / +1.84%/yr reproduce only with
+>     `data/riskfree_daily.parquet`, which has no fetcher. With DGS3MO from the
+>     R2 FRB mirror they are **−0.02 / +0.24 / +1.92%/yr**; the verdict is the
+>     same;
+>   - the "2026-10-08" discounts were 2026-10-07's. On 2026-10-08, **FTHY was
+>     −4.50% and DTF −4.75%**. On 2026-10-11, FTHY is shortable at Alpaca and
+>     DTF is not.
+> - **§7.4 census filter fixed**: 92 → 154 CRSP name records. Every row now says
+>   which rule matched it.
+
 ### 7.1 Verdicts, ranked by information per trial
 
 | # | idea | the result | verdict |
@@ -337,7 +373,8 @@ re-measured at run time (H14):
   market-value basis but a statistically significant 2.74% per annum based on net
   asset value (NAV) valuations". `docs/REFERENCES.md` §12c is corrected visibly.
 - **Term-CEF row 2c**, corrected above. Also, `scripts/data/term_cef_census.py`'s
-  name filter misses several groups:
+  name filter misses several groups (**fixed 2026-10-11**: each group is now a
+  rule of its own; see the correction note at the head of §7):
   - funds with abbreviated names (TM, TGT, TRGT, DEF OPP, DEFINED);
   - 19xx-dated names;
   - funds with a tender-for-NAV clause but no term marker in the name. These
