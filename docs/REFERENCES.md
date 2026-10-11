@@ -574,7 +574,7 @@ them in the repo before relying on any figure.
 | Rule 144A qualified institutional buyer: $100M of securities owned and invested ($10M for a registered dealer). Reg T: convertibles are margin securities at 50% | 17 CFR 230.144A; 12 CFR 220.2 and 220.12 | [V] |
 | BAC Series L conversion ratio 20; WFC Series L 6.3814 | BAC 424B5 (2008) and 10-K FY2025 Ex. 4.32; WFC 10-K FY2025 Ex. 4(c) | [V] |
 | A registered CEF may not sell common below current NAV (within 48 hours), except in rights offerings. A BDC may do so only with annual approval by a majority of holders and a majority of unaffiliated holders. Asset coverage 200%, or 150% with approval | 15 USC 80a-23(b), 80a-62(2), 80a-60(a) | [V] statute |
-| BDC Inline XBRL compliance: 2022-08-01 (seasoned filers) or 2023-02-01 (others) | SEC structured-data announcement on the CEF taxonomy (Rel. 33-10771) | [V] |
+| BDC Inline XBRL compliance: 2022-08-01 (seasoned filers) or 2023-02-01 (others). **Wording corrected 2026-10-11** on a re-read: the earlier date is for Forms "filed on or after August 1, 2022" by BDCs and CEFs **eligible to file a short-form registration statement**; others from February 1, 2023. The page (2020-04-08) does not mention schedules of investments. ARCC's first `NetAssetValuePerShare` XBRL fact is in its 10-Q filed 2022-10-25 (data.sec.gov companyconcept, read 2026-10-11) | SEC structured-data announcement on the CEF taxonomy (Rel. 33-10771); `results/events/REPRO_CORP_EVENTS_2026-10-11.md` §5 | [V] |
 | ECC publishes a monthly NAV range within 15 days of month-end (497AD); OXLC publishes NAV estimates and cumulative at-the-market sales in 424B3 supplements: 78.6M shares for $516.5M net, 2020-06-04 to 2022-12-06 | ECC 497AD; OXLC 424B3 supplements | [V] |
 | PDO limited term: dissolution "on or about January 27, 2033"; the board may extend by 1 year plus 6 months; an eligible tender for 100% at NAV may be offered in the final 12 months, with a $200M floor | PDO 424B1, 2021-01-28 | [V] |
 | JHY target term: return $9.85 by 2020-11-01; board may extend by 6 months. It liquidated at $9.53 | JHY 497 (2015); Nuveen N-CSRs 2019 and 2020 | [V] |
@@ -582,3 +582,21 @@ them in the repo before relying on any figure.
 | DMO removed its term by shareholder vote with no tender (2019), while trading at a premium. ETX's term is 2028-06-30, with a 12-month extension | DMO DEF 14A, 2019-09-26; ETX DEF 14A, 2026-09-24 | [V] |
 | Tender-then-convert outcomes: JLS (2019, 65.5% tendered), JPT (2022), IGI/GDO/HYI (2024–25), JPI (2024), MMD (2024, 32.8%); XFLT removed its term by vote with no tender (2024) | Business Wire and sponsor press releases | [S] |
 | No study of US term or target-term CEF discount convergence was found. The nearest is Brauer (1984): discounts fade before a scheduled open-ending | search | [S]; a negative search result |
+
+### 12e. Re-run of the corporate-event figures (added 2026-10-11)
+
+Sources and fetchers behind `results/events/REPRO_CORP_EVENTS_2026-10-11.md`,
+plan item 0.9. Each data row names the script that fetches it.
+
+| claim / series | source | status |
+|---|---|---|
+| **Convertible flag.** TRACE master `cnvrb_fl='Y'`, `sub_prdct_type='CORP'`, ever 144A: 3,452 CUSIPs (of 19,715 convertible-flagged; most of the rest are bank structured notes). Straight 144A control `cnvrb_fl='N'`: 52,313. Master `stdt` to 2026-06-05 | R2 `trace_enhanced.camasterfile`; fetcher `scripts/events/convert_issuance.py` (`pull_universe`) | [V] |
+| **Convert day 0.** First 144A trade per CUSIP (status T/R); file 2003-08-02..2025-12-04 | R2 `trace_enhanced.trace_btds144a_enhanced`; same script (`pull_first_trades`) | [V] |
+| **Issuer returns.** CRSP common (shrcd 10/11) matched by CUSIP6; daily `ret` read 2010-09-01..2022-12-30 only (dsf ends 2024-12-31); SPY is permno 84398, asserted from `dsenames` | R2 `crsp_a_stock.stocknames`, `dsenames`, `dsf`; same script | [V] |
+| **CRSP holds no mandatory convertible, unit or preferred share class** in `dsenames` 2016–22 (name search for MANDATORY/UNIT/CONV/PFD/PREFERRED returns only operating companies and funds) | R2 `crsp_a_stock.dsenames`, query of 2026-10-11 | [V] negative |
+| **Alpaca asset lists.** `GET /v2/assets?status=active` and `status=inactive` (`asset_class=us_equity`) (paper, cef key): 14,393 active and 19,170 inactive on 2026-10-11. Convertible-named rows with `shortable`/`easy_to_borrow` saved; flags true on their date only | `scripts/events/mandatory_census.py` → `results/events/alpaca_convertible_assets_2026-10-11.csv` | [V] |
+| **Alpaca's inactive list is incomplete.** DHR.PRB and BDXB return SIP bars for 2020–22 but are on neither list | same script | [V] |
+| **Alpaca SIP daily bars** (`/v2/stocks/bars`, `feed=sip`, `adjustment=raw` and `all`) for listed convertibles and four pre-2023 mandatories and their commons | same script; cached under `results/events/_cache_mand/` | [V] |
+| **numexpr 2.10.1 with numpy 2.3.4 gets broadcast arithmetic wrong** on frames over 1e6 cells (where pandas 2.3.3 uses it): `df.sub(s, axis=0)`, `df - df.mean()`, `df.div(rowsum, axis=0)`. This laptop (Anaconda, Python 3.13.5). It produced the "~1e-316" values of §7.4 | `scripts/events/numexpr_fault.py`, run 2026-10-11 | [V] on this machine; [U] elsewhere |
+| ARCC 10-Q for 2021-09-30 (filed 2021-10-26): the schedule of investments has columns Company, Business Description, Investment, Interest, Acquisition Date, Amortized Cost, Fair Value, % of Net Assets. **No loan identifier** (CUSIP, LoanX, FIGI or LIN) | sec.gov `arccq3-2110q.htm`, read through WebFetch 2026-10-11 (one filing) | [V] |
+| ARCC press-release year-end NAVs 2012–15 (16.04, 16.46, 16.82, 16.46), as the 2026-10-09 agent typed them, equal its 10-K XBRL values | data.sec.gov companyconcept CIK0001287750, read through WebFetch 2026-10-11 | [V] for ARCC only |

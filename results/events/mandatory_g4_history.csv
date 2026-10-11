@@ -1,0 +1,45 @@
+symbol,status,name,first_bar,last_bar,bars,span_years,suspect_reuse
+CCI.PRA,inactive,"Crown Castle International Corp. 6.875% Mandatory Convertible Preferred Stock, Series A",2016-01-04,2020-07-31,1153,4.57,True
+NEE.PRQ,inactive,"NextEra Energy, Inc. 6.219% Corporate Units",2016-01-04,2022-12-30,1762,6.99,True
+NEE.PRR,inactive,"NextEra Energy, Inc. 6.926% Corporate Units",2016-08-31,2022-12-30,1595,6.33,True
+SRE.PRA,inactive,"Sempra Energy 6% Mandatory Convertible Preferred Stock, Series A",2018-01-12,2021-01-14,757,3.01,False
+PPLC,active,PPL Corporation Corporate Units,2018-02-15,2020-09-25,658,2.61,False
+AIZP,inactive,"Assurant, Inc. 6.50% Series D Mandatory Convertible Preferred Stock, $1.00 par value",2018-03-15,2021-03-12,754,2.99,False
+NBR.PRA,inactive,"Nabors Industries Ltd. 6.00% Mandatory Convertible Preferred Shares, Series A",2018-05-17,2021-04-30,744,2.95,False
+FTV.PRA,inactive,"Fortive Corporation 5.00% Mandatory Convertible Preferred Stock, Series A",2018-07-05,2021-06-30,753,2.99,False
+SRE.PRB,inactive,"Sempra 6.75% Mandatory Convertible Preferred Stock, Series B",2018-07-18,2021-07-14,753,2.99,False
+IFFT,inactive,International Flavors & Fragrances Inc. 6.00% Tangible Equity Units,2018-09-19,2021-09-14,752,2.99,False
+CFXA,inactive,Colfax Corporation 5.75% Tangible Equity Units,2019-01-16,2022-01-14,757,3.0,False
+ENR.PRA,inactive,"Energizer Holdings, Inc. 7.50% Series A Mandatory Convertible Preferred Stock",2019-01-23,2022-01-14,753,2.98,False
+DHR.PRA,inactive,"Danaher Corporation 4.75% Mandatory Convertible Preferred Stock, Series A",2019-03-06,2022-04-14,786,3.11,False
+WTRU,inactive,"Essential Utilities, Inc.6.00% Tangible Equity Units",2019-04-26,2022-04-29,760,3.01,False
+AVTR.PRA,inactive,"Avantor, Inc. Series A Mandatory Convertible Preferred Stock",2019-05-17,2022-05-13,755,2.99,False
+DCUE,inactive,"Dominion Energy, Inc. 2019 Series A Corporate Units",2019-06-19,2022-05-31,744,2.95,False
+CHNGU,inactive,Change Healthcare Inc. Tangible Equity Units,2019-06-27,2022-06-29,758,3.01,False
+NEE.PRO,inactive,"NextEra Energy, Inc. 4.872% Corporate Units",2019-09-11,2022-08-31,750,2.97,False
+AEPPL,inactive,"American Electric Power Company, Inc. Corporate Unit",2020-10-01,2022-03-14,365,1.45,False
+ALB.PRA,active,Albemarle Corporation Depositary Shares each representing a 1/20th interest in a share of 7.25% Series A Mandatory Convertible Preferred Stock,,,0,,False
+ARES.PRB,active,Ares Management Corporation 6.75% Series B Mandatory Convertible Preferred Stock,,,0,,False
+BA.PRA,active,"The Boeing Company Depositary Shares, each representing a 1/20th interest in a share of 6.00% Series A Mandatory Convertible Preferred Stock, par value $1.00",,,0,,False
+BRKRP,active,"Bruker Corporation 6.375% Mandatory Convertible Preferred Stock, Series A",,,0,,False
+BTSGU,active,"BrightSpring Health Services, Inc. Tangible Equity Unit",,,0,,False
+DUKU,active,Duke Energy Corporation Corporate Units,,,0,,False
+FOUR.PRA,active,"Shift4 Payments, Inc. 6.00% Series A Mandatory Convertible Preferred Stock",,,0,,False
+GOOGM,active,Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series A Mandatory Convertible Preferred Stock,,,0,,False
+GOOGN,active,Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series B Mandatory Convertible Preferred Stock,,,0,,False
+HPE.PRC,active,Hewlett Packard Enterprise Company 7.625% Series C Mandatory Convertible Preferred Stock,,,0,,False
+KKR.PRD,active,KKR & Co. Inc. 6.25% Series D Mandatory Convertible Preferred Stock,,,0,,False
+MCHPP,active,Microchip Technology Incorporated Depositary Shares Each Representing a 1/20th Interest in a Share of 7.50% Series A Mandatory Convertible Preferred Stock,,,0,,False
+NEE.PRS,active,"NextEra Energy, Inc. 7.299% Corporate Units",,,0,,False
+NEE.PRT,active,"NextEra Energy, Inc. 7.234% Corporate Units",,,0,,False
+NEE.PRV,active,"NextEra Energy, Inc. 7.375% Corporate Units",,,0,,False
+NFEGP,active,New Fortress Energy Inc. Series A Mandatorily Convertible Preferred Stock,,,0,,False
+NOVTU,active,Novanta Inc. Tangible Equity Units,,,0,,False
+ORCL.PRD,active,"Oracle Corporation Depositary Shares, each representing a 1/2,000th interest in a share of 6.50% Series D Mandatory Convertible Preferred Stock",,,0,,False
+QXO.PRB,active,"QXO, Inc. Depositary Shares, each representing a 1/20th interest in a share of 5.50% Series B Mandatory Convertible Preferred Stock",,,0,,False
+SMCIP,active,"Super Micro Computer, Inc. Depositary Shares representing a 1/20th Interest in a Share of 7% Series A Mandatory Convertible Preferred Stock",,,0,,False
+SOMN,active,The Southern Company 2025 Series A Corporate Units,,,0,,False
+VSECU,active,VSE Corporation Tangible Equity Units,,,0,,False
+WHR.PRA,active,"Whirlpool Corporation Depositary Shares, each representing a 1/20th interest in a share of 8.50% Series A Mandatory Convertible Preferred Stock",,,0,,False
+SRCU,inactive,Spire Inc Corporate Unit Exp 03/01/2024,,,0,,False
+TSFGN,inactive,South Financial Group Inc. (The) Pfd Mandatory Conv Ser (2008D-V),,,0,,False

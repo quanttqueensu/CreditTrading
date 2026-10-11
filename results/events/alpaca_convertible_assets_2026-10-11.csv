@@ -1,0 +1,114 @@
+asof,symbol,status,kind,exchange,tradable,shortable,easy_to_borrow,borrow_status,name
+2026-10-11,ACV,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,Virtus Diversified Income & Convertible Fund
+2026-10-11,ACVT,active,fund_or_etf,ARCA,True,False,False,hard_to_borrow,Advent Convertible Bond ETF
+2026-10-11,AVK,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,Advent Convertible and Income Fund
+2026-10-11,CCD,active,fund_or_etf,NASDAQ,True,True,True,easy_to_borrow,Calamos Dynamic Convertible & Income Fund Common Stock
+2026-10-11,CHI,active,fund_or_etf,NASDAQ,True,False,False,hard_to_borrow,Calamos Convertible Opportunities and Income Fund Common Stock
+2026-10-11,CHY,active,fund_or_etf,NASDAQ,True,True,True,easy_to_borrow,Calamos Convertible and High Income Fund Common Stock
+2026-10-11,CVRT,active,fund_or_etf,ARCA,True,False,False,hard_to_borrow,Calamos Convertible Equity Alternative ETF
+2026-10-11,CWB,active,fund_or_etf,ARCA,True,True,True,easy_to_borrow,State Street SPDR Bloomberg Convertible Securities ETF
+2026-10-11,FCVT,active,fund_or_etf,NASDAQ,True,False,False,hard_to_borrow,First Trust Exchange-Traded Fund IV First Trust SSI Strategic Convertible Securities ETF
+2026-10-11,GCV,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,"The Gabelli Convertible and Income Securities Fund, Inc."
+2026-10-11,ICVT,active,fund_or_etf,BATS,True,False,False,hard_to_borrow,iShares Convertible Bond ETF
+2026-10-11,MCVT,active,fund_or_etf,ARCA,True,True,True,easy_to_borrow,Miller Convertible Total Return ETF
+2026-10-11,NCV,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,Virtus Convertible & Income Fund
+2026-10-11,NCV.PRA,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,Virtus Convertible & Income Fund 5.625% Series A Cumulative Preferred Shares
+2026-10-11,NCZ,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,Virtus Convertible & Income Fund II
+2026-10-11,NCZ.PRA,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,Virtus Convertible & Income Fund II 5.50% Series A Cumulative Preferred Shares
+2026-10-11,NIE,active,fund_or_etf,NYSE,True,True,True,easy_to_borrow,Virtus Equity & Convertible Income Fund
+2026-10-11,SPE.PRC,active,fund_or_etf,NYSE,True,False,False,hard_to_borrow,"Special Opportunities Fund, Inc. 2.75% Convertible Preferred Stock, Series C"
+2026-10-11,WHLRL,active,listed_conv_note,NASDAQ,True,False,False,hard_to_borrow,"Wheeler Real Estate Investment Trust, Inc. 7.00% Senior Subordinated Convertible Notes Due 2031"
+2026-10-11,ALB.PRA,active,mandatory,NYSE,True,False,False,hard_to_borrow,Albemarle Corporation Depositary Shares each representing a 1/20th interest in a share of 7.25% Series A Mandatory Convertible Preferred Stock
+2026-10-11,ARES.PRB,active,mandatory,NYSE,True,False,False,hard_to_borrow,Ares Management Corporation 6.75% Series B Mandatory Convertible Preferred Stock
+2026-10-11,BA.PRA,active,mandatory,NYSE,True,False,False,hard_to_borrow,"The Boeing Company Depositary Shares, each representing a 1/20th interest in a share of 6.00% Series A Mandatory Convertible Preferred Stock, par value $1.00"
+2026-10-11,BRKRP,active,mandatory,NASDAQ,True,False,False,hard_to_borrow,"Bruker Corporation 6.375% Mandatory Convertible Preferred Stock, Series A"
+2026-10-11,BTSGU,active,mandatory,NASDAQ,True,False,False,hard_to_borrow,"BrightSpring Health Services, Inc. Tangible Equity Unit"
+2026-10-11,DUKU,active,mandatory,NYSE,True,False,False,hard_to_borrow,Duke Energy Corporation Corporate Units
+2026-10-11,FOUR.PRA,active,mandatory,NYSE,True,False,False,hard_to_borrow,"Shift4 Payments, Inc. 6.00% Series A Mandatory Convertible Preferred Stock"
+2026-10-11,GOOGM,active,mandatory,NASDAQ,True,True,True,easy_to_borrow,Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series A Mandatory Convertible Preferred Stock
+2026-10-11,GOOGN,active,mandatory,NASDAQ,True,True,True,easy_to_borrow,Alphabet Inc. Depositary Shares representing a 1/20th Interest in a Share of Series B Mandatory Convertible Preferred Stock
+2026-10-11,HPE.PRC,active,mandatory,NYSE,True,True,True,easy_to_borrow,Hewlett Packard Enterprise Company 7.625% Series C Mandatory Convertible Preferred Stock
+2026-10-11,KKR.PRD,active,mandatory,NYSE,True,False,False,hard_to_borrow,KKR & Co. Inc. 6.25% Series D Mandatory Convertible Preferred Stock
+2026-10-11,MCHPP,active,mandatory,NASDAQ,True,True,True,easy_to_borrow,Microchip Technology Incorporated Depositary Shares Each Representing a 1/20th Interest in a Share of 7.50% Series A Mandatory Convertible Preferred Stock
+2026-10-11,NEE.PRS,active,mandatory,NYSE,True,True,True,easy_to_borrow,"NextEra Energy, Inc. 7.299% Corporate Units"
+2026-10-11,NEE.PRT,active,mandatory,NYSE,True,True,True,easy_to_borrow,"NextEra Energy, Inc. 7.234% Corporate Units"
+2026-10-11,NEE.PRV,active,mandatory,NYSE,True,False,False,hard_to_borrow,"NextEra Energy, Inc. 7.375% Corporate Units"
+2026-10-11,NFEGP,active,mandatory,NASDAQ,True,False,False,hard_to_borrow,New Fortress Energy Inc. Series A Mandatorily Convertible Preferred Stock
+2026-10-11,NOVTU,active,mandatory,NASDAQ,True,False,False,hard_to_borrow,Novanta Inc. Tangible Equity Units
+2026-10-11,ORCL.PRD,active,mandatory,NYSE,True,True,True,easy_to_borrow,"Oracle Corporation Depositary Shares, each representing a 1/2,000th interest in a share of 6.50% Series D Mandatory Convertible Preferred Stock"
+2026-10-11,PPLC,active,mandatory,NYSE,True,False,False,hard_to_borrow,PPL Corporation Corporate Units
+2026-10-11,QXO.PRB,active,mandatory,NYSE,True,False,False,hard_to_borrow,"QXO, Inc. Depositary Shares, each representing a 1/20th interest in a share of 5.50% Series B Mandatory Convertible Preferred Stock"
+2026-10-11,SMCIP,active,mandatory,NASDAQ,True,True,True,easy_to_borrow,"Super Micro Computer, Inc. Depositary Shares representing a 1/20th Interest in a Share of 7% Series A Mandatory Convertible Preferred Stock"
+2026-10-11,SOMN,active,mandatory,NYSE,True,False,False,hard_to_borrow,The Southern Company 2025 Series A Corporate Units
+2026-10-11,VSECU,active,mandatory,NASDAQ,True,False,False,hard_to_borrow,VSE Corporation Tangible Equity Units
+2026-10-11,WHR.PRA,active,mandatory,NYSE,True,False,False,hard_to_borrow,"Whirlpool Corporation Depositary Shares, each representing a 1/20th interest in a share of 8.50% Series A Mandatory Convertible Preferred Stock"
+2026-10-11,BAC.PRL,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,"Bank Of America Corporation 7.25% Non-Cumulative Perpetual Convertible Preferred Stock, Series L"
+2026-10-11,BHR.PRB,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,Braemar Hotels & Resorts Inc. 5.50% Series B Cumulative Convertible Preferred Stock
+2026-10-11,EPR.PRC,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,EPR Properties 5.75% Series C Cumulative Convertible Preferred Shares
+2026-10-11,EPR.PRE,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,EPR Properties 9.00% Series E Cumulative Convertible Preferred Shares
+2026-10-11,FBYDP,active,optional_conv_pref,NASDAQ,True,False,False,hard_to_borrow,"Falcon's Beyond Global, Inc. 11% Series B Cumulative Convertible Preferred Stock"
+2026-10-11,GMBLP,active,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Esports Entertainment Group Inc. 10.0% Preferred Convertible Series A
+2026-10-11,HL.PRB,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,Hecla Mining Company Series B Cumulative Convertible Preferred
+2026-10-11,KIM.PRN,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,"Kimco Realty Corporation Depositary Shares, each representing 1/1,000th interest in a share of 7.25% Class N Cumulative Convertible Perpetual Preferred Stock"
+2026-10-11,LXP.PRC,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,LXP Industrial Trust 6.5% Series C Cumulative Convertible Preferred Stock
+2026-10-11,RC.PRC,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,Ready Capital Corporation 6.25% Series C Cumulative Convertible Preferred Stock
+2026-10-11,RLJ.PRA,active,optional_conv_pref,NYSE,True,True,True,easy_to_borrow,RLJ Lodging Trust $1.95 Series A Cumulative Convertible Preferred Shares
+2026-10-11,WFC.PRL,active,optional_conv_pref,NYSE,True,False,False,hard_to_borrow,WELLS FARGO 7.5% NON CUMV PERP CONV
+2026-10-11,XELAP,active,optional_conv_pref,OTC,False,False,False,hard_to_borrow,EXELA TECHNOLOGIES INC PERP CUM PFD CONV SER B 6% Preferred Stock
+2026-10-11,CDFZF,inactive,fund_or_etf,OTC,False,False,False,hard_to_borrow,Canadian Convertible Debenture Fund Unit (Canada)
+2026-10-11,SPE.PRB,inactive,fund_or_etf,NYSE,False,False,False,hard_to_borrow,"Special Opportunities Fund, Inc. 3.50% Convertible Preferred Stock, Series B"
+2026-10-11,CPTAG,inactive,listed_conv_note,NASDAQ,False,False,False,hard_to_borrow,Capitala Finance Corp. 5.75% Convertible Notes Due 2022
+2026-10-11,AEPPL,inactive,mandatory,NASDAQ,False,False,False,hard_to_borrow,"American Electric Power Company, Inc. Corporate Unit"
+2026-10-11,AIZP,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Assurant, Inc. 6.50% Series D Mandatory Convertible Preferred Stock, $1.00 par value"
+2026-10-11,AVTR.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Avantor, Inc. Series A Mandatory Convertible Preferred Stock"
+2026-10-11,CCI.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Crown Castle International Corp. 6.875% Mandatory Convertible Preferred Stock, Series A"
+2026-10-11,CFXA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,Colfax Corporation 5.75% Tangible Equity Units
+2026-10-11,CHNGU,inactive,mandatory,NASDAQ,False,False,False,hard_to_borrow,Change Healthcare Inc. Tangible Equity Units
+2026-10-11,DCUE,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Dominion Energy, Inc. 2019 Series A Corporate Units"
+2026-10-11,DHR.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Danaher Corporation 4.75% Mandatory Convertible Preferred Stock, Series A"
+2026-10-11,ENR.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Energizer Holdings, Inc. 7.50% Series A Mandatory Convertible Preferred Stock"
+2026-10-11,FTV.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Fortive Corporation 5.00% Mandatory Convertible Preferred Stock, Series A"
+2026-10-11,IFFT,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,International Flavors & Fragrances Inc. 6.00% Tangible Equity Units
+2026-10-11,NBR.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Nabors Industries Ltd. 6.00% Mandatory Convertible Preferred Shares, Series A"
+2026-10-11,NEE.PRO,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"NextEra Energy, Inc. 4.872% Corporate Units"
+2026-10-11,NEE.PRQ,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"NextEra Energy, Inc. 6.219% Corporate Units"
+2026-10-11,NEE.PRR,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"NextEra Energy, Inc. 6.926% Corporate Units"
+2026-10-11,PPLC,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,PPL Corporation Corporate Units
+2026-10-11,SRCU,inactive,mandatory,OTC,False,False,False,hard_to_borrow,Spire Inc Corporate Unit Exp 03/01/2024
+2026-10-11,SRE.PRA,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Sempra Energy 6% Mandatory Convertible Preferred Stock, Series A"
+2026-10-11,SRE.PRB,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Sempra 6.75% Mandatory Convertible Preferred Stock, Series B"
+2026-10-11,TSFGN,inactive,mandatory,OTC,False,False,False,hard_to_borrow,South Financial Group Inc. (The) Pfd Mandatory Conv Ser (2008D-V)
+2026-10-11,WTRU,inactive,mandatory,NYSE,False,False,False,hard_to_borrow,"Essential Utilities, Inc.6.00% Tangible Equity Units"
+2026-10-11,67021W202,inactive,optional_conv_pref,AMEX,False,False,False,hard_to_borrow,PFD NUBURU INC + PFD CONV SER A
+2026-10-11,AATRL,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,AMG CAP TR II CONV TR 5.15% PFD SECS 10/15/2037
+2026-10-11,AERGP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,"Applied Energetics, Inc. Series A Convertible Preferred Stock"
+2026-10-11,AMBKP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,American Bank Inc Capital Trust I 6% Convertible Preferred
+2026-10-11,ATPGQ,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,ATP Oil & Gas Corporation PERP PFD CONV 8% SER B
+2026-10-11,BGEPF,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Bunge Limited 4.875% Perpetual Pref Shs Conv (Bermuda)
+2026-10-11,CCOMP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,"CCOM Group, Inc. Convertible Preferred Stock"
+2026-10-11,CDMOP,inactive,optional_conv_pref,NASDAQ,False,False,False,hard_to_borrow,"Avid Bioservices, Inc. 10.50% Series E Convertible Preferred Stock"
+2026-10-11,CNIGP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Corning Natural Gas Holding Corporation 4.8% Pfd Conv Ser B
+2026-10-11,CRLKP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Central Parking Financial Trust 5.25% Convertible Preferred Stock
+2026-10-11,CTDEF,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,CITY DEVELOPMENTS LTD PREF SHS 2004 -NON -RED CONV NON-CUM Preferred Stock Singapore(SG )
+2026-10-11,CWGRP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,COWEN GROUP INC Cum Perp Pfd Conv Ser A 5.625%
+2026-10-11,DPSIP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,"DecisionPoint Systems, Inc. Pfd Conv Ser D 8%"
+2026-10-11,EPORP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Epic Corporation 5% Preferred Convertible Series A
+2026-10-11,FNMFO,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Federal National Mortgage Association Pfd Conv Ser 2004-I 5.375%
+2026-10-11,JRONF,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Jeronimo Martins 13.50 Cv Pfd Ordinary Shares
+2026-10-11,LMRKN,inactive,optional_conv_pref,NASDAQ,False,False,False,hard_to_borrow,Landmark Infrastructure Partners LP 7% Series C Fltg/Fxd Perpetual Conv Preferred Stock
+2026-10-11,MHGPQ,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Meritage Hospitality Group Inc. Convertible Preferred Series B
+2026-10-11,NCRRP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,NCR VOYIX CORP PFD CONV SER A 5.50%
+2026-10-11,NICRL,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Nicor Inc. 5.00% Convertible Preferred Stock
+2026-10-11,NUSPQ,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,New Source Energy Partners L.P. 11.00% Series A Cumulative Convertible Preferred Units
+2026-10-11,PARDP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,"Poniard Pharmceuticals, Inc. Convertible Exchangeable Preferred Stock"
+2026-10-11,PNCFO,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,"PNC Financial Services Group Inc $1.80 Cumulative Convertible Preferred Stock, Series B"
+2026-10-11,QTS.PRB,inactive,optional_conv_pref,NYSE,False,False,False,hard_to_borrow,"QTS Realty Trust, Inc. 6.50% Series B Cumulative Convertible Perpetual Preferred Stock"
+2026-10-11,SBDKP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Stanley Black & Decker Inc. 4.75% Perp Cum Convertible Pfd Series B
+2026-10-11,SBNCM,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,SOUTHERN BANCSHARES N C INC CMT- PFD CL B CONV
+2026-10-11,SENEL,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,Seneca Foods Corp. Convertible Preferred Stock Series 2003
+2026-10-11,VNORP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,VORNADO RLTY TR PFD CONV SER A $3.25
+2026-10-11,WGNAP,inactive,optional_conv_pref,OTC,False,False,False,hard_to_borrow,WGNB Corp. 9% Series A Convertible Preferred Stock
+2026-10-11,DNIEF,inactive,other,OTC,False,False,False,hard_to_borrow,Danieli & Cofficine Meccaniche Spa Buttrio Udine Shs Di Svgs Non Conv (Italy)
+2026-10-11,MCRAB,inactive,other,OTC,False,False,False,hard_to_borrow,MCRAE INDS INC CL B CONV
+2026-10-11,NAV.PRD,inactive,other,NYSE,False,False,False,hard_to_borrow,"Navistar International Corporation Cumulative Convertible Junior Preference Stock, Series D"
+2026-10-11,TIAJF,inactive,other,OTC,False,False,False,hard_to_borrow,Telecom Italia S.P.A. AZ.DI RISP. Non Conv. (Italy)
