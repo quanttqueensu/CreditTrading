@@ -508,12 +508,23 @@ def margin_limits(positions_after: dict, closes: dict, equity: float, current_gr
 
 
 def stress_breach(gross_after: float, gross_before: float, max_gross_stress,
-                  sized_equity: float) -> str | None:
+                  sized_equity: float, live_equity: float) -> str | None:
     """Why the book AFTER a plan breaks the spec's `max_gross_stress`, or None.
 
     It breaks it only when BOTH hold: gross after the plan > max_gross_stress x
-    the equity the plan was SIZED on, AND the plan adds to the gross held now.
-    Both grosses are valued at the same as-of closes.
+    the LOWER of the equity the plan was SIZED on and the live equity, AND the
+    plan adds to the gross held now. Both grosses are valued at the same as-of
+    closes. At decide the two equities are the same number.
+
+    WHY THE LOWER OF THE TWO (team lead's ruling 2026-10-11, after release-check
+    review). The sized equity alone (below) left a gap: once live equity was
+    more than 1 - 1.8/1.843 = 2.34% under the sized equity, a plan that ADDS
+    gross could go out above the derived G_stress 1.843 x live equity, with only
+    Reg T (2.0x) left to stop it. The 1.843 is a margin-survival limit on LIVE
+    equity, so a plan that adds gross is now held to the cap on whichever equity
+    is lower. This does not bring back the 2026-10-09 missed day: that plan took
+    gross DOWN, which always passes, and a plan that adds gross is scaled to fit
+    by `run.fit_to_buying_power`, which reads this same rule, instead of refused.
 
     WHY THE SIZED EQUITY (incident 2026-10-09, team lead's go the same day). The
     spec defines the cap in weight space: gross = sum|w| of the held book after
@@ -538,20 +549,23 @@ def stress_breach(gross_after: float, gross_before: float, max_gross_stress,
     """
     if max_gross_stress is None:
         return None
-    cap = max_gross_stress * sized_equity
+    base = min(sized_equity, live_equity)
+    cap = max_gross_stress * base
     if gross_after <= cap or gross_after <= gross_before:
         return None
+    which = "the equity the plan was sized on" if sized_equity <= live_equity else "live equity"
     return (f"projected gross ${gross_after:,.2f} > max_gross_stress {max_gross_stress} x "
-            f"${sized_equity:,.2f}, the equity the plan was sized on (${cap:,.2f}), and the "
-            f"plan adds to the gross held now (${gross_before:,.2f})")
+            f"${base:,.2f}, {which}, the lower of sized ${sized_equity:,.2f} and live "
+            f"${live_equity:,.2f} (${cap:,.2f}), and the plan adds to the gross held now "
+            f"(${gross_before:,.2f})")
 
 
 def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd,
                   max_gross_stress, *, sized_equity: float, current_gross: float,
                   maintenance_margin: float) -> list[Refusal]:
     """Gate 8. After the orders fill as sent: gross <= risk.max_gross_exposure_usd;
-    `stress_breach` against the equity the plan was SIZED on (when the spec sets
-    max_gross_stress); the ORDER-TIME check -- buying power the opening orders
+    `stress_breach` against the lower of the equity the plan was SIZED on and
+    the live equity (when the spec sets max_gross_stress); the ORDER-TIME check -- buying power the opening orders
     consume <= Alpaca's live `buying_power`, which is what Alpaca enforces at
     submission [V]; and the OVERNIGHT check (`margin_limits`) on live equity. A
     name with a position or an order and no close refuses (it cannot be
@@ -565,8 +579,8 @@ def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd
     ended at 1.57x gross, inside every limit. The overnight limit is now checked
     on the book AFTER the plan, which is what it is about.
 
-    Why the stress cap uses the SIZED equity, not the live one (2026-10-09):
-    `stress_breach`.
+    Why the stress cap uses the lower of the sized and the live equity
+    (2026-10-09, 2026-10-11): `stress_breach`.
     """
     out = []
     proj = projected_positions(orders, positions)
@@ -580,7 +594,7 @@ def gate_exposure(orders, positions, closes, equity, buying_power, max_gross_usd
         out.append(Refusal("exposure", f"projected gross ${gross:,.2f} > spec "
                                        f"max_gross_exposure_usd ${max_gross_usd:,.2f}"))
     held = sum(abs(q) * closes[s] for s, q in positions.items())
-    why = stress_breach(gross, held, max_gross_stress, sized_equity)
+    why = stress_breach(gross, held, max_gross_stress, sized_equity, equity)
     if why:
         out.append(Refusal("exposure", why))
     need = buying_power_needed(orders, positions, closes)

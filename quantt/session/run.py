@@ -974,8 +974,9 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     # at decide would otherwise be refused by any small adverse move by 15:52.
     # Only ever shrinks opening orders: what goes stays a subset of the plan.
     closes = {k: float(v) for k, v in plan["closes"].items()}
-    # The stress cap is judged on the equity the plan was SIZED on, never the
-    # live one (gate.stress_breach: the 2026-10-09 refusal).
+    # The stress cap is judged on the lower of the equity the plan was SIZED on
+    # and live equity, and only for a plan that adds gross (gate.stress_breach:
+    # the 2026-10-09 refusal and the team lead's ruling of 2026-10-11).
     sized_equity = float(plan["equity"])
     if deps.execution.get("bp_shortfall") == "scale" and orders:
         orders, kept, binding = fit_to_buying_power(
@@ -1110,11 +1111,13 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
     constraint or None when nothing was scaled); `kept` is the share of the
     plan's traded notional kept.
 
-    THE STRESS CAP (2026-10-09). Scaling reductions for neutrality (below) can
-    leave more gross than the plan, so a fitted plan could break
+    THE STRESS CAP (2026-10-09, 2026-10-11). Scaling reductions for neutrality
+    (below) can leave more gross than the plan, so a fitted plan could break
     `gate.stress_breach` when the full plan did not. The cap is therefore one of
-    the limits fitted to, read exactly as the gate reads it: against the equity
-    the plan was SIZED on, and only when the plan adds to the gross held now.
+    the limits fitted to, read exactly as the gate reads it: against the lower
+    of the equity the plan was SIZED on and `equity` (live at send), and only
+    when the plan adds to the gross held now. So when equity has fallen since
+    decide, a plan that adds gross is scaled down here, not refused at the gate.
     All-zero (send nothing) never breaks it.
 
     NOTHING FITS (2026-10-09 audit). If the book held now already breaks a
@@ -1136,14 +1139,26 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
     notional. Searched on a 0.05 grid, then refined on 0.01 around the best.
     Reductions consume no buying power (Alpaca: they do not replenish it until
     executed, and they never use it), so they are scaled only when neutrality
-    needs it. Whole shares are floored afterwards, so the result never exceeds
-    a limit at the prices used. Called at DECIDE (as-of closes, evening
+    needs it. Called at DECIDE (as-of closes, evening
     account) and again at SEND on the live account, so a plan sitting on the
     limit at decide is not refused by a small adverse move by 15:52.
 
     Flips are deferred (decide.FLIP_SAME_SESSION), so every order is wholly
     opening or wholly reducing; a leg-2 order is refused here rather than
     mis-sized. A name without a close is left to the gate's clean refusal.
+
+    WHOLE SHARES (release-check 2026-10-11). The search scales in fractions,
+    so each order is then rounded to whole shares, in the direction that can
+    only lower gross: an opening order DOWN, a reducing order UP (capped at its
+    own quantity, so it never crosses zero). Until 2026-10-11 every order was
+    floored, which covers LESS of a reducing order and leaves MORE gross than
+    the fractional plan the search accepted. Both reviewers reproduced a fitted
+    plan that gate 8 then refused on the very stress cap it was fitted to (about
+    1 in 100 synthetic cases where the cap binds): a missed day, the 2026-10-09
+    failure. Rounded this way, gross and the buying power needed are never above
+    the fractional plan's, and every limit here is monotone in them. The rounded
+    plan is still re-checked; if it broke a limit anyway it would be returned
+    unscaled for the gate to refuse, never sent above a limit.
     """
     import dataclasses
     import itertools
@@ -1176,19 +1191,25 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
             after[o.symbol] = cur + f[by[o.client_order_id]] * o.signed_qty
         return after
 
-    def evaluate(f):
-        after = book(f)
+    def breach(after, need):
+        """The first limit the post-trade book `after` breaks, or None."""
         gross = sum(abs(q) * closes[s] for s, q in after.items())
-        net = sum(q * closes[s] for s, q in after.items())
-        need = sum(f[by[o.client_order_id]] * o.qty * closes[o.symbol]
+        return ("order-time buying_power" if need > buying_power else
+                "overnight Reg T initial margin" if gt.REG_T_INITIAL * gross > equity else
+                "overnight maintenance (measured ratio)"
+                if ratio is not None and ratio * gross > equity else
+                "max_gross_stress (on the lower of sized and live equity)"
+                if gt.stress_breach(gross, held, max_gross_stress, sized_equity, equity) else None)
+
+    def bp_need(qty_of):
+        return sum(qty_of(o) * closes[o.symbol]
                    * (gt.SHORT_ORDER_BP_MULTIPLIER if o.side == "sell" else 1.0)
                    for o in orders if by[o.client_order_id][0] == "o")
-        why = ("order-time buying_power" if need > buying_power else
-               "overnight Reg T initial margin" if gt.REG_T_INITIAL * gross > equity else
-               "overnight maintenance (measured ratio)"
-               if ratio is not None and ratio * gross > equity else
-               "max_gross_stress (on the sized equity)"
-               if gt.stress_breach(gross, held, max_gross_stress, sized_equity) else None)
+
+    def evaluate(f):
+        after = book(f)
+        net = sum(q * closes[s] for s, q in after.items())
+        why = breach(after, bp_need(lambda o: f[by[o.client_order_id]] * o.qty))
         traded = sum(f[by[o.client_order_id]] * o.qty * closes[o.symbol] for o in orders)
         return why, net, traded
 
@@ -1218,17 +1239,31 @@ def fit_to_buying_power(orders, positions: dict, closes: dict, equity: float,
     fine = search(lambda b: sorted({min(1.0, max(0.0, round(c0[b] + d / 100, 2)))
                                     for d in range(-5, 6)}))
     f = (fine or coarse)[1]
-    out = []
+    whole = {}                    # client_order_id -> whole shares (docstring, WHOLE SHARES)
     for o in orders:
         k = f[by[o.client_order_id]]
         if k >= 1.0:
+            whole[o.client_order_id] = o.qty
+        elif by[o.client_order_id][0] == "o":
+            whole[o.client_order_id] = math.floor(o.qty * k)
+        else:
+            whole[o.client_order_id] = min(o.qty, math.ceil(o.qty * k))
+    after = dict(untouched)
+    for o in orders:
+        after[o.symbol] = positions.get(o.symbol, 0) + whole[o.client_order_id] * (1 if o.side == "buy" else -1)
+    still = breach(after, bp_need(lambda o: whole[o.client_order_id]))
+    if still:
+        return tuple(orders), 1.0, (f"{still} (the whole-share fit still breaks it: returned "
+                                    f"unscaled for the gate to refuse)")
+    out = []
+    for o in orders:
+        q = whole[o.client_order_id]
+        if q == o.qty:
             out.append(o)
-            continue
-        q = math.floor(o.qty * k)
-        if q <= 0:
-            continue
-        out.append(dataclasses.replace(o, qty=q, target=o.current + (q if o.side == "buy" else -q),
-                                       reason=f"{o.reason}; scaled x{k:.2f} to fit {binding}"))
+        elif q > 0:
+            k = f[by[o.client_order_id]]
+            out.append(dataclasses.replace(o, qty=q, target=o.current + (q if o.side == "buy" else -q),
+                                           reason=f"{o.reason}; scaled x{k:.2f} to fit {binding}"))
     _, _, traded = evaluate(f)
     return dec.transmit_sequence(out), (traded / full_traded if full_traded else 1.0), binding
 

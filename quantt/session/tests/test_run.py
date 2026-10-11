@@ -1121,27 +1121,42 @@ def at_the_cap(asof, holdings, equity, opening):
             PositionTarget("CCC", FLAT, reason="flat")]
 
 
-def test_a_plan_at_the_cap_is_sent_after_equity_dips_before_1552(tmp_path):
+def test_a_plan_at_the_cap_is_scaled_and_sent_after_equity_dips_before_1552(tmp_path):
     """2026-10-09: the plan was sized at the cap on the evening's equity, equity fell
-    0.56% by 15:52, and both sends were refused on max_gross_stress x LIVE equity."""
-    c, deps, state, plan = decided(tmp_path, targets=at_the_cap)
+    by 15:52, and both sends were refused on max_gross_stress x LIVE equity; the book
+    did not trade. Under the team lead's ruling of 2026-10-11 a plan that ADDS gross is
+    held to the cap on the lower of sized and live equity, and with the book's
+    bp_shortfall = scale (prod's setting) the send's re-fit scales it to fit instead
+    of refusing it: the day trades, below 1.8 x live equity."""
+    c, deps, state, plan = decided(tmp_path, targets=at_the_cap,
+                                   execution=dict(LATE, bp_shortfall="scale"))
     assert sum(o["qty"] * o["est_price"] for o in plan["orders"]) == 180_000.0
     (state / "AUTO_ARMED").touch()
     to_send_time(c, deps)
     c.equity = 99_900.0                               # 1.8 x 99,900 = 179,820 < 180,000
+    sent, real = [], c.submit_order
+
+    def capture(symbol, qty, side, client_order_id, *, time_in_force):
+        sent.append((symbol, qty))
+        return real(symbol, qty, side, client_order_id, time_in_force=time_in_force)
+    c.submit_order = capture
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
-    assert len(c.submits()) == 2
+    run = sorted((state / D.isoformat() / "runs").glob("*-run.json"))[-1]
+    assert json.loads(run.read_text())["bp_scale_at_send"]["binding"] \
+        == "max_gross_stress (on the lower of sized and live equity)"
+    px = {o["symbol"]: o["est_price"] for o in plan["orders"]}
+    assert len(sent) == 2 and 0 < sum(q * px[s] for s, q in sent) <= 1.8 * 99_900.0
 
 
-def test_a_plan_at_the_cap_is_sent_after_a_dip_with_scaling_on(tmp_path):
-    c, deps, state, plan = decided(tmp_path, targets=at_the_cap,
-                                   execution=dict(LATE, bp_shortfall="scale"))
+def test_without_scaling_an_adding_plan_past_the_live_cap_is_refused(tmp_path):
+    """bp_shortfall absent (= refuse): nothing scales at send, so the same plan after
+    the same dip is refused, naming live equity as the binding base."""
+    c, deps, state, plan = decided(tmp_path, targets=at_the_cap)
     (state / "AUTO_ARMED").touch()
     to_send_time(c, deps)
     c.equity = 99_900.0
-    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
-    run = sorted((state / D.isoformat() / "runs").glob("*-run.json"))[-1]
-    assert json.loads(run.read_text())["bp_scale_at_send"]["binding"] is None   # sent whole
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
 
 
 def cut_to_190k(asof, holdings, equity, opening):
@@ -1179,10 +1194,10 @@ def test_fit_scales_a_plan_that_adds_gross_past_the_cap_on_the_sized_equity():
                                             buying_power=1e9, current_gross=0.0,
                                             maintenance_margin=0.0, max_gross_stress=1.8,
                                             sized_equity=100_000.0)
-    assert why == "max_gross_stress (on the sized equity)"
+    assert why == "max_gross_stress (on the lower of sized and live equity)"
     gross = sum(o.qty * 10.0 for o in out)
     assert 0 < gross <= 180_000.0
-    assert rn.gt.stress_breach(gross, 0.0, 1.8, 100_000.0) is None
+    assert rn.gt.stress_breach(gross, 0.0, 1.8, 100_000.0, 1e6) is None
 
 
 def test_fit_with_nothing_that_fits_returns_the_plan_for_the_gate_to_refuse():
@@ -1199,6 +1214,27 @@ def test_fit_with_nothing_that_fits_returns_the_plan_for_the_gate_to_refuse():
                             1e9, 1.8, sized_equity=100_000.0, current_gross=300_000.0,
                             maintenance_margin=90_000.0)
     assert any("Reg T" in x.detail for x in r)
+
+
+def test_a_fitted_plan_is_never_refused_by_the_cap_it_was_fitted_to():
+    """Release-check 2026-10-11, the execution desk's synthetic case (a claim about our
+    code). Every scaled order was floored, so the scaled cover S0 118 -> 24 covered
+    less than the fractional plan and left more gross: gate 8 refused the set the fit
+    had produced ($94,277.87 > $94,267.05), a missed day. Reductions now round UP."""
+    closes = {"S0": 21.38, "S1": 9.86, "S2": 4.73, "S3": 24.66, "S4": 21.13,
+              "S5": 16.39, "S6": 10.22, "S7": 22.43}
+    pos = {"S0": 357, "S1": -866, "S2": -2806, "S3": -1400, "S4": 1109}
+    orders = (_o("S6", "sell", 96, 0, 10.22), _o("S0", "sell", 118, 357, 21.38),
+              _o("S2", "buy", 2640, -2806, 4.73), _o("S3", "buy", 523, -1400, 24.66),
+              _o("S5", "buy", 1090, 0, 16.39), _o("S7", "buy", 1030, 0, 22.43))
+    held = sum(abs(q) * closes[s] for s, q in pos.items())
+    kw = dict(current_gross=held, maintenance_margin=0.3 * held, sized_equity=52_370.58)
+    out, kept, why = rn.fit_to_buying_power(orders, pos, closes, 1e6, 1e12, max_gross_stress=1.8, **kw)
+    assert why == "max_gross_stress (on the lower of sized and live equity)"
+    assert rn.gt.gate_exposure(out, pos, closes, 1e6, 1e12, 1e12, 1.8, **kw) == []
+    scaled = {o.symbol: o.qty for o in out}
+    full = {o.symbol: o.qty for o in orders}
+    assert all(scaled.get(s, 0) <= full[s] for s in full)          # never above the plan
 
 
 # ------------------------------------------- the evening pre-flight (team lead's go 2026-10-09)

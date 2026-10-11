@@ -71,7 +71,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 5. **Data** — the refresh exited 0 for the required as-of date.
 6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
-8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the equity the plan was **sized** on, unless the plan does not add to the gross held now (2026-10-09); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
+8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the **lower** of the equity the plan was sized on and live equity, unless the plan does not add to the gross held now (2026-10-09; the lower of the two from 2026-10-11); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
 9. **Sanity** — every qty a positive integer, every symbol in the frozen universe, no symbol with two opposite-side orders.
 
 ## Rules the code must obey
@@ -163,7 +163,7 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
 
-## As built (2026-10-09): the stress cap on the sized equity, missed days FAIL, the pre-flight
+## As built (2026-10-09, amended 2026-10-11): the stress cap, missed days FAIL, the pre-flight
 
 **The incident.** On Friday 2026-10-09 the book did not trade. Gate 8 refused both
 the 15:52 send and the 15:55 retry: "projected gross $182,154.75 > max_gross_stress
@@ -187,19 +187,30 @@ already fixed on 2026-10-07; the replay confirms the new code passes them too.
 
 What changed (team lead's go, 2026-10-09):
 
-- **The stress cap is judged on the equity the plan was sized on.** The spec
-  defines `max_gross_stress` in weight space, against the sleeve NAV at decide.
-  The send now reads the plan's own `equity` (`gate.stress_breach`). A plan
-  without one is refused, never assumed. What the account can bear on the day
-  is still checked on live numbers: buying power, and the overnight Reg T and
-  maintenance limits, unchanged. The cap 1.80 already leaves 0.043× below the
-  derived G_stress 1.843 for exactly this movement (spec `_max_gross_stress_note`).
+- **The stress cap is judged on the lower of the equity the plan was sized on
+  and live equity** (`gate.stress_breach`). The send reads the plan's own
+  `equity`; a plan without one is refused, never assumed. *Amended 2026-10-11
+  (team lead's ruling, after the release-check review).* As first built on
+  2026-10-09 it read the sized equity alone, on the argument that the 0.043×
+  between the cap 1.80 and the derived G_stress 1.843 absorbs the movement. Both
+  reviewers showed that holds only for a fall of up to 1 − 1.8/1.843 = 2.34%:
+  past that, a plan that ADDS gross could go out above 1.843× live equity, with
+  only Reg T (2.0×) left to stop it. So a plan that adds gross is held to the cap
+  on whichever equity is lower, and with `bp_shortfall = scale` (prod's setting)
+  the send's re-fit scales it to fit rather than refusing it. 2026-10-09's plan
+  took gross down, so it still passes. Buying power and the overnight Reg T and
+  maintenance limits are checked on live numbers, unchanged.
 - **A plan that does not add gross always passes the stress cap**, even when the
   book is above it. A ceiling stops the book adding past it; it must never block
   a plan that brings gross down.
 - **The re-fit fits the stress cap too** (`fit_to_buying_power`). Scaling
   reductions for neutrality can leave more gross than the plan, so the cap is
-  one of its limits, read as the gate reads it. **When nothing fits** (the book
+  one of its limits, read as the gate reads it. **Whole shares round the safe
+  way** (2026-10-11): opening orders down, reducing orders up (capped at the
+  order), so the whole-share plan never holds more gross or needs more buying
+  power than the fractional plan that passed. Until then every order was
+  floored, and both release-check reviewers produced a fitted plan that gate 8
+  refused on the very cap it was fitted to. The rounded plan is re-checked. **When nothing fits** (the book
   held now is already past a limit and no scaling fixes it), the plan is
   returned unscaled with the limit named, and the gate refuses it. Until now
   that case raised `TypeError` (`coarse[1]` on `None`): a FAIL with a traceback.

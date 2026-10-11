@@ -354,11 +354,15 @@ def test_the_2026_10_09_numbers_are_what_the_incident_says():
     assert after <= 1.8 * FRI_SIZED_EQUITY          # what the spec's cap is about
 
 
-def test_stress_cap_uses_the_sized_equity_not_the_live_one():
-    # from flat: AAA 9,000 x 10 + BBB 4,500 x 20 = 180,000 = 1.8 x 100,000 exactly
+def test_stress_cap_at_the_gate_is_on_the_lower_of_sized_and_live_equity():
+    """Team lead's ruling 2026-10-11. From flat: AAA 9,000 x 10 + BBB 4,500 x 20 =
+    180,000 = 1.8 x 100,000 exactly, a plan that adds gross. The gate itself never
+    scales: with live equity 99,900 it refuses (the send's re-fit scales first,
+    test_run.py), and it refuses equally when the SIZED equity is the lower one."""
     f = good(orders=(order("AAA", "buy", 9000), order("BBB", "sell", 4500)),
-             buying_power=1e9, equity=99_900.0, sized_equity=100_000.0)
-    assert gates(f) == []                           # live equity fell; the plan did not change
+             buying_power=1e9, equity=100_000.0, sized_equity=100_000.0)
+    assert gates(f) == []
+    assert gates(dataclasses.replace(f, equity=99_900.0)) == ["exposure"]
     assert gates(dataclasses.replace(f, sized_equity=99_900.0)) == ["exposure"]
 
 
@@ -380,11 +384,38 @@ def test_a_plan_that_adds_gross_past_the_cap_is_still_refused():
 
 
 def test_stress_breach_edges():
-    assert gt.stress_breach(180.0, 0.0, 1.8, 100.0) is None          # at the cap: inside
-    assert gt.stress_breach(180.01, 0.0, 1.8, 100.0)                  # past it, from flat
-    assert gt.stress_breach(190.0, 190.0, 1.8, 100.0) is None        # past it, adds nothing
-    assert gt.stress_breach(190.0, 189.99, 1.8, 100.0)               # past it, adds a cent
-    assert gt.stress_breach(1e9, 0.0, None, 100.0) is None           # spec key absent
+    assert gt.stress_breach(180.0, 0.0, 1.8, 100.0, 100.0) is None          # at the cap: inside
+    assert gt.stress_breach(180.01, 0.0, 1.8, 100.0, 100.0)                  # past it, from flat
+    assert gt.stress_breach(190.0, 190.0, 1.8, 100.0, 100.0) is None        # past it, adds nothing
+    assert gt.stress_breach(190.0, 189.99, 1.8, 100.0, 100.0)               # past it, adds a cent
+    assert gt.stress_breach(1e9, 0.0, None, 100.0, 100.0) is None           # spec key absent
+
+
+def test_stress_cap_is_on_the_lower_of_sized_and_live_equity():
+    """Team lead's ruling 2026-10-11 (release-check review): equity 4% under the sized
+    equity by the send; a plan that adds gross is held to 1.8 x LIVE, not 1.8 x sized.
+    A plan that does not add gross still always passes; live above sized changes nothing."""
+    assert gt.stress_breach(175.0, 0.0, 1.8, 100.0, 96.0)                       # 175 > 172.8
+    assert "live equity" in gt.stress_breach(175.0, 0.0, 1.8, 100.0, 96.0)
+    assert gt.stress_breach(172.8, 0.0, 1.8, 100.0, 96.0) is None               # at the live cap
+    assert gt.stress_breach(175.0, 176.0, 1.8, 100.0, 96.0) is None             # takes gross down
+    assert gt.stress_breach(180.0, 0.0, 1.8, 100.0, 110.0) is None              # sized is lower
+    assert "sized on" in gt.stress_breach(180.01, 0.0, 1.8, 100.0, 110.0)
+
+
+def test_fit_scales_an_adding_plan_to_the_live_cap_when_equity_has_fallen():
+    """The other half of the ruling: the send's re-fit reads the same rule, so equity
+    down 4% since decide scales an adding plan to 1.8 x live instead of refusing it."""
+    from quantt.session import run as rn
+    o = (order("AAA", "buy", 9_000, cur=0), order("BBB", "sell", 4_500, cur=0))     # 90k + 90k
+    closes = {"AAA": 10.0, "BBB": 20.0}
+    out, kept, why = rn.fit_to_buying_power(o, {}, closes, 96_000.0, 1e9, 0.0, 0.0,
+                                            max_gross_stress=1.8, sized_equity=100_000.0)
+    assert why == "max_gross_stress (on the lower of sized and live equity)"
+    assert gt.gate_exposure(out, {}, closes, 96_000.0, 1e9, 1e12, 1.8, sized_equity=100_000.0,
+                            current_gross=0.0, maintenance_margin=0.0) == []
+    gross = sum(x.qty * closes[x.symbol] for x in out)
+    assert 0 < gross <= 1.8 * 96_000.0
 
 
 def test_gross_counts_held_positions_after_orders():
