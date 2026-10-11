@@ -273,19 +273,39 @@ it**. Sources are in `docs/REFERENCES.md` §12d.
 |---|---|---|---|
 | 1 | **NAV-for-NAV CEF merger pair** (long target, short acquirer, to completion) | Target holders receive acquirer shares at the closing NAV ratio. CRSP delisting amounts match the filed ratios to 6 decimals [V]. On 168 deals in 2010–22 with no universe name, the pair earned **+129bp median over the last 63 days, against +25bp for the same pairs a year earlier**. Munis: +148 vs −43; equity CEFs: +36 vs +214, where the control wins. **But:** entering at announcement gives a median of only +35bp (N=36 events in 12 groups), below the 32.6bp-per-unit breakeven. 26 of 59 historical acquirers, mostly munis, are not shortable today, and capacity is about $0.5m per deal | **TEST first**, after two zero-trial gates: (a) borrow on today's acquirers; (b) can the sign of the spread be known at announcement from N-CSR/N-PORT NAVs? |
 | 2 | **Corporate-action filter** (stage 1c) | Deployed or universe names were the **acquirer in 44 stock mergers in 2010–22**. The live z-score cannot see a pinned ratio, nor PDO's term | **BUILD-FIRST** (1 CEF trial, `/spec-change`) |
-| 3 | **Standalone short TLT variance premium** (defined-risk on Alpaca, untimed, not a hedge) | IV−RV +1.23 vol pts, t 4.16 non-overlapping (VXTLT 2004–22); +1.63 from R2 ticks 2023–26. Book correlation −0.01 daily, −0.11 monthly. TLT options trade about 1.1m contracts a day, about 0.28 vol pts wide. Tails: March 2020 −44.7 pts. Alpaca allows **no uncovered shorts**, so only iron flies and condors. This is the "short premium" remainder that the G6 pre-registration named as untested, so it is not a rerun of W14-A or G6 | **TEST** (GAMMA counter, which is at 0). Reopening needs the six conditions in §7.2 |
+| 3 | **Standalone short TLT variance premium** (defined-risk on Alpaca, untimed, not a hedge) | IV−RV +1.23 vol pts, t 4.16 non-overlapping (VXTLT 2004–22); +1.63 from R2 ticks 2023–26. Book correlation −0.01 daily, −0.11 monthly. TLT options trade ~~about 1.1m contracts a day~~ **[corrected 2026-10-11: 1.0–1.1m on 2026-10-08/09, but a median of 425k a session over 2023-11..2026-07]**, about 0.28 vol pts wide. Tails: March 2020 −44.7 pts. **[Re-run 2026-10-11: see the note under this table]** Alpaca allows **no uncovered shorts**, so only iron flies and condors. This is the "short premium" remainder that the G6 pre-registration named as untested, so it is not a rerun of W14-A or G6 | **TEST** (GAMMA counter, which is at 0). Reopening needs the six conditions in §7.2 |
 | 4 | **Buying the stock after a convertible issue** (arbitrage hedging pressure reverses) | 755 events 2011–22: [−1,0] −4.41% against −0.64% for straight-debt issuers. Days +2..+5 **+0.54% (t 2.6)** against −0.17%. That nets about +44/+24/**−6**bp on the 5/15/30 grid. **The windows have already been looked at**: a pre-registration must keep them and cannot call 2011–22 out of sample | **TEST** (new source; TRACE flag × CRSP) |
 | 5 | **Listed mandatory convertibles, hedged with the common** | 24 listed, 12 clear the volume floor, 7 are both liquid and shortable. Hedged residual vol 6–14%. Cheapness is unmeasured | **TEST** (count N≥30 first) |
 | 6 | **Co-held loan marks across BDCs** (an early reporter's marks predict a later reporter's fund-specific NAV surprise) | The release-day reaction is 0.46× the fund-specific surprise (corr +0.28, t 4.0; no drift). The perfect-foresight ceiling is about 43bp per event. Speculative | **TEST**, but only after an expensive data build (10-Q schedules) |
 | 7 | Term-CEF pull-to-par | All 19 modern credit term funds that terminated before 2023 paid out NAV (CRSP code 450). But price already sat near terminal value 24 months out, and the beta-adjusted excess was about 0 (−0.07%/yr at 24m, +0.22%/yr at 12m). The 1990s cohort did better (+1.8%/yr), against poor peer matches. Target misses are in loan and HY: JCO $8.02 and EFL $8.66 against $9.85. Live 2026-10-08: FTHY −4.7% (2027-08) and DTF −5.1% (2028-03) are outside the holdout. BSL and BGB are holdout names | **PARK** as a sleeve (D7); event-layer input |
 | 8 | General merger arbitrage | MNA 2.16%/yr at 8.0% vol, 2010–22; beta 0.32 in down months against 0.12 in up months: a short put | **PARK** (D4/D5) |
 | 9 | Listed capital stack (preferreds and baby bonds against common) | Only 69 of 626 are shortable on Alpaca; **CRSP holds no preferreds**, so there is no history | **PARK** |
-| 10 | HYG variance premium; index short-vol overlay | HYG's premium is larger, but the book loses on the same days and post-close spreads are about 60% of mid. The index overlay adds equity beta to the book's mild existing short-vol exposure | **PARK** |
+| 10 | HYG variance premium; index short-vol overlay | HYG's premium is larger, but the book loses on the same days and post-close spreads are about 60% of mid **[re-run 2026-10-11: reproduced on daily data; 59–70% of mid over 2026-10-08/09]**. The index overlay adds equity beta to the book's mild existing short-vol exposure | **PARK** |
 | 11 | BDC discount z-score; CLO-equity NAV-estimate release | The BDC level is 88% persistent between funds. Its point-in-time NAV starts only 2022-08 (Inline XBRL). The CLO sample is D7 and mostly inside the holdout | **PARK** |
 | 12 | **CDX** (index, options, basis, intrinsic skew) | The premia are real (CDX short-straddle Sharpe 1.74 [V]; intrinsic arbitrage 2.34 gross [V]), but access needs a bank clearing member and SEF onboarding, with $5–25mm minimum clips (CDX options about $100mm). All 33 ICE Clear Credit participants are dealers or banks [V]. Listed IBHY/IBIG futures are about $140–180k per contract | **KILL (access)**. Listed credit futures are a later hedge option at scale |
 | 13 | Core OTC convertible arbitrage | HFRI 5.13%/yr at 4.37% vol over 2013–22, on 4–6× leverage (−34% in 2008). New converts are 144A: qualified-institutional buyers only, **$100M** of securities. Median TRACE trade $1–2MM par | **KILL now; revisit as a qualified institutional buyer with prime-brokerage financing** |
 | 14 | Equity–CDS capital-structure arbitrage | Security-based swaps with a non-eligible contract participant (under $10m of assets) are unlawful off-exchange [V statute]. Duarte, Longstaff & Yu: t 1.70, and convergence "for only a small fraction" [V] | **KILL** |
 | 15 | Perpetual convertible preferreds; BDC NAV nowcast from loan indices; shorting the CLO-equity premium; CEF/BDC put-writing | Premium to parity 36–907%: it is rate exposure. Public loan moves carry only the common, already-priced part of the NAV change. ECC and OXLC are not shortable and owe 11–17% a year in distributions. PDI is not optionable | **KILL** |
+
+**Re-run 2026-10-11, rows 3 and 10** (plan item 0.9;
+`results/gamma/REPRO_TLT_VRP_2026-10-11.md`, scripts under `scripts/gamma/`).
+Every figure reproduced to its printed precision, with these corrections:
+
+- **The mean and the t came from different samples.** +1.23 is the mean over
+  all 4,771 IV dates. The non-overlapping sample behind t 4.16 has mean +1.28.
+- **In variance terms the premium is weak.** The same VXTLT 2004–22 data as a
+  short variance-swap proxy earn +24 %² a month at **t 1.39**, because one month
+  (2020) costs as much as 137 average months. G2(a)'s net reading still waits on
+  regular-hours spreads (0.10).
+- **"March 2020 −44.7" is dated by its IV.** It is the IV of 2020-02-21 against
+  the 21 sessions that followed it.
+- **"1.1m contracts a day" was two heavy sessions.** R2's tick history, checked
+  complete against Alpaca bars, gives a median of 425k a session.
+- **The +1.63 is 2023+ strike data**, which `docs/SYSTEM.md` §5 rules the GAMMA
+  holdout. It is a description only.
+- **The book correlation holds.** Every 95% interval includes 0 (G2(c)).
+- **HYG's monthly correlation is fragile:** +0.118 on 21-session blocks, −0.109
+  on calendar months.
 
 ### 7.2 What would justify reopening options
 
@@ -305,20 +325,34 @@ re-measured at run time (H14):
 
 ### 7.3 What the specialists actually earn (audited and filed)
 
+*Re-run 2026-10-11 (plan item 0.9): `results/xasset/REPRO_SPECIALISTS_2026-10-11.md`.
+MDCEX, SPE, BRW, +147bp, RiverNorth's 11 of 13 and Karpus's 11.03% reproduce from
+the filings, re-read; MDCEX also from CRSP. Three figures are corrected in place
+below: MDFIX's "5-year", the R² range and the intercept count.*
+
 - **No audited record shows 10%+ a year from credit-CEF discount capture.**
 - **The records at or above 10%** come from equity-heavy books, all of which
   trailed the S&P 500:
   - MDCEX: 13.08% over 5 years, 11.39% over 10 [V];
   - SPE: 10.07% over 5 years at NAV [V];
   - CEFS (§1).
-- **The closest analogue to our book is MDFIX** (bond and muni CEFs): 8.72% over
-  5 years, with a window starting at the COVID trough. Matisse credits discount
-  capture with **+147bp** in its last year [V].
+- **The closest analogue to our book is MDFIX** (bond and muni CEFs):
+  ~~8.72% over 5 years, with a window starting at the COVID trough~~.
+  **Corrected 2026-10-11:** the filing heads the 8.72% "5 Years", but it equals
+  MDFIX's **3-year** NAV return to the hundredth (CRSP MF). Its **5-year return
+  is 3.58%/yr**, and its since-inception 7.87% is the window that starts at the
+  COVID trough (`results/xasset/REPRO_SPECIALISTS_2026-10-11.md` §2). Matisse
+  credits discount capture with **+147bp** in its last year [V, re-read
+  2026-10-11].
 - **The one record that hedges its beta is BRW** (Saba): 9.27%/yr since 2021 at
-  about 12% vol [V].
+  about 12% vol [V]. *(Re-run 2026-10-11: the 9.27% is at NAV, to 2025-10-31;
+  the 12% is market-price vol from CRSP, to 2024-12-31.)*
 - **Most of this is beta.** On monthly market returns, SPX plus HY explain
-  R² 0.44–0.88. The intercept (return beyond beta) is negative for 15 of 17
-  vehicles [V, agent's CRSP regressions].
+  R² ~~0.44–0.88~~ **0.22–0.88** (corrected 2026-10-11; 0.44 is the floor only
+  after dropping SABA, RSF, RMI, RMM and XMPT). The intercept (return beyond
+  beta) is negative for ~~15 of 17~~ **14 of 17** vehicles (14 of 19); only two
+  of those have a Newey-West |t| ≥ 2 [V, re-run in
+  `scripts/xasset/specialist_betas.py`].
 - **Specialists hold our names:**
   - RiverNorth holds **11 of our 13** (13F 2026Q2).
   - Karpus filed a 13G showing **11.03% of MHD**; specialists hold about 18.5% of
@@ -351,7 +385,9 @@ re-measured at run time (H14):
   - Not resolved. Nothing on the live path reads `cef_facts.csv`.
 - **The VXHYG file has defects.** It has a corrupt row on 2017-10-30 and **no
   rows from 2021-09-24 to 2025-05-14**. The archived G6 "2023–2026" HYG era is
-  therefore really 2025-05 onward.
+  therefore really 2025-05 onward. *(Re-run 2026-10-11 with the restored
+  `scripts/gamma/fetch_cboe_vol_indices.py`: both still upstream. VXLQD has the
+  same kind of hole, 2022-11-08..2025-07-13. VIXHY and VIXIG now return HTTP 403.)*
 - **The suspected pandas rolling-sum fault does not reproduce on the live
   inputs.** One agent saw rolling sums return values around 1e-316 in its own
   event-study code. Re-checked 2026-10-09 on the repo's discount panel (pandas
