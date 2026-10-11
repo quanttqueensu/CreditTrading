@@ -1,0 +1,488 @@
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+W4 artifact battery -- FIT PERIOD ONLY (2005-01-03 .. 2022-12-30); the 2023-01-01 holdout is sealed and never computed. Run 2026-10-11 20:14 UTC.
+panels: cef_prices last 2026-09-28, cef_nav last 2026-09-25, cef_distributions last ex-date 2026-09-10 (read-only; only <= 2022-12-30 used)
+deployed book: 4531 sessions 2005-01-03..2022-12-30; first session with >= 6 eligible names 2013-06-21; deployed signal dates 1047
+
+====================================================================================================
+0. THE DEPLOYED IC -- baseline and standard errors
+====================================================================================================
+signal: frozen-spec z (window 252, min_periods 120, moments shift(1), clip +/-4); forward window closes t+1 -> t+3; non-overlapping grid
+                                               dates   meanIC       t   t(NW)
+DEPLOYED set total ret phase 0                   523  -0.0329   -1.68   -1.60
+DEPLOYED set total ret phase 1                   520  -0.0389   -1.97   -1.98
+DEPLOYED set price ret phase 0                   523  -0.0313   -1.61   -1.53
+DEPLOYED set price ret phase 1                   520  -0.0443   -2.22   -2.27
+WIDE set (no ADV filte total ret phase 0        2264  -0.0604   -7.80   -7.93
+WIDE set (no ADV filte total ret phase 1        2263  -0.0617   -7.83   -8.08
+WIDE set (no ADV filte price ret phase 0        2264  -0.0638   -8.19   -8.45
+WIDE set (no ADV filte price ret phase 1        2263  -0.0656   -8.27   -8.75
+second source for the forward return (CRSP ret), DEPLOYED set, common sample:
+  panel total ret phase 0                        523  -0.0329   -1.68   -1.60
+  CRSP ret        phase 0                        523  -0.0320   -1.63   -1.56
+  panel total ret phase 1                        520  -0.0389   -1.97   -1.98
+  CRSP ret        phase 1                        520  -0.0381   -1.93   -1.93
+
+by era, DEPLOYED set, total returns, phase 0 (the headline row is 'fit 2005-22'):
+                                               dates   meanIC       t   t(NW)  FM bp/z  t(FM)
+2005-09                                            0   (fewer than 10 dates: no estimate)
+2010-14                                          138  -0.0216   -0.55   -0.49    -3.03  -0.78
+2015-19                                          176  -0.0137   -0.38   -0.34   -11.57  -1.24
+2020-22                                          209  -0.0565   -1.99   -2.22   -20.28  -2.15
+fit 2005-22                                      523  -0.0329   -1.68   -1.60   -12.80  -2.55
+
+by era, WIDE set, total returns, phase 0 (context for 2005-12; NOT the deployed signal):
+                                               dates   meanIC       t   t(NW)
+2005-09                                          630  -0.0499   -3.08   -3.04
+2010-14                                          629  -0.0933   -6.23   -7.01
+2015-19                                          629  -0.0362   -2.61   -2.53
+2020-22                                          376  -0.0637   -3.90   -4.20
+fit 2005-22                                     2264  -0.0604   -7.80   -7.93
+
+reconciliation, v6 17-name universe (NOT deployed since 2026-09-28), price returns, phase 0:
+                                               dates   meanIC       t   t(NW)
+  17 names, deployed-style set (ADV, min_names)  1059  -0.0553   -4.34   -4.27
+  17 names, WIDE set (no ADV filter)            2264  -0.0777  -11.05  -10.98
+
+Part E -- the pooled slope of demeaned fwd return on demeaned z, DEPLOYED set, total returns, phase 0 grid:
+  obs 3458, dates 523, names 12; slope -6.74 bp of 2-day return per unit z
+  t naive iid (dof n-1-dates)      -2.74   5% two-sided critical value t(2934) 1.96
+  t clustered by date              -2.92   5% two-sided critical value t(522) 1.96
+  t clustered by name              -2.26   5% two-sided critical value t(11) 2.20
+  t two-way date x name            -2.10   5% two-sided critical value t(11) 2.20
+  mean IC -0.0329: date-clustered t -1.68, NW(5) t -1.60, block bootstrap (block 20, 2000 reps) t -1.45, 95% [-0.0729, +0.0152]
+
+====================================================================================================
+1. TOTAL-RETURN PANEL
+====================================================================================================
+ex-dates 2005-01-03..2022-12-30 on name-days both sources price:
+ticker   panel   CRSP   both panel only CRSP only  med |y_pan-y_crsp| bp
+AWF        218    217    216          2         1                   0.08
+BIT        116    115    114          2         1                   1.77
+DSL        115    115    115          0         0                   0.00
+HYT        215    215    215          0         0                   0.25
+JFR        216    217    216          0         1                   0.01
+MHD        216    216    216          0         0                   0.28
+MQY        216    216    216          0         0                   0.00
+PCN        225    227    224          1         3                   0.27
+PDI        134    134    134          0         0                   0.16
+PDO         24     24     24          0         0                   0.19
+PFN        190    191    190          0         1                   0.00
+PHK        216    215    214          2         1                   0.10
+PTY        225    227    224          1         3                   0.00
+ALL       2326   2329   2318          8        11
+unmatched ex-dates (yield bp on the source that has it). total_ret_agrees: the panel's TOTAL return equals CRSP `ret` within 5bp -- the two agree on the cash, and the mismatch is only CRSP's retx convention (it books capital-gain specials inside retx). Where it is False the panel is missing a distribution, or has one CRSP lacks:
+ticker       date      which  yield_bp  panel_total_ret_bp  crsp_ret_bp  total_ret_agrees
+   AWF 2007-12-05 panel only      64.1               -26.4        -90.5             False
+   AWF 2008-12-26 panel only     548.7               459.0        459.0              True
+   AWF 2005-02-02  CRSP only      59.2               -39.7         19.5             False
+   BIT 2016-12-08 panel only      69.5                14.5        -55.1             False
+   BIT 2017-12-11 panel only      62.7                35.1        -27.6             False
+   BIT 2017-02-13  CRSP only      67.5               -92.5        -25.0             False
+   JFR 2013-11-13  CRSP only      56.0               -16.7         39.3             False
+   PCN 2013-12-26 panel only     566.5               161.0        161.2              True
+   PCN 2005-09-14  CRSP only      67.9               -70.3         -2.4             False
+   PCN 2005-12-28  CRSP only      44.3               -40.9          3.4             False
+   PCN 2012-12-26  CRSP only     118.7                 0.0        118.7             False
+   PFN 2012-12-26  CRSP only     432.2              -440.8         -8.6             False
+   PHK 2005-12-21 panel only      25.5                -2.1         -1.9              True
+   PHK 2007-12-27 panel only     895.8               391.0        390.9              True
+   PHK 2005-09-14  CRSP only      79.9               -98.4        -18.4             False
+   PTY 2013-12-26 panel only     954.4               207.5        207.7              True
+   PTY 2005-09-14  CRSP only      77.0              -100.8        -23.8             False
+   PTY 2005-12-28  CRSP only      23.6                -5.9         29.0             False
+   PTY 2011-12-28  CRSP only     374.0              -547.4       -173.4             False
+
+daily |r_total(panel) - ret(CRSP)| over 48237 name-days: median 0.003bp, p99 2.98bp, share > 5bp 0.2550%
+  on ex-dates only (2337): median 0.12bp, p95 1.77bp
+
+deployed policy cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13 -- three return conventions
+GROSS SR is the headline; net@5/15/30bp is the real-money cost grid (bp per unit turnover), labelled, not mixed in. No borrow charged.
+                                  era          grossSR   ann%  vol% turn/yr  net@5 net@15 net@30 flips?
+-------------------------------------------------------------------------------------------------------
+price returns (panel)             2005-09           book flat: no position in this era
+price returns (panel)             2010-14         0.90   2.94  3.27     5.2   0.82   0.66   0.43     no
+price returns (panel)             2015-19         0.72   5.04  7.01     7.8   0.66   0.55   0.39     no
+price returns (panel)             2020-22         1.08   7.10  6.55    21.5   0.92   0.59   0.10     no
+price returns (panel)             fit 2005-22     0.70   3.40  4.88     7.2   0.62   0.48   0.26     no
+price returns (panel)             live 2010-14    1.63   9.64  5.91    16.3   1.49   1.22   0.80     no
+price returns (panel)             live fit        0.96   6.43  6.70    13.5   0.86   0.66   0.36     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+TOTAL returns (panel + dists)     2005-09           book flat: no position in this era
+TOTAL returns (panel + dists)     2010-14         0.72   2.24  3.12     5.2   0.63   0.47   0.22     no
+TOTAL returns (panel + dists)     2015-19         0.84   5.70  6.83     7.8   0.78   0.66   0.49     no
+TOTAL returns (panel + dists)     2020-22         1.02   6.49  6.36    21.5   0.85   0.51   0.01     no
+TOTAL returns (panel + dists)     fit 2005-22     0.69   3.29  4.73     7.2   0.62   0.47   0.24     no
+TOTAL returns (panel + dists)     live 2010-14    1.30   7.33  5.65    16.3   1.15   0.86   0.43     no
+TOTAL returns (panel + dists)     live fit        0.96   6.21  6.50    13.5   0.85   0.64   0.33     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+total returns (CRSP ret)          2005-09           book flat: no position in this era
+total returns (CRSP ret)          2010-14         0.72   2.24  3.12     5.2   0.64   0.47   0.22     no
+total returns (CRSP ret)          2015-19         0.84   5.71  6.83     7.8   0.78   0.67   0.49     no
+total returns (CRSP ret)          2020-22         1.02   6.49  6.35    21.5   0.85   0.52   0.01     no
+total returns (CRSP ret)          fit 2005-22     0.70   3.29  4.73     7.2   0.62   0.47   0.24     no
+total returns (CRSP ret)          live 2010-14    1.30   7.35  5.65    16.3   1.16   0.87   0.43     no
+total returns (CRSP ret)          live fit        0.96   6.22  6.50    13.5   0.85   0.65   0.34     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+
+the distribution leg = P&L(total) - P&L(price) on the deployed holdings path:
+era            ann bp/yr  sd bp/yr  days ex
+2005-09              0.0       0.0        0
+2010-14            -70.5     123.6       69
+2015-19             66.5     148.8      226
+2020-22            -61.4     119.7      135
+fit 2005-22        -11.3     113.1      430
+
+ex-date discount arithmetic: one-day change in discount (pp) on ex-dates
+  ex-dates 2326: mean change -0.167pp vs non-ex +0.0078pp; mechanical d*D/(N-D) mean +0.051pp; slope of change on mechanical term -0.26 (1.0 = pure arithmetic), intercept -0.154pp
+  price drop / distribution: median 1.04; NAV drop / distribution: median 0.92 (Bali-Hite: price drop slightly below 1)
+  discount change (pp) around the ex-date, every ex-date of these names 2005-22:
+    ex-1  n  2326  mean +0.030  median +0.064
+    ex    n  2326  mean -0.167  median -0.081
+    ex+1  n  2326  mean -0.306  median -0.169
+    ex+2  n  2326  mean -0.197  median -0.139
+  (two-day NAV drop through ex+1) / distribution: median 0.88
+
+====================================================================================================
+2. BID-ASK BOUNCE
+====================================================================================================
+2a. IC by single forward day k (Spearman z_t vs r_{t+k}, total returns, every session, NW t); DEPLOYED set. k=1 is the day no book decided at t can earn.
+                                               dates   meanIC       t   t(NW)
+  day t+1  (infeasible: before the fill)        1045  -0.0424   -3.06   -3.00
+  day t+2                                       1044  -0.0225   -1.63   -1.58
+  day t+3                                       1043  -0.0122   -0.90   -0.88
+  day t+4                                       1042  -0.0001   -0.01   -0.01
+  day t+5                                       1041  +0.0039    0.29    0.28
+  day t+6                                       1040  +0.0102    0.75    0.73
+
+2b. two-day windows, non-overlapping, DEPLOYED set, total returns:
+                                               dates   meanIC       t   t(NW)
+  [t+1,t+2] infeasible: entry at close t p0      524  -0.0672   -3.42   -3.62
+  [t+1,t+2] infeasible: entry at close t p1      520  -0.0518   -2.64   -2.43
+  [t+2,t+3] DEPLOYED: entry close t+1 p0         523  -0.0329   -1.68   -1.60
+  [t+2,t+3] DEPLOYED: entry close t+1 p1         520  -0.0389   -1.97   -1.98
+  [t+3,t+4] skip a day: entry close t+2 p0       523  -0.0294   -1.49   -1.54
+  [t+3,t+4] skip a day: entry close t+2 p1       519  -0.0124   -0.63   -0.60
+
+2c. P&L: the deployed book vs the same book filled one session later (evaluate(H.shift(1), R)), TOTAL returns
+GROSS SR is the headline; net@5/15/30bp is the real-money cost grid (bp per unit turnover), labelled, not mixed in. No borrow charged.
+                                  era          grossSR   ann%  vol% turn/yr  net@5 net@15 net@30 flips?
+-------------------------------------------------------------------------------------------------------
+deployed (shift 2)                2005-09           book flat: no position in this era
+deployed (shift 2)                2010-14         0.72   2.24  3.12     5.2   0.63   0.47   0.22     no
+deployed (shift 2)                2015-19         0.84   5.70  6.83     7.8   0.78   0.66   0.49     no
+deployed (shift 2)                2020-22         1.02   6.49  6.36    21.5   0.85   0.51   0.01     no
+deployed (shift 2)                fit 2005-22     0.69   3.29  4.73     7.2   0.62   0.47   0.24     no
+deployed (shift 2)                live 2010-14    1.30   7.33  5.65    16.3   1.15   0.86   0.43     no
+deployed (shift 2)                live fit        0.96   6.21  6.50    13.5   0.85   0.64   0.33     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+skip a day (shift 3)              2005-09           book flat: no position in this era
+skip a day (shift 3)              2010-14         0.50   1.57  3.12     5.0   0.42   0.26   0.02     no
+skip a day (shift 3)              2015-19         0.77   5.27  6.84     8.0   0.71   0.60   0.42     no
+skip a day (shift 3)              2020-22         0.76   5.04  6.66    21.4   0.60   0.27  -0.21    YES
+skip a day (shift 3)              fit 2005-22     0.57   2.74  4.81     7.2   0.50   0.35   0.12     no
+skip a day (shift 3)              live 2010-14    0.91   5.16  5.65    15.8   0.77   0.49   0.07     no
+skip a day (shift 3)              live fit        0.78   5.18  6.61    13.5   0.68   0.48   0.17     no
+                                  era turnover sd/mean (eras with a book)              62.4%
+                                    same, 2010-14 on book-live sessions only           36.6%
+
+2d. closing quote MIDPOINT (CRSP bid/ask; a valid quote on 100.0% of the name-days the panel prices, 2005-22). Same DEPLOYED dates and names in every row (common sample):
+                                               dates   meanIC       t   t(NW)
+  z(close)  vs fwd close-to-close  [deployed]    523  -0.0329   -1.68   -1.60
+  z(close)  vs fwd mid-to-mid                    523  -0.0315   -1.61   -1.59
+  z(mid)    vs fwd close-to-close                523  -0.0325   -1.66   -1.58
+  z(mid)    vs fwd mid-to-mid  [no bounce]       523  -0.0314   -1.61   -1.59
+  the INFEASIBLE window [t+1,t+2] (entry at close t, where bounce would live):
+  z(close)  vs fwd close-to-close                524  -0.0672   -3.42   -3.62
+  z(mid)    vs fwd mid-to-mid  [no bounce]       524  -0.0639   -3.27   -3.27
+  bounce part of the signal, z(close) - z(mid): sd 0.042 vs sd of z 1.323; corr(z(close), z(mid)) 1.000
+  IC of the bounce part alone vs fwd close-to-close   523  -0.0003   -0.02   -0.02
+  WIDE set by era (context; NOT deployed): z(close) vs close | z(mid) vs mid
+    2005-09      n   570  close -0.0486 (t  -2.88)   mid -0.0470 (t  -2.76)
+    2010-14      n   629  close -0.0931 (t  -6.22)   mid -0.0871 (t  -5.88)
+    2015-19      n   629  close -0.0363 (t  -2.61)   mid -0.0398 (t  -2.83)
+    2020-22      n   376  close -0.0637 (t  -3.90)   mid -0.0649 (t  -4.05)
+    fit 2005-22  n  2204  close -0.0604 (t  -7.73)   mid -0.0594 (t  -7.62)
+
+2e. by name, on the DEPLOYED name-days: per-name IC (time-series Spearman of cross-sectionally demeaned z and fwd return), half-spreads, AR(1) of daily returns
+ticker   grp   n  ic_name  hs_quoted_bp  hs_cs_bp    price  ar1_close  ar1_mid  ar1_nav
+   AWF    hy 297   -0.053         4.329     3.891   12.590     -0.151   -0.125    0.407
+   BIT multi 109   -0.088         7.429    12.291   16.320     -0.082   -0.104    0.492
+   DSL multi 507   -0.116         4.303     6.722   19.585     -0.165   -0.119    0.526
+   HYT    hy 498    0.012         4.598     2.497   11.130     -0.078   -0.053    0.336
+   JFR  loan 205   -0.049         5.450     5.117    9.810     -0.094   -0.060    0.319
+   MHD  muni   0      NaN           NaN       NaN      NaN        NaN      NaN      NaN
+   MQY  muni  43   -0.059        11.274     4.682   12.760      0.225    0.262    0.635
+   PCN multi  53   -0.030        12.492    16.199   15.360      0.172    0.204    0.449
+   PDI multi 523   -0.070         4.165     3.045   28.890     -0.022   -0.001    0.500
+   PDO multi 122   -0.115         9.285    14.973   17.330      0.165    0.171    0.203
+   PFN multi 121   -0.049         6.464     0.504    9.385     -0.209   -0.225    0.415
+   PHK multi 457    0.001         6.161     7.982    8.710     -0.088   -0.080    0.307
+   PTY multi 523   -0.091         5.938     6.696   16.710     -0.030   -0.017    0.372
+  cross-section of 12 names: IC_name = a + b*hs_quoted_bp: b -0.0002 per bp (t -0.05); bounce predicts b < 0 (more negative IC where spreads are wide)
+  cross-section of 12 names: IC_name = a + b*hs_cs_bp: b -0.0023 per bp (t -0.93); bounce predicts b < 0 (more negative IC where spreads are wide)
+  corr(quoted, Corwin-Schultz) half-spread across names: 0.64
+
+2f. CLOSING-AUCTION print (Alpaca SIP, NYSE, 2016-01-04..2022-12-30): a print exists on 94.3% of panel name-days; the panel close equals it (|diff| <= $0.005) on 96.56% of them
+  where they differ (701 name-days): median 10.8bp, max 56.8bp
+  print coverage by year (share of panel name-days):
+date
+2016    0.91
+2017    0.93
+2018    0.97
+2019    0.92
+2020    0.89
+2021    0.97
+2022    1.00
+  IC on the common sample (DEPLOYED dates/names where an auction print exists on every day the row needs; z on the auction price needs 120 prior prints, so it starts mid-2016):
+                                                 dates   meanIC       t   t(NW)
+  z(close)   vs fwd close    [deployed] p0         273  -0.0367   -1.37   -1.32
+  z(close)   vs fwd close    [deployed] p1         273  -0.0495   -1.89   -1.81
+  z(auction) vs fwd auction  [auction only] p0     273  -0.0419   -1.58   -1.50
+  z(auction) vs fwd auction  [auction only] p1     273  -0.0512   -1.97   -1.88
+
+====================================================================================================
+3. STALE-NAV CATCH-UP
+====================================================================================================
+3a. autocorrelation of daily NAV total returns (and price total returns), 2005-01..2022-12; nav_zero_share = sessions on which the NAV did not change
+ticker   grp    n  nav_ac1  nav_ac2  nav_ac3  px_ac1  px_ac2  nav_zero_share
+   AWF    hy 4531    0.292    0.217    0.154   0.060  -0.065           0.148
+   BIT multi 2476    0.354    0.315    0.171  -0.021  -0.024           0.151
+   DSL multi 2436    0.464    0.376    0.298  -0.124  -0.001           0.124
+   HYT    hy 4531    0.375    0.264    0.189   0.034   0.005           0.149
+   JFR  loan 4531    0.444    0.414    0.364   0.022   0.002           0.280
+   MHD  muni 4531    0.532    0.268    0.046   0.088  -0.003           0.186
+   MQY  muni 4531    0.543    0.266    0.040   0.097  -0.005           0.195
+   PCN multi 4531   -0.083    0.127    0.082   0.023  -0.043           0.132
+   PDI multi 2667    0.401    0.413    0.229   0.010   0.117           0.123
+   PDO multi  482    0.220    0.070    0.103   0.066  -0.034           0.083
+   PFN multi 3929    0.057    0.043    0.038   0.053   0.041           0.277
+   PHK multi 4524    0.374    0.243    0.165   0.071   0.020           0.201
+   PTY multi 4531    0.315    0.246    0.127   0.017  -0.013           0.118
+  group mean NAV AC(1) with moving-block bootstrap 95% CI (block 20 sessions, 500 reps):
+    muni   (MHD, MQY): +0.538  [+0.433, +0.561]
+    loan   (JFR): +0.444  [+0.322, +0.534]
+    multi  (BIT, DSL, PCN, PDI, PDO, PFN, PHK, PTY): +0.263  [+0.148, +0.353]
+    hy     (AWF, HYT): +0.333  [+0.206, +0.396]
+
+3b. lead-lag: NAV total return_t on proxy total returns at t, t-1 .. t-3 (CRSP; muni MUB, hy HYG, loan BKLN, multi HYG+LQD), HAC(5); 2005-22 where both exist
+ticker   grp    n   proxy  b_contemp  b_lags_sum  t_lags  stale_share      r2
+   AWF    hy 3957     HYG      0.322       0.352  11.353        0.522   0.466
+   BIT multi 2476 HYG+LQD      0.407       0.618   6.851        0.603   0.514
+   DSL multi 2436 HYG+LQD      0.374       0.636   3.916        0.630   0.452
+   HYT    hy 3957     HYG      0.402       0.465  12.293        0.536   0.551
+   JFR  loan 2975    BKLN      0.676       0.526   7.134        0.438   0.647
+   MHD  muni 3852     MUB      0.640       0.779   9.204        0.549   0.574
+   MQY  muni 3852     MUB      0.691       0.853   8.991        0.552   0.578
+   PCN multi 3957 HYG+LQD      0.387       0.539   7.402        0.582   0.147
+   PDI multi 2667 HYG+LQD      0.286       0.471   3.712        0.622   0.378
+   PDO multi  482 HYG+LQD      0.418       0.298   6.525        0.416   0.556
+   PFN multi 3929 HYG+LQD      0.364       0.511   5.046        0.583   0.153
+   PHK multi 3950 HYG+LQD      0.540       0.473   5.314        0.467   0.350
+   PTY multi 3957 HYG+LQD      0.443       0.556   7.515        0.557   0.331
+  stale_share = lag-sum / (contemporaneous + lag-sum): the fraction of a proxy move that reaches the NAV only on later days. Group means:
+       b_contemp  b_lags_sum  stale_share
+grp                                      
+hy         0.362       0.408        0.529
+loan       0.676       0.526        0.438
+multi      0.402       0.513        0.558
+muni       0.666       0.816        0.551
+
+3c. forward discount change per unit z, split into its PRICE and NAV legs (log total returns; Fama-MacBeth slope on cross-sectionally demeaned z, DEPLOYED set; bp; discount = price - NAV exactly)
+window                                price      t      NAV      t  discount      t price share
+t+1 only (unearned day)               -8.63  -3.90     0.86   0.99     -9.49  -5.27        0.91
+[t+2,t+3] DEPLOYED window            -12.30  -2.55     0.22   0.08    -12.52  -3.11        0.98
+[t+2,t+6]                            -12.55  -1.61    -1.53  -0.17    -11.02  -0.97        1.14
+[t+2,t+11]                           -42.91  -1.86   -19.27  -0.64    -23.64  -1.12        1.82
+[t+2,t+22]                            -8.97  -0.36    43.76   2.85    -52.73  -2.03        0.17
+                                               dates   meanIC       t   t(NW)
+  IC of z vs fwd NAV return [t+2,t+3] (catch-up > 0)   521  +0.0356    1.76    1.57
+  IC of z vs fwd NAV return t+1 (catch-up > 0)  1031  +0.0233    1.63    1.49
+
+3d. the stale part of the signal. From the lead-lag model refitted each January on data strictly before it (expanding, >= 250 sessions), the NAV catch-up still pending at t is c_t = sum_j sum_(k>=j) b_k x_(t+j-k); a NAV that low makes the discount read +100 c_t P/N too high, in z units divided by the sleeve's own sd_t. z = stale part + residual. Common sample 6256 name-days (3132 on the grid):
+                                                 dates   meanIC       t   t(NW)
+  z (deployed) p0                                  318  -0.0314   -1.25   -1.24
+  z (deployed) p1                                  317  -0.0433   -1.71   -1.75
+  stale part of z p0                               318  -0.0159   -0.67   -0.71
+  stale part of z p1                               318  +0.0107    0.46    0.42
+  z minus its stale part p0                        318  -0.0322   -1.28   -1.26
+  z minus its stale part p1                        318  -0.0412   -1.64   -1.69
+  sd of the stale part 0.140 z vs sd of z 1.342; corr +0.209
+  Fama-MacBeth, both regressors (bp per unit, [t+2,t+3]): z -20.21 (t -2.24), stale -93.79 (t -0.59)
+  sensitivity, lags 0..10: sd of the stale part 0.294 z; common sample 3132 grid name-days
+  z (deployed) p0                                  318  -0.0314   -1.25   -1.24
+  stale part of z, K=10 p0                         318  +0.0038    0.16    0.17
+  z minus its stale part, K=10 p0                  318  -0.0349   -1.39   -1.33
+
+3e. bond-market holidays (Columbus, Veterans; NYSE open): 34 in 2005-22
+  NAV unchanged on 42.3% of name-days on those days vs 17.5% on other days
+  mean |discount change| 1.173pp vs 0.710pp; corr(change on the holiday, change next session) +0.135
+                                                 dates   meanIC       t   t(NW)
+  DEPLOYED, all signal dates                      1043  -0.0359   -2.58   -2.01
+  DEPLOYED, holiday + next session dropped        1033  -0.0336   -2.41   -1.87
+  (every-session grid here, so the t's above overlap; NW t is the one to read)
+
+====================================================================================================
+4. WHERE THE IC LIVES
+====================================================================================================
+4a. ex-dates. 'touched' = an ex-date for that name on t..t+3 (signal day, unearned day, or the forward window): 18.8% of deployed name-days
+                                               dates   meanIC       t   t(NW)
+  DEPLOYED all name-days, total ret              523  -0.0329   -1.68   -1.60
+  DEPLOYED all name-days, PRICE ret              523  -0.0313   -1.61   -1.53
+  DEPLOYED untouched name-days only, total       428  -0.0431   -1.92   -1.78
+  DEPLOYED untouched name-days only, PRICE       428  -0.0431   -1.92   -1.78
+  WIDE (context) all name-days, total ret       2264  -0.0604   -7.80   -7.93
+  WIDE (context) all name-days, PRICE ret       2264  -0.0638   -8.19   -8.45
+  WIDE (context) untouched name-days only, total  2059  -0.0576   -6.37   -6.28
+  WIDE (context) untouched name-days only, PRICE  2059  -0.0576   -6.37   -6.28
+  (untouched-only rows need >= 4 names, not min_names, because removing touched names thins the cross-section; read the slope table below for the like-for-like split)
+  Fama-MacBeth slope (bp per unit z, [t+2,t+3] total return) on touched vs untouched name-days, demeaned against the full deployed cross-section, by group:
+  group      touched      t  untouched      t
+  ALL          -3.34  -0.62      -7.65  -3.21
+  muni        -91.44  -3.25     -35.26  -0.69
+  hy            2.62   0.34      -2.28  -0.53
+  loan         -4.57  -0.24      -8.44  -1.29
+  multi        -1.91  -0.33      -9.32  -3.28
+
+  special distributions (D/P > 2% on the ex-date): 34 in 2005-22 on these names. IC with name-days from 3 sessions before to W after one removed (W = 5 / 10 / 21: a sensitivity, nothing is chosen from it):
+                                               dates   meanIC       t   t(NW)  Dec-Jan    n  Feb-Nov
+  DEPLOYED ex specials [-3,+5] (1.1% out)        515  -0.0269   -1.37   -1.35  -0.0633   88  -0.0194
+  WIDE (context) ex specials [-3,+5] (0.6% out)  2264  -0.0609   -7.86   -7.99  -0.0728  370  -0.0586
+  DEPLOYED ex specials [-3,+10] (1.7% out)       511  -0.0259   -1.31   -1.31  -0.0594   84  -0.0194
+  WIDE (context) ex specials [-3,+10] (1.0% out)  2264  -0.0602   -7.75   -7.85  -0.0685  370  -0.0585
+  DEPLOYED ex specials [-3,+21] (2.9% out)       506  -0.0234   -1.17   -1.17  -0.0451   79  -0.0194
+  WIDE (context) ex specials [-3,+21] (1.7% out)  2264  -0.0607   -7.79   -7.85  -0.0717  370  -0.0586
+
+4b. crisis windows (signal date inside / outside), total returns:
+                                               dates   meanIC       t   t(NW)
+  DEPLOYED all                                   523  -0.0329   -1.68   -1.60
+  DEPLOYED inside GFC 2008-09..2009-03               0     +nan
+  DEPLOYED inside COVID 2020-02-20..04-30           25  -0.0453
+  DEPLOYED inside March 2020                        11  -0.1159
+  DEPLOYED OUTSIDE every crisis window           498  -0.0323   -1.60   -1.50
+  WIDE (context) all                            2264  -0.0604   -7.80   -7.93
+  WIDE (context) inside GFC 2008-09..2009-03        73  -0.1259
+  WIDE (context) inside COVID 2020-02-20..04-30     25  -0.0857
+  WIDE (context) inside March 2020                  11  -0.1076
+  WIDE (context) OUTSIDE every crisis window    2166  -0.0579   -7.37   -7.56
+
+4c. turn of year (signal dated December or January) vs the rest, total returns:
+                                               dates   meanIC       t   t(NW)
+  DEPLOYED Dec-Jan                                96  -0.0932   -1.95   -1.76
+  DEPLOYED Feb-Nov                               427  -0.0194   -0.90   -0.88
+  WIDE (context) Dec-Jan                         370  -0.0722   -3.76   -3.50
+  WIDE (context) Feb-Nov                        1894  -0.0581   -6.86   -7.12
+  by group, Fama-MacBeth-style pooled slope (bp/unit z), DEPLOYED, date-clustered t:
+  group      Dec-Jan      t   Feb-Nov      t
+  ALL         -14.32  -3.03     -4.65  -1.78
+  muni        -69.28  -2.27    -52.50  -0.91
+  hy           -9.99  -1.11      0.59   0.16
+  loan         -0.45  -0.07    -12.64  -1.27
+  multi       -16.55  -2.95     -5.64  -1.91
+
+4d. by volatility state: quintile of the trailing 63-session realised vol of the equal-weight 13-name total-return index, known at t (breakpoints over the dates shown):
+                                               dates   meanIC       t   t(NW)    rv%
+  DEPLOYED vol quintile 1                        105  +0.0658    1.42    1.60    4.6
+  DEPLOYED vol quintile 2                        104  -0.0123   -0.28   -0.28    6.6
+  DEPLOYED vol quintile 3                        105  -0.0168   -0.38   -0.36    7.9
+  DEPLOYED vol quintile 4                        104  -0.1331   -3.07   -2.73   11.3
+  DEPLOYED vol quintile 5                        105  -0.0690   -1.69   -1.83   32.5
+  WIDE (context) vol quintile 1                  449  -0.0121   -0.68   -0.69    4.4
+  WIDE (context) vol quintile 2                  449  -0.0223   -1.31   -1.22    6.2
+  WIDE (context) vol quintile 3                  448  -0.0689   -3.84   -4.24    7.8
+  WIDE (context) vol quintile 4                  449  -0.0973   -5.90   -6.23   11.4
+  WIDE (context) vol quintile 5                  449  -0.0953   -5.51   -5.74   28.6
+
+4e. by era: section 0.
+
+====================================================================================================
+5. P&L SPLIT: NAV LEG + DISCOUNT LEG
+====================================================================================================
+price total return = NAV total return + (price TR - NAV TR). The first is what the book's long-short FUND PORTFOLIOS earned at NAV; the second is the discount closing (or widening) in price. They add exactly; costs belong to the total and are shown on its row only.
+
+deployed policy, TOTAL returns (cost-grid columns on the leg rows are arithmetic only: costs are not split between legs)
+GROSS SR is the headline; net@5/15/30bp is the real-money cost grid (bp per unit turnover), labelled, not mixed in. No borrow charged.
+                                  era          grossSR   ann%  vol% turn/yr  net@5 net@15 net@30 flips?
+-------------------------------------------------------------------------------------------------------
+TOTAL (price total return)        2005-09           book flat: no position in this era
+TOTAL (price total return)        2010-14         0.72   2.24  3.12     5.2   0.63   0.47   0.22     no
+TOTAL (price total return)        2015-19         0.84   5.70  6.83     7.8   0.78   0.66   0.49     no
+TOTAL (price total return)        2020-22         1.02   6.49  6.36    21.5   0.85   0.51   0.01     no
+TOTAL (price total return)        fit 2005-22     0.69   3.29  4.73     7.2   0.62   0.47   0.24     no
+TOTAL (price total return)        live 2010-14    1.30   7.33  5.65    16.3   1.15   0.86   0.43     no
+TOTAL (price total return)        live fit        0.96   6.21  6.50    13.5   0.85   0.64   0.33     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+  NAV leg                         2005-09           book flat: no position in this era
+  NAV leg                         2010-14        -1.21  -1.46  1.20     5.2  -1.43  -1.86  -2.50     no
+  NAV leg                         2015-19        -0.01  -0.02  1.50     7.8  -0.27  -0.79  -1.57     no
+  NAV leg                         2020-22        -0.37  -0.72  1.92    21.5  -0.93  -2.05  -3.72     no
+  NAV leg                         fit 2005-22    -0.41  -0.53  1.28     7.2  -0.69  -1.25  -2.09     no
+  NAV leg                         live 2010-14   -2.21  -4.77  2.16    16.3  -2.58  -3.34  -4.47     no
+  NAV leg                         live fit       -0.57  -1.00  1.76    13.5  -0.95  -1.72  -2.86     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+  discount leg                    2005-09           book flat: no position in this era
+  discount leg                    2010-14         1.09   3.69  3.39     5.2   1.01   0.86   0.63     no
+  discount leg                    2015-19         0.82   5.72  7.01     7.8   0.76   0.65   0.48     no
+  discount leg                    2020-22         1.06   7.20  6.82    21.5   0.90   0.58   0.11     no
+  discount leg                    fit 2005-22     0.77   3.82  4.96     7.2   0.70   0.55   0.34     no
+  discount leg                    live 2010-14    1.98  12.10  6.11    16.3   1.85   1.58   1.18     no
+  discount leg                    live fit        1.06   7.21  6.82    13.5   0.96   0.76   0.47     no
+                                  era turnover sd/mean (eras with a book)              62.2%
+                                    same, 2010-14 on book-live sessions only           37.1%
+
+legs add to the total exactly (max |diff| 6.94e-18); corr(NAV leg, discount leg) on book-live days -0.304
+share of the total's annual return, by era:
+  2010-14      NAV leg  -0.65   discount leg  +1.65
+  2015-19      NAV leg  -0.00   discount leg  +1.00
+  2020-22      NAV leg  -0.11   discount leg  +1.11
+  fit 2005-22  NAV leg  -0.16   discount leg  +1.16
+
+by group (each group's names only, same book), ann % / gross SR, fit period:
+  muni   total  +0.04%  NAV leg  -0.02%  discount leg  +0.06%
+  hy     total  +0.65%  NAV leg  +0.10%  discount leg  +0.55%
+  loan   total  +0.40%  NAV leg  +0.14%  discount leg  +0.26%
+  multi  total  +2.20%  NAV leg  -0.75%  discount leg  +2.95%
+
+====================================================================================================
+6. FACTOR ATTRIBUTION
+====================================================================================================
+factors: Ken French library, CRSP vintage 202608, daily last 2026-08-31, fetched 2026-10-11T19:47:45Z; Pastor-Stambaugh liq_data_1962_2025.txt, last 2025-12-31, fetched 2026-10-11T19:47:48Z
+deployed book live from 2013-06-25 (first non-zero P&L); regressions start there. P&L is a self-financing long-short return; no risk-free rate is subtracted.
+
+6a. DAILY, gross P&L on FF5 + UMD, HAC(5). alpha in %/yr (x252).
+window                 n  alpha%      t   mktrf     smb     hml     rmw     cma     umd     R2     a@5     t    a@15     t    a@30     t
+2013-06..2014        384    6.42   1.41   0.055  -0.019   0.010   0.002  -0.154  -0.090  0.018    5.64  1.25    4.07  0.92    1.72  0.39
+2015-19             1258    5.74   1.94  -0.008  -0.020  -0.046  -0.033  -0.001  -0.049  0.006    5.35  1.81    4.55  1.54    3.36  1.13
+2020-22              756    6.21   1.87   0.030  -0.025   0.035  -0.037   0.016   0.014  0.023    5.14  1.55    2.99  0.91   -0.24 -0.07
+all live 2013-22    2398    6.03   2.94   0.020  -0.010   0.010  -0.020   0.021  -0.001  0.004    5.35  2.62    4.00  1.96    1.97  0.97
+  beta t-stats, all live: mktrf +1.01, smb -0.43, hml +0.54, rmw -0.88, cma +0.53, umd -0.12
+
+6b. DAILY, Dimson (factors at t and t-1, betas summed), gross:
+window              alpha%      t   Smktrf     Ssmb     Shml     Srmw     Scma     Sumd
+2013-06..2014         6.50   1.43    0.070    0.072   -0.024   -0.034   -0.076   -0.104
+2015-19               6.07   2.00   -0.027   -0.028   -0.031   -0.078    0.010   -0.039
+2020-22               6.64   2.02    0.002   -0.040    0.029   -0.045    0.019   -0.007
+all live 2013-22      6.41   3.08   -0.002   -0.011    0.010   -0.044    0.020   -0.011
+
+6c. MONTHLY (compounded daily P&L, first full month 2013-07-31), FF5 + UMD + Pastor-Stambaugh traded LIQ_V, HAC(3). alpha in %/yr (x12).
+window                n  alpha%      t   mktrf     smb     hml     rmw     cma     umd   liq_v     R2     a@5     t    a@15     t    a@30     t
+2013-07..2014        18    9.88   2.35  -0.191   0.214  -0.090   0.460   0.627   0.406   0.101  0.157    9.13  2.21    7.63  1.91    5.38  1.41
+2015-19              60    4.37   1.57   0.060  -0.096   0.033   0.186  -0.192  -0.123  -0.014  0.135    3.97  1.42    3.18  1.13    2.00  0.70
+2020-22              36    8.18   2.75  -0.014  -0.141   0.051  -0.102  -0.025  -0.077  -0.018  0.079    6.87  2.34    4.25  1.47    0.35  0.12
+all live 2013-22    114    6.44   3.22   0.010  -0.088   0.027  -0.025  -0.045  -0.082  -0.037  0.046    5.72  2.91    4.27  2.22    2.11  1.10
+  beta t-stats, all live: mktrf +0.25, smb -1.01, hml +0.35, rmw -0.27, cma -0.36, umd -1.76, liq_v -0.77
+  mean monthly P&L 6.16%/yr; months 114
+
+6d. ADDITION (not in the work order): credit and rates, daily, gross, HAC(5); HYG-IEF, IEF-rf, MUB-IEF from CRSP total returns, beside FF5 + UMD
+window              alpha%      t  hyg_ief     t   ief_rf     t  mub_ief     t     R2
+2013-06..2014         6.51   1.38    0.079  1.09    0.062  0.60    0.002  0.02  0.021
+2015-19               5.65   1.90    0.075  1.52    0.093  1.19    0.076  0.79  0.009
+2020-22               6.10   1.85   -0.121 -1.99    0.066  0.96    0.190  2.27  0.057
+all live 2013-22      5.88   2.87   -0.021 -0.56    0.079  1.43    0.144  1.99  0.011
+
+Sadka liquidity: NOT USED. No free public source was found (2026-10-11 search: it is distributed through WRDS's licensed Fama-French & Liquidity Factors bundle). The desk's R2 WRDS mirror holds ff_all.liq_sadka, but it ENDS 1983-04..2008-12, before the deployed book's first position (2013-06), so it could not attribute this P&L even if it were used. Not substituted by any other liquidity measure.
