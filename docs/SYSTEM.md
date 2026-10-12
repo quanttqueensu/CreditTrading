@@ -434,6 +434,7 @@ incident and the audit are `docs/RUNNER.md`, "As built (2026-10-09, amended
 | TLT option spreads for gate G2 (plan 0.10) | **A historical fit-period spread series replaces "20 live sessions"**; any live capture is confirmation only. |
 | Is 2023–26 TLT option data the GAMMA holdout? | **Spreads and costs from 2023+ may be used; return-based statistics stay sealed.** This narrows 2026-10-09's "the 2023+ strike data is the GAMMA holdout". |
 | OptionMetrics | **Use it only if it is in our own data access.** Measured 2026-10-12: the R2 WRDS mirror (412 tables) has no `optionm` table, and there are no WRDS credentials on the desk, so it is unavailable. |
+| Paid options data | **None.** Only data in our own access (R2, Alpaca's free feeds) or free data from another free API. G2 runs as a conservative gate: an upper-bound spread and a bounded-loss crash replay. |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
