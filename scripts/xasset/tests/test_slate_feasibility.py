@@ -68,3 +68,12 @@ def test_coverage_counts_interior_gaps():
     df.loc[3, "ret_total"] = float("nan")                      # one hole inside the range
     row = sf.coverage("A", {"p": df}, cal)
     assert row["interior_gaps"] == 1 and row["sessions"] == 9
+
+
+def test_power_is_one_half_at_the_required_sharpe_and_rises_with_it():
+    """P(pass) is 0.5 exactly at the Sharpe the bar demands and increases with
+    the true Sharpe. The section 2.2 power column rests on this."""
+    n_days = 252 * 15
+    r = sf.required_sharpe(5, n_days)
+    assert sf.power(r, 5, n_days) == pytest.approx(0.5, abs=1e-6)
+    assert sf.power(r - 0.3, 5, n_days) < 0.5 < sf.power(r + 0.3, 5, n_days)

@@ -1,8 +1,10 @@
 """Zero-trial feasibility for the XASSET slate (RESEARCH_PLAN_2026-10-09 gate G8).
 
-    python3 scripts/xasset/slate_feasibility.py                 # panels + bar arithmetic
+    python3 scripts/xasset/slate_feasibility.py                 # panels + bar and power arithmetic
     export QUANTT_ENV_FILE=/abs/path/to/config/.env             # never printed
     python3 scripts/xasset/slate_feasibility.py --alpaca        # + read-only asset flags
+    python3 scripts/xasset/slate_feasibility.py --crsp          # + CRSP coverage (R2 mirror)
+    python3 scripts/xasset/slate_feasibility.py --factors       # + AQR factor-file coverage
 
 WHY THIS EXISTS
 ---------------
@@ -21,6 +23,25 @@ a test needs three facts that do not spend it:
    demands. That is arithmetic on the BAR, not on any return: the required
    Sharpe is found by inverting `scripts/cef/validate.py::_dsr` (the repo's only
    implementation of the deflated-Sharpe bar) at zero skew and normal kurtosis.
+
+4. POWER (added 2026-10-12, with the team lead's rulings on the draft): at
+   each test's fit length, the Sharpe it must show to pass, the Sharpe at which
+   it would pass four times in five, and the probability of passing if the true
+   Sharpe were the published one, or the published one cut by McLean and
+   Pontiff's 58% post-publication decline (docs/REFERENCES.md §12b). It uses the
+   normal approximation SE(annual SR) = 1/sqrt(years), which ignores the small
+   SR^2/2 term. This is arithmetic on published numbers, so a null result can be
+   read: a test that cannot pass at its published Sharpe teaches little when it
+   fails.
+5. `--crsp`: each slate instrument's CRSP identity (`stocknames`, share code
+   73), and in `dsf` its first and last date, row count, NULL-`ret` count,
+   negative-`prc` count (no closing trade: CRSP stores minus the bid/ask
+   average) and zero-volume count. These are coverage and quality COUNTS. No
+   `ret` value is read into Python.
+6. `--factors`: the AQR Time Series Momentum and Value and Momentum Everywhere
+   factor files are reachable, with their column names and first and last month.
+   The download goes to a temporary directory that is deleted, and no factor
+   value is printed.
 
 WHAT IT MUST NEVER DO
 ---------------------
@@ -90,6 +111,22 @@ TESTS = {
 }
 CONTROLS = ["SHY", "BIL", "IEI", "TLH", "AGG"]   # controls and factor proxies named in the prereg
 
+# The published Sharpe each test is powered against (docs/REFERENCES.md §12g).
+# Out-of-sample figures where the paper gives one. An INPUT TO THE POWER
+# ARITHMETIC ONLY: no decision rule reads it (H14).
+PUBLISHED_SR = {
+    "X1": (0.49, "BSV Table IV Panel A, bond trend, new sample"),
+    "X2": (1.11, "HMM Table 6, 1997-2023, in-sample"),
+    "X3": (0.88, "Hartley-Schwarz Table 3, 10-year, t=3, 1990-2018"),
+    "X4": (0.98, "BSV Table IV Panel A, multi-asset trend, new sample"),
+    "X5": (0.31, "BSV Table IV Panel A, bond momentum, new sample"),
+}
+MCLEAN_PONTIFF_KEEP = 0.42     # 1 - 0.58: "58% lower after publication" (REFERENCES §12b, [V] abstract)
+AQR_FILES = {
+    "TSMOM": "https://www.aqr.com/-/media/AQR/Documents/Insights/Data-Sets/Time-Series-Momentum-Factors-Monthly.xlsx",
+    "VME": "https://www.aqr.com/-/media/AQR/Documents/Insights/Data-Sets/Value-and-Momentum-Everywhere-Factors-Monthly.xlsx",
+}
+
 
 def coverage(sym: str, frames: dict, cal: pd.DatetimeIndex) -> dict:
     """Where `sym`'s ret_total is non-missing, and how many master sessions inside
@@ -143,6 +180,71 @@ def required_sharpe(n_trials: int, n_days: int) -> float:
     return hi
 
 
+def power(sr_true: float, n_trials: int, n_days: int) -> float:
+    """P(validate._dsr > 0.95) when the true annual Sharpe is `sr_true`, under
+    the normal approximation SE = 1/sqrt(years) around the required Sharpe."""
+    from statistics import NormalDist
+    yrs = n_days / 252
+    return NormalDist().cdf((sr_true - required_sharpe(n_trials, n_days)) * math.sqrt(yrs))
+
+
+def crsp_coverage(symbols) -> pd.DataFrame:
+    """CRSP identity and dsf coverage/quality COUNTS for each symbol (share code
+    73, ETFs). A ticker with no share-code-73 record, or with two permnos at
+    once, raises. No return value leaves the database."""
+    from src.data import r2
+    cfg = r2.load_config()
+    con = r2.connect(cfg)
+    names = con.execute(
+        f"SELECT permno, ticker, namedt, nameenddt, shrcd FROM "
+        f"read_parquet('{r2.r2_path('crsp_a_stock', 'stocknames', cfg)}') "
+        f"WHERE ticker IN ({','.join('?' * len(symbols))}) AND shrcd = 73", list(symbols)).df()
+    rows = []
+    for sym in symbols:
+        rec = names[names.ticker == sym]
+        if rec.empty:
+            raise KeyError(f"{sym}: no CRSP stocknames record with share code 73")
+        if rec.permno.nunique() != 1:
+            raise RuntimeError(f"{sym}: {rec.permno.nunique()} permnos carry this ticker as an ETF: "
+                               f"{sorted(rec.permno.unique())}; resolve by date before use")
+        permno = int(rec.permno.iloc[0])
+        c = con.execute(
+            f"SELECT MIN(date), MAX(date), COUNT(*), "
+            f"SUM(CASE WHEN ret IS NULL THEN 1 ELSE 0 END), "
+            f"SUM(CASE WHEN prc < 0 THEN 1 ELSE 0 END), "
+            f"SUM(CASE WHEN vol = 0 THEN 1 ELSE 0 END) "
+            f"FROM read_parquet('{r2.r2_path('crsp_a_stock', 'dsf', cfg)}') WHERE permno = ?",
+            [permno]).fetchone()
+        rows.append(dict(symbol=sym, crsp_permno=permno, crsp_first=pd.Timestamp(c[0]).date(),
+                         crsp_last=pd.Timestamp(c[1]).date(), crsp_rows=int(c[2]),
+                         crsp_null_ret=int(c[3]), crsp_neg_prc=int(c[4]), crsp_zero_vol=int(c[5])))
+    return pd.DataFrame(rows)
+
+
+def factor_file_coverage() -> list[str]:
+    """Reach each AQR factor file; report columns and first/last month only."""
+    import tempfile
+    import urllib.request
+    out = []
+    ua = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, url in AQR_FILES.items():
+            path = Path(tmp) / f"{name}.xlsx"
+            with urllib.request.urlopen(urllib.request.Request(url, headers=ua), timeout=60) as r:
+                path.write_bytes(r.read())
+            book = pd.ExcelFile(path)
+            df = book.parse(book.sheet_names[0], header=None)
+            hdr = next((i for i in range(min(60, len(df)))
+                        if any(str(v).strip().upper() in ("DATE", "TSMOM") for v in df.iloc[i])), None)
+            if hdr is None:
+                raise RuntimeError(f"{name}: no header row found; the file layout changed -- look at it")
+            cols = [str(v).strip() for v in df.iloc[hdr] if str(v).strip() not in ("nan", "DATE")]
+            dates = pd.to_datetime(df.iloc[hdr + 1:, 0], errors="coerce").dropna()
+            out.append(f"{name}: sheet '{book.sheet_names[0]}', {len(dates)} months "
+                       f"{dates.min().date()} .. {dates.max().date()}; columns {cols[:8]}")
+    return out
+
+
 def alpaca_flags(symbols) -> pd.DataFrame:
     """GET /v2/assets/{symbol} on the cef paper key (read-only). A 404 is a finding."""
     from quantt.broker.alpaca import AlpacaClient, AssetNotFound
@@ -164,6 +266,8 @@ def alpaca_flags(symbols) -> pd.DataFrame:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--alpaca", action="store_true", help="also read Alpaca asset flags (read-only)")
+    ap.add_argument("--crsp", action="store_true", help="also read CRSP coverage counts from the R2 mirror")
+    ap.add_argument("--factors", action="store_true", help="also check the AQR factor files are reachable")
     ap.add_argument("--out", default=None, help="CSV path (default results/xasset/slate_feasibility_<today>.csv)")
     a = ap.parse_args(argv)
 
@@ -181,6 +285,8 @@ def main(argv=None) -> int:
     syms = list(dict.fromkeys(X4 + CONTROLS))
     cov = pd.DataFrame([coverage(s, frames, cal) for s in syms])
     cov["crsp_panel_first"] = [crsp_first[s].date() if s in crsp_first else None for s in syms]
+    if a.crsp:
+        cov = cov.merge(crsp_coverage(syms), on="symbol", how="left")
     if a.alpaca:
         cov = cov.merge(alpaca_flags(syms), on="symbol", how="left")
     pd.set_option("display.width", 220)
@@ -203,6 +309,18 @@ def main(argv=None) -> int:
               f"fit {n_fit} sessions = {yrs:.1f} yr; required SR "
               + " ".join(f"N{n}:{v:.2f}" for n, v in req.items())
               + f"; sr0@N5 {sr0:.2f}; D4 alpha-t3 {d4:.2f}; LEGACY N162 {legacy:.2f}")
+        pub, src = PUBLISHED_SR[name]
+        from statistics import NormalDist
+        mde80 = req[5] + NormalDist().inv_cdf(0.80) / math.sqrt(yrs)
+        print(f"      power at N=5: Sharpe for 80% power {mde80:.2f}; P(pass | true SR = {pub:.2f}, {src}) "
+              f"{power(pub, 5, n_fit):.2f}; P(pass | {MCLEAN_PONTIFF_KEEP:.2f} x that = "
+              f"{pub * MCLEAN_PONTIFF_KEEP:.2f}) {power(pub * MCLEAN_PONTIFF_KEEP, 5, n_fit):.2f}; "
+              f"P(D4 alpha t >= 3 | alpha SR = {pub:.2f}) "
+              f"{NormalDist().cdf(pub * math.sqrt(yrs) - 3.0):.2f}")
+    if a.factors:
+        print("\nfactor files (coverage only; no value printed):")
+        for line in factor_file_coverage():
+            print("  " + line)
 
     out = Path(a.out) if a.out else REPO / "results/xasset" / f"slate_feasibility_{dt.date.today():%Y-%m-%d}.csv"
     cov.to_csv(out, index=False)
