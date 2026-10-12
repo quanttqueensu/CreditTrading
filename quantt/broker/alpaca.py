@@ -65,6 +65,7 @@ Source for every [V]/[S]/[U] claim: `results/ops/ALPACA_API_FACTS_2026-09-28.md`
 from __future__ import annotations
 
 import datetime as dt
+import math
 import os
 import re
 import time
@@ -699,6 +700,55 @@ class AlpacaClient:
             raise UnexpectedResponse(f"{w}: borrow_status {raw['borrow_status']!r} is not a documented value")
         return raw
 
+    def assets(self, *, status: str = "active", asset_class: str = "us_equity") -> list[dict]:
+        """GET /v2/assets: every asset in one response, as compact typed rows.
+
+        One row per asset: symbol, exchange, status, the ASSET_BOOL flags, and,
+        when Alpaca sends them, easy_to_borrow, borrow_status and the margin
+        requirements. An absent optional field is None, never a guessed value.
+
+        WHY. The daily borrow snapshot (collector step `borrow_snapshot`,
+        `results/cef/RESEARCH_PLAN_2026-10-09.md` 0.3). Borrow flags change daily:
+        AWF and MHD were shortable on 2026-09-28 and not on 2026-10-08. Research
+        on short sleeves needs the history, and Alpaca keeps none. A row is true
+        at its read time only.
+
+        The response is one unpaged list [V: one call returned 14,392 rows,
+        2026-10-08]. A repeated symbol raises: two rows for one name cannot both
+        be the flag.
+        """
+        if status not in ("active", "inactive"):
+            raise ValueError(f"status {status!r} must be active|inactive")
+        if asset_class not in ("us_equity",):
+            raise ValueError(f"asset_class {asset_class!r}: only us_equity is used here")
+        raw = self._get(self._base, "/v2/assets", {"status": status, "asset_class": asset_class})
+        w = "GET /v2/assets"
+        if not isinstance(raw, list):
+            raise UnexpectedResponse(f"{w}: expected a list, got {type(raw).__name__}")
+        out, seen = [], set()
+        for i, a in enumerate(raw):
+            wi = f"{w}[{i}]"
+            _require(a, ("symbol", "status", "exchange", *self.ASSET_BOOL), wi)
+            sym = a["symbol"]
+            if not isinstance(sym, str) or not sym:
+                raise UnexpectedResponse(f"{wi}: symbol {sym!r} is not a non-empty string")
+            if sym in seen:
+                raise UnexpectedResponse(f"{wi}: symbol {sym!r} listed twice")
+            seen.add(sym)
+            row = {"symbol": sym, "exchange": a["exchange"], "status": a["status"]}
+            for f in self.ASSET_BOOL:
+                row[f] = _bool(a, f, wi)
+            row["easy_to_borrow"] = _bool(a, "easy_to_borrow", wi) if a.get("easy_to_borrow") is not None else None
+            bs = a.get("borrow_status")
+            if bs is not None and bs not in ("easy_to_borrow", "hard_to_borrow"):
+                raise UnexpectedResponse(f"{wi}: borrow_status {bs!r} is not a documented value")
+            row["borrow_status"] = bs
+            for f in ("maintenance_margin_requirement", "margin_requirement_long",
+                      "margin_requirement_short"):
+                row[f] = _num(a, f, wi) if a.get(f) not in (None, "") else None
+            out.append(row)
+        return out
+
     FILL_FIELDS = ("id", "activity_type", "order_id", "symbol", "side", "qty", "price",
                    "cum_qty", "leaves_qty", "transaction_time", "type", "order_status")
 
@@ -904,6 +954,104 @@ class AlpacaClient:
                 f"{ {s: exchange_codes[s] for s in missing} }; another venue's print and a bar "
                 f"close are not substituted", symbols=missing)
         return out
+
+    def distributions(self, symbols, start: dt.date, end: dt.date) -> list[dict]:
+        """Cash dividends and capital-gains distributions for `symbols`, from the data API.
+
+        GET {DATA_BASE}/v1/corporate-actions, types=cash_dividend,
+        capital_gains_distribution, every page [V: endpoint reference, fetched
+        2026-10-09]. Returns one dict per event:
+            {"id", "symbol", "ex_date": date, "amount": float, "kind",
+             "special": bool | None, "sub_type": str | None}
+        `amount` is the cash per share: a cash dividend's `rate`, or a capital-gains
+        event's `long_term_rate` + `short_term_rate` (the reference says at least one
+        is always present; one that has neither raises).
+
+        WHY. Alpaca paper credits no dividends [V: paper-trading docs], so the
+        distribution-adjusted P&L line (team lead 2026-10-09, `docs/SYSTEM.md` §5)
+        needs every ex-date and amount from somewhere other than the account.
+
+        WHAT `start`/`end` FILTER IS NOT DOCUMENTED. The reference says only that results
+        are "sorted by their process_date". A cash dividend's process date is near
+        its PAYABLE date, weeks after the ex-date (the reference's own example: ex
+        2023-05-04, process 2023-05-19). So the caller queries a wide window and
+        filters on `ex_date` itself; this method returns what the window holds and
+        never infers an ex-date.
+
+        ABSENCE IS NOT PROOF. Alpaca: "Currently Alpaca has no guarantees on the
+        creation time of corporate actions ... may not be available immediately
+        after they are announced" [V]. A symbol with no event here may still have
+        one; the caller must not treat absence as a measured zero without a second
+        source (`quantt/session/dist_score.py`).
+        """
+        start = _date_param(start, "start")
+        end = _date_param(end, "end")
+        if end < start:
+            raise ValueError(f"end {end} is before start {start}")
+        if isinstance(symbols, str):
+            raise ValueError("symbols must be a list of symbols, not one string")
+        syms = sorted(set(symbols))
+        if not syms:
+            raise ValueError("symbols is empty")
+        for s in syms:
+            if not isinstance(s, str) or not _SYMBOL_RE.match(s):
+                raise ValueError(f"symbol {s!r} is not an upper-case equity symbol")
+
+        w = "GET /v1/corporate-actions"
+        out, seen = [], set()
+        token = None
+        for _ in range(MAX_PAGES):
+            params = {"symbols": ",".join(syms),
+                      "types": "cash_dividend,capital_gains_distribution",
+                      "start": start.isoformat(), "end": end.isoformat(), "limit": 1000}
+            if token is not None:
+                params["page_token"] = token
+            body = self._get(self._data, "/v1/corporate-actions", params)
+            _require(body, ("corporate_actions",), w)
+            ca = body["corporate_actions"] or {}
+            if not isinstance(ca, dict):
+                raise UnexpectedResponse(f"{w}: corporate_actions is {type(ca).__name__}, not an object")
+            for kind, key in (("cash_dividend", "cash_dividends"),
+                              ("capital_gains_distribution", "capital_gains_distributions")):
+                rows = ca.get(key) or []
+                if not isinstance(rows, list):
+                    raise UnexpectedResponse(f"{w}: {key} is not a list")
+                for i, r in enumerate(rows):
+                    where = f"{w} {key}[{i}]"
+                    _require(r, ("id", "symbol", "ex_date"), where)
+                    sym = r["symbol"]
+                    if sym not in syms:
+                        raise UnexpectedResponse(f"{where}: returned unrequested symbol {sym!r}")
+                    if not (isinstance(r["ex_date"], str) and _DATE_RE.match(r["ex_date"])):
+                        raise UnexpectedResponse(f"{where}: ex_date {r['ex_date']!r} is not YYYY-MM-DD")
+                    if kind == "cash_dividend":
+                        _require(r, ("rate",), where)
+                        amount = _num(r, "rate", where)
+                        special = _bool(r, "special", where) if "special" in r else None
+                    else:
+                        legs = [k for k in ("long_term_rate", "short_term_rate") if r.get(k) is not None]
+                        if not legs:
+                            raise UnexpectedResponse(f"{where}: neither long_term_rate nor short_term_rate")
+                        amount = sum(_num(r, k, where) for k in legs)
+                        special = None
+                    if not math.isfinite(amount) or amount < 0:
+                        raise UnexpectedResponse(f"{where}: amount {amount!r} is not a finite cash amount >= 0")
+                    if r["id"] in seen:
+                        continue          # the same event repeated across pages
+                    seen.add(r["id"])
+                    out.append({"id": r["id"], "symbol": sym,
+                                "ex_date": dt.date.fromisoformat(r["ex_date"]),
+                                "amount": float(amount), "kind": kind, "special": special,
+                                "sub_type": r.get("sub_type")})
+            nxt = body.get("next_page_token")
+            if not nxt:
+                break
+            if nxt == token:
+                raise UnexpectedResponse(f"{w}: next_page_token did not advance")
+            token = nxt
+        else:
+            raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
+        return sorted(out, key=lambda e: (e["symbol"], e["ex_date"], e["kind"], e["id"]))
 
 
 def _load_keys(book: str, env_file: Path) -> tuple[str, str]:

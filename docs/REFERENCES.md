@@ -596,6 +596,7 @@ them in the repo before relying on any figure.
 | DMO removed its term by shareholder vote with no tender (2019), while trading at a premium. ETX's term is 2028-06-30, with a 12-month extension | DMO DEF 14A, 2019-09-26; ETX DEF 14A, 2026-09-24 | [V] |
 | Tender-then-convert outcomes: JLS (2019, 65.5% tendered), JPT (2022), IGI/GDO/HYI (2024–25), JPI (2024), MMD (2024, 32.8%); XFLT removed its term by vote with no tender (2024) | Business Wire and sponsor press releases | [S] |
 | No study of US term or target-term CEF discount convergence was found. The nearest is Brauer (1984): discounts fade before a scheduled open-ending | search | [S]; a negative search result |
+| Alpaca Market Data `GET /v1/corporate-actions`: types include `cash_dividend` (rate, special, sub_type interest / return_of_capital) and `capital_gains_distribution` (long_term_rate, short_term_rate). Results are "sorted by their process_date". "Alpaca has no guarantees on the creation time of corporate actions ... may not be available immediately after they are announced". Declared ex-dates appear weeks ahead (13 names, 2026-10-09: listed to 2026-12-11) | Alpaca endpoint reference (fetched 2026-10-09); one read-only call on the cef key, 2026-10-09 | [V] |
 
 ### 12e. Event re-runs: merger pair and term CEFs (added 2026-10-11)
 

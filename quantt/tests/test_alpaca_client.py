@@ -648,3 +648,124 @@ def test_auction_a_different_day_raises(env_file, sleeps):
     c, _ = client(env_file, sleeps, route({"/v2/stocks/auctions": body}))
     with pytest.raises(al.UnexpectedResponse, match="not the requested"):
         c.closing_auction_prints(["PDI"], D, exchange_codes={"PDI": "N"})
+
+
+# ------------------------------------------------------ distributions (corporate actions)
+
+def ca_body(cash=(), cg=(), token=None):
+    return FakeResp(200, {"corporate_actions": {"cash_dividends": list(cash),
+                                                "capital_gains_distributions": list(cg)},
+                          "next_page_token": token})
+
+
+def cash(sym, ex, rate, i=None, **kw):
+    r = {"id": i or f"{sym}-{ex}", "symbol": sym, "cusip": "x", "ex_date": ex, "rate": rate,
+         "special": False, "foreign": False, "process_date": ex}
+    r.update(kw)
+    return r
+
+
+def test_distributions_parse_cash_and_capital_gains_and_ask_for_both_types(env_file, sleeps):
+    body = ca_body(cash=[cash("PDI", "2026-10-13", 0.2205)],
+                   cg=[{"id": "cg1", "symbol": "PDI", "cusip": "x", "ex_date": "2026-12-26",
+                        "process_date": "2027-01-08", "long_term_rate": 0.4, "short_term_rate": 0.1}])
+    c, s = client(env_file, sleeps, route({"/v1/corporate-actions": body}))
+    out = c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2027, 2, 1))
+    assert [(e["kind"], e["ex_date"], e["amount"]) for e in out] == [
+        ("cash_dividend", dt.date(2026, 10, 13), 0.2205),
+        ("capital_gains_distribution", dt.date(2026, 12, 26), pytest.approx(0.5))]
+    url, params = s.gets[0]
+    assert url == al.DATA_BASE + "/v1/corporate-actions"
+    assert params["types"] == "cash_dividend,capital_gains_distribution"
+    assert params["start"] == "2026-09-01" and params["end"] == "2027-02-01"
+
+
+def test_distributions_refuse_an_unrequested_symbol(env_file, sleeps):
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cash=[cash("PTY", "2026-10-13", 0.1)])}))
+    with pytest.raises(al.UnexpectedResponse, match="unrequested symbol"):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+
+
+@pytest.mark.parametrize("bad", [{"rate": None}, {"ex_date": "13/10/2026"}, {"rate": -0.1}])
+def test_distributions_never_default_a_bad_field(env_file, sleeps, bad):
+    r = cash("PDI", "2026-10-13", 0.2)
+    r.update(bad)
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cash=[r])}))
+    with pytest.raises(al.UnexpectedResponse):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+
+
+def test_distributions_a_missing_rate_raises_not_keyerror(env_file, sleeps):
+    r = cash("PDI", "2026-10-13", 0.2)
+    del r["rate"]
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cash=[r])}))
+    with pytest.raises(al.UnexpectedResponse, match="rate"):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+
+
+def test_distributions_a_capital_gains_event_with_no_rate_raises(env_file, sleeps):
+    cg = {"id": "cg1", "symbol": "PDI", "cusip": "x", "ex_date": "2026-12-26", "process_date": "2027-01-08"}
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": ca_body(cg=[cg])}))
+    with pytest.raises(al.UnexpectedResponse, match="neither"):
+        c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2027, 2, 1))
+
+
+def test_distributions_page_on_next_page_token_and_drop_repeats(env_file, sleeps):
+    pages = {None: ca_body(cash=[cash("PDI", "2026-10-13", 0.2205, i="e1")], token="t2"),
+             "t2": ca_body(cash=[cash("PDI", "2026-10-13", 0.2205, i="e1"),
+                                 cash("PDI", "2026-11-12", 0.2205, i="e2")])}
+    c, s = client(env_file, sleeps, route({"/v1/corporate-actions": lambda p: pages[p.get("page_token")]}))
+    out = c.distributions(["PDI"], dt.date(2026, 9, 1), dt.date(2026, 12, 1))
+    assert [e["id"] for e in out] == ["e1", "e2"] and len(s.gets) == 2
+
+
+def test_distributions_refuse_an_inverted_window(env_file, sleeps):
+    c, _ = client(env_file, sleeps)
+    with pytest.raises(ValueError, match="before start"):
+        c.distributions(["PDI"], dt.date(2026, 12, 1), dt.date(2026, 9, 1))
+
+
+# ------------------------------------------------------ the whole asset list
+
+def bulk_asset_row(sym, **kw):
+    r = {"symbol": sym, "status": "active", "exchange": "NYSE", "tradable": True,
+         "shortable": True, "marginable": True, "fractionable": False,
+         "easy_to_borrow": True, "borrow_status": "easy_to_borrow",
+         "maintenance_margin_requirement": 30, "margin_requirement_long": "30",
+         "margin_requirement_short": "30"}
+    r.update(kw)
+    return r
+
+
+def test_assets_parse_flags_and_ask_for_active_us_equity(env_file, sleeps):
+    body = FakeResp(200, [bulk_asset_row("PDI"), bulk_asset_row("AWF", shortable=False, easy_to_borrow=False,
+                                                      borrow_status="hard_to_borrow")])
+    c, s = client(env_file, sleeps, route({"/v2/assets": body}))
+    out = c.assets()
+    assert [(r["symbol"], r["shortable"], r["easy_to_borrow"]) for r in out] == [
+        ("PDI", True, True), ("AWF", False, False)]
+    assert out[0]["maintenance_margin_requirement"] == 30.0
+    assert s.gets[0][1] == {"status": "active", "asset_class": "us_equity"}
+
+
+def test_assets_absent_optional_fields_are_none_never_guessed(env_file, sleeps):
+    r = bulk_asset_row("PDI")
+    for k in ("easy_to_borrow", "borrow_status", "maintenance_margin_requirement"):
+        del r[k]
+    c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [r])}))
+    row, = c.assets()
+    assert row["easy_to_borrow"] is None and row["borrow_status"] is None
+    assert row["maintenance_margin_requirement"] is None
+
+
+@pytest.mark.parametrize("bad", [{"shortable": "true"}, {"borrow_status": "maybe"}])
+def test_assets_refuse_an_untyped_flag(env_file, sleeps, bad):
+    c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [bulk_asset_row("PDI", **bad)])}))
+    with pytest.raises(al.UnexpectedResponse):
+        c.assets()
+
+
+def test_assets_refuse_a_symbol_listed_twice(env_file, sleeps):
+    c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [bulk_asset_row("PDI"), bulk_asset_row("PDI")])}))
+    with pytest.raises(al.UnexpectedResponse, match="twice"):
+        c.assets()

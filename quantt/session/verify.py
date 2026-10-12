@@ -24,7 +24,8 @@ exit code is then 2 and the missing line is itself the FAIL.
 
 READ-ONLY. This module calls only GETs on `quantt.broker.alpaca.AlpacaClient`
 (clock, calendar, orders, order_by_client_id, activities_fills, positions,
-account, stock_exchanges, asset via primary_sip_code, closing_auction_prints). It never imports or calls `submit_order`; a
+account, stock_exchanges, asset via primary_sip_code, closing_auction_prints, and --
+through `dist_score.py` -- distributions). It never imports or calls `submit_order`; a
 test walks this file's AST to keep it that way. An `AmbiguousSubmit` from the
 morning is resolved here the only safe way: by looking the id up.
 
@@ -738,8 +739,37 @@ def main(argv=None) -> int:
     v = write_outputs(state_dir, v)
     print(v.line())
     if client is not None:
-        run_shadow(client, state_dir, v.date, condition=args.condition)
+        # Each post-verdict hook is guarded on its own (review 2026-10-09): a failure
+        # inside a hook's own error recording must not escape and turn a PASS day's
+        # exit code into 1, nor stop the next hook. The verdict line is already
+        # written; the error goes to stderr (the job log), naming the hook.
+        for name, hook in (
+                ("shadow", lambda: run_shadow(client, state_dir, v.date, condition=args.condition)),
+                ("distributions", lambda: run_distributions(client, state_dir, v.date))):
+            try:
+                hook()
+            except Exception as e:  # noqa: BLE001 -- reported on stderr; the verdict stands
+                print(f"{name} hook error (verdict unaffected): {type(e).__name__}: {e}",
+                      file=sys.stderr)
     return 0 if v.ok else 1
+
+
+def run_distributions(client, state_dir: Path, today: dt.date) -> None:
+    """The distribution-adjusted third score (quantt/session/dist_score.py), after
+    the verdict is written and never able to change it (team lead 2026-10-09:
+    Alpaca paper credits no dividends, so carry a third line). It scores every
+    session at least two sessions old that has no measured row yet, from that
+    day's reconcile.json and scores.csv, so the yfinance cross-check has caught
+    up (review 2026-10-09). A day it cannot measure is an UNMEASURED row, retried."""
+    from ops.schedule.nyse_calendar import is_trading_day, next_trading_day, previous_trading_day
+    from quantt.session import dist_score
+    if not is_trading_day(today):
+        return
+    now = dt.datetime.now(dt.timezone.utc)
+    for d, status in dist_score.run_pending(client, state_dir, today, now_utc=now,
+                                            previous_trading_day=previous_trading_day,
+                                            next_trading_day=next_trading_day):
+        print(f"distributions {d}: {status} USD ({dist_score.LABEL.split(':')[0]})")
 
 
 def run_shadow(client, state_dir: Path, day: dt.date, *, condition: str) -> None:

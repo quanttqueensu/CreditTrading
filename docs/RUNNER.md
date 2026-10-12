@@ -14,7 +14,7 @@ the book: those come from `python3 -m ops.orient`.
 | After the first go | **The scheduled runner trades daily on its own**, behind every gate below. `CLAUDE.md` order-path rule 1 governs agents in a chat, not the scheduled runner. Stop it with the halt file or `DRY_RUN=1`. |
 | Day one (flat book) | **Trade to full target**, not to the band edge, so the book starts dollar-neutral. The band applies from the second session. |
 | Phase 3 probes | **Design around them.** Never reuse a `client_order_id`, one netted order per symbol per session, a long↔short flip is two orders (close, then open), and never assume the uncertain answer. Day one's real orders answer 3.1 and 3.5. |
-| Scoring | Alpaca's fill (official) **and** the official closing-auction print, side by side, gross. |
+| Scoring | Alpaca's fill (official) **and** the official closing-auction print, side by side, gross. **Third line from 2026-10-09** (team lead): auction-marked P&L **plus distributions** on shares held at the start of each ex-date (credited long, charged short), because Alpaca paper credits none. It is scored two sessions late, once the cross-check source has caught up, and written to `distribution_scores.csv`. It never changes the verdict (`quantt/session/dist_score.py`). |
 
 ## The session, in order
 
@@ -114,6 +114,20 @@ settled these points. Alpaca facts, each with its source and status:
   UNMEASURED and the day FAIL. It is never substituted.
 - **Records:** `<state>/<D>/plan.json`, `orders.jsonl` (event log), `STARTED`,
   `reconcile.json`; `<state>/verify.log` (one line per day) and `scores.csv`.
+- **Distribution-adjusted score** (third line, 2026-10-09; redesigned the same day after
+  review). After the verdict, as with the shadow score, `quantt/session/dist_score.py`
+  scores every session **at least two sessions old** that has no measured row yet. It
+  reads that day's `reconcile.json` (`held_into_close`) and its `scores.csv` row, and
+  upserts one row per session into `<state>/distribution_scores.csv`.
+  - **Primary source:** Alpaca corporate actions.
+  - **Cross-check:** the yfinance panel, within 0.0005 per share of rounding.
+  - **When it is UNMEASURED:** a real conflict, or an ex-date only the panel lists.
+  - **A zero needs both sources silent,** with the panel file rewritten after the
+    close of the session following D. Otherwise the day is UNMEASURED and retried.
+    A measured row is final.
+  - **Never the verdict, never the exit code:** each post-verdict hook (shadow,
+    distributions) is guarded separately in `main()`, and an error goes to stderr.
+    `scores.csv`'s columns are unchanged.
 
 ## Paper execution (2026-09-29): decide in the evening, send as market orders at 15:52
 

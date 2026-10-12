@@ -22,10 +22,18 @@ on a panel whose last date is somebody else's choice.
 | **Live: NAV** | yfinance NAV symbol `X<TK>X`, with CEFConnect's dated row as an explicit, logged fallback (`--nav-fallback cefconnect`, every fill written to `data/cef/nav_fallback_log.csv`) | `scripts/cef/fetch_daily.py` → `data/cef/cef_nav.parquet` | The session runs it with `--require-asof`. Stale data never trades (`docs/RUNNER.md` step 1). |
 | **Research / backtest** | Cloudflare R2 bucket, a WRDS mirror | `src/data/r2.py` (DuckDB over httpfs, read-only) | §3. Never live. |
 | **Broker truth** (positions, fills, tradability, shortability) | Alpaca Trading API, paper | `quantt/broker/` | The authority on our accounts (`CLAUDE.md` data rule 2). |
+| **Distributions for the third P&L line** | Alpaca Market Data API, corporate actions (`cash_dividend`, `capital_gains_distribution`), cross-checked against the yfinance panel | `AlpacaClient.distributions` → `quantt/session/dist_score.py` → `<state>/distribution_scores.csv` | Lists declared ex-dates weeks ahead (measured 2026-10-09: ex-dates to 2026-12-11 listed). Alpaca does not guarantee timeliness, so absence alone is not a zero: a zero also needs the yfinance panel file rewritten after the close of the session following D. Hence each day is scored two sessions late. |
 | **Official closes, cross-check** | Alpaca Market Data API, closing-auction prints (condition M, primary exchange) | `quantt/collect` → `data/cef/alpaca_official_close.parquet` (§5) | A second live-era price source beside yfinance. The auction prints are also the second P&L score (`docs/RUNNER.md`, verify step). CEF coverage on the Basic plan is **not yet measured** over any run. |
 
 The other files in `data/cef/` (distributions, borrow, splits, universe, facts) have
 their own fetchers. This file does not describe them.
+
+**yfinance distributions are rounded to 3 decimals** (measured 2026-10-09). On
+the 13 names over June to August 2026, 28 of the 40 events common to the
+yfinance panel and Alpaca's corporate actions differed by ≤ 0.0005 per share,
+e.g. MHD 0.0595 vs 0.060, and none differed by more. 77% of the panel's amounts
+have exactly 3 decimals. The research total-return panel therefore carries
+rounding of up to 0.0005 per share per event. That is small, but it is not zero.
 
 ## 3. The R2 mirror
 
@@ -154,6 +162,15 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
   5. `account_snapshot` writes `<D>/account.json` and one row per day in
      `$QUANTT_STATE_DIR/equity.csv`. It is taken only before the next session opens.
   6. `distributions` runs `scripts/fetch_cef_distributions.py`, with a 20-minute timeout.
+  7. `borrow_snapshot` (added 2026-10-09) reads Alpaca's whole active US-equity
+     asset list in one GET. It writes `<D>/assets.parquet`: per symbol, tradable,
+     shortable, easy_to_borrow, borrow_status, margin requirements and the read
+     time. A deployed name whose flags changed since the previous trading day's
+     snapshot is a report-only flag; one missing from the list is a gap. Like
+     `account_snapshot`, it refuses once the next session has opened. Why:
+     Alpaca keeps no borrow history, and the flags churn daily. AWF and MHD were
+     shortable on 2026-09-28, not on 2026-10-08, and shortable again on
+     2026-10-09, when PHK was not.
 - **Where it writes.** Each run that did work writes `<D>/report.json` (steps, flags,
   gaps) and appends one line to `$QUANTT_STATE_DIR/data.log`:
   `<D> DATA COMPLETE|INCOMPLETE <failed steps> flags=<n> gaps=<n>`.

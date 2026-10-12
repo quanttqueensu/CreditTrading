@@ -444,7 +444,16 @@ class CEFDiscountSleeve(Sleeve):
             zi = z.loc[last, tk]
             if not np.isfinite(zi):
                 continue
-            if float(adv.loc[last, tk] or 0.0) < self._min_adv:
+            # ADV is NaN when fewer than 21 of the last 63 sessions have a price x
+            # volume. That is liquidity UNMEASURED, not a pass: `float(nan or 0.0)`
+            # is nan and `nan < floor` is False, so until 2026-10-11 such a name
+            # skipped the floor silently (found by the plan-0.9 re-run; on the
+            # 1998-11..2026-09-25 panel it never happened, so this is a no-op on
+            # history). It is dropped, and the reason says so.
+            a = float(adv.loc[last, tk])
+            if not np.isfinite(a):
+                dropped.append((tk, "ADV unmeasured (<21 of 63 sessions)")); continue
+            if a < self._min_adv:
                 dropped.append((tk, "illiquid")); continue
             # a NAV that has not moved is a blind signal, not a cheap fund
             nav_tk = nav[tk].dropna()

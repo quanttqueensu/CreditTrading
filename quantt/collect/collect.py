@@ -1,4 +1,4 @@
-"""The CEF book's nightly data collector: one data day, six idempotent steps, a report.
+"""The CEF book's nightly data collector: one data day, seven idempotent steps, a report.
 
     python3 -m quantt.collect --book cef
 
@@ -12,7 +12,10 @@ research rules, team lead 2026-09-28), and the auction print is only fetchable
 from Alpaca's data API, so a day nobody fetched is a day that can never be
 scored. The collector records every trading day whether or not anything traded:
 prices and NAV, the official closes, the account, the distributions, and two
-cross-checks between independent sources.
+cross-checks between independent sources. From 2026-10-09 it also records Alpaca's whole active
+asset list with its borrow flags (`borrow_snapshot`). Alpaca keeps no history of
+which names could be shorted on which day, and short sleeves need that history
+(`results/cef/RESEARCH_PLAN_2026-10-09.md` 0.3).
 
 WHEN IT RUNS
 ------------
@@ -112,7 +115,7 @@ DISTRIBUTIONS_TIMEOUT_S = 20 * 60
 TAIL_LINES = 40
 
 STEPS = ("prices_nav", "nav_crosscheck", "official_closes", "close_crosscheck",
-         "account_snapshot", "distributions")
+         "account_snapshot", "distributions", "borrow_snapshot")
 DEPENDS_ON = {"nav_crosscheck": ("prices_nav",),
               "close_crosscheck": ("prices_nav", "official_closes")}
 
@@ -499,9 +502,93 @@ def step_distributions(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
     return detail
 
 
+ASSETS_FILE = "assets.parquet"
+# The flags compared day to day for the deployed names. A change is a report-only
+# flag: the session re-reads `shortable` at send (gate 7), so nothing here gates.
+BORROW_FIELDS = ("tradable", "shortable", "easy_to_borrow")
+
+
+def _assets_frame(rows: list):
+    import pandas as pd
+    return pd.DataFrame(rows).sort_values("symbol").reset_index(drop=True)
+
+
+def step_borrow_snapshot(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
+    """Alpaca's active US-equity asset list as of D's close, one parquet per day.
+
+    WHY. Borrow flags change daily, and Alpaca keeps no history of them. AWF and
+    MHD were shortable on 2026-09-28 and not on 2026-10-08. Short sleeves (the
+    merger pair's acquirer leg, ETF shorts) need to know how often a name could
+    actually be borrowed (results/cef/RESEARCH_PLAN_2026-10-09.md 0.3, gate G1a).
+    The rows are written to <state>/data/<D>/assets.parquet with the read time.
+
+    WHEN. Read on D's own ET evening, and nowhere else (review 2026-10-09). The
+    clock read at the start of the run can be ~35 minutes stale by now, since the
+    subprocess steps run first, so it is re-read here just before the GET. The
+    read must be on D's ET calendar date, with the market shut and the next open
+    being the session after D. A retry that only succeeds the next morning would
+    carry Alpaca's overnight refresh, whose time is [U], under D's label. So that
+    day gets no snapshot (the step fails, visibly) rather than a mislabelled one.
+
+    REPORT ONLY. A deployed name whose tradable / shortable / easy_to_borrow
+    changed since the previous trading day's snapshot is a flag. A deployed name
+    missing from Alpaca's list is a gap. Neither blocks trading: gate 7 re-reads
+    `shortable` at send.
+    """
+    import pandas as pd
+    nxt = next_trading_day(day)
+    fresh = ctx.client.clock()                     # not the run's clock: see WHEN
+    now_et = fresh["timestamp"].astimezone(ET)
+    next_open = fresh["next_open"].astimezone(ET)
+    if fresh["is_open"] or next_open.date() != nxt or now_et.date() != day:
+        raise StepFailed(
+            f"the asset list would not describe {day}'s evening (now {now_et.isoformat()}, "
+            f"market open={fresh['is_open']}, next open {next_open.isoformat()}, first trading "
+            f"day after {day} is {nxt}); not recorded rather than recorded under the wrong day",
+            {"flags": [], "gaps": []})
+    read_at = _utc_now()
+    rows = ctx.client.assets(status="active", asset_class="us_equity")
+    if not rows:
+        raise StepFailed("Alpaca returned an empty active asset list", {"flags": [], "gaps": []})
+    df = _assets_frame(rows)
+    df["read_at_utc"] = read_at
+    day_dir = ctx.state_dir / "data" / day.isoformat()
+    day_dir.mkdir(parents=True, exist_ok=True)
+    tmp = day_dir / f".{ASSETS_FILE}.tmp"
+    df.to_parquet(tmp, index=False)
+    os.replace(tmp, day_dir / ASSETS_FILE)
+
+    flags, gaps = [], []
+    today = df.set_index("symbol")
+    prev = previous_trading_day(day)
+    prev_path = ctx.state_dir / "data" / prev.isoformat() / ASSETS_FILE
+    before = pd.read_parquet(prev_path).set_index("symbol") if prev_path.exists() else None
+    for t in ctx.deployed:
+        if t not in today.index:
+            gaps.append({"fund": t, "reason": f"not in Alpaca's active asset list read {read_at}"})
+            continue
+        if before is None or t not in before.index:
+            continue
+        for f in BORROW_FIELDS:
+            a, b = before.at[t, f], today.at[t, f]
+            if pd.isna(a) and pd.isna(b):
+                continue
+            if pd.isna(a) or pd.isna(b) or bool(a) != bool(b):
+                flags.append({"fund": t, "field": f, "previous": None if pd.isna(a) else bool(a),
+                              "now": None if pd.isna(b) else bool(b),
+                              "previous_date": prev.isoformat()})
+    dep = today.reindex([t for t in ctx.deployed if t in today.index])
+    return {"flags": flags, "gaps": gaps, "n_assets": int(len(df)),
+            "n_shortable": int(df["shortable"].sum()),
+            "deployed_not_shortable": sorted(dep.index[~dep["shortable"].astype(bool)]),
+            "compared_with": prev.isoformat() if before is not None else "no previous snapshot",
+            "read_at_utc": read_at}
+
+
 STEP_FUNCS = {"prices_nav": step_prices_nav, "nav_crosscheck": step_nav_crosscheck,
               "official_closes": step_official_closes, "close_crosscheck": step_close_crosscheck,
-              "account_snapshot": step_account_snapshot, "distributions": step_distributions}
+              "account_snapshot": step_account_snapshot, "distributions": step_distributions,
+              "borrow_snapshot": step_borrow_snapshot}
 
 
 # ------------------------------------------------------------------ the run
