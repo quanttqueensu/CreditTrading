@@ -1,0 +1,446 @@
+real_money_costs.py run 2026-10-12T18:52:45+00:00
+
+====================================================================================================
+§0 PANELS (read-only; stale is a form of wrong)
+====================================================================================================
+  data/cef/cef_prices.parquet           1986-11-18 .. 2026-09-28
+  data/cef/cef_nav.parquet              1998-10-29 .. 2026-09-25
+  data/cef/cef_distributions.parquet    1987-02-09 .. 2026-09-10
+  data/cef/cef_borrow_history.parquet   2021-09-13 .. 2026-09-09
+  data/cef/cef_borrow.csv               2026-09-06 .. 2026-09-21
+
+====================================================================================================
+§1 THE DEPLOYED BOOK: gross headline, total vs price returns, the distribution leg
+====================================================================================================
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+fit period 2005-01-03 .. 2022-12-30 (4531 sessions); first position (live0) 2013-06-25; 2023+ is the sealed H13 holdout and is not computed.
+Reproduces W4 (results/cef/W4_ARTIFACTS_2026-10-11.md, §1) when the fit and 'live fit' rows read gross SR 0.69/0.96 on total returns.
+
+window                     grossSR   pxSR   ann%   vol% turn/yr dist%/yr  long+ short- avgShort avgGross
+2005-09                                book flat: no position in this window
+2010-14                       0.72   0.90   2.24   3.12     5.2    -0.70   1.71  -2.41    0.179    0.368
+2015-19                       0.84   0.72   5.70   6.83     7.8     0.67   6.52  -5.85    0.606    1.291
+2020-22                       1.02   1.08   6.49   6.36    21.5    -0.61   4.82  -5.43    0.545    1.067
+fit 2005-22                   0.69   0.70   3.29   4.73     7.2    -0.11   3.09  -3.20    0.309    0.638
+live 2013-06..2014            1.30   1.63   7.33   5.65    16.3    -2.31   5.60  -7.91    0.587    1.205
+live fit 2013-06..2022        0.96   0.96   6.21   6.50    13.5    -0.21   5.83  -6.05    0.584    1.206
+measured-borrow window        1.57   1.77   9.63   6.15    26.6    -1.67   5.79  -7.46    0.639    1.230
+
+era turnover sd/mean (live 2013-06..2014, 2015-19, 2020-22): 37.1%
+dist%/yr = total-return P&L minus price-return P&L on the same holdings; long+ is the yield received on longs, short- the yield paid on shorts (D/P_{t-1} on ex-dates).
+
+====================================================================================================
+§2 BORROW INPUTS: what is measured, where, and to when
+====================================================================================================
+data/cef/cef_borrow_history.parquet: IBKR TWS reqHistoricalData(whatToShow='FEE_RATE', 1 day), built by the deleted fetch_borrow_history.py (tag pre-clean-slate). Deployed names 13/13; 2021-09-13 .. 2026-09-09.
+Fit-period part: 2021-09-13 .. 2022-12-30 (329 dates). Recent = the last 63 dates: 2026-06-10 .. 2026-09-09.
+
+name   n fit fit mean  fit med all mean  all med rec mean  rec med     max
+AWF      326     6.44     5.45     6.80     2.76     1.21     0.54  153.48
+BIT      324    19.32    18.89     8.62     4.95     0.82     0.83   48.30
+DSL      323    12.20     7.33     5.35     2.96     0.49     0.49   49.74
+HYT      326    22.50    21.75    12.43    12.91     3.81     1.09   50.57
+JFR      321    18.06    16.57     8.61     6.09     1.57     1.49   53.35
+MHD      319    22.05    23.21     9.20     5.16     0.48     0.41   98.99
+MQY      325    25.48    19.10    12.64     7.56     0.96     1.02   81.40
+PCN      322    19.21    19.16    13.81     3.92     0.74     0.68   96.96
+PDI      327    11.56     9.67     5.69     2.94     0.58     0.40   30.17
+PDO      320    37.45    38.04    13.44     4.18     0.53     0.41  109.55
+PFN      327    27.03    28.70    19.73    13.84     0.48     0.43   64.13
+PHK      321    27.18    37.81    16.64    12.37     0.86     0.68   64.47
+PTY      327    26.51    24.06    29.68    20.70     1.16     1.14  177.88
+
+Cross-name mean fee (%/yr, unweighted, IBKR FEE_RATE) by calendar year -- a description of the input, not a holdings-weighted cost:
+  2021: 21.29  2022: 21.12  2023: 21.73  2024:  9.36  2025:  2.96  2026:  1.25
+
+data/cef/cef_borrow.csv: 2026-09-06 .. 2026-09-21, 17 names. Rows with rebate/availability (['2026-09-06', '2026-09-08']) are IBKR's public shortstock file (the deleted fetch_borrow_rates.py); fee-only rows have no recorded source.
+  2026-09-08 shortstock-file rows  vs FEE_RATE same date: max |diff| 0.5000 pct-pts on 8 names
+  2026-09-09 fee-only rows         vs FEE_RATE same date: max |diff| 0.0000 pct-pts on 13 names
+  shortstock rows 2026-09-06 and 2026-09-08 are IDENTICAL (the same file content read twice)
+  shortstock rows of 2026-09-06 vs FEE_RATE of 2026-09-04, the last FEE_RATE date before them: max |diff| 0.0050 on 13 names -- the scale check (percent per year)
+
+IBKR public shortstock file, today: ibkr_shortstock_2026-10-12.csv
+  name      fee%  rebate%   available
+  AWF       0.93     2.95     600,000
+  BIT       0.90     2.98     200,000
+  DSL       0.43     3.45     400,000
+  HYT       0.43     3.45   2,500,000
+  JFR       1.76     2.12     950,000
+  MHD       2.33     1.55     800,000
+  MQY       0.63     3.25      80,000
+  PCN       0.41     3.47   1,400,000
+  PDI       0.29     3.59   4,100,000
+  PDO       0.42     3.46     700,000
+  PFN       1.09     2.79     550,000
+  PHK       0.38     3.50   1,000,000
+  PTY       1.36     2.52   5,000,000
+
+Alpaca borrow_status (asset flags; true on their date only):
+  name    probe 2026-09-28  probe 2026-10-10   read 2026-10-12
+  AWF       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  BIT       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  DSL       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  HYT       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  JFR       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  MHD       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  MQY       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  NAD       hard_to_borrow                 -    hard_to_borrow
+  NEA       hard_to_borrow                 -    hard_to_borrow
+  NVG       hard_to_borrow                 -    hard_to_borrow
+  NZF       hard_to_borrow                 -    hard_to_borrow
+  PCN       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  PDI       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  PDO       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  PFN       easy_to_borrow    easy_to_borrow    easy_to_borrow
+  PHK       easy_to_borrow    hard_to_borrow    hard_to_borrow
+  PTY       easy_to_borrow    easy_to_borrow    easy_to_borrow
+
+  probe 2026-09-28 flag vs IBKR fee on 2026-09-21 (cef_borrow.csv):
+    easy_to_borrow  13 names, IBKR fee 0.25 .. 1.97 (median 0.68)
+    hard_to_borrow   4 names, IBKR fee 2.85 .. 6.18 (median 4.34)
+
+====================================================================================================
+§3 BORROW DRAG BY ERA, under each proxy (%/yr of capital; coverage = share of the short book with a fee)
+====================================================================================================
+Charged by borrow_charge(): short held = H.shift(2) (evaluate's book), fee of session t-1, calendar days/360, collateral x1.02.
+P0 exists only where the FEE_RATE history exists; before it P0 is a gap, not a zero, and its rows say so. P1-P4 apply one level per name to every session: counterfactuals, H4.
+
+proxy window                     drag%/yr avgShort  covered
+-----------------------------------------------------------
+P0    IBKR FEE_RATE by name-date [measured; window only]
+      2010-14                        0.00    0.179     0.0%  <- no fee data: NOT a cost estimate
+      2015-19                        0.00    0.606     0.0%  <- no fee data: NOT a cost estimate
+      2020-22                        5.69    0.545    50.3%  <- lower bound (gaps not charged)
+      fit 2005-22                    0.95    0.309    14.8%  <- lower bound (gaps not charged)
+      live 2013-06..2014             0.00    0.587     0.0%  <- no fee data: NOT a cost estimate
+      live fit 2013-06..2022         1.79    0.584    14.8%  <- lower bound (gaps not charged)
+      measured-borrow window        13.11    0.639    98.8%  <- lower bound (gaps not charged)
+P0+   P0 with gaps carried from the last measured fee [assumption]
+      2010-14                        0.00    0.179     0.0%  <- no fee data: NOT a cost estimate
+      2015-19                        0.00    0.606     0.0%  <- no fee data: NOT a cost estimate
+      2020-22                        5.75    0.545    50.9%  <- lower bound (gaps not charged)
+      fit 2005-22                    0.96    0.309    15.0%  <- lower bound (gaps not charged)
+      live 2013-06..2014             0.00    0.587     0.0%  <- no fee data: NOT a cost estimate
+      live fit 2013-06..2022         1.81    0.584    15.0%  <- lower bound (gaps not charged)
+      measured-borrow window        13.25    0.639   100.0%
+P1    const: name's FEE_RATE mean 2021-09..2022 [counterfactual]
+      2010-14                        4.06    0.179   100.0%
+      2015-19                       11.24    0.606   100.0%
+      2020-22                       11.48    0.545   100.0%
+      fit 2005-22                    6.16    0.309   100.0%
+      live 2013-06..2014            13.31    0.587   100.0%
+      live fit 2013-06..2022        11.65    0.584   100.0%
+      measured-borrow window        12.84    0.639   100.0%
+P2    const: name's FEE_RATE mean 2021-09..2026-09 [counterfactual]
+      2010-14                        2.84    0.179   100.0%
+      2015-19                        8.18    0.606   100.0%
+      2020-22                        7.28    0.545   100.0%
+      fit 2005-22                    4.28    0.309   100.0%
+      live 2013-06..2014             9.31    0.587   100.0%
+      live fit 2013-06..2022         8.08    0.584   100.0%
+      measured-borrow window         7.25    0.639   100.0%
+P3    const: name's FEE_RATE mean, last 63 dates [today, IBKR]
+      2010-14                        0.17    0.179   100.0%
+      2015-19                        0.66    0.606   100.0%
+      2020-22                        0.97    0.545   100.0%
+      fit 2005-22                    0.39    0.309   100.0%
+      live 2013-06..2014             0.57    0.587   100.0%
+      live fit 2013-06..2022         0.74    0.584   100.0%
+      measured-borrow window         1.05    0.639   100.0%
+P3f   const: IBKR shortstock file today (2026-10-12)
+      2010-14                        0.12    0.179   100.0%
+      2015-19                        0.51    0.606   100.0%
+      2020-22                        0.43    0.545   100.0%
+      fit 2005-22                    0.25    0.309   100.0%
+      live 2013-06..2014             0.41    0.587   100.0%
+      live fit 2013-06..2022         0.47    0.584   100.0%
+      measured-borrow window         0.37    0.639   100.0%
+P4    Alpaca live, read 2026-10-12 flags: ETB $0, HTB unpriced (gap)
+      2010-14                        0.00    0.179    55.8%  <- lower bound (gaps not charged)
+      2015-19                        0.00    0.606    80.0%  <- lower bound (gaps not charged)
+      2020-22                        0.00    0.545    91.5%  <- lower bound (gaps not charged)
+      fit 2005-22                    0.00    0.309    79.5%  <- lower bound (gaps not charged)
+      live 2013-06..2014             0.00    0.587    55.8%  <- lower bound (gaps not charged)
+      live fit 2013-06..2022         0.00    0.584    79.5%  <- lower bound (gaps not charged)
+      measured-borrow window         0.00    0.639    91.4%  <- lower bound (gaps not charged)
+P4+   P4 with HTB names at today's IBKR fee [stand-in, labelled]
+      2010-14                        0.03    0.179   100.0%
+      2015-19                        0.05    0.606   100.0%
+      2020-22                        0.02    0.545   100.0%
+      fit 2005-22                    0.02    0.309   100.0%
+      live 2013-06..2014             0.10    0.587   100.0%
+      live fit 2013-06..2022         0.05    0.584   100.0%
+      measured-borrow window         0.02    0.639   100.0%
+P5    zero: the paper account's score (no borrow)
+      2010-14                        0.00    0.179   100.0%
+      2015-19                        0.00    0.606   100.0%
+      2020-22                        0.00    0.545   100.0%
+      fit 2005-22                    0.00    0.309   100.0%
+      live 2013-06..2014             0.00    0.587   100.0%
+      live fit 2013-06..2022         0.00    0.584   100.0%
+      measured-borrow window         0.00    0.639   100.0%
+
+P0 measured window 2021-09-14 .. 2022-12-30, by name:
+  name   avgShort meanFee% drag bp/yr
+  AWF       0.000     6.43        0.0
+  BIT       0.000    19.31        0.0
+  DSL       0.121    12.21      188.5
+  HYT       0.174    22.53      382.3
+  JFR       0.052    18.07       98.9
+  MHD       0.000    22.12        0.0
+  MQY       0.009    25.48       10.6
+  PCN       0.037    19.22       74.1
+  PDI       0.117    11.59      103.0
+  PDO       0.030    37.43      165.2
+  PFN       0.016    26.99       62.1
+  PHK       0.055    27.12      164.6
+  PTY       0.027    26.53       83.4
+
+====================================================================================================
+§4 EXECUTION: broker-confirmed paper fills against the official closing-auction print
+====================================================================================================
+Fills: records (reconcile.json / data/<day>/account.json, read in place) vs a fresh broker read (GET /v2/account/activities/FILL):
+  2026-09-29  mode cls          records   2 fills, broker   2  MATCH
+  2026-09-30  mode late_market  records  18 fills, broker  18  MATCH
+  2026-10-01  mode late_market  records  17 fills, broker  17  MATCH
+  2026-10-07  mode late_market  records  27 fills, broker  27  MATCH
+  2026-10-08  mode late_market  records  26 fills, broker  26  MATCH
+
+Session census (every day folder with a plan):
+  2026-09-29  cls          fills 2
+  2026-09-30  late_market  fills 18
+  2026-10-01  late_market  fills 17
+  2026-10-02  late_market  no fills
+  2026-10-05  late_market  no fills
+  2026-10-06  late_market  no fills
+  2026-10-07  late_market  fills 27
+  2026-10-08  late_market  fills 26
+  2026-10-09  late_market  no fills
+  2026-10-12  late_market  no fills
+
+Per session (bp of notional, notional-weighted; + = worse than the print). 0 fill(s) had no SIP quote in the 60s before them (unmeasured for the split):
+  day        mode         orders fills    slip = half-sprd  + drift quoted hs verify said part med part max
+  2026-09-29 cls               2     2    0.00       10.61   -10.60     10.61       +0.00    0.31%    0.35%
+  2026-09-30 late_market       7    18    5.76        6.50    -0.75      6.50           -    0.13%    0.42%
+  2026-10-01 late_market       5    17    5.10        6.33    -1.22      6.33           -    0.04%    0.38%
+  2026-10-07 late_market      12    27  -17.95        5.39   -23.35      5.39      -17.90    0.02%    0.50%
+  2026-10-08 late_market       8    26   15.75        6.09     9.67      6.09      +15.80    0.09%    0.22%
+
+late_market sessions: n = 4, 32 orders, 88 fills
+                              pooled sess mean sess sd    95% CI (t, n-1 df)
+  slippage vs print            -0.68      2.17   14.27         [-20.5, 24.9]
+  half-spread paid              6.01      6.08    0.49            [5.3, 6.9]
+  drift, quote -> print        -6.69     -3.91   13.90         [-26.0, 18.2]
+  order-level slippage: median 10.2bp, sd 30.8bp over 32 orders (correlated within a session: not a standard error)
+
+====================================================================================================
+§5 NET OF MEASURED COSTS, by era and proxy: net SR (net %/yr)
+====================================================================================================
+Gross SR (total returns) is the headline. Execution columns, bp per unit of turnover:
+  MOC    = a live MOC fills AT the print: regulatory fees only, 0.106bp (SEC 0.206bp on the 50% of turnover that sells, CAT per share, TAF $0, commission $0). Own auction impact: UNMEASURED.
+  hs     = measured paper half-spread paid, pooled over 4 late_market sessions: 6.01bp
+  slipHi = upper 95% bound of the measured paper slippage vs print (session t-interval): 24.87bp
+  5/15/30bp = the real-money cost grid, labelled, beside the measured columns.
+Borrow is charged separately per proxy; 'flips?' is YES if gross and the net columns do not all share a sign. 2023-26: sealed (H13), not computed.
+
+P0: IBKR FEE_RATE by name-date [measured; window only]
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  measured-borrow window        1.57    9.63   13.11   99% -0.57( -3.5) -0.83( -5.1) -1.65(-10.2) -0.78( -4.8) -1.22( -7.5) -1.87(-11.6)    YES
+
+P0+: P0 with gaps carried from the last measured fee [assumption]
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  measured-borrow window        1.57    9.63   13.25  100% -0.59( -3.6) -0.85( -5.2) -1.67(-10.3) -0.81( -5.0) -1.24( -7.7) -1.89(-11.7)    YES
+
+P1: const: name's FEE_RATE mean 2021-09..2022 [counterfactual]
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    4.06  100% -0.58( -1.8) -0.68( -2.1) -0.97( -3.1) -0.66( -2.1) -0.82( -2.6) -1.05( -3.3)    YES
+  2015-19                       0.84    5.70   11.24  100% -0.81( -5.5) -0.88( -6.0) -1.10( -7.5) -0.87( -5.9) -0.98( -6.7) -1.15( -7.9)    YES
+  2020-22                       1.02    6.49   11.48  100% -0.79( -5.0) -0.99( -6.3) -1.61(-10.3) -0.95( -6.1) -1.29( -8.2) -1.78(-11.4)    YES
+  fit 2005-22                   0.69    3.29    6.16  100% -0.61( -2.9) -0.70( -3.3) -0.98( -4.7) -0.68( -3.2) -0.83( -4.0) -1.05( -5.0)    YES
+  live 2013-06..2014            1.30    7.33   13.31  100% -1.05( -6.0) -1.22( -6.9) -1.74( -9.9) -1.19( -6.8) -1.47( -8.4) -1.88(-10.7)    YES
+  live fit 2013-06..2022        0.96    6.21   11.65  100% -0.84( -5.4) -0.96( -6.2) -1.34( -8.8) -0.94( -6.1) -1.14( -7.5) -1.45( -9.5)    YES
+  measured-borrow window        1.57    9.63   12.84  100% -0.52( -3.2) -0.78( -4.8) -1.60( -9.9) -0.74( -4.6) -1.18( -7.2) -1.82(-11.3)    YES
+
+P2: const: name's FEE_RATE mean 2021-09..2026-09 [counterfactual]
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    2.84  100% -0.19( -0.6) -0.29( -0.9) -0.59( -1.8) -0.27( -0.9) -0.43( -1.4) -0.67( -2.1)    YES
+  2015-19                       0.84    5.70    8.18  100% -0.36( -2.5) -0.43( -3.0) -0.65( -4.5) -0.42( -2.9) -0.54( -3.7) -0.71( -4.9)    YES
+  2020-22                       1.02    6.49    7.28  100% -0.13( -0.8) -0.33( -2.1) -0.96( -6.1) -0.29( -1.9) -0.63( -4.0) -1.12( -7.2)    YES
+  fit 2005-22                   0.69    3.29    4.28  100% -0.21( -1.0) -0.30( -1.4) -0.58( -2.8) -0.28( -1.3) -0.44( -2.1) -0.66( -3.1)    YES
+  live 2013-06..2014            1.30    7.33    9.31  100% -0.35( -2.0) -0.52( -2.9) -1.04( -5.9) -0.49( -2.8) -0.77( -4.4) -1.18( -6.7)    YES
+  live fit 2013-06..2022        0.96    6.21    8.08  100% -0.29( -1.9) -0.41( -2.7) -0.80( -5.2) -0.39( -2.5) -0.60( -3.9) -0.90( -5.9)    YES
+  measured-borrow window        1.57    9.63    7.25  100%  0.38(  2.4)  0.12(  0.8) -0.70( -4.3)  0.17(  1.0) -0.27( -1.7) -0.92( -5.7)    YES
+
+P3: const: name's FEE_RATE mean, last 63 dates [today, IBKR]
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    0.17  100%  0.66(  2.1)  0.57(  1.8)  0.26(  0.8)  0.58(  1.8)  0.42(  1.3)  0.18(  0.6)     no
+  2015-19                       0.84    5.70    0.66  100%  0.74(  5.0)  0.67(  4.6)  0.45(  3.1)  0.68(  4.6)  0.56(  3.9)  0.39(  2.7)     no
+  2020-22                       1.02    6.49    0.97  100%  0.86(  5.5)  0.67(  4.2)  0.03(  0.2)  0.70(  4.4)  0.36(  2.3) -0.14( -0.9)    YES
+  fit 2005-22                   0.69    3.29    0.39  100%  0.61(  2.9)  0.52(  2.5)  0.23(  1.1)  0.54(  2.5)  0.38(  1.8)  0.16(  0.7)     no
+  live 2013-06..2014            1.30    7.33    0.57  100%  1.19(  6.7)  1.03(  5.8)  0.50(  2.8)  1.06(  6.0)  0.78(  4.4)  0.35(  2.0)     no
+  live fit 2013-06..2022        0.96    6.21    0.74  100%  0.84(  5.5)  0.72(  4.7)  0.33(  2.1)  0.74(  4.8)  0.53(  3.4)  0.22(  1.4)     no
+  measured-borrow window        1.57    9.63    1.05  100%  1.39(  8.5)  1.13(  7.0)  0.30(  1.9)  1.18(  7.2)  0.74(  4.5)  0.08(  0.5)     no
+
+P3f: const: IBKR shortstock file today (2026-10-12)
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    0.12  100%  0.67(  2.1)  0.58(  1.8)  0.28(  0.9)  0.60(  1.9)  0.44(  1.4)  0.20(  0.6)     no
+  2015-19                       0.84    5.70    0.51  100%  0.76(  5.2)  0.69(  4.7)  0.47(  3.2)  0.70(  4.8)  0.59(  4.0)  0.41(  2.8)     no
+  2020-22                       1.02    6.49    0.43  100%  0.95(  6.0)  0.75(  4.8)  0.11(  0.7)  0.78(  5.0)  0.45(  2.8) -0.06( -0.4)    YES
+  fit 2005-22                   0.69    3.29    0.25  100%  0.64(  3.0)  0.55(  2.6)  0.26(  1.3)  0.57(  2.7)  0.41(  2.0)  0.19(  0.9)     no
+  live 2013-06..2014            1.30    7.33    0.41  100%  1.22(  6.9)  1.06(  6.0)  0.52(  3.0)  1.09(  6.1)  0.80(  4.5)  0.38(  2.2)     no
+  live fit 2013-06..2022        0.96    6.21    0.47  100%  0.88(  5.7)  0.76(  4.9)  0.37(  2.4)  0.78(  5.1)  0.57(  3.7)  0.26(  1.7)     no
+  measured-borrow window        1.57    9.63    0.37  100%  1.50(  9.2)  1.24(  7.6)  0.41(  2.6)  1.29(  7.9)  0.85(  5.2)  0.19(  1.2)     no
+
+P4: Alpaca live, read 2026-10-12 flags: ETB $0, HTB unpriced (gap)
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    0.00   56%  0.71(  2.2)  0.62(  1.9)  0.32(  1.0)  0.64(  2.0)  0.48(  1.5)  0.24(  0.7)     no
+  2015-19                       0.84    5.70    0.00   80%  0.83(  5.7)  0.77(  5.2)  0.54(  3.7)  0.78(  5.3)  0.66(  4.5)  0.48(  3.3)     no
+  2020-22                       1.02    6.49    0.00   91%  1.02(  6.5)  0.82(  5.2)  0.18(  1.2)  0.85(  5.4)  0.51(  3.3)  0.01(  0.1)     no
+  fit 2005-22                   0.69    3.29    0.00   79%  0.69(  3.3)  0.60(  2.9)  0.32(  1.5)  0.62(  2.9)  0.47(  2.2)  0.24(  1.1)     no
+  live 2013-06..2014            1.30    7.33    0.00   56%  1.30(  7.3)  1.13(  6.4)  0.60(  3.4)  1.16(  6.5)  0.88(  4.9)  0.45(  2.6)     no
+  live fit 2013-06..2022        0.96    6.21    0.00   79%  0.95(  6.2)  0.83(  5.4)  0.44(  2.9)  0.85(  5.5)  0.64(  4.2)  0.33(  2.2)     no
+  measured-borrow window        1.57    9.63    0.00   91%  1.56(  9.6)  1.30(  8.0)  0.47(  2.9)  1.35(  8.3)  0.91(  5.6)  0.25(  1.5)     no
+
+P4+: P4 with HTB names at today's IBKR fee [stand-in, labelled]
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    0.03  100%  0.70(  2.2)  0.61(  1.9)  0.31(  1.0)  0.63(  2.0)  0.47(  1.5)  0.23(  0.7)     no
+  2015-19                       0.84    5.70    0.05  100%  0.83(  5.6)  0.76(  5.2)  0.54(  3.7)  0.77(  5.3)  0.65(  4.5)  0.48(  3.3)     no
+  2020-22                       1.02    6.49    0.02  100%  1.01(  6.4)  0.81(  5.2)  0.18(  1.1)  0.85(  5.4)  0.51(  3.3)  0.01(  0.0)     no
+  fit 2005-22                   0.69    3.29    0.02  100%  0.69(  3.3)  0.60(  2.8)  0.31(  1.5)  0.61(  2.9)  0.46(  2.2)  0.23(  1.1)     no
+  live 2013-06..2014            1.30    7.33    0.10  100%  1.28(  7.2)  1.11(  6.3)  0.58(  3.3)  1.14(  6.4)  0.86(  4.8)  0.43(  2.5)     no
+  live fit 2013-06..2022        0.96    6.21    0.05  100%  0.95(  6.1)  0.82(  5.4)  0.43(  2.8)  0.84(  5.5)  0.64(  4.1)  0.32(  2.1)     no
+  measured-borrow window        1.57    9.63    0.02  100%  1.56(  9.6)  1.30(  8.0)  0.47(  2.9)  1.34(  8.3)  0.90(  5.6)  0.25(  1.5)     no
+
+P5: zero: the paper account's score (no borrow)
+  window                     grossSR  gross% borrow%   cov          MOC           hs       slipHi          5bp         15bp         30bp flips?
+  2010-14                       0.72    2.24    0.00  100%  0.71(  2.2)  0.62(  1.9)  0.32(  1.0)  0.64(  2.0)  0.48(  1.5)  0.24(  0.7)     no
+  2015-19                       0.84    5.70    0.00  100%  0.83(  5.7)  0.77(  5.2)  0.54(  3.7)  0.78(  5.3)  0.66(  4.5)  0.48(  3.3)     no
+  2020-22                       1.02    6.49    0.00  100%  1.02(  6.5)  0.82(  5.2)  0.18(  1.2)  0.85(  5.4)  0.51(  3.3)  0.01(  0.1)     no
+  fit 2005-22                   0.69    3.29    0.00  100%  0.69(  3.3)  0.60(  2.9)  0.32(  1.5)  0.62(  2.9)  0.47(  2.2)  0.24(  1.1)     no
+  live 2013-06..2014            1.30    7.33    0.00  100%  1.30(  7.3)  1.13(  6.4)  0.60(  3.4)  1.16(  6.5)  0.88(  4.9)  0.45(  2.6)     no
+  live fit 2013-06..2022        0.96    6.21    0.00  100%  0.95(  6.2)  0.83(  5.4)  0.44(  2.9)  0.85(  5.5)  0.64(  4.2)  0.33(  2.2)     no
+  measured-borrow window        1.57    9.63    0.00  100%  1.56(  9.6)  1.30(  8.0)  0.47(  2.9)  1.35(  8.3)  0.91(  5.6)  0.25(  1.5)     no
+
+
+====================================================================================================
+§6 THE GATE: is the deployed book positive net after measured costs?
+====================================================================================================
+Net %/yr with three standard errors of the mean: iid t, Newey-West(5) t, and a moving-block bootstrap (20 sessions, 2,000 reps) 95% interval of the annualised mean. 'POS' = point estimate > 0; 'CI>0' = the bootstrap interval excludes zero.
+
+  proxy window                       exec  net%/yr  t iid   t NW       boot 95% CI      verdict
+  P0    measured-borrow window        MOC    -3.51  -0.65  -0.64      [-12.6, 3.3]      NOT POS
+  P0    measured-borrow window         hs    -5.10  -0.94  -0.94      [-14.0, 1.6]      NOT POS
+  P0    measured-borrow window       15bp    -7.53  -1.39  -1.41     [-16.1, -1.3] NOT POS CI<0
+  P0    measured-borrow window       30bp   -11.57  -2.13  -2.19     [-19.8, -5.6] NOT POS CI<0
+
+  P0+   measured-borrow window        MOC    -3.64  -0.67  -0.67      [-12.8, 3.2]      NOT POS
+  P0+   measured-borrow window         hs    -5.23  -0.97  -0.97      [-14.1, 1.4]      NOT POS
+  P0+   measured-borrow window       15bp    -7.66  -1.42  -1.43     [-16.3, -1.5] NOT POS CI<0
+  P0+   measured-borrow window       30bp   -11.70  -2.15  -2.21     [-20.0, -5.7] NOT POS CI<0
+
+  P1    live fit 2013-06..2022        MOC    -5.45  -2.58  -2.70      [-9.3, -1.9] NOT POS CI<0
+  P1    live fit 2013-06..2022         hs    -6.24  -2.95  -3.11     [-10.1, -2.7] NOT POS CI<0
+  P1    live fit 2013-06..2022       15bp    -7.46  -3.52  -3.72     [-11.2, -4.0] NOT POS CI<0
+  P1    live fit 2013-06..2022       30bp    -9.48  -4.46  -4.73     [-13.2, -6.0] NOT POS CI<0
+  P1    measured-borrow window        MOC    -3.23  -0.60  -0.59      [-12.4, 4.1]      NOT POS
+  P1    measured-borrow window         hs    -4.82  -0.89  -0.89      [-13.7, 2.3]      NOT POS
+  P1    measured-borrow window       15bp    -7.25  -1.34  -1.35     [-15.8, -0.4] NOT POS CI<0
+  P1    measured-borrow window       30bp   -11.29  -2.08  -2.12     [-19.7, -4.6] NOT POS CI<0
+
+  P2    live fit 2013-06..2022        MOC    -1.88  -0.89  -0.93       [-5.7, 1.7]      NOT POS
+  P2    live fit 2013-06..2022         hs    -2.68  -1.27  -1.33       [-6.5, 0.8]      NOT POS
+  P2    live fit 2013-06..2022       15bp    -3.89  -1.84  -1.94      [-7.7, -0.4] NOT POS CI<0
+  P2    live fit 2013-06..2022       30bp    -5.91  -2.79  -2.95      [-9.7, -2.4] NOT POS CI<0
+  P2    measured-borrow window        MOC     2.36   0.44   0.43      [-6.7, 10.0]          POS
+  P2    measured-borrow window         hs     0.77   0.14   0.14       [-8.1, 8.2]          POS
+  P2    measured-borrow window       15bp    -1.66  -0.31  -0.31      [-10.4, 5.3]      NOT POS
+  P2    measured-borrow window       30bp    -5.70  -1.05  -1.07      [-14.2, 1.0]      NOT POS
+
+  P3    live fit 2013-06..2022        MOC     5.46   2.59   2.73        [1.8, 8.9]     POS CI>0
+  P3    live fit 2013-06..2022         hs     4.66   2.21   2.34        [1.0, 8.1]     POS CI>0
+  P3    live fit 2013-06..2022       15bp     3.45   1.64   1.74       [-0.2, 6.9]          POS
+  P3    live fit 2013-06..2022       30bp     1.43   0.67   0.72       [-2.2, 4.8]          POS
+  P3    measured-borrow window        MOC     8.55   1.59   1.56      [-0.8, 16.3]          POS
+  P3    measured-borrow window         hs     6.96   1.29   1.28      [-2.0, 14.5]          POS
+  P3    measured-borrow window       15bp     4.53   0.84   0.85      [-4.1, 11.8]          POS
+  P3    measured-borrow window       30bp     0.49   0.09   0.09       [-7.9, 7.4]          POS
+
+  P3f   live fit 2013-06..2022        MOC     5.73   2.72   2.86        [2.1, 9.2]     POS CI>0
+  P3f   live fit 2013-06..2022         hs     4.93   2.34   2.48        [1.3, 8.4]     POS CI>0
+  P3f   live fit 2013-06..2022       15bp     3.72   1.76   1.88        [0.1, 7.2]     POS CI>0
+  P3f   live fit 2013-06..2022       30bp     1.70   0.80   0.86       [-1.9, 5.1]          POS
+  P3f   measured-borrow window        MOC     9.23   1.71   1.69      [-0.2, 17.1]          POS
+  P3f   measured-borrow window         hs     7.64   1.42   1.41      [-1.4, 15.3]          POS
+  P3f   measured-borrow window       15bp     5.21   0.97   0.97      [-3.4, 12.6]          POS
+  P3f   measured-borrow window       30bp     1.17   0.22   0.22       [-7.3, 8.2]          POS
+
+  P4    live fit 2013-06..2022        MOC     6.20   2.94   3.10        [2.5, 9.7]     POS CI>0
+  P4    live fit 2013-06..2022         hs     5.40   2.56   2.71        [1.8, 8.8]     POS CI>0
+  P4    live fit 2013-06..2022       15bp     4.19   1.99   2.11        [0.6, 7.6]     POS CI>0
+  P4    live fit 2013-06..2022       30bp     2.17   1.02   1.09       [-1.4, 5.6]          POS
+  P4    measured-borrow window        MOC     9.60   1.78   1.76       [0.2, 17.4]     POS CI>0
+  P4    measured-borrow window         hs     8.01   1.49   1.48      [-1.1, 15.7]          POS
+  P4    measured-borrow window       15bp     5.59   1.03   1.04      [-3.0, 12.9]          POS
+  P4    measured-borrow window       30bp     1.54   0.28   0.29       [-6.9, 8.6]          POS
+
+  P4+   live fit 2013-06..2022        MOC     6.15   2.92   3.07        [2.5, 9.6]     POS CI>0
+  P4+   live fit 2013-06..2022         hs     5.35   2.54   2.69        [1.7, 8.8]     POS CI>0
+  P4+   live fit 2013-06..2022       15bp     4.14   1.96   2.09        [0.5, 7.6]     POS CI>0
+  P4+   live fit 2013-06..2022       30bp     2.12   1.00   1.07       [-1.5, 5.6]          POS
+  P4+   measured-borrow window        MOC     9.58   1.78   1.75       [0.2, 17.4]     POS CI>0
+  P4+   measured-borrow window         hs     7.99   1.48   1.47      [-1.1, 15.7]          POS
+  P4+   measured-borrow window       15bp     5.57   1.03   1.04      [-3.1, 12.9]          POS
+  P4+   measured-borrow window       30bp     1.52   0.28   0.29       [-7.0, 8.5]          POS
+
+  P5    live fit 2013-06..2022        MOC     6.20   2.94   3.10        [2.5, 9.7]     POS CI>0
+  P5    live fit 2013-06..2022         hs     5.40   2.56   2.71        [1.8, 8.8]     POS CI>0
+  P5    live fit 2013-06..2022       15bp     4.19   1.99   2.11        [0.6, 7.6]     POS CI>0
+  P5    live fit 2013-06..2022       30bp     2.17   1.02   1.09       [-1.4, 5.6]          POS
+  P5    measured-borrow window        MOC     9.60   1.78   1.76       [0.2, 17.4]     POS CI>0
+  P5    measured-borrow window         hs     8.01   1.49   1.48      [-1.1, 15.7]          POS
+  P5    measured-borrow window       15bp     5.59   1.03   1.04      [-3.0, 12.9]          POS
+  P5    measured-borrow window       30bp     1.54   0.28   0.29       [-6.9, 8.6]          POS
+
+Breakevens (computed now, H14):
+  window                      gross% turn/yr drag per 1%fee  f* @MOC f* @15bp   (f* = uniform borrow fee, %/yr, at which net = 0)
+  live fit 2013-06..2022        6.21    13.5          0.605    10.25     6.93
+  measured-borrow window        9.63    26.6          0.659    14.58     8.55
+
+  measured window: short-weighted IBKR fee actually charged (P0 drag / drag per 1% fee) = 19.91%/yr, against f* above
+
+  The live-fit short book's composition (12 names, weights = average short share 2013-06..2022) priced at the FEE_RATE history, 2021-09-13 .. 2026-09-09 (1135 of 1253 dates have a fee for every name):
+  year   dates mean fee%  > f*@MOC > f*@15bp   (f*@MOC 10.25%, f*@15bp 6.93%)
+  2021      72     14.52      100%      100%
+  2022     223     20.82       96%      100%
+  2023     225     25.08      100%      100%
+  2024     227     12.64       64%       93%
+  2025     233      3.17        0%        0%
+  2026     155      1.35        0%        0%
+  all     1135     13.35       58%       64%
+
+  proxy window                       c* bp/unit turnover (net = 0 after this borrow)
+  P0    measured-borrow window                                                 -13.1
+  P0+   measured-borrow window                                                 -13.6
+  P1    live fit 2013-06..2022                                                 -40.4
+  P1    measured-borrow window                                                 -12.0
+  P2    live fit 2013-06..2022                                                 -13.9
+  P2    measured-borrow window                                                   9.0
+  P3    live fit 2013-06..2022                                                  40.6
+  P3    measured-borrow window                                                  32.2
+  P3f   live fit 2013-06..2022                                                  42.6
+  P3f   measured-borrow window                                                  34.7
+  P4    live fit 2013-06..2022                                                  46.1
+  P4    measured-borrow window                                                  36.1
+  P4+   live fit 2013-06..2022                                                  45.8
+  P4+   measured-borrow window                                                  36.1
+  P5    live fit 2013-06..2022                                                  46.1
+  P5    measured-borrow window                                                  36.1
+
+====================================================================================================
+§7 SECOND METHODS for the figures that decide the gate
+====================================================================================================
+(a) P0 drag, mean of daily products 13.11%/yr; product of per-name means 12.78%/yr (the gap is the short-fee covariance)
+(b) P0 with the fee dated t rather than t-1: 12.92%/yr
+(c) P0 window with each name's median window fee, constant: 12.31%/yr
+(d) gross SR, fit / live fit, total returns: 0.69 / 0.96 (W4 2026-10-11: 0.69 / 0.96); price returns fit 0.70 (W4: 0.70)
+(e) no-borrow grid, harness _stats ['0.619', '0.467', '0.240'] vs fill-day booking ['0.619', '0.467', '0.239']

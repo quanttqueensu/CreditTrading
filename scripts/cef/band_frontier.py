@@ -373,6 +373,92 @@ def total_returns(R):
     return (1.0 + R) * k - 1.0 + y
 
 
+# =============================================================================
+# BORROW, CHARGED ON THE BOOK evaluate() HOLDS (added 2026-10-12, plan item 0.5)
+# =============================================================================
+# Both brokers this book could trade at accrue a short's fee per CALENDAR day on
+# a 360-day year, on a collateral value of 102% of the prior close: IBKR's Borrow
+# Fee Details guide and Alpaca's brokerage fee schedule (revised 2026-10-01),
+# docs/REFERENCES.md §4 and §12g [V]. These are the two published conventions,
+# not estimation choices.
+BORROW_DAY_COUNT = 360
+BORROW_COLLATERAL_MARKUP = 1.02
+
+
+def borrow_charge(H, fee_pct, *, markup=BORROW_COLLATERAL_MARKUP,
+                  day_count=BORROW_DAY_COUNT):
+    """The daily stock-borrow charge on the SHORT book `evaluate(H, R)` holds.
+
+    WHY THIS LIVES HERE AND NOT IN A CALLER
+    ---------------------------------------
+    H4 says borrow is charged separately and labelled, and that it scales with
+    HOLDINGS, not turnover. The held book is `H.shift(2)` -- that is the
+    execution convention itself (decide t, fill at close t+1, earn t+2). A
+    borrow charge computed on `H` or `H.shift(1)` in some caller is a second
+    copy of the convention that disagrees with the first, which is the shift(1)
+    incident of 2026-09-10 in a new place. So the charge is defined once, next
+    to `evaluate()`, on the same lag. `evaluate()` itself is untouched: every
+    stored baseline is gross of borrow, and stays so.
+
+    ALIGNMENT (H1/H7)
+    -----------------
+    Row t of `evaluate()["pnl"]` is sum_i H[t-2, i] * R[t, i]: the book decided
+    at t-2, filled at the close of t-1 and held to the close of t. The short
+    held over that interval is max(-H[t-2, i], 0). It is charged the fee in
+    force at session t-1 (when the overnight holding starts) for every calendar
+    day from session t-1 to session t -- a Friday-to-Monday row is 3 days,
+    exactly as both brokers charge Friday, Saturday and Sunday. A fee is a cost
+    of holding, not a decision input, so reading the t-1 fee is not lookahead;
+    nothing here informs a position.
+
+    `fee_pct` is an annualised fee in PERCENT (IBKR's FEERATE convention), a
+    frame indexed by date with one column per name. A constant schedule is a
+    frame with the same value on every row.
+
+    NO SILENT FALLBACK
+    ------------------
+    A name-day on which a short is held and `fee_pct` is NaN is NOT charged
+    zero quietly: its short weight is returned in `uncovered`, and the caller
+    must report coverage beside any figure built from `cost`. `cost` is the
+    charge on the measured name-days only, so with gaps it is a LOWER bound.
+    A name in `H` that `fee_pct` has no column for raises: that is a missing
+    source, not a gap.
+
+    Returns dict:
+      cost           Series, row t: the charge as a fraction of capital (>= 0)
+      short          Series, row t: sum of short weights held over (t-1, t]
+      uncovered      Series, row t: short weight held on name-days with no fee
+      covered_share  float: 1 - sum(uncovered)/sum(short) (1.0 if never short)
+    """
+    missing = sorted(set(H.columns) - set(fee_pct.columns))
+    if missing:
+        raise ValueError(
+            f"fee_pct has no column for {missing}. A name the book can short with "
+            "no fee source is a missing input, not a zero fee; supply it or say "
+            "the figure excludes it.")
+    held = (-H.shift(2).fillna(0.0)).clip(lower=0.0)        # short held over (t-1, t]
+    fee = fee_pct.reindex(index=H.index, columns=H.columns).shift(1)   # fee at t-1 -> row t
+    sessions = pd.Series(H.index, index=H.index)
+    days = sessions.diff().dt.days                             # calendar days t-1 -> t
+    has_short = held > 0
+    gap = has_short & fee.isna()
+    # Gaps are excluded from `cost` and reported in `uncovered`; a row with no
+    # short at all is a genuine zero charge, not a gap.
+    rate = (fee / 100.0).where(has_short & ~gap, 0.0)
+    cost = (held * rate).sum(axis=1) * markup * days / day_count
+    # Row 0 has no previous session, so `days` is NaN there; it also holds
+    # nothing, because the held book is H.shift(2). Assert rather than fill.
+    if len(cost):
+        if held.iloc[0].sum() != 0.0:
+            raise AssertionError("row 0 holds a short: the shift(2) alignment moved")
+        cost.iloc[0] = 0.0
+    short = held.sum(axis=1)
+    uncovered = held.where(gap, 0.0).sum(axis=1)
+    tot = float(short.sum())
+    return dict(cost=cost, short=short, uncovered=uncovered,
+                covered_share=1.0 - float(uncovered.sum()) / tot if tot > 0 else 1.0)
+
+
 def row(label, H, R):
     r = evaluate(H, R)
     nets = [(r["ann_ret"] - r["turn"] * c / 1e4) / r["vol"] for c in COSTS_BP]
