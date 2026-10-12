@@ -127,7 +127,7 @@ a later note** — this section records the state as of its date.
 
 | claim | settle it with |
 |---|---|
-| The discount signal has a real, persistent IC at the traded horizon, present across sub-periods | `python3 scripts/cef/plan_diagnostics.py`; `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` |
+| The discount signal has a real, persistent IC at the traded horizon, present across sub-periods **on the wide 17-name set without the ADV filter** (−0.078, t −11.1, 2005–22; the −0.074 quoted elsewhere). *Corrected 2026-10-11 (team lead): this row read as if it held for the book. It does not; see the deployed signal under "Measured but conditional".* | `python3 scripts/cef/plan_diagnostics.py`; `python3 scripts/cef/w4_artifacts.py`; `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` |
 | It is not credit beta, not one name, not reversal | `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` |
 | The **retired calendar policy fails** the validation battery at an obtainable price (`shift(2)`): deflated Sharpe FAIL at every trial count tried | `python3 scripts/cef/validate.py --trials <CEF counter>`; `pre-clean-slate:results/cef/EXECUTION_CONVENTION_2026-09-10.md` |
 | The sealed CEF holdout was opened and its recorded verdict is **FAIL** on net Sharpe; its gross figure is not out-of-sample evidence | `pre-clean-slate:results/cef/HOLDOUT_OPENED.json` |
@@ -135,6 +135,14 @@ a later note** — this section records the state as of its date.
 
 ### Measured but conditional
 
+- **The signal the book actually trades is much weaker than the wide set's**
+  (W4, 2026-10-11, `results/cef/W4_ARTIFACTS_2026-10-11.md`,
+  `python3 scripts/cef/w4_artifacts.py`; panels to 2022-12-30 only). The 13
+  deployed names with the ADV filter: IC **−0.033 (t −1.68)** on 523
+  non-overlapping dates from 2013-06, significant in no single era; half the
+  summed IC sits on December–January signal dates. Its P&L is stronger than its
+  rank IC (factor alpha t 2.94 daily on FF5 + momentum, every |β| ≤ 0.021; 3.22 monthly with Pástor–Stambaugh), and none of bounce, stale
+  NAV, distributions, ex-dates or crises explains more than about 7% of it.
 - **The band's net Sharpe and turnover** come from the correct harness but have
   **never been walk-forwarded, bootstrapped or deflated** — nothing in this repo
   tests the traded policy out of sample (2026-09-13 [S], `CLAUDE.md`). That is
@@ -413,6 +421,17 @@ incident and the audit are `docs/RUNNER.md`, "As built (2026-10-09, amended
 | The fix (2026-10-09) | **"Go"**, to "what can you do to make sure this never happens again": a plan that does not add gross always passes the stress cap; the send-time re-fit fits the cap as one of its limits; a no-trade day not explained by `DRY_RUN`, arming or a halt is a `MISSED:` FAIL; an advisory evening pre-flight at equity minus the held book's worst one-day loss. |
 | Which equity the cap is judged on (2026-10-11) | **The lower of the equity the plan was sized on and live equity**, for a plan that adds gross. Chosen over "sizing rule only" (the sized equity alone, which the 2026-10-11 release-check showed lets an adding plan exceed the derived G_stress 1.843 × live once equity falls more than 2.34% after decide) and over a new live-bound spec key. With `bp_shortfall = scale` the send's re-fit scales such a plan to fit instead of refusing it. Uses the existing `max_gross_stress`; no new key. |
 
+### Team lead, 2026-10-12 — open items closed
+
+| question | decision |
+|---|---|
+| Alerts (healthchecks.io, proposed 2026-10-09) | **Not needed.** A missed day shows as a `MISSED:` FAIL in verify, orient and the status line. |
+| SEC EDGAR contact | **The team lead's own address**, in the EDGAR request `User-Agent` only, read from `config/.env` (`SEC_USER_AGENT`) and never written into the repository. Unblocks plan 0.7 and 0.8. |
+| An options quote feed (plan 0.10) | **Measure the price first**, then decide. |
+| Account identifiers in probe snapshots | **Redact from now on.** The probe writes no account number or ID; the committed 2026-09-28 snapshot is redacted in a new commit (git history keeps the old value: a paper account, not worth a rewrite). |
+| The 7 ETF panels rebuilt 2026-10-11 although byte-identity failed | **Keep them.** The originals stay beside them as `*.pre-20261011.bak`. |
+| SYSTEM.md §2's IC row | **Corrected**: the −0.074 is the wide 17-name set; the deployed book's is −0.033 (W4). |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -454,3 +473,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-07 | §5 gains the cloud-VM decision. | cloud VM, for the team lead |
 | 2026-10-08 | §5 records the cut-over to the VM and full automation. | cloud VM, for the team lead |
 | 2026-10-11 | §5 records the 2026-10-09 missed-day fix and the 2026-10-11 stress-cap ruling. | release work, for the team lead |
+| 2026-10-12 | §2's IC row corrected to the wide set, the deployed IC added under conditional (W4); §5 records the 2026-10-12 rulings. | for the team lead |

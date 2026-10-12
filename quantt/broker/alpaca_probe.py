@@ -75,6 +75,26 @@ ACCOUNT_FIELDS = ("status", "currency", "equity", "cash", "buying_power",
                   "account_blocked", "transfers_blocked")
 
 
+# Account identifiers are never written (team lead 2026-10-12). Snapshots land in
+# results/ops/, which is tracked in a PUBLIC repository, and the 2026-09-28 one
+# carried the paper account's number and ID. Nothing this probe decides on needs
+# them. Asset `id`s are Alpaca's public asset UUIDs, the same for every account,
+# and are kept.
+ACCOUNT_IDENTIFIER_KEYS = ("account_number", "account_id")
+REDACTED = "REDACTED (public repository; team lead 2026-10-12)"
+
+
+def redact(obj, *, is_account: bool = False):
+    """`obj` with every account identifier replaced by REDACTED, at any depth:
+    keys in ACCOUNT_IDENTIFIER_KEYS anywhere, and `id` on the account object."""
+    if isinstance(obj, dict):
+        return {k: (REDACTED if k in ACCOUNT_IDENTIFIER_KEYS or (is_account and k == "id")
+                    else redact(v)) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact(v) for v in obj]
+    return obj
+
+
 class MissingCredential(RuntimeError):
     """A book's Alpaca key is not set. Names the variable, never a value."""
 
@@ -159,11 +179,11 @@ def probe_book(book: str, session) -> dict:
         "base_url": PAPER_BASE,
         "spec": str(BOOK_SPECS[book].relative_to(REPO)),
         "universe": names,
-        "account": _get(session, "/v2/account"),
-        "account_configurations": _get(session, "/v2/account/configurations"),
+        "account": redact(_get(session, "/v2/account"), is_account=True),
+        "account_configurations": redact(_get(session, "/v2/account/configurations")),
         "assets": assets,
-        "positions": _get(session, "/v2/positions"),
-        "open_orders": _get(session, "/v2/orders?status=open&limit=500"),
+        "positions": redact(_get(session, "/v2/positions")),
+        "open_orders": redact(_get(session, "/v2/orders?status=open&limit=500")),
     }
 
 

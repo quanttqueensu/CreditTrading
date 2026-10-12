@@ -1,7 +1,7 @@
 {
  "account": {
   "account_blocked": false,
-  "account_number": "PA3KDTM1AIAZ",
+  "account_number": "REDACTED (public repository; team lead 2026-10-12)",
   "accrued_fees": "0",
   "admin_configurations": {},
   "balance_asof": "2026-09-25",
@@ -13,7 +13,7 @@
   "currency": "USD",
   "effective_buying_power": "400000",
   "equity": "100000",
-  "id": "d1cc2330-bf49-4cae-af0d-d39af93bcfe3",
+  "id": "REDACTED (public repository; team lead 2026-10-12)",
   "initial_margin": "0",
   "intraday_adjustments": "0",
   "last_equity": "100000",

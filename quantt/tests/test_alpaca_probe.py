@@ -118,6 +118,20 @@ def test_neither_key_reaches_the_snapshot_or_the_summary(monkeypatch):
     assert SECRET not in blob and KEY_ID not in blob
 
 
+def test_no_account_identifier_reaches_the_snapshot_or_the_summary(monkeypatch):
+    """Team lead 2026-10-12: snapshots are committed to a PUBLIC repository, and the
+    2026-09-28 one carried the paper account's number and ID."""
+    monkeypatch.setattr(ap, "universe", lambda b: ["PDI"])
+    t = _table(["PDI"])
+    t["/v2/account"] = (200, {"status": "ACTIVE", "id": "acct-uuid-must-not-appear",
+                              "account_number": "PA-NUMBER-MUST-NOT-APPEAR", "equity": "1"})
+    t["/v2/positions"] = (200, [{"symbol": "PDI", "account_id": "acct-uuid-must-not-appear"}])
+    snap = ap.probe_book("cef", FakeSession(t))
+    blob = json.dumps(snap) + ap.summarise(snap)
+    assert "acct-uuid-must-not-appear" not in blob and "PA-NUMBER-MUST-NOT-APPEAR" not in blob
+    assert snap["account"]["status"] == "ACTIVE" and snap["assets"]["PDI"]["symbol"] == "PDI"
+
+
 def test_the_books_are_exactly_the_two_the_team_lead_kept():
     assert set(ap.BOOK_SPECS) == {"cef", "b6"}
     assert all(p.exists() for p in ap.BOOK_SPECS.values())
