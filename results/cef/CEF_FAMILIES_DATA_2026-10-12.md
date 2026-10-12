@@ -449,6 +449,10 @@ decided here):
   `data/cef/cef_splits.parquet` books a 1.029 'split' for BIT on 2025-08-19. §3.2
   shows that yfinance re-bases the close for such events and not the NAV. Whether
   BIT's live discount before that date is biased has not been checked.
+  *Measured later on 2026-10-12* (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md`):
+  the 2023–24 episode is in the live panel (201 of 649 weekly fund-days in
+  2023); BIT's close is not re-based (the event is a rights offering, and the
+  panel is raw on both legs).
 
 ## 8. Graveyard check
 

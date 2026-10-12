@@ -1,0 +1,368 @@
+spec cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13; z_window 252; min_names 6
+live panels (read-only): prices last 2026-09-28, NAV last 2026-09-25
+CEFConnect: 17,014 rows; 1Y 2025-10-13..2026-10-09, All 1996-10-18..2026-10-09; fetched 2026-10-12T22:47:39.820227+00:00 .. 2026-10-12T22:48:04.153961+00:00
+CEFConnect 1Y vs All on 611 common rows: NAV differ 0, close differ 0
+yfinance now (fetched 2026-10-12T22:51:17.145865+00:00): prices last 2026-10-12, NAV last 2026-10-09
+yfinance splits now: [{'ticker': 'BIT', 'date': Timestamp('2025-08-19 00:00:00'), 'stock_splits': 1.029}]
+
+[0] panel vs yfinance-now: NAV 66,595 common rows, 2 differ; close 71,323 common rows, 0 differ
+ticker       date   nav  nav_now
+   DSL 2026-09-25 11.11     11.1
+   PDI 2026-09-25 15.06     15.1
+    panel price rows with NaN close: 11; yfinance-now has a close for 11 of them: BIT 2026-02-13, DSL 2026-02-18, DSL 2026-03-18, HYT 2026-02-13, JFR 2026-02-13, PCN 2026-02-12, PDI 2026-02-12, PDO 2026-02-12, PFN 2026-02-12, PHK 2026-02-12, PTY 2026-02-12
+    panel NAV rows with NaN NAV: 0
+
+[1] NAV vs CEFConnect, all names, by window and category:
+category  AGREE  OTHER  SHIFT_NEXT  SHIFT_PREV  STALE_COPY
+window                                                    
+1Y         3048      2           0           0          16
+All       12553    135          31          55         415
+
+[1a] weekly (All): STALE_COPY per name and year (compared rows in the last row):
+year      2013  2014  2015  2016  2017  2018  2019  2020  2021  2022  2023  2024  2025  2026
+ticker                                                                                      
+AWF          0     1     0     1     0     0     3     4     0     1     9     5     1     0
+BIT          0     0     0     0     0     0     8     5     0     1    16     3     0     0
+DSL          1     6     0     0     0     0     5     5     0     1     9     1     0     1
+HYT          0     0     0     0     0     0     2     7     0     1    25     4     0     0
+JFR          0     0     0     0     0     0     3     3     0     3    22     3     0     0
+MHD          0     0     0     0     0     0     2     3     0     1     9     6     2     0
+MQY          0     0     0     0     0     0     3     3     0     1     7     4     1     0
+PCN          0     0     0     1     0     0     4     4     0     2    14     5     0     0
+PDI          1     0     0     0     0     0     7     5     0     3    23     8     0     0
+PDO          0     0     0     0     0     0     0     0     0     2    21     8     0     0
+PFN          0     0     0     1     0     0     5     4     0     2    17     2     0     0
+PHK          0     0     0     1     0     0     4     4     0     2    15     5     0     0
+PTY          0     0     0     1     0     0     4     4     0     2    14     5     0     0
+ALL 13       2     7     0     5     0     0    50    51     0    22   201    59     4     1
+compared   585   599   588   612   612   612   612   588   594   634   649   650   624   455
+
+[1b] weekly (All): stale share by year, all 13 (stale / compared), and other categories:
+category  compared  STALE_COPY  stale_lagged  SHIFT_PREV  SHIFT_NEXT  BASIS  OTHER  stale_share
+year                                                                                           
+1998            10           0             0           0           0      0      0       0.0000
+1999           138           1             0           1           1      0     13       0.0072
+2000           153           2             0           2           0      0      6       0.0131
+2001           149           1             1           0           0      0      2       0.0067
+2002           153           2             0           2           0      0      1       0.0131
+2003           258           0             0           0           0      0      1       0.0000
+2004           370           2             1           1           0      0      1       0.0054
+2005           408           1             0           0           0      0      2       0.0025
+2006           408           0             0           0           0      0      0       0.0000
+2007           437           3             1           2           0      0      1       0.0069
+2008           450           0             0           2           2      0      2       0.0000
+2009           441           0             0           2           0      0      3       0.0000
+2010           450           1             0           1           0      0      5       0.0022
+2011           459           0             0           2           0      0      4       0.0000
+2012           491           0             0           0           1      0      6       0.0000
+2013           585           2             0           2           0      0      5       0.0034
+2014           599           7             1           2           2      0      7       0.0117
+2015           588           0             0           0           0      0      1       0.0000
+2016           612           5             4           2           2      0      0       0.0082
+2017           612           0             0           0           0      0      2       0.0000
+2018           612           0             0          11           0      0      0       0.0000
+2019           612          50            23           9          19      0     23       0.0817
+2020           588          51             2           0           1      0      3       0.0867
+2021           594           0             0           8           2      0     33       0.0000
+2022           634          22             6           0           0      0      3       0.0347
+2023           649         201            42           6           1      0      8       0.3097
+2024           650          59             7           0           0      0      2       0.0908
+2025           624           4             0           0           0      0      0       0.0064
+2026           455           1             0           0           0      0      1       0.0022
+
+[1c] weekly (All): stale share by name and year, 2018-2026:
+year    2018   2019   2020  2021   2022   2023  2024   2025   2026
+ticker                                                            
+AWF      0.0  0.059  0.082   0.0  0.020  0.180  0.10  0.021  0.000
+BIT      0.0  0.157  0.102   0.0  0.020  0.320  0.06  0.000  0.000
+DSL      0.0  0.098  0.102   0.0  0.020  0.180  0.02  0.000  0.029
+HYT      0.0  0.039  0.143   0.0  0.020  0.500  0.08  0.000  0.000
+JFR      0.0  0.059  0.061   0.0  0.064  0.440  0.06  0.000  0.000
+MHD      0.0  0.039  0.061   0.0  0.020  0.180  0.12  0.042  0.000
+MQY      0.0  0.059  0.061   0.0  0.020  0.140  0.08  0.021  0.000
+PCN      0.0  0.078  0.082   0.0  0.041  0.280  0.10  0.000  0.000
+PDI      0.0  0.137  0.102   0.0  0.061  0.460  0.16  0.000  0.000
+PDO      NaN    NaN    NaN   0.0  0.042  0.429  0.16  0.000  0.000
+PFN      0.0  0.098  0.082   0.0  0.041  0.340  0.04  0.000  0.000
+PHK      0.0  0.078  0.082   0.0  0.041  0.300  0.10  0.000  0.000
+PTY      0.0  0.078  0.082   0.0  0.041  0.280  0.10  0.000  0.000
+
+[1d] daily (1Y): per name, compared and categories:
+category  compared  AGREE  STALE_COPY  stale_lagged  SHIFT_PREV  SHIFT_NEXT  BASIS  OTHER
+ticker                                                                                   
+AWF            236    236           0             0           0           0      0      0
+BIT            235    235           0             0           0           0      0      0
+DSL            235    233           2             0           0           0      0      0
+HYT            236    235           1             0           0           0      0      0
+JFR            236    236           0             0           0           0      0      0
+MHD            236    236           0             0           0           0      0      0
+MQY            236    236           0             0           0           0      0      0
+PCN            236    233           3             0           0           0      0      0
+PDI            236    233           2             1           0           0      0      1
+PDO            236    235           1             0           0           0      0      0
+PFN            236    234           2             0           0           0      0      0
+PHK            236    234           2             0           0           0      0      0
+PTY            236    232           3             0           0           0      0      1
+ticker       date  prev   nav  next  nav_cc   category
+   DSL 2026-07-02 11.52 11.52 11.56   11.53 STALE_COPY
+   DSL 2026-09-25 11.11 11.11   NaN   11.10 STALE_COPY
+   HYT 2026-07-02  9.19  9.19  9.22    9.21 STALE_COPY
+   PCN 2026-06-25 11.42 11.42 11.47   11.45 STALE_COPY
+   PCN 2026-07-02 11.49 11.49 11.54   11.50 STALE_COPY
+   PCN 2026-09-24 11.05 11.05 11.04   11.00 STALE_COPY
+   PDI 2026-07-02 15.92 15.92 15.99   15.94 STALE_COPY
+   PDI 2026-09-24 15.12 15.12 15.06   15.06 STALE_COPY
+   PDI 2026-09-25 15.12 15.06   NaN   15.10      OTHER
+   PDO 2026-09-24 12.40 12.40 12.39   12.36 STALE_COPY
+   PFN 2026-06-25  6.87  6.87  6.91    6.89 STALE_COPY
+   PFN 2026-09-24  6.64  6.64  6.63    6.61 STALE_COPY
+   PHK 2026-06-25  4.49  4.49  4.51    4.50 STALE_COPY
+   PHK 2026-09-24  4.34  4.34  4.33    4.32 STALE_COPY
+   PTY 2026-03-11 11.64 11.62 11.45   11.63      OTHER
+   PTY 2026-06-25 11.41 11.41 11.46   11.44 STALE_COPY
+   PTY 2026-07-02 11.48 11.48 11.53   11.50 STALE_COPY
+   PTY 2026-09-24 11.05 11.05 11.04   11.01 STALE_COPY
+
+[1e] share of panel NAV rows that repeat the previous row (all 13), by year:
+date
+2013    0.175
+2014    0.178
+2015    0.164
+2016    0.163
+2017    0.220
+2018    0.206
+2019    0.260
+2020    0.168
+2021    0.224
+2022    0.101
+2023    0.222
+2024    0.263
+2025    0.235
+2026    0.201
+
+[1f] who is right on a weekly STALE_COPY: catch = next yfinance change, missed = cc - yf: {'n': 414, 'intercept': -0.001957690121315646, 'slope': 1.1906216225823145, 'slope_se': 0.04132768044980964, 'corr': 0.8174781520899647, 'sign_agree': 0.8647342995169082, 'median_steps_to_change': 1.0}
+     daily: {'n': 15, 'intercept': 0.024227167270012645, 'slope': 1.0486614729184998, 'slope_se': 0.11794215704741579, 'corr': 0.9267043523384498, 'sign_agree': 1.0, 'median_steps_to_change': 1.0}
+
+[1g] weekly stale copies come in vendor-wide episodes: per year, the Fridays with any, and the median / max number of the 13 stale on such a Friday:
+      fridays  median  max
+date                      
+1999        1     1.0    1
+2000        2     1.0    1
+2001        1     1.0    1
+2002        1     2.0    2
+2004        2     1.0    1
+2005        1     1.0    1
+2007        2     1.5    2
+2010        1     1.0    1
+2013        2     1.0    1
+2014        7     1.0    1
+2016        2     2.5    4
+2019       12     3.5   10
+2020        8     6.5   12
+2022        4     5.5   10
+2023       31     8.0   11
+2024       12     4.5   11
+2025        2     2.0    3
+2026        1     1.0    1
+
+[2] close vs CEFConnect 1Y: {'AGREE': 3068}
+
+[2] close vs CEFConnect All: {'AGREE': 13622, 'OTHER': 36, 'SHIFT_NEXT': 5, 'SHIFT_PREV': 12, 'STALE_COPY': 12}
+ticker  year  category  
+AWF     1998  OTHER         4
+              SHIFT_NEXT    1
+              SHIFT_PREV    2
+        1999  OTHER         5
+              SHIFT_NEXT    1
+              SHIFT_PREV    2
+              STALE_COPY    5
+        2000  OTHER         5
+              SHIFT_NEXT    1
+              SHIFT_PREV    1
+              STALE_COPY    2
+        2001  OTHER         2
+              STALE_COPY    1
+        2002  SHIFT_PREV    1
+        2004  OTHER         1
+JFR     2004  OTHER         1
+MHD     1999  STALE_COPY    1
+        2000  SHIFT_PREV    1
+        2001  OTHER         2
+        2002  SHIFT_PREV    1
+        2011  OTHER         1
+MQY     1998  SHIFT_PREV    2
+        1999  OTHER         1
+              SHIFT_NEXT    1
+              SHIFT_PREV    1
+              STALE_COPY    2
+        2000  OTHER         4
+              SHIFT_NEXT    1
+        2001  OTHER         2
+        2002  SHIFT_PREV    1
+        2006  OTHER         1
+        2009  OTHER         1
+PCN     2001  STALE_COPY    1
+        2008  OTHER         2
+PFN     2008  OTHER         1
+PHK     2003  OTHER         1
+        2006  OTHER         1
+PTY     2008  OTHER         1
+
+[2c] close vs CRSP raw prc to 2024-12-31: mapped 65,667 of 65,668; CRSP no-trade days with a panel bar 3; panel dates absent from CRSP 0
+     {'AGREE': 65630, 'OTHER': 23, 'SHIFT_NEXT': 2, 'SHIFT_PREV': 2, 'STALE_COPY': 7}
+                   n   max_abs
+ticker category               
+AWF    OTHER       3  0.125000
+       SHIFT_PREV  2  0.125000
+DSL    OTHER       1  0.010000
+HYT    OTHER       3  0.020000
+       STALE_COPY  1  0.010000
+JFR    OTHER       4  0.050000
+       STALE_COPY  2  0.040000
+MHD    OTHER       5  0.030001
+       STALE_COPY  1  0.030000
+MQY    OTHER       3  0.005400
+       SHIFT_NEXT  2  0.005400
+PCN    OTHER       3  0.010000
+       STALE_COPY  3  0.050000
+PFN    OTHER       1  0.010000
+ticker       date   category  abs_diff_usd
+   AWF 1995-05-08 SHIFT_PREV        0.1250
+   AWF 2000-06-20 SHIFT_PREV        0.0625
+   HYT 2004-02-05 STALE_COPY        0.0100
+   JFR 2004-03-29 STALE_COPY        0.0400
+   JFR 2004-03-31 STALE_COPY        0.0200
+   MHD 2004-02-05 STALE_COPY        0.0300
+   MQY 2013-03-04 SHIFT_NEXT        0.0054
+   MQY 2015-02-11 SHIFT_NEXT        0.0052
+   PCN 2001-12-20 STALE_COPY        0.0500
+   PCN 2001-12-21 STALE_COPY        0.0300
+   PCN 2001-12-26 STALE_COPY        0.0400
+    CRSP no-trade days with a panel bar: [('MHD', '1997-05-29'), ('MHD', '1997-06-25'), ('MHD', '2001-11-23')]
+    per name-year median panel/CRSP ratio outside [0.998, 1.002]: {}
+
+[3] BIT 2025-08-19 (EDGAR + panels):
+    record_date: 2025-08-19
+    expiration: 2025-09-09
+    issuance: September 16, 2025
+    rights: ('42,797,032', '14,265,677')
+    ratio: 3
+    subscription_price: 13.01
+    price_rule: ('90', '9/9/2025')
+    pre_close_vs_cc_rows: 619
+    pre_close_vs_cc_agree: 619
+    pre_close_over_cc_median: 1.0
+    pre_nav_vs_cc_agree: 550
+    close_vs_cc_disagree_rows: []
+    post_close_vs_cc_rows: 242
+    post_close_vs_cc_agree: 241
+    post_rows_with_no_panel_close: ['2026-02-13']
+    crsp_rows: 2980
+    crsp_close_agree: 2980
+    crsp_last: 2024-12-31
+    panel_vs_yf_now_close_differ: 0
+    close_pre: 14.470000267028809
+    close_ex: 13.84000015258789
+    nav_pre: 14.3100004196167
+    nav_ex: 14.300000190734863
+    disc_pre_pp: 1.118098132217904
+    disc_ex_pp: -3.2167834406394813
+    nav_step_date: 2025-09-10
+    nav_step_pct: -2.4221414007977726
+    disc_at_expiration_pp: -4.221450966982876
+    disc_after_step_pp: -1.0638338166410355
+    rights_window_sessions: 15
+    rights_window_bias_pp_median: -2.3666908157896516
+    rights_window_bias_z_median: -1.5860517876242353
+    rights_window_bit_sd_pp_median: 1.4921901253519245
+    window_rows_in_z_until: 2026-09-10
+    z_window: 252
+
+[4] deployed book: first position 2013-06-21, decision dates 1845 (of which before 2023: 1047)
+                                                   era  decision_dates  checked_dates  eligible_name_days_checked  eligible_stale_name_days  eligible_dates_with_stale  held_stale_name_days  held_dates_with_stale  traded_stale_name_days  traded_dates_with_stale  eligible_any_defect_name_days  eligible_dates_with_any_defect  eligible_dates_with_repeat_unchecked  held_dates_with_repeat_unchecked  eligible_stale_abs_ddisc_pp_median  eligible_stale_abs_ddisc_pp_p90  eligible_stale_abs_ddisc_pp_max  eligible_stale_abs_dz_median  eligible_stale_abs_dz_p90  eligible_stale_abs_dz_max
+W4 fit window, deployed (first position .. 2022-12-30)            1047            207                        1367                        48                         13                    58                     13                      14                        6                             68                              29                                   468                               586                            0.332527                         0.713084                         1.220212                      0.069281                   0.260121                   0.682722
+          time-holdout years (2023-01-03 .. panel end)             798            348                        3552                       112                         30                   176                     32                      51                       28                            116                              32                                   308                               348                            0.197025                         0.605120                         1.336726                      0.058133                   0.204192                   0.556070
+                                    all decision dates            1845            555                        4919                       160                         43                   234                     45                      65                       34                            184                              61                                   776                               934                            0.218759                         0.668760                         1.336726                      0.064228                   0.208082                   0.682722
+                                                  2013              60             12                          72                         0                          0                     0                      0                       0                        0                              0                               0                                    29                                33                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2014             215             42                         262                         6                          6                     6                      6                       0                        0                              9                               9                                   109                               142                            0.266402                         0.389163                         0.407898                      0.054416                   0.072951                   0.076926
+                                                  2015              63             14                          84                         0                          0                     0                      0                       0                        0                              0                               0                                    24                                31                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2016              51             11                          71                         2                          1                     4                      1                       1                        1                              2                               1                                    23                                29                            0.149150                         0.206438                         0.220760                      0.022549                   0.023121                   0.023264
+                                                  2017             117             23                         143                         0                          0                     0                      0                       0                        0                              1                               1                                    66                                72                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2018              61             12                          73                         0                          0                     0                      0                       0                        0                              1                               1                                    25                                31                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2019              58             12                          86                         0                          0                     0                      0                       0                        0                              0                               0                                    33                                37                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2020             118             24                         210                        27                          3                    29                      3                       8                        3                             27                               3                                    40                                42                            0.328037                         0.718886                         1.138016                      0.069588                   0.445550                   0.682722
+                                                  2021             152             28                         183                         0                          0                     0                      0                       0                        0                             14                              10                                    83                               101                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2022             152             29                         183                        13                          3                    19                      3                       5                        2                             14                               4                                    36                                68                            0.558184                         0.725648                         1.220212                      0.123278                   0.181835                   0.247418
+                                                  2023             112             24                         145                        60                         15                   105                     15                      28                       14                             61                              16                                    46                                58                            0.172284                         0.805512                         1.336726                      0.053570                   0.260951                   0.556070
+                                                  2024             252             50                         331                        37                         11                    53                     12                      16                       10                             38                              11                                   143                               165                            0.200619                         0.447995                         1.105415                      0.070709                   0.186908                   0.293513
+                                                  2025             250             92                         792                         0                          0                     2                      1                       2                        1                              0                               0                                   117                               123                                 NaN                              NaN                              NaN                           NaN                        NaN                        NaN
+                                                  2026             184            182                        2284                        15                          4                    16                      4                       5                        3                             17                               5                                     2                                 2                            0.270268                         0.433576                         0.440565                      0.067148                   0.174870                   0.203410
+
+    eligible STALE_COPY rows, signed d_disc (pp) by year: mean / median / n (is the error directional?)
+       mean  median  size
+date                     
+2014  0.006   0.103     6
+2016  0.149   0.149     2
+2020 -0.267  -0.319    27
+2022 -0.480  -0.558    13
+2023 -0.018   0.097    60
+2024  0.017   0.102    37
+2026 -0.063   0.083    15
+
+    W4 fit window, eligible STALE_COPY name-days by year: {2014: 6, 2016: 2, 2020: 27, 2022: 13}
+
+[5] live paper period, laptop plans (asof 2026-09-28 .. 2026-10-07):
+      asof    session                    status    decided_at_utc  sent  names_checkable  stale_at_decision  stale_and_submitted  stale_and_held  neither
+2026-09-28 2026-09-29 opening (no status field) 2026-09-29T14:33Z  True               12                  5                    5               0        0
+2026-09-29 2026-09-30                   decided 2026-09-30T02:00Z  True                7                  0                    0               0        0
+2026-09-30 2026-10-01                   decided 2026-10-01T02:00Z  True                6                  1                    1               1        0
+2026-10-01 2026-10-02                   decided 2026-10-02T16:00Z False               11                  5                    0               4        0
+2026-10-02 2026-10-05                   decided 2026-10-05T13:30Z False                4                  2                    0               1        0
+2026-10-05 2026-10-06                   refused 2026-10-06T19:00Z False               13                  8                    0               7        0
+2026-10-06 2026-10-07                   decided 2026-10-07T02:00Z  True               12                  5                    5               5        0
+2026-10-07 2026-10-08                   decided 2026-10-08T03:00Z False                8                  2                    0               1        0
+      asof ticker  z_plan   z_now  close_used                      close_source  nav_used_lo  nav_used_hi  nav_prev_now  nav_now  nav_cc  dist_final  dist_prev one_cent_case  held_going_in  submitted                               verdict
+2026-09-28    PCN   -3.01 -2.8092       10.60 yfinance-now (plan has no closes)      11.0377      11.0411         11.04    10.97   10.97      0.0677     0.0000         False          False       True STALE COPY at decision: used NAV(D-1)
+2026-09-28    PDI   -2.80 -2.6781       13.90 yfinance-now (plan has no closes)      15.0943      15.1024         15.10    15.00   15.00      0.0943     0.0000         False          False       True STALE COPY at decision: used NAV(D-1)
+2026-09-28    PDO   -3.30 -3.0409       11.67 yfinance-now (plan has no closes)      12.3863      12.3897         12.39    12.30   12.30      0.0863     0.0003         False          False       True STALE COPY at decision: used NAV(D-1)
+2026-09-28    PFN   -3.74 -3.4938        6.20 yfinance-now (plan has no closes)       6.6288       6.6304          6.63     6.59    6.59      0.0388     0.0000         False          False       True STALE COPY at decision: used NAV(D-1)
+2026-09-28    PTY   -1.95 -1.8342       10.77 yfinance-now (plan has no closes)      11.0346      11.0404         11.04    10.97   10.97      0.0646     0.0000         False          False       True STALE COPY at decision: used NAV(D-1)
+2026-09-30    PDI   -2.47 -2.4819       14.03                              plan      15.0164      15.0245         15.02    15.03   15.03      0.0055     0.0000          True           True       True STALE COPY at decision: used NAV(D-1)
+2026-10-01    BIT   -2.63 -2.5392       11.27                              plan      12.5583      12.5604         12.56    12.54   12.54      0.0183     0.0000         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-01    HYT   -1.66 -1.5772        7.80                              plan       8.7288       8.7312          8.73     8.71    8.71      0.0188     0.0000         False          False      False STALE COPY at decision: used NAV(D-1)
+2026-10-01    PCN   -2.42 -2.3990       10.71                              plan      10.9755      10.9789         10.98    10.97   10.97      0.0055     0.0011          True           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-01    PDO   -2.52 -2.4926       11.83                              plan      12.3378      12.3412         12.34    12.33   12.33      0.0078     0.0000          True           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-01    PTY   -1.41 -1.3985       11.01                              plan      10.9736      10.9791         10.98    10.97   10.97      0.0036     0.0009          True           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-02    DSL   -1.97 -2.0640        9.96                              plan      10.9184      10.9206         10.92    10.94   10.94      0.0194     0.0000         False          False      False STALE COPY at decision: used NAV(D-1)
+2026-10-02    PHK   -2.71 -2.6179        4.15                              plan       4.2995       4.3006          4.30     4.29    4.29      0.0095     0.0000          True           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    DSL   -2.76 -2.8963        9.82                              plan      10.9387      10.9409         10.94    10.97   10.97      0.0291     0.0000         False          False      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    MHD   -3.11 -3.0136       10.10                              plan      11.3599      11.3610         11.36    11.35   11.35      0.0099     0.0000          True           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    PCN   -2.58 -2.7309       10.61                              plan      10.9364      10.9398         10.94    10.99   10.99      0.0502     0.0002         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    PDI   -2.13 -2.2117       14.20                              plan      14.9711      14.9790         14.98    15.04   15.04      0.0610     0.0010         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    PDO   -2.42 -2.5612       11.79                              plan      12.2789      12.2823         12.28    12.33   12.33      0.0477     0.0000         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    PFN   -3.08 -3.2627        6.19                              plan       6.5582       6.5598          6.56     6.59    6.59      0.0302     0.0002         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    PHK   -3.42 -3.5969        4.06                              plan       4.2894       4.2905          4.29     4.31    4.31      0.0195     0.0000         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-05    PTY   -1.73 -1.8219       10.80                              plan      10.9368      10.9423         10.94    10.99   10.99      0.0477     0.0000         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-06    PCN   -2.16 -2.3405       10.79                              plan      10.9864      10.9898         10.99    11.05   11.05      0.0602     0.0002         False           True       True STALE COPY at decision: used NAV(D-1)
+2026-10-06    PDI   -1.93 -2.0047       14.40                              plan      15.0371      15.0449         15.04    15.10   15.10      0.0551     0.0000         False           True       True STALE COPY at decision: used NAV(D-1)
+2026-10-06    PFN   -2.39 -2.6280        6.32                              plan       6.5885       6.5902          6.59     6.63    6.63      0.0398     0.0000         False           True       True STALE COPY at decision: used NAV(D-1)
+2026-10-06    PHK   -2.22 -2.4003        4.20                              plan       4.3091       4.3102          4.31     4.33    4.33      0.0198     0.0000         False           True       True STALE COPY at decision: used NAV(D-1)
+2026-10-06    PTY   -1.65 -1.7437       10.89                              plan      10.9862      10.9916         10.99    11.04   11.04      0.0484     0.0000         False           True       True STALE COPY at decision: used NAV(D-1)
+2026-10-07    BIT   -3.09 -3.0079       11.19                              plan      12.6176      12.6199         12.62    12.60   12.60      0.0176     0.0001         False           True      False STALE COPY at decision: used NAV(D-1)
+2026-10-07    HYT   -1.86 -1.8204        7.79                              plan       8.7785       8.7809          8.78     8.77    8.77      0.0085     0.0000          True          False      False STALE COPY at decision: used NAV(D-1)
+    stale at decision: 28 of 73 checkable name-days on 7 of 8 decision dates; |z_plan - z_final| median 0.095, max 0.259; submitted to the broker 11; held going in 19; one-cent cases 7
+    the decided-at times of the stale plans (UTC): ['2026-09-29T14:33Z', '2026-10-01T02:00Z', '2026-10-02T16:00Z', '2026-10-05T13:30Z', '2026-10-06T19:00Z', '2026-10-07T02:00Z', '2026-10-08T03:00Z']
+    checkable name-days on which the session's NAV for D equalled its NAV for D-1 (stale or genuinely flat): 35 of 73
+
+    collector nav_crosscheck (laptop), per data day:
+       day            checked_at_utc  flags  gaps                                                                       flagged
+2026-09-29 2026-09-30T01:40:48+00:00      0    13                                                                              
+2026-09-30 2026-10-01T01:40:23+00:00      0    13                                                                              
+2026-10-01 2026-10-02T15:41:27+00:00      5     0 BIT:12.56/12.54 HYT:8.73/8.71 PCN:10.98/10.97 PDO:12.34/12.33 PTY:10.98/10.97
+2026-10-02 2026-10-03T13:40:28+00:00      0    13                                                                              
+2026-10-05 2026-10-06T04:10:22+00:00      0    13                                                                              
+2026-10-06 2026-10-07T01:41:01+00:00      0    13                                                                              
+2026-10-07 2026-10-08T01:40:51+00:00      0    13                                                                              
+    laptop panel rows inside the live period: 0 decision date(s) ()
+
+wrote /Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/research-live-nav-check/results/cef/live_nav_quality/*_2026-10-12.csv; row-level under /Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/research-live-nav-check/results/cef/live_nav_quality/_cache_live_nav (gitignored)
