@@ -174,3 +174,15 @@ def test_live_policy_label_tracks_the_spec():
         assert f"{spec_mod.BAND_WIDTH:.1%}" in spec_mod.LIVE_POLICY
     else:
         assert spec_mod.LIVE_POLICY.startswith("calendar"), spec_mod.LIVE_POLICY
+
+
+def test_the_spec_listing_runs_when_an_optional_constraint_is_off():
+    """`python3 scripts/cef/spec.py` listed group_cap through the REQUIRED accessor
+    and raised on the live spec, which has no group_cap (found 2026-10-12)."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    script = Path(__file__).resolve().parents[1] / "spec.py"
+    r = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-400:]
+    assert "group_cap" in r.stdout and "max_gross_stress" in r.stdout

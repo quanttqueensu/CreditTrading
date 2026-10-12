@@ -200,7 +200,14 @@ if __name__ == "__main__":
                  "z_window", "vol_target_annual",
                  "min_adv_usd", "min_names", "min_abs_weight",
                  "max_nav_age_bd", "gross_leverage", "rebalance_days"):
-        value = frozen(name)
+        # group_cap and max_gross_stress default to OFF (see `_optional`): read
+        # them as optional, so the listing runs against a spec that turned them
+        # off (2026-10-12: it raised on the live spec, which has no group_cap).
+        if name in ("group_cap", "max_gross_stress"):
+            value = _optional(name)
+            value = "absent (constraint OFF)" if value is None else value
+        else:
+            value = frozen(name)
         if isinstance(value, list):
             value = f"[{len(value)} names] {' '.join(value)}"
         print(f"  {name:<20} {value}" + ("   [has _note]" if note(name) else ""))
