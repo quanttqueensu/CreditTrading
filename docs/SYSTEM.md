@@ -431,6 +431,9 @@ incident and the audit are `docs/RUNNER.md`, "As built (2026-10-09, amended
 | Account identifiers in probe snapshots | **Redact from now on.** The probe writes no account number or ID; the committed 2026-09-28 snapshot is redacted in a new commit (git history keeps the old value: a paper account, not worth a rewrite). |
 | The 7 ETF panels rebuilt 2026-10-11 although byte-identity failed | **Keep them.** The originals stay beside them as `*.pre-20261011.bak`. |
 | SYSTEM.md §2's IC row | **Corrected**: the −0.074 is the wide 17-name set; the deployed book's is −0.033 (W4). |
+| TLT option spreads for gate G2 (plan 0.10) | **A historical fit-period spread series replaces "20 live sessions"**; any live capture is confirmation only. |
+| Is 2023–26 TLT option data the GAMMA holdout? | **Spreads and costs from 2023+ may be used; return-based statistics stay sealed.** This narrows 2026-10-09's "the 2023+ strike data is the GAMMA holdout". |
+| OptionMetrics | **Use it only if it is in our own data access.** Measured 2026-10-12: the R2 WRDS mirror (412 tables) has no `optionm` table, and there are no WRDS credentials on the desk, so it is unavailable. |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
