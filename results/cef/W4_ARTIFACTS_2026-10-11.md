@@ -576,6 +576,15 @@ years is short.
    published, could earn it. That needs an intraday NAV nowcast (W13 / C3, a
    counted trial); no change to the session schedule can do it, because every
    schedule decides on *t*'s NAV and fills at *t+1*.
+
+   > **Corrected 2026-10-12** (`results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md`
+   > §1, `python3 scripts/cef/core_signal_decomp.py t1`). The t+1 IC is not in
+   > the overnight gap (+0.005). It is in the **t+1 session**, open to close
+   > (−0.041, t −3.08), and it survives on the NYSE opening-auction print
+   > (−0.046, t −2.85, 2016–22). A book that decides on *t*'s NAV in the evening
+   > and fills at the **t+1 opening auction** can reach it, without a nowcast.
+   > That is an execution change: it needs order-path rule 3 amended, and it is a
+   > counted CEF trial. The sentence above holds only for the overnight part.
 3. **C2 and C3 inherit these facts**:
    - The turn-of-year concentration sits in multi and in year-end specials. A
      corporate-action or special-distribution conditioner (C1, G6) should

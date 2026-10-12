@@ -1,0 +1,182 @@
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+core-signal decompositions -- FIT PERIOD ONLY (.. 2022-12-30); 2023+ sealed. Run 2026-10-12 18:53 UTC. Zero trials.
+
+========================================================================================================
+A. THE DEPLOYED SIGNAL IN EVENT TIME AROUND DISTRIBUTIONS (phase-0 grid; total returns)
+========================================================================================================
+subset                                       n dates  mean z mean F bp slope bp/z      t  contrib   t(c)
+ALL deployed name-days (W4: -6.74, t -2.92)  3458   523  -0.000      0.00      -6.74  -2.92    1.000  -2.91
+
+REGULAR distributions: event day k = t - ex-date (k = 0: the signal date is the ex-date; the book decided then fills at close k+1 and earns k+2, k+3)
+subset                                       n dates  mean z mean F bp slope bp/z      t  contrib   t(c)
+  k = -5                                   170    78  -0.044     10.56      -7.44  -0.76    0.053  -0.75
+  k = -4                                   144    74  -0.024     15.27      20.58   2.32   -0.138   2.12
+  k = -3                                   166    77  -0.010     14.72       3.01   0.39   -0.020   0.39
+  k = -2                                   143    76  -0.015    -23.65      -3.07  -0.31    0.023  -0.31
+  k = -1                                   165    78  -0.019    -24.96       7.54   0.83   -0.058   0.83
+  k = +0                                   149    78   0.039    -10.97      -7.69  -0.80    0.058  -0.78
+  k = +1                                   173    80  -0.009     -9.41      -2.17  -0.34    0.016  -0.34
+  k = +2                                   158    82   0.047      0.70     -15.34  -1.38    0.111  -1.38
+  k = +3                                   180    84  -0.074      2.35      -9.38  -1.55    0.072  -1.50
+  k = +4                                   161    83  -0.006      0.93       5.45   0.66   -0.038   0.64
+  k = +5                                   183    84  -0.062      3.87     -13.62  -2.41    0.103  -2.27
+  k = +6                                   160    82  -0.003     29.31     -33.22  -2.80    0.244  -2.83
+  k = +7                                   185    83  -0.050      0.55      -3.21  -0.39    0.023  -0.39
+  k = +8                                   160    81   0.058     -1.82      -9.59  -0.93    0.070  -0.93
+  k = +9                                   177    80   0.015      3.72      -5.79  -0.85    0.039  -0.83
+  k = +10                                  155    80   0.065    -20.63       9.20   1.08   -0.056   1.06
+  pre  [-5,-1]                             788   249  -0.023     -1.35       3.91   0.75   -0.140   0.74
+  ex   [0]                                 149    78   0.039    -10.97      -7.69  -0.80    0.058  -0.78
+  post [+1,+2]                             331   145   0.018     -4.58      -8.70  -1.43    0.127  -1.42
+  post [+3,+10]                           1361   360  -0.010      2.38      -8.03  -2.49    0.456  -2.49
+  whole window [-5,+10]                   2629   509  -0.007     -0.37      -4.36  -1.72    0.501  -1.72
+
+SPECIALS (D/P > 2%): event day k = t - ex-date (k = 0: the signal date is the ex-date; the book decided then fills at close k+1 and earns k+2, k+3)
+subset                                       n dates  mean z mean F bp slope bp/z      t  contrib   t(c)
+  pre  [-5,-1]                               3     3  -0.051    -18.15        nan    nan    0.006    nan
+  ex   [0]                                   3     1   0.622    -75.29        nan    nan    0.037    nan
+  post [+1,+2]                               9     4   0.760    -36.80        nan    nan    0.031    nan
+  post [+3,+10]                             29    14   0.385     -3.59     -32.27  -2.77    0.044  -1.98
+  whole window [-5,+10]                     44    22   0.448    -16.26     -49.52  -3.76    0.118  -2.74
+  outside every window                     785   261  -0.000      2.15     -12.23  -2.67    0.381  -2.60
+
+same-day abnormal price TOTAL return and abnormal discount change by event day, REGULAR, every session, deployed set (abnormal = minus the deployed cross-sectional mean that day); NW t:
+   k      n abn ret bp      t  abn d disc pp      t
+  -3    307       8.45   1.85          0.120   2.35
+  -2    305       2.57   0.62         -0.002  -0.04
+  -1    309      12.65   2.30          0.166   2.21
+  +0    318       0.24   0.05          0.016   0.31
+  +1    322      -2.91  -0.62         -0.020  -0.38
+  +2    325     -11.49  -2.24         -0.094  -1.53
+  +3    338      -8.61  -2.40         -0.122  -2.81
+  +4    341       0.23   0.06          0.006   0.19
+  +5    342      -2.92  -0.70         -0.058  -1.18
+
+PLACEBO (negative control): every ex-date moved +10 sessions, regular kind
+subset                                       n dates  mean z mean F bp slope bp/z      t  contrib   t(c)
+  placebo pre  [-5,-1]                     835   258  -0.008      7.70     -12.40  -2.93    0.436  -2.89
+  placebo ex   [0]                         160    81   0.077    -23.07       6.32   0.71   -0.039   0.70
+  placebo post [+1,+2]                     330   144   0.044     -6.41     -14.25  -2.24    0.184  -2.17
+  placebo post [+3,+10]                   1300   350  -0.001     -0.18      -3.31  -0.78    0.187  -0.78
+
+the deployed book's turnover by event window of the DECISION date (regular cycle; trades > 0.5% of capital; live sessions to 2022-12-30):
+window                 share of turnover  share of name-days
+pre  [-5,-1]                       0.203               0.217
+ex   [0]                           0.033               0.045
+post [+1,+2]                       0.100               0.089
+post [+3,+10]                      0.407               0.356
+
+phase-1 grid replication (regular): 
+  pre  [-5,-1]                             757   247  -0.008      2.14      -3.00  -0.71    0.081  -0.72
+  ex   [0]                                 169    79  -0.006    -21.76       3.07   0.42   -0.018   0.42
+  post [+1,+2]                             316   135  -0.005      1.20      -6.08  -0.81    0.068  -0.81
+  post [+3,+10]                           1368   348  -0.012      3.01      -9.18  -2.61    0.420  -2.59
+
+========================================================================================================
+B. TURN OF YEAR BY TAX-LOSS STATUS (phase-0 grid; total returns)
+========================================================================================================
+subset                                       n dates  mean z mean F bp slope bp/z      t  contrib   t(c)
+ALL deployed name-days (W4: -6.74, t -2.92)  3458   523  -0.000      0.00      -6.74  -2.92    1.000  -2.91
+
+status: Dec = YTD total return through t; Jan = previous calendar year's; Feb-Nov = YTD (control)
+subset                                       n dates  mean z mean F bp slope bp/z      t  contrib   t(c)
+Dec-Jan, all                               619    96  -0.000      0.00     -14.32  -3.02    0.459  -2.89
+Dec-Jan, LOSERS (status < 0)               169    62  -0.488      4.85     -25.53  -2.40    0.202  -1.98
+Dec-Jan, winners                           450    91   0.183     -1.82     -10.63  -2.39    0.257  -2.32
+Feb-Nov, all                              2839   427   0.000      0.00      -4.65  -1.78    0.541  -1.78
+Feb-Nov, losers (control)                 1137   243  -0.166     -0.86      -9.12  -1.45    0.353  -1.45
+Feb-Nov, winners (control)                1702   315   0.111      0.57      -2.43  -1.11    0.188  -1.11
+Dec-Jan ex specials [-3,+10]               562    96  -0.054      1.68     -10.76  -2.52    0.312  -2.51
+  ... losers                               147    57  -0.614      6.89     -21.12  -1.99    0.140  -1.82
+  ... winners                              415    91   0.145     -0.16      -7.69  -1.95    0.172  -1.94
+Dec 1-15                                    62    10  -0.000      0.00     -26.56  -1.96    0.128  -1.61
+Dec 16-31                                  145    24  -0.000      0.00     -35.93  -3.19    0.310  -3.05
+Jan 1-15                                   157    24  -0.000      0.00      -0.75  -0.14    0.006  -0.14
+Jan 16-31                                  255    38  -0.000     -0.00      -1.39  -0.23    0.015  -0.23
+Dec 16-31, losers                           60    19  -0.489     22.15     -23.68  -1.04    0.061  -1.03
+Jan 1-15, losers                            39    15  -0.517    -15.03       6.35   0.65   -0.007   0.65
+Dec-Jan, multi                             433    96   0.098      3.61     -16.55  -2.94    0.313  -2.75
+Dec-Jan, not multi                         186    96  -0.228     -8.41     -11.10  -1.79    0.146  -1.72
+Dec-Jan, multi ex specials                 383    96   0.015      7.03     -10.85  -2.07    0.176  -2.01
+
+  mean status (log YTD / prior-year TR) of deployed name-days: Dec-Jan losers share 0.278; Feb-Nov losers share 0.398
+
+season by season (Dec Y + Jan Y+1), DEPLOYED rank IC on the phase-0 grid, and the share of deployed name-days that are tax-loss candidates (a season with no deployed date is absent):
+season   dates       IC  losers
+2013        16  +0.1000   0.337
+2014        21  -0.2163   0.230
+2015         1  -0.8286   0.833
+2016        16  -0.1152   0.000
+2017         6  +0.0190   0.167
+2018        14  +0.0327   0.622
+2019        10  -0.0136   0.000
+2021         7  -0.2480   0.000
+2022         5  -0.4057   1.000
+seasons 9; IC < 0 in 6; mean of season ICs -0.1862 (t over seasons -1.93); corr(season IC, loser share) -0.56 on 9 seasons (D7: descriptive only)
+
+December dollar volume / Feb-Nov mean, per name-year, 2005-22 (195 name-years): median 1.21, share > 1 0.72; second half of December median 1.26
+
+========================================================================================================
+C. THE t+1 DAY: overnight vs session, and z's level / price leg / NAV leg
+========================================================================================================
+open-price quality, 2005-22, the 13 names, all panel name-days (tolerance $0.005):
+  yfinance open  present on 100.0%; outside yfinance [low, high] 0.00%; within $0.005 of the previous close 13.9%
+  CRSP openprc   present on 100.0%; outside yfinance [low, high] 0.01%; within $0.005 of the previous close 14.0%
+  yfinance open = CRSP openprc within $0.005 on 99.9% of 48851 common name-days
+
+IC of z_t (DEPLOYED) by segment of the forward path; every session, NW t (W4 2a style), common sample where both opens exist. Total returns (distribution added back at the open on ex-dates):
+                                                 dates   meanIC       t   t(NW)
+  day t+1, close-to-close (W4: -0.042)            1044  -0.0416   -3.00   -2.95
+  t+1 OVERNIGHT, yfinance open                    1044  +0.0053    0.40    0.35
+  t+1 SESSION, yfinance open                      1044  -0.0411   -3.05   -3.08
+  t+1 OVERNIGHT, CRSP open                        1044  +0.0020    0.15    0.13
+  t+1 SESSION, CRSP open                          1044  -0.0413   -3.08   -3.09
+  day t+2 (deployed earns it)                     1044  -0.0225   -1.63   -1.58
+  t+2 OVERNIGHT, yfinance open                    1044  +0.0214    1.57    1.33
+  t+2 SESSION, yfinance open                      1044  -0.0310   -2.31   -2.31
+  two-day windows, phase-0 grid, same common sample:
+  [close t+1 -> close t+3] DEPLOYED                523  -0.0329   -1.68   -1.60
+  [open t+1 -> close t+2] yfinance open            524  -0.0644   -3.38   -3.42
+  [open t+1 -> close t+2] CRSP open                524  -0.0635   -3.33   -3.37
+
+NYSE opening prints: O and Q both exist on 5341 name-days; they differ by more than $0.005 on 0
+  a NYSE opening print exists on 99.9% of panel name-days 2016-22; it equals the yfinance open within $0.005 on 98.2% of them, and the previous close within $0.005 on 14.5%
+  IC of z_t (DEPLOYED) on the common 2016-22 sample where the t+1 NYSE opening print exists:
+                                                 dates   meanIC       t   t(NW)
+  day t+1 close-to-close                           705  -0.0534   -3.20   -3.19
+  t+1 OVERNIGHT to the opening AUCTION             705  -0.0265   -1.68   -1.48
+  t+1 SESSION from the opening AUCTION             705  -0.0458   -2.85   -2.98
+  t+1 OVERNIGHT, yfinance open (same sample)       705  -0.0222   -1.39   -1.22
+  t+1 SESSION, yfinance open (same sample)         705  -0.0455   -2.82   -3.00
+  two-day windows, phase-0 grid, same sample:
+  [close t+1 -> close t+3] DEPLOYED                352  -0.0321   -1.36   -1.32
+  [opening AUCTION t+1 -> close t+2]               353  -0.0726   -3.15   -3.23
+  [yfinance open t+1 -> close t+2]                 353  -0.0710   -3.09   -3.19
+  the stale-open check (a name-day whose t+1 opening print sits within $0.005 of close t carries the whole day in its 'session'):
+  t+1 SESSION, auction open MOVED off close t      676  -0.0468   -2.66   -2.65
+  t+1 SESSION, auction open AT close t              14  -0.1235   -0.96   -1.30
+  (rows with the open at the prior close need >= 4 names, not min_names; read them as a split, not a baseline)
+
+  auction depth, NYSE prints 2016-22 (median dollars per print; `s` semantics [U]); deployed dollar-weighted median order at capital $100,000 (the spec's), 2016-22:
+     open $ med  close $ med  order $ wmed  open/close  order/open  order/close
+AWF    80064.00     10586.00       9485.61        7.56        0.12         0.90
+BIT    70895.76     10928.18       5302.69        6.49        0.07         0.49
+DSL   167646.72     21046.08       9076.11        7.97        0.05         0.43
+HYT   102663.87     21667.20      10545.17        4.74        0.10         0.49
+JFR    73593.45      6264.05       9977.38       11.75        0.14         1.59
+MHD    20775.36      3260.26           NaN        6.37         NaN          NaN
+MQY    33510.85      3747.96       7932.76        8.94        0.24         2.12
+PCN    51029.48      5424.09       5632.23        9.41        0.11         1.04
+PDI   184832.44     14673.24       7270.67       12.60        0.04         0.50
+PDO   121249.70      8615.20       8613.32       14.07        0.07         1.00
+PFN    59247.72      5189.12       6158.50       11.42        0.10         1.19
+PHK   102843.72      8045.04       9674.15       12.78        0.09         1.20
+PTY   157504.32     13290.00       8256.57       11.85        0.05         0.62
+  median across names: open/close 9.4x; order/open 0.10x; order/close 0.95x
+
+z_t split: zP = 100 (P/N)_(t-1) log(1 + r_price,TR,t) / sd_t (today's price move in z units), zN = -100 (P/N)_(t-1) log(1 + r_NAV,TR,t) / sd_t (today's NAV move), zL = z - zP - zN (the level carried from t-1, plus the window's drift). Fama-MacBeth, DEPLOYED set, bp per unit:
+  sd: zL 1.339, zP 0.620, zN 0.231, z 1.322; corr(zL, z_(t-1)) +0.973; corr(zP, zN) -0.639
+  day t+1 (unearned), every session              dates  1046   zL   -9.50 (t -3.77)   zP   -2.57 (t -0.19)   zN -124.19 (t -3.06)
+  t+1 OVERNIGHT (yfinance open), every session   dates  1046   zL   +2.40 (t  1.37)   zP   +8.82 (t  1.04)   zN  -24.83 (t -1.23)
+  t+1 SESSION (yfinance open), every session     dates  1046   zL  -11.91 (t -3.63)   zP  -11.39 (t -1.13)   zN  -99.36 (t -2.57)
+  [t+2,t+3] DEPLOYED, phase-0 grid               dates   523   zL   -6.86 (t -1.39)   zP  -30.11 (t -1.40)   zN -141.51 (t -2.05)
