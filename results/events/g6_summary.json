@@ -1,0 +1,1474 @@
+{
+ "spec": "cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13",
+ "panel_first_trade": "2013-06-21",
+ "fit_last_date": "2022-12-30",
+ "active_days": 2400,
+ "active_years": 9.52,
+ "book": {
+  "ann_ret_pct": 6.206,
+  "turn_per_yr": 13.55,
+  "gross_sr_active": 0.955,
+  "cost_grid_per_yr_bp": {
+   "5bp": 67.8,
+   "15bp": 203.3,
+   "30bp": 406.5
+  }
+ },
+ "measures": {
+  "G6: nav_tender + merger + liquidation": {
+   "windows": 11,
+   "name_days_in_window_while_book_live": 645,
+   "short_name_days": 4,
+   "short_name_days_share_of_all_shorts": 0.0004,
+   "names_shorted": [
+    "PDI"
+   ],
+   "mean_short_weight": -0.0729,
+   "short_pnl_total_bp": -9.09,
+   "cost_bp_per_yr": 0.95,
+   "vs_grid_turnover_x_c": {
+    "5bp": -66.8,
+    "15bp": -202.3,
+    "30bp": -405.56
+   },
+   "long_pnl_total_bp_context": -102.63,
+   "by_era_short_pnl_bp": {
+    "2013-14": 0.0,
+    "2015-19": 0.0,
+    "2020-22": -9.09
+   },
+   "by_name_short_pnl_bp": {
+    "PDI": -9.09
+   },
+   "by_window_short_days_and_pnl_bp": {
+    "PDI 2021-05-11..2021-12-10": [
+     4,
+     -9.09
+    ],
+    "MHD 2020-06-16..2021-03-08": [
+     0,
+     0.0
+    ],
+    "MHD 2025-01-21..2026-02-10": [
+     0,
+     0.0
+    ],
+    "HYT 2013-06-27..2013-11-15": [
+     0,
+     0.0
+    ],
+    "MQY 2020-06-16..2021-04-19": [
+     0,
+     0.0
+    ],
+    "MQY 2025-01-21..2026-02-23": [
+     0,
+     0.0
+    ],
+    "JFR 2023-01-31..2023-07-28": [
+     0,
+     0.0
+    ]
+   },
+   "filter_dturn_per_yr": -0.026,
+   "filter_net_gain_bp_per_yr": {
+    "5bp": 1.09,
+    "15bp": 1.35,
+    "30bp": 1.74
+   }
+  },
+  "nav_tender": {
+   "windows": 1,
+   "name_days_in_window_while_book_live": 0,
+   "short_name_days": 0,
+   "short_name_days_share_of_all_shorts": 0.0,
+   "names_shorted": [],
+   "mean_short_weight": null,
+   "short_pnl_total_bp": 0.0,
+   "cost_bp_per_yr": -0.0,
+   "vs_grid_turnover_x_c": {
+    "5bp": -67.75,
+    "15bp": -203.26,
+    "30bp": -406.52
+   },
+   "long_pnl_total_bp_context": 0.0,
+   "by_era_short_pnl_bp": {
+    "2013-14": 0.0,
+    "2015-19": 0.0,
+    "2020-22": 0.0
+   },
+   "by_name_short_pnl_bp": {},
+   "by_window_short_days_and_pnl_bp": {}
+  },
+  "merger_acquirer": {
+   "windows": 9,
+   "name_days_in_window_while_book_live": 645,
+   "short_name_days": 4,
+   "short_name_days_share_of_all_shorts": 0.0004,
+   "names_shorted": [
+    "PDI"
+   ],
+   "mean_short_weight": -0.0729,
+   "short_pnl_total_bp": -9.09,
+   "cost_bp_per_yr": 0.95,
+   "vs_grid_turnover_x_c": {
+    "5bp": -66.8,
+    "15bp": -202.3,
+    "30bp": -405.56
+   },
+   "long_pnl_total_bp_context": -102.63,
+   "by_era_short_pnl_bp": {
+    "2013-14": 0.0,
+    "2015-19": 0.0,
+    "2020-22": -9.09
+   },
+   "by_name_short_pnl_bp": {
+    "PDI": -9.09
+   },
+   "by_window_short_days_and_pnl_bp": {
+    "PDI 2021-05-11..2021-12-10": [
+     4,
+     -9.09
+    ],
+    "MHD 2020-06-16..2021-03-08": [
+     0,
+     0.0
+    ],
+    "MHD 2025-01-21..2026-02-10": [
+     0,
+     0.0
+    ],
+    "HYT 2013-06-27..2013-11-15": [
+     0,
+     0.0
+    ],
+    "MQY 2020-06-16..2021-04-19": [
+     0,
+     0.0
+    ],
+    "MQY 2025-01-21..2026-02-23": [
+     0,
+     0.0
+    ],
+    "JFR 2023-01-31..2023-07-28": [
+     0,
+     0.0
+    ]
+   },
+   "filter_dturn_per_yr": -0.026,
+   "filter_net_gain_bp_per_yr": {
+    "5bp": 1.09,
+    "15bp": 1.35,
+    "30bp": 1.74
+   }
+  },
+  "merger_target": {
+   "windows": 1,
+   "name_days_in_window_while_book_live": 0,
+   "short_name_days": 0,
+   "short_name_days_share_of_all_shorts": 0.0,
+   "names_shorted": [],
+   "mean_short_weight": null,
+   "short_pnl_total_bp": 0.0,
+   "cost_bp_per_yr": -0.0,
+   "vs_grid_turnover_x_c": {
+    "5bp": -67.75,
+    "15bp": -203.26,
+    "30bp": -406.52
+   },
+   "long_pnl_total_bp_context": 0.0,
+   "by_era_short_pnl_bp": {
+    "2013-14": 0.0,
+    "2015-19": 0.0,
+    "2020-22": 0.0
+   },
+   "by_name_short_pnl_bp": {},
+   "by_window_short_days_and_pnl_bp": {}
+  },
+  "liquidation": {
+   "windows": 0,
+   "name_days_in_window_while_book_live": 0,
+   "short_name_days": 0,
+   "short_name_days_share_of_all_shorts": 0.0,
+   "names_shorted": [],
+   "mean_short_weight": null,
+   "short_pnl_total_bp": 0.0,
+   "cost_bp_per_yr": -0.0,
+   "vs_grid_turnover_x_c": {
+    "5bp": -67.75,
+    "15bp": -203.26,
+    "30bp": -406.52
+   },
+   "long_pnl_total_bp_context": 0.0,
+   "by_era_short_pnl_bp": {
+    "2013-14": 0.0,
+    "2015-19": 0.0,
+    "2020-22": 0.0
+   },
+   "by_name_short_pnl_bp": {},
+   "by_window_short_days_and_pnl_bp": {}
+  },
+  "context: tender_preferred": {
+   "windows": 16,
+   "name_days_in_window_while_book_live": 232,
+   "short_name_days": 35,
+   "short_name_days_share_of_all_shorts": 0.0038,
+   "names_shorted": [
+    "PHK",
+    "PTY"
+   ],
+   "mean_short_weight": -0.2578,
+   "short_pnl_total_bp": -90.39,
+   "cost_bp_per_yr": 9.49,
+   "vs_grid_turnover_x_c": {
+    "5bp": -58.26,
+    "15bp": -193.77,
+    "30bp": -397.03
+   },
+   "long_pnl_total_bp_context": 257.81,
+   "by_era_short_pnl_bp": {
+    "2013-14": 0.0,
+    "2015-19": -90.39,
+    "2020-22": 0.0
+   },
+   "by_name_short_pnl_bp": {
+    "PHK": -90.18,
+    "PTY": -0.21
+   },
+   "by_window_short_days_and_pnl_bp": {
+    "PTY 2015-01-16..2015-03-02": [
+     6,
+     -0.21
+    ],
+    "PTY 2019-06-18..2019-07-29": [
+     0,
+     0.0
+    ],
+    "PTY 2023-08-15..2023-09-20": [
+     0,
+     0.0
+    ],
+    "PTY 2024-03-12..2024-04-15": [
+     0,
+     0.0
+    ],
+    "PCN 2015-10-16..2015-11-23": [
+     0,
+     0.0
+    ],
+    "PCN 2019-06-18..2019-07-29": [
+     0,
+     0.0
+    ],
+    "PCN 2023-08-15..2023-09-20": [
+     0,
+     0.0
+    ],
+    "PCN 2024-03-12..2024-04-15": [
+     0,
+     0.0
+    ],
+    "PHK 2015-10-16..2015-11-23": [
+     0,
+     0.0
+    ],
+    "PHK 2019-06-18..2019-07-29": [
+     29,
+     -90.18
+    ],
+    "PHK 2023-08-15..2023-09-20": [
+     0,
+     0.0
+    ],
+    "PHK 2024-03-12..2024-04-15": [
+     0,
+     0.0
+    ],
+    "PFN 2014-09-19..2014-11-03": [
+     0,
+     0.0
+    ],
+    "PFN 2019-06-18..2019-07-29": [
+     0,
+     0.0
+    ],
+    "PFN 2023-08-15..2023-09-20": [
+     0,
+     0.0
+    ],
+    "PFN 2024-03-12..2024-04-15": [
+     0,
+     0.0
+    ]
+   },
+   "filter_dturn_per_yr": 0.062,
+   "filter_net_gain_bp_per_yr": {
+    "5bp": 9.18,
+    "15bp": 8.57,
+    "30bp": 7.65
+   }
+  },
+  "context: contest": {
+   "windows": 5,
+   "name_days_in_window_while_book_live": 48,
+   "short_name_days": 1,
+   "short_name_days_share_of_all_shorts": 0.0001,
+   "names_shorted": [
+    "PFN"
+   ],
+   "mean_short_weight": -0.0809,
+   "short_pnl_total_bp": 8.58,
+   "cost_bp_per_yr": -0.9,
+   "vs_grid_turnover_x_c": {
+    "5bp": -68.65,
+    "15bp": -204.16,
+    "30bp": -407.42
+   },
+   "long_pnl_total_bp_context": 89.19,
+   "by_era_short_pnl_bp": {
+    "2013-14": 8.58,
+    "2015-19": 0.0,
+    "2020-22": 0.0
+   },
+   "by_name_short_pnl_bp": {
+    "PFN": 8.58
+   },
+   "by_window_short_days_and_pnl_bp": {
+    "PFN 2013-06-17..2013-07-26": [
+     1,
+     8.58
+    ],
+    "PFN 2014-06-20..2014-07-23": [
+     0,
+     0.0
+    ]
+   },
+   "filter_dturn_per_yr": -0.017,
+   "filter_net_gain_bp_per_yr": {
+    "5bp": -0.82,
+    "15bp": -0.65,
+    "30bp": -0.39
+   }
+  }
+ },
+ "crsp_check": {
+  "names": [
+   "PDI"
+  ],
+  "short_pnl_total_bp_crsp": -9.09
+ },
+ "windows": [
+  {
+   "ticker": "PDI",
+   "kind": "merger_acquirer",
+   "start": "2021-05-11",
+   "end": "2021-12-10",
+   "first_filing": "2021-05-11",
+   "first_form": "N-14 8C",
+   "last_filing": "2021-12-08",
+   "end_basis": "CRSP completion (2 delistings, codes [231])",
+   "n_filings": "4",
+   "forms": "N-14 8C;N-14 8C/A;N-14MEF"
+  },
+  {
+   "ticker": "PTY",
+   "kind": "tender_preferred",
+   "start": "2015-01-16",
+   "end": "2015-03-02",
+   "first_filing": "2015-01-16",
+   "first_form": "SC TO-I",
+   "last_filing": "2015-03-02",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PTY",
+   "kind": "tender_preferred",
+   "start": "2019-06-18",
+   "end": "2019-07-29",
+   "first_filing": "2019-06-18",
+   "first_form": "SC TO-C",
+   "last_filing": "2019-07-29",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PTY",
+   "kind": "tender_preferred",
+   "start": "2023-08-15",
+   "end": "2023-09-20",
+   "first_filing": "2023-08-15",
+   "first_form": "SC TO-I",
+   "last_filing": "2023-09-20",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PTY",
+   "kind": "tender_preferred",
+   "start": "2024-03-12",
+   "end": "2024-04-15",
+   "first_filing": "2024-03-12",
+   "first_form": "SC TO-I",
+   "last_filing": "2024-04-15",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "MHD",
+   "kind": "contest",
+   "start": "2011-05-18",
+   "end": "2011-05-18",
+   "first_filing": "2011-05-18",
+   "first_form": "PREC14A",
+   "last_filing": "2011-05-18",
+   "end_basis": "last filing",
+   "n_filings": "1",
+   "forms": "PREC14A"
+  },
+  {
+   "ticker": "MHD",
+   "kind": "merger_acquirer",
+   "start": "2020-06-16",
+   "end": "2021-03-08",
+   "first_filing": "2020-06-16",
+   "first_form": "425",
+   "last_filing": "2021-03-08",
+   "end_basis": "CRSP completion (4 delistings, codes [231])",
+   "n_filings": "51",
+   "forms": "425;N-14 8C;N-14 8C/A"
+  },
+  {
+   "ticker": "MHD",
+   "kind": "merger_acquirer",
+   "start": "2025-01-21",
+   "end": "2026-02-10",
+   "first_filing": "2025-01-21",
+   "first_form": "425",
+   "last_filing": "2026-02-10",
+   "end_basis": "last filing (no CRSP delisting into this fund)",
+   "n_filings": "17",
+   "forms": "425;N-14 8C;N-14 8C/A"
+  },
+  {
+   "ticker": "HYT",
+   "kind": "merger_acquirer",
+   "start": "2013-06-27",
+   "end": "2013-11-15",
+   "first_filing": "2013-06-27",
+   "first_form": "425",
+   "last_filing": "2013-10-15",
+   "end_basis": "CRSP completion (5 delistings, codes [331])",
+   "n_filings": "27",
+   "forms": "425;N-14 8C;N-14 8C/A"
+  },
+  {
+   "ticker": "MQY",
+   "kind": "merger_target",
+   "start": "1999-03-03",
+   "end": "1999-03-03",
+   "first_filing": "1999-03-03",
+   "first_form": "PREM14A",
+   "last_filing": "1999-03-03",
+   "end_basis": "last filing (no CRSP delisting into this fund)",
+   "n_filings": "1",
+   "forms": "PREM14A"
+  },
+  {
+   "ticker": "MQY",
+   "kind": "merger_acquirer",
+   "start": "2020-06-16",
+   "end": "2021-04-19",
+   "first_filing": "2020-06-16",
+   "first_form": "425",
+   "last_filing": "2021-04-19",
+   "end_basis": "CRSP completion (5 delistings, codes [231])",
+   "n_filings": "88",
+   "forms": "425;N-14 8C;N-14 8C/A"
+  },
+  {
+   "ticker": "MQY",
+   "kind": "merger_acquirer",
+   "start": "2025-01-21",
+   "end": "2026-02-23",
+   "first_filing": "2025-01-21",
+   "first_form": "425",
+   "last_filing": "2026-02-23",
+   "end_basis": "last filing (no CRSP delisting into this fund)",
+   "n_filings": "18",
+   "forms": "425;N-14 8C;N-14 8C/A"
+  },
+  {
+   "ticker": "AWF",
+   "kind": "merger_acquirer",
+   "start": "2006-09-22",
+   "end": "2007-04-13",
+   "first_filing": "2006-09-22",
+   "first_form": "N-14 8C",
+   "last_filing": "2006-09-22",
+   "end_basis": "CRSP completion (1 delistings, codes [331])",
+   "n_filings": "1",
+   "forms": "N-14 8C"
+  },
+  {
+   "ticker": "AWF",
+   "kind": "merger_acquirer",
+   "start": "2009-05-04",
+   "end": "2009-09-25",
+   "first_filing": "2009-05-04",
+   "first_form": "N-14 8C",
+   "last_filing": "2009-06-01",
+   "end_basis": "CRSP completion (1 delistings, codes [231])",
+   "n_filings": "2",
+   "forms": "N-14 8C;N-14 8C/A"
+  },
+  {
+   "ticker": "AWF",
+   "kind": "nav_tender",
+   "start": "2003-10-15",
+   "end": "2003-11-26",
+   "first_filing": "2003-10-15",
+   "first_form": "SC TO-C",
+   "last_filing": "2003-11-26",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PCN",
+   "kind": "tender_preferred",
+   "start": "2015-10-16",
+   "end": "2015-11-23",
+   "first_filing": "2015-10-16",
+   "first_form": "SC TO-I",
+   "last_filing": "2015-11-23",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PCN",
+   "kind": "tender_preferred",
+   "start": "2019-06-18",
+   "end": "2019-07-29",
+   "first_filing": "2019-06-18",
+   "first_form": "SC TO-C",
+   "last_filing": "2019-07-29",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PCN",
+   "kind": "tender_preferred",
+   "start": "2023-08-15",
+   "end": "2023-09-20",
+   "first_filing": "2023-08-15",
+   "first_form": "SC TO-I",
+   "last_filing": "2023-09-20",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PCN",
+   "kind": "tender_preferred",
+   "start": "2024-03-12",
+   "end": "2024-04-15",
+   "first_filing": "2024-03-12",
+   "first_form": "SC TO-I",
+   "last_filing": "2024-04-15",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PHK",
+   "kind": "tender_preferred",
+   "start": "2015-10-16",
+   "end": "2015-11-23",
+   "first_filing": "2015-10-16",
+   "first_form": "SC TO-I",
+   "last_filing": "2015-11-23",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PHK",
+   "kind": "tender_preferred",
+   "start": "2019-06-18",
+   "end": "2019-07-29",
+   "first_filing": "2019-06-18",
+   "first_form": "SC TO-C",
+   "last_filing": "2019-07-29",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PHK",
+   "kind": "tender_preferred",
+   "start": "2023-08-15",
+   "end": "2023-09-20",
+   "first_filing": "2023-08-15",
+   "first_form": "SC TO-I",
+   "last_filing": "2023-09-20",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PHK",
+   "kind": "tender_preferred",
+   "start": "2024-03-12",
+   "end": "2024-04-15",
+   "first_filing": "2024-03-12",
+   "first_form": "SC TO-I",
+   "last_filing": "2024-04-15",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "contest",
+   "start": "2011-10-25",
+   "end": "2011-10-25",
+   "first_filing": "2011-10-25",
+   "first_form": "PREC14A",
+   "last_filing": "2011-10-25",
+   "end_basis": "last filing",
+   "n_filings": "1",
+   "forms": "PREC14A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "contest",
+   "start": "2012-06-01",
+   "end": "2012-07-23",
+   "first_filing": "2012-06-01",
+   "first_form": "PREC14A",
+   "last_filing": "2012-07-23",
+   "end_basis": "last filing",
+   "n_filings": "4",
+   "forms": "DEFC14A;DFAN14A;PREC14A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "contest",
+   "start": "2013-06-17",
+   "end": "2013-07-26",
+   "first_filing": "2013-06-17",
+   "first_form": "PREC14A",
+   "last_filing": "2013-07-26",
+   "end_basis": "last filing",
+   "n_filings": "4",
+   "forms": "DEFC14A;DFAN14A;PREC14A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "contest",
+   "start": "2014-06-20",
+   "end": "2014-07-23",
+   "first_filing": "2014-06-20",
+   "first_form": "PREC14A",
+   "last_filing": "2014-07-23",
+   "end_basis": "last filing",
+   "n_filings": "4",
+   "forms": "DEFC14A;DFAN14A;PREC14A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "tender_preferred",
+   "start": "2014-09-19",
+   "end": "2014-11-03",
+   "first_filing": "2014-09-19",
+   "first_form": "SC TO-I",
+   "last_filing": "2014-11-03",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "tender_preferred",
+   "start": "2019-06-18",
+   "end": "2019-07-29",
+   "first_filing": "2019-06-18",
+   "first_form": "SC TO-C",
+   "last_filing": "2019-07-29",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "tender_preferred",
+   "start": "2023-08-15",
+   "end": "2023-09-20",
+   "first_filing": "2023-08-15",
+   "first_form": "SC TO-I",
+   "last_filing": "2023-09-20",
+   "end_basis": "last filing",
+   "n_filings": "3",
+   "forms": "SC TO-C;SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "PFN",
+   "kind": "tender_preferred",
+   "start": "2024-03-12",
+   "end": "2024-04-15",
+   "first_filing": "2024-03-12",
+   "first_form": "SC TO-I",
+   "last_filing": "2024-04-15",
+   "end_basis": "last filing",
+   "n_filings": "2",
+   "forms": "SC TO-I;SC TO-I/A"
+  },
+  {
+   "ticker": "JFR",
+   "kind": "merger_acquirer",
+   "start": "2023-01-31",
+   "end": "2023-07-28",
+   "first_filing": "2023-01-31",
+   "first_form": "N-14 8C",
+   "last_filing": "2023-06-08",
+   "end_basis": "CRSP completion (3 delistings, codes [231])",
+   "n_filings": "14",
+   "forms": "425;N-14 8C;N-14 8C/A"
+  }
+ ],
+ "proxy_8k_leads": [
+  {
+   "ticker": "PDI",
+   "form": "PRE 14A",
+   "date_filed": "2014-03-20",
+   "accession": "0001193125-14-106784",
+   "hit_termination": "TFOLIO MANAGEMENT AGREEMENT WILL AUTOMATICALLY TERMINATE IN CONNECTION WITH THE TERMINATION OF THE FUND\u2019S CURRENT AGREEMENT. B-3 LIABILITY. EACH PORTFOLIO MANAGEMENT AGREEMENT PROVIDE",
+   "hit_tender_offer": "E OFFERINGS FOLLOWING THE FUND\u2019S INITIAL OFFERING, AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY LEGAL COSTS; AND EX",
+   "hit_merger": "CTURE ( I.E. , WITH ALLIANZ GLOBAL INVESTORS AND PIMCO AS THE TWO PILLARS). THE REORGANIZATION WAS ALSO DESIGNED TO ALLOW FOR CLEARER BRANDING AND PRODUCT DIFFERENTIATION BET",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PDI",
+   "form": "8-K",
+   "date_filed": "2022-12-02",
+   "accession": "0001193125-22-297047",
+   "hit_termination": "nan",
+   "hit_tender_offer": " MORE OR LESS THAN THEIR ORIGINAL INVESTMENT UPON DISSOLUTION OR IN AN ELIGIBLE TENDER OFFER. CLOSED-END FUNDS, UNLIKE OPEN-END FUNDS, ARE NOT CONTINUOUSLY OFFERED. AFTER T",
+   "hit_merger": "nan",
+   "hit_liquidation": "MAY BE ENHANCED IN EMERGING MARKETS . THE USE OF LEVERAGE MAY CAUSE A PORTFOLIO TO LIQUIDATE POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBLIGATIONS O",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PTY",
+   "form": "PRE 14A",
+   "date_filed": "2010-02-17",
+   "accession": "0000950123-10-013495",
+   "hit_termination": "NY ACT OF 1940, AS AMENDED (\u201c1940 ACT\u201d), IS INTENDED TO ACCOMPLISH THE COMPLETE TERMINATION OF THE FUND IN CONFORMITY WITH THE LAWS OF THE STATE OF MARYLAND, THE 1940 ACT, THE INTERNA",
+   "hit_tender_offer": "nan",
+   "hit_merger": "nan",
+   "hit_liquidation": "HE ACCOMPANYING PROXY STATEMENT DATED FEBRUARY 26, 2010: 1. TO CONSIDER WHETHER TO LIQUIDATE PCM; 2. TO ELECT TRUSTEES/DIRECTORS OF THE FUNDS, EACH TO HOLD OFFICE FOR THE T",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PTY",
+   "form": "PRE 14A",
+   "date_filed": "2014-03-20",
+   "accession": "0001193125-14-106784",
+   "hit_termination": "TFOLIO MANAGEMENT AGREEMENT WILL AUTOMATICALLY TERMINATE IN CONNECTION WITH THE TERMINATION OF THE FUND\u2019S CURRENT AGREEMENT. B-3 LIABILITY. EACH PORTFOLIO MANAGEMENT AGREEMENT PROVIDE",
+   "hit_tender_offer": "E OFFERINGS FOLLOWING THE FUND\u2019S INITIAL OFFERING, AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY LEGAL COSTS; AND EX",
+   "hit_merger": "CTURE ( I.E. , WITH ALLIANZ GLOBAL INVESTORS AND PIMCO AS THE TWO PILLARS). THE REORGANIZATION WAS ALSO DESIGNED TO ALLOW FOR CLEARER BRANDING AND PRODUCT DIFFERENTIATION BET",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PTY",
+   "form": "8-K",
+   "date_filed": "2022-12-02",
+   "accession": "0001193125-22-297014",
+   "hit_termination": "nan",
+   "hit_tender_offer": " MORE OR LESS THAN THEIR ORIGINAL INVESTMENT UPON DISSOLUTION OR IN AN ELIGIBLE TENDER OFFER. CLOSED-END FUNDS, UNLIKE OPEN-END FUNDS, ARE NOT CONTINUOUSLY OFFERED. AFTER T",
+   "hit_merger": "nan",
+   "hit_liquidation": "MAY BE ENHANCED IN EMERGING MARKETS . THE USE OF LEVERAGE MAY CAUSE A PORTFOLIO TO LIQUIDATE POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBLIGATIONS O",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PTY",
+   "form": "8-K",
+   "date_filed": "2023-09-27",
+   "accession": "0001193125-23-242651",
+   "hit_termination": "nan",
+   "hit_tender_offer": "WRITTEN COMMUNICATIONS SOLICITING MATERIAL SOLICITING MATERIAL PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT ISSUER TENDER OFFER PRE COMMENCE",
+   "hit_merger": "nan",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PTY",
+   "form": "8-K",
+   "date_filed": "2026-06-24",
+   "accession": "0001193125-26-281028",
+   "hit_termination": "nan",
+   "hit_tender_offer": " WITH OFFERINGS MADE PURSUANT TO THIS PROSPECTUS), AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY EXPENSES, INCLUDING",
+   "hit_merger": "L OR BUSINESS DIFFICULTIES, INCLUDING BORROWERS INVOLVED IN BANKRUPTCY OR OTHER REORGANIZATION AND LIQUIDATION PROCEEDINGS OR THAT ARE RATED \u201dBELOW INVESTMENT GRADE\u201d BY AN NR",
+   "hit_liquidation": "MAY NOT BE ABLE TO INVEST IN OTHER ATTRACTIVE INVESTMENTS, OR THE FUND MAY NEED TO LIQUIDATE EXISTING ASSETS IN ORDER TO PROVIDE SUCH FUNDING. TO THE EXTENT THE FUND INVEST",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PTY",
+   "form": "8-K",
+   "date_filed": "2026-06-24",
+   "accession": "0001193125-26-280733",
+   "hit_termination": "nan",
+   "hit_tender_offer": "WRITTEN COMMUNICATIONS SOLICITING MATERIAL SOLICITING MATERIAL PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT ISSUER TENDER OFFER PRE COMMENCE",
+   "hit_merger": "nan",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MHD",
+   "form": "PRE 14A",
+   "date_filed": "2007-06-15",
+   "accession": "0001193125-07-136514",
+   "hit_termination": " BOARD MEMBERS FOR THEIR RATIFICATION, THE SELECTION, APPOINTMENT, RETENTION OR TERMINATION OF THE FUNDS\u2019 INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRMS. THE AUDIT COMMITTEES ALSO APP",
+   "hit_tender_offer": "nan",
+   "hit_merger": "ISCUSSED ABOVE. ALSO, SHAREHOLDERS OF CERTAIN FUNDS ARE BEING ASKED TO CONSIDER REORGANIZATIONS INVOLVING THEIR FUNDS. SEPARATE PROXY MATERIALS RELATING TO THOSE PROPOSED FUN",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MHD",
+   "form": "8-K",
+   "date_filed": "2011-06-16",
+   "accession": "0001341004-11-001359",
+   "hit_termination": "nan",
+   "hit_tender_offer": " OR MAKE ANY STATEMENT WITH RESPECT 3 TO ANY MERGER, CONSOLIDATION, EXCHANGE OR TENDER OFFER, SALE OR PURCHASE OF SECURITIES, DISSOLUTION, LIQUIDATION, RESTRUCTURING, OPEN-",
+   "hit_merger": "TMENT ADVISOR, (III) SEEK, PROPOSE, OR MAKE ANY STATEMENT WITH RESPECT 3 TO ANY MERGER, CONSOLIDATION, EXCHANGE OR TENDER OFFER, SALE OR PURCHASE OF SECURITIES, DISSO",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MHD",
+   "form": "PRE 14A",
+   "date_filed": "2020-10-23",
+   "accession": "0001193125-20-275580",
+   "hit_termination": "nan",
+   "hit_tender_offer": "F SUCH BORROWINGS TO FINANCE THE REPURCHASE OF ITS OWN COMMON STOCK PURSUANT TO TENDER OFFERS OR OTHERWISE TO REDEEM OR REPURCHASE SHARES OF PREFERRED STOCK. BORROWINGS BY ",
+   "hit_merger": "KED TO VOTE AS A SINGLE CLASS ON A PROPOSAL TO APPROVE AN AGREEMENT AND PLAN OF REORGANIZATION BETWEEN BAF AND THE ACQUIRING FUND (THE \u201cBAF REORGANIZATION AGREEMENT\u201d) AND THE",
+   "hit_liquidation": "PTCY BY A SELLING FINANCIAL INSTITUTION, THE ACQUIRING FUND GENERALLY WILL SEEK TO LIQUIDATE SUCH COLLATERAL. HOWEVER, THE EXERCISE OF THE ACQUIRING FUND\u2019S RIGHT TO LIQUIDA",
+   "hit_open_end": "CH FUND 148 CERTAIN PROVISIONS IN THE BYLAWS OF EACH FUND 149 GOVERNING LAW 150 CONVERSION TO OPEN-END FUND 151 VOTE REQUIRED AND MANNER OF VOTING PROXIES 152 RECORD DATE 152 PROXIES"
+  },
+  {
+   "ticker": "MHD",
+   "form": "8-K",
+   "date_filed": "2025-01-21",
+   "accession": "0001193125-25-009185",
+   "hit_termination": "nan",
+   "hit_tender_offer": "NT) ANY (I) TENDER OR EXCHANGE OFFER FOR SECURITIES OF THE FUND (ASIDE FROM ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDAT",
+   "hit_merger": "M ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDATION, BUSINESS COMBINATION OR ACQUISITION OR DISPOSITION OF ASSETS OF",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MHD",
+   "form": "PRE 14A",
+   "date_filed": "2025-08-07",
+   "accession": "0001193125-25-175555",
+   "hit_termination": "nan",
+   "hit_tender_offer": " BOARD\u2019S DISCRETION, AT A PRICE EQUAL TO 98% OF NAV PER COMMON SHARE VIA ANNUAL TENDER OFFER IF THE COMBINED FUND\u2019S COMMON SHARES TRADE AT AN AVERAGE DAILY DISCOUNT TO NAV ",
+   "hit_merger": "KED TO VOTE AS A SINGLE CLASS ON A PROPOSAL TO APPROVE AN AGREEMENT AND PLAN OF REORGANIZATION BETWEEN BLE AND THE ACQUIRING FUND (THE \u201cBLE REORGANIZATION AGREEMENT\u201d) AND THE",
+   "hit_liquidation": "E SUBJECT TO A FEDERAL BANKRUPTCY PROCEEDING, THE ABILITY OF THE ACQUIRING FUND TO LIQUIDATE THE 56 TABLE OF CONTENTS COLLATERAL COULD BE DELAYED OR IMPAIRED BECAUSE OF CER",
+   "hit_open_end": " PROVISIONS OF THE CHARTER AND BYLAWS OF THE TARGET FUNDS 114 GOVERNING LAW 120 CONVERSION TO OPEN-END FUND 121 VOTE REQUIRED AND MANNER OF VOTING PROXIES 122 RECORD DATE 122 PROXIES"
+  },
+  {
+   "ticker": "PDO",
+   "form": "8-K",
+   "date_filed": "2022-12-02",
+   "accession": "0001193125-22-297051",
+   "hit_termination": "nan",
+   "hit_tender_offer": " MORE OR LESS THAN THEIR ORIGINAL INVESTMENT UPON DISSOLUTION OR IN AN ELIGIBLE TENDER OFFER. CLOSED-END FUNDS, UNLIKE OPEN-END FUNDS, ARE NOT CONTINUOUSLY OFFERED. AFTER T",
+   "hit_merger": "nan",
+   "hit_liquidation": "MAY BE ENHANCED IN EMERGING MARKETS . THE USE OF LEVERAGE MAY CAUSE A PORTFOLIO TO LIQUIDATE POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBLIGATIONS O",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "HYT",
+   "form": "PRE 14A",
+   "date_filed": "2005-03-07",
+   "accession": "0000891092-05-000450",
+   "hit_termination": "nan",
+   "hit_tender_offer": "nan",
+   "hit_merger": "CHASE SECURITIES OF OTHER INVESTMENT COMPANIES, EXCEPT (I) IN CONNECTION WITH A MERGER, CONSOLIDATION, ACQUISITION OR REORGANIZATION, (II) BY PURCHASE OF SHARES OF TA",
+   "hit_liquidation": "nan",
+   "hit_open_end": "OLDERS UNDER SECTION 13(A) OF THE INVESTMENT COMPANY ACT, INCLUDING ANY VOTE TO CONVERT THE FUND TO AN OPEN-END INVESTMENT COMPANY OR TO CHANGE THE FUND\u2019S FUNDAMENTAL INVESTMENT POLICIES. STO"
+  },
+  {
+   "ticker": "HYT",
+   "form": "PRE 14A",
+   "date_filed": "2007-06-15",
+   "accession": "0001193125-07-136514",
+   "hit_termination": " BOARD MEMBERS FOR THEIR RATIFICATION, THE SELECTION, APPOINTMENT, RETENTION OR TERMINATION OF THE FUNDS\u2019 INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRMS. THE AUDIT COMMITTEES ALSO APP",
+   "hit_tender_offer": "nan",
+   "hit_merger": "ISCUSSED ABOVE. ALSO, SHAREHOLDERS OF CERTAIN FUNDS ARE BEING ASKED TO CONSIDER REORGANIZATIONS INVOLVING THEIR FUNDS. SEPARATE PROXY MATERIALS RELATING TO THOSE PROPOSED FUN",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "HYT",
+   "form": "8-K",
+   "date_filed": "2025-01-21",
+   "accession": "0001193125-25-009154",
+   "hit_termination": "nan",
+   "hit_tender_offer": "NT) ANY (I) TENDER OR EXCHANGE OFFER FOR SECURITIES OF THE FUND (ASIDE FROM ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDAT",
+   "hit_merger": "M ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDATION, BUSINESS COMBINATION OR ACQUISITION OR DISPOSITION OF ASSETS OF",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MQY",
+   "form": "PRE 14A",
+   "date_filed": "2005-03-07",
+   "accession": "0000891092-05-000450",
+   "hit_termination": "nan",
+   "hit_tender_offer": "nan",
+   "hit_merger": "CHASE SECURITIES OF OTHER INVESTMENT COMPANIES, EXCEPT (I) IN CONNECTION WITH A MERGER, CONSOLIDATION, ACQUISITION OR REORGANIZATION, (II) BY PURCHASE OF SHARES OF TA",
+   "hit_liquidation": "nan",
+   "hit_open_end": "OLDERS UNDER SECTION 13(A) OF THE INVESTMENT COMPANY ACT, INCLUDING ANY VOTE TO CONVERT THE FUND TO AN OPEN-END INVESTMENT COMPANY OR TO CHANGE THE FUND\u2019S FUNDAMENTAL INVESTMENT POLICIES. STO"
+  },
+  {
+   "ticker": "MQY",
+   "form": "PRE 14A",
+   "date_filed": "2007-06-15",
+   "accession": "0001193125-07-136514",
+   "hit_termination": " BOARD MEMBERS FOR THEIR RATIFICATION, THE SELECTION, APPOINTMENT, RETENTION OR TERMINATION OF THE FUNDS\u2019 INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRMS. THE AUDIT COMMITTEES ALSO APP",
+   "hit_tender_offer": "nan",
+   "hit_merger": "ISCUSSED ABOVE. ALSO, SHAREHOLDERS OF CERTAIN FUNDS ARE BEING ASKED TO CONSIDER REORGANIZATIONS INVOLVING THEIR FUNDS. SEPARATE PROXY MATERIALS RELATING TO THOSE PROPOSED FUN",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MQY",
+   "form": "PRE 14A",
+   "date_filed": "2020-10-23",
+   "accession": "0001193125-20-275585",
+   "hit_termination": "nan",
+   "hit_tender_offer": "ING FUND MAY NOT DECLARE DISTRIBUTIONS OR PURCHASE ITS STOCK (INCLUDING THROUGH TENDER OFFERS) IF, IMMEDIATELY AFTER DOING SO, IT WILL HAVE AN ASSET COVERAGE RATIO OF LESS ",
+   "hit_merger": "KED TO VOTE AS A SINGLE CLASS ON A PROPOSAL TO APPROVE AN AGREEMENT AND PLAN OF REORGANIZATION BETWEEN BZM AND THE ACQUIRING FUND (THE \u201cBZM REORGANIZATION AGREEMENT\u201d) AND THE",
+   "hit_liquidation": "PTCY BY A SELLING FINANCIAL INSTITUTION, THE ACQUIRING FUND GENERALLY WILL SEEK TO LIQUIDATE SUCH COLLATERAL. HOWEVER, THE EXERCISE OF THE ACQUIRING FUND\u2019S RIGHT TO LIQUIDA",
+   "hit_open_end": "OVISIONS OF THE DECLARATIONS OF TRUST, CHARTER AND BYLAWS 189 GOVERNING LAW 192 CONVERSION TO OPEN-END FUND 194 ADDITIONAL INFORMATION 202 APPENDIX A FORM OF AGREEMENT AND PLAN OF RE"
+  },
+  {
+   "ticker": "MQY",
+   "form": "8-K",
+   "date_filed": "2025-01-21",
+   "accession": "0001193125-25-009152",
+   "hit_termination": "nan",
+   "hit_tender_offer": "NT) ANY (I) TENDER OR EXCHANGE OFFER FOR SECURITIES OF THE FUND (ASIDE FROM ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDAT",
+   "hit_merger": "M ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDATION, BUSINESS COMBINATION OR ACQUISITION OR DISPOSITION OF ASSETS OF",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "MQY",
+   "form": "PRE 14A",
+   "date_filed": "2025-08-08",
+   "accession": "0001193125-25-176878",
+   "hit_termination": " (OTHER THAN IN THE REGULAR COURSE OF THE FUND\u2019S INVESTMENT ACTIVITIES); OR \u2022 A TERMINATION OF THE FUND; UNLESS SUCH ACTION HAS PREVIOUSLY BEEN APPROVED, ADOPTED OR AUTHORIZED BY THE ",
+   "hit_tender_offer": " BOARD\u2019S DISCRETION, AT A PRICE EQUAL TO 98% OF NAV PER COMMON SHARE VIA ANNUAL TENDER OFFER IF THE COMBINED FUND\u2019S COMMON SHARES TRADE AT AN AVERAGE DAILY DISCOUNT TO NAV ",
+   "hit_merger": "KED TO VOTE AS A SINGLE CLASS ON A PROPOSAL TO APPROVE AN AGREEMENT AND PLAN OF REORGANIZATION BETWEEN BKN AND THE ACQUIRING FUND (THE \u201cBKN REORGANIZATION AGREEMENT\u201d) AND THE",
+   "hit_liquidation": "E RISK BASED ON VALUE-AT-RISK. THE USE OF LEVERAGE MAY CAUSE THE ACQUIRING FUND TO LIQUIDATE PORTFOLIO POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBL",
+   "hit_open_end": "VISIONS OF THE DECLARATIONS OF TRUST, CHARTERS AND BYLAWS 215 GOVERNING LAW 225 CONVERSION TO OPEN-END FUND 226 VOTE REQUIRED AND MANNER OF VOTING PROXIES 227 RECORD DATE 227 PROXIES"
+  },
+  {
+   "ticker": "DSL",
+   "form": "8-K",
+   "date_filed": "2026-03-17",
+   "accession": "0001193125-26-110784",
+   "hit_termination": "nan",
+   "hit_tender_offer": "WRITTEN COMMUNICATIONS SOLICITING MATERIAL SOLICITING MATERIAL PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT ISSUER TENDER OFFER PRE COMMENCE",
+   "hit_merger": "nan",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "AWF",
+   "form": "PRE 14A",
+   "date_filed": "2018-08-02",
+   "accession": "0000919574-18-005105",
+   "hit_termination": "nan",
+   "hit_tender_offer": "HE EXERCISE OR DISPOSITION OF RIGHTS ACCOMPANYING PORTFOLIO SECURITIES (SUCH AS TENDER OFFERS OR EXCHANGES) AND OTHER ATTENDANT RIGHTS THERETO); (III) PLACE PURCHASE AND SA",
+   "hit_merger": "R PLANTS) SINCE PRIOR TO 2013 UNTIL JULY 2014, MR. DOWNEY WAS A DIRECTOR OF THE MERGER FUND (A REGISTERED INVESTMENT COMPANY) FROM 1995 UNTIL 2013, AND MR. MOODY WAS ",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PCN",
+   "form": "PRE 14A",
+   "date_filed": "2010-02-17",
+   "accession": "0000950123-10-013495",
+   "hit_termination": "NY ACT OF 1940, AS AMENDED (\u201c1940 ACT\u201d), IS INTENDED TO ACCOMPLISH THE COMPLETE TERMINATION OF THE FUND IN CONFORMITY WITH THE LAWS OF THE STATE OF MARYLAND, THE 1940 ACT, THE INTERNA",
+   "hit_tender_offer": "nan",
+   "hit_merger": "nan",
+   "hit_liquidation": "HE ACCOMPANYING PROXY STATEMENT DATED FEBRUARY 26, 2010: 1. TO CONSIDER WHETHER TO LIQUIDATE PCM; 2. TO ELECT TRUSTEES/DIRECTORS OF THE FUNDS, EACH TO HOLD OFFICE FOR THE T",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PCN",
+   "form": "PRE 14A",
+   "date_filed": "2014-03-20",
+   "accession": "0001193125-14-106784",
+   "hit_termination": "TFOLIO MANAGEMENT AGREEMENT WILL AUTOMATICALLY TERMINATE IN CONNECTION WITH THE TERMINATION OF THE FUND\u2019S CURRENT AGREEMENT. B-3 LIABILITY. EACH PORTFOLIO MANAGEMENT AGREEMENT PROVIDE",
+   "hit_tender_offer": "E OFFERINGS FOLLOWING THE FUND\u2019S INITIAL OFFERING, AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY LEGAL COSTS; AND EX",
+   "hit_merger": "CTURE ( I.E. , WITH ALLIANZ GLOBAL INVESTORS AND PIMCO AS THE TWO PILLARS). THE REORGANIZATION WAS ALSO DESIGNED TO ALLOW FOR CLEARER BRANDING AND PRODUCT DIFFERENTIATION BET",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PCN",
+   "form": "8-K",
+   "date_filed": "2022-12-02",
+   "accession": "0001193125-22-297010",
+   "hit_termination": "nan",
+   "hit_tender_offer": " MORE OR LESS THAN THEIR ORIGINAL INVESTMENT UPON DISSOLUTION OR IN AN ELIGIBLE TENDER OFFER. CLOSED-END FUNDS, UNLIKE OPEN-END FUNDS, ARE NOT CONTINUOUSLY OFFERED. AFTER T",
+   "hit_merger": "nan",
+   "hit_liquidation": "MAY BE ENHANCED IN EMERGING MARKETS . THE USE OF LEVERAGE MAY CAUSE A PORTFOLIO TO LIQUIDATE POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBLIGATIONS O",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PCN",
+   "form": "8-K",
+   "date_filed": "2023-09-27",
+   "accession": "0001193125-23-242652",
+   "hit_termination": "nan",
+   "hit_tender_offer": "WRITTEN COMMUNICATIONS SOLICITING MATERIAL SOLICITING MATERIAL PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT ISSUER TENDER OFFER PRE COMMENCE",
+   "hit_merger": "nan",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PCN",
+   "form": "8-K",
+   "date_filed": "2026-06-24",
+   "accession": "0001193125-26-280730",
+   "hit_termination": "nan",
+   "hit_tender_offer": "WRITTEN COMMUNICATIONS SOLICITING MATERIAL SOLICITING MATERIAL PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT TENDER OFFER PRE COMMENCEMENT ISSUER TENDER OFFER PRE COMMENCE",
+   "hit_merger": "nan",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PCN",
+   "form": "8-K",
+   "date_filed": "2026-06-24",
+   "accession": "0001193125-26-281022",
+   "hit_termination": "nan",
+   "hit_tender_offer": " WITH OFFERINGS MADE PURSUANT TO THIS PROSPECTUS), AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY EXPENSES, INCLUDING",
+   "hit_merger": "L OR BUSINESS DIFFICULTIES, INCLUDING BORROWERS INVOLVED IN BANKRUPTCY OR OTHER REORGANIZATION AND LIQUIDATION PROCEEDINGS OR THAT ARE RATED \u201dBELOW INVESTMENT GRADE\u201d BY AN NR",
+   "hit_liquidation": "MAY NOT BE ABLE TO INVEST IN OTHER ATTRACTIVE INVESTMENTS, OR THE FUND MAY NEED TO LIQUIDATE EXISTING ASSETS IN ORDER TO PROVIDE SUCH FUNDING. TO THE EXTENT THE FUND INVEST",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PHK",
+   "form": "8-K",
+   "date_filed": "2010-04-05",
+   "accession": "0001193125-10-076751",
+   "hit_termination": "nan",
+   "hit_tender_offer": "nan",
+   "hit_merger": "THER PARTICIPATION IN ANY DISTRIBUTION OF ASSETS BY THE TRUST. A CONSOLIDATION, MERGER OR STATUTORY SHARE EXCHANGE OF THE TRUST WITH OR INTO ANY -45- OTHER TRUST OR E",
+   "hit_liquidation": "ISK: REFINANCING RISK OCCURS WHEN SENIOR DEBT IS CALLED EARLY, FORCING THE FUND TO LIQUIDATE PORTFOLIO ASSETS TO REPAY THE LOAN. FITCH VIEWS LONGER TERMINATION NOTICE PERIO",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PHK",
+   "form": "PRE 14A",
+   "date_filed": "2014-03-20",
+   "accession": "0001193125-14-106784",
+   "hit_termination": "TFOLIO MANAGEMENT AGREEMENT WILL AUTOMATICALLY TERMINATE IN CONNECTION WITH THE TERMINATION OF THE FUND\u2019S CURRENT AGREEMENT. B-3 LIABILITY. EACH PORTFOLIO MANAGEMENT AGREEMENT PROVIDE",
+   "hit_tender_offer": "E OFFERINGS FOLLOWING THE FUND\u2019S INITIAL OFFERING, AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY LEGAL COSTS; AND EX",
+   "hit_merger": "CTURE ( I.E. , WITH ALLIANZ GLOBAL INVESTORS AND PIMCO AS THE TWO PILLARS). THE REORGANIZATION WAS ALSO DESIGNED TO ALLOW FOR CLEARER BRANDING AND PRODUCT DIFFERENTIATION BET",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PHK",
+   "form": "8-K",
+   "date_filed": "2022-12-02",
+   "accession": "0001193125-22-297028",
+   "hit_termination": "nan",
+   "hit_tender_offer": " MORE OR LESS THAN THEIR ORIGINAL INVESTMENT UPON DISSOLUTION OR IN AN ELIGIBLE TENDER OFFER. CLOSED-END FUNDS, UNLIKE OPEN-END FUNDS, ARE NOT CONTINUOUSLY OFFERED. AFTER T",
+   "hit_merger": "nan",
+   "hit_liquidation": "MAY BE ENHANCED IN EMERGING MARKETS . THE USE OF LEVERAGE MAY CAUSE A PORTFOLIO TO LIQUIDATE POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBLIGATIONS O",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PHK",
+   "form": "8-K",
+   "date_filed": "2026-06-24",
+   "accession": "0001193125-26-281026",
+   "hit_termination": "nan",
+   "hit_tender_offer": " WITH OFFERINGS MADE PURSUANT TO THIS PROSPECTUS), AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY EXPENSES, INCLUDING",
+   "hit_merger": "L OR BUSINESS DIFFICULTIES, INCLUDING BORROWERS INVOLVED IN BANKRUPTCY OR OTHER REORGANIZATION AND LIQUIDATION PROCEEDINGS OR THAT ARE RATED \u201dBELOW INVESTMENT GRADE\u201d BY AN NR",
+   "hit_liquidation": "MAY NOT BE ABLE TO INVEST IN OTHER ATTRACTIVE INVESTMENTS, OR THE FUND MAY NEED TO LIQUIDATE EXISTING ASSETS IN ORDER TO PROVIDE SUCH FUNDING. TO THE EXTENT THE FUND INVEST",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "BIT",
+   "form": "8-K",
+   "date_filed": "2025-01-21",
+   "accession": "0001193125-25-009147",
+   "hit_termination": "nan",
+   "hit_tender_offer": "NT) ANY (I) TENDER OR EXCHANGE OFFER FOR SECURITIES OF THE FUND (ASIDE FROM ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDAT",
+   "hit_merger": "M ANY TENDER OFFER OFFERED OR APPROVED BY THE FUND TO ALL SHAREHOLDERS), OR ANY MERGER, CONSOLIDATION, BUSINESS COMBINATION OR ACQUISITION OR DISPOSITION OF ASSETS OF",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PFN",
+   "form": "PRE 14A",
+   "date_filed": "2012-05-25",
+   "accession": "0001193125-12-249172",
+   "hit_termination": "N IN BROAD TERMS. THE COMMITTEE SHALL: 1. DETERMINE THE SELECTION, RETENTION OR TERMINATION OF THE FUND\u2019S IA BASED ON AN EVALUATION OF THEIR INDEPENDENCE AND THE NATURE AND PERFORMANC",
+   "hit_tender_offer": "nan",
+   "hit_merger": "ERE HE ESTABLISHED AND LED THE FIRM\u2019S EFFORTS TO RAISE CAPITAL FOR, AND PROVIDE MERGERS AND ACQUISITION ADVISORY SERVICES TO, ASSET MANAGERS AND INVESTMENT ADVISERS. ",
+   "hit_liquidation": "nan",
+   "hit_open_end": "A \u201cCONTINUING TRUSTEE.\u201d UNDER EACH FUND\u2019S DECLARATION, CERTAIN ACTIONS (SUCH AS CONVERSION OF A FUND FROM A CLOSED-END FUND TO AN OPEN-END FUND) REQUIRE THE AFFIRMATIVE VOTE OF 75% OF THE CONTINUING TRUSTEES. AT ANY AN"
+  },
+  {
+   "ticker": "PFN",
+   "form": "PRE 14A",
+   "date_filed": "2013-06-05",
+   "accession": "0001193125-13-248697",
+   "hit_termination": "N IN BROAD TERMS. THE COMMITTEE SHALL: 1. DETERMINE THE SELECTION, RETENTION OR TERMINATION OF THE FUND\u2019S IA BASED ON AN EVALUATION OF THEIR INDEPENDENCE AND THE NATURE AND PERFORMANC",
+   "hit_tender_offer": "nan",
+   "hit_merger": "ERE HE ESTABLISHED AND LED THE FIRM\u2019S EFFORTS TO RAISE CAPITAL FOR, AND PROVIDE MERGERS AND ACQUISITION ADVISORY SERVICES TO, ASSET MANAGERS AND INVESTMENT ADVISERS. ",
+   "hit_liquidation": "nan",
+   "hit_open_end": "A \u201cCONTINUING TRUSTEE.\u201d UNDER EACH FUND\u2019S DECLARATION, CERTAIN ACTIONS (SUCH AS CONVERSION OF A FUND FROM A CLOSED-END FUND TO AN OPEN-END FUND) REQUIRE THE AFFIRMATIVE VOTE OF 75% OF THE CONTINUING TRUSTEES. AT ANY AN"
+  },
+  {
+   "ticker": "PFN",
+   "form": "PRE 14A",
+   "date_filed": "2014-03-20",
+   "accession": "0001193125-14-106787",
+   "hit_termination": "TFOLIO MANAGEMENT AGREEMENT WILL AUTOMATICALLY TERMINATE IN CONNECTION WITH THE TERMINATION OF THE FUND\u2019S CURRENT AGREEMENT. LIABILITY. EACH PORTFOLIO MANAGEMENT AGREEMENT PROVIDES TH",
+   "hit_tender_offer": "E OFFERINGS FOLLOWING THE FUND\u2019S INITIAL OFFERING, AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY LEGAL COSTS; AND EX",
+   "hit_merger": "CTURE ( I.E. , WITH ALLIANZ GLOBAL INVESTORS AND PIMCO AS THE TWO PILLARS). THE REORGANIZATION WAS ALSO DESIGNED TO ALLOW FOR CLEARER BRANDING AND PRODUCT DIFFERENTIATION BET",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PFN",
+   "form": "PRE 14A",
+   "date_filed": "2014-06-16",
+   "accession": "0001193125-14-237863",
+   "hit_termination": "N IN BROAD TERMS. THE COMMITTEE SHALL: 1. DETERMINE THE SELECTION, RETENTION OR TERMINATION OF THE FUND\u2019S IA BASED ON AN EVALUATION OF THEIR INDEPENDENCE AND THE NATURE AND PERFORMANC",
+   "hit_tender_offer": "EHOLDERS, EITHER AT THE PREFERRED SHARES\u2019 LIQUIDATION PREFERENCE OR PURSUANT TO TENDER OFFERS THAT ARE NOT AT WHAT THE FUNDS\u2019 SUB-ADVISER VIEWS TO BE AN ADEQUATELY DISCOUNT",
+   "hit_merger": "HERE HE ESTABLISHED AND LED THE FIRM\u2019S EFFORTS TO RAISE CAPITAL FOR AND PROVIDE MERGERS AND ACQUISITION ADVISORY SERVICES TO ASSET MANAGERS AND INVESTMENT ADVISERS. H",
+   "hit_liquidation": "nan",
+   "hit_open_end": " \u201cCONTINUING TRUSTEES.\u201d UNDER EACH FUND\u2019S DECLARATION, CERTAIN ACTIONS (SUCH AS CONVERSION OF A FUND FROM A CLOSED-END FUND TO AN OPEN-END FUND) REQUIRE THE AFFIRMATIVE VOTE OF 75% OF THE CONTINUING TRUSTEES. AT ANY AN"
+  },
+  {
+   "ticker": "PFN",
+   "form": "8-K",
+   "date_filed": "2014-09-18",
+   "accession": "0001193125-14-345746",
+   "hit_termination": "nan",
+   "hit_tender_offer": "Y FUND II (EACH, A \u201cFUND\u201d AND, TOGETHER, THE \u201cFUNDS\u201d) WILL COMMENCE A VOLUNTARY TENDER OFFER ON OR ABOUT SEPTEMBER 19, 2014 (EACH, A \u201cTENDER OFFER\u201d AND, TOGETHER, THE \u201cTEND",
+   "hit_merger": "ON OR SIMILAR TRANSACTION INVOLVING THE FUNDS, INCLUDING, WITHOUT LIMITATION, A MERGER, TENDER OR EXCHANGE OFFER, OPEN-ENDING, SHARE REPURCHASE OR LIQUIDATION OF A FU",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PFN",
+   "form": "8-K",
+   "date_filed": "2022-12-02",
+   "accession": "0001193125-22-297044",
+   "hit_termination": "nan",
+   "hit_tender_offer": " MORE OR LESS THAN THEIR ORIGINAL INVESTMENT UPON DISSOLUTION OR IN AN ELIGIBLE TENDER OFFER. CLOSED-END FUNDS, UNLIKE OPEN-END FUNDS, ARE NOT CONTINUOUSLY OFFERED. AFTER T",
+   "hit_merger": "nan",
+   "hit_liquidation": "MAY BE ENHANCED IN EMERGING MARKETS . THE USE OF LEVERAGE MAY CAUSE A PORTFOLIO TO LIQUIDATE POSITIONS WHEN IT MAY NOT BE ADVANTAGEOUS TO DO SO TO SATISFY ITS OBLIGATIONS O",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "PFN",
+   "form": "8-K",
+   "date_filed": "2026-06-24",
+   "accession": "0001193125-26-281035",
+   "hit_termination": "nan",
+   "hit_tender_offer": " WITH OFFERINGS MADE PURSUANT TO THIS PROSPECTUS), AND EXPENSES ASSOCIATED WITH TENDER OFFERS AND OTHER SHARE REPURCHASES AND REDEMPTIONS; EXTRAORDINARY EXPENSES, INCLUDING",
+   "hit_merger": "L OR BUSINESS DIFFICULTIES, INCLUDING BORROWERS INVOLVED IN BANKRUPTCY OR OTHER REORGANIZATION AND LIQUIDATION PROCEEDINGS OR THAT ARE RATED \u201dBELOW INVESTMENT GRADE\u201d BY AN NR",
+   "hit_liquidation": "MAY NOT BE ABLE TO INVEST IN OTHER ATTRACTIVE INVESTMENTS, OR THE FUND MAY NEED TO LIQUIDATE EXISTING ASSETS IN ORDER TO PROVIDE SUCH FUNDING. TO THE EXTENT THE FUND INVEST",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "JFR",
+   "form": "8-K",
+   "date_filed": "2020-10-06",
+   "accession": "0001193125-20-264102",
+   "hit_termination": "nan",
+   "hit_tender_offer": "E PURPOSE OF CIRCUMVENTING THE PROVISIONS OF THIS ARTICLE IX; (4) PURSUANT TO A TENDER OFFER, MERGER OR CONSOLIDATION, BUT ONLY IF SUCH TENDER OFFER, MERGER OR CONSOLIDATIO",
+   "hit_merger": "IRCUMVENTING THE PROVISIONS OF THIS ARTICLE IX; (4) PURSUANT TO A TENDER OFFER, MERGER OR CONSOLIDATION, BUT ONLY IF SUCH TENDER OFFER, MERGER OR CONSOLIDATION IS PUR",
+   "hit_liquidation": "nan",
+   "hit_open_end": "nan"
+  },
+  {
+   "ticker": "JFR",
+   "form": "PRE 14A",
+   "date_filed": "2023-03-16",
+   "accession": "0001193125-23-072762",
+   "hit_termination": "AR COURSE OF THE FUND\u2019S INVESTMENT ACTIVITIES), (4) IN CERTAIN CIRCUMSTANCES, A TERMINATION OF THE FUND, OR A SERIES OR CLASS OF THE FUND, OR (5) REMOVAL OF TRUSTEES BY SHAREHOLDERS, ",
+   "hit_tender_offer": "S BY DISCOURAGING A THIRD PARTY FROM SEEKING TO OBTAIN CONTROL OF THE FUND IN A TENDER OFFER OR SIMILAR TRANSACTION. THE OVERALL EFFECT OF THESE PROVISIONS IS TO RENDER MOR",
+   "hit_merger": "E ON THE FOLLOWING PROPOSALS: \u2022 (EACH FUND) TO APPROVE AN AGREEMENT AND PLAN OF MERGER (THE \u201cAGREEMENT\u201d) PURSUANT TO WHICH THE PROPOSED COMBINATION OF THE TARGET FUND",
+   "hit_liquidation": ". THERE IS A RISK THAT THE ENTITY WILL NOT EMERGE FROM CHAPTER 11 AND BE FORCED TO LIQUIDATE ITS ASSETS UNDER CHAPTER 7 OF THE BANKRUPTCY CODE. IN SUCH EVENT, THE ACQUIRING",
+   "hit_open_end": "UIRING FUND\u2019S DECLARATION OF TRUST AND BY-LAWS 100 REPURCHASE OF COMMON SHARES; CONVERSION TO OPEN-END FUND 100 DESCRIPTION OF OUTSTANDING ACQUIRING FUND SERIES A TFP SHARES 100 BORR"
+  }
+ ],
+ "proxy_8k_leads_n": 44,
+ "merger_target_first_filings": [
+  {
+   "ticker": "PDI",
+   "completion": "2021-12-10",
+   "status": "matched",
+   "target_cik": "nan",
+   "first_date": "nan",
+   "first_form": "nan"
+  },
+  {
+   "ticker": "PDI",
+   "completion": "2021-12-10",
+   "status": "matched",
+   "target_cik": "nan",
+   "first_date": "nan",
+   "first_form": "nan"
+  },
+  {
+   "ticker": "MHD",
+   "completion": "2021-03-05",
+   "status": "matched",
+   "target_cik": "1167467.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MHD",
+   "completion": "2021-03-05",
+   "status": "matched",
+   "target_cik": "1181026.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MHD",
+   "completion": "2021-03-05",
+   "status": "matched",
+   "target_cik": "1038190.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MHD",
+   "completion": "2021-03-05",
+   "status": "matched",
+   "target_cik": "1058234.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "HYT",
+   "completion": "2013-11-15",
+   "status": "matched",
+   "target_cik": "830474.0",
+   "first_date": "2013-06-27",
+   "first_form": "425"
+  },
+  {
+   "ticker": "HYT",
+   "completion": "2013-11-15",
+   "status": "matched",
+   "target_cik": "900724.0",
+   "first_date": "2013-06-27",
+   "first_form": "425"
+  },
+  {
+   "ticker": "HYT",
+   "completion": "2013-11-15",
+   "status": "matched",
+   "target_cik": "1160469.0",
+   "first_date": "2013-06-27",
+   "first_form": "425"
+  },
+  {
+   "ticker": "HYT",
+   "completion": "2013-11-15",
+   "status": "matched",
+   "target_cik": "1049549.0",
+   "first_date": "2013-06-27",
+   "first_form": "425"
+  },
+  {
+   "ticker": "HYT",
+   "completion": "2013-11-15",
+   "status": "matched",
+   "target_cik": "1068234.0",
+   "first_date": "2013-06-27",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MQY",
+   "completion": "2021-04-16",
+   "status": "matched",
+   "target_cik": "844172.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MQY",
+   "completion": "2021-04-16",
+   "status": "matched",
+   "target_cik": "882153.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MQY",
+   "completion": "2021-04-16",
+   "status": "matched",
+   "target_cik": "901824.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MQY",
+   "completion": "2021-04-16",
+   "status": "matched",
+   "target_cik": "911308.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "MQY",
+   "completion": "2021-04-16",
+   "status": "matched",
+   "target_cik": "1169029.0",
+   "first_date": "2020-06-16",
+   "first_form": "425"
+  },
+  {
+   "ticker": "AWF",
+   "completion": "2007-04-13",
+   "status": "no EDGAR names in use in the window",
+   "target_cik": "nan",
+   "first_date": "nan",
+   "first_form": "nan"
+  },
+  {
+   "ticker": "AWF",
+   "completion": "2009-09-25",
+   "status": "matched",
+   "target_cik": "nan",
+   "first_date": "nan",
+   "first_form": "nan"
+  },
+  {
+   "ticker": "JFR",
+   "completion": "2023-07-28",
+   "status": "best score 0.724 < 0.85",
+   "target_cik": "nan",
+   "first_date": "nan",
+   "first_form": "nan"
+  },
+  {
+   "ticker": "JFR",
+   "completion": "2023-07-28",
+   "status": "matched",
+   "target_cik": "1093428.0",
+   "first_date": "2023-04-14",
+   "first_form": "425"
+  },
+  {
+   "ticker": "JFR",
+   "completion": "2023-07-28",
+   "status": "matched",
+   "target_cik": "1289213.0",
+   "first_date": "2023-04-14",
+   "first_form": "425"
+  }
+ ],
+ "funds": [
+  {
+   "ticker": "PDI",
+   "cik": "1510599",
+   "name": "PIMCO Dynamic Income Fund"
+  },
+  {
+   "ticker": "PTY",
+   "cik": "1190935",
+   "name": "PIMCO CORPORATE & INCOME OPPORTUNITY FUND"
+  },
+  {
+   "ticker": "MHD",
+   "cik": "1034665",
+   "name": "BLACKROCK MUNIHOLDINGS FUND, INC."
+  },
+  {
+   "ticker": "PDO",
+   "cik": "1798618",
+   "name": "PIMCO Dynamic Income Opportunities Fund"
+  },
+  {
+   "ticker": "HYT",
+   "cik": "1222401",
+   "name": "BLACKROCK CORPORATE HIGH YIELD FUND, INC."
+  },
+  {
+   "ticker": "MQY",
+   "cik": "890196",
+   "name": "BLACKROCK MUNIYIELD QUALITY FUND, INC."
+  },
+  {
+   "ticker": "DSL",
+   "cik": "1566388",
+   "name": "DoubleLine Income Solutions Fund"
+  },
+  {
+   "ticker": "AWF",
+   "cik": "906013",
+   "name": "ALLIANCEBERNSTEIN GLOBAL HIGH INCOME FUND INC"
+  },
+  {
+   "ticker": "PCN",
+   "cik": "1160990",
+   "name": "PIMCO CORPORATE & INCOME STRATEGY FUND"
+  },
+  {
+   "ticker": "PHK",
+   "cik": "1219360",
+   "name": "PIMCO HIGH INCOME FUND"
+  },
+  {
+   "ticker": "BIT",
+   "cik": "1562818",
+   "name": "BlackRock Multi-Sector Income Trust"
+  },
+  {
+   "ticker": "PFN",
+   "cik": "1296250",
+   "name": "PIMCO Income Strategy Fund II"
+  },
+  {
+   "ticker": "JFR",
+   "cik": "1276533",
+   "name": "NUVEEN FLOATING RATE INCOME FUND"
+  }
+ ],
+ "edgar_fetch": {
+  "requests": 0,
+  "cache_hits": 225
+ }
+}

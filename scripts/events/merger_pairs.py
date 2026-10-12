@@ -347,6 +347,52 @@ ANNOUNCEMENTS = (
 BDC_TARGETS = ("OCSI", "SUNS", "FSKR")
 
 
+def _announcement_row(e: pd.Series, a: pd.Timestamp, rec: dict, px: dict, skips: dict) -> dict:
+    """One event's at-announcement measurement: entry at the close of A+1, held
+    to completion. Shared by the agent-dated sample (`announcement_sample`) and
+    the EDGAR-dated one (`announcement_sample_edgar`, added 2026-10-12, plan
+    0.7), so the two figures differ ONLY in their dates. Factored out of
+    `announcement_sample` unchanged except for one guard: an announcement with
+    no trading day before it, none after it, or dated on or after completion is
+    now a counted skip (the old code would have raised an IndexError; no
+    agent-dated event reaches it). The no-op on the agent-dated sample was
+    checked by re-running and diffing `merger_summary.json` byte for byte."""
+    T, A = px.get(int(e["permno"])), px.get(int(e["nwperm"])) if e["nwperm"] > 0 else None
+    td = T.index
+    rec["days_to_close_cal"] = (e["dlstdt"] - a).days
+    rec["tdays_to_close"] = int(((td > a) & (td <= e["dlstdt"])).sum())
+    if A is None or e["dlstcd"] != 231 or e["dlpdt"] not in A.index or pd.isna(e["dlret"]):
+        why = ("not a stock-only merger (dlstcd %d)" % e["dlstcd"]) if e["dlstcd"] != 231 else "no acquirer price at payment"
+        skips[why] = skips.get(why, 0) + 1
+        rec["skip"] = why
+        return rec
+    if not (td < a).any() or not (td > a).any() or a >= e["dlstdt"]:
+        # An announcement dated on or after the target's last trading day, or
+        # outside its price history, has no A+1 entry before completion.
+        why = "announcement not inside the target's price history before completion"
+        skips[why] = skips.get(why, 0) + 1
+        rec["skip"] = why
+        return rec
+    r = float(e["dlamt"]) / A.at[e["dlpdt"], "prc"]
+    d_pre = td[td < a][-1]
+    d_in = td[td > a][0]
+    inwin = td[(td > a) & (td <= e["dlstdt"])]
+    for nmk, d in (("pre", d_pre), ("A1", d_in), ("mid", inwin[len(inwin) // 2]), ("T1", td[td < e["dlstdt"]][-1])):
+        if d in A.index:
+            pa = A.at[d, "prc"] / A.at[d, "cfacpr"] * A.at[e["dlpdt"], "cfacpr"]
+            pt = T.at[d, "prc"] / T.at[d, "cfacpr"] * T.at[e["dlstdt"], "cfacpr"]
+            rec[f"spread_{nmk}"] = r * pa / pt - 1
+    rt, nt, st = window_return(T, d_in, e["dlstdt"])
+    ra, na_, sa = window_return(A, d_in, e["dlpdt"])
+    rec["pair_A1_to_close"] = (1 + rt) * (1 + float(e["dlret"])) - 1 - ra
+    rec["pair_A1_orig_zero_fill"] = ((1 + window_return_zero_fill(T, d_in, e["dlstdt"])) * (1 + float(e["dlret"])) - 1
+                                     - window_return_zero_fill(A, d_in, e["dlpdt"]))
+    rec["nmiss"] = nt + na_
+    rec["status"] = st if st != "ok" else sa
+    rec["adv63_T_pre"] = (T["prc"] * T["vol"]).loc[:d_pre].tail(63).mean()
+    return rec
+
+
 def announcement_sample(x: pd.DataFrame, px: dict) -> tuple[pd.DataFrame, dict]:
     """The s08 measurement: entry at the close of the first trading day AFTER
     the announcement date (A+1), so a pre-open or after-close release cannot be
@@ -363,35 +409,146 @@ def announcement_sample(x: pd.DataFrame, px: dict) -> tuple[pd.DataFrame, dict]:
                 raise AssertionError(f"{tk}: the announcement sample must not touch cef_universe.csv")
             rec = dict(ticker=tk, acq=e["a_ticker"], ann=ad, label=lab, source=src,
                        completion=e["dlstdt"].date(), dlstcd=int(e["dlstcd"]))
-            T, A = px.get(int(e["permno"])), px.get(int(e["nwperm"])) if e["nwperm"] > 0 else None
-            td = T.index
-            rec["days_to_close_cal"] = (e["dlstdt"] - a).days
-            rec["tdays_to_close"] = int(((td > a) & (td <= e["dlstdt"])).sum())
-            if A is None or e["dlstcd"] != 231 or e["dlpdt"] not in A.index or pd.isna(e["dlret"]):
-                why = ("not a stock-only merger (dlstcd %d)" % e["dlstcd"]) if e["dlstcd"] != 231 else "no acquirer price at payment"
-                skips[why] = skips.get(why, 0) + 1
-                rec["skip"] = why
-                rows.append(rec)
-                continue
-            r = float(e["dlamt"]) / A.at[e["dlpdt"], "prc"]
-            d_pre = td[td < a][-1]
-            d_in = td[td > a][0]
-            inwin = td[(td > a) & (td <= e["dlstdt"])]
-            for nmk, d in (("pre", d_pre), ("A1", d_in), ("mid", inwin[len(inwin) // 2]), ("T1", td[td < e["dlstdt"]][-1])):
-                if d in A.index:
-                    pa = A.at[d, "prc"] / A.at[d, "cfacpr"] * A.at[e["dlpdt"], "cfacpr"]
-                    pt = T.at[d, "prc"] / T.at[d, "cfacpr"] * T.at[e["dlstdt"], "cfacpr"]
-                    rec[f"spread_{nmk}"] = r * pa / pt - 1
-            rt, nt, st = window_return(T, d_in, e["dlstdt"])
-            ra, na_, sa = window_return(A, d_in, e["dlpdt"])
-            rec["pair_A1_to_close"] = (1 + rt) * (1 + float(e["dlret"])) - 1 - ra
-            rec["pair_A1_orig_zero_fill"] = ((1 + window_return_zero_fill(T, d_in, e["dlstdt"])) * (1 + float(e["dlret"])) - 1
-                                             - window_return_zero_fill(A, d_in, e["dlpdt"]))
-            rec["nmiss"] = nt + na_
-            rec["status"] = st if st != "ok" else sa
-            rec["adv63_T_pre"] = (T["prc"] * T["vol"]).loc[:d_pre].tail(63).mean()
-            rows.append(rec)
+            rows.append(_announcement_row(e, a, rec, px, skips))
     return pd.DataFrame(rows), skips
+
+
+# ------------------------------------------- EDGAR-dated (added 2026-10-12)
+
+EDGAR_DATES = OUT / "merger_edgar_dates.csv"   # scripts/events/edgar_merger_dates.py (gitignored: CRSP-joined)
+
+
+def pairable_events(x: pd.DataFrame, by: str = "permno") -> pd.DataFrame:
+    """The priced sample: stock-for-stock (dlstcd 231) mergers with an acquirer
+    permno and no `cef_universe.csv` name -- matched by ticker or permno
+    (`by="permno"`, the headline) or by ticker only (`by="ticker"`, the
+    original's rule). Factored out of `main` (2026-10-12) so the EDGAR dating
+    script reads the identical sample; `main`'s output is unchanged."""
+    flag = {"permno": "touch_uni", "ticker": "touch_uni_tk"}[by]
+    return x[(x["dlstcd"] == 231) & (x["kind"] == "stock") & (x["nwperm"] > 0) & ~x[flag]]
+
+
+def announcement_sample_edgar(x: pd.DataFrame, px: dict, dates: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """`announcement_sample` on EDGAR-derived announcement dates, one per target
+    permno (`edgar_merger_dates.py`). Same entry (close of A+1), same exit, same
+    return code (`_announcement_row`). A target with no EDGAR date is counted
+    under `skips`, never given another source's date."""
+    rows, skips = [], {}
+    dd = dates.set_index("permno")
+    for e in pairable_events(x).itertuples(index=False):
+        e = pd.Series(e._asdict())
+        p = int(e["permno"])
+        if p not in dd.index:
+            raise LookupError(f"permno {p} ({e['ticker']}) is not in {EDGAR_DATES.name}: re-run edgar_merger_dates.py")
+        d = dd.loc[p]
+        if pd.isna(d["ann_date"]):
+            why = "no EDGAR announcement date"
+            skips[why] = skips.get(why, 0) + 1
+            continue
+        a = pd.Timestamp(d["ann_date"])
+        rec = dict(ticker=e["ticker"], acq=e["a_ticker"], ann=str(a.date()), label="EDGAR",
+                   source=f"{d['ann_form']} ({d['ann_party']}, {d['date_basis']})",
+                   completion=e["dlstdt"].date(), dlstcd=int(e["dlstcd"]), permno=p,
+                   nwperm=int(e["nwperm"]), cls=classify(e["comnam"]), date_basis=d["date_basis"])
+        rows.append(_announcement_row(e, a, rec, px, skips))
+    return pd.DataFrame(rows), skips
+
+
+def clustered_t(v: pd.Series, groups: pd.Series) -> float:
+    """t of the mean with standard errors clustered by `groups` (CR1).
+
+    One board announcement often covers several targets (Nuveen's New York
+    funds, 2012-06-22), so events inside a group are not independent; the
+    plan's E1 kill test is stated on a group-clustered t. Descriptive here."""
+    v = v.astype(float)
+    n, mu = len(v), v.mean()
+    g = (v - mu).groupby(groups.values).sum()
+    G = len(g)
+    if G < 2:
+        return float("nan")
+    var = (G / (G - 1)) * float((g ** 2).sum()) / n ** 2
+    return float(mu / np.sqrt(var))
+
+
+# Cost grid for one deal, in the units of the pair return (per $1 long).
+# Entry trades $1 of target and $1 of acquirer short: 2 units of turnover. At
+# completion the target's shares become acquirer shares and close the short,
+# so no exit trade is assumed (2 units); if both legs are traded out instead,
+# 4 units. The 2026-10-11 note's "35bp per deal ~ 18bp per unit" is the 2-unit
+# convention. Borrow on the acquirer is NOT charged here (not measured
+# historically; G1a measures today's shortability only).
+COST_GRID_BP = (5, 15, 30)
+UNITS_PER_DEAL = (2, 4)
+
+
+def grid_table(v: pd.Series, groups: pd.Series) -> dict:
+    """Gross median/mean/t and the median net of each cost and unit count."""
+    if v.dropna().empty:
+        raise ValueError("grid_table on an empty sample: a figure with N=0 is not a figure")
+    s = summ(v)
+    s["groups"] = int(groups.nunique())
+    s["clustered_t_mean"] = round(clustered_t(v, groups), 2)
+    s["net_median_bp"] = {f"{c}bp_x{u}": round(s["median_bp"] - c * u, 1)
+                          for u in UNITS_PER_DEAL for c in COST_GRID_BP}
+    s["net_mean_bp"] = {f"{c}bp_x{u}": round(s["mean_bp"] - c * u, 1)
+                        for u in UNITS_PER_DEAL for c in COST_GRID_BP}
+    return s
+
+
+def edgar_report(x: pd.DataFrame, px: dict, ann_agent: pd.DataFrame) -> dict:
+    """The at-announcement figure on EDGAR dates, beside the agent's dates."""
+    dates = pd.read_csv(EDGAR_DATES)
+    ed, sk = announcement_sample_edgar(x, px, dates)
+    ed.to_csv(OUT / "merger_ann_sample_edgar.csv", index=False, float_format="%.8g")
+    p = ed.dropna(subset=["pair_A1_to_close"]).copy()
+    p["group"] = p["nwperm"].astype(str) + "@" + p["ann"]
+    res = {"dates_file_rows": len(dates), "events_dated": int(dates["ann_date"].notna().sum()),
+           "skips": sk, "all": grid_table(p["pair_A1_to_close"], p["group"]),
+           "groups_by_ann_date": int(p["ann"].nunique()),
+           "by_basis": {b: grid_table(g["pair_A1_to_close"], g["group"]) for b, g in p.groupby("date_basis")},
+           "by_class": {c: grid_table(g["pair_A1_to_close"], g["group"]) for c, g in p.groupby("cls")}}
+    # Two sensitivities, both stated in advance of looking (2026-10-12):
+    # (1) one observation per group (the group's mean pair), so a board that
+    #     merged eight funds at once counts once;
+    # (2) every member of an acquirer x completion group entered on the
+    #     group's EARLIEST EDGAR date (one board announcement can be filed under
+    #     some targets a few days before others).
+    gm = p.groupby("group")["pair_A1_to_close"].mean()
+    res["group_level"] = {"groups": int(len(gm)), "median_bp": round(gm.median() * 1e4, 1),
+                          "mean_bp": round(gm.mean() * 1e4, 1), "frac_pos": round(float((gm > 0).mean()), 3)}
+    early = dates.copy()
+    early["ann_date"] = pd.to_datetime(early["ann_date"])
+    first = early.groupby(["nwperm", "completion"])["ann_date"].transform("min")
+    for c in ("ann_form", "ann_party", "date_basis"):
+        early[c] = early.sort_values("ann_date").groupby(["nwperm", "completion"])[c].transform("first")
+    early["ann_date"] = first.dt.date.astype(str)
+    eg, _ = announcement_sample_edgar(x, px, early)
+    eg = eg.dropna(subset=["pair_A1_to_close"])
+    res["group_earliest_date"] = grid_table(eg["pair_A1_to_close"], eg["nwperm"].astype(str) + "@" + eg["ann"])
+    # The same 36 events as the agent-dated figure, with EDGAR's dates instead.
+    a = ann_agent.dropna(subset=["pair_A1_to_close"]).copy()
+    same = p[p["ticker"].isin(a["ticker"])].merge(a[["ticker", "ann", "label", "pair_A1_to_close"]],
+                                                   on="ticker", suffixes=("", "_agent"))
+    # `label` is "EDGAR" on the left; the agent's V/S label is `label_agent`.
+    same["days_edgar_minus_agent"] = (pd.to_datetime(same["ann"]) - pd.to_datetime(same["ann_agent"])).dt.days
+    res["agent_sample_redated"] = {
+        "events": len(same), "agent_events": len(a),
+        "edgar": grid_table(same["pair_A1_to_close"], same["group"]),
+        "agent": grid_table(same["pair_A1_to_close_agent"],
+                            same["nwperm"].astype(str) + "@" + same["ann_agent"]),
+        "date_diff_days_by_agent_group": {f"{k[0]} ({k[1]})": sorted(set(g["days_edgar_minus_agent"].astype(int)))
+                                          for k, g in same.groupby(["ann_agent", "label_agent"])},
+        "edgar_on_agent_V_groups": grid_table(same.loc[same["label_agent"] == "V", "pair_A1_to_close"],
+                                              same.loc[same["label_agent"] == "V", "group"]),
+        "edgar_on_agent_S_groups": grid_table(same.loc[same["label_agent"] == "S", "pair_A1_to_close"],
+                                              same.loc[same["label_agent"] == "S", "group"]),
+        "agent_dates_on_V_groups": grid_table(same.loc[same["label_agent"] == "V", "pair_A1_to_close_agent"],
+                                              same.loc[same["label_agent"] == "V", "nwperm"].astype(str)),
+        "agent_dates_on_S_groups": grid_table(same.loc[same["label_agent"] == "S", "pair_A1_to_close_agent"],
+                                              same.loc[same["label_agent"] == "S", "nwperm"].astype(str)
+                                              + "@" + same.loc[same["label_agent"] == "S", "ann_agent"]),
+    }
+    return res
 
 
 # ---------------------------------------------------------------- G1c count
@@ -441,6 +598,9 @@ def main(argv=None) -> int:
     import argparse
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--refresh", action="store_true", help="re-pull the CRSP extracts")
+    ap.add_argument("--edgar-dates", action="store_true",
+                    help="also measure the at-announcement pair on EDGAR dates "
+                         "(needs results/events/merger_edgar_dates.csv) -> merger_ann_edgar_summary.json")
     args = ap.parse_args(argv)
     OUT.mkdir(parents=True, exist_ok=True)
     nm, dl = ce.names(args.refresh), ce.delistings(args.refresh)
@@ -468,8 +628,8 @@ def main(argv=None) -> int:
     x.drop(columns=[c for c in x.columns if c in ("siccd",)]).to_csv(OUT / "merger_events_2010_2022.csv", index=False)
 
     # --- prices (pre-2023 only, enforced in crsp_events.daily)
-    pairable = x[(x["dlstcd"] == 231) & (x["kind"] == "stock") & (x["nwperm"] > 0) & ~x["touch_uni"]]
-    pairable_tk = x[(x["dlstcd"] == 231) & (x["kind"] == "stock") & (x["nwperm"] > 0) & ~x["touch_uni_tk"]]
+    pairable = pairable_events(x, "permno")
+    pairable_tk = pairable_events(x, "ticker")
     perms = set(x["permno"]) | set(x.loc[x["nwperm"] > 0, "nwperm"].astype(int))
     dsf = ce.daily(perms, args.refresh)
     res["dsf_last_date"] = str(dsf["date"].max().date())
@@ -569,6 +729,13 @@ def main(argv=None) -> int:
     res["g1c"] = gc.to_dict(orient="records")
     (OUT / "merger_summary.json").write_text(json.dumps(res, indent=1, default=str))
     print(json.dumps(res, indent=1, default=str))
+    if args.edgar_dates:
+        # A separate file, so merger_summary.json stays the 2026-10-11 re-run's
+        # output whether or not EDGAR dates exist.
+        er = edgar_report(x, px, ann)
+        er["dsf_last_date"] = res["dsf_last_date"]
+        (OUT / "merger_ann_edgar_summary.json").write_text(json.dumps(er, indent=1, default=str))
+        print(json.dumps(er, indent=1, default=str))
     return 0
 
 
