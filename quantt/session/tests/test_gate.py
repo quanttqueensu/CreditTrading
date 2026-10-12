@@ -40,6 +40,7 @@ def good(**over):
         orders=(order("AAA", "buy", 100), order("BBB", "sell", 50)),
         positions={}, shortable={s: True for s in UNI}, shorting_enabled=True,
         closes={"AAA": 10.0, "BBB": 20.0, "CCC": 30.0}, equity=100_000.0,
+        sized_equity=100_000.0,
         buying_power=200_000.0, current_gross=0.0, maintenance_margin=0.0,
         max_gross_usd=260_000.0, max_gross_stress=1.8,
         universe=UNI,
@@ -299,6 +300,122 @@ def test_gross_over_stress_multiple_refuses():
 
 def test_stress_cap_absent_is_not_applied():
     assert gates(good(max_gross_stress=None)) == []
+
+
+# The stress cap is judged on the equity the plan was SIZED on (incident 2026-10-09).
+# Friday 2026-10-09, as recorded on the prod VM: plan.json (decided 22:00 ET
+# 2026-10-08, plan_sha 146bb8b2...) and runs/20261009T195201Z-run.json (the 15:52
+# send). Every number below is from those two files.
+FRI_ORDERS = [("AWF", "buy", 3, -254), ("PDO", "sell", 3, 325), ("PTY", "buy", 3, -317),
+              ("HYT", "buy", 6, -655), ("PFN", "sell", 30, 3364), ("MHD", "buy", 17, -1909),
+              ("BIT", "sell", 20, 2248), ("PDI", "buy", 25, 54), ("PHK", "sell", 86, 3974),
+              ("PCN", "buy", 59, 571), ("JFR", "buy", 215, -4081), ("DSL", "sell", 426, 2371),
+              ("MQY", "sell", 468, -2596)]
+FRI_CLOSES = {"AWF": 9.510000228881836, "BIT": 11.210000038146973, "DSL": 9.899999618530273,
+              "HYT": 7.829999923706055, "JFR": 7.360000133514404, "MHD": 10.100000381469727,
+              "MQY": 9.90999984741211, "PCN": 10.760000228881836, "PDI": 14.329999923706055,
+              "PDO": 12.069999694824219, "PFN": 6.300000190734863, "PHK": 4.190000057220459,
+              "PTY": 10.9399995803833}
+FRI_SIZED_EQUITY = 101229.74          # plan.json "equity", the evening decide
+FRI_LIVE_EQUITY = 100666.16           # account equity at the 15:52 send
+
+
+def fri_orders():
+    return tuple(Order(symbol=s, side=sd, qty=q, leg=1, client_order_id=f"cef-20261009-{s}-1",
+                       current=cur, target=cur + (q if sd == "buy" else -q),
+                       est_price=FRI_CLOSES[s], reason="t", time_in_force="day")
+                 for s, sd, q, cur in FRI_ORDERS)
+
+
+def fri_exposure(**over):
+    kw = dict(orders=fri_orders(), positions={s: cur for s, _, _, cur in FRI_ORDERS},
+              closes=FRI_CLOSES, equity=FRI_LIVE_EQUITY, buying_power=76188.45,
+              max_gross_usd=260_000.0, max_gross_stress=1.8, sized_equity=FRI_SIZED_EQUITY,
+              current_gross=97508.94 + 86752.25, maintenance_margin=81619.05)
+    kw.update(over)
+    return gt.gate_exposure(kw.pop("orders"), kw.pop("positions"), kw.pop("closes"),
+                            kw.pop("equity"), kw.pop("buying_power"), kw.pop("max_gross_usd"),
+                            kw.pop("max_gross_stress"), **kw)
+
+
+def test_the_2026_10_09_plan_passes_gate_8():
+    """Refused twice on 2026-10-09 ("projected gross $182,154.75 > max_gross_stress
+    1.8 x equity $100,666.16"); the book did not trade. It was sized at 1.7994x
+    its decide equity and took gross DOWN from $183,413.36."""
+    assert fri_exposure() == []
+
+
+def test_the_2026_10_09_numbers_are_what_the_incident_says():
+    proj = gt.projected_positions(fri_orders(), {s: c for s, _, _, c in FRI_ORDERS})
+    after = sum(abs(q) * FRI_CLOSES[s] for s, q in proj.items())
+    before = sum(abs(c) * FRI_CLOSES[s] for s, _, _, c in FRI_ORDERS)
+    assert round(after, 2) == 182154.75 and round(before, 2) == 183413.36
+    assert after > 1.8 * FRI_LIVE_EQUITY            # what the old gate compared
+    assert after <= 1.8 * FRI_SIZED_EQUITY          # what the spec's cap is about
+
+
+def test_stress_cap_at_the_gate_is_on_the_lower_of_sized_and_live_equity():
+    """Team lead's ruling 2026-10-11. From flat: AAA 9,000 x 10 + BBB 4,500 x 20 =
+    180,000 = 1.8 x 100,000 exactly, a plan that adds gross. The gate itself never
+    scales: with live equity 99,900 it refuses (the send's re-fit scales first,
+    test_run.py), and it refuses equally when the SIZED equity is the lower one."""
+    f = good(orders=(order("AAA", "buy", 9000), order("BBB", "sell", 4500)),
+             buying_power=1e9, equity=100_000.0, sized_equity=100_000.0)
+    assert gates(f) == []
+    assert gates(dataclasses.replace(f, equity=99_900.0)) == ["exposure"]
+    assert gates(dataclasses.replace(f, sized_equity=99_900.0)) == ["exposure"]
+
+
+def test_a_plan_that_takes_gross_down_passes_even_above_the_cap():
+    # held 200,000 gross (2.0x); the plan cuts it to 190,000: still > 1.8x, but down
+    f = good(positions={"AAA": 10_000, "BBB": -5_000},
+             orders=(order("AAA", "sell", 500, cur=10_000), order("BBB", "buy", 250, cur=-5_000)),
+             buying_power=1e9, current_gross=200_000.0, maintenance_margin=60_000.0)
+    assert gates(f) == []
+
+
+def test_a_plan_that_adds_gross_past_the_cap_is_still_refused():
+    # held 170,000; the plan adds 20,000 -> 190,000 > 180,000 and > held
+    f = good(positions={"AAA": 8_500, "BBB": -4_250},
+             orders=(order("AAA", "buy", 2_000, cur=8_500),),
+             buying_power=1e9, current_gross=170_000.0, maintenance_margin=51_000.0)
+    r = [x for x in gt.evaluate(f) if x.gate == "exposure"]
+    assert len(r) == 1 and "sized on" in r[0].detail and "adds to the gross" in r[0].detail
+
+
+def test_stress_breach_edges():
+    assert gt.stress_breach(180.0, 0.0, 1.8, 100.0, 100.0) is None          # at the cap: inside
+    assert gt.stress_breach(180.01, 0.0, 1.8, 100.0, 100.0)                  # past it, from flat
+    assert gt.stress_breach(190.0, 190.0, 1.8, 100.0, 100.0) is None        # past it, adds nothing
+    assert gt.stress_breach(190.0, 189.99, 1.8, 100.0, 100.0)               # past it, adds a cent
+    assert gt.stress_breach(1e9, 0.0, None, 100.0, 100.0) is None           # spec key absent
+
+
+def test_stress_cap_is_on_the_lower_of_sized_and_live_equity():
+    """Team lead's ruling 2026-10-11 (release-check review): equity 4% under the sized
+    equity by the send; a plan that adds gross is held to 1.8 x LIVE, not 1.8 x sized.
+    A plan that does not add gross still always passes; live above sized changes nothing."""
+    assert gt.stress_breach(175.0, 0.0, 1.8, 100.0, 96.0)                       # 175 > 172.8
+    assert "live equity" in gt.stress_breach(175.0, 0.0, 1.8, 100.0, 96.0)
+    assert gt.stress_breach(172.8, 0.0, 1.8, 100.0, 96.0) is None               # at the live cap
+    assert gt.stress_breach(175.0, 176.0, 1.8, 100.0, 96.0) is None             # takes gross down
+    assert gt.stress_breach(180.0, 0.0, 1.8, 100.0, 110.0) is None              # sized is lower
+    assert "sized on" in gt.stress_breach(180.01, 0.0, 1.8, 100.0, 110.0)
+
+
+def test_fit_scales_an_adding_plan_to_the_live_cap_when_equity_has_fallen():
+    """The other half of the ruling: the send's re-fit reads the same rule, so equity
+    down 4% since decide scales an adding plan to 1.8 x live instead of refusing it."""
+    from quantt.session import run as rn
+    o = (order("AAA", "buy", 9_000, cur=0), order("BBB", "sell", 4_500, cur=0))     # 90k + 90k
+    closes = {"AAA": 10.0, "BBB": 20.0}
+    out, kept, why = rn.fit_to_buying_power(o, {}, closes, 96_000.0, 1e9, 0.0, 0.0,
+                                            max_gross_stress=1.8, sized_equity=100_000.0)
+    assert why == "max_gross_stress (on the lower of sized and live equity)"
+    assert gt.gate_exposure(out, {}, closes, 96_000.0, 1e9, 1e12, 1.8, sized_equity=100_000.0,
+                            current_gross=0.0, maintenance_margin=0.0) == []
+    gross = sum(x.qty * closes[x.symbol] for x in out)
+    assert 0 < gross <= 1.8 * 96_000.0
 
 
 def test_gross_counts_held_positions_after_orders():

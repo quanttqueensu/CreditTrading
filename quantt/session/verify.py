@@ -219,6 +219,22 @@ def read_orders_jsonl(path: Path) -> dict:
     return out
 
 
+# A no-trade day is EXPLAINED (PASS) only when a human chose it: DRY_RUN, no
+# arming (no approval for that day and no AUTO_ARMED), or a halt. Any other
+# refusal -- exposure, data, shortability, sanity, clock, a set already at the
+# broker -- means the book should have traded and did not. That is a FAIL.
+# WHY (team lead 2026-10-09): on 2026-10-09 the exposure gate refused both
+# sends, and the verify line read "PASS cef no trade: refused at send: ...".
+# Nobody saw it until the team lead asked how Friday went. A missed day must
+# never read as a pass.
+DELIBERATE_GATES = frozenset({"dry_run", "arming", "halt"})
+
+
+def _missed(texts: list[str], where: str) -> str:
+    return (f"MISSED: the book should have traded and did not: refused {where}: "
+            + "; ".join(texts))
+
+
 def _refusal_text(r) -> str:
     """run.py records a refusal as {"gate", "detail"}; anything else is refused."""
     if not (isinstance(r, dict) and isinstance(r.get("gate"), str)
@@ -234,11 +250,13 @@ def no_trade_reason(plan: dict, day: dt.date, book: str) -> tuple[str | None, st
     gates, and overwritten by later runs the same day until STARTED exists
     (`quantt/session/records.py`). Its fields read here: `book`,
     `session_date`, `mode` (run|preview), `orders`, `refusals`
-    ([{"gate", "detail"}]). The explanation is the plan's own refusals, or an
-    empty order list. A plan that HAS orders and NO refusal but no STARTED is
-    not an explanation: either only a `--preview` ran (nothing was ever going
-    to trade) or the session stopped between deciding and recording, the one
-    place a crash is dangerous. Both are FAIL.
+    ([{"gate", "detail"}]). The explanation is the plan's own refusals, when one
+    of them is a human's choice (DELIBERATE_GATES), or an empty order list. Any
+    other refusal is a missed day: FAIL (2026-10-09). A plan that HAS orders and
+    NO refusal but no STARTED is not an explanation either: either only a
+    `--preview` ran (nothing was ever going to trade) or the session stopped
+    between deciding and recording, the one place a crash is dangerous. Both
+    are FAIL.
     """
     missing = [k for k in ("book", "session_date", "mode", "orders", "refusals") if k not in plan]
     if missing:
@@ -253,7 +271,9 @@ def no_trade_reason(plan: dict, day: dt.date, book: str) -> tuple[str | None, st
         return None, "plan.json orders is not a list"
     texts = [_refusal_text(r) for r in refusals]
     if texts:
-        return "refused: " + "; ".join(texts), None
+        if {r["gate"] for r in refusals} & DELIBERATE_GATES:
+            return "refused: " + "; ".join(texts), None
+        return None, _missed(texts, "when the plan was decided")
     if not orders:
         return "the plan had no orders", None
     if plan["mode"] == "preview":
@@ -270,7 +290,8 @@ def late_no_trade_reason(plan: dict, send: dict | None, day: dt.date,
     send.json with its own refusals. A day with no STARTED is explained by the
     plan's refusals (not decided), an empty plan, or the send's refusals. A
     decided plan with orders and NO send record means no send ran in the window
-    (machine asleep or offline): FAIL, saying so."""
+    (machine asleep or offline): FAIL, saying so. A send refused by anything but
+    a human's choice (DELIBERATE_GATES) is a missed day: FAIL (2026-10-09)."""
     if plan.get("status") != "decided":
         return no_trade_reason(plan, day, book)
     if not plan.get("orders"):
@@ -278,17 +299,18 @@ def late_no_trade_reason(plan: dict, send: dict | None, day: dt.date,
     if send is None:
         return None, (f"plan decided with {len(plan['orders'])} order(s) but no send ran in "
                       f"the late window {plan.get('send_window')} (machine asleep or offline?)")
-    texts = [_refusal_text(r) for r in send.get("refusals") or []]
-    others = [r for r in send.get("refusals") or [] if r["gate"] != "clock"]
-    if send.get("budget_short") and not others:
-        # Release-check #6: a set refused only because the window had too little
-        # time left for it (gate.gate_late_send_budget) is a day the book should
-        # have traded and did not. That is a FAIL. Release-check #7: if a halt, a
-        # dry run or the arming gate also refused, that explains the no-trade
-        # day, and every refusal (the budget one included) is listed below.
-        return None, f"refused at send for time: {send['budget_short']}"
-    if texts:
+    refusals = send.get("refusals") or []
+    texts = [_refusal_text(r) for r in refusals]
+    if texts and {r["gate"] for r in refusals} & DELIBERATE_GATES:
+        # Release-check #7: a halt, a dry run or the arming gate explains the
+        # no-trade day, and every refusal (a budget one included) is listed.
         return "refused at send: " + "; ".join(texts), None
+    if send.get("budget_short") and all(r["gate"] == "clock" for r in refusals):
+        # Release-check #6: a set refused only because the window had too little
+        # time left for it (gate.gate_late_send_budget).
+        return None, f"MISSED: refused at send for time: {send['budget_short']}"
+    if texts:
+        return None, _missed(texts, "at send")
     if send.get("exit") == "NOTHING_TO_SEND":
         return "nothing left to send (every order skipped at send: " + \
             "; ".join(send.get("skipped") or []) + ")", None
