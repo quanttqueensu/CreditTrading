@@ -87,3 +87,29 @@ def test_measured_proxies_are_scored_only_on_their_window():
     assert not rmc.in_domain("P0", "live fit 2013-06..2022")
     assert not rmc.in_domain("P0+", "2015-19")
     assert rmc.in_domain("P3", "2015-19")
+
+
+def test_circular_bootstrap_is_centred_where_the_w4_scheme_is_not():
+    """The 2026-10-12 correction, pinned. A series whose ends differ from its middle
+    (the measured-borrow window's shape: high at both ends, low between) pulls a
+    bootstrap that under-samples the ends; the circular scheme stays centred on the
+    sample mean. W4's function is unchanged and still shows the bias."""
+    import numpy as np
+    import pandas as pd
+    from scripts.cef.w4_artifacts import block_boot_t
+    v = np.full(330, -1.0)
+    v[:19] = 5.0
+    v[-19:] = 5.0
+    x = pd.Series(v)
+    lo, hi = rmc.circular_block_ci(x)
+    _, lo4, hi4 = block_boot_t(x)
+    m = x.mean()
+    assert abs((lo + hi) / 2 - m) < abs((lo4 + hi4) / 2 - m)
+    assert lo < m < hi
+    assert (lo4 + hi4) / 2 < m, "W4's scheme under-samples the high ends: centred low"
+
+
+def test_circular_bootstrap_refuses_a_series_too_short_for_its_blocks():
+    import pandas as pd
+    with pytest.raises(ValueError, match="fewer than three"):
+        rmc.circular_block_ci(pd.Series(range(30), dtype=float))

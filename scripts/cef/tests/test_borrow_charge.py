@@ -21,6 +21,20 @@ import pytest
 
 from scripts.cef import band_frontier as BF
 
+# THE PUBLISHED CONVENTIONS, AS LITERALS (independent review, 2026-10-12). IBKR's
+# Borrow Fee Details guide and Alpaca's fee schedule (revised 2026-10-01) both
+# accrue fee x 102% collateral / 360 per calendar day (docs/REFERENCES.md §4,
+# §12g). The expected values below are built from these literals, NOT from the
+# module's constants, so editing a constant in band_frontier.py fails a test
+# instead of silently moving every expectation with it.
+MARKUP = 1.02
+DAY_COUNT = 360
+
+
+def test_the_published_constants_are_pinned():
+    assert BF.BORROW_COLLATERAL_MARKUP == MARKUP
+    assert BF.BORROW_DAY_COUNT == DAY_COUNT
+
 
 def _book(n=12, start="2021-03-01"):
     idx = pd.bdate_range(start, periods=n)          # 2021-03-01 is a Monday
@@ -41,7 +55,7 @@ def test_charge_starts_two_sessions_after_the_decision():
     c = out["cost"]
     assert (c.iloc[:k + 2] == 0).all(), "charged before the short was filled"
     days = pd.Series(idx, index=idx).diff().dt.days
-    exp = 0.5 * 0.10 * BF.BORROW_COLLATERAL_MARKUP * days / BF.BORROW_DAY_COUNT
+    exp = 0.5 * 0.10 * MARKUP * days / DAY_COUNT
     assert np.allclose(c.iloc[k + 2:], exp.iloc[k + 2:])
     # the short it bills is exactly the short evaluate() earns on
     held = (-H.shift(2).fillna(0.0)).clip(lower=0).sum(axis=1)
@@ -52,7 +66,7 @@ def test_a_weekend_row_is_three_days():
     idx, H = _book()
     H.iloc[:, 0] = -1.0
     c = BF.borrow_charge(H, _fees(idx))["cost"]
-    one = 1.0 * 0.10 * BF.BORROW_COLLATERAL_MARKUP / BF.BORROW_DAY_COUNT
+    one = 1.0 * 0.10 * MARKUP / DAY_COUNT
     mondays = [i for i, d in enumerate(idx) if d.dayofweek == 0 and i >= 2]
     others = [i for i, d in enumerate(idx) if d.dayofweek != 0 and i >= 2]
     assert mondays and others
@@ -69,7 +83,7 @@ def test_the_fee_in_force_is_the_previous_sessions():
     fee.iloc[m:, 0] = 30.0
     c = BF.borrow_charge(H, fee)["cost"]
     days = pd.Series(idx, index=idx).diff().dt.days
-    unit = BF.BORROW_COLLATERAL_MARKUP * days / BF.BORROW_DAY_COUNT
+    unit = MARKUP * days / DAY_COUNT
     assert np.isclose(c.iloc[m], 0.10 * unit.iloc[m])
     assert np.isclose(c.iloc[m + 1], 0.30 * unit.iloc[m + 1])
 
@@ -80,7 +94,7 @@ def test_longs_pay_nothing():
     H.iloc[:, 1] = -0.2
     out = BF.borrow_charge(H, _fees(idx, a=50.0, b=10.0))
     days = pd.Series(idx, index=idx).diff().dt.days
-    exp = 0.2 * 0.10 * BF.BORROW_COLLATERAL_MARKUP * days / BF.BORROW_DAY_COUNT
+    exp = 0.2 * 0.10 * MARKUP * days / DAY_COUNT
     assert np.allclose(out["cost"].iloc[2:], exp.iloc[2:])
 
 
@@ -113,3 +127,39 @@ def test_a_name_with_no_fee_source_raises():
     idx, H = _book()
     with pytest.raises(ValueError, match="no column"):
         BF.borrow_charge(H, pd.DataFrame({"A": 1.0}, index=idx))
+
+
+def test_default_collateral_is_the_flat_markup_not_a_round_up():
+    """collateral_px=None must be the behaviour the gate was first run with."""
+    idx, H = _book()
+    H.iloc[:, 0] = -1.0
+    flat = BF.borrow_charge(H, _fees(idx))["cost"]
+    days = pd.Series(idx, index=idx).diff().dt.days
+    assert np.allclose(flat.iloc[2:], (0.10 * MARKUP * days / DAY_COUNT).iloc[2:])
+
+
+def test_per_share_round_up_uses_the_prior_close():
+    """ceil(1.02 * P[t-1]) / P[t-1]: PHK-like $4.13 -> $5 collateral, $50 -> $51.
+
+    $50 is an exact multiple: 1.02 * 50 is $51 of collateral, not $52."""
+    idx, H = _book()
+    H.iloc[:, 0] = -1.0
+    H.iloc[:, 1] = -1.0
+    px = pd.DataFrame({"A": 4.13, "B": 50.0}, index=idx)
+    px.iloc[5:, 0] = 10.04                           # prior close changes on session 5
+    out = BF.borrow_charge(H, _fees(idx), collateral_px=px)
+    days = pd.Series(idx, index=idx).diff().dt.days
+    unit = 0.10 * days / DAY_COUNT
+    assert np.isclose(out["cost"].iloc[5], unit.iloc[5] * (5 / 4.13 + 51 / 50.0))
+    assert np.isclose(out["cost"].iloc[6], unit.iloc[6] * (11 / 10.04 + 51 / 50.0))
+    assert out["covered_share"] == 1.0
+
+
+def test_a_missing_prior_close_is_a_gap_under_the_round_up():
+    idx, H = _book()
+    H.iloc[:, 0] = -1.0
+    px = pd.DataFrame({"A": 10.0, "B": 10.0}, index=idx)
+    px.iloc[4, 0] = np.nan                           # bills row 5
+    out = BF.borrow_charge(H, _fees(idx), collateral_px=px)
+    assert np.isclose(out["uncovered"].iloc[5], 1.0)
+    assert out["cost"].iloc[5] == 0.0

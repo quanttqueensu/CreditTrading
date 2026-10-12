@@ -73,7 +73,9 @@ from scripts.cef.band_frontier import (  # noqa: E402
     fit_only, total_returns,
 )
 from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS, UNIVERSE, summary  # noqa: E402
-from scripts.cef.w4_artifacts import _assert_fit, block_boot_t, nw_t  # noqa: E402
+from scripts.cef.w4_artifacts import (  # noqa: E402
+    BOOT_BLOCK, BOOT_REPS, SEED, _assert_fit, block_boot_t, nw_t,
+)
 
 CACHE = REPO / "results" / "cef" / "real_money_costs" / "_cache_rmc"   # gitignored
 PROBE_DIR = REPO / "results" / "ops" / "alpaca_probe"
@@ -95,6 +97,36 @@ TAF_PER_SHARE_SOLD = 0.0                # FINRA TAF, sells: "$0 per share"
 
 def hr(title: str) -> None:
     print("\n" + "=" * 100 + f"\n{title}\n" + "=" * 100)
+
+
+def circular_block_ci(x: pd.Series, block=BOOT_BLOCK, reps=BOOT_REPS, seed=SEED):
+    """95% interval of the MEAN from a circular moving-block bootstrap.
+
+    WHY NOT W4's `block_boot_t` (corrected 2026-10-12, independent review of
+    8b80e26). That function draws block starts from [0, n - block], so the first
+    and last block-1 sessions appear in fewer resamples than the middle ones and
+    the resampled means are centred off the sample mean whenever the ends differ
+    from the middle. In the measured-borrow window they do: the first and last 19
+    sessions netted about +10 and +13%/yr against about -5.5 in between, which
+    pulled that interval about 1.5pp low and made [-16.1, -1.3] at 15bp look as
+    if it excluded zero. Wrapping the blocks around the end (Politis and Romano's
+    circular scheme) gives every session the same inclusion probability, so the
+    interval is centred on the sample mean. W4's function is left exactly as it
+    is: its published intervals were computed with it, and the non-circular
+    interval is still printed beside this one so the difference stays visible.
+
+    Same block length, replications and seed as W4's, so only the scheme differs.
+    Returns (lo, hi) of the mean, per session (annualise with x 252)."""
+    v = x.dropna().values
+    n = len(v)
+    if n < 3 * block:
+        raise ValueError(f"{n} observations is fewer than three {block}-session blocks")
+    rng = np.random.default_rng(seed)
+    nb = int(np.ceil(n / block))
+    starts = rng.integers(0, n, size=(reps, nb))
+    idx = ((starts[:, :, None] + np.arange(block)[None, None, :]) % n).reshape(reps, -1)[:, :n]
+    means = v[idx].mean(axis=1)
+    return float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))
 
 
 # --------------------------------------------------------------------------- §0 panels
@@ -126,6 +158,9 @@ class Book:
         _assert_fit(self.T, self.R_px, self.R_tr, self.H)
         self.tr = evaluate(self.H, self.R_tr)
         self.px = evaluate(self.H, self.R_px)
+        # raw closes on the fit index: only the per-share collateral round-up
+        # sensitivity reads them (prices, not returns; truncated at FIT_END)
+        self.close = build_panel(end=FIT_END)["px"][list(UNIVERSE)].reindex(self.H.index)
         self.pnl, self.turn = self.tr["pnl"], self.tr["turn_series"]
         self.live0 = self.pnl.index[self.pnl.ne(0)].min()
         held = self.H.shift(2).fillna(0.0)     # the book evaluate() earns on
@@ -275,11 +310,19 @@ def sec_borrow_inputs(F: pd.DataFrame) -> None:
     snapf, lab = ibkr_file_snapshot()
     print(f"\nIBKR public shortstock file, today: {lab}")
     if snapf is not None:
-        print(f"  {'name':<6}{'fee%':>8}{'rebate%':>9}{'available':>12}")
+        # Beside it, the end of the FEE_RATE history (added 2026-10-12, independent
+        # review): "today's regime" is not uniform across names -- a name can sit
+        # at a high fee for weeks while the cross-name mean is low.
+        tail = F.tail(15)
+        print(f"  {'name':<6}{'fee%':>8}{'rebate%':>9}{'available':>12}"
+              f"{'FEE_RATE last':>15}{'on':>12}{'last-15 mean':>14}{'last-15 min':>13}")
         for s in UNIVERSE:
             r = snapf.loc[s] if s in snapf.index else None
+            col = F[s].dropna()
             print(f"  {s:<6}" + ("   not in file" if r is None else
-                                 f"{r.fee_rate_pct:8.2f}{r.rebate_rate_pct:9.2f}{r.available:12,.0f}"))
+                                 f"{r.fee_rate_pct:8.2f}{r.rebate_rate_pct:9.2f}{r.available:12,.0f}")
+                  + f"{col.iloc[-1]:15.2f}{str(col.index[-1].date()):>12}"
+                  + f"{tail[s].mean():14.2f}{tail[s].min():13.2f}")
     flags = alpaca_flags()
     print("\nAlpaca borrow_status (asset flags; true on their date only):")
     names = sorted(set().union(*[set(f) for _, f in flags])) if flags else []
@@ -307,11 +350,12 @@ def const_fee(index, values: dict) -> pd.DataFrame:
     return pd.DataFrame({k: float(v) for k, v in values.items()}, index=index)
 
 
-MEASURED_ONLY = {"P0", "P0+"}     # defined only where the FEE_RATE history exists
+MEASURED_ONLY = {"P0", "P0+", "P0r"}   # defined only where the FEE_RATE history exists
+ROUNDUP = {"P0r"}                        # charged with the per-share collateral round-up
 
 
 def in_domain(key: str, window_label: str) -> bool:
-    """P0/P0+ are measurements, so they are scored only on the window the history
+    """P0/P0+/P0r are measurements, so they are scored only on the window the history
     covers; every other proxy is a schedule and applies to every window."""
     return key not in MEASURED_ONLY or window_label == "measured-borrow window"
 
@@ -326,6 +370,9 @@ def proxies(B: Book, F: pd.DataFrame) -> list[tuple[str, str, pd.DataFrame | Non
       P0   what the book paid where it was measured (the only measurement);
       P0+  the same, with the 1% of short name-days that lack a fee carried
            forward -- an assumption, shown so the reader can see it does not matter;
+      P0r  P0 with collateral rounded up to the next dollar PER SHARE, the reading
+           of the brokers' "rounded up to the nearest dollar" that costs most
+           ([U]: per share or per position is not settled by either source);
       P1   "what if 2021-22's fee level had held throughout";
       P2   the 2021-26 mean by name: the rule docs/BRIEF.md H4 prescribes for rows
            before the history starts, labelled there as an assumption;
@@ -345,6 +392,8 @@ def proxies(B: Book, F: pd.DataFrame) -> list[tuple[str, str, pd.DataFrame | Non
            ("P0+", "P0 with gaps carried from the last measured fee [assumption]",
             F.reindex(columns=B.H.columns).reindex(F.index.union(idx)).ffill()
              .loc[F.index.min():]),
+           ("P0r", "P0 with collateral rounded up per share [sensitivity, U]",
+            F.reindex(columns=B.H.columns)),
            ("P1", "const: name's FEE_RATE mean 2021-09..2022 [counterfactual]",
             const_fee(idx, F.loc[:FIT_END].mean().to_dict())),
            ("P2", "const: name's FEE_RATE mean 2021-09..2026-09 [counterfactual]",
@@ -388,7 +437,7 @@ def sec_borrow(B: Book, F, wins, P) -> dict:
         if fee is None:
             print(f"{key:<6}{lab}")
             continue
-        ch = borrow_charge(B.H, fee)
+        ch = borrow_charge(B.H, fee, collateral_px=B.close if key in ROUNDUP else None)
         charges[key] = ch
         print(f"{key:<6}{lab}")
         for wl, a, b in wins:
@@ -519,7 +568,7 @@ def sec_execution(states: list[Path]) -> dict:
     print("\nSession census (every day folder with a plan):")
     for d in days:
         n = len(F[F.day == d])
-        print(f"  {d}  {modes.get(d, '?'):<12} {'fills ' + str(n) if n else 'no fills'}")
+        print(f"  {d}  {modes.get(d, '?'):<12} {'fills ' + str(n) if n else 'no fills in these records'}")
     rows = []
     for day, g in F.groupby("day"):
         syms = sorted(g.symbol.unique())
@@ -666,11 +715,14 @@ def sec_gate(B: Book, wins, P, charges, X, F) -> None:
     cols = exec_columns(B, X)
     pick = [c for c in cols if c[0] in ("MOC", "hs", "15bp", "30bp")]
     gate_w = [w for w in wins if w[0] in ("live fit 2013-06..2022", "measured-borrow window")]
-    print("Net %/yr with three standard errors of the mean: iid t, Newey-West(5) t, and a "
-          "moving-block bootstrap (20 sessions, 2,000 reps) 95% interval of the annualised "
-          "mean. 'POS' = point estimate > 0; 'CI>0' = the bootstrap interval excludes zero.\n")
+    print("Net %/yr with three measures of its uncertainty: iid t, Newey-West(5) t, and a "
+          "CIRCULAR moving-block bootstrap (20 sessions, 2,000 reps) 95% interval of the "
+          "annualised mean. The verdict uses the circular interval. 'W4 block' is W4's "
+          "non-circular bootstrap, shown only so the 2026-10-12 correction stays visible "
+          "(see circular_block_ci). 'POS' = point estimate > 0; 'CI>0' / 'CI<0' = the "
+          "circular interval excludes zero.\n")
     print(f"  {'proxy':<6}{'window':<26}{'exec':>7}{'net%/yr':>9}{'t iid':>7}{'t NW':>7}"
-          f"{'boot 95% CI':>18}{'verdict':>13}")
+          f"{'circular 95% CI':>18}{'W4 block CI':>18}{'verdict':>13}")
     for key, lab, fee in P:
         if key not in charges:
             continue
@@ -680,25 +732,29 @@ def sec_gate(B: Book, wins, P, charges, X, F) -> None:
             for cl, c in pick:
                 x = net_series(B, charges[key]["cost"], c).loc[a:b]
                 ti = x.mean() / x.std() * np.sqrt(len(x))
-                tb, lo, hi = block_boot_t(x)
+                lo, hi = circular_block_ci(x)
+                _, lo4, hi4 = block_boot_t(x)
                 v = ("POS" if x.mean() > 0 else "NOT POS") + (" CI>0" if lo > 0 else
                                                               (" CI<0" if hi < 0 else ""))
+                ci = lambda a_, b_: "[" + f"{a_ * 252 * 100:.1f}, {b_ * 252 * 100:.1f}" + "]"
                 print(f"  {key:<6}{wl:<26}{cl:>7}{x.mean() * 252 * 100:9.2f}{ti:7.2f}"
-                      f"{nw_t(x):7.2f}{'[' + f'{lo * 252 * 100:.1f}, {hi * 252 * 100:.1f}' + ']':>18}"
-                      f"{v:>13}")
+                      f"{nw_t(x):7.2f}{ci(lo, hi):>18}{ci(lo4, hi4):>18}{v:>13}")
         print()
     # breakevens: no number from a document, both computed here
     print("Breakevens (computed now, H14):")
-    one = borrow_charge(B.H, const_fee(B.H.index, {s: 1.0 for s in UNIVERSE}))["cost"]
-    print(f"  {'window':<26}{'gross%':>8}{'turn/yr':>8}{'drag per 1%fee':>15}"
+    unit = const_fee(B.H.index, {s: 1.0 for s in UNIVERSE})
+    one = borrow_charge(B.H, unit)["cost"]
+    one_r = borrow_charge(B.H, unit, collateral_px=B.close)["cost"]
+    print(f"  {'window':<26}{'collateral':<22}{'gross%':>8}{'turn/yr':>8}{'drag per 1%fee':>15}"
           f"{'f* @MOC':>9}{'f* @15bp':>9}   (f* = uniform borrow fee, %/yr, at which net = 0)")
     for wl, a, b in gate_w:
         g = B.pnl.loc[a:b].mean() * 252
         t = B.turn.loc[a:b].mean() * 252
-        d1 = one.loc[a:b].mean() * 252
-        fm = (g - t * cols[0][1] / 1e4) / d1
-        f15 = (g - t * 15 / 1e4) / d1
-        print(f"  {wl:<26}{g * 100:8.2f}{t:8.1f}{d1 * 100:15.3f}{fm:9.2f}{f15:9.2f}")
+        for clab, unit_cost in (("flat 102%", one), ("per-share round-up [U]", one_r)):
+            d1 = unit_cost.loc[a:b].mean() * 252
+            fm = (g - t * cols[0][1] / 1e4) / d1
+            f15 = (g - t * 15 / 1e4) / d1
+            print(f"  {wl:<26}{clab:<22}{g * 100:8.2f}{t:8.1f}{d1 * 100:15.3f}{fm:9.2f}{f15:9.2f}")
     # the fee the measured window actually paid, per unit of short book
     m0 = [w for w in gate_w if w[0] == "measured-borrow window"][0][1]
     paid = charges["P0"]["cost"].loc[m0:FIT_END].mean() / one.loc[m0:FIT_END].mean()
@@ -727,6 +783,29 @@ def sec_gate(B: Book, wins, P, charges, X, F) -> None:
               f"{(v > fstar['15bp']).mean():10.0%}")
     print(f"  {'all':<6}{len(idx_fee):6d}{idx_fee.mean():10.2f}{(idx_fee > fstar['MOC']).mean():10.0%}"
           f"{(idx_fee > fstar['15bp']).mean():10.0%}")
+
+    # WHICH BREAKEVEN (added 2026-10-12, independent review): the table above uses the
+    # 2013-22 breakeven, the book's long-run edge (its gross and turnover over nine and a
+    # half years). The measured window earned unusually well (gross ~1.5x the long run),
+    # so its own breakeven is higher. Both are shown; neither is picked silently.
+    wa, wb = m0, FIT_END
+    wh = (-B.H.shift(2).fillna(0.0)).clip(lower=0).loc[wa:wb].mean()
+    ww = wh / wh.sum()
+    wuse = ww[ww > 0].index
+    wfull = F[wuse].dropna()
+    widx = (wfull * ww[wuse]).sum(axis=1)
+    gw = B.pnl.loc[wa:wb].mean() * 252
+    tw = B.turn.loc[wa:wb].mean() * 252
+    dw = one.loc[wa:wb].mean() * 252
+    fw = {"MOC": (gw - tw * cols[0][1] / 1e4) / dw, "15bp": (gw - tw * 15 / 1e4) / dw}
+    print("\n  Share of FEE_RATE dates above the breakeven, by which breakeven and which "
+          "short-book composition:")
+    print(f"  {'composition':<28}{'breakeven from':<24}{'f*@MOC':>8}{'share':>7}"
+          f"{'f*@15bp':>9}{'share':>7}{'dates':>7}")
+    for comp, series in (("2013-22 short book", idx_fee), ("measured-window short book", widx)):
+        for blab, fs in (("2013-22 (long run)", fstar), ("measured window", fw)):
+            print(f"  {comp:<28}{blab:<24}{fs['MOC']:8.2f}{(series > fs['MOC']).mean():7.0%}"
+                  f"{fs['15bp']:9.2f}{(series > fs['15bp']).mean():7.0%}{len(series):7d}")
 
     print(f"\n  {'proxy':<6}{'window':<26}{'c* bp/unit turnover (net = 0 after this borrow)':>50}")
     for key, lab, fee in P:

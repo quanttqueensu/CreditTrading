@@ -21,14 +21,55 @@ session by that script, unless labelled otherwise. The calls the script makes ar
 read-only: Alpaca market data (closing-auction prints, SIP quotes), asset flags and
 the account's fill activities, plus IBKR's public shortstock file.
 
+> **Corrections and additions, 2026-10-12 (independent review of commit 8b80e26).**
+> The review re-derived the verdict by its own loop (−3.51%/yr at MOC, 13.11%
+> borrow, 328 sessions) and found five things. Each is fixed below, in place:
+>
+> 1. **The bootstrap was not centred.** The first version used W4's
+>    `block_boot_t`, which draws block starts from [0, n−20] and so under-samples
+>    the first and last 19 sessions. In the measured window those sessions
+>    netted far above the middle, so every interval sat about 1–1.5pp low. Two
+>    statements were false as a result. The first read "The interval includes
+>    zero at MOC and at the half-spread, and **excludes it at 15bp** and 30bp";
+>    with a circular block bootstrap the 15bp interval is [−15.0, +1.0] and
+>    includes zero. The second read "The iid and Newey–West t **agree with the
+>    bootstrap in every row**"; they did not where the old interval excluded zero
+>    at |t| ≈ 1.4. Every interval in this note is now circular
+>    (`circular_block_ci`), the Newey–West t sits beside each, and the script
+>    still prints W4's interval beside it so the difference stays visible. The
+>    verdict does not change: the point estimate is negative under every
+>    execution assumption.
+> 2. **The collateral round-up was ignored.** Both brokers mark collateral at
+>    102% "rounded up to the nearest dollar". Whether that is per share or per
+>    position is [U]. Read per share it raises the measured borrow to 13.66%/yr
+>    and lowers the net at MOC to −4.06%/yr. It is now a labelled sensitivity
+>    (P0r, and a round-up row in the breakevens). The tests pin 1.02 and 360 as
+>    literals.
+> 3. **Three items added to "What would change the verdict":** where the fee
+>    history's start date comes from; the sealed 2023–26 period; and HYT's
+>    10.56% fee in late 2026.
+> 4. **Scope added.** The −3.5%/yr describes an IBKR-like account. In a
+>    high-fee regime the Alpaca book would more likely fail to open its shorts
+>    than pay the fee.
+> 5. **Which breakeven the "58% of dates" uses**, and the alternative, are now
+>    stated.
+
 **What changed in the harness.** One additive function, `borrow_charge()` in
 `scripts/cef/band_frontier.py`. It charges each short its fee on the book
 `evaluate()` holds (`H.shift(2)`), at the fee of session *t*−1, per calendar day
 /360 on 102% collateral. Those are IBKR's and Alpaca's published conventions
 (`docs/REFERENCES.md` §4, §12g). A missing fee is returned as uncovered short
-weight, never charged zero. `evaluate()` is untouched. Tests:
-`scripts/cef/tests/test_borrow_charge.py`, checked to fail with `shift(1)` and with a
-silent zero; `scripts/cef/tests/test_real_money_costs.py`.
+weight, never charged zero. An optional `collateral_px` applies the per-share
+round-up as a sensitivity. The default is the flat 102%, and the default output
+was shown to be identical to the first version's. `evaluate()` is untouched.
+
+Tests:
+
+- `scripts/cef/tests/test_borrow_charge.py` was checked to fail with
+  `shift(1)`, with a silent zero, and with a changed day count. It pins 1.02 and
+  360 as literals.
+- `scripts/cef/tests/test_real_money_costs.py` includes a test that the
+  circular bootstrap is centred where W4's scheme is not.
 
 **Panels** (read-only; the run printed these dates):
 
@@ -74,18 +115,23 @@ The only window where borrow is measured by name and date is 2021-09-14 →
 2022-12-30: 328 sessions, with a fee on 98.8% of the short book. In it, the
 deployed book loses money net of measured costs:
 
-| net of measured borrow, 2021-09-14 → 2022-12-30 | %/yr | t (iid / NW) | block-bootstrap 95% CI |
+| net of measured borrow, 2021-09-14 → 2022-12-30 | %/yr | t (iid / NW) | circular block-bootstrap 95% CI |
 |---|---:|---:|---|
 | gross, total returns (the headline) | **+9.63** (SR 1.57) | | |
 | measured borrow (IBKR FEE_RATE by name-date) | −13.11 | | |
-| net, MOC at the print (regulatory fees only, 0.106bp) | **−3.51** | −0.65 / −0.64 | [−12.6, +3.3] |
-| net, measured paper half-spread (6.01bp) | −5.10 | −0.94 / −0.94 | [−14.0, +1.6] |
-| net, 15bp | −7.53 | −1.39 / −1.41 | [−16.1, −1.3] |
-| net, 30bp | −11.57 | −2.13 / −2.19 | [−19.8, −5.6] |
+| net, MOC at the print (regulatory fees only, 0.106bp) | **−3.51** | −0.65 / −0.64 | [−11.5, +5.6] |
+| net, measured paper half-spread (6.01bp) | −5.10 | −0.94 / −0.94 | [−12.9, +3.8] |
+| net, 15bp | −7.53 | −1.39 / −1.41 | [−15.0, +1.0] |
+| net, 30bp | −11.57 | −2.13 / −2.19 | [−19.0, −3.1] |
+| *sensitivity: per-share collateral round-up [U]*, MOC | −4.06 (borrow −13.66) | −0.75 / −0.74 | [−12.0, +5.0] |
 
 The point estimate is negative under every execution assumption, including free
-execution. The interval includes zero at MOC and at the half-spread, and excludes
-it at 15bp and 30bp.
+execution. The circular interval includes zero at MOC, at the half-spread and at
+15bp, and excludes it only at 30bp. *(Corrected 2026-10-12: the first version
+said it excluded zero at 15bp too, on a bootstrap that was not centred; see the
+correction block above.)* On 328 sessions the measured window can show that the
+book **was not positive**. It cannot show that the book was significantly
+negative except at 30bp.
 
 **Borrow decides the gate. Execution does not.**
 
@@ -93,19 +139,28 @@ it at 15bp and 30bp.
   breakeven fee of **14.58%/yr** (at MOC).
 - Over the book's whole live history (2013-06 → 2022), the breakeven uniform
   fee is **10.25%/yr** at MOC and **6.93%/yr** at 15bp.
-- Priced at the five-year IBKR fee history, the book's typical short basket
-  paid more than the breakeven on **58% of dates**: every date in 2021 and 2023,
-  96% in 2022, 64% in 2024, and **none in 2025–26**.
+- Priced at the five-year IBKR fee history, the book's typical 2013–22 short
+  basket paid more than the 2013–22 breakeven (10.25% at MOC) on **58% of
+  dates**: every date in 2021 and 2023, 96% in 2022, 64% in 2024, and **none in
+  2025–26**. The figure uses the long-run breakeven because it reflects the
+  book's edge over nine and a half years, not its best fifteen months. Against
+  the measured window's own, higher breakeven (14.58%) the share is **44%**, or
+  **42%** with that window's short composition. The full table is in §5.
 
 **The book is positive net only in the fee regime of 2025–26, and nothing in it
 reacts to fees.**
 
 - At today's fee levels it is clearly positive on 2013–22: +5.46%/yr at
-  IBKR's recent FEE_RATE (CI [1.8, 8.9]), +5.73%/yr at today's IBKR file, and
-  +6.20%/yr at Alpaca's $0 for easy-to-borrow names (a lower bound on cost).
-- At the 2021–22 fee level it is clearly negative: −5.45%/yr, CI [−9.3, −1.9].
+  IBKR's recent FEE_RATE (NW t 2.73, CI [2.2, 9.2]), +5.73%/yr at today's IBKR
+  file, and +6.20%/yr at Alpaca's $0 for easy-to-borrow names (a lower bound on
+  cost).
+- At the 2021–22 fee level it is clearly negative: −5.45%/yr (NW t −2.70, CI
+  [−8.9, −1.7]).
 - At the 2021–26 average fee, the rule `docs/BRIEF.md` H4 prescribes for
-  pre-2021 rows, it is negative: −1.88%/yr, CI [−5.7, +1.7].
+  pre-2021 rows, it is negative: −1.88%/yr (NW t −0.93, CI [−5.3, +1.9]).
+- **These figures assume an IBKR-like account that pays the fee and keeps its
+  shorts.** On the Alpaca path a high-fee regime fails differently; see
+  "Scope" below.
 
 Execution has room to spare: today's fees leave a breakeven of 41–46bp per unit
 of turnover, against a measured paper half-spread of 6bp.
@@ -186,7 +241,17 @@ revised 2026-10-01; `docs/REFERENCES.md` §12g]:
   - A per-share **locate fee**, quoted by the Locates API, charged once and
     non-refundable.
   - A **daily borrow fee**: end-of-day short quantity rounded up to 100-share
-    lots, × prior close × 102%, × the annual rate / 360, for every calendar day.
+    lots, × "a per-share collateral value from the prior trading day's closing
+    price (adjusted by 102% and rounded up to the nearest dollar)", × the annual
+    rate / 360, for every calendar day.
+- **The round-up is ambiguous [U].** Alpaca's wording reads per share. IBKR's
+  guide says the market value is marked up to 102% and rounded up to the
+  nearest dollar, without saying whether per share or per position.
+  - Per position, the round-up is at most $1 and negligible.
+  - Per share, it is material on $4–15 funds: PHK at $4.13 carries $5 of
+    collateral, 21% more than the flat 102%.
+  - The base case here is the flat 102%. The per-share reading is sensitivity
+    P0r (below).
 - **Alpaca publishes no per-name HTB rate.** The locate-quote endpoint "is not
   available in paper trading" [V: API reference]. So **Alpaca's real-money HTB
   cost cannot be measured from the paper account**. It is a gap until a live
@@ -225,6 +290,7 @@ P1–P4 apply one fee level per name to every session, so they are counterfactua
 |---|---:|---:|---:|---:|---:|---|
 | **P0** IBKR FEE_RATE by name-date [measured] | — | — | — | — | **13.11** | 98.8% of the short book; the 31 uncovered name-days are not charged |
 | P0+ P0, gaps carried from the last fee [assumption] | — | — | — | — | 13.25 | 100% |
+| P0r P0, collateral rounded up per share [sensitivity, U] | — | — | — | — | 13.66 | 98.8% |
 | P1 each name's 2021-09 → 2022 mean | 4.06 | 11.24 | 11.48 | 11.65 | 12.84 | 100% |
 | P2 each name's 2021-09 → 2026-09 mean (`BRIEF` H4 rule) | 2.84 | 8.18 | 7.28 | 8.08 | 7.25 | 100% |
 | P3 each name's mean over the last 63 FEE_RATE dates | 0.17 | 0.66 | 0.97 | 0.74 | 1.05 | 100% |
@@ -251,8 +317,8 @@ largest single drag, sat at 22.5% a year.
   - 2026-09-30, 2026-10-01, 2026-10-07 and 2026-10-08: the paper `late_market`
     exception. That is 32 orders and 88 fills.
 - Sessions with a plan and no fills: 2026-10-02, 10-05 and 10-06 (the laptop was
-  asleep or offline), 2026-10-09 (refused at send), and 2026-10-12 (not yet sent
-  when this ran).
+  asleep or offline) and 2026-10-09 (refused at send). The VM copy was taken on
+  2026-10-11, so the 2026-10-12 session's fills are not in these records.
 - The records were read in place: the laptop's `~/quantt_state/cef` and the VM
   copy. They match a fresh broker read of `/v2/account/activities/FILL` fill for
   fill on all five days.
@@ -362,7 +428,7 @@ The rest of the net tables are in the output file:
 - P3f is slightly better than P3 (0.04–0.11 SR), because today's file fees are
   lower than the last-63-date FEE_RATE mean.
 - P4+ matches P4, and P5 equals P4.
-- P0 and P0+ exist only in the measured window (the verdict table above).
+- P0, P0+ and P0r exist only in the measured window (the verdict table above).
 - The "fit 2005–22" harness rows are diluted by the flat pre-2013 sessions.
 
 Under every low-fee proxy, 2020–22 at 30bp sits at about zero (−0.14 to +0.01).
@@ -370,28 +436,41 @@ That repeats W4's finding (+0.01 at 30bp, no borrow).
 
 ## 5. The gate, under each proxy (§6)
 
-Net %/yr on the book's live history 2013-06 → 2022 (2,398 sessions), with the
-block-bootstrap 95% CI (20-session blocks, 2,000 reps).
+The rows below are the book's live history 2013-06 → 2022 (2,398 sessions),
+except P0 and P0r, which cover the measured window only. Each cell is net %/yr,
+the Newey–West(5) t, and the **circular** block-bootstrap 95% interval (20-session
+blocks, 2,000 reps). *(Corrected 2026-10-12: the first version used W4's
+non-circular bootstrap; see the correction block at the top. The script prints
+both.)*
 
 | proxy | MOC | measured half-spread | 15bp | 30bp | verdict at MOC |
 |---|---|---|---|---|---|
-| P0 measured (window only, 328 sessions) | −3.51 [−12.6, +3.3] | −5.10 [−14.0, +1.6] | −7.53 [−16.1, −1.3] | −11.57 [−19.8, −5.6] | **not positive** |
-| P1 2021–22 level | −5.45 [−9.3, −1.9] | −6.24 [−10.1, −2.7] | −7.46 [−11.2, −4.0] | −9.48 [−13.2, −6.0] | **negative, CI < 0** |
-| P2 2021–26 mean (`BRIEF` H4) | −1.88 [−5.7, +1.7] | −2.68 [−6.5, +0.8] | −3.89 [−7.7, −0.4] | −5.91 [−9.7, −2.4] | **not positive** |
-| P3 IBKR recent | +5.46 [1.8, 8.9] | +4.66 [1.0, 8.1] | +3.45 [−0.2, 6.9] | +1.43 [−2.2, 4.8] | positive, CI > 0 |
-| P3f IBKR file today | +5.73 [2.1, 9.2] | +4.93 [1.3, 8.4] | +3.72 [0.1, 7.2] | +1.70 [−1.9, 5.1] | positive, CI > 0 |
-| P4 Alpaca today (lower bound) | +6.20 [2.5, 9.7] | +5.40 [1.8, 8.8] | +4.19 [0.6, 7.6] | +2.17 [−1.4, 5.6] | positive, CI > 0 |
-| P5 no borrow (paper) | +6.20 [2.5, 9.7] | +5.40 [1.8, 8.8] | +4.19 [0.6, 7.6] | +2.17 [−1.4, 5.6] | positive, CI > 0 |
+| P0 measured (window only, 328 sessions) | −3.51 (−0.64) [−11.5, +5.6] | −5.10 (−0.94) [−12.9, +3.8] | −7.53 (−1.41) [−15.0, +1.0] | −11.57 (−2.19) [−19.0, −3.1] | **not positive** |
+| P0r per-share round-up [U] (window) | −4.06 (−0.74) [−12.0, +5.0] | −5.65 (−1.05) [−13.5, +3.2] | −8.07 (−1.51) [−15.6, +0.5] | −12.12 (−2.29) [−19.5, −3.6] | **not positive** |
+| P1 2021–22 level | −5.45 (−2.70) [−8.9, −1.7] | −6.24 (−3.11) [−9.6, −2.5] | −7.46 (−3.72) [−10.8, −3.8] | −9.48 (−4.73) [−12.9, −5.9] | **negative, CI < 0** |
+| P2 2021–26 mean (`BRIEF` H4) | −1.88 (−0.93) [−5.3, +1.9] | −2.68 (−1.33) [−6.1, +1.1] | −3.89 (−1.94) [−7.2, −0.2] | −5.91 (−2.95) [−9.2, −2.2] | **not positive** |
+| P3 IBKR recent | +5.46 (2.73) [2.2, 9.2] | +4.66 (2.34) [1.5, 8.3] | +3.45 (1.74) [0.3, 7.0] | +1.43 (0.72) [−1.8, 4.9] | positive, CI > 0 |
+| P3f IBKR file today | +5.73 (2.86) [2.5, 9.4] | +4.93 (2.48) [1.7, 8.6] | +3.72 (1.88) [0.5, 7.3] | +1.70 (0.86) [−1.5, 5.2] | positive, CI > 0 |
+| P4 Alpaca today (lower bound) | +6.20 (3.10) [2.9, 9.9] | +5.40 (2.71) [2.2, 9.0] | +4.19 (2.11) [1.0, 7.7] | +2.17 (1.09) [−1.1, 5.7] | positive, CI > 0 |
+| P5 no borrow (paper) | +6.20 (3.10) [2.9, 9.9] | +5.40 (2.71) [2.2, 9.0] | +4.19 (2.11) [1.0, 7.7] | +2.17 (1.09) [−1.1, 5.7] | positive, CI > 0 |
 
-The iid and Newey–West t agree with the bootstrap in every row (§6). For
-example, P3 at MOC gives 2.59 / 2.73, and P0 at MOC gives −0.65 / −0.64.
+The circular interval and the Newey–West t agree in sign everywhere. Three rows
+are borderline on significance: the interval just excludes zero while |NW t| is
+below 1.96. They are P2 at 15bp ([−7.2, −0.2], t −1.94), P3 at 15bp ([0.3, 7.0],
+t 1.74) and P3f at 15bp ([0.5, 7.3], t 1.88). Read all three as not significant.
+*(Corrected 2026-10-12: the first version said "the iid and Newey–West t agree
+with the bootstrap in every row". On the uncentred bootstrap they did not.)*
 
 **Breakevens (computed, not quoted; H14).**
 
-| window | gross %/yr | turn/yr | drag per 1% fee | f* at MOC | f* at 15bp |
-|---|---:|---:|---:|---:|---:|
-| live 2013-06 → 2022 | 6.21 | 13.5 | 0.605%/yr | **10.25%** | **6.93%** |
-| measured window | 9.63 | 26.6 | 0.659%/yr | 14.58% | 8.55% |
+| window | collateral | gross %/yr | turn/yr | drag per 1% fee | f* at MOC | f* at 15bp |
+|---|---|---:|---:|---:|---:|---:|
+| live 2013-06 → 2022 | flat 102% | 6.21 | 13.5 | 0.605%/yr | **10.25%** | **6.93%** |
+| live 2013-06 → 2022 | per-share round-up [U] | 6.21 | 13.5 | 0.626%/yr | 9.90% | 6.69% |
+| measured window | flat 102% | 9.63 | 26.6 | 0.659%/yr | 14.58% | 8.55% |
+| measured window | per-share round-up [U] | 9.63 | 26.6 | 0.686%/yr | 14.00% | 8.21% |
+
+Under the per-share reading every breakeven is about 3–4% lower.
 
 The table below takes the live-history short book's composition (each name's
 share, 2013–22; 12 names) and prices it at the FEE_RATE history. 1,135 of 1,253
@@ -406,6 +485,23 @@ dates have a fee for every name.
 | 2025 | 233 | 3.17 | 0% | 0% |
 | 2026 | 155 | 1.35 | 0% | 0% |
 | all | 1,135 | 13.35 | **58%** | **64%** |
+
+**Which breakeven, and why** (added 2026-10-12, after review). The table above
+sets the 2013–22 short basket against the **2013–22 breakeven**. That is the
+book's long-run edge: its gross and turnover over nine and a half years. The
+measured window was the book's best stretch (gross 9.63%/yr against 6.21% long
+run), so its own breakeven is higher, and judged against it the share falls:
+
+| short-book composition | breakeven from | f* at MOC | share above | f* at 15bp | share above |
+|---|---|---:|---:|---:|---:|
+| 2013–22 | 2013–22 (long run) | 10.25 | **58%** | 6.93 | 64% |
+| 2013–22 | measured window | 14.58 | **44%** | 8.55 | 61% |
+| measured window | 2013–22 | 10.25 | 49% | 6.93 | 61% |
+| measured window | measured window | 14.58 | **42%** | 8.55 | 56% |
+
+The headline is 58% because a book is deployed on its long-run edge, not its
+best fifteen months. Under every pairing, the fee history sat above the
+breakeven on 42–64% of dates.
 
 **The live paper record** is read with `python3 -m ops.orient` (PROD, broker-confirmed
 equity); no account figure is copied here. It is gross, because paper charges no
@@ -425,8 +521,38 @@ traded. At that n it is no evidence either way.
 | fills | records (laptop and VM copies) | fresh broker read, `/v2/account/activities/FILL` | match on all 5 days |
 | slippage | this script: −17.95 / +15.75bp | verify's own: −17.95 (`tca.csv`) / +15.8bp | yes |
 | auction prints | re-fetched from Alpaca | `reconcile.json` prints | equal where both exist |
-| significance | iid t | Newey–West t; block bootstrap | same signs, similar widths |
+| significance | iid t | Newey–West t; circular block bootstrap (W4's non-circular printed beside it) | same signs; three borderline 15bp rows named in §5 *(corrected 2026-10-12)* |
+| collateral | flat 102%: 13.11%/yr | per-share round-up [U]: 13.66%/yr (P0r) | sensitivity; the sign is unchanged |
 | **2021–24 fee levels** | IBKR FEE_RATE | **none found** (§2) | **single source** |
+
+## Scope: which account the −3.5%/yr describes (added 2026-10-12)
+
+**The measured-borrow figures describe an IBKR-like account**: one that pays the
+fee and keeps its shorts. On the Alpaca path, in a regime like 2021–22's, the book
+would more likely fail to open its shorts than pay 13%/yr.
+
+- **At those fees these names would very likely be hard-to-borrow at Alpaca**
+  (§2). In the probes here, every name Alpaca has called hard-to-borrow has also
+  been `shortable: false`: NAD, NEA, NVG and NZF on 2026-09-28 and 2026-10-12,
+  and PHK on 2026-10-10 and 2026-10-12.
+- **A name that is not `shortable` today sends nothing.** `decide` sends no
+  order for it and substitutes no other name (`quantt/session/decide.py`). Gate 7
+  keys on `shortable` only (`quantt/session/gate.py`, `gate_shortability`).
+- **A name that is `shortable` but hard-to-borrow draws only a preview warning**
+  (`hard_to_borrow_short_opens` in `quantt/session/run.py`). A live short-open in
+  it needs a paid locate. If Alpaca rejects the order, `_transmit` skips that
+  name, sends the rest (team lead, 2026-09-28) and marks the day FAIL.
+- **So the Alpaca book in a high-fee regime would run without some or all of its
+  shorts**: net long, a beta position the alpha-only mandate rules out. Passing
+  the gate on cost alone would not make the Alpaca book safe in that regime.
+  What it needs is a decision on what the book does when its shorts become
+  hard-to-borrow, and that is the team lead's.
+- **Side finding (not changed here; live-path documentation).** The module
+  docstring of `quantt/session/decide.py` ("The runner stops the batch at the
+  first rejection ... (gate 6)") and the `hard_to_borrow_short_opens` docstring
+  ("any rejection stops the batch") contradict `_transmit`. `_transmit` skips a
+  rejected name and sends the rest, and stops only on an ambiguous or unknown
+  outcome.
 
 ## What would change the verdict
 
@@ -452,6 +578,25 @@ traded. At that n it is no evidence either way.
    but is unlikely to approach a 41–46bp breakeven at 0.5% of ADV. **No
    execution result can rescue the high-fee regime**, because c* is negative
    there.
+5. **An older fee history** (added 2026-10-12). The history starts on 2021-09-13
+   because the deleted fetcher's default was `--years 5` (`durationStr` "5 Y",
+   built about 2026-09-10 [S: `docs/BRIEF.md` H4]; the code is at
+   `pre-clean-slate:_archive/scripts/cef/fetch_borrow_history.py`). Nobody has
+   shown that IBKR serves no `FEE_RATE` before then; it is untested [U], and the
+   desk no longer runs an IBKR session. If the history goes further back, the
+   2013–21 rows could be measured instead of assumed.
+6. **The sealed 2023–26 period** (added 2026-10-12). From 2023-01-03 to
+   2026-09-09, FEE_RATE covers all 13 names on 831 of the 924 sessions, and the
+   panel has returns for every one. It is the only place where a **measured** net
+   across both fee regimes could be computed: about 22% a year in 2023 and 1–3%
+   in 2025–26. Opening it consumes the 2023-01-01 time holdout (H13) for every
+   later test. That is the team lead's decision, and this note does not open it.
+7. **A per-name view of "today"** (added 2026-10-12). Today's regime is not
+   uniform. HYT, the largest single drag in the measured window (382bp/yr),
+   shows **10.56% on every FEE_RATE date from 2026-08-21 to 2026-09-09**. The
+   2026-09-04 public-file row agrees at 10.562%. Today's file shows 0.43%. A low
+   cross-name mean can hide one name at 10% or more for weeks, so any live
+   borrow check (item 3) has to be per name and weighted by the short book.
 
 ## What this means for sizing (portfolio-manager note)
 
@@ -463,7 +608,8 @@ roughly doubles that drag. At the 2021–24 fee levels it roughly doubles a loss
 A derived vol target therefore needs a **borrow-regime constraint** beside the
 kill-probability and margin-cushion constraints. Until the book can stop
 shorting into expensive borrow, the case for levering it rests on a fee regime
-that did not hold for 58% of the measured history.
+that did not hold on 42–58% of the dates in the fee history, depending on which
+breakeven is used (§5).
 
 - **Downside if this verdict is wrong:** waiting forgoes about 5.5–6%/yr net at
   today's fees (P3–P4 at MOC, 2013–22), on whatever capital was planned, for as
@@ -478,7 +624,10 @@ that did not hold for 58% of the measured history.
 - **The 2021–24 borrow level is single-source** (FEE_RATE). The tries are listed
   in `docs/REFERENCES.md` §12g.
 - **No borrow before 2021-09-13.** The 2013–21 rows are counterfactual under
-  every proxy.
+  every proxy. The start date is the fetcher's default, not a proven limit of the
+  source [U].
+- **Collateral round-up, per share or per position [U].** The base case is the
+  flat 102%; per share (P0r) adds about 0.5pp a year of measured borrow.
 - **Alpaca's live HTB rates and locate fees are unpublished.** The locate API is
   unavailable on paper. P4 is a lower bound; P4+ uses IBKR's fee as a labelled
   stand-in.

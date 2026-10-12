@@ -380,13 +380,22 @@ def total_returns(R):
 # a 360-day year, on a collateral value of 102% of the prior close: IBKR's Borrow
 # Fee Details guide and Alpaca's brokerage fee schedule (revised 2026-10-01),
 # docs/REFERENCES.md §4 and §12g [V]. These are the two published conventions,
-# not estimation choices.
+# not estimation choices; scripts/cef/tests/test_borrow_charge.py pins them as
+# literals, so editing either constant fails a test.
+#
+# BOTH SOURCES ALSO SAY "rounded up to the nearest dollar", and neither says
+# clearly whether that is per share or per position [U] (Alpaca's wording, "a
+# per-share collateral value ... adjusted by 102% and rounded up", reads per
+# share; IBKR's guide does not say). The default here is the flat 102%, i.e.
+# no round-up. Per position the round-up is at most $1 and negligible; per
+# share it is large on $4-15 funds (PHK at $4.13: ceil(4.21) = $5, +21%).
+# `collateral_px` turns the per-share reading on as a labelled sensitivity.
 BORROW_DAY_COUNT = 360
 BORROW_COLLATERAL_MARKUP = 1.02
 
 
 def borrow_charge(H, fee_pct, *, markup=BORROW_COLLATERAL_MARKUP,
-                  day_count=BORROW_DAY_COUNT):
+                  day_count=BORROW_DAY_COUNT, collateral_px=None):
     """The daily stock-borrow charge on the SHORT book `evaluate(H, R)` holds.
 
     WHY THIS LIVES HERE AND NOT IN A CALLER
@@ -414,6 +423,12 @@ def borrow_charge(H, fee_pct, *, markup=BORROW_COLLATERAL_MARKUP,
     `fee_pct` is an annualised fee in PERCENT (IBKR's FEERATE convention), a
     frame indexed by date with one column per name. A constant schedule is a
     frame with the same value on every row.
+
+    `collateral_px` (default None: the flat `markup`, unchanged behaviour) is a
+    frame of raw closes. When given, each name-day's collateral multiplier is
+    ceil(markup * P[t-1]) / P[t-1]: the per-share "rounded up to the nearest
+    dollar" reading, a SENSITIVITY (see the comment above the constants). A
+    held short with no prior close is a gap, reported in `uncovered`.
 
     NO SILENT FALLBACK
     ------------------
@@ -444,8 +459,19 @@ def borrow_charge(H, fee_pct, *, markup=BORROW_COLLATERAL_MARKUP,
     gap = has_short & fee.isna()
     # Gaps are excluded from `cost` and reported in `uncovered`; a row with no
     # short at all is a genuine zero charge, not a gap.
+    if collateral_px is None:
+        mult = markup                                          # the flat 102%
+    else:
+        prev = collateral_px.reindex(index=H.index, columns=H.columns).shift(1)  # close t-1
+        gap = gap | (has_short & prev.isna())
+        # 1e-9 guards an exact multiple against a float overshoot (1.02 * 50 must give
+        # $51, not $52); a search of cent prices $1-$1,000 found none, it is a guard
+        mult = np.ceil(markup * prev - 1e-9) / prev
     rate = (fee / 100.0).where(has_short & ~gap, 0.0)
-    cost = (held * rate).sum(axis=1) * markup * days / day_count
+    if collateral_px is not None:
+        rate = (rate * mult).where(has_short & ~gap, 0.0)
+        mult = 1.0
+    cost = (held * rate).sum(axis=1) * mult * days / day_count
     # Row 0 has no previous session, so `days` is NaN there; it also holds
     # nothing, because the held book is H.shift(2). Assert rather than fill.
     if len(cost):
