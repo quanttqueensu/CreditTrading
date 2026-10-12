@@ -1,0 +1,13 @@
+wrote 67,456 rows, 9 series -> results/cef/w10/_cache_w10/group_observables.parquet
+ICE seams: {"hy_oas": {"r2_last": "2025-02-12", "fred_first": "2023-10-10", "fred_last": "2026-10-08"}, "bb_ey": {"r2_last": "2025-02-12", "fred_first": "2023-10-10", "fred_last": "2026-10-08"}, "ccc_ey": {"r2_last": "2025-02-12", "fred_first": "2023-10-10", "fred_last": "2026-10-08"}}
+series              rows       first        last  rows in fit window  first in window
+bb_ey               7775  1996-12-31  2026-10-08                2487       2013-06-21
+ccc_ey              7775  1996-12-31  2026-10-08                2487       2013-06-21
+ccc_minus_bb_ey     7775  1996-12-31  2026-10-08                2487       2013-06-21
+dff                26398  1954-07-01  2026-10-08                3480       2013-06-21
+hy_oas              7775  1996-12-31  2026-10-08                2487       2013-06-21
+repo_tri_corp       2942  2014-08-22  2026-06-30                2071       2014-08-22
+repo_tri_tsy        2942  2014-08-22  2026-06-30                2071       2014-08-22
+sifma               1946  1989-07-05  2026-10-07                 497       2013-06-26
+sofr                2128  2018-04-03  2026-10-08                1187       2018-04-03
+(fit window = the deployed set's span before the sealed holdout, 2013-06-21..2022-12-30)
