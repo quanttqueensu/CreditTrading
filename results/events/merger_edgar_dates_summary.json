@@ -1,0 +1,47 @@
+{
+ "events": 186,
+ "groups_acq_x_completion": 109,
+ "target_match": {
+  "matched": 186
+ },
+ "acquirer_match": {
+  "matched": 184,
+  "acquirer has no CRSP name": 1,
+  "ambiguous: margin 0.019 < 0.02": 1
+ },
+ "dated": 186,
+ "undated_reasons": {},
+ "by_form": {
+  "N-14 8C": 92,
+  "425": 90,
+  "8-K 1.01": 3,
+  "N-14": 1
+ },
+ "by_basis": {
+  "merger communication": 93,
+  "registration (upper bound)": 93
+ },
+ "verified_by": {
+  "name": 182,
+  "ticker": 4
+ },
+ "names_acquirer": {
+  "True": 185,
+  "None": 1
+ },
+ "deals_with_rejected_candidates": 17,
+ "days_ann_to_completion": {
+  "count": 186.0,
+  "mean": 194.7,
+  "std": 74.8,
+  "min": 84.0,
+  "25%": 133.2,
+  "50%": 184.5,
+  "75%": 254.0,
+  "max": 501.0
+ },
+ "fetch": {
+  "requests": 5,
+  "cache_hits": 354
+ }
+}

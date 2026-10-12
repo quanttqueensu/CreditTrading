@@ -240,6 +240,9 @@ of it.
 - **The announcement dates were not re-fetched.** They are the agent's: 6 [V]
   and 7 [S]. A merger trial needs plan 0.7, and 0.7 needs the team lead's SEC
   contact user-agent.
+  *Closed 2026-10-12:* every deal is now dated from EDGAR
+  (`EDGAR_EVENTS_2026-10-12.md` §3). On EDGAR dates the median is +86.5bp
+  (N 167, 102 groups). The agent's 36 events give +15bp on EDGAR dates.
 - **The filed exchange ratios (GGM, GPM) were not re-read.** Only the CRSP side
   reproduces.
 - **"Paid NAV" at termination, and NAVs at merger announcement, need plan 0.8.**
