@@ -26,7 +26,12 @@ the `opra` feed returned 403 "OPRA agreement is not signed" on 2026-10-09.
 SOURCES
 -------
 * Cboe delayed quotes: `https://cdn.cboe.com/api/global/delayed_quotes/options/<SYM>.json`
-  (unauthenticated; the JSON Cboe's own quote pages load). Whether its quotes
+  (unauthenticated; the JSON Cboe's own quote pages load). **FETCHING IS
+  DISABLED (2026-10-12).** Cboe's delayed-quote terms say "IT IS STRICTLY
+  PROHIBITED TO DOWNLOAD DELAYED QUOTE TABLE DATA FROM THIS WEB SITE BY USING
+  AUTO-EXTRACTION PROGRAMS/QUERIES AND/OR SOFTWARE" [V,
+  https://www.cboe.com/delayed_quotes/terms, read 2026-10-12]. `stats` still
+  reads snapshots already on disk. Whether its quotes
   are Cboe's own book or the consolidated NBBO is NOT documented there [U].
   Per-contract `vega` is per one vol point, so width / vega is the width in vol
   points (the 2026-10-09 convention).
@@ -51,7 +56,6 @@ import os
 import re
 import statistics as st
 import sys
-import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -70,13 +74,11 @@ def _stamp() -> str:
 
 
 def fetch_cboe(sym: str, out_dir: Path) -> Path:
-    req = urllib.request.Request(CBOE.format(sym=sym), headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=90) as r:
-        raw = r.read()
-    json.loads(raw)                                   # raises if not JSON (a 403 page)
-    p = out_dir / f"{sym}_cboe_{_stamp()}.json"
-    p.write_bytes(raw)
-    return p
+    """Refuses: Cboe's terms prohibit automated download of delayed quotes (module
+    docstring, SOURCES). Kept as a refusal so the old command fails loudly."""
+    raise SystemExit("cboe fetch disabled 2026-10-12: Cboe's delayed-quote terms prohibit "
+                     "automated download (https://www.cboe.com/delayed_quotes/terms). "
+                     "Use a licensed source (docs/REFERENCES.md, the Cboe chain row).")
 
 
 def fetch_alpaca(sym: str, out_dir: Path) -> Path:
