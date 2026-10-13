@@ -1159,6 +1159,25 @@ def test_without_scaling_an_adding_plan_past_the_live_cap_is_refused(tmp_path):
     assert c.submits() == []
 
 
+def test_a_send_the_fit_scales_to_nothing_records_why_and_verify_reads_missed(tmp_path):
+    """Release-check 2026-10-11, follow-up A, end to end. Equity has collapsed by
+    15:52, so no whole share of the plan fits and the send ends NOTHING_TO_SEND
+    with no refusal. send.json must say which limit did it, and verify must read
+    the day as MISSED: until 2026-10-13 it read "nothing left to send" and PASSED."""
+    from quantt.session.verify import late_no_trade_reason
+    c, deps, state, plan = decided(tmp_path, execution=dict(LATE, bp_shortfall="scale"))
+    (state / "AUTO_ARMED").touch()
+    to_send_time(c, deps)
+    c.equity = 1.0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_NOTHING
+    assert c.submits() == []
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    fit = send["bp_scale_at_send"]
+    assert fit["orders_in"] == len(plan["orders"]) and fit["orders_out"] == 0 and fit["binding"]
+    ok, prob = late_no_trade_reason(plan, send, D, "cef")
+    assert ok is None and prob.startswith("MISSED") and fit["binding"] in prob
+
+
 def cut_to_190k(asof, holdings, equity, opening):
     return [PositionTarget("AAA", LONG, weight=0.95, reason="z=-2"),
             PositionTarget("BBB", SHORT, weight=-0.95, reason="z=+2"),
@@ -1287,6 +1306,16 @@ def test_preflight_warns_tonight_when_a_bad_day_would_refuse_tomorrows_send(tmp_
     assert pf["ok"] is False and pf["shock_usd"] == 13_500.0
     assert any("Reg T" in r["detail"] for r in pf["refusals"])
     assert "PRE-FLIGHT WARNING" in "".join(out) and "REFUSED" in "".join(out)
+
+
+def test_preflight_says_how_much_of_the_plan_a_scaled_send_would_keep():
+    """2026-10-13: a warning that the send would scale says by how much; the grid
+    fit kept 72% of a plan where 98.7% fits, so "would scale" alone said little."""
+    pf = {"ok": False, "shock_usd": 2_074.61, "shock_date": None, "window_sessions": 252,
+          "equity_stressed": 98_660.61, "scaled": "max_gross_stress (on the lower of sized "
+          "and live equity)", "kept": 0.9872, "refusals": []}
+    line = rn.preflight_line(pf)
+    assert line.startswith("  PRE-FLIGHT WARNING") and "to 98.7% of its traded notional" in line
 
 
 def test_a_preflight_that_cannot_run_is_unmeasured_and_never_blocks_the_plan(tmp_path):

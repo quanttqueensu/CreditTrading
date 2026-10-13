@@ -714,6 +714,62 @@ def test_a_human_refusal_beside_a_missed_one_explains_the_day_and_lists_both():
     assert prob is None and "[halt]" in ok and "[exposure]" in ok
 
 
+# Release-check 2026-10-11, follow-up A: a send the fit left with nothing to send
+# read "nothing left to send (every order skipped at send: )" and PASSED.
+STRESS = "max_gross_stress (on the lower of sized and live equity)"
+DECIDED = {"book": "cef", "session_date": D.isoformat(), "mode": "run",
+           "execution": "late_market", "status": "decided", "orders": [{"x": 1}] * 3,
+           "refusals": [], "send_window": ["a", "b"]}
+NOTHING_SENT = {"exit": "NOTHING_TO_SEND", "refusals": [], "skipped": [],
+                "bp_scale_at_send": {"kept": 0.0, "binding": STRESS, "orders_in": 3,
+                                     "orders_out": 0}}
+
+
+def test_a_send_the_fit_scaled_to_nothing_is_a_missed_day_naming_the_limit():
+    from quantt.session.verify import late_no_trade_reason as why
+    ok, prob = why(DECIDED, NOTHING_SENT, D, "cef")
+    assert ok is None and prob.startswith("MISSED")
+    assert "send-time fit to " + STRESS in prob and "kept 0 of 3 order(s)" in prob
+
+
+def test_a_fit_record_without_its_counts_is_a_record_error_not_a_guess():
+    from quantt.session.verify import RecordError, late_no_trade_reason as why
+    with pytest.raises(RecordError, match="orders_out"):
+        why(DECIDED, dict(NOTHING_SENT, bp_scale_at_send={"kept": 0.0, "binding": STRESS}),
+            D, "cef")
+
+
+def test_a_send_with_every_order_skipped_is_a_missed_day_naming_them():
+    """Shortable turned false since decide on every name: a shortability refusal,
+    name by name (the parametrised table above makes that gate a missed day)."""
+    from quantt.session.verify import late_no_trade_reason as why
+    send = dict(NOTHING_SENT, bp_scale_at_send=None,
+                skipped=["cef-20260929-BBB-1: BBB shortable=False at send; skipped, the rest go"])
+    ok, prob = why(dict(DECIDED, orders=[{"x": 1}]), send, D, "cef")
+    assert ok is None and prob.startswith("MISSED") and "skipped at send: cef-20260929-BBB-1" in prob
+
+
+def test_a_nothing_to_send_record_without_a_reason_is_still_a_missed_day():
+    """send.json written before 2026-10-13 does not record the fit."""
+    from quantt.session.verify import late_no_trade_reason as why
+    send = {k: v for k, v in NOTHING_SENT.items() if k != "bp_scale_at_send"}
+    ok, prob = why(DECIDED, send, D, "cef")
+    assert ok is None and prob.startswith("MISSED") and "names no skipped order" in prob
+
+
+def test_a_plan_the_decide_time_fit_emptied_is_a_missed_day():
+    from quantt.session.verify import late_no_trade_reason, no_trade_reason
+    fit = {"factor": 0.0, "binding": STRESS, "orders_in": 4, "orders_out": 0}
+    ok, prob = late_no_trade_reason(dict(DECIDED, orders=[], bp_scale=fit), None, D, "cef")
+    assert ok is None and prob.startswith("MISSED") and "decide-time fit to " + STRESS in prob
+    cls_plan = {k: v for k, v in DECIDED.items() if k not in ("execution", "status")}
+    ok, prob = no_trade_reason(dict(cls_plan, orders=[], bp_scale=fit), D, "cef")
+    assert ok is None and prob.startswith("MISSED")
+    # a fit that ran and found the plan fits, on a plan with nothing to do, is no missed day
+    ok, prob = no_trade_reason(dict(cls_plan, orders=[], bp_scale=dict(fit, binding=None)), D, "cef")
+    assert prob is None and ok == "the plan had no orders"
+
+
 def test_a_short_sale_fill_reported_as_sell_short_scores_as_a_sell(tmp_path):
     """Measured 2026-09-30/10-01: Alpaca's FILL activity says "sell_short" for a
     fill that opens a short, while the order says "sell". Verify crashed on it."""

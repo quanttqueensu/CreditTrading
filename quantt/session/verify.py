@@ -236,6 +236,29 @@ def _missed(texts: list[str], where: str) -> str:
             + "; ".join(texts))
 
 
+def _fit_emptied(fit, where: str) -> str | None:
+    """Why the fit left no order, when it is what emptied a plan that had orders.
+
+    WHY (release-check 2026-10-11, follow-up A). `run.fit_to_buying_power`
+    scales a plan that does not fit to the most of it that does. When that is
+    nothing at all, the session ends NOTHING_TO_SEND with no refusal, and
+    verify read the day as "nothing left to send" -- a PASS. That is a missed
+    day by the team lead's 2026-10-09 rule: only DRY_RUN, arming or a halt
+    explains one, and a limit the plan was fitted to is none of them; it is an
+    exposure refusal in all but name. `fit` is the run's `bp_scale` (plan.json,
+    at decide) or `bp_scale_at_send` (send.json): {"binding", "orders_in",
+    "orders_out", ...}, or None when no fit ran.
+    """
+    if fit is None:
+        return None
+    need = ("binding", "orders_in", "orders_out")
+    if not isinstance(fit, dict) or any(k not in fit for k in need):
+        raise RecordError(f"the {where} fit record {fit!r} is not a dict with {list(need)}")
+    if fit["binding"] and fit["orders_in"] and not fit["orders_out"]:
+        return f"the {where} fit to {fit['binding']} kept 0 of {fit['orders_in']} order(s)"
+    return None
+
+
 def _refusal_text(r) -> str:
     """run.py records a refusal as {"gate", "detail"}; anything else is refused."""
     if not (isinstance(r, dict) and isinstance(r.get("gate"), str)
@@ -276,6 +299,9 @@ def no_trade_reason(plan: dict, day: dt.date, book: str) -> tuple[str | None, st
             return "refused: " + "; ".join(texts), None
         return None, _missed(texts, "when the plan was decided")
     if not orders:
+        emptied = _fit_emptied(plan.get("bp_scale"), "decide-time")
+        if emptied:
+            return None, f"MISSED: the book should have traded and did not: {emptied}"
         return "the plan had no orders", None
     if plan["mode"] == "preview":
         return None, (f"only a --preview ran: plan.json has {len(orders)} order(s), no "
@@ -292,10 +318,16 @@ def late_no_trade_reason(plan: dict, send: dict | None, day: dt.date,
     plan's refusals (not decided), an empty plan, or the send's refusals. A
     decided plan with orders and NO send record means no send ran in the window
     (machine asleep or offline): FAIL, saying so. A send refused by anything but
-    a human's choice (DELIBERATE_GATES) is a missed day: FAIL (2026-10-09)."""
+    a human's choice (DELIBERATE_GATES) is a missed day: FAIL (2026-10-09). So
+    is a send left with nothing to send, every order skipped or scaled to zero
+    by the send-time fit, and an empty plan the decide-time fit emptied
+    (`_fit_emptied`, 2026-10-13)."""
     if plan.get("status") != "decided":
         return no_trade_reason(plan, day, book)
     if not plan.get("orders"):
+        emptied = _fit_emptied(plan.get("bp_scale"), "decide-time")
+        if emptied:
+            return None, f"MISSED: the book should have traded and did not: {emptied}"
         return "the plan had no orders", None
     if send is None:
         return None, (f"plan decided with {len(plan['orders'])} order(s) but no send ran in "
@@ -313,8 +345,23 @@ def late_no_trade_reason(plan: dict, send: dict | None, day: dt.date,
     if texts:
         return None, _missed(texts, "at send")
     if send.get("exit") == "NOTHING_TO_SEND":
-        return "nothing left to send (every order skipped at send: " + \
-            "; ".join(send.get("skipped") or []) + ")", None
+        # A decided plan WITH orders that reached the send with nothing left to
+        # send is a missed day (release-check 2026-10-11, follow-up A): every
+        # order was either skipped (shortable turned false since decide: a
+        # shortability refusal, name by name) or scaled to zero by the
+        # send-time fit (an exposure limit; `_fit_emptied`). Neither is a
+        # human's choice. Until 2026-10-13 this read "nothing left to send" and
+        # PASSED. NOTHING_TO_SEND is only ever written when the send recorded
+        # no refusal at all, so a dry run, arming or halt never reaches here.
+        why = [f"skipped at send: {s}" for s in send.get("skipped") or []]
+        emptied = _fit_emptied(send.get("bp_scale_at_send"), "send-time")
+        if emptied:
+            why.append(emptied)
+        if not why:
+            why.append("send.json names no skipped order and no fit that emptied the plan "
+                       "(a send.json from before 2026-10-13 does not record the fit)")
+        return None, (f"MISSED: the book should have traded and did not: nothing was left "
+                      f"to send of the plan's {len(plan['orders'])} order(s): " + "; ".join(why))
     return None, f"send.json says {send.get('exit')!r} but there is no STARTED"
 
 
