@@ -54,3 +54,9 @@ results/events/g6_events_13_names.csv
 # `scripts/data/fetch_edgar_events.py --offline`. Its episodes table and
 # summary are tracked.
 results/events/edgar_cef_bdc_filings.csv.gz
+# Gate G1a (2026-10-13, scripts/events/g1a_shortability.py): the per-deal table
+# and the row-level detail carry CRSP names and permnos (licensed); the tracked
+# outputs are g1a_summary_<date>.json (counts) and g1a_pending_<date>.csv
+# (EDGAR, Alpaca and IBKR only).
+results/events/g1a_historical_deals.csv
+results/events/g1a_detail_*.json
