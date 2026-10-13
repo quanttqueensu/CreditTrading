@@ -54,3 +54,8 @@ results/events/g6_events_13_names.csv
 # `scripts/data/fetch_edgar_events.py --offline`. Its episodes table and
 # summary are tracked.
 results/events/edgar_cef_bdc_filings.csv.gz
+
+# Conditional-tender census (2026-10-13): the full table carries window averages
+# computed on CRSP closes (licensed); the tracked conditional_tender_census.csv
+# blanks them. Rebuilt by scripts/events/conditional_tender_census.py.
+results/events/conditional_tender_census_full.csv
