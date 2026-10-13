@@ -28,7 +28,12 @@ full-sample drawdown from -27% to -12%.
 STALE NAV IS THE ONE THING THAT SILENTLY BREAKS THIS. The whole signal is
 price-minus-NAV, so a fund whose NAV has not updated is not a cheap fund, it is a
 blind one. Any fund whose NAV is older than `max_nav_age_bd` business days is
-dropped for the day rather than traded.
+dropped for the day rather than traded. A NAV can also be stale and freshly
+dated: Yahoo serves a row dated D carrying D-1's NAV
+(results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The runner's stale-NAV gate
+(`quantt/session/nav_gate.py`) names the funds it could not verify in
+`extras["nav_unverified"]`, and they are dropped on this same path
+(`_nav_unverified`). Absent, nothing changes.
 
 TWO CONSTRAINTS SIT ON TOP OF THE SIGNAL, and both are OFF unless the frozen spec
 turns them on. Neither is a return idea; each removes a way this book has been
@@ -210,6 +215,52 @@ def _cap_gross(w: pd.Series, cap: float) -> tuple[pd.Series, float]:
         return w, 1.0
     f = cap / gross
     return w * f, f
+
+
+def _nav_unverified(market_state, last: pd.Timestamp, universe) -> dict:
+    """{ticker: reason} the runner's stale-NAV gate could not verify for `last`.
+
+    WHY. Yahoo serves a NAV row dated D that still carries D-1's NAV and corrects
+    it later; on the laptop's paper sessions 28 of 73 checkable name-days were
+    decided on such a row and 11 submitted orders were sized on one
+    (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The runner checks each
+    repeat against CEFConnect (`quantt/session/nav_gate.py`); a repeat it cannot
+    verify is dropped for the day (team lead 2026-10-13, "Use CEFConnect, else
+    drop"). The drop goes through the eligibility loop, beside
+    `max_nav_age_bd`, so it is exactly the drop a stale NAV already gets: the
+    name leaves the cross-section and every downstream step (demeaning, vol
+    scalar, `min_names`, band, caps) runs as it would for any dropped name. The
+    signal math is untouched.
+
+    `extras["nav_unverified"] = {"asof": <date>, "names": {ticker: reason}}`.
+    ABSENT is today's behaviour, byte for byte: proved against the sleeve before
+    this change on 56 real panel dates, flat and held books, when it was added
+    (2026-10-13, the commit message), and kept by
+    `src/deploy/tests/test_nav_unverified.py`. Present, it must be well formed,
+    name only universe tickers, and carry the date the sleeve decides on: a gate
+    run for another day than the signal date is a runner bug, and dropping on it
+    would act on a NAV the gate never looked at. Each violation raises.
+    """
+    extras = getattr(market_state, "extras", None) or {}
+    if "nav_unverified" not in extras:
+        return {}
+    spec = extras["nav_unverified"]
+    if not isinstance(spec, dict) or set(spec) != {"asof", "names"}:
+        raise ValueError(f"cef: extras['nav_unverified'] must be {{'asof', 'names'}}, "
+                         f"got {spec!r}")
+    names = spec["names"]
+    if not isinstance(names, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) and v for k, v in names.items()):
+        raise ValueError(f"cef: extras['nav_unverified']['names'] must map ticker -> "
+                         f"non-empty reason, got {names!r}")
+    stray = sorted(set(names) - set(universe))
+    if stray:
+        raise ValueError(f"cef: extras['nav_unverified'] names {stray}, not in the universe")
+    if pd.Timestamp(spec["asof"]).normalize() != pd.Timestamp(last).normalize():
+        raise ValueError(f"cef: the stale-NAV gate checked {spec['asof']} but the sleeve "
+                         f"decides on {pd.Timestamp(last).date()}; refusing to drop on a "
+                         f"NAV the gate did not look at")
+    return dict(names)
 
 
 @register
@@ -439,6 +490,7 @@ class CEFDiscountSleeve(Sleeve):
         sig_pos = pos if band_w is not None else pos - (pos % self._rebal_days)
         last = z.index[sig_pos]
         max_age = int(self._req("max_nav_age_bd"))
+        unverified = _nav_unverified(market_state, last, uni)
         row, dropped = {}, []
         for tk in px.columns:
             zi = z.loc[last, tk]
@@ -462,6 +514,9 @@ class CEFDiscountSleeve(Sleeve):
             age = len(pd.bdate_range(nav_tk.index[-1], last)) - 1
             if age > max_age:
                 dropped.append((tk, f"NAV {age}bd stale")); continue
+            # dated today, but the runner could not verify the value (_nav_unverified)
+            if tk in unverified:
+                dropped.append((tk, f"NAV unverified: {unverified[tk]}")); continue
             row[tk] = float(zi)
 
         if len(row) < int(self._req("min_names")):

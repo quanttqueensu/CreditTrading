@@ -8,7 +8,12 @@ Run after the US close. Appends only new dates, so it is safe to run repeatedly.
 
 --require-asof D   exit 4 unless every deployed name has BOTH a close and a NAV
                    dated D after the refresh, naming the gaps. The session uses
-                   this so it trades on today's pair or not at all.
+                   this so it trades on today's pair or not at all. It checks the
+                   DATE only: Yahoo serves rows dated D that carry D-1's NAV
+                   (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The VALUE is
+                   the session's stale-NAV gate's job (quantt/session/nav_gate.py),
+                   which writes its CEFConnect replacements through
+                   `merge_nav_fills` / `log_nav_fills` below.
 --nav-fallback     for a deployed name whose NAV for D is not on yfinance, take
                    CEFConnect's dated row for D. Every such fill is printed and
                    appended to data/cef/nav_fallback_log.csv; the two sources
@@ -141,6 +146,31 @@ def _cefconnect_nav(ticker: str, asof: pd.Timestamp):
     return None
 
 
+def merge_nav_fills(N: pd.DataFrame, F: pd.DataFrame) -> pd.DataFrame:
+    """The NAV panel with the (date, ticker) rows of `F` written over it.
+
+    The one way a NAV not taken from yfinance enters the panel: the
+    `--nav-fallback cefconnect` fill below (a NAV yfinance does not have yet)
+    and the session's stale-NAV gate (`quantt/session/nav_gate.py`: a yfinance
+    row dated D that repeats D-1 while CEFConnect's D differs). Every such row
+    is also appended to the fallback log (`log_nav_fills`)."""
+    return (pd.concat([N, F], ignore_index=True)
+              .drop_duplicates(subset=["date", "ticker"], keep="last")
+              .sort_values(["ticker", "date"]))
+
+
+def log_nav_fills(F: pd.DataFrame, source: str, log_path=None) -> None:
+    """Append `F`'s rows to data/cef/nav_fallback_log.csv (columns date, nav,
+    ticker, source, written_utc; header written when the file is absent).
+    `source` says which path wrote the row: "cefconnect" for a missing NAV,
+    "cefconnect_stale_copy" for the gate's replacement. The collector reads this
+    log to know a panel NAV came from CEFConnect (`quantt/collect/collect.py`
+    `_fallback_names`), so every non-yfinance NAV must be in it."""
+    path = FALLBACK_LOG if log_path is None else Path(log_path)
+    rec = F.assign(source=source, written_utc=pd.Timestamp.utcnow())
+    rec.to_csv(path, mode="a", index=False, header=not path.exists())
+
+
 def _deployed(book_path) -> list:
     sys.path.insert(0, str(REPO))
     from ops.common import deployed_tickers
@@ -225,12 +255,8 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
                       f"(not on yfinance yet)")
             if filled:
                 F = pd.DataFrame(filled)
-                N = (pd.concat([N, F], ignore_index=True)
-                       .drop_duplicates(subset=["date", "ticker"], keep="last")
-                       .sort_values(["ticker", "date"]))
-                rec = F.assign(source="cefconnect", written_utc=pd.Timestamp.utcnow())
-                rec.to_csv(FALLBACK_LOG, mode="a", index=False,
-                           header=not FALLBACK_LOG.exists())
+                N = merge_nav_fills(N, F)
+                log_nav_fills(F, "cefconnect")
                 have_nav |= set(F["ticker"])
         incomplete = [f"{t}: {'no close' if t not in have_px else ''}"
                       f"{'/' if t not in have_px and t not in have_nav else ''}"

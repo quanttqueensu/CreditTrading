@@ -436,6 +436,18 @@ incident and the audit are `docs/RUNNER.md`, "As built (2026-10-09, amended
 | OptionMetrics | **Use it only if it is in our own data access.** Measured 2026-10-12: the R2 WRDS mirror (412 tables) has no `optionm` table, and there are no WRDS credentials on the desk, so it is unavailable. |
 | Paid options data | **None.** Only data in our own access (R2, Alpaca's free feeds) or free data from another free API. G2 runs as a conservative gate: an upper-bound spread and a bounded-loss crash replay. |
 
+### Team lead, 2026-10-13 — stale NAVs at decide time
+
+The defect: Yahoo serves a NAV row dated D that carries D−1's NAV, and the
+date-only freshness check passes it (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md`
+§5). The design is `docs/RUNNER.md`, "As built (2026-10-13)".
+
+| question | decision |
+|---|---|
+| A deployed name whose NAV(D) equals its NAV(D−1) at decide time | **"Use CEFConnect, else drop."** CEFConnect has D and differs by more than half a cent: its value replaces the stale copy through the logged fallback. It has D and agrees: a genuine repeat, kept. No row for D, or an error: the name is dropped for the day, as `max_nav_age_bd` drops a stale NAV, with the reason and the error recorded. |
+| The collector's NAV cross-check | **Flag "NAV(D) = NAV(D−1) and unverified"** instead of recording a silent gap. |
+| How it is switched | The gate is a runner setting in the book json (`data.stale_nav`); absent means off. Whether it is on is that file, not this one. |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -478,3 +490,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-08 | §5 records the cut-over to the VM and full automation. | cloud VM, for the team lead |
 | 2026-10-11 | §5 records the 2026-10-09 missed-day fix and the 2026-10-11 stress-cap ruling. | release work, for the team lead |
 | 2026-10-12 | §2's IC row corrected to the wide set, the deployed IC added under conditional (W4); §5 records the 2026-10-12 rulings. | for the team lead |
+| 2026-10-13 | §5 records the stale-NAV ruling ("Use CEFConnect, else drop"). | for the team lead |

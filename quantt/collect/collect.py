@@ -43,7 +43,11 @@ The two cross-checks (NAV: panel vs CEFConnect; close: panel vs Alpaca's
 official auction print) write FLAGS. A flag names both sources and both values.
 It never blocks trading, never fails a step, and the two values are never
 averaged and neither is picked (CLAUDE.md data rules). A value one source does
-not have is a GAP naming the fund, never a substituted number.
+not have is a GAP naming the fund, never a substituted number -- with one
+exception since 2026-10-13: a panel NAV for D that repeats the previous NAV
+while CEFConnect has no row for D is a FLAG (`nav_repeat_unverified`), because
+that is how Yahoo's stale copies looked at this step's hour
+(`step_nav_crosscheck`).
 
 READ-ONLY AT THE BROKER
 -----------------------
@@ -92,6 +96,12 @@ from quantt.broker.alpaca import (AlpacaError, AssetNotFound, MissingAuctionPrin
 FINAL_PRINT_GAPS = (MissingAuctionPrint, AssetNotFound, UnmappedExchange)
 from quantt.session.records import (StateDirError, state_dir_from_env,  # noqa: E402
                                     write_json_atomic)
+# The CEFConnect reader and its error moved to quantt/session/nav_gate.py on
+# 2026-10-13, so the session's stale-NAV gate and this cross-check read
+# CEFConnect through one function; re-exported here under their old names.
+# nav_gate imports only the standard library at module level (pytest.ini).
+from quantt.session.nav_gate import CefConnectError, cefconnect_nav  # noqa: E402,F401
+from quantt.session.nav_gate import repeats as nav_repeats  # noqa: E402
 
 ET = ZoneInfo("America/New_York")    # the exchange's clock; D is an ET trading date
 
@@ -143,10 +153,6 @@ class StepFailed(RuntimeError):
     def __init__(self, msg: str, detail: dict | None = None):
         super().__init__(msg)
         self.detail = detail or {}
-
-
-class CefConnectError(RuntimeError):
-    """CEFConnect could not be read (transport, HTTP body, or response shape)."""
 
 
 @dataclass
@@ -224,20 +230,6 @@ def run_subprocess(repo: Path) -> Callable:
     return run
 
 
-def cefconnect_nav(ticker: str, day: dt.date):
-    """CEFConnect's NAV dated exactly `day`, or None -- the SAME endpoint and
-    parsing fetch_daily's `--nav-fallback cefconnect` uses (reused, not copied,
-    so the two can never read different fields). Imported here, not at module
-    top, because it pulls in yfinance and pandas and an idle run needs neither."""
-    import pandas as pd
-    import requests
-    from scripts.cef.fetch_daily import _cefconnect_nav
-    try:
-        return _cefconnect_nav(ticker, pd.Timestamp(day).normalize())
-    except (requests.RequestException, ValueError, KeyError, TypeError) as e:
-        raise CefConnectError(f"{ticker}: {type(e).__name__}: {e}") from e
-
-
 def _read_parquet(path: Path, what: str):
     import pandas as pd
     if not path.exists():
@@ -307,8 +299,22 @@ def _fallback_names(cef_dir: Path, day: dt.date) -> set:
 
 
 def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
-    """Panel NAV (yfinance) vs CEFConnect's NAV for D, per deployed name. Report only."""
-    rows = _on_day(_read_parquet(ctx.cef_dir / "cef_nav.parquet", "NAV panel"), day)
+    """Panel NAV (yfinance) vs CEFConnect's NAV for D, per deployed name. Report only.
+
+    A REPEAT WITH NO CEFCONNECT ROW IS A FLAG, NOT A GAP (team lead, 2026-10-13).
+    This step runs about 21:40 ET, when CEFConnect usually has no row for D yet:
+    on 6 of 7 laptop data days it recorded 13 gaps and compared nothing, while
+    Yahoo was serving rows dated D that carried D-1's NAV
+    (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). A gap reads as "nothing to
+    see". So a name whose panel NAV for D equals its previous NAV row to the cent
+    (`quantt.session.nav_gate.repeats`, the session gate's own test) while
+    CEFConnect has no NAV dated D is flagged `nav_repeat_unverified`: value_a is
+    NAV(D), value_b the previous row's NAV, both from the panel, and `reason`
+    says CEFConnect could not confirm it. Report only, like every flag here: it
+    never blocks and never fails the step. A name that does not repeat is still
+    a gap."""
+    nav_panel = _read_parquet(ctx.cef_dir / "cef_nav.parquet", "NAV panel")
+    rows = _on_day(nav_panel, day)
     same_source = _fallback_names(ctx.cef_dir, day)
     flags, gaps, errors = [], [], []
     for t in ctx.deployed:
@@ -326,7 +332,18 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
             errors.append(str(e))
             continue
         if cc is None:
-            gaps.append({"fund": t, "reason": f"CEFConnect has no NAV dated {day}"})
+            rep = nav_repeats(nav_panel, day, [t])
+            if rep:
+                r = rep[0]
+                flags.append({"fund": t, "check": "nav_repeat_unverified",
+                              "source_a": "cef_nav.parquet (yfinance)", "value_a": r.nav_d,
+                              "source_b": f"cef_nav.parquet previous row {r.prev_date}",
+                              "value_b": r.nav_prev, "diff": round(r.nav_d - r.nav_prev, 6),
+                              "reason": f"NAV dated {day} equals the previous NAV "
+                                        f"({r.prev_date}) and CEFConnect has no NAV dated "
+                                        f"{day}: possibly a stale copy, unverified"})
+            else:
+                gaps.append({"fund": t, "reason": f"CEFConnect has no NAV dated {day}"})
             continue
         f = _compare(t, "cef_nav.parquet (yfinance)", panel, "cefconnect", float(cc))
         if f:

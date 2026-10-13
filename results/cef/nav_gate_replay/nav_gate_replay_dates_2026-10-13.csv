@@ -1,0 +1,9 @@
+asof,decide,decided_et,cefconnect_at_decide,eligible_before,repeats,of_which_stale_copies,unknown,A_dropped,A_eligible_after,A_min_names_binds,at_decide,A_held_cut_to_band_edge,B_replaced,B_kept,B_dropped,B_unknown_would_be_replaced
+2026-09-28,not evening (plan.json),2026-09-29 10:33,unknown (no collector check near the decide),13,5,5,1,5-6,7-8,no,unknown,,PCN PDI PDO PFN PTY,,,PHK
+2026-09-29,evening,2026-09-29 22:00,"absent (collector, 19 min before the decide)",13,2,0,4,2-6,7-11,no,A,PFN PHK,,PFN PHK,,AWF DSL HYT PTY
+2026-09-30,evening,2026-09-30 22:00,"absent (collector, 20 min before the decide)",12,5,1,6,5-11,2-7,possible,A,PFN PHK,PDI,PCN PFN PHK PTY,,AWF BIT DSL MHD MQY PDO
+2026-10-01,not evening (plan.json),2026-10-02 12:00,"present for 13 names (collector, 19 min before the decide)",13,8,5,1,8-9,4-5,yes,B,BIT PFN PHK,BIT HYT PCN PDO PTY,PDI PFN PHK,,DSL
+2026-10-02,not evening (plan.json),2026-10-05 09:30,unknown (collector checked 2870 min before the decide),13,2,2,9,2-11,2-11,possible,unknown,PHK,DSL PHK,,,AWF HYT JFR MHD PCN PDI PDO PFN PTY
+2026-10-05,evening,2026-10-06 00:00,"absent (collector, 10 min after the decide)",13,9,8,0,9,4,yes,A,MHD MQY PFN PHK,DSL MHD PCN PDI PDO PFN PHK PTY,MQY,,
+2026-10-06,evening,2026-10-06 22:00,"absent (collector, 19 min before the decide)",13,6,5,1,6-7,6-7,no,A,JFR PFN PHK,PCN PDI PFN PHK PTY,JFR,,HYT
+2026-10-07,evening,2026-10-07 23:00,"absent (collector, 79 min before the decide)",13,2,2,5,2-7,6-11,no,A,BIT,BIT HYT,,,AWF MHD PDO PHK PTY

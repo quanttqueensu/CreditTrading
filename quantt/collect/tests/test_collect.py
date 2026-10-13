@@ -284,6 +284,41 @@ def test_cefconnect_without_d_is_a_gap_not_a_flag(env):
     assert [g["fund"] for g in d["detail"]["gaps"]] == ["AAA"]
 
 
+def test_a_repeat_with_no_cefconnect_row_is_a_flag_not_a_gap(env):
+    """2026-10-13. At ~21:40 ET CEFConnect has no row for D, and on 6 of 7 laptop
+    data days this step recorded 13 gaps while Yahoo served rows dated D that
+    carried D-1's NAV (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). A NAV(D)
+    equal to the previous row with nothing to confirm it is now a FLAG naming
+    both values; a NAV that moved is still a gap."""
+    state, cef = env
+    pd.DataFrame([{"date": pd.Timestamp(d), "nav": v, "ticker": t}
+                  for t, d, v in (("AAA", PREV, 10.00), ("AAA", D, 10.00),
+                                  ("BBB", PREV, 19.50), ("BBB", D, 20.00))]
+                 ).to_parquet(cef / "cef_nav.parquet")
+    assert co.collect(make_ctx(env, cc={"AAA": None, "BBB": None})) == co.EXIT_OK
+    d = status(env)["steps"]["nav_crosscheck"]
+    assert d["ok"]
+    (f,) = d["detail"]["flags"]
+    assert (f["fund"], f["check"], f["value_a"], f["value_b"]) == \
+        ("AAA", "nav_repeat_unverified", 10.00, 10.00)
+    assert PREV.isoformat() in f["source_b"] and "unverified" in f["reason"]
+    assert [g["fund"] for g in d["detail"]["gaps"]] == ["BBB"]
+    rep = json.loads((state / "data" / D.isoformat() / "report.json").read_text())
+    assert [x["fund"] for x in rep["flags"] if x["step"] == "nav_crosscheck"] == ["AAA"]
+
+
+def test_a_repeat_cefconnect_confirms_is_neither_flag_nor_gap(env):
+    state, cef = env
+    pd.DataFrame([{"date": pd.Timestamp(d), "nav": v, "ticker": t}
+                  for t, d, v in (("AAA", PREV, 10.00), ("AAA", D, 10.00),
+                                  ("BBB", PREV, 20.00), ("BBB", D, 20.00))]
+                 ).to_parquet(cef / "cef_nav.parquet")
+    co.collect(make_ctx(env, cc={"AAA": 10.00, "BBB": 20.03}))
+    d = status(env)["steps"]["nav_crosscheck"]["detail"]
+    assert d["gaps"] == []
+    assert [(f["fund"], f.get("check")) for f in d["flags"]] == [("BBB", None)]   # a stale copy
+
+
 def test_cefconnect_unreadable_fails_the_step_so_it_is_retried(env):
     ctx = make_ctx(env, cc={"AAA": co.CefConnectError("AAA: ConnectionError"), "BBB": 20.0})
     assert co.collect(ctx) == co.EXIT_INCOMPLETE

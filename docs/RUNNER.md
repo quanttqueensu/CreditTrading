@@ -33,6 +33,10 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
           1. refresh    scripts/cef/fetch_daily.py --require-asof <prev trading day>
                         --nav-fallback cefconnect --book ops/books/cef_discount_book.json
                         exit != 0  -> NO TRADE today, logged (stale data never trades)
+          1b. NAV gate  only when the book json sets data.stale_nav (absent: off). A NAV(D)
+                        equal to the name's previous NAV is checked against CEFConnect:
+                        stale copy -> replaced, genuine repeat -> kept, unverified ->
+                        dropped for the day. "As built (2026-10-13)" below.
           2. read       Alpaca account (equity), positions, today's orders, clock
           3. decide     sleeve.target_positions(asof=<prev trading day>, MarketState(
                           holdings=<Alpaca positions>, extras={"sleeve_nav": <equity>,
@@ -57,8 +61,9 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 | `quantt/session/decide.py` | Pure function: sleeve targets + holdings + equity + last closes → order list. Whole shares, netting, flip split, shortability. | Touches the network. |
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
+| `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) that repeats the previous NAV, reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, names the unverified for the sleeve to drop, records every binding. | Transmits. Decides a target. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
-| `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). | — |
+| `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_unverified"]` (2026-10-13): names the stale-NAV gate could not verify, dropped on the `max_nav_age_bd` path; absent is byte-identical. | — |
 | `quantt/deploy/` | launchd plist templates + an install script for the laptop prod clone + `docs/RUNBOOK.md`. | Stores a credential. |
 | `src/data/r2.py` + `scripts/data/` | Research/backtest access to the R2 WRDS mirror. **Never on the live path.** | Is imported by `quantt/`. |
 
@@ -68,7 +73,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 2. **Arming** — transmit additionally needs **either** `--approve <plan_sha>` equal to the sha256 of the freshly recomputed order list (the interactive first session: what was approved is what is sent) **or** the file `<state>/AUTO_ARMED` (created after the team lead's first go).
 3. **Halt** — `ops/halt.read_halt(book)` returns a halt → refuse.
 4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: the as-of evening from **19:15 ET** (Alpaca queues `cls` sent after 19:00 into the next auction) to 01:00 ET, or the session day until **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
-5. **Data** — the refresh exited 0 for the required as-of date.
+5. **Data** — the refresh exited 0 for the required as-of date. That checks each NAV's *date*, not its value; the stale-NAV gate (step 1b, "As built (2026-10-13)") checks the value when the book turns it on.
 6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
 8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the **lower** of the equity the plan was sized on and live equity, unless the plan does not add to the gross held now (2026-10-09; the lower of the two from 2026-10-11); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
@@ -176,6 +181,93 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-13): the stale-NAV gate, on only when the book json sets it
+
+**The defect.** Yahoo serves a NAV row dated D that still carries D−1's NAV, and
+corrects it later. Gate 5 and `fetch_daily --require-asof` check the row's date, so
+they pass it. On the laptop's paper sessions 28 of 73 checkable name-days were
+decided on NAV(D−1), and 11 submitted orders were sized on one; plans written
+20–23 hours after the close still used stale rows
+(`results/cef/LIVE_NAV_QUALITY_2026-10-12.md` §5, `docs/REFERENCES.md` §12n).
+
+**The ruling (team lead, 2026-10-13): "Use CEFConnect, else drop."** At decide time,
+for each deployed name whose panel NAV for D equals its previous NAV to the cent,
+read CEFConnect's daily row for D:
+
+| CEFConnect for D | verdict | action |
+|---|---|---|
+| present, differs by more than half a cent | stale copy | CEFConnect's value replaces the panel row, through fetch_daily's logged fallback (`data/cef/nav_fallback_log.csv`, source `cefconnect_stale_copy`) |
+| present, agrees | genuine repeat | kept |
+| no row for D, or unreadable (the error is named) | unverified | the name is dropped for the day |
+
+**Where it sits.** Step 1b of `quantt/session/run.py`, after the refresh and before
+anything reads the panel: `quantt/session/nav_gate.py`. It holds fetch_daily's panel
+lock from its read to its write. A drop reaches the strategy as
+`extras["nav_unverified"] = {"asof", "names"}`, and the sleeve drops those names in
+the same eligibility loop as `max_nav_age_bd` (`src/deploy/sleeves/cef_discount.py`
+`_nav_unverified`). The signal math is unchanged, and with the extra absent the
+sleeve's targets are byte-identical to before (checked on 56 panel dates, flat and
+held books, against the previous commit). After the sleeve has read the panel,
+`PanelGate.still_holds` checks that it was the panel the gate certified. A fetch in
+between (the collector's, every 30 minutes) could write a stale copy back; if one
+did, the session FAILs and the next slot retries.
+
+**What a drop does is the sleeve's existing rule.** The name leaves the
+cross-section and its target is zero. The band then holds a position inside
+`band_width` and trades one outside it to the band edge. If the drops leave fewer
+than `min_names` eligible names, the sleeve emits every name FLAT ("cef: only N
+eligible names") before the band, and decide turns that into orders that close the
+whole book. No gate refuses a plan that only reduces gross. Nothing new was added
+for this case.
+
+**Records (H14: measured at run time, never keyed on a document).** `plan.json` and
+the run record carry `nav_gate`: the mode, and for every repeat the name, D, the
+panel NAV(D), the previous row's date and NAV, CEFConnect's value or `absent` or the
+error, the verdict and the action. `<state>/nav_gate.csv` gets one row per repeat
+per decide, or one `no_repeat` row, so it counts how often the gate binds. The
+session log prints one `NAV GATE` line and one line per repeat.
+
+**Modes** (`ops/books/cef_discount_book.json`, `"data": {"stale_nav": <mode>}`;
+absent = off, the session exactly as before):
+
+- `cefconnect_else_drop` is the ruling above.
+- `report` runs the same checks and writes the same records, and acts on none of
+  them: no panel write, no drop. An error is recorded as UNMEASURED and never
+  stops the session. In `cefconnect_else_drop` an error that is not a CEFConnect
+  read error FAILs the session.
+
+Enabling is one reviewed edit of the book json (`/spec-change` covers
+`ops/books/`), with a `_stale_nav_note`. REVERT: delete the `data` block.
+
+**The collector** flags `nav_repeat_unverified` for a name whose panel NAV(D)
+equals its previous NAV while CEFConnect has no row for D. Until now that was a
+gap, and at ~21:40 ET it was a gap on nearly every evening
+(`quantt/collect/collect.py` `step_nav_crosscheck`). It is report only, like
+every collector flag.
+
+**The replay** (report only; `python3 scripts/data/nav_gate_replay.py --state-dir
+<laptop state>`, tables in `results/cef/nav_gate_replay/`). It applies the gate's
+rule to the laptop's recorded decides, as-of 2026-09-28 → 2026-10-07. The NAV each
+decide used comes from inverting its printed z. CEFConnect's state comes from the
+collector's checks, and CEFConnect as served on 2026-10-13. Every evening decide
+whose CEFConnect state the collector measured, five of them, found **no CEFConnect
+row for D**. So under the drop rule every repeat would have been dropped: 2–9
+identified repeats an evening, and up to 11 counting names whose decide-time NAV
+the printed z cannot identify. On 2026-09-30 that may already have left fewer than
+`min_names`. On 2026-10-05, decided at 00:00 ET, that is 9 names (8 stale
+copies and 1 genuine repeat), leaving 4 eligible. That is below `min_names`, so the
+book would have been flattened. On 2026-10-06 it leaves 6–7 and cuts JFR, PFN and
+PHK, held outside the band, to the band edge. The one decide made when CEFConnect
+had the row (2026-10-01, at 12:00 ET the next day) would have replaced 5 stale
+copies, kept 3 genuine repeats and dropped nothing.
+
+**Not built, proposed:** at the evening decide, *defer* an unverified name rather
+than drop it. Decide in the morning backstop (06:00–15:15 ET), once CEFConnect has
+the row, and drop only if it still has none by the last backstop slot.
+CEFConnect's publication time is [U]. It had D's row by 11:41 ET on D+1 (2026-10-01),
+not yet at 00:10 ET (2026-10-05), and Friday's row was still missing at 09:40 ET on
+Saturday (2026-10-02).
 
 ## As built (2026-10-09, amended 2026-10-11): the stress cap, missed days FAIL, the pre-flight
 

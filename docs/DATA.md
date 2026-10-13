@@ -19,7 +19,7 @@ on a panel whose last date is somebody else's choice.
 | use | source | code | notes |
 |---|---|---|---|
 | **Live: prices** the sleeve decides on | yfinance `Ticker(tk).history(auto_adjust=False)` | `scripts/cef/fetch_daily.py` → `data/cef/cef_prices.parquet` | Only one source. §4 is the first independent check of it. |
-| **Live: NAV** | yfinance NAV symbol `X<TK>X`, with CEFConnect's dated row as an explicit, logged fallback (`--nav-fallback cefconnect`, every fill written to `data/cef/nav_fallback_log.csv`) | `scripts/cef/fetch_daily.py` → `data/cef/cef_nav.parquet` | The session runs it with `--require-asof`. Stale data never trades (`docs/RUNNER.md` step 1). **Correction 2026-10-12:** that holds for a missing date, not a stale value. Yahoo serves a row dated D carrying D−1's NAV, and `--require-asof` passes it; on the laptop's paper sessions 28 of 73 checkable name-days were decided on such a row (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md` §5). |
+| **Live: NAV** | yfinance NAV symbol `X<TK>X`, with CEFConnect's dated row as an explicit, logged fallback (`--nav-fallback cefconnect`, every fill written to `data/cef/nav_fallback_log.csv`) | `scripts/cef/fetch_daily.py` → `data/cef/cef_nav.parquet` | The session runs it with `--require-asof`. Stale data never trades (`docs/RUNNER.md` step 1). **Correction 2026-10-12:** that holds for a missing date, not a stale value. Yahoo serves a row dated D carrying D−1's NAV, and `--require-asof` passes it; on the laptop's paper sessions 28 of 73 checkable name-days were decided on such a row (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md` §5). **From 2026-10-13** the session can check the value too: the stale-NAV gate (`quantt/session/nav_gate.py`; `docs/RUNNER.md` "As built (2026-10-13)") replaces a stale copy with CEFConnect's NAV, logged as `cefconnect_stale_copy`, or drops an unverified name. It runs when the book json sets `data.stale_nav`. |
 | **Research / backtest** | Cloudflare R2 bucket, a WRDS mirror | `src/data/r2.py` (DuckDB over httpfs, read-only) | §3. Never live. |
 | **Research: equity, preferred and multi-asset CEFs** (plan trial C4; never live) | yfinance price and NAV (NAV symbol from CEFConnect's `NavTicker`, not assumed `X<TK>X`); CEFConnect `pricinghistory` (`1Y` daily, `All` weekly) as the NAV check; CRSP through R2 as the price check | `scripts/data/cef_families_universe.py`, `fetch_cef_families_yf.py`, `fetch_cef_families_cefconnect.py`, `stage_crsp_cef_families.py`, `cef_families_quality.py` → `data/cef_families/` (live schema; never `data/cef/`) | No `data/cef/cef_universe.csv` name enters it. Known vendor defects, measured 2026-10-12, are in `results/cef/CEF_FAMILIES_DATA_2026-10-12.md` and `docs/REFERENCES.md` §12h. |
 | **Broker truth** (positions, fills, tradability, shortability) | Alpaca Trading API, paper | `quantt/broker/` | The authority on our accounts (`CLAUDE.md` data rule 2). |
@@ -184,6 +184,10 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
   source lacks is a *gap* naming the fund. Suppose the panel's NAV for D was itself
   filled from CEFConnect (`nav_fallback_log.csv`). Then that name is a gap, because
   comparing a source with itself is not a check.
+  **Exception, 2026-10-13:** a panel NAV for D that equals the name's previous NAV while
+  CEFConnect has no row for D is a *flag* (`check: nav_repeat_unverified`, both panel
+  values named), not a gap. At the collector's ~21:40 ET check that is what Yahoo's
+  stale copies looked like (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md` §5).
 - **Panel lock.** The session and the collector both run `fetch_daily.py`. Its
   read-modify-write of the price and NAV panels holds an exclusive `flock` on
   `data/cef/.fetch.lock`. A second run waits up to 10 minutes, then exits 3 and names
