@@ -119,9 +119,17 @@ survivorship (W1 §C).
 
 **62% of traditional CEFs use leverage**, at an average structural leverage
 ratio around 28% (bond funds 29%). The 1940 Act §18(a) requires **≥300% asset
-coverage for debt and ≥200% for preferred**, so a large NAV drawdown forces
-deleveraging *mechanically*. Leverage type differs by group and is a required
-control, never something to average away:
+coverage for debt and ≥200% for preferred**, tested when leverage is issued.
+Below it, a fund may not declare common distributions or buy back common shares.
+
+> **CORRECTED 2026-10-12.** This paragraph said a large NAV drawdown "forces
+> deleveraging *mechanically*". §18 contains no maintenance test that compels
+> redemption (15 U.S.C. 80a-18, fetched 2026-10-12; `docs/REFERENCES.md` §18
+> row and §12j). Any forced deleveraging comes from the fund's own preferred or
+> credit terms, which must be read fund by fund [U].
+
+Leverage type differs by group and is a required control, never something to
+average away:
 
 - **Nuveen munis** lever through **tender option bond trusts** — a fixed-rate
   muni deposited in a trust that issues a floater to money funds and a residual
@@ -352,6 +360,19 @@ rights-offering subscription prices are commonly set at about 90% of the average
 close over the expiration date and four preceding sessions, over a ~30-day
 period; **transferable versus non-transferable is the field that matters**,
 because non-transferable rights force mechanical dilution on non-participants.
+
+> **CORRECTED 2026-10-12, two points, both already recorded in
+> `docs/REFERENCES.md` and never carried back here:**
+>
+> 1. **The tender "staff requirement" is a sponsor's description, not SEC
+>    text.** It comes from a Nuveen N-2. Rule 13e-4 has no NAV-pricing
+>    requirement and no staff letter was found (fetched 2026-10-12). Tenders at
+>    97% and 99.5% of NAV exist, so read it as fixing the NAV *date*, not the
+>    percentage, and take each tender's price basis from its own offer document.
+> 2. **The rights-offering formula is not "about 90%".** On HYT's 2022 offering
+>    it was **95%** of the average close over the expiration date and the four
+>    preceding sessions, **floored at 90% of NAV** and capped just below NAV
+>    (`docs/REFERENCES.md`, HYT 424(b)(5) row, [V]).
 
 ### Who runs these funds
 
