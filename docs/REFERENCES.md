@@ -812,3 +812,16 @@ its gitignored cache). Live panels read-only: NAV to 2026-09-25, prices to
 | **Yahoo serves a NAV row dated D that carries D−1's value, then corrects it.** Inverting the z each laptop paper session printed: on 28 of 73 checkable name-days (asof 2026-09-28 → 2026-10-07) the session used NAV(D−1); 11 submitted orders were sized on one; still stale 20–23 hours after the close. On 2026-10-01 the collector's own cross-check, made 20 minutes before that plan, saw the same five names stale | `/Users/simonjarvis/quantt_state/cef/*/plan.json`, `orders.jsonl`, `data/*/report.json` (read-only) against yfinance and CEFConnect as above | [V] on the laptop's sessions; the VM era (asof 2026-10-08 on) is [U] |
 | A Nasdaq fund-quote endpoint (`api.nasdaq.com/api/quote/X<TK>X/historical`) returns NAV history; it was probed once and not used, because its terms of use could not be confirmed | probe 2026-10-12 | [U] terms |
 
+
+### 12o. Feasibility counts for the C4 and E2 pre-registrations (added 2026-10-13)
+
+The inputs behind the zero-trial sections of `results/cef/PREREG_C4_FAMILIES_2026-10-13.md`
+and `results/events/PREREG_E2_CONVERT_REVERSAL_2026-10-13.md` (both DRAFTS awaiting the
+team lead). No return of either trial was read or computed.
+
+| claim / series | source and fetcher | status |
+|---|---|---|
+| **C4 eligibility, masks and breadth** on the families panels (prices and NAV to 2026-10-09), the NAV-repeat precision on CEFConnect-checked rows (`nav_flags.parquet`), and the deployed book's first position (2013-06-21) on the live panel | `data/cef_families/` (§12h) and `data/cef/`, read-only; `scripts/cef/c4_feasibility.py`, run 2026-10-13 | [V] |
+| **CRSP price and volume for convertible and straight-debt issuers** (`prc`, `vol`; no `ret`), 1,198 permnos, 2010-06-01 → 2024-12-31, for the pre-event ADV count | R2 `crsp_a_stock.dsf`; fetcher `scripts/events/e2_feasibility.py` (`pull_px_vol`), cached under `results/events/_cache_convert/`, read 2026-10-13 | [V] |
+| **E2 event counts by year, 2011 → 2024-12-23**, convert and control, spec A and B (dates and identities only) | `scripts/events/convert_issuance.py::build_events` with its date-range arguments, on the §12f caches | [V] |
+| **Alpaca flags of SPY and of the 2023–24 liquid convert issuers**, from the families build's active-asset snapshot (2026-10-12T18:27Z, cef paper key): SPY shortable and easy to borrow; 115 of 126 issuer tickers shortable and easy to borrow. True on that date only | `data/cef_families/raw/alpaca_assets_active_2026-10-12.json` (§12h), read by `e2_feasibility.py` | [V] on its date |

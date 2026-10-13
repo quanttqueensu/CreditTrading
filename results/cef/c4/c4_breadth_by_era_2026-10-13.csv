@@ -1,0 +1,25 @@
+book,era,sessions,active_sessions,active_share,median_eligible,p10_eligible,max_eligible,funds_ever_eligible
+"declared: shortable pool, masked",2005-09,1259,853,0.6775218427323273,8.0,3.0,17,20
+"declared: shortable pool, masked",2010-14,1258,1246,0.9904610492845787,10.0,8.0,16,21
+"declared: shortable pool, masked",2015-19,1258,1226,0.9745627980922098,11.0,8.0,20,29
+"declared: shortable pool, masked",2020-22,756,730,0.9656084656084656,14.0,10.0,23,30
+"declared: shortable pool, masked",2023-26 (holdout),946,896,0.9471458773784355,13.0,7.0,21,27
+"declared: shortable pool, masked",fit 2005-22,4531,4055,0.8949459280512029,10.0,5.0,23,37
+"shortable pool, unmasked (R-Q)",2005-09,1259,887,0.704527402700556,8.0,4.0,18,20
+"shortable pool, unmasked (R-Q)",2010-14,1258,1258,1.0,11.0,9.0,16,21
+"shortable pool, unmasked (R-Q)",2015-19,1258,1258,1.0,11.0,9.0,20,29
+"shortable pool, unmasked (R-Q)",2020-22,756,756,1.0,15.0,11.0,24,30
+"shortable pool, unmasked (R-Q)",2023-26 (holdout),946,946,1.0,15.0,8.0,21,27
+"shortable pool, unmasked (R-Q)",fit 2005-22,4531,4159,0.917898918561024,11.0,6.0,24,37
+"all 105, masked (R-S)",2005-09,1259,1090,0.8657664813343924,10.0,5.0,21,27
+"all 105, masked (R-S)",2010-14,1258,1254,0.9968203497615262,14.0,11.0,23,30
+"all 105, masked (R-S)",2015-19,1258,1245,0.9896661367249603,15.0,11.0,30,42
+"all 105, masked (R-S)",2020-22,756,731,0.966931216931217,18.0,13.0,34,43
+"all 105, masked (R-S)",2023-26 (holdout),946,918,0.9704016913319239,18.0,9.0,29,40
+"all 105, masked (R-S)",fit 2005-22,4531,4320,0.9534319134848819,14.0,7.0,34,53
+"fresh-NAV sub-book, masked",2005-09,1259,663,0.5266084193804607,6.0,2.0,12,14
+"fresh-NAV sub-book, masked",2010-14,1258,1232,0.9793322734499205,9.0,7.0,14,17
+"fresh-NAV sub-book, masked",2015-19,1258,1181,0.93879173290938,9.0,6.0,16,23
+"fresh-NAV sub-book, masked",2020-22,756,726,0.9603174603174603,12.0,8.0,17,21
+"fresh-NAV sub-book, masked",2023-26 (holdout),946,894,0.945031712473573,11.0,6.0,19,23
+"fresh-NAV sub-book, masked",fit 2005-22,4531,3802,0.8391083645994262,8.0,4.0,17,26
