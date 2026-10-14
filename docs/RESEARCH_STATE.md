@@ -78,13 +78,11 @@ counter (156) covers all ETF-price/PD work done to date.
 > - **Trial 52 is C4**, `results/cef/PREREG_C4_FAMILIES_2026-10-13.md`: the
 >   discount z-score pooled over five CEF families.
 > - **Both are judged at N = 52, bar √(2 ln 52) = 2.811.**
-> - **Trial 51 (C5): no verdict yet, so no D-code.** On 2026-10-14 it HALTED at
->   Stage 0, before any P&L (§4.5(c), MHD 2017-06-21). The team lead ruled the same
->   day (the AMENDMENT block in its pre-registration: a new class D-6, the
->   tolerance, the fit inputs frozen, six choices fixed). Stage 0 re-run on the
->   frozen copy: PASS. It is stopped before Stage 1 until the team lead has reviewed
->   the amendment. No statistic computed; holdout unopened; the counter does not
->   move (`results/cef/C5_RESULT_2026-10-14.md`).
+> - **Trial 51 (C5): KILLED, D1, at the fit (2026-10-14).** The open fill's gain G
+>   (WIDE) is +293bp/yr, SR 1.16, t 2.82. The lagged-signal placebo earns more
+>   (+351bp/yr), so stage 2b kills it. It also fails D4 (MUB summed β −0.22) and
+>   the bar (`_dsr` 0.61 at N = 52). The holdout is still to be opened, report-only
+>   (`results/cef/C5_RESULT_2026-10-14.md`).
 >
 > **2026-10-14: the XASSET slate is declared at N = 4**
 > (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`, revision 3, approved):
@@ -185,6 +183,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | pair-reversion | within-class wrapper pairs mean-revert; combine 22 for breadth | **D2 + capacity.** Combination thesis CONFIRMED: mean pairwise correlation +0.027, combined **GROSS Sharpe +1.03**. But (a) costs do NOT diversify while vol does, so the cost drag in Sharpe terms grows ~sqrt(N) and net falls to **-0.16**; (b) combined vol is 0.37%, so reaching the 12% mandate needs **32.8x leverage** against a ~2x Reg T ceiling. Per-pair signal is weak and honest: mean t -1.17 at h=1, 5/22 individually significant (IGLB/VCLT -3.58, SPLB/IGLB -3.20, SPHY/USHY -2.78), UST control +0.12 with 0/3 | `pre-clean-slate:_archive/results/ou/pair_sleeve_v2.csv` (git tag `pre-clean-slate`) | 2026-07-31 |
 | short-pressure | crowded credit hedges (FINRA daily short volume) unwind and reverse | **D1** credit mean t 0.28/0.03/-0.20/-0.42 at h=1/3/5/10d, 2/10 names significant at the best horizon; the RATES comparison group scores HIGHER (1.01/0.92/1.05/0.45), so nothing here is credit-specific | `pre-clean-slate:_archive/results/positioning/short_pressure.csv` (git tag `pre-clean-slate`) | 2026-07-31 |
 | gamma-timing-C3 | CEF discount stress nowcasts HYG realised vol, so long credit gamma can be timed | **D1 holdout.** In sample it works and is not an artifact: beside C1, β +0.0097 (t +2.42), incremental R² +0.0358, and against forward realised vol with no IV term anywhere β +0.02105 (t +3.95, n 4,851), real mean target at the 100th percentile of 20 shuffled draws. On the 2023–26 holdout the coefficient falls to **24%** of full sample (t +1.69) and on the stated target it is **−0.20**. Separately fatal: no state at any reported threshold has a positive mean target — the best is C3 > 2.0 at −0.0113, i.e. still paying 1.13 vol points. C2 is declared and UNAVAILABLE, not tested | `pre-clean-slate:results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md` | 2026-09-13 |
+| C5 (CEF trial 51) | filling the evening's CEF trade at the t+1 OPENING auction earns the session that t's NAV reaches (`results/cef/PREREG_C5_OPEN_AUCTION_2026-10-13.md`) | **D1, artefact control (stage 2b)**: the gain is real, +293bp/yr (SR 1.16, t 2.82, 2016–22 WIDE), but the same open fill on the trade decided a day earlier earns +351bp/yr. It is session drift on the signal's trades, not NAV arrival. Also fails D4 (MUB β −0.22) and `_dsr` (0.61 at N = 52) | `results/cef/C5_RESULT_2026-10-14.md`; `python3 scripts/cef/c5_open_auction.py fit` | 2026-10-14 |
 | raw-flow-z | ETF creation/redemption z-score predicts returns | **D1** precise zero: 28,025 obs, all \|t\|<0.8; Treasury control equally flat. Informed and forced flow cancel when pooled | `pre-clean-slate:results/s3/flow_regression.csv` | 2026-07-30 |
 
 ---

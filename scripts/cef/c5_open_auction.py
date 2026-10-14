@@ -812,6 +812,724 @@ def stage0() -> tuple[dict, list]:
     return rec, flags
 
 
+# =============================================================================
+# THE FIT: stages 1-7 of §13, on the frozen inputs (team lead's go, 2026-10-14)
+# =============================================================================
+# Every number below is computed on the frozen copy, after verify_frozen() and
+# after the amended Stage 0 record says PASS. The verdict is the FIRST failing
+# rule in §13's order (1, 2a, 2b, 2c, 3, 4, 5); stage 6 only labels; every
+# statistic is computed and printed whatever the verdict. Nothing here reads a
+# date after 2022-12-30.
+
+FIT_VERDICT = OUT_DIR / "C5_FIT_VERDICT.json"
+FIT_CACHE = OUT_DIR / "_cache_c5_fit"                # gitignored: the daily series, for stage 8
+STAGE0_AMENDED = OUT_DIR / f"c5_stage0_amended_record_{STAMP}.json"
+NW_L, NW_L2 = 21, 5                                  # §8
+BOOT = dict(mean_block=21, reps=10_000, seed=20261013)   # §8
+SHUFFLE = dict(block=21, draws=1_000, seed=20261013)     # §9 2c, amendment ruling 3 item 3
+COSTS = (5, 15, 30)
+FACTORS = ("HYG", "IEF", "MUB", "BKLN")
+LATE_ET_MIN = 9 * 60 + 35                            # §11 R-LATE: O printed after 09:35 ET
+CAPITALS = (100_000.0, 1_000_000.0, 10_000_000.0)    # §11 capacity
+
+
+def gstats(g: pd.Series, turn_yr: float | None = None) -> dict:
+    """Moments of a daily gain series on its own window: zeros included (§5)."""
+    from scripts.cef.w4_artifacts import nw_auto_lag, nw_t
+    g = g.astype(float)
+    m, sd = g.mean(), g.std(ddof=1)
+    lag = nw_auto_lag(g)
+    out = dict(n=len(g), mean_bp_yr=m * 252 * 1e4, sd_bp_day=sd * 1e4,
+               sr=m / sd * np.sqrt(252) if sd > 0 else np.nan,
+               t21=nw_t(g, lags=NW_L), t5=nw_t(g, lags=NW_L2), auto_lag=lag, t_auto=nw_t(g, lags=lag))
+    if turn_yr:
+        out["bp_per_turn"] = m * 252 / turn_yr * 1e4
+    return out
+
+
+def fmt_g(lab: str, d: dict) -> str:
+    x = (f"{lab:<46} mean {d['mean_bp_yr']:+8.1f}bp/yr  SR {d['sr']:+6.2f}  t(NW21) {d['t21']:+6.2f}  "
+         f"t(NW5) {d['t5']:+6.2f}  t(NW auto L={d['auto_lag']}) {d['t_auto']:+6.2f}")
+    return x + (f"  per unit turnover {d['bp_per_turn']:+6.2f}bp" if "bp_per_turn" in d else "")
+
+
+class FitData:
+    """The frozen inputs as frames on the holdings index (2005-01-03 .. 2022-12-30)."""
+
+    def __init__(self):
+        from scripts.cef import band_frontier as bf
+        from scripts.cef.c5_feasibility import nyse_open_prints
+        from scripts.cef.spec import UNIVERSE
+        from scripts.cef.w4_artifacts import _assert_fit
+        if bf.DATA_DIR != F_CEF:
+            raise Halt("FitData() must be built inside frozen()")
+        U = self.U = list(UNIVERSE)
+        self.T = {}
+        self.H = {}
+        Rs = []
+        for lab, floor in (("WIDE", 0), ("deployed", None)):
+            T, R, H = _holdings(floor)
+            self.T[lab], self.H[lab] = T, H
+            Rs.append(R)
+        if not Rs[0].equals(Rs[1]):
+            raise Halt("the two sets' return frames differ; they must share one R")
+        self.R = Rs[0]
+        self.Rt = bf.total_returns(self.R)               # H15: the deployed leg's returns
+        idx = self.idx = self.H["WIDE"].index
+        _assert_fit(self.Rt, self.H["WIDE"], self.H["deployed"])
+        W = self.W = idx[(idx >= WINDOW[0]) & (idx <= WINDOW[1])]
+        if len(W) != WINDOW_SESSIONS or idx.get_loc(W[0]) < 2:
+            raise Halt("the decision window is not the declared 1,762 sessions after the first two rows")
+        P = pd.read_parquet(F_CEF / "cef_prices.parquet")
+        P["date"] = pd.to_datetime(P["date"])
+        pv = lambda c: P.pivot_table(index="date", columns="ticker", values=c).sort_index().reindex(columns=U)
+        call = pv("close")
+        if not idx.isin(call.index).all():
+            raise Halt("the holdings index has a session the price panel lacks")
+        self.C = call.reindex(idx)                        # the panel close (the trial's input copy, D-6 applied)
+        self.C_prev = call.shift(1).reindex(idx)          # the previous panel session's close, never forward-filled
+        self.op_y = pv("open").reindex(idx)
+        self.hi, self.lo = pv("high").reindex(idx), pv("low").reindex(idx)
+        a = pd.read_parquet(OPEN_PRINTS)
+        a["date"] = pd.to_datetime(a["date"])
+        self.O_raw, self.Q = nyse_open_prints(a, idx, U)
+        on = a[(a.exchange == "N") & (a.condition == "O")].copy()
+        tod = pd.to_datetime(on["t"], utc=True, format="ISO8601").dt.tz_convert("America/New_York")
+        on["et_min"] = tod.dt.hour * 60 + tod.dt.minute + tod.dt.second / 60
+        self.O_min = on.pivot(index="date", columns="ticker", values="et_min").reindex(index=idx, columns=U)
+        c = pd.read_parquet(CRSP)
+        c["date"] = pd.to_datetime(c["date"])
+        self.crsp = c
+        cc = c[c.ticker.isin(U)]
+        self.op_c = cc.pivot_table(index="date", columns="ticker", values="openprc").reindex(index=idx, columns=U)
+        self.op_c = self.op_c.where(self.op_c > 0)
+        k = pd.read_parquet(CLOSE_SIZED)
+        k["date"] = pd.to_datetime(k["date"])
+        self.close6, self.closeM, _ = nyse_close_prints(k, idx, U)
+        # §4.2's classes with ruling 2's tolerance: D-2 and D-3 are no-cross (D-1 is a missing O already)
+        O, Q = self.O_raw, self.Q
+        hasO = O.notna() & self.C.notna()
+        d2 = O.notna() & Q.notna() & ((O - Q).abs() > TOL)
+        out_rng = hasO & self.lo.notna() & ((O < self.lo - TOL) | (O > self.hi + TOL))
+        eq_y = hasO & self.op_y.notna() & ((O - self.op_y).abs() <= TOL)
+        eq_c = hasO & self.op_c.notna() & ((O - self.op_c).abs() <= TOL)
+        d3 = hasO & self.op_y.notna() & self.op_c.notna() & ~eq_y & ~eq_c & out_rng
+        self.n_d2d3 = int((d2 | d3).sum().sum())
+        self.O = O.where(~(d2 | d3))
+        self.RS, self.no_cross = bf.session_returns(self.O, self.C)
+        self.adv = bf.build_panel()["adv"].reindex(index=idx, columns=U)
+        N = pd.read_parquet(F_CEF / "cef_nav.parquet")
+        N["date"] = pd.to_datetime(N["date"])
+        self.nav = N.pivot_table(index="date", columns="ticker", values="nav").sort_index().reindex(columns=U)
+        dist = pd.read_parquet(F_CEF / "cef_distributions.parquet")
+        dist["ex_date"] = pd.to_datetime(dist["ex_date"])
+        self.ex = (dist.groupby(["ex_date", "ticker"]).size().unstack().reindex(index=idx, columns=U).notna())
+        self.y = bf.distribution_yield(idx, U).reindex_like(self.C)          # D / C[s-1] on ex-dates
+        self.k = bf.split_factor(idx, U).reindex_like(self.C)
+        self.e = {lab: bf.evaluate(self.H[lab], self.Rt) for lab in self.H}
+
+    def gain(self, lab="WIDE", RS=None, H=None) -> pd.Series:
+        from scripts.cef.band_frontier import open_fill_gain
+        return open_fill_gain(self.H[lab] if H is None else H, self.RS if RS is None else RS)
+
+    def turn_yr(self, lab="WIDE", lo=None, hi=None) -> float:
+        t = self.e[lab]["turn_series"]
+        return float(t.loc[lo or self.W[0]:hi or self.W[-1]].mean() * 252)
+
+
+def stage1(F: FitData) -> dict:
+    hr("STAGE 1: THE GAIN G (WIDE) OVER THE DECISION WINDOW 2016-01-04 .. 2022-12-30 (KILL D1 if mean <= 0 or t < 1.96)")
+    from scripts.cef.w4_artifacts import block_boot_t, stationary_boot
+    G = F.gain().loc[F.W]
+    tw = F.turn_yr()
+    st = gstats(G, tw)
+    print(fmt_g("G, WIDE", st))
+    nz = int((G != 0).sum())
+    print(f"sessions {len(G)}, with a non-zero gain {nz}; WIDE turnover {tw:.2f}/yr (one H, both fills)")
+    out = dict(stats=st, sessions_nonzero=nz, turn_yr=tw)
+    for mb in (BOOT["mean_block"], 63):
+        b = stationary_boot(G, mean_block=mb, reps=BOOT["reps"], seed=BOOT["seed"])
+        ci = dict(mean_bp_yr=(b["lo_mean"] * 252e4, b["hi_mean"] * 252e4),
+                  per_turn_bp=(b["lo_mean"] * 252 / tw * 1e4, b["hi_mean"] * 252 / tw * 1e4),
+                  sr=(b["lo_sr"], b["hi_sr"]))
+        out[f"stationary_boot_{mb}"] = ci
+        print(f"stationary bootstrap (mean block {mb}, {BOOT['reps']:,} resamples, seed {BOOT['seed']}): 95% CI "
+              f"mean {ci['mean_bp_yr'][0]:+.1f} .. {ci['mean_bp_yr'][1]:+.1f}bp/yr; per unit turnover "
+              f"{ci['per_turn_bp'][0]:+.2f} .. {ci['per_turn_bp'][1]:+.2f}bp; Sharpe {ci['sr'][0]:+.2f} .. {ci['sr'][1]:+.2f}")
+    t_b, lo_b, hi_b = block_boot_t(G, block=BOOT["mean_block"], reps=BOOT["reps"], seed=BOOT["seed"])
+    out["moving_block_t"] = t_b
+    print(f"moving-block bootstrap (w4_artifacts.block_boot_t, block 21, 10,000, seed 20261013): t {t_b:+.2f}, "
+          f"95% CI of the mean {lo_b * 252e4:+.1f} .. {hi_b * 252e4:+.1f}bp/yr")
+    ok = st["mean_bp_yr"] > 0 and st["t21"] >= 1.96
+    out["pass"] = bool(ok)
+    print(f"STAGE 1: {'PASS' if ok else 'KILL D1'} (mean {'>' if st['mean_bp_yr'] > 0 else '<='} 0, NW t(L=21) "
+          f"{st['t21']:.2f} {'>=' if st['t21'] >= 1.96 else '<'} 1.96)")
+    return out
+
+
+def stage2(F: FitData, G: pd.Series) -> dict:
+    from scripts.cef.band_frontier import open_fill_gain
+    from scripts.cef.w4_artifacts import nw_t
+    hr("STAGE 2: CONTROLS (§9) -- 2a stale-open stratum, 2b lagged-signal placebo, 2c shuffled-trade placebo")
+    out = {}
+    W = F.W
+    # 2a: moved <=> |O - C[s-1]| > $0.005 + 1e-6 (ruling 2); no prior close -> not moved (ruling 3 item 4)
+    moved = F.O.notna() & F.C_prev.notna() & ((F.O - F.C_prev).abs() > TOL)
+    trades = open_fill_gain(F.H["WIDE"], pd.DataFrame(1.0, index=F.idx, columns=F.U), by_name=True).abs()
+    tw = trades.loc[W] > 1e-12
+    cross = F.O.notna().loc[W] & F.C.notna().loc[W]
+    noprev = int((tw & cross & F.C_prev.isna().loc[W]).sum().sum())
+    Gm = F.gain(RS=F.RS.where(moved, 0.0)).loc[W]
+    st = gstats(Gm, F.turn_yr())
+    share_nd = float((tw & cross & moved.loc[W]).sum().sum() / (tw & cross).sum().sum())
+    print(fmt_g("2a G on moved-open name-days", st))
+    print(f"   moved name-days: {share_nd:.1%} of trade name-days with a cross; trade name-days with a cross "
+          f"and no prior close (not moved, ruling 3 item 4): {noprev}; stratum's share of G's mean: "
+          f"{Gm.mean() / G.mean():.1%}" if G.mean() != 0 else "")
+    ok_a = st["mean_bp_yr"] > 0
+    out["2a"] = dict(stats=st, moved_share=share_nd, no_prev_close=noprev, pass_=bool(ok_a))
+    print(f"   2a: {'PASS' if ok_a else 'KILL D1'} (stratum mean {'>' if ok_a else '<='} 0)")
+    # 2b: the open fill applied to the book decided a day earlier
+    Hl = F.H["WIDE"].shift(1).fillna(0.0)
+    Gl = F.gain(H=Hl).loc[W]
+    sl = gstats(Gl, F.turn_yr())
+    d = G - Gl
+    print(fmt_g("2b G_lag = sum (H[s-2]-H[s-3]) rS[s]", sl))
+    print(f"   paired G - G_lag: mean {d.mean() * 252e4:+.1f}bp/yr, NW t(L=21) {nw_t(d, lags=NW_L):+.2f}; "
+          f"G_lag / G = {Gl.mean() / G.mean():.2f}" if G.mean() != 0 else "")
+    ok_b = Gl.mean() < G.mean()
+    out["2b"] = dict(stats=sl, diff_bp_yr=d.mean() * 252e4, diff_t21=nw_t(d, lags=NW_L), pass_=bool(ok_b))
+    print(f"   2b: {'PASS' if ok_b else 'KILL D1'} (mean G_lag {'<' if ok_b else '>='} mean G)")
+    # 2c: block-permuted trade rows against fixed session returns
+    TM = open_fill_gain(F.H["WIDE"], pd.DataFrame(1.0, index=F.idx, columns=F.U), by_name=True).loc[W].values
+    RSW = F.RS.loc[W].values
+    n = len(W)
+    blocks = [np.arange(a, min(a + SHUFFLE["block"], n)) for a in range(0, n, SHUFFLE["block"])]
+    rng = np.random.default_rng(SHUFFLE["seed"])
+    means = np.empty(SHUFFLE["draws"])
+    for i in range(SHUFFLE["draws"]):
+        rows = np.concatenate([blocks[j] for j in rng.permutation(len(blocks))])
+        means[i] = (TM[rows] * RSW).sum(axis=1).mean()
+    p95 = float(np.percentile(means, 95))
+    rank = float((means < G.mean()).mean())
+    ok_c = G.mean() > p95
+    print(f"2c shuffled-trade placebo: {len(blocks)} blocks ({len(blocks) - 1} of {SHUFFLE['block']}, last "
+          f"{len(blocks[-1])}), {SHUFFLE['draws']:,} draws, seed {SHUFFLE['seed']}: placebo mean "
+          f"{means.mean() * 252e4:+.1f}bp/yr, 95th percentile {p95 * 252e4:+.1f}bp/yr; G {G.mean() * 252e4:+.1f}bp/yr "
+          f"exceeds {rank:.1%} of draws")
+    out["2c"] = dict(placebo_mean_bp_yr=means.mean() * 252e4, p95_bp_yr=p95 * 252e4, g_rank=rank, pass_=bool(ok_c))
+    print(f"   2c: {'PASS' if ok_c else 'KILL D1'} (mean G {'>' if ok_c else '<='} the placebo's 95th percentile)")
+    np.save(FIT_CACHE / "shuffle_means.npy", means)
+    out["pass"] = bool(ok_a and ok_b and ok_c)
+    out["first_fail"] = next((k for k, v in (("2a", ok_a), ("2b", ok_b), ("2c", ok_c)) if not v), None)
+    return out
+
+
+def factor_frames(F: FitData) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Session (open -> close) and lagged close-to-close factor returns on the window
+    (amendment ruling 3 item 2). ETFs: CRSP openprc -> prc, and CRSP `ret` lagged one
+    session. The 13 names: the trial's own O print -> close, equal-weighted over names
+    with a cross; total returns (harness) lagged, over names with a close on s and s-1.
+    Returns (session, lagged, the CRSP-based 13-name session leg for the beside row)."""
+    W, c = F.W, F.crsp
+    sess, lag = {}, {}
+    for t in FACTORS:
+        x = c[c.ticker == t].set_index("date").reindex(F.idx)
+        sess[t] = (x.prc / x.openprc - 1.0).loc[W]
+        lag[t] = x.ret.shift(1).loc[W]
+    rs_raw = (F.C / F.O - 1.0)                       # NaN on no-cross name-days: excluded from the mean, not zeroed
+    sess["CEF13"] = rs_raw.mean(axis=1).loc[W]
+    ok = F.C.notna() & F.C_prev.notna()
+    lag["CEF13"] = F.Rt.where(ok).mean(axis=1).shift(1).loc[W]
+    S, L = pd.DataFrame(sess), pd.DataFrame(lag)
+    prc13 = c[c.ticker.isin(F.U)].pivot_table(index="date", columns="ticker", values="prc").reindex(index=F.idx, columns=F.U)
+    crsp13 = (prc13.abs() / F.op_c - 1.0).mean(axis=1).loc[W]
+    for nm, fr in (("session", S), ("lagged", L)):
+        if fr.isna().any().any():
+            raise Halt(f"R-D4: the {nm} factor frame has {int(fr.isna().sum().sum())} missing values on the window")
+    return S, L, crsp13
+
+
+def regress(y: pd.Series, X: pd.DataFrame) -> dict:
+    import statsmodels.api as sm
+    Xc = sm.add_constant(X, has_constant="add")
+    m = sm.OLS(y.values, Xc.values).fit(cov_type="HAC", cov_kwds={"maxlags": NW_L})
+    names = list(Xc.columns)
+    b = dict(zip(names, m.params))
+    V = pd.DataFrame(m.cov_params(), index=names, columns=names)
+    return dict(alpha_bp_yr=b["const"] * 252e4, alpha_t=b["const"] / np.sqrt(V.at["const", "const"]),
+                b=b, V=V, r2=float(m.rsquared), n=int(m.nobs))
+
+
+def stage3(F: FitData, G: pd.Series) -> dict:
+    hr("STAGE 3: R-D4 (§10) -- G on HYG, IEF, MUB, BKLN and the 13 names' session returns, each with its "
+       "one-session-lagged close-to-close return (Dimson, betas summed); HAC maxlags 21")
+    S, L, crsp13 = factor_frames(F)
+    X = pd.concat([S.add_suffix("_s"), L.add_suffix("_l")], axis=1)
+    r = regress(G, X)
+    summed = {}
+    for f in S.columns:
+        a, b = f"{f}_s", f"{f}_l"
+        v = r["V"].at[a, a] + r["V"].at[b, b] + 2 * r["V"].at[a, b]
+        summed[f] = (r["b"][a] + r["b"][b], (r["b"][a] + r["b"][b]) / np.sqrt(v))
+    print(f"alpha {r['alpha_bp_yr']:+.1f}bp/yr, t {r['alpha_t']:+.2f}; R^2 {r['r2']:.4f}; n {r['n']}")
+    for f, (bb, tt) in summed.items():
+        print(f"   summed beta {f:<6} {bb:+.4f} (t {tt:+.2f}); session {r['b'][f + '_s']:+.4f}, lagged {r['b'][f + '_l']:+.4f}")
+    ok = r["alpha_t"] >= 3.0 and all(abs(bb) <= 0.10 for bb, _ in summed.values())
+    out = dict(alpha_bp_yr=r["alpha_bp_yr"], alpha_t=r["alpha_t"], r2=r["r2"],
+               summed_beta={f: dict(beta=bb, t=tt) for f, (bb, tt) in summed.items()}, pass_=bool(ok))
+    print(f"STAGE 3: {'PASS' if ok else 'KILL D4'} (alpha t {r['alpha_t']:.2f} {'>=' if r['alpha_t'] >= 3 else '<'} 3.0; "
+          f"max |summed beta| {max(abs(bb) for bb, _ in summed.values()):.4f} vs 0.10)")
+    r0 = regress(G, S)
+    out["R0"] = dict(alpha_bp_yr=r0["alpha_bp_yr"], alpha_t=r0["alpha_t"], r2=r0["r2"],
+                     beta={f: r0["b"][f] for f in S.columns})
+    print(f"R-0 (contemporaneous only, reported): alpha {r0['alpha_bp_yr']:+.1f}bp/yr t {r0['alpha_t']:+.2f}; "
+          + ", ".join(f"{f} {r0['b'][f]:+.4f}" for f in S.columns))
+    S2 = S.assign(CEF13=crsp13)
+    if S2.isna().any().any():
+        print(f"beside (CRSP openprc -> prc for the 13 names): {int(S2.isna().sum().sum())} missing values; not run")
+    else:
+        rc = regress(G, pd.concat([S2.add_suffix("_s"), L.add_suffix("_l")], axis=1))
+        out["beside_crsp13"] = dict(alpha_t=rc["alpha_t"],
+                                    summed_CEF13=rc["b"]["CEF13_s"] + rc["b"]["CEF13_l"])
+        print(f"beside, never deciding (13 names' session leg on CRSP openprc -> prc): alpha t {rc['alpha_t']:+.2f}, "
+              f"summed CEF13 beta {out['beside_crsp13']['summed_CEF13']:+.4f}")
+    for lab in ("WIDE", "deployed"):
+        pb = F.e[lab]["pnl"].loc[F.W]
+        rb = regress(G, pb.rename("book").to_frame())
+        out[f"R_BOOK_{lab}"] = dict(beta=rb["b"]["book"], alpha_t=rb["alpha_t"], r2=rb["r2"])
+        print(f"R-BOOK (reported): G on the {lab} set's MOC-filled book P&L: beta {rb['b']['book']:+.4f}, "
+              f"alpha t {rb['alpha_t']:+.2f}, R^2 {rb['r2']:.4f}")
+    return out
+
+
+def stage4(G: pd.Series, N: int) -> dict:
+    from scripts.cef.validate import _dsr
+    hr(f"STAGE 4: THE BAR -- validate._dsr on G at N = {N} (> 0.95), T = {len(G)}")
+    obs = G.mean() / G.std(ddof=1) * np.sqrt(252)
+    sk, ku = pd.Series(G.values).skew(), pd.Series(G.values).kurt() + 3.0    # exactly validate.py:342
+    dsr, sr0, emax = _dsr(obs, len(G), sk, ku, N)
+    yrs = len(G) / 252
+    print(f"observed SR {obs:.3f}; skew {sk:+.3f}, kurtosis {ku:.2f}; null best-of-{N} SR {sr0:.3f}; "
+          f"sqrt(2 ln N) {emax:.3f}; SR*sqrt(years) {obs * np.sqrt(yrs):.3f}")
+    print(f"_dsr = {dsr:.4f}: {'PASS' if dsr > 0.95 else 'NEITHER (below the bar)'}")
+    return dict(sr=obs, skew=sk, kurt=ku, dsr=dsr, sr0=sr0, bar=emax, sr_sqrt_years=obs * np.sqrt(yrs), pass_=bool(dsr > 0.95))
+
+
+def stage5(F: FitData) -> dict:
+    from scripts.cef.spec import MIN_ADV_USD
+    hr("STAGE 5: THE EVALUATION-SET GUARDS (decision 1) -- both means must be > 0")
+    Gd = F.gain("deployed").loc[F.W]
+    sd = gstats(Gd, F.turn_yr("deployed"))
+    above = (F.adv >= MIN_ADV_USD).shift(1).fillna(False).astype(bool)   # row s: the floor at the decision date s-1
+    Ga = F.gain(RS=F.RS.where(above, 0.0)).loc[F.W]
+    sa = gstats(Ga, F.turn_yr())
+    print(fmt_g("deployed set's G", sd))
+    print(fmt_g("WIDE's G on at-or-above-floor name-days", sa))
+    ok = sd["mean_bp_yr"] > 0 and sa["mean_bp_yr"] > 0
+    print(f"STAGE 5: {'PASS' if ok else 'KILL (evaluation-set guard)'}")
+    return dict(deployed=sd, wide_above_floor=sa, pass_=bool(ok))
+
+
+def quote_sample(F: FitData):
+    from scripts.cef import exec_capacity_open_cross as X
+    from scripts.cef.spec import UNIVERSE
+    syms = sorted(UNIVERSE)
+    days = X.load_days(eras=("fit",))
+    fitA = X.fit_auction_rows(syms)
+    Xc = X.cross_tables(days, fitA[fitA.date.isin(sorted(days))], syms)
+    empty = pd.DataFrame(columns=["date", "ticker", "side", "x", "c", "p", "s", "t"])
+    pc = X.prior_closes(days, empty, fitA)
+    return days, X.cost_table(days, Xc, pc)
+
+
+def stage6(F: FitData, G: pd.Series) -> dict:
+    hr("STAGE 6: COST ROWS (§6) -- labels, never kills")
+    from scripts.cef.band_frontier import open_fill_gain
+    days, Ct = quote_sample(F)
+    tw = F.turn_yr()
+    gpt = G.mean() * 252 / tw * 1e4
+    # s_open: mean paired (|open - mid| - |close - mid|), NBBO-referenced, the larger of h1 and h5 (H14: re-measured)
+    s = {}
+    for h in ("h1", "h5"):
+        gh = Ct[(Ct.era == "fit") & (Ct.h == h)]
+        cl = gh[(gh.side == "close") & (gh.method != "unmeasured")]
+        op = gh[(gh.side == "open") & (gh.method == "nbbo")]
+        pair = (cl.set_index(["date", "ticker"])["abs"].rename("c").to_frame()
+                .join(op.set_index(["date", "ticker"])["abs"].rename("o"), how="inner"))
+        s[h] = float((pair.o - pair.c).mean())
+    s_open = max(s.values())
+    print(f"s_open = max(h1 {s['h1']:+.2f}, h5 {s['h5']:+.2f}) = {s_open:+.2f}bp (the 2016-22 quote sample, 126 sessions)")
+    # the signed dislocation of C5's own trades (amendment ruling 3 item 1)
+    TM = open_fill_gain(F.H["WIDE"], pd.DataFrame(1.0, index=F.idx, columns=F.U), by_name=True)
+    rows, unmeasured = [], 0
+    for ds, rec in days.items():
+        d = pd.Timestamp(ds)
+        if d not in F.idx:
+            raise Halt(f"quote sample day {ds} is not a holdings session")
+        for t in F.U:
+            dh = TM.at[d, t]
+            if abs(dh) <= 1e-12 or not np.isfinite(F.O.at[d, t]):
+                continue
+            qo, qc = rec["q_open_p1"].get(t), rec["q_close_m1"].get(t)
+            if qo is None or qc is None or not np.isfinite(F.C.at[d, t]):
+                unmeasured += 1
+                continue
+            sg = np.sign(dh)
+            do = sg * (F.O.at[d, t] - qo["mid"]) / qo["mid"]
+            dc = sg * (F.C.at[d, t] - qc["mid"]) / qc["mid"]
+            rows.append(dict(date=ds, ticker=t, dh=dh, signed_bp=(do - dc) * 1e4, hs_o=qo["hs_bp"], hs_c=qc["hs_bp"]))
+    D = pd.DataFrame(rows)
+    mat = D[D.dh.abs() >= MATERIAL]
+    ew = float(mat.signed_bp.mean())
+    tw_ = float((D.signed_bp * D.dh.abs()).sum() / D.dh.abs().sum())
+    stub = int(((D.hs_o > 1000) | (D.hs_c > 1000)).sum())
+    s_signed = max(ew, tw_, 0.0)
+    print(f"signed dislocation of C5's own trades, open (vs mid 09:31) minus close (vs mid 15:59), bp: equal-weighted "
+          f"over {len(mat)} material trade name-days {ew:+.2f}; |dH|-weighted over {len(D)} trade name-days {tw_:+.2f}; "
+          f"unmeasured {unmeasured}; stub-like references (half-spread > 1,000bp, shown, not dropped) {stub}. "
+          f"The row charges max(larger, 0) = {s_signed:.2f}bp")
+    lab_open = gpt < s_open
+    lab_signed = gpt < ew or gpt < tw_
+    print(f"gain per unit of turnover {gpt:+.2f}bp against s_open {s_open:+.2f}bp: "
+          f"{'D2-open' if lab_open else 'clears it'}; against the signed figures: {'D2-open (signed)' if lab_signed else 'clears both'}")
+    # the dislocation split on the sample: print -> mid 09:35 and mid 09:35 -> close
+    p1 = p2 = tot = 0.0
+    nsplit = nmiss = 0
+    for ds, rec in days.items():
+        d = pd.Timestamp(ds)
+        for t in F.U:
+            dh = TM.at[d, t]
+            if abs(dh) <= 1e-12 or not (np.isfinite(F.O.at[d, t]) and np.isfinite(F.C.at[d, t])):
+                continue
+            q = rec["q_postopen"].get(t)
+            if q is None:
+                nmiss += 1
+                continue
+            o, m, c = F.O.at[d, t], q["mid"], F.C.at[d, t]
+            p1 += dh * (m / o - 1.0)
+            p2 += dh * (c - m) / o
+            tot += dh * (c / o - 1.0)
+            nsplit += 1
+    cap_bound = (tot <= 0) or (p1 > 0.5 * tot)
+    print(f"dislocation split on the sample ({nsplit} trade name-days; {nmiss} without a 09:35 mid): gain "
+          f"{tot * 1e4:+.2f}bp of capital in total = print->mid {p1 * 1e4:+.2f} + mid->close {p2 * 1e4:+.2f}; "
+          f"label {'CAPACITY-BOUND' if cap_bound else 'none'} "
+          f"({'the sample gain is <= 0 (ruling 3 item 6)' if tot <= 0 else f'print->mid share {p1 / tot:.0%}'})")
+    # the C5 and deployed books (WIDE H), gross headline and the 5/15/30 grid, plus the surcharge rows
+    rows_ = cost_rows(F, G, s_open, s_signed)
+    return dict(s_open_h1=s["h1"], s_open_h5=s["h5"], s_open=s_open, gain_per_turn_bp=gpt,
+                signed_ew_material=ew, signed_turnover_weighted=tw_, signed_n=len(D), signed_material_n=len(mat),
+                signed_unmeasured=unmeasured, signed_stub=stub, s_signed=s_signed,
+                label_D2_open=bool(lab_open), label_D2_open_signed=bool(lab_signed),
+                split=dict(total_bp=tot * 1e4, print_mid_bp=p1 * 1e4, mid_close_bp=p2 * 1e4, n=nsplit, no_mid=nmiss),
+                label_capacity_bound=bool(cap_bound), books=rows_)
+
+
+def cost_rows(F: FitData, G: pd.Series, s_open: float, s_signed: float) -> dict:
+    from scripts.cef.band_frontier import _stats
+    print("\nBOOKS over the decision window, total returns, GROSS headline; net at 5/15/30bp per unit of one-way "
+          "turnover beside it (real-money view, labelled). No borrow (its own table).")
+    print(f"{'book':<46}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn/yr':>8}{'net@5':>8}{'net@15':>8}{'net@30':>8}{'flips?':>8}")
+    out = {}
+    for lab in ("WIDE", "deployed"):
+        e = F.e[lab]
+        gl = F.gain(lab)
+        pd_, pc = e["pnl"].loc[F.W], (e["pnl"] + gl).loc[F.W]
+        tt = e["turn_series"].loc[F.W]
+        for nm, pnl, extra in ((f"{lab}: MOC fill (the deployed fill)", pd_, 0.0),
+                               (f"{lab}: C5 open fill", pc, 0.0),
+                               (f"{lab}: C5, + s_open {s_open:.2f}bp", pc, s_open),
+                               (f"{lab}: C5, + signed {s_signed:.2f}bp", pc, s_signed)):
+            st = _stats(pnl, tt)
+            nets = [(st["ann"] - st["turn"] * (c + extra) / 1e4) / st["vol"] for c in COSTS]
+            gross = (st["ann"] - st["turn"] * extra / 1e4) / st["vol"]
+            flips = any(np.sign(x) != np.sign(gross) for x in nets)
+            print(f"{nm:<46}{gross:8.2f}{st['ann'] * 100:7.2f}{st['vol'] * 100:7.2f}{st['turn']:8.2f}"
+                  + "".join(f"{x:8.2f}" for x in nets) + f"{'YES' if flips else 'no':>8}")
+            out[nm] = dict(gross=gross, ann_pct=st["ann"] * 100, vol_pct=st["vol"] * 100, turn=st["turn"],
+                           net=dict(zip(COSTS, nets)), flips=bool(flips))
+    print("The two fills share one H, so one turnover: the grid moves both by the same amount and cannot flip the "
+          "comparison; it can only flip a book.")
+    return out
+
+
+def borrow_table(F: FitData) -> dict:
+    from scripts.cef.band_frontier import borrow_charge
+    hr("BORROW (H4), charged separately on the held short book H.shift(2); IDENTICAL for both fills")
+    print("COUNTERFACTUAL: today's fee terms applied to 2016-22 history; not a historical cost.")
+    probes = sorted((REPO / "results/ops/alpaca_probe").glob("*_cef.json"))
+    tracked = [p for p in probes if subprocess.run(["git", "-C", str(REPO), "ls-files", "--error-unmatch", str(p)],
+                                                    capture_output=True).returncode == 0]
+    pr = json.loads(tracked[-1].read_text())["assets"]
+    fee_a = pd.DataFrame({t: (0.0 if pr[t]["borrow_status"] == "easy_to_borrow" else np.nan) for t in F.U},
+                         index=F.idx)
+    fb = pd.read_parquet(F_CEF / "cef_borrow_history.parquet")
+    fb["date"] = pd.to_datetime(fb["date"])
+    fee_i = fb.pivot(index="date", columns="ticker", values="fee_rate_pct").reindex(index=F.idx, columns=F.U)
+    out = {}
+    print(f"(A) Alpaca's published live terms: easy-to-borrow pays no fee (REFERENCES §12l [V]); status from the latest "
+          f"committed probe, {tracked[-1].name}: HTB with no published rate = a gap, never zero")
+    print(f"(B) IBKR FEE_RATE panel [S], 2021-09-13 .. 2022-12-30 only (no fee data before it)")
+    for lab in ("WIDE", "deployed"):
+        for key, fee, lo in (("A", fee_a, F.W[0]), ("B", fee_i, pd.Timestamp("2021-09-13"))):
+            ch = borrow_charge(F.H[lab], fee)
+            sl = slice(lo, F.W[-1])
+            sh, un = ch["short"].loc[sl], ch["uncovered"].loc[sl]
+            cov = 1 - un.sum() / sh.sum() if sh.sum() > 0 else 1.0
+            drag = ch["cost"].loc[sl].mean() * 252 * 100
+            out[f"{lab}_{key}"] = dict(drag_pct_yr=drag, covered=cov, from_=str(pd.Timestamp(lo).date()))
+            print(f"   {lab:<9} ({key}) from {pd.Timestamp(lo).date()}: drag {drag:.3f}%/yr, short book covered "
+                  f"{cov:.1%}{'  <- lower bound (gaps not charged)' if cov < 0.999 else ''}")
+    return out
+
+
+def reported(F: FitData, G: pd.Series, N: int) -> dict:
+    """Everything §9 and §11 report and never decide on."""
+    from scripts.cef import band_frontier as bf
+    from scripts.cef.band_frontier import evaluate, open_fill_gain
+    from scripts.cef.validate import _dsr
+    out = {}
+    W = F.W
+    hr("REPORTED, NEVER DECIDING (§9, §11)")
+    # ---- where the return lands: the open -> close split
+    ok_o = F.O.notna() & F.C_prev.notna() & F.C.notna()
+    rO = (F.O * F.k / F.C_prev + F.y - 1.0).where(ok_o, F.Rt)   # no usable open: the whole day is "overnight"
+    RSd = F.RS.where(ok_o, 0.0)
+    print("[split] annualised means over the window, bp/yr of capital (WIDE H):")
+    e = F.e["WIDE"]
+    pnl_d = e["pnl"]
+    ov = evaluate(F.H["WIDE"], rO)["pnl"]
+    se = evaluate(F.H["WIDE"], RSd)["pnl"]
+    gd = F.gain(RS=RSd)
+    comp_d = pnl_d - ov - se
+    pnl_c = pnl_d + G.reindex(pnl_d.index, fill_value=0.0)
+    se_c = se + gd
+    comp_c = pnl_c - ov - se_c
+    nt = open_fill_gain(F.H["WIDE"], rO.fillna(0.0)).loc[W]
+    f = lambda x: x.loc[W].mean() * 252e4
+    sp = dict(deployed=dict(overnight=f(ov), session=f(se), compounding=f(comp_d), total=f(pnl_d)),
+              C5=dict(overnight=f(ov), session=f(se_c), compounding=f(comp_c), total=f(pnl_c)),
+              G=f(G.reindex(pnl_d.index, fill_value=0.0)), overnight_not_transactable=nt.mean() * 252e4)
+    for k_ in ("deployed", "C5"):
+        print(f"   {k_:<9} overnight H[s-2]rO {sp[k_]['overnight']:+8.1f}  session {sp[k_]['session']:+8.1f}  "
+              f"compounding/ex-date residual {sp[k_]['compounding']:+7.1f}  = total {sp[k_]['total']:+8.1f}")
+    print(f"   G {sp['G']:+.1f}; the overnight the decision cannot reach, sum dH[s-1] rO[s] (NOT TRANSACTABLE, "
+          f"diagnostic): {sp['overnight_not_transactable']:+.1f}")
+    out["split"] = sp
+    # ---- decay profile
+    dec = {}
+    for k_ in range(1, 6):
+        Hk = F.H["WIDE"].shift(k_ - 1).fillna(0.0)
+        gk = gstats(F.gain(H=Hk).loc[W])
+        dec[k_] = dict(mean_bp_yr=gk["mean_bp_yr"], t21=gk["t21"])
+    print("[decay] sum (H[s-k]-H[s-k-1]) rS[s], bp/yr (t NW21): "
+          + "; ".join(f"k={k_} {v['mean_bp_yr']:+.1f} ({v['t21']:+.2f})" for k_, v in dec.items()))
+    out["decay"] = dec
+    # ---- NAV freshness, months, ex-dates
+    navm = (F.nav.shift(1) != F.nav.shift(2)) & F.nav.shift(1).notna() & F.nav.shift(2).notna()
+    navm = navm.reindex(index=F.idx, columns=F.U).fillna(False).astype(bool)
+    mth = pd.DataFrame(np.repeat(F.idx.month.values[:, None], len(F.U), axis=1), index=F.idx, columns=F.U)
+    strata = {"NAV[s-1] moved": navm, "NAV[s-1] repeated": ~navm,
+              "December fills": mth == 12, "Feb-Nov fills": (mth >= 2) & (mth <= 11),
+              "January fills (in neither declared stratum)": mth == 1,
+              "ex-date name-days": F.ex, "non-ex-date name-days": ~F.ex}
+    out["strata"] = {}
+    print("[strata] G restricted to the name-days of each stratum (zeros elsewhere):")
+    for nm, m in strata.items():
+        gs = gstats(F.gain(RS=F.RS.where(m, 0.0)).loc[W])
+        out["strata"][nm] = dict(mean_bp_yr=gs["mean_bp_yr"], t21=gs["t21"], sr=gs["sr"])
+        print(f"   {nm:<44} {gs['mean_bp_yr']:+8.1f}bp/yr  t {gs['t21']:+6.2f}")
+    # ---- correlations
+    out["corr"] = {lab: float(np.corrcoef(G.values, F.e[lab]["pnl"].loc[W].values)[0, 1]) for lab in ("WIDE", "deployed")}
+    print(f"[corr] G with the MOC book's daily P&L: WIDE {out['corr']['WIDE']:+.3f}, deployed set {out['corr']['deployed']:+.3f}")
+    # ---- eras (H5): 2016-19 ("the 2015-19 era from the print's start") and 2020-22
+    print("[eras] G and the WIDE books, gross and net:")
+    from scripts.cef.band_frontier import _stats
+    era = {}
+    for nm, lo, hi in (("2016-19 (2015-19 era from the print's start)", "2016-01-04", "2019-12-31"),
+                       ("2020-22", "2020-01-01", "2022-12-30")):
+        gs = gstats(G.loc[lo:hi], F.turn_yr(lo=pd.Timestamp(lo), hi=pd.Timestamp(hi)))
+        bd = _stats(e["pnl"].loc[lo:hi], e["turn_series"].loc[lo:hi])
+        bc = _stats((e["pnl"] + F.gain()).loc[lo:hi], e["turn_series"].loc[lo:hi])
+        era[nm] = dict(G=gs, moc_sr=bd["sr"], c5_sr=bc["sr"], turn=bd["turn"], c5_nets=bc["nets"], moc_nets=bd["nets"])
+        print(f"   {nm:<46} G {gs['mean_bp_yr']:+7.1f}bp/yr SR {gs['sr']:+5.2f} t {gs['t21']:+5.2f}; turnover "
+              f"{bd['turn']:.1f}; MOC book SR {bd['sr']:.2f} (net 5/15/30 {', '.join(f'{x:.2f}' for x in bd['nets'])}); "
+              f"C5 book SR {bc['sr']:.2f} (net {', '.join(f'{x:.2f}' for x in bc['nets'])})")
+    tv = np.array([v["turn"] for v in era.values()])
+    print(f"   era turnover sd/mean {tv.std() / tv.mean():.1%}")
+    out["eras"] = era
+    # ---- robustness rows
+    rob = {}
+
+    def row(nm, g, turn=None):
+        st = gstats(g, turn)
+        rob[nm] = st
+        print("   " + fmt_g(nm, st))
+
+    print("[robustness] (none of it rescues a failed headline)")
+    first_half, second_half = W[:len(W) // 2], W[len(W) // 2:]
+    row("first half of the window", G.loc[first_half])
+    row("second half of the window", G.loc[second_half])
+    # R-STALE0 is 2a's stratum (amendment ruling 3 item 4); R-LATE
+    late = F.O_min > LATE_ET_MIN
+    row("R-LATE: O after 09:35 ET as no-cross", F.gain(RS=F.RS.where(~late, 0.0)).loc[W], F.turn_yr())
+    print(f"      (late O name-days in the window: {int(late.loc[W].sum().sum())})")
+    # R-YF
+    oy = F.op_y.where(F.op_y > 0)
+    oy.loc[oy.index < WINDOW[0]] = np.nan              # the window only, as the print
+    try:
+        RSy, _ = bf.session_returns(oy, F.C)
+        row("R-YF: the yfinance open", F.gain(RS=RSy).loc[W], F.turn_yr())
+    except ValueError as x:
+        print(f"   R-YF not computed: {x}")
+    # R-CLOSE (amendment ruling 3 item 5): the 6-print day's official close; no 6 -> no cross
+    cpx = F.closeM.combine_first(F.close6).where(F.close6.notna())
+    both = F.closeM.notna() & F.close6.notna()
+    m_ne_6 = int((both & ((F.closeM - F.close6).abs() > TOL)).sum().sum())
+    RSc, _ = bf.session_returns(F.O, cpx)
+    row("R-CLOSE: G on the NYSE closing print", F.gain(RS=RSc).loc[W], F.turn_yr())
+    amt = (F.y * F.C_prev)                                # the distribution amount on its ex-date
+    Rc = ((cpx * F.k + amt) / cpx.shift(1) - 1.0)
+    miss = Rc.isna() & (F.C.notna())
+    Rc0 = Rc.fillna(0.0)
+    held = F.H["WIDE"].shift(2).abs()
+    share = float((held.where(miss, 0.0).loc[W].sum().sum()) / held.loc[W].sum().sum())
+    pc = evaluate(F.H["WIDE"], Rc0)["pnl"]
+    stc = _stats(pc.loc[W], e["turn_series"].loc[W])
+    stc5 = _stats((pc + F.gain(RS=RSc)).loc[W], e["turn_series"].loc[W])
+    print(f"      R-CLOSE books (print-to-print total returns; a return needing a missing print is 0, held-weight "
+          f"share {share:.2%}; M != 6 beyond tolerance on {m_ne_6} name-days): MOC SR {stc['sr']:.2f}, C5 SR {stc5['sr']:.2f}")
+    rob["R-CLOSE books"] = dict(moc_sr=stc["sr"], c5_sr=stc5["sr"], missing_share=share, m_ne_6=m_ne_6)
+    # R-DEP: the deciding stages on the deployed set
+    print("   R-DEP (decision 1's alternative A), the deciding statistics on the deployed set:")
+    Gd = F.gain("deployed").loc[W]
+    sd = gstats(Gd, F.turn_yr("deployed"))
+    dd = _dsr(sd["sr"], len(Gd), pd.Series(Gd.values).skew(), pd.Series(Gd.values).kurt() + 3.0, N)[0]
+    moved = F.O.notna() & F.C_prev.notna() & ((F.O - F.C_prev).abs() > TOL)
+    gm = F.gain("deployed", RS=F.RS.where(moved, 0.0)).loc[W].mean()
+    gl = F.gain(H=F.H["deployed"].shift(1).fillna(0.0)).loc[W].mean()
+    print(f"      G {sd['mean_bp_yr']:+.1f}bp/yr SR {sd['sr']:+.2f} t(NW21) {sd['t21']:+.2f} _dsr {dd:.4f}; moved-open "
+          f"stratum {gm * 252e4:+.1f}bp/yr; lagged placebo {gl * 252e4:+.1f}bp/yr")
+    rob["R-DEP"] = dict(stats=sd, dsr=dd, moved_bp_yr=gm * 252e4, lag_bp_yr=gl * 252e4)
+    # R-PRE16: CRSP openprc from first decision + 2 sessions to 2015-12-31, and spliced
+    for lab in ("WIDE", "deployed"):
+        H = F.H[lab]
+        first = H.index[(H.abs().sum(axis=1) > 0).to_numpy()].min()
+        lo = H.index[H.index.get_loc(first) + 2]
+        pre = (F.idx >= lo) & (F.idx < WINDOW[0])
+        oc = F.op_c.where(pd.DataFrame(np.repeat(pre[:, None], len(F.U), axis=1), index=F.idx, columns=F.U))
+        try:
+            RSp, _ = bf.session_returns(oc, F.C)
+        except ValueError as x:
+            print(f"   R-PRE16 ({lab}) not computed: {x}")
+            continue
+        gp = F.gain(lab, RS=RSp).loc[F.idx[pre]]
+        sp_ = gstats(gp)
+        spl = pd.concat([gp, F.gain(lab).loc[W]])
+        ss = gstats(spl)
+        dsr_s = _dsr(ss["sr"], len(spl), pd.Series(spl.values).skew(), pd.Series(spl.values).kurt() + 3.0, N)[0]
+        print(f"   R-PRE16 {lab} (CRSP openprc, a consolidated first price, not an auction print) {lo.date()}..2015-12-31: "
+              f"G {sp_['mean_bp_yr']:+.1f}bp/yr SR {sp_['sr']:+.2f} t {sp_['t21']:+.2f}; spliced with the window "
+              f"({len(spl)} sessions): SR {ss['sr']:+.2f} t {ss['t21']:+.2f} _dsr {dsr_s:.4f}")
+        rob[f"R-PRE16 {lab}"] = dict(pre=sp_, spliced=ss, spliced_dsr=dsr_s, start=str(lo.date()))
+    # leave one name out
+    loo = {}
+    for t in F.U:
+        loo[t] = gstats(F.gain(RS=F.RS.assign(**{t: 0.0})).loc[W])["sr"]
+    v = pd.Series(loo)
+    print(f"   leave-one-name-out SR of G: min {v.min():+.2f} (without {v.idxmin()}), median {v.median():+.2f}, "
+          f"max {v.max():+.2f} (without {v.idxmax()})")
+    rob["LOO"] = loo
+    out["robustness"] = rob
+    # capacity: the opening cross against the closing cross, at $100k / $1m / $10m (the EXEC note's method)
+    from scripts.cef import exec_capacity_open_cross as X
+    from scripts.cef.spec import UNIVERSE
+    fitA = X.fit_auction_rows(sorted(UNIVERSE))
+    fitX = X.fit_cross_all(fitA, sorted(UNIVERSE))
+    cap = {}
+    print("[capacity] C5's (WIDE) trades as whole-share orders sized at the decision close, matched to their fill "
+          "day's cross (round-lot crosses), participation = our shares / cross shares:")
+    # H from two rows before the window: backtest_orders treats its first row as a build from flat,
+    # and that build then fills before the window and is dropped with every other pre-window fill
+    Hc = F.H["WIDE"].iloc[F.idx.get_loc(F.W[0]) - 2:]
+    for k_ in CAPITALS:
+        try:
+            B = X.backtest_orders(Hc, F.C, k_)
+        except ValueError as x:
+            print(f"   capacity at ${k_:,.0f} not computed: {x}")
+            continue
+        B = B[(B.fill >= WINDOW[0]) & (B.fill <= WINDOW[1])].copy()
+        B["fill"] = B.fill.dt.strftime("%Y-%m-%d")
+        for side in ("open", "close"):
+            M = X.participation(B.rename(columns={"fill": "date"}), fitX[fitX.side == side], on="date")
+            rr = M[(M.kind == "round") & np.isfinite(M.part)]
+            cap[f"{int(k_)}_{side}"] = dict(med=float(rr.part.median()), p90=float(rr.part.quantile(0.9)),
+                                            wmed=float(X.weighted_median(rr.part, rr.notional)), n=len(rr))
+            print(f"   ${k_ / 1e6:>5.1f}m {side:<5}: median {rr.part.median():7.2%}, notional-weighted median "
+                  f"{X.weighted_median(rr.part, rr.notional):7.2%}, p90 {rr.part.quantile(0.9):7.2%} ({len(rr):,} orders)")
+    out["capacity"] = cap
+    return out
+
+
+def fit() -> dict:
+    """Stages 1-7 of §13 on the frozen inputs."""
+    FIT_CACHE.mkdir(parents=True, exist_ok=True)
+    print(f"C5 (CEF trial 51) THE FIT, run {pd.Timestamp.now(tz='UTC'):%Y-%m-%d %H:%M}Z, on the frozen inputs. "
+          "Decision window 2016-01-04 .. 2022-12-30; the holdout is not read.")
+    frz = verify_frozen()
+    s0 = json.loads(_need(STAGE0_AMENDED, "c5_open_auction.py stage0").read_text())
+    if s0.get("verdict") != "PASS":
+        raise Halt("the amended Stage 0 record does not say PASS")
+    spec = sec_spec()
+    N = spec["N"]
+    rec = dict(stamp=STAMP, trial="C5, CEF trial 51", N=N, bar=spec["bar"], window=[str(WINDOW[0].date()),
+               str(WINDOW[1].date())], frozen_record=str(FREEZE_RECORD.relative_to(REPO)),
+               frozen_files=len(frz["files"]))
+    with frozen():
+        F = FitData()
+        print(f"\nfrozen inputs verified ({len(frz['files'])} files); no-cross name-days from D-2/D-3 under ruling 2: "
+              f"{F.n_d2d3}")
+        G = F.gain().loc[F.W]
+        G.to_frame("G").to_parquet(FIT_CACHE / "G_wide.parquet")
+        rec["stage1"] = stage1(F)
+        rec["stage2"] = stage2(F, G)
+        rec["stage3"] = stage3(F, G)
+        rec["stage4"] = stage4(G, N)
+        rec["stage5"] = stage5(F)
+        rec["stage6"] = stage6(F, G)
+        rec["borrow"] = borrow_table(F)
+        hr("BESIDE THE BAR, NEVER DECIDING (§8)")
+        from scripts.cef.validate import _dsr
+        from scripts.cef.w4_artifacts import nw_t
+        pc = (F.e["WIDE"]["pnl"] + F.gain()).loc[F.W]
+        src = pc.mean() / pc.std(ddof=1) * np.sqrt(252)
+        d_c5 = _dsr(src, len(pc), pd.Series(pc.values).skew(), pd.Series(pc.values).kurt() + 3.0, N)[0]
+        paired = pc - F.e["WIDE"]["pnl"].loc[F.W]
+        print(f"_dsr of the C5 book's own gross series (decision 2's alternative): SR {src:.3f}, _dsr {d_c5:.4f}")
+        print(f"paired t of C5 - MOC (NW21): {nw_t(paired, lags=NW_L):+.3f}; G's t {rec['stage1']['stats']['t21']:+.3f} "
+              "(the same series)")
+        rec["beside"] = dict(c5_book_sr=src, c5_book_dsr=d_c5, paired_t=nw_t(paired, lags=NW_L))
+        rec["reported"] = reported(F, G, N)
+    order = [("1", rec["stage1"]["pass"], "KILL D1 (stage 1: G not detectable)"),
+             ("2", rec["stage2"]["pass"], f"KILL D1 (stage {rec['stage2']['first_fail']}: artefact control)"),
+             ("3", rec["stage3"]["pass_"], "KILL D4 (stage 3: factor regression)"),
+             ("4", rec["stage4"]["pass_"], "NEITHER (stage 4: below the _dsr bar)"),
+             ("5", rec["stage5"]["pass_"], "KILL (stage 5: evaluation-set guard)")]
+    fail = next(((st, v) for st, ok, v in order if not ok), None)
+    labels = [x for x, on in (("D2-open", rec["stage6"]["label_D2_open"]),
+                              ("D2-open (signed)", rec["stage6"]["label_D2_open_signed"]),
+                              ("capacity-bound", rec["stage6"]["label_capacity_bound"])) if on]
+    rec["verdict"] = fail[1] if fail else "FIT PASS (stages 1-5); the holdout (stage 8) decides the trial"
+    rec["deciding_stage"] = fail[0] if fail else None
+    rec["labels"] = labels
+    hr("THE FIT VERDICT (stage 7: committed before the holdout is read)")
+    print(rec["verdict"])
+    print("stage results:", {st: ("pass" if ok else "FAIL") for st, ok, _ in order})
+    print("stage-6 labels:", labels or "none")
+    return rec
+
+
 def _write(name: str, header: str, fn):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -824,7 +1542,7 @@ def _write(name: str, header: str, fn):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("stage", choices=("freeze", "stage0"))
+    ap.add_argument("stage", choices=("freeze", "stage0", "fit"))
     a = ap.parse_args(argv)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     pd.set_option("display.width", 220)
@@ -833,6 +1551,13 @@ def main(argv=None) -> int:
                      f"# python3 scripts/cef/c5_open_auction.py freeze  (run {STAMP}; counts, cents, hashes)\n", freeze)
         FREEZE_RECORD.write_text(json.dumps(rec, indent=1, default=str) + "\n")
         return 1 if rec["verdict"] == "HALT" else 0
+    if a.stage == "fit":
+        rec = _write(f"c5_fit_output_{STAMP}.txt",
+                     f"# python3 scripts/cef/c5_open_auction.py fit  (run {STAMP}; frozen inputs; decision window "
+                     "2016-01-04..2022-12-30; the holdout is not read)\n", fit)
+        FIT_VERDICT.write_text(json.dumps(rec, indent=1, default=lambda o: float(o) if isinstance(o, np.floating)
+                                          else (bool(o) if isinstance(o, np.bool_) else str(o))) + "\n")
+        return 0
     rec, flags = _write(f"c5_stage0_amended_output_{STAMP}.txt",
                         f"# python3 scripts/cef/c5_open_auction.py stage0  (run {STAMP}, amended, frozen inputs; "
                         "counts, gates, hashes; no P&L)\n", stage0)
