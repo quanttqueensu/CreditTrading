@@ -1,9 +1,9 @@
 """nav_gate_replay's per-name rules: which decides count as a repeat, and which names were eligible.
 
 The replay (report only) says how often the 2026-10-13 stale-NAV gate would
-have bound on the laptop's sessions. Its one judgement is whether NAV(D)
-equalled NAV(D-1) at decide time, from the z the session printed; these pin
-that judgement on literal numbers. No network: the fetchers are never called.
+have bound on the laptop's sessions. Its judgements are which NAV(D) the
+session used, from the z it printed, and whether that NAV triggers the gate;
+these pin them on literal numbers. No network: the fetchers are never called.
 """
 import numpy as np
 
@@ -14,20 +14,21 @@ def _z(close, nav, mu, sd):
     return round((100.0 * (close - nav) / nav - mu) / sd, 2)
 
 
-def test_a_z_computed_on_the_previous_nav_is_a_stale_repeat():
+def test_a_z_computed_on_the_previous_nav_identifies_the_stale_copy():
     close, mu, sd, final, prev = 14.20, -5.0, 1.5, 15.04, 14.98
     assert rp.identify(_z(close, prev, mu, sd), close, mu, sd, final, prev) == "prev"
     assert rp.identify(_z(close, final, mu, sd), close, mu, sd, final, prev) == "final"
-    assert rp.repeat_status("prev", final, prev) == "yes_stale"
-    assert rp.repeat_status("final", final, prev) == "no"
+    assert rp.identify(np.nan, close, mu, sd, final, prev) == "no z"
+    assert rp.identify(-4.0, close, mu, sd, final, prev) == "no z"          # clipped
 
 
-def test_without_a_z_only_an_equal_pair_is_known():
-    assert rp.identify(np.nan, 14.2, -5.0, 1.5, 15.0, 15.0) == "no z"
-    assert rp.identify(-4.0, 14.2, -5.0, 1.5, 15.0, 15.0) == "no z"      # clipped
-    assert rp.repeat_status("no z", 15.00, 15.00) == "yes_genuine"
-    assert rp.repeat_status("no z", 15.01, 15.00) == "unknown"
-    assert rp.repeat_status("other", 15.01, 15.00) == "unknown"
+def test_the_replay_triggers_as_the_gate_does():
+    """Both triggers: the panel's previous NAV, and CEFConnect's NAV(D-1) (the
+    reviewer's PDI case: 15.06 against a previous row of 15.12)."""
+    assert rp.trigger_of(15.06, 15.12, 15.06) == "cc_prev"
+    assert rp.trigger_of(10.00, 10.00, 9.98) == "yf_repeat"
+    assert rp.trigger_of(20.00, 20.00, 20.00) == "yf_repeat+cc_prev"
+    assert rp.trigger_of(15.10, 15.06, None) == ""
 
 
 def test_only_the_sleeves_own_drops_are_ineligible():

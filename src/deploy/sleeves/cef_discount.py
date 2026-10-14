@@ -31,9 +31,9 @@ blind one. Any fund whose NAV is older than `max_nav_age_bd` business days is
 dropped for the day rather than traded. A NAV can also be stale and freshly
 dated: Yahoo serves a row dated D carrying D-1's NAV
 (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The runner's stale-NAV gate
-(`quantt/session/nav_gate.py`) names the funds it could not verify in
-`extras["nav_unverified"]`, and they are dropped on this same path
-(`_nav_unverified`). Absent, nothing changes.
+(`quantt/session/nav_gate.py`) names the funds it could not verify by its final
+pre-send check in `extras["nav_hold"]`: each keeps its current shares and leaves
+the cross-section (`_nav_hold`). Absent, nothing changes.
 
 TWO CONSTRAINTS SIT ON TOP OF THE SIGNAL, and both are OFF unless the frozen spec
 turns them on. Neither is a return idea; each removes a way this book has been
@@ -217,50 +217,78 @@ def _cap_gross(w: pd.Series, cap: float) -> tuple[pd.Series, float]:
     return w * f, f
 
 
-def _nav_unverified(market_state, last: pd.Timestamp, universe) -> dict:
-    """{ticker: reason} the runner's stale-NAV gate could not verify for `last`.
+def _nav_hold(market_state, last: pd.Timestamp, universe) -> dict:
+    """{ticker: reason}: names whose NAV the runner's stale-NAV gate could not verify.
 
-    WHY. Yahoo serves a NAV row dated D that still carries D-1's NAV and corrects
-    it later; on the laptop's paper sessions 28 of 73 checkable name-days were
-    decided on such a row and 11 submitted orders were sized on one
-    (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The runner checks each
-    repeat against CEFConnect (`quantt/session/nav_gate.py`); a repeat it cannot
-    verify is dropped for the day (team lead 2026-10-13, "Use CEFConnect, else
-    drop"). The drop goes through the eligibility loop, beside
-    `max_nav_age_bd`, so it is exactly the drop a stale NAV already gets: the
-    name leaves the cross-section and every downstream step (demeaning, vol
-    scalar, `min_names`, band, caps) runs as it would for any dropped name. The
-    signal math is untouched.
+    WHY. Yahoo serves a NAV row dated D that still carries an older NAV and
+    corrects it later; on the laptop's paper sessions 28 of 73 checkable
+    name-days were decided on such a row and 11 submitted orders were sized on
+    one (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The runner checks each
+    suspect NAV against CEFConnect (`quantt/session/nav_gate.py`). A name still
+    unverified at its final pre-send check is HELD (team lead 2026-10-13): it
+    keeps its current shares -- no order in it -- and leaves the cross-section,
+    so its unverified z moves no other name's weight.
 
-    `extras["nav_unverified"] = {"asof": <date>, "names": {ticker: reason}}`.
-    ABSENT is today's behaviour, byte for byte: proved against the sleeve before
-    this change on 56 real panel dates, flat and held books, when it was added
-    (2026-10-13, the commit message), and kept by
-    `src/deploy/tests/test_nav_unverified.py`. Present, it must be well formed,
-    name only universe tickers, and carry the date the sleeve decides on: a gate
-    run for another day than the signal date is a runner bug, and dropping on it
-    would act on a NAV the gate never looked at. Each violation raises.
+    WHY HOLD AND NOT DROP. The first version dropped such a name (target zero,
+    then the band). Replayed on the laptop's sessions, that would have cut held
+    positions to the band edge on the strength of a missing CEFConnect row, and
+    on 2026-10-05 left 4 eligible names, under `min_names`, where the rule
+    below emits every name FLAT and decide closes the whole book. So a held
+    name is never targeted to zero, and holds never trigger that flatten
+    (`target_positions`, the `min_names` block): when the cross-section is short
+    of `min_names` only because of holds, the whole book holds for the day.
+
+    Held names stay out of the sleeve's band and gross cap: their shares are
+    fixed, so nothing here may scale them. Their gross is judged with the rest
+    of the book by gate 8 and the send-time fit (`quantt/session/run.py`).
+
+    `extras["nav_hold"] = {"asof": <date>, "names": {ticker: reason}}`. ABSENT
+    is today's behaviour, byte for byte: proved against the sleeve before this
+    change on 56 real panel dates, flat and held books (2026-10-13, the commit
+    message), and kept by `src/deploy/tests/test_nav_hold.py`. Present, it must
+    be well formed, name only universe tickers, and carry the date the sleeve
+    decides on: a gate run for another day than the signal date is a runner
+    bug, and holding on it would act on a NAV the gate never looked at. Each
+    violation raises.
     """
     extras = getattr(market_state, "extras", None) or {}
-    if "nav_unverified" not in extras:
+    if "nav_hold" not in extras:
         return {}
-    spec = extras["nav_unverified"]
+    spec = extras["nav_hold"]
     if not isinstance(spec, dict) or set(spec) != {"asof", "names"}:
-        raise ValueError(f"cef: extras['nav_unverified'] must be {{'asof', 'names'}}, "
-                         f"got {spec!r}")
+        raise ValueError(f"cef: extras['nav_hold'] must be {{'asof', 'names'}}, got {spec!r}")
     names = spec["names"]
     if not isinstance(names, dict) or not all(
             isinstance(k, str) and isinstance(v, str) and v for k, v in names.items()):
-        raise ValueError(f"cef: extras['nav_unverified']['names'] must map ticker -> "
-                         f"non-empty reason, got {names!r}")
+        raise ValueError(f"cef: extras['nav_hold']['names'] must map ticker -> non-empty "
+                         f"reason, got {names!r}")
     stray = sorted(set(names) - set(universe))
     if stray:
-        raise ValueError(f"cef: extras['nav_unverified'] names {stray}, not in the universe")
+        raise ValueError(f"cef: extras['nav_hold'] names {stray}, not in the universe")
     if pd.Timestamp(spec["asof"]).normalize() != pd.Timestamp(last).normalize():
         raise ValueError(f"cef: the stale-NAV gate checked {spec['asof']} but the sleeve "
-                         f"decides on {pd.Timestamp(last).date()}; refusing to drop on a "
+                         f"decides on {pd.Timestamp(last).date()}; refusing to hold on a "
                          f"NAV the gate did not look at")
     return dict(names)
+
+
+def _held_target(tk: str, market_state, reason: str, order_type: str) -> PositionTarget:
+    """The target that keeps `tk` at exactly its current shares: a qty target
+    (decide uses it as given, so the delta is zero and nothing is sent), or FLAT
+    when nothing is held (a target of 0 against 0 sends nothing either). An
+    unreadable holding raises: an unmeasured position is not a held one."""
+    holds = getattr(market_state, "holdings", None) or {}
+    try:
+        q = float(holds.get(tk, 0.0) or 0.0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"cef: holding {tk!r} is {holds.get(tk)!r}; cannot hold it") from exc
+    if not np.isfinite(q):
+        raise ValueError(f"cef: holding {tk!r} is {q}; cannot hold it")
+    if q == 0.0:
+        return PositionTarget(instrument=tk, side=FLAT, kind=ETF,
+                              reason=f"cef: not opened, {reason}")
+    return PositionTarget(instrument=tk, side=LONG if q > 0 else SHORT, kind=ETF, qty=q,
+                          meta={"order_type": order_type}, reason=f"cef: held, {reason}")
 
 
 @register
@@ -490,8 +518,8 @@ class CEFDiscountSleeve(Sleeve):
         sig_pos = pos if band_w is not None else pos - (pos % self._rebal_days)
         last = z.index[sig_pos]
         max_age = int(self._req("max_nav_age_bd"))
-        unverified = _nav_unverified(market_state, last, uni)
-        row, dropped = {}, []
+        hold = _nav_hold(market_state, last, uni)
+        row, dropped, held_out = {}, [], []
         for tk in px.columns:
             zi = z.loc[last, tk]
             if not np.isfinite(zi):
@@ -514,13 +542,29 @@ class CEFDiscountSleeve(Sleeve):
             age = len(pd.bdate_range(nav_tk.index[-1], last)) - 1
             if age > max_age:
                 dropped.append((tk, f"NAV {age}bd stale")); continue
-            # dated today, but the runner could not verify the value (_nav_unverified)
-            if tk in unverified:
-                dropped.append((tk, f"NAV unverified: {unverified[tk]}")); continue
+            # Last, so `held_out` counts only names that were otherwise eligible:
+            # the runner could not verify this NAV (_nav_hold).
+            if tk in hold:
+                held_out.append(tk); continue
             row[tk] = float(zi)
 
         if len(row) < int(self._req("min_names")):
-            return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
+            if not hold:
+                return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                       reason=f"cef: only {len(row)} eligible names")
+                        for t in uni]
+            order_type = str(self._req("order_type")).upper()
+            if len(row) + len(held_out) >= int(self._req("min_names")):
+                # Short of min_names only because of the gate's holds: the whole
+                # book holds for the day. Holds never trigger the flatten (_nav_hold).
+                why = (f"book holds: NAV unverified for {sorted(held_out)} leaves "
+                       f"{len(row)} eligible names")
+                return [_held_target(t, market_state, why, order_type) for t in uni]
+            # Short of min_names without the holds: today's rule for every name
+            # but the held ones, which keep their shares.
+            return [_held_target(t, market_state, f"NAV unverified: {hold[t]}", order_type)
+                    if t in hold else
+                    PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                    reason=f"cef: only {len(row)} eligible names")
                     for t in uni]
 
@@ -686,6 +730,8 @@ class CEFDiscountSleeve(Sleeve):
             holds = getattr(market_state, "holdings", None) or {}
             held_w = {}
             for tk in uni:
+                if tk in hold:          # fixed shares: never banded (_nav_hold)
+                    continue
                 q = float(holds.get(tk, 0.0) or 0.0)
                 pr = float(px[tk].iloc[-1]) if tk in px.columns else float("nan")
                 if q and np.isfinite(pr) and pr > 0:
@@ -748,6 +794,10 @@ class CEFDiscountSleeve(Sleeve):
 
         out = []
         for tk in uni:
+            if tk in hold:
+                out.append(_held_target(tk, market_state, f"NAV unverified: {hold[tk]}",
+                                        str(self._req("order_type")).upper()))
+                continue
             wt = float(w.get(tk, 0.0))
             # A banded HOLD must survive the min-weight filter, or a small held
             # position would be flattened by the very rule that decided not to

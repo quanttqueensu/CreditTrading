@@ -1,4 +1,4 @@
-"""The CEF book's nightly data collector: one data day, seven idempotent steps, a report.
+"""The CEF book's nightly data collector: one data day, eight idempotent steps, a report.
 
     python3 -m quantt.collect --book cef
 
@@ -36,6 +36,14 @@ day examined, the run raises naming both: which one is wrong is a question for a
 human, and guessing would record a holiday as a missing day or skip a real one.
 When D moves on, an earlier day's unfinished steps are abandoned; its
 status.json keeps what did and did not complete.
+
+CEFCONNECT ARRIVAL (team lead, 2026-10-13)
+------------------------------------------
+`cefconnect_arrival` is a WATCH step: it polls CEFConnect each slot until every
+deployed name's row for D has appeared, and logs when it first did
+(`<state>/cefconnect_arrival.csv`). It keeps the collector from idling but never
+makes the day INCOMPLETE; the log line says `watching=cefconnect_arrival` while
+it runs (`step_cefconnect_arrival`).
 
 REPORT ONLY (team lead, 2026-09-29)
 -----------------------------------
@@ -125,7 +133,13 @@ DISTRIBUTIONS_TIMEOUT_S = 20 * 60
 TAIL_LINES = 40
 
 STEPS = ("prices_nav", "nav_crosscheck", "official_closes", "close_crosscheck",
-         "account_snapshot", "distributions", "borrow_snapshot")
+         "account_snapshot", "distributions", "borrow_snapshot", "cefconnect_arrival")
+# A WATCH step keeps the collector polling every slot until it is done, but never
+# makes the day INCOMPLETE, never fails the exit code and never blocks another
+# step: it measures something that arrives on its own clock (2026-10-13).
+WATCH_STEPS = ("cefconnect_arrival",)
+ARRIVAL_FILE = "cefconnect_arrival.csv"
+ARRIVAL_COLUMNS = ("date", "ticker", "last_absent_utc", "first_seen_utc", "polls", "nav")
 DEPENDS_ON = {"nav_crosscheck": ("prices_nav",),
               "close_crosscheck": ("prices_nav", "official_closes")}
 
@@ -602,10 +616,86 @@ def step_borrow_snapshot(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
             "read_at_utc": read_at}
 
 
+def _append_arrivals(path: Path, rows: list) -> None:
+    """Append first sightings to <state>/cefconnect_arrival.csv, one row per
+    (date, ticker) ever: a row already there is not written again (a crash
+    between this append and status.json would otherwise log a name twice)."""
+    have = set()
+    if path.exists():
+        with open(path, newline="") as fh:
+            rd = csv.DictReader(fh)
+            if tuple(rd.fieldnames or ()) != ARRIVAL_COLUMNS:
+                raise StepFailed(f"{path} has columns {rd.fieldnames}, expected "
+                                 f"{list(ARRIVAL_COLUMNS)}")
+            have = {(r["date"], r["ticker"]) for r in rd}
+    rows = [r for r in rows if (r["date"], r["ticker"]) not in have]
+    if not rows:
+        return
+    new = not path.exists()
+    with open(path, "a", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=ARRIVAL_COLUMNS)
+        if new:
+            w.writeheader()
+        w.writerows(rows)
+        fh.flush()
+        os.fsync(fh.fileno())
+
+
+def step_cefconnect_arrival(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
+    """When each deployed name's CEFConnect row for D first appears. Report only.
+
+    WHY (team lead, 2026-10-13). The session's stale-NAV gate defers an
+    unverified NAV to the morning backstop and holds it from its final check
+    (`quantt/session/nav_gate.py`), so when CEFConnect publishes D decides how
+    often a name is held. The evidence so far is three readings: no row by 00:10
+    ET on D+1 (2026-10-05), a row by 11:41 ET (2026-10-01), and Friday's row
+    still missing at 09:40 ET on Saturday (2026-10-02). The reviewer's point:
+    "present by midday" rests on one of them.
+
+    HOW. Every slot, each name not yet seen is read once (`ctx.cefconnect_nav`,
+    the gate's own reader). A name's arrival lies in (last_absent_utc,
+    first_seen_utc]; the slot cadence (30 minutes) is the resolution. A first
+    sighting is appended to `<state>/cefconnect_arrival.csv`; the running state
+    is this step's detail in status.json. A WATCH step: it keeps polling until
+    every name has been seen, or D moves on (then status.json keeps the last
+    absent reading), and never makes the day INCOMPLETE. A read error is
+    recorded and the name is read again next slot."""
+    prev = (status["steps"].get("cefconnect_arrival") or {}).get("detail") or {}
+    seen = dict(prev.get("first_seen") or {})
+    absent = dict(prev.get("last_absent_utc") or {})
+    polls = dict(prev.get("polls") or {})
+    errors, new = [], []
+    for t in ctx.deployed:
+        if t in seen:
+            continue
+        now = _utc_now()
+        polls[t] = polls.get(t, 0) + 1
+        try:
+            v = ctx.cefconnect_nav(t, day)
+        except CefConnectError as e:
+            errors.append(str(e))
+            continue
+        if v is None:
+            absent[t] = now
+            continue
+        seen[t] = {"utc": now, "nav": float(v)}
+        new.append({"date": day.isoformat(), "ticker": t, "last_absent_utc": absent.get(t, ""),
+                    "first_seen_utc": now, "polls": polls[t], "nav": float(v)})
+    _append_arrivals(ctx.state_dir / ARRIVAL_FILE, new)
+    detail = {"flags": [], "gaps": [], "first_seen": seen, "last_absent_utc": absent,
+              "polls": polls, "fetch_errors": errors}
+    waiting = [t for t in ctx.deployed if t not in seen]
+    if waiting:
+        raise StepFailed(f"watching: CEFConnect has no NAV dated {day} yet for {waiting}",
+                         detail)
+    return detail
+
+
 STEP_FUNCS = {"prices_nav": step_prices_nav, "nav_crosscheck": step_nav_crosscheck,
               "official_closes": step_official_closes, "close_crosscheck": step_close_crosscheck,
               "account_snapshot": step_account_snapshot, "distributions": step_distributions,
-              "borrow_snapshot": step_borrow_snapshot}
+              "borrow_snapshot": step_borrow_snapshot,
+              "cefconnect_arrival": step_cefconnect_arrival}
 
 
 # ------------------------------------------------------------------ the run
@@ -622,22 +712,26 @@ def _load_status(path: Path, day: dt.date) -> dict:
 
 def build_report(day: dt.date, book: str, status: dict) -> dict:
     steps = status["steps"]
-    failed = [s for s in STEPS if not steps.get(s, {}).get("ok")]
+    failed = [s for s in STEPS if not steps.get(s, {}).get("ok") and s not in WATCH_STEPS]
+    watching = [s for s in WATCH_STEPS if not steps.get(s, {}).get("ok")]
     flags, gaps = [], []
     for s in STEPS:
         detail = steps.get(s, {}).get("detail", {})
         flags += [{"step": s, **f} for f in detail.get("flags", [])]
         gaps += [{"step": s, **g} for g in detail.get("gaps", [])]
     return {"date": day.isoformat(), "book": book, "complete": not failed,
-            "failed_steps": failed, "flags": flags, "gaps": gaps, "steps": steps,
-            "written_at_utc": _utc_now()}
+            "failed_steps": failed, "watching": watching, "flags": flags, "gaps": gaps,
+            "steps": steps, "written_at_utc": _utc_now()}
 
 
 def log_line(report: dict) -> str:
     what = ("COMPLETE" if report["complete"]
             else "INCOMPLETE " + ",".join(report["failed_steps"]))
-    return (f"{report['date']} DATA {what} flags={len(report['flags'])} "
+    line = (f"{report['date']} DATA {what} flags={len(report['flags'])} "
             f"gaps={len(report['gaps'])}")
+    if report.get("watching"):
+        line += " watching=" + ",".join(report["watching"])
+    return line
 
 
 def _append_log(state_dir: Path, line: str) -> None:

@@ -438,15 +438,17 @@ incident and the audit are `docs/RUNNER.md`, "As built (2026-10-09, amended
 
 ### Team lead, 2026-10-13 — stale NAVs at decide time
 
-The defect: Yahoo serves a NAV row dated D that carries D−1's NAV, and the
+The defect: Yahoo serves a NAV row dated D that carries an older NAV, and the
 date-only freshness check passes it (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md`
-§5). The design is `docs/RUNNER.md`, "As built (2026-10-13)".
+§5). The design is `docs/RUNNER.md`, "As built (2026-10-13): the stale-NAV gate";
+the replays behind the redesign are `docs/REFERENCES.md` §12s.
 
 | question | decision |
 |---|---|
-| A deployed name whose NAV(D) equals its NAV(D−1) at decide time | **"Use CEFConnect, else drop."** CEFConnect has D and differs by more than half a cent: its value replaces the stale copy through the logged fallback. It has D and agrees: a genuine repeat, kept. No row for D, or an error: the name is dropped for the day, as `max_nav_age_bd` drops a stale NAV, with the reason and the error recorded. |
-| The collector's NAV cross-check | **Flag "NAV(D) = NAV(D−1) and unverified"** instead of recording a silent gap. |
-| How it is switched | The gate is a runner setting in the book json (`data.stale_nav`); absent means off. Whether it is on is that file, not this one. |
+| A deployed name whose NAV(D) equals its NAV(D−1) at decide time | **"Use CEFConnect, else drop."** *(Superseded the same day by the redesign below: its replay found that dropping at the evening decide would have flattened the book on 2026-10-05.)* |
+| The stale-NAV gate, redesigned | **Team lead, 2026-10-13: stale-NAV gate redesigned.** It triggers when NAV(D) equals the previous NAV, or CEFConnect's NAV(D−1) (the PDI case). If CEFConnect has D and differs, its value is used through the logged fallback; if it agrees, the row is kept. If CEFConnect has no row or errors, the name is not dropped: it is re-verified in the morning backstop, and still unverified at the last pre-send check it keeps its current shares and leaves the cross-section. It is never targeted to zero, and holds never trigger the `min_names` flatten. **Report mode first, `on` after a measured week.** |
+| The collector | **Flag "NAV(D) = NAV(D−1) and unverified"** instead of recording a silent gap, and **log when each name's CEFConnect row for D first appears.** |
+| How it is switched | A runner setting in the book json (`data.stale_nav`: absent off, `report`, `on`). Which mode is set is that file, not this one. |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
@@ -490,4 +492,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-08 | §5 records the cut-over to the VM and full automation. | cloud VM, for the team lead |
 | 2026-10-11 | §5 records the 2026-10-09 missed-day fix and the 2026-10-11 stress-cap ruling. | release work, for the team lead |
 | 2026-10-12 | §2's IC row corrected to the wide set, the deployed IC added under conditional (W4); §5 records the 2026-10-12 rulings. | for the team lead |
-| 2026-10-13 | §5 records the stale-NAV ruling ("Use CEFConnect, else drop"). | for the team lead |
+| 2026-10-13 | §5 records the stale-NAV ruling ("Use CEFConnect, else drop") and, the same day, its redesign: defer and hold instead of drop; report mode first. | for the team lead |

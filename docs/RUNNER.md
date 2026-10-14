@@ -33,10 +33,12 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
           1. refresh    scripts/cef/fetch_daily.py --require-asof <prev trading day>
                         --nav-fallback cefconnect --book ops/books/cef_discount_book.json
                         exit != 0  -> NO TRADE today, logged (stale data never trades)
-          1b. NAV gate  only when the book json sets data.stale_nav (absent: off). A NAV(D)
-                        equal to the name's previous NAV is checked against CEFConnect:
-                        stale copy -> replaced, genuine repeat -> kept, unverified ->
-                        dropped for the day. "As built (2026-10-13)" below.
+          1b. NAV gate  only when the book json sets data.stale_nav (absent: off; report:
+                        record only). A NAV(D) equal to the previous NAV or to CEFConnect's
+                        NAV(D-1) is checked against CEFConnect's D: stale copy -> replaced,
+                        genuine repeat -> kept, unverified -> the decide is deferred to the
+                        morning; from the final check the name keeps its shares.
+                        "As built (2026-10-13)" below.
           2. read       Alpaca account (equity), positions, today's orders, clock
           3. decide     sleeve.target_positions(asof=<prev trading day>, MarketState(
                           holdings=<Alpaca positions>, extras={"sleeve_nav": <equity>,
@@ -61,9 +63,9 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 | `quantt/session/decide.py` | Pure function: sleeve targets + holdings + equity + last closes → order list. Whole shares, netting, flip split, shortability. | Touches the network. |
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
-| `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) that repeats the previous NAV, reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, names the unverified for the sleeve to drop, records every binding. | Transmits. Decides a target. |
+| `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) equal to the previous NAV or to CEFConnect's NAV(D-1), reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, defers or holds the unverified, records every check. | Transmits. Decides a target. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
-| `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_unverified"]` (2026-10-13): names the stale-NAV gate could not verify, dropped on the `max_nav_age_bd` path; absent is byte-identical. | — |
+| `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_hold"]` (2026-10-13): names the stale-NAV gate could not verify by its final check keep their current shares and leave the cross-section; holds never trigger the `min_names` flatten; absent is byte-identical. | — |
 | `quantt/deploy/` | launchd plist templates + an install script for the laptop prod clone + `docs/RUNBOOK.md`. | Stores a credential. |
 | `src/data/r2.py` + `scripts/data/` | Research/backtest access to the R2 WRDS mirror. **Never on the live path.** | Is imported by `quantt/`. |
 
@@ -184,92 +186,126 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
 
-## As built (2026-10-13): the stale-NAV gate, on only when the book json sets it
+## As built (2026-10-13): the stale-NAV gate, in `report` mode first
 
-**The defect.** Yahoo serves a NAV row dated D that still carries D−1's NAV, and
+**The defect.** Yahoo serves a NAV row dated D that still carries an older NAV, and
 corrects it later. Gate 5 and `fetch_daily --require-asof` check the row's date, so
 they pass it. On the laptop's paper sessions 28 of 73 checkable name-days were
-decided on NAV(D−1), and 11 submitted orders were sized on one; plans written
-20–23 hours after the close still used stale rows
+decided on NAV(D−1), and 11 submitted orders were sized on one
 (`results/cef/LIVE_NAV_QUALITY_2026-10-12.md` §5, `docs/REFERENCES.md` §12n).
 
-**The ruling (team lead, 2026-10-13): "Use CEFConnect, else drop."** At decide time,
-for each deployed name whose panel NAV for D equals its previous NAV to the cent,
-read CEFConnect's daily row for D:
+**The rule (team lead, 2026-10-13, redesigned the same day).** The first version
+("Use CEFConnect, else drop") was replayed. CEFConnect had no row for D at every
+measured evening decide, so it would have dropped every suspect name, and on
+2026-10-05 the drops would have flattened the whole book (`docs/REFERENCES.md` §12s).
+The rule now:
 
-| CEFConnect for D | verdict | action |
-|---|---|---|
-| present, differs by more than half a cent | stale copy | CEFConnect's value replaces the panel row, through fetch_daily's logged fallback (`data/cef/nav_fallback_log.csv`, source `cefconnect_stale_copy`) |
-| present, agrees | genuine repeat | kept |
-| no row for D, or unreadable (the error is named) | unverified | the name is dropped for the day |
+- **Trigger.** The panel's NAV(D) equals, to the cent, its previous NAV row, **or**
+  CEFConnect's NAV for D−1 (the previous NYSE day) when CEFConnect has that row. The
+  second catches the reviewer's PDI case: 09-25 was captured as 15.06 against a 09-24
+  row of 15.12, which was itself Yahoo's stale copy. 15.06 is CEFConnect's 09-24 NAV;
+  the true 09-25 NAV is 15.10.
+- **Resolution.** CEFConnect has D and it differs by more than half a cent: its value
+  replaces the panel row through fetch_daily's logged fallback (`nav_fallback_log.csv`,
+  source `cefconnect_stale_copy`). CEFConnect has D and it agrees: the row is kept.
+- **Unverified** (no row for D, or an error, which is named). Never dropped.
+  - Before the **final check**, the decide is **deferred**. The final check is the
+    session's calendar close minus 90 minutes, on the session date: 14:30 ET, or 11:30 ET
+    on a 13:00 close.
+  - From the final check, a name still unverified **keeps its current shares**: no
+    order in it. It leaves the cross-section and is never targeted to zero.
+  - If the holds leave fewer than `min_names` eligible names, the **whole book holds**
+    for the day: no order at all. The holds never trigger the sleeve's FLAT-everything
+    `min_names` rule.
 
-**Where it sits.** Step 1b of `quantt/session/run.py`, after the refresh and before
-anything reads the panel: `quantt/session/nav_gate.py`. It holds fetch_daily's panel
-lock from its read to its write. A drop reaches the strategy as
-`extras["nav_unverified"] = {"asof", "names"}`, and the sleeve drops those names in
-the same eligibility loop as `max_nav_age_bd` (`src/deploy/sleeves/cef_discount.py`
-`_nav_unverified`). The signal math is unchanged, and with the extra absent the
-sleeve's targets are byte-identical to before (checked on 56 panel dates, flat and
-held books, against the previous commit). After the sleeve has read the panel,
-`PanelGate.still_holds` checks that it was the panel the gate certified. A fetch in
-between (the collector's, every 30 minutes) could write a stale copy back; if one
-did, the session FAILs and the next slot retries.
+**Where it sits.**
 
-**What a drop does is the sleeve's existing rule.** The name leaves the
-cross-section and its target is zero. The band then holds a position inside
-`band_width` and trades one outside it to the band edge. If the drops leave fewer
-than `min_names` eligible names, the sleeve emits every name FLAT ("cef: only N
-eligible names") before the band, and decide turns that into orders that close the
-whole book. No gate refuses a plan that only reduces gross. Nothing new was added
-for this case.
+- `quantt/session/nav_gate.py` runs as step 1b of `quantt/session/run.py`, after the
+  refresh and before anything reads the panel. It reads CEFConnect once per deployed
+  name, for D−1 and D together (`fetch_daily._cefconnect_navs`). In `on` mode it holds
+  fetch_daily's panel lock from its read to its write.
+- Holds reach the sleeve as `extras["nav_hold"] = {"asof", "names"}`
+  (`src/deploy/sleeves/cef_discount.py` `_nav_hold`). Held names stay out of the band
+  and the sleeve's gross cap, because their shares are fixed. Their gross is judged with
+  the rest of the book by gate 8 and the send-time fit.
+- With the extra absent, the sleeve's targets are byte-identical to the code before the
+  gate: 56 panel dates, flat and held books.
+- After the sleeve has read the panel, `PanelGate.still_holds` checks that it read the
+  panel the gate certified, or the session FAILs.
 
-**Records (H14: measured at run time, never keyed on a document).** `plan.json` and
-the run record carry `nav_gate`: the mode, and for every repeat the name, D, the
-panel NAV(D), the previous row's date and NAV, CEFConnect's value or `absent` or the
-error, the verdict and the action. `<state>/nav_gate.csv` gets one row per repeat
-per decide, or one `no_repeat` row, so it counts how often the gate binds. The
-session log prints one `NAV GATE` line and one line per repeat.
+**The deferral and the order path** (`run.py` docstring, "DEFERRAL AND THE ORDER
+PATH"). A deferral is a gate-5 `data` refusal at DECIDE that names the names. Nothing
+else was built for it.
 
-**Modes** (`ops/books/cef_discount_book.json`, `"data": {"stale_nav": <mode>}`;
-absent = off, the session exactly as before):
+- **One plan per day.** A refused plan is not `decided`: no `DECIDED` marker is written,
+  and the next run overwrites plan.json. The morning backstop's slots (06:00–15:15 ET)
+  re-run refresh and gate, and re-read CEFConnect. The first slot that verifies every
+  name decides. If none does, the first slot at or after the final check decides,
+  holding what is still unverified. A decided plan is never re-decided.
+- **STARTED and idempotency (rule 2).** Untouched. A deferral happens before any order,
+  and `done_reason` and gate 6 still stop a second set.
+- **Approval.** A refused plan cannot be approved or sent: `approve` and the send both
+  need a decided plan. APPROVED and `--approve` bind to the morning plan's `plan_sha`.
+  AUTO_ARMED sends whatever is decided, as now.
+- **Dry run.** A deferral is REFUSED, never DRY, so it can never write `DRY_DONE` and
+  leave the morning slots idle.
+- **Late-market send (rule 3, the paper exception).** The window is unchanged. The final
+  check sits 82 minutes before it opens, and the 15:00 slot is left to retry a final
+  decide that failed. In `cls` mode the morning slots decide and send before the cls
+  cutoff.
+- **Verify.** A day still deferred at the send reads `MISSED: ... [data] stale-NAV gate:
+  ... deferred`: a FAIL, never a PASS.
 
-- `cefconnect_else_drop` is the ruling above.
-- `report` runs the same checks and writes the same records, and acts on none of
-  them: no panel write, no drop. An error is recorded as UNMEASURED and never
-  stops the session. In `cefconnect_else_drop` an error that is not a CEFConnect
-  read error FAILs the session.
+**Modes** (`ops/books/cef_discount_book.json`, `"data": {"stale_nav": <mode>}`; absent
+means off, and the session runs exactly as before):
 
-Enabling is one reviewed edit of the book json (`/spec-change` covers
-`ops/books/`), with a `_stale_nav_note`. REVERT: delete the `data` block.
+- `report` **(the release setting)** records every check and what `on` *would* do:
+  replace, keep, defer or hold. It changes nothing.
+  - The orders, the `plan_sha` and plan.json are those of a gate-off session apart from
+    the added `nav_gate`. This is proved on the live spec, the real sleeve and the real
+    panel (`quantt/session/tests/test_nav_gate.py`).
+  - An error is recorded as UNMEASURED and never stops the session.
+- `on` applies the rule. Team lead: `on` after a measured week of `report`. Turning it
+  on is a reviewed edit of that key, and so is the revert (delete the `data` block).
 
-**The collector** flags `nav_repeat_unverified` for a name whose panel NAV(D)
-equals its previous NAV while CEFConnect has no row for D. Until now that was a
-gap, and at ~21:40 ET it was a gap on nearly every evening
-(`quantt/collect/collect.py` `step_nav_crosscheck`). It is report only, like
-every collector flag.
+**Records (H14).** These are measured at run time and never keyed on a document.
 
-**The replay** (report only; `python3 scripts/data/nav_gate_replay.py --state-dir
-<laptop state>`, tables in `results/cef/nav_gate_replay/`). It applies the gate's
-rule to the laptop's recorded decides, as-of 2026-09-28 → 2026-10-07. The NAV each
-decide used comes from inverting its printed z. CEFConnect's state comes from the
-collector's checks, and CEFConnect as served on 2026-10-13. Every evening decide
-whose CEFConnect state the collector measured, five of them, found **no CEFConnect
-row for D**. So under the drop rule every repeat would have been dropped: 2–9
-identified repeats an evening, and up to 11 counting names whose decide-time NAV
-the printed z cannot identify. On 2026-09-30 that may already have left fewer than
-`min_names`. On 2026-10-05, decided at 00:00 ET, that is 9 names (8 stale
-copies and 1 genuine repeat), leaving 4 eligible. That is below `min_names`, so the
-book would have been flattened. On 2026-10-06 it leaves 6–7 and cuts JFR, PFN and
-PHK, held outside the band, to the band edge. The one decide made when CEFConnect
-had the row (2026-10-01, at 12:00 ET the next day) would have replaced 5 stale
-copies, kept 3 genuine repeats and dropped nothing.
+- `plan.json` and the run record carry `nav_gate`: the mode, whether this was the final
+  check, `would_defer` and `deferred`. For every deployed name they give the panel
+  NAV(D), its previous row, CEFConnect's D−1 and D or the error, the trigger, the
+  verdict and the action.
+- `<state>/nav_gate.csv` gets one row per triggered name per decide, or one
+  `no_trigger` row.
+- The session log prints one `NAV GATE` line, plus one line per triggered name.
 
-**Not built, proposed:** at the evening decide, *defer* an unverified name rather
-than drop it. Decide in the morning backstop (06:00–15:15 ET), once CEFConnect has
-the row, and drop only if it still has none by the last backstop slot.
-CEFConnect's publication time is [U]. It had D's row by 11:41 ET on D+1 (2026-10-01),
-not yet at 00:10 ET (2026-10-05), and Friday's row was still missing at 09:40 ET on
-Saturday (2026-10-02).
+**The collector.**
+
+- A panel NAV(D) equal to its previous NAV while CEFConnect has no row for D is a flag,
+  `nav_repeat_unverified`, not a gap.
+- A new watch step, `cefconnect_arrival`, polls CEFConnect each slot until every
+  deployed name's row for D has appeared. It logs each row's arrival, bracketed between
+  the last poll without it and the first with it, to `<state>/cefconnect_arrival.csv`.
+- It keeps the collector from idling but never makes the day INCOMPLETE. Why: when
+  CEFConnect publishes D decides how often a name is held, and that rests on three
+  readings.
+
+**The replay, under `on`** (report only: `python3 scripts/data/nav_gate_replay.py
+--state-dir <laptop state>`; tables in `results/cef/nav_gate_replay/`; sources in
+`docs/REFERENCES.md` §12s).
+
+- **Every measured evening deferred.** All five laptop evening decides whose CEFConnect
+  state the collector measured would have deferred to the morning.
+- **At the final check, best case** (CEFConnect has D by then): nothing is held, stale
+  copies are replaced and genuine repeats kept. That is what the one decide made with
+  CEFConnect present would have done: 2026-10-01, 12:00 ET, 5 replaced and 3 kept.
+- **At the final check, worst case** (CEFConnect still has no row for D): every
+  triggered name keeps its shares.
+  - 2026-10-05: 9 names held, 4 left eligible, so the whole book holds that day.
+  - 2026-09-30 and 2026-10-02: the same is possible.
+- **No date flattens the book.**
+- On the local panel as captured on 2026-09-28, the second trigger catches PDI and
+  replaces it with 15.10. DSL (11.11 = 11.11) is replaced with 11.10, and BIT is a
+  genuine repeat.
 
 ## As built (2026-10-13): the re-fit keeps the most that fits; a send it empties is MISSED
 

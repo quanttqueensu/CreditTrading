@@ -1,0 +1,4 @@
+date,ticker,panel_nav_d,panel_prev,prev_date,cc_prev,cc_d,trigger,verdict
+2026-09-25,BIT,12.65999984741211,12.65999984741211,2026-09-24,12.66,12.66,yf_repeat+cc_prev,genuine_repeat
+2026-09-25,DSL,11.109999656677246,11.109999656677246,2026-09-24,11.11,11.1,yf_repeat+cc_prev,stale_copy
+2026-09-25,PDI,15.0600004196167,15.119999885559082,2026-09-24,15.06,15.1,cc_prev,stale_copy

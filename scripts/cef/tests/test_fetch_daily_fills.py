@@ -35,3 +35,25 @@ def test_a_fill_overwrites_only_its_own_row():
         ["PCN", pd.Timestamp("2026-10-05"), 10.94],
         ["PDI", pd.Timestamp("2026-10-02"), 14.98],
         ["PDI", pd.Timestamp("2026-10-05"), 15.04]]
+
+
+def test_cefconnect_d_and_d_minus_1_come_from_one_request(monkeypatch):
+    """2026-10-13: the stale-NAV gate reads CEFConnect's D-1 and D for every name.
+    One request per name, and the row chosen for a date is the one the
+    single-date reader always chose (newest first, first row wins)."""
+    import requests
+    calls = []
+    rows = [{"DataDate": "2026-09-24T00:00:00", "NAVData": 15.06},
+            {"DataDate": "2026-09-25T00:00:00", "NAVData": 15.09},
+            {"DataDate": "2026-09-25T00:00:00", "NAVData": 15.10}]   # a duplicate: last wins
+
+    class R:
+        def json(self):
+            return {"Data": {"PriceHistory": rows}}
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: calls.append(a) or R())
+    d1, d = pd.Timestamp("2026-09-24"), pd.Timestamp("2026-09-25")
+    assert fd._cefconnect_navs("PDI", [d1, d, pd.Timestamp("2026-09-28")]) == {
+        d1: 15.06, d: 15.10, pd.Timestamp("2026-09-28"): None}
+    assert len(calls) == 1
+    assert fd._cefconnect_nav("PDI", d) == 15.10

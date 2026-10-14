@@ -1,52 +1,48 @@
 """Replay the decide-time stale-NAV gate on the laptop's recorded paper sessions. Report only.
 
-    QUANTT_ENV_FILE is not needed (no Alpaca call). Network: CEFConnect and yfinance.
     python3 scripts/data/nav_gate_replay.py --state-dir /Users/simonjarvis/quantt_state/cef
+    (network: CEFConnect and yfinance; no Alpaca call, no key file)
 
-WHAT IT ASKS. Had `quantt/session/nav_gate.py` (team lead 2026-10-13, "Use
-CEFConnect, else drop") run at each laptop decide, as-of 2026-09-28 ->
-2026-10-07, which names would it have replaced, which dropped, and would the
-drops have left fewer than `min_names` eligible names -- the case in which the
-sleeve's existing rule emits every name FLAT and decide closes the whole book?
+WHAT IT ASKS. Had `quantt/session/nav_gate.py` run in `on` mode (team lead
+2026-10-13, the redesign) at each laptop decide, as-of 2026-09-28 -> 2026-10-07:
+which names would it have checked, would the evening decide have DEFERRED to
+the morning backstop, and at the final pre-send check (close - 90 min) which
+names would it have replaced, kept or HELD at their current shares -- and could
+any date flatten the book? It replaces the replay of the first version (drop at
+the evening decide), which is kept, superseded, in docs/REFERENCES.md §12s.
 
 WHAT THE DECIDE SAW, WHERE IT CAN BE KNOWN.
   * The decide record. The FIRST evening decide (22:00-01:00 ET) for the as-of
-    date, from `<state>/<session>/runs/*-run.json` (slot "evening", phase
-    "decide"), because the evening is where the book decides when the machine
-    is up. Where no evening decide ran (the laptop was offline: every evening
-    run of that night failed on Alpaca's clock), the plan the session actually
-    decided on (`plan.json`, morning backstop or the opening session), labelled.
+    date, from `<state>/<session>/runs/*-run.json`; where none ran (the laptop
+    was offline), the plan the session actually decided on (`plan.json`),
+    labelled.
   * The NAV(D) it used. Each target reason prints the z the session computed;
     inverting it with the mean and sd the sleeve rolled
-    (`scripts/data/live_nav_quality.py::implied_nav`, the 2026-10-12 note's own
-    method and tolerance) identifies whether it used yfinance's final NAV(D) or
+    (`scripts/data/live_nav_quality.py::implied_nav`, the 2026-10-12 note's
+    method and tolerance) says whether it used yfinance's final NAV(D) or
     NAV(D-1). mu, sd and the final NAVs are the note's table
-    (`results/cef/live_nav_quality/live_period_2026-10-12.csv`, yfinance as
-    served 2026-10-12); the close is the decide record's own.
-  * A repeat at decide time. Used NAV(D-1) -> a repeat (Yahoo's D row was a
-    copy of its D-1 row). Used the final NAV(D) and final NAV(D) = NAV(D-1) ->
-    a repeat (genuine). No z printed (band hold, below min weight, clipped):
-    a repeat if final NAV(D) = NAV(D-1) (either value then equals it), else
-    UNKNOWN -- it may have been a stale copy. Assumed, and labelled [U]: the
-    panel's D-1 row at decide time was yfinance's final NAV(D-1).
-  * CEFConnect at decide time. Only the collector measured it: its
-    `nav_crosscheck` time and whether CEFConnect had a row for D
-    (`<state>/data/<D>/status.json`). It is used only when it ran within
-    COLLECTOR_WINDOW of the decide, and the label gives the lag; otherwise
-    "unknown". An "absent" read before the decide stands for the decide on the
-    evidence of the same records: no row for D was ever seen by 00:10 ET on D+1
-    (10-05), one was there by 11:41 ET (10-01), and Friday's was still missing at
-    09:40 ET on Saturday (10-02). CEFConnect's publication time is [U].
-  * CEFConnect as served now: one `nav_gate.cefconnect_nav` call per name that
-    repeated or may have, the reader the gate uses.
+    (`results/cef/live_nav_quality/live_period_2026-10-12.csv`); the close is
+    the decide record's own. No z printed (band hold, below min weight,
+    clipped): the NAV used is one of the two, unknown which.
+  * The trigger. NAV(D) used = the panel's previous NAV, or = CEFConnect's
+    NAV(D-1) (as served now). Assumed and labelled [U]: the panel's D-1 row at
+    decide time was yfinance's final NAV(D-1). For a no-z name: triggered if
+    its final NAV(D) triggers (then either candidate does), else UNKNOWN (it
+    triggers only if the session used the stale copy).
+  * CEFConnect at the decide: the collector's checks (`<state>/data/<D>/
+    status.json`), within 3 hours, else unknown. CEFConnect's D row as served
+    now resolves a triggered name: different -> replaced, equal -> kept.
+  * The final check. When CEFConnect publishes D is [U] (three readings; the
+    collector now logs it). So two bounds: BEST, CEFConnect has D by the final
+    check -> nothing held; WORST, it still has none -> every triggered name is
+    held at its current shares and leaves the cross-section. The sleeve's rule
+    (`cef_discount._nav_hold`): if the holds leave fewer than `min_names`
+    eligible names, the whole book holds; the min_names FLAT applies only when
+    the cross-section is short without the holds.
 
-Two scenarios per date: A, CEFConnect has no row for D (what the collector saw
-on every evening it ran) -- every repeat is dropped; B, CEFConnect as served
-now -- stale copies replaced, genuine repeats kept. The date's "at decide"
-column says which one the measured CEFConnect state supports.
-
-Writes results/cef/nav_gate_replay/nav_gate_replay_{names,dates}_<today>.csv.
-Reads the state dir read-only; writes nothing under data/.
+Writes results/cef/nav_gate_replay/nav_gate_replay_{names,dates}_<today>.csv
+(no share counts: held / outside-the-band flags only). Reads the state dir
+read-only; writes nothing under data/.
 """
 from __future__ import annotations
 
@@ -95,19 +91,6 @@ def identify(z, close, mu, sd, nav_final, nav_prev) -> str:
         return "equal" if fin else "other"
     return {(True, False): "final", (False, True): "prev",
             (True, True): "ambiguous"}.get((fin, prv), "other")
-
-
-def repeat_status(used: str, nav_final: float, nav_prev: float) -> str:
-    """yes_stale | yes_genuine | no | unknown: was NAV(D) = NAV(D-1) at decide time?"""
-    from quantt.session.nav_gate import differs
-    same = not differs(nav_final, nav_prev)
-    if used == "prev":
-        return "yes_stale"
-    if used in ("final", "equal"):
-        return "yes_genuine" if same else "no"
-    if used == "no z":
-        return "yes_genuine" if same else "unknown"
-    return "unknown"                                     # other / ambiguous
 
 
 def eligible(reason: str) -> bool:
@@ -176,20 +159,6 @@ def cc_at_decide(ev: dict, decided_utc) -> str:
     return f"unknown (present {when}, not known before)"
 
 
-def fetch_cc_now(pairs) -> dict:
-    """{(ticker, asof): (value or None, status)} via the gate's own reader."""
-    from quantt.session.nav_gate import CefConnectError, cefconnect_nav
-    out = {}
-    for tk, asof in sorted(pairs):
-        try:
-            v = cefconnect_nav(tk, dt.date.fromisoformat(asof))
-            out[(tk, asof)] = (v, "present" if v is not None else "absent")
-        except CefConnectError as e:
-            out[(tk, asof)] = (None, f"error: {e}")
-        time.sleep(0.3)
-    return out
-
-
 def fetch_yf_now(tickers) -> pd.DataFrame:
     """yfinance NAV as served now (the live fetcher's call), for the double-check."""
     import yfinance as yf
@@ -207,15 +176,45 @@ def fetch_yf_now(tickers) -> pd.DataFrame:
 
 # ---------------------------------------------------------------- the replay
 
+def fetch_cc_history(tickers, days) -> dict:
+    """{(ticker, day): CEFConnect NAV or None}, one request per ticker (the gate's
+    reader); an unreadable ticker raises -- the replay does not guess."""
+    from quantt.session.nav_gate import cefconnect_navs
+    out = {}
+    for tk in sorted(tickers):
+        got = cefconnect_navs(tk, sorted(days))
+        out.update({(tk, d): v for d, v in got.items()})
+        time.sleep(0.3)
+    return out
+
+
+def trigger_of(nav_d, yf_prev, cc_prev) -> str:
+    from quantt.session.nav_gate import TRIGGER_CC, TRIGGER_YF, differs
+    t = []
+    if not differs(nav_d, yf_prev):
+        t.append(TRIGGER_YF)
+    if cc_prev is not None and not differs(nav_d, cc_prev):
+        t.append(TRIGGER_CC)
+    return "+".join(t)
+
+
 def replay(state_dir: Path, live_period: Path):
+    from ops.schedule.nyse_calendar import previous_trading_day
     from quantt.session.nav_gate import differs
     from scripts.cef.spec import BAND_WIDTH, MIN_NAMES, UNIVERSE
     lp = pd.read_csv(live_period)
     lp["asof"] = lp["asof"].astype(str)
     lp = lp.set_index(["asof", "ticker"])
     recs = decide_records(state_dir)
+    days = set()
+    for r in recs:
+        a = dt.date.fromisoformat(r["asof"])
+        days |= {a, previous_trading_day(a)}
+    cc = fetch_cc_history(UNIVERSE, days)
     rows = []
     for r in recs:
+        a = dt.date.fromisoformat(r["asof"])
+        prev = previous_trading_day(a)
         for tk in sorted(UNIVERSE):
             if (r["asof"], tk) not in lp.index:
                 raise ReplayError(f"{live_period} has no row for {r['asof']} {tk}")
@@ -224,71 +223,95 @@ def replay(state_dir: Path, live_period: Path):
             m = re.search(r"z=([-+]?\d+\.\d+)", t["reason"])
             z = float(m.group(1)) if m else np.nan
             close = float(r["closes"].get(tk, x["close_used"]))
-            used = identify(z, close, float(x["mu"]), float(x["sd"]),
-                            float(x["nav_now"]), float(x["nav_prev_now"]))
+            final, yf_prev = float(x["nav_now"]), float(x["nav_prev_now"])
+            used = identify(z, close, float(x["mu"]), float(x["sd"]), final, yf_prev)
+            cc_prev, cc_d = cc[(tk, prev)], cc[(tk, a)]
+            if used == "prev":
+                nav_d, trig = yf_prev, trigger_of(yf_prev, yf_prev, cc_prev)
+            elif used in ("final", "equal"):
+                nav_d, trig = final, trigger_of(final, yf_prev, cc_prev)
+            else:                                   # no z / other: final or the stale copy
+                nav_d = final
+                trig = trigger_of(final, yf_prev, cc_prev) or "unknown"
+            if trig in ("", "unknown") or cc_d is None:
+                best = "" if trig == "" else ("unverified" if cc_d is None else
+                                              "replace if it was the copy")
+            else:
+                best = "replace" if differs(nav_d, cc_d) else "keep"
             held_w = t["current"] * close / r["equity"]
             rows.append({"asof": r["asof"], "decide": r["kind"], "ticker": tk, "z": z,
-                         "used": used, "nav_final": float(x["nav_now"]),
-                         "nav_prev": float(x["nav_prev_now"]),
-                         "repeat": repeat_status(used, float(x["nav_now"]), float(x["nav_prev_now"])),
+                         "used": used, "nav_used": nav_d if used != "no z" else np.nan,
+                         "yf_final": final, "yf_prev": yf_prev, "cc_prev_date": prev.isoformat(),
+                         "cc_prev": cc_prev, "cc_d": cc_d, "trigger": trig,
+                         "final_check_if_cc_has_d": best,
                          # Held / outside the band only: the repo is public and the desk
                          # publishes no positions (docs/RUNNER.md, orient's newest plan).
                          "eligible": eligible(t["reason"]), "held": t["current"] != 0,
-                         "outside_band": abs(held_w) > BAND_WIDTH,
-                         "nav_cc_20261012": float(x["nav_cc"])})
+                         "outside_band": abs(held_w) > BAND_WIDTH})
     names = pd.DataFrame(rows)
-    need = names[names["repeat"] != "no"][["ticker", "asof"]].itertuples(index=False)
-    cc = fetch_cc_now({(a.ticker, a.asof) for a in need})
-    names["cc_now"] = [cc.get((t, a), (np.nan, ""))[0] for t, a in zip(names.ticker, names["asof"])]
-    names["cc_status"] = [cc.get((t, a), (None, "not asked"))[1]
-                          for t, a in zip(names.ticker, names["asof"])]
-    # The decide-time NAV(D) of a repeat is NAV(D-1) (stale) or equal to it (genuine).
-    def verdict_b(row):
-        if row["repeat"] == "no":
-            return ""
-        if row["cc_status"] != "present":
-            return "dropped (CEFConnect " + row["cc_status"] + ")"
-        stale = differs(row["nav_prev"], row["cc_now"])
-        if row["repeat"] == "unknown":
-            return "replaced if it was a copy" if stale else "kept if it was a repeat"
-        return "replaced" if stale else "kept"
-    names["verdict_cc_now"] = names.apply(verdict_b, axis=1)
 
     dates = []
     for r in recs:
         g = names[names["asof"] == r["asof"]]
-        rep = g[g["repeat"].str.startswith("yes")]
-        unk = g[g["repeat"] == "unknown"]
-        elig = int(g.eligible.sum())
-        lo = elig - int(rep.eligible.sum()) - int(unk.eligible.sum())
-        hi = elig - int(rep.eligible.sum())
-        binds = "yes" if hi < MIN_NAMES else ("no" if lo >= MIN_NAMES else "possible")
-        cut = rep[rep.held & rep.outside_band]
+        trig = g[~g["trigger"].isin(["", "unknown"])]
+        unk = g[g["trigger"] == "unknown"]
+        elig = int(g["eligible"].sum())
         ev = collector_evidence(state_dir, r["asof"])
         decided = r["decided_utc"]
         if decided is None:
             dec = lp.xs(r["asof"], level="asof")["decided_at_utc"].iloc[0]
             decided = dt.datetime.strptime(dec, "%Y-%m-%dT%H:%MZ").replace(tzinfo=dt.timezone.utc)
+        at = cc_at_decide(ev, decided)
+        # Worst case at the final check: every triggered name held.
+        lo = elig - int(trig["eligible"].sum()) - int(unk["eligible"].sum())
+        hi = elig - int(trig["eligible"].sum())
+        holds_book = "yes" if hi < MIN_NAMES else ("no" if lo >= MIN_NAMES else "possible")
+        if elig < MIN_NAMES:
+            raise ReplayError(f"{r['asof']}: {elig} eligible before any hold -- the "
+                              f"pre-existing min_names rule would bind; not modelled here")
         dates.append({
             "asof": r["asof"], "decide": r["kind"],
             "decided_et": decided.astimezone(ET).strftime("%Y-%m-%d %H:%M"),
-            "cefconnect_at_decide": cc_at_decide(ev, decided),
-            "eligible_before": elig,
-            "repeats": len(rep), "of_which_stale_copies": int((rep["repeat"] == "yes_stale").sum()),
+            "cefconnect_at_decide": at,
+            "triggered": len(trig), "of_which_cc_prev_only": int((trig["trigger"] == "cc_prev").sum()),
             "unknown": len(unk),
-            "A_dropped": f"{len(rep)}" + (f"-{len(rep) + len(unk)}" if len(unk) else ""),
-            "A_eligible_after": f"{lo}" + (f"-{hi}" if hi != lo else ""),
-            "A_min_names_binds": binds,
-            "at_decide": ("A" if cc_at_decide(ev, decided).startswith("absent") else
-                          "B" if cc_at_decide(ev, decided).startswith("present") else "unknown"),
-            "A_held_cut_to_band_edge": " ".join(cut.ticker),
-            "B_replaced": " ".join(rep[rep.verdict_cc_now == "replaced"].ticker),
-            "B_kept": " ".join(rep[rep.verdict_cc_now == "kept"].ticker),
-            "B_dropped": " ".join(rep[rep.verdict_cc_now.str.startswith("dropped")].ticker),
-            "B_unknown_would_be_replaced": " ".join(
-                unk[unk.verdict_cc_now == "replaced if it was a copy"].ticker),
+            "on_at_decide": ("DEFER to the morning" if at.startswith("absent") and len(trig) else
+                             "may defer (unknown names)" if at.startswith("absent") and len(unk) else
+                             "decide" if at.startswith("present") or not (len(trig) or len(unk)) else
+                             "defer if CEFConnect lacked D"),
+            "best_replaced": " ".join(trig[trig["final_check_if_cc_has_d"] == "replace"]["ticker"]),
+            "best_kept": " ".join(trig[trig["final_check_if_cc_has_d"] == "keep"]["ticker"]),
+            "worst_held": " ".join(trig["ticker"]) + (f" (+{len(unk)} unknown)" if len(unk) else ""),
+            "worst_held_outside_band": " ".join(trig[trig["held"] & trig["outside_band"]]["ticker"]),
+            "worst_eligible_after": f"{lo}" + (f"-{hi}" if hi != lo else ""),
+            "worst_book_holds": holds_book,
+            "flattens": "never",
         })
     return names, pd.DataFrame(dates), lp
+
+
+def panel_capture_check(cc_days_fetch=True) -> pd.DataFrame:
+    """The gate's own judge on the LOCAL panel's last NAV date (the laptop copy,
+    captured 2026-09-28): the reviewer's PDI case and DSL's 11.11 copy are on it.
+    CEFConnect as served now. Read-only."""
+    from ops.schedule.nyse_calendar import previous_trading_day
+    from quantt.session.nav_gate import judge, panel_rows
+    from scripts.cef.spec import UNIVERSE
+    from src.deploy.sleeves.cef_discount import NAV_PATH
+    N = pd.read_parquet(NAV_PATH)
+    last = pd.to_datetime(N[N.ticker.isin(UNIVERSE)]["date"]).max().date()
+    prev = previous_trading_day(last)
+    rows = panel_rows(N, last, UNIVERSE)
+    cc = fetch_cc_history(UNIVERSE, {last, prev})
+    out = []
+    for tk in sorted(UNIVERSE):
+        trig, verdict = judge(rows.get(tk), cc[(tk, prev)], cc[(tk, last)], "read")
+        if trig:
+            out.append({"date": last.isoformat(), "ticker": tk, "panel_nav_d": rows[tk][0],
+                        "panel_prev": rows[tk][2], "prev_date": rows[tk][1].isoformat(),
+                        "cc_prev": cc[(tk, prev)], "cc_d": cc[(tk, last)], "trigger": trig,
+                        "verdict": verdict})
+    return pd.DataFrame(out)
 
 
 def main(argv=None) -> int:
@@ -297,30 +320,34 @@ def main(argv=None) -> int:
     ap.add_argument("--live-period", default=LIVE_PERIOD, type=Path)
     a = ap.parse_args(argv)
     names, dates, lp = replay(a.state_dir, a.live_period)
-    # Double-checks, reported never blended: CEFConnect now vs the 2026-10-12 read,
-    # and yfinance now vs the note's final NAV(D) / NAV(D-1).
-    asked = names[names.cc_status == "present"]
-    cc_diff = asked[(asked.cc_now - asked.nav_cc_20261012).abs() > 0.005]
-    yf = (fetch_yf_now(names.ticker.unique())
+    # Double-checks, reported never blended: CEFConnect's D now vs the 2026-10-12
+    # read, and yfinance now vs the note's final NAV(D) / NAV(D-1).
+    j = names.merge(lp[["nav_cc"]].reset_index(), on=["asof", "ticker"])
+    cc_diff = j[j["cc_d"].notna() & ((j["cc_d"] - j["nav_cc"]).abs() > 0.005)]
+    yf = (fetch_yf_now(names["ticker"].unique())
           .assign(asof=lambda d: d.date.dt.strftime("%Y-%m-%d"))
           .rename(columns={"nav": "yf_nav", "nav_prev": "yf_nav_prev"}))
-    j = names.merge(yf[["ticker", "asof", "yf_nav", "yf_nav_prev"]], on=["ticker", "asof"],
+    k = names.merge(yf[["ticker", "asof", "yf_nav", "yf_nav_prev"]], on=["ticker", "asof"],
                     how="left")
-    if j[["yf_nav", "yf_nav_prev"]].isna().any().any():
+    if k[["yf_nav", "yf_nav_prev"]].isna().any().any():
         raise ReplayError("yfinance now has no NAV row for some replayed (asof, ticker)")
-    yf_diff = j[((j.yf_nav - j.nav_final).abs() > 0.005)
-                | ((j.yf_nav_prev - j.nav_prev).abs() > 0.005)]
+    yf_diff = k[((k["yf_nav"] - k["yf_final"]).abs() > 0.005)
+                | ((k["yf_nav_prev"] - k["yf_prev"]).abs() > 0.005)]
+    cap = panel_capture_check()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = dt.date.today().isoformat()
     names.to_csv(OUT_DIR / f"nav_gate_replay_names_{stamp}.csv", index=False)
     dates.to_csv(OUT_DIR / f"nav_gate_replay_dates_{stamp}.csv", index=False)
+    cap.to_csv(OUT_DIR / f"nav_gate_panel_capture_{stamp}.csv", index=False)
     print(f"run {dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')}")
-    print(f"CEFConnect now vs the 2026-10-12 read: {len(asked)} compared, {len(cc_diff)} differ "
-          f"{cc_diff[['asof', 'ticker', 'cc_now', 'nav_cc_20261012']].values.tolist()}")
-    print(f"yfinance now vs the note's NAV(D)/NAV(D-1): {len(j)} rows, {len(yf_diff)} differ "
+    print(f"CEFConnect D now vs the 2026-10-12 read: {int(j['cc_d'].notna().sum())} compared, "
+          f"{len(cc_diff)} differ {cc_diff[['asof', 'ticker']].values.tolist()}")
+    print(f"yfinance now vs the note's NAV(D)/NAV(D-1): {len(k)} rows, {len(yf_diff)} differ "
           f"{yf_diff[['asof', 'ticker']].values.tolist()} (the note's values are used: its mu/sd "
           f"were rolled on them)")
-    with pd.option_context("display.width", 250, "display.max_columns", 30,
+    print("the gate's judge on the local panel's last NAV date (as captured 2026-09-28):")
+    print(cap.to_string(index=False))
+    with pd.option_context("display.width", 300, "display.max_columns", 30,
                            "display.max_colwidth", 60):
         print(dates.to_string(index=False))
     return 0

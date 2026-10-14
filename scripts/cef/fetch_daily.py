@@ -134,16 +134,31 @@ class panel_lock:
         return False
 
 
-def _cefconnect_nav(ticker: str, asof: pd.Timestamp):
-    """CEFConnect's NAV dated exactly `asof`, or None. Daily rows, one request."""
+def _cefconnect_navs(ticker: str, dates) -> dict:
+    """{date: CEFConnect's NAV dated exactly that day, or None}, for each of
+    `dates`. Daily rows, ONE request however many dates (2026-10-13: the
+    session's stale-NAV gate needs D and D-1 for every deployed name). Rows are
+    read newest first and the first row for a date wins, exactly as the
+    single-date reader always did."""
     import requests
+    out = {pd.Timestamp(d).normalize(): None for d in dates}
     r = requests.get(f"https://www.cefconnect.com/api/v3/pricinghistory/{ticker}/1Y",
                      headers=CC_HEADERS, timeout=20)
     rows = r.json()["Data"]["PriceHistory"]
+    seen = set()
     for x in reversed(rows):
-        if pd.Timestamp(x["DataDate"]).normalize() == asof:
-            return float(x["NAVData"])
-    return None
+        d = pd.Timestamp(x["DataDate"]).normalize()
+        if d in out and d not in seen:
+            out[d] = float(x["NAVData"])
+            seen.add(d)
+            if len(seen) == len(out):
+                break
+    return out
+
+
+def _cefconnect_nav(ticker: str, asof: pd.Timestamp):
+    """CEFConnect's NAV dated exactly `asof`, or None. Daily rows, one request."""
+    return _cefconnect_navs(ticker, [asof])[pd.Timestamp(asof).normalize()]
 
 
 def merge_nav_fills(N: pd.DataFrame, F: pd.DataFrame) -> pd.DataFrame:
