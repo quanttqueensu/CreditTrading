@@ -860,3 +860,71 @@ through `scripts/data/edgar_client.py` (§12g).
 | **IBKR FEE_RATE on universe acquirers the day before their first merger filing**, 2021-12 → 2026-05. Muni: NZF 19.87 / 12.16 / 2.57; NXP 71.73; NVG 15.79; MFM 9.90; NEA 8.95; NAD 8.36; MHD 7.04; MQY 5.88. Taxable: EDF 16.61; JFR 15.58 (%/yr). Median muni 9.43 | `data/cef/cef_borrow_history.parquet` (§12l) | [S] levels (no independent source before 2026-09) |
 | **CORRECTION, 2026-10-13, to `results/cef/SCALING_RESEARCH_2026-10-08.md` line 310** ("26 of 59 historical acquirers, mostly munis, are not shortable today"). It is true **at Alpaca**: 16 of 23 muni acquirers are not shortable on 2026-10-13 (7 of 23 on 2026-10-11 too, on different names). It is not true of the asset: 17 of 23 have shares in IBKR's file today, and all 51 acquirers covered at announcement (2018–22) had a reported FINRA short position | this subsection's rows | [V] |
 | **CORRECTION, 2026-10-13, to `results/events/REPRO_CEF_EVENTS_2026-10-11.md` line 202** ("Pending acquirers today: not measurable"), to §12e row "Stock and stock-and-cash mergers …" (line 624: "[U] pending coverage"), and to `scripts/events/acquirer_shortability.py` lines 30–31 (EDGAR "once the team lead supplies the SEC contact user-agent"). Measured: 5 pending deals (7 pairs) from EDGAR. The feed's pending coverage was nil on this date | this subsection | [V] |
+
+### 12q. The conditional-tender census, idea N1 (added 2026-10-13)
+
+The sources behind `results/events/CONDITIONAL_TENDER_CENSUS_2026-10-13.md`.
+Zero trials. Every EDGAR request went through `scripts/data/edgar_client.py`.
+**Every quote the census relies on (223) is in
+`scripts/events/conditional_tender_programmes.py`, and
+`scripts/events/conditional_tender_census.py` re-verifies each one against the
+fetched filing on every run, raising on a miss.** So the rows below are [V] as
+of 2026-10-13 for exactly the facts quoted there.
+
+| claim / source | where | status |
+|---|---|---|
+| **Discovery route.** Every SC TO-C filed 2010+ by a CEF/BDC in the fetcher's set, plus the first SC TO-I of each tender episode: 1,571 documents, scored by two rules, 302 flagged from 81 funds. Each flagged fund is coded or excluded with a reason, and the script raises on any other. EDGAR full-text search is not used (`scripts/data/fetch_edgar_events.py`, route) | `conditional_tender_census.py` → `results/events/conditional_tender_candidates.csv`; index last filing date 2026-10-09 | [V] |
+| **Three programmes the scan misses.** DDF: its offer documents say "more than a stated percentage (currently 10%)". BKT 2025 and 2026: they appear only in press releases and annual reports. All three were found by web search, then verified on EDGAR | DDF SC TO-I 2014-06-02 (0001206774-14-001854); BKT N-CSR 2026-03-05 (0001193125-26-093646) | [V] |
+| **"Conditional tender" in BDC and Dutch-auction offers is take-up mechanics, not a discount trigger** (MCG, MVC, Barings BDC, SuRo, THL Credit, Great Elm, NexPoint and others; the list is `EXCLUDED`) | the funds' SC TO-I and SC TO-C, read 2026-10-13 | [V] |
+| **No BDC runs a discount-triggered tender programme**, among the documents scanned | same scan | [V] for the scan; recall [U] |
+| **BlackRock's 2025 results (2025-10-01) are not on EDGAR.** The outcome, "the discount trigger was not met", is in the 2026-03-05 annual reports. The per-fund averages were seen only in search-engine summaries of the Business Wire release, which returned HTTP 403 or timed out on fetch, so they are **not coded** | N-CSR 0001193125-26-093621 (12 trusts, filed under BOE) and 0001193125-26-093580 (BCAT, ECAT); businesswire.com/news/home/20251001518040 | [V] outcome; [S] figures, unused |
+| **MXF 2026.** A conditional tender is described by a commentary site (navnoorbawaresearch.com, "Saba Holds 16% of The Mexico Fund"). The fund's filings from 2025-06 to 2026-10 were listed; the DEF 14A of 2026-02-05 (0001999371-26-002612) and the 8-Ks of 2026-05-07, 2026-06-05 and 2026-10-07 were read, and none states it. **Not admitted** | `data.sec.gov/submissions/CIK0000065433.json`, read 2026-10-13 | [S] claim, [V] negative on EDGAR |
+| **MQY was a 2026 merger acquirer** (absorbed MYD, MQT and BKN; NAVs struck at the close of 2026-02-20; completion announced 2026-02-23) and adopted its discount management programme on completion | MQY Form 425, 2026-02-23 (0001193125-26-064386) | [V] |
+| **The yfinance closes in `data/cef_families/` misstate NRO's discount by a median −4.11 percentage points** (6 windows, against Neuberger's published averages). CRSP raw closes reproduce every one within 0.05 (five within 0.005) | `conditional_tender_census.py`, columns `avg_c4_yf` / `avg_c4_crsp_close` of the gitignored `conditional_tender_census_full.csv` | [V]; consistent with §12h |
+| **Close/NAV panels reproduce the sponsors' published "average daily discount".** 81 of 81 within 0.25 percentage points (median 0.003, maximum 0.043): BlackRock, DWS, Neuberger, Swiss Helvetia, Aberdeen, Virtus, and MHD/MQY on the live panel | same script, `results/events/conditional_tender_summary.json` | [V] |
+
+Filings cited, by programme (form, filing date, accession). The census rows
+give the quote taken from each one.
+
+| programme | filings |
+|---|---|
+| WA-GFY-2009 | SC TO-C 2010-01-12 (0001104659-10-001377); SC TO-I 2010-04-26 (0001104659-10-021765); SC TO-C 2010-06-01 (0001104659-10-031822) |
+| NB-2009 | SC TO-C 2010-02-18 (0000898432-10-000179); SC TO-C 2010-05-18 (0000898432-10-000724); SC TO-C 2010-08-18 (0000898432-10-001127); SC TO-C 2010-11-12 (0000898432-10-001439); SC TO-C 2011-05-31 (0000898432-11-000717); SC TO-C 2011-10-06 (0000898432-11-001115); SC TO-C 2012-04-20 (0000898432-12-000503) |
+| NB-NRO-2016 | SC TO-C 2016-07-26 (0000898432-16-002783); SC TO-C 2016-10-04 (0000898432-16-003018); SC TO-C 2017-01-04 (0000898432-17-000001); SC TO-C 2017-06-30 (0000898432-17-000688); SC TO-C 2017-10-03 (0000898432-17-000968) |
+| DWS-2010 | SC TO-C 2010-12-03 (0000088053-10-001697); SC TO-I 2011-01-07 (0000950123-11-001521); SC TO-C 2011-02-15 (0000088053-11-000233); SC TO-C 2012-05-29 (0000088053-12-000607); SC TO-I/A 2012-08-28 (0000088053-12-000957) |
+| DWS-2012 | SC TO-I 2012-07-25 (0001193125-12-314461); SC TO-I 2012-07-25 (0001193125-12-314459); SC TO-C 2012-12-03 (0000088053-12-001308); SC TO-I/A 2013-03-18 (0000088053-13-000296); SC TO-C 2013-06-17 (0000088053-13-000688); SC TO-I/A 2013-09-04 (0000088053-13-001045); SC TO-C 2013-12-09 (0000088053-13-001397); SC TO-I/A 2014-03-21 (0000088053-14-000309); SC TO-C 2014-06-30 (0000088053-14-000856); SC TO-I 2014-08-11 (0001193125-14-305103); SC TO-I/A 2014-09-15 (0000088053-14-001249) |
+| DWS-2014 | SC TO-C 2014-12-15 (0000088053-14-001619); SC TO-I 2015-01-22 (0001193125-15-017640); SC TO-I/A 2015-02-26 (0000088053-15-000224); SC TO-C 2015-04-27 (0000088053-15-000427); SC TO-I/A 2015-07-30 (0000088053-15-000811) |
+| MS-2011 | SC TO-C 2011-04-08 (0001104659-11-019349); SC TO-C 2011-05-10 (0001104659-11-027753); SC TO-C 2011-10-06 (0001104659-11-055102); SC TO-C 2011-10-06 (0001104659-11-055103); SC TO-I 2011-10-17 (0001104659-11-056264); SC TO-I 2011-10-17 (0001104659-11-056263); SC TO-I/A 2011-11-15 (0001104659-11-064180); SC TO-I/A 2011-11-29 (0001104659-11-066508); SC TO-C 2012-05-07 (0001104659-12-033676); SC TO-I 2012-05-17 (0001104659-12-038043); SC TO-I/A 2012-06-15 (0001104659-12-043856); SC TO-C 2012-10-09 (0001104659-12-067941); SC TO-I 2012-10-19 (0001104659-12-070146); SC TO-I/A 2012-11-19 (0001104659-12-078906); SC TO-I 2013-05-13 (0001104659-13-040826); SC TO-I/A 2013-06-11 (0001104659-13-048373) |
+| SWZ-2011 | SC TO-C 2011-05-25 (0001193125-11-149954); SC TO-I/A 2011-07-07 (0001193125-11-183848) |
+| LMP-SCD-2011 | SC TO-C 2011-03-09 (0001104659-11-013292); SC TO-C 2011-08-23 (0001193125-11-228834); SC TO-C 2011-11-23 (0001193125-11-321001); SC TO-C 2012-02-21 (0001193125-12-070630) |
+| NOMURA-KEF-2011 | SC TO-C 2011-06-07 (0000905148-11-001141); SC TO-I 2012-01-31 (0000905148-12-000209) |
+| GCH-2011 | SC TO-C 2011-08-30 (0001193125-11-236597) |
+| SUNAMERICA-2010 | SC TO-C 2010-09-14 (0001193125-10-209469) |
+| MACQ-MGU-2012 | SC TO-C 2012-10-17 (0001193125-12-424922); SC TO-C 2013-02-27 (0001193125-13-077364) |
+| IRL-2012 | SC TO-I 2012-05-15 (0000919574-12-003536) |
+| EV-ETJ-2013 | SC TO-C 2013-11-14 (0000940394-13-001309) |
+| NUV-DRA-2014 | SC TO-C 2015-10-09 (0001193125-15-340936) |
+| ZWEIG-2016 | SC TO-I 2016-04-29 (0001571049-16-014465); SC TO-C 2016-09-08 (0001571049-16-018120); SC TO-I/A 2016-12-27 (0001571049-16-020850); SC TO-C 2017-03-20 (0001571049-17-002592) |
+| ZWEIG-DCA-2016 | SC TO-C 2016-09-07 (0001571049-16-018076) |
+| MFS-CXH-2017 | SC TO-C 2017-07-11 (0001193125-17-226148); SC TO-C 2018-03-12 (0001193125-18-079336); SC TO-I/A 2018-05-03 (0001193125-18-150833) |
+| BLK-DSU-2017 | SC TO-C 2018-03-02 (0001341004-18-000162); SC TO-I 2018-03-16 (0001193125-18-084821); SC TO-C 2019-03-01 (0001193125-19-061173); SC TO-C 2020-03-02 (0001193125-20-059161) |
+| DEL-DDF-STANDING | SC TO-I 2014-06-02 (0001206774-14-001854); SC TO-I 2016-06-01 (0001206774-16-006118); SC TO-I 2017-06-01 (0001206774-17-001757) |
+| DEL-DGF-STANDING | SC TO-I 2011-06-01 (0001206774-11-001319) |
+| DEL-DEX-2018 | SC TO-C 2018-05-25 (0001680359-18-000228); SC TO-I 2019-05-31 (0001206774-19-001806); SC TO-I 2021-06-02 (0001206774-21-001537); SC TO-I 2022-06-02 (0001206774-22-001460) |
+| NUV-NBB-2018 | SC TO-C 2019-01-03 (0001193125-19-000838) |
+| ABRDN-AEF-2018 | SC TO-C 2018-04-30 (0001104659-18-028610); SC TO-C 2019-05-08 (0001104659-19-027846) |
+| EV-EIM-2019 | SC TO-C 2019-03-27 (0000940394-19-000574); SC TO-I 2019-04-18 (0000940394-19-000635); SC TO-C 2019-10-02 (0000940394-19-001307); SC TO-C 2020-05-21 (0000940394-20-000961) |
+| HERZ-2019 | SC TO-C 2020-12-17 (0001398344-20-024710); SC TO-C 2021-08-20 (0001398344-21-016620); SC TO-C 2022-10-03 (0001387131-22-010233); SC TO-C 2023-11-22 (0001999371-23-000497); SC TO-C 2024-10-03 (0001999371-24-012904); SC TO-C 2025-08-25 (0001999371-25-011966); SC TO-C 2026-09-11 (0001398344-26-016904) |
+| EV-2021 | SC TO-C 2021-05-12 (0000940394-21-000952); SC TO-C 2023-09-01 (0000940394-23-001020); N-CSR 2026-07-27 (0001193125-26-317148) |
+| FT-GIM-2021 | SC TO-C 2021-10-13 (0001137439-21-001003) |
+| TORT-2022 | SC TO-C 2022-08-23 (0001140361-22-030648); SC TO-C 2023-08-16 (0001140361-23-040066) |
+| BLK-2024Q | SC TO-C 2024-07-02 (0001193125-24-173637); SC TO-I 2024-07-22 (0001193125-24-182254); SC TO-C 2024-10-01 (0001193125-24-230317); SC TO-C 2025-01-03 (0001193125-25-000824); SC TO-C 2025-01-21 (0001193125-25-009582); SC TO-C 2025-01-21 (0001193125-25-009580); SC TO-C 2025-04-02 (0001193125-25-070678); SC TO-C 2025-07-01 (0001193125-25-154060); SC TO-I 2025-07-15 (0001193125-25-159395) |
+| BLK-2025E | N-CSR 2026-03-05 (0001193125-26-093580); N-CSR 2026-03-05 (0001193125-26-093621) |
+| BLK-BKT-2025 | N-CSR 2026-03-05 (0001193125-26-093646) |
+| BLK-2026E | N-CSR 2026-03-05 (0001193125-26-093621); SC TO-C 2026-10-01 (0001193125-26-410845) |
+| BLK-2026M-FEB09 | 425 2026-02-10 (0001193125-26-043126) |
+| BLK-2026M-FEB23 | 425 2026-02-23 (0001193125-26-064386); SC TO-C 2026-10-01 (0001193125-26-410845) |
+| BLK-BKT-2026 | N-CSR 2026-03-05 (0001193125-26-093646) |
+| ZTR-2024 | SC TO-C 2024-03-11 (0001193125-24-064620); SC TO-C 2024-12-23 (0001193125-24-284229); SC TO-I/A 2025-02-12 (0001193125-25-024907); SC TO-C 2025-10-03 (0001193125-25-229427); SC TO-I/A 2025-12-08 (0001193125-25-311337) |
+| EV-EIM-2024 | SC TO-C 2024-05-06 (0000940394-24-000620); SC TO-I 2024-06-07 (0000940394-24-000768); SC TO-C 2024-11-12 (0000940394-24-001035); SC TO-C 2025-07-11 (0001076598-25-000273) |
+| JOF-2025 | SC TO-I 2026-06-01 (0001140361-26-023437); SC TO-I/A 2026-07-13 (0001140361-26-028294) |
