@@ -34,7 +34,7 @@ counter (156) covers all ETF-price/PD work done to date.
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
 | **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **0** |
-| **XASSET** | **cross-asset ETF/futures slate, declared up front (NEW SOURCE 2026-10-09)** | **2** |
+| **XASSET** | **cross-asset ETF/futures slate, declared up front (NEW SOURCE 2026-10-09)** | **3** |
 > **2026-10-09: EVENTS and XASSET opened at 0** (team lead, `docs/SYSTEM.md` §5,
 > 2026-10-09). Opening a counter spends no trial. **XASSET is a declared slate**: its
 > five tests (`results/cef/RESEARCH_PLAN_2026-10-09.md` §3) are listed before any runs,
@@ -101,6 +101,7 @@ counter (156) covers all ETF-price/PD work done to date.
 > (team lead's rulings recorded first, in the prereg's amendment block):
 > - XASSET 0 → 1: **X1's Stage 0b begins** (trial 1 of N = 4).
 > - XASSET 1 → 2: **X3's Stage 0b begins** (trial 2 of N = 4).
+> - XASSET 2 → 3: **X2's Stage 0b begins** (trial 3 of N = 4).
 
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
