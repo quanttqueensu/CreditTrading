@@ -1,0 +1,82 @@
+{
+ "written_utc": "2026-10-14T21:41:57+00:00",
+ "stage": "0a",
+ "files": {
+  "panel": {
+   "path": "results/xasset/_cache_xasset/etf_daily_xasset.parquet",
+   "sha256": "b843f558289c68dd96d1a00e1d49d728ef533352e57cc33a529f8e29aa30a58f",
+   "bytes": 2735508
+  },
+  "dgs3mo": {
+   "path": "results/xasset/_cache_xasset/dgs3mo.parquet",
+   "sha256": "82b8f70aa4df66ce9e78fefa8282734a3dff5adb455c5f501a379e0d0b5fec75",
+   "bytes": 126024
+  },
+  "aqr_tsmom": {
+   "path": "results/xasset/_cache_xasset/aqr_tsmom_monthly.parquet",
+   "sha256": "d9f866555a2746c046671af34a47eadc3857572330ec84edc66f65cc5479b5d4",
+   "bytes": 34970
+  },
+  "aqr_vme": {
+   "path": "results/xasset/_cache_xasset/aqr_vme_monthly.parquet",
+   "sha256": "99dd48f7dbebb7ed3398535d0155b7db6f6299f23130094e2580c950ff91dd3f",
+   "bytes": 146755
+  },
+  "ff_daily": {
+   "path": "results/cef/w4/_cache_w4/ff5_umd_daily.parquet",
+   "sha256": "a9d7a95ca38ab5a80795b215a71748fd02e174cb4c5f435d6c8b8ddcd2abb084",
+   "bytes": 280714
+  },
+  "ff_monthly": {
+   "path": "results/cef/w4/_cache_w4/ff5_umd_monthly.parquet",
+   "sha256": "5e8628ace49a4cfc8cc3cb69209884a3b6a6f99503ea0805acbebe7eea9240ea",
+   "bytes": 37695
+  },
+  "inhouse_etf_panel": {
+   "path": "results/xasset/_cache_xasset/inhouse_etf_panel.parquet",
+   "sha256": "f32cc24750a5585a5c7e348e10140f0a83ba0db9f2a79a698a5a9c69eaa7e80c",
+   "bytes": 5174923
+  },
+  "inhouse_etf_ohlc_extended": {
+   "path": "results/xasset/_cache_xasset/inhouse_etf_ohlc_extended.parquet",
+   "sha256": "a0dc9fee28dfb32c270b9c359204cb3c804056cb8b397567c0cd429eef06793e",
+   "bytes": 9336273
+  },
+  "spec": {
+   "path": "ops/specs/cef_discount.frozen.json",
+   "sha256": "c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e",
+   "bytes": 11161
+  },
+  "qflags": {
+   "path": "results/xasset/_cache_xasset/stage0a_flags.csv",
+   "sha256": "e3e93b39b78d0f64a0913dcf46cf82d24f4a52ecc835835a03cb222188695bc0",
+   "bytes": 150816
+  },
+  "cef_prices": {
+   "path": "data/cef/cef_prices.parquet",
+   "sha256": "e8a6a180658c174a785ba9b3a318430786e773f5a1ab5b2ab7994be0362eef66",
+   "bytes": 2739159
+  },
+  "cef_nav": {
+   "path": "data/cef/cef_nav.parquet",
+   "sha256": "d6a9780ebff000a3ae47b6455d54b2e52ac54a5828f618dbf5fe53ecfa4d1ba0",
+   "bytes": 804961
+  },
+  "cef_distributions": {
+   "path": "data/cef/cef_distributions.parquet",
+   "sha256": "a4ba7ef4a82682cbf4ab6559e55f8aaeeaf99fe644615360ab6dbc59cf4e14c6",
+   "bytes": 54280
+  },
+  "cef_splits": {
+   "path": "data/cef/cef_splits.parquet",
+   "sha256": "67a1f007312a155fd835fe50e3b357dfb060fcf6905cf90089c204ef3a5489cb",
+   "bytes": 2252
+  }
+ },
+ "pins": {
+  "vol_target_annual": 0.06,
+  "max_gross_stress": 1.8,
+  "spec_sha256": "c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e",
+  "n_slate": 4
+ }
+}

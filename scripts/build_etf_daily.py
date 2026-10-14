@@ -75,7 +75,31 @@ ops/common.py's replay) had no fetcher. Changes, nothing else:
   * `--out` (default data/etf_daily.parquet), so a rebuild can be staged and
     proved byte-identical (`scripts/rv/panel_identity.py`) first.
 
+XASSET MODE, added 2026-10-14 (gate DG1 of
+results/xasset/PREREG_XASSET_SLATE_2026-10-12.md, revision 3, approved):
+
+  * `--xasset --out PATH` builds the 13 tickers above PLUS the nine slate names
+    the panel lacked, `XASSET_PERMNOS` (SPY, EMB, PFF, MUB, BKLN, CWB, IEI,
+    TLH, AGG; share code 73; permno, range and row count read from `dsf` on
+    the R2 mirror by `scripts/xasset/slate_feasibility.py --crsp`, 2026-10-12,
+    results/xasset/slate_feasibility_2026-10-12.csv), through the SAME gates.
+  * It adds ONE column, `prc_signed`: CRSP `dsf.prc` exactly as recorded,
+    unadjusted and SIGNED. CRSP stores minus the bid/ask midpoint when no
+    trade closed the session, so `prc_signed < 0` is the no-closing-trade
+    flag (the slate's quality check Q4). It is NaN outside the CRSP leg,
+    where no CRSP record exists, by construction rather than as a fill. The
+    BAD_PRINTS repair changes `prc_adj`, never `prc_signed`, which keeps
+    what CRSP recorded.
+  * `prc_adj` stays |prc|/cfacpr. The new column and the nine names NEVER
+    reach data/etf_daily.parquet, which src/backtest/engine.py and
+    ops/common.py's replay read: `--xasset` refuses any `--out` under data/.
+  * Without `--xasset` the build is unchanged: the same 13 tickers, the same
+    eight columns, the same gates.
+  * The nine names' own >= 15% days are named in `XASSET_LARGE_MOVES`, with
+    the same evidence rule as `LARGE_MOVES`; they are checked only in this mode.
+
 Run:  python3 scripts/build_etf_daily.py [--out PATH]
+      python3 scripts/build_etf_daily.py --xasset --out results/xasset/_cache_xasset/etf_daily_xasset.parquet
 """
 
 import argparse
@@ -120,6 +144,23 @@ PERMNOS = {
 TICKERS = list(PERMNOS)
 BY_PERMNO = {v["permno"]: t for t, v in PERMNOS.items()}
 
+# XASSET gate DG1 (2026-10-14): the nine slate names the panel lacked. Permno,
+# range and n from `dsf` on the R2 mirror, 2026-10-12
+# (results/xasset/slate_feasibility_2026-10-12.csv, columns crsp_permno,
+# crsp_first, crsp_last, crsp_rows). Used only under --xasset.
+XASSET_PERMNOS = {
+    "SPY":  {"permno": 84398, "first": "1993-01-29", "last": "2024-12-31", "n": 8038},
+    "EMB":  {"permno": 92491, "first": "2007-12-19", "last": "2024-12-31", "n": 4287},
+    "PFF":  {"permno": 91874, "first": "2007-03-30", "last": "2024-12-31", "n": 4470},
+    "MUB":  {"permno": 92273, "first": "2007-09-10", "last": "2024-12-31", "n": 4358},
+    "BKLN": {"permno": 12631, "first": "2011-03-03", "last": "2024-12-31", "n": 3481},
+    "CWB":  {"permno": 92914, "first": "2009-04-16", "last": "2024-12-31", "n": 3955},
+    "IEI":  {"permno": 91705, "first": "2007-01-11", "last": "2024-12-31", "n": 4524},
+    "TLH":  {"permno": 91704, "first": "2007-01-11", "last": "2024-12-31", "n": 4524},
+    "AGG":  {"permno": 89848, "first": "2003-09-26", "last": "2024-12-31", "n": 5352},
+}
+assert not set(XASSET_PERMNOS) & set(PERMNOS)
+
 # Known bad closing prints, repaired with Yahoo's official consolidated close
 # (fetched at build time, sanity-bounded). Evidence in the module docstring.
 BAD_PRINTS = {("ANGL", "2013-08-02"): "stub-quote close 40.35 vs bid 27.64, NAV ~27.1"}
@@ -136,6 +177,19 @@ LARGE_MOVES = {
     ("EEM", "2008-10-28"): "CRSP ret +20.93%, vol 219.3m; yfinance +20.93%",
 }
 LARGE_MOVE_BOUND = 0.15
+# The nine XASSET names' own >= 15% days (checked only under --xasset, so the
+# default build's "named row missing" check is unaffected). Named 2026-10-14 by
+# the same rule as LARGE_MOVES: the first --xasset build raised on exactly these
+# three, each was checked against yfinance history (auto_adjust=False; Adj Close
+# pct_change and (Close + Dividends)/prev Close both give the same return to the
+# printed precision), each trades on volume well above the preceding sessions,
+# and none reverses the next session (+8.5%, +3.5%, +8.3%), so none is a stub
+# print. No value is altered: naming a row only stops the gate raising on it.
+XASSET_LARGE_MOVES = {
+    ("PFF", "2008-10-13"): "CRSP ret +19.22%, vol 1.13m (0.93m prior day); yfinance +19.22%; next day +8.50%",
+    ("PFF", "2009-03-10"): "CRSP ret +16.42%, vol 2.23m (1.37m prior day); yfinance +16.42%; next day +3.50%",
+    ("PFF", "2020-03-18"): "CRSP ret -16.96%, vol 20.7m (10.4m prior day); yfinance -16.96%; next day +8.32%",
+}
 
 
 def repair_bad_prints(df: pd.DataFrame) -> pd.DataFrame:
@@ -170,10 +224,10 @@ def repair_bad_prints(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def scan_reversals(df: pd.DataFrame) -> None:
+def scan_reversals(df: pd.DataFrame, tickers=None) -> None:
     """Print (never alter) other bad-print candidates: |ret|>8% mostly reversed
     next day on thin volume. Repairs happen only via BAD_PRINTS."""
-    for t in TICKERS:
+    for t in (TICKERS if tickers is None else tickers):
         sub = df[df["ticker"] == t].sort_values("date").reset_index(drop=True)
         r, nxt = sub["ret_total"], sub["ret_total"].shift(-1)
         cand = sub[(r.abs() > 0.08) & (((1 + r) * (1 + nxt) - 1).abs() < 0.3 * r.abs())
@@ -185,26 +239,31 @@ def scan_reversals(df: pd.DataFrame) -> None:
                       f"vol {row['volume']:.0f} — review before trusting")
 
 
-def load_crsp() -> pd.DataFrame:
+def load_crsp(permnos=None) -> pd.DataFrame:
+    """`permnos` None = PERMNOS (the default build). `prc_signed` (CRSP prc as
+    recorded) is selected always and written only by --xasset."""
+    permnos = PERMNOS if permnos is None else permnos
+    by_permno = {v["permno"]: t for t, v in permnos.items()}
     con = connect()
     dsf = r2_path("crsp_a_stock", "dsf")
-    plist = ",".join(str(v["permno"]) for v in PERMNOS.values())
+    plist = ",".join(str(v["permno"]) for v in permnos.values())
     df = q(con, f"""
         SELECT date, permno,
                ret::DOUBLE          AS ret_total,
                retx::DOUBLE         AS ret_px,
                ABS(prc)::DOUBLE / cfacpr AS prc_adj,
-               vol::DOUBLE          AS volume
+               vol::DOUBLE          AS volume,
+               prc::DOUBLE          AS prc_signed
         FROM read_parquet('{dsf}')
         WHERE permno IN ({plist})
         ORDER BY permno, date
     """)
     df["date"] = pd.to_datetime(df["date"])
-    df["ticker"] = df["permno"].map(BY_PERMNO)
+    df["ticker"] = df["permno"].map(by_permno)
 
     print("--- CRSP leg (wrds/crsp_a_stock/dsf.parquet) ---")
-    for t in TICKERS:
-        exp = PERMNOS[t]
+    for t in permnos:
+        exp = permnos[t]
         sub = df[df["ticker"] == t]
         d0, d1 = sub["date"].min(), sub["date"].max()
         assert (d0.date().isoformat(), d1.date().isoformat(), len(sub)) == \
@@ -216,21 +275,24 @@ def load_crsp() -> pd.DataFrame:
         assert sub["date"].is_unique
         assert sub["prc_adj"].notna().all() and (sub["prc_adj"] > 0).all()
         assert sub["volume"].notna().all()
+        assert sub["prc_signed"].notna().all() and (sub["prc_signed"] != 0).all()
         print(f"  {t:<5} {d0.date()} -> {d1.date()}  {len(sub)} rows "
-              f"(inception-day NaN ret dropped: 1)")
+              f"(inception-day NaN ret dropped: 1; no-closing-trade prc < 0: "
+              f"{int((sub['prc_signed'] < 0).sum())})")
     df = df.dropna(subset=["ret_total"]).reset_index(drop=True)
     df = repair_bad_prints(df)
-    scan_reversals(df)
+    scan_reversals(df, list(permnos))
     return df
 
 
-def load_yf() -> pd.DataFrame:
-    raw = yf.download(TICKERS, start=YF_START, auto_adjust=False, actions=True,
+def load_yf(tickers=None) -> pd.DataFrame:
+    tickers = TICKERS if tickers is None else tickers
+    raw = yf.download(tickers, start=YF_START, auto_adjust=False, actions=True,
                       progress=False, group_by="ticker")
     assert raw is not None and not raw.empty, "yfinance returned nothing"
     frames = []
     print(f"\n--- yfinance leg (auto_adjust=False + actions; requested start {YF_START}) ---")
-    for t in TICKERS:
+    for t in tickers:
         d = raw[t].dropna(subset=["Close"]).copy()
         assert not d.empty, f"{t}: empty yfinance frame"
         d.index = pd.to_datetime(d.index).tz_localize(None)
@@ -259,12 +321,12 @@ def load_yf() -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
-def validate_splice(crsp: pd.DataFrame, yfd: pd.DataFrame) -> dict:
+def validate_splice(crsp: pd.DataFrame, yfd: pd.DataFrame, tickers=None) -> dict:
     """2024 overlap: CRSP ret vs both yfinance TR candidates. Returns per-ticker
     chosen method + diagnostics dict; raises if neither method passes."""
     print("\n--- 2024 overlap validation (CRSP ret vs yfinance TR candidates) ---")
     diag = {}
-    for t in TICKERS:
+    for t in (TICKERS if tickers is None else tickers):
         a = crsp[(crsp.ticker == t) & (crsp.date.dt.year == 2024)].set_index("date")
         b = yfd[(yfd.ticker == t) & (yfd.date.dt.year == 2024)].set_index("date")
         missing_crsp = sorted(set(b.index) - set(a.index))
@@ -299,13 +361,14 @@ def validate_splice(crsp: pd.DataFrame, yfd: pd.DataFrame) -> dict:
     return diag
 
 
-def check_alpaca(crsp: pd.DataFrame, yfd: pd.DataFrame, diag: dict):
+def check_alpaca(crsp: pd.DataFrame, yfd: pd.DataFrame, diag: dict, tickers=None):
     """The Alpaca leg, from YF_START to yesterday, checked against CRSP on 2024
     (the yfinance leg's own gate) and against yfinance from ALPACA_CHECK_FROM.
     Returns the leg with in-house returns."""
     from scripts.rv import alpaca_daily as ad
     start = dt.date.fromisoformat(YF_START)
-    alp = ad.inhouse_returns(ad.leg(ad.make_client(), TICKERS, start))
+    alp = ad.inhouse_returns(ad.leg(ad.make_client(),
+                                    TICKERS if tickers is None else tickers, start))
     print(f"\n--- alpaca leg (feed={ad.FEED}, adjustment={ad.ADJUSTMENT}) "
           f"{alp.date.min().date()} -> {alp.date.max().date()} ---")
 
@@ -334,33 +397,49 @@ def check_alpaca(crsp: pd.DataFrame, yfd: pd.DataFrame, diag: dict):
     return alp
 
 
-def check_large_moves(etf: pd.DataFrame) -> None:
+def check_large_moves(etf: pd.DataFrame, named=None) -> None:
+    named = LARGE_MOVES if named is None else named
     big = etf.loc[etf["ret_total"].abs() >= LARGE_MOVE_BOUND, ["ticker", "date", "ret_total"]]
     seen = {(r.ticker, r.date.strftime("%Y-%m-%d")): r.ret_total for r in big.itertuples()}
-    unnamed = {k: v for k, v in seen.items() if k not in LARGE_MOVES}
+    unnamed = {k: v for k, v in seen.items() if k not in named}
     assert not unnamed, (
         f"daily ETF return >= {LARGE_MOVE_BOUND:.0%} not in LARGE_MOVES: {unnamed} "
         "-- a data error until a second source says otherwise")
-    gone = sorted(set(LARGE_MOVES) - set(seen))
+    gone = sorted(set(named) - set(seen))
     assert not gone, f"LARGE_MOVES rows no longer present (source changed?): {gone}"
 
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", type=Path, default=OUT, help="default data/etf_daily.parquet")
-    out = ap.parse_args(argv).out
+    ap.add_argument("--xasset", action="store_true",
+                    help="also the nine XASSET names and the prc_signed column; "
+                         "--out must be outside data/")
+    a = ap.parse_args(argv)
+    out = a.out
+    cols = ["date", "ticker", "permno", "ret_total", "ret_px", "prc_adj", "volume", "source"]
+    permnos, named = PERMNOS, LARGE_MOVES
+    if a.xasset:
+        data_dir = (REPO / "data").resolve()
+        o = out.resolve()
+        if o == OUT.resolve() or data_dir in o.parents:
+            raise SystemExit(f"--xasset refuses --out {out}: nothing it builds may land under "
+                             f"data/ (src/backtest/engine.py reads data/etf_daily.parquet)")
+        permnos = {**PERMNOS, **XASSET_PERMNOS}
+        named = {**LARGE_MOVES, **XASSET_LARGE_MOVES}
+        cols = cols + ["prc_signed"]
+    tickers = list(permnos)
     out.parent.mkdir(parents=True, exist_ok=True)
     yf_last = pd.Timestamp(YF_LAST)
 
-    crsp = load_crsp()
-    yfd = load_yf()
-    diag = validate_splice(crsp, yfd)
-    alp = check_alpaca(crsp, yfd, diag)
+    crsp = load_crsp(permnos)
+    yfd = load_yf(tickers)
+    diag = validate_splice(crsp, yfd, tickers)
+    alp = check_alpaca(crsp, yfd, diag, tickers)
 
     print("\n--- splice ---")
-    parts = [crsp.assign(source="crsp")[
-        ["date", "ticker", "permno", "ret_total", "ret_px", "prc_adj", "volume", "source"]]]
-    for t in TICKERS:
+    parts = [crsp.assign(source="crsp")[cols]]
+    for t in tickers:
         last_crsp = crsp.loc[crsp.ticker == t, "date"].max()
         yft = yfd[yfd.ticker == t]
         tail = yft[(yft.date > last_crsp) & (yft.date <= yf_last)].copy()
@@ -372,19 +451,22 @@ def main(argv=None) -> None:
             f"{t}: yfinance has no bar on the Alpaca seam {YF_LAST}"
         tail["ret_total"] = tail["ret_adjclose" if diag[t]["method"] == "adjclose"
                                  else "ret_inhouse"]
-        tail["permno"] = PERMNOS[t]["permno"]
+        tail["permno"] = permnos[t]["permno"]
         tail["source"] = "yfinance"
         assert tail["ret_total"].notna().all()
-        parts.append(tail[["date", "ticker", "permno", "ret_total", "ret_px",
-                           "prc_adj", "volume", "source"]])
+        if a.xasset:
+            tail["prc_signed"] = np.nan     # no CRSP record outside the CRSP leg
+        parts.append(tail[cols])
         # Alpaca after the seam; its first return accrues from ALPACA's own
         # seam-day close (in the leg), as yfinance's first return accrued from
         # yfinance's own bar on the CRSP end date.
         at = alp[(alp.ticker == t) & (alp.date > yf_last)]
-        at = pd.DataFrame({"date": at["date"], "ticker": t, "permno": PERMNOS[t]["permno"],
+        at = pd.DataFrame({"date": at["date"], "ticker": t, "permno": permnos[t]["permno"],
                            "ret_total": at["ret_total"], "ret_px": at["ret_px"],
                            "prc_adj": at["close"], "volume": at["volume"], "source": "alpaca"})
         assert at["ret_total"].notna().all()
+        if a.xasset:
+            at["prc_signed"] = np.nan       # no CRSP record outside the CRSP leg
         parts.append(at)
         print(f"  {t:<5} CRSP ends {last_crsp.date()}, yfinance takes over "
               f"{tail['date'].min().date()} ({len(tail)} rows, TR method: {diag[t]['method']}), "
@@ -398,10 +480,19 @@ def main(argv=None) -> None:
 
     assert not etf.duplicated(["ticker", "date"]).any()
     assert etf[["ret_total", "ret_px", "prc_adj", "volume"]].notna().all().all()
-    check_large_moves(etf)
+    check_large_moves(etf, named)
+    if a.xasset:
+        crsp_rows = etf["source"] == "crsp"
+        assert etf.loc[crsp_rows, "prc_signed"].notna().all()
+        assert etf.loc[~crsp_rows, "prc_signed"].isna().all()
+        # prc_adj is |prc|/cfacpr: same magnitude ordering, and never negative
+        assert (etf["prc_adj"] > 0).all()
+        neg = etf[etf["prc_signed"] < 0].groupby("ticker").size()
+        print(f"\n--- prc_signed: no-closing-trade rows (CRSP prc < 0) by ticker ---\n"
+              f"  {neg.to_dict()}")
 
     print("\n--- final panel ---")
-    for t in TICKERS:
+    for t in tickers:
         sub = etf[etf.ticker == t].set_index("date")["ret_total"]
         ann = (1 + sub).prod() ** (252 / len(sub)) - 1
         vol = sub.std() * np.sqrt(252)
