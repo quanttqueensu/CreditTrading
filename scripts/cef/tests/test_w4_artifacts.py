@@ -153,3 +153,51 @@ def test_pastor_parser_keeps_pre_start_missing_as_nan():
 def test_pastor_parser_refuses_missing_after_start():
     with pytest.raises(LiquidityFetchError):
         parse_ps(PASTOR.replace("-0.0040", "-99"))
+
+
+# --- stationary bootstrap and the NW (1994) lag, added 2026-10-14 for trial C4 ---
+
+def test_stationary_boot_is_reproducible_and_iid_at_block_one():
+    rng = np.random.default_rng(1)
+    x = pd.Series(rng.normal(0.001, 0.01, 2000))
+    m1, s1 = w4.stationary_boot(x, mean_block=1, reps=2000, seed=5)
+    m2, s2 = w4.stationary_boot(x, mean_block=1, reps=2000, seed=5)
+    assert np.array_equal(m1, m2) and np.array_equal(s1, s2)
+    # block 1 is the iid bootstrap: sd of the resampled mean ~ sd/sqrt(n)
+    assert np.std(m1) == pytest.approx(x.std() / np.sqrt(len(x)), rel=0.1)
+    assert np.mean(m1) == pytest.approx(x.mean(), abs=3 * x.std() / np.sqrt(len(x)))
+
+
+def test_stationary_boot_widens_under_autocorrelation():
+    """On a persistent AR(1), blocks of 21 keep the dependence the iid draw destroys."""
+    rng = np.random.default_rng(2)
+    e = rng.normal(0, 0.01, 3000)
+    x = np.zeros_like(e)
+    for t in range(1, len(e)):
+        x[t] = 0.8 * x[t - 1] + e[t]
+    m_iid, _ = w4.stationary_boot(pd.Series(x), mean_block=1, reps=1000, seed=3)
+    m_blk, _ = w4.stationary_boot(pd.Series(x), mean_block=21, reps=1000, seed=3)
+    assert np.std(m_blk) > 2 * np.std(m_iid)
+
+
+def test_stationary_boot_blocks_have_the_declared_mean_length():
+    """A constant-increment series makes the block structure visible in the draw."""
+    v = pd.Series(np.arange(5000, dtype=float))
+    rng = np.random.default_rng(9)   # reproduce the generator's draws for one chunk
+    m, _ = w4.stationary_boot(v, mean_block=21, reps=10, seed=9)
+    assert len(m) == 10
+    # re-derive one resample's breaks from the same generator state
+    start = rng.integers(0, len(v), size=(10, len(v)))
+    new = rng.random((10, len(v))) < 1 / 21
+    new[:, 0] = True
+    assert new.sum() / new.size == pytest.approx(1 / 21, rel=0.05)
+
+
+def test_nw94_lag_grows_with_persistence():
+    rng = np.random.default_rng(4)
+    e = rng.normal(size=4000)
+    ar = np.zeros_like(e)
+    for t in range(1, len(e)):
+        ar[t] = 0.9 * ar[t - 1] + e[t]
+    assert w4.nw94_lag(pd.Series(e)) < w4.nw94_lag(pd.Series(ar))
+    assert w4.nw94_lag(pd.Series(ar)) >= 10

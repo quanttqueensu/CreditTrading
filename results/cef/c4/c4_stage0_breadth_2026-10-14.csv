@@ -1,37 +1,25 @@
 book,era,sessions,active_sessions,active_share,median_eligible,p10_eligible,max_eligible,funds_ever_eligible
-universe 68 (2026-10-12),2005-09,1259,853,0.6775218427323273,8.0,3.0,17,20
-universe 68 (2026-10-12),2010-14,1258,1246,0.9904610492845787,10.0,8.0,16,21
-universe 68 (2026-10-12),2015-19,1258,1226,0.9745627980922098,11.0,8.0,20,29
-universe 68 (2026-10-12),2020-22,756,730,0.9656084656084656,14.0,10.0,23,30
-universe 68 (2026-10-12),2023-26 (holdout),946,896,0.9471458773784355,13.0,7.0,21,27
-universe 68 (2026-10-12),fit 2005-22,4531,4055,0.8949459280512029,10.0,5.0,23,37
-fresh-NAV sub-book of 68 (2026-10-12),2005-09,1259,663,0.5266084193804607,6.0,2.0,12,14
-fresh-NAV sub-book of 68 (2026-10-12),2010-14,1258,1232,0.9793322734499205,9.0,7.0,14,17
-fresh-NAV sub-book of 68 (2026-10-12),2015-19,1258,1181,0.93879173290938,9.0,6.0,16,23
-fresh-NAV sub-book of 68 (2026-10-12),2020-22,756,726,0.9603174603174603,12.0,8.0,17,21
-fresh-NAV sub-book of 68 (2026-10-12),2023-26 (holdout),946,894,0.945031712473573,11.0,6.0,19,23
-fresh-NAV sub-book of 68 (2026-10-12),fit 2005-22,4531,3802,0.8391083645994262,8.0,4.0,17,26
-universe 74 (re-read),2005-09,1259,913,0.7251787132644957,8.0,4.0,19,23
-universe 74 (re-read),2010-14,1258,1250,0.9936406995230525,11.0,8.0,18,25
-universe 74 (re-read),2015-19,1258,1224,0.972972972972973,11.0,7.0,24,33
-universe 74 (re-read),2020-22,756,730,0.9656084656084656,15.0,10.0,26,33
-universe 74 (re-read),2023-26 (holdout),946,908,0.959830866807611,15.0,8.0,26,32
-universe 74 (re-read),fit 2005-22,4531,4117,0.9086294416243654,11.0,6.0,26,41
-fresh-NAV sub-book of 74 (re-read),2005-09,1259,678,0.5385226370135028,6.0,2.0,13,16
-fresh-NAV sub-book of 74 (re-read),2010-14,1258,1240,0.985691573926868,9.5,7.0,16,21
-fresh-NAV sub-book of 74 (re-read),2015-19,1258,1204,0.9570747217806042,10.0,7.0,20,27
-fresh-NAV sub-book of 74 (re-read),2020-22,756,728,0.9629629629629629,14.0,9.0,21,24
-fresh-NAV sub-book of 74 (re-read),2023-26 (holdout),946,908,0.959830866807611,13.0,8.0,24,29
-fresh-NAV sub-book of 74 (re-read),fit 2005-22,4531,3850,0.849702052527036,9.0,4.0,21,30
-"universe 61 (shortable on both reads; reported, not declared)",2005-09,1259,853,0.6775218427323273,8.0,3.0,17,20
-"universe 61 (shortable on both reads; reported, not declared)",2010-14,1258,1245,0.9896661367249603,10.0,8.0,15,20
-"universe 61 (shortable on both reads; reported, not declared)",2015-19,1258,1210,0.9618441971383148,10.0,7.0,19,27
-"universe 61 (shortable on both reads; reported, not declared)",2020-22,756,730,0.9656084656084656,13.0,9.0,21,27
-"universe 61 (shortable on both reads; reported, not declared)",2023-26 (holdout),946,896,0.9471458773784355,13.0,7.0,21,25
-"universe 61 (shortable on both reads; reported, not declared)",fit 2005-22,4531,4038,0.8911939969101743,10.0,5.0,21,34
-"fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)",2005-09,1259,663,0.5266084193804607,6.0,2.0,12,14
-"fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)",2010-14,1258,1232,0.9793322734499205,9.0,7.0,14,17
-"fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)",2015-19,1258,1181,0.93879173290938,9.0,6.0,16,22
-"fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)",2020-22,756,726,0.9603174603174603,12.0,8.0,17,20
-"fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)",2023-26 (holdout),946,894,0.945031712473573,11.0,6.0,19,23
-"fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)",fit 2005-22,4531,3802,0.8391083645994262,8.0,4.0,17,25
+"universe 74 (frozen, declared)",2005-09,1259,913,0.7251787132644957,8.0,4.0,19,23
+"universe 74 (frozen, declared)",2010-14,1258,1250,0.9936406995230525,11.0,8.0,18,25
+"universe 74 (frozen, declared)",2015-19,1258,1224,0.972972972972973,11.0,7.0,24,33
+"universe 74 (frozen, declared)",2020-22,756,730,0.9656084656084656,15.0,10.0,26,33
+"universe 74 (frozen, declared)",2023-26 (holdout),946,908,0.959830866807611,15.0,8.0,26,32
+"universe 74 (frozen, declared)",fit 2005-22,4531,4117,0.9086294416243654,11.0,6.0,26,41
+"fresh-NAV sub-book of 74 (frozen, declared)",2005-09,1259,678,0.5385226370135028,6.0,2.0,13,16
+"fresh-NAV sub-book of 74 (frozen, declared)",2010-14,1258,1240,0.985691573926868,9.5,7.0,16,21
+"fresh-NAV sub-book of 74 (frozen, declared)",2015-19,1258,1204,0.9570747217806042,10.0,7.0,20,27
+"fresh-NAV sub-book of 74 (frozen, declared)",2020-22,756,728,0.9629629629629629,14.0,9.0,21,24
+"fresh-NAV sub-book of 74 (frozen, declared)",2023-26 (holdout),946,908,0.959830866807611,13.0,8.0,24,29
+"fresh-NAV sub-book of 74 (frozen, declared)",fit 2005-22,4531,3850,0.849702052527036,9.0,4.0,21,30
+universe 68 (approved; R-68),2005-09,1259,853,0.6775218427323273,8.0,3.0,17,20
+universe 68 (approved; R-68),2010-14,1258,1246,0.9904610492845787,10.0,8.0,16,21
+universe 68 (approved; R-68),2015-19,1258,1226,0.9745627980922098,11.0,8.0,20,29
+universe 68 (approved; R-68),2020-22,756,730,0.9656084656084656,14.0,10.0,23,30
+universe 68 (approved; R-68),2023-26 (holdout),946,896,0.9471458773784355,13.0,7.0,21,27
+universe 68 (approved; R-68),fit 2005-22,4531,4055,0.8949459280512029,10.0,5.0,23,37
+fresh-NAV sub-book of 68 (approved; R-68),2005-09,1259,663,0.5266084193804607,6.0,2.0,12,14
+fresh-NAV sub-book of 68 (approved; R-68),2010-14,1258,1232,0.9793322734499205,9.0,7.0,14,17
+fresh-NAV sub-book of 68 (approved; R-68),2015-19,1258,1181,0.93879173290938,9.0,6.0,16,23
+fresh-NAV sub-book of 68 (approved; R-68),2020-22,756,726,0.9603174603174603,12.0,8.0,17,21
+fresh-NAV sub-book of 68 (approved; R-68),2023-26 (holdout),946,894,0.945031712473573,11.0,6.0,19,23
+fresh-NAV sub-book of 68 (approved; R-68),fit 2005-22,4531,3802,0.8391083645994262,8.0,4.0,17,26

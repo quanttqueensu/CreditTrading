@@ -1,16 +1,14 @@
 cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
-C4 STAGE 0 (zero trials), run 2026-10-14 21:40 UTC; holdout end fixed at 2026-09-30
+C4 STAGE 0 (zero trials), run 2026-10-14 22:37 UTC; holdout end fixed at 2026-09-30; the team lead's rulings of 2026-10-14 encoded
 
 [DG-C4-2] harness arguments: {'build_panel': ['end', 'universe', 'source', 'mask'], 'build_targets': ['universe', 'source', 'mask', 'min_adv'], 'total_returns': ['R', 'actions', 'prices']}
   sha256(pickle.dumps(build_targets())) first call: 007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc
   recorded on the unmodified harness (9d1d9ab):       007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc
   -> PASS (byte-for-byte no-op on the default path)
 
-[DG-C4-4] pool 105 funds; shortable on the 2026-10-12T18:27:23.541988+00:00 snapshot: 68
-  re-read GET /v2/assets (cef paper key, read-only) at 2026-10-14T21:40:33Z: 14382 active assets; pool funds absent []; shortable and tradable now: 74 (easy_to_borrow 74)
-  beside the 68: in both 61; no longer shortable ['DMA', 'FPF', 'HPI', 'MCN', 'PTA', 'RMT', 'THW']; newly shortable ['BCX', 'BSTZ', 'BUI', 'EMO', 'ETB', 'EVT', 'FFC', 'NMAI', 'NML', 'PFO', 'RNP', 'RQI', 'SCD']
-  68 (2026-10-12) by family: {'equity_sector': 23, 'equity_covered_call': 15, 'multi_asset': 13, 'preferred': 10, 'equity_domestic': 7}; fresh-NAV sub-book 45
-  74 (re-read) by family: {'equity_sector': 29, 'equity_covered_call': 15, 'multi_asset': 15, 'preferred': 9, 'equity_domestic': 6}; fresh-NAV sub-book 50
+[DG-C4-4] the universe is FROZEN (team lead, 2026-10-14): 74 funds of the GET /v2/assets read at 2026-10-14T21:40:33Z (results/cef/c4/c4_universe_frozen_2026-10-14.csv); not re-read
+  by family {'equity_sector': 29, 'equity_covered_call': 15, 'multi_asset': 15, 'preferred': 9, 'equity_domestic': 6}; easy to borrow 74; fresh-NAV sub-book 50; exchanges {'NYSE': 65, 'AMEX': 5, 'NASDAQ': 4}
+  beside the approved 68 (R-68, reported only): in both 61; in the 68 only ['DMA', 'FPF', 'HPI', 'MCN', 'PTA', 'RMT', 'THW']; in the 74 only ['BCX', 'BSTZ', 'BUI', 'EMO', 'ETB', 'EVT', 'FFC', 'NMAI', 'NML', 'PFO', 'RNP', 'RQI', 'SCD']
 
 [DG-C4-1] CRSP ret/retx staged for 105 pool funds, 1925-12-31..2024-12-31 (results/cef/c4/_cache_c4/crsp_ret_families.parquet, gitignored)
   QQQX rule: predecessor permno 91745 (1991 rows, to 2014-12-19): 1983 of 1987 common closing-trade dates within $0.005 of yfinance (99.80%); rule >= 95% -> USED
@@ -23,137 +21,86 @@ C4 STAGE 0 (zero trials), run 2026-10-14 21:40 UTC; holdout end fixed at 2026-09
 [DG-C4-5] WIDE v7 book series builds: first position 2005-01-03, P&L rows 2005-01-03..2026-09-25 (5467); live panel (no statistic computed here)
 
 [ELIGIBILITY] counts of the sleeve's filters with M1 (NAV repeat) and M2 (zero volume), floor $3,000,000, min_names 6 (no signal, no return)
-  universe 68 (2026-10-12): first active session 2006-01-18; fit sessions 4269; holdout sessions to 2026-09-30 939
-  universe 74 (re-read): first active session 2005-02-17; fit sessions 4499; holdout sessions to 2026-09-30 939
-  universe 61 (shortable on both reads; reported, not declared): first active session 2006-01-18; fit sessions 4269; holdout sessions to 2026-09-30 939
-                                                                      book               era  median_eligible  active_share  funds_ever_eligible
-                                                  universe 68 (2026-10-12)           2005-09              8.0         0.678                   20
-                                                  universe 68 (2026-10-12)           2010-14             10.0         0.990                   21
-                                                  universe 68 (2026-10-12)           2015-19             11.0         0.975                   29
-                                                  universe 68 (2026-10-12)           2020-22             14.0         0.966                   30
-                                                  universe 68 (2026-10-12) 2023-26 (holdout)             13.0         0.947                   27
-                                                  universe 68 (2026-10-12)       fit 2005-22             10.0         0.895                   37
-                                     fresh-NAV sub-book of 68 (2026-10-12)           2005-09              6.0         0.527                   14
-                                     fresh-NAV sub-book of 68 (2026-10-12)           2010-14              9.0         0.979                   17
-                                     fresh-NAV sub-book of 68 (2026-10-12)           2015-19              9.0         0.939                   23
-                                     fresh-NAV sub-book of 68 (2026-10-12)           2020-22             12.0         0.960                   21
-                                     fresh-NAV sub-book of 68 (2026-10-12) 2023-26 (holdout)             11.0         0.945                   23
-                                     fresh-NAV sub-book of 68 (2026-10-12)       fit 2005-22              8.0         0.839                   26
-                                                     universe 74 (re-read)           2005-09              8.0         0.725                   23
-                                                     universe 74 (re-read)           2010-14             11.0         0.994                   25
-                                                     universe 74 (re-read)           2015-19             11.0         0.973                   33
-                                                     universe 74 (re-read)           2020-22             15.0         0.966                   33
-                                                     universe 74 (re-read) 2023-26 (holdout)             15.0         0.960                   32
-                                                     universe 74 (re-read)       fit 2005-22             11.0         0.909                   41
-                                        fresh-NAV sub-book of 74 (re-read)           2005-09              6.0         0.539                   16
-                                        fresh-NAV sub-book of 74 (re-read)           2010-14              9.5         0.986                   21
-                                        fresh-NAV sub-book of 74 (re-read)           2015-19             10.0         0.957                   27
-                                        fresh-NAV sub-book of 74 (re-read)           2020-22             14.0         0.963                   24
-                                        fresh-NAV sub-book of 74 (re-read) 2023-26 (holdout)             13.0         0.960                   29
-                                        fresh-NAV sub-book of 74 (re-read)       fit 2005-22              9.0         0.850                   30
-             universe 61 (shortable on both reads; reported, not declared)           2005-09              8.0         0.678                   20
-             universe 61 (shortable on both reads; reported, not declared)           2010-14             10.0         0.990                   20
-             universe 61 (shortable on both reads; reported, not declared)           2015-19             10.0         0.962                   27
-             universe 61 (shortable on both reads; reported, not declared)           2020-22             13.0         0.966                   27
-             universe 61 (shortable on both reads; reported, not declared) 2023-26 (holdout)             13.0         0.947                   25
-             universe 61 (shortable on both reads; reported, not declared)       fit 2005-22             10.0         0.891                   34
-fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)           2005-09              6.0         0.527                   14
-fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)           2010-14              9.0         0.979                   17
-fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)           2015-19              9.0         0.939                   22
-fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)           2020-22             12.0         0.960                   20
-fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared) 2023-26 (holdout)             11.0         0.945                   23
-fresh-NAV sub-book of 61 (shortable on both reads; reported, not declared)       fit 2005-22              8.0         0.839                   25
+  universe 74 (frozen, declared): first active session 2005-02-17; fit sessions 4499; holdout sessions to 2026-09-30 939
+  universe 68 (approved; R-68): first active session 2006-01-18; fit sessions 4269; holdout sessions to 2026-09-30 939
+                                       book               era  median_eligible  active_share  funds_ever_eligible
+             universe 74 (frozen, declared)           2005-09              8.0         0.725                   23
+             universe 74 (frozen, declared)           2010-14             11.0         0.994                   25
+             universe 74 (frozen, declared)           2015-19             11.0         0.973                   33
+             universe 74 (frozen, declared)           2020-22             15.0         0.966                   33
+             universe 74 (frozen, declared) 2023-26 (holdout)             15.0         0.960                   32
+             universe 74 (frozen, declared)       fit 2005-22             11.0         0.909                   41
+fresh-NAV sub-book of 74 (frozen, declared)           2005-09              6.0         0.539                   16
+fresh-NAV sub-book of 74 (frozen, declared)           2010-14              9.5         0.986                   21
+fresh-NAV sub-book of 74 (frozen, declared)           2015-19             10.0         0.957                   27
+fresh-NAV sub-book of 74 (frozen, declared)           2020-22             14.0         0.963                   24
+fresh-NAV sub-book of 74 (frozen, declared) 2023-26 (holdout)             13.0         0.960                   29
+fresh-NAV sub-book of 74 (frozen, declared)       fit 2005-22              9.0         0.850                   30
+               universe 68 (approved; R-68)           2005-09              8.0         0.678                   20
+               universe 68 (approved; R-68)           2010-14             10.0         0.990                   21
+               universe 68 (approved; R-68)           2015-19             11.0         0.975                   29
+               universe 68 (approved; R-68)           2020-22             14.0         0.966                   30
+               universe 68 (approved; R-68) 2023-26 (holdout)             13.0         0.947                   27
+               universe 68 (approved; R-68)       fit 2005-22             10.0         0.895                   37
+  fresh-NAV sub-book of 68 (approved; R-68)           2005-09              6.0         0.527                   14
+  fresh-NAV sub-book of 68 (approved; R-68)           2010-14              9.0         0.979                   17
+  fresh-NAV sub-book of 68 (approved; R-68)           2015-19              9.0         0.939                   23
+  fresh-NAV sub-book of 68 (approved; R-68)           2020-22             12.0         0.960                   21
+  fresh-NAV sub-book of 68 (approved; R-68) 2023-26 (holdout)             11.0         0.945                   23
+  fresh-NAV sub-book of 68 (approved; R-68)       fit 2005-22              8.0         0.839                   26
 
-[QUALITY SCREEN] primary return of the 105 pool funds, 2005-01-03..2026-09-30 (5470 sessions); flags by check and universe:
-       flags  funds  in_68  in_rerun
-check                               
-Q1        12      4     11        11
-Q2      1069     98    691       700
-Q3        41      8      9         7
-Q5      1348     99    826       926
-Q6      3446     70   2306      2397
-Q7       210    105    136       148
+[QUALITY SCREEN] primary return as declared, 105 pool funds, 2005-01-03..2026-09-30 (5470 sessions); flags by check:
+       flags  funds  in_frozen74  in_68
+check                                  
+Q1        12      4           11     11
+Q2      1069     98          700    691
+Q3        41      8            7      9
+Q5      1348     99          926    826
+Q6      3446     70         2397   2306
+Q7       210    105          148    136
 
-  Q1 (halt) in full:
-ticker       date   source            detail  in_68  in_rerun
-   ACV 2015-05-22     CRSP  return undefined  False     False
-   GRX 2007-06-20     CRSP       no CRSP row   True      True
-   GRX 2007-06-21     CRSP       no CRSP row   True      True
-   GRX 2007-06-22     CRSP       no CRSP row   True      True
-   GRX 2007-06-25     CRSP       no CRSP row   True      True
-   GRX 2007-06-26     CRSP       no CRSP row   True      True
-   GRX 2007-06-27     CRSP       no CRSP row   True      True
-   GRX 2007-06-28     CRSP       no CRSP row   True      True
-   GRX 2007-06-29     CRSP  return undefined   True      True
-   IGR 2026-09-08 yfinance no yfinance close   True      True
-   IGR 2026-09-09 yfinance  return undefined   True      True
-  QQQX 2014-12-22     CRSP  return undefined   True      True
+  Q1 in full, with the 2026-10-14 ruling that covers each row:
+ticker       date   source            detail  in_frozen74                                                   ruling
+   ACV 2015-05-22     CRSP  return undefined        False            same case as GRX, R-S only: asserted not held
+   GRX 2007-06-20     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-21     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-22     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-25     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-26     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-27     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-28     CRSP       no CRSP row         True ruled 2026-10-14: outside eligibility; asserted not held
+   GRX 2007-06-29     CRSP  return undefined         True ruled 2026-10-14: outside eligibility; asserted not held
+   IGR 2026-09-08 yfinance no yfinance close         True ruled 2026-10-14: filled from Alpaca split-adjusted bars
+   IGR 2026-09-09 yfinance  return undefined         True ruled 2026-10-14: filled from Alpaca split-adjusted bars
+  QQQX 2014-12-22     CRSP  return undefined         True ruled 2026-10-14: outside eligibility; asserted not held
+  Q2: 700 flags on 68 funds of the 74; most: {'USA': 39, 'ASG': 33, 'BGY': 30, 'GGN': 30, 'JPC': 29, 'BDJ': 28, 'IGR': 28, 'GCV': 25}
+  Q3: 7 flags on 3 funds of the 74; most: {'GLU': 4, 'GRX': 2, 'AIO': 1}
+  Q5: 926 flags on 69 funds of the 74; most: {'BTX': 45, 'IGR': 34, 'HPF': 31, 'PFO': 30, 'PDT': 28, 'JPC': 28, 'FFC': 25, 'HPS': 24}
+  Q6: 2397 flags on 45 funds of the 74; most: {'BTX': 940, 'GCV': 259, 'IGR': 155, 'CHW': 139, 'GLV': 137, 'GGN': 129, 'ASG': 87, 'PFO': 64}
+  Q7: 148 flags on 74 funds of the 74; most: {'ADX': 2, 'NPFD': 2, 'NMAI': 2, 'NIE': 2, 'NFJ': 2, 'NBXG': 2, 'LDP': 2, 'KYN': 2}
 
-  eligibility of each Q1 fund (declared filters and masks; counts, no signal) around its gap:
-    GRX: gap 2007-06-20..2007-06-29 (8 name-days); first eligible session never; last eligible before the gap none; eligible on 0 of 20 sessions within 10 days of the gap. A fund never eligible before its gap has a zero target and cannot be held; one eligible earlier may still hold a residual band position (that needs the holdings path, which Stage 0 does not compute)
-    IGR: gap 2026-09-08..2026-09-09 (2 name-days); first eligible session 2004-11-18; last eligible before the gap 2026-05-19; eligible on 0 of 14 sessions within 10 days of the gap. A fund never eligible before its gap has a zero target and cannot be held; one eligible earlier may still hold a residual band position (that needs the holdings path, which Stage 0 does not compute)
-    QQQX: gap 2014-12-22..2014-12-22 (1 name-days); first eligible session 2017-04-04; last eligible before the gap none; eligible on 0 of 13 sessions within 10 days of the gap. A fund never eligible before its gap has a zero target and cannot be held; one eligible earlier may still hold a residual band position (that needs the holdings path, which Stage 0 does not compute)
+[ALPACA] second source fetched 2026-10-14T22:31:17Z (raw and split-adjusted SIP daily bars, corporate actions; results/cef/c4/_cache_c4/alpaca_bars_c4pool_2024-12-02_2026-09-30.parquet, gitignored); Alpaca split records in the window: [('reverse_splits', 'IGR', '2026-09-08', 3, 1)]
+  IGR fill (ruling 2): split-adjusted closes {'2026-09-04': 13.47, '2026-09-08': 13.41, '2026-09-09': 12.94} (raw close on 2026-09-08 13.41); r(2026-09-08) = -0.4454%, r(2026-09-09) = -3.5048%
+  cross-check, Alpaca's adjacent bars (2026-08-17 -> 2026-09-30 without 09-08) against the panel on one share basis: 31 of 31 closes within $0.005 (max |diff| $0.000001); daily returns agree within 0.001bp
 
-  Q1 context (yfinance and CEFConnect values; CRSP shown only as present / absent):
-    GRX  (yfinance actions in the window: none)
-                  yf_close  yf_volume  yf_nav  cc_close  cc_nav      crsp_row crsp_ret
-      date                                                                            
-      2007-06-08       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-11       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-12       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-13       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-14       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-15       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-18       NaN        NaN     NaN       NaN     NaN            no      NaN
-      2007-06-19  7.662191     3211.0     NaN       NaN     NaN            no      NaN
-      2007-06-20  7.755632      428.0     NaN       NaN     NaN            no      NaN
-      2007-06-21  7.755632        0.0     NaN       NaN     NaN            no      NaN
-      2007-06-22  7.755632        0.0     NaN      8.25     8.0            no      NaN
-      2007-06-25  8.035956     2461.0     NaN       NaN     NaN            no      NaN
-      2007-06-26  8.129398     5244.0     NaN       NaN     NaN            no      NaN
-      2007-06-27  7.942515     3639.0     NaN       NaN     NaN            no      NaN
-      2007-06-28  7.708912     3211.0     NaN       NaN     NaN            no      NaN
-      2007-06-29  7.428587    80906.0     NaN      7.95     8.0  permno 92123      NaN
-      2007-07-02  7.428587    62392.0     NaN       NaN     NaN  permno 92123  present
-      2007-07-03  8.260215    46874.0     NaN       NaN     NaN  permno 92123  present
-    IGR  (yfinance actions in the window: [{'date': Timestamp('2026-09-08 00:00:00'), 'dividends': 0.0, 'stock_splits': 0.3333333333333333}])
-                  yf_close  yf_volume  yf_nav  cc_close  cc_nav crsp_row crsp_ret
-      date                                                                       
-      2026-08-27      4.62   645000.0    4.51       NaN     NaN       no      NaN
-      2026-08-28      4.57   660500.0    4.47       NaN     NaN       no      NaN
-      2026-08-31      4.56   804500.0    4.42       NaN     NaN       no      NaN
-      2026-09-01      4.51   478200.0    4.41       NaN     NaN       no      NaN
-      2026-09-02      4.48   657700.0    4.38       NaN     NaN       no      NaN
-      2026-09-03      4.51   423300.0    4.41       NaN     NaN       no      NaN
-      2026-09-04      4.49   173400.0    4.39       NaN     NaN       no      NaN
-      2026-09-08       NaN        NaN   13.12     13.41   13.12       no      NaN
-      2026-09-09     12.94   787000.0   12.99     12.94   12.99       no      NaN
-      2026-09-10     12.54   667100.0   12.82     12.54   12.82       no      NaN
-      2026-09-11     12.63   370100.0   12.85     12.63   12.85       no      NaN
-      2026-09-14     12.60   313100.0   12.76     12.60   12.76       no      NaN
-    QQQX  (yfinance actions in the window: [{'date': Timestamp('2014-12-10 00:00:00'), 'dividends': 0.35, 'stock_splits': 0.0}])
-                   yf_close  yf_volume     yf_nav  cc_close  cc_nav      crsp_row crsp_ret
-      date                                                                                
-      2014-12-10  19.820000     171100  19.799999       NaN     NaN  permno 91745  present
-      2014-12-11  19.780001      96900  19.889999       NaN     NaN  permno 91745  present
-      2014-12-12  19.690001      45800  19.680000     19.69   19.68  permno 91745  present
-      2014-12-15  19.590000      76000  19.500000       NaN     NaN  permno 91745  present
-      2014-12-16  19.420000      57000  19.190001       NaN     NaN  permno 91745  present
-      2014-12-17  19.440001     121900  19.540001       NaN     NaN  permno 91745  present
-      2014-12-18  19.719999     251700  19.969999       NaN     NaN  permno 91745  present
-      2014-12-19  19.709999     123100  20.020000     19.71   20.02  permno 91745  present
-      2014-12-22  19.730000      85900  20.040001       NaN     NaN  permno 15136      NaN
-      2014-12-23  19.680000     101200  20.010000       NaN     NaN  permno 15136  present
-      2014-12-24  19.740000     104200  20.020000       NaN     NaN  permno 15136  present
-      2014-12-26  19.799999      96600  20.160000     19.80   20.16  permno 15136  present
-  Q2: 763 flags on 74 candidate-universe funds; most: {'USA': 39, 'ASG': 33, 'GGN': 30, 'BGY': 30, 'JPC': 29, 'BDJ': 28, 'IGR': 28, 'GCV': 25}
-  Q3: 9 flags on 4 candidate-universe funds; most: {'GLU': 4, 'DMA': 2, 'GRX': 2, 'AIO': 1}
-  Q5: 1005 flags on 75 candidate-universe funds; most: {'BTX': 45, 'IGR': 34, 'HPF': 31, 'HPI': 30, 'PFO': 30, 'JPC': 28, 'PDT': 28, 'FFC': 25}
-  Q6: 2481 flags on 50 candidate-universe funds; most: {'BTX': 940, 'GCV': 259, 'IGR': 155, 'CHW': 139, 'GLV': 137, 'GGN': 129, 'ASG': 87, 'PFO': 64}
-  Q7: 162 flags on 81 candidate-universe funds; most: {'ADX': 2, 'HPF': 2, 'NPFD': 2, 'NML': 2, 'NMAI': 2, 'NIE': 2, 'NFJ': 2, 'NBXG': 2}
+[YF LEG vs ALPACA, frozen 74] 2025-01-02 -> 2026-09-30: closes 32144 of 32337 within $0.005 (yfinance-only 0, Alpaca-only 1); distribution ex-dates 1294, of which 71 disagree (one side missing, or |diff| > $0.001)
+         n      first       last  ratio_median  yf_missing  alpaca_missing
+ticker                                                                    
+ADX      1 2025-01-27 2025-01-27      0.746032           0               0
+BTX      1 2025-01-15 2025-01-15           NaN           0               1
+BUI     14 2025-01-15 2026-02-13      0.975610           0               0
+EMO      8 2025-01-24 2025-08-22      0.979431           0               0
+IGA      2 2025-08-01 2025-08-04           NaN           1               1
+IGR     20 2025-01-21 2026-08-20      3.000000           0               0
+NXG      8 2025-01-16 2025-08-15      0.978474           1               0
+PEO      1 2025-01-27 2025-01-27      0.898305           0               0
+SCD      5 2025-01-24 2025-05-22      0.981358           0               0
+TY       2 2025-06-16 2025-12-12      0.196354           0               0
+UTF      9 2025-01-14 2025-09-09      0.983284           0               0
+
+[YF LEG vs ALPACA, pool 105] 2025-01-02 -> 2026-09-30: closes 45520 of 45884 within $0.005 (yfinance-only 0, Alpaca-only 1); distribution ex-dates 1858, of which 85 disagree (one side missing, or |diff| > $0.001)
 
 ====================================================================================================
-STAGE 0: HALT. No C4 weight, return or statistic was computed. Referred to the team lead:
-  1. Q1: 11 name-days in a candidate universe with no primary return inside the fund's price span (GRX, IGR, QQQX); §4.4 says raise, §12 says halt (QUESTION 1)
-  note: universe: the re-read gives 74 funds, the document and approval name 68 (in both 61); which list is the universe is the team lead's ruling (QUESTION 2)
-  note: Q1 also hits ACV, in the 105-fund pool only (robustness row R-S)
+FIT GATE: CLEAR
+HOLDOUT GATE: HALT
+  1. yfinance-leg distributions: 71 ex-dates on 11 funds of the 74 disagree with Alpaca (a vendor defect under §4.5, fix not specified); the holdout waits for the team lead's ruling

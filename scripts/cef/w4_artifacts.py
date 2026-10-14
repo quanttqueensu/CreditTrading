@@ -195,6 +195,63 @@ def nw_t(x: pd.Series, lags: int = NW_LAGS) -> float:
     return v.mean() / np.sqrt(lrv / n)
 
 
+def nw94_lag(x: pd.Series) -> int:
+    """The Newey-West (1994) automatic lag for the Bartlett kernel.
+
+    Added 2026-10-14 for trial C4 (PREREG_C4 §8: "printed beside it ... the
+    Newey-West (1994) automatic lag"). The plug-in: a pilot of
+    n = floor(4 (T/100)^(2/9)) autocovariances gives s0 = g0 + 2 sum g_j and
+    s1 = 2 sum j g_j; gamma = 1.1447 ((s1/s0)^2)^(1/3); the lag is
+    floor(gamma T^(1/3)), capped at T - 1. Reported beside the declared L, never
+    used to decide."""
+    v = pd.Series(x).dropna().to_numpy(float)
+    T = len(v)
+    if T < 10:
+        raise ValueError(f"nw94_lag: {T} observations")
+    e = v - v.mean()
+    n = int(np.floor(4 * (T / 100) ** (2 / 9)))
+    g = np.array([e[j:] @ e[:T - j] / T for j in range(n + 1)])
+    s0 = g[0] + 2 * g[1:].sum()
+    s1 = 2 * (np.arange(1, n + 1) * g[1:]).sum()
+    gamma = 1.1447 * ((s1 / s0) ** 2) ** (1 / 3)
+    return int(min(T - 1, np.floor(gamma * T ** (1 / 3))))
+
+
+def stationary_boot(x: pd.Series, mean_block: float = 21, reps: int = 10_000,
+                    seed: int = 20261013, chunk: int = 500):
+    """Politis-Romano stationary bootstrap of a daily series: (means, sharpes).
+
+    Added 2026-10-14 for trial C4 (PREREG_C4 §8: "stationary bootstrap, mean
+    block 21 sessions, 10,000 resamples, seed 20261013: 95% CIs for the mean
+    (%/yr) and the Sharpe"). Each resample is a series of n draws built from
+    blocks that start at a uniform random position and run on (wrapping at the
+    end) for a geometric number of sessions with mean `mean_block`; a new block
+    starts at each step with probability 1/mean_block. `sharpes` are annualised
+    (x sqrt 252), `means` daily. The moving-block `block_boot_t` above is the
+    declared second method; this one does not replace it."""
+    v = pd.Series(x).dropna().to_numpy(float)
+    n = len(v)
+    if n < 3 * mean_block:
+        raise ValueError(f"stationary_boot: {n} observations for a mean block of {mean_block}")
+    rng = np.random.default_rng(seed)
+    p = 1.0 / mean_block
+    means, srs = np.empty(reps), np.empty(reps)
+    ar = np.arange(n)
+    done = 0
+    while done < reps:
+        k = min(chunk, reps - done)
+        start = rng.integers(0, n, size=(k, n))
+        new = rng.random((k, n)) < p
+        new[:, 0] = True
+        last = np.maximum.accumulate(np.where(new, ar[None, :], 0), axis=1)   # where the current block began
+        idx = (np.take_along_axis(start, last, axis=1) + (ar[None, :] - last)) % n
+        s = v[idx]
+        means[done:done + k] = s.mean(axis=1)
+        srs[done:done + k] = s.mean(axis=1) / s.std(axis=1, ddof=1) * np.sqrt(252)
+        done += k
+    return means, srs
+
+
 def block_boot_t(x: pd.Series, block=BOOT_BLOCK, reps=BOOT_REPS, seed=SEED):
     """Moving-block bootstrap of the mean: (t = mean/se, lo95, hi95)."""
     v = x.dropna().values
