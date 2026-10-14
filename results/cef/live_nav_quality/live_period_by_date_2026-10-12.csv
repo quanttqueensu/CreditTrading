@@ -1,9 +1,9 @@
-asof,session,status,decided_at_utc,sent,names_checkable,stale_at_decision,stale_and_submitted,stale_and_held,neither
-2026-09-28,2026-09-29,opening (no status field),2026-09-29T14:33Z,True,12,5,5,0,0
-2026-09-29,2026-09-30,decided,2026-09-30T02:00Z,True,7,0,0,0,0
-2026-09-30,2026-10-01,decided,2026-10-01T02:00Z,True,6,1,1,1,0
-2026-10-01,2026-10-02,decided,2026-10-02T16:00Z,False,11,5,0,4,0
-2026-10-02,2026-10-05,decided,2026-10-05T13:30Z,False,4,2,0,1,0
-2026-10-05,2026-10-06,refused,2026-10-06T19:00Z,False,13,8,0,7,0
-2026-10-06,2026-10-07,decided,2026-10-07T02:00Z,True,12,5,5,5,0
-2026-10-07,2026-10-08,decided,2026-10-08T03:00Z,False,8,2,0,1,0
+asof,session,status,decided_at_utc,sent,names_checkable,stale_at_decision,stale_and_submitted,stale_and_held,neither,orders_submitted
+2026-09-28,2026-09-29,opening (no status field),2026-09-29T14:33Z,True,12,5,5,0,0,13
+2026-09-29,2026-09-30,decided,2026-09-30T02:00Z,True,7,0,0,0,0,7
+2026-09-30,2026-10-01,decided,2026-10-01T02:00Z,True,6,1,1,1,0,5
+2026-10-01,2026-10-02,decided,2026-10-02T16:00Z,False,11,5,0,4,0,0
+2026-10-02,2026-10-05,decided,2026-10-05T13:30Z,False,4,2,0,1,0,0
+2026-10-05,2026-10-06,refused,2026-10-06T19:00Z,False,13,8,0,7,0,0
+2026-10-06,2026-10-07,decided,2026-10-07T02:00Z,True,12,5,5,5,0,12
+2026-10-07,2026-10-08,decided,2026-10-08T03:00Z,False,8,2,0,1,0,0

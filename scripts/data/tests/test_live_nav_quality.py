@@ -12,6 +12,13 @@ copy; and the write guard that keeps the cache out of the live `data/cef/`.
 Synthetic frames only: these test the code, not the market. No network (the
 root conftest blocks it). Each test marked "Broken variant checked" was run
 against that variant on 2026-10-12 and failed, before it was kept.
+
+Added 2026-10-13, after an independent review: the live-period verdict logic
+(`nav_verdict`, and `live_period` end to end, which must rebuild mu and sd from
+the panel the session traded on, empty bars included); `lag_unrepeated` (a
+stale copy that is not a repeat); and `crsp_disagreement_summary` (no tracked
+output may let CRSP's licensed price be recovered). Their broken variants were
+run on 2026-10-13 and failed before the tests were kept.
 """
 from __future__ import annotations
 
@@ -108,3 +115,95 @@ def test_cache_refuses_the_live_panel_directory(tmp_path, monkeypatch):
         L._cache("cef/x.json")
     monkeypatch.setattr(L, "CACHE", tmp_path / "elsewhere")
     assert L._cache("x.json").parent == tmp_path / "elsewhere"
+
+
+# ---------------------------------------------------------------- added 2026-10-13
+
+def test_nav_verdict_each_branch_and_the_tolerance():
+    # Broken variant checked: testing `fin` before `fin and prv` returns V_FINAL on the
+    # ambiguous row; treating NAV(D) == NAV(D-1) as stale returns V_STALE on the flat row.
+    v = lambda lo, hi, f, p: L.nav_verdict(lo, hi, f, p)[0]          # noqa: E731
+    assert v(10.968, 10.972, 10.97, 11.04) == L.V_FINAL
+    assert v(11.038, 11.042, 10.97, 11.04) == L.V_STALE
+    assert v(10.965, 10.985, 10.97, 10.98) == L.V_AMBIG               # interval a cent wide
+    assert v(10.968, 10.972, 10.97, 10.97) == L.V_FINAL_EQ            # flat: cannot be called stale
+    assert v(11.038, 11.042, 10.97, 10.97) == L.V_NEITHER
+    assert v(11.50, 11.51, 10.97, 11.04) == L.V_NEITHER
+    # a candidate 0.0015 outside is accepted, 0.0025 outside is not (IMPLIED_TOL = 0.002)
+    assert v(10.9715, 10.975, 10.97, 11.04) == L.V_FINAL
+    assert v(10.9725, 10.975, 10.97, 11.04) == L.V_NEITHER
+    _, df, dp = L.nav_verdict(10.968, 10.972, 10.97, float("nan"))
+    assert df == 0.0 and dp == np.inf
+
+
+def _synthetic_session(n=400, seed=1):
+    """One name, a traded panel with an EMPTY bar inside the z window, and yfinance-now with
+    that bar filled. The session at D decides on NAV(D-1) (a stale copy)."""
+    from scripts.cef.spec import Z_WINDOW
+    rng = np.random.default_rng(seed)
+    d = pd.bdate_range("2025-01-01", periods=n)
+    nav = (10 + np.cumsum(rng.normal(0, 0.02, n))).round(2)
+    nav[-1] = round(nav[-2] + 0.08, 2)                             # NAV(D) clearly differs from NAV(D-1)
+    close = (nav * (1 + (-5 + rng.normal(0, 0.5, n)) / 100)).round(2)
+    P_now = pd.DataFrame({"ticker": "AAA", "date": d, "close": close})
+    N_now = pd.DataFrame({"ticker": "AAA", "date": d, "nav": nav})
+    k = n - 60                                                     # inside the last Z_WINDOW rows before D
+    P_now.loc[k, "close"] = round(nav[k] * 1.30, 2)                # a print the session never had
+    P_tr = P_now.copy()
+    P_tr.loc[k, "close"] = np.nan                                  # the session's panel: an empty bar
+    _, mu, sd = L.sleeve_mu_sd(P_tr, N_now, ["AAA"], Z_WINDOW)
+    a = d[-1]
+    disc_stale = 100 * (close[-1] - nav[-2]) / nav[-2]
+    z_plan = round((disc_stale - mu.at[a, "AAA"]) / sd.at[a, "AAA"], 2)
+    assert abs(z_plan) < 4
+    plans = pd.DataFrame([{"session": "s", "asof": a, "status": "decided", "decided_at_utc": "x", "sent": True,
+                           "ticker": "AAA", "z_plan": z_plan, "close_plan": float(close[-1]), "current": 0,
+                           "target": 1, "submitted": True, "session_orders_submitted": 1, "reason": ""}])
+    cc = pd.DataFrame({"window": "1Y", "ticker": "AAA", "date": d, "nav_cc": nav})
+    return plans, P_tr, N_now, P_now, cc
+
+
+def test_live_period_takes_mu_and_sd_from_the_traded_panel():
+    # Broken variant checked: building mu and sd from yfinance-now (the 2026-10-12 method,
+    # empty bar filled) gives V_NEITHER here, not V_STALE.
+    plans, P_tr, N_tr, P_now, cc = _synthetic_session()
+    lp = L.live_period(plans, P_tr, N_tr, N_tr, P_now, cc)
+    r = lp.iloc[0]
+    assert r["verdict"] == L.V_STALE
+    assert r["verdict_yfnow"] != L.V_STALE                         # the sensitivity sees the difference
+    assert r["interval_shift_vs_yfnow"] > L.IMPLIED_TOL
+
+
+def test_live_period_refuses_a_decision_the_traded_panel_cannot_cover():
+    plans, P_tr, N_tr, P_now, cc = _synthetic_session()
+    plans.loc[0, "asof"] = plans.loc[0, "asof"] + pd.offsets.BDay(5)
+    with pytest.raises(L.LiveNavQualityError):
+        L.live_period(plans, P_tr, N_tr, N_tr, P_now, cc)
+
+
+def test_lag_unrepeated_catches_d_minus_1_dated_d_without_a_repeat():
+    # Broken variant checked: dropping the "differs from CEFConnect(D)" clause also flags
+    # row 5, a genuinely flat NAV after a wrong yfinance row.
+    yf = _daily([15.20, 15.12, 15.12, 15.06, 15.30, 15.30], start="2026-09-21", tk="PDI")
+    yf.loc[4, "nav"] = 15.25                                       # yfinance wrong on row 4 (cc 15.30)
+    cc = yf[["ticker", "date"]].copy()
+    cc["nav_cc"] = [15.20, 15.12, 15.06, 15.10, 15.30, 15.30]      # true: row 2 = 15.06, row 3 = 15.10
+    hit = L.lag_unrepeated(yf, "nav", cc, "nav_cc")
+    assert list(hit["date"]) == [yf["date"].iloc[3]]               # 15.06 dated row 3 = cc(row 2)
+    assert L.classify(yf, "nav", cc, "nav_cc")["category"].iloc[3] != "STALE_COPY"   # not a repeat
+
+
+def test_crsp_summary_has_no_dates_and_withholds_a_maximum_over_few_rows():
+    # Broken variant checked: min_rows_for_max = 1 prints the single 2013-on row's |diff|,
+    # which with its (ticker, year) and the public close bounds CRSP's price to two values.
+    m = pd.DataFrame({
+        "ticker": ["AAA"] * 6, "date": pd.to_datetime(["2004-01-02", "2004-01-05", "2004-01-06", "2014-03-03",
+                                                       "2014-03-04", "2014-03-05"]),
+        "category": ["OTHER", "STALE_COPY", "OTHER", "OTHER", "AGREE", "AGREE"],
+        "diff": [0.02, -0.05, 0.01, 0.03, 0.0, 0.0]})
+    m["year"] = m["date"].dt.year
+    by_tyc, by_era = L.crsp_disagreement_summary(m)
+    assert "date" not in by_tyc.reset_index().columns and list(by_tyc.columns) == ["rows"]
+    e = by_era.set_index("era")
+    assert e.loc["2001-2007", "differ"] == 3 and e.loc["2001-2007", "max_abs_diff_usd"] == 0.05
+    assert e.loc["2013 on", "differ"] == 1 and np.isnan(e.loc["2013 on", "max_abs_diff_usd"])
