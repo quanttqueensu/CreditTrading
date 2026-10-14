@@ -214,6 +214,12 @@ stock and stock-plus-cash mergers; a count, no returns). The gate passes at
 on 11 of 59 names in three days, so any pre-registration must re-read them on
 the day (H14).
 
+*Measured 2026-10-13 (`G1A_SHORTABILITY_2026-10-13.md`):*
+- The pending acquirers are now read from EDGAR: 5 deals, 7 pairs.
+- At Alpaca: munis 1 of 2 acquirers shortable; historical munis 7 of 23.
+- **G1a fails for munis** and passes for taxable and equity.
+- Alpaca's feed listed none of the pending pairs.
+
 **G1b: the ex-ante sign of the spread from NAVs at announcement.** **Not
 measurable today.** It needs the N-CSR / N-PORT NAV history of plan item 0.8.
 The [V]-dated result above (−19bp) is a warning sign for it, not a measurement

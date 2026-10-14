@@ -1,0 +1,813 @@
+{
+ "generated_utc": "2026-10-13T22:43:22+00:00",
+ "as_of": "2026-10-13",
+ "edgar": {
+  "newest_filing_date_in_index": "2026-10-09",
+  "components_since": "2025-10-14",
+  "candidates": [
+   {
+    "tickers": "MFM",
+    "first": "2025-12-11",
+    "last": "2026-06-12",
+    "reading": "MFM",
+    "status": "completed"
+   },
+   {
+    "tickers": "MMT",
+    "first": "2025-12-11",
+    "last": "2026-05-14",
+    "reading": "MMT",
+    "status": "completed"
+   },
+   {
+    "tickers": "BRW",
+    "first": "2026-03-19",
+    "last": "2026-08-27",
+    "reading": "BRW",
+    "status": "pending"
+   },
+   {
+    "tickers": "MMU",
+    "first": "2026-08-04",
+    "last": "2026-09-18",
+    "reading": "MMU",
+    "status": "pending"
+   },
+   {
+    "tickers": "NPV;NZF;NMS",
+    "first": "2026-05-13",
+    "last": "2026-09-24",
+    "reading": "NZF",
+    "status": "pending"
+   },
+   {
+    "tickers": "ASA",
+    "first": "2026-09-10",
+    "last": "2026-09-10",
+    "reading": "ASA",
+    "status": "not_a_merger"
+   },
+   {
+    "tickers": "FCT",
+    "first": "2026-05-18",
+    "last": "2026-05-19",
+    "reading": "FCT",
+    "status": "completed"
+   },
+   {
+    "tickers": "IAE",
+    "first": "2026-06-02",
+    "last": "2026-08-24",
+    "reading": "VOYA",
+    "status": "pending"
+   },
+   {
+    "tickers": "IHD",
+    "first": "2026-06-02",
+    "last": "2026-08-24",
+    "reading": "VOYA",
+    "status": "pending"
+   },
+   {
+    "tickers": "FDUS",
+    "first": "2026-06-30",
+    "last": "2026-09-09",
+    "reading": "FDUS",
+    "status": "not_a_merger"
+   },
+   {
+    "tickers": "FRBP",
+    "first": "2026-05-18",
+    "last": "2026-06-26",
+    "reading": "FRBP",
+    "status": "not_a_merger"
+   },
+   {
+    "tickers": "LIEN",
+    "first": "2026-06-18",
+    "last": "2026-09-23",
+    "reading": "LIEN",
+    "status": "pending"
+   }
+  ]
+ },
+ "reading_checks": [
+  {
+   "reading": "NZF",
+   "target": "NMS",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "NZF",
+   "target": "NPV",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "MMU",
+   "target": "SBI",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "BRW",
+   "target": "SABA",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "LIEN",
+   "target": "REFI",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "VOYA",
+   "target": "IAE",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "VOYA",
+   "target": "IHD",
+   "status": "pending",
+   "target_active_today": true,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "FCT",
+   "target": "FCT",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": false
+  },
+  {
+   "reading": "MFM",
+   "target": "CMU",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": true
+  },
+  {
+   "reading": "MFM",
+   "target": "CXE",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": true
+  },
+  {
+   "reading": "MFM",
+   "target": "CXH",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": true
+  },
+  {
+   "reading": "MFM",
+   "target": "VFL",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": true
+  },
+  {
+   "reading": "MMT",
+   "target": "CIF",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": true
+  },
+  {
+   "reading": "MMT",
+   "target": "MCR",
+   "status": "completed",
+   "target_active_today": false,
+   "feed_effective_merger": true
+  }
+ ],
+ "alpaca_feed_future_dated": [
+  [
+   "2027-03-31",
+   "NSC",
+   "UNP"
+  ]
+ ],
+ "ibkr_file_stamp": "2026-10-13 18:03:03",
+ "finra_requests_this_run": 0,
+ "H1b_universe_acquirers_fee_at_first_filing": [
+  {
+   "acquirer": "MFM",
+   "segment": "muni",
+   "first_merger_filing": "2025-12-11",
+   "first_form": "N-14",
+   "last_merger_filing": "2026-06-12",
+   "fee_date": "2025-12-10",
+   "fee_rate_pct": 9.9
+  },
+  {
+   "acquirer": "NXP",
+   "segment": "muni",
+   "first_merger_filing": "2025-07-10",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2025-11-17",
+   "fee_date": "2025-07-09",
+   "fee_rate_pct": 71.73
+  },
+  {
+   "acquirer": "MQY",
+   "segment": "muni",
+   "first_merger_filing": "2025-01-21",
+   "first_form": "425",
+   "last_merger_filing": "2026-02-23",
+   "fee_date": "2025-01-17",
+   "fee_rate_pct": 5.88
+  },
+  {
+   "acquirer": "MHD",
+   "segment": "muni",
+   "first_merger_filing": "2025-01-21",
+   "first_form": "425",
+   "last_merger_filing": "2026-02-10",
+   "fee_date": "2025-01-17",
+   "fee_rate_pct": 7.04
+  },
+  {
+   "acquirer": "NAD",
+   "segment": "muni",
+   "first_merger_filing": "2023-08-31",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2023-08-31",
+   "fee_date": "2023-08-30",
+   "fee_rate_pct": 8.36
+  },
+  {
+   "acquirer": "NVG",
+   "segment": "muni",
+   "first_merger_filing": "2023-09-07",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2023-09-07",
+   "fee_date": "2023-09-06",
+   "fee_rate_pct": 15.79
+  },
+  {
+   "acquirer": "NZF",
+   "segment": "muni",
+   "first_merger_filing": "2021-12-17",
+   "first_form": "425",
+   "last_merger_filing": "2022-03-18",
+   "fee_date": "2021-12-16",
+   "fee_rate_pct": 19.87
+  },
+  {
+   "acquirer": "NZF",
+   "segment": "muni",
+   "first_merger_filing": "2022-10-13",
+   "first_form": "425",
+   "last_merger_filing": "2023-02-08",
+   "fee_date": "2022-10-12",
+   "fee_rate_pct": 12.16
+  },
+  {
+   "acquirer": "NZF",
+   "segment": "muni",
+   "first_merger_filing": "2026-05-13",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2026-09-24",
+   "fee_date": "2026-05-12",
+   "fee_rate_pct": 2.57
+  },
+  {
+   "acquirer": "NEA",
+   "segment": "muni",
+   "first_merger_filing": "2023-10-03",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2023-10-03",
+   "fee_date": "2023-10-02",
+   "fee_rate_pct": 8.95
+  },
+  {
+   "acquirer": "JFR",
+   "segment": "taxable_income",
+   "first_merger_filing": "2023-01-31",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2023-06-08",
+   "fee_date": "2023-01-30",
+   "fee_rate_pct": 15.58
+  },
+  {
+   "acquirer": "EDF",
+   "segment": "taxable_income",
+   "first_merger_filing": "2023-03-31",
+   "first_form": "N-14 8C",
+   "last_merger_filing": "2023-03-31",
+   "fee_date": "2023-03-30",
+   "fee_rate_pct": 16.61
+  }
+ ],
+ "H1b_fee_summary": [
+  {
+   "segment": "muni",
+   "count": 10,
+   "min": 2.57,
+   "median": 9.43,
+   "max": 71.73
+  },
+  {
+   "segment": "taxable_income",
+   "count": 2,
+   "min": 15.58,
+   "median": 16.1,
+   "max": 16.61
+  }
+ ],
+ "tables": {
+  "H3_alpaca_today_deal": [
+   {
+    "segment": "bdc",
+    "n": 3,
+    "measured": 3,
+    "true": 2,
+    "share": 0.6666666666666666
+   },
+   {
+    "segment": "equity_other",
+    "n": 33,
+    "measured": 27,
+    "true": 18,
+    "share": 0.6666666666666666
+   },
+   {
+    "segment": "muni",
+    "n": 92,
+    "measured": 57,
+    "true": 16,
+    "share": 0.2807017543859649
+   },
+   {
+    "segment": "taxable_income",
+    "n": 39,
+    "measured": 22,
+    "true": 17,
+    "share": 0.7727272727272727
+   },
+   {
+    "segment": "all",
+    "n": 167,
+    "measured": 109,
+    "true": 53,
+    "share": 0.48623853211009177
+   }
+  ],
+  "H3_alpaca_today_acquirer": [
+   {
+    "segment": "bdc",
+    "n": 3,
+    "measured": 3,
+    "true": 2,
+    "share": 0.6666666666666666
+   },
+   {
+    "segment": "equity_other",
+    "n": 22,
+    "measured": 16,
+    "true": 10,
+    "share": 0.625
+   },
+   {
+    "segment": "muni",
+    "n": 39,
+    "measured": 23,
+    "true": 7,
+    "share": 0.30434782608695654
+   },
+   {
+    "segment": "taxable_income",
+    "n": 30,
+    "measured": 18,
+    "true": 14,
+    "share": 0.7777777777777778
+   },
+   {
+    "segment": "all",
+    "n": 89,
+    "measured": 56,
+    "true": 31,
+    "share": 0.5535714285714286
+   }
+  ],
+  "H4_ibkr_today_deal": [
+   {
+    "segment": "bdc",
+    "n": 3,
+    "measured": 3,
+    "true": 3,
+    "share": 1.0
+   },
+   {
+    "segment": "equity_other",
+    "n": 33,
+    "measured": 27,
+    "true": 27,
+    "share": 1.0
+   },
+   {
+    "segment": "muni",
+    "n": 92,
+    "measured": 57,
+    "true": 41,
+    "share": 0.7192982456140351
+   },
+   {
+    "segment": "taxable_income",
+    "n": 39,
+    "measured": 22,
+    "true": 20,
+    "share": 0.9090909090909091
+   },
+   {
+    "segment": "all",
+    "n": 167,
+    "measured": 109,
+    "true": 91,
+    "share": 0.8348623853211009
+   }
+  ],
+  "H4_ibkr_today_acquirer": [
+   {
+    "segment": "bdc",
+    "n": 3,
+    "measured": 3,
+    "true": 3,
+    "share": 1.0
+   },
+   {
+    "segment": "equity_other",
+    "n": 22,
+    "measured": 16,
+    "true": 16,
+    "share": 1.0
+   },
+   {
+    "segment": "muni",
+    "n": 39,
+    "measured": 23,
+    "true": 17,
+    "share": 0.7391304347826086
+   },
+   {
+    "segment": "taxable_income",
+    "n": 30,
+    "measured": 18,
+    "true": 16,
+    "share": 0.8888888888888888
+   },
+   {
+    "segment": "all",
+    "n": 89,
+    "measured": 56,
+    "true": 48,
+    "share": 0.8571428571428571
+   }
+  ],
+  "H2_finra_si_positive_deal": [
+   {
+    "segment": "bdc",
+    "n": 3,
+    "measured": 2,
+    "true": 2,
+    "share": 1.0
+   },
+   {
+    "segment": "equity_other",
+    "n": 33,
+    "measured": 9,
+    "true": 9,
+    "share": 1.0
+   },
+   {
+    "segment": "muni",
+    "n": 92,
+    "measured": 28,
+    "true": 28,
+    "share": 1.0
+   },
+   {
+    "segment": "taxable_income",
+    "n": 39,
+    "measured": 12,
+    "true": 12,
+    "share": 1.0
+   },
+   {
+    "segment": "all",
+    "n": 167,
+    "measured": 51,
+    "true": 51,
+    "share": 1.0
+   }
+  ],
+  "H1_fee_history_covered_deal": [
+   {
+    "segment": "bdc",
+    "n": 3,
+    "measured": 3,
+    "true": 0,
+    "share": 0.0
+   },
+   {
+    "segment": "equity_other",
+    "n": 33,
+    "measured": 33,
+    "true": 0,
+    "share": 0.0
+   },
+   {
+    "segment": "muni",
+    "n": 92,
+    "measured": 92,
+    "true": 0,
+    "share": 0.0
+   },
+   {
+    "segment": "taxable_income",
+    "n": 39,
+    "measured": 39,
+    "true": 0,
+    "share": 0.0
+   },
+   {
+    "segment": "all",
+    "n": 167,
+    "measured": 167,
+    "true": 0,
+    "share": 0.0
+   }
+  ],
+  "identity_today": [
+   {
+    "segment": "bdc",
+    "alp_identity": "same_fund",
+    "deals": 3
+   },
+   {
+    "segment": "equity_other",
+    "alp_identity": "gone_by_crsp_end",
+    "deals": 5
+   },
+   {
+    "segment": "equity_other",
+    "alp_identity": "inactive_on_alpaca",
+    "deals": 1
+   },
+   {
+    "segment": "equity_other",
+    "alp_identity": "same_fund",
+    "deals": 19
+   },
+   {
+    "segment": "equity_other",
+    "alp_identity": "same_fund_by_edgar_name",
+    "deals": 8
+   },
+   {
+    "segment": "muni",
+    "alp_identity": "gone_by_crsp_end",
+    "deals": 19
+   },
+   {
+    "segment": "muni",
+    "alp_identity": "inactive_on_alpaca",
+    "deals": 14
+   },
+   {
+    "segment": "muni",
+    "alp_identity": "name_mismatch(0.229)",
+    "deals": 2
+   },
+   {
+    "segment": "muni",
+    "alp_identity": "same_fund",
+    "deals": 54
+   },
+   {
+    "segment": "muni",
+    "alp_identity": "same_fund_by_edgar_name",
+    "deals": 3
+   },
+   {
+    "segment": "taxable_income",
+    "alp_identity": "gone_by_crsp_end",
+    "deals": 14
+   },
+   {
+    "segment": "taxable_income",
+    "alp_identity": "inactive_on_alpaca",
+    "deals": 1
+   },
+   {
+    "segment": "taxable_income",
+    "alp_identity": "name_mismatch(0.678)",
+    "deals": 1
+   },
+   {
+    "segment": "taxable_income",
+    "alp_identity": "same_fund",
+    "deals": 19
+   },
+   {
+    "segment": "taxable_income",
+    "alp_identity": "same_fund_by_edgar_name",
+    "deals": 3
+   },
+   {
+    "segment": "taxable_income",
+    "alp_identity": "share_code_changed",
+    "deals": 1
+   }
+  ],
+  "H2_coverage": {
+   "deals_announced_after_first_file": 51,
+   "deals_with_name_score_below_min": 6
+  },
+  "H3_identity_failure_deals": 3,
+  "H3_shortable_today_deals_and_groups": {
+   "muni": {
+    "deals": 16,
+    "acquirer_x_announcement_groups": 9
+   },
+   "taxable_income": {
+    "deals": 17,
+    "acquirer_x_announcement_groups": 14
+   },
+   "equity_other": {
+    "deals": 18,
+    "acquirer_x_announcement_groups": 13
+   },
+   "bdc": {
+    "deals": 2,
+    "acquirer_x_announcement_groups": 2
+   }
+  },
+  "H2_positive_si_by_segment": [
+   {
+    "segment": "bdc",
+    "deals": 2,
+    "median_si_shares": 1646615.0,
+    "median_days_to_cover": 4.095
+   },
+   {
+    "segment": "equity_other",
+    "deals": 9,
+    "median_si_shares": 60175.0,
+    "median_days_to_cover": 1.0
+   },
+   {
+    "segment": "muni",
+    "deals": 28,
+    "median_si_shares": 20871.5,
+    "median_days_to_cover": 1.0
+   },
+   {
+    "segment": "taxable_income",
+    "deals": 12,
+    "median_si_shares": 27526.0,
+    "median_days_to_cover": 1.0
+   }
+  ],
+  "pending_no_listed_acquirer": [
+   {
+    "target": "IAE",
+    "acquirer": "IEMLX",
+    "segment": "equity_other"
+   },
+   {
+    "target": "IHD",
+    "acquirer": "IEMLX",
+    "segment": "equity_other"
+   }
+  ],
+  "pending_alpaca_deal": [
+   {
+    "segment": "bdc",
+    "n": 1,
+    "measured": 1,
+    "true": 0,
+    "share": 0.0
+   },
+   {
+    "segment": "muni",
+    "n": 3,
+    "measured": 3,
+    "true": 1,
+    "share": 0.3333333333333333
+   },
+   {
+    "segment": "taxable_income",
+    "n": 1,
+    "measured": 1,
+    "true": 1,
+    "share": 1.0
+   },
+   {
+    "segment": "all",
+    "n": 5,
+    "measured": 5,
+    "true": 2,
+    "share": 0.4
+   }
+  ],
+  "pending_alpaca_acquirer": [
+   {
+    "segment": "bdc",
+    "n": 1,
+    "measured": 1,
+    "true": 0,
+    "share": 0.0
+   },
+   {
+    "segment": "muni",
+    "n": 2,
+    "measured": 2,
+    "true": 1,
+    "share": 0.5
+   },
+   {
+    "segment": "taxable_income",
+    "n": 1,
+    "measured": 1,
+    "true": 1,
+    "share": 1.0
+   },
+   {
+    "segment": "all",
+    "n": 4,
+    "measured": 4,
+    "true": 2,
+    "share": 0.5
+   }
+  ],
+  "pending_ibkr_deal": [
+   {
+    "segment": "bdc",
+    "n": 1,
+    "measured": 1,
+    "true": 1,
+    "share": 1.0
+   },
+   {
+    "segment": "muni",
+    "n": 3,
+    "measured": 3,
+    "true": 3,
+    "share": 1.0
+   },
+   {
+    "segment": "taxable_income",
+    "n": 1,
+    "measured": 1,
+    "true": 1,
+    "share": 1.0
+   },
+   {
+    "segment": "all",
+    "n": 5,
+    "measured": 5,
+    "true": 5,
+    "share": 1.0
+   }
+  ]
+ },
+ "verdicts": {
+  "muni": {
+   "pending_acquirers_shortable_share": 0.5,
+   "historical_acquirers_shortable_today_share": 0.304,
+   "verdict": "FAIL"
+  },
+  "taxable_income": {
+   "pending_acquirers_shortable_share": 1.0,
+   "historical_acquirers_shortable_today_share": 0.778,
+   "verdict": "PASS"
+  },
+  "equity_other": {
+   "pending_acquirers_shortable_share": null,
+   "historical_acquirers_shortable_today_share": 0.625,
+   "verdict": "PASS"
+  },
+  "bdc": {
+   "pending_acquirers_shortable_share": 0.0,
+   "historical_acquirers_shortable_today_share": 0.667,
+   "verdict": "PARTIAL"
+  },
+  "all": {
+   "pending_acquirers_shortable_share": 0.5,
+   "historical_acquirers_shortable_today_share": 0.554,
+   "verdict": "PARTIAL"
+  }
+ }
+}
