@@ -1,0 +1,272 @@
+{
+ "generated_utc": "2026-10-13T23:06:39+00:00",
+ "edgar_index_last_filing": "2026-10-09",
+ "candidate_documents_scanned": 1571,
+ "candidate_documents_flagged": 302,
+ "candidate_funds_flagged": 81,
+ "candidate_funds_excluded": 26,
+ "programmes_found_by_scan": 37,
+ "programmes_not_found_by_scan": [
+  "BLK-BKT-2025",
+  "BLK-BKT-2026",
+  "DEL-DDF-STANDING"
+ ],
+ "quotes_verified": 223,
+ "inferred_rows_checked": 18,
+ "blk_table_crosscheck": {
+  "rows_checked": 78,
+  "disagreements": 0
+ },
+ "excluded_other": {
+  "MXF 2026": "a June 2026 conditional tender is described only by a commentary site; no EDGAR filing found (submissions API, 2026-10-13)",
+  "WIA 2020": "Karpus standstill with an unconditional 20% tender (SC TO-I 2020-11-25)",
+  "CXH 2023": "Bulldog standstill: the discount trigger (7.5% for any 30 days) decides a liquidity-event PROPOSAL, not a tender",
+  "BMEZ/BTX 2025": "Saba settlements (2025-01-20): unconditional tenders at 99.5% of NAV"
+ },
+ "panels": {
+  "live44": {
+   "last_nav": "2026-09-25",
+   "last_px": "2026-09-28"
+  },
+  "c4_yf": {
+   "last_nav": "2026-10-09",
+   "last_px": "2026-10-09"
+  },
+  "c4_crsp_close": {
+   "last_nav": "2026-10-09",
+   "last_px": "2024-12-31"
+  },
+  "c4_cefconnect": {
+   "last_nav": "2026-10-09",
+   "last_px": "2026-10-09"
+  }
+ },
+ "programmes": 40,
+ "programmes_by_sponsor": {
+  "BlackRock": 8,
+  "Eaton Vance": 4,
+  "Virtus (Zweig)": 3,
+  "Delaware": 3,
+  "Deutsche (DWS)": 3,
+  "Nomura": 2,
+  "Legg Mason": 2,
+  "Neuberger Berman": 2,
+  "Nuveen": 2,
+  "Tortoise": 1,
+  "Thomas J. Herzfeld Advisors": 1,
+  "Swiss Helvetia (Hottinger)": 1,
+  "SunAmerica": 1,
+  "Aberdeen": 1,
+  "New Ireland Fund (Kleinwort Benson)": 1,
+  "Macquarie": 1,
+  "MFS": 1,
+  "Greater China Fund (Baring)": 1,
+  "Franklin Templeton": 1,
+  "Morgan Stanley": 1
+ },
+ "fund_windows": 208,
+ "funds": 65,
+ "outcomes": {
+  "triggered": 103,
+  "not_triggered": 71,
+  "not_triggered_inferred": 18,
+  "superseded": 4,
+  "triggered_inferred": 4,
+  "unknown": 3,
+  "triggered_cancelled": 2,
+  "suspended": 1,
+  "withdrawn": 1,
+  "waived": 1
+ },
+ "fund_windows_with_known_outcome": 198,
+ "triggered_share_known": 0.551,
+ "triggered_share_documented_only": 0.597,
+ "independent_groups": {
+  "by_sponsor_announcement": 39,
+  "by_sponsor_window_end_known_outcome": 66,
+  "by_sponsor_window_end_known_outcome_pre2023": 47,
+  "clusters_any_triggered": 53,
+  "clusters_none_triggered": 13,
+  "clusters_pre2023_any_triggered": 36,
+  "clusters_pre2023_none_triggered": 11
+ },
+ "clusters_per_window_end_year": {
+  "2010": 4,
+  "2011": 7,
+  "2012": 6,
+  "2013": 5,
+  "2014": 6,
+  "2015": 2,
+  "2016": 1,
+  "2017": 3,
+  "2018": 3,
+  "2019": 3,
+  "2020": 3,
+  "2021": 1,
+  "2022": 3,
+  "2023": 3,
+  "2024": 7,
+  "2025": 6,
+  "2026": 3
+ },
+ "fund_windows_per_window_end_year": {
+  "2010": 12,
+  "2011": 14,
+  "2012": 9,
+  "2013": 9,
+  "2014": 9,
+  "2015": 2,
+  "2016": 1,
+  "2017": 3,
+  "2018": 3,
+  "2019": 3,
+  "2020": 4,
+  "2021": 1,
+  "2022": 9,
+  "2023": 9,
+  "2024": 51,
+  "2025": 31,
+  "2026": 22
+ },
+ "computability": {
+  "windows_with_dates": 185,
+  "windows_known_before_start": 111,
+  "windows_announced_after_start": 42,
+  "metric_basis_counts": {
+   "unspecified_daily": 123,
+   "unspecified": 46,
+   "daily_vwap": 19,
+   "weekly_close": 9,
+   "daily_close": 6,
+   "calendar_month_vwap": 4,
+   "run_10d_vwap": 1
+  },
+  "fund_windows_panel_coverage_ge_min": 109,
+  "clusters_panel_covered_known_outcome": 36,
+  "clusters_panel_covered_known_outcome_pre2023": 25,
+  "replication_rows": 81,
+  "replication_within_tol": 81,
+  "replication_median_abs_pp": 0.003,
+  "replication_max_abs_pp": 0.043,
+  "replication_panels": {
+   "c4_crsp_close": 56,
+   "c4_yf": 21,
+   "c4_cefconnect": 2,
+   "live44": 2
+  },
+  "outcome_rows_panel_can_check": 109,
+  "outcome_rows_panel_agrees": 109,
+  "outcome_rows_panel_disagrees": []
+ },
+ "gate_proposed": {
+  "all": {
+   "clusters": 66,
+   "triggered": 53,
+   "not_triggered": 13,
+   "clusters_pre2023": 47,
+   "triggered_pre2023": 36,
+   "not_triggered_pre2023": 11,
+   "sponsors": 17,
+   "sponsors_pre2023": 17
+  },
+  "ex_ante_close_computable_any_panel": {
+   "clusters": 33,
+   "triggered": 29,
+   "not_triggered": 4,
+   "clusters_pre2023": 21,
+   "triggered_pre2023": 17,
+   "not_triggered_pre2023": 4,
+   "sponsors": 12,
+   "sponsors_pre2023": 9
+  },
+  "usable": {
+   "clusters": 16,
+   "triggered": 14,
+   "not_triggered": 2,
+   "clusters_pre2023": 10,
+   "triggered_pre2023": 8,
+   "not_triggered_pre2023": 2,
+   "sponsors": 6,
+   "sponsors_pre2023": 4
+  },
+  "criteria": {
+   "a_known_clusters_ge_30": true,
+   "b_usable_clusters_ge_30": false,
+   "c_usable_each_side_ge_10": false,
+   "d_fit_period_usable_ge_30_and_each_side_ge_10": false
+  },
+  "passes": false
+ },
+ "live_book": {
+  "spec_id": "cef_discount.v7.20260928",
+  "universe": [
+   "AWF",
+   "BIT",
+   "DSL",
+   "HYT",
+   "JFR",
+   "MHD",
+   "MQY",
+   "PCN",
+   "PDI",
+   "PDO",
+   "PFN",
+   "PHK",
+   "PTY"
+  ],
+  "names_in_a_programme": [
+   "MHD",
+   "MQY"
+  ],
+  "windows": [
+   {
+    "ticker": "MHD",
+    "pid": "BLK-2026M-FEB09",
+    "window": "2026-01-01..2026-09-30",
+    "announced": "2026-02-09",
+    "threshold_pct": 10.0,
+    "published_avg_pct": -8.17,
+    "outcome": "not_triggered",
+    "published_distance_to_trigger_pp": 1.83,
+    "panel_last_session": "2026-09-25",
+    "panel_sessions_used": 184,
+    "window_sessions": 187,
+    "panel_final_running_avg_pct": -8.169,
+    "panel_min_running_avg_pct": -8.965,
+    "panel_min_running_avg_date": "2026-01-06",
+    "panel_days_daily_discount_beyond_threshold": 5,
+    "panel_min_daily_discount_pct": -10.89,
+    "panel_running_avg_on_announcement_eve_pct": -7.637,
+    "required_avg_over_rest_at_announcement_pct": -10.365,
+    "panel_min_running_avg_after_20_sessions_pct": -8.333
+   },
+   {
+    "ticker": "MQY",
+    "pid": "BLK-2026M-FEB23",
+    "window": "2026-01-01..2026-09-30",
+    "announced": "2026-02-23",
+    "threshold_pct": 10.0,
+    "published_avg_pct": -7.41,
+    "outcome": "not_triggered",
+    "published_distance_to_trigger_pp": 2.59,
+    "panel_last_session": "2026-09-25",
+    "panel_sessions_used": 184,
+    "window_sessions": 187,
+    "panel_final_running_avg_pct": -7.407,
+    "panel_min_running_avg_pct": -8.652,
+    "panel_min_running_avg_date": "2026-01-05",
+    "panel_days_daily_discount_beyond_threshold": 2,
+    "panel_min_daily_discount_pct": -10.45,
+    "panel_running_avg_on_announcement_eve_pct": -6.73,
+    "required_avg_over_rest_at_announcement_pct": -10.727,
+    "panel_min_running_avg_after_20_sessions_pct": -7.414
+   }
+  ]
+ },
+ "thresholds": {
+  "MIN_COVERAGE": 0.95,
+  "REPLICATION_TOL_PP": 0.25,
+  "INFER_DAYS": 180,
+  "BLK_CHECK_DAYS": 10
+ }
+}

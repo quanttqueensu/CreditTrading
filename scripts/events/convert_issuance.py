@@ -217,15 +217,22 @@ def check_spy(refresh: bool) -> None:
 
 # ------------------------------------------------------------ event table
 
-def build_events(flag: str, refresh: bool) -> pd.DataFrame:
-    """Matched events (one row per permno and day 0), before windows."""
+def build_events(flag: str, refresh: bool, *, d0_start: pd.Timestamp = D0_START,
+                 d0_end: pd.Timestamp = D0_END) -> pd.DataFrame:
+    """Matched events (one row per permno and day 0), before windows.
+
+    `d0_start` / `d0_end` (added 2026-10-13 for the E2 pre-registration's
+    zero-trial feasibility, `scripts/events/e2_feasibility.py`) default to this
+    study's own range, so `main()` is unchanged. A wider range is for COUNTING
+    events (dates and identities only): this function reads no return, and the
+    return reader below still refuses anything on or after 2023-01-01."""
     uni = pull_universe(flag, refresh)
     ft = pull_first_trades(flag, uni, refresh)
     ft = ft.merge(uni[["cusip_id", "first_dt"]], on="cusip_id", how="inner")
     ft["d0"] = pd.to_datetime(ft["d0"])
     ft["first_dt"] = pd.to_datetime(ft["first_dt"])
     ft = ft[(ft.d0 - ft.first_dt).dt.days.abs() <= NEW_ISSUE_DAYS]
-    ft = ft[(ft.d0 >= D0_START) & (ft.d0 <= D0_END)].copy()
+    ft = ft[(ft.d0 >= d0_start) & (ft.d0 <= d0_end)].copy()
     ft["c6"] = ft["cusip_id"].str[:6]
     n_cusips = len(ft)
     names = pull_names(refresh).copy()

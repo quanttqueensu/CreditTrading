@@ -1,0 +1,333 @@
+exec_capacity_open_cross report, run 2026-10-13 22:53Z; names AWF, BIT, DSL, HYT, JFR, MHD, MQY, PCN, PDI, PDO, PFN, PHK, PTY
+recent sessions 60 (2026-07-21..2026-10-13); fit-period sample 126 sessions (every 14th, 2016-01-04..2022-12-14)
+
+====================================================================================================
+§1 WHAT THE 'CLOSING PRINT' IS: the primary's volume-carrying cross print, checked on the tape
+====================================================================================================
+Alpaca /v2/stocks/meta/conditions/trade?tape=A (read now): 6='Market Center Closing Trade'; M='Market Center Official Close'; O='Market Center Opening Trade'; Q='Market Center Official Open'; I='Odd Lot Trade'
+
+fit sessions (126 days; the tape was fetched for every one):
+  close  name-days  1638: round 1409, odd 62, none 8, unknown 159, missing 0; round crosses checked against the tape: ok 1114, ok but printed twice 295, mismatch 0, not checked 0
+         on the 48 non-round name-days the M twin's size is NOT the cross: median twin 152 sh vs median cross 48 sh
+  open   name-days  1638: round 1536, odd 0, none 0, unknown 0, missing 102; round crosses checked against the tape: ok 1486, ok but printed twice 1, mismatch 49, not checked 0
+
+recent sessions (60 days; the tape was fetched for every one):
+  close  name-days   780: round 779, odd 0, none 1, unknown 0, missing 0; round crosses checked against the tape: ok 779, ok but printed twice 0, mismatch 0, not checked 0
+         on the 1 non-round name-days the M twin's size is NOT the cross: median twin 13138 sh vs median cross 0 sh
+  open   name-days   780: round 780, odd 0, none 0, unknown 0, missing 0; round crosses checked against the tape: ok 780, ok but printed twice 0, mismatch 0, not checked 0
+
+The tape's volume-carrying print, counted per name-day (the auctions endpoint lists it once):
+                             name_days  printed_twice_or_more  of_which_identical_sizes
+side  period                                                                           
+close a: 2016 -> 2020-11-03        976                    976                       976
+      b: 2020-11-04 -> 2022        433                    385                       385
+      c: the 2026 window           779                      0                         0
+open  a: 2016 -> 2020-11-03       1046                      9                         9
+      b: 2020-11-04 -> 2022        490                    280                       280
+      c: the 2026 window           780                      0                         0
+
+2016-22, every name-day from the auction prints alone (close): round 19960, unknown 435, missing 7  ('unknown' = no 6 print: an odd-lot cross or none; 2.1% of name-days with a primary print)
+
+2016-22, every name-day from the auction prints alone (open): round 21601, unknown 1, missing 7  ('unknown' = no O print: an odd-lot cross or none; 0.0% of name-days with a primary print)
+
+====================================================================================================
+§2 CROSS VOLUME BY NAME, last 60 sessions (shares and $; the cross WITHOUT us)
+====================================================================================================
+        sessions  close_sh_med  close_sh_p10  close_usd_med  no_round  zero  close_share_of_day  open_sh_med  open_over_close
+ticker                                                                                                                       
+AWF           60        2548.5        1141.2      25725.150         0     0              0.0094      12727.0           4.9939
+BIT           60        2924.0        1556.3      35125.105         0     0              0.0086       7232.0           2.4733
+DSL           60        3304.0        2064.3      33796.760         0     0              0.0056      13828.0           4.1852
+HYT           60        7894.5        3749.1      66012.270         0     0              0.0093      28444.0           3.6030
+JFR           60        5799.5        2375.0      43720.005         0     0              0.0085      24434.0           4.2131
+MHD           60        1881.0         701.3      21358.560         0     0              0.0043      20342.0          10.8145
+MQY           60        3703.0        1454.9      39140.140         0     0              0.0053      20204.5           5.4563
+PCN           60        2299.5         860.7      26075.955         0     0              0.0057      10975.5           4.7730
+PDI           60       11486.0        5886.8     175687.150         0     0              0.0033      67581.0           5.8838
+PDO           60        3822.0        1744.5      49063.930         0     0              0.0045      24742.0           6.4736
+PFN           60        3297.5        1738.2      22029.460         0     0              0.0077      11785.0           3.5739
+PHK           60        8467.5        2088.2      37646.530         1     1              0.0075      18525.0           2.1878
+PTY           60        6312.5        2851.6      72630.800         0     0              0.0048      40861.5           6.4731
+  median across names: close cross 3703 sh ($37,647); open cross 20204 sh; open/close 4.8x; close cross = 0.57% of the day's consolidated volume
+
+====================================================================================================
+§3 OUR ORDERS vs THE SAME DAY'S CROSS: every session since the book opened (2026-09-29)
+====================================================================================================
+62 name-day orders on 7 sessions 2026-09-29..2026-10-13; each rescaled to $100,000 of capital by the prior close's equity (ratio 0.998..1.015)
+size source: ordered (laptop orders.jsonl) 37, filled (broker, VM era) 25. Where both exist (26 name-days): ordered == filled on 25; ordered but no fill 11 (all `cls` on 2026-09-29: 11)
+fill  2026-09-29 2026-09-30 2026-10-01 2026-10-07 2026-10-08 2026-10-12 2026-10-13
+names         13          7          5         12          8          4         13
+src      ordered    ordered    ordered    ordered     filled     filled     filled
+our orders as a share of the day's CONSOLIDATED volume (all venues): steady state median 0.02%, p90 0.20%, max 0.34%; build day median 0.14%
+
+BUILD: 2026-09-29, the 13 orders sent from flat -- vs the CLOSE cross of the same day (C5 would use the open):
+        orders  zero_cross  unmeasured      med      p90      max     wmed K10_med K10_wmed K25_med K25_wmed
+ticker                                                                                                      
+AWF          1           0           0    8.10%    8.10%    8.10%    8.10%  $0.12m   $0.12m  $0.31m   $0.31m
+BIT          1           0           0   75.52%   75.52%   75.52%   75.52%  $0.01m   $0.01m  $0.03m   $0.03m
+DSL          1           0           0   16.02%   16.02%   16.02%   16.02%  $0.06m   $0.06m  $0.16m   $0.16m
+HYT          1           0           0    3.95%    3.95%    3.95%    3.95%  $0.25m   $0.25m  $0.63m   $0.63m
+JFR          1           0           0    5.99%    5.99%    5.99%    5.99%  $0.17m   $0.17m  $0.42m   $0.42m
+MHD          1           0           0   77.37%   77.37%   77.37%   77.37%  $0.01m   $0.01m  $0.03m   $0.03m
+MQY          1           0           0   89.79%   89.79%   89.79%   89.79%  $0.01m   $0.01m  $0.03m   $0.03m
+PCN          1           0           0   21.74%   21.74%   21.74%   21.74%  $0.05m   $0.05m  $0.12m   $0.12m
+PDI          1           0           0    2.80%    2.80%    2.80%    2.80%  $0.36m   $0.36m  $0.89m   $0.89m
+PDO          1           0           0   15.67%   15.67%   15.67%   15.67%  $0.06m   $0.06m  $0.16m   $0.16m
+PFN          1           0           0  115.45%  115.45%  115.45%  115.45%  $0.01m   $0.01m  $0.02m   $0.02m
+PHK          1           0           0   37.10%   37.10%   37.10%   37.10%  $0.03m   $0.03m  $0.07m   $0.07m
+PTY          1           0           0    5.27%    5.27%    5.27%    5.27%  $0.19m   $0.19m  $0.47m   $0.47m
+ALL         13           0           0   16.02%   87.31%  115.45%   75.52%  $0.06m   $0.01m  $0.16m   $0.03m
+
+BUILD: 2026-09-29, the 13 orders sent from flat -- vs the OPEN cross of the same day (C5 would use the open):
+        orders  zero_cross  unmeasured     med     p90     max    wmed K10_med K10_wmed K25_med K25_wmed
+ticker                                                                                                  
+AWF          1           0           0   4.47%   4.47%   4.47%   4.47%  $0.22m   $0.22m  $0.56m   $0.56m
+BIT          1           0           0  14.55%  14.55%  14.55%  14.55%  $0.07m   $0.07m  $0.17m   $0.17m
+DSL          1           0           0   2.73%   2.73%   2.73%   2.73%  $0.37m   $0.37m  $0.92m   $0.92m
+HYT          1           0           0   1.40%   1.40%   1.40%   1.40%  $0.71m   $0.71m  $1.78m   $1.78m
+JFR          1           0           0   1.71%   1.71%   1.71%   1.71%  $0.59m   $0.59m  $1.46m   $1.46m
+MHD          1           0           0  13.63%  13.63%  13.63%  13.63%  $0.07m   $0.07m  $0.18m   $0.18m
+MQY          1           0           0   9.40%   9.40%   9.40%   9.40%  $0.11m   $0.11m  $0.27m   $0.27m
+PCN          1           0           0  15.67%  15.67%  15.67%  15.67%  $0.06m   $0.06m  $0.16m   $0.16m
+PDI          1           0           0   0.68%   0.68%   0.68%   0.68%  $1.47m   $1.47m  $3.69m   $3.69m
+PDO          1           0           0   5.92%   5.92%   5.92%   5.92%  $0.17m   $0.17m  $0.42m   $0.42m
+PFN          1           0           0  20.38%  20.38%  20.38%  20.38%  $0.05m   $0.05m  $0.12m   $0.12m
+PHK          1           0           0  13.72%  13.72%  13.72%  13.72%  $0.07m   $0.07m  $0.18m   $0.18m
+PTY          1           0           0   0.43%   0.43%   0.43%   0.43%  $2.33m   $2.33m  $5.83m   $5.83m
+ALL         13           0           0   5.92%  15.44%  20.38%  13.63%  $0.17m   $0.07m  $0.42m   $0.18m
+
+CATCH-UP: 2026-09-30, the build of the names whose cls orders expired -- vs the CLOSE cross of the same day (C5 would use the open):
+        orders  zero_cross  unmeasured    med    p90    max   wmed K10_med K10_wmed K25_med K25_wmed
+ticker                                                                                              
+BIT          1           0           0  0.65%  0.65%  0.65%  0.65%  $1.54m   $1.54m  $3.86m   $3.86m
+JFR          1           0           0  0.32%  0.32%  0.32%  0.32%  $3.15m   $3.15m  $7.88m   $7.88m
+MHD          1           0           0  4.01%  4.01%  4.01%  4.01%  $0.25m   $0.25m  $0.62m   $0.62m
+MQY          1           0           0  6.91%  6.91%  6.91%  6.91%  $0.14m   $0.14m  $0.36m   $0.36m
+PCN          1           0           0  1.47%  1.47%  1.47%  1.47%  $0.68m   $0.68m  $1.70m   $1.70m
+PDI          1           0           0  0.52%  0.52%  0.52%  0.52%  $1.91m   $1.91m  $4.77m   $4.77m
+PDO          1           0           0  0.79%  0.79%  0.79%  0.79%  $1.26m   $1.26m  $3.15m   $3.15m
+ALL          7           0           0  0.79%  5.17%  6.91%  4.01%  $1.26m   $0.25m  $3.15m   $0.62m
+
+CATCH-UP: 2026-09-30, the build of the names whose cls orders expired -- vs the OPEN cross of the same day (C5 would use the open):
+        orders  zero_cross  unmeasured    med    p90    max   wmed K10_med K10_wmed  K25_med K25_wmed
+ticker                                                                                               
+BIT          1           0           0  3.90%  3.90%  3.90%  3.90%  $0.26m   $0.26m   $0.64m   $0.64m
+JFR          1           0           0  1.61%  1.61%  1.61%  1.61%  $0.62m   $0.62m   $1.56m   $1.56m
+MHD          1           0           0  5.05%  5.05%  5.05%  5.05%  $0.20m   $0.20m   $0.49m   $0.49m
+MQY          1           0           0  4.51%  4.51%  4.51%  4.51%  $0.22m   $0.22m   $0.55m   $0.55m
+PCN          1           0           0  2.66%  2.66%  2.66%  2.66%  $0.38m   $0.38m   $0.94m   $0.94m
+PDI          1           0           0  0.25%  0.25%  0.25%  0.25%  $4.07m   $4.07m  $10.17m  $10.17m
+PDO          1           0           0  1.31%  1.31%  1.31%  1.31%  $0.76m   $0.76m   $1.91m   $1.91m
+ALL          7           0           0  2.66%  4.72%  5.05%  4.51%  $0.38m   $0.22m   $0.94m   $0.55m
+
+STEADY STATE: 2026-10-01 on -- vs the CLOSE cross of the same day (C5 would use the open):
+        orders  zero_cross  unmeasured     med      p90      max     wmed K10_med K10_wmed K25_med K25_wmed
+ticker                                                                                                     
+AWF          2           0           0   3.88%    6.64%    7.34%    7.34%  $0.26m   $0.14m  $0.65m   $0.34m
+BIT          4           0           0  29.57%  100.67%  123.14%  123.14%  $0.03m   $0.01m  $0.08m   $0.02m
+DSL          4           0           0  11.09%  128.49%  175.02%  175.02%  $0.09m   $0.01m  $0.23m   $0.01m
+HYT          2           0           0   5.87%    6.51%    6.66%    6.66%  $0.17m   $0.15m  $0.43m   $0.38m
+JFR          4           0           0  32.85%   41.40%   44.32%   34.59%  $0.03m   $0.03m  $0.08m   $0.07m
+MHD          3           0           0   7.03%    7.07%    7.08%    7.08%  $0.14m   $0.14m  $0.36m   $0.35m
+MQY          3           0           0  11.70%   15.66%   16.66%   11.70%  $0.09m   $0.09m  $0.21m   $0.21m
+PCN          4           0           0   1.18%   16.03%   22.33%    1.34%  $0.85m   $0.75m  $2.12m   $1.87m
+PDI          5           0           0   0.31%    3.17%    4.44%    4.44%  $3.18m   $0.23m  $7.94m   $0.56m
+PDO          2           0           0   4.17%    7.29%    8.07%    8.07%  $0.24m   $0.12m  $0.60m   $0.31m
+PFN          4           0           0  16.64%   28.25%   31.09%   21.64%  $0.06m   $0.05m  $0.15m   $0.12m
+PHK          2           0           0   2.68%    4.50%    4.95%    4.95%  $0.37m   $0.20m  $0.93m   $0.50m
+PTY          3           0           0   1.61%    4.39%    5.08%    5.08%  $0.62m   $0.20m  $1.55m   $0.49m
+ALL         42           0           0   5.87%   34.24%  175.02%   31.10%  $0.17m   $0.03m  $0.43m   $0.08m
+
+STEADY STATE: 2026-10-01 on -- vs the OPEN cross of the same day (C5 would use the open):
+        orders  zero_cross  unmeasured    med     p90     max    wmed  K10_med K10_wmed  K25_med K25_wmed
+ticker                                                                                                   
+AWF          2           0           0  0.35%   0.57%   0.63%   0.63%   $2.84m   $1.59m   $7.10m   $3.98m
+BIT          4           0           0  3.04%  12.51%  16.19%   3.91%   $0.33m   $0.26m   $0.82m   $0.64m
+DSL          4           0           0  3.21%   5.45%   5.53%   5.53%   $0.31m   $0.18m   $0.78m   $0.45m
+HYT          2           0           0  2.13%   2.15%   2.16%   2.10%   $0.47m   $0.48m   $1.17m   $1.19m
+JFR          4           0           0  3.11%   3.62%   3.83%   3.07%   $0.32m   $0.33m   $0.80m   $0.81m
+MHD          3           0           0  0.97%   1.11%   1.14%   0.97%   $1.03m   $1.03m   $2.58m   $2.58m
+MQY          3           0           0  2.41%   2.47%   2.49%   2.41%   $0.42m   $0.42m   $1.04m   $1.04m
+PCN          4           0           0  0.35%   0.55%   0.61%   0.42%   $2.83m   $2.39m   $7.07m   $5.96m
+PDI          5           0           0  0.03%   0.13%   0.20%   0.20%  $34.37m   $4.97m  $85.94m  $12.41m
+PDO          2           0           0  0.42%   0.73%   0.81%   0.81%   $2.40m   $1.24m   $6.00m   $3.10m
+PFN          4           0           0  1.18%  12.38%  17.07%  17.07%   $0.85m   $0.06m   $2.12m   $0.15m
+PHK          2           0           0  0.40%   0.61%   0.66%   0.66%   $2.49m   $1.52m   $6.22m   $3.81m
+PTY          3           0           0  0.36%   0.80%   0.91%   0.91%   $2.79m   $1.10m   $6.97m   $2.74m
+ALL         42           0           0  0.86%   3.90%  17.07%   3.07%   $1.16m   $0.33m   $2.91m   $0.81m
+
+====================================================================================================
+§4 THE DEPLOYED POLICY'S ORDERS AT THE SPEC'S CAPITAL, fit period (decide t, fill t+1)
+====================================================================================================
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+2391 whole-share orders on 681 fill days 2016-01-28..2022-12-30 at $100,000
+
+vs the CLOSE cross of the fill day: orders on round-cross days 2301, on days with no 6 print (odd-lot or no cross; participation not computed) 37 = 1.5% of orders, 2.3% of notional; missing 53
+        orders  zero_cross  unmeasured     med      p90       max     wmed K10_med K10_wmed K25_med K25_wmed
+ticker                                                                                                      
+AWF        185           0           0   3.49%   65.25%   609.68%   29.58%  $0.29m   $0.03m  $0.72m   $0.08m
+BIT         88           0           0   1.97%   48.33%   227.09%   38.55%  $0.51m   $0.03m  $1.27m   $0.06m
+DSL        315           0           0  10.92%   88.32%   754.07%   48.34%  $0.09m   $0.02m  $0.23m   $0.05m
+HYT        359           0           0  10.53%  168.32%   938.81%   44.93%  $0.10m   $0.02m  $0.24m   $0.06m
+JFR        203           0           0  12.59%  114.40%  3152.63%   48.29%  $0.08m   $0.02m  $0.20m   $0.05m
+MQY         44           0           0  94.72%  203.53%   733.00%  139.45%  $0.01m   $0.01m  $0.03m   $0.02m
+PCN         65           0           0   0.84%   45.68%   261.39%   77.30%  $1.19m   $0.01m  $2.98m   $0.03m
+PDI        281           0           0  13.46%   71.32%   724.44%   33.76%  $0.07m   $0.03m  $0.19m   $0.07m
+PDO        110           0           0  36.95%  138.32%   673.47%   59.30%  $0.03m   $0.02m  $0.07m   $0.04m
+PFN        106           0           0   9.15%  171.21%  1115.00%  133.96%  $0.11m   $0.01m  $0.27m   $0.02m
+PHK        247           0           0  12.44%  140.89%   597.74%  134.86%  $0.08m   $0.01m  $0.20m   $0.02m
+PTY        298           0           0  10.98%  115.95%  1545.12%   56.37%  $0.09m   $0.02m  $0.23m   $0.04m
+ALL       2301           0           0  10.71%  116.00%  3152.63%   52.47%  $0.09m   $0.02m  $0.23m   $0.05m
+
+vs the OPEN cross of the fill day: orders on round-cross days 2386, on days with no O print (odd-lot or no cross; participation not computed) 0 = 0.0% of orders, 0.0% of notional; missing 5
+        orders  zero_cross  unmeasured    med     p90      max    wmed K10_med K10_wmed  K25_med K25_wmed
+ticker                                                                                                   
+AWF        186           0           0  1.25%  11.88%   34.38%   9.83%  $0.80m   $0.10m   $2.00m   $0.25m
+BIT         90           0           0  0.36%   3.63%   16.46%   3.62%  $2.81m   $0.28m   $7.02m   $0.69m
+DSL        320           0           0  1.36%   7.30%   27.70%   5.04%  $0.74m   $0.20m   $1.84m   $0.50m
+HYT        372           0           0  2.43%  13.84%   50.39%   7.75%  $0.41m   $0.13m   $1.03m   $0.32m
+JFR        211           0           0  1.71%  13.33%  112.19%  16.00%  $0.59m   $0.06m   $1.47m   $0.16m
+MQY         46           0           0  4.69%  18.42%   31.84%   6.52%  $0.21m   $0.15m   $0.53m   $0.38m
+PCN         74           0           0  0.15%   2.90%   25.01%   9.53%  $6.50m   $0.10m  $16.24m   $0.26m
+PDI        295           0           0  0.85%   4.93%   16.51%   2.43%  $1.18m   $0.41m   $2.94m   $1.03m
+PDO        118           0           0  2.55%  12.16%  381.46%   5.46%  $0.39m   $0.18m   $0.98m   $0.46m
+PFN        117           0           0  0.87%  15.52%  108.69%   8.48%  $1.15m   $0.12m   $2.88m   $0.29m
+PHK        253           0           0  1.31%   8.65%   74.85%   8.37%  $0.76m   $0.12m   $1.91m   $0.30m
+PTY        304           0           0  1.10%   6.64%   43.83%   3.83%  $0.91m   $0.26m   $2.27m   $0.65m
+ALL       2386           0           0  1.37%   9.38%  381.46%   5.79%  $0.73m   $0.17m   $1.83m   $0.43m
+
+The 2026-10-12 note's statistic, reproduced on this order set: median across names of [dollar-weighted median order / median (M-else-6) print $] = 1.00x
+Day-matched instead: median participation 10.71%, notional-weighted median 52.47%, p90 116.00% (all names, round-cross days)
+
+Fit-period order sizes ($, at $100,000) against the last 60 sessions' round closing crosses ($), every order x every session:
+         pairs     med     p90    wmed K10_med K10_wmed K25_med K25_wmed
+ticker                                                                  
+AWF      11160   4.01%  43.36%  31.76%  $0.25m   $0.03m  $0.62m   $0.08m
+BIT       5400   0.73%  16.58%  16.94%  $1.37m   $0.06m  $3.43m   $0.15m
+DSL      19200   6.68%  34.58%  23.84%  $0.15m   $0.04m  $0.37m   $0.10m
+HYT      22320   4.02%  23.35%  15.54%  $0.25m   $0.06m  $0.62m   $0.16m
+JFR      12660   3.73%  27.78%  26.15%  $0.27m   $0.04m  $0.67m   $0.10m
+MQY       2760  13.17%  42.78%  19.81%  $0.08m   $0.05m  $0.19m   $0.13m
+PCN       4500   0.36%   6.93%  22.17%  $2.81m   $0.05m  $7.01m   $0.11m
+PDI      17760   1.31%   6.40%   4.13%  $0.76m   $0.24m  $1.91m   $0.60m
+PDO       7080   6.66%  28.46%  15.24%  $0.15m   $0.07m  $0.38m   $0.16m
+PFN       7080   1.94%  35.02%  28.22%  $0.52m   $0.04m  $1.29m   $0.09m
+PHK      14986   4.27%  37.60%  35.54%  $0.23m   $0.03m  $0.58m   $0.07m
+PTY      18300   2.63%  15.26%  11.13%  $0.38m   $0.09m  $0.95m   $0.22m
+ALL     143206   3.26%  25.67%  16.41%  $0.31m   $0.06m  $0.77m   $0.15m
+
+====================================================================================================
+§5 CONTEXT FOR THE C5 GATE: the deployed book's gross return per unit of turnover, fit period
+====================================================================================================
+  2013-06-21 -> 2022-12-30 (book live): gross 6.21%/yr (total return), turnover 13.5x/yr one-way, gross per unit of turnover 46.1bp
+  2016-01-04 -> 2022-12-30: gross 5.50%/yr (total return), turnover 13.5x/yr one-way, gross per unit of turnover 40.8bp
+  (no borrow, no execution cost; this is the deployed book's breakeven cost per unit turnover)
+
+====================================================================================================
+§6 C5 GATE: the auction price against a fair reference mid, OPEN vs CLOSE, by name (bp)
+====================================================================================================
+abs = |auction price - reference mid| / mid. Horizons (see ref_points): h0 = last NBBO before the auction (open: before 09:30, prior official close if none, labelled); h1 / h5 = last NBBO 1 / 5 minutes AFTER the open and 1 / 5 minutes BEFORE the close. hs = that quote's half-spread. Name-days with no auction trade are not scored.
+
+RECENT: 60 sessions
+  [h0] reference methods: close nbbo 779, open nbbo 780
+        close_n  close_med  close_mean  close_hs  open_n  open_med  open_mean  open_hs  diff_med  diff_mean
+ticker                                                                                                     
+AWF          60        5.0        10.7       5.0      60      25.6       43.7     96.3      20.1       33.0
+BIT          60        8.4        12.2       4.3      60      32.7       50.7     74.3      23.3       38.4
+DSL          60        5.0         9.0       4.9      60      31.2       43.7     85.9      24.2       34.7
+HYT          60        6.4        12.3       6.3      60      24.5       26.8     34.0      12.8       14.5
+JFR          60        6.7        14.6       6.6      60      27.0       46.4     66.9      19.5       31.8
+MHD          60        8.8        10.9      12.9      60      26.2       35.7     74.6      17.2       24.8
+MQY          60        5.1        10.6       4.8      60      27.1       75.7     81.3      18.6       65.1
+PCN          60        8.6         9.4       6.5      60      33.3       43.7     62.4      28.9       34.3
+PDI          60        3.3         5.7       3.3      60      10.1       12.8     17.0       6.5        7.1
+PDO          60        4.2         8.4       4.1      60      32.6       48.5     59.0      27.6       40.1
+PFN          60        7.8        15.3       7.5      60      37.6       61.7     87.5      26.1       46.4
+PHK          59       11.7        19.4      11.1      60      28.2       29.5     48.5       0.6       10.0
+PTY          60        4.4        11.2       4.3      60      13.4       18.5     24.2       8.4        7.3
+  [h0] pooled: close median 7.2 / mean 11.5; open median 25.6 / mean 41.3; paired open - close (NBBO-referenced, 779 name-days): median +15.6, mean +29.8 (date-clustered t 12.85, 60 dates)
+  [h0] signed mean (price - mid): close +1.1, open -21.9; quoted half-spread median: close 6.1, open 58.0; reference age median: close 0s, open 204s
+  [h0] the mean open surcharge is 73% of the deployed book's gross return per unit of turnover (40.8bp, the lower of the §5 windows) -- an UPPER bound on C5's extra cost, reached only if C5 sat on the imbalance side of every opening cross
+  [h1] reference methods: close nbbo 779, open nbbo 780
+        close_n  close_med  close_mean  close_hs  open_n  open_med  open_mean  open_hs  diff_med  diff_mean
+ticker                                                                                                     
+AWF          60        5.0        11.6       5.0      60      14.8       14.0     19.8       4.9        2.4
+BIT          60        4.5        11.7       4.2      60      13.3       16.7     22.0       4.3        5.1
+DSL          60        5.0         9.4       4.7      60       9.5       11.5     19.9       4.7        2.1
+HYT          60        6.3        13.2       6.0      60      11.9       13.9     12.1      -0.0        0.7
+JFR          60        6.7        16.9       6.6      60      12.9       14.6     19.5      -0.0       -2.3
+MHD          60        8.8        12.0       8.9      60      13.1       16.3     25.2       4.4        4.3
+MQY          60        4.9         9.5       4.5      60      10.1       14.2     19.3       2.2        4.7
+PCN          60        4.7        10.4       4.3      60      12.6       13.0     21.5       4.2        2.5
+PDI          60        9.3         8.9       3.3      60      10.4       16.5      6.7       4.8        7.6
+PDO          60        4.2        10.4       4.0      60      12.1       14.5     15.2       3.9        4.1
+PFN          60        7.8        18.1       7.2      60      14.2       14.8     25.9       0.0       -3.3
+PHK          59       11.7        19.8      11.0      60      12.0       18.5     22.0      -0.0       -1.0
+PTY          60        4.5        13.4       4.3      60       8.8       12.6      8.7       0.0       -0.9
+  [h1] pooled: close median 7.3 / mean 12.7; open median 12.1 / mean 14.7; paired open - close (NBBO-referenced, 779 name-days): median +0.3, mean +2.0 (date-clustered t 2.61, 60 dates)
+  [h1] signed mean (price - mid): close +1.0, open -0.3; quoted half-spread median: close 4.8, open 17.9; reference age median: close 5s, open 0s
+  [h1] the mean open surcharge is 5% of the deployed book's gross return per unit of turnover (40.8bp, the lower of the §5 windows) -- an UPPER bound on C5's extra cost, reached only if C5 sat on the imbalance side of every opening cross
+  [h5] reference methods: close nbbo 779, open nbbo 780
+        close_n  close_med  close_mean  close_hs  open_n  open_med  open_mean  open_hs  diff_med  diff_mean
+ticker                                                                                                     
+AWF          60        5.2        12.7       5.0      60      10.2       12.7     15.6      -0.0       -0.1
+BIT          60        8.3        13.3       4.2      60      12.4       17.0     17.6       4.1        3.7
+DSL          60        5.1        13.1       4.7      60       9.6       13.9     18.6       4.6        0.8
+HYT          60       17.8        16.7       6.1      60      12.2       14.8      6.4      -0.0       -1.9
+JFR          60        6.9        18.4       6.6      60      12.9       14.8     13.1      -0.0       -3.6
+MHD          60       13.1        13.5       8.8      60      13.0       15.9     22.3      -0.3        2.4
+MQY          60       13.3        12.5       4.5      60       9.3       16.1     17.8       4.4        3.5
+PCN          60        8.7        12.1       4.3      60      13.4       14.9     17.2       0.1        2.7
+PDI          60        9.8        12.3       3.3      60      15.8       19.7      3.6       6.3        7.4
+PDO          60       11.5        13.6       4.0      60      16.0       18.8     11.6       4.1        5.3
+PFN          60        7.8        19.1       7.2      60      14.2       17.8     16.2       0.0       -1.3
+PHK          59       12.1        23.6      11.0      60      11.4       20.7     11.6      -0.0       -2.6
+PTY          60       12.7        14.1       4.3      60      12.8       15.7      8.6       0.0        1.7
+  [h5] pooled: close median 11.1 / mean 15.0; open median 12.8 / mean 16.4; paired open - close (NBBO-referenced, 779 name-days): median +0.0, mean +1.4 (date-clustered t 2.13, 60 dates)
+  [h5] signed mean (price - mid): close +0.9, open +1.4; quoted half-spread median: close 4.8, open 13.2; reference age median: close 1s, open 0s
+  [h5] the mean open surcharge is 3% of the deployed book's gross return per unit of turnover (40.8bp, the lower of the §5 windows) -- an UPPER bound on C5's extra cost, reached only if C5 sat on the imbalance side of every opening cross
+
+FIT: 126 sessions
+  [h0] reference methods: close nbbo 1467, close unmeasured 4, open nbbo 1536
+        close_n  close_med  close_mean  close_hs  open_n  open_med  open_mean  open_hs  diff_med  diff_mean
+ticker                                                                                                     
+AWF         126        4.3         7.6       4.3     126      15.8       23.6     63.0       8.7       15.9
+BIT         125        6.2         8.6       5.8     126      16.1       38.4     72.1       9.2       29.2
+DSL         126        4.5         5.9       3.2     126      17.8       26.6     62.9      14.5       20.7
+HYT         126        4.9         7.7       4.7     126      15.3       21.5     52.1       8.9       13.9
+JFR         122        5.3         9.3       5.2     126      18.1       29.1     78.4      10.4       19.5
+MHD         105        6.7         9.9       6.4     123      43.8     1333.6    279.7      35.1     1354.8
+MQY         110        9.1        12.0       9.0     124      18.9       58.5     89.9      12.1       48.4
+PCN         115        8.8        11.8       8.4     125      24.3       35.2     80.0      13.1       21.7
+PDI         120        4.8         6.0       4.7     125      13.6       24.6     52.1       7.2       18.0
+PDO          31        9.2        12.9      11.4      34      24.6       26.4     47.0       7.3       12.9
+PFN         116        5.6         8.7       5.6     125      17.9       22.3     68.0       9.6       13.9
+PHK         122        8.1        11.2       7.0     125      19.3       27.1     54.8       9.1       15.8
+PTY         123        6.1         6.8       5.9     125      17.9       30.0     59.5      10.9       19.3
+  [h0] pooled: close median 6.0 / mean 8.8; open median 18.8 / mean 134.8; paired open - close (NBBO-referenced, 1464 name-days): median +10.6, mean +115.8 (date-clustered t 5.12, 126 dates)
+  [h0] signed mean (price - mid): close +1.0, open -102.1; quoted half-spread median: close 5.6, open 68.7; reference age median: close 0s, open 15s
+  [h0] STUB-LIKE references (half-spread > 1,000bp, e.g. an ask of $199,999): 39 name-day(s), ['BIT', 'MHD', 'MQY']. Shown, not dropped; beside the figures above, without them: open mean 29.7, paired mean +19.7
+  [h0] the mean open surcharge is 284% of the deployed book's gross return per unit of turnover (40.8bp, the lower of the §5 windows) -- an UPPER bound on C5's extra cost, reached only if C5 sat on the imbalance side of every opening cross
+  [h1] reference methods: close nbbo 1467, close unmeasured 4, open nbbo 1533, open unmeasured 3
+  [h1] pooled: close median 6.4 / mean 9.8; open median 11.0 / mean 16.0; paired open - close (NBBO-referenced, 1461 name-days): median +3.2, mean +6.0 (date-clustered t 9.89, 126 dates)
+  [h1] signed mean (price - mid): close +1.3, open -0.7; quoted half-spread median: close 5.1, open 16.6; reference age median: close 10s, open 27s
+  [h1] the mean open surcharge is 15% of the deployed book's gross return per unit of turnover (40.8bp, the lower of the §5 windows) -- an UPPER bound on C5's extra cost, reached only if C5 sat on the imbalance side of every opening cross
+  [h5] reference methods: close nbbo 1462, close unmeasured 9, open nbbo 1536
+        close_n  close_med  close_mean  close_hs  open_n  open_med  open_mean  open_hs  diff_med  diff_mean
+ticker                                                                                                     
+AWF         126        4.5         9.4       4.3     126       8.0       11.3      8.5       0.0        1.9
+BIT         125        8.3        10.5       5.8     126      11.0       16.3     14.7       2.8        5.8
+DSL         126        7.4         9.4       2.8     126      10.1       15.5      9.9       2.6        6.0
+HYT         126        5.1         9.8       4.7     126      13.4       16.5      8.1       4.6        6.7
+JFR         121        6.1        11.7       5.1     126      10.4       16.6     10.5       0.0        5.1
+MHD         101        9.0        12.3       8.0     123      17.4       19.8     24.1       6.2        7.0
+MQY         110       10.5        13.5       6.9     124      13.0       17.6     18.1       3.1        4.8
+PCN         115        8.9        13.0       8.4     125      17.3       24.4     26.1       7.5       11.5
+PDI         120        6.3         9.4       4.0     125      11.0       16.5     10.5       3.6        7.2
+PDO          31       12.2        13.5       7.4      34      13.4       21.5     16.7       0.0        8.3
+PFN         116        9.7        11.7       5.4     125      14.0       17.9     14.0       0.0        6.3
+PHK         122        8.9        13.4       6.6     125      14.5       20.9     10.2       0.1        7.1
+PTY         123        8.9        10.0       5.6     125      12.1       19.2     12.1       5.4        8.7
+  [h5] pooled: close median 7.6 / mean 11.2; open median 12.1 / mean 17.8; paired open - close (NBBO-referenced, 1459 name-days): median +3.2, mean +6.5 (date-clustered t 8.15, 126 dates)
+  [h5] signed mean (price - mid): close +1.5, open -1.2; quoted half-spread median: close 5.3, open 12.4; reference age median: close 3s, open 30s
+  [h5] the mean open surcharge is 16% of the deployed book's gross return per unit of turnover (40.8bp, the lower of the §5 windows) -- an UPPER bound on C5's extra cost, reached only if C5 sat on the imbalance side of every opening cross

@@ -163,9 +163,11 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **A name that turned unshortable since the decision is skipped at send and the
   rest go** (team lead 2026-09-28, "skip that name, send the rest"); the arming
   check still binds to the decided plan's sha, so what goes is a subset of it.
-- **The send records its outcome** in `<D>/send.json` (exit, refusals, skipped);
-  verify explains a no-trade day from it, and a decided plan with no send record
-  is FAIL "no send ran in the late window".
+  If that leaves nothing to send, the day is a `MISSED:` FAIL (2026-10-13, below).
+- **The send records its outcome** in `<D>/send.json` (exit, refusals, skipped,
+  and since 2026-10-13 `bp_scale_at_send`, the re-fit's result); verify explains
+  a no-trade day from it, and a decided plan with no send record is FAIL "no send
+  ran in the late window".
 - **A set the window cannot finish is not started** (added 2026-10-08,
   release-check #6). `gate.gate_late_send_budget` refuses before STARTED and before
   any POST unless the time left on Alpaca's clock is at least
@@ -269,6 +271,72 @@ CEFConnect's publication time is [U]. It had D's row by 11:41 ET on D+1 (2026-10
 not yet at 00:10 ET (2026-10-05), and Friday's row was still missing at 09:40 ET on
 Saturday (2026-10-02).
 
+## As built (2026-10-13): the re-fit keeps the most that fits; a send it empties is MISSED
+
+The two non-blocking follow-ups of the 2026-10-11 release-check of
+`release-20261011-1`. Neither changes a limit, a gate or what counts as a fit.
+
+**B. The re-fit cut far more than it needed** (the execution desk's finding).
+`run.fit_to_buying_power` searched its four factors on a 0.05 grid refined on
+0.01, ranked first by the post-trade net's distance from the full plan's rounded
+to the cent. A grid almost never lands on exact neutrality, so it took whichever
+grid point came a few dollars closer, whatever that cost in trade. On the laptop's
+recorded 2026-10-07 plan sent on equity 0.5% lower (the reviewer's case, a
+hypothetical dip), it kept **72.0%** of the traded notional. The same objectives,
+in the same order (every limit; the post-trade net closest to the full plan's; then
+the most traded), are now solved exactly: with every order wholly opening or wholly
+reducing, every limit is linear in each factor, so the search is a linear program in
+two variables (`run._fit_cuts`). Same case: **98.7%** in whole shares, $4.61 from
+the full plan's net (the grid's was $4.98 off). Reproducer: `test_fit.py`
+`test_the_2026_10_07_plan_after_a_half_percent_dip_keeps_what_fits`, which carries
+that plan. It failed safe before (never above a limit, never a refusal, never the
+wrong side), so this is uptime, not safety.
+
+What did not change, and is tested (`quantt/session/tests/test_fit.py`, seeded
+synthetic plans checked against the released fit, kept verbatim as a test
+reference, and against scipy's linear program as an independent solver): every
+fitted plan passes gate 8 term for term; each order stays wholly opening or wholly
+reducing, on its side, no larger than the plan's, so no name ends past the plan or
+flips; whole shares round the safe way (openings down, reductions up, capped);
+the stress cap is read as the gate reads it; a plan that does not add gross is not
+scaled for it. Measured 2026-10-13 on 2,400 synthetic draws (`test_fit._draw` on
+seeds 20000–22399, both fits; 1,741 draws where the fit binds and something fits):
+gate 8 refused none of the new fits, and the mean share kept rose from 48.3% to
+60.0%. In 1,738 of the 1,741 the new fit kept at least as much as the grid. The
+other 3 are the 2026-10-07 neutrality rule at work: buying power binds on a small
+opening buy, and the new fit trims a large reduction by the same dollars to hold the
+full plan's net. The grid was too coarse to do that (0.01 of a 5,773-share order is
+58 shares), so it ended $74–$1,314 further from that net, and kept up to 0.37 points
+more. The committed test allows exactly that exception, and only where each dollar
+of trade given up buys at least a dollar of neutrality (to within one share per
+order). **For the team lead:** that is the rule as written (net first, then trade);
+say if trade should come first when the difference is that small.
+
+Three details changed: `kept` (recorded as `bp_scale.factor` and
+`bp_scale_at_send.kept`) is now the share the WHOLE-SHARE orders trade, not the
+fractional plan's; the fit sums the post-trade gross in the gate's own order, so its
+check and gate 8's agree to the last bit; and a `PRE-FLIGHT WARNING` that the send
+would scale now says to what share. When only trading nothing fits (the book above
+the cap, every order adding gross), the plan comes back empty, as the grid's did.
+
+**A. A send the re-fit scaled to nothing read PASS.** With every order scaled to
+zero, the send ends `NOTHING_TO_SEND` with no refusal, and verify read the day
+"nothing left to send" and passed it. Under the team lead's 2026-10-09 rule
+only `DRY_RUN`, arming or a halt explains a no-trade day, so verify now reads it as
+`MISSED:` naming the limit (`verify._fit_emptied`): "the send-time fit to
+max_gross_stress ... kept 0 of N order(s)". The same holds when every
+order was skipped as unshortable at send (named order by order), and when the
+DECIDE-time fit emptied the plan. `send.json` records `bp_scale_at_send` and
+`plan.json` records `bp_scale` (`orders_in`, `orders_out`, `binding`) so verify can
+tell an emptied plan from one with nothing to do; a `send.json` from before
+2026-10-13 that ended `NOTHING_TO_SEND` is still `MISSED:`, saying it records no
+reason.
+
+**Left for the team lead.** A send the re-fit empties exits `NOTHING_TO_SEND`, which
+writes `DONE`, so the 15:55 retry does not run, even though equity may have
+recovered by then. A refusal at 15:52 leaves the retry free. Whether an emptied
+send should leave the retry free too is a change to the run path, not made here.
+
 ## As built (2026-10-09, amended 2026-10-11): the stress cap, missed days FAIL, the pre-flight
 
 **The incident.** On Friday 2026-10-09 the book did not trade. Gate 8 refused both
@@ -322,7 +390,8 @@ What changed (team lead's go, 2026-10-09):
   that case raised `TypeError` (`coarse[1]` on `None`): a FAIL with a traceback.
 - **A missed day is a FAIL** (`verify.DELIBERATE_GATES`). A no-trade day is
   explained only by a human's choice: `DRY_RUN`, no arming, or a halt. Any other
-  refusal, at decide or at send, gives a FAIL line beginning `MISSED:`. It
+  refusal, at decide or at send, gives a FAIL line beginning `MISSED:` (and since
+  2026-10-13 so does a plan the re-fit or the shortable skip left with nothing to send). It
   exits 1, so it also shows in `systemctl --failed` on the VM, and orient and
   the status line show it red.
 - **The evening pre-flight** (`run.preflight_send`). After a plan is decided,
@@ -360,6 +429,8 @@ Execution-desk review after the first week (plan: items 3–5).
   is scaled with four factors (opening/reducing × buy/sell) that satisfy every
   limit and keep the post-trade net closest to the full plan's, at DECIDE and again
   at SEND on the live account. What goes is always a subset of the decided plan.
+  (Searched on a grid until 2026-10-13, solved exactly since: see "As built
+  (2026-10-13)".)
 - **Fills are polled** to a final state (to close − 30 s) and recorded in
   `orders.jsonl` / `send.json`; unfilled shares are reported, never topped up.
 - **`<state>/tca.csv`**, one row per traded day: fill rate, signed slippage vs the

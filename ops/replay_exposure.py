@@ -20,7 +20,9 @@ sized equity come from that day's `plan.json`, minus any names skipped at send.
 For a DECIDE (or a `cls` run) they come from the run record's decision and
 closes. A run whose record lacks a field is listed as skipped, with the field;
 nothing is assumed. The re-fit is replayed only where the run recorded one
-(`bp_scale` / `bp_scale_at_send`), as the book's json said then.
+(`bp_scale` / `bp_scale_at_send`), as the book's json said then, and the share
+of the plan's traded notional it keeps is printed beside it (2026-10-13: the
+release-check found the released fit kept 72% of a plan where 98.7% fits).
 
 READ-ONLY. It imports the pure gate and the pure re-fit; it opens no socket and
 writes nothing. The state copy holds the account's positions: keep it out of the
@@ -76,9 +78,9 @@ def replay_run(rec: dict, plan: dict | None, spec_p: dict) -> dict:
     gross_now = float(a["long_market_value"]) + abs(float(a["short_market_value"]))
     after = sum(abs(q) * closes[s] for s, q in gt.projected_positions(orders, pos).items())
     held = sum(abs(q) * closes[s] for s, q in pos.items())
-    fitted, binding = orders, None
+    fitted, binding, kept = orders, None, 1.0
     if rec.get("bp_scale_at_send") is not None or rec.get("bp_scale") is not None:
-        fitted, _, binding = rn.fit_to_buying_power(
+        fitted, kept, binding = rn.fit_to_buying_power(
             orders, pos, closes, eq, bp, gross_now, float(a["maintenance_margin"]),
             max_gross_stress=spec_p["max_gross_stress"], sized_equity=sized)
     now = gt.gate_exposure(fitted, pos, closes, eq, bp, spec_p["max_gross_usd"],
@@ -88,6 +90,7 @@ def replay_run(rec: dict, plan: dict | None, spec_p: dict) -> dict:
     mgs = spec_p["max_gross_stress"]
     return {"n": len(orders), "held": held, "after": after, "sized": sized, "live": eq,
             "old_headroom": None if mgs is None else mgs * eq - after, "refit": binding,
+            "kept": kept,
             "then": [r["detail"] for r in rec.get("refusals") or [] if r["gate"] == "exposure"],
             "now": [r.detail for r in now]}
 
@@ -128,7 +131,7 @@ def main(argv=None) -> int:
               f"{r['held']:>10,.0f}{r['after']:>10,.0f}{r['sized']:>11,.0f}{r['live']:>11,.2f}"
               f"{room:>10}  {'; '.join(r['then'])[:60] or '-'} | "
               f"{'; '.join(r['now'])[:80] or '-'}"
-              + (f" [re-fit: {r['refit']}]" if r["refit"] else ""))
+              + (f" [re-fit kept {r['kept']:.1%}: {r['refit']}]" if r["refit"] else ""))
     done = [r for r in rows if "skipped" not in r]
     print(f"\n{len(done)} run(s) replayed, {len(rows) - len(done)} skipped; gate 8 refused "
           f"{sum(bool(r['then']) for r in done)} then, {sum(bool(r['now']) for r in done)} now.")
