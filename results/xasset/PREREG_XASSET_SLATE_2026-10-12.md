@@ -1,24 +1,57 @@
 # Pre-registration — the XASSET slate: five cross-asset tests, declared before any runs
 
-**Date** 2026-10-12 (revision 2, the same day) · **Counter** XASSET, a declared
-slate of **N = 5** (one trial per test, counted when each runs) · **Pass bar**
-`validate._dsr` > 0.95 at N = 5 · **Gate** G8 of
-`results/cef/RESEARCH_PLAN_2026-10-09.md` · **Author** research agent, branch
-`research-xasset-slate`
+**Date** 2026-10-12 (revisions 1 and 2); **revision 3, 2026-10-13** ·
+**Counter** XASSET, a declared slate of **N = 5** (one trial per test, spent
+when that test's Stage 0b begins) · **Pass bar** `validate._dsr` > 0.95 at
+N = 5 · **Gate** G8 of `results/cef/RESEARCH_PLAN_2026-10-09.md` · **Author**
+research agent, branches `research-xasset-slate` (revisions 1–2) and
+`fix-xasset-review` (revision 3)
 
-> **Status: DRAFT, revision 2 — awaiting team-lead approval.** This revision
-> carries the team lead's four rulings of 2026-10-12 (§0.1) and their
+> **Status: DRAFT, revision 3 — awaiting the team lead's final approval.**
+> Revision 3 applies the fixes of an adversarial review (the block below). It
+> keeps the team lead's four rulings of 2026-10-12 (§0.1) unchanged, with their
 > institutional-rigour requirements. It specifies the data, inference,
 > regressions, controls, robustness, holdout and decision order of every test
 > before any of their data is touched.
 >
 > **Nothing has run.** No strategy return, Sharpe, IC, turnover or backtest of
 > any X-test was computed to write this. The only measurements are coverage and
-> quality counts of the input series, history start dates, today's Alpaca asset
-> flags, the reachability of the factor files, and arithmetic on the bar and its
-> power (`python3 scripts/xasset/slate_feasibility.py --alpaca --crsp --factors`).
-> This commit moves no counter, changes no spec and touches nothing on the order
-> path.
+> quality counts of the input series, history start dates, the Alpaca asset
+> flags of 2026-10-12, the reachability of the factor files, CRSP no-closing-
+> trade counts for the panel's 13 built tickers, the frozen spec's hash, session
+> counts on the calendar, and arithmetic on the bar and its power
+> (`python3 scripts/xasset/slate_feasibility.py [--alpaca --crsp --factors]`;
+> the bar and power block re-run 2026-10-13). This commit moves no counter
+> (XASSET stays 0), changes no spec and touches nothing on the order path.
+
+---
+
+## Revision 3 (2026-10-13): the adversarial review's fixes
+
+An adversarial review of revision 2 (commit `af61e28`), delivered 2026-10-13,
+returned **APPROVE AFTER FIXES**: one critical, three high, four medium and one
+low finding. Every fix is applied below as text. None needed a return: the new
+figures are calendar counts, the spec file's hash, a CRSP count, and power
+arithmetic. The line numbers are `af61e28`'s. §0.1's rulings are unchanged.
+
+| # | severity | the finding (af61e28 line) | what revision 3 does | where |
+|---|---|---|---|---|
+| 1 | **critical** | **Stage 0 saw the P&L but spent no trial** (l.331, l.123, l.174–176). k = vol_target / σ_fit needs the raw sleeve's whole fit-window P&L, and Stage 0 also allowed a "vendor defect" fix and re-run with no criteria. A run could look at P&L, repair, and re-run for free | Stage 0 is split. **0a** (zero-trial): DG1–DG3, Q1–Q7 and any repair, the only repair being a `BAD_PRINTS`-type stub print confirmed by a third source. 0a ends by committing the panel's hash. **The counter then moves.** **0b** computes k, turnover, gross and the cap-binding share. After 0a nothing is repaired, dropped or substituted. A gate that cannot clear leaves the test UNRUN, and N stays 5 | §0 rule 3; §1.1; §1.11 |
+| 2 | high | **k uses future data, and the gross cap carried it into the decision statistics** (§1.3). Whether the 1.80 cap binds on a day depends on k, a fit-window constant; X3 is capped on every window day when IEF's volatility is below 8.8%/yr | Stages 1–3 and 5 are computed on the **sized, uncapped** sleeve, whose scale-free statistics do not depend on k. D4's betas are measured on the sized sleeve. The tradable sleeve is a reported row. Applied to stages 7 and 8 as well, so one series decides throughout (§11 item 4) | §1.3; §1.4–§1.11; §6 |
+| 3 | high | **X2's control had the wrong sign** (l.30, l.642). "The same w on SHY − BIL" put SHY in SPY's slot, so its duration sign was the opposite of X2's | H = {BIL: +w, SHY: −w}, so the control's duration sign matches X2's IEF leg. KILL if the control's Sharpe ≥ ½ × X2's, both computed from BIL's first return to 2022-12-30. The alpha of X2's week4 component on X3's sleeve is reported | §0; §3; §5 |
+| 4 | high | **The spec was read at run time** (l.176): a spec change between approval and run would change the trial silently | `vol_target_annual` = 0.06, `max_gross_stress` = 1.80 and the spec file's SHA-256 are pinned at approval. The run reads them through `spec.py` and halts at 0a on any mismatch | §1.3 |
+| 5 | medium | **The holdout end was free** (l.225): "the primary panel's last date at run time" let the run date set its length | The holdout ends **2026-09-30** for all five tests. No holdout opens until all five fit verdicts are committed | §1.5; §1.11; §10 |
+| 6 | medium | **Two undeclared choices in X2** (l.591, l.611): where the Threshold portfolios start, and which sessions each Calendar component earns | Each Threshold portfolio starts at 60% at the close of 2002-07-29 (IEF's first CRSP return [V]). The week4 component earns E−3 … D1 and the Calendar₋₄ component earns D2. A declared reading [U]; the alternative is not run | §5 |
+| 7 | medium | **Collinear factors in D4** (l.267–272): INTL = EFA − r_f and EM = EEM − r_f are largely MKT again | INTL = EFA − SPY and EM = EEM − SPY. The \|β\| rule applies to OLS point estimates. VIFs and HAC 95% CIs are printed. No factor is re-specified, orthogonalised or dropped after the result, and a TERM-hedged X3 is a new trial | §1.7; §6; §7 |
+| 8 | medium | **Power overstated** (l.440–443, l.870). X2's 0.94 was at HMM's in-sample 1.11 with no delay; X4's 0.73 at a many-market composite; the D4 column used the full fit where the post-2007 regression binds (needed IR 0.76, not 0.67); the β leg was missing | §2.2 and §9 restated at the draft's own expected Sharpes, every figure recomputed with `_dsr` [V]: X2 at 0.2 / 0.5 / 0.8 passes with P = 0.006 / 0.118 / 0.566. Published figures are upper references only. The D4 column uses the binding window and states the β leg. "A fail is informative for X2" is deleted | §1.6; §2.2; §9; `slate_feasibility.py` |
+| 9 | low | (a) X5's ladder had no declared window or breadth, and no H2 statement; (b) `_dsr`'s skew and kurtosis inputs were not pinned; (c) the P&L window was not pinned, and `evaluate()['gross_sr']` averages over the flat sessions before the first decision; (d) DG1 would have put the signed `prc` in `prc_adj`, which `src/backtest/engine.py` reads, and checked 10 of the 13 built tickers | (a) breadth ⌈5/2⌉ = 3, X5's window, the H2 reason; (b) sk = `pd.Series.skew()`, ku = `.kurt() + 3`, as `scripts/cef/validate.py:342`; (c) every statistic and T on the P&L from the first decision + 2 sessions to 2022-12-30, never `evaluate()['gross_sr']`, the holdout P&L sliced from the continuous series; (d) a new column, and all 13 rebuild unchanged | §1.1; §1.5; §1.6; §8 |
+
+**Also corrected in place.** Revision 2's §2.2 counted fit sessions from the
+first decision + 1; the P&L starts at + 2, so every T falls by one. Its power
+used SE = 1/√years; it now uses `_dsr`'s own denominator. Neither moves a
+required Sharpe by more than 0.01.
+
+**Decisions this revision leaves to the team lead** are listed in §11.
 
 ---
 
@@ -27,7 +60,7 @@ slate of **N = 5** (one trial per test, counted when each runs) · **Pass bar**
 | id | test | traded instruments | published rule (`docs/REFERENCES.md` §12i) | named control | plan |
 |---|---|---|---|---|---|
 | **X1** | credit and rates trend | HYG LQD IEF TLT EMB PFF MUB BKLN CWB | Moskowitz, Ooi & Pedersen (2012), "MOP": time-series momentum (TSMOM) | Huang, Li, Wang & Zhou (2020), "HLWZ": the historical-mean rule (TSH), same weights | §3 row 3 |
-| **X2** | front-running pension and balanced-fund rebalancing | SPY vs IEF | Harvey, Mazzoleni & Melone (2026), "HMM": Threshold + Calendar strategy | the same weight on SHY − BIL | §3 row 4 |
+| **X2** | front-running pension and balanced-fund rebalancing | SPY vs IEF | Harvey, Mazzoleni & Melone (2026), "HMM": Threshold + Calendar strategy | the same w on BIL (in SPY's slot) and SHY (in IEF's slot): {BIL: +w, SHY: −w} (revision 3) | §3 row 4 |
 | **X3** | month-end Treasury extension | IEF | Hartley & Schwarz (2019), "H&S": long the last 3 sessions | IEF on every other session; IEF held every day | §3 row 12 |
 | **X4** | multi-asset trend | X1 + SPY EFA EEM GLD DBC | MOP TSMOM, as X1 | TSH, as X1 | §3 row 12 |
 | **X5** | cross-sectional fixed-income momentum | X1 less MUB (8 names) | Baltussen, Swinkels & van Vliet (2019), "BSV", after Asness, Moskowitz & Pedersen (2013), "AMP" | the identical rule on the Treasury ladder SHY IEI IEF TLH TLT; spanning by X1 | §3 row 12 |
@@ -42,10 +75,15 @@ slate of **N = 5** (one trial per test, counted when each runs) · **Pass bar**
    table and in `docs/REFERENCES.md` §12i. Where a futures or index rule cannot
    be applied verbatim to ETFs, the mapping is stated here once, before any
    return is seen, and it is not revisited. One reading is declared where a
-   paper is ambiguous (X2's Calendar₋₄). **Nothing was chosen by looking at our
-   data, and nothing is swept.**
-3. **The counter moves when a test runs, not at approval.** XASSET's
-   trials-used column goes 0 → k in the commit that carries the k-th result.
+   paper is ambiguous (X2's Calendar₋₄; since revision 3 also X2's exposure
+   days and its Threshold start). **Nothing was chosen by looking at our data,
+   and nothing is swept.**
+3. **The counter moves when a test's Stage 0b begins, not at approval**
+   (revision 3; before it, "when a test runs"). Stage 0a, which touches no P&L,
+   is zero-trial and ends with a commit of the input files' hashes. XASSET's
+   trials-used column then goes k−1 → k in a commit made before that test's
+   Stage 0b computes anything. A test whose Stage 0a gate cannot clear is
+   **UNRUN**: it spends no trial, and **N stays 5**.
 4. **Approval approves a test, not a sleeve.** A test that passes goes through
    plan §4: a frozen-spec key with a byte-for-byte no-op proof, its H11
    statistic, then a release.
@@ -93,16 +131,17 @@ slate of **N = 5** (one trial per test, counted when each runs) · **Pass bar**
   `YF_LAST` and Alpaca after. The two sources are never averaged. CRSP is
   declared primary now, so neither is picked after a result.
 
-**Data gates before any run.** All are zero-trial, and each halts the run if it
-fails.
+**Data gates before any run (Stage 0a).** All are zero-trial, and each halts
+the run if it fails. A gate that cannot clear leaves every test that needs it
+UNRUN (§1.11).
 
 | gate | what | done when |
 |---|---|---|
-| **DG1** | Extend `scripts/build_etf_daily.py` to the nine slate names it lacks, with their PERMNOs (share code 73, resolved from CRSP on 2026-10-12): SPY 84398, EMB 92491, PFF 91874, MUB 92273, BKLN 12631, CWB 92914, IEI 91705, TLH 91704, AGG 89848. Keep the sign of CRSP `prc` as a no-closing-trade flag (the file stores \|prc\| today). Build to a staging path first | every name passes the build's own gates, including its 2024 overlap gate `SPLICE_MAX_BP` (5bp). The ten names already built rebuild unchanged |
+| **DG1** | Extend `scripts/build_etf_daily.py` to the nine slate names it lacks, with their PERMNOs (share code 73, resolved from CRSP on 2026-10-12): SPY 84398, EMB 92491, PFF 91874, MUB 92273, BKLN 12631, CWB 92914, IEI 91705, TLH 91704, AGG 89848. Keep the sign of CRSP `prc`, the no-closing-trade flag, **in a new column** (revision 3). `prc_adj` stays \|prc\| / cfacpr, because `src/backtest/engine.py` and `ops/common.py`'s replay read `data/etf_daily.parquet`. Build to a staging path outside `data/` first | every name passes the build's own gates, including its 2024 overlap gate `SPLICE_MAX_BP` (5bp). **All 13 tickers already built** (ANGL, BIL, DBC, EEM, EFA, FALN, GLD, HYG, IEF, JNK, LQD, SHY, TLT) rebuild unchanged in every existing column (`scripts/rv/panel_identity.py`). ANGL, FALN and JNK carry the 69 negative-`prc` rows (30, 38 and 1 [V: `dsf` on the R2 mirror, 2026-10-13; the build's docstring gives the same]; the other ten have none), so the new column is checked on them. Revision 2 named only ten |
 | **DG2** | `scripts/data/fetch_aqr_factors.py` (AQR TSMOM and VME files) writes to a gitignored cache and records the file's vintage. French factors come from the existing `scripts/data/fetch_ff_factors.py` | the factor files parse with the columns in §2.1, and REFERENCES carries a row for the fetcher |
 | **DG3** | Risk-free: FRED DGS3MO via `scripts/gamma/fetch_fred.py DGS3MO --out <cache outside data/>` (REFERENCES §8) | the series covers the panel's last date minus one session |
 
-**P2. The data-quality screen** runs at Stage 0 on the primary return of every
+**P2. The data-quality screen** runs at Stage 0a on the primary return of every
 instrument, over fit and holdout. Every flag is listed in the run's log and its
 committed result note, by instrument and date, with both sources' values.
 **Nothing is dropped, filled or altered by a trial script.**
@@ -117,12 +156,29 @@ committed result note, by instrument and date, with both sources' values.
 | Q6 cross-source | \|CRSP − in-house\| > 5bp on a session | flag, both values listed |
 | Q7 seams | the splice days 2024-12-31 / 2025-01-02 and 2026-07-20 / 07-21 | flag |
 
-How flags are handled:
+How flags are handled (revision 3; revision 2 allowed any "vendor defect" to
+be fixed and Stage 0 re-run, with no criteria, at a stage that also computed
+k from the P&L):
 
-- **The headline is computed on the primary series as it stands.**
-- **A flag found to be a vendor defect is fixed in the fetcher**, with a dated
-  note (the model is the ANGL 2013-08-02 repair in `build_etf_daily.py`), and
-  Stage 0 re-runs. This happens before any P&L, so no trial is spent.
+- **The headline is computed on the primary series as it stands at the end of
+  Stage 0a.**
+- **Only one kind of repair exists, and only in Stage 0a:** a stub print of the
+  `BAD_PRINTS` type, the model being the ANGL 2013-08-02 repair in
+  `build_etf_daily.py` (a closing print far outside the session's traded
+  range, on thin volume, that fully reverses the next session). It is repaired
+  only when **a third source**, independent of CRSP and of the in-house panel's
+  vendors (for example the listing exchange's official close, or the issuer's
+  published price history), confirms the true close. It enters `BAD_PRINTS`
+  with a dated note naming that source. **No other flag alters a value.**
+  Making DG1's build pass its own gates is DG1's work, not a repair.
+- **Stage 0a ends with one commit** recording the SHA-256 of every input file
+  the trials read (the staged ETF panel, the factor caches with their vintages,
+  the DGS3MO cache, the frozen spec), the full Q1–Q7 flag list and any repair.
+  Every later stage re-verifies those hashes before it reads an input, and a
+  mismatch halts.
+- **After Stage 0a nothing is repaired, dropped or substituted**: not a
+  session, an instrument, a source or a factor. A defect found later is
+  reported against the result, never fixed into it.
 - **Robustness row R-Q** recomputes with flagged sessions excluded from the
   P&L statistics. It is reported and never chosen from.
 - **Today's counts** (CRSP to 2024-12-31): one no-closing-trade day and one
@@ -167,30 +223,63 @@ rule (shift(2)) through `evaluate()` in `scripts/cef/band_frontier.py`.
 
 ### 1.3 Sizing (P5, ruling 4)
 
+**The spec values are pinned at approval (revision 3).** Revision 2 read the
+vol target "at run time", so a spec change between approval and run would have
+changed the trial without a note. Pinned:
+
+| key, read through `scripts/cef/spec.py` | pinned value |
+|---|---|
+| `vol_target_annual` | **0.06** |
+| `max_gross_stress` | **1.80** |
+| SHA-256 of `ops/specs/cef_discount.frozen.json` | `c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e` (git blob `3da1bd77271e28d3ccc11249fdf73530b176d3d1`) |
+
+All three are as at main `9d7d317`, read 2026-10-13 [V: `spec.py`'s
+`VOL_TARGET` and `MAX_GROSS_STRESS`; `git show 9d7d317:ops/specs/cef_discount.frozen.json | shasum -a 256`].
+
+- **The run reads both values through `spec.py` and checks the file's
+  SHA-256. Any mismatch halts at Stage 0a** and goes to the team lead.
+- **If the spec changes before approval,** the approval names the hash it pins,
+  and this table is amended in place with a dated note.
+
 Every test is evaluated at three levels:
 
 - **Raw sleeve:** the published rule at the paper's own scale (MOP's 40%/σ;
   HMM's w; H&S's notional 1; BSV's dollar ranks over σ).
 - **Sized sleeve:** k × the raw sleeve, where **k = `vol_target_annual` /
-  σ_fit**. The vol target is read at run time through `scripts/cef/spec.py`
-  (0.06 on 2026-10-12). σ_fit is the annualised (×√252) standard deviation of
-  the raw sleeve's daily gross excess P&L over the fit window. k is one
-  constant, derived on the fit window and applied unchanged to the holdout and
-  live (H13).
-- **Tradable sleeve:** the sized sleeve with the spec's `max_gross_stress` cap
-  (1.80 on 2026-10-12) applied row by row through `_cap_gross`, the sleeve's
-  own operator.
+  σ_fit**. σ_fit is the annualised (×√252) standard deviation of the raw
+  sleeve's daily gross excess P&L over the fit P&L window (§1.6). k is
+  computed at Stage 0b, after the trial is spent. It is one constant, derived
+  on the fit window and applied unchanged to the holdout and live (H13).
+  **The sized sleeve is never capped.**
+- **Tradable sleeve:** the sized sleeve with the `max_gross_stress` cap applied
+  row by row through `_cap_gross`, the sleeve's own operator. **Reported only.**
 
-**The decision series is the tradable sleeve.**
+**The decision series is the sized, uncapped sleeve** (revision 3; revision 2
+decided on the tradable sleeve).
 
-- **Scale-free statistics** (Sharpe, t, DSR, alpha t, correlations) are the
-  same for the raw and sized sleeves. The tradable sleeve's differ from them
-  only where the cap binds, and that share is reported.
+- **Why.** k is a fit-window constant, so it uses data after each day it
+  scales. For scale-free statistics that does not matter: Sharpe, t, DSR,
+  alpha t, correlations, placebo ranks and the net Sharpes of the cost grid
+  are the same for the sized sleeve as for the raw one, whatever k is. A cap
+  breaks this. Whether it binds on a day depends on k, so it would carry
+  future data into the decision statistics. X3 shows the case is real: P5 sets
+  its window notional to about 0.06 / (σ_IEF·√(3/21)), which exceeds 1.80
+  whenever IEF's annualised volatility is below 0.06 / (1.80·√(3/21)) ≈ 8.8%
+  [arithmetic, taking X3's unconditional volatility as σ_IEF·√(3/21)]. Below
+  that, the tradable X3 is capped on every window day.
+- **Stages 1–3, 5, 7 and 8 are computed on the sized sleeve.** The review
+  named stages 1–3 and 5. Stages 7 and 8 follow, so that one series decides
+  throughout (§11 item 4).
+- **D4's betas (stage 4) are measured on the sized sleeve**, as ruling 4
+  requires. They are the one decision quantity that depends on k.
+- **The tradable sleeve is a reported row** beside every stage, with the share
+  of sessions on which the cap binds.
 - **Scale-dependent statistics** (betas, alpha in %/yr, gross, turnover, cost
-  drag) are reported at the tradable scale. **D4's betas are measured there.**
+  drag) are reported at both the sized and the tradable scale.
 - **One sizing rule for everything compared.** Every control, placebo and
-  factor sleeve in a comparison (TSH, SHY−BIL, IEF on other days, the Treasury
-  ladder, the long-only version) is sized by the same rule with its own k.
+  factor sleeve in a comparison (TSH, the BIL/SHY control, IEF on other days,
+  the Treasury ladder, the long-only version) is sized by the same rule with
+  its own k, and is uncapped.
 - **Why k is a fit-window constant.** A time-varying ex-ante scalar would
   re-weight the published rule's returns through time, and would make it a
   different strategy from the paper's.
@@ -202,7 +291,8 @@ Every test is evaluated at three levels:
 - **Gross P&L is the headline.**
 - Net is shown beside it at 5, 15 and 30bp per unit of one-way turnover
   (`band_frontier._stats`), with whether the sign flips across the grid.
-  Turnover is Σ|ΔH| of the tradable sleeve, as the harness defines it.
+  Turnover is Σ|ΔH|, as the harness defines it, of the sized sleeve (the
+  decision) and of the tradable sleeve (reported).
 
 **Borrow is UNMEASURED.** The repo holds no history of ETF borrow fees. Each
 run reports the average short notional, so any rate can be applied. Every
@@ -219,36 +309,54 @@ distribution a short owes is inside CRSP `ret`.
 ### 1.5 Windows and the holdout (P7)
 
 **Fit window.** From each test's first decision under its declared breadth rule
-(§2.2) to 2022-12-30. Nothing is fitted: "fit" means the in-sample evaluation
-window. Eras follow H5 (2005–09, 2010–14, 2015–19, 2020–22, 2023–26).
+(§2.2) to 2022-12-30. Under H1 its P&L runs from the first decision + 2
+sessions to 2022-12-30 (§1.6). Nothing is fitted: "fit" means the in-sample
+evaluation window. Eras follow H5 (2005–09, 2010–14, 2015–19, 2020–22,
+2023–26).
 
-**Holdout.** 2023-01-03 to the primary panel's last date at run time: 946
-sessions to 2026-10-09 when written [V]. It is opened **once per test, after
-that test's fit verdict is committed**, whatever the verdict, so the record is
-complete. Every fit-derived quantity is frozen: k, the rules, and every
-threshold computed from the fit.
+**Holdout.** 2023-01-03 to **2026-09-30, for all five tests** (revision 3):
+939 sessions, 3.73 years [V: `slate_feasibility.py`, 2026-10-13]. Revision 2
+ended it at "the primary panel's last date at run time", which let the run
+date set its length.
+
+- **No holdout opens until all five fit verdicts are committed** (revision 3;
+  revision 2 opened each test's holdout after its own verdict). A test left
+  UNRUN at Stage 0a is committed as UNRUN, and that counts as its verdict
+  (§11 item 5).
+- **Then each test's holdout is opened once**, whatever its fit verdict, so
+  the record is complete.
+- **Every fit-derived quantity is frozen:** k, the rules, and every threshold
+  computed from the fit.
+- **The holdout P&L comes from the continuous series.** Until the holdout
+  opens, every computation is truncated by `fit_only`. When it opens, each
+  sleeve is evaluated once, through `evaluate()`, from its first decision to
+  2026-09-30, and the holdout rows are sliced from that one P&L. So the
+  positions decided on 2022-12-29 and 2022-12-30 earn the first two holdout
+  sessions, as they would have live; the holdout never restarts flat. The
+  fit rows of that series must equal the fit stages' P&L exactly (asserted).
 
 **Holdout rule (declared now).**
 
-- **Statistic:** the mean daily excess P&L of the tradable sleeve.
+- **Statistic:** the mean daily excess P&L of the sized sleeve.
 - **Pass:** for a fit PASS-candidate, the holdout mean has the same sign as the
   fit mean. Otherwise KILL (D3).
 - **Reported beside it:** the holdout Sharpe, its HAC t, a stationary-bootstrap
   95% CI, and the probability of the observed sign under the fit Sharpe.
 - **False-kill rate:** at a true Sharpe of 0.5 the sign rule fires by chance
-  with probability Φ(−0.5·√3.75) ≈ 0.17 [arithmetic].
+  with probability Φ(−0.5·√3.73) = 0.167 [V: `slate_feasibility.py`,
+  2026-10-13].
 - **The holdout can kill; it can never rescue a failed fit.**
 
 ### 1.6 Inference (P8)
 
 | quantity | method, declared |
 |---|---|
-| **headline** | annualised Sharpe (mean × 252 / sd × √252) of the tradable sleeve's daily gross excess P&L over the fit window |
+| **headline** | annualised Sharpe (mean × 252 / sd × √252) of the sized sleeve's daily gross excess P&L over the **fit P&L window: from the first decision + 2 sessions (H1) to 2022-12-30**. Every statistic of every stage, and the T passed to `_dsr`, use that window (or the narrower one a row names). **Never `evaluate()['gross_sr']`**, which averages over the flat sessions before the first decision too; the statistics are computed on the sliced daily series (revision 3) |
 | **HAC t of the mean** | Newey–West (Bartlett) with **L = 21 sessions**, through `scripts/cef/w4_artifacts.py::nw_t(x, lags=21)`. L is one rebalance month, and is fixed above the Newey–West (1994) rule ⌊4(T/100)^(2/9)⌋, which gives 8–9 at these fit lengths and is printed as a sensitivity |
 | **bootstrap CIs** | stationary bootstrap (Politis–Romano) with **expected block 21 sessions**, 10,000 resamples, seed 20261012: 95% percentile CIs for the mean (%/yr) and the Sharpe. A mean block of 63 sessions, and the repo's moving-block bootstrap (`w4_artifacts.block_boot_t`), are printed as second methods |
-| **the bar (decision)** | `scripts/cef/validate.py::_dsr(obs, T, skew, kurt, 5)` on the fit-window gross series; **PASS > 0.95** (ruling 2) |
+| **the bar (decision)** | `scripts/cef/validate.py::_dsr(obs, T, sk, ku, 5)` on the fit-window gross series, with **sk = `pd.Series.skew()` and ku = `pd.Series.kurt() + 3`** of the same daily series, as `scripts/cef/validate.py:342` computes them (pandas' `kurt` is excess kurtosis; `_dsr` takes raw kurtosis); **PASS > 0.95** (ruling 2) |
 | beside it, labelled, never deciding | SR·√years against √(2 ln 5) = 1.794 (the agenda's reading); `_dsr` at N = 162 (LEGACY) |
-| **power** (stated now, §2.2) | the Sharpe each test must show, the Sharpe at 80% power, and P(pass) at the published Sharpe and at 0.42 × it (McLean & Pontiff's 58% post-publication fall) |
+| **power** (stated now, §2.2) | the Sharpe each test must show, the Sharpe at 80% power, and P(pass) **at the draft's own expected Sharpes**, with the SE taken from `_dsr`'s own denominator. The published Sharpe, and 0.42 × it (McLean & Pontiff's 58% post-publication fall), are printed as upper references only (revision 3) |
 | monthly regressions | the same HAC estimator with L = ⌊4(T_m/100)^(2/9)⌋ = 4 at these fit lengths |
 
 ### 1.7 Regressions (P9)
@@ -264,22 +372,36 @@ P3's r_f:
 - **IG** = LQD − IEF
 - **COMMOD** = DBC − r_f
 - **GOLD** = GLD − r_f
-- **INTL** = EFA − r_f
-- **EM** = EEM − r_f
+- **INTL** = EFA − SPY (revision 3; revision 2 had EFA − r_f)
+- **EM** = EEM − SPY (revision 3; revision 2 had EEM − r_f)
+
+**Collinearity, declared before any regression runs (revision 3).** As
+revision 2 wrote them, INTL and EM were largely MKT again, so their betas would
+have been unstable and a \|β\| rule on them close to arbitrary.
+
+- **INTL and EM are spreads over SPY**, so they carry the non-US part of those
+  markets. HY and IG were already spreads over IEF.
+- **The \|β\| ≤ 0.10 rule applies to the OLS point estimates**, not to a
+  confidence bound.
+- **Every R-D4 prints each factor's VIF and its HAC 95% CI** beside the point
+  estimate.
+- **No factor is re-specified, orthogonalised or dropped after a result is
+  seen.** A test that fails D4 on a factor stays failed.
+- **A TERM-hedged X3 is a new trial**, not a repair of X3 (§6).
 
 | regression | role | specification |
 |---|---|---|
-| **R-D4** | **decision (ruling 4)** | daily tradable sleeve on its declared D4 set (each test's section), over the fit window ∩ the factors' history. **Pass: alpha t ≥ 3.0 and every \|β\| ≤ 0.10.** Where HYG's history (from 2007-04-12) would shorten the fit, two R-D4 regressions are declared and **both must pass**: the full fit without HY and IG, and the window from 2007-04-12 with them |
+| **R-D4** | **decision (ruling 4)** | daily **sized** sleeve on its declared D4 set (each test's section), over the fit P&L window ∩ the factors' history. **Pass: alpha t ≥ 3.0 and every \|β\| ≤ 0.10** (OLS point estimates). Where HYG's history (from 2007-04-12) would shorten the fit, two R-D4 regressions are declared and **both must pass**: the full fit without HY and IG, and the window from 2007-04-12 with them. The shorter one binds the power (§2.2) |
 | **R-FF** | reported | R-D4's set plus French MKT-RF, SMB, HML and UMD (daily; French's library, the vintage recorded) |
 | **R-AQR** | reported, monthly | the sleeve's monthly excess P&L on the AQR factors named in each section (TSMOM, TSMOM^FI / ^EQ / ^CM, VME MOM, MOMLS_VME_FI) |
 | **R-LONG** | reported (X1, X4) | the sleeve on its own long-only version (sign ≡ +1, sized by P5): MOP's own check, p.236 |
-| **R-SPAN** | **decision (X5 only)** | X5 on X1's tradable sleeve plus MKT, TERM, HY, IG. **Pass: alpha t ≥ 1.96**; otherwise X5 is spanned by trend (BSV p.23) |
+| **R-SPAN** | **decision (X5 only)** | X5's sized sleeve on X1's sized sleeve plus MKT, TERM, HY, IG. **Pass: alpha t ≥ 1.96**; otherwise X5 is spanned by trend (BSV p.23) |
 
 ### 1.8 Controls and placebos (P10)
 
 - **Named control, per test.** Its kill rule is in the test's decision table.
   A control is sized by P5 and run through the same harness.
-- **Block-shuffled-signal placebo.** The rows of the tradable `H` are permuted
+- **Block-shuffled-signal placebo.** The rows of the sized `H` are permuted
   in contiguous 21-session blocks while returns stay fixed. That keeps each
   position's size and turnover and destroys its timing. 1,000 draws, seed
   20261012. **KILL (D1) if the real gross Sharpe ≤ the placebo's 95th
@@ -306,7 +428,8 @@ P3's r_f:
   offsets) as an error band.
 - Bootstrap mean block 63.
 - The Newey–West (1994) automatic lag.
-- The raw (uncapped) sleeve against the tradable one.
+- The tradable (capped) sleeve against the sized one, with the share of
+  sessions on which the cap binds.
 - Row R-Q (flagged sessions excluded).
 - **The in-house panel in place of CRSP**, for source sensitivity.
 
@@ -314,7 +437,8 @@ P3's r_f:
 
 - **The book's series:** daily gross total-return P&L, built as
   `scripts/xasset/book_profile.py` builds it (v7 band, gross-capped), from the
-  book's first position.
+  book's first position. **The X side is each sized sleeve**; correlations are
+  scale-free, so the raw sleeve gives the same values.
 - **What is reported:**
   - daily ρ;
   - non-overlapping 21-session ρ, Pearson and Spearman;
@@ -326,22 +450,28 @@ P3's r_f:
 
 ### 1.11 The order of evaluation (P13): the same for every test
 
+Revision 3 splits revision 2's Stage 0, which computed k (and so read the
+raw sleeve's whole fit-window P&L) while spending no trial, and allowed repairs
+with no criteria.
+
 | stage | statistic | rule | outcome if the rule fails |
 |---|---|---|---|
-| 0 | DG1–DG3; P2 screen; turnover, gross, cap-binding share, k | Q1 or a gate fails → halt | **no trial spent**; fixed or referred to the team lead |
-| — | **the trial is spent from here** | the counter moves in the commit carrying the result | — |
-| 1 | headline: tradable gross Sharpe, NW t (L = 21) | t ≥ 1.96 | **KILL D1**: no detectable edge |
+| **0a** | DG1–DG3; the spec pin (§1.3); the P2 screen Q1–Q7; any repair, of the one permitted kind (§1.1). **No return is combined into a P&L.** Ends with one commit of the input files' SHA-256s, the flag list and any repair | every gate clears; Q1 clean; the spec pin matches | **no trial spent.** A gate that cannot clear leaves each test that needs it **UNRUN**, and N stays 5. Referred to the team lead |
+| — | **the trial is spent from here.** XASSET's trials-used k−1 → k, in a commit made before this test's Stage 0b computes anything | — | — |
+| **0b** | the input hashes re-verified; then k, turnover, gross and the cap-binding share | a hash mismatch halts | the trial is spent; referred to the team lead |
+| 1 | headline: sized gross Sharpe, NW t (L = 21) | t ≥ 1.96 | **KILL D1**: no detectable edge |
 | 2 | named control (section) | section's rule | **KILL** (code in section) |
 | 3 | placebo; shift(3) where it decides | §1.8 | **KILL D1** |
-| 4 | R-D4 (and R-SPAN for X5) | §1.7 | **KILL D4** (or "spanned", X5) |
+| 4 | R-D4 on the sized sleeve (and R-SPAN for X5) | §1.7 | **KILL D4** (or "spanned", X5) |
 | 5 | the bar: `_dsr` at N = 5 | > 0.95 | **NEITHER**: real at most, but below the bar. No sleeve and no re-test on these data. The team lead rules WATCH or D5 |
 | 6 | the fit verdict is committed | — | — |
-| 7 | holdout sign (§1.5) | same as fit | **KILL D3** |
-| 8 | a PASS's net Sharpe at 15bp | > 0 | labelled **D2**: no real-money sleeve. Paper only by team-lead ruling |
+| 7 | holdout sign (§1.5), opened only once **all five** fit verdicts are committed | same as fit | **KILL D3** |
+| 8 | a PASS's net Sharpe at 15bp (sized sleeve) | > 0 | labelled **D2**: no real-money sleeve. Paper only by team-lead ruling |
 
-**Every statistic of every stage is computed and reported, whatever the
-verdict.** The verdict is the first failing rule in this order. A PASS needs
-stages 1–5 and 7.
+**After Stage 0a nothing is repaired, dropped or substituted.** **Every
+statistic of every stage is computed and reported, whatever the verdict,** on
+the sized sleeve with the tradable sleeve's value beside it. The verdict is the
+first failing rule in this order. A PASS needs stages 1–5 and 7.
 
 ### 1.12 Scripts and holdouts of names (P14)
 
@@ -349,7 +479,9 @@ stages 1–5 and 7.
   `evaluate`, `_stats`, `fit_only` and `calendar_offset` from
   `scripts/cef/band_frontier.py`, `_dsr` from `scripts/cef/validate.py`, and
   `nw_t` from `scripts/cef/w4_artifacts.py`.
-- **Order:** X5 runs after X1, because R-SPAN needs X1's series.
+- **Order:** X5 runs after X1, because R-SPAN needs X1's series. X2's
+  reported week4-on-X3 regression (§5) needs X3's series, so it is reported
+  once both have run; it decides nothing.
 - **The 27-name holdout:** no X instrument is in `data/cef/cef_universe.csv`
   (checked 2026-10-12), so no X-test consumes it.
 
@@ -392,8 +524,9 @@ stages 1–5 and 7.
 
 **What the table establishes.**
 
-- **CRSP PERMNOs agree with the build.** For the ten names already in
-  `build_etf_daily.py`, the PERMNOs CRSP resolves and their row counts equal
+- **CRSP PERMNOs agree with the build.** For the ten slate names already in
+  `build_etf_daily.py` (which holds 13 tickers; ANGL, FALN and JNK are not
+  slate names), the PERMNOs CRSP resolves and their row counts equal
   the build's `PERMNOS` map.
 - **The in-house panel starts up to six sessions after CRSP** (EFA). The cause
   was not investigated, and it does not matter here: P1 makes CRSP primary.
@@ -411,37 +544,97 @@ stages 1–5 and 7.
 | AQR VME | VAL, MOM, …, MOMLS_VME_FI, MOMLS_VME_EQ, … | 1972-01-31 → 2026-07-31 |
 | French FF5 + UMD | MKT-RF, SMB, HML, RMW, CMA, UMD | daily to 2026-08-31, vintage 202608 (REFERENCES §8, 2026-10-11) |
 
-### 2.2 Fit windows, the bar, and power
+### 2.2 Fit windows, the bar, and power (restated in revision 3)
 
-**The arithmetic.**
+**Source:** `python3 scripts/xasset/slate_feasibility.py`, the per-test block,
+re-run 2026-10-13 [V]. Arithmetic on the bar, on the calendar and on the
+draft's own expectations; no return is read.
 
-- **Required SR** is the annualised Sharpe at which `_dsr` reaches 0.95 (skew
-  0, kurtosis 3), found by inverting the repo's own function.
-- **Power** uses the normal approximation SE = 1/√years.
-- **The "published" Sharpe** is the paper's out-of-sample figure where it gives
-  one. All of this is arithmetic on the bar and on published numbers [V,
-  `slate_feasibility.py`].
+**What changed from revision 2, and why** (the review's fix 8):
 
-| test | breadth rule | first decision | fit sessions (yr) | **required SR** (N = 5) | SR for 80% power | published SR (source) | P(pass) at published | P(pass) at 0.42× | D4: alpha t ≥ 3 needs SR ≥ | P(alpha t ≥ 3) at published | agenda reading, SR·√yr = 1.794 (labelled, not a decision) |
-|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---:|
-| X1 | ≥ 5 of 9 with 12 months | 2008-04-30 | 3,694 (14.7) | 0.90 | 1.12 | 0.49 (BSV IV-A, bond trend) | **0.06** | 0.00 | 0.78 | 0.13 | 0.47 |
-| X2 | both, 1 month | 2002-08-30 | 5,119 (20.3) | 0.76 | 0.95 | 1.11 (HMM Table 6, in-sample) | 0.94 | 0.09 | 0.67 | 0.98 | 0.40 |
-| X3 | IEF, 1 month | 2002-08-30 | 5,119 (20.3) | 0.76 | 0.95 | 0.88 (H&S Table 3) | 0.70 | 0.04 | 0.67 | 0.83 | 0.40 |
-| X4 | ≥ 7 of 14 with 12 months | 2005-11-30 | 4,300 (17.1) | 0.83 | 1.04 | 0.98 (BSV IV-A, multi-asset) | 0.73 | 0.04 | 0.73 | 0.85 | 0.43 |
-| X5 | ≥ 4 of 8 with 36 months | 2010-03-31 | 3,211 (12.7) | 0.96 | 1.20 | 0.31 (BSV IV-A, bond momentum) | **0.01** | 0.00 | 0.84 | 0.03 | 0.50 |
+- **T is the P&L session count**, from the first decision + 2 sessions (H1)
+  to 2022-12-30: the T the trial will pass to `_dsr`. Revision 2 counted from
+  the first decision + 1.
+- **The SE is `_dsr`'s own.** Power is P(observed Sharpe > required Sharpe),
+  with the observed Sharpe normal around the true one and its SE taken from
+  `_dsr`'s denominator at skew 0 and kurtosis 3 (`sr_se`). Revision 2 used
+  1/√years. Two tests in `scripts/xasset/tests/test_slate_feasibility.py` hold
+  this: `sr_se` equals the SE implied by `_dsr`'s z, and a simulation that
+  draws daily returns at a known Sharpe and applies `_dsr` to each path agrees
+  with the closed form.
+- **Power is stated at the draft's own expected Sharpes** (each test's
+  "Expectation" [U]; the mid is the midpoint). X3's section gives no number, so
+  its bracket runs from 0.42 × the published Sharpe to the published Sharpe.
+- **The published Sharpes are upper references, not expectations.** Revision
+  2's headline power for X2 (0.94) was at HMM's in-sample 1.11 on futures,
+  with signals used one session earlier than shift(2) allows.
+- **The D4 column uses the binding regression.** Where two R-D4 regressions are
+  declared (X2, X3, X4), the one from HYG's first return is shorter and binds:
+  it needs IR 0.76, not revision 2's 0.67 (X2, X3) or 0.73 (X4).
 
-**What a null result means, stated before anything runs** (the team lead
-asked for this so that a null can be read):
+**Table A. The bar, and power at the draft's own expectations.**
 
-- **X1 and X5 are underpowered.** Even if their effects are real at the
-  published strength, they pass with probability 0.06 and 0.01. A failure of
-  either says almost nothing about the mechanism; a pass would be surprising
-  evidence.
-- **X2, X3 and X4 are powered at their published Sharpes** (0.70–0.94). But
-  every published figure is from the authors' own sample, and none survives a
-  McLean–Pontiff-sized decay: power falls to 0.04–0.09.
-- **So a pass is informative for all five, and a fail is informative only for
-  X2, X3 and X4.**
+| test | breadth rule | first decision | first P&L | T, sessions (yr) | **required SR** (N = 5) | SR for 80% power | the draft's expected SR [U] | **P(pass)** at expected low / mid / high |
+|---|---|---|---|---|---:|---:|---|---|
+| X1 | ≥ 5 of 9 with 12 months | 2008-04-30 | 2008-05-02 | 3,693 (14.65) | 0.90 | 1.12 | 0.30–0.60 (§4) | 0.011 / 0.043 / 0.127 |
+| X2 | both, 1 month | 2002-08-30 | 2002-09-04 | 5,118 (20.31) | 0.76 | 0.95 | 0.20–0.80 (§5) | **0.006 / 0.118 / 0.566** |
+| X3 | IEF, 1 month | 2002-08-30 | 2002-09-04 | 5,118 (20.31) | 0.76 | 0.95 | none stated (§6); bracket 0.37–0.88 | 0.038 / 0.267 / 0.700 |
+| X4 | ≥ 7 of 14 with 12 months | 2005-11-30 | 2005-12-02 | 4,299 (17.06) | 0.83 | 1.04 | 0.40–0.80 (§7) | 0.037 / 0.168 / 0.446 |
+| X5 | ≥ 4 of 8 with 36 months | 2010-03-31 | 2010-04-05 | 3,210 (12.74) | 0.96 | 1.20 | 0.00–0.40 (§8) | < 0.001 / 0.003 / 0.022 |
+
+**Table B. Published Sharpes: upper references only, never an expectation.**
+
+| test | published SR (source) | why it is an upper bound here | P(pass) at published | at 0.42 × published | agenda reading: SR·√yr = 1.794 needs SR ≥ (labelled, never deciding) |
+|---|---|---|---:|---:|---:|
+| X1 | 0.49 (BSV Table IV-A, bond trend) | 10-year government bond indices, not credit ETFs | 0.059 | 0.004 | 0.47 |
+| X2 | 1.11 (HMM Table 6) | in-sample; futures; signals used one session earlier than shift(2) allows, so day 1 is kept | 0.941 | 0.090 | 0.40 |
+| X3 | 0.88 (H&S Table 3) | a 10-year zero, inside the paper's own sample; t = 3 carries the paper's own selection from its 1–10 sweep | 0.700 | 0.038 | 0.40 |
+| X4 | 0.98 (BSV Table IV-A, multi-asset trend) | an equal-volatility composite over many markets, FX included | 0.728 | 0.041 | 0.43 |
+| X5 | 0.31 (BSV Table IV-A, bond momentum) | 10-year government bond indices | 0.010 | 0.001 | 0.50 |
+
+**Table C. D4: the alpha leg on the binding window.** These treat the whole
+sleeve Sharpe as alpha (all betas zero), so they are upper bounds on P(D4 pass)
+even before the β leg.
+
+| test | R-D4 regressions | binding window, T (yr) | alpha t ≥ 3 needs IR ≥ | P(alpha t ≥ 3) at expected low / mid / high | at published |
+|---|---|---|---:|---|---:|
+| X1 | one (HYG trades from the first decision) | 2008-05-02 → 2022-12-30, 3,693 (14.65) | 0.78 | 0.032 / 0.101 / 0.241 | 0.131 |
+| X2 | two; the post-2007 one binds | 2007-04-12 → 2022-12-30, 3,960 (15.71) | **0.76** | 0.014 / 0.154 / 0.568 | 0.919 |
+| X3 | two; the post-2007 one binds | 2007-04-12 → 2022-12-30, 3,960 (15.71) | **0.76** | 0.063 / 0.301 / 0.687 | 0.687 |
+| X4 | two; the post-2007 one binds | 2007-04-12 → 2022-12-30, 3,960 (15.71) | **0.76** | 0.079 / 0.267 / 0.568 | 0.812 |
+| X5 | one | 2010-04-05 → 2022-12-30, 3,210 (12.74) | 0.84 | 0.001 / 0.011 / 0.058 | 0.029 |
+
+**The β leg, which no power figure above includes** [arithmetic; the factor
+volatility is U]:
+
+- On a sleeve sized to 6%/yr, a lone factor j's beta is ρⱼ·0.06/σⱼ. So
+  \|β\| ≤ 0.10 needs \|ρⱼ\| ≤ 0.10·σⱼ/0.06.
+- Against TERM, at an IEF volatility of about 6.5%/yr [U], that is
+  **\|ρ\| ≲ 0.11**. A sleeve whose daily P&L correlates with IEF by more than
+  about 0.11 fails D4 whatever its alpha.
+- The bound is tightest for the least volatile factor, which may be a spread
+  (HY or IG) rather than TERM.
+- **No factor volatility is measured before Stage 0b.** For X3, IEF's
+  volatility on the fit window is, near enough, X3's σ_fit, a Stage 0b
+  quantity.
+
+**What a null result means, stated before anything runs** (restated in
+revision 3; the team lead asked for this so that a null can be read):
+
+- **At the draft's own expected Sharpes, no test is well powered.** At the
+  midpoints P(pass) is 0.043 (X1), 0.118 (X2), 0.267 (X3), 0.168 (X4) and
+  0.003 (X5). Only the top of X2's range (0.566) and the top of X3's bracket
+  (0.700, which is the published figure) pass more often than not.
+- **X1 and X5 are underpowered even at the top of their ranges** (0.127 and
+  0.022).
+- **D4 can only lower these.** A PASS needs the bar and D4 together, so
+  P(PASS) is at most the smaller of Table A's and Table C's figures (Table A's
+  at every midpoint), and the β leg is in neither.
+- **So a pass is informative for all five, and a fail, on its own, for none.**
+  A fail of X2, X3 or X4 is evidence only against Sharpes near the 80%-power
+  level (0.95, 0.95 and 1.04), which lie above every expected Sharpe in this
+  note. It does not show that the mechanism is absent. Revision 2's "a fail is
+  informative only for X2, X3 and X4" is withdrawn.
 
 ### 2.3 Blockers found, and what clears each
 
@@ -463,7 +656,7 @@ asked for this so that a null can be read):
 | test | nearest dead mechanism | how it differs | stale-price well? |
 |---|---|---|---|
 | X1 | **`credit_rv`** (cross-sectional RV on credit ETFs; D1). **`S3-wrapper`** (a credit-quality premium in costume; D4). **Duration timing** (agenda, closed) | A time-series signal on each ETF's **own 12-month** return. The D4 danger, that trend is just long credit and duration in a bond bull market, is exactly what stages 2 (TSH) and 4 (R-D4) test. Forward-rate duration timing is closed; trend is a separate family with the longest out-of-sample record (agenda A1) | **No**: executable close-to-close returns; stage 3 shift(3) checks it |
-| X2 | **`raw-flow-z`** (D1). **`short-pressure`** (the rates control scored higher). **`leadlag`** (non-synchronous prices) | The flow is **mechanical**, signed by mandate and computed from public returns, with no flow data. The rates control that killed `short-pressure` is built in (SHY − BIL). SPY and IEF close synchronously, though shift(2) loses the paper's day 1 | **No** |
+| X2 | **`raw-flow-z`** (D1). **`short-pressure`** (the rates control scored higher). **`leadlag`** (non-synchronous prices) | The flow is **mechanical**, signed by mandate and computed from public returns, with no flow data. The rates control that killed `short-pressure` is built in ({BIL: +w, SHY: −w}, duration-signed as X2's IEF leg since revision 3). SPY and IEF close synchronously, though shift(2) loses the paper's day 1 | **No** |
 | X3 | **Treasury auction cycle** (agenda, closed: D2) | A month-end index-rebalancing flow at 2 trades a month, not the auction cycle. **It shares that trade's cost problem** (§6) | **No** |
 | X4 | X1's, plus **"Daily equity → credit"** (closed; `leadlag`) | Monthly, on each asset's own past | **No** |
 | X5 | **`credit_rv`** (D1). **Bond-level momentum** (closed: 0.00%/month without winsorization). **Duration timing** (closed) | 12-1 continuation. **But BSV find that trend subsumes it** (p.23), which is why R-SPAN decides. On ETFs of mixed duration a raw-return rank collapses into duration timing, which is why the Treasury ladder is its control | **No**, but it sits nearest the graveyard |
@@ -517,7 +710,7 @@ first decision.
 
 | stage | statistic | rule | if it fails |
 |---|---|---|---|
-| 1 | tradable gross Sharpe; NW t | t ≥ 1.96 | KILL D1 |
+| 1 | sized gross Sharpe; NW t | t ≥ 1.96 | KILL D1 |
 | 2 | **TSH control** (HLWZ eq. 17, p.788): the same weights, with the sign of the **inception-to-date** cumulative excess return; volatility weighting as in Table 10 Panel B, p.791; sized by P5 | X1's Sharpe exceeds TSH's **gross and at each of 5, 15 and 30bp** (TSH charged its own turnover). Reported beside it: the NW t of the daily P&L difference, and a bootstrap CI for the Sharpe difference | KILL D4: the historical-mean rule. H2's turnover matching cannot be met without altering one of the two published rules, so this stricter dominance test replaces it |
 | 3 | placebo; shift(3) | §1.8 | KILL D1 |
 | 4 | R-D4 | alpha t ≥ 3.0, \|β\| ≤ 0.10 | KILL D4 |
@@ -532,11 +725,11 @@ first decision.
   (`scripts/xasset/trend_turnover.py`, 2026-10-08) **[S: not re-run; re-running
   it is outside a zero-trial gate]**.
 - **X1's turnover scales with its gross under P5.** Its own figure is printed
-  at Stage 0.
+  at Stage 0b.
 
 **Expectation** [U]: a gross Sharpe of 0.3–0.6, from bond trend; no
-credit-trend figure was found. At 0.06 power, the likeliest outcome is NEITHER,
-or a kill by TSH.
+credit-trend figure was found. P(pass) across that range is 0.011 / 0.043 /
+0.127 (§2.2), so the likeliest outcome is NEITHER, or a kill by TSH.
 
 **Reverse once trading (H11).**
 
@@ -557,8 +750,8 @@ or a kill by TSH.
 - No auction-print line until plan item 0.2 is done.
 - No dividends on paper until the third P&L line is released.
 - Shorts are re-read daily.
-- The account's gross cap is shared with the CEF book; the backtest caps the
-  sleeve alone.
+- The account's gross cap is shared with the CEF book. The decision series is
+  uncapped, and the reported tradable row caps the sleeve alone.
 - Borrow is unmodelled.
 
 ---
@@ -588,7 +781,7 @@ asset name).
 | parameter | published | source | applied here |
 |---|---|---|---|
 | simulated portfolio | 60% S&P 500 / 40% 10-year note; wₜ₊₁ = wₜ(1+R^SP)/[wₜ(1+R^SP) + (1−wₜ)(1+R^10Y)] | pp.2, 10; App. B, p.53 | SPY and IEF total returns, in place of the paper's E-mini and 10-year note futures (App. A, p.52) |
-| Threshold signal | rebalance to 60% when the weight is more than δ from target; signal = drifted weight − 60% (B.1); **averaged over δ = 0%, 0.1%, …, 2.5%** | eq. 2, p.12; p.53 | 26 portfolios. The state is the post-trade weight at each close; the signal is the pre-trade drift |
+| Threshold signal | rebalance to 60% when the weight is more than δ from target; signal = drifted weight − 60% (B.1); **averaged over δ = 0%, 0.1%, …, 2.5%** | eq. 2, p.12; p.53 | 26 portfolios. The state is the post-trade weight at each close; the signal is the pre-trade drift. **Each starts at 60% at the close of 2002-07-29**, IEF's first CRSP return (revision 3) [V: `data/etf_daily.parquet`, IEF's first row, source `crsp`, read 2026-10-13; SPY's CRSP returns start 1993-02-01]. The Calendar portfolio is reset to 60% at every Eₘ, so its start matters only until 2002-07-31 |
 | Calendar signal | rebalance on the last business day of each month (B.2) | p.9; p.53 | as published |
 | week4 | the last 5 days of the month | p.14 | the month's last 5 sessions |
 | strategy | R = (R^SP − R^10y)·w; w = average of −Threshold/1.5% and a modified Calendar: **sign(−Calendar) in week4, sign(Calendar₋₄) on the new month's first business day, 0 otherwise** | §4, pp.37–38 | raw sleeve H = {SPY: +w, IEF: −w}; P5 then sizes it |
@@ -610,11 +803,27 @@ before the day it is set**, which is the 4th-to-last session of the old month
 
 **Mapping under H1.** The paper's wₛ uses signals through s and earns s+1. Here
 the position that earns s+1 is decided at s−1. **So every signal is one session
-staler than the paper's, and every exposure day is the paper's.** The Calendar
+staler than the paper's (except Calendar₋₄'s, below), and every exposure day
+is the paper's.** The Calendar
 window is calendar-known (P4). The Threshold part therefore loses the paper's
 strongest day, day 1. Fig. 4 shows pressure still building to day 4
 (Threshold) and day 2 (Calendar). A same-day variant, with signals from 15:50
 prices and MOC the same day, is **not** this trial.
+
+**Which sessions each Calendar component earns: a declared reading [U]
+(revision 3).** The paper does not say. Write Eₘ = E for the old month's last
+session and D1, D2 for the new month's first two.
+
+- **In the paper,** a position set at the close of s earns s+1. The week4
+  component is set on the five sessions E−4 … E, so it earns **E−3 … D1**.
+  The Calendar₋₄ component is set on D1, so it earns **D2**.
+- **Here the same exposure days are kept.** The week4 component sits in `H`
+  on E−5 … E−1, each with sign(−Calendar) one session staler than the
+  paper's. The Calendar₋₄ component sits in `H` on E. Its value, Calendar at
+  E−3 (the reading above), is known by E, so that component is the paper's
+  exactly.
+- **The alternative reading,** in which the week4 component earns the week4
+  sessions themselves (E−4 … E), **is not run.**
 
 **Windows.** Fit from 2002-08-30 to 2022-12-30, 20.3 years.
 
@@ -627,7 +836,7 @@ prices and MOC the same day, is **not** this trial.
 **D4 sets (two regressions, both must pass).**
 
 - MKT and TERM, over the full fit.
-- MKT, TERM, HY and IG, from 2007-04-12.
+- MKT, TERM, HY and IG, from 2007-04-12. This one binds (§2.2 Table C).
 
 **Reported regressions.**
 
@@ -638,17 +847,25 @@ prices and MOC the same day, is **not** this trial.
 
 | stage | statistic | rule | if it fails |
 |---|---|---|---|
-| 1 | tradable gross Sharpe; NW t | t ≥ 1.96 (the plan's "95% band around zero") | KILL D1 |
-| 2 | **SHY − BIL control**: the same w on SHY and BIL, sized by P5, turnover-matched by construction, from 2007-05-31 | its gross Sharpe < ½ × X2's, same sign | KILL D1: not rebalancing pressure |
+| 1 | sized gross Sharpe; NW t | t ≥ 1.96 (the plan's "95% band around zero") | KILL D1 |
+| 2 | **BIL/SHY control** (revision 3): H = {BIL: +w, SHY: −w} with X2's own w, sized by P5, turnover-matched by construction. SHY sits in IEF's slot, so the control's duration sign matches X2's IEF leg; BIL, near-zero duration, sits in SPY's. Revision 2's "the same w on SHY − BIL" put SHY in SPY's slot, so its duration sign was the opposite of X2's. **Both Sharpes are computed on the window from BIL's first return, 2007-05-31, to 2022-12-30** (3,926 sessions, 15.58 yr [V: `slate_feasibility.py`]) | **KILL if the control's gross Sharpe ≥ ½ × X2's** on that window | KILL D1: not rebalancing pressure |
 | 3 | placebo (decides); shift(3) (reported, §1.8) | §1.8 | KILL D1 |
 | 4 | R-D4, both regressions | alpha t ≥ 3.0, \|β\| ≤ 0.10 | KILL D4 |
 | 5 | `_dsr`, N = 5 | > 0.95 | NEITHER |
 | 7 | holdout sign; post-2023-03-18 row reported | as fit | KILL D3 |
 | 8 | net at 15bp | > 0 | D2 label |
 
-**Diagnostics** (reported, never kills): the Calendar part with a mid-month
-placebo window (sessions 6–10); 1,000 seeded permutations of the Calendar
-part's monthly signs; correlation with X3.
+**Diagnostics** (reported, never kills):
+
+- the Calendar part with a mid-month placebo window (sessions 6–10);
+- 1,000 seeded permutations of the Calendar part's monthly signs;
+- correlation with X3;
+- **the alpha of X2's week4 component on X3's sleeve** (revision 3): the
+  week4 component's daily P&L regressed on X3's sized sleeve, HAC with
+  L = 21, alpha in %/yr with its t. The week4 component holds IEF, long or
+  short, in the same last sessions in which X3 is long IEF, so this shows how
+  much of X2's Calendar part is the month-end Treasury extension. It needs
+  X3's series (§1.12).
 
 **Turnover and costs** [arithmetic, raw scale].
 
@@ -661,7 +878,8 @@ part's monthly signs; correlation with X3.
   items 0.2 and 0.5].
 
 **Expectation** [U]: a gross Sharpe of 0.2–0.8, below the published 1.11
-because day 1 is lost. Positive skew if the effect is there.
+because day 1 is lost. Positive skew if the effect is there. P(pass) across
+that range is 0.006 / 0.118 / 0.566 (§2.2).
 
 **Reverse once trading (H11).**
 
@@ -721,7 +939,7 @@ because day 1 is lost. Positive skew if the effect is there.
 - TERM and MKT over the full fit. **TERM is IEF held every day**, the team
   lead's named control: the alpha of this regression is the value of the
   month-end timing over holding IEF all the time.
-- TERM, MKT, HY and IG, from 2007-04-12.
+- TERM, MKT, HY and IG, from 2007-04-12. This one binds (§2.2 Table C).
 
 **Reported regressions.** R-FF; R-AQR on TSMOM^FI.
 
@@ -729,7 +947,7 @@ because day 1 is lost. Positive skew if the effect is there.
 
 | stage | statistic | rule | if it fails |
 |---|---|---|---|
-| 1 | tradable gross Sharpe; NW t | t ≥ 1.96 | KILL D1 |
+| 1 | sized gross Sharpe; NW t | t ≥ 1.96 | KILL D1 |
 | 2 | **IEF on every other session** (H&S eq. 2; Table 1 lower panel: 0.07%/month, SE 0.13; Table 3: Sharpe 0.11), sized by P5, two trades a month as X3 | its gross Sharpe < ½ × X3's | KILL D1: the term premium, not month-end |
 | 3 | placebo (decides); shift(3) (reported) | §1.8 | KILL D1 |
 | 4 | R-D4, both regressions | alpha t ≥ 3.0, \|β\| ≤ 0.10 | KILL D4 |
@@ -745,8 +963,16 @@ because day 1 is lost. Positive skew if the effect is there.
 - **P5 pushes the notional well above that.** P5 sizes the part-time sleeve's
   **unconditional** volatility to the vol target, so the window notional
   exceeds 0.7 whenever IEF's annualised volatility is below about 22.7% at the
-  2026-10-12 vol target of 6%. That is 0.06 / (0.7·√(3/21)).
-- **The cap (1.80) limits how high it goes, not whether it crosses 0.10.**
+  pinned vol target of 6% (§1.3). That is 0.06 / (0.7·√(3/21)).
+- **The cap does not enter the decision** (revision 3). D4's betas are
+  measured on the sized, uncapped sleeve. The tradable X3 would be capped at
+  1.80 on every window day whenever IEF's volatility is below about 8.8%/yr
+  (§1.3), which is why the cap is a reported row only. Revision 2 said "the
+  cap limits how high it goes"; that is now true only of the reported row.
+- **A TERM-hedged X3 is a new trial** (§1.7). Hedging the window's TERM
+  exposure after stage 4 has been seen would be re-specifying a factor after
+  the result. If the team lead wants it, it is declared separately, with its
+  own trial.
 - **The test is still run under ruling 1.** Its stage-1 to stage-3 statistics
   measure whether the month-end flow is there, whatever D4 decides.
 
@@ -758,7 +984,9 @@ because day 1 is lost. Positive skew if the effect is there.
   so **net at 15bp is expected to be negative (D2)**.
 
 **Expectation** [U]: a positive gross effect near the published Sharpe in
-2002–2018, smaller after it. D4 and D2 failures as stated above.
+2002–2018, smaller after it. D4 and D2 failures as stated above. No number is
+stated, so §2.2 brackets it from 0.37 (0.42 × published) to 0.88 (published):
+P(pass) 0.038 / 0.267 / 0.700 across the bracket.
 
 **Reverse once trading (H11).** Fidelity at every window. Reversal after 36
 windows: reverse if the live sum is below the 5th percentile of the trial's own
@@ -796,8 +1024,9 @@ TLT, EEM, GLD).
 
 **D4 sets (two regressions, both must pass).**
 
-- MKT, TERM, COMMOD, GOLD, INTL and EM, over the full fit.
-- The same plus HY and IG, from 2007-04-12.
+- MKT, TERM, COMMOD, GOLD, INTL and EM, over the full fit. INTL and EM are
+  spreads over SPY (§1.7, revision 3).
+- The same plus HY and IG, from 2007-04-12. This one binds (§2.2 Table C).
 
 **Reported regressions.** R-FF; R-AQR on TSMOM, TSMOM^EQ and TSMOM^CM;
 R-LONG.
@@ -805,7 +1034,9 @@ R-LONG.
 **Decision table, turnover, H11 and divergences.** As X1. The TSH control is
 built on X4's universe.
 
-**Expectation** [U]: a gross Sharpe of 0.4–0.8.
+**Expectation** [U]: a gross Sharpe of 0.4–0.8. P(pass) across that range is
+0.037 / 0.168 / 0.446 (§2.2). BSV's 0.98 would give 0.728, but it is an upper
+reference only.
 
 ---
 
@@ -834,8 +1065,8 @@ PFF, BKLN, CWB. The ladder control is SHY, IEI, IEF, TLH and TLT.
 
 **D4 set.** MKT, TERM, HY and IG.
 
-**Decision regression R-SPAN** (§1.7): X5 on X1's tradable sleeve plus D4's
-four factors.
+**Decision regression R-SPAN** (§1.7): X5's sized sleeve on X1's sized sleeve
+plus D4's four factors.
 
 **Reported regressions.** R-FF; R-AQR on MOMLS_VME_FI and TSMOM^FI.
 
@@ -843,18 +1074,32 @@ four factors.
 
 | stage | statistic | rule | if it fails |
 |---|---|---|---|
-| 1 | tradable gross Sharpe; NW t | t ≥ 1.96 | KILL D1 |
-| 2 | **Treasury ladder**: the identical rule on SHY, IEI, IEF, TLH and TLT, sized by P5. Turnovers printed; the comparison is gross Sharpe only | its gross Sharpe < ½ × X5's | KILL: duration timing (closed) |
+| 1 | sized gross Sharpe; NW t | t ≥ 1.96 | KILL D1 |
+| 2 | **Treasury ladder**: the identical rule on SHY, IEI, IEF, TLH and TLT, sized by P5. **Breadth ≥ ⌈5/2⌉ = 3 eligible with 36 months** (X5's rule on five names): its first decision is 2005-07-29 and all five are eligible from 2010-01-29 [V: `slate_feasibility.py`, 2026-10-13]. **Both Sharpes are computed on X5's P&L window, 2010-04-05 → 2022-12-30**, on which all five ladder names are eligible. Turnovers printed; the comparison is gross Sharpe (revision 3 declares the window and breadth; revision 2 gave neither) | its gross Sharpe < ½ × X5's | KILL: duration timing (closed) |
 | 3 | placebo; shift(3) (both decide) | §1.8 | KILL D1 |
 | 4 | R-D4; **R-SPAN** | R-D4 as §1.7; R-SPAN alpha t ≥ 1.96 | KILL D4; KILL "spanned by trend" |
 | 5 | `_dsr`, N = 5 | > 0.95 | NEITHER |
 | 7 | holdout sign | as fit | KILL D3 |
 | 8 | net at 15bp | > 0 | D2 label |
 
-**Turnover.** No measured relative exists; the figure is printed at Stage 0.
+**Why the ladder is not turnover-matched (H2; revision 3).**
+
+- H2 exists because, within one signal, a faster construction looks better
+  gross and worse net.
+- Here the rule is identical and only the universe differs, so a turnover
+  difference measures how fast the ranks move in each universe. It is not a
+  construction choice.
+- Matching would mean altering the rule on one universe (a band, or a slower
+  refresh). The control would then no longer be the identical rule, which is
+  what makes it a control.
+- **Reported beside the gross comparison, never deciding:** both turnovers and
+  both net Sharpes at 5, 15 and 30bp, each charged its own turnover.
+
+**Turnover.** No measured relative exists; the figure is printed at Stage 0b.
 
 **Expectation** [U]: a gross Sharpe of 0–0.4. The published 0.29 has t 1.61
-in replication (Table II).
+in replication (Table II). P(pass) across that range is < 0.001 / 0.003 /
+0.022 (§2.2).
 
 **H11 and divergences.** As X1.
 
@@ -863,26 +1108,33 @@ in replication (Table II).
 ## 9. Reading the results: power, ranked by what each test can teach
 
 All five run (ruling 1). This ranking does not cut anything. It says before any
-result exists how much each outcome would teach.
+result exists how much each outcome would teach. **Restated in revision 3** at
+the draft's own expected Sharpes (§2.2); revision 2 ranked at the published
+Sharpes and read X2 as powered (P = 0.94) and a fail of X2 as closing it. Both
+are withdrawn. Ranked by P(pass) at the midpoint of each expected range.
 
-| test | can it pass if the published effect is real? | a pass would mean | a fail would mean |
-|---|---|---|---|
-| **X2** | yes (P = 0.94) | a mandate-driven flow survives a one-session delay on ETFs, with a post-publication holdout | the flow is not harvestable under shift(2) on ETFs, or it has decayed. One trial closes it |
-| **X4** | likely (0.73) | ETF-implementable multi-asset trend clears a deflated bar and is not beta | informative: the bar was reachable |
-| **X3** | gross likely (0.70); **D4 very unlikely** | — | most likely a D4 kill by construction (§6). Stages 1–3 still measure the flow |
-| **X1** | **no (0.06)** | strong evidence, against the odds | almost nothing: the test is underpowered at 14.7 years |
-| **X5** | **no (0.01)** | strong evidence, and alpha beyond trend | almost nothing; and the paper expects it spanned |
-
----
+| test | P(pass) at the draft's expected low / mid / high | at the published Sharpe (upper reference) | a pass would mean | a fail would mean |
+|---|---|---|---|---|
+| **X3** | 0.04 / 0.27 / 0.70 (bracket; §6 states no number) | 0.70 | the month-end Treasury flow is there on IEF; **but D4 very probably kills it** (§6) | most likely a D4 kill by construction. Stages 1–3 still measure the flow |
+| **X4** | 0.04 / 0.17 / 0.45 | 0.73 (a many-market composite) | ETF-implementable multi-asset trend clears a deflated bar and is not beta | little on its own: powered only near the top of its range. Evidence only against Sharpes near 1.04 |
+| **X2** | 0.006 / 0.12 / 0.57 | 0.94 (in-sample, futures, no shift(2) delay) | a mandate-driven flow survives a one-session delay on ETFs, with a post-publication holdout | little on its own: powered only at the top of its range. Evidence only against Sharpes near 0.95. It does not close the mechanism |
+| **X1** | 0.01 / 0.04 / 0.13 | 0.06 | strong evidence, against the odds | almost nothing: underpowered at 14.65 years |
+| **X5** | < 0.001 / 0.003 / 0.02 | 0.01 | strong evidence, and alpha beyond trend | almost nothing; and the paper expects it spanned |
 
 ## 10. Trial accounting
 
 - **XASSET today: 0 trials.** On approval N = 5 is fixed. The trials-used
-  column moves in the same commit as each run, never at approval.
-- **`docs/RESEARCH_STATE.md` changed in this commit: no.**
+  column never moves at approval.
+- **When it moves (revision 3; revision 2 said "in the same commit as each
+  run"):** k−1 → k in a commit made after Stage 0a's hash commit and before
+  that test's Stage 0b computes anything (§1.11). A test left UNRUN at Stage
+  0a spends no trial, and N stays 5.
+- **`docs/RESEARCH_STATE.md` changed in this commit (revision 3): no.**
+  XASSET stays 0.
 - **No other counter moves.** CEF, EVENTS and GAMMA are untouched. The 27-name
-  holdout is not consumed (P14). The 2023-01-01 time holdout stays sealed until
-  each test's fit verdict is committed (§1.5).
+  holdout is not consumed (P14). The 2023-01-01 time holdout (2023-01-03 →
+  2026-09-30) stays sealed until **all five** fit verdicts are committed
+  (§1.5).
 - **Sources:** `docs/REFERENCES.md` §12i, which holds the paper parameters, the
   feasibility snapshot, the AQR files and the inference methods. The DGS3MO row
   is in §8. The §12b rows were amended in place.
@@ -890,7 +1142,7 @@ result exists how much each outcome would teach.
   `scripts/xasset/tests/`.
 - **Revision history:**
   - Revision 1 (commit `0d7474d`) was the first draft.
-  - Revision 2, this one, applies the four rulings in §0.1 and adds:
+  - Revision 2 (commit `af61e28`) applied the four rulings in §0.1 and added:
     - CRSP-primary data and the quality screen;
     - P5 sizing;
     - HAC and bootstrap inference;
@@ -899,3 +1151,37 @@ result exists how much each outcome would teach.
     - the signal placebo;
     - a common order of evaluation;
     - the declared Calendar₋₄ reading.
+  - Revision 3, this one (2026-10-13, branch `fix-xasset-review`), applies the
+    adversarial review's nine fixes, listed at the top of this note.
+
+---
+
+## 11. Decisions that remain the team lead's
+
+Revision 3 applies the review's fixes as written. These remain open, and each
+is the team lead's to take **before approval**, since after it nothing in this
+note changes:
+
+1. **Approval itself**, which fixes N = 5 and the declarations in §0, §4–§8.
+2. **The pinned spec hash** (§1.3). If the frozen spec changes before
+   approval, the approval names the hash it pins.
+3. **The holdout end, 2026-09-30** (§1.5; the review's date). Any other date
+   must be fixed now, before any run, never after.
+4. **Stages 7 and 8 on the sized sleeve.** The review named stages 1–3 and 5;
+   this note extends the sized, uncapped series to the holdout sign and the
+   net-at-15bp label, so one series decides throughout. The alternative is to
+   read stage 8 (a real-money view) on the tradable sleeve.
+5. **UNRUN counts as a committed fit verdict** for opening the holdout (§1.5).
+   Without this, one test blocked at Stage 0a would seal the other four
+   holdouts indefinitely.
+6. **The X2 readings, all [U]:** Calendar₋₄ as the Calendar signal at E−3
+   (revision 2); the exposure days, week4 earning E−3 … D1 and Calendar₋₄
+   earning D2; and the Threshold portfolios starting at 60% at the close of
+   2002-07-29 (§5). The alternatives are not run.
+7. **X3's expected Sharpe.** §6 states none; §2.2 brackets it. A number stated
+   now changes only how a null is read, never a decision.
+8. **What counts as the independent third source** for a Stage 0a repair
+   (§1.1).
+9. **A TERM-hedged X3** (§6): a new, separately declared trial, or not at all.
+10. **Already the team lead's under revision 2, unchanged:** WATCH or D5 for a
+    NEITHER (stage 5); paper-only for a D2 (stage 8); and any Stage 0a halt.

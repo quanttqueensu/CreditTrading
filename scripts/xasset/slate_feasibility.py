@@ -28,11 +28,27 @@ a test needs three facts that do not spend it:
    each test's fit length, the Sharpe it must show to pass, the Sharpe at which
    it would pass four times in five, and the probability of passing if the true
    Sharpe were the published one, or the published one cut by McLean and
-   Pontiff's 58% post-publication decline (docs/REFERENCES.md §12b). It uses the
-   normal approximation SE(annual SR) = 1/sqrt(years), which ignores the small
-   SR^2/2 term. This is arithmetic on published numbers, so a null result can be
-   read: a test that cannot pass at its published Sharpe teaches little when it
-   fails.
+   Pontiff's 58% post-publication decline (docs/REFERENCES.md §12b). This is
+   arithmetic on published numbers, so a null result can be read: a test that
+   cannot pass at its published Sharpe teaches little when it fails.
+
+   REVISED 2026-10-13 (pre-registration revision 3, the adversarial review's
+   fix 8). Three things were wrong with the first version:
+   (a) T was the count of sessions after the first decision. Under shift(2)
+       the first P&L is earned two sessions after the first decision, so T is
+       now the P&L session count (`pnl_window`), the same T the trial passes
+       to `_dsr`;
+   (b) SE(annual SR) was 1/sqrt(years), a second, simpler copy of the
+       sampling error. It is now `_dsr`'s own denominator at skew 0 and
+       kurtosis 3 (`sr_se`, tested against `_dsr`'s z), so the bar and the
+       error around it come from one function;
+   (c) power was quoted only at the published Sharpe, which for X2 is HMM's
+       in-sample 1.11 with no execution delay. Each test is now also powered
+       at the draft's OWN expected range (EXPECTED_SR), and the published
+       figure is printed as an upper reference.
+   The D4 column now uses the BINDING regression window: where two R-D4
+   regressions are declared (the test starts before HYG), the shorter one,
+   from HYG's first return, is the one that must clear alpha t >= 3.
 5. `--crsp`: each slate instrument's CRSP identity (`stocknames`, share code
    73), and in `dsf` its first and last date, row count, NULL-`ret` count,
    negative-`prc` count (no closing trade: CRSP stores minus the bid/ask
@@ -86,6 +102,10 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 HOLDOUT_START = pd.Timestamp("2023-01-01")       # H13: sealed; nothing here reads past it
+# Revision 3 (fix 5): the holdout ends here for all five tests, fixed before any
+# run, so its length is not chosen by when a test happens to be run. Used only to
+# COUNT sessions (the false-kill arithmetic); no return in it is read.
+HOLDOUT_END = pd.Timestamp("2026-09-30")
 PANELS = {
     "etf_panel": REPO / "data/rv/etf_panel.parquet",
     "etf_ohlc_extended": REPO / "data/rv/etf_ohlc_extended.parquet",
@@ -122,6 +142,25 @@ PUBLISHED_SR = {
     "X5": (0.31, "BSV Table IV Panel A, bond momentum, new sample"),
 }
 MCLEAN_PONTIFF_KEEP = 0.42     # 1 - 0.58: "58% lower after publication" (REFERENCES §12b, [V] abstract)
+# The draft's OWN expected gross Sharpe range for each test, [U] in its section
+# (PREREG §4-§8 "Expectation"), as (low, high). Added in revision 3 (fix 8): the
+# published figures are upper references (HMM's is in-sample with no delay; BSV's
+# multi-asset figure is a many-market composite), so power is stated at the
+# range the draft itself expects. X3's section gives no number ("near the
+# published Sharpe in 2002-2018, smaller after it"), so its bracket is 0.42x the
+# published figure to the published figure. An INPUT TO THE POWER ARITHMETIC
+# ONLY: no decision rule reads it (H14).
+EXPECTED_SR = {
+    "X1": (0.30, 0.60, "PREREG §4"),
+    "X2": (0.20, 0.80, "PREREG §5"),
+    "X3": (round(0.88 * MCLEAN_PONTIFF_KEEP, 2), 0.88, "PREREG §6 is qualitative; bracket 0.42x published .. published"),
+    "X4": (0.40, 0.80, "PREREG §7"),
+    "X5": (0.00, 0.40, "PREREG §8"),
+}
+# The D4 factor whose history starts last: HY = HYG - IEF. A test whose first P&L
+# session precedes HYG's first return carries two R-D4 regressions (PREREG §1.7),
+# and the shorter one, from HYG's first return, binds.
+D4_LATE_FACTOR = "HYG"
 AQR_FILES = {
     "TSMOM": "https://www.aqr.com/-/media/AQR/Documents/Insights/Data-Sets/Time-Series-Momentum-Factors-Monthly.xlsx",
     "VME": "https://www.aqr.com/-/media/AQR/Documents/Insights/Data-Sets/Value-and-Momentum-Everywhere-Factors-Monthly.xlsx",
@@ -180,12 +219,65 @@ def required_sharpe(n_trials: int, n_days: int) -> float:
     return hi
 
 
+def pnl_window(first_dec, cal: pd.DatetimeIndex, start=None) -> tuple:
+    """(first P&L session, number of P&L sessions before the holdout).
+
+    Under H1 a position decided at the close of `first_dec` fills at the next
+    close and earns the session after that, so the first P&L session is
+    `first_dec` + EXEC_LAG sessions (validate.EXEC_LAG, not a second copy).
+    `start` (e.g. a factor's first return) moves the window's start later,
+    never earlier. This T is what the trial passes to `_dsr`: the P&L from the
+    first P&L session to 2022-12-30, never `evaluate()['gross_sr']`, which
+    averages over the flat sessions before the first decision as well."""
+    from scripts.cef.validate import EXEC_LAG
+    i = cal.get_loc(pd.Timestamp(first_dec))
+    first_pnl = cal[i + EXEC_LAG]
+    if start is not None:
+        first_pnl = max(first_pnl, cal[cal >= pd.Timestamp(start)][0])
+    n = int(((cal >= first_pnl) & (cal < HOLDOUT_START)).sum())
+    return first_pnl.date(), n
+
+
+def sr_se(sr_annual: float, n_days: int) -> float:
+    """Sampling SE of an annualised Sharpe from `n_days` daily returns, exactly as
+    `validate._dsr`'s denominator states it at skew 0 and kurtosis 3:
+    sqrt(252) * sqrt(1 + (3-1)/4 * (SR/sqrt(252))^2) / sqrt(T-1).
+    test_slate_feasibility holds this equal to the z `_dsr` computes, so the bar
+    and the error around it come from one function."""
+    sr_d = sr_annual / math.sqrt(252)
+    return math.sqrt(252) * math.sqrt(1 + 0.5 * sr_d ** 2) / math.sqrt(n_days - 1)
+
+
 def power(sr_true: float, n_trials: int, n_days: int) -> float:
-    """P(validate._dsr > 0.95) when the true annual Sharpe is `sr_true`, under
-    the normal approximation SE = 1/sqrt(years) around the required Sharpe."""
+    """P(validate._dsr > 0.95) when the true annual Sharpe is `sr_true`: the
+    observed Sharpe is N(sr_true, sr_se(sr_true)) and passes when it exceeds the
+    Sharpe at which `_dsr` reaches 0.95 (`_dsr` rises with the observed Sharpe)."""
     from statistics import NormalDist
-    yrs = n_days / 252
-    return NormalDist().cdf((sr_true - required_sharpe(n_trials, n_days)) * math.sqrt(yrs))
+    req = required_sharpe(n_trials, n_days)
+    return NormalDist().cdf((sr_true - req) / sr_se(sr_true, n_days))
+
+
+def sharpe_for_power(p: float, n_trials: int, n_days: int) -> float:
+    """The true annual Sharpe at which `power` equals `p` (bisection)."""
+    lo, hi = -2.0, 6.0
+    for _ in range(80):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if power(mid, n_trials, n_days) < p else (lo, mid)
+    return hi
+
+
+def alpha_t_bar(n_days: int, t: float = 3.0) -> float:
+    """The annual information ratio at which a t of `t` is reached: t * sqrt(252/T)."""
+    return t * math.sqrt(252 / n_days)
+
+
+def p_alpha_t(ir_true: float, n_days: int, t: float = 3.0) -> float:
+    """P(alpha t >= `t`) at a true annual information ratio `ir_true`, with the
+    same sampling SE as `power`. The ALPHA LEG of D4 only: the beta leg
+    (every |beta| <= 0.10) is a condition on the sleeve's true exposures, not on
+    sampling, so this is an upper bound on P(D4 pass)."""
+    from statistics import NormalDist
+    return NormalDist().cdf((ir_true - alpha_t_bar(n_days, t)) / sr_se(ir_true, n_days))
 
 
 def crsp_coverage(symbols) -> pd.DataFrame:
@@ -293,30 +385,55 @@ def main(argv=None) -> int:
     print(cov.to_string(index=False))
 
     firsts = dict(zip(cov["symbol"], cov["first"]))
-    print("\nper test: first decision month-end under its declared rule; fit sessions to 2022-12-30;"
-          "\nrequired annualised Sharpe for validate._dsr > 0.95 (skew 0, kurt 3) at N = 5/4/3/2;"
-          "\nthe 'sr0' reading sqrt(2 ln N)/sqrt(years) at N = 5 (the agenda's arithmetic);"
-          "\nthe Sharpe a D4 alpha t of 3.0 implies, 3/sqrt(years) (plan section 0, alpha only);"
+    from statistics import NormalDist
+    print("\nper test: first decision month-end under its declared rule; P&L sessions T from the"
+          "\nfirst decision + 2 sessions (H1) to 2022-12-30; the Sharpe validate._dsr needs for 0.95"
+          "\n(skew 0, kurt 3) at N = 5/4/3/2; the agenda's sqrt(2 ln N)/sqrt(years) reading at N = 5;"
           "\nand the LEGACY reading at N = 162 for reference (agenda section 6, item 1)")
+    hy_first = firsts[D4_LATE_FACTOR]
     for name, (s, lag, rule) in TESTS.items():
-        first_dec, n_fit, need = fit_window(s, lag, rule, firsts, cal)
-        yrs = n_fit / 252
-        req = {n: required_sharpe(n, n_fit) for n in (5, 4, 3, 2)}
+        first_dec, _, need = fit_window(s, lag, rule, firsts, cal)
+        first_pnl, T = pnl_window(first_dec, cal)
+        yrs = T / 252
+        req = {n: required_sharpe(n, T) for n in (5, 4, 3, 2)}
         sr0 = math.sqrt(2 * math.log(5)) / math.sqrt(yrs)
-        d4 = 3.0 / math.sqrt(yrs)
-        legacy = required_sharpe(162, n_fit)
+        legacy = required_sharpe(162, T)
         print(f"  {name}: n={len(s)} need {need} eligible (lag {lag}m); first decision {first_dec}; "
-              f"fit {n_fit} sessions = {yrs:.1f} yr; required SR "
+              f"first P&L {first_pnl}; T {T} sessions = {yrs:.2f} yr; required SR "
               + " ".join(f"N{n}:{v:.2f}" for n, v in req.items())
-              + f"; sr0@N5 {sr0:.2f}; D4 alpha-t3 {d4:.2f}; LEGACY N162 {legacy:.2f}")
+              + f"; sr0@N5 {sr0:.2f}; LEGACY N162 {legacy:.2f}")
+        lo, hi, why = EXPECTED_SR[name]
+        mid = (lo + hi) / 2
+        print(f"      power at N=5 (SE from _dsr): Sharpe for 80% power {sharpe_for_power(0.80, 5, T):.2f}; "
+              f"P(pass) at the draft's expected {lo:.2f} / {mid:.2f} / {hi:.2f} ({why}): "
+              f"{power(lo, 5, T):.3f} / {power(mid, 5, T):.3f} / {power(hi, 5, T):.3f}")
         pub, src = PUBLISHED_SR[name]
-        from statistics import NormalDist
-        mde80 = req[5] + NormalDist().inv_cdf(0.80) / math.sqrt(yrs)
-        print(f"      power at N=5: Sharpe for 80% power {mde80:.2f}; P(pass | true SR = {pub:.2f}, {src}) "
-              f"{power(pub, 5, n_fit):.2f}; P(pass | {MCLEAN_PONTIFF_KEEP:.2f} x that = "
-              f"{pub * MCLEAN_PONTIFF_KEEP:.2f}) {power(pub * MCLEAN_PONTIFF_KEEP, 5, n_fit):.2f}; "
-              f"P(D4 alpha t >= 3 | alpha SR = {pub:.2f}) "
-              f"{NormalDist().cdf(pub * math.sqrt(yrs) - 3.0):.2f}")
+        print(f"      upper reference: P(pass | published {pub:.2f}, {src}) {power(pub, 5, T):.3f}; "
+              f"P(pass | {MCLEAN_PONTIFF_KEEP:.2f} x that = {pub * MCLEAN_PONTIFF_KEEP:.2f}) "
+              f"{power(pub * MCLEAN_PONTIFF_KEEP, 5, T):.3f}")
+        # D4 (alpha leg only): the binding regression is the shorter one where two are declared.
+        two = pd.Timestamp(first_pnl) < pd.Timestamp(hy_first)
+        d4_first, T_d4 = pnl_window(first_dec, cal, start=hy_first) if two else (first_pnl, T)
+        print(f"      D4 alpha leg: {'two regressions; binding from ' + str(d4_first) if two else 'one regression'}"
+              f", T {T_d4} = {T_d4 / 252:.2f} yr; alpha t >= 3 needs IR >= {alpha_t_bar(T_d4):.2f}; "
+              f"P(alpha t >= 3) at IR {lo:.2f} / {mid:.2f} / {hi:.2f}: "
+              f"{p_alpha_t(lo, T_d4):.3f} / {p_alpha_t(mid, T_d4):.3f} / {p_alpha_t(hi, T_d4):.3f}; "
+              f"at published {pub:.2f}: {p_alpha_t(pub, T_d4):.3f}")
+    # X5's Treasury-ladder control under its own breadth rule (revision 3, fix 9).
+    lad_dec, _, lad_need = fit_window(X5_TREASURY_CONTROL, 36, "half", firsts, cal)
+    lad_all, _, _ = fit_window(X5_TREASURY_CONTROL, 36, "all", firsts, cal)
+    print(f"  X5 ladder control {X5_TREASURY_CONTROL}: need {lad_need} eligible (lag 36m); "
+          f"first decision {lad_dec}; all five eligible from {lad_all}")
+    # X2's SHY/BIL control: both Sharpes on the window from BIL's first return (fix 3).
+    bil_first = pd.Timestamp(firsts["BIL"])
+    n_bil = int(((cal >= bil_first) & (cal < HOLDOUT_START)).sum())
+    print(f"  X2 control window: from BIL's first return {bil_first.date()} to 2022-12-30, "
+          f"{n_bil} sessions = {n_bil / 252:.2f} yr")
+    hold = cal[(cal >= HOLDOUT_START) & (cal <= HOLDOUT_END)]
+    hy = len(hold) / 252
+    print(f"  holdout {hold[0].date()} .. {hold[-1].date()}: {len(hold)} sessions = {hy:.2f} yr; "
+          f"P(holdout mean has the wrong sign | true SR 0.5) = Phi(-0.5 sqrt(yr)) = "
+          f"{NormalDist().cdf(-0.5 * math.sqrt(hy)):.3f}")
     if a.factors:
         print("\nfactor files (coverage only; no value printed):")
         for line in factor_file_coverage():

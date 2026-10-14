@@ -77,3 +77,63 @@ def test_power_is_one_half_at_the_required_sharpe_and_rises_with_it():
     r = sf.required_sharpe(5, n_days)
     assert sf.power(r, 5, n_days) == pytest.approx(0.5, abs=1e-6)
     assert sf.power(r - 0.3, 5, n_days) < 0.5 < sf.power(r + 0.3, 5, n_days)
+
+
+# --- revision 3 (2026-10-13): the power arithmetic now takes its T and its SE
+# --- from the trial's own conventions (PREREG revision 3, the review's fix 8).
+
+def test_pnl_window_starts_exec_lag_sessions_after_the_decision():
+    """Decided at the close of E, filled at E+1, earned on E+2 (H1): the first
+    P&L session is two sessions after the first decision, and a later `start`
+    (a factor's first return) moves it later, never earlier."""
+    cal = pd.bdate_range("2022-11-01", "2023-01-31")
+    first_pnl, n = sf.pnl_window(pd.Timestamp("2022-11-30"), cal)
+    assert str(first_pnl) == "2022-12-02"
+    assert n == int(((cal >= "2022-12-02") & (cal < "2023-01-01")).sum())
+    later, n_later = sf.pnl_window(pd.Timestamp("2022-11-30"), cal, start="2022-12-15")
+    assert str(later) == "2022-12-15" and n_later < n
+    earlier, _ = sf.pnl_window(pd.Timestamp("2022-11-30"), cal, start="2022-11-01")
+    assert str(earlier) == "2022-12-02"
+
+
+def test_sr_se_is_the_dsr_denominator():
+    """`_dsr` computes z = (obs - sr0) / SE(obs); `sr_se` must be that SE, so the
+    power column and the bar cannot drift apart."""
+    from statistics import NormalDist
+    from scripts.cef.validate import _dsr
+    for obs, T in ((1.2, 3000), (0.3, 5000), (2.0, 1500)):
+        d, sr0, _ = _dsr(obs, T, 0.0, 3.0, 5)
+        z = NormalDist().inv_cdf(d)
+        assert (obs - sr0) / z == pytest.approx(sf.sr_se(obs, T), rel=1e-6)
+
+
+def test_power_matches_a_simulation_through_dsr():
+    """Simulate daily Gaussian returns at a known Sharpe, apply the repo's `_dsr`
+    to each path, and count passes. The closed form must sit inside the
+    simulation's 99% band. Synthetic: this checks the arithmetic, not a market."""
+    import numpy as np
+    from scripts.cef.validate import _dsr
+    rng = np.random.default_rng(20261013)
+    T, n_paths, sr = 252 * 10, 1500, 1.0
+    x = rng.standard_normal((n_paths, T)) + sr / math.sqrt(252)
+    obs = x.mean(1) / x.std(1, ddof=1) * math.sqrt(252)
+    p_mc = float(np.mean([_dsr(o, T, 0.0, 3.0, 5)[0] > 0.95 for o in obs]))
+    band = 2.58 * math.sqrt(p_mc * (1 - p_mc) / n_paths)
+    assert abs(sf.power(sr, 5, T) - p_mc) < band
+
+
+def test_sharpe_for_power_and_the_alpha_bar_invert_their_functions():
+    T = 252 * 15
+    s80 = sf.sharpe_for_power(0.80, 5, T)
+    assert sf.power(s80, 5, T) == pytest.approx(0.80, abs=1e-6)
+    assert s80 > sf.required_sharpe(5, T)
+    bar = sf.alpha_t_bar(T)
+    assert bar == pytest.approx(3.0 / math.sqrt(15))
+    assert sf.p_alpha_t(bar, T) == pytest.approx(0.5, abs=1e-9)
+    assert sf.p_alpha_t(bar - 0.2, T) < 0.5 < sf.p_alpha_t(bar + 0.2, T)
+
+
+def test_expected_ranges_are_ordered_and_cover_every_test():
+    assert set(sf.EXPECTED_SR) == set(sf.TESTS) == set(sf.PUBLISHED_SR)
+    for lo, hi, why in sf.EXPECTED_SR.values():
+        assert lo <= hi and why
