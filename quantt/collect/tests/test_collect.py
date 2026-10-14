@@ -144,12 +144,12 @@ def env(tmp_path):
     return state, cef
 
 
-def make_ctx(env, client=None, run=None, cc=None):
+def make_ctx(env, client=None, run=None, cc=None, cc_day=D):
     state, cef = env
     cc = {"AAA": 10.00, "BBB": 20.00} if cc is None else cc
 
     def cefconnect(t, day):
-        assert day == D
+        assert day == cc_day
         v = cc[t]
         if isinstance(v, Exception):
             raise v
@@ -284,6 +284,71 @@ def test_cefconnect_without_d_is_a_gap_not_a_flag(env):
     assert [g["fund"] for g in d["detail"]["gaps"]] == ["AAA"]
 
 
+def test_a_repeat_with_no_cefconnect_row_is_a_flag_not_a_gap(env):
+    """2026-10-13. At ~21:40 ET CEFConnect has no row for D, and on 6 of 7 laptop
+    data days this step recorded 13 gaps while Yahoo served rows dated D that
+    carried D-1's NAV (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). A NAV(D)
+    equal to the previous row with nothing to confirm it is now a FLAG naming
+    both values; a NAV that moved is still a gap."""
+    state, cef = env
+    pd.DataFrame([{"date": pd.Timestamp(d), "nav": v, "ticker": t}
+                  for t, d, v in (("AAA", PREV, 10.00), ("AAA", D, 10.00),
+                                  ("BBB", PREV, 19.50), ("BBB", D, 20.00))]
+                 ).to_parquet(cef / "cef_nav.parquet")
+    assert co.collect(make_ctx(env, cc={"AAA": None, "BBB": None})) == co.EXIT_OK
+    d = status(env)["steps"]["nav_crosscheck"]
+    assert d["ok"]
+    (f,) = d["detail"]["flags"]
+    assert (f["fund"], f["check"], f["value_a"], f["value_b"]) == \
+        ("AAA", "nav_repeat_unverified", 10.00, 10.00)
+    assert PREV.isoformat() in f["source_b"] and "unverified" in f["reason"]
+    assert [g["fund"] for g in d["detail"]["gaps"]] == ["BBB"]
+    rep = json.loads((state / "data" / D.isoformat() / "report.json").read_text())
+    assert [x["fund"] for x in rep["flags"] if x["step"] == "nav_crosscheck"] == ["AAA"]
+
+
+def test_a_repeat_cefconnect_confirms_is_neither_flag_nor_gap(env):
+    state, cef = env
+    pd.DataFrame([{"date": pd.Timestamp(d), "nav": v, "ticker": t}
+                  for t, d, v in (("AAA", PREV, 10.00), ("AAA", D, 10.00),
+                                  ("BBB", PREV, 20.00), ("BBB", D, 20.00))]
+                 ).to_parquet(cef / "cef_nav.parquet")
+    co.collect(make_ctx(env, cc={"AAA": 10.00, "BBB": 20.03}))
+    d = status(env)["steps"]["nav_crosscheck"]["detail"]
+    assert d["gaps"] == []
+    assert [(f["fund"], f.get("check")) for f in d["flags"]] == [("BBB", None)]   # a stale copy
+
+
+def test_cefconnect_arrival_is_logged_when_each_row_first_appears(env):
+    """2026-10-13: when CEFConnect publishes D decides how often the session's
+    stale-NAV gate must hold a name, and the evidence was three readings. Each
+    slot polls the names not yet seen; a first sighting is logged with the last
+    reading that did not have it. A WATCH step: it never makes the day
+    INCOMPLETE, and the collector idles once every row has arrived."""
+    state, cef = env
+    cc = {"AAA": None, "BBB": 20.00}
+    assert co.collect(make_ctx(env, cc=cc)) == co.EXIT_OK          # complete, still watching
+    st = status(env)["steps"]["cefconnect_arrival"]
+    assert not st["ok"] and "AAA" in st["err"]
+    assert co.log_line(json.loads((state / "data" / D.isoformat() / "report.json").read_text())
+                       ).endswith("watching=cefconnect_arrival")
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert rows[["date", "ticker", "polls", "nav"]].values.tolist() == [[D.isoformat(), "BBB", 1, 20.0]]
+    assert rows.loc[0, "last_absent_utc"] == ""                     # seen on the first poll
+    cc["AAA"] = 10.00                                                # the row arrives
+    client = FakeClient()
+    assert co.collect(make_ctx(env, client, cc=cc)) == co.EXIT_OK
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert rows["ticker"].tolist() == ["BBB", "AAA"]
+    a = rows.iloc[1]
+    assert a["polls"] == 2 and a["last_absent_utc"] and a["last_absent_utc"] <= a["first_seen_utc"]
+    assert status(env)["steps"]["cefconnect_arrival"]["ok"]
+    idle = FakeClient()
+    assert co.collect(make_ctx(env, idle, cc=cc)) == co.EXIT_OK
+    assert idle.calls == ["clock", "calendar"]                      # idle: nothing polled
+    assert len(pd.read_csv(state / co.ARRIVAL_FILE)) == 2           # nothing logged twice
+
+
 def test_cefconnect_unreadable_fails_the_step_so_it_is_retried(env):
     ctx = make_ctx(env, cc={"AAA": co.CefConnectError("AAA: ConnectionError"), "BBB": 20.0})
     assert co.collect(ctx) == co.EXIT_INCOMPLETE
@@ -391,7 +456,7 @@ def test_account_snapshot_replaces_its_row(env):
 
 def test_orders_are_read_from_the_previous_trading_day(env):
     client = FakeClient(now=et(dt.date(2026, 10, 5), 21), next_open=et(dt.date(2026, 10, 6), 9, 30))
-    co.collect(make_ctx(env, client))
+    co.collect(make_ctx(env, client, cc_day=dt.date(2026, 10, 5)))
     after = next(c[1] for c in client.calls if isinstance(c, tuple) and c[0] == "orders")
     assert after == et(dt.date(2026, 10, 2), 0)          # Monday's orders went in on Friday
 

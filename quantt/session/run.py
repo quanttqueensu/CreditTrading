@@ -15,6 +15,21 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                whichever is sooner, and a timeout is also a gate-5 refusal. Gate 5
                checks each name's CLOSE and NAV are dated as-of, so
                --skip-refresh cannot trade a name the sleeve silently dropped.
+  1b. NAV gate only when the book json sets `data.stale_nav` (absent = off,
+               the behaviour above unchanged; `report` records what `on` would
+               do and changes nothing). Gate 5 checks a NAV's DATE; Yahoo serves
+               rows dated D carrying an older NAV
+               (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). A name whose
+               NAV(D) equals its previous NAV, or CEFConnect's NAV(D-1), is
+               checked against CEFConnect's D: a stale copy is replaced (logged
+               fallback), a genuine repeat kept. An UNVERIFIED name DEFERS the
+               decide until the final pre-send check (a gate-5 `data` refusal:
+               nothing decided, nothing marked, the next slot re-reads
+               CEFConnect); from the final check it is HELD at its current
+               shares, out of the cross-section (team lead 2026-10-13;
+               `nav_gate.py`, "DEFERRAL AND THE ORDER PATH" below). After the
+               sleeve has read the panel, `still_holds` checks it was the panel
+               the gate certified, or the session FAILs.
   2. read      Alpaca clock, calendar, account, positions, orders, assets.
   3. decide    the sleeve on the as-of date with the broker's holdings and
                `extras={"sleeve_nav": equity, "opening_session": bool}`, then
@@ -52,6 +67,34 @@ the session runs in two phases:
 Why: paper runs no closing auction and under-fills `cls` (11 of 13 expired on
 2026-09-29). Absent the key, the book runs as `cls` exactly as before.
 
+DEFERRAL AND THE ORDER PATH (stale-NAV gate, `on` mode; team lead 2026-10-13).
+A decide that finds an unverified NAV before the final pre-send check
+(`nav_gate.final_check_at`: the session's calendar close minus 90 minutes, on
+the session date; an evening run is never final) is REFUSED with a gate-5
+`data` refusal naming the names. Nothing new was built around it, on purpose:
+  * one plan per day: a refused plan is never `decided`, so `DECIDED` is not
+    written and plan.json is overwritten by the next run, exactly as on an
+    evening whose NAVs have not landed. The morning backstop's slots re-run
+    refresh + gate and re-read CEFConnect; the first that verifies every name,
+    or the first at or after the final check (holding what is still
+    unverified), decides. A decided plan is never re-decided (unchanged).
+  * STARTED / idempotency (CLAUDE.md order-path rule 2): untouched. A deferral
+    happens at DECIDE, before any order and before STARTED could exist;
+    `done_reason` and gate 6 still stop any second set for the auction.
+  * plan_sha and approval: a refused plan cannot be approved (`approve_main`
+    needs a decided plan) and cannot be sent (`load_decided_plan` needs one).
+    The plan_sha that APPROVED or `--approve` binds to is the morning plan's,
+    computed after the re-check; AUTO_ARMED sends whatever is decided, as now.
+  * DRY_RUN: a deferral is a `data` refusal, so it is REFUSED, never DRY, and
+    can never write DRY_DONE and idle the morning behind it.
+  * late_market (CLAUDE.md order-path rule 3, the paper exception): the send
+    window is unchanged; the final check sits 82 minutes before it opens, and
+    the 15:00 slot is left to retry a final decide that failed. In `cls` mode
+    the same refusal stops the evening send and the morning slots decide and
+    send before the cls cutoff.
+  * verify: a day still deferred at the send reads, from plan.json's refusal,
+    `MISSED: ... [data] stale-NAV gate: ... deferred`: a FAIL, never a PASS.
+
 OPENING SESSION. True only when Alpaca shows no positions AND no order in the
 account's history has ever filled. The sleeve is told explicitly (it never
 infers it from a flat book: a failed day or a manual flatten also looks flat),
@@ -86,6 +129,7 @@ from typing import Callable
 
 from quantt.session import decide as dec
 from quantt.session import gate as gt
+from quantt.session import nav_gate as ng
 from quantt.session import records as rec
 
 REPO = Path(__file__).resolve().parents[2]
@@ -483,10 +527,13 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
 
 
 def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
-                   equity: float, opening: bool) -> list:
+                   equity: float, opening: bool, nav_hold: dict | None = None) -> list:
     """The strategy's targets, built exactly as RUNNER.md step 3 says: the
     registry's sleeve from the frozen spec at the spec's capital, asked on the
-    as-of date with the broker's holdings and the two extras."""
+    as-of date with the broker's holdings and the two extras. `nav_hold`
+    ({"asof", "names"}, from the stale-NAV gate in `on` mode) is added as a third
+    extra only when the gate holds a name, so otherwise the sleeve's input is
+    unchanged."""
     import pandas as pd
     from src.deploy.registry import build_sleeve
     from src.deploy.sleeve import MarketState
@@ -495,8 +542,10 @@ def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
     ts = pd.Timestamp(asof)
     prices = pd.read_parquet(cefmod.PX_PATH)       # MarketState requires it; this sleeve reads its own panel
     prices = prices[pd.to_datetime(prices["date"]) <= ts]
-    ms = MarketState(asof=ts, prices=prices, holdings=dict(holdings),
-                     extras={"sleeve_nav": equity, "opening_session": opening})
+    extras = {"sleeve_nav": equity, "opening_session": opening}
+    if nav_hold is not None:
+        extras["nav_hold"] = nav_hold
+    ms = MarketState(asof=ts, prices=prices, holdings=dict(holdings), extras=extras)
     return sl.target_positions(ts, ms)
 
 
@@ -556,6 +605,51 @@ def execution_for(book: Book) -> dict:
     raise SessionError(f"{book.book_path}: execution.mode {mode!r} is not cls or late_market")
 
 
+def stale_nav_for(book: Book) -> str | None:
+    """The book json's `data.stale_nav`: the stale-NAV gate's mode, or None.
+
+    ABSENT means no gate, today's behaviour (CLAUDE.md: a new key defaults to
+    current behaviour), exactly as an absent `execution` block means `cls`.
+    Present, it must be one of `nav_gate.MODES`; anything else raises. Why the
+    gate is a runner setting and not a frozen-spec key: `nav_gate` docstring."""
+    data = json.loads(book.book_path.read_text()).get("data")
+    if data is None:
+        return None
+    if not isinstance(data, dict) or "stale_nav" not in data:
+        raise SessionError(f"{book.book_path}: a `data` block must set stale_nav to one of "
+                           f"{ng.MODES} (or the block must be deleted)")
+    mode = data["stale_nav"]
+    if mode not in ng.MODES:
+        raise SessionError(f"{book.book_path}: data.stale_nav {mode!r} is not one of {ng.MODES}")
+    return mode
+
+
+def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool):
+    """Step 1b, the stale-NAV gate (quantt/session/nav_gate.py). Returns
+    (record dict, GateResult or None).
+
+    It runs only on a refresh that passed (or was skipped): a failed refresh is
+    gate 5's refusal and nothing is decided, so there is no NAV to certify. In
+    act mode an error is the session's error (FAIL, the next slot retries):
+    deciding without knowing which NAVs are stale is what the gate exists to
+    stop. In report mode it changes nothing that trades, so an error is
+    recorded as UNMEASURED and the session goes on, like the pre-flight."""
+    mode = deps.stale_nav
+    if refresh_exit is not None and refresh_exit != 0:
+        return {"mode": mode, "not_run": f"the refresh did not pass ({refresh_exit}); "
+                                         f"gate 5 refuses the day"}, None
+    if deps.nav_gate is None:
+        raise SessionError(f"the book sets data.stale_nav={mode!r} but this session has no "
+                           f"NAV gate wired in its deps")
+    try:
+        res = deps.nav_gate.run(asof, universe, mode, deps.utcnow(), final)
+    except Exception as e:  # report mode only: recorded, never swallowed (docstring)
+        if mode != ng.REPORT:
+            raise
+        return {"mode": mode, "unmeasured": f"{type(e).__name__}: {e}"}, None
+    return res.to_dict(), res
+
+
 @dataclass
 class Deps:
     """Everything the session touches outside itself; tests pass fakes."""
@@ -573,6 +667,11 @@ class Deps:
     # (asof, universe, rows) -> close_history frame, for the pre-flight. None
     # means not wired; the pre-flight then records itself UNMEASURED, never ok.
     history: Callable[[dt.date, tuple, int], object] | None = None
+    # The stale-NAV gate (step 1b): its mode from the book json (None = off,
+    # today's behaviour; `stale_nav_for`) and the gate itself, a
+    # `nav_gate.PanelGate` or a fake with its `run` and `still_holds`.
+    stale_nav: str | None = None
+    nav_gate: object | None = None
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
@@ -581,6 +680,13 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         raise SessionError("QUANTT_ENV_FILE is not set: it must name the key file")
     from src.deploy.sleeves import cef_discount as cefmod
     p = spec_params(spec)
+    stale_nav = stale_nav_for(book)
+    gate = None
+    if stale_nav is not None:
+        from scripts.cef import fetch_daily as fd
+        # The sleeve's own NAV path: the gate certifies the file the sleeve reads.
+        gate = ng.PanelGate(nav_path=cefmod.NAV_PATH, log_path=fd.FALLBACK_LOG,
+                            lock_path=fd.LOCK_PATH)
     return Deps(
         client=AlpacaClient.from_environment(book.name),
         env=dict(env),
@@ -588,9 +694,12 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         closes=lambda asof, uni: last_closes(cefmod.PX_PATH, asof, uni),
         navs=lambda asof, uni: last_navs(cefmod.NAV_PATH, asof, uni),
         history=lambda asof, uni, rows: close_history(cefmod.PX_PATH, asof, uni, rows),
-        targets=lambda asof, h, eq, op: sleeve_targets(spec, p["capital_usd"], asof, h, eq, op),
+        targets=lambda asof, h, eq, op, **kw: sleeve_targets(spec, p["capital_usd"], asof, h,
+                                                             eq, op, **kw),
         halts=lambda: halts_for(book),
         execution=execution_for(book),
+        stale_nav=stale_nav,
+        nav_gate=gate,
     )
 
 
@@ -704,6 +813,24 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 refresh_exit = r.incomplete if r.incomplete is not None else r.exit
                 record["refresh"] = {"exit": r.exit, "incomplete": r.incomplete,
                                      "timeout_s": left, "tail": r.tail}
+        # 1b. the stale-NAV gate (quantt/session/nav_gate.py). Off unless the
+        # book json sets data.stale_nav; then nothing below changes but the
+        # record, the panel's stale copies and the names the sleeve drops.
+        gate_res = None
+        if deps.stale_nav is not None:
+            final = len(cal_today) == 1 and clock["timestamp"] >= ng.final_check_at(
+                session_date, cal_today[0]["close"])
+            record["nav_gate"], gate_res = _nav_gate(deps, asof, p["universe"], refresh_exit,
+                                                     final)
+            if gate_res is not None:
+                ng.append_csv(state / ng.CSV_NAME, gate_res, run=f"{stamp}-{mode}",
+                              session_date=session_date, written_utc=deps.utcnow())
+                for line in gate_res.lines():
+                    print(line, file=out)
+            else:
+                g = record["nav_gate"]
+                why = g["not_run"] if "not_run" in g else f"UNMEASURED: {g['unmeasured']}"
+                print(f"  NAV GATE ({deps.stale_nav}): {why}", file=out)
         closes_dated = deps.closes(asof, p["universe"])
         closes = {s: v[0] for s, v in closes_dated.items() if v[0] is not None}
         close_dates = {s: v[1] for s, v in closes_dated.items()}
@@ -740,7 +867,19 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             decision = dec.Decision(orders=(), targets={}, notes={"*": [
                 "not decided: the data gate refused"]}, plan_sha=dec.plan_sha(()))
         else:
-            targets = deps.targets(asof, pos, equity, opening)
+            hold = gate_res.hold if gate_res is not None else {}
+            if hold:
+                targets = deps.targets(asof, pos, equity, opening,
+                                       nav_hold={"asof": asof, "names": hold})
+            else:
+                targets = deps.targets(asof, pos, equity, opening)
+            if gate_res is not None:
+                # The sleeve has read the panel; was it the panel the gate
+                # certified? (PanelGate.still_holds: a fetch between the two.)
+                changed = deps.nav_gate.still_holds(gate_res)
+                if changed:
+                    raise SessionError(f"the NAV panel changed between the stale-NAV gate and "
+                                       f"the sleeve's read: {changed}; not deciding on it")
             decision = dec.decide(targets, pos, equity, closes, shortable,
                                   session_date=session_date, universe=p["universe"],
                                   cid_prefix=book.cid_prefix,
@@ -793,12 +932,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             account_flags={k: acct[k] for k in ("trading_blocked", "account_blocked",
                                                 "trade_suspended_by_user")})
         refusals = gt.evaluate(facts)
+        if gate_res is not None and gate_res.deferred:
+            # The stale-NAV gate's deferral (module docstring, DEFERRAL AND THE ORDER PATH).
+            refusals.append(gt.Refusal("data", gate_res.deferral_text()))
         record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
 
         plan = {"book": book.name, "spec_id": p["spec_id"], "session_date": session_date,
                 "asof": asof, "equity": equity, "opening_session": opening,
                 **decision.to_dict(), "refusals": record["refusals"],
                 "borrow_warnings": borrow_warnings, "mode": mode}
+        if "nav_gate" in record:             # only when the book turns the gate on
+            plan["nav_gate"] = record["nav_gate"]
         if "bp_scale" in record:
             plan["bp_scale"] = record["bp_scale"]
         shown = refusals

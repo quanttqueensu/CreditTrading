@@ -1,0 +1,9 @@
+asof,decide,decided_et,cefconnect_at_decide,triggered,of_which_cc_prev_only,unknown,on_at_decide,best_replaced,best_kept,worst_held,worst_held_outside_band,worst_eligible_after,worst_book_holds,flattens
+2026-09-28,not evening (plan.json),2026-09-29 10:33,unknown (no collector check near the decide),5,0,1,defer if CEFConnect lacked D,PCN PDI PDO PFN PTY,,PCN PDI PDO PFN PTY (+1 unknown),,7-8,no,never
+2026-09-29,evening,2026-09-29 22:00,"absent (collector, 19 min before the decide)",2,0,4,DEFER to the morning,,PFN PHK,PFN PHK (+4 unknown),PFN PHK,7-11,no,never
+2026-09-30,evening,2026-09-30 22:00,"absent (collector, 20 min before the decide)",5,0,6,DEFER to the morning,PDI,PCN PFN PHK PTY,PCN PDI PFN PHK PTY (+6 unknown),PFN PHK,2-7,possible,never
+2026-10-01,not evening (plan.json),2026-10-02 12:00,"present for 13 names (collector, 19 min before the decide)",8,0,1,decide,BIT HYT PCN PDO PTY,PDI PFN PHK,BIT HYT PCN PDI PDO PFN PHK PTY (+1 unknown),BIT PFN PHK,4-5,yes,never
+2026-10-02,not evening (plan.json),2026-10-05 09:30,unknown (collector checked 2870 min before the decide),2,0,9,defer if CEFConnect lacked D,DSL PHK,,DSL PHK (+9 unknown),PHK,2-11,possible,never
+2026-10-05,evening,2026-10-06 00:00,"absent (collector, 10 min after the decide)",9,0,0,DEFER to the morning,DSL MHD PCN PDI PDO PFN PHK PTY,MQY,DSL MHD MQY PCN PDI PDO PFN PHK PTY,MHD MQY PFN PHK,4,yes,never
+2026-10-06,evening,2026-10-06 22:00,"absent (collector, 19 min before the decide)",6,0,1,DEFER to the morning,PCN PDI PFN PHK PTY,JFR,JFR PCN PDI PFN PHK PTY (+1 unknown),JFR PFN PHK,6-7,no,never
+2026-10-07,evening,2026-10-07 23:00,"absent (collector, 79 min before the decide)",2,0,5,DEFER to the morning,BIT HYT,,BIT HYT (+5 unknown),BIT,6-11,no,never
