@@ -113,11 +113,28 @@ def build_panel(end=None, universe=None):
     return dict(px=px, nav=nav, vol=vol, ret=ret, disc=disc, mu=mu, sd=sd, z=z, adv=adv)
 
 
-def build_targets(universe=None):
+def build_targets(universe=None, min_adv=None):
     """Frictionless daily target weights, exactly as the sleeve would build them.
 
-    `universe=None` is the spec's universe; see `build_panel`."""
+    `universe=None` is the spec's universe; see `build_panel`.
+
+    `min_adv` (added 2026-10-14 for trial C5, PREREG_C5_OPEN_AUCTION_2026-10-13
+    DG-C5-4; the same flag C4's DG-C4-5 asks for): the ADV floor in USD. None
+    (the default) is the spec's `min_adv_usd`, read from the module's `MIN_ADV`
+    at call time, so the production path is unchanged (and
+    `scripts/cef/c5_feasibility.py::adv_floor`, which patches `MIN_ADV`, still
+    works). 0 is the WIDE set: the identical rule with the floor off, so a name
+    needs a z-score and a defined ADV. A NaN ADV still fails at a floor of 0,
+    because `nan or 0` is `nan` (NaN is truthy) and `nan >= 0` is False;
+    `scripts/cef/tests/test_c5_harness.py` pins that. The no-op was proved by
+    hashing `pickle.dumps(build_targets())` before and after the edit, on the
+    panel as of 2026-10-14 (cef_prices to 2026-09-28, cef_nav to 2026-09-25):
+    the FIRST call in a process hashes 007e221b...7cdc and the SECOND
+    c8291c1e...e599, identically on both sides of the edit. (The bytes differ
+    between first and second call although the frames are value-identical: a
+    pickle memo quirk, present before this edit. Compare like with like.)"""
     U = UNIVERSE if universe is None else list(universe)
+    floor = MIN_ADV if min_adv is None else float(min_adv)
     p = build_panel(universe=U)
     ret, z, adv = p["ret"], p["z"], p["adv"]
 
@@ -125,7 +142,7 @@ def build_targets(universe=None):
     start = z.index.searchsorted(pd.Timestamp(SAMPLE_START))
     for i in range(start, len(z.index)):
         row = z.iloc[i].dropna()
-        row = row[[t for t in row.index if (adv.iloc[i].get(t, 0) or 0) >= MIN_ADV]]
+        row = row[[t for t in row.index if (adv.iloc[i].get(t, 0) or 0) >= floor]]
         if len(row) < MIN_NAMES:
             tgt.iloc[i] = tgt.iloc[i - 1]          # hold; nothing eligible
             continue
@@ -231,6 +248,113 @@ def evaluate(H, R):
         turn_series=turn,
         pnl=pnl,
     )
+
+
+# =============================================================================
+# THE OPENING-AUCTION FILL, ON THE SAME HOLDINGS PATH (added 2026-10-14, trial C5)
+# =============================================================================
+# results/cef/PREREG_C5_OPEN_AUCTION_2026-10-13.md §5 (DG-C5-3). C5 asks whether
+# the trade decided in the evening of s-1 (on s-1's NAV) is worth filling at the
+# OPENING auction of s instead of the closing auction of s. It changes WHEN a
+# trade fills, never WHAT is held, so it is not a new backtester: it is the
+# deployed book `evaluate(H, R)` plus one extra leg on the same H,
+#
+#     pnl_C5[s] = evaluate(H, R)["pnl"][s] + G[s]
+#     G[s]      = sum_i (H[s-1,i] - H[s-2,i]) * (C[s,i] / O[s,i] - 1)
+#
+# i.e. the day's trade, times the session (open -> close of s) that the earlier
+# fill holds it over and the MOC fill does not. `evaluate()` above is NOT
+# edited; these two helpers sit beside it so there is still one definition of
+# the execution convention.
+#
+# WHY THIS IS NOT shift(1) (the 2026-09-10 incident). shift(1) earned
+# C[s-1] -> C[s] on H[s-1]: a fill at the close of the decision day, before its
+# NAV existed. The extra leg here starts at O[s], after s-1's NAV was published
+# the evening before, and the overnight C[s-1] -> O[s] stays with the book
+# decided a day earlier (H[s-2]), exactly as in evaluate(). No decision ever
+# earns an overnight gap that began before it was made.
+# scripts/cef/tests/test_c5_harness.py pins the alignment, and each test there
+# is shown to fail against the wrong versions (the trade at shift(2), at
+# shift(0), and the overnight return in place of the session return).
+SESSION_RETURN_LIMIT = 0.5      # the harness's own price filter (build_panel: |ret| < 0.5)
+
+
+def session_returns(O, C):
+    """The session return C[s,i] / O[s,i] - 1, and the mask of name-days that
+    have none.
+
+    ALIGNMENT (H7): row s reads row s of `O` and row s of `C` and nothing else,
+    so a later open or an earlier close cannot move it (test (iii)).
+
+    `O` is the opening-auction fill price and `C` the close the deployed harness
+    fills at, both date x ticker frames on one index and one column set. Where
+    either is missing the name-day has no session to earn: its trade is filled
+    at that day's close, the same as the deployed book, so its return is 0.0
+    and it is flagged in `no_cross` (PREREG_C5 §4.2: a no-cross name-day is
+    counted and listed, never dropped). The CALLER classifies why (no `O`
+    print, a declared defect class it set to NaN, or no close, class D-5) and
+    counts each class on trade name-days; this function only refuses to invent
+    a return.
+
+    NO SILENT FILTER: a non-positive price, or a session return of 50% or more
+    in magnitude (the harness's own price filter, which `build_panel` applies by
+    dropping the day), RAISES here instead. PREREG_C5 §4.5 makes either a Stage 0
+    halt, not a row to drop.
+
+    Returns (RS, no_cross): RS a float frame with no NaN, no_cross a bool frame.
+    """
+    if not (O.index.equals(C.index) and O.columns.equals(C.columns)):
+        raise ValueError("session_returns: O and C must share one index and one column set")
+    if not O.index.is_monotonic_increasing:
+        raise ValueError("session_returns: index must be sorted")
+    bad = (O <= 0) | (C <= 0)
+    if bad.any().any():
+        where = [(str(O.index[i].date()), O.columns[j]) for i, j in zip(*np.where(bad.values))][:10]
+        raise ValueError(f"session_returns: non-positive price at {where}")
+    rs = C / O - 1.0
+    big = rs.abs() >= SESSION_RETURN_LIMIT
+    if big.any().any():
+        where = [(str(rs.index[i].date()), rs.columns[j], float(rs.iat[i, j]))
+                 for i, j in zip(*np.where(big.values))][:10]
+        raise ValueError(f"session_returns: |C/O - 1| >= {SESSION_RETURN_LIMIT} at {where}; "
+                         "a Stage 0 defect (PREREG_C5 §4.5), never filtered here")
+    no_cross = rs.isna()
+    return rs.fillna(0.0), no_cross
+
+
+def open_fill_gain(H, RS, by_name=False):
+    """G[s] = sum_i (H[s-1,i] - H[s-2,i]) * RS[s,i]: what filling the trade
+    decided at s-1 in the OPENING auction of s adds to `evaluate(H, R)["pnl"]`.
+
+    ALIGNMENT (H1/H7): the trade decided in the evening of s-1 is
+    H[s-1] - H[s-2]; it fills at O[s] instead of C[s] and so also earns
+    RS[s] = C[s]/O[s] - 1. This is `(H.diff().shift(1) * RS).sum(axis=1)`, the
+    pre-registration's own expression. Rows 0 and 1 carry no trade (H.diff() is
+    NaN on row 0, as in `evaluate()`'s `turn`), so the first build from H's very
+    first row is not booked here, exactly as `evaluate()` books no turnover
+    for it; every window the C5 trial reads starts later, and the trial script
+    asserts that.
+
+    `RS` must come from `session_returns` (no NaN; 0 on no-cross name-days),
+    on H's index and columns. A stratum or a placebo is the same call with RS
+    masked to 0 outside it, or with a lagged H -- never a second formula.
+
+    by_name=True returns the name-day frame (H[s-1] - H[s-2]) * RS[s] instead
+    of its row sum; with RS = 1 everywhere that frame is the trade matrix itself
+    (row s: the trade that fills at the open of s), which is how the
+    shuffled-trade placebo obtains it without a second copy of the lag.
+    """
+    if not (H.index.equals(RS.index) and H.columns.equals(RS.columns)):
+        raise ValueError("open_fill_gain: H and RS must share one index and one column set")
+    if not H.index.is_monotonic_increasing:
+        raise ValueError("open_fill_gain: index must be sorted")
+    if RS.isna().any().any():
+        raise ValueError("open_fill_gain: RS has NaN; build it with session_returns, "
+                         "which sets a no-cross name-day to 0 and flags it")
+    contrib = H.diff().shift(1) * RS                  # row s: (H[s-1] - H[s-2]) * RS[s]
+    assert contrib.iloc[:2].isna().all().all(), "the trade lag moved: rows 0-1 must hold no trade"
+    contrib = contrib.fillna(0.0)
+    return contrib if by_name else contrib.sum(axis=1)
 
 
 def distribution_yield(index, columns):

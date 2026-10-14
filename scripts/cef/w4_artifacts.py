@@ -195,6 +195,88 @@ def nw_t(x: pd.Series, lags: int = NW_LAGS) -> float:
     return v.mean() / np.sqrt(lrv / n)
 
 
+def nw_auto_lag(x: pd.Series) -> int:
+    """Newey & West (1994) automatic bandwidth for the Bartlett kernel (added
+    2026-10-14 for trial C5's inference table, PREREG_C5 §8; a second method
+    beside the declared fixed L, never the deciding one).
+
+    The plug-in rule of "Automatic Lag Selection in Covariance Matrix
+    Estimation" (Rev. Econ. Stud. 61, 1994), univariate: with
+    n = floor(4 (T/100)^(2/9)) pilot lags and sample autocovariances g_j,
+    s0 = g_0 + 2 sum_{j<=n} g_j, s1 = 2 sum_{j<=n} j g_j,
+    gamma = 1.1447 ((s1/s0)^2)^(1/3), and the lag is floor(gamma T^(1/3)).
+    Raises on fewer than 10 observations rather than returning a default."""
+    v = x.dropna().values.astype(float)
+    T = len(v)
+    if T < 10:
+        raise ValueError(f"nw_auto_lag: {T} observations; at least 10 are needed")
+    e = v - v.mean()
+    n = int(np.floor(4 * (T / 100.0) ** (2.0 / 9.0)))
+    g = np.array([e[j:] @ e[:T - j] / T for j in range(n + 1)])
+    s0 = g[0] + 2 * g[1:].sum()
+    s1 = 2 * (np.arange(1, n + 1) * g[1:]).sum()
+    if not s0 > 0:
+        raise ValueError("nw_auto_lag: the pilot long-run variance is not positive")
+    gamma = 1.1447 * ((s1 / s0) ** 2) ** (1.0 / 3.0)
+    return int(np.floor(gamma * T ** (1.0 / 3.0)))
+
+
+def stationary_boot(x: pd.Series, mean_block: float = 21, reps: int = 10_000,
+                    seed: int = 20261013, chunk: int = 1_000) -> dict:
+    """Politis & Romano (1994) stationary bootstrap of a daily series: the
+    resampled MEAN and annualised SHARPE (mean / sd(ddof=1) * sqrt(252)) of each
+    of `reps` draws.
+
+    Added 2026-10-14 beside `nw_t` for trial C5 (PREREG_C5 §8: mean block 21,
+    10,000 resamples, seed 20261013). C4's pre-registration declares the same
+    helper "beside nw_t" (PREREG_C4 §8); whichever trial lands first serves
+    both, so the defaults are the declared ones and each caller scales the
+    draws to its own units (bp/yr, %/yr, per unit of turnover).
+
+    WHY STATIONARY AND NOT `block_boot_t`'s MOVING BLOCKS: block lengths are
+    geometric with mean `mean_block` and the series is wrapped circularly, so
+    the resample is itself stationary and the result does not hinge on one
+    fixed block length or lose the series' ends; `block_boot_t` stays as the
+    declared second method.
+
+    Each draw: the first index is uniform; each later one starts a new block
+    with probability 1/mean_block (a uniform index) and otherwise continues the
+    current block one step, modulo n. Drawn in chunks of `chunk` resamples to
+    bound memory; the random stream is fixed by `seed` alone.
+
+    Returns dict(means, sharpes) as arrays of length `reps`, plus the 95%
+    percentile intervals lo_mean/hi_mean and lo_sr/hi_sr. Raises on a series
+    shorter than three mean blocks (no default answer)."""
+    v = x.dropna().values.astype(float)
+    n = len(v)
+    if n < 3 * mean_block:
+        raise ValueError(f"stationary_boot: {n} observations for a mean block of {mean_block}")
+    if mean_block < 1:
+        raise ValueError("stationary_boot: mean_block must be >= 1")
+    rng = np.random.default_rng(seed)
+    p = 1.0 / mean_block
+    means, sharpes = np.empty(reps), np.empty(reps)
+    pos = np.arange(n)
+    done = 0
+    while done < reps:
+        k = min(chunk, reps - done)
+        starts = rng.integers(0, n, size=(k, n))
+        new = rng.random((k, n)) < p
+        new[:, 0] = True
+        last = np.maximum.accumulate(np.where(new, pos[None, :], 0), axis=1)
+        idx = (np.take_along_axis(starts, last, axis=1) + (pos[None, :] - last)) % n
+        s = v[idx]
+        m = s.mean(axis=1)
+        sd = s.std(axis=1, ddof=1)
+        means[done:done + k] = m
+        with np.errstate(divide="ignore", invalid="ignore"):
+            sharpes[done:done + k] = np.where(sd > 0, m / sd * np.sqrt(252), np.nan)
+        done += k
+    return dict(means=means, sharpes=sharpes,
+                lo_mean=float(np.percentile(means, 2.5)), hi_mean=float(np.percentile(means, 97.5)),
+                lo_sr=float(np.nanpercentile(sharpes, 2.5)), hi_sr=float(np.nanpercentile(sharpes, 97.5)))
+
+
 def block_boot_t(x: pd.Series, block=BOOT_BLOCK, reps=BOOT_REPS, seed=SEED):
     """Moving-block bootstrap of the mean: (t = mean/se, lo95, hi95)."""
     v = x.dropna().values

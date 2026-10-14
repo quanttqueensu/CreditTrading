@@ -1,0 +1,137 @@
+{
+ "stamp": "2026-10-14",
+ "stage": "0",
+ "spec": {
+  "spec_sha256": "c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e",
+  "values": {
+   "spec_id": "cef_discount.v7.20260928",
+   "band_width": 0.048,
+   "max_gross_stress": 1.8,
+   "z_window": 252,
+   "min_adv_usd": 3000000.0,
+   "min_names": 6,
+   "vol_target": 0.06,
+   "n_names": 13,
+   "capital_usd": 100000.0,
+   "order_type": "MOC",
+   "MIN_PERIODS": 120,
+   "VOL_LOOKBACK": 63,
+   "SAMPLE_START": "2005-01-03"
+  },
+  "N": 52,
+  "bar": 2.811
+ },
+ "classes": {
+  "panel_name_days": 21628,
+  "O": 21598,
+  "Q_only": 1,
+  "none": 29,
+  "both_OQ": 5341,
+  "D2": 0,
+  "D3_all": 0,
+  "D4": 0,
+  "flagged_out_of_range": 4,
+  "WIDE_material": 6456,
+  "WIDE_D1": 9,
+  "WIDE_D1_notional_share": 0.001532,
+  "WIDE_D3": 0,
+  "WIDE_D5": 0,
+  "deployed_material": 1763,
+  "deployed_D1": 3,
+  "deployed_D1_notional_share": 0.003116,
+  "deployed_D3": 0,
+  "deployed_D5": 0
+ },
+ "other_defects": {
+  "impossible_open": 0,
+  "session_ge_50pct": 0,
+  "close_off_both_strict": 22,
+  "close_off_both_robust": 1,
+  "close_off_both_robust_WIDE_material": 1,
+  "close_off_both_robust_deployed_material": 0,
+  "crsp_prc_negative": 0
+ },
+ "tests": {
+  "pytest_exit": 0,
+  "summary": ".................                                                        [100%]"
+ },
+ "noop": {
+  "first": "007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc",
+  "second": "c8291c1ea3834a4c9e2b61d6e8064860ddf124d6c547b7942eb24d685b8ee599",
+  "wide_equals_feasibility": true
+ },
+ "quotes": {
+  "sessions": 126,
+  "lines_compared": 41,
+  "lines_differing": 0
+ },
+ "crsp": {
+  "HYG": 0,
+  "IEF": 0,
+  "MUB": 0,
+  "BKLN": 0
+ },
+ "turnover": {
+  "WIDE": 32.0971,
+  "deployed": 13.4604
+ },
+ "hashes": {
+  "opening prints (Alpaca SIP, NYSE O/Q) 2016-22": {
+   "path": "results/cef/w4/_cache_w4/alpaca_opening_prints_2016_2022.parquet",
+   "sha256": "a1ec886b163693fe66e2762c4b202e3a4bb5a9a795fd00164c9eb73c0ff39aa5"
+  },
+  "opening prints, sized 2016-22": {
+   "path": "results/cef/w4/_cache_w4/alpaca_opening_prints_sized_2016_2022.parquet",
+   "sha256": "955068774e8979bc147f0625c1fece2077db4b5299523016506d7b6154964386"
+  },
+  "closing prints, sized 2016-22 (R-CLOSE, capacity)": {
+   "path": "results/cef/w4/_cache_w4/alpaca_closing_prints_sized_2016_2022.parquet",
+   "sha256": "3d0ac13c6d2b924cb542449c10524eb60e8001bf558ab86fb75be311e8850a20"
+  },
+  "CRSP dsf cache (stage_crsp_w4.py)": {
+   "path": "results/cef/w4/_cache_w4/crsp_dsf_w4.parquet",
+   "sha256": "700854848a73c03d8c073285605362cef1791ba676e5e2078f5fb24b3d6cb30c"
+  },
+  "data/cef/cef_prices.parquet": {
+   "path": "data/cef/cef_prices.parquet",
+   "sha256": "e8a6a180658c174a785ba9b3a318430786e773f5a1ab5b2ab7994be0362eef66"
+  },
+  "data/cef/cef_nav.parquet": {
+   "path": "data/cef/cef_nav.parquet",
+   "sha256": "d6a9780ebff000a3ae47b6455d54b2e52ac54a5828f618dbf5fe53ecfa4d1ba0"
+  },
+  "data/cef/cef_distributions.parquet": {
+   "path": "data/cef/cef_distributions.parquet",
+   "sha256": "a4ba7ef4a82682cbf4ab6559e55f8aaeeaf99fe644615360ab6dbc59cf4e14c6"
+  },
+  "data/cef/cef_splits.parquet": {
+   "path": "data/cef/cef_splits.parquet",
+   "sha256": "67a1f007312a155fd835fe50e3b357dfb060fcf6905cf90089c204ef3a5489cb"
+  },
+  "data/cef/cef_universe.csv (groups)": {
+   "path": "data/cef/cef_universe.csv",
+   "sha256": "e397b6903f534b74cbaebcbdba65a8722dc8a7e55a8e1c765d6107ba8adeb7d1"
+  },
+  "data/cef/cef_borrow_history.parquet (IBKR fee panel row)": {
+   "path": "data/cef/cef_borrow_history.parquet",
+   "sha256": "ccc272827895c88e35f6db075c989a2f0e3374837062b34f0f22badd38eeb365"
+  },
+  "ops/specs/cef_discount.frozen.json": {
+   "path": "ops/specs/cef_discount.frozen.json",
+   "sha256": "c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e"
+  },
+  "quote sample calendar": {
+   "path": "results/cef/exec_capacity/_cache_exec/calendar.parquet",
+   "sha256": "440d72e2fdf348dcf5bdd505f9da8cf48ab1c7805275f9bc20e4e578d417a939"
+  },
+  "quote sample, 126 fit session files (sha256 of date+sha256 pairs)": {
+   "path": "results/cef/exec_capacity/_cache_exec/days",
+   "sha256": "ea0007ffdd034660dfcd71a2f4ee15a8e5f15ef1b0e0a8e7bfd1b5e9a1ce6806",
+   "n": 126
+  }
+ },
+ "halts": [
+  "\u00a74.5(c): 1 panel close(s) disagree with both CRSP prc and the NYSE closing print by more than $0.005 (robust count; 22 strict), of which 1 on WIDE material trade name-days and 0 on the deployed set's"
+ ],
+ "verdict": "HALT"
+}

@@ -49,6 +49,14 @@ a TRANSACTABLE open (the opening-auction print, not yfinance's first-trade
 writes `alpaca_{opening,closing}_prints_sized_2016_2022.parquet`, so that the
 depth of the opening auction can be compared with the closing auction the book
 trades in. A print with no `s` field raises (no default size).
+
+`--holdout` (added 2026-10-14, trial C5, PREREG_C5_OPEN_AUCTION_2026-10-13
+DG-C5-6): the OPENING prints of C5's sealed holdout, 2023-01-03 -> 2026-09-30
+(the fixed end), to `alpaca_opening_prints_holdout_2023_2026.parquet`. It
+REFUSES unless C5's fit verdict is committed: `results/cef/c5/C5_FIT_VERDICT.json`
+must exist at HEAD, be tracked, and be unmodified in the working tree
+(`fit_verdict_committed`). So the holdout's prices cannot be read before the
+fit verdict that they may only kill is on the record. Opening side only.
 """
 from __future__ import annotations
 
@@ -65,8 +73,29 @@ OUT = CACHE / "alpaca_closing_prints_2016_2022.parquet"
 OUT_OPEN = CACHE / "alpaca_opening_prints_2016_2022.parquet"
 OUT_SIZED = {"close": CACHE / "alpaca_closing_prints_sized_2016_2022.parquet",
              "open": CACHE / "alpaca_opening_prints_sized_2016_2022.parquet"}
-YEARS = range(2016, 2023)          # 2023+ is the sealed holdout: never requested
+YEARS = range(2016, 2023)          # 2023+ is the sealed holdout: never requested (except --holdout)
 MAX_PAGES = 200
+OUT_HOLDOUT = CACHE / "alpaca_opening_prints_holdout_2023_2026.parquet"
+HOLDOUT_FIRST, HOLDOUT_END = "2023-01-03", "2026-09-30"   # PREREG_C5 §7: fixed, never moved
+FIT_VERDICT = Path("results") / "cef" / "c5" / "C5_FIT_VERDICT.json"
+
+
+def fit_verdict_committed(repo: Path = REPO, rel: Path = FIT_VERDICT) -> tuple[bool, str]:
+    """(ok, reason): is C5's fit verdict on the record? True only if `rel`
+    exists in HEAD's tree, is tracked, and the working copy does not differ
+    from HEAD. Any git failure is a refusal, never a pass."""
+    import subprocess
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+
+    if not (repo / rel).exists():
+        return False, f"{rel} does not exist"
+    if git("cat-file", "-e", f"HEAD:{rel.as_posix()}").returncode != 0:
+        return False, f"{rel} is not in HEAD (commit the fit verdict first)"
+    if git("diff", "--quiet", "HEAD", "--", rel.as_posix()).returncode != 0:
+        return False, f"{rel} differs from HEAD (uncommitted changes)"
+    return True, "committed"
 
 
 class AuctionFetchError(RuntimeError):
@@ -78,18 +107,28 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--side", choices=("close", "open"), default="close")
     ap.add_argument("--sizes", action="store_true")
+    ap.add_argument("--holdout", action="store_true")
     a = ap.parse_args(argv)
     key, out = ("c", OUT) if a.side == "close" else ("o", OUT_OPEN)
     if a.sizes:
         out = OUT_SIZED[a.side]
+    years = list(YEARS)
+    if a.holdout:
+        if a.side != "open" or a.sizes:
+            raise AuctionFetchError("--holdout fetches the opening prints only (--side open, no --sizes)")
+        ok, why = fit_verdict_committed()
+        if not ok:
+            raise AuctionFetchError(f"--holdout refused: C5's fit verdict is not committed ({why})")
+        out, years = OUT_HOLDOUT, list(range(2023, 2027))
     from quantt.broker.alpaca import AlpacaClient, DATA_BASE
     from scripts.cef.spec import UNIVERSE
     c = AlpacaClient.from_environment("cef")
     syms = sorted(UNIVERSE)
     rows = []
-    for y in YEARS:
+    for y in years:
         start = f"{y}-01-01T00:00:00Z"
-        end = f"{y + 1}-01-01T00:00:00Z" if y < 2022 else "2022-12-31T23:59:59Z"
+        end = f"{y + 1}-01-01T00:00:00Z" if y < years[-1] else (
+            "2022-12-31T23:59:59Z" if not a.holdout else f"{HOLDOUT_END}T23:59:59Z")
         token, pages = None, 0
         while True:
             params = {"symbols": ",".join(syms), "start": start, "end": end,
@@ -122,7 +161,10 @@ def main(argv=None) -> int:
         print(f"{y}: {pages} page(s), cumulative {len(rows)} {a.side} prints")
     df = pd.DataFrame(rows)
     df["date"] = pd.to_datetime(df["date"])
-    if df.date.max() >= pd.Timestamp("2023-01-01"):
+    if a.holdout:
+        if df.date.min() < pd.Timestamp(HOLDOUT_FIRST) or df.date.max() > pd.Timestamp(HOLDOUT_END):
+            raise AuctionFetchError(f"a print outside {HOLDOUT_FIRST}..{HOLDOUT_END} was fetched")
+    elif df.date.max() >= pd.Timestamp("2023-01-01"):
         raise AuctionFetchError("holdout leak: a 2023+ print was fetched")
     df["fetched_at_utc"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     CACHE.mkdir(parents=True, exist_ok=True)
