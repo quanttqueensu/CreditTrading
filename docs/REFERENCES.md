@@ -813,7 +813,7 @@ its gitignored cache). Live panels read-only: NAV to 2026-09-25, prices to
 | A Nasdaq fund-quote endpoint (`api.nasdaq.com/api/quote/X<TK>X/historical`) returns NAV history; it was probed once and not used, because its terms of use could not be confirmed | probe 2026-10-12 | [U] terms |
 
 
-### 12o. Feasibility counts for the C4 and E2 pre-registrations (added 2026-10-13)
+### 12r. Feasibility counts for the C4 and E2 pre-registrations (added 2026-10-13)
 
 The inputs behind the zero-trial sections of `results/cef/PREREG_C4_FAMILIES_2026-10-13.md`
 and `results/events/PREREG_E2_CONVERT_REVERSAL_2026-10-13.md` (both DRAFTS awaiting the
