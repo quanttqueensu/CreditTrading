@@ -928,3 +928,16 @@ give the quote taken from each one.
 | ZTR-2024 | SC TO-C 2024-03-11 (0001193125-24-064620); SC TO-C 2024-12-23 (0001193125-24-284229); SC TO-I/A 2025-02-12 (0001193125-25-024907); SC TO-C 2025-10-03 (0001193125-25-229427); SC TO-I/A 2025-12-08 (0001193125-25-311337) |
 | EV-EIM-2024 | SC TO-C 2024-05-06 (0000940394-24-000620); SC TO-I 2024-06-07 (0000940394-24-000768); SC TO-C 2024-11-12 (0000940394-24-001035); SC TO-C 2025-07-11 (0001076598-25-000273) |
 | JOF-2025 | SC TO-I 2026-06-01 (0001140361-26-023437); SC TO-I/A 2026-07-13 (0001140361-26-028294) |
+
+### 12r. Feasibility counts for the C4 and E2 pre-registrations (added 2026-10-13)
+
+The inputs behind the zero-trial sections of `results/cef/PREREG_C4_FAMILIES_2026-10-13.md`
+and `results/events/PREREG_E2_CONVERT_REVERSAL_2026-10-13.md` (both DRAFTS awaiting the
+team lead). No return of either trial was read or computed.
+
+| claim / series | source and fetcher | status |
+|---|---|---|
+| **C4 eligibility, masks and breadth** on the families panels (prices and NAV to 2026-10-09), the NAV-repeat precision on CEFConnect-checked rows (`nav_flags.parquet`), and the deployed book's first position (2013-06-21) on the live panel | `data/cef_families/` (§12h) and `data/cef/`, read-only; `scripts/cef/c4_feasibility.py`, run 2026-10-13 | [V] |
+| **CRSP price and volume for convertible and straight-debt issuers** (`prc`, `vol`; no `ret`), 1,198 permnos, 2010-06-01 → 2024-12-31, for the pre-event ADV count | R2 `crsp_a_stock.dsf`; fetcher `scripts/events/e2_feasibility.py` (`pull_px_vol`), cached under `results/events/_cache_convert/`, read 2026-10-13 | [V] |
+| **E2 event counts by year, 2011 → 2024-12-23**, convert and control, spec A and B (dates and identities only) | `scripts/events/convert_issuance.py::build_events` with its date-range arguments, on the §12f caches | [V] |
+| **Alpaca flags of SPY and of the 2023–24 liquid convert issuers**, from the families build's active-asset snapshot (2026-10-12T18:27Z, cef paper key): SPY shortable and easy to borrow; 115 of 126 issuer tickers shortable and easy to borrow. True on that date only | `data/cef_families/raw/alpaca_assets_active_2026-10-12.json` (§12h), read by `e2_feasibility.py` | [V] on its date |

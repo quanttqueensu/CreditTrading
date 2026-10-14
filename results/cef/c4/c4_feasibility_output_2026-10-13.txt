@@ -1,0 +1,92 @@
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+floor min_adv_usd 3,000,000; min_names 6; z_window 252; band_width 0.048; max_gross_stress 1.8 (all read through scripts/cef/spec.py)
+
+[1] POOL: 105 funds in equity_domestic, equity_sector, equity_covered_call, preferred, multi_asset; 59 C4-family funds left out
+reason
+asynchronous NAV (foreign close); single-fund-PD structure    30
+flagged vendor defect (families note §3.2-3.3)                13
+no usable daily NAV (families note §4)                        16
+flagged (excluded on every date): AWP, BST, CLM, CRF, GAB, GGT, GUT, IAF, JRI, NRO, RIV, SRV, UTG, ZTR
+pool by family: {'equity_sector': 31, 'multi_asset': 25, 'equity_covered_call': 21, 'preferred': 15, 'equity_domestic': 13}
+panels: prices last 2026-10-09, NAV last 2026-10-09 (data/cef_families/, built 2026-10-12)
+
+[2] NAV-repeat mask, pool NAV rows by year (repeat = equal to the fund's previous NAV row);
+    precision on CEFConnect-checked rows (weekly Fridays to 2025-10-10, daily after):
+      nav_rows  repeat_share  checked_repeats  of_which_stale_copy  stale_share_of_checked_repeats
+2005     11242         0.077              126                   10                           0.079
+2006     13753         0.102              141                    8                           0.057
+2007     15820         0.088              131                   16                           0.122
+2008     16698         0.070               75                   10                           0.133
+2009     16730         0.085              140                   24                           0.171
+2010     17374         0.114              237                   59                           0.249
+2011     18360         0.091              165                   16                           0.097
+2012     19356         0.103              195                   26                           0.133
+2013     20082         0.104              291                   43                           0.148
+2014     20637         0.105              282                    8                           0.028
+2015     21625         0.086              205                    9                           0.044
+2016     22176         0.088              266                    7                           0.026
+2017     22088         0.114              362                   10                           0.028
+2018     22088         0.089              246                    2                           0.008
+2019     22357         0.161              554                  228                           0.412
+2020     23046         0.097              525                  339                           0.646
+2021     23363         0.104              236                    7                           0.030
+2022     23799         0.042              255                  112                           0.439
+2023     23750         0.119             1503                 1155                           0.768
+2024     24044         0.097              893                  593                           0.664
+2025     26139         0.070              632                   25                           0.040
+2026     20369         0.062             1098                   75                           0.068
+
+    declared universe: 68 of the 105 pool funds shortable on the 2026-10-12 snapshot; by family {'equity_sector': 23, 'equity_covered_call': 15, 'multi_asset': 13, 'preferred': 10, 'equity_domestic': 7}; fresh-NAV sub-book 45
+
+[3] eligible breadth per session from 2005-01-03 (active = >= 6 eligible):
+                            book               era  sessions  active_sessions  active_share  median_eligible  p10_eligible  max_eligible  funds_ever_eligible
+declared: shortable pool, masked           2005-09      1259              853         0.678              8.0           3.0            17                   20
+declared: shortable pool, masked           2010-14      1258             1246         0.990             10.0           8.0            16                   21
+declared: shortable pool, masked           2015-19      1258             1226         0.975             11.0           8.0            20                   29
+declared: shortable pool, masked           2020-22       756              730         0.966             14.0          10.0            23                   30
+declared: shortable pool, masked 2023-26 (holdout)       946              896         0.947             13.0           7.0            21                   27
+declared: shortable pool, masked       fit 2005-22      4531             4055         0.895             10.0           5.0            23                   37
+  shortable pool, unmasked (R-Q)           2005-09      1259              887         0.705              8.0           4.0            18                   20
+  shortable pool, unmasked (R-Q)           2010-14      1258             1258         1.000             11.0           9.0            16                   21
+  shortable pool, unmasked (R-Q)           2015-19      1258             1258         1.000             11.0           9.0            20                   29
+  shortable pool, unmasked (R-Q)           2020-22       756              756         1.000             15.0          11.0            24                   30
+  shortable pool, unmasked (R-Q) 2023-26 (holdout)       946              946         1.000             15.0           8.0            21                   27
+  shortable pool, unmasked (R-Q)       fit 2005-22      4531             4159         0.918             11.0           6.0            24                   37
+           all 105, masked (R-S)           2005-09      1259             1090         0.866             10.0           5.0            21                   27
+           all 105, masked (R-S)           2010-14      1258             1254         0.997             14.0          11.0            23                   30
+           all 105, masked (R-S)           2015-19      1258             1245         0.990             15.0          11.0            30                   42
+           all 105, masked (R-S)           2020-22       756              731         0.967             18.0          13.0            34                   43
+           all 105, masked (R-S) 2023-26 (holdout)       946              918         0.970             18.0           9.0            29                   40
+           all 105, masked (R-S)       fit 2005-22      4531             4320         0.953             14.0           7.0            34                   53
+      fresh-NAV sub-book, masked           2005-09      1259              663         0.527              6.0           2.0            12                   14
+      fresh-NAV sub-book, masked           2010-14      1258             1232         0.979              9.0           7.0            14                   17
+      fresh-NAV sub-book, masked           2015-19      1258             1181         0.939              9.0           6.0            16                   23
+      fresh-NAV sub-book, masked           2020-22       756              726         0.960             12.0           8.0            17                   21
+      fresh-NAV sub-book, masked 2023-26 (holdout)       946              894         0.945             11.0           6.0            19                   23
+      fresh-NAV sub-book, masked       fit 2005-22      4531             3802         0.839              8.0           4.0            17                   26
+
+    eligible fund-days removed by the masks, share of unmasked eligible fund-days:
+      2005-09                391 of    9540  (4.1%)
+      2010-14                854 of   13578  (6.3%)
+      2015-19               1291 of   15391  (8.4%)
+      2020-22                867 of   11399  (7.6%)
+      2023-26 (holdout)     1118 of   13234  (8.4%)
+    zero-volume bars on otherwise-eligible fund-days (all 105): 0
+    share of fit-period eligible fund-days by family: {'equity_covered_call': 0.465, 'equity_domestic': 0.057, 'equity_sector': 0.301, 'multi_asset': 0.111, 'preferred': 0.065}
+
+    first active session (declared universe, masked): 2006-01-18; fit sessions from it to 2022-12-30: 4269 (16.9 yr); holdout sessions 2023-01-03 -> 2026-10-09: 946 (3.75 yr)
+
+[4] deployed v7 book (live panel, read-only): first position 2013-06-21; fit overlap with C4 from 2013-06-21: 2400 sessions = 114 non-overlapping 21-session blocks
+    P(sample rho_21 >= 0.5 | true rho): 0.2: 0.000, 0.3: 0.006, 0.4: 0.093, 0.5: 0.500, 0.6: 0.935
+
+[5] pass bar: validate._dsr > 0.95 at the CEF counter's N, on 4269 fit sessions
+   N sqrt(2lnN)  req SR  SR@80%  P|SR=0.50  P|SR=0.75  P|SR=1.00  P|SR=1.25
+  51      2.804   1.081   1.286      0.008      0.086      0.369      0.756
+  52      2.811   1.083   1.288      0.008      0.085      0.366      0.754
+  53      2.818   1.085   1.289      0.008      0.084      0.364      0.752
+  55      2.831   1.088   1.292      0.008      0.082      0.359      0.748
+  58      2.850   1.093   1.297      0.007      0.079      0.352      0.742
+    D4 alpha t >= 3.0 needs a residual Sharpe of at least 0.729 over 16.9 fit years (HAC widens it)
+    holdout sign rule over 3.75 yr: false-kill probability at a true SR of 0.50: 0.166, 0.75: 0.073, 1.00: 0.026
+
+zero trials: no z-score, position, P&L, IC or correlation of any family fund was computed.

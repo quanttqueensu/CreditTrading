@@ -1,0 +1,47 @@
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+floor min_adv_usd 3,000,000 (scripts/cef/spec.py); holdout day 0 2023-01-01..2024-12-23 (day +5 inside CRSP, which ends 2024-12-31)
+
+[1] convert: matched events (before return windows), spec A / spec B by year
+d0      2011  2012  2013  2014  2015  2016  2017  2018  2019  2020  2021  2022  2023  2024
+spec_A    38    25    63    46    45    42    62    92    66   130   118    45    75    83
+spec_B    37    25    61    46    44    35    55    74    59   121   117    39    62    82
+    fit 2011-22      spec A   761  spec B   702  issuers  500  weeks with an event  332
+    gap 2022-11..12  spec A    11  spec B    11  issuers   11  weeks with an event    4
+    holdout 2023-24  spec A   158  spec B   144  issuers  137  weeks with an event   65
+
+[1] straight-debt control: matched events (before return windows), spec A / spec B by year
+d0      2011  2012  2013  2014  2015  2016  2017  2018  2019  2020  2021  2022  2023  2024
+spec_A   123   157   167   124   112   113   171    82   102   226   224    53    58    82
+spec_B   121   152   164   121   111   104   160    80   100   223   221    46    57    81
+    fit 2011-22      spec A  1650  spec B  1599  issuers  855  weeks with an event  510
+    gap 2022-11..12  spec A     4  spec B     4  issuers    4  weeks with an event    4
+    holdout 2023-24  spec A   140  spec B   138  issuers  115  weeks with an event   72
+
+[2] CRSP |prc| x vol pulled for 1198 issuers: 2010-06-01 .. 2024-12-31 (no `ret` read)
+ sample             era  events_B  adv_unmeasured  clear_floor  share  median_adv_musd
+convert     fit 2011-22       702               0          650  0.926           25.553
+convert holdout 2023-24       144               0          142  0.986           50.635
+control     fit 2011-22      1599              10         1415  0.885           34.005
+control holdout 2023-24       138               0          133  0.964           36.745
+    convert spec B clearing the floor, by year: {2011: 34, 2012: 19, 2013: 53, 2014: 37, 2015: 37, 2016: 30, 2017: 50, 2018: 72, 2019: 56, 2020: 118, 2021: 116, 2022: 39, 2023: 61, 2024: 81}
+
+[3] Alpaca active assets read 2026-10-12T18:27:23.541988+00:00 (paper, cef key; true on that date only)
+    SPY: tradable True, shortable True, easy_to_borrow True
+    holdout convert issuers clearing the floor, by CRSP ticker at day 0: 126; listed 116, tradable 116, shortable 115, easy to borrow 115
+
+[4] from REPRO_CORP_EVENTS (spec B, fit): per-event sd of CAR[+2,+5] 5.96% convert, 5.40% control (= |mean| x sqrt(n) / plain t); week-cluster design effects 1.30, 1.25
+    holdout (spec B, liquid): convert n 142, clustered SE of the mean ~ 0.569%; control n 133, SE ~ 0.522%; SE of the difference ~ 0.772% (independence assumed)
+      true convert mean 0.54% (the fit's): P(holdout mean > 0) 0.829; P(t >= 1.645) 0.243; P(t >= 2) 0.147
+      true convert mean 0.27% (half the fit's): P(holdout mean > 0) 0.682; P(t >= 1.645) 0.121; P(t >= 2) 0.064
+      true convert mean 0.14% (the 2015-19 era's): P(holdout mean > 0) 0.597; P(t >= 1.645) 0.081; P(t >= 2) 0.040
+      true convert - control 0.71% (the fit's +0.71%): P(holdout difference > 0) 0.821
+      true convert - control 0.17% (2020-22's +0.17%): P(holdout difference > 0) 0.587
+    fit sessions 2011-01-01..2022-12-30: 3020 (12.0 yr). The calendar-time portfolio's NW t 2.45 implies an annual SR ~ 0.71 over them (in sample: these windows were already examined)
+   N  req SR   P(pass|SR=0.71)  P(pass|0.5x)
+   1   0.475             0.789         0.337
+   2   0.816             0.354         0.055
+   3   0.904             0.249         0.028
+   4   0.957             0.194         0.018
+    D4 alpha t >= 3.0 at a true t of 2.45: P ~ 0.291
+
+zero trials: no CRSP `ret`, abnormal return, window sum or P&L was read or computed.
