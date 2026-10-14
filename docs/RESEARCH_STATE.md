@@ -78,11 +78,13 @@ counter (156) covers all ETF-price/PD work done to date.
 > - **Trial 52 is C4**, `results/cef/PREREG_C4_FAMILIES_2026-10-13.md`: the
 >   discount z-score pooled over five CEF families.
 > - **Both are judged at N = 52, bar √(2 ln 52) = 2.811.**
-> - **Trial 51 (C5): no verdict, so no D-code. It HALTED at Stage 0 on 2026-10-14,
->   before any P&L** (§4.5(c)): a panel close disagrees with both CRSP and the NYSE
->   closing print (MHD 2017-06-21, 3c). No statistic was computed and the holdout
->   is unopened. It awaits the team lead, and the counter does not move
->   (`results/cef/C5_RESULT_2026-10-14.md`).
+> - **Trial 51 (C5): no verdict yet, so no D-code.** On 2026-10-14 it HALTED at
+>   Stage 0, before any P&L (§4.5(c), MHD 2017-06-21). The team lead ruled the same
+>   day (the AMENDMENT block in its pre-registration: a new class D-6, the
+>   tolerance, the fit inputs frozen, six choices fixed). Stage 0 re-run on the
+>   frozen copy: PASS. It is stopped before Stage 1 until the team lead has reviewed
+>   the amendment. No statistic computed; holdout unopened; the counter does not
+>   move (`results/cef/C5_RESULT_2026-10-14.md`).
 >
 > **2026-10-14: the XASSET slate is declared at N = 4**
 > (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`, revision 3, approved):

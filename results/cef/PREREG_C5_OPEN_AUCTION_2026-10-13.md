@@ -29,6 +29,130 @@ decision 2 names · **Source** `results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md
 > `CLAUDE.md` (the rule-3 text in §16 is a draft), and touches nothing on the
 > order path. No order endpoint was called.
 
+> **AMENDMENT: team lead, 2026-10-14.** Made after the first Stage 0 halted
+> (`results/cef/C5_RESULT_2026-10-14.md`, branch `trial-c5` `71e106b`) and
+> **before any return, gain, cost or P&L of C5 was computed**. Nothing below
+> was chosen with sight of an outcome. The counter does not move (CEF 52), and
+> no other section's rule is changed except where a ruling says so.
+>
+> **Ruling 1: a new declared defect class, D-6** (added to the §4.2 table).
+> - **The class.** A decision-window name-day whose panel close is off both
+>   CRSP |`prc`| and the NYSE closing print, while those two agree within the
+>   tolerance of ruling 2.
+> - **The repair.** The trial's own input copy takes the NYSE closing print
+>   (`M` where published, else `6`). That is the closing-auction price the MOC
+>   convention models; for the one case the two sources are identical.
+>   `data/` is never altered, and only `close` is.
+> - **The copy is the only copy.** Every use of that close in the trial (the
+>   z-score, the vol scalar, H, R and Cₛ) reads it. No name-day carries two
+>   closes.
+> - **Halt** if more than 5 name-days fall in the class. Each case is logged.
+>   Off both with the two sources disagreeing stays a §4.5(c) halt.
+> - **Measured** (`python3 scripts/cef/c5_open_auction.py freeze`): 1
+>   name-day. MHD 2017-06-21 is +3.00c against both, which agree to 0.00c; it
+>   is a WIDE material trade, and none in the deployed set.
+>   - In the WIDE set the correction moves H by at most 0.26% of capital, and
+>     390 cells move by more than 10⁻⁴. Material trade name-days go from 6,456
+>     to 6,458, and turnover from 32.10 to 32.11 a year.
+>   - The deployed set does not change.
+>
+> **Ruling 2: tolerance.** Agreement is |diff| ≤ $0.005 + 1e-6, so an exact half
+> cent on float32-stored prices agrees. It applies to **every** $0.005 test in
+> the trial: D-2, D-3, the out-of-range flag, §4.5(c), D-6, and §9 2a's
+> "moved more than $0.005" (moved ⇔ |Oₛ − Cₛ₋₁| > $0.005 + 1e-6).
+>
+> **Ruling 4: frozen fit inputs.** The fit reads only a frozen copy, so no later
+> panel refresh can move it. The copy is the whole history to 2022-12-30, not
+> only 2016–22, because H is built from 2005; a copy that started in 2016
+> could not rebuild it.
+> - **Contents:**
+>   - the 13 names' prices, NAVs, distributions, splits and IBKR fee panel;
+>   - the 2016–22 opening prints, plain and sized, and the sized closing
+>     prints;
+>   - the CRSP stage;
+>   - the 126-session quote sample.
+> - **Where.** It sits in the gitignored `results/cef/c5/_cache_c5_frozen/`,
+>   and is read through `band_frontier.DATA_DIR`, a default-off switch.
+> - **No-op proofs.**
+>   - With the default, `build_targets()` hashes the same as before the
+>     switch, and so does `total_returns`.
+>   - The uncorrected copy rebuilds T, R and both H of the live build cut at
+>     2022-12-30 exactly.
+> - **SHA-256** (every file is in `results/cef/c5/c5_frozen_inputs_2026-10-14.json`,
+>   and every stage re-verifies them before it reads one):
+>   - `cef/cef_prices.parquet` (input copy, D-6 applied): `59ccc4456bf37b8ad9d0777e56cc3c14b8eeca532305dfdc4a6ce7c4721876a2`
+>   - `cef_raw/cef_prices.parquet` (uncorrected): `67e20f6dcfc03000aec42037d6bb4e28e65b525a47f78372504d18896a99d20c`
+>   - `cef/cef_nav.parquet`: `f08193876942cebde96fe2ed514d1526b91ae0dc1be287d0aaf3befd9204c8f8`
+>   - `cef/cef_distributions.parquet`: `bcb4a23a06f58e99a08bf68c9a9a7f6cad642bd75fc042e9a0c05a7129eae20f`
+>   - `cef/cef_splits.parquet`: `fd8557517b0a5bebffdac388560d9bec7537db4b845cb9d442706bf78139af68`
+>   - `cef/cef_borrow_history.parquet`: `84403d9c906a22f452debb526cf3a5aa8c9001045c437d3a059092f5b9545248`
+>   - `w4/alpaca_opening_prints_2016_2022.parquet`: `a1ec886b163693fe66e2762c4b202e3a4bb5a9a795fd00164c9eb73c0ff39aa5`
+>   - `w4/alpaca_opening_prints_sized_2016_2022.parquet`: `955068774e8979bc147f0625c1fece2077db4b5299523016506d7b6154964386`
+>   - `w4/alpaca_closing_prints_sized_2016_2022.parquet`: `3d0ac13c6d2b924cb542449c10524eb60e8001bf558ab86fb75be311e8850a20`
+>   - `w4/crsp_dsf_w4.parquet`: `700854848a73c03d8c073285605362cef1791ba676e5e2078f5fb24b3d6cb30c`
+>   - `exec/calendar.parquet`: `53be53340efe7839b05a09ee3d8fb1a88e18a623a93cc95f728654c215904663`
+>   - `exec/days/` (126 sessions, combined): `2770e68da451f50ad52e5182431fa91a53bd4fa987180bba2b78ddc51a2cb289`
+> - **Stage 0 re-run on the frozen copy: PASS**
+>   (`results/cef/c5/c5_stage0_amended_output_2026-10-14.txt`).
+>
+> **Ruling 3: the six undecided choices, fixed.** Each takes the most
+> conservative reading consistent with this document.
+> 1. **Signed-dislocation row (§6).**
+>    - **Both ways.** Computed as the mean per material trade name-day (as
+>      `s_open` is a per-name-day mean) **and** weighted by |ΔH| over all
+>      trades (per unit of turnover, the gain's own unit).
+>    - **The row charges max(the larger of the two, 0).** D2-open (signed)
+>      applies if the gain per unit of turnover is below either one.
+>    - **Measured on** the quote sample's C5 trade name-days that have an `O`
+>      cross and both mids; the rest are counted as unmeasured.
+>    - **Why:** the document compares a per-turnover gain with a cost whose
+>      weighting it does not state. The larger cost cannot flatter C5, and a
+>      negative dislocation is reported but never credited.
+> 2. **R-D4's feeds (§10).**
+>    - **The ETFs' session leg:** CRSP `openprc` → `prc`, as declared.
+>    - **The 13 names' session leg:** the trial's own `O` print → close,
+>      equal-weighted over the names with a cross that day. The CRSP version
+>      is printed beside it and never decides.
+>    - **The lagged close-to-close legs:** total returns, CRSP `ret` for the
+>      ETFs and `total_returns` for the 13 names.
+>    - **Why:** G is built from exactly those prices, so this factor can
+>      absorb the most of any common move, and D4 is hardest to pass. H15
+>      makes returns total returns.
+> 3. **Shuffled-trade placebo (§9, 2c).**
+>    - **Blocks:** contiguous blocks of 21 from 2016-01-04; the last has 19.
+>    - **Draws:** all 84 blocks, the short one included as one block, are
+>      permuted together, so every trade row is used exactly once per draw.
+>      1,000 draws, seed 20261013, 95th percentile by linear interpolation.
+>    - **Why:** "trade sizes are kept and timing is destroyed" holds only if
+>      no row is dropped or repeated.
+> 4. **Stale-open stratum with no prior close (§9, 2a; §11 R-STALE0).**
+>    - **The rule:** where Cₛ₋₁ is missing, the name-day is **not** in the
+>      moved stratum, and in R-STALE0 it is stale (no-cross, gain 0). It is
+>      counted. No older close is forward-filled.
+>    - **Why:** the control exists to remove stale opens, and a name-day that
+>      cannot be shown to have moved is not admitted.
+> 5. **R-CLOSE (§11).**
+>    - **The price:** NYSE `M` where published, and `6` before 2020-11-04.
+>      `M` equals `6` wherever both exist, and the same-price repeats of
+>      2021-12-31 are de-duplicated.
+>    - **No cross:** a name-day with no `6` (only `M`, or neither) has no
+>      closing cross. It is a no-cross name-day for the gain. In the books'
+>      print-to-print returns it is 0 (the harness's zero-fill of a missing
+>      return), counted with its held-weight share.
+>    - **Why:** a fill is never priced at a print that was not an auction
+>      trade (the no-cross trap, EXEC note §1).
+> 6. **The capacity-bound label (§9) when the sample's gain is ≤ 0.**
+>    - **The rule:** the label is **applied**. When the gain is > 0, the
+>      declared test stands (print → mid₀₉:₃₅ part > 50% of the gain). Both
+>      parts are always reported.
+>    - **Why:** the mechanism claims the gain is in the drift part. A sample
+>      that shows no gain cannot support that claim, so the caution stands.
+>
+> **Still open, not decided here: the holdout's D-6.** D-6 needs CRSP `prc`,
+> which `stage_crsp_w4.py` stages only to 2022-12-31. The holdout's own freeze
+> (after the panel refresh, DG-C5-7) will have to say how D-6 is evaluated for
+> 2023–26.
+
 ---
 
 ## 0. The declaration in one table
@@ -208,6 +332,7 @@ at that day's close, so its gain is 0, the same as the live rule of decision
 | D-3 | `O` disagrees with **both** the yfinance open and CRSP `openprc` by > $0.005 **and** lies outside the yfinance day's [low, high] ± $0.005 | 0 | > 0.5% of material trade name-days |
 | D-4 | two `O` prints on one name-day | 0 (the script raises) | any, until the fetcher is checked |
 | D-5 | a material trade on a name-day with no panel close | 0 (deployed and WIDE) | > 0.1% of material trade name-days |
+| D-6 *(amendment, team lead 2026-10-14)* | the panel close is off both CRSP \|`prc`\| and the NYSE closing print, which agree within \|diff\| ≤ $0.005 + 1e-6 → the trial's input copy takes the NYSE print (never `data/`); logged per name-day. **Not a no-cross class**: the name-day keeps its open fill | 1 (MHD 2017-06-21; `c5_open_auction.py freeze`, 2026-10-14) | > 5 name-days in the decision window |
 | — | `O` outside [low, high] with one consolidated open agreeing | 4 name-days | **not** a defect; flagged and used |
 
 **Halting** means stopping before any P&L: no trial is spent, the case goes to

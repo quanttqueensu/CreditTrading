@@ -655,8 +655,12 @@ def sample_days(eras=("fit", "recent")) -> dict:
     `fetch --skip-recent`."""
     cal = list(pd.read_parquet(_need(CACHE / "calendar.parquet", "... fetch")).date)
     fit = [d for d in cal if FIT_FIRST <= d <= FIT_END][::FIT_SAMPLE_EVERY]
-    out = {**{d: "fit" for d in fit}, **{d: "recent" for d in cal[-RECENT_SESSIONS:]}}
-    return {d: e for d, e in out.items() if e in eras}
+    out = {}
+    if "fit" in eras:
+        out.update({d: "fit" for d in fit})
+    if "recent" in eras:                     # as before: a date in both samples is read as recent
+        out.update({d: "recent" for d in cal[-RECENT_SESSIONS:]})
+    return out
 
 
 def load_days(eras=("fit", "recent")) -> dict:

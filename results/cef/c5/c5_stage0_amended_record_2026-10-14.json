@@ -1,0 +1,87 @@
+{
+ "stamp": "2026-10-14",
+ "stage": "0 (amended, frozen inputs)",
+ "spec": {
+  "spec_sha256": "c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e",
+  "values": {
+   "spec_id": "cef_discount.v7.20260928",
+   "band_width": 0.048,
+   "max_gross_stress": 1.8,
+   "z_window": 252,
+   "min_adv_usd": 3000000.0,
+   "min_names": 6,
+   "vol_target": 0.06,
+   "n_names": 13,
+   "capital_usd": 100000.0,
+   "order_type": "MOC",
+   "MIN_PERIODS": 120,
+   "VOL_LOOKBACK": 63,
+   "SAMPLE_START": "2005-01-03"
+  },
+  "N": 52,
+  "bar": 2.811
+ },
+ "classes": {
+  "panel_name_days": 21628,
+  "O": 21598,
+  "Q_only": 1,
+  "none": 29,
+  "both_OQ": 5341,
+  "D2": 0,
+  "D3_all": 0,
+  "D4": 0,
+  "flagged_out_of_range": 4,
+  "WIDE_material": 6458,
+  "WIDE_D1": 9,
+  "WIDE_D1_notional_share": 0.00153,
+  "WIDE_D3": 0,
+  "WIDE_D5": 0,
+  "deployed_material": 1763,
+  "deployed_D1": 3,
+  "deployed_D1_notional_share": 0.003116,
+  "deployed_D3": 0,
+  "deployed_D5": 0
+ },
+ "other_defects": {
+  "impossible_open": 0,
+  "session_ge_50pct": 0,
+  "d6": 1,
+  "close_off_both_after_d6": 0,
+  "crsp_prc_negative": 0
+ },
+ "tests": {
+  "pytest_exit": 0,
+  "summary": "..................                                                       [100%]"
+ },
+ "noop": {
+  "first": "007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc",
+  "second": "c8291c1ea3834a4c9e2b61d6e8064860ddf124d6c547b7942eb24d685b8ee599",
+  "wide_equals_feasibility": true,
+  "truncation_noop": {
+   "WIDE": true,
+   "deployed": true,
+   "total_returns": true
+  }
+ },
+ "quotes": {
+  "sessions": 126,
+  "lines_compared": 41,
+  "lines_differing": 0
+ },
+ "crsp": {
+  "HYG": 0,
+  "IEF": 0,
+  "MUB": 0,
+  "BKLN": 0
+ },
+ "turnover": {
+  "WIDE": 32.1079,
+  "deployed": 13.4604
+ },
+ "hashes": {
+  "n_files": 141,
+  "record": "results/cef/c5/c5_frozen_inputs_2026-10-14.json"
+ },
+ "halts": [],
+ "verdict": "PASS"
+}

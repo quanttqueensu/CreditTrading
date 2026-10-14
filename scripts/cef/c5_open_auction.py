@@ -7,40 +7,61 @@ auction instead of the t+1 closing auction. The trial script that
     QUANTT_ENV_FILE=<config/.env> python3 scripts/data/fetch_alpaca_auction_history.py --side close --sizes
     python3 scripts/data/stage_crsp_w4.py
     QUANTT_ENV_FILE=<config/.env> python3 scripts/cef/exec_capacity_open_cross.py fetch --skip-recent
-    python3 scripts/cef/c5_open_auction.py stage0        # counts, gates and hashes; no P&L
+    python3 scripts/cef/c5_open_auction.py freeze        # the frozen fit inputs + D-6; writes their sha256
+    python3 scripts/cef/c5_open_auction.py stage0        # counts, gates and hashes on the FROZEN copy; no P&L
+
+HISTORY OF THIS SCRIPT (both runs are on the record)
+---------------------------------------------------
+* 2026-10-14, commit 71e106b: Stage 0 on the live caches HALTED on §4.5(c), a
+  panel close off both CRSP `prc` and the NYSE closing print (MHD 2017-06-21).
+  Its outputs are `results/cef/c5/c5_stage0_{output,record,flags}_2026-10-14.*`;
+  `git show 71e106b:scripts/cef/c5_open_auction.py` reproduces it.
+* The team lead's rulings of 2026-10-14 (the AMENDMENT block at the top of the
+  pre-registration): (1) a new declared defect class D-6 -- a panel close off
+  both CRSP and the NYSE print, which agree with each other, takes the NYSE
+  print in the TRIAL'S OWN INPUT COPY (never data/), halting above 5 name-days
+  in the decision window; (2) every price-agreement test is |diff| <= $0.005 +
+  1e-6, so an exact half cent on float32-stored prices agrees; (4) the fit
+  reads a FROZEN copy of its inputs, so no later panel refresh can move it.
+  `freeze` builds that copy and `stage0` now reads only it, after checking every
+  file's sha256 against `results/cef/c5/c5_frozen_inputs_2026-10-14.json`.
 
 WHAT IS HERE, AND WHAT IS NOT
 -----------------------------
-Only STAGE 0 of the pre-registration's order of evaluation (§13): the data
-gates DG-C5-1..5 and DG-C5-8, the declared price rule's defect classes and
-their halt rules (§4.2), the "any other defect" examples of §4.5, the spec pin,
-the equal-turnover check, and one record of the SHA-256 of every input. **No
-return is combined into a P&L at this stage** (§13; the XASSET review's
-finding 1): the session return C/O - 1 is formed only to test it against the
-harness's 50% filter, and nothing is summed over a holdings path.
+Only STAGE 0 of the order of evaluation (§13): the data gates DG-C5-1..5 and
+DG-C5-8, the declared defect classes and halt rules (§4.2 and the amendment's
+D-6), the "any other defect" examples of §4.5, the spec pin, the
+equal-turnover check, and the input hashes. **No return is combined into a P&L
+at this stage** (§13): the session return C/O - 1 is formed only to test the
+harness's 50% filter, and nothing is summed over a holdings path. Stages 1-8 are
+NOT implemented: the team lead reviews the amendment before any P&L.
 
-Stages 1-8 are deliberately NOT implemented. The first run of Stage 0, on
-2026-10-14, HALTED on a §4.5 defect (panel closes that disagree with both CRSP
-`prc` and the NYSE closing print), and the pre-registration sends a Stage 0
-halt to the team lead before any P&L: "a rule is never edited to make a count
-pass". Writing the scoring code before that ruling would invite running it.
-`results/cef/C5_RESULT_2026-10-14.md` records the halt and the questions.
+THE FROZEN COPY. Every input the fit reads, truncated at 2022-12-30 (the whole
+history to that date, not only 2016-22, because H is built from 2005 and a
+copy starting in 2016 could not rebuild it): the 13 names' prices, NAVs,
+distributions, splits and IBKR fee panel; the 2016-22 auction prints; the CRSP
+stage; the 2016-22 quote sample. It lives in the gitignored
+`results/cef/c5/_cache_c5_frozen/` (vendor and licensed data; the repository is
+public) and its hashes are committed. `frozen()` points every reader at it --
+`band_frontier.DATA_DIR` and the quote module's caches -- so no reader is left
+on the live panel. Truncating first is exact (every builder is causal); `freeze`
+proves it by rebuilding T, R and both H from the uncorrected copy and comparing
+them with the live build cut at 2022-12-30.
 
-THE HOLDOUTS. Every frame stops at 2022-12-30 (`fit_only`, `_assert_fit`). The
-2023+ opening prints are not fetched: `fetch_alpaca_auction_history.py
---holdout` refuses until `results/cef/c5/C5_FIT_VERDICT.json` is committed
-(DG-C5-6). The quote sample is the 2016-22 sample alone (`fetch
---skip-recent`). Only the 13 spec names are read.
+THE HOLDOUTS. Nothing in the frozen copy is dated after 2022-12-30. The 2023+
+opening prints are not fetched: `fetch_alpaca_auction_history.py --holdout`
+refuses until `results/cef/c5/C5_FIT_VERDICT.json` is committed (DG-C5-6).
+Only the 13 spec names are read.
 
 NO SILENT FALLBACK. A missing cache raises naming its builder. A defect is
-counted and listed by its declared class, never filled; anything outside the
-declared classes halts.
+counted and listed by its declared class; D-6 is the only alteration, applied
+to the trial's copy by its stated rule and logged name-day by name-day; anything
+outside the declared classes halts.
 
-Outputs (counts, shares, differences in cents, hashes: no vendor price level,
-because the caches are licensed or vendor data and this repository is public):
-  results/cef/c5/c5_stage0_output_<STAMP>.txt
-  results/cef/c5/c5_stage0_record_<STAMP>.json
-  results/cef/c5/c5_stage0_flags_<STAMP>.csv
+Committed outputs hold counts, shares, differences in cents and hashes, never a
+vendor price level:
+  results/cef/c5/c5_frozen_inputs_<STAMP>.json, c5_freeze_output_<STAMP>.txt
+  results/cef/c5/c5_stage0_amended_{output,record,flags}_<STAMP>.*
 """
 from __future__ import annotations
 
@@ -50,6 +71,7 @@ import hashlib
 import io
 import json
 import pickle
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -63,11 +85,21 @@ if str(REPO) not in sys.path:
 
 STAMP = "2026-10-14"
 OUT_DIR = REPO / "results" / "cef" / "c5"
-W4_CACHE = REPO / "results" / "cef" / "w4" / "_cache_w4"
-OPEN_PRINTS = W4_CACHE / "alpaca_opening_prints_2016_2022.parquet"
-OPEN_SIZED = W4_CACHE / "alpaca_opening_prints_sized_2016_2022.parquet"
-CLOSE_SIZED = W4_CACHE / "alpaca_closing_prints_sized_2016_2022.parquet"
-CRSP = W4_CACHE / "crsp_dsf_w4.parquet"
+LIVE_CEF = REPO / "data" / "cef"                  # read by `freeze` only
+LIVE_W4 = REPO / "results" / "cef" / "w4" / "_cache_w4"
+LIVE_EXEC = REPO / "results" / "cef" / "exec_capacity" / "_cache_exec"
+FROZEN = OUT_DIR / "_cache_c5_frozen"              # gitignored (results/**/_cache_*)
+F_CEF_RAW = FROZEN / "cef_raw"                     # the panels as in data/: 13 names, <= 2022-12-30, uncorrected
+F_CEF = FROZEN / "cef"                             # the TRIAL'S INPUT COPY: the same, with D-6 applied
+F_W4 = FROZEN / "w4"                               # the 2016-22 auction prints and the CRSP stage
+F_EXEC = FROZEN / "exec"                           # the 2016-22 quote sample (126 sessions) and its calendar
+FREEZE_RECORD = OUT_DIR / f"c5_frozen_inputs_{STAMP}.json"
+PANELS = ("cef_prices", "cef_nav", "cef_distributions", "cef_splits", "cef_borrow_history")
+W4_FILES = ("alpaca_opening_prints_2016_2022.parquet", "alpaca_opening_prints_sized_2016_2022.parquet",
+            "alpaca_closing_prints_sized_2016_2022.parquet", "crsp_dsf_w4.parquet")
+OPEN_PRINTS = F_W4 / W4_FILES[0]
+CLOSE_SIZED = F_W4 / W4_FILES[2]
+CRSP = F_W4 / W4_FILES[3]
 SPEC_FILE = REPO / "ops" / "specs" / "cef_discount.frozen.json"
 
 # ---- the pre-registration's declarations (PREREG_C5, read 2026-10-14). These are
@@ -81,9 +113,11 @@ N_APPROVED = 52                                   # the APPROVED block: judged a
 WINDOW = (pd.Timestamp("2016-01-04"), pd.Timestamp("2022-12-30"))   # decision 3
 WINDOW_SESSIONS = 1762                            # §5: "That is 1,762 sessions"
 TICK = 0.005                                      # §4.2's price-agreement tolerance
+TOL = TICK + 1e-6                                 # ruling 2 (team lead, 2026-10-14): |diff| <= $0.005 + 1e-6 agrees
+D6_HALT_N = 5                                     # ruling 1: halt if more than 5 D-6 name-days in the window
+FIT_END = pd.Timestamp("2022-12-30")
 MATERIAL = 0.005                                  # §12.2: a trade of at least 0.5% of capital
 HALT = dict(D1_trades=0.01, D1_notional=0.01, D2_both=0.01, D3_trades=0.005, D5_trades=0.001)
-FLOAT_EPS = 1e-6                                  # float32 panel noise at the $0.005 boundary (see sec_other)
 # the pre-edit no-op hashes of build_targets() (DG-C5-4): first and second call in one process
 NOOP_FIRST = "007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc"
 NOOP_SECOND = "c8291c1ea3834a4c9e2b61d6e8064860ddf124d6c547b7942eb24d685b8ee599"
@@ -116,13 +150,250 @@ def hr(t: str) -> None:
     print("\n" + "=" * 100 + f"\n{t}\n" + "=" * 100)
 
 
+@contextlib.contextmanager
+def frozen():
+    """Point EVERY reader at the frozen copy, and restore on exit: the harness's
+    panels (band_frontier.DATA_DIR) and the quote module's caches (CACHE for the
+    sample, W4_CACHE for the sized prints it classifies)."""
+    from scripts.cef import band_frontier as bf
+    from scripts.cef import exec_capacity_open_cross as X
+    old = (bf.DATA_DIR, X.CACHE, X.W4_CACHE)
+    bf.DATA_DIR, X.CACHE, X.W4_CACHE = F_CEF, F_EXEC, F_W4
+    try:
+        yield
+    finally:
+        bf.DATA_DIR, X.CACHE, X.W4_CACHE = old
+
+
+def nyse_close_prints(k: pd.DataFrame, idx, U) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """(close6, closeM, repeated): the primary listing's closing-trade (`6`) and
+    official-close (`M`) prints, date x ticker. Two prints of one condition on one
+    name-day are ambiguous only if their PRICES differ -- the runner's rule
+    (quantt/broker/alpaca.py closing_auction_prints raises AmbiguousAuctionPrint on
+    two prices); that raises here. On 2021-12-31 every name's M was published
+    twice, at 16:00 and 19:00 ET, at one price and size: counted, not a defect."""
+    kn = k[k.exchange == "N"]
+    reps = {}
+    for cond in ("6", "M"):
+        s = kn[kn.condition == cond]
+        d = s[s.duplicated(["date", "ticker"], keep=False)]
+        if len(d) and (d.groupby(["date", "ticker"]).price.nunique() > 1).any():
+            raise Halt(f"NYSE condition-{cond} closing prints at two different prices on one name-day")
+        reps[cond] = sorted({str(x.date()) for x in d.date})
+    piv = lambda cond: (kn[kn.condition == cond].drop_duplicates(["date", "ticker"])
+                        .pivot(index="date", columns="ticker", values="price").reindex(index=idx, columns=U))
+    return piv("6"), piv("M"), reps
+
+
+def _read_panel(path: Path, datecol: str, U) -> pd.DataFrame:
+    d = pd.read_parquet(_need(path, "the live panel"))
+    d = d[d.ticker.isin(U)].copy()
+    return d[pd.to_datetime(d[datecol]) <= FIT_END].reset_index(drop=True)
+
+
+def _holdings(min_adv) -> pd.DataFrame:
+    """band_gross_capped on the spec, on whatever bf.DATA_DIR points at, cut at the fit."""
+    from scripts.cef import band_frontier as bf
+    from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS
+    cap = MAX_GROSS_STRESS if MAX_GROSS_STRESS is not None else np.inf
+    T, R = bf.build_targets(min_adv=min_adv)
+    T, R = bf.fit_only(T, R)
+    return T, R, bf.band_gross_capped(T, BAND_WIDTH, cap)
+
+
+def freeze() -> dict:
+    """Build the frozen copy, apply D-6 to the trial's input copy, and hash it all.
+
+    D-6 (ruling 1, team lead 2026-10-14): on a decision-window name-day where the
+    panel close is off BOTH CRSP |prc| and the NYSE closing print (M where
+    published, else 6) by more than TOL, and those two agree within TOL, the
+    trial's copy takes the NYSE closing print -- the closing-auction price the MOC
+    convention models; for MHD 2017-06-21 the two sources are identical. Off both
+    with the two sources NOT agreeing is still a §4.5(c) defect and halts. More
+    than D6_HALT_N D-6 name-days halts. Only `close` is altered; data/ never is."""
+    from scripts.cef import band_frontier as bf
+    from scripts.cef import exec_capacity_open_cross as X
+    from scripts.cef.spec import UNIVERSE
+    U = list(UNIVERSE)
+    halts = []
+    hr("FREEZE: THE FIT'S INPUTS, CUT AT 2022-12-30, INTO results/cef/c5/_cache_c5_frozen/ (gitignored)")
+    if FROZEN.exists():
+        shutil.rmtree(FROZEN)                          # a freeze starts empty: no stale file is hashed in
+    for d in (F_CEF_RAW, F_CEF, F_W4, F_EXEC / "days"):
+        d.mkdir(parents=True, exist_ok=True)
+    live_last = {}
+    for name in PANELS:
+        col = "ex_date" if name in ("cef_distributions", "cef_splits") else "date"
+        full = pd.read_parquet(LIVE_CEF / f"{name}.parquet")
+        live_last[name] = str(pd.to_datetime(full[col]).max().date())
+        _read_panel(LIVE_CEF / f"{name}.parquet", col, U).to_parquet(F_CEF_RAW / f"{name}.parquet", index=False)
+    print("live panels' last dates (read once, never again by the fit):", live_last)
+    for f in W4_FILES:
+        a = pd.read_parquet(_need(LIVE_W4 / f, "see the module docstring"))
+        if pd.to_datetime(a["date"]).max() > FIT_END:
+            raise Halt(f"{f} carries a date after {FIT_END.date()}")
+        shutil.copy2(LIVE_W4 / f, F_W4 / f)
+    cal = pd.read_parquet(_need(LIVE_EXEC / "calendar.parquet", "exec_capacity_open_cross.py fetch --skip-recent"))
+    cal[cal.date <= str(FIT_END.date())].to_parquet(F_EXEC / "calendar.parquet", index=False)
+    old = X.CACHE
+    X.CACHE = F_EXEC
+    try:
+        days = X.sample_days(eras=("fit",))
+    finally:
+        X.CACHE = old
+    for dd in days:
+        shutil.copy2(_need(LIVE_EXEC / "days" / f"{dd}.json", "exec_capacity_open_cross.py fetch --skip-recent"),
+                     F_EXEC / "days" / f"{dd}.json")
+    print(f"copied: {len(PANELS)} panels (13 names, <= {FIT_END.date()}), {len(W4_FILES)} print/CRSP caches, "
+          f"the quote sample's {len(days)} sessions and its calendar")
+
+    # ---- the truncation is exact: the uncorrected copy rebuilds T, R and both H of the live build
+    hr("FREEZE: THE UNCORRECTED COPY REBUILDS THE LIVE BUILD EXACTLY (cut at 2022-12-30)")
+    noop = {}
+    old = bf.DATA_DIR
+    try:
+        live = {lab: _holdings(f) for lab, f in (("WIDE", 0), ("deployed", None))}
+        live_tr = bf.total_returns(live["WIDE"][1])
+        bf.DATA_DIR = F_CEF_RAW
+        raw = {lab: _holdings(f) for lab, f in (("WIDE", 0), ("deployed", None))}
+        raw_tr = bf.total_returns(raw["WIDE"][1])
+    finally:
+        bf.DATA_DIR = old
+    for lab in live:
+        noop[lab] = all(x.equals(y) for x, y in zip(live[lab], raw[lab]))
+    noop["total_returns"] = live_tr.equals(raw_tr)
+    print("T, R and H identical, live build vs the uncorrected frozen copy:", noop)
+    if not all(noop.values()):
+        raise Halt("the frozen copy does not rebuild the live fit-period build exactly")
+
+    # ---- D-6 on the uncorrected copy, decision window
+    hr("FREEZE: D-6 (ruling 1) ON THE DECISION WINDOW; tolerance |diff| <= $0.005 + 1e-6 (ruling 2)")
+    P = pd.read_parquet(F_CEF_RAW / "cef_prices.parquet")
+    P["date"] = pd.to_datetime(P["date"])
+    C = P.pivot_table(index="date", columns="ticker", values="close").sort_index().reindex(columns=U)
+    idx = C.index[(C.index >= WINDOW[0]) & (C.index <= WINDOW[1])]
+    C = C.loc[idx]
+    c = pd.read_parquet(F_W4 / W4_FILES[3])
+    c["date"] = pd.to_datetime(c["date"])
+    prc = c[c.ticker.isin(U)].pivot_table(index="date", columns="ticker", values="prc").reindex(index=idx, columns=U).abs()
+    k = pd.read_parquet(F_W4 / W4_FILES[2])
+    k["date"] = pd.to_datetime(k["date"])
+    c6, cM, _ = nyse_close_prints(k, idx, U)
+    cp = cM.combine_first(c6)
+    which = pd.DataFrame(np.where(cM.notna(), "M", np.where(c6.notna(), "6", "")), index=idx, columns=U)
+    avail = C.notna() & prc.notna() & cp.notna()
+    off_both = avail & ((C - prc).abs() > TOL) & ((C - cp).abs() > TOL)
+    agree = (prc - cp).abs() <= TOL
+    d6, other = off_both & agree, off_both & ~agree
+    tr = {lab: open_trades(raw[lab][2]).loc[idx] for lab in raw}
+    log = []
+    for (d, t) in _cells(off_both):
+        lab_w = _tradelab(tr["WIDE"].at[d, t])
+        lab_d = _tradelab(tr["deployed"].at[d, t])
+        log.append(dict(date=str(d.date()), ticker=t, cls="D-6" if d6.at[d, t] else "§4.5(c) (sources disagree)",
+                        close_minus_crsp_c=round(float(100 * (C.at[d, t] - prc.at[d, t])), 3),
+                        close_minus_nyse_c=round(float(100 * (C.at[d, t] - cp.at[d, t])), 3),
+                        crsp_minus_nyse_c=round(float(100 * (prc.at[d, t] - cp.at[d, t])), 3),
+                        nyse_print=which.at[d, t], value_used="NYSE closing print" if d6.at[d, t] else "none (halt)",
+                        WIDE_trade=lab_w, deployed_trade=lab_d))
+    print(f"name-days with a close, CRSP prc and an NYSE closing print: {int(avail.sum().sum()):,}; off both: "
+          f"{int(off_both.sum().sum())}; D-6 (the two sources agree): {int(d6.sum().sum())}; "
+          f"sources disagree (§4.5(c), halts): {int(other.sum().sum())}")
+    for r in log:
+        print("   ", r)
+    if d6.sum().sum() > D6_HALT_N:
+        halts.append(f"D-6: {int(d6.sum().sum())} name-days, above the ruled {D6_HALT_N}")
+    if other.any().any():
+        halts.append(f"§4.5(c): {int(other.sum().sum())} close(s) off both sources, which disagree with each other")
+
+    # ---- the trial's input copy: D-6 applied to `close`, every other file identical
+    Praw = pd.read_parquet(F_CEF_RAW / "cef_prices.parquet")
+    Pin = Praw.copy()
+    dts = pd.to_datetime(Pin["date"])
+    for (d, t) in _cells(d6):
+        m = (dts == d) & (Pin.ticker == t)
+        if m.sum() != 1:
+            raise Halt(f"D-6 {d.date()} {t}: {int(m.sum())} rows in the copy, not one")
+        Pin.loc[m, "close"] = float(cp.at[d, t])
+    Pin.to_parquet(F_CEF / "cef_prices.parquet", index=False)
+    for name in PANELS[1:]:
+        shutil.copy2(F_CEF_RAW / f"{name}.parquet", F_CEF / f"{name}.parquet")
+    changed = int((Pin["close"] != Praw["close"]).sum())
+    print(f"the trial's input copy: {changed} close(s) altered (D-6), every other value and file identical")
+    old = bf.DATA_DIR
+    try:
+        bf.DATA_DIR = F_CEF
+        inp = {lab: _holdings(f)[2] for lab, f in (("WIDE", 0), ("deployed", None))}
+    finally:
+        bf.DATA_DIR = old
+    hdiff = {}
+    for lab in inp:
+        dd = (inp[lab] - raw[lab][2]).abs()
+        hdiff[lab] = dict(cells_differing=int((dd > 0).sum().sum()), cells_over_1e_4=int((dd > 1e-4).sum().sum()),
+                          max_abs_weight_diff=float(dd.max().max()),
+                          first_date=str(dd.index[(dd.sum(axis=1) > 0).to_numpy()].min().date())
+                          if (dd > 0).any().any() else None)
+    print("holdings (date x name, 2005-2022), input copy against the uncorrected copy: the close enters the "
+          "z-score's 252-session window, the vol scalar and the band's path, so one corrected close moves later "
+          "weights slightly (weights only; no return):", hdiff)
+
+    hr("FREEZE: SHA-256 OF EVERY FROZEN FILE")
+    files = {}
+    for f in sorted(FROZEN.rglob("*")):
+        if f.is_file():
+            files[str(f.relative_to(FROZEN))] = sha256_file(f)
+    for name in sorted(files):
+        if not name.startswith("exec/days/"):
+            print(f"{files[name]}  {name}")
+    dh = hashlib.sha256("".join(f"{n}{h}" for n, h in sorted(files.items()) if n.startswith("exec/days/")).encode())
+    print(f"{dh.hexdigest()}  exec/days/<{sum(n.startswith('exec/days/') for n in files)} session files> (combined)")
+    rec = dict(stamp=STAMP, root=str(FROZEN.relative_to(REPO)), fit_end=str(FIT_END.date()),
+               live_last_dates=live_last, tolerance="|diff| <= 0.005 + 1e-6", d6_halt_above=D6_HALT_N,
+               d6_value_rule="the NYSE closing print (M where published, else 6); applied to `close` only",
+               truncation_noop=noop, d6_log=log, d6_count=int(d6.sum().sum()), holdings_cells_changed=hdiff,
+               exec_days_combined_sha256=dh.hexdigest(), files=files, halts=halts,
+               verdict="HALT" if halts else "FROZEN")
+    hr("FREEZE VERDICT: " + rec["verdict"])
+    for x in halts:
+        print("  - " + x)
+    return rec
+
+
+def verify_frozen() -> dict:
+    """Every later stage re-verifies the frozen files before it reads one; a
+    mismatch, a missing file or an extra file halts."""
+    if not FREEZE_RECORD.exists():
+        raise Halt(f"{FREEZE_RECORD.relative_to(REPO)} is missing: run `freeze` and commit it first")
+    rec = json.loads(FREEZE_RECORD.read_text())
+    if rec.get("verdict") != "FROZEN":
+        raise Halt(f"the freeze record's verdict is {rec.get('verdict')}, not FROZEN")
+    got = {str(f.relative_to(FROZEN)): sha256_file(f) for f in sorted(FROZEN.rglob("*")) if f.is_file()}
+    bad = sorted(set(got) ^ set(rec["files"])) + sorted(n for n in got if n in rec["files"] and got[n] != rec["files"][n])
+    if bad:
+        raise Halt(f"the frozen copy differs from its committed hashes: {bad[:10]}")
+    return rec
+
+
+def open_trades(H: pd.DataFrame) -> pd.DataFrame:
+    """Row s: |the trade decided at s-1|, which fills at the open of s -- read
+    through `open_fill_gain` with RS = 1, so there is one definition of the lag."""
+    from scripts.cef.band_frontier import open_fill_gain
+    ones = pd.DataFrame(1.0, index=H.index, columns=H.columns)
+    return open_fill_gain(H, ones, by_name=True).abs()
+
+
+def _tradelab(x: float) -> str:
+    return "material" if x >= MATERIAL else ("small" if x > 1e-12 else "-")
+
+
 # =============================================================================
 # the data
 # =============================================================================
 
 class Data:
-    """Every frame Stage 0 reads, on the decision window's sessions. Nothing here
-    carries a date after 2022-12-30."""
+    """Every frame Stage 0 reads, on the decision window's sessions, from the
+    FROZEN copy (call inside `frozen()`). Nothing here carries a date after
+    2022-12-30."""
 
     def __init__(self):
         from scripts.cef import band_frontier as bf
@@ -130,7 +401,9 @@ class Data:
         from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS, UNIVERSE
         from scripts.cef.w4_artifacts import _assert_fit
         self.U = U = list(UNIVERSE)
-        P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
+        if bf.DATA_DIR != F_CEF:
+            raise Halt("Data() must be built inside frozen(): the fit reads only the frozen copy")
+        P = pd.read_parquet(F_CEF / "cef_prices.parquet")
         P = P[P.ticker.isin(U)].copy()
         P["date"] = pd.to_datetime(P["date"])
         self.prices_last = P["date"].max()
@@ -166,21 +439,7 @@ class Data:
         k = pd.read_parquet(_need(CLOSE_SIZED, "fetch_alpaca_auction_history.py --side close --sizes"))
         k["date"] = pd.to_datetime(k["date"])
         _assert_fit(k.set_index("date"))
-        kn = k[k.exchange == "N"]
-        # Two primary prints of one condition on one name-day are ambiguous only if their PRICES
-        # differ (the runner's rule: quantt/broker/alpaca.py closing_auction_prints raises
-        # AmbiguousAuctionPrint on two prices). On 2021-12-31 every name's M print was published
-        # twice, at 16:00 and again at 19:00 ET, at the same price and size; that is counted here.
-        self.close_dups = {}
-        for cond in ("6", "M"):
-            s = kn[kn.condition == cond]
-            d = s[s.duplicated(["date", "ticker"], keep=False)]
-            if len(d) and (d.groupby(["date", "ticker"]).price.nunique() > 1).any():
-                raise Halt(f"NYSE condition-{cond} closing prints at two different prices on one name-day")
-            self.close_dups[cond] = sorted({str(x.date()) for x in d.date})
-        piv = lambda cond: (kn[kn.condition == cond].drop_duplicates(["date", "ticker"])
-                            .pivot(index="date", columns="ticker", values="price").reindex(index=idx, columns=U))
-        self.close6, self.closeM = piv("6"), piv("M")
+        self.close6, self.closeM, self.close_dups = nyse_close_prints(k, idx, U)
 
         # the two evaluation sets' holdings paths (H only; no return is formed from them here)
         cap = MAX_GROSS_STRESS if MAX_GROSS_STRESS is not None else np.inf
@@ -196,13 +455,8 @@ class Data:
         self.adv = bf.build_panel(end=WINDOW[1])["adv"].reindex(columns=U)
 
     def trades(self, lab: str) -> pd.DataFrame:
-        """Row s: |the trade decided at s-1|, which goes to the open of s (the
-        alignment of `open_fill_gain`, read through it with RS = 1 so there is
-        one definition of the lag)."""
-        from scripts.cef.band_frontier import open_fill_gain
-        H = self.H[lab]
-        ones = pd.DataFrame(1.0, index=H.index, columns=H.columns)
-        return open_fill_gain(H, ones, by_name=True).abs().loc[self.idx]
+        """Row s: |the trade decided at s-1|, which goes to the open of s."""
+        return open_trades(self.H[lab]).loc[self.idx]
 
 
 # =============================================================================
@@ -240,7 +494,7 @@ def sec_spec() -> dict:
 
 def sec_classes(D: Data) -> tuple[dict, list, list]:
     """DG-C5-1: the declared defect classes of §4.2, re-counted, with their halt rules."""
-    hr("[1] DG-C5-1: THE OPENING PRINTS AND THE DECLARED PRICE RULE (§4.2), RE-COUNTED")
+    hr("[1] DG-C5-1: THE OPENING PRINTS AND THE DECLARED PRICE RULE (§4.2), RE-COUNTED; agreement = |diff| <= $0.005 + 1e-6 (ruling 2)")
     a = D.open_raw
     fa = sorted(a["fetched_at_utc"].unique()) if "fetched_at_utc" in a.columns else ["(no stamp)"]
     print(f"opening-print cache: {len(a):,} rows, {a['date'].min().date()}..{a['date'].max().date()}, "
@@ -254,10 +508,10 @@ def sec_classes(D: Data) -> tuple[dict, list, list]:
     nQonly = int((hasQ & ~hasO).sum().sum())
     nnone = int((priced & O.isna() & Q.isna()).sum().sum())
     both = O.notna() & Q.notna()
-    d2 = both & ((O - Q).abs() > TICK)
-    out_rng = hasO & D.lo.notna() & ((O < D.lo - TICK) | (O > D.hi + TICK))
-    eq_y = hasO & D.op_y.notna() & ((O - D.op_y).abs() <= TICK)
-    eq_c = hasO & D.op_c.notna() & ((O - D.op_c).abs() <= TICK)
+    d2 = both & ((O - Q).abs() > TOL)
+    out_rng = hasO & D.lo.notna() & ((O < D.lo - TOL) | (O > D.hi + TOL))
+    eq_y = hasO & D.op_y.notna() & ((O - D.op_y).abs() <= TOL)
+    eq_c = hasO & D.op_c.notna() & ((O - D.op_c).abs() <= TOL)
     d3 = hasO & D.op_y.notna() & D.op_c.notna() & ~eq_y & ~eq_c & out_rng
     flagged = out_rng & ~d3
     dup = a[a.exchange == "N"].duplicated(["date", "ticker", "condition"], keep=False)
@@ -266,7 +520,7 @@ def sec_classes(D: Data) -> tuple[dict, list, list]:
             ("  'Q' only (no round-lot cross)", nQonly, REF_2026_10_13["Q_only"]),
             ("  neither", nnone, REF_2026_10_13["none"]),
             ("O and Q both present", int(both.sum().sum()), REF_2026_10_13["both_OQ"]),
-            ("D-2: |O - Q| > $0.005", int(d2.sum().sum()), REF_2026_10_13["D2"]),
+            ("D-2: |O - Q| > $0.005 + 1e-6", int(d2.sum().sum()), REF_2026_10_13["D2"]),
             ("D-3: O off both consolidated opens AND outside the day's range", int(d3.sum().sum()),
              REF_2026_10_13["D3"]),
             ("D-4: two O (or Q) prints on one N name-day", int(dup.sum()), 0),
@@ -331,18 +585,15 @@ def _cells(mask: pd.DataFrame):
     return list(s.index)
 
 
-def sec_other(D: Data) -> tuple[dict, list, list]:
-    """§4.5: 'Any other defect found at Stage 0 halts the trial before any P&L and
-    goes to the team lead: for example a print at an impossible price, a session
-    return over 50% in magnitude (the harness's own price filter), or a close
-    that disagrees with both CRSP prc and the NYSE closing print.' Each example is
-    tested here. The pre-registration states no tolerance for 'disagrees'; the
-    declared price-agreement tolerance of §4.2 ($0.005) is applied, and because
-    the yfinance panel stores float32 prices (10.89 is 10.890000343), a
-    disagreement of EXACTLY half a cent can land either side of $0.005. Both
-    counts are printed: 'strict' (> $0.005 on the stored floats) and 'robust'
-    (> $0.005 + 1e-6, so an exact half cent is agreement)."""
-    hr("[2] §4.5: DEFECTS OUTSIDE THE DECLARED CLASSES (any one halts before P&L)")
+def sec_other(D: Data, frz: dict) -> tuple[dict, list, list]:
+    """§4.5: 'Any other defect found at Stage 0 halts the trial before any P&L ...
+    for example a print at an impossible price, a session return over 50% in
+    magnitude (the harness's own price filter), or a close that disagrees with
+    both CRSP prc and the NYSE closing print.' Each example is tested on the
+    trial's input copy. (c) uses the ruled tolerance (ruling 2: |diff| <= $0.005
+    + 1e-6 agrees) and the declared class D-6 (ruling 1), which `freeze` applied
+    and logged: after it, no close may be off both sources."""
+    hr("[2] §4.5: DEFECTS OUTSIDE THE DECLARED CLASSES (any one halts before P&L), ON THE TRIAL'S INPUT COPY")
     O, C = D.O, D.C
     halts, flags = [], []
     nonpos = int(((O <= 0) | ~np.isfinite(O.fillna(1.0))).sum().sum())
@@ -355,63 +606,37 @@ def sec_other(D: Data) -> tuple[dict, list, list]:
           "the five largest |C/O - 1| (information, not defects under the declared rule):")
     top = rs.abs().stack().sort_values(ascending=False).head(5)
     for (d, t), v in top.items():
-        print(f"      {d.date()} {t}: {v:.2%}; O vs yfinance open agree {abs(O.at[d, t] - D.op_y.at[d, t]) <= TICK}, "
-              f"vs CRSP openprc {abs(O.at[d, t] - D.op_c.at[d, t]) <= TICK}")
+        print(f"      {d.date()} {t}: {v:.2%}; O vs yfinance open agree {abs(O.at[d, t] - D.op_y.at[d, t]) <= TOL}, "
+              f"vs CRSP openprc {abs(O.at[d, t] - D.op_c.at[d, t]) <= TOL}")
     if big.any().any():
         halts.append(f"§4.5(b): {int(big.sum().sum())} session return(s) of 50% or more")
     # (c) the close against CRSP prc and the NYSE closing print
     cp = D.closeM.combine_first(D.close6)             # M (official close) where published, else 6 (closing trade)
-    which = pd.DataFrame(np.where(D.closeM.notna(), "M", np.where(D.close6.notna(), "6", "")),
-                         index=C.index, columns=C.columns)
     prc = D.prc.abs()                                 # CRSP: a negative prc is a bid/ask midpoint (no closing trade)
     neg = int((D.prc < 0).sum().sum())
     avail = C.notna() & prc.notna() & cp.notna()
-    dc, dp = (C - prc).abs(), (C - cp).abs()
-    strict = avail & (dc > TICK) & (dp > TICK)
-    robust = avail & (dc > TICK + FLOAT_EPS) & (dp > TICK + FLOAT_EPS)
+    off_both = avail & ((C - prc).abs() > TOL) & ((C - cp).abs() > TOL)
     print(f"(c) NYSE closing prints repeated at one price (counted, not defects): "
           f"{ {k: v for k, v in D.close_dups.items() if v} }")
-    print(f"(c) the panel close against CRSP prc and the NYSE closing print (M where published, else 6), "
-          f"name-days with all three: {int(avail.sum().sum()):,} of {int(C.notna().sum().sum()):,} "
-          f"(CRSP prc < 0, i.e. no closing trade: {neg})")
-    print(f"    close off CRSP prc by > $0.005: {int((avail & (dc > TICK)).sum().sum())}; off the NYSE print: "
-          f"{int((avail & (dp > TICK)).sum().sum())}")
-    tr = {lab: D.trades(lab) for lab in ("WIDE", "deployed")}
-    print(f"    {'off BOTH by > $0.005':<44}{'all name-days':>14}{'WIDE material':>15}{'WIDE any':>10}"
-          f"{'deployed material':>19}{'deployed any':>14}")
-    for lab, m in (("strict (stored float32)", strict), ("robust (an exact half cent agrees)", robust)):
-        cnt = [int(m.sum().sum())]
-        for s in ("WIDE", "deployed"):
-            cnt += [int((m & (tr[s] >= MATERIAL)).sum().sum()), int((m & (tr[s] > 1e-12)).sum().sum())]
-        print(f"    {lab:<44}{cnt[0]:>14}{cnt[1]:>15}{cnt[2]:>10}{cnt[3]:>19}{cnt[4]:>14}")
-    print("    every such name-day (strict), in cents (no price level is printed: CRSP is licensed data):")
-    print(f"      {'date':<12}{'name':<6}{'close-CRSP':>11}{'close-NYSE':>11}{'print':>6}{'robust':>8}"
-          f"{'WIDE trade':>12}{'deployed trade':>16}")
-    for (d, t) in _cells(strict):
-        wt, dtd = tr["WIDE"].at[d, t], tr["deployed"].at[d, t]
-        lab_w = "material" if wt >= MATERIAL else ("small" if wt > 1e-12 else "-")
-        lab_d = "material" if dtd >= MATERIAL else ("small" if dtd > 1e-12 else "-")
-        cc = 100 * (C.at[d, t] - prc.at[d, t])
-        cn = 100 * (C.at[d, t] - cp.at[d, t])
-        print(f"      {str(d.date()):<12}{t:<6}{cc:>+11.2f}{cn:>+11.2f}{which.at[d, t]:>6}"
-              f"{'yes' if robust.at[d, t] else 'no':>8}{lab_w:>12}{lab_d:>16}")
-        flags.append(dict(date=str(d.date()), ticker=t, set="all", kind="§4.5(c) close off CRSP prc and NYSE print",
-                          note=f"close-CRSP {cc:+.2f}c; close-NYSE({which.at[d, t]}) {cn:+.2f}c; "
-                               f"robust {bool(robust.at[d, t])}; WIDE trade {lab_w}; deployed trade {lab_d}"))
-    if robust.any().any():
-        halts.append(f"§4.5(c): {int(robust.sum().sum())} panel close(s) disagree with both CRSP prc and the NYSE "
-                     f"closing print by more than $0.005 (robust count; {int(strict.sum().sum())} strict), of which "
-                     f"{int((robust & (tr['WIDE'] >= MATERIAL)).sum().sum())} on WIDE material trade name-days and "
-                     f"{int((robust & (tr['deployed'] >= MATERIAL)).sum().sum())} on the deployed set's")
-    elif strict.any().any():
-        halts.append(f"§4.5(c): {int(strict.sum().sum())} panel close(s) disagree with both sources by more than "
-                     "$0.005 only on the stored floats (an exact half cent); the tolerance is the team lead's ruling")
-    rec = dict(impossible_open=nonpos, session_ge_50pct=int(big.sum().sum()),
-               close_off_both_strict=int(strict.sum().sum()), close_off_both_robust=int(robust.sum().sum()),
-               close_off_both_robust_WIDE_material=int((robust & (tr["WIDE"] >= MATERIAL)).sum().sum()),
-               close_off_both_robust_deployed_material=int((robust & (tr["deployed"] >= MATERIAL)).sum().sum()),
-               crsp_prc_negative=neg)
-    print("\nhalt rules (§4.5):", "NONE FIRED" if not halts else "; ".join(halts))
+    print(f"(c) D-6 (ruling 1), applied by `freeze` to the trial's input copy and logged there: {frz['d6_count']} "
+          f"name-day(s), halt above {D6_HALT_N}. Value used: {frz['d6_value_rule']}. In cents, no price level:")
+    for r in frz["d6_log"]:
+        print(f"      {r['date']} {r['ticker']}: {r['cls']}; close-CRSP {r['close_minus_crsp_c']:+.2f}c, close-NYSE("
+              f"{r['nyse_print']}) {r['close_minus_nyse_c']:+.2f}c, CRSP-NYSE {r['crsp_minus_nyse_c']:+.2f}c; "
+              f"WIDE trade {r['WIDE_trade']}, deployed trade {r['deployed_trade']}")
+        flags.append(dict(date=r["date"], ticker=r["ticker"], set="all", kind=f"{r['cls']} (freeze log)",
+                          note=f"close-CRSP {r['close_minus_crsp_c']:+.2f}c; close-NYSE({r['nyse_print']}) "
+                               f"{r['close_minus_nyse_c']:+.2f}c; CRSP-NYSE {r['crsp_minus_nyse_c']:+.2f}c; "
+                               f"WIDE trade {r['WIDE_trade']}; deployed trade {r['deployed_trade']}"))
+    print(f"(c) on the input copy, of {int(avail.sum().sum()):,} name-days with a close, CRSP prc and an NYSE print "
+          f"(CRSP prc < 0: {neg}): closes off both by more than $0.005 + 1e-6: {int(off_both.sum().sum())}")
+    if off_both.any().any():
+        halts.append(f"§4.5(c): {int(off_both.sum().sum())} close(s) of the input copy off both CRSP and the NYSE print")
+    if frz["d6_count"] > D6_HALT_N:
+        halts.append(f"D-6: {frz['d6_count']} name-days, above the ruled {D6_HALT_N}")
+    rec = dict(impossible_open=nonpos, session_ge_50pct=int(big.sum().sum()), d6=frz["d6_count"],
+               close_off_both_after_d6=int(off_both.sum().sum()), crsp_prc_negative=neg)
+    print("\nhalt rules (§4.5 and D-6):", "NONE FIRED" if not halts else "; ".join(halts))
     return rec, halts, flags
 
 
@@ -427,8 +652,8 @@ def sec_tests() -> dict:
     return dict(pytest_exit=r.returncode, summary=last)
 
 
-def sec_noop() -> dict:
-    hr("[4] DG-C5-4: THE WIDE FLAG IS A NO-OP WHEN ABSENT")
+def sec_noop(frz: dict) -> dict:
+    hr("[4] DG-C5-4: THE WIDE FLAG (AND THE DATA_DIR SWITCH) ARE NO-OPS WHEN ABSENT; THE FROZEN CUT IS EXACT")
     from scripts.cef import band_frontier as bf
     from scripts.cef.c5_feasibility import adv_floor
     # The pins were taken as the first and second call of a FRESH process: pickle's bytes
@@ -448,11 +673,14 @@ def sec_noop() -> dict:
     same_wide = all(x.equals(y) for x, y in zip(a, b))
     print(f"sha256(pickle.dumps(build_targets())) in a fresh process, first call {h1}\n  pre-edit pin             {NOOP_FIRST}")
     print(f"second call {h2}\n  pre-edit pin {NOOP_SECOND}")
-    print(f"build_targets(min_adv=0) equals the feasibility script's adv_floor(0) build: {same_wide}")
-    if (h1, h2) != (NOOP_FIRST, NOOP_SECOND) or not same_wide:
-        raise Halt("DG-C5-4: build_targets() is not byte-identical with the argument absent, or WIDE differs")
+    print(f"build_targets(min_adv=0) equals the feasibility script's adv_floor(0) build (frozen copy): {same_wide}")
+    print(f"freeze: T, R and H rebuilt from the uncorrected frozen copy equal the live build cut at "
+          f"{FIT_END.date()}: {frz['truncation_noop']}")
+    if (h1, h2) != (NOOP_FIRST, NOOP_SECOND) or not same_wide or not all(frz["truncation_noop"].values()):
+        raise Halt("DG-C5-4: build_targets() is not byte-identical with the arguments absent, WIDE differs, "
+                   "or the frozen cut is not exact")
     print("DG-C5-4: PASS")
-    return dict(first=h1, second=h2, wide_equals_feasibility=same_wide)
+    return dict(first=h1, second=h2, wide_equals_feasibility=same_wide, truncation_noop=frz["truncation_noop"])
 
 
 EXEC_FIT_LINES = REPO / "results" / "cef" / "exec_capacity" / "exec_capacity_output.txt"
@@ -463,8 +691,10 @@ def sec_quotes() -> dict:
     §6 fit-period block to the printed precision. The EXEC note's §5 breakeven
     (a P&L of the deployed book) is NOT recomputed at Stage 0, so the one line
     per horizon that divides by it is excluded from the comparison."""
-    hr("[5] DG-C5-5: THE 2016-22 QUOTE SAMPLE (exec_capacity_open_cross.py fetch --skip-recent)")
+    hr("[5] DG-C5-5: THE 2016-22 QUOTE SAMPLE (fetch --skip-recent), READ FROM THE FROZEN COPY")
     from scripts.cef import exec_capacity_open_cross as X
+    if X.CACHE != F_EXEC or X.W4_CACHE != F_W4:
+        raise Halt("sec_quotes must run inside frozen()")
     from scripts.cef.spec import UNIVERSE
     syms = sorted(UNIVERSE)
     days = X.load_days(eras=("fit",))
@@ -526,36 +756,16 @@ def sec_turnover(D: Data) -> dict:
     return out
 
 
-def sec_hashes() -> dict:
-    hr("[8] THE SHA-256 OF EVERY INPUT (every later stage re-verifies these before it reads an input)")
-    from scripts.cef import exec_capacity_open_cross as X
-    files = {
-        "opening prints (Alpaca SIP, NYSE O/Q) 2016-22": OPEN_PRINTS,
-        "opening prints, sized 2016-22": OPEN_SIZED,
-        "closing prints, sized 2016-22 (R-CLOSE, capacity)": CLOSE_SIZED,
-        "CRSP dsf cache (stage_crsp_w4.py)": CRSP,
-        "data/cef/cef_prices.parquet": REPO / "data/cef/cef_prices.parquet",
-        "data/cef/cef_nav.parquet": REPO / "data/cef/cef_nav.parquet",
-        "data/cef/cef_distributions.parquet": REPO / "data/cef/cef_distributions.parquet",
-        "data/cef/cef_splits.parquet": REPO / "data/cef/cef_splits.parquet",
-        "data/cef/cef_universe.csv (groups)": REPO / "data/cef/cef_universe.csv",
-        "data/cef/cef_borrow_history.parquet (IBKR fee panel row)": REPO / "data/cef/cef_borrow_history.parquet",
-        "ops/specs/cef_discount.frozen.json": SPEC_FILE,
-        "quote sample calendar": X.CACHE / "calendar.parquet",
-    }
-    out = {}
-    for lab, p in files.items():
-        out[lab] = dict(path=str(p.relative_to(REPO)), sha256=sha256_file(_need(p, "see the module docstring")))
-        print(f"{out[lab]['sha256']}  {out[lab]['path']}")
-    days = X.sample_days(eras=("fit",))
-    h = hashlib.sha256()
-    for d in sorted(days):
-        h.update(d.encode())
-        h.update(sha256_file(X.CACHE / "days" / f"{d}.json").encode())
-    out["quote sample, 126 fit session files (sha256 of date+sha256 pairs)"] = dict(
-        path=str((X.CACHE / "days").relative_to(REPO)), sha256=h.hexdigest(), n=len(days))
-    print(f"{h.hexdigest()}  {(X.CACHE / 'days').relative_to(REPO)}/<{len(days)} fit sessions>.json (combined)")
-    return out
+def sec_hashes(frz: dict) -> dict:
+    hr("[8] THE FROZEN INPUTS: SHA-256 VERIFIED AGAINST results/cef/c5/c5_frozen_inputs_2026-10-14.json")
+    print(f"{len(frz['files'])} files under {frz['root']}/, every one re-hashed before this stage read it and equal "
+          "to the committed record (verify_frozen); the panels and caches outside it were not read")
+    for n, h in sorted(frz["files"].items()):
+        if not n.startswith("exec/days/"):
+            print(f"{h}  {n}")
+    print(f"{frz['exec_days_combined_sha256']}  exec/days/<126 session files> (combined)")
+    print(f"{sha256_file(SPEC_FILE)}  {SPEC_FILE.relative_to(REPO)} (tracked; pinned by DG-C5-2)")
+    return dict(n_files=len(frz["files"]), record=str(FREEZE_RECORD.relative_to(REPO)))
 
 
 # =============================================================================
@@ -563,58 +773,72 @@ def sec_hashes() -> dict:
 # =============================================================================
 
 def stage0() -> tuple[dict, list]:
-    halts, flags, rec = [], [], dict(stamp=STAMP, stage="0")
-    print(f"C5 (CEF trial 51) STAGE 0, run {pd.Timestamp.now(tz='UTC'):%Y-%m-%d %H:%M}Z. "
-          "Counts, gates and hashes only; no return is combined into a P&L.")
+    halts, flags, rec = [], [], dict(stamp=STAMP, stage="0 (amended, frozen inputs)")
+    print(f"C5 (CEF trial 51) STAGE 0 UNDER THE 2026-10-14 AMENDMENT, run {pd.Timestamp.now(tz='UTC'):%Y-%m-%d %H:%M}Z. "
+          "Counts, gates and hashes only; no return is combined into a P&L. Every input is the frozen copy.")
+    frz = verify_frozen()
     rec["spec"] = sec_spec()
-    D = Data()
-    print(f"\ncef_prices last date {D.prices_last.date()}; rows to {WINDOW[1].date()} only. Decision window "
-          f"{WINDOW[0].date()}..{WINDOW[1].date()}: {len(D.idx)} sessions.")
-    r, h, f = sec_classes(D)
-    rec["classes"], halts, flags = r, halts + h, flags + f
-    r, h, f = sec_other(D)
-    rec["other_defects"], halts, flags = r, halts + h, flags + f
-    for key, fn in (("tests", sec_tests), ("noop", sec_noop), ("quotes", sec_quotes)):
+    with frozen():
+        D = Data()
+        print(f"\nfrozen cef_prices last date {D.prices_last.date()}. Decision window "
+              f"{WINDOW[0].date()}..{WINDOW[1].date()}: {len(D.idx)} sessions.")
+        r, h, f = sec_classes(D)
+        rec["classes"], halts, flags = r, halts + h, flags + f
+        r, h, f = sec_other(D, frz)
+        rec["other_defects"], halts, flags = r, halts + h, flags + f
+        for key, fn in (("tests", sec_tests), ("noop", lambda: sec_noop(frz)), ("quotes", sec_quotes)):
+            try:
+                rec[key] = fn()
+            except Halt as e:
+                halts.append(str(e))
+                rec[key] = dict(halt=str(e))
         try:
-            rec[key] = fn()
+            rec["crsp"] = sec_crsp(D)
         except Halt as e:
             halts.append(str(e))
-            rec[key] = dict(halt=str(e))
-    try:
-        rec["crsp"] = sec_crsp(D)
-    except Halt as e:
-        halts.append(str(e))
-    rec["turnover"] = sec_turnover(D)
-    rec["hashes"] = sec_hashes()
+        rec["turnover"] = sec_turnover(D)
+        rec["hashes"] = sec_hashes(frz)
     rec["halts"] = halts
     rec["verdict"] = "HALT" if halts else "PASS"
     hr("STAGE 0 VERDICT")
     if halts:
-        print("HALT before any P&L (PREREG_C5 §4.2, §4.5, §13). No statistic of C5 has been computed. The case")
-        print("goes to the team lead; no rule is edited to make a count pass, and nothing in data/ is repaired here.")
+        print("HALT before any P&L (PREREG_C5 §4.2, §4.5, §13 and the 2026-10-14 amendment). No statistic of C5 has")
+        print("been computed. The case goes to the team lead; no rule is edited to make a count pass.")
         for x in halts:
             print(f"  - {x}")
     else:
-        print("PASS: every Stage 0 gate cleared.")
+        print("PASS: every Stage 0 gate cleared on the frozen inputs. STOP: the team lead reviews the amendment")
+        print("before Stage 1, and no stage after 0 is implemented here.")
     return rec, flags
+
+
+def _write(name: str, header: str, fn):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        out = fn()
+    text = buf.getvalue()
+    sys.stdout.write(text)
+    (OUT_DIR / name).write_text(header + text)
+    return out
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("stage", choices=("stage0",))
-    ap.parse_args(argv)
+    ap.add_argument("stage", choices=("freeze", "stage0"))
+    a = ap.parse_args(argv)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     pd.set_option("display.width", 220)
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        rec, flags = stage0()
-    text = buf.getvalue()
-    sys.stdout.write(text)
-    (OUT_DIR / f"c5_stage0_output_{STAMP}.txt").write_text(
-        f"# python3 scripts/cef/c5_open_auction.py stage0  (run {STAMP}; counts, gates, hashes; no P&L)\n" + text)
-    (OUT_DIR / f"c5_stage0_record_{STAMP}.json").write_text(json.dumps(rec, indent=1, default=str) + "\n")
+    if a.stage == "freeze":
+        rec = _write(f"c5_freeze_output_{STAMP}.txt",
+                     f"# python3 scripts/cef/c5_open_auction.py freeze  (run {STAMP}; counts, cents, hashes)\n", freeze)
+        FREEZE_RECORD.write_text(json.dumps(rec, indent=1, default=str) + "\n")
+        return 1 if rec["verdict"] == "HALT" else 0
+    rec, flags = _write(f"c5_stage0_amended_output_{STAMP}.txt",
+                        f"# python3 scripts/cef/c5_open_auction.py stage0  (run {STAMP}, amended, frozen inputs; "
+                        "counts, gates, hashes; no P&L)\n", stage0)
+    (OUT_DIR / f"c5_stage0_amended_record_{STAMP}.json").write_text(json.dumps(rec, indent=1, default=str) + "\n")
     pd.DataFrame(flags, columns=["date", "ticker", "set", "kind", "note"]).to_csv(
-        OUT_DIR / f"c5_stage0_flags_{STAMP}.csv", index=False)
+        OUT_DIR / f"c5_stage0_amended_flags_{STAMP}.csv", index=False)
     return 1 if rec["verdict"] == "HALT" else 0
 
 

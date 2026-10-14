@@ -1,0 +1,18 @@
+date,ticker,set,kind,note
+2017-09-13,MHD,WIDE,D-1 no O print on a material trade,no N print
+2017-09-20,MHD,WIDE,D-1 no O print on a material trade,no N print
+2018-01-24,PTY,WIDE,D-1 no O print on a material trade,no N print
+2018-02-01,MQY,WIDE,D-1 no O print on a material trade,no N print
+2020-02-26,MHD,WIDE,D-1 no O print on a material trade,no N print
+2020-11-06,MHD,WIDE,D-1 no O print on a material trade,no N print
+2021-02-23,PCN,WIDE,D-1 no O print on a material trade,no N print
+2022-03-08,JFR,WIDE,D-1 no O print on a material trade,no N print
+2022-03-24,PCN,WIDE,D-1 no O print on a material trade,Q only
+2018-01-24,PDI,deployed,D-1 no O print on a material trade,no N print
+2018-01-24,PHK,deployed,D-1 no O print on a material trade,no N print
+2018-01-24,PTY,deployed,D-1 no O print on a material trade,no N print
+2019-11-19,BIT,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2019-11-19,MHD,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2019-11-20,DSL,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2019-11-26,PDI,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2017-06-21,MHD,all,D-6 (freeze log),close-CRSP +3.00c; close-NYSE(6) +3.00c; CRSP-NYSE +0.00c; WIDE trade material; deployed trade -

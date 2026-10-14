@@ -45,6 +45,18 @@ from scripts.cef.spec import (  # noqa: E402
 )
 
 MIN_ADV = MIN_ADV_USD
+
+# Where the harness reads its panels (added 2026-10-14 for trial C5). The
+# default is the repo's live `data/cef/`, and every production caller leaves it
+# alone. A trial that must not move when the live panels are refreshed (the team
+# lead's ruling of 2026-10-14 on C5: "your fit must use the frozen copy, so no
+# later refresh can move it") points it, inside a context manager, at a frozen
+# copy of the same files with the same schema. build_panel, distribution_yield
+# and split_factor all read through it, so one switch moves every input at once
+# and no reader is left on the live panel. The no-op with the default was proved
+# by hashing build_targets() in a fresh process (first call 007e221b...7cdc,
+# second c8291c1e...e599) and total_returns(R) before and after the edit.
+DATA_DIR = REPO / "data" / "cef"
 # Not spec-owned: estimation choices local to this harness.
 MIN_PERIODS, VOL_LOOKBACK = 120, 63
 SAMPLE_START = "2005-01-03"
@@ -87,8 +99,8 @@ def build_panel(end=None, universe=None):
     published NAV), which is why the execution convention is shift(2) and not
     shift(1): t's NAV is published AFTER t's close.
     """
-    P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
-    N = pd.read_parquet(REPO / "data/cef/cef_nav.parquet")
+    P = pd.read_parquet(DATA_DIR / "cef_prices.parquet")
+    N = pd.read_parquet(DATA_DIR / "cef_nav.parquet")
     # `universe` (added 2026-09-28): a caller may score a candidate universe
     # before it is in the spec -- the Alpaca v7 derivation drops four names that
     # Alpaca will not let us short. None means the spec's universe, and the
@@ -384,7 +396,7 @@ def distribution_yield(index, columns):
     indistinguishable from "this fund paid nothing", and the two have opposite
     meanings for the bias above.
     """
-    dist = pd.read_parquet(REPO / "data/cef/cef_distributions.parquet")
+    dist = pd.read_parquet(DATA_DIR / "cef_distributions.parquet")
     dist["ex_date"] = pd.to_datetime(dist["ex_date"])
     missing = sorted(set(columns) - set(dist["ticker"].unique()))
     if missing:
@@ -395,7 +407,7 @@ def distribution_yield(index, columns):
             "returns silently (house rule: no silent fallbacks).")
     dist = dist[dist.ticker.isin(columns)]
 
-    P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
+    P = pd.read_parquet(DATA_DIR / "cef_prices.parquet")
     P = P[P.ticker.isin(columns)]
     P["date"] = pd.to_datetime(P["date"])
     px = P.pivot_table(index="date", columns="ticker", values="close").sort_index()
@@ -458,7 +470,7 @@ def split_factor(index, columns):
     post-split) and this function cannot tell which. That has never happened in
     this panel; if it does, someone must decide rather than inherit a guess.
     """
-    path = REPO / "data/cef/cef_splits.parquet"
+    path = DATA_DIR / "cef_splits.parquet"
     if not path.exists():
         raise FileNotFoundError(
             f"{path} is missing. The harness cannot build a split-correct "

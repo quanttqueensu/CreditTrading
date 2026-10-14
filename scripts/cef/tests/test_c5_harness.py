@@ -286,3 +286,27 @@ def test_nw_auto_lag_grows_with_persistence():
     assert la > 2 * lw
     with pytest.raises(ValueError):
         w4.nw_auto_lag(pd.Series([1.0, 2.0]))
+
+
+# ---------------------------------------------------------------- the frozen-input switch (team lead, 2026-10-14)
+
+def test_data_dir_moves_every_panel_reader(monkeypatch, tmp_path):
+    """build_panel, distribution_yield and split_factor all read DATA_DIR, so a
+    frozen copy is read everywhere or nowhere. A reader left on the live panel
+    would mix two vintages of one input silently."""
+    idx = pd.bdate_range("2019-01-02", periods=6)
+    rows = [dict(date=d, ticker=t, open=10.0 + i, high=11.0 + i, low=9.0 + i, close=10.0 + i + 0.1 * k,
+                 volume=1000.0, grp="x") for i, d in enumerate(idx) for k, t in enumerate(["A", "B"])]
+    pd.DataFrame(rows).to_parquet(tmp_path / "cef_prices.parquet")
+    pd.DataFrame([dict(date=d, ticker=t, nav=12.0) for d in idx for t in ["A", "B"]]).to_parquet(
+        tmp_path / "cef_nav.parquet")
+    pd.DataFrame([dict(ticker="A", grp="x", ex_date=idx[3], amount=0.05, stock_split=0.0),
+                  dict(ticker="B", grp="x", ex_date=idx[4], amount=0.07, stock_split=0.0)]).to_parquet(
+        tmp_path / "cef_distributions.parquet")
+    pd.DataFrame([dict(ticker="B", ex_date=idx[2], stock_split=2.0)]).to_parquet(tmp_path / "cef_splits.parquet")
+    monkeypatch.setattr(bf, "DATA_DIR", tmp_path)
+    p = bf.build_panel(universe=["A", "B"])
+    assert p["px"]["B"].tolist() == pytest.approx([10.1 + i for i in range(6)])
+    y = bf.distribution_yield(p["px"].index, ["A", "B"])
+    assert y.loc[idx[3], "A"] == pytest.approx(0.05 / 12.0) and y.loc[idx[4], "B"] == pytest.approx(0.07 / 13.1)
+    assert bf.split_factor(p["px"].index, ["A", "B"]).loc[idx[2], "B"] == 2.0
