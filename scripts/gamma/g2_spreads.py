@@ -51,8 +51,17 @@ THE ESTIMATOR AND ITS BIASES (stated before any number is read)
   the two trades (1-minute SIP VWAPs from Alpaca) before taking the covariance.
   This is OUR adaptation for options (Hasbrouck's Gibbs versions of the Roll
   model add a market factor in the same spirit; the exact form in Hasbrouck
-  (2009) was not read: [U]). It removes noise, not bias: it is still biased DOWN
-  by persistence. It is the series the gate uses.
+  (2009) was not read: [U]). It is the series the gate uses.
+  **Its bias direction is [U] (corrected 2026-10-13).** This docstring said "it
+  removes noise, not bias: it is still biased DOWN by persistence". A review
+  found the adjusted estimate ABOVE plain Roll in most months where both are
+  defined (`g2_gate.roll_comparison`: 20 of 24 ATM, 24 of 29 call-wing, 19 of
+  25 put-wing; median ratios 1.36 / 1.11 / 1.25), which noise removal alone
+  would not do. One candidate cause [U]: the minute-VWAP stands in for TLT's
+  price at the trade, and that stand-in's error enters dp with negative
+  autocovariance, which Roll reads as spread. Persistence still pulls it down;
+  the net direction is not known. If it is biased up, the upper bound built on
+  it is more conservative, not less.
 * **Trades inside the spread** (price-improvement auctions, crosses) are kept: the
   effective spread is what customers actually paid, which is the cost we would pay.
 * Multi-leg and stock-option prints are DROPPED (a spread leg prints at a
@@ -353,10 +362,11 @@ def attach_underlying(tr: pd.DataFrame, bars: pd.DataFrame, vx_prev: pd.Series) 
 
 def roll_pool_adjusted(tr: pd.DataFrame) -> dict:
     """Roll on dp_t - delta * dS_t: the underlying as a factor with its loading
-    fixed at the option's delta rather than estimated (our adaptation). The spread's
-    covariance signature is untouched; the variance the underlying adds is
-    removed, so fewer pools come out undefined. Same persistence bias as plain
-    Roll (biased DOWN)."""
+    fixed at the option's delta rather than estimated (our adaptation). The variance
+    the underlying adds is removed, so fewer pools come out undefined. It shares
+    plain Roll's persistence bias (DOWN), but its NET bias direction is [U]
+    (corrected 2026-10-13; the module docstring): it exceeds plain Roll in most
+    months, possibly because the minute VWAP is not the price at the trade."""
     prods = []
     for _, g in tr.groupby(["d", "expiry", "opt_type", "strike"], sort=False):
         g = g.dropna(subset=["S_min", "delta"])

@@ -45,6 +45,32 @@ counter (156) covers all ETF-price/PD work done to date.
 > pre-registered test that computes returns on a `cef_universe.csv` name. The
 > 2023-01-01 time holdout stays sealed.
 
+> **2026-10-13: the GAMMA holdout was touched before it was opened.** Recorded
+> so that whoever opens it knows what has already been seen. The holdout is
+> 2023+ TLT data for the options sleeve: `docs/SYSTEM.md` §5, team lead
+> 2026-10-09, narrowed on 2026-10-12 to "spreads and costs from 2023+ may be
+> used; return-based statistics stay sealed".
+>
+> Gate G2 (`results/gamma/G2_GATE_FREE_DATA_2026-10-12.md`, zero trials)
+> touched it on 2026-10-12, in two ways:
+>
+> 1. Its G2(a) headline included one 21-session realised-vol window (IV date
+>    2022-12-27) that ran on January 2023 TLT returns.
+> 2. It printed and read `scripts/gamma/book_vs_shortvol.py`'s labelled 2023+
+>    block of book-versus-short-variance correlations. That script's second
+>    method also ran one window to 2023-01-31.
+>
+> An independent review caught both on 2026-10-13. The effect on G2 is
+> negligible: on the strict window the upper bound nets −18.9 %² (t −1.12),
+> against −18.4 (t −1.09). Both scripts now refuse 2023 returns, and tests pin
+> it.
+>
+> Earlier, before the 2026-10-12 narrowing, `results/gamma/REPRO_TLT_VRP_2026-10-11.md`
+> quoted labelled 2023+ IV−RV and book-correlation figures as "description
+> only". `scripts/gamma/vrp_summary.py` still prints them, and its 2004–22 row
+> also runs its last window into January 2023; neither was changed here.
+> **GAMMA stays at 0.**
+
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
 > 50: `max_gross_stress` adopted and re-derived for the Alpaca account. The team lead
