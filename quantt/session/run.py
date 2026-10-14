@@ -624,7 +624,7 @@ def stale_nav_for(book: Book) -> str | None:
     return mode
 
 
-def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool):
+def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_csv):
     """Step 1b, the stale-NAV gate (quantt/session/nav_gate.py). Returns
     (record dict, GateResult or None).
 
@@ -633,7 +633,9 @@ def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool):
     act mode an error is the session's error (FAIL, the next slot retries):
     deciding without knowing which NAVs are stale is what the gate exists to
     stop. In report mode it changes nothing that trades, so an error is
-    recorded as UNMEASURED and the session goes on, like the pre-flight."""
+    recorded as UNMEASURED and the session goes on, like the pre-flight.
+    `record_csv(result)` is the gate's record; in act mode the gate writes it
+    BEFORE it writes the panel (nav_gate.PanelGate.run, RECORD FIRST)."""
     mode = deps.stale_nav
     if refresh_exit is not None and refresh_exit != 0:
         return {"mode": mode, "not_run": f"the refresh did not pass ({refresh_exit}); "
@@ -642,7 +644,8 @@ def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool):
         raise SessionError(f"the book sets data.stale_nav={mode!r} but this session has no "
                            f"NAV gate wired in its deps")
     try:
-        res = deps.nav_gate.run(asof, universe, mode, deps.utcnow(), final)
+        res = deps.nav_gate.run(asof, universe, mode, deps.utcnow(), final,
+                                record=record_csv if mode == ng.ON else None)
     except Exception as e:  # report mode only: recorded, never swallowed (docstring)
         if mode != ng.REPORT:
             raise
@@ -820,18 +823,31 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if deps.stale_nav is not None:
             final = len(cal_today) == 1 and clock["timestamp"] >= ng.final_check_at(
                 session_date, cal_today[0]["close"])
+            def record_csv(res):
+                """`on`: the gate's record, written by the gate BEFORE it touches
+                the panel; a failure stops the session with the panel unwritten."""
+                try:
+                    ng.append_csv(state / ng.CSV_NAME, res, run=f"{stamp}-{mode}",
+                                  session_date=session_date, written_utc=deps.utcnow())
+                except Exception as e:
+                    raise SessionError(f"stale-NAV gate ({res.mode}): recording failed: "
+                                       f"{type(e).__name__}: {e}; not deciding without its "
+                                       f"record, and the panel was not written") from e
+
             record["nav_gate"], gate_res = _nav_gate(deps, asof, p["universe"], refresh_exit,
-                                                     final)
+                                                     final, record_csv)
             if gate_res is not None:
                 # The gate's own record (release-check 2026-10-13). In report mode
                 # nothing that trades depends on it, so its failure -- a bad
                 # nav_gate.csv (moved aside by append_csv), or anything else -- is
                 # recorded as UNMEASURED and the session goes on, as the book
                 # json promises. Under `on` the gate acts, and acting without its
-                # record breaks H14: the session stops, naming the file.
+                # record breaks H14: the gate already wrote it, before the panel
+                # (record_csv), and a failure here stops the session.
                 try:
-                    ng.append_csv(state / ng.CSV_NAME, gate_res, run=f"{stamp}-{mode}",
-                                  session_date=session_date, written_utc=deps.utcnow())
+                    if deps.stale_nav == ng.REPORT:
+                        ng.append_csv(state / ng.CSV_NAME, gate_res, run=f"{stamp}-{mode}",
+                                      session_date=session_date, written_utc=deps.utcnow())
                     lines = gate_res.lines()
                 except Exception as e:  # report: recorded below, never swallowed; on: raised
                     why = f"recording failed: {type(e).__name__}: {e}"

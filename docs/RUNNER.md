@@ -276,6 +276,14 @@ means off, and the session runs exactly as before):
   verdict and the action.
 - `<state>/nav_gate.csv` gets one row per triggered name per decide, or one
   `no_trigger` row.
+- **Record first** (2026-10-14). Under `on` that row is written *before* the panel.
+  If it cannot be written, the panel is not touched and the session stops, naming
+  the file.
+- **A bad record file.** An empty `nav_gate.csv` or `cefconnect_arrival.csv`, or one
+  with another header, is moved aside whole as `<name>.<UTC stamp>.unreadable`,
+  never written into. For `nav_gate.csv` that run is UNMEASURED in `report` mode and
+  stopped under `on`. The collector names both files in its detail and starts a new
+  file in the same slot.
 - The session log prints one `NAV GATE` line, plus one line per triggered name.
 
 **The collector.**
