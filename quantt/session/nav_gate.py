@@ -125,6 +125,10 @@ class CefConnectError(RuntimeError):
     """CEFConnect could not be read (transport, HTTP body, or response shape)."""
 
 
+class NavGateRecordError(RuntimeError):
+    """The gate's own record could not be written. Names the file."""
+
+
 def _wrap(ticker: str, fn):
     import requests
     try:
@@ -387,17 +391,27 @@ class GateResult:
 class PanelGate:
     """The gate against the real NAV panel. Paths and the CEFConnect reader are
     injected so tests touch neither data/ nor the network.
-    `reader(ticker, [D-1, D]) -> {day: NAV or None}`, raising CefConnectError."""
+    `reader(ticker, [D-1, D]) -> {day: NAV or None}`, raising CefConnectError.
+
+    `log_path` / `lock_path` None means fetch_daily's own FALLBACK_LOG /
+    LOCK_PATH, RESOLVED ONLY WHEN THE GATE LOCKS OR WRITES (release-check
+    2026-10-13). Building a PanelGate therefore imports nothing from scripts/:
+    the session builds one in `default_deps` on every run, the 15:52 send and
+    verify included, and those must never load fetch_daily -- it imports
+    yfinance and silences warnings process-wide, and a failed import there
+    between decide and send would stop a decided plan going.
+    `quantt/collect/collect.py` keeps fetch_daily inside a function the same way."""
     nav_path: Path
-    log_path: Path
-    lock_path: Path
+    log_path: Path | None = None
+    lock_path: Path | None = None
     reader: Callable = cefconnect_navs
     lock_wait_s: float | None = None     # None: fetch_daily.LOCK_WAIT_S
 
     def _lock(self):
         from scripts.cef import fetch_daily as fd
         wait = fd.LOCK_WAIT_S if self.lock_wait_s is None else self.lock_wait_s
-        return fd.panel_lock(self.lock_path, wait, fd.LOCK_POLL_S)
+        lock = fd.LOCK_PATH if self.lock_path is None else self.lock_path
+        return fd.panel_lock(lock, wait, fd.LOCK_POLL_S)
 
     def run(self, asof: dt.date, universe, mode: str, now: dt.datetime,
             final: bool) -> GateResult:
@@ -439,7 +453,8 @@ class PanelGate:
         F = pd.DataFrame([{"date": pd.Timestamp(asof), "nav": v, "ticker": t}
                           for t, v in sorted(replaced.items())])
         common.atomic_write(fd.merge_nav_fills(N, F), self.nav_path)
-        fd.log_nav_fills(F, FALLBACK_SOURCE, self.log_path)
+        fd.log_nav_fills(F, FALLBACK_SOURCE,
+                         fd.FALLBACK_LOG if self.log_path is None else self.log_path)
 
     def still_holds(self, res: GateResult) -> list[str]:
         """What changed in the panel since `res`, or [] -- read AFTER the sleeve.
@@ -482,13 +497,29 @@ def append_csv(path: Path, res: GateResult, *, run: str, session_date: dt.date,
     """One row per triggered name to `<state>/nav_gate.csv`; a run with none
     writes one row with an empty ticker and verdict `no_trigger`, so the file
     alone counts how many decides ran the gate (the denominator of how often it
-    binds). Appended and fsynced; a file whose header is not CSV_COLUMNS raises
-    rather than be written into."""
+    binds). Appended and fsynced.
+
+    A FILE WHOSE HEADER IS NOT CSV_COLUMNS (release-check 2026-10-13). An empty
+    file -- a reboot, an OOM kill or a systemd stop before the first write was
+    flushed -- or one from an older CSV_COLUMNS is never written into: rows under
+    another header would be misread for ever after. It is moved aside, whole, to
+    `nav_gate.csv.<UTC stamp>.unreadable`, and NavGateRecordError is raised
+    naming both files, so the caller records this run as UNMEASURED (report
+    mode) or refuses it (`on`). The next decide starts a new file, so one bad
+    file costs one run's CSV rows, never every run until someone deletes it."""
     if path.exists():
         with open(path, newline="") as fh:
             head = next(csv.reader(fh), None)
         if tuple(head or ()) != CSV_COLUMNS:
-            raise ValueError(f"{path} has columns {head}, expected {list(CSV_COLUMNS)}")
+            aside = path.with_name(f"{path.name}.{written_utc:%Y%m%dT%H%M%SZ}.unreadable")
+            n = 1
+            while aside.exists():
+                aside = path.with_name(f"{path.name}.{written_utc:%Y%m%dT%H%M%SZ}-{n}.unreadable")
+                n += 1
+            os.replace(path, aside)
+            raise NavGateRecordError(
+                f"{path} had columns {head}, not {list(CSV_COLUMNS)}: moved aside to "
+                f"{aside.name}; the next decide starts a new file")
     common = {"written_utc": written_utc.isoformat(), "run": run,
               "session_date": session_date.isoformat(), "asof": res.asof.isoformat(),
               "gate_mode": res.mode, "final_check": res.final}

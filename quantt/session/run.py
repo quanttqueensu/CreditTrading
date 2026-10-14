@@ -683,10 +683,10 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
     stale_nav = stale_nav_for(book)
     gate = None
     if stale_nav is not None:
-        from scripts.cef import fetch_daily as fd
         # The sleeve's own NAV path: the gate certifies the file the sleeve reads.
-        gate = ng.PanelGate(nav_path=cefmod.NAV_PATH, log_path=fd.FALLBACK_LOG,
-                            lock_path=fd.LOCK_PATH)
+        # The fallback log and the panel lock are fetch_daily's, resolved only when
+        # the gate writes, so no run imports scripts/ here (`nav_gate.PanelGate`).
+        gate = ng.PanelGate(nav_path=cefmod.NAV_PATH)
     return Deps(
         client=AlpacaClient.from_environment(book.name),
         env=dict(env),
@@ -823,9 +823,24 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             record["nav_gate"], gate_res = _nav_gate(deps, asof, p["universe"], refresh_exit,
                                                      final)
             if gate_res is not None:
-                ng.append_csv(state / ng.CSV_NAME, gate_res, run=f"{stamp}-{mode}",
-                              session_date=session_date, written_utc=deps.utcnow())
-                for line in gate_res.lines():
+                # The gate's own record (release-check 2026-10-13). In report mode
+                # nothing that trades depends on it, so its failure -- a bad
+                # nav_gate.csv (moved aside by append_csv), or anything else -- is
+                # recorded as UNMEASURED and the session goes on, as the book
+                # json promises. Under `on` the gate acts, and acting without its
+                # record breaks H14: the session stops, naming the file.
+                try:
+                    ng.append_csv(state / ng.CSV_NAME, gate_res, run=f"{stamp}-{mode}",
+                                  session_date=session_date, written_utc=deps.utcnow())
+                    lines = gate_res.lines()
+                except Exception as e:  # report: recorded below, never swallowed; on: raised
+                    why = f"recording failed: {type(e).__name__}: {e}"
+                    if deps.stale_nav != ng.REPORT:
+                        raise SessionError(f"stale-NAV gate ({deps.stale_nav}): {why}; "
+                                           f"not deciding without its record") from e
+                    record["nav_gate"]["unmeasured"] = why
+                    lines = [f"  NAV GATE ({deps.stale_nav}): UNMEASURED: {why}"]
+                for line in lines:
                     print(line, file=out)
             else:
                 g = record["nav_gate"]

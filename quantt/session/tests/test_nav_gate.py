@@ -251,8 +251,11 @@ def test_the_csv_records_every_triggered_name_and_a_run_with_none(tmp_path, pane
     assert rows.loc[2, "cc_d"] == "" and rows.loc[3, "cc_status"].startswith("error: DDD")
     bad = tmp_path / "bad.csv"
     bad.write_text("a,b\n")
-    with pytest.raises(ValueError, match="columns"):
+    with pytest.raises(ng.NavGateRecordError, match="moved aside"):
         ng.append_csv(bad, res, run="r3", session_date=D, written_utc=NOW)
+    assert not bad.exists()
+    (aside,) = tmp_path.glob("bad.csv.*.unreadable")
+    assert aside.read_text() == "a,b\n"                  # kept whole, never mixed
 
 
 # ------------------------------------------------------------- in the session
@@ -361,6 +364,80 @@ def test_report_mode_leaves_the_orders_and_the_plan_unchanged(tmp_path):
     assert [c["action"] for c in g["checks"] if c["trigger"]] == [
         "would replace", "would keep", "would defer"]
     assert calls[0][1] == {} and p.read_bytes() == before
+
+
+@pytest.mark.parametrize("content", ["", "a,b\n"], ids=["empty", "old_header"])
+def test_a_bad_nav_gate_csv_never_stops_a_report_mode_session(tmp_path, content):
+    """Release-check 2026-10-13: an empty nav_gate.csv (a reboot or kill before the
+    first flush) or one with another header ended every decide in EXIT_FAIL, with
+    no plan, until someone deleted it -- in report mode, which promises it never
+    stops the session. Now the run records UNMEASURED and decides as without the
+    gate; the file is moved aside whole, and the next decide starts a new one."""
+    c, deps, state, calls, out, p = session(tmp_path, ng.REPORT, clock=FINAL)
+    (state / ng.CSV_NAME).write_text(content)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    plan = plan_of(state)
+    assert plan["status"] == "decided" and plan["orders"]
+    assert "nav_gate.csv" in plan["nav_gate"]["unmeasured"]
+    assert "UNMEASURED: recording failed" in "".join(out)
+    (aside,) = state.glob("nav_gate.csv.*.unreadable")
+    assert aside.read_text() == content
+    (state / D.isoformat() / "plan.json").unlink()      # decide again: a new file
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    assert "unmeasured" not in plan_of(state)["nav_gate"]
+    assert tuple(pd.read_csv(state / ng.CSV_NAME).columns) == ng.CSV_COLUMNS
+
+
+@pytest.mark.parametrize("content", ["", "a,b\n"], ids=["empty", "old_header"])
+def test_a_bad_nav_gate_csv_stops_an_on_mode_session_naming_the_file(tmp_path, content):
+    """Under `on` the gate acts, and acting without its record breaks H14: the
+    session does not decide, and says which file. The file is moved aside, so the
+    next slot decides with a new one."""
+    c, deps, state, calls, out, p = session(tmp_path, ng.ON, clock=FINAL)
+    (state / ng.CSV_NAME).write_text(content)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
+    assert "nav_gate.csv" in "".join(out) and "not deciding without its record" in "".join(out)
+    assert not (state / D.isoformat() / "plan.json").exists() and c.submits() == []
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    assert plan_of(state)["status"] == "decided"
+
+
+def test_the_send_path_never_imports_scripts_or_yfinance():
+    """Release-check 2026-10-13: default_deps imported scripts.cef.fetch_daily on
+    every run, the 15:52 send included, loading yfinance and a process-wide
+    warnings filter -- scripts/ on the send path, where a failed import between
+    decide and send would stop a decided plan. In a fresh interpreter (this
+    process has long since imported both): the deployed book's own default_deps
+    (gate in report mode, broker client faked), then a late-market send exactly
+    as the send tests run it. Neither module may be loaded."""
+    import subprocess
+    import sys
+    code = r"""
+import json, sys, tempfile, pathlib
+import ops.netguard; ops.netguard.install()
+from quantt.broker import alpaca
+from quantt.session import run as rn
+from quantt.session.tests import test_run as tr
+tmp = pathlib.Path(tempfile.mkdtemp())
+c, deps, state, plan = tr.decided(tmp)
+alpaca.AlpacaClient.from_environment = staticmethod(lambda name: c)
+book = rn.BOOKS["cef"]
+real = rn.default_deps(book, rn.load_spec(book.spec_path),
+                       {"QUANTT_ENV_FILE": "unused", "QUANTT_STATE_DIR": str(state)})
+deps.stale_nav, deps.nav_gate = real.stale_nav, real.nav_gate
+(state / "AUTO_ARMED").touch()
+tr.to_send_time(c, deps)
+code = rn.run_session(tr.BOOK, tr.SPEC, deps)
+print(json.dumps({"code": code, "mode": real.stale_nav, "gate": real.nav_gate is not None,
+                  "yfinance": "yfinance" in sys.modules,
+                  "fetch_daily": "scripts.cef.fetch_daily" in sys.modules}))
+"""
+    r = subprocess.run([sys.executable, "-c", code], cwd=rn.REPO, capture_output=True,
+                       text=True, timeout=300)
+    assert r.returncode == 0, r.stderr[-2000:]
+    got = json.loads(r.stdout.strip().splitlines()[-1])
+    assert got["code"] == rn.EXIT_SENT and got["gate"], got
+    assert got["yfinance"] is False and got["fetch_daily"] is False, got
 
 
 def test_the_session_fails_if_the_panel_changed_under_the_sleeve(tmp_path):
