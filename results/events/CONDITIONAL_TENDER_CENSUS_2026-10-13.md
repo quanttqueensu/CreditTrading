@@ -433,6 +433,6 @@ What follows, as the pod note already provided:
 
 ## 9. Sources
 
-Every filing cited is in `docs/REFERENCES.md` §12o, with its accession. The
+Every filing cited is in `docs/REFERENCES.md` §12q, with its accession. The
 quotes themselves live in `scripts/events/conditional_tender_programmes.py`,
 and the script re-verifies them on every run.

@@ -813,7 +813,7 @@ its gitignored cache). Live panels read-only: NAV to 2026-09-25, prices to
 | A Nasdaq fund-quote endpoint (`api.nasdaq.com/api/quote/X<TK>X/historical`) returns NAV history; it was probed once and not used, because its terms of use could not be confirmed | probe 2026-10-12 | [U] terms |
 
 
-### 12o. The conditional-tender census, idea N1 (added 2026-10-13)
+### 12q. The conditional-tender census, idea N1 (added 2026-10-13)
 
 The sources behind `results/events/CONDITIONAL_TENDER_CENSUS_2026-10-13.md`.
 Zero trials. Every EDGAR request went through `scripts/data/edgar_client.py`.
