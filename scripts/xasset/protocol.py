@@ -88,15 +88,19 @@ PLACEBO_BLOCK = 21
 COSTS = (5, 15, 30)
 MONTHLY_HAC = "floor(4 (T_m/100)^(2/9))"
 
-# ---- open question 2 (2026-10-14): the X1/X4 placebo on dates before a fund existed
-# None = not ruled. The preflight refuses to start Stage 0b for a test whose
-# placebo would move a position onto such a date while this is None. Set it ONLY
-# to the team lead's ruling, with the ruling's date in a comment.
-PLACEBO_PRE_INCEPTION_RULE = None
-# ---- open question 1 (2026-10-14): does DG1 clear? (STAGE0A_2026-10-14.md §2)
-# None = not ruled; no test may enter Stage 0b. Set ONLY to the team lead's
-# ruling, with its date, in the commit that records it.
-DG1_RULING = None
+# ---- question 2, RULED by the team lead 2026-10-14 (PREREG amendment block):
+# the block-shuffled placebo shuffles ONLY inside the span where every fund in the
+# test trades (from the latest first return among the test's funds), so no
+# placebo position lands on a pre-inception date. Rows of H before that span keep
+# their dates; every statistic stays on the declared P&L window (§1.6). For X2
+# and X3 the span starts before the first decision, so their whole H is shuffled.
+PLACEBO_PRE_INCEPTION_RULE = "span"
+# ---- question 1, RULED by the team lead 2026-10-14 (PREREG amendment block):
+# DG1 clears as measured. In the yfinance leg "unchanged" reads as <= 0.01bp (the
+# measured maximum was 0.0074bp, inside the holdout only); the fit's CRSP leg is
+# identical; the Stage 0a panel hash (STAGE0A_MANIFEST_2026-10-14.json) fixes
+# exactly which data every test uses.
+DG1_RULING = "cleared as measured (team lead, 2026-10-14): yfinance-leg ret_total within 0.01bp"
 
 # ---- inputs ------------------------------------------------------------------
 PANEL = CACHE / "etf_daily_xasset.parquet"            # DG1, staged outside data/
@@ -569,17 +573,29 @@ def ff_regression(pnl: pd.Series, base: pd.DataFrame) -> dict:
 # placebo and shift(3) (P10)
 # =============================================================================
 def placebo(Hs: pd.DataFrame, Rx: pd.DataFrame, window: pd.DatetimeIndex, real_sr: float,
-            draws: int = PLACEBO_DRAWS, seed: int = SEED, block: int = PLACEBO_BLOCK) -> dict:
+            span_start: pd.Timestamp = None, draws: int = PLACEBO_DRAWS, seed: int = SEED,
+            block: int = PLACEBO_BLOCK) -> dict:
     """Block-shuffled-signal placebo: H's rows permuted in contiguous `block`-row
-    blocks, returns fixed; Sharpe on the same window. KILL D1 if real <= p95."""
+    blocks, returns fixed; Sharpe on the same window. KILL D1 if real <= p95.
+
+    `span_start` (team lead, 2026-10-14): only the rows dated on or after it -- the
+    first session on which every fund in the test has a return -- are shuffled,
+    in blocks anchored at it; earlier rows keep their dates. None or a date on or
+    before H's first row shuffles every row (X2, X3)."""
     from scripts.cef.band_frontier import block_shuffle
+    if span_start is not None and PLACEBO_PRE_INCEPTION_RULE != "span":
+        raise ProtocolError("a placebo span was passed but the span rule is not in force")
     rng = np.random.default_rng(seed)
+    inside = Hs.index >= (span_start if span_start is not None else Hs.index[0])
     srs = np.empty(draws)
     for i in range(draws):
-        Hp = block_shuffle(Hs, block, rng)
+        Hp = Hs.copy()
+        Hp.loc[inside] = block_shuffle(Hs.loc[inside], block, rng).values
         srs[i] = sharpe(run(Hp, Rx, "placebo")["pnl"].reindex(window))
     p95 = float(np.percentile(srs, 95))
     return dict(draws=draws, p95=p95, p50=float(np.median(srs)), real=real_sr,
+                span_start=str(Hs.index[inside][0].date()), rows_shuffled=int(inside.sum()),
+                rows_fixed=int((~inside).sum()),
                 rank_share_below=float((srs < real_sr).mean()), pass_=real_sr > p95)
 
 

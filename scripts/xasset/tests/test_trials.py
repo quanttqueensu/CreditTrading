@@ -149,13 +149,19 @@ def test_first_failing_rule_names_the_verdict(fast):
         assert f"stage {first_fail[-1]}" in out["fit_verdict"]
 
 
-def test_x1_placebo_refuses_to_score_a_fund_before_it_existed(fast):
-    """X1's later rows hold BKLN and CWB. A block shuffle moves them onto 2008
-    dates when neither had a return. The protocol does not say what that earns,
-    so the run raises instead of choosing (question to the team lead)."""
-    d = _data("fit")
+def test_placebo_shuffles_only_inside_the_all_funds_span():
+    """Team lead, 2026-10-14: only rows on or after the first session on which every
+    fund trades are shuffled; earlier rows keep their dates; no placebo position
+    lands on a date with no return. Without the span the shuffle would raise."""
+    idx = pd.bdate_range("2010-01-04", periods=300)
+    span = idx[100]
+    H = pd.DataFrame({"OLD": 1.0, "NEW": np.where(idx >= idx[120], 1.0, 0.0)}, index=idx)
+    Rx = pd.DataFrame({"OLD": 0.001, "NEW": np.where(idx >= span, 0.001, np.nan)}, index=idx)
+    win = idx[2:]
+    out = P.placebo(H, Rx, win, 0.5, span_start=span, draws=5)
+    assert out["rows_fixed"] == 100 and out["span_start"] == str(span.date())
     with pytest.raises(P.ProtocolError, match="no return"):
-        runner.evaluate_fit(_spec(x1, d), 1, d)
+        P.placebo(H, Rx, win, 0.5, span_start=None, draws=5)
 
 
 def test_counter_guard_reads_the_committed_table():
@@ -192,18 +198,25 @@ def test_tsmom_name_starting_on_its_windows_first_session_is_not_shorted():
     assert T.loc[pd.Timestamp("2008-02-29"), "NEW"] == 0.0   # not yet a full window
 
 
-def test_preflight_halts_before_stage0b_on_dates_alone():
+def test_preflight_rederives_the_first_decision_and_the_span():
     """The zero-trial preflight: the declared first decision is re-derived from the
-    breadth rule; X1/X4 halt on open question 2 while it is unruled; X2 and X3
-    pass. Nothing here builds a position or a P&L."""
+    breadth rule; the placebo span starts at the latest first return among the
+    test's funds. Nothing here builds a position or a P&L."""
     d = _data("fit")
     pf3 = runner.preflight(_spec(x3, d), d)
     assert pf3["first_decision"] == "2002-08-30" and pf3["late_names"] == []
-    with pytest.raises(P.ProtocolError, match="open question 2"):
-        runner.preflight(_spec(x1, d), d)
+    pf1 = runner.preflight(_spec(x1, d), d)
+    assert pf1["placebo_span_start"] == "2011-03-04" and set(pf1["late_names"]) == {"BKLN", "CWB"}
     wrong = dataclasses.replace(_spec(x1, d), first_dec="2008-05-30")
     with pytest.raises(P.ProtocolError, match="breadth rule"):
         runner.preflight(wrong, d)
+
+
+def test_x1_full_pipeline_runs_with_the_span_placebo(fast):
+    d = _data("fit")
+    out = runner.evaluate_fit(_spec(x1, d), 1, d)
+    assert out["stage3"]["placebo"]["span_start"] == "2011-03-04"
+    assert out["stage3"]["placebo"]["rows_fixed"] > 0
 
 
 def test_x4_pipeline_with_placebo_stubbed(fast, monkeypatch):

@@ -219,7 +219,8 @@ def preflight(spec: Spec, data: dict) -> dict:
             f"their first return (first P&L {window[0].date()}). PREREG §1.8 does not say what such a "
             f"position earns: open question 2 to the team lead (results/xasset/XASSET_RESULTS_2026-10-14.md). "
             f"Stage 0b does not start.")
-    out = dict(first_decision=str(fd), T=len(window), late_names=late)
+    out = dict(first_decision=str(fd), T=len(window), late_names=late,
+               placebo_span_start=str(max(pd.Timestamp(firsts[n]) for n in spec.names).date()))
     if spec.preflight:
         out.update(spec.preflight(data))
     return out
@@ -278,6 +279,32 @@ def fit(spec: Spec, trial: int) -> dict:
     return out
 
 
+def complete_report(spec: Spec) -> dict:
+    """Recovery path when a REPORTED row raised after the decisions were written.
+    Rebuilds the deterministic decision series, asserts it equals the committed
+    one bit for bit and that the verdict is unchanged, then computes the reported
+    rows. It can never change a decision."""
+    out = json.loads(fit_json(spec.key).read_text())
+    if not (isinstance(out.get("reported"), str) and out["reported"].startswith("PENDING")):
+        raise P.ProtocolError(f"{spec.key}: reported rows are not pending")
+    P.check_spec_pin()
+    P.verify_inputs()
+    if P.sha256(fit_cache(spec.key)) != out["fit_series_cache"]["sha256"]:
+        raise P.ProtocolError("the cached fit series changed since the verdict")
+    data = preflight_data()
+    out2, ctx = decide(spec, out["trial"], data)
+    ser = pd.read_parquet(fit_cache(spec.key))
+    if not np.array_equal(out2["_series"]["pnl_sized"].values, ser["pnl_sized"].values) \
+            or out2["fit_verdict"] != out["fit_verdict"]:
+        raise P.ProtocolError("the rebuilt decision series or verdict differs from the committed one")
+    data.update(book=P.cef_book_pnl(), flags=pd.read_csv(P.QFLAGS, parse_dates=["date"]),
+                R_inhouse=inhouse_R(data["R"].index))
+    out["reported"] = report(spec, ctx, data)
+    P.write_json(fit_json(spec.key), out)
+    print(f"wrote {P.rel(fit_json(spec.key))} (reported rows completed)")
+    return out
+
+
 def evaluate_fit(spec: Spec, trial: int, data: dict) -> dict:
     """decide + report on injected data (used by the synthetic tests)."""
     out, ctx = decide(spec, trial, data)
@@ -331,7 +358,8 @@ def decide(spec: Spec, trial: int, data: dict):
     out["stage2"] = st2
     print(f"stage 2: {st2['rule']} -> {'pass' if st2['pass_'] else 'FAIL'}")
     # 3. placebo and shift(3)
-    pl = P.placebo(s["H_sized"], Rx, window, st1["sharpe"])
+    span = max(R[n].first_valid_index() for n in spec.names)      # every fund trades from here
+    pl = P.placebo(s["H_sized"], Rx, window, st1["sharpe"], span_start=span)
     sh3 = P.sharpe(P.run(s["H_sized"].shift(1).fillna(0.0), Rx, spec.key + " shift3")["pnl"].reindex(window))
     st3 = dict(placebo=pl, shift3_sharpe=sh3, shift2_sharpe=st1["sharpe"],
                shift3_decides=spec.shift3_decides,
@@ -478,8 +506,12 @@ def main(spec: Spec, argv=None) -> int:
     g.add_argument("--holdout", action="store_true", help="open this test's holdout, once")
     g.add_argument("--preflight", action="store_true",
                    help="zero-trial: pins, hashes and the date/coverage checks only; no P&L")
+    g.add_argument("--complete-report", action="store_true",
+                   help="only if a fit verdict's reported rows are PENDING (a reported row raised)")
     a = ap.parse_args(argv)
-    if a.preflight:
+    if a.complete_report:
+        complete_report(spec)
+    elif a.preflight:
         P.check_spec_pin()
         P.verify_inputs()
         print(f"{spec.key} preflight:", preflight(spec, preflight_data()),
