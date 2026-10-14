@@ -87,6 +87,16 @@ counter (156) covers all ETF-price/PD work done to date.
 >   2026-10-09 note's 1.79.
 > - **XASSET stays at 0 until a test's Stage 0b begins.** The counter moves
 >   per test (revision 3).
+>
+> **2026-10-14, later: XASSET Stage 0a recorded; no test entered Stage 0b.**
+> - **Stage 0a is in** `results/xasset/STAGE0A_2026-10-14.md`. The spec pin
+>   matches, and DG1's build gates, DG2, DG3 and Q1 pass.
+> - **DG1's "rebuild unchanged in every existing column" cannot hold
+>   bitwise.** The yfinance leg's Adj Close return differs by up to 0.0075bp
+>   between any two builds.
+> - **That question, and one about the X1/X4 placebo, are with the team lead**
+>   (`results/xasset/XASSET_RESULTS_2026-10-14.md`).
+> - **XASSET stays 0. N stays 4.**
 
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
@@ -198,6 +208,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | DISP-SCAN | PD dispersion is still wide in non-industrialised wrappers | building | — |
 | NPORT | monthly holdings history 2019+ from SEC EDGAR | agent staging | EDGAR parse |
 | BREADTH | 45-instrument universe | agent staging | data fetch |
+| XASSET X1–X4 | the declared cross-asset slate: credit and rates trend, rebalancing front-run, month-end Treasury, multi-asset trend (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`, N = 4) | Stage 0a recorded 2026-10-14; **no test has entered Stage 0b; no verdict; 0 trials** (`results/xasset/XASSET_RESULTS_2026-10-14.md`) | two team-lead questions: DG1's bitwise identity criterion (all four); what a placebo position earns before its fund existed (X1, X4) |
 
 > Rows above that point elsewhere in this file ("See QUEUE rank 1", "RESOLVED,
 > see below") refer to sections now in the snapshot at git tag `pre-clean-slate`

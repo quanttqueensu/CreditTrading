@@ -88,6 +88,16 @@ PLACEBO_BLOCK = 21
 COSTS = (5, 15, 30)
 MONTHLY_HAC = "floor(4 (T_m/100)^(2/9))"
 
+# ---- open question 2 (2026-10-14): the X1/X4 placebo on dates before a fund existed
+# None = not ruled. The preflight refuses to start Stage 0b for a test whose
+# placebo would move a position onto such a date while this is None. Set it ONLY
+# to the team lead's ruling, with the ruling's date in a comment.
+PLACEBO_PRE_INCEPTION_RULE = None
+# ---- open question 1 (2026-10-14): does DG1 clear? (STAGE0A_2026-10-14.md §2)
+# None = not ruled; no test may enter Stage 0b. Set ONLY to the team lead's
+# ruling, with its date, in the commit that records it.
+DG1_RULING = None
+
 # ---- inputs ------------------------------------------------------------------
 PANEL = CACHE / "etf_daily_xasset.parquet"            # DG1, staged outside data/
 DGS3MO = CACHE / "dgs3mo.parquet"                       # DG3
@@ -180,7 +190,9 @@ def verify_inputs(keys=None) -> dict:
 
 
 def git_tracked(path: Path) -> bool:
-    r = subprocess.run(["git", "ls-files", "--error-unmatch", rel(path)], cwd=REPO,
+    """True only if `path` is in the COMMITTED tree at HEAD (§1.5 says "committed";
+    a staged-but-uncommitted file must not open a holdout)."""
+    r = subprocess.run(["git", "cat-file", "-e", f"HEAD:{rel(path)}"], cwd=REPO,
                        capture_output=True, text=True)
     return r.returncode == 0
 
@@ -269,6 +281,8 @@ def run(H: pd.DataFrame, Rx: pd.DataFrame, what: str) -> dict:
     """`evaluate` on the excess-return matrix, after the coverage assertion. A name
     the book does not hold on a date contributes 0 whatever its return, so filling
     the NaN of an unheld name-date with 0 changes no P&L (asserted above)."""
+    if H.isna().any().any():
+        raise ProtocolError(f"{what}: H holds NaN; every position must be a number (0.0 if flat)")
     R = Rx.reindex(index=H.index, columns=H.columns)
     assert_covered(H, R, what)
     return evaluate(H, R.fillna(0.0))
@@ -346,15 +360,11 @@ def nw_t(x: pd.Series, lags: int = NW_LAGS) -> float:
     return float(_nw(x, lags=lags))
 
 
-def stationary_bootstrap(x: np.ndarray, mean_block: int, reps: int, seed: int,
-                         chunk: int = 500) -> tuple[np.ndarray, np.ndarray]:
-    """Politis-Romano stationary bootstrap (geometric blocks, mean `mean_block`,
-    circular). Returns (means, sharpes) of the resamples, sharpe annualised."""
-    x = np.asarray(x, dtype=float)
-    n = len(x)
+def stationary_indices(n: int, mean_block: int, reps: int, seed: int, chunk: int = 500):
+    """Politis-Romano stationary bootstrap index draws (geometric block lengths
+    with mean `mean_block`, circular), yielded in chunks of rows of length n."""
     rng = np.random.default_rng(seed)
     p = 1.0 / mean_block
-    means, srs = np.empty(reps), np.empty(reps)
     done = 0
     while done < reps:
         m = min(chunk, reps - done)
@@ -364,12 +374,37 @@ def stationary_bootstrap(x: np.ndarray, mean_block: int, reps: int, seed: int,
         jump = rng.integers(0, n, (m, n))
         for t in range(1, n):
             idx[:, t] = np.where(new[:, t], jump[:, t], (idx[:, t - 1] + 1) % n)
-        s = x[idx]
-        means[done:done + m] = s.mean(axis=1)
-        sd = s.std(axis=1, ddof=1)
-        srs[done:done + m] = np.where(sd > 0, s.mean(axis=1) / sd * np.sqrt(252), np.nan)
+        yield idx
         done += m
-    return means, srs
+
+
+def _sr_rows(s: np.ndarray) -> np.ndarray:
+    sd = s.std(axis=1, ddof=1)
+    return np.where(sd > 0, s.mean(axis=1) / np.where(sd > 0, sd, 1.0) * np.sqrt(252), np.nan)
+
+
+def stationary_bootstrap(x: np.ndarray, mean_block: int, reps: int, seed: int,
+                         chunk: int = 500) -> tuple[np.ndarray, np.ndarray]:
+    """Means and annualised Sharpes of stationary-bootstrap resamples of x."""
+    x = np.asarray(x, dtype=float)
+    means, srs = [], []
+    for idx in stationary_indices(len(x), mean_block, reps, seed, chunk):
+        s = x[idx]
+        means.append(s.mean(axis=1))
+        srs.append(_sr_rows(s))
+    return np.concatenate(means), np.concatenate(srs)
+
+
+def paired_sharpe_diff(x: np.ndarray, y: np.ndarray, mean_block: int = BOOT_BLOCK,
+                       reps: int = BOOT_REPS, seed: int = SEED) -> np.ndarray:
+    """SR(x) - SR(y) on the SAME stationary-bootstrap draws (paired by date)."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) != len(y):
+        raise ProtocolError("paired series differ in length")
+    out = []
+    for idx in stationary_indices(len(x), mean_block, reps, seed):
+        out.append(_sr_rows(x[idx]) - _sr_rows(y[idx]))
+    return np.concatenate(out)
 
 
 def dsr(x: pd.Series, n_trials: int = N_SLATE) -> dict:
@@ -493,19 +528,24 @@ def monthly(pnl: pd.Series) -> pd.Series:
     return m
 
 
-def aqr_regression(pnl: pd.Series, cols: list) -> dict:
-    """R-AQR (reported): monthly sleeve P&L on the named AQR factors, HAC L = floor(4(T_m/100)^(2/9))."""
+def aqr_regression(pnl: pd.Series, cols: list, cal: pd.DatetimeIndex) -> dict:
+    """R-AQR (reported): monthly sleeve P&L on the named AQR factors, HAC L =
+    floor(4(T_m/100)^(2/9)). Only calendar months whose every session (in `cal`)
+    lies inside the P&L window are used: the first and last months of a window
+    that starts or ends mid-month are partial (W4's convention)."""
     ts = pd.read_parquet(AQR_TSMOM)
     vm = pd.read_parquet(AQR_VME)
     F = pd.concat([ts.set_index(ts["date"].dt.to_period("M"))[[c for c in ts.columns if c.startswith("TSMOM")]],
                    vm.set_index(vm["date"].dt.to_period("M"))[["MOM", "MOMLS_VME_FI"]].add_prefix("VME_")],
                   axis=1)
     m = monthly(pnl)
-    # the first and last calendar months are partial when the window starts or ends
-    # mid-month; a month is used only if the window holds all its sessions
-    full = pnl.groupby(pnl.index.to_period("M")).size()
-    cal_n = pd.Series(1, index=pnl.index).groupby(pnl.index.to_period("M")).size()
-    m = m.loc[full.index[full == cal_n]]
+    have = pnl.groupby(pnl.index.to_period("M")).size()
+    c = cal[(cal >= pnl.index[0] - pd.offsets.MonthBegin(1)) & (cal <= pnl.index[-1] + pd.offsets.MonthEnd(1))]
+    need = pd.Series(1, index=c).groupby(c.to_period("M")).size()
+    full = [k for k in have.index if have[k] == need.get(k, -1)]
+    m = m.loc[full]
+    if F[cols].reindex(m.index).isna().any().any():
+        raise ProtocolError(f"AQR factors {cols} do not cover every month of the window")
     lag = int(math.floor(4 * (len(m) / 100.0) ** (2.0 / 9.0)))
     vint = dict(tsmom_sha=ts["file_sha256"].iloc[0][:16], tsmom_last=ts["last_data_month"].iloc[0],
                 vme_sha=vm["file_sha256"].iloc[0][:16], vme_last=vm["last_data_month"].iloc[0])
@@ -560,11 +600,14 @@ def capacity(H: pd.DataFrame, panel: pd.DataFrame, window: pd.DatetimeIndex) -> 
     dH.iloc[0] = H.iloc[0].abs()
     rows = dH.loc[dH.index.isin(window)]
     rows = rows[rows.sum(axis=1) > 0]
-    ratio = (rows / dv.reindex(rows.index)).max(axis=1).dropna()
+    raw_ratio = (rows / dv.reindex(rows.index)).max(axis=1, skipna=False)
+    no_dv = int(raw_ratio.isna().sum())          # days before 21 sessions of volume exist: counted, not hidden
+    ratio = raw_ratio.dropna()
     if ratio.empty:
-        return dict(rebalance_days=0)
+        return dict(rebalance_days=0, rebalance_days_without_dv63=no_dv)
     m = float(ratio.median())
-    return dict(rebalance_days=int(len(ratio)), median_max_trade_over_dv63=m,
+    return dict(rebalance_days=int(len(ratio)), rebalance_days_without_dv63=no_dv,
+                median_max_trade_over_dv63=m,
                 capital_at_1pct_usd=float(0.01 / m) if m > 0 else None,
                 participation_1m=1e6 * m, participation_10m=1e7 * m, participation_100m=1e8 * m)
 
