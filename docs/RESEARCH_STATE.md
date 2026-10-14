@@ -30,7 +30,7 @@ counter (156) covers all ETF-price/PD work done to date.
 | DISP | PD dispersion / staleness decomposition | 3 |
 | DEALER | NY Fed primary dealer inventory | 1 |
 | MBS | mortgage prepayment staleness | 0 |
-| **CEF** | **credit closed-end fund discounts** | **50** |
+| **CEF** | **credit closed-end fund discounts** | **52** |
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
 | **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **0** |
@@ -70,6 +70,23 @@ counter (156) covers all ETF-price/PD work done to date.
 > only". `scripts/gamma/vrp_summary.py` still prints them, and its 2004–22 row
 > also runs its last window into January 2023; neither was changed here.
 > **GAMMA stays at 0.**
+
+> **2026-10-14: CEF 50 → 52** (team lead's approval of two pre-registrations;
+> each counted in the commit that records its approval):
+> - **Trial 51 is C5**, `results/cef/PREREG_C5_OPEN_AUCTION_2026-10-13.md`:
+>   the t+1 opening-auction fill.
+> - **Trial 52 is C4**, `results/cef/PREREG_C4_FAMILIES_2026-10-13.md`: the
+>   discount z-score pooled over five CEF families.
+> - **Both are judged at N = 52, bar √(2 ln 52) = 2.811.**
+>
+> **2026-10-14: the XASSET slate is declared at N = 4**
+> (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`, revision 3, approved):
+> - **X5 was withdrawn before any data step,** on power forecast from the
+>   draft's own expected Sharpes. No return had been seen.
+> - **Each of X1–X4 is judged at the slate bar √(2 ln 4) = 1.665**, not the
+>   2026-10-09 note's 1.79.
+> - **XASSET stays at 0 until a test's Stage 0b begins.** The counter moves
+>   per test (revision 3).
 
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial

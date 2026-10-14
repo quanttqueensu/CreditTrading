@@ -5,7 +5,15 @@ trial) · **Pass bar** `scripts/cef/validate.py::_dsr` > 0.95 at the CEF
 counter's N · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 9
 (agenda B1) · **Author** research agent, branch `research-prereg-c4-e2`
 
-> **DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.**
+> **APPROVED by the team lead, 2026-10-14: CEF trial 52.** Approved on
+> defaults 1–7 (accepted 2026-10-13). Decision 8: spend now, after C5 (trial
+> 51). **The holdout ends 2026-09-30, fixed.** That supersedes "the families
+> panel's last date at run time" in §0 and §7, as proposed on 2026-10-13 after
+> the XASSET review's finding 5. The counter moves in this commit (decision 7):
+> **CEF 50 → 52** with C5. Both trials are judged at N = 52, bar
+> √(2 ln 52) = 2.811.
+>
+> *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **Nothing has run.** No discount z-score, position, P&L, Sharpe, IC,
 > turnover or correlation of any family fund was computed to write this. The

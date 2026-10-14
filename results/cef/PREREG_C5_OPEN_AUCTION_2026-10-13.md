@@ -6,7 +6,15 @@ trial approved; 52 if C4 is approved first) · **Pass bar**
 decision 2 names · **Source** `results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md`
 §1 (rank 1) · **Author** research agent, branch `research-prereg-c5`
 
-> **DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.**
+> **APPROVED by the team lead, 2026-10-14: CEF trial 51.** Approved on the
+> defaults of §0.1, decisions 1–9. Decision 10: spend now, with C5 run before
+> C4. The counter moves in this commit (decision 8): **CEF 50 → 52** together
+> with C4, trial 52. Both trials are judged at N = 52, bar √(2 ln 52) = 2.811.
+> Decision 6, the single paper `opg` order, is placed only after the team lead
+> has seen that concrete order and said go (CLAUDE.md order-path rule 1). The
+> rule-3 amendment (§16) stays a draft until a PASS (decision 7).
+>
+> *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **Nothing has run.** No P&L, Sharpe, IC, session or overnight return, gain,
 > or volatility of any of them was computed to write this. The only

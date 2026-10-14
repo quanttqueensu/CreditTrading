@@ -7,7 +7,22 @@ N = 5 · **Gate** G8 of `results/cef/RESEARCH_PLAN_2026-10-09.md` · **Author**
 research agent, branches `research-xasset-slate` (revisions 1–2) and
 `fix-xasset-review` (revision 3)
 
-> **Status: DRAFT, revision 3 — awaiting the team lead's final approval.**
+> **Status: APPROVED by the team lead, 2026-10-14, revision 3, with X5
+> withdrawn: N = 4.**
+>
+> - **X5 is withdrawn before any data step.** X5 is cross-sectional
+>   fixed-income momentum (§8). Its §2.2 power at the draft's own expected
+>   Sharpes was P(pass) < 0.03. That is a forecast from stated priors, not
+>   from any return: no Stage 0a step had run.
+> - **What N = 4 changes.** §8 is never run. Every "N = 5" elsewhere in this
+>   document now reads N = 4. Ruling 1 ("all five tests") is amended to
+>   X1–X4. The slate bar becomes √(2 ln 4) = 1.665. `validate._dsr` is
+>   evaluated at N = 4.
+> - **Unchanged.** Everything else in revision 3 stands, including that the
+>   counter moves per test when its Stage 0b begins (§0.2 item 3) and the
+>   fixed holdout end of 2026-09-30.
+>
+> *Was:* Status: DRAFT, revision 3 — awaiting the team lead's final approval.
 > Revision 3 applies the fixes of an adversarial review (the block below). It
 > keeps the team lead's four rulings of 2026-10-12 (§0.1) unchanged, with their
 > institutional-rigour requirements. It specifies the data, inference,
