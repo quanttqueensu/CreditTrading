@@ -83,6 +83,10 @@ def panel(tmp_path):
     return p
 
 
+def _noop(res):
+    """A record that writes nothing, for gate-level tests that are not about it."""
+
+
 def gate_for(tmp_path, panel, cc=CC):
     return ng.PanelGate(nav_path=panel, log_path=tmp_path / "nav_fallback_log.csv",
                         lock_path=tmp_path / ".fetch.lock", reader=FakeCC(cc), lock_wait_s=1.0)
@@ -109,7 +113,7 @@ def test_the_pdi_case_triggers_on_cefconnects_previous_nav_and_is_replaced(tmp_p
     write_nav(p, {"PDI": (15.12, 15.12, 15.06)},
               days=(dt.date(2026, 9, 23), dt.date(2026, 9, 24), dt.date(2026, 9, 25)))
     g = gate_for(tmp_path, p, {"PDI": (15.06, 15.10)})
-    res = g.run(dt.date(2026, 9, 25), ("PDI",), ng.ON, NOW, final=False)
+    res = g.run(dt.date(2026, 9, 25), ("PDI",), ng.ON, NOW, final=False, record=_noop)
     c = by_ticker(res)["PDI"]
     assert (c.trigger, c.verdict, c.action) == (ng.TRIGGER_CC, ng.STALE_COPY, "replaced")
     assert c.cc_prev_date == dt.date(2026, 9, 24)
@@ -119,7 +123,7 @@ def test_the_pdi_case_triggers_on_cefconnects_previous_nav_and_is_replaced(tmp_p
 
 def test_a_yfinance_repeat_with_cefconnect_different_is_replaced_and_logged(tmp_path, panel):
     g = gate_for(tmp_path, panel)
-    res = g.run(ASOF, UNI5, ng.ON, NOW, final=False)
+    res = g.run(ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
     c = by_ticker(res)["AAA"]
     assert (c.trigger, c.verdict, c.action) == (ng.TRIGGER_YF, ng.STALE_COPY, "replaced")
     assert res.replaced == {"AAA": 10.05} and nav_at(panel, "AAA") == 10.05
@@ -134,8 +138,32 @@ def test_a_yfinance_repeat_with_cefconnect_different_is_replaced_and_logged(tmp_
     assert by_ticker(res)["EEE"].trigger == ""                   # moved: not triggered
 
 
+def test_on_records_before_it_writes_the_panel_and_never_writes_unrecorded(tmp_path, panel):
+    """Execution desk 2026-10-14: the panel was written before nav_gate.csv, so a
+    failed record left a replaced NAV nothing recorded. The record now runs
+    first; if it fails, the panel and the fallback log are never written."""
+    seen = []
+
+    def record(res):
+        seen.append((sorted(res.replaced), nav_at(panel, "AAA")))
+    gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False, record=record)
+    assert seen == [(["AAA"], 10.00)]                     # recorded while AAA was unwritten
+    assert nav_at(panel, "AAA") == 10.05
+
+    write_nav(panel, NAVS)
+    (tmp_path / "nav_fallback_log.csv").unlink()
+
+    def broken(res):
+        raise ng.NavGateRecordError("nav_gate.csv: cannot write")
+    with pytest.raises(ng.NavGateRecordError):
+        gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False, record=broken)
+    assert nav_at(panel, "AAA") == 10.00 and not (tmp_path / "nav_fallback_log.csv").exists()
+    with pytest.raises(ValueError, match="needs a record"):
+        gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False)
+
+
 def test_genuine_repeat_is_kept(tmp_path, panel):
-    res = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False)
+    res = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
     c = by_ticker(res)["BBB"]
     assert (c.trigger, c.verdict, c.action) == (f"{ng.TRIGGER_YF}+{ng.TRIGGER_CC}",
                                                 ng.GENUINE_REPEAT, "kept")
@@ -146,19 +174,19 @@ def test_genuine_repeat_is_kept(tmp_path, panel):
 # ------------------------------------------------------------- unverified: defer, then hold
 
 def test_unverified_defers_before_the_final_check_and_is_held_from_it(tmp_path, panel):
-    early = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False)
+    early = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
     c = by_ticker(early)["CCC"]
     assert (c.verdict, c.action, c.cc_d) == (ng.UNVERIFIED, "deferred", None)
     assert early.deferred and early.unverified == ["CCC", "DDD"]
     assert "has no NAV dated 2026-09-28" in early.hold["CCC"]
     assert nav_at(panel, "CCC") == 30.00                          # never written
-    late = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=True)
+    late = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=True, record=_noop)
     assert by_ticker(late)["CCC"].action == "held" and not late.deferred
     assert sorted(late.hold) == ["CCC", "DDD"]
 
 
 def test_a_cefconnect_error_is_unverified_and_named(tmp_path, panel):
-    res = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=True)
+    res = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=True, record=_noop)
     c = by_ticker(res)["DDD"]
     assert (c.verdict, c.action) == (ng.UNVERIFIED, "held")
     assert c.cc_status == "error: DDD: ConnectionError: refused"
@@ -167,7 +195,7 @@ def test_a_cefconnect_error_is_unverified_and_named(tmp_path, panel):
 
 def test_a_cefconnect_nav_that_is_not_a_positive_number_is_never_used(tmp_path, panel):
     res = gate_for(tmp_path, panel, {**CC, "AAA": (9.98, 0.0)}).run(
-        ASOF, UNI5, ng.ON, NOW, final=False)
+        ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
     c = by_ticker(res)["AAA"]
     assert c.verdict == ng.UNVERIFIED and c.cc_status.startswith("error: CEFConnect NAV 0.0")
     assert nav_at(panel, "AAA") == 10.00 and not (tmp_path / "nav_fallback_log.csv").exists()
@@ -176,7 +204,7 @@ def test_a_cefconnect_nav_that_is_not_a_positive_number_is_never_used(tmp_path, 
 def test_a_bug_in_the_reader_is_raised_not_turned_into_a_hold(tmp_path, panel):
     with pytest.raises(KeyError):
         gate_for(tmp_path, panel, {**CC, "AAA": KeyError("NAVData")}).run(
-            ASOF, UNI5, ng.ON, NOW, final=False)
+            ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
 
 
 def test_the_final_check_is_ninety_minutes_before_the_calendar_close():
@@ -226,7 +254,7 @@ def test_report_mode_records_what_on_would_do_and_changes_nothing(tmp_path, pane
 
 def test_still_holds_catches_a_fetch_that_wrote_the_stale_copy_back(tmp_path, panel):
     g = gate_for(tmp_path, panel)
-    res = g.run(ASOF, UNI5, ng.ON, NOW, final=False)
+    res = g.run(ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
     assert g.still_holds(res) == []
     write_nav(panel, NAVS)                       # a later yfinance fetch: AAA stale again
     assert any("AAA" in x for x in g.still_holds(res))
@@ -236,11 +264,11 @@ def test_still_holds_catches_a_fetch_that_wrote_the_stale_copy_back(tmp_path, pa
 
 def test_the_csv_records_every_triggered_name_and_a_run_with_none(tmp_path, panel):
     path = tmp_path / ng.CSV_NAME
-    res = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False)
+    res = gate_for(tmp_path, panel).run(ASOF, UNI5, ng.ON, NOW, final=False, record=_noop)
     ng.append_csv(path, res, run="r1-run", session_date=D, written_utc=NOW)
     p2 = tmp_path / "moved.parquet"
     write_nav(p2, {"EEE": NAVS["EEE"]})
-    none = gate_for(tmp_path, p2).run(ASOF, ("EEE",), ng.ON, NOW, final=False)
+    none = gate_for(tmp_path, p2).run(ASOF, ("EEE",), ng.ON, NOW, final=False, record=_noop)
     ng.append_csv(path, none, run="r2-run", session_date=D, written_utc=NOW)
     rows = pd.read_csv(path, keep_default_na=False)
     assert tuple(rows.columns) == ng.CSV_COLUMNS
@@ -398,6 +426,9 @@ def test_a_bad_nav_gate_csv_stops_an_on_mode_session_naming_the_file(tmp_path, c
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_FAIL
     assert "nav_gate.csv" in "".join(out) and "not deciding without its record" in "".join(out)
     assert not (state / D.isoformat() / "plan.json").exists() and c.submits() == []
+    # Record first (2026-10-14): the stale copy the gate would have replaced is
+    # still in the panel, and nothing was logged as written from CEFConnect.
+    assert nav_at(p, "AAA") == 10.00 and not (tmp_path / "nav_fallback_log.csv").exists()
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
     assert plan_of(state)["status"] == "decided"
 

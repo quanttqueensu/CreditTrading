@@ -109,6 +109,7 @@ from quantt.session.records import (StateDirError, state_dir_from_env,  # noqa: 
 # CEFConnect through one function; re-exported here under their old names.
 # nav_gate imports only the standard library at module level (pytest.ini).
 from quantt.session.nav_gate import CefConnectError, cefconnect_nav  # noqa: E402,F401
+from quantt.session.nav_gate import move_aside  # noqa: E402
 from quantt.session.nav_gate import repeats as nav_repeats  # noqa: E402
 
 ET = ZoneInfo("America/New_York")    # the exchange's clock; D is an ET trading date
@@ -616,21 +617,33 @@ def step_borrow_snapshot(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
             "read_at_utc": read_at}
 
 
-def _append_arrivals(path: Path, rows: list) -> None:
+def _append_arrivals(path: Path, rows: list, when: dt.datetime) -> str | None:
     """Append first sightings to <state>/cefconnect_arrival.csv, one row per
     (date, ticker) ever: a row already there is not written again (a crash
-    between this append and status.json would otherwise log a name twice)."""
-    have = set()
+    between this append and status.json would otherwise log a name twice).
+
+    A FILE WHOSE HEADER IS NOT ARRIVAL_COLUMNS (quant-reviewer, 2026-10-14) --
+    empty after a kill before the first flush, or from an older column list --
+    is moved aside whole (`nav_gate.move_aside`: `<name>.<UTC stamp>.unreadable`)
+    and a new file is started at once, so this slot's arrivals are still
+    logged. Until 2026-10-14 such a file failed the step on every slot with an
+    empty detail, silently ending the measurement that turning the stale-NAV
+    gate `on` depends on. Returns a note naming both files, or None."""
+    have, note = set(), None
     if path.exists():
         with open(path, newline="") as fh:
             rd = csv.DictReader(fh)
-            if tuple(rd.fieldnames or ()) != ARRIVAL_COLUMNS:
-                raise StepFailed(f"{path} has columns {rd.fieldnames}, expected "
-                                 f"{list(ARRIVAL_COLUMNS)}")
-            have = {(r["date"], r["ticker"]) for r in rd}
+            head = rd.fieldnames
+            good = tuple(head or ()) == ARRIVAL_COLUMNS
+            if good:
+                have = {(r["date"], r["ticker"]) for r in rd}
+        if not good:
+            aside = move_aside(path, when)
+            note = (f"{path} had columns {head}, not {list(ARRIVAL_COLUMNS)}: moved aside to "
+                    f"{aside}; a new file was started")
     rows = [r for r in rows if (r["date"], r["ticker"]) not in have]
-    if not rows:
-        return
+    if not rows and note is None:
+        return None
     new = not path.exists()
     with open(path, "a", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=ARRIVAL_COLUMNS)
@@ -639,6 +652,7 @@ def _append_arrivals(path: Path, rows: list) -> None:
         w.writerows(rows)
         fh.flush()
         os.fsync(fh.fileno())
+    return note
 
 
 def step_cefconnect_arrival(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
@@ -681,9 +695,12 @@ def step_cefconnect_arrival(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> 
         seen[t] = {"utc": now, "nav": float(v)}
         new.append({"date": day.isoformat(), "ticker": t, "last_absent_utc": absent.get(t, ""),
                     "first_seen_utc": now, "polls": polls[t], "nav": float(v)})
-    _append_arrivals(ctx.state_dir / ARRIVAL_FILE, new)
+    rotated = _append_arrivals(ctx.state_dir / ARRIVAL_FILE, new,
+                               dt.datetime.now(dt.timezone.utc))
     detail = {"flags": [], "gaps": [], "first_seen": seen, "last_absent_utc": absent,
-              "polls": polls, "fetch_errors": errors}
+              "polls": polls, "fetch_errors": errors,
+              "file_rotations": list(prev.get("file_rotations") or []) + ([rotated] if rotated
+                                                                           else [])}
     waiting = [t for t in ctx.deployed if t not in seen]
     if waiting:
         raise StepFailed(f"watching: CEFConnect has no NAV dated {day} yet for {waiting}",

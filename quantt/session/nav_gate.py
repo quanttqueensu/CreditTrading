@@ -414,18 +414,28 @@ class PanelGate:
         return fd.panel_lock(lock, wait, fd.LOCK_POLL_S)
 
     def run(self, asof: dt.date, universe, mode: str, now: dt.datetime,
-            final: bool) -> GateResult:
+            final: bool, record: Callable | None = None) -> GateResult:
         """Measure every deployed name; in `on` mode replace stale copies.
 
         `on` holds fetch_daily's panel lock from the read to the write, so a fetch
         (the collector's, or another session's) cannot interleave: it waits, as
         for any refresh. Report mode only reads (the panel is written atomically,
         so a read sees a whole file). CEFConnect is read for every name, one
-        request each, because trigger (2) needs its D-1 row."""
+        request each, because trigger (2) needs its D-1 row.
+
+        RECORD FIRST (execution desk, 2026-10-14). In `on` mode `record(result)`
+        -- the session's `nav_gate.csv` append -- is REQUIRED and runs before the
+        panel is written. If it raises, the panel is never written and the error
+        propagates: every action the gate takes is recorded before it is taken.
+        Until 2026-10-14 the panel was written first and the record after, so a
+        failed record left a replaced NAV that nothing recorded. Report mode
+        writes nothing, so its caller records afterwards."""
         import pandas as pd
         from ops.schedule.nyse_calendar import previous_trading_day
         if mode not in MODES:
             raise ValueError(f"stale-NAV gate mode {mode!r} is not one of {MODES}")
+        if mode == ON and record is None:
+            raise ValueError("stale-NAV gate `on` needs a record to write before it acts")
         universe = tuple(sorted(universe))
         prev = previous_trading_day(asof)
         with (self._lock() if mode == ON else contextlib.nullcontext()):
@@ -441,6 +451,8 @@ class PanelGate:
                                     prev, cc_prev, cc_d, status, trig, verdict,
                                     action_for(verdict, mode, final)))
             res = GateResult(mode, asof, final, now, universe, tuple(checks))
+            if mode == ON:
+                record(res)                    # before any write: RECORD FIRST
             if res.replaced:
                 self._write(N, asof, res.replaced)
         return res
@@ -492,6 +504,23 @@ def _cell(v):
     return v.isoformat() if isinstance(v, dt.date) else v
 
 
+def move_aside(path: Path, when: dt.datetime) -> Path:
+    """Move `path` aside, whole, to `<name>.<UTC stamp>.unreadable` (with `-n`
+    if that exists) and return the new path. For a record file whose header is
+    not the one its writer expects -- empty after a kill before the first flush,
+    or from an older column list: rows under another header would be misread
+    for ever after, and refusing to write would stop the record for good. Used
+    for `nav_gate.csv` (`append_csv`) and the collector's
+    `cefconnect_arrival.csv` (`quantt/collect/collect.py` `_append_arrivals`)."""
+    stamp = when.astimezone(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    aside, n = path.with_name(f"{path.name}.{stamp}.unreadable"), 1
+    while aside.exists():
+        aside = path.with_name(f"{path.name}.{stamp}-{n}.unreadable")
+        n += 1
+    os.replace(path, aside)
+    return aside
+
+
 def append_csv(path: Path, res: GateResult, *, run: str, session_date: dt.date,
                written_utc: dt.datetime) -> None:
     """One row per triggered name to `<state>/nav_gate.csv`; a run with none
@@ -511,12 +540,7 @@ def append_csv(path: Path, res: GateResult, *, run: str, session_date: dt.date,
         with open(path, newline="") as fh:
             head = next(csv.reader(fh), None)
         if tuple(head or ()) != CSV_COLUMNS:
-            aside = path.with_name(f"{path.name}.{written_utc:%Y%m%dT%H%M%SZ}.unreadable")
-            n = 1
-            while aside.exists():
-                aside = path.with_name(f"{path.name}.{written_utc:%Y%m%dT%H%M%SZ}-{n}.unreadable")
-                n += 1
-            os.replace(path, aside)
+            aside = move_aside(path, written_utc)
             raise NavGateRecordError(
                 f"{path} had columns {head}, not {list(CSV_COLUMNS)}: moved aside to "
                 f"{aside.name}; the next decide starts a new file")

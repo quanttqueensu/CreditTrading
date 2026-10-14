@@ -193,7 +193,9 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
   each arrival to `$QUANTT_STATE_DIR/cefconnect_arrival.csv`, between the last poll
   without the row and the first with it. It never makes the day INCOMPLETE; the log
   line says `watching=cefconnect_arrival` while it runs. The stale-NAV gate's final
-  check depends on when these rows arrive.
+  check depends on when these rows arrive. A file that is empty or has another
+  header is moved aside as `cefconnect_arrival.csv.<UTC stamp>.unreadable`, named in
+  the step's detail, and a new file is started in the same slot (2026-10-14).
 - **Panel lock.** The session and the collector both run `fetch_daily.py`. Its
   read-modify-write of the price and NAV panels holds an exclusive `flock` on
   `data/cef/.fetch.lock`. A second run waits up to 10 minutes, then exits 3 and names

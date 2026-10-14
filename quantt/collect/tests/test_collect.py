@@ -349,6 +349,26 @@ def test_cefconnect_arrival_is_logged_when_each_row_first_appears(env):
     assert len(pd.read_csv(state / co.ARRIVAL_FILE)) == 2           # nothing logged twice
 
 
+@pytest.mark.parametrize("content", ["", "a,b\n"], ids=["empty", "old_header"])
+def test_a_bad_arrival_file_is_moved_aside_and_the_slot_still_logs(env, content):
+    """quant-reviewer 2026-10-14: an empty cefconnect_arrival.csv (a kill before
+    the first flush) or one with another header failed the step on every slot,
+    with an empty detail -- the arrival measurement silently stopped. It is now
+    moved aside whole, both files are named in the detail, and a new file takes
+    this slot's arrivals."""
+    state, cef = env
+    (state / co.ARRIVAL_FILE).write_text(content)
+    assert co.collect(make_ctx(env, cc={"AAA": None, "BBB": 20.00})) == co.EXIT_OK
+    d = status(env)["steps"]["cefconnect_arrival"]["detail"]
+    (aside,) = state.glob("cefconnect_arrival.csv.*.unreadable")
+    assert aside.read_text() == content
+    (note,) = d["file_rotations"]
+    assert co.ARRIVAL_FILE in note and aside.name in note
+    assert d["first_seen"]["BBB"]["nav"] == 20.0 and "AAA" in d["last_absent_utc"]
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert tuple(rows.columns) == co.ARRIVAL_COLUMNS and rows["ticker"].tolist() == ["BBB"]
+
+
 def test_cefconnect_unreadable_fails_the_step_so_it_is_retried(env):
     ctx = make_ctx(env, cc={"AAA": co.CefConnectError("AAA: ConnectionError"), "BBB": 20.0})
     assert co.collect(ctx) == co.EXIT_INCOMPLETE
