@@ -58,6 +58,25 @@ is dropped and counted: `volume` is int64 in the live schema.
 
 The 2023-01-01 time holdout: these are prices, not returns, and the mirror
 ends 2024-12-31. Nothing here computes a return.
+
+`--returns` (added 2026-10-14, trial C4's data gate DG-C4-1)
+-------------------------------------------------------------
+    python3 scripts/data/stage_crsp_cef_families.py --returns
+
+Stages CRSP's own `ret` and `retx` for the C4 pool (the 105 funds of
+`scripts/cef/c4_feasibility.py::declare_pool`, which include QQQX's
+predecessor rows) to `results/cef/c4/_cache_c4/crsp_ret_families.parquet`,
+a gitignored cache (`results/**/_cache_*`; CRSP is licensed and the
+repository is public). It does NOT re-decide the ticker -> permno mapping:
+it reads the (permno, date, ticker) rows the panel build above already
+chose (`crsp_dsf_raw.parquet`, read-only) and attaches `ret` and `retx`
+from `dsf` to exactly those rows, so the returns and the prices can never
+disagree about which security a row is. Every staged row must find exactly
+one `dsf` row; a miss or a duplicate raises. `ret` is CRSP's as published:
+NaN where CRSP has none, never filled (the trial's H15 check decides what a
+NaN means). Nothing is written under data/, which a trial worktree may hold
+read-only. A CRSP return is a return on the fund, not on C4; this stages
+data and computes no statistic.
 """
 from __future__ import annotations
 
@@ -154,8 +173,77 @@ def build_panel(dsf: pd.DataFrame, pmap: pd.DataFrame, names: pd.DataFrame,
     return P.sort_values(["ticker", "date"]).reset_index(drop=True), R, pd.DataFrame(counts)
 
 
+RET_CACHE = REPO / "results" / "cef" / "c4" / "_cache_c4" / "crsp_ret_families.parquet"
+RET_COLS = ["permno", "date", "ret", "retx"]
+
+
+def attach_returns(raw: pd.DataFrame, rets: pd.DataFrame) -> pd.DataFrame:
+    """`raw` (permno, date, ticker, prc, vol, cfacpr) with CRSP's `ret`/`retx` attached. Pure.
+
+    One `dsf` row per staged (permno, date), or it raises: a missing row would
+    leave a price with no return, and a duplicate would make the return
+    ambiguous. Neither is resolved here."""
+    r = rets.copy()
+    r["date"] = pd.to_datetime(r["date"]).dt.normalize().astype("datetime64[ns]")
+    r["permno"] = r["permno"].astype("int64")
+    for c in ("ret", "retx"):
+        r[c] = r[c].astype(float)
+    dup = r.duplicated(["permno", "date"], keep=False)
+    if dup.any():
+        raise FamiliesDataError(f"dsf holds two rows for one (permno, date): {r.loc[dup].head().to_dict('records')}")
+    x = raw[["permno", "date", "ticker", "prc", "vol", "cfacpr"]].copy()
+    x["permno"] = x["permno"].astype("int64")
+    x["date"] = pd.to_datetime(x["date"]).dt.normalize().astype("datetime64[ns]")
+    j = x.merge(r, on=["permno", "date"], how="left", indicator=True)
+    miss = j["_merge"] != "both"
+    if miss.any():
+        raise FamiliesDataError(f"{int(miss.sum())} staged rows have no dsf row for their own (permno, date): "
+                                f"{j.loc[miss, ['ticker', 'permno', 'date']].head().to_dict('records')}")
+    if len(j) != len(x):
+        raise FamiliesDataError("attaching returns changed the row count")
+    return j.drop(columns="_merge").sort_values(["ticker", "date"]).reset_index(drop=True)
+
+
+def stage_returns() -> int:
+    """DG-C4-1: CRSP `ret`/`retx` for the C4 pool, to RET_CACHE (see the module docstring)."""
+    from scripts.cef.c4_feasibility import NAMES_CSV, declare_pool
+    from src.data import r2
+    pool, _ = declare_pool(pd.read_csv(NAMES_CSV))
+    assert_no_universe_names(pool, cef_universe_names())
+    rawp = OUT_DIR / "crsp_dsf_raw.parquet"
+    if not rawp.exists():
+        raise FamiliesDataError(f"{rawp} does not exist: run this script without --returns first")
+    raw = pd.read_parquet(rawp)
+    raw = raw[raw["ticker"].isin(pool)]
+    missing = sorted(set(pool) - set(raw["ticker"]))
+    if missing:
+        raise FamiliesDataError(f"pool funds with no staged CRSP rows: {missing}")
+    perms = sorted(int(p) for p in raw["permno"].unique())
+    cfg = r2.load_config()
+    con = r2.connect(cfg)
+    rets = con.execute(
+        f"SELECT {', '.join(RET_COLS)} FROM read_parquet('{r2.r2_path('crsp_a_stock', 'dsf', cfg)}') "
+        f"WHERE permno IN ({','.join('?' * len(perms))})", perms).df()
+    out = attach_returns(raw, rets)
+    RET_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    out.to_parquet(RET_CACHE, index=False)
+    per = out.groupby("ticker").agg(rows=("date", "size"), first=("date", "min"), last=("date", "max"),
+                                    ret_nan=("ret", lambda s: int(s.isna().sum())),
+                                    permnos=("permno", lambda s: " ".join(map(str, sorted(set(s))))))
+    print(f"staged CRSP ret/retx: {len(out):,} rows, {out['ticker'].nunique()} pool funds, "
+          f"{out['date'].min().date()}..{out['date'].max().date()} -> {RET_CACHE.relative_to(REPO)}")
+    print(f"rows with no CRSP ret: {int(out['ret'].isna().sum())} (by fund below; never filled)")
+    print(per[per["ret_nan"] > 0].to_string())
+    print("funds on more than one permno:", per[per["permnos"].str.contains(" ")].to_dict("index"))
+    return 0
+
+
 def main(argv=None) -> int:
     pd.set_option("compute.use_numexpr", False)        # scripts/events/numexpr_fault.py
+    if argv is None:
+        argv = sys.argv[1:]
+    if "--returns" in argv:
+        return stage_returns()
     from src.data import r2
     u = included(load_universe())
     the44 = cef_universe_names()

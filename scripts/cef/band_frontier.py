@@ -57,7 +57,11 @@ BAND_SWEEP = sorted({0.002, 0.004, 0.008, 0.016, 0.024, 0.032,
                      0.048, 0.064, 0.096, 0.128, BAND_WIDTH})
 
 
-def build_panel(end=None, universe=None):
+LIVE_PRICES = REPO / "data/cef/cef_prices.parquet"
+LIVE_NAV = REPO / "data/cef/cef_nav.parquet"
+
+
+def build_panel(end=None, universe=None, source=None, mask=None):
     """The signal panel `build_targets` is built from: px, nav, ret, disc, z, adv.
 
     `end` truncates the RAW price and NAV history before anything is computed,
@@ -86,9 +90,35 @@ def build_panel(end=None, universe=None):
     ADV through t-1. `disc` itself is date-t information (t's close against t's
     published NAV), which is why the execution convention is shift(2) and not
     shift(1): t's NAV is published AFTER t's close.
+
+    `source` AND `mask` (added 2026-10-14, trial C4's data gate DG-C4-2)
+    ---------------------------------------------------------------------
+    C4 (`results/cef/PREREG_C4_FAMILIES_2026-10-13.md`) runs THIS signal, with
+    every parameter from the frozen spec, on the CEF families panels. A second
+    copy of the z-score for those funds would be the defect W14 Part A split
+    this function out to prevent, so the harness takes the panel instead:
+
+    * `source`: None (the live panels, unchanged) or a pair of paths
+      (prices, NAV) in the live schema (`date open high low close volume
+      ticker grp` / `date nav ticker`). `data/cef_families/` is built in that
+      schema on purpose (`scripts/data/fetch_cef_families_yf.py`).
+    * `mask`: None (unchanged) or a date x ticker boolean frame; True means the
+      fund has NO DISCOUNT that day. The masked discount is NaN, so the day is
+      not eligible (its z is NaN) and does not count toward the z-window
+      history (`rolling(...).mean()` counts non-NaN rows only, and
+      `MIN_PERIODS` is a count of them). Price, return, volume and ADV are NOT
+      masked: a masked day still trades and still earns (PREREG_C4 §4.3). A
+      cell absent from the frame is unmasked; a mask naming a ticker or date
+      the panel does not hold raises, because a mask that silently misses its
+      target is no mask.
+
+    Both defaults reproduce the panel before the arguments existed byte for
+    byte: sha256 of `pickle.dumps(build_targets())` 007e221b...7cdc before and
+    after, on the live panels of 2026-10-14 (`results/cef/C4_RESULT_*.md`).
     """
-    P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
-    N = pd.read_parquet(REPO / "data/cef/cef_nav.parquet")
+    pp, npth = (LIVE_PRICES, LIVE_NAV) if source is None else (Path(source[0]), Path(source[1]))
+    P = pd.read_parquet(pp)
+    N = pd.read_parquet(npth)
     # `universe` (added 2026-09-28): a caller may score a candidate universe
     # before it is in the spec -- the Alpaca v7 derivation drops four names that
     # Alpaca will not let us short. None means the spec's universe, and the
@@ -106,6 +136,18 @@ def build_panel(end=None, universe=None):
 
     ret = px.pct_change(fill_method=None).where(lambda x: x.abs() < 0.5)
     disc = 100.0 * (px - nav) / nav
+    if mask is not None:
+        if mask.isna().any().any():              # astype(bool) would turn NaN into True: a silent mask
+            raise ValueError("mask holds NaN cells; a mask must say True or False for every cell it names")
+        m = mask.astype(bool)
+        extra_t = sorted(set(m.columns) - set(disc.columns))
+        extra_d = m.index.difference(disc.index)
+        if end is not None:                      # rows after `end` were truncated, not missed
+            extra_d = extra_d[extra_d <= pd.Timestamp(end)]
+        if extra_t or len(extra_d):
+            raise ValueError(f"mask names {len(extra_t)} ticker(s) {extra_t[:5]} and {len(extra_d)} date(s) "
+                             "the panel does not hold; a mask that misses its target is no mask")
+        disc = disc.mask(m.reindex(index=disc.index, columns=disc.columns, fill_value=False))
     mu = disc.rolling(Z_WINDOW, min_periods=MIN_PERIODS).mean().shift(1)
     sd = disc.rolling(Z_WINDOW, min_periods=MIN_PERIODS).std().shift(1)
     z = ((disc - mu) / sd.replace(0, np.nan)).clip(-4, 4)
@@ -113,19 +155,30 @@ def build_panel(end=None, universe=None):
     return dict(px=px, nav=nav, vol=vol, ret=ret, disc=disc, mu=mu, sd=sd, z=z, adv=adv)
 
 
-def build_targets(universe=None):
+def build_targets(universe=None, source=None, mask=None, min_adv=None):
     """Frictionless daily target weights, exactly as the sleeve would build them.
 
-    `universe=None` is the spec's universe; see `build_panel`."""
+    `universe=None` is the spec's universe; `source` and `mask` are passed to
+    `build_panel` (see there; added 2026-10-14 for C4's DG-C4-2).
+
+    `min_adv` (added 2026-10-14, C4's DG-C4-5 and C5's DG-C5-4): None is the
+    spec's `min_adv_usd` (unchanged). A number replaces the floor for this call
+    only; 0.0 builds the WIDE set (the same rule with no ADV floor), which
+    `scripts/cef/c5_feasibility.py` used to reach by patching `MIN_ADV` inside
+    a context manager. A name with no ADV yet (fewer than 21 sessions) stays
+    ineligible at any floor, exactly as under the patch: `NaN >= 0` is False.
+    The default reproduces the old output byte for byte (hash in
+    `build_panel`'s docstring)."""
     U = UNIVERSE if universe is None else list(universe)
-    p = build_panel(universe=U)
+    floor = MIN_ADV if min_adv is None else float(min_adv)
+    p = build_panel(universe=U, source=source, mask=mask)
     ret, z, adv = p["ret"], p["z"], p["adv"]
 
     tgt = pd.DataFrame(0.0, index=z.index, columns=U)
     start = z.index.searchsorted(pd.Timestamp(SAMPLE_START))
     for i in range(start, len(z.index)):
         row = z.iloc[i].dropna()
-        row = row[[t for t in row.index if (adv.iloc[i].get(t, 0) or 0) >= MIN_ADV]]
+        row = row[[t for t in row.index if (adv.iloc[i].get(t, 0) or 0) >= floor]]
         if len(row) < MIN_NAMES:
             tgt.iloc[i] = tgt.iloc[i - 1]          # hold; nothing eligible
             continue
@@ -233,8 +286,36 @@ def evaluate(H, R):
     )
 
 
-def distribution_yield(index, columns):
+def load_families_actions(path):
+    """A yfinance actions file (`date ticker dividends stock_splits`, the schema
+    `scripts/data/fetch_cef_families_yf.py` writes) as the two frames the live
+    files hold: distributions (`ex_date ticker amount`) and splits (`ex_date
+    ticker stock_split`).
+
+    Added 2026-10-14 (C4's DG-C4-2: "`total_returns` takes the families'
+    actions file"). yfinance codes "no split" as 0.0 and "no dividend" as 0.0,
+    so a row is a distribution where `dividends` > 0 and a split where
+    `stock_splits` != 0; a negative dividend or a negative split factor is not
+    a convention, it is a defect, and raises."""
+    a = pd.read_parquet(path)
+    need = {"date", "ticker", "dividends", "stock_splits"}
+    if not need <= set(a.columns):
+        raise ValueError(f"{path}: expected columns {sorted(need)}, got {sorted(a.columns)}")
+    if (a["dividends"] < 0).any() or (a["stock_splits"] < 0).any():
+        raise ValueError(f"{path}: a negative dividend or split factor; refusing to book it")
+    a = a.assign(ex_date=pd.to_datetime(a["date"]))
+    dist = a.loc[a["dividends"] > 0, ["ex_date", "ticker", "dividends"]].rename(columns={"dividends": "amount"})
+    sp = a.loc[a["stock_splits"] != 0, ["ex_date", "ticker", "stock_splits"]].rename(
+        columns={"stock_splits": "stock_split"})
+    return dist.reset_index(drop=True), sp.reset_index(drop=True)
+
+
+def distribution_yield(index, columns, dist=None, prices=None):
     """D_it / P_i,t-1 on each ex-date -- the cash leg the price panel omits.
+
+    `dist` (a frame `ex_date ticker amount`) and `prices` (a path to a price
+    panel in the live schema) were added 2026-10-14 for C4 (DG-C4-2). None
+    for both is the live distribution and price panels, unchanged.
 
     WHY THIS IS NOT OPTIONAL FOR A FACTOR REGRESSION
     ------------------------------------------------
@@ -260,18 +341,19 @@ def distribution_yield(index, columns):
     indistinguishable from "this fund paid nothing", and the two have opposite
     meanings for the bias above.
     """
-    dist = pd.read_parquet(REPO / "data/cef/cef_distributions.parquet")
+    dist = (pd.read_parquet(REPO / "data/cef/cef_distributions.parquet") if dist is None
+            else dist.copy())
     dist["ex_date"] = pd.to_datetime(dist["ex_date"])
     missing = sorted(set(columns) - set(dist["ticker"].unique()))
     if missing:
         raise ValueError(
-            "cef_distributions.parquet has no rows for "
+            "the distribution panel has no rows for "
             f"{missing} -- cannot build a total-return series for the "
             "universe requested. Fix the panel; do not fall back to price "
             "returns silently (house rule: no silent fallbacks).")
     dist = dist[dist.ticker.isin(columns)]
 
-    P = pd.read_parquet(REPO / "data/cef/cef_prices.parquet")
+    P = pd.read_parquet(LIVE_PRICES if prices is None else Path(prices))
     P = P[P.ticker.isin(columns)]
     P["date"] = pd.to_datetime(P["date"])
     px = P.pivot_table(index="date", columns="ticker", values="close").sort_index()
@@ -306,8 +388,11 @@ def distribution_yield(index, columns):
     return y.fillna(0.0)
 
 
-def split_factor(index, columns):
+def split_factor(index, columns, splits=None):
     """Share-count multiplier on each ex-split date; 1.0 everywhere else.
+
+    `splits` (a frame `ex_date ticker stock_split`, added 2026-10-14 for C4's
+    DG-C4-2): None reads the live `cef_splits.parquet`, unchanged.
 
     WHY THIS SITS BESIDE THE DISTRIBUTION LEG AND NOT SOMEWHERE ELSE
     ---------------------------------------------------------------
@@ -334,13 +419,16 @@ def split_factor(index, columns):
     post-split) and this function cannot tell which. That has never happened in
     this panel; if it does, someone must decide rather than inherit a guess.
     """
-    path = REPO / "data/cef/cef_splits.parquet"
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} is missing. The harness cannot build a split-correct "
-            "return series without it, and booking a split as a return is a "
-            "silent loss -- see this function's docstring.")
-    sp = pd.read_parquet(path)
+    if splits is None:
+        path = REPO / "data/cef/cef_splits.parquet"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"{path} is missing. The harness cannot build a split-correct "
+                "return series without it, and booking a split as a return is a "
+                "silent loss -- see this function's docstring.")
+        sp = pd.read_parquet(path)
+    else:
+        sp = splits.copy()
     sp["ex_date"] = pd.to_datetime(sp["ex_date"])
     sp = sp[sp.ticker.isin(columns)]
     k = (sp.groupby(["ex_date", "ticker"])["stock_split"].prod()
@@ -348,7 +436,7 @@ def split_factor(index, columns):
     return k.fillna(1.0)
 
 
-def total_returns(R):
+def total_returns(R, actions=None, prices=None):
     """Price returns corrected for splits, plus the distribution leg.
 
     Kept separate from `build_targets()` on purpose. Every baseline in this
@@ -360,9 +448,23 @@ def total_returns(R):
     r_total = (1 + r_px) * k - 1 + D/P_{t-1}, where k is the share-count
     multiplier. The two corrections never coincide on a name-date in this
     panel, and `split_factor` raises if they ever do.
+
+    `actions` and `prices` (added 2026-10-14, C4's DG-C4-2): None for both is
+    the live distribution, split and price panels, unchanged. Otherwise
+    `actions` is a yfinance actions file (`load_families_actions`) and
+    `prices` the price panel whose closes are the yield's denominator; both
+    must be given together, because a yield on one panel's distributions over
+    another panel's prices is a silent mismatch. The formula is the same.
     """
-    y = distribution_yield(R.index, R.columns).reindex_like(R)
-    k = split_factor(R.index, R.columns).reindex_like(R)
+    if (actions is None) != (prices is None):
+        raise ValueError("total_returns: give `actions` and `prices` together, or neither")
+    if actions is None:
+        y = distribution_yield(R.index, R.columns).reindex_like(R)
+        k = split_factor(R.index, R.columns).reindex_like(R)
+    else:
+        dist, sp = load_families_actions(actions)
+        y = distribution_yield(R.index, R.columns, dist=dist, prices=prices).reindex_like(R)
+        k = split_factor(R.index, R.columns, splits=sp).reindex_like(R)
     clash = ((k != 1.0) & (y != 0.0))
     if clash.any().any():
         where = [(str(d.date()), c) for d, c in zip(*np.where(clash.values))]

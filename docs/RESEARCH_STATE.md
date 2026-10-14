@@ -198,6 +198,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | DISP-SCAN | PD dispersion is still wide in non-industrialised wrappers | building | — |
 | NPORT | monthly holdings history 2019+ from SEC EDGAR | agent staging | EDGAR parse |
 | BREADTH | 45-instrument universe | agent staging | data fetch |
+| **C4** (CEF trial 52) | the live discount z-score pooled over five CEF families (`results/cef/PREREG_C4_FAMILIES_2026-10-13.md`) | **No verdict yet. Halted at Stage 0 on 2026-10-14.** Nothing of C4 was computed; the fit window and the holdout are untouched; CEF stays 52 | the team lead's ruling on Q1 (11 name-days with no return in the declared source: GRX, QQQX, IGR) and on the universe (the re-read gives 74; the document and the approval name 68): `results/cef/C4_RESULT_2026-10-14.md` |
 
 > Rows above that point elsewhere in this file ("See QUEUE rank 1", "RESOLVED,
 > see below") refer to sections now in the snapshot at git tag `pre-clean-slate`
