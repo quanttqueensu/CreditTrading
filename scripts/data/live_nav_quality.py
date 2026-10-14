@@ -3,7 +3,8 @@ yfinance against CEFConnect (NAV and close) and CRSP (close), with the defect's
 footprint on the book's decision dates.
 
     QUANTT_ENV_FILE=<abs path to config/.env> python3 scripts/data/live_nav_quality.py \
-        --state-dir <laptop quantt_state/cef>            # sources from the cache where present
+        --state-dir <laptop quantt_state/cef> \
+        --traded-panel-dir <laptop prod clone>/data/cef  # sources from the cache where present
     ... --refresh                                        # re-fetch every network source
 
 WHY THIS EXISTS
@@ -33,9 +34,20 @@ sleeve's own rolling sd on that date). Nothing else.
 
 THE SOURCES, NEVER AVERAGED
 ---------------------------
-* Live panels, read-only: `data/cef/cef_prices.parquet`, `cef_nav.parquet`
-  (yfinance), restricted to the frozen spec's universe (`scripts/cef/spec.py`).
-  Their last dates are printed; the laptop's copies end 2026-09-28 / 2026-09-25.
+* The development checkout's panels, read-only: `data/cef/cef_prices.parquet`,
+  `cef_nav.parquet` (yfinance), restricted to the frozen spec's universe
+  (`scripts/cef/spec.py`). Their last dates are printed (2026-09-28 / 2026-09-25
+  when this ran). They are NOT the panels the laptop traded on: the 2026-10-12
+  version called them "the live panel" (corrected 2026-10-13). The history
+  sections [1]-[4] use them; they equal the traded panel on every common NAV row
+  but two and every common close ([0b] measures that).
+* The TRADED panels (`--traded-panel-dir`, read-only): the laptop prod clone's
+  `data/cef`, last written by the asof-2026-10-07 decide run (23:00 ET). The
+  fetcher (`scripts/cef/fetch_daily.py`) re-writes the last 6 months on every
+  run (`drop_duplicates(keep="last")`), so its LAST date is exactly what that
+  run decided on, and older rows are what Yahoo served at 23:00 ET 2026-10-07.
+  Used for the live-period mu and sd ([5]) and for the direct read of the
+  2026-10-07 decision ([0b]).
 * CEFConnect `GET /api/v3/pricinghistory/{TK}/{1Y|All}` (docs/REFERENCES.md §8,
   §12h): `1Y` is daily (2025-10-13 onward), `All` is weekly (Fridays). The two
   windows are kept apart and their common rows are checked against each other.
@@ -79,9 +91,33 @@ NAV the yfinance row skipped, the NEXT yfinance change must contain the skipped
 move: regress (first later yfinance NAV that differs) - yf(t) on cc(t) - yf(t).
 A slope near 1 says CEFConnect is right; near 0, that its value is noise.
 
+LAGGED WITHOUT A REPEAT (`lag_unrepeated`, daily window only). A stale copy is
+not always a repeat. PDI as captured on 2026-09-28: yfinance's 09-24 row is
+itself a stale copy (15.12, the 09-23 value), and its 09-25 row is 15.06,
+CEFConnect's 09-24 value; the true 09-25 NAV is 15.10. yfinance(D) moved off
+yfinance(D-1), so a gate keyed on "NAV(D) == NAV(D-1)" passes it. The test that
+catches it: yfinance(D) equals CEFConnect's PREVIOUS row and differs from
+CEFConnect(D). It can fire only when yfinance's own D-1 row already disagrees
+with CEFConnect's (otherwise it coincides with a repeat).
+
 ALIGNMENT (no lookahead). Every quantity is read at the date it describes. The
 z-score error on decision date t uses the sleeve's sd at t, which is
 `rolling(z_window).std().shift(1)` (window ending t-1), from the harness.
+
+CORRECTIONS OF 2026-10-13 (independent review; the note's dated correction says
+which figures moved):
+* [5] rebuilt mu and sd from yfinance as served now, which fills 12 price bars
+  the session's panel carried empty (NaN close: the 11 of [0] plus AWF
+  2026-04-02, empty in the traded panel only). The sleeve drops those
+  name-days, so the rebuild was not the session's; it moved implied NAV
+  intervals by up to 0.0028, more than IMPLIED_TOL. mu and sd now come from the
+  traded panel; the yfinance-now rebuild is kept as a printed sensitivity.
+* [2c] printed |panel - CRSP| next to a dated public close, so CRSP's price was
+  recoverable up to sign. CRSP disagreements are now printed only as counts by
+  (ticker, year, category) and as magnitude bounds over eras of 3+ rows.
+* Output tables are stamped with the UTC date of the latest network fetch they
+  rest on, not the date of the run, so a re-run from the cache rewrites the same
+  files instead of adding a second dated copy.
 """
 from __future__ import annotations
 
@@ -108,12 +144,20 @@ TOL_USD = 0.005                               # both sources quote to the cent
 # must not turn 4e-7 of storage noise into a disagreement. 1e-5 is far below a cent.
 FLOAT_EPS = 1e-5
 # How far a cent-quoted NAV may sit outside the interval a printed z implies and
-# still be "the NAV the session used". The interval is exact up to the z rounding;
-# what it does not capture is that mu and sd are rebuilt from today's yfinance
-# history, not the session's own panel (one or two of 252 rows may differ by a few
-# cents). That moves the implied NAV by ~1e-4 per row; 0.002 is ten times that and
-# a fifth of a cent, so two candidates a cent apart are never both accepted unless
-# the interval itself is that wide (then the verdict says AMBIGUOUS).
+# still be "the NAV the session used". The interval is exact up to the z rounding
+# GIVEN the session's own mu and sd, so those are rebuilt from the panel the
+# laptop traded on (`--traded-panel-dir`), never from yfinance as served now.
+# The 2026-10-12 version did the latter and so filled 12 price bars the session
+# had empty (the sleeve drops a NaN close); that moved implied intervals by up to
+# 0.0028, more than this tolerance (review 2026-10-13). The traded panel can
+# still differ from the panel a given session read only in rows Yahoo corrected
+# between that session and the panel's last write (2026-10-07), inside the 6
+# months the fetcher re-writes: a few decide-time copies per name, each moving
+# mu by about 0.6pp / 252 and the implied NAV by about 3e-4. 0.002 is a fifth of
+# a cent, so two candidates a cent apart are never both accepted unless the
+# interval itself is that wide (then the verdict says AMBIGUOUS). The run prints
+# the largest accepted distance and the nearest rejected candidate, so the
+# margin on both sides is measured, not assumed; the value was not re-chosen.
 IMPLIED_TOL = 0.002
 RATIO_TOL = 0.002                             # 20bp: a share-basis difference, not a cent
 CC_URL = "https://www.cefconnect.com/api/v3/pricinghistory/{ticker}/{window}"
@@ -227,6 +271,101 @@ def tiebreak(m: pd.DataFrame, a: pd.DataFrame, col_a: str, col_b: str) -> dict:
             "median_steps_to_change": float(np.median(x["steps"]))}
 
 
+def lag_unrepeated(a: pd.DataFrame, col_a: str, b: pd.DataFrame, col_b: str,
+                   tol: float = TOL_USD) -> pd.DataFrame:
+    """Rows of a (yfinance) that moved off a's previous row, equal b's PREVIOUS row
+    (CEFConnect's D-1) and differ from b(D): D-1's NAV dated D, with no repeat.
+
+    The module docstring's PDI 2026-09-25 case. Meaningful on a DAILY b only: on
+    the weekly window b's previous row is a week old. Nothing is filled."""
+    n = _neighbours(a, col_a)
+    bb = b[["ticker", "date", col_b]].sort_values(["ticker", "date"]).copy()
+    bb["b_prev"] = bb.groupby("ticker")[col_b].shift(1)
+    m = n.merge(bb, on=["ticker", "date"], how="inner")
+    m = m[(m[col_a] > 0) & (m[col_b] > 0)]
+    tol = tol + FLOAT_EPS
+    moved = (m[col_a] - m["prev"]).abs() > tol
+    hit = moved & ((m[col_a] - m["b_prev"]).abs() <= tol) & ((m[col_a] - m[col_b]).abs() > tol)
+    return m[hit].copy()
+
+
+def sleeve_mu_sd(P: pd.DataFrame, N: pd.DataFrame, universe: list[str], z_window: int
+                 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """(disc, mu, sd) built as `CEFDiscountSleeve._panel` + `target_positions` build them.
+
+    Inner join of close and NAV on (date, ticker), `nav > 0.5` and `close > 0.5`
+    (so a NaN close -- an empty bar -- drops that name-day), pivot, discount in
+    pp, `rolling(z_window, min_periods=120)` mean and sd, `shift(1)`: mu and sd at
+    D use rows strictly before D (no lookahead). Feed it the panel the session
+    read; a panel with the empty bars filled is a different rolling window."""
+    d = P[P.ticker.isin(universe)][["ticker", "date", "close"]].merge(
+        N[N.ticker.isin(universe)][["ticker", "date", "nav"]], on=["ticker", "date"], how="inner")
+    d = d[(d.nav > 0.5) & (d.close > 0.5)]
+    pxw = d.pivot_table(index="date", columns="ticker", values="close").sort_index()
+    nvw = d.pivot_table(index="date", columns="ticker", values="nav").sort_index()
+    disc = 100.0 * (pxw - nvw) / nvw
+    mu = disc.rolling(z_window, min_periods=120).mean().shift(1)
+    sd = disc.rolling(z_window, min_periods=120).std().shift(1)
+    return disc, mu, sd
+
+
+V_FINAL = "used the final NAV(D)"
+V_FINAL_EQ = "used the final NAV(D) (equal to NAV(D-1))"
+V_STALE = "STALE COPY at decision: used NAV(D-1)"
+V_AMBIG = "AMBIGUOUS: NAV(D) and NAV(D-1) both fit the printed z"
+V_NEITHER = "used a NAV that is neither final NAV(D) nor NAV(D-1)"
+V_NONE = "no z printed (band hold / below min weight / illiquid) or z clipped"
+
+
+def nav_verdict(lo: float, hi: float, nav_final: float, nav_prev: float,
+                tol: float = IMPLIED_TOL) -> tuple[str, float, float]:
+    """Which NAV a session used, given the interval [lo, hi] its printed z implies.
+
+    Returns (verdict, distance of final NAV(D), distance of NAV(D-1)); a distance
+    is 0 inside the interval and inf for a missing candidate. A candidate within
+    `tol` is accepted. When NAV(D) equals NAV(D-1) the two cannot be told apart,
+    and the verdict says so rather than calling it stale or final."""
+    def dist(v):
+        return max(lo - v, 0.0, v - hi) if np.isfinite(v) else np.inf
+    df, dp = dist(nav_final), dist(nav_prev)
+    fin, prv = df <= tol, dp <= tol
+    same = bool(np.isfinite(nav_prev) and np.isfinite(nav_final) and abs(nav_prev - nav_final) < FLOAT_EPS)
+    if same:
+        return (V_FINAL_EQ if fin else V_NEITHER), df, dp
+    if fin and prv:
+        return V_AMBIG, df, dp
+    if fin:
+        return V_FINAL, df, dp
+    if prv:
+        return V_STALE, df, dp
+    return V_NEITHER, df, dp
+
+
+CRSP_ERAS = ((1900, 2000, "to 2000 (fractional ticks)"), (2001, 2007, "2001-2007"),
+             (2008, 2012, "2008-2012"), (2013, 2100, "2013 on"))
+
+
+def crsp_disagreement_summary(m: pd.DataFrame, min_rows_for_max: int = 3) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """What may be printed about panel-vs-CRSP disagreements in a public repository.
+
+    (1) counts by (ticker, year, category), with no date; (2) per era: rows
+    compared, agreeing, disagreeing, and max |diff| over the disagreeing rows,
+    WITHHELD (NaN) when fewer than `min_rows_for_max` rows disagree, since a
+    maximum over one row is that row's CRSP price up to sign once the row is
+    known. No single row's date sits beside its magnitude."""
+    bad = m[m.category != "AGREE"]
+    by_tyc = bad.groupby(["ticker", "year", "category"]).size().rename("rows").to_frame()
+    out = []
+    for lo, hi, lab in CRSP_ERAS:
+        x = m[(m.year >= lo) & (m.year <= hi)]
+        b = x[x.category != "AGREE"]
+        out.append({"era": lab, "compared": len(x), "agree": int((x.category == "AGREE").sum()),
+                    "differ": len(b),
+                    "max_abs_diff_usd": round(float(b["diff"].abs().max()), 3) if len(b) >= min_rows_for_max
+                    else np.nan})
+    return by_tyc, pd.DataFrame(out)
+
+
 def implied_nav(close: float, z: float, mu: float, sd: float, z_dp: int = 2) -> tuple[float, float, float]:
     """The NAV a session must have used, given the z it printed (rounded to z_dp places).
 
@@ -265,6 +404,28 @@ def load_live(universe: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
         if f.duplicated(["ticker", "date"]).any():
             raise LiveNavQualityError(f"{lab}.parquet has duplicate (ticker, date) rows")
     return P[P.ticker.isin(universe)].copy(), N[N.ticker.isin(universe)].copy()
+
+
+def load_traded(traded_dir: Path, universe: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """The panels the laptop prod clone traded on, read-only, and their file write times (UTC).
+
+    Raises if a file or a universe name is missing, or a (ticker, date) repeats:
+    the live-period inversion must rest on the session's own panel or on nothing."""
+    out, mt = [], {}
+    for name in ("cef_prices.parquet", "cef_nav.parquet"):
+        f = traded_dir / name
+        if not f.exists():
+            raise LiveNavQualityError(f"traded panel {f} does not exist")
+        x = pd.read_parquet(f)
+        miss = sorted(set(universe) - set(x["ticker"]))
+        if miss:
+            raise LiveNavQualityError(f"traded {name} has no rows for {miss}")
+        x["date"] = pd.to_datetime(x["date"]).dt.normalize()
+        if x.duplicated(["ticker", "date"]).any():
+            raise LiveNavQualityError(f"traded {name} has duplicate (ticker, date) rows")
+        out.append(x[x.ticker.isin(universe)].copy())
+        mt[name] = dt.datetime.fromtimestamp(f.stat().st_mtime, dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return out[0], out[1], mt
 
 
 def fetch_cefconnect(universe: list[str], refresh: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -408,12 +569,13 @@ def load_plans(state_dir: Path, universe: list[str]) -> pd.DataFrame:
         p = json.loads(f.read_text())
         d = f.parent
         asof = pd.Timestamp(p["asof"])
-        submitted = set()
+        submitted, n_submit = set(), 0
         if (d / "orders.jsonl").exists():
             for line in (d / "orders.jsonl").read_text().splitlines():
                 e = json.loads(line)
                 if e.get("event") == "submit":
                     submitted.add(e["symbol"])
+                    n_submit += 1               # every order, a flip's two legs included
         done = (d / "DONE").read_text().strip() if (d / "DONE").exists() else ""
         # When the z values were computed: the plan file's own write time. A refused plan
         # is rewritten by every retry, so the DECIDED line or the first run would be wrong.
@@ -427,7 +589,8 @@ def load_plans(state_dir: Path, universe: list[str]) -> pd.DataFrame:
                          "decided_at_utc": decided, "sent": done.startswith("SENT") or bool(submitted),
                          "ticker": tk, "z_plan": float(mz.group(1)) if mz else np.nan,
                          "close_plan": closes.get(tk, np.nan), "current": t.get("current"),
-                         "target": t.get("target"), "submitted": tk in submitted, "reason": reason})
+                         "target": t.get("target"), "submitted": tk in submitted,
+                         "session_orders_submitted": n_submit, "reason": reason})
     if not rows:
         raise LiveNavQualityError(f"no plan.json under {state_dir}")
     return pd.DataFrame(rows)
@@ -441,7 +604,13 @@ def load_collector(state_dir: Path) -> pd.DataFrame:
         st = (r.get("steps") or {}).get("nav_crosscheck") or {}
         fl = [x for x in r.get("flags", []) if x.get("step") == "nav_crosscheck"]
         gp = [x for x in r.get("gaps", []) if x.get("step") == "nav_crosscheck"]
-        out.append({"day": r["date"], "checked_at_utc": st.get("at"), "flags": len(fl), "gaps": len(gp),
+        at = st.get("at")
+        # The ET wall time, with its weekday: the 2026-10-12 note called every run
+        # "about 21:40 ET", which held for 4 of 7 (review 2026-10-13).
+        et = (pd.Timestamp(at).tz_convert("America/New_York").strftime("%a %Y-%m-%d %H:%M ET")
+              if at else None)
+        out.append({"day": r["date"], "checked_at_utc": at, "checked_at_et": et, "flags": len(fl),
+                    "gaps": len(gp),
                     "flagged": " ".join(f"{x['fund']}:{x['value_a']:.2f}/{x['value_b']:.2f}" for x in fl)})
     return pd.DataFrame(out)
 
@@ -536,72 +705,67 @@ def summarise_footprint(long: pd.DataFrame, eras: list[tuple[str, str, str]]) ->
     return pd.DataFrame(out)
 
 
-def live_period(plans: pd.DataFrame, p: dict, nav_now: pd.DataFrame, px_now: pd.DataFrame,
-                cc: pd.DataFrame) -> pd.DataFrame:
+def live_period(plans: pd.DataFrame, traded_P: pd.DataFrame, traded_N: pd.DataFrame,
+                nav_now: pd.DataFrame, px_now: pd.DataFrame, cc: pd.DataFrame) -> pd.DataFrame:
     """For every live decision (asof, name) with a printed z: the NAV the session must have used,
     against yfinance-now NAV(D), NAV(D-1) and CEFConnect's daily NAV(D).
 
-    mu and sd come from yfinance-now (panel history + rows after the laptop panel
-    ends), rolled exactly as the sleeve rolls them; the plan's own close is used."""
+    mu and sd come from the TRADED panel (`sleeve_mu_sd`), which carries the empty
+    bars the session carried; at D they use rows before D only, all of which the
+    traded panel holds for every laptop decision. The candidates (final NAV(D),
+    NAV(D-1)) come from yfinance as served now. A second rebuild from yfinance-now
+    (the 2026-10-12 method) is kept as `*_yfnow` columns, a sensitivity only.
+    `z_final` is the z the session would have printed on the final NAV(D), with
+    its own mu and sd. The plan's own close is used."""
     from scripts.cef.spec import Z_WINDOW
     U = sorted(plans["ticker"].unique())
-    d = px_now[px_now.ticker.isin(U)][["ticker", "date", "close"]].merge(
-        nav_now[nav_now.ticker.isin(U)][["ticker", "date", "nav"]], on=["ticker", "date"])
-    d = d[(d.nav > 0.5) & (d.close > 0.5)]
-    pxw = d.pivot_table(index="date", columns="ticker", values="close").sort_index()
-    nvw = d.pivot_table(index="date", columns="ticker", values="nav").sort_index()
-    disc = 100.0 * (pxw - nvw) / nvw
-    mu = disc.rolling(Z_WINDOW, min_periods=120).mean().shift(1)
-    sd = disc.rolling(Z_WINDOW, min_periods=120).std().shift(1)
-    z_now = ((disc - mu) / sd).clip(-4, 4)
+    _, mu, sd = sleeve_mu_sd(traded_P, traded_N, U, Z_WINDOW)
+    _, mu_y, sd_y = sleeve_mu_sd(px_now, nav_now, U, Z_WINDOW)
     n = nav_now.sort_values(["ticker", "date"]).copy()
     n["nav_prev_now"] = n.groupby("ticker")["nav"].shift(1)
     c1 = cc[cc.window == "1Y"][["ticker", "date", "nav_cc"]]
     out = []
     for _, r in plans.iterrows():
         a, tk = r["asof"], r["ticker"]
+        if a not in mu.index:
+            raise LiveNavQualityError(f"the traded panel has no row dated {a.date()} (decision asof); "
+                                      f"it cannot give that session's mu and sd")
         row = r.to_dict()
         nn = n[(n.ticker == tk) & (n.date == a)]
         row["nav_now"] = float(nn["nav"].iloc[0]) if len(nn) else np.nan
         row["nav_prev_now"] = float(nn["nav_prev_now"].iloc[0]) if len(nn) else np.nan
         cr = c1[(c1.ticker == tk) & (c1.date == a)]
         row["nav_cc"] = float(cr["nav_cc"].iloc[0]) if len(cr) else np.nan
-        row["z_now"] = float(z_now.at[a, tk]) if a in z_now.index else np.nan
-        row["mu"] = float(mu.at[a, tk]) if a in mu.index else np.nan
-        row["sd"] = float(sd.at[a, tk]) if a in sd.index else np.nan
+        row["mu"], row["sd"] = float(mu.at[a, tk]), float(sd.at[a, tk])
+        row["mu_yfnow"] = float(mu_y.at[a, tk]) if a in mu_y.index else np.nan
+        row["sd_yfnow"] = float(sd_y.at[a, tk]) if a in sd_y.index else np.nan
         # The opening session's plan predates the `closes` field. Its close is then read
-        # from yfinance-now, which equals the live panel on every common close row
-        # (section [0] measures that); the source is recorded, never blended.
+        # from the traded panel, which the session read (and which equals yfinance-now
+        # on every common close, [0b]); the source is recorded, never blended.
         close, row["close_source"] = float(r["close_plan"]), "plan"
         if not np.isfinite(close):
-            pc = px_now[(px_now.ticker == tk) & (px_now.date == a)]["close"]
-            close, row["close_source"] = (float(pc.iloc[0]), "yfinance-now (plan has no closes)") if len(pc) \
+            pc = traded_P[(traded_P.ticker == tk) & (traded_P.date == a)]["close"]
+            close, row["close_source"] = (float(pc.iloc[0]), "traded panel (plan has no closes)") if len(pc) \
                 else (np.nan, "none")
         row["close_used"] = close
         if np.isfinite(row["z_plan"]) and np.isfinite(row["mu"]) and np.isfinite(close) \
                 and abs(abs(row["z_plan"]) - 4) > 1e-9:
             mid, lo, hi = implied_nav(close, float(r["z_plan"]), row["mu"], row["sd"])
             row.update(nav_used_mid=mid, nav_used_lo=lo, nav_used_hi=hi)
-            def dist(v):
-                return max(lo - v, 0.0, v - hi) if np.isfinite(v) else np.inf
-            row["dist_final"], row["dist_prev"] = dist(row["nav_now"]), dist(row["nav_prev_now"])
-            fin, prv = row["dist_final"] <= IMPLIED_TOL, row["dist_prev"] <= IMPLIED_TOL
+            row["verdict"], row["dist_final"], row["dist_prev"] = nav_verdict(lo, hi, row["nav_now"],
+                                                                                row["nav_prev_now"])
             same = np.isfinite(row["nav_prev_now"]) and abs(row["nav_prev_now"] - row["nav_now"]) < FLOAT_EPS
             row["one_cent_case"] = (not same) and abs(row["nav_prev_now"] - row["nav_now"]) <= 0.01 + FLOAT_EPS
-            if same:
-                row["verdict"] = ("used the final NAV(D) (equal to NAV(D-1))" if fin
-                                  else "used a NAV that is neither final NAV(D) nor NAV(D-1)")
-            elif fin and not prv:
-                row["verdict"] = "used the final NAV(D)"
-            elif prv and not fin:
-                row["verdict"] = "STALE COPY at decision: used NAV(D-1)"
-            elif fin and prv:
-                row["verdict"] = "AMBIGUOUS: NAV(D) and NAV(D-1) both fit the printed z"
-            else:
-                row["verdict"] = "used a NAV that is neither final NAV(D) nor NAV(D-1)"
-            row["dz_plan_minus_final"] = row["z_plan"] - row["z_now"]
+            disc_final = 100.0 * (close - row["nav_now"]) / row["nav_now"]
+            row["z_final"] = float(np.clip((disc_final - row["mu"]) / row["sd"], -4, 4))
+            row["dz_plan_minus_final"] = row["z_plan"] - row["z_final"]
+            if np.isfinite(row["mu_yfnow"]):
+                _, lo_y, hi_y = implied_nav(close, float(r["z_plan"]), row["mu_yfnow"], row["sd_yfnow"])
+                row["verdict_yfnow"], row["dist_final_yfnow"], row["dist_prev_yfnow"] = nav_verdict(
+                    lo_y, hi_y, row["nav_now"], row["nav_prev_now"])
+                row["interval_shift_vs_yfnow"] = max(abs(lo - lo_y), abs(hi - hi_y))
         else:
-            row["verdict"] = "no z printed (band hold / below min weight / illiquid) or z clipped"
+            row["verdict"] = V_NONE
         out.append(row)
     return pd.DataFrame(out)
 
@@ -681,17 +845,22 @@ def main(argv=None) -> int:
     ap.add_argument("--refresh", action="store_true", help="re-fetch every network source")
     ap.add_argument("--state-dir", type=Path, required=True,
                     help="laptop prod state for the cef book (plans, collector reports), read-only")
+    ap.add_argument("--traded-panel-dir", type=Path, required=True,
+                    help="the data/cef the laptop prod clone traded on (cef_prices/cef_nav.parquet), read-only")
     args = ap.parse_args(argv)
     pd.set_option("compute.use_numexpr", False)        # scripts/events/numexpr_fault.py
     pd.set_option("display.width", 250)
     from scripts.cef.spec import MIN_NAMES, UNIVERSE, Z_WINDOW, summary
     U = sorted(UNIVERSE)
-    day = dt.date.today().isoformat()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"spec {summary()}; z_window {Z_WINDOW}; min_names {MIN_NAMES}")
 
     P, N = load_live(U)
-    print(f"live panels (read-only): prices last {P.date.max().date()}, NAV last {N.date.max().date()}")
+    print(f"dev-checkout panels data/cef (read-only; not the traded panel): prices last {P.date.max().date()}, "
+          f"NAV last {N.date.max().date()}")
+    TP, TN, tmt = load_traded(args.traded_panel_dir, U)
+    print(f"traded panels {args.traded_panel_dir} (read-only): prices last {TP.date.max().date()}, "
+          f"NAV last {TN.date.max().date()}; written {tmt}")
     cc, cclog = fetch_cefconnect(U, args.refresh)
     print(f"CEFConnect: {len(cc):,} rows; 1Y {cc[cc.window=='1Y'].date.min().date()}..{cc[cc.window=='1Y'].date.max().date()}, "
           f"All {cc[cc.window=='All'].date.min().date()}..{cc[cc.window=='All'].date.max().date()}; "
@@ -702,6 +871,10 @@ def main(argv=None) -> int:
     px_now, nav_now, act_now, yf_at = fetch_yf_now(U, args.refresh)
     print(f"yfinance now (fetched {yf_at}): prices last {px_now.date.max().date()}, NAV last {nav_now.date.max().date()}")
     print("yfinance splits now:", act_now[act_now.stock_splits != 0][["ticker", "date", "stock_splits"]].to_dict("records"))
+    # Tables are stamped with the UTC date of the latest network fetch they rest on, so a
+    # re-run from the cache rewrites the same files (module docstring, 2026-10-13).
+    day = max(pd.Timestamp(yf_at).date(), *(pd.Timestamp(x).date() for x in cclog.fetched_at_utc)).isoformat()
+    print(f"output tables stamped {day} (latest network fetch); run {dt.datetime.now(dt.timezone.utc):%Y-%m-%dT%H:%MZ}")
 
     # ---- 0. the panel against yfinance as served now
     q = N.merge(nav_now.rename(columns={"nav": "nav_now"}), on=["ticker", "date"], how="inner")
@@ -717,6 +890,32 @@ def main(argv=None) -> int:
     print(f"    panel price rows with NaN close: {len(nc)}; yfinance-now has a close for "
           f"{int(nc.close_now.notna().sum())} of them: " + ", ".join(f"{r.ticker} {r.date.date()}" for r in nc.itertuples()))
     print(f"    panel NAV rows with NaN NAV: {int(N.nav.isna().sum())}")
+
+    # ---- 0b. the TRADED panel: against the dev checkout and yfinance-now; the last decision read directly
+    print(f"\n[0b] traded panel ({args.traded_panel_dir}) against the dev checkout's and yfinance-now:")
+    for lab, (fp, fn) in (("dev checkout", (P, N)), ("yfinance-now", (px_now, nav_now))):
+        qn = TN.merge(fn[["ticker", "date", "nav"]].rename(columns={"nav": "nav_other"}), on=["ticker", "date"])
+        dn = qn[(qn.nav - qn.nav_other).abs() > TOL_USD]
+        qp = TP.merge(fp[["ticker", "date", "close"]].rename(columns={"close": "close_other"}), on=["ticker", "date"])
+        print(f"    vs {lab}: NAV {len(qn):,} common rows, {len(dn)} differ "
+              f"({', '.join(f'{r.ticker} {r.date.date()} {r.nav:.2f}/{r.nav_other:.2f}' for r in dn.itertuples())}); "
+              f"close {len(qp):,} common rows, {int(((qp.close - qp.close_other).abs() > TOL_USD).sum())} differ")
+    tnc = TP[TP.close.isna()]
+    print(f"    traded price rows with NaN close (the sleeve drops these name-days): {len(tnc)}: "
+          + ", ".join(f"{r.ticker} {r.date.date()}" for r in tnc.itertuples()))
+    print(f"    of which also NaN in the dev checkout: "
+          f"{len(tnc.merge(P[P.close.isna()][['ticker', 'date']], on=['ticker', 'date']))}")
+    tl = TN.date.max()
+    tr = TN.sort_values(["ticker", "date"]).copy()
+    tr["prev"] = tr.groupby("ticker")["nav"].shift(1)
+    last = tr[tr.date == tl].merge(nav_now.rename(columns={"nav": "nav_final"}), on=["ticker", "date"], how="left") \
+        .merge(cc[cc.window == "1Y"][["ticker", "date", "nav_cc"]], on=["ticker", "date"], how="left")
+    print(f"    traded panel's last NAV date {tl.date()} (the decide-time capture of that asof), "
+          f"NAV(D) = NAV(D-1) on: "
+          + (", ".join(f"{r.ticker} {r.nav:.2f}/{r.prev:.2f} (final {r.nav_final:.2f}, CEFConnect {r.nav_cc:.2f})"
+                       for r in last[(last.nav - last.prev).abs() < FLOAT_EPS].itertuples()) or "none"))
+    print(f"    names whose decide-time NAV for {tl.date()} differs from the final one: "
+          f"{sorted(last.loc[(last.nav - last.nav_final).abs() > TOL_USD, 'ticker'])}")
 
     # ---- 1. NAV: panel vs CEFConnect
     tabs, clsall = [], []
@@ -737,11 +936,13 @@ def main(argv=None) -> int:
     t.loc["ALL 13"] = t.sum()
     t.loc["compared"] = wk.groupby("year")["compared"].sum()
     print(t.loc[:, t.columns >= 2013].to_string())
-    print("\n[1b] weekly (All): stale share by year, all 13 (stale / compared), and other categories:")
+    # The weekly rows are Fridays. [1h] shows that the Friday sample is not representative of
+    # other weekdays, so a share below is a share OF FRIDAYS, never a daily rate (2026-10-13).
+    print("\n[1b] weekly (All): Friday counts by year, all 13 (stale / compared Fridays), and other categories:")
     y = wk.groupby("year")[["compared", "STALE_COPY", "stale_lagged", "SHIFT_PREV", "SHIFT_NEXT", "BASIS", "OTHER"]].sum()
-    y["stale_share"] = (y.STALE_COPY / y.compared).round(4)
+    y["friday_share"] = (y.STALE_COPY / y.compared).round(4)
     print(y.to_string())
-    print("\n[1c] weekly (All): stale share by name and year, 2018-2026:")
+    print("\n[1c] weekly (All): share of Fridays stale, by name and year, 2018-2026 (not a daily rate, [1h]):")
     print(wk[wk.year >= 2018].pivot_table(index="ticker", columns="year", values="stale_share").round(3).to_string())
     dly = navtab[navtab.check == "nav_vs_cc_1Y"]
     print("\n[1d] daily (1Y): per name, compared and categories:")
@@ -762,6 +963,53 @@ def main(argv=None) -> int:
     print("\n[1g] weekly stale copies come in vendor-wide episodes: per year, the Fridays with any, "
           "and the median / max number of the 13 stale on such a Friday:")
     print(sw.groupby(sw.index.year).agg(["size", "median", "max"]).rename(columns={"size": "fridays"}).to_string())
+
+    # ---- 1h. is the Friday sample representative? The daily window answers it (review 2026-10-13).
+    wd = lambda s: s.dt.day_name().str[:3]   # noqa: E731
+    print("\n[1h] weekday of the weekly (All) CEFConnect rows compared:",
+          wd(cls[cls.window == "All"].date).value_counts().to_dict())
+    d1 = cls[(cls.window == "1Y") & (cls.category == "STALE_COPY")]
+    print(f"     daily (1Y) STALE_COPY in the dev-checkout panel, {cls[cls.window == '1Y'].date.min().date()} .. "
+          f"{cls[cls.window == '1Y'].date.max().date()}: {len(d1)} by weekday {wd(d1.date).value_counts().to_dict()}; "
+          f"on Fridays: " + ", ".join(f"{r.ticker} {r.date.date()}" for r in d1[d1.date.dt.dayofweek == 4].itertuples()))
+    cyn = classify(nav_now, "nav", cc[cc.window == "1Y"], "nav_cc")
+    for lab, x in (("to the dev panel's last NAV date", cyn[cyn.date <= N.date.max()]), ("whole 1Y overlap", cyn)):
+        s1 = x[x.category == "STALE_COPY"]
+        print(f"     daily (1Y) STALE_COPY in yfinance-now, {lab} ({x.date.min().date()} .. {x.date.max().date()}, "
+              f"{len(x):,} compared): {len(s1)} by weekday {wd(s1.date).value_counts().to_dict()}")
+    print(f"     daily stale copies, dev panel, by date: {d1.groupby('date').size().rename(lambda d: str(d.date())).to_dict()}")
+
+    # ---- 1i. a stale copy without a repeat: yfinance(D) == CEFConnect(D-1) != CEFConnect(D)
+    print("\n[1i] daily (1Y): yfinance(D) moved off yfinance(D-1), equals CEFConnect(D-1) and differs from "
+          "CEFConnect(D) -- D-1's NAV dated D with no repeat (a repeat-keyed gate misses these):")
+    for lab, a_ in (("dev-checkout panel", N), ("traded panel", TN), ("yfinance-now", nav_now)):
+        lu = lag_unrepeated(a_, "nav", cc[cc.window == "1Y"], "nav_cc")
+        print(f"     {lab}: {len(lu)}" + (": " + ", ".join(
+            f"{r.ticker} {r.date.date()} yf(D-1) {r.prev:.2f} yf(D) {r.nav:.2f} cc(D-1) {r.b_prev:.2f} cc(D) {r.nav_cc:.2f}"
+            for r in lu.itertuples()) if len(lu) else ""))
+
+    # ---- 1j. row-level evidence on basis: BASIS is a name-year MEDIAN ratio test, so cite the rows too
+    print("\n[1j] row-level: NAV rows agreeing within half a cent, and what the rest are:")
+    for w in CC_WINDOWS:
+        x = cls[cls.window == w]
+        oth = x[x.category == "OTHER"]["diff"].abs()
+        print(f"     {w}: agree {int((x.category == 'AGREE').sum()):,} of {len(x):,}; stale {int((x.category == 'STALE_COPY').sum())}, "
+              f"shift {int(x.category.isin(['SHIFT_PREV', 'SHIFT_NEXT']).sum())}, other {len(oth)} "
+              f"(|diff| median {oth.median():.3f}, max {oth.max():.3f}); "
+              f"OTHER rows from 2013: {int((oth.index.isin(x.index[x.year >= 2013])).sum())}, max |diff| "
+              f"{x.loc[(x.category == 'OTHER') & (x.year >= 2013), 'diff'].abs().max():.3f}")
+        # A share-basis difference is a CONSTANT ratio across a run of rows. Show the name-years
+        # with the most non-stale disagreement and whether their differences carry a sign.
+        nz = x[~x.category.isin(["AGREE", "STALE_COPY"])]
+        g = nz.groupby(["ticker", "year"])["diff"].agg(rows="size", mean_diff="mean",
+                                                       median_abs=lambda s: s.abs().median())
+        g["share_of_rows"] = g["rows"] / x.groupby(["ticker", "year"]).size().reindex(g.index)
+        print("       name-years with the largest share neither AGREE nor STALE_COPY:")
+        print(g.sort_values("share_of_rows", ascending=False).head(3).round(3).to_string())
+    print("     weekly SHIFT_NEXT by year (if CEFConnect dated NAVs a day early, every week the NAV moved "
+          "would be SHIFT_NEXT):", y["SHIFT_NEXT"][y["SHIFT_NEXT"] > 0].to_dict(),
+          f"; 2023 AGREE {int(y.loc[2023, 'compared'] - y.loc[2023, ['STALE_COPY', 'SHIFT_PREV', 'SHIFT_NEXT', 'BASIS', 'OTHER']].sum())} "
+          f"of {int(y.loc[2023, 'compared'])}")
 
     # ---- 2. prices: panel vs CEFConnect close; vs CRSP raw prc
     ptabs = []
@@ -787,14 +1035,15 @@ def main(argv=None) -> int:
     print(f"\n[2c] close vs CRSP raw prc to {dsf.date.max().date()}: mapped {len(nm):,} of {len(mp):,}; "
           f"CRSP no-trade days with a panel bar {len(no_trade)}; panel dates absent from CRSP {len(not_in)}")
     print("    ", m.groupby("category").size().to_dict())
-    if (m.category != "AGREE").any():
-        g = m[m.category != "AGREE"].groupby(["ticker", "category"]).agg(n=("diff", "size"),
-                                                                        max_abs=("diff", lambda s: s.abs().max()))
-        print(g.to_string())
-    # CRSP is licensed and this repository is public: CRSP values stay in the cache;
-    # what is printed is which rows, and how far apart, never the CRSP price itself.
-    print(m[m.category.isin(["STALE_COPY", "SHIFT_PREV", "SHIFT_NEXT"])][["ticker", "date", "category"]]
-          .assign(abs_diff_usd=m["diff"].abs().round(4)).to_string(index=False))
+    # CRSP is licensed and this repository is public: CRSP values stay in the cache. Until
+    # 2026-10-13 this printed each disagreeing row's date beside |panel - CRSP|, which with
+    # the public close gave CRSP's price up to sign. `crsp_disagreement_summary` prints no
+    # date and no single row's magnitude.
+    by_tyc, by_era = crsp_disagreement_summary(m)
+    print("    disagreeing rows by ticker, year and category (counts only):")
+    print(by_tyc.to_string())
+    print("    by era (max |diff| withheld where fewer than 3 rows disagree):")
+    print(by_era.to_string(index=False))
     m[m.category != "AGREE"].to_csv(_cache("price_vs_crsp_disagreements.csv"), index=False)
     print("    CRSP no-trade days with a panel bar:", [(r.ticker, str(r.date.date())) for r in no_trade.itertuples()])
     print("    per name-year median panel/CRSP ratio outside [0.998, 1.002]:",
@@ -837,39 +1086,84 @@ def main(argv=None) -> int:
 
     # ---- 5. the live paper period
     plans = load_plans(args.state_dir, U)
-    lp = live_period(plans, p, nav_now, px_now, cc)
+    lp = live_period(plans, TP, TN, nav_now, px_now, cc)
     # quantities stay in the state dir; the tracked table says held / targeted / submitted
     lp["held_going_in"] = lp["current"].fillna(0) != 0
     lp["targeted"] = lp["target"].fillna(0) != 0
     lp.drop(columns=["reason", "current", "target"]).to_csv(OUT_DIR / f"live_period_{day}.csv", index=False)
-    print(f"\n[5] live paper period, laptop plans (asof {plans['asof'].min().date()} .. {plans['asof'].max().date()}):")
-    lp["stale_at_decision"] = lp.verdict.str.startswith("STALE")
-    lp["checkable"] = lp.verdict.str.startswith(("STALE", "used", "AMBIGUOUS"))
+    print(f"\n[5] live paper period, laptop plans (asof {plans['asof'].min().date()} .. {plans['asof'].max().date()}); "
+          f"mu and sd from the TRADED panel:")
+    lp["stale_at_decision"] = lp.verdict == V_STALE
+    lp["checkable"] = lp.verdict != V_NONE
     per = lp.groupby(["asof", "session", "status", "decided_at_utc", "sent"]).agg(
         names_checkable=("checkable", "sum"), stale_at_decision=("stale_at_decision", "sum"),
         stale_and_submitted=("stale_at_decision", lambda v: int((v & lp.loc[v.index, "submitted"]).sum())),
         stale_and_held=("stale_at_decision", lambda v: int((v & lp.loc[v.index, "held_going_in"]).sum())),
-        neither=("verdict", lambda v: int(v.str.startswith("used a NAV that is neither").sum()))).reset_index()
+        neither=("verdict", lambda v: int((v == V_NEITHER).sum())),
+        orders_submitted=("session_orders_submitted", "first")).reset_index()
     print(per.to_string(index=False))
     per.to_csv(OUT_DIR / f"live_period_by_date_{day}.csv", index=False)
-    show = lp[lp.verdict.str.startswith(("STALE", "used a NAV", "AMBIGUOUS"))]
-    print(show[["asof", "ticker", "z_plan", "z_now", "close_used", "close_source", "nav_used_lo", "nav_used_hi",
+    print("    verdicts:", lp.verdict.value_counts().to_dict())
+    show = lp[lp.verdict.isin([V_STALE, V_NEITHER, V_AMBIG])]
+    print(show[["asof", "ticker", "z_plan", "z_final", "close_used", "close_source", "nav_used_lo", "nav_used_hi",
                 "nav_prev_now", "nav_now", "nav_cc", "dist_final", "dist_prev", "one_cent_case", "held_going_in",
                 "submitted", "verdict"]].round(4).to_string(index=False))
     st = lp[lp.stale_at_decision]
     print(f"    stale at decision: {len(st)} of {int(lp.checkable.sum())} checkable name-days on "
-          f"{st["asof"].nunique()} of {lp["asof"].nunique()} decision dates; |z_plan - z_final| median "
+          f"{st['asof'].nunique()} of {lp['asof'].nunique()} decision dates; |z_plan - z_final| median "
           f"{st.dz_plan_minus_final.abs().median():.3f}, max {st.dz_plan_minus_final.abs().max():.3f}; "
           f"submitted to the broker {int(st.submitted.sum())}; held going in {int(st.held_going_in.sum())}; "
           f"one-cent cases {int(st.one_cent_case.sum())}")
     print(f"    the decided-at times of the stale plans (UTC): {sorted(st.decided_at_utc.unique())}")
-    print(f"    checkable name-days on which the session's NAV for D equalled its NAV for D-1 (stale or genuinely "
-          f"flat): {int(st.shape[0] + lp.verdict.str.contains('equal to NAV').sum())} of {int(lp.checkable.sum())}")
+    # The tolerance's margin on both sides, measured: the farthest candidate accepted, and the
+    # nearest candidate rejected (on a row where the other candidate was accepted).
+    ck = lp[lp.verdict.isin([V_STALE, V_FINAL, V_FINAL_EQ])].copy()
+    ck["accepted"] = np.where(ck.verdict == V_STALE, ck.dist_prev, ck.dist_final)
+    rj = ck[ck.verdict.isin([V_STALE, V_FINAL])].copy()
+    rj["rejected"] = np.where(rj.verdict == V_STALE, rj.dist_final, rj.dist_prev)
+    a_ = ck.loc[ck.accepted.idxmax()]
+    r_ = rj.loc[rj.rejected.idxmin()]
+    print(f"    tolerance {IMPLIED_TOL}: largest accepted distance {a_.accepted:.4f} ({a_.ticker} {a_['asof'].date()}); "
+          f"nearest rejected candidate {r_.rejected:.4f} ({r_.ticker} {r_['asof'].date()}, {r_.verdict})")
+    # Sensitivity: the 2026-10-12 method (mu and sd from yfinance-now, the empty bars filled).
+    print(f"    sensitivity, mu and sd from yfinance-now instead (the 2026-10-12 method): verdicts "
+          f"{lp.verdict_yfnow.value_counts().to_dict()}; implied interval moves by up to "
+          f"{lp.interval_shift_vs_yfnow.max():.4f} ({lp.loc[lp.interval_shift_vs_yfnow.idxmax(), 'ticker']} "
+          f"{lp.loc[lp.interval_shift_vs_yfnow.idxmax(), 'asof'].date()}); verdicts that differ: "
+          + (", ".join(f"{r.ticker} {r.asof.date()} {r.verdict} -> {r.verdict_yfnow}"
+                       for r in lp[lp.checkable & (lp.verdict != lp.verdict_yfnow)].itertuples()) or "none"))
+    acc_y = np.where(lp.verdict_yfnow == V_STALE, lp.dist_prev_yfnow,
+                     np.where(lp.verdict_yfnow.isin([V_FINAL, V_FINAL_EQ]), lp.dist_final_yfnow, np.nan))
+    print(f"    (under that method the largest accepted distance was {np.nanmax(acc_y):.4f})")
+    print(f"    INFERRED, not observed: on {int(len(st) + (lp.verdict == V_FINAL_EQ).sum())} of "
+          f"{int(lp.checkable.sum())} checkable name-days the NAV the session used equalled yfinance's NAV(D-1) "
+          f"({len(st)} stale copies + {int((lp.verdict == V_FINAL_EQ).sum())} genuinely flat). "
+          f"Only the last asof's decide-time panel survives to be read directly ([0b], and below).")
+    # The direct read: the traded panel's last date is that asof's decide-time capture.
+    from scripts.cef.spec import Z_WINDOW as _ZW
+    tdisc, tmu, tsd = sleeve_mu_sd(TP, TN, U, _ZW)
+    tz = ((tdisc - tmu) / tsd).clip(-4, 4)
+    la = lp[(lp["asof"] == TN.date.max()) & lp.z_plan.notna()].copy()
+    la["z_traded"] = [round(float(tz.at[r.asof, r.ticker]), 2) for r in la.itertuples()]
+    print(f"    asof {TN.date.max().date()}: z recomputed from the traded panel (its decide-time NAVs) equals the "
+          f"printed z on {int((la.z_traded - la.z_plan).abs().lt(0.005).sum())} of {len(la)} names with a z: "
+          + ", ".join(f"{r.ticker} {r.z_plan:+.2f}/{r.z_traded:+.2f}" for r in la.itertuples()))
+    # Orders: every order of a session is sized from the whole cross-section (w = -(z - mean z),
+    # normalised by sum |w|, the vol scalar, the min-weight re-neutralisation), so a stale NAV
+    # in ANY eligible name moves every order of that session, not only its own (review 2026-10-13).
+    ss = per[per.sent & (per.orders_submitted > 0)]
+    hit = ss[ss.stale_at_decision > 0]
+    print(f"    orders submitted, by sent session: {dict(zip(ss.session, ss.orders_submitted))}; "
+          f"in a name whose own NAV was stale: {int(st.submitted.sum())}; "
+          f"on the {len(hit)} sessions whose plan included a stale NAV: {int(hit.orders_submitted.sum())} "
+          f"({', '.join(f'{r.session}: {r.orders_submitted}' for r in hit.itertuples())}); "
+          f"sessions sent with no stale NAV identified: "
+          f"{', '.join(f'{r.session} ({r.orders_submitted} orders, {r.names_checkable} of 13 checkable)' for r in ss[ss.stale_at_decision == 0].itertuples()) or 'none'}")
     col = load_collector(args.state_dir)
     print("\n    collector nav_crosscheck (laptop), per data day:")
     print(col.to_string(index=False))
     lv = long[long.date >= PAPER_START]
-    print(f"    laptop panel rows inside the live period: {lv.date.nunique()} decision date(s) "
+    print(f"    dev-checkout panel rows inside the live period: {lv.date.nunique()} decision date(s) "
           f"({', '.join(str(d.date()) for d in sorted(lv.date.unique()))})")
     print(f"\nwrote {OUT_DIR}/*_{day}.csv; row-level under {CACHE} (gitignored)")
     return 0
