@@ -14,6 +14,32 @@ counter's N · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 9
 > √(2 ln 52) = 2.811.
 >
 > *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
+
+> **AMENDMENT — Team lead, 2026-10-14 (after Stage 0 halted; recorded before any
+> C4 return is computed).** The run's Stage 0 stopped on two questions
+> (`results/cef/C4_RESULT_2026-10-14.md` §1, commit `bdb7c71`). The rulings:
+>
+> 1. **Universe.** The universe is the 74 funds of the 2026-10-14 re-read, frozen
+>    at that read; this supersedes the 68 named at approval. The read is one
+>    read-only `GET /v2/assets` on the cef paper key at **2026-10-14T21:40:33Z**:
+>    74 of the 105 pool funds tradable and shortable, all easy to borrow (every
+>    other read that day, 21:23–21:40Z, returned the same 74). The list, with the
+>    read time, is `results/cef/c4/c4_universe_frozen_2026-10-14.csv` (committed
+>    with this block). It is not re-read again during the run. By family: sector
+>    29, covered-call 15, multi-asset 15, preferred 9, domestic 6; the stale-NAV
+>    control's fresh-NAV sub-book is the 50 domestic, sector and covered-call
+>    funds among them. **The approved 68 is reported as a robustness row (R-68),
+>    reported only; it can never rescue a failure.**
+> 2. **Missing returns (§4.4, Q1).** GRX (2007-06-20 → 06-29, 8 name-days) and
+>    QQQX (2014-12-22) are recorded as outside eligibility on those dates, with
+>    no effect; the run asserts that neither is held then. IGR 2026-09-08 and
+>    2026-09-09 (holdout) are filled from **Alpaca's split-adjusted daily bars**,
+>    a fetched second source with a source note in `docs/REFERENCES.md`, never an
+>    invented value. If Alpaca lacks either day, the holdout halts and is
+>    reported. Alpaca's adjacent IGR bars are cross-checked against the panel and
+>    the agreement is stated.
+>
+> Everything else in this document stands.
 >
 > **Nothing has run.** No discount z-score, position, P&L, Sharpe, IC,
 > turnover or correlation of any family fund was computed to write this. The
