@@ -33,6 +33,18 @@ THE SHORT-VARIANCE LEG (two constructions, never mixed)
    the book's summed P&L over the same sessions t+1..t+21.
 
 "About 0" is judged with a Fisher-z 95% interval, not by eye.
+
+THE HOLDOUT (corrected 2026-10-13)
+----------------------------------
+2023+ returns are sealed (`docs/SYSTEM.md` §5: the GAMMA holdout; team lead
+2026-10-12, spreads and costs may be used, return statistics stay sealed). Until
+2026-10-13 this script broke that twice, and an independent review caught both:
+it printed a labelled "2023+" block of book-vs-leg correlations on every run, and
+the second method filtered only the IV DATE t <= 2022-12-31, so its last window
+ran over sessions into January 2023. Now nothing after 2022 is printed, and
+`varswap_windows` keeps only windows whose LAST session is on or before the
+window bound, and refuses a bound in 2023 or later. `docs/RESEARCH_STATE.md`
+records the touch.
 """
 from __future__ import annotations
 
@@ -54,6 +66,7 @@ from scripts.gamma.vrp_summary import load_iv, DEFAULT_PANEL, ETF_PANEL, H  # no
 
 LEGS = {"TLT": "VXTLT", "HYG": "VXHYG"}
 FIT_END = "2022-12-31"
+SEALED_FROM = pd.Timestamp("2023-01-01")      # 2023+ returns: the GAMMA holdout
 
 
 def fisher_ci(r: float, n: int) -> tuple[float, float]:
@@ -94,8 +107,14 @@ def describe(df: pd.DataFrame, leg: str) -> str:
             f"worst 5% days book {wl['book'].mean()*1e4:+.1f}bp vs {x['book'].mean()*1e4:+.1f}bp")
 
 
-def varswap_vs_book(book: pd.Series, iv: pd.Series, ret: pd.Series, a: str, b: str) -> str:
-    """Second method: non-overlapping short var-swap P&L vs the book over the same sessions."""
+def varswap_windows(book: pd.Series, iv: pd.Series, ret: pd.Series, a: str, b: str) -> pd.DataFrame:
+    """Non-overlapping short var-swap P&L and the book's P&L over the same
+    sessions t+1..t+21, for IV dates t >= a whose WHOLE window ends on or
+    before b. Corrected 2026-10-13: the filter used to test only t <= b, so the
+    last window ran into January 2023 (sealed). A bound in 2023+ is refused."""
+    b_ts = pd.Timestamp(b)
+    if b_ts >= SEALED_FROM:
+        raise ValueError(f"window bound {b} is in the sealed 2023+ holdout (docs/SYSTEM.md §5)")
     idx = ret.index
     iv = iv.reindex(idx)
     lr2 = np.log1p(ret) ** 2
@@ -103,18 +122,28 @@ def varswap_vs_book(book: pd.Series, iv: pd.Series, ret: pd.Series, a: str, b: s
     rows = []
     for i in range(0, len(idx) - H):
         t = idx[i]
-        if not (pd.Timestamp(a) <= t <= pd.Timestamp(b)) or pd.isna(iv.iloc[i]):
+        end = idx[i + H]                            # the window's last session
+        if not (pd.Timestamp(a) <= t and end <= b_ts) or pd.isna(iv.iloc[i]):
             continue
         win = slice(i + 1, i + 1 + H)               # sessions t+1..t+21: strictly after t
         rv2 = 252.0 / H * lr2.iloc[win].sum()
         bk = b_on.iloc[win]
         if bk.isna().any() or lr2.iloc[win].isna().any():
             continue
-        rows.append((t, iv.iloc[i] ** 2 - rv2, bk.sum()))
-    d = pd.DataFrame(rows, columns=["t", "leg", "book"]).set_index("t").iloc[::H]
-    r = d.corr().iloc[0, 1]
+        rows.append((t, end, iv.iloc[i] ** 2 - rv2, bk.sum()))
+    d = pd.DataFrame(rows, columns=["t", "end", "leg", "book"]).set_index("t").iloc[::H]
+    if not (d["end"] <= b_ts).all():
+        raise AssertionError("a var-swap window ends after its bound")
+    return d
+
+
+def varswap_vs_book(book: pd.Series, iv: pd.Series, ret: pd.Series, a: str, b: str) -> str:
+    """Second method: non-overlapping short var-swap P&L vs the book over the same sessions."""
+    d = varswap_windows(book, iv, ret, a, b)
+    r = d[["leg", "book"]].corr().iloc[0, 1]
     lo, hi = fisher_ci(r, len(d))
-    return f"non-overlapping n={len(d)} rho {r:+.3f} [{lo:+.3f},{hi:+.3f}]"
+    return (f"non-overlapping n={len(d)} (IV dates {d.index.min().date()}..{d.index.max().date()}, "
+            f"last window ends {d['end'].max().date()}) rho {r:+.3f} [{lo:+.3f},{hi:+.3f}]")
 
 
 def main() -> int:
@@ -132,15 +161,18 @@ def main() -> int:
         iv = load_iv(Path(a.vol_panel), idx).reindex(W.index).shift(1)   # IV at t-1 close
         legs[f"shortvol_{u}"] = 0.5 * (iv ** 2 / 252 - np.log1p(W[u]) ** 2)
     df = book.to_frame().join(pd.DataFrame(legs), how="left")
-    for lab, s, t in [("fit, first position..2022", str(book.index.min().date()), FIT_END),
-                      ("2023+ (labelled, no inference)", "2023-01-01", "2026-12-31")]:
-        print(f"\n== {lab}")
-        for c in legs:
-            x = df.loc[s:t]
-            if x[["book", c]].dropna().shape[0] < 60:
-                print(f"  {c}: too few joint days")
-                continue
-            print(f"  {c}: {describe(x, c)}")
+    # The fit window only. A "2023+ (labelled, no inference)" block was printed
+    # here until 2026-10-13; it was a sealed return statistic and is deleted.
+    lab, s, t = "fit, first position..2022", str(book.index.min().date()), FIT_END
+    print(f"\n== {lab}")
+    x = df.loc[s:t]
+    if x.index.max() >= SEALED_FROM:
+        raise AssertionError("the fit block reaches a sealed 2023 date")
+    for c in legs:
+        if x[["book", c]].dropna().shape[0] < 60:
+            print(f"  {c}: too few joint days")
+            continue
+        print(f"  {c}: {describe(x, c)}")
     print("\n== second method: short 30d variance swap (IV_t^2 - RV_t+1..t+21^2) vs book P&L over "
           "t+1..t+21, fit window")
     for u, idx in LEGS.items():

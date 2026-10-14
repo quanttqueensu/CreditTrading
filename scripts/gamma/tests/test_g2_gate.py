@@ -14,12 +14,23 @@ downstream would notice:
    difference is taken; otherwise zero price changes dilute the covariance.
 3. **The zero-credit payoff is the four legs' intrinsic sum, capped at the wing.**
    The replay's whole bounded-loss argument is that cap.
-4. **The any-path vol bound**: a P&L confined to a range W has sd <= W/2.
+4. **The path bounds** (corrected 2026-10-13): a P&L confined to a range W has
+   population sd <= W/2, but the SAMPLE sd the replay prints can reach
+   W/2 x sqrt(n/(n-1)), and the not-demeaned rms only W. The old single "bound"
+   W/2 bounded neither printed measure.
 5. **No lookahead in sizing**: the vol used to size a cycle is from the session
    BEFORE entry, and a cycle that settles after the window (a sealed 2023 close)
    is not in it.
 6. **Sizing hits the target ex ante**, and the delta-strike inversion is exact.
 7. **The vol cap has no default.**
+8. **No 2023 return is read** (added 2026-10-13, after a review found G2(a)'s
+   headline and G2(c)'s second method each ran one window into January 2023):
+   every window ends on or before 2022-12-30, and the output does not move when
+   2023 returns do.
+9. **No silent vol substitute** in the model cross-check (added 2026-10-13).
+10. **The cost rows the note quotes** (added 2026-10-13): the two relaxations of
+    the upper bound, plain Roll beside the delta-adjusted one, and the 21-phase
+    robustness.
 """
 from __future__ import annotations
 
@@ -136,6 +147,48 @@ def test_any_path_sd_is_at_most_half_the_range():
         assert x.std(ddof=0) <= 0.5 + 1e-12
 
 
+def _window(pnl, nW=1.0):
+    p = pd.Series(pnl, dtype=float)
+    return pd.DataFrame({"pnl": p, "max_loss": nW, "contracts_at_capital": 1.0})
+
+
+def test_the_sample_sd_can_exceed_half_the_range_and_the_bound_allows_for_it():
+    # Two cycles, one untouched and one full-wing loss: the extreme case. The
+    # ddof=1 sd is W/sqrt(2) > W/2, which the pre-2026-10-13 "bound" (W/2) missed.
+    s = G.window_stats(_window([0.0, -1.0]), vol_cap=10.0)
+    assert s["vol"] > 0.5 * math.sqrt(12) + 1e-9
+    assert s["vol"] <= s["bound_sd"] + 1e-12
+    assert s["bound_sd"] == pytest.approx(0.5 * math.sqrt(2) * math.sqrt(12))
+
+
+def test_the_not_demeaned_vol_is_bounded_only_by_the_full_range():
+    # Repeated full-wing losses: sd 0, rms W. Only bound_rms (= W) bounds it.
+    s = G.window_stats(_window([-1.0] * 6), vol_cap=10.0)
+    assert s["vol"] == pytest.approx(0.0)
+    assert s["rms_vol"] == pytest.approx(math.sqrt(12))
+    assert s["rms_vol"] > s["bound_sd"]
+    assert s["rms_vol"] <= s["bound_rms"] + 1e-12
+
+
+def test_both_bounds_hold_on_random_zero_credit_paths():
+    rng = np.random.default_rng(5)
+    for _ in range(300):
+        n = int(rng.integers(2, 40))
+        nW = rng.uniform(0.01, 0.08, n)
+        p = -rng.uniform(0, 1, n) * nW                       # zero credit: P&L in [-nW, 0]
+        x = pd.DataFrame({"pnl": p, "max_loss": nW, "contracts_at_capital": 1.0})
+        s = G.window_stats(x, vol_cap=10.0)
+        assert s["vol"] <= s["bound_sd"] + 1e-12
+        assert s["rms_vol"] <= s["bound_rms"] + 1e-12
+
+
+def test_window_stats_refuses_a_positive_zero_credit_pnl_and_a_single_cycle():
+    with pytest.raises(ValueError, match="positive"):
+        G.window_stats(_window([0.01, -0.5]), vol_cap=0.2)
+    with pytest.raises(ValueError, match="two cycles"):
+        G.window_stats(_window([-0.5]), vol_cap=0.2)
+
+
 # -- 5, 6. calendar, lookahead, sizing ---------------------------------------
 
 def test_good_friday_moves_the_expiration_to_thursday():
@@ -209,3 +262,141 @@ def test_replay_refuses_without_a_vol_cap(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["g2_gate.py", "replay"])
     with pytest.raises(SystemExit, match="vol-cap"):
         G.main()
+
+
+# -- 8. no 2023 return is read (added 2026-10-13) -----------------------------
+
+def _late_2022_inputs(seed=2):
+    """TLT sessions from mid-2022 into 2023, a flat IV, random total returns."""
+    idx = pd.bdate_range("2022-06-01", "2023-03-31")
+    rng = np.random.default_rng(seed)
+    ret = pd.Series(rng.normal(0, 0.01, len(idx)), index=idx)
+    iv = pd.Series(0.15, index=idx)
+    return iv, ret
+
+
+def _perturb_2023(s: pd.Series) -> pd.Series:
+    s = s.copy()
+    s.loc[s.index >= "2023-01-01"] *= 7.0
+    return s
+
+
+def test_fit_sample_windows_all_end_before_2023():
+    iv, ret = _late_2022_inputs()
+    j = G.fit_sample(iv, ret)
+    assert j["win_end"].max() <= pd.Timestamp("2022-12-30")
+    # ...and no window that fits is lost: the last one ends on the last 2022 session,
+    # and its IV date is 21 sessions before it.
+    sessions = ret.index
+    assert j["win_end"].max() == pd.Timestamp("2022-12-30")
+    assert j.index.max() == sessions[sessions.get_loc(pd.Timestamp("2022-12-30")) - 21]
+
+
+def test_fit_sample_does_not_move_when_2023_returns_do():
+    iv, ret = _late_2022_inputs()
+    pd.testing.assert_frame_equal(G.fit_sample(iv, ret), G.fit_sample(iv, _perturb_2023(ret)))
+
+
+def _book_inputs():
+    iv, ret = _late_2022_inputs(seed=4)
+    rng = np.random.default_rng(9)
+    book = pd.Series(rng.normal(0, 0.002, len(ret)), index=ret.index)
+    return book, iv, ret
+
+
+def test_varswap_windows_never_end_after_2022():
+    from scripts.gamma import book_vs_shortvol as B
+    book, iv, ret = _book_inputs()
+    d = B.varswap_windows(book, iv, ret, "2022-06-01", B.FIT_END)
+    assert len(d) > 0
+    assert d["end"].max() <= pd.Timestamp("2022-12-30")
+
+
+def test_varswap_windows_do_not_move_when_2023_data_do():
+    from scripts.gamma import book_vs_shortvol as B
+    book, iv, ret = _book_inputs()
+    a = B.varswap_windows(book, iv, ret, "2022-06-01", B.FIT_END)
+    b = B.varswap_windows(_perturb_2023(book), iv, _perturb_2023(ret), "2022-06-01", B.FIT_END)
+    pd.testing.assert_frame_equal(a, b)
+
+
+def test_varswap_windows_refuse_a_bound_in_the_holdout():
+    from scripts.gamma import book_vs_shortvol as B
+    book, iv, ret = _book_inputs()
+    with pytest.raises(ValueError, match="sealed"):
+        B.varswap_windows(book, iv, ret, "2022-06-01", "2023-03-31")
+
+
+# -- 9. no silent vol substitute in the model mark (added 2026-10-13) ----------
+
+def test_model_mark_raises_on_a_vxtlt_gap_instead_of_using_the_entry_vol():
+    tlt, vx = _synthetic(0.12)
+    gap = vx.index[(vx.index >= "2010-06-01") & (vx.index <= "2010-06-15")]   # 11 sessions > ffill 5
+    vx = vx.drop(gap)
+    with pytest.raises(ValueError, match="VXTLT"):
+        G.model_mark(tlt, vx, 0.20)
+
+
+# -- 10. the cost rows and robustness the note quotes (added 2026-10-13) --------
+
+def _roll_and_indicative():
+    months = ["2024-01", "2024-02", "2024-03"]
+    rows = []
+    for k, m in enumerate(months):
+        for b, base in (("atm", 0.010), ("call_wing", 0.008), ("put_wing", 0.007)):
+            rows.append(dict(month=m, bucket=b, roll=base * (1 + 0.1 * k) if k != 1 else np.nan,
+                             roll_adj=base * 1.2 * (1 + 0.1 * k), rho=0.4))
+    roll = pd.DataFrame(rows)
+    ind = pd.DataFrame(dict(snapshot=["s1"] * 4, spot=100.0, leg=["atm_call", "atm_put", "put_wing", "call_wing"],
+                            width=[0.02, 0.02, 0.01, 0.01]))
+    idx = pd.bdate_range("2024-01-01", "2024-03-31")
+    tlt = pd.DataFrame({"close": 100.0}, index=idx)
+    return roll, ind, tlt
+
+
+def test_relaxation_rows_relax_one_convention_each():
+    roll, ind, tlt = _roll_and_indicative()
+    rows = G.cost_rows(roll, ind, tlt).set_index("rule")["cost_pct_S"]
+    assert sum(r.startswith("UPPER") for r in rows.index) == 1            # the gate reads exactly one
+    ub = rows[[r for r in rows.index if r.startswith("UPPER")][0]]
+    relax1 = rows[[r for r in rows.index if r.startswith("relax (1)")][0]]
+    relax2 = rows[[r for r in rows.index if r.startswith("relax (2)")][0]]
+    assert relax1 == pytest.approx(ub / 2)
+    corr = roll.assign(c=roll.roll_adj / (1 - roll.rho) / 100.0).groupby("bucket")["c"].median()
+    w = ind.set_index("leg")["width"] / 100.0
+    want = (2 * max(w["atm_call"], corr["atm"]) + max(w["put_wing"], corr["put_wing"])
+            + max(w["call_wing"], corr["call_wing"]))
+    assert relax2 == pytest.approx(want)
+
+
+def test_plain_roll_row_excludes_undefined_months_and_never_fills_them():
+    roll, ind, tlt = _roll_and_indicative()
+    rows = G.cost_rows(roll, ind, tlt).set_index("rule")["cost_pct_S"]
+    plain = rows[[r for r in rows.index if "PLAIN" in r][0]]
+    med = roll.dropna(subset=["roll"]).groupby("bucket")["roll"].median() / 100.0
+    assert plain == pytest.approx((2 * med["atm"] + med["put_wing"] + med["call_wing"]) / 2)
+    cmp_ = G.roll_comparison(roll)
+    assert (cmp_["both_defined"] == 2).all() and (cmp_["adj_above_plain"] == 2).all()
+
+
+def test_phase_robustness_at_zero_cost_includes_the_headline_phase():
+    rng = np.random.default_rng(8)
+    n = 21 * 30
+    j = pd.DataFrame({"iv": rng.uniform(0.10, 0.20, n)}, index=pd.bdate_range("2005-01-03", periods=n))
+    j["rv"] = j["iv"] * rng.uniform(0.6, 1.3, n)
+    j["nv_over_S"] = G.fly_net_vega_over_S(j["iv"].to_numpy())
+    p = G.phase_robustness(j, 0.0)
+    t0 = G.net_stats(j.iloc[::21], 0.0)["var_t"]
+    assert p["t_min"] - 1e-12 <= t0 <= p["t_max"] + 1e-12
+    assert p["n_pos"] + p["n_neg"] == 21
+
+
+def test_assignment_exposure_is_one_short_leg_between_the_wings_and_none_beyond():
+    c = pd.DataFrame({"S0": [100.0, 100.0, 100.0, 100.0], "S1": [103.0, 97.0, 106.0, 100.0],
+                      "fly_sd_I": [1.0, 1.0, 1.0, 1.0]})
+    a = G.assignment_exposure(c, "I")
+    assert a["assigned"].tolist() == [True, True, False, False]       # beyond a wing, or pinned: none
+    assert a["side"].tolist() == [-1.0, 1.0, 0.0, 0.0]               # call assigned: short; put: long
+    k = G.spec.VOL_TARGET / math.sqrt(12) / 1.0
+    assert a["notional_frac"].iloc[0] == pytest.approx(k * 103.0)
+    assert a["notional_frac"].iloc[2] == 0.0

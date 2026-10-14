@@ -6,7 +6,9 @@
     python3 scripts/gamma/g2_gate.py replay  --vol-cap 0.20
 
 Descriptive and zero-trial: GAMMA stays at 0. It does NOT run trial G1, forms no
-2023+ return statistic, and chooses no parameter by looking at an outcome. The
+2023+ return statistic (true since 2026-10-13: until then one G2(a) window ran
+on January 2023 returns; see `fit_sample`), and chooses no parameter by looking
+at an outcome. The
 gate is `results/cef/RESEARCH_PLAN_2026-10-09.md` §2, row G2:
 
     (a) a VXTLT 2004-22 variance-swap proxy net of the 4-leg spread is positive;
@@ -41,6 +43,16 @@ Gross (re-run here from `vrp_summary.py`'s own functions): IV - RV in vol points
 and the short variance-swap proxy IV^2 - RV^2 in %^2, VXTLT 2004-22,
 non-overlapping 21-session windows.
 
+EVERY WINDOW ENDS BEFORE 2023 (corrected 2026-10-13). Until 2026-10-13 the
+headline sample took IV DATES in 2004-22, so its last window (IV date
+2022-12-27) ran on January 2023 returns, which are the sealed GAMMA holdout; a
+"strict" variant was printed beside it. An independent review caught it. Now
+`fit_sample` cuts TLT's returns at the last session before 2023 BEFORE the
+forward realised vol is computed, so a window that would need a 2023 return
+is NaN and dropped, never formed; it asserts that every window ends before
+2023, and a test proves the sample does not change when 2023 returns do. The
+strict sample is the only sample.
+
 A cost in dollars per structure becomes VOL POINTS by dividing by the
 structure's net vega (short ATM vegas minus wing vegas), Black-Scholes at
 sigma = VXTLT_t, T = 30/365, per fit date t; and VARIANCE POINTS by 2 IV_t x the
@@ -58,11 +70,23 @@ Cost rows (each labelled; the gate reads the UPPER BOUND):
   (median of the regular-hours snapshots) halved / full;
 * **UPPER BOUND (declared)**: on each leg, the larger of the indicative median
   width and the 90th-percentile month of the persistence-corrected delta-adjusted
-  Roll (an estimator biased UP, `g2_spreads.py`), paid in FULL on all four legs,
-  i.e. a round trip at the touch for a structure that is meant to be held to
-  expiry. Three conservative choices stacked; the rows above say how much each
-  one costs;
+  Roll (`g2_spreads.py`; the persistence correction is biased UP), paid in FULL
+  on all four legs, i.e. a round trip at the touch for a structure that is meant
+  to be held to expiry. Three conservative choices stacked;
+* the two relaxations (added 2026-10-13, after a review found the note's "relaxing
+  either convention brings the net to zero or above" had no reproducer): the
+  upper-bound widths held to expiry (half width), and the median month in place
+  of the 90th percentile (full width). Each relaxes one convention and keeps
+  the other two;
+* plain Roll beside the delta-adjusted one (added 2026-10-13): the delta
+  adjustment was described as "removes noise, not bias", but the adjusted
+  estimate exceeds plain Roll in most months (`roll_comparison`), so the
+  direction of its bias is [U] and the plain-Roll point row is shown too;
 * stress: the widest indicative quote seen per leg, full width.
+
+Robustness (added 2026-10-13): the non-overlapping t takes start phase 0 only;
+`phase_robustness` reports all 21 start phases and a Newey-West (20 lags) t on
+the overlapping daily series, gross and net of the point and upper-bound costs.
 
 The 5/15/30bp grid, translated: a one-way cost of 5/15/30bp of the UNDERLYING's
 notional per leg, four legs, entry only (each leg trades once when held to
@@ -90,12 +114,28 @@ The verdict needs BOTH to stay inside the cap.
 
 The cap is the vol cap of `docs/SYSTEM.md` §5 (team lead 2026-09-08 and
 2026-10-09: "derive the vol target, cap 20%"). It is not a spec key, so it is a
-REQUIRED argument here (`--vol-cap`), never a default. Two readings per window:
-the realised vol of the cycle P&L (sd x sqrt(12)), and the bound that holds on
-ANY path: one cycle's P&L lies in [-(W - C), C], a range of exactly W whatever the
-credit C, so sd <= n W / 2 and the annualised vol can never exceed
-sqrt(12) x max_t(n_t W_t) / 2 / capital. The spec's risk.halve_drawdown and
-risk.kill_drawdown are printed beside the losses as context.
+REQUIRED argument here (`--vol-cap`), never a default. Two realised readings per
+window: the vol of the cycle P&L (sample sd, ddof=1, x sqrt(12)) and the same
+NOT demeaned (rms x sqrt(12)), because equal full-wing losses have a small sd.
+
+TWO PATH BOUNDS (corrected 2026-10-13). Until then this docstring and the note
+claimed one "any-path bound", sqrt(12) x max(nW)/2, and said the fly "cannot
+breach 20% on any path". A review showed it is not a bound on what is printed:
+* the realised vol is a SAMPLE sd (ddof=1), and Popoviciu's sd <= range/2 holds
+  for the population sd; the sample sd can exceed it by sqrt(n/(n-1)) (CNDR
+  sized on VXTLT, Feb-Apr 2020: vol 10.3% against the old "bound" 10.2%);
+* the not-demeaned measure is bounded only by sqrt(12) x max(nW), twice as high;
+* "whatever the credit C" is true per cycle only: with a credit that varies by
+  cycle the P&Ls of different cycles do not share one interval.
+So two bounds are printed, both for the zero-credit replay, where every cycle's
+P&L lies in [-max(nW), 0]:
+  bound_sd  = sqrt(12) x max(nW)/2 x sqrt(n/(n-1))   (the ddof=1 vol)
+  bound_rms = sqrt(12) x max(nW)                      (the not-demeaned vol;
+                                                       holds for any credit too)
+The gate reads the REALISED path. Where bound_rms exceeds the cap, any-path
+safety is not established for the not-demeaned measure, and the output says so.
+The spec's risk.halve_drawdown and risk.kill_drawdown are printed beside the
+losses as context.
 
 What this replay cannot see: daily mark-to-market inside a cycle (no option
 prices), early assignment of a short American leg (TLT pays monthly), and pin
@@ -123,6 +163,7 @@ VXTLT_CACHE = REPO / "results/gamma/_cache_inputs/cboe_vxtlt.parquet"
 RATE_PATH = REPO / "results/gamma/_cache_inputs/fred_DGS1MO.parquet"
 ETF_PANEL = REPO / "data/rv/etf_panel.parquet"
 FIT = ("2004-01-01", "2022-12-31")
+SEALED_FROM = pd.Timestamp("2023-01-01")   # 2023+ returns: the GAMMA holdout (docs/SYSTEM.md §5)
 H = 21
 T30 = 30 / 365.0
 WING = 0.05                     # BFLY: 5% OTM wings (Cboe; module docstring)
@@ -257,14 +298,24 @@ def cost_rows(roll: pd.DataFrame, ind: pd.DataFrame, tlt: pd.DataFrame) -> pd.Da
         raise ValueError(f"no TLT close for months {r.loc[r.S_m.isna(), 'month'].tolist()}")
     r["adj_pct"] = r["roll_adj"] / r["S_m"]
     r["adj_corr_pct"] = r["roll_adj"] / (1 - r["rho"]) / r["S_m"]
+    r["plain_pct"] = r["roll"] / r["S_m"]
+    # Undefined months (positive covariance) are NaN. They are EXCLUDED from each
+    # statistic, never filled, and counted in `roll_comparison`'s output.
     by = r.groupby("bucket")
     adj_med = by["adj_pct"].median()
+    plain_med = by["plain_pct"].median()
+    corr_med = by["adj_corr_pct"].median()
     corr_p90 = by["adj_corr_pct"].quantile(0.9)
     i = ind.copy()
     i["w_pct"] = i["width"] / i["spot"]
     ind_med = i.groupby("leg")["w_pct"].median()
     ind_max = i.groupby("leg")["w_pct"].max()
     legs = {"atm_call": "atm", "atm_put": "atm", "put_wing": "put_wing", "call_wing": "call_wing"}
+    for name, s in (("plain Roll median", plain_med), ("delta-adj. Roll median", adj_med),
+                    ("corrected Roll median", corr_med), ("corrected Roll p90", corr_p90)):
+        if s.reindex(sorted(set(legs.values()))).isna().any():
+            raise ValueError(f"{name}: no defined month in bucket(s) "
+                             f"{s[s.isna()].index.tolist() or sorted(set(legs.values()) - set(s.index))}")
 
     def tot(f):
         return sum(f(leg, b) for leg, b in legs.items())
@@ -272,36 +323,128 @@ def cost_rows(roll: pd.DataFrame, ind: pd.DataFrame, tlt: pd.DataFrame) -> pd.Da
     rows = [
         ("point, held to expiry (Roll adj. median, half spread, entry only)",
          tot(lambda leg, b: adj_med[b] / 2)),
+        ("point, held to expiry, PLAIN Roll median (half spread, entry only)",
+         tot(lambda leg, b: plain_med[b] / 2)),
         ("point, round trip (Roll adj. median, full spread)", tot(lambda leg, b: adj_med[b])),
         ("indicative median, held to expiry (half width)", tot(lambda leg, b: ind_med[leg] / 2)),
         ("indicative median, round trip (full width)", tot(lambda leg, b: ind_med[leg])),
         ("UPPER BOUND: max(indicative median, corrected Roll p90), full width",
          tot(lambda leg, b: max(ind_med[leg], corr_p90[b]))),
+        ("relax (1) round trip: upper-bound widths, held to expiry (half width)",
+         tot(lambda leg, b: max(ind_med[leg], corr_p90[b]) / 2)),
+        ("relax (2) p90: max(indicative median, corrected Roll MEDIAN), full width",
+         tot(lambda leg, b: max(ind_med[leg], corr_med[b]))),
         ("stress: widest indicative quote seen, full width", tot(lambda leg, b: ind_max[leg])),
     ]
     out = pd.DataFrame(rows, columns=["rule", "cost_pct_S"])
-    out.attrs["legs"] = pd.DataFrame({"roll_adj_median_pct": adj_med, "corr_roll_p90_pct": corr_p90})
+    out.attrs["legs"] = pd.DataFrame({"roll_plain_median_pct": plain_med, "roll_adj_median_pct": adj_med,
+                                      "corr_roll_median_pct": corr_med, "corr_roll_p90_pct": corr_p90})
     out.attrs["indicative"] = pd.DataFrame({"median_pct": ind_med, "max_pct": ind_max})
     return out
 
 
-def premium_sample(strict: bool = False) -> pd.DataFrame:
-    """VXTLT 2004-22 against forward realised vol, the non-overlapping sample
-    exactly as `vrp_summary.stats` takes it (every 21st row from the first).
+def roll_comparison(roll: pd.DataFrame) -> pd.DataFrame:
+    """Delta-adjusted against plain Roll, month by month, per bucket (added 2026-10-13).
 
-    The main reading (the plan's +1.28 / +24.0) takes IV DATES in 2004-22, so its
-    last window runs into January 2023. `strict` keeps only IV dates whose
-    21-session forward window ends by 2022-12-30 (vrp_summary's strict variant),
-    so no sealed 2023 return enters."""
-    iv = load_vxtlt()
-    rv, _ = vs.etf_rv("TLT", ETF_PANEL)
-    j = pd.concat([iv, rv], axis=1, join="inner").loc[FIT[0]:FIT[1]].dropna()
-    if strict:
-        last_ok = j.index[j.index.get_indexer([pd.Timestamp("2022-12-30")], method="pad")[0] - H]
-        j = j.loc[:last_ok]
-    m = j.iloc[::H].copy()
-    m["nv_over_S"] = fly_net_vega_over_S(m["iv"].to_numpy())
-    return m
+    WHY: `g2_spreads.py` described the delta adjustment as removing noise, not
+    bias, so the adjusted series would share plain Roll's DOWNWARD persistence
+    bias. If that were all, the adjusted estimate would scatter around plain
+    Roll. A review found it sits ABOVE plain Roll in most months. One candidate
+    mechanism [U]: the adjustment uses 1-minute VWAPs of TLT, not the price at
+    the trade, so the VWAP's own error enters dp as an MA(1) term with negative
+    autocovariance, which Roll reads as spread. So the adjusted series' bias
+    direction is unknown, and the counts are printed rather than assumed."""
+    both = roll.dropna(subset=["roll", "roll_adj"]).assign(
+        above=lambda x: (x["roll_adj"] > x["roll"]).astype(int),
+        ratio=lambda x: x["roll_adj"] / x["roll"])
+    g = both.groupby("bucket")
+    return pd.DataFrame({
+        "months": roll.groupby("bucket").size(),
+        "plain_defined": roll.dropna(subset=["roll"]).groupby("bucket").size(),
+        "adj_defined": roll.dropna(subset=["roll_adj"]).groupby("bucket").size(),
+        "both_defined": g.size(),
+        "adj_above_plain": g["above"].sum(),
+        "median_ratio_adj_over_plain": g["ratio"].median(),
+    })
+
+
+def fit_sample(iv: pd.Series, ret_total: pd.Series) -> pd.DataFrame:
+    """Daily IV_t against the forward realised vol over TLT sessions t+1..t+21,
+    IV dates in 2004-22, with EVERY window ending before 2023.
+
+    HOLDOUT (corrected 2026-10-13): TLT's returns are cut at the last session
+    before `SEALED_FROM` BEFORE `forward_rv` runs, so a window that would need a
+    2023 return comes out NaN and is dropped: no 2023 return is ever summed.
+    Until 2026-10-13 the headline took IV dates in 2004-22 on the full panel,
+    and its last sampled window (IV date 2022-12-27) ran on January 2023
+    returns. ALIGNMENT: RV at t uses returns strictly after t (forward_rv);
+    `win_end` is the session of the window's last return, asserted < 2023."""
+    r = ret_total.sort_index()
+    r = r[r.index < SEALED_FROM]
+    rv = vs.forward_rv(r).rename("rv")
+    j = pd.concat([iv.rename("iv"), rv], axis=1, join="inner").loc[FIT[0]:FIT[1]].dropna()
+    pos = r.index.get_indexer(j.index)
+    if (pos < 0).any():
+        raise ValueError(f"IV dates that are not TLT sessions: {j.index[pos < 0][:5].tolist()}")
+    j["win_end"] = r.index[pos + H]
+    if not (j["win_end"] < SEALED_FROM).all():
+        raise AssertionError("a forward window reaches a sealed 2023 return")
+    j["nv_over_S"] = fly_net_vega_over_S(j["iv"].to_numpy())
+    return j
+
+
+def premium_sample(phase: int = 0) -> pd.DataFrame:
+    """The non-overlapping sample exactly as `vrp_summary.stats` takes it (every
+    21st row, from row `phase`; the headline is phase 0), on `fit_sample`."""
+    if not 0 <= phase < H:
+        raise ValueError(f"phase must be in 0..{H - 1}, got {phase}")
+    return fit_sample(load_vxtlt(), load_tlt()["ret_total"]).iloc[phase::H].copy()
+
+
+def net_daily(j: pd.DataFrame, cost_pct_S: float) -> pd.Series:
+    """Variance-swap proxy net of a per-cycle cost, on every row (in %^2)."""
+    return (j["iv"] ** 2 - j["rv"] ** 2) * 1e4 - 2 * (j["iv"] * 100) * (cost_pct_S / j["nv_over_S"])
+
+
+def phase_robustness(j: pd.DataFrame, cost_pct_S: float) -> dict:
+    """The net variance-swap proxy over all 21 start phases of the non-overlapping
+    sample, and a Newey-West t (20 lags: the overlap of 21-session windows is
+    MA(20)) on the overlapping daily series. Added 2026-10-13: the headline t is
+    phase 0 only. Chooses nothing; it says whether the sign depends on phase."""
+    means, ts = [], []
+    for ph in range(H):
+        x = net_daily(j.iloc[ph::H], cost_pct_S)
+        means.append(float(x.mean()))
+        ts.append(float(x.mean() / (x.std(ddof=1) / math.sqrt(len(x)))))
+    return dict(t_min=min(ts), t_med=float(np.median(ts)), t_max=max(ts),
+                mean_min=min(means), mean_max=max(means),
+                n_pos=sum(m > 0 for m in means), n_neg=sum(m < 0 for m in means),
+                nw20_t=float(vs.newey_west_t(net_daily(j, cost_pct_S), 20)))
+
+
+def snapshot_vega_check(ind: pd.DataFrame, vx: pd.Series) -> dict:
+    """The fly's net vega per $1 of S from the indicative snapshots' own greeks,
+    against Black-Scholes at the latest VXTLT published BEFORE the snapshot date
+    (on 2026-10-12 that was the 2026-10-09 close: the note once called it "that
+    day's", corrected 2026-10-13) and 30 days, the conversion the fit uses."""
+    if ind["vega"].isna().any():
+        raise ValueError("an indicative leg has no vega; no model value is put in its place")
+    sign = ind["leg"].map({"atm_call": 1, "atm_put": 1, "put_wing": -1, "call_wing": -1})
+    if sign.isna().any():
+        raise ValueError(f"unknown legs {sorted(set(ind.loc[sign.isna(), 'leg']))}")
+    nv = (ind["vega"] * sign).groupby(ind["snapshot"]).sum() / ind.groupby("snapshot")["spot"].first()
+    snap_day = pd.Timestamp(dt_from_stamp(ind["snapshot"].min()).date())
+    before = vx.loc[:snap_day - pd.Timedelta(days=1)]
+    if before.empty:
+        raise ValueError(f"no VXTLT before {snap_day.date()}")
+    return dict(snapshot_day=snap_day.date(), nv_median=float(nv.median()), n=len(nv),
+                vx_date=before.index[-1].date(), vx=float(before.iloc[-1]),
+                bs_nv=float(fly_net_vega_over_S(before.iloc[-1])))
+
+
+def dt_from_stamp(stamp: str) -> pd.Timestamp:
+    """'20261012T184346Z' -> the snapshot's time in New York."""
+    return pd.Timestamp(stamp).tz_convert("America/New_York")
 
 
 def net_stats(m: pd.DataFrame, cost_pct_S: float) -> dict:
@@ -316,10 +459,13 @@ def net_stats(m: pd.DataFrame, cost_pct_S: float) -> dict:
 
 def premium(roll_path: Path, ind_path: Path) -> None:
     tlt = load_tlt()
-    m = premium_sample()
-    print(f"inputs: VXTLT {VXTLT_CACHE.name} (last {load_vxtlt().index.max().date()}), etf_panel TLT "
-          f"last {tlt.index.max().date()}; fit sample {m.index.min().date()}..{m.index.max().date()}, "
-          f"n {len(m)} non-overlapping")
+    vx = load_vxtlt()
+    j = fit_sample(vx, tlt["ret_total"])
+    m = j.iloc[::H].copy()
+    print(f"inputs: VXTLT {VXTLT_CACHE.name} (last {vx.index.max().date()}), etf_panel TLT "
+          f"last {tlt.index.max().date()}; fit sample IV dates {m.index.min().date()}..{m.index.max().date()}, "
+          f"n {len(m)} non-overlapping; last window ends {m['win_end'].max().date()} "
+          f"(every window ends before {SEALED_FROM.date()}: no sealed return is read)")
     g = net_stats(m, 0.0)
     print(f"\nGROSS  IV-RV {g['ivrv_net']:+.3f} vol pts (t {g['ivrv_t']:.2f});  var-swap proxy "
           f"{g['var_net']:+.1f} %^2 (t {g['var_t']:.2f});  mean IV {m.iv.mean()*100:.2f}")
@@ -339,18 +485,27 @@ def premium(roll_path: Path, ind_path: Path) -> None:
     print((rows.attrs["indicative"] * 1e4).round(2).to_string())
     print(f"indicative snapshots: {ind['snapshot'].nunique()} ({ind['snapshot'].min()}..{ind['snapshot'].max()}), "
           f"expiry {sorted(ind['expiry'].astype(str).unique())}, spot {ind['spot'].min()}..{ind['spot'].max()}")
+    v = snapshot_vega_check(ind, vx)
+    print(f"fly net vega per $1 of S, snapshot greeks ({v['n']} snapshots, {v['snapshot_day']}): median "
+          f"{v['nv_median']:.6f}; Black-Scholes at the latest VXTLT before that day ({v['vx_date']}, "
+          f"{v['vx']*100:.2f}) and 30 days: {v['bs_nv']:.6f}")
+    print("\ndelta-adjusted vs plain Roll, months where both are defined (bias direction [U]):")
+    print(roll_comparison(roll).round(3).to_string())
     print("\nNET of each cost rule (per cycle; costs carried as bp of S):")
-    print(f"{'rule':<72}{'bp of S':>8}{'vol pts':>9}{'IV-RV net':>11}{'t':>7}{'var net %^2':>13}{'t':>7}")
+    print(f"{'rule':<74}{'bp of S':>8}{'vol pts':>9}{'IV-RV net':>11}{'t':>7}{'var net %^2':>13}{'t':>7}")
     for _, r in rows.iterrows():
         s = net_stats(m, r["cost_pct_S"])
-        print(f"{r['rule']:<72}{r['cost_pct_S']*1e4:>8.2f}{s['cost_volpts']:>9.3f}{s['ivrv_net']:>+11.3f}"
+        print(f"{r['rule']:<74}{r['cost_pct_S']*1e4:>8.2f}{s['cost_volpts']:>9.3f}{s['ivrv_net']:>+11.3f}"
               f"{s['ivrv_t']:>7.2f}{s['var_net']:>+13.1f}{s['var_t']:>7.2f}")
-    ms = premium_sample(strict=True)
     ub = rows.loc[rows.rule.str.startswith("UPPER"), "cost_pct_S"].iloc[0]
-    for lab, cst in (("gross", 0.0), ("UPPER BOUND", ub)):
-        s = net_stats(ms, cst)
-        print(f"strict window (IV dates to {ms.index.max().date()}, n {len(ms)}), {lab}: IV-RV "
-              f"{s['ivrv_net']:+.3f} (t {s['ivrv_t']:.2f}), var-swap {s['var_net']:+.1f} %^2 (t {s['var_t']:.2f})")
+    pt = rows.loc[rows.rule.str.startswith("point, held to expiry (Roll adj."), "cost_pct_S"].iloc[0]
+    print(f"\nROBUSTNESS: var-swap proxy over all {H} start phases (headline = phase 0) and Newey-West(20) "
+          f"on the overlapping daily series (n {len(j)})")
+    for lab, cst in (("gross", 0.0), ("point, held to expiry", pt), ("UPPER BOUND", ub)):
+        p = phase_robustness(j, cst)
+        print(f"   {lab:<22} t across phases {p['t_min']:+.2f}..{p['t_max']:+.2f} (median {p['t_med']:+.2f}); "
+              f"mean {p['mean_min']:+.1f}..{p['mean_max']:+.1f} %^2; positive in {p['n_pos']} of {H}, "
+              f"negative in {p['n_neg']} of {H}; NW(20) t {p['nw20_t']:+.2f}")
     print("\nGRID: one-way cost per leg in bp of the underlying, 4 legs, entry only (held to expiry)")
     for bp in GRID_BP:
         s = net_stats(m, 4 * bp * 1e-4)
@@ -409,17 +564,52 @@ def sized(c: pd.DataFrame, struct: str, lab: str) -> pd.DataFrame:
                          "contracts_at_capital": k * spec.CAPITAL_USD / 100.0})
 
 
+def assignment_exposure(c: pd.DataFrame, lab: str) -> pd.DataFrame:
+    """The stock position physical settlement would leave after each BFLY expiry
+    (added 2026-10-13, a review gap; the replay itself settles in cash at S_T).
+
+    TLT options are American and settle in shares [U: not re-read from the OCC
+    or Cboe contract specification here]. At expiry, when 0.95 K0 < S_T < 1.05 K0
+    and S_T != K0, exactly one short ATM leg is in the money and its wing is
+    not: the fly becomes -100 shares (S_T above K0, short call assigned) or
+    +100 shares (below, short put assigned) per fly, held from Friday's close
+    until it can be traded out. Beyond a wing both legs on that side exercise
+    and the shares net to zero. Returned per cycle as a fraction of capital
+    (shares/capital = k, the replay's n*100/capital)."""
+    k = spec.VOL_TARGET / math.sqrt(CYCLES_PER_YEAR) / c[f"fly_sd_{lab}"]
+    inside = ((c["S1"] - c["S0"]).abs() < WING * c["S0"]) & (c["S1"] != c["S0"])
+    side = np.sign(c["S0"] - c["S1"]).where(inside, 0.0)         # -1: short shares, +1: long
+    return pd.DataFrame({"assigned": inside, "side": side,
+                         "notional_frac": (k * c["S1"]).where(inside, 0.0),
+                         "contracts_at_capital": k * spec.CAPITAL_USD / 100.0})
+
+
 def window_stats(x: pd.DataFrame, vol_cap: float) -> dict:
+    """Realised vol (ddof=1 and not demeaned) of a window's zero-credit cycle
+    P&Ls, and the two path bounds (module docstring; corrected 2026-10-13):
+    every P&L lies in [-max(nW), 0], so the population sd is at most max(nW)/2
+    (Popoviciu), the ddof=1 sd at most that x sqrt(n/(n-1)), and the rms at
+    most max(nW). `inside` is the REALISED path; the bounds say whether ANY
+    path could breach the cap."""
     p = x["pnl"]
-    vol = p.std(ddof=1) * math.sqrt(CYCLES_PER_YEAR) if len(p) > 1 else np.nan
-    rms = math.sqrt((p ** 2).mean()) * math.sqrt(CYCLES_PER_YEAR)
-    bound = x["max_loss"].max() / 2 * math.sqrt(CYCLES_PER_YEAR)
+    n = len(p)
+    if n < 2:
+        raise ValueError(f"a window needs at least two cycles for a sample sd, got {n}")
+    if (p > 0).any():
+        raise ValueError("a zero-credit P&L is positive: the [-max(nW), 0] bounds do not apply")
+    ann = math.sqrt(CYCLES_PER_YEAR)
+    vol = p.std(ddof=1) * ann
+    rms = math.sqrt((p ** 2).mean()) * ann
+    max_nW = float(x["max_loss"].max())
+    bound_sd = max_nW / 2 * math.sqrt(n / (n - 1)) * ann
+    bound_rms = max_nW * ann
     cum = p.cumsum()
     dd = float((cum - cum.cummax().clip(lower=0)).min())
-    return dict(n=len(p), vol=vol, rms_vol=rms, bound=bound, worst=float(p.min()), total=float(p.sum()),
-                max_dd=dd, max_nW=float(x["max_loss"].max()),
+    return dict(n=n, vol=vol, rms_vol=rms, bound_sd=bound_sd, bound_rms=bound_rms,
+                worst=float(p.min()), total=float(p.sum()), max_dd=dd, max_nW=max_nW,
                 contracts=float(x["contracts_at_capital"].median()),
-                inside=bool(vol <= vol_cap and rms <= vol_cap))
+                inside=bool(vol <= vol_cap and rms <= vol_cap),
+                any_path_inside=bool(bound_sd <= vol_cap and bound_rms <= vol_cap))
 
 
 def replay(vol_cap: float) -> None:
@@ -433,26 +623,41 @@ def replay(vol_cap: float) -> None:
     c = cycles(tlt, vx, "2004-02-01", FIT[1])
     print(f"cycles: {len(c)} entered {c.index.min().date()}..{c.index.max().date()} "
           f"(standard monthly expirations; zero credit; fractional contracts)")
-    any_out = False
+    any_out, bound_out = False, []
     for struct, name in (("fly", "BFLY rule: short ATM, long 5% wings"),
                          ("con", "CNDR rule: short 0.20-delta, long 0.05-delta")):
         for lab, sname in (("I", "sigma = VXTLT"), ("R", "sigma = trailing 63d RV")):
             x = sized(c, struct, lab)
             print(f"\n== {name}; sized on {sname}")
-            print(f"   {'window':<18}{'cycles':>7}{'vol':>8}{'rms vol':>9}{'bound':>8}{'worst':>9}"
-                  f"{'total':>9}{'max dd':>9}{'max nW':>9}{'contr.@cap':>11}  inside cap")
+            print(f"   {'window':<18}{'cycles':>7}{'vol':>8}{'rms vol':>9}{'bnd sd':>8}{'bnd rms':>9}"
+                  f"{'worst':>9}{'total':>9}{'max dd':>9}{'max nW':>9}{'contr.@cap':>11}"
+                  f"  realised inside / any path")
             for wname, (a, b) in {"2004-22 (fit)": FIT, **WINDOWS}.items():
                 s = window_stats(x.loc[a:b], vol_cap)
                 if wname in WINDOWS and not s["inside"]:
                     any_out = True
-                print(f"   {wname:<18}{s['n']:>7}{s['vol']:>8.1%}{s['rms_vol']:>9.1%}{s['bound']:>8.1%}"
-                      f"{s['worst']:>9.2%}{s['total']:>9.2%}{s['max_dd']:>9.2%}{s['max_nW']:>9.2%}"
-                      f"{s['contracts']:>11.1f}  {'yes' if s['inside'] else 'NO'}")
+                if not s["any_path_inside"]:
+                    bound_out.append(f"{struct}/{lab} {wname}")
+                print(f"   {wname:<18}{s['n']:>7}{s['vol']:>8.1%}{s['rms_vol']:>9.1%}{s['bound_sd']:>8.1%}"
+                      f"{s['bound_rms']:>9.1%}{s['worst']:>9.2%}{s['total']:>9.2%}{s['max_dd']:>9.2%}"
+                      f"{s['max_nW']:>9.2%}{s['contracts']:>11.1f}  {'yes' if s['inside'] else 'NO'} / "
+                      f"{'bounded' if s['any_path_inside'] else 'NOT bounded'}")
             worst = x["pnl"].idxmin()
             print(f"   worst cycle 2004-22: entered {worst.date()}, {x.loc[worst, 'pnl']:.2%} of capital "
                   f"(S {c.loc[worst, 'S0']:.2f} -> {c.loc[worst, 'S1']:.2f})")
-    print(f"\nall declared variants inside the {vol_cap:.0%} cap in 2008 and 2020: "
+    print(f"\nREALISED PATH: all declared variants inside the {vol_cap:.0%} cap in 2008 and 2020: "
           f"{'NO' if any_out else 'yes'}")
+    print(f"ANY PATH: windows where a bound exceeds the cap ({len(bound_out)}): "
+          f"{', '.join(bound_out) if bound_out else 'none'}. Where it does, any-path safety is not "
+          f"established for that measure.")
+    for lab, sname in (("I", "VXTLT"), ("R", "trailing 63d RV")):
+        a = assignment_exposure(c, lab)
+        z = a[a["assigned"]]
+        print(f"ASSIGNMENT (not in the replay P&L) BFLY sized on {sname}: S_T between the wings in "
+              f"{len(z)} of {len(a)} cycles (short {int((z.side < 0).sum())}, long {int((z.side > 0).sum())}); "
+              f"stock left after expiry, median {z['notional_frac'].median():.0%} of capital "
+              f"(max {z['notional_frac'].max():.0%}); median {z['contracts_at_capital'].median():.1f} flies "
+              f"at ${spec.CAPITAL_USD:,.0f}")
     model_mark(tlt, vx, vol_cap)
 
 
@@ -479,7 +684,14 @@ def model_mark(tlt: pd.DataFrame, vx: pd.Series, vol_cap: float) -> None:
         val = []
         for d in days:
             T = max((e1 - d).days, 0) / 365.0
-            sg = float(vxa.loc[d]) if np.isfinite(vxa.loc[d]) else sig0
+            # No fallback (corrected 2026-10-13): this line used to mark with the
+            # entry vol `sig0` whenever VXTLT was missing for more than five
+            # sessions, a silent substitute that was dormant only because 2008
+            # and 2020 have no such gap.
+            if not np.isfinite(vxa.loc[d]):
+                raise ValueError(f"model mark: no VXTLT on or within 5 sessions before {d.date()} "
+                                 f"(cycle {e0.date()} -> {e1.date()}); no other vol is put in its place")
+            sg = float(vxa.loc[d])
             val.append(sum(sgn * bs_price(float(S.loc[d]), K, T, sg, cp) for K, cp, sgn in legs))
         v = pd.Series(val, index=days) * k
         daily.append(v.diff().dropna())
