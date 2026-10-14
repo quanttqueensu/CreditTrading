@@ -140,6 +140,9 @@ during t+1's session, after the NAV is public and after the opening auction.**
   **9.4×** the median **closing** print across the 13 names (2016–22). The `s`
   field is documented only as "Auction trade size", so whether a print is the
   whole cross is **[U]**. Read the ratio, not the level.
+  *(Settled 2026-10-13, `results/cef/EXEC_CAPACITY_OPEN_CROSS_2026-10-13.md`
+  §1: the primary's `O` / `6` print is the whole round-lot cross, and the `Q` /
+  `M` print repeats its size only on a day that has one.)*
 - **The loser** is the overnight retail order and the market maker anchored on
   close *t*, crossing at the open before the NAV is in the price.
 - **Why it persists**: there are no authorised participants, the share count is
@@ -207,6 +210,12 @@ question, and a zero-trial gate can close it first.
 - The book's dollar-weighted median order at the spec's $100,000 capital is about
   **0.95×** the median NYSE closing print (2016–22). If prints are whole crosses,
   the book is a large part of the closing auction it trades in.
+  *(Settled 2026-10-13, `results/cef/EXEC_CAPACITY_OPEN_CROSS_2026-10-13.md`:
+  prints are whole crosses on round-lot days, and the ratio of medians
+  understated the problem. Matched to the cross of its own fill day, the
+  deployed book's notional-weighted median order at $100,000 was about half of
+  that day's NYSE closing cross in 2016–22. That note also measures the
+  opening cross's cost, C5's first kill test.)*
 - W4 "What this changes" item 2 should carry a dated pointer to this section.
   One is added.
 
@@ -440,8 +449,10 @@ remove IC, not a masquerade. The sample is D7 in any case.
 ## Gaps
 
 - The opening cross's **cost** is unmeasured. That is C5's first kill test, and
-  it needs SIP quotes the repo has not fetched.
-- Alpaca's auction **size** semantics are [U].
+  it needs SIP quotes the repo has not fetched. *(Measured 2026-10-13,
+  `results/cef/EXEC_CAPACITY_OPEN_CROSS_2026-10-13.md` §6.)*
+- Alpaca's auction **size** semantics are [U]. *(Settled 2026-10-13, same note
+  §1.)*
 - **2023+ is sealed.** Every figure is 2005–22, and the deployed set's figures are
   2013–22.
 - Survivorship is unmeasured.

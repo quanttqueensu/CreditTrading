@@ -578,6 +578,13 @@ would more likely fail to open its shorts than pay 13%/yr.
    but is unlikely to approach a 41–46bp breakeven at 0.5% of ADV. **No
    execution result can rescue the high-fee regime**, because c* is negative
    there.
+   *(Corrected 2026-10-13: "0.5% of ADV" is the wrong pool for an MOC book.
+   Against the NYSE closing cross itself, the paper book's orders since
+   2026-10-01 are a notional-weighted median of about 31% of the same day's
+   cross, and the build from flat was about 76%
+   (`results/cef/EXEC_CAPACITY_OPEN_CROSS_2026-10-13.md` §3). Auction impact is
+   still unmeasured, but the ADV figure no longer supports "unlikely". The last
+   sentence stands.)*
 5. **An older fee history** (added 2026-10-12). The history starts on 2021-09-13
    because the deleted fetcher's default was `--years 5` (`durationStr` "5 Y",
    built about 2026-09-10 [S: `docs/BRIEF.md` H4]; the code is at
