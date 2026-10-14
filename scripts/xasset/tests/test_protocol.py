@@ -131,3 +131,25 @@ def test_size_k_hits_the_pinned_vol_and_cap_only_scales():
 def test_monthly_regression_lag_rule():
     assert int(np.floor(4 * (176 / 100) ** (2 / 9))) == 4
     assert int(np.floor(4 * (244 / 100) ** (2 / 9))) == 4
+
+
+def test_aqr_regression_on_monthly_periods(tmp_path, monkeypatch):
+    """R-AQR regresses a MONTHLY (PeriodIndex) series; partial first/last months are
+    dropped; the factor columns are read from caches shaped like the fetcher's."""
+    rng = np.random.default_rng(4)
+    months = pd.date_range("2005-01-31", "2023-06-30", freq="ME")
+    ts = pd.DataFrame({"date": months, **{c: rng.normal(0, 0.02, len(months)) for c in
+                                          ["TSMOM", "TSMOM^CM", "TSMOM^EQ", "TSMOM^FI", "TSMOM^FX"]}})
+    vm = pd.DataFrame({"date": months, "MOM": rng.normal(0, 0.02, len(months)),
+                       "MOMLS_VME_FI": rng.normal(0, 0.02, len(months))})
+    for df in (ts, vm):
+        df["file_sha256"], df["last_data_month"] = "x" * 64, "2023-06"
+    ts.to_parquet(tmp_path / "t.parquet")
+    vm.to_parquet(tmp_path / "v.parquet")
+    monkeypatch.setattr(P, "AQR_TSMOM", tmp_path / "t.parquet")
+    monkeypatch.setattr(P, "AQR_VME", tmp_path / "v.parquet")
+    cal = pd.bdate_range("2008-01-01", "2022-12-30")
+    pnl = pd.Series(rng.normal(0, 0.004, len(cal)), index=cal).loc["2008-05-02":]
+    r = P.aqr_regression(pnl, ["TSMOM^FI", "TSMOM", "VME_MOM"], cal)
+    assert r["start"] == "2008-06" and r["end"] == "2022-12" and r["lags"] == 4
+    assert set(r["betas"]) == {"TSMOM^FI", "TSMOM", "VME_MOM"}

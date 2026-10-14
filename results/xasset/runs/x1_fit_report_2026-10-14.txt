@@ -1,0 +1,14 @@
+stage 0b: {'k': 0.1966, 'sigma_fit_raw': 0.3052, 'turnover_per_yr_sized': 3.6131, 'turnover_per_yr_tradable': 3.5124, 'mean_gross_sized': 1.2419, 'mean_gross_tradable': 1.2201, 'cap_binding_share': 0.1202, 'mean_short_notional_sized': 0.2237}
+stage 1: sized SR 0.414, NW t(21) 1.62 -> FAIL
+stage 2: X1 beats TSH on gross and on net at 5/15/30bp (each its own turnover) -> FAIL
+stage 3: placebo p95 0.778 vs real 0.414; shift(3) 0.450 -> FAIL
+stage 4 R-D4: alpha 1.44%/yr t 0.79; largest |beta| TERM +0.167 -> FAIL
+stage 5: _dsr(N=4) 0.470 -> FAIL
+wrote results/xasset/x1_fit_2026-10-14.json (reported rows completed)
+stage 0b: {'k': 0.1966, 'sigma_fit_raw': 0.3052, 'turnover_per_yr_sized': 3.6131, 'turnover_per_yr_tradable': 3.5124, 'mean_gross_sized': 1.2419, 'mean_gross_tradable': 1.2201, 'cap_binding_share': 0.1202, 'mean_short_notional_sized': 0.2237}
+stage 1: sized SR 0.414, NW t(21) 1.62 -> FAIL
+stage 2: X1 beats TSH on gross and on net at 5/15/30bp (each its own turnover) -> FAIL
+stage 3: placebo p95 0.778 vs real 0.414; shift(3) 0.450 -> FAIL
+stage 4 R-D4: alpha 1.44%/yr t 0.79; largest |beta| TERM +0.167 -> FAIL
+stage 5: _dsr(N=4) 0.470 -> FAIL
+wrote results/xasset/x1_fit_2026-10-14.json (reported rows completed)

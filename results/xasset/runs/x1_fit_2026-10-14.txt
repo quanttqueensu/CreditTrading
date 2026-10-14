@@ -1,0 +1,29 @@
+X1: spec pin MATCH; 14 inputs re-hashed; preflight {'first_decision': '2008-04-30', 'T': 3693, 'late_names': ['BKLN', 'CWB'], 'placebo_span_start': '2011-03-04'}; XASSET counter 1 >= trial 1. Stage 0b begins.
+stage 0b: {'k': 0.1966, 'sigma_fit_raw': 0.3052, 'turnover_per_yr_sized': 3.6131, 'turnover_per_yr_tradable': 3.5124, 'mean_gross_sized': 1.2419, 'mean_gross_tradable': 1.2201, 'cap_binding_share': 0.1202, 'mean_short_notional_sized': 0.2237}
+stage 1: sized SR 0.414, NW t(21) 1.62 -> FAIL
+stage 2: X1 beats TSH on gross and on net at 5/15/30bp (each its own turnover) -> FAIL
+stage 3: placebo p95 0.778 vs real 0.414; shift(3) 0.450 -> FAIL
+stage 4 R-D4: alpha 1.44%/yr t 0.79; largest |beta| TERM +0.167 -> FAIL
+stage 5: _dsr(N=4) 0.470 -> FAIL
+X1 FIT VERDICT: KILL D1 (stage 1: no detectable edge)
+wrote results/xasset/x1_fit_2026-10-14.json (decisions)
+Traceback (most recent call last):
+  File "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/trial-xasset/scripts/xasset/x1_credit_trend.py", line 100, in <module>
+    sys.exit(main(SPEC))
+             ~~~~^^^^^^
+  File "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/trial-xasset/scripts/xasset/runner.py", line 522, in main
+    fit(spec, a.trial)
+    ~~~^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/trial-xasset/scripts/xasset/runner.py", line 276, in fit
+    out["reported"] = report(spec, ctx, data)
+                      ~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/trial-xasset/scripts/xasset/runner.py", line 410, in report
+    rep["r_aqr"] = P.aqr_regression(pnl, spec.aqr, cal) | dict(factors=spec.aqr)
+                   ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/trial-xasset/scripts/xasset/protocol.py", line 556, in aqr_regression
+    r = ols_hac(m, F[cols], lag, 12)
+  File "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/trial-xasset/scripts/xasset/protocol.py", line 508, in ols_hac
+    out = dict(n=int(f.nobs), start=str(y.index[0].date()), end=str(y.index[-1].date()), lags=lags,
+                                        ^^^^^^^^^^^^^^^
+AttributeError: 'Period' object has no attribute 'date'
+python3 scripts/xasset/x1_credit_trend.py --trial 1  7.18s user 0.53s system 98% cpu 7.819 total

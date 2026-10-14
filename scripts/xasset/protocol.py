@@ -505,7 +505,8 @@ def ols_hac(y: pd.Series, X: pd.DataFrame, lags: int, ann: int) -> dict:
     Z = sm.add_constant(X)
     f = sm.OLS(y, Z).fit(cov_type="HAC", cov_kwds={"maxlags": lags})
     ci = f.conf_int(0.05)
-    out = dict(n=int(f.nobs), start=str(y.index[0].date()), end=str(y.index[-1].date()), lags=lags,
+    lab = (lambda v: str(v)) if isinstance(y.index, pd.PeriodIndex) else (lambda v: str(v.date()))
+    out = dict(n=int(f.nobs), start=lab(y.index[0]), end=lab(y.index[-1]), lags=lags,
                alpha_pct_yr=float(f.params["const"] * ann * 100), alpha_t=float(f.tvalues["const"]),
                r2=float(f.rsquared), betas={}, )
     for j, c in enumerate(Z.columns):
@@ -616,8 +617,11 @@ def capacity(H: pd.DataFrame, panel: pd.DataFrame, window: pd.DatetimeIndex) -> 
     dH.iloc[0] = H.iloc[0].abs()
     rows = dH.loc[dH.index.isin(window)]
     rows = rows[rows.sum(axis=1) > 0]
-    raw_ratio = (rows / dv.reindex(rows.index)).max(axis=1, skipna=False)
-    no_dv = int(raw_ratio.isna().sum())          # days before 21 sessions of volume exist: counted, not hidden
+    # only names TRADED that day count; a traded name with no 63-session dollar
+    # volume yet makes the day "without dv63" (counted, not hidden)
+    per = (rows / dv.reindex(rows.index)).where(rows > 0, 0.0)
+    raw_ratio = per.max(axis=1, skipna=False)
+    no_dv = int(raw_ratio.isna().sum())
     ratio = raw_ratio.dropna()
     if ratio.empty:
         return dict(rebalance_days=0, rebalance_days_without_dv63=no_dv)
