@@ -57,6 +57,9 @@ def fast(monkeypatch):
     monkeypatch.setattr(P, "aqr_regression", lambda *a, **k: {"stub": True})
     monkeypatch.setattr(P, "ff_regression", lambda *a, **k: {"stub": True})
     monkeypatch.setattr(x2, "PERMUTATIONS", 10)
+    # isolate from repo state: a sibling test's COMMITTED fit series must never
+    # enter a synthetic run (X3's verdict is committed on this branch)
+    monkeypatch.setattr(x2, "committed_series", lambda key: None)
 
 
 # ----------------------------------------------------------------------------- builders
