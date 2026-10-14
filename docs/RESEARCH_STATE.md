@@ -198,7 +198,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | DISP-SCAN | PD dispersion is still wide in non-industrialised wrappers | building | — |
 | NPORT | monthly holdings history 2019+ from SEC EDGAR | agent staging | EDGAR parse |
 | BREADTH | 45-instrument universe | agent staging | data fetch |
-| **C4** (CEF trial 52) | the live discount z-score pooled over five CEF families (`results/cef/PREREG_C4_FAMILIES_2026-10-13.md`) | **No verdict yet. Halted at Stage 0 on 2026-10-14.** Nothing of C4 was computed; the fit window and the holdout are untouched; CEF stays 52 | the team lead's ruling on Q1 (11 name-days with no return in the declared source: GRX, QQQX, IGR) and on the universe (the re-read gives 74; the document and the approval name 68): `results/cef/C4_RESULT_2026-10-14.md` |
+| **C4** (CEF trial 52) | the live discount z-score pooled over five CEF families, on the 74 funds frozen at the 2026-10-14 re-read (`results/cef/PREREG_C4_FAMILIES_2026-10-13.md` and its amendment) | **Fit PASS on all six stages (2026-10-14)**: gross SR 1.217 (NW t 5.32), `_dsr` 0.991 at N = 52; control 1.134, placebo p95 0.321, shift(3) 0.937, R-D4 alpha t 5.77/5.57, rho21 with the book 0.145/0.170. Net 0.247 at 15bp, -0.724 at 30bp (flips). **No D-code yet**: the holdout (D3 sign rule) is not opened | the team lead's ruling on the yfinance leg's distribution defects (IGR x3, TY's year-end distributions, ~2% scaling on five funds): `results/cef/C4_RESULT_2026-10-14.md` §4 |
 
 > Rows above that point elsewhere in this file ("See QUEUE rank 1", "RESOLVED,
 > see below") refer to sections now in the snapshot at git tag `pre-clean-slate`
