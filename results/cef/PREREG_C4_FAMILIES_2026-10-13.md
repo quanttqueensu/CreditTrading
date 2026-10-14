@@ -38,6 +38,15 @@ Each is answered in this draft by a stated default, so the document is
 complete as written. Approval approves the defaults unless a ruling says
 otherwise.
 
+> **Team lead, 2026-10-13: defaults 1–7 accepted** ("C4 on the draft's
+> defaults"). Still open at final approval: decision 8 (spend now or defer).
+> One more item also goes to that approval. The XASSET slate's adversarial
+> review (2026-10-13, finding 5) showed that a holdout ending at "the panel's
+> last date at run time" lets whoever runs the test choose the end date. The
+> same wording is in §0 and §7 here. The proposed fix is a fixed end of
+> **2026-09-30**, matching the slate. Nothing has changed in the text until
+> it is approved.
+
 | # | decision | this draft's default | the alternative, and what it changes |
 |---|---|---|---|
 | **1** | **The evaluation set** (`results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md`, "What should change in the order of phase 2", item 1: score C-trials on the deployed fit sample, or on the WIDE set). **Does C4 depend on it? Only through the correlation kill** (§9). C4's own universe is point-in-time by construction, because a today's-composition C4 would select on 2026 liquidity, which is look-ahead | the kill reads the **larger** of the correlation with the deployed series and with the WIDE series | name one series; the kill then reads that one only |
