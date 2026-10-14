@@ -345,4 +345,4 @@ not change this verdict.
   - `results/events/g1a_detail_2026-10-13.json`;
   - `results/events/_cache_g1a/`, which holds the Alpaca reads, the feed, the
     IBKR file and the FINRA files.
-- Sources: `docs/REFERENCES.md` §12o.
+- Sources: `docs/REFERENCES.md` §12p.

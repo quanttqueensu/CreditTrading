@@ -813,7 +813,7 @@ its gitignored cache). Live panels read-only: NAV to 2026-09-25, prices to
 | A Nasdaq fund-quote endpoint (`api.nasdaq.com/api/quote/X<TK>X/historical`) returns NAV history; it was probed once and not used, because its terms of use could not be confirmed | probe 2026-10-12 | [U] terms |
 
 
-### 12o. Gate G1a: acquirer shortability for the merger pair E1 (added 2026-10-13)
+### 12p. Gate G1a: acquirer shortability for the merger pair E1 (added 2026-10-13)
 
 The sources behind `results/events/G1A_SHORTABILITY_2026-10-13.md`. Every data
 row is fetched by `scripts/events/g1a_shortability.py` (cache
