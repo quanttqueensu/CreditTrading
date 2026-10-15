@@ -1,233 +1,193 @@
-# XASSET slate — run record, 2026-10-14: stopped before Stage 0b on two questions
+# XASSET slate — results: all four tests fail; no sleeve
 
 **Pre-registration** `results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`,
-revision 3, approved 2026-10-14 with X5 withdrawn: N = 4, slate bar
-√(2 ln 4) = 1.665, pass = `validate._dsr` > 0.95 at N = 4 · **Branch**
-`trial-xasset` (from main `9d1d9ab`) · **Counter** XASSET **0**: no test
-entered Stage 0b.
+revision 3, approved 2026-10-14 with X5 withdrawn (N = 4), plus the team
+lead's amendment block of 2026-10-14 · **Bar** `validate._dsr` > 0.95 at
+N = 4; slate bar √(2 ln 4) = 1.665 · **Counter** XASSET **4 of 4**
+(trials 1–4: X1, X3, X2, X4, in run order) · **Branch** `trial-xasset` ·
+**Panel** the Stage 0a ETF panel, SHA-256 `b843f558…`, with CRSP to
+2024-12-31, yfinance to 2026-07-20 and Alpaca to 2026-10-13. The fit uses
+CRSP only; the holdout ends 2026-09-30. Fit run 2026-10-14; X2's and X4's
+holdouts opened 2026-10-15 UTC.
 
-**Reproduce:** Stage 0a by the five commands in
-`results/xasset/STAGE0A_2026-10-14.md`; the trial code's behaviour by
-`python3 -m pytest -q scripts/xasset/tests scripts/cef/tests/test_xasset_helpers.py`
-(synthetic returns only). Once the questions below are answered, each test runs
-as `python3 scripts/xasset/x<k>_*.py --trial N`, after the commit that moves
-the counter to N.
+**Reproduce.** Pins and inputs: `python3 scripts/xasset/stage0a.py`
+(`results/xasset/STAGE0A_2026-10-14.md`). Each test:
+`python3 scripts/xasset/x1_credit_trend.py --trial 1`, `x3_month_end.py --trial 2`,
+`x2_rebalancing.py --trial 3`, `x4_multi_trend.py --trial 4`, then
+`--holdout` for each. They refuse to rerun, because each test runs once. The
+figures are in `results/xasset/x<k>_{fit,holdout}_2026-10-14.json`, with
+stdout in `results/xasset/runs/`. **Every figure below is [V]: produced by
+those scripts on 2026-10-14/15 from the pinned inputs.**
 
-## Outcome
+## The verdicts
 
-**No test has a verdict.** No return was combined into a P&L, no Sharpe of any
-X-test was computed, and **XASSET stays 0**.
+| test | verdict | deciding rule (the first that failed) | D-code |
+|---|---|---|---|
+| **X1** credit and rates trend | **FAIL** | stage 1: NW t(21) 1.62 < 1.96 | **D1** |
+| **X2** rebalancing front-run | **FAIL** | stage 1: NW t(21) 1.59 < 1.96 | **D1** |
+| **X3** month-end Treasury | **FAIL** | stage 4: TERM β 0.340 and 0.329 > 0.10, although alpha t 4.54 and 4.30 ≥ 3 | **D4** (and D2 at 15bp) |
+| **X4** multi-asset trend | **FAIL** | stage 2: TSH beats it net at 5/15/30bp | **D4** (the historical-mean rule) |
 
-| test | status | what stops it | trials spent |
-|---|---|---|---:|
-| X1 credit and rates trend | **STOPPED before Stage 0b** | question 1 (DG1) and question 2 (the preflight halts on it) | 0 |
-| X2 rebalancing front-run | **STOPPED before Stage 0b** | question 1 (DG1) | 0 |
-| X3 month-end Treasury | **STOPPED before Stage 0b** | question 1 (DG1) | 0 |
-| X4 multi-asset trend | **STOPPED before Stage 0b** | question 1 (DG1) and question 2 (the preflight halts on it) | 0 |
+**No test passes, so no sleeve and no frozen-spec key follows** (plan §4).
+Every stage was computed for every test whatever the verdict, as declared.
 
-- **STOPPED is not UNRUN.** UNRUN is a verdict: the gate cannot clear, and
-  the test closes with no trial spent. STOPPED means the run's rule 5 applied:
-  the pre-registration is "impossible as written" at one point, so it waits
-  for the team lead.
-- **No holdout was opened.** The 2023-01-01 time holdout stays sealed.
+## Decision statistics: sized, uncapped sleeve, fit P&L window to 2022-12-30
 
-## The questions for the team lead
+| | X1 | X2 | X3 | X4 |
+|---|---|---|---|---|
+| P&L window (T) | 2008-05-02 → (3,693) | 2002-09-04 → (5,118) | 2002-09-04 → (5,118) | 2005-12-02 → (4,299) |
+| k (P5) | 0.197 | 0.611 | 2.424 | 0.256 |
+| **gross Sharpe** | **0.41** | **0.33** | **1.04** | **0.45** |
+| NW t (L = 21); automatic lag | 1.62; 1.56 (L 8) | 1.59; 1.65 (L 9) | 4.94; 4.83 (L 9) | 1.964; 1.92 (L 9) |
+| stationary-bootstrap 95% CI, Sharpe | −0.09 … 1.04 | −0.08 … 0.71 | 0.64 … 1.44 | 0.00 … 0.94 |
+| stage 2: named control | TSH: gross 0.40, nets 0.39 / 0.36 / 0.33. **Fails**: X1 loses net at every cost | BIL/SHY Sharpe 0.18 vs X2's 0.33 on 2007-05-31 →. **Fails** (≥ ½) | IEF on other sessions −0.05. Passes | TSH: gross 0.45, nets 0.44 / 0.41 / 0.38. **Fails** |
+| stage 3: placebo p95 (span); shift(3) | 0.78 (from 2011-03-04); 0.45. **Fails** | 0.27; −0.04 (reported). Passes | 0.62; 0.60 (reported). Passes | 0.77 (from 2011-03-04); 0.47. **Fails** |
+| stage 4 R-D4: alpha %/yr (t) | 1.44 (0.79) | 1.25 (0.99) / 1.32 (0.83) | 5.33 (4.54) / 5.86 (4.30) | 1.52 (1.00) / 1.68 (1.06) |
+| R-D4 betas (OLS; largest in bold) | MKT 0.08, **TERM 0.17**, HY −0.07, IG 0.00 | MKT 0.07, TERM 0.04 / **IG 0.11**, MKT 0.06 | **TERM 0.34**, MKT 0.01 / **TERM 0.33**, IG −0.10, MKT 0.03 | **TERM 0.12**, GOLD 0.05 / TERM 0.09, HY −0.07, MKT 0.06 |
+| stage 5: `_dsr` at N = 4 | 0.470 | 0.433 | **0.999** | 0.580 |
+| beside it: SR·√yr vs 1.665; `_dsr` at N = 162 | 1.59; 0.06 | 1.50; 0.04 | 4.67; 0.94 | 1.87; 0.10 |
 
-**1. Does DG1 clear?** (It blocks all four tests.)
+- Where two cells are separated by a slash, they are the two declared R-D4
+  regressions: the full fit, then from 2007-04-12.
+- VIFs and HAC 95% CIs for every β are in the JSONs. The largest VIF is 3.8
+  (HY).
+- X3's TERM β has a CI of 0.29 … 0.39. That is the D4 kill PREREG §6 stated
+  in advance.
 
-- **What DG1 asks.** "All 13 tickers already built … rebuild unchanged in
-  every existing column (`scripts/rv/panel_identity.py`)".
-- **What was measured** (`results/xasset/STAGE0A_2026-10-14.md` §2):
-  - against `data/etf_daily.parquet`, every column is byte-identical through
-    2026-10-09, except `ret_total` in the yfinance leg (2025-01-02 →
-    2026-07-20): 3,210 of 5,018 cells, max 0.0074bp;
-  - two fresh builds minutes apart differ in the same way (6,112 cells, max
-    0.0075bp, nothing else).
-- **Why no rebuild can meet it.** That leg's return is Yahoo Adj Close
-  `pct_change`. Yahoo re-bases Adj Close, and REFERENCES §8 has recorded since
-  2026-10-11 that such a series "can[not] be reproduced bitwise, by any
-  fetcher".
-- **What the difference touches.** It lies wholly inside the holdout, and it
-  is four orders of magnitude below the build's 5bp gate. The fit stages read
-  only the CRSP leg, which is identical.
-- **The options, none taken here:**
-  - (a) DG1 clears on the measured result;
-  - (b) DG1 is re-specified, for example with a tolerance, or by switching the
-    yfinance leg to the in-house total return, which REFERENCES §8 notes would
-    change 2025–26 history;
-  - (c) the tests are UNRUN.
-- **If (a),** the staged panel already pinned in
-  `STAGE0A_MANIFEST_2026-10-14.json` (SHA-256 `b843f558…`) is the one the
-  trials read, and no rebuild is needed.
+## Gross headline with the cost grid (net Sharpe; turnover = Σ|ΔH|/yr, sized)
 
-**2. In X1's and X4's placebo, what does a position earn on a date before its
-fund existed?** (It decides stage 3 of X1 and X4. It does not affect X2 or X3,
-whose instruments trade throughout.)
+| | gross | turn/yr | 5bp | 15bp | 30bp | flips sign? | tradable (capped) gross |
+|---|---:|---:|---:|---:|---:|---|---:|
+| X1 | 0.41 | 3.6 | 0.38 | 0.32 | 0.23 | no | 0.42 (cap binds 12.0%) |
+| X2 | 0.33 | 56.8 | −0.14 | −1.09 | −2.51 | **yes** | 0.33 (never binds) |
+| X3 | 1.04 | 58.3 | 0.55 | −0.42 | −1.88 | **yes** | 1.04 (binds 14.3%: every window day) |
+| X4 | 0.45 | 3.9 | 0.42 | 0.36 | 0.26 | no | 0.46 (binds 10.3%) |
 
-- **What §1.8 says.** "The rows of the sized H are permuted in contiguous
-  21-session blocks while returns stay fixed." It says nothing about a row
-  that lands on a date before one of its funds existed.
-- **Why it arises.** X1's later rows hold BKLN (first return 2011-03-04) and
-  CWB (2009-04-17). X4's hold up to seven funds that start after its first
-  decision (2005-11-30). Almost every draw moves such rows onto dates when
-  those funds had no return.
-- **What the code does now.** It refuses: `protocol.run` raises, naming the
-  name-dates. It does not score them 0 silently (test
-  `test_x1_placebo_refuses_to_score_a_fund_before_it_existed`).
-- **The options, none taken here:**
-  - (a) the harness's own convention: such a position earns 0
-    (`build_targets` fills a missing return with 0, and `evaluate`'s row sum
-    skips NaN);
-  - (b) shuffle only inside the span where every one of the sleeve's funds
-    trades;
-  - (c) another rule.
-- **Why it must be answered first.** If the run went ahead and stopped here,
-  the trial would already be spent. The answer is needed **before** X1 or X4
-  enters Stage 0b.
+**Borrow is charged separately and is UNMEASURED.** The repo holds no ETF
+borrow history. Mean short notional of the sized sleeve, as a fraction of
+capital: X1 0.22, X2 0.16, X3 0, X4 0.30. Any rate can be applied to those.
 
-**3. Confirm three readings that touch the decision series.** The code takes
-the pre-registration's words literally in each. An independent review of the
-trial code (2026-10-14) listed them as choices the text does not spell out.
-Each is small; none was chosen by looking at a return.
+## Eras (H5), gross Sharpe, sized; turnover sd/mean across eras
 
-- **(a) MUB counts in S_t when its signal is short (X1, X4).**
-  - What §4 says: "1/S_t over eligible names"; MUB is "long-or-flat".
-  - The reading: MUB is eligible (12 months of returns), so it is in S_t;
-    only its position is set to 0.
-- **(b) The ex-ante variance is pandas `ewm(com=60, adjust=True).var()` with
-  its default bias correction.**
-  - What §4 says: "`ewm(com=60, adjust=True)` mean and variance".
-  - MOP's eq. 1 is the uncorrected weighted variance. The difference is a
-    near-uniform scale, which P5's k removes.
-- **(c) Turnover is `evaluate()`'s, Σ|ΔH| on the rows inside the P&L window.**
-  - The first decision's entry trade is therefore not charged, and the trades
-    decided on 2022-12-29 and 2022-12-30 are.
-  - It touches X1/X4's stage 2 net comparison and stage 8's net Sharpe,
-    negligibly.
+| | 2005–09 | 2010–14 | 2015–19 | 2020–22 | sd/mean |
+|---|---:|---:|---:|---:|---:|
+| X1 (from 2008-05) | 0.82 | 0.88 | 0.25 | 0.02 | 0.32 |
+| X2 | 0.90 | 0.21 | 0.08 | −0.38 | 0.08 |
+| X3 | 0.87 | 1.28 | 1.37 | 1.04 | 0.00 |
+| X4 | 0.62 | 0.84 | 0.22 | 0.11 | 0.25 |
 
-Unless the team lead says otherwise with the answers to questions 1 and 2,
-these readings stand as written.
+X1, X2 and X4 decay across the eras. X3 does not.
 
-## The zero-trial preflight (run 2026-10-14; dates and coverage only, no P&L)
+## Holdouts (2023-01-03 → 2026-09-30, 939 sessions; each opened once, k frozen)
 
-`python3 scripts/xasset/x<k>_*.py --preflight` checks four things without
-building a position or a P&L:
+| | mean %/yr | Sharpe (95% CI) | NW t | sign as fit | stage 7 |
+|---|---:|---|---:|---|---|
+| X1 | −1.41 | −0.39 (−1.33 … 0.58) | −0.73 | **no** | reported only |
+| X2 | 0.75 | 0.25 (−0.88 … 1.33) | 0.45 | yes | reported only |
+| X3 | 3.23 | 0.59 (−0.36 … 1.51) | 1.27 | yes | reported only |
+| X4 | 0.86 | 0.19 (−0.70 … 1.10) | 0.39 | yes | reported only |
 
-- the pins and the input hashes;
-- the declared first decision, re-derived from the breadth rule on the panel's
-  first returns, and the declared T;
-- each D4 factor's coverage of its regression window, from its components'
-  missing-value masks, and the French and AQR coverage;
-- whether the placebo would move a position onto a date with no return.
+- **The holdout cannot rescue a failed fit** (§1.5). The sign rule applies
+  only to a fit PASS-candidate, and there was none.
+- **The fit rows of each continuous series reproduced the fit P&L bit for
+  bit.**
+- **Two regime rows:**
+  - X3 under T+1 (from 2024-05-28): Sharpe 0.44;
+  - X2 after the paper's sample (from 2023-03-18): 0.22.
 
-| test | preflight |
-|---|---|
-| X1 | **halts: question 2** (BKLN and CWB start after the first P&L, 2008-05-02) |
-| X2 | passes: first decision 2002-08-30, T 5,118; BIL's first return 2007-05-31; control window 3,926 sessions |
-| X3 | passes: first decision 2002-08-30, T 5,118 |
-| X4 | **halts: question 2** (HYG, EMB, PFF, MUB, BKLN, CWB and DBC start after the first P&L, 2005-12-02) |
+## Reported rows that do not decide
 
-`fit()` also refuses Stage 0b while DG1 is unruled (`protocol.DG1_RULING is
-None`). It refuses a test that already has a fit verdict, and it writes stages
-0b–5 before any reported row.
+- **R-AQR (monthly).**
+  - X1 loads on TSMOM^FI (β 0.075, t 5.2), alpha t 0.65.
+  - X4 loads on TSMOM (β 0.25, t 5.3), alpha t 1.24.
+  - X3's alpha survives TSMOM^FI: 5.5%/yr, t 4.6.
+- **R-LONG.**
+  - X1 on its long-only version: β 0.53, alpha t 0.88.
+  - X4: β 0.44, alpha t 1.15.
+- **R-Q (flagged sessions excluded).**
+  - X1's Sharpe rises to 0.99 and X4's to 0.80. The excluded sessions
+    include March 2020: X1 lost 8.1% on 2020-03-18 (PFF −17.0%).
+  - X3: 1.05; X2: 0.35.
+- **In-house source in place of CRSP:** within 0.01 of every headline.
+- **Leave-one-out.**
+  - X1: 0.36 – 0.46.
+  - X4: 0.42 – 0.49.
+- **The 21 refresh offsets.**
+  - X1: 0.04 – 0.55 (median 0.38).
+  - X4: 0.06 – 0.49 (median 0.36).
+- **X2's diagnostics.**
+  - The Calendar part has Sharpe 0.32; its mid-month placebo window, 0.01.
+  - The Calendar part's real Sharpe is above 98.5% of its month-sign
+    permutations.
+  - Daily correlation with X3: −0.01. Alpha of the week4 component on X3:
+    t 1.68.
+- **Correlation with the CEF book (P12).**
 
-## The pre-run review (quant-reviewer, 2026-10-14)
+  | row | daily ρ (X1 / X2 / X3 / X4) |
+  |---|---|
+  | fit, 2013-06-21 → 2022-12-30 | 0.12 / 0.01 / −0.05 / 0.10 |
+  | holdout, to 2026-09-25 (the CEF panels' last common date; §1.10 stops the row at the panel end) | 0.06 / 0.04 / 0.00 / 0.08 |
 
-An independent review of the trial code, run before any return was used,
-found no critical defect.
+  21-session and HY-stress figures are in the JSONs.
+- **Capacity** (1% of 63-session median dollar volume on a median rebalance
+  day): X1 about $5.7m, X4 about $5.1m, X2 about $17m, X3 about $0.3m. X3's
+  figure is held down by IEF's thin early-2000s volume. [U reading of "median
+  rebalance day", see below]
 
-- **Its one high finding was the TSMOM silent short below.** It had already
-  been fixed during the review.
-- **Its medium findings are fixed:**
-  - the breadth rule is now checked against the data;
-  - every halt that depends only on dates or missing data runs before Stage
-    0b (the preflight);
-  - the decision stages are written before the reported rows;
-  - a completed test cannot be rerun.
-- **So are its low ones:**
-  - the holdout guard requires the verdict files in the committed tree;
-  - `run()` refuses a NaN position;
-  - capacity counts rebalance days that lack dollar-volume history instead of
-    skipping them;
-  - X2's X3-dependent rows are computed by whichever of the two runs second;
-  - X4 has a synthetic pipeline test.
-- **It confirmed the declared mappings:**
-  - r_f alignment;
-  - TSMOM, TSH and MUB;
-  - X2's state and signal, its exposure rows and its control;
-  - X3's rows and their complement;
-  - sizing;
-  - the factors;
-  - `_dsr`'s inputs;
-  - the placebo seed, draws and rule;
-  - the verdict order;
-  - the holdout's bit-exact fit-row check.
+## What this means
 
-## What is ready, so a ruling translates directly into a run
+- **None of the four cross-asset sleeves clears the slate.** X1, X2 and X4
+  show no detectable edge at the pre-registered strength. Their fit Sharpes
+  (0.33–0.45) sit inside the draft's own expected ranges, where §2.2 put
+  P(pass) at 0.04–0.17, so the fails were the expected outcome.
+- **X1 and X4 are explained by published trend and its long bias.** They are
+  spanned by AQR's TSMOM factors, and the inception-to-date sign does as well
+  net of costs.
+- **X3 is the one real effect.** The month-end Treasury premium is large,
+  stable by era, survives its IEF-on-other-days control and the placebo, and
+  clears the deflated bar (0.999). But it is TERM exposure in a part-time
+  wrapper (β 0.34). At 58 turns a year it is negative net at 15bp. **A
+  TERM-hedged X3 would be a new, separately declared trial** (§6). That is
+  the team lead's call, not run here.
+- **The CEF desk loses no candidate, and the graveyard gains four entries.**
 
-- **Stage 0a is committed** (`STAGE0A_2026-10-14.md` and its manifest):
-  - the spec pin matches;
-  - DG1's build gates, DG2, DG3 and Q1 pass;
-  - no repair was needed.
-- **The trial code is written and tested on synthetic returns:**
-  - one script per test, `scripts/xasset/x1_credit_trend.py`,
-    `x2_rebalancing.py`, `x3_month_end.py` and `x4_multi_trend.py`;
-  - the shared order of evaluation, `scripts/xasset/runner.py`;
-  - the MOP rule, `scripts/xasset/tsmom.py`;
-  - the protocol, `scripts/xasset/protocol.py`.
-- **Each script refuses to start Stage 0b** unless:
-  - the spec still matches its pins;
-  - every Stage 0a input re-hashes to the manifest;
-  - the committed counter table already shows its trial number;
-  - the panel gives the declared first decision and the declared T.
-- **The declared windows were checked, zero-trial, on the staged calendar.**
-  Each first decision and each T in Table A matches:
+## The record of this run
 
-  | test | first decision | T |
-  |---|---|---:|
-  | X1 | 2008-04-30 | 3,693 |
-  | X2, X3 | 2002-08-30 | 5,118 |
-  | X4 | 2005-11-30 | 4,299 |
+- **2026-10-14, Stage 0a** (`856d4bb`): spec pin, DG1–DG3 and Q1–Q7.
+- **The run then stopped on two questions, and the team lead ruled the same
+  day** (amendment block in the pre-registration, `27e7055`, committed before
+  any Stage 0b):
+  - **DG1** clears with the yfinance leg within 0.01bp;
+  - **the placebo** shuffles only inside the span where every fund trades;
+  - **three readings confirmed:** MUB in S_t when flat, the `ewm().var()`
+    default bias correction, and turnover as `evaluate()` defines it.
+- **Fixed before any run:**
+  - TSMOM's NaN 12-month return, which would have shorted PFF in X4;
+  - the findings of an independent pre-run review.
+- **Fixed after a verdict was written, reported rows only:**
+  - R-AQR's monthly date labels;
+  - capacity, which now counts only traded names.
 
-  Also matching: the BIL control window (3,926 sessions), HYG's first return
-  (2007-04-12), IEF's (2002-07-29), and the holdout (939 sessions, ending
-  2026-09-30, a month-end).
-- **Planned order:** X1, X3, X2, X4, so that X2's reported week4-on-X3
-  regression has X3's series (§1.12). The counter moves 0 → 1 → 2 → 3 → 4,
-  one commit before each test's Stage 0b.
+  The recovery path rebuilt each decision series and asserted that it was
+  bit-identical, so neither fix could change a decision.
+- **Process slip, recorded in `37e89ec`.** The counter commit `7357b56` was
+  made while one synthetic test, which read real repo state, was failing.
+  The trial code was not at fault.
 
-## Corrected before any run (no trial was affected)
-
-- **`scripts/xasset/tsmom.py`: a silent short.** The 12-month return was
-  `logc[E] − logc[start]` with `logc = log1p(r).cumsum()`, which is NaN before
-  a fund's first return.
-  - **Where it bites.** A fund whose first return is exactly the first
-    session of its window is eligible at that month-end. PFF qualifies: its
-    first return, 2007-04-02, is the first session of April 2007, so it
-    becomes eligible in X4 at 2008-03-31.
-  - **What it would have done.** The 12-month return would have been NaN.
-    `NaN >= 0` is False, so PFF would have been shorted with no data behind
-    the sign.
-  - **The fix.** `cum_log` returns 0 before the first return (nothing has
-    accrued) and raises on a gap inside the live range. Any non-finite return
-    now raises.
-  - **The test.**
-    `test_tsmom_name_starting_on_its_windows_first_session_is_not_shorted`
-    fails against the old code.
-
-## Readings the code applies to REPORTED rows only (never deciding; [U])
-
-These sit where the pre-registration names a reported statistic without fixing
-every detail. None reaches a decision, and each is labelled in its output.
+## Readings applied to reported rows only ([U]; never deciding)
 
 | row | reading |
 |---|---|
-| Q2 stale price | "3 consecutive sessions with an unchanged close" = three or more sessions sharing one close |
-| R-AQR | calendar months wholly inside the P&L window only (W4's convention) |
-| refresh offsets (X1, X4) | a daily TSMOM target with the 12-month window (s, t], s = the last session on or before t minus 12 months; then `calendar_offset(·, 21, o)` for o = 0..20 |
-| leave-one-out (X1, X4) | the same first decision and window; 1/S_t over the remaining eligible names |
-| asset-class rows (X4) | credit and rates = X1's nine; equity = SPY EFA EEM; commodity = GLD DBC; each class's contribution to the sized sleeve |
-| X2 mid-month placebo | the week4 rule moved to sessions 6–10 in paper time (H rows 5–9), no Calendar₋₄ analogue |
-| X2 sign permutations | month blocks of Calendar-part rows (E−5 … E) reassigned across months |
-| capacity | the median, across rebalance days, of the largest name's \|ΔH\| / 63-session median dollar volume |
-| in-house source row (X2) | its portfolios start at the close before the in-house panel's first common SPY/IEF return |
+| Q2 stale price | three or more sessions sharing one close |
+| R-AQR | calendar months wholly inside the P&L window |
+| refresh offsets | a daily TSMOM target over (s, t], s = the last session on or before t − 12 months; `calendar_offset(·, 21, o)` |
+| leave-one-out | the same first decision and window; 1/S_t over the remaining names |
+| X4 asset classes | credit and rates = X1's nine; equity SPY EFA EEM; commodity GLD DBC |
+| X2 mid-month window | the week4 rule at sessions 6–10 in paper time (H rows 5–9) |
+| X2 sign permutations | month blocks E−5 … E reassigned across months |
+| capacity | the median across rebalance days of the largest traded name's \|ΔH\| / DV63 |
+| X2 in-house row | the portfolios start at the close before the in-house first common return |
+
+X4's stage-2 rule text in its JSON reads "X1 beats TSH" because the shared
+function's label is X1's. The rule applied was X4 against TSH on X4's
+universe.

@@ -103,6 +103,15 @@ counter (156) covers all ETF-price/PD work done to date.
 > - XASSET 1 → 2: **X3's Stage 0b begins** (trial 2 of N = 4).
 > - XASSET 2 → 3: **X2's Stage 0b begins** (trial 3 of N = 4).
 > - XASSET 3 → 4: **X4's Stage 0b begins** (trial 4 of N = 4).
+>
+> **2026-10-14/15: XASSET slate outcome: all four FAIL; no sleeve**
+> (`results/xasset/XASSET_RESULTS_2026-10-14.md`):
+> - X1: **D1**.
+> - X2: **D1**.
+> - X3: **D4**, and D2 at 15bp.
+> - X4: **D4**, the historical-mean rule.
+>
+> All four holdouts were opened once. **XASSET is at 4 = N. The slate is closed.**
 
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
@@ -196,6 +205,10 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | gamma-timing-C3 | CEF discount stress nowcasts HYG realised vol, so long credit gamma can be timed | **D1 holdout.** In sample it works and is not an artifact: beside C1, β +0.0097 (t +2.42), incremental R² +0.0358, and against forward realised vol with no IV term anywhere β +0.02105 (t +3.95, n 4,851), real mean target at the 100th percentile of 20 shuffled draws. On the 2023–26 holdout the coefficient falls to **24%** of full sample (t +1.69) and on the stated target it is **−0.20**. Separately fatal: no state at any reported threshold has a positive mean target — the best is C3 > 2.0 at −0.0113, i.e. still paying 1.13 vol points. C2 is declared and UNAVAILABLE, not tested | `pre-clean-slate:results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md` | 2026-09-13 |
 | raw-flow-z | ETF creation/redemption z-score predicts returns | **D1** precise zero: 28,025 obs, all \|t\|<0.8; Treasury control equally flat. Informed and forced flow cancel when pooled | `pre-clean-slate:results/s3/flow_regression.csv` | 2026-07-30 |
 
+| XASSET-X1 | credit and rates trend: MOP time-series momentum on HYG LQD IEF TLT EMB PFF MUB BKLN CWB | **D1**: sized gross Sharpe 0.41, NW t 1.62 < 1.96 (2008-05 to 2022-12, T 3,693). Every later rule fails too. TSH wins net; placebo p95 0.78; alpha t 0.79 with TERM β 0.17; `_dsr` (N = 4) 0.47. Holdout Sharpe −0.39. Spanned by AQR TSMOM^FI (t 5.2) | `results/xasset/x1_fit_2026-10-14.json`; `python3 scripts/xasset/x1_credit_trend.py` | 2026-10-14 |
+| XASSET-X2 | front-run pension and balanced-fund rebalancing (HMM Threshold + Calendar), SPY vs IEF | **D1**: Sharpe 0.33, NW t 1.59 (2002-09 to 2022-12, T 5,118). The rates control {BIL: +w, SHY: −w} scores 0.18, at least ½ of X2's 0.33, so stage 2 fails as well. 57 turns a year; net −1.09 at 15bp. Holdout 0.25 | `results/xasset/x2_fit_2026-10-14.json`; `python3 scripts/xasset/x2_rebalancing.py` | 2026-10-14 |
+| XASSET-X3 | month-end Treasury extension (Hartley & Schwarz): long IEF over the last 3 sessions | **D4**: the effect is real, but it is term premium in a part-time wrapper. Sharpe 1.04, NW t 4.94; IEF on other days −0.05; placebo passes; `_dsr` 0.999; alpha t 4.54 / 4.30. But TERM β is 0.34 / 0.33 (> 0.10), as PREREG §6 stated in advance. **Also D2**: 58 turns a year, net −0.42 at 15bp. Holdout 0.59. A TERM-hedged X3 is a new trial, if wanted | `results/xasset/x3_fit_2026-10-14.json`; `python3 scripts/xasset/x3_month_end.py` | 2026-10-14 |
+| XASSET-X4 | multi-asset trend: MOP TSMOM on X1's nine plus SPY EFA EEM GLD DBC | **D4, the historical-mean rule**: Sharpe 0.45, NW t 1.964 (stage 1 passes, barely). The inception-to-date sign (TSH) beats it net at 5, 15 and 30bp. The placebo (p95 0.77) and D4 (alpha t 1.00) would also fail; `_dsr` 0.58. Holdout 0.19. Spanned by AQR TSMOM (t 5.3) | `results/xasset/x4_fit_2026-10-14.json`; `python3 scripts/xasset/x4_multi_trend.py` | 2026-10-14 |
 ---
 
 ## WATCH — passed mechanism, failed magnitude
@@ -214,7 +227,6 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | DISP-SCAN | PD dispersion is still wide in non-industrialised wrappers | building | — |
 | NPORT | monthly holdings history 2019+ from SEC EDGAR | agent staging | EDGAR parse |
 | BREADTH | 45-instrument universe | agent staging | data fetch |
-| XASSET X1–X4 | the declared cross-asset slate: credit and rates trend, rebalancing front-run, month-end Treasury, multi-asset trend (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`, N = 4) | Stage 0a recorded 2026-10-14; **no test has entered Stage 0b; no verdict; 0 trials** (`results/xasset/XASSET_RESULTS_2026-10-14.md`) | two team-lead questions: DG1's bitwise identity criterion (all four); what a placebo position earns before its fund existed (X1, X4) |
 
 > Rows above that point elsewhere in this file ("See QUEUE rank 1", "RESOLVED,
 > see below") refer to sections now in the snapshot at git tag `pre-clean-slate`
