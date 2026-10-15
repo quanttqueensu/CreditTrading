@@ -1,9 +1,10 @@
 cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
-C4 STAGE 0 (zero trials), run 2026-10-15 20:16 UTC; holdout end fixed at 2026-09-30; the team lead's rulings of 2026-10-14 encoded
+C4 STAGE 0 (zero trials), run 2026-10-15 20:37 UTC; holdout end fixed at 2026-09-30; the team lead's rulings of 2026-10-14 encoded
 
 [DG-C4-2] harness arguments: {'build_panel': ['end', 'universe', 'source', 'mask'], 'build_targets': ['universe', 'source', 'mask', 'min_adv'], 'total_returns': ['R', 'actions', 'prices']}
-  sha256(pickle.dumps(build_targets())) first call: 007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc
-  recorded on the unmodified harness (9d1d9ab):       007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc
+  sha256(pickle.dumps(build_targets())), first call, fresh process, today's live panel: this tree 956cb22f594e9f1a65fa6cb20a09c1d4314c39363f66d64fbcb1f22d392e5e59
+                                                                    unmodified harness (9d1d9ab) 956cb22f594e9f1a65fa6cb20a09c1d4314c39363f66d64fbcb1f22d392e5e59
+  (the hash recorded on 2026-10-14 on that day's panel: 007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc)
   -> PASS (byte-for-byte no-op on the default path)
 
 [DG-C4-4] the universe is FROZEN (team lead, 2026-10-14): 74 funds of the GET /v2/assets read at 2026-10-14T21:40:33Z (results/cef/c4/c4_universe_frozen_2026-10-14.csv); not re-read
@@ -12,18 +13,18 @@ C4 STAGE 0 (zero trials), run 2026-10-15 20:16 UTC; holdout end fixed at 2026-09
 
 [DG-C4-1] CRSP ret/retx staged for 105 pool funds, 1925-12-31..2024-12-31 (results/cef/c4/_cache_c4/crsp_ret_families.parquet, gitignored)
   QQQX rule: predecessor permno 91745 (1991 rows, to 2014-12-19): 1983 of 1987 common closing-trade dates within $0.005 of yfinance (99.80%); rule >= 95% -> USED
-  CRSP identity, the review's metric (daily price move vs CRSP retx within 10bp on >= 99% of days, CEF share code); BTX on permno 20674 (BIGZ), the map's 76963 overridden:
-    fit               frozen 74       74 funds; min share 0.9902 (GGN); FAIL none; level within $0.005 on < 99% of days (reported): {'GLU': 0.989, 'GLV': 0.191}
-    fit               pool 105 (R-S)  105 funds; min share 0.9902 (GGN); FAIL none; level within $0.005 on < 99% of days (reported): {'GDL': 0.989, 'GLU': 0.989, 'GLV': 0.191}
-    holdout CRSP leg  frozen 74       74 funds; min share 0.9084 (GCV); FAIL {'GCV': 0.9084, 'GGN': 0.9143, 'GLO': 0.9661, 'GLV': 0.9841}; level within $0.005 on < 99% of days (reported): {'BUI': 0.988, 'CHW': 0.962, 'DPG': 0.988, 'GAM': 0.988, 'GCV': 0.97, 'GGN': 0.984, 'GLO': 0.988, 'GLU': 0.966, 'GLV': 0.922, 'GRX': 0.98, 'HPS': 0.984, 'IGA': 0.982, 'NXG': 0.986, 'PFO': 0.976, 'PGZ': 0.97}
-    holdout CRSP leg  pool 105 (R-S)  105 funds; min share 0.9084 (GCV); FAIL {'GCV': 0.9084, 'GGN': 0.9143, 'GLO': 0.9661, 'GLV': 0.9841, 'GNT': 0.9821, 'IGD': 0.988}; level within $0.005 on < 99% of days (reported): {'BUI': 0.988, 'CGO': 0.966, 'CHW': 0.962, 'DPG': 0.988, 'ERH': 0.964, 'FT': 0.97, 'FUND': 0.962, 'GAM': 0.988, 'GCV': 0.97, 'GDL': 0.968, 'GGN': 0.984, 'GLO': 0.988, 'GLU': 0.966, 'GLV': 0.922, 'GRX': 0.98, 'HPS': 0.984, 'IGA': 0.982, 'NXG': 0.986, 'PFD': 0.976, 'PFO': 0.976, 'PGZ': 0.97, 'PSF': 0.988, 'SOR': 0.974, 'SPE': 0.986}
+  CRSP identity (daily price move vs CRSP retx within max(10bp, $0.005/price) on >= 99% of days, CEF share code); BTX on permno 20674 (BIGZ), the map's 76963 overridden:
+    fit               frozen 74       74 funds; min share 0.9923 (PEO); FAIL none; level within $0.005 on < 99% of days (reported): {'GLU': 0.989, 'GLV': 0.191}
+    fit               pool 105 (R-S)  105 funds; min share 0.9923 (PEO); FAIL none; level within $0.005 on < 99% of days (reported): {'GDL': 0.989, 'GLU': 0.989, 'GLV': 0.191}
+    holdout CRSP leg  frozen 74       74 funds; min share 0.9502 (GGN); FAIL {'GCV': 0.9562, 'GGN': 0.9502, 'GLO': 0.9801, 'GLV': 0.9861}; level within $0.005 on < 99% of days (reported): {'BUI': 0.988, 'CHW': 0.962, 'DPG': 0.988, 'GAM': 0.988, 'GCV': 0.97, 'GGN': 0.984, 'GLO': 0.988, 'GLU': 0.966, 'GLV': 0.922, 'GRX': 0.98, 'HPS': 0.984, 'IGA': 0.982, 'NXG': 0.986, 'PFO': 0.976, 'PGZ': 0.97}
+    holdout CRSP leg  pool 105 (R-S)  105 funds; min share 0.9502 (GGN); FAIL {'GCV': 0.9562, 'GGN': 0.9502, 'GLO': 0.9801, 'GLV': 0.9861, 'GNT': 0.9841}; level within $0.005 on < 99% of days (reported): {'BUI': 0.988, 'CGO': 0.966, 'CHW': 0.962, 'DPG': 0.988, 'ERH': 0.964, 'FT': 0.97, 'FUND': 0.962, 'GAM': 0.988, 'GCV': 0.97, 'GDL': 0.968, 'GGN': 0.984, 'GLO': 0.988, 'GLU': 0.966, 'GLV': 0.922, 'GRX': 0.98, 'HPS': 0.984, 'IGA': 0.982, 'NXG': 0.986, 'PFD': 0.976, 'PFO': 0.976, 'PGZ': 0.97, 'PSF': 0.988, 'SOR': 0.974, 'SPE': 0.986}
 
 [DG-C4-3] French FF5+UMD daily 1963-07-01..2026-08-31 (CRSP vintage 202608, fetched 2026-10-14T21:25:14Z); monthly to 2026-08-31; Pastor-Stambaugh to 2025-12-31 (DEC 2025, fetched 2026-10-14T21:25:16Z); IEF 2002-07-29..2026-10-09, HYG 2007-04-12..2026-10-09 (data/etf_daily.parquet)
   -> fit window covered; daily factors end 2026-08-31 (the library's lag), holdout regressions (reported only) run to that date
 
-[DG-C4-5] deployed v7 book series builds: first position 2013-06-21, P&L rows 2005-01-03..2026-09-25 (5467); live panel (no statistic computed here)
+[DG-C4-5] deployed v7 book series builds: first position 2013-06-21, P&L rows 2005-01-03..2026-10-14 (5480); live panel (no statistic computed here)
 
-[DG-C4-5] WIDE v7 book series builds: first position 2005-01-03, P&L rows 2005-01-03..2026-09-25 (5467); live panel (no statistic computed here)
+[DG-C4-5] WIDE v7 book series builds: first position 2005-01-03, P&L rows 2005-01-03..2026-10-14 (5480); live panel (no statistic computed here)
 
 [ELIGIBILITY] counts of the sleeve's filters with M1 (NAV repeat) and M2 (zero volume), floor $3,000,000, min_names 6 (no signal, no return)
   universe 74 (frozen, declared): first active session 2005-02-17; fit sessions 4499; holdout sessions to 2026-09-30 939
@@ -102,13 +103,11 @@ PEO      1 2025-01-27 2025-01-27      0.898305           0               0
 SCD      5 2025-01-24 2025-05-22      0.981358           0               0
 TY       2 2025-06-16 2025-12-12      0.196354           0               0
 UTF      9 2025-01-14 2025-09-09      0.983284           0               0
-  ruling of 2026-10-14 (c4_distribution_confirmation_2026-10-15.csv): 49 of 71 confirmed for Alpaca {'Alpaca (CEFConnect)': 41, 'UNCONFIRMED': 22, 'Alpaca (NAV drop)': 8}
+  rulings of 2026-10-14 and 2026-10-15 (c4_distribution_confirmation_2026-10-15.csv): 65 of 71 confirmed for Alpaca {'Alpaca (CEFConnect)': 41, 'Alpaca (sponsor)': 17, 'Alpaca (NAV drop)': 7, 'UNCONFIRMED (sponsor contradicts Alpaca)': 6}; funds excluded from the holdout (amendment 3): ['ADX', 'BTX', 'IGA', 'NXG', 'PEO']
 
 [YF LEG vs ALPACA, pool 105] 2025-01-02 -> 2026-09-30: closes 45520 of 45884 within $0.005 (yfinance-only 0, Alpaca-only 1); distribution ex-dates 1858, of which 85 disagree (one side missing, or |diff| > $0.001)
 
 ====================================================================================================
 FIT GATE: CLEAR
 HOLDOUT GATE: HALT
-  1. CRSP identity, holdout CRSP leg: ['GCV', 'GGN', 'GLO', 'GLV'] below 99% ({'GCV': 0.9084, 'GGN': 0.9143, 'GLO': 0.9661, 'GLV': 0.9841})
-  2. distribution ruling: 22 ex-dates no third source confirms {'BTX': 1, 'EMO': 2, 'IGA': 2, 'IGR': 13, 'NXG': 1, 'PEO': 1, 'SCD': 2}
-  3. two independent reviews of the fit (3be92cd) have not yet confirmed it
+  1. CRSP identity, holdout CRSP leg: ['GCV', 'GGN', 'GLO', 'GLV'] below 99% ({'GCV': 0.9562, 'GGN': 0.9502, 'GLO': 0.9801, 'GLV': 0.9861})

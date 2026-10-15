@@ -1,100 +1,101 @@
-C4 DISTRIBUTION RULING (team lead, 2026-10-14), run 2026-10-15 20:07 UTC. Distribution amounts only; no return is computed; the holdout is NOT opened.
+C4 DISTRIBUTION RULING (team lead, 2026-10-14), run 2026-10-15 20:35 UTC. Distribution amounts only; no return is computed; the holdout is NOT opened.
   disagreeing ex-dates on the frozen 74 (yfinance leg 2025-01-02 -> 2026-09-30): 71 of 1294; CEFConnect fetched 2026-10-15T20:04:45Z (1434 records, 74 funds); Alpaca fetched 2026-10-14T22:31:17Z
   tolerances: CEFConnect = Alpaca within $0.001 per share; NAV drop: |drop - A| <= 2 sigma and |drop - Y| > 2 sigma, sigma the sd of the fund's daily NAV changes over the 63 prior sessions (ex-dates and repeats excluded, at least 40); NAV = the families yfinance NAV symbol
   calibration: on the 1223 ex-dates where yfinance and Alpaca agree, CEFConnect agrees on 1210, differs on 1, has no record on 12
+  sponsor notices (amendment 3): 24 verified citations from 13 documents, fetched 2026-10-15T20:34:30Z (c4_sponsor_notices_2026-10-15.csv); every quote found in its document
 
-ticker       date  yfinance  alpaca  cefconnect   cefconnect_reads  nav_drop  nav_sigma  z_alpaca  z_yfinance                             nav_reads            decision
-   IGA 2025-08-01    0.0850     NaN      0.0850         = yfinance       NaN        NaN       NaN         NaN       unusable: 21 usable NAV changes         UNCONFIRMED
-   ADX 2025-01-27    0.4700  0.6300      0.4700         = yfinance    0.9200     0.2023    1.4335      2.2244                       confirms Alpaca   Alpaca (NAV drop)
-   BTX 2025-01-15    0.0870     NaN      0.0868         = yfinance       NaN        NaN       NaN         NaN                      unusable: no NAV         UNCONFIRMED
-   BUI 2025-01-15    0.1327  0.1360      0.1360           = Alpaca   -0.1700     0.1714   -1.7856     -1.7662         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-02-14    0.1327  0.1360      0.1360           = Alpaca    0.1600     0.2269    0.1058      0.1204         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-03-14    0.1327  0.1360      0.1360           = Alpaca   -0.3700     0.2499   -2.0246     -2.0114                       matches neither Alpaca (CEFConnect)
-   BUI 2025-04-15    0.1327  0.1360      0.1360           = Alpaca   -0.0400     0.3535   -0.4979     -0.4885         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-05-15    0.1327  0.1360      0.1360           = Alpaca   -0.1300     0.3224   -0.8250     -0.8148         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-06-13    0.1327  0.1360      0.1360           = Alpaca    0.3100     0.3013    0.5775      0.5885         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-07-15    0.1327  0.1360      0.1360           = Alpaca    0.2500     0.1690    0.6746      0.6942         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-08-15    0.1327  0.1360      0.1360           = Alpaca    0.0500     0.1486   -0.5787     -0.5563         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-09-15    0.1327  0.1360      0.1360           = Alpaca    0.0300     0.1630   -0.6502     -0.6299         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-10-15    0.1327  0.1360      0.1360           = Alpaca   -0.0600     0.1605   -1.2213     -1.2006         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-11-14    0.1327  0.1360      0.1360           = Alpaca    0.1000     0.1687   -0.2134     -0.1937         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2025-12-22    1.1454  1.1743      1.1743           = Alpaca    1.0200     0.1617   -0.9541     -0.7753         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2026-01-20    0.1327  0.1360      0.1360           = Alpaca    0.4400     0.1604    1.8947      1.9153         cannot tell the sources apart Alpaca (CEFConnect)
-   BUI 2026-02-13    0.1327  0.1360      0.1360           = Alpaca   -0.2900     0.1756   -2.4260     -2.4071                       matches neither Alpaca (CEFConnect)
-   EMO 2025-01-24    0.3232  0.3300         NaN          no record    0.4800     0.7137    0.2102      0.2197         cannot tell the sources apart         UNCONFIRMED
-   EMO 2025-02-21    0.3232  0.3300         NaN          no record    1.1400     0.8304    0.9754      0.9836         cannot tell the sources apart         UNCONFIRMED
-   EMO 2025-03-24    0.3526  0.3600      0.3600           = Alpaca   -0.5200     0.8118   -1.0841     -1.0750         cannot tell the sources apart Alpaca (CEFConnect)
-   EMO 2025-04-23    0.3526  0.3600      0.3600           = Alpaca    0.1600     1.1661   -0.1715     -0.1652         cannot tell the sources apart Alpaca (CEFConnect)
-   EMO 2025-05-22    0.3526  0.3600      0.3600           = Alpaca    0.4800     1.1123    0.1079      0.1145         cannot tell the sources apart Alpaca (CEFConnect)
-   EMO 2025-06-23    0.3526  0.3600      0.3600           = Alpaca    0.8500     1.0721    0.4571      0.4640         cannot tell the sources apart Alpaca (CEFConnect)
-   EMO 2025-07-24    0.3526  0.3600      0.3600           = Alpaca   -0.1000     0.5636   -0.8162     -0.8031         cannot tell the sources apart Alpaca (CEFConnect)
-   EMO 2025-08-22    0.3526  0.3600      0.3600           = Alpaca    0.2700     0.4790   -0.1879     -0.1724         cannot tell the sources apart Alpaca (CEFConnect)
-   IGR 2025-01-21    0.1800  0.0600      0.1800         = yfinance   -0.0200     0.0631   -1.2671     -3.1678                       confirms Alpaca   Alpaca (NAV drop)
-   IGR 2025-02-20    0.1800  0.0600      0.1800         = yfinance    0.0100     0.0614   -0.8140     -2.7675                       confirms Alpaca   Alpaca (NAV drop)
-   IGR 2025-03-20    0.1800  0.0600      0.1800         = yfinance    0.0600     0.0645   -0.0000     -1.8614         cannot tell the sources apart         UNCONFIRMED
-   IGR 2025-04-21    0.1800  0.0600      0.1800         = yfinance    0.1200     0.0821    0.7311     -0.7311         cannot tell the sources apart         UNCONFIRMED
-   IGR 2025-05-20    0.1800  0.0600      0.1800         = yfinance    0.0700     0.0817    0.1224     -1.3469         cannot tell the sources apart         UNCONFIRMED
-   IGR 2025-06-20    0.1800  0.0600      0.1800         = yfinance    0.0700     0.0821    0.1219     -1.3405         cannot tell the sources apart         UNCONFIRMED
-   IGR 2025-07-21    0.1800  0.0600      0.1800         = yfinance    0.0300     0.0518   -0.5796     -2.8980                       confirms Alpaca   Alpaca (NAV drop)
-   IGR 2025-08-20    0.1800  0.0600      0.1800         = yfinance    0.0300     0.0523   -0.5731     -2.8656                       confirms Alpaca   Alpaca (NAV drop)
-   IGR 2025-09-19    0.1800  0.0600      0.1800         = yfinance    0.0900     0.0541    0.5545     -1.6635         cannot tell the sources apart         UNCONFIRMED
-   IGR 2025-10-20    0.1800  0.0600      0.1800         = yfinance       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date         UNCONFIRMED
-   IGR 2025-11-20    0.1800  0.0600      0.1800         = yfinance    0.0900     0.0486    0.6176     -1.8529         cannot tell the sources apart         UNCONFIRMED
-   IGR 2025-12-19    0.1800  0.0600      0.1800         = yfinance    0.0900     0.0419    0.7156     -2.1469                       confirms Alpaca   Alpaca (NAV drop)
-   IGR 2026-01-20    0.1800  0.0600      0.1800         = yfinance    0.1600     0.0405    2.4670     -0.4934         confirms yfinance, not Alpaca         UNCONFIRMED
-   IGR 2026-02-20    0.1800  0.0600      0.1800         = yfinance       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date         UNCONFIRMED
-   IGR 2026-03-20    0.1800  0.0600      0.1800         = yfinance    0.2100     0.0447    3.3520      0.6704         confirms yfinance, not Alpaca         UNCONFIRMED
-   IGR 2026-04-20    0.1800  0.0600      0.1800         = yfinance    0.0500     0.0532   -0.1880     -2.4438                       confirms Alpaca   Alpaca (NAV drop)
-   IGR 2026-05-20    0.1800  0.0600      0.1800         = yfinance       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date         UNCONFIRMED
-   IGR 2026-06-18    0.1800  0.0600      0.1800         = yfinance    0.0800     0.0557    0.3592     -1.7958         cannot tell the sources apart         UNCONFIRMED
-   IGR 2026-07-20    0.1800  0.0600      0.1800         = yfinance    0.0800     0.0541    0.3699     -1.8493         cannot tell the sources apart         UNCONFIRMED
-   IGR 2026-08-20    0.1800  0.0600      0.1800         = yfinance    0.0400     0.0526   -0.3805     -2.6638                       confirms Alpaca   Alpaca (NAV drop)
-   NXG 2025-01-16    0.5284  0.5400      0.5400           = Alpaca       NaN        NaN       NaN         NaN        unusable: 3 usable NAV changes Alpaca (CEFConnect)
-   NXG 2025-02-18    0.5284  0.5400      0.5400           = Alpaca       NaN        NaN       NaN         NaN       unusable: 23 usable NAV changes Alpaca (CEFConnect)
-   NXG 2025-03-17    0.5284  0.5400      0.5400           = Alpaca   -0.4300     1.2817   -0.7568     -0.7478         cannot tell the sources apart Alpaca (CEFConnect)
-   NXG 2025-04-15    0.5284  0.5400      0.5400           = Alpaca   -0.1200     1.4425   -0.4575     -0.4495         cannot tell the sources apart Alpaca (CEFConnect)
-   NXG 2025-05-15    0.5284  0.5400      0.5400           = Alpaca    0.3900     1.3024   -0.1152     -0.1062         cannot tell the sources apart Alpaca (CEFConnect)
-   NXG 2025-06-16    0.5284  0.5400      0.5400           = Alpaca    0.5000     1.1628   -0.0344     -0.0244         cannot tell the sources apart Alpaca (CEFConnect)
-   NXG 2025-07-02    0.5284  0.5400      0.5400           = Alpaca    0.0600     1.1532   -0.4162     -0.4061         cannot tell the sources apart Alpaca (CEFConnect)
-   PEO 2025-01-27    0.5300  0.5900      0.5300         = yfinance    0.6700     0.2568    0.3115      0.5451         cannot tell the sources apart         UNCONFIRMED
-   UTF 2025-01-14    0.1524  0.1550      0.1550           = Alpaca   -0.1100     0.2019   -1.3122     -1.2994         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-02-11    0.1524  0.1550      0.1550           = Alpaca   -0.0100     0.2060   -0.8009     -0.7884         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-03-11    0.1524  0.1550      0.1550           = Alpaca    0.3200     0.2069    0.7973      0.8098         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-04-08    0.1524  0.1550      0.1550           = Alpaca    0.4300     0.2904    0.9469      0.9558         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-05-13    0.1524  0.1550      0.1550           = Alpaca    0.1700     0.3143    0.0477      0.0560         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-06-10    0.1524  0.1550      0.1550           = Alpaca   -0.0100     0.3182   -0.5186     -0.5105         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-07-15    0.1524  0.1550      0.1550           = Alpaca    0.3100     0.1927    0.8043      0.8177         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-08-12    0.1524  0.1550      0.1550           = Alpaca    0.0900     0.1640   -0.3964     -0.3806         cannot tell the sources apart Alpaca (CEFConnect)
-   UTF 2025-09-09    0.1524  0.1550      0.1550           = Alpaca    0.1100     0.1501   -0.2997     -0.2824         cannot tell the sources apart Alpaca (CEFConnect)
-   SCD 2025-01-24    0.1109  0.1130         NaN          no record    0.1000     0.1769   -0.0735     -0.0616         cannot tell the sources apart         UNCONFIRMED
-   SCD 2025-02-21    0.1109  0.1130         NaN          no record    0.3900     0.1736    1.5958      1.6079         cannot tell the sources apart         UNCONFIRMED
-   SCD 2025-03-24    0.1178  0.1200      0.1200           = Alpaca   -0.1000     0.1946   -1.1306     -1.1191         cannot tell the sources apart Alpaca (CEFConnect)
-   SCD 2025-04-23    0.1178  0.1200      0.1200           = Alpaca    0.0100     0.3052   -0.3604     -0.3531         cannot tell the sources apart Alpaca (CEFConnect)
-   SCD 2025-05-22    0.1178  0.1200      0.1200           = Alpaca    0.1900     0.3138    0.2231      0.2302         cannot tell the sources apart Alpaca (CEFConnect)
-    TY 2025-06-16    0.2900  1.0520      1.0520           = Alpaca    0.7700     0.4811   -0.5862      0.9977         cannot tell the sources apart Alpaca (CEFConnect)
-    TY 2025-12-12    0.2710  2.3154      2.3154           = Alpaca    2.5900     0.2311    1.1881     10.0334                       confirms Alpaca Alpaca (CEFConnect)
-   IGA 2025-08-04       NaN  0.0850         NaN covered, no record       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date         UNCONFIRMED
-   NXG 2025-08-15       NaN  0.5400         NaN          no record    0.0700     0.6333   -0.7421      0.1105         cannot tell the sources apart         UNCONFIRMED
+ticker       date  yfinance  alpaca  cefconnect   cefconnect_reads  nav_drop  nav_sigma  z_alpaca  z_yfinance                             nav_reads      sponsor_reads                                 decision
+   IGA 2025-08-01    0.0850     NaN      0.0850         = yfinance       NaN        NaN       NaN         NaN       unusable: 21 usable NAV changes contradicts Alpaca UNCONFIRMED (sponsor contradicts Alpaca)
+   ADX 2025-01-27    0.4700  0.6300      0.4700         = yfinance    0.9200     0.2023    1.4335      2.2244                       confirms Alpaca contradicts Alpaca UNCONFIRMED (sponsor contradicts Alpaca)
+   BTX 2025-01-15    0.0870     NaN      0.0868         = yfinance       NaN        NaN       NaN         NaN                      unusable: no NAV contradicts Alpaca UNCONFIRMED (sponsor contradicts Alpaca)
+   BUI 2025-01-15    0.1327  0.1360      0.1360           = Alpaca   -0.1700     0.1714   -1.7856     -1.7662         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-02-14    0.1327  0.1360      0.1360           = Alpaca    0.1600     0.2269    0.1058      0.1204         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-03-14    0.1327  0.1360      0.1360           = Alpaca   -0.3700     0.2499   -2.0246     -2.0114                       matches neither          no notice                      Alpaca (CEFConnect)
+   BUI 2025-04-15    0.1327  0.1360      0.1360           = Alpaca   -0.0400     0.3535   -0.4979     -0.4885         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-05-15    0.1327  0.1360      0.1360           = Alpaca   -0.1300     0.3224   -0.8250     -0.8148         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-06-13    0.1327  0.1360      0.1360           = Alpaca    0.3100     0.3013    0.5775      0.5885         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-07-15    0.1327  0.1360      0.1360           = Alpaca    0.2500     0.1690    0.6746      0.6942         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-08-15    0.1327  0.1360      0.1360           = Alpaca    0.0500     0.1486   -0.5787     -0.5563         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-09-15    0.1327  0.1360      0.1360           = Alpaca    0.0300     0.1630   -0.6502     -0.6299         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-10-15    0.1327  0.1360      0.1360           = Alpaca   -0.0600     0.1605   -1.2213     -1.2006         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-11-14    0.1327  0.1360      0.1360           = Alpaca    0.1000     0.1687   -0.2134     -0.1937         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2025-12-22    1.1454  1.1743      1.1743           = Alpaca    1.0200     0.1617   -0.9541     -0.7753         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2026-01-20    0.1327  0.1360      0.1360           = Alpaca    0.4400     0.1604    1.8947      1.9153         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   BUI 2026-02-13    0.1327  0.1360      0.1360           = Alpaca   -0.2900     0.1756   -2.4260     -2.4071                       matches neither          no notice                      Alpaca (CEFConnect)
+   EMO 2025-01-24    0.3232  0.3300         NaN          no record    0.4800     0.7137    0.2102      0.2197         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   EMO 2025-02-21    0.3232  0.3300         NaN          no record    1.1400     0.8304    0.9754      0.9836         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   EMO 2025-03-24    0.3526  0.3600      0.3600           = Alpaca   -0.5200     0.8118   -1.0841     -1.0750         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   EMO 2025-04-23    0.3526  0.3600      0.3600           = Alpaca    0.1600     1.1661   -0.1715     -0.1652         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   EMO 2025-05-22    0.3526  0.3600      0.3600           = Alpaca    0.4800     1.1123    0.1079      0.1145         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   EMO 2025-06-23    0.3526  0.3600      0.3600           = Alpaca    0.8500     1.0721    0.4571      0.4640         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   EMO 2025-07-24    0.3526  0.3600      0.3600           = Alpaca   -0.1000     0.5636   -0.8162     -0.8031         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   EMO 2025-08-22    0.3526  0.3600      0.3600           = Alpaca    0.2700     0.4790   -0.1879     -0.1724         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   IGR 2025-01-21    0.1800  0.0600      0.1800         = yfinance   -0.0200     0.0631   -1.2671     -3.1678                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   IGR 2025-02-20    0.1800  0.0600      0.1800         = yfinance    0.0100     0.0614   -0.8140     -2.7675                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   IGR 2025-03-20    0.1800  0.0600      0.1800         = yfinance    0.0600     0.0645   -0.0000     -1.8614         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-04-21    0.1800  0.0600      0.1800         = yfinance    0.1200     0.0821    0.7311     -0.7311         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-05-20    0.1800  0.0600      0.1800         = yfinance    0.0700     0.0817    0.1224     -1.3469         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-06-20    0.1800  0.0600      0.1800         = yfinance    0.0700     0.0821    0.1219     -1.3405         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-07-21    0.1800  0.0600      0.1800         = yfinance    0.0300     0.0518   -0.5796     -2.8980                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   IGR 2025-08-20    0.1800  0.0600      0.1800         = yfinance    0.0300     0.0523   -0.5731     -2.8656                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   IGR 2025-09-19    0.1800  0.0600      0.1800         = yfinance    0.0900     0.0541    0.5545     -1.6635         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-10-20    0.1800  0.0600      0.1800         = yfinance       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-11-20    0.1800  0.0600      0.1800         = yfinance    0.0900     0.0486    0.6176     -1.8529         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2025-12-19    0.1800  0.0600      0.1800         = yfinance    0.0900     0.0419    0.7156     -2.1469                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   IGR 2026-01-20    0.1800  0.0600      0.1800         = yfinance    0.1600     0.0405    2.4670     -0.4934         confirms yfinance, not Alpaca    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2026-02-20    0.1800  0.0600      0.1800         = yfinance       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2026-03-20    0.1800  0.0600      0.1800         = yfinance    0.2100     0.0447    3.3520      0.6704         confirms yfinance, not Alpaca    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2026-04-20    0.1800  0.0600      0.1800         = yfinance    0.0500     0.0532   -0.1880     -2.4438                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   IGR 2026-05-20    0.1800  0.0600      0.1800         = yfinance       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2026-06-18    0.1800  0.0600      0.1800         = yfinance    0.0800     0.0557    0.3592     -1.7958         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2026-07-20    0.1800  0.0600      0.1800         = yfinance    0.0800     0.0541    0.3699     -1.8493         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   IGR 2026-08-20    0.1800  0.0600      0.1800         = yfinance    0.0400     0.0526   -0.3805     -2.6638                       confirms Alpaca          no notice                        Alpaca (NAV drop)
+   NXG 2025-01-16    0.5284  0.5400      0.5400           = Alpaca       NaN        NaN       NaN         NaN        unusable: 3 usable NAV changes          no notice                      Alpaca (CEFConnect)
+   NXG 2025-02-18    0.5284  0.5400      0.5400           = Alpaca       NaN        NaN       NaN         NaN       unusable: 23 usable NAV changes          no notice                      Alpaca (CEFConnect)
+   NXG 2025-03-17    0.5284  0.5400      0.5400           = Alpaca   -0.4300     1.2817   -0.7568     -0.7478         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   NXG 2025-04-15    0.5284  0.5400      0.5400           = Alpaca   -0.1200     1.4425   -0.4575     -0.4495         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   NXG 2025-05-15    0.5284  0.5400      0.5400           = Alpaca    0.3900     1.3024   -0.1152     -0.1062         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   NXG 2025-06-16    0.5284  0.5400      0.5400           = Alpaca    0.5000     1.1628   -0.0344     -0.0244         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   NXG 2025-07-02    0.5284  0.5400      0.5400           = Alpaca    0.0600     1.1532   -0.4162     -0.4061         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   PEO 2025-01-27    0.5300  0.5900      0.5300         = yfinance    0.6700     0.2568    0.3115      0.5451         cannot tell the sources apart contradicts Alpaca UNCONFIRMED (sponsor contradicts Alpaca)
+   UTF 2025-01-14    0.1524  0.1550      0.1550           = Alpaca   -0.1100     0.2019   -1.3122     -1.2994         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-02-11    0.1524  0.1550      0.1550           = Alpaca   -0.0100     0.2060   -0.8009     -0.7884         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-03-11    0.1524  0.1550      0.1550           = Alpaca    0.3200     0.2069    0.7973      0.8098         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-04-08    0.1524  0.1550      0.1550           = Alpaca    0.4300     0.2904    0.9469      0.9558         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-05-13    0.1524  0.1550      0.1550           = Alpaca    0.1700     0.3143    0.0477      0.0560         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-06-10    0.1524  0.1550      0.1550           = Alpaca   -0.0100     0.3182   -0.5186     -0.5105         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-07-15    0.1524  0.1550      0.1550           = Alpaca    0.3100     0.1927    0.8043      0.8177         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-08-12    0.1524  0.1550      0.1550           = Alpaca    0.0900     0.1640   -0.3964     -0.3806         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   UTF 2025-09-09    0.1524  0.1550      0.1550           = Alpaca    0.1100     0.1501   -0.2997     -0.2824         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   SCD 2025-01-24    0.1109  0.1130         NaN          no record    0.1000     0.1769   -0.0735     -0.0616         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   SCD 2025-02-21    0.1109  0.1130         NaN          no record    0.3900     0.1736    1.5958      1.6079         cannot tell the sources apart    confirms Alpaca                         Alpaca (sponsor)
+   SCD 2025-03-24    0.1178  0.1200      0.1200           = Alpaca   -0.1000     0.1946   -1.1306     -1.1191         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   SCD 2025-04-23    0.1178  0.1200      0.1200           = Alpaca    0.0100     0.3052   -0.3604     -0.3531         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+   SCD 2025-05-22    0.1178  0.1200      0.1200           = Alpaca    0.1900     0.3138    0.2231      0.2302         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+    TY 2025-06-16    0.2900  1.0520      1.0520           = Alpaca    0.7700     0.4811   -0.5862      0.9977         cannot tell the sources apart          no notice                      Alpaca (CEFConnect)
+    TY 2025-12-12    0.2710  2.3154      2.3154           = Alpaca    2.5900     0.2311    1.1881     10.0334                       confirms Alpaca          no notice                      Alpaca (CEFConnect)
+   IGA 2025-08-04       NaN  0.0850         NaN covered, no record       NaN        NaN       NaN         NaN unusable: NAV repeated on the ex-date contradicts Alpaca UNCONFIRMED (sponsor contradicts Alpaca)
+   NXG 2025-08-15       NaN  0.5400         NaN          no record    0.0700     0.6333   -0.7421      0.1105         cannot tell the sources apart contradicts Alpaca UNCONFIRMED (sponsor contradicts Alpaca)
 
   by fund and decision:
-decision  Alpaca (CEFConnect)  Alpaca (NAV drop)  UNCONFIRMED
-ticker                                                       
-ADX                         0                  1            0
-BTX                         0                  0            1
-BUI                        14                  0            0
-EMO                         6                  0            2
-IGA                         0                  0            2
-IGR                         0                  7           13
-NXG                         7                  0            1
-PEO                         0                  0            1
-SCD                         3                  0            2
-TY                          2                  0            0
-UTF                         9                  0            0
+decision  Alpaca (CEFConnect)  Alpaca (NAV drop)  Alpaca (sponsor)  UNCONFIRMED (sponsor contradicts Alpaca)
+ticker                                                                                                      
+ADX                         0                  0                 0                                         1
+BTX                         0                  0                 0                                         1
+BUI                        14                  0                 0                                         0
+EMO                         6                  0                 2                                         0
+IGA                         0                  0                 0                                         2
+IGR                         0                  7                13                                         0
+NXG                         7                  0                 0                                         1
+PEO                         0                  0                 0                                         1
+SCD                         3                  0                 2                                         0
+TY                          2                  0                 0                                         0
+UTF                         9                  0                 0                                         0
 
   CEFConnect's reading of the 71: {'= Alpaca': 41, '= yfinance': 24, 'no record': 5, 'covered, no record': 1}
   NAV-drop reading of the 71: {'cannot tell the sources apart': 50, 'confirms Alpaca': 9, 'unusable: NAV repeated on the ex-date': 4, 'matches neither': 2, 'confirms yfinance, not Alpaca': 2, 'unusable: 21 usable NAV changes': 1, 'unusable: no NAV': 1, 'unusable: 3 usable NAV changes': 1, 'unusable: 23 usable NAV changes': 1}
 
 ====================================================================================================
-CONFIRMED for Alpaca: 49 of 71 ({'Alpaca (CEFConnect)': 41, 'UNCONFIRMED': 22, 'Alpaca (NAV drop)': 8})
-HOLDOUT GATE (ruling): HALT -- 22 ex-dates no third source confirms for Alpaca: {'BTX': 1, 'EMO': 2, 'IGA': 2, 'IGR': 13, 'NXG': 1, 'PEO': 1, 'SCD': 2}
-HOLDOUT GATE (fit reviews): HALT -- two independent reviews of the fit (3be92cd) are pending
+CONFIRMED for Alpaca: 65 of 71 ({'Alpaca (CEFConnect)': 41, 'Alpaca (sponsor)': 17, 'Alpaca (NAV drop)': 7, 'UNCONFIRMED (sponsor contradicts Alpaca)': 6})
+EXCLUDED FROM THE HOLDOUT (amendment 3, a fund with any unconfirmed ex-date): ['ADX', 'BTX', 'IGA', 'NXG', 'PEO'] ({'ADX': 1, 'BTX': 1, 'IGA': 2, 'NXG': 1, 'PEO': 1}); the holdout universe is the 69 other frozen funds
+HOLDOUT GATE (fit reviews): CLEAR

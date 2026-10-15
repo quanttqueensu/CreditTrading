@@ -159,3 +159,43 @@ def test_identity_check_accepts_a_constant_rebasing_of_the_yfinance_close():
     px2 = px[px.ticker == "GOOD"].assign(close=lambda x: x["close"] * 0.999)
     tab = c4.crsp_identity(c[c.ticker == "GOOD"], px2, ["GOOD"], idx[0], idx[-1], acts=acts)
     assert tab.loc["GOOD", "identity"] == "ok" and tab.loc["GOOD", "level_share"] < 0.5
+
+
+# --- amendment 3 (2026-10-15): sponsor notices, fund exclusion, the identity tolerance ---
+
+def test_a_sponsor_contradiction_unconfirms_even_a_nav_confirmed_row():
+    nav = _nav(step=0.01)
+    d = nav.index[70]
+    nav.loc[d:, "X"] -= 0.06
+    bad = pd.DataFrame(dict(ticker=["X", "X"], date=[d, nav.index[72]], yfinance=[0.18, 0.11], alpaca=[0.06, 0.113]))
+    cc = pd.DataFrame(columns=["ticker", "ex_date", "cc_amount", "cc_records"])
+    sp = pd.DataFrame(dict(ticker=["X", "X"], ex_date=[d, nav.index[72]], verdict=["contradicts Alpaca", "confirms Alpaca"]))
+    T = c4.confirm_distributions(bad, cc, nav, {"X": set()}, sponsor=sp)
+    assert T.loc[0, "nav_reads"] == "confirms Alpaca"
+    assert T.loc[0, "decision"] == "UNCONFIRMED (sponsor contradicts Alpaca)"
+    assert T.loc[1, "decision"] == "Alpaca (sponsor)"
+    assert c4.excluded_funds(T) == ["X"]
+
+
+def test_holdout_actions_skip_excluded_funds_and_refuse_unconfirmed_rows_elsewhere():
+    acts = pd.DataFrame(dict(date=pd.to_datetime(["2025-01-27", "2025-01-21"]), ticker=["PEO", "IGR"],
+                             dividends=[0.53, 0.18], stock_splits=[0.0, 0.0]))
+    T = pd.DataFrame(dict(ticker=["PEO", "IGR"], date=pd.to_datetime(["2025-01-27", "2025-01-21"]), alpaca=[0.59, 0.06],
+                          decision=["UNCONFIRMED (sponsor contradicts Alpaca)", "Alpaca (sponsor)"]))
+    out = c4.holdout_actions(acts, T, excluded=["PEO"])
+    assert out.loc[out.ticker == "IGR", "dividends"].item() == 0.06
+    assert out.loc[out.ticker == "PEO", "dividends"].item() == 0.53      # untouched: PEO is not in the holdout
+    with pytest.raises(c4.GateError, match="not excluded"):
+        c4.holdout_actions(acts, T, excluded=[])
+
+
+def test_identity_tolerance_is_half_a_cent_of_price_on_a_low_priced_fund():
+    """A $3.80 fund: CRSP prints 3.795 where yfinance rounds to 3.80 -- 13bp, inside $0.005/price."""
+    idx = pd.bdate_range("2023-01-02", periods=200)
+    p = np.full(200, 3.76)
+    p[1::2] = 3.795
+    crsp = pd.DataFrame(dict(date=idx, ticker="GGN", prc=p, retx=pd.Series(p).pct_change().to_numpy(), shrcd=44))
+    px = pd.DataFrame(dict(date=idx, ticker="GGN", close=np.round(p + 1e-9, 2)))
+    acts = pd.DataFrame(columns=["date", "ticker", "dividends", "stock_splits"])
+    tab = c4.crsp_identity(crsp, px, ["GGN"], idx[0], idx[-1], raise_on_fail=False, acts=acts)
+    assert tab.loc["GGN", "move_share"] > 0.4                              # the 10bp floor alone would fail every move

@@ -66,6 +66,73 @@ counter's N · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 9
 >
 > The holdout also waits for two independent reviews of the fit (coordinator,
 > 2026-10-15).
+
+> **AMENDMENT 3 — Team lead, 2026-10-15 (recorded before any holdout return).**
+>
+> 1. **Sponsor notices; fund exclusion.**
+>    - For the 22 ex-dates amendment 2 left unconfirmed, the fund sponsor's own
+>      published distribution notices are **also** a third source: press
+>      releases and Section 19(a) notices, from EDGAR or the sponsor's site,
+>      fetched and cited with URLs.
+>    - **Any fund that still has an unconfirmed holdout ex-date is excluded
+>      from the holdout entirely, as a fund.**
+>    - The citations, each quote verified in its fetched document, are
+>      `results/cef/c4/c4_sponsor_notices_2026-10-15.csv`
+>      (`scripts/data/fetch_sponsor_notices.py`).
+>    - **The excluded funds, fixed now: ADX, BTX, IGA, NXG, PEO**
+>      (`c4_holdout_exclusions_2026-10-15.json`). The holdout book is the
+>      declared rule on the other 69 frozen funds.
+> 2. **Identity check.** A daily move agrees with CRSP's if it is within
+>    max(10bp, $0.005 / price), for every fund, in both the fit and the
+>    holdout.
+> 3. **§4.5's ordering rule is read strictly**: "fixed before any P&L" means
+>    before any P&L at all. Trial 52 carries a recorded deviation: BTX's
+>    Stage-0 flags were cleared after the fit P&L was computed. Two
+>    independent reviews showed BTX had zero weight in the fit, so no fit
+>    number is affected.
+> 4. **The two fit reviews are done**, and the gate is cleared:
+>    - the re-derivation confirmed every fit number exactly;
+>    - the adversarial review found the fit likely real as a gross price
+>      effect, with about a third of the P&L in the ex-date window [0,2].
+> 5. **One added holdout row, "designed after seeing fit numbers; report-only;
+>    can never kill or rescue".** It splits the holdout P&L into held
+>    fund-days in the ex-date window [0,2] and the rest.
+>
+> **This run's readings, fixed here before any holdout return** (each is the
+> team lead's to overrule):
+>
+> - **"Confirms" means confirms Alpaca's amount and date**, as in the
+>   2026-10-14 ruling. A sponsor notice that states yfinance's amount or date
+>   does not keep the fund.
+>   - Sponsor notices confirm 17 of the 22: IGR 13, EMO 2, SCD 2.
+>   - They contradict 5: IGA 2 (ex-date 2025-08-01, not Alpaca's 08-04), BTX
+>     (a distribution on 2025-01-15 that Alpaca lacks), NXG (ex-date moved to
+>     2025-08-04; Alpaca's 08-15 row is a stale duplicate) and PEO ($0.53, not
+>     $0.59).
+>   - **ADX** (2025-01-27) was confirmed by the NAV drop, but Adams' own notice
+>     states $0.47 against Alpaca's $0.63, and CEFConnect agrees with Adams. A
+>     sponsor contradiction is read as overriding the NAV drop, so ADX is
+>     unconfirmed and excluded.
+> - **The ex-date window [0,2]:**
+>   - a held fund-day (t, i) is in the window when t is fund i's ex-date
+>     session or one of the next two sessions;
+>   - its P&L is H.shift(2)[t, i] · R[t, i];
+>   - ex-dates for 2023–24 come from CRSP (`ret` ≠ `retx`), and for 2025–26
+>     from the ruled distribution calendar (yfinance's actions with the
+>     confirmed Alpaca amounts).
+>   - On the fit (CRSP ex-dates) this puts **33.1%** of the P&L in the window,
+>     which matches the reviewer's "about a third". It is reported only.
+> - **Stage 9** (net Sharpe at 15bp > 0) is read on both the fit and the
+>   holdout. The D2 label applies if either is ≤ 0; the document does not name
+>   the window, and this is the stricter reading.
+> - **Reported beside the holdout, never deciding:**
+>   - the uncorrected yfinance version (all 74 funds, yfinance's own
+>     distributions, IGR's two fill days as ruled);
+>   - R-68 (the approved 68 less the excluded funds);
+>   - R-ADX (ADX kept with Alpaca's NAV-confirmed $0.63: the mechanical
+>     reading of amendment 2);
+>   - the correlation with the book over the holdout;
+>   - the ex-date split.
 >
 > **Nothing has run.** No discount z-score, position, P&L, Sharpe, IC,
 > turnover or correlation of any family fund was computed to write this. The

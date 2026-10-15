@@ -148,8 +148,23 @@ DIST_TABLE = OUT_DIR / f"c4_distribution_confirmation_{DIST_STAMP}.csv"
 NAV_K, NAV_WIN, NAV_MIN_OBS = 2.0, 63, 40
 CC_ABSENCE_WINDOW_DAYS = 31        # CEFConnect can confirm "no distribution" only inside its own coverage
 # The coordinator, 2026-10-15: the holdout opens only after two independent reviews of the fit
-# (3be92cd) confirm it. Set True, with the reviews named, in the commit that records them.
-FIT_REVIEWS_CONFIRMED = False
+# (3be92cd) confirm it. CONFIRMED 2026-10-15 (team lead, PREREG amendment 3): the independent
+# re-derivation reproduced every fit number exactly; the adversarial (beta-detector) review found
+# the fit likely real as a gross price effect, with about a third of the P&L in the ex-date
+# window [0,2].
+FIT_REVIEWS_CONFIRMED = True
+# Team lead, 2026-10-15 (PREREG amendment 3), ruling 1: the fund sponsor's own published
+# distribution notices (press releases, Section 19(a) notices; EDGAR or the sponsor's site,
+# fetched and cited with URLs) are ALSO a third source; a fund with any holdout ex-date still
+# unconfirmed is EXCLUDED FROM THE HOLDOUT ENTIRELY, as a fund. This run's reading, fixed before
+# any holdout return: a sponsor notice that CONTRADICTS Alpaca's amount or date leaves the row
+# unconfirmed whatever the NAV drop says (ADX 2025-01-27: Adams states $0.47; Alpaca $0.63).
+SPONSOR_VERIFIED = CACHE / "sponsor_notices_verified.parquet"
+SPONSOR_CITATIONS = OUT_DIR / "c4_sponsor_notices_2026-10-15.csv"
+EXCLUSIONS_JSON = OUT_DIR / "c4_holdout_exclusions_2026-10-15.json"
+HOLDOUT_OUT = OUT_DIR / "c4_holdout_output_2026-10-15.txt"
+HOLDOUT_JSON = OUT_DIR / "c4_holdout_verdict_2026-10-15.json"
+EX_WINDOW = (0, 2)          # sessions from each ex-date: the beta-detector's [0,2] (amendment 3; report-only row)
 
 
 class GateError(RuntimeError):
@@ -239,7 +254,10 @@ def qqqx_rule(crsp: pd.DataFrame, px: pd.DataFrame) -> dict:
                 pred_last=q["date"].max())
 
 
-IDENTITY_MIN_AGREE, IDENTITY_TOL = 0.99, 0.001      # the review of 3be92cd, 2026-10-15: 10bp, >= 99%
+IDENTITY_MIN_AGREE, IDENTITY_TOL, IDENTITY_TICK = 0.99, 0.001, 0.005
+# 2026-10-15: >= 99% of days within 10bp (the review of 3be92cd); team lead, 2026-10-15 (amendment 3,
+# ruling 2): a day agrees within max(10bp, $0.005 / price), for every fund, fit and holdout, so a
+# half-cent CRSP print against a cent-rounded yfinance close on a sub-$5 fund is not a disagreement.
 CEF_SHRCD = {14, 44}
 
 
@@ -250,9 +268,10 @@ def crsp_identity(c: pd.DataFrame, px: pd.DataFrame, cols, lo, hi, raise_on_fail
 
     Over [lo, hi], for every fund in `cols` with CRSP rows there:
       * every row's share code is a CEF's (14, 44);
-      * the daily PRICE MOVE agrees: |yfinance close_t / close_t-1 - 1 - CRSP retx_t| <= 10bp on
-        at least 99% of common days (CRSP closing prints on t and t-1). This is the reviewer's
-        metric. It compares the price path, so a constant re-basing of yfinance's close (GLV's
+      * the daily PRICE MOVE agrees: |yfinance close_t / close_t-1 - 1 - CRSP retx_t| <=
+        max(10bp, $0.005 / CRSP print at t-1) on at least 99% of common days (CRSP closing prints
+        on t and t-1). The reviewer's 10bp, widened by the team lead's ruling of 2026-10-15 to
+        half a cent of price. It compares the price path, so a constant re-basing of yfinance's close (GLV's
         is 0.999 x CRSP's print through 2019) does not read as another security, and a wrong
         security (BTX's old map: 0 of 446) fails at once.
     Reported beside it, never deciding: the share of days the close LEVEL agrees within $0.005
@@ -277,7 +296,8 @@ def crsp_identity(c: pd.DataFrame, px: pd.DataFrame, cols, lo, hi, raise_on_fail
         F = split_factor(lv[["ticker", "date"]], acts).to_numpy()
         lok = ((lv["c"] - lv["p"]).abs() <= 0.005) | ((lv["c"] - lv["p"] / F).abs() <= 0.005 / np.minimum(1.0, F))
         sc = w.loc[w["ticker"] == t, "shrcd"]
-        rows.append(dict(ticker=t, move_days=len(rr), move_share=float(((rr["y"] - rr["x"]).abs() <= IDENTITY_TOL).mean())
+        tol = np.maximum(IDENTITY_TOL, IDENTITY_TICK / rr["pp"])
+        rows.append(dict(ticker=t, move_days=len(rr), move_share=float(((rr["y"] - rr["x"]).abs() <= tol).mean())
                          if len(rr) else np.nan, level_days=len(lv), level_share=float(lok.mean()) if len(lv) else np.nan,
                          shrcd=" ".join(str(int(v)) for v in sorted(set(sc.dropna()))) + (" missing" if sc.isna().any() else "")))
     tab = pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame(
@@ -287,7 +307,7 @@ def crsp_identity(c: pd.DataFrame, px: pd.DataFrame, cols, lo, hi, raise_on_fail
     tab["identity"] = ["FAIL" if (t in bad_sc or t in bad_mv) else "ok" for t in tab.index]
     if (bad_sc or bad_mv) and raise_on_fail:
         raise GateError(f"CRSP identity check {pd.Timestamp(lo).date()}..{pd.Timestamp(hi).date()}: share code not a "
-                        f"CEF's {bad_sc}; daily price move within {IDENTITY_TOL * 1e4:.0f}bp on < "
+                        f"CEF's {bad_sc}; daily price move within max(10bp, $0.005/price) on < "
                         f"{IDENTITY_MIN_AGREE:.0%} of days {[(t, round(tab.loc[t, 'move_share'], 4)) for t in bad_mv]}")
     return tab
 
@@ -544,6 +564,23 @@ def book_series() -> dict:
 
 # --------------------------------------------------------------------------- stage 0
 
+def noop_hashes() -> tuple[str, str]:
+    """sha256 of pickle.dumps(build_targets()) on this tree's harness and on the harness at 9d1d9ab
+    (git show), each the first call in a fresh process, both on the live panel as it is now."""
+    old = CACHE / "band_frontier_9d1d9ab.py"
+    CACHE.mkdir(parents=True, exist_ok=True)
+    old.write_text(subprocess.run(["git", "show", "9d1d9ab:scripts/cef/band_frontier.py"], cwd=REPO,
+                                  capture_output=True, text=True, check=True).stdout)
+    new_code = ("import sys,pickle,hashlib; sys.path.insert(0,'.'); from scripts.cef.band_frontier import "
+                "build_targets; print(hashlib.sha256(pickle.dumps(build_targets())).hexdigest())")
+    old_code = ("import sys,pickle,hashlib; sys.path.insert(0,'.'); g={'__name__':'bf_old','__file__':"
+                f"'{REPO / 'scripts/cef/band_frontier.py'}'}}; exec(compile(open('{old}').read(),g['__file__'],'exec'),g); "
+                "print(hashlib.sha256(pickle.dumps(g['build_targets']())).hexdigest())")
+    run = lambda c: subprocess.run([sys.executable, "-c", c], cwd=REPO, capture_output=True, text=True,  # noqa: E731
+                                   check=True).stdout.strip().splitlines()[-1]
+    return run(new_code), run(old_code)
+
+
 def stage0() -> int:
     from scripts.cef import band_frontier as bf
     from scripts.cef.c4_feasibility import (FRESH_NAV_FAMILIES, eligibility, era_rows, first_active,
@@ -551,19 +588,22 @@ def stage0() -> int:
     from scripts.cef.spec import MIN_ADV_USD, MIN_NAMES, Z_WINDOW, summary
     fit_halts, ho_halts, notes = [], [], []
 
-    # DG-C4-2 first, in a fresh process, before anything else builds a frame (hash protocol)
-    h = hashlib.sha256(pickle.dumps(bf.build_targets())).hexdigest()
+    # DG-C4-2: the no-op, RE-PROVED on today's live panel (2026-10-15: the panel was refreshed at
+    # 16:24 and the stored pre-edit hash went stale). Each hash is the first call in a fresh process,
+    # one on this tree's harness and one on the unmodified harness at 9d1d9ab, on the same data.
+    h, h_old = noop_hashes()
     sig = {f: list(inspect.signature(getattr(bf, f)).parameters)
            for f in ("build_panel", "build_targets", "total_returns")}
     print(summary())
     print(f"C4 STAGE 0 (zero trials), run {dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%M} UTC; "
           f"holdout end fixed at {HOLDOUT_END.date()}; the team lead's rulings of 2026-10-14 encoded")
     print("\n[DG-C4-2] harness arguments:", sig)
-    print(f"  sha256(pickle.dumps(build_targets())) first call: {h}")
-    print(f"  recorded on the unmodified harness (9d1d9ab):       {NOOP_SHA_PRE_EDIT}")
-    if h != NOOP_SHA_PRE_EDIT:
-        fit_halts.append("DG-C4-2: default-path hash differs from the pre-edit hash (re-prove the no-op)")
-    print("  ->", "PASS (byte-for-byte no-op on the default path)" if h == NOOP_SHA_PRE_EDIT else "FAIL")
+    print(f"  sha256(pickle.dumps(build_targets())), first call, fresh process, today's live panel: this tree {h}")
+    print(f"                                                                    unmodified harness (9d1d9ab) {h_old}")
+    print(f"  (the hash recorded on 2026-10-14 on that day's panel: {NOOP_SHA_PRE_EDIT})")
+    if h != h_old:
+        fit_halts.append("DG-C4-2: the extended harness's default path differs from the unmodified harness's")
+    print("  ->", "PASS (byte-for-byte no-op on the default path)" if h == h_old else "FAIL")
 
     # DG-C4-4: the frozen universe (ruling 1); no re-read
     U = universes()
@@ -589,7 +629,7 @@ def stage0() -> int:
           f"{'USED' if qr['use_predecessor'] else 'NOT used; QQQX enters at ' + str(qr['current_first'].date())}")
 
     # the CRSP identity check (2026-10-15, after the review of 3be92cd found BTX on a biotech's permno)
-    print(f"  CRSP identity, the review's metric (daily price move vs CRSP retx within {IDENTITY_TOL * 1e4:.0f}bp on "
+    print(f"  CRSP identity (daily price move vs CRSP retx within max(10bp, $0.005/price) on "
           f">= {IDENTITY_MIN_AGREE:.0%} of days, CEF share code); BTX on permno 20674 (BIGZ), the map's 76963 overridden:")
     idt = []
     for wl, lo, hi, halts in (("fit", SAMPLE_START, FIT_END, fit_halts),
@@ -719,12 +759,10 @@ def stage0() -> int:
                                     "`c4_families.py distributions` (the 2026-10-14 ruling)")
                 else:
                     T = pd.read_csv(DIST_TABLE, parse_dates=["date"])
-                    un = T[T["decision"] == "UNCONFIRMED"]
-                    print(f"  ruling of 2026-10-14 ({DIST_TABLE.name}): {len(T) - len(un)} of {len(T)} confirmed for "
-                          f"Alpaca {T['decision'].value_counts().to_dict()}")
-                    if len(un):
-                        ho_halts.append(f"distribution ruling: {len(un)} ex-dates no third source confirms "
-                                        f"{un.groupby('ticker').size().to_dict()}")
+                    ex = excluded_funds(T)
+                    print(f"  rulings of 2026-10-14 and 2026-10-15 ({DIST_TABLE.name}): "
+                          f"{int((~T['decision'].str.startswith('UNCONFIRMED')).sum())} of {len(T)} confirmed for Alpaca "
+                          f"{T['decision'].value_counts().to_dict()}; funds excluded from the holdout (amendment 3): {ex}")
     if not FIT_REVIEWS_CONFIRMED:
         ho_halts.append("two independent reviews of the fit (3be92cd) have not yet confirmed it")
 
@@ -743,7 +781,7 @@ def stage0() -> int:
 # --------------------------------------------------------------------------- the distribution ruling
 
 def confirm_distributions(bad: pd.DataFrame, cc: pd.DataFrame, nav: pd.DataFrame,
-                          ex_dates: dict) -> pd.DataFrame:
+                          ex_dates: dict, sponsor: pd.DataFrame | None = None) -> pd.DataFrame:
     """The 2026-10-14 ruling, one row per disagreeing (fund, ex-date). Pure.
 
     bad      `ticker date yfinance alpaca` (NaN = that source has no distribution that day)
@@ -755,7 +793,12 @@ def confirm_distributions(bad: pd.DataFrame, cc: pd.DataFrame, nav: pd.DataFrame
     and ex-date equals Alpaca's within DIV_TOL (for an Alpaca absence: CEFConnect has records
     within CC_ABSENCE_WINDOW_DAYS on both sides and none that day); else 'Alpaca (NAV drop)'
     under the NAV_K rule; else 'UNCONFIRMED' (the holdout halts). CEFConnect's own reading is
-    recorded either way ('= Alpaca', '= yfinance', 'neither', 'no record')."""
+    recorded either way ('= Alpaca', '= yfinance', 'neither', 'no record').
+
+    `sponsor` (amendment 3, 2026-10-15): verified citations `ticker ex_date verdict` from the
+    fund sponsor's own notices. A row no earlier source confirms becomes 'Alpaca (sponsor)' if a
+    sponsor notice confirms it. A sponsor notice that CONTRADICTS Alpaca makes the row
+    'UNCONFIRMED (sponsor contradicts Alpaca)' whatever CEFConnect or the NAV drop said."""
     out = []
     for r in bad.itertuples(index=False):
         A = 0.0 if pd.isna(r.alpaca) else float(r.alpaca)
@@ -791,24 +834,41 @@ def confirm_distributions(bad: pd.DataFrame, cc: pd.DataFrame, nav: pd.DataFrame
                     nav_read = ("confirms Alpaca" if abs(za) <= NAV_K and abs(zy) > NAV_K else
                                 "cannot tell the sources apart" if abs(za) <= NAV_K else
                                 "confirms yfinance, not Alpaca" if abs(zy) <= NAV_K else "matches neither")
-        decision = ("Alpaca (CEFConnect)" if cc_ok else
-                    "Alpaca (NAV drop)" if nav_read == "confirms Alpaca" else "UNCONFIRMED")
+        sp = (sponsor[(sponsor["ticker"] == r.ticker) & (sponsor["ex_date"] == r.date)]
+              if sponsor is not None else pd.DataFrame(columns=["verdict"]))
+        sp_read = ("contradicts Alpaca" if (sp["verdict"] == "contradicts Alpaca").any() else
+                   "confirms Alpaca" if (sp["verdict"] == "confirms Alpaca").any() else "no notice")
+        if sp_read == "contradicts Alpaca":
+            decision = "UNCONFIRMED (sponsor contradicts Alpaca)"
+        else:
+            decision = ("Alpaca (CEFConnect)" if cc_ok else
+                        "Alpaca (NAV drop)" if nav_read == "confirms Alpaca" else
+                        "Alpaca (sponsor)" if sp_read == "confirms Alpaca" else "UNCONFIRMED")
         out.append(dict(ticker=r.ticker, date=r.date, yfinance=r.yfinance, alpaca=r.alpaca, cefconnect=ccv,
                         cefconnect_reads=cc_read, nav_drop=drop, nav_sigma=sigma, z_alpaca=za, z_yfinance=zy,
-                        nav_reads=nav_read, decision=decision))
+                        nav_reads=nav_read, sponsor_reads=sp_read, decision=decision))
     return pd.DataFrame(out)
 
 
-def holdout_actions(yf_actions: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
-    """The yfinance actions with the ruling applied: on each confirmed row Alpaca's amount
+def excluded_funds(table: pd.DataFrame) -> list:
+    """Amendment 3: every fund with any unconfirmed disagreeing ex-date leaves the holdout. Pure."""
+    return sorted(set(table.loc[table["decision"].str.startswith("UNCONFIRMED"), "ticker"]))
+
+
+def holdout_actions(yf_actions: pd.DataFrame, table: pd.DataFrame, excluded=None) -> pd.DataFrame:
+    """The yfinance actions with the rulings applied: on each confirmed row Alpaca's amount
     replaces yfinance's (0 removes a yfinance-only distribution; a date Alpaca alone carries is
-    added). Splits untouched. Raises on any UNCONFIRMED row: the holdout halts. Pure."""
-    if (table["decision"] == "UNCONFIRMED").any():
-        raise GateError(f"holdout halt (ruling 2026-10-14): {int((table['decision'] == 'UNCONFIRMED').sum())} "
-                        "disagreeing ex-dates no third source confirms")
+    added). Splits untouched. An UNCONFIRMED row is allowed only in an `excluded` fund (amendment
+    3); otherwise it raises, because the holdout cannot use it. Rows of excluded funds are not
+    applied: those funds are not in the holdout. Pure."""
+    excluded = set(excluded or ())
+    un = table[table["decision"].str.startswith("UNCONFIRMED") & ~table["ticker"].isin(excluded)]
+    if len(un):
+        raise GateError(f"holdout halt: {len(un)} unconfirmed ex-dates in funds not excluded "
+                        f"{sorted(set(un['ticker']))}")
     a = yf_actions.copy()
     a["date"] = pd.to_datetime(a["date"])
-    for r in table.itertuples(index=False):
+    for r in table[~table["ticker"].isin(excluded)].itertuples(index=False):
         A = 0.0 if pd.isna(r.alpaca) else float(r.alpaca)
         m = (a["ticker"] == r.ticker) & (a["date"] == r.date)
         if m.sum() > 1:
@@ -858,21 +918,32 @@ def distributions() -> int:
     print(f"  calibration: on the {len(j)} ex-dates where yfinance and Alpaca agree, CEFConnect agrees on {agree}, "
           f"differs on {int(((j['cc_amount'] - j['alp']).abs() > DIV_TOL).sum())}, has no record on "
           f"{int(j['cc_amount'].isna().sum())}")
-    T = confirm_distributions(bad, cc, navp, exd)
+    sp = pd.read_parquet(_need(SPONSOR_VERIFIED, "python3 scripts/data/fetch_sponsor_notices.py"))
+    if not sp["quote_found"].all():
+        raise GateError("a sponsor citation's quote was not found in its document")
+    sp["ex_date"] = pd.to_datetime(sp["ex_date"])
+    print(f"  sponsor notices (amendment 3): {len(sp)} verified citations from {sp['url'].nunique()} documents, "
+          f"fetched {sp['fetched_utc'].iloc[0]} ({SPONSOR_CITATIONS.name}); every quote found in its document")
+    T = confirm_distributions(bad, cc, navp, exd, sponsor=sp[["ticker", "ex_date", "verdict"]])
     T.to_csv(DIST_TABLE, index=False)
+    ex = excluded_funds(T)
+    EXCLUSIONS_JSON.write_text(json.dumps(dict(
+        rule="PREREG amendment 3 (team lead, 2026-10-15): a fund with any unconfirmed disagreeing ex-date is "
+             "excluded from the holdout entirely", excluded=ex,
+        reasons={t: T.loc[(T["ticker"] == t) & T["decision"].str.startswith("UNCONFIRMED"),
+                          ["date", "decision"]].assign(date=lambda x: x["date"].dt.date.astype(str)).values.tolist()
+                 for t in ex}), indent=1))
     pd.set_option("display.width", 250)
     print("\n" + T.assign(date=T["date"].dt.date).to_string(index=False, float_format=lambda x: f"{x:.4f}"))
     print("\n  by fund and decision:")
     print(T.groupby(["ticker", "decision"]).size().unstack(fill_value=0).to_string())
     print("\n  CEFConnect's reading of the 71:", T["cefconnect_reads"].value_counts().to_dict())
     print("  NAV-drop reading of the 71:", T["nav_reads"].value_counts().to_dict())
-    n_un = int((T["decision"] == "UNCONFIRMED").sum())
+    un = T[T["decision"].str.startswith("UNCONFIRMED")]
     print("\n" + "=" * 100)
-    print(f"CONFIRMED for Alpaca: {int((T['decision'] != 'UNCONFIRMED').sum())} of {len(T)} "
-          f"({T['decision'].value_counts().to_dict()})")
-    print(f"HOLDOUT GATE (ruling): {'HALT' if n_un else 'CLEAR'}"
-          + (f" -- {n_un} ex-dates no third source confirms for Alpaca: "
-             f"{T[T['decision'] == 'UNCONFIRMED'].groupby('ticker').size().to_dict()}" if n_un else ""))
+    print(f"CONFIRMED for Alpaca: {len(T) - len(un)} of {len(T)} ({T['decision'].value_counts().to_dict()})")
+    print(f"EXCLUDED FROM THE HOLDOUT (amendment 3, a fund with any unconfirmed ex-date): {ex or 'none'} "
+          f"({un.groupby('ticker').size().to_dict()}); the holdout universe is the {len(UF) - len(ex)} other frozen funds")
     print(f"HOLDOUT GATE (fit reviews): {'CLEAR' if FIT_REVIEWS_CONFIRMED else 'HALT -- two independent reviews of the fit (3be92cd) are pending'}")
     return 0
 
