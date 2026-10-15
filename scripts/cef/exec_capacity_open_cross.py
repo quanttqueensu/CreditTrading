@@ -563,7 +563,16 @@ def fetch(argv=None) -> int:
     from scripts.cef.spec import UNIVERSE
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-fit", action="store_true")
+    # --skip-recent (added 2026-10-14, trial C5 DG-C5-5): fetch ONLY the 2016-22
+    # sample. The recent window's auction prints (the last RECENT_SESSIONS
+    # sessions) lie inside C5's sealed 2023-01-03 -> 2026-09-30 holdout, whose
+    # opening prints PREREG_C5 DG-C5-6 says are read only after the fit verdict
+    # is committed; the trial's cost rows need the fit sample alone. Default off:
+    # without the flag this fetch is byte-for-byte what the EXEC note ran.
+    ap.add_argument("--skip-recent", action="store_true")
     a = ap.parse_args(argv)
+    if a.skip_fit and a.skip_recent:
+        raise SystemExit("--skip-fit with --skip-recent fetches nothing")
     syms = sorted(UNIVERSE)
     c = _client()
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -574,21 +583,22 @@ def fetch(argv=None) -> int:
            pd.Timedelta(minutes=20) < now]
     pd.DataFrame([{"date": r["date"].isoformat(), "open": r["open"], "close": r["close"]}
                   for r in cal]).to_parquet(CACHE / "calendar.parquet", index=False)
-    recent = cal[-(RECENT_SESSIONS + 1):]            # one extra: the first day's prior close
-    print(f"recent window {recent[1]['date']}..{recent[-1]['date']} ({len(recent) - 1} sessions)")
-    A = fetch_auctions(c, syms, recent[0]["date"], recent[-1]["date"])
-    pd.DataFrame(A).to_parquet(CACHE / "auctions_recent.parquet", index=False)
-    by_day = {}
-    for r in A:
-        by_day.setdefault(r["date"], {}).setdefault(r["ticker"], {"o": [], "c": []})[
-            "o" if r["side"] == "open" else "c"].append(r)
-    # daily volume, for the cross's share of the day
-    bars = _window(c, "/v2/stocks/bars", "bars", syms, et(recent[1]["date"], dt.time(0, 0)),
-                   et(recent[-1]["date"], dt.time(16, 30)), {"timeframe": "1Day", "adjustment": "raw"})
-    pd.DataFrame([dict(ticker=s, date=pd.Timestamp(b["t"]).tz_convert(NY).date().isoformat(),
-                       v=float(b["v"]), c=float(b["c"])) for s, v in bars.items() for b in v]
-                 ).to_parquet(CACHE / "bars_recent.parquet", index=False)
-    days = [(r, "recent") for r in recent[1:]]
+    days, by_day = [], {}
+    if not a.skip_recent:
+        recent = cal[-(RECENT_SESSIONS + 1):]            # one extra: the first day's prior close
+        print(f"recent window {recent[1]['date']}..{recent[-1]['date']} ({len(recent) - 1} sessions)")
+        A = fetch_auctions(c, syms, recent[0]["date"], recent[-1]["date"])
+        pd.DataFrame(A).to_parquet(CACHE / "auctions_recent.parquet", index=False)
+        for r in A:
+            by_day.setdefault(r["date"], {}).setdefault(r["ticker"], {"o": [], "c": []})[
+                "o" if r["side"] == "open" else "c"].append(r)
+        # daily volume, for the cross's share of the day
+        bars = _window(c, "/v2/stocks/bars", "bars", syms, et(recent[1]["date"], dt.time(0, 0)),
+                       et(recent[-1]["date"], dt.time(16, 30)), {"timeframe": "1Day", "adjustment": "raw"})
+        pd.DataFrame([dict(ticker=s, date=pd.Timestamp(b["t"]).tz_convert(NY).date().isoformat(),
+                           v=float(b["v"]), c=float(b["c"])) for s, v in bars.items() for b in v]
+                     ).to_parquet(CACHE / "bars_recent.parquet", index=False)
+        days = [(r, "recent") for r in recent[1:]]
     if not a.skip_fit:
         fit = [r for r in cal if pd.Timestamp(FIT_FIRST) <= pd.Timestamp(r["date"]) <= pd.Timestamp(FIT_END)]
         days += [(r, "fit") for r in fit[::FIT_SAMPLE_EVERY]]
@@ -636,19 +646,26 @@ def _need(p: Path, how: str) -> Path:
     return p
 
 
-def sample_days() -> dict:
+def sample_days(eras=("fit", "recent")) -> dict:
     """{date: era} for exactly the declared sample: the last RECENT_SESSIONS
     sessions of the cached calendar, and every FIT_SAMPLE_EVERY-th fit-period
     session from FIT_FIRST. The cache may hold more (an earlier, denser sample);
-    only these are read."""
+    only these are read. `eras` (added 2026-10-14 for trial C5, default both:
+    unchanged) restricts it to one sample, e.g. ("fit",) after
+    `fetch --skip-recent`."""
     cal = list(pd.read_parquet(_need(CACHE / "calendar.parquet", "... fetch")).date)
     fit = [d for d in cal if FIT_FIRST <= d <= FIT_END][::FIT_SAMPLE_EVERY]
-    return {**{d: "fit" for d in fit}, **{d: "recent" for d in cal[-RECENT_SESSIONS:]}}
+    out = {}
+    if "fit" in eras:
+        out.update({d: "fit" for d in fit})
+    if "recent" in eras:                     # as before: a date in both samples is read as recent
+        out.update({d: "recent" for d in cal[-RECENT_SESSIONS:]})
+    return out
 
 
-def load_days() -> dict:
+def load_days(eras=("fit", "recent")) -> dict:
     d = _need(CACHE / "days", "python3 scripts/cef/exec_capacity_open_cross.py fetch")
-    want = sample_days()
+    want = sample_days(eras)
     missing = [x for x in want if not (d / f"{x}.json").exists()]
     if missing:
         raise FileNotFoundError(f"{len(missing)} sample session(s) not cached (first {missing[:3]}); "

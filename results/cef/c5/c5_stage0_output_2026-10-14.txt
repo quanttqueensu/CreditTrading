@@ -1,0 +1,151 @@
+# python3 scripts/cef/c5_open_auction.py stage0  (run 2026-10-14; counts, gates, hashes; no P&L)
+C5 (CEF trial 51) STAGE 0, run 2026-10-14 21:41Z. Counts, gates and hashes only; no return is combined into a P&L.
+
+====================================================================================================
+[0] DG-C5-2: THE SPEC PIN, THE HARNESS CONSTANTS AND N
+====================================================================================================
+sha256 ops/specs/cef_discount.frozen.json = c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e
+pinned                                   = c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e
+values read through scripts/cef/spec.py and band_frontier: {'spec_id': 'cef_discount.v7.20260928', 'band_width': 0.048, 'max_gross_stress': 1.8, 'z_window': 252, 'min_adv_usd': 3000000.0, 'min_names': 6, 'vol_target': 0.06, 'n_names': 13, 'capital_usd': 100000.0, 'order_type': 'MOC', 'MIN_PERIODS': 120, 'VOL_LOOKBACK': 63, 'SAMPLE_START': '2005-01-03'}
+CEF counter (docs/RESEARCH_STATE.md, read through ops.orient.trials): N = 52, bar sqrt(2 ln N) = 2.811; the approval judges C5 at N = 52
+DG-C5-2: PASS
+
+cef_prices last date 2026-09-28; rows to 2022-12-30 only. Decision window 2016-01-04..2022-12-30: 1762 sessions.
+
+====================================================================================================
+[1] DG-C5-1: THE OPENING PRINTS AND THE DECLARED PRICE RULE (§4.2), RE-COUNTED
+====================================================================================================
+opening-print cache: 38,636 rows, 2016-01-04..2022-12-30, fetched 2026-10-14T21:21:09Z
+rows by exchange/condition: {('D', 'O'): 28, ('N', 'O'): 21601, ('N', 'Q'): 5342, ('P', 'O'): 726, ('P', 'Q'): 5403, ('T', 'O'): 114, ('T', 'Q'): 5422}
+
+count                                                                      today  2026-10-13 [S]
+panel name-days 2016-22 with a close                                      21,628          21,628
+  with an NYSE 'O' print                                                  21,598          21,598
+  'Q' only (no round-lot cross)                                                1               1
+  neither                                                                     29              29
+O and Q both present                                                       5,341           5,341
+D-2: |O - Q| > $0.005                                                          0               0
+D-3: O off both consolidated opens AND outside the day's range                 0               0
+D-4: two O (or Q) prints on one N name-day                                     0               0
+flagged, NOT a defect: O outside the range, one consolidated open agreeing       4               4
+
+by evaluation set, decision window (a trade decided at s-1 fills at the open of s)
+              material   D-1   D-1 % D-1 notl %   D-3   D-3 %   D-5   D-5 %  no-cross   2026-10-13 [S]: material / D-1 / D-5
+WIDE             6,456     9   0.14%      0.15%     0   0.00%     0   0.00%         9   6,456 / 9 / 0
+deployed         1,763     3   0.17%      0.31%     0   0.00%     0   0.00%         3   1,763 / 3 / 0
+
+halt rules (§4.2): NONE FIRED
+
+====================================================================================================
+[2] §4.5: DEFECTS OUTSIDE THE DECLARED CLASSES (any one halts before P&L)
+====================================================================================================
+(a) opening prints at an impossible price (<= 0 or non-finite): 0
+(b) name-days with |C/O - 1| >= 50% (the harness's filter): 0; the five largest |C/O - 1| (information, not defects under the declared rule):
+      2020-03-18 JFR: 21.01%; O vs yfinance open agree True, vs CRSP openprc True
+      2020-03-19 DSL: 20.13%; O vs yfinance open agree True, vs CRSP openprc True
+      2020-03-19 PFN: 18.26%; O vs yfinance open agree True, vs CRSP openprc True
+      2020-03-18 DSL: 16.94%; O vs yfinance open agree False, vs CRSP openprc False
+      2020-03-18 PFN: 16.02%; O vs yfinance open agree True, vs CRSP openprc True
+(c) NYSE closing prints repeated at one price (counted, not defects): {'M': ['2021-12-31']}
+(c) the panel close against CRSP prc and the NYSE closing print (M where published, else 6), name-days with all three: 20,392 of 21,628 (CRSP prc < 0, i.e. no closing trade: 0)
+    close off CRSP prc by > $0.005: 26; off the NYSE print: 701
+    off BOTH by > $0.005                         all name-days  WIDE material  WIDE any  deployed material  deployed any
+    strict (stored float32)                                 22              9        11                  0             0
+    robust (an exact half cent agrees)                       1              1         1                  0             0
+    every such name-day (strict), in cents (no price level is printed: CRSP is licensed data):
+      date        name   close-CRSP close-NYSE print  robust  WIDE trade  deployed trade
+      2016-10-18  JFR         +0.50      +1.00     6      no    material               -
+      2017-06-21  MHD         +3.00      +3.00     6     yes    material               -
+      2017-08-02  MQY         +0.50      -4.00     6      no    material               -
+      2018-03-12  PCN         +0.50      -3.00     6      no    material               -
+      2018-05-07  HYT         +0.50      +1.00     6      no           -               -
+      2018-07-03  MQY         +0.50      +1.00     6      no           -               -
+      2018-08-13  MQY         +0.50      +2.00     6      no           -               -
+      2018-09-21  MQY         +0.50      +1.00     6      no    material               -
+      2018-10-04  JFR         +0.50      +2.00     6      no           -               -
+      2018-11-16  MQY         +0.50      +3.00     6      no    material               -
+      2018-11-19  MQY         +0.50      +1.00     6      no    material               -
+      2021-04-07  MHD         +0.50      +0.50     M      no           -               -
+      2021-05-05  DSL         +0.50      +0.50     M      no    material               -
+      2021-11-22  PCN         +0.50      +0.50     M      no           -               -
+      2022-06-14  PHK         +0.50      +0.50     M      no           -               -
+      2022-08-19  PCN         +0.50      +0.50     M      no       small               -
+      2022-11-03  PFN         +0.50      +0.50     M      no           -               -
+      2022-11-04  PHK         +0.50      +0.50     M      no           -               -
+      2022-11-15  PHK         +0.50      +0.50     M      no       small               -
+      2022-11-23  MHD         +0.50      +0.50     M      no    material               -
+      2022-12-13  JFR         +0.50      +0.50     M      no           -               -
+      2022-12-19  PHK         +0.50      +0.50     M      no           -               -
+
+halt rules (§4.5): §4.5(c): 1 panel close(s) disagree with both CRSP prc and the NYSE closing print by more than $0.005 (robust count; 22 strict), of which 1 on WIDE material trade name-days and 0 on the deployed set's
+
+====================================================================================================
+[3] DG-C5-3: THE HARNESS EXTENSION'S TESTS (each also asserts failure against its wrong versions)
+====================================================================================================
+python3 -m pytest scripts/cef/tests/test_c5_harness.py scripts/data/tests/test_auction_holdout_gate.py -> exit 0: .................                                                        [100%]
+
+====================================================================================================
+[4] DG-C5-4: THE WIDE FLAG IS A NO-OP WHEN ABSENT
+====================================================================================================
+sha256(pickle.dumps(build_targets())) in a fresh process, first call 007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc
+  pre-edit pin             007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc
+second call c8291c1ea3834a4c9e2b61d6e8064860ddf124d6c547b7942eb24d685b8ee599
+  pre-edit pin c8291c1ea3834a4c9e2b61d6e8064860ddf124d6c547b7942eb24d685b8ee599
+build_targets(min_adv=0) equals the feasibility script's adv_floor(0) build: True
+DG-C5-4: PASS
+
+====================================================================================================
+[5] DG-C5-5: THE 2016-22 QUOTE SAMPLE (exec_capacity_open_cross.py fetch --skip-recent)
+====================================================================================================
+sample: 126 sessions, every 14th of 2016-01-04..2022-12-30 (2016-01-04..2022-12-14)
+the EXEC note's §6 FIT block (results/cef/exec_capacity/exec_capacity_output.txt), 41 lines, against today's rebuild, 41 lines: 0 differ
+   [h0] reference methods: close nbbo 1467, close unmeasured 4, open nbbo 1536
+   [h0] pooled: close median 6.0 / mean 8.8; open median 18.8 / mean 134.8; paired open - close (NBBO-referenced, 1464 name-days): median +10.6, mean +115.8 (date-clustered t 5.12, 126 dates)
+   [h0] signed mean (price - mid): close +1.0, open -102.1; quoted half-spread median: close 5.6, open 68.7; reference age median: close 0s, open 15s
+   [h0] STUB-LIKE references (half-spread > 1,000bp, e.g. an ask of $199,999): 39 name-day(s), ['BIT', 'MHD', 'MQY']. Shown, not dropped; beside the figures above, without them: open mean 29.7, paired mean +19.7
+   [h1] reference methods: close nbbo 1467, close unmeasured 4, open nbbo 1533, open unmeasured 3
+   [h1] pooled: close median 6.4 / mean 9.8; open median 11.0 / mean 16.0; paired open - close (NBBO-referenced, 1461 name-days): median +3.2, mean +6.0 (date-clustered t 9.89, 126 dates)
+   [h1] signed mean (price - mid): close +1.3, open -0.7; quoted half-spread median: close 5.1, open 16.6; reference age median: close 10s, open 27s
+   [h5] reference methods: close nbbo 1462, close unmeasured 9, open nbbo 1536
+   [h5] pooled: close median 7.6 / mean 11.2; open median 12.1 / mean 17.8; paired open - close (NBBO-referenced, 1459 name-days): median +3.2, mean +6.5 (date-clustered t 8.15, 126 dates)
+   [h5] signed mean (price - mid): close +1.5, open -1.2; quoted half-spread median: close 5.3, open 12.4; reference age median: close 3s, open 30s
+DG-C5-5: PASS (reproduced line for line, to the printed precision)
+
+====================================================================================================
+[6] DG-C5-8: CRSP openprc / prc FOR THE R-D4 FACTORS OVER THE DECISION WINDOW
+====================================================================================================
+HYG: 1762 window sessions, 0 without a positive openprc, a positive prc and a ret
+IEF: 1762 window sessions, 0 without a positive openprc, a positive prc and a ret
+MUB: 1762 window sessions, 0 without a positive openprc, a positive prc and a ret
+BKLN: 1762 window sessions, 0 without a positive openprc, a positive prc and a ret
+DG-C5-8: PASS
+
+====================================================================================================
+[7] TURNOVER: ONE HOLDINGS PATH, TWO FILLS (H2 by construction)
+====================================================================================================
+WIDE: one-way turnover 32.10/yr over the decision window, the SAME series for the MOC and the opening-auction fill (gap 0% against H2's 5%)
+deployed: one-way turnover 13.46/yr over the decision window, the SAME series for the MOC and the opening-auction fill (gap 0% against H2's 5%)
+
+====================================================================================================
+[8] THE SHA-256 OF EVERY INPUT (every later stage re-verifies these before it reads an input)
+====================================================================================================
+a1ec886b163693fe66e2762c4b202e3a4bb5a9a795fd00164c9eb73c0ff39aa5  results/cef/w4/_cache_w4/alpaca_opening_prints_2016_2022.parquet
+955068774e8979bc147f0625c1fece2077db4b5299523016506d7b6154964386  results/cef/w4/_cache_w4/alpaca_opening_prints_sized_2016_2022.parquet
+3d0ac13c6d2b924cb542449c10524eb60e8001bf558ab86fb75be311e8850a20  results/cef/w4/_cache_w4/alpaca_closing_prints_sized_2016_2022.parquet
+700854848a73c03d8c073285605362cef1791ba676e5e2078f5fb24b3d6cb30c  results/cef/w4/_cache_w4/crsp_dsf_w4.parquet
+e8a6a180658c174a785ba9b3a318430786e773f5a1ab5b2ab7994be0362eef66  data/cef/cef_prices.parquet
+d6a9780ebff000a3ae47b6455d54b2e52ac54a5828f618dbf5fe53ecfa4d1ba0  data/cef/cef_nav.parquet
+a4ba7ef4a82682cbf4ab6559e55f8aaeeaf99fe644615360ab6dbc59cf4e14c6  data/cef/cef_distributions.parquet
+67a1f007312a155fd835fe50e3b357dfb060fcf6905cf90089c204ef3a5489cb  data/cef/cef_splits.parquet
+e397b6903f534b74cbaebcbdba65a8722dc8a7e55a8e1c765d6107ba8adeb7d1  data/cef/cef_universe.csv
+ccc272827895c88e35f6db075c989a2f0e3374837062b34f0f22badd38eeb365  data/cef/cef_borrow_history.parquet
+c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e  ops/specs/cef_discount.frozen.json
+440d72e2fdf348dcf5bdd505f9da8cf48ab1c7805275f9bc20e4e578d417a939  results/cef/exec_capacity/_cache_exec/calendar.parquet
+ea0007ffdd034660dfcd71a2f4ee15a8e5f15ef1b0e0a8e7bfd1b5e9a1ce6806  results/cef/exec_capacity/_cache_exec/days/<126 fit sessions>.json (combined)
+
+====================================================================================================
+STAGE 0 VERDICT
+====================================================================================================
+HALT before any P&L (PREREG_C5 §4.2, §4.5, §13). No statistic of C5 has been computed. The case
+goes to the team lead; no rule is edited to make a count pass, and nothing in data/ is repaired here.
+  - §4.5(c): 1 panel close(s) disagree with both CRSP prc and the NYSE closing print by more than $0.005 (robust count; 22 strict), of which 1 on WIDE material trade name-days and 0 on the deployed set's

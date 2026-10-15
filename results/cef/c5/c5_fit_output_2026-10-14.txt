@@ -1,0 +1,149 @@
+# python3 scripts/cef/c5_open_auction.py fit  (run 2026-10-14; frozen inputs; decision window 2016-01-04..2022-12-30; the holdout is not read)
+C5 (CEF trial 51) THE FIT, run 2026-10-14 22:50Z, on the frozen inputs. Decision window 2016-01-04 .. 2022-12-30; the holdout is not read.
+
+====================================================================================================
+[0] DG-C5-2: THE SPEC PIN, THE HARNESS CONSTANTS AND N
+====================================================================================================
+sha256 ops/specs/cef_discount.frozen.json = c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e
+pinned                                   = c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e
+values read through scripts/cef/spec.py and band_frontier: {'spec_id': 'cef_discount.v7.20260928', 'band_width': 0.048, 'max_gross_stress': 1.8, 'z_window': 252, 'min_adv_usd': 3000000.0, 'min_names': 6, 'vol_target': 0.06, 'n_names': 13, 'capital_usd': 100000.0, 'order_type': 'MOC', 'MIN_PERIODS': 120, 'VOL_LOOKBACK': 63, 'SAMPLE_START': '2005-01-03'}
+CEF counter (docs/RESEARCH_STATE.md, read through ops.orient.trials): N = 52, bar sqrt(2 ln N) = 2.811; the approval judges C5 at N = 52
+DG-C5-2: PASS
+
+frozen inputs verified (141 files); no-cross name-days from D-2/D-3 under ruling 2: 0
+
+====================================================================================================
+STAGE 1: THE GAIN G (WIDE) OVER THE DECISION WINDOW 2016-01-04 .. 2022-12-30 (KILL D1 if mean <= 0 or t < 1.96)
+====================================================================================================
+G, WIDE                                        mean   +293.0bp/yr  SR  +1.16  t(NW21)  +2.82  t(NW5)  +3.04  t(NW auto L=9)  +2.99  per unit turnover  +9.12bp
+sessions 1762, with a non-zero gain 1658; WIDE turnover 32.11/yr (one H, both fills)
+stationary bootstrap (mean block 21, 10,000 resamples, seed 20261013): 95% CI mean +104.0 .. +518.6bp/yr; per unit turnover +3.24 .. +16.15bp; Sharpe +0.49 .. +2.03
+stationary bootstrap (mean block 63, 10,000 resamples, seed 20261013): 95% CI mean +94.9 .. +518.6bp/yr; per unit turnover +2.96 .. +16.15bp; Sharpe +0.44 .. +2.13
+moving-block bootstrap (w4_artifacts.block_boot_t, block 21, 10,000, seed 20261013): t +2.78, 95% CI of the mean +108.2 .. +524.0bp/yr
+STAGE 1: PASS (mean > 0, NW t(L=21) 2.82 >= 1.96)
+
+====================================================================================================
+STAGE 2: CONTROLS (§9) -- 2a stale-open stratum, 2b lagged-signal placebo, 2c shuffled-trade placebo
+====================================================================================================
+2a G on moved-open name-days                   mean   +321.8bp/yr  SR  +1.43  t(NW21)  +3.56  t(NW5)  +3.79  t(NW auto L=6)  +3.80  per unit turnover +10.02bp
+   moved name-days: 84.2% of trade name-days with a cross; trade name-days with a cross and no prior close (not moved, ruling 3 item 4): 0; stratum's share of G's mean: 109.8%
+   2a: PASS (stratum mean > 0)
+2b G_lag = sum (H[s-2]-H[s-3]) rS[s]           mean   +351.0bp/yr  SR  +1.89  t(NW21)  +4.95  t(NW5)  +4.66  t(NW auto L=4)  +4.75  per unit turnover +10.93bp
+   paired G - G_lag: mean -58.0bp/yr, NW t(L=21) -0.56; G_lag / G = 1.20
+   2b: KILL D1 (mean G_lag >= mean G)
+2c shuffled-trade placebo: 84 blocks (83 of 21, last 19), 1,000 draws, seed 20261013: placebo mean -18.7bp/yr, 95th percentile +64.0bp/yr; G +293.0bp/yr exceeds 100.0% of draws
+   2c: PASS (mean G > the placebo's 95th percentile)
+
+====================================================================================================
+STAGE 3: R-D4 (§10) -- G on HYG, IEF, MUB, BKLN and the 13 names' session returns, each with its one-session-lagged close-to-close return (Dimson, betas summed); HAC maxlags 21
+====================================================================================================
+alpha +330.4bp/yr, t +3.26; R^2 0.2324; n 1762
+   summed beta HYG    -0.0007 (t -0.05); session -0.0482, lagged +0.0475
+   summed beta IEF    +0.0111 (t +0.54); session +0.0470, lagged -0.0359
+   summed beta MUB    -0.2160 (t -3.42); session -0.2077, lagged -0.0083
+   summed beta BKLN   +0.0099 (t +0.47); session +0.0124, lagged -0.0025
+   summed beta CEF13  +0.0351 (t +2.34); session +0.0803, lagged -0.0452
+STAGE 3: KILL D4 (alpha t 3.26 >= 3.0; max |summed beta| 0.2160 vs 0.10)
+R-0 (contemporaneous only, reported): alpha +314.9bp/yr t +3.10; HYG -0.0568, IEF +0.0431, MUB -0.2706, BKLN +0.0098, CEF13 +0.0965
+beside, never deciding (13 names' session leg on CRSP openprc -> prc): alpha t +3.20, summed CEF13 beta +0.0259
+R-BOOK (reported): G on the WIDE set's MOC-filled book P&L: beta -0.0287, alpha t +3.25, R^2 0.0045
+R-BOOK (reported): G on the deployed set's MOC-filled book P&L: beta -0.0100, alpha t +3.00, R^2 0.0006
+
+====================================================================================================
+STAGE 4: THE BAR -- validate._dsr on G at N = 52 (> 0.95), T = 1762
+====================================================================================================
+observed SR 1.159; skew +7.749, kurtosis 290.42; null best-of-52 SR 1.063; sqrt(2 ln N) 2.811; SR*sqrt(years) 3.065
+_dsr = 0.6105: NEITHER (below the bar)
+
+====================================================================================================
+STAGE 5: THE EVALUATION-SET GUARDS (decision 1) -- both means must be > 0
+====================================================================================================
+deployed set's G                               mean   +130.7bp/yr  SR  +0.83  t(NW21)  +1.67  t(NW5)  +1.78  t(NW auto L=16)  +1.68  per unit turnover  +9.71bp
+WIDE's G on at-or-above-floor name-days        mean    +97.7bp/yr  SR  +0.47  t(NW21)  +1.59  t(NW5)  +1.31  t(NW auto L=17)  +1.53  per unit turnover  +3.04bp
+STAGE 5: PASS
+
+====================================================================================================
+STAGE 6: COST ROWS (§6) -- labels, never kills
+====================================================================================================
+s_open = max(h1 +6.00, h5 +6.52) = +6.52bp (the 2016-22 quote sample, 126 sessions)
+signed dislocation of C5's own trades, open (vs mid 09:31) minus close (vs mid 15:59), bp: equal-weighted over 487 material trade name-days -2.87; |dH|-weighted over 632 trade name-days -4.39; unmeasured 1; stub-like references (half-spread > 1,000bp, shown, not dropped) 0. The row charges max(larger, 0) = 0.00bp
+gain per unit of turnover +9.12bp against s_open +6.52bp: clears it; against the signed figures: clears both
+dislocation split on the sample (633 trade name-days; 0 without a 09:35 mid): gain -46.35bp of capital in total = print->mid +81.70 + mid->close -128.05; label CAPACITY-BOUND (the sample gain is <= 0 (ruling 3 item 6))
+
+BOOKS over the decision window, total returns, GROSS headline; net at 5/15/30bp per unit of one-way turnover beside it (real-money view, labelled). No borrow (its own table).
+book                                           grossSR   ann%   vol% turn/yr   net@5  net@15  net@30  flips?
+WIDE: MOC fill (the deployed fill)                1.82  10.77   5.93   32.11    1.54    1.00    0.19      no
+WIDE: C5 open fill                                2.18  13.70   6.29   32.11    1.92    1.41    0.65      no
+WIDE: C5, + s_open 6.52bp                         1.85  13.70   6.29   32.11    1.59    1.08    0.31      no
+WIDE: C5, + signed 0.00bp                         2.18  13.70   6.29   32.11    1.92    1.41    0.65      no
+deployed: MOC fill (the deployed fill)            0.86   5.50   6.37   13.46    0.76    0.55    0.23      no
+deployed: C5 open fill                            1.04   6.80   6.53   13.46    0.94    0.73    0.42      no
+deployed: C5, + s_open 6.52bp                     0.91   6.80   6.53   13.46    0.80    0.60    0.29      no
+deployed: C5, + signed 0.00bp                     1.04   6.80   6.53   13.46    0.94    0.73    0.42      no
+The two fills share one H, so one turnover: the grid moves both by the same amount and cannot flip the comparison; it can only flip a book.
+
+====================================================================================================
+BORROW (H4), charged separately on the held short book H.shift(2); IDENTICAL for both fills
+====================================================================================================
+COUNTERFACTUAL: today's fee terms applied to 2016-22 history; not a historical cost.
+(A) Alpaca's published live terms: easy-to-borrow pays no fee (REFERENCES §12l [V]); status from the latest committed probe, 2026-10-10_cef.json: HTB with no published rate = a gap, never zero
+(B) IBKR FEE_RATE panel [S], 2021-09-13 .. 2022-12-30 only (no fee data before it)
+   WIDE      (A) from 2016-01-04: drag 0.000%/yr, short book covered 94.2%  <- lower bound (gaps not charged)
+   WIDE      (B) from 2021-09-13: drag 12.708%/yr, short book covered 98.9%  <- lower bound (gaps not charged)
+   deployed  (A) from 2016-01-04: drag 0.000%/yr, short book covered 88.9%  <- lower bound (gaps not charged)
+   deployed  (B) from 2021-09-13: drag 13.075%/yr, short book covered 98.6%  <- lower bound (gaps not charged)
+
+====================================================================================================
+BESIDE THE BAR, NEVER DECIDING (§8)
+====================================================================================================
+_dsr of the C5 book's own gross series (decision 2's alternative): SR 2.178, _dsr 0.9990
+paired t of C5 - MOC (NW21): +2.816; G's t +2.816 (the same series)
+
+====================================================================================================
+REPORTED, NEVER DECIDING (§9, §11)
+====================================================================================================
+[split] annualised means over the window, bp/yr of capital (WIDE H):
+   deployed  overnight H[s-2]rO   -250.6  session  +1328.1  compounding/ex-date residual    -0.2  = total  +1077.3
+   C5        overnight H[s-2]rO   -250.6  session  +1621.0  compounding/ex-date residual    -0.2  = total  +1370.2
+   G +293.0; the overnight the decision cannot reach, sum dH[s-1] rO[s] (NOT TRANSACTABLE, diagnostic): +48.4
+[decay] sum (H[s-k]-H[s-k-1]) rS[s], bp/yr (t NW21): k=1 +293.0 (+2.82); k=2 +351.0 (+4.95); k=3 +135.2 (+2.06); k=4 +112.7 (+2.49); k=5 +7.1 (+0.12)
+[strata] G restricted to the name-days of each stratum (zeros elsewhere):
+   NAV[s-1] moved                                 +325.1bp/yr  t  +3.14
+   NAV[s-1] repeated                               -32.1bp/yr  t  -0.65
+   December fills                                  +15.4bp/yr  t  +1.21
+   Feb-Nov fills                                  +259.4bp/yr  t  +2.51
+   January fills (in neither declared stratum)     +18.2bp/yr  t  +1.95
+   ex-date name-days                               +18.4bp/yr  t  +1.27
+   non-ex-date name-days                          +274.5bp/yr  t  +2.74
+[corr] G with the MOC book's daily P&L: WIDE -0.067, deployed set -0.025
+[eras] G and the WIDE books, gross and net:
+   2016-19 (2015-19 era from the print's start)   G  +202.4bp/yr SR +1.26 t +2.61; turnover 37.3; MOC book SR 1.17 (net 5/15/30 0.85, 0.20, -0.76); C5 book SR 1.51 (net 1.19, 0.55, -0.41)
+   2020-22                                        G  +413.4bp/yr SR +1.22 t +1.90; turnover 25.2; MOC book SR 2.64 (net 5/15/30 2.43, 2.02, 1.40); C5 book SR 2.96 (net 2.78, 2.41, 1.86)
+   era turnover sd/mean 19.3%
+[robustness] (none of it rescues a failed headline)
+   first half of the window                       mean   +206.7bp/yr  SR  +1.30  t(NW21)  +2.36  t(NW5)  +2.52  t(NW auto L=2)  +2.47
+   second half of the window                      mean   +379.2bp/yr  SR  +1.18  t(NW21)  +2.02  t(NW5)  +2.18  t(NW auto L=3)  +2.11
+   R-LATE: O after 09:35 ET as no-cross           mean   +282.9bp/yr  SR  +1.13  t(NW21)  +2.89  t(NW5)  +3.09  t(NW auto L=7)  +3.07  per unit turnover  +8.81bp
+      (late O name-days in the window: 70)
+   R-YF: the yfinance open                        mean   +264.1bp/yr  SR  +1.14  t(NW21)  +2.97  t(NW5)  +3.15  t(NW auto L=3)  +3.00  per unit turnover  +8.23bp
+   R-CLOSE: G on the NYSE closing print           mean   +274.7bp/yr  SR  +1.08  t(NW21)  +2.77  t(NW5)  +2.92  t(NW auto L=6)  +2.94  per unit turnover  +8.55bp
+      R-CLOSE books (print-to-print total returns; a return needing a missing print is 0, held-weight share 13.67%; M != 6 beyond tolerance on 0 name-days): MOC SR 1.76, C5 SR 2.07
+   R-DEP (decision 1's alternative A), the deciding statistics on the deployed set:
+      G +130.7bp/yr SR +0.83 t(NW21) +1.67 _dsr 0.2477; moved-open stratum +104.5bp/yr; lagged placebo +137.5bp/yr
+   R-PRE16 WIDE (CRSP openprc, a consolidated first price, not an auction print) 2005-01-05..2015-12-31: G +136.2bp/yr SR +0.74 t +2.34; spliced with the window (4529 sessions): SR +0.92 t +3.64 _dsr 0.8784
+   R-PRE16 deployed (CRSP openprc, a consolidated first price, not an auction print) 2013-06-25..2015-12-31: G +72.9bp/yr SR +0.41 t +0.66; spliced with the window (2398 sessions): SR +0.71 t +1.79 _dsr 0.2391
+   leave-one-name-out SR of G: min +0.90 (without DSL), median +1.12, max +1.34 (without PHK)
+[capacity] C5's (WIDE) trades as whole-share orders sized at the decision close, matched to their fill day's cross (round-lot crosses), participation = our shares / cross shares:
+   $  0.1m open : median   1.60%, notional-weighted median   5.68%, p90  12.01% (8,662 orders)
+   $  0.1m close: median  12.25%, notional-weighted median  43.23%, p90 130.63% (7,948 orders)
+   $  1.0m open : median  15.75%, notional-weighted median  56.80%, p90 119.68% (8,731 orders)
+   $  1.0m close: median 120.04%, notional-weighted median 432.23%, p90 1293.77% (8,011 orders)
+   $ 10.0m open : median 157.00%, notional-weighted median 568.00%, p90 1195.60% (8,741 orders)
+   $ 10.0m close: median 1199.13%, notional-weighted median 4322.45%, p90 12933.06% (8,018 orders)
+
+====================================================================================================
+THE FIT VERDICT (stage 7: committed before the holdout is read)
+====================================================================================================
+KILL D1 (stage 2b: artefact control)
+stage results: {'1': 'pass', '2': 'FAIL', '3': 'FAIL', '4': 'FAIL', '5': 'pass'}
+stage-6 labels: ['capacity-bound']

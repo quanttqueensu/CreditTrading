@@ -1,0 +1,39 @@
+date,ticker,set,kind,note
+2017-09-13,MHD,WIDE,D-1 no O print on a material trade,no N print
+2017-09-20,MHD,WIDE,D-1 no O print on a material trade,no N print
+2018-01-24,PTY,WIDE,D-1 no O print on a material trade,no N print
+2018-02-01,MQY,WIDE,D-1 no O print on a material trade,no N print
+2020-02-26,MHD,WIDE,D-1 no O print on a material trade,no N print
+2020-11-06,MHD,WIDE,D-1 no O print on a material trade,no N print
+2021-02-23,PCN,WIDE,D-1 no O print on a material trade,no N print
+2022-03-08,JFR,WIDE,D-1 no O print on a material trade,no N print
+2022-03-24,PCN,WIDE,D-1 no O print on a material trade,Q only
+2018-01-24,PDI,deployed,D-1 no O print on a material trade,no N print
+2018-01-24,PHK,deployed,D-1 no O print on a material trade,no N print
+2018-01-24,PTY,deployed,D-1 no O print on a material trade,no N print
+2019-11-19,BIT,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2019-11-19,MHD,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2019-11-20,DSL,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2019-11-26,PDI,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
+2016-10-18,JFR,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +1.00c; robust False; WIDE trade material; deployed trade -
+2017-06-21,MHD,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +3.00c; close-NYSE(6) +3.00c; robust True; WIDE trade material; deployed trade -
+2017-08-02,MQY,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) -4.00c; robust False; WIDE trade material; deployed trade -
+2018-03-12,PCN,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) -3.00c; robust False; WIDE trade material; deployed trade -
+2018-05-07,HYT,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +1.00c; robust False; WIDE trade -; deployed trade -
+2018-07-03,MQY,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +1.00c; robust False; WIDE trade -; deployed trade -
+2018-08-13,MQY,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +2.00c; robust False; WIDE trade -; deployed trade -
+2018-09-21,MQY,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +1.00c; robust False; WIDE trade material; deployed trade -
+2018-10-04,JFR,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +2.00c; robust False; WIDE trade -; deployed trade -
+2018-11-16,MQY,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +3.00c; robust False; WIDE trade material; deployed trade -
+2018-11-19,MQY,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(6) +1.00c; robust False; WIDE trade material; deployed trade -
+2021-04-07,MHD,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -
+2021-05-05,DSL,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade material; deployed trade -
+2021-11-22,PCN,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -
+2022-06-14,PHK,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -
+2022-08-19,PCN,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade small; deployed trade -
+2022-11-03,PFN,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -
+2022-11-04,PHK,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -
+2022-11-15,PHK,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade small; deployed trade -
+2022-11-23,MHD,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade material; deployed trade -
+2022-12-13,JFR,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -
+2022-12-19,PHK,all,§4.5(c) close off CRSP prc and NYSE print,close-CRSP +0.50c; close-NYSE(M) +0.50c; robust False; WIDE trade -; deployed trade -

@@ -1,0 +1,44 @@
+# python3 scripts/cef/c5_open_auction.py freeze  (run 2026-10-14; counts, cents, hashes)
+
+====================================================================================================
+FREEZE: THE FIT'S INPUTS, CUT AT 2022-12-30, INTO results/cef/c5/_cache_c5_frozen/ (gitignored)
+====================================================================================================
+live panels' last dates (read once, never again by the fit): {'cef_prices': '2026-09-28', 'cef_nav': '2026-09-25', 'cef_distributions': '2026-09-10', 'cef_splits': '2025-08-19', 'cef_borrow_history': '2026-09-09'}
+copied: 5 panels (13 names, <= 2022-12-30), 4 print/CRSP caches, the quote sample's 126 sessions and its calendar
+
+====================================================================================================
+FREEZE: THE UNCORRECTED COPY REBUILDS THE LIVE BUILD EXACTLY (cut at 2022-12-30)
+====================================================================================================
+T, R and H identical, live build vs the uncorrected frozen copy: {'WIDE': True, 'deployed': True, 'total_returns': True}
+
+====================================================================================================
+FREEZE: D-6 (ruling 1) ON THE DECISION WINDOW; tolerance |diff| <= $0.005 + 1e-6 (ruling 2)
+====================================================================================================
+name-days with a close, CRSP prc and an NYSE closing print: 20,392; off both: 1; D-6 (the two sources agree): 1; sources disagree (§4.5(c), halts): 0
+    {'date': '2017-06-21', 'ticker': 'MHD', 'cls': 'D-6', 'close_minus_crsp_c': 3.0, 'close_minus_nyse_c': 3.0, 'crsp_minus_nyse_c': 0.0, 'nyse_print': '6', 'value_used': 'NYSE closing print', 'WIDE_trade': 'material', 'deployed_trade': '-'}
+the trial's input copy: 1 close(s) altered (D-6), every other value and file identical
+holdings (date x name, 2005-2022), input copy against the uncorrected copy: the close enters the z-score's 252-session window, the vol scalar and the band's path, so one corrected close moves later weights slightly (weights only; no return): {'WIDE': {'cells_differing': 9274, 'cells_over_1e_4': 390, 'max_abs_weight_diff': 0.0025749326715387086, 'first_date': '2017-06-21'}, 'deployed': {'cells_differing': 0, 'cells_over_1e_4': 0, 'max_abs_weight_diff': 0.0, 'first_date': None}}
+
+====================================================================================================
+FREEZE: SHA-256 OF EVERY FROZEN FILE
+====================================================================================================
+84403d9c906a22f452debb526cf3a5aa8c9001045c437d3a059092f5b9545248  cef/cef_borrow_history.parquet
+bcb4a23a06f58e99a08bf68c9a9a7f6cad642bd75fc042e9a0c05a7129eae20f  cef/cef_distributions.parquet
+f08193876942cebde96fe2ed514d1526b91ae0dc1be287d0aaf3befd9204c8f8  cef/cef_nav.parquet
+59ccc4456bf37b8ad9d0777e56cc3c14b8eeca532305dfdc4a6ce7c4721876a2  cef/cef_prices.parquet
+fd8557517b0a5bebffdac388560d9bec7537db4b845cb9d442706bf78139af68  cef/cef_splits.parquet
+84403d9c906a22f452debb526cf3a5aa8c9001045c437d3a059092f5b9545248  cef_raw/cef_borrow_history.parquet
+bcb4a23a06f58e99a08bf68c9a9a7f6cad642bd75fc042e9a0c05a7129eae20f  cef_raw/cef_distributions.parquet
+f08193876942cebde96fe2ed514d1526b91ae0dc1be287d0aaf3befd9204c8f8  cef_raw/cef_nav.parquet
+67e20f6dcfc03000aec42037d6bb4e28e65b525a47f78372504d18896a99d20c  cef_raw/cef_prices.parquet
+fd8557517b0a5bebffdac388560d9bec7537db4b845cb9d442706bf78139af68  cef_raw/cef_splits.parquet
+53be53340efe7839b05a09ee3d8fb1a88e18a623a93cc95f728654c215904663  exec/calendar.parquet
+3d0ac13c6d2b924cb542449c10524eb60e8001bf558ab86fb75be311e8850a20  w4/alpaca_closing_prints_sized_2016_2022.parquet
+a1ec886b163693fe66e2762c4b202e3a4bb5a9a795fd00164c9eb73c0ff39aa5  w4/alpaca_opening_prints_2016_2022.parquet
+955068774e8979bc147f0625c1fece2077db4b5299523016506d7b6154964386  w4/alpaca_opening_prints_sized_2016_2022.parquet
+700854848a73c03d8c073285605362cef1791ba676e5e2078f5fb24b3d6cb30c  w4/crsp_dsf_w4.parquet
+2770e68da451f50ad52e5182431fa91a53bd4fa987180bba2b78ddc51a2cb289  exec/days/<126 session files> (combined)
+
+====================================================================================================
+FREEZE VERDICT: FROZEN
+====================================================================================================
