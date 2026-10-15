@@ -1,0 +1,2 @@
+X4 HOLDOUT: mean 0.86%/yr, SR 0.18, same sign True -> KILL D4 (stage 2: the historical-mean rule, TSH) (holdout reported; it cannot rescue a failed fit)
+wrote results/xasset/x4_holdout_2026-10-14.json
