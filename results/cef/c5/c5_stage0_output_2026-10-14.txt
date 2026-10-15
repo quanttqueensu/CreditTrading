@@ -52,30 +52,31 @@ halt rules (§4.2): NONE FIRED
     off BOTH by > $0.005                         all name-days  WIDE material  WIDE any  deployed material  deployed any
     strict (stored float32)                                 22              9        11                  0             0
     robust (an exact half cent agrees)                       1              1         1                  0             0
-    every such name-day (strict), in cents (no price level is printed: CRSP is licensed data):
+    every such name-day (strict), in cents. REDACTED 2026-10-15: the close-CRSP column is removed
+    (a signed difference beside a public close would recover CRSP's licensed price); the count above stands:
       date        name   close-CRSP close-NYSE print  robust  WIDE trade  deployed trade
-      2016-10-18  JFR         +0.50      +1.00     6      no    material               -
-      2017-06-21  MHD         +3.00      +3.00     6     yes    material               -
-      2017-08-02  MQY         +0.50      -4.00     6      no    material               -
-      2018-03-12  PCN         +0.50      -3.00     6      no    material               -
-      2018-05-07  HYT         +0.50      +1.00     6      no           -               -
-      2018-07-03  MQY         +0.50      +1.00     6      no           -               -
-      2018-08-13  MQY         +0.50      +2.00     6      no           -               -
-      2018-09-21  MQY         +0.50      +1.00     6      no    material               -
-      2018-10-04  JFR         +0.50      +2.00     6      no           -               -
-      2018-11-16  MQY         +0.50      +3.00     6      no    material               -
-      2018-11-19  MQY         +0.50      +1.00     6      no    material               -
-      2021-04-07  MHD         +0.50      +0.50     M      no           -               -
-      2021-05-05  DSL         +0.50      +0.50     M      no    material               -
-      2021-11-22  PCN         +0.50      +0.50     M      no           -               -
-      2022-06-14  PHK         +0.50      +0.50     M      no           -               -
-      2022-08-19  PCN         +0.50      +0.50     M      no       small               -
-      2022-11-03  PFN         +0.50      +0.50     M      no           -               -
-      2022-11-04  PHK         +0.50      +0.50     M      no           -               -
-      2022-11-15  PHK         +0.50      +0.50     M      no       small               -
-      2022-11-23  MHD         +0.50      +0.50     M      no    material               -
-      2022-12-13  JFR         +0.50      +0.50     M      no           -               -
-      2022-12-19  PHK         +0.50      +0.50     M      no           -               -
+      2016-10-18  JFR           [red]      +1.00     6      no    material               -
+      2017-06-21  MHD           [red]      +3.00     6     yes    material               -
+      2017-08-02  MQY           [red]      -4.00     6      no    material               -
+      2018-03-12  PCN           [red]      -3.00     6      no    material               -
+      2018-05-07  HYT           [red]      +1.00     6      no           -               -
+      2018-07-03  MQY           [red]      +1.00     6      no           -               -
+      2018-08-13  MQY           [red]      +2.00     6      no           -               -
+      2018-09-21  MQY           [red]      +1.00     6      no    material               -
+      2018-10-04  JFR           [red]      +2.00     6      no           -               -
+      2018-11-16  MQY           [red]      +3.00     6      no    material               -
+      2018-11-19  MQY           [red]      +1.00     6      no    material               -
+      2021-04-07  MHD           [red]      +0.50     M      no           -               -
+      2021-05-05  DSL           [red]      +0.50     M      no    material               -
+      2021-11-22  PCN           [red]      +0.50     M      no           -               -
+      2022-06-14  PHK           [red]      +0.50     M      no           -               -
+      2022-08-19  PCN           [red]      +0.50     M      no       small               -
+      2022-11-03  PFN           [red]      +0.50     M      no           -               -
+      2022-11-04  PHK           [red]      +0.50     M      no           -               -
+      2022-11-15  PHK           [red]      +0.50     M      no       small               -
+      2022-11-23  MHD           [red]      +0.50     M      no    material               -
+      2022-12-13  JFR           [red]      +0.50     M      no           -               -
+      2022-12-19  PHK           [red]      +0.50     M      no           -               -
 
 halt rules (§4.5): §4.5(c): 1 panel close(s) disagree with both CRSP prc and the NYSE closing print by more than $0.005 (robust count; 22 strict), of which 1 on WIDE material trade name-days and 0 on the deployed set's
 
