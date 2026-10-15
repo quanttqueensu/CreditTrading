@@ -1,7 +1,7 @@
 cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
-C4 FIT (CEF trial 52): the fit window only; the 2023-01-01 holdout is sealed and never computed here. Run 2026-10-14T22:40 UTC. CEF counter N = 52 (docs/RESEARCH_STATE.md), bar sqrt(2 ln N) = 2.811
+C4 FIT (CEF trial 52): the fit window only; the 2023-01-01 holdout is sealed and never computed here. Run 2026-10-15T20:16 UTC. CEF counter N = 52 (docs/RESEARCH_STATE.md), bar sqrt(2 ln N) = 2.811
 
-THE TRADABLE SLEEVE: 74 funds, band 0.048 to the edge, gross cap 1.8, vol target 0.06, z_window 252, min_names 6, ADV floor $3,000,000 (spec cef_discount.v7.20260928). First decision 2005-02-17, first held session 2005-02-22; fit P&L 2005-02-22..2022-12-30, 4497 sessions (17.85 years)
+THE TRADABLE SLEEVE: 74 frozen funds, of which 65 have a paired price and NAV before 2023 (not: BSTZ, BTX, GUG, HGLB, IGA, KYN, NPFD, NXG, TBLD); band 0.048 to the edge, gross cap 1.8, vol target 0.06, z_window 252, min_names 6, ADV floor $3,000,000 (spec cef_discount.v7.20260928). First decision 2005-02-17, first held session 2005-02-22; fit P&L 2005-02-22..2022-12-30, 4497 sessions (17.85 years)
 
 [STAGE 0, remaining items] turnover 38.1/yr; the band trades a name on 13.5% of active name-days (|target - held| > band) and holds it off target on 100.0%; the gross cap binds on 9.0% of decision days (mean held gross 1.34, mean target gross 1.20); realised vol 5.89%/yr against the 6% target; universe 74
 
@@ -24,7 +24,7 @@ THE TRIAL IS SPENT FROM HERE (counted at approval; N = 52)
     2020-22     1.686  10.52   6.24     32.1   1.429   0.916   0.145      no  (756 sessions)
     era turnover sd/mean 41.7%; calendar years with positive gross 16 of 18; first half Sharpe 0.846 (2005-02-22..2014-01-27), second half 1.611
 
-[STAGE 2] STALE-NAV CONTROL: the identical rule on the 50 domestic, sector and covered-call funds (own vol scalar and cap), from its own first held session 2006-10-09: gross Sharpe 1.134 (turnover 36.9/yr; pooled 38.1/yr)  -> rule > 0 and >= 1/2 x pooled (0.608): PASS
+[STAGE 2] STALE-NAV CONTROL: the identical rule on the 50 domestic, sector and covered-call funds (45 with fit data; own vol scalar and cap), from its own first held session 2006-10-09: gross Sharpe 1.134 (turnover 36.9/yr; pooled 38.1/yr)  -> rule > 0 and >= 1/2 x pooled (0.608): PASS
   beside it: the sub-book over the pooled window (2005-02-22..): 1.081
 
   (placebo fast path reproduces evaluate() to 1.4e-17 per row)
@@ -62,21 +62,21 @@ THE TRIAL IS SPENT FROM HERE (counted at approval; N = 52)
   NAV catch-up: Fama-MacBeth slope of the NAV's own total return over closes t+1 -> t+3 on z: +0.67 bp per unit z (t 0.77; positive would mean a wide discount predicts a falling NAV). NAV distributions are yfinance's (navp rows 241559)
 
 [ROBUSTNESS] reported, never chosen from, none of it rescues a failed headline (each from its own first held session):
-  book                                           funds        from grossSR   ann%   vol%   turn  net@5 net@15 net@30 flips?
-  C4 (74, declared)                                 74  2005-02-22   1.217   7.16   5.89   38.1  0.894  0.247 -0.724    YES
-  R-68 (approved 68)                                68  2006-01-20   1.285   8.02   6.24   43.2  0.939  0.247 -0.791    YES
-  R-S (105 pool, shortability assumed)             105  2005-01-05   1.195   6.90   5.77   36.8  0.877  0.239 -0.716    YES
-  R-G (no global allocation)                        65  2005-02-22   1.206   7.13   5.91   38.6  0.880  0.227 -0.752    YES
-  R-Q0 (no masks)                                   74  2005-02-22   1.137   6.82   5.99   22.4  0.950  0.575  0.013     no
-  R-Q1 (CEFConnect-confirmed stale copies only)     74  2005-02-22   1.131   6.78   5.99   22.7  0.942  0.564 -0.003    YES
-  leave out equity_domestic                         68  2005-02-22   1.254   7.48   5.96   37.7  0.938  0.305 -0.644    YES
-  leave out equity_sector                           45  2006-01-20   1.313   7.32   5.57   50.6  0.858 -0.050 -1.413    YES
-  leave out equity_covered_call                     59  2005-02-22   0.693   4.34   6.27   20.9  0.526  0.194 -0.305    YES
-  leave out preferred                               65  2006-01-20   1.251   7.28   5.82   38.7  0.918  0.253 -0.745    YES
-  leave out multi_asset                             59  2006-10-04   1.115   6.65   5.97   38.0  0.797  0.161 -0.794    YES
-  R-P (CRSP retx: price returns)                    74  2005-02-22   1.360   8.33   6.13   38.1  1.049  0.427 -0.505    YES
-  R-yf (yfinance-built total returns)               74  2005-02-22   1.131   7.04   6.22   38.1  0.825  0.214 -0.704    YES
-  raw band (no gross cap)                           74  2005-02-22   1.137   7.20   6.34   37.8  0.839  0.242 -0.652    YES
+  book                                           univ  fit        from grossSR   ann%   vol%   turn  net@5 net@15 net@30 flips?
+  C4 (74, declared)                                74   65  2005-02-22   1.217   7.16   5.89   38.1  0.894  0.247 -0.724    YES
+  R-68 (approved 68)                               68   60  2006-01-20   1.285   8.02   6.24   43.2  0.939  0.247 -0.791    YES
+  R-S (105 pool, shortability assumed)            105   95  2005-01-05   1.195   6.90   5.77   36.8  0.877  0.239 -0.716    YES
+  R-G (no global allocation)                       65   59  2005-02-22   1.206   7.13   5.91   38.6  0.880  0.227 -0.752    YES
+  R-Q0 (no masks)                                  74   65  2005-02-22   1.137   6.82   5.99   22.4  0.950  0.575  0.013     no
+  R-Q1 (CEFConnect-confirmed stale copies only)    74   65  2005-02-22   1.131   6.78   5.99   22.7  0.942  0.564 -0.003    YES
+  leave out equity_domestic                        68   60  2005-02-22   1.254   7.48   5.96   37.7  0.938  0.305 -0.644    YES
+  leave out equity_sector                          45   39  2006-01-20   1.313   7.32   5.57   50.6  0.858 -0.050 -1.413    YES
+  leave out equity_covered_call                    59   51  2005-02-22   0.693   4.34   6.27   20.9  0.526  0.194 -0.305    YES
+  leave out preferred                              65   57  2006-01-20   1.251   7.28   5.82   38.7  0.918  0.253 -0.745    YES
+  leave out multi_asset                            59   53  2006-10-04   1.115   6.65   5.97   38.0  0.797  0.161 -0.794    YES
+  R-P (CRSP retx: price returns)                   74   65  2005-02-22   1.360   8.33   6.13   38.1  1.049  0.427 -0.505    YES
+  R-yf (yfinance-built total returns)              74   65  2005-02-22   1.131   7.04   6.22   38.1  0.825  0.214 -0.704    YES
+  raw band (no gross cap)                          74   65  2005-02-22   1.137   7.20   6.34   37.8  0.839  0.242 -0.652    YES
 
 [CAPACITY] on 3849 rebalance days, the median of each day's largest single-fund trade over that fund's 63-session ADV is 1.283e-08 per dollar of capital: it reaches 1% of ADV at a sleeve of $779,487; participation at $1m 1.28%, $10m 12.83%, $100m 128.3%
 

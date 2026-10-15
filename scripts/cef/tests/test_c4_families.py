@@ -123,3 +123,39 @@ def test_holdout_actions_halt_on_any_unconfirmed_row_and_otherwise_take_alpaca()
     assert out.loc[(out.ticker == "IGR") & (out.date == "2026-09-08"), "stock_splits"].item() == pytest.approx(1 / 3)
     with pytest.raises(c4.GateError, match="halt"):
         c4.holdout_actions(acts, T.assign(decision=["Alpaca (NAV drop)", "UNCONFIRMED", "Alpaca (NAV drop)"]))
+
+
+# --- the CRSP identity check (2026-10-15, after the review found BTX on a biotech's permno) ---
+
+def _identity_frames(seed=1, n=300):
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2021-01-04", periods=n)
+    yc = 20 * np.exp(np.cumsum(rng.normal(0, 0.01, n)))
+    other = 5 * np.exp(np.cumsum(rng.normal(0, 0.03, n)))            # an unrelated security
+    px = pd.concat([pd.DataFrame(dict(date=idx, ticker=t, close=np.round(yc, 2))) for t in ("GOOD", "WRONG", "CODE")])
+    def crsp(t, prc, sc):
+        r = pd.Series(prc).pct_change().to_numpy()
+        return pd.DataFrame(dict(date=idx, ticker=t, prc=prc, retx=r, shrcd=sc))
+    c = pd.concat([crsp("GOOD", np.round(yc, 2), 44), crsp("WRONG", np.round(other, 2), 44),
+                   crsp("CODE", np.round(yc, 2), 11)])
+    acts = pd.DataFrame(columns=["date", "ticker", "dividends", "stock_splits"])
+    return c, px, idx, acts
+
+
+def test_identity_check_names_a_wrong_security_and_a_non_cef_share_code():
+    c, px, idx, acts = _identity_frames()
+    tab = c4.crsp_identity(c, px, ["GOOD", "WRONG", "CODE"], idx[0], idx[-1], raise_on_fail=False, acts=acts)
+    assert tab.loc["GOOD", "identity"] == "ok" and tab.loc["GOOD", "move_share"] >= 0.99
+    assert tab.loc["WRONG", "identity"] == "FAIL" and tab.loc["CODE", "identity"] == "FAIL"
+    with pytest.raises(c4.GateError, match="WRONG"):
+        c4.crsp_identity(c, px, ["GOOD", "WRONG"], idx[0], idx[-1], acts=acts)
+    with pytest.raises(c4.GateError, match="CODE"):
+        c4.crsp_identity(c, px, ["GOOD", "CODE"], idx[0], idx[-1], acts=acts)
+
+
+def test_identity_check_accepts_a_constant_rebasing_of_the_yfinance_close():
+    """GLV's yfinance close is 0.999 x CRSP's print: the same security, re-based."""
+    c, px, idx, acts = _identity_frames()
+    px2 = px[px.ticker == "GOOD"].assign(close=lambda x: x["close"] * 0.999)
+    tab = c4.crsp_identity(c[c.ticker == "GOOD"], px2, ["GOOD"], idx[0], idx[-1], acts=acts)
+    assert tab.loc["GOOD", "identity"] == "ok" and tab.loc["GOOD", "level_share"] < 0.5

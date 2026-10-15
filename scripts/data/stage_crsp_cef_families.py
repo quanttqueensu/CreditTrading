@@ -175,6 +175,18 @@ def build_panel(dsf: pd.DataFrame, pmap: pd.DataFrame, names: pd.DataFrame,
 
 RET_CACHE = REPO / "results" / "cef" / "c4" / "_cache_c4" / "crsp_ret_families.parquet"
 RET_COLS = ["permno", "date", "ret", "retx"]
+# Ticker -> permno corrections to the map in data/cef_families/crsp_permno_map.csv, applied to the
+# C4 return cache only (data/ is never written from a trial worktree). Each is VERIFIED every time
+# it is staged (`verify_override`): a CEF share code on every name record, and the CRSP closing
+# print equal to the yfinance close within $0.005 on at least OVERRIDE_MIN_AGREE of common days.
+#   BTX (2026-10-15, the independent review of C4's fit at 3be92cd): the map's 76963 is NTN
+#   Buzztime -> Brooklyn Immunotherapeutics -> Eterna Therapeutics (share code 11), which matched
+#   0 of 446 yfinance closes; the date-range join tied BTX's 2021-22 bars to Brooklyn
+#   Immunotherapeutics, which used the ticker then. yfinance's BTX history is BIGZ's: BlackRock
+#   Innovation & Growth Term Trust, renamed BTX on 2025-02-18 (docs/REFERENCES.md §12k). CRSP
+#   stocknames: permno 20674, ticker BIGZ, share code 44, NYSE, 2021-03-26 -> 2024-12-31.
+PERMNO_OVERRIDES = {"BTX": (76963, 20674)}       # ticker: (wrong permno, correct permno)
+OVERRIDE_MIN_AGREE = 0.99
 
 
 def attach_returns(raw: pd.DataFrame, rets: pd.DataFrame) -> pd.DataFrame:
@@ -204,6 +216,62 @@ def attach_returns(raw: pd.DataFrame, rets: pd.DataFrame) -> pd.DataFrame:
     return j.drop(columns="_merge").sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
+def attach_shrcd(rows: pd.DataFrame, names: pd.DataFrame) -> pd.DataFrame:
+    """Each row's CRSP share code from the name record in force on its date. Pure.
+    A row no name record covers gets NaN (the identity check in c4_families then refuses it)."""
+    nm = names.copy()
+    nm["namedt"], nm["nameenddt"] = pd.to_datetime(nm["namedt"]), pd.to_datetime(nm["nameenddt"])
+    nm["permno"] = nm["permno"].astype("int64")
+    j = rows.reset_index().merge(nm, on="permno", how="left")
+    j = j[(j["date"] >= j["namedt"]) & (j["date"] <= j["nameenddt"])]
+    if j.duplicated("index").any():
+        raise FamiliesDataError("two CRSP name records cover one (permno, date)")
+    out = rows.copy()
+    out["shrcd"] = j.set_index("index")["shrcd"].reindex(out.index)
+    return out
+
+
+def verify_override(ticker: str, dsf: pd.DataFrame, shrcds: set, yf_close: pd.DataFrame) -> dict:
+    """The checks a permno override must pass, or raise. Pure."""
+    if not shrcds or not shrcds <= CEF_SHRCD:
+        raise FamiliesDataError(f"{ticker}: override permno has share codes {sorted(shrcds)}, not a CEF's {sorted(CEF_SHRCD)}")
+    j = dsf.merge(yf_close, on="date", how="inner")
+    tr = j[j["prc"] > 0]
+    agree = int(((tr["close"] - tr["prc"]).abs() <= 0.005).sum())
+    share = agree / len(tr) if len(tr) else 0.0
+    if share < OVERRIDE_MIN_AGREE:
+        raise FamiliesDataError(f"{ticker}: override permno agrees with the yfinance close on {agree} of {len(tr)} "
+                                f"days ({share:.2%}), below {OVERRIDE_MIN_AGREE:.0%}")
+    return dict(compared=len(tr), agree=agree, share=share)
+
+
+def apply_overrides(out: pd.DataFrame, con, cfg) -> pd.DataFrame:
+    """Replace each overridden ticker's rows with its verified permno's dsf rows."""
+    from src.data import r2
+    px = pd.read_parquet(OUT_DIR / PRICES, columns=["date", "ticker", "close"])
+    px["date"] = pd.to_datetime(px["date"])
+    for tk, (wrong, right) in PERMNO_OVERRIDES.items():
+        if tk not in set(out["ticker"]):
+            continue
+        have = set(out.loc[out["ticker"] == tk, "permno"])
+        if have != {wrong}:
+            raise FamiliesDataError(f"{tk}: expected the map's permno {wrong} to override, found {sorted(have)}")
+        d = con.execute(f"SELECT permno, date, prc, vol, cfacpr, ret, retx FROM "
+                        f"read_parquet('{r2.r2_path('crsp_a_stock', 'dsf', cfg)}') WHERE permno = ?", [right]).df()
+        d["date"] = pd.to_datetime(d["date"]).dt.normalize().astype("datetime64[ns]")
+        for c in ("prc", "vol", "ret", "retx"):
+            d[c] = d[c].astype(float)
+        d["permno"] = d["permno"].astype("int64")
+        sc = con.execute(f"SELECT DISTINCT shrcd FROM read_parquet('{r2.r2_path('crsp_a_stock', 'stocknames', cfg)}') "
+                         f"WHERE permno = ?", [right]).df()["shrcd"]
+        v = verify_override(tk, d, {int(x) for x in sc.dropna()}, px[px["ticker"] == tk][["date", "close"]])
+        print(f"override {tk}: permno {wrong} -> {right} ({len(d)} dsf rows, {d['date'].min().date()}.."
+              f"{d['date'].max().date()}); CRSP print = yfinance close within $0.005 on {v['agree']} of "
+              f"{v['compared']} days ({v['share']:.2%})")
+        out = pd.concat([out[out["ticker"] != tk], d.assign(ticker=tk)[out.columns]], ignore_index=True)
+    return out.sort_values(["ticker", "date"]).reset_index(drop=True)
+
+
 def stage_returns() -> int:
     """DG-C4-1: CRSP `ret`/`retx` for the C4 pool, to RET_CACHE (see the module docstring)."""
     from scripts.cef.c4_feasibility import NAMES_CSV, declare_pool
@@ -225,6 +293,11 @@ def stage_returns() -> int:
         f"SELECT {', '.join(RET_COLS)} FROM read_parquet('{r2.r2_path('crsp_a_stock', 'dsf', cfg)}') "
         f"WHERE permno IN ({','.join('?' * len(perms))})", perms).df()
     out = attach_returns(raw, rets)
+    out = apply_overrides(out, con, cfg)
+    names = con.execute(
+        f"SELECT permno, namedt, nameenddt, shrcd FROM read_parquet('{r2.r2_path('crsp_a_stock', 'stocknames', cfg)}') "
+        f"WHERE permno IN ({','.join('?' * out['permno'].nunique())})", sorted(int(p) for p in out["permno"].unique())).df()
+    out = attach_shrcd(out, names)
     RET_CACHE.parent.mkdir(parents=True, exist_ok=True)
     out.to_parquet(RET_CACHE, index=False)
     per = out.groupby("ticker").agg(rows=("date", "size"), first=("date", "min"), last=("date", "max"),

@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
 
 from scripts.data.cef_families_common import FamiliesDataError  # noqa: E402
-from scripts.data.stage_crsp_cef_families import attach_returns  # noqa: E402
+from scripts.data.stage_crsp_cef_families import attach_returns, attach_shrcd, verify_override  # noqa: E402
 
 
 def _raw():
@@ -53,3 +53,24 @@ def test_two_dsf_rows_for_one_permno_date_raise():
                       "ret": [0.0, 0.0, 0.0, 0.1], "retx": [0.0, 0.0, 0.0, 0.1]})
     with pytest.raises(FamiliesDataError, match="two rows"):
         attach_returns(_raw(), r)
+
+
+
+# --- the BTX override (2026-10-15) --------------------------------------------
+
+def test_an_override_must_be_a_cef_that_prices_like_the_fund():
+    d = pd.DataFrame(dict(date=pd.bdate_range("2021-03-26", periods=100), prc=np.linspace(20, 15, 100)))
+    y = d.rename(columns={"prc": "close"})
+    assert verify_override("BTX", d, {44}, y)["share"] == 1.0
+    with pytest.raises(FamiliesDataError, match="share codes"):
+        verify_override("BTX", d, {11}, y)
+    with pytest.raises(FamiliesDataError, match="agrees"):
+        verify_override("BTX", d, {44}, y.assign(close=y["close"] * 1.5))
+
+
+def test_share_codes_come_from_the_name_record_in_force_on_the_date():
+    rows = pd.DataFrame(dict(permno=[1, 1, 2], date=pd.to_datetime(["2020-01-02", "2022-01-03", "2020-01-02"])))
+    names = pd.DataFrame(dict(permno=[1, 1], namedt=["2019-01-01", "2021-01-01"], nameenddt=["2020-12-31", "2024-12-31"],
+                              shrcd=[14, 44]))
+    out = attach_shrcd(rows, names)
+    assert out["shrcd"].tolist()[:2] == [14, 44] and np.isnan(out["shrcd"].iloc[2])

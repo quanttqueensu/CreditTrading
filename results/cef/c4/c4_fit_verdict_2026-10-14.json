@@ -1,7 +1,19 @@
 {
  "spec": "cef_discount.v7.20260928",
  "N": 52,
- "run_utc": "2026-10-14T22:40:33.486942+00:00",
+ "run_utc": "2026-10-15T20:16:44.395777+00:00",
+ "funds_with_fit_data": 65,
+ "funds_without_fit_data": [
+  "BSTZ",
+  "BTX",
+  "GUG",
+  "HGLB",
+  "IGA",
+  "KYN",
+  "NPFD",
+  "NXG",
+  "TBLD"
+ ],
  "stage0_items": {
   "turn_per_yr": 38.082282348979426,
   "band_trade_share": 0.13521605301666864,
@@ -130,6 +142,7 @@
   "half_pooled": 0.608478917188561,
   "sub_sr_on_pooled_window": 1.0806169061059299,
   "funds": 50,
+  "funds_with_fit_data": 45,
   "pass_": true
  },
  "stage3a": {
@@ -350,7 +363,8 @@
  "robustness": [
   {
    "book": "C4 (74, declared)",
-   "funds": 74,
+   "universe": 74,
+   "funds": 65,
    "first_held": "2005-02-22",
    "sr": 1.216957834377122,
    "ann_pct": 7.164335203125429,
@@ -365,7 +379,8 @@
   },
   {
    "book": "R-68 (approved 68)",
-   "funds": 68,
+   "universe": 68,
+   "funds": 60,
    "first_held": "2006-01-20",
    "sr": 1.285094322188472,
    "ann_pct": 8.022410499039829,
@@ -380,7 +395,8 @@
   },
   {
    "book": "R-S (105 pool, shortability assumed)",
-   "funds": 105,
+   "universe": 105,
+   "funds": 95,
    "first_held": "2005-01-05",
    "sr": 1.195313598461894,
    "ann_pct": 6.897673941456558,
@@ -395,7 +411,8 @@
   },
   {
    "book": "R-G (no global allocation)",
-   "funds": 65,
+   "universe": 65,
+   "funds": 59,
    "first_held": "2005-02-22",
    "sr": 1.2063464842664118,
    "ann_pct": 7.125956368259659,
@@ -410,7 +427,8 @@
   },
   {
    "book": "R-Q0 (no masks)",
-   "funds": 74,
+   "universe": 74,
+   "funds": 65,
    "first_held": "2005-02-22",
    "sr": 1.137348025304984,
    "ann_pct": 6.8151198907029835,
@@ -425,7 +443,8 @@
   },
   {
    "book": "R-Q1 (CEFConnect-confirmed stale copies only)",
-   "funds": 74,
+   "universe": 74,
+   "funds": 65,
    "first_held": "2005-02-22",
    "sr": 1.1310394892519084,
    "ann_pct": 6.779456055839303,
@@ -440,7 +459,8 @@
   },
   {
    "book": "leave out equity_domestic",
-   "funds": 68,
+   "universe": 68,
+   "funds": 60,
    "first_held": "2005-02-22",
    "sr": 1.2541766916839807,
    "ann_pct": 7.475951946493563,
@@ -455,7 +475,8 @@
   },
   {
    "book": "leave out equity_sector",
-   "funds": 45,
+   "universe": 45,
+   "funds": 39,
    "first_held": "2006-01-20",
    "sr": 1.312732841141088,
    "ann_pct": 7.315413770084874,
@@ -470,7 +491,8 @@
   },
   {
    "book": "leave out equity_covered_call",
-   "funds": 59,
+   "universe": 59,
+   "funds": 51,
    "first_held": "2005-02-22",
    "sr": 0.6925781921810675,
    "ann_pct": 4.344868671256244,
@@ -485,7 +507,8 @@
   },
   {
    "book": "leave out preferred",
-   "funds": 65,
+   "universe": 65,
+   "funds": 57,
    "first_held": "2006-01-20",
    "sr": 1.2505527847073483,
    "ann_pct": 7.2783495604967445,
@@ -500,7 +523,8 @@
   },
   {
    "book": "leave out multi_asset",
-   "funds": 59,
+   "universe": 59,
+   "funds": 53,
    "first_held": "2006-10-04",
    "sr": 1.1151467156319728,
    "ann_pct": 6.654359763666296,
@@ -515,7 +539,8 @@
   },
   {
    "book": "R-P (CRSP retx: price returns)",
-   "funds": 74,
+   "universe": 74,
+   "funds": 65,
    "first_held": "2005-02-22",
    "sr": 1.3595907627768347,
    "ann_pct": 8.32847466161133,
@@ -530,7 +555,8 @@
   },
   {
    "book": "R-yf (yfinance-built total returns)",
-   "funds": 74,
+   "universe": 74,
+   "funds": 65,
    "first_held": "2005-02-22",
    "sr": 1.1313875528636077,
    "ann_pct": 7.042623421958272,
@@ -545,7 +571,8 @@
   },
   {
    "book": "raw band (no gross cap)",
-   "funds": 74,
+   "universe": 74,
+   "funds": 65,
    "first_held": "2005-02-22",
    "sr": 1.137014610134491,
    "ann_pct": 7.203878408716275,

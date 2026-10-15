@@ -33,11 +33,16 @@ from Alpaca. H15 on the P&L: a held weight that meets a name-day with no
 return RAISES (`check_held`); the zeros that replace the remaining NaNs
 multiply weights proved to be zero.
 
-THE HOLDOUT. The fit stage truncates every frame at 2022-12-30 before a
-policy is applied and `_assert_fit` checks every series that reaches a
-statistic. The holdout stage refuses to run until the fit verdict file is
-committed, and, since 2026-10-14, until the team lead has ruled on the
-yfinance-leg distribution defects Stage 0 found (YF_LEG_DISTRIBUTION_RULING).
+THE HOLDOUT. `build_targets` runs on the full families panel (to 2026-10-09);
+its targets are causal (the row for t reads data through t only, H7), and the
+fit stage truncates them at 2022-12-30 (`fit_slice`) BEFORE the band, the gross
+cap and `evaluate()` are applied. No fit statistic reads a 2023+ row
+(`_assert_fit`). Corrected 2026-10-15: until then this paragraph said every frame
+was truncated before the policy ran, which is not what the code does; the
+independent review of 3be92cd proved that no fit number changes either way.
+The holdout stage refuses to run until the fit verdict is committed, the two
+fit reviews have confirmed it, the distribution ruling clears (every disagreeing
+ex-date confirmed) and the CRSP identity check passes on the holdout's CRSP leg.
 
 LICENSED DATA. CRSP values never leave `results/cef/c4/_cache_c4/`; the
 committed tables are portfolio aggregates and counts.
@@ -234,12 +239,82 @@ def qqqx_rule(crsp: pd.DataFrame, px: pd.DataFrame) -> dict:
                 pred_last=q["date"].max())
 
 
-def crsp_pivot(crsp, cols, index, qr, col="ret") -> pd.DataFrame:
-    """CRSP `ret` (or `retx`) as a date x fund frame on `index`; NaN where CRSP has none."""
+IDENTITY_MIN_AGREE, IDENTITY_TOL = 0.99, 0.001      # the review of 3be92cd, 2026-10-15: 10bp, >= 99%
+CEF_SHRCD = {14, 44}
+
+
+def crsp_identity(c: pd.DataFrame, px: pd.DataFrame, cols, lo, hi, raise_on_fail: bool = True,
+                  acts: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Is each fund's CRSP security the fund? Added 2026-10-15 after the independent review of
+    C4's fit found BTX mapped to a biotech (share code 11) that matched 0 of 446 closes.
+
+    Over [lo, hi], for every fund in `cols` with CRSP rows there:
+      * every row's share code is a CEF's (14, 44);
+      * the daily PRICE MOVE agrees: |yfinance close_t / close_t-1 - 1 - CRSP retx_t| <= 10bp on
+        at least 99% of common days (CRSP closing prints on t and t-1). This is the reviewer's
+        metric. It compares the price path, so a constant re-basing of yfinance's close (GLV's
+        is 0.999 x CRSP's print through 2019) does not read as another security, and a wrong
+        security (BTX's old map: 0 of 446) fails at once.
+    Reported beside it, never deciding: the share of days the close LEVEL agrees within $0.005
+    (raw, or after undoing yfinance's own later split factors). Raises naming every failing
+    fund unless `raise_on_fail` is False. Returns the per-fund table."""
+    from scripts.data.cef_families_quality import split_factor
+    if acts is None:
+        acts = pd.read_parquet(FAM_DIR / "cef_actions.parquet")
+    acts = acts.assign(date=pd.to_datetime(acts["date"]))
+    w = c[(c["date"] >= lo) & (c["date"] <= hi) & c["ticker"].isin(cols)]
+    yc = px[px["ticker"].isin(cols)].pivot_table(index="date", columns="ticker", values="close").sort_index()
+    ry = yc.pct_change(fill_method=None)
+    prc = c[c["ticker"].isin(cols)].pivot(index="date", columns="ticker", values="prc")
+    rx = c[c["ticker"].isin(cols)].pivot(index="date", columns="ticker", values="retx")
+    rows = []
+    for t in sorted(set(w["ticker"])):
+        d = pd.concat([ry[t].rename("y"), rx[t].rename("x"), prc[t].rename("p"), prc[t].shift(1).rename("pp"),
+                       yc[t].rename("c")], axis=1).loc[lo:hi]
+        rr = d[d["y"].notna() & d["x"].notna() & (d["p"] > 0) & (d["pp"] > 0)]
+        lv = d[d["c"].notna() & (d["p"] > 0)].reset_index().rename(columns={"index": "date"})
+        lv["ticker"] = t
+        F = split_factor(lv[["ticker", "date"]], acts).to_numpy()
+        lok = ((lv["c"] - lv["p"]).abs() <= 0.005) | ((lv["c"] - lv["p"] / F).abs() <= 0.005 / np.minimum(1.0, F))
+        sc = w.loc[w["ticker"] == t, "shrcd"]
+        rows.append(dict(ticker=t, move_days=len(rr), move_share=float(((rr["y"] - rr["x"]).abs() <= IDENTITY_TOL).mean())
+                         if len(rr) else np.nan, level_days=len(lv), level_share=float(lok.mean()) if len(lv) else np.nan,
+                         shrcd=" ".join(str(int(v)) for v in sorted(set(sc.dropna()))) + (" missing" if sc.isna().any() else "")))
+    tab = pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame(
+        columns=["move_days", "move_share", "level_days", "level_share", "shrcd"])
+    bad_sc = [t for t, v in tab["shrcd"].items() if not set(v.split()) <= {str(x) for x in CEF_SHRCD}]
+    bad_mv = [t for t, v in tab["move_share"].items() if not (v >= IDENTITY_MIN_AGREE)]
+    tab["identity"] = ["FAIL" if (t in bad_sc or t in bad_mv) else "ok" for t in tab.index]
+    if (bad_sc or bad_mv) and raise_on_fail:
+        raise GateError(f"CRSP identity check {pd.Timestamp(lo).date()}..{pd.Timestamp(hi).date()}: share code not a "
+                        f"CEF's {bad_sc}; daily price move within {IDENTITY_TOL * 1e4:.0f}bp on < "
+                        f"{IDENTITY_MIN_AGREE:.0%} of days {[(t, round(tab.loc[t, 'move_share'], 4)) for t in bad_mv]}")
+    return tab
+
+
+def crsp_pivot(crsp, cols, index, qr, col="ret", px=None, check_identity=True) -> pd.DataFrame:
+    """CRSP `ret` (or `retx`) as a date x fund frame on `index`; NaN where CRSP has none.
+
+    Two checks before the frame is returned (2026-10-15): the identity of every fund's
+    security over the index's CRSP span (`crsp_identity`, which needs the yfinance `px`), and
+    the calendar -- every CRSP trading day of the pool in that span must be a session of
+    `index` and every session a CRSP trading day, so `reindex` can never drop a return
+    silently."""
     c = crsp if qr["use_predecessor"] else crsp[~((crsp["ticker"] == "QQQX") & (crsp["permno"] == QQQX_PRED_PERMNO))]
     c = c[c["ticker"].isin(cols)]
     if c.duplicated(["ticker", "date"]).any():
         raise GateError("two CRSP rows for one (fund, date)")
+    lo, hi = index[0], min(index[-1], CRSP_END)
+    if check_identity:
+        if px is None:
+            raise GateError("crsp_pivot needs the yfinance prices for its identity check")
+        crsp_identity(c, px, cols, lo, hi)
+    cal = pd.DatetimeIndex(sorted(crsp.loc[(crsp["date"] >= lo) & (crsp["date"] <= hi), "date"].unique()))
+    sess = index[(index >= lo) & (index <= hi)]
+    if len(cal.difference(sess)) or len(sess.difference(cal)):
+        raise GateError(f"CRSP calendar and harness sessions differ on {lo.date()}..{hi.date()}: CRSP-only "
+                        f"{[str(d.date()) for d in cal.difference(sess)[:5]]}, session-only "
+                        f"{[str(d.date()) for d in sess.difference(cal)[:5]]}")
     return c.pivot(index="date", columns="ticker", values=col).reindex(index=index, columns=list(cols))
 
 
@@ -255,7 +330,7 @@ def primary_returns(pool, px, crsp, qr) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     """(primary return as declared, the yfinance-built total return, sessions) for the screen."""
     close = px.pivot_table(index="date", columns="ticker", values="close").sort_index()
     sess = close.index[(close.index >= SAMPLE_START) & (close.index <= HOLDOUT_END)]
-    cr = crsp_pivot(crsp, pool, sess, qr)
+    cr = crsp_pivot(crsp, pool, sess, qr, px=px, check_identity=False)   # stage0 runs the check per window
     yf_tr = yf_total_returns(px, pool, sess)
     prim = pd.concat([cr.loc[:CRSP_END], yf_tr.loc[YF_START:]])
     if not prim.index.equals(sess):
@@ -513,6 +588,24 @@ def stage0() -> int:
           f"${QQQX_TOL} of yfinance ({qr['share']:.2%}); rule >= {QQQX_RULE_SHARE:.0%} -> "
           f"{'USED' if qr['use_predecessor'] else 'NOT used; QQQX enters at ' + str(qr['current_first'].date())}")
 
+    # the CRSP identity check (2026-10-15, after the review of 3be92cd found BTX on a biotech's permno)
+    print(f"  CRSP identity, the review's metric (daily price move vs CRSP retx within {IDENTITY_TOL * 1e4:.0f}bp on "
+          f">= {IDENTITY_MIN_AGREE:.0%} of days, CEF share code); BTX on permno 20674 (BIGZ), the map's 76963 overridden:")
+    idt = []
+    for wl, lo, hi, halts in (("fit", SAMPLE_START, FIT_END, fit_halts),
+                              ("holdout CRSP leg", HOLDOUT_START, CRSP_END, ho_halts)):
+        for lab, cols in (("frozen 74", UF), ("pool 105 (R-S)", pool)):
+            tab = crsp_identity(crsp, px, cols, lo, hi, raise_on_fail=False)
+            idt.append(tab.reset_index().assign(window=wl, book=lab))
+            f = tab[tab["identity"] == "FAIL"]
+            print(f"    {wl:<17} {lab:<15} {len(tab)} funds; min share {tab['move_share'].min():.4f} "
+                  f"({tab['move_share'].idxmin()}); FAIL {f['move_share'].round(4).to_dict() or 'none'}; level within "
+                  f"$0.005 on < 99% of days (reported): {tab.loc[tab['level_share'] < 0.99, 'level_share'].round(3).to_dict()}")
+            if lab == "frozen 74" and len(f):
+                halts.append(f"CRSP identity, {wl}: {sorted(f.index)} below {IDENTITY_MIN_AGREE:.0%} "
+                             f"({f['move_share'].round(4).to_dict()})")
+    pd.concat(idt).to_csv(OUT_DIR / f"c4_crsp_identity_{DIST_STAMP}.csv", index=False)
+
     # DG-C4-3
     ff = pd.read_parquet(_need(FACTOR_CACHE / "ff5_umd_daily.parquet", "python3 scripts/data/fetch_ff_factors.py"))
     ffm = pd.read_parquet(_need(FACTOR_CACHE / "ff5_umd_monthly.parquet", "python3 scripts/data/fetch_ff_factors.py"))
@@ -620,10 +713,20 @@ def stage0() -> int:
                                           alpaca_missing=("alpaca", lambda s: int(s.isna().sum())))
             print(g.to_string())
             bad.to_csv(OUT_DIR / f"c4_yf_leg_distribution_disagreements_{STAMP}.csv", index=False)
-            if len(bad) and YF_LEG_DISTRIBUTION_RULING is None:
-                ho_halts.append(f"yfinance-leg distributions: {len(bad)} ex-dates on {bad['ticker'].nunique()} "
-                                "funds of the 74 disagree with Alpaca (a vendor defect under §4.5, fix not "
-                                "specified); the holdout waits for the team lead's ruling")
+            if len(bad):
+                if not DIST_TABLE.exists():
+                    ho_halts.append(f"yfinance-leg distributions: {len(bad)} disagreeing ex-dates; run "
+                                    "`c4_families.py distributions` (the 2026-10-14 ruling)")
+                else:
+                    T = pd.read_csv(DIST_TABLE, parse_dates=["date"])
+                    un = T[T["decision"] == "UNCONFIRMED"]
+                    print(f"  ruling of 2026-10-14 ({DIST_TABLE.name}): {len(T) - len(un)} of {len(T)} confirmed for "
+                          f"Alpaca {T['decision'].value_counts().to_dict()}")
+                    if len(un):
+                        ho_halts.append(f"distribution ruling: {len(un)} ex-dates no third source confirms "
+                                        f"{un.groupby('ticker').size().to_dict()}")
+    if not FIT_REVIEWS_CONFIRMED:
+        ho_halts.append("two independent reviews of the fit (3be92cd) have not yet confirmed it")
 
     print("\n" + "=" * 100)
     print("FIT GATE: " + ("CLEAR" if not fit_halts else "HALT"))
@@ -851,6 +954,21 @@ def row_stats(P: pd.Series, TU: pd.Series) -> dict:
                 days=len(P), years=len(P) / 252)
 
 
+_PAIRED: set = set()
+
+
+def paired_before_holdout() -> set:
+    """The pool funds with at least one paired price and NAV (both > $0.50) before 2023: the funds
+    a fit-window book can ever hold. Counted 2026-10-15 after the review of 3be92cd found that
+    "74 funds" overstated the fit universe (65 of the 74 have such a row)."""
+    if not _PAIRED:
+        from scripts.cef import band_frontier as bf
+        U = universes()
+        p = bf.build_panel(universe=U["pool"], source=FAM_SRC)["px"].loc[:FIT_END]
+        _PAIRED.update(p.columns[p.notna().any()])
+    return _PAIRED
+
+
 def run_book(label, universe, R_all, kind="M1M2", policy="capped", extended=False, T=None):
     """One book on the fit window: (row, P, H, R0, p0). R_all holds the primary return for every
     fund of `universe` on the fit index (NaN kept)."""
@@ -865,7 +983,8 @@ def run_book(label, universe, R_all, kind="M1M2", policy="capped", extended=Fals
         raise GateError(f"{label}: the book never holds a position in the fit window")
     p0 = held.index[held > 0][0]
     P, TU = r["pnl"].loc[p0:FIT_END], r["turn_series"].loc[p0:FIT_END]
-    row = dict(book=label, funds=len(universe), first_held=str(p0.date()), **row_stats(P, TU))
+    row = dict(book=label, universe=len(universe), funds=len(set(universe) & paired_before_holdout()),
+               first_held=str(p0.date()), **row_stats(P, TU))
     return row, P, H, R0, p0, T
 
 
@@ -947,8 +1066,8 @@ def fit() -> int:
     # the fit index and the primary return (CRSP only: every fit date is before 2024-12-31)
     T74 = fit_slice(build_book(UF))
     idx = T74.index
-    R_ret = crsp_pivot(crsp, pool, idx, qr, "ret")
-    R_retx = crsp_pivot(crsp, pool, idx, qr, "retx")
+    R_ret = crsp_pivot(crsp, pool, idx, qr, "ret", px=px)
+    R_retx = crsp_pivot(crsp, pool, idx, qr, "retx", px=px)
     w4._assert_fit(idx, R_ret)
 
     # ---------------- the declared book
@@ -957,7 +1076,11 @@ def fit() -> int:
     res = bf.evaluate(H, R0)
     TU = res["turn_series"].loc[p0:FIT_END]
     w4._assert_fit(P, TU)
-    print(f"\nTHE TRADABLE SLEEVE: {len(UF)} funds, band {BAND_WIDTH} to the edge, gross cap {MAX_GROSS_STRESS}, "
+    n_fit = len(set(UF) & paired_before_holdout())
+    out["funds_with_fit_data"] = n_fit
+    out["funds_without_fit_data"] = sorted(set(UF) - paired_before_holdout())
+    print(f"\nTHE TRADABLE SLEEVE: {len(UF)} frozen funds, of which {n_fit} have a paired price and NAV before 2023 "
+          f"(not: {', '.join(out['funds_without_fit_data'])}); band {BAND_WIDTH} to the edge, gross cap {MAX_GROSS_STRESS}, "
           f"vol target {VOL_TARGET}, z_window {Z_WINDOW}, min_names {MIN_NAMES}, ADV floor ${MIN_ADV:,.0f} "
           f"(spec {SPEC_ID}). First decision {t0.date()}, first held session {p0.date()}; fit P&L "
           f"{p0.date()}..{P.index[-1].date()}, {len(P)} sessions ({len(P) / 252:.2f} years)")
@@ -1047,10 +1170,11 @@ def fit() -> int:
     sr_f_pooledwin = sr_of(bf.evaluate(Hf, check_held(Hf, R_ret[fresh].reindex(Hf.index), "fresh"))["pnl"].loc[p0:FIT_END])
     s2 = dict(sub_sr=rowf["sr"], sub_first_held=rowf["first_held"], sub_turn=rowf["turn"], pooled_turn=row["turn"],
               half_pooled=0.5 * row["sr"], sub_sr_on_pooled_window=sr_f_pooledwin, funds=len(fresh),
+              funds_with_fit_data=len(set(fresh) & paired_before_holdout()),
               pass_=bool(rowf["sr"] > 0 and rowf["sr"] >= 0.5 * row["sr"]))
     out["stage2"] = s2
     print(f"\n[STAGE 2] STALE-NAV CONTROL: the identical rule on the {len(fresh)} domestic, sector and covered-call "
-          f"funds (own vol scalar and cap), from its own first held session {rowf['first_held']}: gross Sharpe "
+          f"funds ({len(set(fresh) & paired_before_holdout())} with fit data; own vol scalar and cap), from its own first held session {rowf['first_held']}: gross Sharpe "
           f"{rowf['sr']:.3f} (turnover {rowf['turn']:.1f}/yr; pooled {row['turn']:.1f}/yr)  -> rule > 0 and >= "
           f"1/2 x pooled ({0.5 * row['sr']:.3f}): {'PASS' if s2['pass_'] else 'FAIL (KILL D1, stale-NAV artefact)'}")
     print(f"  beside it: the sub-book over the pooled window ({p0.date()}..): {sr_f_pooledwin:.3f}")
@@ -1264,9 +1388,9 @@ def fit() -> int:
         rob.append(r_)
     out["robustness"] = rob
     print("\n[ROBUSTNESS] reported, never chosen from, none of it rescues a failed headline (each from its own first held session):")
-    print(f"  {'book':<46}{'funds':>6}{'from':>12}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn':>7}{'net@5':>7}{'net@15':>7}{'net@30':>7}{'flips?':>7}")
+    print(f"  {'book':<46}{'univ':>5}{'fit':>5}{'from':>12}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn':>7}{'net@5':>7}{'net@15':>7}{'net@30':>7}{'flips?':>7}")
     for r_ in rob:
-        print(f"  {r_['book']:<46}{r_['funds']:>6}{r_['first_held']:>12}{r_['sr']:8.3f}{r_['ann_pct']:7.2f}{r_['vol_pct']:7.2f}"
+        print(f"  {r_['book']:<46}{r_['universe']:>5}{r_['funds']:>5}{r_['first_held']:>12}{r_['sr']:8.3f}{r_['ann_pct']:7.2f}{r_['vol_pct']:7.2f}"
               f"{r_['turn']:7.1f}{r_['net5']:7.3f}{r_['net15']:7.3f}{r_['net30']:7.3f}{r_['flips']:>7}")
 
     # capacity
