@@ -49,7 +49,8 @@ decision 2 names · **Source** `results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md
 > - **Halt** if more than 5 name-days fall in the class. Each case is logged.
 >   Off both with the two sources disagreeing stays a §4.5(c) halt.
 > - **Measured** (`python3 scripts/cef/c5_open_auction.py freeze`): 1
->   name-day. MHD 2017-06-21 is +3.00c against both, which agree to 0.00c; it
+>   name-day. MHD 2017-06-21: 3.00c above the NYSE print and off CRSP too, the two agreeing (per-date CRSP
+>   figures redacted 2026-10-15: licensed data); it
 >   is a WIDE material trade, and none in the deployed set.
 >   - In the WIDE set the correction moves H by at most 0.26% of capital, and
 >     390 cells move by more than 10⁻⁴. Material trade name-days go from 6,456

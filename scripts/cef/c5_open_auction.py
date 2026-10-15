@@ -94,6 +94,12 @@ F_CEF = FROZEN / "cef"                             # the TRIAL'S INPUT COPY: the
 F_W4 = FROZEN / "w4"                               # the 2016-22 auction prints and the CRSP stage
 F_EXEC = FROZEN / "exec"                           # the 2016-22 quote sample (126 sessions) and its calendar
 FREEZE_RECORD = OUT_DIR / f"c5_frozen_inputs_{STAMP}.json"
+# LICENSED DETAIL STAYS OUT OF TRACKED FILES (coordinator, 2026-10-15; main a838b24): a signed
+# close-minus-CRSP (or CRSP-minus-NYSE) difference beside the public close recovers CRSP's
+# licensed price on that date. Tracked outputs carry counts, era aggregates, the class of a
+# name-day and its difference from the NYSE print; any per-date CRSP quantity is written
+# only here, gitignored (results/**/_cache_*) and outside the hash-verified frozen copy.
+LOG_CACHE = OUT_DIR / "_cache_c5_logs"
 PANELS = ("cef_prices", "cef_nav", "cef_distributions", "cef_splits", "cef_borrow_history")
 W4_FILES = ("alpaca_opening_prints_2016_2022.parquet", "alpaca_opening_prints_sized_2016_2022.parquet",
             "alpaca_closing_prints_sized_2016_2022.parquet", "crsp_dsf_w4.parquet")
@@ -286,16 +292,18 @@ def freeze() -> dict:
     agree = (prc - cp).abs() <= TOL
     d6, other = off_both & agree, off_both & ~agree
     tr = {lab: open_trades(raw[lab][2]).loc[idx] for lab in raw}
-    log = []
+    log, detail = [], []
     for (d, t) in _cells(off_both):
         lab_w = _tradelab(tr["WIDE"].at[d, t])
         lab_d = _tradelab(tr["deployed"].at[d, t])
         log.append(dict(date=str(d.date()), ticker=t, cls="D-6" if d6.at[d, t] else "§4.5(c) (sources disagree)",
-                        close_minus_crsp_c=round(float(100 * (C.at[d, t] - prc.at[d, t])), 3),
                         close_minus_nyse_c=round(float(100 * (C.at[d, t] - cp.at[d, t])), 3),
-                        crsp_minus_nyse_c=round(float(100 * (prc.at[d, t] - cp.at[d, t])), 3),
                         nyse_print=which.at[d, t], value_used="NYSE closing print" if d6.at[d, t] else "none (halt)",
                         WIDE_trade=lab_w, deployed_trade=lab_d))
+        detail.append(dict(date=str(d.date()), ticker=t, close_minus_crsp_c=round(float(100 * (C.at[d, t] - prc.at[d, t])), 3),
+                           crsp_minus_nyse_c=round(float(100 * (prc.at[d, t] - cp.at[d, t])), 3)))
+    LOG_CACHE.mkdir(parents=True, exist_ok=True)
+    (LOG_CACHE / f"d6_crsp_detail_fit_{STAMP}.json").write_text(json.dumps(detail, indent=1) + "\n")
     print(f"name-days with a close, CRSP prc and an NYSE closing print: {int(avail.sum().sum()):,}; off both: "
           f"{int(off_both.sum().sum())}; D-6 (the two sources agree): {int(d6.sum().sum())}; "
           f"sources disagree (§4.5(c), halts): {int(other.sum().sum())}")
@@ -619,15 +627,14 @@ def sec_other(D: Data, frz: dict) -> tuple[dict, list, list]:
     print(f"(c) NYSE closing prints repeated at one price (counted, not defects): "
           f"{ {k: v for k, v in D.close_dups.items() if v} }")
     print(f"(c) D-6 (ruling 1), applied by `freeze` to the trial's input copy and logged there: {frz['d6_count']} "
-          f"name-day(s), halt above {D6_HALT_N}. Value used: {frz['d6_value_rule']}. In cents, no price level:")
+          f"name-day(s), halt above {D6_HALT_N}. Value used: {frz['d6_value_rule']}. In cents, no price level, and no "
+          "per-date CRSP difference (licensed data):")
     for r in frz["d6_log"]:
-        print(f"      {r['date']} {r['ticker']}: {r['cls']}; close-CRSP {r['close_minus_crsp_c']:+.2f}c, close-NYSE("
-              f"{r['nyse_print']}) {r['close_minus_nyse_c']:+.2f}c, CRSP-NYSE {r['crsp_minus_nyse_c']:+.2f}c; "
-              f"WIDE trade {r['WIDE_trade']}, deployed trade {r['deployed_trade']}")
+        print(f"      {r['date']} {r['ticker']}: {r['cls']}; close-NYSE({r['nyse_print']}) {r['close_minus_nyse_c']:+.2f}c "
+              f"(CRSP detail in the gitignored log only); WIDE trade {r['WIDE_trade']}, deployed trade {r['deployed_trade']}")
         flags.append(dict(date=r["date"], ticker=r["ticker"], set="all", kind=f"{r['cls']} (freeze log)",
-                          note=f"close-CRSP {r['close_minus_crsp_c']:+.2f}c; close-NYSE({r['nyse_print']}) "
-                               f"{r['close_minus_nyse_c']:+.2f}c; CRSP-NYSE {r['crsp_minus_nyse_c']:+.2f}c; "
-                               f"WIDE trade {r['WIDE_trade']}; deployed trade {r['deployed_trade']}"))
+                          note=f"close-NYSE({r['nyse_print']}) {r['close_minus_nyse_c']:+.2f}c; CRSP detail not "
+                               f"published (licensed); WIDE trade {r['WIDE_trade']}; deployed trade {r['deployed_trade']}"))
     print(f"(c) on the input copy, of {int(avail.sum().sum()):,} name-days with a close, CRSP prc and an NYSE print "
           f"(CRSP prc < 0: {neg}): closes off both by more than $0.005 + 1e-6: {int(off_both.sum().sum())}")
     if off_both.any().any():
