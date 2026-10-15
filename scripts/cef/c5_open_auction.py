@@ -1537,6 +1537,319 @@ def fit() -> dict:
     return rec
 
 
+# =============================================================================
+# STAGE 8: THE HOLDOUT, 2023-01-03 .. 2026-09-30 (opened once; it can kill, never rescue)
+# =============================================================================
+# The team lead's ruling of 2026-10-14 on the holdout's bad-close check (amendment line of
+# 2026-10-15): the fit's D-6 rule, with the second source CRSP `prc` for 2023-24 and
+# CEFConnect's close for 2025-26 (R2's CRSP ends 2024-12-31). Both sources must AGREE before a
+# panel close is replaced; a single available source never replaces anything and is logged,
+# not used. Same tolerance, same halt (more than 5 D-6 name-days). The holdout's inputs are
+# frozen and hashed before G is formed on a single holdout date.
+
+HOLD = (pd.Timestamp("2023-01-03"), pd.Timestamp("2026-09-30"))     # §7, fixed
+HOLD_SESSIONS = 939                                                 # §7: 937 to 2026-09-28 + 2
+H_STAMP = "2026-10-15"
+H_FROZEN = OUT_DIR / "_cache_c5_holdout"                           # gitignored
+H_RECORD = OUT_DIR / f"c5_holdout_inputs_{H_STAMP}.json"
+H_RESULT = OUT_DIR / "C5_HOLDOUT_RESULT.json"
+H_W4 = ("alpaca_opening_prints_holdout_2023_2026.parquet", "alpaca_closing_prints_holdout_2023_2026.parquet",
+        "crsp_dsf_holdout_2023_2024.parquet")
+CC_FILE = REPO / "results" / "cef" / "c5" / "_cache_cefconnect" / "cefconnect_closes.parquet"
+
+
+def _fit_committed():
+    from scripts.data.fetch_alpaca_auction_history import fit_verdict_committed
+    ok, why = fit_verdict_committed()
+    if not ok:
+        raise Halt(f"the holdout stage refuses: C5's fit verdict is not committed ({why})")
+
+
+def freeze_holdout() -> dict:
+    """Freeze every holdout input with its sha256; apply the holdout bad-close rule to the
+    holdout copy. The fit's frozen copy is reused for every row to 2022-12-30 (so H to 2022
+    is the fit's H, which `holdout` asserts) and the live panel supplies 2023 .. 2026-09-30."""
+    from scripts.cef.spec import UNIVERSE
+    _fit_committed()
+    U = list(UNIVERSE)
+    halts = []
+    hr(f"FREEZE THE HOLDOUT INPUTS into {H_FROZEN.relative_to(REPO)}/ (gitignored)")
+    if H_FROZEN.exists():
+        shutil.rmtree(H_FROZEN)
+    for d in ("cef", "w4", "cc"):
+        (H_FROZEN / d).mkdir(parents=True)
+    out_last, cover = {}, {}
+    for name in ("cef_prices", "cef_nav", "cef_distributions", "cef_splits"):
+        col = "ex_date" if name in ("cef_distributions", "cef_splits") else "date"
+        live = pd.read_parquet(LIVE_CEF / f"{name}.parquet")
+        live = live[live.ticker.isin(U)].copy()
+        ld = pd.to_datetime(live[col])
+        out_last[name] = str(ld.max().date())
+        fit_raw = pd.read_parquet(F_CEF_RAW / f"{name}.parquet") if (F_CEF_RAW / f"{name}.parquet").exists() else None
+        old = live[ld <= FIT_END].reset_index(drop=True)
+        if fit_raw is not None and name != "cef_splits":
+            a = old.sort_values([col, "ticker"]).reset_index(drop=True)
+            b = fit_raw.sort_values([col, "ticker"]).reset_index(drop=True)
+            if not a.equals(b):
+                raise Halt(f"{name}: the live rows to {FIT_END.date()} differ from the fit's frozen raw copy")
+        fit_in = pd.read_parquet(F_CEF / f"{name}.parquet")          # the fit's input copy (D-6 applied)
+        new = live[(ld > FIT_END) & (ld <= HOLD[1])]
+        pd.concat([fit_in, new], ignore_index=True).to_parquet(H_FROZEN / "cef" / f"{name}.parquet", index=False)
+    print("live panels' last dates:", out_last, "; rows to 2022-12-30 equal the fit's frozen raw copy, and the "
+          "fit's input copy (with its D-6) is reused for them")
+    P = pd.read_parquet(H_FROZEN / "cef" / "cef_prices.parquet")
+    P["date"] = pd.to_datetime(P["date"])
+    N = pd.read_parquet(H_FROZEN / "cef" / "cef_nav.parquet")
+    N["date"] = pd.to_datetime(N["date"])
+    cover = dict(prices_on_2026_09_30=int((P.date == HOLD[1]).sum()),
+                 navs_on_2026_09_29=int((N.date == pd.Timestamp("2026-09-29")).sum()))
+    print(f"DG-C5-7: names with a price on 2026-09-30: {cover['prices_on_2026_09_30']} of 13; with a NAV on "
+          f"2026-09-29: {cover['navs_on_2026_09_29']} of 13")
+    if cover["prices_on_2026_09_30"] < 13 or cover["navs_on_2026_09_29"] < 13:
+        halts.append("DG-C5-7: the panels do not reach the fixed holdout end for every name")
+    for f in H_W4:
+        shutil.copy2(_need(LIVE_W4 / f, "the --holdout fetches"), H_FROZEN / "w4" / f)
+    cc = pd.read_parquet(_need(CC_FILE, "python3 scripts/data/fetch_cefconnect_closes.py"))
+    cc = cc[(cc.date >= pd.Timestamp("2025-01-01")) & (cc.date <= HOLD[1])]
+    cc.to_parquet(H_FROZEN / "cc" / "cefconnect_closes_2025_2026.parquet", index=False)
+
+    # ---- the bad-close check on the holdout window, before anything else reads the copy
+    hr("THE HOLDOUT BAD-CLOSE CHECK (ruling of 2026-10-14): two agreeing sources replace; one alone never does")
+    C = P.pivot_table(index="date", columns="ticker", values="close").sort_index().reindex(columns=U)
+    hidx = C.index[(C.index >= HOLD[0]) & (C.index <= HOLD[1])]
+    if len(hidx) != HOLD_SESSIONS:
+        halts.append(f"the holdout has {len(hidx)} sessions in the price panel, not {HOLD_SESSIONS}")
+    C = C.loc[hidx]
+    k = pd.read_parquet(H_FROZEN / "w4" / H_W4[1])
+    k["date"] = pd.to_datetime(k["date"])
+    c6, cM, reps = nyse_close_prints(k, hidx, U)
+    cp = cM.combine_first(c6)
+    c = pd.read_parquet(H_FROZEN / "w4" / H_W4[2])
+    c["date"] = pd.to_datetime(c["date"])
+    prc = c[c.ticker.isin(U)].pivot_table(index="date", columns="ticker", values="prc").reindex(index=hidx, columns=U).abs()
+    one = cc[cc.window == "1Y"].pivot(index="date", columns="ticker", values="close_cc").reindex(index=hidx, columns=U)
+    alls = cc[cc.window == "All"].pivot(index="date", columns="ticker", values="close_cc").reindex(index=hidx, columns=U)
+    cc_amb = one.notna() & alls.notna() & ((one - alls).abs() > TOL)
+    ccv = one.combine_first(alls).where(~cc_amb)
+    y2425 = pd.DataFrame(np.repeat((hidx <= pd.Timestamp("2024-12-31"))[:, None], len(U), axis=1), index=hidx, columns=U)
+    second = prc.where(y2425).combine_first(ccv.where(~y2425))
+    src2 = np.where(y2425, "CRSP", "CEFConnect")
+    have = C.notna()
+    n_src = cp.notna().astype(int) + second.notna().astype(int)
+    off_p, off_s = (C - cp).abs() > TOL, (C - second).abs() > TOL
+    both = have & cp.notna() & second.notna()
+    off_both = both & off_p & off_s
+    agree = (cp - second).abs() <= TOL
+    d6, other = off_both & agree, off_both & ~agree
+    single = have & (n_src == 1) & ((cp.notna() & off_p) | (second.notna() & off_s))
+    by_year = {}
+    for yv in sorted(set(hidx.year)):
+        m = hidx.year == yv
+        by_year[int(yv)] = dict(name_days=int(have.loc[m].sum().sum()), two_sources=int(both.loc[m].sum().sum()),
+                                one_source=int((have & (n_src == 1)).loc[m].sum().sum()),
+                                no_source=int((have & (n_src == 0)).loc[m].sum().sum()),
+                                d6=int(d6.loc[m].sum().sum()), sources_disagree=int(other.loc[m].sum().sum()),
+                                single_source_logged=int(single.loc[m].sum().sum()),
+                                cc_windows_disagree=int((cc_amb & have).loc[m].sum().sum()))
+    print("by year (counts only; the second source is CRSP in 2023-24 and CEFConnect in 2025-26):")
+    print(pd.DataFrame(by_year).T.to_string())
+    print(f"NYSE closing prints repeated at one price (counted, not defects): { {k_: v for k_, v in reps.items() if v} }")
+    log, detail = [], []
+    for (d, t) in _cells(d6 | other):
+        log.append(dict(date=str(d.date()), ticker=t, cls="D-6" if d6.at[d, t] else "§4.5(c) (sources disagree)",
+                        second_source=str(src2[hidx.get_loc(d), U.index(t)]),
+                        close_minus_nyse_c=round(float(100 * (C.at[d, t] - cp.at[d, t])), 3),
+                        value_used="NYSE closing print" if d6.at[d, t] else "none (halt)"))
+    for (d, t) in _cells(single | off_both):
+        detail.append(dict(date=str(d.date()), ticker=t, close_minus_nyse_c=_c(C, cp, d, t),
+                           close_minus_second_c=_c(C, second, d, t), second_source=str(src2[hidx.get_loc(d), U.index(t)]),
+                           single_source=bool(single.at[d, t])))
+    LOG_CACHE.mkdir(parents=True, exist_ok=True)
+    (LOG_CACHE / f"holdout_close_check_detail_{H_STAMP}.json").write_text(json.dumps(detail, indent=1) + "\n")
+    print("replaced or halting name-days (the NYSE difference only; second-source detail is in the gitignored log):")
+    for r in log:
+        print("   ", r)
+    if d6.sum().sum() > D6_HALT_N:
+        halts.append(f"D-6 (holdout): {int(d6.sum().sum())} name-days, above the ruled {D6_HALT_N}")
+    if other.any().any():
+        halts.append(f"§4.5(c) (holdout): {int(other.sum().sum())} close(s) off both sources, which disagree")
+    Pin = P.copy()
+    for (d, t) in _cells(d6):
+        m = (Pin.date == d) & (Pin.ticker == t)
+        if m.sum() != 1:
+            raise Halt(f"holdout D-6 {d.date()} {t}: {int(m.sum())} rows, not one")
+        Pin.loc[m, "close"] = float(cp.at[d, t])
+    Pin.to_parquet(H_FROZEN / "cef" / "cef_prices.parquet", index=False)
+    print(f"the holdout copy: {int(d6.sum().sum())} close(s) replaced (D-6); single-source disagreements logged and "
+          f"not used: {int(single.sum().sum())}")
+    files = {str(f.relative_to(H_FROZEN)): sha256_file(f) for f in sorted(H_FROZEN.rglob("*")) if f.is_file()}
+    hr("SHA-256 OF EVERY FROZEN HOLDOUT FILE")
+    for n_, h_ in files.items():
+        print(f"{h_}  {n_}")
+    rec = dict(stamp=H_STAMP, root=str(H_FROZEN.relative_to(REPO)), holdout=[str(HOLD[0].date()), str(HOLD[1].date())],
+               live_last_dates=out_last, dg_c5_7=cover, ruling="two agreeing sources replace a panel close (CRSP prc "
+               "2023-24, CEFConnect close 2025-26, each with the NYSE closing print); one source alone is logged, "
+               "never used; |diff| <= 0.005 + 1e-6; halt above 5", by_year=by_year, d6_log=log,
+               d6_count=int(d6.sum().sum()), files=files, halts=halts, verdict="HALT" if halts else "FROZEN")
+    hr("HOLDOUT FREEZE VERDICT: " + rec["verdict"])
+    for x in halts:
+        print("  - " + x)
+    return rec
+
+
+def _c(A, B, d, t):
+    v = A.at[d, t] - B.at[d, t]
+    return round(float(100 * v), 3) if np.isfinite(v) else None
+
+
+def verify_holdout() -> dict:
+    rec = json.loads(_need(H_RECORD, "c5_open_auction.py freeze-holdout, committed").read_text())
+    if rec.get("verdict") != "FROZEN":
+        raise Halt(f"the holdout freeze record says {rec.get('verdict')}")
+    got = {str(f.relative_to(H_FROZEN)): sha256_file(f) for f in sorted(H_FROZEN.rglob("*")) if f.is_file()}
+    if got != rec["files"]:
+        raise Halt("the frozen holdout copy differs from its committed hashes")
+    return rec
+
+
+def holdout() -> dict:
+    """Stage 8, once: the sign of the holdout mean of G (WIDE) against the fit's."""
+    from scripts.cef import band_frontier as bf
+    from scripts.cef.band_frontier import _stats, open_fill_gain
+    from scripts.cef.c5_feasibility import nyse_open_prints
+    from scripts.cef.spec import UNIVERSE
+    from scripts.cef.w4_artifacts import stationary_boot
+    from statistics import NormalDist
+    _fit_committed()
+    fitrec = json.loads(FIT_VERDICT.read_text())
+    hrec = verify_holdout()
+    U = list(UNIVERSE)
+    print(f"C5 (CEF trial 51) STAGE 8, THE HOLDOUT {HOLD[0].date()} .. {HOLD[1].date()}, run "
+          f"{pd.Timestamp.now(tz='UTC'):%Y-%m-%d %H:%M}Z. Opened once; it can kill, never rescue. The fit verdict "
+          f"stands: {fitrec['verdict']}")
+    print(f"frozen holdout inputs verified ({len(hrec['files'])} files, {H_RECORD.relative_to(REPO)}); "
+          f"holdout D-6 replacements: {hrec['d6_count']}")
+    fit_mean = fitrec["stage1"]["stats"]["mean_bp_yr"]
+    fit_sr = fitrec["stage1"]["stats"]["sr"]
+    old = bf.DATA_DIR
+    try:
+        bf.DATA_DIR = F_CEF
+        Hfit = {lab: _holdings(f)[2] for lab, f in (("WIDE", 0), ("deployed", None))}
+        bf.DATA_DIR = H_FROZEN / "cef"
+        built = {lab: bf.build_targets(min_adv=f) for lab, f in (("WIDE", 0), ("deployed", None))}
+        from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS
+        H = {}
+        for lab, (T, R) in built.items():
+            T, R = T.loc[:HOLD[1]], R.loc[:HOLD[1]]
+            H[lab] = bf.band_gross_capped(T, BAND_WIDTH, MAX_GROSS_STRESS)
+        Rt = bf.total_returns(built["WIDE"][1].loc[:HOLD[1]])
+    finally:
+        bf.DATA_DIR = old
+    for lab in H:
+        same = H[lab].loc[:FIT_END].equals(Hfit[lab])
+        print(f"H ({lab}) to 2022-12-30 from the holdout copy equals the fit's H exactly: {same}")
+        if not same:
+            raise Halt(f"{lab}: H to 2022 differs between the fit's copy and the holdout copy")
+    idx = H["WIDE"].index
+    HW = idx[(idx >= HOLD[0]) & (idx <= HOLD[1])]
+    if len(HW) != HOLD_SESSIONS:
+        raise Halt(f"the holdout has {len(HW)} sessions, not {HOLD_SESSIONS}")
+    P = pd.read_parquet(H_FROZEN / "cef" / "cef_prices.parquet")
+    P["date"] = pd.to_datetime(P["date"])
+    pv = lambda c_: P.pivot_table(index="date", columns="ticker", values=c_).sort_index().reindex(columns=U).reindex(idx)
+    C, op_y, hi, lo = pv("close"), pv("open"), pv("high"), pv("low")
+    a = pd.read_parquet(H_FROZEN / "w4" / H_W4[0])
+    a["date"] = pd.to_datetime(a["date"])
+    O, Q = nyse_open_prints(a, idx, U)
+    c = pd.read_parquet(H_FROZEN / "w4" / H_W4[2])
+    c["date"] = pd.to_datetime(c["date"])
+    op_c = c[c.ticker.isin(U)].pivot_table(index="date", columns="ticker", values="openprc").reindex(index=idx, columns=U)
+    op_c = op_c.where(op_c > 0)
+    hasO = O.notna() & C.notna()
+    d2 = O.notna() & Q.notna() & ((O - Q).abs() > TOL)
+    out_rng = hasO & lo.notna() & ((O < lo - TOL) | (O > hi + TOL))
+    eq_y = hasO & op_y.notna() & ((O - op_y).abs() <= TOL)
+    eq_c = hasO & op_c.notna() & ((O - op_c).abs() <= TOL)
+    d3 = hasO & op_y.notna() & op_c.notna() & ~eq_y & ~eq_c & out_rng
+    d3_unevaluable = hasO & out_rng & op_c.isna()
+    Oe = O.where(~(d2 | d3))
+    RS, _ = bf.session_returns(Oe, C)                 # raises on a non-positive price or a 50% session (§4.5)
+    hr("STAGE 8 DATA: §4.2's classes on the holdout (the rule applied unchanged)")
+    halts, cls = [], {}
+    for lab in ("WIDE", "deployed"):
+        tr = open_fill_gain(H[lab], pd.DataFrame(1.0, index=idx, columns=U), by_name=True).abs().loc[HW]
+        mat = tr >= MATERIAL
+        nm = int(mat.sum().sum())
+        d1 = mat & C.loc[HW].notna() & O.loc[HW].isna()
+        d1n = float(tr.where(d1, 0.0).sum().sum() / tr.where(mat, 0.0).sum().sum()) if nm else 0.0
+        d5 = mat & C.loc[HW].isna()
+        d3m = mat & d3.loc[HW]
+        cls[lab] = dict(material=nm, D1=int(d1.sum().sum()), D1_notional=d1n, D3=int(d3m.sum().sum()),
+                        D5=int(d5.sum().sum()))
+        print(f"{lab}: material trade name-days {nm:,}; D-1 {int(d1.sum().sum())} ({d1.sum().sum() / max(nm, 1):.2%}, "
+              f"{d1n:.2%} of notional); D-3 {int(d3m.sum().sum())}; D-5 {int(d5.sum().sum())}")
+        if nm and (d1.sum().sum() / nm > HALT["D1_trades"] or d1n > HALT["D1_notional"]):
+            halts.append(f"D-1 ({lab}) above 1%")
+        if nm and d3m.sum().sum() / nm > HALT["D3_trades"]:
+            halts.append(f"D-3 ({lab}) above 0.5%")
+        if nm and d5.sum().sum() / nm > HALT["D5_trades"]:
+            halts.append(f"D-5 ({lab}) above 0.1%")
+    both = O.notna() & Q.notna()
+    nd2, nboth = int(d2.loc[HW].sum().sum()), int(both.loc[HW].sum().sum())
+    print(f"D-2: {nd2} of {nboth} name-days with both O and Q; D-3 (all name-days): {int(d3.loc[HW].sum().sum())}; "
+          f"O outside the day's range with no CRSP openprc to test D-3 against (2025-26, CRSP ends 2024): "
+          f"{int(d3_unevaluable.loc[HW].sum().sum())} name-days, reported, not classified")
+    if nboth and nd2 / nboth > HALT["D2_both"]:
+        halts.append("D-2 above 1% of name-days with both")
+    if halts:
+        raise Halt("; ".join(halts))
+    # ---- the rule
+    hr("STAGE 8: THE HOLDOUT SIGN RULE (§7) -- KILL D3 if the holdout mean of G has the opposite sign to the fit's")
+    e = {lab: bf.evaluate(H[lab], Rt) for lab in H}
+    G = open_fill_gain(H["WIDE"], RS).loc[HW]
+    turn = float(e["WIDE"]["turn_series"].loc[HW].mean() * 252)
+    st = gstats(G, turn)
+    b = stationary_boot(G, mean_block=BOOT["mean_block"], reps=BOOT["reps"], seed=BOOT["seed"])
+    n = len(G)
+    z = fit_sr * np.sqrt(n / 252)
+    sign_h = np.sign(st["mean_bp_yr"])
+    p_obs = NormalDist().cdf(z) if sign_h > 0 else NormalDist().cdf(-z)
+    agree = sign_h == np.sign(fit_mean)
+    print(fmt_g("G, WIDE, holdout", st))
+    print(f"fit mean {fit_mean:+.1f}bp/yr (SR {fit_sr:+.2f}); holdout mean {st['mean_bp_yr']:+.1f}bp/yr over {n} sessions; "
+          f"signs {'AGREE' if agree else 'DISAGREE'}")
+    print(f"stationary bootstrap (block 21, 10,000, seed 20261013) 95% CI: mean {b['lo_mean'] * 252e4:+.1f} .. "
+          f"{b['hi_mean'] * 252e4:+.1f}bp/yr; Sharpe {b['lo_sr']:+.2f} .. {b['hi_sr']:+.2f}")
+    print(f"probability of the observed sign if the fit's Sharpe were true: {p_obs:.3f}")
+    rule = "PASS (signs agree)" if agree else "KILL D3 (signs disagree)"
+    print(f"STAGE 8: {rule}. It cannot rescue: the trial's verdict stays {fitrec['verdict']}")
+    # ---- beside: the deployed set, by year, the books' holdout rows (H13)
+    hr("BESIDE THE RULE, NEVER DECIDING")
+    Gd = open_fill_gain(H["deployed"], RS).loc[HW]
+    sd = gstats(Gd, float(e["deployed"]["turn_series"].loc[HW].mean() * 252))
+    print(fmt_g("G, deployed set, holdout", sd))
+    yr = {}
+    for yv in sorted(set(HW.year)):
+        g_ = G[G.index.year == yv]
+        yr[int(yv)] = dict(mean_bp_yr=g_.mean() * 252e4, sessions=len(g_))
+    print("G (WIDE) by year, bp/yr: " + "; ".join(f"{k_} {v['mean_bp_yr']:+.1f} ({v['sessions']})" for k_, v in yr.items()))
+    print(f"{'book (holdout rows, H13)':<40}{'grossSR':>8}{'ann%':>7}{'turn/yr':>8}{'net@5':>8}{'net@15':>8}{'net@30':>8}")
+    books = {}
+    for lab in ("WIDE", "deployed"):
+        gl = open_fill_gain(H[lab], RS)
+        for nm_, pnl in ((f"{lab}: MOC fill", e[lab]["pnl"]), (f"{lab}: C5 open fill", e[lab]["pnl"] + gl)):
+            s_ = _stats(pnl.loc[HW], e[lab]["turn_series"].loc[HW])
+            books[nm_] = dict(sr=s_["sr"], ann_pct=s_["ann"] * 100, turn=s_["turn"], nets=s_["nets"])
+            print(f"{nm_:<40}{s_['sr']:8.2f}{s_['ann'] * 100:7.2f}{s_['turn']:8.2f}" + "".join(f"{x:8.2f}" for x in s_["nets"]))
+    G.to_frame("G").to_parquet(FIT_CACHE / "G_wide_holdout.parquet")
+    return dict(stamp=H_STAMP, holdout=[str(HOLD[0].date()), str(HOLD[1].date())], sessions=n, G=st,
+                boot_ci=dict(mean_bp_yr=(b["lo_mean"] * 252e4, b["hi_mean"] * 252e4), sr=(b["lo_sr"], b["hi_sr"])),
+                fit_mean_bp_yr=fit_mean, fit_sr=fit_sr, signs_agree=bool(agree), p_observed_sign=p_obs,
+                rule=rule, trial_verdict=fitrec["verdict"], classes=cls, d2=nd2,
+                d3_unevaluable=int(d3_unevaluable.loc[HW].sum().sum()), deployed_G=sd, by_year=yr, books=books,
+                holdout_inputs=str(H_RECORD.relative_to(REPO)))
+
+
 def _write(name: str, header: str, fn):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -1549,7 +1862,7 @@ def _write(name: str, header: str, fn):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("stage", choices=("freeze", "stage0", "fit"))
+    ap.add_argument("stage", choices=("freeze", "stage0", "fit", "freeze-holdout", "holdout"))
     a = ap.parse_args(argv)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     pd.set_option("display.width", 220)
@@ -1558,6 +1871,19 @@ def main(argv=None) -> int:
                      f"# python3 scripts/cef/c5_open_auction.py freeze  (run {STAMP}; counts, cents, hashes)\n", freeze)
         FREEZE_RECORD.write_text(json.dumps(rec, indent=1, default=str) + "\n")
         return 1 if rec["verdict"] == "HALT" else 0
+    if a.stage == "freeze-holdout":
+        rec = _write(f"c5_holdout_freeze_output_{H_STAMP}.txt",
+                     f"# python3 scripts/cef/c5_open_auction.py freeze-holdout  (run {H_STAMP}; counts, cents vs the "
+                     "NYSE print, hashes; no CRSP or CEFConnect quantity per date)\n", freeze_holdout)
+        H_RECORD.write_text(json.dumps(rec, indent=1, default=str) + "\n")
+        return 1 if rec["verdict"] == "HALT" else 0
+    if a.stage == "holdout":
+        FIT_CACHE.mkdir(parents=True, exist_ok=True)
+        rec = _write(f"c5_holdout_output_{H_STAMP}.txt",
+                     f"# python3 scripts/cef/c5_open_auction.py holdout  (run {H_STAMP}; stage 8, opened once)\n", holdout)
+        H_RESULT.write_text(json.dumps(rec, indent=1, default=lambda o: float(o) if isinstance(o, np.floating)
+                                       else (bool(o) if isinstance(o, np.bool_) else str(o))) + "\n")
+        return 0
     if a.stage == "fit":
         rec = _write(f"c5_fit_output_{STAMP}.txt",
                      f"# python3 scripts/cef/c5_open_auction.py fit  (run {STAMP}; frozen inputs; decision window "

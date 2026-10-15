@@ -50,12 +50,31 @@ def test_gate_refuses_missing_untracked_and_modified_then_passes_when_committed(
 
 def test_holdout_fetch_refuses_before_any_client_when_uncommitted(monkeypatch):
     monkeypatch.setattr(F, "fit_verdict_committed", lambda *a, **k: (False, "test"))
-    with pytest.raises(F.AuctionFetchError, match="fit verdict is not committed"):
-        F.main(["--side", "open", "--holdout"])
+    for side in ("open", "close"):
+        with pytest.raises(F.AuctionFetchError, match="fit verdict is not committed"):
+            F.main(["--side", side, "--holdout"])
 
 
-def test_holdout_fetch_is_opening_side_only():
-    with pytest.raises(F.AuctionFetchError, match="opening prints only"):
-        F.main(["--side", "close", "--holdout"])
-    with pytest.raises(F.AuctionFetchError, match="opening prints only"):
+def test_holdout_fetch_takes_no_sizes():
+    with pytest.raises(F.AuctionFetchError, match="no --sizes"):
         F.main(["--side", "open", "--sizes", "--holdout"])
+
+
+def test_crsp_holdout_stage_refuses_before_any_query_when_uncommitted(monkeypatch):
+    from scripts.data import stage_crsp_w4 as S
+    monkeypatch.setattr(F, "fit_verdict_committed", lambda *a, **k: (False, "test"))
+    with pytest.raises(S.StageError, match="fit verdict is not committed"):
+        S.main(["--holdout"])
+
+
+def test_cefconnect_closes_refuse_when_uncommitted_and_parse_keeps_prices(monkeypatch):
+    from scripts.data import fetch_cefconnect_closes as CC
+    monkeypatch.setattr(F, "fit_verdict_committed", lambda *a, **k: (False, "test"))
+    with pytest.raises(CC.CloseFetchError, match="fit verdict is not committed"):
+        CC.main([])
+    rows = [{"DataDate": "2025-03-07T00:00:00", "NAVData": None, "Data": 10.5, "DiscountData": None},
+            {"DataDate": "2025-03-14T00:00:00", "NAVData": 11.0, "Data": 10.6, "DiscountData": -3.6}]
+    d = CC.parse({"rows": rows}, "PDI", "All")
+    assert list(d.close_cc) == [10.5, 10.6] and d.ticker.eq("PDI").all() and d.window.eq("All").all()
+    with pytest.raises(CC.CloseFetchError, match="share a date"):
+        CC.parse({"rows": rows + rows[:1]}, "PDI", "All")

@@ -149,10 +149,38 @@ decision 2 names · **Source** `results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md
 >    - **Why:** the mechanism claims the gain is in the drift part. A sample
 >      that shows no gain cannot support that claim, so the caution stands.
 >
-> **Still open, not decided here: the holdout's D-6.** D-6 needs CRSP `prc`,
-> which `stage_crsp_w4.py` stages only to 2022-12-31. The holdout's own freeze
-> (after the panel refresh, DG-C5-7) will have to say how D-6 is evaluated for
-> 2023–26.
+> **The holdout's D-6.** Left open at the fit. Ruled on 2026-10-14 (next line).
+>
+> **AMENDMENT LINE: team lead, 2026-10-14 (recorded 2026-10-15, after the fit verdict `b242df6` and before
+> the holdout was read).**
+> - **The rule.** The holdout's bad-close check is the fit's rule: the same
+>   tolerance and the same halt (more than 5 name-days).
+>   - **Second source:** CRSP `prc` for 2023–24, and **CEFConnect's close** for
+>     2025–26. R2's CRSP ends 2024-12-31.
+>   - **Both sources must agree** before a panel close is replaced; one
+>     source alone never replaces anything and is logged, not used.
+>   - **D-3 cannot be tested in 2025–26.** It also needs CRSP `openprc`, so
+>     those name-days are counted and reported, not classified.
+> - **Measured** (`python3 scripts/cef/c5_open_auction.py freeze-holdout`,
+>   2026-10-15):
+>   - 939 sessions; DG-C5-7 met, with every name priced on 2026-09-30 and
+>     carrying a NAV on 2026-09-29.
+>   - **0 D-6 cases, 0 disagreements between sources, and 0 single-source
+>     discrepancies.**
+>   - Name-days with two sources: 3,250 (2023), 3,276 (2024), 1,156 (2025;
+>     CEFConnect is weekly before 2025-10-16) and 2,388 (2026).
+> - **Frozen holdout inputs.** They are in the gitignored
+>   `results/cef/c5/_cache_c5_holdout/`, and the record is
+>   `results/cef/c5/c5_holdout_inputs_2026-10-15.json`. Rows to 2022-12-30 are
+>   the fit's frozen input copy, re-checked against the live panel. SHA-256:
+>   - `cef/cef_prices.parquet` `d02ed66f8123192a29ce00638f62c1031c65b8c89c2f6fe191201562deba1562`
+>   - `cef/cef_nav.parquet` `5d66d6e0621436c897c2fec8dcadbb0fd92cac5906dc1d8065509dec58d5e1e0`
+>   - `cef/cef_distributions.parquet` `98b0b27a3a0adfec60f6c93babb7de6ceea0b4a5acba6415e6770bfd5072ae7a`
+>   - `cef/cef_splits.parquet` `67a1f007312a155fd835fe50e3b357dfb060fcf6905cf90089c204ef3a5489cb`
+>   - `w4/alpaca_opening_prints_holdout_2023_2026.parquet` `576fdf7190c62663bf98bfa337454082ffdb3b73c1ee176e8539f4eade4074ca`
+>   - `w4/alpaca_closing_prints_holdout_2023_2026.parquet` `a8cab8774e4657890a19bb5673f4e9a90561454ecc05344b2bc1cf3f9f0e610d`
+>   - `w4/crsp_dsf_holdout_2023_2024.parquet` `7c2a4f6543e7ae6024e0bed60cca7c332442e88f5a2f3c4fdb60a73a4cce5a78`
+>   - `cc/cefconnect_closes_2025_2026.parquet` `843cd54f6b44fbc3b6fb59fd815c95d706889011b9e38c4127c9f00efbb4828e`
 
 ---
 
