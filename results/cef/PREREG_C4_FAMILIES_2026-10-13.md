@@ -40,6 +40,32 @@ counter's N · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 9
 >    the agreement is stated.
 >
 > Everything else in this document stands.
+
+> **AMENDMENT 2 — Team lead, 2026-10-14 (the holdout's distributions; recorded
+> 2026-10-15, before any holdout number exists).** Stage 0 found 71 ex-dates on
+> 11 of the 74 funds where the yfinance leg's distributions (the declared source
+> from 2025-01-02) disagree with Alpaca's (`results/cef/C4_RESULT_2026-10-14.md`
+> §4). The ruling:
+>
+> - On each of the 71, **Alpaca's amount is used only where a third source
+>   confirms it**: CEFConnect's distribution history for that fund and ex-date,
+>   or, failing that, the ex-date NAV drop.
+> - **Any ex-date that no third source confirms halts the holdout.**
+> - The uncorrected yfinance version is reported beside it and never decides.
+>
+> Encoded in `scripts/cef/c4_families.py` (`confirm_distributions`,
+> `holdout_actions`; `python3 scripts/cef/c4_families.py distributions`). The
+> tolerances, fixed before any NAV-drop outcome was computed:
+>
+> - CEFConnect equals Alpaca within $0.001 per share.
+> - The NAV drop confirms Alpaca's amount A only if it lies within 2σ of A
+>   **and** more than 2σ from yfinance's amount Y.
+> - σ is the fund's sd of daily NAV changes over the 63 prior sessions,
+>   excluding ex-dates and unchanged-NAV repeats, with at least 40 usable
+>   changes.
+>
+> The holdout also waits for two independent reviews of the fit (coordinator,
+> 2026-10-15).
 >
 > **Nothing has run.** No discount z-score, position, P&L, Sharpe, IC,
 > turnover or correlation of any family fund was computed to write this. The

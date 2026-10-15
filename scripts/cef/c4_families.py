@@ -6,7 +6,9 @@
     python3 scripts/data/fetch_alpaca_split_bars.py --c4-pool --start 2024-12-02 --end 2026-09-30
     python3 scripts/cef/c4_families.py stage0     # zero trials: gates, the 2026-10-14 rulings, quality screen
     python3 scripts/cef/c4_families.py fit        # Stage 0's diagnostics and Stages 1-6, fit window only
-    python3 scripts/cef/c4_families.py holdout    # Stages 8-9; refuses until the fit verdict is committed
+    python3 scripts/data/fetch_cefconnect_distributions.py --c4-universe --start 2024-12-01 --end 2026-10-14
+    python3 scripts/cef/c4_families.py distributions   # the 2026-10-14 distribution ruling (amounts only)
+    python3 scripts/cef/c4_families.py holdout    # Stages 8-9; refuses until the fit is reviewed and confirmed
 
 The pre-registration is `results/cef/PREREG_C4_FAMILIES_2026-10-13.md` (approved
 2026-10-14, CEF 50 -> 52, judged at N = 52), with the team lead's amendment of
@@ -121,10 +123,28 @@ RULED_NOT_HELD = {"GRX": ("2007-06-20", "2007-06-29"), "QQQX": ("2014-12-22", "2
 EXTENDED_NOT_HELD = {"ACV": ("2015-05-22", "2015-05-22")}
 IGR_FILL = (pd.Timestamp("2026-09-08"), pd.Timestamp("2026-09-09"))
 DIV_TOL = 0.001                                 # $/share: Yahoo rounds to 3dp (alpaca_daily.py docstring)
-# The yfinance leg's distributions disagree with Alpaca's for some funds (Stage 0, 2026-10-14):
-# a vendor defect under §4.5, whose fix the document does not specify. Until the team lead
-# rules, the holdout stage refuses to run. A ruling is encoded here, with its date.
-YF_LEG_DISTRIBUTION_RULING = None
+# The yfinance leg's distributions disagree with Alpaca's for some funds (Stage 0, 2026-10-14).
+# The team lead's ruling of 2026-10-14 (PREREG amendment, second block): on each disagreeing
+# ex-date use Alpaca's amount ONLY where a third source confirms it -- CEFConnect's distribution
+# history for that fund and ex-date or, failing that, the ex-date NAV drop -- and HALT the
+# holdout on any ex-date no third source confirms. The uncorrected yfinance version is
+# reported beside it and never decides. Encoded in `confirm_distributions` / `holdout_actions`.
+YF_LEG_DISTRIBUTION_RULING = "2026-10-14: Alpaca where a third source confirms; otherwise halt"
+CC_DIST = CACHE / "cefconnect_distributions.parquet"
+DIST_STAMP = "2026-10-15"
+DIST_OUT = OUT_DIR / f"c4_distribution_confirmation_{DIST_STAMP}.txt"
+DIST_TABLE = OUT_DIR / f"c4_distribution_confirmation_{DIST_STAMP}.csv"
+# The NAV-drop test, fixed BEFORE any NAV-drop outcome was computed (2026-10-15): Alpaca's
+# amount A is confirmed only if the ex-date NAV drop lies within NAV_K sigma of A AND more than
+# NAV_K sigma from yfinance's amount Y -- a confirmation must tell the two sources apart.
+# sigma is the fund's own sd of daily NAV changes ($) over the NAV_WIN sessions before the
+# ex-date, excluding ex-dates (either source) and unchanged-NAV repeats; fewer than NAV_MIN_OBS
+# usable changes, a missing NAV, or a repeated NAV on the ex-date leaves the test unusable.
+NAV_K, NAV_WIN, NAV_MIN_OBS = 2.0, 63, 40
+CC_ABSENCE_WINDOW_DAYS = 31        # CEFConnect can confirm "no distribution" only inside its own coverage
+# The coordinator, 2026-10-15: the holdout opens only after two independent reviews of the fit
+# (3be92cd) confirm it. Set True, with the reviews named, in the commit that records them.
+FIT_REVIEWS_CONFIRMED = False
 
 
 class GateError(RuntimeError):
@@ -615,6 +635,143 @@ def stage0() -> int:
     for x in notes:
         print(f"  note: {x}")
     return 1 if fit_halts else 0
+
+
+# --------------------------------------------------------------------------- the distribution ruling
+
+def confirm_distributions(bad: pd.DataFrame, cc: pd.DataFrame, nav: pd.DataFrame,
+                          ex_dates: dict) -> pd.DataFrame:
+    """The 2026-10-14 ruling, one row per disagreeing (fund, ex-date). Pure.
+
+    bad      `ticker date yfinance alpaca` (NaN = that source has no distribution that day)
+    cc       CEFConnect summed per ex-date: `ticker ex_date cc_amount cc_records`
+    nav      the fund's daily NAV, date x ticker (the families yfinance NAV symbol)
+    ex_dates {ticker: set of ex-dates in EITHER source}, excluded from sigma
+
+    Decision, in the ruling's order: 'Alpaca (CEFConnect)' if CEFConnect's amount on that fund
+    and ex-date equals Alpaca's within DIV_TOL (for an Alpaca absence: CEFConnect has records
+    within CC_ABSENCE_WINDOW_DAYS on both sides and none that day); else 'Alpaca (NAV drop)'
+    under the NAV_K rule; else 'UNCONFIRMED' (the holdout halts). CEFConnect's own reading is
+    recorded either way ('= Alpaca', '= yfinance', 'neither', 'no record')."""
+    out = []
+    for r in bad.itertuples(index=False):
+        A = 0.0 if pd.isna(r.alpaca) else float(r.alpaca)
+        Y = 0.0 if pd.isna(r.yfinance) else float(r.yfinance)
+        c = cc[(cc["ticker"] == r.ticker)]
+        on = c[c["ex_date"] == r.date]
+        ccv = float(on["cc_amount"].iloc[0]) if len(on) else np.nan
+        if len(on):
+            cc_read = ("= Alpaca" if abs(ccv - A) <= DIV_TOL else
+                       "= yfinance" if abs(ccv - Y) <= DIV_TOL else "neither")
+        else:
+            lo = (c["ex_date"] < r.date) & (c["ex_date"] >= r.date - pd.Timedelta(days=CC_ABSENCE_WINDOW_DAYS))
+            hi = (c["ex_date"] > r.date) & (c["ex_date"] <= r.date + pd.Timedelta(days=CC_ABSENCE_WINDOW_DAYS))
+            cc_read = "covered, no record" if (lo.any() and hi.any()) else "no record"
+        cc_ok = (cc_read == "= Alpaca") or (A == 0.0 and cc_read == "covered, no record")
+        # the NAV drop
+        s = nav[r.ticker].dropna() if r.ticker in nav.columns else pd.Series(dtype=float)
+        drop = sigma = za = zy = np.nan
+        nav_read = "unusable: no NAV"
+        if r.date in s.index and s.index.get_loc(r.date) > 0:
+            i = s.index.get_loc(r.date)
+            prev_v, v = float(s.iloc[i - 1]), float(s.iloc[i])
+            if v == prev_v:
+                nav_read = "unusable: NAV repeated on the ex-date"
+            else:
+                ch = s.diff().iloc[max(1, i - NAV_WIN):i]
+                ch = ch[(ch != 0) & ~ch.index.isin(list(ex_dates.get(r.ticker, ())))]
+                if len(ch) < NAV_MIN_OBS:
+                    nav_read = f"unusable: {len(ch)} usable NAV changes"
+                else:
+                    drop, sigma = prev_v - v, float(ch.std())
+                    za, zy = (drop - A) / sigma, (drop - Y) / sigma
+                    nav_read = ("confirms Alpaca" if abs(za) <= NAV_K and abs(zy) > NAV_K else
+                                "cannot tell the sources apart" if abs(za) <= NAV_K else
+                                "confirms yfinance, not Alpaca" if abs(zy) <= NAV_K else "matches neither")
+        decision = ("Alpaca (CEFConnect)" if cc_ok else
+                    "Alpaca (NAV drop)" if nav_read == "confirms Alpaca" else "UNCONFIRMED")
+        out.append(dict(ticker=r.ticker, date=r.date, yfinance=r.yfinance, alpaca=r.alpaca, cefconnect=ccv,
+                        cefconnect_reads=cc_read, nav_drop=drop, nav_sigma=sigma, z_alpaca=za, z_yfinance=zy,
+                        nav_reads=nav_read, decision=decision))
+    return pd.DataFrame(out)
+
+
+def holdout_actions(yf_actions: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
+    """The yfinance actions with the ruling applied: on each confirmed row Alpaca's amount
+    replaces yfinance's (0 removes a yfinance-only distribution; a date Alpaca alone carries is
+    added). Splits untouched. Raises on any UNCONFIRMED row: the holdout halts. Pure."""
+    if (table["decision"] == "UNCONFIRMED").any():
+        raise GateError(f"holdout halt (ruling 2026-10-14): {int((table['decision'] == 'UNCONFIRMED').sum())} "
+                        "disagreeing ex-dates no third source confirms")
+    a = yf_actions.copy()
+    a["date"] = pd.to_datetime(a["date"])
+    for r in table.itertuples(index=False):
+        A = 0.0 if pd.isna(r.alpaca) else float(r.alpaca)
+        m = (a["ticker"] == r.ticker) & (a["date"] == r.date)
+        if m.sum() > 1:
+            raise GateError(f"two yfinance action rows for {r.ticker} {r.date.date()}")
+        if m.any():
+            a.loc[m, "dividends"] = A
+        elif A > 0:
+            a = pd.concat([a, pd.DataFrame([dict(date=r.date, ticker=r.ticker, dividends=A, stock_splits=0.0)])],
+                          ignore_index=True)
+    return a.sort_values(["ticker", "date"]).reset_index(drop=True)
+
+
+def distributions() -> int:
+    """Fetch-free: apply the 2026-10-14 distribution ruling to the 71 disagreeing ex-dates.
+    Distribution amounts only; no return is computed."""
+    U = universes()
+    UF = U["frozen"]
+    px, nav = load_panels(U["pool"])
+    alp = alpaca_pool()
+    bad, cl = yf_leg_crosscheck(UF, px, alp)
+    raw = pd.read_parquet(_need(CC_DIST, "python3 scripts/data/fetch_cefconnect_distributions.py --c4-universe "
+                                         "--start 2024-12-01 --end 2026-10-14"))
+    from scripts.data.fetch_cefconnect_distributions import per_ex_date
+    cc = per_ex_date(raw)
+    navp = nav.pivot_table(index="date", columns="ticker", values="nav").sort_index()
+    acts = pd.read_parquet(FAM_DIR / "cef_actions.parquet")
+    acts["date"] = pd.to_datetime(acts["date"])
+    exd = {t: set(acts[(acts["ticker"] == t) & (acts["dividends"] > 0)]["date"])
+           | set(d for (tk, d) in alp["divs"].index if tk == t) for t in UF}
+    print(f"C4 DISTRIBUTION RULING (team lead, 2026-10-14), run {dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%M} UTC. "
+          f"Distribution amounts only; no return is computed; the holdout is NOT opened.")
+    print(f"  disagreeing ex-dates on the frozen 74 (yfinance leg 2025-01-02 -> 2026-09-30): {len(bad)} "
+          f"of {cl['dividend_rows']}; CEFConnect fetched {raw['fetched_utc'].iloc[0]} ({len(raw)} records, "
+          f"{raw['ticker'].nunique()} funds); Alpaca fetched {alp['fetched']}")
+    print(f"  tolerances: CEFConnect = Alpaca within ${DIV_TOL} per share; NAV drop: |drop - A| <= {NAV_K:g} sigma and "
+          f"|drop - Y| > {NAV_K:g} sigma, sigma the sd of the fund's daily NAV changes over the {NAV_WIN} prior "
+          f"sessions (ex-dates and repeats excluded, at least {NAV_MIN_OBS}); NAV = the families yfinance NAV symbol")
+    # calibration: CEFConnect on the ex-dates where yfinance and Alpaca AGREE
+    yd = acts[(acts["dividends"] > 0) & acts["ticker"].isin(UF)].set_index(["ticker", "date"])["dividends"]
+    m = pd.concat([yd.rename("yf"), alp["divs"].rename("alp")], axis=1)
+    d = m.index.get_level_values(1)
+    m = m[(d >= YF_START) & (d <= HOLDOUT_END) & m.index.get_level_values(0).isin(UF)].dropna()
+    m = m[(m["yf"] - m["alp"]).abs() <= DIV_TOL].reset_index()
+    m.columns = ["ticker", "ex_date", "yf", "alp"]
+    j = m.merge(cc, on=["ticker", "ex_date"], how="left")
+    agree = int(((j["cc_amount"] - j["alp"]).abs() <= DIV_TOL).sum())
+    print(f"  calibration: on the {len(j)} ex-dates where yfinance and Alpaca agree, CEFConnect agrees on {agree}, "
+          f"differs on {int(((j['cc_amount'] - j['alp']).abs() > DIV_TOL).sum())}, has no record on "
+          f"{int(j['cc_amount'].isna().sum())}")
+    T = confirm_distributions(bad, cc, navp, exd)
+    T.to_csv(DIST_TABLE, index=False)
+    pd.set_option("display.width", 250)
+    print("\n" + T.assign(date=T["date"].dt.date).to_string(index=False, float_format=lambda x: f"{x:.4f}"))
+    print("\n  by fund and decision:")
+    print(T.groupby(["ticker", "decision"]).size().unstack(fill_value=0).to_string())
+    print("\n  CEFConnect's reading of the 71:", T["cefconnect_reads"].value_counts().to_dict())
+    print("  NAV-drop reading of the 71:", T["nav_reads"].value_counts().to_dict())
+    n_un = int((T["decision"] == "UNCONFIRMED").sum())
+    print("\n" + "=" * 100)
+    print(f"CONFIRMED for Alpaca: {int((T['decision'] != 'UNCONFIRMED').sum())} of {len(T)} "
+          f"({T['decision'].value_counts().to_dict()})")
+    print(f"HOLDOUT GATE (ruling): {'HALT' if n_un else 'CLEAR'}"
+          + (f" -- {n_un} ex-dates no third source confirms for Alpaca: "
+             f"{T[T['decision'] == 'UNCONFIRMED'].groupby('ticker').size().to_dict()}" if n_un else ""))
+    print(f"HOLDOUT GATE (fit reviews): {'CLEAR' if FIT_REVIEWS_CONFIRMED else 'HALT -- two independent reviews of the fit (3be92cd) are pending'}")
+    return 0
 
 
 # --------------------------------------------------------------------------- fit machinery
@@ -1151,16 +1308,19 @@ def fit() -> int:
 
 
 def holdout() -> int:
-    _tracked_clean(FIT_JSON, FIT_OUT)
-    if YF_LEG_DISTRIBUTION_RULING is None:
-        raise GateError("holdout halted: the yfinance leg's distribution defects (Stage 0, 2026-10-14) await "
-                        "the team lead's ruling; no holdout number has been computed")
-    raise GateError("the holdout stage is written after the ruling it depends on")
+    _tracked_clean(FIT_JSON, FIT_OUT, DIST_TABLE)
+    if not FIT_REVIEWS_CONFIRMED:
+        raise GateError("holdout halted: it opens only after two independent reviews of the fit (3be92cd) "
+                        "confirm it (coordinator, 2026-10-15); no holdout number has been computed")
+    T = pd.read_csv(DIST_TABLE, parse_dates=["date"])
+    if (T["decision"] == "UNCONFIRMED").any():
+        raise GateError("holdout halted (ruling 2026-10-14): disagreeing ex-dates no third source confirms")
+    raise GateError("the holdout computation is written in the commit that opens it")
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("stage", choices=["stage0", "fit", "holdout"])
+    ap.add_argument("stage", choices=["stage0", "fit", "distributions", "holdout"])
     a = ap.parse_args(argv)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     buf = io.StringIO()
@@ -1171,10 +1331,10 @@ def main(argv=None) -> int:
             buf.write(s)
             return len(s)
 
-    fn = dict(stage0=stage0, fit=fit, holdout=holdout)[a.stage]
+    fn = dict(stage0=stage0, fit=fit, distributions=distributions, holdout=holdout)[a.stage]
     with contextlib.redirect_stdout(Tee()):
         rc = fn()
-    target = dict(stage0=STAGE0_OUT, fit=FIT_OUT).get(a.stage)
+    target = dict(stage0=STAGE0_OUT, fit=FIT_OUT, distributions=DIST_OUT).get(a.stage)
     if target is not None:
         target.write_text(buf.getvalue())
     return rc

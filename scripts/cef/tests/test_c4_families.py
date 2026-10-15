@@ -65,3 +65,61 @@ def test_block_sums_drop_the_partial_last_block():
     x = pd.Series(np.arange(50, dtype=float), index=pd.bdate_range("2020-01-01", periods=50))
     b = c4.block_sums(x, 21)
     assert len(b) == 2 and b.iloc[0] == sum(range(21)) and b.iloc[1] == sum(range(21, 42))
+
+
+# --- the 2026-10-14 distribution ruling -------------------------------------
+
+def _nav(ticker="X", n=80, step=0.05, seed=0):
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2025-01-02", periods=n)
+    v = 10 + np.cumsum(rng.normal(0, step, n))
+    return pd.DataFrame({ticker: v}, index=idx)
+
+
+def test_cefconnect_equal_to_alpaca_confirms_and_its_absence_does_not():
+    nav = _nav()
+    d = nav.index[70]
+    bad = pd.DataFrame(dict(ticker=["X", "X"], date=[d, nav.index[75]], yfinance=[0.18, 0.18], alpaca=[0.06, 0.06]))
+    cc = pd.DataFrame(dict(ticker=["X"], ex_date=[d], cc_amount=[0.0605], cc_records=[1]))
+    T = c4.confirm_distributions(bad, cc, nav, {"X": set()})
+    assert T.loc[0, "decision"] == "Alpaca (CEFConnect)" and T.loc[0, "cefconnect_reads"] == "= Alpaca"
+    assert T.loc[1, "cefconnect_reads"] == "no record"
+    assert T.loc[1, "decision"] in ("Alpaca (NAV drop)", "UNCONFIRMED")
+
+
+def test_the_nav_drop_confirms_only_when_it_tells_the_sources_apart():
+    nav = _nav(step=0.01)
+    d = nav.index[70]
+    nav.loc[d:, "X"] -= 0.06                                       # a 0.06 drop on the ex-date, sigma ~0.01
+    bad = pd.DataFrame(dict(ticker=["X"], date=[d], yfinance=[0.18], alpaca=[0.06]))
+    cc = pd.DataFrame(columns=["ticker", "ex_date", "cc_amount", "cc_records"])
+    T = c4.confirm_distributions(bad, cc, nav, {"X": set()})
+    assert T.loc[0, "decision"] == "Alpaca (NAV drop)"
+    # sources 0.06 and 0.07 cannot be told apart by a 0.06 drop with sigma ~0.01
+    bad2 = bad.assign(yfinance=[0.07])
+    T2 = c4.confirm_distributions(bad2, cc, nav, {"X": set()})
+    assert T2.loc[0, "decision"] == "UNCONFIRMED" and T2.loc[0, "nav_reads"] == "cannot tell the sources apart"
+
+
+def test_a_repeated_nav_on_the_ex_date_is_unusable():
+    nav = _nav()
+    d = nav.index[70]
+    nav.loc[d, "X"] = nav.loc[nav.index[69], "X"]
+    bad = pd.DataFrame(dict(ticker=["X"], date=[d], yfinance=[0.18], alpaca=[0.06]))
+    cc = pd.DataFrame(columns=["ticker", "ex_date", "cc_amount", "cc_records"])
+    T = c4.confirm_distributions(bad, cc, nav, {"X": set()})
+    assert T.loc[0, "nav_reads"].startswith("unusable") and T.loc[0, "decision"] == "UNCONFIRMED"
+
+
+def test_holdout_actions_halt_on_any_unconfirmed_row_and_otherwise_take_alpaca():
+    acts = pd.DataFrame(dict(date=pd.to_datetime(["2025-01-21", "2025-08-01", "2026-09-08"]), ticker=["IGR", "IGA", "IGR"],
+                             dividends=[0.18, 0.085, 0.0], stock_splits=[0.0, 0.0, 1 / 3]))
+    T = pd.DataFrame(dict(ticker=["IGR", "IGA", "IGA"], date=pd.to_datetime(["2025-01-21", "2025-08-01", "2025-08-04"]),
+                          alpaca=[0.06, np.nan, 0.085], decision=["Alpaca (NAV drop)"] * 3))
+    out = c4.holdout_actions(acts, T)
+    assert out.loc[(out.ticker == "IGR") & (out.date == "2025-01-21"), "dividends"].item() == 0.06
+    assert out.loc[(out.ticker == "IGA") & (out.date == "2025-08-01"), "dividends"].item() == 0.0
+    assert out.loc[(out.ticker == "IGA") & (out.date == "2025-08-04"), "dividends"].item() == 0.085
+    assert out.loc[(out.ticker == "IGR") & (out.date == "2026-09-08"), "stock_splits"].item() == pytest.approx(1 / 3)
+    with pytest.raises(c4.GateError, match="halt"):
+        c4.holdout_actions(acts, T.assign(decision=["Alpaca (NAV drop)", "UNCONFIRMED", "Alpaca (NAV drop)"]))
