@@ -1,0 +1,11 @@
+X4: spec pin MATCH; 14 inputs re-hashed; preflight {'first_decision': '2005-11-30', 'T': 4299, 'late_names': ['HYG', 'EMB', 'PFF', 'MUB', 'BKLN', 'CWB', 'DBC'], 'placebo_span_start': '2011-03-04'}; XASSET counter 4 >= trial 4. Stage 0b begins.
+stage 0b: {'k': 0.2561, 'sigma_fit_raw': 0.2343, 'turnover_per_yr_sized': 3.8626, 'turnover_per_yr_tradable': 3.7827, 'mean_gross_sized': 1.2296, 'mean_gross_tradable': 1.2111, 'cap_binding_share': 0.1033, 'mean_short_notional_sized': 0.2981}
+stage 1: sized SR 0.454, NW t(21) 1.96 -> pass
+stage 2: X1 beats TSH on gross and on net at 5/15/30bp (each its own turnover) -> FAIL
+stage 3: placebo p95 0.767 vs real 0.454; shift(3) 0.473 -> FAIL
+stage 4 R-D4 full fit: alpha 1.52%/yr t 1.00; largest |beta| TERM +0.122 -> FAIL
+stage 4 R-D4 from 2007-04-12: alpha 1.68%/yr t 1.06; largest |beta| TERM +0.086 -> FAIL
+stage 5: _dsr(N=4) 0.580 -> FAIL
+X4 FIT VERDICT: KILL D4 (stage 2: the historical-mean rule, TSH)
+wrote results/xasset/x4_fit_2026-10-14.json (decisions)
+wrote results/xasset/x4_fit_2026-10-14.json (decisions and reported rows)

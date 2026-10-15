@@ -1,0 +1,11 @@
+X2: spec pin MATCH; 14 inputs re-hashed; preflight {'first_decision': '2002-08-30', 'T': 5118, 'late_names': [], 'placebo_span_start': '2002-07-29', 'bil_first': '2007-05-31', 'control_T': 3926}; XASSET counter 3 >= trial 3. Stage 0b begins.
+stage 0b: {'k': 0.6111, 'sigma_fit_raw': 0.0982, 'turnover_per_yr_sized': 56.8215, 'turnover_per_yr_tradable': 56.8215, 'mean_gross_sized': 0.3273, 'mean_gross_tradable': 0.3273, 'cap_binding_share': 0.0, 'mean_short_notional_sized': 0.1637}
+stage 1: sized SR 0.333, NW t(21) 1.59 -> FAIL
+stage 2: control {BIL:+w, SHY:-w} gross Sharpe < 1/2 x X2's, both 2007-05-31..2022-12-30 (else KILL D1) -> FAIL
+stage 3: placebo p95 0.267 vs real 0.333; shift(3) -0.038 -> pass
+stage 4 R-D4 full fit: alpha 1.25%/yr t 0.99; largest |beta| MKT +0.068 -> FAIL
+stage 4 R-D4 from 2007-04-12: alpha 1.32%/yr t 0.83; largest |beta| IG +0.112 -> FAIL
+stage 5: _dsr(N=4) 0.433 -> FAIL
+X2 FIT VERDICT: KILL D1 (stage 1: no detectable edge)
+wrote results/xasset/x2_fit_2026-10-14.json (decisions)
+wrote results/xasset/x2_fit_2026-10-14.json (decisions and reported rows)

@@ -1,0 +1,2 @@
+X2 HOLDOUT: mean 0.75%/yr, SR 0.25, same sign True -> KILL D1 (stage 1: no detectable edge) (holdout reported; it cannot rescue a failed fit)
+wrote results/xasset/x2_holdout_2026-10-14.json

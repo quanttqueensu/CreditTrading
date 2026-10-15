@@ -22,6 +22,45 @@ research agent, branches `research-xasset-slate` (revisions 1–2) and
 >   counter moves per test when its Stage 0b begins (§0.2 item 3) and the
 >   fixed holdout end of 2026-09-30.
 >
+> **Team lead, 2026-10-14: three rulings, recorded before any Stage 0b.** The
+> run stopped at the end of Stage 0a on two questions and asked to confirm
+> three readings (`results/xasset/STAGE0A_2026-10-14.md` §2;
+> `results/xasset/XASSET_RESULTS_2026-10-14.md`). No X-test return had been
+> combined into a P&L.
+>
+> 1. **DG1 clears as measured.**
+>    - In the yfinance leg, "rebuild unchanged in every existing column" reads
+>      as unchanged within **0.01bp**. Against `data/etf_daily.parquet`, the
+>      measured maximum was 0.0074bp, on 3,210 `ret_total` cells, all inside
+>      the holdout. It is Yahoo's re-basing of Adj Close, which no rebuild can
+>      reproduce bitwise.
+>    - The fit's CRSP leg is identical.
+>    - The Stage 0a panel hash (`STAGE0A_MANIFEST_2026-10-14.json`, SHA-256
+>      `b843f558…`) fixes exactly which data every test uses.
+>    - In code: `protocol.DG1_RULING`.
+> 2. **The block-shuffled placebo (§1.8) shuffles only inside the span where
+>    every fund in the test trades**, so no placebo position lands on a date
+>    before its fund's first return.
+>    - *How it is applied:* only the rows of the sized H dated on or after the
+>      latest first return among the test's funds are permuted, in 21-session
+>      blocks anchored there. Earlier rows keep their dates.
+>    - The placebo Sharpe, like every statistic, stays on the declared P&L
+>      window (§1.6).
+>    - The span starts at 2011-03-04 for X1 and X4 (BKLN's first return).
+>    - For X2 and X3 it starts before the first decision, so their whole H is
+>      shuffled, as before.
+>    - In code: `protocol.PLACEBO_PRE_INCEPTION_RULE = "span"`.
+> 3. **Three readings are confirmed as declared readings:**
+>    - (a) MUB counts in the equal-weight denominator S_t when its position is
+>      flat (X1, X4);
+>    - (b) the ex-ante variance keeps pandas `ewm(com=60, adjust=True).var()`'s
+>      default bias correction;
+>    - (c) turnover is as `band_frontier.evaluate()` defines it: Σ|ΔH| on the
+>      rows inside the window, so the first decision's entry trade is not
+>      charged.
+>
+> Nothing else in revision 3 changes.
+>
 > *Was:* Status: DRAFT, revision 3 — awaiting the team lead's final approval.
 > Revision 3 applies the fixes of an adversarial review (the block below). It
 > keeps the team lead's four rulings of 2026-10-12 (§0.1) unchanged, with their

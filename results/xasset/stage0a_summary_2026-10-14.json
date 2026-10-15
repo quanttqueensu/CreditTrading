@@ -1,0 +1,663 @@
+{
+ "run_utc": "2026-10-14T21:41:57+00:00",
+ "prereg": "results/xasset/PREREG_XASSET_SLATE_2026-10-12.md (revision 3, approved 2026-10-14, N = 4)",
+ "spec_pin": {
+  "vol_target_annual": 0.06,
+  "max_gross_stress": 1.8,
+  "spec_sha256": "c05035e55eaa89172f65d38a3485cb1c68123217177343b38576edf56583c02e",
+  "spec_path": "ops/specs/cef_discount.frozen.json"
+ },
+ "calendar": {
+  "first": "1993-02-01",
+  "last": "2026-10-13",
+  "sessions": 8483
+ },
+ "dg1": {
+  "tickers": 22,
+  "tickers_ok": true,
+  "has_prc_signed": true,
+  "prc_signed_complete_on_crsp_leg": true,
+  "prc_signed_nan_off_crsp_leg": true,
+  "no_close_trade_rows_by_ticker": {
+   "ANGL": 30,
+   "EMB": 1,
+   "FALN": 37,
+   "JNK": 1,
+   "SPY": 1
+  },
+  "sources": {
+   "alpaca": {
+    "first": "2026-07-21",
+    "last": "2026-10-13",
+    "rows": 1320
+   },
+   "crsp": {
+    "first": "1993-02-01",
+    "last": "2024-12-31",
+    "rows": 105266
+   },
+   "yfinance": {
+    "first": "2025-01-02",
+    "last": "2026-07-20",
+    "rows": 8492
+   }
+  },
+  "identity_vs_data_etf_daily": {
+   "compared_through": "2026-10-09",
+   "rows": 68058,
+   "byte_identical": false,
+   "cell_identical": false,
+   "structure_problems": [],
+   "columns": {
+    "permno": {
+     "cells_differ": 0,
+     "by_source": {
+      "crsp": 0,
+      "yfinance": 0,
+      "alpaca": 0
+     }
+    },
+    "ret_total": {
+     "cells_differ": 3210,
+     "by_source": {
+      "crsp": 0,
+      "yfinance": 3210,
+      "alpaca": 0
+     },
+     "max_abs_diff_bp": 0.007418447807161499,
+     "dates": [
+      "2025-01-02",
+      "2026-07-20"
+     ]
+    },
+    "ret_px": {
+     "cells_differ": 0,
+     "by_source": {
+      "crsp": 0,
+      "yfinance": 0,
+      "alpaca": 0
+     }
+    },
+    "prc_adj": {
+     "cells_differ": 0,
+     "by_source": {
+      "crsp": 0,
+      "yfinance": 0,
+      "alpaca": 0
+     }
+    },
+    "volume": {
+     "cells_differ": 0,
+     "by_source": {
+      "crsp": 0,
+      "yfinance": 0,
+      "alpaca": 0
+     }
+    },
+    "source": {
+     "cells_differ": 0,
+     "by_source": {
+      "crsp": 0,
+      "yfinance": 0,
+      "alpaca": 0
+     }
+    }
+   }
+  },
+  "two_fresh_builds": {
+   "note": "a second --xasset build to a separate path minutes after the first; evidence that the yfinance-leg ret_total (Yahoo Adj Close pct_change) is not reproducible bitwise",
+   "rows": 115078,
+   "ret_total_cells_differ": {
+    "crsp": 0,
+    "yfinance": 6112,
+    "alpaca": 0
+   },
+   "ret_total_max_diff_bp": 0.007451598378338531,
+   "other_columns_identical": true
+  },
+  "criterion_build_gates": "PASS (the build ran to completion: every assert, the 5bp 2024 overlap gate for all 22, the Alpaca gates, LARGE_MOVES)",
+  "criterion_13_unchanged_every_existing_column": "NOT MET BITWISE: see columns; whether it clears DG1 is the team lead's question"
+ },
+ "dg2": {
+  "columns_ok": true,
+  "missing": [],
+  "aqr_tsmom": {
+   "months": 497,
+   "first": "1985-01-31",
+   "last": "2026-05-29",
+   "file_sha256": "33470930e2269c0d97be4732ec2d9c27ddbc69ac8133b059a263e27400263eeb",
+   "http_last_modified": "Fri, 26 Jun 2026 15:54:00 GMT",
+   "fetched": "2026-10-14T21:31:51Z"
+  },
+  "aqr_vme": {
+   "months": 655,
+   "first": "1972-01-31",
+   "last": "2026-07-31",
+   "file_sha256": "ed9ddbdee42affe481035b88af6d0c32365bc6aa3dc0c780806e066ba4f4386e",
+   "http_last_modified": "Wed, 23 Sep 2026 08:01:05 GMT",
+   "fetched": "2026-10-14T21:31:51Z"
+  },
+  "french": {
+   "daily_last": "2026-08-31",
+   "monthly_last": "2026-08-31",
+   "crsp_vintage": "202608",
+   "fetched": "2026-10-14T21:31:52Z"
+  },
+  "references_row": true
+ },
+ "dg3": {
+  "first": "1981-09-01",
+  "last": "2026-10-13",
+  "panel_last": "2026-10-13",
+  "panel_last_minus_one": "2026-10-12",
+  "covers": true,
+  "fetched": "2026-10-14T21:31:53+00:00"
+ },
+ "screen": {
+  "instruments": [
+   "HYG",
+   "LQD",
+   "IEF",
+   "TLT",
+   "EMB",
+   "PFF",
+   "MUB",
+   "BKLN",
+   "CWB",
+   "SPY",
+   "EFA",
+   "EEM",
+   "GLD",
+   "DBC",
+   "SHY",
+   "BIL",
+   "IEI",
+   "TLH",
+   "AGG"
+  ],
+  "q1_missing_sessions": {
+   "HYG": 0,
+   "LQD": 0,
+   "IEF": 0,
+   "TLT": 0,
+   "EMB": 0,
+   "PFF": 0,
+   "MUB": 0,
+   "BKLN": 0,
+   "CWB": 0,
+   "SPY": 0,
+   "EFA": 0,
+   "EEM": 0,
+   "GLD": 0,
+   "DBC": 0,
+   "SHY": 0,
+   "BIL": 0,
+   "IEI": 0,
+   "TLH": 0,
+   "AGG": 0
+  },
+  "q1_clean": true,
+  "totals_by_check_and_period": {
+   "Q2": {
+    "fit": 1355,
+    "holdout": 47,
+    "after": 0
+   },
+   "Q3": {
+    "fit": 2,
+    "holdout": 0,
+    "after": 0
+   },
+   "Q4": {
+    "fit": 2,
+    "holdout": 0,
+    "after": 0
+   },
+   "Q5": {
+    "fit": 539,
+    "holdout": 6,
+    "after": 0
+   },
+   "Q6": {
+    "fit": 263,
+    "holdout": 0,
+    "after": 0
+   },
+   "Q7": {
+    "fit": 0,
+    "holdout": 76,
+    "after": 0
+   }
+  },
+  "by_ticker_check_period": {
+   "AGG": {
+    "Q2": {
+     "fit": 4,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 6,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 17,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "BIL": {
+    "Q2": {
+     "fit": 1106,
+     "holdout": 4,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 375,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "BKLN": {
+    "Q2": {
+     "fit": 98,
+     "holdout": 38,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 23,
+     "holdout": 5,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "CWB": {
+    "Q2": {
+     "fit": 2,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 9,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 3,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "DBC": {
+    "Q2": {
+     "fit": 2,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 14,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "EEM": {
+    "Q2": {
+     "fit": 2,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 5,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 52,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "EFA": {
+    "Q2": {
+     "fit": 4,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 6,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 23,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "EMB": {
+    "Q3": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q4": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 14,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 4,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "GLD": {
+    "Q5": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 4,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "HYG": {
+    "Q2": {
+     "fit": 2,
+     "holdout": 3,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 19,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 3,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "IEF": {
+    "Q2": {
+     "fit": 2,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 19,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "IEI": {
+    "Q6": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "LQD": {
+    "Q5": {
+     "fit": 12,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 17,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "MUB": {
+    "Q2": {
+     "fit": 8,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 22,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "PFF": {
+    "Q2": {
+     "fit": 10,
+     "holdout": 2,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 35,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 4,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "SHY": {
+    "Q2": {
+     "fit": 107,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 11,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "SPY": {
+    "Q2": {
+     "fit": 6,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q3": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q4": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 9,
+     "holdout": 1,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 77,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "TLH": {
+    "Q2": {
+     "fit": 2,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q5": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q6": {
+     "fit": 1,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   },
+   "TLT": {
+    "Q6": {
+     "fit": 11,
+     "holdout": 0,
+     "after": 0
+    },
+    "Q7": {
+     "fit": 0,
+     "holdout": 4,
+     "after": 0
+    }
+   }
+  },
+  "q5_inf_z_zero_mad": 308,
+  "q5_reversing_next_session": 156,
+  "q5_reversals_stub_print_pattern": 0,
+  "q5_reversals_abs_r_ge_1pct": {
+   "n": 8,
+   "min_volume_over_63d_median": 1.0463863504586324,
+   "tickers": [
+    "BKLN",
+    "HYG",
+    "LQD",
+    "MUB",
+    "PFF",
+    "SPY"
+   ]
+  },
+  "q5_reversals_abs_r_lt_1pct": {
+   "n": 148,
+   "max_abs_r_bp": 4.36,
+   "tickers": [
+    "BIL"
+   ]
+  },
+  "q5_reversal_note": "Q5 flags whose next session reverses >= 70% of the move (the stub-print pattern). Candidates for the ONE permitted repair only if a third source, independent of CRSP and the in-house vendors, confirms the true close.",
+  "repairs": [],
+  "flags_file": "results/xasset/_cache_xasset/stage0a_flags.csv",
+  "flags_rows": 2290
+ },
+ "gates": {
+  "spec_pin": "MATCH",
+  "dg1_build": "PASS",
+  "dg1_identity": "NOT MET BITWISE: see columns; whether it clears DG1 is the team lead's question",
+  "dg2": "PASS",
+  "dg3": "PASS",
+  "q1": "PASS"
+ },
+ "manifest": "results/xasset/STAGE0A_MANIFEST_2026-10-14.json"
+}

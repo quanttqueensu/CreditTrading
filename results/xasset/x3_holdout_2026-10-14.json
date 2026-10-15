@@ -1,0 +1,66 @@
+{
+ "test": "X3",
+ "fit_verdict": "KILL D4 (stage 4: R-D4)",
+ "k_frozen": 2.4242828002636165,
+ "window": [
+  "2023-01-03",
+  "2026-09-30"
+ ],
+ "T": 939,
+ "mean_daily": 0.00012811158468485897,
+ "ann_mean_pct": 3.2284119340584456,
+ "sharpe": 0.5891972992103561,
+ "nw_t21": 1.2703838902220863,
+ "boot21_mean_ci_pct": [
+  -1.922550483799438,
+  8.286885299885803
+ ],
+ "boot21_sharpe_ci": [
+  -0.3580329987712934,
+  1.5107784414038699
+ ],
+ "fit_mean_daily": 0.00024675289786945894,
+ "same_sign_as_fit": true,
+ "p_observed_sign_under_fit_sr": 0.9772782220007976,
+ "cost_grid_sized": {
+  "gross_sr": 0.589197299210356,
+  "turn_per_yr": 58.5545622044503,
+  "net5": 0.0548759267835012,
+  "net15": -1.0137668180702082,
+  "net30": -2.616730935350773,
+  "flips_sign": true
+ },
+ "cost_grid_tradable": {
+  "gross_sr": 0.5891972992103459,
+  "turn_per_yr": 43.47603833865814,
+  "net5": 0.05487592678350044,
+  "net15": -1.0137668180701904,
+  "net30": -2.6167309353507267,
+  "flips_sign": true
+ },
+ "tradable_sharpe": 0.5891972992103459,
+ "stage7": {
+  "applies": false,
+  "pass_": null,
+  "rule": "holdout mean has the fit mean's sign (D3 if not); applies to a fit PASS-candidate"
+ },
+ "cef_book_corr_holdout": {
+  "n_daily": 936,
+  "start": "2023-01-03",
+  "end": "2026-09-25",
+  "rho_daily": 0.0011393009135589904,
+  "n_21d": 44,
+  "rho_21d": 0.2505629610857471,
+  "rho_21d_spearman": 0.1942212825933756,
+  "n_stress": 9,
+  "rho_21d_hy_stress": -0.12911691135558603
+ },
+ "regime_T1_from_2024_05_28": {
+  "n": 588,
+  "sharpe": 0.4352953061373438,
+  "ann_mean_pct": 2.0748850243573878
+ },
+ "final_verdict": "KILL D4 (stage 4: R-D4) (holdout reported; it cannot rescue a failed fit)",
+ "opened_utc": "2026-10-14T22:58:56+00:00",
+ "git_head": "d23a2b8946e6bdc1f0d66823235e8b142e5c5c22"
+}

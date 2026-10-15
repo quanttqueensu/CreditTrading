@@ -1,0 +1,2 @@
+X3 HOLDOUT: mean 3.23%/yr, SR 0.59, same sign True -> KILL D4 (stage 4: R-D4) (holdout reported; it cannot rescue a failed fit)
+wrote results/xasset/x3_holdout_2026-10-14.json

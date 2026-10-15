@@ -782,6 +782,58 @@ def calendar_offset(T, k, offset):
     return H.ffill().fillna(0.0)
 
 
+# =============================================================================
+# XASSET SLATE HELPERS (added 2026-10-14; PREREG_XASSET_SLATE_2026-10-12 §1.2 P4)
+# =============================================================================
+# WHY THEY LIVE HERE. The slate's pre-registration says any new helper that
+# touches positions -- "a month-end refresh or a block shuffle" -- is added to
+# this file visibly, with a test, because a second copy of how a target becomes
+# a held book is the shift(1) incident in a new place. None of them changes
+# `evaluate()`, and none reads a return: they shape H only. Tests:
+# scripts/cef/tests/test_xasset_helpers.py.
+
+def month_end_sessions(index):
+    """E_m: the last session of each calendar month in `index` (the primary
+    panel's own calendar, PREREG P4). The final month of `index` counts only if
+    `index` reaches that month's last session -- the caller cannot know that, so
+    it is the caller's job not to treat a truncated panel's last row as a
+    month-end (the slate's fit panel ends on 2022-12-30, a true month-end)."""
+    idx = pd.DatetimeIndex(index)
+    s = pd.Series(idx, index=idx)
+    return pd.DatetimeIndex(s.groupby([idx.year, idx.month]).max().values)
+
+
+def hold_from_refresh(targets, index):
+    """Targets decided on refresh dates (the rows of `targets`), each held until
+    the next refresh: H.loc[t] = the latest refresh row at or before t; 0.0
+    before the first. `evaluate()` then applies shift(2), so a target decided at
+    the close of E_m fills at E_m+1 and earns from E_m+2 (H1).
+
+    Raises if a refresh date is not a session of `index`, or if `targets` holds
+    a NaN: a NaN would be forward-filled from the previous refresh, which is a
+    position nobody decided (the caller writes 0.0 for an ineligible name)."""
+    idx = pd.DatetimeIndex(index)
+    if not targets.index.isin(idx).all():
+        bad = targets.index[~targets.index.isin(idx)][:5]
+        raise ValueError(f"refresh dates not in the calendar: {list(bad)}")
+    if targets.isna().any().any():
+        raise ValueError("targets hold NaN; write 0.0 for an ineligible name")
+    return targets.reindex(idx).ffill().fillna(0.0)
+
+
+def block_shuffle(H, block, rng):
+    """The rows of H permuted in contiguous blocks of `block` rows (the last block
+    may be shorter), the index kept: the slate's block-shuffled-signal placebo
+    (PREREG §1.8). Each row's positions, and the turnover inside each block, are
+    kept; their timing against the returns is destroyed. `rng` is a
+    numpy Generator, so the draw is reproducible from its seed."""
+    n = len(H)
+    starts = np.arange(0, n, block)
+    order = rng.permutation(len(starts))
+    take = np.concatenate([np.arange(starts[i], min(starts[i] + block, n)) for i in order])
+    return pd.DataFrame(H.values[take], index=H.index, columns=H.columns)
+
+
 def _stats(pnl, turn):
     """Gross SR and the 5/15/30bp net SRs from a P&L and turnover slice."""
     ann, vol = pnl.mean() * 252, pnl.std() * np.sqrt(252)
