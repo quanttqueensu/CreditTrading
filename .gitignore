@@ -60,6 +60,11 @@ results/events/edgar_cef_bdc_filings.csv.gz
 # (EDGAR, Alpaca and IBKR only).
 results/events/g1a_historical_deals.csv
 results/events/g1a_detail_*.json
+# E1 ETF-hedge gate (2026-10-15, scripts/events/e1_etf_hedge_gate.py): the
+# per-target x hedge table carries CRSP permnos and statistics computed on CRSP
+# returns (licensed); the tracked output is e1_etf_hedge_summary_<date>.json
+# (segment aggregates, Alpaca and IBKR rows).
+results/events/e1_etf_hedge_detail.csv
 
 # Conditional-tender census (2026-10-13): the full table carries window averages
 # computed on CRSP closes (licensed); the tracked conditional_tender_census.csv
