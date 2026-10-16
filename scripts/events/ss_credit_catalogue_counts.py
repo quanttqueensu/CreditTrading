@@ -355,8 +355,39 @@ def hy_etf_stress() -> dict:
             r[f"days_le_{th:g}pct"] = int(flag.size)
             r[f"episodes_le_{th:g}pct"] = len(eps)
             r[f"episode_starts_le_{th:g}pct"] = [str(s.date()) for s, _, _ in eps][:25]
+        # March 2020 (Haddad, Moreira & Muir): the low before the Fed's 2020-03-23
+        # announcement and the high from it to 2020-04-30. Levels, not returns.
+        g2 = g.set_index(pd.to_datetime(g["date"]))["premium_discount_pct"]
+        pre, post = g2.loc["2020-03-01":"2020-03-22"], g2.loc["2020-03-23":"2020-04-30"]
+        r["march2020_low_pct"] = [str(pre.idxmin().date()), round(float(pre.min()), 2)]
+        r["after_2020_03_23_high_pct"] = [str(post.idxmax().date()), round(float(post.max()), 2)]
         out[tk] = r
     return out
+
+
+def x3_breakeven() -> dict:
+    """Arithmetic gate for a TERM-hedged month-end sleeve (catalogue row CR8).
+
+    Reads X3's own fit statistics at run time (H14: never a number copied into a
+    document): the R-D4 full-fit alpha, its TERM beta, and the sized sleeve's
+    turnover. If the hedge is one instrument held at |beta| of the long leg, the
+    hedged sleeve turns over about (1 + |beta|) times as much, and the most it can
+    pay per unit of turnover is alpha / turnover. This computes no new return: it
+    divides two numbers the closed XASSET slate already produced."""
+    p = REPO / "results" / "xasset" / "x3_fit_2026-10-14.json"
+    if not p.exists():
+        raise FileNotFoundError(p)
+    d = json.loads(p.read_text())
+    reg = [r for r in d["stage4"]["regressions"] if r["label"] == "R-D4 full fit"]
+    if len(reg) != 1:
+        raise KeyError(f"{p}: expected one 'R-D4 full fit' regression, found {len(reg)}")
+    alpha = float(reg[0]["alpha_pct_yr"])
+    beta = abs(float(reg[0]["betas"]["TERM"]["beta"]))
+    turn = float(d["stage0b"]["turnover_per_yr_sized"])
+    return {"source": str(p.relative_to(REPO)), "alpha_pct_yr": round(alpha, 2),
+            "term_beta": round(beta, 3), "turnover_per_yr_sized": round(turn, 1),
+            "breakeven_bp_per_unit_turnover_unhedged": round(alpha * 100 / turn, 1),
+            "breakeven_bp_per_unit_turnover_hedged": round(alpha * 100 / (turn * (1 + beta)), 1)}
 
 
 def adv_from_universe_map() -> dict:
@@ -437,6 +468,7 @@ def main(argv=None) -> int:
            "cef_ex_dates": cef_ex_dates(),
            "hy_etf_stress": hy_etf_stress(),
            "bond_holiday_observation": bond_holiday_observation(),
+           "x3_breakeven": x3_breakeven(),
            "adv": adv_from_universe_map()}
     if args.alpaca:
         res["alpaca_listed_fixed_income"] = alpaca_listed_fixed_income(asof)

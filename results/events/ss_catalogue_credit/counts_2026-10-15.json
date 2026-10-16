@@ -454,6 +454,14 @@
     "2008-10-27",
     "2009-03-05",
     "2011-08-08"
+   ],
+   "march2020_low_pct": [
+    "2020-03-20",
+    -1.28
+   ],
+   "after_2020_03_23_high_pct": [
+    "2020-04-09",
+    4.59
    ]
   },
   "JNK": {
@@ -502,6 +510,14 @@
     "2008-10-10",
     "2010-05-20",
     "2011-08-08"
+   ],
+   "march2020_low_pct": [
+    "2020-03-20",
+    -1.6
+   ],
+   "after_2020_03_23_high_pct": [
+    "2020-04-09",
+    4.66
    ]
   }
  },
@@ -515,6 +531,14 @@
    "median_abs_change_holiday": 0.0,
    "median_of_names_prior20_median_abs_change": 0.02
   }
+ },
+ "x3_breakeven": {
+  "source": "results/xasset/x3_fit_2026-10-14.json",
+  "alpha_pct_yr": 5.33,
+  "term_beta": 0.34,
+  "turnover_per_yr_sized": 58.3,
+  "breakeven_bp_per_unit_turnover_unhedged": 9.2,
+  "breakeven_bp_per_unit_turnover_hedged": 6.8
  },
  "adv": {
   "source": "results/data/universe_2026-10-08/universe_map.csv: adv63 = the sleeve's 63-session mean $ volume from CRSP, window ending 2024-12-31; shortable flags as of 2026-10-08",
@@ -595,7 +619,7 @@
   }
  },
  "alpaca_listed_fixed_income": {
-  "read_at_utc": "2026-10-15T20:44:02+00:00",
+  "read_at_utc": "2026-10-16T01:04:55+00:00",
   "active_assets": 14398,
   "written": "results/events/ss_catalogue_credit/alpaca_listed_fixed_income_2026-10-15.csv",
   "baby_bond": {
