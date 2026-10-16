@@ -1,0 +1,148 @@
+{
+  "run_date": "2026-10-15",
+  "window": [
+    "2015-01-01",
+    "2026-10-14"
+  ],
+  "feed_control": {
+    "symbol": "AAPL",
+    "window": [
+      "2026-09-01",
+      "2026-09-30"
+    ],
+    "n_articles": 252,
+    "n_specific": 150
+  },
+  "endpoint": "GET https://data.alpaca.markets/v1beta1/news (cef paper key, read-only)",
+  "names": {
+    "n_names": 44,
+    "n_with_any_article": 44,
+    "median_articles": 44.0,
+    "median_specific": 6.0,
+    "median_per_year_2016_2025": 4.35,
+    "earliest_first": "2015-04-10",
+    "unique_articles_all_names": 694,
+    "by_year": [
+      {
+        "year": 2015,
+        "name_articles": 12,
+        "unique_articles": 12,
+        "specific_name_articles": 11
+      },
+      {
+        "year": 2016,
+        "name_articles": 10,
+        "unique_articles": 10,
+        "specific_name_articles": 10
+      },
+      {
+        "year": 2017,
+        "name_articles": 16,
+        "unique_articles": 16,
+        "specific_name_articles": 10
+      },
+      {
+        "year": 2018,
+        "name_articles": 345,
+        "unique_articles": 90,
+        "specific_name_articles": 12
+      },
+      {
+        "year": 2019,
+        "name_articles": 80,
+        "unique_articles": 37,
+        "specific_name_articles": 0
+      },
+      {
+        "year": 2020,
+        "name_articles": 310,
+        "unique_articles": 76,
+        "specific_name_articles": 20
+      },
+      {
+        "year": 2021,
+        "name_articles": 431,
+        "unique_articles": 179,
+        "specific_name_articles": 75
+      },
+      {
+        "year": 2022,
+        "name_articles": 510,
+        "unique_articles": 160,
+        "specific_name_articles": 68
+      },
+      {
+        "year": 2023,
+        "name_articles": 123,
+        "unique_articles": 91,
+        "specific_name_articles": 75
+      },
+      {
+        "year": 2024,
+        "name_articles": 14,
+        "unique_articles": 14,
+        "specific_name_articles": 12
+      },
+      {
+        "year": 2025,
+        "name_articles": 6,
+        "unique_articles": 6,
+        "specific_name_articles": 1
+      },
+      {
+        "year": 2026,
+        "name_articles": 3,
+        "unique_articles": 3,
+        "specific_name_articles": 1
+      }
+    ],
+    "controls": [
+      {
+        "symbol": "HYG",
+        "n_articles": 201,
+        "n_specific": 115,
+        "per_year_2016_2025": 14.7,
+        "first": "2015-03-04"
+      },
+      {
+        "symbol": "BKLN",
+        "n_articles": 19,
+        "n_specific": 8,
+        "per_year_2016_2025": 1.4,
+        "first": "2015-03-24"
+      }
+    ]
+  },
+  "events": {
+    "contest": {
+      "n": 107,
+      "any": 4,
+      "relevant": 1,
+      "n_universe44": 10,
+      "relevant_universe44": 1,
+      "relevant_before_edgar": 1,
+      "relevant_same_day": 0,
+      "relevant_after_edgar": 0
+    },
+    "merger": {
+      "n": 150,
+      "any": 29,
+      "relevant": 17,
+      "n_universe44": 26,
+      "relevant_universe44": 1,
+      "relevant_before_edgar": 4,
+      "relevant_same_day": 13,
+      "relevant_after_edgar": 0
+    },
+    "tender": {
+      "n": 201,
+      "any": 14,
+      "relevant": 3,
+      "n_universe44": 26,
+      "relevant_universe44": 0,
+      "relevant_before_edgar": 1,
+      "relevant_same_day": 2,
+      "relevant_after_edgar": 0
+    }
+  }
+}
