@@ -1,0 +1,76 @@
+{
+ "accession": "0001193125-21-021815",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "DNP SELECT INCOME FUND RESPONDS TO SHAREHOLDER FAQs RELATED TO PROPOSED MERGER"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Duff & Phelps Utility and Corporate Bond Trust Inc.; DNP Select Income Fund Inc.",
+     "span": "Frequently Asked Questions related to the proposal to merge Duff & Phelps Utility and Corporate Bond Trust Inc. (DUC) with and into DNP Select Income Fund Inc. (DNP) (the Merger",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "DUC; DNP",
+     "span": "Frequently Asked Questions related to the proposal to merge Duff & Phelps Utility and Corporate Bond Trust Inc. (DUC) with and into DNP Select Income Fund Inc. (DNP) (the Merger",
+     "doc_seq": "1"
+    },
+    "security_class": null,
+    "acquirer": {
+     "value": "DNP Select Income Fund Inc.",
+     "span": "Frequently Asked Questions related to the proposal to merge Duff & Phelps Utility and Corporate Bond Trust Inc. (DUC) with and into DNP Select Income Fund Inc. (DNP) (the Merger",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Duff & Phelps Utility and Corporate Bond Trust Inc.",
+     "span": "Frequently Asked Questions related to the proposal to merge Duff & Phelps Utility and Corporate Bond Trust Inc. (DUC) with and into DNP Select Income Fund Inc. (DNP) (the Merger",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Each funds board approved the recommendation of Duff & Phelps Investment Management Co. to merge the two funds",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The conversion ratio used to determine the number of DNP shares issued to DUC shareholders at the time of the Merger is based on the net asset value per share of each fund rather than their respective market prices.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval"
+     ],
+     "spans": [
+      "If the required approval is obtained from the shareholders of DUC at the Special Meeting on February 22, 2021"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or around March 5, 2021",
+     "span": "the Merger will become effective on the Closing Date, which is expected to be on or around March 5, 2021.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-02-22",
+     "span": "If the required approval is obtained from the shareholders of DUC at the Special Meeting on February 22, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class"
+ ],
+ "notes": "Rule 425 communication by the acquirer DNP (a closed-end fund): shareholder FAQs on the merger of DUC with and into DNP. Exchange is set by NAV per share of each fund (nav_for_nav); no fixed ratio, cash or collar stated. Only DUC holders vote; DNP holders do not. security_class: the filing speaks only of 'DNP shares' issued to DUC shareholders, never the word 'common'; recorded as common on that basis. No record date, outside/termination date or other closing conditions are stated in this communication. n_targets=1 from 'the two funds'. DNP is the surviving fund ('with DNP as the surviving Fund').",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

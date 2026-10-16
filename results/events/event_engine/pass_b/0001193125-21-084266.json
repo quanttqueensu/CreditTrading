@@ -1,0 +1,94 @@
+{
+ "accession": "0001193125-21-084266",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "OFFER TO EXCHANGE ALL OUTSTANDING AUCTION MARKET PREFERRED SHARES, SERIES B, PAR VALUE $0.001"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "The Gabelli Dividend & Income Trust",
+     "span": "of the subject company is The Gabelli Dividend & Income Trust",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GDV",
+     "span": "have been listed and traded on the NYSE under the symbol GDV since November 25, 2003",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "preferred",
+     "span": "Auction Market Preferred Shares, Series B, Par Value $0.001",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "other",
+     "span": "based upon a price of 96% of the liquidation preference of $25,000 per share (or $24,000 per share)",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {
+     "value": 100,
+     "span": "for up to 100% of the Auction Rate Preferred Shares validly tendered and not withdrawn prior to the Expiration Date",
+     "doc_seq": "2"
+    },
+    "size_shares": {
+     "value": 6371,
+     "span": "the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-03-17",
+     "span": "Exchange Offer will commence on March 17, 2021",
+     "doc_seq": "2"
+    },
+    "expiration_date": {
+     "value": "2021-04-14",
+     "span": "THIS EXCHANGE OFFER WILL EXPIRE AT 5:00 P.M., NEW YORK CITY TIME, ON APRIL 14, 2021",
+     "doc_seq": "2"
+    },
+    "proration": null,
+    "conditions": {
+     "value": [
+      "minimum_tender",
+      "legal_injunction",
+      "market_disruption",
+      "regulatory_approval",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "holders of at least an aggregate of at least a majority of the outstanding Auction Rate Preferred Shares properly tendering (and not validly withdrawing) their Auction Rate Preferred Shares at or prior to the Expiration Date",
+      "any statute, rule, regulation, judgment, order or injunction threatened, proposed, sought, promulgated, enacted, entered, amended, enforced or deemed to be applicable to the Exchange Offer or the Fund",
+      "any general suspension of trading in, or limitation on prices for, securities on any national securities exchange or in the over-the-counter market in the United States",
+      "any approval, permit, authorization, favorable review or consent of any governmental entity required to be obtained in connection with the Exchange Offer shall not have been obtained on terms satisfactory to us in our reasonable judgment",
+      "Notwithstanding the foregoing conditions, the Fund reserves the right, in its sole discretion, but subject to applicable law, to terminate the Exchange Offer at any time prior to the expiration date of the Exchange Offer.",
+      "has acquired or proposes to acquire beneficial ownership of more than 5% of any series of our outstanding Auction Rate Preferred Shares or Series J Preferred Shares"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "other",
+     "span": "The Fund has entered into an agreement with Bank of America, pursuant to which Bank of America has agreed to tender 100% of the Auction Rate Preferred Shares it beneficially owns into this Exchange Offer.",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "price_basis",
+  "trigger_origin",
+  "subject_tickers",
+  "conditions"
+ ],
+ "notes": "Issuer EXCHANGE offer (Schedule TO-I, Rule 13e-4) by The Gabelli Dividend & Income Trust, a diversified closed-end fund, for ALL of its unlisted Auction Market / Auction Rate Preferred Shares, Series B (2,647 outstanding), Series C (3,244) and Series E (480), as of March 16, 2021. Consideration is securities, not cash: 0.96 of a newly issued Series J Cumulative Term Preferred Share (liquidation preference $25,000, unlisted) per tendered share, with cash only in lieu of fractional shares and for accrued dividends. The fee table values this at 96% of the $25,000 liquidation preference ($24,000 per share); price_basis is therefore 'other' (a percent of liquidation preference paid in new preferred), and there is no NAV basis. size_shares 6,371 is the fee-table count (= all three series); size_pct_outstanding 100 is the stated 'up to 100%'. No proration clause is stated (the offer is for all shares), so proration is null. subject_tickers GDV is the ticker of the fund's COMMON shares as printed; the preferred shares subject to the offer are not listed. The span for GDV contains the file's C1 control characters U+0093/U+0094 (mis-decoded curly quotes) exactly as they appear. Conditions: a majority of the outstanding Auction Rate Preferred Shares must tender (minimum_tender; Bank of America owns 94.0% and has agreed under a Share Exchange Agreement to tender 100% of its holdings); legal action/order -> legal_injunction; trading suspension, banking moratorium, credit-market disruption, war -> market_disruption; required governmental approvals -> regulatory_approval; the Fund's right to terminate in its sole discretion and material-adverse-change tests 'in our reasonable judgment' -> board_discretion; a person acquiring over 5% of a series, or a change in law -> other. trigger_origin 'other': stated purpose is to reduce dividend obligations (failed auctions since February 2008 left the maximum rate), simplify the capital structure and give holders an exit, and the offer is backed by an agreement with Bank of America; board_discretionary is the alternative (the Board approved the offer on February 24, 2021). The EDGAR document descriptions carry draft placeholders ('OFFER TO EXCHANGE DATED [ ], 2021'; exhibit 7 titled 'SERIES I CUMULATIVE [TERM] PREFERRED SHARES'), while the text says Series J and is dated March 17, 2021; the text was used."
+}

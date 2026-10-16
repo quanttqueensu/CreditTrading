@@ -1,0 +1,92 @@
+{
+ "accession": "0001535778-24-000175",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "interval_or_tender_offer_fund",
+  "doc_role": "final_result",
+  "kind_span": "FINAL AMENDMENT TO TENDER OFFER STATEMENT"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "MSC Income Fund, Inc.",
+     "span": "by MSC Income Fund, Inc., an externally managed, non-diversified, closed-end management investment company incorporated in Maryland",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "the number of shares of the Company’s common stock, $0.001 par value per share",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "at a price of $7.74 per Share, which was the net asset value per share as of November 1, 2024",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 100,
+     "span": "at a price of $7.74 per Share, which was the net asset value per share as of November 1, 2024",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "net asset value per share as of November 1, 2024 (the funding date)",
+     "span": "on November 1, 2024 (the funding date), the Company purchased a total of 512,730 Shares validly tendered and not withdrawn at a price of $7.74 per Share, which was the net asset value per share as of November 1, 2024",
+     "doc_seq": "1"
+    },
+    "size_pct_outstanding": {
+     "value": 2.5,
+     "span": "(ii) 2.5% of the weighted average number of the Shares outstanding in the prior four calendar quarters",
+     "doc_seq": "1"
+    },
+    "size_shares": null,
+    "commencement_date": {
+     "value": "2024-09-26",
+     "span": "the terms and conditions set forth in the Offer to Purchase, dated September 26, 2024",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2024-10-28",
+     "span": "The Offer terminated at 5:00 P.M., Central Time, on October 28, 2024",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "the Company repurchased Shares on a pro-rata basis, subject to “odd lot” priority as described in the Offer",
+     "doc_seq": "1"
+    },
+    "conditions": null,
+    "trigger_origin": {
+     "value": "periodic_liquidity",
+     "span": "The purpose of the offer is to provide our stockholders (“Stockholders”) with limited liquidity because there is otherwise no public market for the Shares.",
+     "doc_seq": "1"
+    },
+    "shares_tendered": {
+     "value": 5919194,
+     "span": "a total of 5,919,194 Shares were validly tendered and not withdrawn pursuant to the Offer",
+     "doc_seq": "1"
+    },
+    "shares_accepted": {
+     "value": 512730,
+     "span": "the Company purchased a total of 512,730 Shares validly tendered and not withdrawn",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": null,
+    "final_price_per_share": {
+     "value": 7.74,
+     "span": "at a price of $7.74 per Share",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "price_pct_nav",
+  "size_pct_outstanding",
+  "commencement_date",
+  "fund_type"
+ ],
+ "notes": "Final amendment (Amendment No. 1) reporting results of an issuer tender offer for common stock. fund_type: the filing calls the filer 'an externally managed, non-diversified, closed-end management investment company' and says 'there is otherwise no public market for the Shares' (periodic liquidity tenders), so interval_or_tender_offer_fund was chosen; it does not state BDC status here, and closed_end_fund is the alternative reading. price_pct_nav=100: the filing states the price was the net asset value per share (price = NAV), not a stated percent. size: the offer is for the LESSER of (i) shares purchasable with 90% of DRIP proceeds from the November 1, 2024 dividend and (ii) 2.5% of the weighted average shares outstanding in the prior four calendar quarters; size_pct_outstanding=2.5 is that cap (of weighted-average, not current, outstanding). No share-count maximum is stated. commencement_date taken from the Offer to Purchase date (September 26, 2024), the date the Schedule TO was filed; the filing does not say 'commenced'. conditions are not listed in this amendment. proration_factor_pct not stated (512,730 of 5,919,194 tendered would need arithmetic, and odd lots were bought in full). Aggregate purchase price $3,968,531.78, funded November 1, 2024."
+}

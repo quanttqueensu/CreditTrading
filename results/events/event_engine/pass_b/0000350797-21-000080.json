@@ -1,0 +1,103 @@
+{
+ "accession": "0000350797-21-000080",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "This Schedule TO relates to the Fund’s offer to purchase for cash up to 25% or 4,470,149 shares of its outstanding common shares"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "Eaton Vance Short Duration Diversified Income Fund",
+     "span": "This Tender Offer Statement on Schedule TO is filed by Eaton Vance Short Duration Diversified Income Fund, a Massachusetts business trust",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "EVG",
+     "span": "The Shares are traded on the NYSE under the ticker symbol “EVG.”",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares of Beneficial Interest, $.01 par value",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "The price to be paid for the Common Shares is an amount per share, net to the seller in cash, equal to 99% of the net asset value per share as of the Expiration Date",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 99,
+     "span": "The price to be paid for the Common Shares is an amount per share, net to the seller in cash, equal to 99% of the net asset value per share as of the Expiration Date",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "close of regular trading on the NYSE on the Expiration Date (or the date to which the Offer is extended)",
+     "span": "for cash at a price equal to 99% of the NAV per Share as of the close of regular trading of the NYSE on the Expiration Date",
+     "doc_seq": "2"
+    },
+    "size_pct_outstanding": {
+     "value": 25,
+     "span": "offer to purchase for cash up to 25% or 4,470,149 shares of its outstanding common shares",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 4470149,
+     "span": "offer to purchase for cash up to 25% or 4,470,149 shares of its outstanding common shares",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-29",
+     "span": "June 29, 2021 — Eaton Vance Short Duration Diversified Income Fund (NYSE: EVG), Eaton Vance Floating-Rate Income Trust (NYSE: EFT), Eaton Vance Senior Floating-Rate Trust (NYSE: EFR) and Eaton Vance Senior Income Trust (NYSE: EVF) (each, a “Fund” and collectively, the “Funds”) each announced today the commencement of a cash tender offer",
+     "doc_seq": "7"
+    },
+    "expiration_date": {
+     "value": "2021-07-30",
+     "span": "The Offer expires on July 30, 2021 at 5:00 p.m., Eastern Time, unless the Fund extends the Offer.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If more Shares than the Offer Amount are properly tendered and not withdrawn prior to the date the Offer expires, the Fund will purchase the Offer Amount on a pro rata basis (disregarding fractional shares).",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "listing",
+      "ric_or_tax_status",
+      "other",
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion"
+     ],
+     "spans": [
+      "(a) result in delisting of the Fund’s Shares from the NYSE",
+      "(b) cause the Fund to fail to qualify and to be treated as a regulated investment company",
+      "(c) result in a failure to comply with the applicable asset coverage requirements applicable to any senior securities of the Fund that are issued and outstanding",
+      "in the Board’s reasonable judgment, any material legal action or proceeding instituted or threatened challenging such transactions",
+      "(b) any suspension of or limitation on prices for trading securities generally on the NYSE American, the NYSE or other national securities exchange(s), or the NASDAQ National Market System",
+      "(3) the Board determines in good faith, upon written advice of counsel, that effecting any such transaction would constitute a breach of their fiduciary duty owed to the Fund or its Shareholders."
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "merger_related",
+     "span": "In connection with the Transaction, Fund shareholders were asked to approve a new investment advisory agreement with EVM (the “New Agreement”) in order to maintain the continuity of the Fund’s operations. As announced on March 9, 2021, the Board approved the Offer, conditioned on Fund shareholders approving the New Agreement.",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "trigger_origin"
+ ],
+ "notes": "Original Schedule TO-I (offer document) for an issuer cash tender for common shares at 99% of NAV. trigger_origin: the filing says that on March 1, 2021 Morgan Stanley acquired Eaton Vance Corp. (the adviser's parent; 'the Transaction'), shareholders were asked to approve a new advisory agreement in connection with it, and the Board approved the Offer conditioned on that approval (approved May 7, 2021; 'the condition was met'). Coded merger_related (adviser-level M&A, not a fund merger); board_discretionary is the alternative reading. No standstill or activist agreement is mentioned in this filing. The met shareholder-approval condition is excluded from conditions because it was already satisfied. conditions element 'other' is the asset-coverage condition for senior securities; market_disruption also covers the banking-moratorium and credit-limitation clauses in the same Section 13. commencement_date from the joint press release (June 29, 2021, 'announced today the commencement'); the Offer to Purchase is also dated June 29, 2021. Expiration: July 30, 2021, 5:00 p.m. Eastern, unless extended (only one date stated). Inconsistency in the filing: the Summary Term Sheet gives the June 23, 2021 NAV as $13.6727 and the closing price as $13.24, but the Introduction and Section 1 call $13.24 the NAV; the fee calculation uses $13.5360 = 99% of $13.6727. 17,880,596 Shares outstanding as of June 23, 2021. The joint press release also describes Conditional Tender Offers for EFT, EFR and EVF (not EVG); not extracted here as they do not concern this filer."
+}

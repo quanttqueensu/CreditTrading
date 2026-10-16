@@ -1,0 +1,75 @@
+{
+ "accession": "0001387131-21-006284",
+ "triage": {
+  "kind": "rights_offering",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "The Gabelli Equity Trust Inc. (the “Fund”, “we”, “us” or “our”) is issuing subscription rights (the “Rights”) to our common stockholders (the “Common Shareholders”) to purchase additional shares of common stock"
+ },
+ "events": [
+  {
+   "kind": "rights_offering",
+   "terms": {
+    "subject_names": {
+     "value": "The Gabelli Equity Trust Inc.",
+     "span": "The Gabelli Equity Trust Inc. (the “Fund”, “we”, “us” or “our”) is issuing subscription rights (the “Rights”) to our common stockholders",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GAB",
+     "span": "Common Shares are listed on the New York Stock Exchange (“NYSE”) under the symbol “GAB.”",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "262,669,923 Rights for 26,266,993 Shares of Common Stock",
+     "doc_seq": "1"
+    },
+    "rights_per_share": {
+     "value": 1,
+     "span": "Each Record Date Shareholder of record is being issued one transferable Right for each Common Share owned on the Record Date.",
+     "doc_seq": "1"
+    },
+    "rights_per_new_share": {
+     "value": 10,
+     "span": "Ten Rights will be required to purchase one Common Share.",
+     "doc_seq": "1"
+    },
+    "price_reference": {
+     "value": "fixed",
+     "span": "The Rights entitle the holder to acquire for $5.50 (the “Subscription Price”) one new Common Share for each ten Rights held.",
+     "doc_seq": "1"
+    },
+    "price_pct": null,
+    "price_floor_pct_nav": null,
+    "record_date": {
+     "value": "2021-06-02",
+     "span": "The Fund is issuing to common shareholders of record as of the close of business on June 2, 2021 (the “Record Date”) Rights to subscribe for Common Shares of the Fund.",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-07-14",
+     "span": "which commences on June 2, 2021, and ends at 5:00 PM Eastern Time on July 14, 2021 (the “Expiration Date”), unless otherwise extended.",
+     "doc_seq": "1"
+    },
+    "transferable": {
+     "value": true,
+     "span": "The Rights are transferable and will be admitted for trading on the NYSE under the symbol “GAB RT”.",
+     "doc_seq": "1"
+    },
+    "over_subscription": {
+     "value": true,
+     "span": "An over-subscription privilege will be offered, subject to the right of the Board of Directors of the Fund (the “Board”) to eliminate the over-subscription privilege.",
+     "doc_seq": "1"
+    },
+    "max_new_shares": {
+     "value": 26266993,
+     "span": "26,266,993 Common Shares of the Fund will be issued if all Rights are exercised.",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Single document (seq=1), 424B2 prospectus supplement dated June 2, 2021 (to prospectus dated December 23, 2020) for a transferable 1-for-10 rights offering of common stock (rights trade on NYSE as 'GAB RT'). Subscription price is a fixed $5.50 per Common Share, so price_reference=fixed and price_pct / price_floor_pct_nav are null (no percent of NAV or market stated). Cover: 262,669,923 Rights for 26,266,993 Shares; rights per holder are rounded UP to the nearest number divisible by ten. Over-subscription privilege offered, subject to the Board's right to eliminate it; the Fund will not sell shares not subscribed for in the subscription or over-subscription, so no secondary over-allotment; max_new_shares = 26,266,993. Expiration July 14, 2021 unless extended (only one date stated). Stated NAV $6.87 and last sale $7.54 on May 28, 2021 (context only). Fund type: 'The Fund is a non-diversified, closed-end management investment company'."
+}

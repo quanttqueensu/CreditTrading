@@ -1,0 +1,84 @@
+{
+ "accession": "0001104659-21-033275",
+ "triage": {
+  "kind": "rights_offering",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "Tekla World Healthcare Fund (the \"Trust\") is issuing non-transferable rights (\"Rights\") to its Shareholders of record as of the close of business on March 8, 2021 (the \"Record Date\")."
+ },
+ "events": [
+  {
+   "kind": "rights_offering",
+   "terms": {
+    "subject_names": {
+     "value": "Tekla World Healthcare Fund",
+     "span": "Tekla World Healthcare Fund (the \"Trust\") is issuing non-transferable rights (\"Rights\")",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "THW",
+     "span": "New York Stock Exchange Symbol: THW",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "These Rights will allow you to subscribe for one (1) common share of beneficial interest (\"Share\") of the Trust for every three (3) Rights held (the \"Offer\").",
+     "doc_seq": "1"
+    },
+    "rights_per_share": {
+     "value": 1,
+     "span": "You will receive one Right for each whole Share that you hold of record as of the Record Date",
+     "doc_seq": "1"
+    },
+    "rights_per_new_share": {
+     "value": 3,
+     "span": "The Rights entitle a Shareholder to acquire, at the Subscription Price, one Share for every three Rights held.",
+     "doc_seq": "1"
+    },
+    "price_reference": {
+     "value": "market",
+     "span": "The subscription price per Share (the \"Subscription Price\") will be determined based upon a formula equal to 95% of the volume weighted average price of a Share on the NYSE on the date on which the Offer expires",
+     "doc_seq": "1"
+    },
+    "price_pct": {
+     "value": 95,
+     "span": "The subscription price per Share (the \"Subscription Price\") will be determined based upon a formula equal to 95% of the volume weighted average price of a Share on the NYSE on the date on which the Offer expires",
+     "doc_seq": "1"
+    },
+    "price_floor_pct_nav": {
+     "value": 90,
+     "span": "If, however, the Formula Price is less than 90% of the net asset value (\"NAV\") per Share at the close of trading on the NYSE on the Expiration Date (as defined below), then the Subscription Price will be 90% of the Trust's NAV per Share",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-03-08",
+     "span": "to its Shareholders of record as of the close of business on March 8, 2021 (the \"Record Date\")",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-04-06",
+     "span": "which starts on March 16, 2021 and ends at 5:00 p.m., Eastern Time, on April 6, 2021 (the \"Expiration Date\").",
+     "doc_seq": "1"
+    },
+    "transferable": {
+     "value": false,
+     "span": "The Rights are non-transferable, which means that the Rights may not be purchased or sold, and a Shareholder cannot trade the Rights on the secondary market",
+     "doc_seq": "1"
+    },
+    "over_subscription": {
+     "value": true,
+     "span": "such Shares which have not been subscribed for will be offered, by means of the Over-Subscription Privilege, to Shareholders who have exercised all the Rights initially issued to them",
+     "doc_seq": "1"
+    },
+    "max_new_shares": {
+     "value": 10077635,
+     "span": "The Trust is issuing to its Shareholders non-transferable Rights to subscribe for an aggregate of 10,077,635 Shares. The Trust may increase the number of Shares subject to subscription by up to 25% of the Shares, for an aggregate total of 12,597,044 Shares.",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Final prospectus (424B1) dated March 4, 2021. Subscription price = 95% of the VWAP on the NYSE on the expiration date and the four preceding trading days (the Formula Price), floored at 90% of NAV per Share at the close on the Expiration Date; estimated subscription price $17.00 as of February 26, 2021. max_new_shares is the base 10,077,635; the Trust may increase the offer by up to 25% (up to an additional 2,519,409 Shares, 12,597,044 total) to honour over-subscription requests, excluded per the schema. Rights are not listed. Subscription period March 16, 2021 to April 6, 2021, unless extended; only one expiration date is stated.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

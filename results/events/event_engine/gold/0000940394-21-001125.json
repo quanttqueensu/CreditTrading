@@ -1,0 +1,100 @@
+{
+ "accession": "0000940394-21-001125",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "final_result",
+  "kind_span": "[x] issuer tender offer subject to Rule 13e-4."
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "Eaton Vance Floating-Rate Income Trust",
+     "span": "Eaton Vance Floating-Rate Income Trust (NYSE: EFT)",
+     "doc_seq": "2"
+    },
+    "subject_tickers": {
+     "value": "EFT",
+     "span": "(NYSE: EFT)",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares of Beneficial Interest, $.01 par value",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "a purchase price equal to 99% of the Fund’s net asset value per share as of the close of regular trading on the New York Stock Exchange on July 30, 2021",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 99,
+     "span": "a purchase price equal to 99% of the Fund’s net asset value per share",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "close of regular trading on the NYSE on July 30, 2021 (the date the tender offer expired)",
+     "span": "Equal to 99% of the relevant Fund’s net asset value per share as of the close of regular trading on the New York Stock Exchange (NYSE) on July 30, 2021 (the date the Tender Offer expired).",
+     "doc_seq": "2"
+    },
+    "size_pct_outstanding": {
+     "value": 50,
+     "span": "offer to purchase for cash up to 50% or 19,931,845 of its issued and outstanding common shares of beneficial interest",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 19931845,
+     "span": "offer to purchase for cash up to 50% or 19,931,845 of its issued and outstanding common shares of beneficial interest",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-29",
+     "span": "upon the terms and subject to the conditions set forth in the Fund’s Offer to Purchase dated June 29, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-07-30",
+     "span": "The Tender Offers expired at 5:00 P.M. Eastern Time on July 30, 2021.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "if the number of shares properly tendered exceeds the number of shares offered to purchase, the Fund will purchase shares properly tendered on a pro-rata basis (disregarding fractional shares)",
+     "doc_seq": "2"
+    },
+    "conditions": null,
+    "trigger_origin": {
+     "value": "activist_settlement",
+     "span": "(d)(i) Standstill Agreement dated May 12, 2021.",
+     "doc_seq": "1"
+    },
+    "shares_tendered": {
+     "value": 11568482,
+     "span": "EFT 11,568,482 11,568,482 N/A $14.3281 29,804,628",
+     "doc_seq": "2"
+    },
+    "shares_accepted": {
+     "value": 11568482,
+     "span": "EFT 11,568,482 11,568,482 N/A $14.3281 29,804,628",
+     "doc_seq": "2"
+    },
+    "proration_factor_pct": null,
+    "final_price_per_share": {
+     "value": 14.3281,
+     "span": "EFT 11,568,482 11,568,482 N/A $14.3281 29,804,628",
+     "doc_seq": "2"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "commencement_date",
+  "trigger_origin",
+  "proration_factor_pct"
+ ],
+ "notes": "Amendment No. 2, marked as the final amendment reporting the results, to the Schedule TO of Eaton Vance Floating-Rate Income Trust (EFT). Doc seq=2 is a joint press release covering four Eaton Vance funds (EVG, EFT, EFR, EVF); only the EFT row is extracted. commencement_date: the filing never says 'commenced'; it gives the Offer to Purchase date and the original Schedule TO filing date (both June 29, 2021), used here as the commencement date. trigger_origin: the filing states no reason for the tender. The only evidence is a Standstill Agreement dated May 12, 2021, filed as exhibit (d)(i) to the Schedule TO. That points to an activist settlement, but the filing does not say so. proration_factor_pct: left null. The results table prints 'N/A' as EFT's pro-ration factor, and the release says EFT will purchase all shares properly tendered (the offer was undersubscribed). conditions: the filing refers only to 'the conditions set forth in the Fund's Offer to Purchase' and does not list them. The fee table's NAV (99% of NAV $14.5570 = $14.4114, as of June 23, 2021) is for the fee calculation only and is not the purchase price. The incorporation-by-reference sentence says 'Amendment No. 1' once; everywhere else the filing calls itself Amendment No. 2. The signature block reads 'Eaton Vance Floating-Rate Income Fund' (sic).",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

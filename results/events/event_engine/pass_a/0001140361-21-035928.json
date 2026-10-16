@@ -1,0 +1,101 @@
+{
+ "accession": "0001140361-21-035928",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "bdc",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "Immediately after the Effective Time, Sierra will merge with and into Barings BDC, with Barings BDC continuing as the surviving corporation in the Second Merger."
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Barings BDC, Inc.; Sierra Income Corporation",
+     "span": "Barings BDC, Inc., a Maryland corporation (“ Parent ”), Mercury Acquisition Sub, Inc., a Maryland corporation and a direct wholly owned Subsidiary of Parent (“ Acquisition Sub ”), Sierra Income Corporation, a Maryland corporation (the “ Company ”)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "BBDC",
+     "span": "Shares of Barings BDC Common Stock trade on the NYSE under the symbol “BBDC.” Shares of Sierra Common Stock are illiquid investments for which there is currently no secondary market.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "each Sierra stockholder will have the right to receive 0.44973 newly issued shares of Barings BDC Common Stock for each share of Sierra Common Stock that they own immediately prior to the Effective Time",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Barings BDC, Inc.",
+     "span": "Immediately after the Effective Time, Sierra will merge with and into Barings BDC, with Barings BDC continuing as the surviving corporation in the Second Merger.",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Sierra Income Corporation",
+     "span": "Sierra Income Corporation, a Maryland corporation (the “ Company ”)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Immediately after the Effective Time, Sierra will merge with and into Barings BDC, with Barings BDC continuing as the surviving corporation in the Second Merger.",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "cash_and_stock",
+     "span": "will be converted into the right to receive (1) $0.9783641 per share in cash, without interest, from Barings (such amount of cash, the “Cash Consideration”) and (2) 0.44973 (as may be adjusted pursuant to the Merger Agreement) of a validly issued, fully paid and non-assessable share of Barings BDC Common Stock",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": {
+     "value": 0.44973,
+     "span": "The Exchange Ratio was fixed at the signing of the Merger Agreement at 0.44973.",
+     "doc_seq": "1"
+    },
+    "cash_per_share": {
+     "value": 0.9783641,
+     "span": "will be converted into the right to receive (1) $0.9783641 per share in cash, without interest, from Barings (such amount of cash, the “Cash Consideration”)",
+     "doc_seq": "1"
+    },
+    "collar": {
+     "value": false,
+     "span": "The Exchange Ratio is fixed in the Merger Agreement and the Merger Consideration will not be adjusted for changes in the market price of Barings BDC Common Stock.",
+     "doc_seq": "1"
+    },
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "listing",
+      "registration_effective",
+      "regulatory_approval",
+      "legal_injunction",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "Sierra shall have obtained the Sierra Stockholder Approval and Barings BDC shall have obtained the Barings BDC Stockholder Approval;",
+      "the issuance of Barings BDC Common Stock in connection with the First Merger and the issuance of shares of Barings BDC Common Stock upon the conversion of any instruments exchangeable therefor or convertible thereto shall have been approved for listing on the NYSE, subject to official notice of issuance;",
+      "the Form N-14 (of which this joint proxy statement/prospectus is a part) shall have become effective under the Securities Act and shall not be the subject of any stop order or proceedings seeking a stop order;",
+      "any applicable waiting period (and any extension thereof) under the HSR Act, the EU Merger Regulation or any other antitrust laws relating to the consummation of the First Merger shall have expired or early termination thereof shall have been granted; and",
+      "no governmental authority of competent jurisdiction shall have promulgated, issued or entered any law or order which is then in effect and has the effect of restraining, enjoining or otherwise prohibiting the consummation of the First Merger.",
+      "Sierra shall have received the written opinion of S&W (or, if S&W is unable to deliver such an opinion, of such other nationally recognized tax counsel reasonably satisfactory to Sierra and Barings BDC) to the effect that the Merger will qualify for the intended tax treatment;",
+      "since the date of the Merger Agreement, there shall not have occurred and be continuing any material adverse effect with respect to Sierra; and"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "first quarter of 2022",
+     "span": "Barings BDC and Sierra are working to complete the Merger in the first quarter of 2022",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2022-03-31",
+     "span": "the First Merger shall not have been consummated on or before 5:00 p.m. (New York time) on March 31, 2022 (the “Termination Date”);",
+     "doc_seq": "1"
+    },
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Initial N-14 8C (preliminary joint proxy statement/prospectus dated October 29, 2021) for the two-step merger: Acquisition Sub merges into Sierra (First Merger), then Sierra merges into Barings BDC (Second Merger). Consideration per Sierra share: $0.9783641 cash paid by the adviser Barings LLC (not by Barings BDC) plus a fixed 0.44973 Barings BDC shares, subject only to customary anti-dilution adjustments; no collar (the consideration is not adjusted for Barings BDC's market price). Sierra is non-traded, so only BBDC is printed as a ticker. Both special meetings ('[•], 2022') and both record dates ('[•], 2021') are bracketed placeholders, so meeting_date and record_date are null. 'other' covers the material-adverse-effect, representations-and-warranties, certificate, advisory-agreement amendment and administration-agreement termination conditions. The termination section also provides an $11.0 million Sierra termination fee (not a field of the merger kind)."
+}

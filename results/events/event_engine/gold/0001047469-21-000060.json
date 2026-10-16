@@ -1,0 +1,13 @@
+{
+ "accession": "0001047469-21-000060",
+ "triage": {
+  "kind": "none",
+  "fund_type": "bdc",
+  "doc_role": "prospectus",
+  "kind_span": "We are offering $ in aggregate principal amount of % notes due , which we refer to as the Notes."
+ },
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "Preliminary prospectus supplement (with accompanying base prospectus) for an offering of unsecured notes by Main Street Capital Corporation, a BDC (\"has elected to be treated as a business development company\"). Principal amount, coupon and maturity are blank in this preliminary text. No tender, merger, rights offering or other schema event; kind none per rule 5.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

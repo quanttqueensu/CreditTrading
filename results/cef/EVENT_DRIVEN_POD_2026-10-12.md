@@ -316,7 +316,20 @@ always known. The same function serves live and research.
     **Convert it; never compare it to an ET clock as if it were local.**
 
   So a filing can be visible on EDGAR in the evening while its filing date says
-  tomorrow, and a sponsor's press release can come before both. Use the earliest
+  tomorrow, and a sponsor's press release can come before both.
+
+  **CORRECTION 2026-10-15** (`results/events/EVENT_ENGINE_DESIGN_2026-10-15.md` §4,
+  `docs/REFERENCES.md` §12t):
+  - The SEC says submissions begun after 5:30 p.m. ET (10 p.m. for ownership
+    forms) "will be disseminated the next business day". One evening's feed
+    showed no non-ownership filing accepted after 17:31 ET. So the sentence
+    above is wrong for most forms: an evening filing is not public that evening.
+  - The submissions API's `acceptanceDateTime` is one UTC offset late on 23 of
+    50 filings.
+  - The key is `observed_at = max(header acceptance, 06:00 ET on the filing
+    date)` (`scripts/events/event_store.py`).
+  - Keyed on acceptance, 7 of 50 sampled filings would have reached a 22:00 ET
+    decision 8–56 hours early. Use the earliest
   timestamp we can **prove** we could have seen, normally `acceptanceDateTime`.
   Record our own poll time beside it, so the gap between the two is measured
   rather than assumed.

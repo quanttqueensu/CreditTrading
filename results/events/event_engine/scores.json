@@ -1,0 +1,267 @@
+{
+ "n_filings": 50,
+ "time_keys": {
+  "api_check": {
+   "agree": 27,
+   "api_offset_error": 23
+  },
+  "header_consistent_with_filing_date_rule": 50,
+  "api_time_consistent_with_filing_date_rule": 38,
+  "held_overnight_by_edgar": 7,
+  "would_leak_into_a_22et_decision_if_keyed_on_acceptance": 7,
+  "accepted_16_to_1730_on_filing_date": 29
+ },
+ "span_checks": {
+  "A": {
+   "values": 531,
+   "failures": 5,
+   "filings_with_failure": 2
+  },
+  "B": {
+   "values": 531,
+   "failures": 2,
+   "filings_with_failure": 2
+  },
+  "gold": {
+   "values": 531,
+   "failures": 0,
+   "filings_with_failure": 0
+  }
+ },
+ "agreement_ab": {
+  "triage_kind": 1.0,
+  "terms_cells": 585,
+  "terms_agree": 0.9606837606837607,
+  "terms_agree_nonnull_either": 0.9417721518987342
+ },
+ "vs_gold_by_pass": [
+  {
+   "pass": "A",
+   "n": 585,
+   "gold_nonnull": 389,
+   "tp": 374,
+   "fp": 15,
+   "fn": 15,
+   "cell_accuracy": 0.9675213675213675,
+   "precision": 0.961439588688946,
+   "recall": 0.961439588688946
+  },
+  {
+   "pass": "B",
+   "n": 585,
+   "gold_nonnull": 389,
+   "tp": 381,
+   "fp": 9,
+   "fn": 8,
+   "cell_accuracy": 0.9829059829059829,
+   "precision": 0.9769230769230769,
+   "recall": 0.9794344473007712
+  }
+ ],
+ "vs_gold_by_dtype": [
+  {
+   "dtype": "bool",
+   "n": 112,
+   "gold_nonnull": 68,
+   "tp": 68,
+   "fp": 0,
+   "fn": 0,
+   "cell_accuracy": 1.0,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "dtype": "date",
+   "n": 228,
+   "gold_nonnull": 138,
+   "tp": 135,
+   "fp": 2,
+   "fn": 3,
+   "cell_accuracy": 0.9780701754385965,
+   "precision": 0.9854014598540146,
+   "recall": 0.9782608695652174
+  },
+  {
+   "dtype": "enum",
+   "n": 230,
+   "gold_nonnull": 210,
+   "tp": 203,
+   "fp": 6,
+   "fn": 7,
+   "cell_accuracy": 0.9652173913043478,
+   "precision": 0.9712918660287081,
+   "recall": 0.9666666666666667
+  },
+  {
+   "dtype": "number",
+   "n": 328,
+   "gold_nonnull": 182,
+   "tp": 181,
+   "fp": 2,
+   "fn": 1,
+   "cell_accuracy": 0.9939024390243902,
+   "precision": 0.9890710382513661,
+   "recall": 0.9945054945054945
+  },
+  {
+   "dtype": "percent",
+   "n": 152,
+   "gold_nonnull": 90,
+   "tp": 90,
+   "fp": 2,
+   "fn": 0,
+   "cell_accuracy": 0.9868421052631579,
+   "precision": 0.9782608695652174,
+   "recall": 1.0
+  },
+  {
+   "dtype": "set",
+   "n": 80,
+   "gold_nonnull": 62,
+   "tp": 50,
+   "fp": 12,
+   "fn": 12,
+   "cell_accuracy": 0.85,
+   "precision": 0.8064516129032258,
+   "recall": 0.8064516129032258
+  },
+  {
+   "dtype": "text",
+   "n": 40,
+   "gold_nonnull": 28,
+   "tp": 28,
+   "fp": 0,
+   "fn": 0,
+   "cell_accuracy": 1.0,
+   "precision": 1.0,
+   "recall": 1.0
+  }
+ ],
+ "triage_kind_accuracy": {
+  "A": 1.0,
+  "B": 1.0
+ },
+ "spot_check": {
+  "cells": 40,
+  "right": 39,
+  "wrong": 1
+ },
+ "reconciliation": {
+  "rows": 32,
+  "by_decision": {
+   "B": 15,
+   "A": 7,
+   "span_repair": 6,
+   "V": 2,
+   "audit": 2
+  }
+ },
+ "gold_span_offsets": {
+  "spans": 659,
+  "found": 659,
+  "share_within_8000": 0.4628224582701062,
+  "share_within_20000": 0.5872534142640364,
+  "share_within_50000": 0.6949924127465857,
+  "share_within_120000": 0.7996965098634294
+ },
+ "filings_all_spans_within": {
+  "8000": 16,
+  "20000": 20,
+  "50000": 21,
+  "120000": 27
+ },
+ "value_coverage": {
+  "values": 389,
+  "recoverable_from_sections": 0.8354755784061697,
+  "recoverable_from_first_8000": 0.5681233933161953,
+  "recoverable_from_first_20000": 0.7429305912596401,
+  "recoverable_from_first_50000": 0.8354755784061697,
+  "recoverable_from_first_120000": 0.9125964010282777,
+  "by_stratum": {
+   "M": {
+    "values": 112,
+    "sections": 0.6964285714285714,
+    "first_8000": 0.4017857142857143,
+    "first_20000": 0.5357142857142857,
+    "first_50000": 0.625,
+    "first_120000": 0.75
+   },
+   "R": {
+    "values": 83,
+    "sections": 0.9036144578313253,
+    "first_8000": 0.6506024096385542,
+    "first_20000": 0.9397590361445783,
+    "first_50000": 0.9397590361445783,
+    "first_120000": 1.0
+   },
+   "T": {
+    "values": 194,
+    "sections": 0.8865979381443299,
+    "first_8000": 0.6288659793814433,
+    "first_20000": 0.7783505154639175,
+    "first_50000": 0.9123711340206185,
+    "first_120000": 0.9690721649484536
+   }
+  },
+  "fields_missed_by_sections": {
+   "conditions": 21,
+   "expected_close": 7,
+   "trigger_origin": 6,
+   "commencement_date": 5,
+   "exchange_basis": 5,
+   "n_targets": 4,
+   "expiration_date": 3,
+   "proration": 2,
+   "record_date": 2,
+   "price_reference": 1,
+   "size_shares": 1,
+   "transferable": 1,
+   "termination_date": 1,
+   "rights_per_new_share": 1,
+   "rights_per_share": 1,
+   "termination_fee": 1,
+   "max_new_shares": 1,
+   "security_class": 1
+  },
+  "selected_chars_mean": 110241.48,
+  "selected_chars_median": 86298.5,
+  "selected_share_of_text_mean": 0.5161529565289015
+ },
+ "tokens": {
+  "chars_per_token_assumed": 2.692307692307692,
+  "instructions_chars": 13562,
+  "instructions_tokens_est": 5323.314285714287,
+  "output_tokens_est_median": 1623.3285714285716,
+  "output_tokens_est_mean": 1652.4337142857144,
+  "text_tokens_est_M": {
+   "median": 169477.28571428574,
+   "mean": 227370.09285714288,
+   "max": 659196.9428571429
+  },
+  "text_tokens_est_R": {
+   "median": 163586.6142857143,
+   "mean": 139904.44,
+   "max": 244453.48571428572
+  },
+  "text_tokens_est_T": {
+   "median": 22806.64285714286,
+   "mean": 56877.897142857146,
+   "max": 255034.37142857144
+  },
+  "text_tokens_est_all": {
+   "median": 90020.54285714286,
+   "mean": 141680.084,
+   "max": 659196.9428571429
+  }
+ },
+ "tiered_cost": {
+  "triage_output_tokens_est": 85.91885714285715,
+  "triage_haiku_usd_per_1000": 0.3801185142857144,
+  "triage_haiku_batch_usd_per_1000": 0.1900592571428572,
+  "terms_claude-sonnet-5-5_std_usd_per_1000_positives": 98.95033942857143,
+  "terms_claude-sonnet-5-5_batch_usd_per_1000_positives": 49.47516971428571,
+  "terms_claude-opus-5-5_std_usd_per_1000_positives": 197.90067885714285,
+  "terms_claude-opus-5-5_batch_usd_per_1000_positives": 98.95033942857143
+ },
+ "cost_note": "system prompt counted as cache reads every call (a cache write once per batch is ignored); output = the gold JSON's size; thinking tokens are NOT included (unmeasured)"
+}

@@ -1,0 +1,83 @@
+{
+ "accession": "0001550913-21-000017",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "reit",
+  "doc_role": "offer_document",
+  "kind_span": "MacKenzie Realty Capital, Inc., a real estate investment trust incorporated in Maryland (the"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "MacKenzie Realty Capital, Inc.",
+     "span": "MACKENZIE REALTY CAPITAL, INC. (Name of Subject Company (Issuer))",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock, Par Value $0.0001 per share (Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "fixed_price",
+     "span": "We are offering to purchase up to 400,000 Shares. The Offer is for cash at a price equal to $6.00",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": {
+     "value": 400000,
+     "span": "We are offering to purchase up to 400,000 Shares. The Offer is for cash at a price equal to $6.00",
+     "doc_seq": "2"
+    },
+    "commencement_date": {
+     "value": "2021-03-19",
+     "span": "The Offer period will begin March 19, 2021 and end at 5:00 P.M., Pacific Time, on April 19, 2021.",
+     "doc_seq": "5"
+    },
+    "expiration_date": {
+     "value": "2021-04-19",
+     "span": "The Offer will expire at 5:00 p.m., Pacific Time, on April 19, 2021, unless extended.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If more than the number of Shares offered for repurchase are duly tendered pursuant to the Offer (and not timely withdrawn, as provided in Section 5 below), we will repurchase Shares on a pro rata basis",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "material legal action or proceeding instituted or threatened which challenges, in the Board’s judgment, the Offer or otherwise materially adversely affects the Company",
+      "declaration of a banking moratorium by federal, state or foreign authorities or any suspension of payment by banks in the United States, the State of California",
+      "other event or condition that, in the Board’s judgment, would have a material adverse effect on the Company or its Stockholders if Shares tendered pursuant to the Offer were purchased",
+      "we will not be required to purchase any Shares tendered pursuant to the Offer if such purchase will cause us to be in violation of the securities, commodities or other laws of the United States or any other relevant jurisdiction"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "board_discretionary",
+     "span": "We understand that some of our stockholders desire immediate liquidity, and the Company’s board of directors also considered the needs of these stockholders and that it would be in their interests to provide an option to those stockholders.",
+     "doc_seq": "5"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "trigger_origin"
+ ],
+ "notes": "Issuer tender offer by a non-listed REIT (described as 'a real estate investment trust incorporated in Maryland', transitioning from a BDC to a property-focused REIT); kind cef_tender per the guide (issuer tender for its own shares), fund_type reit. Fixed price $6.00 per Share; the Board RECOMMENDS AGAINST tendering. The filing states an Estimated Per-Share NAV of $9.84 as of December 31, 2020 and that 'The purchase price is 39% lower than Estimated Per-Share NAV'; a percent-of-NAV price would need arithmetic, so price_pct_nav is null and nav_pricing_date is null (price not NAV-based). size_pct_outstanding is null: 400,000 Shares against 13,362,419.23 outstanding (March 19, 2021) needs arithmetic. Expiration is 5:00 p.m. Pacific Time, April 19, 2021. Proration does not apply to 'All or None' tenders. Offer not conditioned on any minimum number of Shares. trigger_origin board_discretionary: the regular share repurchase programme was suspended in May 2020 and the filing says there are no current plans to reinstate it, so this is a one-off board-approved liquidity offer rather than a periodic one. 'other' condition = purchase would violate securities, commodities or other laws. No ticker (CUSIP 'N/A'; shares not traded on an established market)."
+}

@@ -1,0 +1,79 @@
+{
+ "accession": "0001193125-22-014885",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "an Agreement and Plan of Reorganization under which the Target Fund will transfer substantially all of its assets and liabilities to the Acquiring Fund in exchange for newly issued common shares of the Acquiring Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Enhanced Municipal Value Fund; Nuveen Municipal Credit Income Fund",
+     "span": "as a holder of common shares of Nuveen Enhanced Municipal Value Fund (the Target Fund) or as a holder of preferred shares of Nuveen Municipal Credit Income Fund (the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NZF; NEV",
+     "span": "The common shares of the Acquiring Fund and Target Fund are listed and trade on the NYSE under the ticker symbols NZF and NEV, respectively.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Holders of common shares of the Target Fund will receive newly issued common shares of the Acquiring Fund, with cash being distributed in lieu of fractional common shares.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Municipal Credit Income Fund",
+     "span": "as a holder of preferred shares of Nuveen Municipal Credit Income Fund (the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Enhanced Municipal Value Fund",
+     "span": "as a holder of common shares of Nuveen Enhanced Municipal Value Fund (the Target Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "the Target Fund will transfer substantially all of its assets and liabilities to the Acquiring Fund in exchange for newly issued common shares of the Acquiring Fund",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "will be equal to the aggregate net asset value of the common shares of the Target Fund held by its shareholders as of such time",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "legal_injunction",
+      "regulatory_approval",
+      "other",
+      "registration_effective",
+      "tax_opinion"
+     ],
+     "spans": [
+      "This Agreement and the transactions contemplated herein shall have been approved by the requisite vote of the holders of the outstanding common shares of the Target Fund",
+      "no action, suit or other proceeding shall be threatened or pending before any court or governmental agency in which it is sought to restrain or prohibit",
+      "All consents, orders and permits of federal, state and local regulatory authorities",
+      "All notices to, or consents or waivers from, other persons, including without limitation holders of preferred shares or liquidity providers with respect to preferred shares",
+      "The Registration Statement shall have become effective under the 1933 Act, and no stop orders suspending the effectiveness thereof shall have been issued.",
+      "The Funds shall have received an opinion of Vedder Price P.C., dated as of the Closing Date and addressed to the Acquiring Fund and the Target Fund, substantially to the effect that for federal income tax purposes"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Initial N-14 8C (joint proxy statement/prospectus, filed January 21, 2022) for the reorganisation of Nuveen Enhanced Municipal Value Fund (NEV, target) into Nuveen Municipal Credit Income Fund (NZF, acquirer): NEV common holders receive newly issued NZF common shares of equal aggregate NAV struck at the close of trading on the business day before closing (cash in lieu of fractional shares), so nav_for_nav with no fixed ratio. Votes: NEV common holders (at NEV's annual meeting, which also elects four trustees) and NZF preferred holders (MFP and VRDP shares, privately placed); NZF common holders do not vote. meeting_date, record_date and expected_close are blank placeholders in this draft (meeting '[●], 2022, at [2:00 p.m.]', record date '[●], 2022', closing 'on or about [●], 2022'), so all are null. No outside/automatic termination date: the agreement can be terminated by mutual agreement, or by either fund for an uncured breach, an unmet condition, or a board determination that the deal is not in its fund's best interests (that board out is a termination right, not listed as a closing condition). The shareholder-approval and tax-opinion conditions cannot be waived. The 'other' condition is third-party consents, which the Q&A says include the liquidity provider for NZF's Series 3 VRDP Shares. The target must also declare a pre-closing distribution of income and gains. NYSE listing of the new shares is a reasonable-efforts covenant, not a stated closing condition."
+}

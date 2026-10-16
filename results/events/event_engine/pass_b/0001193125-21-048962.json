@@ -1,0 +1,79 @@
+{
+ "accession": "0001193125-21-048962",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "We are writing to inform you about a reorganization of the Target Fund with the Matthews Asia Small Companies Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Matthews Emerging Asia Fund; Matthews Asia Small Companies Fund",
+     "span": "COMBINED PROSPECTUS/INFORMATION STATEMENT MATTHEWS ASIA FUNDS Matthews Emerging Asia Fund Matthews Asia Small Companies Fund (to be renamed the Matthews Emerging Markets Small Cap Fund)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Title of securities being registered: Shares of beneficial interest, $0.001 par value per share.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Matthews Asia Small Companies Fund",
+     "span": "Target Fund will be reorganized into the Matthews Asia Small Companies Fund, which is expected to be renamed the Matthews Emerging Markets Small Companies Fund",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Matthews Emerging Asia Fund",
+     "span": "This Combined Prospectus/Information Statement is furnished to you as a shareholder of the Matthews Emerging Asia Fund",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Target Fund will be reorganized into the Matthews Asia Small Companies Fund",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "shareholders of the Target Fund will receive shares of the Acquiring Fund equal in aggregate net asset value to the value of their shares of the Target Fund",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "legal_injunction",
+      "regulatory_approval",
+      "other",
+      "registration_effective",
+      "tax_opinion"
+     ],
+     "spans": [
+      "the absence of any rule, regulation, order, injunction or proceeding preventing or seeking to prevent the consummation of the transactions contemplated by the Reorganization Agreement",
+      "the receipt of all necessary approvals, consents, registrations and exemptions under federal, state and local laws",
+      "the truth in all material respects as of the Closing Date of the representations and warranties of the Funds",
+      "the effectiveness under applicable law of the registration statement of the Trust of which this Combined Prospectus/Information Statement forms a part",
+      "the receipt of opinions of counsel relating to, among other things, the tax-free nature of the Reorganization"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about April 29, 2021",
+     "span": "The Reorganization is expected to occur on or about April 29, 2021.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class"
+ ],
+ "notes": "Initial N-14 (combined prospectus/information statement) for an open-end mutual fund reorganisation within Matthews International Funds (d/b/a Matthews Asia Funds): Matthews Emerging Asia Fund (target) into Matthews Asia Small Companies Fund (acquirer), each class exchanged for the same class at equal aggregate NAV. No shareholder vote (Rule 17a-8), so meeting_date and record_date are null; the information-statement record date and the document date are blank placeholders ('[●], 2021'). No tickers printed. The acquirer's new name is printed inconsistently (Matthews Emerging Markets Small Companies Fund / Small Cap Fund / 'Matthew Emerging Markets Small Cap Fund'). security_class 'common' is a mapping of 'shares of beneficial interest' (Institutional and Investor Class) of an open-end fund; 'other' is defensible. The Agreement and Plan of Reorganization (Appendix B) is '[To come]'; the summary says it may be terminated or amended by mutual consent, with no outside date stated. Conditions also include the target's declaration of a dividend distributing undistributed income and gains (tax-motivated; not listed as a separate category; the 'other' element uses the representations-and-warranties condition)."
+}

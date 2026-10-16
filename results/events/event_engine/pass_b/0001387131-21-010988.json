@@ -1,0 +1,97 @@
+{
+ "accession": "0001387131-21-010988",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "final_result",
+  "kind_span": "This is the Final Amendment to the Statement and is being filed to report the results of the Offer."
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "The Herzfeld Caribbean Basin Fund, Inc.",
+     "span": "THE HERZFELD CARIBBEAN BASIN FUND, INC. (Name of Subject Company (Issuer))",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "CUBA",
+     "span": "The Herzfeld Caribbean Basin Fund, Inc. (Nasdaq: CUBA)",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock, par value $0.001",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "today announced the final results of the Fund’s offer to purchase up to 5% of outstanding shares of the Fund at 97.5% of NAV as of the close of ordinary trading on the NASDAQ Capital Market (the “NASDAQ”) on November 8, 2021, the expiration date.",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": {
+     "value": 97.5,
+     "span": "today announced the final results of the Fund’s offer to purchase up to 5% of outstanding shares of the Fund at 97.5% of NAV as of the close of ordinary trading on the NASDAQ Capital Market (the “NASDAQ”) on November 8, 2021, the expiration date.",
+     "doc_seq": "2"
+    },
+    "nav_pricing_date": {
+     "value": "close of ordinary trading on the NASDAQ Capital Market on November 8, 2021, the expiration date",
+     "span": "today announced the final results of the Fund’s offer to purchase up to 5% of outstanding shares of the Fund at 97.5% of NAV as of the close of ordinary trading on the NASDAQ Capital Market (the “NASDAQ”) on November 8, 2021, the expiration date.",
+     "doc_seq": "2"
+    },
+    "size_pct_outstanding": {
+     "value": 5,
+     "span": "today announced the final results of the Fund’s offer to purchase up to 5% of outstanding shares of the Fund at 97.5% of NAV as of the close of ordinary trading on the NASDAQ Capital Market (the “NASDAQ”) on November 8, 2021, the expiration date.",
+     "doc_seq": "2"
+    },
+    "size_shares": {
+     "value": 302216,
+     "span": "the Transaction Value was calculated by multiplying 302,216 shares of The Herzfeld Caribbean Basin Fund, Inc. (5% of the total number of shares outstanding)",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-10-12",
+     "span": "Issuer Tender Offer Statement on Schedule TO (the “Statement”) originally filed with the Securities and Exchange Commission on October 12, 2021 by The Herzfeld Caribbean Basin Fund, Inc.",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-11-08",
+     "span": "The Offer expired at the close of regular trading on the NASDAQ Capital Market on November 8, 2021.",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "The total amount of shares tendered exceeded the offer amount, and the Fund will purchase tendered shares on a pro rata basis.",
+     "doc_seq": "2"
+    },
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": {
+     "value": 2261361.322,
+     "span": "A total of 2,261,361.322 Shares of the Fund were validly tendered and not withdrawn before the expiration of the Offer, and 302,216 Shares were accepted for purchase by the Fund in accordance with the terms of the Offer at a price of $6.9810 per share.",
+     "doc_seq": "1"
+    },
+    "shares_accepted": {
+     "value": 302216,
+     "span": "A total of 2,261,361.322 Shares of the Fund were validly tendered and not withdrawn before the expiration of the Offer, and 302,216 Shares were accepted for purchase by the Fund in accordance with the terms of the Offer at a price of $6.9810 per share.",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": {
+     "value": 13.3642,
+     "span": "the proration factor for shares purchased pursuant to the offer is 13.3642 %.",
+     "doc_seq": "2"
+    },
+    "final_price_per_share": {
+     "value": 6.981,
+     "span": "A total of 2,261,361.322 Shares of the Fund were validly tendered and not withdrawn before the expiration of the Offer, and 302,216 Shares were accepted for purchase by the Fund in accordance with the terms of the Offer at a price of $6.9810 per share.",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "commencement_date"
+ ],
+ "notes": "Final amendment reporting results. commencement_date is the date the Schedule TO (with the Offer to Purchase) was originally filed, October 12, 2021; the filing gives no Offer to Purchase date and does not say 'commenced' in words. size_shares 302,216 comes from the filing-fee note (5% of shares outstanding) and equals the shares accepted. Proration factor is stated as 'Subject to final delivery of all tendered shares'. Purchase price $6.9810 = 97.5% of NAV at the November 8, 2021 close. Note the cover page leaves the 'issuer tender offer subject to Rule 13e-4' box unchecked, but the document is an issuer tender offer statement. Conditions are only referenced, not listed, so conditions is null. No reason for the tender is stated, so trigger_origin is null."
+}

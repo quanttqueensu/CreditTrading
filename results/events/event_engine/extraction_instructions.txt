@@ -1,0 +1,185 @@
+# Event extraction: reader instructions (prototype, 2026-10-15)
+
+You are the stand-in for the extraction model. For each filing assigned to you, read its text file and
+write ONE JSON file to your output directory, named `<accession>.json`.
+
+## Rules (binding)
+
+1. **Extract only what this filing states.** Never use outside knowledge of the fund, the deal or how it
+   ended (that would leak the future into a backtest). If the filing does not state a field, write null.
+2. **Every non-null value carries `span`: an exact, contiguous quote copied from the text file** (up to about
+   300 characters) that contains the value. Copy it character for character; do not paraphrase, do not
+   join pieces from different places with "...". Whitespace and line breaks may be written as single spaces.
+   For a `set` field, give `spans`: a list with one quote per listed element, in the same order.
+   `doc_seq` is the `seq=` of the `===== DOCUMENT` block the quote is in.
+3. Numbers are plain numbers (2520567, not "2,520,567"); percents are numbers (98 for 98%); dates are
+   YYYY-MM-DD. If a date is stated only as a month or quarter, the date field is null (put the text in `notes`).
+   If the filing states a value that needs arithmetic (e.g. a percent you must compute), leave the field null
+   and say so in `notes`: the schema wants stated values.
+4. Where a filing states several values for one field (an original and an extended expiration date), use the
+   latest one this filing states, and say so in `notes`.
+5. One filing usually carries one event; use a list of events only if it carries two different ones.
+   A filing that carries none of the kinds below has `"events": []` and triage kind `none`
+   (e.g. a shelf prospectus supplement for notes or for an at-the-market programme).
+   An open-end fund reorganisation is still kind `merger`; `fund_type` says what the filer is.
+6. Include EVERY field of the event's kind in `terms`, null where not stated.
+7. `uncertain_fields`: list the field names you are genuinely unsure about (ambiguous text, conflicting
+   statements). Leave it empty if none.
+8. Long documents: you do not have to read every page. Search the text (grep/sed are fine) for the sections
+   that state the terms (cover page, letter to shareholders, Q&A, summary, "Terms of the Offer",
+   "The Offer", "Conditions", "Proration", "Termination", "The Rights Offering", "Subscription Price").
+9. Do NOT open any file other than this instructions file and the text files assigned to you, and do not
+   run any network command. Do not look at any other directory under the scratchpad or results.
+10. After writing each JSON file, check that it parses: `python3 -c "import json,sys; json.load(open(sys.argv[1]))" <file>`.
+
+## Output shape
+
+```json
+{"accession": "0001193125-21-000000",
+ "triage": {"kind": "cef_tender", "fund_type": "closed_end_fund", "doc_role": "offer_document",
+            "kind_span": "<quote that shows the kind>"},
+ "events": [{"kind": "cef_tender",
+             "terms": {"price_pct_nav": {"value": 98, "span": "a price equal to 98% of the net asset value", "doc_seq": "2"},
+                       "conditions": {"value": ["market_disruption", "legal_injunction"],
+                                      "spans": ["<quote 1>", "<quote 2>"], "doc_seq": "2"},
+                       "size_shares": null}}],
+ "uncertain_fields": ["expiration_date"],
+ "notes": "..."}
+```
+
+## Kind guide
+- `cef_tender`: an issuer tender offer for its own shares (any class), its commencement document, amendments
+  and final results. Results fields (`shares_tendered`, `shares_accepted`, `proration_factor_pct`,
+  `final_price_per_share`) come from amendments reporting the outcome.
+- `merger`: a fund or BDC reorganisation/merger (announcements, Rule 425 communications, N-14 registration
+  statements, merger proxies). `exchange_basis` is `nav_for_nav` when target holders receive acquirer shares
+  of equal aggregate NAV. `conditions` lists categories of closing conditions.
+- `rights_offering`: a rights offering prospectus (supplement). `rights_per_share` is rights issued per share
+  held (usually 1); `rights_per_new_share` is how many rights buy one new share.
+- the other kinds are in the schema for completeness.
+
+# Extraction schema event-schema/0.1 (2026-10-15)
+
+Output one JSON object per filing:
+
+{"accession": "...", "triage": {"kind": ..., "fund_type": ..., "doc_role": ...,
+  "kind_span": "<quote that shows the kind>"},
+ "events": [{"kind": ..., "terms": {"<field>": {"value": ..., "span": "<exact quote>", "doc_seq": "<n>"}, ...}}],
+ "notes": "<anything a reviewer must know: ambiguity, a value that needed arithmetic>"}
+
+Field types: number (a plain number; no commas), percent (98 for 98%), date (YYYY-MM-DD),
+bool, enum (one of the listed values), text, set (a list of listed values, with `spans`: one quote
+per element, instead of `span`). A field the filing does not state is null; omit nothing from
+the list below, write null. Never infer a value from outside knowledge.
+
+## cef_tender
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `price_basis` (enum): how the offer price is set. one of: pct_of_nav, fixed_price, dutch_auction, pct_of_market, other
+- `price_pct_nav` (percent): offer price as a percent of NAV per share (98 for 98%).
+- `nav_pricing_date` (text): when the NAV used for the price is struck (e.g. 'close on expiration date').
+- `size_pct_outstanding` (percent): maximum shares sought as a percent of outstanding.
+- `size_shares` (number): maximum shares sought, as a share count.
+- `commencement_date` (date): the date the offer opens.
+- `expiration_date` (date): the scheduled expiration date (the latest one stated in this filing).
+- `proration` (bool): the filing states purchases are pro rata if over-subscribed.
+- `conditions` (set): categories of conditions the offer is subject to. one of: shareholder_approval, regulatory_approval, registration_effective, tax_opinion, listing, financing, minimum_tender, market_disruption, legal_injunction, ric_or_tax_status, board_discretion, nav_or_price_decline, other
+- `trigger_origin` (enum): why the tender exists. one of: conditional_programme, activist_settlement, board_discretionary, periodic_liquidity, merger_related, other
+- `shares_tendered` (number): result: shares properly tendered.
+- `shares_accepted` (number): result: shares accepted for purchase.
+- `proration_factor_pct` (percent): result: the pro-ration factor, percent of tendered shares bought.
+- `final_price_per_share` (number): result: the purchase price per share in dollars.
+
+## merger
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `acquirer` (text): the surviving or acquiring entity.
+- `targets` (text): the target(s), '; '-separated.
+- `n_targets` (number): how many targets the filing's transaction has.
+- `exchange_basis` (enum): how target holders are paid. one of: nav_for_nav, fixed_ratio, cash, cash_and_stock, other
+- `exchange_ratio` (number): a fixed exchange ratio, acquirer shares per target share.
+- `cash_per_share` (number): cash per target share, dollars.
+- `collar` (bool): the consideration has a collar or price-protection band.
+- `conditions` (set): categories of closing conditions. one of: shareholder_approval, regulatory_approval, registration_effective, tax_opinion, listing, financing, minimum_tender, market_disruption, legal_injunction, ric_or_tax_status, board_discretion, nav_or_price_decline, other
+- `expected_close` (text): the expected closing time as stated (date, quarter or half-year).
+- `termination_date` (date): the outside date after which either party may terminate.
+- `meeting_date` (date): the shareholder meeting date.
+- `record_date` (date): the record date for the vote.
+
+## rights_offering
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `rights_per_share` (number): rights issued per share held on the record date.
+- `rights_per_new_share` (number): rights needed to buy one new share.
+- `price_reference` (enum): what the subscription price is a percent of. one of: nav, market, lesser_of_nav_and_market, greater_of_nav_and_market, fixed, other
+- `price_pct` (percent): the percent applied to the reference (95 for 95%).
+- `price_floor_pct_nav` (percent): a floor on the price as a percent of NAV, if any.
+- `record_date` (date): the record date.
+- `expiration_date` (date): the subscription expiration date.
+- `transferable` (bool): rights are transferable (listed).
+- `over_subscription` (bool): an over-subscription privilege exists.
+- `max_new_shares` (number): maximum shares offered (excluding any secondary over-allotment).
+
+## liquidation
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `action` (enum): what is proposed. one of: liquidate, open_end, merge_into_open_end, term_extend, other
+- `vote_required` (bool): a shareholder vote is required.
+- `meeting_date` (date): the meeting date.
+- `expected_effective` (text): expected completion as stated.
+
+## conditional_tender_programme
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `threshold_pct` (percent): the average-discount trigger (10 for 10%).
+- `metric` (enum): how the discount is averaged. one of: daily_close, vwap, weekly_close, other
+- `window_start` (date): measurement window start.
+- `window_end` (date): measurement window end.
+- `tender_size_pct` (percent): the tender's size if triggered.
+- `tender_price_pct_nav` (percent): the tender's price if triggered.
+- `origin` (enum): who set it up. one of: board, activist_settlement, merger_condition, prospectus, other
+
+## activist_13d
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `filer` (text): the reporting person or group.
+- `pct_owned` (percent): percent of class owned.
+- `shares_owned` (number): shares beneficially owned.
+- `event_date` (date): date of the event requiring the filing.
+- `purpose` (set): Item 4 intentions. one of: board_seats, tender_or_buyback, liquidation, open_ending, merger, proxy_contest, other
+
+## spac
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `trust_per_share` (number): trust value per public share, dollars.
+- `redemption_deadline` (date): the date by which a combination must close.
+- `extension_vote` (bool): the filing seeks or reports an extension vote.
+- `new_deadline` (date): the extended deadline.
+- `extension_contribution_per_share` (number): sponsor contribution per public share per extension.
+- `target` (text): the business-combination target, if any.
+
+## equity_mna
+- `subject_names` (text): the fund(s) or company the event is about, as named; '; '-separated.
+- `subject_tickers` (text): exchange tickers as printed in the filing; '; '-separated.
+- `security_class` (enum): the class the event acts on. one of: common, preferred, notes, units, other
+- `acquirer` (text): the acquirer.
+- `target` (text): the target.
+- `cash_per_share` (number): cash per target share.
+- `exchange_ratio` (number): acquirer shares per target share.
+- `collar` (bool): a collar exists.
+- `conditions` (set): closing condition categories. one of: shareholder_approval, regulatory_approval, registration_effective, tax_opinion, listing, financing, minimum_tender, market_disruption, legal_injunction, ric_or_tax_status, board_discretion, nav_or_price_decline, other
+- `expected_close` (text): expected close as stated.
+- `termination_date` (date): outside date.
+- `termination_fee` (number): target termination fee, dollars.
+
+## triage
+- `kind` (enum): the event kind this filing carries ('none' if none). one of: cef_tender, merger, liquidation, rights_offering, conditional_tender_programme, activist_13d, spac, equity_mna, none
+- `fund_type` (enum): what the filer is. one of: closed_end_fund, bdc, interval_or_tender_offer_fund, open_end_fund, etf, spac, operating_company, reit, unknown
+- `doc_role` (enum): what this document is in the event's life. one of: announcement, offer_document, amendment, final_result, registration_or_proxy, prospectus, ownership_report, other

@@ -1,0 +1,10 @@
+{
+ "events": 36,
+ "with_ticker_now": 31,
+ "with_any_article": 13,
+ "with_event_article": 2,
+ "news_first": 2,
+ "edgar_first_or_same": 0,
+ "window": "acceptance - 30d .. acceptance + 3d",
+ "endpoint": "GET /v1beta1/news"
+}

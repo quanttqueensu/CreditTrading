@@ -1,0 +1,81 @@
+{
+ "accession": "0001193125-21-196361",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "the reorganization of the Target Fund into the Acquiring Fund pursuant to an Agreement and Plan of Reorganization"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Select Tax-Free Income Portfolio; Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "holder of common shares of Nuveen Select Tax-Free Income Portfolio (the \u0093Acquiring Fund\u0094), Nuveen Select Tax-Free Income Portfolio 2 (\u0093Select Tax-Free 2\u0094) or Nuveen Select Tax-Free Income Portfolio 3 (\u0093Select Tax-Free 3",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NXP; NXQ; NXR",
+     "span": "The common shares of the Acquiring Fund, Select Tax-Free 2 and Select Tax-Free 3 are listed and trade on the NYSE under the ticker symbols NXP, NXQ and NXR, respectively.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "the Target Fund will transfer substantially all of its assets and liabilities to the Acquiring Fund in exchange for newly issued common shares of the Acquiring Fund",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Select Tax-Free Income Portfolio",
+     "span": "between Nuveen Select Tax-Free Income Portfolio (the \u0093Acquiring Fund\u0094), a Massachusetts business trust",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "each of Nuveen Select Tax-Free Income Portfolio 2 (a \u0093Target Fund\u0094) and Nuveen Select Tax-Free Income Portfolio 3 (a \u0093Target Fund\u0094), each a Massachusetts business trust",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "each of Nuveen Select Tax-Free Income Portfolio 2 (a \u0093Target Fund\u0094) and Nuveen Select Tax-Free Income Portfolio 3 (a \u0093Target Fund\u0094), each a Massachusetts business trust",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "the aggregate net asset value, as of the Valuation Time (as defined below), of the Acquiring Fund common shares received by the Target Fund in connection with the Reorganization will equal the aggregate net asset value of the Target Fund common shares held by shareholders of the Target Fund as of the Valuation Time",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "tax_opinion",
+      "legal_injunction",
+      "regulatory_approval",
+      "registration_effective",
+      "other"
+     ],
+     "spans": [
+      "(1) the requisite approval by the shareholders of the Target Fund (2) the requisite approval by the shareholders of the Acquiring Fund",
+      "(3) each Fund\u0092s receipt of an opinion substantially to the effect that its Reorganization(s) will qualify as a reorganization under the Code",
+      "(4) the absence of legal proceedings challenging the Reorganizations",
+      "8.3 All consents, orders and permits of federal, state and local regulatory authorities (including those of the Commission and of state securities authorities",
+      "8.4 The Registration Statement shall have become effective under the 1933 Act, and no stop orders suspending the effectiveness thereof shall have been issued.",
+      "(5) the Funds\u0092 receipt of certain customary certificates and legal opinions"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "conditions"
+ ],
+ "notes": "Initial N-14 8C (filed June 22, 2021) for the reorganizations of NXQ and NXR into NXP; each reorganization closes independently ('The closing of each Reorganization is not contingent on the closing of the other Reorganization'). Common shares only; Target Fund holders receive newly issued Acquiring Fund common shares of equal aggregate NAV, struck at the close of regular NYSE trading on the business day before the Closing Date, with cash in lieu of fractional shares. The closing date ('on or about [ ], 2021'), the annual meeting date and the record date are all bracketed placeholders in this preliminary filing, so expected_close, meeting_date and record_date are null. The Agreement's termination article (Article XI) gives no outside date: termination is by mutual agreement, uncured breach, an unmet condition precedent, or a board determination that the reorganization is not in the fund's best interests, so termination_date is null. Conditions: shareholder approval, tax opinion and absence of legal proceedings come from the 'Conditions.' summary; regulatory consents (8.3) and registration effectiveness (8.4) from Article VIII of the form of Agreement (Appendix A); 'other' covers customary certificates and legal opinions. The Agreement also requires the Target Fund to declare a distribution of its undistributed income before the Valuation Time (8.5), which I did not map to a separate category. The text file renders cp1252 punctuation as control characters U+0091-U+0097; spans that include them use JSON \\u escapes so they parse to the exact characters in the file."
+}

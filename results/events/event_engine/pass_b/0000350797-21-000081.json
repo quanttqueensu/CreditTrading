@@ -1,0 +1,151 @@
+{
+ "accession": "0000350797-21-000081",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "This Schedule TO relates to the Fund’s offer to purchase for cash up to 50% or 19,931,845 shares of its outstanding common shares"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "Eaton Vance Floating-Rate Income Trust",
+     "span": "This Tender Offer Statement on Schedule TO is filed by Eaton Vance Floating-Rate Income Trust, a Massachusetts business trust",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "EFT",
+     "span": "The Shares are traded on the NYSE under the ticker symbol “EFT.”",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares of Beneficial Interest, $.01 par value",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "The price to be paid for the Common Shares is an amount per share, net to the seller in cash, equal to 99% of the net asset value per share as of the Expiration Date",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 99,
+     "span": "The price to be paid for the Common Shares is an amount per share, net to the seller in cash, equal to 99% of the net asset value per share as of the Expiration Date",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "close of regular trading on the NYSE on the Expiration Date (or the date to which the Offer is extended)",
+     "span": "for cash at a price equal to 99% of the NAV per Share as of the close of regular trading of the NYSE on the Expiration Date",
+     "doc_seq": "2"
+    },
+    "size_pct_outstanding": {
+     "value": 50,
+     "span": "offer to purchase for cash up to 50% or 19,931,845 shares of its outstanding common shares",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 19931845,
+     "span": "offer to purchase for cash up to 50% or 19,931,845 shares of its outstanding common shares",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-29",
+     "span": "June 29, 2021 — Eaton Vance Short Duration Diversified Income Fund (NYSE: EVG), Eaton Vance Floating-Rate Income Trust (NYSE: EFT), Eaton Vance Senior Floating-Rate Trust (NYSE: EFR) and Eaton Vance Senior Income Trust (NYSE: EVF) (each, a “Fund” and collectively, the “Funds”) each announced today the commencement of a cash tender offer",
+     "doc_seq": "7"
+    },
+    "expiration_date": {
+     "value": "2021-07-30",
+     "span": "The Offer expires on July 30, 2021 at 5:00 p.m., Eastern Time, unless the Fund extends the Offer.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If more Shares than the Offer Amount are properly tendered and not withdrawn prior to the date the Offer expires, the Fund will purchase the Offer Amount on a pro rata basis (disregarding fractional shares).",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "listing",
+      "ric_or_tax_status",
+      "other",
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion"
+     ],
+     "spans": [
+      "(a) result in delisting of the Fund’s Shares from the NYSE",
+      "(b) cause the Fund to fail to qualify and to be treated as a regulated investment company",
+      "(c) result in a failure to comply with the applicable asset coverage requirements applicable to any senior securities of the Fund that are issued and outstanding",
+      "in the Board’s reasonable judgment, any material legal action or proceeding instituted or threatened challenging such transactions",
+      "(b) any suspension of or limitation on prices for trading securities generally on the NYSE American, the NYSE or other national securities exchange(s), or the NASDAQ National Market System",
+      "(3) the Board determines in good faith, upon written advice of counsel, that effecting any such transaction would constitute a breach of their fiduciary duty owed to the Fund or its Shareholders."
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "activist_settlement",
+     "span": "As a result of those discussions, EVM and Saba entered into an agreement (the “Agreement”) pursuant to which EVM recommended to the Board, and the Board authorized, the Offer and the three conditional tender offers discussed below",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  },
+  {
+   "kind": "conditional_tender_programme",
+   "terms": {
+    "subject_names": {
+     "value": "Eaton Vance Floating-Rate Income Trust",
+     "span": "This Tender Offer Statement on Schedule TO is filed by Eaton Vance Floating-Rate Income Trust, a Massachusetts business trust",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "EFT",
+     "span": "The Shares are traded on the NYSE under the ticker symbol “EFT.”",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "a conditional tender offer in the fourth quarter of each of 2022, 2023 and 2024 for up to 10% of the Fund’s then-outstanding common shares at 98% of NAV",
+     "doc_seq": "2"
+    },
+    "threshold_pct": {
+     "value": 10,
+     "span": "if, from January to August of that year, the Fund’s shares trade at an average discount to its NAV of more than 10%",
+     "doc_seq": "2"
+    },
+    "metric": {
+     "value": "vwap",
+     "span": "(based upon the Fund’s volume-weighted average market price and NAV on business days during the period)",
+     "doc_seq": "2"
+    },
+    "window_start": null,
+    "window_end": null,
+    "tender_size_pct": {
+     "value": 10,
+     "span": "a conditional tender offer in the fourth quarter of each of 2022, 2023 and 2024 for up to 10% of the Fund’s then-outstanding common shares at 98% of NAV",
+     "doc_seq": "2"
+    },
+    "tender_price_pct_nav": {
+     "value": 98,
+     "span": "a conditional tender offer in the fourth quarter of each of 2022, 2023 and 2024 for up to 10% of the Fund’s then-outstanding common shares at 98% of NAV",
+     "doc_seq": "2"
+    },
+    "origin": {
+     "value": "activist_settlement",
+     "span": "As a result of those discussions, EVM and Saba entered into an agreement (the “Agreement”) pursuant to which EVM recommended to the Board, and the Board authorized, the Offer and the three conditional tender offers discussed below",
+     "doc_seq": "2"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "conditional_tender_programme.window_start",
+  "conditional_tender_programme.window_end"
+ ],
+ "notes": "Original Schedule TO-I (offer document) for an issuer cash tender for up to 50% of common shares at 99% of NAV. Second event: the Offer to Purchase (Summary and Section 9) and the Saba agreement (doc 9, Section 1.1(f)) describe three Subsequent Conditional Tender Offers, in Q4 of each of 2022, 2023 and 2024, for up to 10% of then-outstanding shares at 98% of NAV if, from January to August of that year, the average discount to NAV exceeds 10% (volume-weighted average market price and NAV on business days). The Offer to Purchase says it does not relate to them. window_start/window_end are null because the window is stated only by month (January to August of each of 2022, 2023, 2024; doc 9 says 'from January 2022 through August 2022', and likewise for 2023 and 2024). trigger_origin/origin = activist_settlement: EVM and Saba Capital Management, L.P. entered into an agreement (doc 9, 'Agreement' dated as of May 12, 2021, filed as the standstill exhibit) under which the Board authorized the Offer and the three conditional tenders; Saba agreed not to challenge the certified results of the New Agreement vote and accepted constraints on activist activities. The Offer was also conditioned on certification of shareholder approval of the new advisory agreement after Morgan Stanley's March 1, 2021 acquisition of Eaton Vance Corp.; results certified May 12, 2021, condition met (excluded from conditions as already satisfied). conditions element 'other' is the asset-coverage condition for senior securities; market_disruption also covers the banking-moratorium and credit-limitation clauses. commencement_date from the joint press release (doc 7, June 29, 2021, 'announced today the commencement'); the Offer to Purchase is dated June 29, 2021. Expiration July 30, 2021, 5:00 p.m. Eastern, unless extended (only one date stated). Doc 9 also states: Saba may be deemed beneficial owner of 6,218,811 common shares as of May 12, 2021; the Tender Offer must commence by July 1, 2021, proceeds paid by August 13, 2021 and not before July 15, 2021; odd lots subject to the same proration; the Tender Offer is in lieu of the conditional tender offer announced by the Fund on March 16, 2021. 39,863,690 Shares outstanding as of June 23, 2021; NAV $14.5570 and closing price $14.31 on June 23, 2021."
+}

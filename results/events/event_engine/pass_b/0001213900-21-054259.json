@@ -1,0 +1,91 @@
+{
+ "accession": "0001213900-21-054259",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "At the Meeting, FMO shareholders will be asked to consider and approve a proposal authorizing the combination of FMO and KYN, which will be accomplished as a tax-free merger of FMO into KYN"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Kayne Anderson Energy Infrastructure Fund, Inc.; Fiduciary/Claymore Energy Infrastructure Fund",
+     "span": "Kayne Anderson Energy Infrastructure Fund, Inc. (NYSE: KYN) Fiduciary/Claymore Energy Infrastructure Fund (NYSE: FMO)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "KYN; FMO",
+     "span": "Kayne Anderson Energy Infrastructure Fund, Inc. (NYSE: KYN) Fiduciary/Claymore Energy Infrastructure Fund (NYSE: FMO)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "FMO will be merged with and into KYN, with the shares converted into shares of common stock, par value $0.001 per share, of KYN",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Kayne Anderson Energy Infrastructure Fund, Inc.",
+     "span": "The Meeting is being held to approve the combination of FMO and Kayne Anderson Energy Infrastructure Fund, Inc. (“KYN”) by means of a tax-free merger, pursuant to which FMO will be merged with and into KYN",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Fiduciary/Claymore Energy Infrastructure Fund",
+     "span": "the proposed combination of Fiduciary/Claymore Energy Infrastructure Fund (“FMO”) and Kayne Anderson Energy Infrastructure Fund, Inc. (“KYN”), pursuant to which FMO will be merged with and into KYN",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Statement of Additional Information regarding the proposed merger of FMO into KYN",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The exchange ratio will be determined based on the relative net asset values (“NAV”) per share of each Company on the business day prior to the closing of the Merger.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "regulatory_approval",
+      "shareholder_approval",
+      "legal_injunction",
+      "other",
+      "registration_effective",
+      "tax_opinion"
+     ],
+     "spans": [
+      "The Surviving Fund shall have received from any relevant state securities administrator such order or orders as are reasonably necessary or desirable under the 1933 Act, the 1934 Act, the 1940 Act, and any applicable state securities or blue sky laws",
+      "The Merger shall have been approved by “a majority of the outstanding voting securities” as defined in the 1940 Act of the Target Fund",
+      "On the Closing Date, no court or governmental agency of competent jurisdiction shall have issued any order that remains in effect and that restrains or enjoins the Target Fund or the Surviving Fund from completing the transactions contemplated by this Agreement.",
+      "All of the consents of other parties referenced on Schedule 2.2(c) have been obtained",
+      "The Registration Statement shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall have been issued",
+      "Tax Opinion . The Surviving Fund and the Target Fund shall have received the opinion of Paul Hastings LLP, dated as of the Closing Date"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "first quarter of fiscal 2022",
+     "span": "The Merger is expected to take effect as soon as practicable once the shareholder vote and other customary conditions to closing are satisfied, which is expected to occur during the first quarter of fiscal 2022.",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2022-04-13",
+     "span": "by either the Surviving Fund or Target Fund if the Effective Time does not occur on or prior to April 13, 2022",
+     "doc_seq": "1"
+    },
+    "meeting_date": null,
+    "record_date": {
+     "value": "2021-10-29",
+     "span": "The Board has fixed the close of business on October 29, 2021, as the record date for the determination of shareholders entitled to notice of, and to vote at, the Meeting",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Initial N-14 8C (joint proxy statement/prospectus, filed October 22, 2021) for the merger of Fiduciary/Claymore Energy Infrastructure Fund (FMO) into Kayne Anderson Energy Infrastructure Fund, Inc. (KYN) under an Agreement and Plan of Merger dated September 15, 2021. FMO shares convert into KYN common stock at the ratio of relative NAVs per share struck on the business day before closing (cash in lieu of fractional shares), hence nav_for_nav. exchange_ratio is null: the only ratio given ('approximately 1.32 shares of KYN for each share of FMO', from September 30, 2021 NAVs) is illustrative, not fixed. Only FMO holders vote; KYN's vote is not solicited (issuance of about 7% of KYN shares, under the NYSE 20% threshold). meeting_date is null: the meeting date is a blank placeholder (', 2022', 10:00 a.m. Central, virtual). expected_close is in KYN's fiscal-year terms ('first quarter of fiscal 2022'); the filing does not convert it to calendar dates here. NYSE listing of the new KYN shares is a reasonable-best-efforts covenant, not a stated closing condition, so 'listing' is not included. The tax-opinion condition cannot be waived. Other uncategorised conditions: officer certificates/representations, Section 15(f) compliance, no material litigation, no unfavourable SEC Section 25(b) report."
+}

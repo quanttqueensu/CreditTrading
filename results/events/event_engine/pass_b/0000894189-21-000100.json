@@ -1,0 +1,90 @@
+{
+ "accession": "0000894189-21-000100",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "The enclosed Proxy Statement/Prospectus describes a proposed reorganization (the \u201cReorganization\u201d) of the Target Fund, which is a series of Delaware Group Adviser Funds, with and into the Jackson Square Large-Cap Growth Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Delaware U.S. Growth Fund; Jackson Square Large-Cap Growth Fund",
+     "span": "Delaware U.S. Growth Fund (the \u201cTARGET FUND\u201d); (ii) Managed Portfolio Series, an open-end registered investment company (\u201cACQUIRING ENTITY\u201d), on behalf of its series, the Jackson Square Large-Cap Growth Fund",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Shareholders of the Class A, Class C and Class R Shares of the Target Fund will receive Investor Class shares, of the Acquiring Fund.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Jackson Square Large-Cap Growth Fund",
+     "span": "of the Target Fund, which is a series of Delaware Group Adviser Funds, with and into the Jackson Square Large-Cap Growth Fund",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Delaware U.S. Growth Fund",
+     "span": "of shareholders of the Delaware U.S. Growth Fund (the \u201cTarget Fund\u201d)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "describes a proposed reorganization (the \u201cReorganization\u201d) of the Target Fund, which is a series of Delaware Group Adviser Funds",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "On that date, holders of the Target Fund will receive shares of the Acquiring Fund equal in aggregate net asset value to their shares of the Target Fund.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "registration_effective",
+      "tax_opinion",
+      "legal_injunction",
+      "regulatory_approval",
+      "other"
+     ],
+     "spans": [
+      "the shareholders of the Target Fund shall have approved the Plan;",
+      "The N-14 Registration Statement shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall have been issued",
+      "The Target Fund and the Acquiring Fund receive a satisfactory opinion of tax counsel substantially to the effect that the applicable Reorganization is expected to be a",
+      "no action, suit or other proceeding shall be pending or, to the Target Entity\u2019s or the Acquiring Entity\u2019s knowledge, threatened before any court or governmental agency in which it is sought to restrain or prohibit",
+      "All consents of other parties and all other consents, orders and permits of Federal, state and local regulatory authorities deemed necessary by the Acquiring Fund or the Target Fund to permit consummation",
+      "the Acquiring Fund and Target Fund shall have each delivered an officer\u2019s certificate certifying that all representations, covenants and warranties"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or around April 16, 2021",
+     "span": "it is anticipated that the Reorganization will occur on or around April 16, 2021.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-03-23",
+     "span": "The Meeting will be held on March 23, 2021 to consider the Proposal.",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-01-29",
+     "span": "has fixed the close of business on January 29, 2021 as the record date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class",
+  "n_targets"
+ ],
+ "notes": "N-14 (filed January 8, 2021, proposed effective February 8, 2021 under Rule 488) by Managed Portfolio Series, an open-end trust, for the reorganization of Delaware U.S. Growth Fund (open-end series of Delaware Group Adviser Funds) into Jackson Square Large-Cap Growth Fund (series of Managed Portfolio Series); open-end reorganization, so kind=merger with fund_type=open_end_fund. Share-class mapping: Class A, C, R -> Investor Class; Institutional -> Institutional; R6 -> IS Class. security_class 'common' stands for the funds' shares of beneficial interest (all classes); the enum has no better fit. No tickers printed. Expected close: the Q&A says 'on or around April 16, 2021' while the letter and Plan summary bracket the day ('April [16], 2021'). Meeting date March 23, 2021 per letter, notice and summary; the Proxy Statement/Prospectus cover once says 'March 23, 2020' (apparent typo). Record date January 29, 2021. The Plan's outside date is blank ('on or before [...]'), so termination_date is null. Reorganization costs borne by JSP and DMC, not the funds; the Target Fund is the accounting survivor. n_targets=1 read from the single Target Fund, not a stated count."
+}

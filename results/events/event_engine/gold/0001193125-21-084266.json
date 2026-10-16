@@ -1,0 +1,94 @@
+{
+ "accession": "0001193125-21-084266",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "OFFER TO EXCHANGE ALL OUTSTANDING AUCTION MARKET PREFERRED SHARES, SERIES B, PAR VALUE $0.001"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "The Gabelli Dividend & Income Trust",
+     "span": "The name of the subject company is The Gabelli Dividend & Income Trust.",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GDV",
+     "span": "have been listed and traded on the NYSE under the symbol GDV since November 25, 2003",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "preferred",
+     "span": "Auction Market Preferred Shares, Series B, Par Value $0.001",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "other",
+     "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer, based upon a price of 96% of the liquidation preference of $25,000 per share (or $24,000 per share).",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {
+     "value": 100,
+     "span": "for up to 100% of the Auction Rate Preferred Shares validly tendered and not withdrawn prior to the Expiration Date",
+     "doc_seq": "2"
+    },
+    "size_shares": {
+     "value": 6371,
+     "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-03-17",
+     "span": "Exchange Offer will commence on March 17, 2021, and terminate on the Expiration Date",
+     "doc_seq": "2"
+    },
+    "expiration_date": {
+     "value": "2021-04-14",
+     "span": "THIS EXCHANGE OFFER WILL EXPIRE AT 5:00 P.M., NEW YORK CITY TIME, ON APRIL 14, 2021",
+     "doc_seq": "2"
+    },
+    "proration": null,
+    "conditions": {
+     "value": [
+      "minimum_tender",
+      "legal_injunction",
+      "market_disruption",
+      "regulatory_approval",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "holders of at least an aggregate of at least a majority of the outstanding Auction Rate Preferred Shares properly tendering (and not validly withdrawing) their Auction Rate Preferred Shares at or prior to the Expiration Date",
+      "any statute, rule, regulation, judgment, order or injunction threatened, proposed, sought, promulgated, enacted, entered, amended, enforced or deemed to be applicable to the Exchange Offer",
+      "any general suspension of trading in, or limitation on prices for, securities on any national securities exchange or in the over-the-counter market in the United States",
+      "any approval, permit, authorization, favorable review or consent of any governmental entity required to be obtained in connection with the Exchange Offer shall not have been obtained",
+      "Notwithstanding the foregoing conditions, the Fund reserves the right, in its sole discretion, but subject to applicable law, to terminate the Exchange Offer at any time prior to the expiration date of the Exchange Offer.",
+      "has acquired or proposes to acquire beneficial ownership of more than 5% of any series of our outstanding Auction Rate Preferred Shares or Series J Preferred Shares"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "other",
+     "span": "The Fund believes that the Exchange Offer will enable the Fund to reduce its dividend obligations, including the outstanding amount of accrued and unpaid dividends, and simplify its capital structure",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "price_basis",
+  "trigger_origin",
+  "subject_tickers"
+ ],
+ "notes": "Issuer exchange offer (Rule 13e-4) for the fund's own unlisted auction rate preferred shares: Series B (2,647 outstanding), Series C (3,244) and Series E (480), all as of March 16, 2021. Consideration per share is 0.96 of a newly issued Series J Cumulative Term Preferred Share (liquidation preference $25,000), plus cash in lieu of fractional shares and accrued, unpaid dividends. The fee table values this at 96% of the $25,000 liquidation preference ($24,000 per share). The price is not set against NAV, so price_basis is other and price_pct_nav and nav_pricing_date are null. Series J: 1.70% annual dividend for years 1-3, then 4.50%; callable March 26, 2024; mandatory redemption March 26, 2028; not listed. subject_tickers GDV is the fund's common-share symbol; the subject ARPS have no ticker (the listed Series G and H preferreds are GDV Pr G and GDV Pr H). Proration is not stated, since the offer is for up to 100%, so it is null. Conditions: a majority of the ARPS must tender. Bank of America owns 94.0% of the ARPS and agreed under a Share Exchange Agreement dated March 17, 2021 to tender 100% of its holding. Other conditions not listed separately: change in law, material adverse change in the Fund's business, and banking moratorium or credit limitations (market_disruption). trigger_origin: the Board (meeting of February 24, 2021) approved the offer as a refinancing of failed-auction ARPS paying the maximum rate since February 2008, negotiated with the 94% holder. This fits none of the programme or activist categories, hence other. The exhibit's EDGAR description reads 'OFFER TO EXCHANGE DATED [ ], 2021', but the text is dated March 17, 2021. The exhibit list's Statement of Preferences is labelled Series I, while the offer text says Series J. The exchange-offer text drops curly quotes and apostrophes ('Issuers', 'Funds'); spans are copied as they appear in the text file.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

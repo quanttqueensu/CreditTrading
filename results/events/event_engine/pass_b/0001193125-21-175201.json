@@ -1,0 +1,67 @@
+{
+ "accession": "0001193125-21-175201",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "The Boards of Trustees of Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR) have approved a proposal to reorganize the funds."
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Select Tax-Free Income Portfolio; Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NXP; NXQ; NXR",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "The reorganization is intended to create a larger fund with lower operating expenses and increased trading volume on the exchange for common shares.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Select Tax-Free Income Portfolio",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR) have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NXQ and NXR into NXP.",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR) have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NXQ and NXR into NXP.",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "The proposed reorganization, if approved by shareholders, would combine NXQ and NXR into NXP.",
+     "doc_seq": "1"
+    },
+    "exchange_basis": null,
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval"
+     ],
+     "spans": [
+      "The proposed reorganization for each fund is subject to certain conditions, including necessary approval by the funds\u0092 shareholders."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class"
+ ],
+ "notes": "Press release (Rule 425 / 14a-12) dated May 26, 2021 announcing board approval of a reorganization combining NXQ and NXR into NXP. The release does not state the exchange basis, expected closing time, meeting or record dates; proxy materials were 'expected to be filed in the coming weeks'. security_class 'common' rests only on the stated purpose (trading volume 'for common shares'); the release does not otherwise name the class exchanged. n_targets=2 is the count of funds named as combining into NXP. The filer (NXP) is the acquiring fund."
+}

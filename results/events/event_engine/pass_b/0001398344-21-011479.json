@@ -1,0 +1,79 @@
+{
+ "accession": "0001398344-21-011479",
+ "triage": {
+  "kind": "rights_offering",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "is issuing non-transferrable subscription rights (“Rights”) to its common shareholders of record as of May 24, 2021"
+ },
+ "events": [
+  {
+   "kind": "rights_offering",
+   "terms": {
+    "subject_names": {
+     "value": "Liberty All-Star Growth Fund, Inc.",
+     "span": "prospectus of the Liberty All-Star Growth Fund, Inc. (the “Fund”) dated May 24, 2021",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "ASG",
+     "span": "the new common shares issued in this Offer will also be listed on the NYSE under the symbol “ASG”.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "These Rights will allow Record Date Shareholders to subscribe for new shares of common stock of the Fund (“common shares”) in an aggregate amount of approximately 8,528,621 common shares (the “Offer”).",
+     "doc_seq": "1"
+    },
+    "rights_per_share": {
+     "value": 1,
+     "span": "Record Date Shareholders will receive one Right for each common share held on the Record Date.",
+     "doc_seq": "1"
+    },
+    "rights_per_new_share": {
+     "value": 5,
+     "span": "For every five Rights held, a Record Date Shareholder is entitled to purchase one new common share of the Fund.",
+     "doc_seq": "1"
+    },
+    "price_reference": {
+     "value": "lesser_of_nav_and_market",
+     "span": "The Subscription Price will be 95% of the lower of (i) the average of the last reported sales prices of a share on the NYSE on June 28, 2021 and the four days preceding the Expiration Date, or (ii) the NAV of a share on the Expiration Date.",
+     "doc_seq": "1"
+    },
+    "price_pct": {
+     "value": 95,
+     "span": "The Subscription Price will be 95% of the lower of (i) the average of the last reported sales prices of a share on the NYSE on June 28, 2021 and the four days preceding the Expiration Date, or (ii) the NAV of a share on the Expiration Date.",
+     "doc_seq": "1"
+    },
+    "price_floor_pct_nav": null,
+    "record_date": {
+     "value": "2021-05-24",
+     "span": "is issuing non-transferrable subscription rights (“Rights”) to its common shareholders of record as of May 24, 2021 (the “Record Date” and such shareholders, “Record Date Shareholders”).",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-06-28",
+     "span": "The Offer will expire at 5:00 p.m., Eastern Time, on June 28, 2021, unless the Offer is extended as described in this Prospectus (the “Expiration Date”).",
+     "doc_seq": "1"
+    },
+    "transferable": {
+     "value": false,
+     "span": "The Rights are non-transferable and will not be admitted for trading on the New York Stock Exchange (“NYSE”).",
+     "doc_seq": "1"
+    },
+    "over_subscription": {
+     "value": true,
+     "span": "Record Date Shareholders who fully exercise their Rights may also, in certain circumstances, purchase additional common shares pursuant to an over-subscription privilege.",
+     "doc_seq": "1"
+    },
+    "max_new_shares": {
+     "value": 8528621,
+     "span": "These Rights will allow Record Date Shareholders to subscribe for new shares of common stock of the Fund (“common shares”) in an aggregate amount of approximately 8,528,621 common shares (the “Offer”).",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Full prospectus (424B1) dated May 24, 2021. Subscription price = 95% of the lower of (i) the average of last reported NYSE sales prices on June 28, 2021 and the four preceding days, or (ii) NAV on the Expiration Date; pricing date June 29, 2021; Estimated Purchase Price $7.69. No NAV floor stated. Expiration June 28, 2021 unless extended; no extension stated. max_new_shares 8,528,621 is the primary offer; the Board may issue Secondary Over-Subscription Shares of up to 25% of the primary subscription shares (the prospectus states 'With Secondary Over-Subscription or 10,660,776 shares'), excluded per the schema. Rights are non-transferable and not listed."
+}

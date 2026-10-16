@@ -1,0 +1,101 @@
+{
+ "accession": "0001193125-21-156649",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "the Board of each Fund has approved, subject to certain conditions and shareholder approvals as discussed herein, the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "PIMCO Dynamic Income Fund; PIMCO Dynamic Credit and Mortgage Income Fund; PIMCO Income Opportunity Fund",
+     "span": "PIMCO Dynamic Income Fund (PDI), PIMCO Dynamic Credit and Mortgage Income Fund (PCI) and PIMCO Income Opportunity Fund (PKO)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "PDI; PCI; PKO",
+     "span": "The common shares of PDI are listed on the New York Stock Exchange (NYSE) under the symbol PDI, the common shares of PCI are listed on the NYSE under the symbol PCI and the common shares of PKO are listed on the NYSE under the symbol PKO.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "the common shares of the Target Funds would, in effect, be exchanged for new common shares of PDI with an equal aggregate net asset value",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "PIMCO Dynamic Income Fund",
+     "span": "PIMCO Income Opportunity Fund (PKO), PIMCO Dynamic Credit and Mortgage Income Fund (PCI) (each, an Acquired Fund), and PIMCO Dynamic Income Fund (PDI or the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "PIMCO Income Opportunity Fund; PIMCO Dynamic Credit and Mortgage Income Fund",
+     "span": "PIMCO Income Opportunity Fund (PKO), PIMCO Dynamic Credit and Mortgage Income Fund (PCI) (each, an Acquired Fund), and PIMCO Dynamic Income Fund (PDI or the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "the common shares of the Target Funds would, in effect, be exchanged for new common shares of PDI with an equal aggregate net asset value",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "registration_effective",
+      "listing",
+      "tax_opinion",
+      "legal_injunction",
+      "regulatory_approval",
+      "other"
+     ],
+     "spans": [
+      "n. The issuance of the Merger Shares shall have been approved by the requisite votes of the holders of the outstanding shares of beneficial interest of the Acquiring Fund entitled to vote.",
+      "q. The Registration Statement shall have become effective under the 1933 Act, and no stop order suspending such effectiveness shall have been instituted or, to the knowledge of the Acquiring Fund, threatened by the Commission.",
+      "r. The Merger Shares shall have been accepted for listing by the New York Stock Exchange.",
+      "f. The Acquired Fund shall have received a Tax Opinion of Ropes & Gray LLP (the substance of which is described above in Section 8(e)), dated the Exchange Date, reasonably satisfactory to the Acquired Fund.",
+      "c. As of the Exchange Date, there shall not be any material litigation pending or threatened that would seek to enjoin or otherwise prevent the transactions contemplated by this Agreement.",
+      "i. That the Acquiring Fund shall have received from the Commission and any relevant state securities administrator such order or orders as are reasonably necessary or desirable under the 1933 Act, the 1934 Act, the 1940 Act",
+      "p. Solely with respect to PKO as the Acquired Fund, that the reorganization of PCI into PDI shall have been, or shall concurrently be, consummated pursuant to the terms of this Agreement."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "approximately two to three months after (and in any event not earlier than two months after) the Special Meeting",
+     "span": "If approved, the Reorganizations are expected to close on a date approximately two to three months after (and in any event not earlier than two months after) the Special Meeting",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2021-08-12",
+     "span": "If the transactions contemplated by this Agreement have not been substantially completed by [August 12, 2021], this Agreement shall automatically terminate on that date",
+     "doc_seq": "1"
+    },
+    "meeting_date": {
+     "value": "2021-07-28",
+     "span": "Notice is hereby given that a joint special meeting of shareholders of each of PIMCO Dynamic Income Fund (PDI) and PIMCO Income Opportunity Fund (PKO) will be held at 650 Newport Center Drive, Newport Beach, CA 92660 on July 28, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-06-10",
+     "span": "Only shareholders of record on June 10, 2021 (the Record Date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "termination_date",
+  "record_date"
+ ],
+ "notes": "Initial N-14 8C (filed 2021-05-10; date placeholders '[ ], 2021' remain) for the reorganizations of PCI and PKO into PDI. Exchange is NAV for NAV (cash in lieu of fractional Merger Shares). PCI shareholders do not vote; PDI shareholders vote on the share issuance and PKO shareholders on the Plan of Reorganization; the PKO merger is contingent on the PCI merger, the PCI merger is not contingent on PKO ('other' condition). termination_date is printed in brackets in the form of agreement ('[August 12, 2021]'), a draft placeholder that falls before the stated expected close of two to three months after the July 28, 2021 meeting. record_date appears as '[June 10, 2021]' in one place and unbracketed 'June 10, 2021' in the voting section. Tickers PDI, PCI, PKO are the NYSE symbols stated in the text. Conditions are from the form of Agreement and Plan of Reorganization (Appendix A); 'regulatory_approval' is the condition that the Acquiring Fund receive any necessary SEC and state securities orders. The plan also requires a distribution of all income before the exchange (not mapped).",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}
