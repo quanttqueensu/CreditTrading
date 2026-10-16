@@ -1793,7 +1793,10 @@ def holdout() -> dict:
         if nm and d3m.sum().sum() / nm > HALT["D3_trades"]:
             halts.append(f"D-3 ({lab}) above 0.5%")
         if nm and d5.sum().sum() / nm > HALT["D5_trades"]:
-            halts.append(f"D-5 ({lab}) above 0.1%")
+            halts.append(f"D-5 ({lab}) above 0.1%: {int(d5.sum().sum())} of {nm:,} material trade name-days "
+                         f"({d5.sum().sum() / nm:.2%})")
+        for (d, t) in _cells(d5):
+            print(f"      D-5 ({lab}): {d.date()} {t} -- a material trade fills on a name-day with no panel close")
     both = O.notna() & Q.notna()
     nd2, nboth = int(d2.loc[HW].sum().sum()), int(both.loc[HW].sum().sum())
     print(f"D-2: {nd2} of {nboth} name-days with both O and Q; D-3 (all name-days): {int(d3.loc[HW].sum().sum())}; "
@@ -1879,8 +1882,25 @@ def main(argv=None) -> int:
         return 1 if rec["verdict"] == "HALT" else 0
     if a.stage == "holdout":
         FIT_CACHE.mkdir(parents=True, exist_ok=True)
-        rec = _write(f"c5_holdout_output_{H_STAMP}.txt",
-                     f"# python3 scripts/cef/c5_open_auction.py holdout  (run {H_STAMP}; stage 8, opened once)\n", holdout)
+        # A halt is a result too: the log up to it is written, never discarded (2026-10-15: the first
+        # attempt halted on D-5 before G was formed, and its buffered log was lost with the exception).
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                rec = holdout()
+        except Halt as e:
+            text = buf.getvalue() + f"\nSTAGE 8 HALTED BEFORE G WAS FORMED (§4.2, applied unchanged; DG-C5-6): {e}\n"
+            sys.stdout.write(text)
+            (OUT_DIR / f"c5_holdout_halt_output_{H_STAMP}.txt").write_text(
+                f"# python3 scripts/cef/c5_open_auction.py holdout  (run {H_STAMP}; stage 8 HALTED on a declared "
+                "data class before the holdout gain was formed)\n" + text)
+            (OUT_DIR / f"c5_holdout_halt_{H_STAMP}.json").write_text(json.dumps(
+                dict(stamp=H_STAMP, stage="8", verdict="HALT before G", reason=str(e),
+                     trial_verdict=json.loads(FIT_VERDICT.read_text())["verdict"]), indent=1) + "\n")
+            return 1
+        sys.stdout.write(buf.getvalue())
+        (OUT_DIR / f"c5_holdout_output_{H_STAMP}.txt").write_text(
+            f"# python3 scripts/cef/c5_open_auction.py holdout  (run {H_STAMP}; stage 8, opened once)\n" + buf.getvalue())
         H_RESULT.write_text(json.dumps(rec, indent=1, default=lambda o: float(o) if isinstance(o, np.floating)
                                        else (bool(o) if isinstance(o, np.bool_) else str(o))) + "\n")
         return 0

@@ -81,8 +81,10 @@ counter (156) covers all ETF-price/PD work done to date.
 > - **Trial 51 (C5): KILLED, D1, at the fit (2026-10-14).** The open fill's gain G
 >   (WIDE) is +293bp/yr, SR 1.16, t 2.82. The lagged-signal placebo earns more
 >   (+351bp/yr), so stage 2b kills it. It also fails D4 (MUB summed β −0.22) and
->   the bar (`_dsr` 0.61 at N = 52). The holdout is still to be opened, report-only
->   (`results/cef/C5_RESULT_2026-10-14.md`).
+>   the bar (`_dsr` 0.61 at N = 52). **The holdout (report-only) HALTED on D-5 before
+>   its gain was formed (2026-10-15):** material trades on name-days with no panel
+>   close, 0.19% (WIDE) and 0.29% (deployed) against a 0.1% halt. It awaits the team
+>   lead, and the kill stands either way (`results/cef/C5_RESULT_2026-10-14.md`).
 >
 > **2026-10-14: the XASSET slate is declared at N = 4**
 > (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`, revision 3, approved):
