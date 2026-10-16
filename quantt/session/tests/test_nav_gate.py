@@ -509,16 +509,64 @@ def _real_panel_ready():
     return cefmod.PX_PATH.exists() and cefmod.NAV_PATH.exists()
 
 
+# The two stale copies the laptop panel held for 2026-09-25 when it was captured on
+# 2026-09-28 (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §1, "the two exceptions";
+# docs/REFERENCES.md §12n, and §12s for CEFConnect's values): PDI 15.06 --
+# CEFConnect's 09-24 NAV; the true 09-25 NAV is 15.10, the reviewer's case for the
+# second trigger -- and DSL 11.11, its 09-24 value (true 11.10). Yahoo has since
+# corrected both, and the 2026-10-15 refresh of the dev panels took the
+# corrections in, so the test injects them into its own copy.
+INJECTED_STALE_COPIES = {("PDI", dt.date(2026, 9, 25)): 15.06,
+                         ("DSL", dt.date(2026, 9, 25)): 11.11}
+
+
+def _real_panels_with_the_documented_copies(tmp_path, monkeypatch):
+    """Copy the real panels into tmp_path, put the documented stale copies back,
+    and point the sleeve at the copies. Each injection must hit exactly one
+    existing row, and PDI's previous row must still differ from 15.06 (else the
+    case would fire the first trigger, not the second): a wrong date or ticker,
+    or a panel that no longer has the row, fails here, loudly."""
+    import shutil
+    from src.deploy.sleeves import cef_discount as cefmod
+    px, nav = tmp_path / "cef_prices.parquet", tmp_path / "cef_nav.parquet"
+    shutil.copyfile(cefmod.PX_PATH, px)
+    N = pd.read_parquet(cefmod.NAV_PATH)
+    d = pd.to_datetime(N["date"]).dt.normalize()
+    for (tk, day), v in INJECTED_STALE_COPIES.items():
+        hit = (N["ticker"] == tk) & (d == pd.Timestamp(day))
+        assert hit.sum() == 1, f"no single {tk} NAV row dated {day} to inject into"
+        N.loc[hit, "nav"] = v
+    N.to_parquet(nav)
+    got = pd.read_parquet(nav)
+    gd = pd.to_datetime(got["date"]).dt.normalize()
+    for (tk, day), v in INJECTED_STALE_COPIES.items():
+        assert got.loc[(got["ticker"] == tk) & (gd == pd.Timestamp(day)), "nav"].tolist() == [v]
+    prev = got.loc[(got["ticker"] == "PDI") & (gd == pd.Timestamp(2026, 9, 24)), "nav"].tolist()
+    assert len(prev) == 1 and ng.differs(prev[0], 15.06), \
+        f"PDI's 2026-09-24 row is {prev}: the second-trigger case needs it to differ from 15.06"
+    monkeypatch.setattr(cefmod, "PX_PATH", px)
+    monkeypatch.setattr(cefmod, "NAV_PATH", nav)
+    monkeypatch.setattr(cefmod, "GRP_PATH", px)
+    return px, nav
+
+
 @pytest.mark.skipif(not _real_panel_ready(), reason="real CEF panels absent (data/ is "
                                                      "gitignored); the synthetic tests still run")
-def test_real_sleeve_on_the_real_panel_report_mode_is_byte_identical(tmp_path):
+def test_real_sleeve_on_the_real_panel_report_mode_is_byte_identical(tmp_path, monkeypatch):
     """The no-op proof for the release setting: the live spec, the real sleeve and
-    the real panel (read-only), decided as of 2026-09-25 -- the date the laptop
-    panel holds the reviewer's PDI case and DSL's 11.11 copy -- on a held book.
-    Gate off and gate in report mode give the same exit, orders, plan_sha and
-    plan.json apart from `nav_gate`. CEFConnect is a fixture that makes every
-    branch fire (replace, keep, defer); its numbers are test inputs, not data."""
+    a copy of the real panels, decided as of 2026-09-25 on a held book, with the
+    two stale copies that date held when the laptop captured it put back
+    (INJECTED_STALE_COPIES): the reviewer's PDI case and DSL's 11.11. Gate off and
+    gate in report mode give the same exit, orders, plan_sha and plan.json apart
+    from `nav_gate`. CEFConnect is a fixture that makes every branch fire
+    (replace, keep, defer); its numbers are test inputs, not data. The real
+    panels are read only and must come out byte-identical; so must the copy,
+    which report mode never writes. The test proves the same thing whether or
+    not Yahoo has corrected the rows since (2026-10-15: it had)."""
     from src.deploy.sleeves import cef_discount as cefmod
+    real = {f: f.read_bytes() for f in (cefmod.PX_PATH, cefmod.NAV_PATH)}
+    (tmp_path / "panels").mkdir()
+    _real_panels_with_the_documented_copies(tmp_path / "panels", monkeypatch)
     spec = json.loads((rn.REPO / "ops/specs/cef_discount.frozen.json").read_text())
     p = rn.spec_params(spec)
     asof = dt.date(2026, 9, 25)
@@ -557,10 +605,11 @@ def test_real_sleeve_on_the_real_panel_report_mode_is_byte_identical(tmp_path):
         code = rn.run_session(BOOK, spec, deps)
         return code, json.loads((state / "2026-09-28" / "plan.json").read_text())
 
-    before = cefmod.NAV_PATH.read_bytes()
+    before = cefmod.NAV_PATH.read_bytes()                 # the injected copy
     c_off, off = one("off", None)
     c_rep, rep = one("rep", ng.REPORT)
-    assert cefmod.NAV_PATH.read_bytes() == before
+    assert cefmod.NAV_PATH.read_bytes() == before         # report mode wrote nothing
+    assert all(f.read_bytes() == b for f, b in real.items()), "a real panel changed"
     g = rep.pop("nav_gate")
     assert c_rep == c_off and rep == off
     assert c_off == rn.EXIT_PLANNED and off["status"] == "decided"
