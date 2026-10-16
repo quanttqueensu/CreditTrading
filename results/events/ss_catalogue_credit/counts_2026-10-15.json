@@ -1,0 +1,631 @@
+{
+ "run_date": "2026-10-15",
+ "zero_trials": true,
+ "rating_migrations": {
+  "panel": "data/forced_flow2/m6_events.parquet (TRACE grade-flag I->H flips; LEGACY S3)",
+  "first": "2003-02-10",
+  "last": "2025-10-31",
+  "per_year": {
+   "2003": {
+    "bonds": 209.0,
+    "issuer_months": 77.0,
+    "issuers": 70.0
+   },
+   "2004": {
+    "bonds": 111.0,
+    "issuer_months": 47.0,
+    "issuers": 46.0
+   },
+   "2005": {
+    "bonds": 1926.0,
+    "issuer_months": 106.0,
+    "issuers": 98.0
+   },
+   "2006": {
+    "bonds": 163.0,
+    "issuer_months": 64.0,
+    "issuers": 59.0
+   },
+   "2007": {
+    "bonds": 243.0,
+    "issuer_months": 62.0,
+    "issuers": 54.0
+   },
+   "2008": {
+    "bonds": 768.0,
+    "issuer_months": 109.0,
+    "issuers": 97.0
+   },
+   "2009": {
+    "bonds": 965.0,
+    "issuer_months": 182.0,
+    "issuers": 168.0
+   },
+   "2010": {
+    "bonds": 423.0,
+    "issuer_months": 66.0,
+    "issuers": 63.0
+   },
+   "2011": {
+    "bonds": 101.0,
+    "issuer_months": 45.0,
+    "issuers": 45.0
+   },
+   "2012": {
+    "bonds": 404.0,
+    "issuer_months": 171.0,
+    "issuers": 96.0
+   },
+   "2013": {
+    "bonds": 700.0,
+    "issuer_months": 103.0,
+    "issuers": 75.0
+   },
+   "2014": {
+    "bonds": 377.0,
+    "issuer_months": 88.0,
+    "issuers": 76.0
+   },
+   "2015": {
+    "bonds": 181.0,
+    "issuer_months": 82.0,
+    "issuers": 75.0
+   },
+   "2016": {
+    "bonds": 139.0,
+    "issuer_months": 52.0,
+    "issuers": 50.0
+   },
+   "2017": {
+    "bonds": 87.0,
+    "issuer_months": 29.0,
+    "issuers": 28.0
+   },
+   "2018": {
+    "bonds": 171.0,
+    "issuer_months": 104.0,
+    "issuers": 94.0
+   },
+   "2019": {
+    "bonds": 1313.0,
+    "issuer_months": 451.0,
+    "issuers": 297.0
+   },
+   "2020": {
+    "bonds": 1677.0,
+    "issuer_months": 763.0,
+    "issuers": 465.0
+   },
+   "2021": {
+    "bonds": 1798.0,
+    "issuer_months": 650.0,
+    "issuers": 403.0
+   },
+   "2022": {
+    "bonds": 892.0,
+    "issuer_months": 465.0,
+    "issuers": 375.0
+   },
+   "2023": {
+    "bonds": 379.0,
+    "issuer_months": 210.0,
+    "issuers": 168.0
+   },
+   "2024": {
+    "bonds": 1819.0,
+    "issuer_months": 523.0,
+    "issuers": 307.0
+   },
+   "2025": {
+    "bonds": 1542.0,
+    "issuer_months": 622.0,
+    "issuers": 315.0
+   }
+  },
+  "bonds_2010_2025": {
+   "n_years": 16,
+   "mean": 750.2,
+   "median": 413.5,
+   "min": 87.0,
+   "max": 1819.0
+  },
+  "issuer_months_2010_2025": {
+   "n_years": 16,
+   "mean": 276.5,
+   "median": 137.5,
+   "min": 29.0,
+   "max": 763.0
+  },
+  "months_over_400_bonds": 4,
+  "months_in_panel": 268,
+  "share_of_bond_events_in_top5_months": 0.222,
+  "top5_months": {
+   "2005-05": 1514,
+   "2024-12": 773,
+   "2008-09": 575,
+   "2009-04": 406,
+   "2019-09": 374
+  },
+  "rising_star_probe": {
+   "panel": "data/forced_flow/rising_star_events_probe.parquet, filtered CORP, not 144A-only, not convertible, >= 12 months HY before",
+   "first": "2003-10-25",
+   "last": "2026-06-04",
+   "bonds_2010_2025": {
+    "n_years": 16,
+    "mean": 296.8,
+    "median": 162.5,
+    "min": 46.0,
+    "max": 2306.0
+   },
+   "issuer_months_2010_2025": {
+    "n_years": 16,
+    "mean": 148.3,
+    "median": 76.5,
+    "min": 34.0,
+    "max": 1179.0
+   }
+  },
+  "nrsro_17g7_corporate_ig_to_hy": {
+   "Fitch": {
+    "last_action_in_panel": "2025-06-30",
+    "issuers_per_year": {
+     "n_years": 12,
+     "mean": 37.4,
+     "median": 33.0,
+     "min": 19.0,
+     "max": 88.0
+    },
+    "per_year_issuers": {
+     "2013": 33,
+     "2014": 19,
+     "2015": 20,
+     "2016": 43,
+     "2017": 31,
+     "2018": 24,
+     "2019": 42,
+     "2020": 88,
+     "2021": 24,
+     "2022": 56,
+     "2023": 33,
+     "2024": 36
+    }
+   },
+   "Moody's": {
+    "last_action_in_panel": "2023-12-15",
+    "issuers_per_year": {
+     "n_years": 11,
+     "mean": 50.6,
+     "median": 40.0,
+     "min": 22.0,
+     "max": 112.0
+    },
+    "per_year_issuers": {
+     "2013": 49.0,
+     "2014": 37.0,
+     "2015": 75.0,
+     "2016": 112.0,
+     "2017": 26.0,
+     "2018": 31.0,
+     "2019": 40.0,
+     "2020": 85.0,
+     "2021": 22.0,
+     "2022": 47.0,
+     "2023": 33.0,
+     "2024": NaN
+    }
+   }
+  },
+  "nrsro_17g7_corporate_any_downgrade": {
+   "Fitch": {
+    "last_action_in_panel": "2025-06-30",
+    "issuers_downgraded_per_year": {
+     "n_years": 12,
+     "mean": 263.4,
+     "median": 246.5,
+     "min": 158.0,
+     "max": 535.0
+    }
+   },
+   "Moody's": {
+    "last_action_in_panel": "2023-12-15",
+    "issuers_downgraded_per_year": {
+     "n_years": 11,
+     "mean": 641.1,
+     "median": 596.0,
+     "min": 348.0,
+     "max": 1197.0
+    }
+   }
+  }
+ },
+ "treasury_auctions": {
+  "panel": "data/auction/auction_calendar.parquet (fiscaldata Auctions Query)",
+  "last_auction": "2026-07-23",
+  "nominal_coupon_auctions_2010_2025": {
+   "n_years": 16,
+   "mean": 76.4,
+   "median": 72.0,
+   "min": 72.0,
+   "max": 85.0
+  },
+  "nominal_coupon_auction_days_2010_2025": {
+   "n_years": 16,
+   "mean": 73.8,
+   "median": 72.0,
+   "min": 67.0,
+   "max": 81.0
+  },
+  "refunding_week_auctions_2010_2025": {
+   "n_years": 16,
+   "mean": 12.0,
+   "median": 12.0,
+   "min": 12.0,
+   "max": 12.0
+  },
+  "tenors": [
+   "10y",
+   "20y",
+   "2y",
+   "30y",
+   "3y",
+   "4y",
+   "5y",
+   "7y"
+  ]
+ },
+ "macro_events": {
+  "panel": "data/events.parquet",
+  "coverage": {
+   "CPI": [
+    "2007-01-18",
+    "2025-03-12"
+   ],
+   "FOMC": [
+    "1988-02-04",
+    "2027-12-08"
+   ],
+   "NFP": [
+    "2007-01-05",
+    "2025-04-04"
+   ]
+  },
+  "full_years": [
+   2007,
+   2024
+  ],
+  "FOMC_per_year": {
+   "n_years": 18,
+   "mean": 7.9,
+   "median": 8.0,
+   "min": 7.0,
+   "max": 8.0
+  },
+  "CPI_per_year": {
+   "n_years": 18,
+   "mean": 12.0,
+   "median": 12.0,
+   "min": 12.0,
+   "max": 12.0
+  },
+  "NFP_per_year": {
+   "n_years": 18,
+   "mean": 12.0,
+   "median": 12.0,
+   "min": 12.0,
+   "max": 12.0
+  },
+  "distinct_event_days_per_year": {
+   "n_years": 18,
+   "mean": 31.2,
+   "median": 31.5,
+   "min": 29.0,
+   "max": 32.0
+  },
+  "days_with_two_kinds": 14,
+  "unscheduled_fomc_in_panel": 64,
+  "fomc_scheduled_after_2026_10_15": [
+   "2026-10-28",
+   "2026-12-09",
+   "2027-01-27",
+   "2027-03-17",
+   "2027-04-28",
+   "2027-06-09",
+   "2027-07-28",
+   "2027-09-15",
+   "2027-10-27",
+   "2027-12-08"
+  ]
+ },
+ "cef_ex_dates": {
+  "panel": "data/cef/cef_dist_features.parquet",
+  "last_ex_date": "2026-09-10",
+  "deployed": {
+   "names": 13,
+   "names_without_distributions": [],
+   "ex_events_per_year": {
+    "n_years": 16,
+    "mean": 142.8,
+    "median": 147.5,
+    "min": 110.0,
+    "max": 159.0
+   },
+   "distinct_ex_dates_per_year": {
+    "n_years": 16,
+    "mean": 44.1,
+    "median": 45.5,
+    "min": 36.0,
+    "max": 50.0
+   },
+   "cuts_per_year": {
+    "n_years": 16,
+    "mean": 7.8,
+    "median": 9.0,
+    "min": 1.0,
+    "max": 15.0
+   },
+   "raises_per_year": {
+    "n_years": 16,
+    "mean": 7.6,
+    "median": 8.5,
+    "min": 2.0,
+    "max": 13.0
+   }
+  },
+  "universe44": {
+   "names": 43,
+   "names_without_distributions": [
+    "FCT"
+   ],
+   "ex_events_per_year": {
+    "n_years": 16,
+    "mean": 472.4,
+    "median": 488.0,
+    "min": 371.0,
+    "max": 506.0
+   },
+   "distinct_ex_dates_per_year": {
+    "n_years": 16,
+    "mean": 107.3,
+    "median": 110.5,
+    "min": 81.0,
+    "max": 117.0
+   },
+   "cuts_per_year": {
+    "n_years": 16,
+    "mean": 42.4,
+    "median": 45.0,
+    "min": 12.0,
+    "max": 59.0
+   },
+   "raises_per_year": {
+    "n_years": 16,
+    "mean": 33.2,
+    "median": 35.0,
+    "min": 15.0,
+    "max": 53.0
+   }
+  }
+ },
+ "hy_etf_stress": {
+  "panel": "data/forced_flow2/hyg_jnk_pd_derived.parquet (as-traded close / official NAV - 1)",
+  "HYG": {
+   "first": "2007-04-11",
+   "last": "2026-07-24",
+   "sessions": 4853,
+   "days_le_-1pct": 42,
+   "episodes_le_-1pct": 20,
+   "episode_starts_le_-1pct": [
+    "2007-07-27",
+    "2008-09-15",
+    "2008-10-27",
+    "2008-11-20",
+    "2009-02-23",
+    "2009-03-30",
+    "2009-07-07",
+    "2009-08-17",
+    "2010-02-05",
+    "2010-05-05",
+    "2011-06-16",
+    "2011-08-04",
+    "2011-11-23",
+    "2012-05-17",
+    "2013-05-31",
+    "2013-08-19",
+    "2016-11-11",
+    "2020-03-12",
+    "2022-06-13",
+    "2022-10-10"
+   ],
+   "days_le_-2pct": 18,
+   "episodes_le_-2pct": 7,
+   "episode_starts_le_-2pct": [
+    "2008-09-15",
+    "2008-10-27",
+    "2009-02-23",
+    "2010-05-06",
+    "2010-05-20",
+    "2011-06-16",
+    "2011-08-04"
+   ],
+   "days_le_-3pct": 8,
+   "episodes_le_-3pct": 4,
+   "episode_starts_le_-3pct": [
+    "2008-09-16",
+    "2008-10-27",
+    "2009-03-05",
+    "2011-08-08"
+   ]
+  },
+  "JNK": {
+   "first": "2007-12-04",
+   "last": "2026-07-23",
+   "sessions": 4687,
+   "days_le_-1pct": 38,
+   "episodes_le_-1pct": 21,
+   "episode_starts_le_-1pct": [
+    "2008-09-15",
+    "2008-10-08",
+    "2008-12-01",
+    "2009-02-23",
+    "2009-03-09",
+    "2009-07-07",
+    "2010-01-22",
+    "2010-05-05",
+    "2010-05-20",
+    "2011-03-16",
+    "2011-06-16",
+    "2011-08-04",
+    "2011-11-23",
+    "2012-05-17",
+    "2013-06-21",
+    "2014-12-12",
+    "2016-11-11",
+    "2020-03-09",
+    "2022-06-10",
+    "2022-10-10",
+    "2022-12-28"
+   ],
+   "days_le_-2pct": 9,
+   "episodes_le_-2pct": 6,
+   "episode_starts_le_-2pct": [
+    "2008-09-16",
+    "2008-10-08",
+    "2009-02-23",
+    "2010-05-06",
+    "2010-05-20",
+    "2011-08-04"
+   ],
+   "days_le_-3pct": 5,
+   "episodes_le_-3pct": 4,
+   "episode_starts_le_-3pct": [
+    "2008-09-16",
+    "2008-10-10",
+    "2010-05-20",
+    "2011-08-08"
+   ]
+  }
+ },
+ "bond_holiday_observation": {
+  "panel": "data/cef/cef_nav.parquet",
+  "last": "2026-10-14",
+  "2026-10-12": {
+   "names_unchanged": 7,
+   "names_moved_le_1c": 13,
+   "names": 13,
+   "median_abs_change_holiday": 0.0,
+   "median_of_names_prior20_median_abs_change": 0.02
+  }
+ },
+ "adv": {
+  "source": "results/data/universe_2026-10-08/universe_map.csv: adv63 = the sleeve's 63-session mean $ volume from CRSP, window ending 2024-12-31; shortable flags as of 2026-10-08",
+  "absent_from_map": [],
+  "adv63_musd": {
+   "ANGL": 20.2,
+   "HYG": 2650.7,
+   "JNK": 311.5,
+   "FALN": 20.3,
+   "MUB": 423.6,
+   "EMB": 500.3,
+   "MBB": 277.7,
+   "IEF": 647.7,
+   "BIL": 628.7,
+   "BKLN": 243.2,
+   "CWB": 69.4,
+   "JAAA": 231.0,
+   "LQD": 2515.8,
+   "PFF": 130.7,
+   "PGX": 48.9,
+   "SGOV": 552.4,
+   "SRLN": 174.7,
+   "TIP": 254.2,
+   "TLT": 3728.0
+  },
+  "shortable_2026_10_08": {
+   "ANGL": true,
+   "HYG": true,
+   "JNK": true,
+   "FALN": false,
+   "MUB": false,
+   "EMB": true,
+   "MBB": true,
+   "IEF": true,
+   "BIL": true,
+   "BKLN": true,
+   "CWB": true,
+   "JAAA": true,
+   "LQD": true,
+   "PFF": true,
+   "PGX": true,
+   "SGOV": true,
+   "SRLN": true,
+   "TIP": true,
+   "TLT": true
+  },
+  "families": {
+   "bdc": {
+    "n": 53,
+    "shortable": 27,
+    "median_adv63_musd": 3.31
+   },
+   "preferred": {
+    "n": 30,
+    "shortable": 5,
+    "median_adv63_musd": 2.14
+   },
+   "cef_taxable_credit": {
+    "n": 119,
+    "shortable": 69,
+    "median_adv63_musd": 1.16
+   },
+   "cef_muni": {
+    "n": 107,
+    "shortable": 23,
+    "median_adv63_musd": 0.89
+   },
+   "cef_preferred": {
+    "n": 15,
+    "shortable": 7,
+    "median_adv63_musd": 0.89
+   },
+   "hy_corp": {
+    "n": 95,
+    "shortable": 23,
+    "median_adv63_musd": 1.01
+   }
+  }
+ },
+ "alpaca_listed_fixed_income": {
+  "read_at_utc": "2026-10-15T20:44:02+00:00",
+  "active_assets": 14398,
+  "written": "results/events/ss_catalogue_credit/alpaca_listed_fixed_income_2026-10-15.csv",
+  "baby_bond": {
+   "n": 159,
+   "tradable": 158,
+   "shortable": 4,
+   "easy_to_borrow": 4,
+   "by_exchange": {
+    "NYSE": 99,
+    "NASDAQ": 55,
+    "AMEX": 4,
+    "OTC": 1
+   }
+  },
+  "preferred": {
+   "n": 388,
+   "tradable": 371,
+   "shortable": 49,
+   "easy_to_borrow": 49,
+   "by_exchange": {
+    "NYSE": 276,
+    "NASDAQ": 96,
+    "OTC": 16
+   }
+  },
+  "bdc_today": {
+   "in_map": 53,
+   "active_today": 49,
+   "shortable_today": 27,
+   "easy_to_borrow_today": 27
+  }
+ }
+}
