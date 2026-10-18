@@ -1,0 +1,255 @@
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3065: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/opt/anaconda3/lib/python3.13/site-packages/numpy/lib/_function_base_impl.py:3066: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+H7 hand-check of z' on 149 random name-dates: pass
+targets_from_z(z) == build_targets() on the fit period: byte-identical
+
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+panel last dates: cef_prices 2026-09-28, cef_nav 2026-09-25; used through 2022-12-30
+deployed name-days 6923, dates 1047, first 2013-06-21
+
+=== Q1. IC of live z_t vs SINGLE-DAY total return r_{t+k}, deployed set, every session, NW(5) t ===
+k= 1: 2010-14 -0.0069 (-0.23, n275) | 2015-19 -0.0212 (-0.87, n350) | 2020-22 -0.0833 (-4.11, n420) | fit -0.0424 (-3.00, n1045)
+k= 2: 2010-14 +0.0221 (+0.73, n275) | 2015-19 -0.0212 (-0.84, n350) | 2020-22 -0.0529 (-2.70, n419) | fit -0.0225 (-1.58, n1044)
+k= 3: 2010-14 +0.0199 (+0.67, n275) | 2015-19 -0.0240 (-0.93, n350) | 2020-22 -0.0235 (-1.25, n418) | fit -0.0122 (-0.88, n1043)
+k= 4: 2010-14 +0.0214 (+0.74, n275) | 2015-19 -0.0126 (-0.51, n350) | 2020-22 -0.0037 (-0.20, n417) | fit -0.0001 (-0.01, n1042)
+k= 5: 2010-14 +0.0314 (+1.13, n275) | 2015-19 -0.0280 (-1.11, n350) | 2020-22 +0.0124 (+0.64, n416) | fit +0.0039 (+0.28, n1041)
+k= 6: 2010-14 +0.0516 (+1.82, n275) | 2015-19 -0.0144 (-0.60, n350) | 2020-22 +0.0034 (+0.17, n415) | fit +0.0102 (+0.73, n1040)
+k= 7: 2010-14 +0.0572 (+2.03, n275) | 2015-19 -0.0180 (-0.70, n350) | 2020-22 -0.0030 (-0.17, n414) | fit +0.0079 (+0.57, n1039)
+k= 8: 2010-14 +0.0631 (+2.24, n275) | 2015-19 -0.0172 (-0.68, n350) | 2020-22 +0.0057 (+0.33, n413) | fit +0.0132 (+0.97, n1038)
+k=10: 2010-14 +0.0425 (+1.49, n275) | 2015-19 -0.0081 (-0.34, n350) | 2020-22 +0.0076 (+0.41, n411) | fit +0.0116 (+0.87, n1036)
+
+  WIDE set (context, not the book):
+k= 1: 2010-14 -0.0812 (-7.88, n1258) | 2015-19 -0.0440 (-4.24, n1258) | 2020-22 -0.0737 (-6.34, n754) | fit -0.0651 (-11.80, n4529)
+k= 2: 2010-14 -0.0674 (-6.49, n1258) | 2015-19 -0.0215 (-2.09, n1258) | 2020-22 -0.0549 (-4.82, n753) | fit -0.0461 (-8.31, n4528)
+k= 3: 2010-14 -0.0548 (-5.31, n1258) | 2015-19 -0.0111 (-1.13, n1258) | 2020-22 -0.0384 (-3.50, n752) | fit -0.0356 (-6.57, n4527)
+k= 5: 2010-14 -0.0440 (-4.21, n1258) | 2015-19 +0.0067 (+0.67, n1258) | 2020-22 -0.0192 (-1.75, n750) | fit -0.0214 (-3.93, n4525)
+k=10: 2010-14 -0.0241 (-2.25, n1258) | 2015-19 +0.0185 (+1.87, n1258) | 2020-22 -0.0084 (-0.81, n745) | fit -0.0068 (-1.26, n4520)
+
+=== Q2. Same decision row t, same fill (t+1 close), same forward return ===
+common sample: deployed at t AND every signal below non-NaN
+live z_t (deployed)                                        vs r_{t+2}  2010-14 +0.0221 (+0.73, n275) | 2015-19 -0.0212 (-0.84, n350) | 2020-22 -0.0529 (-2.70, n419) | fit -0.0225 (-1.58, n1044)
+                                                              [t+2,t+3] H6 ph0/ph1: -0.0329 (t -1.68, n523) / -0.0389 (t -1.97)
+refresh z'_{t+1} on CLOSE t+1 (optimistic)                 vs r_{t+2}  2010-14 +0.0193 (+0.65, n275) | 2015-19 -0.0196 (-0.79, n350) | 2020-22 -0.0633 (-3.20, n416) | fit -0.0268 (-1.89, n1041)
+                                                              [t+2,t+3] H6 ph0/ph1: -0.0389 (t -1.96, n520) / -0.0514 (t -2.59)
+refresh on t+1 OPEN, yfinance (feasible decision price)    vs r_{t+2}  2010-14 +0.0278 (+0.96, n275) | 2015-19 -0.0147 (-0.58, n350) | 2020-22 -0.0386 (-2.06, n418) | fit -0.0131 (-0.94, n1043)
+                                                              [t+2,t+3] H6 ph0/ph1: -0.0256 (t -1.29, n522) / -0.0398 (t -2.01)
+refresh on t+1 OPEN, CRSP openprc                          vs r_{t+2}  2010-14 +0.0278 (+0.96, n275) | 2015-19 -0.0147 (-0.58, n350) | 2020-22 -0.0386 (-2.06, n418) | fit -0.0131 (-0.94, n1043)
+                                                              [t+2,t+3] H6 ph0/ph1: -0.0256 (t -1.29, n522) / -0.0398 (t -2.01)
+refresh on t+1 closing MIDPOINT (CRSP; bounce removed)     vs r_{t+2}  2010-14 +0.0228 (+0.76, n275) | 2015-19 -0.0192 (-0.77, n350) | 2020-22 -0.0572 (-2.86, n416) | fit -0.0233 (-1.63, n1041)
+                                                              [t+2,t+3] H6 ph0/ph1: -0.0393 (t -1.97, n520) / -0.0486 (t -2.45)
+full z_{t+1}: N_{t+1} too (INFEASIBLE, old shift(1))       vs r_{t+2}  2010-14 +0.0055 (+0.18, n275) | 2015-19 -0.0210 (-0.85, n350) | 2020-22 -0.0740 (-3.63, n419) | fit -0.0353 (-2.47, n1044)
+                                                              [t+2,t+3] H6 ph0/ph1: -0.0518 (t -2.63, n522) / -0.0601 (t -3.04)
+  diff vs live, refresh z'_{t+1} on CLOSE t+1 (optimistic)   : -0.0050 (NW t -0.98)
+  diff vs live, refresh on t+1 OPEN, yfinance (feasible decis: +0.0093 (NW t +2.79)
+  diff vs live, refresh on t+1 OPEN, CRSP openprc            : +0.0093 (NW t +2.79)
+  diff vs live, refresh on t+1 closing MIDPOINT (CRSP; bounce: -0.0015 (NW t -0.30)
+  diff vs live, full z_{t+1}: N_{t+1} too (INFEASIBLE, old sh: -0.0125 (NW t -2.34)
+
+W4 tie-out, live z vs [t+2,t+3] total, deployed, grid ph0/ph1: -0.0329 (t -1.68, n523) / -0.0389 (t -1.97, n520)
+refresh (close) vs [t+2,t+3], deployed at t: -0.0389 (t -1.96, n520) / -0.0514 (t -2.59)
+  mid-to-mid r_{t+2} (price, no distributions): live z_t (deployed)                                2010-14 +0.0060 (+0.21, n275) | 2015-19 -0.0115 (-0.45, n350) | 2020-22 -0.0537 (-2.69, n419) | fit -0.0238 (-1.69, n1044)
+  mid-to-mid r_{t+2} (price, no distributions): refresh z'_{t+1} on CLOSE t+1 (optimistic)         2010-14 +0.0080 (+0.28, n275) | 2015-19 -0.0192 (-0.74, n350) | 2020-22 -0.0576 (-2.76, n416) | fit -0.0274 (-1.91, n1041)
+  mid-to-mid r_{t+2} (price, no distributions): refresh on t+1 closing MIDPOINT (CRSP; bounce remo 2010-14 +0.0042 (+0.15, n275) | 2015-19 -0.0219 (-0.85, n350) | 2020-22 -0.0597 (-2.87, n416) | fit -0.0301 (-2.10, n1041)
+
+=== Q2 P&L via evaluate(): TOTAL returns, plain band; refresh rows = evaluate(H.shift(-1)) i.e. P&L_t = H[t-1]*R_t ===
+live band width 0.048 from spec; first live position 2013-06-21
+live band (z_t, shift 2)                     fit             SR  0.69 ann  3.30% vol  4.81% turn   7.1 net5/15/30  0.61  0.46  0.24 flips no
+live band (z_t, shift 2)                     live 13-06..22  SR  0.94 ann  6.22% vol  6.60% turn  13.5 net5/15/30  0.84  0.64  0.33 flips no
+live band (z_t, shift 2)                     2015-19         SR  0.85 ann  5.83% vol  6.84% turn   7.8 net5/15/30  0.80  0.68  0.51 flips no
+live band (z_t, shift 2)                     2020-22         SR  0.95 ann  6.33% vol  6.65% turn  21.3 net5/15/30  0.79  0.47 -0.01 flips YES
+   turnover gap vs live (fit): +0.0%
+refresh@close, live width                    fit             SR  0.74 ann  3.54% vol  4.77% turn   7.6 net5/15/30  0.66  0.50  0.26 flips no
+refresh@close, live width                    live 13-06..22  SR  1.02 ann  6.68% vol  6.55% turn  14.3 net5/15/30  0.91  0.69  0.36 flips no
+refresh@close, live width                    2015-19         SR  0.84 ann  5.70% vol  6.76% turn   8.4 net5/15/30  0.78  0.66  0.47 flips no
+refresh@close, live width                    2020-22         SR  1.22 ann  8.18% vol  6.71% turn  22.9 net5/15/30  1.05  0.71  0.19 flips no
+   turnover gap vs live (fit): +6.9%
+refresh@open (yf), live width                fit             SR  0.64 ann  3.07% vol  4.79% turn   7.7 net5/15/30  0.56  0.40  0.16 flips no
+refresh@open (yf), live width                live 13-06..22  SR  0.88 ann  5.79% vol  6.57% turn  14.5 net5/15/30  0.77  0.55  0.22 flips no
+refresh@open (yf), live width                2015-19         SR  0.73 ann  4.95% vol  6.73% turn   8.6 net5/15/30  0.67  0.54  0.35 flips no
+refresh@open (yf), live width                2020-22         SR  0.88 ann  5.87% vol  6.66% turn  21.6 net5/15/30  0.72  0.40 -0.09 flips YES
+   turnover gap vs live (fit): +7.7%
+refresh@mid, live width                      fit             SR  0.73 ann  3.49% vol  4.78% turn   7.5 net5/15/30  0.65  0.49  0.26 flips no
+refresh@mid, live width                      live 13-06..22  SR  1.00 ann  6.58% vol  6.56% turn  14.1 net5/15/30  0.90  0.68  0.36 flips no
+refresh@mid, live width                      2015-19         SR  0.84 ann  5.67% vol  6.76% turn   8.2 net5/15/30  0.78  0.66  0.48 flips no
+refresh@mid, live width                      2020-22         SR  1.20 ann  8.07% vol  6.71% turn  22.6 net5/15/30  1.03  0.70  0.19 flips no
+   turnover gap vs live (fit): +5.4%
+INFEASIBLE shift(1) of live band             fit             SR  0.85 ann  4.10% vol  4.81% turn   7.1 net5/15/30  0.78  0.63  0.41 flips no
+INFEASIBLE shift(1) of live band             live 13-06..22  SR  1.17 ann  7.74% vol  6.59% turn  13.4 net5/15/30  1.07  0.87  0.56 flips no
+INFEASIBLE shift(1) of live band             2015-19         SR  0.92 ann  6.28% vol  6.86% turn   7.7 net5/15/30  0.86  0.75  0.58 flips no
+INFEASIBLE shift(1) of live band             2020-22         SR  1.42 ann  9.46% vol  6.65% turn  21.3 net5/15/30  1.26  0.94  0.46 flips no
+   turnover gap vs live (fit): -0.0%
+refresh@close, turnover-matched b=5.32%      fit             SR  0.74 ann  3.53% vol  4.77% turn   7.1 net5/15/30  0.67  0.52  0.29 flips no
+refresh@close, turnover-matched b=5.32%      live 13-06..22  SR  1.02 ann  6.66% vol  6.54% turn  13.4 net5/15/30  0.92  0.71  0.40 flips no
+refresh@close, turnover-matched b=5.32%      2015-19         SR  0.87 ann  5.82% vol  6.72% turn   7.8 net5/15/30  0.81  0.69  0.52 flips no
+refresh@close, turnover-matched b=5.32%      2020-22         SR  1.18 ann  8.02% vol  6.78% turn  21.5 net5/15/30  1.02  0.71  0.23 flips no
+   turnover gap vs live (fit): +0.0%
+refresh@open (yf), turnover-matched b=5.34%  fit             SR  0.65 ann  3.14% vol  4.80% turn   7.1 net5/15/30  0.58  0.43  0.21 flips no
+refresh@open (yf), turnover-matched b=5.34%  live 13-06..22  SR  0.90 ann  5.92% vol  6.59% turn  13.4 net5/15/30  0.80  0.59  0.29 flips no
+refresh@open (yf), turnover-matched b=5.34%  2015-19         SR  0.76 ann  5.08% vol  6.73% turn   8.0 net5/15/30  0.70  0.58  0.40 flips no
+refresh@open (yf), turnover-matched b=5.34%  2020-22         SR  0.90 ann  6.05% vol  6.73% turn  20.1 net5/15/30  0.75  0.45  0.01 flips no
+   turnover gap vs live (fit): +0.0%
+refresh@mid, turnover-matched b=5.21%        fit             SR  0.73 ann  3.50% vol  4.77% turn   7.1 net5/15/30  0.66  0.51  0.28 flips no
+refresh@mid, turnover-matched b=5.21%        live 13-06..22  SR  1.01 ann  6.60% vol  6.55% turn  13.4 net5/15/30  0.91  0.70  0.39 flips no
+refresh@mid, turnover-matched b=5.21%        2015-19         SR  0.85 ann  5.75% vol  6.72% turn   7.7 net5/15/30  0.80  0.68  0.51 flips no
+refresh@mid, turnover-matched b=5.21%        2020-22         SR  1.19 ann  8.08% vol  6.77% turn  21.5 net5/15/30  1.03  0.72  0.24 flips no
+   turnover gap vs live (fit): +0.0%
+  daily P&L diff vs live from 2013-06-21: refresh@close, live width                     +0.45%/yr  NW t +0.60
+  daily P&L diff vs live from 2013-06-21: refresh@open (yf), live width                 -0.43%/yr  NW t -0.82
+  daily P&L diff vs live from 2013-06-21: refresh@mid, live width                       +0.36%/yr  NW t +0.47
+  daily P&L diff vs live from 2013-06-21: INFEASIBLE shift(1) of live band              +1.51%/yr  NW t +2.36
+  daily P&L diff vs live from 2013-06-21: refresh@close, turnover-matched b=5.32%       +0.43%/yr  NW t +0.60
+  daily P&L diff vs live from 2013-06-21: refresh@open (yf), turnover-matched b=5.34%   -0.30%/yr  NW t -0.58
+  daily P&L diff vs live from 2013-06-21: refresh@mid, turnover-matched b=5.21%         +0.38%/yr  NW t +0.51
+PRICE returns live band (z_t, shift 2)            fit SR 0.68 turn 7.1
+PRICE returns refresh@close, live width           fit SR 0.75 turn 7.6
+
+=== Q4 by family: pooled slope, bp of r_{t+2} per unit signal (xs-demeaned), date-clustered t ===
+[DEPLOYED]
+  multi  n  4827  live   -5.70 (-3.75)  refresh   -6.51 (-4.62)  full   -7.99 (-5.18)  share of live->full gap recovered +0.35
+  hy     n  1586  live   -0.86 (-0.50)  refresh   -3.59 (-2.04)  full   -4.67 (-2.51)  share of live->full gap recovered +0.72
+  loan   n   411  live   -6.21 (-1.89)  refresh   -7.48 (-2.38)  full  -10.15 (-2.91)  share of live->full gap recovered +0.32
+  muni   n    87  live  -33.21 (-1.81)  refresh  -37.00 (-1.92)  full  -41.41 (-2.20)  share of live->full gap recovered +0.46
+  all    n  6911  live   -4.81 (-3.88)  refresh   -6.10 (-5.15)  full   -7.65 (-5.91)  share of live->full gap recovered +0.46
+[WIDE (context)]
+  multi  n 24966  live   -6.49 (-8.29)  refresh   -6.92 (-9.02)  full   -8.25 (-10.33)  share of live->full gap recovered +0.24
+  hy     n  9058  live   -6.52 (-6.82)  refresh   -6.99 (-7.59)  full   -8.45 (-8.83)  share of live->full gap recovered +0.24
+  loan   n  4529  live   -2.25 (-2.36)  refresh   -2.23 (-2.37)  full   -2.91 (-3.01)  share of live->full gap recovered -0.03
+  muni   n  9058  live   -6.68 (-6.15)  refresh   -5.12 (-4.72)  full   -6.88 (-6.08)  share of live->full gap recovered -7.53
+  all    n 47611  live   -5.89 (-9.91)  refresh   -5.81 (-9.97)  full   -7.16 (-11.69)  share of live->full gap recovered -0.06
+
+NAV freshness per name (2005-22): AC(1) of daily NAV return, sd bp; sd of (z_{t+1}-z'_{t+1}) = unpublished-NAV part
+  AWF  hy    NAV AC1 +0.24  NAVsd  44.3bp  sd(z-z') 0.165  sd(z_t+1 - z_t) 0.346
+  BIT  multi NAV AC1 +0.34  NAVsd  45.6bp  sd(z-z') 0.157  sd(z_t+1 - z_t) 0.299
+  DSL  multi NAV AC1 +0.43  NAVsd  46.6bp  sd(z-z') 0.160  sd(z_t+1 - z_t) 0.344
+  HYT  hy    NAV AC1 +0.34  NAVsd  49.6bp  sd(z-z') 0.195  sd(z_t+1 - z_t) 0.360
+  JFR  loan  NAV AC1 +0.41  NAVsd  43.6bp  sd(z-z') 0.114  sd(z_t+1 - z_t) 0.278
+  MHD  muni  NAV AC1 +0.49  NAVsd  40.6bp  sd(z-z') 0.140  sd(z_t+1 - z_t) 0.311
+  MQY  muni  NAV AC1 +0.51  NAVsd  43.3bp  sd(z-z') 0.168  sd(z_t+1 - z_t) 0.347
+  PCN  multi NAV AC1 +0.30  NAVsd  59.8bp  sd(z-z') 0.142  sd(z_t+1 - z_t) 0.331
+  PDI  multi NAV AC1 +0.23  NAVsd  44.8bp  sd(z-z') 0.154  sd(z_t+1 - z_t) 0.304
+  PDO  multi NAV AC1 +0.10  NAVsd  49.3bp  sd(z-z') 0.151  sd(z_t+1 - z_t) 0.297
+  PFN  multi NAV AC1 +0.05  NAVsd  80.0bp  sd(z-z') 0.163  sd(z_t+1 - z_t) 0.364
+  PHK  multi NAV AC1 +0.31  NAVsd  77.1bp  sd(z-z') 0.144  sd(z_t+1 - z_t) 0.308
+  PTY  multi NAV AC1 +0.26  NAVsd  64.8bp  sd(z-z') 0.136  sd(z_t+1 - z_t) 0.344

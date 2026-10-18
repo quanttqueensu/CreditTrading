@@ -1,0 +1,12 @@
+[DEPLOYED at t AND t+1] common name-days 6770
+  live z_t                 rankIC r_t+2 -0.0227 (NW t -1.58) diff +0.0000 (t +nan) | slope  -4.91bp/z (t -3.87) | H6 [t+2,t+3] ph0 -0.0284 (t -1.44) ph1 -0.0404
+  refresh close            rankIC r_t+2 -0.0272 (NW t -1.92) diff -0.0051 (t -0.99) | slope  -6.22bp/z (t -5.15) | H6 [t+2,t+3] ph0 -0.0354 (t -1.77) ph1 -0.0526
+  refresh mid              rankIC r_t+2 -0.0236 (NW t -1.65) diff -0.0016 (t -0.32) | slope  -5.98bp/z (t -4.94) | H6 [t+2,t+3] ph0 -0.0357 (t -1.77) ph1 -0.0502
+  refresh open             rankIC r_t+2 -0.0136 (NW t -0.97) diff +0.0090 (t +2.65) | slope  -4.32bp/z (t -3.43) | H6 [t+2,t+3] ph0 -0.0213 (t -1.07) ph1 -0.0422
+  full z_t+1 (infeasible)  rankIC r_t+2 -0.0359 (NW t -2.49) diff -0.0129 (t -2.35) | slope  -7.77bp/z (t -5.89) | H6 [t+2,t+3] ph0 -0.0472 (t -2.37) ph1 -0.0610
+[WIDE] common name-days 47617
+  live z_t                 rankIC r_t+2 -0.0462 (NW t -8.33) diff +0.0000 (t +nan) | slope  -5.89bp/z (t -9.91) | H6 [t+2,t+3] ph0 -0.0604 (t -7.79) ph1 -0.0617
+  refresh close            rankIC r_t+2 -0.0520 (NW t -9.49) diff -0.0056 (t -2.61) | slope  -5.81bp/z (t -9.97) | H6 [t+2,t+3] ph0 -0.0716 (t -9.18) ph1 -0.0674
+  refresh mid              rankIC r_t+2 -0.0464 (NW t -8.47) diff -0.0001 (t -0.03) | slope  -5.53bp/z (t -9.46) | H6 [t+2,t+3] ph0 -0.0675 (t -8.64) ph1 -0.0640
+  refresh open             rankIC r_t+2 -0.0411 (NW t -7.47) diff +0.0053 (t +3.81) | slope  -5.18bp/z (t -8.94) | H6 [t+2,t+3] ph0 -0.0554 (t -7.15) ph1 -0.0546
+  full z_t+1 (infeasible)  rankIC r_t+2 -0.0653 (NW t -11.83) diff -0.0190 (t -8.98) | slope  -7.16bp/z (t -11.69) | H6 [t+2,t+3] ph0 -0.0833 (t -10.71) ph1 -0.0826
