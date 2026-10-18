@@ -133,7 +133,134 @@ counter's N · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 9
 >     reading of amendment 2);
 >   - the correlation with the book over the holdout;
 >   - the ex-date split.
+
+> **AMENDMENT 4 — Team lead, 2026-10-16 (answered in session, the recommended
+> option each time; recorded 2026-10-18, before any holdout return).**
 >
+> 1. **Identity tolerance.** A daily move agrees with CRSP's if it is within
+>    **max(10bp, $0.01 / price)**, for every fund, in both the fit and the
+>    holdout. This supersedes amendment 3's $0.005 and is fixed before any
+>    holdout return.
+>    - Stage 0 under it (2026-10-18): the fit window passes for all 74
+>      (lowest PEO 0.9923); the holdout's 2023–24 CRSP leg passes for all 74
+>      (lowest TY 0.9920). All 105 pool funds pass both.
+>    - The fit is re-run under it before the holdout opens. If any fit
+>      number moves, the run stops and the holdout stays shut.
+> 2. **Disputed distributions.** Each disputed holdout ex-date resolves to
+>    **whichever amount, yfinance's (the declared source) or Alpaca's, a
+>    third source confirms.**
+>    - The third sources: a sponsor notice (press release or Section 19(a),
+>      allowed 2026-10-15), CEFConnect, or the ex-date NAV drop at amendment
+>      2's uniform tolerance.
+>    - **A sponsor notice decides when third sources conflict.** ADX
+>      2025-01-27 therefore resolves to $0.47: Adams and CEFConnect say $0.47,
+>      the NAV drop had matched Alpaca's $0.63.
+>    - **Any other conflict that no sponsor notice settles stops the run**
+>      before any holdout return.
+>    - **A fund is excluded only if one of its ex-dates confirms neither
+>      amount.**
+>    - Applied to all 71 disputed ex-dates. It supersedes amendment 2's
+>      "Alpaca only where confirmed" and amendment 3's fund exclusions.
+>    - Encoded as `resolve_distributions` / `ruled_actions` in
+>      `scripts/cef/c4_families.py`; `python3 scripts/cef/c4_families.py
+>      distributions` → `results/cef/c4/c4_distribution_resolution_2026-10-18.{csv,txt}`
+>      (amounts only; no return).
+>
+> **The result, fixed here:**
+>
+> | | ex-dates |
+> |---|---:|
+> | resolved to Alpaca's amount | 65 |
+> | resolved to yfinance's amount: ADX $0.47, PEO $0.53, BTX $0.087, IGA 2025-08-01 $0.085 and none on 08-04, NXG none on 2025-08-15 | 6 |
+> | decided by CEFConnect / CEFConnect and the NAV drop / a sponsor notice | 40 / 1 / 30 |
+> | of the sponsor's 30, conflicts it settles (ADX and all 20 IGR ex-dates) | 21 |
+> | conflicts no sponsor notice settles | **0** |
+> | ex-dates confirming neither amount | **0** |
+>
+> **No fund is excluded: the holdout book is the declared rule on all 74
+> frozen funds** (`c4_holdout_exclusions_2026-10-18.json`).
+>
+> **This run's readings, fixed before any holdout return** (each is the team
+> lead's to overrule):
+>
+> - **"Confirms" is numeric for every source**: within $0.001 per share.
+>   - CEFConnect "covered, no record" confirms the vendor that books nothing
+>     that day.
+>   - A sponsor notice that dates the distribution elsewhere states 0 for
+>     this date.
+>   - A notice that gives the date and no amount (IGA's calendar) confirms
+>     the vendor that books a distribution that day, when the other books
+>     none.
+> - **CEFConnect's IGR figures are read as confirming yfinance's.**
+>   CEFConnect's $0.18 is its post-split restatement, numerically yfinance's
+>   figure, so all 20 IGR ex-dates are conflicts. **All 20 are settled by
+>   IGR's own notices at $0.06 per pre-split share** (Alpaca's amount):
+>   - 18 by explicit Section 19(a) statements in its N-CSR (FY2025) and
+>     N-CSRS (FY2026);
+>   - July 2026 by the N-CSRS subsequent-events note: "the Trust paid a
+>     distribution on July 31, 2026 of $0.06 per share for the month of July
+>     2026";
+>   - **August 2026 (ex 2026-08-20) by the 8-K press release of 2026-08-25
+>     alone**: "the Fund's stable monthly distribution will be adjusted from
+>     $0.06 per share to $0.18 per share, beginning with the first
+>     distribution to be declared following the effective date of the
+>     reverse stock split". The August distribution went ex before the split
+>     took effect (after the close of 2026-09-04, the 8-K's EX-99.2), so it
+>     was declared before it, at $0.06. **That is this run's reading, not a
+>     named statement**; amendment 3 read the same document the same way for
+>     July 2026. The July 9, 2026 declaration release is on Business Wire,
+>     which refuses scripted requests, and the copy found on barchart.com
+>     returned no text. If the team lead rejects the reading, this row is a
+>     conflict no sponsor notice settles. **R-IGR below shows the holdout
+>     without IGR.**
+> - **The citations** (`c4_sponsor_notices_2026-10-18.csv`): the 24 of
+>   amendment 3, plus 8 for IGR.
+>   - Six come from documents already fetched on 2026-10-15. The N-CSRS
+>     main text is new.
+>   - Each row states an amount, not a verdict. A stated amount must occur
+>     in its own quote.
+>   - All 32 citations, from 14 documents, were re-fetched and verified at
+>     2026-10-18T22:36:48Z (`scripts/data/fetch_sponsor_notices.py`).
+>   - The EX-99.2 citation for July 2026 is kept with its amount blank: it
+>     states the July 9 declaration date, not the July amount.
+> - **The holdout book is the declared rule run continuously.**
+>   - `build_targets` runs on the full families panel. It is truncated at
+>     2026-09-30 before the band, the cap and `evaluate()`.
+>   - The band state carries over from 2022, as the live book's would.
+>     Nothing is estimated, so nothing is re-fitted.
+>   - The holdout P&L is the rows 2023-01-03 → 2026-09-30.
+>   - The run asserts that this book's rows through 2022-12-30 are the
+>     fit's, bit for bit, and that its fit-window P&L reproduces the
+>     committed fit.
+> - **The holdout returns:**
+>   - CRSP `ret`, 2023-01-03 → 2024-12-31;
+>   - from 2025-01-02, the declared yfinance formula on yfinance's actions
+>     with the 71 resolutions applied;
+>   - IGR's 2026-09-08 and 09-09 from Alpaca's split-adjusted bars
+>     (amendment 1).
+> - **A rehearsal before the opening.** `c4_families.py holdout --rehearse`
+>   runs the identical code with the window set to 2021-01-04 → 2022-12-30.
+>   - That is fit data, already seen. Its purpose is that the single real
+>     run cannot stop half-way on a code defect.
+>   - It writes only to the gitignored cache. No P&L row after 2022-12-30
+>     exists in it.
+>   - Its numbers are never reported as holdout numbers.
+> - **The ex-date window [0,2]** is amendment 3's definition, with 2025–26
+>   ex-dates from the resolved calendar. **Stage 9** is read as amendment 3
+>   reads it.
+> - **Reported beside the holdout, never deciding** (amendment 3's rows,
+>   plus two):
+>   - the uncorrected yfinance version;
+>   - **R-68**. No fund is excluded now. DMA and PTA, in the 68 but not the
+>     74, carry 9 disputed ex-dates that no ruling covers, so their
+>     yfinance amounts stand there, labelled;
+>   - R-ADX: ADX at Alpaca's $0.63;
+>   - **the amendment-3 book**: the 69 funds without ADX, BTX, IGA, NXG and
+>     PEO;
+>   - **R-IGR**: IGR excluded;
+>   - the correlation with the book over the holdout;
+>   - the ex-date split.
+
 > **Nothing has run.** No discount z-score, position, P&L, Sharpe, IC,
 > turnover or correlation of any family fund was computed to write this. The
 > only measurements are counts on the data: the pool, what each declared

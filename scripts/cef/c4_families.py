@@ -165,6 +165,16 @@ EXCLUSIONS_JSON = OUT_DIR / "c4_holdout_exclusions_2026-10-15.json"
 HOLDOUT_OUT = OUT_DIR / "c4_holdout_output_2026-10-15.txt"
 HOLDOUT_JSON = OUT_DIR / "c4_holdout_verdict_2026-10-15.json"
 EX_WINDOW = (0, 2)          # sessions from each ex-date: the beta-detector's [0,2] (amendment 3; report-only row)
+# Team lead, 2026-10-16 (PREREG amendment 4), ruling 2: each disputed ex-date resolves to whichever amount
+# a third source confirms (`resolve_distributions`). Its files, written 2026-10-18; the 2026-10-15 ones
+# above are the record of amendments 2 and 3 and are not rewritten.
+A4_STAMP = "2026-10-18"
+SPONSOR_CITATIONS_A4 = OUT_DIR / f"c4_sponsor_notices_{A4_STAMP}.csv"
+SPONSOR_VERIFIED_A4 = CACHE / f"sponsor_notices_verified_{A4_STAMP}.parquet"
+RESOLUTION_OUT = OUT_DIR / f"c4_distribution_resolution_{A4_STAMP}.txt"
+RESOLUTION_TABLE = OUT_DIR / f"c4_distribution_resolution_{A4_STAMP}.csv"
+EXCLUSIONS_A4 = OUT_DIR / f"c4_holdout_exclusions_{A4_STAMP}.json"
+PREREG = REPO / "results" / "cef" / "PREREG_C4_FAMILIES_2026-10-13.md"
 
 
 class GateError(RuntimeError):
@@ -254,10 +264,15 @@ def qqqx_rule(crsp: pd.DataFrame, px: pd.DataFrame) -> dict:
                 pred_last=q["date"].max())
 
 
-IDENTITY_MIN_AGREE, IDENTITY_TOL, IDENTITY_TICK = 0.99, 0.001, 0.005
+IDENTITY_MIN_AGREE, IDENTITY_TOL, IDENTITY_TICK = 0.99, 0.001, 0.01
 # 2026-10-15: >= 99% of days within 10bp (the review of 3be92cd); team lead, 2026-10-15 (amendment 3,
 # ruling 2): a day agrees within max(10bp, $0.005 / price), for every fund, fit and holdout, so a
 # half-cent CRSP print against a cent-rounded yfinance close on a sub-$5 fund is not a disagreement.
+# WIDENED, team lead 2026-10-16 (amendment 4, ruling 1): max(10bp, $0.01 / price), every fund, fit
+# and holdout. Half a cent was not enough: a half-cent rounding of CRSP's print at t-1 moves the
+# measured return by 0.005 * p_t / p_{t-1}^2, which sits at or just beyond 0.005 / p_{t-1}, so GCV,
+# GGN, GLO and GLV still failed the holdout's 2023-24 CRSP leg although every yfinance close of
+# theirs is within $0.005 of CRSP's print.
 CEF_SHRCD = {14, 44}
 
 
@@ -269,9 +284,9 @@ def crsp_identity(c: pd.DataFrame, px: pd.DataFrame, cols, lo, hi, raise_on_fail
     Over [lo, hi], for every fund in `cols` with CRSP rows there:
       * every row's share code is a CEF's (14, 44);
       * the daily PRICE MOVE agrees: |yfinance close_t / close_t-1 - 1 - CRSP retx_t| <=
-        max(10bp, $0.005 / CRSP print at t-1) on at least 99% of common days (CRSP closing prints
+        max(10bp, $0.01 / CRSP print at t-1) on at least 99% of common days (CRSP closing prints
         on t and t-1). The reviewer's 10bp, widened by the team lead's ruling of 2026-10-15 to
-        half a cent of price. It compares the price path, so a constant re-basing of yfinance's close (GLV's
+        half a cent of price and by the ruling of 2026-10-16 to one cent of price. It compares the price path, so a constant re-basing of yfinance's close (GLV's
         is 0.999 x CRSP's print through 2019) does not read as another security, and a wrong
         security (BTX's old map: 0 of 446) fails at once.
     Reported beside it, never deciding: the share of days the close LEVEL agrees within $0.005
@@ -307,7 +322,7 @@ def crsp_identity(c: pd.DataFrame, px: pd.DataFrame, cols, lo, hi, raise_on_fail
     tab["identity"] = ["FAIL" if (t in bad_sc or t in bad_mv) else "ok" for t in tab.index]
     if (bad_sc or bad_mv) and raise_on_fail:
         raise GateError(f"CRSP identity check {pd.Timestamp(lo).date()}..{pd.Timestamp(hi).date()}: share code not a "
-                        f"CEF's {bad_sc}; daily price move within max(10bp, $0.005/price) on < "
+                        f"CEF's {bad_sc}; daily price move within max(10bp, ${IDENTITY_TICK}/price) on < "
                         f"{IDENTITY_MIN_AGREE:.0%} of days {[(t, round(tab.loc[t, 'move_share'], 4)) for t in bad_mv]}")
     return tab
 
@@ -629,7 +644,7 @@ def stage0() -> int:
           f"{'USED' if qr['use_predecessor'] else 'NOT used; QQQX enters at ' + str(qr['current_first'].date())}")
 
     # the CRSP identity check (2026-10-15, after the review of 3be92cd found BTX on a biotech's permno)
-    print(f"  CRSP identity (daily price move vs CRSP retx within max(10bp, $0.005/price) on "
+    print(f"  CRSP identity (daily price move vs CRSP retx within max(10bp, ${IDENTITY_TICK}/price) on "
           f">= {IDENTITY_MIN_AGREE:.0%} of days, CEF share code); BTX on permno 20674 (BIGZ), the map's 76963 overridden:")
     idt = []
     for wl, lo, hi, halts in (("fit", SAMPLE_START, FIT_END, fit_halts),
@@ -754,15 +769,22 @@ def stage0() -> int:
             print(g.to_string())
             bad.to_csv(OUT_DIR / f"c4_yf_leg_distribution_disagreements_{STAMP}.csv", index=False)
             if len(bad):
-                if not DIST_TABLE.exists():
-                    ho_halts.append(f"yfinance-leg distributions: {len(bad)} disagreeing ex-dates; run "
-                                    "`c4_families.py distributions` (the 2026-10-14 ruling)")
+                if not RESOLUTION_TABLE.exists():
+                    ho_halts.append(f"yfinance-leg distributions: {len(bad)} disputed ex-dates; run "
+                                    "`c4_families.py distributions` (amendment 4, 2026-10-16)")
                 else:
-                    T = pd.read_csv(DIST_TABLE, parse_dates=["date"])
-                    ex = excluded_funds(T)
-                    print(f"  rulings of 2026-10-14 and 2026-10-15 ({DIST_TABLE.name}): "
-                          f"{int((~T['decision'].str.startswith('UNCONFIRMED')).sum())} of {len(T)} confirmed for Alpaca "
-                          f"{T['decision'].value_counts().to_dict()}; funds excluded from the holdout (amendment 3): {ex}")
+                    T = pd.read_csv(RESOLUTION_TABLE, parse_dates=["date"])
+                    key = lambda f: set(map(tuple, f[["ticker", "date"]].astype(str).values.tolist()))  # noqa: E731
+                    if key(T) != key(bad):
+                        ho_halts.append(f"{RESOLUTION_TABLE.name} does not cover today's disputed ex-dates; re-run "
+                                        "`c4_families.py distributions`")
+                    ex, stop = excluded_funds_a4(T), T[T["resolved"] == "STOP"]
+                    print(f"  amendment 4 (team lead, 2026-10-16; {RESOLUTION_TABLE.name}): resolved "
+                          f"{T['resolved'].value_counts().to_dict()}; decided by {T['decided_by'].value_counts().to_dict()}; "
+                          f"funds excluded from the holdout (an ex-date confirming neither amount): {ex or 'none'}")
+                    if len(stop):
+                        ho_halts.append(f"amendment 4: {len(stop)} disputed ex-dates whose third sources conflict with no "
+                                        f"sponsor notice to settle them: {stop[['ticker', 'date']].astype(str).values.tolist()}")
     if not FIT_REVIEWS_CONFIRMED:
         ho_halts.append("two independent reviews of the fit (3be92cd) have not yet confirmed it")
 
@@ -881,9 +903,140 @@ def holdout_actions(yf_actions: pd.DataFrame, table: pd.DataFrame, excluded=None
     return a.sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
+# --------------------------------------------------------------------------- amendment 4 (team lead, 2026-10-16)
+#
+# The ruling, verbatim in substance: each disputed holdout ex-date resolves to WHICHEVER amount,
+# yfinance's (the declared source) or Alpaca's, a third source confirms. The third sources are a
+# sponsor notice, CEFConnect, and the ex-date NAV drop at amendment 2's uniform tolerance. A
+# sponsor notice decides when the third sources conflict (ADX 2025-01-27: Adams and CEFConnect say
+# $0.47, the NAV drop matched Alpaca's $0.63 -> $0.47). Any OTHER conflict no sponsor notice
+# settles STOPS the run before any holdout return. A fund leaves the holdout only if one of its
+# ex-dates confirms NEITHER amount. This replaces amendment 2's "Alpaca only where confirmed" and
+# amendment 3's fund exclusions; `confirm_distributions` / `excluded_funds` / `holdout_actions`
+# stay as the record of those rulings and are no longer on the holdout's path.
+
+def _confirms(amount, A: float, Y: float) -> set:
+    """Which disputed amount a stated `amount` confirms, within DIV_TOL: a subset of
+    {'Alpaca', 'yfinance'}. A and Y are the two vendors' amounts, 0 where a vendor books none.
+    `amount` NaN means 'a distribution on this date, amount not stated', which confirms the side
+    that books one when the other books none. Both members back = the statement cannot tell the
+    two apart, and the caller treats it as confirming neither. Pure."""
+    if pd.isna(amount):
+        return ({"Alpaca"} if A > 0 else {"yfinance"}) if (A > 0) != (Y > 0) else set()
+    return {k for k, v in (("Alpaca", A), ("yfinance", Y)) if abs(float(amount) - v) <= DIV_TOL}
+
+
+def resolve_distributions(bad: pd.DataFrame, cc: pd.DataFrame, nav: pd.DataFrame, ex_dates: dict,
+                          sponsor: pd.DataFrame) -> pd.DataFrame:
+    """Amendment 4, one row per disputed (fund, ex-date). Pure.
+
+    `bad`, `cc`, `nav`, `ex_dates` as for `confirm_distributions`, whose CEFConnect and NAV-drop
+    readings (amendment 2's tolerances, unchanged) are reused. `sponsor` holds the verified
+    citations `ticker ex_date stated_amount` (fetch_sponsor_notices.py).
+
+    Each source confirms Alpaca's amount, yfinance's, or neither:
+      * CEFConnect: its amount on that ex-date within DIV_TOL of one vendor's; 'covered, no
+        record' (records within CC_ABSENCE_WINDOW_DAYS on both sides, none that day) confirms the
+        vendor that books nothing that day;
+      * the NAV drop: 'confirms Alpaca' or 'confirms yfinance, not Alpaca' (within NAV_K sigma of
+        one amount and more than NAV_K sigma from the other);
+      * a sponsor notice: its stated amount (`_confirms`). Two notices for one row that confirm
+        different amounts are a conflict no ruling settles -> STOP.
+    Resolution: a sponsor notice that confirms one amount decides, whatever the others say
+    (`conflict` records whether they disagreed). A sponsor notice present that confirms neither
+    is not covered by the ruling -> STOP. With no sponsor notice: one amount confirmed (by
+    either or both) -> that amount; both amounts confirmed, one by each -> STOP; none -> NEITHER
+    (the fund leaves the holdout). `resolved_amount` is the chosen vendor's amount, 0 for 'none'."""
+    base = confirm_distributions(bad, cc, nav, ex_dates)
+    one = lambda s: next(iter(s)) if len(s) == 1 else None  # noqa: E731
+    out = []
+    for r, b in zip(bad.itertuples(index=False), base.itertuples(index=False)):
+        A = 0.0 if pd.isna(r.alpaca) else float(r.alpaca)
+        Y = 0.0 if pd.isna(r.yfinance) else float(r.yfinance)
+        c = (_confirms(0.0, A, Y) if b.cefconnect_reads == "covered, no record" else
+             _confirms(b.cefconnect, A, Y) if pd.notna(b.cefconnect) else set())
+        n = {"confirms Alpaca": {"Alpaca"}, "confirms yfinance, not Alpaca": {"yfinance"}}.get(b.nav_reads, set())
+        sp = sponsor[(sponsor["ticker"] == r.ticker) & (sponsor["ex_date"] == r.date)]
+        sp_sets = [_confirms(a, A, Y) for a in sp["stated_amount"]]
+        sp_conf = {x for s in sp_sets if len(s) == 1 for x in s}
+        cs, ns = one(c), one(n)
+        if len(sp):
+            if len(sp_conf) > 1:
+                res, by, note = "STOP", "sponsor notices", "two sponsor notices confirm different amounts"
+            elif len(sp_conf) == 1:
+                res = one(sp_conf)
+                others = {k: v for k, v in (("CEFConnect", cs), ("NAV drop", ns)) if v is not None}
+                by = "sponsor" + (" (settles a conflict)" if any(v != res for v in others.values()) else "")
+                note = "; ".join(f"{k} confirms {v}" for k, v in others.items()) or "no other source confirms"
+            else:
+                res, by, note = "STOP", "sponsor notice", "a sponsor notice states neither amount"
+        else:
+            vals = {v for v in (cs, ns) if v is not None}
+            if len(vals) == 1:
+                res = one(vals)
+                by = " and ".join(k for k, v in (("CEFConnect", cs), ("NAV drop", ns)) if v == res)
+                note = ""
+            elif len(vals) == 2:
+                res, by, note = "STOP", "CEFConnect vs NAV drop", (f"CEFConnect confirms {cs}, the NAV drop {ns}, "
+                                                                     "and no sponsor notice settles it")
+            else:
+                res, by, note = "NEITHER", "", "no third source confirms either amount"
+        amt = A if res == "Alpaca" else Y if res == "yfinance" else np.nan
+        out.append(dict(ticker=r.ticker, date=r.date, yfinance=r.yfinance, alpaca=r.alpaca, cefconnect=b.cefconnect,
+                        cefconnect_reads=b.cefconnect_reads, cefconnect_confirms=cs or "",
+                        nav_reads=b.nav_reads, nav_confirms=ns or "",
+                        sponsor_stated=" ".join("blank" if pd.isna(a) else f"{a:g}" for a in sp["stated_amount"]),
+                        sponsor_confirms=one(sp_conf) or ("" if not len(sp) else "neither"),
+                        resolved=res, resolved_amount=amt, decided_by=by,
+                        conflict=bool(by.endswith("(settles a conflict)") or res == "STOP"), note=note))
+    return pd.DataFrame(out)
+
+
+def excluded_funds_a4(table: pd.DataFrame) -> list:
+    """Amendment 4: a fund leaves the holdout only if one of its ex-dates confirms neither amount. Pure."""
+    return sorted(set(table.loc[table["resolved"] == "NEITHER", "ticker"]))
+
+
+def ruled_actions(yf_actions: pd.DataFrame, table: pd.DataFrame, excluded=()) -> pd.DataFrame:
+    """The yfinance actions with amendment 4 applied: on each disputed ex-date of a fund in the
+    holdout, the resolved amount (Alpaca's or yfinance's; 0 removes a distribution, and a date
+    only Alpaca books is added when Alpaca's amount is the one confirmed). Splits untouched.
+    RAISES on any STOP row anywhere, and on a NEITHER row in a fund that is not excluded: the
+    holdout cannot use either. Rows of excluded funds are not applied. Pure."""
+    excluded = set(excluded)
+    stop = table[table["resolved"] == "STOP"]
+    if len(stop):
+        raise GateError(f"holdout halt (amendment 4): {len(stop)} disputed ex-dates whose third sources conflict "
+                        f"with no sponsor notice to settle them: {stop[['ticker', 'date']].astype(str).values.tolist()}")
+    nei = table[(table["resolved"] == "NEITHER") & ~table["ticker"].isin(excluded)]
+    if len(nei):
+        raise GateError(f"holdout halt: {len(nei)} ex-dates confirm neither amount in funds not excluded "
+                        f"{sorted(set(nei['ticker']))}")
+    a = yf_actions.copy()
+    a["date"] = pd.to_datetime(a["date"])
+    for r in table[~table["ticker"].isin(excluded)].itertuples(index=False):
+        if r.resolved not in ("Alpaca", "yfinance") or pd.isna(r.resolved_amount):
+            raise GateError(f"{r.ticker} {pd.Timestamp(r.date).date()}: no resolved amount ({r.resolved})")
+        m = (a["ticker"] == r.ticker) & (a["date"] == r.date)
+        if m.sum() > 1:
+            raise GateError(f"two yfinance action rows for {r.ticker} {pd.Timestamp(r.date).date()}")
+        if m.any():
+            a.loc[m, "dividends"] = float(r.resolved_amount)
+        elif r.resolved_amount > 0:
+            a = pd.concat([a, pd.DataFrame([dict(date=pd.Timestamp(r.date), ticker=r.ticker,
+                                                 dividends=float(r.resolved_amount), stock_splits=0.0)])],
+                          ignore_index=True)
+    return a.sort_values(["ticker", "date"]).reset_index(drop=True)
+
+
 def distributions() -> int:
-    """Fetch-free: apply the 2026-10-14 distribution ruling to the 71 disagreeing ex-dates.
-    Distribution amounts only; no return is computed."""
+    """Fetch-free: apply the distribution rulings to the disputed ex-dates. Distribution amounts
+    only; no return is computed.
+
+    Since 2026-10-18 this applies AMENDMENT 4 (team lead, 2026-10-16; `resolve_distributions`)
+    and writes RESOLUTION_TABLE / RESOLUTION_OUT / EXCLUSIONS_A4. The 2026-10-15 files
+    (DIST_TABLE, DIST_OUT, EXCLUSIONS_JSON: amendments 2 and 3) are not rewritten; they stay as
+    the record, and each row's amendment-3 decision is carried beside the new resolution."""
     U = universes()
     UF = U["frozen"]
     px, nav = load_panels(U["pool"])
@@ -898,53 +1051,56 @@ def distributions() -> int:
     acts["date"] = pd.to_datetime(acts["date"])
     exd = {t: set(acts[(acts["ticker"] == t) & (acts["dividends"] > 0)]["date"])
            | set(d for (tk, d) in alp["divs"].index if tk == t) for t in UF}
-    print(f"C4 DISTRIBUTION RULING (team lead, 2026-10-14), run {dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%M} UTC. "
-          f"Distribution amounts only; no return is computed; the holdout is NOT opened.")
-    print(f"  disagreeing ex-dates on the frozen 74 (yfinance leg 2025-01-02 -> 2026-09-30): {len(bad)} "
+    print(f"C4 DISTRIBUTION RESOLUTION (PREREG amendment 4, team lead 2026-10-16), run "
+          f"{dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%M} UTC. Distribution amounts only; no return is computed; "
+          f"the holdout is NOT opened.")
+    print(f"  disputed ex-dates on the frozen 74 (yfinance leg 2025-01-02 -> 2026-09-30): {len(bad)} "
           f"of {cl['dividend_rows']}; CEFConnect fetched {raw['fetched_utc'].iloc[0]} ({len(raw)} records, "
           f"{raw['ticker'].nunique()} funds); Alpaca fetched {alp['fetched']}")
-    print(f"  tolerances: CEFConnect = Alpaca within ${DIV_TOL} per share; NAV drop: |drop - A| <= {NAV_K:g} sigma and "
-          f"|drop - Y| > {NAV_K:g} sigma, sigma the sd of the fund's daily NAV changes over the {NAV_WIN} prior "
-          f"sessions (ex-dates and repeats excluded, at least {NAV_MIN_OBS}); NAV = the families yfinance NAV symbol")
-    # calibration: CEFConnect on the ex-dates where yfinance and Alpaca AGREE
-    yd = acts[(acts["dividends"] > 0) & acts["ticker"].isin(UF)].set_index(["ticker", "date"])["dividends"]
-    m = pd.concat([yd.rename("yf"), alp["divs"].rename("alp")], axis=1)
-    d = m.index.get_level_values(1)
-    m = m[(d >= YF_START) & (d <= HOLDOUT_END) & m.index.get_level_values(0).isin(UF)].dropna()
-    m = m[(m["yf"] - m["alp"]).abs() <= DIV_TOL].reset_index()
-    m.columns = ["ticker", "ex_date", "yf", "alp"]
-    j = m.merge(cc, on=["ticker", "ex_date"], how="left")
-    agree = int(((j["cc_amount"] - j["alp"]).abs() <= DIV_TOL).sum())
-    print(f"  calibration: on the {len(j)} ex-dates where yfinance and Alpaca agree, CEFConnect agrees on {agree}, "
-          f"differs on {int(((j['cc_amount'] - j['alp']).abs() > DIV_TOL).sum())}, has no record on "
-          f"{int(j['cc_amount'].isna().sum())}")
-    sp = pd.read_parquet(_need(SPONSOR_VERIFIED, "python3 scripts/data/fetch_sponsor_notices.py"))
+    print(f"  tolerances (amendment 2, unchanged): a stated amount equals a vendor's within ${DIV_TOL} per share; NAV drop: "
+          f"within {NAV_K:g} sigma of one amount and more than {NAV_K:g} sigma from the other, sigma the sd of the fund's "
+          f"daily NAV changes over the {NAV_WIN} prior sessions (ex-dates and repeats excluded, at least {NAV_MIN_OBS})")
+    sp = pd.read_parquet(_need(SPONSOR_VERIFIED_A4, "python3 scripts/data/fetch_sponsor_notices.py"))
     if not sp["quote_found"].all():
         raise GateError("a sponsor citation's quote was not found in its document")
     sp["ex_date"] = pd.to_datetime(sp["ex_date"])
-    print(f"  sponsor notices (amendment 3): {len(sp)} verified citations from {sp['url'].nunique()} documents, "
-          f"fetched {sp['fetched_utc'].iloc[0]} ({SPONSOR_CITATIONS.name}); every quote found in its document")
-    T = confirm_distributions(bad, cc, navp, exd, sponsor=sp[["ticker", "ex_date", "verdict"]])
-    T.to_csv(DIST_TABLE, index=False)
-    ex = excluded_funds(T)
-    EXCLUSIONS_JSON.write_text(json.dumps(dict(
-        rule="PREREG amendment 3 (team lead, 2026-10-15): a fund with any unconfirmed disagreeing ex-date is "
-             "excluded from the holdout entirely", excluded=ex,
-        reasons={t: T.loc[(T["ticker"] == t) & T["decision"].str.startswith("UNCONFIRMED"),
-                          ["date", "decision"]].assign(date=lambda x: x["date"].dt.date.astype(str)).values.tolist()
-                 for t in ex}), indent=1))
-    pd.set_option("display.width", 250)
-    print("\n" + T.assign(date=T["date"].dt.date).to_string(index=False, float_format=lambda x: f"{x:.4f}"))
-    print("\n  by fund and decision:")
-    print(T.groupby(["ticker", "decision"]).size().unstack(fill_value=0).to_string())
-    print("\n  CEFConnect's reading of the 71:", T["cefconnect_reads"].value_counts().to_dict())
-    print("  NAV-drop reading of the 71:", T["nav_reads"].value_counts().to_dict())
-    un = T[T["decision"].str.startswith("UNCONFIRMED")]
+    cit = pd.read_csv(SPONSOR_CITATIONS_A4)
+    if len(cit) != len(sp) or set(cit["url"]) != set(sp["url"]):
+        raise GateError(f"{SPONSOR_VERIFIED_A4.name} is not the verification of {SPONSOR_CITATIONS_A4.name}; re-run the fetcher")
+    print(f"  sponsor notices: {len(sp)} verified citations from {sp['url'].nunique()} documents, fetched "
+          f"{sp['fetched_utc'].iloc[0]} ({SPONSOR_CITATIONS_A4.name}); every quote, and every stated amount, found in its document")
+    T = resolve_distributions(bad, cc, navp, exd, sponsor=sp[["ticker", "ex_date", "stated_amount"]])
+    old = pd.read_csv(DIST_TABLE, parse_dates=["date"])[["ticker", "date", "decision"]]
+    T = T.merge(old.rename(columns={"decision": "amendment3_decision"}), on=["ticker", "date"], how="left")
+    if T["amendment3_decision"].isna().any() or len(T) != len(old):
+        raise GateError("the disputed ex-dates differ from the 2026-10-15 table's")
+    T.to_csv(RESOLUTION_TABLE, index=False)
+    ex = excluded_funds_a4(T)
+    stop = T[T["resolved"] == "STOP"]
+    EXCLUSIONS_A4.write_text(json.dumps(dict(
+        rule="PREREG amendment 4 (team lead, 2026-10-16): a fund is excluded from the holdout only if one of its "
+             "disputed ex-dates confirms neither amount", excluded=ex,
+        reasons={t: T.loc[(T["ticker"] == t) & (T["resolved"] == "NEITHER"), "date"].dt.date.astype(str).tolist() for t in ex},
+        stop=stop[["ticker", "date"]].assign(date=lambda x: x["date"].dt.date.astype(str)).values.tolist()), indent=1))
+    pd.set_option("display.width", 300)
+    cols = ["ticker", "date", "yfinance", "alpaca", "cefconnect", "cefconnect_confirms", "nav_reads", "sponsor_stated",
+            "resolved", "resolved_amount", "decided_by", "amendment3_decision"]
+    print("\n" + T[cols].assign(date=T["date"].dt.date).to_string(index=False, float_format=lambda x: f"{x:.4f}"))
+    print("\n  by fund and resolution:")
+    print(T.groupby(["ticker", "resolved"]).size().unstack(fill_value=0).to_string())
+    print("\n  decided by:", T["decided_by"].value_counts().to_dict())
+    print("  conflicts among third sources:", int(T["conflict"].sum()), "-- each settled by a sponsor notice" if not len(stop)
+          else f"-- {len(stop)} NOT settled")
+    for r in T[T["conflict"]].itertuples():
+        print(f"    {r.ticker} {r.date.date()}: {r.resolved} ({r.decided_by}); {r.note}")
     print("\n" + "=" * 100)
-    print(f"CONFIRMED for Alpaca: {len(T) - len(un)} of {len(T)} ({T['decision'].value_counts().to_dict()})")
-    print(f"EXCLUDED FROM THE HOLDOUT (amendment 3, a fund with any unconfirmed ex-date): {ex or 'none'} "
-          f"({un.groupby('ticker').size().to_dict()}); the holdout universe is the {len(UF) - len(ex)} other frozen funds")
-    print(f"HOLDOUT GATE (fit reviews): {'CLEAR' if FIT_REVIEWS_CONFIRMED else 'HALT -- two independent reviews of the fit (3be92cd) are pending'}")
+    print(f"RESOLVED: {int(T['resolved'].isin(['Alpaca', 'yfinance']).sum())} of {len(T)} "
+          f"({T['resolved'].value_counts().to_dict()})")
+    print(f"EXCLUDED FROM THE HOLDOUT (amendment 4: an ex-date confirming neither amount): {ex or 'none'}; the holdout "
+          f"universe is the {len(UF) - len(ex)} frozen funds left")
+    print("HOLDOUT GATE (distributions): " + ("CLEAR" if not len(stop) else
+          f"HALT -- {len(stop)} conflicts no sponsor notice settles: {stop[['ticker', 'date']].astype(str).values.tolist()}"))
+    print(f"HOLDOUT GATE (fit reviews): {'CLEAR' if FIT_REVIEWS_CONFIRMED else 'HALT'}")
     return 0
 
 
@@ -1529,7 +1685,7 @@ def main(argv=None) -> int:
     fn = dict(stage0=stage0, fit=fit, distributions=distributions, holdout=holdout)[a.stage]
     with contextlib.redirect_stdout(Tee()):
         rc = fn()
-    target = dict(stage0=STAGE0_OUT, fit=FIT_OUT, distributions=DIST_OUT).get(a.stage)
+    target = dict(stage0=STAGE0_OUT, fit=FIT_OUT, distributions=RESOLUTION_OUT).get(a.stage)
     if target is not None:
         target.write_text(buf.getvalue())
     return rc

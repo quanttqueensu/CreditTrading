@@ -27,6 +27,20 @@ adamsfunds.com) are fetched with a plain read-only GET; a PDF is read with
 pypdf. Business Wire refuses scripted requests (HTTP 403, 2026-10-15), so no
 citation here depends on it. Raw documents are cached under the gitignored
 `results/cef/c4/_cache_c4/sponsor_notices/` with the fetch time and SHA-256.
+
+AMENDMENT 4 (team lead, 2026-10-16; this file changed 2026-10-18). The ruling
+no longer asks whether a notice confirms ALPACA: each disputed ex-date resolves
+to whichever amount, yfinance's or Alpaca's, a third source confirms, and a
+sponsor notice decides when the third sources conflict. So the citation table
+(now `c4_sponsor_notices_2026-10-18.csv`; the 2026-10-15 table is kept as the
+record of amendment 3) carries what each notice STATES, `stated_amount`, in
+place of a hand-written verdict, and `c4_families.resolve_distributions`
+compares it with both vendors' amounts. `stated_amount` is the per-share
+amount the quote gives for that fund and ex-date; 0 where the notice puts the
+distribution on another date; blank where the quote gives the date but no
+amount. A stated amount above zero must itself occur in the quote (trailing
+zeros allowed), so a number cannot enter the table that its own citation does
+not show.
 """
 from __future__ import annotations
 
@@ -45,11 +59,10 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-CITATIONS = REPO / "results" / "cef" / "c4" / "c4_sponsor_notices_2026-10-15.csv"
+CITATIONS = REPO / "results" / "cef" / "c4" / "c4_sponsor_notices_2026-10-18.csv"
 CACHE = REPO / "results" / "cef" / "c4" / "_cache_c4" / "sponsor_notices"
-VERIFIED = REPO / "results" / "cef" / "c4" / "_cache_c4" / "sponsor_notices_verified.parquet"
+VERIFIED = REPO / "results" / "cef" / "c4" / "_cache_c4" / "sponsor_notices_verified_2026-10-18.parquet"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-VERDICTS = {"confirms Alpaca", "contradicts Alpaca"}
 
 
 class NoticeError(RuntimeError):
@@ -66,6 +79,15 @@ def normalise(text: str) -> str:
 
 def quote_found(quote: str, text: str) -> bool:
     return normalise(quote) in normalise(text)
+
+
+def amount_in_quote(amount: float, quote: str) -> bool:
+    """A stated amount above zero occurs in its own quote as a decimal (0.113 matches '$0.1130',
+    not '0.1135'); zero and blank state no number and pass. Pure."""
+    if pd.isna(amount) or amount == 0:
+        return True
+    s = f"{amount:.6f}".rstrip("0")
+    return re.search(r"(?<![\d.])" + re.escape(s) + r"0*(?![\d])", normalise(quote)) is not None
 
 
 def fetch(url: str, edgar) -> tuple[bytes, str]:
@@ -89,9 +111,12 @@ def fetch(url: str, edgar) -> tuple[bytes, str]:
 def main(argv=None) -> int:
     from scripts.data.edgar_client import EdgarClient
     cit = pd.read_csv(CITATIONS)
-    bad = sorted(set(cit["verdict"]) - VERDICTS)
-    if bad:
-        raise NoticeError(f"unknown verdicts {bad}")
+    if "stated_amount" not in cit.columns or (cit["stated_amount"].dropna() < 0).any():
+        raise NoticeError(f"{CITATIONS.name}: every row needs a stated_amount (>= 0, or blank)")
+    noamt = cit[[not amount_in_quote(a, q) for a, q in zip(cit["stated_amount"], cit["quote"])]]
+    if len(noamt):
+        raise NoticeError(f"stated amounts that do not occur in their own quotes: "
+                          f"{noamt[['ticker', 'ex_date', 'stated_amount']].to_dict('records')}")
     edgar = EdgarClient()
     CACHE.mkdir(parents=True, exist_ok=True)
     t = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -105,7 +130,7 @@ def main(argv=None) -> int:
         text, h = docs[r.url]
         ok = quote_found(r.quote, text)
         out.append(dict(r._asdict(), quote_found=ok, sha256=h, fetched_utc=t))
-        print(f"{r.ticker} {r.ex_date} {r.verdict:<19} quote {'FOUND' if ok else 'NOT FOUND'}  {r.url}")
+        print(f"{r.ticker} {r.ex_date} states {r.stated_amount!s:<8} quote {'FOUND' if ok else 'NOT FOUND'}  {r.url}")
     o = pd.DataFrame(out)
     missing = o[~o["quote_found"]]
     if len(missing):

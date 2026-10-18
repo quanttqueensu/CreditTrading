@@ -199,3 +199,122 @@ def test_identity_tolerance_is_half_a_cent_of_price_on_a_low_priced_fund():
     acts = pd.DataFrame(columns=["date", "ticker", "dividends", "stock_splits"])
     tab = c4.crsp_identity(crsp, px, ["GGN"], idx[0], idx[-1], raise_on_fail=False, acts=acts)
     assert tab.loc["GGN", "move_share"] > 0.4                              # the 10bp floor alone would fail every move
+
+
+# --- amendment 4 (team lead, 2026-10-16): the identity tolerance and the distribution resolution ---
+
+def test_identity_tolerance_is_one_cent_of_price():
+    """CRSP prints 3.795 where yfinance rounds to 3.80; the next day both read 3.81. The move differs
+    by 13.2bp, beyond max(10bp, $0.005/3.795) = 13.18bp but inside $0.01/3.795 = 26.4bp. Fails at the
+    2026-10-15 half cent; passes at the 2026-10-16 one cent."""
+    idx = pd.bdate_range("2023-01-02", periods=200)
+    p = np.where(np.arange(200) % 2 == 0, 3.795, 3.81)
+    crsp = pd.DataFrame(dict(date=idx, ticker="GGN", prc=p, retx=pd.Series(p).pct_change().to_numpy(), shrcd=44))
+    px = pd.DataFrame(dict(date=idx, ticker="GGN", close=np.where(p < 3.8, 3.80, 3.81)))
+    acts = pd.DataFrame(columns=["date", "ticker", "dividends", "stock_splits"])
+    assert c4.IDENTITY_TICK == 0.01
+    tab = c4.crsp_identity(crsp, px, ["GGN"], idx[0], idx[-1], acts=acts)
+    assert tab.loc["GGN", "identity"] == "ok" and tab.loc["GGN", "move_share"] == 1.0
+
+
+def _sp(rows):
+    return pd.DataFrame(rows, columns=["ticker", "ex_date", "stated_amount"])
+
+
+_NO_CC = pd.DataFrame(columns=["ticker", "ex_date", "cc_amount", "cc_records"])
+
+
+def _nav_drop(amount, step=0.01):
+    nav = _nav(step=step)
+    d = nav.index[70]
+    nav.loc[d:, "X"] -= amount
+    return nav, d
+
+
+def test_a_sponsor_notice_settles_a_conflict_with_the_nav_drop_adx():
+    """The team lead's example: Adams and CEFConnect say $0.47 (yfinance), the NAV drop matched Alpaca's $0.63."""
+    nav, d = _nav_drop(0.63)
+    bad = pd.DataFrame(dict(ticker=["X"], date=[d], yfinance=[0.47], alpaca=[0.63]))
+    cc = pd.DataFrame(dict(ticker=["X"], ex_date=[d], cc_amount=[0.47], cc_records=[1]))
+    T = c4.resolve_distributions(bad, cc, nav, {"X": set()}, _sp([("X", d, 0.47)]))
+    assert T.loc[0, "nav_confirms"] == "Alpaca" and T.loc[0, "cefconnect_confirms"] == "yfinance"
+    assert T.loc[0, "resolved"] == "yfinance" and T.loc[0, "resolved_amount"] == 0.47
+    assert T.loc[0, "decided_by"] == "sponsor (settles a conflict)" and bool(T.loc[0, "conflict"])
+    assert c4.excluded_funds_a4(T) == []
+
+
+def test_cefconnect_against_the_nav_drop_with_no_sponsor_notice_stops():
+    nav, d = _nav_drop(0.06)
+    bad = pd.DataFrame(dict(ticker=["X"], date=[d], yfinance=[0.18], alpaca=[0.06]))
+    cc = pd.DataFrame(dict(ticker=["X"], ex_date=[d], cc_amount=[0.18], cc_records=[1]))
+    T = c4.resolve_distributions(bad, cc, nav, {"X": set()}, _sp([]))
+    assert T.loc[0, "resolved"] == "STOP"
+    acts = pd.DataFrame(dict(date=[d], ticker=["X"], dividends=[0.18], stock_splits=[0.0]))
+    with pytest.raises(c4.GateError, match="conflict"):
+        c4.ruled_actions(acts, T)
+    with pytest.raises(c4.GateError, match="conflict"):
+        c4.ruled_actions(acts, T, excluded=["X"])           # a STOP is never excused by exclusion
+
+
+def test_an_ex_date_confirming_neither_amount_excludes_the_fund_and_nothing_else_does():
+    nav = _nav()
+    d = nav.index[70]
+    nav.loc[d, "X"] = nav.loc[nav.index[69], "X"]                     # NAV repeated: the NAV drop is unusable
+    bad = pd.DataFrame(dict(ticker=["X", "Y"], date=[d, d], yfinance=[0.18, 0.53], alpaca=[0.06, 0.59]))
+    cc = pd.DataFrame(dict(ticker=["Y"], ex_date=[d], cc_amount=[0.53], cc_records=[1]))
+    T = c4.resolve_distributions(bad, cc, nav.assign(Y=nav["X"]), {"X": set(), "Y": set()}, _sp([]))
+    assert T.loc[0, "resolved"] == "NEITHER" and T.loc[1, "resolved"] == "yfinance"
+    assert c4.excluded_funds_a4(T) == ["X"]
+    acts = pd.DataFrame(dict(date=[d, d], ticker=["X", "Y"], dividends=[0.18, 0.53], stock_splits=[0.0, 0.0]))
+    with pytest.raises(c4.GateError, match="neither"):
+        c4.ruled_actions(acts, T)
+    out = c4.ruled_actions(acts, T, excluded=["X"])
+    assert out.loc[out.ticker == "Y", "dividends"].item() == 0.53
+
+
+def test_absences_resolve_to_the_vendor_that_books_nothing_iga_nxg():
+    """IGA: the sponsor's calendar puts the distribution on 08-01 (yfinance's date, no amount quoted) and
+    none on 08-04 (Alpaca's); CEFConnect has no record on 08-04 inside its coverage."""
+    nav = _nav()
+    d1, d2 = nav.index[60], nav.index[61]
+    bad = pd.DataFrame(dict(ticker=["X", "X"], date=[d1, d2], yfinance=[0.085, np.nan], alpaca=[np.nan, 0.085]))
+    cc = pd.DataFrame(dict(ticker=["X", "X", "X"], ex_date=[d1, nav.index[40], nav.index[78]],
+                           cc_amount=[0.085, 0.085, 0.085], cc_records=[1, 1, 1]))
+    T = c4.resolve_distributions(bad, cc, nav, {"X": set()}, _sp([("X", d1, np.nan), ("X", d2, 0.0)]))
+    assert list(T["resolved"]) == ["yfinance", "yfinance"] and list(T["resolved_amount"]) == [0.085, 0.0]
+    assert T.loc[1, "cefconnect_confirms"] == "yfinance"
+    acts = pd.DataFrame(dict(date=[d1], ticker=["X"], dividends=[0.085], stock_splits=[0.0]))
+    out = c4.ruled_actions(acts, T)
+    assert len(out) == 1 and out["dividends"].item() == 0.085           # 08-04 is not added
+
+
+def test_ruled_actions_take_the_resolved_amount_of_either_vendor():
+    nav = _nav()
+    d1, d2 = nav.index[60], nav.index[65]
+    bad = pd.DataFrame(dict(ticker=["X", "X"], date=[d1, d2], yfinance=[0.18, 0.47], alpaca=[0.06, 0.63]))
+    cc = pd.DataFrame(dict(ticker=["X"], ex_date=[d2], cc_amount=[0.47], cc_records=[1]))
+    T = c4.resolve_distributions(bad, cc, nav, {"X": set()}, _sp([("X", d1, 0.06)]))
+    assert list(T["resolved"]) == ["Alpaca", "yfinance"] and list(T["decided_by"]) == ["sponsor", "CEFConnect"]
+    acts = pd.DataFrame(dict(date=[d1, d2, nav.index[70]], ticker=["X", "X", "X"], dividends=[0.18, 0.47, 0.0],
+                             stock_splits=[0.0, 0.0, 1 / 3]))
+    out = c4.ruled_actions(acts, T)
+    assert list(out["dividends"]) == [0.06, 0.47, 0.0] and out["stock_splits"].iloc[2] == pytest.approx(1 / 3)
+
+
+def test_two_sponsor_notices_that_disagree_stop_and_a_notice_stating_neither_stops():
+    nav = _nav()
+    d = nav.index[70]
+    bad = pd.DataFrame(dict(ticker=["X"], date=[d], yfinance=[0.18], alpaca=[0.06]))
+    T = c4.resolve_distributions(bad, _NO_CC, nav, {"X": set()}, _sp([("X", d, 0.06), ("X", d, 0.18)]))
+    assert T.loc[0, "resolved"] == "STOP"
+    T2 = c4.resolve_distributions(bad, _NO_CC, nav, {"X": set()}, _sp([("X", d, 0.10)]))
+    assert T2.loc[0, "resolved"] == "STOP" and T2.loc[0, "sponsor_confirms"] == "neither"
+
+
+def test_a_stated_amount_must_occur_in_its_own_quote():
+    from scripts.data.fetch_sponsor_notices import amount_in_quote
+    assert amount_in_quote(0.113, "Distribution Per Share ... $0.1130")
+    assert not amount_in_quote(0.113, "Distribution Per Share ... $0.1135")
+    assert amount_in_quote(0.06, "distributions of $0.06 per share for the months of")
+    assert not amount_in_quote(0.06, "a distribution of $0.065 per share") and not amount_in_quote(0.06, "$10.06")
+    assert amount_in_quote(0.0, "no number") and amount_in_quote(np.nan, "no number")
