@@ -1,0 +1,101 @@
+{
+ "today": "2026-10-18",
+ "index_last_filing_date": "2026-10-16",
+ "exclusions": {
+  "anchored_deals_2010_plus": 4836,
+  "not_listed": 635,
+  "blank_check_sic_6770_or_name": 350,
+  "blank_check_by_name_only": 128,
+  "in_scope": 3851,
+  "in_scope_target_registered": 182,
+  "in_scope_target_registered_not_completed": 51,
+  "fund_ciks_excluded_before_assembly": 8258,
+  "target_rule": {
+   "single": 3769,
+   "non_registrant": 40,
+   "target_ambiguous": 26,
+   "delisted": 16
+  },
+  "doc_source": {
+   "8-K 1.01": 2909,
+   "8-K 1.01 (wide)": 683,
+   "SC 14D9": 133,
+   "none": 86,
+   "425": 40
+  },
+  "year_shift_if_8k_date": 60,
+  "median_days_8k_before_d0": 0.0
+ },
+ "crsp_match": {
+  "edgar_completed_to_2024": 2896,
+  "matched": 2303
+ },
+ "ibkr_file_stamp": "2026-10-16 23:47:26",
+ "pending": {
+  "n": 151,
+  "by_class": {
+   "cash": 79,
+   "stock": 28,
+   "stock_involved_unsplit": 26,
+   "mixed": 8,
+   "conflict_cash_stock": 6,
+   "conflict_stock_cash": 2,
+   "conflict_cash_mixed": 2
+  },
+  "by_source": {
+   "anchored": 119,
+   "425 target_only": 24,
+   "425 pair": 8
+  },
+  "components": 307,
+  "funnel": {
+   "unresolved: no registrant yet": 16,
+   "acquirer_only": 85,
+   "pair": 16,
+   "skip": 154,
+   "target_only": 33,
+   "unresolved: 2 registrants": 3,
+   "target not listed today": 15,
+   "target delisted since its first 425 (completed)": 2,
+   "terminated (8-K 1.02 naming a merger agreement)": 7
+  },
+  "stock_involved": 64,
+  "stock_involved_with_listed_acquirer": 25,
+  "stock_involved_stale": 12,
+  "live_acquirers": 47
+ },
+ "sample_n": 20,
+ "sample_read": 20,
+ "sample_frozen": true,
+ "sample_rule_today": [
+  "0001140361-26-037107",
+  "0000950103-26-013874",
+  "0001104659-26-114571",
+  "0001104659-26-103936",
+  "0001193125-26-406024",
+  "0001193125-26-341431",
+  "0001104659-26-106499",
+  "0001193125-26-290439",
+  "0001609151-26-000100",
+  "0001104659-26-085824",
+  "0001140361-26-035986",
+  "0001193125-26-384457",
+  "0001140361-26-031930",
+  "0001104659-26-089425",
+  "0001493152-26-035196",
+  "0001628280-26-049232",
+  "0001193125-26-310388",
+  "0001104659-26-083891",
+  "0001104659-26-078482",
+  "0001140361-26-026434"
+ ],
+ "sample_roles": {
+  "target": 16,
+  "acquirer": 2,
+  "wrong_document": 1,
+  "reorganisation": 1
+ },
+ "sample_targets_all_fields_agree": 0,
+ "sample_drift_vs_rule_today": [],
+ "edgar_requests": 0
+}

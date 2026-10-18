@@ -185,9 +185,9 @@ why `W4_artifact_battery.md` runs before any further trial.
 | **VIXHY and VIXIG** (CDX-based credit volatility indices) launched **13 Oct 2023**; VIXHY rose 240.09 → 394.15 between 2 and 20 Mar 2023 | Cboe / S&P DJI press release | [V] |
 | Cboe IBHY/IBIG options on iBoxx futures: IBHY OI **$1.2bn (May 2025, 4.5× YoY)**, IBIG ~$598m; average bid/offer **0.05% of futures price**; $1,000 multiplier, $0.01 tick. Cboe's stated rationale includes *"dividend incorporation reducing early exercise risk"* relative to ETF options | Cboe product pages; ETF Express (Jul 2025); fi-desk.com | [V] |
 | **IBKR paper trading fills options at the displayed price, top of book, no market impact, and does not support penny-increment option fills** | IBKR Campus documentation | [S] |
-| Options permission level 2 covers long calls/puts and straddles; level 3 defined-risk spreads; level 4 uncovered | IBKR options-permissions docs | [S] |
+| Options permission level 2 covers long calls/puts and straddles; level 3 defined-risk spreads; level 4 uncovered. *Re-read 2026-10-18 (§12ss5): level 3 is "strategies that have limited maximum potential loss such as short puts and short, long or unbalanced butterflies"; level 4 "all options strategies"* | IBKR options-permissions docs (`/en/trading/products-options.php`) | [S]; **[V] 2026-10-18, §12ss5** |
 | OCC exercise-by-exception threshold is **$0.01 in-the-money** at expiration | OCC / Cboe regulatory circular | [S] |
-| OPRA US options data is a separate subscription; ~$10/month for non-professionals, waived at $30 monthly commissions | IBKR market-data pricing | [S] |
+| OPRA US options data is a separate subscription; ~$10/month for non-professionals, waived at $30 monthly commissions. **CORRECTED 2026-10-18 (§12ss5): the OPRA Top of Book (L1) line is USD 1.50/month non-professional, waived at USD 20 of monthly commissions, and USD 32.75 professional; USD 10 waived at USD 30 is the US Securities Snapshot and Futures Value Bundle** | IBKR market-data pricing | [S]; **corrected [V] 2026-10-18** |
 | HYG's average absolute stated premium/discount to NAV rose from **0.21% (Jan–Feb 2020) to 1.06% (Mar–Apr 2020)**; intraday deviation reached −5% to −8% around 18–19 Mar 2020 | BlackRock EII, "Pricing and Liquidity of Fixed Income ETFs in the Covid-19 Crisis" (Jul 2020) | [S] — sponsor research, not independent |
 | IG corporate bond ETFs averaged a **3.4% discount to NAV in mid-March 2020, some exceeding 8%** | SEC Fixed Income Advisory Committee / IOSCO COVID reports | [U] on the exact figure |
 | **CEF discounts widened by more than 1,600bp during March 2020**; average CEF discount since 2005 ~14.3%, 19.2% at the March 2009 extreme | Calamos, citing CEF universe data | [S] |
@@ -979,3 +979,75 @@ its `docs/SYSTEM.md` §5 ruling. Report only; zero trials. Every figure re-runs 
 | **The second trigger (NAV(D) = CEFConnect's NAV(D−1)) adds no name in the live period**: yfinance as served now equals CEFConnect there. **On the local panel as captured 2026-09-28 it catches PDI** (09-25 = 15.06 against a previous row of 15.12; CEFConnect 09-24 = 15.06, 09-25 = 15.10), with DSL (11.11 = 11.11, CEFConnect 11.10) and BIT (a genuine repeat) | `nav_gate_replay.py` (`panel_capture_check`): the gate's own `judge` on `data/cef/cef_nav.parquet`, read-only | [V] |
 | **Double-checks**: CEFConnect's D as served 2026-10-13 equals the 2026-10-12 read on all 104 (date, name) pairs; yfinance as served 2026-10-13 equals the note's NAV(D) and NAV(D−1) on all 104 rows | same script | [V] |
 | *Superseded design, kept as the record of why it changed:* **Replay of the 2026-10-13 stale-NAV gate** on the laptop's decides (as-of 2026-09-28 → 2026-10-07). Five evening decides had CEFConnect's state measured by the collector, and all five found no CEFConnect row for D. There, the drop rule drops every repeat: 2–9 identified repeats an evening (up to 11 counting names whose decide-time NAV the printed z cannot identify). On 2026-10-05 (decided 00:00 ET) that is 9 names, leaving 4 eligible, below `min_names`. The one decide made when CEFConnect had the row (2026-10-01, 12:00 ET on D+1) replaces 5 and drops none. CEFConnect as served 2026-10-13 equals the 2026-10-12 read on all 66 values compared; yfinance as served 2026-10-13 equals the note's NAV(D) and NAV(D−1) on all 104 rows | `scripts/data/nav_gate_replay.py` as of commit 200f1d1 (`git show 200f1d1:scripts/data/nav_gate_replay.py`), with the note's `live_period` table (z inversion), CEFConnect and yfinance fetched 2026-10-13T22:40Z | [V] on the laptop's decides; the assumption that the panel's D−1 row at decide time was yfinance's final NAV(D−1) is [U] |
+
+### 12ss5. Equity merger arbitrage, and IBKR as a second broker (added 2026-10-18)
+
+The sources behind `results/events/MERGER_ARB_AND_IBKR_2026-10-15.md` (special-situations
+sprint job 5; zero trials; begun 2026-10-15, finished 2026-10-18). Every data row
+re-runs from `python3 scripts/events/merger_arb_feasibility.py --today 2026-10-18`
+(`--offline` reads its caches: `results/events/_cache_marb/` and the EDGAR client's,
+both gitignored). No return, spread or P&L of any deal was read or computed. Web
+pages were fetched 2026-10-18 unless stated; IBKR's pages are true on the day read.
+
+**Data**
+
+| claim / series | source and fetcher | status |
+|---|---|---|
+| **EDGAR deal census 2010 → 2026-10-16**: target-only anchors (DEFM14A/PREM14A, DEFM14C/PREM14C, SC 14D9/SC14D9C), 425 / SC TO-T / SC TO-C chains, S-4/F-4/S-4EF registrations, Form 25/25-NSE, SC 13E3, SC TO-I and 1940-Act forms from the quarterly `master.gz` (2009Q3 → 2026Q4); per-target submissions JSONs (SIC, 8-K items) and announcement documents; 425 SEC headers | `https://www.sec.gov/Archives/edgar/full-index/`, `data.sec.gov/submissions/`, through `scripts/data/edgar_client.py` (≤ 8 requests/s, declared agent); 67 closed-quarter indexes copied from a sibling cache and cross-checked byte-identical against a second (2026-10-15) | [V] |
+| SEC ticker file with exchange labels (NYSE, Nasdaq, CBOE, TXSE, OTC) | `https://www.sec.gov/files/company_tickers_exchange.json`, 2026-10-18 | [V] |
+| **CRSP merger delistings** (dlstcd 200–299) 2010–2024 with the name record in force; **counts only**, no price or return table read | R2 `crsp_a_stock.dsedelist`, `dsenames` | [V] counts |
+| **CRSP delisting-code definitions (231, 233, 241, …)** | the WRDS Data Descriptions Guide (404), crsp.org guide URLs (404), CRSP appendix pages tried; not found | **[U]** — the note reads 233/231/241 as cash/stock/mixed from concordance alone |
+| **Alpaca asset flags** for 291 symbols (pending targets and acquirers, live acquirers, CEF names), 2026-10-18T22:29–22:35Z; `shortable` equalled `easy_to_borrow` on all 291 | `GET /v2/assets/{symbol}`, paper endpoint, cef key (`quantt/broker/alpaca.py`), read-only | [V] on its date |
+| Alpaca daily bars (close × volume, 63 sessions to 2026-10-16) for the capacity count | `scripts/rv/alpaca_daily.fetch_bars` | [V] |
+| **IBKR public shortstock file**, header `#BOF|2026.10.16|23:47:26` (no time zone stated), 19,938 lines | `https://www.interactivebrokers.com/shortstock/usa.txt`, parsed by `g1a_shortability.parse_ibkr_shortstock` | [V] on its stamp |
+| **Frozen 20-deal reading sample**, drawn by rule on 2026-10-18 and committed (`f024f2a`) before any reading; 20 hand readings with verbatim quotes re-found in each filing on every run | `scripts/events/merger_arb_readings.py` | [V] |
+
+**Literature**
+
+| claim | source | status |
+|---|---|---|
+| Risk arbitrage is "akin to writing uncovered index put options": RAIM (net of costs) CAPM α 0.29%/month (s.e. 0.10), β 0.1232; piecewise β 0.4920 below a −4% market month, 0.0167 above; cash deals 0.7745 / 0.1024, stock deals 0.1528 / −0.0766; 4%/yr contingent-claims excess; ≈ 29bp/month against actual index puts 1987–96; failure probability rises after market declines | Mitchell & Pulvino (2001), *JF* 56(6):2135–2175; PDF `https://www.johnhcochrane.com/s/mitchell-pulvino-characteristics-of-risk-and-return-JF.pdf` | [V] read (abstract, §V, Tables III–VI, VIII, §E–F) |
+| 0.6–0.9%/month abnormal return 1981–96; market β 0.22–0.37; direct costs cut intercepts by < 0.1%/month | Baker & Savaşoğlu (2002), *JFE* 64:91–115; `https://www.hbs.edu/ris/Publication%20Files/arbitrage_af05900b-acd4-44db-8210-70a9fbc3cf6c.pdf` | [V] abstract, Table 3 |
+| Spread down > 400bp since 2002; successful-deal median first-day spread 6.39 / 4.62 / 1.91% (1990–95 / 1996–2001 / 2002–07); median merger-arb fund month 96 / 99 / 51bp | Jetley & Ji (2010), *FAJ* 66(2):54–68; `https://www.analysisgroup.com/globalassets/content/insights/publishing/jetley_and_ji_shrinking_merger_arbitrage_spread2.pdf` | [V] |
+| About half of a stock acquirer's negative announcement return is arbitrage short-selling pressure | Mitchell, Pulvino & Stafford (2004), *JF* 59(1); `https://www.johnhcochrane.com/s/mitchell_price_pressure_JF.pdf` | [V] abstract |
+| Stock-deal median annualised spread 14.2% in the week of 6–10 Oct 2008 (mean 2.1%, s.d. 0.78%, 2005–Mar 2010) | Mitchell & Pulvino, "Arbitrage crashes and the speed of capital", NBER draft rev. 2010-05-17, `https://conference.nber.org/confer/2010/Risks10/Mitchell_Pulvino.pdf` (published *JFE* 2012) | [V] draft; [S] published text |
+| 1994–2012, gross of costs: naive VW risk arbitrage α 0.89%/month (s.e. 0.16), β_MKT 0.32; hedge funds +0.30%/month from managing downside risk | Cao, Goldie, Liang & Petrasek (2016), *JFQA* 51(3):929–957, doi 10.1017/S0022109016000387; read from a copy at `pbcsf.tsinghua.edu.cn` (authorisation of that copy unknown) | [V] |
+| Target option prices forecast deal outcomes | Van Tassel (2016), FRBNY Staff Report 761, `https://www.newyorkfed.org/medialibrary/media/research/staff_reports/sr761.pdf` | [V] abstract only |
+
+**Rules and regulators**
+
+| claim | source | status |
+|---|---|---|
+| A Rule 13e-3 transaction: a purchase, tender offer or Reg 14A/14C solicitation by the issuer or an affiliate with a reasonable likelihood or purpose of deregistering or delisting the class | 17 CFR 240.13e-3(a), eCFR versioner point-in-time 2026-09-01 (`https://www.ecfr.gov/api/versioner/v1/full/2026-09-01/title-17.xml?section=240.13e-3`) | [V] |
+| Brokers must report a wash-sale disallowed loss only "if both the sale and purchase transactions occur in the same account with respect to covered securities with the same CUSIP number" | IRS Instructions for Form 1099-B (2026), box 1g, `https://www.irs.gov/instructions/i1099b` (page reviewed 30-Apr-2026) | [V] |
+| Wash sales are the taxpayer's (including purchases by "a corporation you control") and apply to short sales | IRS Publication 550 (2025), `https://www.irs.gov/publications/p550` (page reviewed 30-Apr-2026) | [V] |
+| Unintentional same-firm self-trades with no change in beneficial ownership are generally bona fide; firms must still police patterns | FINRA Rule 5210, Supplementary Material .02, `https://www.finra.org/rules-guidance/rulebooks/finra-rules/5210` (fetch tool limited quotation) | [V] opening clause; [S] remainder |
+| Exchange Act §9(a)(1): no transaction with no change in beneficial ownership "for the purpose of creating a false or misleading appearance of active trading" | 15 U.S.C. 78i, `https://www.law.cornell.edu/uscode/text/15/78i` | [V] |
+| Alpaca rejects with HTTP 403 an order that "could potentially interact" with the same customer's other order; whether "customer" means account is not stated | `https://docs.alpaca.markets/us/docs/user-protection` ("Updated about 1 month ago") | [V] page; **[U]** scope |
+| Alpaca options levels 0–3 (1 covered call / cash-secured put; 2 buy calls and puts; 3 spreads) | `https://docs.alpaca.markets/us/docs/options-trading` | [V] (re-read; §12d line 578) |
+
+**IBKR (documents only; nothing opened or connected)**
+
+| claim | source | status |
+|---|---|---|
+| Account types (individual, joint, trust, IRA, UGMA/UTMA; small business "for corporations, LLCs, partnerships"); minimum equity cash none, margin USD 2,000, portfolio margin USD 110,000 with jurisdictional and risk-based approval; ages 18–20 cash and options Level 1 only; corporations and hedge funds PM-eligible | `https://www.interactivebrokers.com/en/accounts/required-minimums.php` (serves the Account Guide, identical to `/en/accounts/account-guide.php`) | [V] |
+| What happens to a PM account below USD 110,000 | not on the page | **[U]** |
+| Short-sale proceeds interest, IBKR Pro USD: 0% to 100k; 2.630% (BM − 1.25%) 100k–1m; 3.380% (BM − 0.5%) 1m–3m; 3.630% (BM − 0.25%) above; NAV < USD 100k paid proportionally less. *Was 2.380 / 3.130 / 3.380% on 2026-09-09 (§3 line 105): a benchmark move, not an error* | `https://www.interactivebrokers.com/en/pricing/short-sale-cost.php` | [V] 2026-10-18 |
+| Shortable search updates "periodically throughout the day"; no short sales of non-CNS-eligible US stocks; all short sales subject to approval; US 19,988 shortable of 24,184 | `https://www.interactivebrokers.com/en/trading/short-securities-availability.php` | [V] |
+| Pre-Borrow Program for portfolio-margin accounts only; the page still describes T+3 settlement (stale) | `https://www.interactivebrokers.com/en/trading/preBarrowProgram.php` | [V] |
+| How IBKR satisfies the Reg SHO locate for an ordinary short | IBKR KB node 240 (`ibkb.interactivebrokers.com/de/node/240` → `www.ibkr.info`, HTTP 403) | **[U]** |
+| Options levels 1–4 (Level 3 includes short puts; Level 4 all strategies) | `https://www.interactivebrokers.com/en/trading/products-options.php` | [V] |
+| Market data: OPRA L1 USD 1.50 non-pro (waived at USD 20 commissions) / 32.75 pro; NYSE L1 1.50 / 45.00; Network B 1.50 / 25.00; Nasdaq 1.50 / 25.00; snapshot bundle USD 10 (waived at USD 30); US Equity and Options Add-On Streaming Bundle 4.50 / 125.00. A non-professional is a natural person; "corporations, trusts, organizations, institutions and partnership accounts" are excluded | `https://www.interactivebrokers.com/en/pricing/market-data-pricing.php` | [V]; [S] for which footnote belongs to the add-on bundle |
+| Stock commissions unchanged from §3 line 103 (Tiered USD 0.0035, min 0.35; Fixed 0.005, min 1.00; Lite 0) | `https://www.interactivebrokers.com/en/pricing/commissions-stocks.php` | [V] |
+| TWS API: needs a funded IBKR **Pro** account and current TWS/IB Gateway; Python ≥ 3.11; 2FA required (IB Key, smartphone, SMS, DSC+); weekly re-authentication from Monday needs a manual login; pacing = market data lines / 2 per second (50 by default); one username per trading application; order IDs client-managed, strictly increasing, persistent between sessions; "Maintain and resubmit orders when connection is restored" on by default; an open-orders feed | `https://www.interactivebrokers.com/docs/tws-api/doc/` pages `notes-limitations/requirements`, `…/supported-two-factor-authentication-2-fa`, `…/tws-api-limitations`, `tws-settings/daily-weekly-reauthentication`, `pacing-limitations/introduction`, `…/pacing-behavior`, `connectivity/logging-into-multiple-applications`, `quick-start/order-id`, `next-valid-id/reset-order-id-sequence`, `tws-settings/intelligent-order-resubmission`, `order-management/open-orders` (`.md`) | [V] |
+| The order tag a runner would use (`orderRef`) | not read | **[U]** |
+| Web API and FIX as a route around weekly 2FA | not evaluated | **[U]** |
+| MOC: NYSE markets 15:50 ET entry and cancel cutoff; Nasdaq entry 15:55, no cancel after 15:50 | `https://www.interactivebrokers.com/en/trading/orders/moc.php` | [V] |
+| Paper: needs a funded live account (or free trial); USD 1,000,000 paper equity; no VWAP, Auction, RFQ or Pegged-to-Market orders; top-of-book fills; no penny option fills; partly filled exchange-directed market orders' remainders rejected | `https://www.ibkrguides.com/clientportal/aboutpapertradingaccounts.htm` ("Last updated on January 30, 2026") | [V] |
+| Whether IBKR paper fills MOC at the official close | not stated | **[U]** |
+
+**Corrections made by this pass (dated 2026-10-18)**
+
+* §6, line 190 (OPRA "~$10/month … waived at $30", [S]): the OPRA L1 line is USD 1.50 non-pro (waived at USD 20) and USD 32.75 pro; USD 10 / 30 is the snapshot bundle. Corrected in place.
+* §6, line 188 (IBKR options levels, [S]): verified, with the nuance that Level 3 includes short puts. Annotated in place.
+* Within this job: the 2026-10-15 session's pending-deal rule (425 header subject = target) listed issuers as targets; replaced by the registration rule before any figure was reported (`scripts/events/merger_arb_feasibility.py`, PENDING TODAY).

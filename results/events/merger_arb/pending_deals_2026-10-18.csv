@@ -1,0 +1,152 @@
+source,pair_why,target_name,ticker_today,d0,last_425,stale,final_class,tender,acquirer_ticker_today,acq_alp_shortable,acq_alp_etb,acq_alp_borrow,acq_ibkr_fee_pct,acq_ibkr_available,acq_ibkr_dup,tgt_alp_shortable,tgt_alp_etb,tgt_ibkr_fee_pct,tgt_adv_usd,acq_adv_usd,doc_source,doc_accession,target_cik,acquirer_cik
+anchored,no acquirer_only 425 within the window,Jet.AI Inc.,JTAI,2025-05-06,2026-07-06,False,stock_involved_unsplit,False,,,,,,,,False,False,9.6794,174919.08000000002,,8-K 1.01,0001641172-25-008849,1861622,
+anchored,,Channel Therapeutics Corp,PTHS,2025-05-09,,False,conflict_cash_stock,False,,,,,,,,True,True,2.2233,1020328.96,,8-K 1.01,0001753926-25-000652,1919246,
+425 pair,co-listed with its one registrant on a 425,Hut 8 Corp.,HUT,2025-05-12,2025-09-02,True,stock_involved_unsplit,False,ABTC,False,False,hard_to_borrow,2.9186,150000,,True,True,0.2666,417776492.39,9242153.53,8-K 1.01 (wide),0001558370-25-008803,1964789,1755953.0
+anchored,no acquirer_only 425 within the window,Iron Horse Acquisitions Corp.,UCFI,2025-05-15,2025-06-04,True,stock_involved_unsplit,False,,,,,,,,False,False,155.9942,0.0,,,,1901203,
+anchored,,AMERICAN AXLE & MANUFACTURING HOLDINGS INC,DCH,2025-05-15,2017-04-05,False,cash,False,,,,,,,,True,True,0.4111,17715353.37,,8-K 1.01 (wide),0001104659-25-007242,1062231,
+anchored,,Alset Inc.,AEI,2025-06-09,,False,cash,False,,,,,,,,False,False,2.3501,15657.6585,,8-K 1.01,0001641172-25-010346,1750106,
+anchored,,"MIRA PHARMACEUTICALS, INC.",MIRA,2025-06-17,,False,cash,False,,,,,,,,False,False,1.5392,60904.1664,,8-K 1.01,0001641172-25-011936,1904286,
+anchored,,TXNM ENERGY INC,TXNM,2025-07-11,,False,cash,False,,,,,,,,True,True,2.0655,64471830.480000004,,8-K 1.01,0001108426-25-000069,1108426,
+anchored,,"BGSF, INC.",BGSF,2025-07-15,,False,cash,False,,,,,,,,True,True,0.3556,34607.299999999996,,8-K 1.01,0001474903-25-000076,1474903,
+anchored,,"N2OFF, Inc.",NXTS,2025-07-25,,False,cash,False,,,,,,,,False,False,87.4767,34076.7,,8-K 1.01,0001493152-25-011380,1789192,
+anchored,,fuboTV Inc. /FL,FUBO,2025-07-28,2025-01-06,False,cash,False,,,,,,,,False,False,2.4343,11820979.4,,,,1484769,
+anchored,co-listed on a 425 / SC TO-T,NORFOLK SOUTHERN CORP,NSC,2025-07-29,2025-11-12,True,conflict_stock_cash,False,UNP,True,True,easy_to_borrow,0.2782,3200000,,True,True,0.25,322992475.9,680991810.63,8-K 1.01,0001193125-25-168147,702165,100885.0
+anchored,,ALCON INC,ALC,2025-08-05,2010-12-15,False,cash,False,,,,,,,,True,True,0.5503,113172508.8,,,,1167379,
+anchored,,ROYAL GOLD INC,RGLD,2025-08-18,,False,cash,False,,,,,,,,True,True,0.2782,154392604.51999998,,8-K 1.01 (wide),0000085535-25-000092,85535,
+anchored,co-listed on a 425 / SC TO-T,"NorthWestern Energy Group, Inc.",NWE,2025-08-19,2026-02-06,True,stock,False,BKH,True,True,easy_to_borrow,0.2811,1200000,,True,True,0.5903,28554633.84,63251690.88,8-K 1.01,0001993004-25-000143,1993004,1130464.0
+anchored,,"CommScope Holding Company, Inc.",VISN,2025-09-05,,False,cash,False,,,,,,,,True,True,0.4224,48154830.480000004,,8-K 1.01,0001193125-25-175444,1517228,
+anchored,,Elme Communities,ELME,2025-09-05,,False,cash,False,,,,,,,,True,True,0.5094,1051568.0,,8-K 1.01 (wide),0001193125-25-172118,104894,
+anchored,,Epsilon Energy Ltd.,EPSN,2025-09-19,,False,cash,False,,,,,,,,True,True,0.6065,700364.5,,8-K 1.01 (wide),0001558370-25-011397,1726126,
+anchored,0 of 2 candidates named in the document,VEECO INSTRUMENTS INC,VECO,2025-10-01,2026-04-29,False,stock,False,,,,,,,,True,True,0.3156,33121332.0,,8-K 1.01,0001104659-25-095312,103145,
+anchored,0 of 2 candidates named in the document,RYVYL Inc.,RTB,2025-10-02,2026-03-30,True,stock,False,,,,,,,,False,False,45.2243,656529.0599999999,,8-K 1.01,0001185185-25-001369,1419275,
+anchored,,"PIXELWORKS, INC",PXLW,2025-10-17,,False,cash,False,,,,,,,,True,True,0.25,194252.1,,8-K 1.01,0001193125-25-231016,1040161,
+anchored,,THUMZUP MEDIA Corp,DTCX,2025-10-17,,False,cash,False,,,,,,,,True,True,1.5431,189570.94,,8-K 1.01,0001493152-25-016196,1853825,
+anchored,,"International Money Express, Inc.",IMXI,2025-10-21,2018-06-26,False,cash,False,,,,,,,,True,True,0.5021,5370514.5,,8-K 1.01 (wide),0001140361-25-029957,1683695,
+anchored,co-listed on a 425 / SC TO-T,"Essential Utilities, Inc.",WTRG,2025-10-27,2026-10-15,False,stock,False,AWK,True,True,easy_to_borrow,0.2539,450000,,True,True,0.29,88838562.75,264793506.11999997,8-K 1.01,0001552781-25-000341,78128,1410636.0
+anchored,,Ovid Therapeutics Inc.,OVID,2025-10-27,,False,cash,False,,,,,,,,True,True,0.3443,3511913.97,,8-K 1.01,0001193125-25-230409,1636651,
+anchored,co-listed on a 425 / SC TO-T,Kenvue Inc.,KVUE,2025-11-03,2026-01-27,True,mixed,False,KMB,True,True,easy_to_borrow,0.4124,600000,,True,True,0.4081,407333520.6,355203964.2,8-K 1.01,0001104659-25-105216,1944048,55785.0
+anchored,co-listed on a 425 / SC TO-T,Axalta Coating Systems Ltd.,AXTA,2025-11-18,2026-10-16,False,stock,False,,,,,,,,True,True,0.2834,55424796.7,,8-K 1.01,0001193125-25-285351,1616862,3124.0
+anchored,,"Telomir Pharmaceuticals, Inc.",TELO,2025-11-20,,False,cash,False,,,,,,,,True,True,1.7817,68121.88,,8-K 1.01 (wide),0001493152-25-018634,1971532,
+anchored,,SONIM TECHNOLOGIES INC,SONM,2025-11-24,,False,cash,False,,,,,,,,False,False,3.9176,31856.64,,8-K 1.01,0001493152-25-025141,1178697,
+anchored,0 of 2 candidates named in the document,"Apimeds Pharmaceuticals US, Inc.",APUS,2025-12-02,2026-04-09,True,stock,False,,,,,,,,False,False,636.5604,224904.44999999998,,8-K 1.01,0001213900-25-117173,1894525,
+425 target_only,0 of 4 candidates named in the document,"New ERA Energy & Digital, Inc.",NUAI,2025-12-09,2026-01-20,True,stock_involved_unsplit,False,,,,,,,,True,True,1.4696,33393823.259999998,,8-K 1.01,0001213900-25-108747,2028336,
+anchored,,APARTMENT INVESTMENT & MANAGEMENT CO,AIV,2025-12-15,,False,cash,False,,,,,,,,True,True,0.3632,2737892.8800000004,,8-K 1.01,0001193125-25-319258,922864,
+anchored,0 of 2 candidates named in the document,CARNIVAL CORP,CCL,2025-12-19,2025-12-19,True,stock_involved_unsplit,False,,,,,,,,True,True,0.369,481534446.47999996,,8-K 1.01 (wide),0000950142-25-002811,815097,
+anchored,,BKV Corp,BKV,2025-12-19,,False,cash,False,,,,,,,,True,True,4.3376,27633037.450000003,,8-K 1.01,0001104659-25-118186,1838406,
+anchored,,"Brighthouse Financial, Inc.",BHF,2025-12-23,,False,cash,False,,,,,,,,True,True,0.25,42596527.33,,8-K 1.01 (wide),0001685040-25-000065,1685040,
+425 target_only,no acquirer_only 425 within the window,VivoPower PLC,VIVO,2025-12-29,2025-12-29,True,stock_involved_unsplit,False,,,,,,,,False,False,9.4636,1505001.3299999998,,425,0001493152-25-029444,1681348,
+anchored,,"Contango ORE, Inc.",CTGO,2026-01-09,,False,cash,False,,,,,,,,True,True,0.4182,5851829.720000001,,8-K 1.01,0001193125-25-316249,1502377,
+anchored,,Tamboran Resources Corp,TBN,2026-01-14,,False,cash,False,,,,,,,,False,False,1.8079,4351015.0,,8-K 1.01 (wide),0001628280-25-043169,1997652,
+anchored,co-listed on a 425 / SC TO-T,Penumbra Inc,PEN,2026-01-15,2026-05-07,False,stock_involved_unsplit,False,BSX,True,True,easy_to_borrow,0.4864,> 10000000,,True,True,0.9121,93641943.77999999,865383921.36,8-K 1.01,0000950103-26-000523,1321732,885725.0
+anchored,,PEDEVCO CORP,PED,2026-01-16,2020-11-17,False,conflict_cash_stock,False,,,,,,,,True,True,1.5991,228830.8,,8-K 1.01 (wide),0001654954-25-012450,1141197,
+425 target_only,no acquirer_only 425 within the window,La Rosa Holdings Corp.,LRHC,2026-01-20,2026-06-04,False,stock,False,,,,,,,,False,False,167.6554,94420.8,,8-K 1.01,0001213900-26-002685,1879403,
+anchored,co-listed on a 425 / SC TO-T,"LANDS' END, INC.",LE,2026-01-26,,False,cash,True,,,,,,,,True,True,0.5489,1961511.05,,8-K 1.01,0001104659-26-006603,799288,2107245.0
+anchored,,Lifeward Ltd.,LFWD,2026-01-28,,False,cash,False,,,,,,,,False,False,8.5941,35878.049999999996,,8-K 1.01,0001178913-26-000132,1607962,
+425 target_only,0 of 1 candidates named in the document,MODINE MANUFACTURING CO,MOD,2026-01-29,2026-09-17,False,stock,False,,,,,,,,True,True,0.25,243288442.06,,8-K 1.01,0001104659-26-008087,67347,
+anchored,,"Laird Superfood, Inc.",LSF,2026-01-30,,False,cash,False,,,,,,,,False,False,0.5075,102901.05,,8-K 1.01,0001437749-26-002541,1650696,
+anchored,co-listed on a 425 / SC TO-T,SILICON LABORATORIES INC.,SLAB,2026-02-04,2026-02-05,True,conflict_stock_cash,False,TXN,True,True,easy_to_borrow,0.25,5400000,,True,True,0.4081,60937192.5,1504167901.3200002,8-K 1.01,0001193125-26-036712,1038074,97476.0
+anchored,,HWH International Inc.,ESYN,2026-02-06,,False,cash,False,,,,,,,,False,False,82.7291,38041.5,,8-K 1.01,0001493152-26-005418,1897245,
+425 target_only,0 of 1 candidates named in the document,"Rhinebeck Bancorp, Inc.",RBKB,2026-02-10,2026-02-10,True,stock_involved_unsplit,False,,,,,,,,True,True,0.5387,1374964.0,,8-K 1.01 (wide),0001104659-26-061328,1751783,
+425 target_only,0 of 1 candidates named in the document,"Onconetix, Inc.",ONCO,2026-02-12,2026-09-14,False,stock_involved_unsplit,False,,,,,,,,False,False,83.8326,180968.9436,,8-K 1.01,0001213900-26-015212,1782107,
+anchored,co-listed on a 425 / SC TO-T,NCR Atleos Corp,NATL,2026-02-26,2026-06-18,False,mixed,False,BCO,True,True,easy_to_borrow,0.2782,400000,,True,True,0.2749,30596336.64,45223089.0,8-K 1.01,0001104659-26-020528,1974138,78890.0
+anchored,,"NATHANS FAMOUS, INC.",NATH,2026-03-06,,False,cash,False,,,,,,,,False,False,2.6812,2288140.76,,8-K 1.01 (wide),0001104659-26-005233,69733,
+anchored,,"Apollo Commercial Real Estate Finance, Inc.",ARI,2026-03-09,2016-08-25,False,cash,False,,,,,,,,True,True,0.7198,19075069.439999998,,8-K 1.01 (wide),0001193125-26-027340,1467760,
+anchored,co-listed on a 425 / SC TO-T,UNIFIRST CORP,UNF,2026-03-11,2026-05-27,False,mixed,False,CTAS,True,True,easy_to_borrow,0.2642,2500000,,True,True,0.3019,60249092.0,371931091.74,8-K 1.01,0001193125-26-101128,717954,723254.0
+anchored,,"EKSO BIONICS HOLDINGS, INC.",CHRN,2026-03-20,,False,cash,False,,,,,,,,False,False,24.9156,2769677.55,,8-K 1.01 (wide),0001437749-26-001774,1549084,
+anchored,co-listed on a 425 / SC TO-T,STURM RUGER & CO INC,RGR,2026-03-25,,False,cash,True,,,,,,,,True,True,,5462714.600000001,,SC 14D9,0001174947-26-000424,95029,2086731.0
+anchored,no acquirer_only 425 within the window,"Pulmatrix, Inc.",PULM,2026-03-26,2026-10-13,False,stock,False,,,,,,,,False,False,4.4459,20070.6753,,8-K 1.01,0001493152-26-013266,1574235,
+anchored,no acquirer_only 425 within the window,"Equitable Holdings, Inc.",EQH,2026-03-26,2026-09-10,False,stock_involved_unsplit,False,,,,,,,,True,True,0.4812,135435853.84,,8-K 1.01,0000950142-26-000871,1333986,
+anchored,no acquirer_only 425 within the window,"Corebridge Financial, Inc.",CRBG,2026-03-26,2026-09-10,False,stock_involved_unsplit,False,,,,,,,,True,True,0.4085,133726579.76,,8-K 1.01,0001140361-26-011260,1889539,
+425 pair,co-listed with its one registrant on a 425,SYSCO CORP,SYY,2026-03-30,2026-09-04,False,stock_involved_unsplit,False,,,,,,,,True,True,0.4081,241567845.83999997,,8-K 1.01,0000950142-26-000922,96021,2134688.0
+anchored,,"Skye Bioscience, Inc.",SKYE,2026-04-06,,False,cash,False,,,,,,,,False,False,3.7117,93448.8,,8-K 1.01 (wide),0001628280-25-058729,1516551,
+anchored,,Sphere 3D Corp.,DRK,2026-04-07,2022-02-03,False,conflict_cash_stock,False,,,,,,,,False,False,55.2151,704928.84,,8-K 1.01,0001062993-26-001384,1591956,
+anchored,,"Allbirds, Inc.",BIRD,2026-04-15,,False,cash,False,,,,,,,,False,False,10.3394,701353.92,,8-K 1.01,0001628280-26-022181,1653909,
+425 target_only,0 of 2 candidates named in the document,WOORI FINANCIAL GROUP INC.,WF,2026-04-24,2026-05-06,False,stock,False,,,,,,,,True,True,0.6243,5507659.3,,425,0001193125-26-174907,1264136,
+425 target_only,0 of 1 candidates named in the document,Skyline Builders Group Holding Ltd,KAZR,2026-04-30,2026-08-17,False,stock_involved_unsplit,False,,,,,,,,False,False,17.3409,349078.3,,425,0001213900-26-050424,2031009,
+anchored,,AES CORP,AES,2026-05-04,,False,cash,False,,,,,,,,True,True,0.4081,107207436.6,,8-K 1.01 (wide),0001193125-26-084157,874761,
+anchored,co-listed on a 425 / SC TO-T,GENCO SHIPPING & TRADING LTD,GNK,2026-05-04,2026-07-28,False,cash,True,DSX,True,True,easy_to_borrow,1.5864,1100000,,True,True,0.25,11510192.5,2498893.54,8-K 1.01,0001140361-26-018601,1326200,1318885.0
+anchored,,AIR INDUSTRIES GROUP,AIRI,2026-05-05,,False,cash,False,,,,,,,,True,True,1.0583,26819.100000000002,,8-K 1.01 (wide),0001213900-26-016863,1009891,
+anchored,no announcement document to confirm the name,GREEN DOT CORP,GDOT,2026-05-08,2026-06-16,False,stock_involved_unsplit,False,,,,,,,,True,True,0.6864,4377297.680000001,,,,1386278,
+425 target_only,0 of 1 candidates named in the document,TELEPHONE & DATA SYSTEMS INC /DE/,TDS,2026-05-08,2026-05-08,False,stock_involved_unsplit,False,,,,,,,,True,True,0.3423,49950325.26,,425,0001051512-26-000041,1051512,
+anchored,co-listed on a 425 / SC TO-T,"DESTINATION XL GROUP, INC.",DXLG,2026-05-12,,False,cash,True,,,,,,,,False,False,0.4983,30653.403299999998,,SC 14D9,0001193125-26-239365,813298,1516478.0
+anchored,,CUMBERLAND PHARMACEUTICALS INC,CPIX,2026-05-15,,False,cash,False,,,,,,,,True,True,0.9859,404590.85,,8-K 1.01,0001104659-26-047335,1087294,
+anchored,,"Aterian, Inc.",ATER,2026-05-15,,False,cash,False,,,,,,,,False,False,13.8893,110822.1432,,8-K 1.01,0001437749-26-013884,1757715,
+anchored,co-listed on a 425 / SC TO-T,"DOMINION ENERGY, INC",D,2026-05-18,2026-10-08,False,stock,False,NEE,True,True,easy_to_borrow,0.2532,> 10000000,,True,True,0.4082,247150425.6,920701410.5999999,8-K 1.01,0001193125-26-227930,715957,753308.0
+425 pair,co-listed with its one registrant on a 425,PERMIAN BASIN ROYALTY TRUST,PBT,2026-05-18,2026-07-30,False,stock_involved_unsplit,False,,,,,,,,True,True,0.8484,3253746.75,,8-K 1.01,0001193125-26-214698,319654,2142855.0
+anchored,,Valaris Ltd,VAL,2026-05-19,2017-09-29,False,conflict_cash_stock,False,,,,,,,,True,True,0.3724,87336168.71,,8-K 1.01 (wide),0001140361-26-004511,314808,
+anchored,,Transocean Ltd.,RIG,2026-05-19,2018-11-05,False,cash,False,,,,,,,,True,True,0.3028,232512913.20000002,,8-K 1.01,0001104659-26-063883,1451505,
+425 target_only,0 of 1 candidates named in the document,"AZIO AI HOLDINGS, INC.",AZIO,2026-05-20,2026-06-16,False,stock,False,,,,,,,,False,False,21.4268,254057.4,,8-K 1.01,0001437749-26-017874,1563568,
+anchored,,MARCHEX INC,MCHX,2026-05-26,,False,cash,False,,,,,,,,False,False,22.5491,29078.07,,8-K 1.01,0001193125-26-201467,1224133,
+anchored,,HEALTHY CHOICE WELLNESS CORP.,HOST,2026-05-29,,False,conflict_cash_stock,False,,,,,,,,False,False,20.1337,524704.1956999999,,8-K 1.01,0001493152-26-026419,1948864,
+anchored,,Organon & Co.,OGN,2026-06-01,,False,cash,False,,,,,,,,True,True,0.25,30445120.72,,8-K 1.01 (wide),0001193125-26-178718,1821825,
+425 target_only,0 of 1 candidates named in the document,"SUNation Energy, Inc.",SUNE,2026-06-08,2026-09-08,False,stock,False,,,,,,,,False,False,67.719,304366.08,,8-K 1.01,0001213900-26-066011,22701,
+425 target_only,0 of 2 candidates named in the document,Nano Dimension Ltd.,NNDM,2026-06-15,2026-06-17,False,stock_involved_unsplit,False,,,,,,,,True,True,0.3073,2312181.39,,8-K 1.01 (wide),0001193125-26-310479,1643303,
+anchored,co-listed on a 425 / SC TO-T,"ROKU, INC",ROKU,2026-06-15,2026-10-06,False,mixed,False,FOXA,True,True,easy_to_borrow,0.4101,550000,,True,True,0.3105,299724327.27,292483010.52,8-K 1.01,0001140361-26-025115,1428439,1754301.0
+anchored,co-listed on a 425 / SC TO-T,Huntsman CORP,HUN,2026-06-16,2026-08-18,False,stock,False,OLN,True,True,easy_to_borrow,0.3562,800000,,True,True,0.4081,22165100.000000004,52060669.92,8-K 1.01,0001104659-26-074683,1307954,74303.0
+anchored,,"Amneal Pharmaceuticals, Inc.",AMRX,2026-06-18,,False,cash,False,,,,,,,,True,True,0.2506,38533311.0,,8-K 1.01 (wide),0001193125-26-168231,1723128,
+425 target_only,0 of 1 candidates named in the document,"Chicago Atlantic Real Estate Finance, Inc.",REFI,2026-06-18,2026-08-11,False,stock,False,,,,,,,,True,True,0.8908,1820575.14,,8-K 1.01,0001213900-26-069861,1867949,
+anchored,,"LiveRamp Holdings, Inc.",RAMP,2026-06-24,,False,cash,False,,,,,,,,True,True,0.25,37147934.88,,8-K 1.01 (wide),0001104659-26-062908,733269,
+425 pair,co-listed with its one registrant on a 425,ASP Isotopes Inc.,ASPI,2026-06-25,2026-10-01,False,stock_involved_unsplit,False,NDRA,False,False,hard_to_borrow,3.3904,100000,,True,True,3.8412,12686491.35,98158.5,8-K 1.01,0001477932-26-004020,1921865,1681682.0
+anchored,co-listed on a 425 / SC TO-T,SYNAPTICS Inc,SYNA,2026-06-25,2026-09-16,False,stock,False,ON,True,True,easy_to_borrow,0.25,4600000,,True,True,0.4135,68094389.94,754660547.5500001,8-K 1.01,0001140361-26-026434,817720,1097864.0
+anchored,co-listed on a 425 / SC TO-T,Iridium Communications Inc.,IRDM,2026-06-29,2026-09-18,False,mixed,False,RKLB,True,True,easy_to_borrow,0.3324,> 10000000,,True,True,0.4079,45762109.09,1244544410.88,8-K 1.01,0001104659-26-078482,1418819,1819994.0
+425 target_only,matched: 1 of 1 candidates named in the document,LCI INDUSTRIES,LCII,2026-06-30,2026-10-13,False,stock,False,PATK,True,True,easy_to_borrow,0.4547,250000,,True,True,0.4135,28713870.9,37444644.0,8-K 1.01,0000763744-26-000040,763744,76605.0
+425 target_only,0 of 1 candidates named in the document,"Picard Medical, Inc.",PMI,2026-07-02,2026-07-02,False,stock_involved_unsplit,False,,,,,,,,False,False,214.264,948484.0800000001,,8-K 1.01 (wide),0001829126-26-003451,2030617,
+anchored,co-listed on a 425 / SC TO-T,TRICO BANCSHARES /,TCBK,2026-07-13,2026-08-14,False,stock,False,FHB,True,True,easy_to_borrow,0.2748,2600000,,True,True,2.1726,12721798.8,49821940.035,8-K 1.01,0001104659-26-083891,356171,36377.0
+425 target_only,0 of 1 candidates named in the document,"Matinas BioPharma Holdings, Inc.",MTNB,2026-07-13,2026-08-25,False,stock,False,,,,,,,,False,False,13.0653,165932.5,,8-K 1.01,0001493152-26-032938,1582554,
+425 target_only,0 of 1 candidates named in the document,"Glucotrack, Inc.",GCTK,2026-07-15,2026-10-13,False,stock,False,,,,,,,,False,False,123.2057,286403.36,,8-K 1.01,0001493152-26-033393,1506983,
+anchored,,"Identiv, Inc.",INVE,2026-07-17,2009-12-21,False,cash,False,,,,,,,,True,True,0.5218,367130.4,,8-K 1.01,0001193125-26-281293,1036044,
+425 pair,co-listed with its one registrant on a 425,"Personalis, Inc.",PSNL,2026-07-20,2026-10-06,False,stock,False,TEM,True,True,easy_to_borrow,0.3329,3100000,,True,True,0.4095,37103635.519999996,374972925.6,8-K 1.01,0001193125-26-309101,1527753,1717115.0
+anchored,co-listed on a 425 / SC TO-T,Finward Bancorp,FNWD,2026-07-21,2026-07-21,False,stock,False,FFBC,True,True,easy_to_borrow,0.4094,700000,,True,True,2.1504,436548.48,25089272.26,8-K 1.01,0001193125-26-310388,919864,708955.0
+anchored,,"Senti Biosciences Holdings, Inc.",SNTI,2026-07-21,2022-06-07,False,cash,False,,,,,,,,False,False,5.47,57702.725999999995,,8-K 1.01,0001628280-26-048248,1854270,
+anchored,,"Arcosa, Inc.",ACA,2026-07-24,,False,cash,False,,,,,,,,True,True,0.4081,88902973.47999999,,8-K 1.01 (wide),0001739445-26-000112,1739445,
+anchored,,HeartSciences Inc.,HSCS,2026-07-27,,False,cash,False,,,,,,,,False,False,26.9368,286587.78,,8-K 1.01,0001213900-26-081825,1468492,
+anchored,,"XWELL, Inc.",XWEL,2026-07-27,2016-11-25,False,cash,False,,,,,,,,False,False,14.7086,26218.82,,8-K 1.01,0001104659-26-082254,1410428,
+425 pair,co-listed with its one registrant on a 425,VersaBank,VBNK,2026-07-28,2026-08-25,False,stock_involved_unsplit,False,,,,,,,,True,True,0.8991,2284237.41,,425,0001104659-26-087595,1690639,2100848.0
+anchored,co-listed on a 425 / SC TO-T,Sanara MedTech Inc.,SMTI,2026-07-29,2026-10-16,False,mixed,False,MDXG,True,True,easy_to_borrow,0.4748,5300000,,True,True,0.632,7910503.12,4828280.92,8-K 1.01,0001493152-26-035196,714256,1376339.0
+425 target_only,no acquirer_only 425 within the window,"MANGOCEUTICALS, INC.",MGRX,2026-07-30,2026-08-13,False,stock_involved_unsplit,False,,,,,,,,False,False,105.2807,256322.064,,8-K 1.01,0001493152-26-031917,1938046,
+anchored,,Payoneer Global Inc.,PAYO,2026-07-31,2024-08-12,False,cash,False,,,,,,,,True,True,0.4135,18064533.42,,8-K 1.01 (wide),0000950103-26-008945,1845815,
+anchored,co-listed on a 425 / SC TO-T,"SUPERNUS PHARMACEUTICALS, INC.",SUPN,2026-08-03,2026-10-06,False,stock,False,INDV,True,True,easy_to_borrow,0.4135,1000000,,True,True,0.4027,27473036.830000002,68578662.81,8-K 1.01,0001104659-26-089425,1356576,1625297.0
+anchored,,BIO-TECHNE Corp,TECH,2026-08-10,,False,cash,False,,,,,,,,True,True,0.4298,197986772.60999998,,8-K 1.01 (wide),0001999371-26-013527,842023,
+anchored,co-listed on a 425 / SC TO-T,Cherry Hill Mortgage Investment Corp,CHMI,2026-08-10,2026-08-10,False,mixed,False,MITT,True,True,easy_to_borrow,0.4087,500000,,True,True,0.4951,535026.75,2003214.96,8-K 1.01,0001140361-26-031930,1571776,1514281.0
+anchored,,"DOMO, INC.",HUCK,2026-08-12,,False,cash,False,,,,,,,,True,True,0.5254,3422368.2600000002,,8-K 1.01,0001104659-26-085819,1505952,
+anchored,,"Caesars Entertainment, Inc.",CZR,2026-08-12,2019-11-15,False,cash,False,,,,,,,,True,True,0.2782,102775332.66000001,,8-K 1.01 (wide),0001193125-26-242995,1590895,
+425 pair,co-listed with its one registrant on a 425,"BLUE RIDGE BANKSHARES, INC.",BRBS,2026-08-17,2026-08-17,False,stock,False,HTB,True,True,easy_to_borrow,0.4825,100000,,True,True,0.4923,3174873.0,7941343.75,8-K 1.01,0001193125-26-353285,842717,1538263.0
+anchored,,"Globalstar, Inc.",GSAT,2026-08-18,2018-04-25,False,cash,False,,,,,,,,True,True,0.4047,53396273.699999996,,,,1366868,
+anchored,co-listed on a 425 / SC TO-T,"Yatra Online, Inc.",YTRA,2026-08-19,2020-05-20,False,cash,True,,,,,,,,False,False,4.6082,23463.3,,SC 14D9,0001213900-26-096205,1516899,2125850.0
+anchored,,"Utz Brands, Inc.",UTZ,2026-08-24,2020-08-27,False,cash,False,,,,,,,,True,True,0.25,24771348.240000002,,8-K 1.01 (wide),0001193125-26-311373,1739566,
+425 target_only,no acquirer_only 425 within the window,VALLEY NATIONAL BANCORP,VLY,2026-08-25,2026-08-25,False,stock_involved_unsplit,False,,,,,,,,True,True,0.261,92067573.03,,8-K 1.01 (wide),0001193125-26-224197,714310,
+anchored,,"Lantheus Holdings, Inc.",LNTH,2026-08-26,2020-05-12,False,cash,False,,,,,,,,True,True,0.4135,105522480.0,,8-K 1.01,0001193125-26-331138,1521036,
+anchored,,LUXFER HOLDINGS PLC,LXFR,2026-08-26,,False,cash,False,,,,,,,,True,True,0.4132,4962522.600000001,,8-K 1.01,0002077096-26-000223,1096056,
+anchored,,Nexa Resources S.A.,NEXA,2026-08-27,,False,cash,True,,,,,,,,True,True,0.3312,7825097.45,,,,1713930,
+anchored,,"CBIZ, Inc.",CBZ,2026-08-27,,False,cash,False,,,,,,,,True,True,0.25,51233495.900000006,,8-K 1.01,0001193125-26-322225,944148,
+425 target_only,no acquirer_only 425 within the window,FIRST FINANCIAL CORP /IN/,THFF,2026-08-28,2026-09-10,False,mixed,False,,,,,,,,True,True,0.4081,7639493.8,,8-K 1.01,0000714562-26-000056,714562,
+anchored,co-listed on a 425 / SC TO-T,Cadeler A/S,CDLR,2026-08-28,2026-09-22,False,stock_involved_unsplit,True,,,,,,,,False,False,4.6617,1488232.6,,425,0001104659-26-102520,1978867,2063345.0
+anchored,,Atkore Inc.,ATKR,2026-08-28,,False,cash,False,,,,,,,,True,True,0.25,57919811.839999996,,8-K 1.01,0001666138-26-000016,1666138,
+anchored,,GRAN TIERRA ENERGY INC.,GTE,2026-08-28,,False,cash,False,,,,,,,,True,True,0.4483,4940542.08,,8-K 1.01,0001104659-26-090711,1273441,
+anchored,,Bowhead Specialty Holdings Inc.,BOW,2026-08-28,,False,cash,False,,,,,,,,True,True,0.5922,8052579.6,,8-K 1.01,0001628280-26-051540,2002473,
+425 target_only,no acquirer_only 425 within the window,Sono Group N.V.,SSM,2026-08-31,2026-09-02,False,stock_involved_unsplit,False,,,,,,,,False,False,295.9915,180790.31999999998,,8-K 1.01,0001171843-26-005808,1840416,
+anchored,,"Distribution Solutions Group, Inc.",DSGR,2026-09-01,,False,cash,False,,,,,,,,True,True,0.4162,6937266.630000001,,8-K 1.01 (wide),0001193125-26-306263,703604,
+anchored,,BEAZER HOMES USA INC,BZH,2026-09-03,2012-03-13,False,conflict_cash_mixed,False,,,,,,,,True,True,0.3345,18859553.7,,8-K 1.01,0001104659-26-092299,915840,
+anchored,,Integer Holdings Corp,ITGR,2026-09-03,,False,cash,False,,,,,,,,True,True,0.4947,86136711.85,,8-K 1.01,0000950103-26-011881,1114483,
+anchored,,SAFETY INSURANCE GROUP INC,SAFT,2026-09-03,,False,cash,False,,,,,,,,True,True,1.7048,13695115.950000001,,8-K 1.01 (wide),0001172052-26-000019,1172052,
+anchored,,LXP Industrial Trust,LXP,2026-09-04,,False,cash,False,,,,,,,,True,True,0.4135,45274835.76,,8-K 1.01 (wide),0001104659-26-084849,910108,
+anchored,,MARKETAXESS HOLDINGS INC,MKTX,2026-09-04,,False,conflict_cash_mixed,False,,,,,,,,True,True,0.4081,139453365.15,,8-K 1.01 (wide),0001193125-26-324933,1278021,
+anchored,matched: 1 of 1 candidates named in the document,EAGLE FINANCIAL SERVICES INC,EFSI,2026-09-08,2026-09-08,False,stock,False,JMSB,True,True,easy_to_borrow,1.0799,1200000,,True,True,0.3965,1725114.0899999999,1270391.4200000002,8-K 1.01,0001193125-26-384457,880641,1710482.0
+anchored,,Varex Imaging Corp,VREX,2026-09-08,,False,cash,False,,,,,,,,True,True,0.4298,10258018.940000001,,8-K 1.01,0001104659-26-093349,1681622,
+anchored,,"Sunrise Realty Trust, Inc.",SUNS,2026-09-08,,False,conflict_cash_stock,False,,,,,,,,True,True,1.0894,502932.38,,8-K 1.01 (wide),0001829126-26-008416,2012706,
+anchored,co-listed on a 425 / SC TO-T,CENTERSPACE,CSR,2026-09-09,2026-10-07,False,stock,False,IRT,True,True,easy_to_borrow,0.4134,6700000,,True,True,0.377,8583952.96,46542324.24,8-K 1.01,0001140361-26-035986,798359,1466085.0
+anchored,,NOVAGOLD RESOURCES INC,NG,2026-09-11,2011-03-03,False,cash,False,,,,,,,,True,True,0.2782,36320999.7,,8-K 1.01 (wide),0001104659-26-085824,1173420,
+anchored,,"DoubleVerify Holdings, Inc.",DV,2026-09-11,,False,cash,False,,,,,,,,True,True,0.25,29638744.1,,8-K 1.01 (wide),0001104659-26-092934,1819928,
+anchored,,"Weave Communications, Inc.",WEAV,2026-09-15,,False,cash,False,,,,,,,,True,True,0.25,9250284.0,,8-K 1.01,0001609151-26-000100,1609151,
+425 pair,co-listed with its one registrant on a 425,IMPACT BIOMEDICAL INC.,IBO,2026-09-15,2026-09-17,False,stock_involved_unsplit,False,,,,,,,,False,False,12.3599,24068.368700000003,,425,0001493152-26-042640,1834105,2078148.0
+425 target_only,no acquirer_only 425 within the window,AETHLON MEDICAL INC,AEMD,2026-09-17,2026-09-17,False,stock,False,,,,,,,,False,False,159.8616,229814.55,,8-K 1.01,0001683168-26-007206,882291,
+anchored,,MARINEMAX INC,HZO,2026-09-22,,False,cash,False,,,,,,,,True,True,0.4081,31010983.04,,8-K 1.01 (wide),0001193125-26-290439,1057060,
+anchored,,Bowman Consulting Group Ltd.,BWMN,2026-09-25,,False,cash,False,,,,,,,,True,True,0.4135,11461974.77,,8-K 1.01 (wide),0001193125-26-341431,1847590,
+anchored,,"Swarmer, Inc",SWMR,2026-09-25,,False,cash,False,,,,,,,,False,False,25.2471,11157354.879999999,,8-K 1.01,0001104659-26-106499,2092574,
+anchored,,"SOUNDTHINKING, INC.",SSTI,2026-09-29,,False,cash,True,,,,,,,,True,True,0.5953,590010.0700000001,,8-K 1.01,0001193125-26-406024,1351636,
+425 target_only,no acquirer_only 425 within the window,Capital Bancorp Inc,CBNK,2026-09-30,2026-09-30,False,stock,False,,,,,,,,True,True,0.3819,2003349.7000000002,,8-K 1.01,0001419536-26-000145,1419536,
+anchored,,"Victory Capital Holdings, Inc.",VCTR,2026-10-02,2026-03-23,False,cash,False,,,,,,,,True,True,0.4029,66644804.199999996,,8-K 1.01 (wide),0001104659-26-103936,1570827,
+425 target_only,0 of 1 candidates named in the document,Navigator Holdings Ltd.,NVGS,2026-10-08,2026-10-16,False,stock_involved_unsplit,False,,,,,,,,True,True,0.25,9343095.36,,425,0001193125-26-418044,1581804,
+anchored,,"Pacira BioSciences, Inc.",PCRX,2026-10-08,,False,cash,True,,,,,,,,True,True,0.4081,14790886.0,,8-K 1.01,0001104659-26-114571,1396814,
+anchored,,"Baldwin Insurance Group, Inc.",BWIN,2026-10-15,,False,cash,False,,,,,,,,True,True,0.4081,38406547.3,,8-K 1.01 (wide),0000950103-26-013874,1781755,
+anchored,,"Mistras Group, Inc.",MG,2026-10-15,,False,cash,False,,,,,,,,True,True,0.4081,4922492.68,,8-K 1.01,0001140361-26-037107,1436126,
