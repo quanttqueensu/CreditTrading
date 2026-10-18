@@ -1,0 +1,289 @@
+{
+ "asof_alpaca_clock": "2026-10-15T16:43:47.263912-04:00",
+ "endpoint": "GET /v2/assets?status=active&asset_class=us_equity (paper, cef key)",
+ "n_active": 14398,
+ "exchange_mix_active": {
+  "NASDAQ": 5630,
+  "NYSE": 2901,
+  "ARCA": 2751,
+  "BATS": 1662,
+  "OTC": 1163,
+  "AMEX": 291
+ },
+ "exchange_mix_tradable": {
+  "NASDAQ": 5596,
+  "NYSE": 2899,
+  "ARCA": 2750,
+  "BATS": 1662,
+  "OTC": 308,
+  "AMEX": 291
+ },
+ "symbols_ending_RT_or_dotRT": 70,
+ "symbols_ending_dotRT_tradable_by_exchange": {
+  "NYSE": {
+   "size": 19,
+   "sum": 19
+  }
+ },
+ "symbols_with_dot_WS": 62,
+ "symbols_with_dot_U": 50,
+ "hedge_etfs": {
+  "SPY": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "IWM": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "QQQ": {
+   "exchange": "NASDAQ",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "MDY": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "IJR": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLF": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLE": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLK": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLV": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLI": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLU": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLY": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLP": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLB": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLRE": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "XLC": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "KRE": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": false,
+   "easy_to_borrow": false,
+   "fractionable": true
+  },
+  "XBI": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "HYG": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "LQD": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "MUB": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": false,
+   "easy_to_borrow": false,
+   "fractionable": true
+  },
+  "PFF": {
+   "exchange": "NASDAQ",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  }
+ },
+ "cef_index_etfs": {
+  "CEFS": {
+   "exchange": "BATS",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "PCEF": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": false,
+   "easy_to_borrow": false,
+   "fractionable": true
+  },
+  "YYY": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": true,
+   "easy_to_borrow": true,
+   "fractionable": true
+  },
+  "FCEF": {
+   "exchange": "NASDAQ",
+   "tradable": true,
+   "shortable": false,
+   "easy_to_borrow": false,
+   "fractionable": false
+  },
+  "CEFD": {
+   "exchange": "ARCA",
+   "tradable": true,
+   "shortable": false,
+   "easy_to_borrow": false,
+   "fractionable": false
+  },
+  "MCEF": "ABSENT from the active list"
+ },
+ "dual_class": {
+  "permcos_2024": 42,
+  "all_lines_found_at_alpaca": 36,
+  "two_plus_lines_shortable": 25,
+  "two_plus_lines_easy_to_borrow": 25
+ },
+ "earliest_corporate_action_process_date_seen": "2016-01-04",
+ "spin_off_reconcile": {
+  "2023": {
+   "raw_rows": 40,
+   "cvr_or_warrant_rows": 3,
+   "backfilled_rows": 0,
+   "kept_unique_source_exdate": 35,
+   "kept_with_source_listed_today": 22
+  },
+  "2024": {
+   "raw_rows": 48,
+   "cvr_or_warrant_rows": 8,
+   "backfilled_rows": 14,
+   "kept_unique_source_exdate": 28,
+   "kept_with_source_listed_today": 22
+  }
+ },
+ "event_name_flags_2025": {
+  "spin_off.source_symbol": {
+   "symbols": 54,
+   "in_active_list": 37,
+   "tradable": 34,
+   "shortable": 21,
+   "easy_to_borrow": 21,
+   "on_otc": 5
+  },
+  "spin_off.new_symbol": {
+   "symbols": 42,
+   "in_active_list": 32,
+   "tradable": 31,
+   "shortable": 14,
+   "easy_to_borrow": 14,
+   "on_otc": 4
+  },
+  "reverse_split.symbol": {
+   "symbols": 727,
+   "in_active_list": 432,
+   "tradable": 388,
+   "shortable": 54,
+   "easy_to_borrow": 54,
+   "on_otc": 31
+  },
+  "rights_distribution.source_symbol": {
+   "symbols": 33,
+   "in_active_list": 30,
+   "tradable": 30,
+   "shortable": 15,
+   "easy_to_borrow": 15,
+   "on_otc": 0
+  },
+  "rights_distribution.new_symbol": {
+   "symbols": 23,
+   "in_active_list": 0,
+   "tradable": 0,
+   "shortable": 0,
+   "easy_to_borrow": 0,
+   "on_otc": 0
+  }
+ }
+}

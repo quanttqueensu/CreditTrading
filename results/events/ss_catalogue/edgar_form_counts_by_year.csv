@@ -1,0 +1,554 @@
+form,filer_kind,year,accessions,ciks
+10-12B,fund,2015,3,3
+10-12B,non-fund,2010,19,19
+10-12B,non-fund,2011,27,26
+10-12B,non-fund,2012,22,21
+10-12B,non-fund,2013,31,30
+10-12B,non-fund,2014,38,38
+10-12B,non-fund,2015,42,42
+10-12B,non-fund,2016,33,33
+10-12B,non-fund,2017,10,10
+10-12B,non-fund,2018,25,25
+10-12B,non-fund,2019,36,36
+10-12B,non-fund,2020,16,16
+10-12B,non-fund,2021,20,20
+10-12B,non-fund,2022,20,20
+10-12B,non-fund,2023,19,19
+10-12B,non-fund,2024,17,17
+10-12B,non-fund,2025,8,8
+10-12G,fund,2010,1,1
+10-12G,fund,2011,3,3
+10-12G,fund,2012,1,1
+10-12G,fund,2013,2,2
+10-12G,fund,2014,4,4
+10-12G,fund,2015,9,8
+10-12G,fund,2016,10,8
+10-12G,fund,2017,6,6
+10-12G,fund,2018,8,8
+10-12G,fund,2019,10,9
+10-12G,fund,2020,12,10
+10-12G,fund,2021,22,21
+10-12G,fund,2022,21,20
+10-12G,fund,2023,28,26
+10-12G,fund,2024,22,19
+10-12G,fund,2025,25,20
+10-12G,non-fund,2010,224,203
+10-12G,non-fund,2011,140,131
+10-12G,non-fund,2012,117,115
+10-12G,non-fund,2013,101,98
+10-12G,non-fund,2014,95,89
+10-12G,non-fund,2015,83,74
+10-12G,non-fund,2016,77,70
+10-12G,non-fund,2017,84,81
+10-12G,non-fund,2018,81,75
+10-12G,non-fund,2019,90,85
+10-12G,non-fund,2020,72,66
+10-12G,non-fund,2021,134,123
+10-12G,non-fund,2022,72,62
+10-12G,non-fund,2023,65,56
+10-12G,non-fund,2024,48,40
+10-12G,non-fund,2025,56,51
+15-12B,fund,2010,2,2
+15-12B,fund,2013,1,1
+15-12B,fund,2014,2,2
+15-12B,fund,2016,3,3
+15-12B,fund,2017,3,3
+15-12B,fund,2018,4,4
+15-12B,fund,2019,2,2
+15-12B,fund,2020,2,2
+15-12B,fund,2021,4,4
+15-12B,fund,2022,2,2
+15-12B,non-fund,2010,220,213
+15-12B,non-fund,2011,214,198
+15-12B,non-fund,2012,203,197
+15-12B,non-fund,2013,246,240
+15-12B,non-fund,2014,218,204
+15-12B,non-fund,2015,277,264
+15-12B,non-fund,2016,273,261
+15-12B,non-fund,2017,265,253
+15-12B,non-fund,2018,265,254
+15-12B,non-fund,2019,264,254
+15-12B,non-fund,2020,247,239
+15-12B,non-fund,2021,306,290
+15-12B,non-fund,2022,121,121
+15-12G,fund,2010,2,2
+15-12G,fund,2011,6,6
+15-12G,fund,2012,1,1
+15-12G,fund,2013,1,1
+15-12G,fund,2014,3,3
+15-12G,fund,2015,6,6
+15-12G,fund,2016,2,2
+15-12G,fund,2017,9,9
+15-12G,fund,2018,2,2
+15-12G,fund,2019,4,4
+15-12G,fund,2020,4,4
+15-12G,fund,2021,3,3
+15-12G,fund,2022,5,5
+15-12G,fund,2023,5,5
+15-12G,fund,2024,9,9
+15-12G,fund,2025,13,13
+15-12G,non-fund,2010,422,405
+15-12G,non-fund,2011,427,424
+15-12G,non-fund,2012,468,449
+15-12G,non-fund,2013,381,367
+15-12G,non-fund,2014,307,303
+15-12G,non-fund,2015,309,301
+15-12G,non-fund,2016,288,282
+15-12G,non-fund,2017,274,270
+15-12G,non-fund,2018,266,263
+15-12G,non-fund,2019,213,210
+15-12G,non-fund,2020,135,134
+15-12G,non-fund,2021,136,135
+15-12G,non-fund,2022,339,336
+15-12G,non-fund,2023,643,638
+15-12G,non-fund,2024,459,454
+15-12G,non-fund,2025,435,425
+25,fund,2010,10,10
+25,fund,2011,2,2
+25,fund,2012,15,15
+25,fund,2014,5,5
+25,fund,2016,11,10
+25,fund,2017,6,6
+25,fund,2018,10,10
+25,fund,2019,2,2
+25,fund,2020,6,5
+25,fund,2021,2,1
+25,fund,2022,4,4
+25,fund,2023,1,1
+25,fund,2024,2,1
+25,fund,2025,2,1
+25,non-fund,2010,107,105
+25,non-fund,2011,109,107
+25,non-fund,2012,93,91
+25,non-fund,2013,100,101
+25,non-fund,2014,84,74
+25,non-fund,2015,67,75
+25,non-fund,2016,86,75
+25,non-fund,2017,90,91
+25,non-fund,2018,90,89
+25,non-fund,2019,101,93
+25,non-fund,2020,99,105
+25,non-fund,2021,98,89
+25,non-fund,2022,112,105
+25,non-fund,2023,126,117
+25,non-fund,2024,121,113
+25,non-fund,2025,128,124
+25-NSE,fund,2010,28,29
+25-NSE,fund,2011,12,13
+25-NSE,fund,2012,79,68
+25-NSE,fund,2013,58,43
+25-NSE,fund,2014,110,64
+25-NSE,fund,2015,37,30
+25-NSE,fund,2016,53,48
+25-NSE,fund,2017,37,37
+25-NSE,fund,2018,53,50
+25-NSE,fund,2019,40,39
+25-NSE,fund,2020,45,35
+25-NSE,fund,2021,96,80
+25-NSE,fund,2022,39,32
+25-NSE,fund,2023,47,38
+25-NSE,fund,2024,49,40
+25-NSE,fund,2025,58,50
+25-NSE,non-fund,2010,602,490
+25-NSE,non-fund,2011,543,464
+25-NSE,non-fund,2012,663,556
+25-NSE,non-fund,2013,609,526
+25-NSE,non-fund,2014,503,408
+25-NSE,non-fund,2015,597,474
+25-NSE,non-fund,2016,744,584
+25-NSE,non-fund,2017,715,531
+25-NSE,non-fund,2018,772,518
+25-NSE,non-fund,2019,767,569
+25-NSE,non-fund,2020,850,537
+25-NSE,non-fund,2021,916,699
+25-NSE,non-fund,2022,946,727
+25-NSE,non-fund,2023,1094,892
+25-NSE,non-fund,2024,798,714
+25-NSE,non-fund,2025,826,712
+424B4,fund,2011,1,1
+424B4,fund,2012,3,2
+424B4,fund,2013,2,2
+424B4,fund,2020,3,2
+424B4,fund,2021,9,5
+424B4,fund,2022,4,4
+424B4,fund,2023,3,1
+424B4,fund,2024,1,1
+424B4,fund,2025,1,1
+424B4,non-fund,2010,277,243
+424B4,non-fund,2011,227,237
+424B4,non-fund,2012,262,238
+424B4,non-fund,2013,416,580
+424B4,non-fund,2014,489,419
+424B4,non-fund,2015,386,327
+424B4,non-fund,2016,271,301
+424B4,non-fund,2017,374,331
+424B4,non-fund,2018,428,377
+424B4,non-fund,2019,412,348
+424B4,non-fund,2020,743,640
+424B4,non-fund,2021,1349,1216
+424B4,non-fund,2022,349,310
+424B4,non-fund,2023,399,321
+424B4,non-fund,2024,484,377
+424B4,non-fund,2025,607,526
+DEFM14A,fund,2010,1,1
+DEFM14A,fund,2013,1,1
+DEFM14A,fund,2015,1,1
+DEFM14A,fund,2016,2,2
+DEFM14A,fund,2017,2,2
+DEFM14A,fund,2018,4,4
+DEFM14A,fund,2019,8,8
+DEFM14A,fund,2020,3,3
+DEFM14A,fund,2021,5,5
+DEFM14A,fund,2022,3,3
+DEFM14A,fund,2023,3,3
+DEFM14A,fund,2024,7,7
+DEFM14A,fund,2025,4,4
+DEFM14A,non-fund,2010,201,197
+DEFM14A,non-fund,2011,202,200
+DEFM14A,non-fund,2012,148,149
+DEFM14A,non-fund,2013,190,189
+DEFM14A,non-fund,2014,185,184
+DEFM14A,non-fund,2015,218,216
+DEFM14A,non-fund,2016,228,226
+DEFM14A,non-fund,2017,222,220
+DEFM14A,non-fund,2018,242,238
+DEFM14A,non-fund,2019,213,211
+DEFM14A,non-fund,2020,176,170
+DEFM14A,non-fund,2021,306,299
+DEFM14A,non-fund,2022,243,241
+DEFM14A,non-fund,2023,212,208
+DEFM14A,non-fund,2024,250,244
+DEFM14A,non-fund,2025,231,229
+N-14 8C,fund,2010,7,7
+N-14 8C,fund,2011,18,21
+N-14 8C,fund,2012,18,18
+N-14 8C,fund,2013,14,14
+N-14 8C,fund,2014,20,18
+N-14 8C,fund,2015,11,12
+N-14 8C,fund,2016,14,14
+N-14 8C,fund,2017,7,12
+N-14 8C,fund,2018,18,15
+N-14 8C,fund,2019,16,16
+N-14 8C,fund,2020,23,23
+N-14 8C,fund,2021,16,15
+N-14 8C,fund,2022,17,16
+N-14 8C,fund,2023,18,18
+N-14 8C,fund,2024,20,21
+N-14 8C,fund,2025,39,39
+N-2,fund,2010,176,169
+N-2,fund,2011,178,173
+N-2,fund,2012,140,136
+N-2,fund,2013,160,155
+N-2,fund,2014,140,132
+N-2,fund,2015,130,122
+N-2,fund,2016,125,120
+N-2,fund,2017,132,124
+N-2,fund,2018,141,135
+N-2,fund,2019,147,138
+N-2,fund,2020,177,170
+N-2,fund,2021,199,182
+N-2,fund,2022,129,124
+N-2,fund,2023,121,117
+N-2,fund,2024,192,183
+N-2,fund,2025,187,176
+N-23C3A,fund,2010,72,16
+N-23C3A,fund,2011,67,17
+N-23C3A,fund,2012,61,16
+N-23C3A,fund,2013,75,17
+N-23C3A,fund,2014,78,23
+N-23C3A,fund,2015,103,28
+N-23C3A,fund,2016,106,28
+N-23C3A,fund,2017,141,38
+N-23C3A,fund,2018,184,48
+N-23C3A,fund,2019,240,56
+N-23C3A,fund,2020,265,65
+N-23C3A,fund,2021,272,68
+N-23C3A,fund,2022,326,77
+N-23C3A,fund,2023,358,92
+N-23C3A,fund,2024,412,111
+N-23C3A,fund,2025,523,140
+N-23C3B,fund,2010,8,2
+N-23C3B,fund,2011,9,3
+N-23C3B,fund,2012,9,3
+N-23C3B,fund,2013,8,2
+N-23C3B,fund,2014,8,2
+N-23C3B,fund,2015,6,2
+N-23C3B,fund,2016,4,1
+N-23C3B,fund,2017,4,1
+N-23C3B,fund,2018,4,1
+N-23C3B,fund,2019,4,1
+N-23C3B,fund,2020,4,1
+N-23C3B,fund,2021,4,1
+N-23C3B,fund,2022,1,1
+N-23C3C,fund,2014,1,1
+N-23C3C,fund,2015,1,1
+N-23C3C,fund,2019,3,2
+N-23C3C,fund,2021,1,1
+N-23C3C,fund,2023,1,1
+N-23C3C,fund,2024,2,1
+N-54A,fund,2010,10,10
+N-54A,fund,2011,13,13
+N-54A,fund,2012,15,15
+N-54A,fund,2013,14,14
+N-54A,fund,2014,12,12
+N-54A,fund,2015,14,14
+N-54A,fund,2016,10,10
+N-54A,fund,2017,8,8
+N-54A,fund,2018,5,5
+N-54A,fund,2019,7,7
+N-54A,fund,2020,15,15
+N-54A,fund,2021,26,26
+N-54A,fund,2022,23,23
+N-54A,fund,2023,29,29
+N-54A,fund,2024,23,23
+N-54A,fund,2025,22,22
+N-54C,fund,2010,10,10
+N-54C,fund,2011,8,8
+N-54C,fund,2012,1,1
+N-54C,fund,2014,5,5
+N-54C,fund,2015,2,2
+N-54C,fund,2016,5,5
+N-54C,fund,2017,7,7
+N-54C,fund,2018,8,8
+N-54C,fund,2019,8,8
+N-54C,fund,2020,8,8
+N-54C,fund,2021,6,6
+N-54C,fund,2022,8,8
+N-54C,fund,2023,6,6
+N-54C,fund,2024,7,7
+N-54C,fund,2025,12,12
+N-8F,fund,2010,56,56
+N-8F,fund,2011,45,45
+N-8F,fund,2012,47,47
+N-8F,fund,2013,65,65
+N-8F,fund,2014,64,64
+N-8F,fund,2015,75,74
+N-8F,fund,2016,46,46
+N-8F,fund,2017,88,88
+N-8F,fund,2018,44,44
+N-8F,fund,2019,55,54
+N-8F,fund,2020,56,56
+N-8F,fund,2021,43,42
+N-8F,fund,2022,37,36
+N-8F,fund,2023,56,56
+N-8F,fund,2024,66,65
+N-8F,fund,2025,44,44
+N-8F,non-fund,2010,165,163
+N-8F,non-fund,2011,87,85
+N-8F,non-fund,2012,100,95
+N-8F,non-fund,2013,128,128
+N-8F,non-fund,2014,77,76
+N-8F,non-fund,2015,53,52
+N-8F,non-fund,2016,77,76
+N-8F,non-fund,2017,65,64
+N-8F,non-fund,2018,54,52
+N-8F,non-fund,2019,140,135
+N-8F,non-fund,2020,81,81
+N-8F,non-fund,2021,34,32
+N-8F,non-fund,2022,87,85
+N-8F,non-fund,2023,46,46
+N-8F,non-fund,2024,33,33
+N-8F,non-fund,2025,34,34
+S-11,fund,2013,1,1
+S-11,fund,2014,1,1
+S-11,fund,2020,1,1
+S-11,fund,2021,1,1
+S-11,fund,2022,1,1
+S-11,non-fund,2010,69,67
+S-11,non-fund,2011,52,49
+S-11,non-fund,2012,49,47
+S-11,non-fund,2013,69,57
+S-11,non-fund,2014,55,51
+S-11,non-fund,2015,37,35
+S-11,non-fund,2016,25,24
+S-11,non-fund,2017,34,33
+S-11,non-fund,2018,13,13
+S-11,non-fund,2019,21,20
+S-11,non-fund,2020,23,20
+S-11,non-fund,2021,45,33
+S-11,non-fund,2022,12,12
+S-11,non-fund,2023,14,12
+S-11,non-fund,2024,13,13
+S-11,non-fund,2025,16,14
+S-4,fund,2019,1,1
+S-4,fund,2021,1,1
+S-4,fund,2024,1,1
+S-4,fund,2025,3,2
+S-4,non-fund,2010,400,4874
+S-4,non-fund,2011,437,6358
+S-4,non-fund,2012,343,4007
+S-4,non-fund,2013,439,5716
+S-4,non-fund,2014,389,4501
+S-4,non-fund,2015,349,3099
+S-4,non-fund,2016,284,2756
+S-4,non-fund,2017,330,2749
+S-4,non-fund,2018,324,1584
+S-4,non-fund,2019,235,1258
+S-4,non-fund,2020,272,1189
+S-4,non-fund,2021,405,1155
+S-4,non-fund,2022,267,737
+S-4,non-fund,2023,225,387
+S-4,non-fund,2024,192,445
+S-4,non-fund,2025,214,374
+SC 13D,fund,2010,70,88
+SC 13D,fund,2011,167,168
+SC 13D,fund,2012,29,45
+SC 13D,fund,2013,45,66
+SC 13D,fund,2014,72,96
+SC 13D,fund,2015,60,75
+SC 13D,fund,2016,77,100
+SC 13D,fund,2017,79,102
+SC 13D,fund,2018,56,75
+SC 13D,fund,2019,70,89
+SC 13D,fund,2020,70,97
+SC 13D,fund,2021,46,73
+SC 13D,fund,2022,65,94
+SC 13D,fund,2023,119,141
+SC 13D,fund,2024,102,121
+SC 13D,non-fund,2010,1904,2750
+SC 13D,non-fund,2011,1703,2524
+SC 13D,non-fund,2012,1459,2161
+SC 13D,non-fund,2013,1417,2130
+SC 13D,non-fund,2014,1463,2182
+SC 13D,non-fund,2015,1468,2197
+SC 13D,non-fund,2016,1332,1992
+SC 13D,non-fund,2017,1257,1883
+SC 13D,non-fund,2018,1234,1856
+SC 13D,non-fund,2019,1047,1592
+SC 13D,non-fund,2020,1078,1641
+SC 13D,non-fund,2021,1511,2245
+SC 13D,non-fund,2022,1099,1721
+SC 13D,non-fund,2023,1141,1735
+SC 13D,non-fund,2024,922,1481
+SC 13E3,fund,2011,1,1
+SC 13E3,fund,2016,1,1
+SC 13E3,fund,2023,1,2
+SC 13E3,non-fund,2010,95,90
+SC 13E3,non-fund,2011,79,79
+SC 13E3,non-fund,2012,46,50
+SC 13E3,non-fund,2013,72,72
+SC 13E3,non-fund,2014,39,38
+SC 13E3,non-fund,2015,31,33
+SC 13E3,non-fund,2016,64,71
+SC 13E3,non-fund,2017,31,34
+SC 13E3,non-fund,2018,34,38
+SC 13E3,non-fund,2019,26,29
+SC 13E3,non-fund,2020,51,49
+SC 13E3,non-fund,2021,36,34
+SC 13E3,non-fund,2022,45,44
+SC 13E3,non-fund,2023,48,47
+SC 13E3,non-fund,2024,51,51
+SC 13E3,non-fund,2025,36,35
+SC 14D9,fund,2011,3,4
+SC 14D9,fund,2018,3,3
+SC 14D9,fund,2020,2,1
+SC 14D9,fund,2022,1,1
+SC 14D9,fund,2023,1,1
+SC 14D9,non-fund,2010,125,101
+SC 14D9,non-fund,2011,127,102
+SC 14D9,non-fund,2012,98,77
+SC 14D9,non-fund,2013,87,77
+SC 14D9,non-fund,2014,93,84
+SC 14D9,non-fund,2015,111,89
+SC 14D9,non-fund,2016,97,84
+SC 14D9,non-fund,2017,85,76
+SC 14D9,non-fund,2018,73,63
+SC 14D9,non-fund,2019,46,42
+SC 14D9,non-fund,2020,64,56
+SC 14D9,non-fund,2021,60,50
+SC 14D9,non-fund,2022,62,51
+SC 14D9,non-fund,2023,57,50
+SC 14D9,non-fund,2024,49,39
+SC 14D9,non-fund,2025,55,51
+SC TO-C,fund,2010,30,17
+SC TO-C,fund,2011,39,19
+SC TO-C,fund,2012,32,23
+SC TO-C,fund,2013,34,16
+SC TO-C,fund,2014,28,16
+SC TO-C,fund,2015,26,22
+SC TO-C,fund,2016,22,12
+SC TO-C,fund,2017,29,22
+SC TO-C,fund,2018,20,13
+SC TO-C,fund,2019,31,18
+SC TO-C,fund,2020,24,19
+SC TO-C,fund,2021,43,20
+SC TO-C,fund,2022,31,19
+SC TO-C,fund,2023,46,35
+SC TO-C,fund,2024,54,29
+SC TO-C,fund,2025,32,19
+SC TO-C,non-fund,2010,294,203
+SC TO-C,non-fund,2011,228,158
+SC TO-C,non-fund,2012,195,167
+SC TO-C,non-fund,2013,182,142
+SC TO-C,non-fund,2014,153,117
+SC TO-C,non-fund,2015,180,148
+SC TO-C,non-fund,2016,214,153
+SC TO-C,non-fund,2017,162,120
+SC TO-C,non-fund,2018,118,99
+SC TO-C,non-fund,2019,117,82
+SC TO-C,non-fund,2020,119,100
+SC TO-C,non-fund,2021,118,88
+SC TO-C,non-fund,2022,100,93
+SC TO-C,non-fund,2023,97,92
+SC TO-C,non-fund,2024,84,79
+SC TO-C,non-fund,2025,91,83
+SC TO-I,fund,2010,302,110
+SC TO-I,fund,2011,330,119
+SC TO-I,fund,2012,398,139
+SC TO-I,fund,2013,387,115
+SC TO-I,fund,2014,409,133
+SC TO-I,fund,2015,420,146
+SC TO-I,fund,2016,430,129
+SC TO-I,fund,2017,428,148
+SC TO-I,fund,2018,407,133
+SC TO-I,fund,2019,381,123
+SC TO-I,fund,2020,316,105
+SC TO-I,fund,2021,310,109
+SC TO-I,fund,2022,309,105
+SC TO-I,fund,2023,395,139
+SC TO-I,fund,2024,504,174
+SC TO-I,fund,2025,532,177
+SC TO-I,non-fund,2010,185,165
+SC TO-I,non-fund,2011,131,113
+SC TO-I,non-fund,2012,137,124
+SC TO-I,non-fund,2013,118,106
+SC TO-I,non-fund,2014,106,92
+SC TO-I,non-fund,2015,102,96
+SC TO-I,non-fund,2016,93,84
+SC TO-I,non-fund,2017,73,66
+SC TO-I,non-fund,2018,81,70
+SC TO-I,non-fund,2019,83,73
+SC TO-I,non-fund,2020,80,78
+SC TO-I,non-fund,2021,64,58
+SC TO-I,non-fund,2022,75,68
+SC TO-I,non-fund,2023,66,60
+SC TO-I,non-fund,2024,75,66
+SC TO-I,non-fund,2025,45,39
+SC TO-T,fund,2010,1,2
+SC TO-T,fund,2011,9,13
+SC TO-T,fund,2013,33,34
+SC TO-T,fund,2014,7,6
+SC TO-T,fund,2015,12,9
+SC TO-T,fund,2016,8,6
+SC TO-T,fund,2017,2,3
+SC TO-T,fund,2018,8,9
+SC TO-T,fund,2020,2,2
+SC TO-T,fund,2022,1,2
+SC TO-T,fund,2023,1,2
+SC TO-T,fund,2025,1,1
+SC TO-T,non-fund,2010,115,199
+SC TO-T,non-fund,2011,97,164
+SC TO-T,non-fund,2012,84,136
+SC TO-T,non-fund,2013,78,134
+SC TO-T,non-fund,2014,88,143
+SC TO-T,non-fund,2015,87,150
+SC TO-T,non-fund,2016,79,140
+SC TO-T,non-fund,2017,75,140
+SC TO-T,non-fund,2018,59,104
+SC TO-T,non-fund,2019,44,76
+SC TO-T,non-fund,2020,56,104
+SC TO-T,non-fund,2021,46,81
+SC TO-T,non-fund,2022,55,98
+SC TO-T,non-fund,2023,53,94
+SC TO-T,non-fund,2024,48,74
+SC TO-T,non-fund,2025,53,96
