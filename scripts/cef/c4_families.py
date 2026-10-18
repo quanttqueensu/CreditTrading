@@ -8,7 +8,8 @@
     python3 scripts/cef/c4_families.py fit        # Stage 0's diagnostics and Stages 1-6, fit window only
     python3 scripts/data/fetch_cefconnect_distributions.py --c4-universe --start 2024-12-01 --end 2026-10-14
     python3 scripts/cef/c4_families.py distributions   # the 2026-10-14 distribution ruling (amounts only)
-    python3 scripts/cef/c4_families.py holdout    # Stages 8-9; refuses until the fit is reviewed and confirmed
+    python3 scripts/cef/c4_families.py holdout --rehearse   # the identical code on 2021-22 fit data (amendment 4)
+    python3 scripts/cef/c4_families.py holdout    # Stages 8-9, opened ONCE; refuses if its files exist
 
 The pre-registration is `results/cef/PREREG_C4_FAMILIES_2026-10-13.md` (approved
 2026-10-14, CEF 50 -> 52, judged at N = 52), with the team lead's amendment of
@@ -162,8 +163,18 @@ FIT_REVIEWS_CONFIRMED = True
 SPONSOR_VERIFIED = CACHE / "sponsor_notices_verified.parquet"
 SPONSOR_CITATIONS = OUT_DIR / "c4_sponsor_notices_2026-10-15.csv"
 EXCLUSIONS_JSON = OUT_DIR / "c4_holdout_exclusions_2026-10-15.json"
-HOLDOUT_OUT = OUT_DIR / "c4_holdout_output_2026-10-15.txt"
-HOLDOUT_JSON = OUT_DIR / "c4_holdout_verdict_2026-10-15.json"
+# The holdout's files (2026-10-18, after amendment 4). Their existence means the holdout has been
+# opened: `holdout()` refuses to run again. The marker is written BEFORE the first holdout P&L row is
+# computed, so a run that dies half-way also refuses a second run and must be reported, not repeated.
+HOLDOUT_STAMP = "2026-10-18"
+HOLDOUT_OUT = OUT_DIR / f"c4_holdout_output_{HOLDOUT_STAMP}.txt"
+HOLDOUT_JSON = OUT_DIR / f"c4_holdout_verdict_{HOLDOUT_STAMP}.json"
+HOLDOUT_TABLES = OUT_DIR / f"c4_holdout_tables_{HOLDOUT_STAMP}.csv"
+HOLDOUT_MARKER = OUT_DIR / f"c4_holdout_opened_{HOLDOUT_STAMP}.txt"
+# Amendment 4: the rehearsal runs the identical holdout code on fit data already seen, so the single
+# real run cannot stop half-way on a code defect. Gitignored output; never reported as a holdout number.
+REHEARSAL_WINDOW = (pd.Timestamp("2021-01-04"), FIT_END)
+REHEARSAL_OUT = CACHE / f"c4_holdout_REHEARSAL_{HOLDOUT_STAMP}.txt"
 EX_WINDOW = (0, 2)          # sessions from each ex-date: the beta-detector's [0,2] (amendment 3; report-only row)
 # Team lead, 2026-10-16 (PREREG amendment 4), ruling 2: each disputed ex-date resolves to whichever amount
 # a third source confirms (`resolve_distributions`). Its files, written 2026-10-18; the 2026-10-15 ones
@@ -353,12 +364,15 @@ def crsp_pivot(crsp, cols, index, qr, col="ret", px=None, check_identity=True) -
     return c.pivot(index="date", columns="ticker", values=col).reindex(index=index, columns=list(cols))
 
 
-def yf_total_returns(px, cols, index) -> pd.DataFrame:
-    """The declared yfinance-leg formula on every session of `index` (no outlier filter, no fill)."""
+def yf_total_returns(px, cols, index, actions: Path | None = None) -> pd.DataFrame:
+    """The declared yfinance-leg formula on every session of `index` (no outlier filter, no fill).
+    `actions` (added 2026-10-18 for the holdout): a yfinance-schema actions file with the
+    amendment-4 resolutions applied; None is the families panel's own, unchanged."""
     from scripts.cef.band_frontier import total_returns
     close = px.pivot_table(index="date", columns="ticker", values="close").sort_index()
     rpx = close.pct_change(fill_method=None).reindex(index=index, columns=list(cols))
-    return total_returns(rpx, actions=FAM_DIR / "cef_actions.parquet", prices=FAM_DIR / "cef_prices.parquet")
+    return total_returns(rpx, actions=FAM_DIR / "cef_actions.parquet" if actions is None else actions,
+                         prices=FAM_DIR / "cef_prices.parquet")
 
 
 def primary_returns(pool, px, crsp, qr) -> tuple[pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
@@ -1658,21 +1672,346 @@ def fit() -> int:
     return 0
 
 
-def holdout() -> int:
-    _tracked_clean(FIT_JSON, FIT_OUT, DIST_TABLE)
+def crsp_ex_dates(crsp: pd.DataFrame, qr: dict, cols) -> pd.DataFrame:
+    """CRSP ex-dates as amendment 3 defines them for the ex-date window: a fund-day whose total and
+    price returns differ (`ret` != `retx`, both present), on the rows `crsp_pivot` uses. Pure."""
+    c = crsp if qr["use_predecessor"] else crsp[~((crsp["ticker"] == "QQQX") & (crsp["permno"] == QQQX_PRED_PERMNO))]
+    c = c[c["ticker"].isin(list(cols)) & c["ret"].notna() & c["retx"].notna()]
+    return c.loc[c["ret"] != c["retx"], ["ticker", "date"]].reset_index(drop=True)
+
+
+def ex_window_mask(index: pd.DatetimeIndex, cols, exd: pd.DataFrame, k=EX_WINDOW) -> pd.DataFrame:
+    """Amendment 3's report-only window: True on (t, i) when session t is fund i's ex-date session or
+    one of the next k[1] sessions (k = (0, 2)). Pure. `exd` holds `ticker date`. An ex-date inside the
+    index's span that is not a session RAISES: dropping it would move P&L out of the window silently."""
+    cols = list(cols)
+    e = exd[exd["ticker"].isin(cols) & (exd["date"] >= index[0]) & (exd["date"] <= index[-1])]
+    off = e[~e["date"].isin(index)]
+    if len(off):
+        raise GateError(f"ex-dates that are not sessions of the book: {off.astype(str).values.tolist()[:5]}")
+    W = np.zeros((len(index), len(cols)), dtype=bool)
+    pos = pd.Series(np.arange(len(index)), index=index)
+    cj = {c: j for j, c in enumerate(cols)}
+    for t, d in zip(e["ticker"], e["date"]):
+        i = int(pos[d])
+        W[i + k[0]: i + k[1] + 1, cj[t]] = True
+    return pd.DataFrame(W, index=index, columns=cols)
+
+
+def ex_window_split(H: pd.DataFrame, R0: pd.DataFrame, W: pd.DataFrame, lo, hi) -> dict:
+    """The P&L of held fund-days inside the ex-date window against the rest, over [lo, hi]
+    (amendment 3's row: designed after seeing fit numbers; report-only; can never kill or rescue).
+    A held fund-day (t, i) contributes H.shift(2)[t, i] * R0[t, i], `evaluate`'s own convention; the
+    two parts sum to evaluate()'s P&L, asserted. `held_gross_share` is the share of held |weight|
+    x fund-days that falls in the window. Pure."""
+    held = H.shift(2).fillna(0.0)
+    C = (held * R0.reindex_like(H)).loc[lo:hi]
+    Wl = W.reindex(index=H.index, columns=H.columns)
+    if Wl.isna().any().any():
+        raise GateError("the ex-date window does not cover every fund-day of the book")
+    Wl = Wl.astype(bool).loc[lo:hi]
+    inw, rest, tot = C.where(Wl, 0.0).sum(axis=1), C.where(~Wl, 0.0).sum(axis=1), C.sum(axis=1)
+    if not np.allclose((inw + rest).to_numpy(), tot.to_numpy(), rtol=0.0, atol=1e-15):
+        raise AssertionError("the ex-date split does not sum to the P&L")
+    g = held.abs().loc[lo:hi]
+    return dict(first=str(tot.index[0].date()), last=str(tot.index[-1].date()), days=len(tot),
+                pnl_total=float(tot.sum()), pnl_in_window=float(inw.sum()), pnl_rest=float(rest.sum()),
+                share_in_window=float(inw.sum() / tot.sum()),
+                held_gross_share_in_window=float(g.where(Wl, 0.0).to_numpy().sum() / g.to_numpy().sum()),
+                ann_in_window_pct=float(inw.mean() * 252 * 100), ann_rest_pct=float(rest.mean() * 252 * 100),
+                sr_in_window=sr_of(inw), sr_rest=sr_of(rest))
+
+
+def holdout(rehearse: bool = False) -> int:
+    """Stages 8-9 (PREREG §7, §12), the reported rows, and amendment 3's report-only ex-date split.
+
+    OPENED ONCE. The real run refuses if any of its files exist, and writes HOLDOUT_MARKER before
+    the first holdout P&L row is computed, so a run that dies half-way refuses a second run.
+    `rehearse` (amendment 4) runs the identical code with the window 2021-01-04 -> 2022-12-30: fit
+    data, already seen; no P&L row after 2022-12-30 exists in it (asserted), and nothing it prints is
+    a holdout number.
+
+    The book is the declared rule run continuously (amendment 4): `build_targets` on the full
+    families panel (causal: the row for t reads data through t), truncated at the window's end
+    before the band, the cap and `evaluate()`. The run asserts that its rows through 2022-12-30 are
+    the fit's book bit for bit, and that its fit-window P&L reproduces the committed fit.
+
+    Returns: CRSP `ret` to 2024-12-31 (identity-checked per window under max(10bp, $0.01/price));
+    from 2025-01-02 the declared yfinance formula on yfinance's actions with amendment 4's 71
+    resolutions applied (`ruled_actions`); IGR's 2026-09-08/09 from Alpaca's split-adjusted bars.
+    H15: a held weight on a name-day with no return raises (`check_held`)."""
+    from scipy.stats import norm
+    from scripts.cef import band_frontier as bf
+    from scripts.cef import w4_artifacts as w4
+    from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS, SPEC_ID, summary
+    lo, hi = REHEARSAL_WINDOW if rehearse else (HOLDOUT_START, HOLDOUT_END)
+    if not rehearse:
+        opened = [p.name for p in (HOLDOUT_MARKER, HOLDOUT_OUT, HOLDOUT_JSON, HOLDOUT_TABLES) if p.exists()]
+        if opened:
+            raise GateError(f"the holdout has been opened ({opened}); it is opened once and is never recomputed")
+    # ---- gates: every prior record committed and unmodified; every gate clear
+    _tracked_clean(FROZEN, STAGE0_OUT, FIT_JSON, FIT_OUT, RESOLUTION_TABLE, EXCLUSIONS_A4, SPONSOR_CITATIONS_A4,
+                   PREREG, EXCLUSIONS_JSON)
+    st0 = STAGE0_OUT.read_text()
+    if "FIT GATE: CLEAR" not in st0 or "HOLDOUT GATE: CLEAR" not in st0:
+        raise GateError(f"{STAGE0_OUT.name} does not say FIT GATE: CLEAR and HOLDOUT GATE: CLEAR")
     if not FIT_REVIEWS_CONFIRMED:
-        raise GateError("holdout halted: it opens only after two independent reviews of the fit (3be92cd) "
-                        "confirm it (coordinator, 2026-10-15); no holdout number has been computed")
-    T = pd.read_csv(DIST_TABLE, parse_dates=["date"])
-    if (T["decision"] == "UNCONFIRMED").any():
-        raise GateError("holdout halted (ruling 2026-10-14): disagreeing ex-dates no third source confirms")
-    raise GateError("the holdout computation is written in the commit that opens it")
+        raise GateError("the two fit reviews have not confirmed the fit")
+    if "AMENDMENT 4" not in PREREG.read_text():
+        raise GateError("amendment 4 is not recorded in the pre-registration")
+    N = cef_counter()
+    if N != 52:
+        raise GateError(f"the approval judges C4 at N = 52; the counter reads {N}")
+    fitj = json.loads(FIT_JSON.read_text())
+    RT = pd.read_csv(RESOLUTION_TABLE, parse_dates=["date"])
+    if (RT["resolved"] == "STOP").any():
+        raise GateError("amendment 4: a conflict no sponsor notice settles; the holdout stays shut")
+    excluded = json.loads(EXCLUSIONS_A4.read_text())["excluded"]
+    if excluded != excluded_funds_a4(RT):
+        raise GateError(f"{EXCLUSIONS_A4.name} disagrees with {RESOLUTION_TABLE.name}")
+    a3_excluded = json.loads(EXCLUSIONS_JSON.read_text())["excluded"]
+    U = universes()
+    UF, snap = U["frozen"], U["snap68"]
+    UH = [t for t in UF if t not in excluded]
+    px, nav = load_panels(U["pool"])
+    crsp = crsp_returns(U["pool"])
+    qr = qqqx_rule(crsp, px)
+    if not qr["use_predecessor"]:
+        raise GateError("the QQQX rule's decision changed since Stage 0")
+    c_rows = crsp if qr["use_predecessor"] else crsp[~((crsp["ticker"] == "QQQX") & (crsp["permno"] == QQQX_PRED_PERMNO))]
+    ident = {}
+    for wl, a, b in (("fit", SAMPLE_START, FIT_END), ("holdout CRSP leg", HOLDOUT_START, CRSP_END)):
+        tab = crsp_identity(c_rows, px, UF, a, b)         # raises naming any failing fund (amendment 4, ruling 1)
+        ident[wl] = dict(funds=len(tab), min_share=float(tab["move_share"].min()), lowest=str(tab["move_share"].idxmin()))
+    alp = alpaca_pool()
+    run_utc = dt.datetime.now(dt.timezone.utc).isoformat()
+    head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True,
+                          check=True).stdout.strip()
+    print(summary())
+    print(("C4 HOLDOUT REHEARSAL -- fit data only (2021-01-04 -> 2022-12-30); NOTHING HERE IS A HOLDOUT NUMBER"
+           if rehearse else "C4 HOLDOUT (CEF trial 52), opened ONCE") +
+          f". Run {run_utc[:16]} UTC at commit {head}. N = {N}. Window {lo.date()} -> {hi.date()}.")
+    print(f"  gates: stage 0 FIT and HOLDOUT GATE CLEAR; fit reviews confirmed; amendment 4 recorded; CRSP identity "
+          f"under max(10bp, ${IDENTITY_TICK}/price): " + "; ".join(f"{k} {v['funds']} funds, lowest {v['lowest']} "
+                                                                    f"{v['min_share']:.4f}" for k, v in ident.items()))
+    print(f"  universe: {len(UH)} of the {len(UF)} frozen funds (excluded under amendment 4: {excluded or 'none'}); "
+          f"distributions: {RESOLUTION_TABLE.name} {RT['resolved'].value_counts().to_dict()}")
+
+    # ---- returns on every session to the fixed holdout end (Stage 0 computes these too; no P&L yet)
+    T74_full = build_book(UH)
+    sess = T74_full.index[T74_full.index <= HOLDOUT_END]
+    cols = sorted(set(UF) | set(snap))
+    yfa = pd.read_parquet(FAM_DIR / "cef_actions.parquet")
+    yfa["date"] = pd.to_datetime(yfa["date"])
+    RT_adx = RT.copy()
+    m = (RT_adx["ticker"] == "ADX") & (RT_adx["date"] == pd.Timestamp("2025-01-27"))
+    if m.sum() != 1:
+        raise GateError("R-ADX: the ADX 2025-01-27 row is not in the resolution table")
+    RT_adx.loc[m, "resolved"], RT_adx.loc[m, "resolved_amount"] = "Alpaca", RT_adx.loc[m, "alpaca"]
+    CACHE.mkdir(parents=True, exist_ok=True)
+    act_paths = {}
+    for k, tbl in (("ruled", RT), ("radx", RT_adx)):
+        act_paths[k] = CACHE / f"c4_holdout_actions_{k}_{HOLDOUT_STAMP}.parquet"
+        ruled_actions(yfa, tbl, excluded).to_parquet(act_paths[k], index=False)
+    ruled = pd.read_parquet(act_paths["ruled"])
+    cr = crsp_pivot(crsp, cols, sess, qr, "ret", px=px)
+    fill, fchk = igr_fill(alp, px, sess)
+
+    def assemble(actions):
+        yf = yf_total_returns(px, cols, sess, actions=actions)
+        for d, v in fill.items():
+            if pd.notna(yf.loc[d, "IGR"]):
+                raise GateError(f"IGR {d.date()} already has a yfinance return; the ruled fill does not apply")
+            yf.loc[d, "IGR"] = v
+        R_ = pd.concat([cr.loc[:CRSP_END], yf.loc[YF_START:]])
+        if not R_.index.equals(sess):
+            raise GateError("the CRSP and yfinance legs do not tile the session index at the seam")
+        return R_
+
+    R, R_unc, R_adx = assemble(act_paths["ruled"]), assemble(None), assemble(act_paths["radx"])
+    print(f"  returns: CRSP ret {sess[0].date()}..{CRSP_END.date()}; yfinance formula {YF_START.date()}..{sess[-1].date()} "
+          f"on the ruled actions; IGR fill {', '.join(f'{d.date()} {v:+.4%}' for d, v in fill.items())} (Alpaca split-adjusted)")
+
+    # ---- the books. Past this line holdout P&L exists: the marker first.
+    if not rehearse:
+        HOLDOUT_MARKER.write_text(f"C4 holdout opened {run_utc} by `python3 scripts/cef/c4_families.py holdout` at "
+                                  f"commit {head}. It is opened once; this file makes a second run refuse.\n")
+
+    def book(universe, Rm, label, T_full=None):
+        T_full = build_book(universe) if T_full is None else T_full
+        H = bf.band_gross_capped(T_full.loc[:hi], BAND_WIDTH, MAX_GROSS_STRESS)
+        R0 = check_held(H, Rm[list(universe)].reindex(index=H.index), label)
+        r = bf.evaluate(H, R0)
+        if rehearse and r["pnl"].index.max() > FIT_END:
+            raise AssertionError("the rehearsal computed a P&L row after 2022-12-30")
+        return dict(H=H, R0=R0, pnl=r["pnl"], turn=r["turn_series"], T_full=T_full)
+
+    D = book(UH, R, "C4 holdout (declared)", T_full=T74_full)
+    H = D["H"]
+    if UH == UF:
+        Hfit = bf.band_gross_capped(fit_slice(T74_full), BAND_WIDTH, MAX_GROSS_STRESS)
+        if not (H.loc[:FIT_END].index.equals(Hfit.index) and np.array_equal(H.loc[:FIT_END].to_numpy(), Hfit.to_numpy())):
+            raise AssertionError("the holdout book's rows through 2022-12-30 are not the fit's book")
+    p0 = H.shift(2).abs().sum(axis=1).gt(0).idxmax()
+    Pfit, TUfit = D["pnl"].loc[p0:FIT_END], D["turn"].loc[p0:FIT_END]
+    rf = row_stats(Pfit, TUfit)
+    fit_ok = (str(p0.date()) == fitj["robustness"][0]["first_held"] and abs(rf["sr"] - fitj["stage1"]["gross_sr"]) < 1e-12
+              and abs(rf["net15"] - fitj["cost_grid"]["net15"]) < 1e-12 and abs(rf["turn"] - fitj["cost_grid"]["turn"]) < 1e-9)
+    if UH == UF and not fit_ok:
+        raise AssertionError(f"the fit window does not reproduce the committed fit: {rf} vs {fitj['cost_grid']}")
+    print(f"  the fit reproduced in this run: first held {p0.date()}, gross SR {rf['sr']:.6f} (committed "
+          f"{fitj['stage1']['gross_sr']:.6f}), net@15 {rf['net15']:.6f}, turn {rf['turn']:.4f}; the book's 2005-22 rows "
+          f"are the fit's bit for bit")
+
+    # ---- stage 8 and the statistics beside it
+    P, TU = D["pnl"].loc[lo:hi], D["turn"].loc[lo:hi]
+    row = row_stats(P, TU)
+    yrs = len(P) / 252
+    t21, t5 = w4.nw_t(P, NW_L), w4.nw_t(P, NW_L_W4)
+    m21, s21 = w4.stationary_boot(P, BOOT_BLOCK, BOOT_REPS, SEED)
+    ci = lambda a: [float(np.percentile(a, 2.5)), float(np.percentile(a, 97.5))]  # noqa: E731
+    sgn_fit, sgn = float(np.sign(Pfit.mean())), float(np.sign(P.mean()))
+    z = rf["sr"] * math.sqrt(yrs)
+    p_sign = float(norm.cdf(z) if sgn > 0 else norm.cdf(-z))
+    s8 = dict(mean_daily=float(P.mean()), sign=sgn, fit_sign=sgn_fit, pass_=bool(sgn == sgn_fit))
+    held_funds = int((H.shift(2).loc[lo:hi].abs().sum() > 0).sum())
+    out = dict(rehearsal=rehearse, run_utc=run_utc, commit=head, spec=SPEC_ID, N=N, window=[str(lo.date()), str(hi.date())],
+               days=len(P), years=yrs, universe=len(UH), excluded=excluded, funds_held=held_funds, identity=ident,
+               fit_reproduced=dict(first_held=str(p0.date()), **rf), headline=row, nw_t21=t21, nw_t5=t5,
+               boot21_mean_ci_pct=[x * 252 * 100 for x in ci(m21)], boot21_sr_ci=ci(s21),
+               p_observed_sign_under_fit_sr=p_sign, stage8=s8)
+    fee = pd.DataFrame(0.0, index=H.index, columns=H.columns)
+    bc = bf.borrow_charge(H, fee)
+    out["borrow"] = dict(charge_pct_per_yr=float(bc["cost"].loc[lo:hi].mean() * 252 * 100),
+                         mean_short_notional=float(bc["short"].loc[lo:hi].mean()), covered_share=bc["covered_share"])
+    print("\n" + "=" * 100)
+    print(f"[STAGE 8] the holdout sign rule (PREREG §7): mean daily gross P&L {P.mean() * 1e4:+.3f}bp "
+          f"({row['ann_pct']:+.2f}%/yr) over {len(P)} sessions ({yrs:.2f} years) against the fit's "
+          f"{Pfit.mean() * 1e4:+.3f}bp -> same sign: {'PASS' if s8['pass_'] else 'FAIL (KILL D3)'}")
+    print(f"  beside it: gross Sharpe {row['sr']:.3f}; NW t (L=21) {t21:.2f} (L=5 {t5:.2f}); stationary bootstrap "
+          f"(mean block {BOOT_BLOCK}, {BOOT_REPS:,}, seed {SEED}) 95% CI mean {out['boot21_mean_ci_pct'][0]:+.2f}.."
+          f"{out['boot21_mean_ci_pct'][1]:+.2f} %/yr, Sharpe {out['boot21_sr_ci'][0]:+.2f}..{out['boot21_sr_ci'][1]:+.2f}; "
+          f"P(observed sign | true Sharpe = fit's {rf['sr']:.3f}) = {p_sign:.3f}; funds held {held_funds} of {len(UH)}")
+    print("\n  COST GRID (bp per unit one-way turnover; gross is the headline, never mixed in):")
+    print(f"  {'book':<34}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn/yr':>9}{'net@5':>8}{'net@15':>8}{'net@30':>8}{'flips?':>8}")
+    for lab, r_ in (("C4 holdout (declared)", row), ("C4 fit (reproduced)", rf)):
+        print(f"  {lab:<34}{r_['sr']:8.3f}{r_['ann_pct']:7.2f}{r_['vol_pct']:7.2f}{r_['turn']:9.1f}"
+              f"{r_['net5']:8.3f}{r_['net15']:8.3f}{r_['net30']:8.3f}{r_['flips']:>8}")
+    print(f"  BORROW (separate, labelled; a COUNTERFACTUAL: the 2026-10-14 snapshot, every fund easy to borrow, Alpaca "
+          f"charges no fee on an easy-to-borrow short, REFERENCES §12l): {out['borrow']['charge_pct_per_yr']:.3f}%/yr; mean "
+          f"short notional {out['borrow']['mean_short_notional']:.3f} of capital, for any other rate")
+
+    # legs, years, the era row
+    legs = []
+    for lab, a, b in (("CRSP leg", lo, min(hi, CRSP_END)), ("yfinance leg", max(lo, YF_START), hi)):
+        x, tx = P.loc[a:b], TU.loc[a:b]
+        if len(x) > 20:
+            legs.append(dict(leg=lab, first=str(x.index[0].date()), last=str(x.index[-1].date()), **row_stats(x, tx)))
+    yr = P.groupby(P.index.year).sum()
+    ev = np.array([e["turn"] for e in fitj["eras"]] + [row["turn"]])
+    out.update(legs=legs, years={int(k): float(v) for k, v in yr.items()},
+               era_turnover_sd_over_mean_with_holdout=float(ev.std() / ev.mean()))
+    print("\n  BY RETURN LEG and CALENDAR YEAR (reported):")
+    for l_ in legs:
+        print(f"    {l_['leg']:<13} {l_['first']}..{l_['last']}: gross SR {l_['sr']:.3f}, ann {l_['ann_pct']:+.2f}%, "
+              f"turn {l_['turn']:.1f}, net@15 {l_['net15']:.3f}, net@30 {l_['net30']:.3f}")
+    print("    gross P&L by year: " + ", ".join(f"{k} {v * 100:+.2f}%" for k, v in out["years"].items())
+          + f"; era turnover sd/mean, four fit eras and this one: {out['era_turnover_sd_over_mean_with_holdout']:.1%}")
+
+    # ---- stage 9 and the verdict
+    s9 = dict(net15_fit=float(fitj["cost_grid"]["net15"]), net15_holdout=float(row["net15"]),
+              pass_=bool(fitj["cost_grid"]["net15"] > 0 and row["net15"] > 0))
+    out["stage9"] = s9
+    fit_pass = fitj["verdict"].startswith("FIT PASS")
+    if not fit_pass:
+        verdict = f"{fitj['verdict']} (the holdout can kill and never rescue)"
+    elif not s8["pass_"]:
+        verdict = "KILL D3 (stage 8: the holdout's mean gross P&L has the opposite sign to the fit's)"
+    elif not s9["pass_"]:
+        verdict = ("PASS (stages 1-6 and 8), labelled D2 (stage 9: net Sharpe at 15bp <= 0 on the fit or the holdout): "
+                   "no real-money sleeve; paper only by team-lead ruling")
+    else:
+        verdict = "PASS (stages 1-6 and 8; stage 9: net Sharpe at 15bp > 0 on the fit and the holdout)"
+    out["verdict"] = verdict
+    print(f"\n[STAGE 9] net Sharpe at 15bp: fit {s9['net15_fit']:.3f}, holdout {s9['net15_holdout']:.3f} -> "
+          f"{'> 0 on both' if s9['pass_'] else '<= 0 on at least one: the D2 label (amendment 3 reading)'}")
+
+    # ---- reported beside the holdout, never deciding
+    print("\n[REPORTED BESIDE THE HOLDOUT, NEVER DECIDING] each from the same window:")
+    rob = [dict(book="C4 holdout (declared)", universe=len(UH), funds_held=held_funds, **row)]
+
+    def add(label, b_, note=""):
+        x, tx = b_["pnl"].loc[lo:hi], b_["turn"].loc[lo:hi]
+        rob.append(dict(book=label, universe=b_["H"].shape[1], funds_held=int((b_["H"].shift(2).loc[lo:hi].abs().sum() > 0).sum()),
+                        note=note, **row_stats(x, tx), sign_agrees=bool(np.sign(x.mean()) == sgn_fit)))
+
+    for label, Rm in (("uncorrected yfinance distributions", R_unc), ("R-ADX: ADX at Alpaca's $0.63", R_adx)):
+        R0x = check_held(H, Rm[list(UH)].reindex(index=H.index), label)
+        rx = bf.evaluate(H, R0x)
+        add(label, dict(H=H, pnl=rx["pnl"], turn=rx["turn_series"]))
+    add("R-68: the approved 68", book([t for t in snap if t not in excluded], R, "R-68"),
+        "DMA and PTA: 9 disputed ex-dates no ruling covers; yfinance's amounts stand")
+    add(f"amendment-3 book (without {' '.join(a3_excluded)})", book([t for t in UF if t not in a3_excluded], R, "amendment-3 book"))
+    add("R-IGR: without IGR", book([t for t in UF if t != "IGR"], R, "R-IGR"),
+        "the holdout if the IGR 2026-08-20 reading (amendment 4) is overruled")
+    print(f"  {'book':<48}{'univ':>5}{'held':>5}{'grossSR':>8}{'ann%':>7}{'turn':>7}{'net@5':>7}{'net@15':>7}{'net@30':>7}{'flips?':>7}  sign")
+    for r_ in rob:
+        print(f"  {r_['book']:<48}{r_['universe']:>5}{r_['funds_held']:>5}{r_['sr']:8.3f}{r_['ann_pct']:7.2f}{r_['turn']:7.1f}"
+              f"{r_['net5']:7.3f}{r_['net15']:7.3f}{r_['net30']:7.3f}{r_['flips']:>7}  "
+              f"{'agrees' if r_.get('sign_agrees', s8['pass_']) else 'OPPOSITE'}" + (f"  ({r_['note']})" if r_.get("note") else ""))
+    out["reported_rows"] = rob
+
+    bs = book_series()
+    corr = {}
+    for lab in ("deployed", "WIDE"):
+        b = bs[lab]["pnl"]
+        common = P.index.intersection(b.loc[lo:hi].index)
+        x, y = P.reindex(common), b.reindex(common)
+        bx, by = block_sums(x, CORR_BLOCK), block_sums(y, CORR_BLOCK)
+        corr[lab] = dict(window=[str(common[0].date()), str(common[-1].date())], blocks=len(bx),
+                         rho21=float(np.corrcoef(bx, by)[0, 1]), rho_daily=float(np.corrcoef(x, y)[0, 1]))
+    out["correlation_with_book"] = corr
+    print("  correlation with the book over the window (21-session sums): " + "; ".join(
+        f"{k} rho21 {v['rho21']:+.3f} ({v['blocks']} blocks), daily {v['rho_daily']:+.3f}" for k, v in corr.items()))
+
+    cx = crsp_ex_dates(crsp, qr, UH)
+    exd = pd.concat([cx[cx["date"] <= CRSP_END],
+                     ruled.loc[(ruled["dividends"] > 0) & (ruled["date"] >= YF_START) & ruled["ticker"].isin(UH),
+                               ["ticker", "date"]]], ignore_index=True)
+    W = ex_window_mask(H.index, H.columns, exd)
+    ex_h, ex_f = ex_window_split(H, D["R0"], W, lo, hi), ex_window_split(H, D["R0"], W, p0, FIT_END)
+    out["ex_date_split"] = dict(label="designed after seeing fit numbers; report-only; can never kill or rescue",
+                                window=ex_h, fit=ex_f)
+    print("\n  EX-DATE WINDOW [0,2] -- designed after seeing fit numbers; report-only; can never kill or rescue:")
+    for lab, e in (("this window", ex_h), ("fit (same code)", ex_f)):
+        print(f"    {lab:<16} {e['first']}..{e['last']}: P&L {e['pnl_total'] * 100:+.2f}% in all; in the window "
+              f"{e['pnl_in_window'] * 100:+.2f}% ({e['share_in_window']:.1%} of it, on {e['held_gross_share_in_window']:.1%} of "
+              f"held gross fund-days; {e['ann_in_window_pct']:+.2f}%/yr, Sharpe {e['sr_in_window']:.3f}); the rest "
+              f"{e['pnl_rest'] * 100:+.2f}% ({e['ann_rest_pct']:+.2f}%/yr, Sharpe {e['sr_rest']:.3f})")
+
+    print("\n" + "=" * 100)
+    print(f"{'REHEARSAL (not a verdict)' if rehearse else 'TRIAL 52 VERDICT'}: {verdict}")
+    print(f"  fit: {fitj['verdict']}; stage 8 {'pass' if s8['pass_'] else 'FAIL'}; stage 9 "
+          f"{'pass' if s9['pass_'] else 'D2 label'}")
+    tables = pd.DataFrame(rob + [dict(book=f"leg: {l_['leg']}", **{k: v for k, v in l_.items() if k != 'leg'}) for l_ in legs])
+    dump = lambda o: o.item() if hasattr(o, "item") else str(o)  # noqa: E731
+    if rehearse:
+        (CACHE / f"c4_holdout_REHEARSAL_{HOLDOUT_STAMP}.json").write_text(json.dumps(out, indent=1, default=dump))
+    else:
+        HOLDOUT_JSON.write_text(json.dumps(out, indent=1, default=dump))
+        tables.to_csv(HOLDOUT_TABLES, index=False)
+        P.to_frame("c4_holdout_gross_pnl").to_parquet(CACHE / f"c4_holdout_pnl_{HOLDOUT_STAMP}.parquet")
+    return 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("stage", choices=["stage0", "fit", "distributions", "holdout"])
+    ap.add_argument("--rehearse", action="store_true",
+                    help="holdout only: run the identical code on 2021-01-04 -> 2022-12-30 (fit data; amendment 4)")
     a = ap.parse_args(argv)
+    if a.rehearse and a.stage != "holdout":
+        ap.error("--rehearse applies to the holdout stage only")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     buf = io.StringIO()
 
@@ -1682,10 +2021,12 @@ def main(argv=None) -> int:
             buf.write(s)
             return len(s)
 
-    fn = dict(stage0=stage0, fit=fit, distributions=distributions, holdout=holdout)[a.stage]
+    fn = dict(stage0=stage0, fit=fit, distributions=distributions,
+              holdout=lambda: holdout(rehearse=a.rehearse))[a.stage]
     with contextlib.redirect_stdout(Tee()):
         rc = fn()
-    target = dict(stage0=STAGE0_OUT, fit=FIT_OUT, distributions=RESOLUTION_OUT).get(a.stage)
+    target = dict(stage0=STAGE0_OUT, fit=FIT_OUT, distributions=RESOLUTION_OUT,
+                  holdout=REHEARSAL_OUT if a.rehearse else HOLDOUT_OUT).get(a.stage)
     if target is not None:
         target.write_text(buf.getvalue())
     return rc

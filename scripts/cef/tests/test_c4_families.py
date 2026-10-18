@@ -318,3 +318,38 @@ def test_a_stated_amount_must_occur_in_its_own_quote():
     assert amount_in_quote(0.06, "distributions of $0.06 per share for the months of")
     assert not amount_in_quote(0.06, "a distribution of $0.065 per share") and not amount_in_quote(0.06, "$10.06")
     assert amount_in_quote(0.0, "no number") and amount_in_quote(np.nan, "no number")
+
+
+# --- the holdout stage (2026-10-18): the ex-date window, its split, and opening once ---
+
+def test_ex_window_marks_the_ex_date_session_and_the_next_two_and_refuses_a_non_session():
+    idx = pd.bdate_range("2023-01-02", periods=10)
+    exd = pd.DataFrame(dict(ticker=["A", "B"], date=[idx[2], idx[8]]))
+    W = c4.ex_window_mask(idx, ["A", "B"], exd)
+    assert list(W["A"]) == [False, False, True, True, True, False, False, False, False, False]
+    assert list(W["B"]) == [False] * 8 + [True, True]                    # clipped at the index's end
+    with pytest.raises(c4.GateError, match="not sessions"):
+        c4.ex_window_mask(idx, ["A"], pd.DataFrame(dict(ticker=["A"], date=[pd.Timestamp("2023-01-07")])))
+
+
+def test_ex_window_split_uses_the_execution_lag_and_sums_to_evaluate():
+    from scripts.cef.band_frontier import evaluate
+    idx = pd.bdate_range("2023-01-02", periods=12)
+    H = pd.DataFrame(0.0, index=idx, columns=["A", "B"])
+    H.loc[idx[0]:, "A"], H.loc[idx[0]:, "B"] = 0.5, -0.5
+    R = pd.DataFrame(0.001, index=idx, columns=["A", "B"])
+    R.loc[idx[5], "A"] = 0.010                                           # A's ex-date session
+    W = c4.ex_window_mask(idx, ["A", "B"], pd.DataFrame(dict(ticker=["A"], date=[idx[5]])))
+    e = c4.ex_window_split(H, R, W, idx[0], idx[-1])
+    pnl = evaluate(H, R)["pnl"]
+    assert e["pnl_total"] == pytest.approx(pnl.sum())
+    assert e["pnl_in_window"] == pytest.approx(0.5 * (0.010 + 0.001 + 0.001))   # held A on its sessions 0..2
+    assert e["held_gross_share_in_window"] == pytest.approx(3 * 0.5 / (10 * 1.0))  # 10 held sessions of gross 1
+
+
+def test_the_holdout_refuses_to_run_twice(tmp_path, monkeypatch):
+    marker = tmp_path / "c4_holdout_opened.txt"
+    marker.write_text("opened")
+    monkeypatch.setattr(c4, "HOLDOUT_MARKER", marker)
+    with pytest.raises(c4.GateError, match="opened once"):
+        c4.holdout(rehearse=False)
