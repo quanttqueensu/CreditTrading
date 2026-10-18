@@ -1064,3 +1064,25 @@ marked [S] was read through a search summary, not the page itself.
 | Bargeron, Kulchania & Thomas (2011, JFE): positive abnormal returns at ASR announcements | search summary | [S] |
 | Henderson, Mallett & McCann: 81 non-traded REITs averaged 6.3%/yr against 11.6% for traded REITs | search summary (SLCG working paper) | [S] |
 | Substitute payments in lieu of exempt-interest dividends are not passed through as exempt-interest dividends (open-end fund filings: Ivy Funds 497, 2018; Sterling Capital 485APOS, 2017–24) | search summary; not read through `edgar_client` | [S] |
+
+### 12w. E1 revived: the ETF hedge for the merger target (added 2026-10-15)
+
+The sources behind `results/events/E1_ETF_HEDGE_GATE_2026-10-15.md`. Every data
+row is fetched by `scripts/events/e1_etf_hedge_gate.py`. The cache is
+`results/events/_cache_e1_hedge/` (gitignored), with EDGAR through
+`scripts/data/edgar_client.py` (§12g). Zero trials; returns before 2023-01-01
+only.
+
+| claim / series | source and fetcher | status |
+|---|---|---|
+| **Form N-PORT Item B.5.a**: "Monthly total returns of the Fund for each of the preceding three months … calculated in accordance with the methodologies outlined in Item 26(b)(1) of Form N-1A, Instruction 13 to sub-Item 1 of Item 4 of Form N-2 …". So a closed-end fund's N-PORT monthly returns are its NAV total returns. Only the third month of each fiscal quarter is made public | `https://www.sec.gov/files/formn-port.pdf`, fetched 2026-10-15 (SHA-256 `f953af59…`), text via pdftotext | [V] wording; [S] that N-2 Instruction 13 means NAV-based (the N-2 instruction itself was not re-read) |
+| **N-PORT data-set readme**: `MONTHLY_TOTAL_RETURN1` = "First Month total returns of the Fund", `…2` = "Second Month", `…3` = "Third Month" (Item B.5.a). XML attributes `rtn1`–`rtn3` | `https://www.sec.gov/files/nport_readme.pdf`, fetched 2026-10-15 (SHA-256 `de57ff40…`) | [V] wording; "first" = earliest is confirmed by the next row |
+| **Month 1 is the earliest month.** BlackRock MuniYield California Fund (CIK 882152), NPORT-P for the period 2020-04-30 (accession 0001752724-20-131167): `rtn1` 2.41, `rtn2` −8.82, `rtn3` −2.36, i.e. Feb, Mar (the muni crash), Apr 2020. Re-tested on every run, pooled over 321 fund-months: same-month corr with the segment ETF 0.673, two months away −0.189 | EDGAR `primary_doc.xml`, fetched 2026-10-15 20:31 UTC (SHA-256 `96f35de1…`); `e1_etf_hedge_gate.nport_alignment_check` | [V] |
+| **N-PORT monthly NAV returns of 28 merged-away targets** whose pre-announcement windows reach 2019+; 10 muni targets have ≥ 9 months in window (median 20) | EDGAR submissions API + each NPORT-P `primary_doc.xml` (last filing per report date), fetched 2026-10-15 | [V] |
+| **Alpaca asset flags, 19 ETFs.** `hard_to_borrow`, `shortable: false`: MUB, VTEB, TFI, HYD, SUB, SHM, MLN, CMF, NYF, BIZD. `easy_to_borrow`: HYG, JNK, LQD, BKLN, PFF, SPY, EFA, IEF, TLT | `GET /v2/assets/{symbol}` (paper, cef key), 2026-10-15 20:38–20:43 UTC | [V] on that date |
+| Second route, same day: the Alpaca MCP server's `get_asset` returned MUB and VTEB `hard_to_borrow` / not shortable and HYG `easy_to_borrow`. The account behind that server was not identified | MCP `get_asset`, 2026-10-15, between 20:38 and 20:43 UTC | [V] as a cross-check only |
+| Earlier read on file: MUB not shortable, `hard_to_borrow`; HYG, LQD, PFF, BKLN, SPY, EFA, IEF, TLT easy | `results/xasset/slate_feasibility_2026-10-12.csv` (2026-10-12 22:42 UTC) | [V] on that date |
+| **Dollar ADV today**: median close × volume over 63 sessions, 2026-07-17 → 2026-10-14. MUB $793m, VTEB $580m, HYD $67m, SUB $58m, TFI $43m, SHM $13m, NYF $13m, MLN $4.4m; HYG $2.85bn, JNK $232m, BKLN $160m, PFF $84m; IEF $713m, TLT $2.6bn | Alpaca `GET /v2/stocks/bars` (SIP, raw) via `scripts/rv/alpaca_daily.fetch_bars` | [V] |
+| **IBKR borrow on muni ETFs** (fee %/yr, shares available), 2026-10-13: MUB 5.51 (1.0m), VTEB 4.55 (1.5m), TFI 9.34 (100k), HYD 18.20 (55k), SUB 5.67 (50k), SHM 8.44 (600k), MLN 4.03 (60k), CMF 8.75, NYF 6.77. For comparison HYG 0.57, BKLN 0.55, SPY 0.25, IEF 0.28 | IBKR shortstock file `#BOF\|2026.10.13\|18:03:03`, cached by G1a (§12p) | [V] on that date; context, not the book's broker |
+| CRSP daily `ret` / `prc` / `vol` for the 167 deals' targets and acquirers and 19 ETFs (share code 73, ticker resolved by date range), rows before 2023-01-01 | R2 mirror `crsp_a_stock.dsf` via `crsp_events.daily`, pulled 2026-10-15 20:38 and 20:43 UTC | [V] |
+| Hedge ratio: the Dimson (1979) sum-of-lagged-slopes beta for thinly traded securities (one lead-lag term). Cross-checked here with calendar-week OLS: 774bp against 789bp residual, beta 1.04 against 1.00 (muni × MUB) | Dimson, E., "Risk measurement when shares are subject to infrequent trading", *Journal of Financial Economics* 7 (1979) — citation from recall, not fetched | [U] citation; [V] the cross-check |
