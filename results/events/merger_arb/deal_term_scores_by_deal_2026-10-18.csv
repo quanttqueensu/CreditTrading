@@ -1,0 +1,21 @@
+target,accession,role,fields_scored,fields_not_agreeing,which
+"Mistras Group, Inc.",0001140361-26-037107,target,11,1.0,other regulatory condition
+"Baldwin Insurance Group, Inc.",0000950103-26-013874,target,11,3.0,outside date; other regulatory condition; target vote
+"Pacira BioSciences, Inc.",0001104659-26-114571,target,11,1.0,termination fee
+"Victory Capital Holdings, Inc.",0001104659-26-103936,acquirer,0,,
+"SOUNDTHINKING, INC.",0001193125-26-406024,target,11,5.0,consideration class; cash per share; outside date; no financing condition; termination fee
+Bowman Consulting Group Ltd.,0001193125-26-341431,target,11,3.0,consideration class; cash per share; outside date
+"Swarmer, Inc",0001104659-26-106499,acquirer,0,,
+MARINEMAX INC,0001193125-26-290439,wrong_document,0,,
+"Weave Communications, Inc.",0001609151-26-000100,target,11,2.0,outside date; HSR condition
+NOVAGOLD RESOURCES INC,0001104659-26-085824,reorganisation,0,,
+CENTERSPACE,0001140361-26-035986,target,11,2.0,exchange ratio; termination fee
+EAGLE FINANCIAL SERVICES INC,0001193125-26-384457,target,11,3.0,exchange ratio; outside date; termination fee
+Cherry Hill Mortgage Investment Corp,0001140361-26-031930,target,11,4.0,cash per share; outside date; other regulatory condition; termination fee
+"SUPERNUS PHARMACEUTICALS, INC.",0001104659-26-089425,target,11,3.0,outside date; target vote; termination fee
+Sanara MedTech Inc.,0001493152-26-035196,target,11,2.0,outside date; other regulatory condition
+BIOLIFE SOLUTIONS INC,0001628280-26-049232,target,11,2.0,outside date; other regulatory condition
+Finward Bancorp,0001193125-26-310388,target,11,1.0,outside date
+TRICO BANCSHARES /,0001104659-26-083891,target,11,1.0,exchange ratio
+Iridium Communications Inc.,0001104659-26-078482,target,11,3.0,collar; outside date; target vote
+SYNAPTICS Inc,0001140361-26-026434,target,11,2.0,outside date; other regulatory condition
