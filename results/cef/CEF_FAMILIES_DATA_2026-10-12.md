@@ -316,6 +316,12 @@ funds, range 0.9995–1.0039), so the ADV figures do not depend on the source.
 
 - 158 of 164 funds map. The other six (BPRE, CFND, PSUS, PWRL, RVI, VCX) listed
   after CRSP ends.
+- *Corrected 2026-10-15:* **BTX is mis-mapped.** Its current permno here, 76963,
+  is a biotech (NTN Buzztime → Brooklyn Immunotherapeutics → Eterna, share code
+  11) that used the ticker in 2021–22. yfinance's BTX history is the former BIGZ,
+  CRSP permno 20674 (share code 44), which matches 947 of 948 closes. The files
+  in `data/cef_families/` were not rebuilt; trial C4 carries the override
+  (`docs/REFERENCES.md` §12h, correction row).
 - A fund maps to its **current** permno, and then that permno's whole history
   is taken.
 - The plain date-range join of the live cross-check would have tied STEW's

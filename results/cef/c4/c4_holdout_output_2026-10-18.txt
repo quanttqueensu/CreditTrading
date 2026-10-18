@@ -1,0 +1,41 @@
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+C4 HOLDOUT (CEF trial 52), opened ONCE. Run 2026-10-18T23:07 UTC at commit 353dc57. N = 52. Window 2023-01-01 -> 2026-09-30.
+  gates: stage 0 FIT and HOLDOUT GATE CLEAR; fit reviews confirmed; amendment 4 recorded; CRSP identity under max(10bp, $0.01/price): fit 74 funds, lowest PEO 0.9923; holdout CRSP leg 74 funds, lowest TY 0.9920
+  universe: 74 of the 74 frozen funds (excluded under amendment 4: none); distributions: c4_distribution_resolution_2026-10-18.csv {'Alpaca': 65, 'yfinance': 6}
+  returns: CRSP ret 2005-01-03..2024-12-31; yfinance formula 2025-01-02..2026-09-30 on the ruled actions; IGR fill 2026-09-08 -0.4454%, 2026-09-09 -3.5048% (Alpaca split-adjusted)
+  the fit reproduced in this run: first held 2005-02-22, gross SR 1.216958 (committed 1.216958), net@15 0.246640, turn 38.0823; the book's 2005-22 rows are the fit's bit for bit
+
+====================================================================================================
+[STAGE 8] the holdout sign rule (PREREG §7): mean daily gross P&L +2.065bp (+5.20%/yr) over 939 sessions (3.73 years) against the fit's +2.843bp -> same sign: PASS
+  beside it: gross Sharpe 0.725; NW t (L=21) 1.32 (L=5 1.41); stationary bootstrap (mean block 21, 10,000, seed 20261013) 95% CI mean -3.11..+12.19 %/yr, Sharpe -0.34..+2.09; P(observed sign | true Sharpe = fit's 1.217) = 0.991; funds held 47 of 74
+
+  COST GRID (bp per unit one-way turnover; gross is the headline, never mixed in):
+  book                               grossSR   ann%   vol%  turn/yr   net@5  net@15  net@30  flips?
+  C4 holdout (declared)                0.725   5.20   7.18     49.2   0.382  -0.304  -1.332     YES
+  C4 fit (reproduced)                  1.217   7.16   5.89     38.1   0.894   0.247  -0.724     YES
+  BORROW (separate, labelled; a COUNTERFACTUAL: the 2026-10-14 snapshot, every fund easy to borrow, Alpaca charges no fee on an easy-to-borrow short, REFERENCES §12l): 0.000%/yr; mean short notional 0.785 of capital, for any other rate
+
+  BY RETURN LEG and CALENDAR YEAR (reported):
+    CRSP leg      2023-01-03..2024-12-31: gross SR 2.261, ann +12.78%, turn 53.0, net@15 0.855, net@30 -0.551
+    yfinance leg  2025-01-02..2026-09-30: gross SR -0.409, ann -3.50%, turn 44.9, net@15 -1.194, net@30 -1.979
+    gross P&L by year: 2023 +11.87%, 2024 +13.60%, 2025 +3.09%, 2026 -9.17%; era turnover sd/mean, four fit eras and this one: 37.0%
+
+[STAGE 9] net Sharpe at 15bp: fit 0.247, holdout -0.304 -> <= 0 on at least one: the D2 label (amendment 3 reading)
+
+[REPORTED BESIDE THE HOLDOUT, NEVER DECIDING] each from the same window:
+  book                                             univ held grossSR   ann%   turn  net@5 net@15 net@30 flips?  sign
+  C4 holdout (declared)                              74   47   0.725   5.20   49.2  0.382 -0.304 -1.332    YES  agrees
+  uncorrected yfinance distributions                 74   47   0.712   5.12   49.2  0.369 -0.316 -1.343    YES  agrees
+  R-ADX: ADX at Alpaca's $0.63                       74   47   0.726   5.21   49.2  0.383 -0.302 -1.331    YES  agrees
+  R-68: the approved 68                              68   42   0.741   5.22   50.9  0.379 -0.343 -1.427    YES  agrees  (DMA and PTA: 9 disputed ex-dates no ruling covers; yfinance's amounts stand)
+  amendment-3 book (without ADX BTX IGA NXG PEO)     69   43   0.354   3.20   51.7  0.068 -0.505 -1.363    YES  agrees
+  R-IGR: without IGR                                 73   46   1.486   8.44   53.0  1.019  0.086 -1.314    YES  agrees  (the holdout if the IGR 2026-08-20 reading (amendment 4) is overruled)
+  correlation with the book over the window (21-session sums): deployed rho21 +0.134 (44 blocks), daily +0.073; WIDE rho21 +0.196 (44 blocks), daily +0.073
+
+  EX-DATE WINDOW [0,2] -- designed after seeing fit numbers; report-only; can never kill or rescue:
+    this window      2023-01-03..2026-09-30: P&L +19.39% in all; in the window +15.91% (82.1% of it, on 12.5% of held gross fund-days; +4.27%/yr, Sharpe 1.508); the rest +3.48% (+0.93%/yr, Sharpe 0.135)
+    fit (same code)  2005-02-22..2022-12-30: P&L +127.85% in all; in the window +42.34% (33.1% of it, on 10.5% of held gross fund-days; +2.37%/yr, Sharpe 0.774); the rest +85.51% (+4.79%/yr, Sharpe 0.814)
+
+====================================================================================================
+TRIAL 52 VERDICT: PASS (stages 1-6 and 8), labelled D2 (stage 9: net Sharpe at 15bp <= 0 on the fit or the holdout): no real-money sleeve; paper only by team-lead ruling
+  fit: FIT PASS (stages 1-6); the holdout sign rule decides; stage 8 pass; stage 9 D2 label

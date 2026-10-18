@@ -1,0 +1,9 @@
+(a) declared: 08-20 at $0.06 -> SR 0.725 net5 0.382 net15 -0.304 net30 -1.332;  at $0.18 -> SR 0.723 net5 0.380 net15 -0.306 net30 -1.334  (IGR held -0.02035, P&L change -0.0516% of capital)
+(a) IGR-corrected: 08-20 at $0.06 -> SR 1.434 net5 0.999 net15 0.130 net30 -1.174;  at $0.18 -> SR 1.431 net5 0.997 net15 0.127 net30 -1.176  (IGR held -0.02035, P&L change -0.0516% of capital)
+(b) Alpaca raw-close leg: held fund-days with no Alpaca return: 0; ex-dates with no Alpaca prior close: 0
+    yfinance leg on Alpaca raw closes (gaps keep the IGR-corrected panel's return): SR 1.420 net5 0.985 net15 0.115 net30 -1.189
+    2025-26 leg only: panel(IGR-corrected) SR 0.488; Alpaca raw closes SR 0.456; declared SR -0.409
+    largest fund-day P&L differences Alpaca vs corrected panel (% of capital): {(Timestamp('2025-09-22 00:00:00'), 'UTF'): -0.3264, (Timestamp('2025-09-11 00:00:00'), 'CSQ'): 0.039, (Timestamp('2025-09-12 00:00:00'), 'CSQ'): -0.0388, (Timestamp('2025-07-25 00:00:00'), 'CSQ'): 0.0088, (Timestamp('2026-05-19 00:00:00'), 'EXG'): 0.0083, (Timestamp('2025-11-05 00:00:00'), 'EXG'): -0.0078}
+(c) 2023-24 ex-dates: CRSP 1414, yfinance 1415, both 1411, CRSP only 3, yfinance only 4
+(d) IGR CRSP 2023-24: implied amount (ret-retx)*prc(t-1): [0.06] on 24 ex-dates; prc range not printed (CRSP is licensed data)
+(e) IGR NAV change on its 20 ex-dates: mean -0.0630 (n 20, of which unchanged 3); other days mean +0.0015, sd 0.0559; mean on ex-dates net of other days -0.0645 (se 0.0125) against 0.06 and 0.18

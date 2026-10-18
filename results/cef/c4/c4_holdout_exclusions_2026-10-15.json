@@ -1,0 +1,46 @@
+{
+ "rule": "PREREG amendment 3 (team lead, 2026-10-15): a fund with any unconfirmed disagreeing ex-date is excluded from the holdout entirely",
+ "excluded": [
+  "ADX",
+  "BTX",
+  "IGA",
+  "NXG",
+  "PEO"
+ ],
+ "reasons": {
+  "ADX": [
+   [
+    "2025-01-27",
+    "UNCONFIRMED (sponsor contradicts Alpaca)"
+   ]
+  ],
+  "BTX": [
+   [
+    "2025-01-15",
+    "UNCONFIRMED (sponsor contradicts Alpaca)"
+   ]
+  ],
+  "IGA": [
+   [
+    "2025-08-01",
+    "UNCONFIRMED (sponsor contradicts Alpaca)"
+   ],
+   [
+    "2025-08-04",
+    "UNCONFIRMED (sponsor contradicts Alpaca)"
+   ]
+  ],
+  "NXG": [
+   [
+    "2025-08-15",
+    "UNCONFIRMED (sponsor contradicts Alpaca)"
+   ]
+  ],
+  "PEO": [
+   [
+    "2025-01-27",
+    "UNCONFIRMED (sponsor contradicts Alpaca)"
+   ]
+  ]
+ }
+}

@@ -277,6 +277,16 @@ def stationary_boot(x: pd.Series, mean_block: float = 21, reps: int = 10_000,
                 lo_sr=float(np.nanpercentile(sharpes, 2.5)), hi_sr=float(np.nanpercentile(sharpes, 97.5)))
 
 
+def nw94_lag(x: pd.Series) -> int:
+    """C4's name for `nw_auto_lag` (PREREG_C4 §8), capped at T - 1 as C4 declared.
+
+    C4 and C5 each added the Newey-West (1994) plug-in on 2026-10-14; the two
+    were the same formula, so one implementation serves both (merged
+    2026-10-18). Reported beside the declared L, never used to decide."""
+    v = pd.Series(x).dropna()
+    return int(min(len(v) - 1, nw_auto_lag(v)))
+
+
 def block_boot_t(x: pd.Series, block=BOOT_BLOCK, reps=BOOT_REPS, seed=SEED):
     """Moving-block bootstrap of the mean: (t = mean/se, lo95, hi95)."""
     v = x.dropna().values

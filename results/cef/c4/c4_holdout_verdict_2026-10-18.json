@@ -1,0 +1,272 @@
+{
+ "rehearsal": false,
+ "run_utc": "2026-10-18T23:07:18.400662+00:00",
+ "commit": "353dc57",
+ "spec": "cef_discount.v7.20260928",
+ "N": 52,
+ "window": [
+  "2023-01-01",
+  "2026-09-30"
+ ],
+ "days": 939,
+ "years": {
+  "2023": 0.11865462426372345,
+  "2024": 0.1360086471845265,
+  "2025": 0.03093254974777499,
+  "2026": -0.09166945429413793
+ },
+ "universe": 74,
+ "excluded": [],
+ "funds_held": 47,
+ "identity": {
+  "fit": {
+   "funds": 74,
+   "min_share": 0.9922754358861179,
+   "lowest": "PEO"
+  },
+  "holdout CRSP leg": {
+   "funds": 74,
+   "min_share": 0.9920318725099602,
+   "lowest": "TY"
+  }
+ },
+ "fit_reproduced": {
+  "first_held": "2005-02-22",
+  "sr": 1.216957834377122,
+  "ann_pct": 7.164335203125429,
+  "vol_pct": 5.887085814104944,
+  "turn": 38.082282348979426,
+  "net5": 0.8935186698100147,
+  "net15": 0.24664034067580035,
+  "net30": -0.7236771530255212,
+  "flips": "YES",
+  "days": 4497,
+  "years": 17.845238095238095
+ },
+ "headline": {
+  "sr": 0.7252073674797511,
+  "ann_pct": 5.204413680434027,
+  "vol_pct": 7.176448990749315,
+  "turn": 49.22191840485173,
+  "net5": 0.38226673996118,
+  "net15": -0.30361451507596227,
+  "net30": -1.3324363976316755,
+  "flips": "YES",
+  "days": 939,
+  "years": 3.7261904761904763
+ },
+ "nw_t21": 1.3204304964786882,
+ "nw_t5": 1.4087772043554676,
+ "boot21_mean_ci_pct": [
+  -3.106443018091264,
+  12.19172471781054
+ ],
+ "boot21_sr_ci": [
+  -0.34042826528587833,
+  2.086158984916523
+ ],
+ "p_observed_sign_under_fit_sr": 0.9905914696092029,
+ "stage8": {
+  "mean_daily": 0.0002065243523981757,
+  "sign": 1.0,
+  "fit_sign": 1.0,
+  "pass_": true
+ },
+ "borrow": {
+  "charge_pct_per_yr": 0.0,
+  "mean_short_notional": 0.7852572680039226,
+  "covered_share": 1.0
+ },
+ "legs": [
+  {
+   "leg": "CRSP leg",
+   "first": "2023-01-03",
+   "last": "2024-12-31",
+   "sr": 2.2611840347439354,
+   "ann_pct": 12.783893307760755,
+   "vol_pct": 5.653627971598715,
+   "turn": 52.99541022622928,
+   "net5": 1.7924990550065492,
+   "net15": 0.8551290955317767,
+   "net30": -0.550925843680382,
+   "flips": "YES",
+   "days": 502,
+   "years": 1.992063492063492
+  },
+  {
+   "leg": "yfinance leg",
+   "first": "2025-01-02",
+   "last": "2026-09-30",
+   "sr": -0.40851661864665434,
+   "ann_pct": -3.5024485001563965,
+   "vol_pct": 8.573576545696989,
+   "turn": 44.887152056267,
+   "net5": -0.6702927386650586,
+   "net15": -1.1938449787018668,
+   "net30": -1.9791733387570793,
+   "flips": "no",
+   "days": 437,
+   "years": 1.7341269841269842
+  }
+ ],
+ "era_turnover_sd_over_mean_with_holdout": 0.3701868205389933,
+ "stage9": {
+  "net15_fit": 0.24664034067580035,
+  "net15_holdout": -0.30361451507596227,
+  "pass_": false
+ },
+ "verdict": "PASS (stages 1-6 and 8), labelled D2 (stage 9: net Sharpe at 15bp <= 0 on the fit or the holdout): no real-money sleeve; paper only by team-lead ruling",
+ "reported_rows": [
+  {
+   "book": "C4 holdout (declared)",
+   "universe": 74,
+   "funds_held": 47,
+   "sr": 0.7252073674797511,
+   "ann_pct": 5.204413680434027,
+   "vol_pct": 7.176448990749315,
+   "turn": 49.22191840485173,
+   "net5": 0.38226673996118,
+   "net15": -0.30361451507596227,
+   "net30": -1.3324363976316755,
+   "flips": "YES",
+   "days": 939,
+   "years": 3.7261904761904763
+  },
+  {
+   "book": "uncorrected yfinance distributions",
+   "universe": 74,
+   "funds_held": 47,
+   "note": "",
+   "sr": 0.7119392784317866,
+   "ann_pct": 5.115649329275361,
+   "vol_pct": 7.185513546244813,
+   "turn": 49.22191840485173,
+   "net5": 0.3694312719541191,
+   "net15": -0.315584741001216,
+   "net30": -1.3431087604342187,
+   "flips": "YES",
+   "days": 939,
+   "years": 3.7261904761904763,
+   "sign_agrees": true
+  },
+  {
+   "book": "R-ADX: ADX at Alpaca's $0.63",
+   "universe": 74,
+   "funds_held": 47,
+   "note": "",
+   "sr": 0.7264216684255977,
+   "ann_pct": 5.2131676857355504,
+   "vol_pct": 7.176503554793806,
+   "turn": 49.22191840485173,
+   "net5": 0.3834836483366078,
+   "net15": -0.30239239184137223,
+   "net30": -1.3312064521083422,
+   "flips": "YES",
+   "days": 939,
+   "years": 3.7261904761904763,
+   "sign_agrees": true
+  },
+  {
+   "book": "R-68: the approved 68",
+   "universe": 68,
+   "funds_held": 42,
+   "note": "DMA and PTA: 9 disputed ex-dates no ruling covers; yfinance's amounts stand",
+   "sr": 0.7408552434309308,
+   "ann_pct": 5.222810113980334,
+   "vol_pct": 7.049703920287163,
+   "turn": 50.94964891999042,
+   "net5": 0.3794950395408713,
+   "net15": -0.3432253682392477,
+   "net30": -1.427305979909426,
+   "flips": "YES",
+   "days": 939,
+   "years": 3.7261904761904763,
+   "sign_agrees": true
+  },
+  {
+   "book": "amendment-3 book (without ADX BTX IGA NXG PEO)",
+   "universe": 69,
+   "funds_held": 43,
+   "note": "",
+   "sr": 0.35366031004228715,
+   "ann_pct": 3.1974242362404857,
+   "vol_pct": 9.040947331234793,
+   "turn": 51.73275157755996,
+   "net5": 0.06755781612092053,
+   "net15": -0.5046471717218126,
+   "net30": -1.3629546534859123,
+   "flips": "YES",
+   "days": 939,
+   "years": 3.7261904761904763,
+   "sign_agrees": true
+  },
+  {
+   "book": "R-IGR: without IGR",
+   "universe": 73,
+   "funds_held": 46,
+   "note": "the holdout if the IGR 2026-08-20 reading (amendment 4) is overruled",
+   "sr": 1.4855437163670417,
+   "ann_pct": 8.438013713824395,
+   "vol_pct": 5.680084416808618,
+   "turn": 53.01343633872785,
+   "net5": 1.0188830785264364,
+   "net15": 0.08556180284522573,
+   "net30": -1.3144201106765903,
+   "flips": "YES",
+   "days": 939,
+   "years": 3.7261904761904763,
+   "sign_agrees": true
+  }
+ ],
+ "correlation_with_book": {
+  "deployed": {
+   "window": [
+    "2023-01-03",
+    "2026-09-30"
+   ],
+   "blocks": 44,
+   "rho21": 0.13373777893640634,
+   "rho_daily": 0.0727525585935985
+  },
+  "WIDE": {
+   "window": [
+    "2023-01-03",
+    "2026-09-30"
+   ],
+   "blocks": 44,
+   "rho21": 0.19640266965344438,
+   "rho_daily": 0.07325716339578885
+  }
+ },
+ "ex_date_split": {
+  "label": "designed after seeing fit numbers; report-only; can never kill or rescue",
+  "window": {
+   "first": "2023-01-03",
+   "last": "2026-09-30",
+   "days": 939,
+   "pnl_total": 0.19392636690188697,
+   "pnl_in_window": 0.15911860556264695,
+   "pnl_rest": 0.03480776133924002,
+   "share_in_window": 0.8205104241608864,
+   "held_gross_share_in_window": 0.12524709295168004,
+   "ann_in_window_pct": 4.270275676441644,
+   "ann_rest_pct": 0.9341380039923839,
+   "sr_in_window": 1.5078448575551044,
+   "sr_rest": 0.13517223641634846
+  },
+  "fit": {
+   "first": "2005-02-22",
+   "last": "2022-12-30",
+   "days": 4497,
+   "pnl_total": 1.2784926749386927,
+   "pnl_in_window": 0.4233661849584351,
+   "pnl_rest": 0.8551264899802578,
+   "share_in_window": 0.3311447873400891,
+   "held_gross_share_in_window": 0.10536774534744932,
+   "ann_in_window_pct": 2.3724322572720844,
+   "ann_rest_pct": 4.791902945853345,
+   "sr_in_window": 0.7738406145982992,
+   "sr_rest": 0.8140584778576041
+  }
+ }
+}

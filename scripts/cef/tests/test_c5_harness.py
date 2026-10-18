@@ -201,7 +201,8 @@ def _fake_panel(monkeypatch, adv_row):
     z = pd.DataFrame(rng.normal(0, 1, (len(idx), len(cols))), index=idx, columns=cols)
     ret = pd.DataFrame(rng.normal(0, 0.01, z.shape), index=idx, columns=cols)
     adv = pd.DataFrame([list(adv_row.values())] * len(idx), index=idx, columns=cols, dtype=float)
-    monkeypatch.setattr(bf, "build_panel", lambda universe=None: dict(ret=ret, z=z, adv=adv))
+    # source/mask: C4's build_panel arguments (merged 2026-10-18); the fake ignores them, as the default does
+    monkeypatch.setattr(bf, "build_panel", lambda universe=None, source=None, mask=None: dict(ret=ret, z=z, adv=adv))
     return cols
 
 
