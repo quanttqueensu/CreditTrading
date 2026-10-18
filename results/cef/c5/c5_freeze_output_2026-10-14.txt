@@ -1,4 +1,6 @@
 # python3 scripts/cef/c5_open_auction.py freeze  (run 2026-10-14; counts, cents, hashes)
+# REDACTED 2026-10-15: the per-date CRSP differences are removed (beside a public close they recover CRSP's
+# licensed price); the counts stand, and the script now writes such detail only to a gitignored log.
 
 ====================================================================================================
 FREEZE: THE FIT'S INPUTS, CUT AT 2022-12-30, INTO results/cef/c5/_cache_c5_frozen/ (gitignored)
@@ -15,7 +17,7 @@ T, R and H identical, live build vs the uncorrected frozen copy: {'WIDE': True, 
 FREEZE: D-6 (ruling 1) ON THE DECISION WINDOW; tolerance |diff| <= $0.005 + 1e-6 (ruling 2)
 ====================================================================================================
 name-days with a close, CRSP prc and an NYSE closing print: 20,392; off both: 1; D-6 (the two sources agree): 1; sources disagree (§4.5(c), halts): 0
-    {'date': '2017-06-21', 'ticker': 'MHD', 'cls': 'D-6', 'close_minus_crsp_c': 3.0, 'close_minus_nyse_c': 3.0, 'crsp_minus_nyse_c': 0.0, 'nyse_print': '6', 'value_used': 'NYSE closing print', 'WIDE_trade': 'material', 'deployed_trade': '-'}
+    {'date': '2017-06-21', 'ticker': 'MHD', 'cls': 'D-6', 'close_minus_crsp_c': '[red]', 'close_minus_nyse_c': 3.0, 'crsp_minus_nyse_c': '[red]', 'nyse_print': '6', 'value_used': 'NYSE closing print', 'WIDE_trade': 'material', 'deployed_trade': '-'}
 the trial's input copy: 1 close(s) altered (D-6), every other value and file identical
 holdings (date x name, 2005-2022), input copy against the uncorrected copy: the close enters the z-score's 252-session window, the vol scalar and the band's path, so one corrected close moves later weights slightly (weights only; no return): {'WIDE': {'cells_differing': 9274, 'cells_over_1e_4': 390, 'max_abs_weight_diff': 0.0025749326715387086, 'first_date': '2017-06-21'}, 'deployed': {'cells_differing': 0, 'cells_over_1e_4': 0, 'max_abs_weight_diff': 0.0, 'first_date': None}}
 

@@ -48,7 +48,8 @@ halt rules (§4.2): NONE FIRED
       2020-03-18 PFN: 16.02%; O vs yfinance open agree True, vs CRSP openprc True
 (c) NYSE closing prints repeated at one price (counted, not defects): {'M': ['2021-12-31']}
 (c) D-6 (ruling 1), applied by `freeze` to the trial's input copy and logged there: 1 name-day(s), halt above 5. Value used: the NYSE closing print (M where published, else 6); applied to `close` only. In cents, no price level:
-      2017-06-21 MHD: D-6; close-CRSP +3.00c, close-NYSE(6) +3.00c, CRSP-NYSE +0.00c; WIDE trade material, deployed trade -
+      2017-06-21 MHD: D-6; close-CRSP [red], close-NYSE(6) +3.00c, CRSP-NYSE [red]; WIDE trade material, deployed trade -
+      (REDACTED 2026-10-15: per-date CRSP differences removed, licensed data; the count stands)
 (c) on the input copy, of 20,392 name-days with a close, CRSP prc and an NYSE print (CRSP prc < 0: 0): closes off both by more than $0.005 + 1e-6: 0
 
 halt rules (§4.5 and D-6): NONE FIRED

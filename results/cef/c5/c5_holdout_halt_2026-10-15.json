@@ -1,0 +1,7 @@
+{
+ "stamp": "2026-10-15",
+ "stage": "8",
+ "verdict": "HALT before G",
+ "reason": "D-5 (WIDE) above 0.1%: 9 of 4,858 material trade name-days (0.19%); D-5 (deployed) above 0.1%: 9 of 3,129 material trade name-days (0.29%)",
+ "trial_verdict": "KILL D1 (stage 2b: artefact control)"
+}

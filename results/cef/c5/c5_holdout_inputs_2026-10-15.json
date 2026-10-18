@@ -1,0 +1,75 @@
+{
+ "stamp": "2026-10-15",
+ "root": "results/cef/c5/_cache_c5_holdout",
+ "holdout": [
+  "2023-01-03",
+  "2026-09-30"
+ ],
+ "live_last_dates": {
+  "cef_prices": "2026-10-15",
+  "cef_nav": "2026-10-14",
+  "cef_distributions": "2026-09-03",
+  "cef_splits": "2025-08-19"
+ },
+ "dg_c5_7": {
+  "prices_on_2026_09_30": 13,
+  "navs_on_2026_09_29": 13
+ },
+ "ruling": "two agreeing sources replace a panel close (CRSP prc 2023-24, CEFConnect close 2025-26, each with the NYSE closing print); one source alone is logged, never used; |diff| <= 0.005 + 1e-6; halt above 5",
+ "by_year": {
+  "2023": {
+   "name_days": 3250,
+   "two_sources": 3250,
+   "one_source": 0,
+   "no_source": 0,
+   "d6": 0,
+   "sources_disagree": 0,
+   "single_source_logged": 0,
+   "cc_windows_disagree": 0
+  },
+  "2024": {
+   "name_days": 3276,
+   "two_sources": 3276,
+   "one_source": 0,
+   "no_source": 0,
+   "d6": 0,
+   "sources_disagree": 0,
+   "single_source_logged": 0,
+   "cc_windows_disagree": 0
+  },
+  "2025": {
+   "name_days": 3250,
+   "two_sources": 1156,
+   "one_source": 2094,
+   "no_source": 0,
+   "d6": 0,
+   "sources_disagree": 0,
+   "single_source_logged": 0,
+   "cc_windows_disagree": 0
+  },
+  "2026": {
+   "name_days": 2415,
+   "two_sources": 2388,
+   "one_source": 27,
+   "no_source": 0,
+   "d6": 0,
+   "sources_disagree": 0,
+   "single_source_logged": 0,
+   "cc_windows_disagree": 0
+  }
+ },
+ "d6_log": [],
+ "d6_count": 0,
+ "files": {
+  "cc/cefconnect_closes_2025_2026.parquet": "843cd54f6b44fbc3b6fb59fd815c95d706889011b9e38c4127c9f00efbb4828e",
+  "cef/cef_distributions.parquet": "98b0b27a3a0adfec60f6c93babb7de6ceea0b4a5acba6415e6770bfd5072ae7a",
+  "cef/cef_nav.parquet": "5d66d6e0621436c897c2fec8dcadbb0fd92cac5906dc1d8065509dec58d5e1e0",
+  "cef/cef_prices.parquet": "d02ed66f8123192a29ce00638f62c1031c65b8c89c2f6fe191201562deba1562",
+  "cef/cef_splits.parquet": "67a1f007312a155fd835fe50e3b357dfb060fcf6905cf90089c204ef3a5489cb",
+  "w4/alpaca_closing_prints_holdout_2023_2026.parquet": "a8cab8774e4657890a19bb5673f4e9a90561454ecc05344b2bc1cf3f9f0e610d",
+  "w4/alpaca_opening_prints_holdout_2023_2026.parquet": "576fdf7190c62663bf98bfa337454082ffdb3b73c1ee176e8539f4eade4074ca",
+  "w4/crsp_dsf_holdout_2023_2024.parquet": "7c2a4f6543e7ae6024e0bed60cca7c332442e88f5a2f3c4fdb60a73a4cce5a78"
+ },
+ "halts": [],
+ "verdict": "FROZEN"
+}

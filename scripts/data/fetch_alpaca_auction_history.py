@@ -56,7 +56,10 @@ DG-C5-6): the OPENING prints of C5's sealed holdout, 2023-01-03 -> 2026-09-30
 REFUSES unless C5's fit verdict is committed: `results/cef/c5/C5_FIT_VERDICT.json`
 must exist at HEAD, be tracked, and be unmodified in the working tree
 (`fit_verdict_committed`). So the holdout's prices cannot be read before the
-fit verdict that they may only kill is on the record. Opening side only.
+fit verdict that they may only kill is on the record. Opening side; and
+(2026-10-15, the team lead's ruling on the holdout's bad-close check, which
+needs the NYSE closing print for 2023-26) the closing side, to
+`alpaca_closing_prints_holdout_2023_2026.parquet`, behind the same gate.
 """
 from __future__ import annotations
 
@@ -75,7 +78,8 @@ OUT_SIZED = {"close": CACHE / "alpaca_closing_prints_sized_2016_2022.parquet",
              "open": CACHE / "alpaca_opening_prints_sized_2016_2022.parquet"}
 YEARS = range(2016, 2023)          # 2023+ is the sealed holdout: never requested (except --holdout)
 MAX_PAGES = 200
-OUT_HOLDOUT = CACHE / "alpaca_opening_prints_holdout_2023_2026.parquet"
+OUT_HOLDOUT = {"open": CACHE / "alpaca_opening_prints_holdout_2023_2026.parquet",
+               "close": CACHE / "alpaca_closing_prints_holdout_2023_2026.parquet"}
 HOLDOUT_FIRST, HOLDOUT_END = "2023-01-03", "2026-09-30"   # PREREG_C5 §7: fixed, never moved
 FIT_VERDICT = Path("results") / "cef" / "c5" / "C5_FIT_VERDICT.json"
 
@@ -114,12 +118,12 @@ def main(argv=None) -> int:
         out = OUT_SIZED[a.side]
     years = list(YEARS)
     if a.holdout:
-        if a.side != "open" or a.sizes:
-            raise AuctionFetchError("--holdout fetches the opening prints only (--side open, no --sizes)")
+        if a.sizes:
+            raise AuctionFetchError("--holdout fetches prices only (no --sizes)")
         ok, why = fit_verdict_committed()
         if not ok:
             raise AuctionFetchError(f"--holdout refused: C5's fit verdict is not committed ({why})")
-        out, years = OUT_HOLDOUT, list(range(2023, 2027))
+        out, years = OUT_HOLDOUT[a.side], list(range(2023, 2027))
     from quantt.broker.alpaca import AlpacaClient, DATA_BASE
     from scripts.cef.spec import UNIVERSE
     c = AlpacaClient.from_environment("cef")

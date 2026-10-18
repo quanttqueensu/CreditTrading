@@ -22,9 +22,7 @@
    "date": "2017-06-21",
    "ticker": "MHD",
    "cls": "D-6",
-   "close_minus_crsp_c": 3.0,
    "close_minus_nyse_c": 3.0,
-   "crsp_minus_nyse_c": 0.0,
    "nyse_print": "6",
    "value_used": "NYSE closing print",
    "WIDE_trade": "material",
@@ -191,5 +189,6 @@
   "w4/crsp_dsf_w4.parquet": "700854848a73c03d8c073285605362cef1791ba676e5e2078f5fb24b3d6cb30c"
  },
  "halts": [],
- "verdict": "FROZEN"
+ "verdict": "FROZEN",
+ "redacted_2026_10_15": "per-date CRSP differences removed from d6_log (licensed data); counts, classes and the NYSE difference kept; the frozen files' hashes are unchanged"
 }

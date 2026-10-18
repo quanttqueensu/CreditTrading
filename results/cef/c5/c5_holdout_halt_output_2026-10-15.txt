@@ -1,0 +1,32 @@
+# python3 scripts/cef/c5_open_auction.py holdout  (run 2026-10-15; stage 8 HALTED on a declared data class before the holdout gain was formed)
+C5 (CEF trial 51) STAGE 8, THE HOLDOUT 2023-01-03 .. 2026-09-30, run 2026-10-16 01:03Z. Opened once; it can kill, never rescue. The fit verdict stands: KILL D1 (stage 2b: artefact control)
+frozen holdout inputs verified (8 files, results/cef/c5/c5_holdout_inputs_2026-10-15.json); holdout D-6 replacements: 0
+H (WIDE) to 2022-12-30 from the holdout copy equals the fit's H exactly: True
+H (deployed) to 2022-12-30 from the holdout copy equals the fit's H exactly: True
+
+====================================================================================================
+STAGE 8 DATA: §4.2's classes on the holdout (the rule applied unchanged)
+====================================================================================================
+WIDE: material trade name-days 4,858; D-1 0 (0.00%, 0.00% of notional); D-3 0; D-5 9
+      D-5 (WIDE): 2026-02-12 PDI -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-02-12 PDO -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-02-12 PHK -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-02-12 PTY -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-02-13 HYT -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-02-18 DSL -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-03-18 DSL -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-09-15 BIT -- a material trade fills on a name-day with no panel close
+      D-5 (WIDE): 2026-09-15 JFR -- a material trade fills on a name-day with no panel close
+deployed: material trade name-days 3,129; D-1 0 (0.00%, 0.00% of notional); D-3 0; D-5 9
+      D-5 (deployed): 2026-02-12 PCN -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-02-12 PDO -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-02-12 PHK -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-02-13 HYT -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-02-13 JFR -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-02-18 DSL -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-03-18 DSL -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-09-15 BIT -- a material trade fills on a name-day with no panel close
+      D-5 (deployed): 2026-09-15 JFR -- a material trade fills on a name-day with no panel close
+D-2: 0 of 11825 name-days with both O and Q; D-3 (all name-days): 0; O outside the day's range with no CRSP openprc to test D-3 against (2025-26, CRSP ends 2024): 0 name-days, reported, not classified
+
+STAGE 8 HALTED BEFORE G WAS FORMED (§4.2, applied unchanged; DG-C5-6): D-5 (WIDE) above 0.1%: 9 of 4,858 material trade name-days (0.19%); D-5 (deployed) above 0.1%: 9 of 3,129 material trade name-days (0.29%)

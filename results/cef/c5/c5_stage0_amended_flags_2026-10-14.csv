@@ -15,4 +15,4 @@ date,ticker,set,kind,note
 2019-11-19,MHD,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
 2019-11-20,DSL,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
 2019-11-26,PDI,all,"flagged: O outside range, one open agrees",O vs yfinance open agree: False; vs CRSP openprc: True
-2017-06-21,MHD,all,D-6 (freeze log),close-CRSP +3.00c; close-NYSE(6) +3.00c; CRSP-NYSE +0.00c; WIDE trade material; deployed trade -
+2017-06-21,MHD,all,D-6 (freeze log),close-CRSP [redacted 2026-10-15: licensed]; close-NYSE(6) +3.00c; CRSP-NYSE [redacted]; WIDE trade material; deployed trade -
