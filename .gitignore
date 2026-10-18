@@ -65,3 +65,9 @@ results/events/g1a_detail_*.json
 # computed on CRSP closes (licensed); the tracked conditional_tender_census.csv
 # blanks them. Rebuilt by scripts/events/conditional_tender_census.py.
 results/events/conditional_tender_census_full.csv
+
+# CEF corporate-action census (2026-10-15, scripts/events/cef_corp_action_census.py):
+# the full per-event table joins CRSP (permnos, closes, ADV, discounts); the
+# tracked cef_corp_action_events.csv carries EDGAR facts only, and the per-type
+# cef_corp_action_census.csv and the summary JSON are aggregates.
+results/events/cef_corp_action_events_full.csv
