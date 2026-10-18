@@ -1001,3 +1001,13 @@ fetched the source. Report only; zero trials.
 | **Reg SHO Rule 201**: a 10% or greater decline from the prior close triggers a restriction for the rest of the day and the next; short sales may not execute at or below the national best bid. NYSE re-prices short orders in the closing auction to one tick above the bid | 83 FR 62646 (Rel. 34-84670); SEC Rule 201 FAQ Q1.2, Q2.1; SR-NYSEArca 34-85265 (2019) | [V] rule; NYSE re-pricing [S] (current Pillar text not fetched) |
 | **FINRA portfolio margin stresses each single equity at ±15% (ten points), with no offsets between different single names**; cross-class offsets exist only for index product groups | FINRA Rule 4210(g)(2)(F), (g)(7), (g)(8); 17 CFR 240.15c3-1a(b)(1)(v)(B); Regulatory Notice 26-10 | [V] 3–0; house add-ons and broker minimums [U] |
 | **Refuted, do not cite:** a 7.7-month discount half-life (Patro et al., 0–3); a bond-CEF price–NAV DCC break after 2008 (0–3); that a z-score misreads the muni January effect (0–3); MDP abstract claim (1–2); square-root closing-auction impact (18.2/7.4/4.5bp at 1% ADV, JFQA 2026, 0–3); auction cheaper than continuous trading (0–3); the NYSE imbalance-side study (0–3); "Alpaca opens shorts only in ETB names" (0–3); 26 USC 263(h) on in-lieu payments (0–3) | as listed | refuted |
+
+### 12u. The portfolio framework: method citations (added 2026-10-15)
+
+Cited by `results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.3–§2.4. Methods only;
+no figure from these sources enters a decision.
+
+| claim | source | status |
+|---|---|---|
+| **Shrink the sample covariance toward the constant-correlation model**: the estimator is the convex combination δF + (1 − δ)S, where F keeps the sample variances on its diagonal and sets every correlation to the average sample correlation; the optimal intensity δ is given in closed form. The paper motivates it with the sample matrix's "error-maximization" in a mean-variance optimiser (Michaud 1989, as cited there) | Ledoit & Wolf, "Honey, I Shrunk the Sample Covariance Matrix", working paper June 2003, Universitat Pompeu Fabra #691 (`econ-papers.upf.edu/papers/691.pdf`), §3.1–§3.2 read 2026-10-15; published *J. Portfolio Management* 30(4), 2004 | [V] method, from the working paper; [S] the journal citation (a search result) |
+| *Negative, recorded so it is not cited from memory:* "errors in the means matter about ten times more than errors in the covariances" (attributed to Chopra & Ziemba 1993, *J. Portfolio Management* 19(2)). A search on 2026-10-15 found the paper but not the ratio, and a 2003 Lund working paper that revisits it reports different magnitudes | search only; the paper was not read | [U]: not cited by the framework |

@@ -1,0 +1,186 @@
+portfolio_baseline.py -- zero trials; fit window only (holdout from 2023-01-01 sealed)
+
+====================================================================================================
+1. THE DEPLOYED BOOK -- gross headline (total returns), cost grid beside it
+====================================================================================================
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+fit index 2005-01-03 .. 2022-12-30 (4531 sessions); first position 2013-06-25; 2023+ is the sealed holdout and is not computed.
+Second method: real_money_costs.py §1 printed gross SR 0.69 (fit) / 0.96 (live) on the same book; the 'live fit' row below must reproduce 0.96.
+
+window                     grossSR   ann%   vol% turn/yr     @5    @15    @30 flips?  gross  short
+live 2013-06..2014            1.30   7.33   5.65    16.3   1.15   0.86   0.43     no   1.20   0.59
+2015-19                       0.84   5.70   6.83     7.8   0.78   0.66   0.49     no   1.29   0.61
+2020-22                       1.02   6.49   6.36    21.5   0.85   0.51   0.01     no   1.07   0.54
+live fit 2013-06..2022        0.96   6.21   6.50    13.5   0.85   0.64   0.33     no   1.21   0.58
+gross / short = mean held gross and short (H.shift(2)) as multiples of capital.
+
+====================================================================================================
+2. SIZING -- the vol scalar, held gross, the stress cap, and vol per unit of gross
+====================================================================================================
+vol scalar = gross of the frictionless target (unit gross x clip(6%/rv63, 0.2, 2.5)), live fit window, 2397 sessions:
+  mean 1.14  median 1.12  p5 0.47  p95 1.97  at the 2.5 cap 0.0%  at the 0.2 floor 0.0%
+
+held gross of the deployed book (H, after band and cap 1.8x):
+  mean 1.21  median 1.26  p95 1.80  max 1.80  sessions at the cap 7.3%
+
+window                       vol% target%  ratio  sigma1% sigma1b% vol@cap%  G@20%
+live 2013-06..2014           5.65    6.00   0.94     4.70     4.69     8.47   4.25
+2015-19                      6.83    6.00   1.14     5.65     5.29    10.18   3.54
+2020-22                      6.36    6.00   1.06     6.08     5.96    10.95   3.29
+live fit 2013-06..2022       6.50    6.00   1.08     5.65     5.39    10.18   3.54
+sigma1 = annualised sd of pnl_t / gross held_t; sigma1b = vol / mean gross (second method).
+vol@cap = max_gross_stress x sigma1: the most vol the CEF book ALONE can carry under the Reg T stress cap
+if its vol per unit gross is unchanged. G@20% = the gross a 20% vol book would need (against the 1.8x cap).
+
+return per unit of gross held, and the most the book earns at the 1.8x cap (gross of costs, then net of 15bp):
+window                       ann%  gross  ret/G%  @cap%  net15/G%  @cap%
+live 2013-06..2014           7.33   1.20    6.09  10.95      4.05   7.29
+2015-19                      5.70   1.29    4.42   7.95      3.51   6.32
+2020-22                      6.49   1.07    6.08  10.94      3.06   5.51
+live fit 2013-06..2022       6.21   1.21    5.15   9.27      3.47   6.25
+@cap = the return of the same book held at the stress cap every session (linear scaling: Sharpe unchanged, vol x cap/gross).
+
+====================================================================================================
+3. TAILS AND DRAWDOWNS -- daily P&L of the deployed book, gross (total returns)
+====================================================================================================
+window                       skew  exkurt worst d%  (sd)   w5d%  w21d%  VaR99%  ES99%  maxDD%  peak -> trough -> recovered
+live 2013-06..2014           1.51     7.7    -1.43  -4.0  -1.38  -2.43    0.63   0.94    4.49  2013-12-31 -> 2014-06-30 -> 2014-09-29
+2015-19                      1.69    11.7    -1.82  -4.2  -3.46  -4.34    1.04   1.26   12.78  2017-06-05 -> 2018-06-12 -> 2019-04-02
+2020-22                      0.21    13.7    -2.71  -6.8  -3.12  -3.17    1.02   1.67    4.32  2021-06-15 -> 2021-08-11 -> 2021-09-08
+live fit 2013-06..2022       1.24    12.1    -2.71  -6.6  -3.46  -4.34    0.98   1.39   12.78  2017-06-05 -> 2018-06-12 -> 2019-04-02
+worst d (sd) = the worst day in units of that window's daily sd. w5d / w21d = worst rolling sum of 5 / 21 sessions.
+VaR99 / ES99 = historical 1% quantile loss and the mean loss beyond it. Kurtosis is EXCESS (normal = 0).
+
+five worst days, live fit window: 2020-02-27 -2.71%, 2020-03-12 -2.25%, 2020-03-18 -2.12%, 2020-03-03 -1.82%, 2018-10-31 -1.82%
+
+====================================================================================================
+4. FACTOR EXPOSURE -- the D4 test (alpha t >= 3.0, every |beta| <= 0.10) on the book itself
+====================================================================================================
+factors: Ken French daily, CRSP vintage 202608, last 2026-08-31, fetched 2026-10-15T20:26:28Z; ETF total returns: CRSP dsf `ret` (W4 cache), last 2022-12-30
+
+4a. W4's model (FF5 + UMD + HYG-IEF + IEF-rf + MUB-IEF), contemporaneous, gross, HAC(5). alpha %/yr.
+    Second method: results/cef/W4_ARTIFACTS_2026-10-11.md §6d ran this regression on the same book.
+window                         n  alpha%     t   mktrf     smb     hml     rmw     cma     umd  credit   rates    muni     R2
+live 2013-06..2014           384    6.51  1.38   0.024  -0.014   0.006   0.015  -0.153  -0.075   0.079   0.062   0.002  0.021
+2015-19                     1258    5.65  1.90  -0.036  -0.020  -0.050  -0.027  -0.002  -0.045   0.075   0.093   0.076  0.009
+2020-22                      756    6.10  1.85   0.055  -0.030   0.036  -0.045   0.016   0.003  -0.121   0.066   0.190  0.057
+live fit 2013-06..2022      2398    5.88  2.87   0.015  -0.011   0.005  -0.023   0.022  -0.007  -0.021   0.079   0.144  0.011
+
+4b. RISK-MODEL FACTORS, Dimson (t and t-1, betas summed), gross, HAC(5); loans from BKLN's first return (2011-03).
+    'scaled' = summed beta x 6% / window vol: the beta of the same book run at the spec's vol target.
+window                         n  alpha%      t    mktrf     t   credit     t    rates     t     muni     t    loans     t     R2 max|scaled|    D4
+live 2013-06..2014           384    5.79  1.253    0.080  1.38    0.079  0.76    0.107  0.82   -0.061 -0.58   -0.234 -1.00  0.040       0.249  FAIL
+2015-19                     1258    5.58  1.822   -0.031 -0.73    0.030  0.42    0.113  1.01    0.098  0.69    0.073  0.53  0.006       0.100  FAIL
+2020-22                      756    6.56  2.066    0.005  0.14    0.006  0.11    0.107  1.16    0.101  0.95   -0.060 -0.91  0.074       0.101  FAIL
+live fit 2013-06..2022      2398    6.10  2.999   -0.003 -0.13    0.030  0.72    0.102  1.50    0.058  0.74   -0.047 -0.93  0.018       0.094  FAIL
+D4 is judged on the whole live window; an era row can fail it on the alpha t alone (fewer sessions).
+
+4c. DOWNSIDE CREDIT (the short-put signature of merger arbitrage, Mitchell & Pulvino 2001):
+    pnl on mktrf, credit, and min(credit, 0); Dimson-summed, live fit window, HAC(5).
+  mktrf      summed beta +0.0123  t +0.46
+  credit     summed beta -0.0084  t -0.21
+  credit_dn  summed beta -0.0319  t -0.85
+  A significantly positive credit_dn beta would mean the book loses MORE per unit of credit sell-off than it gains
+  per unit of rally: the shape every event sleeve with deal-break risk also has, so the two would add in a tail.
+
+====================================================================================================
+5. BREADTH AND THE GROUP BET -- ex-ante, on the held book and a trailing covariance
+====================================================================================================
+For each live fit session t: h = H.loc[t] (the book decided at t), S = covariance of total returns over the 252
+sessions ending at t (known at the evening decision; pairwise, >= 126 observations per pair). A session where a held name has
+fewer observations is skipped and counted, never filled. Groups: hy ['AWF', 'HYT'], loan ['JFR'], multi ['BIT', 'DSL', 'PCN', 'PDI', 'PDO', 'PFN', 'PHK', 'PTY'], muni ['MHD', 'MQY']
+
+sessions measured 2378; skipped (a held name without a covariance) 20; non-PSD 0
+
+window                      BR med   p10   p90  top PC  held muni-vs-tax   p90  4-group   p90 |muni net| ex-ante vol%
+live 2013-06..2014            4.15  2.72  5.99   39.4%    10       -0.1%  2.8%    13.8% 64.5%      0.000         5.89
+2015-19                       2.54  2.07  4.88   56.8%    10        3.2%  9.7%    21.4% 58.5%      0.000         6.06
+2020-22                       5.22  2.70  6.33   31.1%    10        5.4% 31.4%    16.8% 51.9%      0.000         5.28
+live fit 2013-06..2022        3.48  2.13  6.07   42.9%    10        2.4% 11.9%    20.1% 57.7%      0.000         5.85
+BR = 1/sum v_k^2 over principal components (every component kept). top PC = the largest single component's share.
+muni-vs-tax / 4-group = Euler share of ex-ante variance carried by the between-group bet (muni vs taxable; or the four groups);
+the rest is selection within groups. |muni net| = |sum of muni weights| (multiples of capital).
+
+realised (second method): cov(group-spread P&L, P&L) / var(P&L), four groups, where group-spread P&L = sum_g net_g x mean return of g:
+  live 2013-06..2014          29.8%   group-spread P&L -1.52%/yr of +7.33%/yr
+  2015-19                     25.3%   group-spread P&L +1.29%/yr of +5.70%/yr
+  2020-22                     40.4%   group-spread P&L +0.58%/yr of +6.49%/yr
+  live fit 2013-06..2022      30.4%   group-spread P&L +0.62%/yr of +6.21%/yr
+
+====================================================================================================
+6. CAPACITY -- each trade against the name's 63-session ADV, at the spec's capital $100,000
+====================================================================================================
+name-trade days 4324; with no ADV (not scored) 0; trade days 1080
+participation in 63-session ADV: median 0.015%  p90 0.156%  p99 0.553%  max 2.004%  notional-weighted median 0.149%
+  share of name-trades above 1% of ADV: 0.12%
+  share of name-trades above 5% of ADV: 0.00%
+  share of name-trades above 10% of ADV: 0.00%
+each day's largest participation: median 0.067%, p90 0.294%
+capital at which the MEDIAN day's largest trade reaches a share of ADV (linear in capital, and in the vol target at fixed capital):
+    1% of ADV: $1.49m at the 6% target; capital x vol target = $0.089m-vol (so $0.45m at 20%)
+    5% of ADV: $7.46m at the 6% target; capital x vol target = $0.447m-vol (so $2.24m at 20%)
+   10% of ADV: $14.91m at the 6% target; capital x vol target = $0.895m-vol (so $4.47m at 20%)
+An MOC-only book trades in the closing cross, not the day: results/cef/EXEC_CAPACITY_OPEN_CROSS_2026-10-13.md measured the
+cross at about 0.57% of the day's volume in these names (median, last 60 sessions to 2026-10-13) [doc, not re-run],
+so the same trades are roughly two orders of magnitude larger against the cross than against ADV.
+
+====================================================================================================
+7. SURVIVAL -- P(max drawdown over 252 sessions >= the spec's lines), the book's own P&L rescaled to a vol
+====================================================================================================
+lines: risk.halve_drawdown 12%, risk.kill_drawdown 18% (frozen spec, fractions). Live fit window only. 10,000 paths; seed 20261015.
+Methods (reported side by side, never averaged): SB21 / SB63 = stationary bootstrap, mean block 21 / 63 sessions;
+GAUSS = iid normal with the series' own mean and sd (what the fat tails add is the gap to SB21).
+Rescaling keeps each series' Sharpe and changes only the book's size. The borrow proxies are counterfactual schedules (H4).
+
+gross: Sharpe +0.96, realised vol 6.50%
+  method     P(DD>=12%)@6%    P(DD>=18%)@6%   P(DD>=12%)@20%   P(DD>=18%)@20%   sig*(12%,5%)  sig*(12%,10%)   sig*(18%,5%)  sig*(18%,10%)
+  SB21                0.1%             0.0%            53.5%            15.2%          10.1%          11.7%          15.5%          17.9%
+  SB63                0.2%             0.0%            52.8%            14.6%           9.4%          11.3%          14.5%          17.5%
+  GAUSS               0.8%             0.0%            72.4%            30.6%           8.0%           9.4%          12.4%          14.5%
+
+net 15bp: Sharpe +0.64, realised vol 6.51%
+  method     P(DD>=12%)@6%    P(DD>=18%)@6%   P(DD>=12%)@20%   P(DD>=18%)@20%   sig*(12%,5%)  sig*(12%,10%)   sig*(18%,5%)  sig*(18%,10%)
+  SB21                0.3%             0.0%            61.9%            21.9%           9.1%          10.5%          14.0%          16.1%
+  SB63                0.6%             0.0%            58.0%            17.8%           8.5%          10.6%          13.1%          16.3%
+  GAUSS               1.6%             0.0%            79.3%            39.5%           7.2%           8.5%          11.1%          13.0%
+
+net 15bp + borrow P3 (fee level of the last 63 FEE_RATE dates): Sharpe +0.53, realised vol 6.51%
+  method     P(DD>=12%)@6%    P(DD>=18%)@6%   P(DD>=12%)@20%   P(DD>=18%)@20%   sig*(12%,5%)  sig*(12%,10%)   sig*(18%,5%)  sig*(18%,10%)
+  SB21                0.4%             0.0%            65.8%            24.9%           8.7%          10.0%          13.4%          15.4%
+  SB63                0.8%             0.0%            61.5%            20.4%           8.2%          10.1%          12.6%          15.5%
+  GAUSS               2.1%             0.1%            81.6%            42.8%           6.9%           8.1%          10.7%          12.5%
+
+net 15bp + borrow P1 (each name's 2021-09..2022 mean fee): Sharpe -1.14, realised vol 6.53%
+  method     P(DD>=12%)@6%    P(DD>=18%)@6%   P(DD>=12%)@20%   P(DD>=18%)@20%   sig*(12%,5%)  sig*(12%,10%)   sig*(18%,5%)  sig*(18%,10%)
+  SB21               24.6%             1.7%            98.3%            87.8%           4.4%           4.9%           6.8%           7.6%
+  SB63               23.6%             3.5%            97.7%            84.7%           4.1%           4.7%           6.4%           7.3%
+  GAUSS              29.9%             3.3%            98.5%            88.5%           4.1%           4.6%           6.4%           7.1%
+
+zero edge (gross, demeaned): Sharpe -0.00, realised vol 6.50%
+  method     P(DD>=12%)@6%    P(DD>=18%)@6%   P(DD>=12%)@20%   P(DD>=18%)@20%   sig*(12%,5%)  sig*(12%,10%)   sig*(18%,5%)  sig*(18%,10%)
+  SB21                1.9%             0.0%            83.7%            46.2%           6.9%           7.9%          10.7%          12.2%
+  SB63                2.8%             0.0%            81.4%            38.6%           6.6%           7.8%          10.2%          12.0%
+  GAUSS               6.0%             0.2%            89.7%            59.2%           5.8%           6.7%           9.0%          10.4%
+
+sig*(L, p) = the largest annualised vol at which P(max drawdown >= L within 252 sessions) <= p. 'none' = no vol
+above 0.1% meets it. The tolerance p is the team lead's to state (PORTFOLIO_FRAMEWORK §2.6); 5% and 10% are shown, not chosen.
+
+====================================================================================================
+8. STRESS REPLAYS -- the last fit-window book held through declared stress windows
+====================================================================================================
+book: H decided 2022-12-30 (gross 0.83x, net -0.077); the same book scaled to the 1.8x cap is the second column set.
+Weights are held fixed through each window (no band, no vol scalar): today's book, no reaction. A name with no return
+that day takes its group's mean that day (a labelled proxy, counted). Long-only = the shorts disappear (all recalled)
+and the longs are held: the loss if the hedge goes.
+
+window                     proxied  total%  maxDD% worst d% @cap DD% long-only DD% policy DD%
+GFC 2008-09..2009-03           584    6.98   13.80    -4.45    27.72         18.99       flat
+taper 2013-05..2013-08          90   -1.97    2.16    -0.60     4.65          7.29       1.70
+COVID 2020-02-20..04-30         50    5.73    3.87    -2.54     8.34         16.90       3.56
+rates 2022-01..2022-10           0    1.53    2.05    -0.72     4.40         10.23       2.70
+policy DD = the deployed policy's own realised drawdown in the window (evaluate(), with its band and vol scalar); 'flat' =
+the ADV filter left the deployed book empty (before 2013-06): the 13-name book has never traded 2008.
+
+group bet: worst 21-session muni-minus-taxable return spread, full fit history: -30.48% (ending 2009-04-07); best +40.88% (ending 2009-03-09).
+the deployed book's net muni weight, live fit window: median |net| 0.000, p95 0.130, max 0.311 (multiples of capital).
+a p95 group net held through the worst spread move costs about 5.30% of capital (first-order: net x spread).
