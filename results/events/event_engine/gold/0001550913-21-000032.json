@@ -1,0 +1,68 @@
+{
+ "accession": "0001550913-21-000032",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "unknown",
+  "doc_role": "final_result",
+  "kind_span": "This Final Amendment to the Tender Offer Statement on Schedule TO relates the Offer by MacKenzie Realty Capital (the \"Company\") to purchase"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "MACKENZIE REALTY CAPITAL, INC.",
+     "span": "MACKENZIE REALTY CAPITAL, INC. (Name of Subject Company (Issuer))",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock, Par Value $0.0001 per share (Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "fixed_price",
+     "span": "at $6 per Share (the \"Purchase Price\")",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": {
+     "value": 400000,
+     "span": "Assumes the purchase of 400,000 Shares at a purchase price equal to $6.00 per Share in cash.",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-03-19",
+     "span": "the Offer to Purchase (the \"Offer to Purchase\") dated March 19, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": null,
+    "proration": null,
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": null,
+    "shares_accepted": {
+     "value": 58897.7444,
+     "span": "to purchase, as approved by the Company's board of directors (the \"Board\"), 58,897.7444 shares of its issued and outstanding common stock",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": null,
+    "final_price_per_share": {
+     "value": 6,
+     "span": "at $6 per Share (the \"Purchase Price\")",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "size_shares",
+  "shares_tendered",
+  "shares_accepted"
+ ],
+ "notes": "Final amendment (results box checked) to an issuer tender offer (Offer to Purchase dated March 19, 2021). The filing is internally inconsistent on share counts: (a) the fee table assumes the purchase of 400,000 Shares at $6.00 (used for size_shares as the maximum sought); (b) the explanatory paragraph describes the Offer as one to purchase 58,897.7444 shares at $6 per Share; (c) it then says the Company 'received and accepted a total of approximately 13,303,521.4954 Shares' (extracted literally for shares_tendered and shares_accepted); (d) it says the Company purchased 0.4% of the outstanding Shares and will pay approximately $353,386.47. Reviewer arithmetic (not a stated value): 58,897.7444 x $6 = $353,386.47 and 58,897.7444 / 13,303,521.4954 = about 0.44%, so 58,897.7444 is probably the count actually purchased and 13,303,521.4954 is probably the outstanding share count mislabelled; treat the literal results fields as suspect. 'received' was read as tendered. fund_type is unknown: the filing does not say whether the issuer is a closed-end fund, BDC or REIT. Commencement and expiration dates are not stated (only the Offer to Purchase date, March 19, 2021). No reason for the offer is stated beyond 'as approved by the Company's board of directors', so trigger_origin is null. No ticker or CUSIP (CUSIP 'N/A'). The signature is dated 'April 23, 2022', which may be a typo for 2021 (the source file name is mrctoia042321).",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

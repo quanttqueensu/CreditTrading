@@ -1,0 +1,103 @@
+{
+ "accession": "0001398344-21-013205",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "This Issuer Tender Offer Statement on Schedule TO relates to an offer by Saba Capital Income & Opportunities Fund (formerly known as Voya Prime Rate Trust), a Massachusetts business trust (the “Fund”), to repurchase 30% of its issued and outstanding common shares of beneficial interest"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "Saba Capital Income & Opportunities Fund",
+     "span": "relates to an offer by Saba Capital Income & Opportunities Fund (formerly known as Voya Prime Rate Trust)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "BRW",
+     "span": "The Shares are traded on the NYSE under the symbol “BRW.”",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares of Beneficial Interest, no par value",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "The Purchase Price of the Shares will be 99% of the NAV per Share determined as of the close of the regular trading session of the NYSE on the Pricing Date.",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": {
+     "value": 99,
+     "span": "The Purchase Price of the Shares will be 99% of the NAV per Share determined as of the close of the regular trading session of the NYSE on the Pricing Date.",
+     "doc_seq": "2"
+    },
+    "nav_pricing_date": {
+     "value": "close of the regular trading session of the NYSE on the day the offer expires (the Pricing Date)",
+     "span": "determined as of the close of the regular trading session of the New York Stock Exchange (the “NYSE”), the principal market on which the Shares are traded, on the day the offer expires (the “Pricing Date”)",
+     "doc_seq": "1"
+    },
+    "size_pct_outstanding": {
+     "value": 30,
+     "span": "The amount is based upon the offer to purchase up to 36,453,707 common shares in the offer (30% of the issued and outstanding common shares as of June 15, 2021)",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 36453707,
+     "span": "The amount is based upon the offer to purchase up to 36,453,707 common shares in the offer (30% of the issued and outstanding common shares as of June 15, 2021)",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-21",
+     "span": "June 21, 2021— Saba Capital Income & Opportunities Fund (NYSE: BRW) (the “Fund”), today announced the commencement of a tender offer",
+     "doc_seq": "6"
+    },
+    "expiration_date": {
+     "value": "2021-07-19",
+     "span": "The Offer will expire at one minute past 11:59 p.m., Eastern time, on July 19, 2021, the Expiration Date, unless extended.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If shareholders tender (and do not timely withdraw) more than the Offer Amount, the Fund will purchase duly tendered Shares from participating shareholders on a pro rata basis",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "listing",
+      "ric_or_tax_status",
+      "other",
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion"
+     ],
+     "spans": [
+      "(i) result in delisting of the Fund’s Shares from the NYSE",
+      "(iii) impair the Fund’s status as a regulated investment company (“RIC”)",
+      "(iv) result in a failure to comply with the applicable asset coverage requirements applicable to senior securities of the Fund that are issued and outstanding",
+      "(c) there shall be instituted, pending or threatened before any governmental entity or court any action, proceeding, application or claim, or there shall be any judgment, order or injunction sought or any other action taken by any person or entity, which restrains, prohibits or materially delays the making or consummation of the Offer",
+      "(d) there shall have occurred (i) any general suspension of trading in or limitation on prices for securities on the NYSE or any other exchange on which the Shares are traded",
+      "(e) the Board determines that effecting the Offer would be inconsistent with applicable legal requirements or would constitute a breach of the Board’s fiduciary duties owed to the Fund or its shareholders."
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "other",
+     "span": "On July 9, 2020, the Fund held its annual shareholder meeting at which shareholders approved a proposal requesting the Board to authorize a self-tender offer for at least 40% of the outstanding Shares of the Fund at or close to net asset value passed.",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "trigger_origin"
+ ],
+ "notes": "Original Schedule TO-I (offer document) for an issuer cash tender by Saba Capital Income & Opportunities Fund (formerly Voya Prime Rate Trust; NYSE: BRW) for up to 30% of common shares at 99% of NAV. trigger_origin=other: the stated purpose is liquidity and discount reduction, and the filing cites a shareholder-approved proposal (July 9, 2020 annual meeting) requesting the Board to authorize a self-tender for at least 40% of outstanding Shares at or close to NAV, after which a ~15% tender commenced December 3, 2020 (completed January 2021). No settlement agreement is stated; the adviser since June 4, 2021 is Saba Capital Management, L.P., and the Fund anticipates Saba-managed clients will tender approximately 25.7 million Shares. board_discretionary is an alternative reading. size: 30% of 121,512,358 Shares outstanding as of June 15, 2021; 36,453,707 shares stated in the fee calculation. commencement_date from the press release (doc 6, June 21, 2021, 'today announced the commencement'); the Offer to Purchase is dated June 21, 2021. Expiration: one minute past 11:59 p.m. Eastern on July 19, 2021, unless extended (only one date stated). conditions: 'other' carries the asset-coverage condition (a)(iv); also in Section 4 but folded into categories here: (a)(ii) likely eligibility for deregistration under the Exchange Act (other), (b) tenders requiring liquidation of so many loans that orderly liquidation is impossible with adverse NAV effect (other), (d)(ii)-(iv) banking moratorium, credit limitation, war or calamity (market_disruption), (d)(v) any other event the Board judges materially adverse (board_discretion). No minimum tender condition. June 15, 2021: NAV $4.95, market price $4.70 (5.05% discount); purchase price at that NAV would be $4.90. The text contains a typo 'June 15, 202'."
+}

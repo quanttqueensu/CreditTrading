@@ -1,0 +1,66 @@
+{
+ "accession": "0001193125-21-175201",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NXQ and NXR into NXP."
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Select Tax-Free Income Portfolio; Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NXP; NXQ; NXR",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "The reorganization is intended to create a larger fund with lower operating expenses and increased trading volume on the exchange for common shares.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Select Tax-Free Income Portfolio",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR) have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NXQ and NXR into NXP.",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "Nuveen Select Tax-Free Income Portfolio (NYSE: NXP), Nuveen Select Tax-Free Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR) have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NXQ and NXR into NXP.",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "would combine NXQ and NXR into NXP",
+     "doc_seq": "1"
+    },
+    "exchange_basis": null,
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval"
+     ],
+     "spans": [
+      "The proposed reorganization for each fund is subject to certain conditions, including necessary approval by the funds"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Press release filed under Rule 425 / 14a-12 announcing board approval of a proposed reorganization combining NXQ and NXR into NXP. No exchange basis, ratio, timing, meeting or record date stated; proxy materials 'expected to be filed in the coming weeks'. The conditions span is cut before a mis-encoded apostrophe character (\\x92) that follows 'funds' in the text. n_targets (2) counts the two funds named as combined into NXP.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

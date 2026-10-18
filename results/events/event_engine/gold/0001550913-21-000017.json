@@ -1,0 +1,85 @@
+{
+ "accession": "0001550913-21-000017",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "reit",
+  "doc_role": "offer_document",
+  "kind_span": "This Tender Offer Statement on Schedule TO relates to an offer by the Company to purchase, as approved by the Company’s board of directors"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "MacKenzie Realty Capital, Inc.",
+     "span": "the issuer is MacKenzie Realty Capital, Inc., a real estate investment trust incorporated in Maryland",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "is offering to purchase 400,000 shares of our issued and outstanding common stock",
+     "doc_seq": "2"
+    },
+    "price_basis": {
+     "value": "fixed_price",
+     "span": "The Offer is for cash at a price equal to $6.00",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": {
+     "value": 400000,
+     "span": "we are limiting the aggregate number of Shares to be repurchased from all Stockholders to 400,000",
+     "doc_seq": "2"
+    },
+    "commencement_date": {
+     "value": "2021-03-19",
+     "span": "The Offer period will begin March 19, 2021",
+     "doc_seq": "5"
+    },
+    "expiration_date": {
+     "value": "2021-04-19",
+     "span": "The Offer will expire at 5:00 p.m., Pacific Time, on April 19, 2021, unless extended.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If the amount of repurchase requests exceeds the number of Shares we seek to repurchase, we will repurchase Shares on a pro rata basis.",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "other",
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion"
+     ],
+     "spans": [
+      "we will not be required to purchase any Shares tendered pursuant to the Offer if such purchase will cause us to be in violation of the securities, commodities or other laws of the United States or any other relevant jurisdiction",
+      "material legal action or proceeding instituted or threatened which challenges, in the Board’s judgment, the Offer or otherwise materially adversely affects the Company",
+      "declaration of a banking moratorium by federal, state or foreign authorities or any suspension of payment by banks in the United States, the State of California",
+      "other event or condition that, in the Board’s judgment, would have a material adverse effect on the Company or its Stockholders if Shares tendered pursuant to the Offer were purchased"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "board_discretionary",
+     "span": "The Company’s share repurchase program was suspended effective in May 2020 due to the COVID-19 pandemic, and we have no current plans to reinstate this share repurchase program",
+     "doc_seq": "5"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "fund_type",
+  "trigger_origin"
+ ],
+ "notes": "Issuer tender at a fixed $6.00 per share by an unlisted company (CUSIP N/A; 'not currently traded on an established trading market'; no ticker). The company calls itself 'a real estate investment trust incorporated in Maryland', but the FAQ in seq 5 says 'we are transitioning from a BDC to a property-focused REIT', so it may still be a BDC at the time of filing; fund_type reit follows the cover description. The Company, Board and advisers recommend AGAINST tendering. Estimated Per-Share NAV is $9.84 as of December 31, 2020, and the filing says 'The purchase price is 39% lower than Estimated Per-Share NAV'. price_pct_nav (about 61) would need arithmetic, so it is null. size_pct_outstanding is null: 400,000 of 13,362,419.23 Shares outstanding (March 19, 2021) needs arithmetic, and the FAQ's 'If we buy back 5% of our shares' is hypothetical. trigger_origin: a one-off Board-approved offer at a discount, made while the regular share repurchase program stays suspended (since May 2020), meant to give liquidity as an alternative to secondary trades in the $3.00-$6.30 range. There is an 'All or None' election for holders. Not conditioned on a minimum tender; no financing condition. Section 3 also lists credit/FX limitations and war or calamity, mapped to market_disruption. The withdrawal right after May 18, 2021 is described as 40 business days after commencement.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

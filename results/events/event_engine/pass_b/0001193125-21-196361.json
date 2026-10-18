@@ -1,0 +1,79 @@
+{
+ "accession": "0001193125-21-196361",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "the reorganization of the Target Fund into the Acquiring Fund pursuant to an Agreement and Plan of Reorganization (the Agreement) under which the Target Fund will transfer substantially all of its assets and liabilities to the Acquiring Fund in exchange for newly issued common shares of the Acquiring Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Select Tax-Free Income Portfolio; Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "of Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund), Nuveen Select Tax-Free Income Portfolio 2 and Nuveen Select Tax-Free Income Portfolio 3 (each, a Target Fund and together, the Target Funds)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NXP; NXQ; NXR",
+     "span": "are listed and trade on the NYSE under the ticker symbols NXP, NXQ and NXR, respectively",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Holders of common shares of each Target Fund will receive newly issued common shares of the Acquiring Fund, with cash being distributed in lieu of fractional common shares.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Select Tax-Free Income Portfolio",
+     "span": "Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "Nuveen Select Tax-Free Income Portfolio 2 and Nuveen Select Tax-Free Income Portfolio 3 (each, a Target Fund and together, the Target Funds)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "Nuveen Select Tax-Free Income Portfolio 2 and Nuveen Select Tax-Free Income Portfolio 3 (each, a Target Fund and together, the Target Funds)",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "the aggregate net asset value, as of the Valuation Time (as defined below), of the Acquiring Fund common shares received by the Target Fund in connection with the Reorganization will equal the aggregate net asset value of the Target Fund common shares held by shareholders of the Target Fund as of the Valuation Time",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "tax_opinion",
+      "legal_injunction",
+      "regulatory_approval",
+      "registration_effective",
+      "other"
+     ],
+     "spans": [
+      "(1) the requisite approval by the shareholders of the Target Fund (2) the requisite approval by the shareholders of the Acquiring Fund",
+      "(3) each Funds receipt of an opinion substantially to the effect that its Reorganization(s) will qualify as a reorganization under the Code",
+      "(4) the absence of legal proceedings challenging the Reorganizations",
+      "All consents, orders and permits of federal, state and local regulatory authorities",
+      "The Registration Statement shall have become effective under the 1933 Act, and no stop orders suspending the effectiveness thereof shall have been issued.",
+      "and (5) the Funds receipt of certain customary certificates and legal opinions"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Initial N-14 8C (filed 2021-06-22) for the reorganizations of two Nuveen municipal closed-end funds (NXQ, NXR) into NXP; each reorganization is not contingent on the other. This preliminary filing leaves the meeting date, record date and expected closing date blank ('[●], 2021'), so meeting_date, record_date and expected_close are null (the closing is stated only as 'expected to be on or about [], 2021'). The Agreement (Appendix A, Article XI) has no outside/automatic termination date, so termination_date is null. conditions 'other' covers customary certificates and legal opinions, accuracy of representations and the Target Fund's pre-closing distribution. No exchange ratio, cash or collar stated (NAV-for-NAV, cash only in lieu of fractional shares). Spans keep the text file's cp1252 control characters (e.g. U+0092 for apostrophes) verbatim."
+}

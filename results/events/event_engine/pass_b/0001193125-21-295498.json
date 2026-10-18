@@ -1,0 +1,78 @@
+{
+ "accession": "0001193125-21-295498",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "Joint Proxy Statement/Prospectus regarding the proposed reorganization of MYJ into MUJ."
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "BlackRock MuniYield New Jersey Fund, Inc.; BlackRock MuniHoldings New Jersey Quality Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ or the Target Fund) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ) (MUJ or the Acquiring Fund",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "MYJ; MUJ",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ or the Target Fund) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ) (MUJ or the Acquiring Fund",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common shareholders of MYJ will receive newly issued common shares of the Acquiring Fund, par value $0.10 per share",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "BlackRock MuniHoldings New Jersey Quality Fund, Inc.",
+     "span": "BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ) (MUJ or the Acquiring Fund",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "BlackRock MuniYield New Jersey Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ or the Target Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Joint Proxy Statement/Prospectus regarding the proposed reorganization of MYJ into MUJ.",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "Common shareholders of MYJ will receive newly issued common shares of the Acquiring Fund, par value $0.10 per share, the aggregate NAV (not the market value) of which will equal the aggregate NAV (not the market value) of the common shares of MYJ such shareholders held immediately prior to the Closing Date",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "registration_effective",
+      "shareholder_approval",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "including a registration statement on Form N-14 being declared effective by the SEC",
+      "approval of the Reorganization Agreement by the shareholders of the Target Fund and the VRDP Holders of the Acquiring Fund",
+      "receipt of an opinion of counsel as to tax matters",
+      "certain third-party consents"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class",
+  "conditions"
+ ],
+ "notes": "Initial N-14 8C (filed 2021-10-08) for the reorganization of BlackRock MuniYield New Jersey Fund (MYJ) into BlackRock MuniHoldings New Jersey Quality Fund (MUJ), both closed-end municipal funds. Common shares are exchanged NAV-for-NAV (cash in lieu of fractional shares); MYJ VRDP preferred shares are also exchanged one-for-one for newly issued MUJ VRDP Shares, so the event acts on preferred as well as common (security_class given as common, the class this prospectus registers). exchange_ratio left null because no fixed common-share ratio is stated (the 1:1 is for VRDP preferred only). This preliminary filing leaves the meeting date, record date and expected closing quarter/year blank ('[●] quarter of [●]'), so those fields are null. The Form of Agreement and Plan of Reorganization (Appendix A) is '[TO COME]', so no outside termination date is stated. conditions 'other' covers third-party consents (including the VRDP liquidity provider), an opinion of counsel on corporate and securities matters, and continuing accuracy of representations and warranties. One of the stated listing sentences names the acquirer as 'BlackRock MuniHoldings Quality Fund, Inc.' (sic, no 'New Jersey'); the cover name is used."
+}

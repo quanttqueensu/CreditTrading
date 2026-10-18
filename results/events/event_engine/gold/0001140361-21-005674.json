@@ -1,0 +1,93 @@
+{
+ "accession": "0001140361-21-005674",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "interval_or_tender_offer_fund",
+  "doc_role": "offer_document",
+  "kind_span": "This Tender Offer Statement on Schedule TO relates to an offer by the Company to purchase up to the lesser of (i) 9,959,316 of the Company’s issued and outstanding common shares of beneficial interest, par value $0.001 per share"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "FS Global Credit Opportunities Fund",
+     "span": "The name of the issuer is FS Global Credit Opportunities Fund, an externally managed, non-diversified, closed-end management investment company",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "an offer by the Company to purchase up to the lesser of (i) 9,959,316 of the Company’s issued and outstanding common shares of beneficial interest, par value $0.001 per share",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "The Offer is for cash at a price equal to the NAV per Share as of March 31, 2021",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": {
+     "value": 100,
+     "span": "The Offer is for cash at a price equal to the NAV per Share as of March 31, 2021",
+     "doc_seq": "2"
+    },
+    "nav_pricing_date": {
+     "value": "NAV per Share as of March 31, 2021",
+     "span": "The Offer is for cash at a price equal to the NAV per Share as of March 31, 2021",
+     "doc_seq": "2"
+    },
+    "size_pct_outstanding": {
+     "value": 5,
+     "span": "9,959,316 Shares (which number represents 5% of the weighted average number of Shares outstanding for the calendar year ended December 31, 2020)",
+     "doc_seq": "2"
+    },
+    "size_shares": {
+     "value": 9959316,
+     "span": "The total cost to us of purchasing the maximum of 9,959,316 of our issued and outstanding Shares",
+     "doc_seq": "2"
+    },
+    "commencement_date": null,
+    "expiration_date": {
+     "value": "2021-03-30",
+     "span": "The Offer will expire at 4:00 P.M., Eastern Time, on March 30, 2021, unless extended.",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If the amount of repurchase requests exceeds the number of Shares we seek to repurchase, we will repurchase Shares on a pro rata basis.",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "other",
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion"
+     ],
+     "spans": [
+      "we will not be required to purchase any Shares tendered pursuant to the Offer if such repurchase will cause us to be in violation of the securities, commodities or other laws of the United States or any other relevant jurisdiction",
+      "material legal action or proceeding instituted or threatened which challenges, in the Board’s judgment, the Offer or otherwise materially adversely affects the Company",
+      "declaration of a banking moratorium by federal, state or foreign authorities or any suspension of payment by banks in the United States",
+      "other event or condition which, in the Board’s judgment, would have a material adverse effect on the Company or its shareholders if Shares tendered pursuant to the Offer were purchased"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "periodic_liquidity",
+     "span": "We intend to make quarterly repurchase offers for our Shares prior to the occurrence of a liquidity event, if any.",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "size_pct_outstanding",
+  "fund_type"
+ ],
+ "notes": "Unlisted fund ('The Shares are not currently traded on an established trading market'; CUSIP 30290Y 101; no ticker printed) that self-describes as a closed-end management investment company and intends quarterly repurchase offers, hence fund_type interval_or_tender_offer_fund rather than closed_end_fund (judgement call). Size: the offer is for up to the LESSER of (i) 9,959,316 Shares and (ii) the greater of two DRIP-proceeds-based share counts, so 9,959,316 is a ceiling, not a firm size. The stated 5% is of the weighted-average Shares outstanding for calendar 2020, not of current outstanding (198,983,536 Shares as of February 11, 2021); recorded as 5 with that caveat. Price 'equal to the NAV per Share' recorded as 100% of NAV. NAV is struck as of March 31, 2021, the day after the stated March 30, 2021 expiration; the $7.4179 NAV as of January 31, 2021 is only an illustration. commencement_date is the Offer to Purchase date (Section 5 says April 26, 2021 is 40 business days after commencement). The offer is not conditioned on a minimum tender and has no financing condition. Per-holder tender rules (tender at least 25% or all shares; $5,000 minimum remaining balance) are restrictions on individual tenders and are not counted as offer conditions. Section 3 also lists credit/FX limitations and war or calamity; these are mapped to market_disruption. No results in this filing.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

@@ -1,0 +1,79 @@
+{
+ "accession": "0001193125-21-119537",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "final_result",
+  "kind_span": "This Amendment No. 2 is the final amendment to the Schedule TO and is being filed (i) to report the final results of the Exchange Offer"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "The Gabelli Dividend & Income Trust",
+     "span": "filed with the Securities and Exchange Commission by The Gabelli Dividend & Income Trust, a Delaware statutory trust",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GDV",
+     "span": "The Gabelli Dividend & Income Trust (NYSE:GDV)",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "preferred",
+     "span": "Auction Market Preferred Shares, Series B, Par Value $0.001 Auction Market Preferred Shares, Series C, Par Value $0.001 Auction Rate Preferred Shares, Series E, Par Value $0.001",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "other",
+     "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer, based upon a price of 96% of the liquidation preference of $25,000 per share (or $24,000 per share).",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {
+     "value": 100,
+     "span": "offer to exchange up to 100% of the Issuer",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 6371,
+     "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-03-17",
+     "span": "Under the terms of the Offer, which commenced March 17, 2021 and expired April 14, 2021",
+     "doc_seq": "2"
+    },
+    "expiration_date": {
+     "value": "2021-04-14",
+     "span": "The Exchange Offer expired at 5:00 p.m. New York City time, on April 14, 2021.",
+     "doc_seq": "1"
+    },
+    "proration": null,
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": {
+     "value": 6105,
+     "span": "6,105 Auction Rate Preferred Shares were validly tendered and not withdrawn prior to the expiration of the Exchange Offer",
+     "doc_seq": "1"
+    },
+    "shares_accepted": {
+     "value": 6105,
+     "span": "all 6,105 Auction Rate Preferred Shares, representing 95.8% of the outstanding Auction Rate Preferred Shares on the Expiration Date, were accepted for exchange",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "shares_tendered",
+  "shares_accepted"
+ ],
+ "notes": "Final amendment (Amendment No. 2; the final-amendment box is checked) to the exchange offer for the unlisted Series B, C and E auction rate preferred shares, exchanged for Series J Cumulative Term Preferred Shares plus cash. Conflict between documents: the Rule 13e-4(c)(4) statement in the main document (seq 1) says 6,105 ARPS were tendered and all 6,105 accepted (95.8% of outstanding). The attached press release (seq 2) says tenders came in for 96% of outstanding and 5,817 Series J shares would be issued 'in exchange for the 6,106 Auction Rate Preferred Shares tendered'. The formal seq 1 figure (6,105) is used for both fields; the two sources were not averaged. proration_factor_pct is null: all tendered shares were accepted, but no factor is stated. final_price_per_share is null: consideration was 0.96 of a Series J Preferred Share (liquidation preference $25,000) per ARPS plus cash in lieu of fractional shares, not a dollar price. The $24,000-per-share figure appears only in the fee-calculation footnote. The press release also states $1,119,000 aggregate cash in lieu of fractional shares and Series J issuance on or about April 20, 2021; untendered ARPS remain outstanding unchanged. Proration, conditions and the reason for the offer are not stated in this amendment (null). GDV is the common-share ticker; the ARPS themselves are unlisted.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

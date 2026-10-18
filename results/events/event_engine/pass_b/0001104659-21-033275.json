@@ -1,0 +1,83 @@
+{
+ "accession": "0001104659-21-033275",
+ "triage": {
+  "kind": "rights_offering",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "Tekla World Healthcare Fund (the \"Trust\") is issuing non-transferable rights (\"Rights\") to its Shareholders of record as of the close of business on March 8, 2021"
+ },
+ "events": [
+  {
+   "kind": "rights_offering",
+   "terms": {
+    "subject_names": {
+     "value": "Tekla World Healthcare Fund",
+     "span": "Tekla World Healthcare Fund (the \"Trust\") is issuing non-transferable rights (\"Rights\") to its Shareholders of record",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "THW",
+     "span": "New York Stock Exchange Symbol: THW",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "to subscribe for an aggregate of 10,077,635 common shares of beneficial interest (\"Shares\") of the Trust",
+     "doc_seq": "1"
+    },
+    "rights_per_share": {
+     "value": 1,
+     "span": "You will receive one Right for each whole Share you held as of the Record Date",
+     "doc_seq": "1"
+    },
+    "rights_per_new_share": {
+     "value": 3,
+     "span": "You may subscribe for one Share for every three Rights you hold (the \"Primary Subscription\")",
+     "doc_seq": "1"
+    },
+    "price_reference": {
+     "value": "market",
+     "span": "a formula equal to 95% of the volume weighted average price of a Share on the NYSE on the date on which the Offer expires",
+     "doc_seq": "1"
+    },
+    "price_pct": {
+     "value": 95,
+     "span": "a formula equal to 95% of the volume weighted average price of a Share on the NYSE on the date on which the Offer expires",
+     "doc_seq": "1"
+    },
+    "price_floor_pct_nav": {
+     "value": 90,
+     "span": "If, however, the Formula Price is less than 90% of the NAV per Share at the close of trading on the NYSE on the Expiration Date (as defined below), then the Subscription Price will be 90% of the Trust's NAV per Share",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-03-08",
+     "span": "is issuing to its shareholders of record (\"Shareholders\") as of the close of business on March 8, 2021 (the \"Record Date\")",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-04-06",
+     "span": "which starts on March 16, 2021 and ends at 5:00 p.m., Eastern Time, on April 6, 2021 (the \"Expiration Date\")",
+     "doc_seq": "1"
+    },
+    "transferable": {
+     "value": false,
+     "span": "The Rights are non-transferable, which means that the Rights may not be purchased or sold",
+     "doc_seq": "1"
+    },
+    "over_subscription": {
+     "value": true,
+     "span": "such Shares which have not been subscribed for will be offered, by means of the Over-Subscription Privilege, to Shareholders who have exercised all the Rights initially issued to them",
+     "doc_seq": "1"
+    },
+    "max_new_shares": {
+     "value": 10077635,
+     "span": "The Trust is issuing to its Shareholders non-transferable Rights to subscribe for an aggregate of 10,077,635 Shares.",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Single document (seq=1), final 424B1 prospectus dated March 4, 2021 for a non-transferable 1-for-3 rights offering. Subscription price = 95% of the 5-day VWAP ending on the Expiration Date, but not less than 90% of NAV per share at the close on the Expiration Date: coded as price_reference=market, price_pct=95, price_floor_pct_nav=90 (economically the greater of 95% of market and 90% of NAV). max_new_shares = 10,077,635 primary shares; the Trust may increase the offer by up to 25% (up to an additional 2,519,409 shares, aggregate 12,597,044) to honor over-subscription requests, excluded from max_new_shares. Subscription period starts March 16, 2021; expiration April 6, 2021 unless extended (only one expiration date stated). Fund type taken from 'The Trust is a non-diversified, closed-end management investment company.'"
+}

@@ -1,0 +1,76 @@
+{
+ "accession": "0001193125-21-246408",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "HFRO to Purchase Up to $50 Million of Common Shares Under Proposed Tender Offer"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "Highland Income Fund",
+     "span": "Highland Income Fund (Name of Filing Person (Issuer))",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "HFRO",
+     "span": "The Highland Income Fund (NYSE: HFRO)",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common shares of beneficial interest, par value $0.001",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "at a price equal to 95% of the net asset value per Common Share as of the close of business on the business day before the tender offer expires",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 95,
+     "span": "at a price equal to 95% of the net asset value per Common Share",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "close of business on the business day before the tender offer expires",
+     "span": "as of the close of business on the business day before the tender offer expires",
+     "doc_seq": "1"
+    },
+    "size_pct_outstanding": null,
+    "size_shares": null,
+    "commencement_date": null,
+    "expiration_date": null,
+    "proration": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "board_discretion"
+     ],
+     "spans": [
+      "the Fund obtaining shareholder approval at the Special Meeting",
+      "The Tender Offer is contingent upon both Board approval"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "other",
+     "span": "Highland Income Fund (HFRO) Announces Tender Offer as Part of Holding Company Conversion Proposal",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "trigger_origin",
+  "conditions"
+ ],
+ "notes": "Pre-commencement communication (SC TO-C; the box 'relates solely to preliminary communications made before the commencement of a tender offer' is checked). The tender is only PROPOSED: the adviser has recommended that the Board approve it, and it is contingent on Board approval and on shareholder approval of the holding-company conversion Proposals at the Special Meeting on August 20, 2021. Size is stated only in dollars, 'up to $50 million in aggregate value of Common Shares', so size_shares and size_pct_outstanding are null. Timing: 'expected to commence as soon as practicable after the date of shareholder approval of the Proposals, but in any event not later than 60 days after such date'; no commencement or expiration date is stated. trigger_origin 'other': the tender is part of a proposal to convert the Fund to a diversified holding company (described as 'additional shareholder liquidity during the conversion process' and a response to 'feedback received from shareholders during the solicitation process'); merger_related would be the nearest alternative. The conversion proposal itself (vote at the August 20, 2021 Special Meeting; deregistration under the 1940 Act; implementation projected to run to about mid-2023) is a separate structural event that fits no schema kind cleanly (liquidation/action=other at most) and is recorded here rather than as a second event. The text file encodes apostrophes and quotation marks as C1 control characters (U+0092/U+0093/U+0094); spans were chosen to avoid them."
+}

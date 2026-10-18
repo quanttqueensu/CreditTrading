@@ -1,0 +1,89 @@
+{
+ "accession": "0001193125-21-358275",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "bdc",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "SLRC and SUNS are proposing a combination of both companies by a merger and related transactions pursuant to the Merger Agreement"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "SLR Investment Corp.; SLR Senior Investment Corp.",
+     "span": "Agreement and Plan of Merger by and among SLR Investment Corp., SLR Senior Investment Corp., Solstice Merger Sub, Inc. and SLR Capital Partners, LLC (for the limited purposes set forth therein), dated as of December 1, 2021",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "SLRC; SUNS",
+     "span": "SLRC Common Stock trades on The Nasdaq Global Select Market (\u0093Nasdaq\u0094) under the ticker symbol \u0093SLRC.\u0094 SUNS Common Stock trades on the Nasdaq under the symbol \u0093SUNS.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "each share of common stock, par value $0.01 per share, of SUNS (\u0093SUNS Common Stock\u0094) issued and outstanding immediately prior to the Effective Time",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "SLR Investment Corp.",
+     "span": "\u0093Second Merger\u0094 refers to the merger of SUNS with and into SLRC, with SLRC continuing as the surviving company. \u0095 \u0093SLRC\u0094 refers to SLR Investment Corp.",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "SLR Senior Investment Corp.",
+     "span": "with and into SLR Senior Investment Corp. (\u0093SUNS\u0094), with SUNS as the surviving company (such transaction, the \u0093Merger\u0094 and, taken together with the immediately following merger of SUNS with and into SLRC (with SLRC as the surviving company)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "SLRC and SUNS are proposing a combination of both companies by a merger and related transactions pursuant to the Merger Agreement",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The Exchange Ratio will be equal to the quotient (rounded to four decimal places) of (i) the SUNS Per Share NAV divided by (ii) the SLRC Per Share NAV.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "listing",
+      "registration_effective",
+      "legal_injunction",
+      "regulatory_approval",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "the required approvals of SLRC Stockholders and SUNS Stockholders, including, with respect to SLRC, the Merger Stock Issuance Proposal and, with respect to SUNS, the Merger Proposal, are obtained at their respective stockholder meetings;",
+      "the shares of SLRC Common Stock to be issued in connection with the Mergers have been authorized for listing on Nasdaq, subject to official notice of issuance;",
+      "the registration statement, of which this joint proxy statement/prospectus forms a part, has become effective and no stop order suspending its effectiveness has been issued",
+      "no order issued by any court or agency of competent jurisdiction or other law preventing, enjoining, restraining or making illegal the consummation of the Mergers",
+      "all regulatory approvals required by applicable law to consummate the transactions contemplated by the Merger Agreement have been obtained and remain in full force and effect",
+      "SLRC and SUNS have received the opinion of Katten substantially to the effect that, on the basis of facts, representations and assumptions set forth in such opinion, the Mergers will be treated as a reorganization within the meaning of Section 368(a) of the Code.",
+      "the determination of both the Closing SLRC Net Asset Value and the Closing SUNS Net Asset Value has been completed in accordance with the Merger Agreement;"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "first half of 2022",
+     "span": "SLRC and SUNS are working to complete the Mergers in the first half of 2022.",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2022-12-01",
+     "span": "the Merger has not been completed on or before December 1, 2022 (the \u0093Termination Date\u0094)",
+     "doc_seq": "1"
+    },
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Preliminary N-14 8C (filed 2021-12-15) by SLR Investment Corp. (BDC) registering shares for its merger with SLR Senior Investment Corp. (BDC): Merger Sub merges into SUNS, then SUNS merges into SLRC, SLRC surviving. Both SLRC (Merger Stock Issuance Proposal) and SUNS (Merger Proposal) stockholders vote. Meeting dates and record dates for both special meetings are left as [\u25cf], 2022 placeholders, so meeting_date and record_date are null. The Exchange Ratio is not fixed: SUNS per-share NAV / SLRC per-share NAV, determined within 48 hours (excluding Sundays and holidays) before the Effective Time; the filing gives an illustrative ratio of approximately 0.7763 based on 2021-09-30 NAVs, so exchange_ratio is null. Cash only in lieu of fractional shares. No collar is mentioned; the filing says the market value of the consideration will fluctuate with the SLRC share price. 'other' condition: closing NAV determinations (also SCP representations, the Letter Agreement on the base management fee reduction, absence of material adverse effect)."
+}

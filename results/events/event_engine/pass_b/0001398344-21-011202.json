@@ -1,0 +1,86 @@
+{
+ "accession": "0001398344-21-011202",
+ "triage": {
+  "kind": "rights_offering",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "The Fund is issuing transferable subscription Rights to its Common Shareholders of record as of May 25, 2021 (the “Record Date” and such shareholders, “Record Date Shareholders”)."
+ },
+ "events": [
+  {
+   "kind": "rights_offering",
+   "terms": {
+    "subject_names": {
+     "value": "Clough Global Equity Fund",
+     "span": "Clough Global Equity Fund Rights for 5,512,845 Shares",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GLQ",
+     "span": "The Fund’s common shares are traded on the NYSE American LLC under the symbol “GLQ”.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Subscription Rights to Purchase Common Shares The Fund is issuing subscription rights to its common shareholders to purchase the Fund’s common shares.",
+     "doc_seq": "1"
+    },
+    "rights_per_share": {
+     "value": 1,
+     "span": "Record Date Shareholders will receive one Right for each common share held on the Record Date.",
+     "doc_seq": "1"
+    },
+    "rights_per_new_share": {
+     "value": 3,
+     "span": "For every three Rights held, you are entitled to purchase one new common share of the Fund.",
+     "doc_seq": "1"
+    },
+    "price_reference": {
+     "value": "greater_of_nav_and_market",
+     "span": "The Subscription Price per common share will be determined based upon a formula equal to 85% of the reported net asset value or 95% of the market price per common share, whichever is higher on the Expiration Date.",
+     "doc_seq": "1"
+    },
+    "price_pct": {
+     "value": 95,
+     "span": "The Subscription Price per common share will be determined based upon a formula equal to 85% of the reported net asset value or 95% of the market price per common share, whichever is higher on the Expiration Date.",
+     "doc_seq": "1"
+    },
+    "price_floor_pct_nav": {
+     "value": 85,
+     "span": "The Subscription Price per common share will be determined based upon a formula equal to 85% of the reported net asset value or 95% of the market price per common share, whichever is higher on the Expiration Date.",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-05-25",
+     "span": "Rights will be issued to holders of record of the Fund’s Common Shares on May 25, 2021 (the “Record Date”).",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-06-22",
+     "span": "The Offer will expire at 5:00 p.m., Eastern Time, on June 22, 2021, unless the Offer is extended as described in this Prospectus (the “Expiration Date”).",
+     "doc_seq": "1"
+    },
+    "transferable": {
+     "value": true,
+     "span": "The Rights are transferable and will be admitted for trading on the NYSE American under the symbol “GLQ RT” during the course of the Offer.",
+     "doc_seq": "1"
+    },
+    "over_subscription": {
+     "value": true,
+     "span": "Record Date Shareholders who fully exercise their Rights may also, in certain circumstances, purchase additional common shares pursuant to an Over-Subscription Privilege.",
+     "doc_seq": "1"
+    },
+    "max_new_shares": {
+     "value": 5512845,
+     "span": "These Rights will allow Record Date Shareholders to subscribe for new common shares of the Fund in an aggregate amount of approximately 5,512,845 common shares (the “Offer”).",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "price_reference",
+  "price_pct"
+ ],
+ "notes": "Single document (seq=1), 424B2 prospectus supplement dated May 21, 2021 (to prospectus dated May 21, 2021) for a transferable 1-for-3 rights offering (rights trade on NYSE American as 'GLQ RT'). Subscription price = 85% of NAV or 95% of market price, whichever is higher, on the Expiration Date; market price = average of last reported sales prices for the five trading days preceding the Expiration Date (excluding the Expiration Date). Coded price_reference=greater_of_nav_and_market with price_pct=95 (the market leg) and price_floor_pct_nav=85 (the NAV leg acts as a floor); the filing states two percents, so price_pct is a coding choice. Rights per holder are rounded UP to the nearest number divisible by three. max_new_shares 5,512,845 is stated as 'approximately'; no secondary over-allotment is stated (unsubscribed shares are not sold). Board may eliminate the over-subscription privilege at its discretion. Expiration June 22, 2021 unless extended (only one date stated). Fund type evidence: 'Common shares of the Fund, as a closed-end fund, can trade at a discount to net asset value.'"
+}

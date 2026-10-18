@@ -1,0 +1,69 @@
+{
+ "accession": "0001193125-21-284573",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "BlackRock Announces Board Approval of New Jersey Municipal Closed-End Fund Reorganization"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "BlackRock MuniYield New Jersey Fund, Inc.; BlackRock MuniHoldings New Jersey Quality Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MUJ)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "MYJ; MUJ",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MUJ)",
+     "doc_seq": "1"
+    },
+    "security_class": null,
+    "acquirer": {
+     "value": "BlackRock MuniHoldings New Jersey Quality Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MUJ) (together, the \u0093Funds\u0094) have approved the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the \u0093Reorganization\u0094).",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "BlackRock MuniYield New Jersey Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MUJ) (together, the \u0093Funds\u0094) have approved the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the \u0093Reorganization\u0094).",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "have approved the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund",
+     "doc_seq": "1"
+    },
+    "exchange_basis": null,
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "other"
+     ],
+     "spans": [
+      "subject to the requisite approvals by each Fund\u0092s shareholders",
+      "and the satisfaction of customary closing conditions"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "first half of 2022",
+     "span": "It is currently expected that the Reorganization will be completed in the first half of 2022",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "conditions"
+ ],
+ "notes": "Press release dated September 27, 2021 (filed under Rule 425 by MUJ, the acquiring fund) announcing board approval of the reorganization of MYJ into MUJ. Exchange basis, meeting and record dates are not stated (proxy materials yet to be filed). conditions: 'other' stands for the unspecified 'customary closing conditions'. The release says the proxy statement/prospectus will not be distributed until a registration statement is declared effective; that is a precondition to the solicitation, not stated as a closing condition, so registration_effective was not listed. security_class is not stated."
+}

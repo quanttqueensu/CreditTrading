@@ -1,0 +1,89 @@
+{
+ "accession": "0001104659-21-055075",
+ "triage": {
+  "kind": "equity_mna",
+  "fund_type": "reit",
+  "doc_role": "announcement",
+  "kind_span": "TRMT has agreed to merge with and into us, with us continuing as the surviving entity in the merger, or the Merger."
+ },
+ "events": [
+  {
+   "kind": "equity_mna",
+   "terms": {
+    "subject_names": {
+     "value": "RMR Mortgage Trust; Tremont Mortgage Trust",
+     "span": "Tremont Mortgage Trust (Nasdaq: TRMT) and RMR Mortgage Trust (Nasdaq: RMRM), is a direct lender",
+     "doc_seq": "5"
+    },
+    "subject_tickers": {
+     "value": "RMRM; TRMT",
+     "span": "Tremont Mortgage Trust (Nasdaq: TRMT) and RMR Mortgage Trust (Nasdaq: RMRM), is a direct lender",
+     "doc_seq": "5"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "each common share of beneficial interest, $0.01 par value per share, of TRMT, or TRMT Common Shares, issued and outstanding immediately prior to the Effective Time will be converted into the right to receive 0.52,",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "RMR Mortgage Trust",
+     "span": "RMR Mortgage Trust (Nasdaq: RMRM) and Tremont Mortgage Trust (Nasdaq: TRMT) today announced that they have entered into a definitive merger agreement pursuant to which TRMT will merge with and into RMRM, with RMRM continuing as the surviving company.",
+     "doc_seq": "5"
+    },
+    "target": {
+     "value": "Tremont Mortgage Trust",
+     "span": "RMR Mortgage Trust (Nasdaq: RMRM) and Tremont Mortgage Trust (Nasdaq: TRMT) today announced that they have entered into a definitive merger agreement pursuant to which TRMT will merge with and into RMRM, with RMRM continuing as the surviving company.",
+     "doc_seq": "5"
+    },
+    "cash_per_share": null,
+    "exchange_ratio": {
+     "value": 0.52,
+     "span": "will be converted into the right to receive 0.52, or the Exchange Ratio, of one newly issued common share of beneficial interest, $0.001 par value per share, of us, or RMRM Common Shares,",
+     "doc_seq": "1"
+    },
+    "collar": {
+     "value": false,
+     "span": "the Exchange Ratio is fixed and will not be adjusted to reflect changes in the market price of the RMRM Common Shares or the TRMT Common Shares prior to the Effective Time.",
+     "doc_seq": "1"
+    },
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "legal_injunction",
+      "registration_effective",
+      "listing",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "TRMT shall have obtained the TRMT Shareholder Approval and RMRM shall have obtained the RMRM Shareholder Approval.",
+      "there shall be no temporary, preliminary or permanent Order or injunction of a court of competent jurisdiction in effect preventing the consummation of the Merger",
+      "The Form S-4 shall have been declared effective by the SEC under the Securities Act",
+      "The RMRM Common Shares to be issued in the Merger shall have been approved for listing on Nasdaq, subject to official notice of issuance.",
+      "TRMT shall have received and delivered to RMRM a tax opinion of TRMT REIT Tax Counsel",
+      "there shall not have occurred any event, change, effect or development that, individually or in the aggregate, has had, or would reasonably be expected to have, a TRMT Material Adverse Effect."
+     ],
+     "doc_seq": "2"
+    },
+    "expected_close": {
+     "value": "third quarter of 2021",
+     "span": "The Merger is expected to close in the third quarter of 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2021-12-31",
+     "span": "either party may terminate the agreement if the Merger is not consummated by December 31, 2021.",
+     "doc_seq": "1"
+    },
+    "termination_fee": {
+     "value": 2156000,
+     "span": "TRMT Termination Fee ” means $2,156,000 plus all fees and expenses reasonably incurred by or on behalf of RMRM in connection with the Merger and",
+     "doc_seq": "2"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Form 8-K (Item 1.01) filed under Rule 425 by RMR Mortgage Trust, with the Agreement and Plan of Merger (seq 2), letter and voting agreements, press release and investor presentation. Kind chosen as equity_mna, not merger: both parties are described as mortgage REITs; the agreement says RMRM operated as an investment company under the Investment Company Act only before January 5, 2021 and as a mortgage REIT from then on. Stock-for-stock merger, TRMT merges into RMRM, fixed exchange ratio 0.52 RMRM shares per TRMT share (presentation: 0.520x), cash only in lieu of fractional shares. Termination fee: each party's fee is $2,156,000 plus expenses (8-K: $2.156 million); the target (TRMT) fee is given. Conditions 'other' covers no material adverse effect and accuracy of representations. Combined company to be renamed Seven Hills Realty Capital, ticker SHRC. No meeting or record date stated.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

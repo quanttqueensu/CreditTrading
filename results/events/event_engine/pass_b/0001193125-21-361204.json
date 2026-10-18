@@ -1,0 +1,67 @@
+{
+ "accession": "0001193125-21-361204",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "Nuveen Municipal Closed-End Funds Announce Proposed Reorganization"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Enhanced Municipal Value Fund; Nuveen Municipal Credit Income Fund",
+     "span": "The Boards of Trustees of Nuveen Enhanced Municipal Value Fund (NYSE: NEV) and Nuveen Municipal Credit Income Fund (NYSE: NZF) have approved a proposal to reorganize the funds.",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NEV; NZF",
+     "span": "Nuveen Enhanced Municipal Value Fund (NYSE: NEV) and Nuveen Municipal Credit Income Fund (NYSE: NZF)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "create a larger fund with enhanced earnings potential and increased trading volume on the exchange for common shares",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Municipal Credit Income Fund",
+     "span": "The Boards of Trustees of Nuveen Enhanced Municipal Value Fund (NYSE: NEV) and Nuveen Municipal Credit Income Fund (NYSE: NZF) have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NEV into NZF.",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Enhanced Municipal Value Fund",
+     "span": "The Boards of Trustees of Nuveen Enhanced Municipal Value Fund (NYSE: NEV) and Nuveen Municipal Credit Income Fund (NYSE: NZF) have approved a proposal to reorganize the funds. The proposed reorganization, if approved by shareholders, would combine NEV into NZF.",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "The proposed reorganization, if approved by shareholders, would combine NEV into NZF.",
+     "doc_seq": "1"
+    },
+    "exchange_basis": null,
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval"
+     ],
+     "spans": [
+      "The proposed reorganization for the funds is subject to certain conditions, including necessary approval by the funds shareholders."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class"
+ ],
+ "notes": "Rule 425 press release dated December 17, 2021 announcing board approval of a proposed reorganization combining NEV into NZF (filed by NZF; subject company NEV). Terms are not yet stated: no exchange basis, closing timing, meeting or record date; proxy materials are 'expected to be filed in the coming weeks'. security_class 'common' is inferred from the stated aim of increased exchange trading volume for common shares, not from an explicit statement of the class exchanged. n_targets = 1 from 'combine NEV into NZF'."
+}

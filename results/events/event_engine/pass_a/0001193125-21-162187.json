@@ -1,0 +1,83 @@
+{
+ "accession": "0001193125-21-162187",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "The shareholders of each Target Fund will consider the reorganization of such Target Fund into Nuveen Multi-Asset Income Fund (the Acquiring Fund), a newly formed closed-end fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Diversified Dividend and Income Fund; Nuveen Tax-Advantaged Total Return Strategy Fund; Nuveen Tax-Advantaged Dividend Growth Fund; Nuveen Multi-Asset Income Fund",
+     "span": "NUVEEN DIVERSIFIED DIVIDEND AND INCOME FUND (JDD), NUVEEN TAX-ADVANTAGED TOTAL RETURN STRATEGY FUND (JTA) NUVEEN TAX-ADVANTAGED DIVIDEND GROWTH FUND (JTD) AND NUVEEN MULTI-ASSET INCOME FUND (NMAI)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "JDD; JTA; JTD; NMAI",
+     "span": "NUVEEN DIVERSIFIED DIVIDEND AND INCOME FUND (JDD), NUVEEN TAX-ADVANTAGED TOTAL RETURN STRATEGY FUND (JTA) NUVEEN TAX-ADVANTAGED DIVIDEND GROWTH FUND (JTD) AND NUVEEN MULTI-ASSET INCOME FUND (NMAI)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "The aggregate net asset value of the Acquiring Fund common shares received by each Target Fund in connection with the Reorganizations will equal the aggregate net asset value of the Target Fund common shares held by shareholders of the Target Fund",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Multi-Asset Income Fund",
+     "span": "investing in Nuveen Multi-Asset Income Fund, a newly formed Massachusetts business trust (the Multi-Asset Income Fund or the Acquiring Fund",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Diversified Dividend and Income Fund; Nuveen Tax-Advantaged Total Return Strategy Fund; Nuveen Tax-Advantaged Dividend Growth Fund",
+     "span": "This Joint Proxy Statement/Prospectus is being furnished to the shareholders of Nuveen Diversified Dividend and Income Fund (Dividend and Income Fund), Nuveen Tax-Advantaged Total Return Strategy Fund (Total Return Strategy Fund), and Nuveen Tax-Advantaged Dividend Growth Fund (Dividend Growth Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 3,
+     "span": "Because the closing of each Reorganization is contingent upon at least two of the three Target Funds obtaining the requisite shareholder approvals",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The aggregate net asset value of the Acquiring Fund common shares received by each Target Fund in connection with the Reorganizations will equal the aggregate net asset value of the Target Fund common shares held by shareholders of the Target Fund",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "legal_injunction",
+      "regulatory_approval",
+      "registration_effective",
+      "tax_opinion",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "8.1 This Agreement and the transactions contemplated herein shall have been approved by the requisite vote of the holders of the outstanding common shares of the Target Fund in accordance with applicable law",
+      "no action, suit or other proceeding shall be threatened or pending before any court or governmental agency in which it is sought to restrain or prohibit, or obtain damages or other relief in connection with, this Agreement or the transactions contemplated herein.",
+      "8.3 All consents, orders and permits of federal, state and local regulatory authorities (including those of the Commission and of state securities authorities",
+      "8.4 The Registration Statement shall have become effective under the 1933 Act, and no stop orders suspending the effectiveness thereof shall have been issued.",
+      "8.8 With respect to each Reorganization, the Funds participating in the Reorganization shall have received an opinion of Vedder Price P.C., dated as of the Closing Date and addressed to the Acquiring Fund and the Target Fund, substantially to the effect that for federal income tax purposes",
+      "(c) a determination by a Target Fund Board or the Acquiring Fund Board that the consummation of the transactions contemplated herein is not in the best interests of its respective Fund involved in the Reorganization(s).",
+      "such conditions precedent also must be satisfied or waived with respect to the Reorganization of at least one other Target Fund."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "conditions"
+ ],
+ "notes": "Initial N-14 8C (filed 2021-05-14) of the newly formed Nuveen Multi-Asset Income Fund (to list on the NYSE as NMAI) for the reorganizations of JDD, JTA and JTD into it. Exchange is NAV for NAV (cash in lieu of fractional shares). Each reorganization closes only if at least one other Target Fund (i.e. at least two of three) also obtains approval and satisfies its conditions ('other'). Meeting date, record date and the expected effective date are blank placeholders ('[ ], 2021', 'on or about [ ], 2021 or as soon as practicable thereafter'), so meeting_date, record_date and expected_close are null. The form of Agreement and Plan of Reorganization has no outside date (termination is by mutual agreement or for breach, unmet condition, or a Board determination), so termination_date is null. 'board_discretion' is the Section 11.1(c) right of a Target Fund Board or the Acquiring Fund Board to terminate on determining the deal is not in its fund's best interests; it is a termination right rather than a closing condition, hence listed as uncertain. There is no NYSE listing condition among the conditions precedent (listing approval is a covenant, Section 5.8). The agreement also requires a final income distribution (8.5, not mapped)."
+}

@@ -1,0 +1,79 @@
+{
+ "fund_set_ciks": 2367,
+ "listed_now_ciks": 442,
+ "index_quarters": "2008-01-01..2026-09-30",
+ "episodes_2021_by_tier": {
+  "contest_tier1": 2,
+  "contest_tier2": 12,
+  "merger_tier1": 11,
+  "merger_tier2": 31,
+  "tender_tier1": 16,
+  "tender_tier2": 38
+ },
+ "rights_candidates_2021": 785,
+ "rights_scanned": 251,
+ "rights_rule_v1_hits": [
+  {
+   "accession": "0001047469-21-000020",
+   "company": "ARES CAPITAL CORP",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001104659-21-002783",
+   "company": "Stellus Capital Investment Corp",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001047469-21-000060",
+   "company": "Main Street Capital CORP",
+   "form": "424B2",
+   "passes_rule_v2": true
+  },
+  {
+   "accession": "0001213900-21-002128",
+   "company": "Newtek Business Services Corp.",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001487918-21-000010",
+   "company": "OFS Capital Corp",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001213900-21-007203",
+   "company": "XAI Octagon Floating Rate & Alternative Income Term Trust",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001104659-21-024697",
+   "company": "GOLUB CAPITAL BDC, Inc.",
+   "form": "424B5",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001193125-21-047758",
+   "company": "Sixth Street Specialty Lending, Inc.",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001104659-21-031170",
+   "company": "Bain Capital Specialty Finance, Inc.",
+   "form": "424B2",
+   "passes_rule_v2": false
+  },
+  {
+   "accession": "0001213900-21-013066",
+   "company": "SARATOGA INVESTMENT CORP.",
+   "form": "424B2",
+   "passes_rule_v2": false
+  }
+ ],
+ "requests": 0,
+ "cache_hits": 415
+}

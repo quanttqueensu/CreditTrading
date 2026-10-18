@@ -1,0 +1,100 @@
+{
+ "accession": "0001821268-21-000189",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "approval of an Agreement and Plan of Merger between GPM and GOF (the “GPM Merger Agreement”), which would effect the merger of GPM with and into GOF (a “Merger”)."
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Guggenheim Enhanced Equity Income Fund; Guggenheim Credit Allocation Fund; Guggenheim Strategic Opportunities Fund",
+     "span": "of Guggenheim Enhanced Equity Income Fund (“GPM”), Guggenheim Credit Allocation Fund (“GGM”) and Guggenheim Strategic Opportunities Fund (“GOF” and, together with GPM and GGM, the “Funds,” and each, a “Fund”)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GPM; GGM; GOF",
+     "span": "under the ticker symbol “GPM.” The common shares of Guggenheim Credit Allocation Fund are listed on the NYSE under the ticker symbol “GGM.” The common shares of Guggenheim Strategic Opportunities Fund are listed on the NYSE under the ticker symbol “GOF.”",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "In each Merger, the outstanding common shares of the Target Fund will be exchanged for newly-issued Acquiring Fund Shares in the form of book entry interests.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Guggenheim Strategic Opportunities Fund",
+     "span": "Guggenheim Strategic Opportunities Fund (“GOF” or the “Acquiring Fund”",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Guggenheim Enhanced Equity Income Fund; Guggenheim Credit Allocation Fund",
+     "span": "a shareholder of (i) Guggenheim Enhanced Equity Income Fund (“GPM”), (ii) Guggenheim Credit Allocation Fund (“GGM” and, together with GPM, the “Target Funds”)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "a shareholder of (i) Guggenheim Enhanced Equity Income Fund (“GPM”), (ii) Guggenheim Credit Allocation Fund (“GGM” and, together with GPM, the “Target Funds”)",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The aggregate NAV (not the market value) of the Acquiring Fund Shares received by the Target Fund shareholders in each Merger will equal the aggregate NAV (not the market value) of the Target Fund common shares held by such shareholders immediately prior to such Merger",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "registration_effective",
+      "tax_opinion",
+      "listing",
+      "regulatory_approval",
+      "legal_injunction",
+      "other"
+     ],
+     "spans": [
+      "approval of the Merger Agreement by the shareholders of the respective Target Funds, approval of the Mergers by the shareholders of GOF",
+      "including a registration statement on Form N-14 being declared effective by the SEC",
+      "receipt of an opinion of counsel as to tax matters",
+      "That the Acquiring Fund Common Shares to be issued in the Merger shall be approved for listing on the New York Stock Exchange, subject to official notice of issuance.",
+      "All regulatory approvals required by applicable law to consummate the Merger shall have been obtained and shall remain in full force and effect",
+      "no order issued by any court or agency of competent jurisdiction or other law preventing, enjoining, restraining or making illegal the consummation of the Merger shall be in effect",
+      "and the continuing accuracy of various representations and warranties of the Funds being confirmed by the respective parties"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "sometime during the fourth quarter of 2021",
+     "span": "it is expected that the Closing Date will be sometime during the fourth quarter of 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2021-06-30",
+     "span": "If the transactions contemplated by this Agreement have not been consummated by June 30, 2021, this Agreement automatically shall terminate on that date, unless a later date is mutually agreed to by the Boards of Trustees",
+     "doc_seq": "1"
+    },
+    "meeting_date": {
+     "value": "2021-08-24",
+     "span": "is scheduled to be held on August 24, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-05-24",
+     "span": "Shareholders of record as of the close of business on May 24, 2021, are entitled to notice of and to vote at the Special Meeting",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "termination_date",
+  "conditions"
+ ],
+ "notes": "Initial N-14 8C (filed 2021-04-30) for two separate mergers of closed-end funds GPM and GGM into GOF; each merger is independent of the other (neither is contingent on the other). termination_date is the automatic-termination date in the Form of Merger Agreement (Exhibit B, section 10(b)): June 30, 2021, which precedes the stated meeting date of August 24, 2021 and the expected fourth-quarter 2021 close, so it is probably a stale form date; it is reported as stated. Meeting time is blank ([ ]) in this preliminary filing. conditions 'other' covers continuing accuracy of representations and warranties, officer certificates and no material adverse change; 'regulatory_approval' and 'listing' come from the merger-agreement conditions (sections 8(i)-(j), 9(j)-(k)). No exchange ratio, cash or collar stated (NAV-for-NAV exchange with cash only in lieu of fractional shares)."
+}

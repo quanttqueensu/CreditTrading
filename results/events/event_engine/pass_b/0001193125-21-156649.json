@@ -1,0 +1,99 @@
+{
+ "accession": "0001193125-21-156649",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "Shareholders of PKO to approve an Agreement and Plan of Reorganization by and between PKO and PDI, providing for the reorganization of PKO with and into PDI"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "PIMCO Dynamic Income Fund; PIMCO Dynamic Credit and Mortgage Income Fund; PIMCO Income Opportunity Fund",
+     "span": "PIMCO Dynamic Credit and Mortgage Income Fund PIMCO Dynamic Income Fund PIMCO Income Opportunity Fund 650 Newport Center Drive",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "PDI; PCI; PKO",
+     "span": "under the symbol PDI, the common shares of PCI are listed on the NYSE under the symbol PCI and the common shares of PKO are listed on the NYSE under the symbol PKO.",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "the common shares of the Target Funds would, in effect, be exchanged for new common shares of PDI with an equal aggregate net asset value",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "PIMCO Dynamic Income Fund",
+     "span": "and PIMCO Dynamic Income Fund (PDI or the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "PIMCO Income Opportunity Fund; PIMCO Dynamic Credit and Mortgage Income Fund",
+     "span": "by and among PIMCO Income Opportunity Fund (PKO), PIMCO Dynamic Credit and Mortgage Income Fund (PCI) (each, an Acquired Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "the common shares of the Target Funds would, in effect, be exchanged for new common shares of PDI with an equal aggregate net asset value",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "legal_injunction",
+      "tax_opinion",
+      "regulatory_approval",
+      "shareholder_approval",
+      "registration_effective",
+      "listing",
+      "other"
+     ],
+     "spans": [
+      "As of the Exchange Date, there shall not be any material litigation pending or threatened that would seek to enjoin or otherwise prevent the transactions contemplated by this Agreement.",
+      "The Acquired Fund shall have received a Tax Opinion of Ropes & Gray LLP",
+      "Each of the Acquiring Fund and the Acquired Fund shall have received from the Commission and any relevant state securities administrator such order or orders as are reasonably necessary under the 1933 Act, the 1934 Act, the 1940 Act and any applicable state securities or blue sky laws",
+      "The issuance of the Merger Shares shall have been approved by the requisite votes of the holders of the outstanding shares of beneficial interest of the Acquiring Fund entitled to vote.",
+      "The Registration Statement shall have become effective under the 1933 Act, and no stop order suspending such effectiveness shall have been instituted",
+      "The Merger Shares shall have been accepted for listing by the New York Stock Exchange.",
+      "Solely with respect to PKO as the Acquired Fund, that the reorganization of PCI into PDI shall have been, or shall concurrently be, consummated pursuant to the terms of this Agreement."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "approximately two to three months after (and in any event not earlier than two months after) the Special Meeting",
+     "span": "If approved, the Reorganizations are expected to close on a date approximately two to three months after (and in any event not earlier than two months after) the Special Meeting",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2021-08-12",
+     "span": "If the transactions contemplated by this Agreement have not been substantially completed by [August 12, 2021], this Agreement shall automatically terminate on that date unless a later date is agreed to by the Acquired Fund and the Acquiring Fund.",
+     "doc_seq": "1"
+    },
+    "meeting_date": {
+     "value": "2021-07-28",
+     "span": "NOTICE OF A JOINT SPECIAL MEETING OF SHAREHOLDERS To be held on July 28, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-06-10",
+     "span": "Only shareholders of record on June 10, 2021",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "termination_date"
+ ],
+ "notes": "Initial N-14 8C (joint proxy statement/prospectus, filed May 10, 2021) for the reorganisations of PIMCO Income Opportunity Fund (PKO) and PIMCO Dynamic Credit and Mortgage Income Fund (PCI) into PIMCO Dynamic Income Fund (PDI), NAV-for-NAV in common shares (cash in lieu of fractional shares). PDI holders vote on the share issuance and PKO holders on the plan; PCI holders do not vote. The PKO merger is contingent on the PCI merger, not vice versa. termination_date: the agreement's automatic-termination date is bracketed as a draft placeholder ('[August 12, 2021]'), and it falls before the stated expected close (two to three months after the July 28, 2021 meeting), so treat it as unreliable. record_date: June 10, 2021 is stated plainly in the voting section and in brackets ('[June 10, 2021]') elsewhere. The conditions' 'other' element is the PKO-only condition that the PCI reorganisation be consummated; other uncategorised conditions are representations and warranties, officer certificates and a pre-closing distribution of income and gains. Related: a conditional PDI management-fee cut from 1.15% to 1.10% if the PCI merger closes, and a two-month 75% fee waiver for PKO."
+}

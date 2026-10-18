@@ -1,0 +1,98 @@
+{
+ "accession": "0001398344-21-014671",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "final_result",
+  "kind_span": "This Amendment No. 2 is the final amendment to the Schedule TO and is being filed to report the results of the Offer."
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "Saba Capital Income & Opportunities Fund",
+     "span": "Saba Capital Income & Opportunities Fund (Name of Issuer)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "BRW",
+     "span": "Saba Capital Income & Opportunities Fund (NYSE: BRW)",
+     "doc_seq": "2"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares of Beneficial Interest, no par value",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "in connection with an offer by the Trust (the “Offer”) to repurchase 30% of its issued and outstanding common shares of beneficial interest, no par value (the “Shares”), in exchange for cash at a price equal to 99% of the net asset value per Share determined as of the close of the regular trading session of the New York Stock Exchange",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 99,
+     "span": "in connection with an offer by the Trust (the “Offer”) to repurchase 30% of its issued and outstanding common shares of beneficial interest, no par value (the “Shares”), in exchange for cash at a price equal to 99% of the net asset value per Share determined as of the close of the regular trading session of the New York Stock Exchange",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "close of the regular trading session of the New York Stock Exchange on the day the Offer expired",
+     "span": "99% of the net asset value per Share determined as of the close of the regular trading session of the New York Stock Exchange, the principal market on which the Shares are traded, on the day the Offer expired",
+     "doc_seq": "1"
+    },
+    "size_pct_outstanding": {
+     "value": 30,
+     "span": "in connection with an offer by the Trust (the “Offer”) to repurchase 30% of its issued and outstanding common shares of beneficial interest, no par value (the “Shares”), in exchange for cash at a price equal to 99% of the net asset value per Share determined as of the close of the regular trading session of the New York Stock Exchange",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 36453707,
+     "span": "The amount is based upon the offer to purchase up to 36,453,707 common shares in the offer (30% of the issued and outstanding common shares as of June 15, 2021)",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-21",
+     "span": "upon the terms and subject to the conditions set forth in the Offer to Purchase, dated June 21, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-07-19",
+     "span": "The Offer expired at one minute past 11:59 p.m. Eastern Time on July 19, 2021.",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "Therefore, in accordance with the terms and conditions of the Tender Offer, the Fund will purchase Shares from all tendering shareholders on a pro rata basis, after disregarding fractions",
+     "doc_seq": "2"
+    },
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": {
+     "value": 75266484,
+     "span": "75,266,484 Shares of the Trust were validly tendered and not withdrawn prior to the expiration of the Offer, and 36,453,372 Shares were accepted for repurchase by the Trust",
+     "doc_seq": "1"
+    },
+    "shares_accepted": {
+     "value": 36453372,
+     "span": "75,266,484 Shares of the Trust were validly tendered and not withdrawn prior to the expiration of the Offer, and 36,453,372 Shares were accepted for repurchase by the Trust",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": {
+     "value": 48.433,
+     "span": "75,266,484 36,453,372 48.433% $4.851",
+     "doc_seq": "2"
+    },
+    "final_price_per_share": {
+     "value": 4.851,
+     "span": "The Shares were repurchased at a price of $4.851, 99% of the Trust’s net asset value per Share as of 4:00 p.m., New York City Time, on July 19, 2021.",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "commencement_date",
+  "size_shares"
+ ],
+ "notes": "Final amendment (Amendment No. 2) reporting results. size_shares 36,453,707 comes from the filing-fee note (30% of shares outstanding as of June 15, 2021); the explanatory note states the size only as 30%. Shares accepted (36,453,372) differ slightly from that fee-note count. commencement_date is the Offer to Purchase date (June 21, 2021, also the Schedule TO filing date); the filing does not say 'commenced' in words. Expiration was 'one minute past 11:59 p.m. Eastern Time on July 19, 2021'; recorded as 2021-07-19 as stated. Conditions are only referenced, not listed, so conditions is null. No reason for the tender is stated, so trigger_origin is null."
+}

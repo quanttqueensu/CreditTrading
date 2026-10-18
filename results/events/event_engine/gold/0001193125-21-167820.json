@@ -1,0 +1,13 @@
+{
+ "accession": "0001193125-21-167820",
+ "triage": {
+  "kind": "none",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "BASE PROSPECTUS dated May 19, 2021 $200,000,000 The GDL Fund Common Shares Preferred Shares Notes Subscription Rights to Purchase Common Shares"
+ },
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "Base shelf prospectus of The GDL Fund (NYSE: GDL) dated May 19, 2021, registering up to $200,000,000 of common shares, preferred shares, notes and subscription rights to be offered on terms set in future prospectus supplements (\"The Prospectus Supplement relating to any offering of subscription rights will set forth the number of common and/or preferred shares issuable upon the exercise of each right and the other terms of such rights offering.\"). It states no specific rights offering, tender, merger or other schema event (no record date, subscription price or ratio), so kind none per rule 5. Note: this text file carries C1 control characters (U+0093/U+0094) where curly quotes were, so quotes around defined terms are not plain characters.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

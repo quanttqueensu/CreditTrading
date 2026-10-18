@@ -1,0 +1,45 @@
+{
+ "2021": {
+  "fund_set": 5252,
+  "listed_now": 2797,
+  "listed_now_by_kind": {
+   "current": 1038,
+   "offering": 856,
+   "vote": 615,
+   "merger": 173,
+   "tender": 102,
+   "contest": 13
+  },
+  "fund_set_by_kind": {
+   "current": 1741,
+   "offering": 1239,
+   "vote": 1029,
+   "tender": 713,
+   "merger": 275,
+   "dereg": 138,
+   "contest": 117
+  }
+ },
+ "2025": {
+  "fund_set": 7070,
+  "listed_now": 2864,
+  "listed_now_by_kind": {
+   "current": 1171,
+   "offering": 621,
+   "vote": 618,
+   "merger": 250,
+   "tender": 134,
+   "contest": 69,
+   "dereg": 1
+  },
+  "fund_set_by_kind": {
+   "current": 2722,
+   "offering": 1483,
+   "tender": 1167,
+   "vote": 1061,
+   "merger": 402,
+   "contest": 127,
+   "dereg": 108
+  }
+ }
+}

@@ -1,0 +1,94 @@
+{
+ "accession": "0000894189-21-001425",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "etf",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "of the Target Fund, a series of ETF Series Solutions, into the American Customer Satisfaction ETF, a newly created series of Tidal ETF Trust"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "American Customer Satisfaction ETF, a series of ETF Series Solutions; American Customer Satisfaction ETF, a series of Tidal ETF Trust",
+     "span": "American Customer Satisfaction ETF, a series of ETF Series Solutions (an open-end management investment company registered with the SEC) American Customer Satisfaction ETF, a series of Tidal ETF Trust",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "ACSI",
+     "span": "Ticker Symbol ACSI Same following the Reorganization",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Holders of record of the shares of beneficial interest in the Target Fund as of the close of business on March 1, 2021",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "American Customer Satisfaction ETF, a newly created series of Tidal ETF Trust",
+     "span": "of the Target Fund, a series of ETF Series Solutions, into the American Customer Satisfaction ETF, a newly created series of Tidal ETF Trust",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "American Customer Satisfaction ETF, a series of ETF Series Solutions",
+     "span": "the proposed reorganization of the American Customer Satisfaction ETF, a series of ETF Series Solutions, into the Acquiring Fund",
+     "doc_seq": "3"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "to reorganize the Target Fund into a corresponding new fund (the \u201cAcquiring Fund\u201d), which is a newly created series of Tidal ETF Trust",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The NAV of the Acquiring Fund shares issued in the exchange will equal the NAV of the Target Fund at the Closing (as defined in the Plan).",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "legal_injunction",
+      "regulatory_approval",
+      "tax_opinion",
+      "registration_effective",
+      "other"
+     ],
+     "spans": [
+      "8.1. The Agreement shall have been approved by the requisite vote of the holders of the outstanding shares of the Target Fund",
+      "no action, suit or other proceeding shall be pending or, to ESS\u2019 or Tidal\u2019s knowledge, threatened before any court or governmental agency in which it is sought to restrain or prohibit",
+      "All consents of other parties and all other consents, orders and permits of federal, state and local regulatory authorities deemed necessary by the Acquiring Fund or the Target Fund to permit consummation",
+      "ESS and Tidal shall have received a favorable opinion of Godfrey & Kahn, S.C. addressed to the Acquiring Fund and the Target Fund substantially to the effect that with respect to the Target Fund and the Acquiring Fund for federal income tax purposes",
+      "A prospectus of the Acquiring Fund relating to the continuous offering of Acquiring Fund Shares in Creation Units shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall have been issued",
+      "All representations and warranties of ESS and the Target Fund contained in this Agreement shall be true and correct in all material respects"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about May 24, 2021",
+     "span": "the Closing Date of the Reorganization is expected to be on or about May 24, 2021, or another date agreed to by ESS and Tidal.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-05-12",
+     "span": "is to be held on May 12, 2021 at 11:00 a.m. Central Time",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-03-01",
+     "span": "The Board has fixed the close of business on March 1, 2021 as the record date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class",
+  "n_targets"
+ ],
+ "notes": "N-14 (filed March 5, 2021, proposed effective April 5, 2021 under Rule 488) by Tidal ETF Trust for the reorganization of the American Customer Satisfaction ETF (ticker ACSI, Cboe BZX), a series of ETF Series Solutions, into a newly created shell series of the same name in Tidal ETF Trust (adviser change from Exponential ETFs to Toroso); open-end ETF reorganization, so kind=merger with fund_type=etf. Ticker ACSI is kept after the Reorganization. Shareholders receive Acquiring Fund shares equal in NAV to their Target Fund shares (nav_for_nav). The Plan sets the Closing at 9:30 a.m. Eastern time on May 24, 2021 or another agreed date; the Plan may be terminated only by mutual agreement, with no outside date (termination_date null). Meeting May 12, 2021; record date March 1, 2021. security_class 'common' stands for the fund's shares of beneficial interest (no better enum fit). Reorganization expenses borne by Exponential ETFs up to $60,000, excess split 50/50 with Toroso. The Acquiring Fund prospectus/SAI in Part B is written as if the reorganization had already occurred on May 24, 2021 (forward-dated template text, not a reported result). targets span is from document seq 3 (the legality opinion exhibit), which is the only place the target is named with its trust in one phrase. n_targets=1 is read from the single Target Fund, not a stated count. 'other' condition = accuracy of representations, officer certificates, custodian/transfer-agent certificates and payment of Target Fund expense invoices."
+}

@@ -1,0 +1,89 @@
+{
+ "accession": "0001104659-21-012810",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "has approved the reorganization of the MainStay Epoch U.S. All Cap Fund, a series of MainStay Funds Trust, with and into the MainStay WMC Enduring Capital Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "MainStay Epoch U.S. All Cap Fund; MainStay WMC Enduring Capital Fund",
+     "span": "the reorganization of the MainStay Epoch U.S. All Cap Fund with and into the MainStay WMC Enduring Capital Fund",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Title of Securities Being Registered: Class A, Investor Class, Class B, Class C, Class I and Class R6 of the MainStay WMC Enduring Capital Fund.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "MainStay WMC Enduring Capital Fund",
+     "span": "the reorganization of the MainStay Epoch U.S. All Cap Fund with and into the MainStay WMC Enduring Capital Fund",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "MainStay Epoch U.S. All Cap Fund",
+     "span": "the reorganization of the MainStay Epoch U.S. All Cap Fund with and into the MainStay WMC Enduring Capital Fund",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "the reorganization of the MainStay Epoch U.S. All Cap Fund with and into the MainStay WMC Enduring Capital Fund",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "Shares of the Acquiring Fund issued to the MainStay Epoch U.S. All Cap Fund will have an aggregate NAV equal to the aggregate NAV",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "legal_injunction",
+      "regulatory_approval",
+      "other",
+      "registration_effective",
+      "ric_or_tax_status",
+      "tax_opinion",
+      "board_discretion"
+     ],
+     "spans": [
+      "the absence of any rule, regulation, order, injunction or proceeding preventing or seeking to prevent the consummation",
+      "the receipt of all necessary approvals, consents, registrations and exemptions under federal, state and local laws",
+      "the truth in all material respects as of the Closing Date of the representations and warranties of the Funds",
+      "the effectiveness under applicable law of the Information Statement/Prospectus and the absence of any stop orders",
+      "the declaration of a dividend by the MainStay Epoch U.S. All Cap Fund to distribute all of its undistributed net investment income and net capital gains",
+      "the receipt of opinions of counsel relating to, among other things, the tax-free nature of the Reorganization",
+      "The Reorganization Agreement may be terminated or amended by the mutual consent of the Funds or by request of the Board or the Board of Trustees of The MainStay Funds if it deems that it is in the best interest of the Funds."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about April 26, 2021",
+     "span": "A. The Reorganization is expected to close on or about April 26, 2021.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": {
+     "value": "2021-03-15",
+     "span": "outstanding as of the close of business on March 15, 2021 (the \u201cRecord Date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class",
+  "record_date",
+  "conditions"
+ ],
+ "notes": "Initial N-14 (filed 2021-02-05) of The MainStay Funds: combined information statement/prospectus for the open-end reorganisation of MainStay Epoch U.S. All Cap Fund (series of MainStay Funds Trust) into MainStay WMC Enduring Capital Fund (formerly MainStay MacKay Common Stock Fund). No shareholder vote: 'The Reorganization does not require shareholder approval', so meeting_date is null and shareholder_approval is not a condition. A separate reorganisation of MainStay MacKay U.S. Equity Opportunities Fund into the same acquirer is mentioned, but the filing says this Reorganization is not contingent on it; n_targets=1 for this filing's transaction. Exchange at aggregate NAV (nav_for_nav). No tickers printed. security_class: share classes (Class A, Investor, B, C, I, R6) of an open-end fund; recorded as common, uncertain. record_date: Appendix E's 'Record Date' (March 15, 2021) fixes outstanding shares for the information statement, not a vote (there is none); recorded as stated, uncertain. conditions: board_discretion mapped from the Board's right to terminate (summary: if it deems that in the best interest of the Funds; plan s.12: if circumstances make proceeding inadvisable), a walk-away right rather than a closing condition; ric_or_tax_status from the required final dividend; 'other' covers reps/warranties and covenants. No outside/termination date is stated. Proposed effectiveness March 8, 2021 under Rule 488."
+}

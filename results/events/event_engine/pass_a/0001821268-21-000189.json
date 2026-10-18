@@ -1,0 +1,99 @@
+{
+ "accession": "0001821268-21-000189",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "approval of an Agreement and Plan of Merger between GPM and GOF (the “GPM Merger Agreement”), which would effect the merger of GPM with and into GOF"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Guggenheim Strategic Opportunities Fund; Guggenheim Enhanced Equity Income Fund; Guggenheim Credit Allocation Fund",
+     "span": "(i) Guggenheim Enhanced Equity Income Fund (“GPM”), (ii) Guggenheim Credit Allocation Fund (“GGM” and, together with GPM, the “Target Funds”) and/or (iii) Guggenheim Strategic Opportunities Fund (“GOF” or the “Acquiring Fund” and, collectively with the Target Funds",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "GOF; GPM; GGM",
+     "span": "under the ticker symbol “GPM.” The common shares of Guggenheim Credit Allocation Fund are listed on the NYSE under the ticker symbol “GGM.” The common shares of Guggenheim Strategic Opportunities Fund are listed on the NYSE under the ticker symbol “GOF.”",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "You would receive newly issued common shares of the Acquiring Fund, the aggregate NAV (not the market value) of which will equal the aggregate NAV (not the market value) of the common shares of the particular Target Fund you held immediately prior to such Merger",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Guggenheim Strategic Opportunities Fund",
+     "span": "(i) Guggenheim Enhanced Equity Income Fund (“GPM”), (ii) Guggenheim Credit Allocation Fund (“GGM” and, together with GPM, the “Target Funds”) and/or (iii) Guggenheim Strategic Opportunities Fund (“GOF” or the “Acquiring Fund” and, collectively with the Target Funds",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Guggenheim Enhanced Equity Income Fund; Guggenheim Credit Allocation Fund",
+     "span": "(i) Guggenheim Enhanced Equity Income Fund (“GPM”), (ii) Guggenheim Credit Allocation Fund (“GGM” and, together with GPM, the “Target Funds”) and/or (iii) Guggenheim Strategic Opportunities Fund (“GOF” or the “Acquiring Fund” and, collectively with the Target Funds",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 2,
+     "span": "(i) Guggenheim Enhanced Equity Income Fund (“GPM”), (ii) Guggenheim Credit Allocation Fund (“GGM” and, together with GPM, the “Target Funds”) and/or (iii) Guggenheim Strategic Opportunities Fund (“GOF” or the “Acquiring Fund” and, collectively with the Target Funds",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "You would receive newly issued common shares of the Acquiring Fund, the aggregate NAV (not the market value) of which will equal the aggregate NAV (not the market value) of the common shares of the particular Target Fund you held immediately prior to such Merger",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "legal_injunction",
+      "tax_opinion",
+      "registration_effective",
+      "listing",
+      "regulatory_approval",
+      "other"
+     ],
+     "spans": [
+      "by the affirmative vote of the Target Fund Shareholders representing a 1940 Act Majority (as defined below) of the outstanding common shares entitled to vote on this Agreement.",
+      "That there shall not be any material litigation pending with respect to the matters contemplated by this Agreement and no order issued by any court or agency of competent jurisdiction or other law preventing, enjoining, restraining or making illegal the consummation of the Merger shall be in effect.",
+      "That the Acquiring Fund shall have obtained an opinion from Dechert, counsel for the Funds, dated as of the Closing Date, addressed to the Acquiring Fund, that the consummation of the transactions set forth in this Agreement complies with the requirements of a reorganization as described in Section 368(a) of the Code",
+      "That the N-14 Registration Statement shall have become effective under the 1933 Act, and no stop order suspending such effectiveness shall have been instituted or, to the knowledge of the Acquiring Fund, be contemplated by the SEC.",
+      "That the Acquiring Fund Common Shares to be issued in the Merger shall be approved for listing on the New York Stock Exchange, subject to official notice of issuance.",
+      "All regulatory approvals required by applicable law to consummate the Merger shall have been obtained and shall remain in full force and effect and all statutory waiting periods required by applicable law in respect thereof shall have expired.",
+      "certifying that as of the Valuation Time and as of the Closing Date there has been no material adverse change in the financial position of the Acquiring Fund since the date of the Acquiring Fund’s most recent Annual or Semi-Annual Report"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "sometime during the fourth quarter of 2021",
+     "span": "it is expected that the Closing Date will be sometime during the fourth quarter of 2021, but it may be at a different time as described herein.",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2021-06-30",
+     "span": "If the transactions contemplated by this Agreement have not been consummated by June 30, 2021, this Agreement automatically shall terminate on that date",
+     "doc_seq": "1"
+    },
+    "meeting_date": {
+     "value": "2021-08-24",
+     "span": "A joint special meeting of shareholders of GPM, GGM and GOF (the “Special Meeting”) is scheduled to be held on August 24, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-05-24",
+     "span": "Only shareholders of record at the close of business on May 24, 2021 (the “Record Date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "termination_date"
+ ],
+ "notes": "Initial N-14 8C (filed 2021-04-30) for the mergers of GPM and GGM into GOF under two separate merger agreements; neither merger is contingent on the other. Target holders receive Acquiring Fund common shares of equal aggregate NAV (cash for fractional shares). Each merger needs a 1940 Act Majority of the target's and of GOF's shareholders. termination_date: the form of Agreement and Plan of Merger (Exhibit B) states automatic termination if not consummated by June 30, 2021 'unless a later date is mutually agreed', which is before the stated meeting (2021-08-24) and expected close (fourth quarter of 2021); recorded as stated but likely a stale template date. Conditions are from Sections 8 and 9 of the form of agreement; 'other' covers the no-material-adverse-change certificate; the agreement also requires a final distribution of all income before closing (not mapped)."
+}

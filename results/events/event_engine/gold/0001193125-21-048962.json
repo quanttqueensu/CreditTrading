@@ -1,0 +1,83 @@
+{
+ "accession": "0001193125-21-048962",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "As provided in an Agreement and Plan of Reorganization (the Reorganization Agreement), the Target Fund will be reorganized into the Matthews Asia Small Companies Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Matthews Emerging Asia Fund; Matthews Asia Small Companies Fund",
+     "span": "Matthews Emerging Asia Fund (the Target Fund), a series of Matthews Asia Funds (the Trust), and Matthews Asia Small Companies Fund, which is expected to be renamed the Matthews Emerging Markets Small Companies Fund",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Title of securities being registered: Shares of beneficial interest, $0.001 par value per share.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Matthews Asia Small Companies Fund",
+     "span": "Matthews Emerging Asia Fund (the Target Fund), a series of Matthews Asia Funds (the Trust), and Matthews Asia Small Companies Fund, which is expected to be renamed the Matthews Emerging Markets Small Companies Fund",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Matthews Emerging Asia Fund",
+     "span": "Matthews Emerging Asia Fund (the Target Fund), a series of Matthews Asia Funds (the Trust), and Matthews Asia Small Companies Fund, which is expected to be renamed the Matthews Emerging Markets Small Companies Fund",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Matthews Emerging Asia Fund (the Target Fund), a series of Matthews Asia Funds (the Trust), and Matthews Asia Small Companies Fund, which is expected to be renamed the Matthews Emerging Markets Small Companies Fund",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "On the date of the closing of the Reorganization, shareholders of the Target Fund will receive shares of the Acquiring Fund equal in aggregate net asset value to the value of their shares of the Target Fund, in exchange for their shares of the Target Fund.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "legal_injunction",
+      "regulatory_approval",
+      "other",
+      "registration_effective",
+      "ric_or_tax_status",
+      "tax_opinion"
+     ],
+     "spans": [
+      "the absence of any rule, regulation, order, injunction or proceeding preventing or seeking to prevent the consummation",
+      "the receipt of all necessary approvals, consents, registrations and exemptions under federal, state and local laws",
+      "the truth in all material respects as of the Closing Date of the representations and warranties of the Funds",
+      "the effectiveness under applicable law of the registration statement of the Trust of which this Combined Prospectus/Information Statement forms a part and the absence of any stop orders under the Securities Act of 1933, as amended, pertaining thereto",
+      "the declaration of a dividend by the Target Fund to distribute all of its undistributed net investment income and net capital gains",
+      "the receipt of opinions of counsel relating to, among other things, the tax-free nature of the Reorganization"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about April 29, 2021",
+     "span": "The Reorganization is expected to occur on or about April 29, 2021.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class",
+  "conditions"
+ ],
+ "notes": "Initial N-14 (filed 2021-02-19) of Matthews International Funds: combined prospectus/information statement for the open-end reorganisation of Matthews Emerging Asia Fund into Matthews Asia Small Companies Fund, both series of the same trust ('an open-end management investment company'). No shareholder vote ('NO SHAREHOLDER ACTION IS REQUIRED', Rule 17a-8), so meeting_date is null and shareholder_approval is not a condition. Acquirer named as Matthews Asia Small Companies Fund; the filing says it is to be renamed, inconsistently: 'Matthews Emerging Markets Small Companies Fund' (letter, Q&A, cover body) vs 'Matthews Emerging Markets Small Cap Fund' (cover heading) and 'Matthew Emerging Markets Small Cap Fund' (SAI). Exchange at aggregate NAV; the 'specified exchange ratio' is determined by the funds' NAVs, not fixed, so exchange_ratio is null. No tickers printed. security_class: shares of beneficial interest (Institutional and Investor Class) of an open-end fund; recorded as common, uncertain. The Agreement and Plan of Reorganization is '[To come]' in this draft, so no outside/termination date; the summary says only that it may be terminated by mutual consent. The record date in the letter is a placeholder '[●], 2021'. Conditions come from the summary list ('Unless waived...'); ric_or_tax_status from the required final dividend; 'other' covers reps/warranties and covenants.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

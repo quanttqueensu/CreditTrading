@@ -1,0 +1,90 @@
+{
+ "accession": "0001558370-21-004185",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "bdc",
+  "doc_role": "offer_document",
+  "kind_span": "This Tender Offer Statement on Schedule TO relates to the offer by MSC Income Fund, Inc. (the “Company”), an externally managed, non-diversified, closed-end management investment company incorporated in Maryland that has elected to be regulated as a business development company"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "MSC Income Fund, Inc.",
+     "span": "This Tender Offer Statement on Schedule TO relates to the offer by MSC Income Fund, Inc.",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock, Par Value $0.001 per share",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "to purchase up to an estimated 390,941 shares of its issued and outstanding common stock, par value $0.001 per share, at the net asset value per share as of May 31, 2021 (the “Purchase Price”)",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 100,
+     "span": "AT A PURCHASE PRICE EQUAL TO THE NET ASSET VALUE PER SHARE ON MAY 31, 2021",
+     "doc_seq": "2"
+    },
+    "nav_pricing_date": {
+     "value": "NAV per share as of May 31, 2021 (after the May 17, 2021 expiration), as determined by the pricing committee of the Board",
+     "span": "The Purchase Price will be the net asset value per Share as of May 31, 2021 as determined by the pricing committee of the Board.",
+     "doc_seq": "2"
+    },
+    "size_pct_outstanding": null,
+    "size_shares": {
+     "value": 390941,
+     "span": "We are offering to purchase up to an estimated 390,941 Shares. The number of Shares to be repurchased is dependent upon the Purchase Price.",
+     "doc_seq": "2"
+    },
+    "commencement_date": {
+     "value": "2021-04-12",
+     "span": "The Date of this Offer to Purchase is April 12, 2021",
+     "doc_seq": "2"
+    },
+    "expiration_date": {
+     "value": "2021-05-17",
+     "span": "The Offer will expire at 5:00 p.m., Central Time, on May 17, 2021, unless extended by us",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "If the amount of repurchase requests exceeds the number of Shares we seek to repurchase, we will repurchase Shares on a pro-rata basis, subject to the exception for Odd Lot Holders who tender all of their Shares.",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "legal_injunction",
+      "market_disruption",
+      "board_discretion"
+     ],
+     "spans": [
+      "(i) material legal action or proceeding instituted or threatened which challenges, in the Board’s judgment, the Offer or otherwise materially adversely affects the Company",
+      "(ii) declaration of a banking moratorium by federal, state or foreign authorities or any suspension of payment by banks in the United States, New York State or in a foreign country which is material to the Company",
+      "(v) other event or condition that, in the Board’s judgment, would have a material adverse effect on the Company or its Stockholders if Shares tendered pursuant to the Offer were purchased"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {
+     "value": "periodic_liquidity",
+     "span": "The purpose of the Offer is to provide limited liquidity to our Stockholders because there is otherwise no public market for the Shares. Under our share repurchase program, we plan to conduct quarterly tender offers",
+     "doc_seq": "2"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "conditions",
+  "price_pct_nav"
+ ],
+ "notes": "Original Schedule TO-I, filed April 12, 2021, with the Offer to Purchase (seq=2), the Letter of Transmittal (seq=3), the Notice of Withdrawal (seq=4) and the Stockholder Letter (seq=5). The filer says it has elected to be regulated as a business development company; its shares are not listed ('there is otherwise no public market for the Shares'). This is a quarterly share-repurchase-programme tender. subject_tickers: null; no ticker is printed. size_shares=390,941 is stated as an ESTIMATE. The binding limit is 90% of the DRIP proceeds from the April 1, 2021 dividend, so the share count depends on the Purchase Price; the 390,941 example uses the $7.28 NAV of December 31, 2020. size_pct_outstanding: null. The programme-level cap (the lesser of DRIP proceeds and 2.5% per quarter of the weighted-average shares outstanding over the prior four calendar quarters) is not this offer's size, which is 90% of DRIP proceeds. Expressing 390,941 against the 80,099,885 Shares outstanding as of April 12, 2021 would be arithmetic. price_pct_nav=100: the price is 'the net asset value per share as of May 31, 2021'. No percent is printed. nav_pricing_date: May 31, 2021 falls AFTER the May 17, 2021 expiration, so tendering holders do not know the price when the offer expires. The stockholder letter (seq=5) also says repurchases are at NAV 'as determined within 48 hours prior to the date we repurchase Shares'. conditions (Section 3 of the Offer to Purchase): (i) legal action challenging the Offer, (ii) a banking moratorium or suspension of bank payments, (iii) limits on the extension of credit or on currency exchange, and (iv) war or armed hostilities, the last three grouped as market_disruption; (v) any other event that in the Board's judgment would have a material adverse effect (board_discretion); and purchases that would violate securities or other laws, folded into legal_injunction. The offer is stated to be 'NOT CONDITIONED ON ANY MINIMUM NUMBER OF SHARES BEING TENDERED' and 'not subject to any financing condition'. Section 1 lists RIC qualification only as a factor the Board considered, not as a condition, so it is not included. Odd-lot priority (holders of fewer than 100 Shares who tender all their Shares) applies before pro-ration. Withdrawal is allowed until the Expiration Date, and also after June 8, 2021 (40 business days after commencement) if the Shares have not been accepted. No results fields: this is the commencement document."
+}

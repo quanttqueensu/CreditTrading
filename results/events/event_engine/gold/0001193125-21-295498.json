@@ -1,0 +1,78 @@
+{
+ "accession": "0001193125-21-295498",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "Joint Proxy Statement/Prospectus regarding the proposed reorganization of MYJ into MUJ."
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "BlackRock MuniYield New Jersey Fund, Inc.; BlackRock MuniHoldings New Jersey Quality Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ or the Target Fund) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "MYJ; MUJ",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ or the Target Fund) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common shareholders of MYJ will receive newly issued common shares of the Acquiring Fund, par value $0.10 per share",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "BlackRock MuniHoldings New Jersey Quality Fund, Inc.",
+     "span": "BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ) (MUJ or the Acquiring Fund and together with MYJ, the Funds, and each, a Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "BlackRock MuniYield New Jersey Fund, Inc.",
+     "span": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ or the Target Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "Joint Proxy Statement/Prospectus regarding the proposed reorganization of MYJ into MUJ.",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "Common shareholders of MYJ will receive newly issued common shares of the Acquiring Fund, par value $0.10 per share, the aggregate NAV (not the market value) of which will equal the aggregate NAV (not the market value) of the common shares of MYJ such shareholders held immediately prior to the Closing Date",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "registration_effective",
+      "shareholder_approval",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "including a registration statement on Form N-14 being declared effective by the SEC",
+      "approval of the Reorganization Agreement by the shareholders of the Target Fund and the VRDP Holders of the Acquiring Fund",
+      "receipt of an opinion of counsel as to tax matters",
+      "certain third-party consents"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "security_class"
+ ],
+ "notes": "Initial N-14 8C (filed October 8, 2021) for the reorganization of MYJ into MUJ (the Acquiring Fund). Two classes are exchanged: MYJ common holders receive Acquiring Fund common shares of equal aggregate NAV (cash in lieu of fractions), and MYJ VRDP Holders receive Acquiring Fund VRDP Shares one-for-one; security_class is set to common because this prospectus is delivered to common shareholders, and the VRDP leg is noted here. Conditions come from the 'Amendments and Conditions' summary because the Form of Agreement and Plan of Reorganization (Appendix A) is marked '[TO COME]' in this filing; 'other' covers third-party consents (including the VRDP liquidity provider), an opinion of counsel on corporate and securities matters, and the accuracy of representations and warranties. The expected closing ('sometime during [●]'), the meeting date and the record date are bracketed placeholders, so expected_close, meeting_date and record_date are null. Termination is by mutual board consent or by a board if a condition is unmet; no outside date is stated. One ticker sentence in the filing misnames MUJ as 'BlackRock MuniHoldings Quality Fund, Inc.'; I used the cover-page names. The text file renders cp1252 punctuation as control characters U+0091-U+0097; spans that include them use JSON \\u escapes so they parse to the exact characters in the file.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}

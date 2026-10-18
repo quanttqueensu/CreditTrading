@@ -1,0 +1,93 @@
+{
+ "accession": "0001535778-24-000175",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "interval_or_tender_offer_fund",
+  "doc_role": "final_result",
+  "kind_span": "x issuer tender offer subject to Rule 13e-4."
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {
+     "value": "MSC Income Fund, Inc.",
+     "span": "by MSC Income Fund, Inc., an externally managed, non-diversified, closed-end management investment company incorporated in Maryland",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock, Par Value $0.001 per share",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "at a price of $7.74 per Share, which was the net asset value per share as of November 1, 2024",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 100,
+     "span": "at a price of $7.74 per Share, which was the net asset value per share as of November 1, 2024",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": {
+     "value": "net asset value per share as of November 1, 2024 (the funding date)",
+     "span": "on November 1, 2024 (the funding date), the Company purchased a total of 512,730 Shares validly tendered and not withdrawn at a price of $7.74 per Share, which was the net asset value per share as of November 1, 2024",
+     "doc_seq": "1"
+    },
+    "size_pct_outstanding": {
+     "value": 2.5,
+     "span": "(ii) 2.5% of the weighted average number of the Shares outstanding in the prior four calendar quarters",
+     "doc_seq": "1"
+    },
+    "size_shares": null,
+    "commencement_date": {
+     "value": "2024-09-26",
+     "span": "subject to, the terms and conditions set forth in the Offer to Purchase, dated September 26, 2024",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2024-10-28",
+     "span": "The Offer terminated at 5:00 P.M., Central Time, on October 28, 2024",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "Because the amount of repurchase requests exceeded the number of Shares the Company sought to repurchase, the Company repurchased Shares on a pro-rata basis, subject to “odd lot” priority as described in the Offer.",
+     "doc_seq": "1"
+    },
+    "conditions": null,
+    "trigger_origin": {
+     "value": "periodic_liquidity",
+     "span": "The purpose of the offer is to provide our stockholders (“Stockholders”) with limited liquidity because there is otherwise no public market for the Shares.",
+     "doc_seq": "1"
+    },
+    "shares_tendered": {
+     "value": 5919194,
+     "span": "a total of 5,919,194 Shares were validly tendered and not withdrawn pursuant to the Offer as of such date",
+     "doc_seq": "1"
+    },
+    "shares_accepted": {
+     "value": 512730,
+     "span": "the Company purchased a total of 512,730 Shares validly tendered and not withdrawn",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": null,
+    "final_price_per_share": {
+     "value": 7.74,
+     "span": "at a price of $7.74 per Share",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [
+  "fund_type",
+  "size_pct_outstanding",
+  "price_pct_nav",
+  "commencement_date"
+ ],
+ "notes": "Amendment No. 1, marked as the final amendment reporting the results, to MSC Income Fund, Inc.'s Schedule TO filed September 26, 2024. fund_type: the filing calls the filer an 'externally managed, non-diversified, closed-end management investment company' and says there is 'otherwise no public market for the Shares'. It runs periodic issuer tenders for liquidity, so it is classed as interval_or_tender_offer_fund. The filing does not use the words 'business development company'; closed_end_fund is the literal alternative. subject_tickers: null; the filing prints no ticker and says the shares have no public market. Size: the offer is for the LESSER of (i) the Shares the Company can repurchase with 90% of the proceeds from Shares issued under its distribution reinvestment plan for the November 1, 2024 dividend, and (ii) 2.5% of the weighted-average Shares outstanding over the prior four calendar quarters. size_pct_outstanding=2.5 is therefore a cap measured against weighted-average shares outstanding, not current shares outstanding, and the DRIP-proceeds leg may bind first. size_shares: null; no maximum share count is stated. The Company bought 512,730 Shares for $3,968,531.78, described as equal to 90% of the DRIP proceeds. price_pct_nav: 100 because the filing says the $7.74 price 'was the net asset value per share as of November 1, 2024' (price = NAV). No percent is printed. commencement_date: taken from the Offer to Purchase date (September 26, 2024), which is also the original Schedule TO filing date; the filing does not say 'commenced'. expiration_date: the filing says the Offer 'terminated' at 5:00 P.M. Central Time on October 28, 2024. proration_factor_pct: null; not stated, and computing it (512,730 / 5,919,194) would be arithmetic. Odd-lot holders (fewer than 100 Shares) who elected priority were not prorated, so a simple ratio would not equal the factor applied to everyone else. conditions: the filing refers only to the terms and conditions in the Offer to Purchase and does not list them.",
+ "reconciled_from": "pass_a with the decisions in reconciliation.csv"
+}
