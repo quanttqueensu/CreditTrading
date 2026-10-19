@@ -25,6 +25,22 @@ HISTORY OF THIS SCRIPT (both runs are on the record)
   reads a FROZEN copy of its inputs, so no later panel refresh can move it.
   `freeze` builds that copy and `stage0` now reads only it, after checking every
   file's sha256 against `results/cef/c5/c5_frozen_inputs_2026-10-14.json`.
+* 2026-10-15, commit 44596bb: stage 8 (`holdout`) HALTED on D-5 before the
+  holdout gain was formed -- 9 of 4,858 WIDE and 9 of 3,129 deployed material
+  trade name-days had no panel close (11 distinct name-days), above the 0.1%
+  halt. Record: `results/cef/c5/c5_holdout_halt_output_2026-10-15.txt`.
+* The team lead's ruling of 2026-10-19 (the dated amendment at the top of the
+  pre-registration), made after that halt and before any holdout return was
+  computed: a D-5 name-day takes the NYSE closing print when that print and a
+  second independent close agree within $0.005 + 1e-6, mirroring D-6's
+  two-source rule; a D-5 name-day without two agreeing sources still counts
+  toward the halt. `d5_repair` is the rule and `stage8_classes` applies it, on
+  top of the frozen holdout inputs, which already hold both sources (no
+  re-freeze; their hashes are re-verified unchanged). The repaired close
+  enters the GAIN's session return only: H and the deployed leg are built
+  from the frozen copy exactly as before, where a missing close is the
+  harness's existing zero-filled return (PREREG_C5 §4.3, which C5 does not
+  change). Pinned by `scripts/cef/tests/test_c5_d5_repair.py`.
 
 WHAT IS HERE, AND WHAT IS NOT
 -----------------------------
@@ -1553,7 +1569,11 @@ H_STAMP = "2026-10-15"
 H_FROZEN = OUT_DIR / "_cache_c5_holdout"                           # gitignored
 H_RECORD = OUT_DIR / f"c5_holdout_inputs_{H_STAMP}.json"
 H_RESULT = OUT_DIR / "C5_HOLDOUT_RESULT.json"
-H_W4 = ("alpaca_opening_prints_holdout_2023_2026.parquet", "alpaca_closing_prints_holdout_2023_2026.parquet",
+# The repaired stage 8's own run date (team lead ruling, 2026-10-19). H_STAMP stays the date the
+# holdout INPUTS were frozen (their record keeps its name); the outputs of this run carry
+# R_STAMP, so the 2026-10-15 halt record is never overwritten.
+R_STAMP = "2026-10-19"
+H_W4 =("alpaca_opening_prints_holdout_2023_2026.parquet", "alpaca_closing_prints_holdout_2023_2026.parquet",
         "crsp_dsf_holdout_2023_2024.parquet")
 CC_FILE = REPO / "results" / "cef" / "c5" / "_cache_cefconnect" / "cefconnect_closes.parquet"
 
@@ -1563,6 +1583,142 @@ def _fit_committed():
     ok, why = fit_verdict_committed()
     if not ok:
         raise Halt(f"the holdout stage refuses: C5's fit verdict is not committed ({why})")
+
+
+CRSP_HOLDOUT_END = pd.Timestamp("2024-12-31")      # R2's CRSP ends here; CEFConnect is the second source after
+
+
+def holdout_second_close(idx, U, crsp: pd.DataFrame, cc: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(second, cc_ambiguous): the holdout's SECOND independent close, date x ticker on `idx`.
+
+    The amendment line of 2026-10-14 (recorded 2026-10-15) names it: CRSP |`prc`| through
+    2024-12-31 (R2's CRSP ends there) and CEFConnect's close for 2025-26. CEFConnect is
+    read in two windows ("1Y" daily, "All" weekly before 2025-10-16); where both give a
+    close for one name-day and they disagree beyond TOL, the cell is NaN (ambiguous, never
+    picked between) and flagged in `cc_ambiguous`. One definition, used by `freeze_holdout`
+    (the D-6 check) and by `holdout` (the D-5 repair of 2026-10-19), so the two rules can
+    never read different second sources; `holdout` also re-derives the freeze's by-year
+    two-source counts from it before anything is formed."""
+    one = cc[cc.window == "1Y"].pivot(index="date", columns="ticker", values="close_cc").reindex(index=idx, columns=U)
+    alls = cc[cc.window == "All"].pivot(index="date", columns="ticker", values="close_cc").reindex(index=idx, columns=U)
+    cc_amb = one.notna() & alls.notna() & ((one - alls).abs() > TOL)
+    ccv = one.combine_first(alls).where(~cc_amb)
+    prc = crsp[crsp.ticker.isin(U)].pivot_table(index="date", columns="ticker", values="prc").reindex(index=idx, columns=U).abs()
+    early = pd.DataFrame(np.repeat((idx <= CRSP_HOLDOUT_END)[:, None], len(U), axis=1), index=idx, columns=U)
+    return prc.where(early).combine_first(ccv.where(~early)), cc_amb
+
+
+def d5_repair(C: pd.DataFrame, close_nyse: pd.DataFrame, second: pd.DataFrame,
+              tol: float = TOL) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """(C_repaired, repaired, unresolved): the D-5 repair ruled by the team lead on 2026-10-19.
+
+    THE RULING, as recorded in the pre-registration's dated amendment: a D-5 name-day (a trade
+    on a name-day with no panel close, §4.2/§4.3) takes the NYSE closing print when the NYSE
+    closing print and a second independent close agree within $0.005 + 1e-6, mirroring D-6's
+    two-source rule; a D-5 name-day without two agreeing sources still counts toward the halt.
+
+    WHY TWO SOURCES: it is D-6's rule turned on a missing close instead of a wrong one. One
+    vendor's print alone never fills anything -- the desk's whole history of confident wrong
+    numbers is single-source -- so a cell is filled only where two independent records of the
+    same closing price agree, and then with the NYSE print, the closing-auction price the MOC
+    convention models (`M` where published, else `6`: the caller passes that frame).
+
+    WHY IT TOUCHES ONLY THE MISSING CELLS: a name-day that HAS a panel close keeps it (a wrong
+    close is D-6's business, already applied to the frozen copy). `repaired` is every cell with
+    no close and two agreeing sources; `unresolved` is every cell with no close that this rule
+    cannot fill (a source missing, or the two disagreeing). The caller restricts both to trade
+    name-days; on a name-day with no trade the gain is zero whatever the close.
+
+    NO SILENT FALLBACK: a cell is never filled from one source, never forward-filled, and a
+    disagreement is never averaged. Agreement is the ruled tolerance (ruling 2 of 2026-10-14),
+    so an exact half cent on float32-stored prices agrees."""
+    if not (C.index.equals(close_nyse.index) and C.index.equals(second.index)
+            and C.columns.equals(close_nyse.columns) and C.columns.equals(second.columns)):
+        raise ValueError("d5_repair: C, the NYSE closing print and the second close must share one index and columns")
+    missing = C.isna()
+    agree = close_nyse.notna() & second.notna() & ((close_nyse - second).abs() <= tol)
+    repaired = missing & agree
+    return C.where(~repaired, close_nyse), repaired, missing & ~repaired
+
+
+def stage8_classes(H: dict, O: pd.DataFrame, Q: pd.DataFrame, C: pd.DataFrame, close_nyse: pd.DataFrame,
+                   second: pd.DataFrame, op_y: pd.DataFrame, op_c: pd.DataFrame, lo: pd.DataFrame,
+                   hi: pd.DataFrame, HW) -> dict:
+    """§4.2's classes on the holdout sessions `HW`, with the D-5 repair of 2026-10-19, and the
+    session returns the gain is formed from. Counts only: no gain is summed here.
+
+    Every frame is date x ticker on H's index. `C` is the frozen copy's panel close, NaN where
+    the panel has none. The repaired close (`d5_repair`) is the close of the SESSION RETURN
+    C/O - 1 and of the D-1 test (a repaired name-day with no `O` print is a no-cross name-day,
+    D-1); D-5, which halts above 0.1% of material trade name-days, now counts only the material
+    trade name-days that the repair could not fill. `D5_as_counted_2026_10_15` keeps the
+    unrepaired count beside it, so the effect of the ruling is printed, never implied.
+    D-2, D-3 and the D-3-untestable count are the rule applied unchanged (DG-C5-6)."""
+    from scripts.cef import band_frontier as bf
+    from scripts.cef.band_frontier import open_fill_gain
+    idx, U = C.index, list(C.columns)
+    C_rep, repaired, unresolved = d5_repair(C, close_nyse, second)
+    hasO = O.notna() & C_rep.notna()
+    d2 = O.notna() & Q.notna() & ((O - Q).abs() > TOL)
+    out_rng = hasO & lo.notna() & ((O < lo - TOL) | (O > hi + TOL))
+    eq_y = hasO & op_y.notna() & ((O - op_y).abs() <= TOL)
+    eq_c = hasO & op_c.notna() & ((O - op_c).abs() <= TOL)
+    d3 = hasO & op_y.notna() & op_c.notna() & ~eq_y & ~eq_c & out_rng
+    d3_unevaluable = hasO & out_rng & op_c.isna()
+    RS, no_cross = bf.session_returns(O.where(~(d2 | d3)), C_rep)   # raises on a non-positive price or a 50% session
+    halts, cls, log = [], {}, []
+    ones = pd.DataFrame(1.0, index=idx, columns=U)
+    trades = {}
+    for lab in ("WIDE", "deployed"):
+        tr = trades[lab] = open_fill_gain(H[lab], ones, by_name=True).abs().loc[HW]
+        mat = tr >= MATERIAL
+        nm = int(mat.sum().sum())
+        d1 = mat & C_rep.loc[HW].notna() & O.loc[HW].isna()
+        d1n = float(tr.where(d1, 0.0).sum().sum() / tr.where(mat, 0.0).sum().sum()) if nm else 0.0
+        d5_old = mat & C.loc[HW].isna()
+        d5 = mat & unresolved.loc[HW]
+        d3m = mat & d3.loc[HW]
+        cls[lab] = dict(material=nm, D1=int(d1.sum().sum()), D1_notional=d1n, D3=int(d3m.sum().sum()),
+                        D5=int(d5.sum().sum()), D5_rate=(d5.sum().sum() / nm) if nm else 0.0,
+                        D5_as_counted_2026_10_15=int(d5_old.sum().sum()),
+                        D5_resolved_by_repair=int((d5_old & repaired.loc[HW]).sum().sum()),
+                        small_trade_name_days_repaired=int(((tr > 1e-12) & ~mat & repaired.loc[HW]).sum().sum()))
+        print(f"{lab}: material trade name-days {nm:,}; D-1 {int(d1.sum().sum())} ({d1.sum().sum() / max(nm, 1):.2%}, "
+              f"{d1n:.2%} of notional); D-3 {int(d3m.sum().sum())}; D-5 as counted on 2026-10-15 "
+              f"{cls[lab]['D5_as_counted_2026_10_15']}, resolved by the repair {cls[lab]['D5_resolved_by_repair']}, "
+              f"remaining {cls[lab]['D5']} ({cls[lab]['D5_rate']:.2%}; halt above 0.1%); small-trade name-days "
+              f"repaired {cls[lab]['small_trade_name_days_repaired']}")
+        if nm and (d1.sum().sum() / nm > HALT["D1_trades"] or d1n > HALT["D1_notional"]):
+            halts.append(f"D-1 ({lab}) above 1%")
+        if nm and d3m.sum().sum() / nm > HALT["D3_trades"]:
+            halts.append(f"D-3 ({lab}) above 0.5%")
+        if nm and d5.sum().sum() / nm > HALT["D5_trades"]:
+            halts.append(f"D-5 ({lab}) above 0.1% after the repair: {int(d5.sum().sum())} of {nm:,} material trade "
+                         f"name-days ({d5.sum().sum() / nm:.2%})")
+        for (d, t) in _cells(d5):
+            print(f"      D-5 ({lab}), UNRESOLVED: {d.date()} {t} -- no panel close and no two agreeing sources")
+    for (d, t) in _cells(repaired.loc[HW]):
+        log.append(dict(date=str(d.date()), ticker=t, WIDE_trade=_tradelab(trades["WIDE"].at[d, t]),
+                        deployed_trade=_tradelab(trades["deployed"].at[d, t]),
+                        second_source="CRSP" if d <= CRSP_HOLDOUT_END else "CEFConnect",
+                        has_O=bool(pd.notna(O.at[d, t])), has_Q=bool(pd.notna(Q.at[d, t])),
+                        d3_testable=bool(pd.notna(lo.at[d, t]) and pd.notna(op_y.at[d, t]) and pd.notna(op_c.at[d, t]))))
+    nunres = int(unresolved.loc[HW].sum().sum())
+    print(f"D-5 repair (team lead, 2026-10-19): holdout name-days with no panel close {int(C.loc[HW].isna().sum().sum())}; "
+          f"filled with the NYSE closing print (two agreeing sources) {len(log)}; left unfilled {nunres}")
+    for r in log:
+        print("   ", r)
+    both = O.notna() & Q.notna()
+    nd2, nboth = int(d2.loc[HW].sum().sum()), int(both.loc[HW].sum().sum())
+    print(f"D-2: {nd2} of {nboth} name-days with both O and Q; D-3 (all name-days): {int(d3.loc[HW].sum().sum())}; "
+          f"O outside the day's range with no CRSP openprc to test D-3 against (2025-26, CRSP ends 2024): "
+          f"{int(d3_unevaluable.loc[HW].sum().sum())} name-days, reported, not classified. A repaired name-day has "
+          "no panel open or range, so D-3 cannot be tested on it (d3_testable above)")
+    if nboth and nd2 / nboth > HALT["D2_both"]:
+        halts.append("D-2 above 1% of name-days with both")
+    return dict(RS=RS, no_cross=no_cross, C_rep=C_rep, repaired=repaired, unresolved=unresolved, cls=cls,
+                halts=halts, repair_log=log, d2=nd2, d3=int(d3.loc[HW].sum().sum()),
+                d3_unevaluable=int(d3_unevaluable.loc[HW].sum().sum()), trades=trades)
 
 
 def freeze_holdout() -> dict:
@@ -1626,13 +1782,10 @@ def freeze_holdout() -> dict:
     cp = cM.combine_first(c6)
     c = pd.read_parquet(H_FROZEN / "w4" / H_W4[2])
     c["date"] = pd.to_datetime(c["date"])
-    prc = c[c.ticker.isin(U)].pivot_table(index="date", columns="ticker", values="prc").reindex(index=hidx, columns=U).abs()
-    one = cc[cc.window == "1Y"].pivot(index="date", columns="ticker", values="close_cc").reindex(index=hidx, columns=U)
-    alls = cc[cc.window == "All"].pivot(index="date", columns="ticker", values="close_cc").reindex(index=hidx, columns=U)
-    cc_amb = one.notna() & alls.notna() & ((one - alls).abs() > TOL)
-    ccv = one.combine_first(alls).where(~cc_amb)
-    y2425 = pd.DataFrame(np.repeat((hidx <= pd.Timestamp("2024-12-31"))[:, None], len(U), axis=1), index=hidx, columns=U)
-    second = prc.where(y2425).combine_first(ccv.where(~y2425))
+    # one definition of the second source (refactored 2026-10-19 into holdout_second_close, line
+    # for line; `holdout` re-derives this freeze's committed by-year two-source counts from it)
+    second, cc_amb = holdout_second_close(hidx, U, c, cc)
+    y2425 = pd.DataFrame(np.repeat((hidx <= CRSP_HOLDOUT_END)[:, None], len(U), axis=1), index=hidx, columns=U)
     src2 = np.where(y2425, "CRSP", "CEFConnect")
     have = C.notna()
     n_src = cp.notna().astype(int) + second.notna().astype(int)
@@ -1713,7 +1866,14 @@ def verify_holdout() -> dict:
 
 
 def holdout() -> dict:
-    """Stage 8, once: the sign of the holdout mean of G (WIDE) against the fit's."""
+    """Stage 8, once: the sign of the holdout mean of G (WIDE) against the fit's.
+
+    Run 2026-10-15: halted on D-5 before G was formed. Run 2026-10-19 (R_STAMP): the same
+    stage with the team lead's D-5 repair of 2026-10-19 (`d5_repair`, applied in
+    `stage8_classes`) on the unchanged frozen inputs, whose hashes `verify_holdout` re-checks
+    first. `main` refuses to run it again once `C5_HOLDOUT_RESULT.json` exists: the holdout
+    is opened once (§7). Beside the rule, never deciding: the deployed set's G, G by year,
+    what the repair contributes, and the books' gross / 5 / 15 / 30bp rows with s_open."""
     from scripts.cef import band_frontier as bf
     from scripts.cef.band_frontier import _stats, open_fill_gain
     from scripts.cef.c5_feasibility import nyse_open_prints
@@ -1765,45 +1925,29 @@ def holdout() -> dict:
     c["date"] = pd.to_datetime(c["date"])
     op_c = c[c.ticker.isin(U)].pivot_table(index="date", columns="ticker", values="openprc").reindex(index=idx, columns=U)
     op_c = op_c.where(op_c > 0)
-    hasO = O.notna() & C.notna()
-    d2 = O.notna() & Q.notna() & ((O - Q).abs() > TOL)
-    out_rng = hasO & lo.notna() & ((O < lo - TOL) | (O > hi + TOL))
-    eq_y = hasO & op_y.notna() & ((O - op_y).abs() <= TOL)
-    eq_c = hasO & op_c.notna() & ((O - op_c).abs() <= TOL)
-    d3 = hasO & op_y.notna() & op_c.notna() & ~eq_y & ~eq_c & out_rng
-    d3_unevaluable = hasO & out_rng & op_c.isna()
-    Oe = O.where(~(d2 | d3))
-    RS, _ = bf.session_returns(Oe, C)                 # raises on a non-positive price or a 50% session (§4.5)
-    hr("STAGE 8 DATA: §4.2's classes on the holdout (the rule applied unchanged)")
-    halts, cls = [], {}
-    for lab in ("WIDE", "deployed"):
-        tr = open_fill_gain(H[lab], pd.DataFrame(1.0, index=idx, columns=U), by_name=True).abs().loc[HW]
-        mat = tr >= MATERIAL
-        nm = int(mat.sum().sum())
-        d1 = mat & C.loc[HW].notna() & O.loc[HW].isna()
-        d1n = float(tr.where(d1, 0.0).sum().sum() / tr.where(mat, 0.0).sum().sum()) if nm else 0.0
-        d5 = mat & C.loc[HW].isna()
-        d3m = mat & d3.loc[HW]
-        cls[lab] = dict(material=nm, D1=int(d1.sum().sum()), D1_notional=d1n, D3=int(d3m.sum().sum()),
-                        D5=int(d5.sum().sum()))
-        print(f"{lab}: material trade name-days {nm:,}; D-1 {int(d1.sum().sum())} ({d1.sum().sum() / max(nm, 1):.2%}, "
-              f"{d1n:.2%} of notional); D-3 {int(d3m.sum().sum())}; D-5 {int(d5.sum().sum())}")
-        if nm and (d1.sum().sum() / nm > HALT["D1_trades"] or d1n > HALT["D1_notional"]):
-            halts.append(f"D-1 ({lab}) above 1%")
-        if nm and d3m.sum().sum() / nm > HALT["D3_trades"]:
-            halts.append(f"D-3 ({lab}) above 0.5%")
-        if nm and d5.sum().sum() / nm > HALT["D5_trades"]:
-            halts.append(f"D-5 ({lab}) above 0.1%: {int(d5.sum().sum())} of {nm:,} material trade name-days "
-                         f"({d5.sum().sum() / nm:.2%})")
-        for (d, t) in _cells(d5):
-            print(f"      D-5 ({lab}): {d.date()} {t} -- a material trade fills on a name-day with no panel close")
-    both = O.notna() & Q.notna()
-    nd2, nboth = int(d2.loc[HW].sum().sum()), int(both.loc[HW].sum().sum())
-    print(f"D-2: {nd2} of {nboth} name-days with both O and Q; D-3 (all name-days): {int(d3.loc[HW].sum().sum())}; "
-          f"O outside the day's range with no CRSP openprc to test D-3 against (2025-26, CRSP ends 2024): "
-          f"{int(d3_unevaluable.loc[HW].sum().sum())} name-days, reported, not classified")
-    if nboth and nd2 / nboth > HALT["D2_both"]:
-        halts.append("D-2 above 1% of name-days with both")
+    # ---- the D-5 repair's two sources, both already in the frozen holdout copy (no re-freeze)
+    k = pd.read_parquet(H_FROZEN / "w4" / H_W4[1])
+    k["date"] = pd.to_datetime(k["date"])
+    c6, cM, _ = nyse_close_prints(k, idx, U)
+    close_nyse = cM.combine_first(c6)                  # M where published, else 6: D-6's NYSE print
+    cc = pd.read_parquet(H_FROZEN / "cc" / "cefconnect_closes_2025_2026.parquet")
+    second, cc_amb = holdout_second_close(idx, U, c, cc)
+    hr("STAGE 8 DATA: THE SECOND SOURCE IS THE FREEZE'S (re-derived before it is used)")
+    two = C.notna() & close_nyse.notna() & second.notna()
+    mism = {}
+    for yv in sorted(set(HW.year)):
+        m_ = HW[HW.year == yv]
+        got = dict(two_sources=int(two.loc[m_].sum().sum()), cc_windows_disagree=int((cc_amb & C.notna()).loc[m_].sum().sum()))
+        want = {k_: hrec["by_year"][str(yv)][k_] for k_ in got}
+        print(f"{yv}: {got} against the committed freeze record {want}")
+        if got != want:
+            mism[int(yv)] = (got, want)
+    if mism:
+        raise Halt(f"holdout_second_close does not re-derive the freeze's two-source counts: {mism}")
+    hr("STAGE 8 DATA: §4.2's classes on the holdout, with the D-5 repair ruled by the team lead on 2026-10-19")
+    S8 = stage8_classes(H, O, Q, C, close_nyse, second, op_y, op_c, lo, hi, HW)
+    RS, cls, repaired = S8["RS"], S8["cls"], S8["repaired"]
+    nd2, halts = S8["d2"], S8["halts"]
     if halts:
         raise Halt("; ".join(halts))
     # ---- the rule
@@ -1836,20 +1980,59 @@ def holdout() -> dict:
         g_ = G[G.index.year == yv]
         yr[int(yv)] = dict(mean_bp_yr=g_.mean() * 252e4, sessions=len(g_))
     print("G (WIDE) by year, bp/yr: " + "; ".join(f"{k_} {v['mean_bp_yr']:+.1f} ({v['sessions']})" for k_, v in yr.items()))
-    print(f"{'book (holdout rows, H13)':<40}{'grossSR':>8}{'ann%':>7}{'turn/yr':>8}{'net@5':>8}{'net@15':>8}{'net@30':>8}")
+    # ---- the D-5 repair's share of G, so the ruling's effect is shown, never implied
+    hr("BESIDE: WHAT THE D-5 REPAIR CONTRIBUTES (never deciding)")
+    sens = {}
+    for lab, g_all in (("WIDE", G), ("deployed", Gd)):
+        byn = open_fill_gain(H[lab], RS, by_name=True).loc[HW]
+        tr = S8["trades"][lab]
+        rep = repaired.loc[HW]
+        part = lambda m_: float(byn.where(m_, 0.0).sum().sum() / len(HW) * 252e4)
+        mat_bp, small_bp = part(rep & (tr >= MATERIAL)), part(rep & (tr > 1e-12) & (tr < MATERIAL))
+        g0 = g_all - byn.where(rep, 0.0).sum(axis=1)                     # every repaired name-day at gain 0
+        gn = g_all - byn.where(rep & (tr < MATERIAL), 0.0).sum(axis=1)   # only material (narrow "D-5") repaired
+        s0, sn = gstats(g0), gstats(gn)
+        sens[lab] = dict(repaired_material_bp_yr=mat_bp, repaired_small_bp_yr=small_bp,
+                         G_with_repaired_at_zero=s0, G_material_only_repaired=sn)
+        print(f"{lab}: repaired name-days add {mat_bp:+.2f}bp/yr (material trades) and {small_bp:+.2f}bp/yr (small "
+              f"trades) to G's mean")
+        print("   " + fmt_g(f"G ({lab}), every repaired name-day at gain 0", s0))
+        print("   " + fmt_g(f"G ({lab}), small-trade name-days not repaired", sn))
+    # ---- the books (H13): gross headline, the 5/15/30bp grid beside it, s_open as its own row (§6)
+    hr("THE BOOKS OVER THE HOLDOUT: GROSS HEADLINE; NET AT 5/15/30bp PER UNIT OF ONE-WAY TURNOVER BESIDE IT")
+    s_open = float(fitrec["stage6"]["s_open"])        # measured at the fit (2016-22 quote sample), read, never typed
+    print("Total returns, no borrow (charged separately in the fit; identical for both fills). s_open is the fit's "
+          f"measured open-versus-close surcharge, {s_open:.2f}bp, read from {FIT_VERDICT.relative_to(REPO)}; a stress "
+          "that double counts (§6).")
+    print(f"{'book (holdout rows)':<44}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn/yr':>8}{'net@5':>8}{'net@15':>8}"
+          f"{'net@30':>8}{'flips?':>8}")
     books = {}
     for lab in ("WIDE", "deployed"):
         gl = open_fill_gain(H[lab], RS)
-        for nm_, pnl in ((f"{lab}: MOC fill", e[lab]["pnl"]), (f"{lab}: C5 open fill", e[lab]["pnl"] + gl)):
-            s_ = _stats(pnl.loc[HW], e[lab]["turn_series"].loc[HW])
-            books[nm_] = dict(sr=s_["sr"], ann_pct=s_["ann"] * 100, turn=s_["turn"], nets=s_["nets"])
-            print(f"{nm_:<40}{s_['sr']:8.2f}{s_['ann'] * 100:7.2f}{s_['turn']:8.2f}" + "".join(f"{x:8.2f}" for x in s_["nets"]))
+        tt = e[lab]["turn_series"].loc[HW]
+        for nm_, pnl, extra in ((f"{lab}: MOC fill (the deployed fill)", e[lab]["pnl"], 0.0),
+                                (f"{lab}: C5 open fill", e[lab]["pnl"] + gl, 0.0),
+                                (f"{lab}: C5, + s_open {s_open:.2f}bp", e[lab]["pnl"] + gl, s_open)):
+            s_ = _stats(pnl.loc[HW], tt)
+            nets = [(s_["ann"] - s_["turn"] * (c_ + extra) / 1e4) / s_["vol"] for c_ in COSTS]
+            gross = (s_["ann"] - s_["turn"] * extra / 1e4) / s_["vol"]
+            flips = any(np.sign(x) != np.sign(gross) for x in nets)
+            books[nm_] = dict(gross=gross, ann_pct=s_["ann"] * 100, vol_pct=s_["vol"] * 100, turn=s_["turn"],
+                              net=dict(zip(COSTS, nets)), flips=bool(flips))
+            print(f"{nm_:<44}{gross:8.2f}{s_['ann'] * 100:7.2f}{s_['vol'] * 100:7.2f}{s_['turn']:8.2f}"
+                  + "".join(f"{x:8.2f}" for x in nets) + f"{'YES' if flips else 'no':>8}")
+    g_net_sopen = st["mean_bp_yr"] - s_open * turn
+    print(f"G itself: the two fills share one H and so one turnover ({turn:.2f}/yr), so G is the same at every grid "
+          f"point: {st['mean_bp_yr']:+.1f}bp/yr gross = net@5 = net@15 = net@30; the grid cannot flip it. "
+          f"G less s_open x turnover: {g_net_sopen:+.1f}bp/yr")
     G.to_frame("G").to_parquet(FIT_CACHE / "G_wide_holdout.parquet")
-    return dict(stamp=H_STAMP, holdout=[str(HOLD[0].date()), str(HOLD[1].date())], sessions=n, G=st,
-                boot_ci=dict(mean_bp_yr=(b["lo_mean"] * 252e4, b["hi_mean"] * 252e4), sr=(b["lo_sr"], b["hi_sr"])),
+    return dict(stamp=R_STAMP, inputs_stamp=H_STAMP, holdout=[str(HOLD[0].date()), str(HOLD[1].date())], sessions=n,
+                G=st, boot_ci=dict(mean_bp_yr=(b["lo_mean"] * 252e4, b["hi_mean"] * 252e4), sr=(b["lo_sr"], b["hi_sr"])),
                 fit_mean_bp_yr=fit_mean, fit_sr=fit_sr, signs_agree=bool(agree), p_observed_sign=p_obs,
-                rule=rule, trial_verdict=fitrec["verdict"], classes=cls, d2=nd2,
-                d3_unevaluable=int(d3_unevaluable.loc[HW].sum().sum()), deployed_G=sd, by_year=yr, books=books,
+                rule=rule, trial_verdict=fitrec["verdict"], classes=cls, d2=nd2, d3=S8["d3"],
+                d3_unevaluable=S8["d3_unevaluable"], d5_repair=dict(ruling="team lead, 2026-10-19", log=S8["repair_log"],
+                unresolved_no_close_name_days=int(S8["unresolved"].loc[HW].sum().sum())), repair_sensitivity=sens,
+                deployed_G=sd, by_year=yr, books=books, s_open_bp=s_open, G_less_s_open_bp_yr=g_net_sopen,
                 holdout_inputs=str(H_RECORD.relative_to(REPO)))
 
 
@@ -1881,26 +2064,42 @@ def main(argv=None) -> int:
         H_RECORD.write_text(json.dumps(rec, indent=1, default=str) + "\n")
         return 1 if rec["verdict"] == "HALT" else 0
     if a.stage == "holdout":
+        # OPENED ONCE (§7). Once a holdout result exists, the stage refuses before reading anything:
+        # a second opening would be a second look at the same returns.
+        if H_RESULT.exists():
+            print(f"REFUSED: {H_RESULT.relative_to(REPO)} exists; the holdout has been opened and is opened once (§7).")
+            return 2
         FIT_CACHE.mkdir(parents=True, exist_ok=True)
         # A halt is a result too: the log up to it is written, never discarded (2026-10-15: the first
         # attempt halted on D-5 before G was formed, and its buffered log was lost with the exception).
+        # Run 2026-10-19 (R_STAMP), after the team lead's D-5 repair: outputs carry R_STAMP, so the
+        # 2026-10-15 halt record stays as it was; any OTHER exception also writes its log before it
+        # propagates, so nothing printed after G is formed can be lost.
         buf = io.StringIO()
         try:
             with contextlib.redirect_stdout(buf):
                 rec = holdout()
         except Halt as e:
-            text = buf.getvalue() + f"\nSTAGE 8 HALTED BEFORE G WAS FORMED (§4.2, applied unchanged; DG-C5-6): {e}\n"
+            text = buf.getvalue() + f"\nSTAGE 8 HALTED BEFORE G WAS FORMED (§4.2 with the D-5 repair of 2026-10-19; DG-C5-6): {e}\n"
             sys.stdout.write(text)
-            (OUT_DIR / f"c5_holdout_halt_output_{H_STAMP}.txt").write_text(
-                f"# python3 scripts/cef/c5_open_auction.py holdout  (run {H_STAMP}; stage 8 HALTED on a declared "
+            (OUT_DIR / f"c5_holdout_halt_output_{R_STAMP}.txt").write_text(
+                f"# python3 scripts/cef/c5_open_auction.py holdout  (run {R_STAMP}; stage 8 HALTED on a declared "
                 "data class before the holdout gain was formed)\n" + text)
-            (OUT_DIR / f"c5_holdout_halt_{H_STAMP}.json").write_text(json.dumps(
-                dict(stamp=H_STAMP, stage="8", verdict="HALT before G", reason=str(e),
+            (OUT_DIR / f"c5_holdout_halt_{R_STAMP}.json").write_text(json.dumps(
+                dict(stamp=R_STAMP, stage="8", verdict="HALT before G", reason=str(e),
                      trial_verdict=json.loads(FIT_VERDICT.read_text())["verdict"]), indent=1) + "\n")
             return 1
+        except Exception as e:
+            text = buf.getvalue() + f"\nSTAGE 8 STOPPED ON AN ERROR (not a declared halt): {type(e).__name__}: {e}\n"
+            sys.stdout.write(text)
+            (OUT_DIR / f"c5_holdout_error_output_{R_STAMP}.txt").write_text(
+                f"# python3 scripts/cef/c5_open_auction.py holdout  (run {R_STAMP}; stopped on an error; everything "
+                "printed before it is kept)\n" + text)
+            raise
         sys.stdout.write(buf.getvalue())
-        (OUT_DIR / f"c5_holdout_output_{H_STAMP}.txt").write_text(
-            f"# python3 scripts/cef/c5_open_auction.py holdout  (run {H_STAMP}; stage 8, opened once)\n" + buf.getvalue())
+        (OUT_DIR / f"c5_holdout_output_{R_STAMP}.txt").write_text(
+            f"# python3 scripts/cef/c5_open_auction.py holdout  (run {R_STAMP}; stage 8, opened once, with the D-5 "
+            "repair ruled by the team lead on 2026-10-19; frozen inputs of 2026-10-15)\n" + buf.getvalue())
         H_RESULT.write_text(json.dumps(rec, indent=1, default=lambda o: float(o) if isinstance(o, np.floating)
                                        else (bool(o) if isinstance(o, np.bool_) else str(o))) + "\n")
         return 0
