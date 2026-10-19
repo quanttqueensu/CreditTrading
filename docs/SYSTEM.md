@@ -460,6 +460,27 @@ the replays behind the redesign are `docs/REFERENCES.md` §12s.
 | The XASSET slate | **Approved at revision 3, with X5 withdrawn: N = 4.** The bar is √(2 ln 4) = 1.665 |
 | The CRSP values in a pushed log | **Leave git history as it is.** The 11 dated differences in commit `225f459` are not printed by the script any more; public history is not rewritten |
 
+### Team lead, 2026-10-19 — the interrupted work and the research slate
+
+The work cut off by the usage limit on 2026-10-16 was finished and merged on
+2026-10-18; these are the rulings on what it found. What each one produced is in
+the notes it names; this table holds the decisions only.
+
+| question | decision |
+|---|---|
+| C4 (CEF trial 52): which holdout book is the verdict | **The corrected book** (four bad IGR bars fixed): PASS, with a recorded deviation because the fix came after the opening. **Paper only; no real-money sleeve.** `results/cef/C4_RESULT_2026-10-14.md` §9 |
+| C5 (CEF trial 51): the holdout's D-5 halt | **Add a repair rule**: a D-5 name-day takes the NYSE closing print where it and a second source agree; then form the holdout gain once. C5 stays KILLED (D1) whatever it shows. `results/cef/C5_RESULT_2026-10-14.md` |
+| HALVE and KILL drawdown limits (in the spec, read by no live code) | **Build enforcement in `report` mode first**; the team lead installs it. `on` is a later ruling |
+| CEFConnect's terms prohibit automated commercial use | **An options brief first**, with a draft permission request to Nuveen. The live path is unchanged until the team lead chooses |
+| The event-extraction engine's API pilot | **No API spend.** A rules-only baseline, and a pilot run through Claude Code subagents |
+| Merger arbitrage (fails D4) | **Not closed.** Reconstruct it so that what is left is alpha, and bring a design that passes D4 |
+| E1, the CEF merger pair | **Spend an EVENTS trial on it** (pre-registration first), although the ETF-hedge gate failed; IBKR's borrow is admissible for the short leg |
+| IBKR | **Open it as a second broker, equities only** (no options data), for the shorts Alpaca will not lend. The team lead holds the account and the weekly two-factor login. *(Narrows 2026-09-28's retirement of IBKR; the book still trades at Alpaca.)* |
+| SPACs | **Redeem through IBKR**, and re-run the SPAC gate on IBKR's terms |
+| NAV tenders | **Draft the pre-registration** (an EVENTS trial) |
+| Process fixes from C4's IGR bars (zero trials) | **Both:** a spike-and-revert guard in `yf_total_returns`, and no P&L while any Stage-0 flag lacks a recorded ruling |
+| Pushing `main` | **One push at the end of the day**, after the suite, the doc audit and the identifier scan |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -504,3 +525,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-12 | §2's IC row corrected to the wide set, the deployed IC added under conditional (W4); §5 records the 2026-10-12 rulings. | for the team lead |
 | 2026-10-14 | §5 records the release-20261014-1 install, the C5, C4 and XASSET (N = 4) approvals, and the ruling to leave git history alone. | for the team lead |
 | 2026-10-13 | §5 records the stale-NAV ruling ("Use CEFConnect, else drop") and, the same day, its redesign: defer and hold instead of drop; report mode first. | for the team lead |
+| 2026-10-19 | §5 records the rulings on the interrupted work: C4's verdict, C5's repair rule, HALVE/KILL in report mode, CEFConnect, IBKR, and the EVENTS slate. | for the team lead |
