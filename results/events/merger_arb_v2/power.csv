@@ -1,0 +1,37 @@
+window,first_pnl,sessions,years,test,label,source,paper_years,scale,ir,ir_needed_alpha_t3,p_alpha_t_ge_3,sr_needed_dsr_n1,p_dsr_pass_n1
+edgar_2010,2010-03-24,3217,12.77,cash_full,"cash, High > Low, 1970-2010","Table 3, one-sided p 0.0084",41.0,as published,0.373,0.84,0.0479,0.461,0.3778
+edgar_2010,2010-03-24,3217,12.77,cash_full,"cash, High > Low, 1970-2010","Table 3, one-sided p 0.0084",41.0,x0.42 post-publication,0.157,0.84,0.0074,0.461,0.139
+edgar_2010,2010-03-24,3217,12.77,equity_full,"equity, High > Low, 1970-2010","Table 3, one-sided p 0.0002",41.0,as published,0.553,0.84,0.1529,0.461,0.6292
+edgar_2010,2010-03-24,3217,12.77,equity_full,"equity, High > Low, 1970-2010","Table 3, one-sided p 0.0002",41.0,x0.42 post-publication,0.232,0.84,0.015,0.461,0.2074
+edgar_2010,2010-03-24,3217,12.77,joint_high_gt_bh_full,"cash+equity, High > Buy&Hold, 1970-2010","Table 3, one-sided p 0.00615",41.0,as published,0.391,0.84,0.0545,0.461,0.4019
+edgar_2010,2010-03-24,3217,12.77,joint_high_gt_bh_full,"cash+equity, High > Buy&Hold, 1970-2010","Table 3, one-sided p 0.00615",41.0,x0.42 post-publication,0.164,0.84,0.0079,0.461,0.1449
+edgar_2010,2010-03-24,3217,12.77,cash_late,"cash, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.2077",20.0,as published,0.182,0.84,0.0094,0.461,0.16
+edgar_2010,2010-03-24,3217,12.77,cash_late,"cash, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.2077",20.0,x0.42 post-publication,0.076,0.84,0.0032,0.461,0.085
+edgar_2010,2010-03-24,3217,12.77,equity_late,"equity, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.0129",20.0,as published,0.498,0.84,0.1115,0.461,0.5539
+edgar_2010,2010-03-24,3217,12.77,equity_late,"equity, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.0129",20.0,x0.42 post-publication,0.209,0.84,0.0122,0.461,0.1848
+edgar_2010,2010-03-24,3217,12.77,joint_late,"cash+equity, High > Low, 1991-2010","Table 4 Panel A, one-sided p 0.0271",20.0,as published,0.43,0.84,0.072,0.461,0.4573
+edgar_2010,2010-03-24,3217,12.77,joint_late,"cash+equity, High > Low, 1991-2010","Table 4 Panel A, one-sided p 0.0271",20.0,x0.42 post-publication,0.181,0.84,0.0093,0.461,0.1588
+edgar_2010,2010-03-24,3217,12.77,joint_high_gt_bh_late,"cash+equity, High > Buy&Hold, 1991-2010","Table 4 Panel A, one-sided p 0.12055",20.0,as published,0.262,0.84,0.0196,0.461,0.2392
+edgar_2010,2010-03-24,3217,12.77,joint_high_gt_bh_late,"cash+equity, High > Buy&Hold, 1991-2010","Table 4 Panel A, one-sided p 0.12055",20.0,x0.42 post-publication,0.11,0.84,0.0046,0.461,0.1053
+edgar_2010,2010-03-24,3217,12.77,cash_small_rho0.0,"cash, small targets, High - Low1, legs rho=0.0 [U]",Table 8,41.0,as published,0.548,0.84,0.1492,0.461,0.6233
+edgar_2010,2010-03-24,3217,12.77,cash_small_rho0.0,"cash, small targets, High - Low1, legs rho=0.0 [U]",Table 8,41.0,x0.42 post-publication,0.23,0.84,0.0148,0.461,0.2055
+edgar_2010,2010-03-24,3217,12.77,cash_small_rho0.5,"cash, small targets, High - Low1, legs rho=0.5 [U]",Table 8,41.0,as published,0.772,0.84,0.4049,0.461,0.8671
+edgar_2010,2010-03-24,3217,12.77,cash_small_rho0.5,"cash, small targets, High - Low1, legs rho=0.5 [U]",Table 8,41.0,x0.42 post-publication,0.324,0.84,0.0328,0.461,0.3133
+edgar_2001,2001-03-22,5480,21.75,cash_full,"cash, High > Low, 1970-2010","Table 3, one-sided p 0.0084",41.0,as published,0.373,0.643,0.1041,0.353,0.5383
+edgar_2001,2001-03-22,5480,21.75,cash_full,"cash, High > Low, 1970-2010","Table 3, one-sided p 0.0084",41.0,x0.42 post-publication,0.157,0.643,0.0117,0.353,0.1804
+edgar_2001,2001-03-22,5480,21.75,equity_full,"equity, High > Low, 1970-2010","Table 3, one-sided p 0.0002",41.0,as published,0.553,0.643,0.3366,0.353,0.8245
+edgar_2001,2001-03-22,5480,21.75,equity_full,"equity, High > Low, 1970-2010","Table 3, one-sided p 0.0002",41.0,x0.42 post-publication,0.232,0.643,0.0276,0.353,0.287
+edgar_2001,2001-03-22,5480,21.75,joint_high_gt_bh_full,"cash+equity, High > Buy&Hold, 1970-2010","Table 3, one-sided p 0.00615",41.0,as published,0.391,0.643,0.1197,0.353,0.5706
+edgar_2001,2001-03-22,5480,21.75,joint_high_gt_bh_full,"cash+equity, High > Buy&Hold, 1970-2010","Table 3, one-sided p 0.00615",41.0,x0.42 post-publication,0.164,0.643,0.0127,0.353,0.1896
+edgar_2001,2001-03-22,5480,21.75,cash_late,"cash, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.2077",20.0,as published,0.182,0.643,0.0158,0.353,0.2131
+edgar_2001,2001-03-22,5480,21.75,cash_late,"cash, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.2077",20.0,x0.42 post-publication,0.076,0.643,0.0041,0.353,0.0988
+edgar_2001,2001-03-22,5480,21.75,equity_late,"equity, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.0129",20.0,as published,0.498,0.643,0.2497,0.353,0.7514
+edgar_2001,2001-03-22,5480,21.75,equity_late,"equity, High > Low, 1991-2010, early-sample cutoffs","Table 4 Panel A, one-sided p 0.0129",20.0,x0.42 post-publication,0.209,0.643,0.0215,0.353,0.2518
+edgar_2001,2001-03-22,5480,21.75,joint_late,"cash+equity, High > Low, 1991-2010","Table 4 Panel A, one-sided p 0.0271",20.0,as published,0.43,0.643,0.1605,0.353,0.6414
+edgar_2001,2001-03-22,5480,21.75,joint_late,"cash+equity, High > Low, 1991-2010","Table 4 Panel A, one-sided p 0.0271",20.0,x0.42 post-publication,0.181,0.643,0.0155,0.353,0.2113
+edgar_2001,2001-03-22,5480,21.75,joint_high_gt_bh_late,"cash+equity, High > Buy&Hold, 1991-2010","Table 4 Panel A, one-sided p 0.12055",20.0,as published,0.262,0.643,0.0378,0.353,0.3362
+edgar_2001,2001-03-22,5480,21.75,joint_high_gt_bh_late,"cash+equity, High > Buy&Hold, 1991-2010","Table 4 Panel A, one-sided p 0.12055",20.0,x0.42 post-publication,0.11,0.643,0.0065,0.353,0.1289
+edgar_2001,2001-03-22,5480,21.75,cash_small_rho0.0,"cash, small targets, High - Low1, legs rho=0.0 [U]",Table 8,41.0,as published,0.548,0.643,0.3292,0.353,0.8192
+edgar_2001,2001-03-22,5480,21.75,cash_small_rho0.0,"cash, small targets, High - Low1, legs rho=0.0 [U]",Table 8,41.0,x0.42 post-publication,0.23,0.643,0.0271,0.353,0.284
+edgar_2001,2001-03-22,5480,21.75,cash_small_rho0.5,"cash, small targets, High - Low1, legs rho=0.5 [U]",Table 8,41.0,as published,0.772,0.643,0.726,0.353,0.9747
+edgar_2001,2001-03-22,5480,21.75,cash_small_rho0.5,"cash, small targets, High - Low1, legs rho=0.5 [U]",Table 8,41.0,x0.42 post-publication,0.324,0.643,0.0685,0.353,0.4472

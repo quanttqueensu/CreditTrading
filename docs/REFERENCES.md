@@ -1330,3 +1330,34 @@ The sources behind `results/events/SPAC_TRUST_CENSUS_2026-10-15.md`.
 | **SPAC IPOs and deSPACs by year.** SPAC IPOs by year (Table 15b, updated 2026-10-05) and 2026 by quarter; deSPACs by merger year (Table 15c). The parser checks that non-unit + unit = total, and that a closed year's quarters sum to the year | Ritter, `https://site.warrington.ufl.edu/ritter/files/IPOs-SPACs.pdf` (sha256 1ab8e347…) | [V] |
 | **CRSP.** Daily prices (`dsf`: prc, vol, bid, ask), names (`dsenames`) and delistings (`stkdelists`) for 1,085 linked SPAC commons, 2014-01-01 → 2022-12-31 only; the script raises on a later row. CRSP's `delactiontype` codes MER / GLI / GDR are used as labels; their meanings were not re-read from the manual | R2 WRDS mirror through `src/data/r2.py`; rows in the gitignored `_cache_spac/` (licensed) | [V] data; [U] code meanings |
 | **FRED DTB3** (3-month bill, secondary market, discount basis, % p.a.), used only in the labelled accrual model. Last value 4.10, on 2026-10-14 | `scripts/gamma/fetch_fred.py DTB3` (keyless CSV), read 2026-10-16T01:21Z | [V] |
+
+### 12ae. Merger arbitrage reconstructed for D4: event-time hazard, E1 at IBKR (added 2026-10-19)
+
+The sources behind `results/events/MERGER_ARB_V2_2026-10-19.md` (team lead's ruling of
+2026-10-19 on §12aa's note; zero trials). Every data row re-runs offline from
+`python3 scripts/events/merger_arb_v2_feasibility.py --today 2026-10-19`, which reads committed
+files and `data/` panels only (no network, no credentials) and reads no price or return of any
+deal. Papers were fetched and read 2026-10-19.
+
+**Data**
+
+| claim / series | source and reader | status |
+|---|---|---|
+| Deal census 2010–2022 (announcement document dates, Form 25 completion dates, class, tender, acquirer CIK) and the pending deals' Alpaca flags (read 2026-10-18), IBKR fees (file `#BOF\|2026.10.16`) and 63-session ADV | `results/events/merger_arb/edgar_deals.csv`, `pending_deals_2026-10-18.csv`, built by `scripts/events/merger_arb_feasibility.py` (§12aa) | [V] as committed; flags and fees true on their dates only |
+| IBKR FEE_RATE daily panel, 43 universe names, 2021-09-13 → 2026-09-09; muni CEF fees in the CEF/BDC merger windows | `data/cef/cef_borrow_history.parquet` (`scripts/cef/fetch_borrow_history.py`, §4/H4) | [V] levels; a cost, not a return |
+| Universe muni acquirer merger windows (first and last merger filing) | `results/events/g1a_summary_2026-10-13.json` (`scripts/events/g1a_shortability.py`, §12p) | [S] |
+| E1's muni effect (median acquirer-pair return, +167bp) and median hold (168 sessions) | `results/events/e1_etf_hedge_summary_2026-10-15.json` (`scripts/events/e1_etf_hedge_gate.py`, §12w; CRSP pre-2023, not re-run here) | [S] |
+| Power arithmetic (P(alpha t ≥ 3), `_dsr` at N = 1) | `scripts/xasset/slate_feasibility.py` (`p_alpha_t`, `power`), reused unchanged | [V] arithmetic |
+
+**Literature**
+
+| claim | source | status |
+|---|---|---|
+| 3,414 cash and 1,963 equity one-step mergers, 1970–2010 (Mitchell–Pulvino data to 1995, Thomson One after), no tender offers or collars; 70% / 77% complete, median 83 / 97 days. Completion hazard hump-shaped (cash about 7%/week near week 20; equity 8% at week 25), withdrawal hazard flat. Window cutoffs cash weeks 11 and 36, equity 15 and 41. FF3 alphas per month, cash: Low 1 −0.0005 (0.0015), High 0.0064 (0.0016), Low 2 −0.0007 (0.0046), Buy&Hold 0.0038 (0.0013), High > Low p 0.0084; equity 0.0068, 0.0146, −0.0035, 0.0109, p 0.0002; High > Buy&Hold (joint) p 0.00615 (Table 3). Late sample 1991–2010 with early cutoffs: cash High 0.0043 (0.0024), Low 1 −0.0003, p 0.2077; equity p 0.0129; joint 0.0271 (Table 4 Panel A). Betas: cash High MKT 0.2975 (0.0668), Low 1 0.2088 (0.0507), High > Low 1 p 0.1186 (Table 5); betas unrelated to the hazard (Table 6); in months with MKT < −3% cash High 0.4635, Low 1 0.4518 (Table 7A); option factors small (Table 7B); High skewness 4.37. Cash small targets High 0.0113 (0.0024) against large 0.0020 (0.0021), Low 1 small 0.0001 (0.0021), Buy&Hold small 0.0069 against large 0.0000 (Table 8). Pooled, costs: High 0.0091 → 0.0035 (price impact) → −0.0011 (bid-ask), High > Low p 0.0015 / 0.0000 / 0.0025 (Table 9). Last-day purge: cash High 37bp, test p 0.004. Implied market hazard has "approximately 25 percent less variation"; the mispricing comes from "a subset of investors, possibly small retail investors"; tender offers excluded because the passage of time near expiry "is likely to be obvious to market participants"; projected completion dates of "limited informativeness" (footnote 5) | Giglio & Shue, "No News Is News: Do Markets Underreact to Nothing?", NBER WP 18914 (March 2013), `https://www.nber.org/system/files/working_papers/w18914/w18914.pdf`; published *RFS* 27(12):3389–3440 (2014) | [V] working paper read in full; [S] that the published tables match. The assignment of the late High > Buy&Hold p 0.12055 to Table 4 Panel A is read from a garbled text layout [S] |
+| 2,130 mergers 1994–2000. Fixed-ratio stock acquirers: announcement [−1,+1] CAAR −2.73% (t −10.57, N 1,086), closing +1.18% (t 5.61), [A−20, C+20] +0.41% (t 0.38); cash acquirers +0.96% (t 3.48) and +5.58% (t 4.92). Floating-ratio pricing period −3.18% (t −2.79, N 59), then +2.53% (t 2.09). S&P acquirer of a non-S&P target in a stock deal: run-up 3.36% (t 5.20, N 166), reversal −1.32% (t −1.44); same-index stock mergers +0.26%, cash mergers +0.03% (Table IV). Median rise in acquirer short interest 40% (fixed-ratio deals) | Mitchell, Pulvino & Stafford (2004), *JF* 59(1):31–63, `https://www.johnhcochrane.com/s/mitchell_price_pressure_JF.pdf` | [V] Tables II and IV read (§12aa had the abstract only) |
+| S&P 500 addition abnormal return 3.4% (1980s), 7.6% (1990s), 0.8% (2010–20); deletions −0.6% in 2010–20 | Greenwood & Sammon, "The Disappearing Index Effect", NBER WP 30748 (December 2022), `https://www.nber.org/system/files/working_papers/w30748/w30748.pdf`; published *JF* 80(2):657–698 (2025) | [V] working-paper abstract; [S] journal version |
+| Returns 58% lower after publication (the 0.42 keep) | McLean & Pontiff (2016), §12b | [S] here |
+
+**Tried and not used.** A Tsinghua-hosted PDF that a search returned for Giglio & Shue is a CV, not
+the paper. An IJBE paper on target returns after cancelled acquisitions (1992–99) returned HTTP 403;
+its findings are known only from a search summary and are not cited [U].

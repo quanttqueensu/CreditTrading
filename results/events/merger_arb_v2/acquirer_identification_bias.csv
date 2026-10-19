@@ -1,0 +1,15 @@
+final_class,completed,deals,acquirer_identified,share
+cash,False,233,56,0.24
+cash,True,1377,453,0.329
+conflict_cash_mixed,False,3,0,0.0
+conflict_cash_mixed,True,38,11,0.289
+conflict_cash_stock,False,29,4,0.138
+conflict_cash_stock,True,27,8,0.296
+conflict_stock_cash,False,2,2,1.0
+conflict_stock_cash,True,61,52,0.852
+mixed,False,11,8,0.727
+mixed,True,165,155,0.939
+stock,False,12,7,0.583
+stock,True,252,235,0.933
+stock_involved_unsplit,False,37,16,0.432
+stock_involved_unsplit,True,276,231,0.837
