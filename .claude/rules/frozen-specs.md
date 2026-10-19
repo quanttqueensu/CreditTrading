@@ -45,13 +45,15 @@ at 99% was live at **0.99%** — the tightest in the book — and breached at �
 2026-08-31. It is now `99.0`. **Percent keys in this repo are whole numbers.** State
 the unit in the note.
 
-## What is currently declared but not wired
+## What is currently read but not acted on
 
-`kill_drawdown` (0.18) and `halve_drawdown` (0.12) are in the frozen spec and are
-read by **no code path**. All three sleeves' `risk_check` return OK unconditionally.
-This was justified in writing by "there is no real capital at risk" — a
-justification on a clock. Arming them on broker-confirmed NAV is `docs/prompts/W6 §A`.
-Do not quietly change the numbers; wire them, then decide the numbers with a memo.
+`kill_drawdown` (0.18) and `halve_drawdown` (0.12) are in the frozen spec. Since
+2026-10-19 the runner reads them in **report mode only**
+(`quantt/session/drawdown.py`, switched by the book json's `risk.drawdown`): each
+decide records the drawdown against them and acts on nothing. The sleeves'
+`risk_check` still return OK unconditionally and nothing calls them. Arming
+(an acting mode) is a later ruling (`docs/RUNNER.md`, "As built (2026-10-19)").
+Do not quietly change the numbers: decide them with a memo, separately from arming.
 
 ## The kill rule is pre-committed
 

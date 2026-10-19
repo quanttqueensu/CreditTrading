@@ -64,13 +64,15 @@ off at 99% was live at **0.99% — the tightest in the book** — and breached a
 bp vs percent vs fraction at every boundary, and ÷252 vs ÷360 on anything that
 accrues.
 
-## Keys that are declared but wired to nothing
+## Keys that are read but not acted on
 
-`kill_drawdown` (0.18) and `halve_drawdown` (0.12) are in the frozen spec and read
-by **no code path**. All three sleeves' `risk_check` return OK unconditionally.
-This was justified in writing by "there is no real capital at risk" — a
-justification on a clock, and the standing decision is to arm HALVE/KILL on
-broker-confirmed NAV.
+`kill_drawdown` (0.18) and `halve_drawdown` (0.12) are in the frozen spec. Until
+2026-10-19 no code path read them. Since then the runner reads them in **report
+mode only** (`quantt/session/drawdown.py`; the book json's `risk.drawdown`): every
+decide records the drawdown against them, and nothing acts. The sleeves'
+`risk_check` still return OK unconditionally, and nothing calls them. The standing
+decision is to arm HALVE/KILL on broker-confirmed NAV; an acting mode is a later
+ruling (`docs/RUNNER.md`, "As built (2026-10-19)").
 
 **Do not quietly change these numbers.** Wire them, then decide the numbers with a
 memo. Changing a number that nothing reads is theatre; changing it *as* you wire it

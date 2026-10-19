@@ -460,6 +460,20 @@ the replays behind the redesign are `docs/REFERENCES.md` §12s.
 | The XASSET slate | **Approved at revision 3, with X5 withdrawn: N = 4.** The bar is √(2 ln 4) = 1.665 |
 | The CRSP values in a pushed log | **Leave git history as it is.** The 11 dated differences in commit `225f459` are not printed by the script any more; public history is not rewritten |
 
+### Team lead, 2026-10-19 — HALVE/KILL in report mode
+
+The frozen spec's two drawdown lines were read by no code on the Alpaca path,
+and the runner never called `risk_check`
+(`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §1 item 4, re-verified
+2026-10-19). The design is `docs/RUNNER.md`, "As built (2026-10-19): the drawdown
+check".
+
+| question | decision |
+|---|---|
+| HALVE/KILL on the Alpaca runner | **Report mode first.** Every decide measures the drawdown from the high-water mark against `risk.halve_drawdown` / `risk.kill_drawdown` (read from the frozen spec, never a literal) and records it, with what an acting mode would do. It changes no order. This wires the 2026-09-08 "arm HALVE/KILL on broker-confirmed NAV" decision without arming it; arming (an acting mode) is a later ruling |
+| Which equity series | **Alpaca's end-of-day portfolio history (1D), the official daily P&L**, in `<state>/eod_equity.csv`. Not `equity.csv`, whose after-hours snapshots can set a false high-water mark. Absent or unreadable is UNMEASURED; never a fallback |
+| How it is switched | A runner setting in the book json (`risk.drawdown`: absent off, `report`). Which mode is set is that file, not this one. An acting mode is not built, and setting one raises |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -504,3 +518,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-12 | §2's IC row corrected to the wide set, the deployed IC added under conditional (W4); §5 records the 2026-10-12 rulings. | for the team lead |
 | 2026-10-14 | §5 records the release-20261014-1 install, the C5, C4 and XASSET (N = 4) approvals, and the ruling to leave git history alone. | for the team lead |
 | 2026-10-13 | §5 records the stale-NAV ruling ("Use CEFConnect, else drop") and, the same day, its redesign: defer and hold instead of drop; report mode first. | for the team lead |
+| 2026-10-19 | §5 records the HALVE/KILL report-mode ruling and the official equity series it reads. | for the team lead |
