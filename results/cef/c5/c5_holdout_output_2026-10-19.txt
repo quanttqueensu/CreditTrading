@@ -1,0 +1,75 @@
+# python3 scripts/cef/c5_open_auction.py holdout  (run 2026-10-19; stage 8, opened once, with the D-5 repair ruled by the team lead on 2026-10-19; frozen inputs of 2026-10-15)
+C5 (CEF trial 51) STAGE 8, THE HOLDOUT 2023-01-03 .. 2026-09-30, run 2026-10-19 15:13Z. Opened once; it can kill, never rescue. The fit verdict stands: KILL D1 (stage 2b: artefact control)
+frozen holdout inputs verified (8 files, results/cef/c5/c5_holdout_inputs_2026-10-15.json); holdout D-6 replacements: 0
+H (WIDE) to 2022-12-30 from the holdout copy equals the fit's H exactly: True
+H (deployed) to 2022-12-30 from the holdout copy equals the fit's H exactly: True
+
+====================================================================================================
+STAGE 8 DATA: THE SECOND SOURCE IS THE FREEZE'S (re-derived before it is used)
+====================================================================================================
+2023: {'two_sources': 3250, 'cc_windows_disagree': 0} against the committed freeze record {'two_sources': 3250, 'cc_windows_disagree': 0}
+2024: {'two_sources': 3276, 'cc_windows_disagree': 0} against the committed freeze record {'two_sources': 3276, 'cc_windows_disagree': 0}
+2025: {'two_sources': 1156, 'cc_windows_disagree': 0} against the committed freeze record {'two_sources': 1156, 'cc_windows_disagree': 0}
+2026: {'two_sources': 2388, 'cc_windows_disagree': 0} against the committed freeze record {'two_sources': 2388, 'cc_windows_disagree': 0}
+
+====================================================================================================
+STAGE 8 DATA: §4.2's classes on the holdout, with the D-5 repair ruled by the team lead on 2026-10-19
+====================================================================================================
+WIDE: material trade name-days 4,858; D-1 0 (0.00%, 0.00% of notional); D-3 0; D-5 as counted on 2026-10-15 9, resolved by the repair 9, remaining 0 (0.00%; halt above 0.1%); small-trade name-days repaired 3
+deployed: material trade name-days 3,129; D-1 0 (0.00%, 0.00% of notional); D-3 0; D-5 as counted on 2026-10-15 9, resolved by the repair 9, remaining 0 (0.00%; halt above 0.1%); small-trade name-days repaired 3
+D-5 repair (team lead, 2026-10-19): holdout name-days with no panel close 16; filled with the NYSE closing print (two agreeing sources) 16; left unfilled 0
+    {'date': '2026-02-12', 'ticker': 'PCN', 'WIDE_trade': 'small', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-12', 'ticker': 'PDI', 'WIDE_trade': 'material', 'deployed_trade': 'small', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-12', 'ticker': 'PDO', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-12', 'ticker': 'PFN', 'WIDE_trade': 'small', 'deployed_trade': 'small', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-12', 'ticker': 'PHK', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-12', 'ticker': 'PTY', 'WIDE_trade': 'material', 'deployed_trade': 'small', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-13', 'ticker': 'BIT', 'WIDE_trade': '-', 'deployed_trade': '-', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-13', 'ticker': 'HYT', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-13', 'ticker': 'JFR', 'WIDE_trade': 'small', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-02-18', 'ticker': 'DSL', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-03-18', 'ticker': 'DSL', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-09-15', 'ticker': 'BIT', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-09-15', 'ticker': 'HYT', 'WIDE_trade': '-', 'deployed_trade': '-', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-09-15', 'ticker': 'JFR', 'WIDE_trade': 'material', 'deployed_trade': 'material', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-09-15', 'ticker': 'MHD', 'WIDE_trade': '-', 'deployed_trade': '-', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+    {'date': '2026-09-15', 'ticker': 'MQY', 'WIDE_trade': '-', 'deployed_trade': '-', 'second_source': 'CEFConnect', 'has_O': True, 'has_Q': True, 'd3_testable': False}
+D-2: 0 of 11825 name-days with both O and Q; D-3 (all name-days): 0; O outside the day's range with no CRSP openprc to test D-3 against (2025-26, CRSP ends 2024): 0 name-days, reported, not classified. A repaired name-day has no panel open or range, so D-3 cannot be tested on it (d3_testable above)
+
+====================================================================================================
+STAGE 8: THE HOLDOUT SIGN RULE (§7) -- KILL D3 if the holdout mean of G has the opposite sign to the fit's
+====================================================================================================
+G, WIDE, holdout                               mean   +313.6bp/yr  SR  +2.12  t(NW21)  +4.66  t(NW5)  +4.57  t(NW auto L=8)  +4.68  per unit turnover  +7.12bp
+fit mean +293.0bp/yr (SR +1.16); holdout mean +313.6bp/yr over 939 sessions; signs AGREE
+stationary bootstrap (block 21, 10,000, seed 20261013) 95% CI: mean +190.5 .. +444.4bp/yr; Sharpe +1.38 .. +2.99
+probability of the observed sign if the fit's Sharpe were true: 0.987
+STAGE 8: PASS (signs agree). It cannot rescue: the trial's verdict stays KILL D1 (stage 2b: artefact control)
+
+====================================================================================================
+BESIDE THE RULE, NEVER DECIDING
+====================================================================================================
+G, deployed set, holdout                       mean   +298.5bp/yr  SR  +1.66  t(NW21)  +3.70  t(NW5)  +3.73  t(NW auto L=3)  +3.63  per unit turnover  +6.60bp
+G (WIDE) by year, bp/yr: 2023 +257.7 (250); 2024 +258.8 (252); 2025 +372.2 (250); 2026 +383.8 (187)
+
+====================================================================================================
+BESIDE: WHAT THE D-5 REPAIR CONTRIBUTES (never deciding)
+====================================================================================================
+WIDE: repaired name-days add +2.01bp/yr (material trades) and +0.03bp/yr (small trades) to G's mean
+   G (WIDE), every repaired name-day at gain 0    mean   +311.5bp/yr  SR  +2.10  t(NW21)  +4.65  t(NW5)  +4.55  t(NW auto L=8)  +4.66
+   G (WIDE), small-trade name-days not repaired   mean   +313.6bp/yr  SR  +2.12  t(NW21)  +4.66  t(NW5)  +4.57  t(NW auto L=8)  +4.68
+deployed: repaired name-days add +0.95bp/yr (material trades) and -0.04bp/yr (small trades) to G's mean
+   G (deployed), every repaired name-day at gain 0 mean   +297.6bp/yr  SR  +1.65  t(NW21)  +3.71  t(NW5)  +3.72  t(NW auto L=3)  +3.62
+   G (deployed), small-trade name-days not repaired mean   +298.5bp/yr  SR  +1.66  t(NW21)  +3.70  t(NW5)  +3.73  t(NW auto L=3)  +3.63
+
+====================================================================================================
+THE BOOKS OVER THE HOLDOUT: GROSS HEADLINE; NET AT 5/15/30bp PER UNIT OF ONE-WAY TURNOVER BESIDE IT
+====================================================================================================
+Total returns, no borrow (charged separately in the fit; identical for both fills). s_open is the fit's measured open-versus-close surcharge, 6.52bp, read from results/cef/c5/C5_FIT_VERDICT.json; a stress that double counts (§6).
+book (holdout rows)                          grossSR   ann%   vol% turn/yr   net@5  net@15  net@30  flips?
+WIDE: MOC fill (the deployed fill)              2.42  12.70   5.25   44.06    2.00    1.16   -0.10     YES
+WIDE: C5 open fill                              2.96  15.83   5.35   44.06    2.55    1.72    0.49      no
+WIDE: C5, + s_open 6.52bp                       2.42  15.83   5.35   44.06    2.01    1.19   -0.05     YES
+deployed: MOC fill (the deployed fill)          1.87  10.28   5.51   45.24    1.46    0.63   -0.60     YES
+deployed: C5 open fill                          2.35  13.26   5.63   45.24    1.95    1.15   -0.05     YES
+deployed: C5, + s_open 6.52bp                   1.83  13.26   5.63   45.24    1.43    0.63   -0.58     YES
+G itself: the two fills share one H and so one turnover (44.06/yr), so G is the same at every grid point: +313.6bp/yr gross = net@5 = net@15 = net@30; the grid cannot flip it. G less s_open x turnover: +26.5bp/yr
