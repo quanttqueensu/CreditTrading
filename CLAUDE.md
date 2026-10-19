@@ -240,7 +240,10 @@ at tag `pre-clean-slate` under `pre-clean-slate:_archive/claude_layer/`.)
 
 Subagents: `alpha-finder`, `beta-detector`, `unique-angle-researcher`,
 `execution-trader`, `portfolio-manager`, `market-structure-analyst`,
-`equity-research`, `quant-reviewer`.
+`equity-research`, `quant-reviewer`. The event desk's seats (2026-10-19):
+`event-scout`, `filings-analyst`, `deal-analyst`, `credit-situations-analyst`,
+`data-librarian`, `event-econometrician`; the saved workflow `ss-census` chains
+them from screen to a zero-trial gate verdict.
 
 **Options are closed, except through one pre-registered standalone short-premium
 test (team lead, 2026-10-09), and that is recorded rather than remembered**:
