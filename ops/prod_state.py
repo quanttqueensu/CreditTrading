@@ -223,9 +223,10 @@ def equity_row(header_line: str, last_line: str, where: str) -> dict:
     """The last equity.csv row, by the file's OWN header.
 
     The collector writes it (`quantt/collect/collect.py`, step
-    account_snapshot): Alpaca's account equity at D's close, read after the
-    close. That makes it the broker-confirmed figure, unlike the probe
-    snapshot. The columns are read from the header, not assumed, so a reordered
+    account_snapshot): Alpaca's account equity read after D's close. It is
+    the broker's own number, unlike the probe snapshot, but since 2026-10-19 it
+    is a SNAPSHOT, not the P&L of record: its marks can move after the close
+    (eod_equity.csv is the record, orient PNL). The columns are read from the header, not assumed, so a reordered
     or renamed file is a named gap instead of a confident wrong number.
     """
     cols = next(csv.reader([header_line]), [])
@@ -945,7 +946,12 @@ def measure(include_vm: bool = True, vm_timeout: float = VM_TIMEOUT_S,
 
 # ----------------------------------------------------------------- render --
 def equity_text(r: dict | None) -> str:
-    """`$101,181.06 at the 2026-10-07 close (broker-confirmed; <source>, read ...)`."""
+    """`$101,181.06 — snapshot read after the 2026-10-07 close (<source>, read ...)`.
+
+    A SNAPSHOT, not the P&L of record (team lead, 2026-10-19): equity.csv is
+    Alpaca's account equity read after the close, and its marks can move after
+    the close (`docs/REFERENCES.md` §12an). The official end-of-day series is
+    eod_equity.csv, shown in orient's PNL section."""
     if not isinstance(r, dict) or "value" not in r:
         return show(r)
     e = r["value"]
@@ -954,9 +960,10 @@ def equity_text(r: dict | None) -> str:
     except (TypeError, ValueError):
         amount = f"{e['equity']!r} (not a number)"
     age = trading_days_since(e.get("date"))
-    return (f"{amount} at the {e['date']} close — broker-confirmed (Alpaca account, "
+    return (f"{amount} — snapshot read after the {e['date']} close (Alpaca account, "
             f"{e['source']}" + (f", read {e['read_at_utc']}" if e.get("read_at_utc") else "")
-            + ")" + (f", {age} trading day(s) ago" if age is not None else ""))
+            + ")" + (f", {age} trading day(s) ago" if age is not None else "")
+            + "; official end-of-day P&L: PNL")
 
 
 def verify_text(r: dict | None) -> str:

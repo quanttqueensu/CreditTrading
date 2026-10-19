@@ -61,8 +61,8 @@ PROD ADDED 2026-10-08 (`docs/ROADMAP.md` 4.8). The rewrite above hard-coded
 trades". The book armed on 2026-09-29 and both lines stayed, because a string
 cannot notice it has become false. PROD now measures both prod machines (the
 laptop's launchd jobs and the Azure VM's systemd units) and says which one is
-armed; ALPACA takes live equity from the armed machine's broker-confirmed
-`equity.csv` and labels the probe snapshot with its age, since that snapshot is
+armed; ALPACA takes live equity from the armed machine's `equity.csv` (a
+snapshot read after the close; the P&L of record is PNL, 2026-10-19) and labels the probe snapshot with its age, since that snapshot is
 evidence of tradability and borrow on its date and of nothing else.
 
 PNL ADDED 2026-10-19. The team lead ruled that day that Alpaca's end-of-day
@@ -190,7 +190,8 @@ def alpaca() -> dict:
     The snapshot's account figures (equity, positions, orders) are kept in the
     JSON but NOT rendered: until 2026-10-08 the readout printed the
     2026-09-28 snapshot's equity beside the account as if it were today's.
-    Live equity is the armed prod's broker-confirmed `equity.csv` (PROD).
+    Live equity is the armed prod's `equity.csv` (PROD): a snapshot read after
+    the close. The P&L of record is the PNL section (2026-10-19).
     """
     from quantt.broker.alpaca_probe import BOOK_SPECS
     out = {"reproducer": "python3 -m quantt.broker.alpaca_probe   (snapshots; "

@@ -309,7 +309,8 @@ class TestProdIsMeasuredNotWritten:
                            PROD=_prod_section(_m("DRY", equity="1.00"),
                                               _m("ARMED", equity="222.22")))
         assert "live book" not in out and "nothing trades" not in out
-        assert "$222.22 at the 2026-01-06 close — broker-confirmed" in out
+        assert "$222.22 — snapshot read after the 2026-01-06 close" in out
+        assert "close — broker-confirmed" not in out     # the 2026-10-19 ruling: a snapshot
         assert "99999.99" not in out and "99,999.99" not in out
         assert "snapshot 2026-09-28, 10 day(s) old — tradability/borrow only" in out
 

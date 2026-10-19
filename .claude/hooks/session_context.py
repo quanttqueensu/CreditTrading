@@ -10,7 +10,7 @@ and again 2026-10-08, because the 09-28 version printed "NO LIVE BOOK ...
 Nothing trades" from a constant for nine days after the book armed
 (`docs/ROADMAP.md` 4.8). It now prints `book_state.collect()`, which is
 `ops.prod_state`: which machine is prod, whether it is armed, its tag, its last
-verify verdict and the broker-confirmed equity, and a WARNING first if two
+verify verdict and the equity snapshot (official P&L: orient PNL), and a WARNING first if two
 machines are armed for the one Alpaca account.
 
 The principle from the IBKR banner stands, in both directions: say plainly
@@ -95,8 +95,9 @@ def prod_lines(s: dict) -> list:
                     amount = f"${float(e.get('equity')):,.2f}"
                 except (TypeError, ValueError):
                     amount = f"{e.get('equity')!r} (not a number)"
-                out.append(f"  Live equity {amount} at the {e.get('date')} close "
-                           f"(broker-confirmed, the {SHORT[v['prod']]}'s equity.csv).")
+                out.append(f"  Live equity {amount}: snapshot read after the {e.get('date')} "
+                           f"close (the {SHORT[v['prod']]}'s equity.csv); official end-of-day "
+                           f"P&L: python3 -m ops.orient PNL.")
             else:
                 out.append(f"  Live equity: {_reading(eq)} (the {SHORT[v['prod']]}'s equity.csv).")
     for c in v.get("cautions") or []:

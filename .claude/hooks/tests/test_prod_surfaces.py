@@ -74,7 +74,8 @@ class TestBanner:
     def test_laptop_armed(self, monkeypatch, capsys, book_state):
         out, _ = _banner(monkeypatch, capsys, book_state, _m("ARMED"), _m("DRY"))
         assert "Prod is the laptop: ARMED" in out
-        assert "Live equity $222.22 at the 2026-01-06 close (broker-confirmed" in out
+        assert "Live equity $222.22: snapshot read after the 2026-01-06 close" in out
+        assert "broker-confirmed" not in out             # the 2026-10-19 ruling: a snapshot
         assert "NO LIVE BOOK" not in out
 
     def test_laptop_disarmed(self, monkeypatch, capsys, book_state):
