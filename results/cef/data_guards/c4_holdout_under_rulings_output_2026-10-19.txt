@@ -1,0 +1,4 @@
+cef_discount.v7.20260928; band 0.048, gross cap 1.8; C4 cache read from the --cache directory
+ruled actions equal the committed cache: True
+[book_as_is (repro_bar_rulings.json)] 939 sessions; max |P - committed P| = 0; gross SR 0.725, ann +5.20%, vol 7.18%, turn 49.2; net @5 0.382 @15 -0.304 @30 -1.332; flips: YES
+[rebase, the verdict (c4_bar_rulings_2026-10-19.json)] 939 sessions; max |P - committed P| = 0.041; gross SR 1.434, ann +8.12%, vol 5.66%, turn 49.2; net @5 0.999 @15 +0.130 @30 -1.174; flips: YES

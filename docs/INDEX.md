@@ -39,7 +39,9 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `.claude/rules/*.md` | desk | path-scoped rules loaded when matching files are opened | `ops.doc_audit` |
 | `.claude/skills/*/SKILL.md` | desk | one workflow each | `ops.doc_audit` (desk inventory) |
 | `.claude/agents/*.md` | desk | one specialist seat each | `ops.doc_audit` (desk inventory) |
+| `results/cef/DATA_GUARDS_2026-10-19.md` | reference | the research-path data guards every trial inherits (split-like spike-and-revert bars raise; Stage-0 flags block P&L until ruled), their rules, and what they found and touched | `scripts/cef/tests/test_data_guards.py` |
 
 **Not indexed, by design:** `results/**` (dated records, each true as of its date;
-`ops.doc_audit` checks their pre-registration shape) and runtime output written
+`ops.doc_audit` checks their pre-registration shape; the one exception above is
+indexed because it defines guards every later trial inherits) and runtime output written
 rather than authored — `results/ops/alpaca_probe/` and `ops/HALT*.md`.

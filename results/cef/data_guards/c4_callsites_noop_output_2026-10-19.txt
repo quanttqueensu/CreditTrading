@@ -1,0 +1,53 @@
+C4 call sites of yf_total_returns, old formula against the guarded one; rulings c4_bar_rulings_2026-10-19.json
+[stage0 primary_returns, pool]: 5470 sessions x 105 funds, 2005-01-03..2026-09-30
+   sha256 old e4ba53161d547afc  guarded 692f4f9ad4221927  -> DIFFER; 8 cell(s) differ; with IGR's 8 touched cells masked: 0b5575928ea73a74 vs 0b5575928ea73a74 -> IDENTICAL
+      2026-07-29 IGR: +2.000000 -> +0.000000
+      2026-07-30 IGR: -0.667368 -> -0.002105
+      2026-08-04 IGR: +2.006424 -> +0.002141
+      2026-08-05 IGR: -0.665954 -> +0.002137
+      2026-08-07 IGR: +2.019231 -> +0.006410
+      2026-08-10 IGR: -0.669498 -> -0.008493
+      2026-08-11 IGR: +1.980728 -> -0.006424
+      2026-08-12 IGR: -0.663793 -> +0.008621
+   without a rulings file it raises: yf_total_returns: 4 split-like spike-and-revert bar(s) with no recorded ruling (no rulings file): (IGR, 2026-07-29, ratio 3.000, factor 3, 1 bar(s), reverts 2026-07-30, NAV ratio 1.000); (IGR, 2026-08-04, ratio 3.006, factor 3, 1 bar(s), reverts 2026-08-05, NAV ratio 1.000); (IGR, 2026-08-07, ratio 3.019, factor 3, 1 bar(s), rev...
+[fit R-yf, pool, fit window]: 4531 sessions x 105 funds, 2005-01-03..2022-12-30
+   sha256 old 98ab75afcfb14034  guarded 98ab75afcfb14034  -> IDENTICAL; 0 cell(s) differ; with IGR's 8 touched cells masked: 98ab75afcfb14034 vs 98ab75afcfb14034 -> IDENTICAL
+[holdout assemble(ruled), 81 funds]: 5470 sessions x 81 funds, 2005-01-03..2026-09-30
+   sha256 old 8ffd9fb5b46dc64b  guarded aa0bb2b9797bac87  -> DIFFER; 8 cell(s) differ; with IGR's 8 touched cells masked: 2f3418ff68fa52f1 vs 2f3418ff68fa52f1 -> IDENTICAL
+      2026-07-29 IGR: +2.000000 -> +0.000000
+      2026-07-30 IGR: -0.667368 -> -0.002105
+      2026-08-04 IGR: +2.006424 -> +0.002141
+      2026-08-05 IGR: -0.665954 -> +0.002137
+      2026-08-07 IGR: +2.019231 -> +0.006410
+      2026-08-10 IGR: -0.669498 -> -0.008493
+      2026-08-11 IGR: +1.980728 -> -0.006424
+      2026-08-12 IGR: -0.663793 -> +0.008621
+[holdout assemble(uncorrected), 81 funds]: 5470 sessions x 81 funds, 2005-01-03..2026-09-30
+   sha256 old 3d554561f5d0e65a  guarded 230a2be05fa33bd4  -> DIFFER; 8 cell(s) differ; with IGR's 8 touched cells masked: f252770a307e24c8 vs f252770a307e24c8 -> IDENTICAL
+      2026-07-29 IGR: +2.000000 -> +0.000000
+      2026-07-30 IGR: -0.667368 -> -0.002105
+      2026-08-04 IGR: +2.006424 -> +0.002141
+      2026-08-05 IGR: -0.665954 -> +0.002137
+      2026-08-07 IGR: +2.019231 -> +0.006410
+      2026-08-10 IGR: -0.669498 -> -0.008493
+      2026-08-11 IGR: +1.980728 -> -0.006424
+      2026-08-12 IGR: -0.663793 -> +0.008621
+[holdout assemble(R-ADX), 81 funds]: 5470 sessions x 81 funds, 2005-01-03..2026-09-30
+   sha256 old ebbcf3c7ddf6f43d  guarded 499bafc091e54285  -> DIFFER; 8 cell(s) differ; with IGR's 8 touched cells masked: 5e38feba03039b39 vs 5e38feba03039b39 -> IDENTICAL
+      2026-07-29 IGR: +2.000000 -> +0.000000
+      2026-07-30 IGR: -0.667368 -> -0.002105
+      2026-08-04 IGR: +2.006424 -> +0.002141
+      2026-08-05 IGR: -0.665954 -> +0.002137
+      2026-08-07 IGR: +2.019231 -> +0.006410
+      2026-08-10 IGR: -0.669498 -> -0.008493
+      2026-08-11 IGR: +1.980728 -> -0.006424
+      2026-08-12 IGR: -0.663793 -> +0.008621
+
+[fit R-yf row rebuilt on the guarded code] gross SR 1.1313875528636077 net@15 0.21370778384596334; committed 1.1313875528636077 0.2137077838459633 -> EQUAL on sr, ann, turn and the three net columns to 1e-12 (the CSV keeps 16 digits)
+
+[a second defect class, NOT guarded] a recorded split applied to a close yfinance had already split-adjusted: the formula books k again. In the fit window (pool):
+   BTO 2008-12-30: k 0.2500, raw close ratio 1.0130, booked -0.7468; held weight +0.00069
+   TYG 2020-05-01: k 0.2500, raw close ratio 0.9312, booked -0.7672; not in the 74 (R-yf books the 74)
+   NXG 2020-06-15: k 0.2500, raw close ratio 1.0051, booked -0.7487; held weight +0.00000
+   EMO 2020-07-28: k 0.2000, raw close ratio 0.9852, booked -0.8030; held weight -0.00237
+   R-yf with k not applied on those three 74-fund days: gross SR 1.130 (committed 1.131), net@15 0.212 (0.214), net@30 -0.705 (-0.704). The CRSP primary return is not affected.
