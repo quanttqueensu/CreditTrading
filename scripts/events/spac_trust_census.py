@@ -4,6 +4,7 @@
     python3 scripts/events/spac_trust_census.py            # fetch what is not cached, then build
     python3 scripts/events/spac_trust_census.py --offline  # rebuild from the caches only
     python3 scripts/events/spac_trust_census.py --frozen   # keep the cached snapshot; fetch only what is missing
+    python3 scripts/events/spac_trust_census.py --ibkr     # the gate re-run on IBKR's terms (2026-10-19); public files only
 
 WHY THIS EXISTS (team lead, special-situations sprint, job 4 of 6, 2026-10-15)
 -----------------------------------------------------------------------------
@@ -77,6 +78,18 @@ WHAT IS NOT CLAIMED
   redemption deadline before it; its unredeemed shares ride the merger. It is
   kept in the CSV and out of the `redeemable_pool` every statistic uses
   (measured 2026-10-18: five such SPACs traded 13-52% below trust).
+
+THE IBKR GATE (`--ibkr`, added 2026-10-19)
+-----------------------------------------
+Team lead ruling 2026-10-19: SPAC redemptions go through IBKR (opened as a
+second broker, equities only), and the gate is re-run on IBKR's terms. The
+`--ibkr` mode does NOT rebuild the census. It reads the census's committed
+outputs (`LIVE_CSV`, `YEARS_CSV`, the 2026-10-15 snapshot) and two PUBLIC IBKR
+files, and adds: which live SPACs IBKR lists (`ibkr_match`), the yield after
+IBKR's commission and its USD 100 SPAC-redemption fee at a grid of ticket
+sizes (`ibkr_net_terms`), the capacity that repays the fee, and the number of
+elections a year (`ibkr_election_load`). It opens no EDGAR client, no broker
+connection and reads no credentials. See `results/events/SPAC_IBKR_2026-10-19.md`.
 """
 from __future__ import annotations
 
@@ -1812,6 +1825,461 @@ def hist_splits(levels: pd.DataFrame) -> dict:
     return out
 
 
+# ------------------------------------------------------------------ IBKR gate (added 2026-10-19)
+#
+# WHY THIS SECTION EXISTS. The 2026-10-15 census stopped at G-S1 because
+# Alpaca does not document a SPAC-redemption election. The team lead ruled on
+# 2026-10-19 that redemptions go through IBKR. IBKR's own FAQ "How do I request
+# a Special Purpose Acquisition Company (SPAC) redemption?" (read 2026-10-19,
+# docs/REFERENCES.md §12ag) documents the channel (Client Portal, Corporate
+# Actions Manager) and says "A SPAC redemption request is subjected to 100 USD
+# processing fee". IBKR's fee table lists "All Other (Mandatory, Voluntary,
+# With Options, etc) | Free" and, separately, DWAC "USD 100 per settled
+# transaction". The two IBKR pages disagree on whether a voluntary election is
+# free; the SPAC-specific FAQ is used (USD 100), and whether the DWAC fee is
+# charged ON TOP is unknown, so it is a separate fee case (USD 200), never
+# averaged in. Every fee below is re-read from IBKR before any trade.
+
+IBKR_DATE = "2026-10-19"
+IBKR_LIVE_CSV = OUT / f"spac_ibkr_gate_live_{IBKR_DATE}.csv"
+IBKR_SUMMARY_JSON = OUT / f"spac_ibkr_gate_summary_{IBKR_DATE}.json"
+# The public "Products and Exchange Search" page calls this endpoint without a
+# login (read from its own script, /products.exchanges.search/index.js, 2026-10-19).
+IBKR_PRODUCTS_URL = "https://www.interactivebrokers.com/webrest/search/products-by-exchangeId-productType"
+IBKR_PRODUCTS_REFERER = "https://www.interactivebrokers.com/en/trading/products-exchanges.php"
+IBKR_SHORTSTOCK_URL = "https://www.interactivebrokers.com/shortstock/usa.txt"
+IBKR_EXCHANGES = ("NASDAQ", "NYSE", "AMEX")   # where the census found every live tradable common (Alpaca labels)
+IBKR_PAGE_SIZE = 500
+IBKR_REQUEST_GAP_S = 1.0                       # one request a second: a public web page's endpoint, not an API
+
+IBKR_SPAC_REDEMPTION_FEE_USD = 100.0   # FAQ 160415308: "subjected to 100 USD processing fee"
+IBKR_DWAC_FEE_USD = 100.0              # fee table and FAQ 28216616: "USD 100.00 fee is charged per DWAC settlement"
+# Fee cases, each reported beside the others (never one blended number):
+#   liquidation: the SPAC liquidates at its deadline, a mandatory action, no election;
+#   vote: a holder election at a deal or extension vote (the SPAC FAQ's fee);
+#   vote_dwac_stacked: the same, if the DWAC settlement fee is charged as well [U].
+IBKR_FEE_CASES = {"liquidation": 0.0, "vote": IBKR_SPAC_REDEMPTION_FEE_USD,
+                  "vote_dwac_stacked": IBKR_SPAC_REDEMPTION_FEE_USD + IBKR_DWAC_FEE_USD}
+# IBKR Pro Fixed, US stocks (commissions-stocks.php, read 2026-10-19): USD 0.005
+# a share, minimum USD 1.00, maximum 1% of trade value. Fixed carries regulatory
+# fees only; on a BUY that is FINRA's CAT fee (USD 0.000003 x quantity). There is
+# no sale: the exit is the redemption, so the SEC fee on sales does not arise.
+IBKR_FIXED_PER_SHARE = 0.005
+IBKR_FIXED_MIN_USD = 1.00
+IBKR_FIXED_MAX_FRAC = 0.01
+FINRA_CAT_PER_SHARE = 0.000003
+# "The redemption payment is typically paid to the account within 1-3 weeks"
+# (FAQ 160415308): the capital is idle for that long. 0 and 21 days are shown.
+IBKR_PAYMENT_LAG_DAYS = (0, 21)
+IBKR_TICKETS_USD = (2_500, 5_000, 10_000, 25_000, 50_000, 100_000)   # a grid, not a choice: sizing is G-S3
+# EDGAR state-of-incorporation codes -> the ISIN country prefix they imply.
+# Used only as a cross-check that IBKR's contract is the SPAC's own share.
+_DOMICILE_ISIN = {"E9": "KY", "D8": "VG"}
+_US_STATES = frozenset("AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH "
+                       "NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split())
+
+
+def ibkr_fixed_commission(shares: int, price: float) -> float:
+    """IBKR Pro Fixed commission on one US stock order: 0.005/share, min 1.00, max 1% of value."""
+    if not (shares >= 1 and price > 0):
+        raise ValueError(f"shares {shares} and price {price}: an order needs at least one share at a positive price")
+    value = shares * price
+    return min(max(IBKR_FIXED_PER_SHARE * shares, IBKR_FIXED_MIN_USD), IBKR_FIXED_MAX_FRAC * value)
+
+
+def ibkr_net_terms(price: float, days: int, gross_yield: float, tbill_now: float, ticket_usd: float,
+                   fee_usd: float, lag_days: int = 0, grid_bp: float = 0.0) -> dict:
+    """Annualised yield and spread over bills after IBKR's costs, for ONE position held to `days`.
+
+    `gross_yield` is a census yield to the next deadline, annualised simply
+    (`yield_total_next` [model] or `yield_next`, no further interest). The
+    position buys floor(ticket / price) whole shares (whole shares only, as
+    at Alpaca), pays the Fixed commission, the CAT fee, `fee_usd` at the exit
+    and the desk's `grid_bp` (spread and impact, H3) on the buy. The cash
+    comes back `lag_days` after the deadline, earning nothing meanwhile.
+
+        M        = 1 + gross_yield * days / 365            gross multiple to the deadline
+        net_mult = M - costs / value
+        net      = (net_mult - 1) * 365 / (days + lag)
+        spread   = net - tbill_now
+
+    With no commission, no fee and no lag this is exactly the census grid
+    (`live_splits.grid`): gross - grid_bp * 365 / days. Raises on a ticket
+    below one share's price (no position, not a zero) or a passed deadline.
+    """
+    if not (price > 0 and days > 0 and ticket_usd > 0 and fee_usd >= 0 and lag_days >= 0):
+        raise ValueError(f"price {price}, days {days}, ticket {ticket_usd}, fee {fee_usd}, lag {lag_days}")
+    shares = int(ticket_usd // price)
+    if shares < 1:
+        raise ValueError(f"ticket {ticket_usd} buys no whole share at {price}")
+    value = shares * price
+    costs = ibkr_fixed_commission(shares, price) + FINRA_CAT_PER_SHARE * shares + fee_usd + grid_bp / 1e4 * value
+    net_mult = 1.0 + gross_yield * days / 365.0 - costs / value
+    net = (net_mult - 1.0) * 365.0 / (days + lag_days)
+    return {"shares": shares, "value": value, "costs_usd": costs, "net": net, "spread": net - tbill_now}
+
+
+def ibkr_breakeven_ticket(price: float, days: int, gross_yield: float, tbill_now: float, fee_usd: float,
+                          lag_days: int = 0, grid_bp: float = 0.0, hi: float = 1e7) -> float | None:
+    """Smallest ticket (USD, to the share) at which the net SPREAD over bills is >= 0, or None if none <= `hi`.
+
+    The spread rises with the ticket (the fixed fee is spread over more
+    dollars), so a bisection on the share count is exact up to one share.
+    """
+    def ok(n):
+        return ibkr_net_terms(price, days, gross_yield, tbill_now, n * price, fee_usd, lag_days, grid_bp)["spread"] >= 0
+    lo_n, hi_n = 1, int(hi // price)
+    if hi_n < 1 or not ok(hi_n):
+        return None
+    if ok(lo_n):
+        return lo_n * price
+    while hi_n - lo_n > 1:
+        mid = (lo_n + hi_n) // 2
+        lo_n, hi_n = (lo_n, mid) if ok(mid) else (mid, hi_n)
+    return hi_n * price
+
+
+def _ibkr_post(url: str, payload: dict) -> dict:
+    import urllib.request
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", "Referer": IBKR_PRODUCTS_REFERER,
+                                          "User-Agent": "Mozilla/5.0 (research census)"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        if r.status != 200:
+            raise CensusError(f"IBKR listing {payload.get('exchangeId')} page {payload.get('pageNumber')}: HTTP {r.status}")
+        return json.loads(r.read())
+
+
+def ibkr_listing(asof: str, offline: bool) -> pd.DataFrame:
+    """IBKR's public listing of US stocks on each exchange in IBKR_EXCHANGES (cached per date).
+
+    One row per (exchange list, symbol, conid). IBKR's per-exchange STK list
+    is wider than the primary listings (NYSE and AMEX each list ~7,100 STK,
+    Nasdaq ~4,000 on 2026-10-19), so `isPrimeExchId` == 'T' marks the primary
+    exchange. The page count is checked against `productCount`; a short page
+    raises. ISIN and CUSIP are read for the cross-check but never written to a
+    tracked file (CUSIPs are licensed identifiers; this repository is public).
+    """
+    import time
+    p = CACHE / f"ibkr_listing_{asof}.json"
+    if p.exists():
+        pages = json.loads(p.read_text())
+    elif offline:
+        raise CensusError(f"offline and {p.name} is not cached")
+    else:
+        pages = {}
+        for ex in IBKR_EXCHANGES:
+            got, n, pg = [], None, 1
+            while n is None or len(got) < n:
+                d = _ibkr_post(IBKR_PRODUCTS_URL, {"domain": "com", "exchangeId": ex, "pageNumber": pg,
+                                                   "pageSize": IBKR_PAGE_SIZE, "productType": ["STK"],
+                                                   "sortDirection": "asc", "sortField": "symbol"})
+                n = int(d["productCount"])
+                rows = d.get("products") or []
+                if not rows and len(got) < n:
+                    raise CensusError(f"IBKR {ex} page {pg} is empty with {len(got)} of {n} read")
+                got += rows
+                pg += 1
+                time.sleep(IBKR_REQUEST_GAP_S)
+            pages[ex] = {"read_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                         "productCount": n, "products": got}
+        CACHE.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(pages))
+    rows = []
+    for ex, blk in pages.items():
+        if len(blk["products"]) != blk["productCount"]:
+            raise CensusError(f"IBKR {ex}: {len(blk['products'])} rows read, productCount {blk['productCount']}")
+        for r in blk["products"]:
+            rows.append({"list": ex, "symbol": r["symbol"], "conid": int(r["conid"]), "type": r["type"],
+                         "exchange": r["exchangeId"], "primary": r.get("isPrimeExchId") == "T",
+                         "description": r.get("description") or "", "isin": r.get("isin") or "",
+                         "read_utc": blk["read_utc"]})
+    out = pd.DataFrame(rows)
+    if out.empty or (out["type"] != "STK").any():
+        raise CensusError("IBKR listing: empty, or a non-STK row in an STK request")
+    return out
+
+
+def parse_ibkr_shortstock_ids(text: str) -> tuple[pd.DataFrame, str]:
+    """IBKR's usa.txt -> (symbol, name, conid, isin) and the file stamp.
+
+    `g1a_shortability.parse_ibkr_shortstock` keeps fees and availability but
+    not the contract id, which is what a cross-check needs. Raises on a
+    missing header field or an unparsable conid, naming the symbol.
+    """
+    lines = text.splitlines()
+    if not lines or not lines[0].startswith("#BOF|"):
+        raise CensusError(f"IBKR shortstock: first line {lines[:1]} is not '#BOF|date|time'")
+    _, fdate, ftime = lines[0].split("|")[:3]
+    hdr = [h for h in lines[1].lstrip("#").split("|") if h]
+    for need in ("SYM", "NAME", "CON", "ISIN"):
+        if need not in hdr:
+            raise CensusError(f"IBKR shortstock header lacks {need}: {hdr}")
+    rows = []
+    for ln in lines[2:]:
+        if not ln.strip() or ln.startswith("#EOF"):
+            continue
+        d = dict(zip(hdr, ln.split("|")))
+        try:
+            rows.append({"symbol": d["SYM"], "name": d["NAME"], "conid": int(d["CON"]), "isin": d["ISIN"]})
+        except (KeyError, ValueError):
+            raise CensusError(f"IBKR shortstock row for {d.get('SYM')!r} will not parse") from None
+    return pd.DataFrame(rows), f"{fdate.replace('.', '-')} {ftime}"
+
+
+def ibkr_shortstock(asof: str, offline: bool) -> tuple[pd.DataFrame, str]:
+    p = CACHE / f"ibkr_shortstock_usa_{asof}.txt"
+    if not p.exists():
+        if offline:
+            raise CensusError(f"offline and {p.name} is not cached")
+        import urllib.request
+        req = urllib.request.Request(IBKR_SHORTSTOCK_URL, headers={"User-Agent": "Mozilla/5.0 (research census)"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            body = r.read()
+        CACHE.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(body)
+    return parse_ibkr_shortstock_ids(p.read_text(encoding="utf-8", errors="replace"))
+
+
+_UNIT_LIKE_RE = re.compile(r"-(?:UN|WT|WS|RT)$")
+
+
+def ibkr_candidate_symbols(symbol, tickers) -> list[str]:
+    """Symbols that could be the SPAC's common at IBKR, best first.
+
+    The census's Alpaca common symbol comes first. Then the EDGAR tickers,
+    with NYSE-style unit/warrant/right suffixes (-UN, -WT, -WS, -RT) cut back
+    to their base, and any ticker that is another ticker plus one letter
+    (U, W or R: the Nasdaq unit, warrant and right) dropped.
+    """
+    ts = [t for t in str(tickers).split(";") if t and t != "nan"] if isinstance(tickers, str) else []
+    bases = [_UNIT_LIKE_RE.sub("", t) for t in ts]
+    keep = [b for b in bases if not (len(b) > 1 and b[-1] in "UWR" and b[:-1] in bases)]
+    out = []
+    for c in ([symbol] if isinstance(symbol, str) and symbol else []) + keep:
+        if c not in out:
+            out.append(c)
+    return out
+
+
+_CLASS_SUFFIX_RE = re.compile(r"(?:[\s-]+CL(?:ASS)?)?[\s-]+[A-Z]$|[\s-]+CL(?:ASS)?[\s-]*[A-Z]$")
+
+
+def ibkr_name(desc: str) -> str:
+    """IBKR's description without its share-class tail ('-A', ' CL-A', ' CLASS A')."""
+    return _CLASS_SUFFIX_RE.sub("", (desc or "").upper()).strip()
+
+
+IBKR_PREFIX_MIN_CHARS = 12   # a truncated stem shorter than this ("SPAC PARTNER") proves nothing
+
+
+def ibkr_truncated_prefix(desc: str, name: str) -> bool:
+    """IBKR's description, class tail removed, is a truncation of the census name.
+
+    WHY: IBKR cuts long names at a fixed width and then appends the class
+    ("OAKTREE ACQUISITION CORP I-A" is Oaktree Acquisition Corp. III Life
+    Sciences; "CHENGHE ACQUISITION II-CL A" is Chenghe Acquisition III Co.).
+    A cut through a Roman numeral turns III into I, which `name_score`
+    reads as a different number. Measured 2026-10-19: 16 of the 288 listed
+    commons failed `name_score` and 15 of them are such truncations; this rule
+    was written AFTER seeing them, so the CSV records which rule admitted
+    each name (`name_rule`), and the other checks are reported beside it.
+    Letters and digits only are compared, so 'A SPAC III' meets 'ASPAC III'.
+    """
+    stem = re.sub(r"[^A-Z0-9]", "", ibkr_name(desc))
+    full = re.sub(r"[^A-Z0-9]", "", (name or "").upper())
+    return len(stem) >= IBKR_PREFIX_MIN_CHARS and full.startswith(stem)
+
+
+def ibkr_match(live: pd.DataFrame, listing: pd.DataFrame, shortstock: pd.DataFrame) -> pd.DataFrame:
+    """For each live SPAC: IBKR's contract for its common, and three checks on it.
+
+    `listed_ibkr`: an STK row in IBKR's listing with a candidate symbol.
+    Checks, each its own column, never folded into one flag:
+      name_ok        name_score(IBKR description without class tail, census name) >= LINK_MIN_SCORE
+                     ('tokens'), or the description is a truncation of the name
+                     ('truncated_prefix'); `name_rule` says which
+      conid_in_shortstock_agrees   the shortstock file carries the symbol with the same conid
+      isin_matches_domicile        the ISIN's country prefix is what EDGAR's state code implies
+    A symbol IBKR lists under two conids is `ambiguous` and is not chosen
+    between. `tradable_ibkr` = listed, one conid, name_ok. It is a listing,
+    not a promise that a given account may trade it (IBKR's permissions are
+    per account and are not public).
+    """
+    stk = listing.sort_values(["primary", "list"], ascending=[False, True])
+    by_sym = {s: g for s, g in stk.groupby("symbol", sort=False)}
+    ss = shortstock.drop_duplicates(["symbol", "conid"]).groupby("symbol")["conid"].apply(set).to_dict()
+    out = []
+    for r in live.itertuples():
+        cands = ibkr_candidate_symbols(getattr(r, "symbol", None), getattr(r, "tickers", None))
+        hit = next((c for c in cands if c in by_sym), None)
+        # An unlisted SPAC has zero IBKR contracts and no checks to report (None, not False).
+        row = {"cik": r.cik, "ibkr_candidates": ";".join(cands), "ibkr_symbol": hit, "listed_ibkr": hit is not None,
+               "ibkr_conid": None, "ibkr_n_conids": 0, "ibkr_primary_exchange": None, "ibkr_description": None,
+               "ibkr_name_score": None, "name_ok": None, "name_rule": None, "conid_in_shortstock_agrees": None,
+               "isin_matches_domicile": None}
+        if hit is not None:
+            g = by_sym[hit]
+            conids = sorted(g["conid"].unique())
+            first = g.iloc[0]
+            prim = g.loc[g["primary"], "exchange"].unique()
+            score = name_score(ibkr_name(first["description"]), r.name)
+            rule = ("tokens" if score >= LINK_MIN_SCORE
+                    else "truncated_prefix" if ibkr_truncated_prefix(first["description"], r.name) else None)
+            dom = getattr(r, "domicile", None)
+            want = _DOMICILE_ISIN.get(dom) or ("US" if dom in _US_STATES else None)
+            row |= {"ibkr_conid": int(conids[0]) if len(conids) == 1 else None, "ibkr_n_conids": len(conids),
+                    "ibkr_primary_exchange": prim[0] if len(prim) == 1 else (";".join(prim) if len(prim) else None),
+                    "ibkr_description": first["description"], "ibkr_name_score": round(score, 3),
+                    "name_ok": rule is not None, "name_rule": rule,
+                    "conid_in_shortstock_agrees": (bool(ss.get(hit) and len(conids) == 1 and conids[0] in ss[hit])
+                                                   if hit in ss else None),
+                    "isin_matches_domicile": (first["isin"][:2] == want) if (want and first["isin"]) else None}
+        out.append(row)
+    M = pd.DataFrame(out)
+    M["ambiguous"] = M["ibkr_n_conids"] > 1
+    M["tradable_ibkr"] = M["listed_ibkr"] & (M["ibkr_n_conids"] == 1) & M["name_ok"].map(lambda v: v is True)
+    return M
+
+
+def ibkr_election_load(years: pd.DataFrame, recent=(2024, 2025)) -> dict:
+    """How often the exit needs an election, from the census's own event counts (universe, by year).
+
+    Every redemption window is a vote: an extension vote, or the deal vote
+    before a completion. A liquidation needs no election. The share of
+    windows-or-liquidations that are votes is what fraction of exits taken at
+    the FIRST event need a USD 100 election; the share of terminal events
+    (completion vs liquidation) is the floor for a holder who skips every
+    extension window and holds to the end. Counts are floors where the census
+    says so (completions, §1.2).
+    """
+    y = years[years["year"].isin(recent)]
+    if len(y) != len(recent):
+        raise CensusError(f"years table lacks one of {recent}")
+    ext, comp, liq = (int(y[c].sum()) for c in ("extension_votes", "deals_completed", "liquidations"))
+    return {"years": list(recent), "extension_votes": ext, "deals_completed": comp, "liquidations": liq,
+            "share_first_event_is_vote": (ext + comp) / (ext + comp + liq),
+            "share_terminal_event_is_deal": comp / (comp + liq)}
+
+
+def ibkr_stage(asof: str, offline: bool) -> dict:
+    """The gate re-run on IBKR's terms. Reads the census's committed outputs; writes the IBKR CSV and JSON."""
+    D = pd.read_csv(LIVE_CSV, parse_dates=["deadline_next"])
+    years = pd.read_csv(YEARS_CSV)
+    live = D[D["status"] == "live"].copy()
+    listing = ibkr_listing(asof, offline)
+    ss, ss_stamp = ibkr_shortstock(asof, offline)
+    M = ibkr_match(live, listing, ss)
+    L = live.merge(M, on="cik", how="left", validate="one_to_one")
+
+    # The census's redeemable pool, restricted to commons that pass every IBKR listing check:
+    # the gate is about what IBKR can hold. (The price is still the census's Alpaca SIP close.)
+    pool_alpaca = L[(L["tradable"] == True) & L["discount"].notna() & (L["redeemable_pool"] == True)]   # noqa: E712
+    pool = pool_alpaca[pool_alpaca["tradable_ibkr"] == True].copy()   # noqa: E712
+    # The census grid's own filter (`live_splits.grid`): a deadline ahead and a modelled spread.
+    priced = pool[(pool["days_next"] > 0) & pool["spread_next"].notna()].copy()
+    nd = priced["days_next"] <= NEAR_DEADLINE_DAYS
+    ok = ~priced["gap_over_screen"].astype(bool)
+    near_below_acc = nd & ok & (priced["discount_accrued"] < 0)
+    priced["cap_median_adv"] = priced["adv_usd_median"] * PARTICIPATION * ACCUMULATION_SESSIONS
+
+    def net_col(r, ticket, fee, lag, grid, which):
+        y = r["yield_total_next"] if which == "spread" else r["yield_next"]
+        t = ibkr_net_terms(r["last_close"], int(r["days_next"]), y, r["tbill_now"], ticket, fee, lag, grid)
+        return t["spread"] if which == "spread" else t["net"]
+
+    grid = {}
+    for case, fee in IBKR_FEE_CASES.items():
+        for lag in IBKR_PAYMENT_LAG_DAYS:
+            for tk in IBKR_TICKETS_USD:
+                for bp in COST_GRID_BP:
+                    for which in ("spread", "yield_no_interest"):
+                        v = priced.apply(lambda r: net_col(r, tk, fee, lag, bp, which), axis=1)
+                        for setname, m in (("pool", pd.Series(True, index=priced.index)), ("near_deadline", nd),
+                                           ("near_deadline_below_accrued", near_below_acc)):
+                            x = v[m]
+                            grid[f"{setname}|{which}|{case}|lag{lag}|{tk}|{bp}bp"] = {
+                                "n": int(len(x)), "median": float(x.median()) if len(x) else None,
+                                "share_above_zero": float((x > 0).mean()) if len(x) else None}
+    # Per name: the ticket that repays the vote-route costs (spread >= 0), gross and at 30bp, no lag.
+    for case in ("vote", "vote_dwac_stacked"):
+        for bp in (0, 30):
+            priced[f"breakeven_ticket_{case}_{bp}bp"] = priced.apply(
+                lambda r: ibkr_breakeven_ticket(r["last_close"], int(r["days_next"]), r["yield_total_next"],
+                                                r["tbill_now"], IBKR_FEE_CASES[case], 0, bp), axis=1)
+    cap = {}
+    for case in ("vote", "vote_dwac_stacked"):
+        # A name with no breakeven up to USD 10M never repays the fee: +inf, so no capacity "fits" it.
+        be = priced[f"breakeven_ticket_{case}_0bp"].map(lambda v: np.inf if v is None or pd.isna(v) else v)
+        for setname, m in (("pool_below_accrued", ok & (priced["discount_accrued"] < 0)),
+                           ("near_deadline_below_accrued", near_below_acc)):
+            g = priced[m]
+            fits = g["cap_median_adv"] >= be[m]
+            finite = be[m][np.isfinite(be[m])]
+            # One-off dollars OVER BILLS after IBKR's costs, each fitting name bought at its
+            # median-ADV capacity and held to its next deadline: spread_net * value * days / 365.
+            gain = {bp: float(sum(
+                (t := ibkr_net_terms(r.last_close, int(r.days_next), r.yield_total_next, r.tbill_now,
+                                     r.cap_median_adv, IBKR_FEE_CASES[case], 0, bp))["spread"]
+                * t["value"] * r.days_next / 365.0 for r in g[fits].itertuples())) for bp in COST_GRID_BP}
+            cap[f"{setname}|{case}"] = {
+                "n": int(len(g)), "n_capacity_repays_costs": int(fits.sum()),
+                "capacity_usd_median_adv_all": float(g["cap_median_adv"].sum()),
+                "capacity_usd_median_adv_where_it_repays": float(g.loc[fits, "cap_median_adv"].sum()),
+                "breakeven_ticket": describe(finite), "n_no_breakeven": int((~np.isfinite(be[m])).sum()),
+                "gain_over_bills_usd_at_capacity_where_it_repays": {f"{bp}bp": v for bp, v in gain.items()}}
+    load = ibkr_election_load(years)
+    nb = priced[near_below_acc]
+    nb_be = nb["breakeven_ticket_vote_0bp"].map(lambda v: np.inf if v is None or pd.isna(v) else v)
+    nb_fit = nb[nb["cap_median_adv"] >= nb_be]
+    days_cycle = float(nb_fit["days_next"].median()) if len(nb_fit) else None
+
+    keep = ["cik", "name", "symbol", "exchange", "tradable", "ibkr_candidates", "ibkr_symbol", "listed_ibkr",
+            "ibkr_conid", "ibkr_n_conids", "ibkr_primary_exchange", "ibkr_description", "ibkr_name_score",
+            "name_ok", "name_rule", "conid_in_shortstock_agrees", "isin_matches_domicile", "ambiguous", "tradable_ibkr"]
+    out = L[keep].merge(priced[["cik", "cap_median_adv"] + [c for c in priced.columns if c.startswith("breakeven_ticket_")]],
+                        on="cik", how="left")
+    OUT.mkdir(parents=True, exist_ok=True)
+    out.sort_values(["tradable_ibkr", "symbol"], ascending=[True, True]).to_csv(IBKR_LIVE_CSV, index=False, float_format="%.6g")
+
+    alp, ib = L["tradable"] == True, L["tradable_ibkr"] == True   # noqa: E712
+    summary = {
+        "ibkr_asof": asof, "census_asof": NOTE_DATE, "built_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ibkr_listing_read_utc": sorted(listing["read_utc"].unique().tolist()), "ibkr_shortstock_stamp": ss_stamp,
+        "ibkr_listing_rows": {ex: int((listing["list"] == ex).sum()) for ex in IBKR_EXCHANGES},
+        "live": int(len(L)), "listed_ibkr": int(L["listed_ibkr"].sum()), "tradable_ibkr": int(ib.sum()),
+        "ambiguous": int(L["ambiguous"].sum()), "name_check_failed": int((L["listed_ibkr"] & (L["name_ok"] == False)).sum()),   # noqa: E712
+        "name_rule": L["name_rule"].value_counts(dropna=False).rename(str).to_dict(),
+        "conid_shortstock": L["conid_in_shortstock_agrees"].value_counts(dropna=False).rename(str).to_dict(),
+        "isin_vs_domicile": L["isin_matches_domicile"].value_counts(dropna=False).rename(str).to_dict(),
+        "primary_exchange_vs_alpaca": pd.crosstab(L.loc[ib, "exchange"].fillna("none"),
+                                                  L.loc[ib, "ibkr_primary_exchange"].fillna("none")).to_dict(),
+        "alpaca_and_ibkr": int((alp & ib).sum()), "alpaca_only": int((alp & ~ib).sum()),
+        "ibkr_only": int((~alp & ib).sum()), "neither": int((~alp & ~ib).sum()),
+        "not_tradable_ibkr_rows": L.loc[~ib, ["symbol", "tickers", "name", "exchange", "ibkr_candidates", "ibkr_symbol",
+                                              "ibkr_description", "ibkr_name_score"]].to_dict("records"),
+        "pool_alpaca": int(len(pool_alpaca)), "pool": int(len(pool)), "pool_priced_deadline_ahead": int(len(priced)),
+        "pool_tradable_ibkr": int(len(pool)),
+        "near_deadline": int(nd.sum()), "near_deadline_below_accrued": int(near_below_acc.sum()),
+        "fee_cases_usd": IBKR_FEE_CASES, "tickets_usd": list(IBKR_TICKETS_USD), "lags_days": list(IBKR_PAYMENT_LAG_DAYS),
+        "commission": {"per_share": IBKR_FIXED_PER_SHARE, "min": IBKR_FIXED_MIN_USD, "max_frac": IBKR_FIXED_MAX_FRAC,
+                       "cat_per_share": FINRA_CAT_PER_SHARE},
+        "net_grid": grid, "capacity": cap, "election_load": load | {
+            "near_deadline_names_that_repay_vote_costs": int(len(nb_fit)),
+            "median_days_to_next_deadline_there": days_cycle,
+            "elections_per_slot_per_year_lag0": (365.0 / days_cycle) if days_cycle else None,
+            "elections_per_slot_per_year_lag21": (365.0 / (days_cycle + 21)) if days_cycle else None,
+            # Every fitting name held, each exit taken at the first event: a vote with
+            # probability share_first_event_is_vote (the 2024-25 universe mix).
+            "elections_per_year_all_fitting_names_lag0": (len(nb_fit) * 365.0 / days_cycle
+                                                          * load["share_first_event_is_vote"]) if days_cycle else None,
+            "elections_per_year_all_fitting_names_lag21": (len(nb_fit) * 365.0 / (days_cycle + 21)
+                                                           * load["share_first_event_is_vote"]) if days_cycle else None},
+    }
+    IBKR_SUMMARY_JSON.write_text(json.dumps(summary, indent=1, default=str))
+    return summary
+
+
 def freeze(client) -> None:
     """Make `client` treat every cached document as immutable (the `--frozen` mode).
 
@@ -1834,7 +2302,16 @@ def main(argv=None) -> int:
     ap.add_argument("--asof", default=NOTE_DATE, help="census date (the last session's close)")
     ap.add_argument("--frozen", action="store_true",
                     help="use every cached EDGAR document whatever its age; fetch only what is not cached")
+    ap.add_argument("--ibkr", action="store_true",
+                    help="re-run the gate on IBKR's terms from the committed census outputs and IBKR's public files "
+                         "(no EDGAR, no broker, no credentials); with --offline, from the cached IBKR files")
+    ap.add_argument("--ibkr-asof", default=IBKR_DATE, help="date of the IBKR public files (cache key)")
     a = ap.parse_args(argv)
+    if a.ibkr:
+        S = ibkr_stage(a.ibkr_asof, a.offline)
+        print(json.dumps({k: S[k] for k in ("ibkr_asof", "live", "listed_ibkr", "tradable_ibkr", "alpaca_and_ibkr",
+                                            "alpaca_only", "ibkr_only", "neither", "pool_tradable_ibkr")}, indent=1))
+        return 0
     asof = date.fromisoformat(a.asof)
     from scripts.data.edgar_client import EdgarClient
     client = EdgarClient(offline=a.offline)
