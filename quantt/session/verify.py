@@ -1,4 +1,4 @@
-"""Post-close verification of one session: reconcile from the broker, score two ways, one verdict line.
+"""Post-close verification of one session: reconcile from the broker, score it, one verdict line.
 
 WHY THIS EXISTS
 ---------------
@@ -24,8 +24,8 @@ exit code is then 2 and the missing line is itself the FAIL.
 
 READ-ONLY. This module calls only GETs on `quantt.broker.alpaca.AlpacaClient`
 (clock, calendar, orders, order_by_client_id, activities_fills, positions,
-account, stock_exchanges, asset via primary_sip_code, closing_auction_prints, and --
-through `dist_score.py` -- distributions). It never imports or calls `submit_order`; a
+account, eod_equity_history, stock_exchanges, asset via primary_sip_code,
+closing_auction_prints, and -- through `dist_score.py` -- distributions). It never imports or calls `submit_order`; a
 test walks this file's AST to keep it that way. An `AmbiguousSubmit` from the
 morning is resolved here the only safe way: by looking the id up.
 
@@ -71,13 +71,34 @@ Broker truth, for D:
 WHEN IT MAY RUN
 ---------------
 Only between D's close and the next open, on D itself (ET), because two of its
-inputs are "now" numbers: `equity - last_equity` (Alpaca's `last_equity` is
-"equity as of previous trading day at 16:00:00 ET" [V]) and current positions.
-Run a day late and both describe a different session, and a score would be a
-confident wrong number. So: the Alpaca clock's ET date must equal D, the market
+inputs are "now" numbers: the snapshot `equity - last_equity` (Alpaca's
+`last_equity` is "equity as of previous trading day at 16:00:00 ET" [V]) and
+current positions. Run a day late and both describe a different session, and a
+score would be a confident wrong number. So: the Alpaca clock's ET date must equal D, the market
 must be closed, and `next_open` must be after D. Otherwise the line is a FAIL
 saying so. A holiday (no `/v2/calendar` row for D) is PASS "not a trading day",
 unless a STARTED file exists for it.
+
+THE P&L ON THE LINE (team lead, 2026-10-19)
+-------------------------------------------
+Three figures, labelled, never blended (`quantt/session/score.py`):
+    official +X USD (Alpaca EOD history, gross)    or    official PENDING (<why>)
+    snapshot HH:MM ET +Y USD (gross)
+    auction-marked +Z USD (gross)
+"official" is Alpaca's end-of-day portfolio history, EOD(D) - EOD(previous
+session): the P&L of record. It is PENDING when D's point has not been
+published by this read, or is stamped after it (Alpaca stamped the 2026-10-16
+point 20:00 ET, after a 17:30 verify), or the history could not be read. The
+snapshot is never put in its place. "snapshot" is the account's
+`equity - last_equity` as read now. Until 2026-10-19 the line called it
+"(official, gross)". HH:MM is this run's Alpaca clock read, seconds before the
+account read. The official figure never changes the verdict: PASS and FAIL
+are decided exactly as before, and a history Alpaca will not serve is a
+PENDING reason, never a FAIL. reconcile.json keeps it under `official_eod`,
+with the points read for D and the previous session. scores.csv is
+append-only with a fixed header that other code reads by name, so it gains no
+column; its `alpaca_equity_change_usd` is the snapshot. The series of record
+is `<state>/eod_equity.csv`, kept by the collector.
 
 SCORING is `quantt/session/score.py` (pure). Auction prints are fetched ONE
 SYMBOL AT A TIME so a name without a print, or with prints that disagree across
@@ -100,8 +121,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from quantt.session.score import (COST_BASIS, UNMEASURED, AuctionPrints, DayScore,
-                                  Fill, score_day)
+from quantt.session.score import (COST_BASIS, OFFICIAL_SOURCE, PENDING, UNMEASURED,
+                                  AuctionPrints, DayScore, Fill, OfficialPnL,
+                                  official_change, score_day)
 
 # Every wall-clock boundary here is New York time: the auction is NYSE's, and
 # RUNNER.md states the session in ET. Alpaca timestamps carry their own offset
@@ -143,6 +165,7 @@ class Verdict:
     read_at: str = ""
     condition: str = ""
     detail: dict = field(default_factory=dict)
+    official: OfficialPnL | None = None
 
     def line(self) -> str:
         reason = " ".join(self.reason.split())       # one line, whatever the message held
@@ -447,6 +470,35 @@ def fetch_prints(client, symbols, day: dt.date, *, condition: str) -> AuctionPri
     return AuctionPrints(prices=prices, gaps=gaps)
 
 
+def read_official(client, day: dt.date, prev: dt.date, as_of: dt.datetime) -> OfficialPnL:
+    """D's official P&L from Alpaca's end-of-day history, or PENDING with the reason.
+
+    A client error (the endpoint refusing, a shape the client will not parse,
+    a stamp it cannot place on a session) is a PENDING reason naming it, never
+    a FAIL: the team lead's ruling made this the P&L of record, not a
+    condition of the day's verdict. Anything that is not an `AlpacaError` is a
+    bug here and propagates (main() turns it into a FAIL line naming it).
+    """
+    from quantt.broker.alpaca import AlpacaError
+    try:
+        points = client.eod_equity_history(prev, day)
+    except AlpacaError as e:
+        return OfficialPnL(change=None, equity_d=None, equity_prev=None,
+                           pending=f"Alpaca EOD history unreadable: {type(e).__name__}: {e}",
+                           as_of=as_of.isoformat())
+    return official_change(points, day=day, prev=prev, as_of=as_of)
+
+
+def pnl_text(official: OfficialPnL, score: DayScore, read_at: dt.datetime) -> str:
+    """The P&L half of the verdict line: official, snapshot, auction-marked, in that order."""
+    off = (f"official {official.change:+.2f} USD (Alpaca EOD history, gross)" if official.measured
+           else f"official {PENDING} ({official.pending})")
+    snap = read_at.astimezone(ET).strftime("%H:%M")
+    return (f"{off}; snapshot {snap} ET {score.alpaca_equity_change:+.2f} USD (gross); "
+            f"auction-marked " + (f"{score.auction_pnl:+.2f} USD" if score.auction_pnl is not None
+                                  else UNMEASURED) + " (gross)")
+
+
 def _session_window(clk: dict, day: dt.date) -> str | None:
     """None if `day`'s session is over and the next has not opened; else why not."""
     now_et = clk["timestamp"].astimezone(ET)
@@ -629,6 +681,11 @@ def verify_day(client, state_dir: Path, book: str, day: dt.date | None = None, *
     q0 = {s: q for s, q in q0.items() if q != 0}
 
     acct = client.account()
+    # The official figure (team lead 2026-10-19). Judged against this run's
+    # clock read, which is earlier than the history read: a point stamped
+    # between the two is called PENDING, which can delay a figure but never
+    # passes an unfinished one.
+    official = read_official(client, day, prev, clk["timestamp"])
 
     # --- auction prints and the score -----------------------------------
     need_d = set(q0) | {f.symbol for f in fills}
@@ -646,12 +703,16 @@ def verify_day(client, state_dir: Path, book: str, day: dt.date | None = None, *
         "auction_condition": condition,
         "auction_prints_d": {"prices": dict(prints_d.prices), "gaps": dict(prints_d.gaps)},
         "auction_prints_prev": {"prices": dict(prints_prev.prices), "gaps": dict(prints_prev.gaps)},
+        "official_eod": {"source": OFFICIAL_SOURCE, "change_usd": official.change,
+                         "equity_d": official.equity_d, "equity_prev": official.equity_prev,
+                         "pending": official.pending, "as_of": official.as_of,
+                         "points_read": official.points},
+        "snapshot": {"equity": acct["equity"], "last_equity": acct["last_equity"],
+                     "change_usd": score.alpaca_equity_change, "clock_read_at": read_at},
         "problems": problems,
     })
 
-    pnl = (f"alpaca equity chg {score.alpaca_equity_change:+.2f} USD (official, gross); "
-           f"auction-marked " + (f"{score.auction_pnl:+.2f} USD" if score.auction_pnl is not None
-                                 else UNMEASURED) + " (gross)")
+    pnl = pnl_text(official, score, clk["timestamp"])
     if score.fill_vs_auction_bp is not None:
         pnl += f"; fill vs auction {score.fill_vs_auction_bp:+.1f}bp (+ = worse)"
     head = (f"traded {len(recorded)} order(s), {n_filled} filled" if started
@@ -659,7 +720,7 @@ def verify_day(client, state_dir: Path, book: str, day: dt.date | None = None, *
     fails = problems + [f"{UNMEASURED} {u}" for u in score.unmeasured]
     reason = f"{head}; {pnl}" if not fails else "; ".join(fails) + f" | {head}; {pnl}"
     return verdict(not fails, reason, score=score, n_orders=len(recorded),
-                   n_filled=n_filled, detail=detail)
+                   n_filled=n_filled, detail=detail, official=official)
 
 
 # ------------------------------------------------------------------ writing

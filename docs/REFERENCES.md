@@ -1546,10 +1546,29 @@ The sources behind `results/events/EVENT_ENGINE_PILOT_2026-10-19.md`.
 | **Tokens per character.** The pilot's batch sizes reuse §12z's estimate of 2.69 characters a token; nothing was counted | §12z; `scripts/events/event_engine_score.py` (`CHARS_PER_TOKEN`) | [S] |
 | **The Read tool and very long lines.** Part files wrap lines over 1,000 characters at a space, as a precaution against truncation. Whether the tool truncates, and at what length, was not checked | `scripts/events/event_engine_pilot.py` (`WRAP_AT`) | [U] |
 
-### 12an. Alpaca's end-of-day portfolio history, the daily P&L of record (added 2026-10-19)
+### 12an. Alpaca's end-of-day portfolio history: the P&L of record (added 2026-10-19)
 
-*Provisional section number (12ad–12am are reserved by another session); the
-coordinator renumbers it at merge.*
+The sources behind the team lead's 2026-10-19 ruling (`docs/SYSTEM.md` §5) and
+`docs/RUNNER.md` "As built (2026-10-19)". The fetcher is
+`AlpacaClient.eod_equity_history` (`quantt/broker/alpaca.py`). The series of record
+is `<state>/eod_equity.csv`, written by the collector step `eod_equity`. It lives
+outside the repository, because the repository is public and the series is the
+account's.
+
+| claim / series | source and fetcher | status |
+|---|---|---|
+| **Endpoint and parameters.** `GET /v2/account/portfolio/history` on the paper and live trading hosts. `period` = number + unit (`D`, `W`, `M`, `A`), default `1M`; `timeframe` `1Min`/`5Min`/`15Min`/`1H`/`1D`, and only `1D` for periods over 30 days; `intraday_reporting`, `start`, `end`, `pnl_reset`, `cashflow_types`. Required response fields: `timestamp` (int64 epoch seconds), `equity`, `profit_loss`, `profit_loss_pct` (number or null), `base_value`, `timeframe`. Optional: `base_value_asof`, `cashflow`. With `timeframe=1D` "the response will only contain entries for days when the market is open". "All the cash values returned to two digits" | docs.alpaca.markets/reference/getaccountportfoliohistory-1, fetched 2026-10-19 | [V] |
+| **What a 1D stamp means: the documentation and the data disagree.** The reference says timestamps are "left-labeled (the beginning of time window)". Its own 1D example stamps are 1775606400 … 1775865600, which is 2026-04-08 … 2026-04-11 at 00:00 UTC. The last of these is a Saturday, so each stamp can only carry the session before it: in New York that is 20:00 on the session's own date. The client follows the data. It requires every stamp to be exactly 00:00 UTC and to fall, in New York time, on a trading day, and raises otherwise | same page, example `example-cashflows`; epoch conversion in this session | [V] |
+| **The live read, 2026-10-19** (`period=1M`, `timeframe=1D`): keys `timestamp`, `equity`, `profit_loss`, `profit_loss_pct`, `base_value`, `base_value_asof`, `timeframe`. Each daily point is stamped 00:00 UTC of the day after its session: 1792195200 = 2026-10-17T00:00Z = 2026-10-16 20:00 EDT, carrying the 2026-10-16 close. Days before the account was funded have equity 0 | the main session's read of the cef paper account, 2026-10-19; relayed to this branch, not re-read here | [V] (relayed) |
+| **The 17:30 ET snapshot against the history and the auction mark, four sessions** (2026-09-29, 10-05, 10-07, 10-16). The snapshot (`equity − last_equity` at verify time) differed from Alpaca's end-of-day change on every day, by tens to hundreds of dollars. The end-of-day change agreed with verify's auction-marked score to within fifty cents on every day. Re-run: the day's `verify.log` line and `scores.csv` row against `eod_equity.csv` | the main session, 2026-10-19: verify logs and scores against a live history read; relayed | [V] (relayed) |
+| **Not documented: when a day's point first appears, and whether a published point can change.** The reference says neither. With `start` and `end` omitted, `end` defaults to "the most recent market open timestamp" under `intraday_reporting=market_hours`, and the notes say `intraday_reporting` has no effect at `1D`. So whether D's point is served on D's evening (17:10 or 17:30 ET) is unknown. The design holds under either answer: a point stamped after its read is not used, verify then says PENDING, and the collector re-reads until it can write it. Each later read re-checks every earlier day and logs any revision | same page, fetched 2026-10-19 | [V] negative; behaviour [U] until measured |
+| **Winter stamps not yet seen.** Every stamp observed is from EDT. If Alpaca keeps 00:00 UTC after 2026-11-01, a session reads as 19:00 EST on its own date and maps unchanged. If it moves to any other time (05:00Z New York midnight, or 01:00Z = 20:00 EST), the client raises from the first such point. The official figure is then PENDING until the rule is changed on evidence; the day is never shifted | reasoning from the two rows above; the first EST point is the 2026-11-02 session's | [U] |
+| A 2021 forum post (a user, not staff) says the API's last point for a 1M period did not match current portfolio value, while the website's did | forum.alpaca.markets/t/api-v2-portfolio-history-inconsistencies/5579, fetched 2026-10-19 | [S] |
+
+### 12ao. orient's PNL section: reading the P&L of record (added 2026-10-19)
+
+The series itself and the endpoint's facts are §12an. This section holds what
+the read-back relies on.
 
 The team lead ruled on 2026-10-19 that Alpaca's end-of-day portfolio history is
 the official daily P&L of record for the paper book, and that verify's
@@ -1564,7 +1583,8 @@ public repository.
 | `GET /v2/account/portfolio/history`; `timeframe` is "1Min, 5Min, 15Min, 1H, or 1D", and "For queries with longer than 30 days of `period`, the system only accepts 1D" | `https://docs.alpaca.markets/reference/getaccountportfoliohistory-1`, fetched 2026-10-19 | [V] |
 | `timestamp`: "Time of each data element, left-labeled (the beginning of time window)." No time zone is stated | same page | [V] page |
 | `equity`: "Equity value of the account in dollar amount as of the end of each time window." | same page | [V] |
-| **For 1D, `profit_loss` is cumulative, not daily**: "For 1D resolution all PnL values are calculated relative to the `base_value`, we are not resetting the base value." `pnl_reset` applies "for queries with `timeframe` less than 1D (intraday queries)". So a daily change is a difference of consecutive points, never one point's `profit_loss` | same page | [V] |
+| **For 1D, `profit_loss` is cumulative, not daily**: "For 1D resolution all PnL values are calculated relative to the `base_value`, we are not resetting the base value." `pnl_reset` applies "for queries with `timeframe` less than 1D (intraday queries)". So a daily change is a difference of consecutive points, never one point's `profit_loss` | same page | [V] page |
+| **The live read disagrees with that sentence.** In the main session's 2026-10-19 read (`period=1M`, `timeframe=1D`, no `pnl_reset`), each point's `profit_loss` equalled the difference of consecutive equities (e.g. the 2026-10-16 point: 160.58 = 99,364.64 − 99,204.06), not equity − `base_value`. The two are reported side by side, not reconciled: no code reads `profit_loss` (the collector differences `equity`), so neither reading changes a figure | the main session's read, 2026-10-19 10:48 ET | [V] read; which one Alpaca intends [U] |
 | `base_value_asof`: "If included, then it indicates that the base_value is the account's closing equity value at this trading date." "If not specified, then the baseline calculation is done against the earliest returned data item." | same page | [V] |
 | With `timeframe=1D`, a `start` on a trading day "is set to the closing time of the current trading day" | same page | [V] |
 | **How a 1D point is stamped, as read.** Each daily point is stamped 00:00 UTC of the day after the session (e.g. 2026-10-17T00:00Z = 2026-10-16T20:00 ET carries the 2026-10-16 close); in America/New_York its date is the session date. Days before funding carry equity 0 | the paper account's history, `period=1M`, `timeframe=1D`, read by the main session 2026-10-19 (values not committed) | [V] as read; [U] whether the docs' "left-labeled" describes the same stamp |
