@@ -36,6 +36,7 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/REFERENCES.md` | reference | every external claim and its verification status | — |
 | `docs/HISTORY.md` | reference | what existed before the 2026-09-28 clean slate, and how to recover it | — |
 | `results/ops/CEFCONNECT_TERMS_OPTIONS_2026-10-19.md` | reference | the options for CEFConnect on the live NAV path (keep and ask Nuveen, replace per use, or licence), the draft letter to Nuveen, and what each choice changes; open until the team lead picks | — |
+| `results/ops/IBKR_SECOND_BROKER_2026-10-19.md` | reference | the IBKR second-broker design and plan (routing, per-broker gates, what to revive, the step list), until a build contract replaces it | `ops.doc_audit` (reproducer) |
 | `.claude/README.md` | desk | the map of the agent layer | — |
 | `.claude/rules/*.md` | desk | path-scoped rules loaded when matching files are opened | `ops.doc_audit` |
 | `.claude/skills/*/SKILL.md` | desk | one workflow each | `ops.doc_audit` (desk inventory) |
@@ -43,7 +44,8 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 
 **Not indexed, by design:** `results/**` (dated records, each true as of its date;
 `ops.doc_audit` checks their pre-registration shape) and runtime output written
-rather than authored — `results/ops/alpaca_probe/` and `ops/HALT*.md`. **One
-exception:** a results note holding a decision still open for the team lead keeps
-a row until the decision is recorded in `docs/SYSTEM.md` (the first: CEFConnect,
-2026-10-19).
+rather than authored — `results/ops/alpaca_probe/` and `ops/HALT*.md`. **Two
+exceptions (2026-10-19):** a results note holding a decision still open for the team
+lead keeps a row until the decision is recorded in `docs/SYSTEM.md` (the first:
+CEFConnect); and a dated design note that later build work is written against gets a
+row (the first: the IBKR design).
