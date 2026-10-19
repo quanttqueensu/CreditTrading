@@ -1,0 +1,64 @@
+{
+ "accession": "0001193125-21-345552",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "bdc",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001193125-21-345552 FORM 425"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "based on the net asset values of",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "registration_effective",
+      "tax_opinion",
+      "legal_injunction",
+      "other"
+     ],
+     "spans": [
+      "Stockholder Approvals",
+      ". All Regulatory Approvals required by applicable Law to consummate the Transactions,",
+      ". The Registration Statement shall have become effective under the Securities Act, and no stop",
+      "losing Date, substantially to the effect that, on the basis of facts, representations and assumptions set forth in such opinion that are consistent with the\nstate of facts existing at the Closing Date, the Mergers will be treated as a reorganization within the meaning of Section 368(a) of the Code. In rendering such opinion, counsel may require and rely upon representations contained i",
+      "No Injunctions or Restraints; Illegality",
+      "be true and correct as of such earlier date), without regard to any Material Adverse Effect or other materiality qualification to such representations and warranties,"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "first half of 2022",
+     "span": "expected to close in the first half of 2022",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from “elected to be regulated as a business development company”",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

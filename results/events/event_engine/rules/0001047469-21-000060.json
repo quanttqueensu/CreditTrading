@@ -1,0 +1,13 @@
+{
+ "accession": "0001047469-21-000060",
+ "triage": {
+  "kind": "none",
+  "fund_type": "bdc",
+  "doc_role": "prospectus",
+  "kind_span": "##### FILING 0001047469-21-000060 FORM 424B2"
+ },
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from “elected to be treated as a business development company”",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

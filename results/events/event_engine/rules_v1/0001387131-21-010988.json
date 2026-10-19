@@ -1,0 +1,76 @@
+{
+ "accession": "0001387131-21-010988",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "final_result",
+  "kind_span": "##### FILING 0001387131-21-010988 FORM SC TO-I/A"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock, par value $0.001\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "97.5% of the Net Asset Value",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 97.5,
+     "span": "97.5% of the Net Asset Value",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {
+     "value": 5.0,
+     "span": "up to 5% of the outstanding",
+     "doc_seq": "1"
+    },
+    "size_shares": null,
+    "commencement_date": null,
+    "expiration_date": {
+     "value": "2021-11-08",
+     "span": "expired at the close of regular trading\non the NASDAQ Capital Market on November 8, 2021",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "pro rata",
+     "doc_seq": "2"
+    },
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": {
+     "value": 2261361.322,
+     "span": "2,261,361.322 Shares of the Fund were validly\ntendered",
+     "doc_seq": "1"
+    },
+    "shares_accepted": {
+     "value": 302216.0,
+     "span": "302,216 Shares were accepted",
+     "doc_seq": "1"
+    },
+    "proration_factor_pct": {
+     "value": 13.3642,
+     "span": "proration factor for\nshares purchased pursuant to the offer is\n13.3642\n%",
+     "doc_seq": "2"
+    },
+    "final_price_per_share": {
+     "value": 6.981,
+     "span": "accepted for purchase by the Fund in accordance\nwith the terms of the Offer at a price of $6.9810",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

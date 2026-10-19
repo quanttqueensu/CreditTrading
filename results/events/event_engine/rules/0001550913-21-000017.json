@@ -1,0 +1,80 @@
+{
+ "accession": "0001550913-21-000017",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "interval_or_tender_offer_fund",
+  "doc_role": "offer_document",
+  "kind_span": "##### FILING 0001550913-21-000017 FORM SC TO-I"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "MACKENZIE REALTY CAPITAL, INC.\n\n(Names of filing Persons (Offeror and Issuer))\n\nCommon Stock, Par Value $0.0001 per share\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "fixed_price",
+     "span": "price of $6.00 per Share",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": {
+     "value": 400000.0,
+     "span": "up to 400,000 Shares",
+     "doc_seq": "2"
+    },
+    "commencement_date": {
+     "value": "2021-03-19",
+     "span": "Offer to Purchase, dated March 19, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-04-19",
+     "span": "expire at 5:00 p.m., Pacific Time, on April 19, 2021",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "pro\nrata",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "listing",
+      "market_disruption",
+      "legal_injunction",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "We recognize that our Shares are not listed on a national securities exchange and have limited liquidity prior to the occurrence of a",
+      "banking moratorium by federal, state or foreign authorities or any suspension of payment by banks in the United States, the State of Calif",
+      "any Shares tendered in the Offer if there is any (i) material legal action or proceeding instituted or threatened which challenges, in the Board’s judgment, the Offer or otherwise materially adversely affects",
+      "in the Offer if there is any (i) material legal action or proceeding instituted or threatened which challenges, in the Board’s judgment, the Offer or otherwise materially adversely affects the Company, (ii) declaration of a",
+      "gn country that is material to the Company, or (v) other event or condition that, in the Board’s judgment, would have a material adverse effect on the Company or"
+     ],
+     "doc_seq": "5"
+    },
+    "trigger_origin": {
+     "value": "periodic_liquidity",
+     "span": "share repurchase program",
+     "doc_seq": "5"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from “no public market for the Shares”",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

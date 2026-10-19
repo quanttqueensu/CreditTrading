@@ -1330,3 +1330,21 @@ The sources behind `results/events/SPAC_TRUST_CENSUS_2026-10-15.md`.
 | **SPAC IPOs and deSPACs by year.** SPAC IPOs by year (Table 15b, updated 2026-10-05) and 2026 by quarter; deSPACs by merger year (Table 15c). The parser checks that non-unit + unit = total, and that a closed year's quarters sum to the year | Ritter, `https://site.warrington.ufl.edu/ritter/files/IPOs-SPACs.pdf` (sha256 1ab8e347…) | [V] |
 | **CRSP.** Daily prices (`dsf`: prc, vol, bid, ask), names (`dsenames`) and delistings (`stkdelists`) for 1,085 linked SPAC commons, 2014-01-01 → 2022-12-31 only; the script raises on a later row. CRSP's `delactiontype` codes MER / GLI / GDR are used as labels; their meanings were not re-read from the manual | R2 WRDS mirror through `src/data/r2.py`; rows in the gitignored `_cache_spac/` (licensed) | [V] data; [U] code meanings |
 | **FRED DTB3** (3-month bill, secondary market, discount basis, % p.a.), used only in the labelled accrual model. Last value 4.10, on 2026-10-14 | `scripts/gamma/fetch_fred.py DTB3` (keyless CSV), read 2026-10-16T01:21Z | [V] |
+
+### 12aj. The event engine's free pilot: rules baseline and subagent pilot (added 2026-10-19)
+
+The sources behind `results/events/EVENT_ENGINE_PILOT_2026-10-19.md`.
+
+- **Zero trials.**
+- **No API call, no key, no network.** Every input is the 50 EDGAR texts and
+  submissions cached on 2026-10-15 for §12z. Each text was checked against
+  `sample_manifest.csv`'s sha256 (50 of 50), and so was a re-render of each
+  raw submission.
+
+| claim / source | where | status |
+|---|---|---|
+| **The rules read the filings' own cover conventions.** These are the Schedule TO cover's "Check the following box if the filing is a final amendment reporting the results of the tender offer" (printed with `[x]`, `[X]` or `☒`, after or before the label), its "(Title of Class of Securities)" caption, and the 424B rights covers' "(the "Record Date")" and "Subscription Price" wording. They were read in the 25 dev filings only | the sample's EDGAR filings (accessions in `results/events/event_engine/sample_manifest.csv`; split in `scripts/events/event_engine_rules.py::split`) | [V] for those filings; other filers' typesetting [U] |
+| **The gold was built by Claude Opus 5.5 readers and adjudicated by the same model.** Two blind passes were reconciled with written decisions, and 40 agreed cells were spot-checked by the same model (39 right) | `results/events/EVENT_ENGINE_DESIGN_2026-10-15.md` §7.2; `scripts/events/event_engine_reconcile.py` | [V] as recorded there |
+| **Subagent models are chosen by alias.** The Agent tool's `model` parameter accepts `haiku`, `sonnet` and `opus`; which model version an alias serves on the subscription is not stated | the Agent tool schema exposed to this session, 2026-10-19 | [V] for the schema; the served version [U] (the collector records each batch's self-reported model ID) |
+| **Tokens per character.** The pilot's batch sizes reuse §12z's estimate of 2.69 characters a token; nothing was counted | §12z; `scripts/events/event_engine_score.py` (`CHARS_PER_TOKEN`) | [S] |
+| **The Read tool and very long lines.** Part files wrap lines over 1,000 characters at a space, as a precaution against truncation. Whether the tool truncates, and at what length, was not checked | `scripts/events/event_engine_pilot.py` (`WRAP_AT`) | [U] |

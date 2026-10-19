@@ -1,0 +1,56 @@
+{
+ "accession": "0001193125-21-084266",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "interval_or_tender_offer_fund",
+  "doc_role": "offer_document",
+  "kind_span": "##### FILING 0001193125-21-084266 FORM SC TO-I"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "preferred",
+     "span": "Auction Rate Preferred Shares, Series E, Par Value $0.001\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": null,
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": null,
+    "commencement_date": null,
+    "expiration_date": null,
+    "proration": {
+     "value": true,
+     "span": "pro rata",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "regulatory_approval",
+      "legal_injunction",
+      "board_discretion"
+     ],
+     "spans": [
+      "bed in this Offer to Exchange. We reserve the right to delay settlement pending receipt of any required governmental or regulatory approvals. See The Exchange OfferTender of Auction Rate Preferred Shares; Acceptance of Auction Rate",
+      "efault under, any provision of applicable law, charter, ordinance or regulation or of any material agreement, judgment, injunction, order, decree or other instrument binding upon the Fund or result in the creation or imposition of any lien or",
+      "ore than a majority of all of the Auction Rate Preferred Shares, this condition will not be satisfied and the Fund may, in its sole discretion, terminate the Exchange Offer. See Terms of the Exchange OfferConditions"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": null,
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “Shares are not list”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

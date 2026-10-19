@@ -718,6 +718,12 @@ None of this was measured here.
    text, scored against this gold by `event_engine_score.py`. The figure is an
    estimate from characters and excludes thinking tokens. First call
    `count_tokens`, which replaces every estimate in §8.
+   *(Decided 2026-10-19: the team lead declined the API spend and chose two
+   free options instead: a rules-only baseline, and the same three models run
+   as Claude Code subagents on a 120,000-character excerpt. Both are in
+   `results/events/EVENT_ENGINE_PILOT_2026-10-19.md`. The excerpt cannot answer
+   this item's whole-filing question for about a quarter of merger values,
+   per that note's §2.2.)*
 2. **The time key** (§4):
    - `observed_at = max(acceptance from the header, 06:00 ET on EDGAR's filing
      date)`, never the submissions API time and never the acceptance time

@@ -1,0 +1,34 @@
+{
+ "accession": "0001193125-21-284573",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001193125-21-284573 FORM 425"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": null,
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": null,
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": null,
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “Closed-End”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

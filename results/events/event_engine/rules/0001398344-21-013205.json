@@ -1,0 +1,92 @@
+{
+ "accession": "0001398344-21-013205",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "##### FILING 0001398344-21-013205 FORM SC TO-I"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Saba Capital Income & Opportunities Fund\n\n(Names of Filing Person(s) (Issuer))\n\nCommon Shares of Beneficial Interest, no par value\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "99% of the net asset value",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 99.0,
+     "span": "99% of the net asset value",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {
+     "value": 30.0,
+     "span": "Up to 30% of the Issued and Outstanding",
+     "doc_seq": "2"
+    },
+    "size_shares": {
+     "value": 36453707.0,
+     "span": "up to 36,453,707 common shares",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-21",
+     "span": "Offer to Purchase, dated June 21, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-07-19",
+     "span": "expire at one minute past 11:59 p.m., Eastern\ntime, on July 19, 2021",
+     "doc_seq": "2"
+    },
+    "proration": {
+     "value": true,
+     "span": "pro rata",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "listing",
+      "minimum_tender",
+      "market_disruption",
+      "legal_injunction",
+      "ric_or_tax_status",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "2020, the Fund held its annual shareholder meeting at which shareholders approved a proposal requesting the Board to authorize a self-tender",
+      "before any governmental entity or court any action, proceeding, application or claim, or there shall be any judgment, order or injunction",
+      "(i) result in delisting of the Fund’s Shares",
+      "shareholders tendering for purchase in the aggregate any minimum number of Shares. If the number of Shares properly tendered and not withdrawn",
+      "(d) there shall have occurred (i) any general suspension\nof trading in or limitation on prices for securities on the NYSE or any other exchange on which the Shares are traded; (ii) any de",
+      "any governmental entity or court any action, proceeding, application or claim, or there shall be any judgment, order or injunction",
+      "(iii) impair the Fund’s status as a regulated\ninvestment company (“RIC”) under the Internal Revenue Code of 1986, as amended (the “Code”) (which would make",
+      "one minute past 11:59 p.m., Eastern time, on July 19, 2021, unless the Fund, in its sole discretion, extends the period during which the",
+      "any limitation having a material adverse effect on the Fund that is imposed by U.S. federal or state authorities, or by any governmental"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": null,
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/2 (2026-10-19)"
+}
