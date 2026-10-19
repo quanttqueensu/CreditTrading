@@ -27,7 +27,15 @@ committed = pd.read_parquet(c4.CACHE / "c4_holdout_actions_ruled_2026-10-18.parq
 print("ruled actions equal the committed cache:", ruled.reset_index(drop=True).equals(committed.reset_index(drop=True)))
 cr = c4.crsp_pivot(crsp, cols, sess, qr, "ret", px=px)
 alp = c4.alpaca_pool(); fill, fchk = c4.igr_fill(alp, px, sess)
-yf = c4.yf_total_returns(px, cols, sess, actions=S + "ruled_actions.parquet")
+# Added 2026-10-19 (data guards): yf_total_returns now raises on IGR's four post-split-basis bars
+# unless a recorded ruling treats them. This script reproduces the committed holdout, which booked
+# them, so it passes repro_bar_rulings.json (book_as_is; NOT the verdict, which rebases them). Code
+# from before that date has no `rulings` argument, hence the signature test.
+import inspect
+from pathlib import Path
+kw = (dict(rulings=Path(__file__).with_name("repro_bar_rulings.json"))
+      if "rulings" in inspect.signature(c4.yf_total_returns).parameters else {})
+yf = c4.yf_total_returns(px, cols, sess, actions=S + "ruled_actions.parquet", **kw)
 for d, v in fill.items():
     assert pd.isna(yf.loc[d, "IGR"]); yf.loc[d, "IGR"] = v
 R = pd.concat([cr.loc[:c4.CRSP_END], yf.loc[c4.YF_START:]])

@@ -1,0 +1,520 @@
+"""Two research-path data guards (zero trials; team lead's ruling of 2026-10-19).
+
+    python3 scripts/cef/data_guards.py scan      # every hit in data/cef/ and data/cef_families/; writes
+                                                 # results/cef/data_guards/scan_output_2026-10-19.txt + hits CSV
+
+WHY THIS EXISTS
+---------------
+C4's holdout (CEF trial 52, opened once on 2026-10-18) booked four IGR bars of
+`data/cef_families/cef_prices.parquet` -- 2026-07-29, 08-04, 08-07 and 08-11 --
+that were on the post-split basis (about 14.2) inside a raw pre-split series
+(about 4.7), weeks before IGR's 1:3 reverse split of 2026-09-08, with the NAV
+flat. The declared yfinance formula booked each as +200% and then -66.7%; the
+band held a stale IGR short through them, and they cost -10.87% of capital
+(`results/cef/C4_RESULT_2026-10-14.md` §8). Two failures let them through, and
+each guard here closes one:
+
+1. Nothing on the return path looked at them. `split_like_spikes` finds a close
+   that jumps by a split-like factor and comes back within a short window while
+   the NAV does not make the move; `guard_closes` RAISES (`SpikeRevertError`),
+   naming every offending (ticker, date, ratio), unless a recorded rulings file
+   says what to do with each bar. C4's `yf_total_returns` calls it.
+2. Stage 0 had flagged all eight IGR rows (Q5) on 2026-10-14, and nobody ruled
+   on the flags before P&L was formed. `require_stage0_rulings` refuses
+   (`Stage0BlockError`), naming the flags, while any Stage-0 flag lacks a
+   recorded ruling in the trial's rulings file. A trial script calls it before
+   it forms any P&L.
+
+NO SILENT REPAIR. Neither guard alters a number on its own. The only alteration
+is a ruled treatment, read from a file that names who ruled, when, and why, and
+the corrected series is re-scanned before it is returned. A ruling that names a
+bar the scan no longer finds raises too (the data changed under the ruling).
+
+Synthetic tests: `scripts/cef/tests/test_data_guards.py`. The hits in the
+panels on 2026-10-19: `results/cef/DATA_GUARDS_2026-10-19.md`.
+"""
+from __future__ import annotations
+
+import json
+import math
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+# --------------------------------------------------------------------------- the spike-and-revert rule
+#
+# THE TOLERANCE, DERIVED (not swept). A bar on the wrong basis is the true close
+# times the split factor f exactly: a vendor's split-adjusted history is the raw
+# print times the split ratio. So the close ratio the formula books on the bar is
+#     C(t) / C(t-1) = f * (1 + e),
+# where e is the fund's GENUINE one-day move that day. The tolerance around f
+# must therefore admit any genuine one-day move the desk treats as ordinary, and
+# no more. The desk already declares that line: P2's Q5 screen flags |r| > 15%
+# as an outlier (`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md` §Q5, cited by
+# C4's pre-registration §4.5; `c4_families.Q5_ABS`, which a test pins equal to
+# this constant). A move beyond it is not ordinary by the desk's own rule, so
+#     tau = ln(1 + 0.15) = 0.1398 in log ratio,
+# i.e. a ratio within [f / 1.15, f * 1.15]. Two checks on that value, neither of
+# which chose it: (i) tau < ln(3/2) / 2 = 0.2027, so the bands around the two
+# commonest split factors, 2 and 3, do not overlap and the factor a bar is ruled
+# on is unambiguous; (ii) tau < ln 2, so a ratio of 1 (no defect) is never
+# split-like. For factors of 4 and above the bands touch, and every jump of
+# about x3.5 or more is split-like: no genuine one-day CEF move is that large.
+#
+# The same tau decides the two other comparisons, for the same reason:
+# * NAV "makes the move" when its own one-day log ratio over the same two bars
+#   is within tau of the price's. If it does, price and NAV agree, the bar is a
+#   genuine (if extraordinary) day or a basis change in both panels, and this
+#   guard is not the place to judge it. If it does not -- including a flat NAV,
+#   the IGR case -- the price moved by a split factor that the fund's assets did
+#   not. Where NAV is missing on either bar the price alone decides (the task's
+#   "where available"), so a fund with no NAV is guarded, not exempted.
+# * The spike REVERTS when a later step within the window is split-like in the
+#   opposite direction AND brings the close back to within tau of its level
+#   before the jump. The round trip, not the size of the return step, is the
+#   test, so a genuine move on either bar cannot make the factors disagree.
+#
+# THE WINDOW is a choice, stated as one: REVERT_WINDOW = 5 sessions (one trading
+# week) is the longest wrong-basis run this guard calls a spike. Each IGR bar
+# reverted the next session. A wrong-basis run longer than a week is a level
+# break, not a spike; it is still REPORTED by `split_like_spikes` (the
+# `unreverted` table, which the scan prints), so nothing beyond the window is
+# silent -- it is not raised, because an unrecorded genuine split looks the same
+# from the price alone. The scan reports the hit count at W = 1 and W = 21 and
+# at tau/2 and 2*tau beside the declared values, computed after the choice and
+# never used to make it.
+#
+# SPLITS. Returns are booked on the split-corrected ratio C(t)/C(t-1) * k(t)
+# (`band_frontier.total_returns`), with k the share-count multiplier of the
+# actions file (yfinance codes IGR's 1:3 reverse split as 0.3333). The guard
+# scans that same quantity: each close (and NAV) is multiplied by the product of
+# the multipliers whose ex-date is on or before it, so a recorded split is not a
+# jump, and a wrong-basis bar just before a split date is still a spike.
+GENUINE_MOVE_MAX = 0.15
+SPLIT_TOL = math.log1p(GENUINE_MOVE_MAX)
+REVERT_WINDOW = 5
+TREATMENTS = ("rebase", "book_as_is")
+HIT_COLUMNS = ["ticker", "date", "run_end", "revert_date", "bars", "ratio", "factor", "revert_ratio",
+               "round_trip", "nav_ratio"]
+
+
+class SpikeRevertError(ValueError):
+    """A split-like spike-and-revert bar with no recorded ruling, or a ruling that does not fit."""
+
+
+class Stage0BlockError(RuntimeError):
+    """A Stage-0 flag without a recorded ruling; no P&L may be formed."""
+
+
+def _iso(d) -> str:
+    return pd.Timestamp(d).strftime("%Y-%m-%d")
+
+
+def _cum_split(dates: pd.DatetimeIndex, sp: pd.DataFrame | None, ticker: str) -> np.ndarray:
+    """K(d) = the product of `ticker`'s share-count multipliers with ex-date <= d (1.0 before any)."""
+    K = np.ones(len(dates))
+    if sp is None or not len(sp):
+        return K
+    s = sp[sp["ticker"] == ticker]
+    for e, k in zip(pd.to_datetime(s["ex_date"]), s["stock_split"].astype(float)):
+        if not (k > 0):
+            raise ValueError(f"{ticker}: split multiplier {k} on {_iso(e)} is not positive")
+        K[dates >= e] *= k
+    return K
+
+
+def split_like_spikes(close: pd.DataFrame, nav: pd.DataFrame | None = None, splits: pd.DataFrame | None = None,
+                      *, tol: float = SPLIT_TOL, window: int = REVERT_WINDOW) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(hits, unreverted) for a wide panel of RAW closes (date x ticker; NaN = no bar).
+
+    Per ticker, on its own consecutive bars (so a bar after a gap is still seen), on
+    the split-corrected log close a = ln(C * K):
+      * a JUMP is a step x = a[t] - a[t-1] with |x| within `tol` of ln m for an
+        integer m >= 2 (a factor m up, or 1/m down) whose NAV, where the NAV has
+        both bars, does not make the same move (|y - x| > tol);
+      * it is a HIT if a later step within `window` bars is split-like in the
+        opposite direction and returns a to within `tol` of a[t-1]. The bars from
+        the jump to the one before the revert are the wrong-basis run; the revert
+        step is consumed, so the next bar is never read as a new jump;
+      * a jump with no such revert is UNREVERTED (reported, never raised).
+    `nav` is wide (date x ticker) or None; `splits` is `ex_date ticker stock_split`
+    or None. A non-positive close raises: the log ratio is undefined, and skipping
+    it would be the silent path this guard exists to close.
+
+    `factor` is m (the jump went up by m) or 1/m (down); `ratio`, `revert_ratio`
+    and `nav_ratio` are split-corrected one-day ratios; `round_trip` is the
+    corrected close after the revert over the one before the jump."""
+    hits, unrev = [], []
+    for t in close.columns:
+        s = close[t].dropna()
+        if len(s) < 3:
+            continue
+        bad = s[~(s > 0)]
+        if len(bad):
+            raise ValueError(f"{t}: non-positive close on {[_iso(d) for d in bad.index[:10]]}; "
+                             "a log ratio is undefined there and this guard will not skip it")
+        K = _cum_split(s.index, splits, t)
+        a = np.log(s.to_numpy(dtype=float) * K)
+        x = np.diff(a)
+        if nav is not None and t in nav.columns:
+            nv = nav[t].reindex(s.index).to_numpy(dtype=float) * K
+            with np.errstate(divide="ignore", invalid="ignore"):
+                y = np.diff(np.log(np.where(nv > 0, nv, np.nan)))
+        else:
+            y = np.full(len(x), np.nan)
+        m = np.rint(np.exp(np.abs(x)))
+        like = (m >= 2) & (np.abs(np.abs(x) - np.log(np.maximum(m, 1.0))) <= tol)
+        consumed: set[int] = set()
+        for i in np.flatnonzero(like):
+            if i in consumed:
+                continue
+            if np.isfinite(y[i]) and abs(y[i] - x[i]) <= tol:
+                continue                                    # the NAV made the same move
+            f = float(m[i]) if x[i] > 0 else 1.0 / float(m[i])
+            rev = None
+            for j in range(i + 1, min(i + window, len(x) - 1) + 1):
+                if like[j] and np.sign(x[j]) == -np.sign(x[i]) and abs(a[j + 1] - a[i]) <= tol:
+                    rev = j
+                    break
+            base = dict(ticker=t, date=s.index[i + 1], ratio=float(np.exp(x[i])), factor=f,
+                        nav_ratio=float(np.exp(y[i])) if np.isfinite(y[i]) else np.nan)
+            if rev is None:
+                unrev.append(base)
+                continue
+            consumed.add(rev)
+            hits.append(dict(base, run_end=s.index[rev], revert_date=s.index[rev + 1], bars=rev - i,
+                             revert_ratio=float(np.exp(x[rev])), round_trip=float(np.exp(a[rev + 1] - a[i]))))
+    H = pd.DataFrame(hits, columns=HIT_COLUMNS)
+    U = pd.DataFrame(unrev, columns=["ticker", "date", "ratio", "factor", "nav_ratio"])
+    return H, U
+
+
+def describe_hits(H: pd.DataFrame) -> str:
+    """Every hit as `(ticker, date, ratio x.xxx, factor f, reverts <date>, NAV ratio y.yyy|none)`."""
+    out = []
+    for r in H.itertuples():
+        fl = f"{int(r.factor)}" if r.factor >= 1 else f"1/{int(round(1 / r.factor))}"
+        nv = "no NAV" if pd.isna(r.nav_ratio) else f"NAV ratio {r.nav_ratio:.3f}"
+        out.append(f"({r.ticker}, {_iso(r.date)}, ratio {r.ratio:.3f}, factor {fl}, {r.bars} bar(s), "
+                   f"reverts {_iso(r.revert_date)}, {nv})")
+    return "; ".join(out)
+
+
+# --------------------------------------------------------------------------- the recorded rulings
+
+def load_bar_rulings(path: Path | str) -> tuple[pd.DataFrame, dict]:
+    """The rulings file: JSON with `ruled_by`, `ruled_on` (ISO date), `record` (where the
+    ruling is written down) and `bars`, each {ticker, date, run_end, factor, treatment,
+    reason}. `date` is the first wrong-basis bar, `run_end` the last; `factor` the
+    detected split factor (m, or 1/m) the ruling was made on. Treatments:
+      rebase      -- the bar is on the wrong basis: divide each close of the run by
+                     `factor`. Exact when the vendor's bar is the true print times
+                     the split ratio, which is what a basis mix is.
+      book_as_is  -- book the close unchanged. For a bar ruled genuine, or for a
+                     script whose purpose is to reproduce a committed computation
+                     that booked it; the reason must say which.
+    Anything missing or malformed raises: an unreadable ruling is not a ruling."""
+    p = Path(path)
+    if not p.exists():
+        raise SpikeRevertError(f"bar rulings file {p} does not exist")
+    doc = json.loads(p.read_text())
+    for k in ("ruled_by", "ruled_on", "record", "bars"):
+        if not doc.get(k):
+            raise SpikeRevertError(f"{p.name}: `{k}` is missing or empty; a ruling names who ruled, when and where")
+    pd.Timestamp(doc["ruled_on"])
+    rows = []
+    for b in doc["bars"]:
+        miss = [k for k in ("ticker", "date", "run_end", "factor", "treatment", "reason") if not b.get(k)]
+        if miss:
+            raise SpikeRevertError(f"{p.name}: a bar ruling lacks {miss}: {b}")
+        if b["treatment"] not in TREATMENTS:
+            raise SpikeRevertError(f"{p.name}: treatment {b['treatment']!r} is not one of {TREATMENTS}")
+        f = float(b["factor"])
+        m = f if f >= 1 else 1.0 / f
+        if not (m >= 2 and abs(m - round(m)) < 1e-9):
+            raise SpikeRevertError(f"{p.name}: factor {b['factor']} is not an integer >= 2 or its reciprocal")
+        rows.append(dict(ticker=str(b["ticker"]), date=pd.Timestamp(b["date"]), run_end=pd.Timestamp(b["run_end"]),
+                         factor=f, treatment=b["treatment"], reason=str(b["reason"])))
+    R = pd.DataFrame(rows)
+    if R.duplicated(["ticker", "date"]).any():
+        raise SpikeRevertError(f"{p.name}: two rulings for one (ticker, date)")
+    return R, doc
+
+
+def guard_closes(close: pd.DataFrame, *, cols, lo, hi, nav: pd.DataFrame | None, splits: pd.DataFrame | None,
+                 ex_dates: pd.DataFrame | None = None, rulings: Path | str | None = None,
+                 context: str = "") -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(close with the ruled treatments applied, the log of what was applied).
+
+    Scans `cols` of the raw close panel. A hit is IN SCOPE when its run, jump to
+    revert, touches [lo, hi] -- the window whose returns the caller books. Raises
+    `SpikeRevertError`:
+      * naming every in-scope hit that no ruling covers;
+      * on a ruling whose bar is a hit but whose `run_end` or `factor` is not the
+        hit's (it was made on other data);
+      * on a ruling for a ticker in `cols` dated inside [lo, hi] that matches no
+        hit (the bar changed under it; remove the ruling or rule again);
+      * when a rebased close is the prior close of an ex-date in `ex_dates`
+        (`ex_date ticker amount`): the yield's denominator is read from the
+        price file, which this function does not rewrite, so the ruling does not
+        cover it;
+      * when, after the treatments, an in-scope hit remains that is not ruled
+        `book_as_is` (the treatment did not clean the bar).
+    With no in-scope hit and no ruling, the input frame is returned unchanged.
+    """
+    cols = [c for c in cols if c in close.columns]
+    lo, hi = pd.Timestamp(lo), pd.Timestamp(hi)
+    H, _ = split_like_spikes(close[cols], nav, splits)
+    inscope = H[(H["revert_date"] >= lo) & (H["date"] <= hi)] if len(H) else H
+    if rulings is None:
+        R = pd.DataFrame(columns=["ticker", "date", "run_end", "factor", "treatment", "reason"])
+        src = "no rulings file"
+    else:
+        R, _doc = load_bar_rulings(rulings)
+        src = Path(rulings).name
+    key = lambda df: set(zip(df["ticker"], pd.to_datetime(df["date"])))      # noqa: E731
+    ruled = key(R)
+    unruled = inscope[[(t, d) not in ruled for t, d in zip(inscope["ticker"], inscope["date"])]]
+    if len(unruled):
+        raise SpikeRevertError(
+            f"{context}: {len(unruled)} split-like spike-and-revert bar(s) with no recorded ruling ({src}): "
+            f"{describe_hits(unruled)}. Each is a close that jumped by a split factor and came back within "
+            f"{REVERT_WINDOW} sessions while the NAV did not make the move; booked as is, it is a phantom "
+            "return (C4's holdout, 2026-10-18: -10.87% of capital). Fix the bar in the fetcher, or record a "
+            "ruling (`load_bar_rulings`) and pass its file.")
+    hk = {(t, d): r for t, d, r in zip(H["ticker"], H["date"], H.itertuples())}
+    for r in R.itertuples():
+        h = hk.get((r.ticker, r.date))
+        if h is None:
+            if r.ticker in cols and lo <= r.date <= hi:
+                raise SpikeRevertError(f"{context}: ruling ({r.ticker}, {_iso(r.date)}) in {src} matches no "
+                                       "spike-and-revert bar in this panel; the data changed under it")
+            continue
+        if h.run_end != r.run_end or abs(h.factor - r.factor) > 1e-9:
+            raise SpikeRevertError(f"{context}: ruling ({r.ticker}, {_iso(r.date)}) in {src} was made on a run to "
+                                   f"{_iso(r.run_end)} at factor {r.factor:g}; the panel shows a run to "
+                                   f"{_iso(h.run_end)} at factor {h.factor:g}")
+    out = close
+    log = []
+    for r in R[R["treatment"] == "rebase"].itertuples():
+        if (r.ticker, r.date) not in hk:
+            continue
+        if out is close:
+            out = close.copy()
+        s = out[r.ticker]
+        run = s.loc[r.date:r.run_end].dropna().index
+        if ex_dates is not None and len(ex_dates):
+            e = pd.to_datetime(ex_dates.loc[ex_dates["ticker"] == r.ticker, "ex_date"])
+            valid = s.dropna().index
+            for d in run:
+                nxt = valid[valid > d]
+                if len(nxt) and ((e > d) & (e <= nxt[0])).any():
+                    raise SpikeRevertError(f"{context}: ({r.ticker}, {_iso(d)}) is ruled `rebase` and is the prior "
+                                           "close of an ex-date; the distribution yield reads that close from the "
+                                           "price file, which the ruling does not cover")
+        for d in run:
+            out.at[d, r.ticker] = float(out.at[d, r.ticker]) / r.factor
+            log.append(dict(ticker=r.ticker, date=d, treatment="rebase", factor=r.factor))
+    for r in R[R["treatment"] == "book_as_is"].itertuples():
+        if (r.ticker, r.date) in hk:
+            log.append(dict(ticker=r.ticker, date=r.date, treatment="book_as_is", factor=r.factor))
+    if out is not close:
+        H2, _ = split_like_spikes(out[cols], nav, splits)
+        left = H2[(H2["revert_date"] >= lo) & (H2["date"] <= hi)] if len(H2) else H2
+        asis = key(R[R["treatment"] == "book_as_is"])
+        left = left[[(t, d) not in asis for t, d in zip(left["ticker"], left["date"])]]
+        if len(left):
+            raise SpikeRevertError(f"{context}: after the ruled treatments these bars still spike and revert: "
+                                   f"{describe_hits(left)}")
+    return out, pd.DataFrame(log, columns=["ticker", "date", "treatment", "factor"])
+
+
+# --------------------------------------------------------------------------- Stage-0 flags block P&L
+
+STAGE0_RULING_COLUMNS = ("ruling", "ruled_by", "ruled_on")
+
+
+def _norm(df: pd.DataFrame, keys) -> pd.DataFrame:
+    out = df.copy()
+    for k in keys:
+        if k == "date" or k.startswith("date"):
+            out[k] = pd.to_datetime(out[k]).dt.strftime("%Y-%m-%d")
+        else:
+            out[k] = out[k].astype(str)
+    return out
+
+
+def require_stage0_rulings(flags: pd.DataFrame, rulings_path: Path | str, *, keys=("check", "ticker", "date"),
+                           context: str = "") -> pd.DataFrame:
+    """Refuse to let a trial form P&L while any Stage-0 flag lacks a recorded ruling.
+
+    WHY. C4's Stage 0 flagged the four IGR bars (Q5, eight rows) on 2026-10-14, among
+    1,304 Q5 flags and 5,142 rows in all; the pre-registration said a vendor defect is
+    fixed before any P&L (§4.5), but nothing made the trial wait for the flags to be
+    read, and the holdout booked them on 2026-10-18. A flag is information only if
+    someone must answer it.
+
+    `flags`: the trial's Stage-0 flag table (one row per flag; `keys` identify it).
+    `rulings_path`: the trial's rulings CSV -- the `keys` plus `ruling` (the ruled
+    treatment, in words), `ruled_by` and `ruled_on` (ISO date), one row per flag. Its
+    path is declared in the pre-registration (`.claude/skills/prereg/SKILL.md`).
+    `stage0_rulings_template` writes the empty form.
+
+    Raises `Stage0BlockError`, naming every flag concerned, when: the file is missing
+    (and there is any flag); a flag has no row, or a row with an empty field; a key
+    is ruled twice; or a ruling matches no flag (the flags changed under it -- a
+    fixed fetcher is the usual cause, and the stale row must go). Zero flags need no
+    file. Returns the flags with their rulings joined, for the trial to print."""
+    keys = list(keys)
+    if not len(flags):
+        return flags.assign(**{c: pd.Series(dtype=object) for c in STAGE0_RULING_COLUMNS})
+    miss_k = [k for k in keys if k not in flags.columns]
+    if miss_k:
+        raise Stage0BlockError(f"{context}: the flag table has no column(s) {miss_k}")
+    F = _norm(flags, keys)
+    if F.duplicated(keys).any():
+        raise Stage0BlockError(f"{context}: two flags share one key {keys}; the key does not identify a flag")
+    p = Path(rulings_path)
+    if not p.exists():
+        raise Stage0BlockError(
+            f"{context}: {len(F)} Stage-0 flag(s) and no rulings file at {p}. No P&L is formed until every flag "
+            f"has a recorded ruling: {_name_flags(F, keys)}")
+    R = pd.read_csv(p, dtype=str, keep_default_na=False)
+    need = keys + list(STAGE0_RULING_COLUMNS)
+    miss_c = [c for c in need if c not in R.columns]
+    if miss_c:
+        raise Stage0BlockError(f"{context}: {p.name} lacks column(s) {miss_c}")
+    R = _norm(R[need], keys)
+    if R.duplicated(keys).any():
+        raise Stage0BlockError(f"{context}: {p.name} rules one flag twice: {_name_flags(R[R.duplicated(keys, keep=False)], keys)}")
+    J = F.merge(R, on=keys, how="left", indicator=True)
+    empty = J[list(STAGE0_RULING_COLUMNS)].fillna("").apply(lambda c: c.str.strip() == "").any(axis=1)
+    lacking = J[(J["_merge"] == "left_only") | empty]
+    if len(lacking):
+        raise Stage0BlockError(
+            f"{context}: {len(lacking)} of {len(F)} Stage-0 flag(s) lack a recorded ruling in {p.name}; no P&L "
+            f"is formed until each has one: {_name_flags(lacking, keys)}")
+    stale = R.merge(F[keys], on=keys, how="left", indicator=True)
+    stale = stale[stale["_merge"] == "left_only"]
+    if len(stale):
+        raise Stage0BlockError(f"{context}: {p.name} rules on {len(stale)} flag(s) Stage 0 no longer raises: "
+                               f"{_name_flags(stale, keys)}")
+    bad_on = J[pd.to_datetime(J["ruled_on"], errors="coerce").isna()]
+    if len(bad_on):
+        raise Stage0BlockError(f"{context}: {p.name} has a `ruled_on` that is not a date for "
+                               f"{_name_flags(bad_on, keys)}")
+    return J.drop(columns="_merge")
+
+
+def _name_flags(df: pd.DataFrame, keys) -> str:
+    return "; ".join("(" + ", ".join(str(v) for v in row) + ")" for row in df[list(keys)].itertuples(index=False))
+
+
+def stage0_rulings_template(flags: pd.DataFrame, path: Path | str, *, keys=("check", "ticker", "date")) -> Path:
+    """Write the empty rulings form for `flags` (the keys, then blank ruling columns). Refuses to
+    overwrite: a rulings file is a record, and a template written over it would erase rulings."""
+    p = Path(path)
+    if p.exists():
+        raise Stage0BlockError(f"{p} exists; a rulings file is never overwritten by a template")
+    T = _norm(flags[list(keys)], keys).drop_duplicates()
+    for c in STAGE0_RULING_COLUMNS:
+        T[c] = ""
+    T.to_csv(p, index=False)
+    return p
+
+
+# --------------------------------------------------------------------------- the scan of the panels
+
+SCAN_STAMP = "2026-10-19"
+SCAN_DIR = REPO / "results" / "cef" / "data_guards"
+
+
+def _wide(df: pd.DataFrame, col: str) -> pd.DataFrame:
+    """date x ticker of `col`. Exact duplicate rows collapse (the CEFConnect file repeats a day
+    in its "All" and "1Y" windows, identically on 2026-10-19); two DIFFERENT values for one
+    (date, ticker) raise -- `pivot_table` would average them into a number no source printed."""
+    d = df.assign(date=pd.to_datetime(df["date"]))[["date", "ticker", col]].drop_duplicates()
+    clash = d[d.duplicated(["date", "ticker"], keep=False)]
+    if len(clash):
+        raise ValueError(f"{col}: {clash[['date', 'ticker']].drop_duplicates().shape[0]} (date, ticker) pairs carry "
+                         f"two different values, e.g. {clash.head(4).to_dict('records')}")
+    return d.pivot(index="date", columns="ticker", values=col).sort_index()
+
+
+def scan() -> int:
+    """Run `split_like_spikes` over every price panel in data/cef/ and data/cef_families/.
+
+    Writes the yfinance- and CEFConnect-sourced hits (ticker, dates, ratios: no price
+    level) to results/cef/data_guards/; the CRSP-built panel is licensed, so only its
+    counts are committed. Report only: nothing is altered, and no panel is written."""
+    from scripts.cef.band_frontier import load_families_actions
+    D, F = REPO / "data" / "cef", REPO / "data" / "cef_families"
+    fam_div, fam_sp = load_families_actions(F / "cef_actions.parquet")
+    live_sp = pd.read_parquet(D / "cef_splits.parquet")
+    fam_nav = _wide(pd.read_parquet(F / "cef_nav.parquet"), "nav")
+    cc = pd.read_parquet(F / "cef_nav_cefconnect.parquet")
+    panels = [
+        ("data/cef/cef_prices.parquet (live book, yfinance)", _wide(pd.read_parquet(D / "cef_prices.parquet"), "close"),
+         _wide(pd.read_parquet(D / "cef_nav.parquet"), "nav"), live_sp, True),
+        ("data/cef_families/cef_prices.parquet (yfinance)", _wide(pd.read_parquet(F / "cef_prices.parquet"), "close"),
+         fam_nav, fam_sp, True),
+        ("data/cef_families/cef_nav_cefconnect.parquet close_cc (CEFConnect)", _wide(cc, "close_cc"),
+         _wide(cc, "nav"), fam_sp, True),
+        ("data/cef_families/cef_prices_crsp.parquet (CRSP-built; licensed: counts only)",
+         _wide(pd.read_parquet(F / "cef_prices_crsp.parquet"), "close"), fam_nav, fam_sp, False),
+    ]
+    SCAN_DIR.mkdir(parents=True, exist_ok=True)
+    lines, committed = [], []
+    pr = lambda s="": lines.append(s)                                       # noqa: E731
+    pr(f"SPLIT-LIKE SPIKE-AND-REVERT SCAN ({SCAN_STAMP}; report only; zero trials). Declared rule: tau = ln(1.15) = "
+       f"{SPLIT_TOL:.4f}, window {REVERT_WINDOW} sessions; NAV makes the move if within tau of the price's step.")
+    for name, close, nav, sp, publish in panels:
+        H, U = split_like_spikes(close, nav, sp)
+        pr()
+        gaps = pd.concat([close[c].dropna().index.to_series().diff().dt.days for c in close.columns]).dropna()
+        pr(f"[{name}] {close.shape[1]} tickers, {close.index.min().date()}..{close.index.max().date()}, "
+           f"{int(close.notna().sum().sum())} bars; median gap between a ticker's bars {gaps.median():g} calendar "
+           f"days" + (" -- NOT daily: tau is derived for one-day moves, so read these hits as leads" if gaps.median() > 3
+                      else ""))
+        pr(f"  HITS (raised by the guard): {len(H)} in {H['ticker'].nunique() if len(H) else 0} tickers; "
+           f"unreverted split-like jumps the NAV did not make (reported only): {len(U)} in "
+           f"{U['ticker'].nunique() if len(U) else 0} tickers")
+        sens = []
+        for lab, tol, w in (("tau/2", SPLIT_TOL / 2, REVERT_WINDOW), ("2 tau", 2 * SPLIT_TOL, REVERT_WINDOW),
+                            ("W=1", SPLIT_TOL, 1), ("W=21", SPLIT_TOL, 21)):
+            sens.append(f"{lab} {len(split_like_spikes(close, nav, sp, tol=tol, window=w)[0])}")
+        pr(f"  beside it, never choosing: hits at {', '.join(sens)}")
+        if publish:
+            if len(H):
+                pr("  every hit: ticker, first bar, last bar, revert, bars, ratio, factor, NAV ratio")
+                for r in H.itertuples():
+                    pr(f"    {r.ticker:<6} {_iso(r.date)} {_iso(r.run_end)} {_iso(r.revert_date)} {r.bars} "
+                       f"{r.ratio:7.3f} {r.factor:7.4f} " + ("   none" if pd.isna(r.nav_ratio) else f"{r.nav_ratio:7.3f}"))
+            if len(U):
+                pr("  unreverted (reported only): ticker, date, ratio, factor, NAV ratio")
+                for r in U.itertuples():
+                    pr(f"    {r.ticker:<6} {_iso(r.date)} {r.ratio:7.3f} {r.factor:7.4f} " +
+                       ("   none" if pd.isna(r.nav_ratio) else f"{r.nav_ratio:7.3f}"))
+            if len(H):
+                committed.append(H.assign(panel=name.split(" ")[0]))
+        else:
+            by = H.groupby(H["date"].dt.year).size().to_dict() if len(H) else {}
+            pr(f"  counts by year (licensed panel; no ticker-dates committed): {by}")
+    out = SCAN_DIR / f"scan_output_{SCAN_STAMP}.txt"
+    out.write_text("\n".join(lines) + "\n")
+    pd.concat(committed or [pd.DataFrame(columns=HIT_COLUMNS + ["panel"])]).to_csv(SCAN_DIR / f"scan_hits_{SCAN_STAMP}.csv", index=False, float_format="%.6f")
+    print("\n".join(lines))
+    print(f"\nwrote {out.relative_to(REPO)} and scan_hits_{SCAN_STAMP}.csv")
+    return 0
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] != ["scan"]:
+        raise SystemExit("usage: python3 scripts/cef/data_guards.py scan")
+    raise SystemExit(scan())
