@@ -1484,3 +1484,28 @@ data rows re-run with `python3 scripts/events/spac_trust_census.py --ibkr`
 §12ac's Alpaca rows stand; the Alpaca and IBKR fees are both USD 100 per
 election. §12aa's IBKR rows were re-read where this note uses them, and are
 unchanged.
+
+### 12ah. The E1 merger-pair pre-registration draft (added 2026-10-19)
+
+*Provisional section number, so that sibling branches cannot clash; the
+coordinator renumbers it at merge.*
+
+The sources behind `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`.
+
+- **Zero trials.** The draft computes no E1 return.
+- **No new external source was fetched.** Each external row below points at the
+  subsection where it was fetched and read. It is [S] here because it was not
+  re-read for this draft.
+- **One new measurement:** deal counts.
+
+| claim / source | where | status |
+|---|---|---|
+| **Deal counts by declared set and segment**, 2010-01-01 → 2024-12-31 completions, stock-for-stock (`dlstcd` 231) with an acquirer permno. Fit: muni 95 deals / 49 groups. Name holdout: 31 / 15, of which 10 on the 27-name set. Time holdout (2023–24): 5 / 3. Excluded (a frozen-spec name on either side): 9 / 2. Groups are acquirer × completion date. Only permno, `dlstdt`, `dlstcd` and `nwperm` are read from the delisting table; no return, amount or price | `python3 scripts/events/e1_prereg_counts.py` on the `crsp_events` cache of CRSP `dsenames` / `dsedelist` (R2 WRDS mirror, pulled 2026-10-12T18:05Z, to 2024-12-31); output `results/events/e1_prereg_counts_2026-10-19.json` (aggregates only) | [V] counts, 2026-10-19 |
+| The at-announcement pair on EDGAR dates (muni 92 deals / 47 groups, median +167.4bp, clustered t 2.41; all 167 / 102, +86.5bp, t 1.93), and the date rules | `results/events/EDGAR_EVENTS_2026-10-12.md` §3; §12g | [S] here |
+| G1a: Alpaca and IBKR lendability of pending and historical acquirers; FINRA short interest at announcement; universe muni acquirers' IBKR fee at first filing (median 9.43%/yr) | `results/events/G1A_SHORTABILITY_2026-10-13.md`; §12p | [S] here (fee levels [S] there too) |
+| The ETF-hedge gate: every muni ETF `hard_to_borrow` at Alpaca on 2026-10-15; residuals 2.1–2.6× the effect's dispersion; the muni hold of 168 sessions / 243.5 calendar days | `results/events/E1_ETF_HEDGE_GATE_2026-10-15.md`; §12w | [S] here |
+| IBKR as a second broker: the six munis' fees on the file stamped 2026-10-16; margin does not cross brokers; route both legs to one broker; resubmit on reconnect; weekly manual 2FA; paper fills from top of book with no auction order; 0% short-proceeds interest on the first USD 100,000 | `results/events/MERGER_ARB_AND_IBKR_2026-10-15.md` B3, B6–B8; §12aa | [S] here |
+| Alpaca live borrow: easy-to-borrow shorts free; hard-to-borrow fee daily on 102% of the prior close, rate ÷ 360 | Alpaca Brokerage Fee Schedule (revised 2026-10-01); §12l | [S] here |
+| Mitchell, Pulvino & Stafford (2004), *JF* 59(1): nearly half of a stock acquirer's negative announcement return is arbitrage short-selling pressure | §12aa | [S] here ([V] abstract there) |
+| The research decision time and the EDGAR filing-date rule (a filing accepted after 17:30 ET is dated, and disseminated, the next business day) | `results/events/EVENT_ENGINE_DESIGN_2026-10-15.md` §4; §12z; 17 CFR 232.13 via §12g | [S] here |
+| **Team lead rulings, 2026-10-19**: spend an EVENTS trial on E1, IBKR's borrow admissible for the short leg; open IBKR as a second broker, equities only | `docs/SYSTEM.md` §5 on `main` at `94bca4a` (not on the draft's base `832aeaa`) | internal record |
