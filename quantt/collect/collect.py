@@ -15,7 +15,9 @@ prices and NAV, the official closes, the account, the distributions, and two
 cross-checks between independent sources. From 2026-10-09 it also records Alpaca's whole active
 asset list with its borrow flags (`borrow_snapshot`). Alpaca keeps no history of
 which names could be shorted on which day, and short sleeves need that history
-(`results/cef/RESEARCH_PLAN_2026-10-09.md` 0.3).
+(`results/cef/RESEARCH_PLAN_2026-10-09.md` 0.3). From 2026-10-19 it keeps the
+book's official daily P&L series, Alpaca's end-of-day equity history, in
+`<state>/eod_equity.csv` (`step_eod_equity`, team lead's ruling of that day).
 
 WHEN IT RUNS
 ------------
@@ -133,7 +135,8 @@ DISTRIBUTIONS_TIMEOUT_S = 20 * 60
 TAIL_LINES = 40
 
 STEPS = ("prices_nav", "nav_crosscheck", "official_closes", "close_crosscheck",
-         "account_snapshot", "distributions", "borrow_snapshot", "cefconnect_arrival")
+         "account_snapshot", "eod_equity", "distributions", "borrow_snapshot",
+         "cefconnect_arrival")
 # A WATCH step keeps the collector polling every slot until it is done, but never
 # makes the day INCOMPLETE, never fails the exit code and never blocks another
 # step: it measures something that arrives on its own clock (2026-10-13).
@@ -148,11 +151,24 @@ OFFICIAL_CLOSE_COLUMNS = ("date", "ticker", "price", "exchange", "condition", "t
                           "fetched_at_utc")
 EQUITY_COLUMNS = ("date", "equity", "last_equity", "cash", "long_market_value",
                   "short_market_value", "n_positions", "read_at_utc")
+# The official daily P&L series (team lead, 2026-10-19; step `eod_equity`). A
+# CONTRACT: another branch and a HALVE/KILL monitor read it by these names, and
+# the first three must stay first and keep these names. Extra columns may only
+# be added after them.
+EOD_FILE = "eod_equity.csv"
+EOD_COLUMNS = ("date", "equity", "change_usd", "read_at_utc")
 # Any account key matching this is dropped before account.json is written. The
 # parsed account carries none today; this is for the day Alpaca adds one.
 CREDENTIAL_KEY = re.compile(r"key|secret|token|password|auth", re.I)
 
-BOOKS = {"cef": {"book_path": "ops/books/cef_discount_book.json"}}
+# `eod_from`: the date the book's Alpaca paper account opened (IBKR retired and
+# the per-book Alpaca accounts set up on 2026-09-28, docs/SYSTEM.md §5). The
+# end-of-day history is read from here on every read. Days before funding come
+# back as equity 0 and the client drops them by name (alpaca.py
+# `eod_equity_history`), so the first row written is the first funded session
+# whichever day that was.
+BOOKS = {"cef": {"book_path": "ops/books/cef_discount_book.json",
+                 "eod_from": dt.date(2026, 9, 28)}}
 
 EXIT_OK, EXIT_INCOMPLETE, EXIT_UNEXPECTED = 0, 5, 20
 
@@ -517,6 +533,162 @@ def step_account_snapshot(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> di
             "n_fills": len(fills)}
 
 
+def _read_eod(path: Path) -> dict:
+    """{date: row} from eod_equity.csv; a header that is not EOD_COLUMNS, or a
+    date listed twice, fails the step rather than being rewritten over."""
+    if not path.exists():
+        return {}
+    with open(path, newline="") as fh:
+        rd = csv.DictReader(fh)
+        if tuple(rd.fieldnames or ()) != EOD_COLUMNS:
+            raise StepFailed(f"{path} has columns {rd.fieldnames}, expected {list(EOD_COLUMNS)}",
+                             {"flags": [], "gaps": []})
+        rows: dict = {}
+        for r in rd:
+            if r["date"] in rows:
+                raise StepFailed(f"{path} lists {r['date']} twice", {"flags": [], "gaps": []})
+            rows[r["date"]] = r
+    return rows
+
+
+def _write_eod(path: Path, rows: list) -> None:
+    """The whole file, sorted by date; temp file, fsync, rename (as `_write_equity_row`)."""
+    tmp = path.with_name(f".{path.name}.tmp")
+    with open(tmp, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=EOD_COLUMNS)
+        w.writeheader()
+        w.writerows(rows)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def _with_changes(rows: dict) -> tuple[list, list]:
+    """(rows sorted by date with change_usd filled in, gaps).
+
+    change_usd is this row's equity minus the PREVIOUS TRADING SESSION's
+    (`ops/schedule/nyse_calendar.previous_trading_day`), and only when that
+    session is the row just before it. The first row is the first funded
+    session, and has no previous session in this file, so its cell is empty.
+    A row whose previous session is missing from Alpaca's history also gets an
+    empty cell, and a gap naming the missing session. Differencing across the
+    hole would give a two-day change labelled as one day.
+    Alpaca returns cash to two digits [V: reference, §12an], so the
+    difference is rounded to the cent only to drop float noise.
+    """
+    out, gaps = [], []
+    dates = sorted(rows)
+    for i, d in enumerate(dates):
+        r = dict(rows[d])
+        r["change_usd"] = ""
+        if i:
+            want = previous_trading_day(dt.date.fromisoformat(d)).isoformat()
+            if dates[i - 1] == want:
+                r["change_usd"] = f"{float(r['equity']) - float(rows[want]['equity']):.2f}"
+            else:
+                gaps.append({"date": d, "reason": f"the previous session {want} is not in "
+                                                  f"Alpaca's EOD history; change_usd left empty"})
+        out.append({k: r[k] for k in EOD_COLUMNS})
+    return out, gaps
+
+
+def step_eod_equity(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
+    """Alpaca's end-of-day equity for every funded session, upserted into <state>/eod_equity.csv.
+
+    WHY (team lead, 2026-10-19). Alpaca's end-of-day portfolio history is the
+    paper book's official daily P&L of record. equity.csv (step
+    `account_snapshot`) is a snapshot read after the close and stays as one.
+    The 17:30 ET equity - last_equity disagreed with this history on all
+    four days compared on 2026-10-19 (`quantt/session/score.py`).
+
+    THE FILE IS A CONTRACT (EOD_COLUMNS). Another branch and a HALVE/KILL
+    monitor read it by column name:
+      date        the session's New York date, ISO
+      equity      Alpaca's EOD equity, USD, as parsed (no rounding)
+      change_usd  equity minus the previous session's equity in this file.
+                  Empty for the first funded session, and for a session whose
+                  previous one is missing (`_with_changes`). Never filled from an
+                  invented baseline.
+      read_at_utc when this value was first read (set again when it is revised)
+    Every write rewrites the whole file from every funded session since
+    BOOKS[book]["eod_from"]. So the first run after install backfills from
+    2026-09-28 on its own, and every later read re-checks every earlier day.
+    The write is temp + fsync + rename, like equity.csv.
+
+    A REVISION IS LOGGED, NEVER SILENT. If a recorded date's equity differs
+    from Alpaca's now, the new value is written. A line naming the date, the
+    old value and the new one goes to data.log, and a flag
+    (`check: eod_revised`) goes to the day's report. A recorded date missing
+    from a later read keeps its row and is flagged (`eod_absent_from_read`):
+    a missing point does not delete the official history.
+
+    WHAT IS WRITTEN: ONLY FINISHED DAYS, UP TO D. The read asks for points up
+    to the data day D; the client leaves out any later, unfinished session.
+    A point whose own stamp is after this run's Alpaca clock is not written:
+    its day's window has not closed. Alpaca stamped the 2026-10-16 close
+    2026-10-17T00:00Z, 20:00 ET, and documents neither when a point first
+    appears nor whether it can change (§12an). Such a point is written on the
+    first run after its stamp has passed.
+
+    WHEN IT READS: EVERY SLOT UNTIL D's POINT IS WRITTEN, THEN ONCE A DATA DAY.
+    The step is ok only once D's finished point is in the file. Until then it
+    fails, names why ("no point for D yet", or "stamped after this read"),
+    and is retried every 30 minutes, as `prices_nav` is until the evening NAVs
+    land. So D's row appears within one slot of Alpaca's stamp. After that the
+    collector idles, which costs a clock and a calendar read and nothing else
+    (module docstring). The next re-read is the next data day's first run.
+    Because every read covers the whole history, a revision to any day is
+    caught and logged within one session. Reading on every slot forever would
+    end the idle state for a series that changes once a day.
+
+    A regular step, not a WATCH step: a shape the client refuses, or a file
+    in the wrong format, makes the day INCOMPLETE in data.log. The monitor
+    reading this file must not lose it quietly.
+    """
+    points = ctx.client.eod_equity_history(BOOKS[ctx.book]["eod_from"], day)
+    now = clk["timestamp"]
+    path = ctx.state_dir / EOD_FILE
+    old = _read_eod(path)
+    read_at = _utc_now()
+    rows = {d: dict(r) for d, r in old.items()}
+    flags, revised, written = [], [], 0
+    finished = [p for p in points if p.stamp <= now]
+    for p in finished:
+        d = p.date.isoformat()
+        new = repr(float(p.equity))
+        if d not in rows:
+            rows[d] = {"date": d, "equity": new, "read_at_utc": read_at}
+            written += 1
+        elif float(rows[d]["equity"]) != float(p.equity):
+            revised.append((d, rows[d]["equity"], new))
+            flags.append({"check": "eod_revised", "date": d, "old": rows[d]["equity"],
+                          "new": new, "read_at_utc": read_at})
+            rows[d] = {"date": d, "equity": new, "read_at_utc": read_at}
+    read_dates = {p.date.isoformat() for p in points}
+    for d in sorted(set(old) - read_dates):
+        flags.append({"check": "eod_absent_from_read", "date": d, "kept": old[d]["equity"],
+                      "reason": f"recorded earlier, not in Alpaca's history read {read_at}"})
+    out, gaps = _with_changes(rows)
+    if out:
+        _write_eod(path, out)
+    for d, o, n in revised:
+        _append_log(ctx.state_dir, f"{day} DATA EOD_REVISED {d} equity {o} -> {n} "
+                                   f"(Alpaca EOD history, read {read_at})")
+    detail = {"flags": flags, "gaps": gaps, "written_now": written, "revised": len(revised),
+              "rows": len(out), "first": out[0]["date"] if out else None,
+              "last": out[-1]["date"] if out else None}
+    mine = [p for p in points if p.date == day]
+    if not mine:
+        raise StepFailed(f"Alpaca's EOD history has no point for {day} yet; read again next slot",
+                         detail)
+    if mine[0].stamp > now:
+        raise StepFailed(f"Alpaca's point for {day} is stamped "
+                         f"{mine[0].stamp.astimezone(ET).isoformat()}, after this run's clock "
+                         f"{now.astimezone(ET).isoformat()}: its day has not closed; written "
+                         f"once the stamp has passed", detail)
+    return detail
+
+
 def step_distributions(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
     """scripts/fetch_cef_distributions.py, which reads cef_universe.csv at import."""
     uni = ctx.cef_dir / "cef_universe.csv"
@@ -693,7 +865,8 @@ def step_cefconnect_arrival(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> 
 
 STEP_FUNCS = {"prices_nav": step_prices_nav, "nav_crosscheck": step_nav_crosscheck,
               "official_closes": step_official_closes, "close_crosscheck": step_close_crosscheck,
-              "account_snapshot": step_account_snapshot, "distributions": step_distributions,
+              "account_snapshot": step_account_snapshot, "eod_equity": step_eod_equity,
+              "distributions": step_distributions,
               "borrow_snapshot": step_borrow_snapshot,
               "cefconnect_arrival": step_cefconnect_arrival}
 

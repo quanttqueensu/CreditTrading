@@ -214,6 +214,78 @@ def test_score_module_does_no_io():
     imported = {a.name.split(".")[0] for n in ast.walk(tree)
                 if isinstance(n, (ast.Import, ast.ImportFrom))
                 for a in (n.names if isinstance(n, ast.Import) else [ast.alias(n.module or "")])}
-    assert imported <= {"__future__", "math", "dataclasses", "typing"}
+    # datetime (2026-10-19, the official figure): types and arithmetic only; the
+    # names check below and the absence of zoneinfo keep the clock and files out.
+    assert imported <= {"__future__", "math", "dataclasses", "typing", "datetime"}
+    attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    assert not attrs & {"now", "today", "utcnow"}
     names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     assert not names & {"open", "print", "input"}
+
+
+# ------------------------------------- the official figure (team lead 2026-10-19)
+# Alpaca's end-of-day history, EOD(D) - EOD(prev). Synthetic equities; the
+# stamps follow the convention read live on 2026-10-19 (00:00 UTC after the session).
+
+import datetime as dt  # noqa: E402
+
+UTC = dt.timezone.utc
+EDT = dt.timezone(dt.timedelta(hours=-4))                 # Alpaca's clock carries the NY offset
+DAY, PREV_DAY = dt.date(2026, 10, 16), dt.date(2026, 10, 15)
+STAMP_D = dt.datetime(2026, 10, 17, tzinfo=UTC)          # 20:00 ET on DAY
+STAMP_PREV = dt.datetime(2026, 10, 16, tzinfo=UTC)
+AFTER = dt.datetime(2026, 10, 16, 20, 30, tzinfo=EDT)     # 20:30 ET on DAY
+AT_1730 = dt.datetime(2026, 10, 16, 17, 30, tzinfo=EDT)   # 17:30 ET on DAY
+
+
+def pts(**over):
+    p = {PREV_DAY: (100_000.0, STAMP_PREV), DAY: (100_160.5, STAMP_D)}
+    p.update(over)
+    return [(d, eq, s) for d, v in sorted(p.items()) if v is not None for eq, s in [v]]
+
+
+def test_official_is_eod_d_minus_eod_prev_once_both_stamps_have_passed():
+    o = sc.official_change(pts(), day=DAY, prev=PREV_DAY, as_of=AFTER)
+    assert o.measured and o.pending is None
+    assert o.change == pytest.approx(160.5)
+    assert (o.equity_d, o.equity_prev) == (100_160.5, 100_000.0)
+    assert set(o.points) == {"2026-10-15", "2026-10-16"}
+
+
+def test_official_is_pending_when_d_has_no_point():
+    o = sc.official_change([p for p in pts() if p[0] != DAY], day=DAY, prev=PREV_DAY, as_of=AFTER)
+    assert not o.measured and o.change is None and o.equity_d is None
+    assert "no point for D 2026-10-16" in o.pending
+
+
+def test_official_is_pending_when_the_previous_session_has_no_point():
+    o = sc.official_change([p for p in pts() if p[0] != PREV_DAY], day=DAY, prev=PREV_DAY,
+                           as_of=AFTER)
+    assert not o.measured and "no point for the previous session 2026-10-15" in o.pending
+
+
+def test_a_point_stamped_after_the_read_is_pending_never_a_figure():
+    """At 17:30 ET a 20:00 ET stamp describes a day whose window has not closed."""
+    o = sc.official_change(pts(), day=DAY, prev=PREV_DAY, as_of=AT_1730)
+    assert not o.measured and o.change is None
+    assert "stamped 2026-10-16T20:00-04:00, after this read at 2026-10-16T17:30-04:00" in o.pending
+    assert o.points["2026-10-16"]["equity"] == 100_160.5      # kept for the record, labelled
+
+
+@pytest.mark.parametrize("bad,match", [
+    (dict(as_of=dt.datetime(2026, 10, 16, 20, 30)), "timezone-aware"),
+    (dict(prev=DAY), "must be before"),
+])
+def test_official_refuses_caller_bugs(bad, match):
+    kw = dict(day=DAY, prev=PREV_DAY, as_of=AFTER)
+    kw.update(bad)
+    with pytest.raises(ValueError, match=match):
+        sc.official_change(pts(), **kw)
+
+
+def test_official_refuses_two_points_on_one_day_and_a_non_finite_equity():
+    with pytest.raises(ValueError, match="two EOD points"):
+        sc.official_change(pts() + [(DAY, 1.0, STAMP_D)], day=DAY, prev=PREV_DAY, as_of=AFTER)
+    with pytest.raises(ValueError, match="not finite"):
+        sc.official_change([(PREV_DAY, 1.0, STAMP_PREV), (DAY, math.nan, STAMP_D)],
+                           day=DAY, prev=PREV_DAY, as_of=AFTER)

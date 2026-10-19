@@ -51,13 +51,21 @@ def fill(sym, side, qty, price, oid=None, i=0):
             "order_status": "filled"}
 
 
+EOD = {PREV: 100_000.0, D: 100_120.0}
+
+
+def eod_stamp(day):
+    """00:00 UTC of the day after `day`: how Alpaca stamped a session's EOD point."""
+    return dt.datetime.combine(day + dt.timedelta(days=1), dt.time(0), tzinfo=dt.timezone.utc)
+
+
 class FakeClient:
     """The GET surface of AlpacaClient, returning its parsed shapes. Deliberately
     no submit_order: any attempt to transmit is an AttributeError."""
 
     def __init__(self, *, now=None, is_open=False, next_open=None, sessions=(PREV, D, NEXT),
                  orders=(), fills=(), positions=None, equity=100_500.0, last_equity=100_000.0,
-                 prints=None):
+                 prints=None, eod=None, eod_error=None):
         self.now = now or et(D, 17, 30)
         self.is_open = is_open
         self.next_open = next_open or et(NEXT, 9, 30)
@@ -67,6 +75,10 @@ class FakeClient:
         self._positions = dict(positions or {})
         self.equity, self.last_equity = equity, last_equity
         self.prints = dict(prints or {})          # (sym, date) -> price | Exception
+        # Alpaca's EOD history, {date: equity}, synthetic. Deliberately NOT the
+        # snapshot's numbers (equity - last_equity = +500): official = +120.
+        self.eod = dict(EOD if eod is None else eod)
+        self.eod_error = eod_error
         self.calls = []
 
     def clock(self):
@@ -101,6 +113,15 @@ class FakeClient:
     def account(self):
         self.calls.append("account")
         return {"equity": self.equity, "last_equity": self.last_equity}
+
+    def eod_equity_history(self, start, end):
+        """The client's parsed shape: EODPoints, stamped 00:00 UTC after each
+        session as read live on 2026-10-19 (20:00 ET on D in summer)."""
+        self.calls.append(("eod", start, end))
+        if self.eod_error is not None:
+            raise self.eod_error
+        return [al.EODPoint(d, eq, eod_stamp(d)) for d, eq in sorted(self.eod.items())
+                if start <= d <= end]
 
     def stock_exchanges(self):
         self.calls.append("exchanges")
@@ -354,9 +375,13 @@ def test_a_refused_day_passes_saying_why_and_still_scores_the_held_book(state):
     c = FakeClient(positions={"AAA": 100}, prints={("AAA", D): 10.5, ("AAA", PREV): 10.0})
     v = run(state, c)
     assert v.ok, v.reason
+    # 2026-10-19: at 17:30 ET D's EOD point (stamped 20:00 ET) is not final, so the
+    # official figure is PENDING; the snapshot is labelled as one, never official.
     assert log_lines(state) == [
-        "2026-09-29 PASS cef no trade: refused: [dry_run] DRY_RUN is '1', not '0'; alpaca equity chg "
-        "+500.00 USD (official, gross); auction-marked +50.00 USD (gross)"]
+        "2026-09-29 PASS cef no trade: refused: [dry_run] DRY_RUN is '1', not '0'; official "
+        "PENDING (Alpaca's point for D 2026-09-29 is stamped 2026-09-29T20:00-04:00, after this "
+        "read at 2026-09-29T17:30-04:00: its day has not closed); snapshot 17:30 ET +500.00 USD "
+        "(gross); auction-marked +50.00 USD (gross)"]
     assert scores(state)[0]["traded"] == "False"
 
 
@@ -552,10 +577,11 @@ def test_end_to_end_through_the_real_client_shapes(state, tmp_path):
 
     o_aaa = order("AAA", "sell", 50)
     routes = {
-        "/v2/clock": {"timestamp": "2026-09-29T17:30:00.123456789-04:00", "is_open": False,
+        "/v2/clock": {"timestamp": "2026-09-29T20:30:00.123456789-04:00", "is_open": False,
                       "next_open": "2026-09-30T09:30:00-04:00",
                       "next_close": "2026-09-30T16:00:00-04:00"},
-        "/v2/calendar": [{"date": "2026-09-28", "open": "09:30", "close": "16:00"},
+        "/v2/calendar": [{"date": "2026-09-25", "open": "09:30", "close": "16:00"},
+                         {"date": "2026-09-28", "open": "09:30", "close": "16:00"},
                          {"date": "2026-09-29", "open": "09:30", "close": "16:00"}],
         "/v2/orders": [o_aaa],
         "/v2/orders:by_client_order_id": o_aaa,
@@ -570,6 +596,13 @@ def test_end_to_end_through_the_real_client_shapes(state, tmp_path):
                         "trade_suspended_by_user": False},
     }
 
+    # Alpaca's EOD history in the shape read live on 2026-10-19 (synthetic values):
+    # a pre-funding zero, then PREV and D, each stamped 00:00 UTC after the session.
+    routes["/v2/account/portfolio/history"] = {
+        "timestamp": [int(eod_stamp(d).timestamp()) for d in (dt.date(2026, 9, 25), PREV, D)],
+        "equity": [0, 100000.0, 100045.0], "profit_loss": [0, 0, 45.0],
+        "profit_loss_pct": [0, 0, 0.00045], "base_value": 100000.0,
+        "base_value_asof": "2026-09-28", "timeframe": "1D"}
     routes["/v2/stocks/meta/exchanges"] = {"N": "New York Stock Exchange", "P": "NYSE Arca"}
     routes["/v2/assets/AAA"] = {"symbol": "AAA", "status": "active", "exchange": "NYSE",
                                 "tradable": True, "shortable": True, "marginable": True,
@@ -607,6 +640,8 @@ def test_end_to_end_through_the_real_client_shapes(state, tmp_path):
     # hold 100*(10.5-10.0)=50; fill -50*(10.5-10.4)=-5
     assert v.score.auction_pnl == pytest.approx(45.0)
     assert v.score.alpaca_equity_change == pytest.approx(100.0)
+    assert v.official.change == pytest.approx(45.0)     # official: EOD history, not the +100 snapshot
+    assert "official +45.00 USD (Alpaca EOD history, gross); snapshot 20:30 ET +100.00" in v.reason
     assert not hasattr(Sess, "post")
 
 
@@ -790,3 +825,101 @@ def test_an_unknown_fill_side_still_raises():
     from quantt.session.verify import parse_fill
     with pytest.raises(ValueError, match="buy|sell"):
         parse_fill(fill("AAA", "buy_to_cover", 1, 10.0))
+
+
+# -------------------------- the official P&L of record (team lead, 2026-10-19)
+# Official = Alpaca's end-of-day history, EOD(D) - EOD(prev). The 17:30 snapshot
+# (equity - last_equity) stays, labelled "snapshot HH:MM ET", and is never put in
+# the official figure's place. PASS/FAIL does not move with the history.
+
+AFTER_STAMP = et(D, 20, 30)          # D's point is stamped 20:00 ET (00:00 UTC on NEXT)
+
+# What other code reads from scores.csv by name (dist_score: auction_pnl_usd). The
+# file is append-only with one header, so the official figure adds no column.
+SCORES_HEADER_0E99DB2 = (
+    "date", "book", "verdict", "traded", "n_orders", "n_filled",
+    "alpaca_equity", "alpaca_last_equity", "alpaca_equity_change_usd",
+    "auction_pnl_usd", "auction_hold_pnl_usd", "auction_fill_pnl_usd",
+    "fill_vs_auction_bp", "unmeasured", "auction_condition", "cost_basis",
+    "read_at", "per_symbol_json",
+)
+
+
+def test_official_is_the_eod_change_once_ds_point_is_final(state):
+    started(state, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+    v = run(state, traded_day(now=AFTER_STAMP))
+    assert v.ok, v.reason
+    line, = log_lines(state)
+    assert line.endswith("traded 2 order(s), 2 filled; official +120.00 USD (Alpaca EOD history, "
+                         "gross); snapshot 20:30 ET +500.00 USD (gross); auction-marked +98.00 USD "
+                         "(gross); fill vs auction +32.0bp (+ = worse)")
+    rj = json.loads((state / D.isoformat() / "reconcile.json").read_text())
+    o = rj["official_eod"]
+    assert o["change_usd"] == pytest.approx(120.0) and o["pending"] is None
+    assert (o["equity_d"], o["equity_prev"]) == (100_120.0, 100_000.0)
+    assert "portfolio/history" in o["source"]
+    assert rj["snapshot"]["change_usd"] == pytest.approx(500.0)
+    with (state / "scores.csv").open(newline="") as fh:
+        assert tuple(next(csv.reader(fh))) == SCORES_HEADER_0E99DB2
+    assert scores(state)[0]["alpaca_equity_change_usd"] == "500.00"   # the snapshot, kept
+
+
+def test_official_is_pending_when_d_has_no_point_and_nothing_stands_in(state):
+    started(state, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+    v = run(state, traded_day(now=AFTER_STAMP, eod={PREV: 100_000.0}))
+    assert v.ok, v.reason
+    assert ("official PENDING (Alpaca's EOD history has no point for D 2026-09-29 (read "
+            "2026-09-29T20:30-04:00)); snapshot 20:30 ET +500.00 USD (gross)") in v.reason
+    assert v.reason.count("+500.00") == 1                 # only on the snapshot
+    o = json.loads((state / D.isoformat() / "reconcile.json").read_text())["official_eod"]
+    assert o["change_usd"] is None and "no point for D" in o["pending"]
+
+
+def test_ds_point_stamped_after_the_read_is_pending_and_recorded(state):
+    """At 17:30 ET the point Alpaca stamps 20:00 ET describes an unclosed day."""
+    started(state, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+    v = run(state, traded_day())                           # 17:30 ET
+    assert v.ok, v.reason
+    assert "official PENDING (Alpaca's point for D 2026-09-29 is stamped 2026-09-29T20:00-04:00" \
+        in v.reason
+    assert "snapshot 17:30 ET +500.00 USD (gross)" in v.reason
+    o = json.loads((state / D.isoformat() / "reconcile.json").read_text())["official_eod"]
+    assert o["change_usd"] is None
+    assert o["points_read"]["2026-09-29"]["equity"] == 100_120.0     # for the open question
+
+
+def test_an_unreadable_history_is_pending_never_a_fail(state):
+    started(state, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+    c = traded_day(now=AFTER_STAMP, eod_error=al.AlpacaHTTPError(
+        "GET /v2/account/portfolio/history -> HTTP 503", status=503))
+    v = run(state, c)
+    assert v.ok, v.reason
+    assert "official PENDING (Alpaca EOD history unreadable: AlpacaHTTPError: GET " in v.reason
+
+
+EOD_CASES = {"final": dict(now=AFTER_STAMP), "stamped_after_read": dict(),
+             "no_point": dict(now=AFTER_STAMP, eod={PREV: 100_000.0}),
+             "unreadable": dict(now=AFTER_STAMP, eod_error=al.UnexpectedResponse("bad shape"))}
+
+
+@pytest.mark.parametrize("day_kind", ["clean", "foreign_order", "missing_print"])
+def test_the_verdict_never_depends_on_eod_availability(tmp_path, day_kind):
+    """The same day under every EOD outcome: one verdict, one list of problems."""
+    seen = set()
+    for name, kw in EOD_CASES.items():
+        st = tmp_path / name
+        (st / D.isoformat()).mkdir(parents=True)
+        started(st, [rec("AAA", "sell", 50), rec("CCC", "buy", 20)])
+        c = traded_day(**kw)
+        if day_kind == "foreign_order":
+            c._orders.append(order("DDD", "buy", 1, c="manual-1", oid="id-manual"))
+        if day_kind == "missing_print":
+            del c.prints[("BBB", D)]
+        v = run(st, c)
+        seen.add((v.ok, v.reason.split(" | ")[0] if not v.ok else "", v.score.auction_pnl))
+    assert len(seen) == 1, seen
+    assert next(iter(seen))[0] is (day_kind == "clean")
+
+
+def test_the_scores_header_is_unchanged():
+    assert vf.SCORES_COLUMNS == SCORES_HEADER_0E99DB2

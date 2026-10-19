@@ -240,7 +240,9 @@ this is the brief it answers to.
 - **Score both P&Ls on paper.** Alpaca paper fills MOC at the quote [V: staff
   forum post], so record Alpaca's fill as the official record and the P&L at the
   official closing-auction print (`/v2/stocks/auctions`, SIP feed) beside it,
-  labelled. Gross P&L only (D19/D20, 2026-09-15).
+  labelled. Gross P&L only (D19/D20, 2026-09-15). The official Alpaca number is
+  its end-of-day portfolio history; a reading taken after the close is a
+  labelled snapshot (team lead, 2026-10-19, §5).
 - **Alerting is dashboard and logs only** (hardening D3/D4, 2026-09-21,
   confirmed 2026-09-28). A monitor will be rebuilt later.
 
@@ -320,7 +322,7 @@ Answered interactively; the full record (the migration manifest) is at tag
 | New system | **Fresh package (`quantt/`), reusing parts.** |
 | Books | **The CEF strategy and the b6 equal-weight credit benchmark.** phase0/null trader, b1/b3/b4/b5 and credit_rv retire. |
 | Accounts | **One Alpaca paper account per book**, $100k each (the default). |
-| Scoring | **Record both**: Alpaca's paper fill is the official record; the closing-auction-print P&L is logged beside it. |
+| Scoring | **Record both**: Alpaca's paper fill is the official record; the closing-auction-print P&L is logged beside it. *(Refined 2026-10-19, below: the official Alpaca number is its end-of-day portfolio history; the 17:30 reading is a snapshot.)* |
 | Hosting | **Cloud VM.** |
 | Alerting | **Dashboard and logs only** (keeps hardening D3/D4). |
 | Spec | **v7 from day one on Alpaca**, superseding hardening D14. `max_gross_stress` is re-derived on the Alpaca account; `min_trade_usd` and capital re-sized through `/spec-change`. |
@@ -450,6 +452,20 @@ the replays behind the redesign are `docs/REFERENCES.md` §12s.
 | The collector | **Flag "NAV(D) = NAV(D−1) and unverified"** instead of recording a silent gap, and **log when each name's CEFConnect row for D first appears.** |
 | How it is switched | A runner setting in the book json (`data.stale_nav`: absent off, `report`, `on`). Which mode is set is that file, not this one. |
 
+### Team lead, 2026-10-19 — P&L of record
+
+The defect: verify's line called the 17:30 ET `equity − last_equity` reading
+"(official, gross)". That reading is marked after the close. On the four days
+the team lead's session compared on 2026-10-19 it disagreed with Alpaca's own
+end-of-day portfolio history every time. On the same days the history agreed
+with the auction-marked score (`docs/REFERENCES.md` §12an). The design is
+`docs/RUNNER.md`, "As built (2026-10-19)".
+
+| question | decision |
+|---|---|
+| The paper book's official daily P&L | **Alpaca's end-of-day portfolio history** (`GET /v2/account/portfolio/history`, `timeframe=1D`) is the official daily P&L of record. This refines 2026-09-28's "Alpaca's paper fill is the official record": the official number is still Alpaca's, but it is the end-of-day history, not a reading taken after the close. |
+| The 17:10 / 17:30 ET `equity − last_equity` reading (`quantt/session/score.py` `alpaca_equity_change`, the verify line, `equity.csv`) | **A labelled snapshot, kept, never blended.** |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -493,3 +509,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-11 | §5 records the 2026-10-09 missed-day fix and the 2026-10-11 stress-cap ruling. | release work, for the team lead |
 | 2026-10-12 | §2's IC row corrected to the wide set, the deployed IC added under conditional (W4); §5 records the 2026-10-12 rulings. | for the team lead |
 | 2026-10-13 | §5 records the stale-NAV ruling ("Use CEFConnect, else drop") and, the same day, its redesign: defer and hold instead of drop; report mode first. | for the team lead |
+| 2026-10-19 | §5 records the P&L-of-record ruling: Alpaca's end-of-day history is official; the 17:30 reading is a snapshot. | hotfix, for the team lead |

@@ -37,6 +37,11 @@ def et(day, h, m=0):
     return dt.datetime.combine(day, dt.time(h, m), ET)
 
 
+def eod_stamp(day):
+    """00:00 UTC of the next calendar day: Alpaca's stamp for `day`'s EOD point."""
+    return dt.datetime.combine(day + dt.timedelta(days=1), dt.time(0), tzinfo=dt.timezone.utc)
+
+
 class FakeClient:
     """The GET surface of AlpacaClient in its parsed shapes. No transmit method."""
 
@@ -98,6 +103,26 @@ class FakeClient:
     def activities_fills(self, date):
         self.calls.append(("fills", date))
         return []
+
+    # Alpaca's EOD history, {date: equity}. None = the default synthetic series: every
+    # trading day from 2026-09-28, 100,000 + 10 a session. A test may set a dict.
+    eod = None
+
+    def eod_equity_history(self, start, end):
+        """The client's parsed shape: EODPoints stamped 00:00 UTC after each session,
+        as Alpaca stamped them in the 2026-10-19 read (20:00 ET in summer)."""
+        self.calls.append(("eod", start, end))
+        if self.eod is None:
+            series, d, i = {}, dt.date(2026, 9, 28), 0
+            while d <= end:
+                if is_trading_day(d):
+                    series[d] = 100_000.0 + 10 * i
+                    i += 1
+                d += dt.timedelta(days=1)
+        else:
+            series = self.eod
+        return [al.EODPoint(d, eq, eod_stamp(d)) for d, eq in sorted(series.items())
+                if start <= d <= end]
 
     # Borrow flags by symbol; a test may replace `self.flags` to change a day.
     flags = {"AAA": (True, True, True), "BBB": (True, True, True), "ZZZ": (True, False, False)}
@@ -604,3 +629,147 @@ def test_an_empty_asset_list_fails_the_step_so_it_is_retried(env):
     client.flags = {}
     assert co.collect(make_ctx(env, client)) == co.EXIT_INCOMPLETE
     assert "empty" in status(env)["steps"]["borrow_snapshot"]["err"]
+
+
+# ------------------------------------------------- eod_equity.csv (team lead, 2026-10-19)
+# The official daily P&L series. A CONTRACT read by another branch and a HALVE/KILL
+# monitor: header names date, equity, change_usd first. Every equity is synthetic.
+
+import csv  # noqa: E402
+
+OCT5 = dt.date(2026, 10, 5)
+
+
+def eod_rows(env):
+    with open(env[0] / co.EOD_FILE, newline="") as fh:
+        rd = csv.DictReader(fh)
+        return rd.fieldnames, list(rd)
+
+
+def eod_step(env, client, day):
+    return co.step_eod_equity(make_ctx(env, client), day, client.clock(), {"steps": {}})
+
+
+def test_eod_file_contract_and_self_backfill_from_the_first_funded_session(env):
+    client = FakeClient(now=et(OCT5, 21), next_open=et(dt.date(2026, 10, 6), 9, 30))
+    eod_step(env, client, OCT5)
+    assert ("eod", dt.date(2026, 9, 28), OCT5) in client.calls     # backfill from the account's start
+    header, rows = eod_rows(env)
+    assert header[:3] == ["date", "equity", "change_usd"]          # the contract, by name
+    assert tuple(header) == co.EOD_COLUMNS
+    assert [r["date"] for r in rows] == ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01",
+                                         "2026-10-02", "2026-10-05"]
+    assert rows[0]["change_usd"] == ""                              # first funded session: no baseline
+    assert [r["change_usd"] for r in rows[1:]] == ["10.00"] * 5
+    assert [float(r["equity"]) for r in rows] == [100_000.0 + 10 * i for i in range(6)]
+    assert all(r["read_at_utc"] for r in rows)
+
+
+def test_eod_first_funded_session_after_the_account_opened_has_an_empty_change(env):
+    client = FakeClient()
+    client.eod = {D: 100_000.0}            # 2026-09-28 came back as a pre-funding zero, dropped
+    eod_step(env, client, D)
+    _, rows = eod_rows(env)
+    assert [(r["date"], r["change_usd"]) for r in rows] == [("2026-09-29", "")]
+
+
+def test_eod_step_through_collect_is_ok_and_the_day_idles(env):
+    client = FakeClient()
+    assert co.collect(make_ctx(env, client)) == co.EXIT_OK
+    assert status(env)["steps"]["eod_equity"]["ok"]
+    _, rows = eod_rows(env)
+    assert [r["date"] for r in rows] == [PREV.isoformat(), D.isoformat()]
+    client.calls.clear()
+    assert co.collect(make_ctx(env, client)) == co.EXIT_OK
+    assert client.calls == ["clock", "calendar"]                    # read once per data day
+
+
+def test_eod_point_stamped_after_the_run_is_not_written_and_is_retried(env):
+    """At 17:10 ET D's point is stamped 20:00 ET: its day has not closed. The day
+    stays INCOMPLETE on eod_equity only, and the 20:10 slot writes it."""
+    early = FakeClient(now=et(D, 17, 10))
+    assert co.collect(make_ctx(env, early)) == co.EXIT_INCOMPLETE
+    st = status(env)["steps"]["eod_equity"]
+    assert not st["ok"] and "is stamped 2026-09-29T20:00:00-04:00, after this run's clock" in st["err"]
+    assert log_lines(env)[-1] == f"{D} DATA INCOMPLETE eod_equity flags=0 gaps=0"
+    _, rows = eod_rows(env)
+    assert [r["date"] for r in rows] == [PREV.isoformat()]          # earlier days still written
+    assert co.collect(make_ctx(env, FakeClient(now=et(D, 20, 10)))) == co.EXIT_OK
+    _, rows = eod_rows(env)
+    assert [r["date"] for r in rows] == [PREV.isoformat(), D.isoformat()]
+
+
+def test_eod_no_point_for_d_fails_the_step_and_keeps_the_rest(env):
+    client = FakeClient()
+    client.eod = {PREV: 100_000.0}
+    with pytest.raises(co.StepFailed, match="no point for 2026-09-29 yet"):
+        eod_step(env, client, D)
+    _, rows = eod_rows(env)
+    assert [r["date"] for r in rows] == [PREV.isoformat()]
+
+
+def test_eod_a_revision_is_written_and_logged_naming_date_old_and_new(env):
+    client = FakeClient()
+    eod_step(env, client, D)
+    _, before = eod_rows(env)
+    client = FakeClient(now=et(NEXT, 21), next_open=et(dt.date(2026, 10, 1), 9, 30))
+    client.eod = {PREV: 100_000.0, D: 100_015.25, NEXT: 100_020.0}     # D was 100,010.0
+    detail = eod_step(env, client, NEXT)
+    _, rows = eod_rows(env)
+    by = {r["date"]: r for r in rows}
+    assert by["2026-09-29"]["equity"] == "100015.25"
+    assert (by["2026-09-29"]["change_usd"], by["2026-09-30"]["change_usd"]) == ("15.25", "4.75")
+    assert by["2026-09-29"]["read_at_utc"] >= before[1]["read_at_utc"]
+    assert log_lines(env) == [f"{NEXT} DATA EOD_REVISED 2026-09-29 equity 100010.0 -> 100015.25 "
+                              f"(Alpaca EOD history, read {by['2026-09-29']['read_at_utc']})"]
+    (f,) = detail["flags"]
+    assert (f["check"], f["date"], f["old"], f["new"]) == ("eod_revised", "2026-09-29",
+                                                           "100010.0", "100015.25")
+
+
+def test_eod_a_missing_session_leaves_change_empty_never_a_two_day_change(env):
+    client = FakeClient(now=et(dt.date(2026, 10, 1), 21), next_open=et(dt.date(2026, 10, 2), 9, 30))
+    client.eod = {PREV: 100_000.0, NEXT: 100_020.0, dt.date(2026, 10, 1): 100_025.0}   # no 09-29
+    detail = eod_step(env, client, dt.date(2026, 10, 1))
+    _, rows = eod_rows(env)
+    assert [(r["date"], r["change_usd"]) for r in rows] == [
+        ("2026-09-28", ""), ("2026-09-30", ""), ("2026-10-01", "5.00")]
+    (g,) = detail["gaps"]
+    assert g["date"] == "2026-09-30" and "2026-09-29 is not in Alpaca's EOD history" in g["reason"]
+
+
+def test_eod_a_recorded_day_missing_from_a_later_read_is_kept_and_flagged(env):
+    eod_step(env, FakeClient(), D)
+    client = FakeClient(now=et(NEXT, 21), next_open=et(dt.date(2026, 10, 1), 9, 30))
+    client.eod = {D: 100_010.0, NEXT: 100_020.0}                    # PREV vanished
+    detail = eod_step(env, client, NEXT)
+    _, rows = eod_rows(env)
+    assert [r["date"] for r in rows] == ["2026-09-28", "2026-09-29", "2026-09-30"]
+    assert [f["check"] for f in detail["flags"]] == ["eod_absent_from_read"]
+
+
+def test_eod_a_file_in_another_shape_fails_the_step_and_is_left_alone(env):
+    path = env[0] / co.EOD_FILE
+    path.write_text("date,equity\n2026-09-28,1\n")
+    with pytest.raises(co.StepFailed, match="expected"):
+        eod_step(env, FakeClient(), D)
+    assert path.read_text() == "date,equity\n2026-09-28,1\n"
+
+
+def test_the_first_run_after_install_backfills_on_a_day_already_complete(env):
+    """On the VM, D's status.json was complete under the old step list. The new
+    step is the only one pending, so the next slot runs it alone and writes the
+    whole series from 2026-09-28, with no unit or schedule change."""
+    client = FakeClient(now=et(OCT5, 21), next_open=et(dt.date(2026, 10, 6), 9, 30))
+    old_steps = [s for s in co.STEPS if s != "eod_equity"]
+    day_dir = env[0] / "data" / OCT5.isoformat()
+    day_dir.mkdir(parents=True)
+    (day_dir / "status.json").write_text(json.dumps(
+        {"date": OCT5.isoformat(),
+         "steps": {s: {"ok": True, "err": None, "detail": {"flags": [], "gaps": []}, "at": "x"}
+                   for s in old_steps}}))
+    assert co.collect(make_ctx(env, client, cc_day=OCT5)) == co.EXIT_OK
+    assert [c for c in client.calls if c not in ("clock", "calendar")] == \
+        [("eod", dt.date(2026, 9, 28), OCT5)]
+    _, rows = eod_rows(env)
+    assert rows[0]["date"] == "2026-09-28" and rows[-1]["date"] == OCT5.isoformat()

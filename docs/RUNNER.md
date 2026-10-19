@@ -14,7 +14,7 @@ the book: those come from `python3 -m ops.orient`.
 | After the first go | **The scheduled runner trades daily on its own**, behind every gate below. `CLAUDE.md` order-path rule 1 governs agents in a chat, not the scheduled runner. Stop it with the halt file or `DRY_RUN=1`. |
 | Day one (flat book) | **Trade to full target**, not to the band edge, so the book starts dollar-neutral. The band applies from the second session. |
 | Phase 3 probes | **Design around them.** Never reuse a `client_order_id`, one netted order per symbol per session, a long↔short flip is two orders (close, then open), and never assume the uncertain answer. Day one's real orders answer 3.1 and 3.5. |
-| Scoring | Alpaca's fill (official) **and** the official closing-auction print, side by side, gross. **Third line from 2026-10-09** (team lead): auction-marked P&L **plus distributions** on shares held at the start of each ex-date (credited long, charged short), because Alpaca paper credits none. It is scored two sessions late, once the cross-check source has caught up, and written to `distribution_scores.csv`. It never changes the verdict (`quantt/session/dist_score.py`). |
+| Scoring | Alpaca's fill (official) **and** the official closing-auction print, side by side, gross. **Which Alpaca number is official, from 2026-10-19** (team lead): Alpaca's **end-of-day portfolio history** (`GET /v2/account/portfolio/history`, `timeframe=1D`), EOD(D) − EOD(previous session). The 17:30 ET `equity − last_equity` reading is a labelled **snapshot**, kept and never blended ("As built (2026-10-19)" below). **Third line from 2026-10-09** (team lead): auction-marked P&L **plus distributions** on shares held at the start of each ex-date (credited long, charged short), because Alpaca paper credits none. It is scored two sessions late, once the cross-check source has caught up, and written to `distribution_scores.csv`. It never changes the verdict (`quantt/session/dist_score.py`). |
 
 ## The session, in order
 
@@ -52,14 +52,15 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
           7. confirm    re-read orders; every sent id must be at Alpaca, else FAIL
 17:30 ET  python3 -m quantt.session verify --book cef   # post-close
           reconcile fills from the broker, fetch the official auction prints, score
-          both P&Ls, append ONE line to <state>/verify.log: PASS or FAIL + reason
+          (official EOD figure or PENDING, snapshot, auction-marked), append ONE line
+          to <state>/verify.log: PASS or FAIL + reason
 ```
 
 ## Module boundaries (one owner each)
 
 | module | owns | never |
 |---|---|---|
-| `quantt/broker/alpaca.py` | The REST client: account, positions, orders (list/submit), clock, calendar, assets, account activities, stock auctions (data API). Retries only idempotent GETs. | Decides anything. Holds a default for a missing field. |
+| `quantt/broker/alpaca.py` | The REST client: account, positions, orders (list/submit), clock, calendar, assets, account activities, end-of-day portfolio history, stock auctions (data API). Retries only idempotent GETs. | Decides anything. Holds a default for a missing field. |
 | `quantt/session/decide.py` | Pure function: sleeve targets + holdings + equity + last closes → order list. Whole shares, netting, flip split, shortability. | Touches the network. |
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
@@ -118,7 +119,8 @@ settled these points. Alpaca facts, each with its source and status:
 - **Send order** is `transmit_sequence` (decide.py), not alphabetical.
 - **Scoring** uses only the primary listing exchange's official-close print
   (condition `M`, exchange `N` for NYSE); a missing print leaves that name
-  UNMEASURED and the day FAIL. It is never substituted.
+  UNMEASURED and the day FAIL. It is never substituted. *(The Alpaca figure called
+  official here until 2026-10-19 is now the snapshot; see "As built (2026-10-19)".)*
 - **Records:** `<state>/<D>/plan.json`, `orders.jsonl` (event log), `STARTED`,
   `reconcile.json`; `<state>/verify.log` (one line per day) and `scores.csv`.
 - **Distribution-adjusted score** (third line, 2026-10-09; redesigned the same day after
@@ -185,6 +187,56 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-19): the P&L of record is Alpaca's end-of-day history
+
+Team lead, 2026-10-19 (`docs/SYSTEM.md` §5): Alpaca's end-of-day portfolio
+history is the paper book's official daily P&L. Until then verify's line called
+the 17:30 ET `equity − last_equity` reading "(official, gross)". That reading is
+marked after the close. On the four days compared on 2026-10-19 it disagreed
+with the history every time, while the history agreed with the auction-marked
+score (`docs/REFERENCES.md` §12an). Nothing on the order path changed: `run.py`,
+the gates, decide, the NAV gate and the scheduler units are untouched.
+
+- **Client** (`AlpacaClient.eod_equity_history`): one GET,
+  `period=<n>M&timeframe=1D`, the shape read live. Every daily stamp must be
+  exactly 00:00 UTC, the only stamp the live read and Alpaca's own example
+  show, and in New York time (the evening before) it must fall on a trading
+  day by `/v2/calendar`. Otherwise the call raises naming it. Together these
+  stop a change of stamping convention, or an intraday reading, from being
+  filed under the wrong date. **If Alpaca's winter stamps are not 00:00 UTC**
+  (first one: the 2026-11-02 session), the client raises and the official
+  figure stays PENDING until a person looks; it is never put on a wrong date.
+  Days before the account was funded come back as equity 0 and are dropped
+  by name. A zero after funding raises.
+- **Final or not.** Alpaca documents neither when a day's point appears nor
+  whether it changes later. It stamped the 2026-10-16 close at 20:00 ET. So a
+  point whose stamp is still in the future when it is read is not used yet.
+- **Verify** writes `official +X USD (Alpaca EOD history, gross)` when D's
+  point and the previous session's are both in and stamped before the read.
+  Otherwise it writes `official PENDING (<why>)`. Then comes
+  `snapshot HH:MM ET +Y USD (gross)` (the old figure, relabelled), then the
+  auction mark, unchanged. Nothing stands in for a PENDING figure. **PASS and
+  FAIL do not move with it**, and an unreadable history is a PENDING reason,
+  not a FAIL. `reconcile.json` keeps `official_eod` (the figure or the reason,
+  and the points read) and `snapshot`. `scores.csv` gains no column: it is
+  append-only with a fixed header that other code reads by name, and its
+  `alpaca_equity_change_usd` is the snapshot.
+- **The series of record** is `<state>/eod_equity.csv`, written by the collector's
+  step `eod_equity`. **A contract**: another branch and a HALVE/KILL monitor
+  read it by name. Columns are `date` (ISO session date, ET), `equity` (USD),
+  `change_usd` (equity minus the previous session's row; empty for the first
+  funded session and wherever the previous session is missing, never an
+  invented baseline), then `read_at_utc`. Each write rewrites every funded
+  session from 2026-09-28, atomically. So the first run after install
+  backfills on its own. A changed value is rewritten, with a
+  `DATA EOD_REVISED <date> equity <old> -> <new>` line in `data.log` and a
+  report flag.
+- **When the collector reads it**: every 30-minute slot until D's point is in
+  the file and stamped before the read, then not again until the next data
+  day, whose read re-checks every earlier day. Until D's point lands the day
+  reads `INCOMPLETE eod_equity`, as it reads `INCOMPLETE prices_nav` until
+  the evening NAVs arrive.
 
 ## As built (2026-10-13): the stale-NAV gate, in `report` mode first
 

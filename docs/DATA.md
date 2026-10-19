@@ -162,8 +162,16 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
   4. `close_crosscheck` compares each official close with the panel close.
   5. `account_snapshot` writes `<D>/account.json` and one row per day in
      `$QUANTT_STATE_DIR/equity.csv`. It is taken only before the next session opens.
-  6. `distributions` runs `scripts/fetch_cef_distributions.py`, with a 20-minute timeout.
-  7. `borrow_snapshot` (added 2026-10-09) reads Alpaca's whole active US-equity
+     Since 2026-10-19 that row is a *snapshot*, not the official P&L.
+  6. `eod_equity` (added 2026-10-19) keeps `$QUANTT_STATE_DIR/eod_equity.csv`, Alpaca's
+     end-of-day portfolio history: the official daily P&L of record (team lead,
+     `docs/SYSTEM.md` §5). Its columns `date`, `equity`, `change_usd` are a contract
+     other code reads by name. Every write covers every funded session since
+     2026-09-28, and a revised value is logged in `data.log`. The step retries each
+     slot until D's point is published and stamped before the read
+     (`docs/RUNNER.md` "As built (2026-10-19)").
+  7. `distributions` runs `scripts/fetch_cef_distributions.py`, with a 20-minute timeout.
+  8. `borrow_snapshot` (added 2026-10-09) reads Alpaca's whole active US-equity
      asset list in one GET. It writes `<D>/assets.parquet`: per symbol, tradable,
      shortable, easy_to_borrow, borrow_status, margin requirements and the read
      time. A deployed name whose flags changed since the previous trading day's

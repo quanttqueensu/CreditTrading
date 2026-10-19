@@ -769,3 +769,160 @@ def test_assets_refuse_a_symbol_listed_twice(env_file, sleeps):
     c, _ = client(env_file, sleeps, route({"/v2/assets": FakeResp(200, [bulk_asset_row("PDI"), bulk_asset_row("PDI")])}))
     with pytest.raises(al.UnexpectedResponse, match="twice"):
         c.assets()
+
+
+# ------------------------------------- end-of-day equity history (2026-10-19)
+# The team lead's P&L of record. The response shape is the one read live on
+# 2026-10-19 (period=1M, timeframe=1D): parallel lists, each session's point
+# stamped 00:00 UTC of the day after it. Every equity here is synthetic.
+
+from ops.schedule.nyse_calendar import is_trading_day  # noqa: E402
+
+
+def utc0(y, m, d):
+    """00:00 UTC on a date, as epoch seconds: how Alpaca stamps the session before it."""
+    return int(dt.datetime(y, m, d, tzinfo=dt.timezone.utc).timestamp())
+
+
+def history(stamps, equities, **over):
+    body = {"timestamp": list(stamps), "equity": list(equities),
+            "profit_loss": [0.0] * len(stamps), "profit_loss_pct": [0.0] * len(stamps),
+            "base_value": 100000.0, "base_value_asof": "2026-09-28", "timeframe": "1D"}
+    body.update(over)
+    return body
+
+
+def nyse_calendar_route(early=()):
+    """/v2/calendar from ops/schedule/nyse_calendar, honouring start/end like Alpaca;
+    dates in `early` close at 13:00."""
+    def h(params):
+        d, end = dt.date.fromisoformat(params["start"]), dt.date.fromisoformat(params["end"])
+        rows = []
+        while d <= end:
+            if is_trading_day(d):
+                rows.append({"date": d.isoformat(), "open": "09:30",
+                             "close": "13:00" if d in early else "16:00"})
+            d += dt.timedelta(days=1)
+        return FakeResp(200, rows)
+    return h
+
+
+def eod_client(env_file, sleeps, body, early=()):
+    return client(env_file, sleeps, route({
+        "/v2/account/portfolio/history": FakeResp(200, body) if isinstance(body, dict) else body,
+        "/v2/calendar": nyse_calendar_route(early)}))
+
+
+def test_eod_history_is_one_get_with_period_and_1d_only(env_file, sleeps):
+    body = history([utc0(2026, 9, 30), utc0(2026, 10, 1)], [100000.0, 100012.5])
+    c, s = eod_client(env_file, sleeps, body)
+    out = c.eod_equity_history(dt.date(2026, 9, 28), dt.date(2026, 9, 30))
+    url, params = s.gets[0]
+    assert url == al.PAPER_BASE + "/v2/account/portfolio/history"
+    assert params == {"period": "2M", "timeframe": "1D"}      # the shape read live on 2026-10-19
+    assert [(d, eq) for d, eq, _ in out] == [(dt.date(2026, 9, 29), 100000.0),
+                                            (dt.date(2026, 9, 30), 100012.5)]
+    assert all(isinstance(p, al.EODPoint) for p in out)
+
+
+def test_eod_stamps_map_to_the_new_york_session_either_side_of_the_dst_change(env_file, sleeps):
+    """00:00Z is 20:00 the evening before in EDT and 19:00 in EST: the session
+    date is the same either side of 2026-11-01, and an early close is honoured."""
+    sessions = [dt.date(2026, 10, 29), dt.date(2026, 10, 30),     # EDT
+                dt.date(2026, 11, 2), dt.date(2026, 11, 3),        # EST, after 2026-11-01
+                dt.date(2026, 11, 25), dt.date(2026, 11, 27)]      # 11-27 closes at 13:00
+    stamps = [utc0(*(d + dt.timedelta(days=1)).timetuple()[:3]) for d in sessions]
+    eq = [100000.0 + i for i in range(len(sessions))]
+    c, _ = eod_client(env_file, sleeps, history(stamps, eq), early={dt.date(2026, 11, 27)})
+    out = c.eod_equity_history(dt.date(2026, 10, 29), dt.date(2026, 11, 27))
+    assert [p.date for p in out] == sessions
+    assert [p.equity for p in out] == eq
+    assert out[2].stamp == dt.datetime(2026, 11, 3, tzinfo=dt.timezone.utc)
+    assert out[2].stamp.astimezone(al.NY).hour == 19              # EST: 19:00, still Monday
+
+
+def test_eod_a_stamp_on_a_non_trading_day_raises_naming_it(env_file, sleeps):
+    """A left-labelled Monday (2026-10-19T00:00Z, the start of its own UTC day)
+    is 20:00 on Sunday in New York: no session to give it."""
+    c, _ = eod_client(env_file, sleeps, history([utc0(2026, 10, 17), utc0(2026, 10, 19)],
+                                                [1.0, 2.0]))
+    with pytest.raises(al.UnexpectedResponse, match="2026-10-18 is not a trading day"):
+        c.eod_equity_history(dt.date(2026, 10, 1), dt.date(2026, 10, 19))
+
+
+def at_utc(y, m, d, h, mi=0, s=0):
+    return int(dt.datetime(y, m, d, h, mi, s, tzinfo=dt.timezone.utc).timestamp())
+
+
+@pytest.mark.parametrize("stamp,why", [
+    (at_utc(2026, 11, 3, 5), "New York midnight after Monday 11-02 (EST): would file it on Tuesday"),
+    (at_utc(2026, 10, 20, 4), "New York midnight after Monday 10-19 (EDT): would file it on Tuesday"),
+    (at_utc(2026, 10, 19, 21, 29, 41), "an intraday reading at 17:29 ET, not a finished day"),
+    (at_utc(2026, 10, 19, 20), "a stamp at the 16:00 ET close"),
+    (at_utc(2026, 11, 3, 1), "20:00 EST: a possible winter convention, refused until seen"),
+])
+def test_eod_a_stamp_that_is_not_utc_midnight_raises_rather_than_being_placed(
+        env_file, sleeps, stamp, why):
+    """Every 1D stamp seen (the 2026-10-19 read, the reference's example) is
+    00:00 UTC. Any other time is refused, loudly: some would silently move a
+    session to the next date, the rest could be a day that has not finished."""
+    c, _ = eod_client(env_file, sleeps, history([utc0(2026, 10, 16), stamp], [100000.0, 100001.0]))
+    with pytest.raises(al.UnexpectedResponse, match="is not 00:00 UTC"):
+        c.eod_equity_history(dt.date(2026, 10, 1), dt.date(2026, 11, 3))
+
+
+def test_eod_pre_funding_zeros_are_dropped_and_a_later_zero_raises(env_file, sleeps):
+    stamps = [utc0(2026, 9, 26), utc0(2026, 9, 29), utc0(2026, 9, 30), utc0(2026, 10, 1)]
+    c, _ = eod_client(env_file, sleeps, history(stamps, [0, 0, 100000.0, 100003.21]))
+    out = c.eod_equity_history(dt.date(2026, 9, 1), dt.date(2026, 9, 30))
+    assert [(p.date.isoformat(), p.equity) for p in out] == [("2026-09-29", 100000.0),
+                                                            ("2026-09-30", 100003.21)]
+    c, _ = eod_client(env_file, sleeps, history(stamps, [0, 100000.0, 0, 100003.21]))
+    with pytest.raises(al.UnexpectedResponse, match=r"equity 0 on \['2026-09-29'\], after the account"):
+        c.eod_equity_history(dt.date(2026, 9, 1), dt.date(2026, 9, 30))
+
+
+def test_eod_points_outside_the_range_are_left_out(env_file, sleeps):
+    stamps = [utc0(2026, 9, 30), utc0(2026, 10, 1), utc0(2026, 10, 2)]
+    c, _ = eod_client(env_file, sleeps, history(stamps, [1.0, 2.0, 3.0]))
+    assert [p.date for p in c.eod_equity_history(dt.date(2026, 9, 30), dt.date(2026, 9, 30))] == \
+        [dt.date(2026, 9, 30)]
+
+
+@pytest.mark.parametrize("over,match", [
+    ({"equity": [100000.0]}, "unequal length"),
+    ({"equity": [100000.0, None]}, "not a number"),
+    ({"equity": [100000.0, True]}, "not a number"),
+    ({"equity": [100000.0, float("inf")]}, "not finite"),
+    ({"equity": [100000.0, "junk"]}, "not a number"),
+    ({"timestamp": [utc0(2026, 9, 30), float(utc0(2026, 10, 1))]}, "integer epoch"),
+    ({"timestamp": [utc0(2026, 10, 1), utc0(2026, 9, 30)]}, "strictly increasing"),
+    ({"timeframe": "1H"}, "timeframe"),
+    ({"profit_loss": None}, "not a list"),
+])
+def test_eod_history_parses_strictly(env_file, sleeps, over, match):
+    body = history([utc0(2026, 9, 30), utc0(2026, 10, 1)], [100000.0, 100001.0], **over)
+    c, _ = eod_client(env_file, sleeps, body)
+    with pytest.raises(al.UnexpectedResponse, match=match):
+        c.eod_equity_history(dt.date(2026, 9, 28), dt.date(2026, 9, 30))
+
+
+@pytest.mark.parametrize("key", ["timestamp", "equity", "profit_loss", "profit_loss_pct", "timeframe"])
+def test_eod_history_missing_key_raises_naming_it(env_file, sleeps, key):
+    body = history([utc0(2026, 9, 30)], [100000.0])
+    del body[key]
+    c, _ = eod_client(env_file, sleeps, body)
+    with pytest.raises(al.UnexpectedResponse, match=key):
+        c.eod_equity_history(dt.date(2026, 9, 28), dt.date(2026, 9, 30))
+
+
+def test_eod_history_is_a_get_and_retries_like_one(env_file, sleeps):
+    seq = [FakeResp(503, text="down"),
+           FakeResp(200, history([utc0(2026, 9, 30)], [100000.0]))]
+    cal = nyse_calendar_route()
+
+    def h(url, params):
+        return cal(params) if url.endswith("/v2/calendar") else seq.pop(0)
+    c, s = client(env_file, sleeps, h)
+    assert [p.equity for p in c.eod_equity_history(D, D)] == [100000.0]
+    assert sleeps == [al.GET_BACKOFF_S[0]] and s.posts == []

@@ -59,7 +59,8 @@ collision the per-book accounts exist to prevent (CLAUDE.md landmine 2).
 
 Uncertain API facts are coded defensively, never assumed: see the docstrings of
 `positions` (short qty sign), `orders` (time-cursor pagination), `calendar`
-(timezone) and `closing_auction_prints` (which print is "the" official close).
+(timezone), `closing_auction_prints` (which print is "the" official close) and
+`eod_equity_history` (which session a daily stamp belongs to, and whether it is final).
 Source for every [V]/[S]/[U] claim: `results/ops/ALPACA_API_FACTS_2026-09-28.md`.
 """
 from __future__ import annotations
@@ -287,6 +288,19 @@ class Positions(NamedTuple):
     Alpaca's list as received, for the record."""
     qty: dict
     raw: list
+
+
+class EODPoint(NamedTuple):
+    """One session's end-of-day equity from GET /v2/account/portfolio/history.
+
+    `date` is the session's New York date and `equity` Alpaca's figure in USD,
+    so `for d, eq, _ in points` reads as the (session date, equity) pairs the
+    caller wants. `stamp` is Alpaca's own timestamp for the point, kept because
+    whether a point is final is the caller's question: it is not final while
+    its stamp is still in the future (`eod_equity_history`)."""
+    date: dt.date
+    equity: float
+    stamp: dt.datetime
 
 
 # ---------------------------------------------------------------- the client
@@ -748,6 +762,123 @@ class AlpacaClient:
                 row[f] = _num(a, f, wi) if a.get(f) not in (None, "") else None
             out.append(row)
         return out
+
+    EOD_LISTS = ("timestamp", "equity", "profit_loss", "profit_loss_pct")
+
+    def eod_equity_history(self, start: dt.date, end: dt.date) -> list[EODPoint]:
+        """Alpaca's end-of-day equity for every funded session in [start, end], oldest first.
+
+        GET /v2/account/portfolio/history with `period` and `timeframe=1D` only,
+        the request shape read live on 2026-10-19 (docs/REFERENCES.md §12an).
+        Returns [EODPoint(date, equity, stamp)]: (session date in New York,
+        equity in USD, Alpaca's timestamp for the point).
+
+        WHY. The team lead ruled on 2026-10-19 that this series is the paper
+        book's official daily P&L of record (`docs/SYSTEM.md` §5). The account's
+        `equity - last_equity`, read at 17:30 ET, is a snapshot marked after
+        the close. On the four days compared it disagreed with this series, which
+        agreed with the auction-marked score (`quantt/session/score.py`).
+
+        THE DATE OF A POINT. Alpaca documents 1D timestamps only as epoch
+        seconds, "left-labeled (the beginning of time window)", with entries only
+        for days the market is open [V: reference, fetched 2026-10-19]. What was
+        actually read on 2026-10-19 contradicts "beginning": the 2026-10-16 close
+        is stamped 2026-10-17T00:00Z, which is 2026-10-16 20:00 in New York.
+        Alpaca's own 1D example agrees: every stamp is 00:00Z, and the last is a
+        Saturday, which only a Friday session can carry. So two things are
+        required of every stamp, or the call raises naming it:
+          * it is exactly 00:00:00 UTC, the only stamp either source shows; and
+          * converted to New York time (19:00 or 20:00 the evening before, by
+            the season), its date is a trading day by `calendar` (the
+            client's own method, one more GET).
+        Each rule catches a change that would otherwise file sessions under the
+        wrong date. A session stamped at New York midnight after it (04:00Z,
+        or 05:00Z after the 2026-11-01 clock change) falls on the next date,
+        which trades Monday to Thursday. A session stamped at the start of its
+        own UTC day ("left-labeled") falls on the previous evening, which
+        trades Tuesday to Friday. The first rule refuses both, and the second
+        catches the left label on every Monday, since every read spans months.
+        The first rule also refuses an intraday reading, a stamp at the read
+        time or at the close, which could pass for a finished day. The cost is
+        deliberate. If Alpaca moves its winter stamps to 01:00Z (20:00 EST),
+        this raises from the first such point, and the official figure is
+        PENDING until a person looks. That is a loud stop, never a wrong date
+        (`docs/REFERENCES.md` §12an).
+
+        PRE-FUNDING ZEROS ARE DROPPED, BY NAME. Alpaca returns equity 0 for the
+        days before the account was funded (read 2026-10-19). Those leading zeros
+        are not sessions of this book and are removed here: every point before
+        the first non-zero equity. A zero AFTER the account was funded is not
+        that, and raises; so does a null, a non-finite number, a boolean, or a
+        non-integer timestamp. The four lists must be the same length and the
+        stamps strictly increasing.
+
+        WHAT THIS DOES NOT DECIDE. Whether a point is final. Alpaca documents
+        neither when a day's point first appears nor whether it can change later
+        [V negative: reference, fetched 2026-10-19]. The stamp is returned so the
+        caller can refuse a point whose stamp is still in the future at the time
+        it was read: that day's window may not have closed. Points dated after
+        `end` (an unfinished session, if Alpaca serves one) are validated and
+        then left out, as are points before `start`.
+
+        The window asked for is `period=<n>M`, enough whole months to reach
+        `start` with a month to spare. A period is measured back from Alpaca's
+        default end, which is at or after `end` for every caller here.
+        """
+        start, end = _date_param(start, "start"), _date_param(end, "end")
+        if end < start:
+            raise ValueError(f"end {end} is before start {start}")
+        months = (end.year - start.year) * 12 + (end.month - start.month) + 2
+        raw = self._get(self._base, "/v2/account/portfolio/history",
+                        {"period": f"{months}M", "timeframe": "1D"})
+        w = "GET /v2/account/portfolio/history"
+        _require(raw, (*self.EOD_LISTS, "timeframe"), w)
+        if raw["timeframe"] != "1D":
+            raise UnexpectedResponse(f"{w}: timeframe {raw['timeframe']!r}, asked for '1D'")
+        for k in self.EOD_LISTS:
+            if not isinstance(raw[k], list):
+                raise UnexpectedResponse(f"{w}: {k} is {type(raw[k]).__name__}, not a list")
+        lengths = {k: len(raw[k]) for k in self.EOD_LISTS}
+        if len(set(lengths.values())) != 1:
+            raise UnexpectedResponse(f"{w}: lists of unequal length {lengths}")
+
+        stamps, equities = [], []
+        for i, (ts, eq) in enumerate(zip(raw["timestamp"], raw["equity"])):
+            if type(ts) is not int:
+                raise UnexpectedResponse(f"{w}: timestamp[{i}] = {ts!r} is not integer epoch seconds")
+            if ts % 86400:
+                raise UnexpectedResponse(
+                    f"{w}: stamp {dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat()} is "
+                    f"not 00:00 UTC; every 1D stamp seen (the 2026-10-19 read, the reference's "
+                    f"example) is. Refused rather than placed on a session")
+            x = _num({"equity": eq}, "equity", f"{w} [{i}]")      # None/bool/junk raise
+            if not math.isfinite(x):
+                raise UnexpectedResponse(f"{w}: equity[{i}] = {eq!r} is not finite")
+            stamps.append(dt.datetime.fromtimestamp(ts, dt.timezone.utc))
+            equities.append(x)
+        if any(b <= a for a, b in zip(stamps, stamps[1:])):
+            raise UnexpectedResponse(f"{w}: timestamps are not strictly increasing")
+        if not stamps:
+            return []
+
+        local = [s.astimezone(NY) for s in stamps]
+        # Distinct UTC midnights, strictly increasing, map to distinct New York
+        # dates, so no two points can share a session.
+        cal = {row["date"] for row in self.calendar(local[0].date(), local[-1].date())}
+        for s, t in zip(stamps, local):
+            if t.date() not in cal:
+                raise UnexpectedResponse(
+                    f"{w}: stamp {s.isoformat()} is {t.isoformat()} in New York, and {t.date()} "
+                    f"is not a trading day by /v2/calendar; the point cannot be given a session")
+
+        funded = next((i for i, x in enumerate(equities) if x != 0), len(equities))
+        later_zero = [local[i].date().isoformat() for i in range(funded, len(equities))
+                      if equities[i] == 0]
+        if later_zero:
+            raise UnexpectedResponse(f"{w}: equity 0 on {later_zero}, after the account was "
+                                     f"funded; only the days before funding may be 0")
+        return [EODPoint(local[i].date(), equities[i], stamps[i])
+                for i in range(funded, len(equities)) if start <= local[i].date() <= end]
 
     FILL_FIELDS = ("id", "activity_type", "order_id", "symbol", "side", "qty", "price",
                    "cum_qty", "leaves_qty", "transaction_time", "type", "order_status")
