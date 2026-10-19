@@ -323,3 +323,193 @@ class TestProdIsMeasuredNotWritten:
         assert orient._snapshot_age_days("2026-09-28T19:56:38+00:00",
                                          today=dt.date(2026, 10, 8)) == 10
         assert orient._snapshot_age_days(None) is None
+
+
+# --------------------------------------------------------------------- PNL --
+# Team lead, 2026-10-19: Alpaca's end-of-day portfolio history is the official
+# daily P&L of record; verify's after-the-close `equity - last_equity`, which
+# verify.log had labelled "(official, gross)", is a snapshot, kept and never
+# blended. These pin that the record leads, that the snapshot and the other two
+# scores never stand in for it, and that every figure is arithmetic on the
+# prod machine's file -- checked here against an independent computation on
+# SYNTHETIC series (they test the code, not the market).
+
+def _pnl_files(eod=None, scores=None, dist=None, eod_n=None, scores_n=None):
+    """PROD's per-machine P&L readings, built through the real converter."""
+    from ops import prod_state
+    def f(key, rows, n):
+        name = prod_state.PNL_FILES[key][0]
+        return ({"absent": name} if rows is None else
+                {"rows": rows, "n_rows": len(rows) if n is None else n, "file": name})
+    raw = {"eod_equity": f("eod_equity", eod, eod_n), "scores": f("scores", scores, scores_n),
+           "dist": f("dist", dist, None)}
+    return prod_state.pnl_readings(raw, "quantt-vm:/s")
+
+
+def _prod_with_pnl(files, arming="ARMED"):
+    vm = {**_m(arming), "pnl": files}
+    return _prod_section(_m("OFF"), vm)
+
+
+# F (2026-01-02) is the first funded row: the 0 -> 1000 jump is the funding.
+EOD_UP_DOWN = [["2026-01-01", "0", "0"], ["2026-01-02", "1000.00", "1000.00"],
+               ["2026-01-05", "1050.00", "50.00"], ["2026-01-06", "1020.00", "-30.00"],
+               ["2026-01-07", "1030.00", "10.00"]]
+
+
+class TestPnl:
+    def test_orient_has_a_pnl_section_after_prod_and_alpaca(self):
+        names = [n for n, _ in orient.SECTIONS]
+        assert "PNL" in names
+        assert names.index("PNL") > names.index("PROD")
+        assert names.index("PNL") > names.index("ALPACA")
+
+    def test_cumulative_hwm_drawdown_and_vol_on_a_synthetic_series(self):
+        import numpy as np
+        o = orient.official_pnl(_pnl_files(eod=EOD_UP_DOWN)["eod_equity"])
+        assert o["first_funded"] == {"date": "2026-01-02", "equity": 1000.0}
+        assert o["n_sessions"] == 3
+        assert o["cumulative_usd"] == pytest.approx(30.0), "the funding day is not P&L"
+        assert o["hwm"] == {"date": "2026-01-05", "equity": 1050.0, "cumulative_usd": 50.0}
+        assert o["drawdown_usd"] == pytest.approx(-20.0)
+        assert o["drawdown_frac"] == pytest.approx(-20.0 / 1050.0)
+        r = np.array([50 / 1000, -30 / 1050, 10 / 1020])
+        assert o["vol"]["n"] == 3
+        assert o["vol"]["annual"] == pytest.approx(r.std(ddof=1) * np.sqrt(252))
+        assert o["disagreements"] == []
+
+    def test_fewer_than_two_returns_is_a_gap_not_a_zero_vol(self):
+        o = orient.official_pnl(_pnl_files(eod=EOD_UP_DOWN[:3])["eod_equity"])
+        assert o["vol"]["annual"] is None and "at least 2" in o["vol"]["why"]
+
+    def test_change_and_equity_disagreeing_is_reported_and_change_is_used(self):
+        """A deposit (or a file defect) shows as change_usd != the EOD equity
+        difference. Both are said; neither is averaged or silently preferred."""
+        eod = [["2026-01-02", "1000.00", "0"], ["2026-01-05", "1010.00", "10.00"],
+               ["2026-01-06", "1520.00", "10.00"]]
+        o = orient.official_pnl(_pnl_files(eod=eod)["eod_equity"])
+        assert o["cumulative_usd"] == pytest.approx(20.0)
+        assert o["disagreements"] == [{"date": "2026-01-06", "change_usd": 10.0,
+                                       "equity_diff_usd": 510.0}]
+
+    @pytest.mark.parametrize("eod,n,match", [
+        (None, None, "no eod_equity.csv in quantt-vm:/s"),
+        ([["2026-01-02", "1000", "0"], ["2026-01-05", "1010", "UNMEASURED"]], None,
+         "2026-01-05 change_usd is 'UNMEASURED'"),
+        ([["2026-01-05", "1000", "0"], ["2026-01-05", "1010", "10"]], None, "date order"),
+        ([["2026-01-02", "0", "0"], ["2026-01-05", "0", "0"]], None, "no funded row"),
+        ([["2026-01-02", "1000", "0"], ["2026-01-05", "0", "-1000"]], None, "after funding"),
+        ([["2026-01-02", "1000", "0"]], 3000, "more than the 1"),
+    ])
+    def test_an_unreadable_official_series_is_unmeasured_naming_the_file(self, eod, n, match):
+        with pytest.raises(orient.Unmeasured, match=match) as e:
+            orient.official_pnl(_pnl_files(eod=eod, eod_n=n)["eod_equity"])
+        assert "eod_equity.csv" in str(e.value)
+
+    def test_the_snapshot_never_stands_in_for_a_missing_record(self, capsys):
+        """eod_equity.csv absent (the state until its collector step is
+        installed): the official column reads UNMEASURED on every row, and the
+        snapshot's values appear only in their own column."""
+        scores = [["2026-01-05", "PASS", "777.77", "11.11"], ["2026-01-06", "PASS", "888.88", "22.22"]]
+        sec = orient.pnl(_prod_with_pnl(_pnl_files(scores=scores)))
+        assert "UNMEASURED" in sec["official"]
+        assert [r["official"] for r in sec["table"]["rows"]] == ["UNMEASURED", "UNMEASURED"]
+        assert [r["snapshot"] for r in sec["table"]["rows"]] == [777.77, 888.88]
+        assert sec["table"]["sums"]["official"] == "0 of 2"
+        out = _render_with(capsys, PNL=sec)
+        assert "UNMEASURED — no eod_equity.csv in quantt-vm:/s" in out
+        assert "distribution_scores.csv: none" in out
+
+    def test_the_record_is_unchanged_by_the_scores_beside_it(self):
+        """Never blended: changing every score leaves every official figure alone."""
+        a = [["2026-01-05", "PASS", "1.00", "2.00"], ["2026-01-06", "PASS", "3.00", "4.00"]]
+        b = [[d, v, "9999.00", "-9999.00"] for d, v, _s, _a in a]
+        oa = orient.pnl(_prod_with_pnl(_pnl_files(eod=EOD_UP_DOWN, scores=a)))["official"]
+        ob = orient.pnl(_prod_with_pnl(_pnl_files(eod=EOD_UP_DOWN, scores=b)))["official"]
+        assert oa == ob
+
+    def test_table_columns_come_from_their_own_files(self, capsys):
+        scores = [["2026-01-05", "PASS", "60.00", "49.00"],
+                  ["2026-01-06", "FAIL", "-10.00", "UNMEASURED"],
+                  ["2026-01-06", "PASS", "-12.00", "-31.00"],
+                  ["2026-01-07", "PASS", "15.00", "10.50"]]
+        dist = [["2026-01-05", "48.50"], ["2026-01-07", "UNMEASURED"]]
+        sec = orient.pnl(_prod_with_pnl(_pnl_files(eod=EOD_UP_DOWN, scores=scores, dist=dist)))
+        rows = {r["date"]: r for r in sec["table"]["rows"]}
+        assert list(rows) == ["2026-01-05", "2026-01-06", "2026-01-07"], "the record's sessions"
+        assert [rows[d]["official"] for d in rows] == [50.0, -30.0, 10.0]
+        assert rows["2026-01-06"]["snapshot"] == "CONFLICT", "two snapshots: neither is picked"
+        assert rows["2026-01-06"]["auction"] == -31.0, "UNMEASURED beside a value contradicts nothing"
+        assert rows["2026-01-06"]["dist_adj"] == "no row"
+        assert rows["2026-01-07"]["dist_adj"] == "UNMEASURED"
+        assert rows["2026-01-06"]["verdict"] == "FAIL/PASS"
+        assert sec["table"]["sums"]["official"] == pytest.approx(30.0)
+        assert sec["table"]["sums"]["auction"] == pytest.approx(28.5)
+        assert sec["table"]["sums"]["snapshot"] == "2 of 3"
+        assert any("-10.00, -12.00" in n for n in sec["table"]["notes"])
+        out = _render_with(capsys, PNL=sec)
+        assert "a SNAPSHOT, not the record" in out
+        assert "+$30.00 over 3 session(s)" in out
+        assert "$1,050.00 at the 2026-01-05 close; drawdown from it -$20.00 (-1.90%)" in out
+
+    def test_dates_before_a_cut_tail_are_not_read_never_no_row(self):
+        scores = [["2026-01-07", "PASS", "15.00", "10.50"]]
+        sec = orient.pnl(_prod_with_pnl(_pnl_files(eod=EOD_UP_DOWN, scores=scores, scores_n=40)))
+        rows = {r["date"]: r for r in sec["table"]["rows"]}
+        assert rows["2026-01-05"]["snapshot"] == "not read"
+        assert rows["2026-01-07"]["snapshot"] == "not read", "the first carried date may be partial"
+
+    @pytest.mark.parametrize("prod,match", [
+        ({"UNMEASURED": "ssh timed out"}, "PROD could not be measured"),
+        ("two", "two machines are armed"),
+        ("none", "no machine is measured armed"),
+    ])
+    def test_no_single_prod_means_no_pnl(self, prod, match):
+        files = _pnl_files(eod=EOD_UP_DOWN)
+        if prod == "two":
+            prod = _prod_section({**_m("ARMED"), "pnl": files}, {**_m("ARMED"), "pnl": files})
+        elif prod == "none":
+            prod = _prod_with_pnl(files, arming="DRY")
+        with pytest.raises(orient.Unmeasured, match=match):
+            orient.pnl(prod)
+
+    def test_only_the_prod_machines_files_are_read(self):
+        other = _pnl_files(eod=[["2026-01-02", "5.00", "0"], ["2026-01-05", "6.00", "1.00"]])
+        sec = orient.pnl(_prod_section({**_m("OFF"), "pnl": other},
+                                       {**_m("ARMED"), "pnl": _pnl_files(eod=EOD_UP_DOWN)}))
+        assert sec["prod"] == "vm" and sec["official"]["cumulative_usd"] == pytest.approx(30.0)
+
+    def test_collect_hands_prod_to_pnl_without_a_second_measurement(self, monkeypatch):
+        prod = _prod_with_pnl(_pnl_files(eod=EOD_UP_DOWN))
+        monkeypatch.setattr(orient, "SECTIONS", [("PROD", lambda: prod), ("PNL", orient.pnl)])
+        d = orient.collect(run_tests=False)
+        assert d["sections"]["PNL"]["official"]["cumulative_usd"] == pytest.approx(30.0)
+        assert json.loads(json.dumps(d, default=str))["sections"]["PNL"]
+
+
+class TestPnlVolTargetIsReadFromTheSpec:
+    def test_it_is_the_spec_readers_value(self):
+        import importlib
+        import sys
+        sys.path.insert(0, str(orient.REPO / "scripts/cef"))
+        sp = importlib.import_module("spec")
+        vt = orient._vol_target()
+        assert vt == {"value": sp.frozen("vol_target_annual"), "spec_id": sp.SPEC_ID}
+
+    def test_a_missing_key_is_a_named_gap_and_no_default_is_printed(self, monkeypatch, capsys):
+        import sys
+        import types
+
+        class SpecError(KeyError):
+            pass
+
+        def frozen(key):
+            raise SpecError(f"frozen spec has no key '{key}'")
+        monkeypatch.setitem(sys.modules, "spec", types.SimpleNamespace(frozen=frozen, SPEC_ID="x"))
+        vt = orient._vol_target()
+        assert "UNMEASURED" in vt and "vol_target_annual" in vt["UNMEASURED"]
+        sec = {"official": {"UNMEASURED": "no eod_equity.csv"}, "prod": "vm", "vol_target": vt,
+               "table": {"rows": [], "sums": {}, "notes": [], "file_gaps": []}}
+        out = _render_with(capsys, PNL={**sec, "reproducer": "r"})
+        assert "vol target (spec)             UNMEASURED" in out
+        assert "0.06" not in out and "6.00%" not in out
