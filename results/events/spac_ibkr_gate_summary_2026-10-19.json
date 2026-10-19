@@ -1,0 +1,4630 @@
+{
+ "ibkr_asof": "2026-10-19",
+ "census_asof": "2026-10-15",
+ "built_utc": "2026-10-19T15:18:03+00:00",
+ "ibkr_listing_read_utc": [
+  "2026-10-19T15:12:38+00:00",
+  "2026-10-19T15:13:01+00:00",
+  "2026-10-19T15:13:29+00:00"
+ ],
+ "ibkr_shortstock_stamp": "2026-10-19 10:59:08",
+ "ibkr_listing_rows": {
+  "NASDAQ": 4018,
+  "NYSE": 7144,
+  "AMEX": 7143
+ },
+ "live": 298,
+ "listed_ibkr": 288,
+ "tradable_ibkr": 287,
+ "ambiguous": 0,
+ "name_check_failed": 1,
+ "name_rule": {
+  "tokens": 272,
+  "truncated_prefix": 15,
+  "None": 11
+ },
+ "conid_shortstock": {
+  "True": 288,
+  "None": 10
+ },
+ "isin_vs_domicile": {
+  "True": 249,
+  "None": 44,
+  "False": 5
+ },
+ "primary_exchange_vs_alpaca": {
+  "AMEX": {
+   "AMEX": 2,
+   "NASDAQ": 0,
+   "NYSE": 0
+  },
+  "NASDAQ": {
+   "AMEX": 0,
+   "NASDAQ": 243,
+   "NYSE": 0
+  },
+  "NYSE": {
+   "AMEX": 0,
+   "NASDAQ": 0,
+   "NYSE": 42
+  }
+ },
+ "alpaca_and_ibkr": 287,
+ "alpaca_only": 1,
+ "ibkr_only": 0,
+ "neither": 10,
+ "not_tradable_ibkr_rows": [
+  {
+   "symbol": "MYX",
+   "tickers": "MYX;MYXXR;MYXXU;MYXXW",
+   "name": "Maywood Acquisition Corp. 2",
+   "exchange": "NASDAQ",
+   "ibkr_candidates": "MYX;MYXXR;MYXXU;MYXXW",
+   "ibkr_symbol": "MYX",
+   "ibkr_description": "MAYWOOD ACQUISITION C2-CL-A",
+   "ibkr_name_score": 0.667
+  },
+  {
+   "symbol": NaN,
+   "tickers": "PAXG;PAXGU",
+   "name": "Pine Tree Acquisition Corp.",
+   "exchange": NaN,
+   "ibkr_candidates": "PAXG",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "KCAC-UN;KCAC-WT;KCA-UN",
+   "name": "Kensington Capital Acquisition Corp. VI",
+   "exchange": NaN,
+   "ibkr_candidates": "KCAC;KCA",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "LEDR;LEDRU",
+   "name": "Leader's Advantage Acquisition Corp.",
+   "exchange": NaN,
+   "ibkr_candidates": "LEDR",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "LOVI;LOVIU",
+   "name": "Live Oak Acquisition Corp. VI",
+   "exchange": NaN,
+   "ibkr_candidates": "LOVI",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "BRRK;BRRKU",
+   "name": "Bluerock Acquisition Corp. II",
+   "exchange": NaN,
+   "ibkr_candidates": "BRRK",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "HYAC;HYAC-UN",
+   "name": "Haymaker Acquisition Corp V",
+   "exchange": NaN,
+   "ibkr_candidates": "HYAC",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "PORT;PORT-UN",
+   "name": "Southport Acquisition Corp. II",
+   "exchange": NaN,
+   "ibkr_candidates": "PORT",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": "SPKL;SPKLU;SPKLW",
+   "name": "Spark I Acquisition Corp",
+   "exchange": NaN,
+   "ibkr_candidates": "SPKL",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": NaN,
+   "tickers": NaN,
+   "name": "Bayview Acquisition Corp",
+   "exchange": NaN,
+   "ibkr_candidates": "",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  },
+  {
+   "symbol": "QETA",
+   "tickers": "QETA;QETAR;QETAU",
+   "name": "Quetta Acquisition Corp",
+   "exchange": "OTC",
+   "ibkr_candidates": "QETA",
+   "ibkr_symbol": null,
+   "ibkr_description": null,
+   "ibkr_name_score": NaN
+  }
+ ],
+ "pool_alpaca": 281,
+ "pool": 280,
+ "pool_priced_deadline_ahead": 273,
+ "pool_tradable_ibkr": 280,
+ "near_deadline": 60,
+ "near_deadline_below_accrued": 47,
+ "fee_cases_usd": {
+  "liquidation": 0.0,
+  "vote": 100.0,
+  "vote_dwac_stacked": 200.0
+ },
+ "tickets_usd": [
+  2500,
+  5000,
+  10000,
+  25000,
+  50000,
+  100000
+ ],
+ "lags_days": [
+  0,
+  21
+ ],
+ "commission": {
+  "per_share": 0.005,
+  "min": 1.0,
+  "max_frac": 0.01,
+  "cat_per_share": 3e-06
+ },
+ "net_grid": {
+  "pool|spread|liquidation|lag0|2500|0bp": {
+   "n": 273,
+   "median": 0.019934855321159718,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|2500|0bp": {
+   "n": 60,
+   "median": 0.03013686842859973,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|2500|0bp": {
+   "n": 47,
+   "median": 0.03563385110870763,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|2500|0bp": {
+   "n": 273,
+   "median": 0.005989186226756045,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|2500|0bp": {
+   "n": 60,
+   "median": -0.012720379813397926,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|2500|0bp": {
+   "n": 47,
+   "median": -0.006747449286576975,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|2500|5bp": {
+   "n": 273,
+   "median": 0.019306385142725327,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|2500|5bp": {
+   "n": 60,
+   "median": 0.028215912546246696,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|2500|5bp": {
+   "n": 47,
+   "median": 0.03064049661100502,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|2500|5bp": {
+   "n": 273,
+   "median": 0.005209582305764376,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|2500|5bp": {
+   "n": 60,
+   "median": -0.014446557383320027,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|2500|5bp": {
+   "n": 47,
+   "median": -0.009117579156706584,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|2500|15bp": {
+   "n": 273,
+   "median": 0.017925505473182064,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|liquidation|lag0|2500|15bp": {
+   "n": 60,
+   "median": 0.019042347560220246,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|2500|15bp": {
+   "n": 47,
+   "median": 0.023592174696192826,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|liquidation|lag0|2500|15bp": {
+   "n": 273,
+   "median": 0.0040592491076543715,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|2500|15bp": {
+   "n": 60,
+   "median": -0.018001702789863024,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|2500|15bp": {
+   "n": 47,
+   "median": -0.011814892475652327,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|2500|30bp": {
+   "n": 273,
+   "median": 0.016056778043579377,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag0|2500|30bp": {
+   "n": 60,
+   "median": 0.015005085422109033,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|2500|30bp": {
+   "n": 47,
+   "median": 0.015957249084249593,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag0|2500|30bp": {
+   "n": 273,
+   "median": 0.002541453650793673,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|2500|30bp": {
+   "n": 60,
+   "median": -0.023373723066086774,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|2500|30bp": {
+   "n": 47,
+   "median": -0.015416866159862722,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag0|5000|0bp": {
+   "n": 273,
+   "median": 0.019934855321159718,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|5000|0bp": {
+   "n": 60,
+   "median": 0.03013686842859973,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|5000|0bp": {
+   "n": 47,
+   "median": 0.03563385110870763,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|5000|0bp": {
+   "n": 273,
+   "median": 0.005989186226756045,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|5000|0bp": {
+   "n": 60,
+   "median": -0.012720379813397926,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|5000|0bp": {
+   "n": 47,
+   "median": -0.006747449286576975,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|5000|5bp": {
+   "n": 273,
+   "median": 0.019306385142725327,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|5000|5bp": {
+   "n": 60,
+   "median": 0.028215912546246696,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|5000|5bp": {
+   "n": 47,
+   "median": 0.03064049661100502,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|5000|5bp": {
+   "n": 273,
+   "median": 0.005209582305764376,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|5000|5bp": {
+   "n": 60,
+   "median": -0.014446557383320027,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|5000|5bp": {
+   "n": 47,
+   "median": -0.009117579156706584,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|5000|15bp": {
+   "n": 273,
+   "median": 0.017925505473182064,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|liquidation|lag0|5000|15bp": {
+   "n": 60,
+   "median": 0.019042347560220246,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|5000|15bp": {
+   "n": 47,
+   "median": 0.023592174696192826,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|liquidation|lag0|5000|15bp": {
+   "n": 273,
+   "median": 0.0040592491076543715,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|5000|15bp": {
+   "n": 60,
+   "median": -0.018001702789863024,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|5000|15bp": {
+   "n": 47,
+   "median": -0.011814892475652327,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|5000|30bp": {
+   "n": 273,
+   "median": 0.016056778043579377,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag0|5000|30bp": {
+   "n": 60,
+   "median": 0.015005085422109033,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|5000|30bp": {
+   "n": 47,
+   "median": 0.015957249084249593,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag0|5000|30bp": {
+   "n": 273,
+   "median": 0.002541453650793673,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|5000|30bp": {
+   "n": 60,
+   "median": -0.023373723066086774,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|5000|30bp": {
+   "n": 47,
+   "median": -0.015416866159862722,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag0|10000|0bp": {
+   "n": 273,
+   "median": 0.019934855321159718,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|10000|0bp": {
+   "n": 60,
+   "median": 0.03013686842859973,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|10000|0bp": {
+   "n": 47,
+   "median": 0.03563385110870763,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|10000|0bp": {
+   "n": 273,
+   "median": 0.005989186226756045,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|10000|0bp": {
+   "n": 60,
+   "median": -0.012720379813397926,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|10000|0bp": {
+   "n": 47,
+   "median": -0.006747449286576975,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|10000|5bp": {
+   "n": 273,
+   "median": 0.019306385142725327,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|10000|5bp": {
+   "n": 60,
+   "median": 0.028215912546246696,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|10000|5bp": {
+   "n": 47,
+   "median": 0.03064049661100502,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|10000|5bp": {
+   "n": 273,
+   "median": 0.005209582305764376,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|10000|5bp": {
+   "n": 60,
+   "median": -0.014446557383320027,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|10000|5bp": {
+   "n": 47,
+   "median": -0.009117579156706584,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|10000|15bp": {
+   "n": 273,
+   "median": 0.017925505473182064,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|liquidation|lag0|10000|15bp": {
+   "n": 60,
+   "median": 0.019042347560220246,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|10000|15bp": {
+   "n": 47,
+   "median": 0.023592174696192826,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|liquidation|lag0|10000|15bp": {
+   "n": 273,
+   "median": 0.0040592491076543715,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|10000|15bp": {
+   "n": 60,
+   "median": -0.018001702789863024,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|10000|15bp": {
+   "n": 47,
+   "median": -0.011814892475652327,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|10000|30bp": {
+   "n": 273,
+   "median": 0.016056778043579377,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag0|10000|30bp": {
+   "n": 60,
+   "median": 0.015005085422109033,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|10000|30bp": {
+   "n": 47,
+   "median": 0.015957249084249593,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag0|10000|30bp": {
+   "n": 273,
+   "median": 0.002541453650793673,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|10000|30bp": {
+   "n": 60,
+   "median": -0.023373723066086774,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|10000|30bp": {
+   "n": 47,
+   "median": -0.015416866159862722,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag0|25000|0bp": {
+   "n": 273,
+   "median": 0.019934855321159718,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|25000|0bp": {
+   "n": 60,
+   "median": 0.03013686842859973,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|25000|0bp": {
+   "n": 47,
+   "median": 0.03563385110870763,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|25000|0bp": {
+   "n": 273,
+   "median": 0.005989186226756045,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|25000|0bp": {
+   "n": 60,
+   "median": -0.012720379813397926,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|25000|0bp": {
+   "n": 47,
+   "median": -0.006747449286576975,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|25000|5bp": {
+   "n": 273,
+   "median": 0.019306385142725327,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|25000|5bp": {
+   "n": 60,
+   "median": 0.028215912546246696,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|25000|5bp": {
+   "n": 47,
+   "median": 0.03064049661100502,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|25000|5bp": {
+   "n": 273,
+   "median": 0.005209582305764376,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|25000|5bp": {
+   "n": 60,
+   "median": -0.014446557383320027,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|25000|5bp": {
+   "n": 47,
+   "median": -0.009117579156706584,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|25000|15bp": {
+   "n": 273,
+   "median": 0.017925505473182064,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|liquidation|lag0|25000|15bp": {
+   "n": 60,
+   "median": 0.019042347560220246,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|25000|15bp": {
+   "n": 47,
+   "median": 0.023592174696192826,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|liquidation|lag0|25000|15bp": {
+   "n": 273,
+   "median": 0.0040592491076543715,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|25000|15bp": {
+   "n": 60,
+   "median": -0.018001702789863024,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|25000|15bp": {
+   "n": 47,
+   "median": -0.011814892475652327,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|25000|30bp": {
+   "n": 273,
+   "median": 0.016056778043579377,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag0|25000|30bp": {
+   "n": 60,
+   "median": 0.015005085422109033,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|25000|30bp": {
+   "n": 47,
+   "median": 0.015957249084249593,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag0|25000|30bp": {
+   "n": 273,
+   "median": 0.002541453650793673,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|25000|30bp": {
+   "n": 60,
+   "median": -0.023373723066086774,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|25000|30bp": {
+   "n": 47,
+   "median": -0.015416866159862722,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag0|50000|0bp": {
+   "n": 273,
+   "median": 0.019934855321159718,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|50000|0bp": {
+   "n": 60,
+   "median": 0.03013686842859973,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|50000|0bp": {
+   "n": 47,
+   "median": 0.03563385110870763,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|50000|0bp": {
+   "n": 273,
+   "median": 0.005989186226756045,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|50000|0bp": {
+   "n": 60,
+   "median": -0.012720379813397926,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|50000|0bp": {
+   "n": 47,
+   "median": -0.006747449286576975,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|50000|5bp": {
+   "n": 273,
+   "median": 0.019306385142725327,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|50000|5bp": {
+   "n": 60,
+   "median": 0.028215912546246696,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|50000|5bp": {
+   "n": 47,
+   "median": 0.03064049661100502,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|50000|5bp": {
+   "n": 273,
+   "median": 0.005209582305764376,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|50000|5bp": {
+   "n": 60,
+   "median": -0.014446557383320027,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|50000|5bp": {
+   "n": 47,
+   "median": -0.009117579156706584,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|50000|15bp": {
+   "n": 273,
+   "median": 0.017925505473182064,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|liquidation|lag0|50000|15bp": {
+   "n": 60,
+   "median": 0.019042347560220246,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|50000|15bp": {
+   "n": 47,
+   "median": 0.023592174696192826,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|liquidation|lag0|50000|15bp": {
+   "n": 273,
+   "median": 0.0040592491076543715,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|50000|15bp": {
+   "n": 60,
+   "median": -0.018001702789863024,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|50000|15bp": {
+   "n": 47,
+   "median": -0.011814892475652327,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|50000|30bp": {
+   "n": 273,
+   "median": 0.016056778043579377,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag0|50000|30bp": {
+   "n": 60,
+   "median": 0.015005085422109033,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|50000|30bp": {
+   "n": 47,
+   "median": 0.015957249084249593,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag0|50000|30bp": {
+   "n": 273,
+   "median": 0.002541453650793673,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|50000|30bp": {
+   "n": 60,
+   "median": -0.023373723066086774,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|50000|30bp": {
+   "n": 47,
+   "median": -0.015416866159862722,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag0|100000|0bp": {
+   "n": 273,
+   "median": 0.019934855321159718,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|100000|0bp": {
+   "n": 60,
+   "median": 0.03013686842859973,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|100000|0bp": {
+   "n": 47,
+   "median": 0.03563385110870763,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|100000|0bp": {
+   "n": 273,
+   "median": 0.005989186226756045,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|100000|0bp": {
+   "n": 60,
+   "median": -0.012720379813397926,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|100000|0bp": {
+   "n": 47,
+   "median": -0.006747449286576975,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|100000|5bp": {
+   "n": 273,
+   "median": 0.019306385142725327,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|liquidation|lag0|100000|5bp": {
+   "n": 60,
+   "median": 0.028215912546246696,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|100000|5bp": {
+   "n": 47,
+   "median": 0.03064049661100502,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|liquidation|lag0|100000|5bp": {
+   "n": 273,
+   "median": 0.005209582305764376,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|100000|5bp": {
+   "n": 60,
+   "median": -0.014446557383320027,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|100000|5bp": {
+   "n": 47,
+   "median": -0.009117579156706584,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|100000|15bp": {
+   "n": 273,
+   "median": 0.017925505473182064,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|liquidation|lag0|100000|15bp": {
+   "n": 60,
+   "median": 0.019042347560220246,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|100000|15bp": {
+   "n": 47,
+   "median": 0.023592174696192826,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|liquidation|lag0|100000|15bp": {
+   "n": 273,
+   "median": 0.0040592491076543715,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|100000|15bp": {
+   "n": 60,
+   "median": -0.018001702789863024,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|100000|15bp": {
+   "n": 47,
+   "median": -0.011814892475652327,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag0|100000|30bp": {
+   "n": 273,
+   "median": 0.016056778043579377,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag0|100000|30bp": {
+   "n": 60,
+   "median": 0.015005085422109033,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag0|100000|30bp": {
+   "n": 47,
+   "median": 0.015957249084249593,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag0|100000|30bp": {
+   "n": 273,
+   "median": 0.002541453650793673,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag0|100000|30bp": {
+   "n": 60,
+   "median": -0.023373723066086774,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag0|100000|30bp": {
+   "n": 47,
+   "median": -0.015416866159862722,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag21|2500|0bp": {
+   "n": 273,
+   "median": 0.01576915342095183,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|liquidation|lag21|2500|0bp": {
+   "n": 60,
+   "median": 0.014562097213047433,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|2500|0bp": {
+   "n": 47,
+   "median": 0.014702771744323488,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|2500|0bp": {
+   "n": 273,
+   "median": 0.0054940172867486555,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|2500|0bp": {
+   "n": 60,
+   "median": -0.010616614792096194,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|2500|0bp": {
+   "n": 47,
+   "median": -0.005668401017311408,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|2500|5bp": {
+   "n": 273,
+   "median": 0.015230927317032059,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag21|2500|5bp": {
+   "n": 60,
+   "median": 0.012313855827104071,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|2500|5bp": {
+   "n": 47,
+   "median": 0.013652151826655433,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|2500|5bp": {
+   "n": 273,
+   "median": 0.0049082015112160236,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|2500|5bp": {
+   "n": 60,
+   "median": -0.012053447260817567,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|2500|5bp": {
+   "n": 47,
+   "median": -0.0071638121945551735,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|2500|15bp": {
+   "n": 273,
+   "median": 0.014245904646697359,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|liquidation|lag21|2500|15bp": {
+   "n": 60,
+   "median": 0.009418821741322126,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|2500|15bp": {
+   "n": 47,
+   "median": 0.01173109919507627,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|liquidation|lag21|2500|15bp": {
+   "n": 273,
+   "median": 0.0038288592934361504,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|2500|15bp": {
+   "n": 60,
+   "median": -0.014897007706503117,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|2500|15bp": {
+   "n": 47,
+   "median": -0.010380714776295687,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|2500|30bp": {
+   "n": 273,
+   "median": 0.012782846072476657,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|liquidation|lag21|2500|30bp": {
+   "n": 60,
+   "median": 0.005581640543809142,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|2500|30bp": {
+   "n": 47,
+   "median": 0.008827577280616325,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|liquidation|lag21|2500|30bp": {
+   "n": 273,
+   "median": 0.0023944274065328818,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|2500|30bp": {
+   "n": 60,
+   "median": -0.019514261258617063,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|2500|30bp": {
+   "n": 47,
+   "median": -0.013545454660688634,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag21|5000|0bp": {
+   "n": 273,
+   "median": 0.01576915342095183,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|liquidation|lag21|5000|0bp": {
+   "n": 60,
+   "median": 0.014562097213047433,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|5000|0bp": {
+   "n": 47,
+   "median": 0.014702771744323488,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|5000|0bp": {
+   "n": 273,
+   "median": 0.0054940172867486555,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|5000|0bp": {
+   "n": 60,
+   "median": -0.010616614792096194,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|5000|0bp": {
+   "n": 47,
+   "median": -0.005668401017311408,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|5000|5bp": {
+   "n": 273,
+   "median": 0.015230927317032059,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag21|5000|5bp": {
+   "n": 60,
+   "median": 0.012313855827104071,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|5000|5bp": {
+   "n": 47,
+   "median": 0.013652151826655433,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|5000|5bp": {
+   "n": 273,
+   "median": 0.0049082015112160236,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|5000|5bp": {
+   "n": 60,
+   "median": -0.012053447260817567,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|5000|5bp": {
+   "n": 47,
+   "median": -0.0071638121945551735,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|5000|15bp": {
+   "n": 273,
+   "median": 0.014245904646697359,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|liquidation|lag21|5000|15bp": {
+   "n": 60,
+   "median": 0.009418821741322126,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|5000|15bp": {
+   "n": 47,
+   "median": 0.01173109919507627,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|liquidation|lag21|5000|15bp": {
+   "n": 273,
+   "median": 0.0038288592934361504,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|5000|15bp": {
+   "n": 60,
+   "median": -0.014897007706503117,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|5000|15bp": {
+   "n": 47,
+   "median": -0.010380714776295687,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|5000|30bp": {
+   "n": 273,
+   "median": 0.012782846072476657,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|liquidation|lag21|5000|30bp": {
+   "n": 60,
+   "median": 0.005581640543809142,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|5000|30bp": {
+   "n": 47,
+   "median": 0.008827577280616325,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|liquidation|lag21|5000|30bp": {
+   "n": 273,
+   "median": 0.0023944274065328818,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|5000|30bp": {
+   "n": 60,
+   "median": -0.019514261258617063,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|5000|30bp": {
+   "n": 47,
+   "median": -0.013545454660688634,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag21|10000|0bp": {
+   "n": 273,
+   "median": 0.01576915342095183,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|liquidation|lag21|10000|0bp": {
+   "n": 60,
+   "median": 0.014562097213047433,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|10000|0bp": {
+   "n": 47,
+   "median": 0.014702771744323488,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|10000|0bp": {
+   "n": 273,
+   "median": 0.0054940172867486555,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|10000|0bp": {
+   "n": 60,
+   "median": -0.010616614792096194,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|10000|0bp": {
+   "n": 47,
+   "median": -0.005668401017311408,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|10000|5bp": {
+   "n": 273,
+   "median": 0.015230927317032059,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag21|10000|5bp": {
+   "n": 60,
+   "median": 0.012313855827104071,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|10000|5bp": {
+   "n": 47,
+   "median": 0.013652151826655433,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|10000|5bp": {
+   "n": 273,
+   "median": 0.0049082015112160236,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|10000|5bp": {
+   "n": 60,
+   "median": -0.012053447260817567,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|10000|5bp": {
+   "n": 47,
+   "median": -0.0071638121945551735,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|10000|15bp": {
+   "n": 273,
+   "median": 0.014245904646697359,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|liquidation|lag21|10000|15bp": {
+   "n": 60,
+   "median": 0.009418821741322126,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|10000|15bp": {
+   "n": 47,
+   "median": 0.01173109919507627,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|liquidation|lag21|10000|15bp": {
+   "n": 273,
+   "median": 0.0038288592934361504,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|10000|15bp": {
+   "n": 60,
+   "median": -0.014897007706503117,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|10000|15bp": {
+   "n": 47,
+   "median": -0.010380714776295687,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|10000|30bp": {
+   "n": 273,
+   "median": 0.012782846072476657,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|liquidation|lag21|10000|30bp": {
+   "n": 60,
+   "median": 0.005581640543809142,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|10000|30bp": {
+   "n": 47,
+   "median": 0.008827577280616325,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|liquidation|lag21|10000|30bp": {
+   "n": 273,
+   "median": 0.0023944274065328818,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|10000|30bp": {
+   "n": 60,
+   "median": -0.019514261258617063,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|10000|30bp": {
+   "n": 47,
+   "median": -0.013545454660688634,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag21|25000|0bp": {
+   "n": 273,
+   "median": 0.01576915342095183,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|liquidation|lag21|25000|0bp": {
+   "n": 60,
+   "median": 0.014562097213047433,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|25000|0bp": {
+   "n": 47,
+   "median": 0.014702771744323488,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|25000|0bp": {
+   "n": 273,
+   "median": 0.0054940172867486555,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|25000|0bp": {
+   "n": 60,
+   "median": -0.010616614792096194,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|25000|0bp": {
+   "n": 47,
+   "median": -0.005668401017311408,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|25000|5bp": {
+   "n": 273,
+   "median": 0.015230927317032059,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag21|25000|5bp": {
+   "n": 60,
+   "median": 0.012313855827104071,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|25000|5bp": {
+   "n": 47,
+   "median": 0.013652151826655433,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|25000|5bp": {
+   "n": 273,
+   "median": 0.0049082015112160236,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|25000|5bp": {
+   "n": 60,
+   "median": -0.012053447260817567,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|25000|5bp": {
+   "n": 47,
+   "median": -0.0071638121945551735,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|25000|15bp": {
+   "n": 273,
+   "median": 0.014245904646697359,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|liquidation|lag21|25000|15bp": {
+   "n": 60,
+   "median": 0.009418821741322126,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|25000|15bp": {
+   "n": 47,
+   "median": 0.01173109919507627,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|liquidation|lag21|25000|15bp": {
+   "n": 273,
+   "median": 0.0038288592934361504,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|25000|15bp": {
+   "n": 60,
+   "median": -0.014897007706503117,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|25000|15bp": {
+   "n": 47,
+   "median": -0.010380714776295687,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|25000|30bp": {
+   "n": 273,
+   "median": 0.012782846072476657,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|liquidation|lag21|25000|30bp": {
+   "n": 60,
+   "median": 0.005581640543809142,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|25000|30bp": {
+   "n": 47,
+   "median": 0.008827577280616325,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|liquidation|lag21|25000|30bp": {
+   "n": 273,
+   "median": 0.0023944274065328818,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|25000|30bp": {
+   "n": 60,
+   "median": -0.019514261258617063,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|25000|30bp": {
+   "n": 47,
+   "median": -0.013545454660688634,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag21|50000|0bp": {
+   "n": 273,
+   "median": 0.01576915342095183,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|liquidation|lag21|50000|0bp": {
+   "n": 60,
+   "median": 0.014562097213047433,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|50000|0bp": {
+   "n": 47,
+   "median": 0.014702771744323488,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|50000|0bp": {
+   "n": 273,
+   "median": 0.0054940172867486555,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|50000|0bp": {
+   "n": 60,
+   "median": -0.010616614792096194,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|50000|0bp": {
+   "n": 47,
+   "median": -0.005668401017311408,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|50000|5bp": {
+   "n": 273,
+   "median": 0.015230927317032059,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag21|50000|5bp": {
+   "n": 60,
+   "median": 0.012313855827104071,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|50000|5bp": {
+   "n": 47,
+   "median": 0.013652151826655433,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|50000|5bp": {
+   "n": 273,
+   "median": 0.0049082015112160236,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|50000|5bp": {
+   "n": 60,
+   "median": -0.012053447260817567,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|50000|5bp": {
+   "n": 47,
+   "median": -0.0071638121945551735,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|50000|15bp": {
+   "n": 273,
+   "median": 0.014245904646697359,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|liquidation|lag21|50000|15bp": {
+   "n": 60,
+   "median": 0.009418821741322126,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|50000|15bp": {
+   "n": 47,
+   "median": 0.01173109919507627,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|liquidation|lag21|50000|15bp": {
+   "n": 273,
+   "median": 0.0038288592934361504,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|50000|15bp": {
+   "n": 60,
+   "median": -0.014897007706503117,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|50000|15bp": {
+   "n": 47,
+   "median": -0.010380714776295687,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|50000|30bp": {
+   "n": 273,
+   "median": 0.012782846072476657,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|liquidation|lag21|50000|30bp": {
+   "n": 60,
+   "median": 0.005581640543809142,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|50000|30bp": {
+   "n": 47,
+   "median": 0.008827577280616325,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|liquidation|lag21|50000|30bp": {
+   "n": 273,
+   "median": 0.0023944274065328818,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|50000|30bp": {
+   "n": 60,
+   "median": -0.019514261258617063,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|50000|30bp": {
+   "n": 47,
+   "median": -0.013545454660688634,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|liquidation|lag21|100000|0bp": {
+   "n": 273,
+   "median": 0.01576915342095183,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|liquidation|lag21|100000|0bp": {
+   "n": 60,
+   "median": 0.014562097213047433,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|100000|0bp": {
+   "n": 47,
+   "median": 0.014702771744323488,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|100000|0bp": {
+   "n": 273,
+   "median": 0.0054940172867486555,
+   "share_above_zero": 0.684981684981685
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|100000|0bp": {
+   "n": 60,
+   "median": -0.010616614792096194,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|100000|0bp": {
+   "n": 47,
+   "median": -0.005668401017311408,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|100000|5bp": {
+   "n": 273,
+   "median": 0.015230927317032059,
+   "share_above_zero": 0.8644688644688645
+  },
+  "near_deadline|spread|liquidation|lag21|100000|5bp": {
+   "n": 60,
+   "median": 0.012313855827104071,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|100000|5bp": {
+   "n": 47,
+   "median": 0.013652151826655433,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|liquidation|lag21|100000|5bp": {
+   "n": 273,
+   "median": 0.0049082015112160236,
+   "share_above_zero": 0.6483516483516484
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|100000|5bp": {
+   "n": 60,
+   "median": -0.012053447260817567,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|100000|5bp": {
+   "n": 47,
+   "median": -0.0071638121945551735,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|100000|15bp": {
+   "n": 273,
+   "median": 0.014245904646697359,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|liquidation|lag21|100000|15bp": {
+   "n": 60,
+   "median": 0.009418821741322126,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|100000|15bp": {
+   "n": 47,
+   "median": 0.01173109919507627,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|liquidation|lag21|100000|15bp": {
+   "n": 273,
+   "median": 0.0038288592934361504,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|100000|15bp": {
+   "n": 60,
+   "median": -0.014897007706503117,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|100000|15bp": {
+   "n": 47,
+   "median": -0.010380714776295687,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|liquidation|lag21|100000|30bp": {
+   "n": 273,
+   "median": 0.012782846072476657,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|liquidation|lag21|100000|30bp": {
+   "n": 60,
+   "median": 0.005581640543809142,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|liquidation|lag21|100000|30bp": {
+   "n": 47,
+   "median": 0.008827577280616325,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|liquidation|lag21|100000|30bp": {
+   "n": 273,
+   "median": 0.0023944274065328818,
+   "share_above_zero": 0.5824175824175825
+  },
+  "near_deadline|yield_no_interest|liquidation|lag21|100000|30bp": {
+   "n": 60,
+   "median": -0.019514261258617063,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|liquidation|lag21|100000|30bp": {
+   "n": 47,
+   "median": -0.013545454660688634,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag0|2500|0bp": {
+   "n": 273,
+   "median": -0.02917688220883373,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag0|2500|0bp": {
+   "n": 60,
+   "median": -0.11812834921999482,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|2500|0bp": {
+   "n": 47,
+   "median": -0.09744081727843176,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag0|2500|0bp": {
+   "n": 273,
+   "median": -0.04164347217229898,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag0|2500|0bp": {
+   "n": 60,
+   "median": -0.16084892542930718,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|2500|0bp": {
+   "n": 47,
+   "median": -0.13680616573520923,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag0|2500|5bp": {
+   "n": 273,
+   "median": -0.029793436262887718,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag0|2500|5bp": {
+   "n": 60,
+   "median": -0.12004416035576998,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|2500|5bp": {
+   "n": 47,
+   "median": -0.09891259147197999,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag0|2500|5bp": {
+   "n": 273,
+   "median": -0.04227061993862193,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag0|2500|5bp": {
+   "n": 60,
+   "median": -0.1626935769937119,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|2500|5bp": {
+   "n": 47,
+   "median": -0.13876853132660685,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag0|2500|15bp": {
+   "n": 273,
+   "median": -0.03102654437099596,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag0|2500|15bp": {
+   "n": 60,
+   "median": -0.12387578262732012,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|2500|15bp": {
+   "n": 47,
+   "median": -0.10185613985907677,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag0|2500|15bp": {
+   "n": 273,
+   "median": -0.04312908474873705,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag0|2500|15bp": {
+   "n": 60,
+   "median": -0.1663828801225213,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|2500|15bp": {
+   "n": 47,
+   "median": -0.14269326250940256,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag0|2500|30bp": {
+   "n": 273,
+   "median": -0.032876206533158196,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag0|2500|30bp": {
+   "n": 60,
+   "median": -0.12962321603464522,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|2500|30bp": {
+   "n": 47,
+   "median": -0.1062714624397221,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag0|2500|30bp": {
+   "n": 273,
+   "median": -0.04457644383195585,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag0|2500|30bp": {
+   "n": 60,
+   "median": -0.17191683481573547,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|2500|30bp": {
+   "n": 47,
+   "median": -0.14858035928359634,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag0|5000|0bp": {
+   "n": 273,
+   "median": -0.0035715194164790062,
+   "share_above_zero": 0.3516483516483517
+  },
+  "near_deadline|spread|vote|lag0|5000|0bp": {
+   "n": 60,
+   "median": -0.04770497790259946,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|5000|0bp": {
+   "n": 47,
+   "median": -0.03189767264864605,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|yield_no_interest|vote|lag0|5000|0bp": {
+   "n": 273,
+   "median": -0.016749425066657102,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote|lag0|5000|0bp": {
+   "n": 60,
+   "median": -0.08671092688447221,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|5000|0bp": {
+   "n": 47,
+   "median": -0.0716737542608943,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote|lag0|5000|5bp": {
+   "n": 273,
+   "median": -0.004158396403202404,
+   "share_above_zero": 0.336996336996337
+  },
+  "near_deadline|spread|vote|lag0|5000|5bp": {
+   "n": 60,
+   "median": -0.04988189066375137,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|5000|5bp": {
+   "n": 47,
+   "median": -0.03321062228893367,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|yield_no_interest|vote|lag0|5000|5bp": {
+   "n": 273,
+   "median": -0.017415483460817758,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote|lag0|5000|5bp": {
+   "n": 60,
+   "median": -0.0885555784488769,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|5000|5bp": {
+   "n": 47,
+   "median": -0.07314552845444253,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote|lag0|5000|15bp": {
+   "n": 273,
+   "median": -0.005404130191598175,
+   "share_above_zero": 0.31135531135531136
+  },
+  "near_deadline|spread|vote|lag0|5000|15bp": {
+   "n": 60,
+   "median": -0.05423571618605516,
+   "share_above_zero": 0.11666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|5000|15bp": {
+   "n": 47,
+   "median": -0.03583652156950892,
+   "share_above_zero": 0.1276595744680851
+  },
+  "pool|yield_no_interest|vote|lag0|5000|15bp": {
+   "n": 273,
+   "median": -0.018747600249138928,
+   "share_above_zero": 0.014652014652014652
+  },
+  "near_deadline|yield_no_interest|vote|lag0|5000|15bp": {
+   "n": 60,
+   "median": -0.09224488157768633,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|5000|15bp": {
+   "n": 47,
+   "median": -0.0760890768415393,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag0|5000|30bp": {
+   "n": 273,
+   "median": -0.00700231611581064,
+   "share_above_zero": 0.2490842490842491
+  },
+  "near_deadline|spread|vote|lag0|5000|30bp": {
+   "n": 60,
+   "median": -0.059119579360559144,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|5000|30bp": {
+   "n": 47,
+   "median": -0.03977537049037238,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|yield_no_interest|vote|lag0|5000|30bp": {
+   "n": 273,
+   "median": -0.02074577543162061,
+   "share_above_zero": 0.007326007326007326
+  },
+  "near_deadline|yield_no_interest|vote|lag0|5000|30bp": {
+   "n": 60,
+   "median": -0.09704376495181677,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|5000|30bp": {
+   "n": 47,
+   "median": -0.08050439942218462,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag0|10000|0bp": {
+   "n": 273,
+   "median": 0.007934338466485447,
+   "share_above_zero": 0.7362637362637363
+  },
+  "near_deadline|spread|vote|lag0|10000|0bp": {
+   "n": 60,
+   "median": -0.008176791001370778,
+   "share_above_zero": 0.2833333333333333
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|10000|0bp": {
+   "n": 47,
+   "median": -0.0023647882998933875,
+   "share_above_zero": 0.3404255319148936
+  },
+  "pool|yield_no_interest|vote|lag0|10000|0bp": {
+   "n": 273,
+   "median": -0.005343381534476556,
+   "share_above_zero": 0.2967032967032967
+  },
+  "near_deadline|yield_no_interest|vote|lag0|10000|0bp": {
+   "n": 60,
+   "median": -0.05331314336880361,
+   "share_above_zero": 0.11666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|10000|0bp": {
+   "n": 47,
+   "median": -0.03528996969506664,
+   "share_above_zero": 0.1276595744680851
+  },
+  "pool|spread|vote|lag0|10000|5bp": {
+   "n": 273,
+   "median": 0.007286539687494278,
+   "share_above_zero": 0.7252747252747253
+  },
+  "near_deadline|spread|vote|lag0|10000|5bp": {
+   "n": 60,
+   "median": -0.010021442565775288,
+   "share_above_zero": 0.2833333333333333
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|10000|5bp": {
+   "n": 47,
+   "median": -0.004432805425404009,
+   "share_above_zero": 0.3404255319148936
+  },
+  "pool|yield_no_interest|vote|lag0|10000|5bp": {
+   "n": 273,
+   "median": -0.0059190913136563045,
+   "share_above_zero": 0.27472527472527475
+  },
+  "near_deadline|yield_no_interest|vote|lag0|10000|5bp": {
+   "n": 60,
+   "median": -0.05505340114404311,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|10000|5bp": {
+   "n": 47,
+   "median": -0.036602919335354554,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|spread|vote|lag0|10000|15bp": {
+   "n": 273,
+   "median": 0.006033296799818705,
+   "share_above_zero": 0.6959706959706959
+  },
+  "near_deadline|spread|vote|lag0|10000|15bp": {
+   "n": 60,
+   "median": -0.013488286161013354,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|10000|15bp": {
+   "n": 47,
+   "median": -0.007715768570739856,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|yield_no_interest|vote|lag0|10000|15bp": {
+   "n": 273,
+   "median": -0.007120759566145649,
+   "share_above_zero": 0.21611721611721613
+  },
+  "near_deadline|yield_no_interest|vote|lag0|10000|15bp": {
+   "n": 60,
+   "median": -0.058123406320026556,
+   "share_above_zero": 0.08333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|10000|15bp": {
+   "n": 47,
+   "median": -0.0392288186159301,
+   "share_above_zero": 0.0851063829787234
+  },
+  "pool|spread|vote|lag0|10000|30bp": {
+   "n": 273,
+   "median": 0.00434643790460864,
+   "share_above_zero": 0.6410256410256411
+  },
+  "near_deadline|spread|vote|lag0|10000|30bp": {
+   "n": 60,
+   "median": -0.018878087926504437,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|10000|30bp": {
+   "n": 47,
+   "median": -0.012233924272258438,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|yield_no_interest|vote|lag0|10000|30bp": {
+   "n": 273,
+   "median": -0.008845775630138294,
+   "share_above_zero": 0.1575091575091575
+  },
+  "near_deadline|yield_no_interest|vote|lag0|10000|30bp": {
+   "n": 60,
+   "median": -0.06272841408400154,
+   "share_above_zero": 0.05
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|10000|30bp": {
+   "n": 47,
+   "median": -0.04316766753679327,
+   "share_above_zero": 0.0425531914893617
+  },
+  "pool|spread|vote|lag0|25000|0bp": {
+   "n": 273,
+   "median": 0.014950176986650833,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|vote|lag0|25000|0bp": {
+   "n": 60,
+   "median": 0.010663110182101036,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|25000|0bp": {
+   "n": 47,
+   "median": 0.012883502346905357,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|vote|lag0|25000|0bp": {
+   "n": 273,
+   "median": 0.0014738811354224391,
+   "share_above_zero": 0.5384615384615384
+  },
+  "near_deadline|yield_no_interest|vote|lag0|25000|0bp": {
+   "n": 60,
+   "median": -0.026760588024004363,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|25000|0bp": {
+   "n": 47,
+   "median": -0.019515282155544374,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag0|25000|5bp": {
+   "n": 273,
+   "median": 0.01445598679364564,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote|lag0|25000|5bp": {
+   "n": 60,
+   "median": 0.00917962505804136,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|25000|5bp": {
+   "n": 47,
+   "median": 0.011803620690100741,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote|lag0|25000|5bp": {
+   "n": 273,
+   "median": 0.0009402554044281089,
+   "share_above_zero": 0.5238095238095238
+  },
+  "near_deadline|yield_no_interest|vote|lag0|25000|5bp": {
+   "n": 60,
+   "median": -0.029875253600851696,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|25000|5bp": {
+   "n": 47,
+   "median": -0.020828231795832295,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag0|25000|15bp": {
+   "n": 273,
+   "median": 0.013320712700936488,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|vote|lag0|25000|15bp": {
+   "n": 60,
+   "median": 0.006032678655590203,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|25000|15bp": {
+   "n": 47,
+   "median": 0.009619917392839634,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|vote|lag0|25000|15bp": {
+   "n": 273,
+   "median": -0.00015483870631587306,
+   "share_above_zero": 0.47619047619047616
+  },
+  "near_deadline|yield_no_interest|vote|lag0|25000|15bp": {
+   "n": 60,
+   "median": -0.0341690758353041,
+   "share_above_zero": 0.16666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|25000|15bp": {
+   "n": 47,
+   "median": -0.023454131076407835,
+   "share_above_zero": 0.19148936170212766
+  },
+  "pool|spread|vote|lag0|25000|30bp": {
+   "n": 273,
+   "median": 0.011664973548605836,
+   "share_above_zero": 0.8058608058608059
+  },
+  "near_deadline|spread|vote|lag0|25000|30bp": {
+   "n": 60,
+   "median": 0.0018836638394791744,
+   "share_above_zero": 0.5166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|25000|30bp": {
+   "n": 47,
+   "median": 0.006377157444327833,
+   "share_above_zero": 0.6382978723404256
+  },
+  "pool|yield_no_interest|vote|lag0|25000|30bp": {
+   "n": 273,
+   "median": -0.0020535758261404392,
+   "share_above_zero": 0.39194139194139194
+  },
+  "near_deadline|yield_no_interest|vote|lag0|25000|30bp": {
+   "n": 60,
+   "median": -0.040609809186982704,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|25000|30bp": {
+   "n": 47,
+   "median": -0.027392979997271003,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote|lag0|50000|0bp": {
+   "n": 273,
+   "median": 0.017268479899998253,
+   "share_above_zero": 0.8864468864468864
+  },
+  "near_deadline|spread|vote|lag0|50000|0bp": {
+   "n": 60,
+   "median": 0.017235897854868353,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|50000|0bp": {
+   "n": 47,
+   "median": 0.01892448388775223,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|vote|lag0|50000|0bp": {
+   "n": 273,
+   "median": 0.003512680655053113,
+   "share_above_zero": 0.6227106227106227
+  },
+  "near_deadline|yield_no_interest|vote|lag0|50000|0bp": {
+   "n": 60,
+   "median": -0.0200101229717135,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|50000|0bp": {
+   "n": 47,
+   "median": -0.013016415960578885,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag0|50000|5bp": {
+   "n": 273,
+   "median": 0.01672859146240757,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|vote|lag0|50000|5bp": {
+   "n": 60,
+   "median": 0.01608108873786049,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|50000|5bp": {
+   "n": 47,
+   "median": 0.017731673430235503,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|vote|lag0|50000|5bp": {
+   "n": 273,
+   "median": 0.0030386633875396406,
+   "share_above_zero": 0.5897435897435898
+  },
+  "near_deadline|yield_no_interest|vote|lag0|50000|5bp": {
+   "n": 60,
+   "median": -0.02172130882993727,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|50000|5bp": {
+   "n": 47,
+   "median": -0.014217073855315863,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag0|50000|15bp": {
+   "n": 273,
+   "median": 0.015487358078969081,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|vote|lag0|50000|15bp": {
+   "n": 60,
+   "median": 0.012729218416965393,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|50000|15bp": {
+   "n": 47,
+   "median": 0.013963670839324135,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|vote|lag0|50000|15bp": {
+   "n": 273,
+   "median": 0.002007667393108056,
+   "share_above_zero": 0.5457875457875457
+  },
+  "near_deadline|yield_no_interest|vote|lag0|50000|15bp": {
+   "n": 60,
+   "median": -0.025027793499555244,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|50000|15bp": {
+   "n": 47,
+   "median": -0.01661838964478955,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag0|50000|30bp": {
+   "n": 273,
+   "median": 0.013863902225302163,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote|lag0|50000|30bp": {
+   "n": 60,
+   "median": 0.007995505209396125,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|50000|30bp": {
+   "n": 47,
+   "median": 0.01072402586890981,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote|lag0|50000|30bp": {
+   "n": 273,
+   "median": 0.00040136328759021484,
+   "share_above_zero": 0.5164835164835165
+  },
+  "near_deadline|yield_no_interest|vote|lag0|50000|30bp": {
+   "n": 60,
+   "median": -0.032019200818184275,
+   "share_above_zero": 0.18333333333333332
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|50000|30bp": {
+   "n": 47,
+   "median": -0.022140297472683316,
+   "share_above_zero": 0.2127659574468085
+  },
+  "pool|spread|vote|lag0|100000|0bp": {
+   "n": 273,
+   "median": 0.018538272607606147,
+   "share_above_zero": 0.9010989010989011
+  },
+  "near_deadline|spread|vote|lag0|100000|0bp": {
+   "n": 60,
+   "median": 0.021679298858343615,
+   "share_above_zero": 0.8
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|100000|0bp": {
+   "n": 47,
+   "median": 0.027145181912261653,
+   "share_above_zero": 1.0
+  },
+  "pool|yield_no_interest|vote|lag0|100000|0bp": {
+   "n": 273,
+   "median": 0.004675876311424521,
+   "share_above_zero": 0.6410256410256411
+  },
+  "near_deadline|yield_no_interest|vote|lag0|100000|0bp": {
+   "n": 60,
+   "median": -0.01603542819220212,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|100000|0bp": {
+   "n": 47,
+   "median": -0.01061441685461831,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|vote|lag0|100000|5bp": {
+   "n": 273,
+   "median": 0.01792546435622469,
+   "share_above_zero": 0.8901098901098901
+  },
+  "near_deadline|spread|vote|lag0|100000|5bp": {
+   "n": 60,
+   "median": 0.019042267064417986,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|100000|5bp": {
+   "n": 47,
+   "median": 0.02359173561636426,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|vote|lag0|100000|5bp": {
+   "n": 273,
+   "median": 0.004059170454175376,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag0|100000|5bp": {
+   "n": 60,
+   "median": -0.018001979366059875,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|100000|5bp": {
+   "n": 47,
+   "median": -0.011815074749355286,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|vote|lag0|100000|15bp": {
+   "n": 273,
+   "median": 0.01672886633780605,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|vote|lag0|100000|15bp": {
+   "n": 60,
+   "median": 0.016081663953371104,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|100000|15bp": {
+   "n": 47,
+   "median": 0.017731715895044027,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|vote|lag0|100000|15bp": {
+   "n": 273,
+   "median": 0.003038701042016389,
+   "share_above_zero": 0.5897435897435898
+  },
+  "near_deadline|yield_no_interest|vote|lag0|100000|15bp": {
+   "n": 60,
+   "median": -0.021720728560855614,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|100000|15bp": {
+   "n": 47,
+   "median": -0.014216390538828972,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag0|100000|30bp": {
+   "n": 273,
+   "median": 0.014950229130342295,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|vote|lag0|100000|30bp": {
+   "n": 60,
+   "median": 0.010667861074075247,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag0|100000|30bp": {
+   "n": 47,
+   "median": 0.012883932600326116,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|vote|lag0|100000|30bp": {
+   "n": 273,
+   "median": 0.0014741219254594876,
+   "share_above_zero": 0.5384615384615384
+  },
+  "near_deadline|yield_no_interest|vote|lag0|100000|30bp": {
+   "n": 60,
+   "median": -0.026757853651458146,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag0|100000|30bp": {
+   "n": 47,
+   "median": -0.019513679082473145,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag21|2500|0bp": {
+   "n": 273,
+   "median": -0.029960117141371558,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag21|2500|0bp": {
+   "n": 60,
+   "median": -0.10446593310635205,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|2500|0bp": {
+   "n": 47,
+   "median": -0.089266629948452,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag21|2500|0bp": {
+   "n": 273,
+   "median": -0.038840546160701934,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag21|2500|0bp": {
+   "n": 60,
+   "median": -0.1316565198572885,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|2500|0bp": {
+   "n": 47,
+   "median": -0.11173590167258983,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag21|2500|5bp": {
+   "n": 273,
+   "median": -0.030535826920551304,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag21|2500|5bp": {
+   "n": 60,
+   "median": -0.10599815844967296,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|2500|5bp": {
+   "n": 47,
+   "median": -0.09052525063810703,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag21|2500|5bp": {
+   "n": 273,
+   "median": -0.03942548205813776,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag21|2500|5bp": {
+   "n": 60,
+   "median": -0.13337400725171716,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|2500|5bp": {
+   "n": 47,
+   "median": -0.11320590713486349,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag21|2500|15bp": {
+   "n": 273,
+   "median": -0.03168724647891105,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag21|2500|15bp": {
+   "n": 60,
+   "median": -0.10906260913631466,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|2500|15bp": {
+   "n": 47,
+   "median": -0.09304249201741738,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag21|2500|15bp": {
+   "n": 273,
+   "median": -0.04059535385300956,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag21|2500|15bp": {
+   "n": 60,
+   "median": -0.13685035029946996,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|2500|15bp": {
+   "n": 47,
+   "median": -0.1164076615208284,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag21|2500|30bp": {
+   "n": 273,
+   "median": -0.033414375816450556,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote|lag21|2500|30bp": {
+   "n": 60,
+   "median": -0.11365928516627716,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|2500|30bp": {
+   "n": 47,
+   "median": -0.09681835408638303,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote|lag21|2500|30bp": {
+   "n": 273,
+   "median": -0.042350161545317316,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag21|2500|30bp": {
+   "n": 60,
+   "median": -0.14171092266821547,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|2500|30bp": {
+   "n": 47,
+   "median": -0.12121029309977595,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag21|5000|0bp": {
+   "n": 273,
+   "median": -0.006127878482972131,
+   "share_above_zero": 0.27472527472527475
+  },
+  "near_deadline|spread|vote|lag21|5000|0bp": {
+   "n": 60,
+   "median": -0.04635870391547428,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|5000|0bp": {
+   "n": 47,
+   "median": -0.033092353113511254,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|yield_no_interest|vote|lag21|5000|0bp": {
+   "n": 273,
+   "median": -0.015839154369387116,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote|lag21|5000|0bp": {
+   "n": 60,
+   "median": -0.07148177146921386,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|5000|0bp": {
+   "n": 47,
+   "median": -0.05563853436130131,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote|lag21|5000|5bp": {
+   "n": 273,
+   "median": -0.006470526064239396,
+   "share_above_zero": 0.2600732600732601
+  },
+  "near_deadline|spread|vote|lag21|5000|5bp": {
+   "n": 60,
+   "median": -0.048097348488347694,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|5000|5bp": {
+   "n": 47,
+   "median": -0.03423297811351113,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|yield_no_interest|vote|lag21|5000|5bp": {
+   "n": 273,
+   "median": -0.016329018288312864,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote|lag21|5000|5bp": {
+   "n": 60,
+   "median": -0.07300218421810765,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|5000|5bp": {
+   "n": 47,
+   "median": -0.05768909615905389,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote|lag21|5000|15bp": {
+   "n": 273,
+   "median": -0.00746762863394404,
+   "share_above_zero": 0.21978021978021978
+  },
+  "near_deadline|spread|vote|lag21|5000|15bp": {
+   "n": 60,
+   "median": -0.05157463763409449,
+   "share_above_zero": 0.06666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|5000|15bp": {
+   "n": 47,
+   "median": -0.03651422811351088,
+   "share_above_zero": 0.06382978723404255
+  },
+  "pool|yield_no_interest|vote|lag21|5000|15bp": {
+   "n": 273,
+   "median": -0.017413025316149376,
+   "share_above_zero": 0.014652014652014652
+  },
+  "near_deadline|yield_no_interest|vote|lag21|5000|15bp": {
+   "n": 60,
+   "median": -0.07604300971589525,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|5000|15bp": {
+   "n": 47,
+   "median": -0.06179021975455951,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag21|5000|30bp": {
+   "n": 273,
+   "median": -0.00934116704014458,
+   "share_above_zero": 0.14285714285714285
+  },
+  "near_deadline|spread|vote|lag21|5000|30bp": {
+   "n": 60,
+   "median": -0.05642379404203439,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|5000|30bp": {
+   "n": 47,
+   "median": -0.03993610311351101,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|yield_no_interest|vote|lag21|5000|30bp": {
+   "n": 273,
+   "median": -0.019089583833365533,
+   "share_above_zero": 0.007326007326007326
+  },
+  "near_deadline|yield_no_interest|vote|lag21|5000|30bp": {
+   "n": 60,
+   "median": -0.0806042479625767,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|5000|30bp": {
+   "n": 47,
+   "median": -0.06794190514781817,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote|lag21|10000|0bp": {
+   "n": 273,
+   "median": 0.00468967947997994,
+   "share_above_zero": 0.663003663003663
+  },
+  "near_deadline|spread|vote|lag21|10000|0bp": {
+   "n": 60,
+   "median": -0.013723529048371482,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|10000|0bp": {
+   "n": 47,
+   "median": -0.009261369183132945,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|yield_no_interest|vote|lag21|10000|0bp": {
+   "n": 273,
+   "median": -0.005011396291210262,
+   "share_above_zero": 0.2967032967032967
+  },
+  "near_deadline|yield_no_interest|vote|lag21|10000|0bp": {
+   "n": 60,
+   "median": -0.042900306064332115,
+   "share_above_zero": 0.11666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|10000|0bp": {
+   "n": 47,
+   "median": -0.030658161172589144,
+   "share_above_zero": 0.1276595744680851
+  },
+  "pool|spread|vote|lag21|10000|5bp": {
+   "n": 273,
+   "median": 0.004205391110293742,
+   "share_above_zero": 0.652014652014652
+  },
+  "near_deadline|spread|vote|lag21|10000|5bp": {
+   "n": 60,
+   "median": -0.015119917486235307,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|10000|5bp": {
+   "n": 47,
+   "median": -0.010451193580249839,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|yield_no_interest|vote|lag21|10000|5bp": {
+   "n": 273,
+   "median": -0.00555133711961257,
+   "share_above_zero": 0.27472527472527475
+  },
+  "near_deadline|yield_no_interest|vote|lag21|10000|5bp": {
+   "n": 60,
+   "median": -0.044373341243171424,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|10000|5bp": {
+   "n": 47,
+   "median": -0.03179878617258927,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|spread|vote|lag21|10000|15bp": {
+   "n": 273,
+   "median": 0.003241909431679825,
+   "share_above_zero": 0.6263736263736264
+  },
+  "near_deadline|spread|vote|lag21|10000|15bp": {
+   "n": 60,
+   "median": -0.018140122259679058,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|10000|15bp": {
+   "n": 47,
+   "median": -0.012561020169845446,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|yield_no_interest|vote|lag21|10000|15bp": {
+   "n": 273,
+   "median": -0.006743925639470691,
+   "share_above_zero": 0.21611721611721613
+  },
+  "near_deadline|yield_no_interest|vote|lag21|10000|15bp": {
+   "n": 60,
+   "median": -0.04785063038891822,
+   "share_above_zero": 0.08333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|10000|15bp": {
+   "n": 47,
+   "median": -0.03408003617258927,
+   "share_above_zero": 0.0851063829787234
+  },
+  "pool|spread|vote|lag21|10000|30bp": {
+   "n": 273,
+   "median": 0.00159583150449958,
+   "share_above_zero": 0.5567765567765568
+  },
+  "near_deadline|spread|vote|lag21|10000|30bp": {
+   "n": 60,
+   "median": -0.022652446732512425,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|10000|30bp": {
+   "n": 47,
+   "median": -0.01572576005423863,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|yield_no_interest|vote|lag21|10000|30bp": {
+   "n": 273,
+   "median": -0.008251041261624466,
+   "share_above_zero": 0.1575091575091575
+  },
+  "near_deadline|yield_no_interest|vote|lag21|10000|30bp": {
+   "n": 60,
+   "median": -0.053066564107538225,
+   "share_above_zero": 0.05
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|10000|30bp": {
+   "n": 47,
+   "median": -0.03750191117258915,
+   "share_above_zero": 0.0425531914893617
+  },
+  "pool|spread|vote|lag21|25000|0bp": {
+   "n": 273,
+   "median": 0.011630385395543494,
+   "share_above_zero": 0.8131868131868132
+  },
+  "near_deadline|spread|vote|lag21|25000|0bp": {
+   "n": 60,
+   "median": 0.003211709246520561,
+   "share_above_zero": 0.55
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|25000|0bp": {
+   "n": 47,
+   "median": 0.006903892674165073,
+   "share_above_zero": 0.6808510638297872
+  },
+  "pool|yield_no_interest|vote|lag21|25000|0bp": {
+   "n": 273,
+   "median": 0.0013886152846128766,
+   "share_above_zero": 0.5384615384615384
+  },
+  "near_deadline|yield_no_interest|vote|lag21|25000|0bp": {
+   "n": 60,
+   "median": -0.022419095058250245,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|25000|0bp": {
+   "n": 47,
+   "median": -0.01565856372882374,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag21|25000|5bp": {
+   "n": 273,
+   "median": 0.011054675616363745,
+   "share_above_zero": 0.8131868131868132
+  },
+  "near_deadline|spread|vote|lag21|25000|5bp": {
+   "n": 60,
+   "median": 0.001971361974121854,
+   "share_above_zero": 0.55
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|25000|5bp": {
+   "n": 47,
+   "median": 0.00594336635837571,
+   "share_above_zero": 0.6808510638297872
+  },
+  "pool|yield_no_interest|vote|lag21|25000|5bp": {
+   "n": 273,
+   "median": 0.0008858604636760696,
+   "share_above_zero": 0.5238095238095238
+  },
+  "near_deadline|yield_no_interest|vote|lag21|25000|5bp": {
+   "n": 60,
+   "median": -0.023807911609176176,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|25000|5bp": {
+   "n": 47,
+   "median": -0.01671347702362155,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag21|25000|15bp": {
+   "n": 273,
+   "median": 0.009846293715047381,
+   "share_above_zero": 0.8021978021978022
+  },
+  "near_deadline|spread|vote|lag21|25000|15bp": {
+   "n": 60,
+   "median": -0.0005306227551150136,
+   "share_above_zero": 0.5
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|25000|15bp": {
+   "n": 47,
+   "median": 0.0038776914867582266,
+   "share_above_zero": 0.6170212765957447
+  },
+  "pool|yield_no_interest|vote|lag21|25000|15bp": {
+   "n": 273,
+   "median": -0.00014521855000630698,
+   "share_above_zero": 0.47619047619047616
+  },
+  "near_deadline|yield_no_interest|vote|lag21|25000|15bp": {
+   "n": 60,
+   "median": -0.026632729431110197,
+   "share_above_zero": 0.16666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|25000|15bp": {
+   "n": 47,
+   "median": -0.020375776372629308,
+   "share_above_zero": 0.19148936170212766
+  },
+  "pool|spread|vote|lag21|25000|30bp": {
+   "n": 273,
+   "median": 0.008167378799516858,
+   "share_above_zero": 0.7655677655677655
+  },
+  "near_deadline|spread|vote|lag21|25000|30bp": {
+   "n": 60,
+   "median": -0.004791075540178411,
+   "share_above_zero": 0.4
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|25000|30bp": {
+   "n": 47,
+   "median": -0.0005513469213347388,
+   "share_above_zero": 0.48936170212765956
+  },
+  "pool|yield_no_interest|vote|lag21|25000|30bp": {
+   "n": 273,
+   "median": -0.0019126441517974678,
+   "share_above_zero": 0.39194139194139194
+  },
+  "near_deadline|yield_no_interest|vote|lag21|25000|30bp": {
+   "n": 60,
+   "median": -0.03257132085898823,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|25000|30bp": {
+   "n": 47,
+   "median": -0.023797651372629184,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote|lag21|50000|0bp": {
+   "n": 273,
+   "median": 0.013703840749864332,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote|lag21|50000|0bp": {
+   "n": 60,
+   "median": 0.00838457643723349,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|50000|0bp": {
+   "n": 47,
+   "median": 0.010770317746556839,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote|lag21|50000|0bp": {
+   "n": 273,
+   "median": 0.0033046004656124032,
+   "share_above_zero": 0.6227106227106227
+  },
+  "near_deadline|yield_no_interest|vote|lag21|50000|0bp": {
+   "n": 60,
+   "median": -0.01626392585321,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|50000|0bp": {
+   "n": 47,
+   "median": -0.011436388589641565,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag21|50000|5bp": {
+   "n": 273,
+   "median": 0.013212595442723248,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote|lag21|50000|5bp": {
+   "n": 60,
+   "median": 0.007170336279005721,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|50000|5bp": {
+   "n": 47,
+   "median": 0.009789693529414563,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote|lag21|50000|5bp": {
+   "n": 273,
+   "median": 0.002897030987446047,
+   "share_above_zero": 0.5897435897435898
+  },
+  "near_deadline|yield_no_interest|vote|lag21|50000|5bp": {
+   "n": 60,
+   "median": -0.017889316478210186,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|50000|5bp": {
+   "n": 47,
+   "median": -0.01249130188443937,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag21|50000|15bp": {
+   "n": 273,
+   "median": 0.012207078720879685,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|vote|lag21|50000|15bp": {
+   "n": 60,
+   "median": 0.004454673811418213,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|50000|15bp": {
+   "n": 47,
+   "median": 0.007866527598807557,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|vote|lag21|50000|15bp": {
+   "n": 273,
+   "median": 0.0018915213455728793,
+   "share_above_zero": 0.5457875457875457
+  },
+  "near_deadline|yield_no_interest|vote|lag21|50000|15bp": {
+   "n": 60,
+   "median": -0.02102838567356086,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|50000|15bp": {
+   "n": 47,
+   "median": -0.014601128474034749,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote|lag21|50000|30bp": {
+   "n": 273,
+   "median": 0.01027289459434133,
+   "share_above_zero": 0.8058608058608059
+  },
+  "near_deadline|spread|vote|lag21|50000|30bp": {
+   "n": 60,
+   "median": 0.0007336319942215369,
+   "share_above_zero": 0.5166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|50000|30bp": {
+   "n": 47,
+   "median": 0.004984948651439461,
+   "share_above_zero": 0.6382978723404256
+  },
+  "pool|yield_no_interest|vote|lag21|50000|30bp": {
+   "n": 273,
+   "median": 0.00037900618138492437,
+   "share_above_zero": 0.5164835164835165
+  },
+  "near_deadline|yield_no_interest|vote|lag21|50000|30bp": {
+   "n": 60,
+   "median": -0.02519483532633849,
+   "share_above_zero": 0.18333333333333332
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|50000|30bp": {
+   "n": 47,
+   "median": -0.019234383429393632,
+   "share_above_zero": 0.2127659574468085
+  },
+  "pool|spread|vote|lag21|100000|0bp": {
+   "n": 273,
+   "median": 0.014736422254051688,
+   "share_above_zero": 0.8571428571428571
+  },
+  "near_deadline|spread|vote|lag21|100000|0bp": {
+   "n": 60,
+   "median": 0.010757116070404207,
+   "share_above_zero": 0.6833333333333333
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|100000|0bp": {
+   "n": 47,
+   "median": 0.01269149794450082,
+   "share_above_zero": 0.851063829787234
+  },
+  "pool|yield_no_interest|vote|lag21|100000|0bp": {
+   "n": 273,
+   "median": 0.004343624905691946,
+   "share_above_zero": 0.6410256410256411
+  },
+  "near_deadline|yield_no_interest|vote|lag21|100000|0bp": {
+   "n": 60,
+   "median": -0.013490480760192474,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|100000|0bp": {
+   "n": 47,
+   "median": -0.009026318570053699,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|vote|lag21|100000|5bp": {
+   "n": 273,
+   "median": 0.014245830856202284,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|vote|lag21|100000|5bp": {
+   "n": 60,
+   "median": 0.009418674687607344,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|100000|5bp": {
+   "n": 47,
+   "median": 0.01173097162871145,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|vote|lag21|100000|5bp": {
+   "n": 273,
+   "median": 0.00382878510407353,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|yield_no_interest|vote|lag21|100000|5bp": {
+   "n": 60,
+   "median": -0.014897159761411545,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|100000|5bp": {
+   "n": 47,
+   "median": -0.010380874924289038,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|spread|vote|lag21|100000|15bp": {
+   "n": 273,
+   "median": 0.013212780973717912,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote|lag21|100000|15bp": {
+   "n": 60,
+   "median": 0.0071707292034459205,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|100000|15bp": {
+   "n": 47,
+   "median": 0.0097902573970622,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote|lag21|100000|15bp": {
+   "n": 273,
+   "median": 0.0028971066074577564,
+   "share_above_zero": 0.5897435897435898
+  },
+  "near_deadline|yield_no_interest|vote|lag21|100000|15bp": {
+   "n": 60,
+   "median": -0.017889093555913636,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|100000|15bp": {
+   "n": 47,
+   "median": -0.012490701513884416,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote|lag21|100000|30bp": {
+   "n": 273,
+   "median": 0.011631397727908423,
+   "share_above_zero": 0.8131868131868132
+  },
+  "near_deadline|spread|vote|lag21|100000|30bp": {
+   "n": 60,
+   "median": 0.0032147072854890775,
+   "share_above_zero": 0.55
+  },
+  "near_deadline_below_accrued|spread|vote|lag21|100000|30bp": {
+   "n": 47,
+   "median": 0.006906461060090692,
+   "share_above_zero": 0.6808510638297872
+  },
+  "pool|yield_no_interest|vote|lag21|100000|30bp": {
+   "n": 273,
+   "median": 0.0013888421446477818,
+   "share_above_zero": 0.5384615384615384
+  },
+  "near_deadline|yield_no_interest|vote|lag21|100000|30bp": {
+   "n": 60,
+   "median": -0.022416713039317873,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote|lag21|100000|30bp": {
+   "n": 47,
+   "median": -0.01565544139827736,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag0|2500|0bp": {
+   "n": 273,
+   "median": -0.07292823777509158,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|2500|0bp": {
+   "n": 60,
+   "median": -0.26754452223441877,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|2500|0bp": {
+   "n": 47,
+   "median": -0.2348227460658709,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|2500|0bp": {
+   "n": 273,
+   "median": -0.08627763565399559,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|2500|0bp": {
+   "n": 60,
+   "median": -0.3124246222344189,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|2500|0bp": {
+   "n": 47,
+   "median": -0.27092654606587097,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|2500|5bp": {
+   "n": 273,
+   "median": -0.07352077024262399,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|2500|5bp": {
+   "n": 60,
+   "median": -0.2695175528562049,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|2500|5bp": {
+   "n": 47,
+   "median": -0.23642362325885352,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|2500|5bp": {
+   "n": 273,
+   "median": -0.08685334543317545,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|2500|5bp": {
+   "n": 60,
+   "median": -0.3143976528562048,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|2500|5bp": {
+   "n": 47,
+   "median": -0.2725274232588536,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|2500|15bp": {
+   "n": 273,
+   "median": -0.07470583517768893,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|2500|15bp": {
+   "n": 60,
+   "median": -0.27346361409977643,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|2500|15bp": {
+   "n": 47,
+   "median": -0.23962537764481842,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|2500|15bp": {
+   "n": 273,
+   "median": -0.08800476499153496,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|2500|15bp": {
+   "n": 60,
+   "median": -0.31834371409977635,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|2500|15bp": {
+   "n": 47,
+   "median": -0.2757291776448185,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|2500|30bp": {
+   "n": 273,
+   "median": -0.07622559925780033,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|2500|30bp": {
+   "n": 60,
+   "median": -0.2793827059651341,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|2500|30bp": {
+   "n": 47,
+   "median": -0.24442800922376565,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|2500|30bp": {
+   "n": 273,
+   "median": -0.08973189432907445,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|2500|30bp": {
+   "n": 60,
+   "median": -0.324262805965134,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|2500|30bp": {
+   "n": 47,
+   "median": -0.28053180922376575,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|5000|0bp": {
+   "n": 273,
+   "median": -0.029077335473429618,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|5000|0bp": {
+   "n": 60,
+   "median": -0.11780650379232067,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|5000|0bp": {
+   "n": 47,
+   "median": -0.09744081727843176,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|5000|0bp": {
+   "n": 273,
+   "median": -0.04153468238097527,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|5000|0bp": {
+   "n": 60,
+   "median": -0.16053219865067522,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|5000|0bp": {
+   "n": 47,
+   "median": -0.13680616573520923,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|5000|5bp": {
+   "n": 273,
+   "median": -0.029693889527483603,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|5000|5bp": {
+   "n": 60,
+   "median": -0.11972231492809553,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|5000|5bp": {
+   "n": 47,
+   "median": -0.09891259147197999,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|5000|5bp": {
+   "n": 273,
+   "median": -0.04216183014729822,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|5000|5bp": {
+   "n": 60,
+   "median": -0.16237685021507994,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|5000|5bp": {
+   "n": 47,
+   "median": -0.13876853132660685,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|5000|15bp": {
+   "n": 273,
+   "median": -0.030926997635591577,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|5000|15bp": {
+   "n": 60,
+   "median": -0.12355393719964565,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|5000|15bp": {
+   "n": 47,
+   "median": -0.10185613985907677,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|5000|15bp": {
+   "n": 273,
+   "median": -0.04312908474873705,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|5000|15bp": {
+   "n": 60,
+   "median": -0.16606615334388913,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|5000|15bp": {
+   "n": 47,
+   "median": -0.14269326250940256,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|5000|30bp": {
+   "n": 273,
+   "median": -0.03277665979775381,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|5000|30bp": {
+   "n": 60,
+   "median": -0.12930137060697106,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|5000|30bp": {
+   "n": 47,
+   "median": -0.1062714624397221,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|5000|30bp": {
+   "n": 273,
+   "median": -0.04448087063849312,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|5000|30bp": {
+   "n": 60,
+   "median": -0.17160010803710352,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|5000|30bp": {
+   "n": 47,
+   "median": -0.14858035928359634,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|10000|0bp": {
+   "n": 273,
+   "median": -0.0035453732071997965,
+   "share_above_zero": 0.3516483516483517
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|10000|0bp": {
+   "n": 60,
+   "median": -0.04770497790259946,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|10000|0bp": {
+   "n": 47,
+   "median": -0.031842112283765114,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|10000|0bp": {
+   "n": 273,
+   "median": -0.016722566557277274,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|10000|0bp": {
+   "n": 60,
+   "median": -0.08671092688447221,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|10000|0bp": {
+   "n": 47,
+   "median": -0.07161211877184775,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote_dwac_stacked|lag0|10000|5bp": {
+   "n": 273,
+   "median": -0.004132689550989145,
+   "share_above_zero": 0.336996336996337
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|10000|5bp": {
+   "n": 60,
+   "median": -0.04988189066375137,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|10000|5bp": {
+   "n": 47,
+   "median": -0.03315506192405274,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|10000|5bp": {
+   "n": 273,
+   "median": -0.017388624951437785,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|10000|5bp": {
+   "n": 60,
+   "median": -0.0885555784488769,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|10000|5bp": {
+   "n": 47,
+   "median": -0.07308389296539597,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote_dwac_stacked|lag0|10000|15bp": {
+   "n": 273,
+   "median": -0.005378423339385194,
+   "share_above_zero": 0.31135531135531136
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|10000|15bp": {
+   "n": 60,
+   "median": -0.05423571618605516,
+   "share_above_zero": 0.11666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|10000|15bp": {
+   "n": 47,
+   "median": -0.03578096120462799,
+   "share_above_zero": 0.1276595744680851
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|10000|15bp": {
+   "n": 273,
+   "median": -0.01872074173975895,
+   "share_above_zero": 0.014652014652014652
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|10000|15bp": {
+   "n": 60,
+   "median": -0.09224488157768633,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|10000|15bp": {
+   "n": 47,
+   "median": -0.07602744135249274,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|10000|30bp": {
+   "n": 273,
+   "median": -0.006988938614913551,
+   "share_above_zero": 0.2490842490842491
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|10000|30bp": {
+   "n": 60,
+   "median": -0.059119579360559144,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|10000|30bp": {
+   "n": 47,
+   "median": -0.039719810125491445,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|10000|30bp": {
+   "n": 273,
+   "median": -0.02071891692224078,
+   "share_above_zero": 0.007326007326007326
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|10000|30bp": {
+   "n": 60,
+   "median": -0.0970177262082532,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|10000|30bp": {
+   "n": 47,
+   "median": -0.08044276393313808,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag0|25000|0bp": {
+   "n": 273,
+   "median": 0.01024340163272252,
+   "share_above_zero": 0.7948717948717948
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|25000|0bp": {
+   "n": 60,
+   "median": -0.001064929840416711,
+   "share_above_zero": 0.4666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|25000|0bp": {
+   "n": 47,
+   "median": 0.004214435105713531,
+   "share_above_zero": 0.574468085106383
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|25000|0bp": {
+   "n": 273,
+   "median": -0.003245097721317918,
+   "share_above_zero": 0.358974358974359
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|25000|0bp": {
+   "n": 60,
+   "median": -0.04459247293110004,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|25000|0bp": {
+   "n": 47,
+   "median": -0.03002064720472004,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote_dwac_stacked|lag0|25000|5bp": {
+   "n": 273,
+   "median": 0.009780177805979944,
+   "share_above_zero": 0.7838827838827839
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|25000|5bp": {
+   "n": 60,
+   "median": -0.0026335927517082205,
+   "share_above_zero": 0.45
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|25000|5bp": {
+   "n": 47,
+   "median": 0.0019450032885118887,
+   "share_above_zero": 0.5531914893617021
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|25000|5bp": {
+   "n": 273,
+   "median": -0.003837261282570888,
+   "share_above_zero": 0.3333333333333333
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|25000|5bp": {
+   "n": 60,
+   "median": -0.04676938569225169,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|25000|5bp": {
+   "n": 47,
+   "median": -0.031333596845007666,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote_dwac_stacked|lag0|25000|15bp": {
+   "n": 273,
+   "median": 0.008615610094541537,
+   "share_above_zero": 0.7619047619047619
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|25000|15bp": {
+   "n": 60,
+   "median": -0.006322895880517241,
+   "share_above_zero": 0.38333333333333336
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|25000|15bp": {
+   "n": 47,
+   "median": -0.0009131084193037264,
+   "share_above_zero": 0.46808510638297873
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|25000|15bp": {
+   "n": 273,
+   "median": -0.004779830069863781,
+   "share_above_zero": 0.304029304029304
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|25000|15bp": {
+   "n": 60,
+   "median": -0.05112321121455547,
+   "share_above_zero": 0.11666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|25000|15bp": {
+   "n": 47,
+   "median": -0.03395949612558321,
+   "share_above_zero": 0.1276595744680851
+  },
+  "pool|spread|vote_dwac_stacked|lag0|25000|30bp": {
+   "n": 273,
+   "median": 0.006667230852946314,
+   "share_above_zero": 0.706959706959707
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|25000|30bp": {
+   "n": 60,
+   "median": -0.011749356713097507,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|25000|30bp": {
+   "n": 47,
+   "median": -0.00560180667373885,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|25000|30bp": {
+   "n": 273,
+   "median": -0.006573255206810881,
+   "share_above_zero": 0.2600732600732601
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|25000|30bp": {
+   "n": 60,
+   "median": -0.05658202527292251,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|25000|30bp": {
+   "n": 47,
+   "median": -0.037898345046446666,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|spread|vote_dwac_stacked|lag0|50000|0bp": {
+   "n": 273,
+   "median": 0.014950176986650833,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|50000|0bp": {
+   "n": 60,
+   "median": 0.010665318173894888,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|50000|0bp": {
+   "n": 47,
+   "median": 0.012883502346905357,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|50000|0bp": {
+   "n": 273,
+   "median": 0.0014738811354224391,
+   "share_above_zero": 0.5384615384615384
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|50000|0bp": {
+   "n": 60,
+   "median": -0.026760588024004363,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|50000|0bp": {
+   "n": 47,
+   "median": -0.019515282155544374,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag0|50000|5bp": {
+   "n": 273,
+   "median": 0.014456672224385105,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|50000|5bp": {
+   "n": 60,
+   "median": 0.009180520678232891,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|50000|5bp": {
+   "n": 47,
+   "median": 0.011803620690100741,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|50000|5bp": {
+   "n": 273,
+   "median": 0.0009402554044281089,
+   "share_above_zero": 0.5238095238095238
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|50000|5bp": {
+   "n": 60,
+   "median": -0.029873524751389866,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|50000|5bp": {
+   "n": 47,
+   "median": -0.020828231795832295,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag0|50000|15bp": {
+   "n": 273,
+   "median": 0.013320712700936488,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|50000|15bp": {
+   "n": 60,
+   "median": 0.006033681054832502,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|50000|15bp": {
+   "n": 47,
+   "median": 0.009621721986824816,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|50000|15bp": {
+   "n": 273,
+   "median": -0.00015483870631587306,
+   "share_above_zero": 0.47619047619047616
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|50000|15bp": {
+   "n": 60,
+   "median": -0.03416734698584226,
+   "share_above_zero": 0.16666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|50000|15bp": {
+   "n": 47,
+   "median": -0.023454131076407835,
+   "share_above_zero": 0.19148936170212766
+  },
+  "pool|spread|vote_dwac_stacked|lag0|50000|30bp": {
+   "n": 273,
+   "median": 0.011665965216427626,
+   "share_above_zero": 0.8058608058608059
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|50000|30bp": {
+   "n": 60,
+   "median": 0.001886095998863073,
+   "share_above_zero": 0.5166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|50000|30bp": {
+   "n": 47,
+   "median": 0.006378939669998883,
+   "share_above_zero": 0.6382978723404256
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|50000|30bp": {
+   "n": 273,
+   "median": -0.0020535758261404392,
+   "share_above_zero": 0.39194139194139194
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|50000|30bp": {
+   "n": 60,
+   "median": -0.0406080803375211,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|50000|30bp": {
+   "n": 47,
+   "median": -0.027392979997271003,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote_dwac_stacked|lag0|100000|0bp": {
+   "n": 273,
+   "median": 0.017268926693947202,
+   "share_above_zero": 0.8864468864468864
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|100000|0bp": {
+   "n": 60,
+   "median": 0.017236121251842828,
+   "share_above_zero": 0.7666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|100000|0bp": {
+   "n": 47,
+   "median": 0.01892448388775223,
+   "share_above_zero": 0.9574468085106383
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|100000|0bp": {
+   "n": 273,
+   "median": 0.003512680655053113,
+   "share_above_zero": 0.6227106227106227
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|100000|0bp": {
+   "n": 60,
+   "median": -0.0200101229717135,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|100000|0bp": {
+   "n": 47,
+   "median": -0.013015914917794955,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote_dwac_stacked|lag0|100000|5bp": {
+   "n": 273,
+   "median": 0.016728778914345918,
+   "share_above_zero": 0.8681318681318682
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|100000|5bp": {
+   "n": 60,
+   "median": 0.0160815369503481,
+   "share_above_zero": 0.7
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|100000|5bp": {
+   "n": 47,
+   "median": 0.017731673430235503,
+   "share_above_zero": 0.8723404255319149
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|100000|5bp": {
+   "n": 273,
+   "median": 0.0030386633875396406,
+   "share_above_zero": 0.5897435897435898
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|100000|5bp": {
+   "n": 60,
+   "median": -0.021720976390433445,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|100000|5bp": {
+   "n": 47,
+   "median": -0.01421657281253193,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote_dwac_stacked|lag0|100000|15bp": {
+   "n": 273,
+   "median": 0.015487358078969081,
+   "share_above_zero": 0.8534798534798534
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|100000|15bp": {
+   "n": 60,
+   "median": 0.012729770239694543,
+   "share_above_zero": 0.6666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|100000|15bp": {
+   "n": 47,
+   "median": 0.013963670839324135,
+   "share_above_zero": 0.8297872340425532
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|100000|15bp": {
+   "n": 273,
+   "median": 0.002007667393108056,
+   "share_above_zero": 0.5457875457875457
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|100000|15bp": {
+   "n": 60,
+   "median": -0.025027461060051416,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|100000|15bp": {
+   "n": 47,
+   "median": -0.016617888602005616,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag0|100000|30bp": {
+   "n": 273,
+   "median": 0.013863902225302163,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag0|100000|30bp": {
+   "n": 60,
+   "median": 0.007995782337312313,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag0|100000|30bp": {
+   "n": 47,
+   "median": 0.01072402586890981,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag0|100000|30bp": {
+   "n": 273,
+   "median": 0.00040157250556310494,
+   "share_above_zero": 0.5164835164835165
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag0|100000|30bp": {
+   "n": 60,
+   "median": -0.03201872109535597,
+   "share_above_zero": 0.18333333333333332
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag0|100000|30bp": {
+   "n": 47,
+   "median": -0.022139743216850652,
+   "share_above_zero": 0.2127659574468085
+  },
+  "pool|spread|vote_dwac_stacked|lag21|2500|0bp": {
+   "n": 273,
+   "median": -0.07089026515114957,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|2500|0bp": {
+   "n": 60,
+   "median": -0.22740657348807636,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|2500|0bp": {
+   "n": 47,
+   "median": -0.20467254112229097,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|2500|0bp": {
+   "n": 273,
+   "median": -0.08091719083525621,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|2500|0bp": {
+   "n": 60,
+   "median": -0.25460297908532653,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|2500|0bp": {
+   "n": 47,
+   "median": -0.2287824166778466,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|2500|5bp": {
+   "n": 273,
+   "median": -0.07144497639735012,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|2500|5bp": {
+   "n": 60,
+   "median": -0.22892698623697033,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|2500|5bp": {
+   "n": 47,
+   "median": -0.206024392974143,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|2500|5bp": {
+   "n": 273,
+   "median": -0.08145713166365863,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|2500|5bp": {
+   "n": 60,
+   "median": -0.2562109398057116,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|2500|5bp": {
+   "n": 47,
+   "median": -0.23013426852969862,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|2500|15bp": {
+   "n": 273,
+   "median": -0.07255439888975135,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|2500|15bp": {
+   "n": 60,
+   "median": -0.23196781173475794,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|2500|15bp": {
+   "n": 47,
+   "median": -0.20872809667784667,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|2500|15bp": {
+   "n": 273,
+   "median": -0.08253701332046326,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|2500|15bp": {
+   "n": 60,
+   "median": -0.25942686124648145,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|2500|15bp": {
+   "n": 47,
+   "median": -0.2328379722334023,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|2500|30bp": {
+   "n": 273,
+   "median": -0.07421853262835323,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|2500|30bp": {
+   "n": 60,
+   "median": -0.2365290499814392,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|2500|30bp": {
+   "n": 47,
+   "median": -0.2127836522334021,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|2500|30bp": {
+   "n": 273,
+   "median": -0.08415683580567042,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|2500|30bp": {
+   "n": 60,
+   "median": -0.26425074340763655,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|2500|30bp": {
+   "n": 47,
+   "median": -0.23689352778895773,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|5000|0bp": {
+   "n": 273,
+   "median": -0.029867164984653524,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|5000|0bp": {
+   "n": 60,
+   "median": -0.1042075618993285,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|5000|0bp": {
+   "n": 47,
+   "median": -0.089266629948452,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|5000|0bp": {
+   "n": 273,
+   "median": -0.038739078759178855,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|5000|0bp": {
+   "n": 60,
+   "median": -0.13139814865026495,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|5000|0bp": {
+   "n": 47,
+   "median": -0.11173590167258983,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|5000|5bp": {
+   "n": 273,
+   "median": -0.03044287476383327,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|5000|5bp": {
+   "n": 60,
+   "median": -0.10573978724264918,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|5000|5bp": {
+   "n": 47,
+   "median": -0.09052525063810703,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|5000|5bp": {
+   "n": 273,
+   "median": -0.039324014656614684,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|5000|5bp": {
+   "n": 60,
+   "median": -0.1330880575748263,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|5000|5bp": {
+   "n": 47,
+   "median": -0.11320590713486349,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|5000|15bp": {
+   "n": 273,
+   "median": -0.03159429432219277,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|5000|15bp": {
+   "n": 60,
+   "median": -0.10880423792929088,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|5000|15bp": {
+   "n": 47,
+   "median": -0.09304249201741738,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|5000|15bp": {
+   "n": 273,
+   "median": -0.04049388645148648,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|5000|15bp": {
+   "n": 60,
+   "median": -0.1365644006225791,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|5000|15bp": {
+   "n": 47,
+   "median": -0.1164076615208284,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|5000|30bp": {
+   "n": 273,
+   "median": -0.033321423659732265,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|5000|30bp": {
+   "n": 60,
+   "median": -0.11340091395925361,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|5000|30bp": {
+   "n": 47,
+   "median": -0.09681835408638303,
+   "share_above_zero": 0.0
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|5000|30bp": {
+   "n": 273,
+   "median": -0.04224869414379424,
+   "share_above_zero": 0.003663003663003663
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|5000|30bp": {
+   "n": 60,
+   "median": -0.14144993304388948,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|5000|30bp": {
+   "n": 47,
+   "median": -0.12121029309977595,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|10000|0bp": {
+   "n": 273,
+   "median": -0.0061157887714115705,
+   "share_above_zero": 0.27472527472527475
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|10000|0bp": {
+   "n": 60,
+   "median": -0.04635870391547428,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|10000|0bp": {
+   "n": 47,
+   "median": -0.03304408504652094,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|10000|0bp": {
+   "n": 273,
+   "median": -0.015816966340538415,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|10000|0bp": {
+   "n": 60,
+   "median": -0.07148177146921386,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|10000|0bp": {
+   "n": 47,
+   "median": -0.05563853436130131,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote_dwac_stacked|lag21|10000|5bp": {
+   "n": 273,
+   "median": -0.006457971794166739,
+   "share_above_zero": 0.26373626373626374
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|10000|5bp": {
+   "n": 60,
+   "median": -0.048097348488347694,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|10000|5bp": {
+   "n": 47,
+   "median": -0.034184710046520815,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|10000|5bp": {
+   "n": 273,
+   "median": -0.016315203171626016,
+   "share_above_zero": 0.02564102564102564
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|10000|5bp": {
+   "n": 60,
+   "median": -0.07300218421810765,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|10000|5bp": {
+   "n": 47,
+   "median": -0.05768909615905389,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|spread|vote_dwac_stacked|lag21|10000|15bp": {
+   "n": 273,
+   "median": -0.007440823980213063,
+   "share_above_zero": 0.21978021978021978
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|10000|15bp": {
+   "n": 60,
+   "median": -0.05157463763409449,
+   "share_above_zero": 0.06666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|10000|15bp": {
+   "n": 47,
+   "median": -0.036465960046520564,
+   "share_above_zero": 0.06382978723404255
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|10000|15bp": {
+   "n": 273,
+   "median": -0.017388078768454076,
+   "share_above_zero": 0.014652014652014652
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|10000|15bp": {
+   "n": 60,
+   "median": -0.07604300971589525,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|10000|15bp": {
+   "n": 47,
+   "median": -0.06179021975455951,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|10000|30bp": {
+   "n": 273,
+   "median": -0.009310711184687397,
+   "share_above_zero": 0.14285714285714285
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|10000|30bp": {
+   "n": 60,
+   "median": -0.05642379404203439,
+   "share_above_zero": 0.03333333333333333
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|10000|30bp": {
+   "n": 47,
+   "median": -0.039887835046520694,
+   "share_above_zero": 0.02127659574468085
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|10000|30bp": {
+   "n": 273,
+   "median": -0.019089583833365533,
+   "share_above_zero": 0.007326007326007326
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|10000|30bp": {
+   "n": 60,
+   "median": -0.0806042479625767,
+   "share_above_zero": 0.016666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|10000|30bp": {
+   "n": 47,
+   "median": -0.06794190514781817,
+   "share_above_zero": 0.0
+  },
+  "pool|spread|vote_dwac_stacked|lag21|25000|0bp": {
+   "n": 273,
+   "median": 0.00697139962993068,
+   "share_above_zero": 0.7252747252747253
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|25000|0bp": {
+   "n": 60,
+   "median": -0.007835344179457356,
+   "share_above_zero": 0.2833333333333333
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|25000|0bp": {
+   "n": 47,
+   "median": -0.0031691521675730056,
+   "share_above_zero": 0.3404255319148936
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|25000|0bp": {
+   "n": 273,
+   "median": -0.0030886540731415355,
+   "share_above_zero": 0.358974358974359
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|25000|0bp": {
+   "n": 60,
+   "median": -0.0360147394207836,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|25000|0bp": {
+   "n": 47,
+   "median": -0.026080437259100538,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote_dwac_stacked|lag21|25000|5bp": {
+   "n": 273,
+   "median": 0.006380784743199093,
+   "share_above_zero": 0.7216117216117216
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|25000|5bp": {
+   "n": 60,
+   "median": -0.00935575692835135,
+   "share_above_zero": 0.26666666666666666
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|25000|5bp": {
+   "n": 47,
+   "median": -0.004646225090978527,
+   "share_above_zero": 0.3191489361702128
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|25000|5bp": {
+   "n": 273,
+   "median": -0.0035983312106586114,
+   "share_above_zero": 0.3333333333333333
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|25000|5bp": {
+   "n": 60,
+   "median": -0.03773476154467722,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|25000|5bp": {
+   "n": 47,
+   "median": -0.02722106225910041,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote_dwac_stacked|lag21|25000|15bp": {
+   "n": 273,
+   "median": 0.005205312982046906,
+   "share_above_zero": 0.6886446886446886
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|25000|15bp": {
+   "n": 60,
+   "median": -0.01227717183419244,
+   "share_above_zero": 0.23333333333333334
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|25000|15bp": {
+   "n": 47,
+   "median": -0.00738052366536162,
+   "share_above_zero": 0.2765957446808511
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|25000|15bp": {
+   "n": 273,
+   "median": -0.004500232357199611,
+   "share_above_zero": 0.304029304029304
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|25000|15bp": {
+   "n": 60,
+   "median": -0.04117480579246483,
+   "share_above_zero": 0.11666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|25000|15bp": {
+   "n": 47,
+   "median": -0.02950231225910041,
+   "share_above_zero": 0.1276595744680851
+  },
+  "pool|spread|vote_dwac_stacked|lag21|25000|30bp": {
+   "n": 273,
+   "median": 0.0036489114485545385,
+   "share_above_zero": 0.63003663003663
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|25000|30bp": {
+   "n": 60,
+   "median": -0.01650770848597558,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|25000|30bp": {
+   "n": 47,
+   "median": -0.01149565291256615,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|25000|30bp": {
+   "n": 273,
+   "median": -0.0060858502810195,
+   "share_above_zero": 0.2600732600732601
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|25000|30bp": {
+   "n": 60,
+   "median": -0.046101722652836755,
+   "share_above_zero": 0.1
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|25000|30bp": {
+   "n": 47,
+   "median": -0.03292418725910054,
+   "share_above_zero": 0.10638297872340426
+  },
+  "pool|spread|vote_dwac_stacked|lag21|50000|0bp": {
+   "n": 273,
+   "median": 0.011631311369282707,
+   "share_above_zero": 0.8131868131868132
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|50000|0bp": {
+   "n": 60,
+   "median": 0.003213785157360486,
+   "share_above_zero": 0.55
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|50000|0bp": {
+   "n": 47,
+   "median": 0.0069054779169987965,
+   "share_above_zero": 0.6808510638297872
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|50000|0bp": {
+   "n": 273,
+   "median": 0.0013886152846128766,
+   "share_above_zero": 0.5384615384615384
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|50000|0bp": {
+   "n": 60,
+   "median": -0.022417899868132037,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|50000|0bp": {
+   "n": 47,
+   "median": -0.015656802287380627,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag21|50000|5bp": {
+   "n": 273,
+   "median": 0.011055601590102708,
+   "share_above_zero": 0.8131868131868132
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|50000|5bp": {
+   "n": 60,
+   "median": 0.0019734378849614632,
+   "share_above_zero": 0.55
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|50000|5bp": {
+   "n": 47,
+   "median": 0.005944951601209426,
+   "share_above_zero": 0.6808510638297872
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|50000|5bp": {
+   "n": 273,
+   "median": 0.0008858604636760696,
+   "share_above_zero": 0.5238095238095238
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|50000|5bp": {
+   "n": 60,
+   "median": -0.023806716419057808,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|50000|5bp": {
+   "n": 47,
+   "median": -0.016711715582178436,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag21|50000|15bp": {
+   "n": 273,
+   "median": 0.009846293715047381,
+   "share_above_zero": 0.8021978021978022
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|50000|15bp": {
+   "n": 60,
+   "median": -0.0005294275649966457,
+   "share_above_zero": 0.5
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|50000|15bp": {
+   "n": 47,
+   "median": 0.0038776914867582266,
+   "share_above_zero": 0.6170212765957447
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|50000|15bp": {
+   "n": 273,
+   "median": -0.00014521855000630698,
+   "share_above_zero": 0.47619047619047616
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|50000|15bp": {
+   "n": 60,
+   "median": -0.026632729431110197,
+   "share_above_zero": 0.16666666666666666
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|50000|15bp": {
+   "n": 47,
+   "median": -0.020375776372629308,
+   "share_above_zero": 0.19148936170212766
+  },
+  "pool|spread|vote_dwac_stacked|lag21|50000|30bp": {
+   "n": 273,
+   "median": 0.008167378799516858,
+   "share_above_zero": 0.7655677655677655
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|50000|30bp": {
+   "n": 60,
+   "median": -0.004788472791205988,
+   "share_above_zero": 0.4
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|50000|30bp": {
+   "n": 47,
+   "median": -0.0005497466253579983,
+   "share_above_zero": 0.48936170212765956
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|50000|30bp": {
+   "n": 273,
+   "median": -0.0019126441517974678,
+   "share_above_zero": 0.39194139194139194
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|50000|30bp": {
+   "n": 60,
+   "median": -0.03256991330013452,
+   "share_above_zero": 0.13333333333333333
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|50000|30bp": {
+   "n": 47,
+   "median": -0.023797651372629184,
+   "share_above_zero": 0.14893617021276595
+  },
+  "pool|spread|vote_dwac_stacked|lag21|100000|0bp": {
+   "n": 273,
+   "median": 0.013703840749864332,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|100000|0bp": {
+   "n": 60,
+   "median": 0.008385017164349782,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|100000|0bp": {
+   "n": 47,
+   "median": 0.010770317746556839,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|100000|0bp": {
+   "n": 273,
+   "median": 0.0033046004656124032,
+   "share_above_zero": 0.6227106227106227
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|100000|0bp": {
+   "n": 60,
+   "median": -0.01626392585321,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|100000|0bp": {
+   "n": 47,
+   "median": -0.01143594836707996,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote_dwac_stacked|lag21|100000|5bp": {
+   "n": 273,
+   "median": 0.0132127643521057,
+   "share_above_zero": 0.8388278388278388
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|100000|5bp": {
+   "n": 60,
+   "median": 0.007170577033883161,
+   "share_above_zero": 0.6166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|100000|5bp": {
+   "n": 47,
+   "median": 0.009790094948698952,
+   "share_above_zero": 0.7659574468085106
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|100000|5bp": {
+   "n": 273,
+   "median": 0.002897030987446047,
+   "share_above_zero": 0.5897435897435898
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|100000|5bp": {
+   "n": 60,
+   "median": -0.017889316478210186,
+   "share_above_zero": 0.21666666666666667
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|100000|5bp": {
+   "n": 47,
+   "median": -0.012490861661877767,
+   "share_above_zero": 0.2553191489361702
+  },
+  "pool|spread|vote_dwac_stacked|lag21|100000|15bp": {
+   "n": 273,
+   "median": 0.012207078720879685,
+   "share_above_zero": 0.8315018315018315
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|100000|15bp": {
+   "n": 60,
+   "median": 0.004454893922698898,
+   "share_above_zero": 0.6
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|100000|15bp": {
+   "n": 47,
+   "median": 0.00786692378693317,
+   "share_above_zero": 0.7446808510638298
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|100000|15bp": {
+   "n": 273,
+   "median": 0.0018915213455728793,
+   "share_above_zero": 0.5457875457875457
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|100000|15bp": {
+   "n": 60,
+   "median": -0.021028104946868742,
+   "share_above_zero": 0.2
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|100000|15bp": {
+   "n": 47,
+   "median": -0.014600688251473143,
+   "share_above_zero": 0.23404255319148937
+  },
+  "pool|spread|vote_dwac_stacked|lag21|100000|30bp": {
+   "n": 273,
+   "median": 0.01027300451666685,
+   "share_above_zero": 0.8058608058608059
+  },
+  "near_deadline|spread|vote_dwac_stacked|lag21|100000|30bp": {
+   "n": 60,
+   "median": 0.0007338521055022251,
+   "share_above_zero": 0.5166666666666667
+  },
+  "near_deadline_below_accrued|spread|vote_dwac_stacked|lag21|100000|30bp": {
+   "n": 47,
+   "median": 0.004985344839564636,
+   "share_above_zero": 0.6382978723404256
+  },
+  "pool|yield_no_interest|vote_dwac_stacked|lag21|100000|30bp": {
+   "n": 273,
+   "median": 0.0003792037453062742,
+   "share_above_zero": 0.5164835164835165
+  },
+  "near_deadline|yield_no_interest|vote_dwac_stacked|lag21|100000|30bp": {
+   "n": 60,
+   "median": -0.025194554599646368,
+   "share_above_zero": 0.18333333333333332
+  },
+  "near_deadline_below_accrued|yield_no_interest|vote_dwac_stacked|lag21|100000|30bp": {
+   "n": 47,
+   "median": -0.019233901919639005,
+   "share_above_zero": 0.2127659574468085
+  }
+ },
+ "capacity": {
+  "pool_below_accrued|vote": {
+   "n": 245,
+   "n_capacity_repays_costs": 121,
+   "capacity_usd_median_adv_all": 17949357.36,
+   "capacity_usd_median_adv_where_it_repays": 17744871.66,
+   "breakeven_ticket": {
+    "n": 245,
+    "mean": 8901.67103632653,
+    "p10": 3698.292,
+    "p25": 4221.8,
+    "median": 5703.1900000000005,
+    "p75": 8344.0,
+    "p90": 14388.516,
+    "share_below_zero": 0.0
+   },
+   "n_no_breakeven": 0,
+   "gain_over_bills_usd_at_capacity_where_it_repays": {
+    "0bp": 266417.1792574955,
+    "5bp": 257545.0627010455,
+    "15bp": 239800.8295881458,
+    "30bp": 213184.47991879538
+   }
+  },
+  "near_deadline_below_accrued|vote": {
+   "n": 47,
+   "n_capacity_repays_costs": 21,
+   "capacity_usd_median_adv_all": 3370910.2999999993,
+   "capacity_usd_median_adv_where_it_repays": 3261339.56,
+   "breakeven_ticket": {
+    "n": 47,
+    "mean": 17243.077548936173,
+    "p10": 4459.02,
+    "p25": 7203.905000000001,
+    "median": 11049.0624,
+    "p75": 18463.19,
+    "p90": 44032.008,
+    "share_below_zero": 0.0
+   },
+   "n_no_breakeven": 0,
+   "gain_over_bills_usd_at_capacity_where_it_repays": {
+    "0bp": 28233.7018077918,
+    "5bp": 26603.0951014919,
+    "15bp": 23341.881688891823,
+    "30bp": 18450.061569991747
+   }
+  },
+  "pool_below_accrued|vote_dwac_stacked": {
+   "n": 245,
+   "n_capacity_repays_costs": 102,
+   "capacity_usd_median_adv_all": 17949357.36,
+   "capacity_usd_median_adv_where_it_repays": 17512170.82,
+   "breakeven_ticket": {
+    "n": 245,
+    "mean": 17793.684316734692,
+    "p10": 7386.636,
+    "p25": 8433.5,
+    "median": 11406.380000000001,
+    "p75": 16685.2,
+    "p90": 28772.856,
+    "share_below_zero": 0.0
+   },
+   "n_no_breakeven": 0,
+   "gain_over_bills_usd_at_capacity_where_it_repays": {
+    "0bp": 255337.45537904173,
+    "5bp": 246581.63837759185,
+    "15bp": 229070.0043746918,
+    "30bp": 202802.5533703418
+   }
+  },
+  "near_deadline_below_accrued|vote_dwac_stacked": {
+   "n": 47,
+   "n_capacity_repays_costs": 15,
+   "capacity_usd_median_adv_all": 3370910.2999999993,
+   "capacity_usd_median_adv_where_it_repays": 3139168.28,
+   "breakeven_ticket": {
+    "n": 47,
+    "mean": 34476.594776595746,
+    "p10": 8918.04,
+    "p25": 14381.755000000001,
+    "median": 22087.334700000003,
+    "p75": 36915.975,
+    "p90": 88057.584,
+    "share_below_zero": 0.0
+   },
+   "n_no_breakeven": 0,
+   "gain_over_bills_usd_at_capacity_where_it_repays": {
+    "0bp": 26398.63053980442,
+    "5bp": 24829.09141850445,
+    "15bp": 21690.013175904263,
+    "30bp": 16981.3958120043
+   }
+  }
+ },
+ "election_load": {
+  "years": [
+   2024,
+   2025
+  ],
+  "extension_votes": 247,
+  "deals_completed": 92,
+  "liquidations": 41,
+  "share_first_event_is_vote": 0.8921052631578947,
+  "share_terminal_event_is_deal": 0.6917293233082706,
+  "near_deadline_names_that_repay_vote_costs": 21,
+  "median_days_to_next_deadline_there": 107.0,
+  "elections_per_slot_per_year_lag0": 3.411214953271028,
+  "elections_per_slot_per_year_lag21": 2.8515625,
+  "elections_per_year_all_fitting_names_lag0": 63.90641908509592,
+  "elections_per_year_all_fitting_names_lag21": 53.42177220394737
+ }
+}

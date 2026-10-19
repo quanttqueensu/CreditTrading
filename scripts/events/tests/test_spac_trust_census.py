@@ -410,3 +410,114 @@ def test_liquidation_text_with_a_defined_term_in_parentheses():
          "(the “Redemption”) 100% of the Company’s issued and outstanding Class A ordinary shares")
     assert S.is_liquidation_text(t)
     assert not S.is_liquidation_text("holders may redeem their shares in connection with the extension")
+
+
+# ------------------------------------------------------------------ IBKR gate (added 2026-10-19)
+
+def test_ibkr_fixed_commission_matches_ibkrs_own_examples():
+    # IBKR's "Fixed Examples" on commissions-stocks.php (read 2026-10-19).
+    assert S.ibkr_fixed_commission(100, 25.0) == pytest.approx(1.00)
+    assert S.ibkr_fixed_commission(1_000, 25.0) == pytest.approx(5.00)
+    assert S.ibkr_fixed_commission(1_000, 0.25) == pytest.approx(2.50)     # the 1% cap binds
+    with pytest.raises(ValueError):
+        S.ibkr_fixed_commission(0, 10.0)
+
+
+def test_ibkr_net_terms_reduces_to_the_census_grid_without_ibkr_costs(monkeypatch):
+    # With commission, CAT, fee and lag all zero, the IBKR arithmetic must be the
+    # census grid exactly: gross - grid_bp * 365 / days (live_splits.grid).
+    monkeypatch.setattr(S, "IBKR_FIXED_PER_SHARE", 0.0)
+    monkeypatch.setattr(S, "IBKR_FIXED_MIN_USD", 0.0)
+    monkeypatch.setattr(S, "FINRA_CAT_PER_SHARE", 0.0)
+    t = S.ibkr_net_terms(10.30, 120, 0.065, 0.041, 25_000, 0.0, 0, 30)
+    assert t["spread"] == pytest.approx(0.065 - 0.0030 * 365 / 120 - 0.041)
+    assert t["shares"] == 2427
+
+
+def test_ibkr_net_terms_fee_lag_and_whole_shares():
+    t0 = S.ibkr_net_terms(10.0, 100, 0.06, 0.04, 10_000, 0.0)
+    t1 = S.ibkr_net_terms(10.0, 100, 0.06, 0.04, 10_000, 100.0)
+    # USD 100 on USD 10,000 held 100 days costs 1% * 365/100 a year
+    assert t0["spread"] - t1["spread"] == pytest.approx(0.01 * 365 / 100)
+    lagged = S.ibkr_net_terms(10.0, 100, 0.06, 0.04, 10_000, 0.0, lag_days=21)
+    assert lagged["net"] == pytest.approx(t0["net"] * 100 / 121)
+    with pytest.raises(ValueError):
+        S.ibkr_net_terms(10.0, 100, 0.06, 0.04, 9.0, 0.0)          # buys no whole share
+    with pytest.raises(ValueError):
+        S.ibkr_net_terms(10.0, 0, 0.06, 0.04, 10_000, 0.0)          # deadline passed
+
+
+def test_ibkr_breakeven_ticket_is_the_first_share_count_that_repays():
+    px, days, y, r = 10.0, 100, 0.07, 0.04
+    be = S.ibkr_breakeven_ticket(px, days, y, r, 100.0)
+    assert S.ibkr_net_terms(px, days, y, r, be, 100.0)["spread"] >= 0
+    assert S.ibkr_net_terms(px, days, y, r, be - px, 100.0)["spread"] < 0
+    assert S.ibkr_breakeven_ticket(px, days, 0.03, r, 100.0) is None   # below the bill: never repays
+
+
+def test_ibkr_candidate_symbols():
+    assert S.ibkr_candidate_symbols("AACI", "AACI;AACIU;AACIW") == ["AACI"]
+    assert S.ibkr_candidate_symbols(None, "PAXG;PAXGU") == ["PAXG"]
+    assert S.ibkr_candidate_symbols(float("nan"), "KCAC-UN;KCAC-WT;KCA-UN") == ["KCAC", "KCA"]
+    assert S.ibkr_candidate_symbols(None, float("nan")) == []
+
+
+def test_ibkr_truncated_prefix_reads_ibkrs_cut_names_and_nothing_shorter():
+    assert S.ibkr_truncated_prefix("OAKTREE ACQUISITION CORP I-A", "Oaktree Acquisition Corp. III Life Sciences")
+    assert S.ibkr_truncated_prefix("A SPAC III ACQUISITION-CL A", "ASPAC III Acquisition Corp.")
+    assert not S.ibkr_truncated_prefix("SPAC PARTNER", "SPAC Partners Corp")          # 11 letters: too short
+    assert not S.ibkr_truncated_prefix("OAKTREE ACQUISITION CORP I-A", "Oak Ridge Acquisition Corp")
+    assert S.ibkr_name("PALOMA ACQUISITION COR CL-A") == "PALOMA ACQUISITION COR"
+    assert S.ibkr_name("THUNDER BRIDGE CAPITAL PAR-A") == "THUNDER BRIDGE CAPITAL PAR"
+
+
+def test_ibkr_match_flags_each_check_separately():
+    live = pd.DataFrame([
+        {"cik": 1, "symbol": "AAAA", "tickers": "AAAA;AAAAU", "name": "Alpha Acquisition Corp", "domicile": "E9"},
+        {"cik": 2, "symbol": "BBBB", "tickers": "BBBB;BBBBU", "name": "Bravo Capital Acquisition Corp. III Tech",
+         "domicile": "DE"},
+        {"cik": 3, "symbol": "CCCC", "tickers": "CCCC", "name": "Charlie Acquisition Corp", "domicile": None},
+        {"cik": 4, "symbol": None, "tickers": "DDDD;DDDDU", "name": "Delta Acquisition Corp", "domicile": "E9"},
+    ])
+    row = dict(type="STK", primary=True, list="NASDAQ", exchange="NASDAQ", read_utc="x")
+    listing = pd.DataFrame([
+        row | {"symbol": "AAAA", "conid": 11, "description": "ALPHA ACQUISITION CORP-A", "isin": "KYG000000001"},
+        row | {"symbol": "BBBB", "conid": 22, "description": "BRAVO CAPITAL ACQUISITION C-A", "isin": "KYG000000002"},
+        row | {"symbol": "CCCC", "conid": 33, "description": "CHARLIE ACQUISITION CORP", "isin": "US0000000003"},
+        row | {"symbol": "CCCC", "conid": 34, "description": "CHARLIE ACQUISITION CORP", "isin": "US0000000004",
+               "primary": False, "list": "NYSE", "exchange": "NYSE"},
+    ])
+    ss = pd.DataFrame([{"symbol": "AAAA", "name": "", "conid": 11, "isin": ""},
+                       {"symbol": "BBBB", "name": "", "conid": 99, "isin": ""}])
+    M = S.ibkr_match(live, listing, ss).set_index("cik")
+    assert M.loc[1, "tradable_ibkr"] and M.loc[1, "name_rule"] == "tokens"
+    assert M.loc[1, "conid_in_shortstock_agrees"] is True and M.loc[1, "isin_matches_domicile"] is True
+    # truncated name admitted by its own rule; shortstock disagrees and DE vs KY disagrees: reported, not dropped
+    assert M.loc[2, "tradable_ibkr"] and M.loc[2, "name_rule"] == "truncated_prefix"
+    assert M.loc[2, "conid_in_shortstock_agrees"] is False and M.loc[2, "isin_matches_domicile"] is False
+    # two conids under one symbol: ambiguous, never chosen between
+    assert M.loc[3, "ambiguous"] and not M.loc[3, "tradable_ibkr"] and pd.isna(M.loc[3, "ibkr_conid"])
+    # not listed at all
+    assert not M.loc[4, "listed_ibkr"] and not M.loc[4, "tradable_ibkr"] and M.loc[4, "ibkr_n_conids"] == 0
+
+
+def test_parse_ibkr_shortstock_ids():
+    text = ("#BOF|2026.10.19|10:59:08\n#SYM|CUR|NAME|CON|ISIN|REBATERATE|FEERATE|AVAILABLE|FIGI|\n"
+            "AAAA|USD|ALPHA ACQ|11|KYG000000001|3.6|0.25|1000|BBG0|\n#EOF|1\n")
+    df, stamp = S.parse_ibkr_shortstock_ids(text)
+    assert stamp == "2026-10-19 10:59:08" and df.to_dict("records") == [
+        {"symbol": "AAAA", "name": "ALPHA ACQ", "conid": 11, "isin": "KYG000000001"}]
+    with pytest.raises(S.CensusError):
+        S.parse_ibkr_shortstock_ids("#BOF|2026.10.19|10:59:08\n#SYM|CUR|NAME|ISIN|\n")
+    with pytest.raises(S.CensusError):
+        S.parse_ibkr_shortstock_ids(text.replace("|11|", "|x|"))
+
+
+def test_ibkr_election_load_shares():
+    years = pd.DataFrame({"year": [2024, 2025], "extension_votes": [8, 2], "deals_completed": [3, 1],
+                          "liquidations": [1, 1]})
+    L = S.ibkr_election_load(years)
+    assert L["share_first_event_is_vote"] == pytest.approx(14 / 16)
+    assert L["share_terminal_event_is_deal"] == pytest.approx(4 / 6)
+    with pytest.raises(S.CensusError):
+        S.ibkr_election_load(years[years["year"] == 2024])
