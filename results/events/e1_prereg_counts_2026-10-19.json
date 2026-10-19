@@ -1,0 +1,129 @@
+{
+ "what": "E1 pre-registration draft, deal counts by declared set and segment. Counts only: no return, delisting return or amount was read.",
+ "run_utc": "2026-10-19T15:10:52+00:00",
+ "spec_id": "cef_discount.v7.20260928",
+ "n_spec_names": 13,
+ "completions": [
+  "2010-01-01",
+  "2024-12-31"
+ ],
+ "crsp_pulled_utc": {
+  "dsenames": "2026-10-12T18:05:49+00:00",
+  "dsedelist": "2026-10-12T18:05:50+00:00"
+ },
+ "filter": "dlstcd 231, kind 'stock', acquirer permno > 0 (merger_pairs.pairable_events without its universe exclusion)",
+ "counts": [
+  {
+   "set": "excluded_spec",
+   "segment": "equity_other",
+   "events": 1,
+   "groups_acq_x_completion": 1,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "excluded_spec",
+   "segment": "muni",
+   "events": 9,
+   "groups_acq_x_completion": 2,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "excluded_spec",
+   "segment": "taxable_income",
+   "events": 4,
+   "groups_acq_x_completion": 2,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "fit_seen",
+   "segment": "bdc",
+   "events": 4,
+   "groups_acq_x_completion": 4,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "fit_seen",
+   "segment": "equity_other",
+   "events": 39,
+   "groups_acq_x_completion": 28,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "fit_seen",
+   "segment": "muni",
+   "events": 95,
+   "groups_acq_x_completion": 49,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "fit_seen",
+   "segment": "taxable_income",
+   "events": 48,
+   "groups_acq_x_completion": 35,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "name_holdout",
+   "segment": "muni",
+   "events": 31,
+   "groups_acq_x_completion": 15,
+   "events_on_the_27": 10
+  },
+  {
+   "set": "name_holdout",
+   "segment": "taxable_income",
+   "events": 4,
+   "groups_acq_x_completion": 3,
+   "events_on_the_27": 4
+  },
+  {
+   "set": "time_holdout",
+   "segment": "equity_other",
+   "events": 16,
+   "groups_acq_x_completion": 11,
+   "events_on_the_27": 1
+  },
+  {
+   "set": "time_holdout",
+   "segment": "muni",
+   "events": 5,
+   "groups_acq_x_completion": 3,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "time_holdout",
+   "segment": "taxable_income",
+   "events": 8,
+   "groups_acq_x_completion": 7,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "excluded_spec",
+   "segment": "ALL",
+   "events": 14,
+   "groups_acq_x_completion": 4,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "fit_seen",
+   "segment": "ALL",
+   "events": 186,
+   "groups_acq_x_completion": 109,
+   "events_on_the_27": 0
+  },
+  {
+   "set": "name_holdout",
+   "segment": "ALL",
+   "events": 35,
+   "groups_acq_x_completion": 18,
+   "events_on_the_27": 14
+  },
+  {
+   "set": "time_holdout",
+   "segment": "ALL",
+   "events": 29,
+   "groups_acq_x_completion": 19,
+   "events_on_the_27": 1
+  }
+ ]
+}
