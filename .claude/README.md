@@ -14,8 +14,9 @@ slate; the IBKR-era desk is at tag `pre-clean-slate`.
 ```
 
 **Before anything else, run `python3 -m ops.orient`** (~3s). It prints where you
-are, each Alpaca paper account's latest read-only snapshot, the live spec, panel
-dates and trial counters — each beside the command that produced it, and
+are, each Alpaca paper account's latest read-only snapshot, the prod machine's
+official daily P&L (Alpaca's end-of-day history) beside the three scores, the live
+spec, panel dates and trial counters — each beside the command that produced it, and
 `UNMEASURED` with a reason where it cannot measure. `CLAUDE.md` holds the rules;
 `docs/SYSTEM.md` what the system is and has decided; `docs/ROADMAP.md` the plan to
 prod; `docs/INDEX.md` which file owns every other question.

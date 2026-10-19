@@ -1546,3 +1546,26 @@ The sources behind `results/events/EVENT_ENGINE_PILOT_2026-10-19.md`.
 | **Tokens per character.** The pilot's batch sizes reuse §12z's estimate of 2.69 characters a token; nothing was counted | §12z; `scripts/events/event_engine_score.py` (`CHARS_PER_TOKEN`) | [S] |
 | **The Read tool and very long lines.** Part files wrap lines over 1,000 characters at a space, as a precaution against truncation. Whether the tool truncates, and at what length, was not checked | `scripts/events/event_engine_pilot.py` (`WRAP_AT`) | [U] |
 
+### 12an. Alpaca's end-of-day portfolio history, the daily P&L of record (added 2026-10-19)
+
+*Provisional section number (12ad–12am are reserved by another session); the
+coordinator renumbers it at merge.*
+
+The team lead ruled on 2026-10-19 that Alpaca's end-of-day portfolio history is
+the official daily P&L of record for the paper book, and that verify's
+after-the-close `equity - last_equity` is a labelled snapshot beside it, never
+blended. `python3 -m ops.orient` PNL reads it from the prod machine's
+`eod_equity.csv` (`ops/orient.py` `official_pnl`; rows by
+`ops/prod_state.py` `pnl_tails`). The account's own figures stay out of this
+public repository.
+
+| claim | source | status |
+|---|---|---|
+| `GET /v2/account/portfolio/history`; `timeframe` is "1Min, 5Min, 15Min, 1H, or 1D", and "For queries with longer than 30 days of `period`, the system only accepts 1D" | `https://docs.alpaca.markets/reference/getaccountportfoliohistory-1`, fetched 2026-10-19 | [V] |
+| `timestamp`: "Time of each data element, left-labeled (the beginning of time window)." No time zone is stated | same page | [V] page |
+| `equity`: "Equity value of the account in dollar amount as of the end of each time window." | same page | [V] |
+| **For 1D, `profit_loss` is cumulative, not daily**: "For 1D resolution all PnL values are calculated relative to the `base_value`, we are not resetting the base value." `pnl_reset` applies "for queries with `timeframe` less than 1D (intraday queries)". So a daily change is a difference of consecutive points, never one point's `profit_loss` | same page | [V] |
+| `base_value_asof`: "If included, then it indicates that the base_value is the account's closing equity value at this trading date." "If not specified, then the baseline calculation is done against the earliest returned data item." | same page | [V] |
+| With `timeframe=1D`, a `start` on a trading day "is set to the closing time of the current trading day" | same page | [V] |
+| **How a 1D point is stamped, as read.** Each daily point is stamped 00:00 UTC of the day after the session (e.g. 2026-10-17T00:00Z = 2026-10-16T20:00 ET carries the 2026-10-16 close); in America/New_York its date is the session date. Days before funding carry equity 0 | the paper account's history, `period=1M`, `timeframe=1D`, read by the main session 2026-10-19 (values not committed) | [V] as read; [U] whether the docs' "left-labeled" describes the same stamp |
+| **When a day's point is published, and whether a published point is ever revised** | the page says neither; the portfolio-history guide page (`https://docs.alpaca.markets/docs/portfolio-history`, fetched 2026-10-19) has no body text | [U] — orient prints the last date it finds and its age, and labels each figure as the file holds it at that read |

@@ -64,12 +64,22 @@ laptop's launchd jobs and the Azure VM's systemd units) and says which one is
 armed; ALPACA takes live equity from the armed machine's broker-confirmed
 `equity.csv` and labels the probe snapshot with its age, since that snapshot is
 evidence of tradability and borrow on its date and of nothing else.
+
+PNL ADDED 2026-10-19. The team lead ruled that day that Alpaca's end-of-day
+portfolio history is the official daily P&L of record, and that verify's
+after-the-close `equity - last_equity` -- which verify.log had been calling
+"(official, gross)" -- is a labelled snapshot. PNL prints the record from the
+prod machine's `eod_equity.csv` (last sessions, cumulative since funding,
+high-water mark and drawdown, realised vol beside the spec's vol target), and
+the snapshot, auction-marked and distribution-adjusted scores beside it, each
+in its own labelled column and never blended into it (`pnl`).
 """
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import json
+import math
 import re
 import subprocess
 import sys
@@ -209,6 +219,293 @@ def alpaca() -> dict:
             "open_orders": len(d.get("open_orders") or []),
         }
     return out
+
+
+# --------------------------------------------------------------------- pnl --
+# The repo's annualisation: sample sd of daily returns x sqrt(252), as the
+# canonical harness and the sleeve's own realised-vol estimate both do
+# (`scripts/cef/band_frontier.py` evaluate, `src/deploy/sleeves/cef_discount.py`).
+TRADING_DAYS_PER_YEAR = 252
+PNL_SHOWN_SESSIONS = 10
+# Two-decimal dollar columns: a difference of half a cent or more is a real one.
+PNL_TOL_USD = 0.005
+# The labelled, never-blended columns of the session table, in print order:
+# key, header, (file key in prod_state.PNL_FILES, column) or None for official.
+PNL_COLUMNS = (
+    ("official", "official", None),
+    ("snapshot", "snapshot", ("scores", "alpaca_equity_change_usd")),
+    ("auction", "auction", ("scores", "auction_pnl_usd")),
+    ("dist_adj", "dist-adj", ("dist", "auction_pnl_with_distributions_usd")),
+)
+PNL_LEGEND = (
+    "official = eod_equity.csv change_usd: Alpaca's end-of-day history, the P&L of record "
+    "(team lead 2026-10-19)",
+    "snapshot = scores.csv alpaca_equity_change_usd: equity - last_equity read after the "
+    "close by verify; a SNAPSHOT, not the record",
+    "auction = scores.csv auction_pnl_usd: auction-marked (quantt/session/score.py (b))",
+    "dist-adj = distribution_scores.csv auction_pnl_with_distributions_usd "
+    "(quantt/session/dist_score.py)",
+    "each column is its own file's, never filled from another; all gross",
+)
+
+
+def _finite(text: str, what: str) -> float:
+    try:
+        x = float(text)
+    except (TypeError, ValueError):
+        raise Unmeasured(f"{what} is {text!r}, not a number") from None
+    if not math.isfinite(x):
+        raise Unmeasured(f"{what} is {text!r}, not finite")
+    return x
+
+
+def official_pnl(reading: dict | None) -> dict:
+    """The official daily P&L series (Alpaca EOD history) and what it implies.
+
+    `reading` is one of `ops.prod_state.pnl_readings`' entries for
+    eod_equity.csv: rows of (date, equity, change_usd) as strings. Every
+    figure below is from that file alone; nothing from the snapshot or the
+    scores fills a gap in it (team lead 2026-10-19: never blended).
+
+    WHERE IT STARTS. Days before the account was funded carry equity 0
+    [V, the history as read by the main session 2026-10-19]. The first row
+    with equity > 0 is the first funded row, F. F's own change is measured
+    against an unfunded day, so it is the funding, not P&L; every figure here
+    runs from F's close. If the file starts after funding, F is simply its
+    first row, and F's date is printed so a reader sees where it starts.
+
+    WHAT EACH FIGURE IS.
+      cumulative   sum of change_usd over the sessions after F
+      high-water   the peak of that cumulative curve (F's close counts, at 0),
+                   with the file's equity on the peak date; drawdown is the
+                   curve's last value minus the peak, and as a fraction of the
+                   equity at the peak
+      vol          sample sd of change_usd / previous EOD equity, x sqrt(252),
+                   with n; fewer than two returns is a gap, not a zero
+    change_usd is the record, so it drives every figure. It is also checked
+    against the difference of consecutive EOD equities: a cashflow or a file
+    defect shows there, and each day it does is reported with both values;
+    neither is averaged in or silently preferred.
+
+    Raises `Unmeasured` naming the file and the row for anything it cannot
+    read as agreed: unparseable or non-increasing dates, a non-number, a zero
+    equity after funding, or a file longer than the reader carries (the
+    whole-series figures are never computed on a window).
+    """
+    from ops import prod_state
+    if not isinstance(reading, dict):
+        raise Unmeasured("no eod_equity.csv reading for the prod machine")
+    if "absent" in reading:
+        raise Unmeasured(reading["absent"])
+    if "UNMEASURED" in reading:
+        raise Unmeasured(reading["UNMEASURED"])
+    f = reading["value"]
+    name = f"{f['where']}/{f['file']}"
+    rows = f["rows"]
+    if f["n_rows"] > len(rows):
+        raise Unmeasured(f"{name} holds {f['n_rows']} rows, more than the {len(rows)} the "
+                         f"reader carries (ops.prod_state.EOD_MAX_ROWS); whole-series "
+                         f"figures are not computed on a window")
+    parsed, prev = [], None
+    for date_s, eq_s, ch_s in rows:
+        try:
+            d = dt.date.fromisoformat(date_s)
+        except ValueError:
+            raise Unmeasured(f"{name}: date {date_s!r} is not YYYY-MM-DD") from None
+        if prev is not None and d <= prev:
+            raise Unmeasured(f"{name}: {d} follows {prev}; not one row per session in date order")
+        prev = d
+        eq = _finite(eq_s, f"{name} {d} equity")
+        if eq < 0:
+            raise Unmeasured(f"{name} {d} equity is negative ({eq_s})")
+        parsed.append((d, eq, ch_s))
+    if not parsed:
+        raise Unmeasured(f"{name} has a header and no rows yet")
+    first = next((i for i, r in enumerate(parsed) if r[1] > 0), None)
+    if first is None:
+        raise Unmeasured(f"{name}: no funded row (equity is 0 on every one of {len(parsed)})")
+    f_date, f_eq, _ = parsed[first]
+
+    sessions, disagree = [], []
+    for (_pd, peq, _pc), (d, eq, ch_s) in zip(parsed[first:], parsed[first + 1:]):
+        if eq <= 0:
+            raise Unmeasured(f"{name}: equity {eq} on {d}, after funding on {f_date}")
+        ch = _finite(ch_s, f"{name} {d} change_usd")
+        if abs(ch - (eq - peq)) >= PNL_TOL_USD:
+            disagree.append({"date": d.isoformat(), "change_usd": ch,
+                             "equity_diff_usd": round(eq - peq, 2)})
+        sessions.append({"date": d.isoformat(), "change_usd": ch, "equity": eq,
+                         "return": ch / peq})
+
+    cum, peak, peak_date, peak_eq = 0.0, 0.0, f_date.isoformat(), f_eq
+    for s in sessions:
+        cum += s["change_usd"]
+        if cum > peak:
+            peak, peak_date, peak_eq = cum, s["date"], s["equity"]
+    rets = [s["return"] for s in sessions]
+    if len(rets) >= 2:
+        import statistics
+        vol = {"annual": statistics.stdev(rets) * TRADING_DAYS_PER_YEAR ** 0.5, "n": len(rets)}
+    else:
+        vol = {"annual": None, "n": len(rets),
+               "why": f"{len(rets)} daily return(s): a sample sd needs at least 2"}
+    last_d, last_eq, _ = parsed[-1]
+    return {"source": name,
+            "first_funded": {"date": f_date.isoformat(), "equity": f_eq},
+            "last": {"date": last_d.isoformat(), "equity": last_eq,
+                     "trading_days_ago": prod_state.trading_days_since(last_d.isoformat())},
+            "n_sessions": len(sessions), "cumulative_usd": cum,
+            "hwm": {"date": peak_date, "equity": peak_eq, "cumulative_usd": peak},
+            "drawdown_usd": cum - peak, "drawdown_frac": (cum - peak) / peak_eq,
+            "vol": vol, "disagreements": disagree,
+            "sessions": sessions[-PNL_SHOWN_SESSIONS:]}
+
+
+def _by_date(reading: dict | None, col: str, file_key: str) -> tuple[dict, str | None, str | None]:
+    """({date: [values in file order]}, read-from date or None, gap text or None)
+    for one column of one P&L file. When the file holds more rows than were
+    carried, dates up to and including the first carried date may be only
+    partly read; they are reported as not read, never as "no row"."""
+    from ops import prod_state
+    name, cols, _keep = prod_state.PNL_FILES[file_key]
+    if not isinstance(reading, dict):
+        return {}, None, "UNMEASURED"
+    if "absent" in reading:
+        return {}, None, "no file"
+    if "UNMEASURED" in reading:
+        return {}, None, "UNMEASURED"
+    f = reading["value"]
+    i = cols.index(col)
+    out: dict = {}
+    for row in f["rows"]:
+        out.setdefault(row[0], []).append(row[i])
+    partial = f["rows"][0][0] if f["n_rows"] > len(f["rows"]) and f["rows"] else None
+    return out, partial, None
+
+
+def _cell(values: list, what: str, notes: list):
+    """One date's value from one column: a float, or a marker naming the gap.
+    Re-runs append rows, so a date can have several. Two different measured
+    values is a CONFLICT, both are noted and neither is picked (the rule
+    `quantt/session/dist_score.py` auction_pnl_for applies); an UNMEASURED row
+    beside a measured one contradicts nothing."""
+    if not values:
+        return "no row"
+    measured = sorted(set(values) - {"UNMEASURED", ""})
+    if not measured:
+        return "UNMEASURED"
+    if len(measured) > 1:
+        notes.append(f"{what}: {len(measured)} rows disagree ({', '.join(measured)}); "
+                     f"neither is picked")
+        return "CONFLICT"
+    try:
+        return _finite(measured[0], what)
+    except Unmeasured as e:
+        notes.append(str(e))
+        return "BAD"
+
+
+def pnl_table(official: dict, files: dict) -> dict:
+    """The last sessions, one labelled column per series (`PNL_COLUMNS`).
+
+    The dates are the official series' last sessions when it is measured, so
+    each row is a session of record; otherwise the last dates any score file
+    holds. A cell is only ever its own file's value for its own date."""
+    from ops import prod_state
+    notes: list = []
+    cols = {}
+    for key, _head, src in PNL_COLUMNS[1:]:
+        cols[key] = _by_date(files.get(src[0]), src[1], src[0])
+    verdicts = _by_date(files.get("scores"), "verdict", "scores")
+    if "UNMEASURED" in official:
+        dates = sorted({d for m, _p, _g in cols.values() for d in m})[-PNL_SHOWN_SESSIONS:]
+        official_by_date = {}
+    else:
+        dates = [s["date"] for s in official["sessions"]]
+        official_by_date = {s["date"]: s["change_usd"] for s in official["sessions"]}
+    rows = []
+    for d in dates:
+        row = {"date": d, "official": official_by_date.get(d, "UNMEASURED")}
+        for key, head, _src in PNL_COLUMNS[1:]:
+            m, partial, gap = cols[key]
+            row[key] = (gap if gap else "not read" if partial and d <= partial
+                        else _cell(m.get(d, []), f"{d} {head}", notes))
+        vm, vpartial, vgap = verdicts
+        vs = list(dict.fromkeys(vm.get(d, [])))
+        row["verdict"] = (vgap if vgap else "not read" if vpartial and d <= vpartial
+                          else "/".join(vs) if vs else "no row")
+        rows.append(row)
+    sums = {}
+    for key, _head, _src in PNL_COLUMNS:
+        vals = [r[key] for r in rows]
+        num = [v for v in vals if isinstance(v, float)]
+        sums[key] = sum(num) if rows and len(num) == len(vals) else f"{len(num)} of {len(vals)}"
+    # The score files' gaps; eod_equity.csv's is the official line's own.
+    gaps = [f"{name}: {g}" for k, (name, _c, _n) in prod_state.PNL_FILES.items()
+            if k != "eod_equity" and (g := _reading_gap(files.get(k)))]
+    return {"rows": rows, "sums": sums, "notes": notes, "file_gaps": gaps}
+
+
+def _reading_gap(r) -> str | None:
+    if not isinstance(r, dict):
+        return "UNMEASURED — no reading"
+    if "absent" in r:
+        return f"none ({r['absent']})"
+    if "UNMEASURED" in r:
+        return f"UNMEASURED — {r['UNMEASURED']}"
+    return None
+
+
+def _vol_target() -> dict:
+    """`vol_target_annual` through `scripts/cef/spec.py`, the spec's single
+    reader. A missing key is a named gap: the sleeve's code default is not a
+    governance decision and is never printed here (see `spec_fields`)."""
+    try:
+        sys.path.insert(0, str(REPO / "scripts/cef"))
+        import importlib
+        sp = importlib.import_module("spec")
+        return {"value": sp.frozen("vol_target_annual"), "spec_id": sp.SPEC_ID}
+    except Exception as exc:  # SpecError, or the spec module failing at import: a named gap
+        return {"UNMEASURED": f"{type(exc).__name__}: {exc}"}
+
+
+def pnl(prod_sec: dict) -> dict:
+    """The book's daily P&L, from the PROD machine's own files.
+
+    WHY (team lead, 2026-10-19). Alpaca's end-of-day portfolio history is the
+    official daily P&L of record. verify's `equity - last_equity`, read after
+    the close, had been printed as "(official, gross)"; it is marked after the
+    close and differed from the EOD history on every session the main session
+    compared that day, while the auction-marked score agreed with it far more
+    closely. So the record leads here, and the snapshot, auction-marked and
+    distribution-adjusted scores sit beside it in their own labelled columns,
+    never blended into it and never standing in for a missing day of it.
+
+    Only the prod machine's files are read, as ALPACA's live equity is: the
+    other machine's are a different ledger of the same account (PROD lists
+    each machine's files). The rows come from PROD's one ssh call, so this
+    section adds no connection of its own.
+    """
+    if "UNMEASURED" in prod_sec:
+        raise Unmeasured(f"PROD could not be measured ({prod_sec['UNMEASURED']})")
+    v = prod_sec.get("verdict") or {}
+    if v.get("warning"):
+        raise Unmeasured("two machines are armed (PROD WARNING): there is no one prod "
+                         "to read the P&L from")
+    if not v.get("prod"):
+        raise Unmeasured("no machine is measured armed (PROD), so there is no prod series; "
+                         "each machine's P&L files are listed under it there")
+    files = ((prod_sec.get("machines") or {}).get(v["prod"]) or {}).get("pnl")
+    if not isinstance(files, dict):
+        raise Unmeasured(f"PROD's reading of the {v['prod']} carries no P&L files")
+    try:
+        official = official_pnl(files.get("eod_equity"))
+    except Unmeasured as exc:
+        official = {"UNMEASURED": str(exc)}
+    return {"reproducer": "python3 -m ops.orient --json   (sections.PNL; rows: "
+                          "ops.prod_state pnl_tails on the prod machine)",
+            "prod": v["prod"], "where": files.get("where"), "official": official,
+            "vol_target": _vol_target(), "table": pnl_table(official, files)}
 
 
 # -------------------------------------------------------------------- spec --
@@ -446,19 +743,25 @@ def doc_drift() -> dict:
 
 # ------------------------------------------------------------------ render --
 SECTIONS = [
-    ("TREES", trees), ("PROD", prod), ("ALPACA", alpaca),
+    ("TREES", trees), ("PROD", prod), ("ALPACA", alpaca), ("PNL", pnl),
     ("SPEC", spec), ("TRIALS", trials), ("PANELS", panels),
     ("HYGIENE", hygiene), ("DOC DRIFT", doc_drift),
 ]
 
 
 def collect(run_tests: bool = True) -> dict:
+    """Each section on its own guard. PNL is built from PROD's reading (its
+    rows came over PROD's one ssh call), so it runs after PROD and is handed
+    that section rather than measuring the machines a second time."""
     out = {"measured_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
            "running_in": str(REPO), "sections": {}}
     for name, fn in SECTIONS:
         try:
-            out["sections"][name] = (fn(run_tests=run_tests)
-                                     if fn is hygiene else fn())
+            out["sections"][name] = (
+                fn(run_tests=run_tests) if fn is hygiene else
+                fn(out["sections"].get("PROD")
+                   or {"UNMEASURED": "PROD was not measured in this call"}) if fn is pnl else
+                fn())
         except Exception as exc:
             out["sections"][name] = {
                 "UNMEASURED": f"{type(exc).__name__}: {exc}"}
@@ -487,6 +790,80 @@ def _live_equity(prod_sec: dict) -> str:
         return ("none — no machine is measured armed (PROD); each machine's last "
                 "row is shown there")
     return f"{prod_state.equity_text(v.get('equity'))}  [{v['prod']}]"
+
+
+def _usd(x: float, signed: bool = False) -> str:
+    sign = ("+" if x >= 0 else "-") if signed else ("-" if x < 0 else "")
+    return f"{sign}${abs(x):,.2f}"
+
+
+PNL_CELL_W = 11
+
+
+def _cell_text(v) -> str:
+    return f"{v:+.2f}" if isinstance(v, float) else str(v)[:PNL_CELL_W - 1]
+
+
+def _render_pnl(sec: dict) -> None:
+    """PNL's lines. The record first; the other three only as their own
+    labelled columns, with a legend saying which file and column each is."""
+    o = sec["official"]
+    _p("official P&L of record", f"Alpaca end-of-day portfolio history (GET /v2/account/"
+       f"portfolio/history, 1D; team lead 2026-10-19)  [{sec['prod']}]")
+    if "UNMEASURED" in o:
+        _p("", f"UNMEASURED — {o['UNMEASURED']}")
+    else:
+        last, f0, h, vol = o["last"], o["first_funded"], o["hwm"], o["vol"]
+        age = last.get("trading_days_ago")
+        _p("", f"{o['source']}: last close {last['date']}"
+           + (f" ({age} trading day(s) ago)" if age is not None else ""))
+        _p("", "[U] Alpaca's docs say neither when a day's point is published nor whether "
+               "a published one is revised (docs/REFERENCES.md 12an): this is the file as read now")
+        _p("cumulative (official)", f"{_usd(o['cumulative_usd'], True)} over {o['n_sessions']} "
+           f"session(s): the {f0['date']} close ({_usd(f0['equity'])}, first funded row) to the "
+           f"{last['date']} close ({_usd(last['equity'])})")
+        _p("high-water mark (official)", f"{_usd(h['equity'])} at the {h['date']} close; "
+           + ("the last close is at it" if abs(o["drawdown_usd"]) < PNL_TOL_USD else
+              f"drawdown from it {_usd(o['drawdown_usd'], True)} ({o['drawdown_frac']:+.2%})"))
+        _p("realised vol (official)",
+           f"{vol['annual']:.2%}/yr, n={vol['n']} daily returns (sample sd of change_usd / "
+           f"previous EOD equity, x sqrt({TRADING_DAYS_PER_YEAR}))" if vol["annual"] is not None
+           else f"UNMEASURED — {vol['why']}")
+        for g in o["disagreements"]:
+            _p("  caution", f"{g['date']}: change_usd {g['change_usd']:+.2f} but EOD equity moved "
+                            f"{g['equity_diff_usd']:+.2f} (a cashflow or a file defect); the "
+                            f"figures above use change_usd, the record")
+    vt = sec["vol_target"]
+    if "UNMEASURED" in vt:
+        _p("vol target (spec)", f"UNMEASURED — {vt['UNMEASURED']}")
+    else:
+        try:
+            as_pct = f" = {float(vt['value']):.2%}/yr"
+        except (TypeError, ValueError):
+            as_pct = " (not a number)"
+        _p("vol target (spec)", f"vol_target_annual {vt['value']}{as_pct}   "
+                                f"(scripts/cef/spec.py, {vt['spec_id']})")
+
+    t = sec["table"]
+    if not t["rows"]:
+        _p("sessions", "none: no dated row in scores.csv or distribution_scores.csv"
+           if "UNMEASURED" in o else "none yet: no session after the first funded row")
+    else:
+        w = PNL_CELL_W
+        _p(f"last {len(t['rows'])} session(s)",
+           f"{'date':<10}" + "".join(f"{h:>{w}}" for _k, h, _s in PNL_COLUMNS) + "  verdict")
+        for r in t["rows"]:
+            _p("", f"{r['date']:<10}" + "".join(f"{_cell_text(r[k]):>{w}}" for k, _h, _s in PNL_COLUMNS)
+               + f"  {r['verdict']}")
+        _p("", f"{'sum':<10}" + "".join(f"{_cell_text(t['sums'][k]):>{w}}" for k, _h, _s in PNL_COLUMNS))
+    for n in t["notes"]:
+        _p("  note", n)
+    for g in t["file_gaps"]:
+        _p("  file", g)
+    for i, line in enumerate(PNL_LEGEND + (
+            "sum is over the sessions shown; 'k of n' where a column has a gap there "
+            "(a sum with a missing term is not the sum)",)):
+        _p("columns" if i == 0 else "", line)
 
 
 def _p(label: str, value: str = "") -> None:
@@ -544,6 +921,10 @@ def render(d: dict) -> None:
                    f"not tradable {b['not_tradable'] or 'none'}")
             _p("", f"  not shortable {b['not_shortable'] or 'none'}; "
                    f"hard-to-borrow {b['hard_to_borrow'] or 'none'}")
+        print()
+
+    if (sec := head("PNL")) is not None:
+        _render_pnl(sec)
         print()
 
     if (sec := head("SPEC")) is not None:

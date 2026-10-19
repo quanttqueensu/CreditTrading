@@ -74,6 +74,23 @@ It never reads `QUANTT_ENV_FILE` or `config/.env`, never reads `/run/quantt`
 even the key file's path crosses the wire. It never touches `~/prod/QUANTT`,
 the retired IBKR tree, which is not the Alpaca prod.
 
+THE DAILY P&L SERIES (added 2026-10-19)
+--------------------------------------
+The team lead ruled on 2026-10-19 that Alpaca's end-of-day portfolio history
+(GET /v2/account/portfolio/history, timeframe=1D) is the official daily P&L of
+record, and that verify's `equity - last_equity`, read after the close, is a
+labelled snapshot beside it. On the four sessions the main session compared
+that day, the snapshot differed from the EOD history on every one and the
+auction-marked score agreed with it far more closely [V, main session
+2026-10-19; the account's figures are kept out of this public repo]: the
+snapshot is marked after the close (`quantt/session/score.py` (a) flags it
+[U]). So each machine's reading now carries its P&L files
+(`PNL_FILES`): the EOD series whole, and the last rows of the snapshot,
+auction-marked and distribution-adjusted scores. Only the named columns cross
+the wire, selected by header ON the VM (`pnl_tails`); scores.csv's
+`per_symbol_json`, which holds the positions, never does. orient's PNL section
+does the arithmetic, from the prod machine's files only.
+
 THE REPO IS PUBLIC
 ------------------
 The VM is reached only by the ssh alias `quantt-vm`. Its address lives in
@@ -93,6 +110,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import inspect
 import json
 import os
 import plistlib
@@ -222,6 +240,131 @@ def equity_row(header_line: str, last_line: str, where: str) -> dict:
     rec = dict(zip(cols, row))
     return _val({"date": rec["date"], "equity": rec["equity"],
                  "read_at_utc": rec.get("read_at_utc"), "source": where})
+
+
+# --------------------------------------------------------------- P&L files --
+# The three daily P&L series a state dir holds, and the ONLY columns read from
+# each (team lead, 2026-10-19: Alpaca's end-of-day portfolio history is the
+# official daily P&L of record; verify's after-the-close `equity - last_equity`
+# is a labelled snapshot beside it, never blended):
+#   eod_equity        Alpaca's EOD history as the collector records it (the
+#                     record); absent until that collector step is installed
+#   scores            verify's rows: the snapshot and the auction-marked score
+#                     (`quantt/session/verify.py` SCORES_COLUMNS)
+#   dist              the distribution-adjusted score
+#                     (`quantt/session/dist_score.py` COLUMNS)
+# The third element is how many rows are kept from the end. scores.csv and
+# distribution_scores.csv feed a 10-session comparison, so 30 rows covers it
+# with re-run duplicates to spare. eod_equity.csv is kept WHOLE up to a cap,
+# because cumulative P&L since funding, the high-water mark and realised vol are
+# whole-series figures: computed on the last 30 rows they would be a different
+# number under the same name once the book is 31 sessions old. 2520 rows is ten
+# years of sessions at ~40 bytes a row; a file longer than that is reported as
+# such and those figures go UNMEASURED (`ops/orient.py` pnl), never computed
+# on a window.
+EOD_MAX_ROWS = 2520
+PNL_TAIL_ROWS = 30
+PNL_FILES = {
+    "eod_equity": ("eod_equity.csv", ("date", "equity", "change_usd"), EOD_MAX_ROWS),
+    "scores": ("scores.csv", ("date", "verdict", "alpaca_equity_change_usd",
+                              "auction_pnl_usd"), PNL_TAIL_ROWS),
+    "dist": ("distribution_scores.csv", ("date", "auction_pnl_with_distributions_usd"),
+             PNL_TAIL_ROWS),
+}
+
+
+def pnl_tails(state_dir, files):
+    '''The named columns of each P&L file, picked by the file's OWN header.
+
+    WHY BY HEADER, AND ON THE VM. scores.csv carries per_symbol_json, which
+    holds the account's positions (quantt/session/verify.py score_row), and
+    this module's rule is that positions never leave the VM. The wanted columns
+    are found in the header and only those cells are copied, so no other cell
+    of any row is ever put in the reply; a renamed or reordered file is a named
+    error, not a value read from the wrong column.
+
+    WHY IT IS WRITTEN LIKE THIS. Its source is sent to the VM as text
+    (_PNL_PY) and run there by python3 -I, and the laptop calls it in-process,
+    so both machines are read by one code path. Hence: stdlib only, imports
+    inside, no annotations, and no double quote, dollar sign, backtick or
+    backslash anywhere in it (it sits in a double-quoted shell word; an assert
+    below _PNL_PY enforces that).
+
+    files maps key -> (file name, wanted columns, rows kept from the end).
+    Per key the result is exactly one of
+        {'rows': [[...], ...], 'n_rows': data rows in the file, 'file': name}
+        {'absent': name}       the file does not exist
+        {'error': text}        it exists and cannot be read as agreed
+    A row whose field count differs from the header's is an error naming its
+    line, not a skipped row: scores.csv is appended in place, and a half-written
+    last line read mid-append must not become a silently shorter series.
+    '''
+    import collections
+    import csv
+    import os
+    out = {}
+    for key, (name, cols, keep) in files.items():
+        try:
+            fh = open(os.path.join(state_dir, name), newline='', encoding='utf-8')
+        except FileNotFoundError:
+            out[key] = {'absent': name}
+            continue
+        except OSError as e:
+            out[key] = {'error': name + ': ' + type(e).__name__ + ': ' + str(e)}
+            continue
+        try:
+            with fh:
+                rd = csv.reader(fh)
+                head = next(rd, None)
+                if not head:
+                    raise ValueError('empty: no header')
+                missing = [c for c in cols if head.count(c) != 1]
+                if missing:
+                    raise ValueError('header does not name exactly one of each of '
+                                     + ', '.join(missing))
+                idx = [head.index(c) for c in cols]
+                tail = collections.deque(maxlen=keep)
+                n = 0
+                for row in rd:
+                    if not row:
+                        continue
+                    if len(row) != len(head):
+                        raise ValueError('line ' + str(rd.line_num) + ' has ' + str(len(row))
+                                         + ' fields for ' + str(len(head)) + ' columns')
+                    n += 1
+                    tail.append([row[i] for i in idx])
+        except (OSError, ValueError, csv.Error) as e:
+            out[key] = {'error': name + ': ' + type(e).__name__ + ': ' + str(e)}
+            continue
+        out[key] = {'rows': list(tail), 'n_rows': n, 'file': name}
+    return out
+
+
+def pnl_readings(raw, where: str) -> dict:
+    """`pnl_tails` output (from the VM's reply or the laptop's own call) as one
+    reading per file, in this module's three-key convention. The reply crossed
+    a wire, so its shape is checked, not trusted: anything else is UNMEASURED
+    naming the file."""
+    if not isinstance(raw, dict):
+        return {"where": where, **{k: _unm(f"{where}: the P&L reply is not an object")
+                                   for k in PNL_FILES}}
+    out = {"where": where}
+    for key, (name, cols, _keep) in PNL_FILES.items():
+        r = raw.get(key)
+        if not isinstance(r, dict) or len(r) == 0:
+            out[key] = _unm(f"{where}/{name}: no reading for it in the reply")
+        elif "absent" in r:
+            out[key] = _absent(f"no {name} in {where}")
+        elif "error" in r:
+            out[key] = _unm(f"{where}/{scrub(str(r['error']))}")
+        elif (isinstance(r.get("rows"), list) and isinstance(r.get("n_rows"), int)
+              and all(isinstance(row, list) and len(row) == len(cols)
+                      and all(isinstance(c, str) for c in row) for row in r["rows"])):
+            out[key] = _val({"file": name, "columns": list(cols), "rows": r["rows"],
+                             "n_rows": r["n_rows"], "where": where})
+        else:
+            out[key] = _unm(f"{where}/{name}: the reply's rows are not {len(cols)} strings each")
+    return out
 
 
 def _gate(dry_run: dict, auto_armed: dict) -> tuple[str, str]:
@@ -445,6 +588,8 @@ def laptop(home: Path | None = None, run: Run | None = None,
         out["auto_armed"] = _unm(f"stat {lay.state_dir / 'AUTO_ARMED'}: {type(e).__name__}: {e}")
     out["verify_last"] = _local_verify(lay.state_dir / "verify.log")
     out["equity"] = _local_equity(lay.state_dir / "equity.csv")
+    # The same selector the VM runs, called in-process: file reads only.
+    out["pnl"] = pnl_readings(pnl_tails(str(lay.state_dir), PNL_FILES), str(lay.state_dir))
 
     dry = session.get("dry_run") or _unm("no session job reading")
     out["cautions"] = []
@@ -478,7 +623,13 @@ def _launchd_scheduled(job: dict) -> dict:
 # then an END line, so a reply cut short is seen as cut short. Nothing here
 # reads /run/quantt, and the Environment line is filtered to DRY_RUN ON THE
 # VM, so the key file's path never leaves it.
+#
+# `qw` is `q` with a wide cut, for the one reading that is a series: the P&L
+# files' selected columns as one JSON line (`pnl_tails`, run as the service
+# user, which owns the state dir). A reply cut at that width is not JSON and
+# reads as UNMEASURED, never as a shorter series.
 _REMOTE_TEMPLATE = r"""q() { k=$1; shift; o=$("$@" 2>&1); r=$?; printf '%s\t%s\t%s\n' "$k" "$r" "$(printf '%s' "$o" | tr '\t\n' '  ' | cut -c1-400)"; }
+qw() { k=$1; shift; o=$("$@" 2>&1); r=$?; printf '%s\t%s\t%s\n' "$k" "$r" "$(printf '%s' "$o" | tr '\t\n' '  ' | cut -c1-@WIDE@)"; }
 S=@STATE@
 q tag sudo -n -u @USER@ git -C @PROD@ describe --tags
 q load_state systemctl show -p LoadState --value @SESSION@
@@ -490,6 +641,7 @@ q verify sudo -n sh -c "if [ -e $S/verify.log ]; then tail -n1 $S/verify.log; el
 q equity_header sudo -n sh -c "if [ -e $S/equity.csv ]; then head -n1 $S/equity.csv; else echo NO-FILE; fi"
 q equity_last sudo -n sh -c "if [ -e $S/equity.csv ]; then tail -n1 $S/equity.csv; else echo NO-FILE; fi"
 q newest_plan sudo -n python3 -I -c "@PLAN_PY@" "$S"
+qw pnl sudo -n -u @USER@ python3 -I -c "@PNL_PY@" "$S"
 printf 'END\t0\tquantt-prod-state\n'
 """
 # The newest day's plan.json, summarised ON the VM to one JSON line (the plan
@@ -511,7 +663,19 @@ _PLAN_PY = ("import json,os,sys; s=sys.argv[1]; "
             "else 'ok' if f.get('ok') else 'warning', "
             "'shock_usd': (f or {}).get('shock_usd')}))")
 assert not set(_PLAN_PY) & set('$`"'), "the plan summary must survive double quotes"
+# `pnl_tails` itself, then one call printing compact JSON. PNL_FILES goes in as
+# its repr (single-quoted strings, tuples, ints), so the VM selects exactly the
+# columns this module names and no others.
+_PNL_PY = (inspect.getsource(pnl_tails)
+           + "import json, sys\n"
+           + f"print(json.dumps(pnl_tails(sys.argv[1], {PNL_FILES!r}), separators=(',', ':')))\n")
+assert not set(_PNL_PY) & set('$`"\\'), "the P&L selector must survive double quotes"
+# The wide cut: a full EOD_MAX_ROWS series at well under 100 bytes a row, plus
+# two 30-row tails, with room. The reply is bounded by the row caps, not by this.
+PNL_REPLY_MAX_CHARS = 400_000
 REMOTE_SCRIPT = (_REMOTE_TEMPLATE
+                 .replace("@PNL_PY@", _PNL_PY)
+                 .replace("@WIDE@", str(PNL_REPLY_MAX_CHARS))
                  .replace("@PLAN_PY@", _PLAN_PY)
                  .replace("@STATE@", shlex.quote(str(_VM_LAYOUT.state_dir)))
                  .replace("@PROD@", shlex.quote(str(_VM_LAYOUT.prod_dir)))
@@ -655,6 +819,23 @@ def _vm_from_readings(got: dict, alias: str) -> dict:
             out["newest_plan"] = _unm(f"the newest plan summary is not JSON: {scrub(v)[:120]}")
     else:
         out["newest_plan"] = _unm(f"`sudo -n python3` plan summary exited {rc}: {scrub(v or '')}")
+
+    rc, v = reading("pnl")
+    where = f"{alias}:{_VM_LAYOUT.state_dir}"
+    why = None
+    if rc is None:
+        why = "no pnl line in the reply"
+    elif rc != 0 or not v:
+        why = f"`sudo -n -u {iv.SERVICE_USER} python3` P&L selector exited {rc}: {scrub(v or '')}"
+    else:
+        try:
+            out["pnl"] = pnl_readings(json.loads(v), where)
+        except json.JSONDecodeError:
+            why = (f"the P&L reply ({len(v)} chars) is not JSON"
+                   + (" and was cut at the reply width" if len(v) >= PNL_REPLY_MAX_CHARS else "")
+                   + f": {scrub(v)[:120]}")
+    if why:
+        out["pnl"] = {"where": where, **{k: _unm(f"{where}: {why}") for k in PNL_FILES}}
 
     out["cautions"] = []
     if UNMEASURED in installed:
@@ -801,6 +982,26 @@ def plan_text(r: dict | None) -> str:
             f"{'sent' if n.get('sent') else 'not sent yet'}; {pf_text}")
 
 
+def pnl_files_text(r: dict | None) -> str:
+    """`eod_equity.csv none · scores.csv 16 row(s), to 2026-10-16 · ...`: which
+    P&L files a machine holds. The figures are orient's PNL section, from the
+    prod machine only; this line shows each machine's files exist and parse."""
+    if not isinstance(r, dict):
+        return "UNMEASURED — no reading"
+    parts = []
+    for key, (name, _cols, _keep) in PNL_FILES.items():
+        x = r.get(key) or {}
+        if "value" in x:
+            rows = x["value"]["rows"]
+            parts.append(f"{name} {x['value']['n_rows']} row(s)"
+                         + (f", to {rows[-1][0]}" if rows else ""))
+        elif "absent" in x:
+            parts.append(f"{name} none")
+        else:
+            parts.append(f"{name} UNMEASURED")
+    return " · ".join(parts)
+
+
 def render_lines(d: dict, p: Callable[[str, str], None]) -> None:
     """Print the PROD block through `p(label, value)` (orient's `_p`)."""
     ms = d["machines"]
@@ -817,6 +1018,7 @@ def render_lines(d: dict, p: Callable[[str, str], None]) -> None:
         p("  WARNING", lap["state_dir_mismatch"])
     p("  last verdict", verify_text(lap.get("verify_last")))
     p("  equity.csv last row", equity_text(lap.get("equity")))
+    p("  P&L files", pnl_files_text(lap.get("pnl")))
 
     p(f"VM  (systemd, ssh {v.get('alias')})",
       f"{WORDS.get(v['arming'], v['arming'])} — {v['arming_why']}")
@@ -832,6 +1034,7 @@ def render_lines(d: dict, p: Callable[[str, str], None]) -> None:
         p("  AUTO_ARMED", _bool_text(v.get("auto_armed"), f"{v['state_dir']}/AUTO_ARMED"))
         p("  last verdict", verify_text(v.get("verify_last")))
         p("  equity.csv last row", equity_text(v.get("equity")))
+        p("  P&L files", pnl_files_text(v.get("pnl")))
         p("  newest plan", plan_text(v.get("newest_plan")))
     vd = d["verdict"]
     for c in vd.get("cautions") or []:

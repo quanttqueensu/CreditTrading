@@ -109,9 +109,19 @@ def make_laptop(home, dry_run="0", auto_armed=True, plists=True, equity=EQUITY):
 NEWEST_PLAN = ('{"session_date": "2026-01-07", "status": "decided", "orders": 4, "sent": false, '
                '"preflight": "ok", "shock_usd": 2074.61}')
 
+# What the VM's P&L selector prints (synthetic values: they test the parse, not
+# the market). eod_equity.csv absent is the state until the collector step that
+# writes it is installed.
+PNL_RAW = {"eod_equity": {"absent": "eod_equity.csv"},
+           "scores": {"rows": [["2026-01-06", "PASS", "3.00", "2.00"]], "n_rows": 1,
+                      "file": "scores.csv"},
+           "dist": {"rows": [["2026-01-06", "1.50"]], "n_rows": 1,
+                    "file": "distribution_scores.csv"}}
+
 
 def vm_reply(dry="DRY_RUN=0", auto="present", timers="active active active",
-             enabled="enabled enabled enabled", end=True, load="loaded", newest=NEWEST_PLAN):
+             enabled="enabled enabled enabled", end=True, load="loaded", newest=NEWEST_PLAN,
+             pnl=(0, json.dumps(PNL_RAW))):
     rows = [("tag", 0, "release-vm-1"), ("load_state", 0, load), ("dry_run", 0, dry),
             ("timers", 0 if timers == "active active active" else 3, timers),
             ("timers_enabled", 0, enabled), ("auto_armed", 0, auto),
@@ -119,6 +129,8 @@ def vm_reply(dry="DRY_RUN=0", auto="present", timers="active active active",
             ("equity_header", 0, "date,equity,read_at_utc"),
             ("equity_last", 0, "2026-01-06,333.33,2026-01-06T21:10:00+00:00"),
             ("newest_plan", 0, newest)]
+    if pnl is not None:
+        rows.append(("pnl", *pnl))
     if end:
         rows.append(("END", 0, "quantt-prod-state"))
     return "".join(f"{k}\t{rc}\t{v}\n" for k, rc, v in rows)
@@ -416,3 +428,142 @@ class TestNewestPlan:
         assert json.loads(out) == {"session_date": "2026-01-07", "status": "decided", "orders": 2,
                                    "sent": False, "preflight": "warning", "shock_usd": 9.5}
         assert "AAA" not in out
+
+
+# ------------------------------------------- the daily P&L files (2026-10-19)
+# The team lead ruled that day that Alpaca's EOD portfolio history is the
+# official daily P&L of record and verify's after-the-close equity change is a
+# snapshot. PROD's one ssh call now carries each P&L file's named columns, so
+# orient's PNL section can print the record beside the three scores. These pin
+# what crosses the wire: only the named columns, chosen by the file's own
+# header, and never scores.csv's per_symbol_json, which holds the positions.
+
+# A header NOT in verify's column order, with the positions column in the
+# middle and a sentinel inside it: whatever leaves the selector must not hold it.
+SECRET = "POSITION-SENTINEL-ZZQ"
+SCORES = ("verdict,per_symbol_json,auction_pnl_usd,date,book,alpaca_equity_change_usd\n"
+          f'FAIL,"{{""{SECRET}"":5}}",UNMEASURED,2026-01-05,cef,1.00\n'
+          f'PASS,"{{""{SECRET}"":6}}",2.00,2026-01-06,cef,3.00\n')
+DIST = ("date,auction_pnl_usd,distribution_pnl_usd,auction_pnl_with_distributions_usd,"
+        "unmeasured,per_symbol_json,source,label,written_at_utc\n"
+        f'2026-01-06,2.00,-0.50,1.50,,"{{""{SECRET}"":1}}",alpaca,x,t\n')
+EOD = "date,equity,change_usd,fetched_at_utc\n2026-01-05,0,0,t\n2026-01-06,100.00,100.00,t\n"
+
+
+def _state(tmp_path, scores=SCORES, dist=DIST, eod=EOD):
+    s = tmp_path / "state"
+    s.mkdir()
+    for name, body in (("scores.csv", scores), ("distribution_scores.csv", dist),
+                       ("eod_equity.csv", eod)):
+        if body is not None:
+            (s / name).write_text(body)
+    return s
+
+
+def _run_remote_pnl_line(state):
+    """The real `qw pnl` line from REMOTE_SCRIPT, run by sh on a local state dir
+    with only `sudo -n -u <service user>` removed: proves the payload survives
+    the shell's double quotes and the reply parses."""
+    import shlex
+    from quantt.deploy import install_vm as iv
+    lines = ps.REMOTE_SCRIPT.split("\n")
+    start = next(i for i, ln in enumerate(lines) if ln.startswith("qw pnl "))
+    end = next(i for i in range(start, len(lines)) if lines[i].endswith('"$S"'))
+    block = "\n".join(lines[start:end + 1])
+    assert block.startswith(f"qw pnl sudo -n -u {iv.SERVICE_USER} python3 -I -c "), (
+        "the selector runs as the service user, which owns the state dir")
+    block = block.replace(f"sudo -n -u {iv.SERVICE_USER} ", "", 1)
+    qw = next(ln for ln in lines if ln.startswith("qw()"))
+    script = f"{qw}\nS={shlex.quote(str(state))}\n{block}\n"
+    r = subprocess.run(["sh", "-c", script], capture_output=True, text=True, timeout=30)
+    key, rc, out = r.stdout.rstrip("\n").split("\t")
+    assert (key, rc) == ("pnl", "0"), (r.stdout, r.stderr)
+    return r.stdout, json.loads(out)
+
+
+class TestPnlFiles:
+    def test_vm_reading_carries_the_pnl_files(self, ssh_config):
+        """The key test: PROD's VM reading holds each P&L file as a reading."""
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply()))
+        p = m["pnl"]
+        assert p["where"].startswith(f"{ps.VM_ALIAS}:")
+        assert "absent" in p["eod_equity"] and "eod_equity.csv" in p["eod_equity"]["absent"]
+        assert p["scores"]["value"]["rows"] == [["2026-01-06", "PASS", "3.00", "2.00"]]
+        assert p["dist"]["value"]["rows"] == [["2026-01-06", "1.50"]]
+
+    def test_the_remote_line_selects_by_header_and_never_ships_positions(self, tmp_path):
+        stdout, raw = _run_remote_pnl_line(_state(tmp_path))
+        assert SECRET not in stdout and "per_symbol_json" not in stdout
+        assert raw["scores"] == {"rows": [["2026-01-05", "FAIL", "1.00", "UNMEASURED"],
+                                          ["2026-01-06", "PASS", "3.00", "2.00"]],
+                                 "n_rows": 2, "file": "scores.csv"}
+        assert raw["dist"]["rows"] == [["2026-01-06", "1.50"]]
+        assert raw["eod_equity"]["rows"] == [["2026-01-05", "0", "0"],
+                                             ["2026-01-06", "100.00", "100.00"]]
+        assert "fetched_at_utc" not in stdout, "an extra column is never carried"
+
+    def test_absent_files_are_absent_by_name_on_the_wire_and_after(self, tmp_path):
+        _stdout, raw = _run_remote_pnl_line(_state(tmp_path, scores=None, dist=None, eod=None))
+        assert raw == {"eod_equity": {"absent": "eod_equity.csv"},
+                       "scores": {"absent": "scores.csv"},
+                       "dist": {"absent": "distribution_scores.csv"}}
+        r = ps.pnl_readings(raw, "vm:/s")
+        assert r["eod_equity"] == {"absent": "no eod_equity.csv in vm:/s"}
+        assert all("value" not in r[k] and ps.UNMEASURED not in r[k] for k in ps.PNL_FILES)
+
+    def test_a_missing_column_is_a_named_gap_not_a_shifted_value(self, tmp_path):
+        s = _state(tmp_path, eod="date,equity\n2026-01-06,100.00\n")
+        r = ps.pnl_readings(ps.pnl_tails(str(s), ps.PNL_FILES), str(s))
+        assert ps.UNMEASURED in r["eod_equity"]
+        assert "eod_equity.csv" in r["eod_equity"][ps.UNMEASURED]
+        assert "change_usd" in r["eod_equity"][ps.UNMEASURED]
+
+    def test_a_half_written_row_is_an_error_naming_its_line(self, tmp_path):
+        """scores.csv is appended in place; a read mid-append must not quietly
+        drop the row and return a shorter series."""
+        s = _state(tmp_path, scores=SCORES + "PASS,{}\n")
+        r = ps.pnl_readings(ps.pnl_tails(str(s), ps.PNL_FILES), str(s))
+        assert ps.UNMEASURED in r["scores"] and "line 4" in r["scores"][ps.UNMEASURED]
+
+    def test_only_the_tail_is_kept_and_the_full_count_is_said(self, tmp_path):
+        head = "date,verdict,alpaca_equity_change_usd,auction_pnl_usd\n"
+        body = "".join(f"2026-{1 + i // 28:02d}-{1 + i % 28:02d},PASS,1.00,1.00\n" for i in range(40))
+        s = _state(tmp_path, scores=head + body)
+        got = ps.pnl_tails(str(s), ps.PNL_FILES)["scores"]
+        assert got["n_rows"] == 40 and len(got["rows"]) == ps.PNL_TAIL_ROWS
+        assert got["rows"][-1][0] == "2026-02-12"
+
+    def test_laptop_reads_its_own_state_dir_with_the_same_selector(self, tmp_path):
+        lay = make_laptop(tmp_path)
+        (lay.state_dir / "scores.csv").write_text(SCORES)
+        m = ps.laptop(home=tmp_path, run=laptop_run(), uid=501)
+        assert m["pnl"]["scores"]["value"]["n_rows"] == 2
+        assert "absent" in m["pnl"]["eod_equity"] and "absent" in m["pnl"]["dist"]
+        assert SECRET not in json.dumps(m, default=str)
+
+    @pytest.mark.parametrize("pnl,why", [
+        ((1, "sudo: a password is required"), "exited 1"),
+        ((0, '{"eod_equity": {"rows": [["cut'), "not JSON"),
+        (None, "no pnl line"),
+    ])
+    def test_a_failed_or_cut_reply_is_unmeasured_for_every_file(self, ssh_config, pnl, why):
+        m = ps.vm(ssh_config=ssh_config, run=vm_run(vm_reply(pnl=pnl)))
+        for k in ps.PNL_FILES:
+            assert ps.UNMEASURED in m["pnl"][k] and why in m["pnl"][k][ps.UNMEASURED]
+        assert m["arming"] == ps.ARMED, "a P&L gap never changes the arming reading"
+
+    def test_a_reply_in_the_wrong_shape_is_not_trusted(self):
+        raw = {**PNL_RAW, "scores": {"rows": [["2026-01-06", "PASS"]], "n_rows": 1}}
+        r = ps.pnl_readings(raw, "vm:/s")
+        assert ps.UNMEASURED in r["scores"] and "scores.csv" in r["scores"][ps.UNMEASURED]
+        assert "value" in r["dist"]
+
+    def test_prod_render_lists_each_machines_pnl_files(self, tmp_path, ssh_config):
+        make_laptop(tmp_path, auto_armed=False)
+        run = FakeRun(**laptop_run(loaded=(), disabled=LABELS).answers, ssh=(0, vm_reply(), ""))
+        d = ps.measure(run=run, home=tmp_path, ssh_config=ssh_config)
+        lines = []
+        ps.render_lines(d, lambda label, value="": lines.append(f"{label} {value}"))
+        pnl = [ln for ln in lines if ln.strip().startswith("P&L files")]
+        assert len(pnl) == 2
+        assert "eod_equity.csv none" in pnl[1] and "scores.csv 1 row(s), to 2026-01-06" in pnl[1]
