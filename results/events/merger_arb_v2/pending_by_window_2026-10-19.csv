@@ -1,0 +1,12 @@
+universe,window,deals,stale_425,target_alpaca_shortable,target_ibkr_listed,target_ibkr_fee_median_pct,target_ibkr_fee_max_pct,target_adv_median_usd,adv_ge_0.2m (fits $10k at 5%),adv_ge_2m (fits $100k at 5%),acquirer_alpaca_shortable
+CASH_1STEP,beyond,19,0,14/19,19,0.61,87.48,1051568,11,9,
+CASH_1STEP,gap,5,0,5/5,5,0.45,0.59,57919812,5,5,
+CASH_1STEP,high,23,0,14/23,23,0.72,26.94,2769678,17,13,
+CASH_1STEP,low1,17,0,16/17,17,0.41,25.25,29638744,17,17,
+CASH_1STEP,low2,7,0,3/7,7,0.51,82.73,2737893,4,4,
+STOCK_1STEP,beyond,2,1,2/2,2,0.44,0.59,58696598,2,2,2/2
+STOCK_1STEP,high,4,0,4/4,4,0.41,0.41,48404130,4,4,4/4
+STOCK_1STEP,low1,7,0,7/7,7,0.41,2.17,8583953,7,5,7/7
+TENDER_CASH,high,3,0,2/3,2,0.37,0.5,5462715,2,2,
+TENDER_CASH,low1,4,0,3/4,4,0.5,4.61,4207554,3,2,
+TENDER_CASH,low2,1,0,1/1,1,0.55,0.55,1961511,1,0,
