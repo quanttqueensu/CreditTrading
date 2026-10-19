@@ -480,6 +480,11 @@ the notes it names; this table holds the decisions only.
 | NAV tenders | **Draft the pre-registration** (an EVENTS trial) |
 | Process fixes from C4's IGR bars (zero trials) | **Both:** a spike-and-revert guard in `yf_total_returns`, and no P&L while any Stage-0 flag lacks a recorded ruling |
 | Pushing `main` | **One push at the end of the day**, after the suite, the doc audit and the identifier scan |
+| E1 (later the same day, after seeing that IBKR borrow eats the muni effect in 6 of 7 windows) | **Approved as EVENTS trial 1, with borrow fees ignored: "ignore fees, just look at PnL."** Borrow is shown in its own labelled column and decides nothing (amendment 1 of the pre-registration) |
+| The NAV-tender pre-registration | **Approved as EVENTS trial 2, on all twelve defaults** |
+| The EVENTS bar | **N = 6, shared by every EVENTS trial**, E2's draft included |
+| C5's three readings of the repair rule | **Confirmed** (`results/cef/C5_RESULT_2026-10-14.md`) |
+| The release check for HALVE/KILL | **Run after the other session's official-equity hotfix is merged into `main`** |
 
 ### Team lead, 2026-10-19 — HALVE/KILL in report mode
 

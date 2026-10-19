@@ -7,7 +7,31 @@ N = 6) · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 2; gates G1
 (failed at Alpaca), G1b (not measured), G1c (passed), the ETF-hedge gate
 (failed) · **Author** research agent, branch `research-e1-prereg`
 
-> **DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.**
+> **APPROVED 2026-10-19 by the team lead: EVENTS trial 1** (approved before the
+> NAV-tender draft, which is trial 2). The counter moves 0 → 2 in this commit.
+> Decisions 1–4 and 6–10 are approved on their defaults (§15). **Decision 5 is
+> ruled otherwise, by amendment 1 below.**
+>
+> **Amendment 1 (team lead, 2026-10-19), before any E1 return: borrow fees are
+> ignored; the trial is judged on P&L.** The ruling, verbatim: "ignore fees, just
+> look at PnL". It was given after the team lead was shown that IBKR borrow over the
+> hold costs at least the +167bp effect in 6 of 7 muni merger windows
+> (`results/events/MERGER_ARB_V2_2026-10-19.md`, row iii-a), so that the default
+> fee cap would admit almost no deal. It changes decision 5 and §5.3 as follows:
+> - **The hedge route has no fee cap and no fee exit.** The acquirer is shorted at
+>   Alpaca if `shortable` and `easy_to_borrow`, else at IBKR if its shortstock file
+>   shows enough shares at any fee, else no trade. A recall still closes both legs.
+> - **f_max is still computed and printed (stage 4, stage 7), report-only.** It
+>   decides nothing.
+> - **Borrow is charged only in its own labelled column** (the four borrow
+>   schedules, §7), never in the verdict. This is the desk's rule for the paper
+>   account: gross P&L is the headline and borrow is labelled separately (team lead,
+>   D19/D20, 2026-09-15).
+> - **The coordinator's reading, for the team lead to correct:** "fees" means
+>   borrow fees. Stage 4's execution-cost test at 15bp, and the 5 / 15 / 30bp grid,
+>   stand as written.
+>
+> *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **No E1 return of any kind was computed to write this.** No pair return, no
 > control return, no window sum, no P&L, no Sharpe. The only new measurements are

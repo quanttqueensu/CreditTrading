@@ -9,7 +9,12 @@ EVENTS N of decision 1 (default N = 6, the E1 draft's N) · **Admitted by**
 NAV-tender pre-registration today · **Author** research agent, branch
 `research-navtender-prereg`
 
-> **DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.**
+> **APPROVED 2026-10-19 by the team lead, on all twelve defaults (§ decisions): EVENTS
+> trial 2.** The E1 merger pair was approved first (trial 1). The counter moves
+> 0 → 2 in this commit. The bar is N = 6, shared by every EVENTS trial (decision 1),
+> so E2's unapproved draft moves from N = 4 to N = 6.
+>
+> *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **Nothing has run.** No return, P&L, spread, discount, beta or Sharpe of any
 > tender fund or hedge was computed to write this, and no CRSP table was read.

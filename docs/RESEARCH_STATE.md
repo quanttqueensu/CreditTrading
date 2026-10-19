@@ -33,8 +33,20 @@ counter (156) covers all ETF-price/PD work done to date.
 | **CEF** | **credit closed-end fund discounts** | **52** |
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
-| **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **0** |
+| **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **2** |
 | **XASSET** | **cross-asset ETF/futures slate, declared up front (NEW SOURCE 2026-10-09)** | **4** |
+> **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
+> - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:
+>   the NAV-for-NAV CEF merger pair, acquirer shorted at Alpaca or IBKR.
+>   Amendment 1 (team lead, before any return): borrow fees are ignored and the
+>   trial is judged on P&L, with borrow in its own labelled column.
+> - **EVENTS trial 2 is NAV tenders**, `results/events/PREREG_NAV_TENDER_2026-10-19.md`:
+>   tender participation, ETF-hedged, on all twelve defaults.
+> - **Both are judged at N = 6, bar √(2 ln 6) = 1.893,** fixed on approval and shared
+>   by every EVENTS trial (E2's unapproved draft moves from N = 4 to 6).
+> - **E1 consumes the 27-name set at its Stage 1** (decision 3's default). The
+>   NAV-tender trial excludes all 44 universe funds and does not need it.
+>
 > **2026-10-09: EVENTS and XASSET opened at 0** (team lead, `docs/SYSTEM.md` §5,
 > 2026-10-09). Opening a counter spends no trial. **XASSET is a declared slate**: its
 > five tests (`results/cef/RESEARCH_PLAN_2026-10-09.md` §3) are listed before any runs,
