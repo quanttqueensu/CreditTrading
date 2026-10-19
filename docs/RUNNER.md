@@ -40,6 +40,11 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                         morning; from the final check the name keeps its shares.
                         "As built (2026-10-13)" below.
           2. read       Alpaca account (equity), positions, today's orders, clock
+          2b. drawdown  only when the book json sets risk.drawdown (absent: off; report
+                        is the only mode built: record only). The drawdown from the
+                        high-water mark of <state>/eod_equity.csv against the frozen
+                        spec's risk.halve_drawdown / risk.kill_drawdown, recorded in
+                        plan.json and the log. "As built (2026-10-19)" below.
           3. decide     sleeve.target_positions(asof=<prev trading day>, MarketState(
                           holdings=<Alpaca positions>, extras={"sleeve_nav": <equity>,
                           "opening_session": <bool>}))
@@ -64,6 +69,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
 | `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) equal to the previous NAV or to CEFConnect's NAV(D-1), reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, defers or holds the unverified, records every check. | Transmits. Decides a target. |
+| `quantt/session/drawdown.py` | The drawdown check (step 2b): reads `<state>/eod_equity.csv` by header, the frozen spec's two drawdown lines (units-checked), and records the status and what an acting mode would do. | Transmits. Changes an order. Falls back to `equity.csv`. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
 | `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_hold"]` (2026-10-13): names the stale-NAV gate could not verify by its final check keep their current shares and leave the cross-section; holds never trigger the `min_names` flatten; absent is byte-identical. | — |
 | `quantt/deploy/` | launchd plist templates + an install script for the laptop prod clone + `docs/RUNBOOK.md`. | Stores a credential. |
@@ -185,6 +191,84 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-19): the drawdown check, HALVE/KILL in `report` mode
+
+**The defect.** The frozen spec carries `risk.halve_drawdown` and
+`risk.kill_drawdown`, and the standing decision is to arm HALVE/KILL on
+broker-confirmed NAV (`docs/SYSTEM.md` §5, 2026-09-08). On the Alpaca path no code
+read either line, and the runner never called the sleeve's `risk_check`, which
+writes the lines as literals and returns OK on an exception
+(`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §1 item 4 and §3.4; re-verified by
+grep at main `832aeaa` on 2026-10-19).
+
+**The rule (team lead, 2026-10-19): report mode first.**
+`quantt/session/drawdown.py` runs as step 2b of every DECIDE, after the account
+read and before the sleeve. The late-market SEND phase does not run it: the plan
+it sends already carries the record.
+
+- **Series.** `<state>/eod_equity.csv`: Alpaca's end-of-day portfolio history
+  (timeframe 1D), which the team lead ruled on 2026-10-19 is the **official** daily
+  P&L. The collector writes it and backfills it from 2026-09-28. The check reads
+  `date` and `equity` **by header name** and nothing else, so an empty `change_usd`
+  or an added column changes nothing.
+  - Absent or unreadable: **UNMEASURED, naming the file.** There is never a
+    fallback to `equity.csv`. Those rows are after-hours account snapshots, and a
+    snapshot can set a high-water mark the book never closed at.
+  - The snapshot reading is still shown, as a second labelled line and a
+    `snapshot` record. It never changes the status.
+- **Measure.** HWM = the largest `equity` on rows dated on or before the as-of
+  date; drawdown = 1 − newest ÷ HWM. Rows after the as-of are never read
+  (asserted). The newest row must be the as-of date. If it is not, the status is
+  UNMEASURED, and the figures are recorded under their own date. Whether the EOD
+  row exists by the 22:00 ET evening decide is [U]; report mode measures it.
+- **Lines.** `risk.halve_drawdown` and `risk.kill_drawdown`, read from the spec
+  that `run.load_spec` loaded, never a literal. Each must be a fraction in (0, 1),
+  with halve below kill. A percent written where a fraction belongs is refused,
+  not rescaled (the `book_drawdown_suspend_pct` units trap).
+- **Status.** KILL at or past the kill line, HALVE at or past the halve line, else
+  OK; UNMEASURED when any of the above fails. The record also gives the worst
+  drawdown in the series and the first date each line was crossed, which is what
+  a sticky acting mode would still be holding.
+
+**Modes** (`ops/books/cef_discount_book.json`, `"risk": {"drawdown": <mode>}`;
+absent means off, and the session runs exactly as before):
+
+- `report` **(the release setting)** records the status, the reading and what an
+  acting mode **would** do in plan.json and the run record (`drawdown`), and
+  prints one `DRAWDOWN` line plus the labelled snapshot line. It changes nothing.
+  - The orders, the `plan_sha` and plan.json are those of a check-off session,
+    byte for byte, apart from `drawdown`. This is proved on the live spec, the real
+    sleeve and the real panel, with the series at OK, HALVE-deep, KILL-deep and
+    absent (`quantt/session/tests/test_drawdown.py`).
+  - An unexpected error is recorded as UNMEASURED with its type and never stops
+    the session.
+- **An acting mode is not built.** Setting anything but `report` raises
+  (`run.drawdown_for`), so the book json cannot claim an armed HALVE/KILL that
+  nothing enforces.
+
+**What an acting mode would do** (recorded each session as `would_on`; a later
+ruling):
+
+- **HALVE:** size every sleeve on half its budget, so the vol target halves.
+  **Sticky**: it holds until the team lead records a review, never lifted
+  automatically on recovery (framework §3.4).
+- **KILL:** flatten every sleeve through the normal order path, every gate
+  applying. Then write `ops/HALT_cef.md`; the halt must follow the flatten's send,
+  or the halt gate refuses the flatten. The team lead restarts.
+- **UNMEASURED:** refuse the decide, as a named `risk` refusal; verify reads the
+  day as MISSED. Why it should fail closed: `drawdown.py` docstring. A survival stop
+  that fails open is the defect being replaced, and a missed day is already loud.
+  The alternative for the ruling is a close-only day.
+- **Before real money:** the HWM is not flow-adjusted. Alpaca paper has no
+  deposits or withdrawals; a live account does.
+
+**Records (H14).** `plan.json` and `runs/<stamp>-run.json` carry `drawdown`: the
+mode, the file and series label, the as-of, the levels and their spec source, the
+status (and `why` when UNMEASURED), the reading (rows, first and last date,
+equity, HWM and its date, drawdown, worst drawdown and its date, first crossing
+of each line), `would_on`, `acted: false` and the snapshot. Nothing else is
+written.
 
 ## As built (2026-10-13): the stale-NAV gate, in `report` mode first
 

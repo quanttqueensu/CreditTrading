@@ -31,6 +31,14 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                sleeve has read the panel, `still_holds` checks it was the panel
                the gate certified, or the session FAILs.
   2. read      Alpaca clock, calendar, account, positions, orders, assets.
+  2b. drawdown only when the book json sets `risk.drawdown` (absent = off;
+               `report` is the only mode built). The book's drawdown from its
+               high-water mark on `<state>/eod_equity.csv` (Alpaca's EOD
+               portfolio history, the official daily P&L) is compared with the
+               frozen spec's risk.halve_drawdown / risk.kill_drawdown and
+               recorded in plan.json and the log, with what an `on` mode would
+               do. Nothing that trades reads it (`drawdown.py`; team lead
+               2026-10-19).
   3. decide    the sleeve on the as-of date with the broker's holdings and
                `extras={"sleeve_nav": equity, "opening_session": bool}`, then
                `decide.decide` -> whole-share orders and `plan_sha`.
@@ -128,6 +136,7 @@ from pathlib import Path
 from typing import Callable
 
 from quantt.session import decide as dec
+from quantt.session import drawdown as ddm
 from quantt.session import gate as gt
 from quantt.session import nav_gate as ng
 from quantt.session import records as rec
@@ -624,6 +633,50 @@ def stale_nav_for(book: Book) -> str | None:
     return mode
 
 
+def drawdown_for(book: Book) -> str | None:
+    """The book json's `risk.drawdown`: the drawdown check's mode, or None.
+
+    ABSENT means no check, today's behaviour (CLAUDE.md: a new key defaults to
+    current behaviour), as an absent `data` block means no stale-NAV gate.
+    Present, it must be one of `drawdown.MODES`, which today is `report` only:
+    `on` is not built and raises here, so a book json cannot claim an armed
+    HALVE/KILL that nothing enforces (the defect `drawdown.py` replaces). Why a
+    runner setting and the levels in the frozen spec: the levels are the
+    strategy's commitment and already live there; whether the runner acts on them
+    is how the runner runs, like `execution` and `data`."""
+    risk = json.loads(book.book_path.read_text()).get("risk")
+    if risk is None:
+        return None
+    if not isinstance(risk, dict) or "drawdown" not in risk:
+        raise SessionError(f"{book.book_path}: a `risk` block must set drawdown to one of "
+                           f"{ddm.MODES} (or the block must be deleted)")
+    mode = risk["drawdown"]
+    if mode not in ddm.MODES:
+        raise SessionError(f"{book.book_path}: risk.drawdown {mode!r} is not one of "
+                           f"{ddm.MODES}; an acting mode is not built and needs the team "
+                           f"lead's ruling (quantt/session/drawdown.py)")
+    return mode
+
+
+def _drawdown(deps, state: Path, spec: dict, asof: dt.date) -> tuple[dict, list]:
+    """Step 2b, the drawdown check (quantt/session/drawdown.py): (record, log
+    lines). Report mode changes nothing that trades, so an unexpected error,
+    in the check or in its log lines, is recorded as UNMEASURED with its type
+    and the session goes on, like the stale-NAV gate's report mode and the
+    pre-flight. Only report mode exists; an acting mode would have to stop the
+    session instead (drawdown.py, WHY UNMEASURED SHOULD BLOCK UNDER `on`), hence
+    the re-raise."""
+    try:
+        res = ddm.check(state, spec, asof, deps.drawdown)
+        return res, ddm.lines(res)
+    except Exception as e:  # report mode: recorded in plan.json and printed, never swallowed
+        if deps.drawdown != ddm.REPORT:
+            raise
+        res = ddm.unmeasured_record(deps.drawdown, asof, f"{type(e).__name__}: {e}")
+        return res, [f"  DRAWDOWN ({deps.drawdown}): UNMEASURED: {res['why']}. Report mode: "
+                     f"no order changed."]
+
+
 def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_csv):
     """Step 1b, the stale-NAV gate (quantt/session/nav_gate.py). Returns
     (record dict, GateResult or None).
@@ -675,6 +728,9 @@ class Deps:
     # `nav_gate.PanelGate` or a fake with its `run` and `still_holds`.
     stale_nav: str | None = None
     nav_gate: object | None = None
+    # The drawdown check (step 2b): its mode from the book json (None = off,
+    # today's behaviour; `drawdown_for`).
+    drawdown: str | None = None
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
@@ -703,6 +759,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         execution=execution_for(book),
         stale_nav=stale_nav,
         nav_gate=gate,
+        drawdown=drawdown_for(book),
     )
 
 
@@ -893,6 +950,14 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                     for s, a in assets.items()})
         equity = acct["equity"]
 
+        # 2b. the drawdown check (quantt/session/drawdown.py). Off unless the
+        # book json sets risk.drawdown; in `report` mode it is recorded and
+        # printed, and nothing below reads it.
+        if deps.drawdown is not None:
+            record["drawdown"], dd_lines = _drawdown(deps, state, spec, asof)
+            for line in dd_lines:
+                print(line, file=out)
+
         # 3. decide -- only on data that passed gate 5
         if data_refusals:
             decision = dec.Decision(orders=(), targets={}, notes={"*": [
@@ -974,6 +1039,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 "borrow_warnings": borrow_warnings, "mode": mode}
         if "nav_gate" in record:             # only when the book turns the gate on
             plan["nav_gate"] = record["nav_gate"]
+        if "drawdown" in record:             # only when the book turns the check on
+            plan["drawdown"] = record["drawdown"]
         if "bp_scale" in record:
             plan["bp_scale"] = record["bp_scale"]
         shown = refusals

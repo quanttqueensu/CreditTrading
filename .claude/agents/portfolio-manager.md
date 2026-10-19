@@ -56,11 +56,14 @@ tolerance, and derive the number — do not pick it.
 - Kurtosis is **41.2**. Expect sharp single-day losses; size for them.
 - Margin has been tight: 83% utilisation at 2.09× gross on 2026-07-31.
 
-## Risk governance — currently disabled, and that is a live issue
+## Risk governance — measured, not armed, and that is a live issue
 
-All three sleeves' `risk_check` return OK unconditionally.
-`book_drawdown_suspend_pct` is 99.0 (effectively off). The frozen spec's declared
-`kill_drawdown` (0.18) and `halve_drawdown` (0.12) are read by **no code path**.
+All three sleeves' `risk_check` return OK unconditionally, and nothing calls them.
+`book_drawdown_suspend_pct` is 99.0 (effectively off), and nothing reads it. The
+frozen spec's `kill_drawdown` (0.18) and `halve_drawdown` (0.12) are read by the
+runner in **report mode only** since 2026-10-19 (`quantt/session/drawdown.py`):
+each decide records the drawdown on Alpaca's end-of-day equity and what HALVE or
+KILL would do, and acts on nothing.
 The justification in writing was "there is no real capital at risk" — a
 justification on a clock. The standing decision is to **arm HALVE/KILL on
 broker-confirmed NAV**. Note the units trap: a percent key here is a whole number,
