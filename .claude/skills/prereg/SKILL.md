@@ -40,6 +40,20 @@ it was not chosen**.
 - Turnover-matched against: <reference policy, turn/yr>
 - Negative control: <where the mechanism cannot operate>
 
+## 4b. Stage 0: its flags, its rulings file, and the block
+- Stage-0 flag table: <path>; key columns <e.g. check, ticker, date, source>,
+  unique per flag
+- Rulings file: `results/<family>/<trial>/<trial>_stage0_rulings_<date>.csv`
+  (the keys, then `ruling`, `ruled_by`, `ruled_on`; one row per flag;
+  `stage0_rulings_template` writes the blank form)
+- The block: the trial script calls `require_stage0_rulings`
+  (`scripts/cef/data_guards.py`) before it forms ANY P&L, fit or holdout,
+  and refuses, naming the flags, while any flag lacks a recorded ruling
+- Bar rulings (if the trial books yfinance closes through `yf_total_returns`
+  or `guard_closes`): `results/<family>/<trial>/<trial>_bar_rulings_<date>.json`.
+  Absent until a bar is ruled; the guard raises on any split-like
+  spike-and-revert bar without one
+
 ## 5. What we expect
 The numbers, with uncertainty. Being wrong here is fine and is the point.
 
@@ -71,6 +85,13 @@ Updated in docs/RESEARCH_STATE.md in this same commit: yes/no.
   for five weeks while the true figure was 48.
 - **Say which counter.** CEF and GAMMA (read from the table) each carry their own deflated-Sharpe
   bar; the combined book is judged on the joint record.
+- **Stage-0 flags block P&L (§4b; team lead, 2026-10-19).** Every pre-registration
+  declares its Stage-0 rulings file, and the trial script refuses to form P&L until
+  every flag has a ruling in it. A flag nobody has to answer is not a check. C4's
+  Stage 0 flagged IGR's four post-split-basis bars on 2026-10-14, and nobody ruled
+  on them. The holdout booked them on 2026-10-18, at a cost of −10.87% of capital
+  (`results/cef/DATA_GUARDS_2026-10-19.md`). A ruling may be "genuine, no action",
+  but someone must write it down, with their name and the date.
 - **Kill rules are pre-committed and not softened later.** The CEF book's is
   reviewed at 60 live sessions and not before: (a) live net Sharpe < 0; (b) realised
   slippage > 2× modelled for 5 consecutive sessions; (c) top-minus-bottom discount

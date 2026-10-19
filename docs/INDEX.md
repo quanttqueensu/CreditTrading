@@ -41,11 +41,13 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `.claude/rules/*.md` | desk | path-scoped rules loaded when matching files are opened | `ops.doc_audit` |
 | `.claude/skills/*/SKILL.md` | desk | one workflow each | `ops.doc_audit` (desk inventory) |
 | `.claude/agents/*.md` | desk | one specialist seat each | `ops.doc_audit` (desk inventory) |
+| `results/cef/DATA_GUARDS_2026-10-19.md` | reference | the research-path data guards every trial inherits (split-like spike-and-revert bars raise; Stage-0 flags block P&L until ruled), their rules, and what they found and touched | `scripts/cef/tests/test_data_guards.py` |
 
 **Not indexed, by design:** `results/**` (dated records, each true as of its date;
 `ops.doc_audit` checks their pre-registration shape) and runtime output written
-rather than authored — `results/ops/alpaca_probe/` and `ops/HALT*.md`. **Two
+rather than authored — `results/ops/alpaca_probe/` and `ops/HALT*.md`. **Three
 exceptions (2026-10-19):** a results note holding a decision still open for the team
 lead keeps a row until the decision is recorded in `docs/SYSTEM.md` (the first:
-CEFConnect); and a dated design note that later build work is written against gets a
-row (the first: the IBKR design).
+CEFConnect); a dated design note that later build work is written against gets a
+row (the first: the IBKR design); and a note defining guards every later trial
+inherits gets a row (the first: the data guards).

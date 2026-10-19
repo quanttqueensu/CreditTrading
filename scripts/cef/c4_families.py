@@ -32,7 +32,12 @@ rule). From 2025-01-02 (holdout only): r = (1 + r_px) k - 1 + D / P(t-1) on
 the yfinance close with yfinance dividends and splits, IGR's two split days
 from Alpaca. H15 on the P&L: a held weight that meets a name-day with no
 return RAISES (`check_held`); the zeros that replace the remaining NaNs
-multiply weights proved to be zero.
+multiply weights proved to be zero. Added 2026-10-19: the yfinance formula
+raises on a split-like spike-and-revert close (`data_guards.guard_closes`)
+unless a recorded ruling treats it; every call here passes `BAR_RULINGS`,
+which rebases IGR's four post-split-basis bars of 2026-07-29..08-11 (the
+team lead's ruling of 2026-10-19; result note §8). The committed holdout
+was computed before that ruling and booked them; it is not recomputed.
 
 THE HOLDOUT. `build_targets` runs on the full families panel (to 2026-10-09);
 its targets are causal (the row for t reads data through t only, H7), and the
@@ -107,6 +112,10 @@ DEPLOYED_FIRST = pd.Timestamp("2013-06-21")    # W4's first position (DG-C4-5 as
 # unmodified harness at 9d1d9ab, live panels of 2026-10-14 (cef_prices last 2026-09-28).
 # A later edit of the live panel changes it; then the no-op must be re-proved, not assumed.
 NOOP_SHA_PRE_EDIT = "007e221b574418095acae07c4ef7d1f650cc31c18ef05c3d4528d49867c37cdc"
+# The team lead's ruling of 2026-10-19 on IGR's four post-split-basis bars (result note §8): the
+# corrected book is trial 52's holdout verdict, so the return leg rebases them (close / 3). Every
+# call of `yf_total_returns` in this script passes it; without it the guard raises on the bars.
+BAR_RULINGS = OUT_DIR / "c4_bar_rulings_2026-10-19.json"
 
 FRESH = ("equity_domestic", "equity_sector", "equity_covered_call")    # the stale-NAV control (§8)
 FAMILIES = ("equity_domestic", "equity_sector", "equity_covered_call", "preferred", "multi_asset")
@@ -364,15 +373,35 @@ def crsp_pivot(crsp, cols, index, qr, col="ret", px=None, check_identity=True) -
     return c.pivot(index="date", columns="ticker", values=col).reindex(index=index, columns=list(cols))
 
 
-def yf_total_returns(px, cols, index, actions: Path | None = None) -> pd.DataFrame:
+def yf_total_returns(px, cols, index, actions: Path | None = None, rulings: Path | None = None,
+                     nav: pd.DataFrame | None = None) -> pd.DataFrame:
     """The declared yfinance-leg formula on every session of `index` (no outlier filter, no fill).
     `actions` (added 2026-10-18 for the holdout): a yfinance-schema actions file with the
-    amendment-4 resolutions applied; None is the families panel's own, unchanged."""
-    from scripts.cef.band_frontier import total_returns
+    amendment-4 resolutions applied; None is the families panel's own, unchanged.
+
+    THE SPIKE-AND-REVERT GUARD (added 2026-10-19, team lead's ruling; `scripts/cef/data_guards.py`).
+    Until then this function booked whatever close the panel held. IGR's four post-split-basis
+    bars of 2026-07-29..08-11 (about 14.2 inside a raw series near 4.7, NAV flat) went through as
+    +200% / -66.7% and cost the holdout -10.87% of capital (result note §8). Before any return is
+    formed, `guard_closes` scans `cols` for a close that jumps by a split-like factor and comes back
+    within five sessions while the NAV does not move, and RAISES naming every such (ticker, date,
+    ratio) whose run touches `index` -- unless `rulings`, a recorded rulings file, gives each one a
+    treatment (`rebase`: close / factor; `book_as_is`). The ruled closes feed the price return only;
+    a rebased close that is the prior close of an ex-date raises, because the yield's denominator is
+    read from the price file. With no bar in range the output is the old formula's, bit for bit.
+    `nav`: a long `date ticker nav` frame for the NAV test; None reads the families NAV panel, the
+    pair of the families price panel this formula is declared on."""
+    from scripts.cef.band_frontier import load_families_actions, total_returns
+    from scripts.cef.data_guards import guard_closes
+    act = FAM_DIR / "cef_actions.parquet" if actions is None else actions
     close = px.pivot_table(index="date", columns="ticker", values="close").sort_index()
+    nv = pd.read_parquet(FAM_DIR / "cef_nav.parquet") if nav is None else nav
+    nvw = nv.assign(date=pd.to_datetime(nv["date"])).pivot_table(index="date", columns="ticker", values="nav")
+    dist, spl = load_families_actions(act)
+    close, _ = guard_closes(close, cols=list(cols), lo=index[0], hi=index[-1], nav=nvw, splits=spl,
+                            ex_dates=dist, rulings=rulings, context="yf_total_returns")
     rpx = close.pct_change(fill_method=None).reindex(index=index, columns=list(cols))
-    return total_returns(rpx, actions=FAM_DIR / "cef_actions.parquet" if actions is None else actions,
-                         prices=FAM_DIR / "cef_prices.parquet")
+    return total_returns(rpx, actions=act, prices=FAM_DIR / "cef_prices.parquet")
 
 
 def primary_returns(pool, px, crsp, qr) -> tuple[pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
@@ -380,7 +409,7 @@ def primary_returns(pool, px, crsp, qr) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     close = px.pivot_table(index="date", columns="ticker", values="close").sort_index()
     sess = close.index[(close.index >= SAMPLE_START) & (close.index <= HOLDOUT_END)]
     cr = crsp_pivot(crsp, pool, sess, qr, px=px, check_identity=False)   # stage0 runs the check per window
-    yf_tr = yf_total_returns(px, pool, sess)
+    yf_tr = yf_total_returns(px, pool, sess, rulings=BAR_RULINGS)
     prim = pd.concat([cr.loc[:CRSP_END], yf_tr.loc[YF_START:]])
     if not prim.index.equals(sess):
         raise GateError("the CRSP and yfinance legs do not tile the session index at the seam")
@@ -1625,7 +1654,7 @@ def fit() -> int:
     # ---------------- robustness (reported; never chosen from; none rescues a failed headline)
     rob = [dict(row)]
     snap = U["snap68"]
-    yfR = yf_total_returns(px, pool, idx)
+    yfR = yf_total_returns(px, pool, idx, rulings=BAR_RULINGS)
     specs = [("R-68 (approved 68)", snap, R_ret, "M1M2", "capped", False),
              ("R-S (105 pool, shortability assumed)", pool, R_ret, "M1M2", "capped", True),
              ("R-G (no global allocation)", [t for t in UF if sub[t] != "global_allocation"], R_ret, "M1M2", "capped", False),
@@ -1831,7 +1860,7 @@ def holdout(rehearse: bool = False) -> int:
     fill, fchk = igr_fill(alp, px, sess)
 
     def assemble(actions):
-        yf = yf_total_returns(px, cols, sess, actions=actions)
+        yf = yf_total_returns(px, cols, sess, actions=actions, rulings=BAR_RULINGS)
         for d, v in fill.items():
             if pd.notna(yf.loc[d, "IGR"]):
                 raise GateError(f"IGR {d.date()} already has a yfinance return; the ruled fill does not apply")

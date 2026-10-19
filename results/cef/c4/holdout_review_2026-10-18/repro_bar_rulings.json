@@ -1,0 +1,17 @@
+{
+  "trial": "C4 (CEF trial 52), the 2026-10-18 review's reproduction (repro.py)",
+  "ruled_by": "data-guards build, 2026-10-19, under the coordinator's instruction to give each committed script that calls yf_total_returns a recorded ruling. This is NOT a ruling that the bars are genuine: the team lead ruled them defective (results/cef/c4/c4_bar_rulings_2026-10-19.json)",
+  "ruled_on": "2026-10-19",
+  "record": "results/cef/DATA_GUARDS_2026-10-19.md; results/cef/C4_RESULT_2026-10-14.md §8",
+  "ruling": "repro.py exists to reproduce the committed holdout P&L bit for bit, and that computation booked IGR's four post-split-basis bars as the panel held them. So this script, and only this script, books them as is.",
+  "bars": [
+    {"ticker": "IGR", "date": "2026-07-29", "run_end": "2026-07-29", "factor": 3, "treatment": "book_as_is",
+     "reason": "reproduces the committed holdout of 2026-10-18, which booked this bar; the verdict rebases it"},
+    {"ticker": "IGR", "date": "2026-08-04", "run_end": "2026-08-04", "factor": 3, "treatment": "book_as_is",
+     "reason": "reproduces the committed holdout of 2026-10-18, which booked this bar; the verdict rebases it"},
+    {"ticker": "IGR", "date": "2026-08-07", "run_end": "2026-08-07", "factor": 3, "treatment": "book_as_is",
+     "reason": "reproduces the committed holdout of 2026-10-18, which booked this bar; the verdict rebases it"},
+    {"ticker": "IGR", "date": "2026-08-11", "run_end": "2026-08-11", "factor": 3, "treatment": "book_as_is",
+     "reason": "reproduces the committed holdout of 2026-10-18, which booked this bar; the verdict rebases it"}
+  ]
+}
