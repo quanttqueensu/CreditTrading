@@ -1,0 +1,69 @@
+NAV-tender pre-registration: zero-trial counts (no price, no return, no CRSP)
+inputs: results/events/cef_corp_action_events.csv, results/events/edgar_cef_bdc_episodes.csv, results/events/conditional_tender_census.csv, results/events/cef_corp_action_summary.json (Alpaca read 2026-10-18); EDGAR last filing 2026-10-09
+IBKR shortstock file: 2026-10-19 10:59:08
+
+NAV tenders (census type nav_tender): 206; in the 44 (cef_universe.csv): 8
+
+== periods, the 44 excluded (proxy dates; Stage 0 re-dates from the filings) ==
+period      events groups merger_open pi_read late_doc programme episode_far no_hedge ibkr_hedge
+fit            138    123           4     114       25        26           8        0         11
+gap              1      1           0       1        0         0           0        0          0
+holdout         32     21           0      18        4        11           1        0          8
+after_crsp      27     17           0      24        1        17          10        0          6
+
+fit, no merger open at day 0: 134 events, 120 groups; of which pro-ration read 110
+events per group: max 5, groups with more than one event 9
+
+== fit events per day-0 year (44 excluded) ==
+  2010 8, 2011 10, 2012 15, 2013 8, 2014 9, 2015 5, 2016 6, 2017 17, 2018 8, 2019 16, 2020 14, 2021 12, 2022 10
+
+== fit events by asset class, with today's hedge route ==
+  high_yield    46  hedge HYG via alpaca
+  eq_us         17  hedge SPY via alpaca
+  eq_europe     15  hedge VGK via alpaca
+  muni          11  hedge MUB via ibkr (IBKR fee 7.73%/yr)
+  eq_em          9  hedge EEM via alpaca
+  energy_mlp     7  hedge AMLP via alpaca
+  eq_global      6  hedge ACWI via alpaca
+  loans          4  hedge BKLN via alpaca
+  eq_china       4  hedge FXI via alpaca
+  eq_india       4  hedge INDA via alpaca
+  multisector    4  hedge AGG via alpaca
+  eq_korea       3  hedge EWY via alpaca
+  eq_latam       3  hedge ILF via alpaca
+  eq_sector      3  hedge XLV via alpaca
+  eq_taiwan      1  hedge EWT via alpaca
+  preferred      1  hedge PFF via alpaca
+
+credit classes high_yield, loans, muni, multisector, preferred, em_debt, convertible: 66 fit events, 62 groups
+
+== fit events by day-0 form ==
+  SC TO-C 113, SC TO-I 24, SC TO-I/A 1
+== fit offers for >= 50% of shares: 10; price basis k% median 98.0 ==
+
+== the bar: fit P&L sessions T = 3264 (first day 0 2010-01-12, first P&L session 2010-01-14, to 2022-12-30) ==
+  N sqrt(2lnN) SR needed   P@0.4   P@0.9   P@1.6
+  1      0.000     0.457    0.42    0.94    1.00
+  2      1.177     0.785    0.08    0.66    1.00
+  3      1.482     0.869    0.05    0.54    1.00
+  4      1.665     0.920    0.03    0.47    0.99
+  5      1.794     0.956    0.02    0.42    0.99
+  6      1.893     0.984    0.02    0.38    0.99
+D4 alpha-t 3.0 needs an annual IR of 0.834; P(alpha t>=3 | IR 0.4) 0.06, P(alpha t>=3 | IR 0.9) 0.59, P(alpha t>=3 | IR 1.6) 1.00
+
+== per-event test power at G = 120 groups (ASSUMED mu and s; labelled [U] in the prereg) ==
+  mu %   s %  P(t>=2)  N_clusters
+  0.50   3.0     0.43         282
+  0.50   4.0     0.26         502
+  0.50   6.0     0.14        1129
+  1.14   3.0     0.98          54
+  1.14   4.0     0.87          97
+  1.14   6.0     0.53         217
+  2.14   3.0     1.00          15
+  2.14   4.0     1.00          27
+  2.14   6.0     0.97          62
+
+== holdout sign rule at G = 21 groups: P(holdout mean > 0) under the same ASSUMED mu, s ==
+  mu 0.50: s 3% 0.78, s 4% 0.72, s 6% 0.65
+  mu 1.14: s 3% 0.96, s 4% 0.90, s 6% 0.81
+  mu 2.14: s 3% 1.00, s 4% 0.99, s 6% 0.95
