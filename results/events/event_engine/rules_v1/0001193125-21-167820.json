@@ -1,0 +1,13 @@
+{
+ "accession": "0001193125-21-167820",
+ "triage": {
+  "kind": "none",
+  "fund_type": "closed_end_fund",
+  "doc_role": "prospectus",
+  "kind_span": "##### FILING 0001193125-21-167820 FORM 424B2"
+ },
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

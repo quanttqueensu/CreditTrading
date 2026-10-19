@@ -1,0 +1,50 @@
+{
+ "accession": "0001821268-21-000189",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001821268-21-000189 FORM N-14 8C"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common shares",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "aggregate net asset value that is equal",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": null,
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-08-24",
+     "span": "Meeting”) of Guggenheim Enhanced Equity Income Fund (“GPM”), Guggenheim Credit Allocation Fund (“GGM”) and\nGuggenheim Strategic Opportunities Fund (“GOF” and, together with GPM and GGM, the “Funds,” and each, a “Fund”), scheduled to be held on August 24, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-05-24",
+     "span": "of record as of the close of business on May 24, 2021",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from “Closed-End”",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

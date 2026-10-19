@@ -1,0 +1,68 @@
+{
+ "accession": "0000940394-21-001127",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "final_result",
+  "kind_span": "##### FILING 0000940394-21-001127 FORM SC TO-I/A"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares of Beneficial Interest, $.01 par value\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "99% of the net asset value",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 99.0,
+     "span": "99% of the net asset value",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {
+     "value": 60.0,
+     "span": "up to 60% or 22,719,965 of its issued and outstanding",
+     "doc_seq": "1"
+    },
+    "size_shares": {
+     "value": 22719965.0,
+     "span": "up to 60% or 22,719,965 of its issued and outstanding",
+     "doc_seq": "1"
+    },
+    "commencement_date": {
+     "value": "2021-06-29",
+     "span": "Offer to Purchase dated June 29, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": null,
+    "proration": {
+     "value": true,
+     "span": "Pro-Ration",
+     "doc_seq": "2"
+    },
+    "conditions": null,
+    "trigger_origin": {
+     "value": "activist_settlement",
+     "span": "Standstill Agreement",
+     "doc_seq": "1"
+    },
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

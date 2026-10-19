@@ -1,0 +1,54 @@
+{
+ "accession": "0001140361-21-031958",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "bdc",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001140361-21-031958 FORM 425"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "common stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "cash_and_stock",
+     "span": "0.44973 shares of Barings BDC common stock for each share",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": {
+     "value": 0.44973,
+     "span": "0.44973 shares of Barings BDC common stock for each share",
+     "doc_seq": "1"
+    },
+    "cash_per_share": {
+     "value": 0.98,
+     "span": "in cash, or approximately $0.98 per share",
+     "doc_seq": "1"
+    },
+    "collar": null,
+    "conditions": null,
+    "expected_close": {
+     "value": "first quarter of 2022",
+     "span": "expected to close in the first quarter of 2022",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “business development company”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

@@ -1,0 +1,70 @@
+{
+ "accession": "0001287032-21-000418",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "unknown",
+  "doc_role": "offer_document",
+  "kind_span": "##### FILING 0001287032-21-000418 FORM SC TO-I"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "notes",
+     "span": "4.95% Senior Convertible Notes due 2022\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_market",
+     "span": "95% of the market price",
+     "doc_seq": "2"
+    },
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": null,
+    "commencement_date": {
+     "value": "2021-08-26",
+     "span": "Offer to Purchase, dated August 26, 2021",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2021-09-24",
+     "span": "will expire at 12:00 midnight, New York City time, on September 24, 2021",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "Proration",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "market_disruption",
+      "legal_injunction",
+      "board_discretion",
+      "other"
+     ],
+     "spans": [
+      "• there has not occurred (a) any general suspension of, or limitation on prices for, trading in securities in the securities or financial markets, (b) a material impairment in the trading market for",
+      "ing or investigation (whether formal or informal), or there shall not have been any material adverse development to any action or proceeding currently instituted, threatened or pending, before or by any court, governmental, regulatory or administrative agency",
+      "The foregoing conditions are for the Company’s sole benefit and may be asserted by the Company in its sole discretion or may be waived by the Company in whole or in part, at any time and from time to time, in the Company’s sole discretio",
+      "among other things, their own assessment of the current market value of the Notes, liquidity needs and investment objectives."
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": null,
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from no phrase",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

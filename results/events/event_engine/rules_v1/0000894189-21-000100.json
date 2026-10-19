@@ -1,0 +1,64 @@
+{
+ "accession": "0000894189-21-000100",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0000894189-21-000100 FORM N-14"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "common stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "aggregate net asset value equal",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "regulatory_approval",
+      "registration_effective",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "To the knowledge of such counsel, no consent, approval, authorization or order of any court or governmental authority is required for the consummation by the Acquiring Entity of the transactions contemplated by this Agreement except such",
+      "The N-14 Registration Statement shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall have been issued and, to the best know",
+      "of fact between the date of this Agreement and the Closing, the Target Entity and the Acquiring Entity agree that such opinion shall state that the Reorganization will qualify as a “reorganization” under Section 368(a)(1) of the Code. The opinion is not a guarantee that the tax consequences of the Reorganization will be as described",
+      "hall have been obtained, except where failure to obtain any such consent, order or permit would not involve a risk of a material adverse effect on the assets or properties of the Acquiring Fund or the Target Fund, provided that either party hereto may for itself"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-03-23",
+     "span": "Meeting will be held on March 23, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-01-29",
+     "span": "of record as of the close of business on January 29, 2021",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “open-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

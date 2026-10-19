@@ -1,0 +1,56 @@
+{
+ "accession": "0000894189-21-001425",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "etf",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0000894189-21-001425 FORM N-14"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": null,
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "equal to the aggregate net asset value",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "regulatory_approval",
+      "registration_effective",
+      "tax_opinion",
+      "other"
+     ],
+     "spans": [
+      "(ii) to the knowledge of such counsel, no consent, approval, authorization or order of any court or Governmental Authority is required for the consummation by the Acquiring Trust or the Acquiring Fund of the transactions contemplated by the A",
+      "he continuous offering of Acquiring Fund Shares in Creation Units shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall have been issued and, to the best knowledge of the Acquiring Fund, no inves",
+      ") as a result of the closing of the tax year of the Target Fund, or (5) upon termination of a position. In addition, no opinion will be expressed as to any other federal, estate, gift, state, local, or foreign tax consequences that may result from the Reorganization.",
+      "hall have been obtained, except where failure to obtain any such consent, order or permit would not involve a risk of a material adverse effect on the assets or properties of the Acquiring Fund or the Target Fund, provided that either party hereto may for itself"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-05-12",
+     "span": "Meeting of Shareholders (the “Special Meeting”) of the American Customer Satisfaction ETF (the “Target Fund”), a series of ETF Series Solutions, is to be held on May 12, 2021",
+     "doc_seq": "1"
+    },
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from “ETF”",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

@@ -1,0 +1,1070 @@
+{
+ "pass_a": {
+  "reader": "pass_a",
+  "n_filings": 50,
+  "partial": false,
+  "input": "first 120000 characters (to a line break)",
+  "all_cells": {
+   "terms": {
+    "n": 585,
+    "gold_nonnull": 389,
+    "tp": 374,
+    "fp": 15,
+    "fn": 15,
+    "cell_accuracy": 0.9675213675213675,
+    "precision": 0.961439588688946,
+    "recall": 0.961439588688946
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 56,
+     "gold_nonnull": 34,
+     "tp": 34,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "date": {
+     "n": 114,
+     "gold_nonnull": 69,
+     "tp": 66,
+     "fp": 2,
+     "fn": 3,
+     "cell_accuracy": 0.956140350877193,
+     "precision": 0.9705882352941176,
+     "recall": 0.9565217391304348
+    },
+    "enum": {
+     "n": 115,
+     "gold_nonnull": 105,
+     "tp": 99,
+     "fp": 6,
+     "fn": 6,
+     "cell_accuracy": 0.9391304347826087,
+     "precision": 0.9428571428571428,
+     "recall": 0.9428571428571428
+    },
+    "number": {
+     "n": 164,
+     "gold_nonnull": 91,
+     "tp": 90,
+     "fp": 2,
+     "fn": 1,
+     "cell_accuracy": 0.9878048780487805,
+     "precision": 0.9782608695652174,
+     "recall": 0.989010989010989
+    },
+    "percent": {
+     "n": 76,
+     "gold_nonnull": 45,
+     "tp": 45,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "set": {
+     "n": 40,
+     "gold_nonnull": 31,
+     "tp": 26,
+     "fp": 5,
+     "fn": 5,
+     "cell_accuracy": 0.875,
+     "precision": 0.8387096774193549,
+     "recall": 0.8387096774193549
+    },
+    "text": {
+     "n": 20,
+     "gold_nonnull": 14,
+     "tp": 14,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 217,
+     "gold_nonnull": 112,
+     "tp": 107,
+     "fp": 7,
+     "fn": 5,
+     "cell_accuracy": 0.967741935483871,
+     "precision": 0.9385964912280702,
+     "recall": 0.9553571428571429
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 80,
+     "fp": 3,
+     "fn": 3,
+     "cell_accuracy": 0.9659090909090909,
+     "precision": 0.963855421686747,
+     "recall": 0.963855421686747
+    },
+    "T": {
+     "n": 280,
+     "gold_nonnull": 194,
+     "tp": 187,
+     "fp": 5,
+     "fn": 7,
+     "cell_accuracy": 0.9678571428571429,
+     "precision": 0.9739583333333334,
+     "recall": 0.9639175257731959
+    }
+   },
+   "triage": {
+    "triage.kind": 1.0,
+    "triage.fund_type": 1.0,
+    "triage.doc_role": 1.0
+   }
+  },
+  "recoverable_cells": {
+   "terms": {
+    "n": 549,
+    "gold_nonnull": 353,
+    "tp": 341,
+    "fp": 12,
+    "fn": 12,
+    "cell_accuracy": 0.970856102003643,
+    "precision": 0.9660056657223796,
+    "recall": 0.9660056657223796
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 55,
+     "gold_nonnull": 33,
+     "tp": 33,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "date": {
+     "n": 102,
+     "gold_nonnull": 57,
+     "tp": 54,
+     "fp": 2,
+     "fn": 3,
+     "cell_accuracy": 0.9509803921568627,
+     "precision": 0.9642857142857143,
+     "recall": 0.9473684210526315
+    },
+    "enum": {
+     "n": 110,
+     "gold_nonnull": 100,
+     "tp": 94,
+     "fp": 6,
+     "fn": 6,
+     "cell_accuracy": 0.9363636363636364,
+     "precision": 0.94,
+     "recall": 0.94
+    },
+    "number": {
+     "n": 162,
+     "gold_nonnull": 89,
+     "tp": 88,
+     "fp": 2,
+     "fn": 1,
+     "cell_accuracy": 0.9876543209876543,
+     "precision": 0.9777777777777777,
+     "recall": 0.9887640449438202
+    },
+    "percent": {
+     "n": 75,
+     "gold_nonnull": 44,
+     "tp": 44,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "set": {
+     "n": 26,
+     "gold_nonnull": 17,
+     "tp": 15,
+     "fp": 2,
+     "fn": 2,
+     "cell_accuracy": 0.9230769230769231,
+     "precision": 0.8823529411764706,
+     "recall": 0.8823529411764706
+    },
+    "text": {
+     "n": 19,
+     "gold_nonnull": 13,
+     "tp": 13,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 189,
+     "gold_nonnull": 84,
+     "tp": 82,
+     "fp": 4,
+     "fn": 2,
+     "cell_accuracy": 0.9788359788359788,
+     "precision": 0.9534883720930233,
+     "recall": 0.9761904761904762
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 80,
+     "fp": 3,
+     "fn": 3,
+     "cell_accuracy": 0.9659090909090909,
+     "precision": 0.963855421686747,
+     "recall": 0.963855421686747
+    },
+    "T": {
+     "n": 272,
+     "gold_nonnull": 186,
+     "tp": 179,
+     "fp": 5,
+     "fn": 7,
+     "cell_accuracy": 0.9669117647058824,
+     "precision": 0.9728260869565217,
+     "recall": 0.9623655913978495
+    }
+   },
+   "triage": {
+    "triage.kind": 1.0,
+    "triage.fund_type": 1.0,
+    "triage.doc_role": 1.0
+   }
+  },
+  "gold_values": 389,
+  "gold_values_recoverable": 353,
+  "span_checks": {
+   "values": 531,
+   "failures": 5,
+   "against": "the whole text",
+   "failed": [
+    {
+     "accession": "0001193125-21-084266",
+     "field": "subject_tickers",
+     "reason": "span_not_in_text",
+     "detail": "are listed on the New York Stock Exchange (the NYSE) under the symbol GDV"
+    },
+    {
+     "accession": "0001193125-21-084266",
+     "field": "security_class",
+     "reason": "span_not_in_text",
+     "detail": "offer to exchange up to 100% of the Issuers preferred shares, designated Series B Auction Market Preferred Shares"
+    },
+    {
+     "accession": "0001193125-21-084266",
+     "field": "expiration_date",
+     "reason": "span_not_in_text",
+     "detail": "The Exchange Offer will expire at 5:00 p.m., New York City time (the Expiration Time), on April 14, 2021, unless extende"
+    },
+    {
+     "accession": "0001193125-21-119537",
+     "field": "security_class",
+     "reason": "span_not_in_text",
+     "detail": "relating to the Issuers offer to exchange up to 100% of the Issuers preferred shares"
+    },
+    {
+     "accession": "0001193125-21-119537",
+     "field": "size_pct_outstanding",
+     "reason": "span_not_in_text",
+     "detail": "offer to exchange up to 100% of the Issuers preferred shares"
+    }
+   ]
+  }
+ },
+ "pass_b": {
+  "reader": "pass_b",
+  "n_filings": 50,
+  "partial": false,
+  "input": "first 120000 characters (to a line break)",
+  "all_cells": {
+   "terms": {
+    "n": 585,
+    "gold_nonnull": 389,
+    "tp": 381,
+    "fp": 9,
+    "fn": 8,
+    "cell_accuracy": 0.9829059829059829,
+    "precision": 0.9769230769230769,
+    "recall": 0.9794344473007712
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 56,
+     "gold_nonnull": 34,
+     "tp": 34,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "date": {
+     "n": 114,
+     "gold_nonnull": 69,
+     "tp": 69,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "enum": {
+     "n": 115,
+     "gold_nonnull": 105,
+     "tp": 104,
+     "fp": 0,
+     "fn": 1,
+     "cell_accuracy": 0.991304347826087,
+     "precision": 1.0,
+     "recall": 0.9904761904761905
+    },
+    "number": {
+     "n": 164,
+     "gold_nonnull": 91,
+     "tp": 91,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "percent": {
+     "n": 76,
+     "gold_nonnull": 45,
+     "tp": 45,
+     "fp": 2,
+     "fn": 0,
+     "cell_accuracy": 0.9736842105263158,
+     "precision": 0.9574468085106383,
+     "recall": 1.0
+    },
+    "set": {
+     "n": 40,
+     "gold_nonnull": 31,
+     "tp": 24,
+     "fp": 7,
+     "fn": 7,
+     "cell_accuracy": 0.825,
+     "precision": 0.7741935483870968,
+     "recall": 0.7741935483870968
+    },
+    "text": {
+     "n": 20,
+     "gold_nonnull": 14,
+     "tp": 14,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 217,
+     "gold_nonnull": 112,
+     "tp": 105,
+     "fp": 7,
+     "fn": 7,
+     "cell_accuracy": 0.967741935483871,
+     "precision": 0.9375,
+     "recall": 0.9375
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 83,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "T": {
+     "n": 280,
+     "gold_nonnull": 194,
+     "tp": 193,
+     "fp": 2,
+     "fn": 1,
+     "cell_accuracy": 0.9892857142857143,
+     "precision": 0.9897435897435898,
+     "recall": 0.9948453608247423
+    }
+   },
+   "triage": {
+    "triage.kind": 1.0,
+    "triage.fund_type": 1.0,
+    "triage.doc_role": 0.98
+   }
+  },
+  "recoverable_cells": {
+   "terms": {
+    "n": 549,
+    "gold_nonnull": 353,
+    "tp": 350,
+    "fp": 4,
+    "fn": 3,
+    "cell_accuracy": 0.9908925318761385,
+    "precision": 0.9887005649717514,
+    "recall": 0.9915014164305949
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 55,
+     "gold_nonnull": 33,
+     "tp": 33,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "date": {
+     "n": 102,
+     "gold_nonnull": 57,
+     "tp": 57,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "enum": {
+     "n": 110,
+     "gold_nonnull": 100,
+     "tp": 99,
+     "fp": 0,
+     "fn": 1,
+     "cell_accuracy": 0.990909090909091,
+     "precision": 1.0,
+     "recall": 0.99
+    },
+    "number": {
+     "n": 162,
+     "gold_nonnull": 89,
+     "tp": 89,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "percent": {
+     "n": 75,
+     "gold_nonnull": 44,
+     "tp": 44,
+     "fp": 2,
+     "fn": 0,
+     "cell_accuracy": 0.9733333333333334,
+     "precision": 0.9565217391304348,
+     "recall": 1.0
+    },
+    "set": {
+     "n": 26,
+     "gold_nonnull": 17,
+     "tp": 15,
+     "fp": 2,
+     "fn": 2,
+     "cell_accuracy": 0.9230769230769231,
+     "precision": 0.8823529411764706,
+     "recall": 0.8823529411764706
+    },
+    "text": {
+     "n": 19,
+     "gold_nonnull": 13,
+     "tp": 13,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 189,
+     "gold_nonnull": 84,
+     "tp": 82,
+     "fp": 2,
+     "fn": 2,
+     "cell_accuracy": 0.9894179894179894,
+     "precision": 0.9761904761904762,
+     "recall": 0.9761904761904762
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 83,
+     "fp": 0,
+     "fn": 0,
+     "cell_accuracy": 1.0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "T": {
+     "n": 272,
+     "gold_nonnull": 186,
+     "tp": 185,
+     "fp": 2,
+     "fn": 1,
+     "cell_accuracy": 0.9889705882352942,
+     "precision": 0.9893048128342246,
+     "recall": 0.9946236559139785
+    }
+   },
+   "triage": {
+    "triage.kind": 1.0,
+    "triage.fund_type": 1.0,
+    "triage.doc_role": 0.98
+   }
+  },
+  "gold_values": 389,
+  "gold_values_recoverable": 353,
+  "span_checks": {
+   "values": 531,
+   "failures": 2,
+   "against": "the whole text",
+   "failed": [
+    {
+     "accession": "0001193125-21-119537",
+     "field": "proration_factor_pct",
+     "reason": "value_not_in_span",
+     "detail": "100 vs 'all 6,105 Auction Rate Preferred Shares, representing 95.8% of the outstanding Auction Rate Preferred Shares on the Expi'"
+    },
+    {
+     "accession": "0000940394-21-001127",
+     "field": "proration_factor_pct",
+     "reason": "value_not_in_span",
+     "detail": "100 vs 'EFT, EFR and EVF will purchase all shares properly tendered'"
+    }
+   ]
+  }
+ },
+ "rules_v1": {
+  "reader": "rules_v1",
+  "n_filings": 50,
+  "partial": false,
+  "input": "first 120000 characters (to a line break)",
+  "all_cells": {
+   "terms": {
+    "n": 585,
+    "gold_nonnull": 389,
+    "tp": 237,
+    "fp": 50,
+    "fn": 152,
+    "cell_accuracy": 0.7264957264957265,
+    "precision": 0.8257839721254355,
+    "recall": 0.609254498714653
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 56,
+     "gold_nonnull": 34,
+     "tp": 32,
+     "fp": 6,
+     "fn": 2,
+     "cell_accuracy": 0.875,
+     "precision": 0.8421052631578947,
+     "recall": 0.9411764705882353
+    },
+    "date": {
+     "n": 114,
+     "gold_nonnull": 69,
+     "tp": 43,
+     "fp": 8,
+     "fn": 26,
+     "cell_accuracy": 0.7631578947368421,
+     "precision": 0.8431372549019608,
+     "recall": 0.6231884057971014
+    },
+    "enum": {
+     "n": 115,
+     "gold_nonnull": 105,
+     "tp": 80,
+     "fp": 11,
+     "fn": 25,
+     "cell_accuracy": 0.782608695652174,
+     "precision": 0.8791208791208791,
+     "recall": 0.7619047619047619
+    },
+    "number": {
+     "n": 164,
+     "gold_nonnull": 91,
+     "tp": 40,
+     "fp": 2,
+     "fn": 51,
+     "cell_accuracy": 0.676829268292683,
+     "precision": 0.9523809523809523,
+     "recall": 0.43956043956043955
+    },
+    "percent": {
+     "n": 76,
+     "gold_nonnull": 45,
+     "tp": 34,
+     "fp": 3,
+     "fn": 11,
+     "cell_accuracy": 0.8552631578947368,
+     "precision": 0.918918918918919,
+     "recall": 0.7555555555555555
+    },
+    "set": {
+     "n": 40,
+     "gold_nonnull": 31,
+     "tp": 3,
+     "fp": 19,
+     "fn": 28,
+     "cell_accuracy": 0.3,
+     "precision": 0.13636363636363635,
+     "recall": 0.0967741935483871
+    },
+    "text": {
+     "n": 20,
+     "gold_nonnull": 14,
+     "tp": 5,
+     "fp": 1,
+     "fn": 9,
+     "cell_accuracy": 0.55,
+     "precision": 0.8333333333333334,
+     "recall": 0.35714285714285715
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 217,
+     "gold_nonnull": 112,
+     "tp": 47,
+     "fp": 24,
+     "fn": 65,
+     "cell_accuracy": 0.6728110599078341,
+     "precision": 0.6619718309859155,
+     "recall": 0.41964285714285715
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 69,
+     "fp": 4,
+     "fn": 14,
+     "cell_accuracy": 0.8409090909090909,
+     "precision": 0.9452054794520548,
+     "recall": 0.8313253012048193
+    },
+    "T": {
+     "n": 280,
+     "gold_nonnull": 194,
+     "tp": 121,
+     "fp": 22,
+     "fn": 73,
+     "cell_accuracy": 0.7321428571428571,
+     "precision": 0.8461538461538461,
+     "recall": 0.6237113402061856
+    }
+   },
+   "triage": {
+    "triage.kind": 0.98,
+    "triage.fund_type": 0.84,
+    "triage.doc_role": 0.94
+   }
+  },
+  "recoverable_cells": {
+   "terms": {
+    "n": 549,
+    "gold_nonnull": 353,
+    "tp": 226,
+    "fp": 37,
+    "fn": 127,
+    "cell_accuracy": 0.7540983606557377,
+    "precision": 0.8593155893536122,
+    "recall": 0.6402266288951841
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 55,
+     "gold_nonnull": 33,
+     "tp": 32,
+     "fp": 6,
+     "fn": 1,
+     "cell_accuracy": 0.8909090909090909,
+     "precision": 0.8421052631578947,
+     "recall": 0.9696969696969697
+    },
+    "date": {
+     "n": 102,
+     "gold_nonnull": 57,
+     "tp": 36,
+     "fp": 8,
+     "fn": 21,
+     "cell_accuracy": 0.7843137254901961,
+     "precision": 0.8181818181818182,
+     "recall": 0.631578947368421
+    },
+    "enum": {
+     "n": 110,
+     "gold_nonnull": 100,
+     "tp": 76,
+     "fp": 10,
+     "fn": 24,
+     "cell_accuracy": 0.7818181818181819,
+     "precision": 0.8837209302325582,
+     "recall": 0.76
+    },
+    "number": {
+     "n": 162,
+     "gold_nonnull": 89,
+     "tp": 40,
+     "fp": 2,
+     "fn": 49,
+     "cell_accuracy": 0.6851851851851852,
+     "precision": 0.9523809523809523,
+     "recall": 0.449438202247191
+    },
+    "percent": {
+     "n": 75,
+     "gold_nonnull": 44,
+     "tp": 34,
+     "fp": 3,
+     "fn": 10,
+     "cell_accuracy": 0.8666666666666667,
+     "precision": 0.918918918918919,
+     "recall": 0.7727272727272727
+    },
+    "set": {
+     "n": 26,
+     "gold_nonnull": 17,
+     "tp": 3,
+     "fp": 7,
+     "fn": 14,
+     "cell_accuracy": 0.46153846153846156,
+     "precision": 0.3,
+     "recall": 0.17647058823529413
+    },
+    "text": {
+     "n": 19,
+     "gold_nonnull": 13,
+     "tp": 5,
+     "fp": 1,
+     "fn": 8,
+     "cell_accuracy": 0.5789473684210527,
+     "precision": 0.8333333333333334,
+     "recall": 0.38461538461538464
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 189,
+     "gold_nonnull": 84,
+     "tp": 41,
+     "fp": 12,
+     "fn": 43,
+     "cell_accuracy": 0.7407407407407407,
+     "precision": 0.7735849056603774,
+     "recall": 0.4880952380952381
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 69,
+     "fp": 4,
+     "fn": 14,
+     "cell_accuracy": 0.8409090909090909,
+     "precision": 0.9452054794520548,
+     "recall": 0.8313253012048193
+    },
+    "T": {
+     "n": 272,
+     "gold_nonnull": 186,
+     "tp": 116,
+     "fp": 21,
+     "fn": 70,
+     "cell_accuracy": 0.7352941176470589,
+     "precision": 0.8467153284671532,
+     "recall": 0.6236559139784946
+    }
+   },
+   "triage": {
+    "triage.kind": 0.98,
+    "triage.fund_type": 0.84,
+    "triage.doc_role": 0.94
+   }
+  },
+  "gold_values": 389,
+  "gold_values_recoverable": 353,
+  "span_checks": {
+   "values": 287,
+   "failures": 0,
+   "against": "the whole text",
+   "failed": []
+  }
+ },
+ "rules_v2": {
+  "reader": "rules_v2",
+  "n_filings": 50,
+  "partial": false,
+  "input": "first 120000 characters (to a line break)",
+  "all_cells": {
+   "terms": {
+    "n": 585,
+    "gold_nonnull": 389,
+    "tp": 256,
+    "fp": 33,
+    "fn": 133,
+    "cell_accuracy": 0.7675213675213676,
+    "precision": 0.8858131487889274,
+    "recall": 0.6580976863753213
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 56,
+     "gold_nonnull": 34,
+     "tp": 32,
+     "fp": 1,
+     "fn": 2,
+     "cell_accuracy": 0.9464285714285714,
+     "precision": 0.9696969696969697,
+     "recall": 0.9411764705882353
+    },
+    "date": {
+     "n": 114,
+     "gold_nonnull": 69,
+     "tp": 55,
+     "fp": 1,
+     "fn": 14,
+     "cell_accuracy": 0.868421052631579,
+     "precision": 0.9821428571428571,
+     "recall": 0.7971014492753623
+    },
+    "enum": {
+     "n": 115,
+     "gold_nonnull": 105,
+     "tp": 85,
+     "fp": 8,
+     "fn": 20,
+     "cell_accuracy": 0.8260869565217391,
+     "precision": 0.9139784946236559,
+     "recall": 0.8095238095238095
+    },
+    "number": {
+     "n": 164,
+     "gold_nonnull": 91,
+     "tp": 43,
+     "fp": 1,
+     "fn": 48,
+     "cell_accuracy": 0.7012195121951219,
+     "precision": 0.9772727272727273,
+     "recall": 0.4725274725274725
+    },
+    "percent": {
+     "n": 76,
+     "gold_nonnull": 45,
+     "tp": 34,
+     "fp": 3,
+     "fn": 11,
+     "cell_accuracy": 0.8552631578947368,
+     "precision": 0.918918918918919,
+     "recall": 0.7555555555555555
+    },
+    "set": {
+     "n": 40,
+     "gold_nonnull": 31,
+     "tp": 3,
+     "fp": 18,
+     "fn": 28,
+     "cell_accuracy": 0.3,
+     "precision": 0.14285714285714285,
+     "recall": 0.0967741935483871
+    },
+    "text": {
+     "n": 20,
+     "gold_nonnull": 14,
+     "tp": 4,
+     "fp": 1,
+     "fn": 10,
+     "cell_accuracy": 0.5,
+     "precision": 0.8,
+     "recall": 0.2857142857142857
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 217,
+     "gold_nonnull": 112,
+     "tp": 46,
+     "fp": 16,
+     "fn": 66,
+     "cell_accuracy": 0.6912442396313364,
+     "precision": 0.7419354838709677,
+     "recall": 0.4107142857142857
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 75,
+     "fp": 4,
+     "fn": 8,
+     "cell_accuracy": 0.9090909090909091,
+     "precision": 0.9493670886075949,
+     "recall": 0.9036144578313253
+    },
+    "T": {
+     "n": 280,
+     "gold_nonnull": 194,
+     "tp": 135,
+     "fp": 13,
+     "fn": 59,
+     "cell_accuracy": 0.7821428571428571,
+     "precision": 0.9121621621621622,
+     "recall": 0.6958762886597938
+    }
+   },
+   "triage": {
+    "triage.kind": 0.98,
+    "triage.fund_type": 0.92,
+    "triage.doc_role": 1.0
+   }
+  },
+  "recoverable_cells": {
+   "terms": {
+    "n": 549,
+    "gold_nonnull": 353,
+    "tp": 244,
+    "fp": 22,
+    "fn": 109,
+    "cell_accuracy": 0.7959927140255009,
+    "precision": 0.9172932330827067,
+    "recall": 0.6912181303116147
+   },
+   "by_dtype": {
+    "bool": {
+     "n": 55,
+     "gold_nonnull": 33,
+     "tp": 32,
+     "fp": 1,
+     "fn": 1,
+     "cell_accuracy": 0.9636363636363636,
+     "precision": 0.9696969696969697,
+     "recall": 0.9696969696969697
+    },
+    "date": {
+     "n": 102,
+     "gold_nonnull": 57,
+     "tp": 48,
+     "fp": 1,
+     "fn": 9,
+     "cell_accuracy": 0.9019607843137255,
+     "precision": 0.9795918367346939,
+     "recall": 0.8421052631578947
+    },
+    "enum": {
+     "n": 110,
+     "gold_nonnull": 100,
+     "tp": 80,
+     "fp": 8,
+     "fn": 20,
+     "cell_accuracy": 0.8181818181818182,
+     "precision": 0.9090909090909091,
+     "recall": 0.8
+    },
+    "number": {
+     "n": 162,
+     "gold_nonnull": 89,
+     "tp": 43,
+     "fp": 1,
+     "fn": 46,
+     "cell_accuracy": 0.7098765432098766,
+     "precision": 0.9772727272727273,
+     "recall": 0.48314606741573035
+    },
+    "percent": {
+     "n": 75,
+     "gold_nonnull": 44,
+     "tp": 34,
+     "fp": 3,
+     "fn": 10,
+     "cell_accuracy": 0.8666666666666667,
+     "precision": 0.918918918918919,
+     "recall": 0.7727272727272727
+    },
+    "set": {
+     "n": 26,
+     "gold_nonnull": 17,
+     "tp": 3,
+     "fp": 7,
+     "fn": 14,
+     "cell_accuracy": 0.46153846153846156,
+     "precision": 0.3,
+     "recall": 0.17647058823529413
+    },
+    "text": {
+     "n": 19,
+     "gold_nonnull": 13,
+     "tp": 4,
+     "fp": 1,
+     "fn": 9,
+     "cell_accuracy": 0.5263157894736842,
+     "precision": 0.8,
+     "recall": 0.3076923076923077
+    }
+   },
+   "by_stratum": {
+    "M": {
+     "n": 189,
+     "gold_nonnull": 84,
+     "tp": 39,
+     "fp": 6,
+     "fn": 45,
+     "cell_accuracy": 0.7566137566137566,
+     "precision": 0.8666666666666667,
+     "recall": 0.4642857142857143
+    },
+    "R": {
+     "n": 88,
+     "gold_nonnull": 83,
+     "tp": 75,
+     "fp": 4,
+     "fn": 8,
+     "cell_accuracy": 0.9090909090909091,
+     "precision": 0.9493670886075949,
+     "recall": 0.9036144578313253
+    },
+    "T": {
+     "n": 272,
+     "gold_nonnull": 186,
+     "tp": 130,
+     "fp": 12,
+     "fn": 56,
+     "cell_accuracy": 0.7867647058823529,
+     "precision": 0.9154929577464789,
+     "recall": 0.6989247311827957
+    }
+   },
+   "triage": {
+    "triage.kind": 0.98,
+    "triage.fund_type": 0.92,
+    "triage.doc_role": 1.0
+   }
+  },
+  "gold_values": 389,
+  "gold_values_recoverable": 353,
+  "span_checks": {
+   "values": 294,
+   "failures": 0,
+   "against": "the whole text",
+   "failed": []
+  }
+ }
+}

@@ -1,0 +1,48 @@
+{
+ "accession": "0001193125-21-246408",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001193125-21-246408 FORM SC TO-C"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common shares of beneficial interest, par value $0.001\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "95% of the net asset value",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 95.0,
+     "span": "95% of the net asset value",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": null,
+    "commencement_date": null,
+    "expiration_date": null,
+    "proration": null,
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

@@ -1,0 +1,54 @@
+{
+ "accession": "0001193125-21-196361",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001193125-21-196361 FORM N-14 8C"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "equal to the aggregate net asset value",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "registration_effective"
+     ],
+     "spans": [
+      "If the shareholder approvals and other conditions to closing are satisfied (or waived), the Reorganizations are expected to take effect",
+      "no-action",
+      "8.4 The Registration Statement shall\nhave become effective under the 1933 Act, and no stop orders suspending the effectiveness thereof shall have been issued. To the best knowled"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

@@ -1,0 +1,42 @@
+{
+ "accession": "0001193125-21-295498",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001193125-21-295498 FORM N-14 8C"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "aggregate net asset value at least equal",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": null,
+    "expected_close": null,
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

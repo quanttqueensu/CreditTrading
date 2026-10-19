@@ -1,0 +1,70 @@
+{
+ "accession": "0001193125-21-358275",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "unknown",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001193125-21-358275 FORM N-14 8C"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "fixed_ratio",
+     "span": "0.7763 shares of SLRC Common Stock for each share",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": {
+     "value": 0.7763,
+     "span": "0.7763 shares of SLRC Common Stock for each share",
+     "doc_seq": "1"
+    },
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "registration_effective",
+      "tax_opinion",
+      "legal_injunction",
+      "ric_or_tax_status",
+      "other"
+     ],
+     "spans": [
+      ", the Closing is conditioned on (i) SUNS Stockholder approval of the Merger Proposal, (ii) SLRC Stockholder approval of the Merger Stock Issuance Proposal and (iii) satisfaction o",
+      "all regulatory approvals required by applicable law to consummate the transactions contemplated by the Merger",
+      "the registration statement, of which this joint proxy statement/prospectus forms a part, has become effective and",
+      "SLRC and SUNS have received the opinion of Katten substantially to the effect that, on the basis of facts,\nrepresentations and assumptions set forth in such opinion, the Mergers will be treated as a reorganization within the meaning of Section 368(a) of the Code.",
+      "No Injunctions or Restraints; Illegality",
+      "Investment Company Act. SLRC has qualified and elected to be treated as a regulated investment company (RIC) under the Code for U.S. federal income tax purposes.",
+      "SLRCs investment objective is to generate both current income and capital appreciation through debt and equity investments. SLRC invests primarily"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": {
+     "value": "2022-12-01",
+     "span": "has not been completed on or before December 1, 2022",
+     "doc_seq": "1"
+    },
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from no phrase",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

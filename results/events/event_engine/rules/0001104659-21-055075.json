@@ -1,0 +1,66 @@
+{
+ "accession": "0001104659-21-055075",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "unknown",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001104659-21-055075 FORM 425"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "fixed_ratio",
+     "span": "Exchange Ratio of 0.52",
+     "doc_seq": "2"
+    },
+    "exchange_ratio": {
+     "value": 0.52,
+     "span": "Exchange Ratio of 0.52",
+     "doc_seq": "2"
+    },
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "tax_opinion",
+      "legal_injunction",
+      "other"
+     ],
+     "spans": [
+      "shall not be waivable after receipt of the RMRM Shareholder Approval, unless further shareholder approval",
+      "involving, any Governmental Authority.",
+      "Exhibit I – Form of TRMT REIT Tax Opinion\n\nExhibit J – Form of RMRM Reorganization Opinion\n\nExhibit K – Form of RMRM REIT Tax Opinion",
+      "to avoid an action or proceeding by, any Governmental Authority or other Persons necessary in connection with the consummation of the",
+      "(in the case of any representation or warranty qualified by materiality or TRMT Material Adverse Effect) or in all material respects"
+     ],
+     "doc_seq": "2"
+    },
+    "expected_close": {
+     "value": "third quarter of 2021",
+     "span": "expected to close in the third quarter of 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from no phrase",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

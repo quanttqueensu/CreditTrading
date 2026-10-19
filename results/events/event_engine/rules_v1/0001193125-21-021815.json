@@ -1,0 +1,31 @@
+{
+ "accession": "0001193125-21-021815",
+ "triage": {
+  "kind": "equity_mna",
+  "fund_type": "reit",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001193125-21-021815 FORM 425"
+ },
+ "events": [
+  {
+   "kind": "equity_mna",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": null,
+    "acquirer": null,
+    "target": null,
+    "cash_per_share": null,
+    "exchange_ratio": null,
+    "collar": null,
+    "conditions": null,
+    "expected_close": null,
+    "termination_date": null,
+    "termination_fee": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “real estate investment trust”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

@@ -1,0 +1,74 @@
+{
+ "accession": "0001140361-21-035928",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "unknown",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001140361-21-035928 FORM N-14 8C"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "cash_and_stock",
+     "span": "Exchange Ratio of 0.44973",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": {
+     "value": 0.44973,
+     "span": "Exchange Ratio of 0.44973",
+     "doc_seq": "1"
+    },
+    "cash_per_share": {
+     "value": 0.9783641,
+     "span": "$0.9783641 per share in cash",
+     "doc_seq": "1"
+    },
+    "collar": null,
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "registration_effective",
+      "tax_opinion",
+      "listing",
+      "ric_or_tax_status",
+      "other"
+     ],
+     "spans": [
+      "the first quarter of 2022. It is currently expected that the Merger will be completed promptly following receipt of the stockholder approvals at the Barings BDC Special Meeting and the Sierra Special Meeting and satisfaction (or to the extent legally permitt",
+      "no governmental authority of competent jurisdiction shall have promulgated, issued or entered any law or order which is then in effect and has th",
+      "tatement/prospectus is a part) shall have become effective under the Securities Act and shall not be the subject of any stop order or proceedings seeking a stop order;",
+      "Sierra shall have received the written opinion of S&W (or, if S&W is unable to deliver such an opinion, of such other nationally recognized tax counsel reasonably satisfactory to Sierra and Barings BDC) to the effect that the Merger will qualify for the intended",
+      "its best efforts to cause the shares of Barings BDC Common Stock to be issued in connection with the First Merger to be approved for listing on the NYSE, subject to official notice of issuance, at or prior to the closing of the Merger.",
+      "ar or any prior tax year, or any other dividend or distribution necessary for Sierra to maintain its qualification as a RIC, as reasonably determined by Sierra.",
+      "since the date of the Merger Agreement, there shall not have occurred and be continuing any material adverse effect with respect to Sierra; and"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": null,
+    "termination_date": {
+     "value": "2022-03-31",
+     "span": "has not occurred by March 31, 2022",
+     "doc_seq": "1"
+    },
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from no phrase",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

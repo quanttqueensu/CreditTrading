@@ -1,0 +1,68 @@
+{
+ "accession": "0001213900-21-054259",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001213900-21-054259 FORM N-14 8C"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "fixed_ratio",
+     "span": "1.32 shares of KYN for each share",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": {
+     "value": 1.32,
+     "span": "1.32 shares of KYN for each share",
+     "doc_seq": "1"
+    },
+    "cash_per_share": null,
+    "collar": {
+     "value": true,
+     "span": "collar",
+     "doc_seq": "12"
+    },
+    "conditions": {
+     "value": [
+      "regulatory_approval",
+      "registration_effective"
+     ],
+     "spans": [
+      "and all presented in a manner acceptable to the Securities and Exchange Commission or any successor or analogous Governmental Authority",
+      "The Registration Statement shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall"
+     ],
+     "doc_seq": "13"
+    },
+    "expected_close": {
+     "value": "first quarter of fiscal 2022",
+     "span": "expected to occur during the first quarter\nof fiscal 2022",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": {
+     "value": "2021-10-29",
+     "span": "October\n29, 2021 (the “Record Date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “closed-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

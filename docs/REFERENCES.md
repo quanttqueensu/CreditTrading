@@ -1509,3 +1509,21 @@ The sources behind `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`.
 | Mitchell, Pulvino & Stafford (2004), *JF* 59(1): nearly half of a stock acquirer's negative announcement return is arbitrage short-selling pressure | §12aa | [S] here ([V] abstract there) |
 | The research decision time and the EDGAR filing-date rule (a filing accepted after 17:30 ET is dated, and disseminated, the next business day) | `results/events/EVENT_ENGINE_DESIGN_2026-10-15.md` §4; §12z; 17 CFR 232.13 via §12g | [S] here |
 | **Team lead rulings, 2026-10-19**: spend an EVENTS trial on E1, IBKR's borrow admissible for the short leg; open IBKR as a second broker, equities only | `docs/SYSTEM.md` §5 on `main` at `94bca4a` (not on the draft's base `832aeaa`) | internal record |
+
+### 12aj. The event engine's free pilot: rules baseline and subagent pilot (added 2026-10-19)
+
+The sources behind `results/events/EVENT_ENGINE_PILOT_2026-10-19.md`.
+
+- **Zero trials.**
+- **No API call, no key, no network.** Every input is the 50 EDGAR texts and
+  submissions cached on 2026-10-15 for §12z. Each text was checked against
+  `sample_manifest.csv`'s sha256 (50 of 50), and so was a re-render of each
+  raw submission.
+
+| claim / source | where | status |
+|---|---|---|
+| **The rules read the filings' own cover conventions.** These are the Schedule TO cover's "Check the following box if the filing is a final amendment reporting the results of the tender offer" (printed with `[x]`, `[X]` or `☒`, after or before the label), its "(Title of Class of Securities)" caption, and the 424B rights covers' "(the "Record Date")" and "Subscription Price" wording. They were read in the 25 dev filings only | the sample's EDGAR filings (accessions in `results/events/event_engine/sample_manifest.csv`; split in `scripts/events/event_engine_rules.py::split`) | [V] for those filings; other filers' typesetting [U] |
+| **The gold was built by Claude Opus 5.5 readers and adjudicated by the same model.** Two blind passes were reconciled with written decisions, and 40 agreed cells were spot-checked by the same model (39 right) | `results/events/EVENT_ENGINE_DESIGN_2026-10-15.md` §7.2; `scripts/events/event_engine_reconcile.py` | [V] as recorded there |
+| **Subagent models are chosen by alias.** The Agent tool's `model` parameter accepts `haiku`, `sonnet` and `opus`; which model version an alias serves on the subscription is not stated | the Agent tool schema exposed to this session, 2026-10-19 | [V] for the schema; the served version [U] (the collector records each batch's self-reported model ID) |
+| **Tokens per character.** The pilot's batch sizes reuse §12z's estimate of 2.69 characters a token; nothing was counted | §12z; `scripts/events/event_engine_score.py` (`CHARS_PER_TOKEN`) | [S] |
+| **The Read tool and very long lines.** Part files wrap lines over 1,000 characters at a space, as a precaution against truncation. Whether the tool truncates, and at what length, was not checked | `scripts/events/event_engine_pilot.py` (`WRAP_AT`) | [U] |

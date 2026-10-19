@@ -1,0 +1,56 @@
+{
+ "accession": "0001104659-21-012810",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001104659-21-012810 FORM N-14"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Stock",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "based on the net asset value of",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": [
+      "registration_effective",
+      "other"
+     ],
+     "spans": [
+      "Registration Statement shall have become effective under the 1933 Act and no stop orders suspending the effectiveness thereof shall",
+      "material adverse effect on the assets or properties of the Acquiring Fund or the Acquired Fund, provided that either party hereto"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about April 26, 2021",
+     "span": "expected to occur on or about April 26, 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “open-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

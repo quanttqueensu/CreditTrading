@@ -1,0 +1,46 @@
+{
+ "accession": "0001193125-21-048962",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "##### FILING 0001193125-21-048962 FORM N-14"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "other",
+     "span": "Institutional Class",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "targets": null,
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "aggregate net asset value of the shares you\nreceive in the Reorganization relating to the Target Fund will be equal",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": null,
+    "expected_close": {
+     "value": "on or about April 29, 2021",
+     "span": "expected to occur on or about April 29, 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “open-end”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}

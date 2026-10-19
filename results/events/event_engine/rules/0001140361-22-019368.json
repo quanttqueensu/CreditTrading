@@ -1,0 +1,64 @@
+{
+ "accession": "0001140361-22-019368",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "unknown",
+  "doc_role": "final_result",
+  "kind_span": "##### FILING 0001140361-22-019368 FORM SC TO-I/A"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "(Names of filing Persons (Offeror and Issuer))\n\nCommon Stock,\n\nPar Value $0.001 per share\n\n(Title of Class of Securities)",
+     "doc_seq": "1"
+    },
+    "price_basis": {
+     "value": "pct_of_nav",
+     "span": "amount equal to the net asset value per Share",
+     "doc_seq": "1"
+    },
+    "price_pct_nav": {
+     "value": 100.0,
+     "span": "amount equal to the net asset value per Share",
+     "doc_seq": "1"
+    },
+    "nav_pricing_date": null,
+    "size_pct_outstanding": null,
+    "size_shares": null,
+    "commencement_date": {
+     "value": "2022-03-31",
+     "span": "Offer to Purchase, dated March 31, 2022",
+     "doc_seq": "1"
+    },
+    "expiration_date": {
+     "value": "2022-04-29",
+     "span": "expired at 4:00 P.M., Eastern Time,\non April 29, 2022",
+     "doc_seq": "1"
+    },
+    "proration": {
+     "value": true,
+     "span": "pro rata",
+     "doc_seq": "1"
+    },
+    "conditions": null,
+    "trigger_origin": null,
+    "shares_tendered": {
+     "value": 24230411.0,
+     "span": "24,230,411 Shares were validly tendered",
+     "doc_seq": "1"
+    },
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/2 (2026-10-19); fund_type from no phrase",
+ "extractor": "event-rules/2 (2026-10-19)"
+}

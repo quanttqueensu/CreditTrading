@@ -1,0 +1,63 @@
+{
+ "accession": "0001104659-21-055075",
+ "triage": {
+  "kind": "equity_mna",
+  "fund_type": "reit",
+  "doc_role": "announcement",
+  "kind_span": "##### FILING 0001104659-21-055075 FORM 425"
+ },
+ "events": [
+  {
+   "kind": "equity_mna",
+   "terms": {
+    "subject_names": null,
+    "subject_tickers": null,
+    "security_class": {
+     "value": "common",
+     "span": "Common Shares",
+     "doc_seq": "1"
+    },
+    "acquirer": null,
+    "target": null,
+    "cash_per_share": null,
+    "exchange_ratio": {
+     "value": 0.52,
+     "span": "Exchange Ratio of 0.52",
+     "doc_seq": "2"
+    },
+    "collar": {
+     "value": true,
+     "span": "collar",
+     "doc_seq": "2"
+    },
+    "conditions": {
+     "value": [
+      "shareholder_approval",
+      "regulatory_approval",
+      "tax_opinion",
+      "legal_injunction",
+      "other"
+     ],
+     "spans": [
+      "shall not be waivable after receipt of the RMRM Shareholder Approval, unless further shareholder approval",
+      "involving, any Governmental Authority.",
+      "Exhibit I – Form of TRMT REIT Tax Opinion\n\nExhibit J – Form of RMRM Reorganization Opinion\n\nExhibit K – Form of RMRM REIT Tax Opinion",
+      "to avoid an action or proceeding by, any Governmental Authority or other Persons necessary in connection with the consummation of the",
+      "(in the case of any representation or warranty qualified by materiality or TRMT Material Adverse Effect) or in all material respects"
+     ],
+     "doc_seq": "2"
+    },
+    "expected_close": {
+     "value": "third quarter of 2021",
+     "span": "expected to close in the third quarter of 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "termination_fee": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "event-rules/1 (2026-10-19); fund_type from “real estate investment trust”",
+ "extractor": "event-rules/1 (2026-10-19)"
+}
