@@ -926,3 +926,14 @@ def test_eod_history_is_a_get_and_retries_like_one(env_file, sleeps):
     c, s = client(env_file, sleeps, h)
     assert [p.equity for p in c.eod_equity_history(D, D)] == [100000.0]
     assert sleeps == [al.GET_BACKOFF_S[0]] and s.posts == []
+
+
+@pytest.mark.parametrize("stamp", [86400 * 10**9, 86400 * 10**13, -86400 * 10**9])
+def test_eod_a_stamp_outside_the_clock_raises_unexpected_response(env_file, sleeps, stamp):
+    """Review 2026-10-19: an integer stamp that is a whole number of days but
+    outside datetime's range used to raise a bare ValueError/OverflowError/OSError,
+    which verify reported as a 'verify error' FAIL. It is a response Alpaca should
+    not send, so it is refused like every other bad shape."""
+    c, _ = eod_client(env_file, sleeps, history([utc0(2026, 10, 16), stamp], [100000.0, 100001.0]))
+    with pytest.raises(al.UnexpectedResponse, match=str(stamp)):
+        c.eod_equity_history(dt.date(2026, 10, 1), dt.date(2026, 11, 3))

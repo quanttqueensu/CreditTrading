@@ -846,15 +846,24 @@ class AlpacaClient:
         for i, (ts, eq) in enumerate(zip(raw["timestamp"], raw["equity"])):
             if type(ts) is not int:
                 raise UnexpectedResponse(f"{w}: timestamp[{i}] = {ts!r} is not integer epoch seconds")
+            # An integer outside datetime's range raises a bare ValueError,
+            # OverflowError or OSError, which verify would report as a "verify
+            # error" FAIL (review 2026-10-19). It is a bad response, so refuse it
+            # like every other bad shape.
+            try:
+                when = dt.datetime.fromtimestamp(ts, dt.timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                raise UnexpectedResponse(
+                    f"{w}: timestamp[{i}] = {ts} is outside the clock's range") from None
             if ts % 86400:
                 raise UnexpectedResponse(
-                    f"{w}: stamp {dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat()} is "
+                    f"{w}: stamp {when.isoformat()} is "
                     f"not 00:00 UTC; every 1D stamp seen (the 2026-10-19 read, the reference's "
                     f"example) is. Refused rather than placed on a session")
             x = _num({"equity": eq}, "equity", f"{w} [{i}]")      # None/bool/junk raise
             if not math.isfinite(x):
                 raise UnexpectedResponse(f"{w}: equity[{i}] = {eq!r} is not finite")
-            stamps.append(dt.datetime.fromtimestamp(ts, dt.timezone.utc))
+            stamps.append(when)
             equities.append(x)
         if any(b <= a for a, b in zip(stamps, stamps[1:])):
             raise UnexpectedResponse(f"{w}: timestamps are not strictly increasing")

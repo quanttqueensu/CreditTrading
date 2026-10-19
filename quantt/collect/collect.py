@@ -1,4 +1,4 @@
-"""The CEF book's nightly data collector: one data day, eight idempotent steps, a report.
+"""The CEF book's nightly data collector: one data day, nine idempotent steps, a report.
 
     python3 -m quantt.collect --book cef
 
@@ -81,6 +81,7 @@ import argparse
 import csv
 import datetime as dt
 import fcntl
+import math
 import os
 import re
 import subprocess
@@ -135,8 +136,12 @@ DISTRIBUTIONS_TIMEOUT_S = 20 * 60
 TAIL_LINES = 40
 
 STEPS = ("prices_nav", "nav_crosscheck", "official_closes", "close_crosscheck",
-         "account_snapshot", "eod_equity", "distributions", "borrow_snapshot",
-         "cefconnect_arrival")
+         "account_snapshot", "distributions", "borrow_snapshot",
+         "cefconnect_arrival", "eod_equity")
+# eod_equity runs LAST (review 2026-10-19). It is new code that runs every slot
+# until D's point lands. An unexpected error in it aborts the run, so it must
+# come after borrow_snapshot (D's close only, never recoverable later) and after
+# every step the book decides on.
 # A WATCH step keeps the collector polling every slot until it is done, but never
 # makes the day INCOMPLETE, never fails the exit code and never blocks another
 # step: it measures something that arrives on its own clock (2026-10-13).
@@ -547,6 +552,17 @@ def _read_eod(path: Path) -> dict:
         for r in rd:
             if r["date"] in rows:
                 raise StepFailed(f"{path} lists {r['date']} twice", {"flags": [], "gaps": []})
+            # A cell that is not a finite number (a hand edit, a torn write)
+            # would otherwise reach float() in the step as a bare ValueError and
+            # abort the whole collector run (review 2026-10-19).
+            try:
+                finite = math.isfinite(float(r["equity"]))
+            except (TypeError, ValueError):
+                finite = False
+            if not finite:
+                raise StepFailed(f"{path}: equity {r['equity']!r} on {r['date']} is not a "
+                                 f"finite number; the file is left as it is",
+                                 {"flags": [], "gaps": []})
             rows[r["date"]] = r
     return rows
 

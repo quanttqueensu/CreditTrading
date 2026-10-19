@@ -773,3 +773,28 @@ def test_the_first_run_after_install_backfills_on_a_day_already_complete(env):
         [("eod", dt.date(2026, 9, 28), OCT5)]
     _, rows = eod_rows(env)
     assert rows[0]["date"] == "2026-09-28" and rows[-1]["date"] == OCT5.isoformat()
+
+
+def test_eod_an_unparseable_equity_in_the_file_fails_the_step_and_is_left_alone(env):
+    """Review 2026-10-19: a hand-edited cell used to reach float() as a bare
+    ValueError, which aborts the whole collector run instead of failing one step."""
+    path = env[0] / co.EOD_FILE
+    text = "date,equity,change_usd,read_at_utc\n2026-09-28,100000.0,,x\n2026-09-29,oops,,x\n"
+    path.write_text(text)
+    with pytest.raises(co.StepFailed, match="2026-09-29"):
+        eod_step(env, FakeClient(now=et(OCT5, 21), next_open=et(dt.date(2026, 10, 6), 9, 30)), OCT5)
+    assert path.read_text() == text
+
+
+def test_an_unexpected_error_in_eod_equity_leaves_every_other_step_done(env):
+    """Review 2026-10-19: eod_equity is new code that runs every slot. It runs
+    LAST, so a defect in it can never stop the steps that cannot be redone later
+    (borrow_snapshot is D's close only) or the ones the book decides on."""
+    class Broken(FakeClient):
+        def eod_equity_history(self, start, end):
+            raise RuntimeError("eod exploded")
+    with pytest.raises(RuntimeError, match="eod exploded"):
+        co.collect(make_ctx(env, Broken()))
+    steps = status(env)["steps"]
+    assert all(steps[s]["ok"] for s in co.STEPS if s != "eod_equity"), steps
+    assert co.STEPS[-1] == "eod_equity"
