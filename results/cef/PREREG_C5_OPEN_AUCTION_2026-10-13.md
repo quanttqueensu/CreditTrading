@@ -182,6 +182,76 @@ decision 2 names · **Source** `results/cef/CORE_SIGNAL_CANDIDATES_2026-10-12.md
 >   - `w4/crsp_dsf_holdout_2023_2024.parquet` `7c2a4f6543e7ae6024e0bed60cca7c332442e88f5a2f3c4fdb60a73a4cce5a78`
 >   - `cc/cefconnect_closes_2025_2026.parquet` `843cd54f6b44fbc3b6fb59fd815c95d706889011b9e38c4127c9f00efbb4828e`
 
+> **AMENDMENT: team lead, 2026-10-19. The D-5 repair rule: a DEVIATION, made
+> after stage 8 halted.**
+> - **Why it exists.** Stage 8 halted on 2026-10-15 on D-5 (§4.2, applied
+>   unchanged). Material trade name-days with no panel close were 9 of 4,858
+>   (WIDE) and 9 of 3,129 (deployed), above the 0.1% halt: 11 distinct
+>   name-days. The record is `results/cef/C5_RESULT_2026-10-14.md` ("Stage 8")
+>   and `results/cef/c5/c5_holdout_halt_output_2026-10-15.txt`. D-5 had no
+>   declared repair, and §4.5 says a rule is never edited to make a count pass.
+> - **This departs from the document as approved.** It was made after the
+>   halt, so after the count was seen. **No return had been seen:** the
+>   holdout gain G was never formed, and no holdout statistic of C5 existed
+>   when the ruling was made. The fit's verdict (KILL D1) cannot move, because
+>   the holdout can kill and cannot rescue (§7).
+> - **The ruling, as relayed to the implementing agent on 2026-10-19:** "add a
+>   repair rule. Implement it as: a D-5 name-day takes the NYSE closing print
+>   when the NYSE closing print and a second independent close (the CEFConnect
+>   close) agree within $0.005 + 1e-6, mirroring D-6's two-source rule; a D-5
+>   name-day without two agreeing sources still counts toward the halt."
+> - **How it is implemented.** The code is `d5_repair`, applied in
+>   `stage8_classes`, in `scripts/cef/c5_open_auction.py`. The tests in
+>   `scripts/cef/tests/test_c5_d5_repair.py` fail against the 2026-10-15 code.
+>   Items 1–6 are the implementing agent's readings. They are stated so the
+>   team lead can overrule any of them.
+>   1. **The two sources.** The NYSE closing print is D-6's: `M` where
+>      published, else `6`. The second source is the holdout D-6 rule's:
+>      CRSP |`prc`| through 2024-12-31, then CEFConnect's close. Every no-close
+>      name-day in the holdout is in 2026, so CEFConnect is the second source
+>      for all of them. Agreement uses ruling 2's tolerance.
+>   2. **What the repaired close feeds.** It is the close in that name-day's
+>      session return Cₛ/Oₛ − 1, inside G, and in the D-1 test (a repaired
+>      name-day with no `O` print is D-1).
+>      - H and the deployed leg are built from the frozen copy unchanged.
+>        There a missing close keeps the harness's zero-filled return, which
+>        §4.3 calls an existing convention that C5 does not change.
+>      - **So, unlike D-6, the repair is not written into the input copy.**
+>        The frozen holdout inputs and their hashes are unchanged, and nothing
+>        was re-frozen: both sources were already in the frozen copy
+>        (`c5_holdout_inputs_2026-10-15.json`).
+>   3. **Which name-days.** Every trade name-day with no panel close. §4.3
+>      words class D-5 as "a trade name-day with no panel close"; §4.2's table
+>      counts the material ones for the halt.
+>      - So small trades on those name-days also take the print.
+>      - Their share of G is printed beside the result. G is also recomputed
+>        with only the material name-days repaired, and with every repaired
+>        name-day at gain 0.
+>      - A name-day with no trade adds nothing to G, whatever its close.
+>   4. **The halt.** D-5 now counts the material trade name-days that the
+>      repair cannot fill, against the same 0.1%.
+>   5. **D-3 cannot be tested on a repaired name-day.** The panel row has no
+>      open or range, and there is no CRSP for 2026. This is reported, not
+>      classified, as for the other 2025–26 name-days.
+>   6. **Opened once.** `holdout` refuses to run once
+>      `results/cef/c5/C5_HOLDOUT_RESULT.json` exists.
+> - **Measured before the holdout was read.** These are counts from a
+>   read-only pre-flight on 2026-10-19. No session return or gain was formed
+>   for it, and the `holdout` run prints the same counts in its "STAGE 8 DATA"
+>   section.
+>   - The holdout has 16 name-days with no panel close, all on the halt's five
+>     dates.
+>   - All 16 have an NYSE `M` print and a CEFConnect close, which agree within
+>     the tolerance.
+>   - The 16 are filled. They are the 11 D-5 name-days (a material trade in
+>     at least one set), 1 with only small trades (PFN 2026-02-12) and 4 with
+>     no trade in either set. Counted per set, 3 of them carry a small trade
+>     in WIDE and 3 in the deployed set.
+>   - **Residual D-5: 0 of 4,858 (WIDE) and 0 of 3,129 (deployed).**
+>   - The shared second-source helper reproduces the freeze's committed
+>     two-source counts in every year, 2023–26.
+> - **The counter does not move** (CEF 52; C5 is already counted).
+
 ---
 
 ## 0. The declaration in one table
@@ -360,7 +430,7 @@ at that day's close, so its gain is 0, the same as the live rule of decision
 | D-2 | `O` and `Q` both present and \|O − Q\| > $0.005 | 0 of 5,341 | > 1% of name-days with both |
 | D-3 | `O` disagrees with **both** the yfinance open and CRSP `openprc` by > $0.005 **and** lies outside the yfinance day's [low, high] ± $0.005 | 0 | > 0.5% of material trade name-days |
 | D-4 | two `O` prints on one name-day | 0 (the script raises) | any, until the fetcher is checked |
-| D-5 | a material trade on a name-day with no panel close | 0 (deployed and WIDE) | > 0.1% of material trade name-days |
+| D-5 | a material trade on a name-day with no panel close. *Repair (amendment, team lead 2026-10-19; a deviation made after the 2026-10-15 stage-8 halt, before any holdout return was seen): the name-day takes the NYSE closing print where it and a second independent close agree within $0.005 + 1e-6; only a D-5 name-day without two agreeing sources counts toward the halt* | 0 (deployed and WIDE) | > 0.1% of material trade name-days |
 | D-6 *(amendment, team lead 2026-10-14)* | the panel close is off both CRSP \|`prc`\| and the NYSE closing print, which agree within \|diff\| ≤ $0.005 + 1e-6 → the trial's input copy takes the NYSE print (never `data/`); logged per name-day. **Not a no-cross class**: the name-day keeps its open fill | 1 (MHD 2017-06-21; `c5_open_auction.py freeze`, 2026-10-14) | > 5 name-days in the decision window |
 | — | `O` outside [low, high] with one consolidated open agreeing | 4 name-days | **not** a defect; flagged and used |
 
@@ -386,6 +456,11 @@ the team lead, and the rule is not edited to pass.
     name-day the same way, because `build_targets` zero-fills a missing
     return. That is an existing harness convention, which C5 does not
     change.
+  - *Amended 2026-10-19 (team lead; see the amendment at the top). This is a
+    deviation made after the stage-8 halt.* A D-5 name-day whose NYSE closing
+    print and second close agree takes that print as the close of its session
+    return, and earns its session in G. Its gain is no longer 0. The deployed
+    leg's zero-filled return is unchanged.
 
 ### 4.4 Data gates (zero trials; any failure halts before a return is computed)
 

@@ -1,0 +1,385 @@
+{
+ "stamp": "2026-10-19",
+ "inputs_stamp": "2026-10-15",
+ "holdout": [
+  "2023-01-03",
+  "2026-09-30"
+ ],
+ "sessions": 939,
+ "G": {
+  "n": 939,
+  "mean_bp_yr": 313.5812571498389,
+  "sd_bp_day": 9.338550732295433,
+  "sr": 2.1152920833551505,
+  "t21": 4.6649403124789215,
+  "t5": 4.574002254162305,
+  "auto_lag": 8,
+  "t_auto": 4.683363814734078,
+  "bp_per_turn": 7.11738822199409
+ },
+ "boot_ci": {
+  "mean_bp_yr": [
+   190.47168262228442,
+   444.4177508145316
+  ],
+  "sr": [
+   1.3752119228857305,
+   2.9886881714025537
+  ]
+ },
+ "fit_mean_bp_yr": 292.9516132578092,
+ "fit_sr": 1.1592145272797647,
+ "signs_agree": true,
+ "p_observed_sign": 0.9873787591735852,
+ "rule": "PASS (signs agree)",
+ "trial_verdict": "KILL D1 (stage 2b: artefact control)",
+ "classes": {
+  "WIDE": {
+   "material": 4858,
+   "D1": 0,
+   "D1_notional": 0.0,
+   "D3": 0,
+   "D5": 0,
+   "D5_rate": 0.0,
+   "D5_as_counted_2026_10_15": 9,
+   "D5_resolved_by_repair": 9,
+   "small_trade_name_days_repaired": 3
+  },
+  "deployed": {
+   "material": 3129,
+   "D1": 0,
+   "D1_notional": 0.0,
+   "D3": 0,
+   "D5": 0,
+   "D5_rate": 0.0,
+   "D5_as_counted_2026_10_15": 9,
+   "D5_resolved_by_repair": 9,
+   "small_trade_name_days_repaired": 3
+  }
+ },
+ "d2": 0,
+ "d3": 0,
+ "d3_unevaluable": 0,
+ "d5_repair": {
+  "ruling": "team lead, 2026-10-19",
+  "log": [
+   {
+    "date": "2026-02-12",
+    "ticker": "PCN",
+    "WIDE_trade": "small",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-12",
+    "ticker": "PDI",
+    "WIDE_trade": "material",
+    "deployed_trade": "small",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-12",
+    "ticker": "PDO",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-12",
+    "ticker": "PFN",
+    "WIDE_trade": "small",
+    "deployed_trade": "small",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-12",
+    "ticker": "PHK",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-12",
+    "ticker": "PTY",
+    "WIDE_trade": "material",
+    "deployed_trade": "small",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-13",
+    "ticker": "BIT",
+    "WIDE_trade": "-",
+    "deployed_trade": "-",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-13",
+    "ticker": "HYT",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-13",
+    "ticker": "JFR",
+    "WIDE_trade": "small",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-02-18",
+    "ticker": "DSL",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-03-18",
+    "ticker": "DSL",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-09-15",
+    "ticker": "BIT",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-09-15",
+    "ticker": "HYT",
+    "WIDE_trade": "-",
+    "deployed_trade": "-",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-09-15",
+    "ticker": "JFR",
+    "WIDE_trade": "material",
+    "deployed_trade": "material",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-09-15",
+    "ticker": "MHD",
+    "WIDE_trade": "-",
+    "deployed_trade": "-",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   },
+   {
+    "date": "2026-09-15",
+    "ticker": "MQY",
+    "WIDE_trade": "-",
+    "deployed_trade": "-",
+    "second_source": "CEFConnect",
+    "has_O": true,
+    "has_Q": true,
+    "d3_testable": false
+   }
+  ],
+  "unresolved_no_close_name_days": 0
+ },
+ "repair_sensitivity": {
+  "WIDE": {
+   "repaired_material_bp_yr": 2.011812351804098,
+   "repaired_small_bp_yr": 0.026962313465846505,
+   "G_with_repaired_at_zero": {
+    "n": 939,
+    "mean_bp_yr": 311.542482484569,
+    "sd_bp_day": 9.324490151400399,
+    "sr": 2.1047082878946464,
+    "t21": 4.6487257282319865,
+    "t5": 4.547303114167893,
+    "auto_lag": 8,
+    "t_auto": 4.655189530755806
+   },
+   "G_material_only_repaired": {
+    "n": 939,
+    "mean_bp_yr": 313.5542948363732,
+    "sd_bp_day": 9.338615832244729,
+    "sr": 2.1150954619778086,
+    "t21": 4.664328690267643,
+    "t5": 4.573403195135752,
+    "auto_lag": 8,
+    "t_auto": 4.68271591503021
+   }
+  },
+  "deployed": {
+   "repaired_material_bp_yr": 0.9507955339339518,
+   "repaired_small_bp_yr": -0.03902415540843142,
+   "G_with_repaired_at_zero": {
+    "n": 939,
+    "mean_bp_yr": 297.560960112789,
+    "sd_bp_day": 11.339464158026436,
+    "sr": 1.6530391840655878,
+    "t21": 3.7057069158306652,
+    "t5": 3.7211086415598698,
+    "auto_lag": 3,
+    "t_auto": 3.6217054130906967
+   },
+   "G_material_only_repaired": {
+    "n": 939,
+    "mean_bp_yr": 298.51175564672303,
+    "sd_bp_day": 11.354126892536456,
+    "sr": 1.6561795764944682,
+    "t21": 3.7002932402253363,
+    "t5": 3.7258616749549147,
+    "auto_lag": 3,
+    "t_auto": 3.62616740904524
+   }
+  }
+ },
+ "deployed_G": {
+  "n": 939,
+  "mean_bp_yr": 298.47273149131456,
+  "sd_bp_day": 11.354136455036551,
+  "sr": 1.655961671068598,
+  "t21": 3.6997557530404546,
+  "t5": 3.7252203809235533,
+  "auto_lag": 3,
+  "t_auto": 3.625590213708788,
+  "bp_per_turn": 6.597714302342727
+ },
+ "by_year": {
+  "2023": {
+   "mean_bp_yr": 257.6783363239051,
+   "sessions": 250
+  },
+  "2024": {
+   "mean_bp_yr": 258.82266229406974,
+   "sessions": 252
+  },
+  "2025": {
+   "mean_bp_yr": 372.152038469811,
+   "sessions": 250
+  },
+  "2026": {
+   "mean_bp_yr": 383.8069297709315,
+   "sessions": 187
+  }
+ },
+ "books": {
+  "WIDE: MOC fill (the deployed fill)": {
+   "gross": 2.4166866410387984,
+   "ann_pct": 12.69562404645925,
+   "vol_pct": 5.2533182543691765,
+   "turn": 44.05847304785383,
+   "net": {
+    "5": 1.9973471786788848,
+    "15": 1.1586682539590567,
+    "30": -0.09935013312068477
+   },
+   "flips": true
+  },
+  "WIDE: C5 open fill": {
+   "gross": 2.957467042604526,
+   "ann_pct": 15.831436617957642,
+   "vol_pct": 5.353039066841304,
+   "turn": 44.05847304785383,
+   "net": {
+    "5": 2.5459393804885493,
+    "15": 1.7228840562565955,
+    "30": 0.4883010699086651
+   },
+   "flips": false
+  },
+  "WIDE: C5, + s_open 6.52bp": {
+   "gross": 2.4211288357511775,
+   "ann_pct": 15.831436617957642,
+   "vol_pct": 5.353039066841304,
+   "turn": 44.05847304785383,
+   "net": {
+    "5": 2.0096011736352004,
+    "15": 1.186545849403247,
+    "30": -0.04803713694468299
+   },
+   "flips": true
+  },
+  "deployed: MOC fill (the deployed fill)": {
+   "gross": 1.866725219587954,
+   "ann_pct": 10.278445431092177,
+   "vol_pct": 5.506137337856805,
+   "turn": 45.23880814077269,
+   "net": {
+    "5": 1.4559217346318258,
+    "15": 0.634314764719569,
+    "30": -0.5980956901488159
+   },
+   "flips": true
+  },
+  "deployed: C5 open fill": {
+   "gross": 2.3547236440916546,
+   "ann_pct": 13.263172746005319,
+   "vol_pct": 5.632581462068619,
+   "turn": 45.23880814077269,
+   "net": {
+    "5": 1.9531421627990762,
+    "15": 1.1499792002139189,
+    "30": -0.0547652436638172
+   },
+   "flips": true
+  },
+  "deployed: C5, + s_open 6.52bp": {
+   "gross": 1.831348154642117,
+   "ann_pct": 13.263172746005319,
+   "vol_pct": 5.632581462068619,
+   "turn": 45.23880814077269,
+   "net": {
+    "5": 1.4297666733495384,
+    "15": 0.6266037107643811,
+    "30": -0.5781407331133546
+   },
+   "flips": true
+  }
+ },
+ "s_open_bp": 6.516429589394139,
+ "G_less_s_open_bp_yr": 26.47731971728001,
+ "holdout_inputs": "results/cef/c5/c5_holdout_inputs_2026-10-15.json"
+}
