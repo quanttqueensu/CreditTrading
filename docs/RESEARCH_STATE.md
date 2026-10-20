@@ -46,6 +46,16 @@ counter (156) covers all ETF-price/PD work done to date.
 >   by every EVENTS trial (E2's unapproved draft moves from N = 4 to 6).
 > - **E1 consumes the 27-name set at its Stage 1** (decision 3's default). The
 >   NAV-tender trial excludes all 44 universe funds and does not need it.
+> - **2026-10-19: E1 Stage 0 HALTED** (`results/events/E1_STAGE0_2026-10-19.md`;
+>   `python3 scripts/events/e1_merger_pair.py stage0`). DG-E1-1, -2 and -3 fail and
+>   DG-E1-4 and -5 cannot complete:
+>   - the 64 holdout deals are undated (299 EDGAR documents are not cached);
+>   - 273 candidate failed-deal episodes are unread;
+>   - 9 control-2 pool funds have no cached CRSP rows.
+>
+>   Each needs the team lead's credentialed fetch, or decision 6's alternative. Both identity
+>   checks pass. **No E1 statistic was computed, the 27-name set is not consumed, no holdout
+>   was opened, and EVENTS stays 2.**
 >
 > **2026-10-09: EVENTS and XASSET opened at 0** (team lead, `docs/SYSTEM.md` §5,
 > 2026-10-09). Opening a counter spends no trial. **XASSET is a declared slate**: its
@@ -251,6 +261,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 |---|---|---|---|
 | **CEF-DISC** | **credit closed-end fund discount reversion** | **Ran on IBKR paper 2026-07-31 → 2026-09-15; IBKR retired 2026-09-28; being rebuilt on Alpaca paper** | `docs/ROADMAP.md`; the 60-live-session review restarts with the Alpaca track record |
 | COST-AUDIT | the 21.2%/yr modelled cost is a full-sample artifact | **RESOLVED, see below** | — |
+| **E1** (EVENTS trial 1) | the NAV-for-NAV CEF merger pair, long target / short acquirer from A+1 to completion, muni headline (`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`, amendment 1: borrow ignored in the verdict) | **Stage 0 HALT (2026-10-19)**: DG-E1-1/2/3 fail, DG-E1-4/5 incomplete; identity checks pass; no E1 statistic, 27-name set not consumed (`results/events/E1_STAGE0_2026-10-19.md`) | the team lead's `fetch-edgar` and `pull-crsp` (or decision 6's alternative), readings of 273 episodes, rulings on 19 Stage-0 flags and readings R1–R12 |
 | DISP-SCAN | PD dispersion is still wide in non-industrialised wrappers | building | — |
 | NPORT | monthly holdings history 2019+ from SEC EDGAR | agent staging | EDGAR parse |
 | BREADTH | 45-instrument universe | agent staging | data fetch |

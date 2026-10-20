@@ -390,10 +390,20 @@ def _cik(v) -> int:
     return int(v)
 
 
-def date_deals(client, today: date) -> tuple[pd.DataFrame, dict]:
+def date_deals(client, today: date, sample: pd.DataFrame | None = None) -> tuple[pd.DataFrame, dict]:
+    """Date every deal of `sample` (default: `crsp_sample()`, the re-run's priced
+    sample, exactly as before).
+
+    `sample` was added 2026-10-19 for E1's data gate DG-E1-2
+    (`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md` §13): the name- and
+    time-holdout deals are dated by THIS rule, unchanged, so a holdout deal
+    and a fit deal can differ only in which deal they are. A caller passes rows
+    with `crsp_sample()`'s columns (permno, ticker, comnam, nwperm, a_ticker,
+    a_comnam, dlstdt). With `sample=None` nothing changes: the default path
+    calls `crsp_sample()` as it always did (test_edgar_merger_dates_sample.py)."""
     from scripts.data.edgar_client import filing_txt_url
     names, idx = name_table(client, today)
-    ev = crsp_sample()
+    ev = crsp_sample() if sample is None else sample
     rows = []
     for e in ev.itertuples():
         C = pd.Timestamp(e.dlstdt)

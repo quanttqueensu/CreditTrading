@@ -1,0 +1,64 @@
+E1 STAGE 0 -- 2026-10-20T00:52:35+00:00 -- HEAD 6096ef9 -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
+
+[DG-E1-6] pandas compute.use_numexpr: False
+
+[COUNTS] deals and acquirer x completion groups by set, beside the pre-registration's (e1_prereg_counts_2026-10-19.json); CRSP names pulled 2026-10-12T18:05:49+00:00, delistings 2026-10-12T18:05:50+00:00
+                              events  groups_acq_x_completion  events_prereg  groups_acq_x_completion_prereg
+set           segment                                                                                       
+excluded_spec ALL                 14                        4             14                               4
+              equity_other         1                        1              1                               1
+              muni                 9                        2              9                               2
+              taxable_income       4                        2              4                               2
+fit_seen      ALL                186                      109            186                             109
+              bdc                  4                        4              4                               4
+              equity_other        39                       28             39                              28
+              muni                95                       49             95                              49
+              taxable_income      48                       35             48                              35
+name_holdout  ALL                 35                       18             35                              18
+              muni                31                       15             31                              15
+              taxable_income       4                        3              4                               3
+time_holdout  ALL                 29                       19             29                              19
+              equity_other        16                       11             16                              11
+              muni                 5                        3              5                               3
+              taxable_income       8                        7              8                               7
+  identical to the pre-registration's counts: True
+
+[DG-E1-2] fit set: 186 deals dated by merger_edgar_dates.csv (186 dated); date basis {'merger communication': 93, 'registration (upper bound)': 93}
+  fit groups (acquirer x announcement date) by segment: {'bdc': 4, 'equity_other': 30, 'muni': 49, 'taxable_income': 35}
+  holdout sets: 64 deals; no dates file. Dating them by edgar_merger_dates.date_deals (unchanged rule) needs 299 EDGAR document(s) the offline cache does not hold (31 submissions lists); probe stopped early on 0 deal(s): {}
+
+[DG-E1-3] merger episodes 2009-07-01..2024-12-31: 670; CRSP merger delistings matched to CIKs: 580 of 604 parties ({'matched': 580, 'best score 0.833 < 0.85': 15, 'ambiguous: margin 0.000 < 0.02': 2, 'best score 0.778 < 0.85': 2, 'best score 0.724 < 0.85': 1, 'best score 0.818 < 0.85': 1, 'best score 0.800 < 0.85': 1, 'ambiguous: margin 0.019 < 0.02': 1, 'best score 0.160 < 0.85': 1})
+  candidate episodes (no matched CRSP completion within 730 days): 273; of them 86 run past CRSP's last delisting; first filing cached offline: 10
+  by first form: {'425': 123, 'N-14': 73, 'N-14 8C': 58, 'PREM14A': 13, 'DEFM14A': 3, 'N-14 8C/A': 2, 'N-14MEF': 1}
+  -> results/events/e1/e1_failed_census.csv (EDGAR facts only)
+  readings: results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread
+
+[DG-E1-1] fit reader (crsp_events.daily, cached extract only): PASS: 277 permnos, 1,124,202 rows, last 2022-12-30 (< 2023)
+  holdout reader guard: PASS (refuses: results/events/e1/e1_fit_verdict.json is not committed)
+  factor ETFs: ['HYG', 'IEF', 'MUB'], one CRSP ETF permno each (share code 73)
+  control-2 name pool over the completed fit deals: 323 CEF permnos; without CRSP rows in the local cache: 9; failed deals' parties and pools: not known until DG-E1-3
+
+[DG-E1-4] bridging check (merger_pairs.bridging_check) on the fit parties' extract: {'gaps_tested_le_max_gap': 5, 'agree_within_1e-4': 5, 'worst_abs_diff': 3.9571589637325474e-07, 'gaps_longer_than_max_gap_not_tested': 1}
+  fit deals excluded by the window or the hold guard: {"missing return on the leg's last earned session": 19}; the same deals the published buy-and-hold sample leaves unpriced: True (19 unpriced)
+  fill-day quality screen: 0 leg(s) with no closing trade on the fill day (flags written)
+  the failed deals' windows: not known until DG-E1-3
+
+[DG-E1-7] identity check 1 (reading R1): {'deals': 186, 'priced': 167, 'max_abs_diff_trial_vs_published_code': 0.0, 'nan_pattern_equal': True, 'passes_1e-12': True, 'published_csv_rows': 186, 'published_csv_equal_at_8g': True, 'published_aggregates_equal': True}
+  identity check 2 (printed, not a gate): constant-weight sleeve vs buy-and-hold per deal: median |diff| 23.04bp, p95 142.41bp over 167 deals; excluded {}
+
+[DG-E1-5] French FF5+UMD daily: ('1963-07-01', '2026-08-31', '2026-10-19T20:53:26Z', '202608') (first, last, fetched, CRSP vintage)
+  CRSP ETFs (first, last, missing ret inside 2009-07..2022-12) via the fit reader: {'MUB': ('2007-09-10', '2022-12-30', 0), 'IEF': ('2002-07-26', '2022-12-30', 0), 'HYG': ('2007-04-11', '2022-12-30', 0)}
+  data/cef/cef_borrow_history.parquet last date: 2026-09-09
+
+[k, cap] not computed: the fit sleeve's deal set needs the failed deals (DG-E1-3) and the stage-0 gates
+
+STAGE 0: HALT
+  DG-E1-1: FAIL -- fit reader PASS; holdout guard PASS; control-2 pool missing 9; the failed deals' parties wait on DG-E1-3
+  DG-E1-2: FAIL -- the name- and time-holdout deals are undated: 299 EDGAR documents are not cached and fetching needs the team lead's SEC contact (`fetch-edgar`)
+  DG-E1-3: FAIL -- results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread
+  DG-E1-4: INCOMPLETE -- completed fit deals checked ({"missing return on the leg's last earned session": 19}); failed deals wait on DG-E1-3
+  DG-E1-5: INCOMPLETE -- French covers 2009-07..2024-12; CRSP ETFs cover the fit window; their 2023-24 rows are not readable before the fit verdict (reading R8)
+  DG-E1-6: PASS -- numexpr off; the denormal assertion runs on every P&L built (identity check 2 here)
+  DG-E1-7: PASS -- (see above)
+
+Implementation readings for the team lead (module docstring R1-R12) apply from Stage 1.

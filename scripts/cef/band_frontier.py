@@ -925,6 +925,117 @@ def block_shuffle(H, block, rng):
     return pd.DataFrame(H.values[take], index=H.index, columns=H.columns)
 
 
+# =============================================================================
+# EVENT HELPERS (added 2026-10-19; results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md §6.4)
+# =============================================================================
+# WHY THEY LIVE HERE. E1 holds a pair of legs per merger deal from the evening of
+# its announcement to its conversion or failure. That is a held book like any
+# other, so it is scored by `evaluate()` unchanged; what is new is (1) how a list
+# of deal legs becomes H, and (2) what a conversion costs. Both are added beside
+# `hold_from_refresh`, visibly and with tests (scripts/cef/tests/test_event_hold.py),
+# because a second copy of how a target becomes a held book is the shift(1)
+# incident in a new place. Neither reads a return.
+
+def event_hold(legs, index):
+    """H from deal legs: H.loc[t, p] = the sum of the weights of every leg on
+    permno p whose decision rows [first, last] contain t; 0.0 elsewhere.
+
+    `legs`: a frame with columns permno, first, last, weight, ann. `first` and
+    `last` are DECISION rows (sessions of `index`): the leg's weight is decided
+    on the evening of `first`, filled at the close of the next session and,
+    through `evaluate()`'s shift(2), earns from the session after that; the
+    last return it earns is that of the session two after `last`. `ann` is the
+    announcement date A the leg trades on.
+
+    ALIGNMENT (H1/H7), asserted: the fill session -- the session after `first`
+    -- must be strictly after `ann`. A filing dated A is public by the evening
+    of A, so the earliest fill is the close of A+1; a first row whose fill is
+    on or before A would trade on a filing before it existed.
+
+    Raises on a NaN weight, a leg whose first or last row is not a session of
+    `index`, a last row before its first, a first row with no session after it,
+    and a fill not after `ann`. Legs on one permno are summed (an acquirer in
+    two active groups is netted, PREREG §6.2)."""
+    idx = pd.DatetimeIndex(index)
+    if not idx.is_monotonic_increasing or idx.has_duplicates:
+        raise ValueError("event_hold: the calendar must be increasing and unique")
+    L = pd.DataFrame(legs)
+    need = {"permno", "first", "last", "weight", "ann"}
+    if not need <= set(L.columns):
+        raise ValueError(f"event_hold: legs lack columns {sorted(need - set(L.columns))}")
+    if L["weight"].isna().any() or not np.isfinite(L["weight"].astype(float)).all():
+        raise ValueError("event_hold: a leg has a NaN or infinite weight")
+    cols = sorted(L["permno"].unique())
+    pos = {p: j for j, p in enumerate(cols)}
+    H = np.zeros((len(idx), len(cols)))
+    for r in L.itertuples(index=False):
+        f, la = pd.Timestamp(r.first), pd.Timestamp(r.last)
+        if f not in idx or la not in idx:
+            raise ValueError(f"event_hold: leg on {r.permno} has a row outside the calendar ({f.date()}, {la.date()})")
+        i0, i1 = idx.get_loc(f), idx.get_loc(la)
+        if i1 < i0:
+            raise ValueError(f"event_hold: leg on {r.permno} ends ({la.date()}) before it starts ({f.date()})")
+        if i0 + 1 >= len(idx):
+            raise ValueError(f"event_hold: leg on {r.permno} is decided on the calendar's last session")
+        fill = idx[i0 + 1]
+        if not fill > pd.Timestamp(r.ann):
+            raise AssertionError(f"event_hold: leg on {r.permno} fills {fill.date()}, not after its "
+                                 f"announcement {pd.Timestamp(r.ann).date()} (lookahead)")
+        H[i0:i1 + 1, pos[r.permno]] += float(r.weight)
+    return pd.DataFrame(H, index=idx, columns=cols)
+
+
+def event_turnover(H, conversions):
+    """Turnover of an event book whose completed deals end in a CONVERSION, not
+    a trade (PREREG_E1 §3.2 item 6, §6.4).
+
+    At completion each target share becomes acquirer shares, which cover the
+    short; only the residual (the received shares' value minus the short's)
+    trades. `evaluate()`'s Σ|ΔH| would charge both legs' removal as trades.
+    Here, per row t and name i,
+
+        turnover_t = Σ_i |ΔH[t, i] - C[t, i]| + Σ residual_t
+
+    where C is the position change the conversions themselves make on row t
+    (-w on the target, +w on the acquirer: the long leg becomes shares that
+    close w of the short). Subtracting C name by name before taking |.| keeps
+    the rule exact when the acquirer is also netted against another group's
+    leg on the same row (the change left over is a genuine trade).
+
+    `conversions`: a frame with columns row (the session on which the legs
+    leave H, i.e. the leg's last decision row + 1), target, acquirer, weight
+    (> 0: the target weight held into the conversion) and residual (>= 0: the
+    residual trade in weight units, booked on `row`). Raises if a row is not a
+    session of H, if a target or acquirer is not a column of H, if the weight
+    is not positive, or if H does not drop the target by exactly `weight` on
+    `row` (the conversion would not be closing the leg it names)."""
+    H = pd.DataFrame(H)
+    C = pd.DataFrame(0.0, index=H.index, columns=H.columns)
+    res = pd.Series(0.0, index=H.index)
+    for r in pd.DataFrame(conversions).itertuples(index=False):
+        t = pd.Timestamp(r.row)
+        if t not in H.index:
+            raise ValueError(f"event_turnover: conversion row {t.date()} is not a session of H")
+        for p in (r.target, r.acquirer):
+            if p not in H.columns:
+                raise ValueError(f"event_turnover: {p} is not a column of H")
+        w = float(r.weight)
+        if not w > 0 or not float(r.residual) >= 0:
+            raise ValueError(f"event_turnover: conversion of {r.target} has weight {w}, residual {r.residual}")
+        i = H.index.get_loc(t)
+        if i == 0:
+            raise ValueError("event_turnover: a conversion on the first row has no leg to close")
+        drop = float(H.iat[i - 1, H.columns.get_loc(r.target)] - H.iat[i, H.columns.get_loc(r.target)])
+        if abs(drop - w) > 1e-12 * max(1.0, abs(w)):
+            raise AssertionError(f"event_turnover: H drops {r.target} by {drop} on {t.date()}, "
+                                 f"not by the converted weight {w}")
+        C.at[t, r.target] -= w
+        C.at[t, r.acquirer] += w
+        res.at[t] += float(r.residual)
+    dH = H.diff().fillna(0.0)
+    return (dH - C).abs().sum(axis=1) + res
+
+
 def _stats(pnl, turn):
     """Gross SR and the 5/15/30bp net SRs from a P&L and turnover slice."""
     ann, vol = pnl.mean() * 252, pnl.std() * np.sqrt(252)
