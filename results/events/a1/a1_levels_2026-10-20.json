@@ -1,0 +1,652 @@
+{
+  "generated_utc": "2026-10-20T16:33:54+00:00",
+  "params": {
+    "z_window_from_spec": 252,
+    "offsets": [
+      -63,
+      -21,
+      0,
+      21,
+      63,
+      126
+    ],
+    "match_prem_pp": 2.5,
+    "match_z": 0.5,
+    "min_controls": 3,
+    "placebo_shift": 252,
+    "spec_min_adv_usd": 3000000.0,
+    "panel_last_price_date_used": "2022-12-30",
+    "panel_last_nav_date_used": "2022-12-30",
+    "basis_pairs_dropped_pair_ratio": 22422,
+    "basis_funds_with_dropped_pairs": [
+      "AGD",
+      "AOD",
+      "BME",
+      "BTO",
+      "CEE",
+      "CLM",
+      "CRF",
+      "EMO",
+      "FFC",
+      "FLC",
+      "GGN",
+      "GGT",
+      "GUT",
+      "HPI",
+      "KF",
+      "PFD",
+      "PFO",
+      "PGP",
+      "SRV",
+      "TYG",
+      "ZTR"
+    ],
+    "pair_ratio": [
+      0.5,
+      1.5
+    ]
+  },
+  "primary_programme": {
+    "events_in_families_panel": 12,
+    "dropped": {
+      "no_panel": 2,
+      "no_tau0": 0,
+      "no_path_or_holdout": 3,
+      "no_z": 0,
+      "few_controls": 7
+    },
+    "with_full_path": 7,
+    "with_controls": 0,
+    "groups_sponsor_month_with_controls": 0,
+    "groups_sponsor_month_with_full_path": 7,
+    "funds_with_full_path": 6,
+    "first_tau0": "2009-02-17",
+    "last_tau0": "2019-09-30",
+    "premium_at_tau0": {
+      "n": 7,
+      "median_pct": 10.87,
+      "iqr_pct": [
+        6.49,
+        12.26
+      ],
+      "share_ge_0": 1.0,
+      "median_z0": 2.02
+    },
+    "premium_path_median_pct": {
+      "-63": 4.6,
+      "-21": 5.85,
+      "0": 10.87,
+      "21": 2.96,
+      "63": 2.97,
+      "126": 3.19
+    },
+    "premium_path_iqr_pct": {
+      "-63": [
+        0.18,
+        8.59
+      ],
+      "-21": [
+        3.46,
+        13.48
+      ],
+      "0": [
+        6.49,
+        12.26
+      ],
+      "21": [
+        0.18,
+        13.28
+      ],
+      "63": [
+        1.34,
+        5.29
+      ],
+      "126": [
+        0.19,
+        3.99
+      ]
+    },
+    "share_events_premium_lower_at_63": 0.857,
+    "dispersion": {
+      "own_sd_ratio_post_over_pre_events_median": 0.773,
+      "own_sd_ratio_controls_median_of_medians": null
+    },
+    "adv_tau0": {
+      "median_usd": 2482601.0,
+      "share_ge_spec_min_adv": 0.286
+    },
+    "D_event": {},
+    "D_placebo": {
+      "21": {
+        "n": 3,
+        "median_bp": 42.2,
+        "mean_bp": -9.7,
+        "share_negative": 0.333,
+        "sign_test_p_two_sided": 1.0,
+        "iqr_bp": [
+          -86.0,
+          92.5
+        ]
+      },
+      "63": {
+        "n": 3,
+        "median_bp": -197.0,
+        "mean_bp": 104.5,
+        "share_negative": 0.667,
+        "sign_test_p_two_sided": 1.0,
+        "iqr_bp": [
+          -250.7,
+          308.9
+        ]
+      },
+      "126": {
+        "n": 3,
+        "median_bp": 971.6,
+        "mean_bp": 745.6,
+        "share_negative": 0.0,
+        "sign_test_p_two_sided": 0.25,
+        "iqr_bp": [
+          549.6,
+          1054.5
+        ]
+      }
+    }
+  },
+  "sensitivity_broad": {
+    "events_in_families_panel": 29,
+    "dropped": {
+      "no_panel": 2,
+      "no_tau0": 0,
+      "no_path_or_holdout": 11,
+      "no_z": 0,
+      "few_controls": 13
+    },
+    "with_full_path": 16,
+    "with_controls": 3,
+    "groups_sponsor_month_with_controls": 3,
+    "groups_sponsor_month_with_full_path": 16,
+    "funds_with_full_path": 12,
+    "first_tau0": "2009-02-17",
+    "last_tau0": "2021-05-24",
+    "premium_at_tau0": {
+      "n": 16,
+      "median_pct": 10.91,
+      "iqr_pct": [
+        4.78,
+        14.68
+      ],
+      "share_ge_0": 0.875,
+      "median_z0": 0.26
+    },
+    "premium_path_median_pct": {
+      "-63": 8.25,
+      "-21": 10.44,
+      "0": 10.91,
+      "21": 5.25,
+      "63": 4.3,
+      "126": 4.42
+    },
+    "premium_path_iqr_pct": {
+      "-63": [
+        3.71,
+        20.71
+      ],
+      "-21": [
+        5.49,
+        18.63
+      ],
+      "0": [
+        4.78,
+        14.68
+      ],
+      "21": [
+        0.19,
+        13.31
+      ],
+      "63": [
+        0.85,
+        11.53
+      ],
+      "126": [
+        0.29,
+        11.36
+      ]
+    },
+    "share_events_premium_lower_at_63": 0.812,
+    "dispersion": {
+      "own_sd_ratio_post_over_pre_events_median": 0.811,
+      "own_sd_ratio_controls_median_of_medians": 0.655
+    },
+    "adv_tau0": {
+      "median_usd": 2445152.0,
+      "share_ge_spec_min_adv": 0.312
+    },
+    "D_event": {
+      "21": {
+        "n": 3,
+        "median_bp": -292.0,
+        "mean_bp": -311.1,
+        "share_negative": 1.0,
+        "sign_test_p_two_sided": 0.25,
+        "iqr_bp": [
+          -440.9,
+          -171.9
+        ]
+      },
+      "63": {
+        "n": 3,
+        "median_bp": -255.9,
+        "mean_bp": -403.4,
+        "share_negative": 1.0,
+        "sign_test_p_two_sided": 0.25,
+        "iqr_bp": [
+          -519.6,
+          -213.4
+        ]
+      },
+      "126": {
+        "n": 3,
+        "median_bp": -191.0,
+        "mean_bp": -167.5,
+        "share_negative": 0.667,
+        "sign_test_p_two_sided": 1.0,
+        "iqr_bp": [
+          -252.8,
+          -93.9
+        ]
+      }
+    },
+    "D_event_group_medians": {
+      "21": {
+        "n": 3,
+        "median_bp": -292.0,
+        "mean_bp": -311.1,
+        "share_negative": 1.0,
+        "sign_test_p_two_sided": 0.25,
+        "iqr_bp": [
+          -440.9,
+          -171.9
+        ]
+      },
+      "63": {
+        "n": 3,
+        "median_bp": -255.9,
+        "mean_bp": -403.4,
+        "share_negative": 1.0,
+        "sign_test_p_two_sided": 0.25,
+        "iqr_bp": [
+          -519.6,
+          -213.4
+        ]
+      },
+      "126": {
+        "n": 3,
+        "median_bp": -191.0,
+        "mean_bp": -167.5,
+        "share_negative": 0.667,
+        "sign_test_p_two_sided": 1.0,
+        "iqr_bp": [
+          -252.8,
+          -93.9
+        ]
+      }
+    },
+    "D_placebo": {
+      "21": {
+        "n": 9,
+        "median_bp": 42.2,
+        "mean_bp": 69.6,
+        "share_negative": 0.444,
+        "sign_test_p_two_sided": 1.0,
+        "iqr_bp": [
+          -195.3,
+          310.5
+        ]
+      },
+      "63": {
+        "n": 9,
+        "median_bp": 561.4,
+        "mean_bp": 431.6,
+        "share_negative": 0.333,
+        "sign_test_p_two_sided": 0.5078,
+        "iqr_bp": [
+          -182.4,
+          814.9
+        ]
+      },
+      "126": {
+        "n": 9,
+        "median_bp": 1248.7,
+        "mean_bp": 1009.3,
+        "share_negative": 0.111,
+        "sign_test_p_two_sided": 0.0391,
+        "iqr_bp": [
+          971.6,
+          1470.5
+        ]
+      }
+    }
+  },
+  "book_exposure_fit_period": {
+    "spec": "cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13",
+    "book_first_live": "2013-06-21",
+    "book_last": "2022-12-30",
+    "short_name_days_total": 9285,
+    "any_offering_episode": {
+      "windows": [
+        "MQY 2020-11-03..2020-11-03",
+        "AWF 2009-06-25..2009-06-25",
+        "MHD 2020-11-03..2020-11-03",
+        "PCN 2020-12-03..2022-12-30",
+        "PTY 2017-03-24..2017-03-24",
+        "PTY 2018-06-12..2020-11-24",
+        "PTY 2022-03-30..2022-03-30",
+        "PHK 2022-06-01..2022-12-30",
+        "HYT 2013-08-23..2013-08-23",
+        "HYT 2014-12-17..2014-12-17",
+        "HYT 2015-12-23..2016-01-15",
+        "HYT 2022-02-10..2022-12-30",
+        "JFR 2010-08-27..2010-12-02",
+        "JFR 2011-12-07..2011-12-07",
+        "JFR 2013-03-07..2013-03-07",
+        "JFR 2016-11-22..2017-02-28",
+        "PFN 2010-03-11..2010-04-27",
+        "PFN 2018-09-10..2022-12-30",
+        "PDI 2017-03-24..2017-12-22",
+        "PDI 2019-11-08..2022-06-23",
+        "BIT 2022-05-03..2022-12-30",
+        "DSL 2020-09-30..2021-04-27"
+      ],
+      "short_name_days_in_windows": 1820,
+      "share_of_all_short_name_days": 0.196,
+      "by_name": {
+        "DSL": 87,
+        "HYT": 93,
+        "JFR": 50,
+        "PCN": 523,
+        "PDI": 251,
+        "PFN": 349,
+        "PHK": 148,
+        "PTY": 319
+      }
+    },
+    "programme_episode": {
+      "windows": [
+        "PCN 2020-12-03..2022-12-30",
+        "PTY 2018-06-12..2020-11-24",
+        "PHK 2022-06-01..2022-12-30",
+        "HYT 2022-02-10..2022-12-30",
+        "JFR 2016-11-22..2017-02-28",
+        "PFN 2018-09-10..2022-12-30",
+        "PDI 2019-11-08..2022-06-23"
+      ],
+      "short_name_days_in_windows": 1681,
+      "share_of_all_short_name_days": 0.181,
+      "by_name": {
+        "HYT": 93,
+        "JFR": 50,
+        "PCN": 523,
+        "PDI": 201,
+        "PFN": 349,
+        "PHK": 148,
+        "PTY": 317
+      }
+    },
+    "a1_broad_event": {
+      "windows": [
+        "PTY 2017-03-24..2017-03-24",
+        "HYT 2013-08-23..2013-08-23",
+        "JFR 2013-03-07..2013-03-07",
+        "PDI 2017-03-24..2017-12-22",
+        "PDI 2019-11-08..2022-06-23"
+      ],
+      "short_name_days_in_windows": 252,
+      "share_of_all_short_name_days": 0.0271,
+      "by_name": {
+        "PDI": 251,
+        "PTY": 1
+      }
+    }
+  },
+  "borrow_context_deployed_2021_2022": {
+    "panel_first": "2021-09-13",
+    "panel_last_used": "2022-12-30",
+    "by_name": {
+      "HYT": {
+        "days_in": 222,
+        "days_out": 104,
+        "median_fee_pct_in": 23.64,
+        "median_fee_pct_out": 15.16
+      },
+      "JFR": {
+        "days_in": 0,
+        "days_out": 321,
+        "median_fee_pct_in": null,
+        "median_fee_pct_out": 16.57
+      },
+      "PCN": {
+        "days_in": 322,
+        "days_out": 0,
+        "median_fee_pct_in": 19.16,
+        "median_fee_pct_out": null
+      },
+      "PDI": {
+        "days_in": 196,
+        "days_out": 131,
+        "median_fee_pct_in": 11.57,
+        "median_fee_pct_out": 8.71
+      },
+      "PFN": {
+        "days_in": 327,
+        "days_out": 0,
+        "median_fee_pct_in": 28.7,
+        "median_fee_pct_out": null
+      },
+      "PHK": {
+        "days_in": 143,
+        "days_out": 178,
+        "median_fee_pct_in": 44.7,
+        "median_fee_pct_out": 5.46
+      },
+      "PTY": {
+        "days_in": 0,
+        "days_out": 327,
+        "median_fee_pct_in": null,
+        "median_fee_pct_out": 24.06
+      }
+    }
+  },
+  "capacity": {
+    "book_gross_per_name_usd_from_spec": 13846.0,
+    "as_share_of_median_event_adv": 0.0056
+  },
+  "access_primary": {
+    "set": "a1_programme",
+    "alpaca_assets_read_utc": "2026-10-12T18:27:23.541988+00:00",
+    "event_funds": 31,
+    "with_sec_ticker_now": 25,
+    "active_at_alpaca": 25,
+    "shortable": 15,
+    "easy_to_borrow": 15,
+    "shortable_share_of_active": 0.6,
+    "not_shortable": [
+      "ECC",
+      "EFT",
+      "HERZ",
+      "IAF",
+      "IIF",
+      "MXF",
+      "NMI",
+      "NMZ",
+      "OCCI",
+      "TYG"
+    ],
+    "probe_2026_10_15_utc": "2026-10-15T20:01:54.447558+00:00",
+    "deployed_flags_2026_10_15": {
+      "AWF": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "BIT": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "DSL": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "HYT": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "JFR": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "MHD": {
+        "shortable": false,
+        "easy_to_borrow": false
+      },
+      "MQY": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PCN": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PDI": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PDO": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PFN": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PHK": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PTY": {
+        "shortable": true,
+        "easy_to_borrow": true
+      }
+    }
+  },
+  "access_broad": {
+    "set": "a1_event",
+    "alpaca_assets_read_utc": "2026-10-12T18:27:23.541988+00:00",
+    "event_funds": 60,
+    "with_sec_ticker_now": 44,
+    "active_at_alpaca": 43,
+    "shortable": 27,
+    "easy_to_borrow": 27,
+    "shortable_share_of_active": 0.628,
+    "not_shortable": [
+      "CRF",
+      "ECC",
+      "EFT",
+      "HERZ",
+      "IAF",
+      "IIF",
+      "MSD",
+      "MXF",
+      "NEA",
+      "NMCO",
+      "NMI",
+      "NMZ",
+      "OCCI",
+      "PFD",
+      "STEW",
+      "TYG"
+    ],
+    "probe_2026_10_15_utc": "2026-10-15T20:01:54.447558+00:00",
+    "deployed_flags_2026_10_15": {
+      "AWF": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "BIT": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "DSL": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "HYT": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "JFR": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "MHD": {
+        "shortable": false,
+        "easy_to_borrow": false
+      },
+      "MQY": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PCN": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PDI": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PDO": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PFN": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PHK": {
+        "shortable": true,
+        "easy_to_borrow": true
+      },
+      "PTY": {
+        "shortable": true,
+        "easy_to_borrow": true
+      }
+    }
+  },
+  "premium_funds_now": {
+    "cefconnect_read_utc": "2026-10-12T18:27:23.020982+00:00",
+    "funds_listed": 359,
+    "at_premium": 25,
+    "at_premium_active_at_alpaca": 25,
+    "at_premium_shortable": 8,
+    "at_premium_easy_to_borrow": 8,
+    "at_premium_by_strategy": {
+      "Fixed Income - Municipal-Municipal - Single-State": 5,
+      "Equity-Sector Equity": 5,
+      "Fixed Income - Taxable-High Yield": 2,
+      "Fixed Income - Taxable-Convertibles": 2,
+      "Equity-U.S. Equity": 2,
+      "Fixed Income - Municipal-Municipal - CA": 2,
+      "Fixed Income - Municipal-Municipal": 2,
+      "Fixed Income - Municipal-Municipal - NY": 1
+    }
+  },
+  "gate": {
+    "gates": {
+      "G-A1-1 groups >= 30": false,
+      "G-A1-2 identity share >= 0.80": true,
+      "G-A1-3 median D63 <= -60bp and share<0 >= 0.60": false,
+      "G-A1-4 |placebo| < 0.5 |event|": false,
+      "G-A1-5 shortable share >= 0.50": true
+    },
+    "verdict": "FAIL",
+    "cost_bar_bp": -60
+  }
+}

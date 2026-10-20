@@ -491,7 +491,11 @@ def edgar_episodes(idx: pd.DataFrame, cik_first_listing: dict) -> tuple[pd.DataF
     shelf = idx[idx["form"].isin(SHELF_FORMS) & idx["cik"].isin(cik_first_listing)]
     supp["first_listing"] = supp["cik"].map(cik_first_listing)
     ipo = supp["date_filed"] < supp["first_listing"] + pd.Timedelta(days=IPO_EXCLUDE_DAYS)
-    counts = {"supplements": int(len(supp)), "supplements_ipo_period_dropped": int(ipo.sum())}
+    counts = {"supplements": int(len(supp)), "supplements_ipo_period_dropped": int(ipo.sum()),
+              # the 2020 offering reform's footprint: Rule 497 gives way to Rule 424(b)
+              "supplements_by_year_rule": supp.assign(y=supp["date_filed"].dt.year.astype(str),
+                                                      rule=np.where(supp["form"].eq("497"), "497", "424B"))
+                                              .groupby(["y", "rule"]).size().unstack(fill_value=0).to_dict("index")}
     supp = supp[~ipo].sort_values(["cik", "date_filed", "accession"])
     shelf_by = {c: g["date_filed"].sort_values().to_numpy() for c, g in shelf.groupby("cik")}
     rows = []
@@ -744,6 +748,8 @@ def census(edgar_cache: Path, crsp_dirs, write: bool = True) -> dict:
             "episodes_all": int(len(eps)), "episodes_pre_2023": int(len(pre)),
             "episodes_pre_2023_left_censored_2008": int(pre["left_censored"].sum()),
             "by_class_pre_2023": pre["crsp_class"].value_counts().to_dict(),
+            "episodes_by_year_all_classes": _year(eps["first_date"]).value_counts().sort_index().rename(index=str).to_dict(),
+            "programme_episodes_by_year_all_classes_right_censored_late": _year(eps.loc[eps["programme"], "first_date"]).value_counts().sort_index().rename(index=str).to_dict(),
             "episodes_2023_on_count_only": int((eps["first_date"] >= TIME_HOLDOUT).sum()),
             "episodes_2023_on_by_year": year(eps.loc[eps["first_date"] >= TIME_HOLDOUT, "first_date"]).value_counts().sort_index().rename(index=str).to_dict(),
             "first_form_pre_2023": pre["first_form"].value_counts().to_dict(),
@@ -788,8 +794,8 @@ def census(edgar_cache: Path, crsp_dirs, write: bool = True) -> dict:
 # levels: the mechanism check (descriptive; no position, no P&L)
 # =============================================================================
 
-def premium_panel(px: pd.DataFrame, nav: pd.DataFrame, z_window: int) -> dict:
-    """ticker -> DataFrame(date, p, z, adv) on same-date pairs before 2023-01-01.
+def premium_panel(px: pd.DataFrame, nav: pd.DataFrame, z_window: int) -> tuple[dict, dict]:
+    """(ticker -> DataFrame(date, p, z, adv) on same-date pairs before 2023-01-01, diagnostics).
 
     p mirrors the sleeve's `disc` (percent); z mirrors its rolling z with
     `shift(1)` (data strictly before the date); adv is the 63-session mean dollar
@@ -798,6 +804,19 @@ def premium_panel(px: pd.DataFrame, nav: pd.DataFrame, z_window: int) -> dict:
     nav = nav[nav["date"] < TIME_HOLDOUT]
     m = px[["date", "ticker", "close", "volume"]].merge(nav[["date", "ticker", "nav"]], on=["date", "ticker"], how="inner")
     m = m[(m["close"] > 0) & (m["nav"] > 0)].sort_values(["ticker", "date"])
+    # REVISION 2 (2026-10-20, after the first levels run): the families NAV is the vendor
+    # series, re-based at some reverse splits while the CRSP close is raw, so a pre-split
+    # pair can read -70% to -98% (SRV, CRF, CLM and ZTR in that run;
+    # results/cef/CEF_FAMILIES_DATA_2026-10-12.md §3.2-3.3). A pair whose price/NAV lies
+    # outside the census's PAIR_RATIO is a basis mismatch, not a premium, and is dropped;
+    # the count is reported. The rule is the census's own, not chosen here.
+    from scripts.events.cef_corp_action_census import PAIR_RATIO
+    ratio = m["close"] / m["nav"]
+    bad = ~((ratio > PAIR_RATIO[0]) & (ratio < PAIR_RATIO[1]))
+    diag = {"basis_pairs_dropped_pair_ratio": int(bad.sum()),
+            "basis_funds_with_dropped_pairs": sorted(m.loc[bad, "ticker"].unique().tolist()),
+            "pair_ratio": list(PAIR_RATIO)}
+    m = m[~bad]
     out = {}
     for t, g in m.groupby("ticker"):
         g = g.set_index("date")
@@ -809,7 +828,7 @@ def premium_panel(px: pd.DataFrame, nav: pd.DataFrame, z_window: int) -> dict:
         df = pd.DataFrame({"p": p, "z": z, "adv": adv}).reset_index()
         assert_pre_holdout(df["date"], f"premium panel {t}")
         out[t] = df
-    return out
+    return out, diag
 
 
 def path_at(df: pd.DataFrame, i0: int, offsets) -> dict | None:
@@ -1020,6 +1039,71 @@ def premium_funds_now(flags: pd.DataFrame, path: Path) -> dict:
             "at_premium_by_strategy": prem["Strategy"].value_counts().head(8).to_dict()}
 
 
+def book_exposure(eps: pd.DataFrame) -> dict:
+    """How often the deployed book was SHORT a deployed name inside one of that name's
+    offering episodes, fit period only. A count of name-days, no return: it says whether
+    an issuance-aware filter on shorts would bind, not what it would earn.
+
+    Windows run from the episode's first supplement (public by 17:30 ET that day, so
+    the 22:00 decision could know it) to its last, cut at 2022-12-30. Three window
+    sets: any offering episode, programme episodes (>= PROGRAMME_MIN_SUPPLEMENTS), and
+    broad A1 events."""
+    from scripts.cef.band_frontier import band_gross_capped, build_targets, fit_only
+    from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS, summary
+    T, R = build_targets()
+    T, R = fit_only(T, R)
+    H = band_gross_capped(T, BAND_WIDTH, MAX_GROSS_STRESS)
+    assert_pre_holdout(H.index.max(), "book weights")
+    short = H < 0
+    live = H.abs().sum(axis=1) > 0
+    first = live.idxmax()
+    dep = eps[eps["deployed"].notna() & (eps["first_date"] < TIME_HOLDOUT)].copy()
+    out = {"spec": summary(), "book_first_live": str(first.date()), "book_last": str(H.index.max().date()),
+           "short_name_days_total": int(short.loc[first:].sum().sum())}
+    for label, sel in (("any_offering_episode", dep.index == dep.index),
+                       ("programme_episode", (dep["programme"] & (dep["crsp_class"] != "rights")).to_numpy()),
+                       ("a1_broad_event", dep["a1_event"].to_numpy())):
+        M = pd.DataFrame(False, index=H.index, columns=H.columns)
+        wins = []
+        for r in dep[sel].itertuples():
+            for t in str(r.deployed).split(";"):
+                if t not in M.columns:
+                    continue
+                end = min(pd.Timestamp(r.last_date), H.index.max())
+                M.loc[(M.index >= r.first_date) & (M.index <= end), t] = True
+                wins.append(f"{t} {pd.Timestamp(r.first_date).date()}..{end.date()}")
+        s_in = (short & M).loc[first:]
+        out[label] = {"windows": wins, "short_name_days_in_windows": int(s_in.sum().sum()),
+                      "share_of_all_short_name_days": round(float(s_in.sum().sum()) / max(out["short_name_days_total"], 1), 4),
+                      "by_name": {c: int(s_in[c].sum()) for c in H.columns if s_in[c].sum()}}
+    return out
+
+
+def borrow_context(eps: pd.DataFrame) -> dict:
+    """IBKR's daily borrow fee (FEE_RATE bars, `data/cef/cef_borrow_history.parquet`) for the
+    deployed names, inside and outside their programme windows, 2021-09-13 to 2022-12-30.
+
+    A COST level for feasibility, not a return; the panel starts 2021-09-13 and is cut
+    before the holdout. Medians by name; a name with no window days is reported outside only."""
+    b = pd.read_parquet(REPO / "data" / "cef" / "cef_borrow_history.parquet")
+    b["date"] = pd.to_datetime(b["date"])
+    b = b[b["date"] < TIME_HOLDOUT]
+    assert_pre_holdout(b["date"], "borrow fees")
+    dep = eps[eps["deployed"].notna() & eps["programme"] & (eps["crsp_class"] != "rights") & (eps["first_date"] < TIME_HOLDOUT)]
+    out = {"panel_first": str(b["date"].min().date()), "panel_last_used": str(b["date"].max().date()), "by_name": {}}
+    for t, g in b.groupby("ticker"):
+        w = dep[dep["deployed"].str.split(";").map(lambda v: t in v)]
+        inside = np.zeros(len(g), bool)
+        for r in w.itertuples():
+            inside |= ((g["date"] >= r.first_date) & (g["date"] <= r.last_date)).to_numpy()
+        rec = {"days_in": int(inside.sum()), "days_out": int((~inside).sum()),
+               "median_fee_pct_in": round(float(g.loc[inside, "fee_rate_pct"].median()), 2) if inside.any() else None,
+               "median_fee_pct_out": round(float(g.loc[~inside, "fee_rate_pct"].median()), 2) if (~inside).any() else None}
+        if rec["days_in"] or t in set(";".join(dep["deployed"]).split(";")):
+            out["by_name"][t] = rec
+    return out
+
+
 def levels(edgar_cache: Path, crsp_dirs, write: bool = True) -> dict:
     from scripts.cef.spec import Z_WINDOW, MIN_ADV_USD
     c = census(edgar_cache, crsp_dirs, write=write)
@@ -1032,7 +1116,7 @@ def levels(edgar_cache: Path, crsp_dirs, write: bool = True) -> dict:
     u44 = set(pd.read_csv(REPO / "data" / "cef" / "cef_universe.csv")["ticker"])
     if set(px["ticker"]) & u44 or set(nav["ticker"]) & u44:
         raise A1DataError("a cef_universe.csv name is in the families panel; refusing (27-name set)")
-    panel = premium_panel(px, nav, Z_WINDOW)
+    panel, pdiag = premium_panel(px, nav, Z_WINDOW)
     # a control or placebo must be clean of ANY EDGAR offering episode (rights and
     # unconfirmed included) within a year, not only of A1 events
     pre_eps = eps[(eps["first_date"] < TIME_HOLDOUT) & eps["families_ticker"].notna()]
@@ -1049,6 +1133,15 @@ def levels(edgar_cache: Path, crsp_dirs, write: bool = True) -> dict:
         res, R, P = level_check(ev, panel, ev_dates, cq_by_ticker, MIN_ADV_USD)
         out[label] = res
         frames[label] = (R, P)
+    out["params"].update(pdiag)
+    out["book_exposure_fit_period"] = book_exposure(eps)
+    out["borrow_context_deployed_2021_2022"] = borrow_context(eps)
+    pr0 = out["primary_programme"].get("adv_tau0", {})
+    if pr0:
+        from scripts.cef.spec import CAPITAL_USD, MAX_GROSS_STRESS, UNIVERSE
+        per_name = CAPITAL_USD * (MAX_GROSS_STRESS or 1.0) / len(UNIVERSE)
+        out["capacity"] = {"book_gross_per_name_usd_from_spec": round(per_name, 0),
+                           "as_share_of_median_event_adv": round(per_name / pr0["median_usd"], 4)}
     flags, flags_utc = alpaca_flags(fam / "raw" / "alpaca_assets_active_2026-10-12.json")
     out["access_primary"] = access(eps, flags, flags_utc, "a1_programme")
     out["access_broad"] = access(eps, flags, flags_utc, "a1_event")
@@ -1096,7 +1189,8 @@ def main(argv=None) -> int:
     elif a.stage == "sample":
         r = census(a.edgar_cache, a.crsp_cache, write=False)
         s = validation_sample(r["_eps"])
-        s.to_csv(OUT / "a1_validation_sample_draw.csv", index=False)
+        PRIVATE.mkdir(parents=True, exist_ok=True)
+        s.to_csv(PRIVATE / "a1_validation_sample_draw.csv", index=False)   # the readings are in a1_validation_sample_2026-10-20.csv
         print(s.to_string())
         return 0
     else:

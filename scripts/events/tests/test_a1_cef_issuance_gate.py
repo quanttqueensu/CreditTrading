@@ -146,10 +146,10 @@ def test_z_mirrors_the_sleeve_shift_one():
     dates = pd.bdate_range("2015-01-01", periods=400)
     px = pd.DataFrame({"date": dates, "ticker": "X", "close": 10.0 + np.sin(np.arange(400) / 7), "volume": 1e5})
     nav = pd.DataFrame({"date": dates, "ticker": "X", "nav": 10.0})
-    a = A.premium_panel(px, nav, 252)["X"].set_index("date")
+    a = A.premium_panel(px, nav, 252)[0]["X"].set_index("date")
     px2 = px.copy()
-    px2.loc[px2.index[-1], "close"] = 50.0                       # a shock on the last day only
-    b = A.premium_panel(px2, nav, 252)["X"].set_index("date")
+    px2.loc[px2.index[-1], "close"] = 14.0                       # a shock on the last day only (inside PAIR_RATIO)
+    b = A.premium_panel(px2, nav, 252)[0]["X"].set_index("date")
     last = dates[-1]
     # the shock moves today's p, so today's z, but not today's mean and sd: compare z*(sd) + mu
     za, zb = a.loc[last, "z"], b.loc[last, "z"]
@@ -167,7 +167,16 @@ def test_levels_never_read_the_holdout():
         A.assert_pre_holdout(pd.Timestamp("2023-01-03"), "x")
     px = pd.DataFrame({"date": dates, "ticker": "X", "close": 10.0, "volume": 1.0})
     nav = pd.DataFrame({"date": dates, "ticker": "X", "nav": 9.0})
-    assert A.premium_panel(px, nav, 252)["X"]["date"].max() < A.TIME_HOLDOUT
+    assert A.premium_panel(px, nav, 252)[0]["X"]["date"].max() < A.TIME_HOLDOUT
+
+
+def test_basis_mismatch_pairs_are_dropped_not_read_as_premia():
+    dates = pd.bdate_range("2015-01-01", periods=10)
+    px = pd.DataFrame({"date": dates, "ticker": "X", "close": [1.0] * 5 + [10.0] * 5, "volume": 1.0})
+    nav = pd.DataFrame({"date": dates, "ticker": "X", "nav": 10.0})     # first five: price/NAV 0.1, a re-based NAV
+    panel, diag = A.premium_panel(px, nav, 252)
+    assert len(panel["X"]) == 5 and diag["basis_pairs_dropped_pair_ratio"] == 5
+    assert diag["basis_funds_with_dropped_pairs"] == ["X"]
 
 
 def test_crsp_extract_disagreement_raises(tmp_path):
