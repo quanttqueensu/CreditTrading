@@ -19,7 +19,7 @@ Reproducer: `python3 scripts/events/nav_tender_trial.py stage0 --edgar-only` (ru
 |---|---|
 | `results/events/nav_tender/stage0_2026-10-19.json` | counts by period, the 20% gate, the halt |
 | `results/events/nav_tender/stage0_events_2026-10-19.csv` | per event: day 0, the filings read, expiry, pricing session, P_final, pi and how each was read |
-| `results/events/nav_tender/stage0_flags_2026-10-19.csv` | the Stage-0 flags awaiting rulings (part A's 65) |
+| `results/events/nav_tender/stage0_flags_2026-10-19.csv` | the Stage-0 flags awaiting rulings (part A's 72; see the correction in §3) |
 | `results/events/nav_tender/dg_nt1_readings_2026-10-19.csv` | the DG-NT-1 hand readings, each with a verbatim quote the script checks against the filing |
 
 Tests: `python3 -m pytest scripts/events/tests/test_nav_tender_trial.py` (synthetic
@@ -111,7 +111,11 @@ header (§4.2).
   test cannot fire, whatever CRSP's ticker list holds.
 - **No offer in the fit was terminated or withdrawn.**
 
-## 3. The flags awaiting rulings (part A: 65)
+## 3. The flags awaiting rulings (part A: 72)
+
+> **Corrected 2026-10-20.** This heading and the hand-back said 65. That was the
+> line count of an earlier run's flag file. The committed file has 72 rows, the sum of
+> this table.
 
 | check | fit | holdout | what the team lead rules |
 |---|---:|---:|---|
@@ -181,3 +185,60 @@ It computes no return. Then:
 **The holdout's count is reported now, and decides nothing yet.** 14 of its 42 events
 (33%) are unread on today's reading. If that stands at the holdout's Stage 0, the
 holdout halts under §4.3 and is reported, and the fit verdict stands (§11.1).
+
+## 6. Proposed rulings, 2026-10-20 (zero trials; nothing ruled yet)
+
+The form is `results/events/nav_tender/nav_tender_stage0_rulings_2026-10-19.csv`, one
+row per part-A flag (72). Each row's `ruling` holds the recommendation and its reason.
+`ruled_by` and `ruled_on` are blank, so `require_stage0_rulings` still refuses until
+the team lead signs.
+
+| class | rows | recommendation |
+|---|---:|---|
+| R1 day 0 kept | 31 | accept: the census's day-0 filing announces a definite tender (quote checked) |
+| R2 day 0 kept, closer call | 9 | accept; each row says why (KEF 2010, DSU 2019 and 2020, HIX and EHI 2020, AVK and AGC 2017, PHD 2020, NBB 2018) |
+| R3 re-dated | 6 | accept the move to the filing that announces the decided tender |
+| R3b MCN 2018, re-dated | 1 | accept the re-dating and keep the event. Its merger episode closed (2018-08-29) before the re-dated day 0, so it does not overlap E1. Alternative: exclude under §1 |
+| R4 episode holds several offers | 19 | genuine, no action; reported as a robustness row (§4.4) |
+| R5 DDF 2017 time key; DDF 2014 pricing date; NDP 2022 P_final | 3 | accept as read |
+| M1 beta window | 1 | keep h = 1 (ends 43 valid sessions before day 0; windows() unchanged) |
+| M2 results filing | 1 | keep: the last SC TO-I/A only; the 3 SC TO-C-only events stay unread. The gate passes either way |
+| M3 per-event units | 1 | keep the literal u-weighted x_e with cluster_t; group means printed beside it |
+
+A check made for R3b: no event's merger-open status changes when the screen is applied at
+the re-dated day 0 instead of the census's day 0.
+
+**CRSP: reuse the census worktree's cache, or pull from R2?** Recommendation: **pull from
+R2 through `stage`.** The team lead runs `stage` anyway, for the SEC agent and the Alpaca
+key, so the pull costs one more query. What reuse would and would not change:
+
+- **Vintage:** the same R2 mirror (`crsp_a_stock`, `dsf` to 2024-12-31,
+  `results/data/R2_CATALOG.md`), pulled 2026-10-11 to 2026-10-18. Whether the mirror
+  changed since then cannot be checked without a pull.
+- **Fields:** identical. Both go through the same `crsp_events.daily` SQL (permno, date,
+  prc, ret, retx, vol, shrout, cfacpr), with the same `date < 2023-01-01` cut. The
+  delisting and name tables are the same unhashed extracts.
+- **Permno mapping:** not reused either way. The trial re-runs the census's `CrspMap` on
+  its own (re-dated) day 0. The cache only has to contain those permnos; a missing one
+  halts part B by name.
+- **Mechanics:** the cache's extracts are separate batches named by other permno lists.
+  `crsp_events.daily` would miss them, so reuse needs new assembly code on the data path,
+  with its own manifest.
+- **Provenance:** the extracts are licensed data that another agent pulled for a
+  zero-trial census, outside this worktree. Reusing them needs the team lead's explicit
+  authorisation.
+
+**DG-NT-4 without a same-day Alpaca read?** **The pre-registration requires one:** §4.4 says
+"Alpaca `GET /v2/assets/{symbol}` (read-only, cef paper key) and IBKR's public
+`usa.txt`, read the same day, with their stamps". The committed Alpaca probe snapshots
+(`results/ops/alpaca_probe/*_cef.json`, the last 2026-10-15) record the book's own
+account and assets, not the hedge ETFs, so they cannot supply the flags. The only tracked
+read of all 52 hedge symbols is the census's (2026-10-18T22:33Z,
+`cef_corp_action_summary.json`), and no IBKR file is stamped that day. Pairing them with
+a later IBKR file is a deviation. `stage0` would flag it (`spec_dg4_reads`), and the team
+lead would have to rule on it. On that read:
+
+- every non-muni primary was shortable at Alpaca;
+- MUB was not, so the 11 muni fit events would route to IBKR at the file's fee.
+
+Recommendation: the same-day read inside `stage`, as declared.
