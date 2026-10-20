@@ -468,4 +468,6 @@ def test_the_committed_c4_split_rulings_load_and_name_the_four_funds():
     assert sorted(zip(close["ticker"], (str(d.date()) for d in close["ex_date"]))) == [
         ("BTO", "2008-12-30"), ("EMO", "2020-07-28"), ("NXG", "2020-06-15"), ("TYG", "2020-05-01")]
     assert sorted(R.loc[R["series"] == "nav", "ticker"]) == ["BTO", "EMO"]
-    assert set(R["treatment"]) == {"book_as_is"} and doc["ruled_on"] == "2026-10-20"
+    # The team lead ruled drop_split on 2026-10-20 ("Apply the fix"), superseding the
+    # same day's book_as_is; only C4's report-only R-yf row moves (1.131 -> 1.130).
+    assert set(R["treatment"]) == {"drop_split"} and doc["ruled_on"] == "2026-10-20"

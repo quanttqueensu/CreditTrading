@@ -522,6 +522,9 @@ with the auction-marked score (`docs/REFERENCES.md` §12an). The design is
 |---|---|
 | IBKR as a second broker | **Wait for a trigger** (narrows 2026-10-19's "open it"). No account, build or VM resize until one fires: E1 passes; NAV tenders pass and keep the IBKR muni hedge; the SPAC gate passes with real capital; the core-book benefit, re-run with a measured blocking rate and that day's fees, beats the fixed cost; or a proposal re-admits the four dropped munis. `results/ops/IBKR_WORTH_IT_2026-10-19.md` |
 | SPACs | **Closed under D4, zero trials spent.** The deadline-only route fails the alpha-only rule at zero trials (`results/events/SPAC_DEADLINE_PRESCREEN_2026-10-19.md`); vote redemption at IBKR is moot while IBKR waits for a trigger |
+| The new event paths' zero-trial checks (A1 issuance at a premium, A2 insider buying, B1/B2 muni hazard flags) | **All three closed, zero trials** (`results/events/A1_CEF_ISSUANCE_GATE_2026-10-20.md`, `results/events/A2_INSIDER_BUYING_GATE_2026-10-20.md`, `results/cef/MUNI_HAZARD_FLAGS_GATE_2026-10-20.md`) |
+| E1 and NAV-tender Stage-0 rulings | **All recommended rulings accepted** (E1: 15 items, amendment 2; NAV tenders: 72 flags). Both trials wait only on the team lead's credentialed data pulls |
+| C4's double-applied splits (BTO, TYG, NXG, EMO) | **drop_split.** Only the report-only R-yf row moves, 1.131 → 1.130; the verdict is unchanged |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
@@ -570,4 +573,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-19 | §5 records the rulings on the interrupted work: C4's verdict, C5's repair rule, HALVE/KILL in report mode, CEFConnect, IBKR, and the EVENTS slate. | for the team lead |
 | 2026-10-19 | §5 records the HALVE/KILL report-mode ruling and the official equity series it reads. | for the team lead |
 | 2026-10-19 | §5 records the P&L-of-record ruling: Alpaca's end-of-day history is official; the 17:30 reading is a snapshot. | hotfix, for the team lead |
-| 2026-10-20 | §5 records IBKR waiting for a trigger and SPACs closed (D4, zero trials). | for the team lead |
+| 2026-10-20 | §5 records IBKR waiting for a trigger, SPACs closed (D4), the three event-path closes, the trials' Stage-0 rulings and C4's split ruling. | for the team lead |

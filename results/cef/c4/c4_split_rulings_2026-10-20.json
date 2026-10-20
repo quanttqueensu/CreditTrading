@@ -1,21 +1,57 @@
 {
   "trial": "C4 (CEF trial 52)",
-  "ruled_by": "team lead (Simon Jarvis): instruction of 2026-10-19 (\"Yes, tomorrow\"), relayed by the coordinator on 2026-10-20, that C4's committed paths be given the recorded rulings they need to reproduce exactly",
+  "ruled_by": "team lead (Simon Jarvis), 2026-10-20: \"Apply the fix\" (drop_split on the four funds' double-applied splits). Supersedes the same day's book_as_is, which was recorded only so the committed computations reproduced.",
   "ruled_on": "2026-10-20",
-  "record": "results/cef/DATA_GUARDS_2026-10-19.md §7 (the split-basis guard, these six cells, and what drop_split would change); §6 item 2 (the defect as found)",
-  "ruling": "book_as_is on every cell, so the committed C4 computations (Stage 0, the fit's R-yf row and NAV catch-up, the holdout's assembly) reproduce to the bit. This is NOT a ruling that the booked returns are genuine. On each date yfinance's series had already been split-adjusted: CRSP's raw print steps by about 1/k and yfinance's does not ([V], 2026-10-19 and 2026-10-20). The formula therefore booked k a second time. The correction is `drop_split`; the team lead has not ruled on it. Measured under drop_split: the R-yf row moves from 1.131 to 1.130 (results/cef/data_guards/split_basis_callsites_output_2026-10-20.txt).",
+  "record": "results/cef/DATA_GUARDS_2026-10-19.md \u00a77 (the split-basis guard, these six cells, and what drop_split would change); \u00a76 item 2 (the defect as found)",
+  "ruling": "drop_split on every cell: yfinance's series was already split-adjusted on each date (CRSP's raw print steps by about 1/k and yfinance's does not; [V] 2026-10-19 and 2026-10-20), so the formula had booked k twice. Effect (results/cef/DATA_GUARDS_2026-10-19.md \u00a77.3; split_basis_callsites_output_2026-10-20.txt): only C4's report-only R-yf row moves, gross SR 1.131 -> 1.1302, net 0.824 / 0.212 / -0.705; the holdout's assembly keeps its yfinance leg from 2025-01-02 and is identical; the NAV catch-up slope is identical. Was (2026-10-20, earlier): book_as_is on every cell, so the committed computations reproduced to the bit.",
   "splits": [
-    {"ticker": "BTO", "ex_date": "2008-12-30", "factor": 0.25, "series": "close", "treatment": "book_as_is",
-     "reason": "reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 1.013 against 1/k = 4), so the committed formula booked -74.7%"},
-    {"ticker": "TYG", "ex_date": "2020-05-01", "factor": 0.25, "series": "close", "treatment": "book_as_is",
-     "reason": "reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 0.931 against 1/k = 4), so the committed formula booked -76.7%"},
-    {"ticker": "NXG", "ex_date": "2020-06-15", "factor": 0.25, "series": "close", "treatment": "book_as_is",
-     "reason": "reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 1.005 against 1/k = 4), so the committed formula booked -74.9%"},
-    {"ticker": "EMO", "ex_date": "2020-07-28", "factor": 0.2, "series": "close", "treatment": "book_as_is",
-     "reason": "reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 0.985 against 1/k = 5), so the committed formula booked -80.3%"},
-    {"ticker": "BTO", "ex_date": "2008-12-30", "factor": 0.25, "series": "nav", "treatment": "book_as_is",
-     "reason": "reproduces the committed NAV catch-up diagnostic; the families NAV is already on the post-split basis here (raw ratio 1.032 against 1/k = 4)"},
-    {"ticker": "EMO", "ex_date": "2020-07-28", "factor": 0.2, "series": "nav", "treatment": "book_as_is",
-     "reason": "reproduces the committed NAV catch-up diagnostic; the families NAV is already on the post-split basis here (raw ratio 0.998 against 1/k = 5)"}
+    {
+      "ticker": "BTO",
+      "ex_date": "2008-12-30",
+      "factor": 0.25,
+      "series": "close",
+      "treatment": "drop_split",
+      "reason": "team lead 2026-10-20: the close/NAV was already on the post-split basis, so k is not applied again (was book_as_is: reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 1.013 against 1/k = 4), so the committed formula booked -74.7%)"
+    },
+    {
+      "ticker": "TYG",
+      "ex_date": "2020-05-01",
+      "factor": 0.25,
+      "series": "close",
+      "treatment": "drop_split",
+      "reason": "team lead 2026-10-20: the close/NAV was already on the post-split basis, so k is not applied again (was book_as_is: reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 0.931 against 1/k = 4), so the committed formula booked -76.7%)"
+    },
+    {
+      "ticker": "NXG",
+      "ex_date": "2020-06-15",
+      "factor": 0.25,
+      "series": "close",
+      "treatment": "drop_split",
+      "reason": "team lead 2026-10-20: the close/NAV was already on the post-split basis, so k is not applied again (was book_as_is: reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 1.005 against 1/k = 4), so the committed formula booked -74.9%)"
+    },
+    {
+      "ticker": "EMO",
+      "ex_date": "2020-07-28",
+      "factor": 0.2,
+      "series": "close",
+      "treatment": "drop_split",
+      "reason": "team lead 2026-10-20: the close/NAV was already on the post-split basis, so k is not applied again (was book_as_is: reproduces the committed computation; yfinance's close is already on the post-split basis here (raw ratio 0.985 against 1/k = 5), so the committed formula booked -80.3%)"
+    },
+    {
+      "ticker": "BTO",
+      "ex_date": "2008-12-30",
+      "factor": 0.25,
+      "series": "nav",
+      "treatment": "drop_split",
+      "reason": "team lead 2026-10-20: the close/NAV was already on the post-split basis, so k is not applied again (was book_as_is: reproduces the committed NAV catch-up diagnostic; the families NAV is already on the post-split basis here (raw ratio 1.032 against 1/k = 4))"
+    },
+    {
+      "ticker": "EMO",
+      "ex_date": "2020-07-28",
+      "factor": 0.2,
+      "series": "nav",
+      "treatment": "drop_split",
+      "reason": "team lead 2026-10-20: the close/NAV was already on the post-split basis, so k is not applied again (was book_as_is: reproduces the committed NAV catch-up diagnostic; the families NAV is already on the post-split basis here (raw ratio 0.998 against 1/k = 5))"
+    }
   ]
 }
