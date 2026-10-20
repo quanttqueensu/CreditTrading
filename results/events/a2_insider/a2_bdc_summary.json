@@ -1,0 +1,28 @@
+{
+ "ran_utc": "2026-10-20T16:20:29+00:00",
+ "diag": {
+  "purchases": {
+   "bdc_events": 1508,
+   "linked": 1224,
+   "link_stages": {
+    "exact": 1210,
+    "none": 284,
+    "class_suffix": 14
+   },
+   "usable_trailing_return": 1078
+  },
+  "sales_placebo": {
+   "bdc_events": 268,
+   "linked": 246,
+   "link_stages": {
+    "exact": 245,
+    "none": 22,
+    "class_suffix": 1
+   },
+   "usable_trailing_return": 187
+  }
+ },
+ "last_date": "2022-12-30",
+ "n_permnos_missing_from_dsf": 13,
+ "n_control_days": 87294
+}

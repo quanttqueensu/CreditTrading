@@ -1,0 +1,40 @@
+{
+ "ran_utc": "2026-10-20T16:12:08+00:00",
+ "acceptance_bins": {
+  "json_as_utc (latest possible)": {
+   "before 09:30": 242,
+   "09:30-16:00 (market hours)": 2998,
+   "16:00-17:30": 1032,
+   "17:30-22:00 (Forms 3/4/5 still same-day)": 1981,
+   "after 22:00 (filed next business day)": 357
+  },
+  "json minus 5h (earliest possible)": {
+   "before 09:30": 2107,
+   "09:30-16:00 (market hours)": 3598,
+   "16:00-17:30": 548,
+   "17:30-22:00 (Forms 3/4/5 still same-day)": 355,
+   "after 22:00 (filed next business day)": 2
+  }
+ },
+ "acceptance_diag": {
+  "ciks_with_cached_json": 55,
+  "ciks_without": 153,
+  "form4_rows": 6610,
+  "filing_years": [
+   1998,
+   2026
+  ],
+  "share_filingDate_equals_json_et_date": 0.9795763993948563
+ },
+ "capacity": {
+  "events_with_adv": 1247,
+  "adv_p10": 307741.0525512302,
+  "adv_median": 1414484.460736835,
+  "adv_p90": 4561338.834533999,
+  "share_adv_ge_spec_min_adv": 0.22052927024859664,
+  "spec_min_adv_usd": 3000000.0,
+  "share_adv_ge_1m": 0.6391339214113874,
+  "spec_capital_usd": 100000.0,
+  "clip_10pct_of_capital_as_share_of_median_adv": 0.007069713579455506
+ }
+}

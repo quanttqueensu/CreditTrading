@@ -1,0 +1,66 @@
+{
+ "G1_breadth": {
+  "events_per_year_2010_22_mean": 72.46153846153847,
+  "bar": 50,
+  "pass": true,
+  "fail_means": "D7"
+ },
+ "G2_incremental_to_z": {
+  "m1_mean_pp": 0.15221379574839844,
+  "m1_t": 1.0868743786999888,
+  "m2_mean_pp": -0.3132744423135472,
+  "m2_t": -1.1084069319115917,
+  "bar_t": 2.0,
+  "pass": false,
+  "fail_means": "KILL: insider buying adds nothing beyond the z-score"
+ },
+ "G3_sales_placebo": {
+  "sales_m1_mean_pp": -0.12089275698057608,
+  "sales_m1_t": -0.5381128332151619,
+  "purchases_m1_mean_pp": 0.15221379574839844,
+  "pass": true,
+  "fail_means": "KILL: the placebo moves the same way (artefact of insider trading windows)"
+ },
+ "G4_cost": {
+  "px_excess_bp": 9.476034075530032,
+  "px_t": 0.44410022757931267,
+  "bar_bp": 30.0,
+  "net_bp_at_grid": {
+   "5bp": -0.5239659244699677,
+   "15bp": -20.52396592446997,
+   "30bp": -50.52396592446997
+  },
+  "pass": false,
+  "fail_means": "D2 (costs eat it) -- reported, not a kill on its own"
+ },
+ "G5_bdc_descriptive": {
+  "px_excess_bp": 99.79718916760892,
+  "t": 3.1275073948357472,
+  "n": 1043,
+  "sales_px_excess_bp": 91.19198818513625,
+  "sales_t": 1.4003875894334616,
+  "recommend_bdc_nav_fetch": true
+ },
+ "core_all_pass": false,
+ "verdict": "CLOSE at zero trials: G2 fails -- no information beyond the discount z-score",
+ "ran_utc": "2026-10-20T16:12:08+00:00",
+ "events_per_year_panel_sample": {
+  "2006": 53,
+  "2007": 99,
+  "2008": 98,
+  "2009": 55,
+  "2010": 74,
+  "2011": 72,
+  "2012": 58,
+  "2013": 87,
+  "2014": 62,
+  "2015": 72,
+  "2016": 72,
+  "2017": 78,
+  "2018": 65,
+  "2019": 63,
+  "2020": 88,
+  "2021": 70,
+  "2022": 81
+ }
+}

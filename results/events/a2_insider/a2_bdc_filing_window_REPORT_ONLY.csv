@@ -1,0 +1,17 @@
+sample,row,bucket,n_events,months,mean_excess_bp,t,events,control_days
+bdc_control_days,"px_21 minus all control days in the month, bucket 0","(-0.5, 10]",5462,144,24.4057,0.773507,,
+bdc_control_days,"px_21 minus all control days in the month, bucket 1","(10, 30]",9616,166,-14.6071,-0.515844,,
+bdc_control_days,"px_21 minus all control days in the month, bucket 2","(30, 60]",13655,169,-1.24523,-0.0737692,,
+bdc_control_days,"px_21 minus all control days in the month, bucket 3","(60, 10000]",16905,171,1.42924,0.0809079,,
+bdc_purchases,"share of events, days since 10-Q/10-K in bucket 0","(-0.5, 10]",1003,,,,0.376869,0.118162
+bdc_purchases,"share of events, days since 10-Q/10-K in bucket 1","(10, 30]",1003,,,,0.301097,0.212412
+bdc_purchases,"share of events, days since 10-Q/10-K in bucket 2","(30, 60]",1003,,,,0.221336,0.304232
+bdc_purchases,"share of events, days since 10-Q/10-K in bucket 3","(60, 10000]",1003,,,,0.100698,0.365194
+bdc_purchases,"m1 (as G5), 2008-04+",,970,164,74.0983,2.45603,,
+bdc_purchases,"m1 + filing-window bucket, 2008-04+",,864,158,23.7736,0.632765,,
+bdc_sales_placebo,"share of events, days since 10-Q/10-K in bucket 0","(-0.5, 10]",164,,,,0.317073,0.118162
+bdc_sales_placebo,"share of events, days since 10-Q/10-K in bucket 1","(10, 30]",164,,,,0.29878,0.212412
+bdc_sales_placebo,"share of events, days since 10-Q/10-K in bucket 2","(30, 60]",164,,,,0.280488,0.304232
+bdc_sales_placebo,"share of events, days since 10-Q/10-K in bucket 3","(60, 10000]",164,,,,0.103659,0.365194
+bdc_sales_placebo,"m1 (as G5), 2008-04+",,161,100,17.4552,0.260706,,
+bdc_sales_placebo,"m1 + filing-window bucket, 2008-04+",,146,88,-43.1741,-0.590186,,
