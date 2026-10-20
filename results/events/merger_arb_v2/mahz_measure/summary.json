@@ -1,0 +1,63 @@
+{
+ "generated_utc": "2026-10-20T22:38:37+00:00",
+ "zero_trials": true,
+ "stage_dir": "/Users/simonjarvis/Downloads/2027/Projects/Quant - PM2027/2027/.claude/worktrees/main-int/data/events/merger_targets",
+ "capital_usd": 100000.0,
+ "dsf_last": "2022-12-30",
+ "calendar_last": "2026-10-09",
+ "gross_bp_per_unit_total_gross": {
+  "full": 414.0,
+  "late": 276.0,
+  "full_x0.42": 173.88
+ },
+ "cost_verdict": {
+  "verdict": "MARGINAL",
+  "measured_drag_bp_by_bracket": {
+   "A": 201.6,
+   "B": 232.8
+  },
+  "late_gross_bp": 276.0,
+  "decayed_gross_bp": 173.9
+ },
+ "hump_verdict": {
+  "verdict": "HOLDS",
+  "by_bracket": {
+   "A": {
+    "high": 0.0691,
+    "low1": 0.0246
+   },
+   "B": {
+    "high": 0.0365,
+    "low1": 0.0207
+   }
+  }
+ },
+ "counts": {
+  "deals": 3195,
+  "by_universe_era": {
+   "CASH_1STEP|2001-09": 1176,
+   "CASH_1STEP|2010-22": 1099,
+   "TENDER_CASH|2001-09": 430,
+   "TENDER_CASH|2010-22": 490
+  },
+  "size_half": {
+   "large": 1607,
+   "small": 1587,
+   "unknown": 1
+  },
+  "exit_how_A": {
+   "crsp_merger": 2427,
+   "bracket_A": 446,
+   "crsp_other_delist": 198,
+   "bracket_A|edgar_completed_crsp_not": 86,
+   "open_at_censor": 38
+  },
+  "exit_how_B": {
+   "crsp_merger": 2427,
+   "bracket_B": 438,
+   "crsp_other_delist": 198,
+   "bracket_B|edgar_completed_crsp_not": 86,
+   "open_at_censor": 46
+  }
+ }
+}

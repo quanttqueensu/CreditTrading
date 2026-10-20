@@ -650,3 +650,50 @@ spread is read.
   so the measurement has not run on real data.
 - **No result of this section exists yet.** When the run has happened, its tables
   and verdicts belong in a dated sub-section here.
+
+### 5.6 Result, 2026-10-20: COST `MARGINAL`, HUMP `HOLDS`
+
+**Run.** The team lead ran the staging on 2026-10-20 (`scripts/data/stage_crsp_merger_targets.py`):
+542,300 daily rows for 3,027 target permnos, 2000-10-04 to 2022-12-30. Nothing is dated
+on or after 2023-01-01. The measurement, `python3 scripts/events/mahz_spread_measure.py`, ran
+offline the same day. Its tables are in `results/events/merger_arb_v2/mahz_measure/`, all
+aggregates [V, 2026-10-20]. Zero trials.
+
+**Quote coverage first.** CRSP's mirror carries closing quotes for NYSE and AMEX as well as
+Nasdaq: the quoted share is at least 0.94 in nearly every exchange-year from 2002. The
+exceptions are NYSE (0.74) and AMEX (0.37–0.80) in 2000–01 (`quote_coverage.csv`). So the
+spread can decide, and the reading is not `UNMEASURED`.
+
+**COST: `MARGINAL`** (CASH_1STEP, 2010–22; `ls_cost.csv`, `summary.json`).
+
+| bracket | measured L/S drag, bp/yr | late-sample gross, bp/yr | gross × 0.42 (decayed), bp/yr |
+|---|---:|---:|---:|
+| A | 201.6 | 276.0 | 173.9 |
+| B | 232.8 | 276.0 | 173.9 |
+
+The drag sits below the late-sample gross but above the decayed gross under both
+brackets, so neither `D2_PREDICTED` nor `COSTS_DO_NOT_DECIDE` applies (§5.4). The
+half-spread is a lower bound on cost: it includes no impact and no borrow. In 2001–09 the
+drag was 632–639bp/yr, which is above any gross.
+
+**HUMP: `HOLDS`** (CASH_1STEP, 2001–09, deals this desk had not seen; `summary.json`). The
+mean weekly completion hazard in the paper's High weeks exceeds that in its Low-1 weeks
+under both brackets: 0.0691 against 0.0246 (A), and 0.0365 against 0.0207 (B). The
+mechanism's precondition holds outside the sample already seen.
+
+**Power, recomputed on the staged calendar** (`power.csv`). On 2001–22, D4's t ≥ 3 needs an
+information ratio of 0.644 (it was 0.84 on 2010–22 alone).
+- At the published cash IR (0.373): P(pass) ≈ 10%.
+- After the 0.42 post-publication decay: P(pass) ≈ 1%.
+- The equity rows give 34% and 3% respectively.
+
+**Capacity** (`capacity.csv`). At the spec's capital, 84–88% of 2010–22 cash-deal paid
+trades fit within 5% of median ADV; at 50× capital, 48–52%.
+
+**What follows (§5.4's rule for `MARGINAL`).** A pre-registration only if the team lead
+accepts that K6 (net of cost) decides, and it must state the measured drag. The
+coordinator's reading: after decay, the cost lower bound already exceeds the gross, and the
+chance of clearing D4 is about 1–10%. Spending the EVENTS trial would most likely buy a
+D2 or a D4 kill. **Recommended: record MA-HZ as WATCH (mechanism holds, cost marginal), and
+spend no trial.**
+
