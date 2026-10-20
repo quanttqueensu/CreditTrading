@@ -38,6 +38,7 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `results/ops/CEFCONNECT_TERMS_OPTIONS_2026-10-19.md` | reference | the options for CEFConnect on the live NAV path (keep and ask Nuveen, replace per use, or licence), the draft letter to Nuveen, and what each choice changes; open until the team lead picks | — |
 | `results/ops/NAV_SOURCE_WORKAROUND_2026-10-19.md` | reference | legitimate routes to a NAV source this desk may trade on (NFN's licence upstream of the vendors, IBKR and Alpaca data terms, the non-professional definitions, a CEFConnect-free gate design), the Nasdaq enquiry draft, and the ranked shortlist; open until the team lead picks | — |
 | `results/ops/IBKR_SECOND_BROKER_2026-10-19.md` | reference | the IBKR second-broker design and plan (routing, per-broker gates, what to revive, the step list), until a build contract replaces it | `ops.doc_audit` (reproducer) |
+| `results/ops/IBKR_WORTH_IT_2026-10-19.md` | reference | whether IBKR is worth opening: the core-book benefit of the shorts Alpaca will not lend (measured, fit period), the option value through E1, NAV tenders and SPACs, the costs, and the triggers; open until the team lead rules | `scripts/ops/tests/test_ibkr_worth_it.py` |
 | `.claude/README.md` | desk | the map of the agent layer | — |
 | `.claude/rules/*.md` | desk | path-scoped rules loaded when matching files are opened | `ops.doc_audit` |
 | `.claude/skills/*/SKILL.md` | desk | one workflow each | `ops.doc_audit` (desk inventory) |

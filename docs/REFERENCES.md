@@ -1620,3 +1620,30 @@ session scratch only. "[V: WebFetch]" means quoted through WebFetch's summariser
 | **Intrinio's fund NAVs come from Cannon Valley Research, which partners with NFN.** Intrinio: "Holdings, NAVs, and analytics for closed and open-end mutual funds"; "Source Cannon Valley Research"; "Enterprise Only"; NAVs need "a separate license". Cannon Valley Research: "in partnership with NASDAQ Fund Network, provides data on Mutual Funds, Closed-End funds" | `https://intrinio.com/products/mutual-fund-data`; `https://www.cannonvalleyresearch.com/` | [V] |
 | **CEFA's data are LSEG Lipper's.** "All of the closed-end fund and interval fund performance information contained on this website was supplied by Lipper ... Any copying, republication or redistribution of LSEG Lipper content, including by caching, framing or similar means, is expressly prohibited without the prior written consent of LSEG Lipper." | `https://www.cefa.com/legal-info/` | [V] |
 | **Correction (2026-10-19) to `results/ops/CEFCONNECT_TERMS_OPTIONS_2026-10-19.md` §5, recommendation 3.** It said "EODHD's commercial internal-use plan is the cheapest published commercial licence found". Its own §3.4 table shows Tiingo's Commercial plan at $50/month ($499/year), which Tiingo's ToS §7.3 requires of "an organization or business". Corrected there in place, dated | the rows above | [V] |
+
+### 12as. Is IBKR worth it: the core-book benefit and the costs (added 2026-10-19)
+
+The sources behind `results/ops/IBKR_WORTH_IT_2026-10-19.md` (team lead, 2026-10-19:
+"Figure out if it's worth it"). Zero trials. Nothing was logged into or connected
+to at IBKR or Alpaca, and the VM was not read. IBKR pages were read with a plain
+HTTPS GET (as in §12af), Azure's price list through its public API. It builds on
+§12af, §12ag and §12aa and does not repeat them.
+
+**External**
+
+| claim | source | status |
+|---|---|---|
+| Azure Linux pay-as-you-go, canadacentral: `Standard_B2pts_v2` USD 0.0092/h, `Standard_B2pls_v2` (4 GiB) USD 0.0368/h, `Standard_B2ps_v2` USD 0.0736/h (meter "Virtual Machines Bpsv2 Series", effective 2023-11-01). At 730 h, B2pls_v2 is USD 26.86 a month (arithmetic). Unchanged from §12af | Azure Retail Prices API, `prices.azure.com/api/retail/prices`, `$filter=armRegionName eq 'canadacentral' and armSkuName eq '<sku>' and priceType eq 'Consumption'`, queried 2026-10-19T20:42Z | [V] |
+| Azure for Students: "750 hours each of B1s, B2pts v2 (Arm-based), and B2ats v2 (AMD-based) burstable VMs" for 12 months; "$ 100 credit … to use on Azure services within 12 months"; when it runs out, "We'll send you an email so you can decide if you want to move to pay as you go … If you don't, your subscription and products will be disabled." **B2pls v2 is not on the free list** | `https://azure.microsoft.com/en-us/free/students/`, fetched 2026-10-19 | [V] |
+| IBKR individual, joint, trust and organisation accounts: "Account Minimums USD 0.00 USD 0.00", "Inactivity Fees USD 0.00 USD 0.00" (IBKR Pro, IBKR Lite). The USD 2,000 margin minimum and the funded-Pro requirement for the API are §12aa's, not re-read here | `https://www.interactivebrokers.com/en/accounts/required-minimums.php`, 2026-10-19T20:42Z (sha256 4750bd20…) | [V] |
+| IBKR Pro Fixed, US stocks, re-read: USD 0.005 a share; "Minimum per order" USD 1.00; "Maximum per order 1% of Trade Value". Unchanged from §12af/§12ag | `https://www.interactivebrokers.com/en/pricing/commissions-stocks.php`, 2026-10-19T20:42Z (sha256 ef0ed754…) | [V] |
+
+**Internal measurements** (`python3 scripts/ops/ibkr_worth_it.py`; harness panels cut before 2023-01-01; output `results/ops/ibkr_worth_it/`)
+
+| claim | source | status |
+|---|---|---|
+| On the deployed fit period (13 names, USD 3m ADV floor) MHD was eligible on 0.0% of 2005–22 sessions and never held; MQY was eligible on 2.0%, PHK on 90.4%. On the WIDE set (no floor) each is held short on 42–48% of 2013-06 → 2022 sessions, together 30% of the short book | `holdings_freq.csv` | [V] |
+| Benefit of access at f = 1 (never lendable at Alpaca, always at IBKR), 2013-06 → 2022, total returns: deployed +0.326%/yr gross (NW t 0.26), WIDE +0.760 (t 0.64); both flip by 30bp; turnover-matched +0.399 and −0.420; after IBKR borrow at the 2026-10-19 file and Pro Fixed commissions +0.118 and +0.089. On price returns (Alpaca paper's convention) +1.695 and +2.356, the gap being the distributions a short owes | `benefit.csv`, `turnover_matched.csv` | [V] |
+| Borrow on the same shorts at IBKR's historical FEE_RATE, 2021-09-14 → 2022-12-30: 1.71%/yr (deployed), 2.50%/yr (WIDE); window medians MHD 23.21, MQY 19.10, PHK 37.81%/yr | `borrow_sensitivity.csv`; `data/cef/cef_borrow_history.parquet` (§12l) | [V] |
+| Synthetic episode blocking (a claim about the policy, not Alpaca): on WIDE the benefit at a blocked share f averages 0.38–0.76 of f × benefit(1) | `episodes.csv` | [V] |
+| Lines to revive at tag `pre-clean-slate` (adapter, guards, fills, flatten, cancel, switch, borrow fetchers, tests): 4,650; `quantt/session` decide/gate/run/verify today: 3,782; 38 non-merge commits to `quantt/` in the three weeks after the Alpaca runner's first commit | `git show pre-clean-slate:<path> \| wc -l`; `wc -l`; `git log --no-merges --since=2026-09-27 -- quantt/`, run 2026-10-19 | [V] |

@@ -1,0 +1,7 @@
+set,name,orders_per_yr,median_ticket_usd,median_bp,usd_per_yr,min_binds_share
+deployed,MHD,0,,,0,
+deployed,MQY,2.92295,4667.96,4.90196,7.54203,0.25
+deployed,PHK,22.6529,2587.12,12.2549,127.284,0.184332
+WIDE,MHD,52.5087,1763.64,5.67008,88.714,0.54672
+WIDE,MQY,57.3107,2013.84,4.96564,106.492,0.504554
+WIDE,PHK,44.8882,1242.42,12.2549,142.124,0.402326

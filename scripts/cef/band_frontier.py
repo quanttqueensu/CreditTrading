@@ -232,7 +232,28 @@ def band(T, b):
     return pd.DataFrame(H, index=T.index, columns=T.columns)
 
 
-def band_gross_capped(T, b, cap):
+def _unshortable_mask(unshortable, T):
+    """The `unshortable` argument of `band_gross_capped` as a bool array on T's
+    grid, validated. Raises rather than aligning silently: a flag frame on a
+    different calendar, naming a ticker T does not hold, or holding a NaN would
+    otherwise become "lendable" on the cells it missed, which is no flag at all."""
+    if not isinstance(unshortable, pd.DataFrame):
+        raise TypeError("unshortable must be a date x ticker DataFrame of bools")
+    if not unshortable.index.equals(T.index):
+        raise ValueError("unshortable must be on T's own index, row for row")
+    extra = sorted(set(unshortable.columns) - set(T.columns))
+    if extra:
+        raise ValueError(f"unshortable names {extra}, which T does not hold")
+    if unshortable.isna().any().any():
+        raise ValueError("unshortable holds NaN; every cell must say True or False")
+    if not all(dt == bool for dt in unshortable.dtypes):
+        raise TypeError("unshortable must be bool, not a number that might be a weight")
+    # A column T holds and the frame omits is lendable on every day: that is the
+    # declared meaning of "absent" (only the named names are ever blocked).
+    return unshortable.reindex(columns=T.columns, fill_value=False).to_numpy(dtype=bool)
+
+
+def band_gross_capped(T, b, cap, unshortable=None):
     """`band()` with the frozen `max_gross_stress` ceiling applied to the HELD
     book after the band, exactly where the sleeve applies it (added 2026-09-28).
 
@@ -245,16 +266,40 @@ def band_gross_capped(T, b, cap):
 
     `cap = inf` reproduces `band(T, b)` exactly (tested in
     scripts/cef/tests/test_band_gross_capped.py).
+
+    `unshortable` (added 2026-10-19 for `results/ops/IBKR_WORTH_IT_2026-10-19.md`,
+    a zero-trial diagnostic): None, the default, is the code path above,
+    unchanged (sha256 of the held book on the fit-cut panels identical before
+    and after the edit, deployed and WIDE, with and without the cap; the test
+    file pins `None` against the old loop). Otherwise a bool frame on T's index:
+    True at (t, i) means the broker will not lend i at the decision of t. The
+    live runner then SKIPS an order that would open or enlarge a short in i and
+    lets a reduction or a close through ("skip that name, send the rest", team
+    lead 2026-09-28; gate 7 in `docs/RUNNER.md`). An existing short is kept,
+    because the broker does not close a short on a flag and a position never
+    migrates (`results/ops/IBKR_SECOND_BROKER_2026-10-19.md` §2.2). So on a
+    blocked day the held weight is floored at min(yesterday's held weight, 0):
+    a long can be sold to flat but not through it (a flip is deferred live
+    anyway), a short can shrink but not grow. The floor is applied after the
+    band and before the ceiling, and the ceiling only ever scales a book down,
+    so it cannot open a short either. Nothing here re-neutralises the book: a
+    blocked short leaves it net long by that weight, which is what the runner
+    does today (R13 of the IBKR note) and the beta the comparison must show.
     """
     from src.deploy.sleeves.cef_discount import _cap_gross
     A, cur = T.values, np.zeros(T.shape[1])
     H = np.zeros_like(A)
     cols = T.columns
+    blocked = None if unshortable is None else _unshortable_mask(unshortable, T)
     for i in range(len(A)):
         gap = A[i] - cur
         mv = np.abs(gap) > b
+        prev = cur
         cur = cur.copy()
         cur[mv] = A[i][mv] - np.sign(gap[mv]) * b
+        if blocked is not None:
+            k = blocked[i]
+            cur[k] = np.maximum(cur[k], np.minimum(prev[k], 0.0))
         if np.isfinite(cap):
             w, _ = _cap_gross(pd.Series(cur, index=cols), cap)
             cur = w.values
