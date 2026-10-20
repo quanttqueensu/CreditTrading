@@ -24,7 +24,10 @@ no credentials, no network):
     python3 -m pytest scripts/events/tests/test_merger_arb_v2_feasibility.py
 
 Tables are in `results/events/merger_arb_v2/`. Sources are in `docs/REFERENCES.md`
-§12ae. Labels: [V] fetched and read, or reproduced by the named script;
+§12ae.
+
+**Addendum, same day (§5):** the zero-trial CRSP pull §2.6 item 1 asks for —
+the command for the team lead to run, and what the measurement after it decides. Labels: [V] fetched and read, or reproduced by the named script;
 [S] sourced, not re-read; [U] not verified.
 
 **Data as of:**
@@ -503,3 +506,147 @@ of zero, but §2.6 item 1 can close it before the trial.
 - **Breakeven.** The 32.6bp breakeven is the CEF book's [S]. Large targets cost
   less and small ones more; CRSP bid/ask will measure it.
 - **Our E1 effect is pre-2023, and its fees are 2021–26:** the periods differ.
+
+---
+
+## 5. Addendum 2026-10-19: the zero-trial CRSP pull, for the team lead to run
+
+**The request.** Team lead, 2026-10-19: *"do the zero-trial CRSP pull for MA-HZ
+(target prices and bid/ask, and the deal list back to 2001), so its spreads can be
+measured before any trial is spent."* This is §2.6 item 1.
+
+**Still zero trials.** No counter moves.
+- The staging run stores CRSP's `ret` for a later trial. It computes nothing from it.
+- The measurement reads no return. It loads only `permno, date, prc, bid, ask, vol,
+  shrout`, and it refuses a frame that carries a return column.
+- "Spread" here means the quoted bid-ask spread, a cost. The deal (arbitrage) spread,
+  offer minus price, is not computed: it needs the offer terms (§3), and it is the
+  trade's return.
+- Nothing dated on or after 2023-01-01 is requested, and a row that arrives anyway
+  is refused.
+- No `data/cef/cef_universe.csv` name can enter. Targets are linked only to CRSP
+  share codes 10/11/12/18 (operating companies), never 14/44 (closed-end funds).
+
+### 5.1 The command
+
+Run it from a checkout of this branch (`research-mahz-staging`), or of `main` once
+it is merged. The first two lines are the only ones that load credentials. The
+EDGAR contact and the R2 keys both come from the env file.
+
+    export QUANTT_ENV_FILE=<absolute path to the env file>   # R2 keys and SEC_USER_AGENT; never printed
+    python3 scripts/data/stage_crsp_merger_targets.py
+    python3 scripts/events/mahz_spread_measure.py           # offline; no credentials
+
+- **If EDGAR stops part-way**, re-run the same command. The EDGAR client caches
+  every response, so requests already made are free.
+- **If the EDGAR part has finished** and only CRSP must re-run, add `--offline-edgar`.
+- **`--no-extension`** stages the committed 2010–22 census only.
+
+**Outputs.**
+- **Staged data:** under `data/events/merger_targets/`, which is gitignored. CRSP is
+  licensed; nothing there is committed. `stage_summary.json` holds counts only.
+- **Measurement:** aggregate tables only, in `results/events/merger_arb_v2/mahz_measure/`
+  — by event week, window, era, size half, exchange and year. No deal id or permno.
+
+**Checks before running** (the tests, offline):
+
+    python3 -m pytest scripts/data/tests/test_stage_crsp_merger_targets.py scripts/events/tests/test_mahz_spread_measure.py
+
+### 5.2 What it stages, and from which tables
+
+| piece | source | rule |
+|---|---|---|
+| deals 2010–22 | the committed census, `results/events/merger_arb/edgar_deals.csv` (§12aa) | unchanged: the 1,251 CASH_1STEP and 588 TENDER_CASH deals of `universe_by_year.csv` [V] |
+| deals 2001–09 | EDGAR quarterly `master.gz` 2000Q1–2012Q4, submissions JSONs and announcement documents, through `merger_arb_feasibility.py` | the same census rules, with one substitution: LISTED is a CRSP common-stock record in force on d0 whose name matches the target. Electronic Form 25 was required only from 2006-04-24, so the census's Form 25 rule would drop completed 2001–05 targets (§12au) |
+| target → permno | CRSP `stocknames` | matched by name on d0 with `edgar_merger_dates.name_score`. `ambiguous`, `multi_class` and unmatched deals are counted, never guessed |
+| completion and failure dates | CRSP `dsedelist` | codes 200–299 are mergers. Any other code is an *observed* failure date, which the census never had. The Form 25 date is kept beside it, and the two are compared on 2010+ completions |
+| daily rows | CRSP `dsf`: prc, bid, ask, bidlo, askhi, openprc, vol, numtrd, ret, retx, shrout, cfacpr, cfacshr | from 63 sessions before the announcement to 10 after the deal's end, capped at 2022-12-31 |
+| delisting payoffs | CRSP `dsedelist`: dlstcd, dlstdt, dlamt, dlpdt, dlprc, dlret, dlretx, nwperm | rows dated after 2022-12-31 are never requested |
+
+**Departures from the request, stated.**
+- **63 sessions before the announcement, not 60.** 63 is the desk's ADV window
+  (`merger_arb_feasibility.ADV_SESSIONS`). With it, a week-1 entry has a full
+  trailing ADV for the capacity check, and 63 covers the 60 asked for.
+- **Stock deals are not staged.** That follows §2.3 and ruling 5's recommendation.
+
+**Known limits of the 2001–09 list** (each is counted in `stage_summary.json`):
+- 8-K item 1.01 exists only from 2004-08-23. Earlier one-step deals are dated by d0,
+  an upper bound (`ann_basis`).
+- Before 2006 the EDGAR completion column is mostly empty. CRSP dates every deal
+  either way.
+
+### 5.3 Expected size and time
+
+These are estimates, not measurements [U]. The script prints the real counts.
+
+| part | what it does | estimate |
+|---|---|---|
+| EDGAR | 52 quarterly indexes, then 2–4 requests for each CRSP-linked 2001–09 deal, at ≤ 8 requests a second. The 2010–26 census holds 3,851 deals, about 230 a year [V, `edgar_deals.csv`]; the 2000s are assumed similar | 15–40 minutes |
+| CRSP | one scan of `dsf` (107,663,470 rows to 2024-12-31 [V, `results/data/R2_CATALOG.md`, 2026-09-28]) for the linked permnos; `stocknames` and `dsedelist` are small | minutes to tens of minutes |
+| output | about 1,800 deals for 2010–22 plus the 2001–09 deals, at 100–300 sessions each | roughly 0.3–1 million `dsf` rows; tens of MB |
+| measurement | offline, in seconds to minutes | — |
+
+**Total:** about an hour.
+
+### 5.4 What the measurement decides
+
+These rules are written before any data is staged. Every input is re-measured at
+run time, and no number in this note enters a rule (H14). The code and its docstring
+are in `scripts/events/mahz_spread_measure.py`.
+
+**Read `quote_coverage.csv` first.** CRSP's 1999 guide documents daily `bid`/`ask`
+for Nasdaq issues only (§12au). Whether the mirror carries NYSE and AMEX quotes for
+2001–22 is unknown. The coverage table shows it by exchange and year before any
+spread is read.
+
+**COST** — CASH_1STEP, 2010–22, under both failure brackets:
+- *What is measured:* the L/S drag per unit of total gross per year. It is the
+  turnover of the paper's fixed windows times the mean closing half-spread of the
+  paid fills (H1: fill on the session after the decision).
+- *What it is compared with:* the gross that Giglio & Shue's cash alphas imply,
+  recomputed at run time as §2.3 does (late sample; full sample × 0.42).
+
+| reading | rule | what follows |
+|---|---|---|
+| `UNMEASURED` | fewer than half of either leg's paid trades have a quoted fill | The spread cannot decide. No spread is imputed. The decision rests on the published cost evidence (Giglio & Shue Table 9) and the team lead's ruling |
+| `D2_PREDICTED` | the drag reaches the late-sample gross under both brackets | Do not spend the EVENTS trial on MA-HZ. Record it here as D2 predicted, zero trials. The half-spread is a lower bound on cost (no impact, no borrow), so this reading is robust |
+| `COSTS_DO_NOT_DECIDE` | the drag is below the decayed gross under both brackets | Costs do not kill MA-HZ before the trial. Write the pre-registration (§2.6 rulings 2–5 are still needed). This is not proof that it nets positive |
+| `MARGINAL` | anything else | A pre-registration only if the team lead accepts that K6 decides. The pre-registration must state the measured drag |
+
+**HUMP** — CASH_1STEP, 2001–09. These are deals this desk has not seen.
+
+| reading | rule | what follows |
+|---|---|---|
+| `HOLDS` | the mean weekly completion hazard in the paper's High weeks exceeds that in its Low-1 weeks, under both brackets | The mechanism's precondition holds outside the seen sample |
+| `FAILS` | it does not | K1 would likely fail. Recommend not spending the trial |
+| `UNMEASURED` | too few deals are at risk | The hump is not read on this era |
+
+**Reported only:**
+- **Spreads by event week and window.** They are split by era and by the paper's
+  small/large halves (Table 8), for ruling 5.
+- **Capacity.** The share of paid trades that fit at 5% of the prior 63 sessions'
+  median dollar volume. Sizes are the frozen spec's `capital_usd`, and 10× and 50×
+  it, at 1× gross split equally within each leg. This is an assumption for the check;
+  the pre-registration fixes the sizing.
+- **The completion hazard.** Shown on 2001–22, with observed failure dates where
+  CRSP has them.
+- **D4's power.** Recomputed on the staged calendar for ruling 2. It is shown on all
+  sessions from the first P&L, and on the sessions when both legs hold a deal.
+
+**What none of this settles.**
+- **Gross alpha, D1–D4.** That is the trial.
+- **The rolling window rule (§2.4).** The cost uses the paper's fixed windows, so it
+  is comparable to §2.3. The trial's rolling windows will turn over differently.
+- **Delisting-code meanings.** CRSP codes beyond the first digit (231, 233, 241) are
+  still [U] (§12aa). The stage reads the first digit only: 2 means a merger.
+
+### 5.5 Status, 2026-10-19
+
+- **Written and tested on synthetic data:**
+  - `scripts/data/stage_crsp_merger_targets.py`, with a fake CRSP source and a fake
+    EDGAR index;
+  - `scripts/events/mahz_spread_measure.py`.
+- **Not yet run.** Nothing is staged (`data/events/merger_targets/` does not exist),
+  so the measurement has not run on real data.
+- **No result of this section exists yet.** When the run has happened, its tables
+  and verdicts belong in a dated sub-section here.
