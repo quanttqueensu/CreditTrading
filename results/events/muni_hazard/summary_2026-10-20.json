@@ -1,0 +1,1139 @@
+{
+ "generated_utc": "2026-10-20T16:24:28+00:00",
+ "script": "scripts/events/muni_hazard_gate.py run",
+ "zero_trials": true,
+ "holdout": "no price or NAV row dated on/after 2023-01-01 is read (asserted)",
+ "spec_muni_names": [
+  "MHD",
+  "MQY"
+ ],
+ "taxable_control": [
+  "AWF",
+  "BIT",
+  "DSL",
+  "HYT",
+  "JFR",
+  "PCN",
+  "PDI",
+  "PDO",
+  "PFN",
+  "PHK",
+  "PTY"
+ ],
+ "nport_filings": {
+  "MHD": [
+   "2019-10-31",
+   "2020-01-31",
+   "2020-04-30",
+   "2020-07-31",
+   "2020-10-31",
+   "2021-01-31",
+   "2021-04-30",
+   "2021-07-31",
+   "2021-10-31",
+   "2022-01-31",
+   "2022-04-30",
+   "2022-07-31",
+   "2022-10-31",
+   "2026-07-31"
+  ],
+  "MQY": [
+   "2019-10-31",
+   "2020-01-31",
+   "2020-04-30",
+   "2020-07-31",
+   "2020-10-31",
+   "2021-01-31",
+   "2021-04-30",
+   "2021-07-31",
+   "2021-10-31",
+   "2022-01-31",
+   "2022-04-30",
+   "2022-07-31",
+   "2022-10-31",
+   "2026-07-31"
+  ]
+ },
+ "nport_filing_lag_days": {
+  "min": 54,
+  "median": 58.0,
+  "max": 59,
+  "n": 28
+ },
+ "latest": [
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31",
+   "filing_date": "2026-09-25",
+   "n_muni_holdings": 900,
+   "muni_pct_nav": 168.83,
+   "n_states": 51,
+   "unparsed_pct_nav": 0.0,
+   "top1_state": "NY",
+   "top1_state_pct_nav": 25.07,
+   "top5_states_share": 0.43,
+   "state_hhi": 0.0597,
+   "n_issuers_cusip6": 450,
+   "top1_issuer_pct_nav": 4.36,
+   "top10_issuers_share": 0.176,
+   "issuer_hhi": 0.0069,
+   "level3_pct_nav": 0.0
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31",
+   "filing_date": "2026-09-25",
+   "n_muni_holdings": 732,
+   "muni_pct_nav": 169.92,
+   "n_states": 48,
+   "unparsed_pct_nav": 0.0,
+   "top1_state": "NY",
+   "top1_state_pct_nav": 21.1,
+   "top5_states_share": 0.456,
+   "state_hhi": 0.0583,
+   "n_issuers_cusip6": 393,
+   "top1_issuer_pct_nav": 4.29,
+   "top10_issuers_share": 0.157,
+   "issuer_hhi": 0.0065,
+   "level3_pct_nav": 0.0
+  }
+ ],
+ "top_states_latest": [
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "NY",
+   "pct_nav": 25.07
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "NY",
+   "pct_nav": 21.1
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "TX",
+   "pct_nav": 19.04
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "TX",
+   "pct_nav": 18.61
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "FL",
+   "pct_nav": 16.17
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "IL",
+   "pct_nav": 11.87
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "FL",
+   "pct_nav": 10.25
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "CA",
+   "pct_nav": 9.7
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "AL",
+   "pct_nav": 9.54
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "CA",
+   "pct_nav": 9.52
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "AL",
+   "pct_nav": 8.77
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "NJ",
+   "pct_nav": 8.27
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "IL",
+   "pct_nav": 8.04
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "PA",
+   "pct_nav": 7.59
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "PA",
+   "pct_nav": 7.4
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "DC",
+   "pct_nav": 7.22
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "NJ",
+   "pct_nav": 7.01
+  },
+  {
+   "fund": "MHD",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "GA",
+   "pct_nav": 5.47
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "AZ",
+   "pct_nav": 5.19
+  },
+  {
+   "fund": "MQY",
+   "report_date": "2026-07-31 00:00:00",
+   "state": "GA",
+   "pct_nav": 4.16
+  }
+ ],
+ "state_parse_methods_pct_nav": {
+  "abbrev": {
+   "MHD": 10.9,
+   "MQY": 4.56
+  },
+  "code": {
+   "MHD": 1045.54,
+   "MQY": 1005.46
+  },
+  "cusip6": {
+   "MHD": 6.73,
+   "MQY": 38.69
+  },
+  "known_issuer": {
+   "MHD": 88.86,
+   "MQY": 163.94
+  },
+  "name_any": {
+   "MHD": 19.48,
+   "MQY": 30.64
+  },
+  "name_start": {
+   "MHD": 999.96,
+   "MQY": 958.76
+  },
+  "unparsed": {
+   "MHD": 19.31,
+   "MQY": 14.63
+  }
+ },
+ "ncsr_check": {
+  "rows": 194,
+  "max_abs_diff_pp": 2.54,
+  "mean_abs_diff_pp": 0.077,
+  "states_only_in_one": 3
+ },
+ "b1": {
+  "quarters": 28,
+  "max_flagged_pct_nav": 0.426,
+  "new_flags_fit": 1,
+  "new_flag_pct_nav_fit": 0.055
+ },
+ "fema_lag_days": {
+  "DR": {
+   "count": 1644.0,
+   "25%": 18.0,
+   "50%": 41.0,
+   "75%": 67.0
+  },
+  "EM": {
+   "count": 506.0,
+   "25%": 1.0,
+   "50%": 6.5,
+   "75%": 43.0
+  },
+  "FM": {
+   "count": 1389.0,
+   "25%": 0.0,
+   "50%": 1.0,
+   "75%": 1.0
+  }
+ },
+ "b2_incidence": {
+  "events_by_bucket": [
+   {
+    "fund": "MHD",
+    "basis": "pit",
+    "0-2": 174,
+    "2-5": 75,
+    "5-10": 26,
+    ">=10": 52
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "0-2": 984,
+    "2-5": 303,
+    "5-10": 54,
+    ">=10": 406
+   },
+   {
+    "fund": "MQY",
+    "basis": "pit",
+    "0-2": 183,
+    "2-5": 59,
+    "5-10": 9,
+    ">=10": 76
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "0-2": 1027,
+    "2-5": 249,
+    "5-10": 17,
+    ">=10": 454
+   }
+  ],
+  "touched_by_type": [
+   {
+    "fund": "MHD",
+    "basis": "pit",
+    "Dam/Levee Break": 0,
+    "Earthquake": 1,
+    "Fire": 51,
+    "Flood": 3,
+    "Freezing": 0,
+    "Hurricane": 14,
+    "Other": 1,
+    "Severe Ice Storm": 1,
+    "Severe Storm": 2,
+    "Snowstorm": 1,
+    "Tornado": 1,
+    "Toxic Substances": 0,
+    "Tropical Storm": 1,
+    "Tsunami": 0,
+    "Winter Storm": 2
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "Dam/Levee Break": 1,
+    "Earthquake": 4,
+    "Fire": 306,
+    "Flood": 17,
+    "Freezing": 1,
+    "Hurricane": 37,
+    "Other": 3,
+    "Severe Ice Storm": 0,
+    "Severe Storm": 75,
+    "Snowstorm": 13,
+    "Tornado": 2,
+    "Toxic Substances": 0,
+    "Tropical Storm": 0,
+    "Tsunami": 1,
+    "Winter Storm": 0
+   },
+   {
+    "fund": "MQY",
+    "basis": "pit",
+    "Dam/Levee Break": 1,
+    "Earthquake": 0,
+    "Fire": 51,
+    "Flood": 3,
+    "Freezing": 0,
+    "Hurricane": 17,
+    "Other": 1,
+    "Severe Ice Storm": 1,
+    "Severe Storm": 5,
+    "Snowstorm": 2,
+    "Tornado": 1,
+    "Toxic Substances": 0,
+    "Tropical Storm": 1,
+    "Tsunami": 0,
+    "Winter Storm": 2
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "Dam/Levee Break": 1,
+    "Earthquake": 3,
+    "Fire": 307,
+    "Flood": 22,
+    "Freezing": 1,
+    "Hurricane": 39,
+    "Other": 2,
+    "Severe Ice Storm": 3,
+    "Severe Storm": 76,
+    "Snowstorm": 13,
+    "Tornado": 2,
+    "Toxic Substances": 1,
+    "Tropical Storm": 0,
+    "Tsunami": 1,
+    "Winter Storm": 0
+   }
+  ],
+  "per_year": [
+   {
+    "fund": "MHD",
+    "basis": "pit",
+    "year": 2020,
+    "events": 139,
+    "touched": 35
+   },
+   {
+    "fund": "MHD",
+    "basis": "pit",
+    "year": 2021,
+    "events": 105,
+    "touched": 23
+   },
+   {
+    "fund": "MHD",
+    "basis": "pit",
+    "year": 2022,
+    "events": 83,
+    "touched": 20
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2005,
+    "events": 145,
+    "touched": 26
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2006,
+    "events": 142,
+    "touched": 39
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2007,
+    "events": 130,
+    "touched": 39
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2008,
+    "events": 136,
+    "touched": 53
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2009,
+    "events": 109,
+    "touched": 36
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2010,
+    "events": 104,
+    "touched": 20
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2011,
+    "events": 217,
+    "touched": 80
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2012,
+    "events": 97,
+    "touched": 11
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2013,
+    "events": 88,
+    "touched": 16
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2014,
+    "events": 80,
+    "touched": 21
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2015,
+    "events": 77,
+    "touched": 10
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2016,
+    "events": 98,
+    "touched": 21
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2017,
+    "events": 125,
+    "touched": 41
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2018,
+    "events": 110,
+    "touched": 23
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "year": 2019,
+    "events": 89,
+    "touched": 24
+   },
+   {
+    "fund": "MQY",
+    "basis": "pit",
+    "year": 2020,
+    "events": 139,
+    "touched": 34
+   },
+   {
+    "fund": "MQY",
+    "basis": "pit",
+    "year": 2021,
+    "events": 105,
+    "touched": 25
+   },
+   {
+    "fund": "MQY",
+    "basis": "pit",
+    "year": 2022,
+    "events": 83,
+    "touched": 26
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2005,
+    "events": 145,
+    "touched": 28
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2006,
+    "events": 142,
+    "touched": 41
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2007,
+    "events": 130,
+    "touched": 40
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2008,
+    "events": 136,
+    "touched": 53
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2009,
+    "events": 109,
+    "touched": 35
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2010,
+    "events": 104,
+    "touched": 17
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2011,
+    "events": 217,
+    "touched": 78
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2012,
+    "events": 97,
+    "touched": 10
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2013,
+    "events": 88,
+    "touched": 18
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2014,
+    "events": 80,
+    "touched": 24
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2015,
+    "events": 77,
+    "touched": 11
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2016,
+    "events": 98,
+    "touched": 25
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2017,
+    "events": 125,
+    "touched": 41
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2018,
+    "events": 110,
+    "touched": 26
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "year": 2019,
+    "events": 89,
+    "touched": 24
+   }
+  ],
+  "biological_rows": 112,
+  "biological_touched": 17,
+  "touched_fm_only": 678,
+  "touched_total": 1094,
+  "top10_issuer_state": [
+   {
+    "fund": "MHD",
+    "basis": "pit",
+    "events": 327,
+    "in_a_top10_issuer_state": 31,
+    "touched": 78
+   },
+   {
+    "fund": "MHD",
+    "basis": "proxy",
+    "events": 1747,
+    "in_a_top10_issuer_state": 470,
+    "touched": 460
+   },
+   {
+    "fund": "MQY",
+    "basis": "pit",
+    "events": 327,
+    "in_a_top10_issuer_state": 36,
+    "touched": 85
+   },
+   {
+    "fund": "MQY",
+    "basis": "proxy",
+    "events": 1747,
+    "in_a_top10_issuer_state": 285,
+    "touched": 471
+   }
+  ]
+ },
+ "signature": {
+  "by_basis": {
+   "pit": {
+    "n_event_anchors": 132,
+    "first": "2020-01-07",
+    "last": "2022-11-21",
+    "muni": {
+     "event": {
+      "n": 132,
+      "mean_gap_news_bp": 3.29,
+      "sd_gap_news_bp": 170.28,
+      "se_mean_gap_news_bp": 14.82,
+      "mean_nav_news_bp": -23.63,
+      "mean_px_news_bp": -20.34,
+      "mean_nav_catch_bp": -7.42,
+      "mean_px_catch_bp": -26.22,
+      "catchup_slope": 0.0444,
+      "catchup_slope_se": 0.0952
+     },
+     "baseline": {
+      "n": 49,
+      "mean_gap_news_bp": -46.49,
+      "sd_gap_news_bp": 210.76,
+      "se_mean_gap_news_bp": 30.11,
+      "mean_nav_news_bp": 18.44,
+      "mean_px_news_bp": -28.04,
+      "mean_nav_catch_bp": -33.44,
+      "mean_px_catch_bp": -18.84,
+      "catchup_slope": 0.4915,
+      "catchup_slope_se": 0.2844
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": 49.78,
+      "se": 33.5596,
+      "t": 1.48
+     },
+     "event_minus_baseline_slope": {
+      "diff": -0.4471,
+      "se": 0.2999,
+      "t": -1.49
+     },
+     "mde_mean_gap_news_bp": 51.4
+    },
+    "taxable_control": {
+     "event": {
+      "n": 1403,
+      "mean_gap_news_bp": -34.31,
+      "sd_gap_news_bp": 248.33,
+      "se_mean_gap_news_bp": 6.63,
+      "mean_nav_news_bp": 1.61,
+      "mean_px_news_bp": -32.7,
+      "mean_nav_catch_bp": 25.97,
+      "mean_px_catch_bp": 26.43,
+      "catchup_slope": 0.1491,
+      "catchup_slope_se": 0.0505
+     },
+     "baseline": {
+      "n": 517,
+      "mean_gap_news_bp": 39.77,
+      "sd_gap_news_bp": 279.41,
+      "se_mean_gap_news_bp": 12.29,
+      "mean_nav_news_bp": -18.01,
+      "mean_px_news_bp": 21.75,
+      "mean_nav_catch_bp": -26.77,
+      "mean_px_catch_bp": -116.67,
+      "catchup_slope": 0.289,
+      "catchup_slope_se": 0.0835
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": -74.08,
+      "se": 13.9643,
+      "t": -5.3
+     },
+     "event_minus_baseline_slope": {
+      "diff": -0.1399,
+      "se": 0.0976,
+      "t": -1.43
+     }
+    },
+    "muni_minus_control_slope_did": {
+     "diff": -0.3072,
+     "se": 0.3154,
+     "t": -0.97
+    }
+   },
+   "proxy": {
+    "n_event_anchors": 696,
+    "first": "2005-02-01",
+    "last": "2019-12-19",
+    "muni": {
+     "event": {
+      "n": 696,
+      "mean_gap_news_bp": -2.44,
+      "sd_gap_news_bp": 153.48,
+      "se_mean_gap_news_bp": 5.82,
+      "mean_nav_news_bp": 17.36,
+      "mean_px_news_bp": 14.92,
+      "mean_nav_catch_bp": 13.7,
+      "mean_px_catch_bp": -0.17,
+      "catchup_slope": 0.2007,
+      "catchup_slope_se": 0.0589
+     },
+     "baseline": {
+      "n": 224,
+      "mean_gap_news_bp": -6.77,
+      "sd_gap_news_bp": 152.92,
+      "se_mean_gap_news_bp": 10.22,
+      "mean_nav_news_bp": 6.12,
+      "mean_px_news_bp": -0.65,
+      "mean_nav_catch_bp": 6.83,
+      "mean_px_catch_bp": 26.32,
+      "catchup_slope": 0.0808,
+      "catchup_slope_se": 0.0625
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": 4.33,
+      "se": 11.761,
+      "t": 0.37
+     },
+     "event_minus_baseline_slope": {
+      "diff": 0.1199,
+      "se": 0.0859,
+      "t": 1.4
+     },
+     "mde_mean_gap_news_bp": 16.2
+    },
+    "taxable_control": {
+     "event": {
+      "n": 5478,
+      "mean_gap_news_bp": -8.18,
+      "sd_gap_news_bp": 254.01,
+      "se_mean_gap_news_bp": 3.43,
+      "mean_nav_news_bp": 5.17,
+      "mean_px_news_bp": -3.01,
+      "mean_nav_catch_bp": 3.12,
+      "mean_px_catch_bp": 5.36,
+      "catchup_slope": 0.212,
+      "catchup_slope_se": 0.0358
+     },
+     "baseline": {
+      "n": 1904,
+      "mean_gap_news_bp": 0.43,
+      "sd_gap_news_bp": 211.19,
+      "se_mean_gap_news_bp": 4.84,
+      "mean_nav_news_bp": 12.81,
+      "mean_px_news_bp": 13.24,
+      "mean_nav_catch_bp": 23.41,
+      "mean_px_catch_bp": 42.85,
+      "catchup_slope": 0.107,
+      "catchup_slope_se": 0.0177
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": -8.61,
+      "se": 5.9322,
+      "t": -1.45
+     },
+     "event_minus_baseline_slope": {
+      "diff": 0.105,
+      "se": 0.0399,
+      "t": 2.63
+     }
+    },
+    "muni_minus_control_slope_did": {
+     "diff": 0.0149,
+     "se": 0.0947,
+     "t": 0.16
+    }
+   }
+  }
+ },
+ "signature_posthoc_news_anchor": {
+  "by_basis": {
+   "pit": {
+    "n_event_anchors": 30,
+    "first": "2020-07-27",
+    "last": "2022-11-18",
+    "muni": {
+     "event": {
+      "n": 30,
+      "mean_gap_news_bp": 9.41,
+      "sd_gap_news_bp": 183.54,
+      "se_mean_gap_news_bp": 33.51,
+      "mean_nav_news_bp": -5.36,
+      "mean_px_news_bp": 4.04,
+      "mean_nav_catch_bp": 3.6,
+      "mean_px_catch_bp": 11.89,
+      "catchup_slope": 0.3285,
+      "catchup_slope_se": 0.1297
+     },
+     "baseline": {
+      "n": 89,
+      "mean_gap_news_bp": -8.7,
+      "sd_gap_news_bp": 155.74,
+      "se_mean_gap_news_bp": 16.51,
+      "mean_nav_news_bp": -4.31,
+      "mean_px_news_bp": -13.01,
+      "mean_nav_catch_bp": -20.15,
+      "mean_px_catch_bp": -29.02,
+      "catchup_slope": -0.0136,
+      "catchup_slope_se": 0.1019
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": 18.11,
+      "se": 37.3564,
+      "t": 0.48
+     },
+     "event_minus_baseline_slope": {
+      "diff": 0.3421,
+      "se": 0.1649,
+      "t": 2.07
+     },
+     "mde_mean_gap_news_bp": 79.6
+    },
+    "taxable_control": {
+     "event": {
+      "n": 322,
+      "mean_gap_news_bp": -61.1,
+      "sd_gap_news_bp": 173.95,
+      "se_mean_gap_news_bp": 9.69,
+      "mean_nav_news_bp": -8.75,
+      "mean_px_news_bp": -69.85,
+      "mean_nav_catch_bp": 16.41,
+      "mean_px_catch_bp": 22.38,
+      "catchup_slope": 0.3042,
+      "catchup_slope_se": 0.0441
+     },
+     "baseline": {
+      "n": 960,
+      "mean_gap_news_bp": -6.66,
+      "sd_gap_news_bp": 167.9,
+      "se_mean_gap_news_bp": 5.42,
+      "mean_nav_news_bp": -5.43,
+      "mean_px_news_bp": -12.1,
+      "mean_nav_catch_bp": -2.9,
+      "mean_px_catch_bp": 13.99,
+      "catchup_slope": 0.0689,
+      "catchup_slope_se": 0.0227
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": -54.44,
+      "se": 11.1028,
+      "t": -4.9
+     },
+     "event_minus_baseline_slope": {
+      "diff": 0.2353,
+      "se": 0.0496,
+      "t": 4.74
+     }
+    },
+    "muni_minus_control_slope_did": {
+     "diff": 0.1068,
+     "se": 0.1722,
+     "t": 0.62
+    }
+   },
+   "proxy": {
+    "n_event_anchors": 68,
+    "first": "2005-07-07",
+    "last": "2019-09-03",
+    "muni": {
+     "event": {
+      "n": 68,
+      "mean_gap_news_bp": -7.24,
+      "sd_gap_news_bp": 133.58,
+      "se_mean_gap_news_bp": 16.2,
+      "mean_nav_news_bp": -8.86,
+      "mean_px_news_bp": -16.1,
+      "mean_nav_catch_bp": 18.03,
+      "mean_px_catch_bp": 24.73,
+      "catchup_slope": 0.3548,
+      "catchup_slope_se": 0.2262
+     },
+     "baseline": {
+      "n": 691,
+      "mean_gap_news_bp": -3.21,
+      "sd_gap_news_bp": 165.61,
+      "se_mean_gap_news_bp": 6.3,
+      "mean_nav_news_bp": 14.13,
+      "mean_px_news_bp": 10.92,
+      "mean_nav_catch_bp": 11.58,
+      "mean_px_catch_bp": 13.38,
+      "catchup_slope": 0.2539,
+      "catchup_slope_se": 0.1025
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": -4.03,
+      "se": 17.3819,
+      "t": -0.23
+     },
+     "event_minus_baseline_slope": {
+      "diff": 0.1009,
+      "se": 0.2483,
+      "t": 0.41
+     },
+     "mde_mean_gap_news_bp": 56.2
+    },
+    "taxable_control": {
+     "event": {
+      "n": 524,
+      "mean_gap_news_bp": 1.66,
+      "sd_gap_news_bp": 175.13,
+      "se_mean_gap_news_bp": 7.65,
+      "mean_nav_news_bp": -4.67,
+      "mean_px_news_bp": -3.01,
+      "mean_nav_catch_bp": 21.67,
+      "mean_px_catch_bp": 15.76,
+      "catchup_slope": -0.0279,
+      "catchup_slope_se": 0.0659
+     },
+     "baseline": {
+      "n": 5784,
+      "mean_gap_news_bp": -1.84,
+      "sd_gap_news_bp": 239.58,
+      "se_mean_gap_news_bp": 3.15,
+      "mean_nav_news_bp": 16.84,
+      "mean_px_news_bp": 15.0,
+      "mean_nav_catch_bp": 12.66,
+      "mean_px_catch_bp": 8.61,
+      "catchup_slope": 0.2214,
+      "catchup_slope_se": 0.0291
+     },
+     "event_minus_baseline_gap_news_bp": {
+      "diff": 3.5,
+      "se": 8.2731,
+      "t": 0.42
+     },
+     "event_minus_baseline_slope": {
+      "diff": -0.2493,
+      "se": 0.072,
+      "t": -3.46
+     }
+    },
+    "muni_minus_control_slope_did": {
+     "diff": 0.3502,
+     "se": 0.2585,
+     "t": 1.35
+    }
+   }
+  }
+ },
+ "turnover": {
+  "book_turnover_total": 128.441,
+  "muni_names": [
+   "MHD",
+   "MQY"
+  ],
+  "by_era": {
+   "2005-09": {
+    "book_turnover": 0.0,
+    "muni_share": null,
+    "muni_days_targeted": 0.0
+   },
+   "2010-14": {
+    "book_turnover": 25.791,
+    "muni_share": 0.0,
+    "muni_days_targeted": 0.0
+   },
+   "2015-19": {
+    "book_turnover": 38.72,
+    "muni_share": 0.0,
+    "muni_days_targeted": 0.0
+   },
+   "2020-22": {
+    "book_turnover": 63.93,
+    "muni_share": 0.0404,
+    "muni_days_targeted": 0.118
+   }
+  },
+  "flag": {
+   "pit_2019-12-24_to_2022": {
+    "flagged_muni_turnover_opening_or_growing_long_share_of_book": 0.0111,
+    "sessions": 761,
+    "share_of_muni_name_days_flagged": 0.3699,
+    "muni_turnover_share_of_book": 0.0404,
+    "flagged_muni_turnover_share_of_book": 0.027
+   },
+   "proxy_2005_to_2019-12-23": {
+    "flagged_muni_turnover_opening_or_growing_long_share_of_book": 0.0,
+    "sessions": 3770,
+    "share_of_muni_name_days_flagged": 0.3804,
+    "muni_turnover_share_of_book": 0.0,
+    "flagged_muni_turnover_share_of_book": 0.0
+   }
+  },
+  "note": "turnover = sum |dH| of band(T, BAND_WIDTH), fit period; no return read"
+ },
+ "direction": {
+  "MHD_2020-22": {
+   "share_days_long": 0.0,
+   "share_days_short": 0.0,
+   "turnover": 0.0,
+   "turnover_opening_or_growing_long": 0.0
+  },
+  "MHD": {
+   "share_days_long": 0.0,
+   "share_days_short": 0.0,
+   "turnover": 0.0,
+   "turnover_opening_or_growing_long": 0.0
+  },
+  "MQY_2020-22": {
+   "share_days_long": 0.1905,
+   "share_days_short": 0.045,
+   "turnover": 2.584,
+   "turnover_opening_or_growing_long": 0.867
+  },
+  "MQY": {
+   "share_days_long": 0.0318,
+   "share_days_short": 0.0075,
+   "turnover": 2.584,
+   "turnover_opening_or_growing_long": 0.867
+  }
+ },
+ "adv_eligibility": {
+  "last_date": "2026-10-15",
+  "min_adv_usd": 3000000.0,
+  "share": {
+   "2005-09": {
+    "MHD": 0.0,
+    "MQY": 0.0
+   },
+   "2010-14": {
+    "MHD": 0.0,
+    "MQY": 0.0
+   },
+   "2015-19": {
+    "MHD": 0.0,
+    "MQY": 0.0
+   },
+   "2020-22": {
+    "MHD": 0.0,
+    "MQY": 0.118
+   },
+   "2023-26 (levels only)": {
+    "MHD": 0.164,
+    "MQY": 0.318
+   }
+  }
+ },
+ "declared": {
+  "touch_w_pct_nav": 5.0,
+  "news_window": [
+   -3,
+   1
+  ],
+  "catch_window": [
+   1,
+   6
+  ],
+  "excluded": [
+   "Biological"
+  ]
+ }
+}

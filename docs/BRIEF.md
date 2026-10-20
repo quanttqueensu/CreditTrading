@@ -388,6 +388,19 @@ and an earlier draft of this brief got it wrong.
 | DoubleLine | DSL (multi) |
 | AllianceBernstein | AWF (hy) |
 
+> **CORRECTED 2026-10-20.** The BlackRock row above is incomplete. Both
+> BlackRock munis **also lever through tender option bond trusts**, and MHD's
+> preferred is **VMTP**, not VRDP or MFP. So TOB leverage is not a Nuveen-only
+> mechanism, as the leverage list in "The wrapper" implies. Their annual report
+> for the year to 2026-07-31 (N-CSR 0001193125-26-413740) shows:
+>
+> - **MHD**: TOB trust certificates $852.4m, VMTP shares $717.8m, no VRDP;
+> - **MQY**: TOB $476.9m, VRDP $847.4m.
+>
+> MQY showed both in 2022 too. Whether their floaters reset to SIFMA is not read
+> [U]. Source: `docs/REFERENCES.md` §12aw;
+> `results/cef/MUNI_HAZARD_FLAGS_GATE_2026-10-20.md` §6.
+
 ### Options
 
 **No CEF we trade has usable listed options** — verified per ticker, not
