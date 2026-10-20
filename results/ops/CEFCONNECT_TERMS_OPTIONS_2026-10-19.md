@@ -276,6 +276,13 @@ is recorded below, not the NAV values.
 Both published-price vendors need a paid key before CEF NAV coverage, timing and
 agreement with the sponsors' NAVs can be tested. A one-month trial measures all three.
 
+*Update 2026-10-19 (`results/ops/NAV_SOURCE_WORKAROUND_2026-10-19.md` §2; REFERENCES
+§12ar):* coverage is no longer [U]. Tiingo's public ticker list has all 13 `X<TK>X`
+symbols under exchange code `NMFQS` (NFN), and EODHD has a public page for each.
+EODHD's page shows an adjusted series, and its upstream is still [U]. Tiingo's terms
+require "an organization or business" to use its Commercial plan, and forbid storing
+data on a trial plan.
+
 ### 3.5 Yahoo, the primary source
 
 This was not in the brief, but it changes the answer. Yahoo's terms
@@ -374,7 +381,12 @@ delete. It names no account, server or vault.
      collector's arrival log (L4) measures it, which is a reason to keep L4
      running.
    - Run G as a one-month trial. EODHD's commercial internal-use plan is the
-     cheapest published commercial licence found. Measure, on the 13 names:
+     cheapest published commercial licence found. *Corrected 2026-10-19: it is not.
+     Tiingo's Commercial plan, $50 a month or $499 a year in the table in §3.4, is
+     cheaper, and Tiingo's terms make it the plan "an organization or business" must
+     use. Both vendors' CEF NAVs may come from NFN, whose §6 bars trading use, so
+     `results/ops/NAV_SOURCE_WORKAROUND_2026-10-19.md` §5 recommends asking Nasdaq
+     before any trial.* Measure, on the 13 names:
      coverage; the time NAV(D) becomes available (the vendor says 3–6 am ET the next
      morning); and agreement to the cent with the sponsors' NAVs.
    - If the trial covers all 13 names before the morning backstop, G can replace
@@ -419,6 +431,8 @@ CEFConnect.
 - Whether NYSE disseminates `.NV` for our CEFs over CTS.
 - Whether Alpaca's data API answers a NAV symbol (untested: no key may be used).
 - Whether EODHD or Tiingo carry CEF NAVs (`X<TK>X`), and from which upstream.
+  *Answered 2026-10-19 (`results/ops/NAV_SOURCE_WORKAROUND_2026-10-19.md` §2): both
+  list all 13; Tiingo's exchange code is `NMFQS` (NFN); EODHD's upstream is still [U].*
 - Whether Yahoo's NAVs come from NFN, and whether Yahoo offers a commercial licence.
 - Anything legal: this note is not legal advice.
 
