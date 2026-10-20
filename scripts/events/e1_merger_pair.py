@@ -143,6 +143,8 @@ STAGE0_FLAGS = OUT_DIR / "e1_stage0_flags.csv"
 RULINGS = OUT_DIR / "e1_stage0_rulings.csv"                       # reading R7
 READINGS = OUT_DIR / "e1_failed_deal_readings.csv"                # DG-E1-3, written by a reader
 CENSUS = OUT_DIR / "e1_failed_census.csv"                         # DG-E1-3 candidates (EDGAR facts only)
+CENSUS_SUPP = OUT_DIR / "e1_failed_census_supp.csv"               # ruling 9 (amendment 3): acquirer episodes a completion explained
+DG3_RULINGS = OUT_DIR / "e1_dg3_rulings.csv"                       # amendment 3's record (items 1-9)
 FIT_JSON = OUT_DIR / "e1_fit_verdict.json"
 FIT_OUT = OUT_DIR / "e1_fit_output.txt"
 HOLDOUT_JSON = OUT_DIR / "e1_holdout.json"
@@ -556,7 +558,27 @@ def failed_census(episodes: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str]]:
+def supp_census(episodes: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
+    """Ruling 9 (amendment 3, 2026-10-20): the merger episodes that a CRSP completion with the
+    episode's CIK as ACQUIRER explains (within 730 days). The 730-day rule drops them, and with them
+    any co-target that failed while another merged: SBI -> MMU (2023, §2.3) is the case that showed it."""
+    c = comp[(comp["role"] == "acquirer")].dropna(subset=["cik"])
+    by = {int(k): g["C"].values for k, g in c.groupby("cik")}
+    out = []
+    for e in episodes.itertuples():
+        cs = by.get(int(e.cik), np.array([], dtype="datetime64[ns]"))
+        lo, hi = np.datetime64(e.first_date), np.datetime64(e.first_date + pd.Timedelta(days=FAIL_WINDOW_DAYS))
+        if ((cs >= lo) & (cs <= hi)).any():
+            out.append({"episode_cik": int(e.cik), "episode_accession": e.first_accession,
+                        "first_date": e.first_date.date(), "first_form": e.first_form,
+                        "last_date": e.last_date.date(), "n_filings": int(e.n_filings), "forms": e.forms,
+                        "company_last": e.company_last,
+                        "window_past_crsp": bool(e.first_date + pd.Timedelta(days=FAIL_WINDOW_DAYS) > CRSP_END)})
+    return pd.DataFrame(out)
+
+
+def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None = None,
+                   exempt: pd.Series | None = None) -> tuple[pd.DataFrame, list[str]]:
     """DG-E1-3: every candidate episode has at least one reading row (one per deal its filings
     describe, `deal_id` distinct within the episode); every quote is re-found, on THIS run, in the
     episode CIK's own cached filing it cites (`conditional_tender_census.quote_in`, the
@@ -566,10 +588,13 @@ def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str
     blocks Stage 0 until someone reads further."""
     from scripts.data.edgar_client import filing_txt_url
     from scripts.events.conditional_tender_census import quote_in
-    if not READINGS.exists():
+    if readings is None and not READINGS.exists():
         return pd.DataFrame(columns=READING_COLUMNS), [f"{_rel(READINGS)} does not exist: "
                                                        f"{len(census)} candidate episode(s) unread"]
-    r = pd.read_csv(READINGS, dtype=str, keep_default_na=False)
+    r = pd.read_csv(READINGS, dtype=str, keep_default_na=False) if readings is None else readings.reset_index(drop=True)
+    # Ruling 5 (amendment 3): a row that cannot change the trial is read and does not block; its
+    # blank outcome, quote and conflicts are not checked. Every episode must still have a reading.
+    ex = (pd.Series(False, index=r.index) if exempt is None else exempt.reset_index(drop=True).astype(bool))
     probs = []
     miss_c = [c for c in READING_COLUMNS if c not in r.columns]
     if miss_c:
@@ -584,10 +609,11 @@ def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str
         probs.append(f"{len(extra)} reading(s) of an episode not in the census (first {extra[:3]})")
     if r.duplicated(["episode_cik", "episode_accession", "deal_id"]).any():
         probs.append("an episode reads one deal twice")
-    bad_o = sorted(set(r["outcome"]) - set(OUTCOMES))
-    if bad_o:
-        probs.append(f"{int((~r['outcome'].isin(OUTCOMES)).sum())} row(s) with an unknown or blank outcome {bad_o}")
-    for row in r.itertuples(index=False):
+    bad = ~r["outcome"].isin(OUTCOMES) & ~ex
+    if bad.any():
+        probs.append(f"{int(bad.sum())} row(s) with an unknown or blank outcome {sorted(set(r.loc[bad, 'outcome']))} "
+                     f"in {int((r.loc[bad, 'episode_cik'] + r.loc[bad, 'episode_accession']).nunique())} episode(s)")
+    for row in r[~ex].itertuples(index=False):
         for acc_col, q_col in (("ann_accession", "ann_quote"), ("fail_accession", "fail_quote"),
                                ("outcome_accession", "outcome_quote")):
             acc, q = getattr(row, acc_col), getattr(row, q_col)
@@ -613,7 +639,7 @@ def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str
     # A blank is a reader who did not see the answer, not a contradiction: only two DIFFERENT
     # non-blank outcomes or parties for one deal disagree (fixed 2026-10-20; the first version
     # counted a blank against a value and flagged 63 deals that no reading contradicted).
-    for d, g in r[r["deal_id"] != ""].groupby("deal_id"):
+    for d, g in r[(r["deal_id"] != "") & ~ex].groupby("deal_id"):
         if len(g) > 1 and any(g.loc[g[c] != "", c].nunique() > 1 for c in ("outcome", "target_cik", "acquirer_cik")):
             probs.append(f"deal {d}: its readings disagree on outcome or parties")
     return r, probs
@@ -1312,11 +1338,42 @@ def stage0(args) -> int:
         f"{int(cen['window_past_crsp'].sum())} run past CRSP's last delisting; first filing cached offline: {cached}")
     say(f"  by first form: {cen['first_form'].value_counts().to_dict()}")
     say(f"  -> {CENSUS.relative_to(REPO)} (EDGAR facts only)")
-    readings, probs = check_readings(cen, client)
+    supp = supp_census(ep, comp)
+    supp.to_csv(CENSUS_SUPP, index=False)
+    say(f"  supplementary census (ruling 9): {len(supp)} acquirer-side episodes a completion explains "
+        f"-> {_rel(CENSUS_SUPP)}; MMU 2023 (SBI -> MMU) among them: {bool((supp['episode_cik'] == 886043).any())}")
+    extra = {}
+    if DG3_RULINGS.exists() and READINGS.exists():
+        from scripts.events import e1_failed_reading as fr
+        from scripts.events import e1_rulings_facts as rf
+        R0 = pd.read_csv(READINGS, dtype=str, keep_default_na=False)
+        cmap = crsp_cik_map(nm, names)
+        Rr = fr.apply_dg3_rulings(R0, nm, cmap)
+        T = fr.triage(Rr, cen.astype({"episode_cik": str}), nm, dl, rf.own_listed(nm, names))
+        ex = fr.exempt_rows(T)
+        T.to_csv(OUT_DIR / "e1_failed_reading_triage.csv", index=False)
+        Rr.to_csv(OUT_DIR / "e1_failed_deal_readings_ruled.csv", index=False)
+        readings, probs = check_readings(cen, client, readings=Rr, exempt=ex)
+        trial = Rr.loc[Rr["in_trial"] == "Y"]
+        say(f"  amendment 3 applied (rulings 1-5): {int(ex.sum())} of {len(Rr)} rows cannot change the trial "
+            f"(ruling 5); in-trial deals {trial['deal_id'].nunique()}: "
+            + ", ".join(sorted(set(trial['target_ticker'] + '->' + trial['acquirer_ticker']))))
+        for rnd, (out_f, _, ids_f, *_rest) in fr.ROUNDS.items():
+            if rnd == "r1":
+                continue
+            need = (len(supp) if rnd == "supp" else
+                    len(pd.read_csv(OUT_DIR / ids_f)) if (OUT_DIR / ids_f).exists() else None)
+            if not (OUT_DIR / out_f).exists():
+                probs.append(f"round {rnd} (amendment 3, ruling {dict(r2=8, n8f=6, supp=9)[rnd]}): "
+                             + (f"{need} episode(s) unread" if need is not None else "episode list not frozen"))
+        extra = {"in_trial_deals_ruled": int(trial["deal_id"].nunique()), "exempt_rows": int(ex.sum())}
+    else:
+        readings, probs = check_readings(cen, client)
     gates["DG-E1-3"] = {"status": "FAIL" if probs else "PASS", "detail": "; ".join(probs) if probs else
                         f"{len(readings)} readings, every quote re-found", "candidates": int(len(cen)),
-                        "first_filing_cached": cached}
-    say(f"  readings: {gates['DG-E1-3']['detail']}")
+                        "first_filing_cached": cached, "supp_episodes": int(len(supp)), **extra}
+    for pr in (probs or [gates["DG-E1-3"]["detail"]]):
+        say(f"  DG-E1-3: {pr}")
 
     # ---------------------------------------------------------------- DG-E1-1
     etf_perm = {}
@@ -1782,13 +1839,17 @@ def fetch_edgar(args) -> int:  # pragma: no cover - loads the SEC contact; the t
     from scripts.data import fetch_edgar_events as fe
     from scripts.data.edgar_client import filing_txt_url
     client = edgar_client(online=True)
-    nm, dl = crsp_tables()
-    x = deal_table(nm, dl)
-    res, summ = date_holdouts(client, x, date.today())
-    CACHE.mkdir(parents=True, exist_ok=True)
-    res.to_csv(HOLDOUT_DATES, index=False)
-    HOLDOUT_DATES_SUMMARY.write_text(json.dumps(summ, indent=1, default=str))
-    cen = pd.read_csv(CENSUS)
+    if getattr(args, "supp", False):
+        cen = pd.read_csv(CENSUS_SUPP)          # ruling 9: the supplementary census only
+        summ = None
+    else:
+        nm, dl = crsp_tables()
+        x = deal_table(nm, dl)
+        res, summ = date_holdouts(client, x, date.today())
+        CACHE.mkdir(parents=True, exist_ok=True)
+        res.to_csv(HOLDOUT_DATES, index=False)
+        HOLDOUT_DATES_SUMMARY.write_text(json.dumps(summ, indent=1, default=str))
+        cen = pd.read_csv(CENSUS)
     forms = CENSUS_FORMS
     n = 0
     for r in cen.itertuples():
@@ -1799,7 +1860,7 @@ def fetch_edgar(args) -> int:  # pragma: no cover - loads the SEC contact; the t
         for a in sb["accessionNumber"]:
             client.get(filing_txt_url(int(r.episode_cik), a))
             n += 1
-    print(f"holdout deals dated: {summ['dated']} of {summ['events']}; census filings cached: {n}")
+    print((f"holdout deals dated: {summ['dated']} of {summ['events']}; " if summ else "") + f"census filings cached: {n}")
     return 0
 
 
@@ -1857,7 +1918,8 @@ def main(argv=None) -> int:
     sc.add_argument("--permnos", type=Path, help="a file of permnos; default: the fit parties and the ETFs")
     sc.add_argument("--partial", action="store_true",
                     help="stage the permnos found and list the rest (for the control-2 pool's coverage)")
-    sub.add_parser("fetch-edgar")
+    fe_p = sub.add_parser("fetch-edgar")
+    fe_p.add_argument("--supp", action="store_true", help="only the supplementary census's filings (ruling 9)")
     ri = sub.add_parser("refresh-edgar-index")
     ri.add_argument("--today", default=str(date.today()))
     pc = sub.add_parser("pull-crsp")

@@ -1,6 +1,6 @@
 {
- "run_utc": "2026-10-20T20:23:23+00:00",
- "head": "524e77e",
+ "run_utc": "2026-10-20T22:45:15+00:00",
+ "head": "2360f6c",
  "verdict": "STAGE 0: HALT",
  "gates": {
   "DG-E1-6": {
@@ -36,9 +36,12 @@
   },
   "DG-E1-3": {
    "status": "FAIL",
-   "detail": "results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread",
+   "detail": "56 row(s) with an unknown or blank outcome [''] in 40 episode(s); round r2 (amendment 3, ruling 8): 47 episode(s) unread; round n8f (amendment 3, ruling 6): 19 episode(s) unread; round supp (amendment 3, ruling 9): 149 episode(s) unread",
    "candidates": 273,
-   "first_filing_cached": 272
+   "first_filing_cached": 272,
+   "supp_episodes": 149,
+   "in_trial_deals_ruled": 9,
+   "exempt_rows": 412
   },
   "DG-E1-1": {
    "status": "INCOMPLETE",

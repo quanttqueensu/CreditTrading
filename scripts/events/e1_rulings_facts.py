@@ -72,10 +72,10 @@ def _names():
     return names
 
 
-def own_listed(nm) -> dict:
+def own_listed(nm, names=None) -> dict:
     """episode id -> True if the episode's own CIK maps to a CRSP CEF listed on its first filing date,
     or its EDGAR name is BDC-like (the R10 count's two tests, per episode)."""
-    cmap = e1.crsp_cik_map(nm, _names())
+    cmap = e1.crsp_cik_map(nm, _names() if names is None else names)
     inv: dict[int, set] = {}
     for p, c in cmap.items():
         inv.setdefault(c, set()).add(p)

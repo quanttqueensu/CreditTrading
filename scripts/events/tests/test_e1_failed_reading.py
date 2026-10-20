@@ -232,3 +232,80 @@ def test_failed_deal_rows_take_one_deal_read_from_four_episodes(monkeypatch):
                       (("902722", "2009-12-28"), ("1169027", "2009-12-29"), ("1176196", "2009-12-28"), ("1181027", "2009-12-29"))])
     D = e1.failed_deal_rows(R, nm)
     assert len(D) == 1 and D.loc[0, "fail_date"] == pd.Timestamp("2009-12-28") and D.loc[0, "ann"] == pd.Timestamp("2009-10-26")
+
+
+# ---------------------------------------------------------------- amendment 3 (2026-10-20)
+
+def _row(**k):
+    r = {c: "" for c in e1.READING_COLUMNS}
+    r.update(k)
+    return r
+
+
+def test_rulings_2_to_4():
+    nm = pd.DataFrame({"permno": [1, 2, 5, 6], "ticker": ["NXJ", "NAD", "BHV", "MYI"],
+                       "namedt": pd.to_datetime(["2000-01-01"] * 4), "nameendt": pd.to_datetime(["2024-12-31"] * 4),
+                       "shrcd": [14, 14, 44, 14], "exchcd": [1, 1, 1, 1], "comnam": ["A", "B", "C", "D"]})
+    cmap = {1: 1001, 2: 1083839, 5: 1169034, 6: 883412}
+    R = pd.DataFrame([
+        _row(episode_cik="1083839", episode_accession="a", deal_id="ep1083839:0", target_ticker="NXJ",
+             acquirer_ticker="NAD", outcome="withdrawn", ann_date="2023-08-31", fail_date="2023-11-09",
+             fail_quote="q", fail_accession="x"),                                            # ruling 2
+        _row(episode_cik="883412", episode_accession="b", deal_id="1169034>883412", target_cik="1169034",
+             acquirer_cik="883412", outcome="withdrawn", ann_date="2023-09-08", outcome_accession=fr.MYI_RW[0],
+             outcome_quote="no longer contemplated", outcome_date="2023-11-01"),             # ruling 3, the RW row
+        _row(episode_cik="1169034", episode_accession="c", deal_id="1169034>883412", target_cik="1169034",
+             acquirer_cik="883412", target_ticker="BHV", acquirer_ticker="MYI", outcome="superseded",
+             both_listed="Y", in_trial="Y", ann_date="2023-09-08", fail_date="2025-06-09",
+             outcome_accession="y", outcome_quote="2025 filing", outcome_date="2025-06-09"),  # ruling 3, BHV's row
+        _row(episode_cik="1490349", episode_accession="d", deal_id=fr.MCC_DEAL, outcome="terminated",
+             outcome_quote="not found", outcome_accession="z"),                              # ruling 4
+    ])
+    X = fr.apply_dg3_rulings(R, nm, cmap)
+    assert list(X["ruled"]) == ["2", "3", "3", "4"]
+    assert X.loc[0, "in_trial"] == "Y" and X.loc[0, "deal_id"] == "1001>1083839"
+    assert X.loc[1, "in_trial"] == "Y" and X.loc[1, "fail_date"] == "2023-11-01" and X.loc[1, "target_ticker"] == "BHV"
+    assert X.loc[2, "outcome"] == "withdrawn" and X.loc[2, "in_trial"] == "N" and X.loc[2, "fail_date"] == ""
+    assert X.loc[3, "outcome"] == "not_a_listed_pair" and X.loc[3, "outcome_quote"] == ""
+    # the dedupe (ruling 1) then sees one MYI deal with F = 2023-11-01, not BHV's 2025 date
+    assert set(X.loc[X["in_trial"] == "Y", "deal_id"]) == {"1001>1083839", "1169034>883412"}
+
+
+def test_ruling_5_exempts_rows_that_cannot_change_the_trial(tmp_path, monkeypatch):
+    T = pd.DataFrame({"triage": ["C2", "I2", "T1", "I3"], "ann_date": ["2015-01-01", "2016-01-01", "2016-01-01", "2025-07-15"]})
+    assert list(fr.exempt_rows(T)) == [True, False, False, True]
+    cen = pd.DataFrame({"episode_cik": [20, 21], "episode_accession": ["a", "b"]})
+    R = pd.DataFrame([_row(episode_cik="20", episode_accession="a", deal_id="d1", outcome=""),
+                      _row(episode_cik="21", episode_accession="b", deal_id="d2", outcome="")])
+    _, probs = e1.check_readings(cen, None, readings=R, exempt=pd.Series([True, False]))
+    assert len(probs) == 1 and "1 row(s)" in probs[0]                    # only the non-exempt blank blocks
+    _, probs = e1.check_readings(cen, None, readings=R, exempt=pd.Series([True, True]))
+    assert probs == []
+
+
+def test_supp_census_catches_an_acquirer_explained_by_another_targets_completion():
+    ep = pd.DataFrame({"cik": [886043, 99], "first_date": pd.to_datetime(["2023-03-17", "2015-01-05"]),
+                       "last_date": pd.to_datetime(["2023-05-22", "2015-06-01"]), "first_form": ["N-14 8C", "425"],
+                       "first_accession": ["m-1", "z-9"], "n_filings": [3, 1], "forms": ["N-14 8C", "425"],
+                       "company_last": ["WESTERN ASSET MANAGED MUNICIPALS FUND INC.", "OTHER"]})
+    comp = pd.DataFrame({"cik": [886043.0, 99.0], "C": pd.to_datetime(["2023-09-01", "2015-09-01"]),
+                         "role": ["acquirer", "target"]})
+    s = e1.supp_census(ep, comp)
+    assert list(s["episode_cik"]) == [886043]                         # the target-side completion does not qualify
+
+
+def test_freeze_rounds_and_the_exact_parse_check(tmp_path, monkeypatch):
+    monkeypatch.setattr(e1, "OUT_DIR", tmp_path)
+    root = tmp_path / "r1"
+    (root / "input").mkdir(parents=True)
+    (root / "input" / "plan.json").write_text(json.dumps({"batches": [
+        {"batch": "40", "episodes": [{"id": "1_a"}]}, {"batch": "41", "episodes": [{"id": "2_b"}]},
+        {"batch": "45", "episodes": [{"id": "3_c"}]}]}))
+    T = pd.DataFrame({"episode_cik": ["7", "8", "9"], "episode_accession": ["x", "y", "z"],
+                      "triage": ["I2", "I1", "C2"], "ann_date": ["2016-01-01"] * 3, "ruled": ["", "3", ""]})
+    out = fr.freeze_rounds(root, T, T)
+    assert out == {"r2_episodes": 1, "r2_rows": 1, "n8f_episodes": 2}
+    assert list(pd.read_csv(tmp_path / "e1_reading_round_n8f.csv")["episode"]) == ["1_a", "3_c"]
+    # the readers' parse check names one file by its full path, never a wildcard
+    assert '<ROOT>/out/<MODEL>/<episode id>.json' in fr.INSTRUCTIONS and "wildcard" in fr.INSTRUCTIONS
+    assert '{ROOT}/out/{MODEL}/<episode id>.json' in fr.BRIEF and "*" not in fr.BRIEF.split("Forbidden")[0]

@@ -1,4 +1,4 @@
-E1 STAGE 0 -- 2026-10-20T20:23:23+00:00 -- HEAD 524e77e -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
+E1 STAGE 0 -- 2026-10-20T22:45:15+00:00 -- HEAD 2360f6c -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
 
 [DG-E1-6] pandas compute.use_numexpr: False
 
@@ -33,7 +33,12 @@ time_holdout  ALL                 29                       19             29    
   candidate episodes (no matched CRSP completion within 730 days): 273; of them 86 run past CRSP's last delisting; first filing cached offline: 272
   by first form: {'425': 123, 'N-14': 73, 'N-14 8C': 58, 'PREM14A': 13, 'DEFM14A': 3, 'N-14 8C/A': 2, 'N-14MEF': 1}
   -> results/events/e1/e1_failed_census.csv (EDGAR facts only)
-  readings: results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread
+  supplementary census (ruling 9): 149 acquirer-side episodes a completion explains -> results/events/e1/e1_failed_census_supp.csv; MMU 2023 (SBI -> MMU) among them: True
+  amendment 3 applied (rulings 1-5): 412 of 496 rows cannot change the trial (ruling 5); in-trial deals 9: AFT->AIF, BHV->MYI, BKN->MYI, MIY->MYI, MPA->MYI, NMT->NEA, NQP->NVG, NXJ->NAD, RAA->BFZ
+  DG-E1-3: 56 row(s) with an unknown or blank outcome [''] in 40 episode(s)
+  DG-E1-3: round r2 (amendment 3, ruling 8): 47 episode(s) unread
+  DG-E1-3: round n8f (amendment 3, ruling 6): 19 episode(s) unread
+  DG-E1-3: round supp (amendment 3, ruling 9): 149 episode(s) unread
 
 [DG-E1-1] fit reader (crsp_events.daily, cached extract only): PASS: 277 permnos, 1,124,202 rows, last 2022-12-30 (< 2023)
   holdout reader guard: PASS (refuses: results/events/e1/e1_fit_verdict.json is not committed)
@@ -57,7 +62,7 @@ time_holdout  ALL                 29                       19             29    
 STAGE 0: HALT
   DG-E1-1: INCOMPLETE -- fit reader PASS; holdout guard PASS; control-2 pool missing 0; the failed deals' parties wait on DG-E1-3
   DG-E1-2: PASS -- holdout dates cover the 64 holdout deals: True; dated 63, undatable and excluded 1 (EDI)
-  DG-E1-3: FAIL -- results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread
+  DG-E1-3: FAIL -- 56 row(s) with an unknown or blank outcome [''] in 40 episode(s); round r2 (amendment 3, ruling 8): 47 episode(s) unread; round n8f (amendment 3, ruling 6): 19 episode(s) unread; round supp (amendment 3, ruling 9): 149 episode(s) unread
   DG-E1-4: INCOMPLETE -- completed fit deals checked ({"missing return on the leg's last earned session": 19}); failed deals wait on DG-E1-3
   DG-E1-5: PASS -- French covers 2009-07..2024-12; CRSP ETFs cover the fit window, which is what reading R8 (ruled 2026-10-20) requires
   DG-E1-6: PASS -- numexpr off; the denormal assertion runs on every P&L built (identity check 2 here)

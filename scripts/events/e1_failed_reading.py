@@ -170,14 +170,14 @@ def windows(text: str, start_after: int, width: int = WINDOW, cap: int = MAX_WIN
     return sorted(picked)
 
 
-def excerpt_filing(raw: str, form: str, compact: bool = False) -> tuple[str, dict]:
+def excerpt_filing(raw: str, form: str, compact: bool = False, heads: dict | None = None) -> tuple[str, dict]:
     """One filing's excerpt: its main document's head, its press-release exhibits' heads (8-K, 425,
     DEFA14A), then the outcome windows; returns (text, stats). `compact`: the lead (COMPACT_HEAD)
     and at most COMPACT_MAX_WINDOWS windows of strong outcome language only."""
     docs = documents(raw)
     main = [t for ty, t in docs if ty == form.upper()] or [docs[0][1] if docs else ""]
     body = render(main[0])
-    head_n = COMPACT_HEAD if compact else HEAD_CHARS.get(form, HEAD_DEFAULT)
+    head_n = COMPACT_HEAD if compact else {**HEAD_CHARS, **(heads or {})}.get(form, HEAD_DEFAULT)
     ex_n = COMPACT_HEAD if compact else EXHIBIT_HEAD
     parts = [f"--- start of the document (first {min(head_n, len(body)):,} of {len(body):,} characters) ---\n",
              _cut(body, head_n)]
@@ -214,7 +214,7 @@ def episode_filings(client, cik: int, first_date) -> pd.DataFrame:
     return sb.sort_values(["filingDate", "accessionNumber"]).reset_index(drop=True)
 
 
-def episode_text(client, ep: pd.Series) -> tuple[str, list[dict]]:
+def episode_text(client, ep: pd.Series, budget: int = EPISODE_CHARS, heads: dict | None = None) -> tuple[str, list[dict]]:
     """The episode's reading text and its filing list, with what each filing shows.
 
     Every filing gets at least a COMPACT excerpt (its lead and strong outcome language), so no
@@ -234,7 +234,7 @@ def episode_text(client, ep: pd.Series) -> tuple[str, list[dict]]:
         except Exception as ex:
             recs.append({**rec, "included": False, "why": f"not cached ({type(ex).__name__})"})
             continue
-        full, st = excerpt_filing(raw, r.form)
+        full, st = excerpt_filing(raw, r.form, heads=heads)
         comp, _ = excerpt_filing(raw, r.form, compact=True)
         parties = "; ".join(f"{p['role']} {p['name']} (CIK {p['cik']})" for p in sgml_parties(raw))
         line = (f"\n===== FILING seq={seq} | form {r.form} | filed {r.filingDate.date()} | accession "
@@ -250,7 +250,7 @@ def episode_text(client, ep: pd.Series) -> tuple[str, list[dict]]:
                 seen.setdefault(x["_sha"], x["seq"])
     live = [x for x in recs if x["included"]]
     compact_total = sum(len(x["_line"]) + len(x["_comp"]) for x in live)
-    budget = min(max(EPISODE_CHARS, compact_total), EPISODE_MAX)
+    budget = min(max(budget, compact_total), EPISODE_MAX)
     pri = sorted(live, key=lambda x: (0 if x["accession"] == first else 1 if x["_strong"] else
                                       2 if x["form"] in FIRST_PRIORITY else 3, x["date"]))
     used = 0
@@ -397,6 +397,11 @@ Field by field:
   - `"withdrawn"`: the registration or proxy was withdrawn (form RW, or text saying so) and the merger was not completed;
   - `"superseded"`: the proposal was replaced by a different merger proposal for the same fund;
   - `"not_a_listed_pair"`: `both_listed` is false;
+  - **an N-8F** (a fund's application to deregister) is evidence only of how the fund ended: if the
+    TARGET's N-8F states that it merged into the named acquirer, the outcome is `"completed"`; if it
+    names a different surviving fund, or a liquidation, `"completed_other_structure"`; if it names
+    neither, it settles nothing (null unless another filing does). An N-8F never shows a failure
+    (team lead's rule, 2026-10-20);
   - `null`: the excerpts do not say how it ended. **This is the right answer whenever the
     outcome is not stated in front of you**; do not infer completion from silence.
 * `announcement`: the earliest filing in the excerpt that publicly announces this proposed
@@ -427,11 +432,54 @@ your fields, not for quotes).
   the output directory your brief names. No network, no web, no `sudo`, no `ssh`. Never open
   `config/.env`, any key or credential file, or anything under the repository. Do not start
   other agents.
-* The only shell command you may run is the parse check:
-  `python3 -c "import json,sys; json.load(open(sys.argv[1]))" <file>`.
+* **The only shell command you may run** is this parse check, once for each file you write, on that
+  one file, by its full path, right after you write it:
+  `python3 -c "import json,sys; json.load(open(sys.argv[1]))" <ROOT>/out/<MODEL>/<episode id>.json`
+  (your brief gives ROOT and MODEL; for the batch summary the file is `_batch_<NN>.json`). Never
+  put a wildcard (`*`, `?`), a directory or another reader's file in it, and never run anything
+  else: no `ls`, `cat`, `find`, `grep`, `head`, no other `python3`, no loop over files.
 * After your last episode, write `_batch_<NN>.json` in the output directory:
   `{"batch": "<NN>", "model_id": "<your exact model ID>", "episodes": ["<cik>_<accession>", ...],
   "parts_read": <number>, "problems": "<anything that troubled you, or empty>"}`.
+"""
+
+R2_ADDENDUM = """\
+# Second reading (2026-10-20): read this page first; it overrides what follows where they differ
+
+These episodes were read once, and that reading could not settle whether a deal between two listed
+funds failed (the team lead's ruling 8). This time every filing is shown in its FULL excerpt
+wherever the episode's size allows (the filing list says which). Give every deal an outcome if any
+filing in front of you states one; null is still the right answer when none does. A second deal of
+the same pair (for example a 2025 re-proposal) is a separate deal.
+
+---
+
+"""
+
+N8F_ADDENDUM = """\
+# N-8F re-reading (2026-10-20): read this page first; it overrides what follows where they differ
+
+These episodes are read again under the team lead's N-8F rule (ruling 6, 2026-10-20), given in
+the outcome definitions below. Earlier readers applied it two ways. Read every filing, record every
+deal as before, and apply the rule exactly: an N-8F can make a deal `completed` or
+`completed_other_structure`, never a failure, and an N-8F that names no merger settles nothing.
+
+---
+
+"""
+
+SUPP_ADDENDUM = """\
+# Supplementary census (2026-10-20): read this page first; it overrides what follows where they differ
+
+Each episode here belongs to an ACQUIRING fund whose merger filings led to at least one completed
+merger (the team lead's ruling 9). A single proposal often names several target funds, and one of
+them can fail (for example a shareholder vote that did not pass for one target while the others
+merged). Record EVERY target fund the filings name for this acquirer, each as its own deal with its
+own outcome. The question that matters is which named targets did NOT complete: say so only when a
+filing states it, and give its quote.
+
+---
+
 """
 
 BRIEF = """\
@@ -439,19 +487,50 @@ You are a reader for QUANTT's E1 failed-merger census (DG-E1-3, 2026-10-20). Do 
 
 1. Read {ROOT}/input/INSTRUCTIONS.md in full with the Read tool. It binds you.
 2. Read {ROOT}/input/batches/batch_{NN}.json. It lists your episodes in order, each with its part files. Your output directory is {ROOT}/out/{MODEL}/.
-3. For each episode, in the listed order: read every one of its part files in full, in order, with the Read tool; then write {ROOT}/out/{MODEL}/<episode id>.json in the shape INSTRUCTIONS.md gives (null wherever the text does not state the answer); then run the parse check on it.
-4. Write {ROOT}/out/{MODEL}/_batch_{NN}.json as INSTRUCTIONS.md describes, with your exact model ID.
+3. For each episode, in the listed order: read every one of its part files in full, in order, with the Read tool; then write {ROOT}/out/{MODEL}/<episode id>.json in the shape INSTRUCTIONS.md gives (null wherever the text does not state the answer); then run exactly this, on that one file only:
+   python3 -c "import json,sys; json.load(open(sys.argv[1]))" {ROOT}/out/{MODEL}/<episode id>.json
+4. Write {ROOT}/out/{MODEL}/_batch_{NN}.json as INSTRUCTIONS.md describes, with your exact model ID, and run the same command on {ROOT}/out/{MODEL}/_batch_{NN}.json.
 
-Forbidden: opening any other file or directory (in particular anything under the repository, other batches' outputs, and config/.env or any key file); Grep, Glob or any search; any shell command except the JSON parse check; network or web access; sudo; ssh; starting agents; using outside knowledge of these funds or deals.
+Forbidden: opening any other file or directory (in particular anything under the repository, other batches' outputs, and config/.env or any key file); Grep, Glob or any search; any shell command other than the parse check above on a file you just wrote (never a wildcard, a directory, ls, cat or any other command); network or web access; sudo; ssh; starting agents; using outside knowledge of these funds or deals.
 
 Hand back one line: batch {NN}, your model ID, the number of JSON files written, and any problem.
 """
 
 
-def prepare(root: Path, client=None) -> dict:
-    """Write <root>/input/ (parts, batches, instructions, brief, plan) and <root>/out/."""
+ROUNDS = {
+    # round: (output file, review file, episode list file, budget, form heads, addendum)
+    "r1": ("e1_failed_deal_readings.csv", "e1_failed_reading_review.csv", None, EPISODE_CHARS, None, ""),
+    "r2": ("e1_failed_deal_readings_r2.csv", "e1_failed_reading_review_r2.csv", "e1_reading_round_r2.csv",
+           EPISODE_MAX, None, "R2"),
+    "n8f": ("e1_failed_deal_readings_n8f.csv", "e1_failed_reading_review_n8f.csv", "e1_reading_round_n8f.csv",
+            EPISODE_MAX, {"N-8F": 20_000}, "N8F"),
+    "supp": ("e1_failed_deal_readings_supp.csv", "e1_failed_reading_review_supp.csv", None, EPISODE_CHARS, None, "SUPP"),
+}
+
+
+def round_census(rnd: str) -> pd.DataFrame:
+    """The episodes a round reads: r1 the census; supp the supplementary census (ruling 9); r2 and n8f
+    the episode lists their `prepare-*` commands froze in results/events/e1/."""
+    if rnd == "r1":
+        return pd.read_csv(e1.CENSUS)
+    if rnd == "supp":
+        return pd.read_csv(e1.CENSUS_SUPP)
+    ids = pd.read_csv(e1.OUT_DIR / ROUNDS[rnd][2], dtype=str)
+    cen = pd.concat([pd.read_csv(e1.CENSUS), pd.read_csv(e1.CENSUS_SUPP)] if e1.CENSUS_SUPP.exists()
+                    else [pd.read_csv(e1.CENSUS)], ignore_index=True)
+    key = cen["episode_cik"].astype(str) + "_" + cen["episode_accession"]
+    out = cen[key.isin(ids["episode"])].drop_duplicates(["episode_cik", "episode_accession"])
+    if len(out) != len(ids):
+        raise e1.GateError(f"round {rnd}: {len(ids) - len(out)} listed episode(s) are in no census")
+    return out.reset_index(drop=True)
+
+
+def prepare(root: Path, client=None, rnd: str = "r1") -> dict:
+    """Write <root>/input/ (parts, batches, instructions, brief, plan) and <root>/out/ for one round."""
     client = client or e1.edgar_client(online=False)
-    cen = pd.read_csv(e1.CENSUS)
+    cen = round_census(rnd)
+    _, _, _, budget, heads, add = ROUNDS[rnd]
+    addendum = {"": "", "R2": R2_ADDENDUM, "N8F": N8F_ADDENDUM, "SUPP": SUPP_ADDENDUM}[add]
     inp = root / "input"
     parts_dir, batch_dir = inp / "episodes", inp / "batches"
     for d in (parts_dir, batch_dir):
@@ -462,7 +541,7 @@ def prepare(root: Path, client=None) -> dict:
     order, sizes, files, listed, hashes = [], {}, {}, {}, {}
     for _, ep in cen.iterrows():
         i = ep_id(ep["episode_cik"], ep["episode_accession"])
-        txt, lst = episode_text(client, ep)
+        txt, lst = episode_text(client, ep, budget=budget, heads=heads)
         parts = split_parts(txt)
         names = []
         for k, p in enumerate(parts, 1):
@@ -473,7 +552,7 @@ def prepare(root: Path, client=None) -> dict:
         order.append(i)
         sizes[i], files[i], listed[i] = len(txt), names, lst
     batches = plan_batches(sizes, order)
-    plan = {"made": str(date.today()), "census": str(e1.CENSUS.relative_to(REPO)), "episodes": len(order),
+    plan = {"made": str(date.today()), "round": rnd, "episodes": len(order), "episode_budget_chars": budget,
             "episode_chars_cap": EPISODE_CHARS, "batch_tokens_cap_est": BATCH_TOKENS,
             "chars_per_token_assumed": CHARS_PER_TOKEN, "batches": [], "filings": listed}
     for b_i, b in enumerate(batches, 1):
@@ -483,7 +562,7 @@ def prepare(root: Path, client=None) -> dict:
         (batch_dir / f"batch_{nn}.json").write_text(json.dumps(
             {**rec, "output_dir": "<ROOT>/out/<MODEL>/ as your brief names it"}, indent=1))
         plan["batches"].append(rec)
-    (inp / "INSTRUCTIONS.md").write_text(INSTRUCTIONS)
+    (inp / "INSTRUCTIONS.md").write_text(addendum + INSTRUCTIONS)
     (inp / "BRIEF_TEMPLATE.txt").write_text(BRIEF)
     plan["part_sha256"] = hashes
     (inp / "plan.json").write_text(json.dumps(plan, indent=1, default=str))
@@ -586,10 +665,15 @@ def assign_deal_ids(R: pd.DataFrame) -> pd.Series:
     return ids
 
 
-def collect(root: Path, model: str, partial: bool, client=None) -> dict:
+def collect(root: Path, model: str, partial: bool, client=None, rnd: str | None = None) -> dict:
     from scripts.data.edgar_client import filing_txt_url
     client = client or e1.edgar_client(online=False)
     plan = json.loads((root / "input" / "plan.json").read_text())
+    rnd = rnd or plan.get("round", "r1")
+    if plan.get("round", "r1") != rnd:
+        raise e1.GateError(f"{root} is round {plan.get('round', 'r1')!r}, not {rnd!r}")
+    out_csv = e1.READINGS if rnd == "r1" else e1.OUT_DIR / ROUNDS[rnd][0]
+    review_csv = e1.OUT_DIR / ROUNDS[rnd][1]
     src = root / "out" / model
     batch_of = {e["id"]: b["batch"] for b in plan["batches"] for e in b["episodes"]}
     model_ids = {}
@@ -624,9 +708,9 @@ def collect(root: Path, model: str, partial: bool, client=None) -> dict:
     else:
         R = pd.DataFrame(columns=e1.READING_COLUMNS)
     e1.OUT_DIR.mkdir(parents=True, exist_ok=True)
-    R.to_csv(e1.READINGS, index=False)
-    pd.DataFrame(review, columns=["episode", "problem"]).to_csv(e1.OUT_DIR / "e1_failed_reading_review.csv", index=False)
-    raw = e1.OUT_DIR / "readings_raw" / model
+    R.to_csv(out_csv, index=False)
+    pd.DataFrame(review, columns=["episode", "problem"]).to_csv(review_csv, index=False)
+    raw = e1.OUT_DIR / "readings_raw" / (model if rnd == "r1" else f"{rnd}_{model}")
     raw.mkdir(parents=True, exist_ok=True)
     for f in src.glob("*.json"):
         shutil.copy2(f, raw / f.name)
@@ -636,7 +720,7 @@ def collect(root: Path, model: str, partial: bool, client=None) -> dict:
            "review_rows": len(review),
            "outcomes": R["outcome"].replace("", "(null)").value_counts().to_dict() if len(R) else {}}
     print(json.dumps(out, indent=1))
-    print(f"wrote {e1._rel(e1.READINGS)} and e1_failed_reading_review.csv; now re-run "
+    print(f"wrote {e1._rel(out_csv)} and {review_csv.name}; now re-run "
           "`python3 scripts/events/e1_merger_pair.py stage0`")
     return out
 
@@ -718,34 +802,147 @@ def triage(R: pd.DataFrame, census: pd.DataFrame, nm: pd.DataFrame, dl: pd.DataF
     return T
 
 
+# ============================================================ the DG-E1-3 rulings of 2026-10-20 (PREREG amendment 3)
+
+MYI_RW = ("0001193125-23-268272", "2023-11-01")      # MYI's RW of File 333-274660 (ruling 3)
+MYI_DEALS = frozenset({"1169034>883412", "894242>883412", "890393>883412", "891038>883412"})
+MCC_DEAL = "1490349>1523526"                          # ruling 4
+EXEMPT_CLASSES = ("C1", "C2", "C3")                    # ruling 5
+
+
+def crsp_maps(nm: pd.DataFrame, cmap: dict):
+    """(cik_of(ticker, when), tk_of(cik, when)) through CRSP names and `crsp_cik_map`'s permno -> CIK."""
+    inv: dict[int, set] = {}
+    for pmn, c in cmap.items():
+        inv.setdefault(int(c), set()).add(int(pmn))
+
+    def cik_of(tk, when):
+        if not tk or not when:
+            return None
+        w = pd.Timestamp(when)
+        r = nm[(nm["ticker"] == tk) & (nm["namedt"] <= w) & (nm["nameendt"] >= w) & nm["shrcd"].isin((11, 14, 44))]
+        ps = set(r["permno"].astype(int))
+        cs = {cmap[x] for x in ps if x in cmap}
+        return next(iter(cs)) if len(cs) == 1 else None
+
+    def tk_of(cik, when):
+        if not cik or not when:
+            return None
+        w = pd.Timestamp(when)
+        r = nm[nm["permno"].isin(inv.get(int(cik), ())) & (nm["namedt"] <= w) & (nm["nameendt"] >= w)]
+        return r["ticker"].iloc[0] if r["ticker"].nunique() == 1 else None
+    return cik_of, tk_of
+
+
+def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict) -> pd.DataFrame:
+    """The readings with rulings 2-4 applied; column `ruled` names the ruling that changed a row.
+
+    2. A failure whose listing the reader left blank is listed when both parties' tickers map, on A,
+       to listed CRSP CEFs/BDCs (`crsp_listed`); blank CIKs are filled through CRSP and the deal_id is
+       re-formed as target > acquirer (so the deal joins its other readings, ruling 1).
+    3. BHV, BKN, MIY and MPA -> MYI: withdrawn, both listed. Only the rows citing MYI's RW carry the
+       failure (in_trial Y, F = 2023-11-01); the deal's other rows agree on the outcome, carry no
+       failure date, and drop evidence of a different event (BHV's 2025 re-proposal).
+    4. MCC -> CIK 1523526: not a listed pair (its quotes are moot and cleared).
+    Ruling 1 is `failed_deal_rows`; ruling 5 is the exemption the caller takes from `triage`."""
+    cik_of, tk_of = crsp_maps(nm, cmap)
+    R = R.copy()
+    R["ruled"] = ""
+    for ix in R.index[R["deal_id"].isin(MYI_DEALS)]:
+        when = R.at[ix, "ann_date"] or "2023-09-08"
+        for side in ("target", "acquirer"):
+            if not R.at[ix, f"{side}_ticker"]:
+                R.at[ix, f"{side}_ticker"] = tk_of(R.at[ix, f"{side}_cik"], when) or ""
+        R.loc[ix, ["outcome", "both_listed"]] = ["withdrawn", "Y"]
+        if R.at[ix, "outcome_accession"] == MYI_RW[0]:
+            R.loc[ix, ["in_trial", "fail_accession", "fail_quote", "fail_date"]] = [
+                "Y", MYI_RW[0], R.at[ix, "outcome_quote"], MYI_RW[1]]
+        else:
+            R.loc[ix, ["in_trial", "fail_accession", "fail_quote", "fail_date",
+                       "outcome_accession", "outcome_quote", "outcome_date"]] = ["N", "", "", "", "", "", ""]
+        R.at[ix, "ruled"] = "3"
+    m = R["deal_id"].eq(MCC_DEAL)
+    R.loc[m, ["outcome", "both_listed", "in_trial", "fail_accession", "fail_quote", "fail_date",
+              "outcome_accession", "outcome_quote", "outcome_date", "ruled"]] = [
+        "not_a_listed_pair", "N", "N", "", "", "", "", "", "", "4"]
+    for ix in R.index[R["outcome"].isin(e1.FAILED_OUTCOMES) & (R["both_listed"] == "") & (R["ruled"] == "")]:
+        when = R.at[ix, "ann_date"]
+        if crsp_listed(nm, R.at[ix, "target_ticker"], when) and crsp_listed(nm, R.at[ix, "acquirer_ticker"], when):
+            for side in ("target", "acquirer"):
+                if not R.at[ix, f"{side}_cik"]:
+                    c = cik_of(R.at[ix, f"{side}_ticker"], when)
+                    R.at[ix, f"{side}_cik"] = str(c) if c else ""
+            R.loc[ix, ["both_listed", "in_trial", "ruled"]] = ["Y", "Y", "2"]
+            if R.at[ix, "target_cik"] and R.at[ix, "acquirer_cik"]:
+                R.at[ix, "deal_id"] = f"{R.at[ix, 'target_cik']}>{R.at[ix, 'acquirer_cik']}"
+    return R
+
+
+def exempt_rows(T: pd.DataFrame) -> pd.Series:
+    """Ruling 5: rows that cannot change the trial (triage C1-C3, or a deal announced after 2024-12-31)."""
+    late = pd.to_datetime(T["ann_date"].replace("", None)) > e1.CRSP_END
+    return T["triage"].isin(EXEMPT_CLASSES) | late.fillna(False)
+
+
+def freeze_rounds(r1_root: Path, Rr: pd.DataFrame, T: pd.DataFrame) -> dict:
+    """Write the episode lists of rounds r2 (ruling 8: the episodes of rows that can still change the
+    trial and are not settled by rulings 2-4) and n8f (ruling 6: r1's batches 40 and 45)."""
+    open_ = T["triage"].str.startswith("I") & ~exempt_rows(T) & (T["ruled"] == "")
+    r2 = sorted(set(T.loc[open_, "episode_cik"] + "_" + T.loc[open_, "episode_accession"]))
+    plan = json.loads((r1_root / "input" / "plan.json").read_text())
+    n8f = sorted(e["id"] for b in plan["batches"] if b["batch"] in ("40", "45") for e in b["episodes"])
+    for rnd, ids in (("r2", r2), ("n8f", n8f)):
+        pd.DataFrame({"episode": ids}).to_csv(e1.OUT_DIR / ROUNDS[rnd][2], index=False)
+    return {"r2_episodes": len(r2), "r2_rows": int(open_.sum()), "n8f_episodes": len(n8f)}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare")
     p.add_argument("--root", type=Path, required=True)
+    p.add_argument("--round", dest="rnd", choices=sorted(ROUNDS), default="r1")
     c = sub.add_parser("collect")
     c.add_argument("--root", type=Path, required=True)
     c.add_argument("--model", required=True)
     c.add_argument("--partial", action="store_true")
     sub.add_parser("triage")
+    fz = sub.add_parser("freeze-rounds")
+    fz.add_argument("--r1-root", type=Path, required=True)
     a = ap.parse_args(argv)
     if a.cmd == "triage":
         return run_triage()
+    if a.cmd == "freeze-rounds":
+        return run_freeze(a.r1_root)
     if a.cmd == "prepare":
-        plan = prepare(a.root)
-        print(f"{plan['episodes']} episodes in {len(plan['batches'])} batches under {a.root}/input/")
+        plan = prepare(a.root, rnd=a.rnd)
+        print(f"round {a.rnd}: {plan['episodes']} episodes in {len(plan['batches'])} batches under {a.root}/input/")
         return 0
     collect(a.root, a.model, a.partial)
     return 0
 
 
-def run_triage() -> int:  # pragma: no cover - reads the CRSP cache and the census; its core is tested (triage)
+def ruled_triage():  # pragma: no cover - reads the CRSP cache, the EDGAR name table and the census
+    """(ruled readings, their triage) with rulings 2-4 applied (the triage is ruling 5's input)."""
     from scripts.events import e1_rulings_facts as rf
     nm, dl = e1.crsp_tables()
+    names = rf._names()
+    cmap = e1.crsp_cik_map(nm, names)
     R = pd.read_csv(e1.READINGS, dtype=str, keep_default_na=False)
+    Rr = apply_dg3_rulings(R, nm, cmap)
     cen = pd.read_csv(e1.CENSUS, dtype={"episode_cik": str})
-    own = rf.own_listed(nm)
-    T = triage(R, cen, nm, dl, own)
+    T = triage(Rr, cen, nm, dl, rf.own_listed(nm, names))
+    return Rr, T
+
+
+def run_freeze(r1_root: Path) -> int:  # pragma: no cover
+    Rr, T = ruled_triage()
+    print(freeze_rounds(r1_root, Rr, T))
+    return 0
+
+
+def run_triage() -> int:  # pragma: no cover - reads the CRSP cache and the census; its core is tested (triage)
+    Rr, T = ruled_triage()
     path = e1.OUT_DIR / "e1_failed_reading_triage.csv"
     T.to_csv(path, index=False)
     by = T.groupby("triage").agg(rows=("deal_id", "size"), deals=("deal_id", "nunique"),

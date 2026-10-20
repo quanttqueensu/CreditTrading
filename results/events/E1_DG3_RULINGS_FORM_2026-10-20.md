@@ -6,7 +6,15 @@
 `results/events/e1/e1_failed_deal_readings.csv`, `e1_failed_reading_review.csv`,
 `e1_failed_reading_triage.csv`, `readings_raw/sonnet/`
 
-> **A form, not a ruling.** Every item waits on the team lead.
+> **RULED 2026-10-20.** The team lead answered "Accept all" to items 1–7 and chose both extra
+> reading rounds, items 8 and 9 (relayed by the coordinator).
+> - Recorded in `results/events/e1/e1_dg3_rulings.csv`: `ruled_by` "team lead (Simon Jarvis):
+>   accept all recommended", `ruled_on` 2026-10-20.
+> - Also recorded as amendment 3 of the pre-registration.
+> - The packs for items 6, 8 and 9 are built by `scripts/events/e1_failed_reading.py`
+>   (`prepare-n8f`, `prepare-r2`, `prepare-supp`).
+>
+> *Was:* **A form, not a ruling.** Every item waits on the team lead.
 >
 > - **No E1 statistic was computed.** The triage reads only the readers' fields, CRSP names
 >   and CRSP delisting records.

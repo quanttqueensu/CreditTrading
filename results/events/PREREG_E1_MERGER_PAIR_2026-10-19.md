@@ -52,6 +52,25 @@ N = 6) · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 2; gates G1
 > -3 stay halted until the team lead's `fetch-edgar` and `pull-crsp` runs and the 273 readings
 > that follow them.
 >
+> **Amendment 3 (team lead, 2026-10-20, at Stage 0, before any E1 return): DG-E1-3's readings
+> ruled.** The ruling: "Accept all" to items 1–7 of `results/events/E1_DG3_RULINGS_FORM_2026-10-20.md`,
+> with both extra reading rounds chosen (relayed by the coordinator; recorded in
+> `results/events/e1/e1_dg3_rulings.csv`):
+> - **1. One deal, one count.** A is the earliest announcement and F the earliest public failure
+>   across the deal's episodes.
+> - **2. CRSP settles a listing the reader left null** (§4.3's share-code definition).
+> - **3. BHV, BKN, MIY and MPA → MYI are withdrawn, F = 2023-11-01** (MYI's RW), in the time
+>   holdout.
+> - **4. MCC → CIK 1523526 is not a listed pair.**
+> - **5. Rows that cannot change the trial** (triage classes C1–C3, and deals announced after
+>   2024-12-31) are read and excluded, not blocking.
+> - **6. The N-8F rule.** Batches 40 and 45 are re-read to it.
+> - **8. A second, full-excerpt reading** of the 47 episodes that could still change the trial.
+> - **9. A supplementary census** of the 149 acquirer-side episodes that the 730-day rule
+>   explains, which is how SBI → MMU (§2.3) was missed.
+>
+> §4.3's census rule is widened by item 9 only. No kill rule changes.
+>
 > *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **No E1 return of any kind was computed to write this.** No pair return, no

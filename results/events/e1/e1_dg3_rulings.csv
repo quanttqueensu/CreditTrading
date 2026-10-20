@@ -1,0 +1,10 @@
+item,question,ruling,ruled_by,ruled_on
+1,"one deal, one count","a deal read from several episodes counts once (deal_id = target CIK > acquirer CIK); A = earliest announcement, F = earliest public failure",team lead (Simon Jarvis): accept all recommended,2026-10-20
+2,CRSP settles a listing the reader left null,"both parties' tickers on A map to a CRSP CEF (14/44) or BDC (11) on NYSE, NYSE American or Nasdaq: the pair is listed (adds NXJ->NAD, NQP->NVG, NMT->NEA)",team lead (Simon Jarvis): accept all recommended,2026-10-20
+3,BHV->MYI and its co-targets,"BHV, BKN, MIY and MPA -> MYI: withdrawn, F = 2023-11-01 (MYI's RW 0001193125-23-268272); time holdout; listed by CRSP",team lead (Simon Jarvis): accept all recommended,2026-10-20
+4,MCC -> CIK 1523526,not a listed pair; its quote failure is moot,team lead (Simon Jarvis): accept all recommended,2026-10-20
+5,rows that cannot change the trial,"triage classes C1, C2, C3 and deals announced after 2024-12-31: read, excluded from every E1 set, not blocking",team lead (Simon Jarvis): accept all recommended,2026-10-20
+6,the N-8F rule,a target's N-8F naming its merger into the acquirer = completed; naming another survivor or a liquidation = completed_other_structure; else null; batches 40 and 45 re-read to it,team lead (Simon Jarvis): accept all recommended,2026-10-20
+7,in-trial rows with a quote not found,none; nothing to rule,team lead (Simon Jarvis): accept all recommended,2026-10-20
+8,the residual 67 rows / 47 episodes,CHOSEN: a second reading with full excerpts; a disagreement with the first pass is adjudicated by a third reading,team lead (Simon Jarvis): both extra reading rounds chosen,2026-10-20
+9,the census gap (SBI->MMU),"CHOSEN: a supplementary census of the 149 acquirer-side episodes a completion explained, read for named targets that did not complete",team lead (Simon Jarvis): both extra reading rounds chosen,2026-10-20
