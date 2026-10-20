@@ -1,0 +1,70 @@
+{
+ "run_utc": "2026-10-20T00:52:35+00:00",
+ "head": "6096ef9",
+ "verdict": "STAGE 0: HALT",
+ "gates": {
+  "DG-E1-6": {
+   "status": "PASS",
+   "detail": "numexpr off; the denormal assertion runs on every P&L built (identity check 2 here)"
+  },
+  "DG-E1-2": {
+   "status": "FAIL",
+   "detail": "the name- and time-holdout deals are undated: 299 EDGAR documents are not cached and fetching needs the team lead's SEC contact (`fetch-edgar`)",
+   "missing_documents": 299
+  },
+  "DG-E1-3": {
+   "status": "FAIL",
+   "detail": "results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread",
+   "candidates": 273,
+   "first_filing_cached": 10
+  },
+  "DG-E1-1": {
+   "status": "FAIL",
+   "detail": "fit reader PASS; holdout guard PASS; control-2 pool missing 9; the failed deals' parties wait on DG-E1-3",
+   "pool": 323,
+   "pool_missing": 9
+  },
+  "DG-E1-4": {
+   "status": "INCOMPLETE",
+   "detail": "completed fit deals checked ({\"missing return on the leg's last earned session\": 19}); failed deals wait on DG-E1-3"
+  },
+  "DG-E1-7": {
+   "status": "PASS",
+   "detail": {
+    "check1": {
+     "deals": 186,
+     "priced": 167,
+     "max_abs_diff_trial_vs_published_code": 0.0,
+     "nan_pattern_equal": true,
+     "passes_1e-12": true,
+     "published_csv_rows": 186,
+     "published_csv_equal_at_8g": true,
+     "published_aggregates_equal": true
+    },
+    "check2": {
+     "deals": 167,
+     "excluded": {},
+     "median_abs_diff": 0.0023039391444344345,
+     "p95_abs_diff": 0.01424065765982574
+    }
+   }
+  },
+  "DG-E1-5": {
+   "status": "INCOMPLETE",
+   "detail": "French covers 2009-07..2024-12; CRSP ETFs cover the fit window; their 2023-24 rows are not readable before the fit verdict (reading R8)"
+  }
+ },
+ "counts_equal_prereg": true,
+ "fit_groups_by_segment": {
+  "bdc": 4,
+  "equity_other": 30,
+  "muni": 49,
+  "taxable_income": 35
+ },
+ "n_flags": 19,
+ "crsp_pulled": {
+  "dsenames": "2026-10-12T18:05:49+00:00",
+  "dsedelist": "2026-10-12T18:05:50+00:00"
+ },
+ "e1_statistics_computed": false
+}
