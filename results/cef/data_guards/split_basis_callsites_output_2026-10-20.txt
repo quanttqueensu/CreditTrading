@@ -1,0 +1,42 @@
+Split-basis guard (data_guards.guard_split_basis), every call site; report only, zero trials.
+Rule: tau = ln(1.15) = 0.1398; decidable iff |ln k| > 2 tau; raised iff decidable and the raw step on the cell k multiplies is within tau of none.
+
+[1] the live panel: default total_returns(R), old (392ce57) against guarded (no rulings file)
+  build_targets(): splits applied 1, basis {'undecidable': 1}; sha256 old 56b2e6ae73a25410 guarded 56b2e6ae73a25410 -> IDENTICAL
+  build_targets(min_adv=0.0): splits applied 1, basis {'undecidable': 1}; sha256 old 56b2e6ae73a25410 guarded 56b2e6ae73a25410 -> IDENTICAL
+
+[2] C4's yf_total_returns (spike rulings c4_bar_rulings_2026-10-19.json throughout, as committed)
+[stage0 primary_returns, pool]: 5470 sessions x 105 series, 2005-01-03..2026-09-30
+   sha256 old 692f4f9ad4221927  guarded under c4_split_rulings_2026-10-20.json 692f4f9ad4221927 -> IDENTICAL
+   under drop_split (the correction, NOT ruled): 4 cell(s) differ; 2008-12-30 BTO -0.7468 -> +0.0130; 2020-05-01 TYG -0.7672 -> -0.0688; 2020-06-15 NXG -0.7487 -> +0.0051; 2020-07-28 EMO -0.8030 -> -0.0148
+   without a split ruling it raises: total_returns: 4 recorded split(s) applied to a close series already on the post-split basis, with no recorded ruling (no split rulings file): (BTO, 2008-12-30, factor 1/4, raw ratio 1.013, booked ratio 0.253); (TYG, 2020-05-01, factor 1/4, raw ratio 0.931, booked ratio 0.233); (NXG, 2020-06-15, factor 1/4, raw ratio 1.005, booked ratio 0.251); (EMO, 2020-07-28, factor 1/5, raw ratio 0.985, booked ratio 0.197)
+[fit R-yf, pool, fit window]: 4531 sessions x 105 series, 2005-01-03..2022-12-30
+   sha256 old 98ab75afcfb14034  guarded under c4_split_rulings_2026-10-20.json 98ab75afcfb14034 -> IDENTICAL
+   under drop_split (the correction, NOT ruled): 4 cell(s) differ; 2008-12-30 BTO -0.7468 -> +0.0130; 2020-05-01 TYG -0.7672 -> -0.0688; 2020-06-15 NXG -0.7487 -> +0.0051; 2020-07-28 EMO -0.8030 -> -0.0148
+[holdout assemble(ruled), 81 funds]: 5470 sessions x 81 series, 2005-01-03..2026-09-30
+   sha256 old aa0bb2b9797bac87  guarded under c4_split_rulings_2026-10-20.json aa0bb2b9797bac87 -> IDENTICAL
+   under drop_split (the correction, NOT ruled): 3 cell(s) differ; 2008-12-30 BTO -0.7468 -> +0.0130; 2020-06-15 NXG -0.7487 -> +0.0051; 2020-07-28 EMO -0.8030 -> -0.0148
+   the yfinance leg the holdout keeps (2025-01-02..): old 36d0f076f5095227 guarded 36d0f076f5095227, drop_split 36d0f076f5095227
+[holdout assemble(uncorrected), 81 funds]: 5470 sessions x 81 series, 2005-01-03..2026-09-30
+   sha256 old 230a2be05fa33bd4  guarded under c4_split_rulings_2026-10-20.json 230a2be05fa33bd4 -> IDENTICAL
+   under drop_split (the correction, NOT ruled): 3 cell(s) differ; 2008-12-30 BTO -0.7468 -> +0.0130; 2020-06-15 NXG -0.7487 -> +0.0051; 2020-07-28 EMO -0.8030 -> -0.0148
+   the yfinance leg the holdout keeps (2025-01-02..): old 5142900eaa89c236 guarded 5142900eaa89c236, drop_split 5142900eaa89c236
+[holdout assemble(R-ADX), 81 funds]: 5470 sessions x 81 series, 2005-01-03..2026-09-30
+   sha256 old 499bafc091e54285  guarded under c4_split_rulings_2026-10-20.json 499bafc091e54285 -> IDENTICAL
+   under drop_split (the correction, NOT ruled): 3 cell(s) differ; 2008-12-30 BTO -0.7468 -> +0.0130; 2020-06-15 NXG -0.7487 -> +0.0051; 2020-07-28 EMO -0.8030 -> -0.0148
+   the yfinance leg the holdout keeps (2025-01-02..): old a8c27f4d8160c4dc guarded a8c27f4d8160c4dc, drop_split a8c27f4d8160c4dc
+
+[3] the fit's R-yf row (report-only robustness row; the CRSP primary return is not touched)
+  under c4_split_rulings_2026-10-20.json (book_as_is): gross SR 1.1313875528636077, net@15 0.21370778384596334; committed 1.1313875528636077, 0.2137077838459633 -> EQUAL on sr, ann_pct, turn, net5, net15, net30 to 1e-12
+  under drop_split (NOT ruled): gross SR 1.1302 (committed 1.1314), ann 7.035% (7.043%), turn 38.08 (38.08), net@5 0.824 (0.825), net@15 0.212 (0.214), net@30 -0.705 (-0.704); flips YES
+  the guard's blind spot, sized: k also removed on the 2 split(s) of the 74 in the fit window that are too small for the price to judge (|ln k| <= 2 tau) and that the CRSP-built close reads as adjusted in yfinance (GRX 2013-06-13 k 1.034, GRX 2014-05-30 k 1.035): gross SR 1.1302, net@15 0.212, net@30 -0.705 (NOT ruled; a sizing only)
+
+[4] the fit's NAV catch-up (split_factor on the families NAV, as c4_families.fit forms it)
+   without a split ruling it raises: nav_catchup: 2 recorded split(s) applied to a nav series already on the post-split basis, with no recorded ruling (no split rulings file): (BTO, 2008-12-30, factor 1/4, raw ratio 1.032, booked ratio 0.258); (EMO, 2020-07-28, factor 1/5, raw ratio 0.998, booked ratio 0.200)
+  under c4_split_rulings_2026-10-20.json: the guard returns the input factor frame itself: True; sha256 3912d542fce61240 -> 3912d542fce61240
+  book_as_is: FM slope +0.6703 bp per unit z (t 0.7740, n 2062); committed +0.6703 (t 0.7740, n 2062) -> EQUAL to 1e-12
+  drop_split (NOT ruled): FM slope +0.6703 bp per unit z (t 0.7740, n 2062); committed +0.6703 (t 0.7740, n 2062) -> EQUAL to 1e-12
+
+[5] the second source, counts only (the CRSP-built panel is licensed; data/cef_families/, to 2024-12-31)
+  yfinance-ADJUSTED cells with a CRSP return on the same day: 21; CRSP reads `raw` on 21 of them, including 4 of the 4 C4 cells
+  undecidable cells (|ln k| <= 2 tau) with both: 13. Where the two sources' steps differ, the gap is nearer ln k than 0 (yfinance adjusted, CRSP raw) on 13, nearer 0 (the same basis) on 0. The price alone cannot see these; a second source can.

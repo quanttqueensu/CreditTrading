@@ -1,7 +1,9 @@
-"""Two research-path data guards (zero trials; team lead's ruling of 2026-10-19).
+"""Three research-path data guards (zero trials; team lead's rulings of 2026-10-19).
 
-    python3 scripts/cef/data_guards.py scan      # every hit in data/cef/ and data/cef_families/; writes
-                                                 # results/cef/data_guards/scan_output_2026-10-19.txt + hits CSV
+    python3 scripts/cef/data_guards.py scan          # every hit in data/cef/ and data/cef_families/; writes
+                                                     # results/cef/data_guards/scan_output_2026-10-19.txt + hits CSV
+    python3 scripts/cef/data_guards.py scan-splits   # every recorded split, labelled by basis (guard 3); writes
+                                                     # results/cef/data_guards/split_basis_scan_2026-10-20.txt + CSV
 
 WHY THIS EXISTS
 ---------------
@@ -24,6 +26,13 @@ each guard here closes one:
    (`Stage0BlockError`), naming the flags, while any Stage-0 flag lacks a
    recorded ruling in the trial's rulings file. A trial script calls it before
    it forms any P&L.
+3. (Added 2026-10-20.) A recorded split applied to a close the vendor had already
+   split-adjusted books the factor k twice: BTO, TYG, NXG and EMO in C4's fit, at
+   -75% to -80%, through the formula the spike guard leaves alone.
+   `guard_split_basis` RAISES (`SplitBasisError`), naming (ticker, ex-date,
+   factor), when the series makes no split-sized step on the ex-date, so k would
+   create one. Only a recorded split rulings file overrides it.
+   `band_frontier.total_returns` calls it, and so does C4's NAV catch-up.
 
 NO SILENT REPAIR. Neither guard alters a number on its own. The only alteration
 is a ruled treatment, read from a file that names who ruled, when, and why, and
@@ -335,6 +344,202 @@ def guard_closes(close: pd.DataFrame, *, cols, lo, hi, nav: pd.DataFrame | None,
     return out, pd.DataFrame(log, columns=["ticker", "date", "treatment", "factor"])
 
 
+# --------------------------------------------------------------------------- a recorded split on an adjusted series
+#
+# THE DEFECT (C4 holdout review, 2026-10-19; this guard built 2026-10-20 on the team lead's word of
+# 2026-10-19). `band_frontier.total_returns` books r = (1 + r_px) * k - 1 on a recorded split's
+# ex-date. That is right when the close is RAW: it steps by 1/k there and k undoes the step. It is
+# wrong when the vendor had ALREADY split-adjusted the history, so the close has no step: k is then
+# booked a second time, as a phantom return of k - 1. yfinance back-adjusts its close for every
+# split it knows of on the day of the fetch (`scripts/data/cef_families_quality.split_factor` relies
+# on that), while its actions file still records the split. In C4's fit this booked BTO 2008-12-30,
+# TYG 2020-05-01, NXG 2020-06-15 and EMO 2020-07-28 at -74.7% to -80.3%. On each of those dates
+# CRSP's raw print steps by 1/k and yfinance's close does not. Only the report-only R-yf row moved
+# (1.131 -> 1.130), and nothing raised (results/cef/DATA_GUARDS_2026-10-19.md §6 item 2).
+#
+# THE RULE is applied to the step the formula actually books. It looks at each cell where a factor
+# k != 1 multiplies a finite raw one-step return r: exactly the cells `total_returns` changes, so a
+# split on a day with no return, which multiplies nothing, is not judged. With x = ln(1 + r):
+#     raw basis:       x = -ln k + e
+#     adjusted basis:  x = e
+# Here e is the fund's genuine move that day, and |e| <= tau, the desk's line for an ordinary day.
+# This is the spike guard's tau (SPLIT_TOL above), derived there and not re-chosen here. The two
+# readings cannot both hold when |ln k| > 2 tau = ln(1.15^2), i.e. when k lies outside
+# [0.756, 1.3225]: every reverse split, and every forward split of 4:3 or more. For such a split:
+#     |x| <= tau          ADJUSTED. Applying k creates a step of about k (or 1/k) that the raw
+#                         series did not have. RAISES `SplitBasisError`, naming (ticker, ex-date,
+#                         factor), unless a recorded ruling treats the cell.
+#     |x + ln k| <= tau   raw. k is right; nothing happens.
+#     neither             the step fits neither basis (for example, a split recorded on the wrong
+#                         day, or a genuine day beyond the desk's line on the ex-date). Reported by
+#                         the scan, never raised: it is not this defect, and the guard was not asked
+#                         to judge it.
+# BELOW 2 tau THE GUARD HAS NO POWER, and says so rather than guess. A 1.029 split is smaller than
+# an ordinary day, and the price alone cannot tell the two bases apart. `split_basis_check` labels
+# such a cell `undecidable`, the scan prints every one, and nothing is raised. Raising there would
+# raise on the live book's one recorded split (BIT 2025-08-19, 1.029), whose raw close does step
+# (band_frontier.split_factor's docstring: 14.47 -> 13.84). It would raise on a correct series
+# because of a test that cannot see.
+#
+# THE OVERRIDE is a recorded rulings file, as for the spike guard (`load_split_rulings`): who
+# ruled, when, where it is written down, and one entry per (ticker, ex-date, series), with the
+# factor the ruling was made on. The treatments:
+#     drop_split   the series is already on the post-split basis on that day, so the cell's factor
+#                  is set to 1 and the booked step is the series' own.
+#     book_as_is   apply k as recorded. Used for a script whose purpose is to reproduce a committed
+#                  computation that booked it; the reason must say so.
+# `series` is "close" or "nav". The two can sit on different bases for one fund (AWP 2026-02-09:
+# yfinance's close is adjusted, its NAV is not), so a ruling names the one it was made on.
+SPLIT_DECIDABLE = 2 * SPLIT_TOL
+SPLIT_TREATMENTS = ("drop_split", "book_as_is")
+SPLIT_SERIES = ("close", "nav")
+SPLIT_COLUMNS = ["ticker", "ex_date", "factor", "raw_ratio", "booked_ratio", "basis"]
+
+
+class SplitBasisError(ValueError):
+    """A recorded split applied to a series already on the post-split basis, with no recorded ruling."""
+
+
+def split_basis_check(R: pd.DataFrame, k: pd.DataFrame, *, tol: float = SPLIT_TOL) -> pd.DataFrame:
+    """Every cell where `k` != 1 multiplies a finite raw one-step return of `R`, labelled.
+
+    `R` is the raw one-step return the factor multiplies (`total_returns`'s `R`), `k` the
+    share-count multipliers on the same index and columns (`band_frontier.split_factor`).
+    `basis` is one of:
+      * `adjusted`: |ln k| > 2 tol and |ln(1 + r)| <= tol. The series has no step and k makes
+        one. This is the defect the guard raises on.
+      * `raw`: |ln k| > 2 tol and |ln(1 + r) + ln k| <= tol.
+      * `neither`: |ln k| > 2 tol and the step fits neither basis (reported only).
+      * `undecidable`: |ln k| <= 2 tol, where the price cannot tell the two bases apart (reported
+        only).
+    `raw_ratio` is 1 + r. `booked_ratio` is (1 + r) * k, the ratio the formula books.
+    A non-positive k, or 1 + r <= 0 on a split cell, raises: the log is undefined there, and
+    skipping the cell would be the silent path this guard exists to close."""
+    if not (R.index.equals(k.index) and R.columns.equals(k.columns)):
+        raise ValueError("split_basis_check: R and k must share one index and one column set")
+    kv, rv = k.to_numpy(dtype=float), R.to_numpy(dtype=float)
+    cells = np.argwhere((kv != 1.0) & np.isfinite(rv))
+    rows = []
+    for i, j in cells:
+        f, r = kv[i, j], rv[i, j]
+        t, d = R.columns[j], R.index[i]
+        if not (f > 0):
+            raise ValueError(f"{t}: split multiplier {f} on {_iso(d)} is not positive")
+        if not (1.0 + r > 0):
+            raise ValueError(f"{t}: return {r} on the split date {_iso(d)} is <= -100%; a log ratio is undefined")
+        x, lk = math.log1p(r), math.log(f)
+        if abs(lk) <= 2 * tol:
+            basis = "undecidable"
+        elif abs(x) <= tol:
+            basis = "adjusted"
+        elif abs(x + lk) <= tol:
+            basis = "raw"
+        else:
+            basis = "neither"
+        rows.append(dict(ticker=t, ex_date=d, factor=float(f), raw_ratio=float(math.exp(x)),
+                         booked_ratio=float(math.exp(x + lk)), basis=basis))
+    return pd.DataFrame(rows, columns=SPLIT_COLUMNS)
+
+
+def _factor_label(f: float) -> str:
+    return f"{f:g}" if f >= 1 else f"1/{1 / f:.4g}"
+
+
+def describe_split_hits(H: pd.DataFrame) -> str:
+    """Every hit as `(ticker, ex-date, factor k, raw ratio x.xxx, booked ratio y.yyy)`."""
+    return "; ".join(f"({r.ticker}, {_iso(r.ex_date)}, factor {_factor_label(r.factor)}, raw ratio "
+                     f"{r.raw_ratio:.3f}, booked ratio {r.booked_ratio:.3f})" for r in H.itertuples())
+
+
+def load_split_rulings(path: Path | str) -> tuple[pd.DataFrame, dict]:
+    """The split rulings file: JSON with `ruled_by`, `ruled_on` (ISO date), `record` (where the
+    ruling is written down) and `splits`, each {ticker, ex_date, factor, series, treatment, reason}.
+    `factor` is the recorded multiplier the ruling was made on; `series` is "close" or "nav";
+    `treatment` is `drop_split` or `book_as_is` (see the rule above). Anything missing or malformed
+    raises: an unreadable ruling is not a ruling."""
+    p = Path(path)
+    if not p.exists():
+        raise SplitBasisError(f"split rulings file {p} does not exist")
+    doc = json.loads(p.read_text())
+    for k in ("ruled_by", "ruled_on", "record", "splits"):
+        if not doc.get(k):
+            raise SplitBasisError(f"{p.name}: `{k}` is missing or empty; a ruling names who ruled, when and where")
+    pd.Timestamp(doc["ruled_on"])
+    rows = []
+    for s in doc["splits"]:
+        miss = [k for k in ("ticker", "ex_date", "factor", "series", "treatment", "reason") if not s.get(k)]
+        if miss:
+            raise SplitBasisError(f"{p.name}: a split ruling lacks {miss}: {s}")
+        if s["treatment"] not in SPLIT_TREATMENTS:
+            raise SplitBasisError(f"{p.name}: treatment {s['treatment']!r} is not one of {SPLIT_TREATMENTS}")
+        if s["series"] not in SPLIT_SERIES:
+            raise SplitBasisError(f"{p.name}: series {s['series']!r} is not one of {SPLIT_SERIES}")
+        f = float(s["factor"])
+        if not (f > 0):
+            raise SplitBasisError(f"{p.name}: factor {s['factor']} is not positive")
+        rows.append(dict(ticker=str(s["ticker"]), ex_date=pd.Timestamp(s["ex_date"]), factor=f,
+                         series=s["series"], treatment=s["treatment"], reason=str(s["reason"])))
+    R = pd.DataFrame(rows)
+    if R.duplicated(["ticker", "ex_date", "series"]).any():
+        raise SplitBasisError(f"{p.name}: two rulings for one (ticker, ex_date, series)")
+    return R, doc
+
+
+def guard_split_basis(R: pd.DataFrame, k: pd.DataFrame, *, rulings: Path | str | None = None,
+                      series: str = "close", context: str = "") -> pd.DataFrame:
+    """`k` with the ruled treatments applied: the factor the caller then multiplies `1 + R` by.
+
+    Raises `SplitBasisError`:
+      * naming every `adjusted` cell (`split_basis_check`) that no ruling for `series` covers;
+      * on a ruling for `series` whose cell is in this frame but no longer carries its factor (the
+        actions changed under it), or carries a finite return that is not `adjusted` (the series
+        changed under it). Remove the ruling or rule again. A ruled cell with no return in this
+        frame multiplies nothing, and is not judged here.
+    With no hit and no `drop_split` ruling in the frame, the input `k` is returned as the same
+    object, so the caller's arithmetic is the old formula's, bit for bit."""
+    if series not in SPLIT_SERIES:
+        raise ValueError(f"series {series!r} is not one of {SPLIT_SERIES}")
+    C = split_basis_check(R, k)
+    hits = C[C["basis"] == "adjusted"]
+    if rulings is None:
+        Rl = pd.DataFrame(columns=["ticker", "ex_date", "factor", "series", "treatment", "reason"])
+        src = "no split rulings file"
+    else:
+        Rl, _doc = load_split_rulings(rulings)
+        Rl = Rl[Rl["series"] == series]
+        src = Path(rulings).name
+    ruled = set(zip(Rl["ticker"], pd.to_datetime(Rl["ex_date"])))
+    unruled = hits[[(t, d) not in ruled for t, d in zip(hits["ticker"], hits["ex_date"])]]
+    if len(unruled):
+        raise SplitBasisError(
+            f"{context}: {len(unruled)} recorded split(s) applied to a {series} series already on the post-split "
+            f"basis, with no recorded ruling ({src}): {describe_split_hits(unruled)}. On each ex-date the raw "
+            f"{series} made no split-sized step (within ln(1.15) of none), so the factor would book a step of "
+            "about k that the series did not have (C4's fit booked BTO, TYG, NXG and EMO at -75% to -80% this "
+            "way). Fix the fetch, or record a ruling (`load_split_rulings`) and pass its file.")
+    hk = {(t, d): r for t, d, r in zip(C["ticker"], C["ex_date"], C.itertuples())}
+    out = k
+    for r in Rl.itertuples():
+        if r.ticker not in k.columns or r.ex_date not in k.index:
+            continue
+        kf = float(k.at[r.ex_date, r.ticker])
+        if abs(kf - r.factor) > 1e-9 * max(1.0, abs(r.factor)):
+            raise SplitBasisError(f"{context}: ruling ({r.ticker}, {_iso(r.ex_date)}, {series}) in {src} was made on "
+                                  f"factor {_factor_label(r.factor)}; this frame applies {_factor_label(kf)} there")
+        h = hk.get((r.ticker, r.ex_date))
+        if h is None:
+            continue                                            # no return on the cell: k multiplies nothing
+        if h.basis != "adjusted":
+            raise SplitBasisError(f"{context}: ruling ({r.ticker}, {_iso(r.ex_date)}, {series}) in {src} names a "
+                                  f"split the {series} now reads as `{h.basis}` (raw ratio {h.raw_ratio:.3f}); "
+                                  "the data changed under the ruling")
+        if r.treatment == "drop_split":
+            if out is k:
+                out = k.copy()
+            out.at[r.ex_date, r.ticker] = 1.0
+    return out
+
+
 # --------------------------------------------------------------------------- Stage-0 flags block P&L
 
 STAGE0_RULING_COLUMNS = ("ruling", "ruled_by", "ruled_on")
@@ -514,7 +719,108 @@ def scan() -> int:
     return 0
 
 
+SPLIT_SCAN_STAMP = "2026-10-20"
+
+
+def _call_site_frames(wide: pd.DataFrame, sp: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(R, k) exactly as the call sites form them on a daily panel: the wide panel's
+    `pct_change(fill_method=None)` (C4's `yf_total_returns`) and `split_factor` on its index."""
+    from scripts.cef.band_frontier import split_factor
+    R = wide.pct_change(fill_method=None)
+    return R, split_factor(R.index, R.columns, splits=sp).reindex_like(R)
+
+
+def _own_bar_frames(wide: pd.DataFrame, sp: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(R, k) on each ticker's OWN consecutive bars, the factor on its first bar on or after the
+    ex-date. For a sparse panel (CEFConnect is weekly), where the wide panel's step is mostly NaN."""
+    R = pd.DataFrame(np.nan, index=wide.index, columns=wide.columns)
+    k = pd.DataFrame(1.0, index=wide.index, columns=wide.columns)
+    for t in wide.columns:
+        s = wide[t].dropna()
+        R.loc[s.index, t] = s.pct_change().to_numpy()
+        for e, f in sp.loc[sp["ticker"] == t].groupby("ex_date")["stock_split"].prod().items():
+            on = s.index[s.index >= pd.Timestamp(e)]
+            if len(on) and len(s.index[s.index < pd.Timestamp(e)]):
+                k.loc[on[0], t] *= float(f)
+    return R, k
+
+
+def scan_splits() -> int:
+    """Every recorded split in data/cef/ and data/cef_families/, labelled by basis on each panel.
+
+    Writes the yfinance- and CEFConnect-sourced rows (ticker, ex-date, factor, ratios: no price
+    level) to results/cef/data_guards/; the CRSP-built panel is licensed, so only its counts are
+    committed. Report only: nothing is altered, and no panel is written."""
+    from scripts.cef.band_frontier import load_families_actions
+    D, F = REPO / "data" / "cef", REPO / "data" / "cef_families"
+    _fam_div, fam_sp = load_families_actions(F / "cef_actions.parquet")
+    live_sp = pd.read_parquet(D / "cef_splits.parquet")
+    cc = pd.read_parquet(F / "cef_nav_cefconnect.parquet")
+    panels = [
+        ("data/cef/cef_prices.parquet close (live book, yfinance)", _wide(pd.read_parquet(D / "cef_prices.parquet"),
+         "close"), live_sp, _call_site_frames, "public", "call site: every total_returns(R) on the live panel"),
+        ("data/cef_families/cef_prices.parquet close (yfinance)", _wide(pd.read_parquet(F / "cef_prices.parquet"),
+         "close"), fam_sp, _call_site_frames, "public", "call site: C4's yf_total_returns"),
+        ("data/cef_families/cef_nav.parquet nav (yfinance)", _wide(pd.read_parquet(F / "cef_nav.parquet"), "nav"),
+         fam_sp, _call_site_frames, "public", "call site: C4's NAV catch-up (fit diagnostic)"),
+        ("data/cef_families/cef_nav_cefconnect.parquet close_cc (CEFConnect)", _wide(cc, "close_cc"), fam_sp,
+         _own_bar_frames, "public", "not a call site; weekly, so own bars, read as leads"),
+        ("data/cef_families/cef_prices_crsp.parquet close (CRSP-built; licensed: counts only)",
+         _wide(pd.read_parquet(F / "cef_prices_crsp.parquet"), "close"), fam_sp, _call_site_frames, "counts",
+         "not a call site; the raw second source"),
+    ]
+    SCAN_DIR.mkdir(parents=True, exist_ok=True)
+    lines, committed = [], []
+    pr = lambda s="": lines.append(s)                                       # noqa: E731
+    pr(f"RECORDED-SPLIT BASIS SCAN ({SPLIT_SCAN_STAMP}; report only; zero trials). Declared rule: tau = ln(1.15) = "
+       f"{SPLIT_TOL:.4f} (the spike guard's); decidable iff |ln k| > 2 tau = {SPLIT_DECIDABLE:.4f} "
+       f"(k outside [{math.exp(-SPLIT_DECIDABLE):.4f}, {math.exp(SPLIT_DECIDABLE):.4f}]); ADJUSTED (raised) iff "
+       "decidable and |ln(1+r)| <= tau on the cell k multiplies.")
+    for name, wide, sp, frames, publish, role in panels:
+        sp = sp[sp["ticker"].isin(wide.columns)]
+        R, k = frames(wide, sp)
+        C = split_basis_check(R, k)
+        n_rec = int(sp.groupby(["ticker", "ex_date"]).ngroups)
+        pr()
+        pr(f"[{name}] {role}; {wide.shape[1]} tickers, {wide.index.min().date()}..{wide.index.max().date()}; "
+           f"{n_rec} recorded split ex-date(s) on its tickers; {len(C)} applied to a finite return")
+        by = C["basis"].value_counts().to_dict() if len(C) else {}
+        pr("  basis counts: " + ", ".join(f"{b} {by.get(b, 0)}" for b in ("adjusted", "raw", "neither", "undecidable")))
+        if publish != "public":
+            yrs = C[C["basis"] == "adjusted"]["ex_date"].dt.year.value_counts().sort_index().to_dict() if len(C) else {}
+            pr(f"  adjusted, by year (licensed panel; no ticker-dates committed): {yrs}")
+            continue
+        for b, title in (("adjusted", "ADJUSTED -- the guard raises on these wherever k is applied to this series"),
+                         ("neither", "neither basis (reported only)"), ("raw", "raw (k is right)"),
+                         ("undecidable", "undecidable, |ln k| <= 2 tau (no power; reported only)")):
+            sub = C[C["basis"] == b].sort_values(["ex_date", "ticker"])
+            if len(sub):
+                pr(f"  {title}: ticker, ex-date, factor, raw ratio, booked ratio")
+                for r in sub.itertuples():
+                    pr(f"    {r.ticker:<6} {_iso(r.ex_date)} {_factor_label(r.factor):>9} {r.raw_ratio:7.3f} "
+                       f"{r.booked_ratio:7.3f}")
+        applied = set(zip(C["ticker"], C["ex_date"]))
+        lost = []
+        for (t, e), _g in sp.groupby(["ticker", "ex_date"]):
+            s = wide[t].dropna()
+            if (frames is _call_site_frames and s.index.min() < pd.Timestamp(e) <= s.index.max()
+                    and (t, pd.Timestamp(e)) not in applied):
+                lost.append(f"{t} {_iso(e)}")
+        if lost:
+            pr(f"  inside the ticker's history but on no finite return here, so k multiplies nothing (reported "
+               f"only): {', '.join(lost)}")
+        committed.append(C.assign(panel=name.split(" ")[0] + " " + name.split(" ")[1]))
+    out = SCAN_DIR / f"split_basis_scan_{SPLIT_SCAN_STAMP}.txt"
+    out.write_text("\n".join(lines) + "\n")
+    csv = SCAN_DIR / f"split_basis_scan_{SPLIT_SCAN_STAMP}.csv"
+    pd.concat(committed).to_csv(csv, index=False, float_format="%.6f")
+    print("\n".join(lines))
+    print(f"\nwrote {out.relative_to(REPO)} and {csv.name}")
+    return 0
+
+
 if __name__ == "__main__":
-    if sys.argv[1:] != ["scan"]:
-        raise SystemExit("usage: python3 scripts/cef/data_guards.py scan")
-    raise SystemExit(scan())
+    cmds = {"scan": scan, "scan-splits": scan_splits}
+    if len(sys.argv) != 2 or sys.argv[1] not in cmds:
+        raise SystemExit("usage: python3 scripts/cef/data_guards.py scan | scan-splits")
+    raise SystemExit(cmds[sys.argv[1]]())

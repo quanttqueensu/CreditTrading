@@ -10,7 +10,13 @@ needs the gitignored C4 cache (CRSP returns, the Alpaca bars, the committed hold
 read and never written; it prints aggregates only (CRSP is licensed).
   * under `repro_bar_rulings.json` (book_as_is) it must reproduce the committed P&L exactly;
   * under `c4_bar_rulings_2026-10-19.json` (rebase; the verdict) it gives the corrected book.
-Output: results/cef/data_guards/c4_holdout_under_rulings_output_2026-10-19.txt."""
+Output: results/cef/data_guards/c4_holdout_under_rulings_output_2026-10-19.txt.
+
+Amended 2026-10-20. `yf_total_returns` has carried the split-basis guard since this date. Its
+window starts in 2005, so it meets BTO, NXG and EMO's already-adjusted split days, which this
+holdout's yfinance leg discards. It is therefore given `c4.SPLIT_RULINGS` (book_as_is). That keeps
+this script's computation, and its output file, as they were on 2026-10-19; re-run and diffed on
+2026-10-20."""
 import argparse
 import contextlib
 import io
@@ -64,7 +70,7 @@ def main(cache: Path):
         act = Path(td) / "ruled_actions.parquet"
         ruled.to_parquet(act, index=False)
         for lab, rp in RULINGS.items():
-            yf = c4.yf_total_returns(px, cols, sess, actions=act, rulings=rp)
+            yf = c4.yf_total_returns(px, cols, sess, actions=act, rulings=rp, split_rulings=c4.SPLIT_RULINGS)
             for d, v in fill.items():
                 assert pd.isna(yf.loc[d, "IGR"])
                 yf.loc[d, "IGR"] = v

@@ -1,4 +1,4 @@
-"""The two data guards of 2026-10-19 (`scripts/cef/data_guards.py`), on synthetic frames.
+"""The data guards of 2026-10-19 and 2026-10-20 (`scripts/cef/data_guards.py`), on synthetic frames.
 
 WHY THESE TESTS. C4's holdout booked four IGR bars on the post-split basis inside a raw
 pre-split series (+200% then -66.7%, four times; -10.87% of capital), and Stage 0 had
@@ -9,6 +9,11 @@ which does not revert; (iii) let a caller proceed only through a recorded ruling
 igr_shaped_spike` FAILED against the code before 2026-10-19 (checked: the old
 `yf_total_returns` returned +200% / -66.7% and did not raise). Claims about the code,
 never about the market.
+
+Section (c), added 2026-10-20, covers the split-basis guard: a recorded split applied to a close
+that is already split-adjusted. `test_total_returns_raises_on_a_split_the_close_already_carries`
+FAILED against `band_frontier.total_returns` as it stood at 392ce57. That was checked on
+2026-10-20 with only band_frontier.py reverted: the old code booked -75% and did not raise.
 """
 from __future__ import annotations
 
@@ -313,3 +318,154 @@ def test_c4s_committed_stage0_flags_would_be_refused():
     with pytest.raises(dg.Stage0BlockError, match="no rulings file") as e:
         dg.require_stage0_rulings(f, c4.OUT_DIR / "c4_stage0_rulings_does_not_exist.csv", keys=keys)
     assert "(Q5, IGR, 2026-07-29, yfinance)" in str(e.value)
+
+
+# ------------------------------------------------------------------ (c) a recorded split on an adjusted close
+
+def _split_files(tmp_path, close: pd.Series, k: float, d, divs=((DATES[4], 0.10),)):
+    """A one-fund price file and a yfinance-schema actions file with one recorded split (k on d) and
+    one distribution (the yield leg raises on a fund with none)."""
+    prices = pd.DataFrame([dict(date=t, open=v, high=v, low=v, close=v, volume=1000, ticker="A", grp="x")
+                           for t, v in close.items()])
+    acts = [dict(date=d, ticker="A", dividends=0.0, stock_splits=k)]
+    acts += [dict(date=t, ticker="A", dividends=a, stock_splits=0.0) for t, a in divs]
+    pp, ap = tmp_path / "p.parquet", tmp_path / "a.parquet"
+    prices.to_parquet(pp, index=False)
+    pd.DataFrame(acts).to_parquet(ap, index=False)
+    R = close.to_frame("A").pct_change(fill_method=None)
+    return R, ap, pp
+
+
+def _split_rulings(tmp_path, entries, name="split_rulings.json", **top):
+    doc = dict(ruled_by="team lead (test)", ruled_on="2026-10-20", record="test", splits=entries)
+    doc.update(top)
+    p = tmp_path / name
+    p.write_text(json.dumps(doc))
+    return p
+
+
+def _split(d, treatment, factor=0.25, series="close", ticker="A"):
+    return dict(ticker=ticker, ex_date=str(d.date()), factor=factor, series=series, treatment=treatment, reason="test")
+
+
+def _old_formula(R, ap, pp):
+    """`total_returns` as it stood at 392ce57, without the guard: (1 + r) k - 1 + y."""
+    from scripts.cef import band_frontier as bf
+    dist, sp = bf.load_families_actions(ap)
+    y = bf.distribution_yield(R.index, R.columns, dist=dist, prices=pp).reindex_like(R)
+    k = bf.split_factor(R.index, R.columns, splits=sp).reindex_like(R)
+    return (1.0 + R) * k - 1.0 + y
+
+
+def test_total_returns_raises_on_a_split_the_close_already_carries(tmp_path):
+    """The test that failed against the old code. The close has NO step on the ex-date of a
+    recorded 1:4 reverse split (the vendor already adjusted it), so k = 1/4 would book -75%."""
+    from scripts.cef import band_frontier as bf
+    c = _close(20.0)
+    R, ap, pp = _split_files(tmp_path, c, 0.25, DATES[25])
+    with pytest.raises(dg.SplitBasisError) as e:
+        bf.total_returns(R, actions=ap, prices=pp)
+    msg = str(e.value)
+    assert f"(A, {DATES[25].date()}, factor 1/4, raw ratio " in msg and "1 recorded split" in msg
+
+
+def test_a_raw_series_with_a_split_does_not_raise_and_is_the_old_formula(tmp_path):
+    """The genuine case: the raw close steps x4 on the reverse split's ex-date and k = 1/4 undoes it."""
+    from scripts.cef import band_frontier as bf
+    c = _close(5.0)
+    c.iloc[25:] *= 4
+    R, ap, pp = _split_files(tmp_path, c, 0.25, DATES[25])
+    got = bf.total_returns(R, actions=ap, prices=pp)
+    assert abs(got.loc[DATES[25], "A"]) < 0.05                       # the split is not a return
+    assert (pd.util.hash_pandas_object(got).values == pd.util.hash_pandas_object(_old_formula(R, ap, pp)).values).all()
+    C = dg.split_basis_check(R, bf.split_factor(R.index, R.columns, splits=bf.load_families_actions(ap)[1]))
+    assert list(C["basis"]) == ["raw"]
+    down = _close(20.0)                                               # a 2-for-1, raw: the close halves
+    down.iloc[25:] /= 2
+    R2, ap2, pp2 = _split_files(tmp_path, down, 2.0, DATES[25])
+    assert abs(bf.total_returns(R2, actions=ap2, prices=pp2).loc[DATES[25], "A"]) < 0.05
+
+
+def test_the_override_drops_the_factor_and_book_as_is_reproduces_the_old_formula(tmp_path):
+    from scripts.cef import band_frontier as bf
+    c = _close(20.0)
+    R, ap, pp = _split_files(tmp_path, c, 0.25, DATES[25])
+    old = _old_formula(R, ap, pp)
+    assert old.loc[DATES[25], "A"] < -0.7                             # what the formula booked
+    asis = _split_rulings(tmp_path, [_split(DATES[25], "book_as_is")], "asis.json")
+    got = bf.total_returns(R, actions=ap, prices=pp, split_rulings=asis)
+    assert (pd.util.hash_pandas_object(got).values == pd.util.hash_pandas_object(old).values).all()
+    drop = _split_rulings(tmp_path, [_split(DATES[25], "drop_split")], "drop.json")
+    got = bf.total_returns(R, actions=ap, prices=pp, split_rulings=drop)
+    assert got.loc[DATES[25], "A"] == pytest.approx(R.loc[DATES[25], "A"])   # the series' own step
+    other = got.index != DATES[25]
+    pd.testing.assert_frame_equal(got[other], old[other])            # nothing else moves
+
+
+def test_a_ruling_must_fit_the_cell_and_its_series(tmp_path):
+    from scripts.cef import band_frontier as bf
+    c = _close(20.0)
+    R, ap, pp = _split_files(tmp_path, c, 0.25, DATES[25])
+    nav_only = _split_rulings(tmp_path, [_split(DATES[25], "book_as_is", series="nav")], "nav.json")
+    with pytest.raises(dg.SplitBasisError, match="no recorded ruling"):          # a NAV ruling is not a close ruling
+        bf.total_returns(R, actions=ap, prices=pp, split_rulings=nav_only)
+    wrong = _split_rulings(tmp_path, [_split(DATES[25], "book_as_is", factor=0.5)], "wrong.json")
+    with pytest.raises(dg.SplitBasisError, match="made on factor 1/2"):
+        bf.total_returns(R, actions=ap, prices=pp, split_rulings=wrong)
+    raw = _close(5.0)                                                 # the data changed under the ruling
+    raw.iloc[25:] *= 4
+    R2, ap2, pp2 = _split_files(tmp_path, raw, 0.25, DATES[25])
+    stale = _split_rulings(tmp_path, [_split(DATES[25], "drop_split")], "stale.json")
+    with pytest.raises(dg.SplitBasisError, match="now reads as `raw`"):
+        bf.total_returns(R2, actions=ap2, prices=pp2, split_rulings=stale)
+    for bad in (dict(ruled_by=""), dict(splits=[dict(_split(DATES[25], "book_as_is"), reason="")]),
+                dict(splits=[_split(DATES[25], "rebase")]), dict(splits=[_split(DATES[25], "drop_split", series="open")]),
+                dict(splits=[_split(DATES[25], "drop_split"), _split(DATES[25], "book_as_is")])):
+        top = {k: v for k, v in bad.items() if k != "splits"}
+        with pytest.raises(dg.SplitBasisError):
+            dg.load_split_rulings(_split_rulings(tmp_path, bad.get("splits", [_split(DATES[25], "drop_split")]),
+                                                 "b.json", **top))
+
+
+def test_the_decidable_line_is_twice_the_spike_guards_tau_and_below_it_nothing_raises():
+    """|ln k| <= 2 tau: raw (x = -ln k + e) and adjusted (x = e) overlap for an ordinary e, so the
+    price cannot tell them apart. Labelled `undecidable`, never raised; above the line, raised."""
+    assert dg.SPLIT_DECIDABLE == pytest.approx(2 * np.log(1 + c4.Q5_ABS))
+    idx = DATES[:3]
+    R = pd.DataFrame({"A": [np.nan, 0.001, 0.0]}, index=idx)
+    for f, basis in ((1.029, "undecidable"), (1.3, "undecidable"), (1 / 1.3, "undecidable"),
+                     (4 / 3, "adjusted"), (1.5, "adjusted"), (1 / 3, "adjusted")):
+        k = pd.DataFrame({"A": [1.0, f, 1.0]}, index=idx)
+        assert list(dg.split_basis_check(R, k)["basis"]) == [basis], f
+    k = pd.DataFrame({"A": [1.0, 1.029, 1.0]}, index=idx)
+    assert dg.guard_split_basis(R, k) is k                            # BIT's size: passed through, same object
+
+
+def test_a_step_that_fits_neither_basis_is_reported_not_raised_and_no_return_is_not_judged():
+    idx = DATES[:4]
+    R = pd.DataFrame({"A": [np.nan, 0.50, np.nan, 0.0]}, index=idx)   # x1.5 on a 1:4 reverse split's day
+    k = pd.DataFrame({"A": [1.0, 0.25, 0.25, 1.0]}, index=idx)        # and a split on a day with no return
+    C = dg.split_basis_check(R, k)
+    assert list(C["basis"]) == ["neither"] and C["ex_date"].iloc[0] == idx[1]
+    assert dg.guard_split_basis(R, k) is k
+
+
+def test_yf_total_returns_raises_on_an_adjusted_split_and_passes_with_its_ruling(tmp_path, monkeypatch):
+    """C4's path: a families-shaped panel whose close and NAV are both already adjusted (BTO's shape)."""
+    c = _close()
+    px, _ = _panels(tmp_path, c, c.copy(), splits=[("IGR", DATES[25], 0.25)])
+    monkeypatch.setattr(c4, "FAM_DIR", tmp_path)
+    with pytest.raises(dg.SplitBasisError, match=f"IGR, {DATES[25].date()}, factor 1/4"):
+        c4.yf_total_returns(px, ["IGR", "AAA"], DATES[1:])
+    p = _split_rulings(tmp_path, [_split(DATES[25], "drop_split", ticker="IGR")])
+    r = c4.yf_total_returns(px, ["IGR", "AAA"], DATES[1:], split_rulings=p)
+    assert abs(r.loc[DATES[25], "IGR"]) < 0.05
+
+
+def test_the_committed_c4_split_rulings_load_and_name_the_four_funds():
+    R, doc = dg.load_split_rulings(c4.SPLIT_RULINGS)
+    close = R[R["series"] == "close"]
+    assert sorted(zip(close["ticker"], (str(d.date()) for d in close["ex_date"]))) == [
+        ("BTO", "2008-12-30"), ("EMO", "2020-07-28"), ("NXG", "2020-06-15"), ("TYG", "2020-05-01")]
+    assert sorted(R.loc[R["series"] == "nav", "ticker"]) == ["BTO", "EMO"]
+    assert set(R["treatment"]) == {"book_as_is"} and doc["ruled_on"] == "2026-10-20"
