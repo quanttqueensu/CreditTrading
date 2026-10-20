@@ -1,0 +1,637 @@
+{
+  "generated_utc": "2026-10-20T16:33:53+00:00",
+  "inputs": {
+    "edgar_index_quarters": [
+      "2008Q1",
+      "2026Q4"
+    ],
+    "n_quarters": 76,
+    "edgar_last_date_filed": "2026-10-16",
+    "sec_ticker_file_fetched_utc": "2026-10-13T22:30:42+00:00",
+    "crsp_dsf_extracts": [
+      "dsf_44015b5199.parquet",
+      "dsf_71f42b22d4.parquet",
+      "dsf_3167e2a2e5.parquet",
+      "dsf_b144cf3b02.parquet",
+      "dsf_bdb3669ade.parquet",
+      "dsf_f222c3fbd6.parquet",
+      "dsf_f510ab61cd.parquet",
+      "dsf_72242dbb2c.parquet",
+      "dsf_81ef409d68.parquet",
+      "dsf_caffed83c1.parquet",
+      "dsf_1b9b242a04.parquet",
+      "dsf_29efead87e.parquet"
+    ],
+    "crsp_dsf_last_date": "2022-12-30",
+    "crsp_names_end": "2024-12-31"
+  },
+  "fund_set": {
+    "crsp_cef_permnos_with_rows_from_2008": 847,
+    "by_kind": {
+      "registered": 751,
+      "bdc": 58,
+      "unlinked": 34,
+      "mixed": 4
+    },
+    "link_route": {
+      "name": 431,
+      "ticker": 382,
+      "unmatched:": 34
+    },
+    "registered_permnos": 751,
+    "registered_ciks": 749,
+    "registered_ciks_with_two_or_more_permnos": 2,
+    "registered_permnos_no_distribution_rows": 0
+  },
+  "edgar": {
+    "supplements": 3782,
+    "supplements_ipo_period_dropped": 297,
+    "supplements_by_year_rule": {
+      "2008": {
+        "424B": 0,
+        "497": 37
+      },
+      "2009": {
+        "424B": 0,
+        "497": 122
+      },
+      "2010": {
+        "424B": 0,
+        "497": 157
+      },
+      "2011": {
+        "424B": 0,
+        "497": 102
+      },
+      "2012": {
+        "424B": 0,
+        "497": 152
+      },
+      "2013": {
+        "424B": 0,
+        "497": 174
+      },
+      "2014": {
+        "424B": 0,
+        "497": 190
+      },
+      "2015": {
+        "424B": 0,
+        "497": 107
+      },
+      "2016": {
+        "424B": 0,
+        "497": 139
+      },
+      "2017": {
+        "424B": 0,
+        "497": 150
+      },
+      "2018": {
+        "424B": 0,
+        "497": 177
+      },
+      "2019": {
+        "424B": 2,
+        "497": 213
+      },
+      "2020": {
+        "424B": 82,
+        "497": 329
+      },
+      "2021": {
+        "424B": 300,
+        "497": 33
+      },
+      "2022": {
+        "424B": 349,
+        "497": 11
+      },
+      "2023": {
+        "424B": 309,
+        "497": 6
+      },
+      "2024": {
+        "424B": 250,
+        "497": 0
+      },
+      "2025": {
+        "424B": 224,
+        "497": 5
+      },
+      "2026": {
+        "424B": 157,
+        "497": 5
+      }
+    },
+    "episodes_all": 709,
+    "episodes_pre_2023": 516,
+    "episodes_pre_2023_left_censored_2008": 13,
+    "by_class_pre_2023": {
+      "unconfirmed": 350,
+      "confirmed": 80,
+      "rights": 58,
+      "unconfirmed (window runs past CRSP)": 28
+    },
+    "episodes_by_year_all_classes": {
+      "2008": 13,
+      "2009": 32,
+      "2010": 53,
+      "2011": 27,
+      "2012": 46,
+      "2013": 43,
+      "2014": 26,
+      "2015": 27,
+      "2016": 30,
+      "2017": 32,
+      "2018": 40,
+      "2019": 33,
+      "2020": 28,
+      "2021": 51,
+      "2022": 35,
+      "2023": 33,
+      "2024": 46,
+      "2025": 53,
+      "2026": 61
+    },
+    "programme_episodes_by_year_all_classes_right_censored_late": {
+      "2008": 5,
+      "2009": 9,
+      "2010": 7,
+      "2011": 5,
+      "2012": 10,
+      "2013": 18,
+      "2014": 6,
+      "2015": 5,
+      "2016": 9,
+      "2017": 5,
+      "2018": 11,
+      "2019": 18,
+      "2020": 10,
+      "2021": 13,
+      "2022": 16,
+      "2023": 8,
+      "2024": 19,
+      "2025": 5
+    },
+    "episodes_2023_on_count_only": 193,
+    "episodes_2023_on_by_year": {
+      "2023": 33,
+      "2024": 46,
+      "2025": 53,
+      "2026": 61
+    },
+    "first_form_pre_2023": {
+      "497": 432,
+      "424B2": 35,
+      "424B3": 27,
+      "424B5": 19,
+      "424B1": 3
+    },
+    "pre_2023_not_registered_at_time": 2,
+    "pre_2023_confirmed_programme_vs_not": {
+      "programme": 33,
+      "fewer_supplements": 47
+    }
+  },
+  "a1_broad": {
+    "n": 78,
+    "funds": 60,
+    "by_year": {
+      "2008": 2,
+      "2009": 16,
+      "2010": 4,
+      "2011": 6,
+      "2012": 6,
+      "2013": 11,
+      "2014": 1,
+      "2015": 2,
+      "2016": 4,
+      "2017": 7,
+      "2018": 2,
+      "2019": 5,
+      "2020": 2,
+      "2021": 8,
+      "2022": 2
+    },
+    "funds_by_year": {
+      "2008": 2,
+      "2009": 16,
+      "2010": 4,
+      "2011": 6,
+      "2012": 6,
+      "2013": 11,
+      "2014": 1,
+      "2015": 2,
+      "2016": 4,
+      "2017": 7,
+      "2018": 2,
+      "2019": 5,
+      "2020": 2,
+      "2021": 8,
+      "2022": 2
+    },
+    "groups_sponsor_month": 73,
+    "groups_sponsor_date": 73,
+    "sponsor_unrecognised_share": 0.385,
+    "top_sponsors": {
+      "Nuveen": 16,
+      "CORNERSTONE TOTAL RETURN FUND INC": 5,
+      "CORNERSTONE STRATEGIC VALUE FUND INC": 5,
+      "Eaton Vance": 4,
+      "BlackRock": 4,
+      "PIMCO": 3,
+      "DIVIDEND & INCOME FUND": 3,
+      "Morgan Stanley": 2,
+      "Tortoise": 2,
+      "CORNERSTONE PROGRESSIVE RETURN FUND": 2,
+      "Cushing/NXG": 2,
+      "Gabelli": 2
+    },
+    "first_form": {
+      "497": 69,
+      "424B5": 4,
+      "424B1": 2,
+      "424B2": 2,
+      "424B3": 1
+    },
+    "median_supplements": 3.0,
+    "in_44": {
+      "events": 10,
+      "funds": [
+        "DHY",
+        "EFR",
+        "EFT",
+        "HYT",
+        "JFR",
+        "MSD",
+        "NEA",
+        "PDI",
+        "PTY"
+      ]
+    },
+    "deployed_13": {
+      "events": 5,
+      "funds": [
+        "HYT",
+        "JFR",
+        "PDI",
+        "PTY"
+      ]
+    },
+    "families_panel": {
+      "events": 29,
+      "funds": 19,
+      "groups_sponsor_month": 29
+    },
+    "outside_both_panels_no_nav_in_repo": {
+      "events": 39,
+      "funds_with_ticker_now": [
+        "BXSY",
+        "DSU",
+        "ECC;ECC-PD;ECCC;ECCU;ECCV",
+        "EVN",
+        "GBAB",
+        "GOF",
+        "HERZ",
+        "NDMO",
+        "NMCO",
+        "NMI",
+        "NMZ",
+        "NXDT;NXDT-PA",
+        "OCCI;OCCIM;OCCIN",
+        "OXLC;OXLCG;OXLCI;OXLCL;OXLCM;OXLCN;OXLCO;OXLCZ",
+        "RA",
+        "XFLT"
+      ]
+    }
+  },
+  "a1_programme": {
+    "n": 33,
+    "funds": 31,
+    "by_year": {
+      "2008": 1,
+      "2009": 8,
+      "2010": 1,
+      "2011": 2,
+      "2012": 3,
+      "2013": 4,
+      "2014": 1,
+      "2015": 1,
+      "2016": 1,
+      "2017": 2,
+      "2018": 1,
+      "2019": 5,
+      "2020": 1,
+      "2021": 1,
+      "2022": 1
+    },
+    "funds_by_year": {
+      "2008": 1,
+      "2009": 8,
+      "2010": 1,
+      "2011": 2,
+      "2012": 3,
+      "2013": 4,
+      "2014": 1,
+      "2015": 1,
+      "2016": 1,
+      "2017": 2,
+      "2018": 1,
+      "2019": 5,
+      "2020": 1,
+      "2021": 1,
+      "2022": 1
+    },
+    "groups_sponsor_month": 33,
+    "groups_sponsor_date": 33,
+    "sponsor_unrecognised_share": 0.364,
+    "top_sponsors": {
+      "Nuveen": 5,
+      "Eaton Vance": 3,
+      "Gabelli": 2,
+      "Tortoise": 2,
+      "Cushing/NXG": 2,
+      "CORNERSTONE PROGRESSIVE RETURN FUND": 1,
+      "XAI OCTAGON FLOATING RATE & ALTERNATIVE INCOME TERM TRUST": 1,
+      "BlackRock": 1,
+      "EAGLE POINT CREDIT CO INC.": 1,
+      "GUGGENHEIM CREDIT ALLOCATION FUND": 1,
+      "PIMCO": 1,
+      "GUGGENHEIM TAXABLE MUNICIPAL MANAGED DURATION TRUST": 1
+    },
+    "first_form": {
+      "497": 31,
+      "424B3": 1,
+      "424B5": 1
+    },
+    "median_supplements": 13.0,
+    "in_44": {
+      "events": 4,
+      "funds": [
+        "DHY",
+        "EFR",
+        "EFT",
+        "PDI"
+      ]
+    },
+    "deployed_13": {
+      "events": 1,
+      "funds": [
+        "PDI"
+      ]
+    },
+    "families_panel": {
+      "events": 12,
+      "funds": 11,
+      "groups_sponsor_month": 12
+    },
+    "outside_both_panels_no_nav_in_repo": {
+      "events": 17,
+      "funds_with_ticker_now": [
+        "ECC;ECC-PD;ECCC;ECCU;ECCV",
+        "GBAB",
+        "GOF",
+        "HERZ",
+        "NDMO",
+        "NMI",
+        "NMZ",
+        "OCCI;OCCIM;OCCIN",
+        "OXLC;OXLCG;OXLCI;OXLCL;OXLCM;OXLCN;OXLCO;OXLCZ",
+        "XFLT"
+      ]
+    }
+  },
+  "a1_programme_deployed_names_2020_on_count_only": {
+    "BIT": [
+      {
+        "first": "2022-05-03",
+        "last": "2023-01-03",
+        "n_supplements": 3,
+        "forms": "424B2;424B3"
+      },
+      {
+        "first": "2024-12-23",
+        "last": "2026-04-08",
+        "n_supplements": 5,
+        "forms": "424B2;424B3;424B5"
+      }
+    ],
+    "DSL": [
+      {
+        "first": "2020-09-30",
+        "last": "2021-04-27",
+        "n_supplements": 2,
+        "forms": "424B5;497"
+      },
+      {
+        "first": "2023-02-01",
+        "last": "2023-11-09",
+        "n_supplements": 3,
+        "forms": "424B3;424B5"
+      },
+      {
+        "first": "2026-04-02",
+        "last": "2026-10-02",
+        "n_supplements": 2,
+        "forms": "424B3;424B5"
+      }
+    ],
+    "HYT": [
+      {
+        "first": "2022-02-10",
+        "last": "2026-01-05",
+        "n_supplements": 13,
+        "forms": "424B2;424B3;424B5"
+      }
+    ],
+    "JFR": [
+      {
+        "first": "2023-03-31",
+        "last": "2023-03-31",
+        "n_supplements": 1,
+        "forms": "497"
+      },
+      {
+        "first": "2025-01-10",
+        "last": "2025-02-11",
+        "n_supplements": 2,
+        "forms": "424B2;424B3"
+      }
+    ],
+    "MHD": [
+      {
+        "first": "2020-11-03",
+        "last": "2020-11-03",
+        "n_supplements": 1,
+        "forms": "424B3"
+      },
+      {
+        "first": "2025-09-04",
+        "last": "2025-09-04",
+        "n_supplements": 1,
+        "forms": "424B3"
+      }
+    ],
+    "MQY": [
+      {
+        "first": "2020-11-03",
+        "last": "2020-11-03",
+        "n_supplements": 1,
+        "forms": "424B3"
+      },
+      {
+        "first": "2025-09-04",
+        "last": "2025-10-14",
+        "n_supplements": 2,
+        "forms": "424B3"
+      }
+    ],
+    "PCN": [
+      {
+        "first": "2020-12-03",
+        "last": "2024-08-20",
+        "n_supplements": 10,
+        "forms": "424B3;424B5"
+      },
+      {
+        "first": "2025-12-17",
+        "last": "2026-06-24",
+        "n_supplements": 4,
+        "forms": "424B3;424B5"
+      }
+    ],
+    "PDI": [
+      {
+        "first": "2023-09-29",
+        "last": "2023-09-29",
+        "n_supplements": 1,
+        "forms": "424B5"
+      },
+      {
+        "first": "2024-12-20",
+        "last": "2026-09-25",
+        "n_supplements": 3,
+        "forms": "424B5"
+      }
+    ],
+    "PDO": [
+      {
+        "first": "2023-02-09",
+        "last": "2023-02-09",
+        "n_supplements": 1,
+        "forms": "424B5"
+      },
+      {
+        "first": "2025-12-18",
+        "last": "2025-12-18",
+        "n_supplements": 1,
+        "forms": "424B5"
+      }
+    ],
+    "PFN": [
+      {
+        "first": "2026-06-24",
+        "last": "2026-06-24",
+        "n_supplements": 1,
+        "forms": "424B3"
+      }
+    ],
+    "PHK": [
+      {
+        "first": "2022-06-01",
+        "last": "2025-04-15",
+        "n_supplements": 6,
+        "forms": "424B3;424B5"
+      },
+      {
+        "first": "2026-06-24",
+        "last": "2026-06-24",
+        "n_supplements": 1,
+        "forms": "424B3"
+      }
+    ],
+    "PTY": [
+      {
+        "first": "2022-03-30",
+        "last": "2022-03-30",
+        "n_supplements": 1,
+        "forms": "424B3"
+      },
+      {
+        "first": "2023-09-26",
+        "last": "2025-06-06",
+        "n_supplements": 5,
+        "forms": "424B3;424B5"
+      },
+      {
+        "first": "2026-06-24",
+        "last": "2026-09-25",
+        "n_supplements": 3,
+        "forms": "424B3;424B5"
+      }
+    ]
+  },
+  "crsp_c_quarters": {
+    "beyond_drip_issuance_quarters": 372,
+    "funds": 156,
+    "by_year": {
+      "2008": 24,
+      "2009": 19,
+      "2010": 33,
+      "2011": 19,
+      "2012": 22,
+      "2013": 35,
+      "2014": 21,
+      "2015": 12,
+      "2016": 11,
+      "2017": 22,
+      "2018": 28,
+      "2019": 23,
+      "2020": 40,
+      "2021": 35,
+      "2022": 28
+    },
+    "edgar_confirmed": 251,
+    "edgar_confirmed_funds": 84,
+    "edgar_confirmed_by_year": {
+      "2008": 3,
+      "2009": 10,
+      "2010": 24,
+      "2011": 12,
+      "2012": 14,
+      "2013": 28,
+      "2014": 13,
+      "2015": 5,
+      "2016": 4,
+      "2017": 13,
+      "2018": 20,
+      "2019": 17,
+      "2020": 33,
+      "2021": 33,
+      "2022": 22
+    },
+    "quarters_ge_2pct_raw_seasoned": 939,
+    "excluded_merger": 111,
+    "excluded_rights": 56,
+    "excluded_split": 17,
+    "excluded_within_drip_bound": 398,
+    "in_44_funds": [
+      "DBL",
+      "DHY",
+      "EDD",
+      "EFR",
+      "EFT",
+      "HYT",
+      "JFR",
+      "MSD",
+      "NEA",
+      "PDI",
+      "PFL",
+      "PFN",
+      "PMM",
+      "PTY"
+    ],
+    "families_funds": 50
+  }
+}
