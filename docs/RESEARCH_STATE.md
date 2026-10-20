@@ -42,6 +42,11 @@ counter (156) covers all ETF-price/PD work done to date.
 >   trial is judged on P&L, with borrow in its own labelled column.
 > - **EVENTS trial 2 is NAV tenders**, `results/events/PREREG_NAV_TENDER_2026-10-19.md`:
 >   tender participation, ETF-hedged, on all twelve defaults.
+>   **2026-10-19, later: Stage 0 part A recorded, then HALTED before any return**
+>   (`results/events/NAV_TENDER_STAGE0_2026-10-19.md`; `python3 scripts/events/nav_tender_trial.py stage0 --edgar-only`).
+>   The 20% unread gate passes on EDGAR, 26 of 134 fit events (19.4%), one event inside the
+>   line. Part B needs the team lead's credentialed `stage` run (CRSP, Alpaca, uncached
+>   EDGAR), then rulings on the Stage-0 flags. No P&L exists; the holdout is untouched.
 > - **Both are judged at N = 6, bar √(2 ln 6) = 1.893,** fixed on approval and shared
 >   by every EVENTS trial (E2's unapproved draft moves from N = 4 to 6).
 > - **E1 consumes the 27-name set at its Stage 1** (decision 3's default). The
