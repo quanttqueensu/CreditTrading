@@ -1,0 +1,42 @@
+{
+ "accession": "0001193125-21-084266",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "This Schedule TO relates to the Issuers offer to exchange up to 100% of the Issuers preferred shares, designated Series B Auction Market Preferred Shares"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {"value": "The Gabelli Dividend & Income Trust", "span": "The name of the subject company is The Gabelli Dividend & Income Trust.", "doc_seq": "1"},
+    "subject_tickers": {"value": "GDV", "span": "The Funds outstanding common shares, par value $0.001 per share, are listed on the New York Stock Exchange (the NYSE) under the symbol GDV", "doc_seq": "2"},
+    "security_class": {"value": "preferred", "span": "This Schedule TO relates to the Issuers offer to exchange up to 100% of the Issuers preferred shares, designated Series B Auction Market Preferred Shares", "doc_seq": "1"},
+    "price_basis": {"value": "other", "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer, based upon a price of 96% of the liquidation preference of $25,000 per share (or $24,000 per share).", "doc_seq": "1"},
+    "price_pct_nav": null,
+    "nav_pricing_date": null,
+    "size_pct_outstanding": {"value": 100, "span": "This Schedule TO relates to the Issuers offer to exchange up to 100% of the Issuers preferred shares, designated Series B Auction Market Preferred Shares", "doc_seq": "1"},
+    "size_shares": {"value": 6371, "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer", "doc_seq": "1"},
+    "commencement_date": {"value": "2021-03-17", "span": "within 40 business days from the commencement of the Exchange Offer on March 17, 2021", "doc_seq": "2"},
+    "expiration_date": {"value": "2021-04-14", "span": "The Exchange Offer will expire at 5:00 p.m., New York City time (the Expiration Time), on April 14, 2021", "doc_seq": "2"},
+    "proration": null,
+    "conditions": {
+     "value": ["minimum_tender", "board_discretion"],
+     "spans": [
+      "The Exchange Offer is conditioned on, among other things, holders of an aggregate of at least a majority of the outstanding Auction Rate Preferred Shares properly tendering (and not validly withdrawing) their Auction Rate Preferred Shares at or prior to the Expiration Date.",
+      "We reserve the right, in our sole and absolute discretion, to terminate the Exchange Offer at any time prior to the Expiration Date."
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {"value": "board_discretionary", "span": "The Funds Board met on February 24, 2021 to consider and approve the Exchange Offer.", "doc_seq": "2"},
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": ["price_basis", "subject_tickers", "conditions", "trigger_origin"],
+ "notes": "Original Schedule TO-I (issuer tender offer under Rule 13e-4) for an exchange offer, not a cash tender: The Gabelli Dividend & Income Trust offers to exchange all outstanding unlisted Auction Rate Preferred Shares (Series B 2,647, Series C 3,244, Series E 480 outstanding as of March 16, 2021; 6,371 total) for 0.96 of a newly issued Series J Cumulative Term Preferred Share ($25,000 liquidation preference) per share plus cash in lieu of fractional shares and accrued unpaid dividends. The price is 96% of the $25,000 liquidation preference ($24,000 per share), not a percent of NAV, so price_basis is 'other' and price_pct_nav is null. subject_tickers: the tendered preferred series are not listed; GDV is the ticker printed for the fund's common shares. size_pct_outstanding 100 is as stated ('up to 100% of the Issuers preferred shares'), meaning all Auction Rate Preferred Shares; the fund's listed Series G and H preferred are not in the offer. Conditions: the only condition stated in the excerpt is the majority-of-ARPS minimum tender (Bank of America holds 94.0% and agreed to tender 100% under a Share Exchange Agreement); the full 'Conditions to the Exchange Offer' section lies after the excerpt cut. board_discretion is from the stated right to terminate the offer in the Fund's sole and absolute discretion at any time before expiration. trigger_origin: the Board approved the offer on February 24, 2021 to reduce dividend obligations at the maximum auction rate and simplify capital structure; it is negotiated with the 94% holder, so 'other' is a possible reading. Expected settlement April 19, 2021. No results in this filing."
+}

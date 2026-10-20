@@ -1,0 +1,25 @@
+{
+ "accession": "0001535778-24-000175",
+ "triage": {"kind": "cef_tender", "fund_type": "closed_end_fund", "doc_role": "final_result", "kind_span": "FINAL AMENDMENT TO TENDER OFFER STATEMENT"},
+ "events": [{"kind": "cef_tender", "terms": {
+   "subject_names": {"value": "MSC INCOME FUND, INC.", "span": "MSC INCOME FUND, INC.", "doc_seq": "1"},
+   "subject_tickers": null,
+   "security_class": {"value": "common", "span": "Common Stock, Par Value $0.001 per share", "doc_seq": "1"},
+   "price_basis": {"value": "pct_of_nav", "span": "which was the net asset value per share as of November 1, 2024", "doc_seq": "1"},
+   "price_pct_nav": {"value": 100, "span": "which was the net asset value per share as of November 1, 2024", "doc_seq": "1"},
+   "nav_pricing_date": {"value": "net asset value per share as of November 1, 2024", "span": "which was the net asset value per share as of November 1, 2024", "doc_seq": "1"},
+   "size_pct_outstanding": {"value": 2.5, "span": "2.5% of the weighted average number of the Shares outstanding in the prior four calendar quarters", "doc_seq": "1"},
+   "size_shares": null,
+   "commencement_date": null,
+   "expiration_date": {"value": "2024-10-28", "span": "The Offer terminated at 5:00 P.M., Central Time, on October 28, 2024", "doc_seq": "1"},
+   "proration": {"value": true, "span": "repurchased Shares on a pro-rata basis, subject to “odd lot” priority as described in the Offer", "doc_seq": "1"},
+   "conditions": null,
+   "trigger_origin": {"value": "periodic_liquidity", "span": "The purpose of the offer is to provide our stockholders (“Stockholders”) with limited liquidity because there is otherwise no public market for the Shares", "doc_seq": "1"},
+   "shares_tendered": {"value": 5919194, "span": "a total of 5,919,194 Shares were validly tendered and not withdrawn pursuant to the Offer as of such date", "doc_seq": "1"},
+   "shares_accepted": {"value": 512730, "span": "the Company purchased a total of 512,730 Shares validly tendered and not withdrawn at a price of $7.74 per Share", "doc_seq": "1"},
+   "proration_factor_pct": null,
+   "final_price_per_share": {"value": 7.74, "span": "at a price of $7.74 per Share", "doc_seq": "1"}
+ }}],
+ "uncertain_fields": ["price_pct_nav", "trigger_origin"],
+ "notes": "Final amendment (SC TO-I/A, Amendment No. 1) reporting results of the issuer tender offer; the offer terminated October 28, 2024 and the funding date was November 1, 2024. The price is stated as equal to the NAV per share as of November 1, 2024, recorded as pct_of_nav with price_pct_nav 100 (a stated equality, not arithmetic); flagged uncertain. proration_factor_pct is not stated and would need arithmetic (512,730 / 5,919,194), so it is null. commencement_date is not stated in this excerpt (the Offer to Purchase is dated September 26, 2024, but no commencement is stated), so it is null. Conditions and subject_tickers are not stated in this excerpt. Excerpt is the whole of this one-part filing."
+}

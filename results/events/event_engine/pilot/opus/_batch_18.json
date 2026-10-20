@@ -1,0 +1,5 @@
+{"batch": "18",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0000940394-21-001128", "0001193125-21-119537", "0001550913-21-000032", "0000940394-21-001125", "0000940394-21-001127", "0001398344-21-014671", "0001387131-21-010988", "0001193125-21-175201", "0001193125-21-361204", "0001193125-21-021815"],
+ "parts_read": 10,
+ "problems": "No blocking problems. Judgement calls flagged in each file's uncertain_fields/notes: 0001193125-21-119537 (GDV preferred exchange offer) has conflicting tendered counts (6,105 in the Schedule TO body vs 6,106 in the press release; used 6,105) and in-kind consideration, so final_price_per_share is null; 0001550913-21-000032 (MacKenzie Realty Capital) is internally inconsistent on share counts (58,897.7444 vs 400,000 vs 13,303,521.4954), and fund_type is 'unknown' because the excerpt does not say what the filer is; 0001193125-21-021815 (DNP/DUC) prints DNP and DUC only as defined abbreviations, not exchange tickers, so subject_tickers is null. Where commencement_date is filled it is the dated Offer to Purchase, not an explicitly stated commencement date (except GDV, where it is stated)."}

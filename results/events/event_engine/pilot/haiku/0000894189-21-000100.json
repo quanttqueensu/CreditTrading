@@ -1,0 +1,75 @@
+{
+ "accession": "0000894189-21-000100",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "open_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "describes a proposed reorganization (the “Reorganization”) of the Target Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Delaware U.S. Growth Fund; Jackson Square Large-Cap Growth Fund",
+     "span": "the Target Fund, which is a series of Delaware Group Adviser Funds, with and into the Jackson Square Large-Cap Growth Fund",
+     "doc_seq": "1"
+    },
+    "subject_tickers": null,
+    "security_class": {
+     "value": "other",
+     "span": "Investor Class, Institutional Class, and IS Class shares of the Jackson Square Large-Cap Growth Fund",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Jackson Square Large-Cap Growth Fund",
+     "span": "with and into the Jackson Square Large-Cap Growth Fund (the “Acquiring Fund,”",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Delaware U.S. Growth Fund",
+     "span": "shareholders of the Delaware U.S. Growth Fund (the “Target Fund”)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "a proposed reorganization (the “Reorganization”) of the Target Fund",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "holders of the Target Fund will receive shares of the Acquiring Fund equal in aggregate net asset value to their shares of the Target Fund",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": ["shareholder_approval"],
+     "spans": [
+      "The Proposal will be effected with respect to the Target Fund only if the Target Fund’s shareholders approve the Proposal."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or around April 16, 2021",
+     "span": "it is anticipated that the Reorganization will occur on or around April 16, 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": {
+     "value": "2021-03-23",
+     "span": "has been scheduled for March 23, 2021 at 1:00 p.m., Eastern time",
+     "doc_seq": "1"
+    },
+    "record_date": {
+     "value": "2021-01-29",
+     "span": "has fixed the close of business on January 29, 2021 as the record date",
+     "doc_seq": "1"
+    }
+   }
+  }
+ ],
+ "uncertain_fields": ["security_class", "n_targets"],
+ "notes": "Combined Form N-14 (as filed January 8, 2021) for an open-end fund reorganisation: Managed Portfolio Series (open-end, Delaware statutory trust) acquires all assets of the Delaware U.S. Growth Fund (a series of Delaware Group Adviser Funds) in exchange for Jackson Square Large-Cap Growth Fund shares, followed by liquidation of the target. Fund_type is open_end_fund because the filer is open-end; kind stays merger per the kind guide. Exchange is stated as shares equal in aggregate NAV to the target holdings, so nav_for_nav. security_class is other because the shares are open-end fund shares, not common stock; uncertain. n_targets is 1 from the singular 'Target Fund' in the filing, not a counted list; uncertain. meeting_date and record_date are stated as dates. expected_close is stated as on or around April 16, 2021; the letter brackets it as April [16]. The filing states no exchange ratio or per-share cash, and no collar. Only shareholder approval is stated as a condition; the filing says a legal tax opinion is expected but does not present it as a condition, so tax_opinion is not recorded."
+}

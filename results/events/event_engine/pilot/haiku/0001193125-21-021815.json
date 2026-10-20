@@ -1,0 +1,23 @@
+{"accession": "0001193125-21-021815",
+ "triage": {"kind": "merger", "fund_type": "closed_end_fund", "doc_role": "announcement",
+            "kind_span": "DNPs proposed merger with Duff & Phelps Utility and Corporate Bond Trust Inc."},
+ "events": [{"kind": "merger",
+   "terms": {
+     "subject_names": {"value": "Duff & Phelps Utility and Corporate Bond Trust Inc. (DUC); DNP Select Income Fund Inc. (DNP)", "span": "Subject Company: Duff & Phelps Utility and Corporate Bond Trust Inc.", "doc_seq": "1"},
+     "subject_tickers": null,
+     "security_class": null,
+     "acquirer": {"value": "DNP Select Income Fund Inc. (DNP)", "span": "since DNP will be the surviving fund in the Merger", "doc_seq": "1"},
+     "targets": {"value": "Duff & Phelps Utility and Corporate Bond Trust Inc. (DUC)", "span": "DUC will be merged with and into DNP, with DNP as the surviving Fund", "doc_seq": "1"},
+     "n_targets": {"value": 1, "span": "DUC will be merged with and into DNP, with DNP as the surviving Fund", "doc_seq": "1"},
+     "exchange_basis": {"value": "nav_for_nav", "span": "The conversion ratio used to determine the number of DNP shares issued to DUC shareholders at the time of the Merger is based on the net asset value per share of each fund", "doc_seq": "1"},
+     "exchange_ratio": null,
+     "cash_per_share": null,
+     "collar": null,
+     "conditions": {"value": ["shareholder_approval"], "spans": ["If the required approval is obtained from the shareholders of DUC at the Special Meeting on February 22, 2021"], "doc_seq": "1"},
+     "expected_close": {"value": "on or around March 5, 2021", "span": "which is expected to be on or around March 5, 2021", "doc_seq": "1"},
+     "termination_date": null,
+     "meeting_date": {"value": "2021-02-22", "span": "at the Special Meeting on February 22, 2021", "doc_seq": "1"},
+     "record_date": null
+   }}],
+ "uncertain_fields": [],
+ "notes": "Announcement: DNP Select Income Fund FAQ posted January 29, 2021 (Form 425). DNP shareholders are not voting. The vote is by DUC shareholders at a Special Meeting on February 22, 2021, with closing expected on or around March 5, 2021, both as stated in the FAQ. The exchange is set on NAV per share, but no numeric ratio is stated, so exchange_ratio is null. The filing uses DNP and DUC as abbreviations without printing exchange tickers, so subject_tickers is null. The security class is not stated."}

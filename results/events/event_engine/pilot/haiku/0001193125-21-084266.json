@@ -1,0 +1,25 @@
+{
+ "accession": "0001193125-21-084266",
+ "triage": {"kind": "cef_tender", "fund_type": "closed_end_fund", "doc_role": "offer_document", "kind_span": "This Tender Offer Statement on Schedule TO (as amended from time to time, this Schedule TO) is filed by The Gabelli Dividend & Income Trust, a Delaware statutory trust (GDV or the Issuer)."},
+ "events": [{"kind": "cef_tender", "terms": {
+   "subject_names": {"value": "The Gabelli Dividend & Income Trust", "span": "The Gabelli Dividend & Income Trust (Name of Subject Company (Issuer))", "doc_seq": "1"},
+   "subject_tickers": {"value": "GDV", "span": "The Funds outstanding common shares, par value $0.001 per share, are listed on the New York Stock Exchange (the NYSE) under the symbol GDV", "doc_seq": "2"},
+   "security_class": {"value": "preferred", "span": "Series B Preferred Shares, Series C Preferred Shares and Series E Preferred Shares (collectively, the Auction Rate Preferred Shares)", "doc_seq": "2"},
+   "price_basis": {"value": "other", "span": "0.96 of each newly issued Series J Preferred Share for each whole Series B Preferred Share", "doc_seq": "2"},
+   "price_pct_nav": null,
+   "nav_pricing_date": null,
+   "size_pct_outstanding": null,
+   "size_shares": {"value": 6371, "span": "Calculated as the aggregate maximum purchase price to be paid for 6,371 shares in the exchange offer, based upon a price of 96% of the liquidation preference of $25,000 per share (or $24,000 per share).", "doc_seq": "1"},
+   "commencement_date": {"value": "2021-03-17", "span": "within 40 business days from the commencement of the Exchange Offer on March 17, 2021.", "doc_seq": "2"},
+   "expiration_date": {"value": "2021-04-14", "span": "The Exchange Offer will expire at 5:00 p.m., New York City time (the Expiration Time), on April 14, 2021", "doc_seq": "2"},
+   "proration": null,
+   "conditions": {"value": ["minimum_tender"], "spans": ["The Exchange Offer is conditioned on, among other things, holders of an aggregate of at least a majority of the outstanding Auction Rate Preferred Shares properly tendering"], "doc_seq": "2"},
+   "trigger_origin": {"value": "board_discretionary", "span": "The Funds Board met on February 24, 2021 to consider and approve the Exchange Offer.", "doc_seq": "2"},
+   "shares_tendered": null,
+   "shares_accepted": null,
+   "proration_factor_pct": null,
+   "final_price_per_share": null
+ }}],
+ "uncertain_fields": ["price_basis", "trigger_origin"],
+ "notes": "Issuer exchange offer (SC TO-I, commencement document) by the fund for its Auction Rate Preferred Shares (Series B, C, E) into Series J term preferred at 0.96 Series J per share plus cash for fractions and accrued dividends. Not a cash tender. Consideration is stated against the $25,000 liquidation preference (fee note: 96% of liquidation preference), not as a percent of NAV, so price_pct_nav is null. size_shares 6371 is stated in the fee note and the capitalization table, not computed. expiration_date is the date stated in this excerpt, which allows extension; no later date appears in the excerpt. Results fields are absent because this is the commencement document. Bank of America is stated to hold about 94.0 percent of the auction rate shares and to have agreed to tender. The excerpt says the condition applies 'among other things' but does not list the other conditions within the excerpt, so only minimum_tender is recorded. trigger_origin and price_basis are judgement calls among the listed enum values."
+}

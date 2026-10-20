@@ -1,0 +1,7 @@
+{
+ "batch": "14",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0001140361-21-035928", "0001387131-21-003469"],
+ "parts_read": 8,
+ "problems": "None blocking. 0001387131-21-003469 states the record date as March 11, 2021 in the summary and dates table but as March 11, 2020 in the Terms paragraph; used 2021-03-11 and flagged it. 0001140361-21-035928 has blank placeholder meeting and record dates, and its full closing-conditions section falls after the excerpt cut."
+}

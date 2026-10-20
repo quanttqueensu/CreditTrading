@@ -1,0 +1,5 @@
+{"batch": "05",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0001821268-21-000189", "0001193125-21-345552"],
+ "parts_read": 10,
+ "problems": "None blocking. In 0001193125-21-345552 the quotation marks and apostrophes seem to be missing from the excerpt text as displayed (e.g. 'SLRCs', '(SLRC)'). They may be invisible characters, so spans were chosen to avoid those spots where possible; the shareholder_approval condition span still contains 'SLRCs and SUNSs'. In 0001821268-21-000189, the merger agreement's terms and conditions sections fall after the excerpt cut, so only the shareholder-approval condition is recorded."}

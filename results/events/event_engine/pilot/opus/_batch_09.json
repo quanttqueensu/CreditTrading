@@ -1,0 +1,5 @@
+{"batch": "09",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0001104659-21-055075", "0001193125-22-014885"],
+ "parts_read": 10,
+ "problems": "No blocking problems. 0001104659-21-055075 is a REIT-into-REIT merger (RMR Mortgage Trust, which the agreement says has run as a mortgage REIT since 2021-01-05, acquiring Tremont Mortgage Trust); it was classified equity_mna/reit rather than merger, and 'kind' is flagged uncertain. 0001193125-22-014885 is a draft N-14 whose meeting, record and closing dates are '[●]' placeholders, so those fields are null."}

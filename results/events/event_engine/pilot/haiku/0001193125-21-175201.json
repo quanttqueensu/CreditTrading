@@ -1,0 +1,23 @@
+{"accession": "0001193125-21-175201",
+ "triage": {"kind": "merger", "fund_type": "closed_end_fund", "doc_role": "announcement",
+            "kind_span": "would combine NXQ and NXR into NXP"},
+ "events": [{"kind": "merger",
+   "terms": {
+     "subject_names": {"value": "Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3", "span": "Subject Companies: Nuveen Select Tax-Free Income Portfolio 2 Commission File No. 811-06622 Nuveen Select Tax-Free Income Portfolio 3", "doc_seq": "1"},
+     "subject_tickers": {"value": "NXQ; NXR", "span": "Income Portfolio 2 (NYSE: NXQ), and Nuveen Select Tax-Free Income Portfolio 3 (NYSE: NXR)", "doc_seq": "1"},
+     "security_class": {"value": "common", "span": "increased trading volume on the exchange for common shares", "doc_seq": "1"},
+     "acquirer": {"value": "Nuveen Select Tax-Free Income Portfolio (NXP)", "span": "would combine NXQ and NXR into NXP", "doc_seq": "1"},
+     "targets": {"value": "Nuveen Select Tax-Free Income Portfolio 2 (NXQ); Nuveen Select Tax-Free Income Portfolio 3 (NXR)", "span": "would combine NXQ and NXR into NXP", "doc_seq": "1"},
+     "n_targets": {"value": 2, "span": "would combine NXQ and NXR into NXP", "doc_seq": "1"},
+     "exchange_basis": null,
+     "exchange_ratio": null,
+     "cash_per_share": null,
+     "collar": null,
+     "conditions": {"value": ["shareholder_approval"], "spans": ["including necessary approval by the funds shareholders"], "doc_seq": "1"},
+     "expected_close": null,
+     "termination_date": null,
+     "meeting_date": null,
+     "record_date": null
+   }}],
+ "uncertain_fields": [],
+ "notes": "Announcement (Form 425 press release dated May 26, 2021) of a proposed reorganization combining NXQ and NXR into NXP. The proxy and N-14 are expected but are not in this excerpt, so the exchange basis, ratio, meeting and closing dates are null. The text says subject to certain conditions; only shareholder approval is named, so no other condition category is set."}

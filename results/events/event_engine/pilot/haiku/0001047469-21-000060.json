@@ -1,0 +1,7 @@
+{
+ "accession": "0001047469-21-000060",
+ "triage": {"kind": "none", "fund_type": "bdc", "doc_role": "prospectus", "kind_span": "We are offering $ in aggregate principal amount of % notes due , which we refer to as the Notes."},
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "Preliminary prospectus supplement (Rule 424(b)(2), marked SUBJECT TO COMPLETION, DATED JANUARY 12, 2021) for an unsecured senior notes offering by Main Street Capital Corporation, a business development company that describes itself as an internally managed closed-end non-diversified company. Amount, coupon, maturity, price and trade date are blank in this excerpt, so no terms are extracted. A shelf prospectus supplement for notes carries no event kind of the schema, so kind is none and events is empty. Nothing in the excerpt reads as a tender, merger, rights offering, liquidation or other listed event. The excerpt is the first 120,000 characters only; the document continues past the cut."
+}

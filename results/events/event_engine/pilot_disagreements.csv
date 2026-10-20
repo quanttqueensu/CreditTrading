@@ -1,0 +1,185 @@
+pass,accession,kind,field,dtype,gold,value,tp,fp,fn,both_null,stratum,recoverable,reader
+haiku,0001140361-21-005674,cef_tender,triage.fund_type,enum,interval_or_tender_offer_fund,closed_end_fund,False,True,True,False,T,True,haiku
+haiku,0001140361-21-005674,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,haiku
+haiku,0001140361-22-019368,cef_tender,triage.fund_type,enum,interval_or_tender_offer_fund,,False,False,True,False,T,True,haiku
+haiku,0001140361-22-019368,cef_tender,commencement_date,date,2022-03-31,,False,False,True,False,T,True,haiku
+haiku,0001140361-22-019368,cef_tender,trigger_origin,enum,periodic_liquidity,,False,False,True,False,T,True,haiku
+haiku,0000350797-21-000080,cef_tender,commencement_date,date,2021-06-29,,False,False,True,False,T,False,haiku
+haiku,0000350797-21-000080,cef_tender,trigger_origin,enum,merger_related,board_discretionary,False,True,True,False,T,True,haiku
+haiku,0000940394-21-001128,cef_tender,commencement_date,date,2021-06-29,,False,False,True,False,T,True,haiku
+haiku,0001193125-21-084266,cef_tender,size_pct_outstanding,percent,100.0,,False,False,True,False,T,False,haiku
+haiku,0001193125-21-084266,cef_tender,conditions,set,"frozenset({'minimum_tender', 'market_disruption', 'legal_injunction', 'other', 'regulatory_approval', 'board_discretion'})",frozenset({'minimum_tender'}),False,True,True,False,T,False,haiku
+haiku,0001193125-21-084266,cef_tender,trigger_origin,enum,other,board_discretionary,False,True,True,False,T,True,haiku
+haiku,0001550913-21-000017,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,haiku
+haiku,0001550913-21-000032,cef_tender,size_shares,number,400000.0,58897.7444,False,True,True,False,T,True,haiku
+haiku,0001550913-21-000032,cef_tender,commencement_date,date,2021-03-19,,False,False,True,False,T,True,haiku
+haiku,0001550913-21-000032,cef_tender,shares_accepted,number,58897.7444,13303521.4954,False,True,True,False,T,True,haiku
+haiku,0000350797-21-000081,cef_tender,commencement_date,date,2021-06-29,,False,False,True,False,T,False,haiku
+haiku,0000350797-21-000081,cef_tender,conditions,set,"frozenset({'ric_or_tax_status', 'market_disruption', 'other', 'legal_injunction', 'listing', 'board_discretion'})","frozenset({'ric_or_tax_status', 'market_disruption', 'other', 'legal_injunction', 'listing', 'board_discretion', 'financing'})",False,True,True,False,T,True,haiku
+haiku,0000940394-21-001125,cef_tender,commencement_date,date,2021-06-29,,False,False,True,False,T,True,haiku
+haiku,0000940394-21-001125,cef_tender,trigger_origin,enum,activist_settlement,,False,False,True,False,T,True,haiku
+haiku,0001558370-21-004185,cef_tender,commencement_date,date,2021-04-12,,False,False,True,False,T,True,haiku
+haiku,0001558370-21-004185,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,haiku
+haiku,0001535778-24-000175,cef_tender,triage.fund_type,enum,interval_or_tender_offer_fund,closed_end_fund,False,True,True,False,T,True,haiku
+haiku,0001535778-24-000175,cef_tender,commencement_date,date,2024-09-26,,False,False,True,False,T,True,haiku
+haiku,0000350797-21-000084,cef_tender,commencement_date,date,2021-06-29,,False,False,True,False,T,False,haiku
+haiku,0000940394-21-001127,cef_tender,commencement_date,date,2021-06-29,,False,False,True,False,T,True,haiku
+haiku,0000940394-21-001127,cef_tender,trigger_origin,enum,activist_settlement,,False,False,True,False,T,True,haiku
+haiku,0001398344-21-013205,cef_tender,commencement_date,date,2021-06-21,,False,False,True,False,T,False,haiku
+haiku,0001398344-21-013205,cef_tender,conditions,set,"frozenset({'ric_or_tax_status', 'market_disruption', 'other', 'legal_injunction', 'listing', 'board_discretion'})","frozenset({'ric_or_tax_status', 'market_disruption', 'legal_injunction', 'listing', 'board_discretion'})",False,True,True,False,T,True,haiku
+haiku,0001398344-21-014671,cef_tender,commencement_date,date,2021-06-21,,False,False,True,False,T,True,haiku
+haiku,0001193125-21-246408,cef_tender,trigger_origin,enum,other,board_discretionary,False,True,True,False,T,True,haiku
+haiku,0001387131-21-009922,cef_tender,commencement_date,date,2021-10-12,,False,False,True,False,T,False,haiku
+haiku,0001387131-21-009922,cef_tender,conditions,set,"frozenset({'ric_or_tax_status', 'market_disruption', 'other', 'legal_injunction', 'listing', 'board_discretion'})","frozenset({'ric_or_tax_status', 'market_disruption', 'legal_injunction', 'nav_or_price_decline', 'listing', 'board_discretion'})",False,True,True,False,T,True,haiku
+haiku,0001387131-21-010988,cef_tender,commencement_date,date,2021-10-12,,False,False,True,False,T,True,haiku
+haiku,0001287032-21-000418,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'market_disruption', 'other', 'legal_injunction'})",False,True,True,False,T,True,haiku
+haiku,0001104659-21-055075,equity_mna,triage.kind,enum,equity_mna,merger,False,True,True,False,M,True,haiku
+haiku,0001104659-21-055075,equity_mna,security_class,enum,common,,False,False,True,False,M,True,haiku
+haiku,0001104659-21-055075,equity_mna,exchange_ratio,number,0.52,,False,False,True,False,M,True,haiku
+haiku,0001104659-21-055075,equity_mna,collar,bool,False,,False,False,True,False,M,True,haiku
+haiku,0001104659-21-055075,equity_mna,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'registration_effective', 'listing', 'tax_opinion'})",,False,False,True,False,M,False,haiku
+haiku,0001104659-21-055075,equity_mna,expected_close,text,third quarter of 2021,,False,False,True,False,M,True,haiku
+haiku,0001104659-21-055075,equity_mna,termination_date,date,2021-12-31,,False,False,True,False,M,True,haiku
+haiku,0001104659-21-055075,equity_mna,termination_fee,number,2156000.0,,False,False,True,False,M,True,haiku
+haiku,0001821268-21-000189,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,haiku
+haiku,0001821268-21-000189,merger,expected_close,text,sometime during the fourth quarter of 2021,,False,False,True,False,M,False,haiku
+haiku,0001821268-21-000189,merger,termination_date,date,2021-06-30,,False,False,True,False,M,False,haiku
+haiku,0001193125-21-156649,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'regulatory_approval'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-156649,merger,termination_date,date,2021-08-12,,False,False,True,False,M,False,haiku
+haiku,0001193125-21-156649,merger,record_date,date,2021-06-10,,False,False,True,False,M,False,haiku
+haiku,0001193125-21-162187,merger,exchange_basis,enum,nav_for_nav,,False,False,True,False,M,False,haiku
+haiku,0001193125-21-162187,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-162187,merger,expected_close,text,,on or about 2021 or as soon as practicable thereafter,False,True,False,False,M,True,haiku
+haiku,0001193125-21-196361,merger,n_targets,number,2.0,,False,False,True,False,M,False,haiku
+haiku,0001193125-21-196361,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-196361,merger,expected_close,text,,on or about 2021,False,True,False,False,M,True,haiku
+haiku,0001140361-21-031958,merger,n_targets,number,1.0,,False,False,True,False,M,True,haiku
+haiku,0001140361-21-035928,merger,collar,bool,False,,False,False,True,False,M,False,haiku
+haiku,0001140361-21-035928,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-284573,merger,n_targets,number,1.0,,False,False,True,False,M,True,haiku
+haiku,0001193125-21-295498,merger,conditions,set,"frozenset({'registration_effective', 'other', 'shareholder_approval', 'tax_opinion'})","frozenset({'other', 'shareholder_approval'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-295498,merger,expected_close,text,,quarter of,False,True,False,False,M,True,haiku
+haiku,0001213900-21-054259,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,haiku
+haiku,0001213900-21-054259,merger,expected_close,text,first quarter of fiscal 2022,during the first quarter of fiscal 2022,False,True,True,False,M,True,haiku
+haiku,0001213900-21-054259,merger,termination_date,date,2022-04-13,,False,False,True,False,M,False,haiku
+haiku,0001193125-21-345552,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-358275,merger,n_targets,number,1.0,,False,False,True,False,M,True,haiku
+haiku,0001193125-21-358275,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,haiku
+haiku,0001193125-21-358275,merger,termination_date,date,2022-12-01,,False,False,True,False,M,False,haiku
+haiku,0001193125-22-014885,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,haiku
+haiku,0001193125-22-014885,merger,expected_close,text,,on or about 2022,False,True,False,False,M,True,haiku
+haiku,0000894189-21-000100,merger,security_class,enum,common,other,False,True,True,False,M,True,haiku
+haiku,0000894189-21-000100,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,haiku
+haiku,0001104659-21-012810,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'registration_effective', 'legal_injunction', 'regulatory_approval', 'tax_opinion'})",False,True,True,False,M,True,haiku
+haiku,0001193125-21-048962,merger,security_class,enum,common,other,False,True,True,False,M,True,haiku
+haiku,0001193125-21-048962,merger,n_targets,number,1.0,,False,False,True,False,M,True,haiku
+haiku,0001193125-21-048962,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'registration_effective', 'legal_injunction', 'regulatory_approval', 'tax_opinion'})",False,True,True,False,M,True,haiku
+haiku,0000894189-21-001425,merger,security_class,enum,common,other,False,True,True,False,M,True,haiku
+haiku,0000894189-21-001425,merger,n_targets,number,1.0,,False,False,True,False,M,True,haiku
+haiku,0000894189-21-001425,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,haiku
+haiku,0001398344-21-011202,rights_offering,price_pct,percent,95.0,,False,False,True,False,R,True,haiku
+haiku,0001398344-21-011202,rights_offering,price_floor_pct_nav,percent,85.0,,False,False,True,False,R,True,haiku
+haiku,0001398344-21-011203,rights_offering,price_pct,percent,95.0,,False,False,True,False,R,True,haiku
+haiku,0001398344-21-011203,rights_offering,price_floor_pct_nav,percent,85.0,,False,False,True,False,R,True,haiku
+haiku,0001398344-21-011204,rights_offering,price_pct,percent,95.0,,False,False,True,False,R,True,haiku
+haiku,0001398344-21-011204,rights_offering,price_floor_pct_nav,percent,85.0,,False,False,True,False,R,True,haiku
+sonnet,0001140361-21-005674,cef_tender,size_pct_outstanding,percent,5.0,,False,False,True,False,T,True,sonnet
+sonnet,0001140361-21-005674,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,sonnet
+sonnet,0001140361-22-019368,cef_tender,triage.fund_type,enum,interval_or_tender_offer_fund,closed_end_fund,False,True,True,False,T,True,sonnet
+sonnet,0001140361-22-019368,cef_tender,price_pct_nav,percent,100.0,,False,False,True,False,T,True,sonnet
+sonnet,0001140361-22-019368,cef_tender,trigger_origin,enum,periodic_liquidity,,False,False,True,False,T,True,sonnet
+sonnet,0000350797-21-000080,cef_tender,trigger_origin,enum,merger_related,other,False,True,True,False,T,True,sonnet
+sonnet,0001193125-21-084266,cef_tender,conditions,set,"frozenset({'minimum_tender', 'market_disruption', 'legal_injunction', 'other', 'regulatory_approval', 'board_discretion'})",frozenset({'minimum_tender'}),False,True,True,False,T,False,sonnet
+sonnet,0001550913-21-000017,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,sonnet
+sonnet,0001550913-21-000032,cef_tender,size_shares,number,400000.0,58897.7444,False,True,True,False,T,True,sonnet
+sonnet,0001550913-21-000032,cef_tender,shares_tendered,number,,13303521.4954,False,True,False,False,T,True,sonnet
+sonnet,0001550913-21-000032,cef_tender,shares_accepted,number,58897.7444,13303521.4954,False,True,True,False,T,True,sonnet
+sonnet,0000940394-21-001125,cef_tender,trigger_origin,enum,activist_settlement,,False,False,True,False,T,True,sonnet
+sonnet,0001558370-21-004185,cef_tender,price_pct_nav,percent,100.0,,False,False,True,False,T,True,sonnet
+sonnet,0001558370-21-004185,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,sonnet
+sonnet,0001535778-24-000175,cef_tender,triage.fund_type,enum,interval_or_tender_offer_fund,bdc,False,True,True,False,T,True,sonnet
+sonnet,0001535778-24-000175,cef_tender,price_pct_nav,percent,100.0,,False,False,True,False,T,True,sonnet
+sonnet,0001535778-24-000175,cef_tender,size_pct_outstanding,percent,2.5,,False,False,True,False,T,True,sonnet
+sonnet,0001535778-24-000175,cef_tender,commencement_date,date,2024-09-26,,False,False,True,False,T,True,sonnet
+sonnet,0000940394-21-001127,cef_tender,trigger_origin,enum,activist_settlement,,False,False,True,False,T,True,sonnet
+sonnet,0001387131-21-010988,cef_tender,commencement_date,date,2021-10-12,,False,False,True,False,T,True,sonnet
+sonnet,0001287032-21-000418,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'market_disruption', 'other', 'legal_injunction'})",False,True,True,False,T,True,sonnet
+sonnet,0001287032-21-000418,cef_tender,trigger_origin,enum,board_discretionary,other,False,True,True,False,T,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,triage.kind,enum,equity_mna,merger,False,True,True,False,M,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,security_class,enum,common,,False,False,True,False,M,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,exchange_ratio,number,0.52,,False,False,True,False,M,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,collar,bool,False,,False,False,True,False,M,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'registration_effective', 'listing', 'tax_opinion'})",,False,False,True,False,M,False,sonnet
+sonnet,0001104659-21-055075,equity_mna,expected_close,text,third quarter of 2021,,False,False,True,False,M,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,termination_date,date,2021-12-31,,False,False,True,False,M,True,sonnet
+sonnet,0001104659-21-055075,equity_mna,termination_fee,number,2156000.0,,False,False,True,False,M,True,sonnet
+sonnet,0001821268-21-000189,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,sonnet
+sonnet,0001821268-21-000189,merger,expected_close,text,sometime during the fourth quarter of 2021,,False,False,True,False,M,False,sonnet
+sonnet,0001821268-21-000189,merger,termination_date,date,2021-06-30,,False,False,True,False,M,False,sonnet
+sonnet,0001193125-21-156649,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'regulatory_approval'})",False,True,True,False,M,False,sonnet
+sonnet,0001193125-21-156649,merger,termination_date,date,2021-08-12,,False,False,True,False,M,False,sonnet
+sonnet,0001193125-21-162187,merger,exchange_basis,enum,nav_for_nav,,False,False,True,False,M,False,sonnet
+sonnet,0001193125-21-162187,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,sonnet
+sonnet,0001193125-21-175201,merger,security_class,enum,common,,False,False,True,False,M,True,sonnet
+sonnet,0001193125-21-196361,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,sonnet
+sonnet,0001140361-21-031958,merger,conditions,set,"frozenset({'other', 'shareholder_approval', 'regulatory_approval'})","frozenset({'shareholder_approval', 'regulatory_approval'})",False,True,True,False,M,True,sonnet
+sonnet,0001140361-21-035928,merger,collar,bool,False,,False,False,True,False,M,False,sonnet
+sonnet,0001140361-21-035928,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,sonnet
+sonnet,0001193125-21-295498,merger,conditions,set,"frozenset({'registration_effective', 'other', 'shareholder_approval', 'tax_opinion'})","frozenset({'other', 'shareholder_approval'})",False,True,True,False,M,False,sonnet
+sonnet,0001213900-21-054259,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,sonnet
+sonnet,0001213900-21-054259,merger,termination_date,date,2022-04-13,,False,False,True,False,M,False,sonnet
+sonnet,0001193125-21-345552,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing'})",False,True,True,False,M,False,sonnet
+sonnet,0001193125-21-358275,merger,collar,bool,,False,False,True,False,False,M,True,sonnet
+sonnet,0001193125-21-358275,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,sonnet
+sonnet,0001193125-21-358275,merger,termination_date,date,2022-12-01,,False,False,True,False,M,False,sonnet
+sonnet,0001193125-21-361204,merger,security_class,enum,common,,False,False,True,False,M,True,sonnet
+sonnet,0001193125-22-014885,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,sonnet
+sonnet,0000894189-21-000100,merger,security_class,enum,common,other,False,True,True,False,M,True,sonnet
+sonnet,0000894189-21-000100,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,sonnet
+sonnet,0000894189-21-000100,merger,expected_close,text,on or around april 16 2021,april 16 2021,False,True,True,False,M,True,sonnet
+sonnet,0001104659-21-012810,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",False,True,True,False,M,True,sonnet
+sonnet,0001193125-21-048962,merger,security_class,enum,common,other,False,True,True,False,M,True,sonnet
+sonnet,0001193125-21-048962,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'registration_effective', 'legal_injunction', 'regulatory_approval', 'tax_opinion'})",False,True,True,False,M,True,sonnet
+sonnet,0000894189-21-001425,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,sonnet
+sonnet,0001398344-21-011202,rights_offering,price_pct,percent,95.0,,False,False,True,False,R,True,sonnet
+sonnet,0001398344-21-011203,rights_offering,price_pct,percent,95.0,,False,False,True,False,R,True,sonnet
+sonnet,0001398344-21-011204,rights_offering,price_pct,percent,95.0,,False,False,True,False,R,True,sonnet
+opus,0001140361-21-005674,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,opus
+opus,0001193125-21-084266,cef_tender,conditions,set,"frozenset({'minimum_tender', 'market_disruption', 'legal_injunction', 'other', 'regulatory_approval', 'board_discretion'})","frozenset({'board_discretion', 'minimum_tender'})",False,True,True,False,T,False,opus
+opus,0001193125-21-084266,cef_tender,trigger_origin,enum,other,board_discretionary,False,True,True,False,T,True,opus
+opus,0001550913-21-000017,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,opus
+opus,0001550913-21-000032,cef_tender,shares_tendered,number,,13303521.4954,False,True,False,False,T,True,opus
+opus,0001550913-21-000032,cef_tender,shares_accepted,number,58897.7444,13303521.4954,False,True,True,False,T,True,opus
+opus,0000940394-21-001125,cef_tender,trigger_origin,enum,activist_settlement,,False,False,True,False,T,True,opus
+opus,0001558370-21-004185,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'board_discretion', 'market_disruption', 'legal_injunction'})",False,True,True,False,T,True,opus
+opus,0001535778-24-000175,cef_tender,triage.fund_type,enum,interval_or_tender_offer_fund,closed_end_fund,False,True,True,False,T,True,opus
+opus,0000940394-21-001127,cef_tender,trigger_origin,enum,activist_settlement,,False,False,True,False,T,True,opus
+opus,0001387131-21-010988,cef_tender,commencement_date,date,2021-10-12,,False,False,True,False,T,True,opus
+opus,0001287032-21-000418,cef_tender,conditions,set,"frozenset({'board_discretion', 'market_disruption', 'other', 'legal_injunction'})","frozenset({'market_disruption', 'other', 'legal_injunction'})",False,True,True,False,T,True,opus
+opus,0001104659-21-055075,equity_mna,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'legal_injunction', 'shareholder_approval', 'registration_effective', 'listing', 'tax_opinion'})",False,True,True,False,M,False,opus
+opus,0001104659-21-055075,equity_mna,expected_close,text,third quarter of 2021,the third quarter of 2021,False,True,True,False,M,True,opus
+opus,0001821268-21-000189,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,opus
+opus,0001821268-21-000189,merger,expected_close,text,sometime during the fourth quarter of 2021,,False,False,True,False,M,False,opus
+opus,0001821268-21-000189,merger,termination_date,date,2021-06-30,,False,False,True,False,M,False,opus
+opus,0001193125-21-156649,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'regulatory_approval'})",False,True,True,False,M,False,opus
+opus,0001193125-21-156649,merger,termination_date,date,2021-08-12,,False,False,True,False,M,False,opus
+opus,0001193125-21-162187,merger,exchange_basis,enum,nav_for_nav,,False,False,True,False,M,False,opus
+opus,0001193125-21-162187,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,opus
+opus,0001193125-21-162187,merger,expected_close,text,,on or about 2021 or as soon as practicable thereafter,False,True,False,False,M,True,opus
+opus,0001193125-21-196361,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,opus
+opus,0001140361-21-035928,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,opus
+opus,0001193125-21-284573,merger,security_class,enum,,common,False,True,False,False,M,True,opus
+opus,0001193125-21-295498,merger,conditions,set,"frozenset({'registration_effective', 'other', 'shareholder_approval', 'tax_opinion'})","frozenset({'other', 'shareholder_approval'})",False,True,True,False,M,False,opus
+opus,0001213900-21-054259,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,opus
+opus,0001213900-21-054259,merger,expected_close,text,first quarter of fiscal 2022,during the first quarter of fiscal 2022,False,True,True,False,M,True,opus
+opus,0001213900-21-054259,merger,termination_date,date,2022-04-13,,False,False,True,False,M,False,opus
+opus,0001193125-21-345552,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing'})",False,True,True,False,M,False,opus
+opus,0001193125-21-358275,merger,collar,bool,,False,False,True,False,False,M,True,opus
+opus,0001193125-21-358275,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'listing', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,opus
+opus,0001193125-21-358275,merger,termination_date,date,2022-12-01,,False,False,True,False,M,False,opus
+opus,0001193125-22-014885,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,opus
+opus,0000894189-21-000100,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",frozenset({'shareholder_approval'}),False,True,True,False,M,False,opus
+opus,0001193125-21-021815,merger,security_class,enum,,common,False,True,False,False,M,True,opus
+opus,0001104659-21-012810,merger,security_class,enum,other,common,False,True,True,False,M,True,opus
+opus,0001193125-21-048962,merger,conditions,set,"frozenset({'ric_or_tax_status', 'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'other', 'legal_injunction', 'regulatory_approval', 'registration_effective', 'tax_opinion'})",False,True,True,False,M,True,opus
+opus,0000894189-21-001425,merger,conditions,set,"frozenset({'other', 'legal_injunction', 'shareholder_approval', 'regulatory_approval', 'registration_effective', 'tax_opinion'})","frozenset({'shareholder_approval', 'tax_opinion'})",False,True,True,False,M,False,opus

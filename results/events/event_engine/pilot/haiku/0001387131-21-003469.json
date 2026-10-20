@@ -1,0 +1,21 @@
+{
+ "accession": "0001387131-21-003469",
+ "triage": {"kind": "rights_offering", "fund_type": "closed_end_fund", "doc_role": "prospectus", "kind_span": "is issuing subscription rights (the “Rights”) to our common shareholders to purchase additional common shares"},
+ "events": [{"kind": "rights_offering", "terms": {
+   "subject_names": {"value": "The Gabelli Utility Trust", "span": "The Gabelli Utility Trust (the “Fund,” “we,” “us” or “our”) is issuing subscription rights", "doc_seq": "1"},
+   "subject_tickers": {"value": "GUT; GUT RT", "span": "The Rights are transferable and will be admitted for trading on the NYSE under the symbol “GUT RT”", "doc_seq": "1"},
+   "security_class": {"value": "common", "span": "One transferable subscription right (a “Right”) will be issued for each common share of the Fund", "doc_seq": "1"},
+   "rights_per_share": {"value": 1, "span": "One Right will be issued in respect of each Common Share of the Fund outstanding as of the close of business on the Record Date", "doc_seq": "1"},
+   "rights_per_new_share": {"value": 7, "span": "A holder of Rights may purchase one Common Share of the Fund for every seven Rights exercised", "doc_seq": "1"},
+   "price_reference": {"value": "fixed", "span": "Seven Rights may be exercised at a price of $5.50 per Common Share (the “Subscription Price”)", "doc_seq": "1"},
+   "price_pct": null,
+   "price_floor_pct_nav": null,
+   "record_date": {"value": "2021-03-11", "span": "will be issued to holders of record of the Fund’s Common Shares as of the close business on March 11, 2021", "doc_seq": "1"},
+   "expiration_date": {"value": "2021-04-14", "span": "which will be 5:00 PM Eastern Time on April 14, 2021 (the “Expiration Date”), unless otherwise extended", "doc_seq": "1"},
+   "transferable": {"value": true, "span": "The Rights will be transferable.", "doc_seq": "1"},
+   "over_subscription": {"value": true, "span": "An over-subscription privilege will be offered, subject to the right of the Board of Trustees of the Fund (the “Board”) to eliminate the over-subscription privilege", "doc_seq": "1"},
+   "max_new_shares": {"value": 7885840, "span": "7,885,840 Common Shares of the Fund will be issued if all Rights are exercised", "doc_seq": "1"}
+ }}],
+ "uncertain_fields": ["record_date"],
+ "notes": "Rights offering prospectus supplement (Form 424B2) dated March 11, 2021 for The Gabelli Utility Trust (NYSE: GUT). One Right per common share; seven Rights buy one new common share at a fixed $5.50 subscription price. The schema has no fixed-price field, so the $5.50 is recorded only as price_reference fixed and price_pct is null. Maximum shares 7,885,840 as stated. Record date is printed as March 11, 2020 once (Terms of the Rights Offering) and as March 11, 2021 elsewhere; 2021 is used. Expiration is April 14, 2021 unless extended; no extension is stated in this excerpt. Board may eliminate the over-subscription privilege up to the fifth day after expiration. Estimated offering expenses of about $320,000 are stated; no schema field. No arithmetic applied."
+}

@@ -1,0 +1,25 @@
+{
+ "accession": "0001287032-21-000418",
+ "triage": {"kind": "cef_tender", "fund_type": "bdc", "doc_role": "offer_document", "kind_span": "Issuer tender offer subject to Rule 13e-4."},
+ "events": [{"kind": "cef_tender", "terms": {
+   "subject_names": {"value": "Prospect Capital Corporation", "span": "Prospect Capital Corporation", "doc_seq": "1"},
+   "subject_tickers": {"value": "PSEC", "span": "Our common stock is currently traded on the Nasdaq Global Select Market under the symbol “PSEC.”", "doc_seq": "2"},
+   "security_class": {"value": "notes", "span": "4.95% Senior Convertible Notes due 2022", "doc_seq": "1"},
+   "price_basis": {"value": "fixed_price", "span": "The Purchase Price for each $1,000 principal amount of Notes validly tendered and accepted for purchase shall be an amount equal to $1,025.00", "doc_seq": "2"},
+   "price_pct_nav": null,
+   "nav_pricing_date": null,
+   "size_pct_outstanding": null,
+   "size_shares": null,
+   "commencement_date": {"value": "2021-08-26", "span": "The Tender Offer commenced on August 26, 2021 and will expire on the Expiration Date", "doc_seq": "2"},
+   "expiration_date": {"value": "2021-09-24", "span": "The Tender Offer will expire at 12:00 midnight, New York City time, on September 24, 2021", "doc_seq": "1"},
+   "proration": {"value": true, "span": "proration for each Holder tendering Notes will be calculated with a proration factor of such amount so that the Company only accepts for purchase an aggregate principal amount of Notes of $60,000,000", "doc_seq": "2"},
+   "conditions": {"value": ["legal_injunction", "market_disruption", "other"], "spans": ["no order, statute, rule, regulation, executive order, stay, decree, judgment or injunction shall have been proposed, enacted, entered, issued, promulgated, enforced or deemed applicable by any court", "there has not occurred (a) any general suspension of, or limitation on prices for, trading in securities in the securities or financial markets, (b) a material impairment in the trading market for debt securities", "none of the Trustee or the Security Registrars shall have objected in any respect to or taken action that could, in our reasonable judgment, adversely affect the consummation of the Tender Offer"], "doc_seq": "2"},
+   "trigger_origin": {"value": "board_discretionary", "span": "The purpose of the Tender Offer is to reduce the principal amount of outstanding Notes, which mature on July 15, 2022", "doc_seq": "2"},
+   "shares_tendered": null,
+   "shares_accepted": null,
+   "proration_factor_pct": null,
+   "final_price_per_share": null
+ }}],
+ "uncertain_fields": ["kind", "trigger_origin"],
+ "notes": "Commencement document only (SC TO-I; seq 1 cover, seq 2 Offer to Purchase dated August 26, 2021); no results in this excerpt. The instrument is 4.95% Senior Convertible Notes due 2022, not common shares. kind cef_tender is the nearest kind for an issuer tender offer and is flagged. The size is a $60,000,000 principal amount, not a share count, so size_shares is null; size_pct_outstanding is null because the percent would need arithmetic on the stated $111,055,000 outstanding. The filing states the expiration as 12:00 midnight New York City time on September 24, 2021 (also written as one minute after 11:59 p.m. on September 23, 2021); recorded as 2021-09-24. No extension appears in the excerpt. The price is $1,025 per $1,000 principal (fixed), so price_pct_nav is null. trigger_origin board_discretionary is an inference from the stated purpose (reducing principal outstanding), not a stated label; flagged."
+}

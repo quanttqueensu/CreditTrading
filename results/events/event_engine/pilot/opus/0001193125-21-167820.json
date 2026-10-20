@@ -1,0 +1,6 @@
+{"accession": "0001193125-21-167820",
+ "triage": {"kind": "none", "fund_type": "closed_end_fund", "doc_role": "prospectus",
+            "kind_span": "We may offer, from time to time, in one or more offerings, our common and/or fixed rate preferred shares, each with a par value $0.001 per share (together, shares), our promissory notes (notes), and/or our subscription rights to purchase our common and/or fixed rate preferred shares, which we refer to collectively as the securities."},
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "424B2 filing of The GDL Fund's (NYSE: GDL) shelf BASE PROSPECTUS dated May 19, 2021 ($200,000,000 of common shares, preferred shares, notes and subscription rights; Registration Statement No. 333-250213). It sets no terms for any particular offering: the number of shares per right and other rights-offering terms are left to a future Prospectus Supplement, so no rights_offering event is extracted. The excerpt contains no prospectus supplement and ends inside 'Risk Factors and Special Considerations'. Mentions of the Series C Preferred Shares' redemption dates and the open-market repurchase authorisation (discount of 7.5% or more) are standing fund features, not an event of the schema's kinds."}

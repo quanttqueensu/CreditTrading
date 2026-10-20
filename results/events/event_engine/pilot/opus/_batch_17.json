@@ -1,0 +1,5 @@
+{"batch": "17",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0001140361-21-031958", "0001193125-21-284573", "0001398344-21-011202", "0001398344-21-011203", "0001398344-21-011204"],
+ "parts_read": 11,
+ "problems": "No blocking problems. Judgement calls: (1) the three Clough rights offerings price at the higher of 85% of NAV or 95% of market; encoded as greater_of_nav_and_market, price_pct 95, price_floor_pct_nav 85, and flagged uncertain. (2) MYJ/MUJ press release never says 'common'; security_class common flagged uncertain; exchange_basis null because the excerpt states none. (3) Barings/Sierra cash of approximately $0.98 per share is paid by Barings LLC (the adviser), not the acquirer; n_targets 1 is a count of named targets, not a stated number."}

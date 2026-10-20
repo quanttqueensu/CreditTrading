@@ -1,0 +1,23 @@
+{
+ "accession": "0001140361-21-035928",
+ "triage": {"kind": "merger", "fund_type": "bdc", "doc_role": "registration_or_proxy", "kind_span": "Barings BDC and Sierra are proposing a combination of both companies by a merger and related transactions pursuant to the Merger Agreement"},
+ "events": [{"kind": "merger", "terms": {
+   "subject_names": {"value": "Sierra Income Corporation; Barings BDC, Inc.", "span": "Barings BDC and Sierra are proposing a combination of both companies by a merger", "doc_seq": "1"},
+   "subject_tickers": {"value": "BBDC", "span": "Barings BDC Common Stock trades on the New York Stock Exchange (the “NYSE”) under the ticker symbol “BBDC.”", "doc_seq": "1"},
+   "security_class": {"value": "common", "span": "each share of Sierra common stock, $0.001 par value per share", "doc_seq": "1"},
+   "acquirer": {"value": "Barings BDC, Inc.", "span": "Barings BDC, Inc., a Maryland corporation", "doc_seq": "1"},
+   "targets": {"value": "Sierra Income Corporation", "span": "Sierra Income Corporation, a Maryland corporation", "doc_seq": "1"},
+   "n_targets": {"value": 1, "span": "Sierra Income Corporation, a Maryland corporation", "doc_seq": "1"},
+   "exchange_basis": {"value": "cash_and_stock", "span": "will be converted into the right to receive (i) $0.9783641 per share in cash, without interest, from Barings (such amount of cash, the “Cash Consideration”), and (ii) 0.44973 (the “Exchange Ratio”) of a validly issued, fully paid and non-assessable share of Barings BDC Common Stock", "doc_seq": "1"},
+   "exchange_ratio": {"value": 0.44973, "span": "The Exchange Ratio was fixed at the signing of the Merger Agreement at 0.44973.", "doc_seq": "1"},
+   "cash_per_share": {"value": 0.9783641, "span": "will be converted into the right to receive (i) $0.9783641 per share in cash, without interest, from Barings", "doc_seq": "1"},
+   "collar": null,
+   "conditions": {"value": ["shareholder_approval", "tax_opinion"], "spans": ["The Merger Stock Issuance Proposal and the Barings BDC Below NAV Proposals with respect to Barings BDC, and the Merger Proposal with respect to Sierra, are conditions precedent to the closing of the Merger.", "Sierra’s obligation to effect the Merger is conditioned on its receipt of an opinion from Sullivan & Worcester LLP"], "doc_seq": "1"},
+   "expected_close": {"value": "first quarter of 2022", "span": "Barings BDC and Sierra are working to complete the Merger in the first quarter of 2022.", "doc_seq": "1"},
+   "termination_date": {"value": "2022-03-31", "span": "Except in specified circumstances, if the Merger is not completed by March 31, 2022, either Sierra or Barings BDC may choose not to proceed with the Merger.", "doc_seq": "1"},
+   "meeting_date": null,
+   "record_date": null
+ }}],
+ "uncertain_fields": ["subject_names", "conditions"],
+ "notes": "Preliminary Form N-14 / joint proxy statement-prospectus (marked PRELIMINARY, subject to completion). Stock-and-cash merger of Sierra Income Corporation into Barings BDC: per Sierra share, $0.9783641 cash plus a fixed exchange ratio of 0.44973 Barings BDC shares; the exchange ratio is stated as fixed, no arithmetic applied. Meeting, record and closing dates are [•] placeholders in the excerpt, so null. Termination fee of $11.0 million and expense reimbursement cap of $2.0 million are stated but have no schema field. Medley LLC bankruptcy is noted as not expected to affect the merger. Only one document (seq 1) appears in the excerpt."
+}
