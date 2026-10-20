@@ -75,7 +75,8 @@ EDGAR facts (CIKs, accessions, quotes) and tickers with dates; never a row-level
 return. Row-level files go to `results/events/e1/_cache_e1/` (gitignored).
 
 IMPLEMENTATION READINGS (the pre-registration is silent; each is listed in the Stage 0 note for the
-team lead to correct before Stage 1):
+team lead to correct before Stage 1). RULED 2026-10-20: all twelve accepted as recommended
+(team lead, "accept all recommended"; PREREG amendment 2; results/events/E1_RULINGS_FORM_2026-10-20.md):
   R1 identity check 1 compares to 1e-12 against the published per-deal values as re-computed
      by `merger_pairs.announcement_sample_edgar` in memory, and at the published file's own
      precision (%.8g, string-equal) against `merger_ann_sample_edgar.csv`; the published
@@ -93,7 +94,7 @@ team lead to correct before Stage 1):
      pre-registration declares none (it predates §4b), so the house template's path is used.
   R8 DG-E1-5 asks for MUB/IEF/HYG coverage to 2024-12-31, but the only declared CRSP reader
      that may read 2023+ rows is the holdout reader, after the fit verdict. No E1 statistic
-     uses factor returns after 2022, so Stage 0 checks the fit window and reports the rest.
+     uses factor returns after 2022, so DG-E1-5 clears on coverage of the fit window.
   R9 control 2's candidates are not filtered for `cef_universe.csv` names or the spec's 13 (the
      pre-registration names no such filter). A universe name chosen as a control is a return on
      the 27-name set; E1 consumes that set at Stage 1 anyway (decision 3).
@@ -102,9 +103,9 @@ team lead to correct before Stage 1):
      counterparty, so open-end trusts' N-14 episodes are read and recorded as not_a_listed_pair.
   R11 control 2's holdout exclusion uses holdout deal windows from dates only, [A, exit + 1 day],
      wider than the traded window, so no holdout price is read before the fit verdict.
-  R12 whether stage 8 opens after a fit KILL is not settled (§10 reports every statistic
-     whatever the verdict; the coordinator's brief says ask): `holdout` refuses until the team
-     lead sets HOLDOUT_OPENS_AFTER_FIT_KILL.
+  R12 stage 8 opens after any committed fit verdict except a HALT; after a KILL or NEITHER it is
+     report-only and the verdict stays the fit's (`holdout_opens`). Until the 2026-10-20 ruling
+     `holdout` refused after any non-pass.
 
 Tests: scripts/events/tests/test_e1_merger_pair.py (synthetic frames; the network is blocked),
 scripts/cef/tests/test_event_hold.py (the two band_frontier helpers).
@@ -190,10 +191,10 @@ FF6 = ("mktrf", "smb", "hml", "rmw", "cma", "umd")
 PRICED = ("ok", "bridged")
 FIT_SET, HOLDOUT_SETS = "fit_seen", ("name_holdout", "time_holdout")
 BORROW_MEAS_START = pd.Timestamp("2021-09-13")
-# Whether the holdout opens after a fit KILL is not settled by the pre-registration (§10 says
-# every statistic is reported whatever the verdict; the coordinator's brief says to ask). Until
-# the team lead rules, `holdout` opens only after a fit that passed stages 1-6.
-HOLDOUT_OPENS_AFTER_FIT_KILL: bool | None = None
+# Reading R12, ruled 2026-10-20 (team lead: "accept all recommended"; PREREG amendment 2): the
+# holdout opens after any committed fit verdict except a HALT; after a KILL or NEITHER it is
+# report-only and the verdict stays the fit's. Was None (refuse after any non-pass) until then.
+HOLDOUT_OPENS_AFTER_FIT_KILL: bool | None = True
 
 READING_COLUMNS = ("episode_cik", "episode_accession", "deal_id", "role", "counterparty_cik",
                    "counterparty_name", "both_listed", "outcome", "in_trial",
@@ -274,10 +275,17 @@ def holdout_gate(fit_json: Path = FIT_JSON) -> dict:
     v = json.loads(fit_json.read_text())
     if not v.get("stage7_fit_verdict_written"):
         raise GateError(f"{fit_json.name} is not a stage-7 fit verdict")
-    if v["verdict"] != "FIT PASSES STAGES 1-6" and HOLDOUT_OPENS_AFTER_FIT_KILL is not True:
-        raise GateError(f"the fit verdict is {v['verdict']!r}; whether the holdout opens after a fit kill "
-                        "awaits the team lead's ruling (HOLDOUT_OPENS_AFTER_FIT_KILL)")
+    if not holdout_opens(v["verdict"]):
+        raise GateError(f"the fit verdict is {v['verdict']!r}: the holdout does not open after it (reading R12)")
     return v
+
+
+def holdout_opens(verdict: str) -> bool:
+    """Reading R12 (ruled 2026-10-20): a pass opens the holdout; a KILL or NEITHER opens it
+    report-only; a HALT never does, because its verdict is not final."""
+    if verdict.startswith("HALT"):
+        return False
+    return verdict == "FIT PASSES STAGES 1-6" or HOLDOUT_OPENS_AFTER_FIT_KILL is True
 
 
 def holdout_daily(perms) -> pd.DataFrame:
@@ -1391,9 +1399,9 @@ def stage0(args) -> int:
     fit_cov = bool(ffd and ffd[0] <= "2009-07-01" and ffd[1] >= "2024-12-31"
                    and all(v[0] <= "2009-07-01" and v[1] >= "2022-12-30" and v[2] == 0 for v in etf_span.values())
                    and len(etf_span) == 3)
-    gates["DG-E1-5"] = {"status": "INCOMPLETE" if fit_cov else "FAIL",
-                        "detail": "French covers 2009-07..2024-12; CRSP ETFs cover the fit window; their 2023-24 rows "
-                                  "are not readable before the fit verdict (reading R8)" if fit_cov else
+    gates["DG-E1-5"] = {"status": "PASS" if fit_cov else "FAIL",
+                        "detail": "French covers 2009-07..2024-12; CRSP ETFs cover the fit window, which is what "
+                                  "reading R8 (ruled 2026-10-20) requires" if fit_cov else
                                   "a factor input does not cover the fit window"}
 
     # ---------------------------------------------------------------- k and the cap

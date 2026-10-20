@@ -1,4 +1,4 @@
-E1 STAGE 0 -- 2026-10-20T00:52:35+00:00 -- HEAD 6096ef9 -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
+E1 STAGE 0 -- 2026-10-20T16:02:40+00:00 -- HEAD 9d978cb -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
 
 [DG-E1-6] pandas compute.use_numexpr: False
 
@@ -57,7 +57,7 @@ STAGE 0: HALT
   DG-E1-2: FAIL -- the name- and time-holdout deals are undated: 299 EDGAR documents are not cached and fetching needs the team lead's SEC contact (`fetch-edgar`)
   DG-E1-3: FAIL -- results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread
   DG-E1-4: INCOMPLETE -- completed fit deals checked ({"missing return on the leg's last earned session": 19}); failed deals wait on DG-E1-3
-  DG-E1-5: INCOMPLETE -- French covers 2009-07..2024-12; CRSP ETFs cover the fit window; their 2023-24 rows are not readable before the fit verdict (reading R8)
+  DG-E1-5: PASS -- French covers 2009-07..2024-12; CRSP ETFs cover the fit window, which is what reading R8 (ruled 2026-10-20) requires
   DG-E1-6: PASS -- numexpr off; the denormal assertion runs on every P&L built (identity check 2 here)
   DG-E1-7: PASS -- (see above)
 

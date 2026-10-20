@@ -309,3 +309,12 @@ def test_group_bootstrap_is_reproducible_and_clustered():
     one, two = e1.group_boot(v, g, reps=500), e1.group_boot(v, g, reps=500)
     assert one == two
     assert one["mean_lo"] <= v.mean() <= one["mean_hi"]
+
+
+@pytest.mark.parametrize("verdict, opens", [
+    ("FIT PASSES STAGES 1-6", True), ("KILL D4 (stage 5)", True), ("NEITHER (stage 6: below the bar at N = 6)", True),
+    ("KILL D1 (stage 1)", True), ("HALT (stage 3: fewer than 75% of deals have a control 2)", False)])
+def test_holdout_opens_per_reading_r12(verdict, opens):
+    """R12, ruled 2026-10-20: every committed verdict but a HALT opens the holdout (report-only
+    after a KILL or NEITHER). Checked to fail on the KILL/NEITHER cases with the pre-ruling None."""
+    assert e1.holdout_opens(verdict) is opens

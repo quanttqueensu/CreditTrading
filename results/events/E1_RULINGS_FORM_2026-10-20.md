@@ -5,7 +5,17 @@
 `results/events/E1_STAGE0_2026-10-19.md` · **Reproducers** `python3 scripts/events/e1_merger_pair.py stage0` (the flags), `python3 scripts/events/e1_rulings_facts.py` (the facts below)
 · **Flag form** `results/events/e1/e1_stage0_rulings.csv` (reading R7's path)
 
-> **This is a form, not a ruling.** Every recommendation below waits on the team lead.
+> **RULED 2026-10-20: all 15 items accepted as recommended.** The team lead answered "Accept
+> all recommended" (relayed by the coordinator). That covers F1–F19, R1–R12 with R12's wording
+> as written in §C, and decision 6 kept at its default, failed deals included.
+>
+> - `e1_stage0_rulings.csv` now carries the rulings, `ruled_by` "team lead (Simon Jarvis):
+>   accept all recommended" and `ruled_on` 2026-10-20. The Stage-0 block passes for the 19 flags.
+> - The readings are recorded as amendment 2 of the pre-registration.
+> - In code, R8 makes DG-E1-5 pass on fit-window coverage, and R12 sets
+>   `HOLDOUT_OPENS_AFTER_FIT_KILL = True` (`holdout_opens`).
+>
+> *Was:* **This is a form, not a ruling.** Every recommendation below waits on the team lead.
 >
 > - **No E1 statistic was computed to write it.** The flag diagnosis reads only whether a CRSP
 >   return is present, and where each acquirer's CRSP series starts. The R10 count reads only
