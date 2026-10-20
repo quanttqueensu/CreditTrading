@@ -1,0 +1,5 @@
+{"batch": "02",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0001213900-21-054259", "0001193125-21-167820"],
+ "parts_read": 10,
+ "problems": "None that stopped the work. Both excerpts end before the documents' substantive appendices: in 0001213900-21-054259 (FMO into KYN N-14 8C) the Merger Agreement and 'Terms of the Agreement and Plan of Merger' fall after the cut, so closing conditions beyond the shareholder vote, the outside date and the (blank) meeting date are null. 0001193125-21-167820 is a GDL Fund shelf base prospectus with no offering terms, triaged as kind none."}

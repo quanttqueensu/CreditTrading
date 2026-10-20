@@ -1,0 +1,23 @@
+{"accession": "0000894189-21-001425",
+ "triage": {"kind": "merger", "fund_type": "etf", "doc_role": "registration_or_proxy",
+            "kind_span": "to reorganize the Target Fund into a corresponding new fund (the “Acquiring Fund”), which is a newly created series of Tidal ETF Trust"},
+ "events": [{"kind": "merger",
+             "terms": {
+               "subject_names": {"value": "American Customer Satisfaction ETF", "span": "of the American Customer Satisfaction ETF (ticker: ACSI) (the “Target Fund”), a series of ESS", "doc_seq": "1"},
+               "subject_tickers": {"value": "ACSI", "span": "American Customer Satisfaction ETF (ticker: ACSI)", "doc_seq": "1"},
+               "security_class": {"value": "other", "span": "shares of beneficial interest (“shares”) of the Acquiring Fund", "doc_seq": "1"},
+               "acquirer": {"value": "American Customer Satisfaction ETF, a series of Tidal ETF Trust", "span": "into the American Customer Satisfaction ETF, a newly created series of Tidal ETF Trust", "doc_seq": "1"},
+               "targets": {"value": "American Customer Satisfaction ETF, a series of ETF Series Solutions", "span": "of the Target Fund, a series of ETF Series Solutions, into the American Customer Satisfaction ETF", "doc_seq": "1"},
+               "n_targets": null,
+               "exchange_basis": {"value": "nav_for_nav", "span": "Shareholders of the Target Fund will receive shares of the Acquiring Fund with a value equal to the aggregate net asset value", "doc_seq": "1"},
+               "exchange_ratio": null,
+               "cash_per_share": null,
+               "collar": null,
+               "conditions": {"value": ["shareholder_approval", "tax_opinion"], "spans": ["including the approval of the Plan by the shareholders of the Target Fund", "the receipt of a legal opinion from Godfrey & Kahn, S.C., counsel to Tidal, with respect to certain tax matters"], "doc_seq": "1"},
+               "expected_close": {"value": "on or about May 24, 2021", "span": "the Closing Date of the Reorganization is expected to be on or about May 24, 2021", "doc_seq": "1"},
+               "termination_date": null,
+               "meeting_date": {"value": "2021-05-12", "span": "is to be held on May 12, 2021 at 11:00 a.m. Central Time", "doc_seq": "1"},
+               "record_date": {"value": "2021-03-01", "span": "Holders of record of the shares of beneficial interest in the Target Fund as of the close of business on March 1, 2021", "doc_seq": "1"}
+             }}],
+ "uncertain_fields": ["security_class"],
+ "notes": "N-14 combined proxy statement and prospectus for a reorganization of an open-end ETF (American Customer Satisfaction ETF, ETF Series Solutions) into a new series of Tidal ETF Trust; fund_type etf because the filer is an ETF trust. All four part files read in full. exchange_basis nav_for_nav per the filing (shares valued at aggregate NAV). n_targets null: one Target Fund is named but no count is stated. exchange_ratio null: no fixed ratio stated. termination_date null: no outside date in the excerpt. security_class other: the filing says shares of beneficial interest, not common stock. collar not stated."}

@@ -1,0 +1,23 @@
+{"accession": "0001213900-21-054259",
+ "triage": {"kind": "merger", "fund_type": "closed_end_fund", "doc_role": "registration_or_proxy",
+            "kind_span": "a proposal authorizing the combination of FMO and KYN, which will be accomplished as a tax-free merger of FMO into KYN (the “Merger”)"},
+ "events": [{"kind": "merger",
+             "terms": {
+               "subject_names": {"value": "Fiduciary/Claymore Energy Infrastructure Fund; Kayne Anderson Energy Infrastructure Fund, Inc.", "span": "Kayne Anderson Energy Infrastructure Fund, Inc. (NYSE: KYN) Fiduciary/Claymore Energy Infrastructure Fund (NYSE: FMO)", "doc_seq": "1"},
+               "subject_tickers": {"value": "FMO; KYN", "span": "Kayne Anderson Energy Infrastructure Fund, Inc. (NYSE: KYN) Fiduciary/Claymore Energy Infrastructure Fund (NYSE: FMO)", "doc_seq": "1"},
+               "security_class": {"value": "common", "span": "Holders of FMO’s common shares are being asked to vote on the Merger.", "doc_seq": "1"},
+               "acquirer": {"value": "Kayne Anderson Energy Infrastructure Fund, Inc.", "span": "Kayne Anderson Energy Infrastructure Fund, Inc. (Exact name of registrant as specified in charter)", "doc_seq": "1"},
+               "targets": {"value": "Fiduciary/Claymore Energy Infrastructure Fund", "span": "Letter to Shareholders of Fiduciary/Claymore Energy Infrastructure Fund (“FMO”), a Delaware statutory trust and registered closed-end management investment company", "doc_seq": "1"},
+               "n_targets": {"value": 1, "span": "Upon the closing of the Merger, FMO will be merged with and into KYN", "doc_seq": "1"},
+               "exchange_basis": {"value": "nav_for_nav", "span": "The aggregate NAV of KYN common stock received by FMO common shareholders in the Merger will equal the aggregate NAV of FMO shares held on the business day prior to closing of the Merger", "doc_seq": "1"},
+               "exchange_ratio": null,
+               "cash_per_share": null,
+               "collar": null,
+               "conditions": {"value": ["shareholder_approval"], "spans": ["The Merger is subject to a vote by FMO’s shareholders."], "doc_seq": "1"},
+               "expected_close": {"value": "during the first quarter of fiscal 2022", "span": "The Merger is expected to take effect as soon as practicable once the shareholder vote and other customary conditions to closing are satisfied, which is expected to occur during the first quarter of fiscal 2022.", "doc_seq": "1"},
+               "termination_date": null,
+               "meeting_date": null,
+               "record_date": {"value": "2021-10-29", "span": "The Board has fixed the close of business on October 29, 2021, as the record date for the determination of shareholders entitled to notice of, and to vote at, the Meeting", "doc_seq": "1"}
+             }}],
+ "uncertain_fields": ["conditions"],
+ "notes": "Form N-14 / joint proxy statement-prospectus, pre-effective (dated October 22, 2021). Merger of FMO into KYN, tax-free, consideration at relative NAV. Exchange ratio is NOT a fixed ratio: the filing gives an illustrative ~1.32 KYN shares per FMO share at Sept 30, 2021 NAVs (9.05 and 11.95); left null per rule 3. Meeting date is blank in the filing (', 2022'), so meeting_date is null. Termination date and collar are not stated in the excerpt. The conditions field lists shareholder approval only; the filing also cites 'other customary conditions to closing' without categories. The excerpt ends in the risk factors (cut at 'Dependence on Limited Number of Customers and Suppliers'), so later terms are not visible. n_targets = 1 is the single FMO target of this transaction."}

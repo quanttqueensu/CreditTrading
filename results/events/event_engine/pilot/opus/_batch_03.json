@@ -1,0 +1,5 @@
+{"batch": "03",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0000350797-21-000080", "0000350797-21-000084"],
+ "parts_read": 10,
+ "problems": "No problem stopped the work. Judgment calls: (1) 0000350797-21-000084 carries two events, the 60% tender and a stated conditional tender programme (Q4 2022-2024, 10% at 98% NAV, >10% average VWAP discount Jan-Aug); both are written. (2) trigger_origin for -000080 is merger_related (the tender is tied to Morgan Stanley's acquisition of the adviser's parent); for -000084 it is activist_settlement (EVM-Saba agreement); both marked uncertain. (3) commencement_date is taken from the Offer to Purchase date (2021-06-29) in both; marked uncertain. (4) -000080 states the June 23, 2021 NAV inconsistently ($13.6727 in the Summary, $13.24 in the Introduction and Section 1); noted only, not a schema field."}

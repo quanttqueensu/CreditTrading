@@ -1,0 +1,68 @@
+{
+ "accession": "0001193125-21-196361",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "the reorganization of the Target Fund into the Acquiring Fund pursuant to an Agreement and Plan of Reorganization"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "NUVEEN SELECT TAX-FREE INCOME PORTFOLIO; NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 2; NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 3",
+     "span": "NUVEEN SELECT TAX-FREE INCOME PORTFOLIO (NXP) NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 2 (NXQ) AND NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 3 (NXR)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "NXP; NXQ; NXR",
+     "span": "NUVEEN SELECT TAX-FREE INCOME PORTFOLIO (NXP) NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 2 (NXQ) AND NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 3 (NXR)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "as a holder of common shares of Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)",
+     "span": "as a holder of common shares of Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Select Tax-Free Income Portfolio 2; Nuveen Select Tax-Free Income Portfolio 3",
+     "span": "NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 2 (NXQ) AND NUVEEN SELECT TAX-FREE INCOME PORTFOLIO 3 (NXR)",
+     "doc_seq": "1"
+    },
+    "n_targets": null,
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "will be equal to the aggregate net asset value of the common shares of such Target Fund held by its shareholders as of such time.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": ["shareholder_approval", "tax_opinion"],
+     "spans": [
+      "closing conditions, which include approval of Target Fund shareholders, approval of Acquiring Fund shareholders and other customary closing conditions.",
+      "As a non-waivable condition to each closing, each Fund involved in the Reorganization will receive an opinion of Vedder Price P.C."
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about [●], 2021",
+     "span": "the Reorganizations are expected to take effect on or about [●], 2021",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Form N-14 with joint proxy statement/prospectus, marked SUBJECT TO COMPLETION and dated June 22, 2021. Three Nuveen municipal CEFs: Acquiring Fund NXP and Target Funds NXQ and NXR (two reorganizations, each closing independent of the other). The exchange is stated as aggregate NAV of acquirer shares equal to aggregate NAV of target shares; fractional shares are sold and paid in cash. n_targets is null: the filing names two Target Funds but does not state a count, so no number was derived. exchange_ratio and cash_per_share are null because no fixed ratio or per-share cash is stated. Meeting, record and closing dates are placeholders ([●], 2021) in this draft and are null. collar not stated. Costs of $875,000 and per-fund allocations are stated but are not schema fields."
+}

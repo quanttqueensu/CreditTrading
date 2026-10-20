@@ -1,0 +1,12 @@
+{
+  "accession": "0001047469-21-000060",
+  "triage": {
+    "kind": "none",
+    "fund_type": "bdc",
+    "doc_role": "prospectus",
+    "kind_span": "We are offering $ in aggregate principal amount of % notes due , which we refer to as the Notes."
+  },
+  "events": [],
+  "uncertain_fields": [],
+  "notes": "Preliminary prospectus supplement (424B2) for an offering of unsecured notes by Main Street Capital Corporation, an internally managed BDC. A debt-securities shelf takedown carries none of the event kinds in the schema."
+}

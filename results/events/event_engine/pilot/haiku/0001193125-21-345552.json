@@ -1,0 +1,80 @@
+{
+ "accession": "0001193125-21-345552",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "bdc",
+  "doc_role": "announcement",
+  "kind_span": "entered into an Agreement and Plan of Merger (the Merger Agreement) with SLR Senior Investment Corp., a Maryland corporation (SUNS)"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "SLR Investment Corp.; SLR Senior Investment Corp.",
+     "span": "Subject Company: SLR Senior Investment Corp.",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "SLRC",
+     "span": "Common stock, par value $0.01 per share SLRC The NASDAQ Global Select Market",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "each share of common stock, par value $0.01 per share, of SUNS (SUNS Common Stock)",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "SLR Investment Corp.",
+     "span": "SLR Investment Corp., a Maryland corporation (SLRC)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "SLR Senior Investment Corp.",
+     "span": "SLR Senior Investment Corp., a Maryland corporation (SUNS)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 1,
+     "span": "SLR Senior Investment Corp., a Maryland corporation (SUNS)",
+     "doc_seq": "1"
+    },
+    "exchange_basis": {
+     "value": "nav_for_nav",
+     "span": "The Exchange Ratio will be equal to the quotient (rounded to four decimal places) of (i) the SUNS Per Share NAV divided by (ii) the SLRC Per Share NAV.",
+     "doc_seq": "1"
+    },
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": ["shareholder_approval", "listing", "registration_effective", "regulatory_approval", "legal_injunction", "other"],
+     "spans": [
+      "requisite approvals of SLRCs and SUNSs stockholders",
+      "authorization of the shares of SLRC common stock to be issued as consideration in the Mergers for listing on the Nasdaq Global Select Market",
+      "effectiveness of the registration statement for the SLRC common stock to be issued as consideration in the Mergers",
+      "required regulatory approvals (including expiration of the waiting period under the Hart-Scott-Rodino Antitrust Improvements Act of 1976, as amended)",
+      "the absence of certain legal impediments to the consummation of the Mergers",
+      "determinations of the closing SLRC Net Asset Value and the closing SUNS Net Asset Value in accordance with the terms of the Merger Agreement"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "first half of calendar year 2022",
+     "span": "currently anticipated to occur during the first half of calendar year 2022",
+     "doc_seq": "1"
+    },
+    "termination_date": {
+     "value": "2022-12-01",
+     "span": "if the Mergers are not completed on or before December 1, 2022",
+     "doc_seq": "1"
+    },
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": [],
+ "notes": "Rule 425 / 8-K filing by SLR Investment Corp. (acquirer, SLRC) announcing a merger agreement dated December 1, 2021 with SLR Senior Investment Corp. (SUNS). Two steps in one agreement: Merger Sub into SUNS, then SUNS into SLRC; treated as one event with one target. Exchange ratio is set at closing as the ratio of closing per-share NAVs (nav_for_nav basis); no fixed ratio is stated, so exchange_ratio is null. The SUNS ticker is not printed in the excerpt (SUNS is a defined term only), so subject_tickers carries SLRC alone. Fund type bdc is stated in the excerpt (both parties elected BDC status). Meeting and record dates are not stated, so null. Termination fees (about $25.6m and $7.6m) are stated but have no field in this kind's schema, so they are not extracted. The excerpt ends in Article IV of Exhibit 2.1 (SLRC Financial Statements representations), so later terms after the cut are null."
+}

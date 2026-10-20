@@ -1,0 +1,45 @@
+{
+ "accession": "0001398344-21-013205",
+ "triage": {
+  "kind": "cef_tender",
+  "fund_type": "closed_end_fund",
+  "doc_role": "offer_document",
+  "kind_span": "on Schedule TO relates to an offer by Saba Capital Income & Opportunities Fund (formerly known as Voya Prime Rate Trust), a Massachusetts business trust"
+ },
+ "events": [
+  {
+   "kind": "cef_tender",
+   "terms": {
+    "subject_names": {"value": "Saba Capital Income & Opportunities Fund", "span": "The name of the issuer is Saba Capital Income & Opportunities Fund", "doc_seq": "1"},
+    "subject_tickers": {"value": "BRW", "span": "The Shares are traded on the NYSE under the symbol “BRW.”", "doc_seq": "2"},
+    "security_class": {"value": "common", "span": "Common Shares of Beneficial Interest, no par value", "doc_seq": "1"},
+    "price_basis": {"value": "pct_of_nav", "span": "in exchange for cash at a price equal to 99% of the net asset value (“NAV”) per Share", "doc_seq": "1"},
+    "price_pct_nav": {"value": 99, "span": "in exchange for cash at a price equal to 99% of the net asset value (“NAV”) per Share", "doc_seq": "1"},
+    "nav_pricing_date": {"value": "close of the regular trading session of the NYSE on the Pricing Date", "span": "as of the close of the regular trading session of the NYSE on the Pricing Date", "doc_seq": "2"},
+    "size_pct_outstanding": {"value": 30, "span": "to repurchase 30% of its issued and outstanding common shares of beneficial interest, no par", "doc_seq": "1"},
+    "size_shares": {"value": 36453707, "span": "The amount is based upon the offer to purchase up to 36,453,707 common shares in the offer", "doc_seq": "1"},
+    "commencement_date": null,
+    "expiration_date": {"value": "2021-07-19", "span": "The Offer will expire at one minute past 11:59 p.m., Eastern time, on July 19, 2021, the Expiration Date, unless extended", "doc_seq": "2"},
+    "proration": {"value": true, "span": "the Fund will purchase duly tendered Shares from participating shareholders on a pro rata basis", "doc_seq": "2"},
+    "conditions": {
+     "value": ["listing", "ric_or_tax_status", "legal_injunction", "market_disruption", "board_discretion"],
+     "spans": [
+      "result in delisting of the Fund’s Shares from the NYSE",
+      "impair the Fund’s status as a regulated investment company (“RIC”)",
+      "there shall be instituted, pending or threatened before any governmental entity or court any action, proceeding, application or claim",
+      "any general suspension of trading in or limitation on prices for securities on the NYSE",
+      "the Board determines that effecting the Offer would be inconsistent with applicable legal requirements"
+     ],
+     "doc_seq": "2"
+    },
+    "trigger_origin": {"value": "other", "span": "shareholders approved a proposal requesting the Board to authorize a self-tender offer for at least 40% of the outstanding Shares of the Fund", "doc_seq": "2"},
+    "shares_tendered": null,
+    "shares_accepted": null,
+    "proration_factor_pct": null,
+    "final_price_per_share": null
+   }
+  }
+ ],
+ "uncertain_fields": ["trigger_origin"],
+ "notes": "Offer to purchase up to 30% of shares at 99% of NAV, struck at the close on the expiration date. Expiration July 19, 2021 is the only date stated in this excerpt; a later extension, if any, is past the cut. commencement_date is null: the filing gives the offer-document date (June 21, 2021) and no separate commencement date. size_shares 36,453,707 is a figure the filing states in the fee-table footnote (30% of shares outstanding); it was not computed. Results (shares tendered, accepted, proration factor, final price) are not in the excerpt and are null. Fund was formerly Voya Prime Rate Trust. trigger_origin is uncertain: the filing cites a 2020 shareholder-approved proposal that asked the Board to authorize a self-tender, which fits no enum value cleanly, so 'other' is used."
+}

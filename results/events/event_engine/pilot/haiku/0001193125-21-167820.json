@@ -1,0 +1,6 @@
+{"accession": "0001193125-21-167820",
+ "triage": {"kind": "none", "fund_type": "closed_end_fund", "doc_role": "prospectus",
+            "kind_span": "BASE PROSPECTUS dated May 19, 2021"},
+ "events": [],
+ "uncertain_fields": [],
+ "notes": "Form 424B2 base prospectus for The GDL Fund (NYSE: GDL), a diversified closed-end fund, registering up to $200,000,000 of common shares, preferred shares, notes and subscription rights (Registration Statement No. 333-250213). This is a shelf base prospectus with no specific offering: the excerpt states no offer price, size, commencement or expiration date and no rights-offering terms for any particular issue, so per the kind guide it is triage kind none with events []. The subscription-rights language is generic and could be read as a rights_offering shelf; I did not code it as one. The excerpt is the first ~120k characters and ends mid-way through the risk factors (cut at 'the U.S. governments inability at times to agree on'). The later part of the filing, including any offering-specific terms, is not in front of me, so those values are not stated here. Values the excerpt states that are not event terms (NAV $10.82 and price $8.92 at May 19, 2021; Series C preferred redemption dates) are not coded."}

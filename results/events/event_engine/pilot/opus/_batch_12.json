@@ -1,0 +1,5 @@
+{"batch": "12",
+ "model_id": "claude-opus-5-5",
+ "filings": ["0001193125-21-196361", "0000894189-21-000100"],
+ "parts_read": 10,
+ "problems": "No blocking problem. 0001193125-21-196361 is a preliminary N-14 whose closing, meeting and record dates are blank placeholders ([●]), so they are null. 0000894189-21-000100 is an open-end fund reorganization with no tickers printed, and its proxy cover states the meeting as March 23, 2020 against March 23, 2021 everywhere else (2021 used). In both filings the Agreement/Plan exhibit that lists the closing conditions falls after the excerpt cut."}

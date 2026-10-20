@@ -1,0 +1,23 @@
+{"accession": "0001193125-21-361204",
+ "triage": {"kind": "merger", "fund_type": "closed_end_fund", "doc_role": "announcement",
+            "kind_span": "would combine NEV into NZF"},
+ "events": [{"kind": "merger",
+   "terms": {
+     "subject_names": {"value": "Nuveen Enhanced Municipal Value Fund; Nuveen Municipal Credit Income Fund", "span": "Subject Company: Nuveen Enhanced Municipal Value Fund (Commission File No. 811-22323)", "doc_seq": "1"},
+     "subject_tickers": {"value": "NEV; NZF", "span": "Nuveen Enhanced Municipal Value Fund (NYSE: NEV) and Nuveen Municipal Credit Income Fund (NYSE: NZF)", "doc_seq": "1"},
+     "security_class": {"value": "common", "span": "increased trading volume on the exchange for common shares", "doc_seq": "1"},
+     "acquirer": {"value": "Nuveen Municipal Credit Income Fund (NZF)", "span": "would combine NEV into NZF", "doc_seq": "1"},
+     "targets": {"value": "Nuveen Enhanced Municipal Value Fund (NEV)", "span": "would combine NEV into NZF", "doc_seq": "1"},
+     "n_targets": {"value": 1, "span": "would combine NEV into NZF", "doc_seq": "1"},
+     "exchange_basis": null,
+     "exchange_ratio": null,
+     "cash_per_share": null,
+     "collar": null,
+     "conditions": {"value": ["shareholder_approval"], "spans": ["including necessary approval by the funds shareholders"], "doc_seq": "1"},
+     "expected_close": null,
+     "termination_date": null,
+     "meeting_date": null,
+     "record_date": null
+   }}],
+ "uncertain_fields": [],
+ "notes": "Announcement (Form 425 press release dated December 17, 2021) of a proposed reorganization combining NEV into NZF. The proxy and N-14 are expected but are not in this excerpt, so the exchange basis, ratio, meeting and closing dates are null. Only shareholder approval is named as a condition; the text says certain conditions, so no other category is set."}

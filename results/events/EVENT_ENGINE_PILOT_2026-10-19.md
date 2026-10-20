@@ -426,6 +426,52 @@ it was given, where a quote from beyond the cut can only come from memory.
 
 ---
 
+## 2a. The subagent pilot, run (2026-10-20)
+
+**Run:** 54 Claude Code subagents on the team lead's subscription (18 batches × Haiku 5.5,
+Sonnet 5.5, Opus 5.5), each given the brief in §2 and nothing else. No API key and no API
+spend. Every reader returned all 50 filings, and every output passed the parse check.
+**Scored by** `python3 scripts/events/event_engine_pilot.py collect --root <ROOT>`
+(outputs in `results/events/event_engine/pilot/`, `pilot_scores.json`,
+`pilot_field_scores.csv`, `pilot_disagreements.csv`) [V, 2026-10-20].
+
+| reader | kind | cell accuracy | P / R, all gold values | P / R, recoverable from the excerpt | span failures |
+|---|---:|---:|---|---|---|
+| Haiku 5.5 | 0.98 | 0.863 | 0.899 / 0.805 | 0.933 / 0.867 | 46 of 495 |
+| Sonnet 5.5 | 0.98 | 0.901 | 0.920 / 0.856 | 0.952 / 0.901 | 57 of 510 |
+| Opus 5.5 | 1.00 | 0.935 | 0.925 / 0.915 | 0.958 / 0.963 | 48 of 526 |
+| rules v2 (§1) | 0.98 | 0.768 | 0.886 / 0.658 | 0.917 / 0.691 | 0 of 294 |
+| gold pass A / B (Opus, whole text) | 1.00 | 0.968 / 0.983 | 0.961 / 0.977 recall | — | 5 / 2 of 531 |
+
+**What it shows.**
+- **Every model beats the rules baseline on recall by 15–26 points** at about equal
+  precision. The rules keep their edge only on the cover fields.
+- **Sonnet is most of the way to Opus on what the excerpt contains** (recall 0.901 against
+  0.963). Haiku trails Sonnet by about 3–5 points on every column.
+- **Opus's lead is biased upward and is not a measurement of reading skill alone.** The gold
+  set is Opus 5.5 readings adjudicated by Opus 5.5 (§2), so read `pilot_disagreements.csv`
+  against the text before treating a gap between models as a gap in skill.
+
+**What limits it (stated, not corrected).**
+- **The 120,000-character excerpt drops about a quarter of merger terms** (conditions,
+  outside dates), and every reader reported sections falling past the cut. The
+  "recoverable" columns score only what the excerpt holds.
+- **Span failures are inflated for all three readers by the inputs.** The part files lost
+  curly quotes and apostrophes ("PDI's" read as "PDIs"), so a span copied faithfully from
+  a part can fail the scorer's exact match against the original text. Sonnet also
+  normalised quotes and spacing in a few spans by its own account.
+- **Two filings are internally inconsistent, and all three readers flagged them
+  independently:** MacKenzie (0001550913-21-000032; share counts that do not agree) and
+  GDV (0001193125-21-119537; 6,105 tendered in the amendment, 6,106 in the press
+  release). Draft filings with [●] placeholders (several N-14s) leave dates null by design.
+- **n = 50, one run per model.** No repeat-run variance was measured.
+
+**For the design's §11 question** (which model per stage): on this evidence, Haiku is
+adequate for stage-1 triage (kind 0.98). Sonnet is the cost-effective term reader for
+research backfill. Opus's measured lead on terms is real but partly built in by the gold
+set. A whole-filing run, which the excerpt mode cannot test, is still needed before any
+live-path use.
+
 ## 3. Files
 
 - `scripts/events/event_engine_rules.py`: the rules-only extractor (v1 and v2), the dev/test split, scoring.

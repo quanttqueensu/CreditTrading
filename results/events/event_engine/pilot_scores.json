@@ -1,0 +1,2905 @@
+{
+ "pilot": {
+  "haiku": {
+   "reader": "haiku",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 313,
+     "fp": 35,
+     "fn": 76,
+     "cell_accuracy": 0.8632478632478633,
+     "precision": 0.8994252873563219,
+     "recall": 0.8046272493573264
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 32,
+      "fp": 0,
+      "fn": 2,
+      "cell_accuracy": 0.9642857142857143,
+      "precision": 1.0,
+      "recall": 0.9411764705882353
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 49,
+      "fp": 0,
+      "fn": 20,
+      "cell_accuracy": 0.8245614035087719,
+      "precision": 1.0,
+      "recall": 0.7101449275362319
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 94,
+      "fp": 6,
+      "fn": 11,
+      "cell_accuracy": 0.9043478260869565,
+      "precision": 0.94,
+      "recall": 0.8952380952380953
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 81,
+      "fp": 2,
+      "fn": 10,
+      "cell_accuracy": 0.9390243902439024,
+      "precision": 0.9759036144578314,
+      "recall": 0.8901098901098901
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 38,
+      "fp": 0,
+      "fn": 7,
+      "cell_accuracy": 0.9078947368421053,
+      "precision": 1.0,
+      "recall": 0.8444444444444444
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 8,
+      "fp": 22,
+      "fn": 23,
+      "cell_accuracy": 0.425,
+      "precision": 0.26666666666666666,
+      "recall": 0.25806451612903225
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 11,
+      "fp": 5,
+      "fn": 3,
+      "cell_accuracy": 0.65,
+      "precision": 0.6875,
+      "recall": 0.7857142857142857
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 73,
+      "fp": 22,
+      "fn": 39,
+      "cell_accuracy": 0.8018433179723502,
+      "precision": 0.7684210526315789,
+      "recall": 0.6517857142857143
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 77,
+      "fp": 0,
+      "fn": 6,
+      "cell_accuracy": 0.9318181818181818,
+      "precision": 1.0,
+      "recall": 0.927710843373494
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 163,
+      "fp": 13,
+      "fn": 31,
+      "cell_accuracy": 0.8892857142857142,
+      "precision": 0.9261363636363636,
+      "recall": 0.8402061855670103
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.94,
+     "triage.doc_role": 1.0
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 306,
+     "fp": 22,
+     "fn": 47,
+     "cell_accuracy": 0.907103825136612,
+     "precision": 0.9329268292682927,
+     "recall": 0.8668555240793201
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 32,
+      "fp": 0,
+      "fn": 1,
+      "cell_accuracy": 0.9818181818181818,
+      "precision": 1.0,
+      "recall": 0.9696969696969697
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 47,
+      "fp": 0,
+      "fn": 10,
+      "cell_accuracy": 0.9019607843137255,
+      "precision": 1.0,
+      "recall": 0.8245614035087719
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 90,
+      "fp": 6,
+      "fn": 10,
+      "cell_accuracy": 0.9090909090909091,
+      "precision": 0.9375,
+      "recall": 0.9
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 80,
+      "fp": 2,
+      "fn": 9,
+      "cell_accuracy": 0.9444444444444444,
+      "precision": 0.975609756097561,
+      "recall": 0.898876404494382
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 38,
+      "fp": 0,
+      "fn": 6,
+      "cell_accuracy": 0.92,
+      "precision": 1.0,
+      "recall": 0.8636363636363636
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 8,
+      "fp": 9,
+      "fn": 9,
+      "cell_accuracy": 0.6538461538461539,
+      "precision": 0.47058823529411764,
+      "recall": 0.47058823529411764
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 11,
+      "fp": 5,
+      "fn": 2,
+      "cell_accuracy": 0.6842105263157895,
+      "precision": 0.6875,
+      "recall": 0.8461538461538461
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 67,
+      "fp": 10,
+      "fn": 17,
+      "cell_accuracy": 0.8888888888888888,
+      "precision": 0.8701298701298701,
+      "recall": 0.7976190476190477
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 77,
+      "fp": 0,
+      "fn": 6,
+      "cell_accuracy": 0.9318181818181818,
+      "precision": 1.0,
+      "recall": 0.927710843373494
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 162,
+      "fp": 12,
+      "fn": 24,
+      "cell_accuracy": 0.9117647058823529,
+      "precision": 0.9310344827586207,
+      "recall": 0.8709677419354839
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.94,
+     "triage.doc_role": 1.0
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 495,
+    "failures": 46,
+    "against": "the excerpt the reader was given",
+    "failed": [
+     {
+      "accession": "0001193125-21-084266",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "The Funds outstanding common shares, par value $0.001 per share, are listed on the New York Stock Exchange (the NYSE) un"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "Series B Preferred Shares, Series C Preferred Shares and Series E Preferred Shares (collectively, the Auction Rate Prefe"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "expiration_date",
+      "reason": "span_not_in_text",
+      "detail": "The Exchange Offer will expire at 5:00 p.m., New York City time (the Expiration Time), on April 14, 2021"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "trigger_origin",
+      "reason": "span_not_in_text",
+      "detail": "The Funds Board met on February 24, 2021 to consider and approve the Exchange Offer."
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "size_pct_outstanding",
+      "reason": "span_not_in_text",
+      "detail": "offer to exchange up to 100% of the Issuers preferred shares"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "is filed by Highland Income Fund (the Fund)"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "upon obtaining the Boards approval for the Tender Offer"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "the Board of Trustees (the Board) of each of PIMCO Dynamic Income Fund (PDI), PIMCO Dynamic Credit and Mortgage Income F"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "the common shares of PDI are listed on the NYSE under the symbol PDI, the common shares of PCI are listed on the NYSE un"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "the satisfaction of applicable regulatory requirements and customary closing conditions (the Closing Date)"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "meeting_date",
+      "reason": "span_not_in_text",
+      "detail": "on July 28, 2021 at 9 a.m. (with any adjournments or postponements thereof, the Special Meeting)"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Diversified Dividend and Income Fund (Dividend and Income Fund), Nuveen Tax-Advantaged Total Return Strategy Fund"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "investing in Nuveen Multi-Asset Income Fund, a newly formed Massachusetts business trust (the Multi-Asset Income Fund or"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Diversified Dividend and Income Fund (Dividend and Income Fund), Nuveen Tax-Advantaged Total Return Strategy Fund"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "the closing of each Target Funds Reorganization is contingent upon at least one other Target Fund obtaining the requisit"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "expected_close",
+      "reason": "span_not_in_text",
+      "detail": "the Reorganizations are expected to take effect on or about [], 2021 or as soon as practicable thereafter."
+     },
+     {
+      "accession": "0001193125-21-175201",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "including necessary approval by the funds shareholders"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "as a holder of common shares of Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "as a holder of common shares of Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "subject to the requisite approvals by each Funds shareholders"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (MYJ or the Target Fund) and BlackRock MuniHoldings New Jersey Quality Fund, I"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "The Acquiring Funds common shares are listed on the NYSE as MUJ. MYJs common shares are listed on the NYSE as MYJ."
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniHoldings New Jersey Quality Fund, Inc. (MUJ or the Acquiring Fund and"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (MYJ or the Target Fund)"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "exchange_basis",
+      "reason": "span_not_in_text",
+      "detail": "will have an aggregate NAV (not the market value) immediately after the Closing Date equal to the aggregate NAV (not the"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "expected_close",
+      "reason": "span_not_in_text",
+      "detail": "It is expected that the effective date ( the Closing Date) of the Reorganization will be sometime during the [\u25cf] quarter"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "each share of common stock, par value $0.01 per share, of SUNS (SUNS Common Stock)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "SLR Investment Corp., a Maryland corporation (SLRC)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "SLR Senior Investment Corp., a Maryland corporation (SUNS)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "SLR Senior Investment Corp., a Maryland corporation (SUNS)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "exchange_basis",
+      "reason": "span_not_in_text",
+      "detail": "The Exchange Ratio will be equal to the quotient (rounded to four decimal places) of (i) the SUNS Per Share NAV divided "
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "requisite approvals of SLRCs and SUNSs stockholders"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "SLR Investment Corp., a Maryland corporation (SLRC)"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "SLRC Common Stock trades on The Nasdaq Global Select Market (Nasdaq) under the ticker symbol SLRC. SUNS Common Stock tra"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "each share of common stock, par value $0.01 per share, of SUNS (SUNS Common Stock) issued and outstanding immediately pr"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "SUNS will merge with and into SLRC (together with the Merger, the Mergers), with SLRC continuing as the surviving compan"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "SLR Senior Investment Corp., a Maryland corporation (SUNS)"
+     },
+     {
+      "accession": "0001193125-21-361204",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "including necessary approval by the funds shareholders"
+     }
+    ]
+   },
+   "batch_reports": [
+    {
+     "batch": "01",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "02",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "03",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "04",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "05",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": "Each part was read in full in one parallel batch of Read calls (filing 1 parts 01-05, then filing 2 parts 01-05), not one call at a time. Filing 1: the excerpt ends mid-sentence in the risk factors, so later terms are null; 'closed-end' was not seen verbatim, so fund_type closed_end_fund is inferred and noted. Filing 2: the SUNS ticker is not printed (defined term only), so subject_tickers carries SLRC only; the exchange ratio is a closing NAV ratio, so exchange_ratio is null."
+    },
+    {
+     "batch": "06",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "07",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "08",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "09",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "10",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "11",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 8,
+     "problems": ""
+    },
+    {
+     "batch": "12",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "13",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "14",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 8,
+     "problems": "Filing 0001387131-21-003469 prints the record date as March 11, 2020 once (Terms of the Rights Offering) and March 11, 2021 everywhere else; 2021 was used and the record_date field is listed as uncertain. Filing 0001140361-21-035928 is a preliminary draft with [\u2022] placeholders, so meeting and record dates are null. Nothing stopped the run."
+    },
+    {
+     "batch": "15",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "16",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "17",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 11,
+     "problems": ""
+    },
+    {
+     "batch": "18",
+     "model_id": "claude-haiku-5-5",
+     "parts_read": 10,
+     "problems": "Batch lists 10 filings, not 11. MacKenzie (0001550913-21-000032): stated accepted count 13,303,521.4954 conflicts with 58,897.7444 offered and about $353,386.47 cash; reported, field flagged uncertain. Gabelli (0001193125-21-119537): tendered count 6,105 (amendment) vs 6,106 (press release); flagged uncertain."
+    }
+   ],
+   "model_ids_reported": [
+    "claude-haiku-5-5"
+   ]
+  },
+  "sonnet": {
+   "reader": "sonnet",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 333,
+     "fp": 29,
+     "fn": 56,
+     "cell_accuracy": 0.9008547008547009,
+     "precision": 0.919889502762431,
+     "recall": 0.8560411311053985
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 32,
+      "fp": 1,
+      "fn": 2,
+      "cell_accuracy": 0.9464285714285714,
+      "precision": 0.9696969696969697,
+      "recall": 0.9411764705882353
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 62,
+      "fp": 0,
+      "fn": 7,
+      "cell_accuracy": 0.9385964912280702,
+      "precision": 1.0,
+      "recall": 0.8985507246376812
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 94,
+      "fp": 4,
+      "fn": 11,
+      "cell_accuracy": 0.9043478260869565,
+      "precision": 0.9591836734693877,
+      "recall": 0.8952380952380953
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 87,
+      "fp": 3,
+      "fn": 4,
+      "cell_accuracy": 0.9695121951219512,
+      "precision": 0.9666666666666667,
+      "recall": 0.9560439560439561
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 37,
+      "fp": 0,
+      "fn": 8,
+      "cell_accuracy": 0.8947368421052632,
+      "precision": 1.0,
+      "recall": 0.8222222222222222
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 10,
+      "fp": 20,
+      "fn": 21,
+      "cell_accuracy": 0.475,
+      "precision": 0.3333333333333333,
+      "recall": 0.3225806451612903
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 11,
+      "fp": 1,
+      "fn": 3,
+      "cell_accuracy": 0.85,
+      "precision": 0.9166666666666666,
+      "recall": 0.7857142857142857
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 78,
+      "fp": 19,
+      "fn": 34,
+      "cell_accuracy": 0.8387096774193549,
+      "precision": 0.8041237113402062,
+      "recall": 0.6964285714285714
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 80,
+      "fp": 0,
+      "fn": 3,
+      "cell_accuracy": 0.9659090909090909,
+      "precision": 1.0,
+      "recall": 0.963855421686747
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 175,
+      "fp": 10,
+      "fn": 19,
+      "cell_accuracy": 0.9285714285714286,
+      "precision": 0.9459459459459459,
+      "recall": 0.9020618556701031
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.96,
+     "triage.doc_role": 1.0
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 318,
+     "fp": 16,
+     "fn": 35,
+     "cell_accuracy": 0.9326047358834244,
+     "precision": 0.9520958083832335,
+     "recall": 0.9008498583569405
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 32,
+      "fp": 1,
+      "fn": 1,
+      "cell_accuracy": 0.9636363636363636,
+      "precision": 0.9696969696969697,
+      "recall": 0.9696969696969697
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 54,
+      "fp": 0,
+      "fn": 3,
+      "cell_accuracy": 0.9705882352941176,
+      "precision": 1.0,
+      "recall": 0.9473684210526315
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 90,
+      "fp": 4,
+      "fn": 10,
+      "cell_accuracy": 0.9090909090909091,
+      "precision": 0.9574468085106383,
+      "recall": 0.9
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 85,
+      "fp": 3,
+      "fn": 4,
+      "cell_accuracy": 0.9691358024691358,
+      "precision": 0.9659090909090909,
+      "recall": 0.9550561797752809
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 36,
+      "fp": 0,
+      "fn": 8,
+      "cell_accuracy": 0.8933333333333333,
+      "precision": 1.0,
+      "recall": 0.8181818181818182
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 10,
+      "fp": 7,
+      "fn": 7,
+      "cell_accuracy": 0.7307692307692307,
+      "precision": 0.5882352941176471,
+      "recall": 0.5882352941176471
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 11,
+      "fp": 1,
+      "fn": 2,
+      "cell_accuracy": 0.8947368421052632,
+      "precision": 0.9166666666666666,
+      "recall": 0.8461538461538461
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 70,
+      "fp": 7,
+      "fn": 14,
+      "cell_accuracy": 0.9206349206349206,
+      "precision": 0.9090909090909091,
+      "recall": 0.8333333333333334
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 80,
+      "fp": 0,
+      "fn": 3,
+      "cell_accuracy": 0.9659090909090909,
+      "precision": 1.0,
+      "recall": 0.963855421686747
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 168,
+      "fp": 9,
+      "fn": 18,
+      "cell_accuracy": 0.9301470588235294,
+      "precision": 0.9491525423728814,
+      "recall": 0.9032258064516129
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.96,
+     "triage.doc_role": 1.0
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 510,
+    "failures": 57,
+    "against": "the excerpt the reader was given",
+    "failed": [
+     {
+      "accession": "0001193125-21-084266",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "are listed on the New York Stock Exchange (the NYSE) under the symbol GDV"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "size_pct_outstanding",
+      "reason": "span_not_in_text",
+      "detail": "offer to exchange up to 100% of the Issuers preferred shares"
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "The Gabelli Dividend & Income Trust, a Delaware statutory trust (GDV or the Issuer)"
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "The Gabelli Dividend & Income Trust (NYSE:GDV) (the Fund)"
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "size_pct_outstanding",
+      "reason": "span_not_in_text",
+      "detail": "relating to the Issuers offer to exchange up to 100% of the Issuers preferred shares"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "The Highland Income Fund (NYSE: HFRO) (HFRO or the Fund)"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "and upon obtaining the Boards approval for the Tender Offer"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "each of PIMCO Dynamic Credit and Mortgage Income Fund (PCI), PIMCO Dynamic Income Fund (PDI), and PIMCO Income Opportuni"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "each of PIMCO Dynamic Credit and Mortgage Income Fund (PCI), PIMCO Dynamic Income Fund (PDI), and PIMCO Income Opportuni"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "This document has been sent to holders of common shares of beneficial interest (shareholders) of each of PIMCO Dynamic C"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "the PKO Merger is subject to approval by PKOs shareholders and contingent on the consummation of the PCI Merger"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "record_date",
+      "reason": "span_not_in_text",
+      "detail": "Shareholders of record of PDI and PKO at the close of business on [June 10, 2021] (the Record Date)"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "transfer substantially all of its assets to Nuveen Multi-Asset Income Fund, a newly formed Massachusetts business trust "
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "reorganization of such Target Fund into Nuveen Multi-Asset Income Fund (the Acquiring Fund), a newly formed closed-end f"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Tax-Advantaged Dividend Growth Fund (Dividend Growth Fund and together with Dividend and Income Fund and Total Re"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "the closing of each Target Funds Reorganization is contingent upon at least one other Target Fund obtaining the requisit"
+     },
+     {
+      "accession": "0001193125-21-175201",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "including necessary approval by the funds shareholders"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund), Nuveen Select Tax-Free Income Portfolio 2 (Select Tax-Free"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio 2 (Select Tax-Free 2) and Nuveen Select Tax-Free Income Portfolio 3 (Select Tax-"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio 2 (Select Tax-Free 2) and Nuveen Select Tax-Free Income Portfolio 3 (Select Tax-"
+     },
+     {
+      "accession": "0001140361-21-035928",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "Barings BDC, Inc., a Maryland corporation (\u201cBarings BDC\u201d), to be issued to the holders of shares of common stock, par va"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MU"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MU"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the Reorganization)"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the Reorganization)"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the Reorganization)"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "subject to the requisite approvals by each Funds shareholders"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "Letter to Common Shareholders of BlackRock MuniYield New Jersey Fund, Inc. (MYJ) and BlackRock MuniHoldings New Jersey Q"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "Letter to Common Shareholders of BlackRock MuniYield New Jersey Fund, Inc. (MYJ) and BlackRock MuniHoldings New Jersey Q"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniHoldings New Jersey Quality Fund, Inc. (MUJ or the Acquiring Fund and together with MYJ"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (MYJ or the Target Fund)"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (MYJ or the Target Fund)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "SLR Investment Corp., a Maryland corporation (SLRC), entered into an Agreement and Plan of Merger (the Merger Agreement)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "each share of common stock, par value $0.01 per share, of SUNS (SUNS Common Stock) issued and outstanding immediately pr"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "SLR Investment Corp., a Maryland corporation (SLRC), entered into an Agreement and Plan of Merger (the Merger Agreement)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "SLR Investment Corp., a Maryland corporation (SLRC), entered into an Agreement and Plan of Merger (the Merger Agreement)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "SLR Investment Corp., a Maryland corporation (SLRC), entered into an Agreement and Plan of Merger (the Merger Agreement)"
+     }
+    ]
+   },
+   "batch_reports": [
+    {
+     "batch": "01",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "02",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "03",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "04",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "05",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "06",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "07",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "08",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "09",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "10",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "11",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 8,
+     "problems": ""
+    },
+    {
+     "batch": "12",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "13",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "14",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 8,
+     "problems": ""
+    },
+    {
+     "batch": "15",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "16",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "17",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 11,
+     "problems": ""
+    },
+    {
+     "batch": "18",
+     "model_id": "claude-sonnet-5-5",
+     "parts_read": 10,
+     "problems": ""
+    }
+   ],
+   "model_ids_reported": [
+    "claude-sonnet-5-5"
+   ]
+  },
+  "opus": {
+   "reader": "opus",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 356,
+     "fp": 29,
+     "fn": 33,
+     "cell_accuracy": 0.935042735042735,
+     "precision": 0.9246753246753247,
+     "recall": 0.9151670951156813
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 34,
+      "fp": 1,
+      "fn": 0,
+      "cell_accuracy": 0.9821428571428571,
+      "precision": 0.9714285714285714,
+      "recall": 1.0
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 64,
+      "fp": 0,
+      "fn": 5,
+      "cell_accuracy": 0.956140350877193,
+      "precision": 1.0,
+      "recall": 0.927536231884058
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 100,
+      "fp": 4,
+      "fn": 5,
+      "cell_accuracy": 0.9391304347826087,
+      "precision": 0.9615384615384616,
+      "recall": 0.9523809523809523
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 90,
+      "fp": 2,
+      "fn": 1,
+      "cell_accuracy": 0.9878048780487805,
+      "precision": 0.9782608695652174,
+      "recall": 0.989010989010989
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 45,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 12,
+      "fp": 19,
+      "fn": 19,
+      "cell_accuracy": 0.525,
+      "precision": 0.3870967741935484,
+      "recall": 0.3870967741935484
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 11,
+      "fp": 3,
+      "fn": 3,
+      "cell_accuracy": 0.8,
+      "precision": 0.7857142857142857,
+      "recall": 0.7857142857142857
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 89,
+      "fp": 21,
+      "fn": 23,
+      "cell_accuracy": 0.8755760368663594,
+      "precision": 0.8090909090909091,
+      "recall": 0.7946428571428571
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 83,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 184,
+      "fp": 8,
+      "fn": 10,
+      "cell_accuracy": 0.9607142857142857,
+      "precision": 0.9583333333333334,
+      "recall": 0.9484536082474226
+     }
+    },
+    "triage": {
+     "triage.kind": 1.0,
+     "triage.fund_type": 0.98,
+     "triage.doc_role": 1.0
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 340,
+     "fp": 15,
+     "fn": 13,
+     "cell_accuracy": 0.9672131147540983,
+     "precision": 0.9577464788732394,
+     "recall": 0.9631728045325779
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 33,
+      "fp": 1,
+      "fn": 0,
+      "cell_accuracy": 0.9818181818181818,
+      "precision": 0.9705882352941176,
+      "recall": 1.0
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 56,
+      "fp": 0,
+      "fn": 1,
+      "cell_accuracy": 0.9901960784313726,
+      "precision": 1.0,
+      "recall": 0.9824561403508771
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 96,
+      "fp": 4,
+      "fn": 4,
+      "cell_accuracy": 0.9454545454545454,
+      "precision": 0.96,
+      "recall": 0.96
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 88,
+      "fp": 2,
+      "fn": 1,
+      "cell_accuracy": 0.9876543209876543,
+      "precision": 0.9777777777777777,
+      "recall": 0.9887640449438202
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 44,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 12,
+      "fp": 5,
+      "fn": 5,
+      "cell_accuracy": 0.8076923076923077,
+      "precision": 0.7058823529411765,
+      "recall": 0.7058823529411765
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 11,
+      "fp": 3,
+      "fn": 2,
+      "cell_accuracy": 0.8421052631578947,
+      "precision": 0.7857142857142857,
+      "recall": 0.8461538461538461
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 80,
+      "fp": 8,
+      "fn": 4,
+      "cell_accuracy": 0.9576719576719577,
+      "precision": 0.9090909090909091,
+      "recall": 0.9523809523809523
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 83,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 177,
+      "fp": 7,
+      "fn": 9,
+      "cell_accuracy": 0.9632352941176471,
+      "precision": 0.9619565217391305,
+      "recall": 0.9516129032258065
+     }
+    },
+    "triage": {
+     "triage.kind": 1.0,
+     "triage.fund_type": 0.98,
+     "triage.doc_role": 1.0
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 526,
+    "failures": 48,
+    "against": "the excerpt the reader was given",
+    "failed": [
+     {
+      "accession": "0001193125-21-084266",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "The Funds outstanding common shares, par value $0.001 per share, are listed on the New York Stock Exchange (the NYSE) un"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "This Schedule TO relates to the Issuers offer to exchange up to 100% of the Issuers preferred shares, designated Series "
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "size_pct_outstanding",
+      "reason": "span_not_in_text",
+      "detail": "This Schedule TO relates to the Issuers offer to exchange up to 100% of the Issuers preferred shares, designated Series "
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "expiration_date",
+      "reason": "span_not_in_text",
+      "detail": "The Exchange Offer will expire at 5:00 p.m., New York City time (the Expiration Time), on April 14, 2021"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "trigger_origin",
+      "reason": "span_not_in_text",
+      "detail": "The Funds Board met on February 24, 2021 to consider and approve the Exchange Offer."
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "relating to the Issuers offer to exchange up to 100% of the Issuers preferred shares, designated Series B Auction Market"
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "size_pct_outstanding",
+      "reason": "span_not_in_text",
+      "detail": "offer to exchange up to 100% of the Issuers preferred shares"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "This Tender Offer Statement on Schedule TO is filed by Highland Income Fund (the Fund)"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "the Funds common shares of beneficial interest, par value $0.001 per share (Common Shares)"
+     },
+     {
+      "accession": "0001193125-21-246408",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "and upon obtaining the Boards approval for the Tender Offer."
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "each of PIMCO Dynamic Income Fund (PDI), PIMCO Dynamic Credit and Mortgage Income Fund (PCI) and PIMCO Income Opportunit"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "The common shares of PDI are listed on the New York Stock Exchange (NYSE) under the symbol PDI, the common shares of PCI"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "of each of PIMCO Dynamic Credit and Mortgage Income Fund (PCI), PIMCO Dynamic Income Fund (PDI), and PIMCO Income Opport"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI (the Reorganizations)"
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "The reorganization of PKO into PDI (the PKO Merger) is contingent upon the consummation of the PCI Merger."
+     },
+     {
+      "accession": "0001193125-21-156649",
+      "field": "record_date",
+      "reason": "span_not_in_text",
+      "detail": "Shareholders of record of PDI and PKO at the close of business on [June 10, 2021] (the Record Date)"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "The shareholders of each Target Fund will consider the reorganization of such Target Fund into Nuveen Multi-Asset Income"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "Meetings) of Nuveen Diversified Dividend and Income Fund, Nuveen Tax-Advantaged Total Return Strategy Fund and Nuveen Ta"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "In addition to customary closing conditions that include approval by Target Fund shareholders, the closing of each Targe"
+     },
+     {
+      "accession": "0001193125-21-162187",
+      "field": "expected_close",
+      "reason": "span_not_in_text",
+      "detail": "the Reorganizations are expected to take effect on or about [], 2021 or as soon as practicable thereafter"
+     },
+     {
+      "accession": "0001193125-21-175201",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "The proposed reorganization for each fund is subject to certain conditions, including necessary approval by the funds sh"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "common shares of Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund), Nuveen Select Tax-Free Income Portfolio 2"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio (the Acquiring Fund)"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio 2 (Select Tax-Free 2) or Nuveen Select Tax-Free Income Portfolio 3 (Select Tax-F"
+     },
+     {
+      "accession": "0001193125-21-196361",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "Nuveen Select Tax-Free Income Portfolio 2 (Select Tax-Free 2) or Nuveen Select Tax-Free Income Portfolio 3 (Select Tax-F"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE: MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE: MU"
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the Reorganization)."
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "n_targets",
+      "reason": "span_not_in_text",
+      "detail": "the reorganization of MYJ with and into MUJ, with MUJ continuing as the surviving Fund (the Reorganization)."
+     },
+     {
+      "accession": "0001193125-21-284573",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "subject to the requisite approvals by each Funds shareholders"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "subject_names",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, I"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (NYSE Ticker: MYJ) (MYJ) and BlackRock MuniHoldings New Jersey Quality Fund, I"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniHoldings New Jersey Quality Fund, Inc. (NYSE Ticker: MUJ) (MUJ or the Acquiring Fund"
+     },
+     {
+      "accession": "0001193125-21-295498",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "BlackRock MuniYield New Jersey Fund, Inc. (MYJ or the Target Fund)"
+     },
+     {
+      "accession": "0001193125-21-345552",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "(1) requisite approvals of SLRCs and SUNSs stockholders"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "SLRC Common Stock trades on The Nasdaq Global Select Market (Nasdaq) under the ticker symbol SLRC. SUNS Common Stock tra"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "each share of common stock, par value $0.01 per share, of SUNS (SUNS Common Stock) issued and outstanding immediately pr"
+     },
+     {
+      "accession": "0001193125-21-358275",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "with SUNS continuing as the surviving company and as a wholly owned subsidiary of SLR Investment Corp., a Maryland corpo"
+     },
+     {
+      "accession": "0001193125-21-361204",
+      "field": "conditions",
+      "reason": "span_not_in_text",
+      "detail": "proposed reorganization for the funds is subject to certain conditions, including necessary approval by the funds shareh"
+     },
+     {
+      "accession": "0001193125-22-014885",
+      "field": "acquirer",
+      "reason": "span_not_in_text",
+      "detail": "preferred shares of Nuveen Municipal Credit Income Fund (the Acquiring Fund)"
+     },
+     {
+      "accession": "0001193125-22-014885",
+      "field": "targets",
+      "reason": "span_not_in_text",
+      "detail": "common shares of Nuveen Enhanced Municipal Value Fund (the Target Fund)"
+     }
+    ]
+   },
+   "batch_reports": [
+    {
+     "batch": "01",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "02",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "None that stopped the work. Both excerpts end before the documents' substantive appendices: in 0001213900-21-054259 (FMO into KYN N-14 8C) the Merger Agreement and 'Terms of the Agreement and Plan of Merger' fall after the cut, so closing conditions beyond the shareholder vote, the outside date and the (blank) meeting date are null. 0001193125-21-167820 is a GDL Fund shelf base prospectus with no offering terms, triaged as kind none."
+    },
+    {
+     "batch": "03",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "No problem stopped the work. Judgment calls: (1) 0000350797-21-000084 carries two events, the 60% tender and a stated conditional tender programme (Q4 2022-2024, 10% at 98% NAV, >10% average VWAP discount Jan-Aug); both are written. (2) trigger_origin for -000080 is merger_related (the tender is tied to Morgan Stanley's acquisition of the adviser's parent); for -000084 it is activist_settlement (EVM-Saba agreement); both marked uncertain. (3) commencement_date is taken from the Offer to Purchase date (2021-06-29) in both; marked uncertain. (4) -000080 states the June 23, 2021 NAV inconsistently ($13.6727 in the Summary, $13.24 in the Introduction and Section 1); noted only, not a schema field."
+    },
+    {
+     "batch": "04",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "05",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "None blocking. In 0001193125-21-345552 the quotation marks and apostrophes seem to be missing from the excerpt text as displayed (e.g. 'SLRCs', '(SLRC)'). They may be invisible characters, so spans were chosen to avoid those spots where possible; the shareholder_approval condition span still contains 'SLRCs and SUNSs'. In 0001821268-21-000189, the merger agreement's terms and conditions sections fall after the excerpt cut, so only the shareholder-approval condition is recorded."
+    },
+    {
+     "batch": "06",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "07",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "08",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "09",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "No blocking problems. 0001104659-21-055075 is a REIT-into-REIT merger (RMR Mortgage Trust, which the agreement says has run as a mortgage REIT since 2021-01-05, acquiring Tremont Mortgage Trust); it was classified equity_mna/reit rather than merger, and 'kind' is flagged uncertain. 0001193125-22-014885 is a draft N-14 whose meeting, record and closing dates are '[\u25cf]' placeholders, so those fields are null."
+    },
+    {
+     "batch": "10",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "None blocking. In 0001193125-21-156649 the curly quotes and apostrophes appear stripped in the part files (e.g. 'PDIs', '(the Board)'); spans were copied exactly as the text shows them. In 0000350797-21-000081 a second event (conditional_tender_programme, the three Saba-agreement conditional tenders) was recorded next to the cef_tender; a reviewer may prefer a single event."
+    },
+    {
+     "batch": "11",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 8,
+     "problems": ""
+    },
+    {
+     "batch": "12",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "No blocking problem. 0001193125-21-196361 is a preliminary N-14 whose closing, meeting and record dates are blank placeholders ([\u25cf]), so they are null. 0000894189-21-000100 is an open-end fund reorganization with no tickers printed, and its proxy cover states the meeting as March 23, 2020 against March 23, 2021 everywhere else (2021 used). In both filings the Agreement/Plan exhibit that lists the closing conditions falls after the excerpt cut."
+    },
+    {
+     "batch": "13",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "14",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 8,
+     "problems": "None blocking. 0001387131-21-003469 states the record date as March 11, 2021 in the summary and dates table but as March 11, 2020 in the Terms paragraph; used 2021-03-11 and flagged it. 0001140361-21-035928 has blank placeholder meeting and record dates, and its full closing-conditions section falls after the excerpt cut."
+    },
+    {
+     "batch": "15",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 9,
+     "problems": ""
+    },
+    {
+     "batch": "16",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": ""
+    },
+    {
+     "batch": "17",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 11,
+     "problems": "No blocking problems. Judgement calls: (1) the three Clough rights offerings price at the higher of 85% of NAV or 95% of market; encoded as greater_of_nav_and_market, price_pct 95, price_floor_pct_nav 85, and flagged uncertain. (2) MYJ/MUJ press release never says 'common'; security_class common flagged uncertain; exchange_basis null because the excerpt states none. (3) Barings/Sierra cash of approximately $0.98 per share is paid by Barings LLC (the adviser), not the acquirer; n_targets 1 is a count of named targets, not a stated number."
+    },
+    {
+     "batch": "18",
+     "model_id": "claude-opus-5-5",
+     "parts_read": 10,
+     "problems": "No blocking problems. Judgement calls flagged in each file's uncertain_fields/notes: 0001193125-21-119537 (GDV preferred exchange offer) has conflicting tendered counts (6,105 in the Schedule TO body vs 6,106 in the press release; used 6,105) and in-kind consideration, so final_price_per_share is null; 0001550913-21-000032 (MacKenzie Realty Capital) is internally inconsistent on share counts (58,897.7444 vs 400,000 vs 13,303,521.4954), and fund_type is 'unknown' because the excerpt does not say what the filer is; 0001193125-21-021815 (DNP/DUC) prints DNP and DUC only as defined abbreviations, not exchange tickers, so subject_tickers is null. Where commencement_date is filled it is the dated Offer to Purchase, not an explicitly stated commencement date (except GDV, where it is stated)."
+    }
+   ],
+   "model_ids_reported": [
+    "claude-opus-5-5"
+   ]
+  }
+ },
+ "references_scored_on_the_same_cells": {
+  "pass_a": {
+   "reader": "pass_a",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 374,
+     "fp": 15,
+     "fn": 15,
+     "cell_accuracy": 0.9675213675213675,
+     "precision": 0.961439588688946,
+     "recall": 0.961439588688946
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 34,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 66,
+      "fp": 2,
+      "fn": 3,
+      "cell_accuracy": 0.956140350877193,
+      "precision": 0.9705882352941176,
+      "recall": 0.9565217391304348
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 99,
+      "fp": 6,
+      "fn": 6,
+      "cell_accuracy": 0.9391304347826087,
+      "precision": 0.9428571428571428,
+      "recall": 0.9428571428571428
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 90,
+      "fp": 2,
+      "fn": 1,
+      "cell_accuracy": 0.9878048780487805,
+      "precision": 0.9782608695652174,
+      "recall": 0.989010989010989
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 45,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 26,
+      "fp": 5,
+      "fn": 5,
+      "cell_accuracy": 0.875,
+      "precision": 0.8387096774193549,
+      "recall": 0.8387096774193549
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 14,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 107,
+      "fp": 7,
+      "fn": 5,
+      "cell_accuracy": 0.967741935483871,
+      "precision": 0.9385964912280702,
+      "recall": 0.9553571428571429
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 80,
+      "fp": 3,
+      "fn": 3,
+      "cell_accuracy": 0.9659090909090909,
+      "precision": 0.963855421686747,
+      "recall": 0.963855421686747
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 187,
+      "fp": 5,
+      "fn": 7,
+      "cell_accuracy": 0.9678571428571429,
+      "precision": 0.9739583333333334,
+      "recall": 0.9639175257731959
+     }
+    },
+    "triage": {
+     "triage.kind": 1.0,
+     "triage.fund_type": 1.0,
+     "triage.doc_role": 1.0
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 341,
+     "fp": 12,
+     "fn": 12,
+     "cell_accuracy": 0.970856102003643,
+     "precision": 0.9660056657223796,
+     "recall": 0.9660056657223796
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 33,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 54,
+      "fp": 2,
+      "fn": 3,
+      "cell_accuracy": 0.9509803921568627,
+      "precision": 0.9642857142857143,
+      "recall": 0.9473684210526315
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 94,
+      "fp": 6,
+      "fn": 6,
+      "cell_accuracy": 0.9363636363636364,
+      "precision": 0.94,
+      "recall": 0.94
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 88,
+      "fp": 2,
+      "fn": 1,
+      "cell_accuracy": 0.9876543209876543,
+      "precision": 0.9777777777777777,
+      "recall": 0.9887640449438202
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 44,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 15,
+      "fp": 2,
+      "fn": 2,
+      "cell_accuracy": 0.9230769230769231,
+      "precision": 0.8823529411764706,
+      "recall": 0.8823529411764706
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 13,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 82,
+      "fp": 4,
+      "fn": 2,
+      "cell_accuracy": 0.9788359788359788,
+      "precision": 0.9534883720930233,
+      "recall": 0.9761904761904762
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 80,
+      "fp": 3,
+      "fn": 3,
+      "cell_accuracy": 0.9659090909090909,
+      "precision": 0.963855421686747,
+      "recall": 0.963855421686747
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 179,
+      "fp": 5,
+      "fn": 7,
+      "cell_accuracy": 0.9669117647058824,
+      "precision": 0.9728260869565217,
+      "recall": 0.9623655913978495
+     }
+    },
+    "triage": {
+     "triage.kind": 1.0,
+     "triage.fund_type": 1.0,
+     "triage.doc_role": 1.0
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 531,
+    "failures": 5,
+    "against": "the whole text",
+    "failed": [
+     {
+      "accession": "0001193125-21-084266",
+      "field": "subject_tickers",
+      "reason": "span_not_in_text",
+      "detail": "are listed on the New York Stock Exchange (the NYSE) under the symbol GDV"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "offer to exchange up to 100% of the Issuers preferred shares, designated Series B Auction Market Preferred Shares"
+     },
+     {
+      "accession": "0001193125-21-084266",
+      "field": "expiration_date",
+      "reason": "span_not_in_text",
+      "detail": "The Exchange Offer will expire at 5:00 p.m., New York City time (the Expiration Time), on April 14, 2021, unless extende"
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "security_class",
+      "reason": "span_not_in_text",
+      "detail": "relating to the Issuers offer to exchange up to 100% of the Issuers preferred shares"
+     },
+     {
+      "accession": "0001193125-21-119537",
+      "field": "size_pct_outstanding",
+      "reason": "span_not_in_text",
+      "detail": "offer to exchange up to 100% of the Issuers preferred shares"
+     }
+    ]
+   }
+  },
+  "pass_b": {
+   "reader": "pass_b",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 381,
+     "fp": 9,
+     "fn": 8,
+     "cell_accuracy": 0.9829059829059829,
+     "precision": 0.9769230769230769,
+     "recall": 0.9794344473007712
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 34,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 69,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 104,
+      "fp": 0,
+      "fn": 1,
+      "cell_accuracy": 0.991304347826087,
+      "precision": 1.0,
+      "recall": 0.9904761904761905
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 91,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 45,
+      "fp": 2,
+      "fn": 0,
+      "cell_accuracy": 0.9736842105263158,
+      "precision": 0.9574468085106383,
+      "recall": 1.0
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 24,
+      "fp": 7,
+      "fn": 7,
+      "cell_accuracy": 0.825,
+      "precision": 0.7741935483870968,
+      "recall": 0.7741935483870968
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 14,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 105,
+      "fp": 7,
+      "fn": 7,
+      "cell_accuracy": 0.967741935483871,
+      "precision": 0.9375,
+      "recall": 0.9375
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 83,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 193,
+      "fp": 2,
+      "fn": 1,
+      "cell_accuracy": 0.9892857142857143,
+      "precision": 0.9897435897435898,
+      "recall": 0.9948453608247423
+     }
+    },
+    "triage": {
+     "triage.kind": 1.0,
+     "triage.fund_type": 1.0,
+     "triage.doc_role": 0.98
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 350,
+     "fp": 4,
+     "fn": 3,
+     "cell_accuracy": 0.9908925318761385,
+     "precision": 0.9887005649717514,
+     "recall": 0.9915014164305949
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 33,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 57,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 99,
+      "fp": 0,
+      "fn": 1,
+      "cell_accuracy": 0.990909090909091,
+      "precision": 1.0,
+      "recall": 0.99
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 89,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 44,
+      "fp": 2,
+      "fn": 0,
+      "cell_accuracy": 0.9733333333333334,
+      "precision": 0.9565217391304348,
+      "recall": 1.0
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 15,
+      "fp": 2,
+      "fn": 2,
+      "cell_accuracy": 0.9230769230769231,
+      "precision": 0.8823529411764706,
+      "recall": 0.8823529411764706
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 13,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 82,
+      "fp": 2,
+      "fn": 2,
+      "cell_accuracy": 0.9894179894179894,
+      "precision": 0.9761904761904762,
+      "recall": 0.9761904761904762
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 83,
+      "fp": 0,
+      "fn": 0,
+      "cell_accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 185,
+      "fp": 2,
+      "fn": 1,
+      "cell_accuracy": 0.9889705882352942,
+      "precision": 0.9893048128342246,
+      "recall": 0.9946236559139785
+     }
+    },
+    "triage": {
+     "triage.kind": 1.0,
+     "triage.fund_type": 1.0,
+     "triage.doc_role": 0.98
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 531,
+    "failures": 2,
+    "against": "the whole text",
+    "failed": [
+     {
+      "accession": "0001193125-21-119537",
+      "field": "proration_factor_pct",
+      "reason": "value_not_in_span",
+      "detail": "100 vs 'all 6,105 Auction Rate Preferred Shares, representing 95.8% of the outstanding Auction Rate Preferred Shares on the Expi'"
+     },
+     {
+      "accession": "0000940394-21-001127",
+      "field": "proration_factor_pct",
+      "reason": "value_not_in_span",
+      "detail": "100 vs 'EFT, EFR and EVF will purchase all shares properly tendered'"
+     }
+    ]
+   }
+  },
+  "rules_v1": {
+   "reader": "rules_v1",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 237,
+     "fp": 50,
+     "fn": 152,
+     "cell_accuracy": 0.7264957264957265,
+     "precision": 0.8257839721254355,
+     "recall": 0.609254498714653
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 32,
+      "fp": 6,
+      "fn": 2,
+      "cell_accuracy": 0.875,
+      "precision": 0.8421052631578947,
+      "recall": 0.9411764705882353
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 43,
+      "fp": 8,
+      "fn": 26,
+      "cell_accuracy": 0.7631578947368421,
+      "precision": 0.8431372549019608,
+      "recall": 0.6231884057971014
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 80,
+      "fp": 11,
+      "fn": 25,
+      "cell_accuracy": 0.782608695652174,
+      "precision": 0.8791208791208791,
+      "recall": 0.7619047619047619
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 40,
+      "fp": 2,
+      "fn": 51,
+      "cell_accuracy": 0.676829268292683,
+      "precision": 0.9523809523809523,
+      "recall": 0.43956043956043955
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 34,
+      "fp": 3,
+      "fn": 11,
+      "cell_accuracy": 0.8552631578947368,
+      "precision": 0.918918918918919,
+      "recall": 0.7555555555555555
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 3,
+      "fp": 19,
+      "fn": 28,
+      "cell_accuracy": 0.3,
+      "precision": 0.13636363636363635,
+      "recall": 0.0967741935483871
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 5,
+      "fp": 1,
+      "fn": 9,
+      "cell_accuracy": 0.55,
+      "precision": 0.8333333333333334,
+      "recall": 0.35714285714285715
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 47,
+      "fp": 24,
+      "fn": 65,
+      "cell_accuracy": 0.6728110599078341,
+      "precision": 0.6619718309859155,
+      "recall": 0.41964285714285715
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 69,
+      "fp": 4,
+      "fn": 14,
+      "cell_accuracy": 0.8409090909090909,
+      "precision": 0.9452054794520548,
+      "recall": 0.8313253012048193
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 121,
+      "fp": 22,
+      "fn": 73,
+      "cell_accuracy": 0.7321428571428571,
+      "precision": 0.8461538461538461,
+      "recall": 0.6237113402061856
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.84,
+     "triage.doc_role": 0.94
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 226,
+     "fp": 37,
+     "fn": 127,
+     "cell_accuracy": 0.7540983606557377,
+     "precision": 0.8593155893536122,
+     "recall": 0.6402266288951841
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 32,
+      "fp": 6,
+      "fn": 1,
+      "cell_accuracy": 0.8909090909090909,
+      "precision": 0.8421052631578947,
+      "recall": 0.9696969696969697
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 36,
+      "fp": 8,
+      "fn": 21,
+      "cell_accuracy": 0.7843137254901961,
+      "precision": 0.8181818181818182,
+      "recall": 0.631578947368421
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 76,
+      "fp": 10,
+      "fn": 24,
+      "cell_accuracy": 0.7818181818181819,
+      "precision": 0.8837209302325582,
+      "recall": 0.76
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 40,
+      "fp": 2,
+      "fn": 49,
+      "cell_accuracy": 0.6851851851851852,
+      "precision": 0.9523809523809523,
+      "recall": 0.449438202247191
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 34,
+      "fp": 3,
+      "fn": 10,
+      "cell_accuracy": 0.8666666666666667,
+      "precision": 0.918918918918919,
+      "recall": 0.7727272727272727
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 3,
+      "fp": 7,
+      "fn": 14,
+      "cell_accuracy": 0.46153846153846156,
+      "precision": 0.3,
+      "recall": 0.17647058823529413
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 5,
+      "fp": 1,
+      "fn": 8,
+      "cell_accuracy": 0.5789473684210527,
+      "precision": 0.8333333333333334,
+      "recall": 0.38461538461538464
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 41,
+      "fp": 12,
+      "fn": 43,
+      "cell_accuracy": 0.7407407407407407,
+      "precision": 0.7735849056603774,
+      "recall": 0.4880952380952381
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 69,
+      "fp": 4,
+      "fn": 14,
+      "cell_accuracy": 0.8409090909090909,
+      "precision": 0.9452054794520548,
+      "recall": 0.8313253012048193
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 116,
+      "fp": 21,
+      "fn": 70,
+      "cell_accuracy": 0.7352941176470589,
+      "precision": 0.8467153284671532,
+      "recall": 0.6236559139784946
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.84,
+     "triage.doc_role": 0.94
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 287,
+    "failures": 0,
+    "against": "the whole text",
+    "failed": []
+   }
+  },
+  "rules_v2": {
+   "reader": "rules_v2",
+   "n_filings": 50,
+   "partial": false,
+   "input": "first 120000 characters (to a line break)",
+   "all_cells": {
+    "terms": {
+     "n": 585,
+     "gold_nonnull": 389,
+     "tp": 256,
+     "fp": 33,
+     "fn": 133,
+     "cell_accuracy": 0.7675213675213676,
+     "precision": 0.8858131487889274,
+     "recall": 0.6580976863753213
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 56,
+      "gold_nonnull": 34,
+      "tp": 32,
+      "fp": 1,
+      "fn": 2,
+      "cell_accuracy": 0.9464285714285714,
+      "precision": 0.9696969696969697,
+      "recall": 0.9411764705882353
+     },
+     "date": {
+      "n": 114,
+      "gold_nonnull": 69,
+      "tp": 55,
+      "fp": 1,
+      "fn": 14,
+      "cell_accuracy": 0.868421052631579,
+      "precision": 0.9821428571428571,
+      "recall": 0.7971014492753623
+     },
+     "enum": {
+      "n": 115,
+      "gold_nonnull": 105,
+      "tp": 85,
+      "fp": 8,
+      "fn": 20,
+      "cell_accuracy": 0.8260869565217391,
+      "precision": 0.9139784946236559,
+      "recall": 0.8095238095238095
+     },
+     "number": {
+      "n": 164,
+      "gold_nonnull": 91,
+      "tp": 43,
+      "fp": 1,
+      "fn": 48,
+      "cell_accuracy": 0.7012195121951219,
+      "precision": 0.9772727272727273,
+      "recall": 0.4725274725274725
+     },
+     "percent": {
+      "n": 76,
+      "gold_nonnull": 45,
+      "tp": 34,
+      "fp": 3,
+      "fn": 11,
+      "cell_accuracy": 0.8552631578947368,
+      "precision": 0.918918918918919,
+      "recall": 0.7555555555555555
+     },
+     "set": {
+      "n": 40,
+      "gold_nonnull": 31,
+      "tp": 3,
+      "fp": 18,
+      "fn": 28,
+      "cell_accuracy": 0.3,
+      "precision": 0.14285714285714285,
+      "recall": 0.0967741935483871
+     },
+     "text": {
+      "n": 20,
+      "gold_nonnull": 14,
+      "tp": 4,
+      "fp": 1,
+      "fn": 10,
+      "cell_accuracy": 0.5,
+      "precision": 0.8,
+      "recall": 0.2857142857142857
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 217,
+      "gold_nonnull": 112,
+      "tp": 46,
+      "fp": 16,
+      "fn": 66,
+      "cell_accuracy": 0.6912442396313364,
+      "precision": 0.7419354838709677,
+      "recall": 0.4107142857142857
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 75,
+      "fp": 4,
+      "fn": 8,
+      "cell_accuracy": 0.9090909090909091,
+      "precision": 0.9493670886075949,
+      "recall": 0.9036144578313253
+     },
+     "T": {
+      "n": 280,
+      "gold_nonnull": 194,
+      "tp": 135,
+      "fp": 13,
+      "fn": 59,
+      "cell_accuracy": 0.7821428571428571,
+      "precision": 0.9121621621621622,
+      "recall": 0.6958762886597938
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.92,
+     "triage.doc_role": 1.0
+    }
+   },
+   "recoverable_cells": {
+    "terms": {
+     "n": 549,
+     "gold_nonnull": 353,
+     "tp": 244,
+     "fp": 22,
+     "fn": 109,
+     "cell_accuracy": 0.7959927140255009,
+     "precision": 0.9172932330827067,
+     "recall": 0.6912181303116147
+    },
+    "by_dtype": {
+     "bool": {
+      "n": 55,
+      "gold_nonnull": 33,
+      "tp": 32,
+      "fp": 1,
+      "fn": 1,
+      "cell_accuracy": 0.9636363636363636,
+      "precision": 0.9696969696969697,
+      "recall": 0.9696969696969697
+     },
+     "date": {
+      "n": 102,
+      "gold_nonnull": 57,
+      "tp": 48,
+      "fp": 1,
+      "fn": 9,
+      "cell_accuracy": 0.9019607843137255,
+      "precision": 0.9795918367346939,
+      "recall": 0.8421052631578947
+     },
+     "enum": {
+      "n": 110,
+      "gold_nonnull": 100,
+      "tp": 80,
+      "fp": 8,
+      "fn": 20,
+      "cell_accuracy": 0.8181818181818182,
+      "precision": 0.9090909090909091,
+      "recall": 0.8
+     },
+     "number": {
+      "n": 162,
+      "gold_nonnull": 89,
+      "tp": 43,
+      "fp": 1,
+      "fn": 46,
+      "cell_accuracy": 0.7098765432098766,
+      "precision": 0.9772727272727273,
+      "recall": 0.48314606741573035
+     },
+     "percent": {
+      "n": 75,
+      "gold_nonnull": 44,
+      "tp": 34,
+      "fp": 3,
+      "fn": 10,
+      "cell_accuracy": 0.8666666666666667,
+      "precision": 0.918918918918919,
+      "recall": 0.7727272727272727
+     },
+     "set": {
+      "n": 26,
+      "gold_nonnull": 17,
+      "tp": 3,
+      "fp": 7,
+      "fn": 14,
+      "cell_accuracy": 0.46153846153846156,
+      "precision": 0.3,
+      "recall": 0.17647058823529413
+     },
+     "text": {
+      "n": 19,
+      "gold_nonnull": 13,
+      "tp": 4,
+      "fp": 1,
+      "fn": 9,
+      "cell_accuracy": 0.5263157894736842,
+      "precision": 0.8,
+      "recall": 0.3076923076923077
+     }
+    },
+    "by_stratum": {
+     "M": {
+      "n": 189,
+      "gold_nonnull": 84,
+      "tp": 39,
+      "fp": 6,
+      "fn": 45,
+      "cell_accuracy": 0.7566137566137566,
+      "precision": 0.8666666666666667,
+      "recall": 0.4642857142857143
+     },
+     "R": {
+      "n": 88,
+      "gold_nonnull": 83,
+      "tp": 75,
+      "fp": 4,
+      "fn": 8,
+      "cell_accuracy": 0.9090909090909091,
+      "precision": 0.9493670886075949,
+      "recall": 0.9036144578313253
+     },
+     "T": {
+      "n": 272,
+      "gold_nonnull": 186,
+      "tp": 130,
+      "fp": 12,
+      "fn": 56,
+      "cell_accuracy": 0.7867647058823529,
+      "precision": 0.9154929577464789,
+      "recall": 0.6989247311827957
+     }
+    },
+    "triage": {
+     "triage.kind": 0.98,
+     "triage.fund_type": 0.92,
+     "triage.doc_role": 1.0
+    }
+   },
+   "gold_values": 389,
+   "gold_values_recoverable": 353,
+   "span_checks": {
+    "values": 294,
+    "failures": 0,
+    "against": "the whole text",
+    "failed": []
+   }
+  }
+ },
+ "note": "references read the WHOLE filing; their 'recoverable_cells' block restricts them to the cells a reader of the excerpt could get right, so it is the like-for-like comparison"
+}

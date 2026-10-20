@@ -1,0 +1,69 @@
+{
+ "accession": "0001193125-21-162187",
+ "triage": {
+  "kind": "merger",
+  "fund_type": "closed_end_fund",
+  "doc_role": "registration_or_proxy",
+  "kind_span": "approved a proposal to reorganize the Target Funds into the Acquiring Fund"
+ },
+ "events": [
+  {
+   "kind": "merger",
+   "terms": {
+    "subject_names": {
+     "value": "Nuveen Diversified Dividend and Income Fund; Nuveen Tax-Advantaged Total Return Strategy Fund; Nuveen Tax-Advantaged Dividend Growth Fund",
+     "span": "Nuveen Diversified Dividend and Income Fund (Dividend and Income Fund), Nuveen Tax-Advantaged Total Return Strategy Fund (Total Return Strategy Fund), and Nuveen Tax-Advantaged Dividend Growth Fund (Dividend Growth Fund)",
+     "doc_seq": "1"
+    },
+    "subject_tickers": {
+     "value": "JDD; JTA; JTD",
+     "span": "NUVEEN DIVERSIFIED DIVIDEND AND INCOME FUND (JDD), NUVEEN TAX-ADVANTAGED TOTAL RETURN STRATEGY FUND (JTA) AND NUVEEN TAX-ADVANTAGED DIVIDEND GROWTH FUND (JTD)",
+     "doc_seq": "1"
+    },
+    "security_class": {
+     "value": "common",
+     "span": "Common shareholders of each Target Fund will indirectly bear the costs of the Reorganizations whether or not any Reorganization is consummated.",
+     "doc_seq": "1"
+    },
+    "acquirer": {
+     "value": "Nuveen Multi-Asset Income Fund",
+     "span": "investing in Nuveen Multi-Asset Income Fund, a newly formed Massachusetts business trust (the Multi-Asset Income Fund or the Acquiring Fund)",
+     "doc_seq": "1"
+    },
+    "targets": {
+     "value": "Nuveen Diversified Dividend and Income Fund; Nuveen Tax-Advantaged Total Return Strategy Fund; Nuveen Tax-Advantaged Dividend Growth Fund",
+     "span": "Nuveen Diversified Dividend and Income Fund (Dividend and Income Fund), Nuveen Tax-Advantaged Total Return Strategy Fund (Total Return Strategy Fund), and Nuveen Tax-Advantaged Dividend Growth Fund (Dividend Growth Fund)",
+     "doc_seq": "1"
+    },
+    "n_targets": {
+     "value": 3,
+     "span": "Because the closing of each Reorganization is contingent upon at least two of the three Target Funds obtaining the requisite shareholder approvals",
+     "doc_seq": "1"
+    },
+    "exchange_basis": null,
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {
+     "value": ["shareholder_approval", "tax_opinion", "other"],
+     "spans": [
+      "In addition to customary closing conditions that include approval by Target Fund shareholders",
+      "As a non-waivable condition to closing, each Target Fund will receive, with respect to its Reorganization, an opinion of Vedder Price P.C.,",
+      "the closing of each Target Funds Reorganization is contingent upon at least one other Target Fund obtaining the requisite shareholder approval"
+     ],
+     "doc_seq": "1"
+    },
+    "expected_close": {
+     "value": "on or about [], 2021 or as soon as practicable thereafter",
+     "span": "the Reorganizations are expected to take effect on or about [], 2021 or as soon as practicable thereafter.",
+     "doc_seq": "1"
+    },
+    "termination_date": null,
+    "meeting_date": null,
+    "record_date": null
+   }
+  }
+ ],
+ "uncertain_fields": ["conditions"],
+ "notes": "Form N-14 registration statement that is also a joint proxy statement/prospectus (marked SUBJECT TO COMPLETION): three Nuveen closed-end funds (targets) reorganise into a newly formed Nuveen Multi-Asset Income Fund (acquirer, NYSE ticker NMAI as stated on the cap table). One merger event with n_targets = 3; the closing of each reorganisation requires approval by at least two of the three target funds. Excerpt ends inside the comparative fee tables (part05 ends mid-sentence), so any term stated only after the cut is null. Dates shown as '[]' placeholders are not dates and are null (meeting_date, record_date, termination_date not stated). exchange_basis, exchange_ratio, cash_per_share and collar are not stated in the excerpt: the filing says target holders receive newly issued Acquiring Fund common shares, with no NAV-for-NAV or ratio language, so null. conditions 'other' is the cross-fund approval contingency; treated as a closing condition but flagged uncertain."
+}

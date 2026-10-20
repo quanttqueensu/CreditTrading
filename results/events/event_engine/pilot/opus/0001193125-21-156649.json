@@ -1,0 +1,29 @@
+{"accession": "0001193125-21-156649",
+ "triage": {"kind": "merger", "fund_type": "closed_end_fund", "doc_role": "registration_or_proxy",
+            "kind_span": "the Board of each Fund has approved, subject to certain conditions and shareholder approvals as discussed herein, the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI (the Reorganizations)."},
+ "events": [
+  {"kind": "merger",
+   "terms": {
+    "subject_names": {"value": "PIMCO Dynamic Income Fund; PIMCO Dynamic Credit and Mortgage Income Fund; PIMCO Income Opportunity Fund", "span": "each of PIMCO Dynamic Income Fund (PDI), PIMCO Dynamic Credit and Mortgage Income Fund (PCI) and PIMCO Income Opportunity Fund (PKO)", "doc_seq": "1"},
+    "subject_tickers": {"value": "PDI; PCI; PKO", "span": "The common shares of PDI are listed on the New York Stock Exchange (NYSE) under the symbol PDI, the common shares of PCI are listed on the NYSE under the symbol PCI and the common shares of PKO are listed on the NYSE under the symbol PKO.", "doc_seq": "1"},
+    "security_class": {"value": "common", "span": "Shareholders of PDI will be asked to approve the issuance of additional common shares of PDI to be issued to the common shareholders of the Target Funds", "doc_seq": "1"},
+    "acquirer": {"value": "PIMCO Dynamic Income Fund (PDI)", "span": "If the Reorganizations are consummated, PDI would acquire all of the assets and liabilities of the Target Funds", "doc_seq": "1"},
+    "targets": {"value": "PIMCO Dynamic Credit and Mortgage Income Fund (PCI); PIMCO Income Opportunity Fund (PKO)", "span": "of each of PIMCO Dynamic Credit and Mortgage Income Fund (PCI), PIMCO Dynamic Income Fund (PDI), and PIMCO Income Opportunity Fund (PKO) (collectively, the Funds) to provide information and, with respect to PDI and PKO, solicit proxies in connection with the proposed reorganizations of each of PCI and PKO with and into PDI", "doc_seq": "1"},
+    "n_targets": {"value": 2, "span": "the reorganizations of PKO and PCI (together, the Target Funds) with and into PDI (the Reorganizations)", "doc_seq": "1"},
+    "exchange_basis": {"value": "nav_for_nav", "span": "the common shares of the Target Funds would, in effect, be exchanged for new common shares of PDI with an equal aggregate net asset value", "doc_seq": "1"},
+    "exchange_ratio": null,
+    "cash_per_share": null,
+    "collar": null,
+    "conditions": {"value": ["shareholder_approval", "regulatory_approval", "other"],
+                   "spans": ["The Reorganizations will be effected only if the Proposals are approved by PKO and PDI shareholders, as applicable, and the PCI Reorganization is consummated.",
+                             "the satisfaction of applicable regulatory requirements and customary closing conditions",
+                             "The reorganization of PKO into PDI (the PKO Merger) is contingent upon the consummation of the PCI Merger."],
+                   "doc_seq": "1"},
+    "expected_close": {"value": "approximately two to three months after (and in any event not earlier than two months after) the Special Meeting", "span": "If approved, the Reorganizations are expected to close on a date approximately two to three months after (and in any event not earlier than two months after) the Special Meeting", "doc_seq": "1"},
+    "termination_date": null,
+    "meeting_date": {"value": "2021-07-28", "span": "a joint special meeting of shareholders of PDI and PKO to be held at 650 Newport Center Drive, Newport Beach, CA 92660 on July 28, 2021 at 9 a.m.", "doc_seq": "1"},
+    "record_date": {"value": "2021-06-10", "span": "Shareholders of record of PDI and PKO at the close of business on [June 10, 2021] (the Record Date)", "doc_seq": "1"}
+   }}
+ ],
+ "uncertain_fields": ["record_date", "conditions", "n_targets"],
+ "notes": "Preliminary Form N-14 8C (filed May 10, 2021; joint proxy statement/prospectus 'subject to completion', many values still bracketed placeholders) for the reorganizations of PIMCO Dynamic Credit and Mortgage Income Fund (PCI) and PIMCO Income Opportunity Fund (PKO) into PIMCO Dynamic Income Fund (PDI), approved by each Board on April 29, 2021. Target holders receive PDI Merger Shares of equal aggregate NAV (cash only in lieu of fractional shares), so exchange_ratio and cash_per_share are null; no collar is mentioned. Only PDI and PKO shareholders vote at the July 28, 2021 joint special meeting; PCI shareholders do not vote (Rule 17a-8). The PCI Merger happens if the PDI Proposal passes; the PKO Merger also needs PKO approval and is contingent on the PCI Merger closing (recorded as condition 'other'). regulatory_approval is read from 'the satisfaction of applicable regulatory requirements and customary closing conditions'. A tax-free reorganization legal opinion from Ropes & Gray is described as expected, but the excerpt does not state it as a closing condition, so tax_opinion is not listed. The record date is printed in brackets ('[June 10, 2021]') in this preliminary filing, so it is tentative. n_targets = 2 counts the two named Target Funds (PKO and PCI); the filing does not print the number. The excerpt ends in the comparison of investment strategies, before the Plan of Reorganization (Appendix A), so no termination/outside date is available. Side terms: PDI management fee cut from 1.15% to 1.10% of total managed assets if the PCI Merger closes; a 75% PKO fee waiver for two months once both proposals are approved."}
