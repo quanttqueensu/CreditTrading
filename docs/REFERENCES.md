@@ -1569,3 +1569,25 @@ public repository.
 | With `timeframe=1D`, a `start` on a trading day "is set to the closing time of the current trading day" | same page | [V] |
 | **How a 1D point is stamped, as read.** Each daily point is stamped 00:00 UTC of the day after the session (e.g. 2026-10-17T00:00Z = 2026-10-16T20:00 ET carries the 2026-10-16 close); in America/New_York its date is the session date. Days before funding carry equity 0 | the paper account's history, `period=1M`, `timeframe=1D`, read by the main session 2026-10-19 (values not committed) | [V] as read; [U] whether the docs' "left-labeled" describes the same stamp |
 | **When a day's point is published, and whether a published point is ever revised** | the page says neither; the portfolio-history guide page (`https://docs.alpaca.markets/docs/portfolio-history`, fetched 2026-10-19) has no body text | [U] — orient prints the last date it finds and its age, and labels each figure as the file holds it at that read |
+
+### 12at. SPAC deadline-only route: the zero-trial D4 pre-screen (added 2026-10-19)
+
+*Provisional section number, so that sibling branches cannot clash; the
+coordinator renumbers it at merge.*
+
+The sources behind `results/events/SPAC_DEADLINE_PRESCREEN_2026-10-19.md`.
+**Zero trials.** No SPAC return dated on or after 2023-01-01 was formed. Our
+own measurements are in `results/events/spac_deadline_prescreen_summary_2026-10-19.json`
+(`python3 scripts/events/spac_deadline_prescreen.py`), and CRSP rows stay in
+the gitignored `results/events/_cache_spac/`.
+
+| claim / source | where | status |
+|---|---|---|
+| **The SPAC-period investment is a bill plus an option.** "Given the downside protection of SPAC IPOs, we interpret the SPAC period investment as equivalent to investing in default-free Treasury Bills, along with an option to convert into the common stock of a company going public." For 458 SPAC IPOs, 2010-01 to 2020-12: "investors have on average earned an equally weighted (EW) annualized return of 23.9% during the SPAC period", and "even liquidated SPACs provide positive returns (2% per year)". These are units bought at the IPO, so warrants are included. As of January 2023, the 2021 IPOs "appear to be producing annualized SPAC period returns in the low single digits" | Gahng, Ritter & Zhang, "SPACs", version of 2023-02-23 (*Review of Financial Studies* 36(9):3463–3501, 2023), PDF `https://site.warrington.ufl.edu/ritter/files/SPACs.pdf` (sha256 9236fd85…, fetched 2026-10-19), pp. 4, 18–19 | [V] quotes |
+| **The holders are levered.** "Many hedge funds have used leverage when buying SPAC IPOs", with a worked example borrowing at 3% a year; "many hedge funds, some of which are known as the 'SPAC mafia,' find the risk-adjusted returns attractive" | same, p. 19 and n. 20 | [V] quotes |
+| The published abstract: "SPAC IPO investors and deal sponsors have earned remarkably high annualized average returns, although we warn that recent deals are likely to disappoint" | `https://academic.oup.com/rfs/article/36/9/3463/7044017`, fetched 2026-10-19 | [V] |
+| **The merger-arbitrage kink used as the D4 comparison:** piecewise β 0.49 below a −4% market month (Mitchell & Pulvino 2001) | already cited in §12aa | [V] there |
+| **A foreign-private-issuer deal the census does not date.** Hunter Maritime Acquisition Corp. (CIK 1679450) "announced the consummation of its business combination with privately-held NCF Wealth Holdings Limited", dated March 21, 2019. The census has no 425 and no completion for it ("unclassified"), because the issuer files 6-K | 6-K exhibit 99.1, `https://www.sec.gov/Archives/edgar/data/1679450/000114420419015551/tv516968_ex99-1.htm`, fetched 2026-10-19 | [V] |
+| The same deal was first announced in October 2018 | web-search summary of trade press and a 2018 6-K (accession 0001144204-18-052797), not opened | [S] |
+| **Factors.** French FF5 + UMD (CRSP vintage 202608) and Pástor–Stambaugh LIQ_V ("updated through DEC 2025"), re-fetched 2026-10-19T20:36Z by the fetchers cited in §8 (W4). HYG and IEF total returns from `data/etf_daily.parquet`, source `crsp` on every row used | `scripts/data/fetch_ff_factors.py`, `scripts/data/fetch_pastor_liquidity.py` | [V] |
+| **CRSP and the census's inputs.** `dsf` prc/bid/ask, `dsenames` and `stkdelists` for the census's 1,085 linked SPAC commons, 2014-03-12 → 2022-12-30. The delisting cache runs to 2025 and is cut to 2022-12-30 before use. FRED DTB3 is the census's cache. The live snapshot is the census's 2026-10-15 CSV. All of these are the census's own (§12ac), copied byte for byte | R2 WRDS mirror through the census; `results/events/_cache_spac/` (gitignored) | [V] data; [U] CRSP code meanings (as §12ac) |
