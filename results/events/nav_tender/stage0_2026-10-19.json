@@ -1,0 +1,111 @@
+{
+ "events_census": 206,
+ "gate_fit": {
+  "deferred": 0,
+  "events": 134,
+  "max_share": 0.2,
+  "period": "fit",
+  "reasons": {
+   "no SC TO-I/A after the offer document (no results filing)": 10,
+   "unread: P_final": 2,
+   "unread: pi": 8,
+   "unread: pi, P_final": 6
+  },
+  "share_hi": 0.19402985074626866,
+  "share_lo": 0.19402985074626866,
+  "unread_hi": 26,
+  "unread_lo": 26,
+  "verdict": "PASS"
+ },
+ "gate_holdout_count_only": {
+  "deferred": 0,
+  "events": 42,
+  "max_share": 0.2,
+  "period": "holdout",
+  "reasons": {
+   "no SC TO-I/A after the offer document (no results filing)": 3,
+   "unread: pi": 5,
+   "unread: pi, P_final": 6
+  },
+  "share_hi": 0.3333333333333333,
+  "share_lo": 0.3333333333333333,
+  "unread_hi": 14,
+  "unread_lo": 14,
+  "verdict": "FAIL"
+ },
+ "in_universe_excluded": 8,
+ "merger_open_excluded": 4,
+ "part": "A (EDGAR only)",
+ "periods": {
+  "after_crsp": {
+   "completed": 14,
+   "cutoff_fail": 0,
+   "events": 17,
+   "groups": 16,
+   "pi_second_method": 0,
+   "redated": 0,
+   "terminated": 0,
+   "unread": 3
+  },
+  "fit": {
+   "completed": 108,
+   "cutoff_fail": 0,
+   "events": 134,
+   "groups": 120,
+   "pi_second_method": 1,
+   "redated": 7,
+   "terminated": 0,
+   "unread": 26
+  },
+  "gap": {
+   "completed": 1,
+   "cutoff_fail": 0,
+   "events": 1,
+   "groups": 1,
+   "pi_second_method": 0,
+   "redated": 0,
+   "terminated": 0,
+   "unread": 0
+  },
+  "holdout": {
+   "completed": 28,
+   "cutoff_fail": 0,
+   "events": 42,
+   "groups": 21,
+   "pi_second_method": 0,
+   "redated": 0,
+   "terminated": 0,
+   "unread": 14
+  }
+ },
+ "run_utc": "2026-10-20T01:00:55+00:00",
+ "stamp": "2026-10-19",
+ "uncached_documents": 82,
+ "unread_dg1": [],
+ "unread_dg1_holdout_read_at_its_stage0": [
+  "MVF",
+  "HERZ",
+  "HERZ",
+  "EVF",
+  "MUI",
+  "TYG",
+  "CII",
+  "BGR",
+  "BME",
+  "BOE",
+  "BDJ",
+  "BGY",
+  "TPZ",
+  "IGI",
+  "GDO",
+  "NTG",
+  "BCX",
+  "TTP",
+  "NDP",
+  "BSTZ",
+  "BMEZ",
+  "BCAT",
+  "BTX",
+  "ECAT"
+ ]
+}

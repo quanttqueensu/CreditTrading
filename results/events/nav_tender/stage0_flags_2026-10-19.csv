@@ -1,0 +1,73 @@
+check,ticker,date,period,event_id,note
+dg1_definite,EEA,2010-12-03,fit,0000088053-10-001697,day 0 2010-12-03 from 0000088053-10-001697: tender approved after the initial measurement period; the next window named in the same release is a later offer
+dg1_definite,EEA,2012-05-29,fit,0000088053-12-000607,day 0 2012-05-29 from 0000088053-12-000607: measurement period ended 2012-05-25; triggered tender announced
+dg1_definite,EEA,2014-12-15,fit,0000088053-14-001619,day 0 2014-12-15 from 0000088053-14-001619: measurement period ended 2014-12-12; triggered tender announced
+quality_episode_far,CIK811797,2011-05-10,fit,0001104659-11-027753,"episode spans 2 offer(s); the event is the first, results 0001104659-11-035375"
+quality_episode_far,CIK812090,2016-04-05,fit,0001571049-16-013658,"episode spans 3 offer(s); the event is the first, results 0001571049-16-015785"
+dg1_definite,SWZ,2011-05-25,fit,0001193125-11-149954,day 0 2011-05-25 from 0001193125-11-149954: first measurement period concluded 2011-05-24 at 10.23%; offer dated
+dg1_redated,CIK822794,2013-05-31,fit,0001104659-13-046098,day 0 2013-07-19 from 0001104659-13-055186: day-0 tender was subject to stockholder approval of the restructuring (a future vote) and void at a premium; the 2013-07-19 release announces the decided tender
+quality_episode_far,MVF,2024-07-02,holdout,0001193125-24-173637,"episode spans 5 offer(s); the event is the first, results 0001193125-24-205551"
+quality_episode_far,ZTR,2016-04-05,fit,0001571049-16-013655,"episode spans 3 offer(s); the event is the first, results 0001571049-16-015787"
+dg1_definite,CXH,2018-03-12,fit,0001193125-18-079336,day 0 2018-03-12 from 0001193125-18-079336: definite tender announced
+dg1_definite,GF,2012-05-29,fit,0000088053-12-000608,day 0 2012-05-29 from 0000088053-12-000608: measurement period ended 2012-05-25; triggered tender announced
+dg1_definite,GF,2013-06-17,fit,0000088053-13-000689,day 0 2013-06-17 from 0000088053-13-000689: measurement period ended 2013-06-14; triggered tender announced
+dg1_definite,CEE,2012-12-03,fit,0000088053-12-001308,day 0 2012-12-03 from 0000088053-12-001308: measurement period ended 2012-11-30; triggered tender announced (commencement after the year-end distribution)
+quality_episode_far,CEE,2012-12-03,fit,0000088053-12-001308,"episode spans 4 offer(s); the event is the first, results 0000088053-13-000296"
+dg1_definite,CEE,2015-04-27,fit,0000088053-15-000427,day 0 2015-04-27 from 0000088053-15-000427: measurement period ended 2015-04-24; triggered tender announced
+dg1_redated,HERZ,2021-08-20,fit,0001398344-21-016620,day 0 2021-10-04 from 0001580642-21-004750: day-0 release modified the self-tender policy 'subject to annual Board approval' (a board's later discretion); the 2021-10-04 filing announces the decided tender
+dg1_definite,HERZ,2022-10-03,fit,0001387131-22-010233,day 0 2022-10-03 from 0001387131-22-010233: definite tender announced
+pricing_session,DDF,2014-05-22,fit,0001582816-14-000312,X_p 2014-07-02 vs expiry 2014-06-27: NAV date beside P_final (results filing)
+time_key,DDF,2017-05-18,fit,0001680289-17-000136,filing date 2017-05-18 precedes acceptance 20170519134157 ET; observed_at = acceptance (filing date 2017-05-18 precedes acceptance 2017-05-19T17:41:57+00:00)
+dg1_definite,KEF,2010-08-17,fit,0000905148-10-001700,day 0 2010-08-17 from 0000905148-10-001700: definite tender; only its terms and timing were left for after the annual meeting
+dg1_definite,KEF,2011-11-17,fit,0000905148-11-001996,day 0 2011-11-17 from 0000905148-11-001996: Q3-2011 window ended; the release announces the triggered tender's timing
+dg1_redated,IFN,2013-11-18,fit,0001193125-13-445706,day 0 2014-02-19 from 0001193125-14-058906: day-0 tender conditional on stockholder approval (vote 2014-02-03) and then on the Board's later authorisation; approved 2014-02-19
+quality_episode_far,CIK919808,2011-04-08,fit,0001104659-11-019349,"episode spans 2 offer(s); the event is the first, results 0001104659-11-035373"
+dg1_definite,CIK919808,2012-05-07,fit,0001104659-12-033676,day 0 2012-05-07 from 0001104659-12-033676: measurement period ended 2012-03-30 at 10.44%; triggered tender announced
+quality_episode_far,CIK919808,2012-05-07,fit,0001104659-12-033676,"episode spans 2 offer(s); the event is the first, results 0001104659-12-045000"
+dg1_definite,CIK919808,2013-05-13,fit,0001104659-13-040826,day 0 2013-05-13 from 0001104659-13-040826: day 0 is the offer document itself
+dg1_definite,DSU,2018-03-02,fit,0001341004-18-000162,day 0 2018-03-02 from 0001341004-18-000162: first measurement period ended; triggered tender announced
+dg1_definite,DSU,2019-03-01,fit,0001193125-19-061173,"day 0 2019-03-01 from 0001193125-19-061173: window ended 2019-02-28; discount beyond the 7.5% trigger, so the stated tender follows"
+dg1_definite,DSU,2020-03-02,fit,0001193125-20-059161,"day 0 2020-03-02 from 0001193125-20-059161: window ended 2020-02-28; discount beyond the 7.5% trigger, so the stated tender follows"
+dg1_definite,HIX,2020-08-14,fit,0001193125-20-220023,"day 0 2020-08-14 from 0001193125-20-220023: definite tender (announced earlier outside the tender filings; the backtest knows less, prereg §3.6)"
+dg1_definite,EIM,2019-10-02,fit,0000940394-19-001307,day 0 2019-10-02 from 0000940394-19-001307: 120-day window ended 2019-10-01; triggered tender announced
+dg1_definite,EIM,2020-05-21,fit,0000940394-20-000961,day 0 2020-05-21 from 0000940394-20-000961: 120-day window ended 2020-05-20; triggered tender announced
+dg1_definite,AVK,2017-05-01,fit,0000891804-17-000351,day 0 2017-05-01 from 0000891804-17-000351: approved under a standstill agreement with Saba; no stated condition on a future window or vote
+dg1_definite,EHI,2020-08-14,fit,0001193125-20-220018,day 0 2020-08-14 from 0001193125-20-220018: definite tender (announced earlier outside the tender filings)
+dg1_definite,FTF,2016-10-17,fit,0001680359-16-000043,day 0 2016-10-17 from 0001680359-16-000043: definite tender authorised
+dg1_definite,NRO,2011-10-06,fit,0000898432-11-001115,day 0 2011-10-06 from 0000898432-11-001115: measurement period ended 2011-10-04; triggered tender announced
+dg1_redated,NRO,2016-07-26,fit,0000898432-16-002783,day 0 2016-10-04 from 0000898432-16-003018: day-0 conditional tender depended on the discount over 2015-12-31..2016-09-30 (window still open); triggered 2016-10-03
+dg1_definite,TYG,2022-08-23,fit,0001140361-22-030648,day 0 2022-08-23 from 0001140361-22-030648: measurement period ended 2022-07-31; triggered tender announced
+dg1_definite,SCD,2011-03-09,fit,0001104659-11-013292,day 0 2011-03-09 from 0001104659-11-013292: the initial 30% offer is unconditional (the later quarterly ones are conditional and are not this event)
+quality_episode_far,SCD,2011-03-09,fit,0001104659-11-013292,"episode spans 4 offer(s); the event is the first, results None"
+quality_episode_far,CII,2024-07-02,holdout,0001193125-24-173628,"episode spans 3 offer(s); the event is the first, results 0001193125-24-203034"
+dg1_redated,EVG,2021-03-09,fit,0000940394-21-000627,"day 0 2021-06-29 from 0000350797-21-000080: day-0 tender conditioned on shareholder approval of a new advisory agreement (a future vote); no tender filing between, so day 0 is the offer document"
+dg1_definite,GLV,2017-07-10,fit,0001398344-17-008451,day 0 2017-07-10 from 0001398344-17-008451: approved under standstill agreements with Saba
+dg1_redated,MCN,2018-06-29,fit,0001289868-18-000012,"day 0 2018-10-10 from 0001289868-18-000059: day-0 tender 'would be completed following consummation of the Merger' (MSP into MCN, a future vote); no tender filing between, so day 0 is the offer document. The census's merger-open screen did not catch it (no merger episode of MCN's CIK open at day 0)"
+dg1_redated,GFY,2010-01-12,fit,0001104659-10-001377,day 0 2010-04-05 from 0001104659-10-018413: day-0 release began a twelve-week measuring period 'to determine whether to proceed' (a future discount average)
+dg1_definite,FAM,2017-02-14,fit,0001445546-17-000897,day 0 2017-02-14 from 0001445546-17-000897: definite tender under an agreement with Karpus
+dg1_definite,PHD,2020-09-01,fit,0001193125-20-236412,"day 0 2020-09-01 from 0001193125-20-236412: authorised; the conditions are not stated (read as the offer's ordinary conditions, §4.2)"
+quality_episode_far,BGR,2024-07-02,holdout,0001193125-24-173644,"episode spans 3 offer(s); the event is the first, results 0001193125-24-203035"
+quality_episode_far,BME,2024-07-02,holdout,0001193125-24-173634,"episode spans 3 offer(s); the event is the first, results 0001193125-24-203881"
+dg1_definite,GLQ,2017-07-10,fit,0001398344-17-008450,day 0 2017-07-10 from 0001398344-17-008450: approved under standstill agreements with Saba
+quality_episode_far,BOE,2024-07-02,holdout,0001193125-24-173645,"episode spans 4 offer(s); the event is the first, results 0001193125-24-204725"
+quality_episode_far,MGU,2012-10-17,fit,0001193125-12-424922,"episode spans 2 offer(s); the event is the first, results 0001193125-12-477093"
+quality_episode_far,BDJ,2024-07-02,holdout,0001193125-24-173632,"episode spans 2 offer(s); the event is the first, results 0001193125-24-203031"
+dg1_definite,GLO,2017-07-10,fit,0001398344-17-008453,day 0 2017-07-10 from 0001398344-17-008453: approved under standstill agreements with Saba
+dg1_definite,AGC,2017-05-01,fit,0000891804-17-000350,day 0 2017-05-01 from 0000891804-17-000350: approved under a standstill agreement with Saba
+quality_episode_far,BGY,2024-07-02,holdout,0001193125-24-173647,"episode spans 4 offer(s); the event is the first, results 0001193125-24-203883"
+dg1_definite,DEX,2018-05-25,fit,0001680359-18-000228,day 0 2018-05-25 from 0001680359-18-000228: definite 20% tender (the measurement period named beside it is for a later offer)
+dg1_definite,TPZ,2022-08-23,fit,0001140361-22-030646,day 0 2022-08-23 from 0001140361-22-030646: measurement period ended 2022-07-31; triggered tender announced
+dg1_definite,NBB,2018-10-25,fit,0001193125-18-306545,day 0 2018-10-25 from 0001193125-18-306545: authorised without a stated condition; a later (2018-11-19) announcement added a 10-day discount test that the 2019-01-03 release reports met
+dg1_definite,NTG,2022-08-23,fit,0001140361-22-030647,day 0 2022-08-23 from 0001140361-22-030647: measurement period ended 2022-07-31; triggered tender announced
+quality_episode_far,BCX,2024-07-02,holdout,0001193125-24-173640,"episode spans 4 offer(s); the event is the first, results 0001193125-24-204728"
+dg1_definite,TTP,2022-08-23,fit,0001140361-22-030650,day 0 2022-08-23 from 0001140361-22-030650: measurement period ended 2022-07-31; triggered tender announced
+dg1_definite,NDP,2022-08-23,fit,0001140361-22-030649,day 0 2022-08-23 from 0001140361-22-030649: measurement period ended 2022-07-31; triggered tender announced
+pfinal_vs_offer_nav,NDP,2022-08-23,fit,0001140361-22-030649,"P_final 38.72 is 1.223 x k% of the offer's NAV 32.31 (2022-09-23): results table, NDP row (joint release, fund-anchored)"
+dg1_definite,DRA,2015-10-09,fit,0001193125-15-340936,day 0 2015-10-09 from 0001193125-15-340936: measurement period ended 2015-10-07 at -10.91%; triggered tender announced
+dg1_definite,GGO,2021-05-14,fit,0001193125-21-162188,"day 0 2021-05-14 from 0001193125-21-162188: definite tender; price left to the Board (allowed, §4.2)"
+quality_episode_far,BSTZ,2024-07-02,holdout,0001193125-24-173651,"episode spans 4 offer(s); the event is the first, results 0001193125-24-204726"
+quality_episode_far,BMEZ,2024-07-02,holdout,0001193125-24-173649,"episode spans 3 offer(s); the event is the first, results 0001193125-24-203880"
+quality_episode_far,BTX,2024-07-02,holdout,0001193125-24-173650,"episode spans 3 offer(s); the event is the first, results 0001193125-24-205555"
+spec_beta_window,-,2026-10-19,all,-,"e1_etf_hedge_gate.windows refuses a test length of 0 (its anchor assertion s0 < e); the script fits on windows()'s (s_est, s0] with h = 1: 252 spans ending 43 valid sessions before day 0, one more than the prereg's 42. Rule: keep h = 1, or fit on (s_est, e] with est = 251."
+spec_results_filing,-,2026-10-19,all,-,"The results filing is the offer's own last SC TO-I/A (prereg §4.3); an offer whose outcome was published only as a post-expiry SC TO-C press release is unread. Rule: keep, or admit that press release as the results filing (the census never read one)."
+spec_per_event_units,-,2026-10-19,all,-,"Stage 1 and 3 statistic: x_e = u_e * (fund + hedge P&L per unit notional), u_e = 1/m, mean over events, cluster_t by sponsor x day 0 (the literal 'raw units'); the mean of group means is printed beside it. Rule: keep, or decide on the group means."
