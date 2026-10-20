@@ -1297,9 +1297,6 @@ re-run on 2026-10-18.
 
 ### 12ac. SPAC trust-value census, special-situations job 4 (added 2026-10-18)
 
-*Provisional section number, so that sibling branches cannot clash; the
-coordinator renumbers it at merge.*
-
 The sources behind `results/events/SPAC_TRUST_CENSUS_2026-10-15.md`.
 
 - **Zero trials.**
@@ -1487,9 +1484,6 @@ unchanged.
 
 ### 12ah. The E1 merger-pair pre-registration draft (added 2026-10-19)
 
-*Provisional section number, so that sibling branches cannot clash; the
-coordinator renumbers it at merge.*
-
 The sources behind `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`.
 
 - **Zero trials.** The draft computes no E1 return.
@@ -1650,9 +1644,6 @@ HTTPS GET (as in §12af), Azure's price list through its public API. It builds o
 
 ### 12at. SPAC deadline-only route: the zero-trial D4 pre-screen (added 2026-10-19)
 
-*Provisional section number, so that sibling branches cannot clash; the
-coordinator renumbers it at merge.*
-
 The sources behind `results/events/SPAC_DEADLINE_PRESCREEN_2026-10-19.md`.
 **Zero trials.** No SPAC return dated on or after 2023-01-01 was formed. Our
 own measurements are in `results/events/spac_deadline_prescreen_summary_2026-10-19.json`
@@ -1696,13 +1687,6 @@ guide has no NYSE/AMEX quote history, and no later edition was fetched.
 
 ### 12av. A1, CEF share issuance at a premium: the zero-trial gate (added 2026-10-20)
 
-### 12aw. Muni hazard flags B1/B2: EMMA, OpenFEMA and N-PORT terms; BlackRock muni leverage (added 2026-10-20)
-
-### 12ax. A2: insider open-market purchases in CEFs and BDCs, the zero-trial gate (added 2026-10-20)
-
-*Provisional section number, so that sibling branches cannot clash; the
-coordinator renumbers it at merge.*
-
 The sources behind `results/events/A1_CEF_ISSUANCE_GATE_2026-10-20.md`. **Zero
 trials.** Our own counts and levels are in `results/events/a1/` (`python3
 scripts/events/a1_cef_issuance_gate.py levels ...`). They are aggregates only;
@@ -1729,6 +1713,9 @@ certificate; govinfo's copy was read instead. A search for academic work on CEF
 at-the-market programmes found none. It surfaced Billett (2018) on ATM equity
 offerings in general, and a 2026 trade-press item on a BlackRock CEF ATM; neither
 was opened.
+
+### 12aw. Muni hazard flags B1/B2: EMMA, OpenFEMA and N-PORT terms; BlackRock muni leverage (added 2026-10-20)
+
 The sources behind `results/cef/MUNI_HAZARD_FLAGS_GATE_2026-10-20.md`. **Zero
 trials.** No price or NAV return dated on or after 2023-01-01 was read. Our own
 measurements are in `results/events/muni_hazard/summary_2026-10-20.json`
@@ -1752,6 +1739,9 @@ evidence. It is corrected in place in the brief.
 | **BlackRock muni leverage (corrects `docs/BRIEF.md` line 386).** Statements of Assets and Liabilities, 2026-07-31: **MHD** "TOB Trust Certificates" $852,392,605, "VMTP Shares, at liquidation value" $717,800,000, no VRDP, net assets $2,182,763,211. **MQY**: TOB $476,885,780, "VRDP Shares, at liquidation value" $847,356,011, net assets $1,814,141,828. MQY at 2022-07-31: TOB $210,678,835, VRDP $450,177,989, net assets $1,017,460,656. MHD's 2022 report is a four-fund combined statement in which every column carries both TOB certificates and VMTP shares; its MHD column was not identified | N-CSR 0001193125-26-413740 (combined MUA/BTT/MHD/MQY statement); N-CSR 0001193125-22-258205 (MQY); N-CSR 0001193125-22-258174 (MHD) | [V] figures. [U] the floaters' reset index for BlackRock's TOBs |
 | **The spec's muni names and the book's exposure.** MHD and MQY are the spec's only muni funds (`cef_facts.csv` group). The live positions on their dates were short MHD 1,450 and MQY 2,105 (2026-10-13), and short MQY 1,298 (2026-10-15) | `scripts/cef/spec.py` `UNIVERSE`; `results/ops/alpaca_probe/2026-10-13_cef.json`, `…10-15_cef.json` | [V] on their dates only |
 | **Not fetched, and why:** NOAA/NHC hurricane advisories (the timely B2 source; terms unread). The rating agencies' Rule 17g-7 municipal histories: `data/agency_actions_17g7.parquet` holds corporate, financial and insurance classes only. EMMA's historical notices (§1 of the note: paid) | — | [U] |
+
+### 12ax. A2: insider open-market purchases in CEFs and BDCs, the zero-trial gate (added 2026-10-20)
+
 The sources behind `results/events/A2_INSIDER_BUYING_GATE_2026-10-20.md`.
 **Zero trials.** No return dated on or after 2023-01-01 was formed, and the
 27-name comparison set was counted only. Our own measurements are in
