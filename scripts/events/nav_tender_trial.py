@@ -2194,13 +2194,105 @@ def holdout_daily(permnos, refresh: bool = False) -> pd.DataFrame:
 def holdout() -> dict:
     """Stage 7, opened once after the fit verdict's commit: (a) the mean per-event gross P&L > 0
     and (b) the tradable sleeve's mean daily gross P&L > 0, with k and the beta rule frozen from
-    the fit (beta rolls). Its own 20% gate and its own Stage-0 flags apply first."""
+    the fit (beta rolls). Its own Stage 0 comes first, and its 20% unread gate first of all
+    (prereg §4.3, §11.1: "If it fails on the holdout, the holdout halts and is reported; the fit
+    verdict stands"). That gate reads EDGAR only, so a failing holdout is recorded without any
+    2023-24 price being read."""
     if HOLDOUT_JSON.exists():
         raise TrialError(f"{HOLDOUT_JSON.name} exists: the holdout opens once")
     if not fit_verdict_committed():
         raise TrialError("the fit verdict is not committed: the holdout stays sealed")
-    raise Stage0Halt("the holdout run needs the 2023-24 CRSP extract (`stage --holdout`, the team lead) and the holdout "
-                     "events' own Stage-0 rulings; it is not run in this checkout")
+    S = stage0(edgar_only=False, write=False)
+    g = S["rec"]["gate_holdout_count_only"]
+    out = {"opened_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "fit_verdict": json.loads(FIT_JSON.read_text())["verdict"], "gate": g,
+           "holdout_events_unread": S["ev"].loc[eligible(S["ev"]) & (S["ev"]["period"] == "holdout")
+                                                & (S["ev"]["outcome"] == "unread"), "label"].tolist()}
+    if g["verdict"] == "FAIL":
+        out["verdict"] = ("HALTED at the holdout's 20% unread gate (prereg §4.3, §11.1): no 2023-24 price or return "
+                          "was read; the fit verdict stands")
+        HOLDOUT_JSON.write_text(json.dumps(_jsonable(out), indent=1, sort_keys=True))
+        return out
+    raise Stage0Halt("the holdout's gate passes: its Stage 0 needs the 2023-24 CRSP extract (`stage --holdout`, the "
+                     "team lead) and the holdout events' DG-NT-1 readings and rulings")
+
+
+def rederive() -> dict:
+    """A second method for the fit's headline numbers (CLAUDE.md data rules: double-check what
+    drives a decision). Independent of `build_matrices`, `evaluate`, `cluster_t` and the Stage-0
+    return series: it reads CRSP's rows again through `crsp_events.daily`, writes each event's
+    daily P&L in a plain loop (the fund's return, the tender row on X_p, (1 - pi) after it, minus
+    beta times the ETF's return, on sessions day 0 + 2 .. F + 1), and computes the per-event mean,
+    a CR1 cluster t and both sleeves' Sharpes by hand. Sizing (k and the cap) is taken from the
+    first method: this checks the P&L arithmetic and the alignment, not the sizing rule."""
+    from scripts.events import crsp_events as ce
+    fit_res = json.loads(FIT_JSON.read_text())
+    S = stage0(edgar_only=False, write=False)
+    D = S["data"]
+    ev = D.ev
+    plist = json.loads(PERMNO_LIST.read_text())["permnos"]
+    dsf = ce.daily(plist)
+    names = ce.names()
+    etf_p, _ = etf_permnos_resolved(names, hedge_symbols())
+    by = {p: g.set_index("date").sort_index() for p, g in dsf.groupby("permno")}
+    sess = D.sessions
+    pos = {d: i for i, d in enumerate(sess)}
+    m = ev.groupby("group")["eid"].transform("size")
+    daily_raw_, per = {}, []
+    for (_, r), mm in zip(ev.iterrows(), m):
+        u = 1.0 / mm
+        f, x = by[int(r["permno"])], by[etf_p[r["etf"]]]
+        pl = sess[pos[r["day0"]] + 2: pos[r["F"]] + 2]
+        tot, rows = 0.0, {}
+        for d in pl:
+            rf = float(f.at[d, "ret"])
+            if r["outcome"] == "completed":
+                if d == r["x_p"]:
+                    prev = sess[pos[d] - 1]
+                    rf = r["pi"] * (r["p_final"] / float(f.at[prev, "prc"]) - 1) + (1 - r["pi"]) * rf
+                elif d > r["x_p"]:
+                    rf = (1 - r["pi"]) * rf
+            v = rf - r["beta"] * float(x.at[d, "ret"])
+            rows[d] = v
+            tot += v
+        daily_raw_[r["eid"]] = (u, pd.Series(rows))
+        pi_exit = r["pi"] if r["outcome"] == "completed" else 0.0
+        per.append({"eid": r["eid"], "group": r["group"], "x": u * tot,
+                    "x15": u * tot - u * STAGE3_BP / 1e4 * (1 + (1 - pi_exit) + 2 * abs(r["beta"]))})
+    P = pd.DataFrame(per)
+
+    def cr1(col):
+        xb = P[col].mean()
+        Gs = P.groupby("group")[col].apply(lambda v: (v - xb).sum())
+        nG_ = len(Gs)
+        return float(xb), float(xb / np.sqrt(nG_ / (nG_ - 1) * (Gs ** 2).sum() / len(P) ** 2)), nG_
+    xbar, t_cr1, nG = cr1("x")
+    x15, t15, _ = cr1("x15")
+    N = len(P)
+    k = fit_res["sizing"]["k"]
+    from scripts.cef.spec import MAX_GROSS_STRESS
+    w, _ = capped_weights(to_events(ev), k, sess, MAX_GROSS_STRESS)
+    raw = pd.Series(0.0, index=sess)
+    trad = pd.Series(0.0, index=sess)
+    for eid, (u, ser) in daily_raw_.items():
+        raw.loc[ser.index] += u * ser.values
+        trad.loc[ser.index] += w[eid] * ser.values
+    a, b = D.t_first, D.t_last
+
+    def sr(x):
+        x = x.loc[a:b]
+        return float(x.mean() / x.std() * np.sqrt(252))
+    out = {"per_event_mean": float(xbar), "per_event_cluster_t": float(t_cr1), "n": N, "groups": nG,
+           "per_event_net15_mean": x15, "per_event_net15_cluster_t": t15,
+           "raw_sleeve_sr": sr(raw), "tradable_sleeve_sr": sr(trad),
+           "first_method": {"per_event_mean": fit_res["stages"]["1"]["mean"],
+                            "per_event_cluster_t": fit_res["stages"]["1"]["cluster_t"],
+                            "per_event_net15_mean": fit_res["stages"]["3"]["mean"],
+                            "per_event_net15_cluster_t": fit_res["stages"]["3"]["cluster_t"],
+                            "raw_sleeve_sr": fit_res["grid_raw"]["gross"],
+                            "tradable_sleeve_sr": fit_res["stages"]["5"]["gross_sr"]}}
+    (TRIAL_DIR / f"rederive_{STAMP}.json").write_text(json.dumps(_jsonable(out), indent=1, sort_keys=True))
+    return out
 
 
 # ===================================================================== staging (the team lead's run)
@@ -2260,6 +2352,7 @@ def main(argv=None) -> int:
     s0.add_argument("--edgar-only", action="store_true")
     sub.add_parser("fit")
     sub.add_parser("holdout")
+    sub.add_parser("rederive")
     st = sub.add_parser("stage")
     st.add_argument("--ibkr")
     st.add_argument("--holdout", action="store_true")
@@ -2272,6 +2365,8 @@ def main(argv=None) -> int:
             print(json.dumps(_jsonable(fit()), indent=1, sort_keys=True))
         elif a.cmd == "holdout":
             print(json.dumps(_jsonable(holdout()), indent=1, sort_keys=True))
+        elif a.cmd == "rederive":
+            print(json.dumps(_jsonable(rederive()), indent=1, sort_keys=True))
         else:
             stage(a.ibkr, a.holdout)
     except Stage0Halt as e:

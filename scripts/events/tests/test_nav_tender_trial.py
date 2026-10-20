@@ -476,3 +476,44 @@ def test_r_book_needs_overlap():
     r = T.r_book(x, 2 * x)
     assert r["corr"] == pytest.approx(1.0) and r["beta_on_book"] == pytest.approx(0.5)
     assert "not computed" in T.r_book(x, None)
+
+
+def test_second_method_agrees_with_the_first_on_synthetic_data(tmp_path, monkeypatch):
+    """`rederive` (plain loops, CRSP rows read again) must reproduce fit_on's per-event mean, cluster t
+    and both sleeve Sharpes."""
+    import json as _json
+    from scripts.events import crsp_events as ce
+    ev, S = _synthetic_crsp(tmp_path, monkeypatch)
+    names = ce.names()
+    flags = pd.DataFrame([{"check": "spec_beta_window", "ticker": "-", "date": "2026-10-19", "period": "all",
+                           "event_id": "-", "note": "x"}])
+    pd.DataFrame([{"check": "spec_beta_window", "ticker": "-", "date": "2026-10-19", "ruling": "keep", "ruled_by": "t",
+                   "ruled_on": "2026-10-19"}]).to_csv(T.RULINGS, index=False)
+    out = T.stage0_partB(ev, names, flags, {})
+    res = T.fit_on(out["data"], pd.DataFrame(columns=["cik", "kind", "first_date", "last_date"]), 100_000.0, 1.8,
+                   placebo_draws=5)
+    monkeypatch.setattr(T, "FIT_JSON", tmp_path / "fit.json")
+    monkeypatch.setattr(T, "TRIAL_DIR", tmp_path)
+    T.FIT_JSON.write_text(_json.dumps(T._jsonable(res)))
+    monkeypatch.setattr(T, "stage0", lambda **kw: {"data": out["data"]})
+    r = T.rederive()
+    fm = r["first_method"]
+    assert r["per_event_mean"] == pytest.approx(fm["per_event_mean"], rel=1e-9)
+    assert r["per_event_cluster_t"] == pytest.approx(fm["per_event_cluster_t"], rel=1e-9)
+    assert r["raw_sleeve_sr"] == pytest.approx(fm["raw_sleeve_sr"], rel=1e-9)
+    assert r["tradable_sleeve_sr"] == pytest.approx(fm["tradable_sleeve_sr"], rel=1e-9)
+
+
+def test_holdout_halts_at_its_gate_without_prices(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(T, "FIT_JSON", tmp_path / "fit.json")
+    monkeypatch.setattr(T, "HOLDOUT_JSON", tmp_path / "holdout.json")
+    T.FIT_JSON.write_text(_json.dumps({"verdict": "KILL D1"}))
+    monkeypatch.setattr(T, "fit_verdict_committed", lambda: True)
+    ev = _gate_frame(42, 14).assign(period="holdout", label="X")
+    monkeypatch.setattr(T, "stage0", lambda **kw: {"rec": {"gate_holdout_count_only": T.dg_nt2_gate(ev, "holdout")},
+                                                   "ev": ev})
+    out = T.holdout()
+    assert out["verdict"].startswith("HALTED") and T.HOLDOUT_JSON.exists()
+    with pytest.raises(T.TrialError, match="opens once"):
+        T.holdout()
