@@ -606,7 +606,7 @@ def split_factor(index, columns, splits=None):
     return k.fillna(1.0)
 
 
-def total_returns(R, actions=None, prices=None):
+def total_returns(R, actions=None, prices=None, split_rulings=None):
     """Price returns corrected for splits, plus the distribution leg.
 
     Kept separate from `build_targets()` on purpose. Every baseline in this
@@ -625,7 +625,21 @@ def total_returns(R, actions=None, prices=None):
     `prices` the price panel whose closes are the yield's denominator; both
     must be given together, because a yield on one panel's distributions over
     another panel's prices is a silent mismatch. The formula is the same.
+
+    THE SPLIT-BASIS GUARD (added 2026-10-20; `scripts/cef/data_guards.py`,
+    guard 3). k is right only on a RAW close, which steps by 1/k on the
+    ex-date. A vendor that has already split-adjusted the history leaves no step
+    there, and k then books a phantom return of k - 1. C4's fit booked BTO, TYG,
+    NXG and EMO at -75% to -80% that way, and nothing raised. Before k is
+    applied, `guard_split_basis` checks every cell it multiplies, and RAISES
+    naming (ticker, ex-date, factor) where the raw step is an ordinary day
+    and k would create a split-sized one. `split_rulings` (default None: no
+    override) is a recorded rulings file that treats named cells (`drop_split`,
+    or `book_as_is` to reproduce a committed computation). Where nothing is hit,
+    k is passed through untouched and the result is the old formula's, bit for
+    bit (hashes: results/cef/DATA_GUARDS_2026-10-19.md §7).
     """
+    from scripts.cef.data_guards import guard_split_basis
     if (actions is None) != (prices is None):
         raise ValueError("total_returns: give `actions` and `prices` together, or neither")
     if actions is None:
@@ -635,6 +649,7 @@ def total_returns(R, actions=None, prices=None):
         dist, sp = load_families_actions(actions)
         y = distribution_yield(R.index, R.columns, dist=dist, prices=prices).reindex_like(R)
         k = split_factor(R.index, R.columns, splits=sp).reindex_like(R)
+    k = guard_split_basis(R, k, rulings=split_rulings, series="close", context="total_returns")
     clash = ((k != 1.0) & (y != 0.0))
     if clash.any().any():
         where = [(str(d.date()), c) for d, c in zip(*np.where(clash.values))]

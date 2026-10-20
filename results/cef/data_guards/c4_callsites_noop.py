@@ -9,7 +9,14 @@ holdout's `assemble` (ruled, uncorrected and R-ADX actions) -- it prints the sha
 with IGR's eight touched cells masked. It then rebuilds the fit's R-yf row on the guarded code and
 compares it with the committed `c4_fit_tables_2026-10-14.csv`, and sizes the second defect class the
 scan exposed (a recorded split applied to an already split-adjusted close; not guarded). Output:
-results/cef/data_guards/c4_callsites_noop_output_2026-10-19.txt."""
+results/cef/data_guards/c4_callsites_noop_output_2026-10-19.txt.
+
+Amended 2026-10-20. That second class has been guarded since this date
+(`data_guards.guard_split_basis`, inside `band_frontier.total_returns`). Every call below
+therefore passes `c4.SPLIT_RULINGS` (book_as_is), which keeps this script's computation, and its
+output file, as they were on 2026-10-19; re-run and diffed on 2026-10-20. The printed line
+"NOT guarded" was true on 2026-10-19 and is kept as it was. The guard's own proof is
+`split_basis_callsites.py`."""
 import contextlib
 import hashlib
 import io
@@ -38,7 +45,7 @@ def old(px, cols, index, actions=None):
     close = px.pivot_table(index="date", columns="ticker", values="close").sort_index()
     rpx = close.pct_change(fill_method=None).reindex(index=index, columns=list(cols))
     return bf.total_returns(rpx, actions=c4.FAM_DIR / "cef_actions.parquet" if actions is None else actions,
-                            prices=c4.FAM_DIR / "cef_prices.parquet")
+                            prices=c4.FAM_DIR / "cef_prices.parquet", split_rulings=c4.SPLIT_RULINGS)
 
 
 def h(df) -> str:
@@ -67,7 +74,8 @@ def main():
     print(f"C4 call sites of yf_total_returns, old formula against the guarded one; rulings {c4.BAR_RULINGS.name}")
     close = px.pivot_table(index="date", columns="ticker", values="close").sort_index()
     s0 = close.index[(close.index >= c4.SAMPLE_START) & (close.index <= c4.HOLDOUT_END)]
-    compare("[stage0 primary_returns, pool]", old(px, pool, s0), c4.yf_total_returns(px, pool, s0, rulings=c4.BAR_RULINGS))
+    compare("[stage0 primary_returns, pool]", old(px, pool, s0), c4.yf_total_returns(px, pool, s0, rulings=c4.BAR_RULINGS,
+                                                                                       split_rulings=c4.SPLIT_RULINGS))
     try:
         c4.yf_total_returns(px, pool, s0)
         print("   without a rulings file: NO RAISE (unexpected)")
@@ -75,7 +83,7 @@ def main():
         print(f"   without a rulings file it raises: {str(e)[:330]}...")
     T74 = c4.fit_slice(c4.build_book(UF))
     idx = T74.index
-    yfR = c4.yf_total_returns(px, pool, idx, rulings=c4.BAR_RULINGS)
+    yfR = c4.yf_total_returns(px, pool, idx, rulings=c4.BAR_RULINGS, split_rulings=c4.SPLIT_RULINGS)
     compare("[fit R-yf, pool, fit window]", old(px, pool, idx), yfR)
     RT = pd.read_csv(c4.RESOLUTION_TABLE, parse_dates=["date"])
     excluded = json.loads(c4.EXCLUSIONS_A4.read_text())["excluded"]
@@ -95,7 +103,8 @@ def main():
             c4.ruled_actions(yfa, tbl, excluded).to_parquet(paths[k], index=False)
         for k, p in (("ruled", paths["ruled"]), ("uncorrected", None), ("R-ADX", paths["radx"])):
             compare(f"[holdout assemble({k}), {len(cols)} funds]", old(px, cols, sess, p),
-                    c4.yf_total_returns(px, cols, sess, actions=p, rulings=c4.BAR_RULINGS))
+                    c4.yf_total_returns(px, cols, sess, actions=p, rulings=c4.BAR_RULINGS,
+                                        split_rulings=c4.SPLIT_RULINGS))
 
     H = bf.band_gross_capped(T74, BAND_WIDTH, MAX_GROSS_STRESS)
 
