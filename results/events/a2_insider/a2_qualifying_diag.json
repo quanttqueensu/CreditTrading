@@ -1,0 +1,35 @@
+{
+ "ran_utc": "2026-10-20T16:11:39+00:00",
+ "qualifying": {
+  "P": {
+   "code": "P",
+   "trans_all_doc_types": 52716,
+   "trans_original_form4": 50245,
+   "date_error_rows_dropped": 1059,
+   "owner_class_rows_equity": {
+    "DO": 32158,
+    "ten_pct_only": 19334,
+    "adviser": 6269,
+    "other_person": 4341,
+    "other_entity": 657
+   },
+   "qualifying_rows": 42768,
+   "qualifying_trans": 39095
+  },
+  "S": {
+   "code": "S",
+   "trans_all_doc_types": 14457,
+   "trans_original_form4": 13757,
+   "date_error_rows_dropped": 780,
+   "owner_class_rows_equity": {
+    "ten_pct_only": 8815,
+    "DO": 6700,
+    "adviser": 1121,
+    "other_person": 852,
+    "other_entity": 461
+   },
+   "qualifying_rows": 8673,
+   "qualifying_trans": 8479
+  }
+ }
+}

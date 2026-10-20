@@ -1,0 +1,139 @@
+sample,method,outcome,unit,n,months,mean_excess,se,t,median_excess,mean_event,mean_control,events_without_cell,stratum
+purchases,m1_group_month_zbin,dd_21,pp,1179,198,0.152214,0.140047,1.08687,0.0430193,0.432471,0.280257,57,all
+purchases,m1_group_month_zbin,nav_21,bp,1177,198,-8.27334,16.2311,-0.50972,-19.2329,64.7351,73.0084,57,all
+purchases,m1_group_month_zbin,px_21,bp,1177,198,9.47603,21.3376,0.4441,-2.91455,124.616,115.14,57,all
+purchases,m1_group_month_zbin,dd_21,pp,108,67,-0.0264707,0.254884,-0.103854,-0.0546251,0.454699,0.481169,5,credit_touched
+purchases,m1_group_month_zbin,nav_21,bp,108,67,-13.8654,26.5301,-0.522628,-23.921,34.6944,48.5598,5,credit_touched
+purchases,m1_group_month_zbin,px_21,bp,108,67,-13.5207,39.2029,-0.344889,-42.7696,86.1769,99.6975,5,credit_touched
+purchases,m1_group_month_zbin,dd_21,pp,432,151,0.0296544,0.152054,0.195026,-0.00237973,0.502992,0.473338,22,"credit_like (credit, preferred, multi_asset)"
+purchases,m1_group_month_zbin,nav_21,bp,432,151,-40.4298,15.1202,-2.67389,-38.6681,47.6107,88.0405,22,"credit_like (credit, preferred, multi_asset)"
+purchases,m1_group_month_zbin,px_21,bp,432,151,-37.5066,23.8224,-1.57443,-36.4126,116.735,154.241,22,"credit_like (credit, preferred, multi_asset)"
+purchases,m1_group_month_zbin,dd_21,pp,747,191,0.223092,0.209448,1.06514,0.0896405,0.391688,0.168596,35,equity families
+purchases,m1_group_month_zbin,nav_21,bp,745,191,10.3731,25.948,0.399764,9.95082,74.6649,64.2919,35,equity families
+purchases,m1_group_month_zbin,px_21,bp,745,191,36.7197,33.1699,1.10702,23.6903,129.186,92.4661,35,equity families
+purchases,m1_group_month_zbin,dd_21,pp,108,67,-0.0264707,0.254884,-0.103854,-0.0546251,0.454699,0.481169,5,group=credit
+purchases,m1_group_month_zbin,nav_21,bp,108,67,-13.8654,26.5301,-0.522628,-23.921,34.6944,48.5598,5,group=credit
+purchases,m1_group_month_zbin,px_21,bp,108,67,-13.5207,39.2029,-0.344889,-42.7696,86.1769,99.6975,5,group=credit
+purchases,m1_group_month_zbin,dd_21,pp,115,58,0.441864,0.3692,1.19681,0.272755,0.509524,0.06766,8,group=equity_covered_call
+purchases,m1_group_month_zbin,nav_21,bp,115,58,85.0002,47.8387,1.77681,64.7063,26.9669,-58.0333,8,group=equity_covered_call
+purchases,m1_group_month_zbin,px_21,bp,115,58,136.672,81.7453,1.67192,71.2919,105.411,-31.2607,8,group=equity_covered_call
+purchases,m1_group_month_zbin,dd_21,pp,147,100,0.178526,0.39762,0.448986,0.129081,0.314075,0.135549,20,group=equity_domestic
+purchases,m1_group_month_zbin,nav_21,bp,147,100,51.4935,36.2688,1.41977,56.013,152.168,100.675,20,group=equity_domestic
+purchases,m1_group_month_zbin,px_21,bp,147,100,68.6729,45.8628,1.49736,38.0091,202.86,134.187,20,group=equity_domestic
+purchases,m1_group_month_zbin,dd_21,pp,192,116,0.538811,0.379497,1.4198,0.0186693,0.66903,0.130219,3,group=equity_global
+purchases,m1_group_month_zbin,nav_21,bp,192,116,-29.0141,37.1897,-0.780164,-32.6111,-40.164,-11.1499,3,group=equity_global
+purchases,m1_group_month_zbin,px_21,bp,192,116,6.99974,43.8296,0.159704,-50.4025,5.67537,-1.32437,3,group=equity_global
+purchases,m1_group_month_zbin,dd_21,pp,293,135,-0.0473036,0.283774,-0.166694,0.0925685,0.202638,0.249942,4,group=equity_sector
+purchases,m1_group_month_zbin,nav_21,bp,291,135,-13.9035,49.9563,-0.278313,-12.3558,130.127,144.031,4,group=equity_sector
+purchases,m1_group_month_zbin,px_21,bp,291,135,0.6873,49.9626,0.0137563,26.5045,182.856,182.168,4,group=equity_sector
+purchases,m1_group_month_zbin,dd_21,pp,218,125,0.115592,0.279326,0.413824,0.157176,0.501402,0.38581,7,group=multi_asset
+purchases,m1_group_month_zbin,nav_21,bp,218,125,-26.9784,26.12,-1.03286,-42.3308,74.6858,101.664,7,group=multi_asset
+purchases,m1_group_month_zbin,px_21,bp,218,125,-15.4429,36.8119,-0.419509,-9.34324,151.67,167.113,7,group=multi_asset
+purchases,m1_group_month_zbin,dd_21,pp,106,55,-0.0899006,0.548416,-0.163928,-0.320871,0.555468,0.645368,10,group=preferred
+purchases,m1_group_month_zbin,nav_21,bp,106,55,-95.1597,46.106,-2.06393,-64.9332,5.08793,100.248,10,group=preferred
+purchases,m1_group_month_zbin,px_21,bp,106,55,-107.321,44.9452,-2.38782,-58.8658,76.0209,183.342,10,group=preferred
+purchases,m1_group_month_zbin,dd_21,pp,56,40,-0.0319277,0.510076,-0.062594,0.288292,0.593135,0.625062,0,adviser involved
+purchases,m1_group_month_zbin,nav_21,bp,56,40,-121.867,67.5383,-1.80441,-84.3003,56.6507,178.517,0,adviser involved
+purchases,m1_group_month_zbin,px_21,bp,56,40,-81.8532,82.1616,-0.996247,-60.4708,164.063,245.917,0,adviser involved
+purchases,m1_group_month_zbin,dd_21,pp,1123,196,0.161396,0.143169,1.12731,0.0355681,0.42446,0.263063,57,not adviser
+purchases,m1_group_month_zbin,nav_21,bp,1121,196,-2.59874,16.7206,-0.155421,-13.0238,65.1389,67.7377,57,not adviser
+purchases,m1_group_month_zbin,px_21,bp,1121,196,14.0384,21.4232,0.655292,0.0257524,122.645,108.607,57,not adviser
+purchases,m1_group_month_zbin,dd_21,pp,442,125,0.349574,0.172658,2.02465,0.132363,0.41346,0.0638861,19,sweep (owner bought >=3 funds +-5d)
+purchases,m1_group_month_zbin,nav_21,bp,442,125,-19.0969,25.6578,-0.744292,-29.9843,65.192,84.2888,19,sweep (owner bought >=3 funds +-5d)
+purchases,m1_group_month_zbin,px_21,bp,442,125,20.6514,33.3924,0.618446,11.0553,124.036,103.385,19,sweep (owner bought >=3 funds +-5d)
+purchases,m1_group_month_zbin,dd_21,pp,737,195,0.0338515,0.19005,0.178119,0.00818618,0.443873,0.410022,38,single-fund buy
+purchases,m1_group_month_zbin,nav_21,bp,735,194,-1.76451,20.1589,-0.08753,-10.4671,64.4603,66.2248,38,single-fund buy
+purchases,m1_group_month_zbin,px_21,bp,735,194,2.75559,26.0917,0.105612,-8.24143,124.964,122.209,38,single-fund buy
+purchases,m1_group_month_zbin,dd_21,pp,1029,197,0.268567,0.136548,1.96683,0.0925685,0.636158,0.36759,45,bought below NAV at trade
+purchases,m1_group_month_zbin,nav_21,bp,1029,197,-4.71824,16.9671,-0.278083,-13.0238,79.3773,84.0955,45,bought below NAV at trade
+purchases,m1_group_month_zbin,px_21,bp,1029,197,24.3552,21.1931,1.1492,0.886039,161.813,137.458,45,bought below NAV at trade
+purchases,m1_group_month_zbin,dd_21,pp,150,83,-0.645972,0.481999,-1.34019,-0.388449,-0.964819,-0.318847,12,bought at/above NAV
+purchases,m1_group_month_zbin,nav_21,bp,148,82,-32.9909,41.4042,-0.796802,-33.1176,-37.0677,-4.07679,12,bought at/above NAV
+purchases,m1_group_month_zbin,px_21,bp,148,82,-93.9742,53.5271,-1.75564,-12.9739,-134.005,-40.031,12,bought at/above NAV
+purchases,m1_group_month_zbin,dd_21,pp,410,116,0.336372,0.247443,1.35939,0.0936063,1.46408,1.12771,18,z(t) < -1
+purchases,m1_group_month_zbin,nav_21,bp,409,116,-33.557,28.1558,-1.19183,-22.3564,26.1533,59.7104,18,z(t) < -1
+purchases,m1_group_month_zbin,px_21,bp,409,116,1.99594,36.425,0.0547958,-18.3481,202.475,200.479,18,z(t) < -1
+purchases,m1_group_month_zbin,dd_21,pp,769,187,0.054028,0.158415,0.341053,0.0354677,-0.117542,-0.17157,39,z(t) >= -1
+purchases,m1_group_month_zbin,nav_21,bp,768,187,5.19153,17.5432,0.295928,-15.5981,85.2819,80.0903,39,z(t) >= -1
+purchases,m1_group_month_zbin,px_21,bp,768,187,13.4596,22.0976,0.609098,6.18874,83.1519,69.6923,39,z(t) >= -1
+purchases,m1_group_month_zbin,dd_21,pp,288,46,0.285236,0.418373,0.681774,0.233456,1.245,0.95976,17,era 2006-2009
+purchases,m1_group_month_zbin,nav_21,bp,288,46,35.3135,37.975,0.929916,15.4624,28.9477,-6.3658,17,era 2006-2009
+purchases,m1_group_month_zbin,px_21,bp,288,46,57.7045,51.9074,1.11168,27.4328,171.706,114.001,17,era 2006-2009
+purchases,m1_group_month_zbin,dd_21,pp,328,59,0.357595,0.222763,1.60527,0.0257552,0.346369,-0.0112262,21,era 2010-2014
+purchases,m1_group_month_zbin,nav_21,bp,326,59,-6.8252,17.0757,-0.399701,-30.0851,106.525,113.351,21,era 2010-2014
+purchases,m1_group_month_zbin,px_21,bp,326,59,27.0559,25.8582,1.04632,7.63244,144.324,117.268,21,era 2010-2014
+purchases,m1_group_month_zbin,dd_21,pp,339,58,-0.0358391,0.113755,-0.315054,-0.0962204,0.0738855,0.109725,11,era 2015-2019
+purchases,m1_group_month_zbin,nav_21,bp,339,58,-22.984,22.7177,-1.01172,-8.46124,58.9928,81.9768,11,era 2015-2019
+purchases,m1_group_month_zbin,px_21,bp,339,58,-24.0679,27.5475,-0.873688,-16.0061,75.3722,99.4401,11,era 2015-2019
+purchases,m1_group_month_zbin,dd_21,pp,224,35,-0.0349539,0.332892,-0.105001,0.277718,0.0565562,0.0915101,8,era 2020-2022
+purchases,m1_group_month_zbin,nav_21,bp,224,35,-44.1582,51.882,-0.851127,-49.2054,58.6179,102.776,8,era 2020-2022
+purchases,m1_group_month_zbin,px_21,bp,224,35,-27.3518,66.2742,-0.412707,-40.1397,109.914,137.266,8,era 2020-2022
+sales_placebo,m1_group_month_zbin,dd_21,pp,428,169,-0.120893,0.224661,-0.538113,-0.076593,-0.0269264,0.0939664,15,all
+sales_placebo,m1_group_month_zbin,nav_21,bp,427,169,34.6285,23.5972,1.46748,7.96259,98.1436,63.5151,15,all
+sales_placebo,m1_group_month_zbin,px_21,bp,427,169,30.5588,29.5745,1.03328,23.3088,116.082,85.5232,15,all
+sales_placebo,m1_group_month_zbin,dd_21,pp,43,35,-0.145397,0.316168,-0.459871,-0.0839112,0.136825,0.282222,2,credit_touched
+sales_placebo,m1_group_month_zbin,nav_21,bp,43,35,29.0883,31.6664,0.918585,29.2702,102.829,73.7407,2,credit_touched
+sales_placebo,m1_group_month_zbin,px_21,bp,43,35,25.2944,33.6713,0.751215,34.9959,130.345,105.051,2,credit_touched
+sales_placebo,m1_group_month_zbin,dd_21,pp,162,103,-0.176474,0.240952,-0.7324,-0.190724,-0.0862159,0.0902577,8,"credit_like (credit, preferred, multi_asset)"
+sales_placebo,m1_group_month_zbin,nav_21,bp,161,103,32.6141,29.7817,1.09511,-4.21211,75.9997,43.3856,8,"credit_like (credit, preferred, multi_asset)"
+sales_placebo,m1_group_month_zbin,px_21,bp,161,103,15.2604,41.8795,0.364389,-4.9896,88.026,72.7656,8,"credit_like (credit, preferred, multi_asset)"
+sales_placebo,m1_group_month_zbin,dd_21,pp,266,140,-0.0870428,0.316054,-0.275405,0.0667644,0.00918226,0.0962251,7,equity families
+sales_placebo,m1_group_month_zbin,nav_21,bp,266,140,35.8478,35.0753,1.02202,15.1691,111.546,75.6987,7,equity families
+sales_placebo,m1_group_month_zbin,px_21,bp,266,140,39.8184,39.6762,1.00358,48.4398,133.063,93.245,7,equity families
+sales_placebo,m1_group_month_zbin,dd_21,pp,43,35,-0.145397,0.316168,-0.459871,-0.0839112,0.136825,0.282222,2,group=credit
+sales_placebo,m1_group_month_zbin,nav_21,bp,43,35,29.0883,31.6664,0.918585,29.2702,102.829,73.7407,2,group=credit
+sales_placebo,m1_group_month_zbin,px_21,bp,43,35,25.2944,33.6713,0.751215,34.9959,130.345,105.051,2,group=credit
+sales_placebo,m1_group_month_zbin,dd_21,pp,19,15,0.330112,0.723302,0.456396,0.3877,0.535844,0.205732,0,group=equity_covered_call
+sales_placebo,m1_group_month_zbin,nav_21,bp,19,15,49.2864,49.2692,1.00035,85.7819,61.566,12.2796,0,group=equity_covered_call
+sales_placebo,m1_group_month_zbin,px_21,bp,19,15,77.343,100.222,0.771719,70.1523,131.216,53.8731,0,group=equity_covered_call
+sales_placebo,m1_group_month_zbin,dd_21,pp,84,69,-0.0235821,0.321685,-0.0733082,0.205629,0.3105,0.334082,6,group=equity_domestic
+sales_placebo,m1_group_month_zbin,nav_21,bp,84,69,-76.5578,35.4042,-2.16239,-75.1729,68.1056,144.663,6,group=equity_domestic
+sales_placebo,m1_group_month_zbin,px_21,bp,84,69,-79.786,53.0511,-1.50395,-44.8274,102.628,182.414,6,group=equity_domestic
+sales_placebo,m1_group_month_zbin,dd_21,pp,34,30,0.700636,0.625976,1.11927,0.261598,0.60899,-0.0916459,0,group=equity_global
+sales_placebo,m1_group_month_zbin,nav_21,bp,34,30,112.186,71.2899,1.57366,133.872,251.798,139.612,0,group=equity_global
+sales_placebo,m1_group_month_zbin,px_21,bp,34,30,169.862,95.4086,1.78036,66.5015,334.09,164.229,0,group=equity_global
+sales_placebo,m1_group_month_zbin,dd_21,pp,129,95,-0.397413,0.626243,-0.634598,-0.0629408,-0.422684,-0.025271,1,group=equity_sector
+sales_placebo,m1_group_month_zbin,nav_21,bp,129,95,86.9425,67.6597,1.285,99.4964,110.229,23.287,1,group=equity_sector
+sales_placebo,m1_group_month_zbin,px_21,bp,129,95,77.8984,81.2791,0.958406,148.982,100.17,22.2718,1,group=equity_sector
+sales_placebo,m1_group_month_zbin,dd_21,pp,86,65,-0.361043,0.371366,-0.972205,-0.296012,-0.00457984,0.356463,3,group=multi_asset
+sales_placebo,m1_group_month_zbin,nav_21,bp,85,65,15.6675,38.8159,0.403636,-56.1552,93.6389,77.9714,3,group=multi_asset
+sales_placebo,m1_group_month_zbin,px_21,bp,85,65,-21.6524,54.8677,-0.39463,-25.626,103.812,125.464,3,group=multi_asset
+sales_placebo,m1_group_month_zbin,dd_21,pp,33,22,0.264032,0.486353,0.542882,0.0695917,-0.589594,-0.853626,3,group=preferred
+sales_placebo,m1_group_month_zbin,nav_21,bp,33,22,80.8585,93.5867,0.863996,7.96259,-4.39424,-85.2528,3,group=preferred
+sales_placebo,m1_group_month_zbin,px_21,bp,33,22,97.2643,107.438,0.905302,43.6344,-7.7782,-105.042,3,group=preferred
+sales_placebo,m1_group_month_zbin,dd_21,pp,42,38,-0.597831,0.572811,-1.04368,0.236864,0.138424,0.736255,2,adviser involved
+sales_placebo,m1_group_month_zbin,nav_21,bp,42,38,51.7118,82.9199,0.623636,12.1791,269.742,218.03,2,adviser involved
+sales_placebo,m1_group_month_zbin,px_21,bp,42,38,-19.4776,84.3113,-0.23102,9.91064,294.03,313.508,2,adviser involved
+sales_placebo,m1_group_month_zbin,dd_21,pp,386,159,-0.0689979,0.242332,-0.284725,-0.0814742,-0.0449178,0.0240801,13,not adviser
+sales_placebo,m1_group_month_zbin,nav_21,bp,385,159,32.7649,25.6006,1.27985,0.821931,79.4237,46.6589,13,not adviser
+sales_placebo,m1_group_month_zbin,px_21,bp,385,159,36.0173,32.8226,1.09733,24.2191,96.6695,60.6522,13,not adviser
+sales_placebo,m1_group_month_zbin,dd_21,pp,116,45,0.486932,0.311943,1.56096,0.0561971,-0.0089181,-0.49585,6,sweep (owner bought >=3 funds +-5d)
+sales_placebo,m1_group_month_zbin,nav_21,bp,115,45,47.4889,49.1775,0.965662,16.3957,25.0204,-22.4685,6,sweep (owner bought >=3 funds +-5d)
+sales_placebo,m1_group_month_zbin,px_21,bp,115,45,97.8589,59.7506,1.63779,70.1523,44.9296,-52.9293,6,sweep (owner bought >=3 funds +-5d)
+sales_placebo,m1_group_month_zbin,dd_21,pp,312,162,-0.346879,0.281883,-1.23058,-0.0916425,-0.0336218,0.313257,9,single-fund buy
+sales_placebo,m1_group_month_zbin,nav_21,bp,312,162,29.8883,26.8744,1.11215,-4.43404,125.096,95.2077,9,single-fund buy
+sales_placebo,m1_group_month_zbin,px_21,bp,312,162,5.75269,34.2699,0.167864,8.67193,142.308,136.555,9,single-fund buy
+sales_placebo,m1_group_month_zbin,dd_21,pp,347,157,-0.168074,0.233378,-0.720178,-0.125179,0.211939,0.380012,9,bought below NAV at trade
+sales_placebo,m1_group_month_zbin,nav_21,bp,346,157,33.2663,25.0993,1.32539,7.96704,127.16,93.894,9,bought below NAV at trade
+sales_placebo,m1_group_month_zbin,px_21,bp,346,157,24.4568,30.754,0.79524,17.7628,168.791,144.335,9,bought below NAV at trade
+sales_placebo,m1_group_month_zbin,dd_21,pp,81,59,0.0812275,0.721673,0.112554,0.38831,-1.05021,-1.13144,6,bought at/above NAV
+sales_placebo,m1_group_month_zbin,nav_21,bp,81,59,40.4474,60.5228,0.6683,-4.21211,-25.8045,-66.2518,6,bought at/above NAV
+sales_placebo,m1_group_month_zbin,px_21,bp,81,59,56.6242,88.6447,0.638777,43.6344,-109.072,-165.696,6,bought at/above NAV
+sales_placebo,m1_group_month_zbin,dd_21,pp,97,59,-0.186263,0.410707,-0.453518,0.0634166,1.07603,1.26229,1,z(t) < -1
+sales_placebo,m1_group_month_zbin,nav_21,bp,97,59,68.1904,45.2949,1.50548,72.3467,164.004,95.8131,1,z(t) < -1
+sales_placebo,m1_group_month_zbin,px_21,bp,97,59,53.9269,75.1445,0.717643,83.3523,312.045,258.118,1,z(t) < -1
+sales_placebo,m1_group_month_zbin,dd_21,pp,331,150,-0.101736,0.267844,-0.379833,-0.0790372,-0.350148,-0.248412,14,z(t) >= -1
+sales_placebo,m1_group_month_zbin,nav_21,bp,330,150,24.7633,26.7296,0.926437,-18.834,78.7847,54.0214,14,z(t) >= -1
+sales_placebo,m1_group_month_zbin,px_21,bp,330,150,23.69,30.7316,0.770869,12.2225,58.4807,34.7907,14,z(t) >= -1
+sales_placebo,m1_group_month_zbin,dd_21,pp,81,37,-1.03201,0.76747,-1.34469,-0.216225,-0.306841,0.72517,9,era 2006-2009
+sales_placebo,m1_group_month_zbin,nav_21,bp,81,37,38.1817,82.169,0.464673,16.1595,124.597,86.4154,9,era 2006-2009
+sales_placebo,m1_group_month_zbin,px_21,bp,81,37,-38.8444,96.0093,-0.40459,-11.3313,154.433,193.278,9,era 2006-2009
+sales_placebo,m1_group_month_zbin,dd_21,pp,127,52,0.372377,0.28376,1.31229,-0.171731,0.473917,0.101541,0,era 2010-2014
+sales_placebo,m1_group_month_zbin,nav_21,bp,126,52,22.7749,32.1465,0.708472,26.1407,163.815,141.04,0,era 2010-2014
+sales_placebo,m1_group_month_zbin,px_21,bp,126,52,68.0451,38.6786,1.75924,75.3041,217.274,149.229,0,era 2010-2014
+sales_placebo,m1_group_month_zbin,dd_21,pp,154,52,0.047672,0.220065,0.216626,0.183471,-0.115213,-0.162885,6,era 2015-2019
+sales_placebo,m1_group_month_zbin,nav_21,bp,154,52,16.5752,30.3675,0.545819,-8.16576,51.1598,34.5846,6,era 2015-2019
+sales_placebo,m1_group_month_zbin,px_21,bp,154,52,21.659,34.6016,0.625954,-5.61095,46.0334,24.3745,6,era 2015-2019
+sales_placebo,m1_group_month_zbin,dd_21,pp,66,28,-0.34519,0.817926,-0.42203,0.00962895,-0.441137,-0.0959473,0,era 2020-2022
+sales_placebo,m1_group_month_zbin,nav_21,bp,66,28,95.0219,62.3038,1.52514,62.4089,49.9347,-45.0872,0,era 2020-2022
+sales_placebo,m1_group_month_zbin,px_21,bp,66,28,64.937,102.826,0.631521,62.4704,39.2761,-25.6609,0,era 2020-2022

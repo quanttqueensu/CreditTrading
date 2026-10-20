@@ -1,0 +1,7 @@
+kind,unit,n,p10,p25,p50,p75,p90,share_under_10k
+BDC,"per qualifying purchase transaction, USD",16407,419.98,1290,8920,45620.8,157080,0.522704
+CEF,"per qualifying purchase transaction, USD",22478,1569,3482.5,9988.7,30600,99885.4,0.501424
+fund_other,"per qualifying purchase transaction, USD",210,409.598,1879.5,7279.5,21463.5,51700.8,0.547619
+BDC,"per fund-event (sum over its 30-day set), USD",1508,5435.5,18890,65949.3,207877,1.04527e+06,0.160477
+CEF,"per fund-event (sum over its 30-day set), USD",4665,2249.64,7630,20000,64484.6,223736,0.308467
+fund_other,"per fund-event (sum over its 30-day set), USD",15,425.547,1849.25,15000,341754,1.205e+06,0.4

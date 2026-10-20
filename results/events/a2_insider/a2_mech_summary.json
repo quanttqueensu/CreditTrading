@@ -1,0 +1,66 @@
+{
+ "ran_utc": "2026-10-20T16:11:44+00:00",
+ "panel_last_date": "2022-12-30",
+ "diag": {
+  "credit": {
+   "purchases": {
+    "events_on_panel_funds": 122,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 7,
+    "usable": 115
+   },
+   "purchases_floor10k": {
+    "events_on_panel_funds": 105,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 7,
+    "usable": 98
+   },
+   "purchases_2owners": {
+    "events_on_panel_funds": 17,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 2,
+    "usable": 15
+   },
+   "sales_placebo": {
+    "events_on_panel_funds": 46,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 1,
+    "usable": 45
+   }
+  },
+  "families": {
+   "purchases": {
+    "events_on_panel_funds": 1251,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 119,
+    "usable": 1132
+   },
+   "purchases_floor10k": {
+    "events_on_panel_funds": 889,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 106,
+    "usable": 783
+   },
+   "purchases_2owners": {
+    "events_on_panel_funds": 357,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 66,
+    "usable": 291
+   },
+   "sales_placebo": {
+    "events_on_panel_funds": 419,
+    "after_last_pre2023_session": 0,
+    "no_row_or_no_z_at_t": 14,
+    "usable": 405
+   }
+  }
+ },
+ "below_nav": {
+  "purchase_events_with_trade_nav": 1247,
+  "share_bought_below_nav": 0.8660785886126704,
+  "median_premium_at_trade_pct": -10.185184505390865,
+  "sales_share_sold_below_nav": 0.8022222222222222
+ },
+ "n_fund_days": 597394,
+ "n_control_fund_days": 406017
+}

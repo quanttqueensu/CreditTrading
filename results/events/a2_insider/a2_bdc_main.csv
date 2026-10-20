@@ -1,0 +1,25 @@
+sample,method,outcome,unit,n,months,mean_excess,se,t,median_excess,mean_event,mean_control,events_without_cell
+bdc_purchases,m1_month_retbin,px_5,bp,1050,186,40.1677,14.0391,2.86113,27.7366,-0.574995,-40.7427,26
+bdc_purchases,m1_month_retbin,px_21,bp,1043,185,99.7972,31.9095,3.12751,22.7087,80.1368,-19.6604,26
+bdc_purchases,m1_month_retbin,px_63,bp,1034,183,203.118,69.0438,2.94188,138.167,265.026,61.9075,26
+bdc_purchases,m1_month_retbin,px_late_21,bp,1043,185,76.9559,34.8645,2.20728,21.3684,66.8051,-10.1508,26
+bdc_purchases era 2006-2009,m1_month_retbin,px_21,bp,135,40,427.229,164.368,2.59922,371.26,358.705,-68.5248,10
+bdc_purchases era 2010-2014,m1_month_retbin,px_21,bp,302,55,26.2413,41.3729,0.634262,-54.296,144.689,118.448,2
+bdc_purchases era 2015-2019,m1_month_retbin,px_21,bp,394,58,33.59,31.1389,1.07872,20.1853,80.7017,47.1117,7
+bdc_purchases era 2020-2022,m1_month_retbin,px_21,bp,212,32,119.119,69.6687,1.70979,-9.96229,-190.259,-309.378,7
+bdc_purchases,m2_fund_year_retbin,px_5,bp,269,121,-55.0894,62.5096,-0.881294,3.49693,-13.7509,41.3384,807
+bdc_purchases,m2_fund_year_retbin,px_21,bp,265,120,-43.2637,123.845,-0.349337,48.1225,105.211,148.475,804
+bdc_purchases,m2_fund_year_retbin,px_63,bp,257,118,12.2915,220.57,0.055726,123.407,331.587,319.295,803
+bdc_purchases,m2_fund_year_retbin,px_late_21,bp,265,120,-33.4225,125.268,-0.266808,50.903,106.519,139.942,804
+bdc_sales_placebo,m1_month_retbin,px_5,bp,182,116,-15.7865,46.0594,-0.342742,29.2472,-52.7084,-36.9219,5
+bdc_sales_placebo,m1_month_retbin,px_21,bp,182,116,91.192,65.1191,1.40039,81.4315,101.318,10.1257,5
+bdc_sales_placebo,m1_month_retbin,px_63,bp,179,115,71.8238,105.034,0.683814,100.774,182.447,110.623,5
+bdc_sales_placebo,m1_month_retbin,px_late_21,bp,182,116,67.4002,71.8878,0.937575,55.574,94.2357,26.8355,5
+bdc_sales_placebo era 2006-2009,m1_month_retbin,px_21,bp,37,28,423.213,178.367,2.37271,395.003,105.262,-317.95,4
+bdc_sales_placebo era 2010-2014,m1_month_retbin,px_21,bp,58,37,37.3901,112.999,0.330889,-26.3223,142.883,105.493,1
+bdc_sales_placebo era 2015-2019,m1_month_retbin,px_21,bp,57,35,59.4418,102.813,0.578156,90.6057,103.565,44.1228,0
+bdc_sales_placebo era 2020-2022,m1_month_retbin,px_21,bp,30,16,-153.958,116.868,-1.31737,-185.113,11.8244,165.783,0
+bdc_sales_placebo,m2_fund_year_retbin,px_5,bp,53,45,-151.316,164.05,-0.922377,-23.665,-141.87,9.44667,134
+bdc_sales_placebo,m2_fund_year_retbin,px_21,bp,53,45,181.049,192.792,0.939088,323.654,214.417,33.368,134
+bdc_sales_placebo,m2_fund_year_retbin,px_63,bp,51,44,309.334,274.177,1.12823,587.42,368.386,59.0518,133
+bdc_sales_placebo,m2_fund_year_retbin,px_late_21,bp,53,45,237.831,193.149,1.23133,219.772,276.532,38.7012,134

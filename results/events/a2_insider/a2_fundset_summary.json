@@ -1,0 +1,11 @@
+{
+ "ran_utc": "2026-10-20T16:10:44+00:00",
+ "index_quarters": "(2008, 1) -> (2022, 4)",
+ "n_fund_ciks": 2013,
+ "by_rule_kind": {
+  "marker_form|BDC": 238,
+  "marker_form|CEF": 1058,
+  "marker_form|fund_other": 450,
+  "ncsr_insider|CEF": 267
+ }
+}
