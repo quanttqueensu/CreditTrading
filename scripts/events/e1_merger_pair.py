@@ -586,7 +586,7 @@ def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str
         probs.append("an episode reads one deal twice")
     bad_o = sorted(set(r["outcome"]) - set(OUTCOMES))
     if bad_o:
-        probs.append(f"{int(~r['outcome'].isin(OUTCOMES).sum())} row(s) with an unknown or blank outcome {bad_o}")
+        probs.append(f"{int((~r['outcome'].isin(OUTCOMES)).sum())} row(s) with an unknown or blank outcome {bad_o}")
     for row in r.itertuples(index=False):
         for acc_col, q_col in (("ann_accession", "ann_quote"), ("fail_accession", "fail_quote"),
                                ("outcome_accession", "outcome_quote")):
@@ -610,9 +610,12 @@ def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str
                         row.target_cik, row.acquirer_cik)):
                 probs.append(f"{row.episode_accession}: a failed deal needs its announcement and failure quotes, "
                              "the failure date, and both parties' CIKs and tickers")
+    # A blank is a reader who did not see the answer, not a contradiction: only two DIFFERENT
+    # non-blank outcomes or parties for one deal disagree (fixed 2026-10-20; the first version
+    # counted a blank against a value and flagged 63 deals that no reading contradicted).
     for d, g in r[r["deal_id"] != ""].groupby("deal_id"):
-        if len(g) > 1 and any(g[c].nunique() > 1 for c in ("outcome", "in_trial", "target_cik", "acquirer_cik")):
-            probs.append(f"deal {d}: its readings disagree on outcome, in_trial or parties")
+        if len(g) > 1 and any(g.loc[g[c] != "", c].nunique() > 1 for c in ("outcome", "target_cik", "acquirer_cik")):
+            probs.append(f"deal {d}: its readings disagree on outcome or parties")
     return r, probs
 
 
@@ -1800,6 +1803,19 @@ def fetch_edgar(args) -> int:  # pragma: no cover - loads the SEC contact; the t
     return 0
 
 
+def refresh_edgar_index(args) -> int:  # pragma: no cover - loads the SEC contact; the team lead runs it
+    """Refresh the one EDGAR file Stage 0 cannot read offline: the OPEN quarter's full index, which
+    `fetch_edgar_events.quarter_is_closed` re-fetches once a day (max_age one day; its semantics are
+    unchanged here). Writes into the union cache Stage 0 reads; computes nothing. An offline
+    `stage0` then works until the refreshed file is a day old (probe of 2026-10-20: it is the only
+    stale or missing URL Stage 0 asks for)."""
+    from scripts.events import edgar_merger_dates as emd
+    today = date.fromisoformat(args.today)
+    emd.name_table(edgar_client(online=True), today)
+    print(f"EDGAR indexes current to {today} in {_rel(EDGAR_UNION)}; run `stage0 --today {today}` within a day")
+    return 0
+
+
 def pull_crsp(args) -> int:  # pragma: no cover - loads the R2 credential; the team lead runs it
     """The fit reader's extract from R2 (pre-2023 only, `crsp_events.daily`) for a permno list."""
     perms = [int(p) for p in Path(args.permnos).read_text().split()]
@@ -1828,17 +1844,22 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     s0 = sub.add_parser("stage0")
-    s0.add_argument("--today", default="2026-10-19",
-                    help="EDGAR index horizon for the offline name table (the run date)")
+    s0.add_argument("--today", default=str(date.today()),
+                    help="EDGAR index horizon for the offline name table (the run date). Was the fixed 2026-10-19 "
+                         "until 2026-10-20: the open quarter's index must be refreshed by `refresh-edgar-index` on "
+                         "the run date either way (its one-day max_age is unchanged)")
     for name in ("fit", "holdout"):
         sp = sub.add_parser(name)
-        sp.add_argument("--today", default="2026-10-19", help="EDGAR index horizon for the offline name table")
+        sp.add_argument("--today", default=str(date.today()),
+                        help="EDGAR index horizon for the offline name table (the run date; `refresh-edgar-index` keeps it current)")
     sc = sub.add_parser("stage-crsp")
     sc.add_argument("--from", dest="sources", action="append", type=Path, required=True)
     sc.add_argument("--permnos", type=Path, help="a file of permnos; default: the fit parties and the ETFs")
     sc.add_argument("--partial", action="store_true",
                     help="stage the permnos found and list the rest (for the control-2 pool's coverage)")
     sub.add_parser("fetch-edgar")
+    ri = sub.add_parser("refresh-edgar-index")
+    ri.add_argument("--today", default=str(date.today()))
     pc = sub.add_parser("pull-crsp")
     pc.add_argument("--permnos", type=Path, required=True)
     ph = sub.add_parser("pull-holdout")
@@ -1862,6 +1883,7 @@ def main(argv=None) -> int:
             (CACHE / "stage_crsp_missing_permnos.txt").write_text("\n".join(map(str, missing)) + "\n")
         return 0
     return {"fit": fit, "holdout": holdout, "fetch-edgar": fetch_edgar, "pull-crsp": pull_crsp,
+            "refresh-edgar-index": refresh_edgar_index,
             "pull-holdout": pull_holdout}[a.cmd](a)
 
 

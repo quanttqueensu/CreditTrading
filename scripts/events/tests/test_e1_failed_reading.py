@@ -150,7 +150,7 @@ def test_collect_writes_the_file_stage0_reads(tmp_path, monkeypatch):
             return DOCS[acc]
     out = fr.collect(root, "sonnet", partial=False, client=C())
     R = pd.read_csv(tmp_path / "e1" / "r.csv", dtype=str, keep_default_na=False)
-    assert list(R.columns) == list(e1.READING_COLUMNS) and out["in_trial"] == 1
+    assert list(R.columns) == list(e1.READING_COLUMNS) and out["in_trial_deals"] == 1
     assert R.loc[0, "read_by"] == "claude-sonnet-x (batch 01)" and R.loc[0, "deal_id"] == "20>30"
     cen = pd.DataFrame({"episode_cik": [20], "episode_accession": ["0000000020-15-000001"]})
     _, probs = e1.check_readings(cen, C())
@@ -179,3 +179,56 @@ def test_episode_text_shows_every_filing_and_points_duplicates(monkeypatch):
     assert by["0000000020-15-000002"]["why"] == "identical text to seq=1"
     assert by["0000000020-15-000001"]["mode"] == "full" and by["0000000020-15-000009"]["included"]
     assert "has terminated" in txt and txt.count("Alpha will reorganize into Beta.") == 1
+
+
+def test_assign_deal_ids_keeps_two_series_of_one_trust_apart():
+    base = {"episode_cik": "35315", "episode_accession": "a", "target_cik": "35315", "acquirer_cik": "1562565",
+            "ann_date": "2024-10-03"}
+    R = pd.DataFrame([{**base, "_k": 0}, {**base, "_k": 1}])
+    ids = fr.assign_deal_ids(R)
+    assert list(ids) == ["35315>1562565", "35315>1562565/2"]
+
+
+def _nm_dl():
+    nm = pd.DataFrame({"permno": [1, 2, 3, 4], "ticker": ["AMF", "BMF", "OEF", "TGM"],
+                       "namedt": pd.to_datetime(["2000-01-01"] * 4), "nameendt": pd.to_datetime(["2024-12-31"] * 4),
+                       "shrcd": [14, 14, 73, 14], "exchcd": [1, 1, 3, 1], "comnam": ["A", "B", "C", "D"]})
+    dl = pd.DataFrame({"permno": [4], "dlstdt": pd.to_datetime(["2016-03-01"]), "dlstcd": [231], "nwperm": [2]})
+    return nm, dl
+
+
+def test_triage_classes():
+    nm, dl = _nm_dl()
+    cen = pd.DataFrame({"episode_cik": ["20", "21", "22", "23", "24", "25"], "episode_accession": ["a"] * 6,
+                        "first_date": ["2015-01-05"] * 6})
+    row = {c: "" for c in e1.READING_COLUMNS}
+    rows = [
+        {**row, "episode_cik": "20", "episode_accession": "a", "target_ticker": "AMF", "acquirer_ticker": "BMF",
+         "outcome": "withdrawn", "ann_date": "2015-01-05", "outcome_date": "2015-06-01"},          # T1 via CRSP listing
+        {**row, "episode_cik": "21", "episode_accession": "a", "target_ticker": "AMF", "acquirer_ticker": "BMF",
+         "outcome": "superseded", "both_listed": "Y", "ann_date": "2023-09-08", "fail_date": "2025-06-09"},  # T2
+        {**row, "episode_cik": "22", "episode_accession": "a", "target_ticker": "AMF", "acquirer_ticker": "OEF",
+         "outcome": "", "ann_date": "2015-01-05"},                                                   # C3: listing unsettled, own fund unlisted
+        {**row, "episode_cik": "23", "episode_accession": "a", "target_ticker": "TGM", "acquirer_ticker": "BMF",
+         "outcome": "", "ann_date": "2015-06-01"},                                                   # C1: CRSP merger within 730 days
+        {**row, "episode_cik": "24", "episode_accession": "a", "outcome": ""},                       # I3 or C3 by own listing
+        {**row, "episode_cik": "25", "episode_accession": "a", "outcome": ""},
+    ]
+    T = fr.triage(pd.DataFrame(rows), cen, nm, dl, {"24_a": True, "25_a": False})
+    # OEF is an ETF (share code 73): no CEF permno, so that pair's listing is unsettled, not "N"
+    assert list(T["triage"]) == ["T1", "T2", "C3", "C1", "I3", "C3"]
+    assert T.loc[0, "crsp_listed_pair"] == "Y" and T.loc[3, "crsp_target_merged_730d"] == "Y"
+    assert list(T["can_change_trial"])[:2] == ["Y", "Y"] and T.loc[5, "can_change_trial"] == "N"
+
+
+def test_failed_deal_rows_take_one_deal_read_from_four_episodes(monkeypatch):
+    nm, _ = _nm_dl()
+    monkeypatch.setattr(e1.ce, "universe_permnos", lambda nm: {"XXX": [99]})
+    monkeypatch.setattr(e1, "spec_names", lambda: set())
+    row = {c: "" for c in e1.READING_COLUMNS}
+    base = {**row, "deal_id": "902722>1137391", "in_trial": "Y", "outcome": "vote_failed", "target_ticker": "AMF",
+            "acquirer_ticker": "BMF", "ann_date": "2009-10-26"}
+    R = pd.DataFrame([{**base, "episode_cik": c, "fail_date": f} for c, f in
+                      (("902722", "2009-12-28"), ("1169027", "2009-12-29"), ("1176196", "2009-12-28"), ("1181027", "2009-12-29"))])
+    D = e1.failed_deal_rows(R, nm)
+    assert len(D) == 1 and D.loc[0, "fail_date"] == pd.Timestamp("2009-12-28") and D.loc[0, "ann"] == pd.Timestamp("2009-10-26")

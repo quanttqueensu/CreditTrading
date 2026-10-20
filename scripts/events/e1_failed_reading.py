@@ -579,6 +579,10 @@ def assign_deal_ids(R: pd.DataFrame) -> pd.Series:
             ids[ix] = base if n == 1 else f"{base}#{n}"
     for ix in R.index[~known]:
         ids[ix] = f"ep{R.at[ix, 'episode_cik']}:{R.at[ix, '_k']}"
+    # Two deals of ONE episode on one CIK pair (the series of one trust share a CIK) stay two deals.
+    ep = R["episode_cik"].astype(str) + "|" + R["episode_accession"].astype(str)
+    dup = ids.groupby([ep, ids]).cumcount()
+    ids[dup > 0] = ids[dup > 0] + "/" + (dup[dup > 0] + 1).astype(str)
     return ids
 
 
@@ -627,12 +631,91 @@ def collect(root: Path, model: str, partial: bool, client=None) -> dict:
     for f in src.glob("*.json"):
         shutil.copy2(f, raw / f.name)
     out = {"episodes": len(plan["filings"]), "read": len(plan["filings"]) - len(missing), "rows": int(len(R)),
-           "in_trial": int((R["in_trial"] == "Y").sum()) if len(R) else 0, "review_rows": len(review),
+           "in_trial_rows": int((R["in_trial"] == "Y").sum()) if len(R) else 0,
+           "in_trial_deals": int(R.loc[R["in_trial"] == "Y", "deal_id"].nunique()) if len(R) else 0,
+           "review_rows": len(review),
            "outcomes": R["outcome"].replace("", "(null)").value_counts().to_dict() if len(R) else {}}
     print(json.dumps(out, indent=1))
     print(f"wrote {e1._rel(e1.READINGS)} and e1_failed_reading_review.csv; now re-run "
           "`python3 scripts/events/e1_merger_pair.py stage0`")
     return out
+
+
+# ============================================================ triage: which readings can change the trial
+
+TRIAGE_CLASSES = {
+    "T1": "in the trial: a failure, both parties listed, failure public by 2024-12-31",
+    "T2": "a failure of a listed pair made public after 2024-12-31: in no set (§4.2, §4.3), recorded",
+    "I1": "INDIVIDUAL: a failure whose parties' listing neither the reader nor CRSP settles",
+    "I2": "INDIVIDUAL: outcome unstated, both parties listed, no CRSP completion within 730 days",
+    "I3": "INDIVIDUAL: outcome unstated, listing unsettled, the episode's own fund a listed CEF or BDC-named",
+    "C1": "class: CRSP shows the target merged within 730 days of A (the census rule: not a failed deal)",
+    "C2": "class: not a listed pair, or completed (by the reader or by CRSP listing)",
+    "C3": "class: outcome unstated, listing unsettled, the episode's own fund not a listed CEF",
+}
+
+
+def crsp_listed(nm: pd.DataFrame, ticker: str, when) -> bool | None:
+    """§4.3's listing test: a CRSP CEF (share code 14/44) or BDC (11) permno carrying `ticker` on
+    `when`, on NYSE, NYSE American or Nasdaq (exchcd 1-3). None if the ticker is blank or matches no
+    single permno (unsettled, never guessed)."""
+    if not ticker or not when or pd.isna(pd.Timestamp(when)):
+        return None
+    w = pd.Timestamp(when)
+    r = nm[(nm["ticker"] == ticker) & (nm["namedt"] <= w) & (nm["nameendt"] >= w) & nm["shrcd"].isin((11, 14, 44))]
+    if r["permno"].nunique() != 1:
+        return None
+    return bool(r["exchcd"].isin([1, 2, 3]).any())
+
+
+def crsp_target_merged(nm, dl, ticker: str, when) -> bool | None:
+    """True if the target's CRSP permno has a merger delisting (dlstcd 2xx) within 730 days after
+    `when`; False if it has none and CRSP covers the window; None if unsettled."""
+    if not ticker or not when or pd.isna(pd.Timestamp(when)):
+        return None
+    w = pd.Timestamp(when)
+    r = nm[(nm["ticker"] == ticker) & (nm["namedt"] <= w) & (nm["nameendt"] >= w)]
+    if r["permno"].nunique() != 1:
+        return None
+    d = dl[(dl["permno"] == int(r["permno"].iloc[0])) & (dl["dlstcd"] // 100 == 2)
+           & (dl["dlstdt"] >= w) & (dl["dlstdt"] <= w + pd.Timedelta(days=e1.FAIL_WINDOW_DAYS))]
+    if len(d):
+        return True
+    return False if w + pd.Timedelta(days=e1.FAIL_WINDOW_DAYS) <= e1.CRSP_END else None
+
+
+def triage(R: pd.DataFrame, census: pd.DataFrame, nm: pd.DataFrame, dl: pd.DataFrame, own_listed: dict) -> pd.DataFrame:
+    """Each readings row's class (TRIAGE_CLASSES) and whether it can change the trial. Names,
+    delisting records and the readers' fields only; no price or return. `own_listed`: episode id ->
+    True if the episode's own CIK maps to a CRSP CEF listed on its first filing date, or its EDGAR
+    name is BDC-like (`e1_rulings_facts.r10`'s rule)."""
+    first = dict(zip(census["episode_cik"].astype(str) + "_" + census["episode_accession"], census["first_date"]))
+    out = []
+    for r in R.itertuples(index=False):
+        eid = f"{r.episode_cik}_{r.episode_accession}"
+        when = r.ann_date or first.get(eid)
+        lt, la = crsp_listed(nm, r.target_ticker, when), crsp_listed(nm, r.acquirer_ticker, when)
+        listed = ("Y" if r.both_listed == "Y" or (lt and la) else
+                  "N" if r.both_listed == "N" or lt is False or la is False else "")
+        merged = crsp_target_merged(nm, dl, r.target_ticker, when)
+        o = r.outcome
+        if o in e1.FAILED_OUTCOMES:
+            f = pd.Timestamp(r.fail_date or r.outcome_date) if (r.fail_date or r.outcome_date) else pd.NaT
+            cls = ("C2" if listed == "N" else "I1" if listed == "" else
+                   "T2" if (pd.notna(f) and f > e1.CRSP_END) else "T1")
+        elif o in ("not_a_listed_pair", "completed", "completed_other_structure") or listed == "N":
+            cls = "C2"
+        elif merged:
+            cls = "C1"
+        elif listed == "Y":
+            cls = "I2"
+        else:
+            cls = "I3" if own_listed.get(eid) else "C3"
+        out.append({"crsp_listed_pair": listed, "crsp_target_merged_730d": {True: "Y", False: "N"}.get(merged, ""),
+                    "triage": cls})
+    T = pd.concat([R.reset_index(drop=True), pd.DataFrame(out)], axis=1)
+    T["can_change_trial"] = T["triage"].str[0].isin(["T", "I"]).map({True: "Y", False: "N"})
+    return T
 
 
 def main(argv=None) -> int:
@@ -644,12 +727,32 @@ def main(argv=None) -> int:
     c.add_argument("--root", type=Path, required=True)
     c.add_argument("--model", required=True)
     c.add_argument("--partial", action="store_true")
+    sub.add_parser("triage")
     a = ap.parse_args(argv)
+    if a.cmd == "triage":
+        return run_triage()
     if a.cmd == "prepare":
         plan = prepare(a.root)
         print(f"{plan['episodes']} episodes in {len(plan['batches'])} batches under {a.root}/input/")
         return 0
     collect(a.root, a.model, a.partial)
+    return 0
+
+
+def run_triage() -> int:  # pragma: no cover - reads the CRSP cache and the census; its core is tested (triage)
+    from scripts.events import e1_rulings_facts as rf
+    nm, dl = e1.crsp_tables()
+    R = pd.read_csv(e1.READINGS, dtype=str, keep_default_na=False)
+    cen = pd.read_csv(e1.CENSUS, dtype={"episode_cik": str})
+    own = rf.own_listed(nm)
+    T = triage(R, cen, nm, dl, own)
+    path = e1.OUT_DIR / "e1_failed_reading_triage.csv"
+    T.to_csv(path, index=False)
+    by = T.groupby("triage").agg(rows=("deal_id", "size"), deals=("deal_id", "nunique"),
+                                 episodes=("episode_cik", lambda v: (v + T.loc[v.index, "episode_accession"]).nunique()))
+    print(by.to_string())
+    print("in-trial deals (T1):", sorted(T.loc[T["triage"] == "T1", "target_ticker"] + "->" + T.loc[T["triage"] == "T1", "acquirer_ticker"]))
+    print(f"wrote {e1._rel(path)}")
     return 0
 
 

@@ -1,0 +1,138 @@
+# E1 DG-E1-3 rulings form: the failed-deal readings, triaged
+
+**Date** 2026-10-20 · **Trial** EVENTS trial 1, E1 (`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`)
+· **Reproducers** `python3 scripts/events/e1_failed_reading.py collect --root <pack> --model sonnet`
+(the readings) and `python3 scripts/events/e1_failed_reading.py triage` (the classes) · **Files**
+`results/events/e1/e1_failed_deal_readings.csv`, `e1_failed_reading_review.csv`,
+`e1_failed_reading_triage.csv`, `readings_raw/sonnet/`
+
+> **A form, not a ruling.** Every item waits on the team lead.
+>
+> - **No E1 statistic was computed.** The triage reads only the readers' fields, CRSP names
+>   and CRSP delisting records.
+> - **The readings.** 48 Sonnet batches (`claude-sonnet-5-5`) read all 273 census episodes into
+>   496 deal rows.
+> - **As collected, there are 6 in-trial rows and 3 in-trial deals:** RAA→BFZ (read from 4
+>   episodes; it counts once), AFT→AIF and BHV→MYI. `failed_deal_rows` takes one deal per
+>   `deal_id`, with A the earliest announcement and F the earliest public failure (tested).
+
+## 1. What DG-E1-3 requires
+
+**Every one of the 273 episodes, not only the in-trial deals.**
+
+- §13: DG-E1-3 is "done when every episode read, every quote re-found".
+- §4.3: "Each is read. … An episode that cannot be read halts Stage 0."
+- §4.3 also says the reading records the outcome.
+
+So a row with a blank outcome, a quote that is not re-found, or two readings of one deal that
+disagree, each keep DG-E1-3 failing. On 2026-10-20 that is:
+
+- 183 blank-outcome rows;
+- 4 quote failures in 3 episodes;
+- 8 deals whose readings disagree.
+
+A class ruling for the rows that cannot change the trial is item 5 below.
+
+## 2. The triage (every row, `e1_failed_reading_triage.csv`)
+
+| class | meaning | rows | deals | episodes |
+|---|---|---:|---:|---:|
+| T1 | a failure, both parties listed (by the reader, or by CRSP under §4.3's own share-code definition), made public by 2024-12-31: **in the trial** | 9 | 5 | 9 |
+| T2 | a failure of a listed pair made public after 2024-12-31: in no set | 1 | 1 | 1 |
+| I1 | a failure whose listing neither the reader nor CRSP settles | 19 | 17 | 12 |
+| I2 | outcome unstated, both listed, no CRSP completion within 730 days | 37 | 28 | 20 |
+| I3 | outcome unstated, listing unsettled, the episode's own fund a listed CEF or BDC-named | 27 | 24 | 25 |
+| C1 | CRSP shows the target merged within 730 days of A (the census rule: not a failed deal) | 10 | 10 | 7 |
+| C2 | not a listed pair, or completed | 284 | 177 | 150 |
+| C3 | outcome unstated, listing unsettled, the episode's own fund not a listed CEF | 109 | 83 | 78 |
+
+Only T and I rows can change the trial.
+
+## 3. Recommended rulings (accept all, or each)
+
+1. **One deal, one count.**
+   - **Recommended:** a deal read from several episodes counts once (its `deal_id`: target CIK >
+     acquirer CIK). A is its earliest announcement and F its earliest public failure.
+   - **Reason:** §4.1 says "A deal is one target into one acquirer". The census reads each party's
+     filings, so one deal can arrive more than once.
+   - **Alternative:** none that keeps §4.1.
+2. **CRSP settles a listing the reader left null.**
+   - **Recommended:** if both parties' printed tickers map, on A, to a CRSP CEF (share code
+     14/44) or BDC (11) on NYSE, NYSE American or Nasdaq, the pair is listed.
+   - **This adds NXJ→NAD, NQP→NVG and NMT→NEA.** Each is a 2023 Nuveen N-14 withdrawn by RW ("a
+     proposed merger transaction that is no longer contemplated"), so all three fall in the time
+     holdout.
+   - **Reason:** §4.3 defines "exchange-listed" by CRSP share code. These are among the 2023
+     failures §2.3 names.
+   - **Alternative:** a second reading for listing only.
+3. **BHV→MYI (asked as 3a): withdrawn, F = 2023-11-01.** The same ruling covers its three co-targets.
+   - **The finding:** the 2023 proposal merged **BHV, BKN, MIY and MPA into MYI** under one N-14
+     (File 333-274660). MYI's RW (0001193125-23-268272, 2023-11-01) states "proposed merger
+     transactions that are no longer contemplated".
+   - **Recommended:** all four deals are `withdrawn` with F = 2023-11-01, in the time holdout.
+     Both parties are listed: each of the five CIKs maps to a CRSP CEF on NYSE on 2023-09-08
+     (`e1_merger_pair.crsp_cik_map`; names only).
+   - **Reason:** BHV's "superseded 2025-06-09" is the later, second proposal (BHV into MQY). F is
+     the earliest public failure (§4.3, §6.1).
+   - **Alternative:** superseded with F = 2025-06-09, which puts BHV→MYI in no set, beyond CRSP's
+     2024-12-31. This alone would leave BKN, MIY and MPA→MYI unresolved.
+4. **MCC → CIK 1523526: not a listed pair.**
+   - **Reason:** the counterparty's own episode records it unlisted. Its one quote failure is
+     then moot.
+   - **Alternative:** a re-read.
+5. **Rows that cannot change the trial (C1, C2, C3, and 8 rows of deals announced after
+   2024-12-31): read; excluded from every E1 set; not blocking.**
+   - This covers their blank outcomes, two quote failures in C2 rows, and six conflicts between
+     a "completed" and a "not_a_listed_pair" reading. Five are listed BDCs (BBDC, GBDC, OCSL,
+     CGBD, OTF) absorbing non-traded ones; the sixth's parties map to no CRSP CEF.
+   - **Reason:** none of them can be a failed deal between two listed funds inside the census
+     horizon.
+   - **Alternative:** read every one to an outcome. That is about 400 rows, and it changes
+     nothing in the trial.
+6. **The N-8F rule (asked as 3b).**
+   - **Recommended:**
+     - a target's N-8F that states it merged into the named acquirer is `completed`;
+     - one that names another survivor, or a liquidation, is `completed_other_structure`;
+     - one that names neither leaves the outcome null.
+     Batch 40 (`completed`) and batch 45 (null) are both re-read to this rule.
+   - **Effect on the trial: none.** An N-8F never shows a failure. No T or I row cites one
+     (all 13 N-8F readings are C2).
+   - **Alternative:** N-8F is never outcome evidence, so all 12 become null.
+7. **In-trial rows with a quote not found (asked as 3c): none.**
+   - Every quote in every T1 row is re-found in its filing.
+   - The only quote failure outside class C is in the MCC row (item 4).
+8. **The residual: 67 rows in 54 deals and 47 episodes (I1 11, I2 34, I3 22) still could change
+   the trial.**
+   - **Recommended:** a second reading pass on those 47 episodes, with full excerpts of every
+     filing (`e1_failed_reading.py` with a larger budget), read by Sonnet. A disagreement with
+     the first pass is adjudicated by a third reading.
+   - DG-E1-3 stays FAIL until then.
+   - **Alternative:** whatever stays unread after the second pass is excluded and counted.
+     §4.3 says an unreadable episode halts, so that would itself be a ruling.
+9. **A gap in the census rule.**
+   - "No CRSP completion within 730 days" cannot see a failed co-target whose acquirer
+     completed another target in the same window.
+   - That is how **SBI→MMU (2023), named in §2.3, is missed**: MMU's 2023 episode is explained
+     by its other completed merger, and SBI filed no merger episode of its own.
+   - **Recommended:** a supplementary census of the **149** acquirer-side episodes that a
+     completion explained, each read only for named targets that did not complete.
+   - **Alternative:** accept the gap and record it.
+
+**If rulings 1–4 are accepted, the trial's failed deals are 9:**
+- RAA→BFZ (2009, vote failed; the fit);
+- AFT→AIF (2021, vote failed; the fit; A = 2021-03-18 from the acquirer's filings);
+- BHV, BKN, MIY and MPA→MYI (withdrawn 2023-11-01; time holdout);
+- NXJ→NAD, NQP→NVG and NMT→NEA (withdrawn 2023; time holdout).
+
+Items 8 and 9 can add more. These are counts of deals, not returns.
+
+## 4. The stale EDGAR index
+
+Stage 0 needs the network for one thing only, the open quarter's full index (2026Q4). A probe on
+2026-10-20 found it the only stale or missing URL among everything Stage 0 reads. Its one-day
+`max_age` is unchanged. The team lead runs, from the `trial-events-e1` worktree:
+
+    QUANTT_ENV_FILE=<absolute path to config/.env> python3 scripts/events/e1_merger_pair.py refresh-edgar-index
+
+Then an agent runs `python3 scripts/events/e1_merger_pair.py stage0` within a day. Both default
+`--today` to the run date.
