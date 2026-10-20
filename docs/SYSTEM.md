@@ -516,6 +516,13 @@ with the auction-marked score (`docs/REFERENCES.md` §12an). The design is
 | The paper book's official daily P&L | **Alpaca's end-of-day portfolio history** (`GET /v2/account/portfolio/history`, `timeframe=1D`) is the official daily P&L of record. This refines 2026-09-28's "Alpaca's paper fill is the official record": the official number is still Alpaca's, but it is the end-of-day history, not a reading taken after the close. |
 | The 17:10 / 17:30 ET `equity − last_equity` reading (`quantt/session/score.py` `alpaca_equity_change`, the verify line, `equity.csv`) | **A labelled snapshot, kept, never blended.** |
 
+### Team lead, 2026-10-20 — IBKR and SPACs, after the evening's measurements
+
+| question | decision |
+|---|---|
+| IBKR as a second broker | **Wait for a trigger** (narrows 2026-10-19's "open it"). No account, build or VM resize until one fires: E1 passes; NAV tenders pass and keep the IBKR muni hedge; the SPAC gate passes with real capital; the core-book benefit, re-run with a measured blocking rate and that day's fees, beats the fixed cost; or a proposal re-admits the four dropped munis. `results/ops/IBKR_WORTH_IT_2026-10-19.md` |
+| SPACs | **Closed under D4, zero trials spent.** The deadline-only route fails the alpha-only rule at zero trials (`results/events/SPAC_DEADLINE_PRESCREEN_2026-10-19.md`); vote redemption at IBKR is moot while IBKR waits for a trigger |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -563,3 +570,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-19 | §5 records the rulings on the interrupted work: C4's verdict, C5's repair rule, HALVE/KILL in report mode, CEFConnect, IBKR, and the EVENTS slate. | for the team lead |
 | 2026-10-19 | §5 records the HALVE/KILL report-mode ruling and the official equity series it reads. | for the team lead |
 | 2026-10-19 | §5 records the P&L-of-record ruling: Alpaca's end-of-day history is official; the 17:30 reading is a snapshot. | hotfix, for the team lead |
+| 2026-10-20 | §5 records IBKR waiting for a trigger and SPACs closed (D4, zero trials). | for the team lead |
