@@ -1,6 +1,6 @@
 {
- "run_utc": "2026-10-20T16:02:40+00:00",
- "head": "9d978cb",
+ "run_utc": "2026-10-20T20:23:23+00:00",
+ "head": "524e77e",
  "verdict": "STAGE 0: HALT",
  "gates": {
   "DG-E1-6": {
@@ -8,21 +8,43 @@
    "detail": "numexpr off; the denormal assertion runs on every P&L built (identity check 2 here)"
   },
   "DG-E1-2": {
-   "status": "FAIL",
-   "detail": "the name- and time-holdout deals are undated: 299 EDGAR documents are not cached and fetching needs the team lead's SEC contact (`fetch-edgar`)",
-   "missing_documents": 299
+   "status": "PASS",
+   "detail": "holdout dates cover the 64 holdout deals: True; dated 63, undatable and excluded 1 (EDI)",
+   "dated": 63,
+   "undatable": 1,
+   "basis_by_set": {
+    "name_holdout": {
+     "merger communication": 29,
+     "registration (upper bound)": 6
+    },
+    "time_holdout": {
+     "merger communication": 14,
+     "registration (upper bound)": 14
+    }
+   },
+   "groups_by_set": {
+    "name_holdout": {
+     "muni": 15,
+     "taxable_income": 4
+    },
+    "time_holdout": {
+     "equity_other": 11,
+     "muni": 3,
+     "taxable_income": 7
+    }
+   }
   },
   "DG-E1-3": {
    "status": "FAIL",
    "detail": "results/events/e1/e1_failed_deal_readings.csv does not exist: 273 candidate episode(s) unread",
    "candidates": 273,
-   "first_filing_cached": 10
+   "first_filing_cached": 272
   },
   "DG-E1-1": {
-   "status": "FAIL",
-   "detail": "fit reader PASS; holdout guard PASS; control-2 pool missing 9; the failed deals' parties wait on DG-E1-3",
+   "status": "INCOMPLETE",
+   "detail": "fit reader PASS; holdout guard PASS; control-2 pool missing 0; the failed deals' parties wait on DG-E1-3",
    "pool": 323,
-   "pool_missing": 9
+   "pool_missing": 0
   },
   "DG-E1-4": {
    "status": "INCOMPLETE",

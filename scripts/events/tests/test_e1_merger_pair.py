@@ -260,6 +260,7 @@ def test_readings_must_cover_every_candidate_and_quotes_must_be_found(tmp_path, 
     assert probs and "does not exist" in probs[0]
     row = {c: "" for c in e1.READING_COLUMNS}
     row.update(episode_cik="20", episode_accession="0000000020-15-000001", outcome="terminated", in_trial="Y",
+               deal_id="20>30", both_listed="Y", acquirer_cik="30",
                target_cik="20", target_ticker="TGT", acquirer_ticker="ACQ", ann_date="2015-01-05",
                ann_accession="0000000020-15-000001", ann_quote="the Boards approved the reorganization",
                fail_date="2015-06-01", fail_accession="0000000020-15-000009", fail_quote="the reorganization was terminated")
@@ -271,6 +272,18 @@ def test_readings_must_cover_every_candidate_and_quotes_must_be_found(tmp_path, 
     assert any("quote not found" in p for p in probs)
     _, probs = e1.check_readings(pd.concat([cen, cen.assign(episode_accession="x")]), _FakeClient(""))
     assert any("no reading" in p for p in probs)
+    # the acquirer's episode reads the same deal with another outcome: a disagreement fails the gate
+    two = pd.DataFrame([row, {**row, "episode_cik": "30", "episode_accession": "0000000030-15-000002",
+                              "outcome": "completed", "in_trial": "N"}])
+    two.to_csv(tmp_path / "r.csv", index=False)
+    cen2 = pd.concat([cen, pd.DataFrame({"episode_cik": [30], "episode_accession": ["0000000030-15-000002"]})])
+    _, probs = e1.check_readings(cen2, _FakeClient("The Boards approved the reorganization. Later the "
+                                                   "reorganization was terminated."))
+    assert any("disagree" in p for p in probs)
+    # a blank outcome blocks
+    pd.DataFrame([{**row, "outcome": "", "in_trial": "N"}]).to_csv(tmp_path / "r.csv", index=False)
+    _, probs = e1.check_readings(cen, _FakeClient("The Boards approved the reorganization."))
+    assert any("blank outcome" in p for p in probs)
 
 
 def _src(tmp_path, name, df):

@@ -199,10 +199,16 @@ HOLDOUT_OPENS_AFTER_FIT_KILL: bool | None = True
 READING_COLUMNS = ("episode_cik", "episode_accession", "deal_id", "role", "counterparty_cik",
                    "counterparty_name", "both_listed", "outcome", "in_trial",
                    "target_cik", "acquirer_cik", "target_ticker", "acquirer_ticker", "ann_date", "ann_accession", "ann_quote",
-                   "fail_date", "fail_accession", "fail_quote", "read_by", "read_on")
+                   "fail_date", "fail_accession", "fail_quote", "outcome_date", "outcome_accession",
+                   "outcome_quote", "read_by", "read_on")
 OUTCOMES = ("completed", "completed_other_structure", "completed_after_crsp", "terminated",
             "vote_failed", "withdrawn", "superseded", "not_a_listed_pair")
 FAILED_OUTCOMES = ("terminated", "vote_failed", "withdrawn", "superseded")
+# The filings DG-E1-3's readers see for each census episode: these forms, filed from 30 days
+# before the episode's first filing to 730 days after (`fetch-edgar` fetched exactly these).
+CENSUS_FORMS = ("425", "N-14", "N-14/A", "N-14 8C", "N-14 8C/A", "PREM14A", "DEFM14A", "DEFA14A", "DEF 14A",
+                "PRE 14A", "8-K", "RW", "N-8F")
+CENSUS_PRE_DAYS = 30
 
 
 class GateError(RuntimeError):
@@ -551,9 +557,13 @@ def failed_census(episodes: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
 
 
 def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str]]:
-    """DG-E1-3: every candidate episode has one reading row; every quote is re-found in its
-    filing on THIS run (`conditional_tender_census.quote_in`, the merger_arb_readings design).
-    Returns (readings, problems); any problem fails the gate."""
+    """DG-E1-3: every candidate episode has at least one reading row (one per deal its filings
+    describe, `deal_id` distinct within the episode); every quote is re-found, on THIS run, in the
+    episode CIK's own cached filing it cites (`conditional_tender_census.quote_in`, the
+    merger_arb_readings design); a deal read from two episodes (its target's and its acquirer's)
+    agrees on its parties, outcome and in_trial. Returns (readings, problems); any problem fails
+    the gate. A blank outcome is a problem: an episode whose filings do not settle the outcome
+    blocks Stage 0 until someone reads further."""
     from scripts.data.edgar_client import filing_txt_url
     from scripts.events.conditional_tender_census import quote_in
     if not READINGS.exists():
@@ -564,39 +574,45 @@ def check_readings(census: pd.DataFrame, client) -> tuple[pd.DataFrame, list[str
     miss_c = [c for c in READING_COLUMNS if c not in r.columns]
     if miss_c:
         return r, [f"{READINGS.name} lacks columns {miss_c}"]
-    key = census["episode_cik"].astype(str) + "|" + census["episode_accession"]
+    key = set(census["episode_cik"].astype(str) + "|" + census["episode_accession"])
     rk = r["episode_cik"] + "|" + r["episode_accession"]
-    unread = sorted(set(key) - set(rk))
+    unread = sorted(key - set(rk))
     if unread:
         probs.append(f"{len(unread)} candidate episode(s) have no reading (first {unread[:5]})")
-    if rk.duplicated().any():
-        probs.append("an episode is read twice")
+    extra = sorted(set(rk) - key)
+    if extra:
+        probs.append(f"{len(extra)} reading(s) of an episode not in the census (first {extra[:3]})")
+    if r.duplicated(["episode_cik", "episode_accession", "deal_id"]).any():
+        probs.append("an episode reads one deal twice")
     bad_o = sorted(set(r["outcome"]) - set(OUTCOMES))
     if bad_o:
-        probs.append(f"unknown outcome(s) {bad_o}")
+        probs.append(f"{int(~r['outcome'].isin(OUTCOMES).sum())} row(s) with an unknown or blank outcome {bad_o}")
     for row in r.itertuples(index=False):
-        for acc_col, q_col, cik_col in (("ann_accession", "ann_quote", "target_cik"),
-                                        ("fail_accession", "fail_quote", "target_cik")):
+        for acc_col, q_col in (("ann_accession", "ann_quote"), ("fail_accession", "fail_quote"),
+                               ("outcome_accession", "outcome_quote")):
             acc, q = getattr(row, acc_col), getattr(row, q_col)
             if not acc and not q:
                 continue
             if not (acc and q):
                 probs.append(f"{row.episode_accession}: {acc_col} and {q_col} must both be given")
                 continue
-            cik = getattr(row, cik_col) or row.episode_cik
             try:
-                txt = client.get_text(filing_txt_url(int(cik), acc))
+                txt = client.get_text(filing_txt_url(int(row.episode_cik), acc))
             except Exception as ex:  # a missing document is a gate failure, named
                 probs.append(f"{row.episode_accession}: {acc} cannot be read ({type(ex).__name__})")
                 continue
             if not quote_in(txt, q):
                 probs.append(f"{row.episode_accession}: quote not found in {acc}")
-        if row.in_trial == "Y" and row.outcome not in FAILED_OUTCOMES:
-            probs.append(f"{row.episode_accession}: in_trial but outcome {row.outcome!r} is not a failure")
-        if row.in_trial == "Y" and not (row.ann_quote and row.fail_quote and row.fail_date
-                                        and row.target_ticker and row.acquirer_ticker):
-            probs.append(f"{row.episode_accession}: a failed deal needs its announcement and failure quotes "
-                         "and both parties' tickers")
+        if row.in_trial == "Y":
+            if row.outcome not in FAILED_OUTCOMES or row.both_listed != "Y":
+                probs.append(f"{row.episode_accession}: in_trial needs a failure outcome and both parties listed")
+            if not all((row.ann_quote, row.fail_quote, row.fail_date, row.target_ticker, row.acquirer_ticker,
+                        row.target_cik, row.acquirer_cik)):
+                probs.append(f"{row.episode_accession}: a failed deal needs its announcement and failure quotes, "
+                             "the failure date, and both parties' CIKs and tickers")
+    for d, g in r[r["deal_id"] != ""].groupby("deal_id"):
+        if len(g) > 1 and any(g[c].nunique() > 1 for c in ("outcome", "in_trial", "target_cik", "acquirer_cik")):
+            probs.append(f"deal {d}: its readings disagree on outcome, in_trial or parties")
     return r, probs
 
 
@@ -1239,10 +1255,28 @@ def stage0(args) -> int:
     say(f"  fit groups (acquirer x announcement date) by segment: {fit_groups}")
     if HOLDOUT_DATES.exists():
         hd = pd.read_csv(HOLDOUT_DATES)
-        want = set(x.loc[x["part"].isin(HOLDOUT_SETS), "permno"].astype(int))
-        hold_ok = set(hd["permno"].astype(int)) == want
-        gates["DG-E1-2"] = {"status": "PASS" if hold_ok else "FAIL",
-                            "detail": f"holdout dates file covers the holdout deals: {hold_ok}"}
+        xh = x[x["part"].isin(HOLDOUT_SETS)]
+        hold_ok = set(hd["permno"].astype(int)) == set(xh["permno"].astype(int)) and not hd["permno"].duplicated().any()
+        und = hd[hd["ann_date"].isna()].merge(xh[["permno", "part", "seg"]], on="permno", how="left")
+        # §13: "every deal dated, or counted as undatable and excluded". Undatable means the
+        # unchanged rule found no candidate or none passed its text test (or a name match
+        # failed); a document the cache lacked would have raised in `date_deals`.
+        und_ok = bool((und["why_undated"].notna() | und["t_status"].ne("matched")).all())
+        yh = attach_dates(xh, hd)
+        dated = yh[yh["ann"].notna()]
+        basis = {s_: g["date_basis"].value_counts().to_dict() for s_, g in dated.groupby("part")}
+        groups = {s_: g.groupby("seg")["group"].nunique().to_dict() for s_, g in dated.groupby("part")}
+        say(f"  holdout sets: {len(hd)} deals in {HOLDOUT_DATES.name} ({_rel(HOLDOUT_DATES_SUMMARY)} is its summary); "
+            f"dated {len(dated)}; undatable and excluded {len(und)}: "
+            + "; ".join(f"{r.ticker} -> {r.a_ticker}, completed {r.completion}, {r.part}, {r.seg}: {r.why_undated}"
+                        for r in und.itertuples()))
+        say(f"  date basis by set (an N-14 date is an upper bound): {basis}")
+        say(f"  holdout groups (acquirer x announcement date) by set and segment: {groups}")
+        gates["DG-E1-2"] = {"status": "PASS" if (hold_ok and und_ok) else "FAIL",
+                            "detail": f"holdout dates cover the 64 holdout deals: {hold_ok}; dated {len(dated)}, "
+                                      f"undatable and excluded {len(und)} ({', '.join(und['ticker'])})",
+                            "dated": int(len(dated)), "undatable": int(len(und)), "basis_by_set": basis,
+                            "groups_by_set": groups}
     else:
         today = date.fromisoformat(args.today)
         miss, stopped = missing_documents(x, today)
@@ -1469,7 +1503,14 @@ def failed_deal_rows(readings: pd.DataFrame, nm: pd.DataFrame) -> pd.DataFrame:
     announcing the deal, F = the filing that made the failure public; the set follows F by §4.2's
     rules (a spec name on either side: excluded; F in 2023+: time holdout; a cef_universe.csv
     name: name holdout; else fit)."""
-    r = readings[readings["in_trial"] == "Y"].drop_duplicates("deal_id")
+    # One deal may be read from two episodes (its target's and its acquirer's filings; their
+    # agreement is checked by `check_readings`): A is the earlier first public announcement and
+    # F the earlier public failure.
+    y = readings[readings["in_trial"] == "Y"].copy()
+    r = (y.assign(ann_date=pd.to_datetime(y["ann_date"]), fail_date=pd.to_datetime(y["fail_date"]))
+         .groupby("deal_id", as_index=False)
+         .agg(ann_date=("ann_date", "min"), fail_date=("fail_date", "min"), target_ticker=("target_ticker", "first"),
+              acquirer_ticker=("acquirer_ticker", "first")))
     up = ce.universe_permnos(nm)
     uni = {p for ps in up.values() for p in ps}
     spec_p = {p for tk, ps in up.items() if tk in spec_names() for p in ps}
@@ -1745,13 +1786,12 @@ def fetch_edgar(args) -> int:  # pragma: no cover - loads the SEC contact; the t
     res.to_csv(HOLDOUT_DATES, index=False)
     HOLDOUT_DATES_SUMMARY.write_text(json.dumps(summ, indent=1, default=str))
     cen = pd.read_csv(CENSUS)
-    forms = ("425", "N-14", "N-14/A", "N-14 8C", "N-14 8C/A", "PREM14A", "DEFM14A", "DEFA14A", "DEF 14A",
-             "PRE 14A", "8-K", "RW", "N-8F")
+    forms = CENSUS_FORMS
     n = 0
     for r in cen.itertuples():
         sb = fe.submissions(client, int(r.episode_cik), max_age_s=30 * fe.DAY)
         f0 = pd.Timestamp(r.first_date)
-        sb = sb[sb["form"].isin(forms) & (sb["filingDate"] >= f0 - pd.Timedelta(days=30))
+        sb = sb[sb["form"].isin(forms) & (sb["filingDate"] >= f0 - pd.Timedelta(days=CENSUS_PRE_DAYS))
                 & (sb["filingDate"] <= f0 + pd.Timedelta(days=FAIL_WINDOW_DAYS))]
         for a in sb["accessionNumber"]:
             client.get(filing_txt_url(int(r.episode_cik), a))
