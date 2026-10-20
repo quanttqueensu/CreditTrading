@@ -42,11 +42,13 @@ counter (156) covers all ETF-price/PD work done to date.
 >   trial is judged on P&L, with borrow in its own labelled column.
 > - **EVENTS trial 2 is NAV tenders**, `results/events/PREREG_NAV_TENDER_2026-10-19.md`:
 >   tender participation, ETF-hedged, on all twelve defaults.
->   **2026-10-19, later: Stage 0 part A recorded, then HALTED before any return**
->   (`results/events/NAV_TENDER_STAGE0_2026-10-19.md`; `python3 scripts/events/nav_tender_trial.py stage0 --edgar-only`).
->   The 20% unread gate passes on EDGAR, 26 of 134 fit events (19.4%), one event inside the
->   line. Part B needs the team lead's credentialed `stage` run (CRSP, Alpaca, uncached
->   EDGAR), then rulings on the Stage-0 flags. No P&L exists; the holdout is untouched.
+>   **2026-10-20: KILLED, D2, at stage 3** (`results/events/NAV_TENDER_RESULT_2026-10-20.md`;
+>   `python3 scripts/events/nav_tender_trial.py fit`). After Stage 0 and 73 signed rulings,
+>   104 events (96 groups) traded. Gross +1.08% per event (cluster t 2.80), above the placebo
+>   p95; net at 15bp +0.59% (t 1.53 < 2.0). Sleeve gross Sharpe 0.450, net 0.381 / 0.244 /
+>   0.037 at 5 / 15 / 30bp (no flip). D4 fails (alpha t 1.92, MUNI β 0.17); `_dsr` 0.39 at
+>   N = 6. **The holdout was opened once after the verdict's commit and halted at its own
+>   20% gate** (14 of 42 unread); no 2023–24 return was read. EVENTS stays 2.
 > - **Both are judged at N = 6, bar √(2 ln 6) = 1.893,** fixed on approval and shared
 >   by every EVENTS trial (E2's unapproved draft moves from N = 4 to 6).
 > - **E1 consumes the 27-name set at its Stage 1** (decision 3's default). The
@@ -237,6 +239,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | C5 (CEF trial 51) | filling the evening's CEF trade at the t+1 OPENING auction earns the session that t's NAV reaches (`results/cef/PREREG_C5_OPEN_AUCTION_2026-10-13.md`) | **D1, artefact control (stage 2b)**: the gain is real, +293bp/yr (SR 1.16, t 2.82, 2016–22 WIDE), but the same open fill on the trade decided a day earlier earns +351bp/yr. It is session drift on the signal's trades, not NAV arrival. Also fails D4 (MUB β −0.22) and `_dsr` (0.61 at N = 52). **Holdout (opened once, 2026-10-19, under the team lead's D-5 repair rule): G +313.6bp/yr, SR 2.12, t 4.66, the fit's sign. It cannot rescue; the kill stands** | `results/cef/C5_RESULT_2026-10-14.md`; `python3 scripts/cef/c5_open_auction.py fit`; `python3 scripts/cef/c5_open_auction.py holdout` (opens once) | 2026-10-14; holdout 2026-10-19 |
 | raw-flow-z | ETF creation/redemption z-score predicts returns | **D1** precise zero: 28,025 obs, all \|t\|<0.8; Treasury control equally flat. Informed and forced flow cancel when pooled | `pre-clean-slate:results/s3/flow_regression.csv` | 2026-07-30 |
 
+| EVENTS-2 NAV tenders | buy a CEF after its NAV tender is announced, tender every share, ETF-hedge its beta (`results/events/PREREG_NAV_TENDER_2026-10-19.md`) | **D2 at stage 3**: gross +1.08% per event (t 2.80, 104 events / 96 groups, 2010–22), above the placebo p95 (+0.74%); net at 15bp +0.59% (t 1.53). Sleeve gross Sharpe 0.450, net@15 0.244, net@30 0.037. Also fails D4 (alpha t 1.92, MUNI β 0.17) and `_dsr` (0.39 at N = 6). The payoff is the tender's own (A − B +0.63%, t 3.3), not the announcement drift (+0.45%, t 1.2). Capacity binds: at $1m the median entry is about half a day's volume. Holdout halted at its own 20% unread gate (14 of 42), no return read | `results/events/NAV_TENDER_RESULT_2026-10-20.md`; `python3 scripts/events/nav_tender_trial.py fit` | 2026-10-20 |
 | XASSET-X1 | credit and rates trend: MOP time-series momentum on HYG LQD IEF TLT EMB PFF MUB BKLN CWB | **D1**: sized gross Sharpe 0.41, NW t 1.62 < 1.96 (2008-05 to 2022-12, T 3,693). Every later rule fails too. TSH wins net; placebo p95 0.78; alpha t 0.79 with TERM β 0.17; `_dsr` (N = 4) 0.47. Holdout Sharpe −0.39. Spanned by AQR TSMOM^FI (t 5.2) | `results/xasset/x1_fit_2026-10-14.json`; `python3 scripts/xasset/x1_credit_trend.py` | 2026-10-14 |
 | XASSET-X2 | front-run pension and balanced-fund rebalancing (HMM Threshold + Calendar), SPY vs IEF | **D1**: Sharpe 0.33, NW t 1.59 (2002-09 to 2022-12, T 5,118). The rates control {BIL: +w, SHY: −w} scores 0.18, at least ½ of X2's 0.33, so stage 2 fails as well. 57 turns a year; net −1.09 at 15bp. Holdout 0.25 | `results/xasset/x2_fit_2026-10-14.json`; `python3 scripts/xasset/x2_rebalancing.py` | 2026-10-14 |
 | XASSET-X3 | month-end Treasury extension (Hartley & Schwarz): long IEF over the last 3 sessions | **D4**: the effect is real, but it is term premium in a part-time wrapper. Sharpe 1.04, NW t 4.94; IEF on other days −0.05; placebo passes; `_dsr` 0.999; alpha t 4.54 / 4.30. But TERM β is 0.34 / 0.33 (> 0.10), as PREREG §6 stated in advance. **Also D2**: 58 turns a year, net −0.42 at 15bp. Holdout 0.59. A TERM-hedged X3 is a new trial, if wanted | `results/xasset/x3_fit_2026-10-14.json`; `python3 scripts/xasset/x3_month_end.py` | 2026-10-14 |
