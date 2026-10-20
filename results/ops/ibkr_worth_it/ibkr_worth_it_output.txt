@@ -1,0 +1,243 @@
+cef_discount.v7.20260928 | live policy: band 4.8% + gmax 1.80x | universe 13
+names needing IBKR on a committed record (derived from names_2026-10-19.csv): ['MHD', 'MQY', 'PHK']
+IBKR fee on the file stamped 2026-10-19 10:59:08: MHD 2.5734%/yr, MQY 1.8368%/yr, PHK 0.5705%/yr
+broker marks for the commission schedule: MHD $10.15 (2026-10-14), MQY $10.20 (2026-10-15), PHK $4.08 (2026-10-15)
+capital for dollar figures: CAPITAL_USD = 100,000 (spec)
+
+fit-cut panels: T 2005-01-03 .. 2022-12-30 (4531 sessions); nothing on or after 2023-01-01 was read into the harness.
+
+==============================================================================================================
+[1] HOW OFTEN AND HOW MUCH THE BAND WANTS EACH NAME SHORT (held book H, the deployed band + cap)
+==============================================================================================================
+eligible = has a z-score and clears the ADV floor (deployed) / has a z-score (WIDE).
+short share = the name's share of the book's summed short weight in the era.
+
+set      era            name   eligible held short held long mean w | short mean |short| short share
+deployed fit 2005-22    MHD        0.0%       0.0%      0.0%            nan       0.0000        0.0%
+deployed fit 2005-22    MQY        2.0%       0.8%      3.2%         -0.088       0.0007        0.2%
+deployed fit 2005-22    PHK       90.4%      26.6%     26.4%         -0.239       0.0635       20.5%
+deployed 2013-06..2022  MHD        0.0%       0.0%      0.0%            nan       0.0000        0.0%
+deployed 2013-06..2022  MQY        3.7%       1.4%      6.0%         -0.088       0.0012        0.2%
+deployed 2013-06..2022  PHK       82.3%      49.8%     49.6%         -0.239       0.1191       20.5%
+deployed 2015-19        MHD        0.0%       0.0%      0.0%            nan       0.0000        0.0%
+deployed 2015-19        MQY        0.0%       0.0%      0.0%            nan       0.0000        0.0%
+deployed 2015-19        PHK       98.4%      37.3%     62.7%         -0.327       0.1218       20.1%
+deployed 2020-22        MHD        0.0%       0.0%      0.0%            nan       0.0000        0.0%
+deployed 2020-22        MQY       11.8%       4.5%     19.0%         -0.088       0.0040        0.7%
+deployed 2020-22        PHK       46.2%      49.3%     50.7%         -0.093       0.0458        8.4%
+WIDE     fit 2005-22    MHD      100.0%      45.3%     54.4%         -0.122       0.0552        9.0%
+WIDE     fit 2005-22    MQY      100.0%      49.4%     50.6%         -0.130       0.0643       10.4%
+WIDE     fit 2005-22    PHK       99.9%      53.9%     46.1%         -0.147       0.0794       12.9%
+WIDE     2013-06..2022  MHD      100.0%      42.5%     57.5%         -0.136       0.0576        8.4%
+WIDE     2013-06..2022  MQY      100.0%      46.9%     53.1%         -0.150       0.0703       10.2%
+WIDE     2013-06..2022  PHK      100.0%      48.1%     51.9%         -0.165       0.0793       11.5%
+WIDE     2015-19        MHD      100.0%      51.1%     48.9%         -0.158       0.0809       11.1%
+WIDE     2015-19        MQY      100.0%      49.8%     50.2%         -0.165       0.0823       11.3%
+WIDE     2015-19        PHK      100.0%      44.7%     55.3%         -0.126       0.0562        7.7%
+WIDE     2020-22        MHD      100.0%      38.4%     61.6%         -0.083       0.0319        5.3%
+WIDE     2020-22        MQY      100.0%      47.2%     52.8%         -0.149       0.0705       11.7%
+WIDE     2020-22        PHK      100.0%      29.6%     70.4%         -0.080       0.0237        3.9%
+
+==============================================================================================================
+[2] GROSS P&L OF EACH NAME'S SHORT LEG IN THE BASE BOOK (total returns; %/yr of capital; NW t, 5 lags)
+==============================================================================================================
+contribution_t = H[t-2, x] * R[t, x] where H[t-2, x] < 0 (the shift(2) of evaluate()).
+
+set      era            name   short leg %/yr      t long leg %/yr      t book %/yr
+deployed fit 2005-22    MHD             0.000    nan         0.000    nan      3.29
+deployed fit 2005-22    MQY             0.070   0.95        -0.031  -0.19      3.29
+deployed fit 2005-22    PHK             0.132   0.20         0.126   0.24      3.29
+deployed 2013-06..2022  MHD             0.000    nan         0.000    nan      6.17
+deployed 2013-06..2022  MQY             0.131   0.95        -0.058  -0.19      6.17
+deployed 2013-06..2022  PHK             0.249   0.20         0.236   0.24      6.17
+deployed 2015-19        MHD             0.000    nan         0.000    nan      5.70
+deployed 2015-19        MQY             0.000    nan         0.000    nan      5.70
+deployed 2015-19        PHK             1.372   0.66         0.920   0.63      5.70
+deployed 2020-22        MHD             0.000    nan         0.000    nan      6.49
+deployed 2020-22        MQY             0.418   0.95        -0.187  -0.19      6.49
+deployed 2020-22        PHK            -0.349  -0.37        -1.223  -0.63      6.49
+WIDE     fit 2005-22    MHD             0.500   1.62         0.939   3.36     12.06
+WIDE     fit 2005-22    MQY             0.324   0.99         0.945   3.12     12.06
+WIDE     fit 2005-22    PHK             0.232   0.38         0.497   0.83     12.06
+WIDE     2013-06..2022  MHD             0.509   1.30         0.853   2.49     11.51
+WIDE     2013-06..2022  MQY             0.122   0.24         0.541   1.20     11.51
+WIDE     2013-06..2022  PHK             0.150   0.17         0.374   0.43     11.51
+WIDE     2015-19        MHD             0.056   0.10         0.484   1.08      6.57
+WIDE     2015-19        MQY             0.414   0.66         0.276   0.43      6.57
+WIDE     2015-19        PHK             0.262   0.22         0.258   0.22      6.57
+WIDE     2020-22        MHD             0.894   1.74         0.686   1.12     16.09
+WIDE     2020-22        MQY            -0.470  -0.40         0.925   1.08     16.09
+WIDE     2020-22        PHK             0.646   0.67        -0.036  -0.02     16.09
+
+==============================================================================================================
+[3] WITH vs WITHOUT: each name (and all together) NEVER lendable, live skip rule; plus re-neutral (report only)
+==============================================================================================================
+GROSS is the headline (SR, %/yr, vol%). net@5/15/30 = Sharpe after bp x turnover, the real-money grid,
+labelled, not mixed in. 'IBKR borrow' = the X shorts at IBKR's fee on the file stamp (its own column);
+'IBKR comm' = Pro Fixed on the IBKR-routed trades at CAPITAL_USD and the broker marks above.
+
+--- deployed ---
+book                      era            grossSR   ann%   vol% turn/yr   net@5  net@15  net@30 flips  net exp  beta EW  IBKR borrow %/yr  IBKR comm %/yr
+base (all lendable)       fit 2005-22       0.69   3.29   4.73     7.2    0.62    0.47    0.24    no    0.021    0.012             0.039           0.072
+skip MHD                  fit 2005-22       0.69   3.29   4.73     7.2    0.62    0.47    0.24    no    0.021    0.012                                  
+skip MQY                  fit 2005-22       0.68   3.22   4.72     7.1    0.61    0.46    0.23    no    0.021    0.013                                  
+skip PHK                  fit 2005-22       0.75   3.18   4.27     6.6    0.67    0.51    0.28    no    0.086    0.033                                  
+skip MHD+MQY+PHK          fit 2005-22       0.73   3.11   4.25     6.5    0.66    0.50    0.27    no    0.086    0.033                                  
+re-neutral MHD+MQY+PHK    fit 2005-22       0.63   2.80   4.41     8.3    0.54    0.35    0.07    no    0.019    0.022                                  
+
+base (all lendable)       2013-06..2022     0.95   6.17   6.48    13.5    0.85    0.64    0.33    no    0.039    0.033             0.073           0.135
+skip MHD                  2013-06..2022     0.95   6.17   6.48    13.5    0.85    0.64    0.33    no    0.039    0.033                                  
+skip MQY                  2013-06..2022     0.94   6.04   6.46    13.3    0.83    0.63    0.32    no    0.040    0.034                                  
+skip PHK                  2013-06..2022     1.02   5.97   5.84    12.4    0.92    0.70    0.38    no    0.161    0.086                                  
+skip MHD+MQY+PHK          2013-06..2022     1.00   5.84   5.82    12.3    0.90    0.69    0.37    no    0.162    0.088                                  
+re-neutral MHD+MQY+PHK    2013-06..2022     0.87   5.25   6.04    15.5    0.74    0.48    0.10    no    0.036    0.059                                  
+
+base (all lendable)       2015-19           0.84   5.70   6.83     7.8    0.78    0.66    0.49    no    0.079   -0.068             0.072           0.080
+skip MHD                  2015-19           0.84   5.70   6.83     7.8    0.78    0.66    0.49    no    0.079   -0.068                                  
+skip MQY                  2015-19           0.84   5.70   6.83     7.8    0.78    0.66    0.49    no    0.079   -0.068                                  
+skip PHK                  2015-19           0.75   4.37   5.81     7.2    0.69    0.57    0.38    no    0.204    0.137                                  
+skip MHD+MQY+PHK          2015-19           0.75   4.37   5.81     7.2    0.69    0.57    0.38    no    0.204    0.137                                  
+re-neutral MHD+MQY+PHK    2015-19           0.47   2.73   5.84     9.4    0.39    0.22   -0.02   YES    0.057    0.022                                  
+
+base (all lendable)       2020-22           1.02   6.49   6.36    21.5    0.85    0.51    0.01    no   -0.024    0.056             0.035           0.147
+skip MHD                  2020-22           1.02   6.49   6.36    21.5    0.85    0.51    0.01    no   -0.024    0.056                                  
+skip MQY                  2020-22           0.97   6.07   6.29    21.0    0.80    0.46   -0.04   YES   -0.020    0.057                                  
+skip PHK                  2020-22           1.08   6.94   6.45    20.4    0.92    0.60    0.13    no    0.027    0.072                                  
+skip MHD+MQY+PHK          2020-22           1.02   6.52   6.39    20.0    0.86    0.55    0.08    no    0.031    0.074                                  
+re-neutral MHD+MQY+PHK    2020-22           1.07   6.89   6.44    22.1    0.90    0.55    0.04    no    0.008    0.075                                  
+
+  deployed: BENEFIT OF ACCESS = base minus the without-book (%/yr of capital; + favours IBKR)
+  without-book              era             d gross   NW t    d@5   d@15   d@30 flips  d turn turn gap alpha vs EW     t  d beta d px-ret  d - IBKR borrow - comm
+  skip MHD                  fit 2005-22       0.000    nan  0.000  0.000  0.000    no    0.00     0.0%       0.000   nan   0.000    0.000                   0.000
+  skip MQY                  fit 2005-22       0.070   0.95  0.066  0.058  0.046    no    0.08    -1.1%       0.073  0.99  -0.000    0.078                   0.064
+  skip PHK                  fit 2005-22       0.104   0.16  0.076  0.021 -0.061   YES    0.55    -7.7%       0.283  0.42  -0.020    0.825                  -0.002
+  skip MHD+MQY+PHK          fit 2005-22       0.173   0.26  0.142  0.079 -0.015   YES    0.63    -8.7%       0.356  0.53  -0.021    0.903                   0.063
+  re-neutral MHD+MQY+PHK    fit 2005-22       0.487   0.69  0.543  0.653  0.818    no   -1.10    15.4%       0.575  0.81  -0.010    0.478                   0.377
+  skip MHD                  2013-06..2022     0.000    nan  0.000  0.000  0.000    no    0.00     0.0%       0.000   nan   0.000    0.000                   0.000
+  skip MQY                  2013-06..2022     0.131   0.95  0.123  0.109  0.087    no    0.15    -1.1%       0.137  0.99  -0.001    0.146                   0.121
+  skip PHK                  2013-06..2022     0.195   0.16  0.143  0.040 -0.115   YES    1.03    -7.7%       0.507  0.41  -0.054    1.549                  -0.003
+  skip MHD+MQY+PHK          2013-06..2022     0.326   0.26  0.267  0.149 -0.028   YES    1.18    -8.7%       0.643  0.52  -0.055    1.695                   0.118
+  re-neutral MHD+MQY+PHK    2013-06..2022     0.915   0.69  1.018  1.225  1.536    no   -2.07    15.4%       1.068  0.80  -0.026    0.897                   0.707
+  skip MHD                  2015-19           0.000    nan  0.000  0.000  0.000    no    0.00     0.0%       0.000   nan   0.000    0.000                   0.000
+  skip MQY                  2015-19           0.000    nan  0.000  0.000  0.000    no    0.00     0.0%       0.000   nan   0.000    0.000                   0.000
+  skip PHK                  2015-19           1.330   0.64  1.298  1.234  1.138    no    0.64    -8.2%       3.282  1.45  -0.205    2.691                   1.177
+  skip MHD+MQY+PHK          2015-19           1.330   0.64  1.298  1.234  1.138    no    0.64    -8.2%       3.282  1.45  -0.205    2.691                   1.177
+  re-neutral MHD+MQY+PHK    2015-19           2.976   1.32  3.058  3.223  3.469    no   -1.64    21.1%       3.832  1.54  -0.090    3.151                   2.824
+  skip MHD                  2020-22           0.000    nan  0.000  0.000  0.000    no    0.00     0.0%       0.000   nan   0.000    0.000                   0.000
+  skip MQY                  2020-22           0.418   0.95  0.394  0.348  0.278    no    0.46    -2.2%       0.417  0.96  -0.001    0.467                   0.386
+  skip PHK                  2020-22          -0.451  -0.46 -0.503 -0.606 -0.761    no    1.03    -4.8%      -0.453 -0.47  -0.017    0.015                  -0.602
+  skip MHD+MQY+PHK          2020-22          -0.034  -0.03 -0.108 -0.258 -0.482    no    1.50    -7.0%      -0.035 -0.03  -0.018    0.482                  -0.216
+  re-neutral MHD+MQY+PHK    2020-22          -0.398  -0.34 -0.366 -0.303 -0.207    no   -0.64     3.0%      -0.400 -0.36  -0.019   -0.146                  -0.581
+
+--- WIDE ---
+book                      era            grossSR   ann%   vol% turn/yr   net@5  net@15  net@30 flips  net exp  beta EW  IBKR borrow %/yr  IBKR comm %/yr
+base (all lendable)       fit 2005-22       1.94  12.06   6.21    26.7    1.73    1.30    0.65    no    0.002   -0.007             0.316           0.346
+skip MHD                  fit 2005-22       1.88  11.54   6.15    25.2    1.67    1.26    0.65    no    0.058    0.004                                  
+skip MQY                  fit 2005-22       1.90  11.74   6.19    24.9    1.70    1.29    0.69    no    0.066    0.010                                  
+skip PHK                  fit 2005-22       1.99  11.89   5.98    25.3    1.78    1.35    0.72    no    0.082    0.054                                  
+skip MHD+MQY+PHK          fit 2005-22       1.83  11.02   6.01    22.1    1.65    1.28    0.73    no    0.203    0.083                                  
+re-neutral MHD+MQY+PHK    fit 2005-22       1.69  11.23   6.63    32.4    1.45    0.96    0.23    no    0.042    0.037                                  
+
+base (all lendable)       2013-06..2022     1.87  11.51   6.16    31.1    1.62    1.11    0.35    no    0.003   -0.008             0.334           0.337
+skip MHD                  2013-06..2022     1.80  10.94   6.08    29.5    1.56    1.07    0.35    no    0.062    0.007                                  
+skip MQY                  2013-06..2022     1.87  11.39   6.11    29.0    1.63    1.15    0.44    no    0.074    0.013                                  
+skip PHK                  2013-06..2022     1.98  11.48   5.81    29.9    1.72    1.20    0.43    no    0.082    0.030                                  
+skip MHD+MQY+PHK          2013-06..2022     1.86  10.75   5.77    26.3    1.63    1.18    0.49    no    0.213    0.065                                  
+re-neutral MHD+MQY+PHK    2013-06..2022     1.82  11.29   6.21    38.5    1.51    0.89   -0.04   YES    0.023   -0.021                                  
+
+base (all lendable)       2015-19           1.10   6.57   5.98    34.9    0.81    0.22   -0.65   YES    0.003   -0.023             0.406           0.346
+skip MHD                  2015-19           1.10   6.43   5.83    33.1    0.82    0.25   -0.60   YES    0.086    0.015                                  
+skip MQY                  2015-19           1.04   6.13   5.91    32.0    0.77    0.22   -0.59   YES    0.086    0.005                                  
+skip PHK                  2015-19           1.16   6.34   5.48    33.9    0.85    0.23   -0.70   YES    0.059    0.088                                  
+skip MHD+MQY+PHK          2015-19           1.06   5.69   5.37    29.5    0.79    0.24   -0.59   YES    0.227    0.155                                  
+re-neutral MHD+MQY+PHK    2015-19           1.14   6.38   5.61    43.7    0.75   -0.03   -1.20   YES    0.020   -0.076                                  
+
+base (all lendable)       2020-22           2.64  16.09   6.10    25.2    2.43    2.02    1.40    no    0.002   -0.000             0.234           0.245
+skip MHD                  2020-22           2.48  15.17   6.11    23.5    2.29    1.91    1.33    no    0.033    0.006                                  
+skip MQY                  2020-22           2.77  16.57   5.99    24.1    2.56    2.16    1.56    no    0.072    0.019                                  
+skip PHK                  2020-22           2.56  15.46   6.05    24.6    2.35    1.95    1.34    no    0.025    0.011                                  
+skip MHD+MQY+PHK          2020-22           2.51  15.02   5.98    21.8    2.33    1.96    1.42    no    0.127    0.036                                  
+re-neutral MHD+MQY+PHK    2020-22           2.11  13.48   6.39    25.5    1.91    1.51    0.91    no    0.022   -0.010                                  
+
+  WIDE: BENEFIT OF ACCESS = base minus the without-book (%/yr of capital; + favours IBKR)
+  without-book              era             d gross   NW t    d@5   d@15   d@30 flips  d turn turn gap alpha vs EW     t  d beta d px-ret  d - IBKR borrow - comm
+  skip MHD                  fit 2005-22       0.514   1.66  0.440  0.291  0.068    no    1.49    -5.6%       0.616  2.00  -0.012    0.880                   0.284
+  skip MQY                  fit 2005-22       0.311   0.95  0.220  0.037 -0.238   YES    1.83    -6.9%       0.462  1.44  -0.017    0.678                   0.092
+  skip PHK                  fit 2005-22       0.168   0.28  0.099 -0.039 -0.246   YES    1.38    -5.2%       0.708  1.24  -0.061    1.066                  -0.043
+  skip MHD+MQY+PHK          fit 2005-22       1.039   1.24  0.809  0.348 -0.342   YES    4.60   -17.3%       1.831  2.40  -0.090    2.671                   0.378
+  re-neutral MHD+MQY+PHK    fit 2005-22       0.824   0.87  1.108  1.678  2.531    no   -5.69    21.3%       1.211  1.29  -0.044    0.663                   0.162
+  skip MHD                  2013-06..2022     0.562   1.42  0.479  0.312  0.062    no    1.67    -5.4%       0.646  1.66  -0.014    0.884                   0.320
+  skip MQY                  2013-06..2022     0.116   0.23  0.011 -0.198 -0.512   YES    2.09    -6.7%       0.238  0.48  -0.021    0.485                  -0.125
+  skip PHK                  2013-06..2022     0.028   0.03 -0.033 -0.154 -0.337   YES    1.22    -3.9%       0.244  0.28  -0.037    0.927                  -0.161
+  skip MHD+MQY+PHK          2013-06..2022     0.760   0.64  0.520  0.039 -0.683   YES    4.81   -15.5%       1.182  1.05  -0.073    2.356                   0.089
+  re-neutral MHD+MQY+PHK    2013-06..2022     0.217   0.17  0.586  1.324  2.432    no   -7.38    23.7%       0.138  0.11   0.014   -0.396                  -0.454
+  skip MHD                  2015-19           0.146   0.25  0.055 -0.128 -0.402   YES    1.83    -5.2%       0.506  0.88  -0.038    0.632                  -0.164
+  skip MQY                  2015-19           0.441   0.69  0.298  0.012 -0.417   YES    2.86    -8.2%       0.712  1.08  -0.028    0.875                   0.146
+  skip PHK                  2015-19           0.235   0.20  0.186  0.088 -0.059   YES    0.98    -2.8%       1.299  1.02  -0.112    0.880                   0.088
+  skip MHD+MQY+PHK          2015-19           0.883   0.53  0.612  0.070 -0.742   YES    5.42   -15.5%       2.585  1.55  -0.179    2.459                   0.132
+  re-neutral MHD+MQY+PHK    2015-19           0.193   0.10  0.632  1.511  2.829    no   -8.79    25.2%      -0.307 -0.15   0.052   -0.318                  -0.558
+  skip MHD                  2020-22           0.913   1.79  0.829  0.661  0.409    no    1.68    -6.7%       0.912  1.84  -0.006    1.042                   0.730
+  skip MQY                  2020-22          -0.481  -0.41 -0.537 -0.649 -0.818    no    1.12    -4.5%      -0.482 -0.43  -0.019   -0.166                  -0.682
+  skip PHK                  2020-22           0.627   0.65  0.595  0.530  0.434    no    0.65    -2.6%       0.626  0.66  -0.011    0.863                   0.533
+  skip MHD+MQY+PHK          2020-22           1.068   0.63  0.896  0.551  0.034    no    3.45   -13.7%       1.065  0.69  -0.036    1.748                   0.589
+  re-neutral MHD+MQY+PHK    2020-22           2.610   1.62  2.626  2.658  2.706    no   -0.32     1.3%       2.611  1.61   0.009    2.316                   2.131
+
+CROSS-CHECK (two methods for the f = 1 benefit, %/yr, total returns):
+  deployed fit 2005-22     sum of short legs +0.202   book difference +0.173
+  deployed 2013-06..2022   sum of short legs +0.379   book difference +0.326
+  deployed 2015-19         sum of short legs +1.372   book difference +1.330
+  deployed 2020-22         sum of short legs +0.068   book difference -0.034
+  WIDE     fit 2005-22     sum of short legs +1.055   book difference +1.039
+  WIDE     2013-06..2022   sum of short legs +0.781   book difference +0.760
+  WIDE     2015-19         sum of short legs +0.732   book difference +0.883
+  WIDE     2020-22         sum of short legs +1.071   book difference +1.068
+
+==============================================================================================================
+[4] H2 TURNOVER MATCHING on the headline era (2013-06..2022): pairs more than 5% apart get a
+    base book at a band width bisected on TURNOVER ALONE to the without-book's turnover (never on P&L).
+==============================================================================================================
+  deployed skip MHD                   turnover  13.47 vs base  13.47 (gap +0.0%): matched as it stands
+  deployed skip MQY                   turnover  13.33 vs base  13.47 (gap -1.1%): matched as it stands
+  deployed skip PHK                   turnover  12.44 vs base  13.47 (gap -7.7%) -> base at width 0.0544 turns  12.44: d gross +0.250%/yr (NW t 0.20); d@5/15/30 +0.250/+0.250/+0.250
+  deployed skip MHD+MQY+PHK           turnover  12.29 vs base  13.47 (gap -8.7%) -> base at width 0.0553 turns  12.29: d gross +0.399%/yr (NW t 0.32); d@5/15/30 +0.399/+0.399/+0.399
+  deployed re-neutral MHD+MQY+PHK     turnover  15.54 vs base  13.47 (gap +15.4%) -> base at width 0.0374 turns  15.54: d gross +0.906%/yr (NW t 0.68); d@5/15/30 +0.906/+0.906/+0.906
+  WIDE     skip MHD                   turnover  29.46 vs base  31.13 (gap -5.4%) -> base at width 0.0514 turns  29.46: d gross +0.210%/yr (NW t 0.53); d@5/15/30 +0.210/+0.210/+0.210
+  WIDE     skip MQY                   turnover  29.03 vs base  31.13 (gap -6.7%) -> base at width 0.0523 turns  29.03: d gross -0.343%/yr (NW t -0.66); d@5/15/30 -0.343/-0.343/-0.343
+  WIDE     skip PHK                   turnover  29.91 vs base  31.13 (gap -3.9%): matched as it stands
+  WIDE     skip MHD+MQY+PHK           turnover  26.32 vs base  31.13 (gap -15.5%) -> base at width 0.0587 turns  26.32: d gross -0.420%/yr (NW t -0.36); d@5/15/30 -0.420/-0.420/-0.420
+  WIDE     re-neutral MHD+MQY+PHK     turnover  38.51 vs base  31.13 (gap +23.7%) -> base at width 0.0356 turns  38.51: d gross +1.446%/yr (NW t 1.16); d@5/15/30 +1.446/+1.446/+1.446
+
+==============================================================================================================
+[5] BORROW SENSITIVITY: the base book's X shorts at IBKR's HISTORICAL daily FEE_RATE, the only
+    pre-2023 fee record (data/cef/cef_borrow_history.parquet, cut at 2022-12-30), beside today's file fee
+==============================================================================================================
+  FEE_RATE panel for ['MHD', 'MQY', 'PHK'], 2021-09-13 .. 2022-12-30 (pre-2023 part only)
+  deployed  window 2021-09-14..2022-12-30: historical 1.710%/yr (coverage 98.1%) vs today's fee 0.050%/yr; by name (historical): MHD 0.000, MQY 0.105, PHK 1.606
+  WIDE      window 2021-09-14..2022-12-30: historical 2.499%/yr (coverage 98.3%) vs today's fee 0.129%/yr; by name (historical): MHD 0.976, MQY 0.252, PHK 1.270
+  median historical fee %/yr in that window: MHD 23.21, MQY 19.10, PHK 37.81
+
+==============================================================================================================
+[6] IBKR COMMISSIONS AT OUR TICKET SIZES (base book, IBKR-routed trades only, CAPITAL_USD, broker marks)
+==============================================================================================================
+  deployed MHD      0.0 IBKR orders/yr, median ticket $nan, median nanbp, $0/yr, the USD 1 minimum binds on nan%
+  deployed MQY      2.9 IBKR orders/yr, median ticket $4,668, median 4.9bp, $8/yr, the USD 1 minimum binds on 25%
+  deployed PHK     22.7 IBKR orders/yr, median ticket $2,587, median 12.3bp, $127/yr, the USD 1 minimum binds on 18%
+  WIDE     MHD     52.5 IBKR orders/yr, median ticket $1,764, median 5.7bp, $89/yr, the USD 1 minimum binds on 55%
+  WIDE     MQY     57.3 IBKR orders/yr, median ticket $2,014, median 5.0bp, $106/yr, the USD 1 minimum binds on 50%
+  WIDE     PHK     44.9 IBKR orders/yr, median ticket $1,242, median 12.3bp, $142/yr, the USD 1 minimum binds on 40%
+
+==============================================================================================================
+[7] SYNTHETIC BLOCKING: does the benefit scale like f x benefit(f=1)? (all X together, live skip rule)
+    Flags are random blocks of L sessions blocked with probability f, per name; 10 seeds. A claim about
+    the POLICY, never about Alpaca. ratio = benefit(f, L) / (f x benefit(1)), headline era.
+==============================================================================================================
+  deployed  f=0.25 L= 5: benefit -0.130%/yr [-0.382, +0.083] vs f x full +0.081; ratio -1.60 [-4.70, 1.02]
+  deployed  f=0.25 L=21: benefit -0.048%/yr [-0.314, +0.219] vs f x full +0.081; ratio -0.59 [-3.85, 2.69]
+  deployed  f=0.50 L= 5: benefit -0.149%/yr [-0.411, +0.001] vs f x full +0.163; ratio -0.91 [-2.52, 0.01]
+  deployed  f=0.50 L=21: benefit -0.344%/yr [-0.753, -0.019] vs f x full +0.163; ratio -2.12 [-4.63, -0.12]
+  WIDE      f=0.25 L= 5: benefit +0.073%/yr [-0.073, +0.360] vs f x full +0.190; ratio 0.38 [-0.38, 1.89]
+  WIDE      f=0.25 L=21: benefit +0.145%/yr [-0.064, +0.428] vs f x full +0.190; ratio 0.76 [-0.34, 2.25]
+  WIDE      f=0.50 L= 5: benefit +0.232%/yr [-0.019, +0.463] vs f x full +0.380; ratio 0.61 [-0.05, 1.22]
+  WIDE      f=0.50 L=21: benefit +0.265%/yr [-0.215, +0.847] vs f x full +0.380; ratio 0.70 [-0.57, 2.23]
+
+wrote benefit, borrow_sensitivity, commissions, episodes, holdings_freq, short_leg_pnl, turnover_matched, with_without to results/ops/ibkr_worth_it/
