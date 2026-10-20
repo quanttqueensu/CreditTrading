@@ -1,6 +1,6 @@
 {
- "run_utc": "2026-10-20T00:52:35+00:00",
- "head": "6096ef9",
+ "run_utc": "2026-10-20T16:02:40+00:00",
+ "head": "9d978cb",
  "verdict": "STAGE 0: HALT",
  "gates": {
   "DG-E1-6": {
@@ -50,8 +50,8 @@
    }
   },
   "DG-E1-5": {
-   "status": "INCOMPLETE",
-   "detail": "French covers 2009-07..2024-12; CRSP ETFs cover the fit window; their 2023-24 rows are not readable before the fit verdict (reading R8)"
+   "status": "PASS",
+   "detail": "French covers 2009-07..2024-12; CRSP ETFs cover the fit window, which is what reading R8 (ruled 2026-10-20) requires"
   }
  },
  "counts_equal_prereg": true,

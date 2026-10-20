@@ -31,6 +31,27 @@ N = 6) · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 2; gates G1
 >   borrow fees. Stage 4's execution-cost test at 15bp, and the 5 / 15 / 30bp grid,
 >   stand as written.
 >
+> **Amendment 2 (team lead, 2026-10-20, after Stage 0 and before any E1 return): the Stage-0
+> rulings and readings R1–R12, accepted as recommended.** The ruling, verbatim: "Accept all
+> recommended" (relayed by the coordinator). It covers the 15 items of
+> `results/events/E1_RULINGS_FORM_2026-10-20.md`:
+> - **F1–F19.** The 19 Stage-0 flags are excluded and counted (§6.3). In 18 of them the acquirer
+>   is a fund the merger created, with no share to short at A+1. In 1 (BLJ) the acquirer has no
+>   CRSP name or payment-date price. Recorded in `results/events/e1/e1_stage0_rulings.csv`.
+> - **R1–R11** as the form states. Among them:
+>   - identity check 1 binds at 1e-12 against the published code's full-precision values;
+>   - DG-E1-5 clears on factor coverage of the fit window (R8);
+>   - control 2 adds no universe filter (R9);
+>   - all 273 census episodes are read (R10).
+> - **R12, in the form's words:** "Open it after any committed fit verdict except a HALT. After a
+>   KILL or NEITHER it is report-only, and the verdict stays the fit's." This settles §10's
+>   silence on the holdout after a fit kill. The kill rules are unchanged.
+> - **Decision 6 stays at its default: failed deals are included.**
+>
+> Nothing here was chosen with sight of an E1 return; none had been computed. DG-E1-1, -2 and
+> -3 stay halted until the team lead's `fetch-edgar` and `pull-crsp` runs and the 273 readings
+> that follow them.
+>
 > *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **No E1 return of any kind was computed to write this.** No pair return, no
