@@ -238,7 +238,16 @@ Recorded from `python3 scripts/events/e1_merger_pair.py stage0` (output in `resu
 - **If SBI→MMU stays open after round 3,** the next step is a fetch of SBI's own 2023 filings
   (CIK 882300). SBI filed no merger episode, so they are not in any pack.
 
-## 7. 2026-10-21, after the third reading: what still blocks DG-E1-3 (a form; nothing below is ruled)
+## 7. 2026-10-21, after the third reading: what still blocks DG-E1-3
+
+> **RULED 2026-10-21.** The team lead: "Accept 12–15" (relayed by the coordinator).
+> - Recorded in `results/events/e1/e1_dg3_rulings.csv` (items 12–15) and the pre-registration's banner.
+> - Applied in code, each with a test: `apply_dg3_rulings`, `apply_ruling_14`, `dg3_state`.
+> - **On the readings:** 11 in-trial deals (Allied→Prospect joins). Excluded and counted: ruling 12,
+>   7 deal ids; ruling 13, 5; ruling 14, 13.
+> - **DG-E1-3 waits only on round r4** (SBI→MMU and NCU→NKX), once the team lead's fetches have run.
+>
+> *Was:* a form; nothing below is ruled.
 
 **The third reading is merged** (`e1_failed_reading.dg3_state`):
 - **Two fixes, each tested:**

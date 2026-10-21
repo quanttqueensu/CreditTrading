@@ -432,3 +432,52 @@ def test_r4_rows_settle_the_counterpartys_episode_and_quote_their_own_filings():
                          "target_ticker": "SBI", "acquirer_ticker": "MMU", "outcome": ""}])
     M = fr.merge_rounds(old, R3=X)
     assert len(M) == 1 and M.loc[0, "outcome"] == "vote_failed" and M.loc[0, "doc_cik"] == "882300"
+
+
+# ---------------------------------------------------------------- rulings 12-15 (2026-10-21)
+
+def _nm_dl_12():
+    nm = pd.DataFrame({"permno": [1, 2, 3, 4, 5, 6, 7], "ticker": ["ALD", "PSEC", "BKT", "BHK", "SBI", "NCU", "NKX"],
+                       "namedt": pd.to_datetime(["2000-01-01"] * 7), "nameendt": pd.to_datetime(["2024-12-31"] * 7),
+                       "shrcd": [11, 14, 14, 14, 14, 14, 14], "exchcd": [1, 3, 1, 1, 1, 1, 1],
+                       "comnam": ["ALLIED CAPITAL CORP", "PROSPECT CAPITAL CORP", "B", "C", "D", "E", "F"]})
+    dl = pd.DataFrame({"permno": [3, 5, 6], "dlstdt": pd.to_datetime(["2024-12-31", "2024-12-31", "2014-06-06"]),
+                       "dlstcd": [100, 100, 231], "nwperm": [0, 0, 7]})
+    return nm, dl
+
+
+def test_ruling_12_listing_by_crsp_through_the_cik():
+    nm, dl = _nm_dl_12()
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([
+        {**b, "episode_cik": "1287032", "episode_accession": "p", "deal_id": "3906>1287032", "target_cik": "3906",
+         "acquirer_ticker": "PSEC", "outcome": "terminated", "ann_date": "2010-01-20", "fail_date": "2010-03-05"},
+        {**b, "episode_cik": "1472215", "episode_accession": "j", "deal_id": "ep1472215:0", "target_ticker": "PSEC",
+         "outcome": "superseded", "ann_date": "2019-03-05", "fail_date": "2019-05-23"},
+        {**b, "episode_cik": "9", "episode_accession": "k", "deal_id": "ep9:0", "target_ticker": "BKT",
+         "acquirer_ticker": "BHK", "outcome": "superseded", "ann_date": "2014-06-09"}])
+    X = fr.apply_dg3_rulings(R, nm, {1: 3906, 2: 1287032}, dl)
+    assert X.loc[0, "target_ticker"] == "ALD" and X.loc[0, "in_trial"] == "Y" and X.loc[0, "both_listed"] == "Y"
+    assert X.loc[1, "excluded"] == "12" and X.loc[1, "in_trial"] == "N"          # counterparty unidentified
+    assert X.loc[2, "excluded"] == "13" and X.loc[2, "in_trial"] == "N"          # listed, failure undated
+
+
+def test_rulings_13_14_15():
+    nm, dl = _nm_dl_12()
+    b = {c: "" for c in e1.READING_COLUMNS}
+    rows = [{**b, "episode_cik": "832327", "episode_accession": "x", "deal_id": "ep832327:0", "target_ticker": "BKT",
+             "acquirer_ticker": "BHK", "ann_date": "2014-06-09"},                                     # 13
+            {**b, "episode_cik": "886043", "episode_accession": "0001193125-23-074093", "deal_id": "ep886043:1",
+             "target_ticker": "SBI", "acquirer_ticker": "MMU", "ann_date": "2023-03-17"},             # 15: excluded once r4 read
+            {**b, "episode_cik": "1195738", "episode_accession": "0001193125-11-345556", "deal_id": "ep1195738:3",
+             "target_ticker": "NCU", "acquirer_ticker": "NKX"},                                       # 15: superseded
+            {**b, "episode_cik": "77", "episode_accession": "y", "deal_id": "ep77:0"}]                # 14
+    first = {"1195738_0001193125-11-345556": "2011-12-19"}
+    X = fr.apply_dg3_rulings(pd.DataFrame(rows), nm, {}, dl, first=first, r4_read=False)
+    assert X.loc[0, "excluded"] == "13" and X.loc[1, "excluded"] == "" and X.loc[2, "outcome"] == ""
+    X = fr.apply_ruling_14(X, pd.Series([False] * 4))
+    assert list(X["excluded"]) == ["13", "", "", "14"]                            # r4 not read: 15's deals wait
+    Y = fr.apply_dg3_rulings(pd.DataFrame(rows), nm, {}, dl, first=first, r4_read=True)
+    assert Y.loc[1, "excluded"] == "15"
+    assert (Y.loc[2, "outcome"], Y.loc[2, "fail_date"], Y.loc[2, "in_trial"], Y.loc[2, "ann_date"]) == (
+        "superseded", "2013-11-22", "Y", "2011-12-19")

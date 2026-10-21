@@ -682,8 +682,9 @@ def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None =
         if row.in_trial == "Y":
             if row.outcome not in FAILED_OUTCOMES or row.both_listed != "Y":
                 probs.append(f"{row.episode_accession}: in_trial needs a failure outcome and both parties listed")
-            if not all((row.ann_quote, row.fail_quote, row.fail_date, row.target_ticker, row.acquirer_ticker,
-                        row.target_cik, row.acquirer_cik)):
+            by_rule = getattr(row, "ruled", "") == "15"     # F set by §4.3's superseded rule, not a quote
+            if not all((row.ann_quote or by_rule, row.fail_quote or by_rule, row.fail_date, row.target_ticker,
+                        row.acquirer_ticker, row.target_cik or by_rule, row.acquirer_cik or by_rule)):
                 probs.append(f"{row.episode_accession}: a failed deal needs its announcement and failure quotes, "
                              "the failure date, and both parties' CIKs and tickers")
     # A blank is a reader who did not see the answer, not a contradiction: only two DIFFERENT
@@ -1424,6 +1425,13 @@ def stage0(args) -> int:
         r3f = OUT_DIR / fr.ROUNDS["r3"][2]
         if r3f.exists() and not (OUT_DIR / fr.ROUNDS["r3"][0]).exists():
             probs.append(f"round r3 (rulings 8, 10): {len(pd.read_csv(r3f))} episode(s) unread")
+        if not (OUT_DIR / fr.ROUNDS["r4"][0]).exists():
+            r4f = OUT_DIR / fr.ROUNDS["r4"][2]
+            probs.append("round r4 (ruling 15: SBI -> MMU, NCU -> NKX in each target's own filings): "
+                         + (f"{len(pd.read_csv(r4f))} fund(s) unread" if r4f.exists()
+                            else "awaiting the team lead's `fetch-edgar --cik`, then freeze-r4"))
+        say(f"  excluded and counted (rulings 12-15): "
+            f"{Rr[Rr['excluded'] != ''].groupby('excluded')['deal_id'].nunique().to_dict()} deal ids by ruling")
         extra = {"in_trial_deals_ruled": int(trial["deal_id"].nunique()), "exempt_rows": int(ex.sum()),
                  "moot_rows": st["moot_rows"], "crsp_settled": int((Rr["ruled"] == "10").sum())}
     else:
@@ -1599,13 +1607,18 @@ def _require_stage0_clear() -> None:
                            context="E1 Stage 0")
 
 
-def crsp_cik_map(nm: pd.DataFrame, names: pd.DataFrame) -> dict:
+def crsp_cik_map(nm: pd.DataFrame, names: pd.DataFrame, bdc: bool = False) -> dict:
     """permno -> EDGAR CIK for every CEF permno (share code 14/44) with a name record in
     2009-07-01 .. 2024-12-31: each (permno, CRSP name) is matched by `match_cik` over the dates
     the name was in force. A permno whose names match two CIKs, or none, is left out (reading
-    R4: such a fund cannot be a control, because its merger filings cannot be checked)."""
+    R4: such a fund cannot be a control, because its merger filings cannot be checked).
+    `bdc` (ruling 12, 2026-10-21) adds share-code-11 names that `merger_pairs.classify` labels a
+    BDC, so a BDC party's listing can be read through its CIK too (ALD, CIK 3906)."""
     from scripts.events import edgar_merger_dates as emd
-    cef = nm[nm["shrcd"].isin(ce.CEF_SHRCD) & (nm["nameendt"] >= EPISODE_START) & (nm["namedt"] <= CRSP_END)]
+    keep = nm["shrcd"].isin(ce.CEF_SHRCD)
+    if bdc:
+        keep |= (nm["shrcd"] == 11) & (nm["comnam"].map(mp.classify) == "bdc")
+    cef = nm[keep & (nm["nameendt"] >= EPISODE_START) & (nm["namedt"] <= CRSP_END)]
     g = cef.groupby(["permno", "comnam"]).agg(lo=("namedt", "min"), hi=("nameendt", "max")).reset_index()
     found: dict[int, set] = {}
     for r in g.itertuples():

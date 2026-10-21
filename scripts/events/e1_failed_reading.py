@@ -835,6 +835,11 @@ MYI_RW = ("0001193125-23-268272", "2023-11-01")      # MYI's RW of File 333-2746
 MYI_DEALS = frozenset({"1169034>883412", "894242>883412", "890393>883412", "891038>883412"})
 MCC_DEAL = "1490349>1523526"                          # ruling 4
 EXEMPT_CLASSES = ("C1", "C2", "C3")                    # ruling 5
+# Ruling 15 (2026-10-21): the two muni deals read in each target's own filings (round r4); if that
+# settles nothing, SBI -> MMU is excluded and counted, and NCU -> NKX's 2011 proposal takes §4.3's
+# superseded rule, F = the first filing of the later proposal that completed (NKX, 2013-11-22).
+R15 = {("886043_0001193125-23-074093", "SBI"): None,
+       ("1195738_0001193125-11-345556", "NCU"): ("superseded", "2013-11-22", "0001193125-13-450220")}
 
 
 def crsp_maps(nm: pd.DataFrame, cmap: dict):
@@ -861,7 +866,8 @@ def crsp_maps(nm: pd.DataFrame, cmap: dict):
     return cik_of, tk_of
 
 
-def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict, dl: pd.DataFrame | None = None) -> pd.DataFrame:
+def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict, dl: pd.DataFrame | None = None,
+                      first: dict | None = None, r4_read: bool = False) -> pd.DataFrame:
     """The readings with rulings 2-4 applied; column `ruled` names the ruling that changed a row.
 
     2. A failure whose listing the reader left blank is listed when both parties' tickers map, on A,
@@ -875,11 +881,30 @@ def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict, dl: pd.Data
        `crsp_outcome`: completed or completed_other_structure -> that outcome, dated by the delisting
        (evidence: CRSP; no quote); not completed -> left blank with `crsp_note`, for the third
        reading to find the filing that dates the failure (§6.1 needs F).
+    12. (2026-10-21) listing follows CRSP share codes: a blank ticker is taken from the reader's CIK
+       through `crsp_cik_map` (BDCs included when the caller builds it so); a failure whose two
+       parties are identified is listed or not by `crsp_listed`; one whose counterparty nobody
+       identifies is excluded and counted (`excluded` = "12").
+    13. a deal CRSP shows never completed with no dated failure is excluded and counted; ruling 10's
+       730 days run from the episode's first merger filing (`first`) when a reading gives no A.
+    15. the two muni deals of R15 wait for round r4; once it is read (`r4_read`), a still-blank SBI
+       -> MMU is excluded and counted, and NCU -> NKX (2011) is superseded with §4.3's F.
+    Ruling 14 needs the triage, so `apply_ruling_14` does it after. `excluded` rows are resolved:
+    they block nothing and are counted.
     Ruling 1 is `failed_deal_rows`; ruling 5 is the exemption the caller takes from `triage`."""
     cik_of, tk_of = crsp_maps(nm, cmap)
     R = R.copy()
     R["ruled"] = R["ruled"] if "ruled" in R else ""
     R["crsp_note"] = ""
+    R["excluded"] = ""
+    first = first or {}
+    eidx = R["episode_cik"] + "_" + R["episode_accession"]
+    if dl is not None:   # ruling 12: a blank ticker from the reader's CIK, through CRSP
+        for ix in R.index:
+            when = R.at[ix, "ann_date"] or first.get(eidx[ix])
+            for side in ("target", "acquirer"):
+                if not R.at[ix, f"{side}_ticker"] and R.at[ix, f"{side}_cik"]:
+                    R.at[ix, f"{side}_ticker"] = tk_of(R.at[ix, f"{side}_cik"], when) or ""
     for ix in R.index[R["deal_id"].isin(MYI_DEALS)]:
         when = R.at[ix, "ann_date"] or "2023-09-08"
         for side in ("target", "acquirer"):
@@ -898,24 +923,61 @@ def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict, dl: pd.Data
               "outcome_accession", "outcome_quote", "outcome_date", "ruled"]] = [
         "not_a_listed_pair", "N", "N", "", "", "", "", "", "", "4"]
     for ix in R.index[R["outcome"].isin(e1.FAILED_OUTCOMES) & (R["both_listed"] == "") & (R["ruled"] == "")]:
-        when = R.at[ix, "ann_date"]
-        if crsp_listed(nm, R.at[ix, "target_ticker"], when) and crsp_listed(nm, R.at[ix, "acquirer_ticker"], when):
+        when = R.at[ix, "ann_date"] or first.get(eidx[ix])
+        lt, la = crsp_listed(nm, R.at[ix, "target_ticker"], when), crsp_listed(nm, R.at[ix, "acquirer_ticker"], when)
+        if dl is not None and (lt is False or la is False):          # ruling 12: identified, not listed
+            R.loc[ix, ["both_listed", "in_trial", "ruled"]] = ["N", "N", "12"]
+            continue
+        if dl is not None and (lt is None or la is None):            # ruling 12: counterparty unidentified
+            R.loc[ix, ["in_trial", "excluded"]] = ["N", "12"]
+            continue
+        if lt and la:
             for side in ("target", "acquirer"):
                 if not R.at[ix, f"{side}_cik"]:
                     c = cik_of(R.at[ix, f"{side}_ticker"], when)
                     R.at[ix, f"{side}_cik"] = str(c) if c else ""
+            if dl is not None and not R.at[ix, "fail_date"]:          # rulings 12-13: listed, failure undated
+                R.loc[ix, ["both_listed", "in_trial", "ruled", "excluded"]] = ["Y", "N", "12", "13"]
+                continue
             R.loc[ix, ["both_listed", "in_trial", "ruled"]] = ["Y", "Y", "2"]
             if R.at[ix, "target_cik"] and R.at[ix, "acquirer_cik"]:
                 R.at[ix, "deal_id"] = f"{R.at[ix, 'target_cik']}>{R.at[ix, 'acquirer_cik']}"
     if dl is not None:
         for ix in R.index[R["outcome"] == ""]:
-            o = crsp_outcome(nm, dl, R.at[ix, "target_ticker"], R.at[ix, "acquirer_ticker"], R.at[ix, "ann_date"])
+            o = crsp_outcome(nm, dl, R.at[ix, "target_ticker"], R.at[ix, "acquirer_ticker"],
+                             R.at[ix, "ann_date"] or first.get(eidx[ix]))       # ruling 13's anchor
             if o is None:
                 continue
             if o[0] in ("completed", "completed_other_structure"):
                 R.loc[ix, ["outcome", "outcome_date", "in_trial", "ruled"]] = [o[0], str(o[1]), "N", "10"]
             else:
                 R.at[ix, "crsp_note"] = o[0] + (f" {o[1]}" if o[1] else "")
+                if (eidx[ix], R.at[ix, "target_ticker"]) not in R15:        # ruling 13
+                    R.at[ix, "excluded"] = "13"
+        for ix in R.index:                                                   # ruling 15, once r4 is read
+            key = (eidx[ix], R.at[ix, "target_ticker"])
+            if key not in R15 or R.at[ix, "outcome"] != "" or not r4_read:
+                continue
+            if R15[key] is None:
+                R.at[ix, "excluded"] = "15"
+            else:
+                o, f_date, f_acc = R15[key]
+                when = R.at[ix, "ann_date"] or first.get(eidx[ix])
+                R.loc[ix, ["outcome", "both_listed", "in_trial", "fail_date", "fail_accession", "ann_date",
+                           "ruled"]] = [o, "Y", "Y", f_date, f_acc, when, "15"]
+    return R
+
+
+def apply_ruling_14(R: pd.DataFrame, exempt: pd.Series) -> pd.DataFrame:
+    """Ruling 14 (2026-10-21): an outcome still unstated after the readings, on a row that could
+    change the trial and whose deal no other row settles, is excluded and counted (`excluded` =
+    "14"). Ruling 15's two deals are left to it."""
+    R = R.copy()
+    eidx = R["episode_cik"] + "_" + R["episode_accession"]
+    settled = set(R.loc[(R["outcome"] != "") & ~R["deal_id"].str.startswith("ep"), "deal_id"])
+    m = ((R["outcome"] == "") & ~exempt.values & ~R["deal_id"].isin(settled) & (R["excluded"] == "")
+         & ~pd.Series([(e, t) in R15 for e, t in zip(eidx, R["target_ticker"])], index=R.index))
+    R.loc[m, "excluded"] = "14"
     return R
 
 
@@ -1108,10 +1170,15 @@ def dg3_state(nm: pd.DataFrame, dl: pd.DataFrame, names: pd.DataFrame, cen: pd.D
     ek = R["episode_cik"] + "_" + R["episode_accession"]
     moot = int((~ek.isin(keys)).sum())
     R = R[ek.isin(keys)].reset_index(drop=True)
-    cmap = e1.crsp_cik_map(nm, names)
-    Rr = apply_dg3_rulings(R, nm, cmap, dl)
+    cmap = e1.crsp_cik_map(nm, names, bdc=True)                       # ruling 12: BDCs by CIK too
+    first = dict(zip(allc["episode_cik"].astype(str) + "_" + allc["episode_accession"], allc["first_date"].astype(str)))
+    Rr = apply_dg3_rulings(R, nm, cmap, dl, first=first, r4_read=(e1.OUT_DIR / ROUNDS["r4"][0]).exists())
     T = triage(Rr, allc.astype({"episode_cik": str}), nm, dl, rf.own_listed(nm, names))
-    return {"R": Rr, "T": T, "exempt": exempt_rows(T), "census": allc, "moot_rows": moot}
+    ex = exempt_rows(T)
+    Rr = apply_ruling_14(Rr, ex)                                         # ruling 14
+    T["excluded"] = Rr["excluded"].values
+    ex = ex | (Rr["excluded"] != "").values                              # excluded and counted: resolved
+    return {"R": Rr, "T": T, "exempt": ex, "census": allc, "moot_rows": moot}
 
 
 def rekey_r4(r4: pd.DataFrame, L: pd.DataFrame) -> pd.DataFrame:

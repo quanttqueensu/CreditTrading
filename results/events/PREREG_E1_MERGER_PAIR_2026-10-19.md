@@ -91,6 +91,20 @@ N = 6) · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 2; gates G1
 >
 > No kill rule changes.
 >
+> **Amendment 5 (team lead, 2026-10-21, at Stage 0, before any E1 return): DG-E1-3's remaining
+> rows.** The ruling: "Accept 12–15" (relayed by the coordinator; recorded in
+> `results/events/e1/e1_dg3_rulings.csv` items 12–15):
+> - **12.** Listing follows CRSP share codes (§4.3), by ticker or else by CIK, BDCs included. A deal
+>   whose counterparty nobody identifies is excluded and counted.
+> - **13.** A deal CRSP shows never completed, with no dated failure, is excluded and counted
+>   (§6.1 needs F).
+> - **14.** An outcome still unstated after the readings is excluded and counted.
+> - **15.** SBI → MMU and NCU → NKX (2011) are read in each target's own filings. If that settles
+>   nothing, SBI → MMU is excluded and counted, and NCU → NKX takes §4.3's superseded rule with
+>   F = 2013-11-22.
+>
+> No kill rule changes.
+>
 > *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **No E1 return of any kind was computed to write this.** No pair return, no
