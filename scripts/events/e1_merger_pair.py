@@ -192,6 +192,9 @@ FMAX_MARGIN = 0.5                 # §5.3 (report-only under amendment 1)
 CAPITALS = (1e5, 1e6, 1e7)
 PARTICIPATION_GUARD = 0.05        # the desk's convention (plan_diagnostics.py prints it); reported only
 FIT_START, FIT_END = pd.Timestamp("2009-07-01"), pd.Timestamp("2022-12-31")
+# The market calendar must hold every fit deal's window; a 2010 completion can be announced in 2009
+# (amendment 4's BZA, BCL, BCK -> BFZ: A = 2009-06-23). Not a rule parameter: where the sessions start.
+CAL_START = pd.Timestamp("2008-07-01")
 HOLDOUT_START, CRSP_END = ce.TIME_HOLDOUT, pd.Timestamp("2024-12-31")
 ERAS = (("2010-14", "2010-01-01", "2014-12-31"), ("2015-19", "2015-01-01", "2019-12-31"),
         ("2020-22", "2020-01-01", "2022-12-31"))
@@ -1332,7 +1335,6 @@ def stage0(args) -> int:
     # ---------------------------------------------------------------- DG-E1-2
     fd = load_fit_dates(x)
     xf_all = attach_dates(x[x["part"] == FIT_SET], fd)
-    xf = xf_all[xf_all["dlstcd"] == 231]                       # the published sample's deals
     d331 = dates_331()
     need331 = x[(x["dlstcd"] == 331) & x["part"].isin((FIT_SET,) + HOLDOUT_SETS)]
     undated331 = sorted(set(need331["ticker"]) - set(need331.loc[need331["permno"].isin(d331["permno"]), "ticker"]))
@@ -1340,7 +1342,14 @@ def stage0(args) -> int:
         f"date basis {fd['date_basis'].value_counts().to_dict()}")
     say(f"  amendment 4: {len(need331)} 331 deals in the fit and holdouts; without a date row: {len(undated331)} "
         f"({', '.join(undated331)})" + (" -> the team lead runs `fetch-edgar --amendment4`" if undated331 else ""))
+    u331 = d331[d331["ann_date"].isna() & d331["permno"].isin(need331["permno"])].merge(
+        need331[["permno", "part", "seg"]], on="permno", how="left")
+    if len(u331):
+        say("  amendment 4's 331 deals undatable by the unchanged rule (excluded and counted, §13 DG-E1-2): "
+            + "; ".join(f"{r.ticker} -> {r.a_ticker}, completed {r.completion}, {r.part}, {r.seg}: {r.why_undated}"
+                        for r in u331.itertuples()))
     fit_groups = xf_all[xf_all["ann"].notna()].groupby("seg")["group"].nunique().to_dict()
+    say(f"  fit deals dated: {int(xf_all['ann'].notna().sum())} of {len(xf_all)}")
     say(f"  fit groups (acquirer x announcement date) by segment: {fit_groups}")
     if HOLDOUT_DATES.exists():
         xh = x[x["part"].isin(HOLDOUT_SETS)]
@@ -1449,7 +1458,9 @@ def stage0(args) -> int:
         if r["permno"].nunique() != 1:
             raise GateError(f"{tk}: {r['permno'].nunique()} CRSP ETF permnos")
         etf_perm[tk] = int(r["permno"].iloc[0])
-    fit_perms = set(xf["permno"].astype(int)) | set(xf["nwperm"].astype(int)) | set(etf_perm.values())
+    # every fit deal's parties (231 and 331, as `stage-crsp` stages them) and the factor ETFs
+    fit_perms = set(xf_all["permno"].astype(int)) | set(xf_all["nwperm"].astype(int)) | set(etf_perm.values())
+    xd = xf_all[xf_all["ann"].notna()]          # the dated fit deals (an undatable one is excluded, counted)
     try:
         dsf = fit_daily(fit_perms)
         fit_reader = f"PASS: {len(fit_perms)} permnos, {len(dsf):,} rows, last {dsf['date'].max().date()} (< 2023)"
@@ -1465,8 +1476,8 @@ def stage0(args) -> int:
     pool = set()
     if dsf is not None:
         px0 = price_series(dsf)
-        cal0 = market_calendar(dsf, FIT_START, FIT_END)
-        for _, e in xf.iterrows():
+        cal0 = market_calendar(dsf, CAL_START, FIT_END)
+        for _, e in xd.iterrows():
             w = deal_window(e, px0, cal0)
             if w is None or w["why"]:
                 continue
@@ -1498,13 +1509,13 @@ def stage0(args) -> int:
     # ---------------------------------------------------------------- DG-E1-4, DG-E1-7, the quality screen
     if dsf is not None:
         px = price_series(dsf)
-        cal = market_calendar(dsf, FIT_START, FIT_END)
+        cal = market_calendar(dsf, CAL_START, FIT_END)
         say(f"\n[DG-E1-4] bridging check (merger_pairs.bridging_check) on the fit parties' extract: "
             f"{mp.bridging_check(dsf[~dsf['permno'].isin(etf_perm.values())])}")
         neg = raw_prc_negative(fit_perms)
         neg_set = set(zip(neg["permno"].astype(int), neg["date"]))
         excl, nflag, excl_perm = {}, 0, set()
-        for _, e in xf.iterrows():
+        for _, e in xd.iterrows():
             w = deal_window(e, px, cal)
             if w is None or w["why"]:
                 excl[(w or {}).get("why", "no window")] = excl.get((w or {}).get("why", "no window"), 0) + 1
@@ -1524,7 +1535,7 @@ def stage0(args) -> int:
                     flags.append({"check": "quality screen: no closing trade on the fill day", "ticker": str(tk),
                                   "date": str(w["d_in"].date()),
                                   "detail": f"CRSP prc < 0 on d_in (deal target {e['ticker']}); report-only per §8.2"})
-        unpriced = {int(e["permno"]) for _, e in xf.iterrows()
+        unpriced = {int(e["permno"]) for _, e in xd.iterrows()
                     if not np.isfinite(price_completed(e, px).get("pair_A1_to_close", np.nan))}
         say(f"  fit deals excluded by the window or the hold guard: {excl}; the same deals the published "
             f"buy-and-hold sample leaves unpriced: {excl_perm == unpriced} ({len(unpriced)} unpriced)")
@@ -1556,7 +1567,7 @@ def stage0(args) -> int:
     if dsf is not None:
         for tk, p in etf_perm.items():
             s = dsf[dsf["permno"] == p]
-            inwin = s[(s["date"] >= FIT_START) & (s["date"] <= FIT_END)]
+            inwin = s[(s["date"] >= CAL_START) & (s["date"] <= FIT_END)]
             etf_span[tk] = (str(s["date"].min().date()), str(s["date"].max().date()),
                             int(inwin["ret"].isna().sum()))   # missing returns inside the fit window
     bh = pd.read_parquet(BORROW, columns=["date"])
@@ -1564,8 +1575,9 @@ def stage0(args) -> int:
     say(f"\n[DG-E1-5] French FF5+UMD daily: {ffd} (first, last, fetched, CRSP vintage)")
     say(f"  CRSP ETFs (first, last, missing ret inside 2009-07..2022-12) via the fit reader: {etf_span}")
     say(f"  {BORROW.relative_to(REPO)} last date: {b_last}")
-    fit_cov = bool(ffd and ffd[0] <= "2009-07-01" and ffd[1] >= "2024-12-31"
-                   and all(v[0] <= "2009-07-01" and v[1] >= "2022-12-30" and v[2] == 0 for v in etf_span.values())
+    c0 = str(CAL_START.date())
+    fit_cov = bool(ffd and ffd[0] <= c0 and ffd[1] >= "2024-12-31"
+                   and all(v[0] <= c0 and v[1] >= "2022-12-30" and v[2] == 0 for v in etf_span.values())
                    and len(etf_span) == 3)
     gates["DG-E1-5"] = {"status": "PASS" if fit_cov else "FAIL",
                         "detail": "French covers 2009-07..2024-12; CRSP ETFs cover the fit window, which is what "
@@ -1823,7 +1835,7 @@ def fit(args) -> int:  # pragma: no cover - runs only once Stage 0 is CLEAR; its
                 for tk in ETF_TICKERS}
     perms0 = set(D["permno"].astype(int)) | set(D["nwperm"].astype(int)) | set(etf_perm.values())
     px0 = price_series(fit_daily(perms0))
-    cal = market_calendar(pd.concat([v.reset_index()[["date"]] for v in px0.values()]), FIT_START, FIT_END)
+    cal = market_calendar(pd.concat([v.reset_index()[["date"]] for v in px0.values()]), CAL_START, FIT_END)
     pool = {}
     for i, e in D.iterrows():
         w = deal_window(e, px0, cal, failed=bool(e["failed"]), fail_date=e["fail_date"])
@@ -1882,7 +1894,7 @@ def holdout(args) -> int:  # pragma: no cover - OPENED ONCE, after the committed
     HOLDOUT_MARKER.write_text(f"opened {datetime.now(timezone.utc).isoformat(timespec='seconds')}\n")
     dsf = holdout_daily(perms)
     px = price_series(dsf)
-    cal = market_calendar(dsf, FIT_START, CRSP_END)
+    cal = market_calendar(dsf, CAL_START, CRSP_END)
     R = returns_matrix(px, cal, D)
     P, excl = price_deals(D, px, cal, R)
     M = P[P["seg"] == "muni"]

@@ -1,4 +1,4 @@
-E1 STAGE 0 -- 2026-10-21T14:19:46+00:00 -- HEAD 31228f2 -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
+E1 STAGE 0 -- 2026-10-21T23:29:46+00:00 -- HEAD e035a7a -- results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md
 
 [DG-E1-6] pandas compute.use_numexpr: False
 
@@ -23,10 +23,12 @@ time_holdout  ALL                 29                       19         29        
               taxable_income       8                        7          8                           7                 8                                  7
   identical to amendment 4's counts (e1_universe_counts_2026-10-21.json): True; 331 deals by set: {'fit_seen': 10, 'excluded_spec': 5, 'name_holdout': 1}
 
-[DG-E1-2] fit set: 186 deals with a date row (merger_edgar_dates.csv for 231, e1_331_edgar_dates.csv for 331); date basis {'merger communication': 93, 'registration (upper bound)': 93}
-  amendment 4: 11 331 deals in the fit and holdouts; without a date row: 11 (ARK, BCK, BCL, BHD, BZA, DCW, EOE, MGB, NMD, RTU, RWF) -> the team lead runs `fetch-edgar --amendment4`
-  fit groups (acquirer x announcement date) by segment: {'bdc': 4, 'equity_other': 30, 'muni': 49, 'taxable_income': 35}
-  holdout sets: 64 deals in e1_holdout_edgar_dates.csv (results/events/e1/e1_holdout_edgar_dates_summary.json is its summary); dated 63; undatable and excluded 1: EDI -> EDF, completed 2023-12-15, time_holdout, equity_other: no candidate filing
+[DG-E1-2] fit set: 196 deals with a date row (merger_edgar_dates.csv for 231, e1_331_edgar_dates.csv for 331); date basis {'registration (upper bound)': 100, 'merger communication': 96}
+  amendment 4: 11 331 deals in the fit and holdouts; without a date row: 0 ()
+  amendment 4's 331 deals undatable by the unchanged rule (excluded and counted, §13 DG-E1-2): MGB -> MSD, completed 2010-01-29, name_holdout, taxable_income: no candidate filing
+  fit deals dated: 196 of 196
+  fit groups (acquirer x announcement date) by segment: {'bdc': 4, 'equity_other': 31, 'muni': 51, 'taxable_income': 39}
+  holdout sets: 65 deals in e1_holdout_edgar_dates.csv (results/events/e1/e1_holdout_edgar_dates_summary.json is its summary); dated 63; undatable and excluded 2: EDI -> EDF, completed 2023-12-15, time_holdout, equity_other: no candidate filing; MGB -> MSD, completed 2010-01-29, name_holdout, taxable_income: no candidate filing
   date basis by set (an N-14 date is an upper bound): {'name_holdout': {'merger communication': 29, 'registration (upper bound)': 6}, 'time_holdout': {'merger communication': 14, 'registration (upper bound)': 14}}
   holdout groups (acquirer x announcement date) by set and segment: {'name_holdout': {'muni': 15, 'taxable_income': 4}, 'time_holdout': {'equity_other': 11, 'muni': 3, 'taxable_income': 7}}
 
@@ -35,17 +37,17 @@ time_holdout  ALL                 29                       19         29        
   by first form: {'425': 108, 'N-14': 73, 'N-14 8C': 56, 'PREM14A': 13, 'DEFM14A': 3, 'N-14 8C/A': 2}
   -> results/events/e1/e1_failed_census.csv (EDGAR facts only)
   supplementary census (ruling 9): 155 acquirer-side episodes a completion explains -> results/events/e1/e1_failed_census_supp.csv; MMU 2023 (SBI -> MMU) among them: True
-  rounds merged: {'r1': 365, 'supp': 288, 'r2': 57, 'n8f': 42}; readings of episodes amendment 4 moved out of the census set aside: 35; ruling 10 settled 163 row(s) from CRSP, and found 4 never completed (a third reading dates their failure)
-  rulings applied: 703 of 752 rows cannot change the trial (ruling 5); in-trial deals 10: AFT->AIF, BHV->MYI, BKN->MYI, FGB->AOD, MIY->MYI, MPA->MYI, NMT->NEA, NQP->NVG, NXJ->NAD, RAA->BFZ
-  DG-E1-3: 22 row(s) with an unknown or blank outcome [''] in 22 episode(s)
-  DG-E1-3: 9 failure row(s) whose listing is unsettled, in 6 episode(s)
-  DG-E1-3: round r3 (rulings 8, 10): 28 episode(s) unread
+  rounds merged: {'r1': 365, 'supp': 286, 'r2': 49, 'n8f': 42, 'r3': 11}; readings of episodes amendment 4 moved out of the census set aside: 35; ruling 10 settled 223 row(s) from CRSP, and found 1 never completed (a third reading dates their failure)
+  rulings applied: 732 of 753 rows cannot change the trial (ruling 5); in-trial deals 11: AFT->AIF, ALD->PSEC, BHV->MYI, BKN->MYI, FGB->AOD, MIY->MYI, MPA->MYI, NMT->NEA, NQP->NVG, NXJ->NAD, RAA->BFZ
+  excluded and counted (rulings 12-15): {'12': 7, '13': 5, '14': 13} deal ids by ruling
+  DG-E1-3: 2 row(s) with an unknown or blank outcome [''] in 2 episode(s)
+  DG-E1-3: round r4 (ruling 15: SBI -> MMU, NCU -> NKX in each target's own filings): 2 fund(s) unread
 
-[DG-E1-1] fit reader (crsp_events.daily, cached extract only): PASS: 277 permnos, 1,124,202 rows, last 2022-12-30 (< 2023)
+[DG-E1-1] fit reader (crsp_events.daily, cached extract only): PASS: 292 permnos, 1,170,628 rows, last 2022-12-30 (< 2023)
   holdout reader guard: PASS (refuses: results/events/e1/e1_fit_verdict.json is not committed)
   factor ETFs: ['HYG', 'IEF', 'MUB'], one CRSP ETF permno each (share code 73)
-  control-2 name pool over the completed fit deals: 323 CEF permnos; without CRSP rows in the local cache: 0; failed deals' parties and pools: not known until DG-E1-3
-  amendment 4: the 331 fit deals' parties without CRSP rows in the local cache: 9 -> the team lead runs `pull-crsp --permnos results/events/e1/_cache_e1/amendment4_crsp_permnos.txt`
+  control-2 name pool over the completed fit deals: 335 CEF permnos; without CRSP rows in the local cache: 10; failed deals' parties and pools: not known until DG-E1-3
+  amendment 4: the 331 fit deals' parties without CRSP rows in the local cache: 0
 
 [DG-E1-4] bridging check (merger_pairs.bridging_check) on the fit parties' extract: {'gaps_tested_le_max_gap': 5, 'agree_within_1e-4': 5, 'worst_abs_diff': 3.9571589637325474e-07, 'gaps_longer_than_max_gap_not_tested': 1}
   fit deals excluded by the window or the hold guard: {"missing return on the leg's last earned session": 19}; the same deals the published buy-and-hold sample leaves unpriced: True (19 unpriced)
@@ -62,9 +64,9 @@ time_holdout  ALL                 29                       19         29        
 [k, cap] not computed: the fit sleeve's deal set needs the failed deals (DG-E1-3) and the stage-0 gates
 
 STAGE 0: HALT
-  DG-E1-1: FAIL -- fit reader PASS; holdout guard PASS; control-2 pool missing 0; 331 fit parties missing 9; the failed deals' parties wait on DG-E1-3
-  DG-E1-2: FAIL -- holdout dates cover the 231 holdout deals: True; dated 63, undatable and excluded 1 (EDI); amendment 4's 331 deals without a date row: 11 (ARK, BCK, BCL, BHD, BZA, DCW, EOE, MGB, NMD, RTU, RWF)
-  DG-E1-3: FAIL -- 22 row(s) with an unknown or blank outcome [''] in 22 episode(s); 9 failure row(s) whose listing is unsettled, in 6 episode(s); round r3 (rulings 8, 10): 28 episode(s) unread
+  DG-E1-1: FAIL -- fit reader PASS; holdout guard PASS; control-2 pool missing 10; 331 fit parties missing 0; the failed deals' parties wait on DG-E1-3
+  DG-E1-2: PASS -- holdout dates cover the 231 holdout deals: True; dated 63, undatable and excluded 2 (EDI, MGB); amendment 4's 331 deals without a date row: 0 ()
+  DG-E1-3: FAIL -- 2 row(s) with an unknown or blank outcome [''] in 2 episode(s); round r4 (ruling 15: SBI -> MMU, NCU -> NKX in each target's own filings): 2 fund(s) unread
   DG-E1-4: INCOMPLETE -- completed fit deals checked ({"missing return on the leg's last earned session": 19}); failed deals wait on DG-E1-3
   DG-E1-5: PASS -- French covers 2009-07..2024-12; CRSP ETFs cover the fit window, which is what reading R8 (ruled 2026-10-20) requires
   DG-E1-6: PASS -- numexpr off; the denormal assertion runs on every P&L built (identity check 2 here)
