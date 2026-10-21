@@ -525,6 +525,7 @@ with the auction-marked score (`docs/REFERENCES.md` §12an). The design is
 | The new event paths' zero-trial checks (A1 issuance at a premium, A2 insider buying, B1/B2 muni hazard flags) | **All three closed, zero trials** (`results/events/A1_CEF_ISSUANCE_GATE_2026-10-20.md`, `results/events/A2_INSIDER_BUYING_GATE_2026-10-20.md`, `results/cef/MUNI_HAZARD_FLAGS_GATE_2026-10-20.md`) |
 | E1 and NAV-tender Stage-0 rulings | **All recommended rulings accepted** (E1: 15 items, amendment 2; NAV tenders: 72 flags). Both trials wait only on the team lead's credentialed data pulls |
 | C4's double-applied splits (BTO, TYG, NXG, EMO) | **drop_split.** Only the report-only R-yf row moves, 1.131 → 1.130; the verdict is unchanged |
+| Merger arbitrage, MA-HZ (after the CRSP measurement: hump holds, cost marginal, P(D4 pass) about 1–10%) | **WATCH, no trial** (`results/events/MERGER_ARB_V2_2026-10-19.md` §5.6) |
 
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
