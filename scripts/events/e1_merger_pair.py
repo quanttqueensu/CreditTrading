@@ -609,10 +609,17 @@ def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None =
         probs.append(f"{len(extra)} reading(s) of an episode not in the census (first {extra[:3]})")
     if r.duplicated(["episode_cik", "episode_accession", "deal_id"]).any():
         probs.append("an episode reads one deal twice")
-    bad = ~r["outcome"].isin(OUTCOMES) & ~ex
+    # Ruling 1 (one deal, one count): a blank row of a deal another row settles is not a gap.
+    settled = set(r.loc[(r["outcome"] != "") & ~r["deal_id"].str.startswith("ep"), "deal_id"])
+    bad = ~r["outcome"].isin(OUTCOMES) & ~ex & ~r["deal_id"].isin(settled)
     if bad.any():
         probs.append(f"{int(bad.sum())} row(s) with an unknown or blank outcome {sorted(set(r.loc[bad, 'outcome']))} "
                      f"in {int((r.loc[bad, 'episode_cik'] + r.loc[bad, 'episode_accession']).nunique())} episode(s)")
+    # A failure whose listing nobody settled can still be a failed listed pair: it blocks too.
+    unl = r["outcome"].isin(FAILED_OUTCOMES) & (r["both_listed"] == "") & ~ex
+    if unl.any():
+        probs.append(f"{int(unl.sum())} failure row(s) whose listing is unsettled, in "
+                     f"{int((r.loc[unl, 'episode_cik'] + r.loc[unl, 'episode_accession']).nunique())} episode(s)")
     for row in r[~ex].itertuples(index=False):
         for acc_col, q_col in (("ann_accession", "ann_quote"), ("fail_accession", "fail_quote"),
                                ("outcome_accession", "outcome_quote")):
@@ -1347,6 +1354,16 @@ def stage0(args) -> int:
         from scripts.events import e1_failed_reading as fr
         from scripts.events import e1_rulings_facts as rf
         R0 = pd.read_csv(READINGS, dtype=str, keep_default_na=False)
+        rounds = {k: (pd.read_csv(OUT_DIR / fr.ROUNDS[k][0], dtype=str, keep_default_na=False)
+                      if (OUT_DIR / fr.ROUNDS[k][0]).exists() else None) for k in ("r2", "n8f")}
+        R0 = fr.merge_rounds(R0, rounds["r2"], rounds["n8f"])          # rulings 8 and 6
+        adj = R0["merge_note"].str.startswith("adjudicate")
+        if adj.any():
+            probs_adj = [f"{int(adj.sum())} deal(s) the first and second readings disagree on: a third reading (ruling 8)"]
+        else:
+            probs_adj = []
+        say(f"  rounds merged: r2 {'read' if rounds['r2'] is not None else 'unread'}, n8f "
+            f"{'read' if rounds['n8f'] is not None else 'unread'}; merge notes {R0['merge_note'].value_counts().to_dict()}")
         cmap = crsp_cik_map(nm, names)
         Rr = fr.apply_dg3_rulings(R0, nm, cmap)
         T = fr.triage(Rr, cen.astype({"episode_cik": str}), nm, dl, rf.own_listed(nm, names))
@@ -1354,6 +1371,7 @@ def stage0(args) -> int:
         T.to_csv(OUT_DIR / "e1_failed_reading_triage.csv", index=False)
         Rr.to_csv(OUT_DIR / "e1_failed_deal_readings_ruled.csv", index=False)
         readings, probs = check_readings(cen, client, readings=Rr, exempt=ex)
+        probs = probs_adj + probs
         trial = Rr.loc[Rr["in_trial"] == "Y"]
         say(f"  amendment 3 applied (rulings 1-5): {int(ex.sum())} of {len(Rr)} rows cannot change the trial "
             f"(ruling 5); in-trial deals {trial['deal_id'].nunique()}: "

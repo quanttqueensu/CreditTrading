@@ -884,6 +884,106 @@ def exempt_rows(T: pd.DataFrame) -> pd.Series:
     return T["triage"].isin(EXEMPT_CLASSES) | late.fillna(False)
 
 
+def _key(r) -> str:
+    """How one deal is matched across readings of ONE episode: its CIK-based deal_id, else its
+    position (ep<cik>:<k>; both readers list deals in the filings' order)."""
+    return r["deal_id"].split("/")[0]
+
+
+def merge_rounds(R1: pd.DataFrame, R2: pd.DataFrame | None = None, N8: pd.DataFrame | None = None) -> pd.DataFrame:
+    """The readings after ruling 8 (second reading) and ruling 6 (N-8F re-read), with `round` and
+    `merge_note` columns; rows needing a THIRD reading carry merge_note "adjudicate" and a blank outcome.
+
+    * n8f: its rows replace the first reading's rows of its episodes (ruling 6's re-read is the reading
+      under the rule).
+    * r2, per episode and matched deal (`_key`):
+      - one reading blank, the other not: the non-blank reading stands (a blank saw nothing);
+      - both non-blank and equal: the second reading (it saw fuller excerpts);
+      - one `not_a_listed_pair` with listing evidence, the other a failure or null with listing blank:
+        the listing reading settles it (they answer different questions, and an unlisted pair cannot
+        enter the trial);
+      - otherwise different non-blank outcomes: a disagreement, adjudicated by a third reading (ruling 8);
+      - a deal only one reading records: kept as read.
+    """
+    R = R1.copy()
+    R["round"], R["merge_note"] = "r1", ""
+    ek = lambda F: F["episode_cik"] + "_" + F["episode_accession"]  # noqa: E731
+    if N8 is not None and len(N8):
+        R = R[~ek(R).isin(set(ek(N8)))]
+        R = pd.concat([R, N8.assign(round="n8f", merge_note="replaces r1 (ruling 6)")], ignore_index=True)
+    if R2 is None or not len(R2):
+        return R.reset_index(drop=True)
+    eps2 = set(ek(R2))
+    keep, out = R[~ek(R).isin(eps2)], []
+    first = R[ek(R).isin(eps2)]
+    for e, g2 in R2.groupby(ek(R2)):
+        g1 = first[ek(first) == e]
+        m1 = {_key(r): r for _, r in g1.iterrows()}
+        seen = set()
+        for _, r2 in g2.iterrows():
+            k = _key(r2)
+            r1 = m1.get(k)
+            seen.add(k)
+            if r1 is None:
+                out.append({**r2, "round": "r2", "merge_note": "only r2"})
+            elif r1["outcome"] == "" or r1["outcome"] == r2["outcome"]:
+                out.append({**r2, "round": "r2", "merge_note": "r2" if r1["outcome"] == "" else "r1 = r2"})
+            elif r2["outcome"] == "":
+                out.append({**r1, "round": "r1", "merge_note": "r1 (r2 blank)"})
+            elif (r2["outcome"] == "not_a_listed_pair" and r2["both_listed"] == "N" and r1["both_listed"] == "") or \
+                 (r1["outcome"] == "not_a_listed_pair" and r1["both_listed"] == "N" and r2["both_listed"] == ""):
+                win = r2 if r2["outcome"] == "not_a_listed_pair" else r1
+                out.append({**win, "round": "r2" if win is r2 else "r1", "merge_note": "listing evidence settles"})
+            else:
+                out.append({**r2, "outcome": "", "in_trial": "N", "round": "r2",
+                            "merge_note": f"adjudicate: r1 {r1['outcome']} vs r2 {r2['outcome']}"})
+        for k, r1 in m1.items():
+            if k not in seen:
+                out.append({**r1, "round": "r1", "merge_note": "only r1"})
+    return pd.concat([keep, pd.DataFrame(out)], ignore_index=True).fillna("")
+
+
+def crsp_outcome(nm: pd.DataFrame, dl: pd.DataFrame, target: str, acquirer: str, when) -> tuple | None:
+    """The PROPOSED CRSP outcome rule (not ruled), on the target's CRSP delisting record within
+    FAIL_WINDOW_DAYS (730, §4.3's own census window) after A:
+
+    * delisted INTO the acquirer's permno (`nwperm`), under a merger (2xx) or exchange (3xx) code ->
+      ("completed", dlstdt). CRSP codes many CEF reorganisations 331, not 231 (measured 2026-10-21:
+      BHY, HIS -> HYT 2013; ARK -> DSU; BCL -> BFZ; DCW -> DCA; NMD -> NMZ), so 2xx alone misses them;
+      the nwperm match, not the code, is what makes it this deal;
+    * a 2xx merger into ANOTHER permno -> ("completed_other_structure", dlstdt);
+    * a liquidation (4xx) -> ("not_completed_liquidated", dlstdt);
+    * still listed (code 100) past A + 730 days, inside CRSP -> ("not_completed", None);
+    * anything else (no record: the delisting cache holds CEF permnos only, so a BDC's is missing; a
+      3xx into another permno; 5xx; a window past CRSP's end) -> None, unsettled. Nothing is guessed."""
+    if not target or not when:
+        return None
+    w = pd.Timestamp(when)
+    sel = lambda tk: nm[(nm["ticker"] == tk) & (nm["namedt"] <= w) & (nm["nameendt"] >= w)  # noqa: E731
+                        & nm["shrcd"].isin((11, 14, 44))]
+    r = sel(target)
+    if r["permno"].nunique() != 1:
+        return None
+    tp = int(r["permno"].iloc[0])
+    a = sel(acquirer) if acquirer else r.iloc[0:0]
+    ap = int(a["permno"].iloc[0]) if a["permno"].nunique() == 1 else None
+    d = dl[dl["permno"] == tp]
+    if d.empty:
+        return None
+    d = d.sort_values("dlstdt").iloc[-1]
+    code, dt = int(d["dlstcd"]), pd.Timestamp(d["dlstdt"])
+    inside = w <= dt <= w + pd.Timedelta(days=e1.FAIL_WINDOW_DAYS)
+    if code // 100 in (2, 3) and inside and ap is not None and int(d["nwperm"]) == ap:
+        return ("completed", dt.date())
+    if code // 100 == 2 and inside:
+        return ("completed_other_structure", dt.date())
+    if code // 100 == 4 and inside:
+        return ("not_completed_liquidated", dt.date())
+    if (code == 100 or dt > w + pd.Timedelta(days=e1.FAIL_WINDOW_DAYS)) and w + pd.Timedelta(days=e1.FAIL_WINDOW_DAYS) <= e1.CRSP_END:
+        return ("not_completed", None)
+    return None
+
+
 def freeze_rounds(r1_root: Path, Rr: pd.DataFrame, T: pd.DataFrame) -> dict:
     """Write the episode lists of rounds r2 (ruling 8: the episodes of rows that can still change the
     trial and are not settled by rulings 2-4) and n8f (ruling 6: r1's batches 40 and 45)."""

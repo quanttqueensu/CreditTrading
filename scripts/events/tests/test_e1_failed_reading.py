@@ -309,3 +309,58 @@ def test_freeze_rounds_and_the_exact_parse_check(tmp_path, monkeypatch):
     # the readers' parse check names one file by its full path, never a wildcard
     assert '<ROOT>/out/<MODEL>/<episode id>.json' in fr.INSTRUCTIONS and "wildcard" in fr.INSTRUCTIONS
     assert '{ROOT}/out/{MODEL}/<episode id>.json' in fr.BRIEF and "*" not in fr.BRIEF.split("Forbidden")[0]
+
+
+# ---------------------------------------------------------------- the merge of rounds (rulings 6, 8) and the CRSP rule
+
+def test_merge_rounds_rules():
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R1 = pd.DataFrame([
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "10>20", "outcome": ""},                # r2 fills
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "11>20", "outcome": "completed"},       # r2 blank
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "ep1:2", "outcome": "withdrawn"},       # listing settles
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "12>20", "outcome": "completed"},       # disagreement
+        {**b, "episode_cik": "2", "episode_accession": "b", "deal_id": "ep2:0", "outcome": "completed"},       # replaced by n8f
+        {**b, "episode_cik": "3", "episode_accession": "c", "deal_id": "13>30", "outcome": "not_a_listed_pair"}])
+    R2 = pd.DataFrame([
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "10>20", "outcome": "vote_failed"},
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "11>20", "outcome": ""},
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "ep1:2", "outcome": "not_a_listed_pair", "both_listed": "N"},
+        {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "12>20", "outcome": "terminated"}])
+    N8 = pd.DataFrame([{**b, "episode_cik": "2", "episode_accession": "b", "deal_id": "ep2:0", "outcome": ""}])
+    M = fr.merge_rounds(R1, R2, N8).set_index("deal_id")
+    assert M.at["10>20", "outcome"] == "vote_failed" and M.at["11>20", "outcome"] == "completed"
+    assert M.at["ep1:2", "merge_note"] == "listing evidence settles" and M.at["ep1:2", "outcome"] == "not_a_listed_pair"
+    assert M.at["12>20", "outcome"] == "" and M.at["12>20", "merge_note"].startswith("adjudicate")
+    assert M.at["ep2:0", "round"] == "n8f" and M.at["ep2:0", "outcome"] == ""
+    assert M.at["13>30", "round"] == "r1" and len(M) == 6
+
+
+def test_crsp_outcome_rule():
+    nm = pd.DataFrame({"permno": [1, 2, 3, 4, 5], "ticker": ["BHY", "HYT", "RAA", "BKT", "ALD"],
+                       "namedt": pd.to_datetime(["2000-01-01"] * 5), "nameendt": pd.to_datetime(["2024-12-31"] * 5),
+                       "shrcd": [44, 14, 14, 14, 11], "exchcd": [1] * 5, "comnam": list("ABCDE")})
+    dl = pd.DataFrame({"permno": [1, 3, 4], "dlstdt": pd.to_datetime(["2013-11-15", "2010-09-10", "2024-12-31"]),
+                       "dlstcd": [331, 450, 100], "nwperm": [2, 0, 0]})
+    assert fr.crsp_outcome(nm, dl, "BHY", "HYT", "2013-06-27") == ("completed", pd.Timestamp("2013-11-15").date())
+    assert fr.crsp_outcome(nm, dl, "RAA", "HYT", "2009-10-26")[0] == "not_completed_liquidated"
+    assert fr.crsp_outcome(nm, dl, "BKT", "HYT", "2014-06-09") == ("not_completed", None)
+    assert fr.crsp_outcome(nm, dl, "ALD", "HYT", "2009-10-26") is None        # a BDC: no delisting record cached
+    assert fr.crsp_outcome(nm, dl, "BKT", "HYT", "2023-06-01") is None        # window past CRSP's end
+
+
+def test_a_blank_row_of_a_settled_deal_does_not_block():
+    cen = pd.DataFrame({"episode_cik": [1, 2], "episode_accession": ["a", "b"]})
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([{**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "10>20", "outcome": "completed"},
+                      {**b, "episode_cik": "2", "episode_accession": "b", "deal_id": "10>20", "outcome": ""}])
+    _, probs = e1.check_readings(cen, None, readings=R)
+    assert probs == []
+
+
+def test_a_failure_with_unsettled_listing_blocks():
+    cen = pd.DataFrame({"episode_cik": [1], "episode_accession": ["a"]})
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([{**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "ep1:0", "outcome": "withdrawn"}])
+    _, probs = e1.check_readings(cen, None, readings=R)
+    assert any("listing is unsettled" in p for p in probs)

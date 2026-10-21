@@ -144,3 +144,62 @@ Stage 0 needs the network for one thing only, the open quarter's full index (202
 
 Then an agent runs `python3 scripts/events/e1_merger_pair.py stage0` within a day. Both default
 `--today` to the run date.
+
+## 5. 2026-10-21: after rounds r2 and n8f (a form; nothing in this section is ruled)
+
+**The merge** (`e1_failed_reading.merge_rounds`, rulings 8 and 6; Stage 0 runs it):
+- The N-8F re-read replaces the first reading for its 19 episodes.
+- For round 2's 47 episodes:
+  - **no deal has two different non-blank outcomes, so no third reading is needed for a disagreement**;
+  - in 4 rows the second reading's listing evidence settles a "withdrawn" pair as not listed;
+  - a blank on either side is filled from the other reading.
+
+**In-trial failed deals: 10, up from 9.** Round 2 adds **FGB→AOD**: the vote failed, made public
+2024-08-29. CRSP settles the listing, so it is in the time holdout. Its segment is equity, so it is
+reported and does not decide. The other nine are unchanged. (Stage 0, 2026-10-21:
+`python3 scripts/events/e1_merger_pair.py stage0`.)
+
+10. **Recommended: settle a blank outcome from CRSP.**
+    - **Where it applies:** a reading leaves the outcome blank, and the target's printed ticker maps
+      on A to a CRSP CEF or BDC permno. The rule is `e1_failed_reading.crsp_outcome` (tested).
+    - **What it decides:**
+      - delisted INTO the acquirer's permno within **730 days of A**, under a merger (2xx) or an
+        exchange (3xx) code → `completed` on the delisting date;
+      - a 2xx merger into another permno → `completed_other_structure`;
+      - a liquidation (4xx) within 730 days → not completed (liquidated);
+      - still listed at A + 730 days, inside CRSP → not completed;
+      - anything else → unsettled.
+    - **A not-completed deal has no dated failure,** and §6.1 needs the failure date F to exit it.
+      So it goes to one more reading that looks for the failure filing. If none is found, it is
+      excluded and counted.
+    - **Why 730 days:**
+      - It is §4.3's own census window ("no CRSP completion within 730 days").
+      - It is about twice the longest typical time a CEF merger takes to complete, 4–12 months
+        [S: `edgar_merger_dates.py` docstring].
+      - It is measured from A, not the vote, because the readings carry no vote dates; A is the
+        census's anchor.
+    - **Why 3xx too:** CRSP codes many CEF reorganisations 331, an exchange, not 231. Examples
+      measured 2026-10-21: BHY and HIS into HYT (2013), ARK into DSU, BCL into BFZ, DCW into DCA,
+      NMD into NMZ. It is the match to the acquirer's permno that ties a delisting to this deal.
+    - **What it settles:** 12 of the 31 blocking blank rows.
+      - 9 rows (5 deals) become `completed`: ARK/BHD→DSU, BHY/HIS→HYT, DCW→DCA.
+      - 3 rows (2 deals) become not completed: **NDP→TTP** (2020, equity) and **BKT→BHK** (2014,
+        taxable). Neither is muni; both go to the failure-filing reading.
+    - **In-trial deals it touches: none.** It applies only to blank outcomes. Where it does speak
+      about an in-trial deal, CRSP agrees: RAA was liquidated on 2010-09-10, and AFT did not
+      complete within 730 days. The other 8 in-trial deals have windows that run past CRSP's end.
+    - **Alternative:** a third reading for all 12 rows.
+
+**A finding for the record (no change proposed).** §4.1's deal universe is `dlstcd` 231. CEF
+reorganisations that CRSP codes 331 are therefore in neither the fit nor the holdouts, and the
+census rule cannot see them as completions. Widening the universe would be an amendment.
+
+11. **What keeps DG-E1-3 open after item 10:**
+    - **The supplementary round:** 149 episodes in 29 batches, built 2026-10-21 after the team
+      lead's `fetch-edgar --supp`. SBI→MMU is in batch 27, and its excerpt names SBI.
+    - **A third reading of up to 27 episodes:**
+      - 19 rows that have neither an outcome nor a target ticker (19 episodes);
+      - 8 failure rows whose listing is unsettled (5 episodes: PSEC 2014, JLS/JMT 2019, and one
+        with no tickers);
+      - the 2 not-completed deals of item 10 (3 episodes), for their failure filing.
+    - **Then** the merge, and an offline Stage 0 within a day of an index refresh.
