@@ -237,3 +237,64 @@ Recorded from `python3 scripts/events/e1_merger_pair.py stage0` (output in `resu
   unsettled-listing rows; anything round 3 leaves open needs a ruling.
 - **If SBI→MMU stays open after round 3,** the next step is a fetch of SBI's own 2023 filings
   (CIK 882300). SBI filed no merger episode, so they are not in any pack.
+
+## 7. 2026-10-21, after the third reading: what still blocks DG-E1-3 (a form; nothing below is ruled)
+
+**The third reading is merged** (`e1_failed_reading.dg3_state`):
+- **Two fixes, each tested:**
+  - Readings are now matched by CIK, then by printed ticker pair, and by position only when no
+    reading names the parties. Position alone had paired round 3's SBI→MMU with the supplementary
+    reading's MNP→MMU.
+  - The supplementary round now enters before the third reading adjudicates.
+- **In-trial failed deals: still 10.** Eight are muni; AFT→AIF is taxable and FGB→AOD equity.
+- **Every row still blocking:** `results/events/e1/e1_dg3_blockers_2026-10-21.csv`, built from
+  CRSP names and readers' fields only, with the index read as cached. Stage 0's strict record
+  waits for the team lead's index refresh.
+
+**29 rows block:** 22 have an unstated outcome (22 episodes), and 7 are failures whose listing is
+unsettled (5 episodes).
+
+| class | rows | deal ids | what they are |
+|---|---:|---:|---|
+| **(a) cannot change any decision** | 23 | 19 | Every one is non-muni, by its target's CRSP name or its own fund's: BDC, equity or taxable. Under decision 2, only muni deals decide |
+| **(b) can** | 6 | 6 | **2 muni:** SBI→MMU (2023) and **NCU→NKX's 2011 proposal**. NCU merged into NKX only under a second proposal, first filed 2013-11-22 and completed 2014-06-06 (CRSP 231). **4 of unknown segment:** no reading names any party |
+
+12. **Recommended: listing follows CRSP share codes (§4.3).**
+    - Read each party's listing from CRSP by its printed ticker. Failing that, use its CIK through
+      the trial's CRSP–CIK match, extended to share code 11 for BDCs.
+    - A deal whose counterparty no reading and no CRSP record identifies is excluded and counted.
+    - **Effect:**
+      - **Allied→Prospect enters the trial:** an unsolicited proposal, terminated 2010-03-05.
+        Both are listed BDCs in CRSP (ALD share code 11, PSEC 14). It is a fit deal in the BDC
+        segment, reported and not deciding.
+      - **6 rows are excluded and counted:** PSEC's 2014 bid, JLS/JMT 2019, and CIK 1796233's 2019
+        RW. None is muni; one is of unknown segment.
+13. **Recommended: never completed per CRSP, with no dated failure → excluded and counted.**
+    - §6.1 cannot exit a deal without F.
+    - Where a reading gives no announcement, ruling 10's 730 days run from the episode's first
+      merger filing.
+    - **Effect:** 4 deals, **none muni**: BKT→BHK (2014), NDP→TTP (2020), GDV (2014) and RVT (2011).
+      NCU→NKX is left to item 15.
+14. **Recommended: an outcome still unstated after three readings → excluded and counted.**
+    - **Effect:** 14 rows, up to 12 deal ids, **none known to be muni.** Nine are the own funds of
+      BDC, equity or taxable episodes; three are of unknown segment.
+15. **Recommended: read the two muni deals in each target's own filings (round r4).**
+    - The team lead fetches the filings first (commands below).
+    - **If round r4 settles nothing:**
+      - **SBI→MMU is excluded and counted.** It is §2.3's named failure, recorded as one the trial
+        could not date.
+      - **NCU→NKX takes §4.3's superseded rule:** F = the first filing of the later proposal that
+        completed, 2013-11-22. Alternative: excluded and counted.
+
+**If 12–15 are accepted** the in-trial set is 11 (10 + Allied→Prospect), plus whichever of the two
+muni deals round r4 or §4.3 dates. DG-E1-3 then clears once round r4 is collected, with no
+unruled row left.
+
+**The team lead runs** (with amendment 4's script):
+
+    QUANTT_ENV_FILE=<abs path to config/.env> python3 scripts/events/e1_merger_pair.py fetch-edgar --cik 882300 --around 2023-03-17
+    QUANTT_ENV_FILE=<abs path to config/.env> python3 scripts/events/e1_merger_pair.py fetch-edgar --cik 905000 --around 2011-12-19
+
+**Then an agent runs** `e1_failed_reading.py freeze-r4` once per fund (`--for-episode`
+886043_0001193125-23-074093 for SBI, 1195738_0001193125-11-345556 for NCU), then
+`prepare --round r4`, sends the pack to readers, and collects it.

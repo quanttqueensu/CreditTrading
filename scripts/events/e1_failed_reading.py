@@ -204,17 +204,18 @@ def excerpt_filing(raw: str, form: str, compact: bool = False, heads: dict | Non
 
 # ============================================================ the pack
 
-def episode_filings(client, cik: int, first_date) -> pd.DataFrame:
+def episode_filings(client, cik: int, first_date, forms: tuple = e1.CENSUS_FORMS) -> pd.DataFrame:
     """The episode's census filings from EDGAR's filing list (cached by `fetch-edgar`)."""
     from scripts.data import fetch_edgar_events as fe
     sb = fe.submissions(client, int(cik), max_age_s=None)
     f0 = pd.Timestamp(first_date)
-    sb = sb[sb["form"].isin(e1.CENSUS_FORMS) & (sb["filingDate"] >= f0 - pd.Timedelta(days=e1.CENSUS_PRE_DAYS))
+    sb = sb[sb["form"].isin(forms) & (sb["filingDate"] >= f0 - pd.Timedelta(days=e1.CENSUS_PRE_DAYS))
             & (sb["filingDate"] <= f0 + pd.Timedelta(days=e1.FAIL_WINDOW_DAYS))]
     return sb.sort_values(["filingDate", "accessionNumber"]).reset_index(drop=True)
 
 
-def episode_text(client, ep: pd.Series, budget: int = EPISODE_CHARS, heads: dict | None = None) -> tuple[str, list[dict]]:
+def episode_text(client, ep: pd.Series, budget: int = EPISODE_CHARS, heads: dict | None = None,
+                 forms: tuple = e1.CENSUS_FORMS) -> tuple[str, list[dict]]:
     """The episode's reading text and its filing list, with what each filing shows.
 
     Every filing gets at least a COMPACT excerpt (its lead and strong outcome language), so no
@@ -224,7 +225,7 @@ def episode_text(client, ep: pd.Series, budget: int = EPISODE_CHARS, heads: dict
     filings to their FULL excerpt in priority order: the episode's first filing, filings with strong
     outcome language, RW / 8-K / DEFA14A, then the rest by date."""
     from scripts.data.edgar_client import filing_txt_url
-    fl = episode_filings(client, int(ep["episode_cik"]), ep["first_date"])
+    fl = episode_filings(client, int(ep["episode_cik"]), ep["first_date"], forms)
     first = ep["episode_accession"]
     recs = []
     for seq, r in enumerate(fl.itertuples(), 1):
@@ -520,6 +521,9 @@ ROUNDS = {
     "supp": ("e1_failed_deal_readings_supp.csv", "e1_failed_reading_review_supp.csv", None, EPISODE_CHARS, None, "SUPP"),
     "r3": ("e1_failed_deal_readings_r3.csv", "e1_failed_reading_review_r3.csv", "e1_reading_round_r3.csv",
            EPISODE_MAX, {"N-8F": 20_000}, "R3"),
+    # one fund's own filings for a deal its counterparty's filings leave open (SBI -> MMU, 2026-10-21)
+    "r4": ("e1_failed_deal_readings_r4.csv", "e1_failed_reading_review_r4.csv", "e1_reading_round_r4.csv",
+           EPISODE_MAX, {"N-CSR": 6_000, "N-CSRS": 6_000}, "R3"),
 }
 
 
@@ -530,6 +534,8 @@ def round_census(rnd: str) -> pd.DataFrame:
         return pd.read_csv(e1.CENSUS)
     if rnd == "supp":
         return pd.read_csv(e1.CENSUS_SUPP)
+    if rnd == "r4":       # its own list: a fund outside every census, read for one deal
+        return pd.read_csv(e1.OUT_DIR / ROUNDS[rnd][2])
     ids = pd.read_csv(e1.OUT_DIR / ROUNDS[rnd][2], dtype=str)
     cen = pd.concat([pd.read_csv(e1.CENSUS), pd.read_csv(e1.CENSUS_SUPP)] if e1.CENSUS_SUPP.exists()
                     else [pd.read_csv(e1.CENSUS)], ignore_index=True)
@@ -560,7 +566,8 @@ def prepare(root: Path, client=None, rnd: str = "r1") -> dict:
     order, sizes, files, listed, hashes = [], {}, {}, {}, {}
     for _, ep in cen.iterrows():
         i = ep_id(ep["episode_cik"], ep["episode_accession"])
-        txt, lst = episode_text(client, ep, budget=budget, heads=heads)
+        txt, lst = episode_text(client, ep, budget=budget, heads=heads,
+                                forms=e1.TARGETED_FORMS if rnd == "r4" else e1.CENSUS_FORMS)
         parts = split_parts(txt)
         names = []
         for k, p in enumerate(parts, 1):
@@ -919,9 +926,31 @@ def exempt_rows(T: pd.DataFrame) -> pd.Series:
 
 
 def _key(r) -> str:
-    """How one deal is matched across readings of ONE episode: its CIK-based deal_id, else its
-    position (ep<cik>:<k>; both readers list deals in the filings' order)."""
+    """A deal's id within ONE episode, without the series suffix."""
     return r["deal_id"].split("/")[0]
+
+
+def _match(old: list, new) -> int | None:
+    """Index in `old` of the reading of the same deal as `new`, within one episode: the same
+    CIK-based deal_id; else the same printed ticker pair (both readings print both); else the same
+    position (ep<cik>:<k>) when neither reading names the parties. Fixed 2026-10-21: matching by
+    position alone paired round 3's SBI -> MMU (its deal 0) with the supplementary reading's
+    MNP -> MMU (its deal 0)."""
+    k = _key(new)
+    if not k.startswith("ep"):
+        for i, o in enumerate(old):
+            if _key(o) == k:
+                return i
+    tn = (new["target_ticker"], new["acquirer_ticker"])
+    if all(tn):
+        for i, o in enumerate(old):
+            if (o["target_ticker"], o["acquirer_ticker"]) == tn:
+                return i
+        return None
+    for i, o in enumerate(old):
+        if _key(o) == k and not (o["target_ticker"] and o["acquirer_ticker"]):
+            return i
+    return None
 
 
 def merge_rounds(R1: pd.DataFrame, R2: pd.DataFrame | None = None, N8: pd.DataFrame | None = None,
@@ -959,18 +988,21 @@ def _merge_third(R: pd.DataFrame, R3: pd.DataFrame, ek) -> pd.DataFrame:
     eps = set(ek(R3))
     keep, prior, out = R[~ek(R).isin(eps)], R[ek(R).isin(eps)], []
     for e, g3 in R3.groupby(ek(R3)):
-        g = prior[ek(prior) == e]
-        m = {_key(r): r for _, r in g.iterrows()}
-        seen = set()
+        olds = [r for _, r in prior[ek(prior) == e].iterrows()]
+        used = set()
         for _, r3 in g3.iterrows():
-            k = _key(r3)
-            seen.add(k)
-            old = m.get(k)
+            i = _match([o if j not in used else {**o, "deal_id": "\0", "target_ticker": "\0", "acquirer_ticker": "\0"}
+                        for j, o in enumerate(olds)], r3)
+            if i is not None:
+                used.add(i)
+            old = olds[i] if i is not None else None
             if old is None or r3["outcome"] != "":
-                out.append({**r3, "round": "r3", "merge_note": "r3" if old is not None else "only r3"})
+                out.append({**r3, **({"deal_id": old["deal_id"]} if old is not None else {}),
+                            "round": "r3", "merge_note": "r3" if old is not None else "only r3"})
             else:
                 out.append({**old, "merge_note": (old["merge_note"] + "; r3 blank").strip("; ")})
-        out += [{**r, "merge_note": (r["merge_note"] + "; only before r3").strip("; ")} for k, r in m.items() if k not in seen]
+        out += [{**o, "merge_note": (o["merge_note"] + "; only before r3").strip("; ")}
+                for j, o in enumerate(olds) if j not in used]
     return pd.concat([keep, pd.DataFrame(out)], ignore_index=True).fillna("")
 
 
@@ -979,13 +1011,14 @@ def _merge_second(R: pd.DataFrame, R2: pd.DataFrame, ek) -> pd.DataFrame:
     keep, out = R[~ek(R).isin(eps2)], []
     first = R[ek(R).isin(eps2)]
     for e, g2 in R2.groupby(ek(R2)):
-        g1 = first[ek(first) == e]
-        m1 = {_key(r): r for _, r in g1.iterrows()}
-        seen = set()
+        olds = [r for _, r in first[ek(first) == e].iterrows()]
+        used = set()
         for _, r2 in g2.iterrows():
-            k = _key(r2)
-            r1 = m1.get(k)
-            seen.add(k)
+            i = _match([o if j not in used else {**o, "deal_id": "\0", "target_ticker": "\0", "acquirer_ticker": "\0"}
+                        for j, o in enumerate(olds)], r2)
+            if i is not None:
+                used.add(i)
+            r1 = olds[i] if i is not None else None
             if r1 is None:
                 out.append({**r2, "round": "r2", "merge_note": "only r2"})
             elif r1["outcome"] == "" or r1["outcome"] == r2["outcome"]:
@@ -999,9 +1032,7 @@ def _merge_second(R: pd.DataFrame, R2: pd.DataFrame, ek) -> pd.DataFrame:
             else:
                 out.append({**r2, "outcome": "", "in_trial": "N", "round": "r2",
                             "merge_note": f"adjudicate: r1 {r1['outcome']} vs r2 {r2['outcome']}"})
-        for k, r1 in m1.items():
-            if k not in seen:
-                out.append({**r1, "round": "r1", "merge_note": "only r1"})
+        out += [{**o, "round": "r1", "merge_note": "only r1"} for j, o in enumerate(olds) if j not in used]
     return pd.concat([keep, pd.DataFrame(out)], ignore_index=True).fillna("")
 
 
@@ -1059,10 +1090,19 @@ def dg3_state(nm: pd.DataFrame, dl: pd.DataFrame, names: pd.DataFrame, cen: pd.D
     R1 = _read(e1.READINGS)
     if R1 is None:
         raise e1.GateError("no first reading")
-    R = merge_rounds(R1, *(_read(e1.OUT_DIR / ROUNDS[k][0]) for k in ("r2", "n8f", "r3")))
+    R = merge_rounds(R1, *(_read(e1.OUT_DIR / ROUNDS[k][0]) for k in ("r2", "n8f")))
     sp = _read(e1.OUT_DIR / ROUNDS["supp"][0])
     if sp is not None:
         R = pd.concat([R, sp.assign(round="supp", merge_note="")], ignore_index=True).fillna("")
+    r3 = _read(e1.OUT_DIR / ROUNDS["r3"][0])
+    if r3 is not None:   # the third reading adjudicates over every earlier round, the supplementary one included
+        R = _merge_third(R, r3, lambda F: F["episode_cik"] + "_" + F["episode_accession"]).reset_index(drop=True)
+    r4 = _read(e1.OUT_DIR / ROUNDS["r4"][0])
+    if r4 is not None:   # one fund's own filings, re-keyed onto the episode whose deal they settle
+        r4 = rekey_r4(r4, pd.read_csv(e1.OUT_DIR / ROUNDS["r4"][2], dtype=str))
+        if "doc_cik" not in R:
+            R["doc_cik"] = ""
+        R = _merge_third(R, r4, lambda F: F["episode_cik"] + "_" + F["episode_accession"]).reset_index(drop=True).fillna("")
     allc = pd.concat([cen, supp], ignore_index=True).drop_duplicates(["episode_cik", "episode_accession"])
     keys = set(allc["episode_cik"].astype(str) + "_" + allc["episode_accession"])
     ek = R["episode_cik"] + "_" + R["episode_accession"]
@@ -1072,6 +1112,18 @@ def dg3_state(nm: pd.DataFrame, dl: pd.DataFrame, names: pd.DataFrame, cen: pd.D
     Rr = apply_dg3_rulings(R, nm, cmap, dl)
     T = triage(Rr, allc.astype({"episode_cik": str}), nm, dl, rf.own_listed(nm, names))
     return {"R": Rr, "T": T, "exempt": exempt_rows(T), "census": allc, "moot_rows": moot}
+
+
+def rekey_r4(r4: pd.DataFrame, L: pd.DataFrame) -> pd.DataFrame:
+    """Round r4's rows moved onto the episode whose deal they settle (`for_episode`), with the fund
+    whose filings they quote kept in `doc_cik` (check_readings re-finds the quotes there)."""
+    to = dict(zip(L["episode_cik"].astype(str) + "_" + L["episode_accession"], L["for_episode"]))
+    eid = r4["episode_cik"] + "_" + r4["episode_accession"]
+    if not eid.isin(to).all():
+        raise e1.GateError(f"round r4 rows for an episode not in its list: {sorted(set(eid) - set(to))[:3]}")
+    dest = eid.map(to)
+    return r4.assign(doc_cik=r4["episode_cik"], episode_cik=dest.str.split("_").str[0],
+                     episode_accession=dest.str.split("_", n=1).str[1])
 
 
 def r3_list(T: pd.DataFrame, exempt: pd.Series) -> pd.DataFrame:
@@ -1118,6 +1170,11 @@ def main(argv=None) -> int:
     c.add_argument("--model", required=True)
     c.add_argument("--partial", action="store_true")
     sub.add_parser("triage")
+    f4 = sub.add_parser("freeze-r4")
+    f4.add_argument("--cik", required=True)
+    f4.add_argument("--around", required=True)
+    f4.add_argument("--for-episode", required=True, help="<cik>_<accession> of the episode whose deal it settles")
+    f4.add_argument("--focus", required=True)
     fz = sub.add_parser("freeze-rounds")
     fz.add_argument("--r1-root", type=Path, required=True)
     sub.add_parser("freeze-r3")
@@ -1128,6 +1185,8 @@ def main(argv=None) -> int:
         return run_freeze(a.r1_root)
     if a.cmd == "freeze-r3":
         return run_freeze_r3()
+    if a.cmd == "freeze-r4":
+        return run_freeze_r4(a.cik, a.around, a.for_episode, a.focus)
     if a.cmd == "prepare":
         plan = prepare(a.root, rnd=a.rnd)
         print(f"round {a.rnd}: {plan['episodes']} episodes in {len(plan['batches'])} batches under {a.root}/input/")
@@ -1147,6 +1206,25 @@ def ruled_triage():  # pragma: no cover - reads the CRSP cache, the EDGAR name t
     cen = pd.read_csv(e1.CENSUS, dtype={"episode_cik": str})
     T = triage(Rr, cen, nm, dl, rf.own_listed(nm, names))
     return Rr, T
+
+
+def run_freeze_r4(cik: str, around: str, for_episode: str, focus: str) -> int:  # pragma: no cover
+    """Round r4's one-fund list, after `fetch-edgar --cik`: the episode is the fund's filings from 30
+    days before `around` to 730 after, keyed by its first; its reading settles `for_episode`'s deal."""
+    fl = episode_filings(e1.edgar_client(online=False), int(cik), around, e1.TARGETED_FORMS)
+    if fl.empty:
+        raise e1.GateError(f"CIK {cik}: no cached filing in the window; the team lead runs `fetch-edgar --cik {cik} --around {around}`")
+    f = fl.iloc[0]
+    row = pd.DataFrame([{"episode": f"{int(cik)}_{f['accessionNumber']}", "episode_cik": int(cik),
+                         "episode_accession": f["accessionNumber"], "first_date": around, "first_form": f["form"],
+                         "company_last": f.get("entity_name", ""), "for_episode": for_episode, "focus": focus}])
+    path = e1.OUT_DIR / ROUNDS["r4"][2]
+    if path.exists():                  # one row per fund: add this one, replacing an earlier row for it
+        old = pd.read_csv(path, dtype=str)
+        row = pd.concat([old[old["episode_cik"] != str(int(cik))], row.astype(str)], ignore_index=True)
+    row.to_csv(path, index=False)
+    print(f"round r4: CIK {cik}, {len(fl)} filings, for {for_episode}")
+    return 0
 
 
 def run_freeze_r3() -> int:  # pragma: no cover - reads the CRSP cache, the name table and the census

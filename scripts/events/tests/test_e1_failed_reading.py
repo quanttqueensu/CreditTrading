@@ -165,7 +165,7 @@ def test_episode_text_shows_every_filing_and_points_duplicates(monkeypatch):
             ("0000000020-15-000009", "8-K", "2015-06-01")]
     fl = pd.DataFrame({"accessionNumber": [r[0] for r in rows], "form": [r[1] for r in rows],
                        "filingDate": pd.to_datetime([r[2] for r in rows])})
-    monkeypatch.setattr(fr, "episode_filings", lambda client, cik, first: fl)
+    monkeypatch.setattr(fr, "episode_filings", lambda client, cik, first, *forms: fl)
     press = RAW.replace("8-K", "425").split("<DOCUMENT>")[0] + "<DOCUMENT>\n<TYPE>425\n<TEXT>\n<p>Alpha will reorganize into Beta.</p>\n</TEXT>\n</DOCUMENT>\n"
     docs = {"0000000020-15-000001": press, "0000000020-15-000002": press, "0000000020-15-000009": RAW}
 
@@ -404,3 +404,31 @@ def test_r3_list_names_the_open_question():
     F = fr.r3_list(T, pd.Series([False, False, False, False]))
     assert list(F["episode"]) == ["1_a", "2_a", "3_a"]
     assert "never completed" in F.loc[0, "focus"] and "exchange-listed" in F.loc[1, "focus"] and "how did it end" in F.loc[2, "focus"]
+
+
+def test_matching_prefers_the_ticker_pair_over_position():
+    b = {c: "" for c in e1.READING_COLUMNS}
+    old = pd.DataFrame([{**b, "episode_cik": "886043", "episode_accession": "a", "deal_id": "ep886043:0",
+                         "target_ticker": "MNP", "acquirer_ticker": "MMU", "outcome": "completed"},
+                        {**b, "episode_cik": "886043", "episode_accession": "a", "deal_id": "ep886043:1",
+                         "target_ticker": "SBI", "acquirer_ticker": "MMU", "outcome": ""}])
+    r3 = pd.DataFrame([{**b, "episode_cik": "886043", "episode_accession": "a", "deal_id": "ep886043:0",
+                        "target_ticker": "SBI", "acquirer_ticker": "MMU", "outcome": "vote_failed"}])
+    M = fr.merge_rounds(old, R3=r3)
+    assert len(M) == 2 and not M.duplicated(["episode_cik", "episode_accession", "deal_id"]).any()
+    by = M.set_index("target_ticker")
+    assert by.at["SBI", "outcome"] == "vote_failed" and by.at["MNP", "outcome"] == "completed"
+    assert by.at["SBI", "deal_id"] == "ep886043:1"
+
+
+def test_r4_rows_settle_the_counterpartys_episode_and_quote_their_own_filings():
+    b = {c: "" for c in e1.READING_COLUMNS}
+    r4 = pd.DataFrame([{**b, "episode_cik": "882300", "episode_accession": "s-1", "deal_id": "ep882300:0",
+                        "target_ticker": "SBI", "acquirer_ticker": "MMU", "outcome": "vote_failed"}])
+    L = pd.DataFrame({"episode_cik": ["882300"], "episode_accession": ["s-1"], "for_episode": ["886043_m-1"]})
+    X = fr.rekey_r4(r4, L)
+    assert (X.loc[0, "episode_cik"], X.loc[0, "episode_accession"], X.loc[0, "doc_cik"]) == ("886043", "m-1", "882300")
+    old = pd.DataFrame([{**b, "episode_cik": "886043", "episode_accession": "m-1", "deal_id": "ep886043:1",
+                         "target_ticker": "SBI", "acquirer_ticker": "MMU", "outcome": ""}])
+    M = fr.merge_rounds(old, R3=X)
+    assert len(M) == 1 and M.loc[0, "outcome"] == "vote_failed" and M.loc[0, "doc_cik"] == "882300"

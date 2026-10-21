@@ -219,6 +219,9 @@ FAILED_OUTCOMES = ("terminated", "vote_failed", "withdrawn", "superseded")
 CENSUS_FORMS = ("425", "N-14", "N-14/A", "N-14 8C", "N-14 8C/A", "PREM14A", "DEFM14A", "DEFA14A", "DEF 14A",
                 "PRE 14A", "8-K", "RW", "N-8F")
 CENSUS_PRE_DAYS = 30
+# A targeted fetch (`fetch-edgar --cik`) also takes the fund's annual and semi-annual reports, which
+# report shareholder-meeting results (how SBI -> MMU's 2023 vote ended is not in MMU's filings).
+TARGETED_FORMS = CENSUS_FORMS + ("N-CSR", "N-CSRS", "DEFA14A")
 
 
 class GateError(RuntimeError):
@@ -669,8 +672,8 @@ def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None =
             if not (acc and q):
                 probs.append(f"{row.episode_accession}: {acc_col} and {q_col} must both be given")
                 continue
-            try:
-                txt = client.get_text(filing_txt_url(int(row.episode_cik), acc))
+            try:   # a row read from another fund's filings (round r4) names them in doc_cik
+                txt = client.get_text(filing_txt_url(int(getattr(row, "doc_cik", "") or row.episode_cik), acc))
             except Exception as ex:  # a missing document is a gate failure, named
                 probs.append(f"{row.episode_accession}: {acc} cannot be read ({type(ex).__name__})")
                 continue
@@ -1902,6 +1905,15 @@ def fetch_edgar(args) -> int:  # pragma: no cover - loads the SEC contact; the t
     from scripts.data import fetch_edgar_events as fe
     from scripts.data.edgar_client import filing_txt_url
     client = edgar_client(online=True)
+    if getattr(args, "cik", None):              # one fund's filings around a date (e.g. SBI, CIK 882300)
+        f0 = pd.Timestamp(args.around)
+        sb = fe.submissions(client, int(args.cik), max_age_s=30 * fe.DAY)
+        sb = sb[sb["form"].isin(TARGETED_FORMS) & (sb["filingDate"] >= f0 - pd.Timedelta(days=CENSUS_PRE_DAYS))
+                & (sb["filingDate"] <= f0 + pd.Timedelta(days=FAIL_WINDOW_DAYS))]
+        for a in sb["accessionNumber"]:
+            client.get(filing_txt_url(int(args.cik), a))
+        print(f"CIK {args.cik}: {len(sb)} filings cached ({sb['form'].value_counts().to_dict()})")
+        return 0
     if getattr(args, "amendment4", False):     # date amendment 4's 331 deals (fit and holdouts), unchanged rule
         nm, dl = crsp_tables()
         x = deal_table(nm, dl)
@@ -1995,6 +2007,8 @@ def main(argv=None) -> int:
     fe_p = sub.add_parser("fetch-edgar")
     fe_p.add_argument("--supp", action="store_true", help="only the supplementary census's filings (ruling 9)")
     fe_p.add_argument("--amendment4", action="store_true", help="date amendment 4's 331 deals (fit and holdouts)")
+    fe_p.add_argument("--cik", help="one fund's filings around --around (TARGETED_FORMS, -30 to +730 days)")
+    fe_p.add_argument("--around", help="the date the --cik window is built around (YYYY-MM-DD)")
     sub.add_parser("universe-counts")
     ri = sub.add_parser("refresh-edgar-index")
     ri.add_argument("--today", default=str(date.today()))
