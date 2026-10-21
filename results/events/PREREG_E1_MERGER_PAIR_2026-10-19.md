@@ -71,6 +71,26 @@ N = 6) · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 2; gates G1
 >
 > §4.3's census rule is widened by item 9 only. No kill rule changes.
 >
+> **Amendment 4 (team lead, 2026-10-21, at Stage 0, before any E1 return): the deal universe
+> takes 331, and the CRSP outcome rule.** The rulings: "Amend: include 331" and "Accept the CRSP
+> rule" (relayed by the coordinator; recorded in `results/events/e1/e1_dg3_rulings.csv` items 10–11).
+> - **§4.1's universe:** CRSP delisting codes **231 and 331**, when the delisting maps to the
+>   acquirer's permno. CRSP codes many CEF reorganisations 331, an exchange. They are priced by
+>   `merger_pairs._announcement_row` unchanged; its code guard is widened for E1 only, and the
+>   default is unchanged and tested.
+> - **The new deals:** the fit gains 10 (muni +4 to 99 deals in 51 groups) and the name holdout
+>   gains 1. Five more are excluded because their acquirer, HYT, is a spec name. Counts:
+>   `results/events/e1/e1_universe_counts_2026-10-21.json`, made with no return read.
+> - **The census** counts a 331 completion too.
+> - **The CRSP outcome rule (DG-E1-3):** a blank outcome is settled from CRSP within 730 days of A:
+>   - a 2xx or 3xx delisting into the acquirer's permno → completed;
+>   - a 2xx into another permno → completed under another structure;
+>   - liquidated, or still listed → not completed. A third reading then looks for the filing that
+>     dates the failure (§6.1 needs F).
+>   - anything else → unsettled.
+>
+> No kill rule changes.
+>
 > *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **No E1 return of any kind was computed to write this.** No pair return, no

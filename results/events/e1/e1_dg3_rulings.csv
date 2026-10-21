@@ -8,3 +8,5 @@ item,question,ruling,ruled_by,ruled_on
 7,in-trial rows with a quote not found,none; nothing to rule,team lead (Simon Jarvis): accept all recommended,2026-10-20
 8,the residual 67 rows / 47 episodes,CHOSEN: a second reading with full excerpts; a disagreement with the first pass is adjudicated by a third reading,team lead (Simon Jarvis): both extra reading rounds chosen,2026-10-20
 9,the census gap (SBI->MMU),"CHOSEN: a supplementary census of the 149 acquirer-side episodes a completion explained, read for named targets that did not complete",team lead (Simon Jarvis): both extra reading rounds chosen,2026-10-20
+10,settle a blank outcome from CRSP,730 days from A: a 2xx or 3xx delisting into the acquirer's permno = completed (dated); a 2xx into another = completed_other_structure; liquidated or still listed = not completed (a third reading dates the failure); else unsettled,team lead (Simon Jarvis),2026-10-21
+11,the deal universe (amendment 4),§4.1 takes CRSP delisting codes 231 AND 331 when the delisting maps to the acquirer's permno,team lead (Simon Jarvis),2026-10-21

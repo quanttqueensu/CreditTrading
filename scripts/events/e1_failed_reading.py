@@ -468,6 +468,19 @@ deal as before, and apply the rule exactly: an N-8F can make a deal `completed` 
 
 """
 
+R3_ADDENDUM = """\
+# Third reading (2026-10-21): read this page first; it overrides what follows where they differ
+
+Two readings could not settle these episodes (the team lead's rulings 8 and 10). Your batch file
+gives each episode a `focus`: the question still open, for example the filing that makes a failed
+merger public, whether both funds are exchange-listed, or how a deal ended. Read every filing in
+full first, then answer the focus if any filing states it, with its quote. Record every deal as
+before; the JSON shape is unchanged. null is still the right answer when no filing states it.
+
+---
+
+"""
+
 SUPP_ADDENDUM = """\
 # Supplementary census (2026-10-20): read this page first; it overrides what follows where they differ
 
@@ -505,6 +518,8 @@ ROUNDS = {
     "n8f": ("e1_failed_deal_readings_n8f.csv", "e1_failed_reading_review_n8f.csv", "e1_reading_round_n8f.csv",
             EPISODE_MAX, {"N-8F": 20_000}, "N8F"),
     "supp": ("e1_failed_deal_readings_supp.csv", "e1_failed_reading_review_supp.csv", None, EPISODE_CHARS, None, "SUPP"),
+    "r3": ("e1_failed_deal_readings_r3.csv", "e1_failed_reading_review_r3.csv", "e1_reading_round_r3.csv",
+           EPISODE_MAX, {"N-8F": 20_000}, "R3"),
 }
 
 
@@ -530,7 +545,11 @@ def prepare(root: Path, client=None, rnd: str = "r1") -> dict:
     client = client or e1.edgar_client(online=False)
     cen = round_census(rnd)
     _, _, _, budget, heads, add = ROUNDS[rnd]
-    addendum = {"": "", "R2": R2_ADDENDUM, "N8F": N8F_ADDENDUM, "SUPP": SUPP_ADDENDUM}[add]
+    addendum = {"": "", "R2": R2_ADDENDUM, "N8F": N8F_ADDENDUM, "SUPP": SUPP_ADDENDUM, "R3": R3_ADDENDUM}[add]
+    focus = {}
+    if ROUNDS[rnd][2] and (e1.OUT_DIR / ROUNDS[rnd][2]).exists():
+        fl = pd.read_csv(e1.OUT_DIR / ROUNDS[rnd][2], dtype=str, keep_default_na=False)
+        focus = dict(zip(fl["episode"], fl["focus"])) if "focus" in fl else {}
     inp = root / "input"
     parts_dir, batch_dir = inp / "episodes", inp / "batches"
     for d in (parts_dir, batch_dir):
@@ -557,7 +576,8 @@ def prepare(root: Path, client=None, rnd: str = "r1") -> dict:
             "chars_per_token_assumed": CHARS_PER_TOKEN, "batches": [], "filings": listed}
     for b_i, b in enumerate(batches, 1):
         nn = f"{b_i:02d}"
-        rec = {"batch": nn, "episodes": [{"id": i, "parts": files[i], "chars": sizes[i]} for i in b],
+        rec = {"batch": nn, "episodes": [{"id": i, "parts": files[i], "chars": sizes[i],
+                                          **({"focus": focus[i]} if focus.get(i) else {})} for i in b],
                "est_input_tokens": round(sum(sizes[i] for i in b) / CHARS_PER_TOKEN)}
         (batch_dir / f"batch_{nn}.json").write_text(json.dumps(
             {**rec, "output_dir": "<ROOT>/out/<MODEL>/ as your brief names it"}, indent=1))
@@ -834,7 +854,7 @@ def crsp_maps(nm: pd.DataFrame, cmap: dict):
     return cik_of, tk_of
 
 
-def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict) -> pd.DataFrame:
+def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict, dl: pd.DataFrame | None = None) -> pd.DataFrame:
     """The readings with rulings 2-4 applied; column `ruled` names the ruling that changed a row.
 
     2. A failure whose listing the reader left blank is listed when both parties' tickers map, on A,
@@ -844,10 +864,15 @@ def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict) -> pd.DataF
        failure (in_trial Y, F = 2023-11-01); the deal's other rows agree on the outcome, carry no
        failure date, and drop evidence of a different event (BHV's 2025 re-proposal).
     4. MCC -> CIK 1523526: not a listed pair (its quotes are moot and cleared).
+    10. (ruled 2026-10-21; applied when `dl` is given) a blank outcome is settled from CRSP by
+       `crsp_outcome`: completed or completed_other_structure -> that outcome, dated by the delisting
+       (evidence: CRSP; no quote); not completed -> left blank with `crsp_note`, for the third
+       reading to find the filing that dates the failure (§6.1 needs F).
     Ruling 1 is `failed_deal_rows`; ruling 5 is the exemption the caller takes from `triage`."""
     cik_of, tk_of = crsp_maps(nm, cmap)
     R = R.copy()
-    R["ruled"] = ""
+    R["ruled"] = R["ruled"] if "ruled" in R else ""
+    R["crsp_note"] = ""
     for ix in R.index[R["deal_id"].isin(MYI_DEALS)]:
         when = R.at[ix, "ann_date"] or "2023-09-08"
         for side in ("target", "acquirer"):
@@ -875,6 +900,15 @@ def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict) -> pd.DataF
             R.loc[ix, ["both_listed", "in_trial", "ruled"]] = ["Y", "Y", "2"]
             if R.at[ix, "target_cik"] and R.at[ix, "acquirer_cik"]:
                 R.at[ix, "deal_id"] = f"{R.at[ix, 'target_cik']}>{R.at[ix, 'acquirer_cik']}"
+    if dl is not None:
+        for ix in R.index[R["outcome"] == ""]:
+            o = crsp_outcome(nm, dl, R.at[ix, "target_ticker"], R.at[ix, "acquirer_ticker"], R.at[ix, "ann_date"])
+            if o is None:
+                continue
+            if o[0] in ("completed", "completed_other_structure"):
+                R.loc[ix, ["outcome", "outcome_date", "in_trial", "ruled"]] = [o[0], str(o[1]), "N", "10"]
+            else:
+                R.at[ix, "crsp_note"] = o[0] + (f" {o[1]}" if o[1] else "")
     return R
 
 
@@ -890,7 +924,8 @@ def _key(r) -> str:
     return r["deal_id"].split("/")[0]
 
 
-def merge_rounds(R1: pd.DataFrame, R2: pd.DataFrame | None = None, N8: pd.DataFrame | None = None) -> pd.DataFrame:
+def merge_rounds(R1: pd.DataFrame, R2: pd.DataFrame | None = None, N8: pd.DataFrame | None = None,
+                 R3: pd.DataFrame | None = None) -> pd.DataFrame:
     """The readings after ruling 8 (second reading) and ruling 6 (N-8F re-read), with `round` and
     `merge_note` columns; rows needing a THIRD reading carry merge_note "adjudicate" and a blank outcome.
 
@@ -911,8 +946,35 @@ def merge_rounds(R1: pd.DataFrame, R2: pd.DataFrame | None = None, N8: pd.DataFr
     if N8 is not None and len(N8):
         R = R[~ek(R).isin(set(ek(N8)))]
         R = pd.concat([R, N8.assign(round="n8f", merge_note="replaces r1 (ruling 6)")], ignore_index=True)
-    if R2 is None or not len(R2):
-        return R.reset_index(drop=True)
+    if R2 is not None and len(R2):
+        R = _merge_second(R, R2, ek)
+    if R3 is not None and len(R3):
+        R = _merge_third(R, R3, ek)
+    return R.reset_index(drop=True)
+
+
+def _merge_third(R: pd.DataFrame, R3: pd.DataFrame, ek) -> pd.DataFrame:
+    """Ruling 8's third reading adjudicates: per episode and matched deal, a non-blank third reading
+    stands (over a blank, or over a disagreement); a blank third reading leaves the deal as it was."""
+    eps = set(ek(R3))
+    keep, prior, out = R[~ek(R).isin(eps)], R[ek(R).isin(eps)], []
+    for e, g3 in R3.groupby(ek(R3)):
+        g = prior[ek(prior) == e]
+        m = {_key(r): r for _, r in g.iterrows()}
+        seen = set()
+        for _, r3 in g3.iterrows():
+            k = _key(r3)
+            seen.add(k)
+            old = m.get(k)
+            if old is None or r3["outcome"] != "":
+                out.append({**r3, "round": "r3", "merge_note": "r3" if old is not None else "only r3"})
+            else:
+                out.append({**old, "merge_note": (old["merge_note"] + "; r3 blank").strip("; ")})
+        out += [{**r, "merge_note": (r["merge_note"] + "; only before r3").strip("; ")} for k, r in m.items() if k not in seen]
+    return pd.concat([keep, pd.DataFrame(out)], ignore_index=True).fillna("")
+
+
+def _merge_second(R: pd.DataFrame, R2: pd.DataFrame, ek) -> pd.DataFrame:
     eps2 = set(ek(R2))
     keep, out = R[~ek(R).isin(eps2)], []
     first = R[ek(R).isin(eps2)]
@@ -984,6 +1046,55 @@ def crsp_outcome(nm: pd.DataFrame, dl: pd.DataFrame, target: str, acquirer: str,
     return None
 
 
+def _read(path: Path) -> pd.DataFrame | None:
+    return pd.read_csv(path, dtype=str, keep_default_na=False) if path.exists() else None
+
+
+def dg3_state(nm: pd.DataFrame, dl: pd.DataFrame, names: pd.DataFrame, cen: pd.DataFrame, supp: pd.DataFrame) -> dict:
+    """DG-E1-3 as the rulings stand: every round merged (rulings 6, 8), readings of episodes the
+    census no longer holds set aside as moot (amendment 4 moved them out), the supplementary round
+    added, rulings 2-4 and 10 applied, triaged, ruling 5's exemption computed.
+    The supplementary census's episodes that were read as census episodes keep that reading."""
+    from scripts.events import e1_rulings_facts as rf
+    R1 = _read(e1.READINGS)
+    if R1 is None:
+        raise e1.GateError("no first reading")
+    R = merge_rounds(R1, *(_read(e1.OUT_DIR / ROUNDS[k][0]) for k in ("r2", "n8f", "r3")))
+    sp = _read(e1.OUT_DIR / ROUNDS["supp"][0])
+    if sp is not None:
+        R = pd.concat([R, sp.assign(round="supp", merge_note="")], ignore_index=True).fillna("")
+    allc = pd.concat([cen, supp], ignore_index=True).drop_duplicates(["episode_cik", "episode_accession"])
+    keys = set(allc["episode_cik"].astype(str) + "_" + allc["episode_accession"])
+    ek = R["episode_cik"] + "_" + R["episode_accession"]
+    moot = int((~ek.isin(keys)).sum())
+    R = R[ek.isin(keys)].reset_index(drop=True)
+    cmap = e1.crsp_cik_map(nm, names)
+    Rr = apply_dg3_rulings(R, nm, cmap, dl)
+    T = triage(Rr, allc.astype({"episode_cik": str}), nm, dl, rf.own_listed(nm, names))
+    return {"R": Rr, "T": T, "exempt": exempt_rows(T), "census": allc, "moot_rows": moot}
+
+
+def r3_list(T: pd.DataFrame, exempt: pd.Series) -> pd.DataFrame:
+    """The episodes a third reading must settle (rulings 8 and 10), each with its focus."""
+    settled = set(T.loc[(T["outcome"] != "") & ~T["deal_id"].str.startswith("ep"), "deal_id"])
+    rows = []
+    for r, ex in zip(T.itertuples(index=False), exempt):
+        if ex:
+            continue
+        pair = f"{r.target_ticker or '?'} into {r.acquirer_ticker or '?'}"
+        if r.crsp_note.startswith("not_completed"):
+            f = f"{pair}: CRSP shows it never completed; find the filing that makes its failure public, with its date"
+        elif r.outcome in e1.FAILED_OUTCOMES and r.both_listed == "":
+            f = f"{pair}: it failed ({r.outcome}); are BOTH funds exchange-listed? give each fund's ticker"
+        elif r.outcome == "" and r.deal_id not in settled:
+            f = f"{pair}: how did it end? (outcome, the filing that says so, and both funds' tickers and listing)"
+        else:
+            continue
+        rows.append({"episode": f"{r.episode_cik}_{r.episode_accession}", "focus": f})
+    F = pd.DataFrame(rows, columns=["episode", "focus"])
+    return F.groupby("episode", as_index=False)["focus"].agg(" | ".join)
+
+
 def freeze_rounds(r1_root: Path, Rr: pd.DataFrame, T: pd.DataFrame) -> dict:
     """Write the episode lists of rounds r2 (ruling 8: the episodes of rows that can still change the
     trial and are not settled by rulings 2-4) and n8f (ruling 6: r1's batches 40 and 45)."""
@@ -1009,11 +1120,14 @@ def main(argv=None) -> int:
     sub.add_parser("triage")
     fz = sub.add_parser("freeze-rounds")
     fz.add_argument("--r1-root", type=Path, required=True)
+    sub.add_parser("freeze-r3")
     a = ap.parse_args(argv)
     if a.cmd == "triage":
         return run_triage()
     if a.cmd == "freeze-rounds":
         return run_freeze(a.r1_root)
+    if a.cmd == "freeze-r3":
+        return run_freeze_r3()
     if a.cmd == "prepare":
         plan = prepare(a.root, rnd=a.rnd)
         print(f"round {a.rnd}: {plan['episodes']} episodes in {len(plan['batches'])} batches under {a.root}/input/")
@@ -1033,6 +1147,16 @@ def ruled_triage():  # pragma: no cover - reads the CRSP cache, the EDGAR name t
     cen = pd.read_csv(e1.CENSUS, dtype={"episode_cik": str})
     T = triage(Rr, cen, nm, dl, rf.own_listed(nm, names))
     return Rr, T
+
+
+def run_freeze_r3() -> int:  # pragma: no cover - reads the CRSP cache, the name table and the census
+    from scripts.events import e1_rulings_facts as rf
+    nm, dl = e1.crsp_tables()
+    st = dg3_state(nm, dl, rf._names(), pd.read_csv(e1.CENSUS), pd.read_csv(e1.CENSUS_SUPP))
+    F = r3_list(st["T"], st["exempt"])
+    F.to_csv(e1.OUT_DIR / ROUNDS["r3"][2], index=False)
+    print(f"round r3: {len(F)} episodes (moot readings set aside: {st['moot_rows']})")
+    return 0
 
 
 def run_freeze(r1_root: Path) -> int:  # pragma: no cover

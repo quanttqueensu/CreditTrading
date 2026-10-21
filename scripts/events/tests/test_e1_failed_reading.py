@@ -364,3 +364,43 @@ def test_a_failure_with_unsettled_listing_blocks():
     R = pd.DataFrame([{**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "ep1:0", "outcome": "withdrawn"}])
     _, probs = e1.check_readings(cen, None, readings=R)
     assert any("listing is unsettled" in p for p in probs)
+
+
+# ---------------------------------------------------------------- amendment 4 and ruling 10 (2026-10-21)
+
+def test_third_reading_adjudicates_and_a_blank_leaves_it():
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([{**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "10>20", "outcome": ""},
+                      {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "11>20", "outcome": "completed"}])
+    R3 = pd.DataFrame([{**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "10>20", "outcome": "vote_failed"},
+                       {**b, "episode_cik": "1", "episode_accession": "a", "deal_id": "11>20", "outcome": ""}])
+    M = fr.merge_rounds(R, R3=R3).set_index("deal_id")
+    assert M.at["10>20", "outcome"] == "vote_failed" and M.at["10>20", "round"] == "r3"
+    assert M.at["11>20", "outcome"] == "completed"
+
+
+def test_ruling_10_settles_blank_outcomes_from_crsp():
+    nm = pd.DataFrame({"permno": [1, 2, 4], "ticker": ["BHY", "HYT", "BKT"],
+                       "namedt": pd.to_datetime(["2000-01-01"] * 3), "nameendt": pd.to_datetime(["2024-12-31"] * 3),
+                       "shrcd": [44, 14, 14], "exchcd": [1] * 3, "comnam": list("ABC")})
+    dl = pd.DataFrame({"permno": [1, 4], "dlstdt": pd.to_datetime(["2013-11-15", "2024-12-31"]),
+                       "dlstcd": [331, 100], "nwperm": [2, 0]})
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([{**b, "deal_id": "ep1:0", "target_ticker": "BHY", "acquirer_ticker": "HYT", "ann_date": "2013-06-27"},
+                      {**b, "deal_id": "ep2:0", "target_ticker": "BKT", "acquirer_ticker": "HYT", "ann_date": "2014-06-09"},
+                      {**b, "deal_id": "ep3:0", "target_ticker": "", "acquirer_ticker": "HYT", "ann_date": "2014-06-09"}])
+    X = fr.apply_dg3_rulings(R, nm, {}, dl)
+    assert X.loc[0, "outcome"] == "completed" and X.loc[0, "outcome_date"] == "2013-11-15" and X.loc[0, "ruled"] == "10"
+    assert X.loc[1, "outcome"] == "" and X.loc[1, "crsp_note"] == "not_completed"
+    assert X.loc[2, "outcome"] == "" and X.loc[2, "crsp_note"] == ""
+    assert (fr.apply_dg3_rulings(R, nm, {})["outcome"] == "").all()          # without dl, ruling 10 is off
+
+
+def test_r3_list_names_the_open_question():
+    T = pd.DataFrame({"episode_cik": ["1", "2", "3", "4"], "episode_accession": ["a"] * 4,
+                      "deal_id": ["ep1:0", "ep2:0", "ep3:0", "9>8"], "target_ticker": ["NDP", "JLS", "", "X"],
+                      "acquirer_ticker": ["TTP", "", "", "Y"], "outcome": ["", "superseded", "", "completed"],
+                      "both_listed": ["Y", "", "", "Y"], "crsp_note": ["not_completed", "", "", ""]})
+    F = fr.r3_list(T, pd.Series([False, False, False, False]))
+    assert list(F["episode"]) == ["1_a", "2_a", "3_a"]
+    assert "never completed" in F.loc[0, "focus"] and "exchange-listed" in F.loc[1, "focus"] and "how did it end" in F.loc[2, "focus"]

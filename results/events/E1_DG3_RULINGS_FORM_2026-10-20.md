@@ -145,7 +145,17 @@ Stage 0 needs the network for one thing only, the open quarter's full index (202
 Then an agent runs `python3 scripts/events/e1_merger_pair.py stage0` within a day. Both default
 `--today` to the run date.
 
-## 5. 2026-10-21: after rounds r2 and n8f (a form; nothing in this section is ruled)
+## 5. 2026-10-21: after rounds r2 and n8f
+
+> **RULED 2026-10-21.**
+> - **Item 10:** "Accept the CRSP rule".
+> - **Amendment 4:** "Amend: include 331". This widens the universe to code-331 reorganisations
+>   into the acquirer's permno, the finding below.
+>
+> Both are recorded in `results/events/e1/e1_dg3_rulings.csv` (items 10–11) and in the
+> pre-registration's banner. The two never-completed deals go to the third reading.
+>
+> *Was:* a form; nothing in this section is ruled.
 
 **The merge** (`e1_failed_reading.merge_rounds`, rulings 8 and 6; Stage 0 runs it):
 - The N-8F re-read replaces the first reading for its 19 episodes.
@@ -203,3 +213,27 @@ census rule cannot see them as completions. Widening the universe would be an am
         with no tickers);
       - the 2 not-completed deals of item 10 (3 episodes), for their failure filing.
     - **Then** the merge, and an offline Stage 0 within a day of an index refresh.
+
+## 6. 2026-10-21, later: after amendment 4, ruling 10 and the supplementary round
+
+Recorded from `python3 scripts/events/e1_merger_pair.py stage0` (output in `results/events/e1/`).
+
+- **In-trial failed deals: 10, unchanged.** SBI→MMU is not yet among them:
+  - its co-target MNP→MMU completed on 2023-10-13 by CRSP (ruling 10);
+  - SBI's own row is blank, because its 730-day window runs past CRSP's end and the supplementary
+    reader found no outcome stated.
+- **Ruling 10 settled 163 reading rows from CRSP** and found 4 rows never completed: NDP→TTP and
+  BKT→BHK, two episodes each.
+- **The third-reading pack:** `e1_failed_reading.py prepare --round r3`, 28 episodes in 12
+  batches. Each episode carries its open question:
+  - 18 ask how a deal ended, SBI→MMU among them;
+  - 6 ask whether both parties are listed;
+  - 4 ask for the failure filing of the two never-completed deals.
+- **Amendment 4 adds no reading.** Its new Stage 0 work is mechanical and needs the team lead's
+  credentials:
+  - dating the 11 new deals: `fetch-edgar --amendment4` (4 EDGAR documents are not cached);
+  - CRSP rows for 9 new fit parties: `pull-crsp --permnos results/events/e1/_cache_e1/amendment4_crsp_permnos.txt`.
+- **DG-E1-3 cannot clear yet.** It clears when round 3 settles the 22 blank rows and the 9
+  unsettled-listing rows; anything round 3 leaves open needs a ruling.
+- **If SBI→MMU stays open after round 3,** the next step is a fetch of SBI's own 2023 filings
+  (CIK 882300). SBI filed no merger episode, so they are not in any pack.
