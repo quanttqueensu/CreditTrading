@@ -1,5 +1,5 @@
 risk inputs (CRSP dsf 2008-11-03 -> 2022-12-30; pulled 2026-10-19T15:32:01+00:00); residuals out of sample, years 2010-2022
-hedge permnos {'SPY': 84398, 'IWM': 88222, 'HYG': 91933, 'IEF': 89469, 'PFF': 91874, 'BKLN': 12631}; cef_universe permnos guarded: 46
+hedge ETFs ['BKLN', 'HYG', 'IEF', 'IWM', 'PFF', 'SPY']; cef_universe permnos guarded: 46
 
 ADV shares of price>=$5 common stocks at year-end (median of 13 snapshots): ge_0.1m 0.924, ge_1m 0.784, ge_10m 0.475, ge_100m 0.137
 

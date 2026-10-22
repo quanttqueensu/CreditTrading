@@ -319,9 +319,14 @@ def report() -> None:
     bdcs = measure(dsf, nm, "bdc", hedges, ("SPY", "HYG"), bdc_perm, uni)
     summ = summarise(stocks["rows"], "stocks") | summarise(bdcs["rows"], "bdc")
     adv = pd.DataFrame(stocks["adv_shares"])
+    # The tracked outputs carry no CRSP permno (team lead, 2026-10-22, before the
+    # first push of this branch to the public repository). The gitignored cache
+    # manifest keeps them, so the pull stays reproducible on this machine.
+    manifest = {k: v for k, v in json.loads((CACHE / "_manifest.json").read_text()).items()
+                if k != "etf_permnos"}
     res = {"generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-           "manifest": json.loads((CACHE / "_manifest.json").read_text()),
-           "hedge_permnos": hedges, "universe_permnos_guarded": len(uni),
+           "manifest": manifest,
+           "hedge_etfs": sorted(hedges), "universe_permnos_guarded": len(uni),
            "admitted_stocks": stocks["admitted"], "admitted_bdc": bdcs["admitted"],
            "adv_shares_by_year": stocks["adv_shares"],
            "adv_shares_median": {c: float(adv[c].median()) for c in adv.columns if c.startswith("ge_")},
@@ -330,7 +335,7 @@ def report() -> None:
     (OUT / "risk_inputs_2026-10-19.json").write_text(json.dumps(res, indent=1))
     lines = [f"risk inputs (CRSP dsf {res['manifest']['dsf_first']} -> {res['manifest']['dsf_last']}; "
              f"pulled {res['manifest']['pulled_utc']}); residuals out of sample, years 2010-2022",
-             f"hedge permnos {hedges}; cef_universe permnos guarded: {len(uni)}",
+             f"hedge ETFs {sorted(hedges)}; cef_universe permnos guarded: {len(uni)}",
              "", "ADV shares of price>=$5 common stocks at year-end (median of 13 snapshots): " +
              ", ".join(f"{k} {v:.3f}" for k, v in res["adv_shares_median"].items()), ""]
     hdr = (f"{'sample|bucket|hedge':<24}{'st-yrs':>7}{'beta':>6}{'idio ann (5d) p25/med/p75':>28}"
@@ -373,7 +378,7 @@ def etf() -> None:
         adv = {str(y): float(dv[dv.index.year == y].mean()) for y in (2015, 2019, 2022) if (dv.index.year == y).any()}
         r = g["ret"].dropna()
         r5 = (1 + r).rolling(5).apply(np.prod, raw=True) - 1      # overlapping: a tail, not a test statistic
-        out[t] = {"permno": p, "first": str(g.index.min().date()), "last": str(g.index.max().date()),
+        out[t] = {"first": str(g.index.min().date()), "last": str(g.index.max().date()),   # no permno: see report()
                   "adv_usd": adv, "r5_max": float(r5.max()), "r5_max_date": str(r5.idxmax().date()),
                   "r5_p99.9": float(r5.quantile(0.999)), "r5_min": float(r5.min()),
                   "r5_min_date": str(r5.idxmin().date()), "r1_max": float(r.max()), "r1_min": float(r.min())}

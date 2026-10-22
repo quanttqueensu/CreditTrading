@@ -1,29 +1,21 @@
 {
- "generated_utc": "2026-10-19T15:32:57+00:00",
+ "generated_utc": "2026-10-22T16:26:39+00:00",
  "manifest": {
   "pulled_utc": "2026-10-19T15:32:01+00:00",
   "dsf_rows": 14198888,
   "dsf_first": "2008-11-03",
   "dsf_last": "2022-12-30",
   "names_rows": 36194,
-  "bdc_permnos": 50,
-  "etf_permnos": [
-   12631,
-   84398,
-   88222,
-   89469,
-   91874,
-   91933
-  ]
+  "bdc_permnos": 50
  },
- "hedge_permnos": {
-  "SPY": 84398,
-  "IWM": 88222,
-  "HYG": 91933,
-  "IEF": 89469,
-  "PFF": 91874,
-  "BKLN": 12631
- },
+ "hedge_etfs": [
+  "BKLN",
+  "HYG",
+  "IEF",
+  "IWM",
+  "PFF",
+  "SPY"
+ ],
  "universe_permnos_guarded": 46,
  "admitted_stocks": {
   "2009": 2045,
