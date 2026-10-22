@@ -14,3 +14,4 @@ item,question,ruling,ruled_by,ruled_on
 13,"never completed per CRSP, no dated failure",excluded and counted (§6.1 needs F); ruling 10's 730 days run from the episode's first merger filing where a reading gives no A,team lead (Simon Jarvis),2026-10-21
 14,outcome still unstated after the readings,excluded and counted,team lead (Simon Jarvis),2026-10-21
 15,the two muni deals SBI->MMU and NCU->NKX (2011),read in each target's own filings (round r4); if that settles nothing: SBI->MMU excluded and counted; NCU->NKX superseded per §4.3 with F = 2013-11-22,team lead (Simon Jarvis),2026-10-21
+16,"a fit deal with no control-2 candidate (ALD->PSEC, BDC): §8.2 is silent outside the 75% muni coverage rule","keep, with no comparison: ALD->PSEC stays in the trial with no control 2, recorded as 'no candidate: no CEF has the first name word ALLIED', and counted (relayed by the coordinator)",team lead (Simon Jarvis),2026-10-22

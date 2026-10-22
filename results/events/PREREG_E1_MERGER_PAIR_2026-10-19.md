@@ -105,6 +105,17 @@ N = 6) · **Plan** `results/cef/RESEARCH_PLAN_2026-10-09.md` §3 row 2; gates G1
 >
 > No kill rule changes.
 >
+> **Amendment 6 (team lead, 2026-10-22, after Stage 0 cleared, before any E1 return): a fit deal
+> with no control-2 candidate.** The ruling: "Keep, with no comparison" (relayed by the coordinator;
+> recorded in `results/events/e1/e1_dg3_rulings.csv` item 16):
+> - **16.** ALD → PSEC (BDC, failed 2010-03-05) stays in the trial with no control 2. It is
+>   recorded as "no candidate: no CEF has the first name word ALLIED", and counted.
+>   - **Why a ruling was needed:** §8.2 is silent on a non-muni deal with no candidate.
+>   - **Why no verdict moves:** stage 3's 75% coverage rule is over fit muni deals, and BDC deals
+>     never decide (§0).
+>
+> No kill rule changes.
+>
 > *Was:* DRAFT — awaiting team-lead approval; the counter moves only in the commit that records approval.
 >
 > **No E1 return of any kind was computed to write this.** No pair return, no

@@ -307,3 +307,30 @@ unruled row left.
 **Then an agent runs** `e1_failed_reading.py freeze-r4` once per fund (`--for-episode`
 886043_0001193125-23-074093 for SBI, 1195738_0001193125-11-345556 for NCU), then
 `prepare --round r4`, sends the pack to readers, and collects it.
+
+## 8. 2026-10-22: Stage 0 CLEAR; ruling 16 (control 2 for ALD→PSEC)
+
+> **RULED 2026-10-22.** The team lead: "Keep, with no comparison" (relayed by the coordinator).
+> - Recorded in `results/events/e1/e1_dg3_rulings.csv` (item 16) and as amendment 6 of the
+>   pre-registration.
+> - Records only, no code change: the fit already leaves a deal with no candidate at NaN, counted.
+
+**Stage 0 cleared at 732fc9d** (`results/events/E1_STAGE0_2026-10-19.md`). The fit's own
+`control2_candidates` then found **no control-2 candidate for ALD→PSEC** (BDC, announced
+2010-01-20, failed 2010-03-05):
+- No CEF (share code 14/44) has the first name word "ALLIED" and the BDC segment.
+- The other "ALLIED" names in force on A are unrelated operating companies, so allowing share
+  code 11 would not supply one either.
+
+**What the pre-registration says.**
+- §8.2, stage 3: "**HALT** (to the team lead) if fewer than 75% of fit muni deals have a control".
+- §0, headline segment: "Taxable, equity and BDC deals are reported beside it and never decide".
+- It is silent on a non-muni deal with no candidate.
+
+16. **Ruled: keep, with no comparison.**
+    - ALD→PSEC stays in the trial with no control 2. It is recorded as "no candidate: no CEF has
+      the first name word ALLIED", and counted.
+    - **Effect:** none on any verdict. `fit_core` computes stage 3 on muni deals only, and the BDC
+      line reports per-deal statistics with no controls.
+    - **The alternative not taken:** exclude the deal and count it, as the 19 Stage 0 flags were.
+      That would drop a deal the census ruled in and change the reported BDC line.
