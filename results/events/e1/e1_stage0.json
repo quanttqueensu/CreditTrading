@@ -1,7 +1,7 @@
 {
- "run_utc": "2026-10-22T15:07:15+00:00",
- "head": "4185e7b",
- "verdict": "STAGE 0: HALT",
+ "run_utc": "2026-10-22T15:44:06+00:00",
+ "head": "732fc9d",
+ "verdict": "STAGE 0: CLEAR",
  "gates": {
   "DG-E1-6": {
    "status": "PASS",
@@ -41,19 +41,34 @@
    "first_filing_cached": 255,
    "supp_episodes": 155,
    "in_trial_deals_ruled": 13,
+   "in_trial_deal_list": [
+    "AFT->AIF",
+    "ALD->PSEC",
+    "BHV->MYI",
+    "BKN->MYI",
+    "FGB->AOD",
+    "MIY->MYI",
+    "MPA->MYI",
+    "NCU->NKX",
+    "NMT->NEA",
+    "NQP->NVG",
+    "NXJ->NAD",
+    "RAA->BFZ",
+    "SBI->MMU"
+   ],
    "exempt_rows": 733,
    "moot_rows": 35,
    "crsp_settled": 223
   },
   "DG-E1-1": {
-   "status": "FAIL",
-   "detail": "fit reader FAIL; holdout guard PASS; control-2 pool missing 0; 331 fit parties missing 0; the fit reader's set (results/events/e1/_cache_e1/fit_reader_permnos.txt) includes the 4 failed fit deals' parties",
-   "pool": 335,
+   "status": "PASS",
+   "detail": "fit reader PASS; holdout guard PASS; control-2 pool missing 0; 331 fit parties missing 0; the fit reader's set (results/events/e1/_cache_e1/fit_reader_permnos.txt) includes the 4 failed fit deals' parties",
+   "pool": 338,
    "pool_missing": 0
   },
   "DG-E1-4": {
-   "status": "INCOMPLETE",
-   "detail": "completed fit deals {\"missing return on the leg's last earned session\": 19}; failed fit deals {}; unchecked until their prices are pulled: ['AFT -> AIF', 'ALD -> PSEC', 'RAA -> BFZ']"
+   "status": "PASS",
+   "detail": "completed fit deals {\"missing return on the leg's last earned session\": 19}; failed fit deals {}"
   },
   "DG-E1-7": {
    "status": "PASS",
