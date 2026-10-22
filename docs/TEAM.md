@@ -6,8 +6,8 @@ from a branch to `main` to prod. The standing decision behind it is
 `docs/ONBOARDING.md`. What is true right now: `python3 -m ops.orient`, never this file.
 
 The pod is the team lead (the PM) and three analysts. **This repository is public,
-so it names lanes, never people.** Who sits in which lane is recorded in GitHub (the
-`credit-analysts` team), not here.
+so it names lanes, never people.** Who sits in which lane is the team lead's record;
+each analyst is a collaborator on this repository with Write access (§6).
 
 ---
 
@@ -124,7 +124,7 @@ access. The rest are rules.
 
 | what | from | where it lives |
 |---|---|---|
-| Membership of the `credit-analysts` team: push branches, open PRs | the team lead | GitHub |
+| Write access to this repository as a collaborator: push branches, open PRs | the team lead adds you; GitHub e-mails you the invitation | GitHub |
 | A read-only Cloudflare R2 token (the WRDS mirror; research only) | the team lead | your own `config/.env` |
 | Your own free Alpaca **paper** account: market data and asset and borrow flags | you open it | your own `config/.env` |
 | Your own SEC EDGAR contact (`SEC_USER_AGENT`) | you | your own `config/.env` |
@@ -140,3 +140,11 @@ lead, who is the only bypass actor):
 - on the tags `release-*`, `spec-*`, `pre-clean-slate` and `ibkr-final`: no
   creation, move or deletion except by the team lead. A release tag is what prod
   runs; the other two are the provenance of everything before 2026-09-28.
+
+**What it does not stop.** The QUANTT organisation's owners hold admin rights over
+every repository in the organisation, this one included, and can edit these
+rulesets. The rulesets do not exempt them, so any bypass by an owner is a
+deliberate change to a setting, recorded by GitHub (team lead, 2026-10-22: accepted,
+and stated here so no page claims more than GitHub enforces). Prod is out of reach
+either way: the VM runs only a release tag the team lead installs there, over a
+route only the team lead has.

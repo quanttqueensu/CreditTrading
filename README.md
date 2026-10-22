@@ -63,13 +63,13 @@ account, the spec, the trial counters) is never written on this page. Run
 | **Team lead** | CEF | the core book, the live path, prod | |
 
 Anyone may propose a change to any file through a pull request. Who sits in which
-lane is recorded in GitHub, not here. Details: [`docs/TEAM.md`](docs/TEAM.md) §1.
+lane is not written here, because the repository is public. Details: [`docs/TEAM.md`](docs/TEAM.md) §1.
 
 ---
 
 ## Your first day
 
-1. **Accept the GitHub invitation** to the `credit-analysts` team.
+1. **Accept the GitHub invitation** to this repository (GitHub e-mails it to you).
 2. **Set up your Mac**: clone, install, add your own keys to `config/.env`
    ([`docs/ONBOARDING.md`](docs/ONBOARDING.md#2-set-up-your-mac)).
 3. **Check it works**:
@@ -125,7 +125,7 @@ Details: [`docs/TEAM.md`](docs/TEAM.md#4-trials-and-the-shared-ledgers).
 | **Backtest only with `evaluate()`**: `shift(2)`, gross P&L first with the 5 / 15 / 30bp grid beside it, turnover-matched | Otherwise no result is comparable to any other |
 | **Check `/graveyard` before proposing anything** | Most ideas here have already died once |
 | **No trial returns before the pre-registration is approved**; a holdout is opened once | The trial counters and holdouts are only worth something while this holds |
-| **Only the team lead merges and deploys** | GitHub enforces it; prod runs only release tags |
+| **Only the team lead merges and deploys** | GitHub rulesets enforce it ([`docs/TEAM.md`](docs/TEAM.md#6-access)); prod runs only release tags |
 
 The full set: [`CLAUDE.md`](CLAUDE.md). What an analyst never does, and what stops
 it: [`docs/TEAM.md`](docs/TEAM.md#5-what-an-analyst-never-does).

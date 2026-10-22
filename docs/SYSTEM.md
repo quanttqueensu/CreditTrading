@@ -538,8 +538,9 @@ Three analysts join for the year. Answered interactively; how it works day to da
 | How far the platform lane reaches | **Research platform only.** `quantt/` and the runner stay with the team lead |
 | Live-path changes from analysts | **Yes, by pull request only.** Anyone may propose a change to any file; nothing reaches prod until the team lead tags a release |
 | Review | **The team lead is the only reviewer and the only person who merges** |
-| How changes arrive | **Branches in this repository**, from members of one GitHub team, `credit-analysts`, with write access. Rulesets let only the team lead update `main` and create, move or delete the protected tags; the team lead is the bypass actor and keeps pushing `main` as before |
-| Names in the repository | **None.** The repository is public: it names lanes, and GitHub team membership says who is in them |
+| How changes arrive | **Branches in this repository**, pushed by the analysts as repository collaborators with Write. *(Revised the same day: the first answer, "one GitHub team, `credit-analysts`", cannot work from the team lead's account. The team lead is an organisation member, not an owner; a team holds only organisation members, and only an owner invites into the organisation.)* Rulesets let only the team lead update `main` and create, move or delete the protected tags. The team lead is their only bypass actor and keeps pushing `main` as before |
+| The organisation's owners | **Accepted, and stated.** The QUANTT organisation's owners keep admin rights over every repository in it, including the power to edit these rulesets. The rulesets do not exempt them, so a bypass is a deliberate, recorded change (`docs/TEAM.md` §6) |
+| Names in the repository | **None.** The repository is public: it names lanes, and who is in them is the team lead's record and GitHub's collaborator list |
 | Analysts' data access | **Each analyst holds their own**: a read-only R2 token from the team lead, a free Alpaca paper account of their own, and their own `SEC_USER_AGENT`. This narrows 2026-10-12's "the team lead's own address" to the team lead's machines. No analyst holds a key to the book's account or a route to the VM |
 | The analysts' machines | **Macs** |
 

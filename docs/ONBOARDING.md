@@ -39,9 +39,9 @@ decide at *t*, fill at *t+1*'s close, earn *t+2*.
 
 ## 2. Set up your Mac
 
-You need: a GitHub account in the `quanttqueensu` organisation (accept the
-invitation the team lead sends; it adds you to the `credit-analysts` team), and
-about an hour.
+You need: a GitHub account, with the team lead's invitation to this repository
+accepted (GitHub e-mails it to you; it gives you Write access: push branches,
+open pull requests).
 
 **2.1 Tools**
 
