@@ -55,21 +55,26 @@ it and installs it** (`docs/RUNBOOK.md` §8.6).
 
 ## 3. From a branch to `main`, then to prod
 
-1. **Start from a fresh `main`**: `git switch main && git pull`.
-2. **Make a branch named for your lane and the work**:
-   `git switch -c <lane>/<topic>`, where `<lane>` is `events`, `xasset`, `gamma`
-   or `platform`. For example: `events/nav-tender-gate`. Branch names on GitHub
-   are public, so they name the work, never a person.
-3. **Commit small, and push at least daily**: `git push -u origin <branch>`. Work
-   that only exists on one laptop is invisible to everyone else, and is lost with it.
-4. **Before asking for review**, bring your branch up to date and check it:
+1. **Work on your lane's branch**: `events/work`, `xasset/work`, `gamma/work` or
+   `platform/work` (team lead, 2026-10-22: one working branch per lane, cut from
+   `main`). `git fetch origin && git switch <lane>/work`. Branch names on GitHub
+   are public, so they name the lane, never a person.
+2. **Start every day by taking in `main`**: `git merge origin/main`. Merge, do not
+   rebase: no force-push is ever needed.
+3. **Commit small, and push at least daily**: `git push`. Work that only exists on
+   one laptop is invisible to everyone else, and is lost with it.
+4. **Before asking for review**, check it:
 
    ```bash
-   git fetch origin && git merge origin/main     # merge, do not rebase: no force-push needed
+   git fetch origin && git merge origin/main
    python3 -m pytest
    python3 -m ops.doc_audit --check
    ```
 
+   A branch can have only one open pull request, so commits pushed while one is
+   open join it. For a second piece that needs its own review, cut a short branch
+   from `main` named `<lane>/<topic>` (for example `events/tender-gate`) and open a
+   PR from it.
 5. **Open a pull request into `main`** (`gh pr create`, or on GitHub). The template
    asks what the team lead will ask: which lane, whether it spends a trial, whether
    it touches §2, and how each figure was produced.

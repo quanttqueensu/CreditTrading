@@ -60,7 +60,8 @@ analyst's session:
   as the book's.
 - **Never create, move or delete a tag, never push to `main`**, and never touch
   the VM. GitHub refuses the first two; the analyst has no route to the third.
-- **Work on a branch named `<lane>/<topic>`** and deliver through a pull request.
+- **Work on the lane's branch, `<lane>/work`** (or a short `<lane>/<topic>` branch
+  for a piece that needs its own review), and deliver through a pull request.
   The team lead is the only reviewer and the only person who merges.
 - **Move no trial counter, and open no holdout, except in the commit that records
   the team lead's approval.** Compute no return on a trial before that approval.

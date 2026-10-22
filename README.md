@@ -1,203 +1,238 @@
 # CreditTrading
 
-**QUANTT, Queen's University: Credit Trading Team.** Team lead: Simon Jarvis.
-
-A systematic **credit closed-end-fund discount-reversion** book. It trades every
-day, by itself, on Alpaca paper from a cloud VM. Real capital is planned.
+QUANTT's credit trading book, run by the Credit Trading Team at Queen's University.
 
 [![checks](https://github.com/quanttqueensu/CreditTrading/actions/workflows/checks.yml/badge.svg)](https://github.com/quanttqueensu/CreditTrading/actions/workflows/checks.yml)
 
-> **New analyst?** Read this page, then follow
-> [`docs/ONBOARDING.md`](docs/ONBOARDING.md) to set up your Mac. Your lane and the
-> rules of the pod are in [`docs/TEAM.md`](docs/TEAM.md).
-> **Only the team lead merges to `main` and deploys to prod.**
+I'm Simon, and I run the book. This page is for the three analysts working with me
+this year: what we trade, what each of you will work on, and how your work gets into
+the repo. Setting up your Mac is in [`docs/ONBOARDING.md`](docs/ONBOARDING.md), and the
+detailed rules of the team are in [`docs/TEAM.md`](docs/TEAM.md).
 
----
+## What we trade
 
-## The strategy in six lines
+We run a systematic long/short book in credit closed-end funds (CEFs). A CEF
+publishes its net asset value every day, but its shares trade at whatever the market
+will pay, usually at a discount. Nothing creates or redeems the shares, so nothing
+forces that discount to close.
 
-1. A **closed-end fund** (CEF) publishes its net asset value (NAV) daily; its
-   shares trade at whatever the market pays, usually at a **discount** to NAV.
-2. Nothing creates or redeems CEF shares, so nothing forces that discount closed.
-3. We **buy** credit CEFs unusually cheap against **their own** discount history
-   and **short** the unusually rich ones, in equal dollars.
-4. The book is sized to a **volatility target**, and a position is traded only when
-   it drifts outside a **no-trade band**.
-5. We **decide** each evening on that day's prices and NAVs, **fill** at the next
-   day's close, and **earn** the day after: the `shift(2)` convention.
-6. Every parameter lives in a **frozen spec**; only the team lead changes it.
+Every evening the book compares each fund's discount with its own history. It buys
+the funds that are unusually cheap, shorts the ones that are unusually rich, in equal
+dollars, and sizes the whole book to a volatility target. A position is only traded
+once it drifts outside a no-trade band. Orders go in at the next day's close, and the
+position earns the day after that. We call that lag `shift(2)`, and every backtest in
+this repo has to use it.
 
-The full account: [`docs/SYSTEM.md`](docs/SYSTEM.md). Why the edge exists:
-[`docs/BRIEF.md`](docs/BRIEF.md) §2. **What is true right now** (prod, the
-account, the spec, the trial counters) is never written on this page. Run
-`python3 -m ops.orient` to measure it.
+The book trades by itself every day on an Alpaca paper account, from a cloud VM that
+only I can reach. Real capital is planned, which is why so much of our work is about
+costs.
 
----
+The full description is in [`docs/SYSTEM.md`](docs/SYSTEM.md). Anything that changes day
+to day (whether prod is running, the account, the spec, how many trials each counter
+has used) comes from `python3 -m ops.orient`. I keep those numbers off this page
+because they go stale.
 
-## Find your way
+## What you'll work on this year
 
-| I want to… | Go to |
-|---|---|
-| know what is true right now | `python3 -m ops.orient` |
-| understand the strategy and the standing decisions | [`docs/SYSTEM.md`](docs/SYSTEM.md) |
-| read the code that trades | [`src/deploy/sleeves/cef_discount.py`](src/deploy/sleeves/cef_discount.py) |
-| see how a trading day runs | [`docs/RUNNER.md`](docs/RUNNER.md), "The session, in order" |
-| run a backtest the right way | `evaluate()` in [`scripts/cef/band_frontier.py`](scripts/cef/band_frontier.py), and `/harness` |
-| see what has been tried and what died | [`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md), and `/graveyard` |
-| see the year's research programme | [`results/cef/RESEARCH_PLAN_2026-10-09.md`](results/cef/RESEARCH_PLAN_2026-10-09.md) |
-| find a data source | [`docs/DATA.md`](docs/DATA.md) |
-| check an external claim | [`docs/REFERENCES.md`](docs/REFERENCES.md) |
-| know my lane and what I may touch | [`docs/TEAM.md`](docs/TEAM.md) |
-| know the hard rules | [`CLAUDE.md`](CLAUDE.md): they bind people as much as agents |
-| find which document answers a question | [`docs/INDEX.md`](docs/INDEX.md) |
+Each of you owns a lane. You keep its folders working, keep its trial counter honest,
+and bring me results. You can still propose a change anywhere in the repo through a
+pull request.
 
----
+This is my first draft of the year, as of October 2026, and it will move as results
+come in. The live status of every project is in
+[`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md).
 
-## The lanes
+### Events and special situations
 
-| lane | trial counter | your folders | read first |
-|---|---|---|---|
-| **EVENTS** | EVENTS | `scripts/events/`, `results/events/` | [`docs/BRIEF.md`](docs/BRIEF.md) §3, "Corporate events" |
-| **XASSET + GAMMA** | XASSET, GAMMA | `scripts/xasset/`, `scripts/gamma/` and their `results/` | [`results/xasset/PREREG_XASSET_SLATE_2026-10-12.md`](results/xasset/PREREG_XASSET_SLATE_2026-10-12.md) |
-| **Research platform** | none | `scripts/data/`, `src/data/`, CI and tests | [`docs/DATA.md`](docs/DATA.md) |
-| **Team lead** | CEF | the core book, the live path, prod | |
+Counter EVENTS. Folders `scripts/events/` and `results/events/`. Branch `events/work`.
 
-Anyone may propose a change to any file through a pull request. Who sits in which
-lane is not written here, because the repository is public. Details: [`docs/TEAM.md`](docs/TEAM.md) §1.
+Trades around corporate events in CEFs and BDCs, where the mechanics give prices a
+reason to move.
 
----
+- Take E1, the CEF merger pair (long the target, short the acquirer), through its
+  fit. It is approved as EVENTS trial 1:
+  [`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`](results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md).
+- Finish NAV tenders, EVENTS trial 2:
+  [`results/events/PREREG_NAV_TENDER_2026-10-19.md`](results/events/PREREG_NAV_TENDER_2026-10-19.md).
+- Go through the special-situations slate with me. The census of ideas is on the
+  `research-ss-expansion` branch and I haven't ruled on it yet.
+- Then, as their gates allow: convertible-issuance reversal (E2), listed mandatory
+  converts (E3) and the CEF IPO pair (E4).
 
-## Your first day
+The goal is one or two event sleeves trading on paper by the end of the year.
 
-1. **Accept the GitHub invitation** to this repository (GitHub e-mails it to you).
-2. **Set up your Mac**: clone, install, add your own keys to `config/.env`
-   ([`docs/ONBOARDING.md`](docs/ONBOARDING.md#2-set-up-your-mac)).
-3. **Check it works**:
+### Cross-asset and options
+
+Counters XASSET and GAMMA. Folders `scripts/xasset/`, `scripts/gamma/` and their
+`results/`. Branches `xasset/work` and `gamma/work`.
+
+- Options: we've agreed to run exactly one standalone test, selling TLT volatility
+  (G1). Its gate G2 was run on free data in October: two of its three parts pass, and
+  the cost part fails under our conservative spread assumption
+  ([`results/gamma/G2_GATE_FREE_DATA_2026-10-12.md`](results/gamma/G2_GATE_FREE_DATA_2026-10-12.md)).
+  It needs a real measure of option spreads during market hours first. Whether we pay
+  for that data is a call we'll make together.
+- Cross-asset: the first slate of four ETF signals all failed in October, so no sleeve
+  came out of it ([`results/xasset/XASSET_RESULTS_2026-10-14.md`](results/xasset/XASSET_RESULTS_2026-10-14.md)).
+  A new idea is declared as a new slate and pre-registered before anything runs.
+
+The goal is a clear yes or no on options, and at most one new cross-asset slate, run
+properly.
+
+### Research platform
+
+Folders `scripts/data/`, `src/data/`, `results/data/`, plus CI and the tests. Branch
+`platform/work`.
+
+- Keep CI green.
+- Move the research-only Python packages out of `requirements.txt` so the prod VM
+  never installs them. Leave numexpr out entirely: pandas uses it for arithmetic once
+  it is installed.
+- Own the fetchers the other lanes need: ETF history, EDGAR events, and NAV history
+  for funds outside our universe.
+- Build the read-only dashboard. Nothing on it may be able to send an order.
+
+The goal is that nobody loses a day to broken data or a red build.
+
+### Me
+
+The core CEF book and its costs, everything that can change what the book trades,
+prod, releases, and the decision on every trial. The big item this year is the
+real-money cost check (`scripts/cef/real_money_costs.py`): the book has to stay positive
+after measured borrow, distributions owed on shorts and real auction fills before any
+real capital goes in.
+
+## Getting started
+
+1. Accept the GitHub invitation to this repo. It arrives by email.
+2. Set up your Mac with [`docs/ONBOARDING.md`](docs/ONBOARDING.md#2-set-up-your-mac):
+   clone, install, and put your own keys in `config/.env`.
+3. Run the three checks:
    ```bash
-   python3 -m ops.orient            # PROD reads UNMEASURED on your machine: that is correct
+   python3 -m ops.orient            # PROD shows UNMEASURED on your machine, which is expected
    python3 -m pytest                # nothing should fail
    python3 -m ops.doc_audit --check # no DRIFT
    ```
-4. **Tell Claude who you are**: one line in your own `~/.claude/CLAUDE.md`
-   ([`docs/ONBOARDING.md`](docs/ONBOARDING.md#2-set-up-your-mac), step 2.6).
-5. **Read the ten files** in [the reading order](docs/ONBOARDING.md#4-what-to-read-in-order),
-   then your lane's list.
+4. Add one line to your own `~/.claude/CLAUDE.md` saying which lane you're in, so
+   Claude knows you're an analyst (step 2.6 of the onboarding).
+5. Read the ten files in
+   [the reading order](docs/ONBOARDING.md#4-what-to-read-in-order), then your lane's.
 
----
+## Making a change
 
-## Make a change
+You work on your lane's branch and send me pull requests. I review them and merge
+into `main`. If a change touches the live book, I also tag a release and install it on
+the VM.
 
 ```mermaid
 flowchart LR
-    A["1. Branch<br/>lane/topic"] --> B["2. Commit, push<br/>at least daily"]
-    B --> C["3. Pull request<br/>CI: tests + doc audit"]
-    C --> D{"4. Team lead<br/>reviews"}
-    D -- "changes asked" --> B
-    D -- "merged" --> E["main"]
-    E -- "live-path change only" --> F["5. Release tag<br/>and VM install<br/>(team lead)"]
+    A["Your lane branch<br/>e.g. events/work"] --> B["Pull request<br/>CI runs the tests"]
+    B --> C{"I review"}
+    C -- "changes" --> A
+    C -- "merge" --> D["main"]
+    D -- "live-path changes only" --> E["Release tag<br/>and VM install"]
 ```
 
 ```bash
-git switch main && git pull
-git switch -c events/my-topic            # your lane: events/, xasset/, gamma/ or platform/
-# ...work, commit small...
-git push -u origin events/my-topic       # push at least daily
-git fetch origin && git merge origin/main
+git fetch origin
+git switch events/work           # your lane's branch: events, xasset, gamma or platform
+git merge origin/main            # do this at the start of every day
+# ...work and commit...
 python3 -m pytest && python3 -m ops.doc_audit --check
-gh pr create                             # the template asks the team lead's questions
+git push
+gh pr create --base main         # when a piece is ready for me
 ```
 
-**Spending a trial** (a test that computes a strategy's returns):
-draft its pre-registration with `/prereg`, open a PR, and wait for the team lead's
-approval. The counter moves in the commit that records it. Only then run it.
-Zero-trial work (counts, gates, reproductions, data) needs only the PR.
-Details: [`docs/TEAM.md`](docs/TEAM.md#4-trials-and-the-shared-ledgers).
+A branch can only have one open pull request, so commits you push while one is open
+go into it. If you need a second piece reviewed separately, cut a short branch for it,
+like `events/tender-gate`, and open its own PR.
 
----
+Trials work differently from everything else. Anything that computes a strategy's
+returns spends a trial, so write the pre-registration first (`/prereg`), send it to me
+as a PR, and only run it once I've approved it. Counts, gates, reproductions and data
+work don't need that step. The details are in
+[`docs/TEAM.md`](docs/TEAM.md#4-trials-and-the-shared-ledgers).
 
-## Seven rules you cannot break
+## Ground rules
 
-| rule | why |
+- Don't place, change or cancel orders, and don't run `quantt.session` or
+  `quantt.collect`. You don't hold keys for the book's account, and an order can't be
+  undone.
+- Don't commit credentials, or row-level licensed data (CRSP, TRACE, anything from
+  WRDS). The repo is public.
+- Don't make up numbers. Every figure says which script produced it and when.
+- Backtest with `evaluate()` in [`scripts/cef/band_frontier.py`](scripts/cef/band_frontier.py).
+  Lead with gross P&L and put the 5/15/30bp cost grid beside it.
+- Run `/graveyard` before proposing an idea. Most of them have been tried.
+- I'm the only one who merges to `main` or deploys, and GitHub enforces that
+  ([`docs/TEAM.md`](docs/TEAM.md#6-access)).
+
+The full rules are in [`CLAUDE.md`](CLAUDE.md). They apply to people as well as to
+Claude.
+
+## Finding things
+
+| Looking for | Go to |
 |---|---|
-| **Never send, replace or cancel an order**, and never run `quantt.session` or `quantt.collect` | Orders are irreversible, and the book's account is the team lead's alone |
-| **Never commit a credential or row-level licensed data** (CRSP, TRACE, any WRDS table) | This repository is public |
-| **Never invent a number.** Every figure names the script that produced it and its date, labelled [V] / [S] / [U] | Confident wrong numbers have cost this desk more than missing ones |
-| **Backtest only with `evaluate()`**: `shift(2)`, gross P&L first with the 5 / 15 / 30bp grid beside it, turnover-matched | Otherwise no result is comparable to any other |
-| **Check `/graveyard` before proposing anything** | Most ideas here have already died once |
-| **No trial returns before the pre-registration is approved**; a holdout is opened once | The trial counters and holdouts are only worth something while this holds |
-| **Only the team lead merges and deploys** | GitHub rulesets enforce it ([`docs/TEAM.md`](docs/TEAM.md#6-access)); prod runs only release tags |
-
-The full set: [`CLAUDE.md`](CLAUDE.md). What an analyst never does, and what stops
-it: [`docs/TEAM.md`](docs/TEAM.md#5-what-an-analyst-never-does).
-
----
-
-## Claude Code helpers
-
-| type | what it does |
-|---|---|
-| `/graveyard` | what has died, and how |
-| `/harness` | how to run a backtest that compares to existing numbers |
-| `/repro` | reproduce a figure before you quote it |
-| `/prereg` | draft a pre-registration for a trial |
-| `/research-idea` | take an idea from graveyard check to a reviewed result |
-| `/backtest-request` | one backtest question, independently re-derived |
-| `beta-detector`, `quant-reviewer` | ask for one before you trust a result or your code |
-
-The full agent layer: [`.claude/README.md`](.claude/README.md).
-
----
+| What is true right now | `python3 -m ops.orient` |
+| How the strategy and the system work | [`docs/SYSTEM.md`](docs/SYSTEM.md) |
+| The code that trades | [`src/deploy/sleeves/cef_discount.py`](src/deploy/sleeves/cef_discount.py) |
+| How a trading day runs | [`docs/RUNNER.md`](docs/RUNNER.md) |
+| What's been tried, and what died | [`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md) |
+| The research plan | [`results/cef/RESEARCH_PLAN_2026-10-09.md`](results/cef/RESEARCH_PLAN_2026-10-09.md) |
+| Data sources | [`docs/DATA.md`](docs/DATA.md) |
+| Your lane and what you may touch | [`docs/TEAM.md`](docs/TEAM.md) |
+| Which document answers what | [`docs/INDEX.md`](docs/INDEX.md) |
 
 <details>
-<summary><b>Repository map</b></summary>
+<summary>Repository map</summary>
 
 ```
-src/deploy/          the strategy: sleeves/cef_discount.py IS the book           LIVE
-quantt/              the runner (decide, gate, send, verify), collector, installers LIVE
-ops/specs/, books/   the frozen spec and the book json: governance objects       LIVE
+src/deploy/          the strategy: sleeves/cef_discount.py is the book          live
+quantt/              the runner (decide, check, send, verify), collector, installers   live
+ops/specs/, books/   the frozen spec and the book's settings                    live
 ops/                 orient, doc_audit, prod_state, NYSE calendar, network guard
-scripts/cef/         the research harness: band_frontier, validate, the CEF trials
-scripts/events/      EVENTS research
-scripts/xasset/      XASSET research
-scripts/gamma/       GAMMA research (options)
+scripts/cef/         the research harness: band_frontier, validate, CEF trials
+scripts/events/      events research
+scripts/xasset/      cross-asset research
+scripts/gamma/       options research
 scripts/data/        fetchers and data builds: EDGAR, CRSP, CEFConnect, factors
 src/backtest/        the original engine, lookahead guard, cost model
-results/<family>/    dated findings and pre-registrations, each true as of its date
-docs/                one owner per question (docs/INDEX.md)
+results/<family>/    dated findings and pre-registrations
+docs/                the documents, one owner per question (docs/INDEX.md)
 .claude/             Claude Code: skills, agents, hooks, workflows
 config/              the cost model, and your own .env (never committed)
-data/                the panels: gitignored, you build your own
+data/                the data panels: not in git, you build your own
 ```
 
-LIVE means a change can reach the book. It needs a test that fails against the old
-behaviour, the team lead's review and a release
-([`docs/TEAM.md`](docs/TEAM.md#2-the-live-path-what-can-change-the-book)).
+Anything marked live can change the book, so it needs a test, my review and a release.
 
 </details>
 
 <details>
-<summary><b>Everyday commands</b></summary>
+<summary>Commands you'll use</summary>
 
 ```bash
 python3 -m ops.orient                                # what is true right now
-python3 -m pytest                                    # the test suite: run it, never quote a count
+python3 -m pytest                                    # the tests
 python3 -m ops.doc_audit --check                     # do the documents still say true things?
-python3 -m quantt.broker.alpaca_probe --check-keys   # which keys are set (no network, no values)
+python3 -m quantt.broker.alpaca_probe --check-keys   # which of your keys are set (prints no values)
 python3 scripts/cef/stage_cef.py                     # build the CEF price and NAV panels
 python3 scripts/cef/fetch_daily.py                   # bring them up to date
 python3 scripts/cef/band_frontier.py                 # the trading-policy frontier
 ```
 
+In Claude Code, the skills you'll use most are `/graveyard`, `/harness`, `/repro` and
+`/prereg`, plus the `/research-idea` and `/backtest-request` workflows. Ask for the
+`beta-detector` or `quant-reviewer` agent before you trust a result.
+
 </details>
 
 <details>
-<summary><b>History</b></summary>
+<summary>History</summary>
 
-The repository was cut to a clean slate on 2026-09-28 when the book moved from IBKR
-to Alpaca. Everything earlier is in git at the tag `pre-clean-slate`, summarised in
-[`docs/HISTORY.md`](docs/HISTORY.md): provenance, never evidence of what is true now.
+The repo was cut back to a clean slate on 2026-09-28, when the book moved from IBKR to
+Alpaca. Everything from before then is in git at the tag `pre-clean-slate`, summarised
+in [`docs/HISTORY.md`](docs/HISTORY.md).
 
 </details>
-
-*This page carries no status figures, on purpose: they go stale. Run
-`python3 -m ops.orient`.*
