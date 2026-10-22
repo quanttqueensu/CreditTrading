@@ -60,8 +60,8 @@ analyst's session:
   as the book's.
 - **Never create, move or delete a tag, never push to `main`**, and never touch
   the VM. GitHub refuses the first two; the analyst has no route to the third.
-- **Work on the analyst's branch** (`events/work`, `xasset/work` or
-  `platform/work`), create no other branch on GitHub, and deliver through a pull
+- **Work on the analyst's branch** (`macro/work`, `equities/work` or
+  `dashboard/work`), create no other branch on GitHub, and deliver through a pull
   request.
   The team lead is the only reviewer and the only person who merges.
 - **Move no trial counter, and open no holdout, except in the commit that records

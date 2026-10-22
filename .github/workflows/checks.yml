@@ -5,8 +5,7 @@
 #
 # Read-only by construction: the job is given no secret, and the root conftest.py
 # blocks every network connection during tests (ops/netguard.py), so nothing in it
-# can reach a broker, R2 or the VM. Kept by the research-platform lane
-# (docs/TEAM.md §1); the team lead reviews any change to it.
+# can reach a broker, R2 or the VM. Kept by the team lead (docs/TEAM.md §1).
 name: checks
 
 on:

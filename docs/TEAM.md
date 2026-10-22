@@ -15,10 +15,10 @@ each analyst is a collaborator on this repository with Write access (§6).
 
 | lane | trial counter(s) | keeps | the queue it works from |
 |---|---|---|---|
-| **PM** (team lead) | CEF | The core CEF book, its execution and costs (TC), everything in §2, prod, release tags, approving pre-registrations, `docs/SYSTEM.md` §5, `docs/ROADMAP.md` | `docs/ROADMAP.md`; `results/cef/RESEARCH_PLAN_2026-10-09.md` §1 and §5 |
-| **EVENTS** | EVENTS | `scripts/events/`, `results/events/` | Plan §2 gates G1, G3, G4, G6, G7 and §3 trials E1–E4; the EVENTS rows of `docs/RESEARCH_STATE.md` |
-| **XASSET + GAMMA** | XASSET, GAMMA | `scripts/xasset/`, `scripts/gamma/`, `results/xasset/`, `results/gamma/` | Plan §2 gates G2 and G8 and §3 trials X1–X5 and G1; the XASSET and GAMMA rows of `docs/RESEARCH_STATE.md` |
-| **Research platform** | none | `scripts/data/`, `scripts/rv/`, `scripts/holdings/`, `scripts/build_etf_daily.py`, `src/data/`, `results/data/`; CI and the test plumbing (`.github/`, `pytest.ini`, `conftest.py`); the read-only dashboard, when it is built | Plan §1 items 0.1, 0.7 and 0.8; any fetcher another lane asks for |
+| **PM** (team lead) | CEF, EVENTS, GAMMA | The core CEF book, its execution and costs (TC), everything in §2, prod, release tags, approving pre-registrations, `docs/SYSTEM.md` §5, `docs/ROADMAP.md`. The corporate-event work (`scripts/events/`, `results/events/`) and the options test (`scripts/gamma/`, `results/gamma/`). The data platform and CI (`scripts/data/`, `scripts/rv/`, `scripts/holdings/`, `scripts/build_etf_daily.py`, `src/data/`, `results/data/`, `.github/`, `pytest.ini`, `conftest.py`) unless assigned | `docs/ROADMAP.md`; `results/cef/RESEARCH_PLAN_2026-10-09.md` §1, §2, §3 and §5 |
+| **MACRO** (FICC event-driven) | MACRO | `scripts/macro/`, `results/macro/` | Macro and thematic event signals, as overlays on the CEF book or as sleeves. Start from the KILLED and WATCH tables of `docs/RESEARCH_STATE.md` |
+| **Equities and ETFs** | XASSET | `scripts/xasset/`, `results/xasset/` | Equity and ETF signals, single names included, each slate declared up front; the XASSET rows of `docs/RESEARCH_STATE.md` |
+| **Dashboard** | none | The read-only dashboard (its folder is set in its first pull request), and whatever the team lead assigns case by case | `docs/ROADMAP.md`, "Later": a read-only dashboard, rebuilt fresh |
 
 What the table means:
 
@@ -26,9 +26,9 @@ What the table means:
   path means you are the one who keeps it working and answers for it. It does not
   stop anyone else from proposing a change to it.
 - **The team lead is the only reviewer and the only person who merges.**
-- **The research-platform lane stops at research.** `quantt/` and every file in §2
-  stay with the PM (team lead, 2026-10-22). A platform fix that would touch one is
-  proposed by PR like any other change.
+- **The dashboard is read-only.** No code path from it may send, replace or cancel
+  an order (`CLAUDE.md`, "Hard rules: code"). `quantt/` and every file in §2 stay
+  with the PM; a change that would touch one is proposed by PR like any other.
 - Each lane keeps its own counter rows in `docs/RESEARCH_STATE.md` (§4).
 
 ---
@@ -55,8 +55,8 @@ it and installs it** (`docs/RUNBOOK.md` §8.6).
 
 ## 3. From a branch to `main`, then to prod
 
-1. **Work on your branch**: `events/work`, `xasset/work` (XASSET and GAMMA) or
-   `platform/work`. `git fetch origin && git switch <lane>/work`. **GitHub holds
+1. **Work on your branch**: `macro/work`, `equities/work` or `dashboard/work`.
+   `git fetch origin && git switch <lane>/work`. **GitHub holds
    five branches and no others** (team lead, 2026-10-22): `main`, those three, and
    the team lead's `pm/work`, which holds the team lead's work in progress. A
    pull request opened by the team lead has its own branch only while it is open.
@@ -96,7 +96,7 @@ cannot each claim the same thing.
 |---|---|
 | `docs/RESEARCH_STATE.md` counter table | **A counter moves in the commit that records the team lead's approval of a pre-registration**, so the team lead's approval order sets the trial number, never who ran first. Each row is kept by its lane (§1). A trial on another lane's counter is agreed with the team lead first. |
 | `docs/SYSTEM.md` §5 | Written only for a ruling the team lead has made. An analyst proposes a ruling in a PR description; the team lead records it. |
-| `docs/REFERENCES.md` | **From 2026-10-22 a new section's id carries its lane**: `EVT-1`, `EVT-2`… for EVENTS, `XA-` for XASSET, `GM-` for GAMMA, `PLAT-` for the platform. The PM's sections continue the `12` series. Existing ids are never renumbered. Before this rule, parallel sessions claimed ids out of order and left gaps in the `12` series. |
+| `docs/REFERENCES.md` | **From 2026-10-22 a new section's id carries its lane**: `MAC-1`, `MAC-2`… for MACRO, `XA-` for equities and ETFs, `DASH-` for the dashboard. The PM's sections (CEF, EVENTS, GAMMA) continue the `12` series. Existing ids are never renumbered. Before this rule, parallel sessions claimed ids out of order and left gaps in the `12` series. |
 | `docs/INDEX.md` | A new authored document gets its row in the same PR. `ops.doc_audit` fails otherwise. |
 
 **Zero-trial work** (feasibility counts, gates, reproductions, data builds) needs

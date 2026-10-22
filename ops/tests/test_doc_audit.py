@@ -197,6 +197,20 @@ def test_a_dead_pointer_in_an_owner_document_is_drift(fake_repo, monkeypatch):
     assert _status(rep, "pointers:docs/SYSTEM.md") == M.OK
 
 
+def test_a_lane_branch_name_is_not_a_dead_pointer(fake_repo, monkeypatch):
+    """`dashboard/` is a pointer root, so the branch `dashboard/work` once read as a
+    missing file (2026-10-22). Only the named branches are exempt: a real dead path
+    under dashboard/ is still drift."""
+    monkeypatch.setattr(M, "POINTER_SCOPE", ("docs/SYSTEM.md",))
+    (fake_repo / "docs/SYSTEM.md").write_text(
+        "Branches `main`, `macro/work`, `equities/work`, `dashboard/work`, `pm/work`.\n")
+    rep = M.Report(); M.check_pointers(rep)
+    assert _status(rep, "pointers:docs/SYSTEM.md") == M.OK
+    (fake_repo / "docs/SYSTEM.md").write_text("See `dashboard/app.py`.\n")
+    rep = M.Report(); M.check_pointers(rep)
+    assert _status(rep, "pointers:docs/SYSTEM.md") == M.DRIFT
+
+
 def test_runtime_artefacts_placeholders_and_panels_are_not_dead(fake_repo, monkeypatch):
     """Halt files and probe snapshots are written at run time, data/ is
     gitignored, and `<book>` is a placeholder. None is a pointer into this tree.

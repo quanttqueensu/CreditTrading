@@ -17,8 +17,8 @@ Status key:
   citation details, or both could not be confirmed. **Do not put a [U] number
   into a model without pulling the primary source first.**
 
-**Section ids, from 2026-10-22:** a new section carries its lane's prefix (`EVT-`,
-`XA-`, `GM-`, `PLAT-`, numbered from 1); the team lead's sections continue the `12`
+**Section ids, from 2026-10-22:** a new section carries its lane's prefix (`MAC-`,
+`XA-`, `DASH-`, numbered from 1); the team lead's sections continue the `12`
 series. Existing ids are never renumbered. Why, and the lanes: `docs/TEAM.md` §4.
 
 ---

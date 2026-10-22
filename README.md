@@ -42,67 +42,71 @@ This is my first draft of the year, as of October 2026, and it will move as resu
 come in. The live status of every project is in
 [`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md).
 
-### Events and special situations
+### FICC event-driven signals
 
-Counter EVENTS. Folders `scripts/events/` and `results/events/`. Branch `events/work`.
+Counter MACRO, new this month, and every test you run adds to it. Folder
+`scripts/macro/`. Branch `macro/work`.
 
-Trades around corporate events in CEFs and BDCs, where the mechanics give prices a
-reason to move.
+Macro and thematic events that should move our funds: economic releases,
+central-bank decisions, Treasury auctions, index events and the like. The aim is to
+build them into the strategy, either as an overlay on the CEF book or as a sleeve of
+their own.
 
-- E1, the CEF merger pair (long the target, short the acquirer), was EVENTS trial 1
-  ([`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`](results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md)).
-  Its fit was killed on 22 October under D4: the deals made money, but the alpha
-  didn't clear our bar. Its holdout is still to be read, and I'll share the
-  write-up when it is.
-- Finish NAV tenders, EVENTS trial 2:
-  [`results/events/PREREG_NAV_TENDER_2026-10-19.md`](results/events/PREREG_NAV_TENDER_2026-10-19.md).
-- Go through the special-situations slate with me. The census of ideas is on my
-  branch, `pm/work`, and I haven't ruled on it yet.
-- Then, as their gates allow: convertible-issuance reversal (E2), listed mandatory
-  converts (E3) and the CEF IPO pair (E4).
+- Start with the graveyard. Several ideas in this space have already died here: raw
+  ETF flow, crowded-hedge short pressure and the month-end Treasury extension. One is
+  still alive: forced IG-to-HY index deletions are on WATCH, because the effect is
+  real but needs a better way to trade it and a regime gate.
+- Build a dated calendar of the events you want to test, from primary sources, with
+  a fetcher and a source note for each.
+- Pre-register each test, and get my approval, before you run it.
 
-The goal is one or two event sleeves trading on paper by the end of the year.
+The goal is one macro signal that improves the book after costs, or a clean record of
+what doesn't.
 
-### Cross-asset and options
+### Equities and ETFs
 
-Counters XASSET and GAMMA. Folders `scripts/xasset/`, `scripts/gamma/` and their
-`results/`. Branch `xasset/work`, for both counters.
+Counter XASSET. Folders `scripts/xasset/` and `results/xasset/`. Branch
+`equities/work`.
 
-- Options: we've agreed to run exactly one standalone test, selling TLT volatility
-  (G1). Its gate G2 was run on free data in October: two of its three parts pass, and
-  the cost part fails under our conservative spread assumption
-  ([`results/gamma/G2_GATE_FREE_DATA_2026-10-12.md`](results/gamma/G2_GATE_FREE_DATA_2026-10-12.md)).
-  It needs a real measure of option spreads during market hours first. Whether we pay
-  for that data is a call we'll make together.
-- Cross-asset: the first slate of four ETF signals all failed in October, so no sleeve
-  came out of it ([`results/xasset/XASSET_RESULTS_2026-10-14.md`](results/xasset/XASSET_RESULTS_2026-10-14.md)).
-  A new idea is declared as a new slate and pre-registered before anything runs.
+Signals in single stocks and ETFs that add to the book without adding market
+exposure. We trade alpha only, so a signal that turns out to be beta in disguise
+doesn't count.
 
-The goal is a clear yes or no on options, and at most one new cross-asset slate, run
-properly.
+- Read why the first slate of four ETF signals failed in October before designing a
+  new one: two had no edge and two were risk premia
+  ([`results/xasset/XASSET_RESULTS_2026-10-14.md`](results/xasset/XASSET_RESULTS_2026-10-14.md)).
+- Declare each new slate up front in one pre-registration, single names included.
+- Work out how a passing sleeve would sit beside the book
+  ([`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md`](results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md)).
 
-### Research platform
+The goal is one equity or ETF sleeve passing on paper, or a slate that settles the
+question either way.
 
-Folders `scripts/data/`, `src/data/`, `results/data/`, plus CI and the tests. Branch
-`platform/work`.
+### Dashboard
 
-- Keep CI green.
-- Move the research-only Python packages out of `requirements.txt` so the prod VM
-  never installs them. Leave numexpr out entirely: pandas uses it for arithmetic once
-  it is installed.
-- Own the fetchers the other lanes need: ETF history, EDGAR events, and NAV history
-  for funds outside our universe.
-- Build the read-only dashboard. Nothing on it may be able to send an order.
+Branch `dashboard/work`.
 
-The goal is that nobody loses a day to broken data or a red build.
+A read-only dashboard for the book: what it holds, what it traded and how each day
+scored. Nothing on it may be able to send an order.
+
+- First, agree with me what it shows and where its data comes from. Prod runs on the
+  VM, which only I can reach, so that design is the first decision.
+- Build on what already reads the system without touching it: `ops/orient.py` and
+  `ops/prod_state.py`.
+- Plus anything else I hand you along the way.
+
+The goal is a dashboard we check every day instead of running orient by hand.
 
 ### Me
 
 The core CEF book and its costs, everything that can change what the book trades,
-prod, releases, and the decision on every trial. The big item this year is the
-real-money cost check (`scripts/cef/real_money_costs.py`): the book has to stay positive
-after measured borrow, distributions owed on shorts and real auction fills before any
-real capital goes in. My work in progress sits on `pm/work`.
+prod, releases, and the decision on every trial. I'm also keeping the corporate-event
+work (NAV tenders, the special-situations slate, E2 to E4, and E1's holdout; E1's fit
+was killed on 22 October), the one options test, and the data platform and CI unless
+I hand a piece to the dashboard lane. The big item this year is the real-money cost
+check (`scripts/cef/real_money_costs.py`): the book has to stay positive after
+measured borrow, distributions owed on shorts and real auction fills before any real
+capital goes in. My work in progress sits on `pm/work`.
 
 ## Getting started
 
@@ -128,7 +132,7 @@ the VM.
 
 ```mermaid
 flowchart LR
-    A["Your lane branch<br/>e.g. events/work"] --> B["Pull request<br/>CI runs the tests"]
+    A["Your branch<br/>e.g. macro/work"] --> B["Pull request<br/>CI runs the tests"]
     B --> C{"I review"}
     C -- "changes" --> A
     C -- "merge" --> D["main"]
@@ -137,7 +141,7 @@ flowchart LR
 
 ```bash
 git fetch origin
-git switch events/work           # your branch: events/work, xasset/work or platform/work
+git switch macro/work            # your branch: macro/work, equities/work or dashboard/work
 git merge origin/main            # do this at the start of every day
 # ...work and commit...
 python3 -m pytest && python3 -m ops.doc_audit --check
@@ -145,8 +149,8 @@ git push
 gh pr create --base main         # when a piece is ready for me
 ```
 
-GitHub holds five branches and no more: `main`, one for each of you (`events/work`,
-`xasset/work`, `platform/work`) and mine, `pm/work`. Please don't create others. A
+GitHub holds five branches and no more: `main`, one for each of you (`macro/work`,
+`equities/work`, `dashboard/work`) and mine, `pm/work`. Please don't create others. A
 branch can only have one open pull request, so anything you push while yours is open
 joins it. Keep pieces small and I'll merge them quickly.
 
@@ -196,8 +200,9 @@ quantt/              the runner (decide, check, send, verify), collector, instal
 ops/specs/, books/   the frozen spec and the book's settings                    live
 ops/                 orient, doc_audit, prod_state, NYSE calendar, network guard
 scripts/cef/         the research harness: band_frontier, validate, CEF trials
-scripts/events/      events research
-scripts/xasset/      cross-asset research
+scripts/macro/       FICC event-driven research (macro, thematic)
+scripts/xasset/      equity and ETF research
+scripts/events/      corporate-event research
 scripts/gamma/       options research
 scripts/data/        fetchers and data builds: EDGAR, CRSP, CEFConnect, factors
 src/backtest/        the original engine, lookahead guard, cost model

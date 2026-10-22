@@ -118,7 +118,7 @@ What you should see:
 - **pytest**: tests that need the real panels skip, with the reason stated, until
   you have run 2.4; nothing should fail. A test that fails only because a panel is
   missing is a bug in the test (it should skip and say why): report it to the
-  research-platform lane. CI runs the same suite on every pull request, on a
+  team lead. CI runs the same suite on every pull request, on a
   clone with no `data/` at all.
 - **doc_audit**: no `DRIFT`.
 
@@ -127,7 +127,7 @@ itself, and a banner shows the book's state. Tell Claude once, durably, who you
 are: add this line to `~/.claude/CLAUDE.md` (your personal file, outside the repo):
 
 ```
-In the quanttqueensu/CreditTrading repository I am an analyst in the <EVENTS | XASSET + GAMMA | research-platform> lane, not the team lead.
+In the quanttqueensu/CreditTrading repository I am an analyst in the <MACRO | equities and ETFs | dashboard> lane, not the team lead.
 ```
 
 `CLAUDE.md`, "Who you are working for", tells Claude what that means.
@@ -147,10 +147,11 @@ In the quanttqueensu/CreditTrading repository I am an analyst in the <EVENTS | X
 | `ops/specs/`, `ops/books/` | the frozen spec and the book json: governance, not config | live | PM |
 | `ops/orient.py`, `ops/prod_state.py`, `ops/doc_audit.py` | where am I; which machine is prod; are the documents true | tooling | PM |
 | `scripts/cef/` | **the research harness**: `band_frontier.py` (its `evaluate()` is the canonical backtest), `validate.py`, diagnostics, the CEF trials. Also `spec.py` and `fetch_daily.py`, which the runner calls | research, plus two live files | PM |
-| `scripts/events/` | event and special-situation research: the merger pair, NAV tenders, SPACs, merger arbitrage, their gates | research | EVENTS |
-| `scripts/xasset/` | the XASSET slate: its protocol, runner and trials | research | XASSET + GAMMA |
-| `scripts/gamma/` | the short-TLT-variance test: Cboe volatility indices, gate G2, option snapshots | research | XASSET + GAMMA |
-| `scripts/data/`, `scripts/rv/`, `scripts/holdings/`, `scripts/build_etf_daily.py`, `src/data/` | fetchers and data builds: the EDGAR client, CRSP stagers, CEFConnect, factor files, ETF bars, the R2 reader | research | research platform |
+| `scripts/macro/` | FICC event-driven research: macro and thematic event signals | research | MACRO |
+| `scripts/xasset/` | equity and ETF research: the XASSET protocol, runner and trials | research | equities and ETFs |
+| `scripts/events/` | corporate-event research: the merger pair, NAV tenders, SPACs, merger arbitrage, their gates | research | PM |
+| `scripts/gamma/` | the short-TLT-variance test: Cboe volatility indices, gate G2, option snapshots | research | PM |
+| `scripts/data/`, `scripts/rv/`, `scripts/holdings/`, `scripts/build_etf_daily.py`, `src/data/` | fetchers and data builds: the EDGAR client, CRSP stagers, CEFConnect, factor files, ETF bars, the R2 reader | research | PM, unless assigned |
 | `src/backtest/` | the original engine, lookahead guard, cost model and walk-forward | research | PM |
 | `results/<family>/` | dated findings and pre-registrations, each true **as of its date** | record | that family's lane |
 | `docs/` | one owner per question; `docs/INDEX.md` lists them | | per the index |
@@ -181,9 +182,9 @@ Then your lane:
 
 | lane | read next |
 |---|---|
-| EVENTS | `docs/BRIEF.md` §3, "Corporate events"; the newest notes in `results/events/`; `scripts/data/edgar_client.py`, through which every EDGAR request goes |
-| XASSET + GAMMA | `results/xasset/PREREG_XASSET_SLATE_2026-10-12.md` and the newest results beside it; `scripts/xasset/protocol.py`; `results/gamma/G2_GATE_FREE_DATA_2026-10-12.md`; `docs/BRIEF.md` §3, "Options"; `results/cef/SCALING_RESEARCH_2026-10-08.md` §7.2, the conditions under which options reopen |
-| Research platform | `docs/DATA.md`; `src/data/r2.py`; `scripts/data/edgar_client.py`; `conftest.py` with `ops/netguard.py` (why no test may open a connection); `pytest.ini` (why collection is scoped); `ops/doc_audit.py` |
+| MACRO | The KILLED and WATCH tables of `docs/RESEARCH_STATE.md` (the flow and calendar ideas that died here, and the forced IG-to-HY index deletion on WATCH); `docs/BRIEF.md` §1 (what finding alpha means for this book); `results/cef/W10_PARTB_2026-10-12.md` (where the book's edge lives across fund groups, which an overlay has to respect); `results/cef/RESEARCH_PLAN_2026-10-09.md` §3, trial C2 (macro observables per fund group, already planned) |
+| Equities and ETFs | `results/xasset/PREREG_XASSET_SLATE_2026-10-12.md` and `results/xasset/XASSET_RESULTS_2026-10-14.md` (the first slate and why each test failed); `scripts/xasset/protocol.py` and `scripts/xasset/runner.py` (how a slate runs once); `results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` (how a new sleeve joins the book) |
+| Dashboard | `CLAUDE.md`, "Any monitor is read-only"; `docs/RUNNER.md` (what a session records); `quantt/session/records.py` (the on-disk record a dashboard reads); `ops/orient.py` and `ops/prod_state.py` (read-only readers that already exist); `docs/HISTORY.md` (the IBKR-era dashboard, at tag `pre-clean-slate`) |
 
 ---
 
