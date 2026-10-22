@@ -77,6 +77,16 @@ The following are consequences of those dates. Re-measure before you act on any 
 
 - The CRSP stock file stops at 2024-12-31. **It cannot check any price in 2025–26.**
   That covers most of the 2023-01-01 time holdout's live years.
+  *(Corrected 2026-10-19: true of the legacy SIZ file `dsf` only. CRSP's CIZ files in
+  the same schema (`dsf_v2`, `stkdlysecuritydata`, `stkdelists`, `stkdistributions`,
+  `stkshares`) run to **2025-12-31**: French's library says the legacy format was
+  "discontinued after the December 2024 data release". So CRSP can check 2025 prices,
+  on the CIZ files. The mirror also holds far more than this table: **1,146 tables in
+  81 schemas** (Compustat, IBES, Thomson insiders and 13F, SDC M&A and New Issues,
+  MSRB trades, OTC end-of-day, FJC bankruptcies and others), written as one snapshot
+  2026-06-26 → 07-03 and not refreshed since. Inventory:
+  `results/events/ssx/ssx_data/R2_FULL_INVENTORY_2026-10-19.md`, by
+  `python3 scripts/events/ssx/ssx_data_r2_inventory.py` [V]. `docs/REFERENCES.md` §12ssx.)*
 - The only options underlyings present are SPY, QQQ, TLT, IWM, GLD and SLV. **There is no
   HYG or LQD.** `docs/SYSTEM.md` names "the R2 trades source if it carries HYG/LQD/TLT"
   for options. As of this run, R2 carries only TLT of those three.

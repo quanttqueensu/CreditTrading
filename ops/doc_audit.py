@@ -260,7 +260,11 @@ _KNOWN_DESK_NAMES = {
     "agent": {"alpha-finder", "beta-detector", "unique-angle-researcher",
               "execution-trader", "portfolio-manager", "market-structure-analyst",
               "equity-research", "quant-reviewer", "dashboard-designer",
-              "ops-watchdog"},
+              "ops-watchdog",
+              # the event desk's seats, added 2026-10-19
+              "event-scout", "filings-analyst", "deal-analyst",
+              "credit-situations-analyst", "data-librarian",
+              "event-econometrician"},
 }
 
 
