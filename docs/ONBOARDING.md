@@ -116,10 +116,10 @@ What you should see:
   to the VM. That is correct: prod is the team lead's. The Alpaca snapshots orient
   shows are the team lead's record of the book's account.
 - **pytest**: tests that need the real panels skip, with the reason stated, until
-  you have run 2.4. **As measured on 2026-10-22, the eight tests in
-  `scripts/cef/tests/test_pnl_series.py` fail rather than skip without the
-  panels.** That is a missing guard in the tests, not a fault on your machine.
-  Any other failure is worth reporting.
+  you have run 2.4; nothing should fail. A test that fails only because a panel is
+  missing is a bug in the test (it should skip and say why): report it to the
+  research-platform lane. CI runs the same suite on every pull request, on a
+  clone with no `data/` at all.
 - **doc_audit**: no `DRIFT`.
 
 **2.6 Claude Code.** Run `claude` in the repository. `CLAUDE.md` loads by
