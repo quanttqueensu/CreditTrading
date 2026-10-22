@@ -481,3 +481,35 @@ def test_rulings_13_14_15():
     assert Y.loc[1, "excluded"] == "15"
     assert (Y.loc[2, "outcome"], Y.loc[2, "fail_date"], Y.loc[2, "in_trial"], Y.loc[2, "ann_date"]) == (
         "superseded", "2013-11-22", "Y", "2011-12-19")
+
+
+def test_r4_is_added_beside_the_earlier_reading_and_an_empty_one_is_dropped():
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([{**b, "episode_cik": "886043", "episode_accession": "m", "deal_id": "ep886043:1",
+                       "target_ticker": "SBI", "acquirer_ticker": "MMU", "ann_date": "2023-03-17", "doc_cik": ""}])
+    r4 = pd.DataFrame([{**b, "episode_cik": "882300", "episode_accession": "s", "deal_id": "ep882300:0",
+                        "target_ticker": "SBI", "acquirer_ticker": "MMU", "outcome": "vote_failed", "in_trial": "Y",
+                        "ann_date": "2023-07-28", "fail_date": "2024-01-30"},
+                       {**b, "episode_cik": "905000", "episode_accession": "n", "deal_id": "ep905000:0"}])
+    L = pd.DataFrame({"episode_cik": ["882300", "905000"], "episode_accession": ["s", "n"],
+                      "for_episode": ["886043_m", "1195738_x"]})
+    X = fr.add_r4(R, fr.rekey_r4(r4, L))
+    assert len(X) == 2 and list(X["deal_id"]) == ["ep886043:1", "ep886043:1"] and X.loc[1, "doc_cik"] == "882300"
+    _, probs = e1.check_readings(pd.DataFrame({"episode_cik": [886043], "episode_accession": ["m"]}), None,
+                                 readings=X.drop(columns=["in_trial"]).assign(in_trial="N"))
+    assert not any("blank outcome" in p for p in probs)          # the blank row is settled by the r4 row
+
+
+def test_failed_deal_rows_take_the_earliest_announcement_over_every_reading(monkeypatch):
+    nm = pd.DataFrame({"permno": [5, 6], "ticker": ["SBI", "MMU"], "namedt": pd.to_datetime(["2000-01-01"] * 2),
+                       "nameendt": pd.to_datetime(["2024-12-31"] * 2), "shrcd": [14, 14], "exchcd": [1, 1],
+                       "comnam": ["WESTERN ASSET INTERMED MUNI FD", "WESTERN ASSET MANAGED MUNIS FUND"]})
+    monkeypatch.setattr(e1.ce, "universe_permnos", lambda nm: {"XXX": [99]})
+    monkeypatch.setattr(e1, "spec_names", lambda: set())
+    b = {c: "" for c in e1.READING_COLUMNS}
+    R = pd.DataFrame([{**b, "deal_id": "d", "target_ticker": "SBI", "acquirer_ticker": "MMU", "ann_date": "2023-03-17"},
+                      {**b, "deal_id": "d", "target_ticker": "SBI", "acquirer_ticker": "MMU", "ann_date": "2023-07-28",
+                       "in_trial": "Y", "fail_date": "2024-01-30"}])
+    D = e1.failed_deal_rows(R, nm)
+    assert D.loc[0, "ann"] == pd.Timestamp("2023-03-17") and D.loc[0, "fail_date"] == pd.Timestamp("2024-01-30")
+    assert D.loc[0, "part"] == "time_holdout" and D.loc[0, "seg"] == "muni"

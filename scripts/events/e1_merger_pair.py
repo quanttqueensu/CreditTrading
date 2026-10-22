@@ -623,6 +623,13 @@ def supp_census(episodes: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+def deal_keys(r: pd.DataFrame) -> pd.Series:
+    """One deal's key across rows: a CIK-based deal_id as it is; a positional id (ep<cik>:<k>) only
+    within its episode (positions are not comparable across episodes)."""
+    ep = r["deal_id"].str.startswith("ep")
+    return r["deal_id"].where(~ep, r["episode_cik"] + "_" + r["episode_accession"] + "|" + r["deal_id"])
+
+
 def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None = None,
                    exempt: pd.Series | None = None) -> tuple[pd.DataFrame, list[str]]:
     """DG-E1-3: every candidate episode has at least one reading row (one per deal its filings
@@ -653,11 +660,14 @@ def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None =
     extra = sorted(set(rk) - key)
     if extra:
         probs.append(f"{len(extra)} reading(s) of an episode not in the census (first {extra[:3]})")
-    if r.duplicated(["episode_cik", "episode_accession", "deal_id"]).any():
+    # A deal read again from ANOTHER fund's filings (round r4, `doc_cik`) is a second reading, not a duplicate.
+    dup_keys = ["episode_cik", "episode_accession", "deal_id"] + (["doc_cik"] if "doc_cik" in r else [])
+    if r.duplicated(dup_keys).any():
         probs.append("an episode reads one deal twice")
     # Ruling 1 (one deal, one count): a blank row of a deal another row settles is not a gap.
-    settled = set(r.loc[(r["outcome"] != "") & ~r["deal_id"].str.startswith("ep"), "deal_id"])
-    bad = ~r["outcome"].isin(OUTCOMES) & ~ex & ~r["deal_id"].isin(settled)
+    dk = deal_keys(r)
+    settled = set(dk[r["outcome"] != ""])
+    bad = ~r["outcome"].isin(OUTCOMES) & ~ex & ~dk.isin(settled)
     if bad.any():
         probs.append(f"{int(bad.sum())} row(s) with an unknown or blank outcome {sorted(set(r.loc[bad, 'outcome']))} "
                      f"in {int((r.loc[bad, 'episode_cik'] + r.loc[bad, 'episode_accession']).nunique())} episode(s)")
@@ -670,6 +680,8 @@ def check_readings(census: pd.DataFrame, client, readings: pd.DataFrame | None =
         for acc_col, q_col in (("ann_accession", "ann_quote"), ("fail_accession", "fail_quote"),
                                ("outcome_accession", "outcome_quote")):
             acc, q = getattr(row, acc_col), getattr(row, q_col)
+            if getattr(row, "ruled", "") == "15" and acc_col == "fail_accession" and not q:
+                continue        # ruling 15: F is §4.3's superseded date (a later proposal's first filing), not a quote
             if not acc and not q:
                 continue
             if not (acc and q):
@@ -1450,6 +1462,12 @@ def stage0(args) -> int:
                         "first_filing_cached": cached, "supp_episodes": int(len(supp)), **extra}
     for pr in (probs or [gates["DG-E1-3"]["detail"]]):
         say(f"  DG-E1-3: {pr}")
+    failed_fit = None
+    if gates["DG-E1-3"]["status"] == "PASS" and extra:
+        Fd = failed_deal_rows(Rr, nm)
+        failed_fit = Fd[Fd["part"] == FIT_SET].reset_index(drop=True)
+        say(f"  failed deals in the trial by set: {Fd['part'].value_counts().to_dict()}; by segment: "
+            f"{Fd['seg'].value_counts().to_dict()}")
 
     # ---------------------------------------------------------------- DG-E1-1
     etf_perm = {}
@@ -1460,12 +1478,27 @@ def stage0(args) -> int:
         etf_perm[tk] = int(r["permno"].iloc[0])
     # every fit deal's parties (231 and 331, as `stage-crsp` stages them) and the factor ETFs
     fit_perms = set(xf_all["permno"].astype(int)) | set(xf_all["nwperm"].astype(int)) | set(etf_perm.values())
+    if failed_fit is not None:                  # the failed fit deals' parties too, once DG-E1-3 has passed
+        fit_perms |= set(failed_fit["permno"].astype(int)) | set(failed_fit["nwperm"].astype(int))
+    CACHE.mkdir(parents=True, exist_ok=True)
+    (CACHE / "fit_reader_permnos.txt").write_text("\n".join(map(str, sorted(fit_perms))) + "\n")
     xd = xf_all[xf_all["ann"].notna()]          # the dated fit deals (an undatable one is excluded, counted)
+    loaded = fit_perms
     try:
         dsf = fit_daily(fit_perms)
         fit_reader = f"PASS: {len(fit_perms)} permnos, {len(dsf):,} rows, last {dsf['date'].max().date()} (< 2023)"
     except GateError as e:
         dsf, fit_reader = None, f"FAIL: {e}"
+        if failed_fit is not None:
+            # DG-E1-1 fails, loudly, on the full set. The gates that never read the failed deals'
+            # parties (DG-E1-4's completed deals, -5, -7) are still evaluated, on the completed fit
+            # deals' own extract; a failed deal whose parties lack prices is counted as unchecked.
+            base = set(xf_all["permno"].astype(int)) | set(xf_all["nwperm"].astype(int)) | set(etf_perm.values())
+            try:
+                dsf, loaded = fit_daily(base), base
+                fit_reader += f" (gates DG-E1-4/5/7 evaluated on the completed fit deals' extract, {len(base)} permnos)"
+            except GateError:
+                dsf = None
     try:
         holdout_gate()
         hold_guard = "FAIL: the holdout reader did not refuse"
@@ -1482,6 +1515,10 @@ def stage0(args) -> int:
             if w is None or w["why"]:
                 continue
             pool |= set(control2_candidates(e, nm, cal0, w, set()).permno.astype(int))
+        for _, e in (failed_fit.iterrows() if failed_fit is not None else []):
+            w = deal_window(e, px0, cal0, failed=True, fail_date=e["fail_date"])
+            if w is not None and not w["why"]:
+                pool |= set(control2_candidates(e, nm, cal0, w, set()).permno.astype(int))
     in_cache = set()
     for f in ce.CACHE.glob("dsf_*.parquet"):
         in_cache |= set(pd.read_parquet(f, columns=["permno"])["permno"].astype(int))
@@ -1499,11 +1536,14 @@ def stage0(args) -> int:
         f"local cache: {len(pool_missing)}; failed deals' parties and pools: not known until DG-E1-3")
     say(f"  amendment 4: the 331 fit deals' parties without CRSP rows in the local cache: {len(a4_missing)}"
         + (f" -> the team lead runs `pull-crsp --permnos {_rel(A4_CRSP_PERMNOS)}`" if a4_missing else ""))
-    dg1_fail = dsf is None or not hold_guard.startswith("PASS") or bool(pool_missing) or bool(a4_missing)
-    gates["DG-E1-1"] = {"status": "FAIL" if dg1_fail else "INCOMPLETE",
+    dg1_fail = (not fit_reader.startswith("PASS") or not hold_guard.startswith("PASS") or bool(pool_missing)
+                or bool(a4_missing))
+    gates["DG-E1-1"] = {"status": "FAIL" if dg1_fail else ("PASS" if failed_fit is not None else "INCOMPLETE"),
                         "detail": f"fit reader {fit_reader.split(':')[0]}; holdout guard {hold_guard.split(' ')[0]}; "
                                   f"control-2 pool missing {len(pool_missing)}; 331 fit parties missing {len(a4_missing)}; "
-                                  "the failed deals' parties wait on DG-E1-3",
+                                  + ("the failed deals' parties wait on DG-E1-3" if failed_fit is None else
+                                     f"the fit reader's set ({_rel(CACHE / 'fit_reader_permnos.txt')}) includes the "
+                                     f"{len(failed_fit)} failed fit deals' parties"),
                         "pool": len(pool), "pool_missing": len(pool_missing)}
 
     # ---------------------------------------------------------------- DG-E1-4, DG-E1-7, the quality screen
@@ -1512,7 +1552,7 @@ def stage0(args) -> int:
         cal = market_calendar(dsf, CAL_START, FIT_END)
         say(f"\n[DG-E1-4] bridging check (merger_pairs.bridging_check) on the fit parties' extract: "
             f"{mp.bridging_check(dsf[~dsf['permno'].isin(etf_perm.values())])}")
-        neg = raw_prc_negative(fit_perms)
+        neg = raw_prc_negative(loaded)
         neg_set = set(zip(neg["permno"].astype(int), neg["date"]))
         excl, nflag, excl_perm = {}, 0, set()
         for _, e in xd.iterrows():
@@ -1540,8 +1580,38 @@ def stage0(args) -> int:
         say(f"  fit deals excluded by the window or the hold guard: {excl}; the same deals the published "
             f"buy-and-hold sample leaves unpriced: {excl_perm == unpriced} ({len(unpriced)} unpriced)")
         say(f"  fill-day quality screen: {nflag} leg(s) with no closing trade on the fill day (flags written)")
-        say("  the failed deals' windows: not known until DG-E1-3")
-        gates["DG-E1-4"] = {"status": "INCOMPLETE", "detail": f"completed fit deals checked ({excl}); failed deals wait on DG-E1-3"}
+        fexcl = {}
+        if failed_fit is not None:              # the failed fit deals' windows and fill days
+            unchecked = []
+            for _, e in failed_fit.iterrows():
+                if int(e["permno"]) not in px or int(e["nwperm"]) not in px:
+                    unchecked.append(f"{e['ticker']} -> {e.get('a_ticker', '')}")
+                    continue
+                w = deal_window(e, px, cal, failed=True, fail_date=e["fail_date"])
+                if w is None or w["why"]:
+                    why = (w or {}).get("why", "no window")
+                    fexcl[why] = fexcl.get(why, 0) + 1
+                    flags.append({"check": "DG-E1-4 failed-deal window", "ticker": e["ticker"],
+                                  "date": str(pd.Timestamp(e["ann"]).date()), "detail": f"{why} (deal excluded and counted)"})
+                    continue
+                R1 = returns_matrix(px, cal, pd.DataFrame([e]))
+                g = hold_gaps(R1[int(e["permno"])], w["d_in"], w["exit"]) or hold_gaps(R1[int(e["nwperm"])], w["d_in"], w["exit"])
+                if g:
+                    fexcl[g] = fexcl.get(g, 0) + 1
+                    flags.append({"check": "DG-E1-4 hold gap", "ticker": e["ticker"], "date": str(w["d_in"].date()),
+                                  "detail": f"{g} (failed deal excluded and counted)"})
+                for p_, tk in ((int(e["permno"]), e["ticker"]), (int(e["nwperm"]), e.get("a_ticker", ""))):
+                    if (p_, w["d_in"]) in neg_set:
+                        flags.append({"check": "quality screen: no closing trade on the fill day", "ticker": str(tk),
+                                      "date": str(w["d_in"].date()), "detail": "CRSP prc < 0 on d_in; report-only per §8.2"})
+            say(f"  failed fit deals ({len(failed_fit)}): excluded by the window or the hold guard: {fexcl}; "
+                f"unchecked (no CRSP prices yet): {unchecked}")
+            gates["DG-E1-4"] = {"status": "INCOMPLETE" if unchecked else "PASS",
+                                "detail": f"completed fit deals {excl}; failed fit deals {fexcl}"
+                                          + (f"; unchecked until their prices are pulled: {unchecked}" if unchecked else "")}
+        else:
+            say("  the failed deals' windows: not known until DG-E1-3")
+            gates["DG-E1-4"] = {"status": "INCOMPLETE", "detail": f"completed fit deals checked ({excl}); failed deals wait on DG-E1-3"}
 
         x231 = x[(x["part"] == FIT_SET) & (x["dlstcd"] == 231)]          # the published sample
         i1 = _identity_check_1(x231, px, fd[fd["permno"].isin(x231["permno"])])
@@ -1662,6 +1732,11 @@ def failed_deal_rows(readings: pd.DataFrame, nm: pd.DataFrame) -> pd.DataFrame:
          .groupby("deal_id", as_index=False)
          .agg(ann_date=("ann_date", "min"), fail_date=("fail_date", "min"), target_ticker=("target_ticker", "first"),
               acquirer_ticker=("acquirer_ticker", "first")))
+    # Ruling 1: A is the deal's EARLIEST announcement over every reading of it, not only the rows
+    # that carry the failure (SBI -> MMU: MMU's filings announce it 2023-03-17; SBI's own, read for
+    # the failure, first mention it 2023-07-28).
+    allann = pd.to_datetime(readings["ann_date"].replace("", None)).groupby(readings["deal_id"]).min()
+    r["ann_date"] = [min(a, allann.get(d, a)) if pd.notna(allann.get(d)) else a for d, a in zip(r["deal_id"], r["ann_date"])]
     up = ce.universe_permnos(nm)
     uni = {p for ps in up.values() for p in ps}
     spec_p = {p for tk, ps in up.items() if tk in spec_names() for p in ps}

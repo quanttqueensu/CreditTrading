@@ -905,6 +905,9 @@ def apply_dg3_rulings(R: pd.DataFrame, nm: pd.DataFrame, cmap: dict, dl: pd.Data
             for side in ("target", "acquirer"):
                 if not R.at[ix, f"{side}_ticker"] and R.at[ix, f"{side}_cik"]:
                     R.at[ix, f"{side}_ticker"] = tk_of(R.at[ix, f"{side}_cik"], when) or ""
+                elif R.at[ix, f"{side}_ticker"] and not R.at[ix, f"{side}_cik"]:   # and a CIK from the ticker
+                    c = cik_of(R.at[ix, f"{side}_ticker"], when)
+                    R.at[ix, f"{side}_cik"] = str(c) if c else ""
     for ix in R.index[R["deal_id"].isin(MYI_DEALS)]:
         when = R.at[ix, "ann_date"] or "2023-09-08"
         for side in ("target", "acquirer"):
@@ -974,8 +977,9 @@ def apply_ruling_14(R: pd.DataFrame, exempt: pd.Series) -> pd.DataFrame:
     "14"). Ruling 15's two deals are left to it."""
     R = R.copy()
     eidx = R["episode_cik"] + "_" + R["episode_accession"]
-    settled = set(R.loc[(R["outcome"] != "") & ~R["deal_id"].str.startswith("ep"), "deal_id"])
-    m = ((R["outcome"] == "") & ~exempt.values & ~R["deal_id"].isin(settled) & (R["excluded"] == "")
+    dk = e1.deal_keys(R)
+    settled = set(dk[R["outcome"] != ""])
+    m = ((R["outcome"] == "") & ~exempt.values & ~dk.isin(settled) & (R["excluded"] == "")
          & ~pd.Series([(e, t) in R15 for e, t in zip(eidx, R["target_ticker"])], index=R.index))
     R.loc[m, "excluded"] = "14"
     return R
@@ -1164,7 +1168,7 @@ def dg3_state(nm: pd.DataFrame, dl: pd.DataFrame, names: pd.DataFrame, cen: pd.D
         r4 = rekey_r4(r4, pd.read_csv(e1.OUT_DIR / ROUNDS["r4"][2], dtype=str))
         if "doc_cik" not in R:
             R["doc_cik"] = ""
-        R = _merge_third(R, r4, lambda F: F["episode_cik"] + "_" + F["episode_accession"]).reset_index(drop=True).fillna("")
+        R = add_r4(R, r4)
     allc = pd.concat([cen, supp], ignore_index=True).drop_duplicates(["episode_cik", "episode_accession"])
     keys = set(allc["episode_cik"].astype(str) + "_" + allc["episode_accession"])
     ek = R["episode_cik"] + "_" + R["episode_accession"]
@@ -1181,9 +1185,29 @@ def dg3_state(nm: pd.DataFrame, dl: pd.DataFrame, names: pd.DataFrame, cen: pd.D
     return {"R": Rr, "T": T, "exempt": ex, "census": allc, "moot_rows": moot}
 
 
+def add_r4(R: pd.DataFrame, r4: pd.DataFrame) -> pd.DataFrame:
+    """Round r4's readings ADDED beside the earlier readings of the same deal (matched by `_match`
+    within the episode, taking that deal's id), not in their place: each row's quotes stay in its
+    own fund's filings (`doc_cik`), and ruling 1 takes the deal's A as its earliest announcement over
+    every row (`failed_deal_rows`). A blank row of the deal is then settled by the r4 row."""
+    ek = R["episode_cik"] + "_" + R["episode_accession"]
+    out = []
+    for _, r in r4.iterrows():
+        olds = [o for _, o in R[ek == f"{r['episode_cik']}_{r['episode_accession']}"].iterrows()]
+        i = _match(olds, r)
+        out.append({**r, **({"deal_id": olds[i]["deal_id"]} if i is not None else {}), "round": "r4",
+                    "merge_note": "r4 beside the earlier readings" if i is not None else "only r4"})
+    return pd.concat([R, pd.DataFrame(out)], ignore_index=True).fillna("") if out else R
+
+
 def rekey_r4(r4: pd.DataFrame, L: pd.DataFrame) -> pd.DataFrame:
     """Round r4's rows moved onto the episode whose deal they settle (`for_episode`), with the fund
-    whose filings they quote kept in `doc_cik` (check_readings re-finds the quotes there)."""
+    whose filings they quote kept in `doc_cik` (check_readings re-finds the quotes there). A reading
+    that records no deal (no ticker, no CIK, no outcome) settles nothing and is dropped: ruling 15's
+    fallback then decides (NCU's own filings describe no NCU merger, 2026-10-21)."""
+    empty = (r4["target_ticker"] == "") & (r4["acquirer_ticker"] == "") & (r4["target_cik"] == "") \
+        & (r4["acquirer_cik"] == "") & (r4["outcome"] == "")
+    r4 = r4[~empty]
     to = dict(zip(L["episode_cik"].astype(str) + "_" + L["episode_accession"], L["for_episode"]))
     eid = r4["episode_cik"] + "_" + r4["episode_accession"]
     if not eid.isin(to).all():
@@ -1195,9 +1219,10 @@ def rekey_r4(r4: pd.DataFrame, L: pd.DataFrame) -> pd.DataFrame:
 
 def r3_list(T: pd.DataFrame, exempt: pd.Series) -> pd.DataFrame:
     """The episodes a third reading must settle (rulings 8 and 10), each with its focus."""
-    settled = set(T.loc[(T["outcome"] != "") & ~T["deal_id"].str.startswith("ep"), "deal_id"])
+    dk = e1.deal_keys(T)
+    settled = set(dk[T["outcome"] != ""])
     rows = []
-    for r, ex in zip(T.itertuples(index=False), exempt):
+    for r, ex, key in zip(T.itertuples(index=False), exempt, dk):
         if ex:
             continue
         pair = f"{r.target_ticker or '?'} into {r.acquirer_ticker or '?'}"
@@ -1205,7 +1230,7 @@ def r3_list(T: pd.DataFrame, exempt: pd.Series) -> pd.DataFrame:
             f = f"{pair}: CRSP shows it never completed; find the filing that makes its failure public, with its date"
         elif r.outcome in e1.FAILED_OUTCOMES and r.both_listed == "":
             f = f"{pair}: it failed ({r.outcome}); are BOTH funds exchange-listed? give each fund's ticker"
-        elif r.outcome == "" and r.deal_id not in settled:
+        elif r.outcome == "" and key not in settled:
             f = f"{pair}: how did it end? (outcome, the filing that says so, and both funds' tickers and listing)"
         else:
             continue

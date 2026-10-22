@@ -1,6 +1,6 @@
 {
- "run_utc": "2026-10-21T23:29:46+00:00",
- "head": "e035a7a",
+ "run_utc": "2026-10-22T15:07:15+00:00",
+ "head": "4185e7b",
  "verdict": "STAGE 0: HALT",
  "gates": {
   "DG-E1-6": {
@@ -35,25 +35,25 @@
    }
   },
   "DG-E1-3": {
-   "status": "FAIL",
-   "detail": "2 row(s) with an unknown or blank outcome [''] in 2 episode(s); round r4 (ruling 15: SBI -> MMU, NCU -> NKX in each target's own filings): 2 fund(s) unread",
+   "status": "PASS",
+   "detail": "754 readings, every quote re-found",
    "candidates": 255,
    "first_filing_cached": 255,
    "supp_episodes": 155,
-   "in_trial_deals_ruled": 11,
-   "exempt_rows": 732,
+   "in_trial_deals_ruled": 13,
+   "exempt_rows": 733,
    "moot_rows": 35,
    "crsp_settled": 223
   },
   "DG-E1-1": {
    "status": "FAIL",
-   "detail": "fit reader PASS; holdout guard PASS; control-2 pool missing 10; 331 fit parties missing 0; the failed deals' parties wait on DG-E1-3",
+   "detail": "fit reader FAIL; holdout guard PASS; control-2 pool missing 0; 331 fit parties missing 0; the fit reader's set (results/events/e1/_cache_e1/fit_reader_permnos.txt) includes the 4 failed fit deals' parties",
    "pool": 335,
-   "pool_missing": 10
+   "pool_missing": 0
   },
   "DG-E1-4": {
    "status": "INCOMPLETE",
-   "detail": "completed fit deals checked ({\"missing return on the leg's last earned session\": 19}); failed deals wait on DG-E1-3"
+   "detail": "completed fit deals {\"missing return on the leg's last earned session\": 19}; failed fit deals {}; unchecked until their prices are pulled: ['AFT -> AIF', 'ALD -> PSEC', 'RAA -> BFZ']"
   },
   "DG-E1-7": {
    "status": "PASS",
