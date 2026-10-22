@@ -49,13 +49,15 @@ Counter EVENTS. Folders `scripts/events/` and `results/events/`. Branch `events/
 Trades around corporate events in CEFs and BDCs, where the mechanics give prices a
 reason to move.
 
-- Take E1, the CEF merger pair (long the target, short the acquirer), through its
-  fit. It is approved as EVENTS trial 1:
-  [`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`](results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md).
+- E1, the CEF merger pair (long the target, short the acquirer), was EVENTS trial 1
+  ([`results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`](results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md)).
+  Its fit was killed on 22 October under D4: the deals made money, but the alpha
+  didn't clear our bar. Its holdout is still to be read, and I'll share the
+  write-up when it is.
 - Finish NAV tenders, EVENTS trial 2:
   [`results/events/PREREG_NAV_TENDER_2026-10-19.md`](results/events/PREREG_NAV_TENDER_2026-10-19.md).
-- Go through the special-situations slate with me. The census of ideas is on the
-  `research-ss-expansion` branch and I haven't ruled on it yet.
+- Go through the special-situations slate with me. The census of ideas is on my
+  branch, `pm/work`, and I haven't ruled on it yet.
 - Then, as their gates allow: convertible-issuance reversal (E2), listed mandatory
   converts (E3) and the CEF IPO pair (E4).
 
@@ -64,7 +66,7 @@ The goal is one or two event sleeves trading on paper by the end of the year.
 ### Cross-asset and options
 
 Counters XASSET and GAMMA. Folders `scripts/xasset/`, `scripts/gamma/` and their
-`results/`. Branches `xasset/work` and `gamma/work`.
+`results/`. Branch `xasset/work`, for both counters.
 
 - Options: we've agreed to run exactly one standalone test, selling TLT volatility
   (G1). Its gate G2 was run on free data in October: two of its three parts pass, and
@@ -100,7 +102,7 @@ The core CEF book and its costs, everything that can change what the book trades
 prod, releases, and the decision on every trial. The big item this year is the
 real-money cost check (`scripts/cef/real_money_costs.py`): the book has to stay positive
 after measured borrow, distributions owed on shorts and real auction fills before any
-real capital goes in.
+real capital goes in. My work in progress sits on `pm/work`.
 
 ## Getting started
 
@@ -135,7 +137,7 @@ flowchart LR
 
 ```bash
 git fetch origin
-git switch events/work           # your lane's branch: events, xasset, gamma or platform
+git switch events/work           # your branch: events/work, xasset/work or platform/work
 git merge origin/main            # do this at the start of every day
 # ...work and commit...
 python3 -m pytest && python3 -m ops.doc_audit --check
@@ -143,9 +145,10 @@ git push
 gh pr create --base main         # when a piece is ready for me
 ```
 
-A branch can only have one open pull request, so commits you push while one is open
-go into it. If you need a second piece reviewed separately, cut a short branch for it,
-like `events/tender-gate`, and open its own PR.
+GitHub holds five branches and no more: `main`, one for each of you (`events/work`,
+`xasset/work`, `platform/work`) and mine, `pm/work`. Please don't create others. A
+branch can only have one open pull request, so anything you push while yours is open
+joins it. Keep pieces small and I'll merge them quickly.
 
 Trials work differently from everything else. Anything that computes a strategy's
 returns spends a trial, so write the pre-registration first (`/prereg`), send it to me
