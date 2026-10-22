@@ -492,7 +492,16 @@ def _resolve(spec: str, root: Path) -> list[Path]:
     return [p] if p.exists() else []
 
 
+# The GitHub branches the pod works on (docs/TEAM.md §3; team lead, 2026-10-22).
+# `dashboard/` is a pointer root from the IBKR era, when a dashboard/ folder existed,
+# so the branch `dashboard/work` read as a missing path the day it was named. Listed
+# by name rather than by shape, so a real file under dashboard/ cannot hide behind it.
+BRANCH_NAMES = {"main", "macro/work", "equities/work", "dashboard/work", "pm/work"}
+
+
 def _resolves(kind: str, spec: str) -> bool:
+    if kind == "path" and spec in BRANCH_NAMES:
+        return True                    # a branch name, not a file
     if kind == "module":
         base = REPO / spec.replace(".", "/")
         return base.with_suffix(".py").exists() or (base / "__init__.py").exists()

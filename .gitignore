@@ -7,6 +7,9 @@ config/.env.*
 # LEADING SLASH IS LOAD-BEARING: a bare `data/` would also match any src/**/data/.
 /data/
 
+# An analyst's private Python for this repo (docs/ONBOARDING.md §2.2).
+/.venv/
+
 # Caches and scratch
 **/__pycache__/
 *.pyc

@@ -1,0 +1,6 @@
+# Every path is the team lead's to review: the team lead is the only reviewer and
+# the only person who merges (docs/SYSTEM.md §5, "Team lead, 2026-10-22: the pod").
+# GitHub requests that review on every pull request. Lanes are named in
+# docs/TEAM.md and never here: the repository is public, and a CODEOWNERS entry for
+# a lane would also let that lane's approval stand in for the team lead's.
+* @simonjarviss

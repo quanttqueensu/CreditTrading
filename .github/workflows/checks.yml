@@ -1,0 +1,37 @@
+# The checks every pull request into main gets, and every push to main: the test
+# suite and the document audit, on a clean clone with no data/ and no credentials.
+# That is what an analyst's fresh clone sees (docs/ONBOARDING.md §2.5), so a test
+# that needs the gitignored panels must skip with its reason here, never fail.
+#
+# Read-only by construction: the job is given no secret, and the root conftest.py
+# blocks every network connection during tests (ops/netguard.py), so nothing in it
+# can reach a broker, R2 or the VM. Kept by the team lead (docs/TEAM.md §1).
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0              # a full clone with tags, as an analyst's is
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"      # requirements.txt: the version the system runs on
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements.txt
+      - name: Tests
+        run: python -m pytest
+      - name: Document audit
+        run: python -m ops.doc_audit --check

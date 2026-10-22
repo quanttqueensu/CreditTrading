@@ -41,6 +41,19 @@ sys.path.insert(0, str(REPO))
 
 from scripts.cef import band_frontier as BF  # noqa: E402
 
+# The tests that read the real CEF panels (through band_frontier's DATA_DIR) skip
+# with the reason when the panels are absent, as the other real-panel tests do
+# (src/deploy/tests/test_opening_session.py). data/ is gitignored, so a fresh
+# clone and CI have none; until 2026-10-22 these eight failed there instead of
+# skipping, which kept CI off the repository. Only the price and NAV panels are
+# checked: with those present, a missing distribution or split panel is a
+# half-staged machine, and the test must still fail loudly on it.
+needs_panel = pytest.mark.skipif(
+    not ((BF.DATA_DIR / "cef_prices.parquet").exists()
+         and (BF.DATA_DIR / "cef_nav.parquet").exists()),
+    reason=f"real CEF panels absent ({BF.DATA_DIR}; data/ is gitignored); "
+           "the synthetic tests still run")
+
 
 # --- evaluate()["pnl"] ------------------------------------------------------
 
@@ -94,6 +107,7 @@ def test_pnl_does_not_disturb_the_existing_keys():
 
 # --- build_panel() ----------------------------------------------------------
 
+@needs_panel
 def test_build_panel_is_a_noop():
     """Re-deriving the targets from the panel must reproduce build_targets().
 
@@ -128,6 +142,7 @@ def test_build_panel_is_a_noop():
     pd.testing.assert_frame_equal(R, ret.reindex(T.index)[UNIVERSE].fillna(0.0))
 
 
+@needs_panel
 def test_panel_is_invariant_to_truncation():
     """H7, tested end to end: nothing on date t may depend on data after t.
 
@@ -151,6 +166,7 @@ def test_panel_is_invariant_to_truncation():
                                       check_freq=False)
 
 
+@needs_panel
 def test_the_zscore_is_standardised_against_a_window_that_excludes_its_own_day():
     """`mu`/`sd` are `.shift(1)`, and that is an estimation choice, not a lag.
 
@@ -174,6 +190,7 @@ def test_the_zscore_is_standardised_against_a_window_that_excludes_its_own_day()
 
 # --- distribution_yield() / total_returns() ---------------------------------
 
+@needs_panel
 def test_distribution_yield_raises_on_a_name_it_cannot_cover():
     """NO SILENT FALLBACKS. A zero here means "paid nothing", not "unknown"."""
     idx = pd.bdate_range("2020-01-01", periods=10)
@@ -181,6 +198,7 @@ def test_distribution_yield_raises_on_a_name_it_cannot_cover():
         BF.distribution_yield(idx, ["AWF", "NOT_A_FUND"])
 
 
+@needs_panel
 def test_total_returns_composes_the_two_corrections():
     """r_total = (1+r_px)*k - 1 + D/P_{t-1}, and both legs are real.
 
@@ -201,6 +219,7 @@ def test_total_returns_composes_the_two_corrections():
     pd.testing.assert_frame_equal(BF.total_returns(R), (1.0 + R) * k - 1.0 + y)
 
 
+@needs_panel
 def test_distribution_yield_raises_rather_than_dropping_an_ex_date():
     """The count check, not just the ticker check.
 
@@ -214,6 +233,7 @@ def test_distribution_yield_raises_rather_than_dropping_an_ex_date():
         BF.distribution_yield(R.index[::3], R.columns)     # drops 2 of every 3 sessions
 
 
+@needs_panel
 def test_the_split_is_applied_and_it_is_not_cosmetic():
     """BIT 2025-08-19: a 1.029 split the raw panel books as a -2.8% return.
 
@@ -234,6 +254,7 @@ def test_the_split_is_applied_and_it_is_not_cosmetic():
     assert (k != 1.0).sum().sum() == 1
 
 
+@needs_panel
 def test_the_convention_choice_is_the_callers_and_moves_the_number():
     """If total vs price returns made no difference, the extension is pointless.
 
