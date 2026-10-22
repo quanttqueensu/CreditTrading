@@ -7,7 +7,9 @@
 **What is canonical here:** the trial-counter table, the D1–D7 verdict legend,
 and the KILLED, WATCH, ACTIVE and CLOSED tables. **Update the counter in the same
 commit as any trial**, never at the end of a session. `python3 -m ops.orient`
-(TRIALS) parses the counter table's bold rows; keep that shape.
+(TRIALS) parses the counter table's bold rows; keep that shape. **Each counter row
+is kept by one lane, and moves only in the commit that records the team lead's
+approval** (from 2026-10-22; which lane keeps which row: `docs/TEAM.md` §1 and §4).
 
 **What is not here:** live state, which is `python3 -m ops.orient`; what the book
 is and how it runs, which is `docs/SYSTEM.md`; and narrative. The dated research

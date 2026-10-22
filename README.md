@@ -25,6 +25,11 @@ standing decisions), **[`docs/INDEX.md`](docs/INDEX.md)** (which file owns which
 question) and **[`CLAUDE.md`](CLAUDE.md)** (the hard rules — for people as much as
 agents). Research starts from [`docs/BRIEF.md`](docs/BRIEF.md).
 
+**Joining the team as an analyst?** Start with
+[`docs/ONBOARDING.md`](docs/ONBOARDING.md) (setting up your Mac, a tour of the code,
+what to read in which order), then [`docs/TEAM.md`](docs/TEAM.md) (your lane, and how
+your work reaches `main`). Only the team lead merges and deploys.
+
 ## Setup
 
 ```bash

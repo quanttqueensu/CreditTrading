@@ -527,6 +527,22 @@ with the auction-marked score (`docs/REFERENCES.md` §12an). The design is
 | C4's double-applied splits (BTO, TYG, NXG, EMO) | **drop_split.** Only the report-only R-yf row moves, 1.131 → 1.130; the verdict is unchanged |
 | Merger arbitrage, MA-HZ (after the CRSP measurement: hump holds, cost marginal, P(D4 pass) about 1–10%) | **WATCH, no trial** (`results/events/MERGER_ARB_V2_2026-10-19.md` §5.6) |
 
+### Team lead, 2026-10-22: the pod
+
+Three analysts join for the year. Answered interactively; how it works day to day is
+`docs/TEAM.md`, and setting up is `docs/ONBOARDING.md`.
+
+| question | decision |
+|---|---|
+| How the work is split | **Sleeve owners by counter.** One analyst keeps EVENTS; one keeps XASSET and GAMMA; one keeps the research platform (fetchers, CI, tests, the read-only dashboard). The team lead keeps the core CEF book (CEF), execution and costs, the live path and prod. "The main work falls to me" (team lead) |
+| How far the platform lane reaches | **Research platform only.** `quantt/` and the runner stay with the team lead |
+| Live-path changes from analysts | **Yes, by pull request only.** Anyone may propose a change to any file; nothing reaches prod until the team lead tags a release |
+| Review | **The team lead is the only reviewer and the only person who merges** |
+| How changes arrive | **Branches in this repository**, from members of one GitHub team, `credit-analysts`, with write access. Rulesets let only the team lead update `main` and create, move or delete the protected tags; the team lead is the bypass actor and keeps pushing `main` as before |
+| Names in the repository | **None.** The repository is public: it names lanes, and GitHub team membership says who is in them |
+| Analysts' data access | **Each analyst holds their own**: a read-only R2 token from the team lead, a free Alpaca paper account of their own, and their own `SEC_USER_AGENT`. This narrows 2026-10-12's "the team lead's own address" to the team lead's machines. No analyst holds a key to the book's account or a route to the VM |
+| The analysts' machines | **Macs** |
+
 ### Recorded in `CLAUDE.md`, 2026-09-13
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
@@ -555,6 +571,7 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | External claims | `docs/REFERENCES.md` |
 | Work orders and the plan | `docs/ROADMAP.md`. The old work orders were deleted 2026-09-28 (tag `pre-clean-slate`). |
 | Which document owns which question | `docs/INDEX.md`, checked by `python3 -m ops.doc_audit` |
+| Who keeps which lane; how work reaches `main` and prod; the shared-ledger rules | `docs/TEAM.md` |
 
 ---
 
@@ -575,3 +592,4 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-19 | §5 records the HALVE/KILL report-mode ruling and the official equity series it reads. | for the team lead |
 | 2026-10-19 | §5 records the P&L-of-record ruling: Alpaca's end-of-day history is official; the 17:30 reading is a snapshot. | hotfix, for the team lead |
 | 2026-10-20 | §5 records IBKR waiting for a trigger, SPACs closed (D4), the three event-path closes, the trials' Stage-0 rulings and C4's split ruling. | for the team lead |
+| 2026-10-22 | §5 records the pod: the lanes, review and merge, GitHub access and analysts' data access; §6 points at `docs/TEAM.md`. | team setup, for the team lead |

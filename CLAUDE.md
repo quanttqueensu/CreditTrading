@@ -31,12 +31,41 @@ Read `docs/BRIEF.md` before any research.
 | what the system is, how it runs, the standing decisions | `docs/SYSTEM.md` |
 | trial counters, D1–D7, what is dead | `docs/RESEARCH_STATE.md` |
 | whether a document still says true things | `python3 -m ops.doc_audit` |
+| who keeps which lane, and how work reaches `main` and prod | `docs/TEAM.md` (setting up: `docs/ONBOARDING.md`) |
 
 **There is no archive.** Everything from before 2026-09-28 — the IBKR system, the
 research notes, the old research families — lives only in git at the tag
 `pre-clean-slate` (`docs/HISTORY.md` says what was there and how to recover it).
 It is provenance, never evidence of what is true now. Do not rebuild an `pre-clean-slate:_archive/`
 folder: delete what is dead, and let git keep it.
+
+---
+
+## Who you are working for
+
+This repository is worked by the team lead and by analysts, each in a lane
+(`docs/TEAM.md`; team lead, 2026-10-22). **Know whose session this is before you
+act.** If the person has not said (an analyst's `~/.claude/CLAUDE.md` says it), ask
+once.
+
+**Wherever a rule here says "the team lead", it means the team lead and nobody
+else.** An analyst's request does not stand in for the team lead's approval. In an
+analyst's session:
+
+- **Never send, replace or cancel an order at any broker**, never run
+  `quantt.session` or `quantt.collect`, and never run the full
+  `quantt.broker.alpaca_probe` (its snapshots are the book's record; `--check-keys`
+  is fine). The analyst's `config/.env` holds their own paper account under the
+  book's variable names, so any of these would act on that account, or record it
+  as the book's.
+- **Never create, move or delete a tag, never push to `main`**, and never touch
+  the VM. GitHub refuses the first two; the analyst has no route to the third.
+- **Work on a branch named `<lane>/<topic>`** and deliver through a pull request.
+  The team lead is the only reviewer and the only person who merges.
+- **Move no trial counter, and open no holdout, except in the commit that records
+  the team lead's approval.** Compute no return on a trial before that approval.
+- **Write `docs/SYSTEM.md` §5 only to record a ruling the team lead has made.**
+  Propose one in the pull request instead.
 
 ---
 
