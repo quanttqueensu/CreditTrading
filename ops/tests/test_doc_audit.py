@@ -203,7 +203,7 @@ def test_a_lane_branch_name_is_not_a_dead_pointer(fake_repo, monkeypatch):
     under dashboard/ is still drift."""
     monkeypatch.setattr(M, "POINTER_SCOPE", ("docs/SYSTEM.md",))
     (fake_repo / "docs/SYSTEM.md").write_text(
-        "Branches `main`, `macro/work`, `equities/work`, `dashboard/work`, `pm/work`.\n")
+        "Branches `main`, `simon`, `ryan`, `james`, `lucy`.\n")
     rep = M.Report(); M.check_pointers(rep)
     assert _status(rep, "pointers:docs/SYSTEM.md") == M.OK
     (fake_repo / "docs/SYSTEM.md").write_text("See `dashboard/app.py`.\n")

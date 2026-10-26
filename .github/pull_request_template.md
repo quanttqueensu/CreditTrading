@@ -2,7 +2,7 @@
 
 <!-- Two or three sentences. Link the plan item or results note it answers. -->
 
-**Lane:** MACRO / equities and ETFs (XASSET) / dashboard / PM
+**Lane:** MACRO (fixed income) / equities and ETFs (XASSET) / dashboard and data / PM
 
 ## Does it spend a trial?
 

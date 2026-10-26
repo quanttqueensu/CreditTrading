@@ -38,39 +38,48 @@ Each of you owns a lane. You keep its folders working, keep its trial counter ho
 and bring me results. You can still propose a change anywhere in the repo through a
 pull request.
 
-This is my first draft of the year, as of October 2026, and it will move as results
-come in. The live status of every project is in
-[`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md).
+All of it feeds one book. The CEF discount book is the core, the corporate-event
+sleeves sit beside it, and anything you find joins them in one of three ways: as a
+sleeve of its own, as an overlay or conditioner on the CEF book, or as a hedge. A
+signal earns its place by what it adds to the whole book after costs
+([`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md`](results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md)).
 
-### FICC event-driven signals
+The corporate-event work stays with me, so bring new signals rather than picking up
+mine. The live status of every project is in
+[`docs/RESEARCH_STATE.md`](docs/RESEARCH_STATE.md). Each of you also gets a detailed
+plan to the end of December from me directly. It isn't in the repo because it has
+your names in it.
 
-Counter MACRO, new this month, and every test you run adds to it. Folder
-`scripts/macro/`. Branch `macro/work`.
+### Fixed income
 
-Macro and thematic events that should move our funds: economic releases,
-central-bank decisions, Treasury auctions, index events and the like. The aim is to
-build them into the strategy, either as an overlay on the CEF book or as a sleeve of
-their own.
+Counter MACRO, new this month, and every test you run adds to it. Folders
+`scripts/macro/` and `results/macro/`. Branch `ryan`.
 
-- Start with the graveyard. Several ideas in this space have already died here: raw
-  ETF flow, crowded-hedge short pressure and the month-end Treasury extension. One is
-  still alive: forced IG-to-HY index deletions are on WATCH, because the effect is
-  real but needs a better way to trade it and a regime gate.
-- Build a dated calendar of the events you want to test, from primary sources, with
-  a fetcher and a source note for each.
+Anything in fixed income that can help the book: macro events (central-bank
+decisions, economic releases, Treasury auctions), credit events, and the
+instruments themselves (rate and credit ETFs, preferreds, baby bonds). For each idea,
+the question is how it helps our funds: as a conditioner on the CEF book, as a hedge,
+or as a sleeve of its own.
+
+- Start with the graveyard (`/graveyard`). A lot has already died in this space:
+  credit-ETF relative value, raw ETF flow, crowded-hedge short pressure, credit and
+  rates trend, and the month-end Treasury extension, which was real but turned out to
+  be term premium. The forced IG-to-HY index deletion on WATCH stays with me.
+- Build a dated calendar of the events you want to test, from primary sources. Every
+  calendar gets a fetcher and a source note.
 - Pre-register each test, and get my approval, before you run it.
 
-The goal is one macro signal that improves the book after costs, or a clean record of
-what doesn't.
+The goal is one fixed-income signal that improves the book after costs, or a clean
+record of what doesn't.
 
 ### Equities and ETFs
 
-Counter XASSET. Folders `scripts/xasset/` and `results/xasset/`. Branch
-`equities/work`.
+Counter XASSET. Folders `scripts/xasset/` and `results/xasset/`. Branch `james`.
 
 Signals in single stocks and ETFs that add to the book without adding market
 exposure. We trade alpha only, so a signal that turns out to be beta in disguise
-doesn't count.
+doesn't count. The equity events on my special-situations slate (insider clusters,
+earnings-date delays, 8-K red flags, index changes) and their ETF hedge stay with me.
 
 - Read why the first slate of four ETF signals failed in October before designing a
   new one: two had no edge and two were risk premia
@@ -82,31 +91,36 @@ doesn't count.
 The goal is one equity or ETF sleeve passing on paper, or a slate that settles the
 question either way.
 
-### Dashboard
+### Dashboard and data
 
-Branch `dashboard/work`.
+Folders `dashboard/` and the research data platform (`scripts/data/` and its
+neighbours, listed in [`docs/TEAM.md`](docs/TEAM.md#1-the-lanes)). Branch `lucy`.
 
 A read-only dashboard for the book: what it holds, what it traded and how each day
-scored. Nothing on it may be able to send an order.
+scored. Nothing on it may be able to send an order. Its data is a nightly snapshot
+that the VM writes and the repo holds under `dashboard/snapshots/`
+([`dashboard/README.md`](dashboard/README.md)).
 
-- First, agree with me what it shows and where its data comes from. Prod runs on the
-  VM, which only I can reach, so that design is the first decision.
-- Build on what already reads the system without touching it: `ops/orient.py` and
-  `ops/prod_state.py`.
-- Plus anything else I hand you along the way.
+- Define the snapshot: what it carries and what it never carries. Then write the spec
+  and tests for the exporter that writes it. I install it on the VM.
+- Build the dashboard against a fixture snapshot first. Build on what already reads
+  the system without touching it: `ops/orient.py` and `ops/prod_state.py`.
+- Keep the research data the other two lanes build on: fetchers, data builds and
+  source notes, and the event store once my event work is merged into `main`.
 
-The goal is a dashboard we check every day instead of running orient by hand.
+The goal is a dashboard we check every day instead of running orient by hand, and
+data the other two can trust.
 
 ### Me
 
 The core CEF book and its costs, everything that can change what the book trades,
 prod, releases, and the decision on every trial. I'm also keeping the corporate-event
-work (NAV tenders, the special-situations slate, E2 to E4, and E1's holdout; E1's fit
-was killed on 22 October), the one options test, and the data platform and CI unless
-I hand a piece to the dashboard lane. The big item this year is the real-money cost
-check (`scripts/cef/real_money_costs.py`): the book has to stay positive after
-measured borrow, distributions owed on shorts and real auction fills before any real
-capital goes in. My work in progress sits on `pm/work`.
+work (NAV tenders, the special-situations slate and its hedge overlay, E2 to E4, and
+E1's holdout; E1's fit was killed on 22 October), the one options test, and CI. The
+big item this year is the real-money cost check
+(`scripts/cef/real_money_costs.py`): the book has to stay positive after measured
+borrow, distributions owed on shorts and real auction fills before any real capital
+goes in. My work in progress sits on `simon`.
 
 ## Getting started
 
@@ -132,7 +146,7 @@ the VM.
 
 ```mermaid
 flowchart LR
-    A["Your branch<br/>e.g. macro/work"] --> B["Pull request<br/>CI runs the tests"]
+    A["Your branch<br/>e.g. ryan"] --> B["Pull request<br/>CI runs the tests"]
     B --> C{"I review"}
     C -- "changes" --> A
     C -- "merge" --> D["main"]
@@ -141,7 +155,7 @@ flowchart LR
 
 ```bash
 git fetch origin
-git switch macro/work            # your branch: macro/work, equities/work or dashboard/work
+git switch ryan                  # your branch: ryan, james or lucy
 git merge origin/main            # do this at the start of every day
 # ...work and commit...
 python3 -m pytest && python3 -m ops.doc_audit --check
@@ -149,8 +163,8 @@ git push
 gh pr create --base main         # when a piece is ready for me
 ```
 
-GitHub holds five branches and no more: `main`, one for each of you (`macro/work`,
-`equities/work`, `dashboard/work`) and mine, `pm/work`. Please don't create others. A
+GitHub holds five branches and no more: `main`, one for each of you (`ryan`, `james`,
+`lucy`) and mine, `simon`. Please don't create others. A
 branch can only have one open pull request, so anything you push while yours is open
 joins it. Keep pieces small and I'll merge them quickly.
 
@@ -200,11 +214,12 @@ quantt/              the runner (decide, check, send, verify), collector, instal
 ops/specs/, books/   the frozen spec and the book's settings                    live
 ops/                 orient, doc_audit, prod_state, NYSE calendar, network guard
 scripts/cef/         the research harness: band_frontier, validate, CEF trials
-scripts/macro/       FICC event-driven research (macro, thematic)
+scripts/macro/       fixed-income research (macro events, credit events, FI instruments)
 scripts/xasset/      equity and ETF research
 scripts/events/      corporate-event research
 scripts/gamma/       options research
 scripts/data/        fetchers and data builds: EDGAR, CRSP, CEFConnect, factors
+dashboard/           the read-only dashboard; snapshots/ holds the book's nightly snapshot
 src/backtest/        the original engine, lookahead guard, cost model
 results/<family>/    dated findings and pre-registrations
 docs/                the documents, one owner per question (docs/INDEX.md)

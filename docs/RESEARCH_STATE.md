@@ -37,7 +37,7 @@ counter (156) covers all ETF-price/PD work done to date.
 | POSITIONING | FINRA short interest + daily short volume | 1 |
 | **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **2** |
 | **XASSET** | **cross-asset ETF/futures slate, declared up front (NEW SOURCE 2026-10-09); from 2026-10-22 also single-name equities, each slate declared up front** | **4** |
-| **MACRO** | **FICC event-driven signals: macro and thematic events, as overlays on the CEF book or as sleeves (NEW SOURCE 2026-10-22)** | **0** |
+| **MACRO** | **fixed income: macro events, credit events and fixed-income instruments, as overlays on the CEF book, sleeves or hedges (NEW SOURCE 2026-10-22; widened 2026-10-26)** | **0** |
 > **2026-10-22: MACRO opened at 0** (team lead, `docs/SYSTEM.md` §5, "Team lead,
 > 2026-10-22, later: the lanes revised"). Opening a counter spends no trial. A
 > **running count**, like EVENTS: each approved trial adds one and the bar is
@@ -45,6 +45,12 @@ counter (156) covers all ETF-price/PD work done to date.
 > **whether an overlay on the CEF book or its own sleeve**. For this lane that sets
 > aside 2026-10-09's "changes to the live CEF book stay on CEF". The same ruling
 > puts single-name equities on XASSET, with each slate declared up front as before.
+>
+> **2026-10-26: MACRO widened to all of fixed income** (team lead, `docs/SYSTEM.md`
+> §5, "Team lead, 2026-10-26"): macro events, credit events and fixed-income
+> instruments, on this one running count. The counter does not move. The PM's
+> EVENTS rows and the S3 row on WATCH stay where they are. Whether trial C2 (macro
+> observables per fund group, planned on CEF) moves here is still open.
 >
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:

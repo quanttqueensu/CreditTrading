@@ -5,9 +5,11 @@ from a branch to `main` to prod. The standing decision behind it is
 `docs/SYSTEM.md` §5, "Team lead, 2026-10-22: the pod". New here: start with
 `docs/ONBOARDING.md`. What is true right now: `python3 -m ops.orient`, never this file.
 
-The pod is the team lead (the PM) and three analysts. **This repository is public,
-so it names lanes, never people.** Who sits in which lane is the team lead's record;
-each analyst is a collaborator on this repository with Write access (§6).
+The pod is the team lead (the PM) and three analysts, each on a branch named for
+them: `simon` (PM), `ryan` (MACRO, fixed income), `james` (equities and ETFs) and
+`lucy` (dashboard and data). **This repository is public**: first names appear only
+as those branch names (team lead, 2026-10-26); nothing else here names a person.
+Each analyst is a collaborator on this repository with Write access (§6).
 
 ---
 
@@ -15,10 +17,10 @@ each analyst is a collaborator on this repository with Write access (§6).
 
 | lane | trial counter(s) | keeps | the queue it works from |
 |---|---|---|---|
-| **PM** (team lead) | CEF, EVENTS, GAMMA | The core CEF book, its execution and costs (TC), everything in §2, prod, release tags, approving pre-registrations, `docs/SYSTEM.md` §5, `docs/ROADMAP.md`. The corporate-event work (`scripts/events/`, `results/events/`) and the options test (`scripts/gamma/`, `results/gamma/`). The data platform and CI (`scripts/data/`, `scripts/rv/`, `scripts/holdings/`, `scripts/build_etf_daily.py`, `src/data/`, `results/data/`, `.github/`, `pytest.ini`, `conftest.py`) unless assigned | `docs/ROADMAP.md`; `results/cef/RESEARCH_PLAN_2026-10-09.md` §1, §2, §3 and §5 |
-| **MACRO** (FICC event-driven) | MACRO | `scripts/macro/`, `results/macro/` | Macro and thematic event signals, as overlays on the CEF book or as sleeves. Start from the KILLED and WATCH tables of `docs/RESEARCH_STATE.md` |
-| **Equities and ETFs** | XASSET | `scripts/xasset/`, `results/xasset/` | Equity and ETF signals, single names included, each slate declared up front; the XASSET rows of `docs/RESEARCH_STATE.md` |
-| **Dashboard** | none | The read-only dashboard (its folder is set in its first pull request), and whatever the team lead assigns case by case | `docs/ROADMAP.md`, "Later": a read-only dashboard, rebuilt fresh |
+| **PM** (team lead) | CEF, EVENTS, GAMMA | The core CEF book, its execution and costs (TC), everything in §2, prod, release tags, approving pre-registrations, `docs/SYSTEM.md` §5, `docs/ROADMAP.md`. The corporate-event work (`scripts/events/`, `results/events/`), including the special-situations slate and its ETF hedge overlay, and the options test (`scripts/gamma/`, `results/gamma/`). CI (`.github/`, `pytest.ini`, `conftest.py`). Installing the dashboard's snapshot exporter on the VM | `docs/ROADMAP.md`; `results/cef/RESEARCH_PLAN_2026-10-09.md` §1, §2, §3 and §5 |
+| **MACRO** (fixed income) | MACRO | `scripts/macro/`, `results/macro/` | New fixed-income signals: macro events, credit events and fixed-income instruments, each as an overlay or conditioner on the CEF book, a sleeve, or a hedge. Not the PM's EVENTS rows. Start from the KILLED and WATCH tables of `docs/RESEARCH_STATE.md` |
+| **Equities and ETFs** | XASSET | `scripts/xasset/`, `results/xasset/` | New equity and ETF signals, single names included, each slate declared up front. Not the PM's EVENTS rows. The XASSET rows of `docs/RESEARCH_STATE.md` |
+| **Dashboard and data** | none | The read-only dashboard and its snapshot (`dashboard/`, `dashboard/snapshots/`), and the spec and tests of the snapshot exporter. The research data platform: `scripts/data/`, `scripts/rv/`, `scripts/holdings/`, `scripts/build_etf_daily.py`, `src/data/`, `results/data/`, and the event store once the EVENTS work on `simon` is merged into `main`. Whatever else the team lead assigns case by case | `dashboard/README.md`; `docs/DATA.md`; the other lanes' data requests |
 
 What the table means:
 
@@ -30,6 +32,10 @@ What the table means:
   an order (`CLAUDE.md`, "Hard rules: code"). `quantt/` and every file in §2 stay
   with the PM; a change that would touch one is proposed by PR like any other.
 - Each lane keeps its own counter rows in `docs/RESEARCH_STATE.md` (§4).
+- **Every lane feeds one book** (team lead, 2026-10-26). A passing signal joins the
+  CEF book and the EVENTS sleeves as a sleeve of its own, an overlay or conditioner
+  on the CEF book, or a hedge, and is weighed at book level
+  (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md`).
 
 ---
 
@@ -55,12 +61,12 @@ it and installs it** (`docs/RUNBOOK.md` §8.6).
 
 ## 3. From a branch to `main`, then to prod
 
-1. **Work on your branch**: `macro/work`, `equities/work` or `dashboard/work`.
-   `git fetch origin && git switch <lane>/work`. **GitHub holds
-   five branches and no others** (team lead, 2026-10-22): `main`, those three, and
-   the team lead's `pm/work`, which holds the team lead's work in progress. A
-   pull request opened by the team lead has its own branch only while it is open.
-   Branch names on GitHub are public, so they name the lane, never a person.
+1. **Work on your branch**: `ryan`, `james` or `lucy`.
+   `git fetch origin && git switch <your first name>`. **GitHub holds
+   five branches and no others** (team lead, 2026-10-22; renamed 2026-10-26):
+   `main`, those three, and the team lead's `simon`, which holds the team lead's
+   work in progress. A pull request opened by the team lead has its own branch only
+   while it is open.
 2. **Start every day by taking in `main`**: `git merge origin/main`. Merge, do not
    rebase: no force-push is ever needed.
 3. **Commit small, and push at least daily**: `git push`. Work that only exists on
@@ -139,10 +145,11 @@ The variable names are in `docs/ONBOARDING.md` §2. Credentials are personal: ne
 share one, and never paste one into a chat, an issue or a Claude session.
 
 **What GitHub enforces** (rulesets on `quanttqueensu/CreditTrading`, set by the team
-lead, who is the only bypass actor):
+lead, who is the only bypass actor; both active since 2026-10-26):
 
 - on `main`: no update except by the team lead, so analysts' work arrives only
-  through a PR the team lead merges; no force-push; no deletion;
+  through a PR the team lead merges; no force-push; no deletion. GitHub counts even
+  the team lead's merge as a bypass, so it is made with `gh pr merge --admin`;
 - on the tags `release-*`, `spec-*`, `pre-clean-slate` and `ibkr-final`: no
   creation, move or deletion except by the team lead. A release tag is what prod
   runs; the other two are the provenance of everything before 2026-09-28.

@@ -37,6 +37,7 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/HISTORY.md` | reference | what existed before the 2026-09-28 clean slate, and how to recover it | — |
 | `docs/TEAM.md` | canonical | the lanes and who keeps which paths, the live path, how a change reaches `main` and prod, the shared-ledger rules, what an analyst never does, access | — |
 | `docs/ONBOARDING.md` | reference | setting up an analyst's Mac, a map of the repository, the reading order, the tools, a glossary | — |
+| `dashboard/README.md` | canonical | what the read-only dashboard may read (the nightly snapshot only), the exporter's division of labour, and what a snapshot may never carry | — |
 | `.github/pull_request_template.md` | rules | the questions every pull request answers before the team lead reviews it | — |
 | `results/ops/CEFCONNECT_TERMS_OPTIONS_2026-10-19.md` | reference | the options for CEFConnect on the live NAV path (keep and ask Nuveen, replace per use, or licence), the draft letter to Nuveen, and what each choice changes; open until the team lead picks | — |
 | `results/ops/NAV_SOURCE_WORKAROUND_2026-10-19.md` | reference | legitimate routes to a NAV source this desk may trade on (NFN's licence upstream of the vendors, IBKR and Alpaca data terms, the non-professional definitions, a CEFConnect-free gate design), the Nasdaq enquiry draft, and the ranked shortlist; open until the team lead picks | — |
