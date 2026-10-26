@@ -42,6 +42,11 @@ results/events/merger_acquirers_2010_2022.csv
 results/events/merger_ann_sample.csv
 results/events/alpaca_acquirers_2026-10-11.csv
 results/events/term_pull_to_par_measure.csv
+# Since 2026-10-22 their writers write into a project folder (acquirer_shortability.py
+# -> g1a/, term_pull_to_par.py -> term_cef/). The two lines above stay: copies
+# already on disk at the old paths must remain ignored.
+results/events/g1a/alpaca_acquirers_2026-10-11.csv
+results/events/term_cef/term_pull_to_par_measure.csv
 results/events/term_cef_census.csv
 results/events/convert_issuance_events.csv
 # EDGAR-dated merger tables (2026-10-12) join CRSP rows (permnos, CRSP names and
@@ -50,6 +55,9 @@ results/events/convert_issuance_events.csv
 results/events/merger_edgar_dates.csv
 results/events/merger_ann_sample_edgar.csv
 results/events/g6_events_13_names.csv
+# g6_corporate_action_shorts.py writes into g6/ since 2026-10-22; the line above
+# stays for a copy already on disk at the old path.
+results/events/g6/g6_events_13_names.csv
 
 # EDGAR (public, but large and re-fetchable): the response cache is
 # results/events/_cache_edgar/ (already covered by results/**/_cache_*); the
@@ -63,6 +71,10 @@ results/events/edgar_cef_bdc_filings.csv.gz
 # (EDGAR, Alpaca and IBKR only).
 results/events/g1a_historical_deals.csv
 results/events/g1a_detail_*.json
+# g1a_shortability.py writes into g1a/ since 2026-10-22; the two lines above stay
+# for copies already on disk at the old paths.
+results/events/g1a/g1a_historical_deals.csv
+results/events/g1a/g1a_detail_*.json
 # E1 ETF-hedge gate (2026-10-15, scripts/events/e1_etf_hedge_gate.py): the
 # per-target x hedge table carries CRSP permnos and statistics computed on CRSP
 # returns (licensed); the tracked output is e1_etf_hedge_summary_<date>.json
