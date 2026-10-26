@@ -196,6 +196,10 @@ def make_client():
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--data", type=Path, default=DATA,
+                    help="the data/ folder to push from or pull into (absolute; default: this "
+                         "checkout's data/). Lets the team lead push the main checkout's data/ "
+                         "from a worktree")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status", help="what the team copy holds, and when it was pushed")
     p = sub.add_parser("pull", help="download the team copy into data/")
@@ -204,14 +208,16 @@ def main(argv=None) -> int:
     q = sub.add_parser("push", help="team lead: upload data/ (shows the plan without --go)")
     q.add_argument("--go", action="store_true", help="actually upload")
     args = ap.parse_args(argv)
+    if not args.data.is_absolute():
+        ap.error("--data must be an absolute path")
     sys.path.insert(0, str(REPO))
     client, bucket = make_client()
     if args.cmd == "status":
         status(client, bucket)
     elif args.cmd == "pull":
-        pull(client, bucket, DATA, args.overwrite)
+        pull(client, bucket, args.data, args.overwrite)
     else:
-        push(client, bucket, DATA, args.go)
+        push(client, bucket, args.data, args.go)
     return 0
 
 
