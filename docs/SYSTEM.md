@@ -527,7 +527,55 @@ with the auction-marked score (`docs/REFERENCES.md` §12an). The design is
 | C4's double-applied splits (BTO, TYG, NXG, EMO) | **drop_split.** Only the report-only R-yf row moves, 1.131 → 1.130; the verdict is unchanged |
 | Merger arbitrage, MA-HZ (after the CRSP measurement: hump holds, cost marginal, P(D4 pass) about 1–10%) | **WATCH, no trial** (`results/events/MERGER_ARB_V2_2026-10-19.md` §5.6) |
 
-### Recorded in `CLAUDE.md`, 2026-09-13
+### Team lead, 2026-10-22: the pod
+
+Three analysts join for the year. Answered interactively; how it works day to day is
+`docs/TEAM.md`, and setting up is `docs/ONBOARDING.md`.
+
+| question | decision |
+|---|---|
+| How the work is split | *(Superseded later the same day by "the lanes revised", below.)* **Sleeve owners by counter.** One analyst keeps EVENTS; one keeps XASSET and GAMMA; one keeps the research platform (fetchers, CI, tests, the read-only dashboard). The team lead keeps the core CEF book (CEF), execution and costs, the live path and prod. "The main work falls to me" (team lead) |
+| How far the platform lane reaches | *(Superseded later the same day, below.)* **Research platform only.** `quantt/` and the runner stay with the team lead |
+| Live-path changes from analysts | **Yes, by pull request only.** Anyone may propose a change to any file; nothing reaches prod until the team lead tags a release |
+| Review | **The team lead is the only reviewer and the only person who merges** |
+| How changes arrive | **Branches in this repository**, pushed by the analysts as repository collaborators with Write. *(Revised the same day: the first answer, "one GitHub team, `credit-analysts`", cannot work from the team lead's account. The team lead is an organisation member, not an owner; a team holds only organisation members, and only an owner invites into the organisation.)* Rulesets let only the team lead update `main` and create, move or delete the protected tags. The team lead is their only bypass actor and keeps pushing `main` as before |
+| Branches on GitHub | **Five, and no others**: `main`; one per analyst, cut from `main` (named for the lanes, below: `macro/work`, `equities/work`, `dashboard/work`; first cut as `events/work`, `xasset/work`, `platform/work`); and the team lead's `pm/work`. *(Revised the same day: one branch per lane, with `gamma/work` and short topic branches, became one per analyst.)* `pm/work` took in the three EVENTS branches as they were on GitHub (`trial-events-e1`, `trial-events-navtender`, `research-ss-expansion`), which were then removed from GitHub; E1's newer local commits, carrying control-pool permnos, stay off it until the team lead rules. A pull request opened by the team lead has its own branch only while it is open |
+| What each lane works on this year | **A first draft in `README.md`, written from `results/cef/RESEARCH_PLAN_2026-10-09.md` and `docs/RESEARCH_STATE.md`**, for the team lead to correct before it merges |
+| The organisation's owners | **Accepted, and stated.** The QUANTT organisation's owners keep admin rights over every repository in it, including the power to edit these rulesets. The rulesets do not exempt them, so a bypass is a deliberate, recorded change (`docs/TEAM.md` §6) |
+| Names in the repository | *(Superseded for the branch names on 2026-10-26, below.)* **None.** The repository is public: it names lanes, and who is in them is the team lead's record and GitHub's collaborator list |
+| Analysts' data access | **Each analyst holds their own**: a read-only R2 token from the team lead, a free Alpaca paper account of their own, and their own `SEC_USER_AGENT`. This narrows 2026-10-12's "the team lead's own address" to the team lead's machines. No analyst holds a key to the book's account or a route to the VM |
+| The analysts' machines | **Macs** |
+
+### Team lead, 2026-10-22, later: the lanes revised
+
+The same day, the team lead redrew the three analyst lanes. `docs/TEAM.md` §1 holds
+who keeps which paths; the counter is in `docs/RESEARCH_STATE.md`.
+
+| question | decision |
+|---|---|
+| The first analyst lane | **FICC event-driven signals (macro and thematic events), integrated into the strategy.** Code in `scripts/macro/` |
+| How that lane is counted | **All on a new counter, MACRO, a running count** opened at 0, whether a signal is an overlay on the CEF book or its own sleeve. For this lane it sets aside 2026-10-09's "changes to the live CEF book stay on CEF" |
+| The corporate-event work (NAV tenders, the special-situations slate, E2–E4, E1's holdout) | **Moves to the team lead**, on EVENTS |
+| The options test (G1, GAMMA) | **Moves to the team lead** |
+| The second analyst lane | **Equities and ETFs, all on XASSET**, each slate declared up front, single names included |
+| The third analyst lane | **The read-only dashboard, plus what the team lead assigns case by case.** The data platform and CI stay with the team lead unless assigned |
+| The analysts' branches | **Renamed to match**: `macro/work`, `equities/work`, `dashboard/work` (they were unused, identical to `main`) |
+
+### Team lead, 2026-10-26: what the lanes feed, and their scope to December
+
+Answered interactively, before the analysts were invited. `docs/TEAM.md` §1 holds
+who keeps which paths. The working plan to 2026-12-31 names people, so it is the
+team lead's, sent to the analysts directly, and never tracked.
+
+| question | decision |
+|---|---|
+| What the analysts' signals feed | **One multi-sleeve book**: the CEF book, the EVENTS sleeves and any analyst sleeve, combined at book level (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md`). A passing signal joins as a sleeve of its own, an overlay or conditioner on the CEF book, or a hedge |
+| Whether any of the team lead's work moves to an analyst | **None.** The EVENTS rows (the special-situations slate and reserves, the ETF hedge overlay for event longs), the S3 forced-deletion row on WATCH and GAMMA stay with the team lead. The analysts bring new signals only |
+| The MACRO lane's scope | **All of fixed income**, widened from "macro and thematic events": macro events (central-bank decisions, economic releases, Treasury auctions), credit events, and fixed-income instruments (rate and credit ETFs, preferreds, baby bonds), each tied to how it helps the book. Still all on MACRO, and still excluding the rows above |
+| The third lane's scope | **The dashboard and the research data platform**: the fetchers and data builds the other lanes build on, and the event store once the EVENTS work on `simon` (was `pm/work`) is merged into `main`. CI (`.github/`, `pytest.ini`, `conftest.py`) stays with the team lead |
+| The dashboard's data | **A nightly read-only snapshot of the book, held in the repository** under `dashboard/snapshots/`. The exporter that writes it runs on the VM, so the dashboard lane writes its spec and its tests and the team lead installs it. How a snapshot travels from the VM to the repository is **open**, for the team lead when the exporter is ready. The repository is public: a committed snapshot is published (`dashboard/README.md` says what it may never carry) |
+| The analysts' tools | **Claude Code, for all three**, with the repository's skills and agents |
+| The branches | **Named for the people, not the lanes**: `simon` (was `pm/work`), `ryan` (was `macro/work`), `james` (was `equities/work`), `lucy` (was `dashboard/work`), renamed on GitHub with their history. Still five on GitHub with `main`. This supersedes 2026-10-22's "names in the repository: none" for the branch names and the lane map in `docs/TEAM.md`; the repository is public, so those first names are public. Nothing else names a person |
 
 *(Partly superseded 2026-10-09, above: one pre-registered standalone short-premium test may reopen options.)*
 **Options are closed, and it is recorded rather than remembered.** `W14` Part A
@@ -555,6 +603,7 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | External claims | `docs/REFERENCES.md` |
 | Work orders and the plan | `docs/ROADMAP.md`. The old work orders were deleted 2026-09-28 (tag `pre-clean-slate`). |
 | Which document owns which question | `docs/INDEX.md`, checked by `python3 -m ops.doc_audit` |
+| Who keeps which lane; how work reaches `main` and prod; the shared-ledger rules | `docs/TEAM.md` |
 
 ---
 
@@ -575,3 +624,6 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 | 2026-10-19 | §5 records the HALVE/KILL report-mode ruling and the official equity series it reads. | for the team lead |
 | 2026-10-19 | §5 records the P&L-of-record ruling: Alpaca's end-of-day history is official; the 17:30 reading is a snapshot. | hotfix, for the team lead |
 | 2026-10-20 | §5 records IBKR waiting for a trigger, SPACs closed (D4), the three event-path closes, the trials' Stage-0 rulings and C4's split ruling. | for the team lead |
+| 2026-10-22 | §5 records the pod: the lanes, review and merge, GitHub access and analysts' data access; §6 points at `docs/TEAM.md`. | team setup, for the team lead |
+| 2026-10-22 | §5 records the lanes revised: MACRO (a new counter), equities and ETFs on XASSET, the dashboard; EVENTS and GAMMA work to the team lead; branches renamed. | team setup, for the team lead |
+| 2026-10-26 | §5 records what the lanes feed (one multi-sleeve book), no hand-offs, MACRO widened to all of fixed income, the data platform to the dashboard lane, the dashboard's snapshot in the repository, and the branches renamed for the people. | team setup, for the team lead |
