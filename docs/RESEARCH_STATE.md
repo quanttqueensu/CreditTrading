@@ -79,6 +79,22 @@ counter (156) covers all ETF-price/PD work done to date.
 >   checks pass. **No E1 statistic was computed, the 27-name set is not consumed, no holdout
 >   was opened, and EVENTS stays 2.**
 >
+> **2026-10-27: evidence outcomes beside D-codes** (team lead, `docs/SYSTEM.md` §5,
+> 2026-10-27; `results/research/DESK_METHOD_2026-10-27.md`). From today every
+> verdict records what the test could show, beside the gate that fired:
+> PRESENT (the interval excludes zero), ABSENT (it excludes every meaningful
+> effect), or INCONCLUSIVE (`scripts/research/inference.py::read_result`). Only
+> ABSENT justifies "never re-test without new data". Rows below are not
+> rewritten; the relabels are recorded here:
+> - **C5 (CEF 51)**: D1 stands as the gate that fired. Evidence: the gain is
+>   **PRESENT** (fit t 2.82, holdout t 4.66 [S]); the lagged-placebo split is
+>   **INCONCLUSIVE** (t −0.56, MDE about the whole gain).
+> - **E1 (EVENTS 1)**: D4 stands as the gate that fired. Evidence: the alpha is
+>   **INCONCLUSIVE** (alpha t 1.90, every |Σβ| ≤ 0.021 [V]), so it is a power
+>   failure, not a risk premium in costume.
+> - **XASSET-X1**: D1 stands as the gate. Evidence: **spanned** by TSMOM^FI
+>   (alpha t 0.65 [S]), i.e. D4 in substance.
+
 > **2026-10-09: EVENTS and XASSET opened at 0** (team lead, `docs/SYSTEM.md` §5,
 > 2026-10-09). Opening a counter spends no trial. **XASSET is a declared slate**: its
 > five tests (`results/cef/RESEARCH_PLAN_2026-10-09.md` §3) are listed before any runs,
