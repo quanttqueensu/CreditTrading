@@ -4,23 +4,32 @@ WHY THESE. Each published figure below is a worked example from the paper that
 defines the method, and reproducing it is the check that the formula was
 transcribed correctly (`docs/REFERENCES.md` §12rm gives the sources). The parity
 tests pin that this module and the desk's existing copies agree, so moving a
-trial onto it changes no past number. The PBO and read_result tests run on
-synthetic data, so they are statements about the code, never about the market
-(CLAUDE.md data rules).
+trial onto it changes no past number. The PBO, power-forecast and read_result
+tests run on synthetic data, so they are statements about the code, never about
+the market (CLAUDE.md data rules). The tests marked "review, 2026-10-27" pin
+defects an independent review found in the first version. Each fails against
+that version.
 """
 from __future__ import annotations
 
 import sys
-from math import comb, sqrt
+from math import comb, log, sqrt
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import stats
 
 from scripts.research import inference as I
 
 REPO = Path(__file__).resolve().parents[3]
+
+
+def _validate():
+    sys.path.insert(0, str(REPO / "scripts" / "cef"))
+    import validate as V
+    return V
 
 
 # -- published worked examples ------------------------------------------------
@@ -28,13 +37,24 @@ REPO = Path(__file__).resolve().parents[3]
 def test_dsr_reproduces_bailey_lopez_de_prado_worked_example():
     # SR 2.5 annualised on 5y of daily data (T=1250, 250/yr), N=100, V[SR_n]=1/2
     # annualised, skew -3, raw kurtosis 10 -> SR0 0.1132, DSR 0.9004 (fails 95%).
-    d, sr0 = I.dsr(2.5 / sqrt(250), 1250, -3, 10, 100, 0.5 / 250)
+    d, sr0 = I.dsr(2.5 / sqrt(250), 1250, -3, 10, 100, 0.5 / 250, bound="gumbel")
     assert sr0 == pytest.approx(0.1132, abs=5e-5)
     assert d == pytest.approx(0.9004, abs=5e-5)
     # ... the same strategy passes at N=46, and with normal returns up to N=88.
-    assert I.dsr(2.5 / sqrt(250), 1250, -3, 10, 46, 0.5 / 250)[0] == pytest.approx(0.9505, abs=5e-5)
-    assert I.dsr(2.5 / sqrt(250), 1250, 0, 3, 88, 0.5 / 250)[0] > 0.95
-    assert I.dsr(2.5 / sqrt(250), 1250, 0, 3, 89, 0.5 / 250)[0] < 0.95
+    assert I.dsr(2.5 / sqrt(250), 1250, -3, 10, 46, 0.5 / 250, bound="gumbel")[0] == pytest.approx(0.9505, abs=5e-5)
+    assert I.dsr(2.5 / sqrt(250), 1250, 0, 3, 88, 0.5 / 250, bound="gumbel")[0] > 0.95
+    assert I.dsr(2.5 / sqrt(250), 1250, 0, 3, 89, 0.5 / 250, bound="gumbel")[0] < 0.95
+
+
+def test_bound_must_be_named():
+    # Review, 2026-10-27: dsr defaulted to "gumbel" while p_pass_dsr defaulted to
+    # "upper", so a realised DSR was judged on a looser bar than its forecast.
+    with pytest.raises(TypeError):
+        I.dsr(0.05, 1000, 0, 3, 10, 1e-3)
+    with pytest.raises(TypeError):
+        I.p_pass_dsr(1.0, 2520, 10)
+    with pytest.raises(ValueError):
+        I.dsr(0.05, 1000, 0, 3, 10, 1e-3, bound="loose")
 
 
 def test_sharpe_power_matches_rej_seager_bouchaud():
@@ -59,6 +79,8 @@ def test_events_needed_matches_kothari_warner():
 def test_cluster_inflation_matches_kothari_warner():
     assert I.cluster_se_inflation(100, 0.02) == pytest.approx(1.73, abs=5e-3)
     assert I.cluster_se_inflation(1, 0.5) == 1.0
+    with pytest.raises(ValueError):                       # rho = -1/(n-1) gives SE 0
+        I.cluster_se_inflation(11, -0.1)
 
 
 def test_pbo_split_count_is_c_16_8_not_the_printed_12780():
@@ -69,10 +91,18 @@ def test_pbo_split_count_is_c_16_8_not_the_printed_12780():
 # -- parity with the desk's existing copies -----------------------------------
 
 def test_desk_dsr_is_validate_dsr_exactly():
-    sys.path.insert(0, str(REPO / "scripts" / "cef"))
-    import validate as V
-    for obs, T, sk, ku, n in [(1.2, 2520, -0.5, 6, 52), (0.6, 1500, 0.2, 4, 10), (0.9, 800, -1, 9, 6)]:
+    V = _validate()
+    for obs, T, sk, ku, n in [(1.2, 2520, -0.5, 6, 52), (0.6, 1500, 0.2, 4, 10),
+                              (0.9, 800, -1, 9, 6), (0.9, 800, -1, 9, 1)]:
         assert I.desk_dsr(obs, T, sk, ku, n) == pytest.approx(V._dsr(obs, T, sk, ku, n)[0], abs=1e-12)
+
+
+def test_desk_dsr_takes_the_series_frequency():
+    # Review, 2026-10-27: a monthly calendar-time sleeve de-annualised by sqrt(252)
+    # read 0.074 where its own scale reads 0.839.
+    assert I.desk_dsr(1.0, 120, 0, 3, 10, periods=12) == pytest.approx(
+        I.dsr(1.0 / sqrt(12), 120, 0, 3, 10, 1 / 120, bound="upper")[0])
+    assert I.desk_dsr(1.0, 120, 0, 3, 10, periods=12) > 5 * I.desk_dsr(1.0, 120, 0, 3, 10)
 
 
 def test_desk_bar_is_the_upper_bound_and_stricter_than_the_expected_max():
@@ -80,6 +110,7 @@ def test_desk_bar_is_the_upper_bound_and_stricter_than_the_expected_max():
         assert I.upper_bound_max_z(n) > I.expected_max_z(n)
     assert I.upper_bound_max_z(52) == pytest.approx(2.811, abs=1e-3)   # orient's CEF bar
     assert I.expected_max_z(52) == pytest.approx(2.291, abs=1e-3)
+    assert I.expected_max_z(1) == I.upper_bound_max_z(1) == 0.0       # one draw: exactly 0
 
 
 def test_newey_west_matches_vrp_summary_and_statsmodels():
@@ -95,19 +126,77 @@ def test_newey_west_matches_vrp_summary_and_statsmodels():
     assert t == pytest.approx(fit.tvalues[0], abs=1e-9)
 
 
+def test_newey_west_refuses_impossible_lags():
+    # Review, 2026-10-27: lags >= n were accepted (n 50, lags 200 -> t 2.51 vs 0.51).
+    x = np.random.default_rng(2).normal(size=50)
+    for bad in (-1, 50, 200):
+        with pytest.raises(ValueError):
+            I.newey_west_t(x, bad)
+
+
 def test_p_clear_bar_reproduces_the_e1_preregistration_forecast():
     # PREREG_E1_MERGER_PAIR_2026-10-19.md (branch trial-events-e1): at a true
     # Sharpe 0.67 over 13 years, P(alpha t >= 3.0) ~= 0.28.
     assert I.p_clear_bar(0.67 * sqrt(13), 3.0) == pytest.approx(0.28, abs=5e-3)
 
 
-# -- behaviour on synthetic data ----------------------------------------------
+# -- the power forecast against the gate it forecasts --------------------------
 
-def test_pbo_is_near_half_on_noise_and_near_zero_with_a_dominant_edge():
-    # On noise PBO is a half only ON AVERAGE across datasets. One fixed sample
-    # ranged 0.09-0.93 across 40 seeds (2026-10-27): a column that drew a lucky
-    # full-sample mean looks good in both halves. So one PBO on one panel is a
-    # noisy reading. Report it with N and S, never as a verdict on its own.
+def _simulated_pass_rate(sr_annual, years, n, draw, sims, seed):
+    """Fraction of simulated track records whose desk DSR clears 0.95."""
+    rng = np.random.default_rng(seed)
+    T = int(years * 252)
+    hits = 0
+    for _ in range(sims):
+        x = sr_annual / sqrt(252) + draw(rng, T)
+        hits += I.desk_dsr(x.mean() / x.std() * sqrt(252), T, stats.skew(x),
+                           stats.kurtosis(x, fisher=False), n) > 0.95
+    return hits / sims
+
+
+def test_p_pass_dsr_matches_simulation_of_the_desk_gate():
+    T = 8 * 252
+    normal = _simulated_pass_rate(1.5, 8, 10, lambda r, T: r.normal(size=T), 1500, 3)
+    assert I.p_pass_dsr(1.5, T, 10, bound="upper") == pytest.approx(normal, abs=0.035)
+    # Review, 2026-10-27: a negatively skewed payoff (1 - Exp(1): skew -2, raw
+    # kurtosis 9) passes less often than the normal forecast says. The forecast
+    # must take the payoff's moments.
+    negexp = _simulated_pass_rate(1.5, 8, 10, lambda r, T: 1 - r.exponential(size=T), 1500, 4)
+    assert I.p_pass_dsr(1.5, T, 10, bound="upper", skew=-2, kurt=9) == pytest.approx(negexp, abs=0.035)
+    assert I.p_pass_dsr(1.5, T, 10, bound="upper") - negexp > 0.04
+
+
+def test_p_pass_dsr_refuses_what_it_cannot_use():
+    with pytest.raises(ValueError):
+        I.p_pass_dsr(1.0, 2520, 10, bound="upper", sr_var=0.0)
+    with pytest.raises(ValueError):
+        I.p_pass_dsr(1.0, 1, 10, bound="upper")
+    with pytest.raises(ValueError):
+        I.p_pass_dsr(1.0, 2520, 10, bound="upper", conf=1.5)
+
+
+# -- PBO ------------------------------------------------------------------------
+
+def test_pbo_logits_on_a_worked_example():
+    # Review, 2026-10-27: w = rank/N and an off-by-one rank both passed the older
+    # tests. Two blocks (S=2), three trials, Sharpes chosen by hand:
+    #   block A: trial 0 = 2, trial 1 = 1, trial 2 = 0
+    #   block B: trial 0 = -1, trial 1 = 2, trial 2 = 1
+    # IS = A picks trial 0, which ranks 1st of 3 OOS: w = 1/4, logit ln(1/3).
+    # IS = B picks trial 1, which ranks 2nd of 3 OOS: w = 2/4, logit 0.
+    a = np.array([[3, 2, 1], [1, 0, -1]] * 2, dtype=float)
+    b = np.array([[0, 3, 2], [-2, 1, 0]] * 2, dtype=float)
+    r = I.pbo_cscv(np.vstack([a, b]), S=2)
+    assert r["logits"] == pytest.approx([log(1 / 3), 0.0])
+    assert r["pbo"] == 1.0
+    assert r["null_pbo"] == pytest.approx(2 / 3)                # odd N: not 1/2
+
+
+def test_pbo_is_near_its_null_on_noise_and_near_zero_with_a_dominant_edge():
+    # On noise PBO sits at its null only ON AVERAGE across datasets. One fixed
+    # sample ranged 0.09-0.93 across 40 seeds (2026-10-27): a column that drew a
+    # lucky full-sample mean looks good in both halves. So one PBO on one panel is
+    # a noisy reading. Report it with N and S, never as a verdict on its own.
     v = [I.pbo_cscv(np.random.default_rng(s).normal(size=(400, 20)), S=8)["pbo"]
          for s in range(40)]
     assert 0.4 < np.mean(v) < 0.7
@@ -129,6 +218,8 @@ def test_pbo_refuses_what_it_cannot_rank():
         I.pbo_cscv(x)
 
 
+# -- multiple testing, reading, the book ------------------------------------------
+
 def test_bh_is_step_up():
     assert I.bh_fdr([0.01, 0.02, 0.03, 0.5]).tolist() == [True, True, True, False]
     # 0.013 fails its own threshold (0.0125) but is rejected because 0.02 passes
@@ -139,21 +230,42 @@ def test_bh_is_step_up():
 
 def test_read_result_separates_absent_from_inconclusive():
     # Powered null: the interval excludes every effect worth trading.
-    assert I.read_result(1.0, 2.0, 30.0)["outcome"] == "ABSENT"
+    assert I.read_result(1.0, 2.0, 30.0, n_trials=1)["outcome"] == "ABSENT"
     # Wide null: cannot rule out the meaningful effect -> not a kill.
-    assert I.read_result(-58.0, 104.0, 30.0)["outcome"] == "INCONCLUSIVE"
-    # Present but below the meaningful size: evidence is not the expression gate.
-    r = I.read_result(10.0, 4.0, 30.0)
-    assert r["outcome"] == "PRESENT" and r["below_meaningful"]
+    assert I.read_result(-58.0, 104.0, 30.0, n_trials=1)["outcome"] == "INCONCLUSIVE"
     # A significant effect of the wrong sign is ABSENT for this hypothesis.
-    assert I.read_result(-20.0, 5.0, 10.0)["outcome"] == "ABSENT"
+    assert I.read_result(-20.0, 5.0, 10.0, n_trials=1)["outcome"] == "ABSENT"
 
 
-def test_marginal_gain_agrees_with_combined_sharpe():
-    # A sleeve at exactly rho * SR_book adds nothing; above it, the book improves.
-    assert I.marginal_gain(0.5, 1.0, 0.5) == pytest.approx(0.0)
-    assert I.combined_sharpe(1.0, 0.5, 0.5) == pytest.approx(1.0)
-    assert I.combined_sharpe(1.0, 0.6, 0.5) > 1.0
+def test_read_result_places_the_hurdle_against_the_interval():
+    # Review, 2026-10-27: comparing the point estimate could not tell a hurdle
+    # inside the interval from one the interval excludes.
+    assert I.read_result(20.0, 8.0, 30.0, n_trials=1)["vs_meaningful"] == "STRADDLES"
+    r = I.read_result(25.0, 2.0, 30.0, n_trials=1)
+    assert r["outcome"] == "PRESENT" and r["vs_meaningful"] == "BELOW"
+    assert I.read_result(60.0, 5.0, 30.0, n_trials=1)["vs_meaningful"] == "ABOVE"
+
+
+def test_read_result_deflates_present_for_the_trial_count():
+    # Review, 2026-10-27: t 2.1 read PRESENT at N=52, where 52 plain 5% tests give
+    # at least one false PRESENT with probability 0.73.
+    assert I.read_result(2.1, 1.0, 5.0, n_trials=1)["outcome"] == "PRESENT"
+    assert I.read_result(2.1, 1.0, 5.0, n_trials=52)["outcome"] == "INCONCLUSIVE"
+    assert 1 - 0.975 ** 52 == pytest.approx(0.73, abs=5e-3)
+    with pytest.raises(TypeError):
+        I.read_result(2.1, 1.0, 5.0)                       # N has no default
+
+
+def test_combined_sharpe_never_admits_what_marginal_gain_rejects():
+    # Review, 2026-10-27: the unconstrained optimum shorted weak sleeves, so a
+    # losing sleeve "raised" the book (1.0, -0.5, 0 -> 1.118).
+    assert I.combined_sharpe(1.0, -0.5, 0.0) == pytest.approx(1.0)
+    assert I.combined_sharpe(1.0, 0.4, 0.5) == pytest.approx(1.0)
+    for b in np.linspace(-0.5, 1.5, 21):
+        for rho in (-0.3, 0.0, 0.3, 0.7):
+            gain = I.marginal_gain(b, 1.0, rho)
+            c = I.combined_sharpe(1.0, b, rho)
+            assert (c > 1.0 + 1e-12) == (gain > 1e-12), (b, rho)
     # Uncorrelated: five 0.5s combine to sqrt(5)*0.5 ~= 1.12 (the D5 legend's "about 1.1").
     sr = 0.5
     for _ in range(4):
@@ -176,4 +288,4 @@ def test_inputs_it_cannot_use_raise():
     with pytest.raises(ValueError):
         I.mde(0.0, 10)
     with pytest.raises(ValueError):
-        I.expected_max_z(1)
+        I.expected_max_z(0)

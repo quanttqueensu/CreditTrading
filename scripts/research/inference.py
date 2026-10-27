@@ -132,7 +132,7 @@ def cluster_se_inflation(n: int, rho: float) -> float:
     returns correlate at rho: √(1 + (n−1)ρ) (Kothari & Warner 2007). At n=100
     and rho=0.02 it is 1.73, so a naive t of 3.4 is really about 2.0. That is a
     false positive, which is why calendar-time portfolios are the headline."""
-    if n < 1 or not -1 / max(n - 1, 1) <= rho <= 1:
+    if n < 1 or not -1 / max(n - 1, 1) < rho <= 1:
         raise ValueError(f"need n >= 1 and a feasible rho, got n={n}, rho={rho}")
     return sqrt(1 + (n - 1) * rho)
 
@@ -146,16 +146,18 @@ def expected_max_z(n: float) -> float:
     UPPER BOUND on this quantity, not the quantity itself. At N=52 the two are
     2.29 and 2.81. A stricter bar is a choice, so state which one you used.
     """
-    if n < 2:
-        raise ValueError(f"expected maximum needs n >= 2, got {n}")
+    if n < 1:
+        raise ValueError(f"expected maximum needs n >= 1, got {n}")
+    if n == 1:
+        return 0.0                      # exact: one draw's mean (the Gumbel form diverges)
     return ((1 - EULER_GAMMA) * _N.inv_cdf(1 - 1 / n)
             + EULER_GAMMA * _N.inv_cdf(1 - 1 / (n * e)))
 
 
 def upper_bound_max_z(n: float) -> float:
     """√(2 ln N): the bar `ops/orient.py` and `validate._dsr` derive from the counter."""
-    if n < 2:
-        raise ValueError(f"bar needs n >= 2, got {n}")
+    if n < 1:
+        raise ValueError(f"bar needs n >= 1, got {n}")
     return sqrt(2 * log(n))
 
 
@@ -188,50 +190,72 @@ def psr(sr: float, T: int, skew: float, kurt: float, sr_star: float = 0.0) -> fl
     return _N.cdf((sr - sr_star) * sqrt(T - 1) / sqrt(denom))
 
 
+_BOUNDS = {"gumbel": expected_max_z, "upper": upper_bound_max_z}
+
+
+def _bar(bound: str, n_trials: float) -> float:
+    if bound not in _BOUNDS:
+        raise ValueError(f"bound must be 'upper' (the desk's) or 'gumbel' (the paper's), got {bound!r}")
+    return _BOUNDS[bound](n_trials)
+
+
 def dsr(sr: float, T: int, skew: float, kurt: float, n_trials: float,
-        sr_var: float, bound: str = "gumbel") -> tuple[float, float]:
+        sr_var: float, *, bound: str) -> tuple[float, float]:
     """Deflated Sharpe ratio. Returns (DSR, SR0), both on the per-period scale.
 
     SR0 = √V[SR_n]·E[max of N] is the best Sharpe that N skill-less trials are
     expected to produce. sr_var is the cross-trial variance of per-period
     Sharpes, measured from the stored trial series where they exist.
     `bound="gumbel"` is the paper's expected maximum. `bound="upper"` uses
-    √(2 ln N), the desk's bar. Report both; the team lead rules which one gates.
+    √(2 ln N), the desk's bar. There is deliberately no default: report both,
+    labelled. The team lead rules which one gates.
     Reproduces the paper's worked example (DSR 0.9004) in the tests.
     """
     if sr_var <= 0:
         raise ValueError(f"sr_var must be positive, got {sr_var}")
-    m = {"gumbel": expected_max_z, "upper": upper_bound_max_z}[bound](n_trials)
-    sr0 = sqrt(sr_var) * m
+    sr0 = sqrt(sr_var) * _bar(bound, n_trials)
     return psr(sr, T, skew, kurt, sr0), sr0
 
 
 def desk_dsr(sr_annual: float, T: int, skew: float, kurt: float,
-             n_trials: float) -> float:
+             n_trials: float, periods: int = 252) -> float:
     """`scripts/cef/validate.py::_dsr`, restated on the scale above.
 
     That function uses the upper bound and sets V[SR_n] = 1/T, the sampling
     variance of a single skill-less Sharpe, in place of a measured cross-trial
-    spread. The parity test pins this equivalence. Changing the desk's bar is a
-    governance change, not a refactor.
+    spread. The parity test pins this equivalence at the daily 252 that
+    validate assumes. Pass `periods` for a monthly calendar-time series (12):
+    de-annualising a monthly Sharpe by √252 understates it about 4.6 times.
+    Changing the desk's bar is a governance change, not a refactor.
     """
-    return dsr(sr_annual / sqrt(252), T, skew, kurt, n_trials, 1 / T, bound="upper")[0]
+    return dsr(sr_annual / sqrt(periods), T, skew, kurt, n_trials, 1 / T, bound="upper")[0]
 
 
-def p_pass_dsr(sr_true_annual: float, T: int, n_trials: float, sr_var: float | None = None,
-               conf: float = 0.95, bound: str = "upper", periods: int = 252) -> float:
+def p_pass_dsr(sr_true_annual: float, T: int, n_trials: float, *, bound: str,
+               sr_var: float | None = None, skew: float = 0.0, kurt: float = 3.0,
+               conf: float = 0.95, periods: int = 252) -> float:
     """Chance a strategy whose true annualised Sharpe is sr_true clears DSR > conf.
 
-    Normal approximation with normal returns: SR_hat ~ N(SR, (1 + ½SR²)/(T−1)),
-    and the gate passes iff SR_hat > SR0 + z_conf·SE. sr_var=None means the
-    desk's null-implied 1/T. Compute this BEFORE spending a trial, and hand it to
-    the research-idea power gate.
+    SR_hat ~ N(SR, (1 − γ₃SR + (γ₄−1)/4·SR²)/(T−1)), the PSR variance term, and the
+    gate passes iff SR_hat > SR0 + z_conf·SE. sr_var is the PER-PERIOD
+    cross-trial variance. None means the desk's null-implied 1/T.
+    **Pass the expected skew and raw kurtosis** for a short-premium or event
+    payoff. Under normal returns the forecast was 0.620 where a
+    skew −2.83 / kurtosis 15 payoff simulates to 0.531, which is enough to flip
+    the 0.5 power gate (review, 2026-10-27). Matches simulation against
+    `desk_dsr` (test). Compute this BEFORE spending a trial.
     """
+    if T < 2 or not 0 < conf < 1 or periods < 1:
+        raise ValueError(f"need T >= 2, 0 < conf < 1, periods >= 1; got T={T}, conf={conf}, periods={periods}")
+    if sr_var is not None and sr_var <= 0:
+        raise ValueError(f"sr_var must be positive (per period), got {sr_var}")
     sr = sr_true_annual / sqrt(periods)
     var = 1 / T if sr_var is None else sr_var
-    m = {"gumbel": expected_max_z, "upper": upper_bound_max_z}[bound](n_trials)
-    sr0 = sqrt(var) * m
-    se = sqrt((1 + 0.5 * sr ** 2) / (T - 1))
+    sr0 = sqrt(var) * _bar(bound, n_trials)
+    v = 1 - skew * sr + (kurt - 1) / 4 * sr ** 2
+    if v <= 0:
+        raise ValueError(f"PSR variance term is non-positive ({v}); check skew/kurt units")
+    se = sqrt(v / (T - 1))
     return 1 - _N.cdf((sr0 + _N.inv_cdf(conf) * se - sr) / se)
 
 
@@ -272,6 +296,8 @@ def newey_west_t(x, lags: int | None = None) -> float:
         raise ValueError("newey_west_t got NaNs; drop them explicitly and report the count")
     n = x.size
     L = int(4 * (n / 100) ** (2 / 9)) if lags is None else lags
+    if not 0 <= L < n:
+        raise ValueError(f"lags must be in [0, {n - 1}] for a series of length {n}, got {L}")
     u = x - x.mean()
     s = u @ u / n
     for k in range(1, L + 1):
@@ -281,30 +307,41 @@ def newey_west_t(x, lags: int | None = None) -> float:
     return x.mean() / sqrt(s / n)
 
 
-def read_result(estimate: float, se: float, meaningful: float,
+def read_result(estimate: float, se: float, meaningful: float, *, n_trials: float,
                 alpha: float = 0.05) -> dict:
     """Read a result into PRESENT, ABSENT or INCONCLUSIVE. Never into "no edge" alone.
 
     `estimate` is signed so that positive is the hypothesised direction.
     `meaningful` (> 0) is the smallest effect that would matter: the cost hurdle,
-    or the size the sleeve needs. With the (1−alpha) interval [lo, hi]:
+    or the size the sleeve needs. `n_trials` is the counter's N, effective where
+    it is measured, and it has no default. The interval is Šidák-adjusted to
+    alpha_N = 1 − (1−alpha)^(1/N). At N = 52 a plain 5% test gives at least one
+    false PRESENT with probability 0.73, so an unadjusted PRESENT would order a
+    successor entry for noise (review, 2026-10-27). The same wider interval makes
+    ABSENT harder, so fewer real effects are buried. With the adjusted
+    interval [lo, hi]:
     - PRESENT: lo > 0. The effect is there, whatever later gates decide about its
       expression.
     - ABSENT: hi < meaningful. Every effect worth trading is ruled out. This is
       the only reading that justifies "never re-test without new data".
     - INCONCLUSIVE: anything else. The test could not tell. Record it as
       underpowered, with what would make it decidable, not as a kill.
-    The audit behind this module found 20 of 82 kills were INCONCLUSIVE by this
-    rule but were recorded as dead.
+    The audit behind this module found 20 of 82 kills were underpowered in this
+    sense but were recorded as dead.
+    `vs_meaningful` places the hurdle against the same interval: ABOVE (lo ≥ it:
+    the expression clears it), BELOW (hi < it: ruled out at this size), or
+    STRADDLES.
     """
-    if se <= 0 or meaningful <= 0:
-        raise ValueError(f"need se > 0 and meaningful > 0, got se={se}, meaningful={meaningful}")
-    c = z_crit(alpha)
+    if se <= 0 or meaningful <= 0 or n_trials < 1:
+        raise ValueError(f"need se > 0, meaningful > 0, n_trials >= 1; "
+                         f"got se={se}, meaningful={meaningful}, n_trials={n_trials}")
+    a = 1 - (1 - alpha) ** (1 / n_trials)
+    c = z_crit(a)
     lo, hi = estimate - c * se, estimate + c * se
     outcome = "PRESENT" if lo > 0 else "ABSENT" if hi < meaningful else "INCONCLUSIVE"
-    return {"outcome": outcome, "lo": lo, "hi": hi, "t": estimate / se,
-            "power_at_meaningful": power_of_z(meaningful / se, alpha),
-            "below_meaningful": estimate < meaningful}
+    vs = "ABOVE" if lo >= meaningful else "BELOW" if hi < meaningful else "STRADDLES"
+    return {"outcome": outcome, "lo": lo, "hi": hi, "t": estimate / se, "alpha_adj": a,
+            "power_at_meaningful": power_of_z(meaningful / se, a), "vs_meaningful": vs}
 
 
 # -- the book: judge a sleeve by what it adds --------------------------------
@@ -323,16 +360,28 @@ def marginal_gain(sr_new: float, sr_book: float, rho: float) -> float:
     return sr_new - rho * sr_book
 
 
-def combined_sharpe(sr_a: float, sr_b: float, rho: float) -> float:
-    """Maximum Sharpe of two streams at the optimal (unconstrained) mix.
+def combined_sharpe(sr_book: float, sr_new: float, rho: float) -> float:
+    """Maximum Sharpe of a book plus a new sleeve, both held LONG (weights ≥ 0).
 
-    SR² = (a² + b² − 2ρab)/(1 − ρ²). At ρ = 0 this is √(a² + b²), so five
-    unrelated 0.5s combine to about 1.1. That holds before costs. Costs do not
-    diversify (`pair-reversion` in the graveyard).
+    The unconstrained optimum, √((a² + b² − 2ρab)/(1 − ρ²)), is never below
+    the book's Sharpe: it shorts any sleeve below ρ·SR_book. It therefore
+    "admitted" a losing sleeve (1.0, −0.5, 0 → 1.118; review, 2026-10-27). So:
+    if `marginal_gain(new, book, ρ) ≤ 0` the new sleeve gets zero weight and
+    the answer is the book's own Sharpe, and symmetrically for the book.
+    Otherwise use the unconstrained formula, whose weights are then both
+    positive. At ρ = 0 that is √(a² + b²), so five unrelated 0.5s make about
+    1.1. That holds before costs. Costs do not diversify (`pair-reversion` in
+    the graveyard).
     """
     if not -1 < rho < 1:
         raise ValueError(f"rho must be in (-1, 1), got {rho}")
-    return sqrt((sr_a ** 2 + sr_b ** 2 - 2 * rho * sr_a * sr_b) / (1 - rho ** 2))
+    if sr_book <= 0 and sr_new <= 0:
+        raise ValueError("both Sharpes are non-positive; no long combination earns anything")
+    if marginal_gain(sr_new, sr_book, rho) <= 0:
+        return sr_book
+    if marginal_gain(sr_book, sr_new, rho) <= 0:
+        return sr_new
+    return sqrt((sr_book ** 2 + sr_new ** 2 - 2 * rho * sr_book * sr_new) / (1 - rho ** 2))
 
 
 # -- overfitting: how likely the in-sample winner is noise -------------------
@@ -349,6 +398,10 @@ def pbo_cscv(pnl, S: int = 16) -> dict:
     C(16, 8) = 12,870 splits (the paper misprints 12,780). A high PBO says the
     selection was unreliable. It does not say the family has no skill: N
     similar good strategies also score high (the paper's own caveat).
+    **The noise baseline is not always ½.** At or below the median counts as
+    overfit, so under pure noise E[PBO] = ⌊(N+1)/2⌋/N: 0.667 at N = 3 and 0.6 at
+    N = 5. It is returned as `null_pbo`, so compare against it, not against ½.
+    Splits are processed in chunks so memory stays bounded at large N.
     """
     X = np.asarray(pnl, dtype=float)
     if X.ndim != 2:
@@ -375,15 +428,18 @@ def pbo_cscv(pnl, S: int = 16) -> dict:
 
     combos = np.array(list(combinations(range(S), S // 2)))
     rest = np.array([sorted(set(range(S)) - set(c)) for c in combos])
-    is_sr, oos_sr = sharpe(combos), sharpe(rest)
-    best = is_sr.argmax(axis=1)
-    rows = np.arange(len(combos))
-    b = oos_sr[rows, best][:, None]
-    rank = (oos_sr < b).sum(axis=1) + 0.5 * ((oos_sr == b).sum(axis=1) - 1) + 1
-    w = rank / (N + 1)
-    logits = np.log(w / (1 - w))
+    logits = np.empty(len(combos))
+    step = max(1, int(2e7 // (S * N)))                     # ~160MB of float64 per array
+    for i in range(0, len(combos), step):
+        is_sr, oos_sr = sharpe(combos[i:i + step]), sharpe(rest[i:i + step])
+        best = is_sr.argmax(axis=1)
+        b = oos_sr[np.arange(len(best)), best][:, None]
+        rank = (oos_sr < b).sum(axis=1) + 0.5 * ((oos_sr == b).sum(axis=1) - 1) + 1
+        w = rank / (N + 1)
+        logits[i:i + step] = np.log(w / (1 - w))
     return {"pbo": float((logits <= 0).mean()), "n_splits": len(combos),
-            "logits": logits, "n_trials": N, "T": T, "S": S}
+            "logits": logits, "n_trials": N, "T": T, "S": S,
+            "null_pbo": ((N + 1) // 2) / N}
 
 
 def main(argv=None) -> int:
@@ -410,7 +466,7 @@ def main(argv=None) -> int:
         if a.years and a.sr is not None:
             T = int(round(a.years * 252))
             for bound in ("upper", "gumbel"):
-                print(f"  P(DSR > 0.95 | true SR {a.sr}, {a.years:g}y, {bound}) = "
+                print(f"  P(DSR > 0.95 | true SR {a.sr}, {a.years:g}y, normal returns, {bound}) = "
                       f"{p_pass_dsr(a.sr, T, a.n, bound=bound):.3f}")
     else:
         print(f"power = {sharpe_power(a.sr, a.years, a.alpha):.3f}; "
