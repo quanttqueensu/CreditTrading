@@ -199,7 +199,7 @@ Then your lane:
 | `/repro` | before quoting any figure |
 | `/prereg` | to draft a pre-registration for a trial |
 | `/research-idea`, `/backtest-request` | saved workflows: an idea taken to a reviewed result; one backtest question, independently re-derived |
-| the subagents (`.claude/README.md`) | specialist seats: `beta-detector` before trusting a result, `quant-reviewer` after writing research code |
+| the subagents (`.claude/README.md`) | one research line of specialist seats: `statistician` before spending a trial (is the test powerful enough to find the effect?), `beta-detector` before trusting a result, `quant-reviewer` after writing research code |
 
 A change to a frozen spec or a book json follows `/spec-change` on your branch,
 like any proposal; the team lead decides and releases it. The team lead's only:

@@ -260,7 +260,19 @@ _KNOWN_DESK_NAMES = {
     "agent": {"alpha-finder", "beta-detector", "unique-angle-researcher",
               "execution-trader", "portfolio-manager", "market-structure-analyst",
               "equity-research", "quant-reviewer", "dashboard-designer",
-              "ops-watchdog"},
+              "ops-watchdog",
+              # the 2026-10-27 rebuild (results/research/DESK_METHOD_2026-10-27.md):
+              # alpha-finder and unique-angle-researcher became quant-researcher,
+              # execution-trader became quant-trader, and equity-research folded
+              # into market-structure-analyst. They stay above so that CLAUDE.md
+              # naming one is caught as a ghost.
+              "quant-researcher", "data-engineer", "data-analyst", "statistician",
+              "ml-engineer", "backtest-engineer", "quant-trader",
+              # the SS seats on branch simon; data-librarian and
+              # event-econometrician are superseded by data-engineer and
+              # statistician and should be deleted when simon merges
+              "event-scout", "filings-analyst", "deal-analyst",
+              "credit-situations-analyst", "data-librarian", "event-econometrician"},
 }
 
 
