@@ -1,5 +1,8 @@
 # R2 — Do discount moves on macro-release days revert more? — 2026-10-26
 
+**Reproduce:** `python3 -B results/cef/screens_2026-10-26/r2_macro_days/r2_macro_days.py` from the repo root (it was run 2026-10-26 from a scratch export of `simon`; see `../README.md`).
+
+
 **Zero-trial screen, report only.** No trial is spent and no counter moves (CEF stays
 as `docs/RESEARCH_STATE.md` records it; MACRO is not touched). Nothing on the live
 path, the spec or `data/` changes. **This overlaps the MACRO lane** (macro events).

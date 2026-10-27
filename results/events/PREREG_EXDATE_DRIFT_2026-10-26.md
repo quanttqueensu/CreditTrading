@@ -7,8 +7,12 @@ before any data step (decision 3, recommended) · **Pass bar** `scripts/cef/vali
 > 0.95 **on the clean test set**, never on the fit · **Evidence** `results/cef/screens_2026-10-26/`
 on `simon` at `7c02236` · **Author** research agent, for the team lead
 
-> **DRAFT — awaiting team-lead approval. Writing it spends no trial and moves no counter.**
-> A counter moves only in the commit that records an approval (decision 16).
+> **APPROVED by the team lead, 2026-10-27, with every recommended answer in §14.**
+> - Part (b) is EVENTS trial 3, judged at N = 7. The counter moved 2 → 3 in the commit that records this.
+> - Part (a) is withdrawn on power before any data step: no trial, and CEF stays 52.
+> - Stage 0 (§8) runs before any 2023+ return.
+>
+> *Was:* DRAFT, awaiting team-lead approval (2026-10-26).
 >
 > **What was computed to write this.** Five helpers in this folder, run 2026-10-27:
 > `prereg_inputs.py`, `prereg_inputs_b2.py`, `prereg_inputs_b3.py`, `prereg_power_he.py` and

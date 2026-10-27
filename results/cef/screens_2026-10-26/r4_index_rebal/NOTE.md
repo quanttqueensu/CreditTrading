@@ -1,5 +1,8 @@
 # R4: fund-of-CEF index reconstitution (YYY, PCEF, XMPT): zero-trial screen
 
+**Reproduce:** `sh reproduce.sh` (part 1), then `python3 -B results/cef/screens_2026-10-26/r4_index_rebal/crsp_events.py` and `python3 -B results/cef/screens_2026-10-26/r4_index_rebal/event_study.py` (part 2, on the team lead's R2 pull). See `../README.md` for the paths.
+
+
 2026-10-26. Asked for by the team lead. Report only: **no trial is spent and no counter moves.**
 Graveyard neighbours: A9 (BIZD review demand, KILLED: median 0.39 days of ADV, and
 `shift(2)` misses the window). B2 in `results/cef/EVENT_DRIVEN_POD_2026-10-12.md`
@@ -274,3 +277,244 @@ sh /private/tmp/claude-501/-Users-simonjarvis-Downloads-2027-Projects-Quant---PM
 - Outputs: `out/holdings_snapshots.csv`, `out/aum_points.csv`,
   `out/snapshot_position_days.csv`, `out/events_dated.csv`, `out/events_undatable.csv`,
   `out/events_qualifying.csv` and `out/rebalance_calendar.csv`.
+
+---
+
+# Part 2 (2026-10-27): the gate re-run on CRSP mutual-fund holdings
+
+The team lead pulled R2 `crsp_q_mutualfunds.holdings`, `portnomap` and `monthly_tna` for
+YYY, PCEF and XMPT. It is staged, gitignored, under the worktree's
+`results/events/_cache_r7_r2_pull/cefetf/` (manifest pulled 2026-10-27T20:01Z; window
+2010-01-01..2022-12-31; holdings report_dt 2010-06-30..2022-11-30; rows with an eff_dt
+after 2022-12-31 were excluded by the pull). Same brief and rules: zero trials, gross
+only, allowed names only, returns ≤ 2022-12-30 asserted. No licensed value or
+identifier is copied into any tracked file. This note and `out/` are untracked scratch.
+
+## P2.1 Declared before any return was computed (addendum to §2)
+
+§2 stands unchanged. Part 1 did not need the operational details below; this data does.
+They were written before a single return was computed.
+
+1. **Snapshots.** One per (ETF, report_dt). A snapshot is **valid** if its
+   percent_tna sums to between 95 and 105. Seen before writing this: PCEF's CRSP
+   snapshots from 2010-07 to 2012-12 sum to 83–92%. Against the issuer pages, CRSP
+   omits 22–27 names that PCEF held (2011-07: 90 names against 117). So those PCEF
+   snapshots are invalid, and PCEF events there come only from the issuer-page record
+   of Part 1.
+2. **Identity.** A holding is keyed by CRSP permno. A row with no permno takes the
+   permno that the same ticker carries elsewhere in the pull, if that is unique;
+   otherwise it is keyed by ticker. Classes:
+   - the 13 come from the `stocknames` table in `results/data/cef_crosscheck_crsp_2026-09-28.md`;
+   - C4 names from `data/cef_families/crsp_permno_map.csv` (current and other permnos);
+   - NAD, NEA, NVG, NZF and the 27 sealed names from the permno their current ticker
+     carries in the pull.
+
+   A permno claimed by two classes raises. Any NAV symbol X<T>X is mapped as in Part 1;
+   the pull contains none [V].
+3. **Dating.** For each scheduled rebalance E, with neighbours Ep and En:
+   - **pre** is the latest valid snapshot in (Ep+3d, E−3d);
+   - **post** is the earliest in (E+3d, En−3d).
+   - If either is missing, the rebalance is undatable.
+
+   A month-end report on the quarter-end itself is never an endpoint. So no change is
+   dated more precisely than the scheduled rebalance it brackets.
+4. **Changes.**
+   - An **add** is in post and absent from every valid snapshot in (Ep+3d, E−3d).
+   - A **drop** is in pre and absent from every valid snapshot in (E+3d, En−3d).
+   - A name that vanishes and comes back inside one inter-rebalance period is
+     **flicker**: counted, never an event.
+   - A **reweight** is in both, with Δw = w_post − w_pre. That includes drift, so it is
+     an upper bound on the flow.
+5. **Merger suspects.** An add or reweight on an allowed name is suspect when the same
+   bracket drops a dead name (outside our panels) whose first name-token (the sponsor)
+   matches, and whose pre-period market value is ≥ 50% of the add's post-period market
+   value, or of the reweight's change in market value. The gate counts **non-suspect
+   events only**. Suspects are reported.
+6. **Size.** Demand = TNA (monthly_tna, the latest month-end before A) × |Δw| ÷ ADV63,
+   with ADV63 strictly before A. The bar is 1.0 day; the gate is ≥ 30 events with
+   A ≤ 2022-12-30 and W1 ≥ 1 session. If the gate passes on CRSP alone, Part 1's
+   issuer-page events are used only as a cross-check, never pooled.
+7. **Event study (only if the gate passes)**, on the qualifying events:
+   - **Returns.** Total returns use the house formula (`band_frontier.total_returns`:
+     the price return plus D/P(t−1), split-corrected, split-basis guard on). For C4
+     names the families panel adds the team lead's split rulings
+     (`results/cef/c4/c4_split_rulings_2026-10-20.json`, `drop_split`) and the bar
+     rulings file. Price, NAV and action files are truncated to ≤ 2022-12-30 in my
+     folder before anything is computed, so no 2023+ value is ever loaded into the
+     return code.
+   - **Windows.** W1 = close A+1 → close E; W2 = close E → close E+10.
+   - **Abnormal return.** The name minus the equal-weight mean of its family's allowed
+     names that had no add, drop or ≥ 1-ADV event in that index at that E, and that
+     have returns over the whole window. An event whose control set is empty is dropped
+     and counted, never filled. Family = `grp` for the 17 and `family` for C4.
+   - **Sign.** +1 for an add, −1 for a drop, sign(Δw) for a reweight.
+   - **Prediction.** Signed W1 > 0 and signed W2 < 0.
+   - **Inference.** t clustered by (ETF, E).
+   - **Discount change.** Δ(P/NAV − 1), handled the same way.
+   - **Controls**, as declared in §2.5: (a) each non-changer against the mean of the
+     other non-changers, with the event's sign, averaged within the event; (b) the
+     event names on placebo windows shifted 21 sessions earlier, against the same
+     control set.
+   - **Verdict rule** as in §2.6.
+   - Results are also shown by ETF. PCEF's and XMPT's announcement dates remain [U];
+     YYY's is [V] on the current methodology text.
+
+### P2.1a Amendments made after seeing the event LIST, before any return was computed
+
+The first pass listed 161 qualifying events. Reading that list (names, weights, sizes;
+no prices or returns) showed three defects in my own rules. They are fixed here, before
+any return is computed.
+
+5b. **Mergers.** Item 5's test compared each dead drop alone against 50%. It missed the
+    BlackRock high-yield merger: HYT took COY, CYE and HYV, each under 50% of the
+    change. It also missed the Nuveen 2016 merger into NZF, where XMPT's NZF weight is
+    15.3% against an 8% cap. Two changes:
+    - the test now sums the same-sponsor dead drops in the bracket;
+    - a post weight above 1.25 × the largest weight in the pre snapshot is also suspect,
+      because the index caps cannot produce it.
+
+6b. **Lookahead in sizing and signing.** The pre snapshot is about a month before E and
+    the post snapshot about a month after, so Δw contains price drift through W1 and W2.
+    Signing a reweight by sign(Δw) would credit a name that rose inside W1 or W2 with a
+    "buy" sign, which is a mechanical positive AR. Sizing an add by its post weight
+    selects names that rose after E. **So the event-study population is sized and signed
+    on SHARES, valued at close A** (price known at A):
+    - add: post shares × close A;
+    - drop: pre shares × close A;
+    - reweight: (post shares − g × pre shares) × close A, where g is the median ratio of
+      post to pre shares over the bracket's continuing names. That ratio removes the
+      ETF's own creations and redemptions. The sign is the sign of this trade.
+
+    A reweight with a recorded split between pre and post is excluded, because its share
+    counts are not comparable. The coordinator's TNA × |Δw| count is still reported as
+    the requested gate (an upper bound). The event study runs only if the
+    lookahead-free count is also ≥ 30.
+
+7b. **Reading §2.6** (written before the event-study run). A control counts as
+    "as large as the treatment" when its |mean| ≥ the treatment's |mean| **and** its
+    |t| ≥ 1. Without the t condition, a near-zero treatment against near-zero noise
+    would be called ARTIFACT. A window counts toward PROMISING only with the predicted
+    sign: W1 > 0, W2 < 0.
+
+## P2.2 Counts (CRSP holdings; `crsp_events.py`)
+
+**Snapshots.** The holdings are monthly in most years, and sparse for PCEF in 2014–17
+and YYY in 2013–17. Of PCEF's 2010–12 snapshots, 1 of 29 is valid. Every XMPT and YYY
+snapshot is valid.
+
+**Rebalances datable from inception** (a valid snapshot on each side, more than 3 days
+from E) [V]:
+- PCEF: 28 of 51;
+- XMPT: 45 of 46;
+- YYY: 18 of 21.
+
+So 91 of 118, against 15 in Part 1.
+
+**Identity and data checks** [V]:
+- 23 vanish-and-return flickers were refused as events.
+- The pull contains no NAV-symbol tickers. 43 rows took a permno from their own ticker;
+  451 rows have none (cash, money-market and foreign lines).
+- **Cross-source check.** The 2013 PCEF events match Part 1's issuer-page record name for
+  name: HEQ and LDP (2013-03), BIT (2013-06), FPF (2013-09) and the HYT merger. Demands
+  agree within 0.1 day; for example HEQ 1.75 against 1.87.
+- **Mergers** excluded from the gate: 11 suspects at ≥ 1 ADV. Among them are HYT
+  (2013-09), PDI absorbing PCI (2021-12), NZF (2016-03, 15.3% against an 8% cap),
+  NAD and NEA (2016-09), and MHD and MQY (2021-03).
+
+**GATE** (dated, sized, ≥ 1 ADV, allowed, non-suspect, A ≤ 2022-12-30, W1 ≥ 1 session):
+
+| version | count | PCEF | XMPT | YYY | verdict |
+|---|---:|---:|---:|---:|---|
+| as requested: TNA × \|Δw\| ÷ ADV | **158** | 65 | 3 | 90 | PASS [V] |
+| lookahead-free: shares × close A (P2.1a 6b) | **137** | 45 | 3 | 89 | PASS [V] |
+
+- The lookahead-free 137 split into 57 adds, 50 drops and 30 reweights.
+- By class: 28 on the deployed 13, 4 on the wide 17 and 105 on C4 names.
+- They span 31 (ETF, E) clusters, 2013-03 → 2022-09.
+- Median demand: PCEF 1.51 days of ADV, YYY 1.82, XMPT 1.26.
+- Sealed names were counted and never priced; their events are in `out/p2_events.csv`.
+
+## P2.3 Event study (`event_study.py`; returns ≤ 2022-12-30 asserted)
+
+**Exclusions** [V]:
+- HERZ is excluded from all returns: a split and a distribution fall on the same date,
+  so the per-share basis is ambiguous and the house formula refuses to guess.
+- The house split guard found 8 more vendor-adjusted split cells in the families panel:
+  ASA, ZTR, AGD, AOD, CLM, CRF and SRV twice. They are treated `drop_split`, the team
+  lead's 2026-10-20 treatment for the same defect, in this screen's own file
+  `out/r4_split_rulings.json`. **This is not a team-lead ruling.**
+- numexpr was switched off: its thread pool hung on one small division. It is an
+  accelerator only.
+- 7 events have no same-family control (JFR, the only allowed loan fund; and AWF and
+  HYT when both changed at one E), so n = 130.
+
+**Pooled, signed abnormal total return, gross [V]:**
+
+| | W1: close A+1 → E | W2: E → E+10 |
+|---|---:|---:|
+| treatment | **+50bp, t 2.23** | **−73bp, t −3.58** |
+| control (a): non-changers | 0.0bp | 0.0bp |
+| control (b): placebo, 21 sessions earlier | +20bp, t 1.19 | **+113bp, t 2.87** |
+| signed discount change, treatment | +61bp, t 2.51 | −48bp, t −3.02 |
+| signed discount change, placebo | +4bp | +118bp, t 2.98 |
+
+n = 130 in 30 clusters.
+
+**Control (a) is degenerate, and that is my design error.** The mean of every name
+against the mean of the others is identically zero. It carries no information. The
+verdict rests on control (b).
+
+**Verdict by the declared rule (§2.6, 7b): ARTIFACT.** The placebo W2 (+113bp, t 2.87)
+is larger than the treatment W2 (−73bp) and has |t| ≥ 1.
+
+**Where the artifact is (supplementary; the split by ETF was declared in P2.1 item 7, but
+nothing below changes the verdict):**
+
+- **YYY** (84 events, 9 clusters): **no pressure**. W1 is −17bp (t −1.4) and W2 −51bp
+  (t −1.9). Its **placebo W2 is +170bp (t 2.7)**, with a discount change of +180bp
+  (t 2.9). That placebo window sits just after YYY's reference date, where the index
+  ranks on yield and discount. Names chosen for wide discounts then re-rate. That is
+  the desk's own discount-reversion signal, not index flow [U on the mechanism; V on
+  the numbers].
+- **PCEF** (43 events, 19 quarter-ends):
+  - W1 **+184bp, t 5.46**, positive in 84% of events; W2 **−120bp, t −5.61**.
+  - Placebo W1 **+8bp (t 0.23)**, placebo W2 **+7bp (t 0.31)**.
+  - Signed discount change: W1 +203bp (t 5.9), W2 −99bp (t −4.0); placebo +4 and +8bp.
+  - The same signs hold for adds (W1 +242 / W2 −204), drops (+215 / −101) and
+    reweights (+107 / −56).
+  - They also hold in both eras: 2013–17 (n 6) +268 / −163; 2018–22 (n 37) +171 / −113.
+  - And on the deployed 13 alone (n 12): +260bp (t 2.7) / −154bp (t −2.4).
+  - **Post-hoc:** if the change is known only at E, the reversal from an E+1 fill is
+    −74bp (t −3.6), and from an E+2 fill −44bp (t −1.5).
+- **XMPT:** 3 events, which is too few to read.
+
+## P2.4 Verdict
+
+**ARTIFACT** by the declared pooled rule. The flows clear the size gate easily: 137
+lookahead-free events at ≥ 1 ADV. But the pooled pattern fails its placebo, because
+YYY's selection-on-discount re-rating sits in the placebo window, and YYY shows no
+pressure of its own.
+
+**Post-hoc, not a pass:** PCEF alone shows a clean pressure-and-reversal with a
+near-zero placebo. It is a hypothesis for a **PCEF-only pre-registered trial**, never
+evidence. That trial would need:
+1. PCEF/S-Network announcement dates verified, or a replication of CEFX eligibility and
+   weights from public data at the reference date. Without one of these, only the
+   E+1/E+2 reversal is tradeable.
+2. The 2023+ time holdout, opened once, as the out-of-sample test.
+3. A control that is not degenerate, for example a matched non-changer pseudo-event.
+4. A borrow check for the drop and reversal legs.
+5. A trial counter named by the team lead (EVENTS, or NPORT as B2 was filed).
+
+## P2.5 Reproduce
+
+```sh
+cd /private/tmp/claude-501/-Users-simonjarvis-Downloads-2027-Projects-Quant---PM2027-2027/767b4ac8-7cb7-4bf6-953a-b785b037a5b4/scratchpad/tree
+python3 ../r4_index_rebal/crsp_events.py   > ../r4_index_rebal/out/p2_run2.txt     # counts and the gate
+python3 ../r4_index_rebal/event_study.py   > ../r4_index_rebal/out/p2_event_study.txt
+```
+
+These read the staged CRSP cache in the simon worktree, under
+`results/events/_cache_r7_r2_pull/cefetf/` (gitignored, licensed). The `out/p2_*.csv`
+files carry CRSP-derived values. **They are scratch, and must not be copied into any
+tracked file.**
