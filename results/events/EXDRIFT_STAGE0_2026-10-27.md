@@ -1,0 +1,167 @@
+# Ex-date drift (EVENTS trial 3): Stage 0, HALTED on the team lead's Alpaca run and the rulings
+
+**Date** 2026-10-27 · **Pre-registration** `results/events/PREREG_EXDATE_DRIFT_2026-10-26.md`
+(approved 2026-10-27 with every recommended answer: part (b) is EVENTS trial 3 at N = 7; part (a)
+withdrawn) · **Counter** EVENTS 3, unchanged (it moved on approval) · **Branch** `exdrift-stage0`,
+cut from `simon` at `66ec3df` · **Author** research agent
+
+**Reproducer:** `python3 scripts/events/exdrift_trial.py stage0` (offline once the caches of §6
+exist; exit 2 = halted). Outputs, all tracked, with dates, counts, presence and flags only:
+
+| file | holds |
+|---|---|
+| `results/events/exdrift/exdrift_stage0_output_2026-10-27.txt` | the run's printed record |
+| `results/events/exdrift/exdrift_stage0_2026-10-27.json` | gate statuses, counts, coverage, the identity table |
+| `results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv` | 587 flags, keyed `(check, ticker, date)` |
+| `results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv` | **the blank rulings form**, one row per flag (`ruling`, `ruled_by`, `ruled_on`) |
+| `results/events/exdrift/exdrift_fit_descriptive_2026-10-27.csv` | the DG-X7 identity table (fit only) |
+| `results/events/exdrift/noop_fetch_cef_distributions_output.txt` | the no-op proof for the fetcher change (§2) |
+
+Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
+scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
+scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
+
+> **Status: HALTED in Stage 0.** Three gates wait on one credentialed run by the team lead
+> (DG-X1's second source, DG-X2, DG-X3: §5). Three gates are FLAGGED and wait on rulings
+> (DG-X4, DG-X5, DG-X6). DG-X7's identity gate PASSES. k and the cap-binding share are not
+> formed (reading R9). DG-X8 PASSES.
+>
+> - **No 2023+ return, P&L, price change or NAV change was computed, printed or written.** From
+>   2023 on, Stage 0 read ex-dates, amounts, the session calendar, the presence of a close, a NAV
+>   and a volume, and two equality tests (volume = 0, NAV(D) = NAV(D−1)). The spike-and-revert
+>   guard forms close ratios inside `data_guards`, and only its flag keys leave it (§1, DG-X4).
+> - **No fit statistic beyond the identity gate.** The fit was read only to reproduce two
+>   published figures.
+> - **The test set is not opened.** `open` refuses until Stage 0 is CLEAR, and `fit-k` refuses
+>   until every flag is ruled (§4).
+> - **The 27 sealed names were never loaded.** Every panel read passes a parquet filter on the 17,
+>   and every frame is asserted; the distribution refresh fetched only the 17.
+
+## 1. The gates
+
+| gate | status | what was found | what clears it |
+|---|---|---|---|
+| **DG-X1** distributions | **AWAITING TEAM LEAD** | **The refresh is done, outside `data/`** (§2). 4,616 rows for the 17, last ex-date 2026-10-15 (the price panel's last session). On the overlap with `data/cef/cef_distributions.parquet` every ex-date and amount is identical (3,831 fit rows, 752 from 2023 on). It adds 33 ex-dates, 2026-09-11 → 2026-10-15. Every ex-date is a session. **The second source is not read yet**: CRSP needs a credential and its ret − retx is a return; `fetch_sponsor_notices.py` covers none of the 17; CEFConnect blocked the scripted request (reading R2) | the team lead's run (§5); then every 2023+ ex-date and amount is compared with Alpaca's (`X1_*` flags) |
+| **DG-X2** declarations | **AWAITING TEAM LEAD** | No tracked panel holds a declaration date. Alpaca's deprecated `/v2/corporate_actions/announcements` carries one; whether it still answers is [U] | the same run. **If the endpoint refuses every window, DG-X2 FAILS** and the team lead rules on another declaration source |
+| **DG-X3** record dates | **AWAITING TEAM LEAD** | Alpaca's `/v1/corporate-actions` carries the record date; the regime arithmetic of §4.2 (T+2: record = the session after ex; T+1 from 2024-05-28: record = ex) is coded and tested | the same run |
+| **DG-X4** bars | **FLAGGED** (25) | **24 `X4_no_bar`:** the event fund has no close on its own ex-date e, on 2026-02-12 (PCN, PDI, PDO, PFN, PHK, PTY), 2026-02-13 (BIT, HYT, JFR, NAD, NEA, NVG, NZF), 2026-02-18 and 2026-03-18 (DSL), and 2026-09-15 (BIT, HYT, JFR, MHD, MQY, NAD, NEA, NVG, NZF). **These 24 cells are every missing close in the 17's 2023+ panel, and every one is on the fund's own ex-date** (each row is present with volume 0 and no close). **1 `X4_split`:** BIT 2025-08-19, factor 1.029. The split-basis guard classes it `undecidable` from the factor alone (\|ln k\| = 0.029 ≤ 2τ = 0.280), so it cannot raise there; rule 3 masks BIT's returns within ±5 sessions (R1), which removes one event. The spike-and-revert guard finds **0** hits and **0** unreverted jumps in the test window. No zero-volume fill day has a close. The panel's sessions equal `ops/schedule/nyse_calendar.py`'s | a ruling per flag. The same run fetches Alpaca's raw SIP bar on each `X4_no_bar` cell, so "fill from a second source" (C4's precedent, 2026-10-14) can be ruled without another run |
+| **DG-X5** NAV | **FLAGGED** (552) | NAV is present on e..e+3 for every event (0 `X5_nav_missing`). **552 `X5_nav_repeat`** on the event fund's rows e+1..e+3: 552 of 2,304 cells (0.240). On the same rows in the fit: 1,758 of 9,600 (0.183); by fit era 0.170 / 0.165 / 0.212 / 0.179. By test year 0.223 / 0.263 / 0.243 / 0.225 (2023–26). Basket funds' rows, counted not flagged: 0.240. **The test rate is above every fit era's.** `docs/DATA.md` (correction of 2026-10-12) records Yahoo serving a NAV dated D that carries D−1's value | a class ruling (reading R6). A stale NAV moves the NAV leg towards zero, which is towards PASSING stage 3, so it biases the test for the trade |
+| **DG-X6** factors | **FLAGGED** (1) | Test window for the factors: 2023-01-13 → 2026-10-06 (935 sessions, the first event's first return row to the last event's e+3). **French FF5 + UMD** (vintage 202609, fetched 2026-10-27) end 2026-09-30: **4 sessions uncovered**, 2026-10-01 → 10-06. IEF and HYG in `data/etf_daily.parquet` cover it (to 2026-10-09). **MUB:** absent from `etf_daily`; the new fetcher (`scripts/events/fetch_exdrift_mub.py`, yfinance) covers every session, as do its IEF and HYG copies. Source note: `docs/REFERENCES.md` §12az | a ruling on the 4 French sessions (reading R8) |
+| **DG-X7** identity | **IDENTITY PASS; k PENDING** | §3. r6 and H-E's dispersion reproduce on the fit. k and the cap-binding share are fit P&L, which this run's brief forbade (R9) | `fit-k`, after the rulings |
+| **DG-X8** numexpr | **PASS** | `compute.use_numexpr` is off at import. `numexpr_fault.run()` here: numexpr 2.10.1 returns wrong cells with the option on; the numpy path is clean. The denormal assertion runs on the identity gate's per-event series | — |
+
+## 2. DG-X1: the refresh, and the change to the live-path fetcher
+
+`scripts/fetch_cef_distributions.py` could only write `data/cef/` and fetched every
+`cef_universe.csv` name, the 27 sealed ones among them. It is on the live path: the nightly
+collector runs it bare. So it gained two options, **both off by default**:
+
+- `--out DIR` writes only the actions panels, and only to DIR. A DIR inside `data/` is refused.
+  The features and facts sections are skipped, because both write into `data/cef/`.
+- `--tickers A,B,...` fetches only those names, each of which must be in `cef_universe.csv`. It is
+  refused without `--out`, because the live panels are replaced whole.
+
+**The no-op is proved byte for byte.** `results/events/exdrift/noop_fetch_cef_distributions.py`
+runs the file as it stood at `66ec3df` (taken from git) and the edited file, each in its own
+temporary tree, on one fake yfinance with the clock frozen. All seven files and all 17 printed
+lines are identical: PASS. The tests pin the default outputs and the refusals. They fail against
+the old file, which has no `main` and ignores every argument.
+
+The refresh: `python3 scripts/fetch_cef_distributions.py --out
+results/events/exdrift/_cache_exdrift/dist_refresh_2026-10-27 --tickers <the 17>`, run
+2026-10-27 20:56 UTC. It is gitignored.
+
+## 3. DG-X7: the identity gate (fit 2005-01-01 → 2022-12-30 only)
+
+| figure | reproduced | published | tolerance | |
+|---|---:|---:|---:|---|
+| r6 events (the 17, 2005–22) | 3,226 | 3,226 | exact | PASS |
+| r6 CAR(+1..+3) | −20.4542bp | −20.454bp | 0.001 | PASS |
+| r6 month-clustered t | −6.7655 | −6.765 | 0.001 | PASS |
+| H-E per-event sd | 150.280bp | 150.3bp | 0.05 | PASS |
+
+Printed beside it, not gated: 216 months; H-E 3,226 events with a fund return, 3,009 traded,
+6.7% with a basket of fewer than 3, median basket 12; sd of monthly means 41.45bp (published
+41.4). **The refreshed panel's fit rows are identical to `data/`'s, so the gate holds on the panel
+the trial will use.** The fit was read through parquet filters at 2022-12-30. The table is
+`exdrift_fit_descriptive_2026-10-27.csv`. No H-E mean was computed.
+
+## 4. The test set, re-measured (dates only; H14: these counts decide nothing)
+
+| | events | on the 13 | dates | months | H-E ≥ 3 (calendar) | on the 13 |
+|---|---:|---:|---:|---:|---:|---:|
+| pre-registration §5.1 | 752 | 575 | 169 | 45 | 714 | 537 |
+| `data/` panel, re-counted | 751 | 574 | 169 | 45 | 713 | 536 |
+| **refreshed panel, to the frozen end** | **768** | **587** | **173** | **46** | **729** | **548** |
+
+- **The one-event difference is rule 3**, under reading R1: a BIT event whose hold rows lie
+  within 5 sessions of BIT's 2025-08-19 split record. No event is excluded by rule 2.
+- **The test set's end is frozen at ex-date 2026-10-12** (R7). That is the earlier of the refreshed
+  panel's last ex-date (2026-10-15) and the session 3 before the price panel's last (2026-10-15).
+  The last event in the set has e = 2026-10-01.
+- By year: 205 / 205 / 204 / 154 (2023–26). T+2: 290; T+1: 478.
+- The basket column here needs a bar on e..e+3 and no split-masked row, and it uses every known
+  ex-date. The declared-at-e−1 calendar waits on DG-X2.
+
+**The block.**
+- `fit-k` calls `require_stage0_rulings_only`. That runs `data_guards.require_stage0_rulings` on
+  the committed flag table and the rulings file.
+- `open` also calls `require_stage0_clear`. It needs the committed record to say `CLEAR` and a
+  committed k.
+- Both refuse, naming what is missing. Both are stubs that raise after the block. They are
+  written and reviewed once Stage 0 clears.
+
+## 5. What the team lead runs, and what needs a ruling
+
+**One credentialed run** (read-only GETs on the cef paper key; it prints no key). From the main
+checkout's root:
+
+```
+! bash .claude/worktrees/exdrift-stage0/run_exdrift_ca.sh
+```
+
+- The wrapper sits at the worktree root and is excluded from git (`info/exclude`). It sets
+  `QUANTT_ENV_FILE` to `config/.env` and runs `fetch_exdrift_corp_actions.py --bars-for
+  <the flag table>`.
+- It makes about 295 GETs, paced at 0.35s, so it takes about 2 minutes:
+  - Alpaca `/v1/corporate-actions` for the 17 from 2023-01-01;
+  - the announcements endpoint, per symbol, in windows of at most 90 days;
+  - raw SIP bars on the 24 `X4_no_bar` cells.
+- Its output goes to the gitignored `_cache_exdrift/`. An agent then re-runs `stage0` offline.
+  That adds the `X1_*`, `X2_*` and `X3_*` flags and rewrites the still-blank rulings form.
+
+**Rulings** (each flag has a `recommended` column in the flag table):
+
+| flags | recommended |
+|---|---|
+| 24 `X4_no_bar` | fill the close from Alpaca's raw SIP bar where it has one (C4, 2026-10-14); otherwise exclude the event and count it. Never fill with zero (rule 4) |
+| `X4_split` BIT 2025-08-19 (1.029) | confirm it is not a change to the close's share basis. Rule 3 already keeps it out of every event and basket |
+| 552 `X5_nav_repeat` | the test rate is above every fit era's. Before a class ruling, check the flagged cells against a second NAV source (CEFConnect, as the stale-NAV gate does), and rule each stale copy "excluded from the NAV leg, counted" |
+| `X6_FF6_uncovered` | wait for French's 202610 vintage and run R-D4 on the whole window (recommended), or run it on the covered sessions and print the 4 |
+| R1–R9 | the implementation readings, in `READINGS` of `exdrift_trial.py` and in the flag table. R9 asks for a go on `fit-k` |
+| `X1_*`, `X2_*`, `X3_*` | after the run |
+
+**Outside this trial, for the team lead's information.**
+- **The 24 missing closes sit exactly on ex-dates** (`docs/REFERENCES.md` §12az). That points to a
+  defect in how the daily price fetch handles an ex-date in 2026. The cause is [U].
+- The panel read here is this checkout's `data/`, through 2026-10-15. Whether prod's panel on the
+  VM has the same gaps was not checked.
+- `python3 -m ops.doc_audit --check` reports one DRIFT that predates this branch: `docs/SYSTEM.md`
+  points to `results/events/_cache_r7_r2_pull/`, which this checkout does not hold. It was
+  present at `66ec3df`.
+
+## 6. Inputs and their provenance (no credential was read)
+
+| input | source | label |
+|---|---|---|
+| prices, NAVs, distributions to 2026-10-15 | this checkout's `data/` (a symlink to the main tree), read-only | [V] dates |
+| refreshed distributions | §2, yfinance, 2026-10-27 | [V] |
+| French FF5 + UMD | `scripts/data/fetch_ff_factors.py`, 2026-10-27, vintage 202609 | [V] |
+| MUB, IEF, HYG (yfinance) | `scripts/events/fetch_exdrift_mub.py --symbols MUB,IEF,HYG`, 2026-10-27T21:02:49Z | [V] dates |
+| IEF, HYG | `data/etf_daily.parquet`, dates only | [V] dates |
+| Alpaca corporate actions and bars | not yet fetched (§5) | — |
+
+**Trial accounting.**
+- EVENTS stays at 3, and CEF at 52. `docs/RESEARCH_STATE.md` is not changed by this run.
+- The 2023-01-01 time holdout is not opened.
+- The 27 names are not consumed.

@@ -47,6 +47,9 @@ counter (156) covers all ETF-price/PD work done to date.
 >   are not computed (decision 10). Gross P&L decides; the 5/15/30bp grid and borrow sit beside it (decision 17).
 > - **Stage 0 comes first**: the distribution refresh and second source (DG-X1), and declaration and record
 >   dates (DG-X2/X3). No 2023+ return is computed until Stage 0 is clean.
+> - **2026-10-27, Stage 0 run: HALTED** (`results/events/EXDRIFT_STAGE0_2026-10-27.md`; no counter moves). DG-X7's
+>   identity gate passes (r6 and H-E's sd reproduce on the fit). DG-X1's second source, DG-X2 and DG-X3 wait on the
+>   team lead's Alpaca run; DG-X4, -X5 and -X6 wait on rulings of 587 flags; k is not yet formed. No 2023+ return read.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:
