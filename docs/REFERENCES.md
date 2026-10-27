@@ -1812,3 +1812,15 @@ carries its full source table; rows here are the ones the note relies on. "seat"
 | Reg T 50% initial margin; FINRA 4210 maintenance; Alpaca margin and short-selling rules; IBKR real-time liquidation | 12 CFR 220.12 (Cornell); https://www.finra.org/rules-guidance/rulebooks/finra-rules/4210; https://docs.alpaca.markets/docs/margin-and-short-selling; IBKR glossary (search result only) | [V]; IBKR [S] |
 | Kalshi history begins 2021-12, after 7 of 9 muni tax-policy episodes; storage and portfolio use forbidden by its terms | seat `ssx_risk`; §12y | [V] |
 | FTSE Russell reconstitution semi-annual from December 2026 (effective after the close 2026-12-11) | LSEG press release 2026-09-01, seat `ssx_data` | [V] |
+
+### 12ay. Five zero-trial screens (added 2026-10-26)
+
+Sources fetched or copied for `results/cef/screens_2026-10-26/`. The raw files are not committed (public repository); each folder's NOTE.md gives fetch times and its `fetch_*.py`.
+
+| claim / series | source | status |
+|---|---|---|
+| Macro observables (r1): SIFMA municipal swap index; OFR tri-party repo rate (REPO-TRI_AR_CORD-F); HY OAS. All copied read-only on 2026-10-26 from the C2 observables cache that `scripts/data/fetch_group_observables.py` wrote on 2026-10-12 | sifma.org (linked from its "About the Municipal Swap Index" page); OFR Short-term Funding Monitor; R2 `frb_all.rates_daily` | [V] as cached; not re-fetched |
+| FOMC meeting and statement dates 2005–22 (r2): 143 held meetings, all matching the repo's panel. The June 2007 calendar link is mislabelled, and the statement page confirms 2007-06-28 | federalreserve.gov FOMC historical materials and calendars, fetched 2026-10-26 | [V] |
+| CPI and Employment Situation release dates 2007–22 (r2) | the repo's Forex Factory calendar mirror. bls.gov returned 403 to a request without a contact User-Agent, and none was sent | [S]; BLS-verified dates need the team lead's contact UA |
+| YYY index methodology (semiannual, effective at the open after the 3rd Friday of Jan/Jul, announced 6 trading days before) and PCEF's quarter-end reconstitution (r4); see also rows 517–518 above | Nasdaq YLDA methodology and weighting pages; S-Network methodology | [V] current methodology; [U] for 2013–21 |
+| PCEF, YYY and XMPT historical holdings (r4): 15 of about 116 scheduled rebalances in 2010–22 dated from archived issuer holdings pages | web.archive.org captures of the issuer holdings pages (Invesco/PowerShares, Amplify/YieldShares, VanEck/Market Vectors), fetched 2026-10-26 | [V] for the captured dates only |
