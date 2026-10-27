@@ -19,14 +19,15 @@ on or before 2022-12-30, which each script asserts. The 2023-01-01 time holdout 
 A second method in `r6_exdrift/` is independent of `c4_families.py`. It computes its own total returns,
 measured against the same-date equal-weight mean.
 
-- On C4's families, a short at the ex-date close covered at +3 earns **CAR(+1..+3) −30.1bp (t −5.6,
-  month-clustered)**.
-  - The result is −30.0bp with Eaton Vance excluded.
+- On C4's families, a short at the ex-date close covered at +3 earns **CAR(+1..+3) −34.3bp (t −14.9,
+  month-clustered) on 2005–22**, and −30.1bp (t −5.6) on every year in the panel (1982–2022).
+  *Corrected 2026-10-27: this line first gave the 1982–2022 figure without saying so.*
+  - With Eaton Vance excluded it is −34.8bp (t −14.3) on 2005–22, and −30.0bp on 1982–2022.
   - It is negative in 2005–09, 2010–15 and 2016–22.
   - It is larger for larger distributions.
 - On the 17 credit CEFs it is **−20.5bp (t −6.8)**.
 
-**It was found after the fit window was seen, so it is a hypothesis, not evidence.** A
+**It was found after the fit window was seen, so it is a hypothesis, not evidence.** *Provenance, corrected 2026-10-27:* W4 recorded the same pattern first, on the credit funds (`results/cef/W4_ARTIFACTS_2026-10-11.md` §1, "Ex-date arithmetic": the discount falls a further −0.306pp and −0.197pp over the two sessions after the ex-date, "a post-ex-date price pattern, not arithmetic"), as an observation it did not test. The 2026-10-26 review rediscovered it. A
 pre-registration draft is with the team lead.
 
 ## How to reproduce

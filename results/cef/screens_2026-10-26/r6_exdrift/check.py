@@ -57,3 +57,9 @@ print("\nby era (ex Eaton Vance):"); print(ev[~ev.ev].groupby("era", observed=Tr
 print("\nby family (ex Eaton Vance):"); print(ev[~ev.ev].groupby("fam").apply(tstat).round(3).to_string())
 ev["yq"] = pd.qcut(ev.yld, 4, labels=["Q1 low", "Q2", "Q3", "Q4 high"])
 print("\nby distribution size quartile (all):"); print(ev.groupby("yq", observed=True).apply(tstat).round(3).to_string())
+
+# Added 2026-10-27: the pooled figures above span every year in the panel (1982-2022).
+# The same statistic on 2005-2022 only, the window the credit check and the eras use.
+e05 = ev[ev.date >= "2005-01-01"]
+print("\nCAR(+1..+3), 2005-2022 only (all funds):"); print(tstat(e05).round(3).to_string())
+print("\nCAR(+1..+3), 2005-2022 only, ex Eaton Vance:"); print(tstat(e05[~e05.ev]).round(3).to_string())

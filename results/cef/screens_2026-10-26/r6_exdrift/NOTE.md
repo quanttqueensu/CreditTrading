@@ -11,7 +11,7 @@ over a record date, so it owes no distribution. t is clustered by calendar month
 
 | set | events | offset −1 | +1 | +2 | +3 | CAR(+1..+3) | t (month-clustered) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| C4 families, all years in panel [V] | 19,653 | +9.9 | −13.3 | −9.3 | −7.5 | **−30.1bp** | −5.6 |
+| C4 families, all years in panel (1982–2022) [V]; 2005–22 only: −34.3bp, t −14.9 [V, added 2026-10-27] | 19,653 | +9.9 | −13.3 | −9.3 | −7.5 | **−30.1bp** | −5.6 |
 | … ex Eaton Vance [V] | 17,673 | | | | | −30.0bp | −5.6 |
 | … ex EV, 2005–09 / 2010–15 / 2016–22 [V] | 3,063 / 4,276 / 7,164 | | | | | −33.0 / −30.5 / −38.1 | −5.2 / −8.1 / −14.8 |
 | … by distribution-size quartile, low → high [V] | ~4,900 each | | | | | −24.1 / −22.5 / −34.3 / −39.6 | −2.0 / −2.4 / −3.0 / −5.9 |
