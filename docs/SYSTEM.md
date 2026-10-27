@@ -554,7 +554,7 @@ counter is in `docs/RESEARCH_STATE.md`.
 | Where C4 trades | **Its own paper account**: the never-traded paper account behind the Alpaca connector (created 2026-09-29). **This is an exception to 2026-10-09's "one combined book"**, because the runner's gates refuse a shared account (`quantt/session/gate.py` gates 6 and 9). The team lead adds its keys as `ALPACA_C4_KEY_ID` / `_SECRET_KEY` |
 | C4's setup | **The plan's §3, as a set:** its own $100k, the spec's vol target and its own gross cap; no CEFConnect for C4 (the NAV-repeat mask instead); shorts Alpaca will not lend are skipped, with no substitute; halt on a fidelity break; reverse below the price-only 5th percentile at 120 sessions, or on a drawdown past the fit's worst; the 9 non-NYSE funds scored as gaps for now |
 | The post-ex-date drift | **Pre-registration approved, all 17 recommended answers** (2026-10-27). Part (b) is EVENTS trial 3 at N = 7; part (a) is withdrawn on power. `results/events/PREREG_EXDATE_DRIFT_2026-10-26.md` |
-| R2 pulls for the BDC and index-rebalance screens | **Run by the team lead** (2026-10-27), into the gitignored `results/events/_cache_r7_r2_pull/` |
+| R2 pulls for the BDC and index-rebalance screens | **Run by the team lead** (2026-10-27), into a gitignored `_cache_` folder under results/events (never committed: the rows are licensed) |
 
 ## 6. Governance — where each rule lives
 
