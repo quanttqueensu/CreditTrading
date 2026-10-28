@@ -590,6 +590,20 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 
 ---
 
+### Team lead, 2026-10-27: the research method
+
+Answered interactively after the zero-trial audit of 82 kills and the desk
+rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
+
+| question | decision |
+|---|---|
+| Which deflated-Sharpe bar gates | **The paper's bar** (Gumbel expected maximum, effective N, measured cross-trial V[SR_n]), **once trials store their daily P&L series**. Until then both bars are shown, labelled, and the desk's √(2 ln N) on the raw counter gates |
+| The power gate | **In the `research-idea` workflow only**, not a `CLAUDE.md` rule. The workflow stops when any P(pass) is below 0.5, unless overridden |
+| Admission by marginal contribution | **Allowed, paper only.** A sleeve that fails the standalone deflated Sharpe may join the paper book, labelled, if it adds to the book (SR > ρ·SR_book across ρ's range) and the combined net is positive across the 5/15/30bp grid. Real capital keeps the standalone gate (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1) |
+| Evidence outcome | **Every verdict records PRESENT / ABSENT / INCONCLUSIVE beside its D-code**, and C5, E1 and X1 are relabelled (`docs/RESEARCH_STATE.md`, 2026-10-27 note) |
+| The audit's zero-trial re-opens | **All queued, in this order:** (1) NAV tenders and E1 judged by their contribution to the book, on fit-period series only; (2) C5 as an execution choice, with the opening-auction cost re-measured on 2023–26 quotes; (3) X3 hedged against TERM, power check first because its holdout is spent; (4) A1 as a conditioner, G2's two named inputs, MA-HZ on the 2001 census. Each spends no trial; any test that follows is pre-registered |
+| Trial P&L series | **Backfill what is reproducible.** Re-run each past trial whose script still reproduces, store its daily series, and list those that cannot be rebuilt. The desk's bar keeps gating until it is done |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |

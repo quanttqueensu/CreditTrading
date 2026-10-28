@@ -196,6 +196,7 @@ python3 -m ops.doc_audit               # do the documents still say true things?
 python3 -m quantt.broker.alpaca_probe --check-keys   # which Alpaca keys are SET (no network)
 python3 -m quantt.broker.alpaca_probe  # read-only snapshot of each paper account
 python3 scripts/cef/band_frontier.py   # the trading-policy frontier
+python3 -m scripts.research.inference bars 52 --years 13 --sr 0.67   # power and both DSR bars for a counter's N
 python3 scripts/cef/plan_diagnostics.py  # IC, kappa, PCA, ADV, vol scalar
 python3 .claude/hooks/book_state.py -p # what the banner and status line read
 ```
@@ -269,9 +270,11 @@ Skills: `/morning-brief`, `/next-task`, `/graveyard`, `/harness`, `/repro`,
 `/prereg`, `/spec-change`. (The IBKR-run skills were deleted 2026-09-28; they are
 at tag `pre-clean-slate` under `pre-clean-slate:_archive/claude_layer/`.)
 
-Subagents: `alpha-finder`, `beta-detector`, `unique-angle-researcher`,
-`execution-trader`, `portfolio-manager`, `market-structure-analyst`,
-`equity-research`, `quant-reviewer`.
+Subagents, in research-line order (`.claude/README.md` has the line; rebuilt
+2026-10-27, `results/research/DESK_METHOD_2026-10-27.md`): `quant-researcher`,
+`data-engineer`, `data-analyst`, `statistician`, `ml-engineer`,
+`backtest-engineer`, `beta-detector`, `quant-reviewer`, `portfolio-manager`,
+`quant-trader`, and `market-structure-analyst` for the domain.
 
 **Options are closed, except through one pre-registered standalone short-premium
 test (team lead, 2026-10-09), and that is recorded rather than remembered**:

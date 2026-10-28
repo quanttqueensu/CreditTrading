@@ -58,21 +58,42 @@ The Alpaca order path will get its own rule file when it is built
 | `/prereg` | write a pre-registration before a change trades |
 | `/spec-change` | safely change a frozen-spec key |
 
-## Agents — specialist seats
+## Agents — one research line
 
-Each runs in isolated context and returns a summary. Ask for one by name, or
-describe the task and let Claude route.
+Rebuilt 2026-10-27 (`results/research/DESK_METHOD_2026-10-27.md`). Each seat is
+one **station**: it owns one subtask, its output is judged on its own, and the
+person who designs a test never runs it (López de Prado's "meta-strategy"
+assembly line, `docs/REFERENCES.md` §12rm). Each seat runs in isolated context
+and returns a summary. Ask for one by name, or describe the task and let Claude
+route it. `/research-idea` runs the whole line.
 
-| agent | seat |
-|---|---|
-| `alpha-finder` | generates return sources; names who loses before proposing |
-| `beta-detector` | adversarial — tries to prove a result is an artifact or a risk premium |
-| `unique-angle-researcher` | edges nobody is looking for: mechanical, calendar, regulatory |
-| `execution-trader` | fills, slippage, auctions, venue rules, borrow. Owns TC |
-| `portfolio-manager` | sizing, leverage, vol target, risk limits, deployment calls |
-| `market-structure-analyst` | how the instruments actually trade — plumbing, from primary sources |
-| `equity-research` | per-name fundamentals across the seventeen funds |
-| `quant-reviewer` | lookahead, silent fallbacks, convention and unit errors |
+```
+quant-researcher → data-engineer → data-analyst → statistician ─┬─ PROCEED → /prereg → approved (CLAUDE.md)
+   the question      data gathering   data audit     power gate  └─ UNDERPOWERED: redesign, nothing spent
+                                                                   ↓
+        backtest-engineer (or ml-engineer) → beta-detector + quant-reviewer + statistician → portfolio-manager + quant-trader → verdict
+           one run, P&L series stored        the adversaries: claim, code, inference      what it adds; can it be traded    evidence + D-code
+```
+
+| station | agent | the seat |
+|---|---|---|
+| 1 | `quant-researcher` | mechanism, the loser, the negative control, the components; reads the graveyard as evidence |
+| 2 | `data-engineer` | data gathering: sources, R2, point-in-time fields, survivorship, terms, one fetcher per series |
+| 3 | `data-analyst` | data analytics: audit before any P&L (staleness, bad bars, alignment), feature profile; never touches returns |
+| 4 | `statistician` | power before data (MDE, P(pass) per gate), both DSR bars, effective N, clustering, PRESENT / ABSENT / INCONCLUSIVE |
+| 5 | `ml-engineer` | ML model implementation: in bounds or not, purged CV, triple-barrier, meta-labelling, every configuration a trial |
+| 6 | `backtest-engineer` | runs the approved pre-registration once on the canonical harness; gross headline, cost grid, P&L series stored |
+| 7 | `beta-detector` | adversary on the claim: artifact, control, risk premium, kept apart from "too weak to tell" |
+| 7 | `quant-reviewer` | adversary on the code: lookahead, leakage, fallbacks, units, private statistics, pre-registration fidelity |
+| 8 | `portfolio-manager` | sizing and allocation; judges each sleeve by its marginal contribution to the book |
+| 9 | `quant-trader` | implementation into the strategy: costs, venue rules, borrow, rollout to shadow and paper, live against backtest |
+| — | `market-structure-analyst` | domain, for every station: plumbing and per-name fund facts, from primary sources |
+
+The line's statistics live in one place, `scripts/research/inference.py`, as its
+backtests do in the canonical harness. The four event-desk seats on branch
+`simon` (`event-scout`, `filings-analyst`, `deal-analyst`,
+`credit-situations-analyst`) are domain seats that plug into station 1 and the
+domain row. A new agent file becomes a subagent type only in a new session.
 
 ## Maintaining this
 
