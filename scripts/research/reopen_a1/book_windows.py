@@ -1,11 +1,10 @@
 """A1 re-open: do the live CEF book's SHORTS lose money inside share-issuance programme windows?
 
-    W=".claude/worktrees"   # the caches A1's own reproducer names (results/events/A1_CEF_ISSUANCE_GATE_2026-10-20.md)
+    # the caches A1's own reproducer names (results/events/A1_CEF_ISSUANCE_GATE_2026-10-20.md)
+    W="$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/worktrees"
     python3 -m scripts.research.reopen_a1.book_windows \\
       --edgar-cache "$W/ss-cef-events/results/events/_cache_edgar" \\
-      --crsp-cache "$W/research-ss-expansion/results/events/_cache_crsp" "$W/ss-cef-events/results/events/_cache_crsp" \\
-                   "$W/research-cef-events/results/events/_cache_crsp" "$W/ss-e1-hedge/results/events/_cache_crsp" \\
-                   "$W/trial-events-e1/results/events/_cache_crsp" "$W/research-edgar/results/events/_cache_crsp"
+      --crsp-cache "$W"/{research-ss-expansion,ss-cef-events,research-cef-events,ss-e1-hedge,trial-events-e1,research-edgar}/results/events/_cache_crsp
     python3 -m pytest scripts/research/tests/test_reopen_a1.py
 
 ZERO TRIALS. REPORT ONLY. FIT PERIOD ONLY. No counter, spec or RESEARCH_STATE edit.
@@ -125,11 +124,12 @@ first and records them before it builds a single P&L figure)
 A1 §7's kill line, re-measured here (H14): if the in-window short P&L a year is
 smaller than the block's added turnover x 5bp, the filter is immaterial.
 
-ADDED AFTER THE SECOND RUN, descriptive only (`in_window_short_sources`): the
-in-window short P&L by calendar year; without 2020-02-15..04-30 (the crash span the
-sibling note excludes, reused rather than chosen); and on the borrow panel's own
-span, gross and net of the borrow item 10 measures, so the two net on like dates.
-None of them enters a reading or the block's rows.
+ADDED AFTER THE SECOND RUN, descriptive only (`in_window_short_sources`,
+`largest_in_window_short_days`): the in-window short P&L by calendar year; without
+2020-02-15..04-30 (the crash span the sibling note excludes, reused rather than
+chosen); on the borrow panel's own span, gross and net of the borrow item 10
+measures, so the two net on like dates; and the five largest in-window short days
+with CRSP's return for the same cell. None of them enters a reading or the block's rows.
 
 PUBLIC REPOSITORY. Tracked outputs carry aggregates and EDGAR facts only. No CRSP
 row or permno is written to a tracked file; the CRSP check reports totals, as G6's
@@ -163,6 +163,7 @@ N_TRIALS = 1                                     # a zero-trial conditioner meas
 # The crash span `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` excludes in its
 # rho sensitivity; reused, not chosen from this measurement's P&L (added after run 2).
 CRASH_SPAN = (pd.Timestamp("2020-02-15"), pd.Timestamp("2020-04-30"))
+TOP_DAYS = 5                                     # largest in-window short days listed (added after run 2)
 BP = 1e4
 
 
@@ -598,6 +599,13 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
                           "pnl_total_bp": round(float(pin.loc[(pin["ticker"] == x.ticker) & pin["date"].between(x.start, x.end), "pnl"].sum()) * BP, 2)}
                     for lab, x in zip(window_labels(w), w.itertuples())}
                 rec["in_window_short_pnl_bp_per_yr"] = round(float(pin["pnl"].sum()) / years * BP, 3)
+                # added after run 2 (descriptive): the largest in-window short days, so the
+                # note's account of them is reproducible; CRSP's return for each is attached below
+                top = pin.nlargest(TOP_DAYS, "pnl")
+                rec["largest_in_window_short_days"] = [
+                    {"decided": str(r.date.date()), "ticker": r.ticker, "w": round(float(r.w), 4),
+                     "ret_t2_pct": round(float(r.ret_t2) * 100, 3), "pnl_bp": round(float(r.pnl) * BP, 1)}
+                    for r in top.itertuples()]
             v[side] = rec
         bc = block_counterfactual(H, R, M, held_from)
         series = bc.pop("_series")
@@ -645,6 +653,10 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
                                   "outcome": sp["read_result"]["outcome"],
                                   "in_window_short_pnl_bp_per_yr": round(float(df.loc[df["inside"], "pnl"].sum()) / years * BP, 3)}
         panel = views[lab]
+        from scripts.research.harness import label as _label
+        Lc = _label(Rc[col])
+        for r in panel["short"]["largest_in_window_short_days"]:
+            r[f"crsp_{col}_t2_pct"] = round(float(Lc.loc[pd.Timestamp(r["decided"]), r["ticker"]]) * 100, 3)
         res["crsp_check"][lab]["agrees_in_sign_with_panel"] = {
             "estimate": bool(np.sign(sp["estimate_out_minus_in_bp"]) == np.sign(panel["short"]["pnl_per_name_day"]["estimate_out_minus_in_bp"])),
             "in_window_short_pnl": bool(np.sign(res["crsp_check"][lab]["in_window_short_pnl_bp_per_yr"])
