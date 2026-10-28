@@ -125,6 +125,12 @@ first and records them before it builds a single P&L figure)
 A1 §7's kill line, re-measured here (H14): if the in-window short P&L a year is
 smaller than the block's added turnover x 5bp, the filter is immaterial.
 
+ADDED AFTER THE SECOND RUN, descriptive only (`in_window_short_sources`): the
+in-window short P&L by calendar year; without 2020-02-15..04-30 (the crash span the
+sibling note excludes, reused rather than chosen); and on the borrow panel's own
+span, gross and net of the borrow item 10 measures, so the two net on like dates.
+None of them enters a reading or the block's rows.
+
 PUBLIC REPOSITORY. Tracked outputs carry aggregates and EDGAR facts only. No CRSP
 row or permno is written to a tracked file; the CRSP check reports totals, as G6's
 did.
@@ -154,6 +160,9 @@ FIT_LAST = pd.Timestamp("2022-12-30")            # the last session before the 2
 MEANINGFUL_COST_BP = 15.0                        # the grid's middle point (item 6)
 KILL_LINE_BP = 5.0                               # A1 §7 item 1
 N_TRIALS = 1                                     # a zero-trial conditioner measurement
+# The crash span `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` excludes in its
+# rho sensitivity; reused, not chosen from this measurement's P&L (added after run 2).
+CRASH_SPAN = (pd.Timestamp("2020-02-15"), pd.Timestamp("2020-04-30"))
 BP = 1e4
 
 
@@ -451,7 +460,8 @@ def borrow_line(H: pd.DataFrame, M: pd.DataFrame) -> dict:
     first = fee.index.min()
     span = H.index > first                      # row t charges the fee of t-1
     S_in = H.where((H < 0) & M, 0.0)
-    out = {"fee_panel_first": str(first.date()), "fee_panel_last_used": str(fee.index.max().date())}
+    out = {"fee_panel_first": str(first.date()), "fee_panel_last_used": str(fee.index.max().date()),
+           "_fee_first": first}
     for lab, X in (("in_window_shorts", S_in), ("all_book_shorts", H)):
         c = bf.borrow_charge(X, fee)
         sh, un = c["short"][span].sum(), c["uncovered"][span].sum()
@@ -564,6 +574,7 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
         "kill_line_can_bind": bool(dturn_total > 0)}
 
     # ---- returns
+    borrow = borrow_line(H, M)
     views = {}
     for view, R in Rv.items():
         v = {}
@@ -603,9 +614,25 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
                                               < res["declared_before_returns"]["kill_line_bp_per_yr"])
                                          if dturn_total > 0 else
                                          "cannot bind: the block lowers turnover, so it has no cost to clear")}
+        # ADDED AFTER THE SECOND RUN (descriptive; decides nothing, changes no reading):
+        # where the in-window short P&L came from, by calendar year and without the
+        # 2020-02-15..04-30 crash (the span the sibling note excludes, not chosen here),
+        # and on the borrow panel's own span so that borrow nets on like dates.
+        xs = series.loc[series.index >= held_from, "in_window_short"]
+        crash = (xs.index >= CRASH_SPAN[0]) & (xs.index <= CRASH_SPAN[1])
+        on_fee = xs.index > borrow["_fee_first"]
+        v["in_window_short_sources"] = {
+            "by_year_bp": {str(y): round(float(g.sum()) * BP, 1) for y, g in xs.groupby(xs.index.year)},
+            "crash_span": [str(CRASH_SPAN[0].date()), str(CRASH_SPAN[1].date())],
+            "crash_span_total_bp": round(float(xs[crash].sum()) * BP, 1),
+            "ex_crash_bp_per_yr": round(float(xs[~crash].sum()) / (int((~crash).sum()) / 252.0) * BP, 2),
+            "on_borrow_span_gross_bp_per_yr": round(float(xs[on_fee].sum()) / (int(on_fee.sum()) / 252.0) * BP, 2),
+            "on_borrow_span_net_of_borrow_bp_per_yr": round(
+                float(xs[on_fee].sum()) / (int(on_fee.sum()) / 252.0) * BP
+                - borrow["in_window_shorts"]["cost_bp_per_yr"], 2)}
         views[view] = v
     res["views"] = views
-    res["borrow_real_money_only"] = borrow_line(H, M)
+    res["borrow_real_money_only"] = {k: x for k, x in borrow.items() if not k.startswith("_")}
 
     # ---- CRSP, the independent price source, for the shorts split and the block's gross change
     Rc = crsp_returns(crsp_dirs, H.index, list(H.columns), H)
