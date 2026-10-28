@@ -1,7 +1,7 @@
 # A1 re-open: the live book's shorts inside share-issuance programme windows — fit period only, 2026-10-28
 
 **Zero trials. No counter, spec or `docs/RESEARCH_STATE.md` edited. The 2023 holdout is not opened. It decides nothing.**
-**Reproducer** (no network, no R2, no credential; the caches are the ones A1's own reproducer names), from this branch's tree:
+**Reproducer** (about 90 s; no network, no R2, no credential; the caches are A1's own), from this branch's tree:
 `W="$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/worktrees"` then
 `python3 -m scripts.research.reopen_a1.book_windows --edgar-cache "$W/ss-cef-events/results/events/_cache_edgar" --crsp-cache "$W"/{research-ss-expansion,ss-cef-events,research-cef-events,ss-e1-hedge,trial-events-e1,research-edgar}/results/events/_cache_crsp`
 It writes `results/research/reopen_a1/reopen_a1_2026-10-28.json` (with the commit it ran at and whether the tree was clean). Tests: `python3 -m pytest scripts/research/tests/test_reopen_a1.py scripts/research/tests/test_inference.py`.
@@ -127,10 +127,13 @@ before the first run. Summary:
   | −44 | −155 | **+1,048** | +10 | −40 | −74 | **+773** |
 
   Two years carry the result.
-- **2018 is PTY alone** (+1,045bp). Its decided short weight was −0.48 for most of the window (vol-scaled). The price
-  went from $18.51 (2018-06-01) to $13.92 (2018-12-20). The largest day, +233bp, is the t+2 return after the
-  decision on 2018-06-12, the date of PTY's first supplement. It is the same on CRSP's independent prices. The drop
-  is real, not a stale or split artefact.
+- **2018 is mostly PTY.** The five largest in-window short days are all PTY [V]. Four are in 2018, at a decided
+  weight of −0.48 (vol-scaled), each worth +147 to +233bp of book:
+  - −4.86%, the t+2 return after the decision of 2018-06-12, the date of PTY's first supplement;
+  - then −4.31%, −3.52% and −3.06% (total returns), in October and November.
+  The fifth is the 2020 crash: −10.12% at a weight of −0.15. CRSP's independent returns for the same five cells match
+  to a thousandth of a percent, except one (−3.08% against −3.06%). The moves are real, not stale-price or split
+  artefacts.
 - **The 2020 crash is not the source.** 2020-02-15 → 04-30 (the sibling note's crash span, reused) contributed
   +155bp. Without it, the in-window shorts made +146bp a year (total) or +213bp (paper).
 - **By era** [V], total view, mean per short name-day inside / outside:
@@ -162,7 +165,7 @@ before the first run. Summary:
 
 - **Established on the fit period (measured):**
   - the in-window shorts made money, +159.5bp a year (total) and +224.7 (paper);
-  - two price sources agree to within 0.02bp a name-day;
+  - two price sources agree to within 0.03bp a name-day;
   - blocking them costs 0.22 (total) to 0.31 (paper) of gross Sharpe at every cost point, and still loses net of
     measured borrow on the 15 months where borrow is measured.
 - **Not established:**
@@ -199,7 +202,8 @@ holds.
 3. **Revision 1 (e113561)** replaced the hurdle with the positions' own round trip per spell. It is recorded in the
    docstring with its reason, and it was committed before run 2.
 4. **Run 2** produced every reading above.
-5. **After run 2 (aa41438)**, three descriptive lines were added: the in-window P&L by year, without the crash span,
-   and on the borrow span net of borrow. They enter no reading, and the run that wrote the JSON includes them.
-
-The JSON's `git_head` and `git_clean` fields name the commit of the final run.
+5. **After run 2**, descriptive lines were added (aa41438, b288619): the in-window P&L by year, without the crash
+   span, and on the borrow span net of borrow; and the five largest in-window days with CRSP's return for each. They
+   enter no reading.
+6. **The final run** was at b288619 on a clean tree (the JSON's `git_head` and `git_clean`). It reproduced run 2's
+   figures. Only this note's prose changed after it.
