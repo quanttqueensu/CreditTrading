@@ -1,7 +1,14 @@
 check,ticker,date,ruling,ruled_by,ruled_on
+R1,-,2026-10-27,keep (proposal #9),team lead,2026-10-28
+R10,-,2026-10-27,"KEEP (team lead, 2026-10-28): a basket fund with no declaration found stays in the basket. Stated limitation, named in the opening's report: the hedge basket's exclusion window uses ex-dates that may not have been public at decide time",team lead,2026-10-28
 R2,-,2026-10-27,keep (proposal #10),team lead,2026-10-28
 R3,-,2026-10-27,keep (proposal #11),team lead,2026-10-28
+R4,-,2026-10-27,"keep, applied to the sponsor-release table (proposal #12)",team lead,2026-10-28
+R5,-,2026-10-27,keep (proposal #13),team lead,2026-10-28
+R6,-,2026-10-27,superseded by the X5 rulings by position (proposal #14),team lead,2026-10-28
 R7,-,2026-10-27,keep (proposal #15),team lead,2026-10-28
+R8,-,2026-10-27,as X6: wait for the 202610 vintage (proposal #16),team lead,2026-10-28
+R9,-,2026-10-27,fit-k authorised (proposal #17),team lead,2026-10-28
 X1_amount_mismatch,BIT,2023-01-12,keep the event: its ex-date is confirmed by both sources; Alpaca's amount is used in the report-only size strata (proposal #2),team lead,2026-10-28
 X1_amount_mismatch,BIT,2023-02-14,keep the event: its ex-date is confirmed by both sources; Alpaca's amount is used in the report-only size strata (proposal #2),team lead,2026-10-28
 X1_amount_mismatch,BIT,2023-03-14,keep the event: its ex-date is confirmed by both sources; Alpaca's amount is used in the report-only size strata (proposal #2),team lead,2026-10-28
@@ -34,27 +41,6 @@ X1_amount_mismatch,BIT,2025-05-15,keep the event: its ex-date is confirmed by bo
 X1_amount_mismatch,BIT,2025-06-13,keep the event: its ex-date is confirmed by both sources; Alpaca's amount is used in the report-only size strata (proposal #2),team lead,2026-10-28
 X1_amount_mismatch,BIT,2025-07-15,keep the event: its ex-date is confirmed by both sources; Alpaca's amount is used in the report-only size strata (proposal #2),team lead,2026-10-28
 X1_amount_mismatch,BIT,2025-08-15,keep the event: its ex-date is confirmed by both sources; Alpaca's amount is used in the report-only size strata (proposal #2),team lead,2026-10-28
-R10,-,2026-10-27,"applied from the ruling's own words: 'A fund or event whose release cannot be found is excluded and counted, never guessed' (row 1); the application to basket legs is to be confirmed before `open`",team lead,2026-10-28
-R4,-,2026-10-27,"keep, applied to the sponsor-release table (proposal #12)",team lead,2026-10-28
-X2_not_found,BIT,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,HYT,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-01-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-04-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-05-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-07-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-09-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-10-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2023-11-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-04-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-05-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-08-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-09-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-10-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-11-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,JFR,2024-12-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,JFR,2025-01-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,JFR,2025-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,JFR,2025-03-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
@@ -75,23 +61,6 @@ X2_not_found,JFR,2026-06-15,"excluded and counted: no sponsor release found, nev
 X2_not_found,JFR,2026-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,JFR,2026-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,JFR,2026-09-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-01-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-04-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-05-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-07-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-09-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2023-10-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-04-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-05-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-08-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-09-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-10-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-11-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NAD,2024-12-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NAD,2025-01-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NAD,2025-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NAD,2025-03-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
@@ -112,23 +81,6 @@ X2_not_found,NAD,2026-06-15,"excluded and counted: no sponsor release found, nev
 X2_not_found,NAD,2026-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NAD,2026-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NAD,2026-09-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-01-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-04-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-05-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-07-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-09-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2023-10-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-04-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-05-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-08-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-09-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-10-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-11-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NEA,2024-12-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NEA,2025-01-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NEA,2025-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NEA,2025-03-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
@@ -149,23 +101,6 @@ X2_not_found,NEA,2026-06-15,"excluded and counted: no sponsor release found, nev
 X2_not_found,NEA,2026-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NEA,2026-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NEA,2026-09-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-01-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-04-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-05-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-07-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-09-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2023-10-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-04-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-05-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-08-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-09-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-10-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-11-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NVG,2024-12-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NVG,2025-01-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NVG,2025-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NVG,2025-03-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
@@ -186,22 +121,6 @@ X2_not_found,NVG,2026-06-15,"excluded and counted: no sponsor release found, nev
 X2_not_found,NVG,2026-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NVG,2026-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NVG,2026-09-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-01-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-05-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-07-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-09-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2023-10-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-01-11,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-04-12,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-05-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-08-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-09-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-10-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-11-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-X2_not_found,NZF,2024-12-13,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NZF,2025-01-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NZF,2025-02-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NZF,2025-03-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
@@ -222,8 +141,6 @@ X2_not_found,NZF,2026-06-15,"excluded and counted: no sponsor release found, nev
 X2_not_found,NZF,2026-07-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NZF,2026-08-14,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
 X2_not_found,NZF,2026-09-15,"excluded and counted: no sponsor release found, never guessed (row 1)",team lead,2026-10-28
-R1,-,2026-10-27,keep (proposal #9),team lead,2026-10-28
-R5,-,2026-10-27,keep (proposal #13),team lead,2026-10-28
 X4_no_bar,BIT,2026-02-13,"fill the close from Alpaca's raw SIP bar, logged per cell; the adjacent bars are checked on one share basis at the opening (proposal #4)",team lead,2026-10-28
 X4_no_bar,BIT,2026-09-15,"fill the close from Alpaca's raw SIP bar, logged per cell; the adjacent bars are checked on one share basis at the opening (proposal #4)",team lead,2026-10-28
 X4_no_bar,DSL,2026-02-18,"fill the close from Alpaca's raw SIP bar, logged per cell; the adjacent bars are checked on one share basis at the opening (proposal #4)",team lead,2026-10-28
@@ -249,7 +166,6 @@ X4_no_bar,PFN,2026-02-12,"fill the close from Alpaca's raw SIP bar, logged per c
 X4_no_bar,PHK,2026-02-12,"fill the close from Alpaca's raw SIP bar, logged per cell; the adjacent bars are checked on one share basis at the opening (proposal #4)",team lead,2026-10-28
 X4_no_bar,PTY,2026-02-12,"fill the close from Alpaca's raw SIP bar, logged per cell; the adjacent bars are checked on one share basis at the opening (proposal #4)",team lead,2026-10-28
 X4_split,BIT,2025-08-19,keep rule 3 (R1): BIT's returns masked within +-5 sessions; the factor is yfinance-only (proposal #5),team lead,2026-10-28
-R6,-,2026-10-27,superseded by the X5 rulings by position (proposal #14),team lead,2026-10-28
 X5_nav_repeat,AWF,2023-02-07,"exclude the event from the NAV leg only, counted: a stale NAV(e+3) truncates the window (proposal #7)",team lead,2026-10-28
 X5_nav_repeat,AWF,2023-04-14,book as is: a repeat on e+1 or e+2 leaves the three-row NAV sum unchanged to first order (proposal #7),team lead,2026-10-28
 X5_nav_repeat,AWF,2023-08-08,"exclude the event from the NAV leg only, counted: a stale NAV(e+3) truncates the window (proposal #7)",team lead,2026-10-28
@@ -839,6 +755,4 @@ X5_nav_repeat_on_e,PHK,2023-11-10,"exclude the event from the NAV leg only, coun
 X5_nav_repeat_on_e,PHK,2023-12-08,"exclude the event from the NAV leg only, counted (proposal #6)",team lead,2026-10-28
 X5_nav_repeat_on_e,PTY,2023-06-09,"exclude the event from the NAV leg only, counted (proposal #6)",team lead,2026-10-28
 X5_nav_repeat_on_e,PTY,2023-11-10,"exclude the event from the NAV leg only, counted (proposal #6)",team lead,2026-10-28
-R8,-,2026-10-27,as X6: wait for the 202610 vintage (proposal #16),team lead,2026-10-28
 X6_FF6_uncovered,FF6,2026-10-01,wait for French's 202610 vintage before the opening; `open` re-measures the coverage (proposal #8),team lead,2026-10-28
-R9,-,2026-10-27,fit-k authorised (proposal #17),team lead,2026-10-28

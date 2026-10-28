@@ -75,33 +75,38 @@
  "dg_x2": {
   "by_sponsor": {
    "AllianceBernstein": {
-    "declared_by_e_minus_1": 48,
+    "by_e-1_crsp": 0,
+    "by_e-1_release": 48,
     "declared_late": 0,
     "not_found": 0
    },
    "BlackRock": {
-    "declared_by_e_minus_1": 177,
+    "by_e-1_crsp": 2,
+    "by_e-1_release": 177,
     "declared_late": 0,
-    "not_found": 2
+    "not_found": 0
    },
    "DoubleLine": {
-    "declared_by_e_minus_1": 45,
+    "by_e-1_crsp": 0,
+    "by_e-1_release": 45,
     "declared_late": 0,
     "not_found": 0
    },
    "Nuveen": {
-    "declared_by_e_minus_1": 42,
+    "by_e-1_crsp": 84,
+    "by_e-1_release": 42,
     "declared_late": 0,
-    "not_found": 184
+    "not_found": 100
    },
    "PIMCO": {
-    "declared_by_e_minus_1": 270,
+    "by_e-1_crsp": 0,
+    "by_e-1_release": 270,
     "declared_late": 0,
     "not_found": 0
    }
   },
-  "declared_by_e_minus_1": 582,
-  "declared_by_e_minus_2": 582,
+  "declared_by_e_minus_1": 668,
+  "declared_by_e_minus_2": 668,
   "declared_late": 0,
   "declared_on_e_minus_1": 0,
   "events": 768,
@@ -110,20 +115,38 @@
    8.0,
    74
   ],
-  "not_found": 186,
+  "not_found": 100,
+  "of_which_from_crsp": 86,
   "releases": 191
  },
  "dg_x2_alpaca_vs_sponsor": {
   "announcements": 785,
-  "notices": 593,
+  "notices": 679,
   "notices_agree": 0,
-  "notices_contradict": 593,
+  "notices_contradict": 679,
   "record_minus_declaration_weekdays": {
    "-1": 6,
    "1": 86,
    "2": 688,
    "3": 5
   }
+ },
+ "dg_x2_crsp": {
+  "attempted": 86,
+  "crsp_rows": 412,
+  "crsp_vs_release_where_both": {
+   "crsp_earlier": 0,
+   "crsp_later": 4,
+   "events": 324,
+   "same_day": 319,
+   "within_1_day": 320
+  },
+  "how": "stage (offline, from a cached extract)",
+  "no_crsp_row": 0,
+  "pulled_utc": "2026-10-19T19:58:25+00:00",
+  "record_mismatch": 0,
+  "recovered": 86,
+  "recovered_late": 0
  },
  "dg_x2_field_check": {
   "announcements": 785,
@@ -296,45 +319,45 @@
   "use_numexpr_option": false
  },
  "eligible": {
-  "as ruled: X4 cells filled; no-release basket legs excluded (R10)": {
-   "basket_lt3": 37,
+  "as ruled: X4 cells filled; no-declaration basket legs KEPT (R10, team lead 2026-10-28)": {
+   "basket_lt3": 19,
    "calendar_surprise_legs": {
     "declared_after_e_minus_1_legs_kept": 69,
-    "no_release_legs": 1210,
-    "no_release_treatment": "exclude"
+    "no_release_legs": 690,
+    "no_release_treatment": "keep"
    },
-   "dates": 133,
-   "events": 545,
-   "events_13": 511,
-   "excluded_declaration": 186,
+   "dates": 152,
+   "events": 649,
+   "events_13": 548,
+   "excluded_declaration": 100,
    "excluded_no_bar": 0,
    "months": 46
   },
   "beside: X4 cells not filled": {
+   "basket_lt3": 19,
+   "calendar_surprise_legs": {
+    "declared_after_e_minus_1_legs_kept": 69,
+    "no_release_legs": 690,
+    "no_release_treatment": "keep"
+   },
+   "dates": 147,
+   "events": 635,
+   "events_13": 534,
+   "excluded_declaration": 100,
+   "excluded_no_bar": 14,
+   "months": 46
+  },
+  "beside: no-declaration basket legs excluded": {
    "basket_lt3": 37,
    "calendar_surprise_legs": {
     "declared_after_e_minus_1_legs_kept": 69,
-    "no_release_legs": 1210,
+    "no_release_legs": 690,
     "no_release_treatment": "exclude"
    },
-   "dates": 128,
-   "events": 531,
-   "events_13": 497,
-   "excluded_declaration": 186,
-   "excluded_no_bar": 14,
-   "months": 45
-  },
-  "beside: no-release basket legs kept": {
-   "basket_lt3": 7,
-   "calendar_surprise_legs": {
-    "declared_after_e_minus_1_legs_kept": 69,
-    "no_release_legs": 1210,
-    "no_release_treatment": "keep"
-   },
-   "dates": 162,
-   "events": 575,
-   "events_13": 541,
-   "excluded_declaration": 186,
+   "dates": 135,
+   "events": 631,
+   "events_13": 530,
+   "excluded_declaration": 100,
    "excluded_no_bar": 0,
    "months": 46
   }
@@ -343,7 +366,7 @@
   "2023-01-13",
   "2026-10-06"
  ],
- "flags": 843,
+ "flags": 757,
  "flags_by_check": {
   "R1": 1,
   "R10": 1,
@@ -356,7 +379,7 @@
   "R8": 1,
   "R9": 1,
   "X1_amount_mismatch": 32,
-  "X2_not_found": 186,
+  "X2_not_found": 100,
   "X4_no_bar": 24,
   "X4_split": 1,
   "X5_nav_repeat": 552,

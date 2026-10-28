@@ -356,8 +356,10 @@ def test_apply_rulings_fills_every_row_and_never_rewrites_a_different_record(tmp
     old = pd.read_csv(rp, dtype=str, keep_default_na=False)
     old.loc[0, "ruling"] = "something else"
     old.to_csv(rp, index=False)
-    with pytest.raises(dg.Stage0BlockError, match="different rulings"):
+    with pytest.raises(dg.Stage0BlockError, match="would change"):
         x.apply_rulings(fp, rp)
+    R2 = x.apply_rulings(fp, rp, supersede=("R1",))           # the team lead re-ruled that class
+    assert R2.loc[R2.check == "R1", "ruling"].iloc[0] == x.ruling_for("R1", "-")
 
 
 def _fit_panel(seed=0):

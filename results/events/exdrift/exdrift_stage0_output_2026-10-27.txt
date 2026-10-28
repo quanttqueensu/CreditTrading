@@ -1,4 +1,4 @@
-EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T16:09:30+00:00)
+EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T17:07:42+00:00)
 spec cef_discount.v7.20260928; the 17: AWF, BIT, DSL, HYT, JFR, MHD, MQY, PCN, PDI, PDO, PFN, PHK, PTY, NAD, NEA, NVG, NZF. 2023+: dates, counts, presence and flags only.
 
 price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 = 950 sessions
@@ -28,16 +28,17 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
   events 'not declared by e-1' on Alpaca's field (printed only: the field is invalid): 32; by ex-date: 2023-01-12 BIT,HYT,JFR,MHD,MQY,NAD,NEA,NVG,NZF,PCN,PDI,PDO,PFN,PHK,PTY; 2023-01-18 DSL; 2023-02-02 AWF; 2023-08-14 BIT,HYT,JFR,MHD,MQY,NAD,NEA,NVG,NZF; 2025-04-11 PCN,PDI,PDO,PFN,PHK,PTY
 
 [DG-X2] declarations from the sponsors' own releases (exdrift_sponsor_declarations_2026-10-28.csv; the team lead's ruling of 2026-10-28): every quote re-found offline
-  Alpaca's declaration_date against the sponsor table: 0 agree, 593 contradict, of 593
+  not-found events recovered from CRSP dsedist.dclrdt (ruling of 2026-10-28, 2023-24 only): {'crsp_rows': 412, 'attempted': 86, 'recovered': 86, 'recovered_late': 0, 'no_crsp_row': 0, 'record_mismatch': 0, 'how': 'stage (offline, from a cached extract)', 'pulled_utc': '2026-10-19T19:58:25+00:00', 'crsp_vs_release_where_both': {'events': 324, 'same_day': 319, 'within_1_day': 320, 'crsp_later': 4, 'crsp_earlier': 0}}
+  Alpaca's declaration_date against the sponsor table: 0 agree, 679 contradict, of 679
   coverage of the test events by sponsor:
-    status             declared_by_e_minus_1  declared_late  not_found
-    sponsor                                                           
-    AllianceBernstein                     48              0          0
-    BlackRock                            177              0          2
-    DoubleLine                            45              0          0
-    Nuveen                                42              0        184
-    PIMCO                                270              0          0
-  {'events': 768, 'declared_by_e_minus_1': 582, 'declared_on_e_minus_1': 0, 'declared_by_e_minus_2': 582, 'not_found': 186, 'declared_late': 0, 'lead_sessions_min_median_max': [4, 8.0, 74], 'by_sponsor': {'AllianceBernstein': {'declared_by_e_minus_1': 48, 'declared_late': 0, 'not_found': 0}, 'BlackRock': {'declared_by_e_minus_1': 177, 'declared_late': 0, 'not_found': 2}, 'DoubleLine': {'declared_by_e_minus_1': 45, 'declared_late': 0, 'not_found': 0}, 'Nuveen': {'declared_by_e_minus_1': 42, 'declared_late': 0, 'not_found': 184}, 'PIMCO': {'declared_by_e_minus_1': 270, 'declared_late': 0, 'not_found': 0}}, 'releases': 191}
+    col                by_e-1_release  by_e-1_crsp  declared_late  not_found
+    sponsor                                                                 
+    AllianceBernstein              48            0              0          0
+    BlackRock                     177            2              0          0
+    DoubleLine                     45            0              0          0
+    Nuveen                         42           84              0        100
+    PIMCO                         270            0              0          0
+  {'events': 768, 'declared_by_e_minus_1': 668, 'of_which_from_crsp': 86, 'declared_on_e_minus_1': 0, 'declared_by_e_minus_2': 668, 'not_found': 100, 'declared_late': 0, 'lead_sessions_min_median_max': [4, 8.0, 74], 'by_sponsor': {'AllianceBernstein': {'by_e-1_release': 48, 'by_e-1_crsp': 0, 'declared_late': 0, 'not_found': 0}, 'BlackRock': {'by_e-1_release': 177, 'by_e-1_crsp': 2, 'declared_late': 0, 'not_found': 0}, 'DoubleLine': {'by_e-1_release': 45, 'by_e-1_crsp': 0, 'declared_late': 0, 'not_found': 0}, 'Nuveen': {'by_e-1_release': 42, 'by_e-1_crsp': 84, 'declared_late': 0, 'not_found': 100}, 'PIMCO': {'by_e-1_release': 270, 'by_e-1_crsp': 0, 'declared_late': 0, 'not_found': 0}}, 'releases': 191}
   every missing close in the 17's test-window panel: 24 cell(s), 24 of them on the fund's own ex-date; dates ['2026-02-12', '2026-02-13', '2026-02-18', '2026-03-18', '2026-09-15']
 
 [DG-X4] bars: event-fund bars on e..e+3 and fill-day volume; the spike-and-revert guard ({'spike_revert': 0, 'unreverted': 0}); 25 flag(s)
@@ -46,9 +47,9 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
   NAV(e) = NAV(e-1) on the ex-date itself (a stale cum-distribution NAV): test 37 of 768 events; fit 98 of 3197 (0.0307)
 
   the eligible set on the DECLARED calendar (sponsor releases), rules 1-5 (dates only):
-    as ruled: X4 cells filled; no-release basket legs excluded (R10): {'events': 545, 'events_13': 511, 'dates': 133, 'months': 46, 'excluded_declaration': 186, 'excluded_no_bar': 0, 'basket_lt3': 37, 'calendar_surprise_legs': {'declared_after_e_minus_1_legs_kept': 69, 'no_release_legs': 1210, 'no_release_treatment': 'exclude'}}
-    beside: no-release basket legs kept: {'events': 575, 'events_13': 541, 'dates': 162, 'months': 46, 'excluded_declaration': 186, 'excluded_no_bar': 0, 'basket_lt3': 7, 'calendar_surprise_legs': {'declared_after_e_minus_1_legs_kept': 69, 'no_release_legs': 1210, 'no_release_treatment': 'keep'}}
-    beside: X4 cells not filled: {'events': 531, 'events_13': 497, 'dates': 128, 'months': 45, 'excluded_declaration': 186, 'excluded_no_bar': 14, 'basket_lt3': 37, 'calendar_surprise_legs': {'declared_after_e_minus_1_legs_kept': 69, 'no_release_legs': 1210, 'no_release_treatment': 'exclude'}}
+    as ruled: X4 cells filled; no-declaration basket legs KEPT (R10, team lead 2026-10-28): {'events': 649, 'events_13': 548, 'dates': 152, 'months': 46, 'excluded_declaration': 100, 'excluded_no_bar': 0, 'basket_lt3': 19, 'calendar_surprise_legs': {'declared_after_e_minus_1_legs_kept': 69, 'no_release_legs': 690, 'no_release_treatment': 'keep'}}
+    beside: no-declaration basket legs excluded: {'events': 631, 'events_13': 530, 'dates': 135, 'months': 46, 'excluded_declaration': 100, 'excluded_no_bar': 0, 'basket_lt3': 37, 'calendar_surprise_legs': {'declared_after_e_minus_1_legs_kept': 69, 'no_release_legs': 690, 'no_release_treatment': 'exclude'}}
+    beside: X4 cells not filled: {'events': 635, 'events_13': 534, 'dates': 147, 'months': 46, 'excluded_declaration': 100, 'excluded_no_bar': 14, 'basket_lt3': 19, 'calendar_surprise_legs': {'declared_after_e_minus_1_legs_kept': 69, 'no_release_legs': 690, 'no_release_treatment': 'keep'}}
 
 [DG-X6] factor coverage on the test window 2023-01-13..2026-10-06 (935 sessions):
   French FF5+UMD (fetch_ff_factors.py): {'first': '1963-07-01', 'last': '2026-09-30', 'missing_in_window': 4, 'first_missing': '2026-10-01', 'last_missing': '2026-10-06'}
@@ -70,6 +71,6 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
 [DG-X8] numexpr: {'use_numexpr_option': False, 'numexpr': '2.10.1', 'fault_with_numexpr_on': True, 'numpy_path_clean': True, 'fault_any': True, 'status': 'PASS'}
 
 GATES: DG-X1 FLAGGED; DG-X2 FLAGGED; DG-X3 PASS; DG-X4 FLAGGED; DG-X5 FLAGGED; DG-X6 FLAGGED; DG-X7 PASS (identity; k committed by fit-k); DG-X8 PASS
-FLAGS: 843 -> results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv {"R1": 1, "R10": 1, "R2": 1, "R3": 1, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1, "R9": 1, "X1_amount_mismatch": 32, "X2_not_found": 186, "X4_no_bar": 24, "X4_split": 1, "X5_nav_repeat": 552, "X5_nav_repeat_on_e": 37, "X6_FF6_uncovered": 1}
+FLAGS: 757 -> results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv {"R1": 1, "R10": 1, "R2": 1, "R3": 1, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1, "R9": 1, "X1_amount_mismatch": 32, "X2_not_found": 100, "X4_no_bar": 24, "X4_split": 1, "X5_nav_repeat": 552, "X5_nav_repeat_on_e": 37, "X6_FF6_uncovered": 1}
 STAGE 0: CLEAR. No 2023+ return, P&L, price change or NAV change was computed.
 rulings file exists with rulings in it (results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv); never overwritten

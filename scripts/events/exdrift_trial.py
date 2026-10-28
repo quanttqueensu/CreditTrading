@@ -108,7 +108,8 @@ STAGE0_JSON = OUT_DIR / f"exdrift_stage0_{STAMP}.json"
 STAGE0_TXT = OUT_DIR / f"exdrift_stage0_output_{STAMP}.txt"
 FIT_TABLE = OUT_DIR / f"exdrift_fit_descriptive_{STAMP}.csv"
 K_JSON = OUT_DIR / f"exdrift_k_{STAMP}.json"          # written by fit-k (not yet)
-SPONSOR_TABLE = OUT_DIR / "exdrift_sponsor_declarations_2026-10-28.csv"   # fetch_exdrift_sponsor_releases.py build
+SPONSOR_TABLE = OUT_DIR / "exdrift_sponsor_declarations_2026-10-28.csv"
+CRSP_DECL = CACHE / "crsp_decl"                       # fetch_exdrift_crsp_decl.py (gitignored: CRSP rows are licensed)   # fetch_exdrift_sponsor_releases.py build
 NOTICES = OUT_DIR / "exdrift_sponsor_notices_2026-10-28.csv"   # verified sponsor notices (DG-X2 check)
 NOTICE_CACHE = CACHE / "sponsor_notices"              # `exdrift_trial.py notices` fills it (public GETs)
 WRAPPER = "run_exdrift_ca.sh"                         # worktree root, excluded from git (info/exclude)
@@ -186,12 +187,12 @@ READINGS = [
                     "the test set does (X6 flags).",
      "Rule how stage 5 treats the uncovered sessions: wait for the next French vintage and run R-D4 on the full test "
      "window (recommended), or run it on the covered sessions and print the uncovered count."),
-    ("R10", "DG-X2", "In the H-E declared calendar, a basket fund whose ex-date in [e+1, e+8] has NO sponsor release "
-                     "found cannot be placed before or after e-1. It is excluded from that event's basket and counted, "
-                     "applying the team lead's sentence of 2026-10-28 ('a fund or event whose release cannot be found "
-                     "is excluded and counted, never guessed') to basket legs as well as events. Keeping it would "
-                     "assume it undeclared, and its run-up on the hold rows would bias the test for the trade.",
-     "Confirm before `open` (the alternative, keeping the leg, is printed beside)."),
+    ("R10", "DG-X2", "In the H-E declared calendar, a basket fund whose ex-date in [e+1, e+8] has no declaration found "
+                     "(no sponsor release, no CRSP record) cannot be placed before or after e-1. The team lead ruled "
+                     "on 2026-10-28 to KEEP it in the basket, as a stated limitation: the hedge basket's exclusion "
+                     "window uses ex-dates that may not have been public at decide time. The opening's report names it. "
+                     "The alternative (exclude) is printed beside.",
+     "KEEP (team lead, 2026-10-28)."),
     ("R9", "DG-X7", "k (= spec.VOL_TARGET / sigma_active of the raw H-E sleeve on fit sessions with an event held) and "
                     "the cap-binding share are fit P&L. This run's brief (2026-10-27) forbade any fit statistic beyond "
                     "the identity gate, so neither is formed. `fit-k` computes and commits both, on the fit only, after "
@@ -837,6 +838,63 @@ def verify_notices(notices_path: Path = NOTICES, cache: Path = NOTICE_CACHE) -> 
     return N
 
 
+def crsp_recover(decl: pd.DataFrame, alp: pd.DataFrame | None, sessions: pd.DatetimeIndex,
+                 crsp_dir: Path = CRSP_DECL) -> tuple[pd.DataFrame, list, dict]:
+    """Recover not-found declarations from CRSP `dsedist.dclrdt` (team lead's ruling, 2026-10-28).
+
+    For each sponsor-table row with status `not_found`:
+    - if CRSP holds a record for (ticker, exdt == ex_date), its earliest `dclrdt` becomes the
+      declaration date, with source "CRSP dsedist";
+    - R4 then applies: a declaration dated e-1 passes, a later one is "declared late".
+    Every recovered event is cross-checked against Alpaca v1's record date (`rcrddt` against
+    `record_date`). A disagreement is a flag (`X2_crsp_record_mismatch`) for a ruling, not a fix.
+    The ex-date match is the join itself; no CRSP record on e leaves the row not found. Two CRSP
+    records for one (ticker, exdt) with different record dates are flagged too. Dates only."""
+    man_p = crsp_dir / "manifest.json"
+    if not man_p.exists():
+        return decl, [], {"status": "no CRSP extract"}
+    man = json.loads(man_p.read_text())
+    c = pd.read_parquet(crsp_dir / "crsp_dsedist_2023_2024.parquet")
+    _only_names(c, "crsp dsedist")
+    c = c[c.dclrdt.notna()]
+    g = c.groupby(["ticker", "exdt"]).agg(dclrdt=("dclrdt", "min"), rcrddts=("rcrddt", lambda z: sorted(set(z.dropna()))))
+    rec_alp = {}
+    if alp is not None:
+        a = alp[alp.kind.isin(["cash_dividends", "capital_gains_distributions"])]
+        rec_alp = a.groupby(["ticker", "ex_date"])["record_date"].agg(lambda z: sorted(set(z.dropna()))).to_dict()
+    spos = {d: i for i, d in enumerate(sessions)}
+    out, flags = decl.copy(), []
+    out["source"] = np.where(out.status == "not_found", "", "sponsor release")
+    n = {"crsp_rows": int(len(c)), "attempted": 0, "recovered": 0, "recovered_late": 0, "no_crsp_row": 0,
+         "record_mismatch": 0, "how": man.get("how"), "pulled_utc": man.get("source_pulled_utc") or man.get("written_utc")}
+    for i, r in out[out.status == "not_found"].iterrows():
+        if not (pd.Timestamp(r.ex_date) <= pd.Timestamp("2024-12-31")):
+            continue
+        n["attempted"] += 1
+        k = (r.ticker, pd.Timestamp(r.ex_date))
+        if k not in g.index:
+            n["no_crsp_row"] += 1
+            continue
+        d0, rcs = g.loc[k, "dclrdt"], g.loc[k, "rcrddts"]
+        prev = sessions[spos[k[1]] - 1] if k[1] in spos else None
+        out.loc[i, ["declared", "source"]] = [d0, "CRSP dsedist dclrdt"]
+        out.loc[i, "status"] = "declared_by_e_minus_1" if (prev is not None and d0 <= prev) else "declared_late"
+        n["recovered" if out.loc[i, "status"] == "declared_by_e_minus_1" else "recovered_late"] += 1
+        ar = rec_alp.get(k, [])
+        if len(rcs) != 1 or (ar and [pd.Timestamp(x) for x in ar] != [pd.Timestamp(rcs[0])]):
+            n["record_mismatch"] += 1
+            flags.append((r.ticker, k[1], f"CRSP rcrddt {[str(pd.Timestamp(x).date()) for x in rcs]} vs Alpaca v1 "
+                                          f"record {[str(pd.Timestamp(x).date()) for x in ar]}"))
+    # Beside, never deciding: CRSP's dclrdt against the sponsor release date where both exist (2023-24).
+    both = out[(out.source == "sponsor release") & (pd.to_datetime(out.ex_date) <= pd.Timestamp("2024-12-31"))]
+    dd = [(pd.Timestamp(g.loc[(t, pd.Timestamp(e)), "dclrdt"]) - pd.Timestamp(d)).days
+          for t, e, d in zip(both.ticker, both.ex_date, both.declared) if (t, pd.Timestamp(e)) in g.index]
+    n["crsp_vs_release_where_both"] = {"events": len(dd), "same_day": int(sum(x == 0 for x in dd)),
+                                       "within_1_day": int(sum(abs(x) <= 1 for x in dd)),
+                                       "crsp_later": int(sum(x > 1 for x in dd)), "crsp_earlier": int(sum(x < -1 for x in dd))}
+    return out, flags, n
+
+
 def declaration_field_check(ann: pd.DataFrame, notices: pd.DataFrame) -> dict:
     """Is Alpaca's announcement `declaration_date` a declaration date? Dates only.
 
@@ -1086,8 +1144,14 @@ def stage0(write: bool = True) -> dict:
     if SPONSOR_TABLE.exists():
         from scripts.events import fetch_exdrift_sponsor_releases as sr
         decl = sr.verify()                                       # every quote re-found in its cached release
+        decl, crsp_flags, crsp_n = crsp_recover(decl, alp, sessions)
+        rec["dg_x2_crsp"] = crsp_n
+        for t_, e_, note_ in crsp_flags:
+            _flag(rows, "X2_crsp_record_mismatch", t_, e_, "DG-X2", str(pd.Timestamp(e_).date()), note_,
+                  "rule whether the CRSP declaration stands for this event")
         say(f"\n[DG-X2] declarations from the sponsors' own releases ({SPONSOR_TABLE.name}; the team lead's ruling "
             f"of 2026-10-28): every quote re-found offline")
+        say(f"  not-found events recovered from CRSP dsedist.dclrdt (ruling of 2026-10-28, 2023-24 only): {crsp_n}")
         found = decl[decl.status != "not_found"]
         if ann is not None:
             dchk2 = declaration_field_check(ann, found.rename(columns={"declared": "stated_declaration"})[
@@ -1106,12 +1170,16 @@ def stage0(write: bool = True) -> dict:
                 _flag(rows, "X2_declared_late", r.ticker, r.ex_date, "DG-X2", str(r.ex_date.date()),
                       f"the earliest release declaring it is dated {r.declared.date()}, after e-1",
                       "excluded and counted (§4.1 rule 1)")
-        cov = (d_e.groupby(["sponsor", "status"]).size().unstack(fill_value=0)
-               .reindex(columns=["declared_by_e_minus_1", "declared_late", "not_found"], fill_value=0))
+        cov = (d_e.assign(col=np.where(d_e.status == "declared_by_e_minus_1",
+                                        np.where(d_e.source == "CRSP dsedist dclrdt", "by_e-1_crsp", "by_e-1_release"),
+                                        d_e.status))
+               .groupby(["sponsor", "col"]).size().unstack(fill_value=0)
+               .reindex(columns=["by_e-1_release", "by_e-1_crsp", "declared_late", "not_found"], fill_value=0))
         say("  coverage of the test events by sponsor:\n" + "\n".join("    " + l for l in cov.to_string().split("\n")))
         ok_ = d_e[d_e.status == "declared_by_e_minus_1"]
         lead = [sessions.get_loc(e) - sessions.searchsorted(d) for e, d in zip(ok_.ex_date, ok_.declared)]
         s2 = {"events": int(len(d_e)), "declared_by_e_minus_1": int(len(ok_)),
+              "of_which_from_crsp": int((ok_.source == "CRSP dsedist dclrdt").sum()),
               "declared_on_e_minus_1": int(sum(x == 1 for x in lead)), "declared_by_e_minus_2": int(sum(x >= 2 for x in lead)),
               "not_found": int((d_e.status == "not_found").sum()), "declared_late": int((d_e.status == "declared_late").sum()),
               "lead_sessions_min_median_max": [int(min(lead)), float(np.median(lead)), int(max(lead))] if lead else None,
@@ -1168,9 +1236,10 @@ def stage0(write: bool = True) -> dict:
                 if not close_ok.reindex(index=sessions, columns=list(NAMES)).fillna(False).iloc[p:p + HOLD + 1][t].all()}
     excl2 = {(r["ticker"], pd.Timestamp(r["date"])) for r in rows if r["check"] in ("X2_not_found", "X2_declared_late")}
     elig = {}
-    for lab, ok_, drop, unk in (("as ruled: X4 cells filled; no-release basket legs excluded (R10)", filled, False, "exclude"),
-                                ("beside: no-release basket legs kept", filled, False, "keep"),
-                                ("beside: X4 cells not filled", close_ok, True, "exclude")):
+    for lab, ok_, drop, unk in (("as ruled: X4 cells filled; no-declaration basket legs KEPT (R10, team lead 2026-10-28)",
+                                 filled, False, "keep"),
+                                ("beside: no-declaration basket legs excluded", filled, False, "exclude"),
+                                ("beside: X4 cells not filled", close_ok, True, "keep")):
         if decl_cal is not None:
             nb, surpr = declared_baskets(E, decl_cal, sessions, ok_, sp, unknown=unk)
         else:
@@ -1384,8 +1453,10 @@ CLASS_RULINGS = {
     "R4": "keep, applied to the sponsor-release table (proposal #12)", "R5": "keep (proposal #13)",
     "R6": "superseded by the X5 rulings by position (proposal #14)", "R7": "keep (proposal #15)",
     "R8": "as X6: wait for the 202610 vintage (proposal #16)", "R9": "fit-k authorised (proposal #17)",
-    "R10": "applied from the ruling's own words: 'A fund or event whose release cannot be found is excluded and "
-           "counted, never guessed' (row 1); the application to basket legs is to be confirmed before `open`",
+    "R10": "KEEP (team lead, 2026-10-28): a basket fund with no declaration found stays in the basket. Stated "
+           "limitation, named in the opening's report: the hedge basket's exclusion window uses ex-dates that may "
+           "not have been public at decide time",
+    "X2_crsp_record_mismatch": "UNRULED: needs the team lead",
 }
 
 
@@ -1403,19 +1474,35 @@ def ruling_for(check: str, events: str) -> str:
     return CLASS_RULINGS[check]
 
 
-def apply_rulings(flags_path: Path = FLAGS, rulings_path: Path = RULINGS) -> pd.DataFrame:
-    """Write the team lead's class rulings into the rulings file, one row per flag. Refuses to change
-    a file that already holds different rulings: a record is never rewritten silently."""
+def apply_rulings(flags_path: Path = FLAGS, rulings_path: Path = RULINGS, supersede=()) -> pd.DataFrame:
+    """Write the team lead's class rulings into the rulings file, one row per flag.
+
+    A flag that is in both the old file and the flag table keeps its ruling. Changing it raises,
+    unless its class is in `supersede`, meaning the team lead re-ruled that class (R10 on 2026-10-28).
+    A row whose flag Stage 0 no longer raises is dropped; `require_stage0_rulings` would refuse it
+    as stale. A new flag takes its class ruling. A class with no ruling raises (`ruling_for`), and
+    so does a ruling text marked UNRULED."""
     F = pd.read_csv(flags_path, dtype=str, keep_default_na=False)
     R = F[["check", "ticker", "date"]].copy()
     R["ruling"] = [ruling_for(c, e) for c, e in zip(F["check"], F["events"])]
+    un = R[R.ruling.str.startswith("UNRULED")]
+    if len(un):
+        raise dg.Stage0BlockError(f"{len(un)} flag(s) await the team lead: {un[['check', 'ticker', 'date']].values.tolist()[:8]}")
     R["ruled_by"], R["ruled_on"] = RULED_BY, RULED_ON
     p = Path(rulings_path)
     if p.exists() and not _blank_form(p):
         old = pd.read_csv(p, dtype=str, keep_default_na=False)
-        if not old.sort_values(["check", "ticker", "date"]).reset_index(drop=True).equals(
-                R.sort_values(["check", "ticker", "date"]).reset_index(drop=True)):
-            raise dg.Stage0BlockError(f"{p.name} already holds different rulings; it is not rewritten")
+        m = R.merge(old, on=["check", "ticker", "date"], how="inner", suffixes=("", "_old"))
+        changed = m[(m.ruling != m.ruling_old) & ~m.check.isin(list(supersede))]
+        if len(changed):
+            raise dg.Stage0BlockError(f"{p.name}: {len(changed)} existing ruling(s) would change "
+                                      f"({changed.check.unique().tolist()}); it is not rewritten")
+        keep_old = m[~m.check.isin(list(supersede))][["check", "ticker", "date", "ruling_old", "ruled_by_old", "ruled_on_old"]]
+        keep_old.columns = ["check", "ticker", "date", "ruling", "ruled_by", "ruled_on"]
+        rest = R.merge(keep_old[["check", "ticker", "date"]], on=["check", "ticker", "date"], how="left", indicator=True)
+        rest = rest[rest._merge == "left_only"].drop(columns="_merge")
+        R = pd.concat([keep_old, rest], ignore_index=True)
+    R = R.sort_values(["check", "ticker", "date"]).reset_index(drop=True)
     R.to_csv(p, index=False)
     return R
 
@@ -1516,7 +1603,8 @@ def main(argv=None) -> int:
     sub.add_parser("stage0")
     sub.add_parser("rulings-template")
     sub.add_parser("notices")
-    sub.add_parser("apply-rulings")
+    ar = sub.add_parser("apply-rulings")
+    ar.add_argument("--supersede", default="", help="classes the team lead re-ruled, e.g. R10")
     sub.add_parser("fit-k")
     sub.add_parser("open")
     a = ap.parse_args(argv)
@@ -1526,7 +1614,7 @@ def main(argv=None) -> int:
     if a.cmd == "rulings-template":
         return rulings_template(a)
     if a.cmd == "apply-rulings":
-        R = apply_rulings()
+        R = apply_rulings(supersede=tuple(x_.strip() for x_ in (a.supersede or "").split(",") if x_.strip()))
         print(f"{len(R)} rulings ({RULED_BY}, {RULED_ON}) -> {RULINGS.relative_to(REPO)}: "
               + json.dumps(R.groupby("ruling").size().rename(lambda x: x[:50]).to_dict()))
         return 0
