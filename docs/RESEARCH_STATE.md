@@ -92,6 +92,9 @@ counter (156) covers all ETF-price/PD work done to date.
 > - **E1 (EVENTS 1)**: D4 stands as the gate that fired. Evidence: the alpha is
 >   **INCONCLUSIVE** (alpha t 1.90, every |Σβ| ≤ 0.021 [V]), so it is a power
 >   failure, not a risk premium in costume.
+> - **2026-10-28, re-opens closed at the power gate (UNDERPOWERED, no data pulled):** X3 hedged
+>   against TERM, G2 and MA-HZ (`docs/SYSTEM.md` §5, 2026-10-28). Re-open them only with a
+>   design that changes their power.
 > - **XASSET-X1**: D1 stands as the gate. Evidence: **spanned** by TSMOM^FI
 >   (alpha t 0.65 [S]), i.e. D4 in substance.
 
