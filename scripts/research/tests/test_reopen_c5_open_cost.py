@@ -190,3 +190,10 @@ def test_verify_hashes(tmp_path):
         M.verify_hashes(tmp_path, {"exec/missing.json": "0" * 64}, ("exec/",))
     with pytest.raises(M.ReopenError):
         M.verify_hashes(tmp_path, good, ("w4/",))
+
+
+def test_shown_keeps_home_directories_out_of_tracked_output():
+    from pathlib import Path
+    p = Path("/Users/someone/repo/.claude/worktrees/x/results/cef/_cache_exec")
+    assert M.shown(p) == "<main checkout>/.claude/worktrees/x/results/cef/_cache_exec"
+    assert M.shown(Path("/tmp/elsewhere")) == "/tmp/elsewhere"

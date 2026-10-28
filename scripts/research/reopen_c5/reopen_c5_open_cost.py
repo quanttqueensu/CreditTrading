@@ -119,6 +119,14 @@ HOLDOUT_LAST = "2026-09-30"                 # C5's holdout end (its record), for
 FIT_REPRO_TOL_BP = 1e-9                     # same code, same frozen bytes: the trial's float must come back
 
 
+def shown(p: Path) -> str:
+    """A path as printed and recorded: anything under a worktree of the main checkout is shown from
+    `<main checkout>`, so no home directory reaches a tracked file (the repository is public)."""
+    s = str(p)
+    k = s.find("/.claude/worktrees/")
+    return "<main checkout>" + s[k:] if k >= 0 else s
+
+
 class ReopenError(RuntimeError):
     """An input this measurement needs is missing, altered, or does not reproduce."""
 
@@ -363,7 +371,7 @@ def run(recent_cache: Path, frozen: Path, out_dir: Path) -> dict:
     print("\n=== 1. DEFINITION CHECK: C5's s_open on its frozen 2016-22 quote sample ===")
     frec = json.loads(FROZEN_RECORD.read_text())
     n_h = verify_hashes(frozen, frec["files"], ("exec/", "w4/"))
-    print(f"frozen copy {frozen}: {n_h} files under exec/ and w4/ match "
+    print(f"frozen copy {shown(frozen)}: {n_h} files under exec/ and w4/ match "
           f"{FROZEN_RECORD.relative_to(REPO)} (SHA-256)")
     fdays, Cf = fit_cost_table(frozen)
     fd = {h: paired_diffs(Cf, "fit", h) for h in HORIZONS}
@@ -405,7 +413,7 @@ def run(recent_cache: Path, frozen: Path, out_dir: Path) -> dict:
     for f in ("calendar.parquet", "auctions_recent.parquet"):
         manifest[f] = sha256_file(recent_cache / f)
     combined = hashlib.sha256("".join(f"{k}{v}" for k, v in sorted(manifest.items())).encode()).hexdigest()
-    print(f"cache {recent_cache}: {len(dates)} sessions {dates[0]}..{dates[-1]}; combined SHA-256 of the "
+    print(f"cache {shown(recent_cache)}: {len(dates)} sessions {dates[0]}..{dates[-1]}; combined SHA-256 of the "
           f"{len(manifest)} files read {combined[:16]}... (every hash in the JSON)")
     kinds = Xr.groupby(["side", "kind"]).size()
     print("crosses classified: " + "; ".join(f"{s} {k} {n}" for (s, k), n in kinds.items()))
@@ -462,7 +470,7 @@ def run(recent_cache: Path, frozen: Path, out_dir: Path) -> dict:
     print(f"  cut at {HOLDOUT_LAST} (beside): " + "; ".join(f"{h} {_fmt_cm(cut_cm[h])}" for h in HORIZONS)
           + f"; s_open {cut_s['s_open']:+.3f}bp ({cut_s['h_star']})")
 
-    res["recent"] = dict(sessions=len(dates), first=dates[0], last=dates[-1], cache=str(recent_cache),
+    res["recent"] = dict(sessions=len(dates), first=dates[0], last=dates[-1], cache=shown(recent_cache),
                          manifest=manifest, combined_sha256=combined, s_open=rs, by_h=rec_cm,
                          exec_note_date_t=float(t_exec),
                          second_method=indep, by_name=BN.reset_index().to_dict("records"),
