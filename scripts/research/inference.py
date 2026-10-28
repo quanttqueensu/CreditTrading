@@ -259,6 +259,31 @@ def p_pass_dsr(sr_true_annual: float, T: int, n_trials: float, *, bound: str,
     return 1 - _N.cdf((sr0 + _N.inv_cdf(conf) * se - sr) / se)
 
 
+def safeguarded_sr0(declared_n: float, rho_bar: float, sr_var_measured: float, T: int) -> float:
+    """The paper's best-of-N bar with the team lead's 2026-10-28 safeguards. Per-period SR0.
+
+    `docs/SYSTEM.md` §5, 2026-10-28. The bar is the Gumbel expected maximum,
+    scaled by √V and evaluated at:
+    - N = `effective_trials(declared_n, ρ̄)`. The counter's DECLARED slate size
+      (EVENTS was declared at 6 while only 2 trials existed), adjusted by the
+      measured mean correlation. A negative ρ̄ counts as 0: independence is the
+      conservative case.
+    - V = max(measured cross-trial variance, 1/T), floored at the variance a
+      skill-less trial's Sharpe has by sampling alone. A spread measured from two
+      to four trials has one to three degrees of freedom. EVENTS' two trials
+      happened to have similar Sharpes, and unfloored the bar fell to an
+      annualised 0.06 (2026-10-28).
+    Pass `declared_n` from the counter's record, never as a literal (H14). CEF
+    keeps the desk's √(2 ln N) bar under the same ruling: 50 of its 52 trials
+    cannot be rebuilt.
+    """
+    if declared_n < 1 or T < 2 or sr_var_measured < 0 or not -1 <= rho_bar <= 1:
+        raise ValueError(f"need declared_n >= 1, T >= 2, sr_var >= 0, -1 <= rho <= 1; "
+                         f"got {declared_n}, {T}, {sr_var_measured}, {rho_bar}")
+    n = effective_trials(declared_n, max(rho_bar, 0.0))
+    return sqrt(max(sr_var_measured, 1 / T)) * expected_max_z(n)
+
+
 def bh_fdr(pvals, q: float = 0.05) -> np.ndarray:
     """Benjamini-Hochberg (1995) step-up. Returns a boolean mask of discoveries.
 

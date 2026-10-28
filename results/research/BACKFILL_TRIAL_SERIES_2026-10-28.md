@@ -40,6 +40,18 @@ All figures [V], from `registry.bar_inputs(counter)` after the backfill (§3).
     (§4, report only). Storing them on that check needs a ruling, because it is not the committed headline. Even then
     CEF would cover 5 of 52 and would not gate.
 
+### Team lead, 2026-10-28, on this note
+
+- **The paper's bar, once a counter qualifies, is computed with safeguards.** N is the declared slate
+  size adjusted by ρ̄, and V is floored at 1/T (`inference.safeguarded_sr0`). EVENTS' measured V
+  (5.27e-05 from two trials) is below the null 1/T (3.11e-04), so the floor binds. Hurdles
+  (annualised): EVENTS 0.363, against the desk's 0.530 at this T; XASSET 0.337, against 0.435.
+  Unfloored at the registry's N_eff, EVENTS would be 0.060. [V], from `bar_inputs` on this ledger,
+  pinned in `test_safeguarded_sr0_reproduces_the_2026_10_28_bars`.
+- **CEF keeps the desk's bar.**
+- Recorded in `docs/SYSTEM.md` §5. CEF-48..50 (§4) were not stored; their storage was not ruled on,
+  because it would not change CEF's gate.
+
 ## 1. What was stored, and how each was checked
 
 Each rebuild calls the trial's **own** functions, in the order its fit entry point calls them, and stops at the series.

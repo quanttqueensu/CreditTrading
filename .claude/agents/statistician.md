@@ -78,10 +78,14 @@ For the pre-registered design, compute and report:
   √V[SR_n], at the **effective** N.
 - Counting correlated variants as independent raises the bar and rejects true
   effects. Use `effective_trials(M, ρ̄)` with ρ̄ taken from stored trial P&L.
-- **Report both bars, labelled.** Team lead, 2026-10-27 (`docs/SYSTEM.md` §5):
-  the desk's bar gates until trials store their daily P&L series, and from
-  then the paper's bar at effective N gates. Read the ruling at run time,
-  because it can change.
+- **Report both bars, labelled.** Which one gates is the team lead's; read it in
+  `docs/SYSTEM.md` §5 at run time. On 2026-10-28:
+  - a counter whose every trial has a stored series gates on the **safeguarded**
+    paper bar, `safeguarded_sr0(declared_n, ρ̄, V, T)`: N is the declared slate
+    size adjusted by ρ̄, and V is floored at 1/T;
+  - **CEF keeps the desk's √(2 ln N)**: 50 of its 52 trials cannot be rebuilt.
+  An unfloored V measured on a handful of trials can collapse the bar (EVENTS:
+  0.06 annualised). Never use it as the gate.
 - For a **declared slate** (XASSET, an SS census), use `bh_fdr` at the declared
   q. A family-wise bar controls false discoveries at the price of missed ones:
   Harvey & Liu (2020) find a standard test misses a true effect 86.9% of the time
