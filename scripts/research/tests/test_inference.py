@@ -376,3 +376,20 @@ def test_fisher_interval_matches_scipy():
     assert lo == pytest.approx(ci.low, abs=1e-12) and hi == pytest.approx(ci.high, abs=1e-12)
     with pytest.raises(ValueError):
         I.fisher_corr_ci(0.2, 3)
+
+
+def test_safeguarded_sr0_reproduces_the_2026_10_28_bars():
+    # bar_inputs on the backfilled ledger (2026-10-28): EVENTS rho 0.006, V 5.27e-05,
+    # T 3217, declared N 6; XASSET rho 0.187, V 4.99e-04, T 3693, N 4. The
+    # annualised hurdles the team lead ruled on were 0.363 and 0.337.
+    ev = I.safeguarded_sr0(6, 0.005956912823026237, 5.27284983388247e-05, 3217)
+    xa = I.safeguarded_sr0(4, 0.18682479180006195, 0.0004994654446952893, 3693)
+    assert ev * sqrt(252) == pytest.approx(0.363, abs=1e-3)
+    assert xa * sqrt(252) == pytest.approx(0.337, abs=1e-3)
+    # The floor binds for EVENTS (measured spread below sampling noise) and not for XASSET.
+    assert I.safeguarded_sr0(6, 0.006, 0.0, 3217) == pytest.approx(ev, rel=1e-3)
+    assert I.safeguarded_sr0(4, 0.187, 0.0, 3693) < xa
+    # Negative correlation counts as independent, never as fewer than N trials.
+    assert I.safeguarded_sr0(6, -0.3, 1e-4, 3000) == I.safeguarded_sr0(6, 0.0, 1e-4, 3000)
+    with pytest.raises(ValueError):
+        I.safeguarded_sr0(0, 0.0, 1e-4, 3000)
