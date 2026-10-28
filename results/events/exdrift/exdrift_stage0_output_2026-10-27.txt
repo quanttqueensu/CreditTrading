@@ -1,4 +1,4 @@
-EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-27T21:11:55+00:00)
+EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T15:18:37+00:00)
 spec cef_discount.v7.20260928; the 17: AWF, BIT, DSL, HYT, JFR, MHD, MQY, PCN, PDI, PDO, PFN, PHK, PTY, NAD, NEA, NVG, NZF. 2023+: dates, counts, presence and flags only.
 
 price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 = 950 sessions
@@ -19,14 +19,23 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
   refreshed: by year {2023: 205, 2024: 205, 2025: 204, 2026: 154}; T+2 290, T+1 478; excluded by rule 2 0, by rule 3 (R1) 1; ex-dates not a session 0
   (the §5.1 basket count used presence of an ex-date only; this one also needs a bar on e..e+3 and no split-masked row, so it can be lower)
 
-[DG-X1] second source: AWAITING TEAM LEAD. results/events/exdrift/_cache_exdrift/alpaca_cash_dividends.parquet does not exist; the team lead runs `run_exdrift_ca.sh` (fetch_exdrift_corp_actions.py, the cef paper key).
-[DG-X3] record dates: AWAITING TEAM LEAD (same fetch).
-[DG-X2] declaration dates: AWAITING TEAM LEAD (same fetch; the deprecated announcements endpoint)
+[DG-X1] second source, Alpaca v1 (fetched 2026-10-27T21:38:45Z): {'yf_ex_dates': 769, 'alpaca_ex_dates': 769, 'agree': 737, 'agree_exact': 254}
+  amount mismatches by fund (count, first, last ex-date): BIT 32 2023-01-12..2025-08-15
+[DG-X3] record dates and the regime arithmetic: {'events': 768, 'regime_ok': 768}
+[DG-X2] is Alpaca's declaration_date a declaration date? {'announcements': 785, 'record_minus_declaration_weekdays': {-1: 6, 1: 86, 2: 688, 3: 5}, 'notices': 6, 'notices_agree': 0, 'notices_contradict': 6, 'contradictions': ['PCN ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12', 'PTY ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12', 'PHK ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12', 'PFN ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12', 'PDI ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12', 'PDO ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12']}
+[DG-X2] declaration dates on Alpaca's field: {'declared_by_e_minus_1': 736, 'declared_on_e_minus_1': 273, 'declared_by_e_minus_2': 410}
+  FAIL: Alpaca's announcement declaration_date is not a declaration date: 6 of 6 verified sponsor notice(s) contradict it, and it sits {-1: 6, 1: 86, 2: 688, 3: 5} weekdays before the record date. No valid declaration source; the per-event test below is printed, not flagged
+  events 'not declared by e-1' on Alpaca's field (printed only: the field is invalid): 32; by ex-date: 2023-01-12 BIT,HYT,JFR,MHD,MQY,NAD,NEA,NVG,NZF,PCN,PDI,PDO,PFN,PHK,PTY; 2023-01-18 DSL; 2023-02-02 AWF; 2023-08-14 BIT,HYT,JFR,MHD,MQY,NAD,NEA,NVG,NZF; 2025-04-11 PCN,PDI,PDO,PFN,PHK,PTY
   every missing close in the 17's test-window panel: 24 cell(s), 24 of them on the fund's own ex-date; dates ['2026-02-12', '2026-02-13', '2026-02-18', '2026-03-18', '2026-09-15']
 
 [DG-X4] bars: event-fund bars on e..e+3 and fill-day volume; the spike-and-revert guard ({'spike_revert': 0, 'unreverted': 0}); 25 flag(s)
 [DG-X5] NAV on e..e+3: 0 missing cell flag(s); repeats on e+1..e+3: event funds 552 of 2304 (0.240); fit, same rows 1758 of 9600 (0.183); basket funds in the test 8865 of 36864 (0.240, counted, not flagged: R6)
   repeat rate by fit era {'2005-09': 0.17, '2010-14': 0.165, '2015-19': 0.212, '2020-22': 0.179}; by test year, event funds {2023: 0.223, 2024: 0.263, 2025: 0.243, 2026: 0.225}, basket funds {2023: 0.249, 2024: 0.247, 2025: 0.251, 2026: 0.206}
+  NAV(e) = NAV(e-1) on the ex-date itself (a stale cum-distribution NAV): test 37 of 768 events; fit 98 of 3197 (0.0307)
+
+  the eligible set on the REALISED calendar (rule 1's declaration test cannot run: DG-X2), by X4 ruling:
+    X4 cells not filled (their events excluded): {'events': 705, 'events_13': 532, 'dates': 130, 'excluded_no_bar': 24, 'basket_lt3': 39}
+    X4 cells filled from Alpaca SIP: {'events': 729, 'events_13': 548, 'dates': 135, 'excluded_no_bar': 0, 'basket_lt3': 39}
 
 [DG-X6] factor coverage on the test window 2023-01-13..2026-10-06 (935 sessions):
   French FF5+UMD (fetch_ff_factors.py): {'first': '1963-07-01', 'last': '2026-09-30', 'missing_in_window': 4, 'first_missing': '2026-10-01', 'last_missing': '2026-10-06'}
@@ -47,7 +56,7 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
 
 [DG-X8] numexpr: {'use_numexpr_option': False, 'numexpr': '2.10.1', 'fault_with_numexpr_on': True, 'numpy_path_clean': True, 'fault_any': True, 'status': 'PASS'}
 
-GATES: DG-X1 AWAITING TEAM LEAD; DG-X2 AWAITING TEAM LEAD; DG-X3 AWAITING TEAM LEAD; DG-X4 FLAGGED; DG-X5 FLAGGED; DG-X6 FLAGGED; DG-X7 IDENTITY PASS; k PENDING (R9); DG-X8 PASS
-FLAGS: 587 -> results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv {"R1": 1, "R2": 1, "R3": 1, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1, "R9": 1, "X4_no_bar": 24, "X4_split": 1, "X5_nav_repeat": 552, "X6_FF6_uncovered": 1}
+GATES: DG-X1 FLAGGED; DG-X2 FAIL; DG-X3 PASS; DG-X4 FLAGGED; DG-X5 FLAGGED; DG-X6 FLAGGED; DG-X7 IDENTITY PASS; k PENDING (R9); DG-X8 PASS
+FLAGS: 657 -> results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv {"R1": 1, "R2": 1, "R3": 1, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1, "R9": 1, "X1_amount_mismatch": 32, "X2_source_invalid": 1, "X4_no_bar": 24, "X4_split": 1, "X5_nav_repeat": 552, "X5_nav_repeat_on_e": 37, "X6_FF6_uncovered": 1}
 STAGE 0: HALTED. No 2023+ return, P&L, price change or NAV change was computed.
 rulings form (blank) -> results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv

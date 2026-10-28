@@ -1,6 +1,7 @@
 """EVENTS trial 3: the post-ex-date drift in credit CEFs, part (b). Stage 0 (the data gates) and the block.
 
     python3 scripts/events/exdrift_trial.py stage0             # offline once the caches exist; writes results/events/exdrift/
+    python3 scripts/events/exdrift_trial.py notices            # fetch + verify the sponsor notices DG-X2 checks Alpaca against (public)
     python3 scripts/events/exdrift_trial.py rulings-template   # the blank rulings form for the current flags
     python3 scripts/events/exdrift_trial.py fit-k              # REFUSES until every Stage-0 flag is ruled (stub)
     python3 scripts/events/exdrift_trial.py open               # REFUSES until Stage 0 is CLEAR (stub; opened once)
@@ -40,6 +41,14 @@ WHAT STAGE 0 MAY READ, AND WHAT IT MAY NOT
   left to `fit-k`, which runs only after every flag is ruled.
 * THE 27 SEALED NAMES (`data/cef/cef_universe.csv` minus the 17) are never loaded: every panel
   read passes a parquet filter `ticker in NAMES`, and `_only_names` asserts it on every frame.
+
+DG-X2 AND ALPACA'S DECLARATION DATE (2026-10-28). The announcements endpoint's `declaration_date`
+is tested before it is used: every verified sponsor notice (`NOTICES`, quotes re-found offline)
+is compared with it, and the weekdays from it to the record date are printed. PIMCO's own release
+of 2025-10-01 contradicts it (Alpaca: 2025-10-12), and it sits 1-3 weekdays before the record date
+on almost every record, so it is derived, not observed. DG-X2 then FAILS with one class flag
+(`X2_source_invalid`), and the per-event "declared late" test is printed, never flagged: a flag
+raised on an invalid field would ask for rulings on dates nobody declared.
 
 THE BLOCK. `require_stage0_clear` calls `data_guards.require_stage0_rulings` on the committed
 flag table and the rulings file, and then reads the committed Stage-0 record. `fit-k` needs the
@@ -98,6 +107,8 @@ STAGE0_JSON = OUT_DIR / f"exdrift_stage0_{STAMP}.json"
 STAGE0_TXT = OUT_DIR / f"exdrift_stage0_output_{STAMP}.txt"
 FIT_TABLE = OUT_DIR / f"exdrift_fit_descriptive_{STAMP}.csv"
 K_JSON = OUT_DIR / f"exdrift_k_{STAMP}.json"          # written by fit-k (not yet)
+NOTICES = OUT_DIR / "exdrift_sponsor_notices_2026-10-28.csv"   # verified sponsor notices (DG-X2 check)
+NOTICE_CACHE = CACHE / "sponsor_notices"              # `exdrift_trial.py notices` fills it (public GETs)
 WRAPPER = "run_exdrift_ca.sh"                         # worktree root, excluded from git (info/exclude)
 
 # --------------------------------------------------------------------------- the declaration (prereg)
@@ -442,6 +453,42 @@ def calendar_baskets(ev: pd.DataFrame, dist: pd.DataFrame, sessions: pd.Datetime
     return pd.Series(out, index=ev.index, name="basket_calendar")
 
 
+def declared_baskets(ev: pd.DataFrame, ann: pd.DataFrame, sessions: pd.DatetimeIndex, close_ok: pd.DataFrame,
+                     splits: pd.DataFrame) -> tuple[pd.Series, int]:
+    """H-E basket size per event on the DECLARED calendar (prereg §4.3): fund j leaves event i's basket
+    if j has an ex-date in [e+1, e+8] whose earliest Alpaca declaration is on or before e-1. An
+    ex-date declared later stays in, as a trader would have held it (a calendar surprise, counted).
+    Same presence and split-mask conditions as `calendar_baskets`. Dates only."""
+    spos = {d: i for i, d in enumerate(sessions)}
+    ok_ann = ann[(ann.status == 200) & ann.ex_date.notna() & ann.ticker.isin(NAMES)]
+    dec = ok_ann.groupby(["ticker", "ex_date"])["declaration_date"].min()
+    own = {}
+    for (t, x_), dd in dec.items():
+        if x_ in spos:
+            own.setdefault(t, []).append((spos[x_], dd))
+    sp = {t: [spos[d] for d in g.ex_date if d in spos] for t, g in splits.groupby("ticker")} if len(splits) else {}
+    ok = close_ok.reindex(index=sessions, columns=list(NAMES)).fillna(False).to_numpy()
+    col = {t: j for j, t in enumerate(NAMES)}
+    out, surprises = [], 0
+    for t, p in zip(ev.ticker, ev.p):
+        cutoff = sessions[p - 1]
+        n = 0
+        for j in NAMES:
+            if j == t:
+                continue
+            inwin = [(q, dd) for q, dd in own.get(j, []) if HE_LO <= q - p <= HE_HI]
+            if any(dd <= cutoff for _, dd in inwin):
+                continue
+            surprises += int(bool(inwin))
+            if p + HOLD >= len(sessions) or not ok[p:p + HOLD + 1, col[j]].all():
+                continue
+            if any(abs(p + k - q) <= SPLIT_MASK for q in sp.get(j, []) for k in range(1, HOLD + 1)):
+                continue
+            n += 1
+        out.append(n)
+    return pd.Series(out, index=ev.index, name="basket_declared"), surprises
+
+
 def count_table(ev: pd.DataFrame, label: str) -> dict:
     """§5.1's counts (dates only)."""
     e = ev[~ev.next_ex_within3 & ~ev.split_masked]
@@ -467,9 +514,10 @@ def bar_flags(ev: pd.DataFrame, sessions: pd.DatetimeIndex, close_ok: pd.DataFra
     rows = []
     C = close_ok.reindex(index=sessions, columns=list(NAMES)).fillna(False)
     V = vol_zero.reindex(index=sessions, columns=list(NAMES)).fillna(False)
-    have_alp = set()
+    alp_show = {}
     if alpaca_bars is not None and len(alpaca_bars):
-        have_alp = set(zip(alpaca_bars.ticker, pd.to_datetime(alpaca_bars.date)))
+        for t, d, c, v in zip(alpaca_bars.ticker, pd.to_datetime(alpaca_bars.date), alpaca_bars.close, alpaca_bars.volume):
+            alp_show[(t, d)] = (bool(np.isfinite(c) and c > 0), bool(np.isfinite(v) and v > 0))   # booleans only
     miss, zero = {}, {}
     for t, e, p in zip(ev.ticker, ev.ex_date, ev.p):
         for k in range(0, HOLD + 1):
@@ -479,8 +527,14 @@ def bar_flags(ev: pd.DataFrame, sessions: pd.DatetimeIndex, close_ok: pd.DataFra
             elif k in (0, HOLD) and V.at[d, t]:
                 zero.setdefault((t, d), []).append(f"{e.date()} (e+{k})")
     for (t, d), evs in sorted(miss.items()):
-        alp = ("Alpaca SIP has a bar" if (t, d) in have_alp else "no Alpaca SIP bar") if alpaca_bars is not None \
-            else "Alpaca SIP not yet fetched"
+        if alpaca_bars is None:
+            alp = "Alpaca SIP not yet fetched"
+        elif (t, d) in alp_show:
+            c_ok, v_ok = alp_show[(t, d)]
+            alp = (f"Alpaca raw SIP bar present: close {'yes' if c_ok else 'no'}, volume > 0 "
+                   f"{'yes' if v_ok else 'no'}")
+        else:
+            alp = "no Alpaca raw SIP bar"
         _flag(rows, "X4_no_bar", t, d, "DG-X4", "; ".join(evs),
               f"no yfinance close on this session (volume 0 or missing); {alp}",
               "fill the close from Alpaca's raw SIP bar (C4 precedent, 2026-10-14) if present; else exclude the "
@@ -540,17 +594,24 @@ def nav_flags(ev: pd.DataFrame, sessions: pd.DatetimeIndex, nav_ok: pd.DataFrame
     rows = []
     N = nav_ok.reindex(index=sessions, columns=list(NAMES)).fillna(False)
     P = nav_rep.reindex(index=sessions, columns=list(NAMES)).fillna(False)
-    miss, rep = {}, {}
+    miss, rep, rep0 = {}, {}, {}
     for t, e, p in zip(ev.ticker, ev.ex_date, ev.p):
         for k in range(0, HOLD + 1):
             d = sessions[p + k]
             if not N.at[d, t]:
                 miss.setdefault((t, d), []).append(f"{e.date()} (e+{k})")
+            elif k == 0 and P.at[d, t]:
+                rep0.setdefault((t, d), []).append(f"{e.date()} (e+0)")
             elif k >= 1 and P.at[d, t]:
                 rep.setdefault((t, d), []).append(f"{e.date()} (e+{k})")
     for (t, d), evs in sorted(miss.items()):
         _flag(rows, "X5_nav_missing", t, d, "DG-X5", "; ".join(evs), "no NAV on this session; the NAV leg has no return",
               "exclude the event from the NAV leg only and count it (the price leg is unaffected)")
+    for (t, d), evs in sorted(rep0.items()):
+        _flag(rows, "X5_nav_repeat_on_e", t, d, "DG-X5", "; ".join(evs),
+              "NAV on the ex-date equals the cum-distribution NAV of e-1: a stale copy, so the distribution's NAV drop "
+              "lands on hold row e+1 of the NAV leg",
+              "exclude the event from the NAV leg only, counted (left in, it pushes the NAV control towards a kill)")
     for (t, d), evs in sorted(rep.items()):
         _flag(rows, "X5_nav_repeat", t, d, "DG-X5", "; ".join(evs), "NAV equals the previous session's NAV",
               "book as is (class ruling, reading R6) unless the fit/test repeat rates differ")
@@ -568,13 +629,16 @@ def repeat_rate_fit(dist: pd.DataFrame) -> dict:
     col = {t: j for j, t in enumerate(W.columns)}
     del W, nv
     x = dist[(dist.amount > 0) & (dist.ex_date >= FIT_START) & (dist.ex_date <= FIT_END)]
-    n = r = 0
+    n = r = n0 = r0 = 0
     by: dict = {}
     for t, e in zip(x.ticker, x.ex_date):
         if e not in pos or t not in col:
             continue
         i = pos[e]
         era = next(lab for lab, a, b in FIT_ERAS if a <= e.year <= b)
+        if i >= 1 and ok[i, col[t]]:
+            n0 += 1
+            r0 += int(rep[i, col[t]])
         for k in range(1, HOLD + 1):
             if i + k < len(navidx) and ok[i + k, col[t]]:
                 n += 1
@@ -583,7 +647,8 @@ def repeat_rate_fit(dist: pd.DataFrame) -> dict:
                 c[0] += 1
                 c[1] += int(rep[i + k, col[t]])
     return {"cells": n, "repeats": r, "rate": r / n if n else float("nan"),
-            "by_era": {k: round(v[1] / v[0], 3) for k, v in by.items()}}
+            "by_era": {k: round(v[1] / v[0], 3) for k, v in by.items()},
+            "on_e": {"cells": n0, "repeats": r0, "rate": r0 / n0 if n0 else float("nan")}}
 
 
 def repeat_rate_test(ev: pd.DataFrame, sessions: pd.DatetimeIndex, nav_ok: pd.DataFrame, nav_rep: pd.DataFrame,
@@ -630,8 +695,9 @@ def yf_vs_alpaca(ev: pd.DataFrame, dist: pd.DataFrame, alp: pd.DataFrame, end_ex
             _flag(rows, "X1_amount_mismatch", r.ticker, r.ex_date, "DG-X1", str(r.ex_date.date()),
                   f"amounts differ by more than ${DIV_TOL}/share (yfinance {r.yf_amount:.4f}, Alpaca "
                   f"{r.alp_amount:.4f}, {int(r.alp_records)} record(s))",
-                  "the event's timing is unaffected (a short opened at e owes no distribution); rule which amount "
-                  "the total-return identity uses")
+                  "confirm the ex-date and keep the event: by construction no held cell carries a distribution "
+                  "(prereg §4.5), so the amount enters no P&L of (b); use Alpaca's amount for the report-only "
+                  "size strata")
     s = {"yf_ex_dates": int(len(Y)), "alpaca_ex_dates": int(len(A)),
          "agree": int(((M.src == "both") & ((M.yf_amount - M.alp_amount).abs() <= DIV_TOL)).sum()),
          "agree_exact": int(((M.src == "both") & ((M.yf_amount - M.alp_amount).abs() <= 1e-9)).sum())}
@@ -694,6 +760,78 @@ def declaration_flags(ev: pd.DataFrame, ann: pd.DataFrame, sessions: pd.Datetime
             n_eq += int(d0 == prev)
             n_le2 += int(d0 <= sessions[p - 2])
     return rows, {"declared_by_e_minus_1": n_ok, "declared_on_e_minus_1": n_eq, "declared_by_e_minus_2": n_le2}
+
+
+def fetch_notices(notices_path: Path = NOTICES, cache: Path = NOTICE_CACHE) -> dict:
+    """Fetch every notice URL (scripts/data/fetch_sponsor_notices.fetch: a plain GET) into the cache,
+    with a manifest {url: sha16}. Public; no credential."""
+    import json as _json
+    from scripts.data.fetch_sponsor_notices import fetch
+    N = pd.read_csv(notices_path, dtype=str)
+    cache.mkdir(parents=True, exist_ok=True)
+    man = {}
+    for u in N["url"].unique():
+        raw, _ = fetch(u, edgar=None)
+        h = hashlib.sha256(raw).hexdigest()[:16]
+        (cache / f"{h}.bin").write_bytes(raw)
+        man[u] = h
+    (cache / "manifest.json").write_text(_json.dumps(man, indent=1))
+    return man
+
+
+def _doc_text(raw: bytes) -> str:
+    if raw[:5] == b"%PDF-":
+        import io
+        import pypdf
+        return " ".join(p.extract_text() or "" for p in pypdf.PdfReader(io.BytesIO(raw)).pages)
+    return raw.decode("utf-8", errors="replace")
+
+
+def verify_notices(notices_path: Path = NOTICES, cache: Path = NOTICE_CACHE) -> pd.DataFrame:
+    """Every notice's three quotes must occur in its cached document (offline). Raises naming any
+    that do not: a citation that cannot be re-found is an anecdote (.claude/rules/documents.md)."""
+    from scripts.data.fetch_sponsor_notices import quote_found
+    N = pd.read_csv(notices_path, dtype=str)
+    man_p = cache / "manifest.json"
+    if not man_p.exists():
+        raise Stage0Error(f"{man_p} does not exist: run `python3 scripts/events/exdrift_trial.py notices` (public)")
+    man = json.loads(man_p.read_text())
+    texts = {}
+    bad = []
+    for r in N.itertuples():
+        if r.url not in man:
+            raise Stage0Error(f"notice {r.ticker} {r.ex_date}: {r.url[:60]}... is not in the notice cache")
+        if r.url not in texts:
+            texts[r.url] = _doc_text((cache / f"{man[r.url]}.bin").read_bytes())
+        for q in (r.quote_declared, r.quote_dates, r.quote_fund):
+            if not quote_found(q, texts[r.url]):
+                bad.append((r.ticker, r.ex_date, q))
+    if bad:
+        raise Stage0Error(f"sponsor-notice quotes not found in their documents: {bad}")
+    N["ex_date"] = pd.to_datetime(N["ex_date"])
+    N["stated_declaration"] = pd.to_datetime(N["stated_declaration"])
+    return N
+
+
+def declaration_field_check(ann: pd.DataFrame, notices: pd.DataFrame) -> dict:
+    """Is Alpaca's announcement `declaration_date` a declaration date? Dates only.
+
+    Two measurements, printed: (i) weekdays from the announced declaration to the record date,
+    over every announcement (a board declares days or weeks ahead; a field that sits inside the
+    settlement window of the record date on almost every record is derived from it, not observed);
+    (ii) each verified sponsor notice against Alpaca's value for the same (fund, ex-date). Any
+    verified notice that contradicts the field shows that the field is not a declaration date, and
+    DG-X2 then has no valid source on Alpaca alone."""
+    a = ann[(ann.status == 200) & ann.ex_date.notna() & ann.declaration_date.notna() & ann.record_date.notna()]
+    lead = pd.Series([int(np.busday_count(d.date(), r.date())) for d, r in zip(a.declaration_date, a.record_date)])
+    m = notices.merge(a[["ticker", "ex_date", "declaration_date"]], on=["ticker", "ex_date"], how="left")
+    agree = int((m.declaration_date == m.stated_declaration).sum())
+    dis = m[m.declaration_date.notna() & (m.declaration_date != m.stated_declaration)]
+    return {"announcements": int(len(a)),
+            "record_minus_declaration_weekdays": {int(k): int(v) for k, v in lead.value_counts().sort_index().items()},
+            "notices": int(len(m)), "notices_agree": agree, "notices_contradict": int(len(dis)),
+            "contradictions": [f"{r.ticker} ex {r.ex_date.date()}: notice {r.stated_declaration.date()}, Alpaca "
+                               f"{r.declaration_date.date()}" for r in dis.itertuples()]}
 
 
 # =========================================================================== DG-X6: factor coverage (dates only)
@@ -869,6 +1007,11 @@ def stage0(write: bool = True) -> dict:
         r1, s1 = yf_vs_alpaca(E, dn, alp, end_ex)
         rows += r1
         say(f"\n[DG-X1] second source, Alpaca v1 (fetched {alp['fetched_utc'].iloc[0] if len(alp) else '?'}): {s1}")
+        mism = [r for r in r1 if r["check"] == "X1_amount_mismatch"]
+        if mism:
+            g = pd.DataFrame(mism).groupby("ticker")["date"].agg(["size", "min", "max"])
+            say("  amount mismatches by fund (count, first, last ex-date): "
+                + "; ".join(f"{t} {int(r['size'])} {r['min']}..{r['max']}" for t, r in g.iterrows()))
         r3, s3 = record_flags(E, alp, sessions)
         rows += r3
         say(f"[DG-X3] record dates and the regime arithmetic: {s3}")
@@ -888,10 +1031,30 @@ def stage0(write: bool = True) -> dict:
             bad = int((st != 200).sum())
             if bad:
                 ann_fail = f"{bad} announcement window(s) did not answer 200; their events have no declaration read"
+            dchk = declaration_field_check(ann, verify_notices())
+            say(f"[DG-X2] is Alpaca's declaration_date a declaration date? {dchk}")
+            rec["dg_x2_field_check"] = dchk
+            if dchk["notices_contradict"]:
+                ann_fail = (f"Alpaca's announcement declaration_date is not a declaration date: "
+                            f"{dchk['notices_contradict']} of {dchk['notices']} verified sponsor notice(s) contradict it, "
+                            f"and it sits {dchk['record_minus_declaration_weekdays']} weekdays before the record date. "
+                            "No valid declaration source; the per-event test below is printed, not flagged")
             r2, s2 = declaration_flags(E, ann, sessions)
-            rows += r2
-            say(f"[DG-X2] declaration dates: {s2}" + (f"; FAIL: {ann_fail}" if ann_fail else ""))
+            say(f"[DG-X2] declaration dates on Alpaca's field: {s2}" + (f"\n  FAIL: {ann_fail}" if ann_fail else ""))
+            late = [r for r in r2 if r["check"] == "X2_declared_late"]
+            if late:
+                g = pd.DataFrame(late).groupby("date")["ticker"].agg(lambda z: ",".join(sorted(z)))
+                say(f"  events 'not declared by e-1' on Alpaca's field ({'printed only: the field is invalid' if ann_fail else 'excluded and counted, §4.1 rule 1'}): {len(late)}; by ex-date: "
+                    + "; ".join(f"{d} {t}" for d, t in g.items()))
+            s2["not_declared_by_e_minus_1"] = len(late)
             rec["dg_x2"] = s2
+            if ann_fail:
+                _flag(rows, "X2_source_invalid", "-", STAMP, "DG-X2", "-", ann_fail,
+                      "rule a declaration source before the opening: a verified sponsor-notice table for every test "
+                      "event (the sponsors' monthly releases; PIMCO's are fetchable), with CRSP dclrdt beside it to "
+                      "2024-12-31 if wanted; the H-E declared calendar is rebuilt on it")
+            else:
+                rows += r2
     else:
         say("[DG-X2] declaration dates: AWAITING TEAM LEAD (same fetch; the deprecated announcements endpoint)")
 
@@ -923,8 +1086,61 @@ def stage0(write: bool = True) -> dict:
         f"{rf['repeats']} of {rf['cells']} ({rf['rate']:.3f}); basket funds in the test {rb['repeats']} of {rb['cells']} "
         f"({rb['rate']:.3f}, counted, not flagged: R6)")
     say(f"  repeat rate by fit era {rf['by_era']}; by test year, event funds {rt['by_year']}, basket funds {rb['by_year']}")
+    n_e = sum(1 for r in rows if r["check"] == "X5_nav_repeat_on_e")
+    say(f"  NAV(e) = NAV(e-1) on the ex-date itself (a stale cum-distribution NAV): test {n_e} of {len(E)} events; "
+        f"fit {rf['on_e']['repeats']} of {rf['on_e']['cells']} ({rf['on_e']['rate']:.4f})")
     rec["dg_x4_guard"] = gs
     rec["dg_x5"] = {"test_event_rows": rt, "fit_event_rows": rf, "test_basket_rows": rb}
+
+    # ---------------------------------------------------------------- the eligible set, by ruling (dates only)
+    if ann is not None and ann_fail:
+        filled = close_ok.copy()
+        if alp_bars is not None and len(alp_bars):
+            for t, d, c in zip(alp_bars.ticker, pd.to_datetime(alp_bars.date), alp_bars.close):
+                if t in filled.columns and d in filled.index and np.isfinite(c) and c > 0:
+                    filled.at[d, t] = True                       # presence only
+        nobar_ev = {(t, e) for t, e, p in zip(E.ticker, E.ex_date, E.p)
+                    if not close_ok.reindex(index=sessions, columns=list(NAMES)).fillna(False).iloc[p:p + HOLD + 1][t].all()}
+        elig = {}
+        for lab, ok_, drop in (("X4 cells not filled (their events excluded)", close_ok, True),
+                               ("X4 cells filled from Alpaca SIP", filled, False)):
+            nb = calendar_baskets(E, dn, sessions, ok_, sp)
+            keep = pd.Series([not (drop and (t, e) in nobar_ev) for t, e in zip(E.ticker, E.ex_date)], index=E.index)
+            k3 = keep & (nb >= BASKET_MIN)
+            elig[lab] = {"events": int(k3.sum()), "events_13": int((k3 & E.ticker.isin(CORE)).sum()),
+                         "dates": int(E.loc[k3, "ex_date"].nunique()),
+                         "excluded_no_bar": int((~keep).sum()), "basket_lt3": int((keep & (nb < BASKET_MIN)).sum())}
+        say("\n  the eligible set on the REALISED calendar (rule 1's declaration test cannot run: DG-X2), by X4 ruling:")
+        for lab, v in elig.items():
+            say(f"    {lab}: {v}")
+        rec["eligible_realised_calendar"] = elig
+    if ann is not None and not ann_fail:
+        late_keys = {(r["ticker"], r["date"]) for r in rows if r["check"] in ("X2_declared_late", "X2_no_declaration")}
+        nobar_ev = {(t, e.strftime("%Y-%m-%d")) for t, e, p in zip(E.ticker, E.ex_date, E.p)
+                    if not close_ok.reindex(index=sessions, columns=list(NAMES)).fillna(False)
+                    .iloc[p:p + HOLD + 1][t].all()}
+        filled = close_ok.copy()
+        if alp_bars is not None and len(alp_bars):
+            for t, d, c in zip(alp_bars.ticker, pd.to_datetime(alp_bars.date), alp_bars.close):
+                if t in filled.columns and d in filled.index and np.isfinite(c) and c > 0:
+                    filled.at[d, t] = True                       # presence only: a bar exists to rule on
+        elig = {}
+        for lab, ok_, drop_nobar in (("X4 cells not filled (events with no bar excluded)", close_ok, True),
+                                     ("X4 cells filled from Alpaca SIP", filled, False)):
+            nb, surpr = declared_baskets(E, ann, sessions, ok_, sp)
+            keys = list(zip(E.ticker, E.ex_date.dt.strftime("%Y-%m-%d")))
+            keep = pd.Series([k not in late_keys and not (drop_nobar and k in nobar_ev) for k in keys], index=E.index)
+            k3 = keep & (nb >= BASKET_MIN)
+            elig[lab] = {"events": int(k3.sum()), "events_13": int((k3 & E.ticker.isin(CORE)).sum()),
+                         "dates": int(E.loc[k3, "ex_date"].nunique()),
+                         "months": int(E.loc[k3, "ex_date"].dt.to_period("M").nunique()),
+                         "excluded_not_declared": int(sum(k in late_keys for k in keys)),
+                         "excluded_no_bar": int(sum(drop_nobar and k in nobar_ev and k not in late_keys for k in keys)),
+                         "basket_lt3": int((keep & (nb < BASKET_MIN)).sum()), "calendar_surprise_legs": int(surpr)}
+        say("\n  the eligible set on the DECLARED calendar (rules 1-5; dates only), under the two X4 rulings:")
+        for lab, v in elig.items():
+            say(f"    {lab}: {v}")
+        rec["eligible"] = elig
 
     # ---------------------------------------------------------------- DG-X6
     p_last = int(E.p.max()) if len(E) else None
@@ -1090,6 +1306,7 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("stage0")
     sub.add_parser("rulings-template")
+    sub.add_parser("notices")
     sub.add_parser("fit-k")
     sub.add_parser("open")
     a = ap.parse_args(argv)
@@ -1098,6 +1315,11 @@ def main(argv=None) -> int:
         return 0 if S["rec"]["stage0"] == "CLEAR" else 2
     if a.cmd == "rulings-template":
         return rulings_template(a)
+    if a.cmd == "notices":
+        print(f"notice cache: {fetch_notices()}")
+        verify_notices()
+        print("every quote re-found")
+        return 0
     if a.cmd == "fit-k":
         return fit_k(a)
     return open_test(a)

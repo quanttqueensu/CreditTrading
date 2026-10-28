@@ -210,18 +210,20 @@ def test_bar_and_nav_flags_on_the_event_fund():
     vz.loc[s[p + 3], "PTY"] = True                     # zero volume on the cover day, close present
     vz.loc[s[p + 1], "PTY"] = True                     # not a fill day: not flagged
     ok.loc[s[p + 1], "PDI"] = False                    # a basket fund: not flagged (R5)
-    rows = x.bar_flags(ev, s, ok, vz, pd.DataFrame({"ticker": ["PTY"], "date": [s[p]]}))
+    rows = x.bar_flags(ev, s, ok, vz, pd.DataFrame({"ticker": ["PTY"], "date": [s[p]], "close": [10.0], "volume": [0.0]}))
     got = {(r["check"], r["date"]) for r in rows}
     assert got == {("X4_no_bar", str(s[p].date())), ("X4_zero_volume_fill", str(s[p + 3].date()))}
-    assert "Alpaca SIP has a bar" in [r for r in rows if r["check"] == "X4_no_bar"][0]["note"]
+    note = [r for r in rows if r["check"] == "X4_no_bar"][0]["note"]
+    assert "Alpaca raw SIP bar present: close yes, volume > 0 no" in note
     nok = pd.DataFrame(True, index=s, columns=list(x.NAMES))
     nrp = pd.DataFrame(False, index=s, columns=list(x.NAMES))
-    nrp.loc[s[p], "PTY"] = True                        # a repeat on e itself is not a hold row
+    nrp.loc[s[p], "PTY"] = True                        # a repeat on e: the stale cum-distribution NAV, its own class
     nrp.loc[s[p + 2], "PTY"] = True
     nok.loc[s[p + 3], "PTY"] = False
     n = x.nav_flags(ev, s, nok, nrp)
     assert {(r["check"], r["date"]) for r in n} == {("X5_nav_repeat", str(s[p + 2].date())),
-                                                     ("X5_nav_missing", str(s[p + 3].date()))}
+                                                     ("X5_nav_missing", str(s[p + 3].date())),
+                                                     ("X5_nav_repeat_on_e", str(s[p].date()))}
 
 
 def test_missing_close_cells_counts_own_ex_dates():
@@ -298,3 +300,32 @@ def test_a_blank_form_is_not_a_record_but_a_ruled_one_is(tmp_path):
     R.loc[0, "ruling"] = "keep"
     R.to_csv(rp, index=False)
     assert not x._blank_form(rp)
+
+
+def test_declaration_field_check_finds_a_contradicting_notice():
+    ann = pd.DataFrame({"status": 200, "ticker": ["PTY", "PDI"], "ex_date": pd.to_datetime(["2025-10-14"] * 2),
+                        "declaration_date": pd.to_datetime(["2025-10-12", "2025-10-01"]),
+                        "record_date": pd.to_datetime(["2025-10-14"] * 2)})
+    N = pd.DataFrame({"ticker": ["PTY", "PDI"], "ex_date": pd.to_datetime(["2025-10-14"] * 2),
+                      "stated_declaration": pd.to_datetime(["2025-10-01"] * 2)})
+    c = x.declaration_field_check(ann, N)
+    assert c["notices_contradict"] == 1 and c["notices_agree"] == 1
+    assert c["record_minus_declaration_weekdays"] == {1: 1, 9: 1}
+
+
+def test_verify_notices_refuses_a_quote_its_document_lacks(tmp_path):
+    cache = tmp_path / "c"
+    cache.mkdir()
+    url = "https://example.org/n.html"
+    (cache / "abc.bin").write_bytes(b"<p>NEW YORK, October 1, 2025. Record October 14, 2025 (NYSE: PTY)</p>")
+    (cache / "manifest.json").write_text(json.dumps({url: "abc"}))
+    p = tmp_path / "n.csv"
+    pd.DataFrame([{"ticker": "PTY", "ex_date": "2025-10-14", "stated_declaration": "2025-10-01", "url": url,
+                   "quote_declared": "NEW YORK, October 1, 2025", "quote_dates": "Record October 14, 2025",
+                   "quote_fund": "(NYSE: PTY)"}]).to_csv(p, index=False)
+    assert len(x.verify_notices(p, cache)) == 1
+    pd.DataFrame([{"ticker": "PTY", "ex_date": "2025-10-14", "stated_declaration": "2025-10-01", "url": url,
+                   "quote_declared": "NEW YORK, October 2, 2025", "quote_dates": "Record October 14, 2025",
+                   "quote_fund": "(NYSE: PTY)"}]).to_csv(p, index=False)
+    with pytest.raises(x.Stage0Error, match="not found"):
+        x.verify_notices(p, cache)

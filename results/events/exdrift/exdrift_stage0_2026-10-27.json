@@ -66,6 +66,42 @@
   "test_overlap_identical": true,
   "written_utc": "2026-10-27T20:56:43+00:00"
  },
+ "dg_x1_second": {
+  "agree": 737,
+  "agree_exact": 254,
+  "alpaca_ex_dates": 769,
+  "yf_ex_dates": 769
+ },
+ "dg_x2": {
+  "declared_by_e_minus_1": 736,
+  "declared_by_e_minus_2": 410,
+  "declared_on_e_minus_1": 273,
+  "not_declared_by_e_minus_1": 32
+ },
+ "dg_x2_field_check": {
+  "announcements": 785,
+  "contradictions": [
+   "PCN ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12",
+   "PTY ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12",
+   "PHK ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12",
+   "PFN ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12",
+   "PDI ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12",
+   "PDO ex 2025-10-14: notice 2025-10-01, Alpaca 2025-10-12"
+  ],
+  "notices": 6,
+  "notices_agree": 0,
+  "notices_contradict": 6,
+  "record_minus_declaration_weekdays": {
+   "-1": 6,
+   "1": 86,
+   "2": 688,
+   "3": 5
+  }
+ },
+ "dg_x3": {
+  "events": 768,
+  "regime_ok": 768
+ },
  "dg_x4_guard": {
   "spike_revert": 0,
   "unreverted": 0
@@ -79,6 +115,11 @@
     "2020-22": 0.179
    },
    "cells": 9600,
+   "on_e": {
+    "cells": 3197,
+    "rate": 0.03065373787926181,
+    "repeats": 98
+   },
    "rate": 0.183125,
    "repeats": 1758
   },
@@ -207,7 +248,23 @@
   "status": "PASS",
   "use_numexpr_option": false
  },
- "flags": 587,
+ "eligible_realised_calendar": {
+  "X4 cells filled from Alpaca SIP": {
+   "basket_lt3": 39,
+   "dates": 135,
+   "events": 729,
+   "events_13": 548,
+   "excluded_no_bar": 0
+  },
+  "X4 cells not filled (their events excluded)": {
+   "basket_lt3": 39,
+   "dates": 130,
+   "events": 705,
+   "events_13": 532,
+   "excluded_no_bar": 24
+  }
+ },
+ "flags": 657,
  "flags_by_check": {
   "R1": 1,
   "R2": 1,
@@ -218,15 +275,18 @@
   "R7": 1,
   "R8": 1,
   "R9": 1,
+  "X1_amount_mismatch": 32,
+  "X2_source_invalid": 1,
   "X4_no_bar": 24,
   "X4_split": 1,
   "X5_nav_repeat": 552,
+  "X5_nav_repeat_on_e": 37,
   "X6_FF6_uncovered": 1
  },
  "gates": {
-  "DG-X1": "AWAITING TEAM LEAD",
-  "DG-X2": "AWAITING TEAM LEAD",
-  "DG-X3": "AWAITING TEAM LEAD",
+  "DG-X1": "FLAGGED",
+  "DG-X2": "FAIL",
+  "DG-X3": "PASS",
   "DG-X4": "FLAGGED",
   "DG-X5": "FLAGGED",
   "DG-X6": "FLAGGED",

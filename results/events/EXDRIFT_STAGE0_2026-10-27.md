@@ -1,4 +1,4 @@
-# Ex-date drift (EVENTS trial 3): Stage 0, HALTED on the team lead's Alpaca run and the rulings
+# Ex-date drift (EVENTS trial 3): Stage 0, HALTED: DG-X2 has no valid declaration source, and 657 flags await rulings
 
 **Date** 2026-10-27 · **Pre-registration** `results/events/PREREG_EXDATE_DRIFT_2026-10-26.md`
 (approved 2026-10-27 with every recommended answer: part (b) is EVENTS trial 3 at N = 7; part (a)
@@ -12,7 +12,9 @@ exist; exit 2 = halted). Outputs, all tracked, with dates, counts, presence and 
 |---|---|
 | `results/events/exdrift/exdrift_stage0_output_2026-10-27.txt` | the run's printed record |
 | `results/events/exdrift/exdrift_stage0_2026-10-27.json` | gate statuses, counts, coverage, the identity table |
-| `results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv` | 587 flags, keyed `(check, ticker, date)` |
+| `results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv` | 657 flags (2026-10-28 re-run; 587 on 2026-10-27), keyed `(check, ticker, date)` |
+| `results/events/exdrift/exdrift_sponsor_notices_2026-10-28.csv` | the verified sponsor notices DG-X2 checks Alpaca against (quotes re-found offline on every run) |
+| `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md` | **the rulings proposal**, one recommendation per flag class |
 | `results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv` | **the blank rulings form**, one row per flag (`ruling`, `ruled_by`, `ruled_on`) |
 | `results/events/exdrift/exdrift_fit_descriptive_2026-10-27.csv` | the DG-X7 identity table (fit only) |
 | `results/events/exdrift/noop_fetch_cef_distributions_output.txt` | the no-op proof for the fetcher change (§2) |
@@ -21,7 +23,33 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
-> **Status: HALTED in Stage 0.** Three gates wait on one credentialed run by the team lead
+> **2026-10-28: re-run on the team lead's Alpaca fetch** (`run_exdrift_ca.sh`, fetched
+> 2026-10-27T21:38:45Z: v1 801 records; announcements 785 rows, every window HTTP 200; the 24 flagged
+> bars). `python3 scripts/events/exdrift_trial.py notices` then `stage0`, offline.
+>
+> | gate | now | in one line |
+> |---|---|---|
+> | DG-X1 | **FLAGGED** (32) | Every one of the 769 yfinance ex-dates from 2023-01-01 to the frozen end is on Alpaca, and Alpaca has none that yfinance lacks. 737 amounts agree within $0.001 (254 exactly). **The 32 that do not are all BIT, 2023-01-12 → 2025-08-15**, every ex-date before BIT's 2025-08-19 split record: yfinance 0.1205 against Alpaca 0.1237, after which they agree. The cause is [U] (a restated yfinance history is the likely one) |
+> | DG-X2 | **FAIL** | **Alpaca's announcement `declaration_date` is not a declaration date.** PIMCO's own release, dated "NEW YORK, NY, October 1, 2025", declares the distributions with ex-date 2025-10-14 for PCN, PTY, PHK, PFN, PDI and PDO. Alpaca gives 2025-10-12, a Sunday, for all six. Over all 785 announcements the field sits 1–3 weekdays before the record date (2 weekdays on 688), and after it on 6: it is derived from the record date. **On that field 32 events would be "declared late" and excluded.** That count is printed and not flagged, because the field is invalid. One class flag, `X2_source_invalid` |
+> | DG-X3 | **PASS** | All 768 events have one Alpaca record date. Every one fits its regime row of §4.2: T+2, record = the session after ex; T+1 from 2024-05-28, record = ex. The announcements' record dates equal v1's on all 785 |
+> | DG-X4 | **FLAGGED** (25) | **All 24 `X4_no_bar` cells have an Alpaca raw SIP bar with a close and volume > 0** (presence only). The BIT split flag is unchanged |
+> | DG-X5 | **FLAGGED** (589) | 552 repeats on e+1..e+3, as before. **New check, `X5_nav_repeat_on_e` (37 events, 2023–25):** NAV(e) = NAV(e−1) on the ex-date itself. That is a stale cum-distribution NAV, which moves the distribution's NAV drop onto hold row e+1. The fit rate on the same test is 98 of 3,197 (0.031); the test's is 37 of 768 |
+> | DG-X6 | FLAGGED (1) | unchanged: the French factors miss 4 sessions |
+> | DG-X7, DG-X8 | IDENTITY PASS, k pending; PASS | unchanged |
+>
+> **The eligible set on the realised calendar.** Rule 1's declaration test cannot run, so this is
+> not yet the declared set. Dates only.
+> - The 24 cells filled from Alpaca: **729 events** (548 on the 13) on 135 dates.
+> - The 24 cells not filled: **705** (532), with the 24 events lacking a bar excluded.
+> - Both exclude 39 events whose H-E basket has fewer than 3 funds.
+>
+> The proposal for every flag class is `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md`.
+> **No 2023+ return, P&L, price change or NAV change was computed.** EVENTS stays 3.
+>
+> *The banner below is the 2026-10-27 record, before the Alpaca run. Its DG-X1, X2 and X3 rows
+> and the flag count are superseded by the table above.*
+>
+> **Status (2026-10-27): HALTED in Stage 0.** Three gates wait on one credentialed run by the team lead
 > (DG-X1's second source, DG-X2, DG-X3: §5). Three gates are FLAGGED and wait on rulings
 > (DG-X4, DG-X5, DG-X6). DG-X7's identity gate PASSES. k and the cap-binding share are not
 > formed (reading R9). DG-X8 PASSES.
@@ -143,7 +171,9 @@ checkout's root:
 
 **Outside this trial, for the team lead's information.**
 - **The 24 missing closes sit exactly on ex-dates** (`docs/REFERENCES.md` §12az). That points to a
-  defect in how the daily price fetch handles an ex-date in 2026. The cause is [U].
+  defect in how the daily price fetch handles an ex-date in 2026. The cause is [U]. *Updated
+  2026-10-28:* they are yfinance's rows for an "out-of-range" dividend (NaN OHLC, volume 0), kept by
+  `scripts/cef/fetch_daily.py`, the live path. See the rulings proposal's last section.
 - The panel read here is this checkout's `data/`, through 2026-10-15. Whether prod's panel on the
   VM has the same gaps was not checked.
 - `python3 -m ops.doc_audit --check` reports one DRIFT that predates this branch: `docs/SYSTEM.md`

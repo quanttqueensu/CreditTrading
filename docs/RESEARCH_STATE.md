@@ -50,6 +50,11 @@ counter (156) covers all ETF-price/PD work done to date.
 > - **2026-10-27, Stage 0 run: HALTED** (`results/events/EXDRIFT_STAGE0_2026-10-27.md`; no counter moves). DG-X7's
 >   identity gate passes (r6 and H-E's sd reproduce on the fit). DG-X1's second source, DG-X2 and DG-X3 wait on the
 >   team lead's Alpaca run; DG-X4, -X5 and -X6 wait on rulings of 587 flags; k is not yet formed. No 2023+ return read.
+> - **2026-10-28, Stage 0 re-run on the team lead's Alpaca fetch: HALTED.** DG-X3 passes. DG-X1 is flagged (32 BIT
+>   amounts; every ex-date confirmed). **DG-X2 fails: Alpaca's announcement `declaration_date` is derived from the record
+>   date, not a declaration** (PIMCO's own release contradicts it). The test cannot open until a declaration source is
+>   ruled. 657 flags; the proposal is `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md`. No counter
+>   moves; no 2023+ return read.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:
