@@ -23,8 +23,8 @@ res    = evaluate(H, R)        # applies H.shift(2): decide t, MOC fill t+1, ear
 | a non-CEF family | `harness.cross_sectional_weights(...)` or `harness.event_weights(...)`, then `report` |
 | prove a target builder reads no future | `harness.truncation_check(build, probes)` |
 | an ML model | `scripts/research/ml.py`: `label_panel`, `walk_forward_splits`, `walk_forward_predict`; `cpcv_splits` for the overfitting distribution only; `reversal_gate` before trusting a complex model |
-| store the trial's series (every trial) | `scripts/research/registry.record(...)`; `bar_inputs(counter)` for the paper's bar |
-| is variant A's Sharpe different from the book's | `scripts/research/resampling.sharpe_diff` (block from `calibrate_block`) |
+| store the trial's series (every trial) | `record(...)` in `scripts/research/registry.py`; `bar_inputs(counter)` for the paper's bar |
+| is variant A's Sharpe different from the book's | `sharpe_diff` in `scripts/research/resampling.py` (block from `calibrate_block`) |
 
 `harness.EXEC_LAG` is the one definition of the execution convention;
 `band_frontier.evaluate()` delegates to it, byte-identical on the live book. Anything scored differently is **not comparable to any

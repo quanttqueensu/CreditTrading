@@ -91,9 +91,12 @@ For the pre-registered design, compute and report:
   `null_pbo`, ⌊(N+1)/2⌋/N, not with ½. One PBO on one panel is a noisy reading.
   Report it with N and S, never as a verdict on its own.
 - **The trial ledger.** Every trial stores its daily P&L series, and every
-  configuration's series if several ran: in the shared trial registry once it
-  is merged, and beside the verdict until then. Without them,
-  effective N, V[SR_n] and PBO cannot be computed later.
+  configuration's series if several ran, in `scripts/research/registry.py`.
+  Without them, effective N, V[SR_n] and PBO cannot be computed later.
+  `registry.bar_inputs(counter)` measures `n_effective`, `sr_var` and
+  `paper_bar_may_gate` at run time. The last is ruling 1's switch condition
+  (`docs/SYSTEM.md` §5, 2026-10-27): the paper's bar gates only once every
+  canonical trial on the counter has a stored series.
 
 ## 3. Design: overlap, clustering, the harness
 

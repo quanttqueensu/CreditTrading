@@ -16,10 +16,12 @@ until it works, this is no longer an out-of-sample test. It is overfitting."
 ## The harness
 
 Use the harness that `CLAUDE.md` names **as it stands when you run.** On
-2026-10-27 that is the canonical `evaluate()` in `scripts/cef/band_frontier.py`
-under `shift(2)` (decide at t, MOC fill at t+1, earn t+2), extended visibly and
-never rebuilt (`/harness`). The team lead has ruled that the harness may be
-restructured to serve non-CEF sleeves and ML. When `CLAUDE.md` changes, follow
+2026-10-27 that is `scripts/research/harness.py` under `shift(2)` (decide at t,
+MOC fill at t+1, earn t+2): `EXEC_LAG`, `evaluate`, `report`, and the
+cross-sectional and event target builders. `band_frontier.evaluate()` delegates
+to it, byte-identical on the live book. Extend it visibly; never rebuild it
+(`/harness`). It was restructured to serve non-CEF sleeves and ML under the
+team lead's 2026-10-27 ruling. When `CLAUDE.md` changes, follow
 the new text, not this paragraph. The conventions in `.claude/rules/research-harness.md`
 (H1–H15) apply to every run. The ones that have cost the most:
 - **H1 `shift(2)`.** A `shift(1)` on held weights enters at t's close on t's NAV,
@@ -48,9 +50,10 @@ the new text, not this paragraph. The conventions in `.claude/rules/research-har
 5. **Store the series.**
    - Write the per-period gross P&L series, and net at each cost on the grid,
      together with every configuration's series if the design has several.
-     Write them to the shared trial registry once it is merged. Another
-     session is building it under `scripts/research/`. Until then, write them
-     as CSVs beside the result.
+     Write them with `scripts/research/registry.py`:
+     `record(pnl, counter=, trial=, variant=, params=)`, one call per
+     configuration. It refuses a dirty tree, NaN, and a changed series under an
+     existing name.
    - This is the trial ledger. Effective trials, the cross-trial Sharpe
      variance and PBO cannot be computed without it.
    - Output goes under `results/<family>/<slug>/`, never `data/`.
