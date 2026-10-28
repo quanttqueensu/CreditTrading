@@ -47,6 +47,39 @@ counter (156) covers all ETF-price/PD work done to date.
 >   are not computed (decision 10). Gross P&L decides; the 5/15/30bp grid and borrow sit beside it (decision 17).
 > - **Stage 0 comes first**: the distribution refresh and second source (DG-X1), and declaration and record
 >   dates (DG-X2/X3). No 2023+ return is computed until Stage 0 is clean.
+> - **2026-10-27, Stage 0 run: HALTED** (`results/events/EXDRIFT_STAGE0_2026-10-27.md`; no counter moves). DG-X7's
+>   identity gate passes (r6 and H-E's sd reproduce on the fit). DG-X1's second source, DG-X2 and DG-X3 wait on the
+>   team lead's Alpaca run; DG-X4, -X5 and -X6 wait on rulings of 587 flags; k is not yet formed. No 2023+ return read.
+> - **2026-10-28, Stage 0 re-run on the team lead's Alpaca fetch: HALTED.** DG-X3 passes. DG-X1 is flagged (32 BIT
+>   amounts; every ex-date confirmed). **DG-X2 fails: Alpaca's announcement `declaration_date` is derived from the record
+>   date, not a declaration** (PIMCO's own release contradicts it). The test cannot open until a declaration source is
+>   ruled. 657 flags; the proposal is `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md`. No counter
+>   moves; no 2023+ return read.
+> - **2026-10-28, later: Stage 0 CLEAR; k committed; the test set NOT opened.** The team lead accepted every recommended
+>   ruling and ruled declarations from the sponsors' own releases (unfound = excluded and counted). 195 releases cover
+>   PIMCO, DoubleLine and AllianceBernstein fully and BlackRock but for 2 events. Nuveen gives 42 of 226, because it stopped
+>   declaring by press release in 2019, so 186 events are excluded. 545 events are eligible as ruled. `fit-k`: k = 0.1648,
+>   cap binds on 0 rows. `open` waits on French's 202610 vintage (the X6 ruling) and the team lead's review. No counter moves.
+> - **2026-10-28, evening:** Nuveen 2023–24 declarations recovered from CRSP `dclrdt`, 86 events, provisional on the team
+>   lead's live pull. R10 re-ruled KEEP. 649 events are eligible. `open` is written, independently reviewed (all findings
+>   fixed) and gated. Rehearsed on FIT 2021–22 it gives KILL D4 (alpha t 2.90; MUNI and TERM betas −0.41/−0.39 at
+>   target). Power at 649 events: P(t ≥ 2) 0.91, P(bar) 0.43 at the fit effect. Before `open`: the team lead's R2/bars
+>   run, French and IEF/HYG to 2026-10-15, and O1–O4 + GO. No counter moves; no 2023+ return read.
+> - **2026-10-28, late: AMENDMENT 1** (team lead), recorded in the pre-registration before any test return. Part (b) hedges
+>   each event's MUNI and TERM exposure with MUB and IEF, at frozen fit betas from stage 5's own factor model. It was
+>   prompted by the fit rehearsal's D4 failure. Re-rehearsed on fit 2021–22 it still gives KILL D4 (alpha t 2.59; MUNI
+>   −0.37, TERM −0.39), and the cap now binds on 41.6% of rows. O1–O4 are ruled, with the window ending 2026-10-09: 649
+>   events, T 946. N stays 7; EVENTS stays 3.
+> - **2026-10-28, night: D4 on the full fit window** (fit only, descriptive, `exdrift_fit_d4_full_window.csv`). The original
+>   design PASSES D4 over 2007-09 → 2022: alpha t 4.57, MUNI −0.07, TERM −0.03. The −0.4 rate betas are a 2021–22 feature
+>   (a smaller −0.19/−0.15 in 2010–15). Yet every era taken alone fails D4: alpha in 2005–09, rates in 2010–15 and 2021–22,
+>   HY +0.21 in 2016–20. Amendment 1, in-sample, lowers alpha t to 3.97 and the deflated Sharpe to 0.93. No counter moves.
+> - **2026-10-28, final: amendment 1 WITHDRAWN** (team lead). `open` runs the original design, with the window ending
+>   2026-10-09. Known risk: every 3.8-year fit era failed D4 alone. `open` is not run. It waits on the team lead's
+>   `run_exdrift_r2.sh`, a Stage-0 re-run that re-records the input hashes, French's 202610 vintage, and the GO row.
+> - **2026-10-28, after the team lead's R2 run:** the live CRSP pull matches the provisional staging exactly. O4 passes
+>   on all 24 fills. Stage 0 is re-run CLEAR with the input hashes recorded: 649 events. `open` waits only on French's
+>   202610 vintage and the GO row.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:

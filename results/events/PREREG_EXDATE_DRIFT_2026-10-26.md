@@ -14,6 +14,89 @@ on `simon` at `7c02236` · **Author** research agent, for the team lead
 >
 > *Was:* DRAFT, awaiting team-lead approval (2026-10-26).
 >
+> **AMENDMENT 1 WITHDRAWN (team lead, 2026-10-28), before any test return. The opening runs the ORIGINAL
+> pre-registered design, with no MUB/IEF hedge leg.** The reasons:
+> - on the full 2005–22 fit, the original design passes D4: alpha t 4.57, MUNI −0.07, TERM −0.03
+>   (`results/events/exdrift/exdrift_fit_d4_full_window.csv`, committed at `4bab4cf`, conclusion at
+>   `533b131`);
+> - amendment 1 lowers the deflated Sharpe to 0.93 (NEITHER), and makes the cap bind on 18.5% of rows;
+> - it was prompted by the 2021–22 rehearsal alone.
+>
+> **Known risk, stated plainly:** every 3.8-year fit era failed D4 on its own. 2005–09 failed on
+> alpha; 2010–15 and 2021–22 on MUNI and TERM; 2016–20 on HY +0.21. The test window is about that long
+> (2023-01-03 → 2026-10-09, 946 sessions).
+>
+> The amendment's text and both of its rehearsals stay in the record below. The rehearsals are
+> `exdrift_rehearsal_fit_2021_22_amendment1_WITHDRAWN.json` and the first derivation's figures in the
+> text. The original design's rehearsal is `exdrift_rehearsal_fit_2021_22.json`.
+>
+> *Withdrawn text follows.*
+>
+> **AMENDMENT 1 (team lead, 2026-10-28), recorded BEFORE any test return.** The 2023+ set is unseen.
+>
+> **Provenance, stated plainly.** The amendment was prompted by a result on FIT data:
+> - The fit-only rehearsal of the opening's code (2021-01-01 → 2022-12-30,
+>   `results/events/exdrift/exdrift_rehearsal_fit_2021_22.json` at commit `8b08761`) failed stage 5.
+> - Its alpha t was 2.90 against 3.0, and its summed betas at the vol target were MUNI −0.41 and
+>   TERM −0.39.
+> - It is a design change chosen after seeing a fit statistic. The test set is untouched, and the
+>   judging is unchanged: N = 7, gross deciding, the grid and borrow beside. EVENTS stays 3.
+>
+> **The amendment.** Part (b) hedges each event's muni and Treasury-duration exposure with MUB and
+> IEF, at betas estimated on the FIT window only, frozen here, and never re-estimated on test data.
+> - **The betas** come from one OLS per fund on 2007-09-11 → 2022-12-30 (MUB's first return to the
+>   fit's end). The fund's r6 total return is regressed on stage 5's own nine factors (French six;
+>   TERM = IEF − RF; HY = HYG − IEF; MUNI = MUB − IEF), each at t and t−1, lags summed.
+> - The hedge exists to remove what stage 5 measures, so its betas are stage 5's partial betas.
+>   They are derived, not swept. They are frozen in `results/events/exdrift/exdrift_amendment1_hedge_betas.json`:
+>
+> | fund | AWF | BIT | DSL | HYT | JFR | MHD | MQY | PCN | PDI | PDO | PFN | PHK | PTY | NAD | NEA | NVG | NZF |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| β MUNI | +0.138 | +0.447 | -0.046 | +0.312 | +0.550 | +1.085 | +1.089 | +0.881 | +0.774 | +0.920 | +0.294 | +0.384 | +0.412 | +0.982 | +1.075 | +0.970 | +1.085 |
+| β TERM | +1.105 | +1.236 | +1.102 | +1.152 | +0.982 | +1.692 | +1.569 | +1.759 | +1.480 | +1.475 | +1.377 | +1.738 | +1.601 | +1.512 | +1.436 | +1.614 | +1.729 |
+>
+> - **Per event** (a $1 short of fund i and a $1 equal-weight long of its H-E basket B):
+>   - the exposure is E_f = −β_i,f + mean of β_B,f, for f = MUNI and TERM;
+>   - the hedge holds h_MUB = −E_MUNI of MUB and h_IEF = E_MUNI − E_TERM of IEF. Because
+>     MUB = MUNI + IEF and IEF = TERM + RF, this offsets both exposures and leaves HY untouched;
+>   - the hedge is held on the event's decision rows e−1..e+1, so it earns rows e+1..e+3. It is
+>     netted across events, scaled by k with the rest of the book, and capped with it;
+>   - long MUB where the event is net short muni; the IEF leg follows from the formula.
+> - **Which stages see the hedge.** Stages 1, 2, 4, 5 and 6 use hedged P&L. Stage 3 compares the
+>   unhedged NAV leg with the unhedged price leg on the same events (O3). The hedge is a price
+>   overlay, and the same ETF P&L would otherwise enter both legs.
+>
+> **Gross cost against the 1.80 cap**, on the fit rehearsal:
+> - per event unit, the hedge's gross is 0.59 on average (at most 1.15). The mean h_MUB is +0.096
+>   (long in 56% of events) and the mean h_IEF is −0.089 (long in 38%);
+> - the sized book's largest gross rises from 1.76 (CEF legs alone) to 2.44;
+> - **so the cap now binds, on 62 of 149 decision rows (41.6%), where it bound on none before.**
+>
+> **Disclosed, against ourselves.**
+> - A first derivation regressed each fund on MUB and IEF total returns alone. It omits the factors
+>   stage 5 controls for, HY above all, so its MUB beta absorbed credit exposure (+1.0 to +2.4 for
+>   every fund).
+> - Rehearsed on the fit, that derivation gave MUNI −0.41, TERM −0.32 and alpha t 3.08, with the cap
+>   binding on 22% of rows. It was replaced on that argument, and both are reported.
+> - Both rehearsals are IN-SAMPLE for the hedge ratios, because the estimation window contains
+>   2021–22.
+>
+> **The re-rehearsal with the amendment** (fit 2021–22 only, the same code and window as before):
+>
+> | stage | result | rule |
+> |---|---|---|
+> | 1 | 375 events, +23.9bp per event, month t 2.79 | PASS |
+> | 2 | pooled placebo +3.6bp | PASS |
+> | 3 | NAV leg +4.5bp against price +23.9bp | PASS |
+> | 4 | 13 names: +19.8bp, t 3.76 | PASS |
+> | 5 | alpha t 2.59; at target MUNI −0.37 (HAC se 0.15), TERM −0.39 (se 0.15) | **FAIL** |
+> | 6 | `_dsr` 0.96 | PASS |
+>
+> - **Amendment 1 as derived does not cure the fit rehearsal's D4 failure.** Static per-fund betas
+>   do not reproduce the sleeve's 2021–22 MUNI and TERM exposure, which is about 2.5 standard errors
+>   from zero.
+> - *(Superseded: the team lead WITHDREW amendment 1 on 2026-10-28; see the block above it.)*
+>
 > **What was computed to write this.** Five helpers in this folder, run 2026-10-27:
 > `prereg_inputs.py`, `prereg_inputs_b2.py`, `prereg_inputs_b3.py`, `prereg_power_he.py` and
 > `prereg_placebo_counts.py`. Their outputs are `*_output.txt` and `*.json` beside them.
