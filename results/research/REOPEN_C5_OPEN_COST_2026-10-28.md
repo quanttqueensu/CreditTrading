@@ -117,6 +117,50 @@ before the close and 5 minutes before the close.
 2. Someone allowed to load the key runs it.
 3. This script runs again on the new cache.
 
+> **Update, later on 2026-10-28: step 1 is done.** `scripts/research/reopen_c5/fetch_2023_refs.py`
+> is the driver, tested with a fake client in `scripts/research/tests/test_reopen_c5_fetch_2023_refs.py`.
+> No agent ran it: no key was loaded and no network call was made.
+>
+> **The run.** Its dry run (`--dry-run`, no client) lists 64 sessions, 2023-01-03 → 2026-07-13, with
+> no early close on the stride, and at least 384 GETs of `/v2/stocks/quotes` [V]. From this worktree:
+>
+> ```bash
+> QUANTT_ENV_FILE=../../../config/.env python3 -m scripts.research.reopen_c5.fetch_2023_refs \
+>   --cache results/research/reopen_c5/_cache_reopen_c5_2023 \
+>   --calendar ../research-exec-capacity/results/cef/exec_capacity/_cache_exec/calendar.parquet \
+>   --holdout-prints ../trial-c5/results/cef/c5/_cache_c5_holdout
+> ```
+>
+> **How it behaves.**
+> - It is GET-only: the client is wrapped so that only `/v2/stocks/quotes` on the market-data host
+>   can be reached.
+> - It is resumable, and it refuses before any work if `QUANTT_ENV_FILE` is unset.
+> - It copies the stride days' frozen holdout prices into the cache, after checking their SHA-256.
+>
+> **Then, step 3.**
+>
+> ```bash
+> python3 scripts/research/reopen_c5/reopen_c5_open_cost.py \
+>   --recent-cache ../research-exec-capacity/results/cef/exec_capacity/_cache_exec \
+>   --frozen ../trial-c5/results/cef/c5/_cache_c5_frozen \
+>   --stride-cache results/research/reopen_c5/_cache_reopen_c5_2023 --stamp 2026-10-28-stride
+> ```
+>
+> **How the analysis reads the stride sample.** The design is in the script's docstring as items
+> S1–S4, committed before any of these quotes exist:
+> - the stride sample becomes the primary, and the recent window moves beside;
+> - only round-lot crosses are scored, because the holdout prints carry no size and the tape is not
+>   fetched;
+> - without `--stride-cache`, the outputs above are reproduced byte for byte (checked 2026-10-28).
+>
+> **Two figures already known from real data [V].** Both come from a smoke run of the stride path on a
+> synthetic quote cache; only the frozen fit data and the frozen holdout prints in it are real.
+> - **The round-only restriction** moves the 2016–22 paired means by −0.08bp (h1) and −0.19bp (h5).
+> - **Name-days that will not be scored:** 28 of the 832 stride name-days (3.4%) have no primary
+>   `O`/`6` print: 12 at the open, 16 at the close.
+>
+> Both figures print again in the real run.
+
 ## 3. The design, fixed before any figure was computed
 
 The design is in the script's docstring, committed at `34d2e02` before the first run.
