@@ -1819,3 +1819,14 @@ unreliable and dropped. NBER w28432 failed to parse.
 | "the paper trading environment doesn't implement corporate actions including stock splits" | Alpaca staff reply, 2024-06-10, https://forum.alpaca.markets/t/paper-account-nvda-stock-split-issue/14412 | [V] fetched 2026-10-28 |
 | Stock and cash mergers are mandatory events, posted as `MA` activities on the settle date. The page covers live processing only and says nothing about paper | Alpaca docs, https://docs.alpaca.markets/us/docs/mandatory-corporate-actions | [V] fetched 2026-10-28 |
 
+
+### 12bk. Brokers open to a Canadian resident (added 2026-10-28)
+
+| claim | source | status |
+|---|---|---|
+| "Alpaca Clearing & Custody Canada Ltd. is not yet a CIRO Dealer Member"; it has applied for Dealer Member registration | https://alpaca.markets/ca/disclosures | [V] fetched 2026-10-28 |
+| Questrade API: "If you are a Questrade partner developer, you can also use the API to place trades"; personal apps get data access | https://www.questrade.com/api/documentation/getting-started | [V] fetched 2026-10-28 |
+| IBKR paper: "certain corporate actions like dividends and splits won't be processed" | https://www.interactivebrokers.com/campus/trading-lessons/paper-trading-vs-live-trading-whats-the-difference/ | [V] fetched 2026-10-28 |
+| Futu/Moomoo OpenAPI: AUCTION and AUCTION_LIMIT are "Valid for HK stocks early and closing auctions only"; paper trading supports only limit (NORMAL) and market orders | https://openapi.futunn.com/futu-api-doc/en/trade/trade.html | [V] fetched 2026-10-28 |
+| IBKR Web API OAuth is offered to institutional client types, not individuals; Client Portal Gateway needs daily browser re-authentication | IBKR Web API docs (authentication introduction; CPGW FAQ) | [S] read by a research agent 2026-10-28, not re-read |
+| IBC (IB Gateway auto-login) archived 2026-09-01; last release 3.24.2 | github.com/IbcAlpha/IBC | [S] read by a research agent 2026-10-28, not re-read |
