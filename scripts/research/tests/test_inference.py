@@ -289,3 +289,90 @@ def test_inputs_it_cannot_use_raise():
         I.mde(0.0, 10)
     with pytest.raises(ValueError):
         I.expected_max_z(0)
+
+
+# -- the range on rho (added 2026-10-28, scripts/research/reopen_book/) ----------
+
+def _w4():
+    sys.path.insert(0, str(REPO))
+    from scripts.cef import w4_artifacts as W
+    return W
+
+
+def test_stationary_indices_are_the_w4_draw_exactly():
+    # Parity: the correlation bootstrap must use the desk's existing stationary
+    # draw, from the same random stream, so a mean resampled here equals
+    # w4_artifacts.stationary_boot's at the same seed, draw for draw.
+    W = _w4()
+    x = pd.Series(np.random.default_rng(3).standard_normal(400))
+    ref = W.stationary_boot(x, mean_block=21, reps=2_500, seed=20261013, chunk=1_000)
+    got = np.concatenate([x.values[idx].mean(axis=1) for idx in
+                          I.stationary_bootstrap_indices(400, 21, 2_500, seed=20261013, chunk=1_000)])
+    assert np.array_equal(got, ref["means"])
+
+
+def test_stationary_indices_have_geometric_blocks_of_the_stated_mean():
+    idx = next(I.stationary_bootstrap_indices(20_000, 25, 1, seed=1, chunk=1))[0]
+    breaks = np.count_nonzero(np.diff(idx) % 20_000 != 1) + 1
+    assert 20_000 / breaks == pytest.approx(25, rel=0.1)
+    assert idx.min() >= 0 and idx.max() < 20_000
+
+
+def test_bootstrap_corr_covers_the_truth_and_widens_with_dependence():
+    # Synthetic: the claim is about the code (does the interval contain the true
+    # rho, and is it wider when the pairs are persistent), never about a market.
+    rng = np.random.default_rng(7)
+    n, rho = 3_000, 0.3
+    z = rng.standard_normal((n, 2))
+    x = z[:, 0]
+    y = rho * z[:, 0] + np.sqrt(1 - rho ** 2) * z[:, 1]
+    r = I.stationary_bootstrap_corr(x, y, 21, seed=11, reps=2_000)
+    assert r["rho"] == pytest.approx(np.corrcoef(x, y)[0, 1])
+    assert r["lo"] < r["rho"] < r["hi"]
+    # On iid pairs the block draw changes nothing material: its width matches
+    # the Fisher interval's (the two methods agree where both apply).
+    flo, fhi = I.fisher_corr_ci(r["rho"], n)
+    assert (r["hi"] - r["lo"]) == pytest.approx(fhi - flo, rel=0.2)
+    # Coverage of the true rho, over independent replications (each a fresh
+    # sample): about 95%, and certainly not the 60-70% a too-narrow interval gives.
+    hits = 0
+    for s in range(40):
+        g = np.random.default_rng(100 + s).standard_normal((600, 2))
+        xx, yy = g[:, 0], rho * g[:, 0] + np.sqrt(1 - rho ** 2) * g[:, 1]
+        q = I.stationary_bootstrap_corr(xx, yy, 10, seed=s, reps=400)
+        hits += q["lo"] < rho < q["hi"]
+    assert hits >= 34
+    # Persistent on/off activity (a sparse event sleeve): the same days repeated
+    # in runs of 50 make the effective sample ~50x smaller, and the interval must
+    # be much wider than the iid one at the same n.
+    xs, ys = np.repeat(x[:60], 50), np.repeat(y[:60], 50)
+    wide = I.stationary_bootstrap_corr(xs, ys, 50, seed=11, reps=2_000)
+    assert (wide["hi"] - wide["lo"]) > 3 * (r["hi"] - r["lo"])
+
+
+def test_bootstrap_corr_refuses_what_it_cannot_use():
+    x = np.arange(100.0)
+    with pytest.raises(ValueError):
+        I.stationary_bootstrap_corr(x, x[:-1], 5, seed=1, reps=10)       # misaligned
+    with pytest.raises(ValueError):
+        I.stationary_bootstrap_corr(np.r_[x[:-1], np.nan], x, 5, seed=1, reps=10)
+    with pytest.raises(ValueError):
+        I.stationary_bootstrap_corr(x, x, 50, seed=1, reps=10)          # fewer than 3 blocks
+    with pytest.raises(ValueError):
+        I.stationary_bootstrap_corr(np.zeros(100), x, 5, seed=1, reps=10)
+    sparse = np.zeros(100)
+    sparse[0] = 1.0                                                     # one active day: some draws miss it
+    with pytest.raises(ValueError):
+        I.stationary_bootstrap_corr(sparse, x, 5, seed=1, reps=500)
+
+
+def test_fisher_interval_matches_scipy():
+    rng = np.random.default_rng(5)
+    x = rng.standard_normal(150)
+    y = 0.4 * x + rng.standard_normal(150)
+    r = stats.pearsonr(x, y)
+    ci = r.confidence_interval(0.95)
+    lo, hi = I.fisher_corr_ci(float(r.statistic), 150)
+    assert lo == pytest.approx(ci.low, abs=1e-12) and hi == pytest.approx(ci.high, abs=1e-12)
+    with pytest.raises(ValueError):
+        I.fisher_corr_ci(0.2, 3)

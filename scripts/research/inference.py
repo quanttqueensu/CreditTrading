@@ -384,6 +384,107 @@ def combined_sharpe(sr_book: float, sr_new: float, rho: float) -> float:
     return sqrt((sr_book ** 2 + sr_new ** 2 - 2 * rho * sr_book * sr_new) / (1 - rho ** 2))
 
 
+# -- the range on rho: how sure we are of a sleeve's correlation with the book --
+
+def stationary_bootstrap_indices(n: int, mean_block: float, reps: int, *, seed: int,
+                                 chunk: int = 1_000):
+    """Yield (k × n) index arrays of a Politis & Romano (1994) stationary bootstrap.
+
+    Added 2026-10-28 for `scripts/research/reopen_book/` (the zero-trial re-open
+    of NAV tenders and E1 by their contribution to the book). `marginal_gain`
+    needs a RANGE on ρ, not a point, and a sparse event sleeve's correlation with
+    the book is noisy, so the range has to come from a resample that keeps the
+    series' dependence: blocks of geometric length with mean `mean_block`,
+    wrapped circularly.
+
+    The draw is the same as `scripts/cef/w4_artifacts.stationary_boot`'s, step
+    for step and from the same random stream (a parity test pins it): the first
+    index is uniform, each later one starts a new block with probability
+    1/mean_block and otherwise continues the current block one step, modulo n.
+    One implementation of the draw serves the mean, the Sharpe and the
+    correlation, so the three cannot drift apart.
+    """
+    if n < 1 or mean_block < 1 or reps < 1 or chunk < 1:
+        raise ValueError(f"need n, mean_block, reps, chunk >= 1; got n={n}, mean_block={mean_block}, "
+                         f"reps={reps}, chunk={chunk}")
+    rng = np.random.default_rng(seed)
+    p = 1.0 / mean_block
+    pos = np.arange(n)
+    done = 0
+    while done < reps:
+        k = min(chunk, reps - done)
+        starts = rng.integers(0, n, size=(k, n))
+        new = rng.random((k, n)) < p
+        new[:, 0] = True
+        last = np.maximum.accumulate(np.where(new, pos[None, :], 0), axis=1)
+        yield (np.take_along_axis(starts, last, axis=1) + (pos[None, :] - last)) % n
+        done += k
+
+
+def stationary_bootstrap_corr(x, y, mean_block: float, *, seed: int, reps: int = 10_000,
+                              alpha: float = 0.05) -> dict:
+    """Pearson ρ of two aligned series, with a stationary-bootstrap percentile interval.
+
+    The PAIRS are resampled together, so each draw keeps whatever co-movement the
+    two series share on a day, and the blocks keep each series' own persistence
+    (an event sleeve that is idle for months, a book whose positions last weeks).
+    The plain Fisher interval treats every day as independent, which daily P&L of
+    held positions is not, so on daily data it is too narrow.
+
+    Inputs are the P&L on common dates, already aligned: NaNs raise, and so does
+    a length mismatch. A draw in which either series has zero variance has no
+    correlation; it raises rather than being dropped, because a dropped draw
+    shifts the interval and nobody would see it. Choose `mean_block` from the
+    mechanism (how long a position lasts) and state why; report more than one.
+    """
+    a, b = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    if a.ndim != 1 or a.shape != b.shape:
+        raise ValueError(f"x and y must be aligned 1-D series of equal length, got {a.shape} and {b.shape}")
+    if np.isnan(a).any() or np.isnan(b).any():
+        raise ValueError("stationary_bootstrap_corr got NaNs; align on common dates first and report the drop")
+    n = a.size
+    if n < 3 * mean_block:
+        raise ValueError(f"{n} observations for a mean block of {mean_block}: fewer than three blocks")
+    if not 0 < alpha < 1:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+    if a.std() == 0 or b.std() == 0:
+        raise ValueError("a series has zero variance; its correlation is undefined")
+    rho = float(np.corrcoef(a, b)[0, 1])
+    draws = np.empty(reps)
+    done = 0
+    for idx in stationary_bootstrap_indices(n, mean_block, reps, seed=seed):
+        xa, yb = a[idx], b[idx]
+        xa = xa - xa.mean(axis=1, keepdims=True)
+        yb = yb - yb.mean(axis=1, keepdims=True)
+        sxx, syy = (xa * xa).sum(axis=1), (yb * yb).sum(axis=1)
+        bad = (sxx == 0) | (syy == 0)
+        if bad.any():
+            raise ValueError(f"{int(bad.sum())} bootstrap draws have a zero-variance series (mean block "
+                             f"{mean_block}); the correlation is undefined there")
+        draws[done:done + len(idx)] = (xa * yb).sum(axis=1) / np.sqrt(sxx * syy)
+        done += len(idx)
+    lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return {"rho": rho, "lo": float(lo), "hi": float(hi), "n": int(n), "mean_block": float(mean_block),
+            "reps": int(reps), "seed": int(seed), "alpha": float(alpha), "draw_sd": float(draws.std(ddof=1))}
+
+
+def fisher_corr_ci(r: float, n: int, alpha: float = 0.05) -> tuple[float, float]:
+    """Fisher-z interval for a Pearson correlation of n INDEPENDENT pairs: tanh(atanh r ± z/√(n−3)).
+
+    Use it on non-overlapping sums (weekly, 21-session), whose pairs are close to
+    independent. On daily P&L of held positions it is too narrow; use
+    `stationary_bootstrap_corr` there. Checked against scipy's
+    `pearsonr(...).confidence_interval()` as a second method (test).
+    """
+    if n < 4:
+        raise ValueError(f"Fisher interval needs n >= 4 pairs, got {n}")
+    if not -1 < r < 1:
+        raise ValueError(f"r must be in (-1, 1), got {r}")
+    half = z_crit(alpha) / sqrt(n - 3)
+    z = float(np.arctanh(r))
+    return float(np.tanh(z - half)), float(np.tanh(z + half))
+
+
 # -- overfitting: how likely the in-sample winner is noise -------------------
 
 def pbo_cscv(pnl, S: int = 16) -> dict:
