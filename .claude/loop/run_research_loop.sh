@@ -14,8 +14,10 @@
 #   python3 -m quantt.session   the order runner, for any book, also by the
 #                               interpreter's absolute path. The loop never sends
 #                               an order; lab trading is the runner's own scheduled job.
-#   git push, gh pr merge       the loop commits on its own branch, and a human
-#                               moves anything to main.
+#   git push, gh pr merge       the MODEL never pushes or merges. The wrapper itself
+#                               pushes research-loop, and only that branch, after the
+#                               cycle, and keeps one PR open from it; the team lead
+#                               merges (2026-10-28, docs/SYSTEM.md §5).
 #   ssh                         the VM is prod and is reached only by the team lead.
 # The Alpaca MCP order tools are already denied in ~/.claude/settings.json.
 #
@@ -69,6 +71,10 @@ main() {
     echo "$(date '+%F %T') claude is not on PATH ($PATH); no cycle" >> "$LOG"; return 7
   fi
   cd "$WT"
+  # The cycle commits on research-loop and nowhere else; checked again before the push.
+  if [[ "$(git rev-parse --abbrev-ref HEAD)" != research-loop ]]; then
+    echo "$(date '+%F %T') $WT is not on research-loop; no cycle" >> "$LOG"; return 8
+  fi
   local D
   D=$(TZ=America/New_York date +%F)
   if ! "$PY" -c "import sys, datetime as dt; sys.path.insert(0, '.'); from ops.schedule.nyse_calendar import is_trading_day; sys.exit(0 if is_trading_day(dt.date.fromisoformat('$D')) else 3)"; then
@@ -103,6 +109,32 @@ main() {
     --disallowedTools "Bash(python3 -m quantt.session:*)" "Bash($PY -m quantt.session:*)" "Bash(git push:*)" "Bash(gh pr merge:*)" "Bash(ssh:*)" \
     --output-format json > "$LOGS/$D.json" 2>> "$LOG" || rc=$?
   echo "$D cycle finished (exit $rc)" >> "$LOG"
+  # The cycle's commits reach main through one PR from research-loop (team lead,
+  # 2026-10-28). Pushed even after a failed cycle: its stop report is the record.
+  local br
+  br=$(git rev-parse --abbrev-ref HEAD)
+  if [[ "$br" != research-loop ]]; then
+    echo "$D checkout is on $br, not research-loop; nothing pushed" >> "$LOG"; return 8
+  fi
+  if ! git push -q origin research-loop 2>> "$LOG"; then
+    echo "$D push of research-loop failed; the cycle's commits are local only" >> "$LOG"
+    [[ $rc -ne 0 ]] || rc=9
+    return $rc
+  fi
+  echo "$D pushed research-loop" >> "$LOG"
+  local open
+  if [[ "$(git rev-list --count origin/main..research-loop)" -gt 0 ]]; then
+    if open=$(gh pr list --head research-loop --base main --state open --json number --jq '.[].number' 2>> "$LOG"); then
+      if [[ -z "$open" ]]; then
+        gh pr create --base main --head research-loop \
+          --title "research-loop: the loop's daily cycles (the team lead merges)" \
+          --body "Commits from the scheduled research loop: one report per cycle under results/research/loop/, and any trial's pre-registration, counter increment and verdict. Opened by .claude/loop/run_research_loop.sh; the loop never merges." \
+          >> "$LOG" 2>&1 || echo "$D gh pr create failed" >> "$LOG"
+      fi
+    else
+      echo "$D gh pr list failed; the PR was not checked" >> "$LOG"
+    fi
+  fi
   return $rc
 }
 

@@ -56,8 +56,9 @@ const need = (x, what) => { if (x === null || x === undefined) throw new Error(`
 const GATE = { type: 'object', properties: {
   research_ok: { type: 'boolean' }, why: { type: 'string' },
   self_approval_recorded: { type: 'boolean' }, lab_book_exists: { type: 'boolean' },
-  checkout_clean: { type: 'boolean' }, series_ok: { type: 'boolean' }, branch: { type: 'string' }, head: { type: 'string' } },
-  required: ['research_ok', 'why', 'self_approval_recorded', 'lab_book_exists', 'checkout_clean', 'series_ok', 'branch', 'head'] }
+  checkout_clean: { type: 'boolean' }, series_ok: { type: 'boolean' }, panels_ok: { type: 'boolean' },
+  branch: { type: 'string' }, head: { type: 'string' } },
+  required: ['research_ok', 'why', 'self_approval_recorded', 'lab_book_exists', 'checkout_clean', 'series_ok', 'panels_ok', 'branch', 'head'] }
 const PICK = { type: 'object', properties: {
   kind: { type: 'string', enum: ['new', 'resume_test', 'nothing'] },
   idea: { type: 'string' }, source: { type: 'string' }, why: { type: 'string' },
@@ -105,10 +106,10 @@ const gate = need(await agent(`Run the loop's pre-flight for ${D}. Read-only exc
 2. self_approval_recorded = whether CLAUDE.md in THIS checkout contains the sentence "The research loop approves its own trials" AND docs/SYSTEM.md §5 has the block "Team lead, 2026-10-27: the autonomous loop and the harness". Check with grep. Do not infer it from memory or from another branch.
 3. lab_book_exists = whether the lab can trade: quantt/session/run.py's BOOKS dict has a book that carries lab sleeves (python3 -c "from quantt.session.run import BOOKS; print(sorted(BOOKS))"). Since 2026-10-28 the lab shares the account C4 trades in (docs/SYSTEM.md §5), so that is a lab book netted with C4's targets, or C4's book carrying lab sleeves. A separate book on the same account does not count.
 4. checkout_clean = whether git status --porcelain --untracked-files=no is empty. Also report the branch and HEAD.
-5. Put orient's PANELS last dates in why. Stale is a form of wrong. A fit-period (pre-2023) study can proceed on a stale panel; anything that reads 2023+ must name the panel's last date in its report.
+5. panels_ok = whether orient's PANELS section measures every panel in THIS checkout (none UNMEASURED). Never read another checkout's data/ to make up for it: under launchd that read is refused, and a test on panels the loop cannot see is not reproducible here. Put orient's PANELS last dates in why. Stale is a form of wrong. A fit-period (pre-2023) study can proceed on a stale panel; anything that reads 2023+ must name the panel's last date in its report.
 6. series_ok = whether python3 -m scripts.research.registry verify exits 0 in THIS checkout. The trial series are gitignored and live only where they were recorded, so a checkout can hold ledger lines whose files are elsewhere; without them no bar can be computed after the trial is spent. If it fails, put its problems in why.`,
   { label: 'gate', phase: 'Gate', schema: GATE }), 'the gate')
-if (!gate.research_ok || !gate.checkout_clean || gate.series_ok !== true) {
+if (!gate.research_ok || !gate.checkout_clean || gate.series_ok !== true || gate.panels_ok !== true) {
   return { date: D, outcome: 'STOPPED AT GATE', gate, report: await report('STOPPED AT GATE', gate) }
 }
 
@@ -118,7 +119,7 @@ const pick = need(await agent(`Choose ONE research item for ${D}, in this order:
 (b) Else the first item in docs/SYSTEM.md §5's queue (the 2026-10-27 block "The audit's zero-trial re-opens", in its stated order) that ${STATE}'s history has not finished: kind=new. Read the queue from SYSTEM.md; do not copy it from memory.
 (c) Else docs/RESEARCH_STATE.md's ACTIVE and WATCH entries, best value per hour first (/next-task).
 (d) Else one new idea from the quant-researcher seat's method: name the loser, check /graveyard first, and prefer raising breadth or the transfer coefficient over a new IC source (the harness rule's "What finding alpha means here").
-Never pick an item another session owns. ${STATE}'s "Owned elsewhere" section lists them; the trial-series backfill belongs to the desk-research-method session. If nothing qualifies, return kind=nothing. Set ml=true only if the item's design is an ML model (scripts/research/ml.py).`,
+Skip any item whose latest line in ${STATE}'s history is a stop that waits on a team-lead ruling (for example a screen stop "until the team lead rules"), unless docs/SYSTEM.md §5 now records that ruling. Never pick an item another session owns. ${STATE}'s "Owned elsewhere" section lists them; the trial-series backfill belongs to the desk-research-method session. If nothing qualifies, return kind=nothing. Set ml=true only if the item's design is an ML model (scripts/research/ml.py).`,
   { label: 'pick', phase: 'Pick', agentType: 'quant-researcher', schema: PICK }), 'the pick')
 if (pick.kind === 'nothing') return { date: D, outcome: 'NOTHING TO DO', gate, pick, report: await report('NOTHING TO DO', pick) }
 
