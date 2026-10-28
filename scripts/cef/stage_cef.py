@@ -31,7 +31,7 @@ ROWS). This is the same yfinance `history()` call, which emits a row with every
 price NaN and volume 0 for a dividend or split dated where there is no bar; by
 2026-10-15 such rows had replaced 15 good 2026-09-15 bars in the laptop panel.
 Rows were written here unchecked. Now a row with no finite close, or no finite
-NAV, is not written, and each is printed (`NO CLOSE` / `NO NAV`, ticker, date,
+positive NAV, is not written, and each is printed (`NO CLOSE` / `NO NAV`, ticker, date,
 why), by fetch_daily's own tests (`has_close`, `has_nav`); MIN_DAYS and MIN_NAV
 count only rows that pass them. With no empty rows the files are byte-identical
 to before (scripts/cef/tests/test_stage_cef_empty_rows.py).
@@ -89,7 +89,7 @@ def grab(tk: str):
 
 
 def drop_empty(tk: str, p, n) -> tuple:
-    """(p, n) without the rows that carry no finite close / no finite NAV,
+    """(p, n) without the rows that carry no finite close / no finite positive NAV,
     each printed by ticker, date and why (module docstring, EMPTY ROWS).
     Nothing is filled: the date is simply absent for that name. A frame with
     no empty row is returned untouched, so the files written are the bytes

@@ -100,6 +100,20 @@ fallback when it is asked for, as a missing row does, and otherwise refuses it.
 A CEFConnect NAV that is not finite is not written either. With no empty rows
 the panel bytes and the stale lines are exactly what they were (same test
 file).
+
+FOLLOW-UPS (independent review of the NAV half, 2026-10-28). (1) A usable NAV
+is finite AND positive (`has_nav`), the session's own test: gate 5
+(`quantt/session/run.py` `last_navs`), the stale-NAV gate (`panel_rows`) and its
+CEFConnect reader (`read_cc`) all refuse a NAV of 0 or below. Before, a NAV of
+0 dated D passed `--require-asof`, never went to the fallback and was written,
+and gate 5 then refused the whole session; now it is an empty row like NaN.
+(2) The stale age is counted to the ET date of this run (`today` below), not
+the machine's: the VM runs in UTC, where from 20:00 ET (19:00 in winter) the
+machine's date is already tomorrow and every fund read one business day older.
+(3) A fund whose NAV fetch raised, or came back with no rows, was never put
+through the stale check, and the closing line still said "all N NAV series
+fresh". Such funds are now listed as UNCHECKED, by name and why, and are not
+counted as fresh.
 """
 from __future__ import annotations
 
@@ -307,14 +321,18 @@ def merge_price_bars(P: pd.DataFrame, fetched: list) -> tuple:
 
 
 def has_nav(frame: pd.DataFrame) -> pd.Series:
-    """True where a NAV row carries a NAV: present and finite.
+    """True where a NAV row carries a NAV: present, finite and positive.
 
     `has_close` for the NAV (module docstring, EMPTY NAV ROWS): THE ONE TEST
-    for an empty NAV row, shared by the NAV merge, the stale check and the
-    as-of check so the three cannot disagree. A NAV that is not numeric raises
-    (`pd.to_numeric`), never coerced to "missing"."""
+    for an empty NAV row, shared by the NAV merge, the stale check, the as-of
+    check and stage_cef so they cannot disagree. POSITIVE as well as finite
+    (FOLLOW-UPS (1)): it is the session's test (`last_navs`, `panel_rows`,
+    `read_cc`), so a NAV this script writes and counts is one gate 5 accepts.
+    A NAV that is not numeric raises (`pd.to_numeric`), never coerced to
+    "missing"."""
     v = pd.to_numeric(frame["nav"]).to_numpy(dtype="float64", na_value=np.nan)
-    return pd.Series(np.isfinite(v), index=frame.index)
+    with np.errstate(invalid="ignore"):       # NaN > 0 is False, as wanted
+        return pd.Series(np.isfinite(v) & (v > 0), index=frame.index)
 
 
 def merge_nav_rows(N: pd.DataFrame, fetched: list) -> tuple:
@@ -383,7 +401,7 @@ def nav_age(n: pd.DataFrame, today: pd.Timestamp) -> tuple:
     that edge is unchanged here on purpose, not fixed."""
     good = n.loc[has_nav(n), "date"]
     if len(n) and good.empty:
-        return f"none: no finite NAV in the {len(n)} row(s) fetched", None
+        return f"none: no finite positive NAV in the {len(n)} row(s) fetched", None
     last = good.max()
     return str(last.date()), len(pd.bdate_range(last, today)) - 1
 
@@ -416,12 +434,15 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     grp = P.drop_duplicates("ticker").set_index("ticker")["grp"].to_dict()
 
     newp, newn, stale = [], [], []
+    # Funds the stale check could not date (FOLLOW-UPS (3)): never "fresh".
+    unchecked = []
     for tk in tickers:
         try:
             px = yf.Ticker(tk).history(period=period, auto_adjust=False)
             nav = yf.Ticker(f"X{tk}X").history(period=period, auto_adjust=False)
         except Exception as e:
             print(f"  ERR {tk:<6} {type(e).__name__}")
+            unchecked.append((tk, f"fetch error: {type(e).__name__}"))
             continue
         if len(px):
             p = px.reset_index()[["Date", "Open", "High", "Low", "Close", "Volume"]]
@@ -440,10 +461,13 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
             n["ticker"] = tk
             newn.append(n)
             # Dated by the last row WITH a NAV, so an empty row is never a
-            # fresh NAV (module docstring, EMPTY NAV ROWS; `nav_age`).
-            last, age = nav_age(n, pd.Timestamp.today().normalize())
+            # fresh NAV (module docstring, EMPTY NAV ROWS; `nav_age`), and aged
+            # to this run's ET date, not the machine's (FOLLOW-UPS (2)).
+            last, age = nav_age(n, today)
             if age is None or age > STALE_BD:
                 stale.append((tk, last, age))
+        else:
+            unchecked.append((tk, "no NAV rows fetched"))
 
     # A fetched row with no close, or no NAV, is never merged; each refusal or
     # repair is printed (module docstring, EMPTY ROWS and EMPTY NAV ROWS).
@@ -482,11 +506,12 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
                     continue
                 if v is None:
                     continue
-                if not np.isfinite(v):
+                if not (np.isfinite(v) and v > 0):
                     # The fallback must not write the empty NAV it exists to
-                    # replace (EMPTY NAV ROWS); the name stays incomplete.
+                    # replace (EMPTY NAV ROWS; positive too, FOLLOW-UPS (1));
+                    # the name stays incomplete.
                     print(f"  {'NO NAV':<8} {tk:<6} {asof.date()} (nav {v}) not written: "
-                          f"CEFConnect's NAV for this date is not finite")
+                          f"CEFConnect's NAV for this date is not a finite positive number")
                     continue
                 filled.append({"date": asof, "nav": v, "ticker": tk})
                 print(f"  NAV {tk} {asof.date()} = {v:.2f} from CEFConnect "
@@ -530,8 +555,15 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
         for tk, d, age in sorted(stale, key=lambda x: (x[2] is not None, -(x[2] or 0))):
             print(f"    {tk:<6} last NAV {d}  ({age} bd old)" if age is not None
                   else f"    {tk:<6} last NAV {d}")
-    else:
+    elif not unchecked:
         print(f"  all {N.ticker.nunique()} NAV series fresh within {STALE_BD} bd")
+    else:
+        print(f"  every NAV series checked is fresh within {STALE_BD} bd, "
+              f"but not every series was checked:")
+    if unchecked:
+        # Never counted as fresh (FOLLOW-UPS (3)): the check never saw them.
+        print(f"  UNCHECKED NAV ({len(unchecked)} funds, freshness not measured): "
+              + "; ".join(f"{tk} ({why})" for tk, why in unchecked))
     if incomplete:
         print(f"  INCOMPLETE for {pd.Timestamp(require_asof).date()} on "
               f"{len(incomplete)} deployed name(s): " + "; ".join(incomplete))

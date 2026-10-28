@@ -474,8 +474,18 @@ def last_navs(nav_path: Path, asof: dt.date, universe) -> dict:
     docstring has the measured case). `last_closes` alone cannot see that.
     Same discipline as `last_closes`: rows after `asof` dropped first (NO
     LOOKAHEAD, asserted), a duplicate (date, ticker) raises rather than being
-    averaged by a pivot. A NaN or non-positive NAV is not a NAV.
+    averaged by a pivot. A NaN, infinite or non-positive NAV is not a NAV.
+
+    FINITE (review of fetch_daily's NAV half, 2026-10-28): the filter was
+    `notna() & > 0`, which +inf passes, so an infinite NAV dated D would have
+    counted as D's NAV here (measured that day on a copy of the real panel:
+    one deployed name's NAV(D) set to +inf, and the old filter let the session
+    DECIDE a plan on it). It is `isfinite & > 0` now, the same test as
+    fetch_daily's `has_nav` and nav_gate's `panel_rows`. No NAV in the panels is
+    infinite (measured that day), so on them this is the old filter exactly
+    (quantt/session/tests/test_nav_finite.py, on the real panel).
     """
+    import numpy as np
     import pandas as pd
     N = pd.read_parquet(nav_path, columns=["date", "ticker", "nav"])
     N = N[N["ticker"].isin(list(universe))].copy()
@@ -485,7 +495,8 @@ def last_navs(nav_path: Path, asof: dt.date, universe) -> dict:
     if len(dup):
         raise SessionError(f"{nav_path}: duplicate (date, ticker) rows, e.g. "
                            f"{dup.head(3).to_dict('records')}")
-    N = N[N["nav"].notna() & (N["nav"] > 0)]
+    nav = pd.to_numeric(N["nav"])
+    N = N[np.isfinite(nav) & (nav > 0)]
     last = N.groupby("ticker")["date"].max()
     out = {}
     for s in universe:

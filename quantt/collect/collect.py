@@ -926,6 +926,14 @@ def step_cefconnect_arrival(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> 
         if v is None:
             absent[t] = now
             continue
+        if not (math.isfinite(float(v)) and float(v) > 0):
+            # Not an arrival (review of the NAV half, 2026-10-28): a value that
+            # is not a finite positive number is unreadable, as `read_cc` treats
+            # it for the gate this step times. Recorded as an error, read again
+            # next slot; the arrival is logged when a real NAV appears.
+            errors.append(f"{t}: CEFConnect's NAV dated {day} is {v!r}, not a finite "
+                          f"positive number; not recorded as an arrival")
+            continue
         seen[t] = {"utc": now, "nav": float(v)}
         new.append({"date": day.isoformat(), "ticker": t, "last_absent_utc": absent.get(t, ""),
                     "first_seen_utc": now, "polls": polls[t], "nav": float(v)})
