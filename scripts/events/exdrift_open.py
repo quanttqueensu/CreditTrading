@@ -15,6 +15,10 @@ fixed here and listed in `results/events/EXDRIFT_STAGE0_2026-10-27.md`). It cove
 - §5.4, the eras;
 - §6, costs and borrow, beside and labelled, deciding nothing.
 
+AMENDMENT 1 (the MUB/IEF hedge) was WITHDRAWN by the team lead on 2026-10-28. `load_test` runs the
+ORIGINAL design and never sets `hedge_betas`. The hedge code remains only so that the record's
+rehearsals of the amendment can be reproduced (`rehearse --hedge`, `fit-d4`).
+
 `open_core` takes an `OpenData` and reads no file. The same code runs on the test set and on the
 rehearsal:
 - `load_test` serves the test set. It needs the gate's token from `exdrift_trial.open_gate`.
@@ -685,15 +689,17 @@ def load_test(token, k: float, cap: float, vol_target: float, n_bar: int, window
     mubs = mub.sort_values("date").set_index("date")
     HR = pd.DataFrame({"MUB": (mubs.close + mubs.dividend.fillna(0.0)) / mubs.close.shift(1) - 1.0,
                        "IEF": E["IEF"]}).reindex(sessions)
-    hb = json.loads(x.HEDGE_JSON.read_text())["betas"]           # amendment 1: frozen on the fit, committed
+    # Amendment 1 (the MUB/IEF hedge) was WITHDRAWN by the team lead on 2026-10-28: the opening runs the
+    # ORIGINAL pre-registered design, with no hedge leg.
     return OpenData(label="THE TEST SET (opened once)", sessions=sessions, R=R, Rpx=Rpx, RN=RN, masked=bad, exdates=ex,
                     candidates=cand, nav_excluded=nav_ex, close_prev=close, adv63=adv, factors=F, fee_pct=fee,
                     hyg=E["HYG"].reindex(sessions), k=k, cap=cap, vol_target=vol_target, n_bar=n_bar, window=window,
                     eras=[("2023-24", pd.Timestamp("2023-01-01"), pd.Timestamp("2024-12-31")),
                           ("2025-26", pd.Timestamp("2025-01-01"), pd.Timestamp("2026-12-31"))],
                     core13=tuple(x.CORE), munis=tuple(x.MUNIS), rich_cheap=T, shortable_today=short,
-                    hedge_betas=hb, hedge_R=HR,
-                    regime_split=x.T1_START, notes=[f"X4 cells filled from Alpaca SIP: {fills}", LIMITATION_R10])
+                    hedge_betas=None, hedge_R=None,
+                    regime_split=x.T1_START, notes=[f"X4 cells filled from Alpaca SIP: {fills}", LIMITATION_R10,
+                                                    "the original design: amendment 1 withdrawn (team lead, 2026-10-28)"])
 
 
 def write_report(out: dict, path_json: Path, path_txt: Path) -> None:

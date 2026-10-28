@@ -20,7 +20,8 @@ exist; exit 2 = halted). Outputs, all tracked, with dates, counts, presence and 
 | `results/events/exdrift/exdrift_rehearsal_fit_2021_22.json` | the opening's code run on FIT data (2021–22): every stage |
 | `results/events/exdrift/exdrift_power_2026-10-28.json` | §10's power at the current eligible count |
 | `results/events/exdrift/exdrift_open_rulings.csv` | the team lead's rulings on O1–O4 (2026-10-28) and the GO row (empty) |
-| `results/events/exdrift/exdrift_amendment1_hedge_betas.json` | amendment 1: the frozen fit betas (MUNI, TERM) of each fund |
+| `results/events/exdrift/exdrift_amendment1_hedge_betas.json` | amendment 1 (WITHDRAWN 2026-10-28): the frozen fit betas, kept as record |
+| `results/events/exdrift/exdrift_rehearsal_fit_2021_22_amendment1_WITHDRAWN.json` | amendment 1's 2021–22 rehearsal, kept as record |
 | `results/events/exdrift/exdrift_sponsor_notices_2026-10-28.csv` | the verified sponsor notices DG-X2 checks Alpaca against (quotes re-found offline on every run) |
 | `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md` | **the rulings proposal**, one recommendation per flag class |
 | `results/events/exdrift/exdrift_fit_descriptive_2026-10-27.csv` | the DG-X7 identity table (fit only) |
@@ -30,6 +31,27 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
+> **2026-10-28, final: amendment 1 WITHDRAWN; `open` runs the ORIGINAL design** (team lead).
+> - The pre-registration records the withdrawal with its reasons.
+> - **The known risk is recorded with it:** every 3.8-year fit era failed D4 on its own, and the test
+>   window is about that long.
+> - `load_test` sets no hedge, and the gate no longer reads the hedge file.
+> - The window ends 2026-10-09 (O1 as ruled): 649 events (548 on the 13), T = 946 sessions.
+> - Both 2021–22 rehearsals stay as records:
+>   - the original design: `exdrift_rehearsal_fit_2021_22.json`, KILL D4;
+>   - amendment 1: `..._amendment1_WITHDRAWN.json`.
+>
+> **`open` is NOT run.** Its gate refuses until all of these hold:
+> 1. the team lead's `run_exdrift_r2.sh` has run, replacing the provisional offline CRSP staging and
+>    adding Alpaca's adjacent bars;
+> 2. Stage 0 has been re-run, re-recording the input hashes, and committed CLEAR;
+> 3. French's 202610 vintage covers through 2026-10-09, plus the lag row;
+> 4. the GO row in `exdrift_open_rulings.csv` is filled by the team lead, and `--team-lead-go` equals
+>    its date;
+> 5. the trial code is committed and clean, and OPENED is absent everywhere.
+>
+> ---
+>
 > **2026-10-28, night: D4 on the FULL fit window** (the team lead's check). FIT data only, already
 > spent, so it moves no counter. The table is `exdrift_fit_d4_full_window.csv`, committed at `4bab4cf`
 > before this text was written, from `python3 scripts/events/exdrift_trial.py fit-d4`. Stage 5 starts

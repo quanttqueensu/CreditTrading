@@ -14,6 +14,24 @@ on `simon` at `7c02236` · **Author** research agent, for the team lead
 >
 > *Was:* DRAFT, awaiting team-lead approval (2026-10-26).
 >
+> **AMENDMENT 1 WITHDRAWN (team lead, 2026-10-28), before any test return. The opening runs the ORIGINAL
+> pre-registered design, with no MUB/IEF hedge leg.** The reasons:
+> - on the full 2005–22 fit, the original design passes D4: alpha t 4.57, MUNI −0.07, TERM −0.03
+>   (`results/events/exdrift/exdrift_fit_d4_full_window.csv`, committed at `4bab4cf`, conclusion at
+>   `533b131`);
+> - amendment 1 lowers the deflated Sharpe to 0.93 (NEITHER), and makes the cap bind on 18.5% of rows;
+> - it was prompted by the 2021–22 rehearsal alone.
+>
+> **Known risk, stated plainly:** every 3.8-year fit era failed D4 on its own. 2005–09 failed on
+> alpha; 2010–15 and 2021–22 on MUNI and TERM; 2016–20 on HY +0.21. The test window is about that long
+> (2023-01-03 → 2026-10-09, 946 sessions).
+>
+> The amendment's text and both of its rehearsals stay in the record below. The rehearsals are
+> `exdrift_rehearsal_fit_2021_22_amendment1_WITHDRAWN.json` and the first derivation's figures in the
+> text. The original design's rehearsal is `exdrift_rehearsal_fit_2021_22.json`.
+>
+> *Withdrawn text follows.*
+>
 > **AMENDMENT 1 (team lead, 2026-10-28), recorded BEFORE any test return.** The 2023+ set is unseen.
 >
 > **Provenance, stated plainly.** The amendment was prompted by a result on FIT data:
@@ -77,7 +95,7 @@ on `simon` at `7c02236` · **Author** research agent, for the team lead
 > - **Amendment 1 as derived does not cure the fit rehearsal's D4 failure.** Static per-fund betas
 >   do not reproduce the sleeve's 2021–22 MUNI and TERM exposure, which is about 2.5 standard errors
 >   from zero.
-> - The amendment stands as ruled unless the team lead withdraws or changes it before the opening.
+> - *(Superseded: the team lead WITHDREW amendment 1 on 2026-10-28; see the block above it.)*
 >
 > **What was computed to write this.** Five helpers in this folder, run 2026-10-27:
 > `prereg_inputs.py`, `prereg_inputs_b2.py`, `prereg_inputs_b3.py`, `prereg_power_he.py` and

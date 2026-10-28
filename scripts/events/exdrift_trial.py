@@ -138,6 +138,8 @@ PINNED = {"prices": PRICES, "navs": NAVS, "dist_refresh": DIST_REFRESH, "splits_
           "alpaca_dividends": ALPACA_DIVS, "sponsor_table": SPONSOR_TABLE, "mub": ETF_YF["MUB"]}
 REHEARSAL_JSON = OUT_DIR / "exdrift_rehearsal_fit_2021_22.json"
 REHEARSAL_TXT = OUT_DIR / "exdrift_rehearsal_fit_2021_22.txt"
+REHEARSAL_A1_JSON = OUT_DIR / "exdrift_rehearsal_fit_2021_22_amendment1_WITHDRAWN.json"   # the record of amendment 1
+REHEARSAL_A1_TXT = OUT_DIR / "exdrift_rehearsal_fit_2021_22_amendment1_WITHDRAWN.txt"
 POWER_JSON = OUT_DIR / "exdrift_power_2026-10-28.json"
 HEDGE_JSON = OUT_DIR / "exdrift_amendment1_hedge_betas.json"   # amendment 1: frozen fit betas to MUB and IEF
 O1_END = pd.Timestamp("2026-10-09")    # the team lead's O1 ruling (2026-10-28): the P&L window ends where IEF/HYG end
@@ -1773,9 +1775,7 @@ def open_gate(go: str | None, *, check_git: bool = True, opened: Path = OPENED, 
     if not Path(open_rulings).exists():
         raise dg.Stage0BlockError(f"{Path(open_rulings).name} does not exist: the team lead rules O1-O4 and records the GO row")
     if check_git:
-        _committed([Path(open_rulings), HEDGE_JSON] + TRIAL_CODE, True)
-    if not HEDGE_JSON.exists():
-        raise dg.Stage0BlockError(f"{HEDGE_JSON.name} does not exist: amendment 1's betas are frozen before the opening")
+        _committed([Path(open_rulings)] + TRIAL_CODE, True)      # amendment 1 withdrawn (2026-10-28): no hedge input
     O = pd.read_csv(open_rulings, dtype=str, keep_default_na=False)
     need = [c for c, _ in OPEN_READINGS] + ["GO"]
     for c in need:
@@ -1823,19 +1823,20 @@ def open_test(args) -> int:  # pragma: no cover - THE ONE OPENING: run only on t
     return 0
 
 
-def rehearse(args) -> int:
+def rehearse(args) -> int:  # the 2021-22 rehearsal; `--hedge` re-runs amendment 1's (withdrawn) record
     """The opening's code on FIT data only (2021-01-01 .. 2022-12-30), as C4 rehearsed. It needs
     fit-k's committed k. No 2023+ row is read (every frame is cut at FIT_END and asserted)."""
     from scripts.events import exdrift_open as xo
     if not K_JSON.exists():
         raise dg.Stage0BlockError(f"{K_JSON.name} does not exist: run fit-k first")
     kj = json.loads(K_JSON.read_text())
-    D = xo.load_rehearsal(kj["k"], kj["cap"], float(spec.VOL_TARGET), N_BAR)
+    D = xo.load_rehearsal(kj["k"], kj["cap"], float(spec.VOL_TARGET), N_BAR, hedge=bool(getattr(args, "hedge", False)))
     out = xo.open_core(D)
-    xo.write_report(out, REHEARSAL_JSON, REHEARSAL_TXT)
+    hedged = bool(getattr(args, "hedge", False))
+    xo.write_report(out, REHEARSAL_A1_JSON if hedged else REHEARSAL_JSON, REHEARSAL_A1_TXT if hedged else REHEARSAL_TXT)
     r = out["report"]
     print(f"{r['label']}: verdict {r['verdict']}; events {r['events']}; stage 1 {r['stage1_event_mean']}")
-    print(f"-> {REHEARSAL_JSON.relative_to(REPO)}")
+    print(f"-> {(REHEARSAL_A1_JSON if hedged else REHEARSAL_JSON).relative_to(REPO)}")
     return 0
 
 
@@ -1943,7 +1944,8 @@ def main(argv=None) -> int:
     sub.add_parser("fit-k")
     op = sub.add_parser("open")
     op.add_argument("--team-lead-go", default=None, help="the team lead's explicit go, YYYY-MM-DD")
-    sub.add_parser("rehearse")
+    rh = sub.add_parser("rehearse")
+    rh.add_argument("--hedge", action="store_true", help="amendment 1's withdrawn hedge (the record only)")
     sub.add_parser("power")
     sub.add_parser("amend1-betas")
     sub.add_parser("fit-d4")

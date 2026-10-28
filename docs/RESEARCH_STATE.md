@@ -74,6 +74,9 @@ counter (156) covers all ETF-price/PD work done to date.
 >   design PASSES D4 over 2007-09 → 2022: alpha t 4.57, MUNI −0.07, TERM −0.03. The −0.4 rate betas are a 2021–22 feature
 >   (a smaller −0.19/−0.15 in 2010–15). Yet every era taken alone fails D4: alpha in 2005–09, rates in 2010–15 and 2021–22,
 >   HY +0.21 in 2016–20. Amendment 1, in-sample, lowers alpha t to 3.97 and the deflated Sharpe to 0.93. No counter moves.
+> - **2026-10-28, final: amendment 1 WITHDRAWN** (team lead). `open` runs the original design, with the window ending
+>   2026-10-09. Known risk: every 3.8-year fit era failed D4 alone. `open` is not run. It waits on the team lead's
+>   `run_exdrift_r2.sh`, a Stage-0 re-run that re-records the input hashes, French's 202610 vintage, and the GO row.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:
