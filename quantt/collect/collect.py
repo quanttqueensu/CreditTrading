@@ -280,7 +280,12 @@ def _on_day(frame, day: dt.date):
 
 def _one_value(rows, ticker: str, col: str, what: str):
     """The single value of `col` for `ticker` in `rows`, or None if absent.
-    Two rows for one (date, ticker) is a corrupted panel and raises."""
+    Two rows for one (date, ticker) is a corrupted panel and raises.
+
+    A row that is present but EMPTY (NaN, or any value that is not finite)
+    comes back as that float, not None: "no row" and "a row with nothing in it"
+    are different gaps, and every caller tests `math.isfinite` before it
+    compares (`_compare`, 2026-10-28)."""
     v = rows.loc[rows["ticker"] == ticker, col]
     if len(v) > 1:
         raise StepFailed(f"{what} has {len(v)} rows for {ticker}; expected one")
@@ -288,6 +293,21 @@ def _one_value(rows, ticker: str, col: str, what: str):
 
 
 def _compare(fund, source_a, value_a, source_b, value_b) -> dict | None:
+    """A flag naming both sources and both values when they differ by more
+    than TOLERANCE_USD, else None. Both values must be finite.
+
+    WHY THE RAISE (2026-10-28). yfinance can write a price row whose every
+    price is NaN (scripts/cef/fetch_daily.py, EMPTY ROWS: 15 good 2026-09-15
+    bars on the laptop panel had become such rows by 2026-10-15). A NaN
+    compares False against everything, so `abs(nan - x) > tol` was False and a
+    deployed name whose panel close for D was empty came back as "agrees":
+    neither a flag nor a gap, the silent pass this module exists to prevent.
+    The callers now record a value that is not finite as a GAP naming the fund
+    and the date before they get here; this raise is for the caller that
+    forgets, so the mistake fails the run instead of passing quietly."""
+    if not (math.isfinite(value_a) and math.isfinite(value_b)):
+        raise ValueError(f"{fund}: cannot compare {source_a} {value_a!r} with {source_b} "
+                         f"{value_b!r}: not finite, and must be recorded as a gap")
     if abs(value_a - value_b) > TOLERANCE_USD:
         return {"fund": fund, "source_a": source_a, "value_a": value_a,
                 "source_b": source_b, "value_b": value_b,
@@ -348,7 +368,14 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
     NAV(D), value_b the previous row's NAV, both from the panel, and `reason`
     says CEFConnect could not confirm it. Report only, like every flag here: it
     never blocks and never fails the step. A name that does not repeat is still
-    a gap."""
+    a gap.
+
+    AN EMPTY ROW IS A GAP (2026-10-28). A panel row dated D whose NAV is NaN
+    used to reach `_compare`, where NaN compares False against everything: the
+    name was neither flagged nor a gap. It is now a gap naming the fund, the
+    date and the value. A CEFConnect NAV that is not finite is unreadable, as
+    the session's gate treats it (`nav_gate.read_cc`): a fetch error, retried
+    next slot, never compared."""
     nav_panel = _read_parquet(ctx.cef_dir / "cef_nav.parquet", "NAV panel")
     rows = _on_day(nav_panel, day)
     same_source = _fallback_names(ctx.cef_dir, day)
@@ -357,6 +384,10 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
         panel = _one_value(rows, t, "nav", "cef_nav.parquet")
         if panel is None:
             gaps.append({"fund": t, "reason": f"cef_nav.parquet has no NAV dated {day}"})
+            continue
+        if not math.isfinite(panel):
+            gaps.append({"fund": t, "reason": f"cef_nav.parquet's row dated {day} is empty "
+                                              f"(nav {panel}): no NAV to compare"})
             continue
         if t in same_source:
             gaps.append({"fund": t, "reason": f"panel NAV for {day} was written from CEFConnect "
@@ -380,6 +411,9 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
                                         f"{day}: possibly a stale copy, unverified"})
             else:
                 gaps.append({"fund": t, "reason": f"CEFConnect has no NAV dated {day}"})
+            continue
+        if not math.isfinite(float(cc)):
+            errors.append(f"{t}: CEFConnect's NAV dated {day} is {cc!r}, not a finite number")
             continue
         f = _compare(t, "cef_nav.parquet (yfinance)", panel, "cefconnect", float(cc))
         if f:
@@ -456,16 +490,28 @@ def step_official_closes(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
 
 
 def step_close_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
-    """Alpaca official close vs panel close (yfinance) for D, per deployed name. Report only."""
+    """Alpaca official close vs panel close (yfinance) for D, per deployed name. Report only.
+
+    AN EMPTY ROW IS A GAP (2026-10-28). fetch_daily wrote price rows with every
+    price NaN until that day (its docstring, EMPTY ROWS), and the panel still
+    holds them: a deployed name whose close for D was NaN reached `_compare`,
+    compared False, and was neither flagged nor a gap. Either value not finite
+    is now a gap naming the fund, the date and the value; a missing row reads
+    exactly as it always did."""
     px = _on_day(_read_parquet(ctx.cef_dir / "cef_prices.parquet", "price panel"), day)
     oc = _on_day(_read_parquet(ctx.cef_dir / OFFICIAL_CLOSE_FILE, "official-close file"), day)
     flags, gaps = [], []
     for t in ctx.deployed:
         a = _one_value(oc, t, "price", OFFICIAL_CLOSE_FILE)
         b = _one_value(px, t, "close", "cef_prices.parquet")
-        if a is None or b is None:
-            which = [n for n, v in (("alpaca official close", a), ("panel close", b)) if v is None]
-            gaps.append({"fund": t, "reason": f"no {' and no '.join(which)} dated {day}"})
+        sides = (("alpaca official close", a, f"{OFFICIAL_CLOSE_FILE}'s price"),
+                 ("panel close", b, "cef_prices.parquet's close"))
+        which = [n for n, v, _ in sides if v is None]
+        empty = [f"{col} dated {day} is empty ({v})" for _, v, col in sides
+                 if v is not None and not math.isfinite(v)]
+        if which or empty:
+            why = ([f"no {' and no '.join(which)} dated {day}"] if which else []) + empty
+            gaps.append({"fund": t, "reason": "; ".join(why)})
             continue
         f = _compare(t, "alpaca official close (M, primary)", a, "cef_prices.parquet (yfinance)", b)
         if f:
