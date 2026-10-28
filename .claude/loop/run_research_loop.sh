@@ -17,6 +17,14 @@
 # WHY AUTO MODE AND NOT bypassPermissions: the classifier still screens every
 # command the deny list does not name (it blocked an unloaded prod install on
 # 2026-10-19).
+#
+# THE TRIAL SERIES MUST BE IN THE LOOP WORKTREE. They are gitignored
+# (results/research/trials/series/, the repository is public), so a fresh
+# worktree has the ledger's lines but none of the files, and no deflated-Sharpe
+# bar can be computed after a trial is spent. Once, at install, copy that
+# directory from the checkout that recorded them (on 2026-10-28 the backfill
+# worktree, .claude/worktrees/research-backfill). The check below refuses a
+# cycle until every ledger line loads with a matching sha256.
 set -euo pipefail
 WT="${QUANTT_LOOP_WORKTREE:?set QUANTT_LOOP_WORKTREE to the loop worktree (branch research-loop)}"
 LOGS="${QUANTT_LOOP_LOGS:-$HOME/quantt_state/research-loop}"
@@ -32,6 +40,9 @@ git fetch -q origin
 if ! git merge -q --no-edit origin/main; then
   git merge --abort || true
   echo "$D merge of origin/main conflicted; no cycle" >> "$LOGS/loop.log"; exit 4
+fi
+if ! python3 -m scripts.research.registry verify > "$LOGS/$D.series.json"; then
+  echo "$D trial series missing or altered in $WT (see $D.series.json); no cycle" >> "$LOGS/loop.log"; exit 5
 fi
 claude -p "Run the research-loop workflow with args {\"date\": \"$D\"}. When it returns, print its outcome and the report commit." \
   --permission-mode auto \

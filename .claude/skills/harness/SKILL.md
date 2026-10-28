@@ -23,7 +23,8 @@ res    = evaluate(H, R)        # applies H.shift(2): decide t, MOC fill t+1, ear
 | a non-CEF family | `harness.cross_sectional_weights(...)` or `harness.event_weights(...)`, then `report` |
 | prove a target builder reads no future | `harness.truncation_check(build, probes)` |
 | an ML model | `scripts/research/ml.py`: `label_panel`, `walk_forward_splits`, `walk_forward_predict`; `cpcv_splits` for the overfitting distribution only; `reversal_gate` before trusting a complex model |
-| store the trial's series (every trial) | `record(...)` in `scripts/research/registry.py`; `bar_inputs(counter)` for the paper's bar |
+| store the trial's series (every trial) | `record(...)` in `scripts/research/registry.py`, with `judged=True` on the configuration the pre-registration selects when several are stored |
+| both deflated-Sharpe bars for a stored series | `python3 -m scripts.research.registry bars <counter> <trial> <variant> --declared-n <N>`: the desk's and the paper's with the 2026-10-28 safeguards (`paper_sr0`); `slate <counter>` gives the least N a trial may declare. Never build a bar from `bar_inputs`' raw `n_effective` and `sr_var` |
 | is variant A's Sharpe different from the book's | `sharpe_diff` in `scripts/research/resampling.py` (block from `calibrate_block`) |
 
 `harness.EXEC_LAG` is the one definition of the execution convention;

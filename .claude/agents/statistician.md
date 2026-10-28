@@ -97,10 +97,17 @@ For the pre-registered design, compute and report:
 - **The trial ledger.** Every trial stores its daily P&L series, and every
   configuration's series if several ran, in `scripts/research/registry.py`.
   Without them, effective N, V[SR_n] and PBO cannot be computed later.
-  `registry.bar_inputs(counter)` measures `n_effective`, `sr_var` and
-  `paper_bar_may_gate` at run time. The last is ruling 1's switch condition
-  (`docs/SYSTEM.md` §5, 2026-10-27): the paper's bar gates only once every
-  canonical trial on the counter has a stored series.
+  `python3 -m scripts.research.registry bars <counter> <trial> <variant>
+  --declared-n <N>` gives both bars for a stored series, labelled, the paper's
+  with the 2026-10-28 safeguards; `... sr0 <counter> --declared-n <N>` gives the
+  paper's alone, and `... slate <counter>` the least N a pre-registration may
+  declare. Which bar gates is `docs/SYSTEM.md` §5's: read it at run time, beside
+  the command, so a later ruling still flows through. The paper's bar takes one
+  series per trial: a trial that stores several configurations records the
+  selected one with `record(..., judged=True)`, or the bar is refused. `registry.bar_inputs`
+  returns the raw inputs; its `paper_bar_may_gate` is ruling 1's switch condition
+  (2026-10-27): the paper's bar gates only once every canonical trial on the
+  counter has a stored series.
 
 ## 3. Design: overlap, clustering, the harness
 
