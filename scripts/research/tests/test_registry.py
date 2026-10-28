@@ -442,3 +442,41 @@ def test_a_slate_closed_below_its_n_takes_no_new_trial(slates):
     assert past["minimum"] == 6 and not past["needs_ruling"]
     new = rg.minimum_declared_n("XASSET", pending=1)
     assert new["needs_ruling"] and new["minimum"] is None
+
+
+# -- an old trial that gains a variant (desk-research-method session, 2026-10-28)
+
+def test_a_variant_added_to_a_judged_trial_keeps_its_judged_series(reg):
+    """The backfilled trials are one series each, now marked judged. A later
+    run that stores a second variant under one of them must not change which
+    series the trial is judged on, and cannot claim the judgement itself."""
+    for n in range(1, 5):
+        rg.record(_pnl(400 + n), counter="CEF", trial=f"CEF-{n}", variant="orig", params={}, root=reg,
+                  judged=True)
+    before = rg.paper_sr0("CEF", declared_n=4, root=reg)
+    rg.record(_pnl(410), counter="CEF", trial="CEF-2", variant="later", params={}, root=reg)
+    assert rg.paper_sr0("CEF", declared_n=4, root=reg)["sr0"] == before["sr0"]
+    with pytest.raises(ValueError, match="already has a judged variant"):
+        rg.record(_pnl(411), counter="CEF", trial="CEF-2", variant="later2", params={}, root=reg, judged=True)
+
+
+def test_an_unflagged_sole_series_counts_until_a_second_arrives(reg):
+    """Why the backfill's lines were marked: unflagged, a trial's only series is
+    its judged one, but a second variant leaves none judged and the bar is
+    refused, with no way to add the flag afterwards."""
+    for n in range(1, 5):
+        rg.record(_pnl(420 + n), counter="CEF", trial=f"CEF-{n}", variant="orig", params={}, root=reg)
+    assert rg.paper_sr0("CEF", declared_n=4, root=reg)["sr0"] > 0
+    rg.record(_pnl(430), counter="CEF", trial="CEF-3", variant="later", params={}, root=reg)
+    with pytest.raises(rg.PaperBarRefused, match="CEF-3 stores 2 variants and 0"):
+        rg.paper_sr0("CEF", declared_n=4, root=reg)
+
+
+def test_every_trial_in_the_tracked_ledger_has_one_judged_series():
+    """The tracked ledger itself (no series are read): each stored trial has
+    exactly one line marked judged."""
+    rows = rg._read_ledger(rg.ROOT)
+    trials = {(r["counter"], r["trial"]) for r in rows}
+    for c, t in trials:
+        judged = [r for r in rows if (r["counter"], r["trial"]) == (c, t) and r.get("judged") is True]
+        assert len(judged) == 1, (c, t, len(judged))

@@ -51,9 +51,14 @@ the new text, not this paragraph. The conventions in `.claude/rules/research-har
    - Write the per-period gross P&L series, and net at each cost on the grid,
      together with every configuration's series if the design has several.
      Write them with `scripts/research/registry.py`:
-     `record(pnl, counter=, trial=, variant=, params=)`, one call per
+     `record(pnl, counter=, trial=, variant=, params=, judged=)`, one call per
      configuration. It refuses a dirty tree, NaN, and a changed series under an
      existing name.
+   - Pass `judged=True` on the configuration the pre-registration selects (its
+     gross series), even when it is the only one, and `judged=False` on every
+     other. The paper's bar takes that one series per trial. Without the flag
+     it is refused for the whole counter, and the flag can never be changed
+     after recording.
    - This is the trial ledger. Effective trials, the cross-trial Sharpe
      variance and PBO cannot be computed without it.
    - Output goes under `results/<family>/<slug>/`, never `data/`.

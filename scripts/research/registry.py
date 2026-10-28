@@ -116,7 +116,10 @@ def record(pnl: pd.Series, *, counter: str, trial: str, variant: str, params: di
     needs, must mark exactly one of them. Otherwise its stored near-duplicates
     would pull rho_bar up and the counter's bar down (quant-reviewer,
     2026-10-28: eight copies of one EVENTS trial moved the bar from 0.363 to
-    0.239).
+    0.239). Pass judged=True even on a trial's only series: an unflagged sole
+    series counts, but a second variant added later leaves the trial with none
+    judged, and the flag can never be added afterwards. The eight backfilled
+    lines were marked judged in the ledger on 2026-10-28, sha256 unchanged.
 
     Refuses:
     - a counter the canonical table does not hold;
