@@ -818,3 +818,133 @@ def test_an_unexpected_error_in_eod_equity_leaves_every_other_step_done(env):
     steps = status(env)["steps"]
     assert all(steps[s]["ok"] for s in co.STEPS if s != "eod_equity"), steps
     assert co.STEPS[-1] == "eod_equity"
+
+
+# ------------------------------------------------------------------ empty rows (2026-10-28)
+# fetch_daily wrote price rows with every price NaN until 2026-10-28 (its
+# docstring, EMPTY ROWS: 15 good 2026-09-15 bars on the laptop panel had become
+# such rows), and the panel still holds them. A NaN compares False against
+# everything, so `_compare` returned None: a deployed name whose panel value for
+# D was empty was neither a flag nor a gap. Each of these failed on 4487383.
+
+NAN = float("nan")
+
+
+def test_an_empty_panel_close_is_a_gap_naming_the_fund_and_date(env):
+    state, cef = env
+    write_panels(cef, close={"AAA": 9.50, "BBB": NAN})
+    assert co.collect(make_ctx(env)) == co.EXIT_OK
+    d = status(env)["steps"]["close_crosscheck"]["detail"]
+    assert d["flags"] == []
+    (g,) = d["gaps"]
+    assert g["fund"] == "BBB" and D.isoformat() in g["reason"] and "empty" in g["reason"], g
+    assert "cef_prices.parquet" in g["reason"], g
+
+
+@pytest.mark.parametrize("cc_aaa", [10.02, None], ids=["cefconnect_has_d", "cefconnect_has_no_d"])
+def test_an_empty_panel_nav_is_a_gap_naming_the_fund_and_date(env, cc_aaa):
+    """Whatever CEFConnect says, an empty panel NAV for D is a gap that says the
+    row is empty: never a pass, and never the 'CEFConnect has no NAV' gap, which
+    would blame the other source."""
+    state, cef = env
+    write_panels(cef, nav={"AAA": NAN, "BBB": 20.00})
+    assert co.collect(make_ctx(env, cc={"AAA": cc_aaa, "BBB": 20.00})) == co.EXIT_OK
+    d = status(env)["steps"]["nav_crosscheck"]["detail"]
+    assert d["flags"] == []
+    (g,) = d["gaps"]
+    assert g["fund"] == "AAA" and D.isoformat() in g["reason"] and "is empty" in g["reason"], g
+    assert "cef_nav.parquet" in g["reason"], g
+
+
+def test_a_cefconnect_nav_that_is_not_finite_is_unreadable_not_agreement(env):
+    """The other side of the same comparison: a CEFConnect value that is not
+    finite is unreadable, as the session's gate treats it (`nav_gate.read_cc`),
+    so the step fails and is retried. It used to compare False and pass."""
+    ctx = make_ctx(env, cc={"AAA": NAN, "BBB": 20.00})
+    assert co.collect(ctx) == co.EXIT_INCOMPLETE
+    d = status(env)["steps"]["nav_crosscheck"]
+    assert not d["ok"]
+    (e,) = d["detail"]["fetch_errors"]
+    assert e.startswith("AAA:") and D.isoformat() in e and "not a finite" in e, e
+
+
+@pytest.mark.parametrize("a, b", [(NAN, 1.0), (1.0, NAN), (float("inf"), 1.0)])
+def test_compare_refuses_a_value_that_is_not_finite(a, b):
+    """For the caller that forgets: a value that is not finite raises, naming
+    the fund, rather than reading as agreement."""
+    with pytest.raises(ValueError, match="AAA.*not finite"):
+        co._compare("AAA", "source a", a, "source b", b)
+
+
+def _fresh_env(root):
+    state, cef = root / "state", root / "cef"
+    state.mkdir(parents=True)
+    cef.mkdir()
+    return state, cef
+
+
+def test_with_no_empty_rows_the_crosschecks_are_unchanged(tmp_path):
+    """The no-op proof. (a) A clean panel -- one flag and one missing row in
+    each cross-check -- gives exactly the details the pre-fix code gave, pinned
+    here and passing on 4487383 too: the same flags, the same gap reasons, the
+    same counts. (b) The same day with BBB's rows present but EMPTY instead of
+    missing, and a CEFConnect NAV for BBB that would flag if a NaN could be
+    compared: the flags are unchanged and BBB is a gap in both checks, its
+    reason naming the empty row. Part (b) is what the old code fails."""
+    want_nav_flags = [{"fund": "AAA", "source_a": "cef_nav.parquet (yfinance)", "value_a": 10.00,
+                       "source_b": "cefconnect", "value_b": 10.02, "diff": -0.02}]
+    want_close_flags = [{"fund": "AAA", "source_a": "alpaca official close (M, primary)",
+                         "value_a": 9.50, "source_b": "cef_prices.parquet (yfinance)",
+                         "value_b": 9.52, "diff": -0.02}]
+
+    a = _fresh_env(tmp_path / "a")
+    write_panels(a[1], nav={"AAA": 10.00, "BBB": 20.00}, close={"AAA": 9.52})
+    assert co.collect(make_ctx(a, cc={"AAA": 10.02, "BBB": None})) == co.EXIT_OK
+    s = status(a)["steps"]
+    assert s["nav_crosscheck"]["detail"] == {
+        "flags": want_nav_flags,
+        "gaps": [{"fund": "BBB", "reason": f"CEFConnect has no NAV dated {D}"}],
+        "fetch_errors": []}
+    assert s["close_crosscheck"]["detail"] == {
+        "flags": want_close_flags,
+        "gaps": [{"fund": "BBB", "reason": f"no panel close dated {D}"}]}
+    # BBB has no CEFConnect row yet, so the arrival watch is still running.
+    assert log_lines(a) == [f"{D} DATA COMPLETE flags=2 gaps=2 watching=cefconnect_arrival"]
+
+    b = _fresh_env(tmp_path / "b")
+    write_panels(b[1], nav={"AAA": 10.00, "BBB": NAN}, close={"AAA": 9.52, "BBB": NAN})
+    assert co.collect(make_ctx(b, cc={"AAA": 10.02, "BBB": 20.03})) == co.EXIT_OK
+    s = status(b)["steps"]
+    assert s["nav_crosscheck"]["detail"] == {
+        "flags": want_nav_flags,
+        "gaps": [{"fund": "BBB", "reason": f"cef_nav.parquet's row dated {D} is empty "
+                                           f"(nav nan): no NAV to compare"}],
+        "fetch_errors": []}
+    assert s["close_crosscheck"]["detail"] == {
+        "flags": want_close_flags,
+        "gaps": [{"fund": "BBB", "reason": f"cef_prices.parquet's close dated {D} is empty (nan)"}]}
+    assert log_lines(b) == [f"{D} DATA COMPLETE flags=2 gaps=2"]
+
+
+@pytest.mark.parametrize("bad", [NAN, float("inf"), 0.0], ids=["nan", "inf", "zero"])
+def test_a_cefconnect_value_that_is_no_nav_is_not_an_arrival(env, bad):
+    """Review of the NAV half (2026-10-28): the arrival watch logged any value
+    CEFConnect returned as the row's first sighting, NaN included, so the
+    arrival time of a real NAV was lost and the file carried a NaN. A value
+    that is not a finite positive number (`read_cc`'s test) is now an error,
+    read again next slot, and the arrival is logged when a real NAV appears.
+    Failed on 377fe41."""
+    state, cef = env
+    cc = {"AAA": bad, "BBB": 20.00}
+    co.collect(make_ctx(env, cc=cc))
+    st = status(env)["steps"]["cefconnect_arrival"]
+    assert not st["ok"] and "AAA" not in st["detail"]["first_seen"]
+    (e,) = st["detail"]["fetch_errors"]
+    assert e.startswith("AAA:") and "not recorded as an arrival" in e, e
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert rows["ticker"].tolist() == ["BBB"]
+    cc["AAA"] = 10.00                                                # the real row
+    co.collect(make_ctx(env, cc=cc))
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert rows["ticker"].tolist() == ["BBB", "AAA"] and rows.iloc[1]["nav"] == 10.0
+    assert status(env)["steps"]["cefconnect_arrival"]["ok"]
