@@ -82,6 +82,14 @@ that cannot be undone.
    an explicit go before transmitting.** (Until 2026-09-28 the rule was "the human
    runs it with `!`"; the team lead asked agents to run the migration commands
    themselves, and this is that instruction made durable.)
+   **One recorded exception (team lead, 2026-10-27), paper only.** The
+   autonomous research loop may transmit to the **agent-lab** Alpaca paper
+   account without a per-session go. It does so only through the `quantt` runner
+   for that book, never by an ad-hoc API call. The loop may also promote a lab
+   sleeve into the main paper book once the criteria fixed in its
+   pre-registration are met; installing on the VM still needs the team lead's
+   `!`. Rules 2–5 bind every one of those transmissions. It never applies to a
+   live-money account. `docs/SYSTEM.md` §5, 2026-10-27 (the autonomous loop).
 2. **The trade phase is not idempotent, and the broker does not dedupe.** Open
    positions exclude unfilled MOC orders, so a second armed run's orders fill in
    the same auction and the book doubles. At Alpaca, `client_order_id` is unique
@@ -157,9 +165,13 @@ recall of any specific figure is wrong until you have fetched it.**
 ## Hard rules — research
 
 - **Execution convention is `shift(2)`**: decide at *t*, MOC fill at *t+1*, earn
-  the *t+2* return. Canonical implementation: `evaluate()` in
-  `scripts/cef/band_frontier.py`. **Do not build a new backtester** — extend that
-  one, visibly. `/harness`.
+  the *t+2* return. Canonical implementation: `scripts/research/harness.py`
+  (`EXEC_LAG`, `evaluate`, `report`, and the target builders for every family).
+  `band_frontier.evaluate()` delegates to it, byte-identical on the live book.
+  The team lead ruled on 2026-10-27 that it may be restructured as necessary.
+  **Do not build another backtester**: extend this one, visibly. ML goes through
+  `scripts/research/ml.py`, whose labels and purged splits come from the harness.
+  `/harness`.
 - **Turnover-matched comparisons only** (within 5% turn/yr). **Every table shows
   gross P&L as the headline** — the paper account is scored on gross P&L with no
   borrow or execution cost (team lead, D19/D20, 2026-09-15) — **and the cost grid
@@ -172,7 +184,11 @@ recall of any specific figure is wrong until you have fetched it.**
 - **Count trials.** Two counters, CEF and GAMMA, each with its own deflated-Sharpe
   bar √(2 ln N). Read them from the counter table in `docs/RESEARCH_STATE.md`
   (orient TRIALS derives the bar), and update that table **in the same commit as
-  the trial**.
+  the trial**. Every trial stores its daily P&L series with
+  `scripts/research/registry.py`. The paper's bar needs those series
+  (`docs/SYSTEM.md` §5, 2026-10-27). **The research loop approves its own trials,
+  with no cap** (team lead, 2026-10-27). That is why every trial is counted and
+  stored: each one raises the bar for the next.
 - **Holdouts are sealed and opened once**: the untouched CEFs outside the
   deployed universe (trading any of them consumes the set), and a **2023-01-01
   time holdout**.

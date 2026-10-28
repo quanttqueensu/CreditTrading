@@ -5,7 +5,7 @@ description: How to run a backtest or policy comparison correctly in this repo â
 
 # The research harness
 
-**Do not build a new backtester.** Use the canonical one and extend it visibly.
+**Do not build another backtester.** The canonical one is `scripts/research/harness.py`, restructured with the team lead's ruling of 2026-10-27 so every family and the ML pipeline share it. Extend it visibly.
 
 ```python
 from scripts.cef.band_frontier import build_targets, band, calendar, evaluate
@@ -17,8 +17,17 @@ H_old  = calendar(T, 2)        # the previous configuration
 res    = evaluate(H, R)        # applies H.shift(2): decide t, MOC fill t+1, earn t+2
 ```
 
-`evaluate()` in `scripts/cef/band_frontier.py` is the reference implementation of
-the execution convention. Anything scored differently is **not comparable to any
+| need | use |
+|---|---|
+| the table every result shows (gross headline, 5/15/30bp grid, H5 eras, fit and 2023 holdout rows) | `harness.report(H, R)` |
+| a non-CEF family | `harness.cross_sectional_weights(...)` or `harness.event_weights(...)`, then `report` |
+| prove a target builder reads no future | `harness.truncation_check(build, probes)` |
+| an ML model | `scripts/research/ml.py`: `label_panel`, `walk_forward_splits`, `walk_forward_predict`; `cpcv_splits` for the overfitting distribution only; `reversal_gate` before trusting a complex model |
+| store the trial's series (every trial) | `scripts/research/registry.record(...)`; `bar_inputs(counter)` for the paper's bar |
+| is variant A's Sharpe different from the book's | `scripts/research/resampling.sharpe_diff` (block from `calibrate_block`) |
+
+`harness.EXEC_LAG` is the one definition of the execution convention;
+`band_frontier.evaluate()` delegates to it, byte-identical on the live book. Anything scored differently is **not comparable to any
 number in this repo**.
 
 ## The rules, condensed
