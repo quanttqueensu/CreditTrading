@@ -370,10 +370,10 @@
   "DG-X4": "FLAGGED",
   "DG-X5": "FLAGGED",
   "DG-X6": "FLAGGED",
-  "DG-X7": "IDENTITY PASS; k PENDING (R9)",
+  "DG-X7": "PASS (identity; k committed by fit-k)",
   "DG-X8": "PASS"
  },
- "k_committed": false,
+ "k_committed": true,
  "missing_close_cells": {
   "cells": 24,
   "dates": [

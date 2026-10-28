@@ -1,4 +1,4 @@
-EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T16:07:32+00:00)
+EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T16:09:30+00:00)
 spec cef_discount.v7.20260928; the 17: AWF, BIT, DSL, HYT, JFR, MHD, MQY, PCN, PDI, PDO, PFN, PHK, PTY, NAD, NEA, NVG, NZF. 2023+: dates, counts, presence and flags only.
 
 price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 = 950 sessions
@@ -69,7 +69,7 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
 
 [DG-X8] numexpr: {'use_numexpr_option': False, 'numexpr': '2.10.1', 'fault_with_numexpr_on': True, 'numpy_path_clean': True, 'fault_any': True, 'status': 'PASS'}
 
-GATES: DG-X1 FLAGGED; DG-X2 FLAGGED; DG-X3 PASS; DG-X4 FLAGGED; DG-X5 FLAGGED; DG-X6 FLAGGED; DG-X7 IDENTITY PASS; k PENDING (R9); DG-X8 PASS
+GATES: DG-X1 FLAGGED; DG-X2 FLAGGED; DG-X3 PASS; DG-X4 FLAGGED; DG-X5 FLAGGED; DG-X6 FLAGGED; DG-X7 PASS (identity; k committed by fit-k); DG-X8 PASS
 FLAGS: 843 -> results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv {"R1": 1, "R10": 1, "R2": 1, "R3": 1, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1, "R9": 1, "X1_amount_mismatch": 32, "X2_not_found": 186, "X4_no_bar": 24, "X4_split": 1, "X5_nav_repeat": 552, "X5_nav_repeat_on_e": 37, "X6_FF6_uncovered": 1}
 STAGE 0: CLEAR. No 2023+ return, P&L, price change or NAV change was computed.
 rulings file exists with rulings in it (results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv); never overwritten

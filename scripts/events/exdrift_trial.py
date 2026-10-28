@@ -1240,7 +1240,7 @@ def stage0(write: bool = True) -> dict:
         "DG-X4": _status("DG-X4", F[~F.check.str.startswith("R")], False),
         "DG-X5": _status("DG-X5", F[~F.check.str.startswith("R")], False),
         "DG-X6": _status("DG-X6", F[~F.check.str.startswith("R")], False),
-        "DG-X7": "IDENTITY PASS; k PENDING (R9)",
+        "DG-X7": "PASS (identity; k committed by fit-k)" if K_JSON.exists() else "IDENTITY PASS; k PENDING (R9)",
         "DG-X8": nx["status"],
     }
     rec["gates"] = st

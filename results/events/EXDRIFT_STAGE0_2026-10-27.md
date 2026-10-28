@@ -1,4 +1,4 @@
-# Ex-date drift (EVENTS trial 3): Stage 0, HALTED: DG-X2 has no valid declaration source, and 657 flags await rulings
+# Ex-date drift (EVENTS trial 3): Stage 0 CLEAR (2026-10-28), k committed; `open` waits on French's next vintage and the team lead
 
 **Date** 2026-10-27 · **Pre-registration** `results/events/PREREG_EXDATE_DRIFT_2026-10-26.md`
 (approved 2026-10-27 with every recommended answer: part (b) is EVENTS trial 3 at N = 7; part (a)
@@ -12,10 +12,13 @@ exist; exit 2 = halted). Outputs, all tracked, with dates, counts, presence and 
 |---|---|
 | `results/events/exdrift/exdrift_stage0_output_2026-10-27.txt` | the run's printed record |
 | `results/events/exdrift/exdrift_stage0_2026-10-27.json` | gate statuses, counts, coverage, the identity table |
-| `results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv` | 657 flags (2026-10-28 re-run; 587 on 2026-10-27), keyed `(check, ticker, date)` |
+| `results/events/exdrift/exdrift_stage0_flags_2026-10-27.csv` | 843 flags, final (657 at the first 2026-10-28 run; 587 on 2026-10-27), keyed `(check, ticker, date)` |
+| `results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv` | the team lead's rulings, one per flag (2026-10-28) |
+| `results/events/exdrift/exdrift_sponsor_declarations_2026-10-28.csv` | DG-X2's declaration table: one row per ex-date, with its release's URL, sha, fetch time and three quotes |
+| `results/events/exdrift/exdrift_release_sources_2026-10-28.csv` | the 195 releases and how each was found |
+| `results/events/exdrift/exdrift_k_2026-10-27.json` | `fit-k`'s output: k and the cap-binding share (fit only) |
 | `results/events/exdrift/exdrift_sponsor_notices_2026-10-28.csv` | the verified sponsor notices DG-X2 checks Alpaca against (quotes re-found offline on every run) |
 | `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md` | **the rulings proposal**, one recommendation per flag class |
-| `results/events/exdrift/exdrift_stage0_rulings_2026-10-27.csv` | **the blank rulings form**, one row per flag (`ruling`, `ruled_by`, `ruled_on`) |
 | `results/events/exdrift/exdrift_fit_descriptive_2026-10-27.csv` | the DG-X7 identity table (fit only) |
 | `results/events/exdrift/noop_fetch_cef_distributions_output.txt` | the no-op proof for the fetcher change (§2) |
 
@@ -23,6 +26,82 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
+> **2026-10-28, later: the team lead's rulings applied; Stage 0 CLEAR; `fit-k` run. The test set is NOT opened.**
+>
+> **The rulings** (team lead, 2026-10-28, answered interactively on
+> `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md`):
+> - **"Accept all"**: every recommended ruling in rows 2–17, including the go on `fit-k` (R9).
+> - **Declarations (row 1): sponsor releases.** "Build a verified declaration table from the
+>   sponsors' own monthly distribution releases (PIMCO, BlackRock, Nuveen, DoubleLine,
+>   AllianceBernstein) for every test event. Keep each quote, its URL and fetch time, so it can be
+>   re-checked. A fund or event whose release cannot be found is excluded and counted, never
+>   guessed."
+>
+> The rulings file holds all 843 flags, `ruled_by` "team lead", `ruled_on` 2026-10-28. It was
+> written by `exdrift_trial.py apply-rulings` from the class table `CLASS_RULINGS`.
+>
+> **The declaration table** is `exdrift_sponsor_declarations_2026-10-28.csv`. It was built by
+> `scripts/events/fetch_exdrift_sponsor_releases.py fetch` + `build`.
+> - **195 releases**: PIMCO 48, BlackRock 43, DoubleLine 45, AllianceBernstein 48, Nuveen 11.
+>   Each one's source and discovery method is in `exdrift_release_sources_2026-10-28.csv`.
+> - Every quote is re-found offline on every run.
+> - Coverage of the test events, by R4 (a declaration dated e−1 passes):
+>
+> | sponsor | declared by e−1 | declared late | no release found (excluded) |
+> |---|---:|---:|---:|
+> | PIMCO | 270 | 0 | 0 |
+> | BlackRock | 177 | 0 | 2 (BIT, HYT 2024-01-11: no January 2024 release is carried by any host reached) |
+> | DoubleLine | 45 | 0 | 0 |
+> | AllianceBernstein | 48 | 0 | 0 |
+> | **Nuveen** | **42** | 0 | **184** |
+>
+> - **Leads.** Declarations precede the ex-date by 4 to 74 sessions (median 8). None falls on e−1.
+>   The long leads are BlackRock's quarterly releases of 2026.
+> - **Nuveen.** Nuveen's release of 2019-10-02 says that from about 2019-11-01 it stopped announcing
+>   distributions by press release and posts them on nuveen.com [V]. Its wire releases since then
+>   come only in months with changes: 11 found for the test window. nuveen.com and CEFConnect answer
+>   scripted requests with a "request blocked" page, and no block was worked around.
+> - **So 184 of the 226 Nuveen events are excluded, under the ruling.** That is most of NAD, NEA,
+>   NVG, NZF and JFR.
+> - Alpaca's announcement `declaration_date` contradicts the sponsor table on all 593 events where
+>   both exist.
+>
+> **Reading R10** (new; it applies the ruling's own words, and is for the team lead to confirm
+> before `open`). In the H-E declared calendar, a basket fund whose ex-date in [e+1, e+8] has no
+> release found is excluded from that event's basket and counted (1,210 legs). Keeping those legs
+> would assume they were undeclared, and their run-up would sit on the hold rows.
+>
+> **The eligible set, as ruled.** Dates only. Rules 1–5, the X4 cells filled from Alpaca, R10:
+> - **545 events** (511 on the 13) on 133 dates in 46 months;
+> - 186 excluded for declarations and 37 for a basket of fewer than 3;
+> - beside: 575 with the no-release basket legs kept, and 531 with the X4 cells not filled.
+>
+> **Gates:** DG-X1 FLAGGED (ruled); DG-X2 FLAGGED (186, ruled); DG-X3 PASS; DG-X4 FLAGGED (ruled);
+> DG-X5 FLAGGED (ruled); DG-X6 FLAGGED (ruled: wait); DG-X7 PASS (identity; k committed); DG-X8
+> PASS. **STAGE 0: CLEAR**, meaning every gate passes or is flagged with every flag ruled.
+>
+> **`fit-k`** (fit 2005–22 only, committed in its own commit before anything else:
+> `exdrift_k_2026-10-27.json`):
+> - The raw H-E sleeve has 3,000 events (9 removed by rule 2) and σ_active 36.40%/yr on 1,351
+>   active sessions.
+> - **k = 0.1648** (= `spec.VOL_TARGET` 0.06 ÷ σ_active).
+> - **The cap-binding share is 0**: `_cap_gross` at `spec.MAX_GROSS_STRESS` 1.8 binds on 0 of 1,351
+>   decision rows. The raw sleeve's largest gross after netting is 10.67, so its sized maximum is
+>   1.758. That was checked on positions only.
+> - No mean, Sharpe or t was formed.
+>
+> **What still blocks `open`** (it refuses on each in code, or by the team lead's instruction):
+> 1. **The X6 ruling's wait.** French's daily factors end 2026-09-30 (vintage 202609), and the test
+>    window runs to 2026-10-06. `open_preconditions` re-measures this and refuses today.
+> 2. **The team lead sees this final Stage 0 state first** (instruction of 2026-10-28). That
+>    includes R10, and the Nuveen exclusions, which take most of the 4 munis out of the test.
+> 3. **The `open` stage itself is a stub.** It is written and reviewed after the team lead's go,
+>    and run once.
+>
+> No 2023+ return, P&L, price change or NAV change was computed. EVENTS stays 3.
+>
+> ---
+>
 > **2026-10-28: re-run on the team lead's Alpaca fetch** (`run_exdrift_ca.sh`, fetched
 > 2026-10-27T21:38:45Z: v1 801 records; announcements 785 rows, every window HTTP 200; the 24 flagged
 > bars). `python3 scripts/events/exdrift_trial.py notices` then `stage0`, offline.

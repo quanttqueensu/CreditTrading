@@ -55,6 +55,11 @@ counter (156) covers all ETF-price/PD work done to date.
 >   date, not a declaration** (PIMCO's own release contradicts it). The test cannot open until a declaration source is
 >   ruled. 657 flags; the proposal is `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md`. No counter
 >   moves; no 2023+ return read.
+> - **2026-10-28, later: Stage 0 CLEAR; k committed; the test set NOT opened.** The team lead accepted every recommended
+>   ruling and ruled declarations from the sponsors' own releases (unfound = excluded and counted). 195 releases cover
+>   PIMCO, DoubleLine and AllianceBernstein fully and BlackRock but for 2 events. Nuveen gives 42 of 226, because it stopped
+>   declaring by press release in 2019, so 186 events are excluded. 545 events are eligible as ruled. `fit-k`: k = 0.1648,
+>   cap binds on 0 rows. `open` waits on French's 202610 vintage (the X6 ruling) and the team lead's review. No counter moves.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:
