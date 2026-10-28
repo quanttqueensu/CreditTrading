@@ -43,6 +43,7 @@ Lines at `simon` dff4b5c. Nothing changed.
 
 1. **Dark:** row 1, with a sha256 no-op proof on the real panel and a held book (test_nav_gate.py:586 pattern).
 2. **Dark:** row 2, plus a fidelity test against `build_book`.
+   - *Divergences the fidelity test must declare* (added 2026-10-27 by step 1, `c4-step1`): **while `below_min_names = "hold"` lasts, `max_gross_stress` is effectively off.** The sleeve holds shares, so price drift can leave the book above 1.8x; the trial holds a weight-space target and caps it every day (`cef_discount.py`, the `min_names` block). Also PREREG_C4 §3 items 5 and 6 (`min_abs_weight` and whole shares; holdings, not the stored target, as the reference state).
 3. **Dark:** row 3; GETs only. Measure fetch time.
 4. Row 4.
 5. Row 6A (or 6S) and row 9, at `DRY_RUN=1` for at least 5 sessions.

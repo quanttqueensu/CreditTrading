@@ -463,9 +463,11 @@ class CEFDiscountSleeve(Sleeve):
         NOT YET READ BY THE RUNNER. `quantt/session/run.py` still takes the
         closes it sizes on, the NAV dates gate 5 checks and the stale-NAV gate's
         panel from `cefmod.PX_PATH` / `NAV_PATH` (run.py:552, 748-755). Making
-        it read this method is plan row 6A (§2 step 5). Until then a spec with
-        `panel_source` must not be run by the session runner: it would decide on
-        one panel and size on another.
+        it read this method is plan row 6A (§2 step 5). Until then a spec whose
+        panel is not the core's would decide on one panel and size on another,
+        so the runner REFUSES it (`quantt/session/run.py::require_core_panel`,
+        called by `sleeve_targets` and `default_deps`). The refusal lives in the
+        runner, not the registry: research and the tests build such specs.
         """
         src = cef_panel_source(self.frozen)
         if src is None:
@@ -657,11 +659,34 @@ class CEFDiscountSleeve(Sleeve):
     def target_positions(self, asof, market_state: MarketState) -> list[PositionTarget]:
         panel = self._read_panel(asof)
         uni = self.instruments()
+        # A DATA SHORTFALL NEVER FLATTENS A C4-STYLE BOOK (review of 11790b5).
+        # With `panel_source` or `below_min_names = "hold"` set, a missing panel
+        # or one too short to score RAISES, naming the shortfall: the first
+        # means a broken data step, and flattening on it is the wrong answer to
+        # a missed refresh (`_read_panel`); the second asked for the book to
+        # hold rather than close when the cross-section is short, and a FLAT
+        # book on a data gap is the very close it asked not to make. Reproduced
+        # on the 13's last 150 sessions with hold on: held PDI +500 / HYT -800
+        # came out FLAT "insufficient history". A raise is a missed day, which
+        # the runner records. Both keys ABSENT: the FLAT returns below, as ever.
+        strict = (cef_panel_source(self.frozen) is not None
+                  or self._below_min_names == "hold")
         if panel is None:
+            if strict:
+                raise ValueError(
+                    f"cef: no paired price/NAV panel at {self.panel_paths()} on or before "
+                    f"{pd.Timestamp(asof).date()}; refusing to flatten a book that sets "
+                    f"panel_source or below_min_names='hold' on a missing panel")
             return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                    reason="cef: no price/NAV panel") for t in uni]
         px, nav, vol, navrows = panel
         if len(px) < self._win + 20:
+            if strict:
+                raise ValueError(
+                    f"cef: the panel at {self.panel_paths()} holds {len(px)} paired sessions "
+                    f"through {pd.Timestamp(asof).date()}; the z-score needs z_window "
+                    f"{self._win} + 20 = {self._win + 20}, {self._win + 20 - len(px)} short. "
+                    f"Not deciding, and not flattening, on a panel too short to score")
             return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                    reason="cef: insufficient history") for t in uni]
 
@@ -767,6 +792,18 @@ class CEFDiscountSleeve(Sleeve):
             # and an unheld name stays unopened. The band and the gross cap do
             # not run: nothing is resized. Holds from the stale-NAV gate are
             # subsumed -- the whole book is held -- and named in the reason.
+            #
+            # DECLARED DIVERGENCE FROM THE TRIAL (review of 11790b5; listed for
+            # step 2's fidelity test in C4_DEPLOY_PLAN_2026-10-27.md §2): WHILE
+            # `hold` LASTS, `max_gross_stress` IS EFFECTIVELY OFF. Live, the book
+            # is held in SHARES, so its gross moves with prices, and price drift
+            # over a run of short days can leave it above the cap (1.8x in v7)
+            # with nothing here trimming it. The trial holds a TARGET in weight
+            # space and `band_gross_capped` re-applies the cap to the held book
+            # every day, so it never sits above the cap. The cap acts again on
+            # the first day the cross-section is back at `min_names` (the band,
+            # then `_cap_gross`, on the book as held). Accepted: trimming a held
+            # book for margin would be a resize on a day the rule says hold.
             if self._below_min_names == "hold":
                 n_min = int(self._req("min_names"))
                 why = (f"book holds: only {len(row)} eligible names, under min_names {n_min} "

@@ -54,6 +54,7 @@ cover them), and netguard refuses any socket.
 import datetime as dt
 import hashlib
 import json
+import warnings
 
 import pandas as pd
 import pytest
@@ -68,6 +69,14 @@ EVE = dt.datetime(2026, 9, 25, 22, 0, tzinfo=ET)
 SESSION_DIR = "2026-09-28"
 LIVE_SPEC_PATH = rn.REPO / "ops/specs/cef_discount.frozen.json"
 C4_KEYS = ("panel_source", "nav_repeat_mask", "zero_volume_mask", "below_min_names")
+
+
+class RealPanelPinNotApplicable(UserWarning):
+    """Emitted when the real-panel pin skips. A bare skip prints one `s` under
+    `-q` and its reason only under `-rs`, so on the VM, or after a refresh that
+    revised history, the pin stopped proving anything and nobody saw it (review
+    of 11790b5). A warning lands in every run's warnings summary. The pin that
+    never skips is `test_c4_synthetic_pin.py`."""
 
 
 def _sha(x) -> str:
@@ -196,10 +205,13 @@ def test_keys_absent_is_byte_identical_to_the_code_before_them(tmp_path, monkeyp
     got_input = {"panel": _frozen_copy(tmp_path / "panels", monkeypatch, spec["frozen"]["universe"]),
                  "spec": _sha(LIVE_SPEC_PATH.read_bytes())}
     if got_input != PINNED_INPUT:
-        pytest.skip(f"the pin was made on panel/spec {PINNED_INPUT}; this tree has {got_input} "
-                    f"(a refresh revised rows through {ASOF}, another machine's panel, or a spec "
-                    f"bump). The old code's output on these inputs is unmeasured; "
-                    f"test_keys_present_at_their_defaults_are_byte_identical_to_absent still runs")
+        why = (f"REAL-PANEL C4 NO-OP PIN NOT APPLIED: it was made on panel/spec {PINNED_INPUT}; "
+               f"this tree has {got_input} (a refresh revised rows through {ASOF}, another "
+               f"machine's panel, or a spec bump). The old code's output on these inputs is "
+               f"unmeasured. test_c4_synthetic_pin.py (never skips) and "
+               f"test_keys_present_at_their_defaults_are_byte_identical_to_absent still run")
+        warnings.warn(why, RealPanelPinNotApplicable)
+        pytest.skip(why)
     from src.deploy.sleeves import cef_discount as cefmod
     assert cefmod.PX_PATH.parent == tmp_path / "panels"            # deciding on the copy
     held_reasons = []
@@ -233,3 +245,49 @@ def test_keys_present_at_their_defaults_are_byte_identical_to_absent(tmp_path):
     assert present == absent
     assert absent["exit"] == rn.EXIT_PLANNED and absent["n_orders"] > 0
     assert all(f.read_bytes() == b for f, b in real.items()), "a real panel changed"
+
+
+# ------------------------------------------------- review of 11790b5: the runner and the skip
+
+OTHER_PANEL = {"prices": "data/cef_c4/cef_prices.parquet", "nav": "data/cef_c4/cef_nav.parquet"}
+
+
+def _on_another_panel():
+    spec = json.loads(LIVE_SPEC_PATH.read_text())
+    spec["frozen"]["panel_source"] = dict(OTHER_PANEL)
+    return spec
+
+
+def test_the_runner_refuses_a_spec_on_another_panel_until_row_6a():
+    """Until plan row 6A wires `panel_paths()` through the runner, a spec whose
+    sleeve reads another panel would be decided on that panel and sized, gated
+    and NAV-checked on `data/cef/`. Both entry points refuse it, before any file
+    is read or any client is built, and say what must land first."""
+    spec = _on_another_panel()
+    with pytest.raises(rn.SessionError, match="row 6A"):
+        rn.sleeve_targets(spec, 100_000.0, ASOF, {}, 100_000.0, True)
+    with pytest.raises(rn.SessionError, match="row 6A"):
+        rn.default_deps(rn.BOOKS["cef"], spec, {"QUANTT_ENV_FILE": "unused"})
+    with pytest.raises(rn.SessionError, match="data/cef_c4/cef_prices.parquet"):
+        rn.require_core_panel(spec)
+
+
+def test_the_runner_takes_the_core_spec_and_the_core_panel_named_explicitly():
+    """The guard's no-op: the live spec (no `panel_source`) and the same spec
+    naming `data/cef/` explicitly both pass."""
+    spec = json.loads(LIVE_SPEC_PATH.read_text())
+    rn.require_core_panel(spec)
+    spec["frozen"]["panel_source"] = {"prices": "data/cef/cef_prices.parquet",
+                                      "nav": "data/cef/cef_nav.parquet"}
+    rn.require_core_panel(spec)
+
+
+def test_the_real_panel_pin_says_so_when_it_does_not_apply(tmp_path, monkeypatch):
+    """A skip of the real-panel pin must be visible in a `-q` run, not only under
+    `-rs`: it warns (RealPanelPinNotApplicable) as well as skipping."""
+    import sys
+    me = sys.modules[__name__]
+    monkeypatch.setattr(me, "_frozen_copy", lambda dst, mp, universe: "a panel nobody pinned")
+    with pytest.warns(RealPanelPinNotApplicable, match="PIN NOT APPLIED"):
+        with pytest.raises(pytest.skip.Exception, match="PIN NOT APPLIED"):
+            test_keys_absent_is_byte_identical_to_the_code_before_them(tmp_path, monkeypatch)

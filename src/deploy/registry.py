@@ -198,11 +198,79 @@ def cef_below_min_names(frozen):
     return v
 
 
+CEF_C4_KEYS = ("panel_source", *CEF_MASK_KEYS, "below_min_names")
+# A key's documentation sibling, in the spec's own convention (`_band_width_note`).
+CEF_C4_NOTES = tuple(f"_{k}_note" for k in CEF_C4_KEYS)
+# How far a frozen key may be from one of the four and still be read as a
+# misspelling of it: 2 edits (insert, delete, substitute or swap two adjacent
+# letters) covers a plural, a dropped or doubled letter and a transposition.
+# Every key the live spec carries is at least 6 edits from all four
+# (`test_c4_sleeve_keys.py` checks the live file, key by key).
+CEF_C4_NEAR = 2
+
+
+def _osa_distance(a: str, b: str) -> int:
+    """Optimal-string-alignment edit distance: insertions, deletions,
+    substitutions and adjacent transpositions, each costing 1."""
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
+def cef_c4_near_miss(key: str):
+    """The C4 key that `key` looks like a misspelling of, or None.
+
+    WHY (review of 11790b5). An absent C4 key means "today's behaviour", so a
+    misspelt one is silently absent: `nav_repeat_masks: true` validated, and the
+    sleeve then ran WITHOUT the mask the spec plainly asks for; `below_min_name:
+    "hold"` flattened the book the spec says to hold. Rejecting every unknown key
+    would reject keys other specs and the live one legitimately carry (notes,
+    `warmup_days`), so only near-misses of the four new names are refused:
+
+      * within CEF_C4_NEAR edits of one of them, after lower-casing and reading
+        `-` and spaces as `_`;
+      * the same letters with the underscores dropped (`navrepeatmask`);
+      * one of them dressed as a comment (`_nav_repeat_mask`): in this spec's
+        convention a leading underscore is a note nothing reads, so the key
+        would be ignored while reading as set. Absent is the default; delete it.
+
+    A `_<key>_note` sibling is not a miss, and a misspelt note is checked as its
+    stem (`_nav_repeat_masks_note` is a miss of `nav_repeat_mask`).
+    """
+    if key in CEF_C4_KEYS or key in CEF_C4_NOTES or not isinstance(key, str):
+        return None
+    stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+    if stem.endswith("_note"):
+        stem = stem[:-len("_note")].strip("_")
+    for k in CEF_C4_KEYS:
+        if (stem == k or stem.replace("_", "") == k.replace("_", "")
+                or _osa_distance(stem, k) <= CEF_C4_NEAR):
+            return k
+    return None
+
+
 def cef_optional_keys(frozen) -> dict:
     """All four C4 keys parsed, each to its default when absent. Raises on the
-    first malformed one. Called by `_validate_cef_discount` and by the sleeve's
+    first malformed one, and on a frozen key that is a near-miss of one of them
+    (`cef_c4_near_miss`). Called by `_validate_cef_discount` and by the sleeve's
     constructor, so a bad `below_min_names` refuses on every day and not only on
     the first day the book falls below `min_names`."""
+    for key in frozen:
+        k = cef_c4_near_miss(key)
+        if k is not None:
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of {k!r}; the "
+                f"sleeve would ignore it and run {k}'s default. Spell it {k!r}, or delete "
+                f"it (absent is the default)")
     return {"panel_source": cef_panel_source(frozen),
             **{k: cef_mask_flag(frozen, k) for k in CEF_MASK_KEYS},
             "below_min_names": cef_below_min_names(frozen)}

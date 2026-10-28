@@ -438,3 +438,82 @@ def test_any_other_value_raises_naming_it(key, value, tmp_path, monkeypatch):
     asof, _ = _write_panel(tmp_path, monkeypatch)
     with pytest.raises(ValueError, match=key):
         _run(spec, asof)
+
+
+# ---------------------------------------------------------------------------
+# 5. review of 11790b5: a data shortfall never flattens; near-miss keys refuse
+# ---------------------------------------------------------------------------
+
+def _short(P, N, n=150):
+    """The last `n` sessions only: under z_window + 20 = 272, too short to score."""
+    keep = sorted(pd.to_datetime(P["date"]).unique())[-n:]
+    return (P[pd.to_datetime(P["date"]).isin(keep)].reset_index(drop=True),
+            N[pd.to_datetime(N["date"]).isin(keep)].reset_index(drop=True))
+
+
+HELD2 = {"MUN1": 500.0, "TAX2": -800.0}       # the reviewer's shape: one long, one short
+
+
+@pytest.mark.parametrize("keys", [{"panel_source": SOURCE}, {"below_min_names": "hold"},
+                                  {"panel_source": SOURCE, "below_min_names": "hold"}])
+def test_a_short_panel_raises_instead_of_flattening(tmp_path, monkeypatch, keys):
+    """With `panel_source` or `hold`, a panel shorter than z_window + 20 raises,
+    naming the shortfall, where 11790b5 emitted the held book FLAT "insufficient
+    history" (the review reproduced it on the 13's last 150 sessions)."""
+    asof, repo = _second_panel(tmp_path, monkeypatch)
+    for paths in ((repo / SOURCE["prices"], repo / SOURCE["nav"]), (cefmod.PX_PATH, cefmod.NAV_PATH)):
+        P, N = _short(pd.read_parquet(paths[0]), pd.read_parquet(paths[1]))
+        P.to_parquet(paths[0])
+        N.to_parquet(paths[1])
+    with pytest.raises(ValueError, match=r"holds 150 paired sessions .* 252 \+ 20 = 272, 122 short"):
+        _run(_with(_spec(), **keys), asof, HELD2)
+
+
+def test_a_short_panel_with_the_keys_absent_is_still_flat(tmp_path, monkeypatch):
+    asof, _ = _write_panel(tmp_path, monkeypatch)
+    _rewrite(*_short(*_frames()))
+    out = _run(_spec(), asof, HELD2)
+    assert {(t.side, t.reason) for t in out} == {(FLAT, "cef: insufficient history")}
+
+
+def test_a_missing_panel_with_hold_raises_and_absent_is_still_flat(tmp_path, monkeypatch):
+    asof, _ = _write_panel(tmp_path, monkeypatch)
+    monkeypatch.setattr(cefmod, "NAV_PATH", tmp_path / "missing.parquet")
+    with pytest.raises(ValueError, match="refusing to flatten"):
+        _run(_with(_spec(), below_min_names="hold"), asof, HELD2)
+    assert {t.reason for t in _run(_spec(), asof, HELD2)} == {"cef: no price/NAV panel"}
+
+
+NEAR_MISSES = [("nav_repeat_masks", "nav_repeat_mask"), ("below_min_name", "below_min_names"),
+               ("_nav_repeat_mask", "nav_repeat_mask"), ("navrepeatmask", "nav_repeat_mask"),
+               ("Zero-Volume-Mask", "zero_volume_mask"), ("zero_volume_mak", "zero_volume_mask"),
+               ("panel_sources", "panel_source"), ("pannel_source", "panel_source"),
+               ("_nav_repeat_masks_note", "nav_repeat_mask"), ("below_min_names_note", "below_min_names")]
+
+
+@pytest.mark.parametrize("key,meant", NEAR_MISSES)
+def test_a_near_miss_of_a_new_key_raises_naming_both(key, meant, tmp_path, monkeypatch):
+    """11790b5 validated `nav_repeat_masks: true` and `below_min_name: "hold"`,
+    and the sleeve then ran each key's DEFAULT -- no mask, flatten -- while the
+    spec read as asking for the opposite."""
+    spec = _with(_live_like(), **{key: True if "mask" in meant else "hold"})
+    with pytest.raises(ValueError, match="looks like a misspelling") as e:
+        registry.validate_spec(spec)
+    assert repr(key) in str(e.value) and repr(meant) in str(e.value)
+    asof, _ = _write_panel(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="looks like a misspelling"):
+        _run(spec, asof)
+
+
+def test_the_live_spec_validates_and_none_of_its_keys_is_a_near_miss():
+    """The near-miss rule must not reject what the live spec, or any key the
+    sleeve already reads, carries: every frozen key of
+    `ops/specs/cef_discount.frozen.json`, the optional v7 keys and the `_note`
+    siblings of the four new ones."""
+    live = json.loads((cefmod.REPO / "ops/specs/cef_discount.frozen.json").read_text())
+    registry.validate_spec(live)
+    others = ["group_cap", "max_gross_stress", "band_width", "warmup_days", "min_names",
+              *registry.CEF_C4_NOTES]
+    assert [k for k in [*live["frozen"], *others] if registry.cef_c4_near_miss(k)] == []
+    noted = _with(_live_like(), **{n: "a note" for n in registry.CEF_C4_NOTES})
+    registry.validate_spec(noted)
