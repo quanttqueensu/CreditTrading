@@ -49,10 +49,11 @@ is no reproducer script: the sources are web pages, listed in `docs/REFERENCES.m
 - **Margin:** IBKR Canada applies CIRO margin, 50% on stocks at or above CAD 2.
 - **Rule 3200:** API orders are barred for Canadian-listed securities only. US-listed names are unaffected.
 
-## Decisions for the team lead
+## Team lead, 2026-10-28
 
-Recorded in `docs/SYSTEM.md` §5 when ruled.
-- the real-capital broker;
-- whether to accept a weekly 2FA tap, or use an entity account for OAuth;
-- where paper runs meanwhile;
-- E1, now that no paper account anywhere processes mergers.
+Recorded in `docs/SYSTEM.md` §5.
+- **Real capital waits for Alpaca Canada.** IBKR was not chosen.
+- **Paper stays on Alpaca.**
+- **E1 is parked until real capital.**
+- **Re-check Alpaca's Canadian status each quarter:** CIRO membership, and whether the trading API,
+  closing-auction (`cls`) orders, short selling and paper are offered to Canadian retail.
