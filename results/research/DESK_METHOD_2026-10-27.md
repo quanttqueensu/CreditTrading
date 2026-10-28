@@ -234,7 +234,7 @@ also paraphrases D7 differently ("infeasible on the available data" against
 
 ## 7. Decisions for the team lead
 
-> **Ruled 2026-10-27** (`docs/SYSTEM.md` §5): 1 the paper's bar once series exist; 2 workflow only; 3 yes, paper only; 4 yes, add and relabel. 5 and 6 are open.
+> **Ruled 2026-10-27** (`docs/SYSTEM.md` §5): 1 the paper's bar once series exist; 2 workflow only; 3 yes, paper only; 4 yes, add and relabel; 5 all four re-opens queued, in the order listed; 6 backfill what is reproducible.
 
 1. **Which DSR bar gates.** The desk's (√(2 ln N), raw N), or the paper's
    (Gumbel, effective N, measured V[SR_n]). Report both meanwhile. *Recommended:*
