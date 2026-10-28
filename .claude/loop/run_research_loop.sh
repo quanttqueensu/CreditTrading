@@ -91,6 +91,12 @@ main() {
     fi
     return 5
   fi
+  # The workflow runs as a background task of the headless session, and claude -p
+  # stops background tasks 10 minutes after its last turn by default: the
+  # 2026-10-28 cycle was killed in Pick that way. Unlimited would let a hung
+  # cycle hold the job, and launchd starts no new run while one is alive, so
+  # the ceiling is 8 hours, well inside the next 17:45.
+  export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${QUANTT_LOOP_BG_CEILING_MS:-28800000}"
   local rc=0
   claude -p "Run the research-loop workflow with args {\"date\": \"$D\"}. When it returns, print its outcome and the report commit." \
     --permission-mode auto \
