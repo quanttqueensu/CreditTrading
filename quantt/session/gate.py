@@ -414,6 +414,13 @@ def gate_data(asof, refresh_exit, close_dates, nav_dates, universe) -> list[Refu
 REFRESH_INCOMPLETE = 4
 
 
+def refresh_incomplete(refresh_exit) -> bool:
+    """True when the refresh exited exactly REFRESH_INCOMPLETE (an int, never a
+    bool or a string saying why it did not run)."""
+    return (isinstance(refresh_exit, int) and not isinstance(refresh_exit, bool)
+            and refresh_exit == REFRESH_INCOMPLETE)
+
+
 def gate_data_by_sleeve(asof, refresh_exit, close_dates, nav_dates, universes: dict,
                         final) -> tuple[list[Refusal], dict]:
     """Gate 5 for a combined book (quantt/session/combine.py): (book-wide
@@ -445,11 +452,9 @@ def gate_data_by_sleeve(asof, refresh_exit, close_dates, nav_dates, universes: d
     if not universes:
         raise ValueError("gate_data_by_sleeve: no enabled sleeve")
     union = sorted({s for u in universes.values() for s in u})
-    if refresh_exit is not None and refresh_exit != 0 and not (
-            isinstance(refresh_exit, int) and not isinstance(refresh_exit, bool)
-            and refresh_exit == REFRESH_INCOMPLETE):
+    incomplete = refresh_incomplete(refresh_exit)
+    if refresh_exit is not None and refresh_exit != 0 and not incomplete:
         return gate_data(asof, refresh_exit, close_dates, nav_dates, union), {}
-    incomplete = refresh_exit == REFRESH_INCOMPLETE
     failing = {}
     for name in sorted(universes):
         r = gate_data(asof, None, close_dates, nav_dates, sorted(universes[name]))

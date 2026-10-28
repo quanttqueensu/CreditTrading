@@ -216,6 +216,11 @@ each choice is in `quantt/session/combine.py`'s docstring.
   book's vol target. The budgets are inputs from the allocation analysis.
 - **Netting.** The sleeves' whole-share targets are summed per symbol, and `decide`
   runs once on the net: one order per symbol, flips and shortability on the net.
+  **Enabled sleeves may not share a symbol** until per-sleeve sub-ledgers exist
+  (release-check of 00ec423). `load_sleeves` and `combine.decide` refuse an
+  overlap, naming the symbols. Accepted, the shared symbol would net from flat on
+  day one, and every later session would FAIL on the position that built. The
+  cross-sleeve arithmetic is kept behind `combine.SHARED_SYMBOLS_ALLOWED` (False).
 - **Book-level limits.** The book spec's `max_gross_stress`, applied once to the
   netted orders by `fit_to_buying_power` and gate 8. Its value was derived for the
   13 alone and must be re-derived on the combined book before a second sleeve is
@@ -226,7 +231,12 @@ each choice is in `quantt/session/combine.py`'s docstring.
   check it is held at its shares and the rest decide. fetch_daily's exit 4 is
   attributed by that per-name check, and every other refresh failure stays
   book-wide. The stale-NAV gate's holds go to the sleeve that owns each name; a
-  deferral stays book-wide (one plan per day).
+  deferral stays book-wide (one plan per day). On a combined book the stale-NAV
+  gate also runs when the refresh exits 4, over every enabled sleeve's names, and
+  its record says so (`refresh_exit`). Exit 4 is the case in which some sleeves
+  decide; 00ec423 skipped the gate there and sent them unchecked. That is safe
+  because the gate never acts on a name with no NAV dated as-of; that name is
+  gate 5's.
 - **Attribution.** plan.json `combine`: each sleeve's spec, budget, sleeve_nav,
   status, and per symbol its current and target shares. Verify, score and TCA do
   not split P&L by sleeve yet.

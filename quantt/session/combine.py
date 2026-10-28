@@ -87,15 +87,24 @@ targets. One long and one short in a symbol cross inside the book and send only
 their net. The flip rule (close today, open next session) runs on the net, so
 two sleeves holding opposite views never flip the account by themselves
 (framework §2.10). min_trade_usd, shortability and the transmit sequence are
-`decide`'s, on the net, unchanged.
+`decide`'s, on the net, unchanged. NOT YET ALLOWED ACROSS SLEEVES: while
+SHARED_SYMBOLS_ALLOWED is False (below, HOLDINGS) no two enabled sleeves share
+a symbol, so each symbol has one owner and its net is that sleeve's target. The
+cross-sleeve arithmetic is kept, and tested behind the flag, for when per-sleeve
+sub-ledgers exist.
 
 HOLDINGS. Each sleeve is shown the account's positions in its own universe.
 Where the universes are disjoint that is exact. The 13 and C4's 74 share none
 (C4 plan §0). A HELD position in a symbol two enabled sleeves trade cannot be
 split without a per-sleeve sub-ledger, which is not built (framework §2.10,
-"virtual sub-ledger"). So it RAISES, naming the symbol, rather than guess a
-split. A FLAT shared symbol is exact (each sleeve holds 0), which is why
-netting works from flat.
+"virtual sub-ledger"). OVERLAPPING UNIVERSES ARE REFUSED UP FRONT (release-check
+of 00ec423). The first build accepted two enabled sleeves sharing a symbol and
+refused only a HELD shared position. That lets day one net the shared symbol
+from flat and send, and then every later slot FAILs on the position day one
+built: nothing can trade or exit until someone flattens it by hand. So
+`load_sleeves` rejects enabled sleeves whose universes share a symbol, naming
+the symbols, and `decide` refuses the same, whatever built the sleeves. The
+held-shared check stays behind it, for the flag.
 
 ATTRIBUTION (plan.json `combine`). For each enabled sleeve: its spec, budget,
 vol targets and sleeve_nav; whether it was decided or held (and why); the
@@ -124,14 +133,18 @@ close at all refuses the book, as before.
 STALE NAV, PER SLEEVE. The stale-NAV gate runs once over the union (one
 panel, one CEFConnect read per name, one record). A name it holds goes ONLY to
 the sleeves whose universe contains it, as that sleeve's `extras["nav_hold"]`,
-and is added only when that sleeve has one, as in the single-sleeve book. A
+and is added only when that sleeve has one, as in the single-sleeve book. It
+runs on an INCOMPLETE refresh (exit 4) too, because that is the one refresh
+failure after which some sleeves still decide (run.py `_nav_gate`; the first
+build skipped it there and sent those sleeves unchecked). A
 deferral stays book-wide by construction: there is one plan per day (run.py,
 DEFERRAL AND THE ORDER PATH), and it cannot be decided for one sleeve now and
 another later. It costs the other sleeves time, never the day, because from the
 final check every unverified name is held by the sleeve that owns it.
 
-NOT BUILT HERE (each named so nobody assumes it): per-sleeve sub-ledgers and so
-held shared symbols; a per-sleeve opening session (a sleeve added to a live
+NOT BUILT HERE (each named so nobody assumes it): per-sleeve sub-ledgers, and so
+any symbol two enabled sleeves share (lab sleeves netting into C4's own names
+need them first); a per-sleeve opening session (a sleeve added to a live
 account opens at its band edge, because the account is not flat); per-sleeve
 panels (closes and NAVs come from the core panel, `cef_discount.PX_PATH`;
 C4 plan row 6A); a per-sleeve stale-NAV mode; sleeve `state` close_only or flat,
@@ -154,9 +167,35 @@ from src.deploy.sleeve import FLAT, LONG, SHORT, PositionTarget
 # 0.06 is 6%; a percent written as 6 raises here instead of sizing 100x.
 VOL_TARGET_BAND = (0.005, 0.40)
 
+# May two enabled sleeves share a symbol? False until per-sleeve sub-ledgers
+# exist (module docstring, HOLDINGS): `load_sleeves` and `decide` both refuse
+# an overlap. Turning it on is new code (the sub-ledger), a test that fails
+# without it, and the team lead's release; tests flip it only to exercise the
+# netting arithmetic kept for that day, like decide.FLIP_SAME_SESSION.
+SHARED_SYMBOLS_ALLOWED = False
+
 
 class CombineError(ValueError):
     """The book json, a sleeve or the account cannot be combined without guessing. Names it."""
+
+
+def shared_symbols(sleeves) -> dict:
+    """{symbol: (sleeve names)} for every symbol in more than one sleeve's universe."""
+    owners = {}
+    for e in sleeves:
+        for s in e.universe:
+            owners.setdefault(s, []).append(e.name)
+    return {s: tuple(n) for s, n in sorted(owners.items()) if len(n) > 1}
+
+
+def _refuse_shared(sleeves, where: str) -> None:
+    shared = shared_symbols(sleeves)
+    if shared and not SHARED_SYMBOLS_ALLOWED:
+        raise CombineError(
+            f"{where}: enabled sleeves share {sorted(shared)} ({shared}). Until per-sleeve "
+            f"sub-ledgers exist a held position in a shared symbol cannot be split, so the "
+            f"first session would build a position that every later session must refuse "
+            f"(combine.py, HOLDINGS); disable one sleeve or make the universes disjoint")
 
 
 @dataclass(frozen=True)
@@ -275,6 +314,7 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
                                universe=universe, risk_budget=_budget(e, where),
                                vol_target=_vol_target(spec, f"{where} ({sp})"),
                                targets=make_targets(spec)))
+    _refuse_shared(out, str(book_path))
     return tuple(out)
 
 
@@ -327,6 +367,7 @@ def decide(sleeves, *, asof, positions: dict, equity: float, closes: dict, short
     names = [e.name for e in sleeves]
     if not names or len(set(names)) != len(names):
         raise CombineError(f"sleeves {names}: need at least one, each named once")
+    _refuse_shared(sleeves, "combine.decide")
     union = book_universe(sleeves)
     owners = {s: tuple(e.name for e in sleeves if s in e.universe) for s in union}
     for s, q in positions.items():

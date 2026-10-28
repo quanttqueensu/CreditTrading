@@ -40,17 +40,25 @@ FINAL = dt.datetime(2026, 9, 29, 14, 45, tzinfo=ET)        # after it, before th
 
 def sleeve(name, universe, wants, *, budget=1.0, vol=0.06, calls=None):
     """A fake sleeve. `wants` {sym: weight, or ("qty", n) for a held share
-    count}; a name not in `wants` is FLAT. `calls` receives every call's inputs."""
+    count}; a name not in `wants` is FLAT. A name in `extras["nav_hold"]` keeps
+    its current shares, as the real sleeve does (cef_discount._held_target).
+    `calls` receives every call's inputs."""
     from quantt.session import combine as cmb
 
     def targets(asof, holdings, nav, opening, **kw):
         if calls is not None:
             calls.append({"asof": asof, "holdings": dict(holdings), "nav": nav,
                           "opening": opening, **kw})
+        held = (kw.get("nav_hold") or {}).get("names", {})
         out = []
         for s in sorted(universe):
             w = wants.get(s, 0.0)
-            if isinstance(w, tuple):
+            if s in held:
+                q = holdings.get(s, 0)
+                out.append(PositionTarget(s, FLAT, reason=f"{name} nav hold") if q == 0 else
+                           PositionTarget(s, LONG if q > 0 else SHORT, qty=q,
+                                          reason=f"{name} nav hold"))
+            elif isinstance(w, tuple):
                 out.append(PositionTarget(s, LONG if w[1] > 0 else SHORT, qty=w[1],
                                           reason=f"{name} hold"))
             elif w == 0:
@@ -65,7 +73,8 @@ def sleeve(name, universe, wants, *, budget=1.0, vol=0.06, calls=None):
 
 
 def run(tmp_path, sleeves, *, positions=None, clock=MORNING, execution=None, navs=None,
-        closes=None, refresh_exit=0, preview=False, armed=True, bp=None):
+        closes=None, refresh_exit=0, preview=False, armed=True, bp=None, stale_nav=None,
+        nav_gate=None):
     """One session of the combined book (cls by default, armed, DRY_RUN=0) on the
     fake account; `plan` is None when the session wrote none (a FAIL)."""
     c, deps, state, _, out = make(
@@ -76,6 +85,7 @@ def run(tmp_path, sleeves, *, positions=None, clock=MORNING, execution=None, nav
     if bp is not None:
         c.bp = bp
     deps.sleeves = tuple(sleeves)
+    deps.stale_nav, deps.nav_gate = stale_nav, nav_gate
     if armed:
         (state / "AUTO_ARMED").touch()
     code = rn.run_session(BOOK, BOOK_SPEC, deps, preview=preview)
@@ -91,9 +101,50 @@ def by_symbol(orders):
     return out
 
 
-# ------------------------------------------------------------------ netting
+# ------------------------------------------------------------------ overlapping universes
 
-def test_a_long_and_a_short_in_one_symbol_send_one_order_of_the_net(tmp_path):
+def test_load_sleeves_refuses_enabled_sleeves_that_share_a_symbol(tmp_path):
+    """Release-check of 00ec423: accepted, the shared symbol nets from flat on day
+    one and every later slot FAILs on the position day one built."""
+    from quantt.session import combine as cmb
+    a = _spec_file(tmp_path, "a", {"AAA": 0.05, "BBB": 0.04})
+    b = _spec_file(tmp_path, "b", {"BBB": 0.30, "CCC": 0.20})
+    both = _book_file(tmp_path, "both.json", [
+        {"name": "A", "enabled": True, "spec_path": a, "risk_budget": 0.5},
+        {"name": "B", "enabled": True, "spec_path": b, "risk_budget": 0.5}])
+    with pytest.raises(cmb.CombineError, match=r"share \['BBB'\].*'BBB': \('A', 'B'\)"):
+        cmb.load_sleeves(both, tmp_path / "book.json", tmp_path, _make_targets)
+    # Disabled, the same sleeve is no overlap: only ENABLED universes count.
+    one_off = _book_file(tmp_path, "one_off.json", [
+        {"name": "A", "enabled": True, "spec_path": a, "risk_budget": 0.5},
+        {"name": "B", "enabled": False, "spec_path": b, "risk_budget": 0.5}])
+    assert [e.name for e in cmb.load_sleeves(one_off, tmp_path / "book.json", tmp_path,
+                                             _make_targets)] == ["A"]
+
+
+def test_a_session_whose_sleeves_share_a_symbol_fails_before_any_order(tmp_path):
+    """However the sleeves were built: the day-one netting that 00ec423 sent
+    (BBB +300 from flat) is refused, so no day-two lockout can follow."""
+    a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": 0.10})
+    b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.04, "CCC": -0.03})
+    r = run(tmp_path, [a, b])
+    assert r.code == rn.EXIT_FAIL and r.client.accepted == {} and r.plan is None
+    assert "share ['BBB']" in r.out and "sub-ledgers" in r.out
+
+
+# --------------------------------------- netting across sleeves: NOT YET ALLOWED
+# These exercise the cross-sleeve arithmetic kept for when per-sleeve sub-ledgers
+# exist, behind combine.SHARED_SYMBOLS_ALLOWED (False in production; the two
+# tests above prove it is refused). Not a supported configuration today.
+
+@pytest.fixture
+def shared_symbols_allowed(monkeypatch):
+    from quantt.session import combine as cmb
+    monkeypatch.setattr(cmb, "SHARED_SYMBOLS_ALLOWED", True)
+
+
+def test_not_yet_allowed_a_long_and_a_short_in_one_symbol_net_to_one_order(
+        tmp_path, shared_symbols_allowed):
     # A: BBB +0.10 -> +500 at $20 on $100k. B: BBB -0.04 -> -200. Net +300: ONE buy.
     a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": 0.10})
     b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.04, "CCC": -0.03})
@@ -109,7 +160,8 @@ def test_a_long_and_a_short_in_one_symbol_send_one_order_of_the_net(tmp_path):
     assert "B -200" in r.plan["targets"]["BBB"]["reason"]
 
 
-def test_two_sleeves_that_cross_exactly_send_nothing_in_that_symbol(tmp_path):
+def test_not_yet_allowed_two_sleeves_that_cross_exactly_send_nothing_in_that_symbol(
+        tmp_path, shared_symbols_allowed):
     a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": 0.04})
     b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.04, "CCC": -0.03})
     r = run(tmp_path, [a, b])
@@ -223,7 +275,7 @@ def test_the_send_gates_the_union_too(tmp_path):
 
 def test_per_sleeve_attribution_is_recorded_in_plan_json(tmp_path):
     a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": 0.10}, budget=0.8)
-    b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.04, "CCC": -0.03}, budget=0.5)
+    b = sleeve("B", ("CCC", "DDD"), {"CCC": -0.03, "DDD": -0.04}, budget=0.5)
     r = run(tmp_path, [a, b])
     c = r.plan["combine"]
     assert c["book_vol_target"] == 0.06 and list(c["sleeves"]) == ["A", "B"]
@@ -236,11 +288,11 @@ def test_per_sleeve_attribution_is_recorded_in_plan_json(tmp_path):
         "AAA": {"current": 0, "target": 400, "kind": "weight", "reason": "A w=+0.050"},
         "BBB": {"current": 0, "target": 400, "kind": "weight", "reason": "A w=+0.100"}}
     assert B["targets"] == {
-        "BBB": {"current": 0, "target": -100, "kind": "weight", "reason": "B w=-0.040"},
-        "CCC": {"current": 0, "target": -50, "kind": "weight", "reason": "B w=-0.030"}}
-    # The netted book is the sum, per symbol, of what the sleeves wanted.
+        "CCC": {"current": 0, "target": -50, "kind": "weight", "reason": "B w=-0.030"},
+        "DDD": {"current": 0, "target": -50, "kind": "weight", "reason": "B w=-0.040"}}
+    # The book is each symbol's one owner's target (universes are disjoint).
     assert {s: t["target"] for s, t in r.plan["targets"].items()} == \
-        {"AAA": 400, "BBB": 300, "CCC": -50}
+        {"AAA": 400, "BBB": 400, "CCC": -50, "DDD": -50}
     assert "sleeve A: decided, budget 0.8" in r.out and "sleeve_nav $50,000.00" in r.out
 
 
@@ -270,7 +322,7 @@ def _make_targets(spec):
 def test_a_disabled_sleeve_has_no_effect(tmp_path):
     from quantt.session import combine as cmb
     a = _spec_file(tmp_path, "a", {"AAA": 0.05, "BBB": 0.04})
-    b = _spec_file(tmp_path, "b", {"BBB": 0.30, "CCC": 0.20})
+    b = _spec_file(tmp_path, "b", {"CCC": 0.30, "DDD": 0.20})
     only = _book_file(tmp_path, "only_a.json",
                       [{"name": "A", "enabled": True, "spec_path": a, "risk_budget": 0.7}])
     with_b = _book_file(tmp_path, "a_and_b.json", [
@@ -414,9 +466,71 @@ def test_a_stale_nav_hold_goes_only_to_the_sleeve_that_owns_the_name(tmp_path):
     assert "nav_hold" not in plan["combine"]["sleeves"]["B"]
 
 
+def _incomplete_day(tmp_path):
+    """A NAV panel on which the refresh exits 4: CCC (sleeve B) has no NAV dated
+    ASOF. AAA (sleeve A) repeats its previous NAV and CEFConnect has no D row,
+    so the stale-NAV gate finds it UNVERIFIED. BBB and DDD moved: no trigger."""
+    import pandas as pd
+    from quantt.session.tests.test_nav_gate import PREV, PREV2, FakeCC
+    rows = {"AAA": (9.90, 10.00, 10.00), "BBB": (19.80, 20.00, 20.10),
+            "CCC": (29.70, 30.00, None), "DDD": (39.60, 40.00, 40.20)}
+    panel = tmp_path / "cef_nav.parquet"
+    pd.DataFrame([{"date": pd.Timestamp(d), "nav": v, "ticker": t}
+                  for t, vals in rows.items() for d, v in zip((PREV2, PREV, ASOF), vals)
+                  if v is not None]).to_parquet(panel)
+    cc = FakeCC({"AAA": (9.98, None), "BBB": (20.00, 20.10), "CCC": (30.00, None),
+                 "DDD": (40.00, 40.20)})
+    gate = ng.PanelGate(nav_path=panel, log_path=tmp_path / "nav_fallback_log.csv",
+                        lock_path=tmp_path / ".fetch.lock", reader=cc, lock_wait_s=1.0)
+    a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": -0.05})
+    b = sleeve("B", ("CCC", "DDD"), {"CCC": 0.20, "DDD": -0.20})
+    return [a, b], gate, (lambda asof, uni: rn.last_navs(panel, asof, uni)), panel
+
+
+def test_on_an_incomplete_refresh_the_stale_nav_gate_still_checks_the_sleeves_that_decide(
+        tmp_path):
+    """Release-check of 00ec423: on exit 4 `_nav_gate` did not run, gate 5 held
+    sleeve B at the final check, and sleeve A was sent with no stale-NAV check
+    (AAA bought on an unverified NAV) under a plan.json that said "gate 5
+    refuses the day". Now the gate runs over the union on a combined book."""
+    sleeves, gate, navs, panel = _incomplete_day(tmp_path)
+    before = panel.read_bytes()
+    r = run(tmp_path / "s", sleeves, navs=navs, positions={"AAA": 40, "CCC": 70},
+            refresh_exit=4, clock=FINAL, stale_nav=ng.ON, nav_gate=gate)
+    assert r.code == rn.EXIT_SENT and r.plan["refusals"] == []
+    g = r.plan["nav_gate"]
+    assert "not_run" not in g and g["refresh_exit"].startswith("4 (INCOMPLETE)")
+    acts = {c["ticker"]: (c["trigger"], c["action"]) for c in g["checks"]}
+    assert acts["AAA"][1] == "held"                  # unverified at the final check
+    assert acts["CCC"] == ("", "")                   # no NAV dated D: gate 5's, untouched
+    assert panel.read_bytes() == before              # nothing replaced, nothing written
+    c = r.plan["combine"]["sleeves"]
+    assert c["A"]["status"] == "decided" and c["A"]["nav_hold"] == ["AAA"]
+    assert c["B"]["status"] == "held"
+    # AAA kept at its shares (no order on an unverified NAV); BBB traded; B untouched.
+    assert sorted(o["symbol"] for o in r.client.accepted.values()) == ["BBB"]
+    assert r.plan["targets"]["AAA"]["target"] == 40 and r.plan["targets"]["CCC"]["target"] == 70
+    assert (r.state / ng.CSV_NAME).exists()          # the gate's own record, written first
+
+
+def test_on_an_incomplete_refresh_before_the_final_check_the_record_says_what_happened(tmp_path):
+    sleeves, gate, navs, _ = _incomplete_day(tmp_path)
+    r = run(tmp_path / "s", sleeves, navs=navs, positions={"AAA": 40, "CCC": 70},
+            refresh_exit=4, clock=MORNING, stale_nav=ng.ON, nav_gate=gate)
+    assert r.code == rn.EXIT_REFUSED and r.client.accepted == {}
+    g = r.plan["nav_gate"]
+    assert "not_run" not in g and g["would_defer"] is True and g["final_check"] is False
+    details = [x["detail"] for x in r.plan["refusals"]]
+    assert any(d.startswith("sleeve B: NAV not dated") for d in details)    # gate 5, per sleeve
+    assert any(d.startswith("stale-NAV gate: NAV unverified for ['AAA']") for d in details)
+
+
 # ------------------------------------------------------------------ what it refuses to guess
 
-def test_a_held_position_in_a_symbol_two_sleeves_trade_fails_naming_it(tmp_path):
+def test_not_yet_allowed_a_held_position_in_a_symbol_two_sleeves_trade_fails_naming_it(
+        tmp_path, shared_symbols_allowed):
+    """The check that stays behind SHARED_SYMBOLS_ALLOWED: even with it on, a held
+    shared position is never split by a guess."""
     a = sleeve("A", ("AAA", "BBB"), {"BBB": 0.05})
     b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.02})
     r = run(tmp_path, [a, b], positions={"BBB": 100})

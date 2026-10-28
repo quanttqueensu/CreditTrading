@@ -712,9 +712,23 @@ def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_c
     stop. In report mode it changes nothing that trades, so an error is
     recorded as UNMEASURED and the session goes on, like the pre-flight.
     `record_csv(result)` is the gate's record; in act mode the gate writes it
-    BEFORE it writes the panel (nav_gate.PanelGate.run, RECORD FIRST)."""
+    BEFORE it writes the panel (nav_gate.PanelGate.run, RECORD FIRST).
+
+    A COMBINED BOOK ON AN INCOMPLETE REFRESH (combine.py; release-check of
+    00ec423). There, exit 4 is not "nothing is decided": gate 5 holds the
+    sleeves whose names are incomplete from the final check and the others
+    DECIDE (`gate.gate_data_by_sleeve`), so skipping the gate sent those
+    sleeves with no stale-NAV check while plan.json said gate 5 refused the
+    day. So on a combined book the gate runs on exit 4, over every enabled
+    sleeve's names, exactly as on exit 0. That is safe because the gate never
+    acts on a name with no NAV dated as-of (`nav_gate.judge`: "not this
+    gate's", gate 5's) and only ever rewrites a row dated as-of that exists;
+    fetch_daily wrote the panel whole before it returned 4. The record says so
+    (`refresh_exit`). The single-sleeve book is unchanged: any failed refresh
+    there is gate 5's refusal of the day."""
     mode = deps.stale_nav
-    if refresh_exit is not None and refresh_exit != 0:
+    on_incomplete = deps.sleeves is not None and gt.refresh_incomplete(refresh_exit)
+    if refresh_exit is not None and refresh_exit != 0 and not on_incomplete:
         return {"mode": mode, "not_run": f"the refresh did not pass ({refresh_exit}); "
                                          f"gate 5 refuses the day"}, None
     if deps.nav_gate is None:
@@ -726,8 +740,19 @@ def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_c
     except Exception as e:  # report mode only: recorded, never swallowed (docstring)
         if mode != ng.REPORT:
             raise
-        return {"mode": mode, "unmeasured": f"{type(e).__name__}: {e}"}, None
-    return res.to_dict(), res
+        out = {"mode": mode, "unmeasured": f"{type(e).__name__}: {e}"}
+        if on_incomplete:
+            out["refresh_exit"] = INCOMPLETE_NOTE
+        return out, None
+    if not on_incomplete:
+        return res.to_dict(), res
+    return {**res.to_dict(), "refresh_exit": INCOMPLETE_NOTE}, res
+
+
+# What a combined book's stale-NAV record says when the gate ran on exit 4 (`_nav_gate`).
+INCOMPLETE_NOTE = (f"{gt.REFRESH_INCOMPLETE} (INCOMPLETE): the gate ran over every enabled "
+                   f"sleeve's names; a name with no NAV dated as-of is gate 5's, which holds "
+                   f"its sleeve from the final check or refuses the decide before it")
 
 
 @dataclass
