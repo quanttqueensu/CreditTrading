@@ -83,7 +83,7 @@ phase('Gate')
 const gate = need(await agent(`Run the loop's pre-flight for ${D}. Read-only except where stated.
 1. Run python3 -m ops.orient. research_ok=false if the book is not trading cleanly: a WARNING that both machines are armed, the last session verdict is not PASS, or orient reports an incident. Operations outrank research (the /next-task skill). Give the reason.
 2. self_approval_recorded = whether CLAUDE.md in THIS checkout contains the sentence "The research loop approves its own trials" AND docs/SYSTEM.md §5 has the block "Team lead, 2026-10-27: the autonomous loop and the harness". Check with grep. Do not infer it from memory or from another branch.
-3. lab_book_exists = whether quantt/session/run.py's BOOKS dict has a lab book (python3 -c "from quantt.session.run import BOOKS; print(sorted(BOOKS))"; a key naming the lab).
+3. lab_book_exists = whether the lab can trade: quantt/session/run.py's BOOKS dict has a book that carries lab sleeves (python3 -c "from quantt.session.run import BOOKS; print(sorted(BOOKS))"). Since 2026-10-28 the lab shares the account C4 trades in (docs/SYSTEM.md §5), so that is a lab book netted with C4's targets, or C4's book carrying lab sleeves. A separate book on the same account does not count.
 4. checkout_clean = whether git status --porcelain --untracked-files=no is empty. Also report the branch and HEAD.
 5. Put orient's PANELS last dates in why. Stale is a form of wrong. A fit-period (pre-2023) study can proceed on a stale panel; anything that reads 2023+ must name the panel's last date in its report.`,
   { label: 'gate', phase: 'Gate', schema: GATE }), 'the gate')

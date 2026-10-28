@@ -83,9 +83,10 @@ that cannot be undone.
    runs it with `!`"; the team lead asked agents to run the migration commands
    themselves, and this is that instruction made durable.)
    **One recorded exception (team lead, 2026-10-27), paper only.** The
-   autonomous research loop may transmit to the **agent-lab** Alpaca paper
-   account without a per-session go. It does so only through the `quantt` runner
-   for that book, never by an ad-hoc API call. The loop may also promote a lab
+   autonomous research loop may transmit to the **agent-lab** paper account
+   without a per-session go. Since 2026-10-28 that is the spare connector account
+   C4 trades in, not a new one. It does so only through the `quantt` runner for
+   that account, never by an ad-hoc API call. The loop may also promote a lab
    sleeve into the main paper book once the criteria fixed in its
    pre-registration are met; installing on the VM still needs the team lead's
    `!`. Rules 2–5 bind every one of those transmissions. It never applies to a
