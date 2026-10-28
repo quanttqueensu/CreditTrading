@@ -603,6 +603,7 @@ rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
 | Evidence outcome | **Every verdict records PRESENT / ABSENT / INCONCLUSIVE beside its D-code**, and C5, E1 and X1 are relabelled (`docs/RESEARCH_STATE.md`, 2026-10-27 note) |
 | The audit's zero-trial re-opens | **All queued, in this order:** (1) NAV tenders and E1 judged by their contribution to the book, on fit-period series only; (2) C5 as an execution choice, with the opening-auction cost re-measured on 2023–26 quotes; (3) X3 hedged against TERM, power check first because its holdout is spent; (4) A1 as a conditioner, G2's two named inputs, MA-HZ on the 2001 census. Each spends no trial; any test that follows is pre-registered |
 | Trial P&L series | **Backfill what is reproducible.** Re-run each past trial whose script still reproduces, store its daily series, and list those that cannot be rebuilt. The desk's bar keeps gating until it is done |
+| Admission by marginal contribution, after re-open (1) (**2026-10-28**) | **Kept as written:** "Kept the paper-admission rule as written, after seeing that, under the 1.80× cap, NAV tenders lowers the book's Sharpe and E1 leaves it flat." Ruled on the first version of `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` (b43bf35). That note's paper view, with book and sleeve both on price returns, was found afterwards by an independent review: NAV tenders no longer meets the rule, and E1 still does. **The team lead has not ruled on the paper view** |
 
 ## 6. Governance — where each rule lives
 
@@ -641,3 +642,4 @@ rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
 | 2026-10-22 | §5 records the pod: the lanes, review and merge, GitHub access and analysts' data access; §6 points at `docs/TEAM.md`. | team setup, for the team lead |
 | 2026-10-22 | §5 records the lanes revised: MACRO (a new counter), equities and ETFs on XASSET, the dashboard; EVENTS and GAMMA work to the team lead; branches renamed. | team setup, for the team lead |
 | 2026-10-26 | §5 records what the lanes feed (one multi-sleeve book), no hand-offs, MACRO widened to all of fixed income, the data platform to the dashboard lane, the dashboard's snapshot in the repository, and the branches renamed for the people. | team setup, for the team lead |
+| 2026-10-28 | §5's research-method table records the team lead's 2026-10-28 ruling to keep the paper-admission rule as written, and that the later paper-view finding is not ruled on. | re-open (1), for the team lead |
