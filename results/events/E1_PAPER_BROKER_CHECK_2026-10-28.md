@@ -46,3 +46,25 @@ not a research one. `CLAUDE.md` landmine 1 now says so.
   where the acquirer cannot be borrowed.
 - **IBKR paper** (the second broker, equities only; team lead, 2026-10-19). Whether IBKR paper processes
   CEF mergers is **[U]**. The team lead holds that account.
+
+## Team lead, 2026-10-28: try IBKR paper
+
+The team lead chose IBKR paper. Whether IBKR paper processes corporate actions is **[U]**:
+- No IBKR source found says so either way. IBKR's knowledge base describes live processing only
+  (https://ibkb.interactivebrokers.com/fr/node/1084): "the processing of mandatory corporate actions
+  (e.g. … stock splits, effective mergers …)".
+- The IBKR-era records cannot answer it either. The retired prod tree's
+  `results/ops/LEDGER_DIVERGENCE_2026-09-10.md` says the account's cash "is a plug, not an observation".
+
+**The check, which needs the team lead's IBKR login.** From 2026-07-30 to 2026-09-15 the book held credit
+CEFs in the IBKR paper account, and every one of them paid monthly distributions.
+1. In Client Portal, open the paper account's Activity Statement for 2026-07-30 → 2026-09-28. Under
+   Performance & Reports → Statements, choose a custom date range.
+2. Check the **Dividends** section (and any **Payment in Lieu of Dividends** on shorts) and the
+   **Corporate Actions** section.
+3. Dividend lines on the CEFs held there mean IBKR paper applies cash corporate actions. A merger is
+   then likely but not proven: confirm it with IBKR support, or watch the next pending CEF merger.
+   No dividend lines mean IBKR paper is like Alpaca paper, and E1 cannot run there either.
+
+If IBKR paper processes mergers, the next step is shortability at IBKR. The 2026-10-13 G1a note found
+most muni shorts available there, at a median fee of 9.43%/yr [S].
