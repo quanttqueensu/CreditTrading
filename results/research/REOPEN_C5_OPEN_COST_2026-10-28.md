@@ -23,6 +23,30 @@ opening-auction cost re-measured on 2023–26 quotes".
 
 ---
 
+## Update, 2026-10-28 evening: the 2023–26 sample, the primary reading
+
+The team lead had the 2023–26 quotes fetched: 64 sessions, 415 read-only requests, done
+2026-10-28T21:28Z, written to the gitignored `_cache_reopen_c5_2023`. The design was committed before
+they existed, and under it this sample is now the **primary** reading. Reproducer: the command above, plus
+`--stride-cache results/research/reopen_c5/_cache_reopen_c5_2023 --stamp 2026-10-28-stride`. Outputs are
+in `results/research/reopen_c5/*_2026-10-28-stride.*` [V].
+
+| reading | `s_open` | net per unit of turnover (SE) | interval | outcome |
+|---|---|---|---|---|
+| **2023–26 stride, primary** | **3.735bp** (SE 0.936; h5 binds) | **+3.382bp** (1.816) | [−0.18, +6.94] | **INCONCLUSIVE**; the 1bp hurdle straddles the interval |
+| 2026-Q3 window, beside | 2.021bp | +5.096bp (1.756) | [+1.66, +8.54] | PRESENT |
+| the trial's own 6.516bp, beside | 6.516bp | +0.601bp (1.851) | [−3.03, +4.23] | INCONCLUSIVE |
+
+- **The single-quarter PRESENT does not survive the full sample.** 2023–26 `s_open` landed at 3.7bp, which
+  is where this note's caveat said the reading would turn. By year: 2023 is +7.6bp (h5), 2024 +0.9bp, 2025
+  +3.4bp, 2026 +2.7bp.
+- **More quotes would barely help.** The net's SE is now mostly the holdout gain's (1.556bp), not the
+  cost's (0.936bp). Measuring the cost on every 2023–26 session would cut its SE to about 0.25bp, and that
+  is not enough to decide.
+- **C5 as an execution choice stays INCONCLUSIVE.** Its point estimate is positive: about +149bp a year of
+  capital, which is not established. Nothing in this note supports proposing a move from MOC to the open.
+- No independent review was run on this update. The result supports no change to the live book.
+
 ## The answer in brief
 
 | question | answer |
