@@ -402,3 +402,20 @@ def test_declared_basket_excludes_unfound_declarations_and_keeps_late_ones():
     # PDI out (declared by e-1); HYT in (declared after e-1: a surprise); NAD out only under "exclude"
     assert n_ex.iloc[0] == 16 - 2 and n_kp.iloc[0] == 16 - 1
     assert c_ex["no_release_legs"] == 1 and c_ex["declared_after_e_minus_1_legs_kept"] == 1
+
+
+def test_x4_basis_check_passes_equal_closes_and_flags_a_basis_gap(tmp_path, monkeypatch):
+    s = _sessions("2026-02-02", 15)
+    cells = pd.DataFrame({"ticker": ["PTY", "PDI"], "date": [s[5], s[5]], "close": [10.0, 20.0], "volume": [1.0, 1.0]})
+    adj = pd.DataFrame({"ticker": ["PTY", "PTY", "PDI", "PDI"], "date": [s[4], s[6], s[4], s[6]],
+                        "close": [10.00, 10.10, 20.00, 20.60], "volume": 1.0})
+    px = pd.DataFrame({"date": [s[4], s[6], s[4], s[6]], "ticker": ["PTY", "PTY", "PDI", "PDI"],
+                       "close": [10.00, 10.10, 20.00, 20.00]})
+    for name, df in (("bars.parquet", cells), ("adj.parquet", adj), ("px.parquet", px)):
+        df.to_parquet(tmp_path / name, index=False)
+    monkeypatch.setattr(x, "ALPACA_BARS", tmp_path / "bars.parquet")
+    monkeypatch.setattr(x, "ALPACA_ADJ_BARS", tmp_path / "adj.parquet")
+    monkeypatch.setattr(x, "PRICES", tmp_path / "px.parquet")
+    rows, st = x.x4_basis_check(pd.DatetimeIndex(s))
+    assert st["pass"] == 1 and st["fail"] == 1
+    assert [r["ticker"] for r in rows] == ["PDI"] and rows[0]["check"] == "X4_basis_mismatch"

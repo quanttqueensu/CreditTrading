@@ -141,9 +141,9 @@
    "same_day": 319,
    "within_1_day": 320
   },
-  "how": "stage (offline, from a cached extract)",
+  "how": "pull (R2, live)",
   "no_crsp_row": 0,
-  "pulled_utc": "2026-10-19T19:58:25+00:00",
+  "pulled_utc": "2026-10-28T20:39:10+00:00",
   "record_mismatch": 0,
   "recovered": 86,
   "recovered_late": 0
@@ -397,7 +397,7 @@
   "DG-X8": "PASS"
  },
  "input_pins_sha256": {
-  "alpaca_adjacent_bars": null,
+  "alpaca_adjacent_bars": "4c0c058fdee1109fba35333f2bc11aa1607f094ac234eb870b69b3e2bbb37e56",
   "alpaca_bars": "7fd6968b14dccddcc0f1738f6b511d8a6e205d323af8b30f8a26d11db96714d9",
   "alpaca_dividends": "0b1380f221e89806c7f641dbcfef53dbfa7d6aa8885b4640e05c4fedc36445a0",
   "declarations_final": "bdf817974d18ccca70263017a1df2b5c15c79ba230a350b3f756c0b6cebe4e18",
@@ -440,5 +440,12 @@
   "NZF"
  ],
  "stage0": "CLEAR",
- "stamp": "2026-10-27"
+ "stamp": "2026-10-27",
+ "x4_basis_check_O4": {
+  "cells": 24,
+  "fail": 0,
+  "largest_gap_cents": 0.0,
+  "pass": 24,
+  "tolerance_usd": 0.01
+ }
 }

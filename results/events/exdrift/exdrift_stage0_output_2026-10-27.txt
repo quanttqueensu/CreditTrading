@@ -1,4 +1,4 @@
-EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T17:53:39+00:00)
+EXDRIFT STAGE 0 (2026-10-27; EVENTS trial 3, N = 7; run 2026-10-28T20:40:19+00:00)
 spec cef_discount.v7.20260928; the 17: AWF, BIT, DSL, HYT, JFR, MHD, MQY, PCN, PDI, PDO, PFN, PHK, PTY, NAD, NEA, NVG, NZF. 2023+: dates, counts, presence and flags only.
 
 price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 = 950 sessions
@@ -28,7 +28,7 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
   events 'not declared by e-1' on Alpaca's field (printed only: the field is invalid): 32; by ex-date: 2023-01-12 BIT,HYT,JFR,MHD,MQY,NAD,NEA,NVG,NZF,PCN,PDI,PDO,PFN,PHK,PTY; 2023-01-18 DSL; 2023-02-02 AWF; 2023-08-14 BIT,HYT,JFR,MHD,MQY,NAD,NEA,NVG,NZF; 2025-04-11 PCN,PDI,PDO,PFN,PHK,PTY
 
 [DG-X2] declarations from the sponsors' own releases (exdrift_sponsor_declarations_2026-10-28.csv; the team lead's ruling of 2026-10-28): every quote re-found offline
-  not-found events recovered from CRSP dsedist.dclrdt (ruling of 2026-10-28, 2023-24 only): {'crsp_rows': 412, 'attempted': 86, 'recovered': 86, 'recovered_late': 0, 'no_crsp_row': 0, 'record_mismatch': 0, 'how': 'stage (offline, from a cached extract)', 'pulled_utc': '2026-10-19T19:58:25+00:00', 'crsp_vs_release_where_both': {'events': 324, 'same_day': 319, 'within_1_day': 320, 'crsp_later': 4, 'crsp_earlier': 0}}
+  not-found events recovered from CRSP dsedist.dclrdt (ruling of 2026-10-28, 2023-24 only): {'crsp_rows': 412, 'attempted': 86, 'recovered': 86, 'recovered_late': 0, 'no_crsp_row': 0, 'record_mismatch': 0, 'how': 'pull (R2, live)', 'pulled_utc': '2026-10-28T20:39:10+00:00', 'crsp_vs_release_where_both': {'events': 324, 'same_day': 319, 'within_1_day': 320, 'crsp_later': 4, 'crsp_earlier': 0}}
   Alpaca's declaration_date against the sponsor table: 0 agree, 679 contradict, of 679
   coverage of the test events by sponsor:
     col                by_e-1_release  by_e-1_crsp  declared_late  not_found
@@ -39,6 +39,7 @@ price panel sessions (17): 1992-07-20..2026-10-15; test 2023-01-03..2026-10-15 =
     Nuveen                         42           84              0        100
     PIMCO                         270            0              0          0
   {'events': 768, 'declared_by_e_minus_1': 668, 'of_which_from_crsp': 86, 'declared_on_e_minus_1': 0, 'declared_by_e_minus_2': 668, 'not_found': 100, 'declared_late': 0, 'lead_sessions_min_median_max': [4, 8.0, 74], 'by_sponsor': {'AllianceBernstein': {'by_e-1_release': 48, 'by_e-1_crsp': 0, 'declared_late': 0, 'not_found': 0}, 'BlackRock': {'by_e-1_release': 177, 'by_e-1_crsp': 2, 'declared_late': 0, 'not_found': 0}, 'DoubleLine': {'by_e-1_release': 45, 'by_e-1_crsp': 0, 'declared_late': 0, 'not_found': 0}, 'Nuveen': {'by_e-1_release': 42, 'by_e-1_crsp': 84, 'declared_late': 0, 'not_found': 100}, 'PIMCO': {'by_e-1_release': 270, 'by_e-1_crsp': 0, 'declared_late': 0, 'not_found': 0}}, 'releases': 191}
+  O4 basis check of the X4 fills (Alpaca vs yfinance on e-1 and e+1, within $0.01; presence and basis only): {'cells': 24, 'pass': 24, 'fail': 0, 'largest_gap_cents': 0.0, 'tolerance_usd': 0.01}
   every missing close in the 17's test-window panel: 24 cell(s), 24 of them on the fund's own ex-date; dates ['2026-02-12', '2026-02-13', '2026-02-18', '2026-03-18', '2026-09-15']
 
 [DG-X4] bars: event-fund bars on e..e+3 and fill-day volume; the spike-and-revert guard ({'spike_revert': 0, 'unreverted': 0}); 25 flag(s)

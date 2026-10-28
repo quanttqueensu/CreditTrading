@@ -31,6 +31,20 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
+> **2026-10-28, after the team lead's `run_exdrift_r2.sh`: Stage 0 re-run, CLEAR.**
+> - **The live CRSP pull** (`pull (R2, live)`, 2026-10-28T20:39Z) holds 412 rows. It is identical to the
+>   provisional offline staging, row by row on every field Stage 0 uses: permno, distcd, dclrdt, exdt,
+>   rcrddt, paydt and divamt. There is nothing to rule. The 86 recoveries stand.
+> - **O4.** All 24 X4 fills pass the adjacent-bar basis check: on e−1 and e+1, Alpaca's raw SIP close
+>   and yfinance's close agree within $0.01, and the largest gap is 0.0 cents. Only presence and basis
+>   were checked; no return was formed.
+> - **Stage 0 CLEAR.** All 757 flags are ruled, and the input hashes are recorded for 10 inputs,
+>   including the adjacent bars. **649 events are eligible** (548 on the 13), T = 946.
+> - **Left before `open`:** French's 202610 vintage, covering through 2026-10-09 and the lag row; and
+>   the team lead's GO row, with `--team-lead-go` equal to its date.
+>
+> ---
+>
 > **2026-10-28, final: amendment 1 WITHDRAWN; `open` runs the ORIGINAL design** (team lead).
 > - The pre-registration records the withdrawal with its reasons.
 > - **The known risk is recorded with it:** every 3.8-year fit era failed D4 on its own, and the test

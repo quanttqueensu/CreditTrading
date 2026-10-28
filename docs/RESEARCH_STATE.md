@@ -77,6 +77,9 @@ counter (156) covers all ETF-price/PD work done to date.
 > - **2026-10-28, final: amendment 1 WITHDRAWN** (team lead). `open` runs the original design, with the window ending
 >   2026-10-09. Known risk: every 3.8-year fit era failed D4 alone. `open` is not run. It waits on the team lead's
 >   `run_exdrift_r2.sh`, a Stage-0 re-run that re-records the input hashes, French's 202610 vintage, and the GO row.
+> - **2026-10-28, after the team lead's R2 run:** the live CRSP pull matches the provisional staging exactly. O4 passes
+>   on all 24 fills. Stage 0 is re-run CLEAR with the input hashes recorded: 649 events. `open` waits only on French's
+>   202610 vintage and the GO row.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:

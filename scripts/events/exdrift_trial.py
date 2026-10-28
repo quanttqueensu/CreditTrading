@@ -639,6 +639,54 @@ def bar_guard_flags(sessions: pd.DatetimeIndex, splits: pd.DataFrame) -> tuple[l
     return rows, {"spike_revert": int(len(H)), "unreverted": int(len(U))}
 
 
+def x4_basis_check(sessions: pd.DatetimeIndex, tol: float = 0.01) -> tuple[list, dict]:
+    """Ruling O4 (team lead, 2026-10-28), at Stage 0: for each filled X4 cell (ticker, e), Alpaca's raw
+    SIP close and yfinance's close must both exist on e-1 and on e+1, and agree within $0.01.
+
+    This is C4's adjacent-bar check. Two sources' closes on the same session are compared for share
+    basis. No return and no price change is formed, and no level is printed: a pass/fail per cell
+    and the largest gap in cents only. A failing cell is a flag (`X4_basis_mismatch`) for a ruling."""
+    if not (ALPACA_BARS.exists() and ALPACA_ADJ_BARS.exists()):
+        return [], {"status": "adjacent bars not fetched"}
+    cells = pd.read_parquet(ALPACA_BARS, columns=["ticker", "date"])
+    adj = pd.read_parquet(ALPACA_ADJ_BARS, columns=["ticker", "date", "close"])
+    for f_ in (cells, adj):
+        f_["date"] = pd.to_datetime(f_["date"])
+    _only_names(cells, "x4 cells")
+    _only_names(adj, "x4 adjacent bars")
+    need = []
+    for t, d in zip(cells.ticker, cells.date):
+        i = sessions.get_loc(d)
+        need += [(t, sessions[i - 1]), (t, sessions[i + 1])]
+    days = sorted({d for _, d in need})
+    yf = pd.read_parquet(PRICES, columns=["date", "ticker", "close"], filters=[("ticker", "in", sorted(set(cells.ticker))),
+                                                                            ("date", "in", days)])
+    yf["date"] = pd.to_datetime(yf["date"])
+    yk = {(t, d): c for t, d, c in zip(yf.ticker, yf.date, yf.close)}
+    ak = {(t, d): c for t, d, c in zip(adj.ticker, adj.date, adj.close)}
+    rows, worst, n_ok = [], 0.0, 0
+    for t, d in zip(cells.ticker, cells.date):
+        i = sessions.get_loc(d)
+        ok, why = True, []
+        for nb in (sessions[i - 1], sessions[i + 1]):
+            a, y = ak.get((t, nb)), yk.get((t, nb))
+            if a is None or y is None or not (np.isfinite(a) and np.isfinite(y)):
+                ok = False
+                why.append(f"{nb.date()}: {'no Alpaca bar' if a is None else 'no yfinance close'}")
+                continue
+            gap = abs(float(a) - float(y))
+            worst = max(worst, gap)
+            if gap > tol:
+                ok = False
+                why.append(f"{nb.date()}: gap {100 * gap:.1f} cents")
+        n_ok += int(ok)
+        if not ok:
+            _flag(rows, "X4_basis_mismatch", t, d, "DG-X4", str(d.date()), "; ".join(why),
+                  "rule whether the Alpaca fill stands for this cell (ruling O4 requires agreement within $0.01)")
+    return rows, {"cells": int(len(cells)), "pass": n_ok, "fail": int(len(cells)) - n_ok,
+                  "largest_gap_cents": round(100 * worst, 2), "tolerance_usd": tol}
+
+
 def missing_close_cells(close_ok: pd.DataFrame, test_sess: pd.DatetimeIndex, dist: pd.DataFrame) -> dict:
     """Every (ticker, session) of the test window with no close, and how many fall on that fund's
     own ex-date (presence only). A pattern here is a fetcher defect, not a market fact."""
@@ -1242,6 +1290,10 @@ def stage0(write: bool = True) -> dict:
               "rule 3 (R1) masks the fund's returns within +-5 sessions, so no event or basket leg books it; confirm "
               "the factor is not a share-basis change of the close")
     n4 = sum(1 for r in rows if r["gate"] == "DG-X4")
+    xb_rows, xb = x4_basis_check(sessions)
+    rows += xb_rows
+    rec["x4_basis_check_O4"] = xb
+    say(f"  O4 basis check of the X4 fills (Alpaca vs yfinance on e-1 and e+1, within $0.01; presence and basis only): {xb}")
     mc = missing_close_cells(close_ok, test_sess, dn)
     say(f"  every missing close in the 17's test-window panel: {mc['cells']} cell(s), {mc['on_own_ex_date']} of them on "
         f"the fund's own ex-date; dates {mc['dates']}")
@@ -1497,6 +1549,7 @@ CLASS_RULINGS = {
            "limitation, named in the opening's report: the hedge basket's exclusion window uses ex-dates that may "
            "not have been public at decide time",
     "X2_crsp_record_mismatch": "UNRULED: needs the team lead",
+    "X4_basis_mismatch": "UNRULED: needs the team lead",
 }
 
 
