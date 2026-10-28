@@ -1,5 +1,5 @@
 {
- "all_flags_ruled": false,
+ "all_flags_ruled": true,
  "calendar": {
   "first": "1992-07-20",
   "last": "2026-10-15",
@@ -73,10 +73,57 @@
   "yf_ex_dates": 769
  },
  "dg_x2": {
-  "declared_by_e_minus_1": 736,
-  "declared_by_e_minus_2": 410,
-  "declared_on_e_minus_1": 273,
-  "not_declared_by_e_minus_1": 32
+  "by_sponsor": {
+   "AllianceBernstein": {
+    "declared_by_e_minus_1": 48,
+    "declared_late": 0,
+    "not_found": 0
+   },
+   "BlackRock": {
+    "declared_by_e_minus_1": 177,
+    "declared_late": 0,
+    "not_found": 2
+   },
+   "DoubleLine": {
+    "declared_by_e_minus_1": 45,
+    "declared_late": 0,
+    "not_found": 0
+   },
+   "Nuveen": {
+    "declared_by_e_minus_1": 42,
+    "declared_late": 0,
+    "not_found": 184
+   },
+   "PIMCO": {
+    "declared_by_e_minus_1": 270,
+    "declared_late": 0,
+    "not_found": 0
+   }
+  },
+  "declared_by_e_minus_1": 582,
+  "declared_by_e_minus_2": 582,
+  "declared_late": 0,
+  "declared_on_e_minus_1": 0,
+  "events": 768,
+  "lead_sessions_min_median_max": [
+   4,
+   8.0,
+   74
+  ],
+  "not_found": 186,
+  "releases": 191
+ },
+ "dg_x2_alpaca_vs_sponsor": {
+  "announcements": 785,
+  "notices": 593,
+  "notices_agree": 0,
+  "notices_contradict": 593,
+  "record_minus_declaration_weekdays": {
+   "-1": 6,
+   "1": 86,
+   "2": 688,
+   "3": 5
+  }
  },
  "dg_x2_field_check": {
   "announcements": 785,
@@ -248,25 +295,58 @@
   "status": "PASS",
   "use_numexpr_option": false
  },
- "eligible_realised_calendar": {
-  "X4 cells filled from Alpaca SIP": {
-   "basket_lt3": 39,
-   "dates": 135,
-   "events": 729,
-   "events_13": 548,
-   "excluded_no_bar": 0
+ "eligible": {
+  "as ruled: X4 cells filled; no-release basket legs excluded (R10)": {
+   "basket_lt3": 37,
+   "calendar_surprise_legs": {
+    "declared_after_e_minus_1_legs_kept": 69,
+    "no_release_legs": 1210,
+    "no_release_treatment": "exclude"
+   },
+   "dates": 133,
+   "events": 545,
+   "events_13": 511,
+   "excluded_declaration": 186,
+   "excluded_no_bar": 0,
+   "months": 46
   },
-  "X4 cells not filled (their events excluded)": {
-   "basket_lt3": 39,
-   "dates": 130,
-   "events": 705,
-   "events_13": 532,
-   "excluded_no_bar": 24
+  "beside: X4 cells not filled": {
+   "basket_lt3": 37,
+   "calendar_surprise_legs": {
+    "declared_after_e_minus_1_legs_kept": 69,
+    "no_release_legs": 1210,
+    "no_release_treatment": "exclude"
+   },
+   "dates": 128,
+   "events": 531,
+   "events_13": 497,
+   "excluded_declaration": 186,
+   "excluded_no_bar": 14,
+   "months": 45
+  },
+  "beside: no-release basket legs kept": {
+   "basket_lt3": 7,
+   "calendar_surprise_legs": {
+    "declared_after_e_minus_1_legs_kept": 69,
+    "no_release_legs": 1210,
+    "no_release_treatment": "keep"
+   },
+   "dates": 162,
+   "events": 575,
+   "events_13": 541,
+   "excluded_declaration": 186,
+   "excluded_no_bar": 0,
+   "months": 46
   }
  },
- "flags": 657,
+ "factor_window": [
+  "2023-01-13",
+  "2026-10-06"
+ ],
+ "flags": 843,
  "flags_by_check": {
   "R1": 1,
+  "R10": 1,
   "R2": 1,
   "R3": 1,
   "R4": 1,
@@ -276,7 +356,7 @@
   "R8": 1,
   "R9": 1,
   "X1_amount_mismatch": 32,
-  "X2_source_invalid": 1,
+  "X2_not_found": 186,
   "X4_no_bar": 24,
   "X4_split": 1,
   "X5_nav_repeat": 552,
@@ -285,7 +365,7 @@
  },
  "gates": {
   "DG-X1": "FLAGGED",
-  "DG-X2": "FAIL",
+  "DG-X2": "FLAGGED",
   "DG-X3": "PASS",
   "DG-X4": "FLAGGED",
   "DG-X5": "FLAGGED",
@@ -324,6 +404,6 @@
   "NVG",
   "NZF"
  ],
- "stage0": "HALTED",
+ "stage0": "CLEAR",
  "stamp": "2026-10-27"
 }

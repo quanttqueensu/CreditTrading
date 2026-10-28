@@ -329,3 +329,74 @@ def test_verify_notices_refuses_a_quote_its_document_lacks(tmp_path):
                    "quote_fund": "(NYSE: PTY)"}]).to_csv(p, index=False)
     with pytest.raises(x.Stage0Error, match="not found"):
         x.verify_notices(p, cache)
+
+
+# --------------------------------------------------------------------------- the rulings and fit-k
+
+def test_every_flag_class_has_a_ruling_or_raises():
+    assert "excluded and counted" in x.ruling_for("X2_not_found", "-")
+    assert "book as is" in x.ruling_for("X5_nav_repeat", "2025-01-15 (e+1)")
+    assert "NAV leg" in x.ruling_for("X5_nav_repeat", "2025-01-15 (e+3)")
+    with pytest.raises(x.Stage0Error):
+        x.ruling_for("X5_nav_repeat", "2025-01-15 (e+1); 2025-02-14 (e+3)")
+    with pytest.raises(x.Stage0Error):
+        x.ruling_for("X9_unknown", "-")
+    for code, *_ in x.READINGS:
+        assert x.ruling_for(code, "-")
+
+
+def test_apply_rulings_fills_every_row_and_never_rewrites_a_different_record(tmp_path):
+    F, fp = _flags(tmp_path)
+    rp = tmp_path / "r.csv"
+    dg.stage0_rulings_template(F, rp)
+    R = x.apply_rulings(fp, rp)
+    assert (R.ruled_by == "team lead").all() and (R.ruled_on == "2026-10-28").all()
+    assert len(x.require_stage0_rulings_only(fp, rp, check_git=False)) == 2
+    x.apply_rulings(fp, rp)                                   # identical: allowed
+    old = pd.read_csv(rp, dtype=str, keep_default_na=False)
+    old.loc[0, "ruling"] = "something else"
+    old.to_csv(rp, index=False)
+    with pytest.raises(dg.Stage0BlockError, match="different rulings"):
+        x.apply_rulings(fp, rp)
+
+
+def _fit_panel(seed=0):
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2010-01-04", periods=200)
+    ret = pd.DataFrame(rng.normal(0, 0.01, (len(idx), len(x.NAMES))), index=idx, columns=list(x.NAMES))
+    ex = [idx[i] for i in (20, 60, 100, 140)]
+    dist = pd.DataFrame({"ticker": "PTY", "ex_date": ex, "amount": 0.1, "stock_split": 0.0})
+    return ret, dist
+
+
+def test_fit_k_core_scales_to_the_vol_target_and_counts_cap_binding():
+    ret, dist = _fit_panel()
+    out = x.fit_k_core(ret, dist, cap=10.0, vol_target=0.06)
+    assert out["events"] == 4 and out["active_sessions"] == 12
+    assert out["k"] * out["sigma_active_annual"] == pytest.approx(0.06)
+    assert out["cap_binding_rows"] == 0
+    tight = x.fit_k_core(ret, dist, cap=1e-6, vol_target=0.06)
+    assert tight["cap_binding_share"] == 1.0
+
+
+def test_fit_k_core_refuses_a_test_row():
+    ret, dist = _fit_panel()
+    ret.index = pd.bdate_range("2022-06-01", periods=len(ret))
+    with pytest.raises(x.Stage0Error):
+        x.fit_k_core(ret, dist, cap=1.8, vol_target=0.06)
+
+
+def test_declared_basket_excludes_unfound_declarations_and_keeps_late_ones():
+    s = _sessions("2025-01-02", 40)
+    p = 10
+    ev = pd.DataFrame({"ticker": ["PTY"], "ex_date": [s[p]], "p": [p]})
+    decl = pd.DataFrame({"status": 200, "ticker": ["PTY", "NAD", "HYT", "PDI"],
+                         "ex_date": [s[p], s[p + 4], s[p + 5], s[p + 6]],
+                         "declaration_date": [s[p - 5], pd.NaT, s[p + 1], s[p - 3]]})
+    ok = pd.DataFrame(True, index=s, columns=list(x.NAMES))
+    none = pd.DataFrame(columns=["ticker", "ex_date", "stock_split"])
+    n_ex, c_ex = x.declared_baskets(ev, decl, s, ok, none, unknown="exclude")
+    n_kp, c_kp = x.declared_baskets(ev, decl, s, ok, none, unknown="keep")
+    # PDI out (declared by e-1); HYT in (declared after e-1: a surprise); NAD out only under "exclude"
+    assert n_ex.iloc[0] == 16 - 2 and n_kp.iloc[0] == 16 - 1
+    assert c_ex["no_release_legs"] == 1 and c_ex["declared_after_e_minus_1_legs_kept"] == 1
