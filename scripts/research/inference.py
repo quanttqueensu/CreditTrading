@@ -332,6 +332,70 @@ def newey_west_t(x, lags: int | None = None) -> float:
     return x.mean() / sqrt(s / n)
 
 
+def clustered_mean_diff(y, in_a, clusters) -> dict:
+    """Two group means of one pooled sample, and their difference, with SEs clustered.
+
+    Added 2026-10-28 for the A1 re-open (`scripts/research/reopen_a1/`), which asks
+    whether the book's short name-days inside share-issuance windows earn less than
+    those outside. Name-days on one date share that date's market move, so a naive
+    SE treats as independent what is one draw (H6: cluster by date). The desk had
+    this estimator only as private copies (`a2_insider_buying.clustered`,
+    `exec_capacity_open_cross`); this is the shared one.
+
+    y         the per-observation values (e.g. P&L per short name-day), finite.
+    in_a      bool, True for group A (e.g. inside a window); both groups need >= 2
+              observations.
+    clusters  one label per observation (e.g. the decision date); >= 2 clusters
+              overall, and >= 2 within each group for its own SE.
+
+    The estimator is the OLS sandwich of y on [1, 1(A)] with clustered scores, the
+    CR0 sum times G/(G-1), which is the desk's convention (`a2_insider_buying.
+    clustered`). Each observation's score on the difference is e_i/n_A in A and
+    −e_i/n_B in B, where e_i is its deviation from its own group's mean; the
+    variance is G/(G−1)·Σ_g (Σ_{i∈g} score_i)². A date holding name-days in both
+    groups therefore enters once, with the covariance between the two means, which
+    a difference of two separately clustered SEs would miss. statsmodels' cluster
+    covariance multiplies by a further (N−1)/(N−K) (K = 2 here, 1 for one mean);
+    the parity test pins that relation exactly, as the second method.
+
+    Returns mean_a, se_a, n_a, clusters_a; the same for b; diff = mean_a − mean_b,
+    se_diff, clusters (overall G). Raises on NaN, on a group too small to have a
+    mean and a spread, and on fewer than two clusters: there is no default.
+    """
+    y = np.asarray(y, dtype=float)
+    a = np.asarray(in_a)
+    g = np.asarray(clusters)
+    if y.ndim != 1 or a.shape != y.shape or g.shape != y.shape:
+        raise ValueError("y, in_a and clusters must be 1-D and the same length")
+    if a.dtype != bool:
+        raise TypeError("in_a must be a bool array, not a number that might be a weight")
+    if not np.isfinite(y).all():
+        raise ValueError("y holds NaN or inf; drop them explicitly and report the count")
+    n_a, n_b = int(a.sum()), int((~a).sum())
+    if n_a < 2 or n_b < 2:
+        raise ValueError(f"each group needs >= 2 observations, got {n_a} and {n_b}")
+    _, gid = np.unique(g, return_inverse=True)
+    G = int(gid.max()) + 1
+    if G < 2:
+        raise ValueError("fewer than two clusters: a clustered SE does not exist")
+    m_a, m_b = float(y[a].mean()), float(y[~a].mean())
+    e = np.where(a, y - m_a, y - m_b)
+
+    def _cr(score: np.ndarray, mask: np.ndarray) -> tuple[float, int]:
+        s = np.bincount(gid[mask], weights=score[mask], minlength=G)
+        k = int(np.unique(gid[mask]).size)
+        if k < 2:
+            raise ValueError("a group spans fewer than two clusters: its clustered SE does not exist")
+        return sqrt(k / (k - 1) * float(s @ s)), k
+
+    se_a, G_a = _cr(e / n_a, a)
+    se_b, G_b = _cr(e / n_b, ~a)
+    se_d, _ = _cr(np.where(a, e / n_a, -e / n_b), np.ones_like(a))
+    return {"mean_a": m_a, "se_a": se_a, "n_a": n_a, "clusters_a": G_a,
+            "mean_b": m_b, "se_b": se_b, "n_b": n_b, "clusters_b": G_b,
+            "diff": m_a - m_b, "se_diff": se_d, "clusters": G}
+
+
 def read_result(estimate: float, se: float, meaningful: float, *, n_trials: float,
                 alpha: float = 0.05) -> dict:
     """Read a result into PRESENT, ABSENT or INCONCLUSIVE. Never into "no edge" alone.
