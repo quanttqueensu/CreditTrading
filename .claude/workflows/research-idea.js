@@ -1,7 +1,7 @@
 export const meta = {
   name: 'research-idea',
   description: 'Research line: take one idea through question, data, power, pre-registration, a single test, two adversaries and the book, to a verdict that names both the evidence and the gate',
-  whenToUse: 'Two runs. First args = the idea (string) or {idea}: screens, audits the data, computes power and drafts the pre-registration, spending nothing. Then, after the team lead approves and commits the draft, args = {idea, stage: "test", prereg: "<path>", prereg_sha: "<commit>", approved: true} runs the test and spends the one trial.',
+  whenToUse: 'Two runs. First args = the idea (string) or {idea}: screens, audits the data, computes power and drafts the pre-registration, spending nothing. Then, after the draft is approved as CLAUDE.md and docs/SYSTEM.md §5 require and is committed, args = {idea, stage: "test", prereg: "<path>", prereg_sha: "<commit>", approved: true} runs the test and spends the one trial.',
   phases: [
     { title: 'Screen', detail: 'quant-researcher: graveyard, loser, components' },
     { title: 'Data', detail: 'data-engineer then data-analyst; no returns' },
@@ -22,9 +22,12 @@ export const meta = {
 //    stops below min_power. Only the team lead overrides that, with
 //    override_power.
 // 2. The old version of this workflow went straight from DRAFTING the
-//    pre-registration to the TEST in one run. Nothing waited for the team lead's
-//    approval, although whenToUse said it did. The test stage now refuses to start
-//    without {prereg, approved: true}, which only a second run supplies.
+//    pre-registration to the TEST in one run. Nothing waited for approval,
+//    although whenToUse said it did. The test stage now refuses to start without
+//    {prereg, prereg_sha, approved: true}, which only a second run supplies. WHO
+//    may approve is CLAUDE.md's and SYSTEM.md §5's to say, read at run time. On
+//    2026-10-27 that is the team lead; a ruling on agent self-approval was made in
+//    another session and was not yet recorded there.
 // 3. Verdicts named the gate that fired, not what was found (C5 labelled D1 with
 //    a replicated gain; E1 labelled D4 with every beta near zero), and a passing
 //    component died with its expression. So every verdict carries the evidence
@@ -125,12 +128,12 @@ Use /prereg to DRAFT the pre-registration at results/research/PREREG_DRAFT_<slug
     { label: 'prereg-draft', phase: 'Pre-register' })
   need(prereg, 'the pre-registration drafter')
   return { stage: 'design-complete', prereg, power, screen, source, audit,
-    next: 'The team lead reads the draft, approves it and commits it (/prereg). To spend the trial: re-run with {idea, stage: "test", prereg: "<path>", prereg_sha: "<that commit>", approved: true}.' }
+    next: 'Approve the draft as CLAUDE.md and SYSTEM.md §5 require, then commit it (/prereg). To spend the trial: re-run with {idea, stage: "test", prereg: "<path>", prereg_sha: "<that commit>", approved: true}.' }
 }
 
 if (STAGE !== 'test') throw new Error(`unknown stage "${STAGE}" (design | test)`)
 if (!A.prereg || A.approved !== true || !/^[0-9a-f]{7,40}$/.test(A.prereg_sha || '')) {
-  throw new Error('stage "test" spends a trial and needs {prereg: "<path>", prereg_sha: "<commit>", approved: true}; the team lead approves and commits the draft first')
+  throw new Error('stage "test" spends a trial and needs {prereg: "<path>", prereg_sha: "<commit>", approved: true}; approve the draft as CLAUDE.md requires and commit it first')
 }
 // Every station reads the approved text at the pinned commit, never the working
 // file, which a station with Write access could otherwise change after approval.
@@ -151,7 +154,7 @@ const [beta, review, stats, book, trade] = await parallel([
     { label: 'quant-reviewer', phase: 'Attack', agentType: 'quant-reviewer', schema: READ }),
   () => agent(`${ctx}\nIndependently re-derive the inference from the stored P&L series with scripts/research/inference.py: read_result against the pre-registered 'meaningful' size with n_trials = the counter's N, both deflated-Sharpe bars at the counter's current N, clustering or HAC as the design requires, and PBO if several configurations ran. Do not reuse the runner's statistics.`,
     { label: 'statistician', phase: 'Attack', agentType: 'statistician', schema: READ }),
-  () => agent(`${ctx}\nFrom the stored series and the book's own fit-period P&L: the sleeve's correlation with the book (with a range), marginal_gain and combined_sharpe from scripts/research/inference.py, the combined net at 5/15/30bp, and the leverage implied. Say whether the standalone admission rule and the marginal reading disagree.`,
+  () => agent(`${ctx}\nFrom the stored series and the book's own fit-period P&L: the sleeve's correlation with the book (with a range), marginal_gain and combined_sharpe from scripts/research/inference.py, the combined net at 5/15/30bp, and the leverage implied. Say whether the standalone admission rule and the marginal reading disagree, and which route, if any, admits it under docs/SYSTEM.md §5 (2026-10-27: marginal admission is paper only).`,
     { label: 'portfolio-manager', phase: 'Attack', agentType: 'portfolio-manager', schema: READ }),
   () => agent(`${ctx}\nCan this be traded as specified at Alpaca today (shortability, whole shares, wash-trade netting with the CEF book, venue cutoffs), and what would the real-money cost gate need? If the expression is blocked, name the cheapest expression that is not.`,
     { label: 'quant-trader', phase: 'Attack', agentType: 'quant-trader', schema: READ }),
@@ -162,7 +165,7 @@ const [beta, review, stats, book, trade] = await parallel([
 phase('Verdict')
 const verdict = await agent(`Write the verdict for the team lead on idea "${IDEA}".
 Inputs: ${PREREG}; test: ${test}; beta-detector: ${JSON.stringify(beta)}; quant-reviewer: ${JSON.stringify(review)}; statistician: ${JSON.stringify(stats)}; portfolio-manager: ${JSON.stringify(book)}; quant-trader: ${JSON.stringify(trade)}.
-The verdict states both: (1) the EVIDENCE outcome, PRESENT / ABSENT / INCONCLUSIVE, from the statistician's read_result; and (2) the D-code from the canonical legend in docs/RESEARCH_STATE.md for the gate that fired, if one did. If quant-reviewer found a correctness defect, the verdict is "not established" until it is fixed. If the effect is PRESENT (at the multiplicity-adjusted level read_result applies) and a gate failed, write the successor entry: the cheapest other expression of the same effect. Give the standalone and marginal readings side by side. Write results/research/<slug>/VERDICT.md, labelling every figure [V]/[S]/[U], and return its text. Do not edit docs/RESEARCH_STATE.md: list the exact ledger edit (counter, verdict row, successor row) for the team lead to approve.`,
+The verdict states both: (1) the EVIDENCE outcome, PRESENT / ABSENT / INCONCLUSIVE, from the statistician's read_result; and (2) the D-code from the canonical legend in docs/RESEARCH_STATE.md for the gate that fired, if one did. If quant-reviewer found a correctness defect, the verdict is "not established" until it is fixed. If the effect is PRESENT (at the multiplicity-adjusted level read_result applies) and a gate failed, write the successor entry: the cheapest other expression of the same effect. Give the standalone and marginal readings side by side. Write results/research/<slug>/VERDICT.md, labelling every figure [V]/[S]/[U], and return its text. Do not edit docs/RESEARCH_STATE.md: list the exact ledger edit (counter, verdict row with its evidence outcome, successor row) for approval as CLAUDE.md requires. Report both deflated-Sharpe bars and say which one gates under docs/SYSTEM.md §5.`,
   { label: 'verdict', phase: 'Verdict' })
 need(verdict, 'the verdict writer')
 return { stage: 'test-complete', prereg_sha: A.prereg_sha, test, beta, review, stats, book, trade, verdict }

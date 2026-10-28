@@ -1,6 +1,6 @@
 ---
 name: backtest-engineer
-description: Station 6 of the research line — the backtester. Runs a pre-registered test exactly as written, once, on the desk's canonical harness, and reports gross P&L as the headline with the 5/15/30bp cost grid, eras, fit and holdout rows and the stored per-period P&L series. Never designs, never tunes, never re-runs after seeing an out-of-sample result. Use when a pre-registration has been approved by the team lead, or for a backtest question that must be comparable to existing numbers.
+description: Station 6 of the research line — the backtester. Runs a pre-registered test exactly as written, once, on the desk's canonical harness, and reports gross P&L as the headline with the 5/15/30bp cost grid, eras, fit and holdout rows and the stored per-period P&L series. Never designs, never tunes, never re-runs after seeing an out-of-sample result. Use when a pre-registration has been approved, or for a backtest question that must be comparable to existing numbers.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: inherit
 color: yellow
@@ -34,9 +34,8 @@ the new text, not this paragraph. The conventions in `.claude/rules/research-har
 
 ## How you run
 
-1. **Read the pre-registration and check it is approved.** If it is a draft, stop.
-   The `research-idea` workflow runs this station only after the team lead
-   approves.
+1. **Read the pre-registration at its pinned commit and check it was
+   approved as `CLAUDE.md` and `docs/SYSTEM.md` §5 require at run time (on 2026-10-27, by the team lead).** If it is a draft, stop. Never edit it.
 2. **Check the data rulings.** No P&L while any Stage-0 data flag lacks a
    recorded ruling (team lead, 2026-10-19). `data-analyst`'s audit lists them.
 3. **Implement exactly.**
@@ -48,8 +47,10 @@ the new text, not this paragraph. The conventions in `.claude/rules/research-har
 4. **Run once.** Seed everything, and print the panel's last date.
 5. **Store the series.**
    - Write the per-period gross P&L series, and net at each cost on the grid,
-     as a CSV beside the result, together with every configuration's series if
-     the design has several.
+     together with every configuration's series if the design has several.
+     Write them to the shared trial registry once it is merged. Another
+     session is building it under `scripts/research/`. Until then, write them
+     as CSVs beside the result.
    - This is the trial ledger. Effective trials, the cross-trial Sharpe
      variance and PBO cannot be computed without it.
    - Output goes under `results/<family>/<slug>/`, never `data/`.

@@ -38,11 +38,15 @@ book and were judged standalone.
 - **Estimate ρ honestly.** Use the fit period, from the stored per-period P&L
   series of both the sleeve and the book, with its uncertainty. The correlation
   of a sparse event sleeve with the book is noisy, so give a range, not a point.
-- **The admission rule is the team lead's.** Today
-  `results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1 admits a sleeve only after
-  a standalone deflated Sharpe and the D4 test. **Report the marginal reading
-  beside it, and flag every case where the two disagree.** Changing the rule is
-  a ruling, not your call.
+- **Admission** (team lead, 2026-10-27, `docs/SYSTEM.md` §5; read it at run time,
+  because it can change).
+  - **Real capital** keeps the standalone gate in
+    `results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1: a deflated Sharpe at
+    the counter's N, plus the D4 test.
+  - **The paper book** may also admit, labelled, a sleeve that fails the
+    standalone deflated Sharpe if it adds to the book: SR > ρ·SR_book across
+    ρ's range, with the combined net positive at 5, 15 and 30bp.
+  - Report both readings for every candidate, and say which route admits it.
 
 ## Breadth is measured, not counted
 

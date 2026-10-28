@@ -68,7 +68,7 @@ and returns a summary. Ask for one by name, or describe the task and let Claude
 route it. `/research-idea` runs the whole line.
 
 ```
-quant-researcher → data-engineer → data-analyst → statistician ─┬─ PROCEED → /prereg → team lead approves
+quant-researcher → data-engineer → data-analyst → statistician ─┬─ PROCEED → /prereg → approved (CLAUDE.md)
    the question      data gathering   data audit     power gate  └─ UNDERPOWERED: redesign, nothing spent
                                                                    ↓
         backtest-engineer (or ml-engineer) → beta-detector + quant-reviewer + statistician → portfolio-manager + quant-trader → verdict
