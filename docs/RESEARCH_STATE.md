@@ -65,6 +65,11 @@ counter (156) covers all ETF-price/PD work done to date.
 >   fixed) and gated. Rehearsed on FIT 2021–22 it gives KILL D4 (alpha t 2.90; MUNI and TERM betas −0.41/−0.39 at
 >   target). Power at 649 events: P(t ≥ 2) 0.91, P(bar) 0.43 at the fit effect. Before `open`: the team lead's R2/bars
 >   run, French and IEF/HYG to 2026-10-15, and O1–O4 + GO. No counter moves; no 2023+ return read.
+> - **2026-10-28, late: AMENDMENT 1** (team lead), recorded in the pre-registration before any test return. Part (b) hedges
+>   each event's MUNI and TERM exposure with MUB and IEF, at frozen fit betas from stage 5's own factor model. It was
+>   prompted by the fit rehearsal's D4 failure. Re-rehearsed on fit 2021–22 it still gives KILL D4 (alpha t 2.59; MUNI
+>   −0.37, TERM −0.39), and the cap now binds on 41.6% of rows. O1–O4 are ruled, with the window ending 2026-10-09: 649
+>   events, T 946. N stays 7; EVENTS stays 3.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:

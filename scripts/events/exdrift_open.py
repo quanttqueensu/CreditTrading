@@ -117,6 +117,8 @@ class OpenData:
     shortable_today: dict = field(default_factory=dict)
     regime_split: pd.Timestamp | None = None
     unknown_mode: str = "keep"           # R10
+    hedge_betas: dict | None = None      # amendment 1: frozen fit betas {ticker: {beta_MUB, beta_IEF}}
+    hedge_R: pd.DataFrame | None = None  # amendment 1: MUB and IEF total returns on the sessions
     notes: list = field(default_factory=list)
 
 
@@ -209,7 +211,16 @@ def build_events(D: OpenData, shift: int = 0, real: pd.DataFrame | None = None,
             n["rule5_basket_lt3"] += 1
             continue
         bm = D.R[b].to_numpy()[hold].mean(axis=1)
-        x = float(-(ri - bm).sum())
+        x_un = float(-(ri - bm).sum())
+        hM = hI = 0.0
+        x = x_un
+        if D.hedge_betas is not None:                       # amendment 1: the event's MUB and IEF hedge
+            from scripts.events.exdrift_trial import hedge_weights
+            hM, hI = hedge_weights(r.ticker, b, D.hedge_betas)
+            hr = D.hedge_R[["MUB", "IEF"]].to_numpy()[hold]
+            if not np.isfinite(hr).all():
+                raise OpenError(f"amendment 1: no MUB or IEF return on a hold row of {r.ticker} {r.ex_date.date()}: HALT")
+            x = x_un + float((hr @ np.array([hM, hI])).sum())
         x_px = float(-(D.Rpx[r.ticker].to_numpy()[hold] - D.Rpx[b].to_numpy()[hold].mean(axis=1)).sum())
         a = D.RN[r.ticker].to_numpy()[hold]
         bn = D.RN[b].to_numpy()[hold]
@@ -221,8 +232,8 @@ def build_events(D: OpenData, shift: int = 0, real: pd.DataFrame | None = None,
         x_hd = float(-(ri - np.nanmean(D.R.to_numpy()[hold], axis=1)).sum())
         surprise = int(np.sum(~np.isclose(D.R[b].to_numpy()[hold], D.Rpx[b].to_numpy()[hold], rtol=0, atol=1e-12)))
         rows.append(dict(ticker=r.ticker, ex_date=r.ex_date, p=p, decision=D.sessions[p - 1], basket=",".join(b),
-                         nb=len(b), x=x, x_px=x_px, x_nav=x_nav, nav_ruled_out=excl, x_hyg=x_hyg, x_hd=x_hd,
-                         surprise_cells=surprise))
+                         nb=len(b), x=x, x_unhedged=x_un, h_MUB=hM, h_IEF=hI, x_px=x_px, x_nav=x_nav,
+                         nav_ruled_out=excl, x_hyg=x_hyg, x_hd=x_hd, surprise_cells=surprise))
     return pd.DataFrame(rows), n
 
 
@@ -281,10 +292,16 @@ def dimson_d4(pnl: pd.Series, F: pd.DataFrame, scale: float) -> dict:
     f = sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC", cov_kwds={"maxlags": NW_LAGS})
     raw = {c: float(f.params[c] + f.params[c + "_l1"]) for c in cols}
     at = {c: v * scale for c, v in raw.items()}
+    se = {}
+    for c in cols:                                    # report-only: the HAC standard error of each summed beta
+        R_ = np.zeros(len(f.params))
+        R_[list(f.params.index).index(c)] = 1.0
+        R_[list(f.params.index).index(c + "_l1")] = 1.0
+        se[c] = float(np.sqrt(R_ @ f.cov_params().to_numpy() @ R_) * scale)
     return {"n": int(len(d)), "alpha_ann": float(f.params["const"] * 252), "alpha_t": float(f.tvalues["const"]),
             "scale_to_vol_target": scale, "betas_summed_raw": raw, "betas_summed_at_target": at,
             "max_abs_beta_at_target": float(max(abs(v) for v in at.values())),
-            "max_abs_beta_raw": float(max(abs(v) for v in raw.values())),
+            "max_abs_beta_raw": float(max(abs(v) for v in raw.values())), "se_at_target_report_only": se,
             "pass": bool(f.tvalues["const"] >= ALPHA_T_BAR and all(abs(v) <= BETA_MAX for v in at.values()))}
 
 
@@ -315,8 +332,13 @@ def sleeve(D: OpenData, ev: pd.DataFrame) -> dict:
         b = r.basket.split(",")
         for j in b:
             legs.append(dict(permno=j, first=f0, last=l0, weight=1.0 / len(b), ann=ann))
+        if D.hedge_betas is not None:                          # amendment 1: the event's hedge legs, same rows
+            for sym, w in (("MUB", r.h_MUB), ("IEF", r.h_IEF)):
+                if w != 0.0:
+                    legs.append(dict(permno=sym, first=f0, last=l0, weight=float(w), ann=ann))
     H = event_hold(pd.DataFrame(legs), idx)
-    R = D.R.reindex(columns=H.columns)
+    RA = D.R if D.hedge_R is None else pd.concat([D.R, D.hedge_R[["MUB", "IEF"]]], axis=1)
+    R = RA.reindex(columns=H.columns)
     held = H.shift(2).fillna(0.0).to_numpy() != 0
     if not np.isfinite(R.to_numpy()[held]).all():
         raise OpenError("a held cell has no return: evaluate() would book it as 0")
@@ -336,13 +358,16 @@ def sleeve(D: OpenData, ev: pd.DataFrame) -> dict:
     pnl, turn = trad["pnl"][win], trad["turn_series"][win]
     st = _stats(pnl, turn)
     grid = {f"{c}bp": {"sr": n_, "ann": st["ann"] - st["turn"] * c / 1e4} for c, n_ in zip(GRID_BP, st["nets"])}
+    gross_k = Hk.abs().sum(axis=1)
+    cef_cols = [c for c in Hk.columns if c in D.R.columns]
     out = {"H": H, "Hc": Hc, "pnl": pnl, "turn": turn, "cap_binding_rows": bind, "rows_on": int(on.sum()),
+           "max_sized_gross": float(gross_k.max()), "max_sized_gross_cef_only": float(Hk[cef_cols].abs().sum(axis=1).max()),
            "gross_sr": st["sr"], "ann": st["ann"], "vol": st["vol"], "turn_yr": st["turn"], "grid": grid,
            "grid_sign_flips": bool(np.sign(st["ann"]) != np.sign(grid["30bp"]["ann"]) or
                                    any(np.sign(v["ann"]) != np.sign(st["ann"]) for v in grid.values()))}
     out["borrow"] = {"B0": {"ann": 0.0}}
     if D.fee_pct is not None:
-        bc = borrow_charge(Hc, D.fee_pct.reindex(index=idx, columns=Hc.columns))
+        bc = borrow_charge(Hc, D.fee_pct.reindex(index=idx, columns=Hc.columns))   # no fee column for MUB/IEF: NaN, reported uncovered if short
         c = bc["cost"][win]
         out["borrow"]["B-meas"] = {"ann": float(c.mean() * 252), "covered_share": float(bc["covered_share"]),
                                    "net_ann": float((pnl - c).mean() * 252), "lower_bound": True}
@@ -378,19 +403,19 @@ def open_core(D: OpenData) -> dict:
     if nvs.empty:
         raise OpenError("no event has a NAV leg: stage 3 cannot be measured (HALT)")
     nv = month_t(nvs, "x_nav")
-    price_same = month_t(nvs, "x")
+    price_same = month_t(nvs, "x_unhedged")      # amendment 1: both legs unhedged (the hedge is a price overlay)
     rep["stage3_nav_leg"] = {**nv, "price_mean_same_events_bp": price_same["mean_bp"],
                              "excluded_by_ruling_X5": int(ev.nav_ruled_out.sum()),
                              "no_nav_return": int((ev.x_nav.isna() & ~ev.nav_ruled_out).sum()),
-                             "beside_full_set_price_mean_bp": s1["mean_bp"],
-                             "beside_full_set_would_kill": control_kills(nv["mean_bp"], s1["mean_bp"]),
+                             "beside_full_set_price_mean_bp": month_t(ev, "x_unhedged")["mean_bp"],
+                             "beside_full_set_would_kill": control_kills(nv["mean_bp"], month_t(ev, "x_unhedged")["mean_bp"]),
                              "pass": not control_kills(nv["mean_bp"], price_same["mean_bp"])}       # O3
     e13 = ev[ev.ticker.isin(D.core13)]
     s4 = month_t(e13, "x")
     rep["stage4_13"] = {**s4, "pass": bool(s4["events"] > 0 and s4["mean_bp"] > 0)}
     S = sleeve(D, ev)
     rep["sleeve"] = {k_: S[k_] for k_ in ("cap_binding_rows", "rows_on", "gross_sr", "ann", "vol", "turn_yr", "grid",
-                                          "grid_sign_flips", "borrow")}
+                                          "grid_sign_flips", "borrow", "max_sized_gross", "max_sized_gross_cef_only")}
     rep["sleeve"]["cap_binding_share"] = S["cap_binding_rows"] / S["rows_on"] if S["rows_on"] else float("nan")
     sig = float(S["pnl"].std(ddof=1) * math.sqrt(252))
     rep["stage5_d4"] = dimson_d4(S["pnl"], D.factors, D.vol_target / sig)     # raises on a gap: HALT
@@ -456,7 +481,13 @@ def report_only(D: OpenData, ev: pd.DataFrame) -> dict:
                                  "median_rounding_short_leg": float(np.nanmedian(rnd))}
     ro["capacity"] = cap_rows
     ro["calendar_surprise_cells"] = int(ev.surprise_cells.sum())
-    ro["price_only_minus_total_bp"] = float(1e4 * (ev.x_px - ev.x).mean())
+    ro["price_only_minus_total_bp"] = float(1e4 * (ev.x_px - ev.x_unhedged).mean())
+    if D.hedge_betas is not None:
+        g = ev.h_MUB.abs() + ev.h_IEF.abs()
+        ro["amendment1_hedge"] = {"mean_h_MUB": float(ev.h_MUB.mean()), "mean_h_IEF": float(ev.h_IEF.mean()),
+                                  "share_long_MUB": float((ev.h_MUB > 0).mean()), "share_long_IEF": float((ev.h_IEF > 0).mean()),
+                                  "gross_per_event_unit_mean": float(g.mean()), "gross_per_event_unit_max": float(g.max()),
+                                  "unhedged_stage1": month_t(ev, "x_unhedged")}
     return ro
 
 
@@ -502,7 +533,7 @@ def _factors(ff: pd.DataFrame, etf: pd.DataFrame, mub: pd.DataFrame) -> pd.DataF
     return F
 
 
-def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021-01-01") -> OpenData:
+def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021-01-01", hedge: bool = True) -> OpenData:
     """FIT data only (2021-01-01 .. 2022-12-30), as C4 rehearsed. Every frame is read through a
     parquet filter at FIT_END and asserted. The fit has no declaration dates, so the realised
     calendar is used: every ex-date counts as declared at the calendar's start, so rule 1 cannot
@@ -542,16 +573,26 @@ def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021
     for f_ in (R, RN, close, F, fee):
         assert f_.index.max() <= FE
     E = etf.pivot(index="date", columns="ticker", values="ret_total")
-    return OpenData(label="REHEARSAL on FIT data 2021-01-01..2022-12-30 (not the test set)", sessions=sess, R=R,
+    mubs = mub.sort_values("date").set_index("date")
+    HR = pd.DataFrame({"MUB": (mubs.close + mubs.dividend.fillna(0.0)) / mubs.close.shift(1) - 1.0,
+                       "IEF": E["IEF"]}).reindex(sess)
+    hb = json.loads(x.HEDGE_JSON.read_text())["betas"] if (hedge and x.HEDGE_JSON.exists()) else None
+    if hedge and hb is None:
+        raise OpenError(f"{x.HEDGE_JSON.name} does not exist: run `exdrift_trial.py amend1-betas` (fit only)")
+    return OpenData(label="REHEARSAL on FIT data 2021-01-01..2022-12-30 (not the test set)"
+                    + (", amendment 1 (MUB/IEF hedge)" if hb else ""), sessions=sess, R=R,
                     Rpx=Rpx, RN=RN, masked=bad, exdates=ex, candidates=cand, nav_excluded=set(),
                     close_prev=close.reindex(sess), adv63=adv, factors=F, fee_pct=fee, hyg=E["HYG"].reindex(sess),
                     k=k, cap=cap, vol_target=vol_target, n_bar=n_bar, window=(sess[sess >= lo][0], FE),
                     eras=[("2021", pd.Timestamp("2021-01-01"), pd.Timestamp("2021-12-31")),
                           ("2022", pd.Timestamp("2022-01-01"), FE)],
                     core13=tuple(x.CORE), munis=tuple(x.MUNIS),
+                    hedge_betas=hb, hedge_R=HR,
                     notes=["rule 1 cannot exclude in the fit (no declaration dates): the realised calendar is used",
                            "X4 fills and X5 exclusions are test-cell rulings and do not apply to the fit",
-                           "the rich/cheap split is not computed in the rehearsal"])
+                           "the rich/cheap split is not computed in the rehearsal"]
+                    + (["amendment 1's betas were estimated on 2007-09-11..2022-12-30, which contains this rehearsal "
+                        "window: the rehearsal is IN-SAMPLE for the hedge ratios"] if hb else []))
 
 
 def load_test(token, k: float, cap: float, vol_target: float, n_bar: int, window: tuple) -> OpenData:  # pragma: no cover
@@ -634,12 +675,17 @@ def load_test(token, k: float, cap: float, vol_target: float, n_bar: int, window
     short = {t: a.get("shortable") for t, a in json.loads(probe[-1].read_text())["assets"].items()} if probe else {}
     T, _ = bf.build_targets()                         # the deployed book's targets: the rich/cheap split (13 only)
     E = etf.pivot(index="date", columns="ticker", values="ret_total")
+    mubs = mub.sort_values("date").set_index("date")
+    HR = pd.DataFrame({"MUB": (mubs.close + mubs.dividend.fillna(0.0)) / mubs.close.shift(1) - 1.0,
+                       "IEF": E["IEF"]}).reindex(sessions)
+    hb = json.loads(x.HEDGE_JSON.read_text())["betas"]           # amendment 1: frozen on the fit, committed
     return OpenData(label="THE TEST SET (opened once)", sessions=sessions, R=R, Rpx=Rpx, RN=RN, masked=bad, exdates=ex,
                     candidates=cand, nav_excluded=nav_ex, close_prev=close, adv63=adv, factors=F, fee_pct=fee,
                     hyg=E["HYG"].reindex(sessions), k=k, cap=cap, vol_target=vol_target, n_bar=n_bar, window=window,
                     eras=[("2023-24", pd.Timestamp("2023-01-01"), pd.Timestamp("2024-12-31")),
                           ("2025-26", pd.Timestamp("2025-01-01"), pd.Timestamp("2026-12-31"))],
                     core13=tuple(x.CORE), munis=tuple(x.MUNIS), rich_cheap=T, shortable_today=short,
+                    hedge_betas=hb, hedge_R=HR,
                     regime_split=x.T1_START, notes=[f"X4 cells filled from Alpaca SIP: {fills}", LIMITATION_R10])
 
 

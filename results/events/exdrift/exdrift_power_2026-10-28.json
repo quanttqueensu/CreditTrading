@@ -1,5 +1,5 @@
 {
- "T_sessions": 950,
+ "T_sessions": 946,
  "eligible_label": "as ruled: X4 cells filled; no-declaration basket legs KEPT (R10, team lead 2026-10-28)",
  "event_13_0.25": {
   "mu_bp": 5.1135,
@@ -41,15 +41,15 @@
  "events_13": 548,
  "inputs": "fit H-E dispersion (prereg_inputs_b3.json, identity-gated at DG-X7) and r6's mean",
  "months": 46,
- "sharpe_needed_N7": 1.8665809400748947,
+ "sharpe_needed_N7": 1.8705373523180624,
  "sleeve_0.5": {
-  "p_alpha_t3": 0.10127084473660763,
-  "p_dsr_N7": 0.02886807598584351,
+  "p_alpha_t3": 0.10063013811609212,
+  "p_dsr_N7": 0.028628229485157086,
   "sr": 0.8879178725460278
  },
  "sleeve_1.0": {
-  "p_alpha_t3": 0.672326564885225,
-  "p_dsr_N7": 0.4303235597521013,
+  "p_alpha_t3": 0.6697074705550943,
+  "p_dsr_N7": 0.42747048746668953,
   "sr": 1.7758357450920557
  }
 }

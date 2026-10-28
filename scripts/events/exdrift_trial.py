@@ -116,10 +116,10 @@ DECL_FINAL = CACHE / "exdrift_declarations_final.csv"  # stage0 writes it: relea
 OPENED = OUT_DIR / "exdrift_test_set_OPENED.json"     # written by `open` before it computes anything; opened once
 OPEN_RULINGS = OUT_DIR / "exdrift_open_rulings.csv"   # the team lead's rulings on O1-O4 and the GO row
 OPEN_READINGS = [
-    ("O1", "The P&L window of the sleeve (stages 5-6) runs from the first session on or after 2023-01-01 to the frozen "
-           "end's cover row (end ex-date + 3 sessions), T = 950 sessions today: §5.1's test set and §10's T. Every factor "
-           "(French six and rf, IEF, HYG, MUB) must cover it and the session before it (the Dimson lag). Alternative: "
-           "the first event's e+1 to the last event's e+3 (the rulings proposal's #15 window, 2026-10-06 today)."),
+    ("O1", "AS RULED (team lead, 2026-10-28, with one change): the P&L window runs from the first session on or after "
+           "2023-01-01 to 2026-10-09, where IEF and HYG in data/etf_daily.parquet end (not the cover row 2026-10-15). "
+           "Only events whose e+3 is on or before it are eligible. Every factor (French six and rf, IEF, HYG, MUB) "
+           "must cover it and the session before it (the Dimson lag)."),
     ("O2", "R-D4's betas 'at the vol target' are the summed betas times VOL_TARGET / sigma(tradable sleeve over the "
            "window): the NAV-tender precedent, whose sizing rule (sigma on active sessions) §4.4 copies; the tradable "
            "sleeve's full-window vol is below the target. Alternative: unscaled betas (E1's reading, whose k used the "
@@ -139,6 +139,9 @@ PINNED = {"prices": PRICES, "navs": NAVS, "dist_refresh": DIST_REFRESH, "splits_
 REHEARSAL_JSON = OUT_DIR / "exdrift_rehearsal_fit_2021_22.json"
 REHEARSAL_TXT = OUT_DIR / "exdrift_rehearsal_fit_2021_22.txt"
 POWER_JSON = OUT_DIR / "exdrift_power_2026-10-28.json"
+HEDGE_JSON = OUT_DIR / "exdrift_amendment1_hedge_betas.json"   # amendment 1: frozen fit betas to MUB and IEF
+O1_END = pd.Timestamp("2026-10-09")    # the team lead's O1 ruling (2026-10-28): the P&L window ends where IEF/HYG end
+HEDGE_FIT_LO = pd.Timestamp("2007-09-11")   # MUB's first session with a previous close (yfinance cache)
 B3_JSON = REPO / "results" / "events" / "prereg_exdrift" / "prereg_inputs_b3.json"   # fit dispersion (identity-gated)   # fetch_exdrift_sponsor_releases.py build
 NOTICES = OUT_DIR / "exdrift_sponsor_notices_2026-10-28.csv"   # verified sponsor notices (DG-X2 check)
 NOTICE_CACHE = CACHE / "sponsor_notices"              # `exdrift_trial.py notices` fills it (public GETs)
@@ -1277,7 +1280,8 @@ def stage0(write: bool = True) -> dict:
         else:
             nb, surpr = calendar_baskets(E, dn, sessions, ok_, sp), None
         keep = pd.Series([(t, e) not in excl2 and not (drop and (t, e) in nobar_ev)
-                          for t, e in zip(E.ticker, E.ex_date)], index=E.index)
+                          and sessions[p + HOLD] <= O1_END                      # O1 as ruled: e+3 on or before 2026-10-09
+                          for t, e, p in zip(E.ticker, E.ex_date, E.p)], index=E.index)
         k3 = keep & (nb >= BASKET_MIN)
         elig[lab] = {"events": int(k3.sum()), "events_13": int((k3 & E.ticker.isin(CORE)).sum()),
                      "dates": int(E.loc[k3, "ex_date"].nunique()),
@@ -1600,6 +1604,82 @@ def fit_k_core(ret: pd.DataFrame, dist: pd.DataFrame, cap: float, vol_target: fl
             "first_active": str(idx[active.to_numpy()][0].date()), "last_active": str(idx[active.to_numpy()][-1].date())}
 
 
+D4_FACTORS = ("mktrf", "smb", "hml", "rmw", "cma", "umd", "TERM", "HY", "MUNI")
+
+
+def hedge_betas_core(R: pd.DataFrame, F: pd.DataFrame) -> dict:
+    """Amendment 1: each fund's MUNI and TERM betas in STAGE 5's OWN factor model, from the fit only.
+
+    r_i,t = a + sum over the nine D4 factors f of (b_f0 f_t + b_f1 f_{t-1}) + e, one OLS per fund.
+    These are the factors R-D4 uses: French six, TERM = IEF - RF, HY = HYG - IEF, MUNI = MUB - IEF.
+    The lags are summed, as R-D4 sums them. The rows are the fund's own finite returns after r6's
+    masks, with every regressor present. All nine summed betas are recorded; only MUNI and TERM are
+    hedged.
+
+    WHY THIS MODEL. The hedge exists to remove what stage 5 measures, so its betas are stage 5's
+    partial betas. A first derivation regressed each fund on MUB and IEF alone, and was disclosed in
+    amendment 1. It omitted the factors stage 5 controls for, HY above all, so its MUB beta absorbed
+    credit exposure (every fund about +1.0 to +2.4). On the fit rehearsal it left MUNI at -0.41.
+
+    This is ONE declared specification, derived from the test it serves and not swept. The point
+    estimates are frozen; the opening never re-estimates them."""
+    cols = list(D4_FACTORS)
+    X = pd.concat([F[cols], F[cols].shift(1).add_suffix("_l1")], axis=1)
+    out = {}
+    for t in R.columns:
+        d = pd.concat([R[t].rename("y"), X], axis=1).dropna()
+        if len(d) < 252:                     # one year of sessions at least (PDO listed in 2021: 483 fit rows)
+            raise Stage0Error(f"hedge betas: {t} has only {len(d)} fit rows with every factor")
+        A = np.column_stack([np.ones(len(d)), d[cols + [c + "_l1" for c in cols]].to_numpy()])
+        b, *_ = np.linalg.lstsq(A, d["y"].to_numpy(), rcond=None)
+        summed = {c: float(b[1 + i] + b[1 + len(cols) + i]) for i, c in enumerate(cols)}
+        out[t] = {"beta_MUNI": summed["MUNI"], "beta_TERM": summed["TERM"], "all_summed": summed,
+                  "rows": int(len(d)), "first": str(d.index[0].date()), "last": str(d.index[-1].date())}
+    return out
+
+
+def hedge_weights(t: str, basket: list, betas: dict) -> tuple[float, float]:
+    """Positions in MUB and IEF per $1 event unit ($1 short of t, $1 long of the basket equally).
+
+    The event's exposure is E_f = -beta_t,f + mean(beta_basket,f), for f = MUNI and TERM. Since
+    MUNI = MUB - IEF and TERM = IEF - RF, holding h_MUB of MUB and h_IEF of IEF adds h_MUB to MUNI
+    and h_MUB + h_IEF to TERM. HY (= HYG - IEF) is untouched. So the offsetting hedge is
+    h_MUB = -E_MUNI and h_IEF = E_MUNI - E_TERM."""
+    eM = -betas[t]["beta_MUNI"] + float(np.mean([betas[j]["beta_MUNI"] for j in basket]))
+    eT = -betas[t]["beta_TERM"] + float(np.mean([betas[j]["beta_TERM"] for j in basket]))
+    return -eM, eM - eT
+
+
+def amend1_betas(args) -> int:
+    """Estimate and freeze amendment 1's betas on the FIT window (2007-09-11 .. 2022-12-30)."""
+    from scripts.events.exdrift_open import _factors
+    px = read_fit(PRICES, ["date", "ticker", "close"])
+    close = px.pivot(index="date", columns="ticker", values="close").sort_index()
+    dist = read_fit(DIST_REFRESH, ["ticker", "ex_date", "amount", "stock_split"], date_col="ex_date")
+    ret = fit_returns(close, dist)
+    ff = pd.read_parquet(FF_DAILY, filters=[("date", "<=", FIT_END)])
+    etf = pd.read_parquet(ETF_DAILY, columns=["date", "ticker", "ret_total"],
+                          filters=[("ticker", "in", ["IEF", "HYG"]), ("date", "<=", FIT_END)])
+    mub = pd.read_parquet(ETF_YF["MUB"], filters=[("date", "<=", FIT_END)])
+    for f_ in (ff, etf, mub):
+        f_["date"] = pd.to_datetime(f_["date"])
+        assert f_["date"].max() <= FIT_END
+    F = _factors(ff, etf, mub)
+    idx = ret.index[(ret.index >= HEDGE_FIT_LO) & (ret.index <= FIT_END)]
+    b = hedge_betas_core(ret.loc[idx, list(NAMES)], F.reindex(idx))
+    out = {"stamp": "2026-10-28", "window": f"{HEDGE_FIT_LO.date()}..{FIT_END.date()} (fit only)",
+           "spec": "per fund OLS of its r6 total return on the nine R-D4 factors at t and t-1, lags summed; "
+                   "MUNI and TERM hedged with MUB and IEF (h_MUB = -E_MUNI, h_IEF = E_MUNI - E_TERM)",
+           "sources": "data/cef panels (yfinance); French FF5+UMD (fetch_ff_factors.py); IEF, HYG data/etf_daily.parquet; "
+                      "MUB yfinance (fetch_exdrift_mub.py)",
+           "betas": b}
+    HEDGE_JSON.write_text(json.dumps(out, indent=1, sort_keys=True))
+    for t, v in b.items():
+        print(f"{t}: beta_MUNI {v['beta_MUNI']:+.3f}  beta_TERM {v['beta_TERM']:+.3f}  HY {v['all_summed']['HY']:+.3f}  ({v['rows']} rows)")
+    print(f"-> {HEDGE_JSON.relative_to(REPO)} (frozen: commit before any test return)")
+    return 0
+
+
 def fit_k(args) -> int:  # pragma: no cover - reads the real fit panels; its core is tested (fit_k_core)
     require_stage0_rulings_only()
     px = read_fit(PRICES, ["date", "ticker", "close"])
@@ -1620,9 +1700,11 @@ def fit_k(args) -> int:  # pragma: no cover - reads the real fit panels; its cor
 
 
 def pnl_window(rec: dict, sessions: pd.DatetimeIndex) -> tuple:
-    """O1: the first session on or after TEST_START to the frozen end's cover row."""
+    """O1 as ruled (team lead, 2026-10-28): the first session on or after TEST_START to the earlier of
+    the frozen end's cover row and 2026-10-09, where IEF and HYG in data/etf_daily.parquet end."""
     end_ex = pd.Timestamp(rec["dg_x1_refresh"]["test_end_ex"])
-    return sessions[sessions.searchsorted(TEST_START)], sessions[sessions.get_loc(end_ex) + HOLD]
+    last = min(sessions[sessions.get_loc(end_ex) + HOLD], O1_END)
+    return sessions[sessions.searchsorted(TEST_START)], sessions[sessions <= last][-1]
 
 
 def factor_gaps(window: tuple, sessions: pd.DatetimeIndex) -> list[str]:
@@ -1691,7 +1773,9 @@ def open_gate(go: str | None, *, check_git: bool = True, opened: Path = OPENED, 
     if not Path(open_rulings).exists():
         raise dg.Stage0BlockError(f"{Path(open_rulings).name} does not exist: the team lead rules O1-O4 and records the GO row")
     if check_git:
-        _committed([Path(open_rulings)] + TRIAL_CODE, True)
+        _committed([Path(open_rulings), HEDGE_JSON] + TRIAL_CODE, True)
+    if not HEDGE_JSON.exists():
+        raise dg.Stage0BlockError(f"{HEDGE_JSON.name} does not exist: amendment 1's betas are frozen before the opening")
     O = pd.read_csv(open_rulings, dtype=str, keep_default_na=False)
     need = [c for c, _ in OPEN_READINGS] + ["GO"]
     for c in need:
@@ -1785,7 +1869,8 @@ def power_cmd(args) -> int:
     e = rec["eligible"][lab]
     sessions = sessions_calendar()
     end_ex = pd.Timestamp(rec["dg_x1_refresh"]["test_end_ex"])
-    T = int(((sessions >= TEST_START) & (sessions <= sessions[sessions.get_loc(end_ex) + HOLD])).sum())
+    w = pnl_window(rec, sessions)
+    T = int(((sessions >= w[0]) & (sessions <= w[1])).sum())
     out = power_at(e["events"], e["events_13"], e["months"], T)
     out["eligible_label"] = lab
     POWER_JSON.write_text(json.dumps(_jsonable(out), indent=1, sort_keys=True))
@@ -1813,6 +1898,7 @@ def main(argv=None) -> int:
     op.add_argument("--team-lead-go", default=None, help="the team lead's explicit go, YYYY-MM-DD")
     sub.add_parser("rehearse")
     sub.add_parser("power")
+    sub.add_parser("amend1-betas")
     a = ap.parse_args(argv)
     if a.cmd == "stage0":
         S = stage0()
@@ -1828,6 +1914,8 @@ def main(argv=None) -> int:
         return rehearse(a)
     if a.cmd == "power":
         return power_cmd(a)
+    if a.cmd == "amend1-betas":
+        return amend1_betas(a)
     if a.cmd == "notices":
         print(f"notice cache: {fetch_notices()}")
         verify_notices()

@@ -19,7 +19,8 @@ exist; exit 2 = halted). Outputs, all tracked, with dates, counts, presence and 
 | `results/events/exdrift/exdrift_k_2026-10-27.json` | `fit-k`'s output: k and the cap-binding share (fit only) |
 | `results/events/exdrift/exdrift_rehearsal_fit_2021_22.json` | the opening's code run on FIT data (2021–22): every stage |
 | `results/events/exdrift/exdrift_power_2026-10-28.json` | §10's power at the current eligible count |
-| `results/events/exdrift/exdrift_open_rulings.csv` | the team lead's rulings on O1–O4 and the GO row (blank until ruled) |
+| `results/events/exdrift/exdrift_open_rulings.csv` | the team lead's rulings on O1–O4 (2026-10-28) and the GO row (empty) |
+| `results/events/exdrift/exdrift_amendment1_hedge_betas.json` | amendment 1: the frozen fit betas (MUNI, TERM) of each fund |
 | `results/events/exdrift/exdrift_sponsor_notices_2026-10-28.csv` | the verified sponsor notices DG-X2 checks Alpaca against (quotes re-found offline on every run) |
 | `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md` | **the rulings proposal**, one recommendation per flag class |
 | `results/events/exdrift/exdrift_fit_descriptive_2026-10-27.csv` | the DG-X7 identity table (fit only) |
@@ -29,6 +30,33 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
+> **2026-10-28, late: amendment 1 and O1–O4.** The team lead ruled three things:
+> - amend part (b) before the opening, to hedge each event's MUNI and TERM exposure with MUB and IEF
+>   at frozen fit betas;
+> - accept O1–O4, with the P&L window ending **2026-10-09**;
+> - drop the ETF refresh.
+>
+> **Amendment 1** is recorded in the pre-registration with its provenance, its frozen betas and the
+> gross cost.
+> - Its re-rehearsal on fit 2021–22 still gives **KILL D4**: alpha t 2.59; MUNI −0.37 and TERM −0.39
+>   at target.
+> - The hedge lifts the sized gross to 2.44, so the cap binds on 41.6% of rows.
+>
+> **O1–O4** are recorded in `exdrift_open_rulings.csv` (team lead, 2026-10-28). The GO row is empty.
+>
+> **At the 2026-10-09 window** every event's e+3 still falls inside: the last event is 2026-10-01,
+> with e+3 on 2026-10-06. So the set stays **649 events (548 on the 13)**, with T = 946 sessions.
+> - Per-event P(t ≥ 2) is 0.91 (17) and 0.86 (13) at the fit effect, and 0.38 and 0.33 at half.
+> - The sleeve's P(`_dsr` pass, N = 7) is 0.43 and 0.03; Sharpe needed 1.871.
+>
+> **What remains before `open`:**
+> 1. The team lead's `run_exdrift_r2.sh`; then Stage 0 is re-run and its pins committed.
+> 2. French's 202610 vintage, which must cover through 2026-10-09.
+> 3. The GO row.
+> 4. The team lead's decision on amendment 1, given that it does not cure D4 on the fit.
+>
+> ---
+>
 > **2026-10-28, evening: Nuveen recovered via CRSP; R10 re-ruled KEEP; `open` written, reviewed and rehearsed on
 > fit data. The test set is NOT opened.**
 >

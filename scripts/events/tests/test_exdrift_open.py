@@ -202,7 +202,7 @@ def test_open_needs_the_go_row_and_every_open_reading_ruled(tmp_path, quiet_gate
     P, o = _clear(tmp_path)
     gd, k, _, window, token = _gate(tmp_path, "2026-10-28", P, o)
     assert token is xo._GATE_TOKEN and k["k"] == 0.16
-    assert window[1] == pd.Timestamp("2026-10-15")            # the frozen end's cover row (O1)
+    assert window[1] == pd.Timestamp("2026-10-09")            # O1 as ruled: where IEF and HYG end
 
 
 def test_open_refuses_a_second_opening_and_a_halted_record(tmp_path, quiet_gate):
@@ -258,3 +258,49 @@ def test_power_at_reproduces_the_preregistration_at_its_own_count():
     assert p["event_17_1.0"]["p_t_ge_2"] == pytest.approx(0.94, abs=0.01)
     assert p["event_13_1.0"]["p_t_ge_2"] == pytest.approx(0.86, abs=0.01)
     assert p["sleeve_1.0"]["sr"] == pytest.approx(1.78, abs=0.01)
+
+
+# --------------------------------------------------------------------------- amendment 1: the MUB/IEF hedge
+
+def test_hedge_betas_recover_known_loadings_and_the_hedge_offsets_them():
+    rng = np.random.default_rng(3)
+    s = pd.bdate_range("2010-01-04", periods=1500)
+    F = pd.DataFrame(rng.normal(0, 0.005, (len(s), len(x.D4_FACTORS))), index=s, columns=list(x.D4_FACTORS))
+    R = pd.DataFrame({"AAA": 1.2 * F.MUNI + 0.5 * F.TERM + rng.normal(0, 1e-4, len(s)),
+                      "BBB": 0.2 * F.MUNI + 1.5 * F.TERM.shift(1).fillna(0) + rng.normal(0, 1e-4, len(s))}, index=s)
+    b = x.hedge_betas_core(R, F)
+    assert b["AAA"]["beta_MUNI"] == pytest.approx(1.2, abs=0.01) and b["BBB"]["beta_TERM"] == pytest.approx(1.5, abs=0.01)
+    hM, hI = x.hedge_weights("AAA", ["BBB"], b)
+    eM, eT = -1.2 + 0.2, -0.5 + 1.5
+    assert hM == pytest.approx(-eM, abs=0.02) and hI == pytest.approx(eM - eT, abs=0.02)
+    # holding hM of MUB = MUNI + IEF and hI of IEF = TERM + RF adds hM to MUNI and hM + hI to TERM
+    assert hM + eM == pytest.approx(0, abs=0.02) and (hM + hI) + eT == pytest.approx(0, abs=0.03)
+
+
+def test_the_hedge_enters_the_event_pnl_and_the_sleeve_sums_to_it():
+    D = _data()
+    D.hedge_betas = {t: {"beta_MUNI": 0.1 * i, "beta_TERM": 1.0 + 0.05 * i} for i, t in enumerate(NAMES)}
+    rng = np.random.default_rng(7)
+    D.hedge_R = pd.DataFrame(rng.normal(0, 0.003, (len(D.sessions), 2)), index=D.sessions, columns=["MUB", "IEF"])
+    ev, _ = xo.build_events(D)
+    r = ev.iloc[0]
+    hold = [r.p + 1, r.p + 2, r.p + 3]
+    want = r.x_unhedged + float((D.hedge_R.to_numpy()[hold] @ np.array([r.h_MUB, r.h_IEF])).sum())
+    assert r.x == pytest.approx(want)
+    S = xo.sleeve(D, ev)                       # asserts the per-event sum equals evaluate()'s P&L
+    assert {"MUB", "IEF"} <= set(S["H"].columns)
+
+
+def test_a_missing_hedge_return_is_a_halt():
+    D = _data()
+    D.hedge_betas = {t: {"beta_MUNI": 0.5, "beta_TERM": 1.0} for t in NAMES}
+    D.hedge_R = pd.DataFrame(0.0, index=D.sessions, columns=["MUB", "IEF"])
+    D.hedge_R.iloc[:, 0] = np.nan
+    with pytest.raises(xo.OpenError, match="HALT"):
+        xo.build_events(D)
+
+
+def test_o1_window_ends_on_2026_10_09():
+    s = pd.bdate_range("2023-01-02", "2026-10-30")
+    w = x.pnl_window({"dg_x1_refresh": {"test_end_ex": "2026-10-12"}}, s)
+    assert w[1] == pd.Timestamp("2026-10-09")
