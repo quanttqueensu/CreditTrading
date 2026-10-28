@@ -71,6 +71,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
 | `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) equal to the previous NAV or to CEFConnect's NAV(D-1), reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, defers or holds the unverified, records every check. | Transmits. Decides a target. |
 | `quantt/session/drawdown.py` | The drawdown check (step 2b): reads `<state>/eod_equity.csv` by header, the frozen spec's two drawdown lines (units-checked), and records the status and what an acting mode would do. | Transmits. Changes an order. Falls back to `equity.csv`. |
+| `quantt/session/combine.py` | The multi-sleeve combiner (2026-10-28, **dark**): reads the book json's `sleeves[]`; for a book whose enabled sleeves all carry `risk_budget`, builds each from its own spec on its own sleeve_nav, nets the whole-share targets per symbol into one `decide`, and records the per-sleeve attribution. Absent a budget, `None`: the single-spec session, byte-identical to de6e9c5 (proved by test). | Transmits. Splits a held position between sleeves. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
 | `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_hold"]` (2026-10-13): names the stale-NAV gate could not verify by its final check keep their current shares and leave the cross-section; holds never trigger the `min_names` flatten; absent is byte-identical. | — |
 | `quantt/deploy/` | launchd plist templates + an install script for the laptop prod clone + `docs/RUNBOOK.md`. | Stores a credential. |
@@ -193,6 +194,46 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-28): the multi-sleeve combiner, dark
+
+The team lead approved building it on 2026-10-28 ("build the combiner, decide
+placement after"). One Alpaca account takes one order per symbol (CLAUDE.md
+landmine 2), and the agent lab must net into C4's targets in the account they
+share (`docs/SYSTEM.md` §5, 2026-10-28). The design is the portfolio framework's
+phase C (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.10, §7). The why of
+each choice is in `quantt/session/combine.py`'s docstring.
+
+- **Off by default.** It is on only when every enabled entry of the book json's
+  `sleeves[]` carries `risk_budget`. The released json carries none, so
+  `Deps.sleeves` is None and the session is de6e9c5's, byte for byte. That is
+  proved against hashes computed by de6e9c5's code on the real panel and on a
+  synthetic panel that never skips (`quantt/session/tests/test_combine_noop.py`).
+  With no budget, the json must name exactly one enabled sleeve whose spec is the
+  book's, else the run fails before it starts.
+- **Sizing.** sleeve_nav = equity × risk_budget × σ_book / σ_sleeve. σ_book is the
+  book spec's `frozen.vol_target_annual`, so the budget is the sleeve's share of the
+  book's vol target. The budgets are inputs from the allocation analysis.
+- **Netting.** The sleeves' whole-share targets are summed per symbol, and `decide`
+  runs once on the net: one order per symbol, flips and shortability on the net.
+- **Book-level limits.** The book spec's `max_gross_stress`, applied once to the
+  netted orders by `fit_to_buying_power` and gate 8. Its value was derived for the
+  13 alone and must be re-derived on the combined book before a second sleeve is
+  enabled (framework §2.7).
+- **Gates.** Gate 9 and the send read the union of the enabled sleeves' universes.
+  Gate 5 runs per sleeve (`gate.gate_data_by_sleeve`). Before the final check
+  (close − 90 min) a failing sleeve refuses the decide, as today. From the final
+  check it is held at its shares and the rest decide. fetch_daily's exit 4 is
+  attributed by that per-name check, and every other refresh failure stays
+  book-wide. The stale-NAV gate's holds go to the sleeve that owns each name; a
+  deferral stays book-wide (one plan per day).
+- **Attribution.** plan.json `combine`: each sleeve's spec, budget, sleeve_nav,
+  status, and per symbol its current and target shares. Verify, score and TCA do
+  not split P&L by sleeve yet.
+- **Not built:** per-sleeve sub-ledgers (a held position in a symbol two enabled
+  sleeves trade fails the session, naming it), a per-sleeve opening session,
+  per-sleeve panels (C4 plan row 6A), sleeve `state` and sleeve-scoped halts
+  (framework §3.5).
 
 ## As built (2026-10-19): the drawdown check, HALVE/KILL in `report` mode
 

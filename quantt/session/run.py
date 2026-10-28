@@ -103,6 +103,18 @@ the session date; an evening run is never final) is REFUSED with a gate-5
   * verify: a day still deferred at the send reads, from plan.json's refusal,
     `MISSED: ... [data] stale-NAV gate: ... deferred`: a FAIL, never a PASS.
 
+MULTI-SLEEVE BOOKS (quantt/session/combine.py; DARK, team lead 2026-10-28).
+`Deps.sleeves` is None for the released book json, and every step above runs
+exactly as before (proved against de6e9c5: tests/test_combine_noop.py). It is
+set only when every enabled entry of the book json's `sleeves[]` carries a
+`risk_budget`. Then step 3 builds each sleeve from its own spec on its own
+sleeve_nav and decides the NETTED book once; the closes, NAVs, assets, gate 9
+and the send read the union of the sleeves' universes; gate 5 acts per sleeve
+(`gate.gate_data_by_sleeve`); the stale-NAV gate's holds go to the sleeve that
+owns the name; and plan.json gains `combine`, the per-sleeve record. The
+book-level limits stay the book spec's, applied to the netted orders by
+`fit_to_buying_power` and gate 8.
+
 OPENING SESSION. True only when Alpaca shows no positions AND no order in the
 account's history has ever filled. The sleeve is told explicitly (it never
 infers it from a flat book: a failed day or a manual flatten also looks flat),
@@ -130,11 +142,12 @@ import os
 import subprocess
 import sys
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Callable
 
+from quantt.session import combine as cmb
 from quantt.session import decide as dec
 from quantt.session import drawdown as ddm
 from quantt.session import gate as gt
@@ -742,6 +755,18 @@ class Deps:
     # The drawdown check (step 2b): its mode from the book json (None = off,
     # today's behaviour; `drawdown_for`).
     drawdown: str | None = None
+    # The multi-sleeve combiner (combine.py; dark): the book's enabled sleeves as
+    # `combine.load_sleeves` read them, or None = the single-spec book above,
+    # today's behaviour, which never reads this field.
+    sleeves: tuple | None = None
+
+
+def _sleeve_target_fn(sleeve_spec: dict):
+    """A combined sleeve's target callable: `sleeve_targets` on its own spec at
+    its own spec's capital (the single-sleeve rule), with the sleeve_nav the
+    combiner sizes it on in the equity argument (the sleeve's extras[sleeve_nav])."""
+    cap = float(sleeve_spec["capital_usd"])
+    return lambda asof, h, nav, op, **kw: sleeve_targets(sleeve_spec, cap, asof, h, nav, op, **kw)
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
@@ -771,6 +796,8 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         stale_nav=stale_nav,
         nav_gate=gate,
         drawdown=drawdown_for(book),
+        # None for the released book json (combine.load_sleeves, OFF BY DEFAULT).
+        sleeves=cmb.load_sleeves(book.book_path, book.spec_path, REPO, _sleeve_target_fn),
     )
 
 
@@ -818,6 +845,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
     try:
         state = rec.state_dir_from_env(deps.env)    # required; nothing runs without it
         p = spec_params(spec)
+        if deps.sleeves is not None:     # combined book: everything below covers the union
+            p = cmb.book_params(p, deps.sleeves)
         record["spec_id"] = p["spec_id"]
         c = deps.client
         clock = c.clock()
@@ -936,7 +965,18 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         nav_dates = deps.navs(asof, p["universe"])
         record["closes"] = {s: {"close": v[0], "date": v[1]} for s, v in closes_dated.items()}
         record["nav_dates"] = nav_dates
-        data_refusals = gt.gate_data(asof, refresh_exit, close_dates, nav_dates, p["universe"])
+        data_held, data_final = {}, None
+        if deps.sleeves is None:
+            data_refusals = gt.gate_data(asof, refresh_exit, close_dates, nav_dates, p["universe"])
+        else:
+            # Gate 5 per sleeve (gate.gate_data_by_sleeve): from the final check
+            # (the stale-NAV gate's, on the same clock) a sleeve whose own names
+            # fail is held and the rest decide; before it the book is refused.
+            data_final = len(cal_today) == 1 and clock["timestamp"] >= ng.final_check_at(
+                session_date, cal_today[0]["close"])
+            data_refusals, data_held = gt.gate_data_by_sleeve(
+                asof, refresh_exit, close_dates, nav_dates, cmb.universes(deps.sleeves),
+                data_final)
 
         # 2. read
         acct = c.account()
@@ -975,7 +1015,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 "not decided: the data gate refused"]}, plan_sha=dec.plan_sha(()))
         else:
             hold = gate_res.hold if gate_res is not None else {}
-            if hold:
+            if deps.sleeves is not None:
+                # The combined book (combine.py): every enabled sleeve on its own
+                # spec and sleeve_nav, the stale-NAV holds to the sleeve owning
+                # each name, then ONE decide on the netted targets.
+                decision, record["combine"] = cmb.decide(
+                    deps.sleeves, asof=asof, positions=pos, equity=equity, closes=closes,
+                    shortable=shortable, opening=opening, nav_hold=hold, held=data_held,
+                    book_vol=cmb.book_vol_target(spec), session_date=session_date,
+                    cid_prefix=book.cid_prefix, min_trade_usd=p["min_trade_usd"],
+                    time_in_force="day" if late else dec.TIME_IN_FORCE)
+            elif hold:
                 targets = deps.targets(asof, pos, equity, opening,
                                        nav_hold={"asof": asof, "names": hold})
             else:
@@ -987,11 +1037,12 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 if changed:
                     raise SessionError(f"the NAV panel changed between the stale-NAV gate and "
                                        f"the sleeve's read: {changed}; not deciding on it")
-            decision = dec.decide(targets, pos, equity, closes, shortable,
-                                  session_date=session_date, universe=p["universe"],
-                                  cid_prefix=book.cid_prefix,
-                                  min_trade_usd=p["min_trade_usd"],
-                                  time_in_force="day" if late else dec.TIME_IN_FORCE)
+            if deps.sleeves is None:
+                decision = dec.decide(targets, pos, equity, closes, shortable,
+                                      session_date=session_date, universe=p["universe"],
+                                      cid_prefix=book.cid_prefix,
+                                      min_trade_usd=p["min_trade_usd"],
+                                      time_in_force="day" if late else dec.TIME_IN_FORCE)
         if decision.orders and deps.execution.get("bp_shortfall") == "scale":
             scaled, factor, binding = fit_to_buying_power(
                 decision.orders, pos, closes, equity, acct["buying_power"], _gross_now(acct),
@@ -1038,6 +1089,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             max_gross_stress=p["max_gross_stress"], universe=p["universe"],
             account_flags={k: acct[k] for k in ("trading_blocked", "account_blocked",
                                                 "trade_suspended_by_user")})
+        if deps.sleeves is not None:     # gate 5 per sleeve, as decided above
+            facts = replace(facts, sleeve_universes=cmb.universes(deps.sleeves),
+                            data_final=data_final)
         refusals = gt.evaluate(facts)
         if gate_res is not None and gate_res.deferred:
             # The stale-NAV gate's deferral (module docstring, DEFERRAL AND THE ORDER PATH).
@@ -1054,6 +1108,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan["drawdown"] = record["drawdown"]
         if "bp_scale" in record:
             plan["bp_scale"] = record["bp_scale"]
+        if "combine" in record:              # only a combined book (combine.py)
+            plan["combine"] = record["combine"]
         shown = refusals
         if late:
             # DECIDE phase: dry-run, arming and the clock belong to the SEND phase.
@@ -1080,6 +1136,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
 
         print(f"{book.name} session {session_date} (as-of {asof}), equity ${equity:,.2f}, "
               f"opening_session={opening}", file=out)
+        if "combine" in record:
+            for line in cmb.lines(record["combine"]):
+                print(line, file=out)
         print(order_table(decision.orders), file=out)
         for sym, ns in sorted(decision.notes.items()):
             for n in ns:
@@ -1198,6 +1257,8 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     broker reads, sent as market `day` orders inside the late window."""
     out, c = deps.out, deps.client
     p = spec_params(spec)
+    if deps.sleeves is not None:     # combined book: the assets and gate 9 cover the union
+        p = cmb.book_params(p, deps.sleeves)
     plan, orders = load_decided_plan(day, session_date)
     record.update(plan_sha=plan["plan_sha"], asof=plan["asof"])
     acct = c.account()
