@@ -77,6 +77,25 @@ first and records them before it builds a single P&L figure)
    in book return per name-day: the block's round-trip cost per name-day it
    blocks, at the grid's middle point. It is computed before any return. A block
    that adds no turnover has no cost hurdle and the run raises rather than invent one.
+
+   **REVISION 1 (2026-10-28, after the first run and BEFORE any return was read).**
+   The first run raised exactly there: the block REMOVES turnover (-10.0 turns over
+   the window, about -1.05 a year). The book trades its in-window shorts inside the
+   windows, at the band's edges and whenever the 1.80x gross ceiling rescales the
+   book, and blocking them deletes those trades along with adding the entry and
+   exit. So acting on the conditioner has no cost to clear, and the rule above
+   cannot be formed. The run stopped before the first P&L line (the code computes
+   holdings-only quantities first), so no return informed the replacement, which is
+   the round-trip cost of the positions themselves, at the grid's middle point,
+   per name-day they span:
+       meaningful = 15bp x 2 x sum over spells of mean|w| / (in-window name-days),
+   where a spell is a maximal run of consecutive decision sessions on which the name
+   is held on that side inside a window. A per-name-day difference smaller than
+   what one open and one close of the position costs, spread over its spell, cannot
+   pay for any rule that trades on it. The unit-return split uses the same rule per
+   unit of weight (15bp x 2 x spells / name-days), and each side (shorts; the long
+   control) gets its own hurdle by the same rule. A1 §7's kill line is reported as
+   computed; with negative added turnover it cannot bind, and the JSON says so.
 7. **The block**, fixed and not tuned: G6's filter. Where the book would be short a
    name on a decision session inside its window, hold it flat
    (`H.where(~((H < 0) & M), 0.0)`); everything else is the book's. On exit it trades
@@ -339,6 +358,34 @@ def era_of(dates: pd.Series) -> pd.Series:
     return lab
 
 
+def spell_hurdle(H: pd.DataFrame, M: pd.DataFrame, first_live: pd.Timestamp, side: str) -> dict:
+    """Revision 1's `meaningful`, from holdings only: 15bp x a round trip (2 x mean|w|)
+    per spell, over the in-window name-days of `side`. Spells are maximal runs of
+    consecutive decision sessions held on that side inside a window, on the same
+    decision rows `name_days` uses (from `first_live`, last EXEC_LAG dropped)."""
+    from scripts.research.harness import EXEC_LAG
+    pos = ((H < 0) if side == "short" else (H > 0)) & M
+    P = pos.loc[first_live:].iloc[:-EXEC_LAG]
+    W = H.abs().loc[P.index]
+    rt_w, n_spells, n_days = 0.0, 0, int(P.sum().sum())
+    lengths = []
+    for c in P.columns:
+        x = P[c].to_numpy()
+        if not x.any():
+            continue
+        run_id = np.cumsum(np.r_[True, x[1:] != x[:-1]])
+        for k in np.unique(run_id[x]):
+            m = run_id == k
+            rt_w += 2.0 * float(W[c].to_numpy()[m].mean())
+            n_spells += 1
+            lengths.append(int(m.sum()))
+    if n_days == 0 or n_spells == 0:
+        raise ReopenA1Error(f"no in-window {side} name-days: no hurdle, and nothing to split")
+    c = MEANINGFUL_COST_BP / BP
+    return {"spells": n_spells, "name_days": n_days, "median_spell_sessions": float(np.median(lengths)),
+            "meaningful_pnl": c * rt_w / n_days, "meaningful_unit": c * 2.0 * n_spells / n_days}
+
+
 # ============================================================ the block
 
 def blocked(H: pd.DataFrame, M: pd.DataFrame) -> pd.DataFrame:
@@ -497,16 +544,24 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
     years = int(act.sum()) / 252.0
     dturn_total = float((turn_k - turn_b)[act].sum())
     n_in = int(((H < 0) & M).loc[first_live:].iloc[:-EXEC_LAG].sum().sum())
-    if dturn_total <= 0:
-        raise ReopenA1Error(f"the block adds {dturn_total:.4f} turnover: no cost hurdle exists to declare")
-    meaningful = MEANINGFUL_COST_BP / BP * dturn_total / n_in
+    # Revision 1 (module docstring, item 6): the original rule needed dturn_total > 0
+    # and the first run measured it negative, before any return. The hurdle is now the
+    # positions' own round trip per spell; dturn is reported, not used as a hurdle.
+    hurdle = {side: spell_hurdle(H, M, first_live, side) for side in ("short", "long")}
+    if hurdle["short"]["name_days"] != n_in:
+        raise AssertionError("the spell count and the name-day count disagree on the in-window shorts")
     res["declared_before_returns"] = {
         "block_added_turnover_total": round(dturn_total, 4), "block_added_turn_per_yr": round(dturn_total / years, 4),
         "in_window_short_name_days_with_fit_return": n_in,
-        "meaningful_bp_per_name_day": round(meaningful * BP, 4),
-        "meaningful_rule": f"{MEANINGFUL_COST_BP:g}bp x block's added turnover / in-window short name-days",
+        "original_rule_formable": bool(dturn_total > 0),
+        "meaningful_rule": (f"{MEANINGFUL_COST_BP:g}bp x 2 x sum over in-window spells of mean|w| / in-window name-days "
+                            "(per unit weight: x 2 x spells / name-days); revision 1"),
+        "hurdle": {s: {"spells": h["spells"], "name_days": h["name_days"], "median_spell_sessions": h["median_spell_sessions"],
+                       "meaningful_pnl_bp": round(h["meaningful_pnl"] * BP, 5),
+                       "meaningful_unit_bp": round(h["meaningful_unit"] * BP, 5)} for s, h in hurdle.items()},
         "kill_line_bp_per_yr": round(dturn_total / years * KILL_LINE_BP, 3),
-        "kill_line_rule": f"block's added turn/yr x {KILL_LINE_BP:g}bp (A1 §7 item 1)"}
+        "kill_line_rule": f"block's added turn/yr x {KILL_LINE_BP:g}bp (A1 §7 item 1)",
+        "kill_line_can_bind": bool(dturn_total > 0)}
 
     # ---- returns
     views = {}
@@ -518,8 +573,8 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
             check = float(evaluate(S, R)["pnl"].sum())
             if abs(check - df["pnl"].sum()) > 1e-12:
                 raise AssertionError(f"{side} name-day P&L {df['pnl'].sum()} != evaluate's {check}")
-            rec = {"pnl_per_name_day": split(df, "pnl", meaningful),
-                   "unit_return_per_name_day": split(df, "unit", meaningful),
+            rec = {"pnl_per_name_day": split(df, "pnl", hurdle[side]["meaningful_pnl"]),
+                   "unit_return_per_name_day": split(df, "unit", hurdle[side]["meaningful_unit"]),
                    "within_date_pnl": within_date(df, "pnl"),
                    "mean_abs_weight": {"inside": round(float(df.loc[df["inside"], "w"].abs().mean()), 5),
                                        "outside": round(float(df.loc[~df["inside"], "w"].abs().mean()), 5)},
@@ -544,8 +599,10 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
         v["kill_line"] = {"in_window_short_pnl_bp_per_yr": v["short"]["in_window_short_pnl_bp_per_yr"],
                           "block_gain_gross_bp_per_yr": round(-v["short"]["in_window_short_pnl_bp_per_yr"], 3),
                           "added_turn_x_5bp_bp_per_yr": res["declared_before_returns"]["kill_line_bp_per_yr"],
-                          "immaterial": bool(abs(v["short"]["in_window_short_pnl_bp_per_yr"])
-                                             < res["declared_before_returns"]["kill_line_bp_per_yr"])}
+                          "immaterial": (bool(abs(v["short"]["in_window_short_pnl_bp_per_yr"])
+                                              < res["declared_before_returns"]["kill_line_bp_per_yr"])
+                                         if dturn_total > 0 else
+                                         "cannot bind: the block lowers turnover, so it has no cost to clear")}
         views[view] = v
     res["views"] = views
     res["borrow_real_money_only"] = borrow_line(H, M)
@@ -555,7 +612,7 @@ def measure(H: pd.DataFrame, Rv: dict, w: pd.DataFrame, committed: dict, crsp_di
     res["crsp_check"] = {"permnos_per_ticker": Rc.pop("permnos_per_ticker")}
     for col, lab in (("ret", "total"), ("retx", "paper")):
         df = name_days(H, Rc[col], M, first_live, "short")
-        sp = split(df, "pnl", meaningful)
+        sp = split(df, "pnl", hurdle["short"]["meaningful_pnl"])
         res["crsp_check"][lab] = {"inside_mean_bp": sp["inside"]["mean_bp"], "outside_mean_bp": sp["outside"]["mean_bp"],
                                   "estimate_out_minus_in_bp": sp["estimate_out_minus_in_bp"], "se_bp": sp["se_bp"],
                                   "outcome": sp["read_result"]["outcome"],

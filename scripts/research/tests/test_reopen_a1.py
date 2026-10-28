@@ -114,3 +114,19 @@ def test_a1_reproduction_check_refuses_a_different_window_or_count():
     committed["book_exposure_fit_period"]["programme_episode"]["windows"] = ["PCN 2013-06-21..2013-06-26"]
     with pytest.raises(bw.ReopenA1Error):
         bw.assert_matches_a1(w, H, M, idx[1], committed)
+
+
+def test_spell_hurdle_is_a_round_trip_per_spell_spread_over_its_name_days():
+    # Revision 1's meaningful. A is short inside on decisions 1-3 (|w| 0.1, 0.2, 0.3)
+    # and 6-7 (|w| 0.4, 0.4): two spells, round trips 2 x 0.2 and 2 x 0.4, over 5
+    # name-days -> 15bp x 1.2 / 5. Per unit weight: 15bp x 2 x 2 / 5. The last two
+    # decisions earn after the sample and are not counted.
+    idx = pd.bdate_range("2020-01-01", periods=12)
+    H = pd.DataFrame({"A": [0, -.1, -.2, -.3, 0, 0, -.4, -.4, 0, 0, -.5, -.5]}, index=idx)
+    M = pd.DataFrame({"A": [True] * 12}, index=idx)
+    h = bw.spell_hurdle(H, M, idx[1], "short")
+    assert (h["spells"], h["name_days"]) == (2, 5)
+    assert h["meaningful_pnl"] == pytest.approx(15e-4 * 1.2 / 5, abs=1e-15)
+    assert h["meaningful_unit"] == pytest.approx(15e-4 * 4 / 5, abs=1e-15)
+    with pytest.raises(bw.ReopenA1Error):
+        bw.spell_hurdle(H, M, idx[1], "long")           # no in-window longs: no hurdle to invent
