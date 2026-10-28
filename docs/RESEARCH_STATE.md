@@ -60,6 +60,11 @@ counter (156) covers all ETF-price/PD work done to date.
 >   PIMCO, DoubleLine and AllianceBernstein fully and BlackRock but for 2 events. Nuveen gives 42 of 226, because it stopped
 >   declaring by press release in 2019, so 186 events are excluded. 545 events are eligible as ruled. `fit-k`: k = 0.1648,
 >   cap binds on 0 rows. `open` waits on French's 202610 vintage (the X6 ruling) and the team lead's review. No counter moves.
+> - **2026-10-28, evening:** Nuveen 2023–24 declarations recovered from CRSP `dclrdt`, 86 events, provisional on the team
+>   lead's live pull. R10 re-ruled KEEP. 649 events are eligible. `open` is written, independently reviewed (all findings
+>   fixed) and gated. Rehearsed on FIT 2021–22 it gives KILL D4 (alpha t 2.90; MUNI and TERM betas −0.41/−0.39 at
+>   target). Power at 649 events: P(t ≥ 2) 0.91, P(bar) 0.43 at the fit effect. Before `open`: the team lead's R2/bars
+>   run, French and IEF/HYG to 2026-10-15, and O1–O4 + GO. No counter moves; no 2023+ return read.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:

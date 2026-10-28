@@ -396,6 +396,18 @@
   "DG-X7": "PASS (identity; k committed by fit-k)",
   "DG-X8": "PASS"
  },
+ "input_pins_sha256": {
+  "alpaca_adjacent_bars": null,
+  "alpaca_bars": "7fd6968b14dccddcc0f1738f6b511d8a6e205d323af8b30f8a26d11db96714d9",
+  "alpaca_dividends": "0b1380f221e89806c7f641dbcfef53dbfa7d6aa8885b4640e05c4fedc36445a0",
+  "declarations_final": "bdf817974d18ccca70263017a1df2b5c15c79ba230a350b3f756c0b6cebe4e18",
+  "dist_refresh": "9656cc3d4c536b1908ae734d2f901a98410f988d649979a83e9e6dc6f0f365ec",
+  "mub": "29e2a437345c79b620a91677f331563ac2ee6712cf1141891994387d4c6b1ef7",
+  "navs": "410d374fddf9e4cec52cb4f6c8a3f64545e40a3996c0da28cfd4d19b254fa2c4",
+  "prices": "d6bb16cf3c44d15a7040cb1e5870e44d684428d6e4f7cbfa7f15c6fdf33c2440",
+  "splits_refresh": "67a1f007312a155fd835fe50e3b357dfb060fcf6905cf90089c204ef3a5489cb",
+  "sponsor_table": "47681e9da0a67736fffec078e4f4d6db5da2ec9fb150b795b6d95efc28ec64aa"
+ },
  "k_committed": true,
  "missing_close_cells": {
   "cells": 24,

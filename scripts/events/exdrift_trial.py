@@ -30,9 +30,10 @@ WHAT STAGE 0 MAY READ, AND WHAT IT MAY NOT
   - the spike-and-revert bar guard (`data_guards.split_like_spikes`), which forms close and
     NAV ratios INSIDE data_guards to classify a bar. Only its flag keys (ticker, first bar,
     run end, revert date, split factor) leave `bar_guard_flags`; its ratio columns are dropped
-    unread. The split-basis guard takes returns as input, so it is NOT run at Stage 0 (it runs
-    inside `band_frontier.total_returns` at the opening); its one test-window split is
-    classified from the factor alone (`split_basis_class`).
+    unread. The split-basis guard takes returns as input, so it is NOT run at Stage 0. Its one
+    test-window split is classified from the factor alone (`split_basis_class`: undecidable). The
+    opening does not apply split factors at all: r6's ±5-session mask (R1) removes those returns,
+    so no factor is ever multiplied in.
 * FIT, 2005-01-01 .. 2022-12-30: prices, NAVs and distributions, read through parquet filters
   at FIT_END so no later row is loaded, and asserted. Stage 0 computes on them only the identity
   gate (DG-X7): r6's statistic and H-E's per-event dispersion, both already published. No new
@@ -99,6 +100,7 @@ SPLITS_REFRESH = REFRESH_DIR / "cef_splits.parquet"
 ALPACA_DIVS = CACHE / "alpaca_cash_dividends.parquet"         # fetch_exdrift_corp_actions.py
 ALPACA_ANN = CACHE / "alpaca_dividend_announcements.parquet"
 ALPACA_BARS = CACHE / "alpaca_flagged_bars.parquet"
+ALPACA_ADJ_BARS = CACHE / "alpaca_adjacent_bars.parquet"     # the X4 basis check's bars on e-1 and e+1
 FF_DAILY = REPO / "results" / "cef" / "w4" / "_cache_w4" / "ff5_umd_daily.parquet"   # fetch_ff_factors.py
 ETF_YF = {s: CACHE / f"etf_yf_{s}.parquet" for s in ("MUB", "IEF", "HYG")}        # fetch_exdrift_mub.py
 FLAGS = OUT_DIR / f"exdrift_stage0_flags_{STAMP}.csv"
@@ -109,7 +111,35 @@ STAGE0_TXT = OUT_DIR / f"exdrift_stage0_output_{STAMP}.txt"
 FIT_TABLE = OUT_DIR / f"exdrift_fit_descriptive_{STAMP}.csv"
 K_JSON = OUT_DIR / f"exdrift_k_{STAMP}.json"          # written by fit-k (not yet)
 SPONSOR_TABLE = OUT_DIR / "exdrift_sponsor_declarations_2026-10-28.csv"
-CRSP_DECL = CACHE / "crsp_decl"                       # fetch_exdrift_crsp_decl.py (gitignored: CRSP rows are licensed)   # fetch_exdrift_sponsor_releases.py build
+CRSP_DECL = CACHE / "crsp_decl"                       # fetch_exdrift_crsp_decl.py (gitignored: CRSP rows are licensed)
+DECL_FINAL = CACHE / "exdrift_declarations_final.csv"  # stage0 writes it: release + CRSP dates (gitignored: CRSP-derived)
+OPENED = OUT_DIR / "exdrift_test_set_OPENED.json"     # written by `open` before it computes anything; opened once
+OPEN_RULINGS = OUT_DIR / "exdrift_open_rulings.csv"   # the team lead's rulings on O1-O4 and the GO row
+OPEN_READINGS = [
+    ("O1", "The P&L window of the sleeve (stages 5-6) runs from the first session on or after 2023-01-01 to the frozen "
+           "end's cover row (end ex-date + 3 sessions), T = 950 sessions today: §5.1's test set and §10's T. Every factor "
+           "(French six and rf, IEF, HYG, MUB) must cover it and the session before it (the Dimson lag). Alternative: "
+           "the first event's e+1 to the last event's e+3 (the rulings proposal's #15 window, 2026-10-06 today)."),
+    ("O2", "R-D4's betas 'at the vol target' are the summed betas times VOL_TARGET / sigma(tradable sleeve over the "
+           "window): the NAV-tender precedent, whose sizing rule (sigma on active sessions) §4.4 copies; the tradable "
+           "sleeve's full-window vol is below the target. Alternative: unscaled betas (E1's reading, whose k used the "
+           "full-series sigma). Both are printed."),
+    ("O3", "Stage 3 compares the NAV-leg mean with the price-leg mean ON THE SAME EVENTS (those with a NAV leg after the "
+           "X5 exclusions), as §4.6's 'the same events and baskets'. The comparison against the full set's price mean is "
+           "printed beside."),
+    ("O4", "The X4 fill's basis check (ruling #4): Alpaca's raw SIP close on e-1 and e+1 equals yfinance's within "
+           "$0.01, as C4's adjacent-bar check; the bars come from the team lead's run (`run_exdrift_r2.sh`). A cell that "
+           "fails raises (HALT)."),
+]
+TRIAL_CODE = [REPO / "scripts" / "events" / n for n in ("exdrift_trial.py", "exdrift_open.py", "fetch_exdrift_sponsor_releases.py",
+                                                        "fetch_exdrift_crsp_decl.py", "fetch_exdrift_corp_actions.py")]
+PINNED = {"prices": PRICES, "navs": NAVS, "dist_refresh": DIST_REFRESH, "splits_refresh": SPLITS_REFRESH,
+          "declarations_final": DECL_FINAL, "alpaca_bars": ALPACA_BARS, "alpaca_adjacent_bars": ALPACA_ADJ_BARS,
+          "alpaca_dividends": ALPACA_DIVS, "sponsor_table": SPONSOR_TABLE, "mub": ETF_YF["MUB"]}
+REHEARSAL_JSON = OUT_DIR / "exdrift_rehearsal_fit_2021_22.json"
+REHEARSAL_TXT = OUT_DIR / "exdrift_rehearsal_fit_2021_22.txt"
+POWER_JSON = OUT_DIR / "exdrift_power_2026-10-28.json"
+B3_JSON = REPO / "results" / "events" / "prereg_exdrift" / "prereg_inputs_b3.json"   # fit dispersion (identity-gated)   # fetch_exdrift_sponsor_releases.py build
 NOTICES = OUT_DIR / "exdrift_sponsor_notices_2026-10-28.csv"   # verified sponsor notices (DG-X2 check)
 NOTICE_CACHE = CACHE / "sponsor_notices"              # `exdrift_trial.py notices` fills it (public GETs)
 WRAPPER = "run_exdrift_ca.sh"                         # worktree root, excluded from git (info/exclude)
@@ -1189,6 +1219,8 @@ def stage0(write: bool = True) -> dict:
         rec["dg_x2"] = s2
         ann_fail = None                                          # the gate rests on the sponsor table
         rows = [r for r in rows if r["check"] != "X2_source_invalid"]
+        if write:
+            decl[["ticker", "ex_date", "sponsor", "status", "declared", "source"]].to_csv(DECL_FINAL, index=False)
         decl_cal = decl[["ticker", "ex_date", "declared"]].rename(columns={"declared": "declaration_date"}).assign(
             status=200)                                          # not-found ex-dates carry NaT: never "declared"
 
@@ -1339,6 +1371,8 @@ def stage0(write: bool = True) -> dict:
             say(f"rulings form (blank) -> {RULINGS.relative_to(REPO)}")
         elif RULINGS.exists():
             say(f"rulings file exists with rulings in it ({RULINGS.relative_to(REPO)}); never overwritten")
+        rec["input_pins_sha256"] = {k_: (hashlib.sha256(v.read_bytes()).hexdigest() if v.exists() else None)
+                                    for k_, v in PINNED.items()}
         STAGE0_JSON.write_text(json.dumps(_jsonable(rec), indent=1, sort_keys=True))
         STAGE0_TXT.write_text("\n".join(out) + "\n")
     return {"rec": rec, "flags": F, "events": E}
@@ -1585,9 +1619,178 @@ def fit_k(args) -> int:  # pragma: no cover - reads the real fit panels; its cor
     return 0
 
 
-def open_test(args) -> int:  # pragma: no cover - OPENED ONCE, after Stage 0 clears
-    require_stage0_clear()
-    raise NotImplementedError("the opening (prereg §9.1 stages 1-7) is written after Stage 0 clears, reviewed, and run once")
+def pnl_window(rec: dict, sessions: pd.DatetimeIndex) -> tuple:
+    """O1: the first session on or after TEST_START to the frozen end's cover row."""
+    end_ex = pd.Timestamp(rec["dg_x1_refresh"]["test_end_ex"])
+    return sessions[sessions.searchsorted(TEST_START)], sessions[sessions.get_loc(end_ex) + HOLD]
+
+
+def factor_gaps(window: tuple, sessions: pd.DatetimeIndex) -> list[str]:
+    """Every factor input present on every window session and the session before it (the Dimson
+    lag). Presence only: no value is read beyond its being non-null."""
+    i0 = sessions.get_loc(window[0])
+    need = sessions[max(0, i0 - 1):sessions.get_loc(window[1]) + 1]
+    out = []
+    if not FF_DAILY.exists():
+        return [f"{FF_DAILY.name} missing"]
+    f = pd.read_parquet(FF_DAILY, columns=["date", "mktrf", "smb", "hml", "rmw", "cma", "umd", "rf"])
+    f["date"] = pd.to_datetime(f["date"])
+    ok = set(f.dropna()["date"])
+    m = [d for d in need if d not in ok]
+    if m:
+        out.append(f"French FF5+UMD+rf miss {len(m)} session(s) from {m[0].date()}")
+    e = pd.read_parquet(ETF_DAILY, columns=["date", "ticker", "ret_total"], filters=[("ticker", "in", ["IEF", "HYG"])])
+    e["date"] = pd.to_datetime(e["date"])
+    for t in ("IEF", "HYG"):
+        okt = set(e[(e.ticker == t) & e.ret_total.notna()]["date"])
+        m = [d for d in need if d not in okt]
+        if m:
+            out.append(f"{t} (data/etf_daily.parquet) misses {len(m)} session(s) from {m[0].date()}")
+    if ETF_YF["MUB"].exists():
+        mb = pd.read_parquet(ETF_YF["MUB"], columns=["date", "close"])
+        mb["date"] = pd.to_datetime(mb["date"])
+        okm = set(mb.dropna()["date"])
+        prev = sessions[max(0, i0 - 2)]
+        m = [d for d in list(need) + [prev] if d not in okm]
+        if m:
+            out.append(f"MUB misses {len(m)} session(s) from {min(m).date()}")
+    else:
+        out.append("MUB cache missing")
+    return out
+
+
+def open_gate(go: str | None, *, check_git: bool = True, opened: Path = OPENED, open_rulings: Path = OPEN_RULINGS,
+              verify_pins: bool = True, **paths) -> tuple:
+    """Every condition the opening needs, checked before it reads a 2023+ return. It refuses unless:
+    - an explicit `--team-lead-go YYYY-MM-DD` is passed, dated today or earlier, and matching the GO row
+      the team lead recorded in `exdrift_open_rulings.csv`;
+    - the readings O1-O4 are ruled in that same file;
+    - Stage 0 is CLEAR in the committed record, with every flag ruled;
+    - fit-k's k is committed;
+    - French, IEF, HYG and MUB cover the P&L window (O1) and the lag row;
+    - every input the opening reads is byte-identical to what Stage 0 pinned (review B3);
+    - the trial code is committed and clean (review S2);
+    - the test set was never opened: OPENED is absent here and in every branch's history (review S1).
+    Returns (go date, k record, the rulings, the window, the gate token)."""
+    from scripts.events import exdrift_open as xo
+    if not go:
+        raise dg.Stage0BlockError("`open` needs --team-lead-go YYYY-MM-DD: the team lead's explicit go")
+    try:
+        gd = datetime.strptime(go, "%Y-%m-%d").date()
+    except ValueError as e:
+        raise dg.Stage0BlockError(f"--team-lead-go {go!r} is not a date YYYY-MM-DD") from e
+    if gd > datetime.now(timezone.utc).date():
+        raise dg.Stage0BlockError(f"--team-lead-go {gd} is in the future")
+    if Path(opened).exists():
+        raise dg.Stage0BlockError(f"the test set was already opened ({Path(opened).name}); it is opened once")
+    if check_git:
+        r = subprocess.run(["git", "-C", str(REPO), "log", "--all", "--oneline", "--", str(Path(opened).relative_to(REPO))],
+                           capture_output=True, text=True)
+        if r.returncode != 0 or r.stdout.strip():
+            raise dg.Stage0BlockError(f"{Path(opened).name} exists in this repository's history: the test set was opened")
+    if not Path(open_rulings).exists():
+        raise dg.Stage0BlockError(f"{Path(open_rulings).name} does not exist: the team lead rules O1-O4 and records the GO row")
+    if check_git:
+        _committed([Path(open_rulings)] + TRIAL_CODE, True)
+    O = pd.read_csv(open_rulings, dtype=str, keep_default_na=False)
+    need = [c for c, _ in OPEN_READINGS] + ["GO"]
+    for c in need:
+        row = O[O.check == c]
+        if len(row) != 1 or not row.ruling.iloc[0].strip() or row.ruled_by.iloc[0].strip() != "team lead":
+            raise dg.Stage0BlockError(f"{Path(open_rulings).name}: {c} is not ruled by the team lead")
+    g = O[O.check == "GO"].iloc[0]
+    if g.ruled_on.strip() != str(gd) or not g.ruling.strip().upper().startswith("GO"):
+        raise dg.Stage0BlockError(f"the GO row says {g.ruling!r} on {g.ruled_on!r}; --team-lead-go is {gd}")
+    J = require_stage0_clear(check_git=check_git, **paths)
+    rec = json.loads(Path(paths.get("record", STAGE0_JSON)).read_text())
+    if verify_pins:
+        pins = rec.get("input_pins_sha256") or {}
+        bad = [k_ for k_, v in PINNED.items() if pins.get(k_) is None or not v.exists()
+               or hashlib.sha256(v.read_bytes()).hexdigest() != pins[k_]]
+        if bad:
+            raise dg.Stage0BlockError(f"inputs differ from what Stage 0 pinned (re-run Stage 0, commit, re-rule): {bad}")
+    window = pnl_window(rec, sessions_calendar())
+    gaps = factor_gaps(window, sessions_calendar())
+    if gaps:
+        raise dg.Stage0BlockError("the factor inputs do not cover the P&L window (O1): " + "; ".join(gaps))
+    k = json.loads(Path(paths.get("k_path", K_JSON)).read_text())
+    return gd, k, J, window, xo._GATE_TOKEN
+
+
+def open_test(args) -> int:  # pragma: no cover - THE ONE OPENING: run only on the team lead's go, never by an agent
+    gd, kj, _, window, token = open_gate(args.team_lead_go)
+    head = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    with open(OPENED, "x") as fh:                                         # exclusive: a second shell cannot open too
+        fh.write(json.dumps({"team_lead_go": str(gd), "opened_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                             "commit": head}, indent=1))                  # recorded before the first 2023+ return
+    from scripts.events import exdrift_open as xo
+    D = xo.load_test(token, kj["k"], kj["cap"], float(spec.VOL_TARGET), N_BAR, window)
+    ev, _ = xo.build_events(D)
+    rec = json.loads(STAGE0_JSON.read_text())
+    ruled = rec["eligible"][next(k_ for k_ in rec["eligible"] if k_.startswith("as ruled"))]
+    if (len(ev), int(ev.ticker.isin(CORE).sum())) != (ruled["events"], ruled["events_13"]):
+        msg = (f"the opening's eligible set ({len(ev)}, {int(ev.ticker.isin(CORE).sum())} on the 13) differs from Stage 0's "
+               f"({ruled['events']}, {ruled['events_13']}): HALT before any statistic, for a ruling")
+        OPENED.write_text(json.dumps({**json.loads(OPENED.read_text()), "halted": msg}, indent=1))
+        raise xo.OpenError(msg)
+    out = xo.open_core(D)
+    xo.write_report(out, OUT_DIR / f"exdrift_OPEN_result_{gd}.json", OUT_DIR / f"exdrift_OPEN_result_{gd}.txt")
+    print(f"verdict {out['report']['verdict']} -> {OUT_DIR.relative_to(REPO)}/exdrift_OPEN_result_{gd}.json")
+    return 0
+
+
+def rehearse(args) -> int:
+    """The opening's code on FIT data only (2021-01-01 .. 2022-12-30), as C4 rehearsed. It needs
+    fit-k's committed k. No 2023+ row is read (every frame is cut at FIT_END and asserted)."""
+    from scripts.events import exdrift_open as xo
+    if not K_JSON.exists():
+        raise dg.Stage0BlockError(f"{K_JSON.name} does not exist: run fit-k first")
+    kj = json.loads(K_JSON.read_text())
+    D = xo.load_rehearsal(kj["k"], kj["cap"], float(spec.VOL_TARGET), N_BAR)
+    out = xo.open_core(D)
+    xo.write_report(out, REHEARSAL_JSON, REHEARSAL_TXT)
+    r = out["report"]
+    print(f"{r['label']}: verdict {r['verdict']}; events {r['events']}; stage 1 {r['stage1_event_mean']}")
+    print(f"-> {REHEARSAL_JSON.relative_to(REPO)}")
+    return 0
+
+
+def power_at(events: int, events_13: int, months: int, sessions: int) -> dict:
+    """§10's power, recomputed for a count (prereg_power_he.py's method, unchanged): the per-event
+    SE is the fit's sd of monthly means scaled to the count's events per month; the sleeve Sharpe
+    is r6's mean times the fit's events per month over the fit's sd of monthly sums [U]."""
+    from statistics import NormalDist
+    from scripts.xasset.slate_feasibility import p_alpha_t, power, required_sharpe
+    b3 = json.loads(B3_JSON.read_text())
+    Nd = NormalDist()
+    epm_fit = b3["he_events"] / b3["he_months"]
+    out = {"events": events, "events_13": events_13, "months": months, "T_sessions": sessions,
+           "inputs": "fit H-E dispersion (prereg_inputs_b3.json, identity-gated at DG-X7) and r6's mean"}
+    for lab, nev in (("17", events), ("13", events_13)):
+        epm = nev / months
+        se = b3["he_sd_month_mean"] * math.sqrt(epm_fit / epm) / math.sqrt(months)
+        for f_ in (1.0, 0.5, 0.25):
+            mu = f_ * abs(R6_PUBLISHED["car_bp"])
+            out[f"event_{lab}_{f_}"] = {"mu_bp": mu, "se_bp": se, "t": mu / se, "p_t_ge_2": 1 - Nd.cdf(2 - mu / se)}
+    for f_ in (1.0, 0.5):
+        sr = (f_ * abs(R6_PUBLISHED["car_bp"]) * epm_fit) / b3["he_sd_month_sum"] * math.sqrt(12)
+        out[f"sleeve_{f_}"] = {"sr": sr, "p_dsr_N7": power(sr, N_BAR, sessions), "p_alpha_t3": p_alpha_t(sr, sessions)}
+    out["sharpe_needed_N7"] = required_sharpe(N_BAR, sessions)
+    return out
+
+
+def power_cmd(args) -> int:
+    rec = json.loads(STAGE0_JSON.read_text())
+    lab = next(k_ for k_ in rec["eligible"] if k_.startswith("as ruled"))
+    e = rec["eligible"][lab]
+    sessions = sessions_calendar()
+    end_ex = pd.Timestamp(rec["dg_x1_refresh"]["test_end_ex"])
+    T = int(((sessions >= TEST_START) & (sessions <= sessions[sessions.get_loc(end_ex) + HOLD])).sum())
+    out = power_at(e["events"], e["events_13"], e["months"], T)
+    out["eligible_label"] = lab
+    POWER_JSON.write_text(json.dumps(_jsonable(out), indent=1, sort_keys=True))
+    print(json.dumps(_jsonable(out), indent=1, sort_keys=True))
+    return 0
 
 
 def rulings_template(args) -> int:
@@ -1606,7 +1809,10 @@ def main(argv=None) -> int:
     ar = sub.add_parser("apply-rulings")
     ar.add_argument("--supersede", default="", help="classes the team lead re-ruled, e.g. R10")
     sub.add_parser("fit-k")
-    sub.add_parser("open")
+    op = sub.add_parser("open")
+    op.add_argument("--team-lead-go", default=None, help="the team lead's explicit go, YYYY-MM-DD")
+    sub.add_parser("rehearse")
+    sub.add_parser("power")
     a = ap.parse_args(argv)
     if a.cmd == "stage0":
         S = stage0()
@@ -1618,6 +1824,10 @@ def main(argv=None) -> int:
         print(f"{len(R)} rulings ({RULED_BY}, {RULED_ON}) -> {RULINGS.relative_to(REPO)}: "
               + json.dumps(R.groupby("ruling").size().rename(lambda x: x[:50]).to_dict()))
         return 0
+    if a.cmd == "rehearse":
+        return rehearse(a)
+    if a.cmd == "power":
+        return power_cmd(a)
     if a.cmd == "notices":
         print(f"notice cache: {fetch_notices()}")
         verify_notices()

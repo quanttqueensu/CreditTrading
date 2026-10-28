@@ -1,4 +1,4 @@
-# Ex-date drift (EVENTS trial 3): Stage 0 CLEAR (2026-10-28), k committed; `open` waits on French's next vintage and the team lead
+# Ex-date drift (EVENTS trial 3): Stage 0 CLEAR, k committed, `open` written, reviewed and rehearsed; the test set is not opened
 
 **Date** 2026-10-27 · **Pre-registration** `results/events/PREREG_EXDATE_DRIFT_2026-10-26.md`
 (approved 2026-10-27 with every recommended answer: part (b) is EVENTS trial 3 at N = 7; part (a)
@@ -17,6 +17,9 @@ exist; exit 2 = halted). Outputs, all tracked, with dates, counts, presence and 
 | `results/events/exdrift/exdrift_sponsor_declarations_2026-10-28.csv` | DG-X2's declaration table: one row per ex-date, with its release's URL, sha, fetch time and three quotes |
 | `results/events/exdrift/exdrift_release_sources_2026-10-28.csv` | the 195 releases and how each was found |
 | `results/events/exdrift/exdrift_k_2026-10-27.json` | `fit-k`'s output: k and the cap-binding share (fit only) |
+| `results/events/exdrift/exdrift_rehearsal_fit_2021_22.json` | the opening's code run on FIT data (2021–22): every stage |
+| `results/events/exdrift/exdrift_power_2026-10-28.json` | §10's power at the current eligible count |
+| `results/events/exdrift/exdrift_open_rulings.csv` | the team lead's rulings on O1–O4 and the GO row (blank until ruled) |
 | `results/events/exdrift/exdrift_sponsor_notices_2026-10-28.csv` | the verified sponsor notices DG-X2 checks Alpaca against (quotes re-found offline on every run) |
 | `results/events/exdrift/EXDRIFT_STAGE0_RULINGS_PROPOSAL_2026-10-28.md` | **the rulings proposal**, one recommendation per flag class |
 | `results/events/exdrift/exdrift_fit_descriptive_2026-10-27.csv` | the DG-X7 identity table (fit only) |
@@ -26,6 +29,90 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
+> **2026-10-28, evening: Nuveen recovered via CRSP; R10 re-ruled KEEP; `open` written, reviewed and rehearsed on
+> fit data. The test set is NOT opened.**
+>
+> **The rulings** (team lead, 2026-10-28, answered interactively):
+> 1. **"Nuveen declarations: recover via CRSP"**, from `dsedist.dclrdt`, 2023-01-01 → 2024-12-31.
+> 2. **R10: basket funds with no declaration found are KEPT.** This is a stated limitation, named in
+>    the opening's report: "the hedge basket's exclusion window uses ex-dates that may not have been
+>    public at decide time".
+> 3. **"The opening stage: write it, have it reviewed, then the team lead decides."** Rehearse it on
+>    fit data only, recompute the power, and do not run `open`.
+>
+> **CRSP recovery** (`scripts/events/fetch_exdrift_crsp_decl.py`).
+> - The team lead's live pull is `pull`, run through `run_exdrift_r2.sh`. Until it lands, the rows
+>   are staged offline (`stage --from`) from an extract of the same tables already on this machine:
+>   research-ss-expansion's `dsedist`, pulled 2026-10-19T19:58Z. That makes the recovery
+>   provisional.
+> - **86 not-found events are recovered** (84 Nuveen, 2 BlackRock), all declared by e−1.
+> - Their record dates equal Alpaca v1's on all 86, so no `X2_crsp_record_mismatch` flag.
+> - As a second source, CRSP's `dclrdt` equals the sponsor release date on 319 of the 324 events
+>   where both exist, differs by one day on 1, and is more than a day later on 4.
+> - **100 Nuveen events remain excluded**: 2025–26, which CRSP's mirror does not reach.
+>
+> **The eligible set, as ruled** (X4 filled, R10 KEEP): **649 events** (548 on the 13) on 152 dates
+> in 46 months. Beside: 631 with the no-declaration legs excluded, and 635 with X4 not filled.
+> Stage 0 stays **CLEAR**: 757 flags, all ruled, R10 superseded.
+>
+> **The opening** is `scripts/events/exdrift_open.py`, with the gate `exdrift_trial.open_gate`.
+> - It implements §4.5, §4.6, §9.1, §5.4 and §6 as written.
+> - An independent quant review (2026-10-28) found 3 blockers and 7 should-fixes, all fixed:
+>   - a factor gap or an unmeasurable control is now a HALT, not a kill;
+>   - R-D4's betas are scaled to the vol target (NAV-tender precedent, O2);
+>   - the inputs are pinned by sha256 in the Stage-0 record, and the opening's eligible count must
+>     equal Stage 0's before any statistic;
+>   - `load_test` needs the gate's token, and OPENED is created exclusively and checked in every
+>     branch's history;
+>   - the trial code must be committed;
+>   - the R10 alternative is reported beside;
+>   - stage 3 compares like with like (O3);
+>   - the declaration date is asserted at every leg;
+>   - the X4 basis check is C4's adjacent-bar check (O4).
+> - **The gate refuses unless every one of these holds:**
+>   - Stage 0 is CLEAR and committed;
+>   - k is committed;
+>   - French, IEF, HYG and MUB cover the P&L window and its lag row (O1: T = 950 sessions, to
+>     2026-10-15);
+>   - the pins match;
+>   - the code is clean;
+>   - O1–O4 and a GO row are ruled by the team lead in `exdrift_open_rulings.csv` (blank today);
+>   - `--team-lead-go` equals the GO row's date.
+>
+> **The rehearsal on FIT data** (2021-01-01 → 2022-12-30; `exdrift_rehearsal_fit_2021_22.json`):
+>
+> | stage | result | rule |
+> |---|---|---|
+> | 1 | 375 events, +23.9bp per event, month t 2.91 | PASS |
+> | 2 | pooled placebo +3.6bp | PASS |
+> | 3 | NAV leg +4.5bp | PASS |
+> | 4 | 13 names: +20.2bp | PASS |
+> | 5 | alpha t 2.90; summed betas at the vol target: MUNI −0.41, TERM −0.39 | **FAIL** |
+> | 6 | `_dsr` 0.98 | PASS |
+>
+> - **The rehearsal's verdict is KILL D4**, from stage 5.
+> - Gross SR is 2.52 at 51.9 turns a year. The grid flips sign: 5bp +4.8%/yr, 15bp −0.4%, 30bp
+>   −8.2%. The cap never binds.
+> - These are fit rows, descriptive only: they say the code runs end to end, not what the test will
+>   show.
+>
+> **Power at the current count** (649 / 548, 46 months, T 950; §10's method, `exdrift_power_2026-10-28.json`):
+> - per-event P(t ≥ 2) is 0.91 on the 17 and 0.86 on the 13 at the fit effect, and 0.38 and 0.33 at
+>   half of it;
+> - the sleeve's P(`_dsr` pass, N = 7) is 0.43 at the fit effect and 0.03 at half;
+> - its P(alpha t ≥ 3) is 0.67 and 0.10 [U on V inputs].
+>
+> **What remains before `open`:**
+> 1. The team lead runs `! bash .claude/worktrees/exdrift-stage0/run_exdrift_r2.sh`: the live CRSP
+>    pull, and Alpaca's bars around the 24 X4 cells for O4. An agent then re-runs Stage 0, which
+>    re-pins the inputs, and commits.
+> 2. French's daily factors must cover through 2026-10-15; they end 2026-09-30.
+> 3. **IEF and HYG in `data/etf_daily.parquet` end 2026-10-09.** Under O1 they too must cover through
+>    2026-10-15. That needs a refresh, whose Alpaca leg uses the team lead's key, or a ruling.
+> 4. The team lead rules O1–O4 and records the GO row.
+>
+> ---
+>
 > **2026-10-28, later: the team lead's rulings applied; Stage 0 CLEAR; `fit-k` run. The test set is NOT opened.**
 >
 > **The rulings** (team lead, 2026-10-28, answered interactively on

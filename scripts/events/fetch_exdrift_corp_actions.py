@@ -70,6 +70,7 @@ RAW = CACHE / "alpaca_corp_actions_raw.json"
 DIVS = CACHE / "alpaca_cash_dividends.parquet"
 ANN = CACHE / "alpaca_dividend_announcements.parquet"
 BARS = CACHE / "alpaca_flagged_bars.parquet"
+ADJ_BARS = CACHE / "alpaca_adjacent_bars.parquet"    # X4 basis check (ruling #4): bars around each flagged cell
 
 DATA_BASE = "https://data.alpaca.markets"
 PAPER_BASE = "https://paper-api.alpaca.markets"
@@ -126,6 +127,33 @@ def bar_requests(flags: pd.DataFrame) -> list[dict]:
                                "adjustment": "raw", "start": _ny(day, 0), "end": _ny(day, 20), "limit": 1000,
                                "sort": "asc"}})
     return out
+
+
+def adjacent_bar_requests(flags: pd.DataFrame) -> list[dict]:
+    """Raw SIP daily bars for each X4_no_bar ticker over its cell +- 7 calendar days (so the sessions
+    e-1 and e+1 are inside), one request per cell. Pure."""
+    from scripts.rv.alpaca_daily import _ny
+    f = flags[flags["check"] == "X4_no_bar"]
+    out = []
+    for t, d in zip(f["ticker"], f["date"]):
+        day = dt.date.fromisoformat(str(d)[:10])
+        out.append({"label": "adjacent_bars", "base": DATA_BASE, "path": BARS_PATH,
+                    "params": {"symbols": t, "timeframe": "1Day", "feed": "sip", "adjustment": "raw",
+                               "start": _ny(day - dt.timedelta(days=7), 0), "end": _ny(day + dt.timedelta(days=7), 20),
+                               "limit": 1000, "sort": "asc"}})
+    return out
+
+
+def run_adjacent(session, flags: pd.DataFrame, *, sleep=time.sleep) -> pd.DataFrame:
+    pages = []
+    for r in adjacent_bar_requests(flags):
+        sleep(PAUSE_S)
+        st, body = get(session, r["base"], r["path"], r["params"], sleep=sleep)
+        if st != 200:
+            raise FetchError(f"GET {r['path']} -> HTTP {st}: {body}")
+        pages.append(body.get("bars") or {})
+    b = parse_bars(pages).drop_duplicates(["ticker", "date"])
+    return b.assign(fetched_utc=dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
 def get(session, base: str, path: str, params: dict, *, sleep=time.sleep) -> tuple[int, object]:
@@ -311,8 +339,21 @@ def main(argv=None) -> int:
     ap.add_argument("--end", type=dt.date.fromisoformat, default=None,
                     help="last ex-date asked for (default: today + 60 days, for declared future ex-dates)")
     ap.add_argument("--bars-for", type=Path, default=None, help="Stage 0's flag table: fetch bars on X4_no_bar cells")
+    ap.add_argument("--adjacent-bars-for", type=Path, default=None,
+                    help="only fetch raw SIP bars around each X4_no_bar cell (e-1 and e+1, ruling #4) into the cache")
     a = ap.parse_args(argv)
     syms = names()
+    if a.adjacent_bars_for:
+        fl = pd.read_csv(a.adjacent_bars_for, dtype=str)
+        if a.dry_run:
+            for r in adjacent_bar_requests(fl):
+                print(f"GET {r['base']}{r['path']} {r['params']}")
+            return 0
+        b = run_adjacent(session_from_env(env_path()), fl)
+        CACHE.mkdir(parents=True, exist_ok=True)
+        b.to_parquet(ADJ_BARS, index=False)
+        print(f"{len(b)} raw SIP bars around {fl[fl.check == 'X4_no_bar'].shape[0]} cells -> {ADJ_BARS.relative_to(REPO)}")
+        return 0
     end = a.end or (dt.date.today() + dt.timedelta(days=60))
     flags = pd.read_csv(a.bars_for, dtype=str) if a.bars_for else None
     reqs = plan(syms, START, end) + (bar_requests(flags) if flags is not None else [])
