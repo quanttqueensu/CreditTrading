@@ -606,6 +606,20 @@ rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
 | Admission by marginal contribution, after re-open (1) (**2026-10-28**) | **Kept as written:** "Kept the paper-admission rule as written, after seeing that, under the 1.80× cap, NAV tenders lowers the book's Sharpe and E1 leaves it flat." Ruled on the first version of `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` (b43bf35). That note's paper view, with book and sleeve both on price returns, was found afterwards by an independent review: NAV tenders no longer meets the rule, and E1 still does. Superseded the same day by the next row |
 | Which return convention decides paper admission (**2026-10-28, later**) | **Paper's own P&L of record** (Alpaca paper, which pays no distributions), on the paper view of `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` at f7b4562. **NAV tenders does not qualify for the paper book.** On that view its gross Sharpe is 0.055 and the combined book falls from 0.959 to 0.738. It remains a real-capital candidate on total returns. **E1 qualifies.** Admission still goes through `quant-trader`'s rollout: a broker check (whether Alpaca paper processes a merger conversion is unknown), then shadow, then a paper sleeve |
 
+### Team lead, 2026-10-27: the autonomous loop and the harness
+
+Answered interactively in the session that ran the two deep-research reports on
+method and backtest infrastructure. The reports themselves are not in the repo.
+Their verified findings are cited in the docstrings of `scripts/research/`.
+
+| question | decision |
+|---|---|
+| Where agents trade | **A new agent-lab Alpaca paper account**, which the team lead creates and keys (the spare connector account belongs to C4). The loop transmits there through the `quantt` runner without a per-session go (`CLAUDE.md` hard rule 1, recorded exception). **A lab sleeve is promoted into the main paper book by the loop itself** once the criteria fixed in its pre-registration are met; the VM install keeps the team lead's `!`. Live capital is unchanged: hard rule 1 |
+| Who approves a trial | **The loop, with no cap.** Every trial is still counted in `docs/RESEARCH_STATE.md` in the same commit, and stores its daily P&L with `scripts/research/registry.py`. Each one raises the bar for the next |
+| Where agents trade, revised 2026-10-28 | **Not a new account.** The lab uses the attached Alpaca account (the spare connector account), which C4 also trades in (team lead, 2026-10-28). The runner sizes orders from the account's open positions, and Alpaca rejects opposite-side orders in one symbol (CLAUDE.md landmine 2). So lab sleeves must be netted into C4's targets symbol by symbol, or the runner must hold positions per book. That is decided when the lab book is built, on top of C4's multi-book runner work (C4's 2026-10-27 deploy plan, row 6A, on the C4 branches) |
+| Where and how often | **The team lead's laptop**, a scheduled Claude Code session, **one research cycle per day** after the close |
+| The backtester | **`evaluate()` may be restructured as necessary.** Done: `scripts/research/harness.py`. `band_frontier.evaluate` delegates to it, byte-identical on the live book (`results/research/HARNESS_RESTRUCTURE_2026-10-27.md`). The named gaps were non-CEF families and an ML pipeline (`scripts/research/ml.py`) |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |
