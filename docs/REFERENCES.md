@@ -1810,3 +1810,12 @@ claims were extracted but never reached verification, so they are not used:
 Kan & Zhou on spanning-test power, and a CFA curriculum page on the fundamental
 law (secondary). The Wikipedia pages on purged CV and meta-labelling were judged
 unreliable and dropped. NBER w28432 failed to parse.
+
+### 12pc. Alpaca paper and corporate actions (added 2026-10-28)
+
+| claim | source | status |
+|---|---|---|
+| "paper accounts do not implement any corporate actions such as stock splits or dividends"; the only workaround is "deleting the account and recreating it" | Alpaca staff reply, 2026-07-15, https://forum.alpaca.markets/t/corporate-actions-handeling/19325 | [V] fetched 2026-10-28 |
+| "the paper trading environment doesn't implement corporate actions including stock splits" | Alpaca staff reply, 2024-06-10, https://forum.alpaca.markets/t/paper-account-nvda-stock-split-issue/14412 | [V] fetched 2026-10-28 |
+| Stock and cash mergers are mandatory events, posted as `MA` activities on the settle date. The page covers live processing only and says nothing about paper | Alpaca docs, https://docs.alpaca.markets/us/docs/mandatory-corporate-actions | [V] fetched 2026-10-28 |
+
