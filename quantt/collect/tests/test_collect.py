@@ -924,3 +924,27 @@ def test_with_no_empty_rows_the_crosschecks_are_unchanged(tmp_path):
         "flags": want_close_flags,
         "gaps": [{"fund": "BBB", "reason": f"cef_prices.parquet's close dated {D} is empty (nan)"}]}
     assert log_lines(b) == [f"{D} DATA COMPLETE flags=2 gaps=2"]
+
+
+@pytest.mark.parametrize("bad", [NAN, float("inf"), 0.0], ids=["nan", "inf", "zero"])
+def test_a_cefconnect_value_that_is_no_nav_is_not_an_arrival(env, bad):
+    """Review of the NAV half (2026-10-28): the arrival watch logged any value
+    CEFConnect returned as the row's first sighting, NaN included, so the
+    arrival time of a real NAV was lost and the file carried a NaN. A value
+    that is not a finite positive number (`read_cc`'s test) is now an error,
+    read again next slot, and the arrival is logged when a real NAV appears.
+    Failed on 377fe41."""
+    state, cef = env
+    cc = {"AAA": bad, "BBB": 20.00}
+    co.collect(make_ctx(env, cc=cc))
+    st = status(env)["steps"]["cefconnect_arrival"]
+    assert not st["ok"] and "AAA" not in st["detail"]["first_seen"]
+    (e,) = st["detail"]["fetch_errors"]
+    assert e.startswith("AAA:") and "not recorded as an arrival" in e, e
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert rows["ticker"].tolist() == ["BBB"]
+    cc["AAA"] = 10.00                                                # the real row
+    co.collect(make_ctx(env, cc=cc))
+    rows = pd.read_csv(state / co.ARRIVAL_FILE, keep_default_na=False)
+    assert rows["ticker"].tolist() == ["BBB", "AAA"] and rows.iloc[1]["nav"] == 10.0
+    assert status(env)["steps"]["cefconnect_arrival"]["ok"]

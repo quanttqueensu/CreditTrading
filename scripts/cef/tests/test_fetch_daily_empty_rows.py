@@ -27,6 +27,7 @@ reached (netguard).
 """
 import math
 import types
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -431,6 +432,12 @@ def test_a_cefconnect_nav_that_is_not_finite_is_not_written(env, capsys, monkeyp
     assert " HYT " in ln and "2026-09-15" in ln and "CEFConnect" in ln and "not written" in ln
 
 
+def et_today():
+    """The date the stale check ages NAVs to: this run's ET date (fetch_daily
+    FOLLOW-UPS (2)), so these tests agree with it on a UTC machine too."""
+    return pd.Timestamp(datetime.now(fd.ET).date())
+
+
 def _bd_age(d, today):
     """The stale check's own age arithmetic, as fetch_daily has always done it."""
     return len(pd.bdate_range(pd.Timestamp(d), today)) - 1
@@ -443,7 +450,7 @@ def test_an_empty_nav_row_never_makes_a_fund_look_fresh(env, capsys):
     fund by its last ROW and called both fresh. Both are stale now: HYT dated
     by its last real NAV, BIT listed first as having none. Dates are relative
     to today because the check reads today's date."""
-    today = pd.Timestamp.today().normalize()
+    today = et_today()
     good, recent = today - pd.offsets.BDay(8), today - pd.offsets.BDay(1)
     P = price_stub(["BIT", "HYT"], [good])
     N = nav_panel(["BIT", "HYT"], [good], nav=10.0)
@@ -456,7 +463,8 @@ def test_an_empty_nav_row_never_makes_a_fund_look_fresh(env, capsys):
     i = next(k for k, ln in enumerate(body) if ln.startswith("  STALE NAV"))
     assert body[i] == ("  STALE NAV (2 funds, >3 business days old) — "
                        "the sleeve must not trade these:")
-    assert body[i + 1] == "    BIT    last NAV none: no finite NAV in the 2 row(s) fetched"
+    assert body[i + 1] == ("    BIT    last NAV none: no finite positive NAV in the "
+                           "2 row(s) fetched")
     assert body[i + 2] == (f"    HYT    last NAV {good.date()}  "
                            f"({_bd_age(good, today)} bd old)")
 
@@ -496,7 +504,7 @@ def test_with_no_empty_navs_a_fetch_is_byte_identical_to_before(env, capsys, tmp
     panel lacks, and one dated yesterday after a stale fund's last NAV --
     changes not one byte of either panel and not one stale line. Part (b) is
     what the old code fails: it wrote the NaNs and called that fund fresh."""
-    today = pd.Timestamp.today().normalize()
+    today = et_today()
     bd = lambda k: today - pd.offsets.BDay(k)                         # noqa: E731
     P = price_stub(["BIT", "HYT", "JFR"], [bd(12)])
     N = pd.DataFrame([{"date": bd(12), "nav": v, "ticker": t}
@@ -534,3 +542,100 @@ def test_with_no_empty_navs_a_fetch_is_byte_identical_to_before(env, capsys, tmp
     assert fd.NAV_PATH.read_bytes() == a_nav, "empty NAV rows changed the NAV panel"
     assert _after_nav_line(out) == a_tail, "empty NAV rows changed the stale lines"
     assert len(lines(out, "NO NAV")) == 3
+
+
+# ================================================================================
+# FOLLOW-UPS (independent review of the NAV half, 2026-10-28; fetch_daily
+# docstring, FOLLOW-UPS). Each failed on 377fe41.
+
+@pytest.mark.parametrize("bad", [0.0, -1.0], ids=["zero", "negative"])
+def test_a_nav_of_zero_or_below_is_no_nav(env, capsys, bad):
+    """(1) A usable NAV is finite AND positive, gate 5's test. A fetched NAV of
+    0 neither replaces BIT's good NAV nor counts; HYT's panel row of 0 dated D
+    is not D's NAV, so with no fallback the as-of check refuses it as missing.
+    On 377fe41 the 0 overwrote 12.31 and HYT passed, and gate 5 would then have
+    refused the whole session."""
+    P = panel([bar("BIT", "multi", SEP15, 11.55, 11.60, 11.48, 11.49, 616900),
+               bar("HYT", "hy", SEP15, 8.02, 8.06, 7.98, 7.98, 1365200)])
+    N = pd.DataFrame([{"date": SEP15, "nav": 12.31, "ticker": "BIT"},
+                      {"date": SEP15, "nav": bad, "ticker": "HYT"}])
+    rc, out = env(P, N, {}, {"BIT": navs_frame([(SEP15, bad)])}, errors=("HYT",),
+                  require_asof="2026-09-15", capsys=capsys)
+    assert nav_of(pd.read_parquet(fd.NAV_PATH), "BIT", SEP15) == 12.31
+    (ln,) = lines(out, "NO NAV")
+    assert " BIT " in ln and "2026-09-15" in ln and "kept" in ln, ln
+    assert rc == 4, out
+    (inc,) = lines(out, "INCOMPLETE")
+    assert "HYT: no NAV (its 2026-09-15 row is empty)" in inc and "BIT" not in inc, inc
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0], ids=["zero", "negative"])
+def test_a_nav_of_zero_goes_to_the_fallback_and_a_cefconnect_zero_is_not_written(
+        env, capsys, monkeypatch, bad):
+    """(1), with --nav-fallback cefconnect. HYT's panel NAV of 0 dated D is sent
+    to CEFConnect like a missing one and replaced by its NAV. A CEFConnect NAV
+    of 0 is not written either (`read_cc` refuses it too): the name stays
+    incomplete, and nothing reaches the panel or the fallback log."""
+    P = panel([bar("HYT", "hy", SEP15, 8.02, 8.06, 7.98, 7.98, 1365200)])
+    N = pd.DataFrame([{"date": SEP15, "nav": bad, "ticker": "HYT"}])
+    monkeypatch.setattr(fd, "_cefconnect_nav", lambda tk, asof: 8.71)
+    rc, out = env(P, N, {}, {}, errors=("HYT",), require_asof="2026-09-15",
+                  nav_fallback="cefconnect", capsys=capsys)
+    assert rc == 0, out
+    assert nav_of(pd.read_parquet(fd.NAV_PATH), "HYT", SEP15) == 8.71
+    (ln,) = lines(out, "NAV HYT")
+    assert "has no NAV" in ln, ln
+
+    fd.FALLBACK_LOG.unlink()
+    N2 = nav_panel(["HYT"], ["2026-09-12"], nav=8.70)
+    monkeypatch.setattr(fd, "_cefconnect_nav", lambda tk, asof: bad)
+    rc, out = env(P, N2, {}, {}, errors=("HYT",), require_asof="2026-09-15",
+                  nav_fallback="cefconnect", capsys=capsys)
+    assert rc == 4, out
+    assert nav_of(pd.read_parquet(fd.NAV_PATH), "HYT", SEP15) is None
+    assert not fd.FALLBACK_LOG.exists()
+    (ln,) = lines(out, "NO NAV")
+    assert " HYT " in ln and "CEFConnect" in ln and "finite positive" in ln, ln
+
+
+class _UtcNightClock(datetime):
+    """fetch_daily's clock pinned at 2026-09-30 03:30 UTC: 23:30 ET on Tuesday
+    2026-09-29, the hour the VM's machine date is already the 30th."""
+    INSTANT = datetime(2026, 9, 30, 3, 30, tzinfo=timezone.utc)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.INSTANT if tz is None else cls.INSTANT.astimezone(tz)
+
+
+def test_the_stale_age_is_counted_to_the_runs_et_date(env, capsys, monkeypatch):
+    """(2) HYT's last NAV is dated Thursday 2026-09-24. To the run's ET date,
+    Tuesday the 29th, it is 3 business days old: fresh. To the UTC date (the
+    30th) it would be 4, stale; and on 377fe41 the age was counted to whatever
+    date the machine running this test has, which is later still."""
+    monkeypatch.setattr(fd, "datetime", _UtcNightClock)
+    P = price_stub(["HYT"], ["2026-09-24"])
+    N = nav_panel(["HYT"], ["2026-09-24"], nav=8.70)
+    rc, out = env(P, N, {}, {"HYT": navs_frame([("2026-09-23", 8.69), ("2026-09-24", 8.70)])},
+                  capsys=capsys)
+    assert rc == 0
+    assert _after_nav_line(out) == ["  all 1 NAV series fresh within 3 bd"], out
+    assert _bd_age("2026-09-24", pd.Timestamp("2026-09-29")) == 3       # the arithmetic
+
+
+def test_a_fund_the_stale_check_never_saw_is_named_not_counted_fresh(env, capsys, monkeypatch):
+    """(3) HYT's fetch raises and BIT's NAV fetch returns no rows: the stale
+    check never dated either. On 377fe41 the run still printed "all 3 NAV
+    series fresh". Now they are listed UNCHECKED, by name and why, and the
+    fresh line says only that every series it CHECKED is fresh."""
+    monkeypatch.setattr(fd, "datetime", _UtcNightClock)
+    P = price_stub(["BIT", "HYT", "JFR"], ["2026-09-28"])
+    N = nav_panel(["BIT", "HYT", "JFR"], ["2026-09-28"], nav=10.0)
+    rc, out = env(P, N, {}, {"JFR": navs_frame([("2026-09-29", 10.0)])}, errors=("HYT",),
+                  capsys=capsys)
+    assert rc == 0
+    assert "NAV series fresh within" not in out, out
+    assert _after_nav_line(out) == [
+        "  every NAV series checked is fresh within 3 bd, but not every series was checked:",
+        "  UNCHECKED NAV (2 funds, freshness not measured): "
+        "BIT (no NAV rows fetched); HYT (fetch error: ConnectionError)"]
