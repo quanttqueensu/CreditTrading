@@ -376,8 +376,11 @@ def sleeve(D: OpenData, ev: pd.DataFrame) -> dict:
 
 # --------------------------------------------------------------------------- the run
 
-def open_core(D: OpenData) -> dict:
-    """Every stage of §9.1 on `D`, and every report-only row; the verdict is the first failing rule."""
+def open_core(D: OpenData, d4_from: pd.Timestamp | None = None) -> dict:
+    """Every stage of §9.1 on `D`, and every report-only row; the verdict is the first failing rule.
+
+    `d4_from` exists for FIT-descriptive runs only: it starts stage 5's regression where every
+    factor exists (MUB from 2007-09). The opening never passes it, so a gap there is a HALT."""
     ev, nx = build_events(D)
     if ev.empty:
         raise OpenError("no eligible event: HALT")
@@ -417,8 +420,10 @@ def open_core(D: OpenData) -> dict:
     rep["sleeve"] = {k_: S[k_] for k_ in ("cap_binding_rows", "rows_on", "gross_sr", "ann", "vol", "turn_yr", "grid",
                                           "grid_sign_flips", "borrow", "max_sized_gross", "max_sized_gross_cef_only")}
     rep["sleeve"]["cap_binding_share"] = S["cap_binding_rows"] / S["rows_on"] if S["rows_on"] else float("nan")
-    sig = float(S["pnl"].std(ddof=1) * math.sqrt(252))
-    rep["stage5_d4"] = dimson_d4(S["pnl"], D.factors, D.vol_target / sig)     # raises on a gap: HALT
+    p5 = S["pnl"] if d4_from is None else S["pnl"][S["pnl"].index >= d4_from]
+    sig = float(p5.std(ddof=1) * math.sqrt(252))
+    rep["stage5_d4"] = dimson_d4(p5, D.factors, D.vol_target / sig)          # raises on a gap: HALT
+    rep["stage5_d4"]["window"] = [str(p5.index[0].date()), str(p5.index[-1].date())]
     rep["stage6_dsr"] = dsr(S["pnl"], D.n_bar)
     order = [("stage1_event_mean", "KILL D1"), ("stage2_placebo", "KILL (placebo: not the ex-date)"),
              ("stage3_nav_leg", "KILL (NAV leg: a NAV or mark effect)"), ("stage4_13", "KILL D6"),
@@ -533,7 +538,8 @@ def _factors(ff: pd.DataFrame, etf: pd.DataFrame, mub: pd.DataFrame) -> pd.DataF
     return F
 
 
-def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021-01-01", hedge: bool = True) -> OpenData:
+def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021-01-01", hedge: bool = True,
+                   hi=None) -> OpenData:
     """FIT data only (2021-01-01 .. 2022-12-30), as C4 rehearsed. Every frame is read through a
     parquet filter at FIT_END and asserted. The fit has no declaration dates, so the realised
     calendar is used: every ex-date counts as declared at the calendar's start, so rule 1 cannot
@@ -555,7 +561,8 @@ def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021
     ex["declared"] = sess[0]                         # the realised calendar (docstring)
     ex["special"] = False
     lo = pd.Timestamp(lo)
-    cand = ex[(ex.ex_date >= lo) & (ex.ex_date <= FE)][["ticker", "ex_date"]]
+    hi = FE if hi is None else min(pd.Timestamp(hi), FE)
+    cand = ex[(ex.ex_date >= lo) & (ex.ex_date <= hi)][["ticker", "ex_date"]]
     adv = (close.reindex(sess) * vol.reindex(sess)).rolling(63, min_periods=40).mean()
     ff = pd.read_parquet(x.FF_DAILY, filters=[("date", "<=", FE)])
     etf = pd.read_parquet(x.ETF_DAILY, columns=["date", "ticker", "ret_total"],
@@ -579,11 +586,11 @@ def load_rehearsal(k: float, cap: float, vol_target: float, n_bar: int, lo="2021
     hb = json.loads(x.HEDGE_JSON.read_text())["betas"] if (hedge and x.HEDGE_JSON.exists()) else None
     if hedge and hb is None:
         raise OpenError(f"{x.HEDGE_JSON.name} does not exist: run `exdrift_trial.py amend1-betas` (fit only)")
-    return OpenData(label="REHEARSAL on FIT data 2021-01-01..2022-12-30 (not the test set)"
+    return OpenData(label=f"FIT data {lo.date()}..{hi.date()} (not the test set)"
                     + (", amendment 1 (MUB/IEF hedge)" if hb else ""), sessions=sess, R=R,
                     Rpx=Rpx, RN=RN, masked=bad, exdates=ex, candidates=cand, nav_excluded=set(),
                     close_prev=close.reindex(sess), adv63=adv, factors=F, fee_pct=fee, hyg=E["HYG"].reindex(sess),
-                    k=k, cap=cap, vol_target=vol_target, n_bar=n_bar, window=(sess[sess >= lo][0], FE),
+                    k=k, cap=cap, vol_target=vol_target, n_bar=n_bar, window=(sess[sess >= lo][0], sess[sess <= hi][-1]),
                     eras=[("2021", pd.Timestamp("2021-01-01"), pd.Timestamp("2021-12-31")),
                           ("2022", pd.Timestamp("2022-01-01"), FE)],
                     core13=tuple(x.CORE), munis=tuple(x.MUNIS),

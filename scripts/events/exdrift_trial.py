@@ -1839,6 +1839,53 @@ def rehearse(args) -> int:
     return 0
 
 
+FIT_D4_JSON = OUT_DIR / "exdrift_fit_d4_full_window.json"
+FIT_D4_CSV = OUT_DIR / "exdrift_fit_d4_full_window.csv"
+FIT_ERAS_D4 = (("2005-09", "2005-01-01", "2009-12-31"), ("2010-15", "2010-01-01", "2015-12-31"),
+               ("2016-20", "2016-01-01", "2020-12-31"), ("2021-22", "2021-01-01", "2022-12-30"))
+
+
+def fit_d4(args) -> int:
+    """The team lead's check (2026-10-28): stages 1-5 of the opening's code on the FULL fit window, on
+    FIT DATA ONLY. It runs (i) the original design, (ii) amendment 1 (post-hoc and in-sample: its
+    betas were estimated on this window), and (iii) the original design by era. Stage 5 starts
+    where every factor exists (MUB from 2007-09); the rehearsal windows otherwise match the
+    2021-22 rehearsal's code exactly."""
+    from scripts.events import exdrift_open as xo
+    kj = json.loads(K_JSON.read_text())
+    mub0 = pd.Timestamp("2007-09-12")                      # MUB's first total return (fetch_exdrift_mub.py)
+    runs = [("(i) original, full fit", "2005-01-01", "2022-12-30", False),
+            ("(ii) amendment 1, POST-HOC and IN-SAMPLE (betas estimated on this window)", "2007-09-12", "2022-12-30", True)]
+    runs += [(f"(iii) original, era {lab}", a, b, False) for lab, a, b in FIT_ERAS_D4]
+    rows, full = [], {}
+    for lab, a, b, hedge in runs:
+        D = xo.load_rehearsal(kj["k"], kj["cap"], float(spec.VOL_TARGET), N_BAR, lo=a, hi=b, hedge=hedge)
+        if not hedge:
+            D.hedge_betas = None
+        out = xo.open_core(D, d4_from=max(mub0, D.window[0]))
+        r = out["report"]
+        d = r["stage5_d4"]
+        rows.append({"run": lab, "window": f"{r['window'][0]}..{r['window'][1]}", "events": r["events"],
+                     "mean_bp": r["stage1_event_mean"]["mean_bp"], "t_month": r["stage1_event_mean"]["t_month"],
+                     "placebo_pooled_bp": r["stage2_placebo"]["pooled_mean_bp"],
+                     "nav_leg_bp": r["stage3_nav_leg"]["mean_bp"],
+                     "price_same_events_bp": r["stage3_nav_leg"]["price_mean_same_events_bp"],
+                     "d4_window": f"{d['window'][0]}..{d['window'][1]}", "alpha_t": d["alpha_t"],
+                     "MUNI_at_target": d["betas_summed_at_target"]["MUNI"], "MUNI_se": d["se_at_target_report_only"]["MUNI"],
+                     "TERM_at_target": d["betas_summed_at_target"]["TERM"], "TERM_se": d["se_at_target_report_only"]["TERM"],
+                     "max_abs_beta_at_target": d["max_abs_beta_at_target"], "d4_pass": d["pass"],
+                     "cap_binding_share": r["sleeve"]["cap_binding_share"], "verdict_stages_1_6": r["verdict"]})
+        full[lab] = r
+    T = pd.DataFrame(rows)
+    T.to_csv(FIT_D4_CSV, index=False)
+    FIT_D4_JSON.write_text(json.dumps(_jsonable({"note": "FIT DATA ONLY (2005-01-01..2022-12-30); descriptive; moves no counter",
+                                                  "runs": full}), indent=1, sort_keys=True, default=str))
+    with pd.option_context("display.width", 250, "display.max_columns", 30):
+        print(T.round(3).to_string(index=False))
+    print(f"-> {FIT_D4_CSV.relative_to(REPO)}")
+    return 0
+
+
 def power_at(events: int, events_13: int, months: int, sessions: int) -> dict:
     """§10's power, recomputed for a count (prereg_power_he.py's method, unchanged): the per-event
     SE is the fit's sd of monthly means scaled to the count's events per month; the sleeve Sharpe
@@ -1899,6 +1946,7 @@ def main(argv=None) -> int:
     sub.add_parser("rehearse")
     sub.add_parser("power")
     sub.add_parser("amend1-betas")
+    sub.add_parser("fit-d4")
     a = ap.parse_args(argv)
     if a.cmd == "stage0":
         S = stage0()
@@ -1916,6 +1964,8 @@ def main(argv=None) -> int:
         return power_cmd(a)
     if a.cmd == "amend1-betas":
         return amend1_betas(a)
+    if a.cmd == "fit-d4":
+        return fit_d4(a)
     if a.cmd == "notices":
         print(f"notice cache: {fetch_notices()}")
         verify_notices()
