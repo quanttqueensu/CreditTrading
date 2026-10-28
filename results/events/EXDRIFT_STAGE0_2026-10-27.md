@@ -30,6 +30,43 @@ Tests: `python3 -m pytest scripts/events/tests/test_exdrift_trial.py
 scripts/events/tests/test_fetch_exdrift_corp_actions.py scripts/events/tests/test_fetch_exdrift_mub.py
 scripts/data/tests/test_fetch_cef_distributions_out.py` (synthetic data and fake clients only).
 
+> **2026-10-28, night: D4 on the FULL fit window** (the team lead's check). FIT data only, already
+> spent, so it moves no counter. The table is `exdrift_fit_d4_full_window.csv`, committed at `4bab4cf`
+> before this text was written, from `python3 scripts/events/exdrift_trial.py fit-d4`. Stage 5 starts
+> where every factor exists (MUB from 2007-09-12). Betas are summed and at the vol target, HAC se in
+> brackets.
+>
+> | run | events | mean (t) | placebo | NAV / price | D4 alpha t | MUNI | TERM | D4 | cap binds |
+> |---|---:|---|---:|---|---:|---|---|---|---:|
+> | (i) original, 2005–22 | 3,000 | +11.6bp (3.87) | −1.8 | 0.7 / 11.7 | 4.57 | −0.07 (0.04) | −0.03 (0.04) | **PASS** | 0% |
+> | (ii) amendment 1, 2007-09 → 2022, **post-hoc and in-sample** | 2,617 | +11.8 (3.26) | −1.3 | 0.8 / 12.6 | 3.97 | −0.04 (0.04) | −0.04 (0.03) | PASS | 18.5% |
+> | (iii) 2005–09 | 720 | +7.8 (0.93) | −9.0 | −1.9 / 8.0 | 0.66 | −0.01 | −0.00 | fail (alpha) | 0% |
+> | (iii) 2010–15 | 991 | +8.9 (2.41) | +0.1 | −0.1 / 9.0 | 2.68 | −0.19 (0.08) | −0.15 (0.07) | fail | 0% |
+> | (iii) 2016–20 | 909 | +12.3 (3.17) | +0.2 | 2.2 / 12.3 | 3.70 | −0.09 (0.08) | +0.02 (0.08) | fail (HY +0.21) | 0% |
+> | (iii) 2021–22 | 375 | +23.9 (2.91) | +3.6 | 4.5 / 23.9 | 2.90 | −0.41 (0.16) | −0.39 (0.16) | fail | 0% |
+>
+> **The answer, plainly.**
+> - **D4 does not fail across the full fit. It passes:** alpha t 4.57 and every summed beta within
+>   ±0.073 (MUNI −0.07, TERM −0.03).
+> - **The large rate betas are mostly a 2021–22 feature**, at about −0.4 on both factors. A smaller
+>   version appears in 2010–15 (−0.19 and −0.15). They are near zero in 2005–09 and 2016–20.
+> - **But D4 fails in every era taken alone, on different grounds:**
+>   - 2005–09 on alpha, where stage 1 also fails;
+>   - 2010–15 and 2021–22 on MUNI and TERM;
+>   - 2016–20 on HY (+0.21).
+>
+>   So a window the length of the test set (3.8 years) has failed D4 four times out of four on the
+>   fit.
+> - **Amendment 1**, run in-sample on the full window:
+>   - it keeps D4 passing;
+>   - it lowers alpha t to 3.97 and the deflated Sharpe to 0.93, so the verdict becomes NEITHER;
+>   - it makes the cap bind on 18.5% of rows.
+>
+>   On the fit, then, it costs more than it buys.
+> - All of this is descriptive: the fit was seen before the pre-registration was written (§0.1).
+>
+> ---
+>
 > **2026-10-28, late: amendment 1 and O1–O4.** The team lead ruled three things:
 > - amend part (b) before the opening, to hedge each event's MUNI and TERM exposure with MUB and IEF
 >   at frozen fit betas;

@@ -70,6 +70,10 @@ counter (156) covers all ETF-price/PD work done to date.
 >   prompted by the fit rehearsal's D4 failure. Re-rehearsed on fit 2021–22 it still gives KILL D4 (alpha t 2.59; MUNI
 >   −0.37, TERM −0.39), and the cap now binds on 41.6% of rows. O1–O4 are ruled, with the window ending 2026-10-09: 649
 >   events, T 946. N stays 7; EVENTS stays 3.
+> - **2026-10-28, night: D4 on the full fit window** (fit only, descriptive, `exdrift_fit_d4_full_window.csv`). The original
+>   design PASSES D4 over 2007-09 → 2022: alpha t 4.57, MUNI −0.07, TERM −0.03. The −0.4 rate betas are a 2021–22 feature
+>   (a smaller −0.19/−0.15 in 2010–15). Yet every era taken alone fails D4: alpha in 2005–09, rates in 2010–15 and 2021–22,
+>   HY +0.21 in 2016–20. Amendment 1, in-sample, lowers alpha t to 3.97 and the deflated Sharpe to 0.93. No counter moves.
 
 > **2026-10-19: EVENTS moves 0 → 2** (team lead; this commit records both approvals):
 > - **EVENTS trial 1 is E1**, `results/events/PREREG_E1_MERGER_PAIR_2026-10-19.md`:
