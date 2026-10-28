@@ -70,8 +70,16 @@ Ruled on the first version of this note (b43bf35), before the paper-view finding
 - The ruling is recorded in `docs/SYSTEM.md` §5, in "Team lead, 2026-10-27: the research method",
   dated 2026-10-28.
 - It reached this note through the coordinating agent.
-- **The paper view (§0, §6) was found afterwards, by an independent review. The team lead has not
-  ruled on it.**
+- **The paper view (§0, §6) was found afterwards, by an independent review.**
+
+**Team lead, 2026-10-28, later, on the paper view.** Paper's own P&L of record decides paper
+admission. **NAV tenders does not qualify** for the paper book; it remains a real-capital
+candidate on total returns. **E1 qualifies.** It goes next to `quant-trader`'s rollout:
+- a broker check (whether Alpaca paper processes a merger conversion is [U]);
+- then shadow;
+- then a paper sleeve.
+
+Recorded in `docs/SYSTEM.md` §5.
 
 ## 2. The series
 
