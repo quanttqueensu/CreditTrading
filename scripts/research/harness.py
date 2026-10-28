@@ -291,6 +291,14 @@ def cross_sectional_weights(signal: pd.DataFrame, eligible: pd.DataFrame, *,
         raise ValueError("eligible must share signal's index and columns")
     if eligible.isna().any().any() or not all(dt == bool for dt in eligible.dtypes):
         raise TypeError("eligible must be a bool frame with no NaN")
+    inf = np.isinf(signal.to_numpy(dtype=float)) & eligible.to_numpy()
+    if inf.any():
+        i, j = np.argwhere(inf)[0]
+        # An inf (a z-score over a zero sd, i.e. a stale price) used to turn the
+        # whole row into NaN, which fillna then zeroed, so on_thin="hold" did not
+        # hold (quant-reviewer, 2026-10-28). Refuse it instead.
+        raise ValueError(f"signal is infinite on {int(inf.sum())} eligible cell(s), first "
+                         f"{signal.index[i].date()} {signal.columns[j]}; a stale input, not a signal")
     S = signal.where(eligible & signal.notna())
     X = S.rank(axis=1) if scheme == "rank" else S
     X = X.sub(X.mean(axis=1), axis=0) * direction
@@ -324,13 +332,17 @@ def event_weights(events: pd.DataFrame, index: pd.DatetimeIndex, columns: Iterab
             decided+2 .. decided+hold+1.
     sizing  "fixed": each live event carries `unit`, and book gross varies with
             the number of events.
-            "calendar_time": the live events share a gross of 1 equally on
-            every day any are live. This is the calendar-time portfolio of the
+            "calendar_time": book gross is 1 on every day with any NET exposure.
+            Each name's netted side is divided by the sum of the absolute
+            netted sides. This is the calendar-time portfolio of the
             event-study literature, and it is what makes an event book's
             returns a daily series that evaluate() and the trial registry can
-            hold.
+            hold. It is normalised AFTER netting, so offsetting events cannot
+            shrink the book: A +1, A -1, B +1 is all of B
+            (quant-reviewer, 2026-10-28).
     Two live events in one ticker on one day sum. The weight is netted, as
-    the runner nets a symbol into one order (CLAUDE.md landmine 2).
+    the runner nets a symbol into one order (CLAUDE.md landmine 2). A day
+    whose events all cancel is flat.
     """
     need = {"decided", "ticker", "side"}
     if not need <= set(events.columns):
@@ -359,18 +371,18 @@ def event_weights(events: pd.DataFrame, index: pd.DatetimeIndex, columns: Iterab
     if unknown:
         raise ValueError(f"events name tickers outside the column set: {unknown[:5]}")
     side = np.zeros((len(idx), len(cols)))
-    live = np.zeros(len(idx))
     pos = idx.get_indexer(ev["decided"])
     cpos = pd.Index(cols).get_indexer(ev["ticker"])
     for p, c, s in zip(pos, cpos, ev["side"].to_numpy()):
         end = min(p + hold, len(idx))
         side[p:end, c] += s
-        live[p:end] += 1
     if sizing == "fixed":
         W = side * unit
     else:
-        with np.errstate(invalid="ignore", divide="ignore"):
-            W = np.where(live[:, None] > 0, side / np.maximum(live, 1)[:, None], 0.0)
+        gross = np.abs(side).sum(axis=1)
+        W = np.zeros_like(side)
+        on = gross > 0
+        W[on] = side[on] / gross[on][:, None]
     return pd.DataFrame(W, index=idx, columns=cols)
 
 
@@ -394,7 +406,18 @@ def truncation_check(build: Callable[[pd.Timestamp | None], pd.DataFrame],
     `atol` is 0.0 by default: a causal builder reproduces its row exactly.
     Raise it only with a stated reason, such as a solver's tolerance.
     Raises LookaheadError naming the first row that moved.
+
+    Three ways a leaky builder used to pass (quant-reviewer, 2026-10-28), each
+    now refused:
+    - no probes at all;
+    - a builder that ignores `end` (its cut reaches past d);
+    - a full-sample column the cut lacks. A name that lists after d, filled
+      backwards into d, carried a weight built only from future data and was
+      never compared.
     """
+    probes = list(probes)
+    if not probes:
+        raise ValueError("no probes: a check that compares nothing proves nothing")
     full = build(None)
     checked = []
     for d in probes:
@@ -402,9 +425,18 @@ def truncation_check(build: Callable[[pd.Timestamp | None], pd.DataFrame],
         if d not in full.index:
             raise ValueError(f"probe {d.date()} is not a row of the full-sample targets")
         cut = build(d)
+        if len(cut.index) and cut.index.max() > d:
+            raise LookaheadError(f"the build cut at {d.date()} returns rows up to "
+                                 f"{cut.index.max().date()}; the builder ignores `end`")
         if d not in cut.index:
             raise ValueError(f"the build cut at {d.date()} has no row for {d.date()}")
-        a = full.loc[d].reindex(cut.columns).to_numpy(dtype=float)
+        row = full.loc[d]
+        live = row[row.notna() & row.ne(0.0)].index
+        missing = sorted(set(live) - set(cut.columns))
+        if missing:
+            raise LookaheadError(f"row {d.date()} holds {missing[:5]} in the full sample, but the "
+                                 "build cut at that date has no such column; the weight came from later data")
+        a = row.reindex(cut.columns).to_numpy(dtype=float)
         b = cut.loc[d].to_numpy(dtype=float)
         if not np.allclose(a, b, rtol=0.0, atol=atol, equal_nan=True):
             k = int(np.argmax(~np.isclose(a, b, rtol=0.0, atol=atol, equal_nan=True)))

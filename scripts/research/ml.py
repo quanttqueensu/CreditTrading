@@ -229,6 +229,7 @@ def walk_forward_predict(X: pd.DataFrame, y: pd.Series, *, fit: Callable, predic
     iv = label_intervals(dates)
     scores = []
     dropped = 0
+    skipped = []
     for train, test in splits:
         tr_d, te_d = dates[train], dates[test]
         last_label = iv["end"].iloc[train].max()
@@ -239,6 +240,9 @@ def walk_forward_predict(X: pd.DataFrame, y: pd.Series, *, fit: Callable, predic
         ok = Xtr.notna().all(axis=1) & ytr.notna()
         dropped += int((~ok).sum())
         if ok.sum() < X.shape[1] + 2:
+            # Counted and listed, never silent: those dates get no score, so the
+            # book is flat there (quant-reviewer, 2026-10-28).
+            skipped.append((te_d[0].date().isoformat(), te_d[-1].date().isoformat()))
             continue
         model = fit(Xtr[ok].to_numpy(dtype=float), ytr[ok].to_numpy(dtype=float))
         Xte, _ = _rows(X, y, te_d)
@@ -251,7 +255,8 @@ def walk_forward_predict(X: pd.DataFrame, y: pd.Series, *, fit: Callable, predic
         raise ValueError("no split had enough labelled training rows to fit")
     S = pd.concat(scores).unstack("name")
     return S, dict(train_rows_dropped_nan=dropped, first_oos=S.index[0].date().isoformat(),
-                   splits=len(splits))
+                   splits=len(splits), splits_run=len(splits) - len(skipped),
+                   splits_skipped=skipped)
 
 
 # ---------------------------------------------------------------------------

@@ -110,6 +110,10 @@ def hac_psi(y: np.ndarray) -> np.ndarray:
         raise ValueError(f"the prewhitening VAR(1) has spectral radius {radius:.3f} > "
                          f"{PREWHITEN_MAX_RADIUS}; the series is too persistent for this estimator")
     e = y1 - y0 @ A.T
+    # Bandwidth: arch's automatic choice, which is Newey & West (1994). The paper
+    # allows that ("Andrews (1991) and Newey and West (1994)"), but Andrews &
+    # Monahan pair prewhitening with Andrews' AR(1) plug-in, so this is a stated
+    # divergence (quant-reviewer, 2026-10-28).
     psi_e = np.asarray(QuadraticSpectral(e, df_adjust=4, center=False).cov.long_run)
     inv = np.linalg.inv(np.eye(4) - A)
     return inv @ psi_e @ inv.T
@@ -124,9 +128,20 @@ def _cbb_index(T: int, block: int, M: int, rng) -> np.ndarray:
     return idx.reshape(M, nb * block)[:, :T]
 
 
+MIN_BLOCKS = 4      # Psi* is 4x4: fewer than 4 block sums cannot make it full rank
+
+
 def _boot_stats(a, b, block, M, rng):
-    """Delta* and s(Delta*) for M resamples, with the natural block estimator."""
+    """Delta* and s(Delta*) for M resamples, with the natural block estimator.
+
+    Refuses a block with fewer than MIN_BLOCKS complete blocks in the sample. With
+    T // block = 0, Psi* was 0/0, so every S* was NaN. Then `dstar >= d` was never
+    true, and the p-value collapsed to 1/(M+1): a false rejection (T=30, block=40,
+    equal true Sharpe: p 0.005 against 0.88 at block 5; quant-reviewer, 2026-10-28)."""
     T = len(a)
+    if T // block < MIN_BLOCKS:
+        raise ValueError(f"block {block} leaves {T // block} complete block(s) in {T} observations; "
+                         f"the natural estimator needs at least {MIN_BLOCKS}")
     I = _cbb_index(T, block, M, rng)
     A, B = a[I], b[I]                                      # M x T
     V = np.stack([A.mean(1), B.mean(1), (A * A).mean(1), (B * B).mean(1)], axis=1)
@@ -143,6 +158,8 @@ def _boot_stats(a, b, block, M, rng):
     G = np.stack([V[:, 2] / s1 ** 1.5, -V[:, 3] / s2 ** 1.5,
                   -0.5 * V[:, 0] / s1 ** 1.5, 0.5 * V[:, 1] / s2 ** 1.5], axis=1)
     S = np.sqrt(np.einsum("mk,mkj,mj->m", G, Psi, G) / T)
+    if not np.isfinite(S).all() or (S <= 0).any():
+        raise ValueError("a bootstrap standard error is not finite and positive; refusing a p-value built on it")
     return D, S
 
 
@@ -213,6 +230,9 @@ def calibrate_block(r1, r2, *, candidates, K: int, M: int, seed: int,
         raise ValueError("K below 1,000 is under the paper's lower limit for calibration")
     a, b = _check(r1, r2)
     T = len(a)
+    short = [c for c in candidates if T // int(c) < MIN_BLOCKS]
+    if short:
+        raise ValueError(f"candidate block(s) {short} leave fewer than {MIN_BLOCKS} blocks in {T} observations")
     target = _delta(_v(a, b))
     rng = np.random.default_rng(seed)
     hits = {int(c): 0 for c in candidates}

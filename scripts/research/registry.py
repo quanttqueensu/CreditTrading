@@ -32,10 +32,17 @@ WHAT IS STORED WHERE
   row-level price or return" in a tracked file. The ledger's sha256 is the
   tracked commitment: `load` refuses a series whose bytes no longer match it.
 
-A TRIAL HERE IS THE COUNTER'S TRIAL. `trial` is the id the counter was
-incremented for (for example "CEF-53"). `variant` names each configuration that
+A TRIAL HERE IS THE COUNTER'S TRIAL. `trial` must be `<COUNTER>-<n>`, where
+1 <= n <= the counter's canonical count: the n-th trial the counter was
+incremented for (for example "CEF-53"). That is what lets `bar_inputs` measure
+coverage. A free-form id once let three labels for one trial cover a counter of
+three (quant-reviewer, 2026-10-28). `variant` names each configuration that
 trial evaluated. Clustering for the effective N runs over variants, because
 correlated variants of one idea are the case it exists for.
+
+Names are compared case-folded, and a series file is created exclusively. On a
+case-insensitive volume, variant "wide" otherwise overwrote "Wide"'s file
+(quant-reviewer, 2026-10-28).
 """
 from __future__ import annotations
 
@@ -127,27 +134,42 @@ def record(pnl: pd.Series, *, counter: str, trial: str, variant: str, params: di
         json.dumps(params)
     except TypeError as e:
         raise TypeError(f"params must be JSON-serialisable: {e}") from None
+    m = re.match(rf"^{re.escape(counter)}-(\d+)$", trial)
+    if not m or not 1 <= int(m.group(1)) <= counters[counter]["trials"]:
+        raise ValueError(f"trial {trial!r} must be {counter}-<n> with 1 <= n <= "
+                         f"{counters[counter]['trials']} (the counter's canonical count); "
+                         "increment the counter before storing the trial")
     commit = _git("rev-parse", "HEAD")
-    dirty = bool(_git("status", "--porcelain", "--untracked-files=no"))
+    # Untracked files count under the code directories: a new trial runner is
+    # usually untracked, and HEAD would not contain the code that made the series
+    # (quant-reviewer, 2026-10-28). Untracked outputs elsewhere do not count.
+    dirty = bool(_git("status", "--porcelain", "--untracked-files=no")) or bool(
+        _git("status", "--porcelain", "--untracked-files=all", "--", "scripts", "src", "quantt", "ops"))
     if dirty and not allow_dirty:
         raise RuntimeError("the working tree has uncommitted changes, so HEAD does not "
                            "reproduce this series; commit first, or pass allow_dirty=True "
                            "and the ledger will say so")
     root = Path(root)
     sha = hashlib.sha256(_series_bytes(pnl)).hexdigest()
+    key = (counter, trial.casefold(), variant.casefold())
     existing = [r for r in _read_ledger(root)
-                if (r["counter"], r["trial"], r["variant"]) == (counter, trial, variant)]
+                if (r["counter"], r["trial"].casefold(), r["variant"].casefold()) == key]
     if existing:
-        if existing[-1]["sha256"] == sha:
+        if existing[-1]["sha256"] == sha and (existing[-1]["trial"], existing[-1]["variant"]) == (trial, variant):
             return existing[-1]
-        raise ValueError(f"{counter}/{trial}/{variant} is already stored with a different "
-                         "series; a judged result is never replaced. Use a new variant name")
+        raise ValueError(f"{counter}/{trial}/{variant} is already stored (as "
+                         f"{existing[-1]['trial']}/{existing[-1]['variant']}; names compare case-folded) "
+                         "with a different series or spelling; a judged result is never replaced. "
+                         "Use a new variant name")
     rel = Path("series") / counter / trial / f"{variant}.parquet"
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    pnl.rename("pnl").to_frame().to_parquet(tmp)
-    tmp.replace(path)
+    if path.exists():
+        raise FileExistsError(f"{path} exists with no ledger line for it; refusing to overwrite")
+    buf = io.BytesIO()
+    pnl.rename("pnl").to_frame().to_parquet(buf)
+    with open(path, "xb") as f:                          # exclusive create
+        f.write(buf.getvalue())
     x = pnl.to_numpy(dtype=float)
     line = dict(
         ts=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
@@ -231,7 +253,13 @@ def bar_inputs(counter: str, *, root: Path = ROOT) -> dict:
     from scripts.research.inference import effective_trials
     canon = _counters()[counter]["trials"]
     M, info = matrix(counter, root=root)
-    stored_trials = sorted({c.split("/", 1)[0] for c in M.columns})
+    ids = {c.split("/", 1)[0] for c in M.columns}
+    nums = set()
+    for t in ids:
+        m = re.match(rf"^{re.escape(counter)}-(\d+)$", t)
+        if m and 1 <= int(m.group(1)) <= canon:
+            nums.add(int(m.group(1)))
+    stored_trials = sorted(nums)
     m = M.shape[1]
     if m >= 2:
         C = M.corr().to_numpy()

@@ -218,3 +218,52 @@ def test_truncation_check_passes_a_causal_builder_and_catches_a_leak():
     assert hz.truncation_check(causal, probes)["passed"]
     with pytest.raises(hz.LookaheadError, match="reads the future"):
         hz.truncation_check(leaky, probes)
+
+
+# --- quant-reviewer findings, 2026-10-28: each test reproduces the reviewer's failing input ---
+
+def test_truncation_check_refuses_a_builder_that_ignores_end():
+    _, R = _panel(400, k=3, seed=5)
+    ignores = lambda end: R.rolling(21, center=True).mean()      # never truncates
+    with pytest.raises(hz.LookaheadError, match="ignores `end`"):
+        hz.truncation_check(ignores, R.index[[100, 250]])
+
+
+def test_truncation_check_refuses_no_probes():
+    _, R = _panel(100, k=3)
+    with pytest.raises(ValueError, match="no probes"):
+        hz.truncation_check(lambda end: R if end is None else R.loc[:end], [])
+
+
+def test_truncation_check_compares_columns_the_cut_lacks():
+    """A name that lists later, back-filled into the probe row, used to escape
+    comparison because the cut has no such column."""
+    _, R = _panel(400, k=3, seed=5)
+    R = R.copy()
+    R.iloc[:301, 2] = np.nan                                     # name N2 lists at row 301
+
+    def leaky(end):
+        x = R if end is None else R.loc[:end]
+        x = x.dropna(axis=1, how="all")
+        return np.sign(x.rolling(5).mean().bfill())
+
+    with pytest.raises(hz.LookaheadError, match="no such column"):
+        hz.truncation_check(leaky, [R.index[250]])
+
+
+def test_an_infinite_signal_is_refused_not_zeroed():
+    H, _ = _panel(10, k=4)
+    elig = pd.DataFrame(True, index=H.index, columns=H.columns)
+    H.iloc[2, 1] = np.inf
+    for on_thin in ("flat", "hold"):
+        with pytest.raises(ValueError, match="infinite"):
+            hz.cross_sectional_weights(H, elig, direction=1, scheme="z", min_names=2, on_thin=on_thin)
+
+
+def test_calendar_time_gross_is_one_after_netting():
+    idx = pd.bdate_range("2020-01-01", periods=10)
+    ev = pd.DataFrame({"decided": [idx[2]] * 3, "ticker": ["A", "A", "B"], "side": [1, -1, 1]})
+    W = hz.event_weights(ev, idx, ["A", "B"], hold=3, sizing="calendar_time")
+    assert W["A"].iloc[2:5].eq(0).all() and W["B"].iloc[2:5].eq(1.0).all()
+    cancel = pd.DataFrame({"decided": [idx[2]] * 2, "ticker": ["A", "A"], "side": [1, -1]})
+    assert hz.event_weights(cancel, idx, ["A", "B"], hold=3, sizing="calendar_time").eq(0).all().all()

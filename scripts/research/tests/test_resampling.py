@@ -110,3 +110,13 @@ def test_refusals():
         rs.sharpe_diff(bad, b, block=2, M=199, seed=0)
     with pytest.raises(ValueError, match="lower limit"):
         rs.calibrate_block(a, b, candidates=[1, 2], K=10, M=99, seed=0)
+
+
+def test_a_block_longer_than_the_sample_is_refused():
+    """T=30, block=40 used to return p = 1/(M+1), a false rejection
+    (quant-reviewer, 2026-10-28)."""
+    a, b = _pair(30, seed=9)
+    with pytest.raises(ValueError, match="complete block"):
+        rs.sharpe_diff(a, b, block=40, M=199, seed=0)
+    with pytest.raises(ValueError, match="complete block"):
+        rs.sharpe_diff(a, b, block=8, M=199, seed=0)          # 3 blocks < 4

@@ -32,7 +32,12 @@ export const meta = {
 //   increment together. Record stores the series through scripts/research/registry.py.
 //   Uncapped self-approval is safe only because every trial raises the bar for the next.
 // - READ A MISSING RESULT AS A CLEAN ONE. Any station that returns nothing stops
-//   the cycle (research-idea's rule, applied here too).
+//   the cycle (research-idea's rule, applied here too), and so does a Record that
+//   reports ok=false.
+// - TAKE AN APPROVER'S WORD FOR THE COUNT. An independent Verify station confirms
+//   from git that the commit adding the pre-registration also moved the counter.
+//   That applies to a resumed test too, which used to skip approval and the
+//   recorded-ruling check entirely (quant-reviewer, 2026-10-28).
 //
 // The cycle is ONE idea. Data length, not agent speed, limits how many trials are
 // worth spending (minimum backtest length, Bailey et al. 2014; 2-1 verified).
@@ -58,6 +63,10 @@ const APPROVAL = { type: 'object', properties: {
   prereg: { type: 'string' }, prereg_sha: { type: 'string' }, counter: { type: 'string' },
   counter_after: { type: 'integer' } },
   required: ['approved', 'why'] }
+const COUNTED = { type: 'object', properties: {
+  counted: { type: 'boolean' }, why: { type: 'string' }, prereg_commit: { type: 'string' },
+  counter: { type: 'string' }, from: { type: 'integer' }, to: { type: 'integer' } },
+  required: ['counted', 'why'] }
 const DONE = { type: 'object', properties: {
   ok: { type: 'boolean' }, summary: { type: 'string' }, commit: { type: 'string' } },
   required: ['ok', 'summary'] }
@@ -109,9 +118,29 @@ Approve only if ALL of these hold: the draft is complete against the /prereg tem
 If approved: use /prereg to finalise it at its dated path; increment the counter it names in docs/RESEARCH_STATE.md IN THE SAME COMMIT; add the item to ${STATE}'s "In progress" section; commit with a message that starts "research-loop ${D}: prereg"; and return prereg (the path), prereg_sha (that commit), counter and counter_after. Do not push.`,
     { label: 'self-approve', phase: 'Approve', agentType: 'statistician', schema: APPROVAL }), 'the self-approval')
   if (!appr.approved) return { date: D, outcome: 'NOT APPROVED', pick, design, appr, report: await report('NOT APPROVED', { pick, appr }) }
+  if (!appr.prereg || !appr.prereg_sha || !appr.counter || !Number.isInteger(appr.counter_after)) {
+    throw new Error(`self-approval said yes but did not name the prereg, its commit, the counter and its new value: ${JSON.stringify(appr)}`)
+  }
   prereg = appr.prereg; preregSha = appr.prereg_sha
+} else if (!gate.self_approval_recorded) {
+  // A resumed test spends a trial too: the same recorded-ruling check applies.
+  return { date: D, outcome: 'RESUME AWAITING APPROVAL', pick,
+    report: await report('RESUME AWAITING APPROVAL', { pick, next: 'Self-approval is not recorded in this checkout; the team lead approves the in-progress pre-registration.' }) }
 }
 if (!prereg || !/^[0-9a-f]{7,40}$/.test(preregSha || '')) throw new Error(`no committed pre-registration to test: ${JSON.stringify({ prereg, preregSha })}`)
+
+const counted = need(await agent(`Verify, from git only, that the trial about to be spent is counted. You did not write the pre-registration; do not trust any claim about it.
+Pre-registration path: ${prereg}. Pinned commit: ${preregSha}.
+1. git show ${preregSha}:${prereg} must succeed.
+2. Find the commit that added that file: git log --diff-filter=A --format=%H -- ${prereg}. It must be ${preregSha} or an ancestor of it (git merge-base --is-ancestor).
+3. That same commit must change docs/RESEARCH_STATE.md so that the counter the pre-registration names goes up by exactly one in the canonical counter table (git show <commit> -- docs/RESEARCH_STATE.md). Report from and to.
+4. HEAD's canonical counter table must still show at least that value.
+counted=true only if all four hold. Change no file.`,
+  { label: 'verify-count', phase: 'Approve', agentType: 'quant-reviewer', schema: COUNTED }), 'the count verifier')
+if (!counted.counted) {
+  return { date: D, outcome: 'TRIAL NOT COUNTED: test refused', pick, counted,
+    report: await report('TRIAL NOT COUNTED: test refused', { pick, prereg, preregSha, counted }) }
+}
 
 phase('Test')
 const result = need(await workflow('research-idea', { idea: pick.idea, stage: 'test', prereg, prereg_sha: preregSha, approved: true, ml: pick.ml === true }), 'research-idea (test)')
@@ -123,6 +152,10 @@ const rec = need(await agent(`Record the trial for ${D}. Pre-registration: ${pre
 3. Move the item from ${STATE}'s "In progress" section to its history.
 Commit with a message that starts "research-loop ${D}: verdict". Do not push.`,
   { label: 'record', phase: 'Record', schema: DONE }), 'the recorder')
+if (!rec.ok) {
+  return { date: D, outcome: 'RECORD FAILED', pick, prereg, prereg_sha: preregSha, record: rec,
+    report: await report('RECORD FAILED', { pick, prereg, preregSha, verdict: result.verdict, record: rec }) }
+}
 
 phase('Admit')
 const admit = need(await agent(`Decide paper-lab admission for this result (${D}), under docs/SYSTEM.md §5 as written in this checkout. Read it now: the 2026-10-27 blocks on the research method (bar, marginal admission, paper only) and on the autonomous loop (the lab account).

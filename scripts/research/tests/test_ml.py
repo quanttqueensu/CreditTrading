@@ -99,3 +99,15 @@ def test_reversal_gate_fails_a_model_that_builds_momentum():
         return X[:, 0]
     g = ml.reversal_gate(fit, predict, seed=1)
     assert not g["passed"] and g["mean_corr"] < 0
+
+
+def test_skipped_splits_are_counted_and_listed():
+    X, R, _ = ml.synthetic_reversal(n_days=900, n_names=5, seed=3)
+    early = X.index.get_level_values("date") < R.index[400]
+    X.loc[early] = np.nan
+    y = ml.label_panel(R)
+    fit, predict = ml.ridge(1.0)
+    splits = ml.walk_forward_splits(R.index, min_train=100, test_size=100)
+    _, info = ml.walk_forward_predict(X, y, fit=fit, predict=predict, splits=splits)
+    assert info["splits_run"] + len(info["splits_skipped"]) == info["splits"] == len(splits)
+    assert len(info["splits_skipped"]) >= 2
