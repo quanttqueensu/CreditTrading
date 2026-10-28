@@ -535,6 +535,37 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     return RefreshResult(exit=p.returncode, tail=tail)
 
 
+def require_core_panel(spec: dict) -> None:
+    """Refuse a spec whose sleeve decides on another panel than this runner reads.
+
+    WHY (C4 step 1 review, 2026-10-27). The `cef_discount` sleeve can now read a
+    panel named by its spec's `panel_source` (C4_DEPLOY_PLAN_2026-10-27.md §1
+    row 1), but this runner still takes the closes it sizes orders on, the NAV
+    dates gate 5 checks, the pre-flight's close history and the stale-NAV gate's
+    panel from the core paths `cefmod.PX_PATH` / `NAV_PATH` (`sleeve_targets`'s
+    MarketState prices; `default_deps`). Run as it stands, such a spec would
+    decide on one panel and size and gate on another, and nothing would say so.
+    Wiring the sleeve's `panel_paths()` through the runner is plan row 6A (§2
+    step 5); until it lands, the runner refuses. The check is here and not in
+    the registry because research and the tests build such specs on purpose.
+
+    The comparison is of the paths the sleeve would read against the module's
+    core paths at call time, so it is a no-op for the core spec (no
+    `panel_source`: the sleeve returns those very paths) and for a spec that
+    names `data/cef/` explicitly.
+    """
+    from src.deploy.sleeves import cef_discount as cefmod
+    got = cefmod.CEFDiscountSleeve(spec, 0.0).panel_paths()
+    core = (cefmod.PX_PATH, cefmod.NAV_PATH)
+    if got != core:
+        raise SessionError(
+            f"spec {spec.get('spec_id')!r} decides on panel {[str(p) for p in got]} "
+            f"(panel_source), but this runner prices, gates and checks NAV dates on "
+            f"{[str(p) for p in core]}. Plan row 6A (results/cef/C4_DEPLOY_PLAN_2026-10-27.md "
+            f"§1 row 6A, §2 step 5) must land first; refusing to decide on one panel and "
+            f"size on another")
+
+
 def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
                    equity: float, opening: bool, nav_hold: dict | None = None) -> list:
     """The strategy's targets, built exactly as RUNNER.md step 3 says: the
@@ -547,6 +578,7 @@ def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
     from src.deploy.registry import build_sleeve
     from src.deploy.sleeve import MarketState
     from src.deploy.sleeves import cef_discount as cefmod
+    require_core_panel(spec)              # until plan row 6A: one panel for deciding and sizing
     sl = build_sleeve(spec, capital)
     ts = pd.Timestamp(asof)
     prices = pd.read_parquet(cefmod.PX_PATH)       # MarketState requires it; this sleeve reads its own panel
@@ -734,6 +766,7 @@ class Deps:
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
+    require_core_panel(spec)              # before any client is built (plan row 6A)
     from quantt.broker.alpaca import AlpacaClient
     if not env.get("QUANTT_ENV_FILE"):
         raise SessionError("QUANTT_ENV_FILE is not set: it must name the key file")

@@ -99,11 +99,191 @@ def _validate_static_weights(spec):
             "not borrow; wire the financing leg first.")
 
 
+# ---------------------------------------------------------------------------
+# cef_discount: the four optional keys that let a second spec reuse the sleeve
+# ---------------------------------------------------------------------------
+#
+# WHY THEY EXIST (C4 deployment plan, results/cef/C4_DEPLOY_PLAN_2026-10-27.md
+# §1 row 1). Trial C4 ran THIS sleeve's z-score on 74 other funds through
+# `band_frontier.build_targets(universe=, source=, mask=)`, and the plan reuses
+# the sleeve with a second frozen spec rather than writing a second copy of the
+# z-score (two copies of a signal agree until one of them is edited). The trial
+# differs from the sleeve in exactly three ways the sleeve could not express:
+# where its panels live, two masks on the discount (PREREG_C4_FAMILIES §4.3),
+# and what it does below `min_names` (`build_targets` holds; the sleeve
+# flattens). These keys express them.
+#
+# ABSENT IS TODAY'S BEHAVIOUR, BYTE FOR BYTE, for every one of them, and the
+# live spec carries none (`quantt/session/tests/test_c4_keys_noop.py` pins the
+# 13's plan.json and plan_sha against the code before the keys existed). The
+# parse lives HERE, once: `_validate_cef_discount` calls it on the spec, and the
+# sleeve calls it again on its own `frozen` block, so a sleeve built without the
+# registry still cannot read a value the registry would refuse.
+#
+# NO NULL, NO TRUTHINESS. Unlike `band_width`, whose null means off, a present
+# key must hold one of its declared values: `null`, `1`, `"true"` or a typo
+# raises, naming the key and the value. A key that decides whether a fund has a
+# discount, or whether the book is closed, must not be decided by Python
+# truthiness or by a spelling.
+
+CEF_PANEL_SOURCE_KEYS = ("prices", "nav")
+CEF_MASK_KEYS = ("nav_repeat_mask", "zero_volume_mask")
+CEF_BELOW_MIN_NAMES = ("flatten", "hold")       # the first is the default
+
+
+def cef_panel_source(frozen):
+    """`panel_source` as (prices, nav) repo-relative POSIX strings, or None when absent.
+
+    The value is `{"prices": "<path>", "nav": "<path>"}`, each relative to the
+    repository root -- the root of the prod clone, so one spec names the same
+    file on the laptop and on the VM. An absolute path would name one machine's
+    disk inside a governance object, and `..` would let a spec read outside
+    the clone; both raise. Each must be a `.parquet` in the live panels' schema
+    (`date ... close volume ticker grp` / `date nav ticker`, as `data/cef/` and
+    `data/cef_families/` are built), and the two must differ: a price file read
+    as NAV would give every fund a discount of zero, which is a book, not an
+    error.
+    """
+    if "panel_source" not in frozen:
+        return None
+    v = frozen["panel_source"]
+    if not isinstance(v, dict):
+        raise ValueError(f"cef_discount panel_source must be an object "
+                         f"{{'prices': <path>, 'nav': <path>}}, got {v!r}")
+    unknown = sorted(set(v) - set(CEF_PANEL_SOURCE_KEYS))
+    missing = [k for k in CEF_PANEL_SOURCE_KEYS if k not in v]
+    if unknown or missing:
+        raise ValueError(f"cef_discount panel_source has unknown key(s) {unknown} and lacks "
+                         f"{missing}; it takes exactly {list(CEF_PANEL_SOURCE_KEYS)}")
+    from pathlib import PurePosixPath
+    out = []
+    for k in CEF_PANEL_SOURCE_KEYS:
+        p = v[k]
+        if not isinstance(p, str) or not p.strip() or p != p.strip():
+            raise ValueError(f"cef_discount panel_source[{k!r}] must be a non-empty path "
+                             f"string without surrounding space, got {p!r}")
+        pp = PurePosixPath(p)
+        if pp.is_absolute() or "\\" in p or ".." in pp.parts:
+            raise ValueError(f"cef_discount panel_source[{k!r}] = {p!r}: must be relative to "
+                             f"the repository root, with '/' and no '..'")
+        if pp.suffix != ".parquet":
+            raise ValueError(f"cef_discount panel_source[{k!r}] = {p!r}: not a .parquet file")
+        out.append(str(pp))
+    if out[0] == out[1]:
+        raise ValueError(f"cef_discount panel_source names {out[0]!r} for both prices and nav")
+    return tuple(out)
+
+
+def cef_mask_flag(frozen, key):
+    """`nav_repeat_mask` / `zero_volume_mask`: exactly true or false; absent is false."""
+    if key not in CEF_MASK_KEYS:
+        raise KeyError(f"{key!r} is not a cef_discount mask key {CEF_MASK_KEYS}")
+    if key not in frozen:
+        return False
+    v = frozen[key]
+    if v is not True and v is not False:
+        raise ValueError(f"cef_discount {key} must be exactly true or false, got {v!r} "
+                         f"({type(v).__name__})")
+    return v
+
+
+def cef_below_min_names(frozen):
+    """`below_min_names`: "flatten" (absent; today's rule) or "hold" (trial C4's)."""
+    if "below_min_names" not in frozen:
+        return CEF_BELOW_MIN_NAMES[0]
+    v = frozen["below_min_names"]
+    if not isinstance(v, str) or v not in CEF_BELOW_MIN_NAMES:
+        raise ValueError(f"cef_discount below_min_names {v!r} is not one of "
+                         f"{list(CEF_BELOW_MIN_NAMES)}")
+    return v
+
+
+CEF_C4_KEYS = ("panel_source", *CEF_MASK_KEYS, "below_min_names")
+# A key's documentation sibling, in the spec's own convention (`_band_width_note`).
+CEF_C4_NOTES = tuple(f"_{k}_note" for k in CEF_C4_KEYS)
+# How far a frozen key may be from one of the four and still be read as a
+# misspelling of it: 2 edits (insert, delete, substitute or swap two adjacent
+# letters) covers a plural, a dropped or doubled letter and a transposition.
+# Every key the live spec carries is at least 6 edits from all four
+# (`test_c4_sleeve_keys.py` checks the live file, key by key).
+CEF_C4_NEAR = 2
+
+
+def _osa_distance(a: str, b: str) -> int:
+    """Optimal-string-alignment edit distance: insertions, deletions,
+    substitutions and adjacent transpositions, each costing 1."""
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
+def cef_c4_near_miss(key: str):
+    """The C4 key that `key` looks like a misspelling of, or None.
+
+    WHY (review of 11790b5). An absent C4 key means "today's behaviour", so a
+    misspelt one is silently absent: `nav_repeat_masks: true` validated, and the
+    sleeve then ran WITHOUT the mask the spec plainly asks for; `below_min_name:
+    "hold"` flattened the book the spec says to hold. Rejecting every unknown key
+    would reject keys other specs and the live one legitimately carry (notes,
+    `warmup_days`), so only near-misses of the four new names are refused:
+
+      * within CEF_C4_NEAR edits of one of them, after lower-casing and reading
+        `-` and spaces as `_`;
+      * the same letters with the underscores dropped (`navrepeatmask`);
+      * one of them dressed as a comment (`_nav_repeat_mask`): in this spec's
+        convention a leading underscore is a note nothing reads, so the key
+        would be ignored while reading as set. Absent is the default; delete it.
+
+    A `_<key>_note` sibling is not a miss, and a misspelt note is checked as its
+    stem (`_nav_repeat_masks_note` is a miss of `nav_repeat_mask`).
+    """
+    if key in CEF_C4_KEYS or key in CEF_C4_NOTES or not isinstance(key, str):
+        return None
+    stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+    if stem.endswith("_note"):
+        stem = stem[:-len("_note")].strip("_")
+    for k in CEF_C4_KEYS:
+        if (stem == k or stem.replace("_", "") == k.replace("_", "")
+                or _osa_distance(stem, k) <= CEF_C4_NEAR):
+            return k
+    return None
+
+
+def cef_optional_keys(frozen) -> dict:
+    """All four C4 keys parsed, each to its default when absent. Raises on the
+    first malformed one, and on a frozen key that is a near-miss of one of them
+    (`cef_c4_near_miss`). Called by `_validate_cef_discount` and by the sleeve's
+    constructor, so a bad `below_min_names` refuses on every day and not only on
+    the first day the book falls below `min_names`."""
+    for key in frozen:
+        k = cef_c4_near_miss(key)
+        if k is not None:
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of {k!r}; the "
+                f"sleeve would ignore it and run {k}'s default. Spell it {k!r}, or delete "
+                f"it (absent is the default)")
+    return {"panel_source": cef_panel_source(frozen),
+            **{k: cef_mask_flag(frozen, k) for k in CEF_MASK_KEYS},
+            "below_min_names": cef_below_min_names(frozen)}
+
+
 def _validate_cef_discount(spec):
     """The CEF sleeve's whole signal is price minus NAV, so the things that can
     silently break it are a missing universe, a NAV staleness tolerance wide
-    enough to trade blind, and an unbounded volatility scalar."""
+    enough to trade blind, and an unbounded volatility scalar. The four
+    optional C4 keys (above) are parsed here too, so a malformed one refuses
+    the spec at load rather than at the first decide."""
     f = _require_dict(spec, "frozen")
+    cef_optional_keys(f)
     uni = f.get("universe")
     if not isinstance(uni, list) or len(uni) < 6:
         raise ValueError("cef_discount needs a frozen universe of >= 6 funds; "
