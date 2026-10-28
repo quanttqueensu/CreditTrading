@@ -562,8 +562,10 @@ def run(record: bool = False, only=None) -> dict:
                       f"second method: inference NW t {b['second']['inference_nw_t']:.4f} vs committed "
                       f"{b['second']['committed_t']:.4f}")
                 if record:
+                    # Each backfilled trial stores the one series it was judged on
+                    # (registry.record's judged flag, 2026-10-28).
                     line = rg.record(b["pnl"], counter=counter, trial=b["trial"], variant=b["variant"],
-                                     params=b["params"], note=b["note"])
+                                     params=b["params"], note=b["note"], judged=True)
                     ent.update(status="STORED", ledger={k: line[k] for k in ("commit", "dirty", "first", "last", "n",
                                                                               "sr_annual", "skew", "kurt", "sha256")})
                 else:
