@@ -289,3 +289,70 @@ def test_inputs_it_cannot_use_raise():
         I.mde(0.0, 10)
     with pytest.raises(ValueError):
         I.expected_max_z(0)
+
+
+# -- clustered_mean_diff (added 2026-10-28 for the A1 re-open) -------------------
+
+def _clustered_panel(seed=11, dates=60, per=5):
+    """Synthetic name-days: a common date shock, so clustering matters. A statement
+    about the code only."""
+    rng = np.random.default_rng(seed)
+    g = np.repeat(np.arange(dates), per)
+    y = rng.normal(0, 1, g.size) + 2.0 * rng.normal(0, 1, dates)[g]
+    a = rng.random(g.size) < 0.3
+    return y, a, g
+
+
+def test_clustered_mean_diff_matches_statsmodels_cluster_ols():
+    # The second method: OLS of y on [1, 1(A)] with cov_type="cluster". statsmodels
+    # applies G/(G-1) x (N-1)/(N-K); this module applies G/(G-1) only (the desk's
+    # convention), so the variances differ by exactly (N-1)/(N-K).
+    import statsmodels.api as sm
+    y, a, g = _clustered_panel()
+    r = I.clustered_mean_diff(y, a, g)
+    N = y.size
+    X = np.column_stack([np.ones(N), a.astype(float)])
+    fit = sm.OLS(y, X).fit(cov_type="cluster", cov_kwds={"groups": g})
+    assert r["diff"] == pytest.approx(fit.params[1], abs=1e-12)
+    assert r["se_diff"] * sqrt((N - 1) / (N - 2)) == pytest.approx(fit.bse[1], rel=1e-10)
+    for grp, key in ((a, "a"), (~a, "b")):
+        f1 = sm.OLS(y[grp], np.ones(grp.sum())).fit(cov_type="cluster", cov_kwds={"groups": g[grp]})
+        assert r[f"mean_{key}"] == pytest.approx(f1.params[0], abs=1e-12)
+        assert r[f"se_{key}"] == pytest.approx(f1.bse[0], rel=1e-10)   # K = 1: no extra factor
+
+
+def test_clustered_mean_diff_by_hand_on_four_observations():
+    # Two dates, each with one A and one B observation. A: 1, 3 (mean 2); B: 0, 4
+    # (mean 2). Scores on the difference: date 0: (1-2)/2 - (0-2)/2 = +0.5;
+    # date 1: (3-2)/2 - (4-2)/2 = -0.5. Var = 2/1 x (0.25 + 0.25) = 1.0.
+    r = I.clustered_mean_diff([1.0, 0.0, 3.0, 4.0], np.array([True, False, True, False]), [0, 0, 1, 1])
+    assert r["diff"] == 0.0
+    assert r["se_diff"] == pytest.approx(1.0, abs=1e-15)
+    # se_a: scores -0.5, +0.5 on two dates -> 2 x 0.5 = 1.0; se_b: -1, +1 -> 2 x 2 = 4
+    assert r["se_a"] == pytest.approx(1.0) and r["se_b"] == pytest.approx(2.0)
+
+
+def test_clustered_mean_diff_sees_the_covariance_a_naive_difference_misses():
+    # Every date holds 2 A and 3 B observations and one shock moves them all, so the
+    # two means co-move and the shock cancels from their difference: its SE is far
+    # below sqrt(se_a^2 + se_b^2), which treats the two means as independent.
+    y, _, g = _clustered_panel(seed=3)
+    a = np.tile(np.array([True, True, False, False, False]), 60)
+    r = I.clustered_mean_diff(y, a, g)
+    assert r["se_diff"] < 0.5 * sqrt(r["se_a"] ** 2 + r["se_b"] ** 2)
+
+
+def test_clustered_mean_diff_refuses_what_it_cannot_use():
+    y, a, g = _clustered_panel()
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(np.r_[y[:-1], np.nan], a, g)
+    with pytest.raises(TypeError):
+        I.clustered_mean_diff(y, a.astype(float), g)
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(y, np.zeros_like(a), g)            # group A empty
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(y, a, np.zeros_like(g))            # one cluster
+    one_date_a = np.zeros_like(a)
+    one_date_a[:3] = True                                        # A on date 0 only
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(y, one_date_a, g)
