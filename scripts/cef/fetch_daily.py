@@ -7,9 +7,11 @@ Run after the US close. Appends only new dates, so it is safe to run repeatedly.
             --nav-fallback cefconnect --book ops/books/cef_discount_book.json
 
 --require-asof D   exit 4 unless every deployed name has BOTH a close and a NAV
-                   dated D after the refresh, naming the gaps. The session uses
-                   this so it trades on today's pair or not at all. It checks the
-                   DATE only: Yahoo serves rows dated D that carry D-1's NAV
+                   dated D after the refresh, naming the gaps. A row dated D
+                   with no finite close is not a close (EMPTY ROWS below).
+                   The session uses this so it trades on today's pair or not
+                   at all. It checks the DATE only: Yahoo serves rows dated D
+                   that carry D-1's NAV
                    (results/cef/LIVE_NAV_QUALITY_2026-10-12.md §5). The VALUE is
                    the session's stale-NAV gate's job (quantt/session/nav_gate.py),
                    which writes its CEFConnect replacements through
@@ -43,6 +45,36 @@ LOCK_WAIT_S, then exits 3 naming the lock rather than waiting forever: the
 session has a cls cutoff and the collector has its next 30-minute slot, and
 neither may be blocked indefinitely by a hung fetch. Exit 3 is a refusal to
 refresh, never a partial write.
+
+EMPTY ROWS (fix approved by the team lead 2026-10-28). When Yahoo's chart
+response carries a dividend (or split) for a date with no bar, yfinance 0.2.66
+emits a row for that date with every price NaN and volume 0: `safe_merge_dfs`
+appends a "row of NaNs" for an out-of-range event (yfinance/utils.py:761-767),
+`keepna=False` keeps any row whose only datum is that event
+(scrapers/history.py:502-506), and Volume is then filled with 0
+(scrapers/history.py:492). This script wrote such rows unchecked, and because
+each run's row for a date replaces the last one, an empty row overwrote a good
+bar. Measured 2026-10-28, read-only, on the laptop's cef_prices.parquet (to
+2026-10-15) against its 2026-09-28 backup (cef_prices.parquet.pre-20261015.bak):
+15 good 2026-09-15 bars had become empty rows -- BIT, HYT, JFR, MHD and MQY of
+the live 13 among them -- and the panel held 65 empty-close rows against the
+backup's 49, every one with volume 0. Bars four weeks old were emptied, so this
+is not only a partial today. `--require-asof` counted such a row as the as-of
+close.
+
+Now (`merge_price_bars`): a fetched row with no close is never merged. It
+cannot replace a bar that has a close, it is not written for a date the panel
+lacks, and each one is printed as `NO CLOSE <ticker> <date> <why>`. A fetched
+bar WITH a close does replace an empty panel row (the repair), printed as
+`REPAIRED`; never the other way round. "No close" means the close is missing or
+not finite (`has_close`), never volume 0: the panel holds 20 real zero-volume
+days that carry a close (FCT 2026-08-10, 9.67), and an empty row's 0 is
+yfinance's fill, not a measurement. Nothing is filled or invented; a name whose
+only row for D is empty has no close for D and `--require-asof` refuses it.
+These lines go to stdout, the record both callers already keep (the session and
+the collector each store the last 40 lines), beside the ERR and CEFConnect lines.
+With no empty rows the panel bytes are exactly what the old merge wrote
+(scripts/cef/tests/test_fetch_daily_empty_rows.py).
 """
 from __future__ import annotations
 
@@ -56,6 +88,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -186,6 +219,67 @@ def log_nav_fills(F: pd.DataFrame, source: str, log_path=None) -> None:
     rec.to_csv(path, mode="a", index=False, header=not path.exists())
 
 
+def has_close(frame: pd.DataFrame) -> pd.Series:
+    """True where a price row carries a close: present and finite.
+
+    THE ONE TEST for an empty row (module docstring, EMPTY ROWS), shared by the
+    merge and the as-of check so the two cannot disagree. It keys on the close
+    alone. Volume 0 does not make a row empty: real zero-volume days carry a
+    close and are kept, and the 0 on an empty row is yfinance's fill. A close
+    that is not numeric raises (`pd.to_numeric`), never coerced to "missing"."""
+    c = pd.to_numeric(frame["close"]).to_numpy(dtype="float64", na_value=np.nan)
+    return pd.Series(np.isfinite(c), index=frame.index)
+
+
+def merge_price_bars(P: pd.DataFrame, fetched: list) -> tuple:
+    """(panel, log): `fetched` merged into the price panel `P`, and one entry per
+    row the merge refused or repaired.
+
+    The merge is the one it always was -- concat, keep the LAST row for each
+    (date, ticker), sort -- run on the fetched rows that have a close. A
+    fetched row with no close is held back, so it can neither replace a panel
+    bar nor become a new date (by 2026-10-15, 15 good 2026-09-15 bars had been
+    emptied this way; module docstring, EMPTY ROWS). A fetched bar with a close
+    that lands on a panel row with none replaces it, as keep="last" always did;
+    that repair is now logged. A frame with no empty row is passed through
+    untouched, so a fetch without one writes the same bytes as before.
+
+    Each log entry is {"what": "NO CLOSE" | "REPAIRED", "ticker", "date",
+    "why"}; the caller prints them. `why` says what the panel holds for that
+    date, read from `P` BEFORE the merge."""
+    dated = [p["date"].min() for p in fetched if len(p)]
+    # Only rows inside the fetched window can be refused or repaired.
+    W = P[P["date"] >= min(dated)] if dated else P.iloc[:0]
+    w_has = has_close(W)
+    panel_bar = set(zip(W.loc[w_has, "date"], W.loc[w_has, "ticker"]))
+    panel_empty = set(zip(W.loc[~w_has, "date"], W.loc[~w_has, "ticker"]))
+    keep, log = [], []
+    for p in fetched:
+        ok = has_close(p)
+        for r in p.loc[~ok].itertuples(index=False):
+            k = (r.date, r.ticker)
+            why = ("not merged: the panel's bar for this date has a close and is kept"
+                   if k in panel_bar else
+                   "not merged: the panel's row for this date has no close either and is left as it was"
+                   if k in panel_empty else
+                   "not written: the panel has no row for this date")
+            log.append({"what": "NO CLOSE", "ticker": r.ticker, "date": r.date,
+                        "why": f"(close {r.close}, volume {r.volume}) {why}"})
+        for r in p.loc[ok].itertuples(index=False):
+            if (r.date, r.ticker) in panel_empty:
+                log.append({"what": "REPAIRED", "ticker": r.ticker, "date": r.date,
+                            "why": f"the panel's row had no close; yfinance's bar "
+                                   f"(close {r.close:g}, volume {r.volume:,}) replaces it"})
+        if ok.all():
+            keep.append(p)            # as before, even a frame the clock emptied
+        elif ok.any():
+            keep.append(p.loc[ok])    # an all-empty frame is not concatenated at all
+    out = (pd.concat([P] + keep, ignore_index=True)
+             .drop_duplicates(subset=["date", "ticker"], keep="last")
+             .sort_values(["ticker", "date"]))
+    return out, log
+
+
 def _deployed(book_path) -> list:
     sys.path.insert(0, str(REPO))
     from ops.common import deployed_tickers
@@ -241,9 +335,11 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
             if age > STALE_BD:
                 stale.append((tk, str(n.date.max().date()), age))
 
-    P = (pd.concat([P] + newp, ignore_index=True)
-           .drop_duplicates(subset=["date", "ticker"], keep="last")
-           .sort_values(["ticker", "date"]))
+    # A fetched row with no close is never merged; each refusal or repair is
+    # printed (module docstring, EMPTY ROWS). The NAV merge below is unchanged.
+    P, bar_log = merge_price_bars(P, newp)
+    for e in bar_log:
+        print(f"  {e['what']:<8} {e['ticker']:<6} {e['date'].date()} {e['why']}")
     N = (pd.concat([N] + newn, ignore_index=True)
            .drop_duplicates(subset=["date", "ticker"], keep="last")
            .sort_values(["ticker", "date"]))
@@ -252,7 +348,13 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     if require_asof is not None:
         asof = pd.Timestamp(require_asof).normalize()
         names = _deployed(book) if book else sorted(tickers)
-        have_px = set(P.loc[P["date"] == asof, "ticker"])
+        # A row dated D with no close is not D's close (EMPTY ROWS): the panel
+        # can still hold one written before 2026-10-28, and the fetch may not
+        # have brought the bar. Same test as the merge (`has_close`).
+        at = P[P["date"] == asof]
+        at_has = has_close(at)
+        have_px = set(at.loc[at_has, "ticker"])
+        empty_px = set(at.loc[~at_has, "ticker"])
         have_nav = set(N.loc[N["date"] == asof, "ticker"])
         need_nav = [t for t in names if t not in have_nav]
         if need_nav and nav_fallback == "cefconnect":
@@ -273,9 +375,13 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
                 N = merge_nav_fills(N, F)
                 log_nav_fills(F, "cefconnect")
                 have_nav |= set(F["ticker"])
-        incomplete = [f"{t}: {'no close' if t not in have_px else ''}"
-                      f"{'/' if t not in have_px and t not in have_nav else ''}"
-                      f"{'no NAV' if t not in have_nav else ''}"
+        def gap(t):
+            # A missing row reads exactly as it always did; an empty one says so.
+            px = (f"no close (its {asof.date()} row is empty)" if t in empty_px
+                  else "no close")
+            return "/".join(([px] if t not in have_px else [])
+                            + (["no NAV"] if t not in have_nav else []))
+        incomplete = [f"{t}: {gap(t)}"
                       for t in names if t not in have_px or t not in have_nav]
 
     # Atomic: these two ARE what the sleeve prices from, and the session
@@ -283,7 +389,10 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     atomic_write(P, PX_PATH)
     atomic_write(N, NAV_PATH)
 
-    print(f"  prices {len(P):,} rows -> {P.date.max().date()}")
+    tally = {w: sum(e["what"] == w for e in bar_log) for w in ("NO CLOSE", "REPAIRED")}
+    print(f"  prices {len(P):,} rows -> {P.date.max().date()}"
+          + (f" ({tally['NO CLOSE']} fetched row(s) with no close not merged, "
+             f"{tally['REPAIRED']} empty row(s) repaired; listed above)" if bar_log else ""))
     print(f"  NAV    {len(N):,} rows -> {N.date.max().date()}")
     if stale:
         print(f"  STALE NAV ({len(stale)} funds, >{STALE_BD} business days old) — "
