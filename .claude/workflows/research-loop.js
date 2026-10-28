@@ -86,7 +86,8 @@ const RECORDED = { type: 'object', properties: {
     // Either may be null in the registry's output. No type is declared, so the
     // schema never rejects a null; the script checks both below.
     paper: { description: "the registry's paper object, or null" },
-    paper_refused: { description: "the registry's refusal text, or null" } },
+    paper_refused: { description: "the registry's refusal text, or null" },
+    paper_refused_code: { description: "the registry's refusal code, or null" } },
     required: ['counter', 'trial', 'variant', 'judged', 'desk'] } },
   required: ['ok', 'summary'] }
 const ADMIT = { type: 'object', properties: {
@@ -195,6 +196,7 @@ const b = rec.bars
 // output becomes RECORD FAILED with a report, never a TypeError with none.
 const paperOk = b && b.paper && typeof b.paper.dsr === 'number' && b.paper.declared_n === declaredN && !b.paper_refused
 const refusedOk = b && !b.paper && typeof b.paper_refused === 'string' && b.paper_refused.length > 0
+  && typeof b.paper_refused_code === 'string' && b.paper_refused_code.length > 0
 const badBars = !rec.ok ? null
   : !b ? 'the recorder returned no bars output'
   : b.counter !== counted.counter || b.trial !== `${counted.counter}-${counted.to}` ? `bars ran on ${b.counter}/${b.trial}, not ${counted.counter}-${counted.to}`
@@ -211,7 +213,7 @@ phase('Admit')
 const admit = need(await agent(`Decide paper-lab admission for this result (${D}), under docs/SYSTEM.md §5 as written in this checkout. Read it now: the 2026-10-27 blocks on the research method (bar, marginal admission, paper only) and on the autonomous loop (the lab account).
 Verdict: ${result.verdict}. Portfolio-manager: ${JSON.stringify(result.book)}. Quant-reviewer: ${JSON.stringify(result.review)}. Quant-trader: ${JSON.stringify(result.trade)}. Registry bars (checked by the script to be this trial at declared N ${declaredN}): ${JSON.stringify(b)}. Recorder: ${rec.summary}.
 - NOT_ESTABLISHED if the quant-reviewer found a correctness defect.
-- NOT_ADMITTED unless the evidence outcome is PRESENT AND it is admitted EITHER by the standalone deflated Sharpe on the bar SYSTEM.md §5 says gates for this counter today, OR by the marginal-contribution route. For the standalone route, read SYSTEM.md's rows on which bar gates (on 2026-10-28: the paper's bar with safeguards for a counter whose every trial has a stored series, and CEF always on the desk's bar). Take the DSR from the registry bars above, never from anywhere else: paper.dsr or desk.dsr, at declared N ${declaredN}. If the paper's bar gates and paper is null, the standalone route is closed; quote paper_refused. Never substitute the desk's bar for it, and never build a bar from bar_inputs' n_effective or sr_var. The marginal-contribution route is paper only: the sleeve adds to the book across rho's range, and the combined net is positive across 5/15/30bp. It must also be tradable as specified per the quant-trader.
+- NOT_ADMITTED unless the evidence outcome is PRESENT AND it is admitted EITHER by the standalone deflated Sharpe on the bar SYSTEM.md §5 says gates for this counter today, OR by the marginal-contribution route. For the standalone route, read SYSTEM.md's rows on which bar gates (on 2026-10-28: the paper's bar with safeguards for a counter whose every trial has a stored series, CEF always on the desk's bar, and a counter with one stored trial on the desk's bar until a second is stored). Take the DSR from the registry bars above, never from anywhere else: paper.dsr or desk.dsr, at declared N ${declaredN}. If the paper's bar would gate but paper is null: when paper_refused_code is "one_trial", the desk's bar gates instead, as SYSTEM.md §5 records; for any other code the standalone route is closed, so quote paper_refused. Never otherwise substitute the desk's bar, and never build a bar from bar_inputs' n_effective or sr_var. The marginal-contribution route is paper only: the sleeve adds to the book across rho's range, and the combined net is positive across 5/15/30bp. It must also be tradable as specified per the quant-trader.
 - If admitted: ADMIT_LAB if the lab book exists (${gate.lab_book_exists}), else ADMITTED_WAITING_FOR_LAB_BOOK.
 Name the route. This step changes no file and sends nothing. Building the lab book's spec and release is the deploy step, and it is not automated yet.`,
   { label: 'portfolio-manager', phase: 'Admit', agentType: 'portfolio-manager', schema: ADMIT }), 'the admission')

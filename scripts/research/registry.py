@@ -329,7 +329,17 @@ def bar_inputs(counter: str, *, root: Path = ROOT) -> dict:
 class PaperBarRefused(ValueError):
     """The paper's bar cannot be computed as the team lead ruled it on 2026-10-28.
     The message names the missing input. `bars` reports it in place of the paper's
-    bar, and never substitutes another bar."""
+    bar, and never substitutes another bar.
+
+    `code` says which input is missing, so a caller applies the rulings without
+    parsing prose: not_qualified, one_trial, ambiguous_judged, few_sessions,
+    no_series. For `one_trial` the desk's bar gates until a second trial is
+    stored (team lead, 2026-10-28, later; docs/SYSTEM.md §5). Any other code
+    closes the standalone route."""
+
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
 
 
 # -- declared slates: the least N a trial may be judged at --------------------
@@ -447,7 +457,7 @@ def _pick(counter: str, n: int, *, root: Path = ROOT) -> dict:
     if len(judged) > 1 or (len(rs) > 1 and len(judged) != 1):
         raise PaperBarRefused(f"{counter}-{n} stores {len(rs)} variants and {len(judged)} are marked "
                               "judged; a trial is judged on one series (record(..., judged=True) on the "
-                              "configuration the pre-registration selects)")
+                              "configuration the pre-registration selects)", "ambiguous_judged")
     return judged[0] if judged else rs[0]
 
 
@@ -461,7 +471,7 @@ def _judged_matrix(counter: str, *, root: Path = ROOT) -> tuple[pd.DataFrame, di
                    if (n := _trial_no(counter, r["trial"])) is not None and 1 <= n <= canon})
     picks = [_pick(counter, n, root=root) for n in nums]
     if not picks:
-        raise PaperBarRefused(f"no counted trial on {counter} has a stored series")
+        raise PaperBarRefused(f"no counted trial on {counter} has a stored series", "no_series")
     full = pd.concat({f"{r['trial']}/{r['variant']}": load(r, root=root) for r in picks}, axis=1)
     common = full.dropna()
     return common, dict(union_sessions=len(full), common_sessions=len(common),
@@ -502,14 +512,15 @@ def paper_sr0(counter: str, *, declared_n: int, root: Path = ROOT) -> dict:
     b = _coverage(counter, root=root)
     if not b["paper_bar_may_gate"]:
         raise PaperBarRefused(f"{counter} does not qualify: {b['stored_trials']} of its "
-                              f"{b['canonical_trials']} trials have a stored series")
+                              f"{b['canonical_trials']} trials have a stored series", "not_qualified")
     J, info = _judged_matrix(counter, root=root)
     k, T = J.shape[1], len(J)
     if k < 2:
         raise PaperBarRefused(f"{counter} has {k} trial with a stored series; rho_bar and V[SR] "
-                              "across trials are unmeasured with fewer than two")
+                              "across trials are unmeasured with fewer than two; the desk's bar gates until "
+                              "a second trial is stored (team lead, 2026-10-28)", "one_trial")
     if T < 3:
-        raise PaperBarRefused(f"{counter}'s trials share {T} sessions; too few to measure rho_bar")
+        raise PaperBarRefused(f"{counter}'s trials share {T} sessions; too few to measure rho_bar", "few_sessions")
     C = J.corr().to_numpy()
     rho = float(C[~np.eye(k, dtype=bool)].mean())
     v = float((J.mean() / J.std(ddof=1)).var(ddof=1))   # per-period Sharpes, across trials
@@ -565,11 +576,11 @@ def bars(counter: str, *, trial: str, variant: str, declared_n: int, root: Path 
                T=T, sr=sr, sr_annual=sr * np.sqrt(252), skew=skew, kurt=kurt, canonical_trials=canon,
                desk=dict(n_trials=int(declared_n), T=T, sr0=desk_sr0, sr0_annual=desk_sr0 * np.sqrt(252),
                          dsr=desk_dsr(sr * np.sqrt(252), T, skew, kurt, declared_n)),
-               paper=None, paper_refused=None)
+               paper=None, paper_refused=None, paper_refused_code=None)
     try:
         p = paper_sr0(counter, declared_n=declared_n, root=root)
     except PaperBarRefused as e:
-        out["paper_refused"] = str(e)
+        out["paper_refused"], out["paper_refused_code"] = str(e), e.code
     else:
         out["paper"] = dict(declared_n=p["declared_n"], trials=p["trials"], n_effective=p["n_effective"],
                             rho_bar=p["rho_bar"], sr_var_used=p["sr_var_used"], floor_binds=p["floor_binds"],

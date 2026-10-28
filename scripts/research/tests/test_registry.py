@@ -480,3 +480,24 @@ def test_every_trial_in_the_tracked_ledger_has_one_judged_series():
     for c, t in trials:
         judged = [r for r in rows if (r["counter"], r["trial"]) == (c, t) and r.get("judged") is True]
         assert len(judged) == 1, (c, t, len(judged))
+
+
+# -- refusal codes (team lead, 2026-10-28, later) -----------------------------
+# The desk's bar gates a qualifying counter with ONE stored trial until a second
+# is stored; any other refusal closes the standalone route. The caller tells the
+# two apart by code, never by parsing the message.
+
+def test_refusals_carry_the_code_the_ruling_keys_on(tmp_path, monkeypatch, reg):
+    monkeypatch.setattr(rg, "_counters", lambda: {"MACRO": {"trials": 1}})
+    rg.record(_pnl(500), counter="MACRO", trial="MACRO-1", variant="a", params={}, root=reg, judged=True)
+    with pytest.raises(rg.PaperBarRefused) as e:
+        rg.paper_sr0("MACRO", declared_n=1, root=reg)
+    assert e.value.code == "one_trial" and "desk's bar gates" in str(e.value)
+    r = rg.bars("MACRO", trial="MACRO-1", variant="a", declared_n=1, root=reg)
+    assert r["paper"] is None and r["paper_refused_code"] == "one_trial" and r["desk"]["dsr"] > 0
+    monkeypatch.setattr(rg, "_counters", lambda: {"MACRO": {"trials": 2}})        # MACRO-2 not stored
+    r = rg.bars("MACRO", trial="MACRO-1", variant="a", declared_n=2, root=reg)
+    assert r["paper_refused_code"] == "not_qualified"
+    rg.record(_pnl(501), counter="MACRO", trial="MACRO-2", variant="a", params={}, root=reg, judged=True)
+    r = rg.bars("MACRO", trial="MACRO-1", variant="a", declared_n=2, root=reg)
+    assert r["paper"] is not None and r["paper_refused_code"] is None             # two trials: the paper's bar
