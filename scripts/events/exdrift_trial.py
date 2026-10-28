@@ -1444,6 +1444,7 @@ def fit_k_core(ret: pd.DataFrame, dist: pd.DataFrame, cap: float, vol_target: fl
     pos = {d: i for i, d in enumerate(idx)}
     own = {t: sorted(pos[d] for d in g.ex_date if d in pos) for t, g in dist[dist.amount > 0].groupby("ticker")}
     E["next3"] = [any(p < q <= p + NEXT_EX_WITHIN for q in own.get(t, [])) for t, p in zip(E.ticker, E.p)]
+    n_rule2 = int(E.next3.sum())
     E = E[~E.next3]
     legs = []
     for r in E.itertuples():
@@ -1471,7 +1472,7 @@ def fit_k_core(ret: pd.DataFrame, dist: pd.DataFrame, cap: float, vol_target: fl
         _, fct = _cap_gross(k * H.loc[t], cap)
         bind += int(fct < 1.0)
     n_on = int(rows_on.sum())
-    return {"events": int(len(E)), "excluded_rule2": int(E.next3.sum()) if "next3" in E else 0,
+    return {"events": int(len(E)), "excluded_rule2": n_rule2,
             "active_sessions": int(active.sum()), "decision_rows_with_a_position": n_on,
             "sigma_active_annual": sigma, "vol_target": vol_target, "k": k, "cap": cap,
             "cap_binding_rows": bind, "cap_binding_share": bind / n_on if n_on else float("nan"),
