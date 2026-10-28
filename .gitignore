@@ -91,3 +91,8 @@ results/events/conditional_tender_census_full.csv
 # tracked cef_corp_action_events.csv carries EDGAR facts only, and the per-type
 # cef_corp_action_census.csv and the summary JSON are aggregates.
 results/events/cef_corp_action_events_full.csv
+
+# Trial P&L series (scripts/research/registry.py): the repo is public and an event
+# book's series can be a licensed security's return. The tracked ledger holds each
+# series' sha256.
+/results/research/trials/series/

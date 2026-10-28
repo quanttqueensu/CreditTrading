@@ -43,6 +43,11 @@ from scripts.cef.spec import (  # noqa: E402
     BAND_WIDTH, LIVE_POLICY, MIN_ADV_USD, MIN_NAMES,
     REBALANCE_DAYS, UNIVERSE, VOL_TARGET, Z_WINDOW, summary,
 )
+# The accounting (the execution lag, P&L, turnover) lives in the research
+# harness so every family shares it (team lead, 2026-10-27). See evaluate().
+from scripts.research.harness import (  # noqa: E402
+    HOLDOUT_START, evaluate as _harness_evaluate,
+)
 
 MIN_ADV = MIN_ADV_USD
 
@@ -334,19 +339,19 @@ def evaluate(H, R):
     the distribution leg. The choice belongs to the caller and is stated in
     every table, because the two conventions differ by era (RESEARCH_STATE.md,
     2026-09-09: -0.01%/yr full sample but -0.77%/yr in 2010-14).
+
+    DELEGATES TO `scripts/research/harness.py` (2026-10-27). The team lead ruled
+    that evaluate() may be restructured so that every research family and the
+    ML pipeline share one accounting path. The body moved there unchanged, and
+    the lag now has one name, `harness.EXEC_LAG`. This entry point passes
+    `nan_policy="legacy"`, the old NaN semantics verbatim, because E1 relies on
+    the skip for its `hold_gaps`-checked CRSP gaps (see harness.evaluate). New
+    code calls `scripts.research.harness.evaluate` / `report`, which refuse a
+    NaN weight or a missing held return. On the live book the output is
+    byte-identical (sha256 of every key, before and after:
+    `results/research/HARNESS_RESTRUCTURE_2026-10-27.md`).
     """
-    pnl = (H.shift(2).fillna(0.0) * R).sum(axis=1)
-    turn = H.diff().abs().sum(axis=1).fillna(0.0)
-    gross_v = H.abs().sum(axis=1).mean()
-    return dict(
-        gross_sr=pnl.mean() / pnl.std() * np.sqrt(252),
-        ann_ret=pnl.mean() * 252,
-        vol=pnl.std() * np.sqrt(252),
-        turn=turn.sum() * 252 / len(pnl),
-        hold=gross_v / turn.mean() if turn.mean() > 0 else np.inf,
-        turn_series=turn,
-        pnl=pnl,
-    )
+    return _harness_evaluate(H, R, nan_policy="legacy")
 
 
 # =============================================================================
@@ -897,7 +902,7 @@ def main():
 # row above and PREREG_BAND_2026-09-06 used; total returns (splits +
 # distributions, `total_returns`) are the convention the paper book is scored
 # on (PREREG_ALPACA_V7 section 4).
-HOLDOUT_START = pd.Timestamp("2023-01-01")
+# HOLDOUT_START (2023-01-01, H13) is imported from scripts/research/harness.py.
 SLOW_CALENDARS = (21,)                       # monthly, ~21 sessions
 SLOW_BANDS = (0.16, 0.192, 0.256)            # deliberate sweep beyond 12.8%
 CONTEXT_CALENDARS = (5, 10)

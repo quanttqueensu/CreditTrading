@@ -47,7 +47,11 @@ and walk-forward does not protect you. Instead:
 
 **Every configuration you fit is a trial.** That covers each hyperparameter set
 and each feature set. Store each configuration's out-of-sample per-period P&L,
-because the statistician needs it for effective N, V[SR_n] and PBO.
+because the statistician needs it for effective N, V[SR_n] and PBO. Store every
+one with `scripts/research/registry.py` `record(...)`, and mark exactly one,
+the configuration the pre-registration selects, `judged=True`. The paper's bar
+takes that one series per trial; without it the bar is refused for the whole
+counter.
 
 ## Building it correctly
 
@@ -82,10 +86,17 @@ because the statistician needs it for effective N, V[SR_n] and PBO.
 
 ## Shared tooling, never private copies
 
-- The purged/embargoed CV splitter, the CPCV paths, triple-barrier labels and
-  uniqueness weights are being built as one shared, tested pipeline. Another
-  session is building it under the team lead's 2026-10-27 ruling on the
-  harness. Use it once it exists.
+- The shared, tested pipeline is `scripts/research/ml.py`:
+  - `label_panel` (the harness label, t+1 → t+2);
+  - `walk_forward_splits` and `walk_forward_predict` (the tradable OOS record);
+  - `cpcv_splits` and `cpcv_paths` (the overfitting distribution only, never a
+    backtest);
+  - `reversal_gate`, which any complex model passes before it is trusted.
+
+  Purging comes from label intervals, and the embargo has no default.
+- Triple-barrier labels and uniqueness weights are NOT built. With the
+  harness's one-session label they are not needed. A multi-day label needs
+  both: add them to `ml.py` with a test, never inside a trial script.
 - Until then, build any piece you need as a tested module under
   `scripts/research/`, never inside a trial script.
 - Statistics come from `scripts/research/inference.py`. Positions are scored
