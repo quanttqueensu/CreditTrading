@@ -1,4 +1,8 @@
-"""fetch_daily never merges a fetched row with no close (fix approved by the team lead, 2026-10-28).
+"""fetch_daily never merges a fetched row with no close, or no NAV (fix approved by the team lead, 2026-10-28).
+
+The price half is first; the NAV half (the NAV merge, the stale check and the
+as-of NAV check, which the price half's reviewers found unguarded) follows THE
+NAV HALF below.
 
 WHY. When Yahoo's chart response carries a dividend (or split) for a date with no
 bar, yfinance 0.2.66 emits a row for that date with every price NaN and volume
@@ -106,7 +110,8 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(fd, "FALLBACK_LOG", tmp_path / "nav_fallback_log.csv")
     monkeypatch.setattr(fd, "before_close", lambda now: False)
 
-    def run(P, N, fetched, navs, errors=(), require_asof=None, capsys=None):
+    def run(P, N, fetched, navs, errors=(), require_asof=None, capsys=None,
+            nav_fallback=None):
         atomic_write(P, fd.PX_PATH)
         atomic_write(N, fd.NAV_PATH)
 
@@ -123,7 +128,7 @@ def env(tmp_path, monkeypatch):
                 return navs.get(tk, pd.DataFrame())
 
         monkeypatch.setattr(fd, "yf", types.SimpleNamespace(Ticker=Ticker))
-        rc = fd.refresh("6mo", require_asof, None, None)
+        rc = fd.refresh("6mo", require_asof, nav_fallback, None)
         out = capsys.readouterr().out if capsys is not None else ""
         return rc, out
     return run
@@ -284,3 +289,248 @@ def test_with_no_empty_rows_a_fetch_is_byte_identical_to_before(env, capsys, tmp
     assert fd.PX_PATH.read_bytes() == a_px, "empty rows changed the price panel"
     assert fd.NAV_PATH.read_bytes() == a_nav, "empty rows changed the NAV panel"
     assert len(lines(out, "NO CLOSE")) == 3
+
+
+# ================================================================================
+# THE NAV HALF (team lead's approval, 2026-10-28; fetch_daily docstring, EMPTY NAV
+# ROWS). The reviewers of the price half found the NAV merge, the stale check and
+# the as-of NAV check unguarded. The real NAV panel (laptop, to 2026-10-14) holds
+# no NAV that is not finite, so the NAV values below are test fixtures in the
+# panel's shape, not a claim that Yahoo has served such rows. Each test drives
+# the real `refresh`, as above.
+
+def navs_frame(pairs) -> pd.DataFrame:
+    """A yfinance X<TK>X history frame from (date, nav) pairs; a nav that is not
+    finite makes that row empty, as yfinance emits it (prices NaN, volume 0,
+    an event on the row)."""
+    return yf_frame([bar("", "", d, v, v, v, v, 0) for d, v in pairs])
+
+
+def price_stub(tickers, dates) -> pd.DataFrame:
+    """Price rows, so `refresh` has these tickers to fetch; no price is fetched."""
+    return panel([bar(t, "x", d, 10.0, 10.0, 10.0, 10.0, 1000) for t in tickers for d in dates])
+
+
+def nav_of(N, ticker, date):
+    r = N[(N["ticker"] == ticker) & (N["date"] == pd.Timestamp(date))]
+    assert len(r) <= 1, f"duplicate NAV {ticker} {date}"
+    return None if r.empty else float(r["nav"].iloc[0])
+
+
+def test_an_empty_nav_does_not_overwrite_a_good_nav(env, capsys):
+    """The price incident's shape on the NAV panel: the panel holds good
+    2026-09-15 NAVs and the fetch returns an empty 2026-09-15 row for each. Both
+    NAVs survive, and each refused row is named with its date and why. The old
+    merge wrote NaN over both."""
+    P = price_stub(["BIT", "HYT"], [SEP15])
+    N = pd.DataFrame([{"date": SEP15, "nav": 12.31, "ticker": "BIT"},
+                      {"date": SEP15, "nav": 8.71, "ticker": "HYT"}])
+    navs = {t: navs_frame([(SEP15, NAN)]) for t in ("BIT", "HYT")}
+    rc, out = env(P, N, {}, navs, capsys=capsys)
+    assert rc == 0
+    got = pd.read_parquet(fd.NAV_PATH)
+    assert nav_of(got, "BIT", SEP15) == 12.31 and nav_of(got, "HYT", SEP15) == 8.71, \
+        f"a good NAV was overwritten by an empty row:\n{got}"
+    refused = lines(out, "NO NAV")
+    assert len(refused) == 2, out
+    for t in ("BIT", "HYT"):
+        hit = [ln for ln in refused if f" {t} " in ln and "2026-09-15" in ln]
+        assert len(hit) == 1 and "kept" in hit[0], (t, refused)
+
+
+@pytest.mark.parametrize("nav", [NAN, math.inf, -math.inf], ids=["nan", "inf", "-inf"])
+def test_an_empty_nav_for_a_new_date_is_not_written_and_is_logged(env, capsys, nav):
+    """A NAV that is not finite is no NAV. It is not written for a date the
+    panel lacks, the good NAV fetched beside it is, and the refusal is named."""
+    P = price_stub(["DHY"], ["2026-09-25"])
+    N = nav_panel(["DHY"], ["2026-09-25"], nav=2.03)
+    navs = {"DHY": navs_frame([("2026-09-28", 2.04), ("2026-09-30", nav)])}
+    rc, out = env(P, N, {}, navs, capsys=capsys)
+    assert rc == 0
+    got = pd.read_parquet(fd.NAV_PATH)
+    assert nav_of(got, "DHY", "2026-09-30") is None, "an empty NAV was written as a new date"
+    assert nav_of(got, "DHY", "2026-09-28") == 2.04, "the good NAV beside it was lost"
+    refused = lines(out, "NO NAV")
+    assert len(refused) == 1, out
+    assert " DHY " in refused[0] and "2026-09-30" in refused[0] and "not written" in refused[0]
+
+
+def test_a_good_nav_repairs_an_empty_nav_row_and_is_logged(env, capsys):
+    """A panel NAV row that is empty is replaced by a fetched NAV, and the
+    repair is named (the old merge repaired it silently)."""
+    P = price_stub(["HYT"], ["2026-09-12", SEP15])
+    N = pd.DataFrame([{"date": pd.Timestamp("2026-09-12"), "nav": 8.70, "ticker": "HYT"},
+                      {"date": SEP15, "nav": NAN, "ticker": "HYT"}])
+    rc, out = env(P, N, {}, {"HYT": navs_frame([(SEP15, 8.71)])}, capsys=capsys)
+    assert rc == 0
+    assert nav_of(pd.read_parquet(fd.NAV_PATH), "HYT", SEP15) == 8.71
+    repaired = lines(out, "NAV REPAIRED")
+    assert len(repaired) == 1, out
+    assert " HYT " in repaired[0] and "2026-09-15" in repaired[0] and "8.71" in repaired[0]
+    assert not lines(out, "NO NAV")
+
+
+@pytest.mark.parametrize("fetch", ["returns_the_empty_nav_again", "fails_for_that_name"])
+def test_require_asof_refuses_an_empty_as_of_nav(env, capsys, fetch):
+    """The panel holds an empty HYT NAV row for 2026-09-15. Whether the fetch
+    brings the same empty row or nothing for HYT, with no fallback the as-of
+    check refuses HYT exactly as for a missing NAV: exit 4, the date named, the
+    row named as empty. BIT is complete. The old check counted the row as D's
+    NAV and passed."""
+    P = panel([bar("BIT", "multi", SEP15, 11.55, 11.60, 11.48, 11.49, 616900),
+               bar("HYT", "hy", SEP15, 8.02, 8.06, 7.98, 7.98, 1365200)])
+    N = pd.DataFrame([{"date": SEP15, "nav": 12.31, "ticker": "BIT"},
+                      {"date": SEP15, "nav": NAN, "ticker": "HYT"}])
+    navs, errors = {"BIT": navs_frame([(SEP15, 12.31)])}, ()
+    if fetch == "returns_the_empty_nav_again":
+        navs["HYT"] = navs_frame([(SEP15, NAN)])
+    else:
+        errors = ("HYT",)
+    rc, out = env(P, N, {}, navs, errors=errors, require_asof="2026-09-15", capsys=capsys)
+    assert rc == 4, out
+    inc = lines(out, "INCOMPLETE")
+    assert len(inc) == 1 and "2026-09-15" in inc[0] and "1 deployed name(s)" in inc[0], inc
+    assert "HYT: no NAV (its 2026-09-15 row is empty)" in inc[0] and "BIT" not in inc[0], inc
+
+
+def test_an_empty_as_of_nav_goes_to_the_cefconnect_fallback_like_a_missing_one(
+        env, capsys, monkeypatch):
+    """With --nav-fallback cefconnect, an empty NAV row for D is filled from
+    CEFConnect exactly as a missing one is: written over the empty row, logged
+    in the fallback log, and the line says why. The old check never asked."""
+    P = panel([bar("HYT", "hy", SEP15, 8.02, 8.06, 7.98, 7.98, 1365200)])
+    N = pd.DataFrame([{"date": SEP15, "nav": NAN, "ticker": "HYT"}])
+    asked = []
+    monkeypatch.setattr(fd, "_cefconnect_nav",
+                        lambda tk, asof: asked.append((tk, asof)) or 8.71)
+    rc, out = env(P, N, {}, {}, errors=("HYT",), require_asof="2026-09-15",
+                  nav_fallback="cefconnect", capsys=capsys)
+    assert rc == 0, out
+    assert asked == [("HYT", SEP15)]
+    assert nav_of(pd.read_parquet(fd.NAV_PATH), "HYT", SEP15) == 8.71
+    log = pd.read_csv(fd.FALLBACK_LOG)
+    assert log[["ticker", "nav", "source"]].values.tolist() == [["HYT", 8.71, "cefconnect"]]
+    (ln,) = lines(out, "NAV HYT")
+    assert "2026-09-15 = 8.71 from CEFConnect" in ln and "has no NAV" in ln, ln
+
+
+@pytest.mark.parametrize("cc", [NAN, math.inf], ids=["nan", "inf"])
+def test_a_cefconnect_nav_that_is_not_finite_is_not_written(env, capsys, monkeypatch, cc):
+    """The fallback must not write the empty NAV it exists to replace. HYT stays
+    incomplete (exit 4), nothing reaches the panel or the fallback log, and the
+    refusal is named. The old fallback wrote it and passed the pair."""
+    P = panel([bar("HYT", "hy", SEP15, 8.02, 8.06, 7.98, 7.98, 1365200)])
+    N = nav_panel(["HYT"], ["2026-09-12"], nav=8.70)
+    monkeypatch.setattr(fd, "_cefconnect_nav", lambda tk, asof: cc)
+    rc, out = env(P, N, {}, {}, errors=("HYT",), require_asof="2026-09-15",
+                  nav_fallback="cefconnect", capsys=capsys)
+    assert rc == 4, out
+    assert nav_of(pd.read_parquet(fd.NAV_PATH), "HYT", SEP15) is None
+    assert not fd.FALLBACK_LOG.exists()
+    (ln,) = lines(out, "NO NAV")
+    assert " HYT " in ln and "2026-09-15" in ln and "CEFConnect" in ln and "not written" in ln
+
+
+def _bd_age(d, today):
+    """The stale check's own age arithmetic, as fetch_daily has always done it."""
+    return len(pd.bdate_range(pd.Timestamp(d), today)) - 1
+
+
+def test_an_empty_nav_row_never_makes_a_fund_look_fresh(env, capsys):
+    """The stale check (fetch_daily docstring, EMPTY NAV ROWS). HYT's last real
+    NAV is eight business days old and its fetch ends in an empty row dated
+    yesterday; BIT's fetch is nothing but empty rows. The old check dated each
+    fund by its last ROW and called both fresh. Both are stale now: HYT dated
+    by its last real NAV, BIT listed first as having none. Dates are relative
+    to today because the check reads today's date."""
+    today = pd.Timestamp.today().normalize()
+    good, recent = today - pd.offsets.BDay(8), today - pd.offsets.BDay(1)
+    P = price_stub(["BIT", "HYT"], [good])
+    N = nav_panel(["BIT", "HYT"], [good], nav=10.0)
+    navs = {"HYT": navs_frame([(good, 10.0), (recent, NAN)]),
+            "BIT": navs_frame([(good, NAN), (recent, NAN)])}
+    rc, out = env(P, N, {}, navs, capsys=capsys)
+    assert rc == 0
+    assert "NAV series fresh" not in out, out
+    body = out.splitlines()
+    i = next(k for k, ln in enumerate(body) if ln.startswith("  STALE NAV"))
+    assert body[i] == ("  STALE NAV (2 funds, >3 business days old) — "
+                       "the sleeve must not trade these:")
+    assert body[i + 1] == "    BIT    last NAV none: no finite NAV in the 2 row(s) fetched"
+    assert body[i + 2] == (f"    HYT    last NAV {good.date()}  "
+                           f"({_bd_age(good, today)} bd old)")
+
+
+def _old_stale_block(navs, n_tickers, today):
+    """What the pre-fix code printed after the NAV line, rebuilt by hand from
+    its source (a8c3720..4487383, fetch_daily.py): date each fetched fund by
+    its last row, list those older than STALE_BD sorted by -age, else 'all N
+    fresh'. Used only on fetches with no empty row, where the fix must not
+    change one character."""
+    stale = []
+    for tk in sorted(navs):
+        last = pd.DatetimeIndex(navs[tk].index).tz_localize(None).normalize().max()
+        age = _bd_age(last, today)
+        if age > fd.STALE_BD:
+            stale.append((tk, str(last.date()), age))
+    if not stale:
+        return [f"  all {n_tickers} NAV series fresh within {fd.STALE_BD} bd"]
+    return ([f"  STALE NAV ({len(stale)} funds, >{fd.STALE_BD} business days old) — "
+             f"the sleeve must not trade these:"]
+            + [f"    {tk:<6} last NAV {d}  ({age} bd old)"
+               for tk, d, age in sorted(stale, key=lambda x: -x[2])])
+
+
+def _after_nav_line(out):
+    body = out.splitlines()
+    i = next(k for k, ln in enumerate(body) if ln.startswith("  NAV    "))
+    return body[i + 1:]
+
+
+def test_with_no_empty_navs_a_fetch_is_byte_identical_to_before(env, capsys, tmp_path):
+    """The no-op proof for the NAV half. (a) A NAV fetch with no empty row writes
+    exactly the bytes the pre-fix merge wrote (concat, drop_duplicates
+    keep='last', sort), prints exactly the stale lines the pre-fix check printed
+    (one fund fresh, two stale, one of them tied), and logs nothing new. (b)
+    The same fetch with empty rows mixed in -- over a good NAV, on a date the
+    panel lacks, and one dated yesterday after a stale fund's last NAV --
+    changes not one byte of either panel and not one stale line. Part (b) is
+    what the old code fails: it wrote the NaNs and called that fund fresh."""
+    today = pd.Timestamp.today().normalize()
+    bd = lambda k: today - pd.offsets.BDay(k)                         # noqa: E731
+    P = price_stub(["BIT", "HYT", "JFR"], [bd(12)])
+    N = pd.DataFrame([{"date": bd(12), "nav": v, "ticker": t}
+                      for t, v in (("BIT", 12.30), ("HYT", 8.70), ("JFR", 9.10))])
+    clean = {"BIT": [(bd(12), 12.31), (bd(1), 12.35)],               # restated, then fresh
+             "HYT": [(bd(7), 8.72)],                                 # stale, 7 bd
+             "JFR": [(bd(7), 9.12)]}                                 # stale, tied with HYT
+    navs = {t: navs_frame(v) for t, v in clean.items()}
+
+    # (a) against the pre-fix merge and stale check, done here by hand.
+    rc, out = env(P, N, {}, navs, capsys=capsys)
+    assert rc == 0
+    a_px, a_nav = fd.PX_PATH.read_bytes(), fd.NAV_PATH.read_bytes()
+    new = [pd.DataFrame([{"date": d, "nav": v, "ticker": t} for d, v in rows])
+           for t, rows in clean.items()]
+    ref = (pd.concat([N] + new, ignore_index=True)
+             .drop_duplicates(subset=["date", "ticker"], keep="last")
+             .sort_values(["ticker", "date"]))
+    ref_path = tmp_path / "reference_nav.parquet"
+    atomic_write(ref, ref_path)
+    assert a_nav == ref_path.read_bytes(), "a clean NAV fetch no longer writes what it wrote before"
+    a_tail = _after_nav_line(out)
+    assert a_tail == _old_stale_block(navs, 3, today), out
+    assert not lines(out, "NO NAV") and not lines(out, "NAV REPAIRED")
+    assert lines(out, "NAV    ") == [f"NAV    {len(ref):,} rows -> {ref.date.max().date()}"]
+
+    # (b) the same fetch with empty rows mixed in.
+    dirty = {"BIT": navs_frame(clean["BIT"] + [(bd(0), NAN)]),                # a new date
+             "HYT": navs_frame([(bd(12), NAN)] + clean["HYT"]                 # over 8.70
+                               + [(bd(1), NAN)]),                             # after its last NAV
+             "JFR": navs_frame(clean["JFR"])}
+    rc, out = env(P, N, {}, dirty, capsys=capsys)
+    assert rc == 0
+    assert fd.PX_PATH.read_bytes() == a_px, "empty NAV rows changed the price panel"
+    assert fd.NAV_PATH.read_bytes() == a_nav, "empty NAV rows changed the NAV panel"
+    assert _after_nav_line(out) == a_tail, "empty NAV rows changed the stale lines"
+    assert len(lines(out, "NO NAV")) == 3
