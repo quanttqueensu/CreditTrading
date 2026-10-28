@@ -9,15 +9,21 @@ paths:
 These are the rules every piece of research inherits (the full text: `docs/BRIEF.md` §5). A result
 that breaks one of them is not comparable to any number in this repo.
 
-**Do not build a new backtester.** Use the canonical one and extend it visibly:
+**Do not build another backtester.** The canonical one is `scripts/research/harness.py`
+(restructured with the team lead's ruling of 2026-10-27; `band_frontier.evaluate` delegates to it,
+byte-identical on the live book). Extend it visibly:
 
 ```python
 from scripts.cef.band_frontier import build_targets, band, calendar, evaluate
 from scripts.cef.spec import BAND_WIDTH     # never write the width as a literal
+from scripts.research import harness        # the one lag, report(), the family builders
 T, R = build_targets()          # frictionless daily targets as the sleeve builds them
 H_live = band(T, BAND_WIDTH)    # the live policy, read from the frozen spec
 H_old  = calendar(T, 2)         # the previous configuration
-res    = evaluate(H, R)         # applies H.shift(2)
+res    = evaluate(H, R)         # applies H.shift(2) (harness.EXEC_LAG)
+rep    = harness.report(H, R)   # gross headline, 5/15/30bp grid, H5 eras, fit and holdout rows
+# other families: harness.cross_sectional_weights / event_weights; ML: scripts/research/ml.py;
+# store the trial's series: scripts/research/registry.py; compare variants: resampling.sharpe_diff
 ```
 
 **H1. Execution convention is `shift(2)`.** Decide at *t*, MOC fill at *t+1*, earn
