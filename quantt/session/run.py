@@ -51,7 +51,9 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                records it and sends anyway; `halt` refuses with a gate-5 `data`
                refusal naming each event, and also refuses when the feed cannot
                be read. Run again at the late-market SEND on fresh reads (team
-               lead 2026-10-28).
+               lead 2026-10-28). On a combined book (MULTI-SLEEVE BOOKS below)
+               the targets are the netted decision's AND every sleeve's own
+               (`_plan_targets`), and the held names are still the broker's.
   4. gate      all nine (`gate.evaluate`), on a clock read AFTER the slow
                steps, never the one from the start. Any refusal: nothing is sent.
   5. record    `<state>/<date>/STARTED`, exclusively, BEFORE the first order
@@ -955,10 +957,28 @@ def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, t
     return res, refusal, cam.lines(res)
 
 
-def _plan_targets(targets: dict) -> list:
-    """The symbols a decision wants to hold (`Decision.targets`, or a saved
-    plan's "targets"): every name whose target is not zero."""
-    return sorted(s for s, t in targets.items() if t["target"] != 0)
+def _plan_targets(targets: dict, combine: dict | None = None) -> list:
+    """The symbols the session wants to hold, for the corporate-action gate:
+    every name whose target is not zero in the decision (`Decision.targets`,
+    or a saved plan's "targets"), and on a combined book also in ANY sleeve's
+    own targets (`combine`: the `combine.decide` record, plan.json's "combine").
+
+    WHY THE SLEEVES TOO (2026-10-29, after the combiner landed). On a combined
+    book `Decision.targets` is the NETTED book: each symbol's sum over the
+    sleeves that own it. Today a symbol has one owner (combine.py refuses a
+    shared symbol, SHARED_SYMBOLS_ALLOWED False), so the net IS that sleeve's
+    target. But if that switch is ever turned on, two sleeves at +100 and -100
+    would net to 0. A name that nets to zero, held by no one, would then drop
+    out of the gate, while each sleeve's plan was still sized on it. Reading
+    each sleeve's targets as well keeps the gate on every name any sleeve
+    wants, whatever the netting does. A held sleeve (gate 5 at the final check)
+    targets its current shares, which are held names anyway. `combine` None,
+    the single-sleeve book, reads the decision alone, exactly as before."""
+    out = {s for s, t in targets.items() if t["target"] != 0}
+    if combine is not None:
+        for r in combine["sleeves"].values():
+            out |= {s for s, t in r["targets"].items() if t["target"] != 0}
+    return sorted(out)
 
 
 def _drawdown(deps, state: Path, spec: dict, asof: dt.date) -> tuple[dict, list]:
@@ -1483,11 +1503,14 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         # 3b. the corporate-action gate (quantt/session/corp_actions.py). Off
         # unless the book json sets corporate_actions.mode. It runs before the
         # gate's clock read, so gate 4 judges a time after this read too. The
-        # held names' dates come from the closed-order history read in step 2.
+        # held names' dates come from the closed-order history read in step 2,
+        # and the held names from the broker's positions. The targets are the
+        # decision's and, on a combined book, every sleeve's (`_plan_targets`).
         ca_refusal = None
         if deps.corp_actions is not None:
             record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
-                deps, lambda: closed, pos, _plan_targets(decision.targets), asof, session_date)
+                deps, lambda: closed, pos,
+                _plan_targets(decision.targets, record.get("combine")), asof, session_date)
             for line in ca_lines:
                 print(line, file=out)
 
@@ -1761,7 +1784,8 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     ca_refusal, ca_lines = None, []
     if deps.corp_actions is not None:
         record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
-            deps, lambda: c.orders(status="closed"), pos, _plan_targets(plan["targets"]),
+            deps, lambda: c.orders(status="closed"), pos,
+            _plan_targets(plan["targets"], plan.get("combine")),
             asof, session_date)
     approve_sha = approve or approval_for(day)
     clock_gate = c.clock()

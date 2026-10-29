@@ -367,6 +367,15 @@ inside, because there the count is wrong.
 feed, process dates ran from 4 days before an action's market date to 3,358 days
 after it (`corp_actions.py`, the constants' comment; §12pc).
 
+**On a combined book** (the multi-sleeve combiner above, when a book json turns it
+on), the gate's targets are the netted decision's non-zero targets **and** every
+sleeve's own (`run._plan_targets`, from plan.json's `combine`). A name two sleeves
+net to zero still blocks. Today enabled sleeves may not share a symbol, so the net
+equals the owning sleeve's target, but the gate does not rely on that switch. The
+held names are still the broker's positions. The decide and the send both run the
+gate on that path (`quantt/session/tests/test_corp_actions.py`, the `combined`
+tests).
+
 **Modes** (`ops/books/cef_discount_book.json`, `"corporate_actions": {"mode": ...}`;
 absent = no gate, today's behaviour, `run.corporate_actions_for`):
 

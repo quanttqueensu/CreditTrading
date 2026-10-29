@@ -609,3 +609,105 @@ def test_late_send_with_the_key_absent_writes_the_same_send_json_keys(tmp_path):
     send = json.loads((state / D.isoformat() / "send.json").read_text())
     assert "corporate_actions" not in send
     assert sum(1 for x in c.calls if x[:2] == ("orders", "closed")) == 1   # the decide's only
+
+
+# ------------------------------------------- with the multi-sleeve combiner ON (combine.py)
+#
+# The combiner (main, 2026-10-28; dark) decides each sleeve on its own spec and
+# nets their targets into ONE decide. The gate must see every name ANY sleeve
+# wants, and every held name from the broker, and nothing on that path may skip
+# it. The sleeves are test_combine's fakes with fixed weights; the account is
+# CAClient (test_run.FakeClient plus the corporate-action read).
+
+def run_combined(tmp_path, mode, sleeves, *, events=(), positions=None, closed=None,
+                 clock=None, execution=None):
+    from quantt.session.tests.test_combine import CL, MORNING
+    clock = clock or MORNING
+    c = CAClient(tmp_path / "state", events=events, positions=positions or {},
+                 closed=closed or [], clock_ts=clock)
+    c, deps, state, _, out = make(
+        tmp_path, client=c, now_utc=clock.astimezone(dt.timezone.utc),
+        execution=execution or {"mode": "cls", "bp_shortfall": "scale"},
+        closes=lambda asof, uni: {s: (CL[s], ASOF) for s in uni})
+    deps.sleeves, deps.corp_actions = tuple(sleeves), mode
+    (state / "AUTO_ARMED").touch()
+    return c, deps, state, out
+
+
+def _two_sleeves():
+    from quantt.session.tests.test_combine import sleeve
+    return (sleeve("A", ("AAA", "BBB"), {"AAA": 0.05}),          # A buys AAA; BBB flat
+            sleeve("B", ("CCC", "DDD"), {"DDD": -0.04}))         # B shorts DDD; CCC flat
+
+
+def test_combined_book_halts_on_a_target_in_the_second_sleeve(tmp_path):
+    """DDD is wanted only by sleeve B and held by no one: an action on it
+    effective on the session date refuses the combined session, zero sent."""
+    from quantt.session.tests.test_combine import BOOK_SPEC
+    c, deps, state, out = run_combined(tmp_path, cam.HALT, _two_sleeves(),
+                                       events=[ev("DDD", D, i="ddd-split")])
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
+    plan = plan_of(state)
+    assert "combine" in plan
+    assert any(r["gate"] == "data" and "DDD (target)" in r["detail"] and "ddd-split" in r["detail"]
+               for r in plan["refusals"])
+
+
+def test_combined_book_halts_on_a_held_name_in_the_first_sleeve(tmp_path):
+    """BBB sits in sleeve A's universe, held at the broker (the gate's held names
+    come from positions, not from any sleeve), and sleeve A wants it flat."""
+    from quantt.session.tests.test_combine import BOOK_SPEC
+    closed = [{"client_order_id": "cef-20260922-BBB-1", "symbol": "BBB", "filled_qty": "50",
+               "submitted_at": "2026-09-21T23:30:00Z"}]
+    c, deps, state, out = run_combined(tmp_path, cam.HALT, _two_sleeves(),
+                                       positions={"BBB": 50}, closed=closed,
+                                       events=[ev("BBB", dt.date(2026, 9, 24), i="bbb-split")])
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
+    assert any("BBB (held)" in r["detail"] for r in plan_of(state)["refusals"])
+
+
+def test_combined_book_with_no_action_sends_and_records_every_sleeves_names(tmp_path):
+    from quantt.session.tests.test_combine import BOOK_SPEC
+    c, deps, state, out = run_combined(tmp_path, cam.HALT, _two_sleeves())
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_SENT
+    plan = plan_of(state)
+    assert plan["corporate_actions"]["status"] == cam.CLEAR
+    assert sorted(plan["corporate_actions"]["names"]) == ["AAA", "DDD"]
+    assert sorted(o["symbol"] for o in c.accepted.values()) == ["AAA", "DDD"]
+
+
+def test_combined_book_a_name_two_sleeves_net_to_zero_still_blocks(tmp_path, monkeypatch):
+    """Behind combine.SHARED_SYMBOLS_ALLOWED (off today): A +0.04 and B -0.04 in
+    BBB net to 0, so the netted decision wants nothing in BBB and nobody holds
+    it. Each sleeve still sized its plan on BBB, so an action on it blocks."""
+    from quantt.session import combine as cmb
+    from quantt.session.tests.test_combine import BOOK_SPEC, sleeve
+    monkeypatch.setattr(cmb, "SHARED_SYMBOLS_ALLOWED", True)
+    a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": 0.04})
+    b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.04, "CCC": -0.03})
+    c, deps, state, out = run_combined(tmp_path, cam.HALT, (a, b),
+                                       events=[ev("BBB", D, i="bbb-netted")])
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_REFUSED
+    plan = plan_of(state)
+    assert plan["targets"]["BBB"]["target"] == 0                   # the net
+    assert any("BBB (target)" in r["detail"] for r in plan["refusals"])
+
+
+def test_combined_late_send_rechecks_every_sleeves_targets(tmp_path):
+    """The evening decide is clear; by 15:52 Alpaca lists an action on DDD,
+    which only sleeve B wants. The send refuses: zero transmits."""
+    from quantt.session.tests.test_combine import BOOK_SPEC
+    eve = dt.datetime(2026, 9, 28, 22, 0, tzinfo=rn.gt.ET)
+    c, deps, state, out = run_combined(tmp_path, cam.HALT, _two_sleeves(), clock=eve,
+                                       execution={**LATE, "bp_shortfall": "scale"})
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_PLANNED
+    assert "combine" in plan_of(state)
+    c.events = [ev("DDD", D, i="ddd-late")]
+    to_send_time(c, deps, dt.datetime(2026, 9, 29, 15, 52, 30, tzinfo=rn.gt.ET))
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert any("DDD (target)" in r["detail"] and "ddd-late" in r["detail"]
+               for r in send["refusals"])
