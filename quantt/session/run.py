@@ -115,6 +115,30 @@ owns the name; and plan.json gains `combine`, the per-sleeve record. The
 book-level limits stay the book spec's, applied to the netted orders by
 `fit_to_buying_power` and gate 8.
 
+GATE 5'S MISSING-NAV HOLD (book json `data.missing_nav`; DARK, team lead
+2026-10-29). `Deps.missing_nav` is None for the released book json, and gate 5
+refuses the whole day when one name has no NAV dated the as-of date, exactly as
+before (proved against bd87144: tests/test_missing_nav_hold.py). Why the key:
+on 2026-10-22 PDO's 10-21 NAV never landed, the CEFConnect fallback that used
+to fill such a gap has refused every scripted request since 10-21, and one
+fund's NAV cost all 13 the day. With "hold" (`gate.missing_nav_hold`):
+  * EVENING DECIDE and every morning slot BEFORE the final check (the
+    stale-NAV gate's `nav_gate.final_check_at`, close - 90 min: 14:30 ET):
+    REFUSED with today's gate-5 refusals plus one line saying the decide is
+    deferred. Nothing is decided or marked; the next slot re-runs the refresh,
+    and a NAV that lands meanwhile is simply used. The DEFERRAL AND THE ORDER
+    PATH notes above apply unchanged.
+  * AT OR AFTER THE FINAL CHECK: each name whose only fault is a NAV not dated
+    as-of is HELD -- current shares, no order, out of the cross-section, never
+    targeted to zero, never the cause of the sleeve's `min_names` flatten --
+    through the stale-NAV gate's `nav_hold` extra; the other names decide. The
+    stale-NAV gate runs on that exit-4 refresh too (`_nav_gate`).
+  * Still refused at any hour, as today: a missing or stale CLOSE, a name with
+    no NAV at all, a refresh failure other than INCOMPLETE, and more names
+    without a NAV than `gate.max_missing_nav_holds` (n - min_names: 7 of 13).
+`missing_nav` in plan.json and the run record says what was missing, the
+action, and what was held.
+
 OPENING SESSION. True only when Alpaca shows no positions AND no order in the
 account's history has ever filled. The sleeve is told explicitly (it never
 infers it from a flat book: a failed day or a manual flatten also looks flat),
@@ -670,23 +694,69 @@ def execution_for(book: Book) -> dict:
     raise SessionError(f"{book.book_path}: execution.mode {mode!r} is not cls or late_market")
 
 
+def _data_block(book: Book) -> dict | None:
+    """The book json's `data` block, or None. Present, it must be a mapping that
+    sets at least one of `stale_nav` and `missing_nav` (each key ABSENT is today's
+    behaviour); a block that sets neither raises, as it always has."""
+    data = json.loads(book.book_path.read_text()).get("data")
+    if data is None:
+        return None
+    if not isinstance(data, dict) or not ({"stale_nav", "missing_nav"} & set(data)):
+        raise SessionError(f"{book.book_path}: a `data` block must set stale_nav to one of "
+                           f"{ng.MODES} or missing_nav to one of {gt.MISSING_NAV_MODES} (or "
+                           f"the block must be deleted)")
+    return data
+
+
 def stale_nav_for(book: Book) -> str | None:
     """The book json's `data.stale_nav`: the stale-NAV gate's mode, or None.
 
     ABSENT means no gate, today's behaviour (CLAUDE.md: a new key defaults to
     current behaviour), exactly as an absent `execution` block means `cls`.
     Present, it must be one of `nav_gate.MODES`; anything else raises. Why the
-    gate is a runner setting and not a frozen-spec key: `nav_gate` docstring."""
-    data = json.loads(book.book_path.read_text()).get("data")
-    if data is None:
+    gate is a runner setting and not a frozen-spec key: `nav_gate` docstring.
+    Since 2026-10-29 the `data` block may set `missing_nav` without it
+    (`missing_nav_for`); a block that sets neither still raises."""
+    data = _data_block(book)
+    if data is None or "stale_nav" not in data:
         return None
-    if not isinstance(data, dict) or "stale_nav" not in data:
-        raise SessionError(f"{book.book_path}: a `data` block must set stale_nav to one of "
-                           f"{ng.MODES} (or the block must be deleted)")
     mode = data["stale_nav"]
     if mode not in ng.MODES:
         raise SessionError(f"{book.book_path}: data.stale_nav {mode!r} is not one of {ng.MODES}")
     return mode
+
+
+def missing_nav_for(book: Book) -> str | None:
+    """The book json's `data.missing_nav`: "hold", or None (DARK; team lead 2026-10-29).
+
+    ABSENT means gate 5 as it always was: one name without a NAV dated the
+    as-of date refuses the whole day (CLAUDE.md: a new key defaults to current
+    behaviour; the no-op is proved against bd87144, release-20261029-1, by
+    tests/test_missing_nav_hold.py). "hold" is `gate.missing_nav_hold`: from
+    the final check such a name keeps its current shares and the other names
+    decide. Anything else raises. A runner setting, beside `stale_nav`, for the
+    same reason: it is about the live capture, which the research's panels never
+    lacked, not about the strategy the frozen spec states."""
+    data = _data_block(book)
+    if data is None or "missing_nav" not in data:
+        return None
+    mode = data["missing_nav"]
+    if mode not in gt.MISSING_NAV_MODES:
+        raise SessionError(f"{book.book_path}: data.missing_nav {mode!r} is not one of "
+                           f"{gt.MISSING_NAV_MODES}")
+    return mode
+
+
+def min_names_of(spec: dict) -> int:
+    """The frozen spec's `min_names`, for the missing-NAV hold's limit
+    (`gate.max_missing_nav_holds`). Read only when the book json sets
+    data.missing_nav; missing or not a positive int raises, naming it."""
+    v = (spec.get("frozen") or {}).get("min_names")
+    if isinstance(v, bool) or not isinstance(v, int) or v <= 0:
+        raise SessionError(f"frozen spec {spec.get('spec_id')!r}: frozen.min_names {v!r} is "
+                           f"not a positive int; the missing-NAV hold's limit is derived "
+                           f"from it")
+    return v
 
 
 def drawdown_for(book: Book) -> str | None:
@@ -757,9 +827,17 @@ def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_c
     gate's", gate 5's) and only ever rewrites a row dated as-of that exists;
     fetch_daily wrote the panel whole before it returned 4. The record says so
     (`refresh_exit`). The single-sleeve book is unchanged: any failed refresh
-    there is gate 5's refusal of the day."""
+    there is gate 5's refusal of the day.
+
+    THE MISSING-NAV HOLD (book json `data.missing_nav`, 2026-10-29) makes the
+    single-sleeve book the same case: on exit 4 gate 5 holds the names without
+    an as-of NAV from the final check and the rest DECIDE
+    (`gate.missing_nav_hold`), so the gate runs on exit 4 there too, over every
+    deployed name, for the same reason and with the same safety. Key absent:
+    unchanged."""
     mode = deps.stale_nav
-    on_incomplete = deps.sleeves is not None and gt.refresh_incomplete(refresh_exit)
+    on_incomplete = ((deps.sleeves is not None or deps.missing_nav is not None)
+                     and gt.refresh_incomplete(refresh_exit))
     if refresh_exit is not None and refresh_exit != 0 and not on_incomplete:
         return {"mode": mode, "not_run": f"the refresh did not pass ({refresh_exit}); "
                                          f"gate 5 refuses the day"}, None
@@ -774,17 +852,26 @@ def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_c
             raise
         out = {"mode": mode, "unmeasured": f"{type(e).__name__}: {e}"}
         if on_incomplete:
-            out["refresh_exit"] = INCOMPLETE_NOTE
+            out["refresh_exit"] = _incomplete_note(deps)
         return out, None
     if not on_incomplete:
         return res.to_dict(), res
-    return {**res.to_dict(), "refresh_exit": INCOMPLETE_NOTE}, res
+    return {**res.to_dict(), "refresh_exit": _incomplete_note(deps)}, res
 
 
 # What a combined book's stale-NAV record says when the gate ran on exit 4 (`_nav_gate`).
 INCOMPLETE_NOTE = (f"{gt.REFRESH_INCOMPLETE} (INCOMPLETE): the gate ran over every enabled "
                    f"sleeve's names; a name with no NAV dated as-of is gate 5's, which holds "
                    f"its sleeve from the final check or refuses the decide before it")
+# ... and the single-sleeve book's, with data.missing_nav set.
+INCOMPLETE_NOTE_HOLD = (f"{gt.REFRESH_INCOMPLETE} (INCOMPLETE): the gate ran over every "
+                        f"deployed name; a name with no NAV dated as-of is gate 5's, which "
+                        f"holds it from the final check (data.missing_nav) or refuses the "
+                        f"decide before it")
+
+
+def _incomplete_note(deps) -> str:
+    return INCOMPLETE_NOTE if deps.sleeves is not None else INCOMPLETE_NOTE_HOLD
 
 
 @dataclass
@@ -816,6 +903,11 @@ class Deps:
     # `combine.load_sleeves` read them, or None = the single-spec book above,
     # today's behaviour, which never reads this field.
     sleeves: tuple | None = None
+    # Gate 5's missing-NAV hold (dark; `missing_nav_for`): None = gate 5 refuses
+    # the day on one missing as-of NAV, today's behaviour; "hold" =
+    # `gate.missing_nav_hold`. Single-sleeve book only (`run_session` raises
+    # with a combined book, which holds per sleeve).
+    missing_nav: str | None = None
 
 
 def _sleeve_target_fn(sleeve_spec: dict):
@@ -856,6 +948,8 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         drawdown=drawdown_for(book),
         # None for the released book json (combine.load_sleeves, OFF BY DEFAULT).
         sleeves=cmb.load_sleeves(book.book_path, book.spec_path, REPO, _sleeve_target_fn),
+        # None for the released book json (missing_nav_for; dark, 2026-10-29).
+        missing_nav=missing_nav_for(book),
     )
 
 
@@ -905,6 +999,11 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         p = spec_params(spec)
         if deps.sleeves is not None:     # combined book: everything below covers the union
             p = cmb.book_params(p, deps.sleeves)
+        if deps.missing_nav is not None and deps.sleeves is not None:
+            raise SessionError(f"data.missing_nav={deps.missing_nav!r} is built for the "
+                               f"single-sleeve book; a combined book holds a whole sleeve "
+                               f"from the final check (gate.gate_data_by_sleeve). Delete the "
+                               f"key or the risk_budgets")
         record["spec_id"] = p["spec_id"]
         c = deps.client
         clock = c.clock()
@@ -1023,9 +1122,31 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         nav_dates = deps.navs(asof, p["universe"])
         record["closes"] = {s: {"close": v[0], "date": v[1]} for s, v in closes_dated.items()}
         record["nav_dates"] = nav_dates
-        data_held, data_final = {}, None
-        if deps.sleeves is None:
+        data_held, data_final, missing_held, min_names = {}, None, {}, None
+        if deps.sleeves is None and deps.missing_nav is None:
             data_refusals = gt.gate_data(asof, refresh_exit, close_dates, nav_dates, p["universe"])
+        elif deps.sleeves is None:
+            # Gate 5's missing-NAV hold (gate.missing_nav_hold; book json
+            # data.missing_nav). Before the final check -- every evening slot and
+            # the morning slots before close - 90 min, on the same clock as the
+            # stale-NAV gate's -- a name without an as-of NAV DEFERS the decide,
+            # as today it refuses it; from the final check it is HELD and the
+            # rest decide.
+            final_at = (ng.final_check_at(session_date, cal_today[0]["close"])
+                        if len(cal_today) == 1 else None)
+            data_final = final_at is not None and clock["timestamp"] >= final_at
+            min_names = min_names_of(spec)
+            mv = gt.missing_nav_hold(asof, refresh_exit, close_dates, nav_dates,
+                                     p["universe"], data_final, min_names)
+            data_refusals, missing_held = mv["refusals"], mv["held"]
+            record["missing_nav"] = {
+                "mode": deps.missing_nav, "asof": asof, "final_check": data_final,
+                "final_check_at": final_at, "n_universe": len(p["universe"]),
+                "min_names": min_names, "max_held": mv["max_held"], "action": mv["action"],
+                "why": mv["why"], "missing": mv["missing"], "held": sorted(missing_held)}
+            print(f"  MISSING NAV ({deps.missing_nav}) as-of {asof}"
+                  f"{', final check' if data_final else ''}: {mv['action'].upper()}: "
+                  f"{mv['why']}", file=out)
         else:
             # Gate 5 per sleeve (gate.gate_data_by_sleeve): from the final check
             # (the stale-NAV gate's, on the same clock) a sleeve whose own names
@@ -1073,6 +1194,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 "not decided: the data gate refused"]}, plan_sha=dec.plan_sha(()))
         else:
             hold = gate_res.hold if gate_res is not None else {}
+            if missing_held:
+                # Gate 5's missing-NAV holds reach the sleeve through the stale-NAV
+                # gate's extra, `nav_hold` (cef_discount._nav_hold): same contract,
+                # current shares, out of the cross-section, never the flatten. The
+                # two never name one fund: the stale-NAV gate judges only a NAV
+                # dated as-of (nav_gate.judge), and these have none.
+                both = sorted(set(hold) & set(missing_held))
+                if both:
+                    raise SessionError(f"{both} held both by the stale-NAV gate and for a "
+                                       f"missing NAV; the two cannot both be true")
+                hold = {**hold, **missing_held}
             if deps.sleeves is not None:
                 # The combined book (combine.py): every enabled sleeve on its own
                 # spec and sleeve_nav, the stale-NAV holds to the sleeve owning
@@ -1150,6 +1282,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if deps.sleeves is not None:     # gate 5 per sleeve, as decided above
             facts = replace(facts, sleeve_universes=cmb.universes(deps.sleeves),
                             data_final=data_final)
+        elif deps.missing_nav is not None:   # gate 5's missing-NAV hold, as decided above
+            facts = replace(facts, missing_nav=deps.missing_nav, min_names=min_names,
+                            data_final=data_final)
         refusals = gt.evaluate(facts)
         if gate_res is not None and gate_res.deferred:
             # The stale-NAV gate's deferral (module docstring, DEFERRAL AND THE ORDER PATH).
@@ -1168,6 +1303,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan["bp_scale"] = record["bp_scale"]
         if "combine" in record:              # only a combined book (combine.py)
             plan["combine"] = record["combine"]
+        if "missing_nav" in record:          # only when the book sets data.missing_nav
+            plan["missing_nav"] = record["missing_nav"]
         shown = refusals
         if late:
             # DECIDE phase: dry-run, arming and the clock belong to the SEND phase.

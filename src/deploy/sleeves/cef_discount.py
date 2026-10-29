@@ -265,6 +265,13 @@ def _nav_hold(market_state, last: pd.Timestamp, universe) -> dict:
     fixed, so nothing here may scale them. Their gross is judged with the rest
     of the book by gate 8 and the send-time fit (`quantt/session/run.py`).
 
+    A SECOND SOURCE OF HOLDS (2026-10-29, dark): the runner's missing-NAV hold
+    (book json `data.missing_nav`, `quantt/session/gate.py` `missing_nav_hold`)
+    passes, through this same extra, a name with no NAV dated the decision
+    date, from the final check. Same contract; such a name has no paired row
+    on the date, so it is counted toward `min_names` as possibly eligible
+    (`target_positions`, the loop that builds the cross-section).
+
     `extras["nav_hold"] = {"asof": <date>, "names": {ticker: reason}}`. ABSENT
     is today's behaviour, byte for byte: proved against the sleeve before this
     change on 56 real panel dates, flat and held books (2026-10-13, the commit
@@ -743,6 +750,19 @@ class CEFDiscountSleeve(Sleeve):
         row, dropped, held_out = {}, [], []
         for tk in px.columns:
             zi = z.loc[last, tk]
+            if tk in hold and not np.isfinite(px.loc[last, tk]):
+                # HELD WITH NO PAIRED ROW ON THE DECISION DATE (2026-10-29): the
+                # runner's missing-NAV hold (book json data.missing_nav,
+                # quantt/session/gate.py `missing_nav_hold`) passes a name whose
+                # NAV for this date never landed. Its z cannot be computed, so
+                # whether it would have been eligible is unmeasured, and it is
+                # counted in `held_out` as if it were: the `min_names` block below
+                # then holds the whole book rather than let the hold be the cause
+                # of a flatten. Unreachable before that hold existed: the
+                # stale-NAV gate holds only names with a NAV dated D, and gate 5
+                # refuses a name without a close dated D, so every name it held
+                # had a paired row here and takes the unchanged path below.
+                held_out.append(tk); continue
             if not np.isfinite(zi):
                 # A masked name says why it is out, rather than reading "below
                 # min weight" downstream. Only reachable with a mask key on.

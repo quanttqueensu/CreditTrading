@@ -38,7 +38,9 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                         NAV(D-1) is checked against CEFConnect's D: stale copy -> replaced,
                         genuine repeat -> kept, unverified -> the decide is deferred to the
                         morning; from the final check the name keeps its shares.
-                        "As built (2026-10-13)" below.
+                        "As built (2026-10-13)" below. With data.missing_nav = hold
+                        (dark), a name whose NAV is not dated the as-of date is held
+                        the same way from the final check. "As built (2026-10-29)".
           2. read       Alpaca account (equity), positions, today's orders, clock
           2b. drawdown  only when the book json sets risk.drawdown (absent: off; report
                         is the only mode built: record only). The drawdown from the
@@ -194,6 +196,44 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-29): gate 5's missing-NAV hold, dark
+
+The team lead approved it on 2026-10-29. On 2026-10-22 PDO's NAV for the as-of
+2026-10-21 never reached the panel. fetch_daily exited 4 on every slot, because
+its CEFConnect fallback has failed with JSONDecodeError since 2026-10-21. Gate 5
+then refused all 13 names, and the book missed the day. The why of each choice is
+in `quantt/session/gate.py` `missing_nav_hold`.
+
+- **Off by default.** The book json key is `data.missing_nav`, and `hold` is its only
+  value. With the key absent, `Deps.missing_nav` is None and the session is bd87144's
+  (release-20261029-1), byte for byte. The proof is hashes computed by bd87144's code
+  on the real panel and on a synthetic panel that never skips: a complete day, and a
+  day with one as-of NAV missing at the evening decide and at the final check
+  (`quantt/session/tests/test_missing_nav_hold.py`).
+- **Evening and morning, before the final check** (close − 90 min, the stale-NAV
+  gate's `final_check_at`). A name whose NAV is not dated the as-of date refuses the
+  decide with today's gate-5 refusals, plus one line saying it is deferred. Nothing is
+  decided or marked, and the next slot re-runs the refresh. A NAV that lands in the
+  meantime is simply used.
+- **From the final check.** Each such name is held. It keeps its current shares, gets
+  no order, leaves the cross-section and is never targeted to zero. The other names
+  decide. The hold goes to the sleeve as the stale-NAV gate's `nav_hold` extra. A held
+  name has no paired row on the date, so the sleeve counts it toward `min_names`: if
+  the holds leave too few eligible names, the whole book holds. They never cause the
+  flatten. The stale-NAV gate also runs on that exit-4 refresh.
+- **Still refused, at any hour, as today.** A missing or stale close; a name with no
+  NAV at all; a refresh failure other than exit 4; and more missing NAVs than
+  `gate.max_missing_nav_holds` = n − `min_names`, read from the frozen spec. Past that
+  limit fewer than `min_names` names would have a NAV, the sleeve could trade none of
+  them on its signal, and so it is a broken feed, not a late NAV.
+- **Records.** plan.json and the run record carry `missing_nav`: the action (`none`,
+  `deferred`, `held` or `refused`), why, each missing name's last NAV date, and what
+  was held. The log prints one `MISSING NAV` line.
+- **Single-sleeve book only.** A combined book holds whole sleeves
+  (`gate.gate_data_by_sleeve`). The key with a combined book fails the session,
+  naming it.
+- **Revert:** delete the key.
 
 ## As built (2026-10-28): the multi-sleeve combiner, dark
 

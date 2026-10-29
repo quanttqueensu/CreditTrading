@@ -130,6 +130,12 @@ class GateFacts:
     # which gate_data_by_sleeve requires as a bool, never assumes.
     sleeve_universes: dict | None = None
     data_final: bool | None = None
+    # 5, the missing-NAV hold (book json `data.missing_nav`; dark, team lead
+    # 2026-10-29). None, the default, is gate 5 exactly as above. Set only by
+    # run.py when the book json sets it, together with `data_final` and the
+    # frozen spec's `min_names` (gate_data_missing_nav).
+    missing_nav: str | None = None
+    min_names: int | None = None
 
 
 # ----------------------------------------------------------------- the gates
@@ -476,6 +482,150 @@ def gate_data_by_sleeve(asof, refresh_exit, close_dates, nav_dates, universes: d
     return out, {}
 
 
+# --------------------------------------------- gate 5's missing-NAV hold (dark)
+
+# The book json's `data.missing_nav` (run.missing_nav_for). ABSENT is gate 5 as
+# it always was: one name without an as-of NAV refuses the whole day.
+MISSING_NAV_HOLD = "hold"
+MISSING_NAV_MODES = (MISSING_NAV_HOLD,)
+
+
+def max_missing_nav_holds(n_names: int, min_names: int) -> int:
+    """The most names gate 5 may hold for a missing NAV: n_names - min_names.
+
+    THE DERIVATION (team lead 2026-10-29: "when min_names would bind anyway").
+    A held name leaves the cross-section, so with k names held at most n - k
+    can be in it. The frozen spec's `min_names` is its own floor on breadth:
+    below it the sleeve forms no cross-section at all. With n - k < min_names,
+    then, the decide could not trade a single name on its signal whatever the
+    rest of the data said: the sleeve would hold the whole book (holds never
+    trigger its flatten), and the plan would read "decided, nothing to send",
+    a missed day that verify would score as a quiet one. That many missing
+    NAVs is a broken feed, not a late NAV, and the day is refused, as without
+    the key. For the live spec (13 names, min_names 6) at most 7 may be held:
+    8 or more missing refuses. Both numbers are read from the frozen spec at
+    run time (never a literal; CLAUDE.md, H14).
+    """
+    if not (isinstance(n_names, int) and isinstance(min_names, int)
+            and not isinstance(min_names, bool) and 0 < min_names):
+        raise ValueError(f"max_missing_nav_holds: n_names {n_names!r} and min_names "
+                         f"{min_names!r} must be ints, min_names > 0")
+    return max(0, n_names - min_names)
+
+
+def missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final,
+                     min_names) -> dict:
+    """Gate 5 with the book json's `data.missing_nav = "hold"`: what it refuses,
+    what it holds, and why, for the single-sleeve book.
+
+    THE RULE (team lead 2026-10-29). On 2026-10-22 PDO's NAV for 10-21 never
+    reached the panel (the CEFConnect fallback has refused every scripted
+    request since 10-21), gate 5 refused all 13 names on every slot, and the
+    book missed the day. With the key, a name whose only fault is a NAV not
+    dated the as-of date is, FROM THE FINAL CHECK, HELD: it keeps its current
+    shares (no order in it, never targeted to zero), leaves the cross-section
+    (`extras["nav_hold"]` in the sleeve, the stale-NAV gate's machinery), and
+    the other names decide. Every other case is gate 5 exactly as without the
+    key, refusal text for refusal text:
+      * a refresh failure other than INCOMPLETE (a timeout, a lock, a crash):
+        about the fetch, not about names, so the day is refused;
+      * any name whose CLOSE is missing or not dated as-of: a fund missing its
+        price, not just its NAV, keeps today's refusal (the team lead's guard);
+      * any name with no NAV at all: never captured is not late;
+      * every name has a NAV dated as-of, but the refresh said INCOMPLETE: the
+        fetcher and the panel disagree, refused as today ("exited 4").
+    And for names whose NAV is merely not dated as-of:
+      * more than `max_missing_nav_holds` of them: refused, the reason added
+        (a broken feed, not a late NAV; its docstring has the derivation);
+      * BEFORE the final check: refused with today's refusals plus one line
+        saying the decide is DEFERRED, because the NAV may still land (they
+        land from ~21:30 ET; the morning backstop re-runs the refresh every
+        30 minutes). Nothing is decided and nothing is marked, exactly as the
+        stale-NAV gate defers (`nav_gate.py`, UNVERIFIED);
+      * AT OR AFTER the final check: no refusal, and each such name is held.
+        The refresh's INCOMPLETE (exit 4) is then expected, not a fault: it is
+        fetch_daily's answer for exactly these names, and gate 5 measured them
+        on the panel it wrote.
+    `final` must be exactly True or False. Returns {"action", "why",
+    "missing", "held", "max_held", "refusals"}: `missing` maps each name whose
+    NAV is not dated as-of to its last NAV date (None: no NAV at all); `held`
+    maps each held name to the reason the sleeve records; `refusals` is
+    Refusal objects. Pure, like every gate here."""
+    if final is not True and final is not False:
+        raise ValueError(f"missing_nav_hold: final {final!r} must be True or False")
+    from quantt.session.nav_gate import FINAL_CHECK_BEFORE_CLOSE   # stdlib-only module
+    universe = sorted(universe)
+    max_held = max_missing_nav_holds(len(universe), min_names)
+    base = gate_data(asof, refresh_exit, close_dates, nav_dates, universe)
+    missing = {s: (None if nav_dates.get(s) is None else str(nav_dates[s]))
+               for s in universe if nav_dates.get(s) != asof}
+    out = {"missing": missing, "held": {}, "max_held": max_held}
+    if not base:
+        return {**out, "action": "none", "why": f"every name has a close and a NAV dated "
+                                                f"{asof}", "refusals": []}
+    incomplete = refresh_incomplete(refresh_exit)
+    no_close = [s for s in universe if close_dates.get(s) != asof]
+    never = [s for s, d in missing.items() if d is None]
+    late = {s: d for s, d in missing.items() if d is not None}
+    if refresh_exit is not None and refresh_exit != 0 and not incomplete:
+        why = f"the refresh failed ({refresh_exit}), not a name: gate 5 refuses the day"
+    elif no_close:
+        why = (f"a close is missing or not dated {asof} for {no_close}: a missing price "
+               f"keeps gate 5's refusal of the day")
+    elif never:
+        why = f"no NAV at all for {never}: never captured is not late; refused"
+    elif not late:
+        why = (f"the refresh said INCOMPLETE but every name has a NAV dated {asof}: the "
+               f"fetcher and the panel disagree; refused")
+    else:
+        why = None
+    if why is not None:
+        return {**out, "action": "refused", "why": why, "refusals": base}
+    if len(late) > max_held:
+        why = (f"missing-NAV hold (data.missing_nav=hold): {len(late)} of {len(universe)} "
+               f"names have no NAV dated {asof} ({late}); at most {max_held} may be held "
+               f"(holding more leaves fewer than min_names {min_names} with a NAV): a broken "
+               f"feed, not a late NAV; refused")
+        return {**out, "action": "refused", "why": why,
+                "refusals": base + [Refusal("data", why)]}
+    if not final:
+        mins = FINAL_CHECK_BEFORE_CLOSE.total_seconds() / 60
+        why = (f"missing-NAV hold (data.missing_nav=hold): NAV not dated {asof} for {late}; "
+               f"deferred to a later slot -- the NAV may still land, and from the final check "
+               f"({mins:.0f} min before the close) each is held at its current shares and "
+               f"the other names decide")
+        return {**out, "action": "deferred", "why": why,
+                "refusals": base + [Refusal("data", why)]}
+    held = {s: (f"no NAV dated {asof} (the panel's last is {d}); held at the final check "
+                f"(data.missing_nav=hold)") for s, d in sorted(late.items())}
+    return {**out, "action": "held", "held": held, "refusals": [],
+            "why": f"{sorted(held)} held at current shares from the final check; "
+                   f"{len(universe) - len(held)} of {len(universe)} names decide"}
+
+
+def gate_data_missing_nav(asof, refresh_exit, close_dates, nav_dates, universe, final,
+                          min_names) -> tuple[list[Refusal], dict]:
+    """(refusals, {held name: reason}): `missing_nav_hold` as a gate."""
+    v = missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final,
+                         min_names)
+    return v["refusals"], v["held"]
+
+
+def _gate_data_for(f: GateFacts) -> list[Refusal]:
+    """Gate 5 for `evaluate`: the single-sleeve rule, the missing-NAV hold when
+    the book json sets it, or the combiner's per-sleeve rule."""
+    if f.sleeve_universes is not None:
+        return gate_data_by_sleeve(f.asof, f.refresh_exit, f.close_dates, f.nav_dates,
+                                   f.sleeve_universes, f.data_final)[0]
+    if f.missing_nav is None:
+        return gate_data(f.asof, f.refresh_exit, f.close_dates, f.nav_dates, f.universe)
+    if f.missing_nav not in MISSING_NAV_MODES:
+        raise ValueError(f"GateFacts.missing_nav {f.missing_nav!r} is not one of "
+                         f"{MISSING_NAV_MODES}")
+    return gate_data_missing_nav(f.asof, f.refresh_exit, f.close_dates, f.nav_dates,
+                                 f.universe, f.data_final, f.min_names)[0]
+
+
 def gate_no_set_in_auction(started_exists, orders_recent, orders_open, cid_prefix,
                            session_date) -> list[Refusal]:
     """Gate 6. Refuse if a set may already be headed for today's auction:
@@ -735,10 +885,7 @@ def evaluate(f: GateFacts) -> list[Refusal]:
         *gate_halt(f.halts),
         *gate_clock(f.clock_ts, f.session_date, f.calendar_today, f.nyse_trading_today,
                     f.asof),
-        *(gate_data(f.asof, f.refresh_exit, f.close_dates, f.nav_dates, f.universe)
-          if f.sleeve_universes is None else
-          gate_data_by_sleeve(f.asof, f.refresh_exit, f.close_dates, f.nav_dates,
-                              f.sleeve_universes, f.data_final)[0]),
+        *_gate_data_for(f),
         *gate_no_set_in_auction(f.started_exists, f.orders_recent, f.orders_open,
                                 f.cid_prefix, f.session_date),
         *gate_shortability(f.orders, f.positions, f.shortable, f.shorting_enabled),
