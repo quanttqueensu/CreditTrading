@@ -50,20 +50,30 @@ previous trading day, whose close every order is priced on):
   held name X    [min(L_X, A), D]
   target only    [A, D]
 
-L_X is the date X's shares were last set: the ET date on which the latest
-order in X that filled anything was SUBMITTED (`held_since`). It is read from
-the account's own closed-order history, which run.py already reads for the
-opening-session check. The submission date is on or before the fill date (a
-`cls` order sent the evening before its auction, a late-market order minutes
-before it), so the window can only start early, never late.
+L_X is the close X's shares were last SIZED on, at the latest: the NYSE
+trading day BEFORE the ET date on which the latest order in X that filled
+anything was submitted (`held_since`, by `ops.schedule.nyse_calendar`). It is
+read from the account's own closed-order history, which run.py already reads
+for the opening-session check.
+Why the trading day before, not the submission date (re-review 2026-10-29). A
+late-market order submitted Monday at 15:52 ET was sized on Friday's close. So
+an action effective on the Saturday or Sunday between changed the basis after
+the sizing close and before the fill. With the window starting at Monday, it
+would fall outside [L_X, D] for good if Alpaca listed it after the send. In
+both modes the sizing close is on or after the trading day before the
+submission date:
+  * a late-market send on D is sized on close(A), and A is the trading day
+    before D;
+  * a `cls` order sent the evening of A is sized on close(A), and the trading
+    day before A is earlier still.
+So the window can only start early, never late.
 
 Why each bound:
   * from L_X. Paper never adjusts a count, so an action that took effect after
-    X's shares were last set leaves the count on the wrong basis for good, not
+    X's shares were last sized leaves the count on the wrong basis for good, not
     just on the day. Only a later trade in X, sized on the new basis, makes the
-    count consistent again. L_X itself is inside the window: an ex-date takes
-    effect at the open, and the fill that set the count came at or near that
-    day's close, sized on the previous close, which was on the old basis.
+    count consistent again. L_X itself is inside the window: an action effective
+    on the sizing close's own date changed that close's basis.
   * through A. The plan prices every name at close(A). An action effective on A
     puts close(A) on the new basis, while the count, and a NAV row that may lag
     by a day, are on the old one. A target-only name has no count to break, but
@@ -86,17 +96,28 @@ Which one an event is judged on depends on how it matches the name
          process date for the types that have no other) is inside the name's
          long window, and the name's role is one whose count or symbol paper
          leaves wrong: an acquiree, every split type, a stock dividend, a
-         spin-off party, a reorganization party, a name change (paper may leave
-         the position under the old symbol), a redemption, a worthless removal,
-         a partial call.
-  short  (a) the ACQUIRER in any of the three merger types, on either date; and
-         (b) any event that matches only through its `process_date`, because
-         its market date is outside the name's long window. Either blocks only
-         while that date is inside (A, D].
+         spin-off party, a reorganization's own `symbol` (the security being
+         reorganized), a name change (paper may leave the position under the
+         old symbol), a redemption, a worthless removal, a partial call.
+  short  (a) the ACQUIRER in any of the three merger types, and the
+         "allocated" leg of a reorganization, on the MARKET date only; and
+         (b) any other event that matches only through its `process_date`,
+         because its market date is outside the name's long window. Each blocks
+         only while that date is inside (A, D].
 
 Why the acquirer is short. Its share count does not change, so paper leaves
 nothing wrong after the deal. Its price and NAV jump on the terms, which matters
-to the plan sized across the jump and to no later one.
+to the plan sized across the jump and to no later one. The holders of a
+reorganization's allocated security keep their count the same way (re-review
+2026-10-29, extending the team lead's acquirer ruling; flagged to the team
+lead).
+Why the acquirer and the allocated leg are judged on the market date ONLY
+(re-review 2026-10-29). The feed lists each real MQY merger of 2026-02-23 twice,
+processed on 02-23 and on 02-24 (docs/REFERENCES.md §12pc). Market-or-process
+blocked sessions 02-23 AND 02-24, two sessions against a ruling of one. Paper
+never applies a process date, so the second refusal protected nothing. The
+match returns at once for these roles, so the process-date-only rule (b) cannot
+add that session back.
 Why a process-date-only match is short. The real feed backfills: a 2016 forward
 split was processed on 2025-12-17, and 18 of 3,443 rows over twelve months were
 processed more than 31 days after their market date (docs/REFERENCES.md §12pc).
@@ -109,8 +130,8 @@ trading day E is inside (A, D] for the session on E, whose window
 (E - 1 trading day, E] holds it. It is outside the next session's window,
 because that session's as-of IS E. By then the as-of close and the counts are
 post-event and consistent, so there is nothing left to protect. An acquirer's
-count was never touched, and a process-date-only match's count was always
-consistent. The as-of side is open for the short window only. The long window
+or an allocated holder's count was never touched, and a process-date-only
+match's count was always consistent. The as-of side is open for the short window only. The long window
 keeps A inside, because there the count IS wrong (THE WINDOW, "through A").
 
 NO LOOKAHEAD. This is a gate, not an estimate. It reads the feed as Alpaca
@@ -179,7 +200,7 @@ MODES = (REPORT, HALT)
 CLEAR, BLOCKING, UNMEASURED = "CLEAR", "BLOCKING", "UNMEASURED"
 
 # The three merger types: an ACQUIRER in any of them is judged on the short
-# window (module docstring, TWO WINDOWS).
+# window, on its market date only (module docstring, TWO WINDOWS).
 MERGER_TYPES = frozenset({"cash_merger", "stock_merger", "stock_and_cash_merger"})
 
 # The query is padded before and after the union of the names' windows. The
@@ -204,24 +225,33 @@ MERGER_TYPES = frozenset({"cash_merger", "stock_merger", "stock_and_cash_merger"
 #     date is not known [U]; if one were, a gap beyond 731 days would be
 #     missed. Two years ahead is also the furthest a read is known to work:
 #     the 2026-10-11 read asked through 2028-12-31 (§12e). The cost is every
-#     action in the market scheduled up to two years out; that read found one
-#     such stock merger.
+#     action in the market scheduled up to two years out. Measured 2026-10-29
+#     for process dates 2026-10-29 -> 2028-10-29, data_quality=all: one page,
+#     62 rows, none naming a deployed name, the furthest out on 2027-03-31
+#     (§12pc).
 QUERY_PAD_BEFORE_DAYS = 31
 QUERY_PAD_AFTER_DAYS = 731
 
 
 def held_since(closed_orders, held) -> dict:
-    """{symbol: ET date of the last order in it that filled anything}, for each held symbol.
+    """{symbol: L_X}, for each held symbol: the NYSE trading day BEFORE the ET
+    submission date of the last order in it that filled anything.
 
-    The date is the order's `submitted_at`, which every order carries
-    (AlpacaClient.ORDER_FIELDS), converted to New York. It is on or before the
-    fill date, so a window starting there can only start early (module
-    docstring). `filled_at` is not used: whether Alpaca sets it on an order that
-    filled in part and then expired is not documented [U].
+    That day's close is the latest the order can have been sized on (module
+    docstring, THE WINDOW): a late-market order submitted Monday at 15:52 ET
+    was sized on Friday's close, and a `cls` order sent the evening of A on
+    close(A), later than the day before. So a window starting here can only
+    start early, in both modes. The submission time is the order's
+    `submitted_at`, which every order carries (AlpacaClient.ORDER_FIELDS),
+    converted to New York. `filled_at` is not used: whether Alpaca sets it on
+    an order that filled in part and then expired is not documented [U]. The
+    trading day is `ops.schedule.nyse_calendar.previous_trading_day`, the
+    calendar run.py's as-of date comes from.
 
     Raises, naming it, when a held symbol has no filled order in the history (a
     count the account's own record cannot date is not assumed to be old or new),
     or when an order's filled_qty or submitted_at is unreadable."""
+    from ops.schedule.nyse_calendar import previous_trading_day
     from quantt.broker.alpaca import parse_ts
     last: dict = {}
     for o in closed_orders:
@@ -244,7 +274,7 @@ def held_since(closed_orders, held) -> dict:
         raise ValueError(f"held {missing} but no filled order for them in the account's "
                          f"closed-order history: when their shares were last set cannot be "
                          f"dated, so the window cannot be drawn")
-    return {s: last[s] for s in sorted(held)}
+    return {s: previous_trading_day(last[s]) for s in sorted(held)}
 
 
 def windows(held: dict, targets, asof: dt.date, session_date: dt.date) -> dict:
@@ -274,16 +304,29 @@ def query_window(win: dict) -> tuple[dt.date, dt.date]:
 
 
 # Which rule judged a blocking pair (module docstring, TWO WINDOWS).
-LONG, SHORT_ACQUIRER, SHORT_PROCESS = "long", "short: merger acquirer", "short: process_date only"
+LONG, SHORT_PROCESS = "long", "short: process_date only"
+SHORT_ACQUIRER, SHORT_ALLOCATED = "short: merger acquirer", "short: reorganization allocated"
+
+
+def _short_role(e: dict, role: str) -> str | None:
+    """The short-window rule for a role whose holders keep their count, or None."""
+    if role == "acquirer" and e["type"] in MERGER_TYPES:
+        return SHORT_ACQUIRER
+    if role == "allocated" and e["type"] == "reorganization":
+        return SHORT_ALLOCATED
+    return None
 
 
 def _match(e: dict, role: str, long_w: tuple, short_w: tuple):
     """(rule, window, fields inside it) for one (event, name), or None. TWO WINDOWS."""
     def inside(w, fields):
         return [f for f in fields if w[0] <= e[f] <= w[1]]
-    if role == "acquirer" and e["type"] in MERGER_TYPES:
-        hits = inside(short_w, ("date", "process_date"))
-        return (SHORT_ACQUIRER, short_w, hits) if hits else None
+    rule = _short_role(e, role)
+    if rule is not None:
+        # The MARKET date only, and return here either way: the process date
+        # neither blocks these roles nor reaches the process-date-only rule
+        # below (TWO WINDOWS, the MQY pair listed twice).
+        return (rule, short_w, ["date"]) if inside(short_w, ("date",)) else None
     if inside(long_w, ("date",)):
         return LONG, long_w, inside(long_w, ("date", "process_date"))
     if inside(short_w, ("process_date",)):
@@ -300,7 +343,8 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
     symbols the plan wants to hold. A pair blocks when the name is held or
     targeted, in ANY role the event gives it (BE CONSERVATIVE), and on the
     window that role and match call for (TWO WINDOWS):
-      * a merger ACQUIRER: its market or process date inside (as-of, session];
+      * a merger ACQUIRER or a reorganization's ALLOCATED leg: its market date
+        only, inside (as-of, session]; its process date is never read;
       * otherwise its market date inside the name's long window (THE WINDOW);
       * otherwise its process date alone inside (as-of, session].
     Each pair records the rule, the window (as inclusive calendar dates) and

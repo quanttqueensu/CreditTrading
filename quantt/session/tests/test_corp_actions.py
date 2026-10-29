@@ -24,12 +24,15 @@ from quantt.session import run as rn
 from quantt.session.tests.test_run import (ASOF, BOOK, D, EVE, LATE, SPEC, FakeClient, make,
                                            to_send_time)
 
-L = dt.date(2026, 9, 21)           # held name CCC's shares were last set (a Monday)
+L = dt.date(2026, 9, 21)           # a held name's window start, for the pure tests (a Monday)
 HELD = {"CCC": 100}
 # CCC's last fill: submitted 2026-09-21 19:30 ET (23:30Z), filled at the next auction.
 CLOSED = [{"id": "o1", "client_order_id": "cef-20260922-CCC-1", "symbol": "CCC",
            "side": "buy", "status": "filled", "filled_qty": "100",
            "submitted_at": "2026-09-21T23:30:00Z"}]
+# What `held_since` makes of CLOSED: the trading day before the 2026-09-21
+# submission, the latest close that order can have been sized on (a Friday).
+L_SET = dt.date(2026, 9, 18)
 
 
 def ev(sym, date, *, typ="reverse_split", role="subject", process=None, other=None, i=None,
@@ -118,16 +121,39 @@ def test_a_held_name_with_no_date_raises_rather_than_assume_one():
 
 # ------------------------------------------------ when the shares were last set
 
-def test_held_since_is_the_et_submission_date_of_the_last_fill():
+def test_held_since_is_the_trading_day_before_the_et_submission_date_of_the_last_fill():
     closed = CLOSED + [
-        # 2026-09-25 02:30Z is 2026-09-24 22:30 ET: an evening cls send
+        # 2026-09-25 02:30Z is 2026-09-24 22:30 ET (Thursday): an evening cls send
         {"client_order_id": "b", "symbol": "CCC", "filled_qty": "5",
          "submitted_at": "2026-09-25T02:30:00Z"},
         {"client_order_id": "c", "symbol": "CCC", "filled_qty": "0",          # expired, unfilled
          "submitted_at": "2026-09-27T19:52:00Z"},
         {"client_order_id": "d", "symbol": "AAA", "filled_qty": "3",
          "submitted_at": "2026-09-26T19:52:00Z"}]
-    assert cam.held_since(closed, ["CCC"]) == {"CCC": dt.date(2026, 9, 24)}
+    # the trading day before Thursday 09-24 (ET; the UTC date is 09-25)
+    assert cam.held_since(closed, ["CCC"]) == {"CCC": dt.date(2026, 9, 23)}
+    assert cam.held_since(CLOSED, ["CCC"]) == {"CCC": L_SET}           # Monday -> Friday
+
+
+def test_a_weekend_action_before_a_late_market_monday_fill_blocks_on_the_long_window():
+    """Re-review 2026-10-29, the replay. A reorganization of a held name is
+    effective Saturday 2026-10-03; the last fill was a late-market order
+    submitted Monday 2026-10-05 15:52 ET (19:52Z), which was sized on Friday
+    10-02's close. The window must start at that Friday, so the action is
+    inside it. Sessions 10-06 and 10-07 both block, on the long window: the
+    count is wrong until the name trades again. Starting the window at the
+    submission date (the second commit) put Saturday outside it for good."""
+    closed = [{"client_order_id": "cef-20261005-CCC-1", "symbol": "CCC", "filled_qty": "40",
+               "submitted_at": "2026-10-05T19:52:00Z"}]
+    sat = dt.date(2026, 10, 3)
+    reorg = ev("CCC", sat, typ="reorganization", date_field="effective_date",
+               process=dt.date(2026, 10, 8), i="reorg-sat")
+    assert cam.held_since(closed, ["CCC"]) == {"CCC": dt.date(2026, 10, 2)}
+    for asof, session in ((dt.date(2026, 10, 5), dt.date(2026, 10, 6)),
+                          (dt.date(2026, 10, 6), dt.date(2026, 10, 7))):
+        rec = cam.check(lambda *a: [reorg], closed, {"CCC": 40}, [], asof, session, cam.HALT)
+        assert rec["status"] == cam.BLOCKING, session
+        assert [(b["id"], b["rule"]) for b in rec["blocking"]] == [("reorg-sat", cam.LONG)]
 
 
 def test_held_since_raises_for_a_held_name_with_no_fill_or_a_bad_order():
@@ -147,7 +173,7 @@ def test_check_with_nothing_held_or_targeted_is_clear_and_reads_nothing():
 def test_check_asks_for_the_padded_union_of_the_windows():
     calls = []
     cam.check(lambda *a: calls.append(a) or [], CLOSED, HELD, ["AAA"], ASOF, D, cam.REPORT)
-    assert calls == [(["AAA", "CCC"], L - dt.timedelta(days=31), D + dt.timedelta(days=731))]
+    assert calls == [(["AAA", "CCC"], L_SET - dt.timedelta(days=31), D + dt.timedelta(days=731))]
 
 
 def test_the_query_pads_are_the_measured_values():
@@ -172,18 +198,24 @@ def blocks(event, *, held=None, targets=(), asof=ASOF, session=D):
                                session_date=session)
 
 
-@pytest.mark.parametrize("typ", ["stock_merger", "stock_and_cash_merger", "cash_merger"])
-def test_a_held_acquirer_halts_one_session_and_then_clears(typ):
+@pytest.mark.parametrize("typ,role,other,rule", [
+    ("stock_merger", "acquirer", ("ZZZ", "acquiree"), cam.SHORT_ACQUIRER),
+    ("stock_and_cash_merger", "acquirer", ("ZZZ", "acquiree"), cam.SHORT_ACQUIRER),
+    ("cash_merger", "acquirer", ("ZZZ", "acquiree"), cam.SHORT_ACQUIRER),
+    # re-review 2026-10-29: the allocated security's holders keep their count too
+    ("reorganization", "allocated", ("ZZZ", "subject"), cam.SHORT_ALLOCATED)])
+def test_a_held_acquirer_or_allocated_holder_halts_one_session_and_then_clears(typ, role,
+                                                                                other, rule):
     """Team lead 2026-10-29: "a day at most" is ONE session. An acquirer event on
     trading day E blocks session E, whose window (E-1, E] holds it, and does NOT
     block session E+1, whose as-of is E: by then the as-of close is post-event
-    and the acquirer's count was never touched. The shares were set long before."""
-    m = ev("ZZZ", D, typ=typ, role="acquiree", other=("CCC", "acquirer"),
-           date_field="effective_date")
+    and the acquirer's count was never touched. The shares were set long before.
+    A reorganization's allocated leg is judged the same way."""
+    m = ev("CCC", D, typ=typ, role=role, other=other, date_field="effective_date")
     held = {"CCC": L}
     hit = blocks(m, held=held)                                       # session E = D
     assert [(b["symbol"], b["rule"], b["window"]) for b in hit] == [
-        ("CCC", cam.SHORT_ACQUIRER, [D, D])]                          # (ASOF, D] as calendar days
+        ("CCC", rule, [D, D])]                                        # (ASOF, D] as calendar days
     assert blocks(m, held=held, asof=D, session=NEXT) == []          # session E+1: clear
 
 
@@ -204,14 +236,60 @@ def test_an_acquirer_dated_before_the_asof_never_blocks_even_inside_the_long_win
     assert blocks(m, held={"CCC": L}) == []
 
 
-def test_an_acquirer_blocks_on_its_process_date_inside_the_short_window():
-    """The feed processed MQY's 2026-02-23 mergers on 02-23 and on 02-24 (§12pc):
-    the process date is the second date the short window is judged on."""
-    m = ev("ZZZ", ASOF - dt.timedelta(days=3), typ="stock_merger", role="acquiree",
-           other=("CCC", "acquirer"), process=D, date_field="effective_date")
-    hit = blocks(m, held={"CCC": L})
-    assert [(b["rule"], b["in_window"]) for b in hit] == [(cam.SHORT_ACQUIRER, ["process_date"])]
-    assert blocks(m, held={"CCC": L}, asof=D, session=NEXT) == []   # the next session: clear
+@pytest.mark.parametrize("typ,role", [("stock_merger", "acquirer"),
+                                       ("reorganization", "allocated")])
+def test_an_acquirers_process_date_never_blocks_by_itself(typ, role):
+    """Re-review 2026-10-29: an acquirer (and an allocated holder) is judged on
+    the MARKET date only. Processed inside (as-of, session] with its effective
+    date before it, it does not block. It must not reach the process-date-only
+    rule either, which would block a long-window role on that date. Paper never
+    applies a process date."""
+    m = ev("CCC", ASOF - dt.timedelta(days=3), typ=typ, role=role, other=("ZZZ", "subject"),
+           process=D, date_field="effective_date")
+    assert blocks(m, held={"CCC": L}) == []
+
+
+# The real MQY and MHD stock mergers, as the feed served them (read-only Alpaca
+# connector, 2026-10-29; docs/REFERENCES.md §12pc): each MQY pair is listed twice,
+# processed on 02-23 and on 02-24; MHD's rows once each.
+REAL_ACQUIRER_ROWS = [
+    ("46a647bb-9125-4578-a5dd-335531218f14", "BKN", "MQY", "2026-02-23", "2026-02-23"),
+    ("fef37584-e4f9-411e-94c3-1a10ef5b68cb", "BKN", "MQY", "2026-02-23", "2026-02-24"),
+    ("f5e7b9d7-57ea-453a-a6c9-07d22bd4454f", "MQT", "MQY", "2026-02-23", "2026-02-23"),
+    ("00a73250-1561-4610-aa6b-f3c7ca33a01e", "MQT", "MQY", "2026-02-23", "2026-02-24"),
+    ("93ab0fc0-30ce-4a62-92dc-afeb78e6b403", "MYD", "MQY", "2026-02-23", "2026-02-23"),
+    ("0b1f4880-8917-445d-8501-b8a45bf0b992", "MYD", "MQY", "2026-02-23", "2026-02-24"),
+    ("d0f3a574-e1dd-44bd-9e33-f344f0ea183d", "BFK", "MHD", "2026-02-09", "2026-02-09"),
+    ("a28b4002-58b9-4072-bd6c-e69842e7d121", "BLE", "MHD", "2026-02-09", "2026-02-09"),
+    ("25c980d1-c881-49f4-a19b-cbafdc03dbf8", "BYM", "MHD", "2026-02-09", "2026-02-09"),
+    ("ab302437-1bb0-4a3c-8448-d7847bc9361c", "MUE", "MHD", "2026-02-09", "2026-02-09"),
+]
+REAL_ACQUIRER_EVENTS = [
+    {"id": i, "type": "stock_merger", "date": dt.date.fromisoformat(eff),
+     "date_field": "effective_date", "process_date": dt.date.fromisoformat(proc),
+     "parties": [[tgt, "acquiree"], [acq, "acquirer"]]}
+    for i, tgt, acq, eff, proc in REAL_ACQUIRER_ROWS]
+
+
+@pytest.mark.parametrize("name,sessions", [
+    # (as-of, session, blocks): 2026-02-20 was a Friday, 02-16 Presidents' Day
+    ("MQY", [(dt.date(2026, 2, 20), dt.date(2026, 2, 23), True),
+             (dt.date(2026, 2, 23), dt.date(2026, 2, 24), False),
+             (dt.date(2026, 2, 24), dt.date(2026, 2, 25), False)]),
+    ("MHD", [(dt.date(2026, 2, 6), dt.date(2026, 2, 9), True),
+             (dt.date(2026, 2, 9), dt.date(2026, 2, 10), False)]),
+])
+def test_the_real_mqy_pair_listed_twice_blocks_one_session(name, sessions):
+    """Held since before the deals. Under market-or-process (the third commit),
+    MQY's second listing, processed 02-24, also blocked session 02-24: two
+    sessions against the ruling's one. Market date only: 02-23 BLOCK, 02-24
+    clear, 02-25 clear; MHD's single-dated rows block 02-09 only."""
+    held = {name: dt.date(2026, 1, 2)}
+    for asof, session, want in sessions:
+        hit = cam.blocking_events(REAL_ACQUIRER_EVENTS, held=held, targets=[], asof=asof,
+                                  session_date=session)
+        assert bool(hit) is want, session
+        assert all(b["rule"] == cam.SHORT_ACQUIRER and b["symbol"] == name for b in hit)
 
 
 def test_an_acquiree_still_uses_the_long_window():
@@ -253,7 +331,7 @@ def test_a_backfilled_row_on_a_held_name_blocks_one_session_only():
 @pytest.mark.parametrize("typ,role", [
     ("reverse_split", "subject"), ("forward_split", "subject"), ("unit_split", "old"),
     ("stock_dividend", "subject"), ("spin_off", "source"), ("spin_off", "new"),
-    ("reorganization", "allocated"), ("name_change", "old"), ("name_change", "new"),
+    ("reorganization", "subject"), ("name_change", "old"), ("name_change", "new"),
     ("redemption", "subject"), ("worthless_removal", "subject"), ("partial_call", "subject"),
     ("cash_merger", "acquiree"), ("stock_merger", "acquiree")])
 def test_every_long_window_role_keeps_blocking_after_the_asof_passes(typ, role):
@@ -354,7 +432,8 @@ def test_halt_refuses_a_target_only_acquiree(tmp_path):
 
 
 def test_halt_sends_when_the_only_action_is_before_the_shares_were_last_set(tmp_path):
-    c, deps, state, out = run(tmp_path, cam.HALT, events=[ev("CCC", L - dt.timedelta(days=3))])
+    c, deps, state, out = run(tmp_path, cam.HALT,
+                              events=[ev("CCC", L_SET - dt.timedelta(days=3))])
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
     assert len(c.submits()) == 3                       # BBB, AAA, and CCC flattened
     rec = plan_of(state)["corporate_actions"]
