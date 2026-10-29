@@ -123,6 +123,13 @@ class GateFacts:
     # 9
     universe: tuple
     account_flags: dict              # trading_blocked, account_blocked, trade_suspended_by_user
+    # 5, per sleeve (quantt/session/combine.py; dark). None, the default, is the
+    # single-sleeve book: gate 5 reads `universe` exactly as before. Set only by
+    # the combiner: {sleeve: its universe} for every enabled sleeve, and whether
+    # this decide is at or after the final check (nav_gate.final_check_at),
+    # which gate_data_by_sleeve requires as a bool, never assumes.
+    sleeve_universes: dict | None = None
+    data_final: bool | None = None
 
 
 # ----------------------------------------------------------------- the gates
@@ -398,6 +405,77 @@ def gate_data(asof, refresh_exit, close_dates, nav_dates, universe) -> list[Refu
     return out
 
 
+# fetch_daily's exit for an INCOMPLETE as-of pair: "--require-asof D  exit 4
+# unless every deployed name has BOTH a close and a NAV dated D" (its module
+# docstring; `_refresh_locked` writes the panels first, then returns 4). It is
+# the only refresh failure that is about NAMES rather than about the fetch, and
+# gate 5's own per-name check measures the same thing on the panel it wrote.
+# tests/test_combine.py pins this constant to fetch_daily's text.
+REFRESH_INCOMPLETE = 4
+
+
+def refresh_incomplete(refresh_exit) -> bool:
+    """True when the refresh exited exactly REFRESH_INCOMPLETE (an int, never a
+    bool or a string saying why it did not run)."""
+    return (isinstance(refresh_exit, int) and not isinstance(refresh_exit, bool)
+            and refresh_exit == REFRESH_INCOMPLETE)
+
+
+def gate_data_by_sleeve(asof, refresh_exit, close_dates, nav_dates, universes: dict,
+                        final) -> tuple[list[Refusal], dict]:
+    """Gate 5 for a combined book (quantt/session/combine.py): (book-wide
+    refusals, {sleeve: [why]} for each sleeve HELD instead of refused).
+
+    Each sleeve's names are checked on their own, by `gate_data`'s per-name
+    rule. WHAT FOLLOWS, and why each case:
+      * a refresh failure other than INCOMPLETE (a timeout, a lock, a crash,
+        "not run") is about the fetch, not about names: book-wide, exactly
+        `gate_data` on the union, as for one sleeve;
+      * no sleeve fails: nothing refused. If the refresh nonetheless said
+        INCOMPLETE, the fetcher and the panel disagree, and the book is refused
+        rather than either believed (CLAUDE.md: two sources that disagree are
+        reported, never silently chosen);
+      * a sleeve fails BEFORE the final check: the whole decide is refused,
+        each refusal naming its sleeve, as the single-sleeve book is refused
+        today, so the next slot retries. Holding the sleeve then would cost it
+        the day for a NAV that is merely late (they land from ~21:30 ET);
+      * a sleeve fails AT OR AFTER the final check, and another passes: the
+        failing sleeve is HELD at its attributed shares and the rest decide. One
+        sleeve's missing NAV no longer costs every other sleeve the day (C4
+        deploy plan §0, the coupling through gate 5). If every sleeve fails,
+        nothing can be decided: refused, as today.
+    `final` must be exactly True or False: whether a hold is allowed is not
+    decided by truthiness.
+    """
+    if final is not True and final is not False:
+        raise ValueError(f"gate_data_by_sleeve: final {final!r} must be True or False")
+    if not universes:
+        raise ValueError("gate_data_by_sleeve: no enabled sleeve")
+    union = sorted({s for u in universes.values() for s in u})
+    incomplete = refresh_incomplete(refresh_exit)
+    if refresh_exit is not None and refresh_exit != 0 and not incomplete:
+        return gate_data(asof, refresh_exit, close_dates, nav_dates, union), {}
+    failing = {}
+    for name in sorted(universes):
+        r = gate_data(asof, None, close_dates, nav_dates, sorted(universes[name]))
+        if r:
+            failing[name] = [x.detail for x in r]
+    if not failing:
+        if incomplete:
+            return [Refusal("data", f"refresh for as-of {asof} exited {REFRESH_INCOMPLETE} "
+                                    f"(INCOMPLETE), but every enabled sleeve's names have a close "
+                                    f"and a NAV dated {asof} on the panel: the fetcher and the "
+                                    f"panel disagree; not deciding on either")], {}
+        return [], {}
+    if final and len(failing) < len(universes):
+        return [], failing
+    out = [Refusal("data", f"refresh for as-of {asof} exited {REFRESH_INCOMPLETE}")] \
+        if incomplete else []
+    for name, details in failing.items():
+        out.extend(Refusal("data", f"sleeve {name}: {d}") for d in details)
+    return out, {}
+
+
 def gate_no_set_in_auction(started_exists, orders_recent, orders_open, cid_prefix,
                            session_date) -> list[Refusal]:
     """Gate 6. Refuse if a set may already be headed for today's auction:
@@ -613,7 +691,10 @@ def gate_sanity(orders, universe, positions, cid_prefix, session_date,
     symbol with opposite-side orders (the wash-trade 403, landmine 2), no
     duplicate client ids, every id this session's; no position the book does
     not trade (an account holding something this runner did not buy is not a
-    state to trade on top of); the account not blocked."""
+    state to trade on top of); the account not blocked. For a combined book
+    (quantt/session/combine.py) `universe` is the UNION of the enabled sleeves'
+    universes (`combine.book_params`): a holding in any of them is the book's,
+    and a holding in none is still refused."""
     out = []
     uni = set(universe)
     stray = sorted(s for s in positions if s not in uni)
@@ -654,7 +735,10 @@ def evaluate(f: GateFacts) -> list[Refusal]:
         *gate_halt(f.halts),
         *gate_clock(f.clock_ts, f.session_date, f.calendar_today, f.nyse_trading_today,
                     f.asof),
-        *gate_data(f.asof, f.refresh_exit, f.close_dates, f.nav_dates, f.universe),
+        *(gate_data(f.asof, f.refresh_exit, f.close_dates, f.nav_dates, f.universe)
+          if f.sleeve_universes is None else
+          gate_data_by_sleeve(f.asof, f.refresh_exit, f.close_dates, f.nav_dates,
+                              f.sleeve_universes, f.data_final)[0]),
         *gate_no_set_in_auction(f.started_exists, f.orders_recent, f.orders_open,
                                 f.cid_prefix, f.session_date),
         *gate_shortability(f.orders, f.positions, f.shortable, f.shorting_enabled),
