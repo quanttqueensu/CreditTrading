@@ -304,9 +304,40 @@ each choice is in `quantt/session/combine.py`'s docstring.
   status, and per symbol its current and target shares. Verify, score and TCA do
   not split P&L by sleeve yet.
 - **Not built:** per-sleeve sub-ledgers (a held position in a symbol two enabled
-  sleeves trade fails the session, naming it), a per-sleeve opening session,
-  per-sleeve panels (C4 plan row 6A), sleeve `state` and sleeve-scoped halts
-  (framework §3.5).
+  sleeves trade fails the session, naming it), a per-sleeve opening session, a
+  refresh and a stale-NAV gate per panel (next section), sleeve `state` and
+  sleeve-scoped halts (framework §3.5).
+
+## As built (2026-10-29): each sleeve on its own panel (C4 plan row 6A), dark
+
+The team lead fast-tracked C4 on 2026-10-28/29, keeping every gate. C4 decides on
+`data/cef_c4/` (its spec's `panel_source`), the 13 on `data/cef/`. Until this the
+runner priced, gated and NAV-checked every name on `data/cef/` and refused any
+other panel (`require_core_panel`, C4 step 1). The why of each choice is in
+`quantt/session/run.py`, PER-SLEEVE PANELS.
+
+- **What reads the sleeve's own panel.** `spec_panel` is the sleeve's own
+  `panel_paths()`. From it come the closes the orders are sized on (and gate 8 and
+  the fit), the NAV dates gate 5 checks (per sleeve on a combined book) and the
+  missing-NAV hold reads, the pre-flight's close history, MarketState's prices,
+  the stale-NAV gate's file and the refresh's flags. verify and score read
+  Alpaca's prints, not a panel; TCA's tagged fallback reads plan.json's `closes`,
+  which now come from each sleeve's own panel.
+- **The no-op.** The released book json, with `data.missing_nav` absent and set,
+  decides byte-identically to 5e627ff through `default_deps` itself
+  (`quantt/session/tests/test_panels_noop.py`, synthetic and real panel).
+- **The guard.** At each read, inside the session: a sleeve whose panel files are
+  absent, or whose universe has a name with no row in its own price or NAV file,
+  FAILs the decide naming the files or the names. Not in `default_deps`, which the
+  15:52 send also builds and which reads no panel.
+- **The refresh.** `refresh_flags` is the interface C4 step 3 fills: the core
+  panel gets today's `--nav-fallback cefconnect` command; any other panel, and a
+  book whose sleeves read two panels, gets no fetcher, and gate 5 refuses the day
+  (recorded). `--skip-refresh` still runs.
+- **The stale-NAV gate** stays on the core panel: `data.stale_nav` on a book
+  with a sleeve on another NAV file is refused before any client is built
+  (CEFConnect is disabled for C4; the gate locks and logs as the core's fetch).
+- **Revert:** the commit; no book json or spec names another panel yet.
 
 ## As built (2026-10-19): the drawdown check, HALVE/KILL in `report` mode
 
