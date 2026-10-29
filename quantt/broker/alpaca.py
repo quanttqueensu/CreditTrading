@@ -199,15 +199,44 @@ class UnmappedExchange(AlpacaError):
 
 # Asset `exchange` (GET /v2/assets) -> the exact NAME that GET
 # /v2/stocks/meta/exchanges gives that market; the live endpoint then supplies
-# the code. ONLY verified pairs are here:
-#   * every name in the book's universe has asset exchange "NYSE" [V: probe
+# the code. ONLY verified pairs are here (docs/REFERENCES.md §12bl):
+#   * "NYSE": every name in the book's universe has asset exchange "NYSE" [V: probe
 #     results/ops/alpaca_probe/2026-09-28_cef.json, all 17 names];
-#   * "N": "New York Stock Exchange" is the example in Alpaca's reference for
+#     "N": "New York Stock Exchange" is the example in Alpaca's reference for
 #     /v2/stocks/meta/exchanges [V: docs.alpaca.markets/us/reference/
 #     stockmetaexchanges-1, fetched 2026-09-28].
-# Any other asset exchange raises UnmappedExchange: a name that moves listing
-# needs a new, sourced row here, never a guessed one.
-ASSET_EXCHANGE_SIP_NAME = {"NYSE": "New York Stock Exchange"}
+#   * "AMEX" (NYSE American; Alpaca's asset label, e.g. DHY, EAD, GGN) and
+#     "NASDAQ" (e.g. CHW, QQQX), added 2026-10-29 for C4's nine non-NYSE funds
+#     and prod's DHY/EAD. The code each prints under as PRIMARY:
+#       - NYSE American is participant "A" on the CTA tape (CTS Pillar output
+#         spec v2.11b, §4.3 "Participant ID": "A NYSE American, LLC"); its
+#         names are tape B, which CTA carries with tape A's condition codes.
+#       - Nasdaq is market center "Q" on the UTP tape (UTP Data Feed Services
+#         spec v4.1, Sept 2026, §3.1 "Market Center Originator ID": "Nasdaq,
+#         Inc. Q"); Nasdaq-listed names are tape C. The CTS's "T" (NASDAQ
+#         Stock Market) is Nasdaq's prints in CTA-listed names, NOT a
+#         Nasdaq-listed name's primary: Alpaca labels it "NASDAQ Int".
+#       - The live table names those codes "A": "NYSE American (AMEX)" and
+#         "Q": "NASDAQ OMX", one code per name; "NASDAQ Small Cap" (S) and
+#         "NASDAQ Int" (T) are different rows [V: GET /v2/stocks/meta/exchanges,
+#         read 2026-10-29 on the cef paper key, 24 entries].
+#     The closing condition is "M" on both tapes, as for NYSE: Alpaca names tape
+#     B's and tape C's "M" "Market Center Official Close" [V: GET
+#     /v2/stocks/meta/conditions/trade?tape=B and ?tape=C, read 2026-10-29];
+#     UTP §3.14.5 Note 3: "M" is "the 'official' closing value as determined by
+#     a market center"; Nasdaq's Closing Cross price is its official close (SEC
+#     Rel. 34-103341, SR-NASDAQ-2025-047). Tape C names its closing cross "6"
+#     "Closing Prints" rather than "Market Center Closing Trade"; same code.
+#     Checked 2026-10-29 on the 11 such funds (7 AMEX, 4 NASDAQ) x 4 sessions
+#     (2026-10-14, 10-15, 10-26, 10-27): the primary's "M" equalled
+#     Nasdaq.com's published close on 44 of 44, and another venue's "M" (Arca
+#     "P", or "T") differed from it by half a cent or more on 29 of 44 -- the
+#     primary-only filter is what makes the price right (REFERENCES §12bl).
+# Any other asset exchange (ARCA, BATS, ...) raises UnmappedExchange: a name
+# that moves listing needs a new, sourced row here, never a guessed one.
+ASSET_EXCHANGE_SIP_NAME = {"NYSE": "New York Stock Exchange",
+                           "AMEX": "NYSE American (AMEX)",
+                           "NASDAQ": "NASDAQ OMX"}
 
 
 # ------------------------------------------------------------ small parsers
@@ -982,8 +1011,11 @@ class AlpacaClient:
 
         WHICH PRINT. Alpaca returns several closing prints per day from
         different exchanges [V]. `condition` defaults to "M", "Market Center
-        Official Close" in Alpaca's condition table [V]; "6" is "Market Center
-        Closing Trade" (M vs 6 is still a design choice [U]). `exchange_codes`
+        Official Close" in Alpaca's condition table on tapes A, B and C alike
+        [V: read 2026-10-29], so one default serves NYSE, NYSE American and
+        Nasdaq listings (ASSET_EXCHANGE_SIP_NAME); "6" is "Market Center
+        Closing Trade" (tape C: "Closing Prints") (M vs 6 is still a design
+        choice [U]). `exchange_codes`
         is REQUIRED and must name the primary listing's SIP code for every
         symbol (`primary_sip_code`); only that exchange's prints count.
         (Review 2026-09-28: the first build accepted any exchange's print when
