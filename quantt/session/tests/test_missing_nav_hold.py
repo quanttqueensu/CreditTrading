@@ -423,15 +423,24 @@ REAL_PINNED = {
 
 # ------------------------------------------------------------- 1. the no-op
 
-def test_the_released_book_json_does_not_set_the_key(monkeypatch):
+def test_the_released_book_json_sets_the_hold_as_ruled(monkeypatch):
+    """The team lead switched the hold on, 2026-10-29: `hold`, at most 2 sessions.
+
+    Until that ruling this test pinned the key ABSENT (the dark release,
+    release-20261029-2). It now pins the ruled values, so a later edit that drops
+    the key or changes the limit fails here and has to say so."""
     b = rn.BOOKS["cef"]
-    assert "missing_nav" not in (json.loads(b.book_path.read_text()).get("data") or {})
-    assert rn.missing_nav_for(b) is None
+    data = json.loads(b.book_path.read_text()).get("data") or {}
+    assert data.get("missing_nav") == "hold"
+    assert data.get("missing_nav_max_sessions") == 2
+    assert "_missing_nav_note" in data
+    assert rn.missing_nav_for(b) == "hold"
+    assert rn.missing_nav_max_sessions_for(b) == 2
     from quantt.broker import alpaca
     monkeypatch.setattr(alpaca.AlpacaClient, "from_environment",
                         classmethod(lambda cls, book, **kw: object()))
     assert rn.default_deps(b, rn.load_spec(b.spec_path),
-                           {"QUANTT_ENV_FILE": "unused"}).missing_nav is None
+                           {"QUANTT_ENV_FILE": "unused"}).missing_nav is not None
 
 
 def test_synthetic_key_absent_is_bd87144(tmp_path, monkeypatch):
