@@ -42,6 +42,16 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
   3. decide    the sleeve on the as-of date with the broker's holdings and
                `extras={"sleeve_nav": equity, "opening_session": bool}`, then
                `decide.decide` -> whole-share orders and `plan_sha`.
+  3b. corporate actions only when the book json sets `corporate_actions.mode`
+               (absent = off, the behaviour above unchanged). Alpaca paper
+               processes no splits or mergers, so a held name's broker count
+               can sit on a different basis from its as-of close. Every
+               non-dividend action naming a held or targeted name inside its
+               window is found (`corp_actions.py`, THE WINDOW): `report`
+               records it and sends anyway; `halt` refuses with a gate-5 `data`
+               refusal naming each event, and also refuses when the feed cannot
+               be read. Run again at the late-market SEND on fresh reads (team
+               lead 2026-10-28).
   4. gate      all nine (`gate.evaluate`), on a clock read AFTER the slow
                steps, never the one from the start. Any refusal: nothing is sent.
   5. record    `<state>/<date>/STARTED`, exclusively, BEFORE the first order
@@ -71,7 +81,9 @@ the session runs in two phases:
           be what goes. Positions must still equal the plan's "current" for
           every name; dry-run, arming (--approve, <D>/APPROVED, or AUTO_ARMED),
           halt, late clock, no-set, shortability, exposure and sanity are
-          re-evaluated on fresh broker reads.
+          re-evaluated on fresh broker reads, and so is the corporate-action
+          gate when the book sets it (step 3b): Alpaca can list an action
+          effective on the session date only after the evening decide.
 Why: paper runs no closing auction and under-fills `cls` (11 of 13 expired on
 2026-09-29). Absent the key, the book runs as `cls` exactly as before.
 
@@ -182,6 +194,7 @@ from pathlib import Path
 from typing import Callable
 
 from quantt.session import combine as cmb
+from quantt.session import corp_actions as cam
 from quantt.session import decide as dec
 from quantt.session import drawdown as ddm
 from quantt.session import gate as gt
@@ -894,6 +907,60 @@ def drawdown_for(book: Book) -> str | None:
     return mode
 
 
+def corporate_actions_for(book: Book) -> str | None:
+    """The book json's `corporate_actions.mode`: the corporate-action gate's mode, or None.
+
+    ABSENT means no gate, today's behaviour (CLAUDE.md: a new key defaults to
+    current behaviour), as an absent `execution` block means `cls`. Present, the
+    block must set `mode` to one of `corp_actions.MODES`; anything else raises,
+    so a typo cannot leave the book looking guarded when it is not. Why a runner
+    setting and not a frozen-spec key: the strategy the research measured never
+    met a paper broker that ignores splits; whether the runner trusts the
+    broker's counts is how the runner runs, like `execution` and `data`."""
+    block = json.loads(book.book_path.read_text()).get("corporate_actions")
+    if block is None:
+        return None
+    if not isinstance(block, dict) or "mode" not in block:
+        raise SessionError(f"{book.book_path}: a `corporate_actions` block must set mode to one "
+                           f"of {cam.MODES} (or the block must be deleted)")
+    mode = block["mode"]
+    if mode not in cam.MODES:
+        raise SessionError(f"{book.book_path}: corporate_actions.mode {mode!r} is not one of "
+                           f"{cam.MODES}")
+    return mode
+
+
+def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, targets,
+                       asof: dt.date, session_date: dt.date) -> tuple[dict, str | None, list]:
+    """Step 3b, the corporate-action gate (quantt/session/corp_actions.py):
+    (record, the `data` refusal's sentence or None, log lines).
+
+    `read_closed()` gives the account's closed orders: at DECIDE the list step 2
+    already read, at SEND a fresh read. It is called inside the try, so a
+    failure of that read is the gate's failure too.
+
+    Any failure -- the order history, the fetch, a malformed response, a held
+    name the history cannot date -- is recorded as UNMEASURED with its type, in
+    both modes, and never as CLEAR. Under `report` the session goes on, like the
+    drawdown check's report mode. Under `halt` it is a refusal naming the
+    error, not a FAIL: refusing is the gate's own answer to "cannot see", and
+    the next slot retries the read (the team lead's brief, 2026-10-28)."""
+    mode = deps.corp_actions
+    try:
+        res = cam.check(deps.client.corporate_actions, read_closed(), positions, targets,
+                        asof, session_date, mode)
+    except Exception as e:  # recorded in plan.json and printed, never swallowed (docstring)
+        res = cam.unmeasured_record(mode, asof, session_date, f"{type(e).__name__}: {e}")
+    refusal = cam.refusal_text(res) if mode == cam.HALT else None
+    return res, refusal, cam.lines(res)
+
+
+def _plan_targets(targets: dict) -> list:
+    """The symbols a decision wants to hold (`Decision.targets`, or a saved
+    plan's "targets"): every name whose target is not zero."""
+    return sorted(s for s, t in targets.items() if t["target"] != 0)
+
+
 def _drawdown(deps, state: Path, spec: dict, asof: dt.date) -> tuple[dict, list]:
     """Step 2b, the drawdown check (quantt/session/drawdown.py): (record, log
     lines). Report mode changes nothing that trades, so an unexpected error,
@@ -1020,6 +1087,10 @@ class Deps:
     missing_nav: str | None = None
     # ... and its age limit (`missing_nav_max_sessions_for`); required with it.
     missing_nav_max_sessions: int | None = None
+    # The corporate-action gate (step 3b): its mode from the book json (None =
+    # off, today's behaviour; `corporate_actions_for`). The read itself is
+    # `client.corporate_actions`.
+    corp_actions: str | None = None
 
 
 def _sleeve_target_fn(sleeve_spec: dict):
@@ -1063,6 +1134,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         # None for the released book json (missing_nav_for; dark, 2026-10-29).
         missing_nav=missing_nav_for(book),
         missing_nav_max_sessions=missing_nav_max_sessions_for(book),
+        corp_actions=corporate_actions_for(book),
     )
 
 
@@ -1408,6 +1480,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         borrow_warnings = hard_to_borrow_short_opens(decision.orders, pos, assets)
         record["borrow_warnings"] = borrow_warnings
 
+        # 3b. the corporate-action gate (quantt/session/corp_actions.py). Off
+        # unless the book json sets corporate_actions.mode. It runs before the
+        # gate's clock read, so gate 4 judges a time after this read too. The
+        # held names' dates come from the closed-order history read in step 2.
+        ca_refusal = None
+        if deps.corp_actions is not None:
+            record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
+                deps, lambda: closed, pos, _plan_targets(decision.targets), asof, session_date)
+            for line in ca_lines:
+                print(line, file=out)
+
         # 4. gate -- on a clock read NOW, not the one from before the refresh.
         # Review 2026-09-28: the refresh, 13 asset GETs (each with retries) and
         # the sleeve all run after the first read; gating on it let a session
@@ -1451,6 +1534,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             # Gate 5 above ran as without the key (facts not replaced), so these
             # are today's refusals; this line names why the hold could not stand.
             refusals.append(short_refusal)
+        if ca_refusal is not None:
+            # The corporate-action gate under `halt` (corp_actions.py, WHY A `data` REFUSAL).
+            refusals.append(gt.Refusal("data", ca_refusal))
         record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
 
         plan = {"book": book.name, "spec_id": p["spec_id"], "session_date": session_date,
@@ -1461,6 +1547,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan["nav_gate"] = record["nav_gate"]
         if "drawdown" in record:             # only when the book turns the check on
             plan["drawdown"] = record["drawdown"]
+        if "corporate_actions" in record:    # only when the book turns the gate on
+            plan["corporate_actions"] = record["corporate_actions"]
         if "bp_scale" in record:
             plan["bp_scale"] = record["bp_scale"]
         if "combine" in record:              # only a combined book (combine.py)
@@ -1667,6 +1755,14 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         # is a missed day, and verify must be able to say which limit did it.
         record["bp_scale_at_send"] = {"kept": kept, "binding": binding,
                                       "orders_in": n_in, "orders_out": len(orders)}
+    # Step 3b again, on fresh reads (module docstring, PAPER EXECUTION): Alpaca
+    # can list an action effective today only after the evening decide. Before
+    # the gate's clock read, so the send budget is judged after it.
+    ca_refusal, ca_lines = None, []
+    if deps.corp_actions is not None:
+        record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
+            deps, lambda: c.orders(status="closed"), pos, _plan_targets(plan["targets"]),
+            asof, session_date)
     approve_sha = approve or approval_for(day)
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
@@ -1695,11 +1791,15 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     ]
     if moved:
         refusals.append(gt.Refusal("sanity", f"positions moved since the plan was decided: {moved}"))
+    if ca_refusal is not None:
+        refusals.append(gt.Refusal("data", ca_refusal))
     record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
     print(f"{book.name} SEND {session_date} (plan decided on as-of {plan['asof']}), equity "
           f"${acct['equity']:,.2f}, window {win[0]:%H:%M}-{win[1]:%H:%M} ET", file=out)
     print(order_table(orders), file=out)
     print(f"plan_sha {plan['plan_sha']}", file=out)
+    for line in ca_lines:
+        print(line, file=out)
     for x in skipped:
         print(f"  SKIPPED {x}", file=out)
     for w in borrow_warnings:
@@ -1712,7 +1812,11 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     def outcome(code):
         # verify and shadow read this (review 2026-09-29): without it a day the
         # SEND refused (dry run, halt, moved positions) read as a crash.
-        rec.write_json_atomic(day / "send.json", {
+        # `corporate_actions` is added only when the book turns the gate on, so
+        # send.json is unchanged when it is off.
+        extra = ({"corporate_actions": record["corporate_actions"]}
+                 if "corporate_actions" in record else {})
+        rec.write_json_atomic(day / "send.json", {**extra,
             "session_date": session_date, "plan_sha": plan["plan_sha"], "at": stamp,
             "exit": EXIT_NAMES[code], "refusals": record["refusals"], "skipped": skipped,
             "final": record.get("final", {}), "unfilled": record.get("unfilled", {}),

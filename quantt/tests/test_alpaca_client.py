@@ -869,6 +869,256 @@ def test_distributions_refuse_an_inverted_window(env_file, sleeps):
         c.distributions(["PDI"], dt.date(2026, 12, 1), dt.date(2026, 9, 1))
 
 
+# ------------------------------------------- non-dividend corporate actions (the gate's read)
+#
+# CA_REFERENCE is the response shape recorded from Alpaca's own reference: the
+# `examples` of each type's schema in the Market Data API's GET
+# /v1/corporate-actions, copied verbatim (fetched 2026-10-28 through the Alpaca
+# docs tool; docs/REFERENCES.md §12pc). It is not a live read: the runner's
+# keys are never used by a test, and no agent reads them. The reference gives no
+# example for `reorganization` or `partial_call`; those two rows are built from
+# the reference's field lists and are labelled so. Synthetic data tests whether
+# the parser behaves, never a claim about the market (CLAUDE.md).
+
+CA_REFERENCE = {
+    "reverse_splits": [{"ex_date": "2023-08-24", "id": "913de862-c02c-46dc-a89c-fc8779a50d30",
+                        "new_cusip": "60879E200", "new_rate": 1, "old_cusip": "60879E101",
+                        "old_rate": 50, "process_date": "2023-08-24",
+                        "record_date": "2023-08-24", "symbol": "MNTS"}],
+    "forward_splits": [{"cusip": "816851109", "due_bill_redemption_date": "2023-08-23",
+                        "ex_date": "2023-08-22", "id": "189bd849-ab9f-4b4d-aaaa-a6d415fd976d",
+                        "new_rate": 2, "old_rate": 1, "payable_date": "2023-08-21",
+                        "process_date": "2023-08-22", "record_date": "2023-08-14",
+                        "symbol": "SRE"}],
+    "unit_splits": [{"alternate_cusip": "G5391L110", "alternate_rate": 0.3333,
+                     "alternate_symbol": "LVROW", "effective_date": "2023-03-01",
+                     "id": "3e68e87e-ae95-4d68-91d1-715d52ef143a", "new_cusip": "G5391L102",
+                     "new_rate": 1, "new_symbol": "LVRO", "old_cusip": "G8990L119",
+                     "old_rate": 1, "old_symbol": "TPBAU", "process_date": "2023-03-01"}],
+    "stock_dividends": [{"cusip": "605015106", "ex_date": "2023-05-19",
+                         "id": "3ae94c30-2d37-473a-bf29-5f7b4ab6d3ca",
+                         "payable_date": "2023-05-05", "process_date": "2023-05-19",
+                         "rate": 0.05, "record_date": "2023-05-22", "symbol": "MSBC"}],
+    "spin_offs": [{"ex_date": "2023-08-15", "id": "82e602f6-35bc-4651-a5dd-f6d88ff37c55",
+                   "new_cusip": "85237B101", "new_rate": 1, "new_symbol": "SRM",
+                   "process_date": "2023-08-15", "record_date": "2023-08-15",
+                   "source_cusip": "48208F105", "source_rate": 19.35, "source_symbol": "JUPW"}],
+    "cash_mergers": [{"acquiree_cusip": "Y2687W108", "acquiree_symbol": "GLOP",
+                      "effective_date": "2023-07-17", "id": "3772bbd7-4ad5-44d4-9cc0-f69156a2f8f5",
+                      "payable_date": "2023-07-17", "process_date": "2023-07-17", "rate": 5.37}],
+    "stock_mergers": [{"acquiree_cusip": "53223X107", "acquiree_rate": 1, "acquiree_symbol": "LSI",
+                       "acquirer_cusip": "30225T102", "acquirer_rate": 0.895,
+                       "acquirer_symbol": "EXR", "effective_date": "2023-07-20",
+                       "id": "728f8cb2-a00e-4bc7-ad14-d15fe82bbcff",
+                       "payable_date": "2023-07-20", "process_date": "2023-07-20"}],
+    "stock_and_cash_mergers": [{"acquiree_cusip": "561409103", "acquiree_rate": 1,
+                                "acquiree_symbol": "MLVF", "acquirer_cusip": "31931U102",
+                                "acquirer_rate": 0.7733, "acquirer_symbol": "FRBA",
+                                "cash_rate": 7.8, "effective_date": "2023-07-18",
+                                "id": "e5248356-2c06-42cf-aeb9-1595bd616cdb",
+                                "payable_date": "2023-07-18", "process_date": "2023-07-18"}],
+    "redemptions": [{"cusip": "687305102", "id": "395da031-0e57-4918-a6fb-64a7c713aca4",
+                     "payable_date": "2023-06-13", "process_date": "2023-06-13",
+                     "rate": 0.141134, "symbol": "ORPHY"}],
+    "name_changes": [{"id": "5a774c35-edec-4532-a812-a56d0bbb623a", "new_cusip": "Y9390M103",
+                      "new_symbol": "VFS", "old_cusip": "G11537100", "old_symbol": "BSAQ",
+                      "process_date": "2023-08-15"}],
+    "worthless_removals": [{"cusip": "078771300", "id": "106c2149-ee04-4d2e-a943-98dbb4d21a3c",
+                            "process_date": "2024-12-19", "symbol": "BLPH"}],
+    # built from the reference's field lists (no example given there):
+    "reorganizations": [{"id": "reorg-schema-1", "symbol": "OLDF", "cusip": "x",
+                         "effective_date": "2023-09-01", "process_date": "2023-09-01",
+                         "cash_rate": 0.5,
+                         "stock_movements": [{"symbol": "NEWF", "cusip": "y", "new_rate": 1.2,
+                                              "source_rate": 1}]}],
+    "partial_calls": [{"id": "pcall-schema-1", "symbol": "PCAL", "process_date": "2023-10-02",
+                       "price": 25.0}],
+}
+
+
+def ca_page(actions=None, token=None):
+    return FakeResp(200, {"corporate_actions": actions if actions is not None else CA_REFERENCE,
+                          "next_page_token": token})
+
+
+def ca_client(env_file, sleeps, page=None):
+    return client(env_file, sleeps, route({"/v1/corporate-actions": page or ca_page()}))
+
+
+W0, W1 = dt.date(2023, 1, 1), dt.date(2025, 1, 1)
+
+
+def test_corporate_actions_ask_for_the_thirteen_types_and_send_no_symbols_filter(env_file, sleeps):
+    """The reference does not say which field `symbols=` matches on a merger, a
+    spin-off or a name change, so a server-side filter could drop a held
+    acquirer in silence. The request carries types and the window only."""
+    c, s = ca_client(env_file, sleeps)
+    c.corporate_actions(["EXR"], W0, W1)
+    url, params = s.gets[0]
+    assert url == al.DATA_BASE + "/v1/corporate-actions"
+    assert "symbols" not in params
+    assert params["types"].split(",") == [
+        "reverse_split", "forward_split", "unit_split", "stock_dividend", "spin_off",
+        "cash_merger", "stock_merger", "stock_and_cash_merger", "redemption", "name_change",
+        "worthless_removal", "reorganization", "partial_call"]
+    assert "cash_dividend" not in params["types"] and "rights_distribution" not in params["types"]
+    assert params["start"] == "2023-01-01" and params["end"] == "2025-01-01"
+
+
+def test_corporate_actions_map_the_acquirer_and_the_acquiree_of_a_merger(env_file, sleeps):
+    c, _ = ca_client(env_file, sleeps)
+    acq = c.corporate_actions(["EXR"], W0, W1)            # held as the ACQUIRER
+    assert [(e["type"], e["parties"]) for e in acq] == [
+        ("stock_merger", [["LSI", "acquiree"], ["EXR", "acquirer"]])]
+    tgt = c.corporate_actions(["MLVF"], W0, W1)           # held as the ACQUIREE
+    assert [(e["type"], e["parties"]) for e in tgt] == [
+        ("stock_and_cash_merger", [["MLVF", "acquiree"], ["FRBA", "acquirer"]])]
+    assert tgt[0]["date"] == dt.date(2023, 7, 18) and tgt[0]["date_field"] == "effective_date"
+    # a cash merger's acquirer is optional in the reference, and absent here
+    cash_m = c.corporate_actions(["GLOP"], W0, W1)
+    assert cash_m[0]["parties"] == [["GLOP", "acquiree"]]
+
+
+@pytest.mark.parametrize("sym,typ,date_field,date,role", [
+    ("MNTS", "reverse_split", "ex_date", "2023-08-24", "subject"),
+    ("SRE", "forward_split", "ex_date", "2023-08-22", "subject"),
+    ("LVROW", "unit_split", "effective_date", "2023-03-01", "alternate"),
+    ("TPBAU", "unit_split", "effective_date", "2023-03-01", "old"),
+    ("MSBC", "stock_dividend", "ex_date", "2023-05-19", "subject"),
+    ("JUPW", "spin_off", "ex_date", "2023-08-15", "source"),
+    ("SRM", "spin_off", "ex_date", "2023-08-15", "new"),
+    ("ORPHY", "redemption", "process_date", "2023-06-13", "subject"),
+    ("BSAQ", "name_change", "process_date", "2023-08-15", "old"),
+    ("VFS", "name_change", "process_date", "2023-08-15", "new"),
+    ("BLPH", "worthless_removal", "process_date", "2024-12-19", "subject"),
+    ("OLDF", "reorganization", "effective_date", "2023-09-01", "subject"),
+    ("NEWF", "reorganization", "effective_date", "2023-09-01", "allocated"),
+    ("PCAL", "partial_call", "process_date", "2023-10-02", "subject"),
+])
+def test_corporate_actions_parse_every_type_of_the_reference(env_file, sleeps, sym, typ,
+                                                             date_field, date, role):
+    c, _ = ca_client(env_file, sleeps)
+    out = c.corporate_actions([sym], W0, W1)
+    assert len(out) == 1
+    e = out[0]
+    assert (e["type"], e["date_field"], e["date"]) == (typ, date_field, dt.date.fromisoformat(date))
+    assert [sym, role] in e["parties"]
+    assert isinstance(e["process_date"], dt.date)
+
+
+def test_corporate_actions_return_only_events_naming_a_requested_symbol(env_file, sleeps):
+    c, _ = ca_client(env_file, sleeps)
+    assert c.corporate_actions(["PDI", "PTY"], W0, W1) == []
+    out = c.corporate_actions(["EXR", "MNTS"], W0, W1)
+    assert [e["id"] for e in out] == ["728f8cb2-a00e-4bc7-ad14-d15fe82bbcff",
+                                      "913de862-c02c-46dc-a89c-fc8779a50d30"]   # oldest first
+
+
+def test_a_reverse_split_with_an_empty_new_symbol_names_nobody_new(env_file, sleeps):
+    """The reference: new_symbol is "Empty when the reverse split does not change the ticker"."""
+    row = dict(CA_REFERENCE["reverse_splits"][0], new_symbol="")
+    c, _ = ca_client(env_file, sleeps, ca_page({"reverse_splits": [row]}))
+    assert c.corporate_actions(["MNTS"], W0, W1)[0]["parties"] == [["MNTS", "subject"]]
+
+
+def test_our_row_with_a_bad_or_missing_date_raises(env_file, sleeps):
+    bad = dict(CA_REFERENCE["stock_mergers"][0], effective_date="20/07/2023")
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [bad]}))
+    with pytest.raises(al.UnexpectedResponse, match="effective_date"):
+        c.corporate_actions(["EXR"], W0, W1)
+    gone = {k: v for k, v in CA_REFERENCE["reverse_splits"][0].items() if k != "process_date"}
+    c, _ = ca_client(env_file, sleeps, ca_page({"reverse_splits": [gone]}))
+    with pytest.raises(al.UnexpectedResponse, match="process_date"):
+        c.corporate_actions(["MNTS"], W0, W1)
+
+
+def test_another_issuers_bad_date_does_not_halt_our_read(env_file, sleeps):
+    """VALIDATION is split on purpose: a malformed date on an action that names
+    none of our symbols is never read, so it cannot refuse our book."""
+    malformed = dict(CA_REFERENCE["forward_splits"][0], ex_date=None)
+    missing = {k: v for k, v in CA_REFERENCE["forward_splits"][0].items()
+               if k not in ("ex_date", "process_date", "id")}
+    c, _ = ca_client(env_file, sleeps, ca_page({"forward_splits": [malformed, missing],
+                                                "reverse_splits": CA_REFERENCE["reverse_splits"]}))
+    assert [e["type"] for e in c.corporate_actions(["MNTS"], W0, W1)] == ["reverse_split"]
+
+
+@pytest.mark.parametrize("key,drop", [("stock_mergers", "acquirer_symbol"),
+                                      ("stock_mergers", "acquiree_symbol"),
+                                      ("spin_offs", "source_symbol"),
+                                      ("name_changes", "old_symbol")])
+def test_any_row_whose_parties_cannot_be_read_raises(env_file, sleeps, key, drop):
+    """A row missing a required symbol field might be ours, so it raises even
+    when the symbols it does carry are someone else's."""
+    row = {k: v for k, v in CA_REFERENCE[key][0].items() if k != drop}
+    c, _ = ca_client(env_file, sleeps, ca_page({key: [row]}))
+    with pytest.raises(al.UnexpectedResponse, match=drop):
+        c.corporate_actions(["PDI"], W0, W1)
+
+
+def test_a_non_string_symbol_raises(env_file, sleeps):
+    row = dict(CA_REFERENCE["stock_mergers"][0], acquirer_symbol=7)
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [row]}))
+    with pytest.raises(al.UnexpectedResponse, match="acquirer_symbol"):
+        c.corporate_actions(["PDI"], W0, W1)
+
+
+def test_an_undocumented_response_key_raises_and_a_documented_unasked_one_is_ignored(env_file, sleeps):
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_merger": CA_REFERENCE["stock_mergers"]}))
+    with pytest.raises(al.UnexpectedResponse, match="not in the reference"):
+        c.corporate_actions(["EXR"], W0, W1)
+    rights = [{"ex_date": "2024-04-17", "expiration_date": "2024-05-14", "id": "r1",
+               "new_cusip": "454089111", "new_symbol": "IFN.RTWI", "payable_date": "2024-04-19",
+               "process_date": "2024-04-19", "rate": 1, "record_date": "2024-04-18",
+               "source_cusip": "454089103", "source_symbol": "IFN"}]
+    c, _ = ca_client(env_file, sleeps, ca_page({"rights_distributions": rights}))
+    assert c.corporate_actions(["IFN"], W0, W1) == []
+
+
+def test_corporate_actions_page_on_next_page_token_and_drop_repeats(env_file, sleeps):
+    one = CA_REFERENCE["stock_mergers"]
+    pages = {None: ca_page({"stock_mergers": one}, token="t2"),
+             "t2": ca_page({"stock_mergers": one, "reverse_splits": CA_REFERENCE["reverse_splits"]})}
+    c, s = client(env_file, sleeps, route({"/v1/corporate-actions": lambda p: pages[p.get("page_token")]}))
+    out = c.corporate_actions(["EXR", "MNTS"], W0, W1)
+    assert [e["type"] for e in out] == ["stock_merger", "reverse_split"] and len(s.gets) == 2
+    stuck = {None: ca_page({}, token="t2"), "t2": ca_page({}, token="t2")}
+    c, _ = client(env_file, sleeps, route({"/v1/corporate-actions": lambda p: stuck[p.get("page_token")]}))
+    with pytest.raises(al.UnexpectedResponse, match="did not advance"):
+        c.corporate_actions(["EXR"], W0, W1)
+
+
+def test_corporate_actions_refuse_bad_arguments(env_file, sleeps):
+    c, _ = ca_client(env_file, sleeps)
+    with pytest.raises(ValueError, match="before start"):
+        c.corporate_actions(["EXR"], W1, W0)
+    with pytest.raises(ValueError, match="empty"):
+        c.corporate_actions([], W0, W1)
+    with pytest.raises(ValueError, match="one string"):
+        c.corporate_actions("EXR", W0, W1)
+    with pytest.raises(ValueError, match="upper-case"):
+        c.corporate_actions(["exr"], W0, W1)
+
+
+def test_corporate_actions_a_malformed_body_raises_and_never_reads_as_clear(env_file, sleeps):
+    """`distributions` reads any falsy `corporate_actions` as empty; a gate must
+    not read an empty list or string as "no actions". Only null is empty."""
+    for bad in ([], "", 0):
+        c, _ = ca_client(env_file, sleeps, FakeResp(200, {"corporate_actions": bad,
+                                                         "next_page_token": None}))
+        with pytest.raises(al.UnexpectedResponse, match="not an object"):
+            c.corporate_actions(["EXR"], W0, W1)
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": {}}))
+    with pytest.raises(al.UnexpectedResponse, match="not a list"):
+        c.corporate_actions(["EXR"], W0, W1)
+    c, _ = ca_client(env_file, sleeps, FakeResp(200, {"corporate_actions": None,
+                                                     "next_page_token": None}))
+    assert c.corporate_actions(["EXR"], W0, W1) == []
+    c, _ = ca_client(env_file, sleeps, FakeResp(200, {"next_page_token": None}))
+    with pytest.raises(al.UnexpectedResponse, match="corporate_actions"):
+        c.corporate_actions(["EXR"], W0, W1)
+
+
 # ------------------------------------------------------ the whole asset list
 
 def bulk_asset_row(sym, **kw):

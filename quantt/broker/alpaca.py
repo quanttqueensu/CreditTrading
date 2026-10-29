@@ -59,8 +59,9 @@ collision the per-book accounts exist to prevent (CLAUDE.md landmine 2).
 
 Uncertain API facts are coded defensively, never assumed: see the docstrings of
 `positions` (short qty sign), `orders` (time-cursor pagination), `calendar`
-(timezone), `closing_auction_prints` (which print is "the" official close) and
-`eod_equity_history` (which session a daily stamp belongs to, and whether it is final).
+(timezone), `closing_auction_prints` (which print is "the" official close),
+`eod_equity_history` (which session a daily stamp belongs to, and whether it is final)
+and `corporate_actions` (which field the `symbols` filter matches on a merger).
 Source for every [V]/[S]/[U] claim: `results/ops/ALPACA_API_FACTS_2026-09-28.md`.
 """
 from __future__ import annotations
@@ -1224,6 +1225,204 @@ class AlpacaClient:
         else:
             raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
         return sorted(out, key=lambda e: (e["symbol"], e["ex_date"], e["kind"], e["id"]))
+
+    def corporate_actions(self, symbols, start: dt.date, end: dt.date) -> list[dict]:
+        """Every NON-dividend corporate action that names one of `symbols`, in any role.
+
+        GET {DATA_BASE}/v1/corporate-actions, types = the thirteen in
+        CORPORATE_ACTION_TYPES, every page. Returns one dict per event:
+            {"id", "type", "date": date, "date_field": str,
+             "process_date": date, "parties": [[symbol, role], ...]}
+        `parties` lists EVERY symbol the event names, ours and the counterparty's,
+        so the record shows both sides of a merger. `date` is the day the action
+        takes effect in the market (`date_field` says which field it came from).
+
+        WHY. Alpaca paper processes no corporate actions [V: two staff forum
+        replies, docs/REFERENCES.md §12pc]. A held fund that reverse-splits 1:4
+        keeps its old share count on paper while its price is four times higher,
+        so the runner, which reads broker share counts as they are, would size
+        the plan and its orders on the wrong exposure. The runner's
+        corporate-action gate (quantt/session/corp_actions.py; team lead
+        2026-10-28) reads this method to refuse such a session.
+
+        WHY NO `symbols` FILTER IS SENT. The reference says only that `symbols`
+        is "a comma-separated list of symbols". It does not say which field it
+        matches on a type that names several: the acquirer or the acquiree of a
+        merger, a spin-off's source or new symbol, a name change's old or new.
+        If Alpaca matched only one of them, a held acquirer would be missing from
+        the response and the gate would pass it in silence (CLAUDE.md: no silent
+        fallbacks). So the request asks for the types and the window only, and
+        every symbol field of every row is matched here. The cost is the rest of
+        the US market's non-dividend actions in the window, a few pages at most.
+
+        VALIDATION, and why it is split. Every row must carry its type's
+        symbol fields as strings, or this raises: a row whose parties cannot be
+        read might be ours. A row that names one of `symbols` must also carry
+        its id, its date field and process_date as YYYY-MM-DD, or this raises.
+        A row that names none of them is not read further, so a malformed date
+        on some other issuer's action cannot halt this book. A response key
+        outside the reference's sixteen raises (a renamed key would otherwise
+        empty a type in silence); a documented key we did not ask for is
+        ignored, as `distributions` ignores the types it does not read. Only a
+        null `corporate_actions` (or a null list) reads as "none": an empty
+        list or a string where an object belongs raises. `distributions` reads
+        any falsy value as empty; a gate must not read a malformed answer as
+        clear.
+
+        THE WINDOW FILTERS ON process_date [U]. The reference says results are
+        "sorted by their process_date" and does not say what `start`/`end`
+        filter (`distributions` docstring). The caller pads its window and
+        filters on the dates returned (corp_actions.QUERY_PAD_DAYS).
+
+        WHAT IS NOT ASKED FOR. `rights_distribution`: it changes no share count
+        (it distributes a separate security, as a cash dividend distributes cash),
+        and the gate exists for the share count. `data_quality` is left at the
+        default, `complete`, as in `distributions`: an incomplete record may have
+        no ex-date yet, and an undated record cannot be placed in a window.
+
+        ABSENCE IS NOT PROOF. Alpaca: "no guarantees on the creation time of
+        corporate actions" [V]. Its merger coverage is mostly effective actions:
+        on 2026-10-13 it listed none of seven pending CEF/BDC pairs, nor one
+        merger three days before it closed (docs/REFERENCES.md §12p). An empty
+        answer is what the feed holds now, not a measured zero.
+        """
+        start = _date_param(start, "start")
+        end = _date_param(end, "end")
+        if end < start:
+            raise ValueError(f"end {end} is before start {start}")
+        if isinstance(symbols, str):
+            raise ValueError("symbols must be a list of symbols, not one string")
+        syms = sorted(set(symbols))
+        if not syms:
+            raise ValueError("symbols is empty")
+        for s in syms:
+            if not isinstance(s, str) or not _SYMBOL_RE.match(s):
+                raise ValueError(f"symbol {s!r} is not an upper-case equity symbol")
+        wanted = set(syms)
+
+        w = "GET /v1/corporate-actions"
+        out, seen = [], set()
+        token = None
+        for _ in range(MAX_PAGES):
+            params = {"types": ",".join(CORPORATE_ACTION_TYPES),
+                      "start": start.isoformat(), "end": end.isoformat(), "limit": 1000}
+            if token is not None:
+                params["page_token"] = token
+            body = self._get(self._data, "/v1/corporate-actions", params)
+            _require(body, ("corporate_actions",), w)
+            # Only null reads as "no actions" (docstring, VALIDATION).
+            ca = {} if body["corporate_actions"] is None else body["corporate_actions"]
+            if not isinstance(ca, dict):
+                raise UnexpectedResponse(f"{w}: corporate_actions is {type(ca).__name__}, not an object")
+            unknown = sorted(set(ca) - CORPORATE_ACTION_RESPONSE_KEYS)
+            if unknown:
+                raise UnexpectedResponse(f"{w}: response keys {unknown} are not in the reference; "
+                                         f"a renamed type could hide one of ours")
+            for kind, (key, date_field, fields) in CORPORATE_ACTION_TYPES.items():
+                rows = ca.get(key)
+                rows = [] if rows is None else rows
+                if not isinstance(rows, list):
+                    raise UnexpectedResponse(f"{w}: {key} is {type(rows).__name__}, not a list")
+                for i, r in enumerate(rows):
+                    where = f"{w} {key}[{i}]"
+                    parties = _ca_parties(r, kind, fields, where)
+                    if not any(s in wanted for s, _ in parties):
+                        continue
+                    _require(r, ("id", date_field, "process_date"), where)
+                    dates = {}
+                    for f in (date_field, "process_date"):
+                        if not (isinstance(r[f], str) and _DATE_RE.match(r[f])):
+                            raise UnexpectedResponse(f"{where}: {f} {r[f]!r} is not YYYY-MM-DD")
+                        dates[f] = dt.date.fromisoformat(r[f])
+                    if r["id"] in seen:
+                        continue          # the same event repeated across pages
+                    seen.add(r["id"])
+                    out.append({"id": r["id"], "type": kind, "date": dates[date_field],
+                                "date_field": date_field, "process_date": dates["process_date"],
+                                "parties": [[s, role] for s, role in parties]})
+            nxt = body.get("next_page_token")
+            if not nxt:
+                break
+            if nxt == token:
+                raise UnexpectedResponse(f"{w}: next_page_token did not advance")
+            token = nxt
+        else:
+            raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
+        return sorted(out, key=lambda e: (e["date"], e["type"], e["id"]))
+
+
+# The thirteen NON-dividend types `AlpacaClient.corporate_actions` asks for:
+# type -> (response key, the field holding the date the action takes effect in
+# the market, the symbol fields as (field, role, required)). From the endpoint
+# reference's schemas [V: docs.alpaca.markets Market Data API, GET
+# /v1/corporate-actions, fetched 2026-10-28; docs/REFERENCES.md §12pc]:
+#   * the date field is the one the reference REQUIRES for that type: ex_date
+#     for splits, stock dividends and spin-offs, effective_date for unit splits,
+#     mergers and reorganizations; redemptions, name changes, worthless removals
+#     and partial calls carry no ex or effective date, only process_date;
+#   * `required` follows the reference's `required` list. Two symbol fields are
+#     optional there: a reverse split's new_symbol ("Empty when the reverse split
+#     does not change the ticker") and a cash merger's acquirer_symbol.
+# A reorganization's stock legs (`stock_movements[].symbol`) are read in
+# `_ca_parties`, as role "allocated".
+CORPORATE_ACTION_TYPES = {
+    "reverse_split": ("reverse_splits", "ex_date",
+                      (("symbol", "subject", True), ("new_symbol", "new", False))),
+    "forward_split": ("forward_splits", "ex_date", (("symbol", "subject", True),)),
+    "unit_split": ("unit_splits", "effective_date",
+                   (("old_symbol", "old", True), ("new_symbol", "new", True),
+                    ("alternate_symbol", "alternate", True))),
+    "stock_dividend": ("stock_dividends", "ex_date", (("symbol", "subject", True),)),
+    "spin_off": ("spin_offs", "ex_date",
+                 (("source_symbol", "source", True), ("new_symbol", "new", True))),
+    "cash_merger": ("cash_mergers", "effective_date",
+                    (("acquiree_symbol", "acquiree", True), ("acquirer_symbol", "acquirer", False))),
+    "stock_merger": ("stock_mergers", "effective_date",
+                     (("acquiree_symbol", "acquiree", True), ("acquirer_symbol", "acquirer", True))),
+    "stock_and_cash_merger": ("stock_and_cash_mergers", "effective_date",
+                              (("acquiree_symbol", "acquiree", True),
+                               ("acquirer_symbol", "acquirer", True))),
+    "redemption": ("redemptions", "process_date", (("symbol", "subject", True),)),
+    "name_change": ("name_changes", "process_date",
+                    (("old_symbol", "old", True), ("new_symbol", "new", True))),
+    "worthless_removal": ("worthless_removals", "process_date", (("symbol", "subject", True),)),
+    "reorganization": ("reorganizations", "effective_date", (("symbol", "subject", True),)),
+    "partial_call": ("partial_calls", "process_date", (("symbol", "subject", True),)),
+}
+# Every key the reference's `corporate_actions` object can hold: the thirteen
+# above plus the three types the gate does not ask for.
+CORPORATE_ACTION_RESPONSE_KEYS = frozenset(
+    [k for k, _, _ in CORPORATE_ACTION_TYPES.values()]
+    + ["cash_dividends", "capital_gains_distributions", "rights_distributions"])
+
+
+def _ca_parties(r, kind: str, fields, where: str) -> list[tuple[str, str]]:
+    """[(symbol, role)] for one corporate-action row; raises on a row whose
+    parties cannot be read (`AlpacaClient.corporate_actions`, VALIDATION). An
+    optional field that is absent, null or "" names nobody."""
+    if not isinstance(r, dict):
+        raise UnexpectedResponse(f"{where}: expected a JSON object, got {type(r).__name__}")
+    _require(r, [f for f, _, req in fields if req], where)
+    out = []
+    for f, role, req in fields:
+        v = r.get(f)
+        if not req and v in (None, ""):
+            continue
+        if not isinstance(v, str) or not v:
+            raise UnexpectedResponse(f"{where}: {f} {v!r} is not a symbol")
+        out.append((v, role))
+    if kind == "reorganization":
+        legs = r.get("stock_movements")
+        if legs is not None:
+            if not isinstance(legs, list):
+                raise UnexpectedResponse(f"{where}: stock_movements is not a list")
+            for j, m in enumerate(legs):
+                _require(m, ("symbol",), f"{where}.stock_movements[{j}]")
+                if not isinstance(m["symbol"], str) or not m["symbol"]:
+                    raise UnexpectedResponse(f"{where}.stock_movements[{j}]: symbol "
+                                             f"{m['symbol']!r} is not a symbol")
+                out.append((m["symbol"], "allocated"))
+    return out
 
 
 def _load_keys(book: str, env_file: Path) -> tuple[str, str]:
