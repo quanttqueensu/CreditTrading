@@ -129,8 +129,9 @@ owns the name; and plan.json gains `combine`, the per-sleeve record. The
 book-level limits stay the book spec's, applied to the netted orders by
 `fit_to_buying_power` and gate 8.
 
-GATE 5'S MISSING-NAV HOLD (book json `data.missing_nav`; DARK, team lead
-2026-10-29). `Deps.missing_nav` is None for the released book json, and gate 5
+GATE 5'S MISSING-NAV HOLD (book json `data.missing_nav`; built dark and switched
+ON by the team lead 2026-10-29, `hold` with a 2-session limit). With the key
+ABSENT, `Deps.missing_nav` is None and gate 5
 refuses the whole day when one name has no NAV dated the as-of date, exactly as
 before (proved against bd87144: tests/test_missing_nav_hold.py). Why the key:
 on 2026-10-22 PDO's 10-21 NAV never landed, the CEFConnect fallback that used
@@ -752,7 +753,7 @@ def stale_nav_for(book: Book) -> str | None:
 
 
 def missing_nav_for(book: Book) -> str | None:
-    """The book json's `data.missing_nav`: "hold", or None (DARK; team lead 2026-10-29).
+    """The book json's `data.missing_nav`: "hold", or None (ON since 2026-10-29, team lead).
 
     ABSENT means gate 5 as it always was: one name without a NAV dated the
     as-of date refuses the whole day (CLAUDE.md: a new key defaults to current
@@ -1100,7 +1101,7 @@ class Deps:
     # `combine.load_sleeves` read them, or None = the single-spec book above,
     # today's behaviour, which never reads this field.
     sleeves: tuple | None = None
-    # Gate 5's missing-NAV hold (dark; `missing_nav_for`): None = gate 5 refuses
+    # Gate 5's missing-NAV hold (ON since 2026-10-29; `missing_nav_for`): None = gate 5 refuses
     # the day on one missing as-of NAV, today's behaviour; "hold" =
     # `gate.missing_nav_hold`. Single-sleeve book only (`run_session` raises
     # with a combined book, which holds per sleeve).
