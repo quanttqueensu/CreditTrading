@@ -85,6 +85,7 @@ raises naming it.
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 from pathlib import Path
 
@@ -300,6 +301,38 @@ def _nav_hold(market_state, last: pd.Timestamp, universe) -> dict:
                          f"decides on {pd.Timestamp(last).date()}; refusing to hold on a "
                          f"NAV the gate did not look at")
     return dict(names)
+
+
+# The tag on every target of a decide that HAD holds (`extras["nav_hold"]`) and
+# fell short of `min_names` eligible names (release-check of 6d42f4f, 2026-10-29).
+SHORT_OF_MIN_NAMES = "cef_short_of_min_names"
+
+
+def _hold_requested(market_state) -> bool:
+    """True when the runner passed holds (a non-empty `extras["nav_hold"]["names"]`).
+    Only decides whether to TAG an early return; `_nav_hold` validates the extra."""
+    spec = (getattr(market_state, "extras", None) or {}).get("nav_hold")
+    return isinstance(spec, dict) and bool(spec.get("names"))
+
+
+def _tag_short(targets: list, info: dict) -> list:
+    """`targets`, each with `meta[SHORT_OF_MIN_NAMES] = info`.
+
+    WHY (release-check of 6d42f4f, execution-trader, reproduced). With holds,
+    the sleeve's `min_names` rule holds the whole book (or, short without the
+    holds, flattens the rest) and decide sends nothing: the plan reads
+    NOTHING_TO_SEND, the day is marked DONE and the next slot idles, although
+    no name was decided on its signal. The runner must be able to tell that
+    day from a quiet one. This says so in a structured field, not a reason
+    string: `info` = {"eligible": names in the cross-section, "min_names",
+    "held_out": held names counted toward it, "excluded": {name: why the
+    sleeve left it out}}. The runner's missing-NAV hold refuses on it
+    (`quantt/session/run.py`); the stale-NAV gate's holds keep their ruled
+    whole-book hold. `meta` reaches no order and no plan.json (decide reads
+    reason, side, qty and weight only), and the tag is added only when holds
+    were passed, so without them every target is byte-identical."""
+    return [dataclasses.replace(t, meta={**t.meta, SHORT_OF_MIN_NAMES: dict(info)})
+            for t in targets]
 
 
 def _held_target(tk: str, market_state, reason: str, order_type: str) -> PositionTarget:
@@ -684,8 +717,13 @@ class CEFDiscountSleeve(Sleeve):
                     f"cef: no paired price/NAV panel at {self.panel_paths()} on or before "
                     f"{pd.Timestamp(asof).date()}; refusing to flatten a book that sets "
                     f"panel_source or below_min_names='hold' on a missing panel")
-            return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                   reason="cef: no price/NAV panel") for t in uni]
+            out = [PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                  reason="cef: no price/NAV panel") for t in uni]
+            if _hold_requested(market_state):
+                out = _tag_short(out, {"eligible": [], "min_names": int(self._req("min_names")),
+                                       "held_out": [], "excluded": {t: "no price/NAV panel"
+                                                                    for t in uni}})
+            return out
         px, nav, vol, navrows = panel
         if len(px) < self._win + 20:
             if strict:
@@ -694,8 +732,13 @@ class CEFDiscountSleeve(Sleeve):
                     f"through {pd.Timestamp(asof).date()}; the z-score needs z_window "
                     f"{self._win} + 20 = {self._win + 20}, {self._win + 20 - len(px)} short. "
                     f"Not deciding, and not flattening, on a panel too short to score")
-            return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                   reason="cef: insufficient history") for t in uni]
+            out = [PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                  reason="cef: insufficient history") for t in uni]
+            if _hold_requested(market_state):
+                out = _tag_short(out, {"eligible": [], "min_names": int(self._req("min_names")),
+                                       "held_out": [], "excluded": {t: "insufficient history"
+                                                                    for t in uni}})
+            return out
 
         disc = 100.0 * (px - nav) / nav
         no_disc = self._discount_masks(navrows, px, vol, asof)
@@ -796,6 +839,20 @@ class CEFDiscountSleeve(Sleeve):
             row[tk] = float(zi)
 
         if len(row) < int(self._req("min_names")):
+            # WITH HOLDS, every return in this block is tagged (`_tag_short`,
+            # release-check of 6d42f4f): the runner must know that no name was
+            # decided on its signal. Without holds `tag` is the identity, so the
+            # targets below are byte-identical to before.
+            if hold:
+                why_out = dict(dropped)
+                short = {"eligible": sorted(row), "min_names": int(self._req("min_names")),
+                         "held_out": sorted(held_out),
+                         "excluded": {t: why_out.get(t, "held" if t in hold else
+                                                     "no z-score on the signal date")
+                                      for t in uni if t not in row}}
+                tag = lambda out: _tag_short(out, short)      # noqa: E731
+            else:
+                tag = lambda out: out                          # noqa: E731
             # `below_min_names = "hold"` (trial C4's rule; ABSENT is "flatten",
             # the code below, unchanged). `build_targets` HOLDS the previous
             # target when fewer than `min_names` are eligible
@@ -831,7 +888,7 @@ class CEFDiscountSleeve(Sleeve):
                 if held_out:
                     why += f"; NAV unverified for {sorted(held_out)}"
                 order_type = str(self._req("order_type")).upper()
-                return [_held_target(t, market_state, why, order_type) for t in uni]
+                return tag([_held_target(t, market_state, why, order_type) for t in uni])
             if not hold:
                 return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                        reason=f"cef: only {len(row)} eligible names")
@@ -842,14 +899,14 @@ class CEFDiscountSleeve(Sleeve):
                 # book holds for the day. Holds never trigger the flatten (_nav_hold).
                 why = (f"book holds: NAV unverified for {sorted(held_out)} leaves "
                        f"{len(row)} eligible names")
-                return [_held_target(t, market_state, why, order_type) for t in uni]
+                return tag([_held_target(t, market_state, why, order_type) for t in uni])
             # Short of min_names without the holds: today's rule for every name
             # but the held ones, which keep their shares.
-            return [_held_target(t, market_state, f"NAV unverified: {hold[t]}", order_type)
-                    if t in hold else
-                    PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                   reason=f"cef: only {len(row)} eligible names")
-                    for t in uni]
+            return tag([_held_target(t, market_state, f"NAV unverified: {hold[t]}", order_type)
+                        if t in hold else
+                        PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                       reason=f"cef: only {len(row)} eligible names")
+                        for t in uni])
 
         s = pd.Series(row)
         w = -(s - s.mean())                       # cheap -> long, rich -> short

@@ -142,6 +142,10 @@ fund's NAV cost all 13 the day. With "hold" (`gate.missing_nav_hold`):
     the key, the fund and its count named. The count is re-read from the prior
     sessions' plan.json (`missing_nav_streaks`); a missing or unreadable record
     refuses rather than counts as zero.
+  * SHORT OF min_names (release-check of 6d42f4f): if, with the holds and the
+    sleeve's own exclusions, fewer than `min_names` names are eligible on their
+    signal (the sleeve's own count, tagged on its targets), the day is REFUSED
+    as without the key, not decided as a whole-book hold that marks it DONE.
 `missing_nav` in plan.json and the run record says what was missing, the
 action, and what was held.
 
@@ -839,6 +843,20 @@ def missing_nav_streaks(state: Path, session_date: dt.date, names, limit: int) -
     return out
 
 
+def _short_of_min_names(targets) -> dict | None:
+    """The sleeve's tag on a decide that had holds and fell short of `min_names`
+    eligible names (`cef_discount.SHORT_OF_MIN_NAMES`), or None. Every target
+    carries the same tag or none does; a mixture is a sleeve bug and raises."""
+    from src.deploy.sleeves.cef_discount import SHORT_OF_MIN_NAMES
+    tags = [t.meta.get(SHORT_OF_MIN_NAMES) for t in targets]
+    if not any(tags):
+        return None
+    if not all(tags):
+        raise SessionError("the sleeve tagged some targets short of min_names and not "
+                           "others; not deciding on a mixed answer")
+    return tags[0]
+
+
 def min_names_of(spec: dict) -> int:
     """The frozen spec's `min_names`, for the missing-NAV hold's limit
     (`gate.max_missing_nav_holds`). Read only when the book json sets
@@ -1222,6 +1240,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         record["closes"] = {s: {"close": v[0], "date": v[1]} for s, v in closes_dated.items()}
         record["nav_dates"] = nav_dates
         data_held, data_final, missing_held, min_names, held_before = {}, None, {}, None, None
+        short_refusal = None      # the missing-NAV hold short of min_names (below)
         if deps.sleeves is None and deps.missing_nav is None:
             data_refusals = gt.gate_data(asof, refresh_exit, close_dates, nav_dates, p["universe"])
         elif deps.sleeves is None:
@@ -1338,7 +1357,33 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 if changed:
                     raise SessionError(f"the NAV panel changed between the stale-NAV gate and "
                                        f"the sleeve's read: {changed}; not deciding on it")
-            if deps.sleeves is None:
+            if missing_held:
+                # THE HOLD SHORT OF min_names (release-check of 6d42f4f; the
+                # execution-trader's case, reproduced). With the missing-NAV holds
+                # out of the cross-section, the sleeve's own exclusions (illiquid,
+                # ADV unmeasured, NAV stale, no z, no panel) can leave fewer than
+                # `min_names` names eligible on their signal. The sleeve then holds
+                # the whole book: no order, NOTHING_TO_SEND, DONE, and the 15:00
+                # slot idles on a day no name was decided. Its own rule counts
+                # exactly those eligible names (`len(row)` against min_names), so
+                # the runner keys on that count, which the sleeve tags on every
+                # target (`cef_discount._tag_short`), not on reason text, and
+                # refuses the day exactly as without the key, naming the cause.
+                short = _short_of_min_names(targets)
+                if short is not None:
+                    short_refusal = gt.Refusal("data", (
+                        f"missing-NAV hold (data.missing_nav=hold): with {sorted(missing_held)} "
+                        f"held, {len(short['eligible'])} names are eligible on their signal "
+                        f"{short['eligible']}, under min_names {short['min_names']}; the "
+                        f"sleeve's own exclusions: "
+                        f"{ {t: w for t, w in short['excluded'].items() if t not in missing_held} }"
+                        f"; refused, as without the key"))
+                    record["missing_nav"].update(action="refused", why=short_refusal.detail,
+                                                 held=[], short_of_min_names=short)
+            if deps.sleeves is None and short_refusal is not None:
+                decision = dec.Decision(orders=(), targets={}, notes={"*": [
+                    "not decided: the data gate refused"]}, plan_sha=dec.plan_sha(()))
+            elif deps.sleeves is None:
                 decision = dec.decide(targets, pos, equity, closes, shortable,
                                       session_date=session_date, universe=p["universe"],
                                       cid_prefix=book.cid_prefix,
@@ -1393,7 +1438,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if deps.sleeves is not None:     # gate 5 per sleeve, as decided above
             facts = replace(facts, sleeve_universes=cmb.universes(deps.sleeves),
                             data_final=data_final)
-        elif deps.missing_nav is not None:   # gate 5's missing-NAV hold, as decided above
+        elif deps.missing_nav is not None and short_refusal is None:   # the hold, as above
             facts = replace(facts, missing_nav=deps.missing_nav, min_names=min_names,
                             data_final=data_final,
                             missing_nav_max_sessions=deps.missing_nav_max_sessions,
@@ -1402,6 +1447,10 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if gate_res is not None and gate_res.deferred:
             # The stale-NAV gate's deferral (module docstring, DEFERRAL AND THE ORDER PATH).
             refusals.append(gt.Refusal("data", gate_res.deferral_text()))
+        if short_refusal is not None:
+            # Gate 5 above ran as without the key (facts not replaced), so these
+            # are today's refusals; this line names why the hold could not stand.
+            refusals.append(short_refusal)
         record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
 
         plan = {"book": book.name, "spec_id": p["spec_id"], "session_date": session_date,

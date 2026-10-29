@@ -628,10 +628,10 @@ def test_more_missing_navs_than_the_derived_limit_still_refuses(tmp_path, monkey
     n, m = len(SYN_TICKERS), SYN_SPEC["frozen"]["min_names"]
     limit = n - m
     assert limit == 7
-    # Seven held (SYA..SYG): the plan is decided, not refused. (SYM is illiquid on
-    # the date, so 5 of the 6 left are eligible and the whole book holds:
-    # test_a_held_name_is_never_zeroed_or_flattened.)
-    seven = SYN_TICKERS[:limit]
+    # Seven held, SYM (illiquid on the date) among them: the 6 left are all
+    # eligible, so the plan is decided, not refused. (Seven held WITHOUT SYM leave
+    # 5 eligible: test_holds_plus_the_sleeves_exclusions_under_min_names_refuse.)
+    seven = ("SYM",) + SYN_TICKERS[:limit - 1]
     code, state, _, log = _final(tmp_path / "seven", monkeypatch, base, held, nav=seven)
     assert code in (rn.EXIT_PLANNED, rn.EXIT_NOTHING), log
     plan = _plan(state)
@@ -688,17 +688,57 @@ def test_a_held_name_is_never_zeroed_or_flattened(tmp_path, monkeypatch):
         assert t["current"] == t["target"] == held[s] != 0, t
         assert t["reason"].startswith("cef: held, NAV unverified"), t
     assert not set(pair) & {o["symbol"] for o in plan["orders"]}
-    # Seven held and SYM illiquid: 5 eligible < min_names 6. The sleeve without the
-    # holds' count would emit the other names FLAT and decide would close them.
+    # Seven held and SYM illiquid: 5 eligible < min_names 6. Nothing is flattened
+    # and no order goes: the day is refused (release-check of 6d42f4f), where
+    # 3f817bf decided a whole-book hold and marked the day DONE.
     seven = tuple(s for s in SYN_TICKERS if s != "SYM")[:7]
     assert "SYM" not in seven
     code, state, _, log = _final(tmp_path / "seven", monkeypatch, base, held, nav=seven)
-    assert code == rn.EXIT_NOTHING, log
+    assert code == rn.EXIT_REFUSED, log
     plan = _plan(state)
-    assert plan["refusals"] == [] and plan["orders"] == []
-    for s, t in plan["targets"].items():
-        assert t["target"] == held.get(s, 0), (s, t)
-        assert "book holds" in t["reason"], (s, t)
+    assert plan["orders"] == [] and plan["targets"] == {}
+    assert not (state / SESSION.isoformat() / "DONE").exists()
+
+
+SPEC_MIN12 = json.loads(json.dumps(SYN_SPEC))
+SPEC_MIN12["frozen"]["min_names"] = 12      # 13 names: one may be held (13 - 12)
+
+
+def test_holds_plus_the_sleeves_exclusions_under_min_names_refuse_the_day(tmp_path,
+                                                                        monkeypatch):
+    """The release-check's case (execution-trader, 6d42f4f). The hold's own cap
+    (n - min_names) counts only names without a NAV. With min_names 12, one fund
+    may be held; SYM is illiquid on the date, so with SYD held 11 names are
+    eligible on their signal, under 12. 3f817bf decided a whole-book hold:
+    NOTHING_TO_SEND, DONE, and the 15:00 slot idled. Now the day is refused
+    exactly as without the key, the line naming the held fund, the eligible
+    count and SYM's exclusion. Control: the same day with every NAV dated
+    decides (12 eligible)."""
+    base, held = _synthetic_held(tmp_path, monkeypatch)
+    assert rn.gt.max_missing_nav_holds(13, 12) == 1
+    _scenario_panel(base, tmp_path / "complete", monkeypatch, ASOF)
+    code, state, _, log = _session(tmp_path / "control", SPEC_MIN12, held, FINAL, LATE_SCALE,
+                                   refresh_exit=0, key=HOLD)
+    assert code in (rn.EXIT_PLANNED, rn.EXIT_NOTHING) and _plan(state)["refusals"] == [], log
+    assert _plan(state)["missing_nav"]["action"] == "none"
+    _scenario_panel(base, tmp_path / "p", monkeypatch, ASOF, nav=(SYN_MISSING,))
+    code, state, _, log = _session(tmp_path / "s", SPEC_MIN12, held, FINAL, LATE_SCALE,
+                                   refresh_exit=4, key=HOLD)
+    off, off_state, _, _ = _session(tmp_path / "off", SPEC_MIN12, held, FINAL, LATE_SCALE,
+                                    refresh_exit=4)
+    assert code == off == rn.EXIT_REFUSED, log
+    plan, today = _plan(state), _plan(off_state)["refusals"]
+    assert plan["refusals"][:-1] == today, "gate 5's refusals must be today's"
+    last = plan["refusals"][-1]
+    assert last["gate"] == "data" and SYN_MISSING in last["detail"]
+    assert "11 names are eligible on their signal" in last["detail"]
+    assert "under min_names 12" in last["detail"] and "'SYM': 'illiquid'" in last["detail"]
+    assert plan["orders"] == [] and plan["targets"] == {} and plan["status"] == "refused"
+    rec = plan["missing_nav"]
+    assert rec["action"] == "refused" and rec["held"] == []
+    assert len(rec["short_of_min_names"]["eligible"]) == 11
+    assert not (state / SESSION.isoformat() / "DONE").exists()
+    assert not (state / SESSION.isoformat() / "DECIDED").exists()
 
 
 def test_the_sleeve_counts_a_held_fund_without_a_paired_row_toward_min_names(tmp_path,
@@ -719,10 +759,14 @@ def test_the_sleeve_counts_a_held_fund_without_a_paired_row_toward_min_names(tmp
                              "nav_hold": {"asof": ASOF, "names": {s: "r" for s in seven}}})
     got = sl.target_positions(pd.Timestamp(ASOF), ms)
     assert {t.instrument for t in got} == set(SYN_TICKERS)
+    from src.deploy.sleeves.cef_discount import SHORT_OF_MIN_NAMES
     for t in got:
         q = float(held.get(t.instrument, 0))
         assert (t.qty == q) if q else (t.side == FLAT), t
         assert "book holds" in t.reason, t
+        tag = t.meta[SHORT_OF_MIN_NAMES]             # the runner refuses on it
+        assert len(tag["eligible"]) == 5 and tag["held_out"] == sorted(seven)
+        assert tag["excluded"]["SYM"] == "illiquid"
 
 
 # ------------------------------------------- the key itself
