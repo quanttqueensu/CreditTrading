@@ -227,6 +227,15 @@ in `quantt/session/gate.py` `missing_nav_hold`.
   `gate.max_missing_nav_holds` = n − `min_names`, read from the frozen spec. Past that
   limit fewer than `min_names` names would have a NAV, the sleeve could trade none of
   them on its signal, and so it is a broken feed, not a late NAV.
+- **Short of `min_names` after the sleeve's own exclusions** (release-check of 6d42f4f).
+  The n − `min_names` cap counts only the names without a NAV. Holds plus names the
+  sleeve leaves out (illiquid, ADV unmeasured, NAV stale, no z-score, no panel) can still
+  leave fewer than `min_names` names eligible on their signal. The sleeve would then hold
+  the whole book, the plan would read NOTHING_TO_SEND, and the day would be marked DONE.
+  Instead the day is **refused** as without the key, naming the held funds, the eligible
+  count and each exclusion. The count is the sleeve's own `min_names` count, carried in a
+  structured tag on its targets (`cef_discount._tag_short`); the runner never parses a
+  reason string. The stale-NAV gate's own holds keep their ruled whole-book hold.
 - **The age limit (team lead 2026-10-29, a policy).** A fund may be held for at most
   `data.missing_nav_max_sessions` consecutive sessions: 2. This is the book json's value,
   not a code literal, and it is required when the hold is on. It was meant to be derived
