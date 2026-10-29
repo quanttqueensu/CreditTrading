@@ -196,6 +196,16 @@ on the laptop, a systemd timer on the VM). The module docstring has the full des
 - **Exit codes.** 0 means complete or idle. 5 means incomplete and will be retried.
   20 means an unexpected error: it is recorded in data.log and the traceback goes to
   stderr.
+- **CEFConnect down is its own status (team lead, 2026-10-29).** When CEFConnect
+  refuses every request `nav_crosscheck` makes on a run (more than one name asked,
+  every one a read error), the step records `second source unavailable (cefconnect:
+  <error class>)`. It is retried next slot but does not make the day INCOMPLETE, so
+  the collector exits 0 when every other step is fine; the log line ends `;
+  nav_crosscheck: second source unavailable (...)` and report.json carries
+  `unavailable`. Nothing is compared, flagged or filled in its place. One name's error
+  is still a failed step and an INCOMPLETE day, as before. Why: CEFConnect has refused
+  every scripted request from the VM since 2026-10-21 (JSONDecodeError), so every
+  slot exited 5 and systemd's `failed` said nothing.
 - **Report only (team lead, 2026-09-29).** A cross-check disagreement of more than
   $0.005 is a *flag*. The flag names both sources and both values. It never blocks
   trading and never fails a step, and the two values are never averaged. A value that one

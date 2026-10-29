@@ -401,6 +401,94 @@ def test_cefconnect_unreadable_fails_the_step_so_it_is_retried(env):
     assert not d["ok"] and d["detail"]["fetch_errors"] == ["AAA: ConnectionError"]
 
 
+# ------------------------------------------------- CEFConnect down (2026-10-29)
+
+def refused(ticker, cause=None):
+    """A CefConnectError exactly as the shared reader raises it (`nav_gate._wrap`,
+    `from` the cause): by default the JSONDecodeError CEFConnect has answered
+    every scripted request from the VM with since 2026-10-21."""
+    from quantt.session import nav_gate as ng
+    cause = cause if cause is not None else json.JSONDecodeError("Expecting value", "<html>", 0)
+
+    def boom():
+        raise cause
+    try:
+        ng._wrap(ticker, boom)
+    except co.CefConnectError as e:
+        return e
+    raise AssertionError("nav_gate._wrap did not raise")
+
+
+def test_cefconnect_refusing_every_name_is_second_source_unavailable_not_incomplete(env):
+    """Every request refused: a distinct status, the collector exits 0, nothing is
+    compared, flagged or filled; the step is retried, and compares the slot
+    CEFConnect answers again. On bd87144 this run exited 5 (INCOMPLETE)."""
+    ctx = make_ctx(env, cc={"AAA": refused("AAA"), "BBB": refused("BBB")})
+    assert co.collect(ctx) == co.EXIT_OK
+    want = "second source unavailable (cefconnect: JSONDecodeError)"
+    st = status(env)["steps"]["nav_crosscheck"]
+    assert not st["ok"] and st["unavailable"] == want and st["err"] == want
+    assert st["detail"]["second_source"] == want
+    assert st["detail"]["flags"] == [] and st["detail"]["gaps"] == []      # nothing faked
+    assert [e.split(":")[0] for e in st["detail"]["fetch_errors"]] == ["AAA", "BBB"]
+    report = json.loads((env[0] / "data" / D.isoformat() / "report.json").read_text())
+    assert report["complete"] and report["failed_steps"] == []
+    assert report["unavailable"] == {"nav_crosscheck": want}
+    # (the arrival WATCH reads the same refusing CEFConnect, so it is still watching)
+    assert log_lines(env)[-1] == (f"{D} DATA COMPLETE flags=0 gaps=0 watching=cefconnect_arrival"
+                                  f"; nav_crosscheck: {want}")
+    # Retried next slot: CEFConnect is back, and disagrees on AAA -- a real flag.
+    assert co.collect(make_ctx(env, cc={"AAA": 10.02, "BBB": 20.00})) == co.EXIT_OK
+    st = status(env)["steps"]["nav_crosscheck"]
+    assert st["ok"] and "unavailable" not in st
+    assert [(f["fund"], f["value_a"], f["value_b"]) for f in st["detail"]["flags"]] == \
+        [("AAA", 10.00, 10.02)]
+    report = json.loads((env[0] / "data" / D.isoformat() / "report.json").read_text())
+    assert "unavailable" not in report
+    assert log_lines(env)[-1] == f"{D} DATA COMPLETE flags=1 gaps=0"
+
+
+def test_a_mixed_outage_names_every_error_class(env):
+    import requests
+    ctx = make_ctx(env, cc={"AAA": refused("AAA"),
+                            "BBB": refused("BBB", requests.ConnectionError("reset"))})
+    assert co.collect(ctx) == co.EXIT_OK
+    assert status(env)["steps"]["nav_crosscheck"]["unavailable"] == \
+        "second source unavailable (cefconnect: ConnectionError, JSONDecodeError)"
+
+
+def test_one_name_refused_is_still_a_failed_step_as_today(env):
+    """One fund's error is not an outage: the step fails and the day is
+    INCOMPLETE, exactly as before (same error class as the outage's)."""
+    ctx = make_ctx(env, cc={"AAA": refused("AAA"), "BBB": 20.00})
+    assert co.collect(ctx) == co.EXIT_INCOMPLETE
+    st = status(env)["steps"]["nav_crosscheck"]
+    assert not st["ok"] and "unavailable" not in st and "second_source" not in st["detail"]
+    assert st["err"] == "CEFConnect unreadable for 1 fund(s)"
+    assert log_lines(env)[-1].startswith(f"{D} DATA INCOMPLETE nav_crosscheck ")
+
+
+def test_a_lone_name_asked_and_refused_is_not_read_as_an_outage(env):
+    """Only one name reached CEFConnect (the other is a panel gap): one error is
+    one error, never an outage."""
+    state, cef = env
+    write_panels(cef, nav={"BBB": 20.00})                  # AAA: no NAV dated D
+    ctx = make_ctx(env, cc={"AAA": 10.00, "BBB": refused("BBB")})
+    assert co.collect(ctx) == co.EXIT_INCOMPLETE
+    st = status(env)["steps"]["nav_crosscheck"]
+    assert not st["ok"] and "unavailable" not in st
+    assert [g["fund"] for g in st["detail"]["gaps"]] == ["AAA"]
+
+
+def test_a_real_disagreement_beside_an_error_is_still_flagged_and_still_incomplete(env):
+    ctx = make_ctx(env, cc={"AAA": 10.02, "BBB": refused("BBB")})
+    assert co.collect(ctx) == co.EXIT_INCOMPLETE
+    st = status(env)["steps"]["nav_crosscheck"]
+    assert "unavailable" not in st
+    assert [(f["fund"], f["value_a"], f["value_b"]) for f in st["detail"]["flags"]] == \
+        [("AAA", 10.00, 10.02)]
+
+
 def test_a_nav_the_panel_took_from_cefconnect_is_not_counted_as_agreement(env):
     state, cef = env
     pd.DataFrame([{"date": D.isoformat(), "nav": 10.0, "ticker": "AAA", "source": "cefconnect",

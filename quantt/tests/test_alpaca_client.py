@@ -627,6 +627,150 @@ def test_primary_sip_code_refuses_to_guess(env_file, sleeps, exch, table, match)
         c.primary_sip_code("PDI", table)
 
 
+# ------------------------------------------- NYSE American and Nasdaq (2026-10-29)
+#
+# Fixtures are Alpaca's own responses, read 2026-10-29 on the cef paper key
+# (GET /v2/stocks/meta/exchanges; GET /v2/stocks/auctions feed=sip, one symbol a
+# query, as the collector asks), copied with their exchange codes, conditions,
+# order and prices; `s` and `t` as read. docs/REFERENCES.md §12bl.
+
+LIVE_EXCHANGES_2026_10_29 = {
+    "A": "NYSE American (AMEX)", "B": "NASDAQ OMX BX", "C": "National Stock Exchange",
+    "D": "FINRA ADF", "E": "Market Independent", "F": "Texas Stock Exchange", "G": "24X",
+    "H": "MIAX", "I": "International Securities Exchange", "J": "Cboe EDGA", "K": "Cboe EDGX",
+    "L": "Long Term Stock Exchange", "M": "Chicago Stock Exchange",
+    "N": "New York Stock Exchange", "P": "NYSE Arca", "Q": "NASDAQ OMX",
+    "S": "NASDAQ Small Cap", "T": "NASDAQ Int", "U": "Members Exchange", "V": "IEX",
+    "W": "CBOE", "X": "NASDAQ OMX PSX", "Y": "Cboe BYX", "Z": "Cboe BZ"}
+
+
+def lp(c, p, s, t, x):
+    return {"c": c, "p": p, "s": s, "t": t, "x": x}
+
+
+# Closing prints, 2026-10-27 unless dated otherwise.
+LIVE_CLOSES = {
+    # NYSE: Arca and "T" print an M before the primary's cross.
+    "PDI": [lp("M", 14.08, 100, "2026-10-27T20:00:00.137198707Z", "P"),
+            lp("M", 14.075, 100, "2026-10-27T20:00:00.380730393Z", "T"),
+            lp("6", 14.07, 7479, "2026-10-27T20:00:03.142178435Z", "N"),
+            lp("M", 14.07, 7479, "2026-10-27T20:00:03.158212613Z", "N")],
+    # NYSE American: the primary A crosses; T's M is a cent off.
+    "DHY": [lp("6", 16.37, 1257, "2026-10-27T20:00:00.097683295Z", "A"),
+            lp("M", 16.37, 1257, "2026-10-27T20:00:00.098474191Z", "A"),
+            lp("M", 16.37, 1257, "2026-10-27T20:00:00.228813719Z", "P"),
+            lp("M", 16.36, 189, "2026-10-27T20:00:00.389925202Z", "T")],
+    # NYSE American with no closing cross ("6") at all; T's differing M comes first.
+    "GLV": [lp("M", 5.765, 67, "2026-10-27T20:00:00.059187266Z", "T"),
+            lp("M", 5.7651, 100, "2026-10-27T20:00:00.107542222Z", "A"),
+            lp("M", 5.7651, 100, "2026-10-27T20:00:00.168350101Z", "P")],
+    # Nasdaq: the primary is Q (UTP); Arca's M is a cent off and comes first.
+    "CHW": [lp("M", 7.89, 355, "2026-10-27T20:00:00.064324471Z", "P"),
+            lp("6", 7.88, 3891, "2026-10-27T20:00:00.211276351Z", "Q"),
+            lp("M", 7.88, 3891, "2026-10-27T20:00:00.211577579Z", "Q")],
+    # Nasdaq, 2026-10-26: Arca's M is five cents off.
+    "CSQ": [lp("M", 19.81, 100, "2026-10-26T20:00:00.076500739Z", "P"),
+            lp("6", 19.86, 1254, "2026-10-26T20:00:00.098412875Z", "Q"),
+            lp("M", 19.86, 1254, "2026-10-26T20:00:00.562280698Z", "Q")],
+}
+LIVE_DATES = {"CSQ": "2026-10-26"}
+LIVE_ASSET_EXCHANGE = {"PDI": "NYSE", "DHY": "AMEX", "GLV": "AMEX", "CHW": "NASDAQ",
+                       "CSQ": "NASDAQ"}
+
+
+def live_route(syms, extra=None):
+    """Exchange table, asset rows and per-symbol auction answers for `syms`."""
+    def auctions(params):
+        s = params["symbols"]
+        assert s in syms, f"unexpected auctions query {s}"
+        return auction_body({s: [day(LIVE_CLOSES[s], d=LIVE_DATES.get(s, "2026-10-27"))]})
+    t = {"/v2/stocks/meta/exchanges": FakeResp(200, LIVE_EXCHANGES_2026_10_29),
+         "/v2/stocks/auctions": auctions}
+    for s in syms:
+        t[f"/v2/assets/{s}"] = FakeResp(200, asset_row(symbol=s, exchange=LIVE_ASSET_EXCHANGE[s]))
+    t.update(extra or {})
+    return route(t)
+
+
+def test_nyse_resolution_and_print_are_byte_identical_to_29e5dc0(env_file, sleeps):
+    """THE NO-OP PROOF for NYSE names: the code, the chosen print and the gap
+    message, compared as bytes with what 29e5dc0's code returns on the same
+    fixture (the strings below were printed by running 29e5dc0's alpaca.py on
+    it, 2026-10-29). A no-op cannot fail against the old behaviour, so this test
+    passes on 29e5dc0 by design; it exists to fail if a later edit to the AMEX or
+    Nasdaq rows ever reaches a NYSE name."""
+    c, _ = client(env_file, sleeps, live_route({"PDI"}))
+    code = c.primary_sip_code("PDI", c.stock_exchanges())
+    assert repr(code) == "'N'"
+    got = c.closing_auction_prints(["PDI"], dt.date(2026, 10, 27), exchange_codes={"PDI": code})
+    assert json.dumps(got, sort_keys=True) == (
+        '{"PDI": {"condition": "M", "exchange": "N", "price": 14.07, '
+        '"t": "2026-10-27T20:00:03.158212613Z"}}')
+    no_n = auction_body({"PDI": [day([p for p in LIVE_CLOSES["PDI"] if p["x"] != "N"],
+                                     d="2026-10-27")]})
+    c2, _ = client(env_file, sleeps, route({"/v2/stocks/auctions": no_n}))
+    with pytest.raises(al.MissingAuctionPrint) as e:
+        c2.closing_auction_prints(["PDI"], dt.date(2026, 10, 27), exchange_codes={"PDI": code})
+    assert str(e.value) == (
+        "no closing-auction print with condition 'M' on 2026-10-27 for ['PDI'] from the "
+        "primary exchange {'PDI': 'N'}; another venue's print and a bar close are not "
+        "substituted")
+    assert al.ASSET_EXCHANGE_SIP_NAME["NYSE"] == "New York Stock Exchange"
+
+
+@pytest.mark.parametrize("sym,exch,code", [("DHY", "AMEX", "A"), ("CHW", "NASDAQ", "Q")])
+def test_amex_and_nasdaq_resolve_to_the_verified_codes(env_file, sleeps, sym, exch, code):
+    """NYSE American prints as CTA participant A (CTS spec §4.3); Nasdaq-listed
+    names as UTP market center Q (UTP spec §3.1). Alpaca's live table names
+    them "NYSE American (AMEX)" and "NASDAQ OMX". Nasdaq's CTA code (Alpaca's
+    "T", "NASDAQ Int") and the legacy "S" are other rows, never the primary."""
+    c, _ = client(env_file, sleeps, live_route({sym}))
+    assert c.primary_sip_code(sym, c.stock_exchanges()) == code
+    assert al.ASSET_EXCHANGE_SIP_NAME[exch] == LIVE_EXCHANGES_2026_10_29[code]
+
+
+def test_unmapped_exchanges_still_raise_and_a_drifted_name_is_never_guessed(env_file, sleeps):
+    """Arca, BZX and OTC listings stay unmapped. And if Alpaca ever renames the
+    Nasdaq or NYSE American row, the lookup raises: it never falls to another
+    Nasdaq-named row ("NASDAQ Small Cap", "NASDAQ Int", "NASDAQ OMX BX")."""
+    for exch in ("ARCA", "BATS", "OTC"):
+        c, _ = client(env_file, sleeps, route({"/v2/assets/PDI": FakeResp(200, asset_row(exchange=exch))}))
+        with pytest.raises(al.UnmappedExchange, match="no verified SIP name"):
+            c.primary_sip_code("PDI", LIVE_EXCHANGES_2026_10_29)
+    for exch, code in (("NASDAQ", "Q"), ("AMEX", "A")):
+        drifted = {k: v for k, v in LIVE_EXCHANGES_2026_10_29.items() if k != code}
+        c, _ = client(env_file, sleeps, route({"/v2/assets/PDI": FakeResp(200, asset_row(exchange=exch))}))
+        with pytest.raises(al.UnmappedExchange, match="0 SIP codes"):
+            c.primary_sip_code("PDI", drifted)
+
+
+@pytest.mark.parametrize("sym,price,exch", [
+    ("DHY", 16.37, "A"),     # NYSE American, crossed; not T's 16.36
+    ("GLV", 5.7651, "A"),    # NYSE American, no cross; not T's earlier 5.765
+    ("CHW", 7.88, "Q"),      # Nasdaq; not Arca's earlier 7.89
+    ("CSQ", 19.86, "Q"),     # Nasdaq; not Arca's earlier 19.81
+])
+def test_live_auction_fixture_selects_the_primary_official_close(env_file, sleeps, sym, price, exch):
+    """Through the collector's own two calls. Each expected price equals
+    Nasdaq.com's published close for that fund and day (fetched 2026-10-29)."""
+    c, _ = client(env_file, sleeps, live_route({sym}))
+    code = c.primary_sip_code(sym, c.stock_exchanges())
+    d = dt.date.fromisoformat(LIVE_DATES.get(sym, "2026-10-27"))
+    got = c.closing_auction_prints([sym], d, exchange_codes={sym: code}, condition="M")
+    assert got[sym]["price"] == price and got[sym]["exchange"] == exch
+    assert got[sym]["condition"] == "M"
+
+
+def test_verify_fetch_prints_scores_amex_and_nasdaq_names(env_file, sleeps):
+    """verify.fetch_prints over a mixed day: until 2026-10-29 DHY and CHW were
+    UnmappedExchange gaps, so the day could not be scored on the official close."""
+    from quantt.session import verify
+    c, _ = client(env_file, sleeps, live_route({"PDI", "DHY", "CHW"}))
+    out = verify.fetch_prints(c, ["PDI", "DHY", "CHW"], dt.date(2026, 10, 27), condition="M")
+    assert out.gaps == {}
+    assert out.prices == {"PDI": 14.07, "DHY": 16.37, "CHW": 7.88}
+
+
 @pytest.mark.parametrize("body", [{}, [], {"stock_exchanges": {"N": "x"}}, {"N": ""}])
 def test_stock_exchanges_strict_shape(env_file, sleeps, body):
     c, _ = client(env_file, sleeps, route({"/v2/stocks/meta/exchanges": FakeResp(200, body)}))
