@@ -77,8 +77,10 @@ Why each bound:
     the next session's window includes it.
 
 TWO WINDOWS (team lead, 2026-10-29). The window above is a name's LONG
-window. Its SHORT window is [A, D]. Which one an event is judged on depends on
-how it matches the name (`blocking_events`):
+window. Its SHORT window is (A, D]: after the as-of date, through the session
+date. In calendar dates that is [A + 1 day, D], and it is recorded that way.
+Which one an event is judged on depends on how it matches the name
+(`blocking_events`):
 
   long   the event's market date (`date`: the ex or effective date, or the
          process date for the types that have no other) is inside the name's
@@ -90,7 +92,7 @@ how it matches the name (`blocking_events`):
   short  (a) the ACQUIRER in any of the three merger types, on either date; and
          (b) any event that matches only through its `process_date`, because
          its market date is outside the name's long window. Either blocks only
-         while that date is inside [A, D].
+         while that date is inside (A, D].
 
 Why the acquirer is short. Its share count does not change, so paper leaves
 nothing wrong after the deal. Its price and NAV jump on the terms, which matters
@@ -99,13 +101,17 @@ Why a process-date-only match is short. The real feed backfills: a 2016 forward
 split was processed on 2025-12-17, and 18 of 3,443 rows over twelve months were
 processed more than 31 days after their market date (docs/REFERENCES.md §12pc).
 A long window would halt a held name for an action that changed its price basis
-before the book bought it. Processed inside [A, D], it may be what a broker
+before the book bought it. Processed inside (A, D], it may be what a broker
 that does process actions applies to the count today, so it blocks that
 session, and then it clears.
-"A day at most", measured in sessions: an event dated on trading day E is
-inside [A, D] for the session on E and for the next one, whose as-of is E
-(close(E) is the first post-event close a plan prices on). The session after
-that clears.
+"A day at most" is ONE session (team lead, 2026-10-29). An event dated on
+trading day E is inside (A, D] for the session on E, whose window
+(E - 1 trading day, E] holds it. It is outside the next session's window,
+because that session's as-of IS E. By then the as-of close and the counts are
+post-event and consistent, so there is nothing left to protect. An acquirer's
+count was never touched, and a process-date-only match's count was always
+consistent. The as-of side is open for the short window only. The long window
+keeps A inside, because there the count IS wrong (THE WINDOW, "through A").
 
 NO LOOKAHEAD. This is a gate, not an estimate. It reads the feed as Alpaca
 serves it at run time, including actions already scheduled for dates up to D.
@@ -120,8 +126,8 @@ stays wrong. Reaching back to L_X keeps a late-listed action in view until X
 is traded again.
 
 WHAT CLEARS A HALT.
-  * Short-window matches clear by themselves, once the as-of date passes the
-    event's date (TWO WINDOWS).
+  * Short-window matches clear by themselves after one session: from the
+    session whose as-of date is the event's date (TWO WINDOWS).
   * Long-window matches do not. While the gate refuses, nothing trades, so L_X
     stays before the event and the refusal repeats every session. One clears
     when X's shares are set again after the event, or when the team lead sets
@@ -138,9 +144,9 @@ the event gives it, on the window its role and match call for (TWO WINDOWS). Tha
 includes the ACQUIRER in all three merger types, a cash merger's included: its
 count does not change, but its price can jump on the deal's terms, and its NAV
 absorbs the target's. It also includes a spin-off's new symbol and a name
-change's new symbol. A false halt costs missed sessions until it clears: two at
-most on the short window, and on the long window every session until a person
-acts (WHAT CLEARS A HALT). A false pass costs an order sized on the wrong basis,
+change's new symbol. A false halt costs missed sessions until it clears: one on
+the short window, and on the long window every session until a person acts
+(WHAT CLEARS A HALT). A false pass costs an order sized on the wrong basis,
 which cannot be taken back.
 
 NOT COVERED, AND WHY
@@ -294,13 +300,15 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
     symbols the plan wants to hold. A pair blocks when the name is held or
     targeted, in ANY role the event gives it (BE CONSERVATIVE), and on the
     window that role and match call for (TWO WINDOWS):
-      * a merger ACQUIRER: its market or process date inside [as-of, session];
+      * a merger ACQUIRER: its market or process date inside (as-of, session];
       * otherwise its market date inside the name's long window (THE WINDOW);
-      * otherwise its process date alone inside [as-of, session].
-    Each pair records the rule, the window and the dates that fell inside it.
-    Pure: no clock, no network."""
+      * otherwise its process date alone inside (as-of, session].
+    Each pair records the rule, the window (as inclusive calendar dates) and
+    the dates that fell inside it. Pure: no clock, no network."""
     win = windows(held, targets, asof, session_date)
-    short_w = (asof, session_date)
+    # (as-of, session], open at the as-of (TWO WINDOWS: one session). Dates are
+    # whole calendar days, so this is [as-of + 1 day, session] exactly.
+    short_w = (asof + dt.timedelta(days=1), session_date)
     out = []
     for e in events:
         for sym, role in e["parties"]:

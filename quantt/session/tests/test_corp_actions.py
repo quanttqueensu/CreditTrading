@@ -64,10 +64,10 @@ def test_windows_refuse_an_asof_that_is_not_before_the_session():
     (ASOF, None, True, "on the as-of date: close(A) on the new basis"),
     (D, None, True, "on the session date: before the fill"),
     (D + dt.timedelta(days=1), None, False, "after the fill: the next session's"),
-    # process-date-only matches are judged on the SHORT window [as-of, session]
+    # process-date-only matches are judged on the SHORT window (as-of, session]
     (L - dt.timedelta(days=5), dt.date(2026, 9, 24), False,
      "processed inside the long window but before the as-of: a short-window match, so clear"),
-    (L - dt.timedelta(days=5), ASOF, True, "processed on the as-of date"),
+    (L - dt.timedelta(days=5), ASOF, False, "processed on the as-of date: the short window is open there"),
     (L - dt.timedelta(days=5), D, True, "processed on the session date"),
 ])
 def test_a_held_name_blocks_exactly_inside_its_window(date, process, blocks, why):
@@ -173,19 +173,29 @@ def blocks(event, *, held=None, targets=(), asof=ASOF, session=D):
 
 
 @pytest.mark.parametrize("typ", ["stock_merger", "stock_and_cash_merger", "cash_merger"])
-def test_a_held_acquirer_halts_for_the_short_window_and_then_clears(typ):
-    """A merger acquirer's count does not change, so its halt is the short
-    window: the session on the effective date and the next one (whose as-of is
-    that date). The session after that clears, though the shares were set long
-    before."""
+def test_a_held_acquirer_halts_one_session_and_then_clears(typ):
+    """Team lead 2026-10-29: "a day at most" is ONE session. An acquirer event on
+    trading day E blocks session E, whose window (E-1, E] holds it, and does NOT
+    block session E+1, whose as-of is E: by then the as-of close is post-event
+    and the acquirer's count was never touched. The shares were set long before."""
     m = ev("ZZZ", D, typ=typ, role="acquiree", other=("CCC", "acquirer"),
            date_field="effective_date")
     held = {"CCC": L}
-    hit = blocks(m, held=held)
+    hit = blocks(m, held=held)                                       # session E = D
     assert [(b["symbol"], b["rule"], b["window"]) for b in hit] == [
-        ("CCC", cam.SHORT_ACQUIRER, [ASOF, D])]
-    assert blocks(m, held=held, asof=D, session=NEXT)               # as-of is the event date
-    assert blocks(m, held=held, asof=NEXT, session=AFTER) == []      # passed: clear
+        ("CCC", cam.SHORT_ACQUIRER, [D, D])]                          # (ASOF, D] as calendar days
+    assert blocks(m, held=held, asof=D, session=NEXT) == []          # session E+1: clear
+
+
+def test_the_short_window_is_open_at_the_asof_and_spans_the_calendar_days_after_it():
+    """(as-of, session] in whole calendar days: a Friday as-of and a Monday
+    session hold Saturday, Sunday and Monday, and not the Friday."""
+    fri, mon = dt.date(2026, 10, 2), dt.date(2026, 10, 5)
+    for day, want in ((fri, False), (dt.date(2026, 10, 3), True), (dt.date(2026, 10, 4), True),
+                      (mon, True)):
+        m = ev("ZZZ", day, typ="stock_merger", role="acquiree", other=("CCC", "acquirer"),
+               date_field="effective_date")
+        assert bool(blocks(m, held={"CCC": L}, asof=fri, session=mon)) is want, day
 
 
 def test_an_acquirer_dated_before_the_asof_never_blocks_even_inside_the_long_window():
@@ -201,7 +211,7 @@ def test_an_acquirer_blocks_on_its_process_date_inside_the_short_window():
            other=("CCC", "acquirer"), process=D, date_field="effective_date")
     hit = blocks(m, held={"CCC": L})
     assert [(b["rule"], b["in_window"]) for b in hit] == [(cam.SHORT_ACQUIRER, ["process_date"])]
-    assert blocks(m, held={"CCC": L}, asof=NEXT, session=AFTER) == []
+    assert blocks(m, held={"CCC": L}, asof=D, session=NEXT) == []   # the next session: clear
 
 
 def test_an_acquiree_still_uses_the_long_window():
@@ -212,14 +222,30 @@ def test_an_acquiree_still_uses_the_long_window():
     assert blocks(m, held={"CCC": L}, asof=NEXT, session=AFTER)     # does not clear by itself
 
 
-def test_a_backfilled_row_on_a_held_name_blocks_on_its_process_day_only():
+def test_an_acquiree_on_day_e_still_blocks_session_e_plus_one():
+    """The long window keeps the as-of inside: the acquiree's paper count is
+    wrong from E on, so session E+1 (as-of E) still blocks, unlike the
+    acquirer's on the same merger."""
+    m = ev("CCC", D, typ="stock_merger", role="acquiree", other=("ZZZ", "acquirer"),
+           date_field="effective_date")
+    assert [b["rule"] for b in blocks(m, held={"CCC": L})] == [cam.LONG]
+    assert [b["rule"] for b in blocks(m, held={"CCC": L}, asof=D, session=NEXT)] == [cam.LONG]
+    acq = ev("ZZZ", D, typ="stock_merger", role="acquiree", other=("CCC", "acquirer"),
+             date_field="effective_date")
+    assert blocks(acq, held={"CCC": L}, asof=D, session=NEXT) == []
+
+
+def test_a_backfilled_row_on_a_held_name_blocks_one_session_only():
     """The real feed backfills: a 2016 split processed in 2025. Matched only
-    through its process date, it blocks while that date is in [as-of, session]."""
+    through its process date, it blocks the session whose window (as-of,
+    session] holds that date, and not the next one (as-of = the process date):
+    the count was consistent all along."""
     old = dt.date(2016, 10, 7)
     on_d = ev("CCC", old, typ="forward_split", process=D)
     assert [b["rule"] for b in blocks(on_d, held={"CCC": L})] == [cam.SHORT_PROCESS]
-    assert blocks(on_d, held={"CCC": L}, asof=D, session=NEXT)
-    assert blocks(on_d, held={"CCC": L}, asof=NEXT, session=AFTER) == []
+    assert blocks(on_d, held={"CCC": L}, asof=D, session=NEXT) == []
+    on_asof = ev("CCC", old, typ="forward_split", process=ASOF)
+    assert blocks(on_asof, held={"CCC": L}) == []                   # on the as-of: outside
     before = ev("CCC", old, typ="forward_split", process=ASOF - dt.timedelta(days=1))
     assert blocks(before, held={"CCC": L}) == []                    # before the as-of
 

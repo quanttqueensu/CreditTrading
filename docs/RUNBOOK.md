@@ -253,7 +253,7 @@ The day's `plan.json` (or `send.json`, when the send refused) carries
 event's id, type, market and process dates, its parties, the rule and the window
 (`docs/RUNNER.md`, "As built (2026-10-28)").
 
-A **short-window** row clears by itself within two sessions: a merger acquirer,
+A **short-window** row clears by itself after one session: a merger acquirer,
 or a match through the process date alone. Confirm the event (step 1) and let it
 pass. A **long-window** row on a held name repeats every session until the steps
 below are done. Alpaca paper processes no corporate actions, so the account still
