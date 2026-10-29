@@ -67,9 +67,18 @@ method. Credentials never pass through here: the client keeps them in its HTTP
 session headers, and `account.json` drops the client's `raw` echo and any key
 that looks like a credential before it is written.
 
+SECOND SOURCE UNAVAILABLE (team lead, 2026-10-29)
+-------------------------------------------------
+When CEFConnect refuses every request `nav_crosscheck` makes on a run, the step
+records "second source unavailable (cefconnect: <error class>)" and is retried
+next slot, but does not make the day INCOMPLETE (`SecondSourceUnavailable`,
+`build_report`); the log line ends `; nav_crosscheck: second source
+unavailable (...)`. One name's error is still today's failed step.
+
 EXIT CODES
 ----------
-0  complete, or idle (nothing to do).
+0  complete, or idle (nothing to do). Complete may carry a second source that
+   was unavailable (above): it is in the log line and report.json.
 5  incomplete: at least one step is not ok and will be retried next slot; also
    when another collector run holds the collector lock.
 20 unexpected error: recorded in data.log (and status.json when D is known),
@@ -189,6 +198,24 @@ class StepFailed(RuntimeError):
     def __init__(self, msg: str, detail: dict | None = None):
         super().__init__(msg)
         self.detail = detail or {}
+
+
+class SecondSourceUnavailable(StepFailed):
+    """A cross-check's second source answered no request at all this run.
+
+    Recorded like a failed step (not ok, retried next slot, so a recovery is
+    measured the slot it happens), but with its own status, and it does not make
+    the day INCOMPLETE (`build_report`). Why (team lead 2026-10-29): CEFConnect
+    has refused every scripted request from the VM since 2026-10-21
+    (JSONDecodeError on every read), so `nav_crosscheck` failed on every slot,
+    the collector exited 5 on every slot and systemd marked every run `failed`:
+    a status that is always on says nothing. An outage of the second source is a
+    fact about the second source, shown as one; nothing is compared, filled or
+    passed in its place."""
+
+    def __init__(self, status: str, detail: dict):
+        super().__init__(status, detail)
+        self.status = status
 
 
 @dataclass
@@ -375,11 +402,23 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
     name was neither flagged nor a gap. It is now a gap naming the fund, the
     date and the value. A CEFConnect NAV that is not finite is unreadable, as
     the session's gate treats it (`nav_gate.read_cc`): a fetch error, retried
-    next slot, never compared."""
+    next slot, never compared.
+
+    CEFCONNECT DOWN IS ITS OWN STATUS (team lead 2026-10-29). When EVERY name
+    this step asked CEFConnect about raised `CefConnectError`, and it asked
+    more than one, the step raises `SecondSourceUnavailable` with the status
+    "second source unavailable (cefconnect: <error class>)": not ok, so it is
+    retried next slot, but no longer INCOMPLETE, so the collector exits 0 when
+    every other step is fine and systemd's `failed` means something again.
+    Nothing is compared, flagged or filled in its place: the detail is today's
+    (flags, gaps, fetch_errors) plus `second_source`. A run where any name was
+    read, or only one name was asked, is today's rule exactly: an error fails
+    the step (INCOMPLETE), because one fund's error is not an outage."""
     nav_panel = _read_parquet(ctx.cef_dir / "cef_nav.parquet", "NAV panel")
     rows = _on_day(nav_panel, day)
     same_source = _fallback_names(ctx.cef_dir, day)
     flags, gaps, errors = [], [], []
+    asked, refused = 0, []          # names sent to CEFConnect; the CefConnectErrors back
     for t in ctx.deployed:
         panel = _one_value(rows, t, "nav", "cef_nav.parquet")
         if panel is None:
@@ -393,10 +432,12 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
             gaps.append({"fund": t, "reason": f"panel NAV for {day} was written from CEFConnect "
                                               f"(nav_fallback_log.csv); not an independent check"})
             continue
+        asked += 1
         try:
             cc = ctx.cefconnect_nav(t, day)
         except CefConnectError as e:
             errors.append(str(e))
+            refused.append(e)
             continue
         if cc is None:
             rep = nav_repeats(nav_panel, day, [t])
@@ -419,10 +460,27 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
         if f:
             flags.append(f)
     detail = {"flags": flags, "gaps": gaps, "fetch_errors": errors}
+    if asked > 1 and len(refused) == asked:
+        # Every request refused: CEFConnect is down for this run (docstring).
+        detail["second_source"] = second_source_status("cefconnect", refused)
+        raise SecondSourceUnavailable(detail["second_source"], detail)
     if errors:
         # Not measured is not "no disagreement": retry next slot.
         raise StepFailed(f"CEFConnect unreadable for {len(errors)} fund(s)", detail)
     return detail
+
+
+def second_source_status(source: str, errors: list) -> str:
+    """"second source unavailable (<source>: <error class>[, <class>...])".
+
+    The class is the error UNDER the CefConnectError (`nav_gate._wrap` raises it
+    `from` the transport or parse error: JSONDecodeError when CEFConnect answers
+    a scripted request with a page that is not JSON, as on every read since
+    2026-10-21), or CefConnectError itself when it has no cause. Distinct
+    classes are listed, sorted, so a mixed outage says so."""
+    classes = sorted({type(e.__cause__).__name__ if e.__cause__ is not None
+                      else type(e).__name__ for e in errors})
+    return f"second source unavailable ({source}: {', '.join(classes)})"
 
 
 def step_official_closes(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
@@ -971,17 +1029,27 @@ def _load_status(path: Path, day: dt.date) -> dict:
 
 
 def build_report(day: dt.date, book: str, status: dict) -> dict:
+    """The day's report. A step whose second source answered nothing
+    (`SecondSourceUnavailable`, recorded as `unavailable`) is not ok and is
+    retried, but it is not a failed step: it is listed under `unavailable`
+    (present only when some step is) and the day can be complete without it."""
     steps = status["steps"]
-    failed = [s for s in STEPS if not steps.get(s, {}).get("ok") and s not in WATCH_STEPS]
+    unavailable = {s: steps[s]["unavailable"] for s in STEPS
+                   if not steps.get(s, {}).get("ok") and steps.get(s, {}).get("unavailable")}
+    failed = [s for s in STEPS if not steps.get(s, {}).get("ok") and s not in WATCH_STEPS
+              and s not in unavailable]
     watching = [s for s in WATCH_STEPS if not steps.get(s, {}).get("ok")]
     flags, gaps = [], []
     for s in STEPS:
         detail = steps.get(s, {}).get("detail", {})
         flags += [{"step": s, **f} for f in detail.get("flags", [])]
         gaps += [{"step": s, **g} for g in detail.get("gaps", [])]
-    return {"date": day.isoformat(), "book": book, "complete": not failed,
-            "failed_steps": failed, "watching": watching, "flags": flags, "gaps": gaps,
-            "steps": steps, "written_at_utc": _utc_now()}
+    report = {"date": day.isoformat(), "book": book, "complete": not failed,
+              "failed_steps": failed, "watching": watching, "flags": flags, "gaps": gaps,
+              "steps": steps, "written_at_utc": _utc_now()}
+    if unavailable:
+        report["unavailable"] = unavailable
+    return report
 
 
 def log_line(report: dict) -> str:
@@ -991,6 +1059,8 @@ def log_line(report: dict) -> str:
             f"gaps={len(report['gaps'])}")
     if report.get("watching"):
         line += " watching=" + ",".join(report["watching"])
+    for s, why in (report.get("unavailable") or {}).items():
+        line += f"; {s}: {why}"
     return line
 
 
@@ -1023,6 +1093,9 @@ def collect(ctx: Ctx, out=print) -> int:
             try:
                 rec = {"ok": True, "err": None,
                        "detail": STEP_FUNCS[name](ctx, day, clk, status)}
+            except SecondSourceUnavailable as e:     # retried, never INCOMPLETE (build_report)
+                rec = {"ok": False, "err": str(e), "detail": e.detail,
+                       "unavailable": e.status}
             except StepFailed as e:
                 rec = {"ok": False, "err": str(e), "detail": e.detail}
             except AlpacaError as e:
