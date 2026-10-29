@@ -136,6 +136,13 @@ class GateFacts:
     # frozen spec's `min_names` (gate_data_missing_nav).
     missing_nav: str | None = None
     min_names: int | None = None
+    # ... and its age limit (team lead 2026-10-29, a policy: book json
+    # data.missing_nav_max_sessions) with, per name whose NAV is not dated
+    # as-of, the consecutive prior sessions it went without one, read by run.py
+    # from <state>/<session>/plan.json (`run.missing_nav_streaks`), or why that
+    # count could not be read. Both None unless missing_nav is set.
+    missing_nav_max_sessions: int | None = None
+    missing_nav_held_before: dict | None = None
 
 
 # ----------------------------------------------------------------- the gates
@@ -513,8 +520,13 @@ def max_missing_nav_holds(n_names: int, min_names: int) -> int:
     return max(0, n_names - min_names)
 
 
+def max_sessions_ok(v) -> bool:
+    """A held-session limit must be a positive int (not a bool, not a float)."""
+    return isinstance(v, int) and not isinstance(v, bool) and v > 0
+
+
 def missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final,
-                     min_names) -> dict:
+                     min_names, max_sessions, held_before) -> dict:
     """Gate 5 with the book json's `data.missing_nav = "hold"`: what it refuses,
     what it holds, and why, for the single-sleeve book.
 
@@ -545,7 +557,23 @@ def missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final
       * AT OR AFTER the final check: no refusal, and each such name is held.
         The refresh's INCOMPLETE (exit 4) is then expected, not a fault: it is
         fetch_daily's answer for exactly these names, and gate 5 measured them
-        on the panel it wrote.
+        on the panel it wrote;
+      * ... UNLESS a name has already gone `max_sessions` consecutive prior
+        sessions without a dated NAV (`held_before[name] >= max_sessions`), or
+        that count could not be read from the records (`held_before[name]` is
+        a string saying why). Then the day is REFUSED, exactly as without the
+        key, with one line naming the fund and how long it has been held.
+    THE AGE LIMIT (team lead 2026-10-29: "limit it, then refuse the day").
+    `max_sessions` is the book json's data.missing_nav_max_sessions, a POLICY
+    of 2 consecutive sessions, not a measurement: PDO's 10-22 gap was one
+    session, so a late NAV can land the next day; a fund held longer is
+    trading blind on a frozen position. It was to be derived from how long the
+    vendor's gaps last, but prod's NAV panel (copy of 2026-10-28) shows none in
+    12 months: the vendor backfills dates, and a late NAV survives only as a
+    repeated value. It is to be reviewed against the live gaps in the run
+    records' `nav_dates`. The count survives across sessions because it is
+    read from them (`run.missing_nav_streaks`), never kept in memory, and an
+    unreadable record refuses rather than counting as zero.
     `final` must be exactly True or False. Returns {"action", "why",
     "missing", "held", "max_held", "refusals"}: `missing` maps each name whose
     NAV is not dated as-of to its last NAV date (None: no NAV at all); `held`
@@ -553,6 +581,9 @@ def missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final
     Refusal objects. Pure, like every gate here."""
     if final is not True and final is not False:
         raise ValueError(f"missing_nav_hold: final {final!r} must be True or False")
+    if not max_sessions_ok(max_sessions):
+        raise ValueError(f"missing_nav_hold: max_sessions {max_sessions!r} must be a "
+                         f"positive int")
     from quantt.session.nav_gate import FINAL_CHECK_BEFORE_CLOSE   # stdlib-only module
     universe = sorted(universe)
     max_held = max_missing_nav_holds(len(universe), min_names)
@@ -596,18 +627,38 @@ def missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final
                f"the other names decide")
         return {**out, "action": "deferred", "why": why,
                 "refusals": base + [Refusal("data", why)]}
+    if not isinstance(held_before, dict) or set(late) - set(held_before):
+        raise ValueError(f"missing_nav_hold: at the final check every name without a dated "
+                         f"NAV needs its prior count; got {held_before!r} for {sorted(late)}")
+    over = {}
+    for s in sorted(late):
+        n = held_before[s]
+        if isinstance(n, str):
+            over[s] = f"{s}: its prior sessions cannot be counted ({n})"
+        elif not (isinstance(n, int) and not isinstance(n, bool) and n >= 0):
+            raise ValueError(f"missing_nav_hold: held_before[{s!r}] {n!r} is not a count")
+        elif n >= max_sessions:
+            over[s] = (f"{s}: no NAV dated its as-of for the {n} consecutive sessions before "
+                       f"this one, held for each")
+    if over:
+        why = (f"missing-NAV hold (data.missing_nav=hold): age limit "
+               f"data.missing_nav_max_sessions = {max_sessions} consecutive sessions: "
+               f"{'; '.join(over.values())}; refused, as without the key")
+        return {**out, "action": "refused", "why": why,
+                "refusals": base + [Refusal("data", why)]}
     held = {s: (f"no NAV dated {asof} (the panel's last is {d}); held at the final check "
-                f"(data.missing_nav=hold)") for s, d in sorted(late.items())}
+                f"(data.missing_nav=hold), session {held_before[s] + 1} of at most "
+                f"{max_sessions}") for s, d in sorted(late.items())}
     return {**out, "action": "held", "held": held, "refusals": [],
             "why": f"{sorted(held)} held at current shares from the final check; "
                    f"{len(universe) - len(held)} of {len(universe)} names decide"}
 
 
 def gate_data_missing_nav(asof, refresh_exit, close_dates, nav_dates, universe, final,
-                          min_names) -> tuple[list[Refusal], dict]:
+                          min_names, max_sessions, held_before) -> tuple[list[Refusal], dict]:
     """(refusals, {held name: reason}): `missing_nav_hold` as a gate."""
     v = missing_nav_hold(asof, refresh_exit, close_dates, nav_dates, universe, final,
-                         min_names)
+                         min_names, max_sessions, held_before)
     return v["refusals"], v["held"]
 
 
@@ -623,7 +674,8 @@ def _gate_data_for(f: GateFacts) -> list[Refusal]:
         raise ValueError(f"GateFacts.missing_nav {f.missing_nav!r} is not one of "
                          f"{MISSING_NAV_MODES}")
     return gate_data_missing_nav(f.asof, f.refresh_exit, f.close_dates, f.nav_dates,
-                                 f.universe, f.data_final, f.min_names)[0]
+                                 f.universe, f.data_final, f.min_names,
+                                 f.missing_nav_max_sessions, f.missing_nav_held_before)[0]
 
 
 def gate_no_set_in_auction(started_exists, orders_recent, orders_open, cid_prefix,
