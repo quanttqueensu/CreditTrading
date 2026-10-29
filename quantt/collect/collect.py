@@ -67,6 +67,37 @@ method. Credentials never pass through here: the client keeps them in its HTTP
 session headers, and `account.json` drops the client's `raw` echo and any key
 that looks like a credential before it is written.
 
+THE C4 BOOK (C4 deployment plan step 3, DARK; team lead's fast-track 2026-10-28)
+------------------------------------------------------------------------------
+`--book c4` collects C4's data day for its 74 frozen funds, into `data/cef_c4/`
+and its own state directory, through the same steps where a step means the same
+thing, and through none that reads CEFConnect (the team lead's §3 ruling 3,
+accepted 2026-10-28). Its steps (`BOOKS["c4"]["steps"]`):
+  * `prices_nav`: `fetch_daily.py --require-asof D --data-book c4` (no --book:
+    every one of the 74 is deployed data; no fallback, which it would refuse).
+    Its exit 6 -- a split-like spike-and-revert bar in the fetched window, the
+    panel written whole -- is a FLAG here, report only like every flag in this
+    module; the C4 session, when it exists, must refuse on it.
+  * `nav_repeats` in place of `nav_crosscheck` and `cefconnect_arrival`: a NAV
+    dated D equal to the previous NAV row is a flag (`nav_repeat_m1`), read
+    from the panel alone. It is exactly the fund-day C4's mask M1 removes; with
+    no second source, this says how many of the 74 the mask took that day.
+  * `official_closes` for the 74 only (no `cef_universe.csv` in data/cef_c4),
+    `close_crosscheck`, `account_snapshot` and `eod_equity` on C4's own paper
+    account (`AlpacaClient.from_environment("c4")`, GETs only, as above),
+    `distributions` (`fetch_cef_distributions.py --data-book c4`) and
+    `borrow_snapshot`.
+`eod_from` for C4 is NOT SET: the date its account was first funded is not
+recorded anywhere this module can read, and inventing one would put a made-up
+start on the official P&L series. `eod_equity` fails naming it until the
+installer step records it. The run also refuses a state directory not named
+`c4` (`state_dir_name`): the core's state dir holds `data/<D>/status.json` for
+the same D, and C4's record written there would overwrite the core's.
+DEFAULT OFF: no plist or systemd unit names `--book c4` (the installer's BOOK
+is "cef"); nothing runs this until the installer step adds C4's units. With
+`--book cef` every command, call, file and line is the one 29e5dc0 made
+(quantt/collect/tests/test_collect_books.py).
+
 EXIT CODES
 ----------
 0  complete, or idle (nothing to do).
@@ -150,7 +181,8 @@ WATCH_STEPS = ("cefconnect_arrival",)
 ARRIVAL_FILE = "cefconnect_arrival.csv"
 ARRIVAL_COLUMNS = ("date", "ticker", "last_absent_utc", "first_seen_utc", "polls", "nav")
 DEPENDS_ON = {"nav_crosscheck": ("prices_nav",),
-              "close_crosscheck": ("prices_nav", "official_closes")}
+              "close_crosscheck": ("prices_nav", "official_closes"),
+              "nav_repeats": ("prices_nav",)}
 
 OFFICIAL_CLOSE_FILE = "alpaca_official_close.parquet"
 OFFICIAL_CLOSE_COLUMNS = ("date", "ticker", "price", "exchange", "condition", "t",
@@ -173,8 +205,28 @@ CREDENTIAL_KEY = re.compile(r"key|secret|token|password|auth", re.I)
 # back as equity 0 and the client drops them by name (alpaca.py
 # `eod_equity_history`), so the first row written is the first funded session
 # whichever day that was.
+#
+# Every key, per book (module docstring, THE C4 BOOK). The core's values are the
+# behaviour this module had before C4: its book json, data/cef, every step,
+# the official closes of cef_universe.csv and the deployed names, no
+# --data-book argument, no spike flag, any state directory.
+#   steps            the steps run, in order
+#   data_book        fetch_daily / fetch_cef_distributions `--data-book`; None: not passed
+#   close_universe   the file in the book's data dir naming extra symbols to
+#                    record official closes for; None: the deployed names only
+#   spike_flag       fetch_daily's exit 6 is a flag, not a failure (C4's spike guard)
+#   state_dir_name   the name QUANTT_STATE_DIR must have; None: not checked
+C4_STEPS = ("prices_nav", "nav_repeats", "official_closes", "close_crosscheck",
+            "account_snapshot", "distributions", "borrow_snapshot", "eod_equity")
+FETCH_EXIT_SPIKE = 6                 # scripts/cef/fetch_daily.py EXIT_SPIKE
 BOOKS = {"cef": {"book_path": "ops/books/cef_discount_book.json",
-                 "eod_from": dt.date(2026, 9, 28)}}
+                 "eod_from": dt.date(2026, 9, 28),
+                 "steps": STEPS, "data_book": None, "close_universe": "cef_universe.csv",
+                 "spike_flag": False, "state_dir_name": None},
+         "c4": {"book_path": None,
+                "eod_from": None,    # not recorded: module docstring, THE C4 BOOK
+                "steps": C4_STEPS, "data_book": "c4", "close_universe": None,
+                "spike_flag": True, "state_dir_name": "c4"}}
 
 EXIT_OK, EXIT_INCOMPLETE, EXIT_UNEXPECTED = 0, 5, 20
 
@@ -197,9 +249,9 @@ class Ctx:
     book: str
     client: Any                  # the GET surface of quantt.broker.alpaca.AlpacaClient
     state_dir: Path              # QUANTT_STATE_DIR
-    cef_dir: Path                # data/cef
+    cef_dir: Path                # the book's panels: data/cef, or data/cef_c4 for C4
     repo: Path
-    book_path: str               # repo-relative, as fetch_daily's --book takes it
+    book_path: str | None        # repo-relative, as fetch_daily's --book takes it; None: C4
     deployed: list               # frozen.universe
     run: Callable                # (cmd, timeout_s) -> (exit code | None on timeout, tail)
     cefconnect_nav: Callable     # (ticker, date) -> float | None; raises CefConnectError
@@ -330,13 +382,27 @@ def step_prices_nav(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
     which nothing then compared. Without it, this step completes only on
     yfinance NAVs, and nav_crosscheck compares exactly those against CEFConnect,
     an independent source. The SESSION still uses the fallback (RUNNER.md step 1);
-    a name it filled from CEFConnect is still reported as a same-source gap."""
-    cmd = [sys.executable, "scripts/cef/fetch_daily.py", "--require-asof", day.isoformat(),
-           "--book", ctx.book_path]
+    a name it filled from CEFConnect is still reported as a same-source gap.
+
+    C4 (module docstring, THE C4 BOOK): `--data-book c4` and no `--book`, and
+    exit 6 is a flag naming the spike guard's verdict, with the step done: the
+    panel was written whole and complete, and the verdict is the session's."""
+    conf = BOOKS[ctx.book]
+    cmd = [sys.executable, "scripts/cef/fetch_daily.py", "--require-asof", day.isoformat()]
+    if ctx.book_path is not None:
+        cmd += ["--book", ctx.book_path]
+    if conf["data_book"] is not None:
+        cmd += ["--data-book", conf["data_book"]]
     code, tail = ctx.run(cmd, PRICES_NAV_TIMEOUT_S)
     detail = {"exit": code, "tail": tail, "flags": [], "gaps": []}
     if code is None:
         raise StepFailed(f"fetch_daily timed out after {PRICES_NAV_TIMEOUT_S}s", detail)
+    if code == FETCH_EXIT_SPIKE and conf["spike_flag"]:
+        detail["flags"].append({"check": "spike_revert",
+                                "reason": "fetch_daily exited 6: a split-like spike-and-revert "
+                                          "bar in the fetched window has no ruling (its tail "
+                                          "names it); the panel was written"})
+        return detail
     if code != 0:
         raise StepFailed(f"fetch_daily exited {code}", detail)
     return detail
@@ -425,6 +491,38 @@ def step_nav_crosscheck(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict
     return detail
 
 
+def step_nav_repeats(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
+    """C4's NAV check, from the panel alone (module docstring, THE C4 BOOK). Report only.
+
+    WHY NOT CEFCONNECT. The team lead ruled C4 reads none (plan §3 item 3,
+    accepted 2026-10-28), so there is no independent NAV to compare with. What
+    can be measured is the fund-day C4's NAV-repeat mask M1 removes: a NAV dated
+    D equal to the fund's previous NAV row (`nav_gate.repeats`, the test the
+    core's repeat flag uses). Each is a flag `nav_repeat_m1` naming both values,
+    so the day's report says how much of the 74 the mask took; none fails the
+    step. A fund with no NAV dated D, or an empty one, is a gap naming it, as in
+    `step_nav_crosscheck`."""
+    nav_panel = _read_parquet(ctx.cef_dir / "cef_nav.parquet", "NAV panel")
+    rows = _on_day(nav_panel, day)
+    flags, gaps = [], []
+    for t in ctx.deployed:
+        v = _one_value(rows, t, "nav", "cef_nav.parquet")
+        if v is None:
+            gaps.append({"fund": t, "reason": f"cef_nav.parquet has no NAV dated {day}"})
+        elif not (math.isfinite(v) and v > 0):
+            gaps.append({"fund": t, "reason": f"cef_nav.parquet's row dated {day} is empty "
+                                              f"(nav {v}): no NAV to check"})
+    for r in nav_repeats(nav_panel, day, ctx.deployed):
+        flags.append({"fund": r.ticker, "check": "nav_repeat_m1",
+                      "source_a": "cef_nav.parquet (yfinance)", "value_a": r.nav_d,
+                      "source_b": f"cef_nav.parquet previous row {r.prev_date}",
+                      "value_b": r.nav_prev, "diff": round(r.nav_d - r.nav_prev, 6),
+                      "reason": f"NAV dated {day} equals the previous NAV ({r.prev_date}): "
+                                f"C4's mask M1 removes this fund-day; no second source is "
+                                f"read for C4"})
+    return {"flags": flags, "gaps": gaps}
+
+
 def step_official_closes(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
     """Alpaca's official closing-auction print (primary listing, condition M) for D,
     for every name in cef_universe.csv and every deployed name.
@@ -442,11 +540,15 @@ def step_official_closes(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dic
         raise StepFailed(f"auction prints for {day} are not queryable on the Basic data "
                          f"plan until {ready.isoformat()}",
                          {"flags": [], "gaps": []})
-    uni_path = ctx.cef_dir / "cef_universe.csv"
-    if not uni_path.exists():
-        raise StepFailed(f"{uni_path} does not exist; it names the symbols to fetch",
-                         {"flags": [], "gaps": []})
-    symbols = sorted(set(pd.read_csv(uni_path)["ticker"]) | set(ctx.deployed))
+    extra = BOOKS[ctx.book]["close_universe"]
+    if extra is None:                    # C4: the 74 are the whole universe
+        symbols = sorted(set(ctx.deployed))
+    else:
+        uni_path = ctx.cef_dir / extra
+        if not uni_path.exists():
+            raise StepFailed(f"{uni_path} does not exist; it names the symbols to fetch",
+                             {"flags": [], "gaps": []})
+        symbols = sorted(set(pd.read_csv(uni_path)["ticker"]) | set(ctx.deployed))
     path = ctx.cef_dir / OFFICIAL_CLOSE_FILE
     old = pd.read_parquet(path) if path.exists() else None
     have = set(_on_day(old, day)["ticker"]) if old is not None else set()
@@ -708,7 +810,15 @@ def step_eod_equity(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
     in the wrong format, makes the day INCOMPLETE in data.log. The monitor
     reading this file must not lose it quietly.
     """
-    points = ctx.client.eod_equity_history(BOOKS[ctx.book]["eod_from"], day)
+    eod_from = BOOKS[ctx.book]["eod_from"]
+    if eod_from is None:
+        # C4 (module docstring, THE C4 BOOK): never a made-up start for the
+        # official series. Fails visibly until the installer step records it.
+        raise StepFailed(f"BOOKS[{ctx.book!r}]['eod_from'] is not set: the date this book's "
+                         f"paper account was first funded is not recorded; the installer step "
+                         f"must record it before the EOD series is read",
+                         {"flags": [], "gaps": []})
+    points = ctx.client.eod_equity_history(eod_from, day)
     now = clk["timestamp"]
     path = ctx.state_dir / EOD_FILE
     old = _read_eod(path)
@@ -753,13 +863,21 @@ def step_eod_equity(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
 
 
 def step_distributions(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
-    """scripts/fetch_cef_distributions.py, which reads cef_universe.csv at import."""
-    uni = ctx.cef_dir / "cef_universe.csv"
-    if not uni.exists():
-        raise StepFailed(f"{uni} does not exist; fetch_cef_distributions.py needs it",
-                         {"flags": [], "gaps": []})
-    code, tail = ctx.run([sys.executable, "scripts/fetch_cef_distributions.py"],
-                         DISTRIBUTIONS_TIMEOUT_S)
+    """scripts/fetch_cef_distributions.py, which reads cef_universe.csv at import.
+
+    C4: `--data-book c4`, whose universe is the tracked frozen file
+    (scripts/cef/data_books.py); the script refuses on its own if that file or
+    data/cef_c4/ is missing, and that refusal is this step's failure."""
+    data_book = BOOKS[ctx.book]["data_book"]
+    cmd = [sys.executable, "scripts/fetch_cef_distributions.py"]
+    if data_book is None:
+        uni = ctx.cef_dir / "cef_universe.csv"
+        if not uni.exists():
+            raise StepFailed(f"{uni} does not exist; fetch_cef_distributions.py needs it",
+                             {"flags": [], "gaps": []})
+    else:
+        cmd += ["--data-book", data_book]
+    code, tail = ctx.run(cmd, DISTRIBUTIONS_TIMEOUT_S)
     detail = {"exit": code, "tail": tail, "flags": [], "gaps": []}
     if code is None:
         raise StepFailed(f"fetch_cef_distributions timed out after {DISTRIBUTIONS_TIMEOUT_S}s", detail)
@@ -951,6 +1069,7 @@ def step_cefconnect_arrival(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> 
 
 
 STEP_FUNCS = {"prices_nav": step_prices_nav, "nav_crosscheck": step_nav_crosscheck,
+              "nav_repeats": step_nav_repeats,
               "official_closes": step_official_closes, "close_crosscheck": step_close_crosscheck,
               "account_snapshot": step_account_snapshot, "eod_equity": step_eod_equity,
               "distributions": step_distributions,
@@ -972,10 +1091,11 @@ def _load_status(path: Path, day: dt.date) -> dict:
 
 def build_report(day: dt.date, book: str, status: dict) -> dict:
     steps = status["steps"]
-    failed = [s for s in STEPS if not steps.get(s, {}).get("ok") and s not in WATCH_STEPS]
-    watching = [s for s in WATCH_STEPS if not steps.get(s, {}).get("ok")]
+    order = BOOKS[book]["steps"]         # the core's: STEPS, as always
+    failed = [s for s in order if not steps.get(s, {}).get("ok") and s not in WATCH_STEPS]
+    watching = [s for s in WATCH_STEPS if s in order and not steps.get(s, {}).get("ok")]
     flags, gaps = [], []
-    for s in STEPS:
+    for s in order:
         detail = steps.get(s, {}).get("detail", {})
         flags += [{"step": s, **f} for f in detail.get("flags", [])]
         gaps += [{"step": s, **g} for g in detail.get("gaps", [])]
@@ -1008,7 +1128,7 @@ def collect(ctx: Ctx, out=print) -> int:
     day_dir = ctx.state_dir / "data" / day.isoformat()
     status_path = day_dir / "status.json"
     status = _load_status(status_path, day)
-    pending = [s for s in STEPS if not status["steps"].get(s, {}).get("ok")]
+    pending = [s for s in BOOKS[ctx.book]["steps"] if not status["steps"].get(s, {}).get("ok")]
     if not pending:
         out(f"IDLE {day} complete")
         return EXIT_OK
@@ -1072,11 +1192,19 @@ class _CollectorLock:
 
 def build_ctx(book: str, state_dir: Path) -> Ctx:
     from quantt.broker.alpaca import AlpacaClient
-    from scripts.cef.spec import frozen
+    if BOOKS[book]["data_book"] is None:
+        from scripts.cef.spec import frozen
+        return Ctx(book=book, client=AlpacaClient.from_environment(book), state_dir=state_dir,
+                   cef_dir=REPO / "data" / "cef", repo=REPO,
+                   book_path=BOOKS[book]["book_path"], deployed=sorted(frozen("universe")),
+                   run=run_subprocess(REPO), cefconnect_nav=cefconnect_nav)
+    # C4 (module docstring, THE C4 BOOK): its funds and directory from the one
+    # place the fetchers read them, and a CEFConnect reader that raises.
+    from scripts.cef import data_books
     return Ctx(book=book, client=AlpacaClient.from_environment(book), state_dir=state_dir,
-               cef_dir=REPO / "data" / "cef", repo=REPO,
-               book_path=BOOKS[book]["book_path"], deployed=sorted(frozen("universe")),
-               run=run_subprocess(REPO), cefconnect_nav=cefconnect_nav)
+               cef_dir=Path(data_books.C4_DIR), repo=REPO, book_path=BOOKS[book]["book_path"],
+               deployed=sorted(data_books.c4_universe()), run=run_subprocess(REPO),
+               cefconnect_nav=data_books.refuse_cefconnect(book))
 
 
 def main(argv=None, *, make_ctx=build_ctx, env=None) -> int:
@@ -1089,6 +1217,14 @@ def main(argv=None, *, make_ctx=build_ctx, env=None) -> int:
         state_dir = state_dir_from_env(env)
     except StateDirError as e:       # nowhere to record it: stderr, exit 20
         print(f"DATA ERROR {e}", file=sys.stderr)
+        return EXIT_UNEXPECTED
+    want = BOOKS[args.book]["state_dir_name"]
+    if want is not None and state_dir.name != want:
+        # Before the lock, and before anything is written (module docstring,
+        # THE C4 BOOK): another book's state dir is not this book's to write.
+        print(f"DATA ERROR --book {args.book} needs its own state directory, named {want!r}; "
+              f"QUANTT_STATE_DIR={state_dir} is not (another book's status.json for the same "
+              f"day would be overwritten)", file=sys.stderr)
         return EXIT_UNEXPECTED
     lock = _CollectorLock(state_dir / "data" / ".collect.lock")
     if not lock.acquire():
