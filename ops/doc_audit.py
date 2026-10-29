@@ -268,9 +268,11 @@ _KNOWN_DESK_NAMES = {
               # naming one is caught as a ghost.
               "quant-researcher", "data-engineer", "data-analyst", "statistician",
               "ml-engineer", "backtest-engineer", "quant-trader",
-              # the SS seats on branch simon; data-librarian and
-              # event-econometrician are superseded by data-engineer and
-              # statistician and should be deleted when simon merges
+              # the event desk's seats, added 2026-10-19 on branch simon;
+              # data-librarian and event-econometrician are superseded by
+              # data-engineer and statistician and should be deleted when simon
+              # merges. The 2026-10-28 merge of simon kept both seats (a merge
+              # drops nothing); deleting them is the team lead's call.
               "event-scout", "filings-analyst", "deal-analyst",
               "credit-situations-analyst", "data-librarian", "event-econometrician"},
 }

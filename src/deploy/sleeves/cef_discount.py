@@ -60,6 +60,28 @@ measured to go wrong.
                       `max_gross_stress` scales the held book down -- never up,
                       never flat -- until it fits.
                       `ng/05_research_no_borrow_rescore.md` §6.2, §8.2.
+
+FOUR MORE OPTIONAL KEYS LET A SECOND SPEC REUSE THIS SLEEVE (C4 deployment
+plan, results/cef/C4_DEPLOY_PLAN_2026-10-27.md §1 row 1, added 2026-10-27).
+Trial C4 (results/cef/PREREG_C4_FAMILIES_2026-10-13.md) ran this z-score on 74
+other funds through `band_frontier.build_targets(universe=, source=, mask=)`.
+Rather than copy the signal into a C4 module, the C4 spec will name:
+
+  `panel_source`      which price and NAV parquet the sleeve reads
+                      (`panel_paths`). Absent: `data/cef/`, as today.
+  `nav_repeat_mask`   M1: a fund-day whose NAV equals its previous NAV row
+                      exactly has no discount (`_discount_masks`).
+  `zero_volume_mask`  M2: a fund-day with zero volume has no discount.
+  `below_min_names`   "flatten" (absent; today's rule) or "hold" (the
+                      trial's): what the book does when fewer than
+                      `min_names` funds are eligible.
+
+ALL FOUR ABSENT IS TODAY'S BOOK, BYTE FOR BYTE: the 13's plan.json, orders and
+plan_sha were pinned from the code before the keys existed
+(`quantt/session/tests/test_c4_keys_noop.py`), and the sleeve's targets were
+diffed before and after on 1,758 real-panel date-books (the commit message).
+Each key is parsed once, in `src/deploy/registry.py`, and a malformed value
+raises naming it.
 """
 from __future__ import annotations
 
@@ -69,7 +91,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..registry import register
+from ..registry import (CEF_MASK_KEYS, cef_below_min_names, cef_mask_flag,
+                        cef_optional_keys, cef_panel_source, register)
 from ..sleeve import ETF, FLAT, LONG, OK, SHORT, HALVE, KILL
 from ..sleeve import MarketState, PositionTarget, RiskVerdict, Sleeve
 
@@ -291,11 +314,46 @@ def _held_target(tk: str, market_state, reason: str, order_type: str) -> Positio
                           meta={"order_type": order_type}, reason=f"cef: held, {reason}")
 
 
+def _nav_repeat(nav: pd.DataFrame) -> pd.Series:
+    """True where a fund's NAV equals its own PREVIOUS NAV ROW exactly; aligned to `nav`.
+
+    THE TRIAL'S DEFINITION, OPERATION FOR OPERATION. M1 is declared in
+    PREREG_C4_FAMILIES_2026-10-13 §4.3 ("a fund-day whose yfinance NAV equals
+    that fund's previous yfinance NAV row exactly has no discount that day") and
+    was computed by `scripts/cef/c4_feasibility.py::repeat_mask`, which
+    `c4_families.declared_mask` applied. This is the same sort, the same
+    per-ticker `diff`, the same `eq(0)` -- copied rather than imported because
+    `scripts/` is never on the live path (CLAUDE.md layout).
+    `src/deploy/tests/test_c4_sleeve_keys.py` holds the two equal on a messy
+    frame, so the copy cannot drift silently.
+
+    "Previous ROW" is the NAV file's previous row for the fund, not the previous
+    session of the joined panel: a NAV row with no price that day, or one below
+    the $0.50 floor, is still the NAV the next row is compared with, exactly as
+    in the trial. A NaN NAV is never a repeat (NaN - x is NaN, and NaN == 0 is
+    False), and neither is a fund's first row.
+
+    No lookahead: the flag on row t reads row t and the row before it, both
+    published by t's decision (the sleeve decides after t's NAV is out).
+    """
+    n = nav.sort_values(["ticker", "date"])
+    rep = n.groupby("ticker")["nav"].diff().eq(0)
+    return rep.reindex(nav.index)
+
+
 @register
 class CEFDiscountSleeve(Sleeve):
     """Dollar-neutral, cross-sectional discount reversion in credit CEFs."""
 
     alloc_type = "cef_discount"
+
+    def __init__(self, spec: dict, capital_usd: float):
+        """Parses the four optional C4 keys at construction (absent: nothing to
+        parse, and nothing else happens). Tests and tools build this class
+        without the registry; a malformed key must refuse there too, and on
+        every day rather than on the first day its branch is reached."""
+        super().__init__(spec, capital_usd)
+        cef_optional_keys(self.frozen)
 
     # ---- config ------------------------------------------------------------
     # Every knob below is REQUIRED in the frozen spec, and a missing one raises
@@ -386,6 +444,36 @@ class CEFDiscountSleeve(Sleeve):
     def _rebal_days(self) -> int:
         return max(1, int(self._req("rebalance_days")))
 
+    @property
+    def _below_min_names(self) -> str:
+        """"flatten" (ABSENT: today's rule) or "hold" (trial C4's). See the
+        `min_names` block in `target_positions`; parsed in the registry."""
+        return cef_below_min_names(self.frozen)
+
+    def panel_paths(self) -> tuple[Path, Path]:
+        """(prices, nav): the two parquet files this sleeve decides on.
+
+        `panel_source` ABSENT: the module's PX_PATH and NAV_PATH, read at CALL
+        time so the tests and the runner's no-op proofs can patch them, exactly
+        as before the key existed -- `data/cef/`, the 13's panels. PRESENT:
+        `REPO / <path>` for each (`registry.cef_panel_source` says what a valid
+        path is). C4's will name the families panels that plan row 3 builds
+        nightly, so the core's `data/cef/` is never written for it.
+
+        NOT YET READ BY THE RUNNER. `quantt/session/run.py` still takes the
+        closes it sizes on, the NAV dates gate 5 checks and the stale-NAV gate's
+        panel from `cefmod.PX_PATH` / `NAV_PATH` (run.py:552, 748-755). Making
+        it read this method is plan row 6A (§2 step 5). Until then a spec whose
+        panel is not the core's would decide on one panel and size on another,
+        so the runner REFUSES it (`quantt/session/run.py::require_core_panel`,
+        called by `sleeve_targets` and `default_deps`). The refusal lives in the
+        runner, not the registry: research and the tests build such specs.
+        """
+        src = cef_panel_source(self.frozen)
+        if src is None:
+            return PX_PATH, NAV_PATH
+        return REPO / src[0], REPO / src[1]
+
     def _groups(self) -> dict:
         """muni vs taxable by STATED MANDATE, read from the price panel's `grp`.
 
@@ -411,17 +499,24 @@ class CEFDiscountSleeve(Sleeve):
         naming what is missing. A defaulted mandate would put a name on the
         wrong side of the very constraint being applied, and nothing downstream
         would notice.
+
+        WITH `panel_source` SET the axis is read from THAT spec's price file,
+        for the reason above: one path, the one the prices come from. Reading
+        the core's `data/cef/` for another universe would raise on every name
+        (no `grp` row), or worse, find a stale row for a ticker both panels
+        hold. Absent, GRP_PATH as before.
         """
-        if not GRP_PATH.exists():
+        grp_path = GRP_PATH if cef_panel_source(self.frozen) is None else self.panel_paths()[0]
+        if not grp_path.exists():
             raise FileNotFoundError(
-                f"cef group_cap is set but the group source {GRP_PATH} does not "
+                f"cef group_cap is set but the group source {grp_path} does not "
                 f"exist. The muni/taxable axis is read from the price panel's "
                 f"`grp` column; there is no second source and no default.")
         try:
-            P = pd.read_parquet(GRP_PATH, columns=["ticker", "grp"])
+            P = pd.read_parquet(grp_path, columns=["ticker", "grp"])
         except Exception as exc:                      # noqa: BLE001 -- re-raised
             raise ValueError(
-                f"cef group_cap is set but {GRP_PATH} has no readable "
+                f"cef group_cap is set but {grp_path} has no readable "
                 f"ticker/grp columns ({exc}). Refusing to guess a mandate."
             ) from exc
         P = P.drop_duplicates()
@@ -429,14 +524,14 @@ class CEFDiscountSleeve(Sleeve):
         ambiguous = sorted(n[n != 1].index)
         if ambiguous:
             raise ValueError(
-                f"cef group_cap: {GRP_PATH} gives more than one `grp` for "
+                f"cef group_cap: {grp_path} gives more than one `grp` for "
                 f"{ambiguous}; the mandate axis must be unique per name.")
         g = P.groupby("ticker")["grp"].first().to_dict()
         uni = self.instruments()
         missing = sorted(set(uni) - set(g))
         if missing:
             raise ValueError(
-                f"cef group_cap: no `grp` for {missing} in {GRP_PATH}; "
+                f"cef group_cap: no `grp` for {missing} in {grp_path}; "
                 f"refusing to guess a mandate.")
         return {t: ("muni" if g[t] == "muni" else "taxable") for t in uni}
 
@@ -452,36 +547,162 @@ class CEFDiscountSleeve(Sleeve):
 
         Read from the staged parquet rather than MarketState because NAV is not
         a price and the book's loader has no concept of it.
+
+        THE CONTRACT IS UNCHANGED: `(px, nav, vol)` or None.
+        `scripts/cef/vol_scalar_history.py` and its test read it. Since the C4
+        keys (2026-10-27) it is a view of `_read_panel`, which also returns the
+        raw NAV rows M1 needs; the masks are not applied here.
         """
-        if not (PX_PATH.exists() and NAV_PATH.exists()):
+        got = self._read_panel(asof)
+        return None if got is None else got[:3]
+
+    def _read_panel(self, asof) -> tuple[pd.DataFrame, ...] | None:
+        """`(px, nav, vol, navrows)` up to and including `asof`, or None.
+        `navrows` is the NAV file's rows for the universe, every date, before
+        the join with prices: M1 compares a NAV with its previous NAV ROW,
+        priced or not (`_nav_repeat`). Which parquet: `panel_paths()`.
+
+        A MISSING OR EMPTY PANEL: with `panel_source` absent this returns None
+        and the caller emits every name FLAT, as it always has. With
+        `panel_source` SET it raises, naming the file. A spec that names its
+        own panel and finds none has a broken data step (for C4, plan row 3),
+        and flattening the book on a missing file is the wrong answer to a
+        missed refresh: a raise is a missed day, which the runner records.
+        """
+        explicit = cef_panel_source(self.frozen) is not None
+        px_path, nav_path = self.panel_paths()
+        if not (px_path.exists() and nav_path.exists()):
+            if explicit:
+                raise FileNotFoundError(
+                    f"cef: panel_source names {px_path} and {nav_path}; "
+                    f"{[str(p) for p in (px_path, nav_path) if not p.exists()]} do not exist. "
+                    f"Not deciding, and not flattening, on a panel that is not there.")
             return None
-        P = pd.read_parquet(PX_PATH)
-        N = pd.read_parquet(NAV_PATH)
+        P = pd.read_parquet(px_path)
+        N = pd.read_parquet(nav_path)
         uni = set(self.instruments())
         P, N = P[P.ticker.isin(uni)], N[N.ticker.isin(uni)]
         d = P.merge(N, on=["date", "ticker"], how="inner")
         d["date"] = pd.to_datetime(d["date"])
         d = d[(d.date <= pd.Timestamp(asof)) & (d.nav > 0.5) & (d.close > 0.5)]
         if d.empty:
+            if explicit:
+                raise ValueError(
+                    f"cef: panel_source {px_path} / {nav_path} holds no paired price and NAV "
+                    f"above $0.50 for {sorted(uni)} on or before {pd.Timestamp(asof).date()}")
             return None
         px = d.pivot_table(index="date", columns="ticker", values="close")
         nav = d.pivot_table(index="date", columns="ticker", values="nav")
         vol = d.pivot_table(index="date", columns="ticker", values="volume")
-        return px.sort_index(), nav.sort_index(), vol.sort_index()
+        px, nav, vol = px.sort_index(), nav.sort_index(), vol.sort_index()
+        return px, nav, vol, N
+
+    def _discount_masks(self, N: pd.DataFrame, px: pd.DataFrame, vol: pd.DataFrame,
+                        asof) -> dict | None:
+        """{mask key: date x ticker bool}: the fund-days with NO DISCOUNT. None
+        when neither `nav_repeat_mask` nor `zero_volume_mask` is on.
+
+        WHAT A MASK DOES, AND WHAT IT DOES NOT (PREREG_C4_FAMILIES §4.3, and the
+        harness's `band_frontier.build_panel(mask=)` that scored it). A masked
+        fund-day's DISCOUNT is NaN: that day the fund is not eligible (its z is
+        NaN), and the day does not count toward its z-window history (the
+        rolling mean and sd count non-NaN rows, and the 120 minimum is a count
+        of them). Its price, return, volume and ADV are untouched -- a masked
+        day still trades and still earns -- and so is its NAV, so the
+        `max_nav_age_bd` check reads the same NAV dates as before.
+
+          M1, `nav_repeat_mask`: `_nav_repeat` on the NAV file's rows for the
+              universe, whatever their price, then on the panel's paired
+              fund-days. Every vendor stale copy is such a repeat; most repeats
+              are NOT stale copies, and the trial accepted that cost in breadth
+              (4.1-8.4% of eligible fund-days per era, §4.3) for a rule that
+              needs no second source and acts the same in every year.
+          M2, `zero_volume_mask`: volume exactly 0 on a paired fund-day. The
+              trial measured none among eligible fund-days over 2005-2026; it
+              is a guard.
+
+        Each is built exactly as `scripts/cef/c4_families.py::declared_mask`
+        builds it (the pivot with `aggfunc="max"`, `eq(True)`, `& paired`), so
+        the C4 spec decides on the masks the trial was scored with.
+
+        ALIGNMENT (H7). Both read date-t data only: t's volume, and t's NAV with
+        the NAV row before it. The sleeve decides after t's close and t's NAV,
+        which is why execution is shift(2). The NAV rows are cut at `asof`
+        BEFORE the repeat is computed, so no later row can reach the flag; for
+        every row at or before `asof` the flag equals the trial's, which
+        computed it on the whole file (a diff only looks back). The check below
+        refuses a mask that reaches past `asof` at all.
+        """
+        on = [k for k in CEF_MASK_KEYS if cef_mask_flag(self.frozen, k)]
+        if not on:
+            return None
+        ts = pd.Timestamp(asof)
+        paired = px.notna()
+        out = {}
+        if "nav_repeat_mask" in on:
+            n = N[["date", "ticker", "nav"]].copy()
+            n["date"] = pd.to_datetime(n["date"])
+            n = n[n["date"] <= ts]
+            n["repeat"] = _nav_repeat(n)
+            rep = n.pivot_table(index="date", columns="ticker", values="repeat", aggfunc="max")
+            out["nav_repeat_mask"] = (rep.reindex(index=paired.index, columns=paired.columns)
+                                      .eq(True) & paired)
+        if "zero_volume_mask" in on:
+            out["zero_volume_mask"] = vol.reindex_like(paired).eq(0) & paired
+        for k, m in out.items():
+            if len(m.index) and m.index.max() > ts:
+                raise AssertionError(f"cef {k}: mask dated {m.index.max().date()} is after the "
+                                     f"decision date {ts.date()}; lookahead")
+        return out
 
     # ---- signal ------------------------------------------------------------
     def target_positions(self, asof, market_state: MarketState) -> list[PositionTarget]:
-        panel = self._panel(asof)
+        panel = self._read_panel(asof)
         uni = self.instruments()
+        # A DATA SHORTFALL NEVER FLATTENS A C4-STYLE BOOK (review of 11790b5).
+        # With `panel_source` or `below_min_names = "hold"` set, a missing panel
+        # or one too short to score RAISES, naming the shortfall: the first
+        # means a broken data step, and flattening on it is the wrong answer to
+        # a missed refresh (`_read_panel`); the second asked for the book to
+        # hold rather than close when the cross-section is short, and a FLAT
+        # book on a data gap is the very close it asked not to make. Reproduced
+        # on the 13's last 150 sessions with hold on: held PDI +500 / HYT -800
+        # came out FLAT "insufficient history". A raise is a missed day, which
+        # the runner records. Both keys ABSENT: the FLAT returns below, as ever.
+        strict = (cef_panel_source(self.frozen) is not None
+                  or self._below_min_names == "hold")
         if panel is None:
+            if strict:
+                raise ValueError(
+                    f"cef: no paired price/NAV panel at {self.panel_paths()} on or before "
+                    f"{pd.Timestamp(asof).date()}; refusing to flatten a book that sets "
+                    f"panel_source or below_min_names='hold' on a missing panel")
             return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                    reason="cef: no price/NAV panel") for t in uni]
-        px, nav, vol = panel
+        px, nav, vol, navrows = panel
         if len(px) < self._win + 20:
+            if strict:
+                raise ValueError(
+                    f"cef: the panel at {self.panel_paths()} holds {len(px)} paired sessions "
+                    f"through {pd.Timestamp(asof).date()}; the z-score needs z_window "
+                    f"{self._win} + 20 = {self._win + 20}, {self._win + 20 - len(px)} short. "
+                    f"Not deciding, and not flattening, on a panel too short to score")
             return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                    reason="cef: insufficient history") for t in uni]
 
         disc = 100.0 * (px - nav) / nav
+        no_disc = self._discount_masks(navrows, px, vol, asof)
+        if no_disc is not None:
+            # M1 / M2 (`_discount_masks`): a masked fund-day has no discount, so
+            # it is neither eligible today nor part of anyone's z-window
+            # history. Applied BEFORE mu and sd, as `band_frontier.build_panel`
+            # applies the trial's mask, and to the discount only. ABSENT (both
+            # keys off) this block is skipped and `disc` is today's, untouched.
+            m = None
+            for k in CEF_MASK_KEYS:
+                if k in no_disc:
+                    m = no_disc[k] if m is None else (m | no_disc[k])
+            disc = disc.mask(m.reindex(index=disc.index, columns=disc.columns, fill_value=False))
         mu = disc.rolling(self._win, min_periods=120).mean().shift(1)
         sd = disc.rolling(self._win, min_periods=120).std().shift(1)
         z = ((disc - mu) / sd.replace(0, np.nan)).clip(-4, 4)
@@ -523,6 +744,12 @@ class CEFDiscountSleeve(Sleeve):
         for tk in px.columns:
             zi = z.loc[last, tk]
             if not np.isfinite(zi):
+                # A masked name says why it is out, rather than reading "below
+                # min weight" downstream. Only reachable with a mask key on.
+                if no_disc is not None:
+                    why = [k for k in CEF_MASK_KEYS if k in no_disc and bool(no_disc[k].loc[last, tk])]
+                    if why:
+                        dropped.append((tk, f"no discount today ({', '.join(why)})"))
                 continue
             # ADV is NaN when fewer than 21 of the last 63 sessions have a price x
             # volume. That is liquidity UNMEASURED, not a pass: `float(nan or 0.0)`
@@ -549,6 +776,42 @@ class CEFDiscountSleeve(Sleeve):
             row[tk] = float(zi)
 
         if len(row) < int(self._req("min_names")):
+            # `below_min_names = "hold"` (trial C4's rule; ABSENT is "flatten",
+            # the code below, unchanged). `build_targets` HOLDS the previous
+            # target when fewer than `min_names` are eligible
+            # (band_frontier.py, "hold; nothing eligible"), and C4 was scored
+            # that way (PREREG_C4 §4.2). The pre-registration's declared book
+            # (shortable, masked) had fewer than 6 eligible on 10.5% of fit
+            # sessions and 5.3% in 2023-26 (§11.1, `c4_feasibility.py`, measured
+            # 2026-10-13, before the amendment froze the 74), and a rule that closes
+            # the whole book on each such day and reopens it on the next would
+            # trade round trips the trial never paid. Live, the
+            # reference state is what the account HOLDS, not a stored target
+            # (PREREG_C4 §3 item 6), so "hold" is: every name keeps its current
+            # shares (`_held_target`: a qty target, so decide sends nothing),
+            # and an unheld name stays unopened. The band and the gross cap do
+            # not run: nothing is resized. Holds from the stale-NAV gate are
+            # subsumed -- the whole book is held -- and named in the reason.
+            #
+            # DECLARED DIVERGENCE FROM THE TRIAL (review of 11790b5; listed for
+            # step 2's fidelity test in C4_DEPLOY_PLAN_2026-10-27.md §2): WHILE
+            # `hold` LASTS, `max_gross_stress` IS EFFECTIVELY OFF. Live, the book
+            # is held in SHARES, so its gross moves with prices, and price drift
+            # over a run of short days can leave it above the cap (1.8x in v7)
+            # with nothing here trimming it. The trial holds a TARGET in weight
+            # space and `band_gross_capped` re-applies the cap to the held book
+            # every day, so it never sits above the cap. The cap acts again on
+            # the first day the cross-section is back at `min_names` (the band,
+            # then `_cap_gross`, on the book as held). Accepted: trimming a held
+            # book for margin would be a resize on a day the rule says hold.
+            if self._below_min_names == "hold":
+                n_min = int(self._req("min_names"))
+                why = (f"book holds: only {len(row)} eligible names, under min_names {n_min} "
+                       f"(below_min_names=hold)")
+                if held_out:
+                    why += f"; NAV unverified for {sorted(held_out)}"
+                order_type = str(self._req("order_type")).upper()
+                return [_held_target(t, market_state, why, order_type) for t in uni]
             if not hold:
                 return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
                                        reason=f"cef: only {len(row)} eligible names")
