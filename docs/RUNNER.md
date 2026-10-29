@@ -376,6 +376,14 @@ held names are still the broker's positions. The decide and the send both run th
 gate on that path (`quantt/session/tests/test_corp_actions.py`, the `combined`
 tests).
 
+A malformed `combine` record makes the session FAIL (exit 20). It does not
+produce the gate's UNMEASURED: `_plan_targets` reads the record as an argument,
+before the gate's own error handling, so the error ends the session as any
+unexpected error does. That still fails closed, since nothing is sent. Only the
+runner writes `combine`: `combine.decide` builds it in-process at decide, and
+the send reads it back from that run's plan.json (third review, 2026-10-29;
+no code change).
+
 **Modes** (`ops/books/cef_discount_book.json`, `"corporate_actions": {"mode": ...}`;
 absent = no gate, today's behaviour, `run.corporate_actions_for`):
 
@@ -396,9 +404,15 @@ and a person has to look.
 **What clears it.** A short-window match clears by itself once the as-of passes
 it. A long-window match does not clear by itself. While the gate refuses,
 nothing trades, so the event stays inside the window. It clears in one of two
-ways. A person trades the name after the event, through the team lead (CLAUDE.md
-order-path rule 1). Or the team lead sets the mode to `report` for the sessions
-that should go. No per-event acknowledgement was built. `docs/RUNBOOK.md`,
+ways. One is a person's order in the name, through the team lead (CLAUDE.md
+order-path rule 1). It must be submitted on the SECOND trading day after the
+event's latest date or later. An order submitted on the first trading day after
+is sized on the event's own close, and the inclusive window start keeps the
+halt on. A reverse split ex Wednesday 10-07 is not cleared by a Thursday 10-08
+order, and is cleared by a Friday 10-09 one. The start stays inclusive so that
+a late-listed action dated on an ordinary fill's sizing close is still flagged
+(third review, 2026-10-29). The other way is for the team lead to set the mode
+to `report` for the sessions that should go. No per-event acknowledgement was built. `docs/RUNBOOK.md`,
 "Corporate-action halt", is the procedure, including the phantom P&L that paper
 keeps.
 

@@ -156,6 +156,29 @@ def test_a_weekend_action_before_a_late_market_monday_fill_blocks_on_the_long_wi
         assert [(b["id"], b["rule"]) for b in rec["blocking"]] == [("reorg-sat", cam.LONG)]
 
 
+@pytest.mark.parametrize("submitted,clears", [
+    ("2026-10-08T19:52:00Z", False),   # Thu 15:52 ET: sized on Wed 10-07's close, the ex-date
+    ("2026-10-09T19:52:00Z", True),    # Fri 15:52 ET: the second trading day after
+])
+def test_a_corrective_order_clears_a_split_only_from_the_second_trading_day_after(submitted,
+                                                                                  clears):
+    """Third review, 2026-10-29 (the window start stays inclusive). A held
+    name reverse-splits ex Wednesday 10-07. A corrective order submitted on
+    Thursday 10-08 has L_X = 10-07, the event's own close, so the halt stays
+    on at the next session (Monday 10-12, as-of Friday 10-09). One submitted on
+    Friday 10-09 has L_X = 10-08, after the event, and clears it."""
+    ex = dt.date(2026, 10, 7)
+    split = ev("CCC", ex, typ="reverse_split", i="rs-wed")
+    closed = [{"client_order_id": "manual-CCC", "symbol": "CCC", "filled_qty": "25",
+               "submitted_at": submitted}]
+    rec = cam.check(lambda *a: [split], closed, {"CCC": 25}, [], dt.date(2026, 10, 9),
+                    dt.date(2026, 10, 12), cam.HALT)
+    assert rec["status"] == (cam.CLEAR if clears else cam.BLOCKING)
+    if not clears:
+        assert [(b["id"], b["rule"], b["window"][0]) for b in rec["blocking"]] == [
+            ("rs-wed", cam.LONG, ex)]
+
+
 def test_held_since_raises_for_a_held_name_with_no_fill_or_a_bad_order():
     with pytest.raises(ValueError, match=r"\['BBB'\]"):
         cam.held_since(CLOSED, ["BBB", "CCC"])
@@ -693,6 +716,31 @@ def test_combined_book_a_name_two_sleeves_net_to_zero_still_blocks(tmp_path, mon
     plan = plan_of(state)
     assert plan["targets"]["BBB"]["target"] == 0                   # the net
     assert any("BBB (target)" in r["detail"] for r in plan["refusals"])
+
+
+def test_combined_late_send_a_name_two_sleeves_net_to_zero_still_blocks(tmp_path, monkeypatch):
+    """Third review, 2026-10-29: the SEND's per-sleeve read, pinned. The decide
+    is clear; by 15:52 Alpaca lists an action on BBB, which A (+0.04) and B
+    (-0.04) net to zero, so the saved plan's netted targets do not hold it.
+    Only the sleeves' own targets in plan.json's `combine` carry it there."""
+    from quantt.session import combine as cmb
+    from quantt.session.tests.test_combine import BOOK_SPEC, sleeve
+    monkeypatch.setattr(cmb, "SHARED_SYMBOLS_ALLOWED", True)
+    a = sleeve("A", ("AAA", "BBB"), {"AAA": 0.05, "BBB": 0.04})
+    b = sleeve("B", ("BBB", "CCC"), {"BBB": -0.04, "CCC": -0.03})
+    eve = dt.datetime(2026, 9, 28, 22, 0, tzinfo=rn.gt.ET)
+    c, deps, state, out = run_combined(tmp_path, cam.HALT, (a, b), clock=eve,
+                                       execution={**LATE, "bp_shortfall": "scale"})
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_PLANNED
+    plan = plan_of(state)
+    assert plan["targets"]["BBB"]["target"] == 0 and "combine" in plan
+    c.events = [ev("BBB", D, i="bbb-netted-late")]
+    to_send_time(c, deps, dt.datetime(2026, 9, 29, 15, 52, 30, tzinfo=rn.gt.ET))
+    assert rn.run_session(BOOK, BOOK_SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert any("BBB (target)" in r["detail"] and "bbb-netted-late" in r["detail"]
+               for r in send["refusals"])
 
 
 def test_combined_late_send_rechecks_every_sleeves_targets(tmp_path):

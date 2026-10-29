@@ -288,9 +288,18 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    - whole shares only (landmine 3);
    - one netted order per symbol (landmine 2).
 
-   The gate clears once the name's shares are set again after the event. That is
-   a filled order in the name, submitted after the event's dates, so the next
-   window starts after the event.
+   The gate clears once the name's shares are set again after the event. That
+   means a filled order in the name, submitted on the SECOND trading day after the
+   event's latest date or later. An order submitted on the first trading day
+   after is sized on the event's own close and does not clear it. The window
+   starts at the trading day before the last fill's submission, the close it was
+   sized on. Example (third review, 2026-10-29): a reverse split ex Wednesday
+   10-07 and a corrective order submitted Thursday 10-08 leave the halt on; one
+   submitted Friday 10-09 clears it.
+
+   The start stays inclusive on purpose. An exclusive start would let a
+   late-listed action, dated on the sizing close of an ordinary filled order,
+   go unflagged, and its phantom P&L would enter without a word.
 4. **Measure the phantom amount**: (paper qty − true qty) × the post-event price
    at the close used. Name the close, either the as-of close in that day's
    `plan.json` `closes` or the official closing print of the day measured, and

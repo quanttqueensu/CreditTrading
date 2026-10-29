@@ -38,6 +38,8 @@ proof, and 66ec3df and 11790b5 are both the no-op. What makes it fail is any
 change to the keys-absent path: the mutation check changes the discount to an
 algebraically equal expression (`px / nav - 1`) and it fails.
 """
+import datetime as dt
+import json
 import platform
 import warnings
 
@@ -212,3 +214,137 @@ def test_synthetic_book_with_keys_absent_is_the_code_before_them(tmp_path, monke
     assert set(reasons["flatten|held"]) == {"cef: only 5 eligible names"}
     assert not any("*x" in r for r in reasons["asof|held"])       # cap not binding: seed-free
     assert got["exit"] == rn.EXIT_PLANNED and got["n_orders"] > 0 and got["band_holds"] > 0
+
+
+# ------------------------------- the corporate-action gate's released setting, on a clear day
+#
+# WHY (third review, 2026-10-29). The released book json sets
+# `corporate_actions.mode = "halt"` (quantt/session/corp_actions.py). On a day
+# when Alpaca lists nothing for the book's names, the gate must change nothing
+# that trades. This arm proves it on the panel that never skips. The same
+# held book is run three ways, twice: with the gate off, and with it on in
+# `halt` against a feed that lists nothing. The three ways are the late-market
+# DECIDE, its SEND (15:52:30, armed), and a `cls` evening run that decides and
+# sends. The gate-off DECIDE must also still be the pin above, so the arm
+# compares against the code before the keys, not only against itself.
+#
+# Both clients get the same closed-order history: one filled order per held
+# name, so the gate can date when each name's shares were last set. With
+# positions held, that history changes nothing else. `is_opening_session` is
+# already False, and gate 6 reads only today's and the open orders. The
+# gate-off DECIDE still matching the pin proves it.
+
+class _ClearFeed:
+    """Mixin: Alpaca's corporate-action read, listing nothing, counting calls."""
+    def corporate_actions(self, symbols, start, end):
+        self.ca_reads = getattr(self, "ca_reads", 0) + 1
+        return []
+
+
+def _gate_arm(work, spec, held, closes, gate: bool) -> dict:
+    from quantt.session import corp_actions as cam
+    from quantt.session.tests.test_c4_keys_noop import EVE, SESSION_DIR
+    from quantt.session.tests.test_combine_noop import SEND, _Quiet, _sent
+    from quantt.session.tests.test_run import BOOK, LATE, FakeClient
+    from src.deploy.sleeves import cef_discount as cefmod
+    cap = rn.spec_params(spec)["capital_usd"]
+    closed = [{"id": f"fill-{s}", "client_order_id": f"cef-20260902-{s}-1", "symbol": s,
+               "side": "buy" if q > 0 else "sell", "status": "filled", "filled_qty": str(abs(q)),
+               "submitted_at": "2026-09-01T19:52:00Z"} for s, q in sorted(held.items())]
+    cls_ = type("GateClient", (_ClearFeed, FakeClient), {}) if gate else FakeClient
+
+    def client(state, ts):
+        c = cls_(state, positions=held, closed=closed, clock_ts=ts)
+        c.long_mv = sum(q * closes[s] for s, q in held.items() if q > 0)
+        c.short_mv = sum(q * closes[s] for s, q in held.items() if q < 0)
+        c.maint = 0.5 * (c.long_mv - c.short_mv)                 # fixture, as _session_hashes
+        return c
+
+    def deps(state, c, execution, now):
+        return rn.Deps(
+            client=c, env={"QUANTT_STATE_DIR": str(state), "DRY_RUN": "0"},
+            refresh=lambda a, t: rn.RefreshResult(exit=0, tail="fixture"),
+            closes=lambda a, u: rn.last_closes(cefmod.PX_PATH, a, u),
+            navs=lambda a, u: rn.last_navs(cefmod.NAV_PATH, a, u),
+            targets=lambda a, h, eq, op, **kw: rn.sleeve_targets(spec, cap, a, h, eq, op, **kw),
+            halts=lambda: [], utcnow=lambda: now.astimezone(dt.timezone.utc), out=_Quiet(),
+            execution=execution, corp_actions=cam.HALT if gate else None)
+
+    late = {**LATE, "bp_shortfall": "scale"}
+    st = work / "late" / "state"
+    st.mkdir(parents=True)
+    cd = client(st, EVE)
+    code = rn.run_session(BOOK, spec, deps(st, cd, late, EVE))
+    plan_raw = (st / SESSION_DIR / "plan.json").read_bytes()
+    (st / "AUTO_ARMED").touch()
+    cs = client(st, SEND)
+    send_code = rn.run_session(BOOK, spec, deps(st, cs, late, SEND))
+    send_raw = (st / SESSION_DIR / "send.json").read_bytes()
+    sc = work / "cls" / "state"
+    sc.mkdir(parents=True)
+    (sc / "AUTO_ARMED").touch()
+    cc = client(sc, EVE)
+    cls_code = rn.run_session(BOOK, spec, deps(sc, cc, {"mode": "cls", "bp_shortfall": "scale"},
+                                               EVE))
+    cls_raw = (sc / SESSION_DIR / "plan.json").read_bytes()
+    return {"exit": code, "plan_raw": plan_raw, "send_exit": send_code, "send_sent": _sent(cs),
+            "send_raw": send_raw, "cls_exit": cls_code, "cls_sent": _sent(cc), "cls_raw": cls_raw,
+            "ca_reads": [getattr(c, "ca_reads", 0) for c in (cd, cs, cc)]}
+
+
+def _without_record(raw: bytes, scratch) -> bytes:
+    """plan.json or send.json with the gate's `corporate_actions` key removed,
+    written back by the runner's own writer, so the bytes compare exactly."""
+    from quantt.session import records as rec
+    obj = json.loads(raw)
+    obj.pop("corporate_actions")
+    rec.write_json_atomic(scratch, obj)
+    return scratch.read_bytes()
+
+
+def test_the_released_halt_setting_on_a_clear_day_changes_nothing_that_trades(tmp_path,
+                                                                                 monkeypatch):
+    from quantt.session.tests.test_c4_keys_noop import ASOF
+    from src.deploy.sleeves import cef_discount as cefmod
+    (tmp_path / "panel").mkdir()
+    px, nv, _, _ = _write_synthetic(tmp_path / "panel")
+    monkeypatch.setattr(cefmod, "PX_PATH", px)
+    monkeypatch.setattr(cefmod, "NAV_PATH", nv)
+    monkeypatch.setattr(cefmod, "GRP_PATH", px)
+    # The held book exactly as `_session_hashes` builds it.
+    p = rn.spec_params(SYN_SPEC)
+    cap, uni = p["capital_usd"], p["universe"]
+    day1 = rn.sleeve_targets(SYN_SPEC, cap, ASOF, {}, cap, True)
+    closes = {s: v[0] for s, v in rn.last_closes(cefmod.PX_PATH, ASOF, uni).items()}
+    held = {t.instrument: int(0.5 * cap * float(t.weight) / closes[t.instrument])
+            for t in day1 if t.weight}
+    held = {s: q for s, q in held.items() if q}
+
+    off = _gate_arm(tmp_path / "off", SYN_SPEC, held, closes, gate=False)
+    on = _gate_arm(tmp_path / "on", SYN_SPEC, held, closes, gate=True)
+
+    # The gate-off DECIDE is still the pinned session (the code before the keys).
+    plan_off = json.loads(off["plan_raw"])
+    assert off["exit"] == SYN_PINNED["exit"]
+    assert _sha(json.dumps(plan_off["orders"], sort_keys=True)) == SYN_PINNED["orders"]
+    assert plan_off["plan_sha"] == SYN_PINNED["plan_sha"]
+    assert _sha(off["plan_raw"]) == SYN_PINNED["plan_json"]
+    # Not vacuous: it decided, sent and kept band holds.
+    assert off["send_exit"] == rn.EXIT_SENT and off["send_sent"]
+    assert off["cls_exit"] == rn.EXIT_SENT and off["cls_sent"]
+
+    # The gate ran, in halt, at the decide, the send and the cls run, and saw nothing.
+    assert on["ca_reads"] == [1, 1, 1] and off["ca_reads"] == [0, 0, 0]
+    for raw in (on["plan_raw"], on["send_raw"], on["cls_raw"]):
+        rec = json.loads(raw)["corporate_actions"]
+        assert (rec["mode"], rec["status"], rec["blocking"]) == ("halt", "CLEAR", [])
+
+    # And it changed nothing that trades: exits, orders, plan_sha, what was sent,
+    # and plan.json / send.json byte for byte once its own record is removed.
+    for k in ("exit", "send_exit", "cls_exit", "send_sent", "cls_sent"):
+        assert on[k] == off[k], k
+    plan_on = json.loads(on["plan_raw"])
+    assert plan_on["orders"] == plan_off["orders"] and plan_on["plan_sha"] == plan_off["plan_sha"]
+    scratch = tmp_path / "rewritten.json"
+    for k in ("plan_raw", "send_raw", "cls_raw"):
+        assert _without_record(on[k], scratch) == off[k], k

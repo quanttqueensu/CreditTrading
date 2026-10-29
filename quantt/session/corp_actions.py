@@ -153,10 +153,22 @@ WHAT CLEARS A HALT.
     stays before the event and the refusal repeats every session. One clears
     when X's shares are set again after the event, or when the team lead sets
     the mode to `report` for the sessions that should go. Setting the shares
-    means a trade in X dated after the event's dates. While the gate refuses,
-    only a person can send one, and only through the team lead (CLAUDE.md
-    order-path rule 1). docs/RUNBOOK.md, "Corporate-action halt", is the
-    procedure, including the phantom P&L paper keeps.
+    means a filled order in X submitted on the SECOND trading day after the
+    event's latest date, or later. L_X is the trading day before submission,
+    so an order submitted on the first trading day after the event has L_X on
+    the event's own date. That order was sized on the event's own close, and
+    the inclusive window still holds the event. Example (third review,
+    2026-10-29): a reverse split ex Wednesday 10-07 is not cleared by a
+    corrective order submitted Thursday 10-08; one submitted Friday 10-09
+    clears it.
+    The inclusive start is kept on purpose. An exclusive start would spare
+    that extra day, but a late-listed action dated on the sizing close of an
+    ordinary filled order would then never be flagged, and its phantom P&L
+    would enter in silence.
+    While the gate refuses, only a person can send the order, and only through
+    the team lead (CLAUDE.md order-path rule 1). docs/RUNBOOK.md,
+    "Corporate-action halt", is the procedure, including the phantom P&L paper
+    keeps.
 There is no per-event acknowledgement. Its shape would need a ruling, and
 `report` already says "send anyway, recorded".
 
