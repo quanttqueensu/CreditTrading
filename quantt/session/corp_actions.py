@@ -20,7 +20,8 @@ WHAT THIS IS
 At every DECIDE, and again at the late-market SEND on fresh reads (run.py,
 step 3b), the runner asks Alpaca for every non-dividend corporate action naming
 a held or targeted name (`AlpacaClient.corporate_actions`), and `blocking_events`
-keeps those that took effect inside that name's window (below). The book json's
+keeps those inside the window that name's role and match call for (THE WINDOW
+and TWO WINDOWS, below). The book json's
 `corporate_actions.mode` says what happens then (`MODES`; absent = no gate,
 today's behaviour, `run.corporate_actions_for`):
   report   record everything in plan.json and the run record (and send.json at
@@ -75,11 +76,36 @@ Why each bound:
   * not after D. An action effective after the fill is the next session's, and
     the next session's window includes it.
 
-An event blocks when its market date (`date`: the ex or effective date, or the
-process date for types that have no other) OR its `process_date` falls in the
-window. The market date is when the price basis changes; the process date is
-when a broker that does process actions changes the count. Checking both can
-only refuse more.
+TWO WINDOWS (team lead, 2026-10-29). The window above is a name's LONG
+window. Its SHORT window is [A, D]. Which one an event is judged on depends on
+how it matches the name (`blocking_events`):
+
+  long   the event's market date (`date`: the ex or effective date, or the
+         process date for the types that have no other) is inside the name's
+         long window, and the name's role is one whose count or symbol paper
+         leaves wrong: an acquiree, every split type, a stock dividend, a
+         spin-off party, a reorganization party, a name change (paper may leave
+         the position under the old symbol), a redemption, a worthless removal,
+         a partial call.
+  short  (a) the ACQUIRER in any of the three merger types, on either date; and
+         (b) any event that matches only through its `process_date`, because
+         its market date is outside the name's long window. Either blocks only
+         while that date is inside [A, D].
+
+Why the acquirer is short. Its share count does not change, so paper leaves
+nothing wrong after the deal. Its price and NAV jump on the terms, which matters
+to the plan sized across the jump and to no later one.
+Why a process-date-only match is short. The real feed backfills: a 2016 forward
+split was processed on 2025-12-17, and 18 of 3,443 rows over twelve months were
+processed more than 31 days after their market date (docs/REFERENCES.md §12pc).
+A long window would halt a held name for an action that changed its price basis
+before the book bought it. Processed inside [A, D], it may be what a broker
+that does process actions applies to the count today, so it blocks that
+session, and then it clears.
+"A day at most", measured in sessions: an event dated on trading day E is
+inside [A, D] for the session on E and for the next one, whose as-of is E
+(close(E) is the first post-event close a plan prices on). The session after
+that clears.
 
 NO LOOKAHEAD. This is a gate, not an estimate. It reads the feed as Alpaca
 serves it at run time, including actions already scheduled for dates up to D.
@@ -93,21 +119,29 @@ of [A, D] would let it slide out of view the day after, while the paper count
 stays wrong. Reaching back to L_X keeps a late-listed action in view until X
 is traded again.
 
-WHAT CLEARS A HALT. Nothing automatic. While the gate refuses, nothing trades,
-so L_X stays before the event and the refusal repeats every session. It clears
-when X's shares are set again after the event (a trade in X dated after the
-event's dates, which only a person can send while the gate refuses, CLAUDE.md
-order-path rule 1), or when the team lead sets the mode to `report` for the
-sessions that should go. There is no per-event acknowledgement. Its shape would
-need a ruling, and `report` already says "send anyway, recorded".
+WHAT CLEARS A HALT.
+  * Short-window matches clear by themselves, once the as-of date passes the
+    event's date (TWO WINDOWS).
+  * Long-window matches do not. While the gate refuses, nothing trades, so L_X
+    stays before the event and the refusal repeats every session. One clears
+    when X's shares are set again after the event, or when the team lead sets
+    the mode to `report` for the sessions that should go. Setting the shares
+    means a trade in X dated after the event's dates. While the gate refuses,
+    only a person can send one, and only through the team lead (CLAUDE.md
+    order-path rule 1). docs/RUNBOOK.md, "Corporate-action halt", is the
+    procedure, including the phantom P&L paper keeps.
+There is no per-event acknowledgement. Its shape would need a ruling, and
+`report` already says "send anyway, recorded".
 
 BE CONSERVATIVE: EVERY PARTY BLOCKS. A held or targeted name blocks in any role
-the event gives it. That includes the ACQUIRER in a stock merger, whose share
-count does not change: its price can jump on the deal's terms, and its NAV
-absorbs the target's. It also includes a cash merger's acquirer, a spin-off's
-new symbol and a name change's new symbol. The cost of a false halt is one
-missed day and a person's look. The cost of a false pass is an order sized on
-the wrong basis, which cannot be taken back.
+the event gives it, on the window its role and match call for (TWO WINDOWS). That
+includes the ACQUIRER in all three merger types, a cash merger's included: its
+count does not change, but its price can jump on the deal's terms, and its NAV
+absorbs the target's. It also includes a spin-off's new symbol and a name
+change's new symbol. A false halt costs missed sessions until it clears: two at
+most on the short window, and on the long window every session until a person
+acts (WHAT CLEARS A HALT). A false pass costs an order sized on the wrong basis,
+which cannot be taken back.
 
 NOT COVERED, AND WHY
   * Cash dividends, capital-gains distributions and rights distributions. None
@@ -138,17 +172,36 @@ MODES = (REPORT, HALT)
 
 CLEAR, BLOCKING, UNMEASURED = "CLEAR", "BLOCKING", "UNMEASURED"
 
-# The query is padded by this many calendar days on each side of the union of
-# the names' windows, and the events are then filtered on their own dates
-# (`blocking_events`). WHY: what the API's start/end filter is not documented;
-# results are "sorted by their process_date" [V: reference]. In every
-# non-dividend example in the reference the process date EQUALS the market date
-# (ex or effective) [V: reference examples, fetched 2026-10-28], so a pad of zero
-# would do on those. The widest gap Alpaca documents for any type is a cash
-# dividend's, ex 2023-05-04 to process 2023-05-19 (15 days); 31 is that doubled,
-# rounded up. A MARGIN, not a measurement: an action whose process date is more
-# than 31 days from its market date is not covered [U].
-QUERY_PAD_DAYS = 31
+# The three merger types: an ACQUIRER in any of them is judged on the short
+# window (module docstring, TWO WINDOWS).
+MERGER_TYPES = frozenset({"cash_merger", "stock_merger", "stock_and_cash_merger"})
+
+# The query is padded before and after the union of the names' windows. The
+# events returned are then filtered on their own dates (`blocking_events`).
+# The API's start/end filter on process_date. Measured on twelve months of the
+# real feed, 2026-10-29: all 3,443 rows had a process date inside the query
+# window, and 13 had a market date outside it (docs/REFERENCES.md §12pc). So
+# the pads must cover the gap from an event's market date to its process date.
+#
+#   BEFORE, 31 days. The earliest process date seen was 4 days BEFORE its
+#     market date: 21 of 3,443 rows were processed early, none by more. 31 was
+#     the first commit's margin (a cash dividend's documented 15-day gap,
+#     doubled). It is kept because it covers the measured -4 with room.
+#   AFTER, 731 days. 18 of 3,443 rows were processed more than 31 days AFTER
+#     their market date: spin-offs at 40 to 47 days, stock dividends at 32,
+#     and backfills of up to 3,358 days. So the first commit's 31 would have
+#     missed an action already listed with a process date more than a month
+#     out (corrected 2026-10-29). 731 covers every measured gap up to 668 days
+#     (a 2024 spin-off processed 2026-01-12).
+#     The three larger gaps, 3,113 to 3,358 days, are 2016-17 actions
+#     processed in 2025-26. Whether a backfill is listed BEFORE its process
+#     date is not known [U]; if one were, a gap beyond 731 days would be
+#     missed. Two years ahead is also the furthest a read is known to work:
+#     the 2026-10-11 read asked through 2028-12-31 (§12e). The cost is every
+#     action in the market scheduled up to two years out; that read found one
+#     such stock merger.
+QUERY_PAD_BEFORE_DAYS = 31
+QUERY_PAD_AFTER_DAYS = 731
 
 
 def held_since(closed_orders, held) -> dict:
@@ -208,9 +261,28 @@ def windows(held: dict, targets, asof: dt.date, session_date: dt.date) -> dict:
 
 
 def query_window(win: dict) -> tuple[dt.date, dt.date]:
-    """(start, end) to ask Alpaca for: the union of the windows, padded (QUERY_PAD_DAYS)."""
-    pad = dt.timedelta(days=QUERY_PAD_DAYS)
-    return min(a for a, _ in win.values()) - pad, max(b for _, b in win.values()) + pad
+    """(start, end) to ask Alpaca for: the union of the windows, padded
+    (QUERY_PAD_BEFORE_DAYS, QUERY_PAD_AFTER_DAYS)."""
+    return (min(a for a, _ in win.values()) - dt.timedelta(days=QUERY_PAD_BEFORE_DAYS),
+            max(b for _, b in win.values()) + dt.timedelta(days=QUERY_PAD_AFTER_DAYS))
+
+
+# Which rule judged a blocking pair (module docstring, TWO WINDOWS).
+LONG, SHORT_ACQUIRER, SHORT_PROCESS = "long", "short: merger acquirer", "short: process_date only"
+
+
+def _match(e: dict, role: str, long_w: tuple, short_w: tuple):
+    """(rule, window, fields inside it) for one (event, name), or None. TWO WINDOWS."""
+    def inside(w, fields):
+        return [f for f in fields if w[0] <= e[f] <= w[1]]
+    if role == "acquirer" and e["type"] in MERGER_TYPES:
+        hits = inside(short_w, ("date", "process_date"))
+        return (SHORT_ACQUIRER, short_w, hits) if hits else None
+    if inside(long_w, ("date",)):
+        return LONG, long_w, inside(long_w, ("date", "process_date"))
+    if inside(short_w, ("process_date",)):
+        return SHORT_PROCESS, short_w, ["process_date"]
+    return None
 
 
 def blocking_events(events, *, held: dict, targets, asof: dt.date,
@@ -220,23 +292,29 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
     `events`: `AlpacaClient.corporate_actions` rows. `held`: {symbol: date its
     shares were last set} for every held symbol (`held_since`). `targets`: the
     symbols the plan wants to hold. A pair blocks when the name is held or
-    targeted, in ANY role the event gives it (BE CONSERVATIVE), and the event's
-    market date or its process date falls inside the name's window (THE WINDOW).
+    targeted, in ANY role the event gives it (BE CONSERVATIVE), and on the
+    window that role and match call for (TWO WINDOWS):
+      * a merger ACQUIRER: its market or process date inside [as-of, session];
+      * otherwise its market date inside the name's long window (THE WINDOW);
+      * otherwise its process date alone inside [as-of, session].
+    Each pair records the rule, the window and the dates that fell inside it.
     Pure: no clock, no network."""
     win = windows(held, targets, asof, session_date)
+    short_w = (asof, session_date)
     out = []
     for e in events:
         for sym, role in e["parties"]:
             if sym not in win:
                 continue
-            lo, hi = win[sym]
-            hits = [f for f in ("date", "process_date") if lo <= e[f] <= hi]
-            if hits:
-                out.append({"symbol": sym, "role": role, "held": sym in held,
-                            "id": e["id"], "type": e["type"], "date": e["date"],
-                            "date_field": e["date_field"], "process_date": e["process_date"],
-                            "in_window": hits, "window": [lo, hi],
-                            "parties": e["parties"]})
+            m = _match(e, role, win[sym], short_w)
+            if m is None:
+                continue
+            rule, (lo, hi), hits = m
+            out.append({"symbol": sym, "role": role, "held": sym in held,
+                        "id": e["id"], "type": e["type"], "date": e["date"],
+                        "date_field": e["date_field"], "process_date": e["process_date"],
+                        "rule": rule, "in_window": hits, "window": [lo, hi],
+                        "parties": e["parties"]})
     return sorted(out, key=lambda b: (b["date"], b["symbol"], b["type"], b["id"]))
 
 
@@ -273,7 +351,7 @@ def unmeasured_record(mode: str, asof, session_date, why: str) -> dict:
 def _event_text(b: dict) -> str:
     return (f"{b['symbol']} ({'held' if b['held'] else 'target'}) is the {b['role']} in "
             f"{b['type']} {b['id']} ({b['date_field']} {b['date']}, process_date "
-            f"{b['process_date']}; window {b['window'][0]}..{b['window'][1]})")
+            f"{b['process_date']}; {b['rule']} window {b['window'][0]}..{b['window'][1]})")
 
 
 def refusal_text(rec: dict) -> str | None:

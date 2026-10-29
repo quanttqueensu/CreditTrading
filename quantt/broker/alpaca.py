@@ -1267,18 +1267,43 @@ class AlpacaClient:
         null `corporate_actions` (or a null list) reads as "none": an empty
         list or a string where an object belongs raises. `distributions` reads
         any falsy value as empty; a gate must not read a malformed answer as
-        clear.
+        clear. For the same reason `next_page_token` is REQUIRED on every page
+        (the reference lists it as required): only an explicit null or "" ends
+        the paging. A body without it, or with a token that is not a string,
+        raises; `distributions` would read a missing key as the last page and
+        drop every page after it in silence.
+        ONE MEASURED EXCEPTION (real feed, 2026-10-29, docs/REFERENCES.md
+        §12pc): 29 of 103 reorganizations over twelve months carry
+        `stock_movements` legs with symbol "" and a CUSIP, a security with no
+        ticker, while the row's own `symbol` is valid. Such a leg names nobody,
+        because a security with no ticker cannot be one of our names, and it is
+        skipped rather than raised on (`_ca_parties`). A leg with neither a
+        symbol nor a CUSIP still raises. Until this rule, the first such row
+        raised and the whole read failed, which under `halt` refuses every
+        session.
 
-        THE WINDOW FILTERS ON process_date [U]. The reference says results are
-        "sorted by their process_date" and does not say what `start`/`end`
-        filter (`distributions` docstring). The caller pads its window and
-        filters on the dates returned (corp_actions.QUERY_PAD_DAYS).
+        THE WINDOW FILTERS ON process_date. The reference does not say what
+        `start`/`end` filter (`distributions` docstring). Measured 2026-10-29 on
+        twelve months of the real feed: all 3,443 rows had a process_date
+        inside the query window, and 13 had a market date outside it
+        (docs/REFERENCES.md §12pc). The caller pads its window and filters on
+        the dates returned (corp_actions.QUERY_PAD_BEFORE_DAYS / _AFTER_DAYS).
+
+        `data_quality=all` (team lead's review, 2026-10-29). The default,
+        `complete`, leaves out records "still missing required fields ... and
+        not yet processed" [V: reference], which are the early, unprocessed
+        records a gate most needs. Measured 2026-07-31..2026-10-29: `all` held
+        945 rows against `complete`'s 911 over the same process dates. The 34
+        extra were 24 unit splits, 4 cash mergers, 4 stock mergers and 2 stock
+        and cash mergers. None lacked its date fields, none made this parser
+        raise, and none named a deployed name (§12pc). An incomplete row that
+        names one of ours and lacks a date still raises, so under `halt` the
+        session refuses until the record is complete. That is accepted: an
+        action that cannot be placed in time cannot be cleared either.
 
         WHAT IS NOT ASKED FOR. `rights_distribution`: it changes no share count
         (it distributes a separate security, as a cash dividend distributes cash),
-        and the gate exists for the share count. `data_quality` is left at the
-        default, `complete`, as in `distributions`: an incomplete record may have
-        no ex-date yet, and an undated record cannot be placed in a window.
+        and the gate exists for the share count.
 
         ABSENCE IS NOT PROOF. Alpaca: "no guarantees on the creation time of
         corporate actions" [V]. Its merger coverage is mostly effective actions:
@@ -1305,11 +1330,12 @@ class AlpacaClient:
         token = None
         for _ in range(MAX_PAGES):
             params = {"types": ",".join(CORPORATE_ACTION_TYPES),
-                      "start": start.isoformat(), "end": end.isoformat(), "limit": 1000}
+                      "start": start.isoformat(), "end": end.isoformat(), "limit": 1000,
+                      "data_quality": "all"}
             if token is not None:
                 params["page_token"] = token
             body = self._get(self._data, "/v1/corporate-actions", params)
-            _require(body, ("corporate_actions",), w)
+            _require(body, ("corporate_actions", "next_page_token"), w)
             # Only null reads as "no actions" (docstring, VALIDATION).
             ca = {} if body["corporate_actions"] is None else body["corporate_actions"]
             if not isinstance(ca, dict):
@@ -1340,9 +1366,11 @@ class AlpacaClient:
                     out.append({"id": r["id"], "type": kind, "date": dates[date_field],
                                 "date_field": date_field, "process_date": dates["process_date"],
                                 "parties": [[s, role] for s, role in parties]})
-            nxt = body.get("next_page_token")
-            if not nxt:
+            nxt = body["next_page_token"]          # required (docstring, VALIDATION)
+            if nxt is None or nxt == "":
                 break
+            if not isinstance(nxt, str):
+                raise UnexpectedResponse(f"{w}: next_page_token {nxt!r} is not a string or null")
             if nxt == token:
                 raise UnexpectedResponse(f"{w}: next_page_token did not advance")
             token = nxt
@@ -1364,7 +1392,7 @@ class AlpacaClient:
 #     optional there: a reverse split's new_symbol ("Empty when the reverse split
 #     does not change the ticker") and a cash merger's acquirer_symbol.
 # A reorganization's stock legs (`stock_movements[].symbol`) are read in
-# `_ca_parties`, as role "allocated".
+# `_ca_parties`, as role "allocated"; a leg with no ticker but a CUSIP names nobody.
 CORPORATE_ACTION_TYPES = {
     "reverse_split": ("reverse_splits", "ex_date",
                       (("symbol", "subject", True), ("new_symbol", "new", False))),
@@ -1417,11 +1445,17 @@ def _ca_parties(r, kind: str, fields, where: str) -> list[tuple[str, str]]:
             if not isinstance(legs, list):
                 raise UnexpectedResponse(f"{where}: stock_movements is not a list")
             for j, m in enumerate(legs):
-                _require(m, ("symbol",), f"{where}.stock_movements[{j}]")
-                if not isinstance(m["symbol"], str) or not m["symbol"]:
-                    raise UnexpectedResponse(f"{where}.stock_movements[{j}]: symbol "
-                                             f"{m['symbol']!r} is not a symbol")
-                out.append((m["symbol"], "allocated"))
+                leg = f"{where}.stock_movements[{j}]"
+                _require(m, ("symbol",), leg)
+                sym, cusip = m["symbol"], m.get("cusip")
+                if sym in (None, "") and isinstance(cusip, str) and cusip:
+                    # A security with no ticker, identified by its CUSIP: names
+                    # nobody (corporate_actions docstring, ONE MEASURED EXCEPTION).
+                    continue
+                if not isinstance(sym, str) or not sym:
+                    raise UnexpectedResponse(f"{leg}: symbol {sym!r} is not a symbol, and the "
+                                             f"leg has no CUSIP ({cusip!r}) to say it has no ticker")
+                out.append((sym, "allocated"))
     return out
 
 

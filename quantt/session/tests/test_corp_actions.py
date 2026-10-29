@@ -64,7 +64,11 @@ def test_windows_refuse_an_asof_that_is_not_before_the_session():
     (ASOF, None, True, "on the as-of date: close(A) on the new basis"),
     (D, None, True, "on the session date: before the fill"),
     (D + dt.timedelta(days=1), None, False, "after the fill: the next session's"),
-    (L - dt.timedelta(days=5), dt.date(2026, 9, 24), True, "processed inside the window"),
+    # process-date-only matches are judged on the SHORT window [as-of, session]
+    (L - dt.timedelta(days=5), dt.date(2026, 9, 24), False,
+     "processed inside the long window but before the as-of: a short-window match, so clear"),
+    (L - dt.timedelta(days=5), ASOF, True, "processed on the as-of date"),
+    (L - dt.timedelta(days=5), D, True, "processed on the session date"),
 ])
 def test_a_held_name_blocks_exactly_inside_its_window(date, process, blocks, why):
     out = cam.blocking_events([ev("CCC", date, process=process)], held={"CCC": L},
@@ -143,8 +147,92 @@ def test_check_with_nothing_held_or_targeted_is_clear_and_reads_nothing():
 def test_check_asks_for_the_padded_union_of_the_windows():
     calls = []
     cam.check(lambda *a: calls.append(a) or [], CLOSED, HELD, ["AAA"], ASOF, D, cam.REPORT)
-    pad = dt.timedelta(days=cam.QUERY_PAD_DAYS)
-    assert calls == [(["AAA", "CCC"], L - pad, D + pad)]
+    assert calls == [(["AAA", "CCC"], L - dt.timedelta(days=31), D + dt.timedelta(days=731))]
+
+
+def test_the_query_pads_are_the_measured_values():
+    """Pinned by value, not by name, so a change cannot pass in silence (review
+    2026-10-29). The API's window filters on process_date (all 3,443 rows of a
+    twelve-month real read had a process date inside it). BEFORE: the earliest
+    process date seen was 4 days before its market date, and 31 covers it.
+    AFTER: 18 of 3,443 rows were processed more than 31 days after their market
+    date; 731 covers every measured gap up to 668 days (docs/REFERENCES.md
+    §12pc; the constants' comment in corp_actions.py)."""
+    assert (cam.QUERY_PAD_BEFORE_DAYS, cam.QUERY_PAD_AFTER_DAYS) == (31, 731)
+
+
+# ------------------------------------------- two windows (team lead, 2026-10-29)
+
+NEXT = dt.date(2026, 9, 30)        # the session after D (Wednesday)
+AFTER = dt.date(2026, 10, 1)       # and the one after that
+
+
+def blocks(event, *, held=None, targets=(), asof=ASOF, session=D):
+    return cam.blocking_events([event], held=held or {}, targets=list(targets), asof=asof,
+                               session_date=session)
+
+
+@pytest.mark.parametrize("typ", ["stock_merger", "stock_and_cash_merger", "cash_merger"])
+def test_a_held_acquirer_halts_for_the_short_window_and_then_clears(typ):
+    """A merger acquirer's count does not change, so its halt is the short
+    window: the session on the effective date and the next one (whose as-of is
+    that date). The session after that clears, though the shares were set long
+    before."""
+    m = ev("ZZZ", D, typ=typ, role="acquiree", other=("CCC", "acquirer"),
+           date_field="effective_date")
+    held = {"CCC": L}
+    hit = blocks(m, held=held)
+    assert [(b["symbol"], b["rule"], b["window"]) for b in hit] == [
+        ("CCC", cam.SHORT_ACQUIRER, [ASOF, D])]
+    assert blocks(m, held=held, asof=D, session=NEXT)               # as-of is the event date
+    assert blocks(m, held=held, asof=NEXT, session=AFTER) == []      # passed: clear
+
+
+def test_an_acquirer_dated_before_the_asof_never_blocks_even_inside_the_long_window():
+    m = ev("ZZZ", dt.date(2026, 9, 24), typ="stock_merger", role="acquiree",
+           other=("CCC", "acquirer"), date_field="effective_date")
+    assert blocks(m, held={"CCC": L}) == []
+
+
+def test_an_acquirer_blocks_on_its_process_date_inside_the_short_window():
+    """The feed processed MQY's 2026-02-23 mergers on 02-23 and on 02-24 (§12pc):
+    the process date is the second date the short window is judged on."""
+    m = ev("ZZZ", ASOF - dt.timedelta(days=3), typ="stock_merger", role="acquiree",
+           other=("CCC", "acquirer"), process=D, date_field="effective_date")
+    hit = blocks(m, held={"CCC": L})
+    assert [(b["rule"], b["in_window"]) for b in hit] == [(cam.SHORT_ACQUIRER, ["process_date"])]
+    assert blocks(m, held={"CCC": L}, asof=NEXT, session=AFTER) == []
+
+
+def test_an_acquiree_still_uses_the_long_window():
+    m = ev("CCC", dt.date(2026, 9, 24), typ="stock_merger", role="acquiree",
+           other=("ZZZ", "acquirer"), date_field="effective_date")
+    hit = blocks(m, held={"CCC": L})
+    assert [(b["rule"], b["window"]) for b in hit] == [(cam.LONG, [L, D])]
+    assert blocks(m, held={"CCC": L}, asof=NEXT, session=AFTER)     # does not clear by itself
+
+
+def test_a_backfilled_row_on_a_held_name_blocks_on_its_process_day_only():
+    """The real feed backfills: a 2016 split processed in 2025. Matched only
+    through its process date, it blocks while that date is in [as-of, session]."""
+    old = dt.date(2016, 10, 7)
+    on_d = ev("CCC", old, typ="forward_split", process=D)
+    assert [b["rule"] for b in blocks(on_d, held={"CCC": L})] == [cam.SHORT_PROCESS]
+    assert blocks(on_d, held={"CCC": L}, asof=D, session=NEXT)
+    assert blocks(on_d, held={"CCC": L}, asof=NEXT, session=AFTER) == []
+    before = ev("CCC", old, typ="forward_split", process=ASOF - dt.timedelta(days=1))
+    assert blocks(before, held={"CCC": L}) == []                    # before the as-of
+
+
+@pytest.mark.parametrize("typ,role", [
+    ("reverse_split", "subject"), ("forward_split", "subject"), ("unit_split", "old"),
+    ("stock_dividend", "subject"), ("spin_off", "source"), ("spin_off", "new"),
+    ("reorganization", "allocated"), ("name_change", "old"), ("name_change", "new"),
+    ("redemption", "subject"), ("worthless_removal", "subject"), ("partial_call", "subject"),
+    ("cash_merger", "acquiree"), ("stock_merger", "acquiree")])
+def test_every_long_window_role_keeps_blocking_after_the_asof_passes(typ, role):
+    e = ev("CCC", dt.date(2026, 9, 24), typ=typ, role=role)
+    assert [b["rule"] for b in blocks(e, held={"CCC": L}, asof=NEXT, session=AFTER)] == [cam.LONG]
 
 
 def test_refusal_text_names_the_event_and_unmeasured_never_reads_clear():
@@ -195,6 +283,7 @@ class CAClient(FakeClient):
         self.ca_error = ca_error
 
     def corporate_actions(self, symbols, start, end):
+        self.ca_at = len(self.calls)          # where in the call log the read happened
         self.calls.append(("corporate_actions", tuple(symbols), start, end))
         if self.ca_error is not None:
             raise self.ca_error
@@ -367,6 +456,42 @@ def test_late_send_under_halt_refuses_when_the_history_read_fails(tmp_path):
     assert c.submits() == []
     send = json.loads((state / D.isoformat() / "send.json").read_text())
     assert "history unreachable" in send["refusals"][0]["detail"]
+
+
+def test_late_send_checks_the_plans_targets_not_only_the_held_names(tmp_path):
+    """Review 2026-10-29 (a): at send, a target-only name (AAA: the plan buys
+    it, the account holds none) listed with an action effective today refuses."""
+    c, deps, state, out = run(tmp_path, cam.HALT, execution=LATE, ck={"clock_ts": EVE})
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    assert "AAA" not in c._pos
+    c.events = [ev("AAA", D, typ="reverse_split", i="target-split")]
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert c.submits() == []
+    send = json.loads((state / D.isoformat() / "send.json").read_text())
+    assert any("AAA (target)" in r["detail"] and "target-split" in r["detail"]
+               for r in send["refusals"])
+
+
+def _clock_reads(calls) -> int:
+    return sum(1 for x in calls if x[0] == "clock")
+
+
+def test_the_read_comes_before_the_gates_clock_read_at_decide_and_at_send(tmp_path):
+    """Review 2026-10-29 (b): the slow read must come BEFORE the clock read the
+    gate judges (gate 4 at decide, the late clock and send budget at send), so
+    a slow read can only make the gate see a later time, never an earlier one.
+    In each run, exactly one clock read (the session's first) precedes it."""
+    c, deps, state, out = run(tmp_path, cam.HALT, execution=LATE, ck={"clock_ts": EVE})
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_PLANNED
+    assert _clock_reads(c.calls[:c.ca_at]) == 1
+    assert _clock_reads(c.calls[c.ca_at:]) >= 1                     # the gate's, after it
+    n0 = len(c.calls)
+    to_send_time(c, deps)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    assert _clock_reads(c.calls[n0:c.ca_at]) == 1
+    first_submit = next(i for i, x in enumerate(c.calls) if x[0] == "submit")
+    assert _clock_reads(c.calls[c.ca_at:first_submit]) >= 2         # the gate's, then the POST's
 
 
 def test_late_send_with_the_key_absent_writes_the_same_send_json_keys(tmp_path):

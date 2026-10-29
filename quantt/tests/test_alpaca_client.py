@@ -963,6 +963,8 @@ def test_corporate_actions_ask_for_the_thirteen_types_and_send_no_symbols_filter
         "worthless_removal", "reorganization", "partial_call"]
     assert "cash_dividend" not in params["types"] and "rights_distribution" not in params["types"]
     assert params["start"] == "2023-01-01" and params["end"] == "2025-01-01"
+    # team lead's review 2026-10-29: the early, unprocessed records too
+    assert params["data_quality"] == "all"
 
 
 def test_corporate_actions_map_the_acquirer_and_the_acquiree_of_a_merger(env_file, sleeps):
@@ -1012,6 +1014,66 @@ def test_corporate_actions_return_only_events_naming_a_requested_symbol(env_file
     out = c.corporate_actions(["EXR", "MNTS"], W0, W1)
     assert [e["id"] for e in out] == ["728f8cb2-a00e-4bc7-ad14-d15fe82bbcff",
                                       "913de862-c02c-46dc-a89c-fc8779a50d30"]   # oldest first
+
+
+def test_a_cash_mergers_acquirer_is_mapped_when_the_row_names_one(env_file, sleeps):
+    """Review 2026-10-29 (d). The reference's own cash-merger example has no
+    acquirer (the field is optional there); this row, built from the
+    reference's field list, has one, and both sides must be returned."""
+    row = dict(CA_REFERENCE["cash_mergers"][0], acquirer_symbol="ACQR", acquirer_cusip="z")
+    c, _ = ca_client(env_file, sleeps, ca_page({"cash_mergers": [row]}))
+    out = c.corporate_actions(["ACQR"], W0, W1)
+    assert [(e["type"], e["parties"]) for e in out] == [
+        ("cash_merger", [["GLOP", "acquiree"], ["ACQR", "acquirer"]])]
+
+
+# A reorganization row as the real feed serves it: read-only through the Alpaca
+# connector, 2026-10-29, data_quality=complete (docs/REFERENCES.md §12pc). 29 of
+# the twelve months' 103 reorganizations carry legs like these: a CUSIP and an
+# empty symbol. The first commit's parser raised on the first one, which would
+# have refused every session under `halt`.
+REAL_REORG_NO_TICKER = {
+    "id": "c0ae9bf6-e857-407a-91de-b675630d66d3", "symbol": "AIMTF",
+    "effective_date": "2026-07-28", "process_date": "2026-07-31",
+    "stock_movements": [{"cusip": "G0137D100", "new_rate": 1, "source_rate": 1, "symbol": ""},
+                        {"cusip": "G0137D118", "new_rate": 0.5, "source_rate": 1, "symbol": ""}]}
+
+
+def test_a_reorganization_leg_with_no_ticker_but_a_cusip_names_nobody(env_file, sleeps):
+    c, _ = ca_client(env_file, sleeps, ca_page({"reorganizations": [REAL_REORG_NO_TICKER]}))
+    out = c.corporate_actions(["AIMTF"], W0, W1)
+    assert [(e["type"], e["parties"]) for e in out] == [("reorganization", [["AIMTF", "subject"]])]
+    assert c.corporate_actions(["PDI"], W0, W1) == []                 # and never raises for others
+    null_leg = dict(REAL_REORG_NO_TICKER, stock_movements=[{"cusip": "G0137D100", "symbol": None}])
+    c, _ = ca_client(env_file, sleeps, ca_page({"reorganizations": [null_leg]}))
+    assert c.corporate_actions(["AIMTF"], W0, W1)[0]["parties"] == [["AIMTF", "subject"]]
+
+
+@pytest.mark.parametrize("leg", [{"symbol": "", "cusip": ""}, {"symbol": None},
+                                 {"symbol": "", "cusip": None}, {"cusip": "G0137D100"},
+                                 {"symbol": 7, "cusip": "G0137D100"}])
+def test_a_reorganization_leg_that_cannot_be_identified_still_raises(env_file, sleeps, leg):
+    """Neither a ticker nor a CUSIP, a missing symbol key, or a symbol that is
+    not a string: the leg cannot be shown not to be ours, so the read fails."""
+    row = dict(REAL_REORG_NO_TICKER, stock_movements=[leg])
+    c, _ = ca_client(env_file, sleeps, ca_page({"reorganizations": [row]}))
+    with pytest.raises(al.UnexpectedResponse, match="stock_movements"):
+        c.corporate_actions(["PDI"], W0, W1)
+
+
+def test_next_page_token_is_required_and_only_null_or_empty_ends_paging(env_file, sleeps):
+    """Review 2026-10-29, item 6. `distributions` reads a missing key as the
+    last page, which would drop every later page in silence."""
+    no_key = FakeResp(200, {"corporate_actions": {"stock_mergers": CA_REFERENCE["stock_mergers"]}})
+    c, _ = ca_client(env_file, sleeps, no_key)
+    with pytest.raises(al.UnexpectedResponse, match="next_page_token"):
+        c.corporate_actions(["EXR"], W0, W1)
+    c, _ = ca_client(env_file, sleeps, ca_page({}, token=5))
+    with pytest.raises(al.UnexpectedResponse, match="not a string or null"):
+        c.corporate_actions(["EXR"], W0, W1)
+    c, s = ca_client(env_file, sleeps, ca_page({"stock_mergers": CA_REFERENCE["stock_mergers"]},
+                                               token=""))
+    assert len(c.corporate_actions(["EXR"], W0, W1)) == 1 and len(s.gets) == 1
 
 
 def test_a_reverse_split_with_an_empty_new_symbol_names_nobody_new(env_file, sleeps):
