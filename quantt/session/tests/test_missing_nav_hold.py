@@ -158,18 +158,45 @@ def _held_book(spec, asof, cap):
 
 # ------------------------------------------------------------------ one session
 
+# The hold's age limit as the team lead set it (2026-10-29): the tests' book json value.
+MAX_SESSIONS = 2
+
+
+def _prior_plan(session: dt.date, missing=None, *, key_on=True, refusals=()) -> dict:
+    """A prior session's plan.json, reduced to what `run.missing_nav_streaks` reads:
+    with the key on, its `missing_nav.missing`; with it off, its refusals."""
+    plan = {"session_date": session.isoformat(), "refusals": list(refusals)}
+    if key_on:
+        plan["missing_nav"] = {"mode": HOLD, "missing": dict(missing or {}), "held": []}
+    return plan
+
+
+def _write_priors(state: Path, prior: dict):
+    for d, plan in prior.items():
+        (state / d.isoformat()).mkdir(parents=True, exist_ok=True)
+        f = state / d.isoformat() / "plan.json"
+        f.write_text(plan if isinstance(plan, str) else json.dumps(plan))
+
+
 def _session(work: Path, spec, held, now, execution, *, refresh_exit, key=None, armed=False,
-             account=None, asof=ASOF):
+             account=None, asof=ASOF, session=SESSION, prior=None, max_sessions=MAX_SESSIONS):
     """One run_session, built as default_deps builds it for the released book json
     (stale-NAV gate and drawdown check in report mode), on the sleeve's (patched)
-    panels. `key`, when given, is set as `deps.missing_nav` AFTER the Deps is built,
-    so the same code runs on bd87144, whose Deps has no such field and never reads
-    it. Returns (exit, state dir, client, log text)."""
+    panels. `key`, when given, is set as `deps.missing_nav` (and `max_sessions` as
+    `deps.missing_nav_max_sessions`) AFTER the Deps is built, so the same code runs
+    on bd87144, whose Deps has neither field and never reads them. With the key on,
+    `prior` ({session date: plan dict, or raw text}) is written to the state dir
+    first; None writes the previous session's plan with every NAV dated (the
+    age limit's count starts at 0). Returns (exit, state dir, client, log text)."""
+    from ops.schedule.nyse_calendar import previous_trading_day
     from src.deploy.sleeves import cef_discount as cefmod
     p = rn.spec_params(spec)
     cap = p["capital_usd"]
     state = work / "state"
     state.mkdir(parents=True, exist_ok=True)
+    if key is not None:
+        prev = previous_trading_day(session)
+        _write_priors(state, {prev: _prior_plan(prev)} if prior is None else prior)
     if armed:
         (state / "AUTO_ARMED").touch()
     closes = {s: v[0] for s, v in rn.last_closes(cefmod.PX_PATH, asof, p["universe"]).items()}
@@ -190,6 +217,7 @@ def _session(work: Path, spec, held, now, execution, *, refresh_exit, key=None, 
         drawdown="report")
     if key is not None:
         deps.missing_nav = key
+        deps.missing_nav_max_sessions = max_sessions
     code = rn.run_session(BOOK, spec, deps)
     return code, state, c, "".join(out.text)
 
@@ -557,9 +585,14 @@ def replay_2026_10_22(work: Path, mp, src: Path):
     _scenario_panel(base, work / "p", mp, REPLAY_ASOF, nav=(REAL_MISSING,))
     from src.deploy.sleeves import cef_discount as cefmod
     assert rn.last_navs(cefmod.NAV_PATH, REPLAY_ASOF, uni)[REAL_MISSING] == dt.date(2026, 10, 20)
+    # Prod's 10-21 plan.json was decided with the key off and no refusal (gate 5
+    # passed: every NAV dated), so the age limit's count starts at 0.
+    prev = dt.date(2026, 10, 21)
     code, state, c, log = _session(work / "s", spec, REPLAY_POSITIONS, REPLAY_FINAL,
                                    LATE_SCALE, refresh_exit=4, key=HOLD,
-                                   account=REPLAY_ACCOUNT, asof=REPLAY_ASOF)
+                                   account=REPLAY_ACCOUNT, asof=REPLAY_ASOF,
+                                   session=REPLAY_SESSION,
+                                   prior={prev: _prior_plan(prev, key_on=False)})
     return code, state, log
 
 
@@ -734,3 +767,170 @@ def test_a_combined_book_with_the_key_fails_naming_it(tmp_path, monkeypatch):
                    halts=lambda: [], out=out, sleeves=sleeves, missing_nav=HOLD)
     assert rn.run_session(BOOK, SYN_SPEC, deps) == rn.EXIT_FAIL
     assert "built for the single-sleeve book" in "".join(out.text)
+
+
+# ------------------------------------------- the age limit (team lead 2026-10-29)
+#
+# A POLICY of 2 consecutive sessions (book json data.missing_nav_max_sessions),
+# not a measurement: prod's NAV panel (copy of 2026-10-28) shows no gap in 12
+# months, because the vendor backfills dates and a late NAV survives only as a
+# repeat. The count is read from the prior sessions' plan.json
+# (run.missing_nav_streaks). Each test below fails on e0ad2d7, which holds for
+# ever and reads no record.
+
+PREV = dt.date(2026, 9, 25)          # the session before SESSION
+PREV2 = dt.date(2026, 9, 24)
+PREV3 = dt.date(2026, 9, 23)
+
+
+def _limit_day(tmp_path, mp, label, prior, **kw):
+    base, held = _synthetic_held(tmp_path / label, mp)
+    _scenario_panel(base, tmp_path / label / "p", mp, ASOF, nav=(SYN_MISSING,))
+    code, state, _, log = _session(tmp_path / label / "s", SYN_SPEC, held, FINAL, LATE_SCALE,
+                                   refresh_exit=4, key=HOLD, prior=prior, **kw)
+    return code, _plan(state), held, log
+
+
+def _absent_refusals(tmp_path, mp):
+    """Gate 5's refusals for the same day with the key absent: the limit's
+    refusal must be these, plus one line."""
+    base, held = _synthetic_held(tmp_path / "absent", mp)
+    _scenario_panel(base, tmp_path / "absent" / "p", mp, ASOF, nav=(SYN_MISSING,))
+    code, state, _, _ = _session(tmp_path / "absent" / "s", SYN_SPEC, held, FINAL, LATE_SCALE,
+                                 refresh_exit=4)
+    assert code == rn.EXIT_REFUSED
+    return _plan(state)["refusals"]
+
+
+def test_a_fund_is_held_within_the_age_limit(tmp_path, monkeypatch):
+    """Without a dated NAV on the session before too: today is session 2 of 2, held."""
+    code, plan, held, log = _limit_day(tmp_path, monkeypatch, "within", {
+        PREV: _prior_plan(PREV, {SYN_MISSING: "2026-09-23"}), PREV2: _prior_plan(PREV2)})
+    assert code == rn.EXIT_PLANNED, log
+    _decided_with_hold(tmp_path / "within" / "s" / "state", held, SYN_MISSING,
+                       len(SYN_TICKERS))
+    rec = plan["missing_nav"]
+    assert rec["held_before"] == {SYN_MISSING: 1} and rec["max_sessions"] == MAX_SESSIONS
+    assert "session 2 of at most 2" in plan["targets"][SYN_MISSING]["reason"]
+
+
+def test_the_day_after_the_age_limit_is_refused_as_without_the_key(tmp_path, monkeypatch):
+    """Held on the two sessions before: the third refuses the WHOLE day, with gate
+    5's refusals exactly as with the key absent, plus one line naming the fund and
+    how long it has been held."""
+    code, plan, _, log = _limit_day(tmp_path, monkeypatch, "over", {
+        PREV: _prior_plan(PREV, {SYN_MISSING: "2026-09-23"}),
+        PREV2: _prior_plan(PREV2, {SYN_MISSING: "2026-09-22"}), PREV3: _prior_plan(PREV3)})
+    assert code == rn.EXIT_REFUSED, log
+    assert plan["status"] == "refused" and plan["orders"] == []
+    assert plan["refusals"][:-1] == _absent_refusals(tmp_path, monkeypatch)
+    last = plan["refusals"][-1]
+    assert last["gate"] == "data" and SYN_MISSING in last["detail"]
+    assert "2 consecutive sessions" in last["detail"] and "max_sessions = 2" in last["detail"]
+    rec = plan["missing_nav"]
+    assert rec["action"] == "refused" and rec["held"] == [] and rec["held_before"] == \
+        {SYN_MISSING: 2}
+
+
+def test_the_count_resets_when_a_dated_nav_returns(tmp_path, monkeypatch):
+    """Missing, then DATED, then missing: the count restarts and today is held.
+    A key-off session that gate 5 passed also had every NAV dated. The control:
+    two missing sessions in a row refuse."""
+    code, plan, _, log = _limit_day(tmp_path, monkeypatch, "reset", {
+        PREV: _prior_plan(PREV, {SYN_MISSING: "2026-09-23"}), PREV2: _prior_plan(PREV2),
+        PREV3: _prior_plan(PREV3, {SYN_MISSING: "2026-09-21"})})
+    assert code == rn.EXIT_PLANNED, log
+    assert plan["missing_nav"]["held_before"] == {SYN_MISSING: 1}
+    code, plan, _, log = _limit_day(tmp_path, monkeypatch, "keyoff", {
+        PREV: _prior_plan(PREV, key_on=False)})
+    assert code == rn.EXIT_PLANNED, log
+    assert plan["missing_nav"]["held_before"] == {SYN_MISSING: 0}
+    code, _, _, _ = _limit_day(tmp_path, monkeypatch, "control", {
+        PREV: _prior_plan(PREV, {SYN_MISSING: "x"}), PREV2: _prior_plan(PREV2, {SYN_MISSING: "y"})})
+    assert code == rn.EXIT_REFUSED
+
+
+@pytest.mark.parametrize("label, prior, why", [
+    ("absent", {}, "no plan.json for the session 2026-09-25"),
+    ("garbage", {PREV: "{not json"}, "unreadable"),
+    ("other_day", {PREV: _prior_plan(PREV2)}, "is not the record of the session 2026-09-25"),
+    ("keyoff_data_refusal", {PREV: _prior_plan(PREV, key_on=False, refusals=[
+        {"gate": "data", "detail": "refresh for as-of 2026-09-24 exited 4"}])},
+     "the key was off and gate 5 refused"),
+    ("no_missing_map", {PREV: {"session_date": "2026-09-25", "refusals": [],
+                               "missing_nav": {"mode": "hold"}}}, "no `missing` mapping"),
+    ("second_absent", {PREV: _prior_plan(PREV, {SYN_MISSING: "x"})},
+     "no plan.json for the session 2026-09-24"),
+])
+def test_a_missing_or_unreadable_prior_record_refuses(tmp_path, monkeypatch, label, prior, why):
+    """The count is never assumed: a record that is absent, unreadable, for another
+    session, or silent about the fund refuses the day (team lead 2026-10-29)."""
+    code, plan, _, log = _limit_day(tmp_path, monkeypatch, label, prior)
+    assert code == rn.EXIT_REFUSED, log
+    last = plan["refusals"][-1]["detail"]
+    assert "cannot be counted" in last and why in last, last
+    assert plan["missing_nav"]["action"] == "refused" and plan["orders"] == []
+
+
+def test_the_count_survives_across_sessions_through_the_records(tmp_path, monkeypatch):
+    """End to end, no hand-written record for the second day: the fund lacks its
+    NAV for the as-of dates 09-24 and 09-25. Session 09-25 holds it (session 1)
+    and writes its plan.json; session 09-28 reads that record, counts 1, and with
+    a limit of 1 refuses."""
+    base, held = _synthetic_held(tmp_path, monkeypatch)
+    from src.deploy.sleeves import cef_discount as cefmod
+    _scenario_panel(base, tmp_path / "p1", monkeypatch, ASOF, nav=(SYN_MISSING,))
+    df = pd.read_parquet(cefmod.NAV_PATH)
+    m = (pd.to_datetime(df["date"]) == pd.Timestamp(PREV2)) & (df["ticker"] == SYN_MISSING)
+    assert int(m.sum()) == 1
+    df[~m].reset_index(drop=True).to_parquet(cefmod.NAV_PATH)
+    work = tmp_path / "s"
+    day1 = dt.datetime(2026, 9, 25, 14, 30, 1, tzinfo=ET)
+    code, state, _, log = _session(work, SYN_SPEC, held, day1, LATE_SCALE, refresh_exit=4,
+                                   key=HOLD, asof=PREV2, session=PREV, max_sessions=1,
+                                   prior={PREV2: _prior_plan(PREV2)})
+    assert code == rn.EXIT_PLANNED, log
+    p1 = _plan(state, PREV)
+    assert p1["missing_nav"]["held"] == [SYN_MISSING] and p1["missing_nav"]["held_before"] == \
+        {SYN_MISSING: 0}
+    # Day 2 writes no prior of its own (prior={}): it must read day 1's real record.
+    code, state, _, log = _session(work, SYN_SPEC, held, FINAL, LATE_SCALE, refresh_exit=4,
+                                   key=HOLD, max_sessions=1, prior={})
+    assert code == rn.EXIT_REFUSED, log
+    p2 = _plan(state)
+    assert p2["missing_nav"]["held_before"] == {SYN_MISSING: 1}
+    assert "1 consecutive sessions" in p2["refusals"][-1]["detail"]
+
+
+@pytest.mark.parametrize("data, want", [
+    ({"stale_nav": "report"}, None),
+    ({"missing_nav": "hold", "missing_nav_max_sessions": 2}, 2),
+    ({"missing_nav": "hold", "missing_nav_max_sessions": 5, "_missing_nav_note": "x"}, 5)])
+def test_the_age_limit_is_read_from_the_book_json(tmp_path, data, want):
+    path = tmp_path / "book.json"
+    path.write_text(json.dumps({"book_id": "b", "data": data}))
+    assert rn.missing_nav_max_sessions_for(rn.Book("cef", "cef", Path("x"), path)) == want
+
+
+@pytest.mark.parametrize("data", [
+    {"missing_nav": "hold"},                                        # no default
+    {"missing_nav": "hold", "missing_nav_max_sessions": 0},
+    {"missing_nav": "hold", "missing_nav_max_sessions": -1},
+    {"missing_nav": "hold", "missing_nav_max_sessions": True},
+    {"missing_nav": "hold", "missing_nav_max_sessions": 2.0},
+    {"missing_nav": "hold", "missing_nav_max_sessions": "2"},
+    {"missing_nav": "hold", "missing_nav_max_sessions": None},
+    {"stale_nav": "report", "missing_nav_max_sessions": 2},         # a limit for no hold
+])
+def test_an_age_limit_that_is_not_a_positive_int_raises(tmp_path, data):
+    path = tmp_path / "book.json"
+    path.write_text(json.dumps({"book_id": "b", "data": data}))
+    with pytest.raises(rn.SessionError):
+        rn.missing_nav_max_sessions_for(rn.Book("cef", "cef", Path("x"), path))
+
+
+def test_the_key_without_its_age_limit_fails_the_session(tmp_path, monkeypatch):
+    base, held = _synthetic_held(tmp_path, monkeypatch)
+    code, _, _, log = _session(tmp_path / "s", SYN_SPEC, held, FINAL, LATE_SCALE,
+                               refresh_exit=0, key=HOLD, max_sessions=None)
+    assert code == rn.EXIT_FAIL and "missing_nav_max_sessions" in log

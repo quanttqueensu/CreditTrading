@@ -227,13 +227,27 @@ in `quantt/session/gate.py` `missing_nav_hold`.
   `gate.max_missing_nav_holds` = n − `min_names`, read from the frozen spec. Past that
   limit fewer than `min_names` names would have a NAV, the sleeve could trade none of
   them on its signal, and so it is a broken feed, not a late NAV.
+- **The age limit (team lead 2026-10-29, a policy).** A fund may be held for at most
+  `data.missing_nav_max_sessions` consecutive sessions: 2. This is the book json's value,
+  not a code literal, and it is required when the hold is on. It was meant to be derived
+  from how long the vendor's NAV gaps last, but prod's NAV panel (copy of 2026-10-28) shows
+  no gap in 12 months. The vendor backfills dates, so a late NAV survives only as a
+  repeated value. Two sessions were chosen because PDO's 10-22 gap was one session long,
+  so a late NAV can land the next day. The limit is to be reviewed against the live gaps
+  in the run records' `nav_dates`.
+  At the final check after that limit, if the fund's NAV is still not dated as-of, the day
+  is **refused** exactly as without the key, with one line naming the fund and its count.
+  The count is re-read at each final check from the prior sessions' plan.json
+  (`run.missing_nav_streaks`). A dated NAV resets it. A record that is missing,
+  unreadable or silent about the fund refuses the day; it is never counted as zero.
 - **Records.** plan.json and the run record carry `missing_nav`: the action (`none`,
-  `deferred`, `held` or `refused`), why, each missing name's last NAV date, and what
-  was held. The log prints one `MISSING NAV` line.
+  `deferred`, `held` or `refused`), why, each missing name's last NAV date, the limit,
+  each name's prior count (`held_before`), and what was held. The log prints one
+  `MISSING NAV` line.
 - **Single-sleeve book only.** A combined book holds whole sleeves
   (`gate.gate_data_by_sleeve`). The key with a combined book fails the session,
   naming it.
-- **Revert:** delete the key.
+- **Revert:** delete both keys.
 
 ## As built (2026-10-28): the multi-sleeve combiner, dark
 
