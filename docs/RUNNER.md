@@ -52,6 +52,11 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                           "opening_session": <bool>}))
                         -> whole-share orders, one netted order per symbol,
                            a flip split into two orders
+          3b. corp. actions  only when the book json sets corporate_actions.mode
+                        (absent: off; report: record and send; halt: refuse). Every
+                        non-dividend corporate action naming a held or targeted name
+                        inside that name's window; again at the late-market send.
+                        "As built (2026-10-28)" below.
           4. gate       every check below; any failure -> nothing sent, logged
           5. record     <state>/<date>/STARTED written BEFORE the first order
           6. transmit   POST /v2/orders, type=market, time_in_force=cls, whole-share qty,
@@ -67,13 +72,14 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 
 | module | owns | never |
 |---|---|---|
-| `quantt/broker/alpaca.py` | The REST client: account, positions, orders (list/submit), clock, calendar, assets, account activities, end-of-day portfolio history, stock auctions (data API). Retries only idempotent GETs. | Decides anything. Holds a default for a missing field. |
+| `quantt/broker/alpaca.py` | The REST client: account, positions, orders (list/submit), clock, calendar, assets, account activities, end-of-day portfolio history, stock auctions and corporate actions (data API). Retries only idempotent GETs. | Decides anything. Holds a default for a missing field. |
 | `quantt/session/decide.py` | Pure function: sleeve targets + holdings + equity + last closes → order list. Whole shares, netting, flip split, shortability. | Touches the network. |
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
 | `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) equal to the previous NAV or to CEFConnect's NAV(D-1), reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, defers or holds the unverified, records every check. | Transmits. Decides a target. |
 | `quantt/session/drawdown.py` | The drawdown check (step 2b): reads `<state>/eod_equity.csv` by header, the frozen spec's two drawdown lines (units-checked), and records the status and what an acting mode would do. | Transmits. Changes an order. Falls back to `equity.csv`. |
 | `quantt/session/combine.py` | The multi-sleeve combiner (2026-10-28, **dark**): reads the book json's `sleeves[]`; for a book whose enabled sleeves all carry `risk_budget`, builds each from its own spec on its own sleeve_nav, nets the whole-share targets per symbol into one `decide`, and records the per-sleeve attribution. Absent a budget, `None`: the single-spec session, byte-identical to de6e9c5 (proved by test). | Transmits. Splits a held position between sleeves. |
+| `quantt/session/corp_actions.py` | The corporate-action gate (step 3b): dates each held name's shares from the account's closed orders, draws each name's window, keeps the actions that block, and writes the record and the refusal's sentence. Pure apart from the read it is handed. | Transmits. Changes an order. Reads an absent or failed feed as clear. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
 | `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_hold"]` (2026-10-13): names the stale-NAV gate could not verify by its final check keep their current shares and leave the cross-section; holds never trigger the `min_names` flatten; absent is byte-identical. | — |
 | `quantt/deploy/` | launchd plist templates + an install script for the laptop prod clone + `docs/RUNBOOK.md`. | Stores a credential. |
@@ -86,6 +92,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 3. **Halt** — `ops/halt.read_halt(book)` returns a halt → refuse.
 4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: the as-of evening from **19:15 ET** (Alpaca queues `cls` sent after 19:00 into the next auction) to 01:00 ET, or the session day until **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
 5. **Data** — the refresh exited 0 for the required as-of date. That checks each NAV's *date*, not its value; the stale-NAV gate (step 1b, "As built (2026-10-13)") checks the value when the book turns it on.
+   - **Corporate actions** (step 3b, when the book json sets `corporate_actions.mode`; team lead 2026-10-28). Under `halt`, refuse when Alpaca lists a non-dividend corporate action (split, stock dividend, spin-off, merger, redemption, name change, worthless removal, reorganization, partial call) naming a held or targeted name, in any role, inside the window that role and match call for: the long window for an acquiree, a split, a name change and the rest, and the short window `(as-of, session]`, one session, for a merger acquirer and a reorganization's allocated leg (both on the market date only) and for any other match through the process date alone (team lead and re-review, 2026-10-29). Also refuse when that list cannot be read. The refusal is a gate-5 `data` refusal naming each event or the error. It runs at decide and again at the late-market send. Under `report` the same is recorded and the session sends. "As built (2026-10-28)" below.
 6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
 8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the **lower** of the equity the plan was sized on and live equity, unless the plan does not add to the gross held now (2026-10-09; the lower of the two from 2026-10-11); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
@@ -307,6 +314,129 @@ each choice is in `quantt/session/combine.py`'s docstring.
   sleeves trade fails the session, naming it), a per-sleeve opening session,
   per-sleeve panels (C4 plan row 6A), sleeve `state` and sleeve-scoped halts
   (framework §3.5).
+
+## As built (2026-10-28): the corporate-action gate, `halt` on paper
+
+**The defect.** Alpaca paper processes no corporate actions: no splits and no
+mergers (`docs/REFERENCES.md` §12pc). IBKR paper processes none either, so paper
+stays on Alpaca (`docs/SYSTEM.md` §5, 2026-10-28). The runner reads broker share
+counts as they are and prices them at the as-of close. Take a held fund that
+reverse-splits 1:4. Paper keeps the old count while the price is four times
+higher, so the plan's dollar exposure, equity and the orders sent to reach
+target are all wrong. Nothing handled this. The team lead ruled a HALT guard
+(2026-10-28).
+
+**What runs.** `quantt/session/corp_actions.py` is step 3b of every DECIDE, after
+the decision and before the gate's clock read. It runs again at the late-market
+SEND, on fresh reads, because Alpaca can list an action effective today after the
+evening decide.
+`AlpacaClient.corporate_actions` reads the thirteen non-dividend types: reverse,
+forward and unit splits, stock dividends, spin-offs, cash, stock and
+stock-and-cash mergers, redemptions, name changes, worthless removals,
+reorganizations and partial calls. The request sends no `symbols` filter,
+because the reference does not say which field it matches on a merger. Every
+symbol field is matched client-side, so the acquirer and the acquiree are both
+mapped. It asks for `data_quality=all`, which includes the early, unprocessed
+records (2026-10-29). A reorganization leg with no ticker but a CUSIP names
+nobody. On twelve months of the real feed, 29 reorganizations carried such legs,
+and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc).
+
+**The windows** (ET calendar dates, inclusive; the module docstring has the
+alignment in full):
+
+| window | for | why |
+|---|---|---|
+| long, held name: from the earlier of the date its shares were last set and the as-of date, through the session date | a market-date match in any role but a merger acquirer: acquiree, every split type, stock dividend, spin-off, reorganization, name change, redemption, worthless removal, partial call | paper never adjusts a count, so an action after the shares were last set leaves them on the wrong basis until the name trades again. A name change stays long because paper may leave the position under the old symbol |
+| long, target-only name: the as-of date through the session date | the same | every order is priced at the as-of close and fills on the session date |
+| short: after the as-of date, through the session date, `(as-of, session]` (team lead 2026-10-29) | a merger acquirer (all three merger types) and a reorganization's allocated leg, both on the **market date only**; and any other match through the process date alone | an acquirer's count does not change, only its price on the terms; the allocated security's holders likewise keep their count (re-review 2026-10-29, flagged to the team lead). The market date only, because the feed lists each real MQY merger twice, processed 02-23 and 02-24, and paper never applies a process date. The feed also backfills old actions years later (a 2016 split processed in 2025), so a process date by itself matters only on the day a broker applies it |
+
+"Last set" is the NYSE trading day before the ET submission date of the latest
+order in that name that filled anything. The order comes from the closed-order
+history step 2 already reads. That day's close is the latest the order can have
+been sized on. A late-market order submitted Monday at 15:52 ET was sized on
+Friday's close, so an action effective that Saturday is inside the window
+(re-review 2026-10-29). So in both modes the window can only start early. Every role blocks, each on
+its own window. A short-window match blocks ONE session: the one whose window
+holds its date. The next session's as-of is that date, so it is outside, and the
+match clears by itself. By then the as-of close and the counts are post-event and
+consistent, so there is nothing left to protect. The long window keeps the as-of
+inside, because there the count is wrong.
+
+**The query** asks for process dates from 31 days before the earliest window to
+731 days after the session. The API filters on the process date. On the real
+feed, process dates ran from 4 days before an action's market date to 3,358 days
+after it (`corp_actions.py`, the constants' comment; §12pc).
+
+**On a combined book** (the multi-sleeve combiner above, when a book json turns it
+on), the gate's targets are the netted decision's non-zero targets **and** every
+sleeve's own (`run._plan_targets`, from plan.json's `combine`). A name two sleeves
+net to zero still blocks. Today enabled sleeves may not share a symbol, so the net
+equals the owning sleeve's target, but the gate does not rely on that switch. The
+held names are still the broker's positions. The decide and the send both run the
+gate on that path (`quantt/session/tests/test_corp_actions.py`, the `combined`
+tests).
+
+A malformed `combine` record makes the session FAIL (exit 20). It does not
+produce the gate's UNMEASURED: `_plan_targets` reads the record as an argument,
+before the gate's own error handling, so the error ends the session as any
+unexpected error does. That still fails closed, since nothing is sent. Only the
+runner writes `combine`: `combine.decide` builds it in-process at decide, and
+the send reads it back from that run's plan.json (third review, 2026-10-29;
+no code change).
+
+**Modes** (`ops/books/cef_discount_book.json`, `"corporate_actions": {"mode": ...}`;
+absent = no gate, today's behaviour, `run.corporate_actions_for`):
+
+- **`report`.** Records the result in plan.json, the run record and send.json,
+  prints it, and sends anyway. A read that fails is recorded as UNMEASURED, never
+  as clear. With a blocking event it sends the same orders as the gate absent,
+  and plan.json is identical once `corporate_actions` is removed
+  (`quantt/session/tests/test_corp_actions.py`).
+- **`halt`** (set). A blocking event is a gate-5 `data` refusal naming the
+  symbol, its role, the type, the id, the dates and the window: exit 11 REFUSED,
+  nothing sent. A failed or unparseable read refuses too and names the error. So
+  does a held name the order history cannot date.
+
+**Verify.** A refused day reads `MISSED: ... [data] corporate-action gate ...`, a
+FAIL. It is not a deliberate `halt`. The book should have traded and could not,
+and a person has to look.
+
+**What clears it.** A short-window match clears by itself once the as-of passes
+it. A long-window match does not clear by itself. While the gate refuses,
+nothing trades, so the event stays inside the window. It clears in one of two
+ways. One is a person's order in the name, through the team lead (CLAUDE.md
+order-path rule 1). It must be submitted on the SECOND trading day after the
+event's latest date or later. An order submitted on the first trading day after
+is sized on the event's own close, and the inclusive window start keeps the
+halt on. A reverse split ex Wednesday 10-07 is not cleared by a Thursday 10-08
+order, and is cleared by a Friday 10-09 one. The start stays inclusive so that
+a late-listed action dated on an ordinary fill's sizing close is still flagged
+(third review, 2026-10-29). The other way is for the team lead to set the mode
+to `report` for the sessions that should go. No per-event acknowledgement was built. `docs/RUNBOOK.md`,
+"Corporate-action halt", is the procedure, including the phantom P&L that paper
+keeps.
+
+**Latency at the send.** The gate adds at least two GETs to the SEND phase: the
+closed-order history and the corporate-action pages. Both come before the gate's
+clock read. One GET that exhausts its retries takes about 250 s:
+- five attempts at the 10 s connect and 30 s read timeouts, 200 s;
+- the backoffs 2 + 5 + 15 + 30, 52 s;
+- `alpaca.GET_BACKOFF_S` and `TIMEOUT_S` hold the constants.
+
+The late window is 360 s (15:52–15:58 ET), and a 13-order set needs 81 s of it
+(`gate.send_budget_s`). So one such stall at the 15:52 send leaves too little
+time. The outcome is a refusal, never a partial or late batch. Under `halt` a
+failed read refuses. A slow read that succeeds puts the gate's clock read late,
+and the late-clock or send-budget gate refuses before STARTED. Either way verify
+reads a MISSED FAIL. Under `report` the same time is spent although the result
+blocks nothing. Normal reads take a fraction of a second; the slowest measured
+order cycle, a clock GET and a POST, was 0.259 s (`gate.py`). No code was
+changed for this (review 2026-10-29).
+
+**Not covered.** Rights distributions, cash dividends and capital-gains
+distributions change no share count. An action Alpaca never lists is not seen
+either: its merger coverage is mostly effective actions (§12p). A split inside
+the signal's own lookback is a panel-quality question for gates 5 and 1b.
 
 ## As built (2026-10-19): the drawdown check, HALVE/KILL in `report` mode
 

@@ -244,6 +244,93 @@ and that is how 2026-10-09 went unseen (`docs/RUNNER.md` "As built (2026-10-09)"
    hand-edit prod.
 5. Clear the halt with a note of what was fixed.
 
+### 6.1 Corporate-action halt: a split or merger on a held name
+
+**How it shows.** The verify line reads `MISSED: ... [data] corporate-action gate
+(halt): <SYMBOL> (held) is the <role> in <type> <id> (...; long window ...)`.
+The day's `plan.json` (or `send.json`, when the send refused) carries
+`corporate_actions.blocking`, one row per event and name. A row holds the
+event's id, type, market and process dates, its parties, the rule and the window
+(`docs/RUNNER.md`, "As built (2026-10-28)").
+
+A **short-window** row clears by itself after one session: a merger acquirer
+or a reorganization's allocated leg (both judged on the market date only), or
+any other match through the process date alone. Confirm the event (step 1) and let it
+pass. A **long-window** row on a held name repeats every session until the steps
+below are done. Alpaca paper processes no corporate actions, so the account still
+holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
+
+1. **Confirm the event and its terms from a primary source.** Do not rely on the
+   feed alone. Use the fund's press release, 8-K, N-14 or proxy on EDGAR, or the
+   exchange's notice. Record:
+   - the effective or ex-date;
+   - the ratio: a split's old and new rates, or a merger's exchange ratio and any
+     cash per share;
+   - how fractional shares are settled (cash in lieu or rounding).
+
+   When the filing and the feed disagree, report both and say which you used.
+   Never average them (`CLAUDE.md`, data rules).
+2. **Work out the true post-event count**, the count a broker that processes
+   corporate actions would hold:
+   - a split: paper qty × new_rate ÷ old_rate, then the issuer's rule for
+     fractions. A 1:4 reverse split has old_rate 4 and new_rate 1, so the count
+     falls to a quarter;
+   - a stock dividend: the count × (1 + rate);
+   - an acquiree in a stock merger: 0 shares of the old symbol, plus the count ×
+     the exchange ratio in the acquirer, plus any cash;
+   - an acquiree in a cash merger: 0 shares, plus cash;
+   - a name change: the same count under the new symbol;
+   - a spin-off: the same count of the source, plus the count × the distribution
+     ratio in the new symbol.
+3. **Orders go only through the team lead** (`CLAUDE.md` hard rule 1). A closing
+   or rebalancing order to bring paper to the true count is an order-path action.
+   Show the concrete order list, get an explicit go, and only then transmit:
+   - whole shares only (landmine 3);
+   - one netted order per symbol (landmine 2).
+
+   The gate clears once the name's shares are set again after the event. That
+   means a filled order in the name, submitted on the SECOND trading day after the
+   event's latest date or later. An order submitted on the first trading day
+   after is sized on the event's own close and does not clear it. The window
+   starts at the trading day before the last fill's submission, the close it was
+   sized on. Example (third review, 2026-10-29): a reverse split ex Wednesday
+   10-07 and a corrective order submitted Thursday 10-08 leave the halt on; one
+   submitted Friday 10-09 clears it.
+
+   The start stays inclusive on purpose. An exclusive start would let a
+   late-listed action, dated on the sizing close of an ordinary filled order,
+   go unflagged, and its phantom P&L would enter without a word.
+4. **Measure the phantom amount**: (paper qty − true qty) × the post-event price
+   at the close used. Name the close, either the as-of close in that day's
+   `plan.json` `closes` or the official closing print of the day measured, and
+   label its provenance.
+
+   Positive means paper overstates the book. For a merger, do the same for each
+   leg. The old symbol is still held on paper, marked at whatever Alpaca last
+   prices it at. The acquirer shares and the cash are missing from paper.
+5. **Record it, dated, beside the official P&L.** Write a results note,
+   `results/ops/CORP_ACTION_<SYMBOL>_<YYYY-MM-DD>.md`, holding:
+   - the event id;
+   - the primary source;
+   - both counts;
+   - the close used;
+   - the phantom amount and the date it was measured.
+
+   The official P&L is Alpaca's end-of-day history (`docs/SYSTEM.md` §5,
+   2026-10-19, P&L of record).
+
+   Say in the note what follows. **Alpaca's equity carries the phantom amount,
+   and so does everything read from it, until the account is recreated.** That
+   includes the end-of-day history, the drawdown check, and the runner's sizing,
+   since the sleeve is sized on account equity. A rebalance corrects the count.
+   It does not take the phantom amount out: paper books the trade at the
+   inflated (or deflated) mark. Alpaca staff's only stated fix is "deleting the
+   account and recreating it" (staff reply, 2026-07-15, §12pc).
+6. **To trade on regardless** before the count is fixed, the team lead may set
+   `corporate_actions.mode` to `report`. The gate then records and sends. Do it in
+   the dev repo through a release (sections 1–2), never by hand-editing prod.
+   Set it back to `halt` the same way.
+
 ## 7. Keeping the laptop awake
 
 launchd runs a missed calendar job **once on wake**, and coalesces several
