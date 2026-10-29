@@ -295,7 +295,10 @@ Subagents, in research-line order (`.claude/README.md` has the line; rebuilt
 2026-10-27, `results/research/DESK_METHOD_2026-10-27.md`): `quant-researcher`,
 `data-engineer`, `data-analyst`, `statistician`, `ml-engineer`,
 `backtest-engineer`, `beta-detector`, `quant-reviewer`, `portfolio-manager`,
-`quant-trader`, and `market-structure-analyst` for the domain.
+`quant-trader`, and `market-structure-analyst` for the domain. The event desk's
+seats (2026-10-19): `event-scout`, `filings-analyst`, `deal-analyst`,
+`credit-situations-analyst`, `data-librarian`, `event-econometrician`; the saved
+workflow `ss-census` chains them from screen to a zero-trial gate verdict.
 
 **Options are closed, except through one pre-registered standalone short-premium
 test (team lead, 2026-10-09), and that is recorded rather than remembered**:
