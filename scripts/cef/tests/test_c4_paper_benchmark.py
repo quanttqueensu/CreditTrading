@@ -247,3 +247,67 @@ def test_no_date_after_the_fit_is_compared_or_cut(short, tmp_path):
         bm.cut_families(tmp_path / "x", hi="2023-01-03")
     for f in bm.FAMILY_FILES:
         assert pd.to_datetime(pd.read_parquet(short["cut"] / f"{f}.parquet")["date"]).max() <= HI
+
+
+# ---------------------------------------------------------------------------
+# 5. the team lead's rulings of 2026-10-29, recorded where they are read
+# ---------------------------------------------------------------------------
+
+def test_h11_reads_the_spec_book_not_the_trials():
+    """Ruling 1: paper trades the 1.90 book, so H11's percentile and drawdown stop read it."""
+    assert bm.H11_BOOK == "spec_book"
+    s = _spec()
+    assert "1.90 SPEC BOOK" in s["kill_rule"] and "not the trial's 1.80 book" in s["kill_rule"]
+    out = json.loads(bm.OUT_JSON.read_text())
+    assert out["h11_reference"] == "spec_book" and out["spec_sha256"] == bm._sha(bm.SPEC_PATH)
+    ref = out["lines"]["spec_book"]
+    assert ref["role"].startswith("H11 REFERENCE")
+    assert f"cap {s['frozen']['max_gross_stress']}" in ref["policy"]
+    assert "NOT read by H11" in out["lines"]["trial_book"]["role"]
+
+
+def test_the_rulings_are_in_the_notes_and_the_counter_stays():
+    note = _spec()["frozen"]["_max_gross_stress_note"]
+    for must in ("KEEP 1.90", "does NOT count as a CEF trial", "trial-50 precedent", "ARMING GATE",
+                 "0.02632", "2023-26 returns are not read", "left for step 5's book json"):
+        assert must in note, must
+    assert "left for step 5's book json" in _spec()["risk"]["_drawdown_levels_note"]
+    assert c4.cef_counter() == 52
+    rs = (REPO / "docs" / "RESEARCH_STATE.md").read_text()
+    assert "2026-10-29: C4's re-derived `max_gross_stress`" in rs and "CEF stays 52" in rs
+
+
+def test_the_igr_seed_ruling_is_the_corrected_books_four_bars():
+    """Ruling 5: the seed file loads where step 3 will pass it, holds exactly the 2026-10-19
+    corrected book's four bars, and logs every replaced cell (corrected close = panel / 3)."""
+    from scripts.cef.data_guards import load_bar_rulings
+    R, doc = load_bar_rulings(bm.SEED_RULINGS)
+    src = json.loads(c4.BAR_RULINGS.read_text())
+    assert doc["bars"] == src["bars"] and len(R) == 4 and set(R["ticker"]) == {"IGR"}
+    assert "accepts exactly the four cells" in doc["standing_rule"]
+    assert doc["source_ruling"]["sha256"] == bm._sha(c4.BAR_RULINGS)
+    assert [c["date"] for c in doc["cells"]] == list(bm.SEED_DATES)
+    for c in doc["cells"]:
+        assert set(c["columns"]) == set(bm.SEED_COLUMNS)
+        k = 3.0
+        assert abs(c["columns"]["close"]["corrected"] - c["columns"]["close"]["panel"] / k) <= bm.SEED_CLOSE_TOL
+
+
+@needs_families
+def test_the_guard_accepts_exactly_those_four_cells_and_nothing_else(tmp_path):
+    from scripts.cef.data_guards import SpikeRevertError
+    close, out, log = bm.families_guard(bm.SEED_RULINGS)
+    assert sorted((r.ticker, str(pd.Timestamp(r.date).date())) for r in log.itertuples()) == \
+        [("IGR", d) for d in bm.SEED_DATES]
+    doc = json.loads(bm.SEED_RULINGS.read_text())
+    for c in doc["cells"]:                                     # the logged panel values are the panel's
+        assert close.loc[pd.Timestamp(c["date"]), "IGR"] == c["columns"]["close"]["panel"]
+    short_doc = dict(doc, bars=doc["bars"][:3])                # one cell fewer: the fourth is unruled
+    p = tmp_path / "three.json"
+    p.write_text(json.dumps(short_doc))
+    with pytest.raises(SpikeRevertError, match="no recorded ruling"):
+        bm.families_guard(p)
+    extra = dict(doc, bars=doc["bars"] + [dict(doc["bars"][0], date="2026-07-30", run_end="2026-07-30")])
+    p.write_text(json.dumps(extra))                            # one cell more: a ruling with no bar
+    with pytest.raises(SpikeRevertError, match="matches no"):
+        bm.families_guard(p)

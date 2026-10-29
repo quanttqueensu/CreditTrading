@@ -4,6 +4,7 @@
     python3 scripts/cef/c4_paper_benchmark.py run        # all three; ~4 min; writes results/cef/c4/c4_paper_benchmark_2026-10-29.{txt,json}
                                                          #   and c4_paper_fidelity_2026-10-29.csv
     python3 scripts/cef/c4_paper_benchmark.py fidelity   # the fidelity check alone (no CRSP needed); prints, writes nothing
+    python3 scripts/cef/c4_paper_benchmark.py seed-rulings   # writes results/cef/c4/c4_seed_rulings_2026-10-29.json (IGR, step 3)
 
 WHY THIS EXISTS. The team lead fast-tracked C4 (CEF trial 52) to paper on 2026-10-28 and keeps
 every gate. Plan `results/cef/C4_DEPLOY_PLAN_2026-10-27.md` §2 step 2 is row 2 (the frozen spec,
@@ -65,15 +66,29 @@ plan row 6A lands.
    core panels cut at 2022-12-30; otherwise it raises. C4's window is its fit window, from its
    first held session (PREREG_C4 §7) to 2022-12-30: the core's read ran to its panel end, but no
    2023+ C4 return is computed here. The other inputs are rulings, not reads (no broker is
-   called): stated with their sources in `CAP_INPUTS`.
+   called): stated with their sources in `CAP_INPUTS`. The team lead ruled on 2026-10-29 to keep
+   the derived value (1.90), that adopting it spends no CEF trial, and that it is re-derived from a
+   fresh account read before arming (the spec's `_max_gross_stress_note`).
 
 3. THE H11 LINES (plan row 10; team lead 2026-10-26: "paper is scored against a price-only
    backtest, because paper charges shorts no distribution"). The fit's daily gross P&L on CRSP
-   `ret` (total return, the trial's declared primary) and on CRSP `retx` (price only), for the
-   trial's own book (cap 1.80, reproducing the committed 1.217 and R-P 1.360) and for the book the
-   spec trades (its band and its own cap). Descriptive numbers only: PREREG_C4 §14 re-measures
-   the reversal percentile and the worst drawdown on the read date (H14), and no rule reads a
-   number written here.
+   `ret` (total return, the trial's declared primary) and on CRSP `retx` (price only).
+   THE H11 REFERENCE IS THE SPEC'S BOOK (`H11_BOOK`; team lead 2026-10-29): the band and the 1.90
+   cap the spec trades, because paper trades that book and not the trial's 1.80 one. PREREG_C4
+   §14's 120-session percentile and the drawdown stop read `h11_reference`. The trial's own book
+   (cap 1.80) is computed only as the gate that proves T is the trial's (it reproduces the
+   committed 1.217 and R-P 1.360) and is labelled so. Descriptive numbers only: §14 re-measures
+   the percentile and the worst drawdown on the read date (H14), and no rule reads a number
+   written here.
+
+4. THE IGR SEED RULING (team lead 2026-10-29, for step 3's seed of `data/cef_c4/`). `seed-rulings`
+   writes `results/cef/c4/c4_seed_rulings_2026-10-29.json`: the same four corrected IGR bars as the
+   2026-10-19 corrected book (`c4_bar_rulings_2026-10-19.json`; result note §9), in the schema
+   `data_guards.load_bar_rulings` reads, with every replaced cell logged (the families panel's
+   value and Alpaca's raw bar, which `holdout_review_2026-10-18/corrected.py` used), and the
+   standing rule that `guard_closes` accepts exactly those four cells and nothing else. It checks,
+   before writing, that `guard_closes` over the whole families panel for the 74 finds exactly those
+   four and no other bar.
 
 FIT ONLY. Every frame that reaches a statistic is asserted to end by 2022-12-30
 (`w4_artifacts._assert_fit` and `_fit_dates`). The 2023 holdout is not read.
@@ -132,6 +147,13 @@ HOLD_TAG = "(below_min_names=hold)"
 STAGE_TREE = "trial-c4"
 CRSP_SHA256 = "47f20b474ceb6ae49f6d268b48f4992c0037105ecc3f3c0a59a1a112830df665"   # r3 NOTE: `47f20b47…`
 ASSETS = c4.CACHE / "alpaca_assets_2026-10-14T214033Z.json"   # the frozen read's raw rows (c4.FROZEN_READ_UTC)
+
+# H11's reference book (team lead 2026-10-29): the spec's own band and cap, not the trial's.
+H11_BOOK = "spec_book"
+
+# The IGR seed ruling (team lead 2026-10-29): the corrected book's four bars, for step 3's seed.
+SEED_RULINGS = c4.OUT_DIR / "c4_seed_rulings_2026-10-29.json"
+SEED_COLUMNS = ("open", "high", "low", "close", "volume")       # what corrected.py replaced
 
 # max_gross_stress: the rule's inputs that are RULINGS, not reads. Nothing here calls a broker.
 CAP_STEP = 0.05
@@ -502,7 +524,7 @@ def stage() -> dict:
     from scripts.research.backfill.backfill import copy_verified, trial_tree
     src_root = trial_tree(STAGE_TREE)
     done = {}
-    for dst in (c4.CRSP_RET, ASSETS):
+    for dst in (c4.CRSP_RET, ASSETS, c4.ALP_POOL, c4.ALP_POOL_META):
         rel = dst.relative_to(REPO)
         done[str(rel)] = copy_verified(src_root / rel, dst)
         if subprocess.run(["git", "check-ignore", "-q", str(rel)], cwd=REPO).returncode != 0:
@@ -578,21 +600,40 @@ def line(H: pd.DataFrame, R: pd.DataFrame, label: str) -> dict:
                 _P=P)
 
 
-def lines(tb: dict, spec: dict) -> dict:
-    """Total-return and price-only lines for the trial's own book (the core's band and cap, as the
-    trial read them) and for the book the C4 spec trades (its band and its own cap)."""
-    from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS
-    T_H = tb["H"]
+def h11_reference(tb: dict, spec: dict) -> dict:
+    """H11's reference book (team lead 2026-10-29): the book the spec trades -- the trial's T under
+    the SPEC's band and the SPEC's own max_gross_stress (1.90), not the trial's 1.80 -- with its
+    total-return and price-only returns, each checked by `c4.check_held`. PREREG_C4 §14's
+    120-session percentile (price-only against the official-fill line; total return against the
+    distribution-adjusted line) and the drawdown stop read this book. Fit window here; the read
+    date adds the holdout series by the same construction."""
     f = spec["frozen"]
-    Hs = bf.band_gross_capped(tb["T"], float(f["band_width"]), float(f["max_gross_stress"]))
-    R0s = c4.check_held(Hs, tb["R0"].reindex(columns=Hs.columns), "spec book, total")
-    R0xs = c4.check_held(Hs, tb["R0x"].reindex(columns=Hs.columns), "spec book, price-only")
-    out = {"trial_book": {"policy": f"band {BAND_WIDTH} + cap {MAX_GROSS_STRESS} (scripts/cef/spec.py, as the trial read them)",
-                          "total": line(T_H, tb["R0"], "trial book, CRSP ret (total return)"),
-                          "price": line(T_H, tb["R0x"], "trial book, CRSP retx (price only)")},
-           "spec_book": {"policy": f"band {f['band_width']} + cap {f['max_gross_stress']} ({spec['spec_id']})",
-                         "total": line(Hs, R0s, "spec book, CRSP ret (total return)"),
-                         "price": line(Hs, R0xs, "spec book, CRSP retx (price only)")}}
+    if "max_gross_stress" not in f:
+        raise KeyError(f"{spec.get('spec_id')} has no max_gross_stress; H11 reads the spec's own cap")
+    H = bf.band_gross_capped(tb["T"], float(f["band_width"]), float(f["max_gross_stress"]))
+    R = c4.check_held(H, tb["R0"].reindex(columns=H.columns), "H11 reference, total")
+    Rx = c4.check_held(H, tb["R0x"].reindex(columns=H.columns), "H11 reference, price-only")
+    _fit_dates(H, R, Rx)
+    return {"H": H, "total": R, "price": Rx,
+            "policy": f"band {f['band_width']} + cap {f['max_gross_stress']} ({spec['spec_id']})"}
+
+
+def lines(tb: dict, spec: dict) -> dict:
+    """The H11 lines (total return and price only). `spec_book` is the H11 REFERENCE
+    (`h11_reference`; team lead 2026-10-29). `trial_book` (the core's band and cap, as the trial
+    read them) is the reproduction gate's book, shown for the divergence, and is NOT what H11 reads."""
+    from scripts.cef.spec import BAND_WIDTH, MAX_GROSS_STRESS
+    ref = h11_reference(tb, spec)
+    out = {"spec_book": {"role": "H11 REFERENCE (team lead 2026-10-29): the book paper trades",
+                         "policy": ref["policy"],
+                         "total": line(ref["H"], ref["total"], "spec book, CRSP ret (total return)"),
+                         "price": line(ref["H"], ref["price"], "spec book, CRSP retx (price only)")},
+           "trial_book": {"role": "the trial's own book: the reproduction gate only, NOT read by H11",
+                          "policy": f"band {BAND_WIDTH} + cap {MAX_GROSS_STRESS} (scripts/cef/spec.py, as the trial read them)",
+                          "total": line(tb["H"], tb["R0"], "trial book, CRSP ret (total return)"),
+                          "price": line(tb["H"], tb["R0x"], "trial book, CRSP retx (price only)")}}
+    if H11_BOOK not in out:
+        raise KeyError(f"H11_BOOK {H11_BOOK!r} names no computed book")
     for b in out.values():
         leg = b["total"]["_P"] - b["price"]["_P"]
         b["distribution_leg_pct_per_yr"] = float(leg.mean() * 252 * 100)
@@ -726,6 +767,116 @@ def margin_check(spec: dict) -> dict:
     ex = pd.Series({t: r["exchange"] for t, r in rows.items()}).value_counts().to_dict()
     return {"read_utc": a["read_utc"], "funds": len(rows), "all_marginable": True,
             "maintenance_margin_pct": mm, "exchanges": ex}
+
+
+# --------------------------------------------------------------------------- the IGR seed ruling
+
+SEED_DATES = ("2026-07-29", "2026-08-04", "2026-08-07", "2026-08-11")
+SEED_CLOSE_TOL = 4e-8      # c4_bar_rulings_2026-10-19.json: panel close / 3 equals Alpaca's raw close to $4e-8
+
+
+def families_guard(rulings) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """`data_guards.guard_closes` over the WHOLE families panel for the frozen 74, with `rulings`:
+    (raw close, close after the ruled treatments, the log). Raises as the guard raises: on any
+    spike-and-revert bar no ruling covers, and on any ruling that matches no bar. A data scan of
+    closes and NAVs; no return is formed."""
+    from scripts.cef.band_frontier import load_families_actions
+    from scripts.cef.data_guards import guard_closes
+    uni = sorted(pd.read_csv(c4.FROZEN)["ticker"])
+    px = pd.read_parquet(c4.FAM_DIR / "cef_prices.parquet")
+    px = px[px["ticker"].isin(uni)]
+    close = px.assign(date=pd.to_datetime(px["date"])).pivot_table(index="date", columns="ticker", values="close").sort_index()
+    nv = pd.read_parquet(c4.FAM_DIR / "cef_nav.parquet")
+    nvw = nv.assign(date=pd.to_datetime(nv["date"])).pivot_table(index="date", columns="ticker", values="nav")
+    dist, spl = load_families_actions(c4.FAM_DIR / "cef_actions.parquet")
+    out, log = guard_closes(close, cols=uni, lo=close.index[0], hi=close.index[-1], nav=nvw, splits=spl,
+                            ex_dates=dist, rulings=rulings, context="C4 seed (families panel, the 74)")
+    return close, out, log
+
+
+def seed_rulings(path: Path = SEED_RULINGS) -> dict:
+    """Write the team lead's 2026-10-29 IGR seed ruling (module docstring, part 4), after checking
+    every claim it makes. Reads the families panel, the 2026-10-19 rulings and the staged Alpaca
+    bars; writes only `path`."""
+    from scripts.cef.data_guards import load_bar_rulings
+    _R, src_doc = load_bar_rulings(c4.BAR_RULINGS)
+    bars = src_doc["bars"]
+    if [(b["ticker"], b["date"]) for b in bars] != [("IGR", d) for d in SEED_DATES]:
+        raise ValueError(f"{c4.BAR_RULINGS.name} no longer holds exactly IGR's four corrected bars {SEED_DATES}")
+    close, _out, log = families_guard(c4.BAR_RULINGS)
+    found = sorted((r.ticker, str(pd.Timestamp(r.date).date())) for r in log.itertuples())
+    if found != sorted(("IGR", d) for d in SEED_DATES):
+        raise ValueError(f"the guard over the families panel treated {found}, not exactly IGR's four")
+    for f in (c4.ALP_POOL, c4.ALP_POOL_META):
+        if not f.exists():
+            raise FileNotFoundError(f"{f} is missing; run `python3 scripts/cef/c4_paper_benchmark.py stage`")
+    meta = json.loads(c4.ALP_POOL_META.read_text())
+    ab = pd.read_parquet(c4.ALP_POOL)
+    ab["date"] = pd.to_datetime(ab["date"])
+    px = pd.read_parquet(c4.FAM_DIR / "cef_prices.parquet")
+    px["date"] = pd.to_datetime(px["date"])
+    cells = []
+    for b in bars:
+        d, tk, k = pd.Timestamp(b["date"]), b["ticker"], float(b["factor"])
+        row = px[(px["ticker"] == tk) & (px["date"] == d)]
+        raw = ab[(ab["ticker"] == tk) & (ab["date"] == d) & (ab["adjustment"] == "raw")]
+        adj = ab[(ab["ticker"] == tk) & (ab["date"] == d) & (ab["adjustment"] == "split")]
+        if not (len(row) == len(raw) == len(adj) == 1):
+            raise ValueError(f"({tk}, {d.date()}): {len(row)} panel, {len(raw)} raw and {len(adj)} split-adjusted rows")
+        pc = float(row["close"].iloc[0])
+        if abs(pc - float(adj["close"].iloc[0])) > 1e-6:          # corrected.py's own assertion
+            raise ValueError(f"({tk}, {d.date()}): the panel close {pc} is not Alpaca's split-adjusted close")
+        gap = abs(float(raw["close"].iloc[0]) - pc / k)
+        if gap > SEED_CLOSE_TOL:
+            raise ValueError(f"({tk}, {d.date()}): Alpaca's raw close is {gap:.2e} from the panel close / {k:g}")
+        cells.append({"ticker": tk, "date": b["date"],
+                      "columns": {c: {"panel": float(row[c].iloc[0]), "corrected": float(raw[c].iloc[0])}
+                                  for c in SEED_COLUMNS},
+                      "raw_close_minus_panel_close_over_factor": gap})
+    doc = {
+        "ruled_by": "team lead (Simon Jarvis), answered interactively; relayed by the coordinator on 2026-10-29",
+        "ruled_on": "2026-10-29",
+        "record": ("this file (written by `python3 scripts/cef/c4_paper_benchmark.py seed-rulings`); "
+                   "ops/specs/c4_families.frozen.json _panel_source_note"),
+        "ruling": ("Seed C4's panel (data/cef_c4/, plan row 3) with the SAME four corrected IGR bars the team "
+                   "lead's 2026-10-19 corrected book used (results/cef/C4_RESULT_2026-10-14.md §9; "
+                   "c4_bar_rulings_2026-10-19.json): each row's open, high, low, close and volume replaced by "
+                   "Alpaca's raw bar, as results/cef/c4/holdout_review_2026-10-18/corrected.py did, logged cell by "
+                   "cell (`cells`). The corrected rows feed both legs, signal and return, as in the corrected book."),
+        "standing_rule": ("data_guards.guard_closes accepts exactly the four cells in `bars` and nothing else. The "
+                          "seed runs guard_closes on the RAW families closes of the 74 over the whole seeded span with "
+                          "this file as `rulings`: it must treat exactly these four (any other spike-and-revert bar "
+                          "raises, unruled; a ruling that matches no bar raises), and only then are the four rows "
+                          "replaced and each replaced cell logged. The seeded panel then holds corrected bars, so a "
+                          "later guard run on data/cef_c4/ must find no bar and must NOT pass this file: a fifth bar, "
+                          "or one of these four coming back, needs a new ruling."),
+        "source_ruling": {"path": str(c4.BAR_RULINGS.relative_to(REPO)), "sha256": _sha(c4.BAR_RULINGS)},
+        "replacement_source": {
+            "path": str(c4.ALP_POOL.relative_to(REPO)), "sha256": _sha(c4.ALP_POOL),
+            "fetched_utc": meta.get("fetched_utc"), "selection": "ticker IGR, adjustment raw, the four dates",
+            "fetcher": ("python3 scripts/data/fetch_alpaca_split_bars.py --c4-pool --start 2024-12-02 --end "
+                        "2026-09-30 (docs/REFERENCES.md, the Alpaca SIP daily bars row); gitignored, staged from "
+                        "the trial-c4 worktree by `c4_paper_benchmark.py stage`")},
+        "checks": {
+            "guard_over_families_panel": (f"guard_closes over {close.index[0].date()}..{close.index[-1].date()} for "
+                                          f"the 74 treated exactly {len(found)} cells, these four"),
+            "panel_close_is_alpaca_split_adjusted_close": "within 1e-6, each of the four",
+            "alpaca_raw_close_is_panel_close_over_factor": f"within {SEED_CLOSE_TOL:g}, each of the four"},
+        "bars": bars,
+        "cells": cells,
+    }
+    load_bar_rulings_check(doc)
+    path.write_text(json.dumps(doc, indent=1) + "\n")
+    return doc
+
+
+def load_bar_rulings_check(doc: dict) -> None:
+    """The file must load through `data_guards.load_bar_rulings` unchanged (step 3 passes it there)."""
+    from scripts.cef.data_guards import load_bar_rulings
+    with tempfile.TemporaryDirectory() as tmp:
+        p = Path(tmp) / "r.json"
+        p.write_text(json.dumps(doc))
+        load_bar_rulings(p)
 
 
 # --------------------------------------------------------------------------- main
@@ -862,13 +1013,15 @@ def run(argv_out: bool = True) -> int:
         say(f"  the spec carries {cap['spec_value']}: the rule's value")
 
         say(f"\n[4] THE H11 LINES (fit; gross is the headline, the 5/15/30bp grid beside it as the real-money "
-            f"view, labelled; descriptive only, H14: PREREG_C4 §14 re-measures on the read date)")
+            f"view, labelled; descriptive only, H14: PREREG_C4 §14 re-measures on the read date). H11 READS THE "
+            f"SPEC BOOK ({H11_BOOK}; team lead 2026-10-29): the 120-session percentile and the drawdown stop are "
+            f"measured on it, never on the trial's 1.80 book")
         L = lines(tb, spec)
         say(f"  {'line':<42}{'grossSR':>8}{'ann%':>7}{'vol%':>7}{'turn':>7}{'net@5':>8}{'net@15':>8}{'net@30':>8}"
             f"{'flips?':>7}{'maxDD%':>9}")
-        for key in ("trial_book", "spec_book"):
+        for key in ("spec_book", "trial_book"):
             b = L[key]
-            say(f"  -- {key.replace('_', ' ')}: {b['policy']}")
+            say(f"  -- {key.replace('_', ' ')}, {b['role']}: {b['policy']}")
             for kind in ("total", "price"):
                 say("  " + _fmt_line(b[kind]))
             say(f"     distribution leg (total - price) {b['distribution_leg_pct_per_yr']:+.2f}%/yr; price-only "
@@ -878,6 +1031,7 @@ def run(argv_out: bool = True) -> int:
                 say(f"     eras, {kind:<5}: " + "; ".join(f"{k} {v['sr']:.3f} ({v['ann_pct']:.2f}%)" for k, v in er.items()))
         res["lines"] = {k: {kk: ({x: y for x, y in vv.items() if x != "_P"} if isinstance(vv, dict) else vv)
                             for kk, vv in v.items()} for k, v in L.items()}
+        res["h11_reference"] = H11_BOOK
         say("\nBorrow is not charged in any line above (H4): all 74 were easy to borrow at the frozen read and "
             "Alpaca charges no fee on an easy-to-borrow short; one snapshot is a counterfactual over 17.8 years.")
     if argv_out:
@@ -890,13 +1044,20 @@ def run(argv_out: bool = True) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("what", choices=["stage", "run", "fidelity"])
+    ap.add_argument("what", choices=["stage", "run", "fidelity", "seed-rulings"])
     a = ap.parse_args(argv)
     from ops import netguard
     netguard.install()                         # offline: no broker, no R2, no network
     if a.what == "stage":
         for k, v in stage().items():
             print(f"{v:>8}  {k}")
+        return 0
+    if a.what == "seed-rulings":
+        doc = seed_rulings()
+        for c in doc["cells"]:
+            print(f"  {c['ticker']} {c['date']}: " + ", ".join(
+                f"{k} {v['panel']:g} -> {v['corrected']:g}" for k, v in c["columns"].items()))
+        print(f"wrote {SEED_RULINGS.relative_to(REPO)}")
         return 0
     if a.what == "fidelity":
         spec = load_spec()

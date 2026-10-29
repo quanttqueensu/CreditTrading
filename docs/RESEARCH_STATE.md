@@ -238,6 +238,8 @@ counter (156) covers all ETF-price/PD work done to date.
 >
 > All four holdouts were opened once. **XASSET is at 4 = N. The slate is closed.**
 
+> **2026-10-29: C4's re-derived `max_gross_stress` (1.90, `ops/specs/c4_families.frozen.json`) spends no CEF trial; CEF stays 52** (team lead, answered interactively): it applies the frozen §3b rule with no performance test, unlike trial 50 below, where the core's adoption was counted.
+
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
 > 50: `max_gross_stress` adopted and re-derived for the Alpaca account. The team lead
