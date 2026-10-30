@@ -644,6 +644,35 @@ Their verified findings are cited in the docstrings of `scripts/research/`.
 | Where and how often | **The team lead's laptop**, a scheduled Claude Code session, **one research cycle per day** after the close |
 | The backtester | **`evaluate()` may be restructured as necessary.** Done: `scripts/research/harness.py`. `band_frontier.evaluate` delegates to it, byte-identical on the live book (`results/research/HARNESS_RESTRUCTURE_2026-10-27.md`). The named gaps were non-CEF families and an ML pipeline (`scripts/research/ml.py`) |
 
+### Team lead, 2026-10-28 and 2026-10-29 — the data fixes, the releases, and adding all three sleeves
+
+Answered interactively. Day by day, what was found, shipped and earned is in
+`docs/JOURNAL.md`. The counters are in `docs/RESEARCH_STATE.md`.
+
+| question | decision |
+|---|---|
+| `fetch_daily` wrote yfinance's empty ex-date rows over good bars | **Fix it, NAV side included, in one release.** Shipped as `release-20261028-1` |
+| Prod's panel held 91 empty Feb–Apr 2026 closes, older than the refetch window | **Measure the effect, then repair** from Alpaca's official closing prints. Applied 2026-10-28; 4 NYSE American cells are left empty |
+| Gross headroom for more sleeves | **Build the combiner first, dark; decide placement after.** Each addition goes live only after its own test passes (superseded below by "add all 3") |
+| How risk is split | **The best risk-adjusted return, good returns.** Equal risk across sleeves, per account (independent review, 2026-10-29) |
+| One missing NAV refuses all 13 names, as on 2026-10-22, since CEFConnect died | **Hold that fund and trade the rest**, for at most **2 consecutive sessions**. The limit is a POLICY, not derived, to be reviewed against the live gaps. **Switched ON 2026-10-29** (`release-20261029-3`) |
+| The collector ends INCOMPLETE because CEFConnect is down | **Record CEFConnect as an unavailable second source** |
+| A replacement NAV source | **The team lead chases the Nuveen and Nasdaq Fund Network replies.** No code |
+| C4's gross cap | **1.90, re-derived by the core's frozen rule.** H11 and the stop rule read the 1.90 book. **Not counted as a CEF trial**: applying a frozen rule with no performance test, unlike trial 50. Re-derive against the shared account's margin before arming |
+| IGR's four bad bars in C4's seed | **Seed with the trial's 2026-10-19 correction**, logged per cell. The guard accepts exactly those four |
+| Two or three sleeves | **Three is preferred.** If the ex-date short passes, it trades in the **spare account beside C4** (no symbol overlap) |
+| The three additions (2026-10-29) | **Add all three, on paper:** C4 (passed); the **ex-date short as a forward test** (EVENTS trial 3; the sealed 2023+ test still runs once French publishes, and trading forward does not touch it); and **PCEF reconstitution as EVENTS trial 4 (N = 8)** in a **third paper account**, approved with every recommended answer except question 1, which the team lead overrode to spend the trial. Its counter moves in the commit that records its pre-registration |
+| How big the untested sleeves start | **A full equal-risk share from day one**, for all four sleeves |
+| PR #20's gate-6 defect (another session's corporate-action gate) | **Fix it** (branch `fix-gate6-stale`). Nothing from `main`'s head is released until it is fixed |
+| A record of progress | **A desk journal in the repo:** `docs/JOURNAL.md`, updated in the same commit as each change |
+| Corporate-action gate (PR #20), a malformed row (empty or null required symbol) | **Skip it, and record it, unless it could concern one of our funds**; refuse only then. Before this, any malformed row in the market could stop the book |
+| Corporate-action gate, a backfilled name change, redemption, worthless removal or partial call that never clears under `halt` | **It clears by the team lead's recorded acknowledgement** of that action ID only (`ca-ack` CLI, logged; RUNBOOK §6.1) |
+| When `main`, with the corporate-action gate on, is released | **After A, B and the gate-6 fix are built**: one release-check, one VM update |
+| Sizing the sleeves, after the four-sleeve analysis showed equal shares across three $100k accounts give about 6.1%/yr (2026-10-30) | **Maximise the % return on all capital**, the real-money view. **Core + C4** at their per-account equal-risk multipliers (core ×1.24, C4 ×1.41, 5.75% combined target; about 9% gross on the fit). The ex-date short and PCEF stay built but off, because they lower the percentage. This supersedes 2026-10-29's "full equal-risk share for every sleeve" |
+| Raising the core's vol target (×1.24, about 6% → 7.4%) | **Pre-register it as CEF trial 53** (a draft on branch `prereg-voltarget`, under results/cef, until it is approved and merged) through /spec-change. The counter moves on approval |
+| C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
+| PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |
