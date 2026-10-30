@@ -258,28 +258,35 @@ def _on_another_panel():
     return spec
 
 
-def test_the_runner_refuses_a_spec_on_another_panel_until_row_6a():
-    """Until plan row 6A wires `panel_paths()` through the runner, a spec whose
-    sleeve reads another panel would be decided on that panel and sized, gated
-    and NAV-checked on `data/cef/`. Both entry points refuse it, before any file
-    is read or any client is built, and say what must land first."""
+def test_the_runner_reads_a_spec_on_another_panel_from_that_panel(tmp_path, monkeypatch):
+    """Plan row 6A replaced the refusal this review added (`require_core_panel`):
+    the runner now prices, gates and NAV-checks a spec on the panel its sleeve
+    decides on (run.py PER-SLEEVE PANELS; behaviour in test_sleeve_panels.py).
+    So a spec on `data/cef_c4/` is read from `data/cef_c4/`: `sleeve_targets`
+    fails naming that file while it is absent, and is never handed the core's.
+    And under the released book json, whose stale-NAV gate is the core panel's
+    only, it is refused before any client is built."""
+    from src.deploy.sleeves import cef_discount as cefmod
+    monkeypatch.setattr(cefmod, "REPO", tmp_path)          # data/cef_c4 surely absent
     spec = _on_another_panel()
-    with pytest.raises(rn.SessionError, match="row 6A"):
+    assert rn.spec_panel(spec) == (tmp_path / OTHER_PANEL["prices"],
+                                   tmp_path / OTHER_PANEL["nav"])
+    with pytest.raises(FileNotFoundError, match="data/cef_c4/cef_prices.parquet"):
         rn.sleeve_targets(spec, 100_000.0, ASOF, {}, 100_000.0, True)
-    with pytest.raises(rn.SessionError, match="row 6A"):
+    with pytest.raises(rn.SessionError, match="data.stale_nav='report'.*cef_c4/cef_nav.parquet"):
         rn.default_deps(rn.BOOKS["cef"], spec, {"QUANTT_ENV_FILE": "unused"})
-    with pytest.raises(rn.SessionError, match="data/cef_c4/cef_prices.parquet"):
-        rn.require_core_panel(spec)
 
 
 def test_the_runner_takes_the_core_spec_and_the_core_panel_named_explicitly():
-    """The guard's no-op: the live spec (no `panel_source`) and the same spec
-    naming `data/cef/` explicitly both pass."""
+    """The no-op: the live spec (no `panel_source`) and the same spec naming
+    `data/cef/` explicitly are both read from the core panel, and refreshed by
+    the core's command."""
     spec = json.loads(LIVE_SPEC_PATH.read_text())
-    rn.require_core_panel(spec)
+    assert rn.spec_panel(spec) == rn.core_panel()
     spec["frozen"]["panel_source"] = {"prices": "data/cef/cef_prices.parquet",
                                       "nav": "data/cef/cef_nav.parquet"}
-    rn.require_core_panel(spec)
+    assert rn.spec_panel(spec) == rn.core_panel()
+    assert rn.refresh_flags(rn.spec_panel(spec)) == rn.CORE_REFRESH_FLAGS
 
 
 def test_the_real_panel_pin_says_so_when_it_does_not_apply(tmp_path, monkeypatch):

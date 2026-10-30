@@ -123,11 +123,21 @@ exactly as before (proved against de6e9c5: tests/test_combine_noop.py). It is
 set only when every enabled entry of the book json's `sleeves[]` carries a
 `risk_budget`. Then step 3 builds each sleeve from its own spec on its own
 sleeve_nav and decides the NETTED book once; the closes, NAVs, assets, gate 9
-and the send read the union of the sleeves' universes; gate 5 acts per sleeve
-(`gate.gate_data_by_sleeve`); the stale-NAV gate's holds go to the sleeve that
-owns the name; and plan.json gains `combine`, the per-sleeve record. The
-book-level limits stay the book spec's, applied to the netted orders by
-`fit_to_buying_power` and gate 8.
+and the send read the union of the sleeves' universes, each name's closes and
+NAVs from its own sleeve's panel (PER-SLEEVE PANELS, below `refresh_subprocess`);
+gate 5 acts per sleeve (`gate.gate_data_by_sleeve`); the stale-NAV gate's holds
+go to the sleeve that owns the name; and plan.json gains `combine`, the
+per-sleeve record. The book-level limits stay the book spec's, applied to the
+netted orders by `fit_to_buying_power` and gate 8.
+
+EACH SLEEVE'S OWN PANEL (C4 plan row 6A; DARK, 2026-10-29). Every panel read
+-- the closes sized on, the NAV dates gate 5 and the missing-NAV hold check,
+the pre-flight's history, the stale-NAV gate's file, the refresh -- is of the
+panel the sleeve decides on (`spec_panel`, the sleeve's own `panel_paths()`).
+For the released book that is `data/cef/`, by the same calls as before (proved
+against 5e627ff: tests/test_panels_noop.py). A sleeve whose panel files are
+absent, or whose universe its own panel does not cover, FAILs the decide naming
+them; a panel this tree has no fetcher for is refused at step 1.
 
 GATE 5'S MISSING-NAV HOLD (book json `data.missing_nav`; DARK, team lead
 2026-10-29). `Deps.missing_nav` is None for the released book json, and gate 5
@@ -193,7 +203,7 @@ import traceback
 from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 
 from quantt.session import combine as cmb
 from quantt.session import corp_actions as cam
@@ -581,9 +591,20 @@ def _text(v) -> str:
     return v.decode("utf-8", "replace") if isinstance(v, bytes) else v
 
 
-def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshResult:
+# The fetch_daily flags, after `--require-asof D`, that refresh the CORE panel:
+# the command this runner has always run (RUNNER.md step 1). `refresh_flags`.
+CORE_REFRESH_FLAGS = ("--nav-fallback", "cefconnect")
+
+
+def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float,
+                       flags=CORE_REFRESH_FLAGS) -> RefreshResult:
     """RUNNER.md step 1, verbatim flags. A child process so a fetcher crash
     cannot take the session with it, and its exit code is the whole verdict.
+
+    `flags` are the ones `refresh_flags` gives for the book's panel. The
+    default is the core's, so the command is the one it has always been,
+    `--require-asof D --nav-fallback cefconnect --book <book json>`
+    (tests/test_run.py, test_refresh_subprocess_flags).
 
     TIMEOUT (review 2026-09-28). A fetch that hangs (cefconnect has no
     timeout of its own here) once meant the session could reach the gate after
@@ -595,7 +616,7 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     gate-5 refusal, recorded with whatever the fetcher printed.
     """
     cmd = [sys.executable, str(REPO / "scripts/cef/fetch_daily.py"),
-           "--require-asof", asof.isoformat(), "--nav-fallback", "cefconnect",
+           "--require-asof", asof.isoformat(), *flags,
            "--book", str(book.book_path.relative_to(REPO))]
     try:
         p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=timeout_s)
@@ -608,35 +629,258 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     return RefreshResult(exit=p.returncode, tail=tail)
 
 
-def require_core_panel(spec: dict) -> None:
-    """Refuse a spec whose sleeve decides on another panel than this runner reads.
+# ------------------------------------------------------- each sleeve's own panel
 
-    WHY (C4 step 1 review, 2026-10-27). The `cef_discount` sleeve can now read a
-    panel named by its spec's `panel_source` (C4_DEPLOY_PLAN_2026-10-27.md §1
-    row 1), but this runner still takes the closes it sizes orders on, the NAV
-    dates gate 5 checks, the pre-flight's close history and the stale-NAV gate's
-    panel from the core paths `cefmod.PX_PATH` / `NAV_PATH` (`sleeve_targets`'s
-    MarketState prices; `default_deps`). Run as it stands, such a spec would
-    decide on one panel and size and gate on another, and nothing would say so.
-    Wiring the sleeve's `panel_paths()` through the runner is plan row 6A (§2
-    step 5); until it lands, the runner refuses. The check is here and not in
-    the registry because research and the tests build such specs on purpose.
+class Panel(NamedTuple):
+    """The two parquet files one sleeve decides on (`cef_discount.panel_paths`)."""
+    prices: Path
+    nav: Path
 
-    The comparison is of the paths the sleeve would read against the module's
-    core paths at call time, so it is a no-op for the core spec (no
-    `panel_source`: the sleeve returns those very paths) and for a spec that
-    names `data/cef/` explicitly.
-    """
+
+def core_panel() -> Panel:
+    """The 13's panel, `data/cef/`: the sleeve module's PX_PATH and NAV_PATH,
+    read at CALL time, so tests that point them at a copy move it here too."""
     from src.deploy.sleeves import cef_discount as cefmod
-    got = cefmod.CEFDiscountSleeve(spec, 0.0).panel_paths()
-    core = (cefmod.PX_PATH, cefmod.NAV_PATH)
-    if got != core:
-        raise SessionError(
-            f"spec {spec.get('spec_id')!r} decides on panel {[str(p) for p in got]} "
-            f"(panel_source), but this runner prices, gates and checks NAV dates on "
-            f"{[str(p) for p in core]}. Plan row 6A (results/cef/C4_DEPLOY_PLAN_2026-10-27.md "
-            f"§1 row 6A, §2 step 5) must land first; refusing to decide on one panel and "
-            f"size on another")
+    return Panel(cefmod.PX_PATH, cefmod.NAV_PATH)
+
+
+def spec_panel(spec: dict) -> Panel:
+    """The panel this spec's sleeve decides on, and so the panel the runner
+    sizes, gates and NAV-checks it on (PER-SLEEVE PANELS below).
+
+    It is the sleeve's own `panel_paths()`, never a second derivation of it:
+    with `panel_source` absent the core's `data/cef/` (read now, as above),
+    present `REPO / <path>` (registry.cef_panel_source). Only `cef_discount`
+    names a panel. Another allocation type raises rather than be priced on the
+    core's panel, which holds none of its names."""
+    from src.deploy.registry import CEF_DISCOUNT_ALLOC_TYPE
+    from src.deploy.sleeves import cef_discount as cefmod
+    t = (spec.get("allocation") or {}).get("type")
+    if t != CEF_DISCOUNT_ALLOC_TYPE:
+        raise SessionError(f"spec {spec.get('spec_id')!r}: allocation type {t!r} names no "
+                           f"price and NAV panel; the runner prices and gates a sleeve on the "
+                           f"panel it decides on, and only {CEF_DISCOUNT_ALLOC_TYPE} has one")
+    return Panel(*cefmod.CEFDiscountSleeve(spec, 0.0).panel_paths())
+
+
+# PER-SLEEVE PANELS (C4 deploy plan row 6A, §2 step 5; DARK, team lead's
+# fast-track 2026-10-28/29). Until this, the runner took every close it sized
+# on, every NAV date gate 5 checked, the pre-flight's history and the stale-NAV
+# gate's file from the core's `data/cef/`, whatever panel the sleeve decided on,
+# and `require_core_panel` refused any other (C4 step 1). Now each name is read
+# from the panel of the sleeve that owns it (`BookPanels`): its closes for
+# sizing, gate 8 and the fit; its NAV dates for gate 5 (per sleeve on a
+# combined book, `gate.gate_data_by_sleeve`) and the missing-NAV hold; its close
+# history for the pre-flight; its NAV file for the stale-NAV gate; and the
+# refresh that writes it (`refresh_flags`). So C4 can decide, size and gate on
+# `data/cef_c4/` while the 13 stay on `data/cef/`. For the released book (one
+# sleeve, the core spec) every read is the call it was, on the same file, with
+# the same arguments: the no-op is pinned against 5e627ff
+# (tests/test_panels_noop.py).
+#
+# THE GUARD (`require_panel`), at each read, inside the session so a refusal is
+# recorded: a sleeve whose panel files are absent, or whose universe has a name
+# with no row in its own price or NAV file, FAILs the session naming the files
+# or the names. A name missing from its own panel means the spec and the panel
+# do not belong together (a mis-wired panel_source, a mis-seeded panel); read on,
+# gate 5 would only say "no close at all", and a spec whose panel_source were
+# dropped would be decided on `data/cef/`, which holds none of C4's names. It is
+# not in `default_deps`, which the 15:52 SEND also builds: the send reads no
+# panel (it sends the plan, priced on the plan's own closes), and a panel gone
+# by then must not stop a decided plan going.
+
+@dataclass(frozen=True)
+class BookPanels:
+    """Which panel each name the book trades is read from.
+
+    `entries`: one (label, Panel, universe) per sleeve, the single-spec book's
+    one spec or each enabled sleeve of a combined book. A name in two entries
+    raises: one name has one panel, as combine.py gives it one owner."""
+    entries: tuple
+
+    def __post_init__(self):
+        seen = {}
+        for label, panel, uni in self.entries:
+            if not isinstance(panel, Panel):
+                raise SessionError(f"{label}: no panel ({panel!r}); the runner reads each "
+                                   f"sleeve from the panel it decides on and assumes none")
+            for s in uni:
+                if s in seen:
+                    raise SessionError(f"{s} is in {seen[s]}'s universe and {label}'s: one "
+                                       f"name is read from one panel")
+                seen[s] = label
+
+    def panels(self) -> tuple:
+        """The distinct panels, in entry order."""
+        return tuple(dict.fromkeys(p for _, p, _ in self.entries))
+
+    def by_panel(self, universe) -> list:
+        """[(Panel, names, labels)]: `universe` split by the panel each name is
+        read from, each group in `universe`'s order. Raises for a name no
+        entry owns: nothing is read from a panel by default."""
+        own = {s: (label, panel) for label, panel, uni in self.entries for s in uni}
+        stray = [s for s in universe if s not in own]
+        if stray:
+            raise SessionError(f"{stray} belong to no sleeve of this book "
+                               f"({[label for label, _, _ in self.entries]}); no panel to read "
+                               f"them from")
+        groups = {}
+        for s in universe:
+            label, panel = own[s]
+            names, labels = groups.setdefault(panel, ([], []))
+            names.append(s)
+            if label not in labels:
+                labels.append(label)
+        return [(p, tuple(n), tuple(lb)) for p, (n, lb) in groups.items()]
+
+
+def book_panels(spec: dict, sleeves) -> BookPanels:
+    """The single-spec book: its spec's panel for its universe. A combined book
+    (combine.load_sleeves with `panel_of`): each enabled sleeve's own panel for
+    its own universe."""
+    if sleeves is None:
+        return BookPanels(((f"spec {spec.get('spec_id')!r}", spec_panel(spec),
+                            spec_params(spec)["universe"]),))
+    return BookPanels(tuple((f"sleeve {e.name!r} ({e.spec_id})", e.panel, e.universe)
+                            for e in sleeves))
+
+
+def require_panel(panel: Panel, names, labels) -> None:
+    """THE GUARD (PER-SLEEVE PANELS): refuse, naming them, a panel whose files
+    are absent, or whose price or NAV file has no row at all for one of `names`.
+    Reads only the files' `ticker` column."""
+    absent = [str(p) for p in panel if not Path(p).exists()]
+    if absent:
+        raise SessionError(f"{', '.join(labels)}: panel file(s) {absent} absent (panel "
+                           f"{[str(p) for p in panel]}); not pricing, gating or deciding on a "
+                           f"panel that is not there")
+    import pandas as pd
+    for what, path in (("price", panel.prices), ("NAV", panel.nav)):
+        have = set(pd.read_parquet(path, columns=["ticker"])["ticker"])
+        missing = [s for s in names if s not in have]
+        if missing:
+            raise SessionError(f"{', '.join(labels)}: universe not covered by its own panel: "
+                               f"{missing} have no row in its {what} file {path}. A sleeve's "
+                               f"names and its panel must match; refusing to read them from "
+                               f"it")
+
+
+def panel_closes(panels: BookPanels, asof: dt.date, universe) -> dict:
+    """`last_closes` for `universe`, each name from its own sleeve's panel, in
+    `universe`'s order. One panel: exactly `last_closes(prices, asof, universe)`."""
+    groups = panels.by_panel(universe)
+    for panel, names, labels in groups:
+        require_panel(panel, names, labels)
+    if len(groups) == 1:
+        return last_closes(groups[0][0].prices, asof, universe)
+    got = {}
+    for panel, names, _ in groups:
+        got.update(last_closes(panel.prices, asof, names))
+    return {s: got[s] for s in universe}
+
+
+def panel_navs(panels: BookPanels, asof: dt.date, universe) -> dict:
+    """`last_navs` for `universe`, each name from its own sleeve's NAV file: so
+    gate 5, per sleeve or not, checks the NAV dates the sleeve decides on. One
+    panel: exactly `last_navs(nav, asof, universe)`."""
+    groups = panels.by_panel(universe)
+    for panel, names, labels in groups:
+        require_panel(panel, names, labels)
+    if len(groups) == 1:
+        return last_navs(groups[0][0].nav, asof, universe)
+    got = {}
+    for panel, names, _ in groups:
+        got.update(last_navs(panel.nav, asof, names))
+    return {s: got[s] for s in universe}
+
+
+def panel_history(panels: BookPanels, asof: dt.date, universe, rows: int):
+    """`close_history` for the pre-flight, each name from its own sleeve's
+    panel. One panel: exactly `close_history(prices, asof, universe, rows)`.
+    Several: each panel's last `rows` closes, joined on date, each name
+    forward-filled over the dates its own panel lacks (landmine 6's rule, one
+    level up), then the last `rows` dates. A name its panel does not reach back
+    `rows` sessions shows as a gap, which `worst_day_loss` refuses by name."""
+    groups = panels.by_panel(universe)
+    for panel, names, labels in groups:
+        require_panel(panel, names, labels)
+    if len(groups) == 1:
+        return close_history(groups[0][0].prices, asof, universe, rows)
+    import pandas as pd
+    wide = pd.concat([close_history(p.prices, asof, names, rows) for p, names, _ in groups],
+                     axis=1).sort_index().ffill()
+    assert wide.index.max().date() <= asof, f"lookahead: close history past {asof}"
+    return wide[[s for s in universe if s in wide.columns]].iloc[-rows:]
+
+
+def refresh_flags(panel: Panel):
+    """THE DATA-REFRESH INTERFACE (C4 plan row 6A; plan step 3 fills it): the
+    fetch_daily flags, after `--require-asof D`, that refresh `panel`, or None
+    when this tree has no fetcher for it.
+
+      * the core panel: CORE_REFRESH_FLAGS, the command the runner has always
+        run, unchanged;
+      * any other panel: None, and the book's refresh is refused
+        (`book_refresh`). Step 3 (branch `c4-step3-data`) gives fetch_daily
+        `--data-book c4`, which writes `data/cef_c4/` under its own lock and
+        REFUSES `--nav-fallback cefconnect` (exit 2; CEFConnect is disabled for
+        C4, team lead 2026-10-28). When it lands, this function returns
+        `("--data-book", "c4")` for the panel whose files are data_books.C4_DIR's
+        `cef_prices.parquet` / `cef_nav.parquet`, and nothing else changes here.
+    """
+    return CORE_REFRESH_FLAGS if panel == core_panel() else None
+
+
+def book_refresh(book: Book, panels: BookPanels) -> Callable[[dt.date, float], RefreshResult]:
+    """The session's step-1 callable for a book whose sleeves read `panels`.
+
+    One panel with flags (`refresh_flags`): `refresh_subprocess` with them,
+    which for the core is today's command. Otherwise it does not run the
+    fetcher at all and returns a refresh that DID NOT COMPLETE, saying why, so
+    gate 5 refuses the day, recorded, as for a timeout: a panel nothing
+    refreshed is never decided on. The two cases: a panel this tree has no
+    fetcher for (C4's, until step 3), and a book whose sleeves read more than
+    one panel (one `fetch_daily --book` run refreshes one data book, and step
+    3's requires every deployed name to be that book's). `--skip-refresh`
+    still skips it, as for any book (gate 5 then checks the panel's dates)."""
+    ps = panels.panels()
+    flags = refresh_flags(ps[0]) if len(ps) == 1 else None
+    if flags is not None:
+        return lambda asof, timeout_s: refresh_subprocess(asof, book, timeout_s, flags)
+    if len(ps) != 1:
+        why = (f"the book's sleeves read {len(ps)} panels "
+               f"({[str(p.prices.parent) for p in ps]}); one fetch_daily run refreshes one, "
+               f"and a refresh per panel is not built")
+    else:
+        why = (f"no fetcher for the panel {[str(p) for p in ps[0]]} on this tree: its "
+               f"refresh is fetch_daily --data-book (C4 plan step 3, branch c4-step3-data), "
+               f"not merged (run.refresh_flags)")
+    note = f"not run: {why}; gate 5 refuses rather than decide on a panel nothing refreshed"
+    return lambda asof, timeout_s: RefreshResult(exit=None, tail="", incomplete=note)
+
+
+def stale_nav_panel(panels: BookPanels, mode: str) -> Path:
+    """The NAV file the stale-NAV gate certifies: the one every sleeve of the
+    book reads, which must be the core's. Raises otherwise, naming the sleeves.
+
+    WHY ONLY THE CORE'S. The gate reads CEFConnect for every name, and
+    CEFConnect is disabled for C4 (team lead 2026-10-28; plan row 5: M1, the
+    NAV-repeat mask, is C4's defence). And `PanelGate` writes under
+    fetch_daily's CORE lock and fallback log when it acts, which are not
+    another panel's. A per-panel gate, like a per-sleeve stale-NAV mode
+    (combine.py, NOT BUILT), is new code; until it exists a book json that sets
+    data.stale_nav on another panel is refused before any client is built."""
+    navs = tuple(dict.fromkeys(p.nav for p in panels.panels()))
+    core = core_panel().nav
+    if navs != (core,):
+        other = [label for label, p, _ in panels.entries if p.nav != core]
+        raise SessionError(f"data.stale_nav={mode!r}, but {other} read NAV file(s) "
+                           f"{[str(n) for n in navs if n != core]}, not the core's {core}. "
+                           f"The stale-NAV gate reads CEFConnect (disabled for C4, team lead "
+                           f"2026-10-28) and locks and logs as the core's fetch_daily; it is "
+                           f"not built for another panel. Delete data.stale_nav from this "
+                           f"book json")
+    return core
 
 
 def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
@@ -646,15 +890,17 @@ def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
     as-of date with the broker's holdings and the two extras. `nav_hold`
     ({"asof", "names"}, from the stale-NAV gate in `on` mode) is added as a third
     extra only when the gate holds a name, so otherwise the sleeve's input is
-    unchanged."""
+    unchanged. MarketState's prices are the sleeve's OWN price file
+    (`spec_panel`; for the core spec `cefmod.PX_PATH`, as before row 6A); the
+    sleeve reads its panel itself and its own guard refuses an absent one named
+    by panel_source (cef_discount._read_panel)."""
     import pandas as pd
     from src.deploy.registry import build_sleeve
     from src.deploy.sleeve import MarketState
-    from src.deploy.sleeves import cef_discount as cefmod
-    require_core_panel(spec)              # until plan row 6A: one panel for deciding and sizing
+    px_path = spec_panel(spec).prices
     sl = build_sleeve(spec, capital)
     ts = pd.Timestamp(asof)
-    prices = pd.read_parquet(cefmod.PX_PATH)       # MarketState requires it; this sleeve reads its own panel
+    prices = pd.read_parquet(px_path)              # MarketState requires it; this sleeve reads its own panel
     prices = prices[pd.to_datetime(prices["date"]) <= ts]
     extras = {"sleeve_nav": equity, "opening_session": opening}
     if nav_hold is not None:
@@ -1122,26 +1368,33 @@ def _sleeve_target_fn(sleeve_spec: dict):
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
-    require_core_panel(spec)              # before any client is built (plan row 6A)
+    """The session's real dependencies. Every panel read goes through the book's
+    `BookPanels` (PER-SLEEVE PANELS): for the released book json one entry, the
+    core spec on `data/cef/`, so each reader is the call it replaced. Nothing
+    here reads a panel file: the 15:52 send builds this too, and reads none."""
     from quantt.broker.alpaca import AlpacaClient
     if not env.get("QUANTT_ENV_FILE"):
         raise SessionError("QUANTT_ENV_FILE is not set: it must name the key file")
-    from src.deploy.sleeves import cef_discount as cefmod
     p = spec_params(spec)
+    # None for the released book json (combine.load_sleeves, OFF BY DEFAULT).
+    sleeves = cmb.load_sleeves(book.book_path, book.spec_path, REPO, _sleeve_target_fn,
+                               panel_of=spec_panel)
+    panels = book_panels(spec, sleeves)
     stale_nav = stale_nav_for(book)
     gate = None
     if stale_nav is not None:
-        # The sleeve's own NAV path: the gate certifies the file the sleeve reads.
-        # The fallback log and the panel lock are fetch_daily's, resolved only when
-        # the gate writes, so no run imports scripts/ here (`nav_gate.PanelGate`).
-        gate = ng.PanelGate(nav_path=cefmod.NAV_PATH)
+        # The sleeves' own NAV file, which must be the core's (`stale_nav_panel`):
+        # the gate certifies the file the sleeve reads. The fallback log and the
+        # panel lock are fetch_daily's, resolved only when the gate writes, so no
+        # run imports scripts/ here (`nav_gate.PanelGate`).
+        gate = ng.PanelGate(nav_path=stale_nav_panel(panels, stale_nav))
     return Deps(
         client=AlpacaClient.from_environment(book.name),
         env=dict(env),
-        refresh=lambda asof, timeout_s: refresh_subprocess(asof, book, timeout_s),
-        closes=lambda asof, uni: last_closes(cefmod.PX_PATH, asof, uni),
-        navs=lambda asof, uni: last_navs(cefmod.NAV_PATH, asof, uni),
-        history=lambda asof, uni, rows: close_history(cefmod.PX_PATH, asof, uni, rows),
+        refresh=book_refresh(book, panels),
+        closes=lambda asof, uni: panel_closes(panels, asof, uni),
+        navs=lambda asof, uni: panel_navs(panels, asof, uni),
+        history=lambda asof, uni, rows: panel_history(panels, asof, uni, rows),
         targets=lambda asof, h, eq, op, **kw: sleeve_targets(spec, p["capital_usd"], asof, h,
                                                              eq, op, **kw),
         halts=lambda: halts_for(book),
@@ -1149,8 +1402,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         stale_nav=stale_nav,
         nav_gate=gate,
         drawdown=drawdown_for(book),
-        # None for the released book json (combine.load_sleeves, OFF BY DEFAULT).
-        sleeves=cmb.load_sleeves(book.book_path, book.spec_path, REPO, _sleeve_target_fn),
+        sleeves=sleeves,
         # None for the released book json (missing_nav_for; dark, 2026-10-29).
         missing_nav=missing_nav_for(book),
         missing_nav_max_sessions=missing_nav_max_sessions_for(book),

@@ -51,6 +51,7 @@ Lines at `simon` dff4b5c. Nothing changed.
    - **Open:** the nightly spike guard has no rulings file. If Yahoo still serves IGR's four bars, every C4 fetch exits 6 until they leave the six-month window (about 2027-02) or a ruling path for the live panel is decided.
 4. Row 4.
 5. Row 6A (or 6S) and row 9, at `DRY_RUN=1` for at least 5 sessions.
+   - *Row 6A as built 2026-10-29 (`c4-row6a`, DARK):* the runner reads each sleeve's closes, NAV dates, pre-flight history and stale-NAV file from the panel its spec decides on (`quantt/session/run.py` PER-SLEEVE PANELS); `require_core_panel` is gone. The released book is byte-identical to 5e627ff, with `data.missing_nav` absent and set (`quantt/session/tests/test_panels_noop.py`). An absent panel, or a universe its own panel does not cover, FAILs the decide naming it. A non-core panel's refresh is refused at gate 5 until step 3's `--data-book` fills `run.refresh_flags`. Still open: `BOOKS["c4"]` and its book json, the installer units, and verify's distributions panel (row 8).
 6. Arm, on the team lead's go.
 
 ## 3. Decisions for the team lead
