@@ -106,6 +106,7 @@ from a named source; [doc] copied from a named note.
   - PCEF as **EVENTS trial 4** (N = 8) in a **third** paper account. Its counter moves in the commit that records its pre-registration.
 - **Full equal-risk share for every sleeve from day one.**
 - Keep this journal.
+- **Corporate-action gate (PR #20):** skip and record a malformed row unless it could be ours. A stuck backfilled action clears only by the team lead's recorded acknowledgement. Release `main` only after these and the gate-6 fix.
 
 **Prod [V, ops.prod_state]**
 - **10:36 ET: `release-20261029-1` (bd87144).** The multi-sleeve combiner, dark. The first release-check was NO-GO on two defects, both fixed.
@@ -117,7 +118,7 @@ from a named source; [doc] copied from a named note.
 **Live [V]:** PASS, 3 orders, 3 filled. Snapshot +$78.64; auction-marked −$13.43. Equity $99,530.59 at the close.
 
 **Open at end of day:**
-- the gate-6 fix for PR #20;
+- the gate-6 fix for PR #20 (4c63b1f, done), plus rulings A and B (being built);
 - C4 integration (book, installer, verify per book);
 - the ex-date and PCEF sleeves (built dark);
 - the four-sleeve, three-account risk split;

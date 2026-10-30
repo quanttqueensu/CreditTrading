@@ -665,6 +665,9 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | How big the untested sleeves start | **A full equal-risk share from day one**, for all four sleeves |
 | PR #20's gate-6 defect (another session's corporate-action gate) | **Fix it** (branch `fix-gate6-stale`). Nothing from `main`'s head is released until it is fixed |
 | A record of progress | **A desk journal in the repo:** `docs/JOURNAL.md`, updated in the same commit as each change |
+| Corporate-action gate (PR #20), a malformed row (empty or null required symbol) | **Skip it, and record it, unless it could concern one of our funds**; refuse only then. Before this, any malformed row in the market could stop the book |
+| Corporate-action gate, a backfilled name change, redemption, worthless removal or partial call that never clears under `halt` | **It clears by the team lead's recorded acknowledgement** of that action ID only (`ca-ack` CLI, logged; RUNBOOK §6.1) |
+| When `main`, with the corporate-action gate on, is released | **After A, B and the gate-6 fix are built**: one release-check, one VM update |
 
 ## 6. Governance — where each rule lives
 
