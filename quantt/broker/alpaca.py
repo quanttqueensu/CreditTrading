@@ -1259,7 +1259,17 @@ class AlpacaClient:
         VALIDATION, and why it is split. Every row must carry its type's
         symbol fields as strings, or this raises: a row whose parties cannot be
         read might be ours. A row that names one of `symbols` must also carry
-        its id, its date field and process_date as YYYY-MM-DD, or this raises.
+        its id as a non-empty string, its date field and process_date as
+        YYYY-MM-DD, or this raises.
+        ONE ID, ONE EVENT (release-check of 9630322, 2026-10-30, reproduced).
+        Rows naming ours are de-duplicated by id, because a page boundary can
+        repeat one. The check used to be the key's presence only, so two rows
+        with `id: null` were one id, and every row after the first was dropped:
+        a null-id split effective on the session date went unseen and the gate
+        read CLEAR under `halt`. Now an id that is not a non-empty string raises,
+        naming the row, and so does an id that repeats with a DIFFERENT event
+        (type, dates or parties: what the gate reads), because which one is
+        true cannot be told. Only an identical repeat is dropped.
         A row that names none of them is not read further, so a malformed date
         on some other issuer's action cannot halt this book. A response key
         outside the reference's sixteen raises (a renamed key would otherwise
@@ -1363,7 +1373,7 @@ class AlpacaClient:
             ours |= set(universe)
 
         w = "GET /v1/corporate-actions"
-        out, seen, seen_skipped = [], set(), set()
+        out, seen, seen_skipped = [], {}, set()       # seen: id -> the event read
         token = None
         for _ in range(MAX_PAGES):
             params = {"types": ",".join(CORPORATE_ACTION_TYPES),
@@ -1410,17 +1420,29 @@ class AlpacaClient:
                     if not any(s in wanted for s, _ in parties):
                         continue
                     _require(r, ("id", date_field, "process_date"), where)
+                    rid = r["id"]
+                    if not isinstance(rid, str) or not rid.strip():
+                        # ONE ID, ONE EVENT (docstring): never de-duplicated on.
+                        raise UnexpectedResponse(
+                            f"{where}: a {kind} naming {[list(p) for p in parties]} has id "
+                            f"{rid!r}, not a non-empty string; rows naming ours are told "
+                            f"apart by id, so the read fails rather than drop one")
                     dates = {}
                     for f in (date_field, "process_date"):
                         if not (isinstance(r[f], str) and _DATE_RE.match(r[f])):
                             raise UnexpectedResponse(f"{where}: {f} {r[f]!r} is not YYYY-MM-DD")
                         dates[f] = dt.date.fromisoformat(r[f])
-                    if r["id"] in seen:
+                    ev = {"id": rid, "type": kind, "date": dates[date_field],
+                          "date_field": date_field, "process_date": dates["process_date"],
+                          "parties": [[s, role] for s, role in parties]}
+                    if rid in seen:
+                        if seen[rid] != ev:
+                            raise UnexpectedResponse(
+                                f"{where}: id {rid!r} repeats with a different event: "
+                                f"{seen[rid]} and {ev}; which is true cannot be told")
                         continue          # the same event repeated across pages
-                    seen.add(r["id"])
-                    out.append({"id": r["id"], "type": kind, "date": dates[date_field],
-                                "date_field": date_field, "process_date": dates["process_date"],
-                                "parties": [[s, role] for s, role in parties]})
+                    seen[rid] = ev
+                    out.append(ev)
             nxt = body["next_page_token"]          # required (docstring, VALIDATION)
             if nxt is None or nxt == "":
                 break

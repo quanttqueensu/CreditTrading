@@ -286,6 +286,26 @@ def test_a_malformed_row_that_could_be_ours_refuses(tmp_path, path, key, row, ou
         in refusal[0]["detail"], refusal
 
 
+# ------------------------------- one id, one event (release-check of 9630322)
+
+@pytest.mark.parametrize("path", PATHS)
+def test_two_null_id_rows_naming_ours_refuse_and_never_hide_the_blocking_one(tmp_path, path):
+    """The reviewer's probe, end to end (2026-10-30). Two reverse splits with
+    `id: null`: the first on the held CCC before its shares were last set
+    (blocks nothing), the second on the targeted AAA effective on the session
+    date (must block). On 9630322 the second was dropped as a "duplicate" of
+    the first, the gate read CLEAR under `halt` and the session SENT. Now the
+    read fails, naming the row, and the session is REFUSED: nothing sent."""
+    rows = [dict(OLD_SPLIT_CCC, id=None),
+            dict(OLD_SPLIT_CCC, id=None, symbol="AAA", cusip="AAA000000", ex_date=DAY,
+                 process_date=DAY)]
+    c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({"reverse_splits": rows}))
+    assert code == rn.EXIT_REFUSED and c.submits() == [], log
+    data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
+    assert len(data) == 1 and "UNMEASURED" in data[0] and "id None" in data[0] \
+        and "not a non-empty string" in data[0], data
+
+
 # -------------------------------------------- B. acknowledgements (ruling B)
 
 # A backfilled name change on the held name CCC: no ex or effective date, so

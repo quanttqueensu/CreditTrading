@@ -400,6 +400,16 @@ name. A required field that is ABSENT, a symbol that is not a string, or a row
 that is not an object still fails the read for any issuer: a renamed field would
 empty a type for ours too. (`AlpacaClient.corporate_actions`, MALFORMED ROWS.)
 
+**One id, one event** (release-check of 9630322, 2026-10-30, reproduced). Rows
+naming ours are de-duplicated by id, because a page boundary can repeat a row.
+The id was only required to be present, so two rows with `id: null` counted as
+one, and the second was dropped. In the reviewer's probe that was a split
+effective on the session date, and the gate read CLEAR under `halt`. Now a row
+naming ours whose id is not a non-empty string fails the read, and so does an id
+that repeats with a different event (type, dates or parties). Under `halt` both
+refuse. Only an identical repeat is dropped. A malformed row naming none of ours
+is still skipped and recorded, whatever its id.
+
 **The windows** (ET calendar dates, inclusive; the module docstring has the
 alignment in full):
 

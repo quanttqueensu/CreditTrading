@@ -1140,6 +1140,78 @@ def test_well_formed_rows_read_exactly_as_before_with_the_record(env_file, sleep
             c.corporate_actions(syms, W0, W1, **kw)
 
 
+# ONE ID, ONE EVENT (release-check of 9630322, 2026-10-30, reproduced by the
+# reviewer). Rows naming ours were de-duplicated on the raw `id`, whose key was
+# only required to be present, so two `id: null` rows were "one id" and the
+# second was dropped: the probe's NVG split, effective on the session date,
+# vanished and the gate read CLEAR under `halt`. Every test here FAILS on
+# 9630322. Rows: the probe's two null-id reverse splits, otherwise the
+# reference's reverse-split shape.
+def _rsplit(sym, ex, i):
+    return {"id": i, "symbol": sym, "ex_date": ex, "process_date": ex, "old_rate": 2,
+            "new_rate": 1}
+
+
+PROBE_NULL_IDS = [_rsplit("NAD", "2026-08-03", None), _rsplit("NVG", "2026-10-30", None)]
+
+
+@pytest.mark.parametrize("rows", [PROBE_NULL_IDS, [_rsplit("NVG", "2026-10-30", "")],
+                                  [_rsplit("NVG", "2026-10-30", "  ")],
+                                  [_rsplit("NVG", "2026-10-30", 7)]],
+                         ids=["probe-two-null-ids", "empty-id", "blank-id", "int-id"])
+@pytest.mark.parametrize("record", [False, True], ids=["plain", "with-skip-record"])
+def test_a_row_naming_ours_without_a_string_id_refuses(env_file, sleeps, rows, record):
+    c, _ = ca_client(env_file, sleeps, ca_page({"reverse_splits": rows}))
+    kw = {"universe": ["NAD", "NVG"], "skipped": []} if record else {}
+    with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
+        c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1), **kw)
+
+
+def test_a_repeated_id_identical_is_dropped_and_different_refuses(env_file, sleeps):
+    """A page boundary can repeat a row: an identical repeat, on one page or on
+    the next, is one event, as before. The same id with a different event (a
+    date, the type or the parties) cannot be resolved, and refuses."""
+    one = _rsplit("NVG", "2026-10-30", "rs-1")
+    c, _ = ca_client(env_file, sleeps, ca_page({"reverse_splits": [one, dict(one)]}))
+    assert [e["id"] for e in c.corporate_actions(["NVG"], W0, dt.date(2028, 1, 1))] == ["rs-1"]
+    pages = {None: ca_page({"reverse_splits": [one]}, token="p2"),
+             "p2": ca_page({"reverse_splits": [dict(one)]})}
+    c, _ = ca_client(env_file, sleeps, lambda p: pages[p.get("page_token")])
+    assert len(c.corporate_actions(["NVG"], W0, dt.date(2028, 1, 1))) == 1
+    for other in (dict(one, ex_date="2026-11-02"),                      # another date
+                  dict(one, symbol="NAD")):                              # another party
+        pages = {None: ca_page({"reverse_splits": [one]}, token="p2"),
+                 "p2": ca_page({"reverse_splits": [other]})}
+        c, _ = ca_client(env_file, sleeps, lambda p: pages[p.get("page_token")])
+        with pytest.raises(al.UnexpectedResponse, match="repeats with a different event"):
+            c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1))
+    as_split = dict(CA_REFERENCE["forward_splits"][0], id="rs-1", symbol="NVG")
+    c, _ = ca_client(env_file, sleeps, ca_page({"reverse_splits": [one],
+                                                "forward_splits": [as_split]}))
+    with pytest.raises(al.UnexpectedResponse, match="repeats with a different event"):
+        c.corporate_actions(["NVG"], W0, dt.date(2028, 1, 1))           # another type
+
+
+def test_a_null_id_is_skipped_and_recorded_on_a_malformed_row_naming_none_of_ours(env_file,
+                                                                                 sleeps):
+    """Rule A stands: a malformed row naming none of ours is skipped and
+    recorded, a null id and all, each such row on its own (none dropped as a
+    "duplicate"). A well-formed row naming none of ours is not read, whatever
+    its id. The same page with a null-id row naming ours refuses."""
+    theirs = [dict(EMPTY_SPLIT, id=None), dict(EMPTY_SPLIT, id=None, ex_date="2023-09-01"),
+              dict(CA_REFERENCE["forward_splits"][0], id=None)]           # well-formed, not ours
+    c, _ = ca_client(env_file, sleeps, ca_page({"forward_splits": theirs}))
+    skipped = []
+    assert c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped) == []
+    assert [(k["id"], k["missing"], k["dates"]["ex_date"]) for k in skipped] == [
+        (None, ["symbol"], "2023-08-22"), (None, ["symbol"], "2023-09-01")]
+    c, _ = ca_client(env_file, sleeps, ca_page({"forward_splits": theirs,
+                                                "reverse_splits": PROBE_NULL_IDS}))
+    with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
+        c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1), universe=UNI + ["NAD", "NVG"],
+                            skipped=[])
+
+
 def test_next_page_token_is_required_and_only_null_or_empty_ends_paging(env_file, sleeps):
     """Review 2026-10-29, item 6. `distributions` reads a missing key as the
     last page, which would drop every later page in silence."""
