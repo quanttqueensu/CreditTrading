@@ -1226,7 +1226,8 @@ class AlpacaClient:
             raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
         return sorted(out, key=lambda e: (e["symbol"], e["ex_date"], e["kind"], e["id"]))
 
-    def corporate_actions(self, symbols, start: dt.date, end: dt.date) -> list[dict]:
+    def corporate_actions(self, symbols, start: dt.date, end: dt.date, *, universe=None,
+                          skipped: list | None = None) -> list[dict]:
         """Every NON-dividend corporate action that names one of `symbols`, in any role.
 
         GET {DATA_BASE}/v1/corporate-actions, types = the thirteen in
@@ -1282,6 +1283,31 @@ class AlpacaClient:
         raised and the whole read failed, which under `halt` refuses every
         session.
 
+        MALFORMED ROWS (team lead, 2026-10-29, on the review of 4c63b1f). A row
+        with a REQUIRED symbol that is present but null or "" (or a
+        reorganization leg whose symbol is null or "" with no CUSIP) cannot be
+        fully read. Without `skipped` (the default) such a row raises, as before
+        the ruling, so a caller that keeps no record never loses one in
+        silence. With `skipped` (a list) and `universe` (the book's symbols;
+        the two go together), the ruling applies:
+          * every symbol PRESENT in the row is outside `universe` and `symbols`:
+            the row is skipped and a record of it appended to `skipped` (its
+            id, type, the missing field(s), the symbols and CUSIPs present, its
+            dates). The gate puts that list in plan.json, the run record and
+            one log line per row (corp_actions.check, `lines`). Never silent.
+          * a present symbol IS one of ours: it raises, naming it. That covers
+            a merger with our fund on one side and the other symbol null: the
+            row could concern one of ours, and under `halt` it refuses.
+        Identification is by SYMBOL only. The ruling also names a CUSIP or a
+        name "if Alpaca provides it". The rows do carry CUSIPs, but the live
+        path holds no CUSIP for any fund in the universe, so none can be
+        compared: each skipped row's CUSIPs are recorded instead, for a person
+        to check. The reference's schemas (test_alpaca_client.CA_REFERENCE)
+        carry no issuer name. Still raises on any row, ours or not: a row that
+        is not an object, a required symbol field ABSENT (a renamed field would
+        empty a type for every issuer, ours included), a symbol that is present
+        but not a string, a leg with no `symbol` key.
+
         THE WINDOW FILTERS ON process_date. The reference does not say what
         `start`/`end` filter (`distributions` docstring). Measured 2026-10-29 on
         twelve months of the real feed: all 3,443 rows had a process_date
@@ -1324,9 +1350,20 @@ class AlpacaClient:
             if not isinstance(s, str) or not _SYMBOL_RE.match(s):
                 raise ValueError(f"symbol {s!r} is not an upper-case equity symbol")
         wanted = set(syms)
+        if (universe is None) != (skipped is None):
+            raise ValueError("universe and skipped go together (MALFORMED ROWS): a skipped row "
+                             "needs the universe it was judged against, and a record to go to")
+        ours = set(wanted)
+        if universe is not None:
+            if isinstance(universe, str) or not isinstance(skipped, list):
+                raise ValueError("universe must be a list of symbols and skipped a list")
+            for s in universe:
+                if not isinstance(s, str) or not _SYMBOL_RE.match(s):
+                    raise ValueError(f"universe symbol {s!r} is not an upper-case equity symbol")
+            ours |= set(universe)
 
         w = "GET /v1/corporate-actions"
-        out, seen = [], set()
+        out, seen, seen_skipped = [], set(), set()
         token = None
         for _ in range(MAX_PAGES):
             params = {"types": ",".join(CORPORATE_ACTION_TYPES),
@@ -1351,7 +1388,25 @@ class AlpacaClient:
                     raise UnexpectedResponse(f"{w}: {key} is {type(rows).__name__}, not a list")
                 for i, r in enumerate(rows):
                     where = f"{w} {key}[{i}]"
-                    parties = _ca_parties(r, kind, fields, where)
+                    parties, unread = _ca_parties(r, kind, fields, where)
+                    if unread:
+                        # MALFORMED ROWS (docstring): raise unless the caller
+                        # records skips and no present symbol is ours.
+                        if skipped is None:
+                            raise UnexpectedResponse(unread[0]["error"])
+                        mine = sorted({s for s, _ in parties if s in ours})
+                        if mine:
+                            raise UnexpectedResponse(
+                                f"{unread[0]['error']}; the row also names {mine}, in the "
+                                f"book's universe, so it could concern one of ours and is "
+                                f"not skipped")
+                        rid = r.get("id")
+                        if isinstance(rid, str) and rid in seen_skipped:
+                            continue          # the same row repeated across pages
+                        if isinstance(rid, str):
+                            seen_skipped.add(rid)
+                        skipped.append(_ca_skip_record(r, kind, date_field, unread, parties))
+                        continue
                     if not any(s in wanted for s, _ in parties):
                         continue
                     _require(r, ("id", date_field, "process_date"), where)
@@ -1424,19 +1479,30 @@ CORPORATE_ACTION_RESPONSE_KEYS = frozenset(
     + ["cash_dividends", "capital_gains_distributions", "rights_distributions"])
 
 
-def _ca_parties(r, kind: str, fields, where: str) -> list[tuple[str, str]]:
-    """[(symbol, role)] for one corporate-action row; raises on a row whose
-    parties cannot be read (`AlpacaClient.corporate_actions`, VALIDATION). An
-    optional field that is absent, null or "" names nobody."""
+def _ca_parties(r, kind: str, fields, where: str) -> tuple[list[tuple[str, str]], list[dict]]:
+    """([(symbol, role)], unread) for one corporate-action row
+    (`AlpacaClient.corporate_actions`, VALIDATION and MALFORMED ROWS).
+
+    `unread` holds each REQUIRED symbol that is present but null or "", and
+    each reorganization leg whose symbol is null or "" with no CUSIP, as
+    {"field", "role", "error"}; `error` is the sentence the read raised with
+    before the 2026-10-29 ruling, so a caller that keeps no record raises
+    exactly as before. The caller decides what such a row means. This still
+    raises, for any row: not a JSON object, a required symbol field absent, a
+    symbol present but not a string, a leg with no `symbol` key. An optional
+    field that is absent, null or "" names nobody."""
     if not isinstance(r, dict):
         raise UnexpectedResponse(f"{where}: expected a JSON object, got {type(r).__name__}")
     _require(r, [f for f, _, req in fields if req], where)
-    out = []
+    out, unread = [], []
     for f, role, req in fields:
         v = r.get(f)
-        if not req and v in (None, ""):
+        if v is None or v == "":
+            if req:
+                unread.append({"field": f, "role": role,
+                               "error": f"{where}: {f} {v!r} is not a symbol"})
             continue
-        if not isinstance(v, str) or not v:
+        if not isinstance(v, str):
             raise UnexpectedResponse(f"{where}: {f} {v!r} is not a symbol")
         out.append((v, role))
     if kind == "reorganization":
@@ -1452,11 +1518,33 @@ def _ca_parties(r, kind: str, fields, where: str) -> list[tuple[str, str]]:
                     # A security with no ticker, identified by its CUSIP: names
                     # nobody (corporate_actions docstring, ONE MEASURED EXCEPTION).
                     continue
-                if not isinstance(sym, str) or not sym:
-                    raise UnexpectedResponse(f"{leg}: symbol {sym!r} is not a symbol, and the "
-                                             f"leg has no CUSIP ({cusip!r}) to say it has no ticker")
+                why = (f"{leg}: symbol {sym!r} is not a symbol, and the leg has no CUSIP "
+                       f"({cusip!r}) to say it has no ticker")
+                if sym is None or sym == "":
+                    unread.append({"field": f"stock_movements[{j}].symbol", "role": "allocated",
+                                   "error": why})
+                    continue
+                if not isinstance(sym, str):
+                    raise UnexpectedResponse(why)
                 out.append((sym, "allocated"))
-    return out
+    return out, unread
+
+
+def _ca_skip_record(r: dict, kind: str, date_field: str, unread: list, parties) -> dict:
+    """The record of one skipped malformed row (`AlpacaClient.corporate_actions`,
+    MALFORMED ROWS): enough for a person to find it and judge it. Raw values,
+    unparsed: the row was not read further. CUSIPs are every non-empty string
+    field whose name ends in `cusip`, and each leg's; none is compared with the
+    universe (the live path holds no CUSIP for it), so they are here to be read."""
+    cusips = {k: v for k, v in sorted(r.items())
+              if k.endswith("cusip") and isinstance(v, str) and v}
+    if kind == "reorganization":
+        for j, m in enumerate(r.get("stock_movements") or []):
+            if isinstance(m.get("cusip"), str) and m["cusip"]:
+                cusips[f"stock_movements[{j}].cusip"] = m["cusip"]
+    return {"id": r.get("id"), "type": kind, "missing": [u["field"] for u in unread],
+            "present": [[s, role] for s, role in parties], "cusips": cusips,
+            "dates": {f: r.get(f) for f in (date_field, "process_date") if f in r}}
 
 
 def _load_keys(book: str, env_file: Path) -> tuple[str, str]:

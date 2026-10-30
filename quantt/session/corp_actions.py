@@ -169,8 +169,27 @@ WHAT CLEARS A HALT.
     the team lead (CLAUDE.md order-path rule 1). docs/RUNBOOK.md,
     "Corporate-action halt", is the procedure, including the phantom P&L paper
     keeps.
-There is no per-event acknowledgement. Its shape would need a ruling, and
-`report` already says "send anyway, recorded".
+  * By the team lead's ACKNOWLEDGEMENT of that action's id (ACKNOWLEDGEMENTS
+    below; ruling 2026-10-29). Until that ruling there was none.
+
+ACKNOWLEDGEMENTS (team lead, 2026-10-29, on the review of 4c63b1f). A name
+change, redemption, worthless removal or partial call carries no ex or
+effective date, only process_date, so `date` IS its process date and a
+BACKFILLED one (processed long after it happened) matches the long window as if
+it had just happened. Under `halt` it then refuses every session, and a
+corrective order may be impossible (a redeemed or removed security) or
+pointless (the action predates the holding). The ruling: the team lead may
+acknowledge one action by its Alpaca id, with a one-line reason, recorded in
+`<state>/ca_acks.json` (ACKS_FILE). Only `python3 -m quantt.session ca-ack`
+writes it (`run.ca_ack_main`: it confirms the id in the feed, read-only, and
+writes atomically). The gate then clears THAT ID ONLY: every other action, a new
+one on the same fund included, still blocks. The cleared pairs stay in the
+record under `acknowledged`, with the acknowledgement, and in the log. An id no
+longer in the feed is harmless. A file that cannot be read or does not parse
+(`parse_acks`) is never read as empty: the gate is UNMEASURED and, under
+`halt`, refuses. No file at all is no acknowledgement, the state before the
+ruling. Any type can be acknowledged; acknowledging a split or a merger clears
+the halt without fixing the count, which docs/RUNBOOK.md §6.1 says.
 
 BE CONSERVATIVE: EVERY PARTY BLOCKS. A held or targeted name blocks in any role
 the event gives it, on the window its role and match call for (TWO WINDOWS). That
@@ -210,6 +229,12 @@ REPORT, HALT = "report", "halt"
 MODES = (REPORT, HALT)
 
 CLEAR, BLOCKING, UNMEASURED = "CLEAR", "BLOCKING", "UNMEASURED"
+
+# The team lead's acknowledgements, in the book's state dir (ACKNOWLEDGEMENTS).
+ACKS_FILE = "ca_acks.json"
+# The four types dated by process_date alone, whose backfills the ruling is for.
+PROCESS_DATE_TYPES = frozenset({"name_change", "redemption", "worthless_removal",
+                                "partial_call"})
 
 # The three merger types: an ACQUIRER in any of them is judged on the short
 # window, on its market date only (module docstring, TWO WINDOWS).
@@ -382,12 +407,50 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
     return sorted(out, key=lambda b: (b["date"], b["symbol"], b["type"], b["id"]))
 
 
+def parse_acks(obj, book: str) -> dict:
+    """{action id: entry} from `<state>/ca_acks.json`'s parsed JSON
+    (ACKNOWLEDGEMENTS). Raises, naming the fault, on anything but
+    {"acks": [{"id", "reason", "acked_utc", "book", ...}, ...]} with a
+    non-empty id, a one-line non-empty reason, an aware ISO UTC time, this book,
+    and no id twice: a file that does not say what it acknowledges is never
+    read as acknowledging nothing."""
+    from quantt.broker.alpaca import parse_ts
+    if not isinstance(obj, dict) or not isinstance(obj.get("acks"), list):
+        raise ValueError(f"{ACKS_FILE}: expected {{\"acks\": [...]}}, got {type(obj).__name__}")
+    out = {}
+    for i, e in enumerate(obj["acks"]):
+        where = f"{ACKS_FILE} acks[{i}]"
+        if not isinstance(e, dict):
+            raise ValueError(f"{where}: not an object")
+        aid, reason = e.get("id"), e.get("reason")
+        if not isinstance(aid, str) or not aid.strip():
+            raise ValueError(f"{where}: id {aid!r} is not an action id")
+        if not isinstance(reason, str) or not reason.strip() or "\n" in reason or "\r" in reason:
+            raise ValueError(f"{where} ({aid}): reason {reason!r} is not one non-empty line")
+        parse_ts(e.get("acked_utc"), f"{where} ({aid}) acked_utc")
+        if e.get("book") != book:
+            raise ValueError(f"{where} ({aid}): book {e.get('book')!r} is not {book!r}")
+        if aid in out:
+            raise ValueError(f"{where}: {aid} is acknowledged twice")
+        out[aid] = e
+    return out
+
+
 def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
-          session_date: dt.date, mode: str) -> dict:
+          session_date: dt.date, mode: str, *, universe=None, acks: dict | None = None) -> dict:
     """The gate's record for one session (module docstring). `fetch(symbols,
     start, end)` is `AlpacaClient.corporate_actions`. Raises on anything it
     cannot measure; run.py `_corporate_actions` turns that into UNMEASURED (and,
-    under `halt`, a refusal)."""
+    under `halt`, a refusal).
+
+    `universe` (the book's symbols; run.py always passes it): the fetch skips a
+    malformed row none of whose present symbols is ours and hands it back
+    (AlpacaClient.corporate_actions, MALFORMED ROWS); the record gains
+    `skipped_malformed` only when there is one. None, the default, is the read
+    before the 2026-10-29 ruling: any malformed row raises. `acks`
+    (`parse_acks`, or None for no file): a blocking pair whose action id is
+    acknowledged leaves `blocking` for `acknowledged`, added only when one is
+    (ACKNOWLEDGEMENTS). Absent both, the record is exactly as before."""
     if mode not in MODES:
         raise ValueError(f"corporate-action mode {mode!r} is not one of {MODES}")
     held = held_since(closed_orders, [s for s, q in positions.items() if q])
@@ -399,11 +462,23 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
         return {**rec, "status": CLEAR, "query": None, "events": [], "blocking": [],
                 "note": "nothing held and nothing targeted: no name to check"}
     qs, qe = query_window(win)
-    events = fetch(list(win), qs, qe)
+    skipped = None
+    if universe is None:
+        events = fetch(list(win), qs, qe)
+    else:
+        skipped = []
+        events = fetch(list(win), qs, qe, universe=sorted(set(universe)), skipped=skipped)
     blocking = blocking_events(events, held=held, targets=targets, asof=asof,
                                session_date=session_date)
-    return {**rec, "status": BLOCKING if blocking else CLEAR, "query": [qs, qe],
-            "events": events, "blocking": blocking}
+    acked = [b for b in blocking if acks and b["id"] in acks]
+    blocking = [b for b in blocking if not (acks and b["id"] in acks)]
+    out = {**rec, "status": BLOCKING if blocking else CLEAR, "query": [qs, qe],
+           "events": events, "blocking": blocking}
+    if skipped:
+        out["skipped_malformed"] = skipped
+    if acked:
+        out["acknowledged"] = [{**b, "ack": acks[b["id"]]} for b in acked]
+    return out
 
 
 def unmeasured_record(mode: str, asof, session_date, why: str) -> dict:
@@ -440,5 +515,16 @@ def lines(rec: dict) -> list[str]:
         n = len(rec["names"])
         q = rec.get("query")
         where = f" (asked {q[0]}..{q[1]}, {len(rec['events'])} event(s) naming them)" if q else ""
-        return [f"{head}: CLEAR for {n} name(s){where}"]
-    return [f"{head}: BLOCKING: {_event_text(b)}{tail}" for b in rec["blocking"]]
+        out = [f"{head}: CLEAR for {n} name(s){where}"]
+    else:
+        out = [f"{head}: BLOCKING: {_event_text(b)}{tail}" for b in rec["blocking"]]
+    for b in rec.get("acknowledged", []):
+        a = b["ack"]
+        out.append(f"{head}: ACKNOWLEDGED, cleared for this id only: {_event_text(b)}; by "
+                   f"the team lead at {a['acked_utc']}: {a['reason']}")
+    for k in rec.get("skipped_malformed", []):
+        out.append(f"{head}: SKIPPED a malformed row: {k['type']} id {k['id']!r}, "
+                   f"{', '.join(k['missing'])} null or empty; no symbol present is the "
+                   f"book's (present: {k['present'] or 'none'}; CUSIPs, not compared: "
+                   f"{k['cusips'] or 'none'})")
+    return out
