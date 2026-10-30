@@ -939,7 +939,8 @@ def corporate_actions_for(book: Book) -> str | None:
 
 
 def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, targets,
-                       asof: dt.date, session_date: dt.date) -> tuple[dict, str | None, list]:
+                       asof: dt.date, session_date: dt.date, *,
+                       universe) -> tuple[dict, str | None, list]:
     """Step 3b, the corporate-action gate (quantt/session/corp_actions.py):
     (record, the `data` refusal's sentence or None, log lines).
 
@@ -952,11 +953,15 @@ def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, t
     both modes, and never as CLEAR. Under `report` the session goes on, like the
     drawdown check's report mode. Under `halt` it is a refusal naming the
     error, not a FAIL: refusing is the gate's own answer to "cannot see", and
-    the next slot retries the read (the team lead's brief, 2026-10-28)."""
+    the next slot retries the read (the team lead's brief, 2026-10-28).
+
+    `universe`, the book's symbols, lets the read skip and record a malformed
+    row that cannot be ours (team lead 2026-10-29; AlpacaClient.corporate_actions,
+    MALFORMED ROWS)."""
     mode = deps.corp_actions
     try:
         res = cam.check(deps.client.corporate_actions, read_closed(), positions, targets,
-                        asof, session_date, mode)
+                        asof, session_date, mode, universe=universe)
     except Exception as e:  # recorded in plan.json and printed, never swallowed (docstring)
         res = cam.unmeasured_record(mode, asof, session_date, f"{type(e).__name__}: {e}")
     refusal = cam.refusal_text(res) if mode == cam.HALT else None
@@ -1554,7 +1559,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if deps.corp_actions is not None:
             record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
                 deps, lambda: closed, pos,
-                _plan_targets(decision.targets, record.get("combine")), asof, session_date)
+                _plan_targets(decision.targets, record.get("combine")), asof, session_date,
+                universe=p["universe"])
             for line in ca_lines:
                 print(line, file=out)
 
@@ -1839,7 +1845,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
             deps, lambda: c.orders(status="closed"), pos,
             _plan_targets(plan["targets"], plan.get("combine")),
-            asof, session_date)
+            asof, session_date, universe=p["universe"])
     approve_sha = approve or approval_for(day)
     # Gate 6's lists: the last broker read before the gate's clock read, after
     # the asset GETs, the closed-order history and the corporate-action pages

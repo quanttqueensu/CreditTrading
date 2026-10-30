@@ -383,11 +383,18 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
 
 
 def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
-          session_date: dt.date, mode: str) -> dict:
+          session_date: dt.date, mode: str, *, universe=None) -> dict:
     """The gate's record for one session (module docstring). `fetch(symbols,
     start, end)` is `AlpacaClient.corporate_actions`. Raises on anything it
     cannot measure; run.py `_corporate_actions` turns that into UNMEASURED (and,
-    under `halt`, a refusal)."""
+    under `halt`, a refusal).
+
+    `universe` (the book's symbols; run.py always passes it): the fetch skips a
+    malformed row none of whose present symbols is ours and hands it back
+    (AlpacaClient.corporate_actions, MALFORMED ROWS); the record gains
+    `skipped_malformed` only when there is one. None, the default, is the read
+    before the 2026-10-29 ruling: any malformed row raises. Absent one, the
+    record is exactly as before."""
     if mode not in MODES:
         raise ValueError(f"corporate-action mode {mode!r} is not one of {MODES}")
     held = held_since(closed_orders, [s for s, q in positions.items() if q])
@@ -399,11 +406,19 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
         return {**rec, "status": CLEAR, "query": None, "events": [], "blocking": [],
                 "note": "nothing held and nothing targeted: no name to check"}
     qs, qe = query_window(win)
-    events = fetch(list(win), qs, qe)
+    skipped = None
+    if universe is None:
+        events = fetch(list(win), qs, qe)
+    else:
+        skipped = []
+        events = fetch(list(win), qs, qe, universe=sorted(set(universe)), skipped=skipped)
     blocking = blocking_events(events, held=held, targets=targets, asof=asof,
                                session_date=session_date)
-    return {**rec, "status": BLOCKING if blocking else CLEAR, "query": [qs, qe],
-            "events": events, "blocking": blocking}
+    out = {**rec, "status": BLOCKING if blocking else CLEAR, "query": [qs, qe],
+           "events": events, "blocking": blocking}
+    if skipped:
+        out["skipped_malformed"] = skipped
+    return out
 
 
 def unmeasured_record(mode: str, asof, session_date, why: str) -> dict:
@@ -440,5 +455,12 @@ def lines(rec: dict) -> list[str]:
         n = len(rec["names"])
         q = rec.get("query")
         where = f" (asked {q[0]}..{q[1]}, {len(rec['events'])} event(s) naming them)" if q else ""
-        return [f"{head}: CLEAR for {n} name(s){where}"]
-    return [f"{head}: BLOCKING: {_event_text(b)}{tail}" for b in rec["blocking"]]
+        out = [f"{head}: CLEAR for {n} name(s){where}"]
+    else:
+        out = [f"{head}: BLOCKING: {_event_text(b)}{tail}" for b in rec["blocking"]]
+    for k in rec.get("skipped_malformed", []):
+        out.append(f"{head}: SKIPPED a malformed row: {k['type']} id {k['id']!r}, "
+                   f"{', '.join(k['missing'])} null or empty; no symbol present is the "
+                   f"book's (present: {k['present'] or 'none'}; CUSIPs, not compared: "
+                   f"{k['cusips'] or 'none'})")
+    return out

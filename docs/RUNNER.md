@@ -384,6 +384,22 @@ records (2026-10-29). A reorganization leg with no ticker but a CUSIP names
 nobody. On twelve months of the real feed, 29 reorganizations carried such legs,
 and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc).
 
+**A malformed row** (team lead, 2026-10-29, on the review of 4c63b1f). A row
+whose required symbol is present but null or "" used to fail the whole read, so
+under `halt` one bad row for ANY issuer refused every session. Now, when no
+symbol present in it is in the book's universe, the gate skips it and records
+it: `corporate_actions.skipped_malformed` in plan.json, send.json and the run
+record (its id, type, missing field, the symbols and CUSIPs present, its
+dates), and one log line naming the id and the missing field. It still refuses
+(UNMEASURED) when a present symbol is in the universe, so a merger with our
+fund on one side and the other symbol null refuses. Identification is by symbol
+only. The ruling also names a CUSIP or a name where Alpaca provides one. The rows
+carry CUSIPs, but the live path holds no CUSIP for any fund in the universe, so
+they are recorded rather than compared. The reference's schemas carry no issuer
+name. A required field that is ABSENT, a symbol that is not a string, or a row
+that is not an object still fails the read for any issuer: a renamed field would
+empty a type for ours too. (`AlpacaClient.corporate_actions`, MALFORMED ROWS.)
+
 **The windows** (ET calendar dates, inclusive; the module docstring has the
 alignment in full):
 

@@ -331,6 +331,17 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    the dev repo through a release (sections 1–2), never by hand-editing prod.
    Set it back to `halt` the same way.
 
+**A skipped malformed row** (team lead, 2026-10-29). A row whose required
+symbol is null or empty, and none of whose present symbols is in the book's
+universe, no longer refuses the session. It is skipped and listed under
+`corporate_actions.skipped_malformed` in `plan.json` (and `send.json`), with a
+`SKIPPED a malformed row` log line naming its id and the missing field. It sends
+on. Identification is by symbol only. The row's CUSIPs are listed but not
+compared, because the prod clone holds no CUSIP for our funds. So read the
+listed CUSIPs against the funds' own (from their filings) when one appears. A
+malformed row with one of our symbols present still refuses (UNMEASURED,
+"could concern one of ours"), until Alpaca completes the row.
+
 ## 7. Keeping the laptop awake
 
 launchd runs a missed calendar job **once on wake**, and coalesces several

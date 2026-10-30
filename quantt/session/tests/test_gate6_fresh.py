@@ -91,8 +91,8 @@ class SecondRunner(CAClient):
             else:
                 self._open = self._open + [THEIRS_OPEN]
 
-    def corporate_actions(self, symbols, start, end):
-        got = super().corporate_actions(symbols, start, end)
+    def corporate_actions(self, symbols, start, end, **kw):
+        got = super().corporate_actions(symbols, start, end, **kw)
         self._land("corporate_actions")
         return got
 
@@ -114,8 +114,8 @@ class OrdersFailAfterCA(CAClient):
     def arm(self):
         self.armed, self.ca_done = True, False
 
-    def corporate_actions(self, symbols, start, end):
-        got = super().corporate_actions(symbols, start, end)
+    def corporate_actions(self, symbols, start, end, **kw):
+        got = super().corporate_actions(symbols, start, end, **kw)
         self.ca_done = True
         return got
 

@@ -1061,6 +1061,85 @@ def test_a_reorganization_leg_that_cannot_be_identified_still_raises(env_file, s
         c.corporate_actions(["PDI"], W0, W1)
 
 
+# MALFORMED ROWS (team lead, 2026-10-29, on the review of 4c63b1f). With a
+# record to go to (`skipped`) and the book's universe, a row with a required
+# symbol present but null or "" is skipped and recorded when no symbol present
+# in it is ours, and raises when one is. Every test here FAILS on 4c63b1f,
+# whose read took neither keyword and raised on every such row. The rows are
+# the reference's examples with one field emptied.
+UNI = ["PDI", "PTY"]                                  # the book's universe in these tests
+NULL_ACQUIRER = dict(CA_REFERENCE["stock_mergers"][0], id="sm-null", acquirer_symbol=None)
+EMPTY_SPLIT = dict(CA_REFERENCE["forward_splits"][0], id="fs-empty", symbol="")
+NO_TICKER_LEG = dict(REAL_REORG_NO_TICKER, id="reorg-bad-leg",
+                     stock_movements=[{"symbol": None, "new_rate": 1, "source_rate": 1}])
+
+
+def test_a_malformed_row_for_unrelated_issuers_is_skipped_and_recorded(env_file, sleeps):
+    page = ca_page({"stock_mergers": [NULL_ACQUIRER], "forward_splits": [EMPTY_SPLIT],
+                    "reorganizations": [NO_TICKER_LEG]})
+    c, _ = ca_client(env_file, sleeps, page)
+    skipped = []
+    assert c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped) == []
+    assert skipped == [
+        {"id": "fs-empty", "type": "forward_split", "missing": ["symbol"], "present": [],
+         "cusips": {"cusip": "816851109"},
+         "dates": {"ex_date": "2023-08-22", "process_date": "2023-08-22"}},
+        {"id": "sm-null", "type": "stock_merger", "missing": ["acquirer_symbol"],
+         "present": [["LSI", "acquiree"]],
+         "cusips": {"acquiree_cusip": "53223X107", "acquirer_cusip": "30225T102"},
+         "dates": {"effective_date": "2023-07-20", "process_date": "2023-07-20"}},
+        {"id": "reorg-bad-leg", "type": "reorganization", "missing": ["stock_movements[0].symbol"],
+         "present": [["AIMTF", "subject"]], "cusips": {},
+         "dates": {"effective_date": "2026-07-28", "process_date": "2026-07-31"}}]
+    # Without a record to go to, the same rows still raise, as before the ruling.
+    c, _ = ca_client(env_file, sleeps, page)
+    with pytest.raises(al.UnexpectedResponse, match="is not a symbol"):
+        c.corporate_actions(["PDI"], W0, W1)
+
+
+@pytest.mark.parametrize("key,row", [
+    ("unit_splits", dict(CA_REFERENCE["unit_splits"][0], id="us-ours", old_symbol="PDI",
+                         new_symbol="")),
+    ("reorganizations", dict(NO_TICKER_LEG, symbol="PTY")),   # PTY: universe, not asked for
+], ids=["ours-unit-split", "universe-name-not-asked"])
+def test_a_malformed_row_naming_one_of_ours_refuses(env_file, sleeps, key, row):
+    """A present symbol in the book's universe, asked for or not: the row could
+    be ours and is never skipped. It raises, naming the symbol."""
+    c, _ = ca_client(env_file, sleeps, ca_page({key: [row]}))
+    skipped = []
+    with pytest.raises(al.UnexpectedResponse, match="could concern one of ours"):
+        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped)
+    assert skipped == []
+
+
+@pytest.mark.parametrize("key", ["stock_mergers", "stock_and_cash_mergers"])
+@pytest.mark.parametrize("ours_as,other,empty", [("acquiree", "acquirer", None),
+                                                ("acquirer", "acquiree", ""),
+                                                ("acquiree", "acquirer", "")])
+def test_a_merger_with_our_fund_on_one_side_and_the_other_symbol_missing_refuses(
+        env_file, sleeps, key, ours_as, other, empty):
+    row = dict(CA_REFERENCE[key][0], id="m-ours", **{f"{ours_as}_symbol": "PDI",
+                                                      f"{other}_symbol": empty})
+    c, _ = ca_client(env_file, sleeps, ca_page({key: [row]}))
+    with pytest.raises(al.UnexpectedResponse, match=r"names \['PDI'\].*could concern one of ours"):
+        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+
+
+def test_well_formed_rows_read_exactly_as_before_with_the_record(env_file, sleeps):
+    """The reference's rows, all well-formed: the same events with the record as
+    without, and nothing skipped. The two keywords go together."""
+    syms = ["EXR", "MLVF", "GLOP", "MNTS", "OLDF", "NEWF", "VFS", "PCAL"]
+    c, _ = ca_client(env_file, sleeps)
+    before = c.corporate_actions(syms, W0, W1)
+    skipped = []
+    c, _ = ca_client(env_file, sleeps)
+    assert c.corporate_actions(syms, W0, W1, universe=UNI, skipped=skipped) == before
+    assert skipped == [] and len(before) == 7          # OLDF and NEWF are one event
+    for kw in ({"universe": UNI}, {"skipped": []}):
+        with pytest.raises(ValueError, match="go together"):
+            c.corporate_actions(syms, W0, W1, **kw)
+
+
 def test_next_page_token_is_required_and_only_null_or_empty_ends_paging(env_file, sleeps):
     """Review 2026-10-29, item 6. `distributions` reads a missing key as the
     last page, which would drop every later page in silence."""

@@ -409,7 +409,9 @@ class CAClient(FakeClient):
         self.events = list(events)
         self.ca_error = ca_error
 
-    def corporate_actions(self, symbols, start, end):
+    def corporate_actions(self, symbols, start, end, *, universe=None, skipped=None):
+        # `universe`/`skipped` (AlpacaClient.corporate_actions, MALFORMED ROWS):
+        # these synthetic events are well-formed, so nothing is ever skipped.
         self.ca_at = len(self.calls)          # where in the call log the read happened
         self.calls.append(("corporate_actions", tuple(symbols), start, end))
         if self.ca_error is not None:
