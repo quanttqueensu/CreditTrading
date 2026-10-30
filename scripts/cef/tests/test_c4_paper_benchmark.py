@@ -120,13 +120,21 @@ def test_the_spec_validates_and_builds_through_the_registry():
     assert sl.panel_paths() == (cefmod.REPO / bm.C4_PANEL["prices"], cefmod.REPO / bm.C4_PANEL["nav"])
 
 
-def test_no_book_names_it_and_the_runner_refuses_it():
+def test_only_c4s_own_book_names_it_and_the_runner_reads_it_from_its_own_panel():
+    """Was `test_no_book_names_it_and_the_runner_refuses_it` (step 2). Row 6A
+    replaced the refusal (`require_core_panel`) with per-sleeve panels, and the
+    C4 integration (2026-10-29) gave the spec its own book: ops/books/
+    c4_families_book.json and run.BOOKS["c4"]. Still, the CORE's book never
+    names it, and the runner prices, gates and refreshes it on data/cef_c4/
+    (quantt/session/tests/test_c4_book.py), never on data/cef/."""
     from quantt.session import run as rn
-    for p in (REPO / "ops" / "books").glob("*.json"):
-        assert "c4_families" not in p.read_text(), f"{p.name} names the C4 spec"
-    assert all(b.spec_path.name != bm.SPEC_PATH.name for b in rn.BOOKS.values())
-    with pytest.raises(rn.SessionError, match="data/cef_c4/cef_prices.parquet"):
-        rn.require_core_panel(_spec())
+    naming = sorted(p.name for p in (REPO / "ops" / "books").glob("*.json")
+                    if "c4_families" in p.read_text())
+    assert naming == ["c4_families_book.json"]
+    assert [k for k, b in rn.BOOKS.items() if b.spec_path.name == bm.SPEC_PATH.name] == ["c4"]
+    assert rn.spec_panel(_spec()) == rn.Panel(REPO / bm.C4_PANEL["prices"], REPO / bm.C4_PANEL["nav"])
+    assert rn.spec_panel(_spec()) != rn.core_panel()
+    assert rn.refresh_flags(rn.spec_panel(_spec())) == ("--data-book", "c4")
 
 
 def test_an_absent_panel_refuses_naming_it(tmp_path, monkeypatch):

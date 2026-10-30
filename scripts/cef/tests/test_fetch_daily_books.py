@@ -3,7 +3,7 @@
 Two claims, and the tests for each:
 
 THE CORE IS UNCHANGED. With no `--data-book`, or `--data-book cef`, fetch_daily
-does what it did at 29e5dc0: the same panel bytes, fallback log, lock file,
+does what it did at cee16ad: the same panel bytes, fallback log, lock file,
 printed lines, exit codes, yfinance symbols asked for and CEFConnect calls, on
 seven scenarios that reach every branch the edit touched (a plain refresh with
 empty rows, a repair, an empty NAV, a stale fund and a fetch error; the as-of
@@ -14,7 +14,7 @@ fails here even where the scenarios happen not to look.
 
 C4 HAS ITS OWN PATH. `--data-book c4`: data/cef_c4/ under its own lock, the
 74 frozen funds, each NAV from the committed map, every empty-row guard, and
-CEFConnect refused. Each such test fails on 29e5dc0, which has no data books.
+CEFConnect refused. Each such test fails on cee16ad, which has no data books.
 
 Synthetic panels: the claims are about this code, not about any market (the
 bar values in the guard tests are the 2026-10-28 incident's shapes, as in
@@ -182,14 +182,14 @@ SCENARIOS = {
 
 
 @pytest.mark.parametrize("name", list(SCENARIOS))
-def test_the_core_is_byte_identical_to_29e5dc0_with_no_book_and_with_book_cef(
+def test_the_core_is_byte_identical_to_cee16ad_with_no_book_and_with_book_cef(
         name, tmp_path, monkeypatch):
-    """THE NO-OP PROOF. 29e5dc0's fetch_daily (from git), this one with no
+    """THE NO-OP PROOF. cee16ad's fetch_daily (from git), this one with no
     --data-book, and this one with --data-book cef, each in its own directory
     on the same fixtures: exit code, every printed line, every file's bytes,
     and every yfinance and CEFConnect request are identical."""
     sc = SCENARIOS[name]
-    base = load_at_base("scripts/cef/fetch_daily.py", "fetch_daily_29e5dc0", tmp_path, monkeypatch)
+    base = load_at_base("scripts/cef/fetch_daily.py", "fetch_daily_cee16ad", tmp_path, monkeypatch)
     got = []
     for label, mod, extra in (("run_base", base, []), ("run_new", fd, []),
                               ("run_new_cef", fd, ["--data-book", "cef"])):
@@ -201,8 +201,8 @@ def test_the_core_is_byte_identical_to_29e5dc0_with_no_book_and_with_book_cef(
     b, n, c = got
     for i, what in enumerate(("exit code", "stdout", "files", "yfinance requests",
                               "CEFConnect requests")):
-        assert n[i] == b[i], f"{name}: {what} differs from 29e5dc0 with no --data-book"
-        assert c[i] == b[i], f"{name}: {what} differs from 29e5dc0 with --data-book cef"
+        assert n[i] == b[i], f"{name}: {what} differs from cee16ad with no --data-book"
+        assert c[i] == b[i], f"{name}: {what} differs from cee16ad with --data-book cef"
     # The fixtures do reach the branches the edit touched.
     rc, out, files, asked, calls = b
     want = {"a clean fetch, every NAV fresh, the pair complete": 0,
@@ -494,7 +494,7 @@ def test_an_incomplete_pair_outranks_the_spike_exit(c4):
 
 
 def test_the_core_runs_no_spike_guard(tmp_path, monkeypatch):
-    """The same IGR-shaped series in the core's panel: no guard, exit 0, as at 29e5dc0."""
+    """The same IGR-shaped series in the core's panel: no guard, exit 0, as at cee16ad."""
     P, N = c4_panels()
     f = {k: v for k, v in spike_frames().items() if not k.startswith("X")}
     f.update({f"X{t}X": navs_frame([("2026-09-28", 11.0), (D, 11.1)]) for t in C4_FUNDS})

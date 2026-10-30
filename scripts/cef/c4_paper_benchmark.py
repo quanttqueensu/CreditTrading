@@ -9,9 +9,10 @@
 WHY THIS EXISTS. The team lead fast-tracked C4 (CEF trial 52) to paper on 2026-10-28 and keeps
 every gate. Plan `results/cef/C4_DEPLOY_PLAN_2026-10-27.md` §2 step 2 is row 2 (the frozen spec,
 `ops/specs/c4_families.frozen.json`) with a fidelity test against `build_book` (row 9), and row 10
-needs the price-only and total-return benchmark lines for H11 (PREREG_C4 §14). This step enables
-nothing: no book json names the spec, and the runner refuses it (`run.require_core_panel`) until
-plan row 6A lands.
+needs the price-only and total-return benchmark lines for H11 (PREREG_C4 §14). This step enabled
+nothing. (Since the C4 integration of 2026-10-29 the spec has its own book json,
+ops/books/c4_families_book.json, and runner entry, run.BOOKS["c4"], which row 6A prices and gates
+on data/cef_c4/; nothing schedules it until install_vm --book c4.)
 
 1. FIDELITY (plan row 9; PREREG_C4 §14 "the live target must equal the trial script's target on
    the same panel"). On a fixed set of fit-window sessions -- every FIDELITY_STEP-th session of the

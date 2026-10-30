@@ -95,16 +95,22 @@ accepted 2026-10-28). Its steps (`BOOKS["c4"]["steps"]`):
     account (`AlpacaClient.from_environment("c4")`, GETs only, as above),
     `distributions` (`fetch_cef_distributions.py --data-book c4`) and
     `borrow_snapshot`.
-`eod_from` for C4 is NOT SET: the date its account was first funded is not
-recorded anywhere this module can read, and inventing one would put a made-up
-start on the official P&L series. `eod_equity` fails naming it until the
-installer step records it. The run also refuses a state directory not named
+`eod_from` for C4 is NOT A CONSTANT here: the date its account was first funded
+is the team lead's to state, and inventing one would put a made-up start on the
+official P&L series. The installer records it (quantt/deploy/install_vm.py
+`--book c4 --eod-from YYYY-MM-DD`, a required argument with no default) as
+`Environment=QUANTT_EOD_FROM=<date>` in quantt-c4-collect.service, and `main`
+reads it from there (`eod_from_from_env`; malformed is DATA ERROR, exit 20).
+Without it `eod_equity` fails naming it. The core's start stays the constant
+below, and the core never reads that variable: set for `--book cef` it is
+refused, so two starts can never disagree in silence. The run also refuses a state directory not named
 `c4` (`state_dir_name`): the core's state dir holds `data/<D>/status.json` for
 the same D, and C4's record written there would overwrite the core's.
 DEFAULT OFF: no plist or systemd unit names `--book c4` (the installer's BOOK
 is "cef"); nothing runs this until the installer step adds C4's units. With
-`--book cef` every command, call, file and line is the one 29e5dc0 made
-(quantt/collect/tests/test_collect_books.py).
+`--book cef` every command, call, file and line is the one cee16ad
+(release-20261029-3) made (quantt/collect/tests/test_collect_books.py; the proof
+was re-based from 29e5dc0 when step 3 met main's SECOND SOURCE UNAVAILABLE).
 
 EXIT CODES
 ----------
@@ -233,7 +239,7 @@ BOOKS = {"cef": {"book_path": "ops/books/cef_discount_book.json",
                  "steps": STEPS, "data_book": None, "close_universe": "cef_universe.csv",
                  "spike_flag": False, "state_dir_name": None},
          "c4": {"book_path": None,
-                "eod_from": None,    # not recorded: module docstring, THE C4 BOOK
+                "eod_from": None,    # the installer's QUANTT_EOD_FROM: module docstring, THE C4 BOOK
                 "steps": C4_STEPS, "data_book": "c4", "close_universe": None,
                 "spike_flag": True, "state_dir_name": "c4"}}
 
@@ -283,6 +289,9 @@ class Ctx:
     run: Callable                # (cmd, timeout_s) -> (exit code | None on timeout, tail)
     cefconnect_nav: Callable     # (ticker, date) -> float | None; raises CefConnectError
     day: dt.date | None = None   # set once D is known, for the error record
+    # A book with no constant start (BOOKS[...]["eod_from"] None, C4): the
+    # installer's QUANTT_EOD_FROM, set by `main` (eod_from_from_env). None: unset.
+    eod_from: dt.date | None = None
 
 
 # ------------------------------------------------------------------ the data day
@@ -870,11 +879,14 @@ def step_eod_equity(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
     """
     eod_from = BOOKS[ctx.book]["eod_from"]
     if eod_from is None:
+        eod_from = ctx.eod_from          # C4: the installer's QUANTT_EOD_FROM (main)
+    if eod_from is None:
         # C4 (module docstring, THE C4 BOOK): never a made-up start for the
-        # official series. Fails visibly until the installer step records it.
-        raise StepFailed(f"BOOKS[{ctx.book!r}]['eod_from'] is not set: the date this book's "
-                         f"paper account was first funded is not recorded; the installer step "
-                         f"must record it before the EOD series is read",
+        # official series. Fails visibly until the installer records it.
+        raise StepFailed(f"BOOKS[{ctx.book!r}]['eod_from'] is not set and {EOD_FROM_ENV} is not "
+                         f"in this run's environment: the date this book's paper account was "
+                         f"first funded is not recorded; the installer records it (install_vm "
+                         f"--book {ctx.book} --eod-from) before the EOD series is read",
                          {"flags": [], "gaps": []})
     points = ctx.client.eod_equity_history(eod_from, day)
     now = clk["timestamp"]
@@ -1280,6 +1292,34 @@ def build_ctx(book: str, state_dir: Path) -> Ctx:
                cefconnect_nav=data_books.refuse_cefconnect(book))
 
 
+EOD_FROM_ENV = "QUANTT_EOD_FROM"
+
+
+def eod_from_from_env(book: str, env) -> dt.date | None:
+    """The installer's record of when `book`'s account was first funded, or None.
+
+    Only for a book whose BOOKS entry has no constant start (C4). The value must
+    be an ISO date (YYYY-MM-DD) exactly; anything else raises, because a start
+    the collector half-understood would date the official series wrongly. For a
+    book WITH a constant (the core) the variable must be absent: two starts for
+    one series would disagree in silence, so it raises naming both."""
+    raw = env.get(EOD_FROM_ENV)
+    if BOOKS[book]["eod_from"] is not None:
+        if raw is not None:
+            raise ValueError(f"{EOD_FROM_ENV}={raw!r} is set, but --book {book} records its own "
+                             f"start, {BOOKS[book]['eod_from']}; unset it")
+        return None
+    if raw is None:
+        return None
+    try:
+        d = dt.date.fromisoformat(raw)
+    except ValueError:
+        d = None
+    if d is None or d.isoformat() != raw:
+        raise ValueError(f"{EOD_FROM_ENV}={raw!r} is not an ISO date YYYY-MM-DD")
+    return d
+
+
 def main(argv=None, *, make_ctx=build_ctx, env=None) -> int:
     ap = argparse.ArgumentParser(prog="quantt.collect",
                                  description=__doc__.splitlines()[0])
@@ -1299,6 +1339,11 @@ def main(argv=None, *, make_ctx=build_ctx, env=None) -> int:
               f"QUANTT_STATE_DIR={state_dir} is not (another book's status.json for the same "
               f"day would be overwritten)", file=sys.stderr)
         return EXIT_UNEXPECTED
+    try:
+        eod_from = eod_from_from_env(args.book, env)
+    except ValueError as e:          # a malformed installer setting: before anything is written
+        print(f"DATA ERROR {e}", file=sys.stderr)
+        return EXIT_UNEXPECTED
     lock = _CollectorLock(state_dir / "data" / ".collect.lock")
     if not lock.acquire():
         print(f"BUSY another collector run holds {lock.path}; the next slot retries")
@@ -1306,6 +1351,8 @@ def main(argv=None, *, make_ctx=build_ctx, env=None) -> int:
     ctx = None
     try:
         ctx = make_ctx(args.book, state_dir)
+        if eod_from is not None:     # C4 only (eod_from_from_env); the core's ctx is untouched
+            ctx.eod_from = eod_from
         return collect(ctx)
     except Exception as e:  # noqa: BLE001 -- recorded below, traceback to stderr, exit 20
         traceback.print_exc()

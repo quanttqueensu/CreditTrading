@@ -262,6 +262,16 @@ class Book:
 BOOKS = {
     "cef": Book("cef", "cef", REPO / "ops/specs/cef_discount.frozen.json",
                 REPO / "ops/books/cef_discount_book.json"),
+    # C4 (CEF trial 52) on its own Alpaca paper account (team lead 2026-10-26,
+    # docs/SYSTEM.md section 5; deploy plan row 6A). DARK: nothing schedules it
+    # until quantt/deploy/install_vm.py is run with `--book c4`, and that renders
+    # DRY_RUN=1 unless armed. Its keys are ALPACA_C4_KEY_ID / _SECRET_KEY (the
+    # `name`, as alpaca_probe.env_names derives them); its order ids `c4-<D>-...`,
+    # which verify reads as `<book>-<D>-`; its state directory must be named
+    # `c4` (records.STATE_DIR_NAMES), so a C4 run can never write the core's
+    # STARTED, plan.json or verify.log for the same session.
+    "c4": Book("c4", "c4", REPO / "ops/specs/c4_families.frozen.json",
+               REPO / "ops/books/c4_families_book.json"),
 }
 
 
@@ -595,6 +605,13 @@ def _text(v) -> str:
 # the command this runner has always run (RUNNER.md step 1). `refresh_flags`.
 CORE_REFRESH_FLAGS = ("--nav-fallback", "cefconnect")
 
+# fetch_daily's other data books (`--data-book`, scripts/cef/data_books.py): the
+# directory each one writes, under its own lock. MIRRORED, not imported: the
+# session imports nothing from scripts/ at module level (load_spec), and the
+# refresh it runs is a child process. tests/test_c4_book.py pins every entry to
+# data_books.C4_DIR and to the C4 spec's panel_source, so the three cannot drift.
+DATA_BOOK_DIRS = {"c4": REPO / "data" / "cef_c4"}
+
 
 def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float,
                        flags=CORE_REFRESH_FLAGS) -> RefreshResult:
@@ -814,21 +831,31 @@ def panel_history(panels: BookPanels, asof: dt.date, universe, rows: int):
 
 
 def refresh_flags(panel: Panel):
-    """THE DATA-REFRESH INTERFACE (C4 plan row 6A; plan step 3 fills it): the
+    """THE DATA-REFRESH INTERFACE (C4 plan row 6A; filled by plan step 3): the
     fetch_daily flags, after `--require-asof D`, that refresh `panel`, or None
     when this tree has no fetcher for it.
 
       * the core panel: CORE_REFRESH_FLAGS, the command the runner has always
-        run, unchanged;
+        run, unchanged (checked first, so the core's answer is the one it was);
+      * a data book's panel (DATA_BOOK_DIRS: `cef_prices.parquet` and
+        `cef_nav.parquet` in its directory, exactly): `("--data-book", <name>)`.
+        For C4 that is `fetch_daily --data-book c4`, which writes `data/cef_c4/`
+        under its OWN lock (`data/cef_c4/.fetch.lock`, never the core's, so the
+        two books' refreshes never wait on each other) and REFUSES
+        `--nav-fallback cefconnect` (exit 2; CEFConnect is disabled for C4, team
+        lead 2026-10-28), so no fallback flag is passed. Its exit 6 (a
+        spike-and-revert bar with no ruling, the panel written) is a non-zero
+        refresh, which gate 5 refuses, as step 3 requires;
       * any other panel: None, and the book's refresh is refused
-        (`book_refresh`). Step 3 (branch `c4-step3-data`) gives fetch_daily
-        `--data-book c4`, which writes `data/cef_c4/` under its own lock and
-        REFUSES `--nav-fallback cefconnect` (exit 2; CEFConnect is disabled for
-        C4, team lead 2026-10-28). When it lands, this function returns
-        `("--data-book", "c4")` for the panel whose files are data_books.C4_DIR's
-        `cef_prices.parquet` / `cef_nav.parquet`, and nothing else changes here.
+        (`book_refresh`), recorded, so a panel nothing refreshes is never
+        decided on.
     """
-    return CORE_REFRESH_FLAGS if panel == core_panel() else None
+    if panel == core_panel():
+        return CORE_REFRESH_FLAGS
+    for name, d in DATA_BOOK_DIRS.items():
+        if panel == Panel(d / "cef_prices.parquet", d / "cef_nav.parquet"):
+            return ("--data-book", name)
+    return None
 
 
 def book_refresh(book: Book, panels: BookPanels) -> Callable[[dt.date, float], RefreshResult]:
@@ -852,9 +879,9 @@ def book_refresh(book: Book, panels: BookPanels) -> Callable[[dt.date, float], R
                f"({[str(p.prices.parent) for p in ps]}); one fetch_daily run refreshes one, "
                f"and a refresh per panel is not built")
     else:
-        why = (f"no fetcher for the panel {[str(p) for p in ps[0]]} on this tree: its "
-               f"refresh is fetch_daily --data-book (C4 plan step 3, branch c4-step3-data), "
-               f"not merged (run.refresh_flags)")
+        why = (f"no fetcher for the panel {[str(p) for p in ps[0]]} on this tree: "
+               f"fetch_daily refreshes data/cef/ and the data books "
+               f"{sorted(DATA_BOOK_DIRS)} only (run.refresh_flags)")
     note = f"not run: {why}; gate 5 refuses rather than decide on a panel nothing refreshed"
     return lambda asof, timeout_s: RefreshResult(exit=None, tail="", incomplete=note)
 
@@ -1452,7 +1479,13 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                              "skip_refresh": skip_refresh, "scheduled": scheduled}}
     state = day = None
     try:
-        state = rec.state_dir_from_env(deps.env)    # required; nothing runs without it
+        given = rec.state_dir_from_env(deps.env)    # required; nothing runs without it
+        # A book whose state dir must carry its own name (C4: records.STATE_DIR_NAMES)
+        # is refused in any other BEFORE `state` is set, so even the FAIL's run
+        # record is not written there. No entry for the core: `state` is the
+        # directory it always was.
+        rec.require_book_state_dir(book.name, given)
+        state = given
         p = spec_params(spec)
         if deps.sleeves is not None:     # combined book: everything below covers the union
             p = cmb.book_params(p, deps.sleeves)
@@ -2142,6 +2175,7 @@ def approve_main(argv=None) -> int:
     a = ap.parse_args(argv)
     try:
         state = rec.state_dir_from_env(os.environ)
+        rec.require_book_state_dir(a.book, state)
         day = rec.day_dir(state, a.date)
         if (day / "STARTED").exists():
             raise SessionError(f"a set already STARTED for {a.date}; nothing to approve")

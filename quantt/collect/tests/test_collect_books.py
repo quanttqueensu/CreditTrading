@@ -1,6 +1,6 @@
-"""The collector's books: the core unchanged since 29e5dc0, and C4's `BOOKS["c4"]` (plan step 3, DARK).
+"""The collector's books: the core unchanged since cee16ad, and C4's `BOOKS["c4"]` (plan step 3, DARK).
 
-THE CORE IS UNCHANGED. 29e5dc0's collect.py (from git,
+THE CORE IS UNCHANGED. cee16ad's collect.py (from git,
 scripts/cef/tests/noop_base.py) and this one run the same days on the same fake
 client, fake subprocess runner and fake CEFConnect, with `_utc_now` frozen:
 every return code, printed line, subprocess command, client call and file
@@ -14,12 +14,13 @@ CEFConnect step at all; a reader that raises if one were reached), passes
 `--data-book c4` to both fetchers, records official closes for the 74 alone,
 reports M1's repeats from the panel, flags fetch_daily's spike exit, fails
 `eod_equity` rather than invent an account start, refuses another book's state
-directory, and is named by no deployment file. Each of these fails on 29e5dc0.
+directory, and is named by no deployment file. Each of these fails on cee16ad.
 
 Hermetic: the fakes of test_collect.py (GETs only; no transmit method exists),
 tmp_path only, and netguard refuses any socket.
 """
 import datetime as dt
+import json
 import re
 from pathlib import Path
 
@@ -85,13 +86,13 @@ PLANS = {
 
 
 @pytest.mark.parametrize("name", list(PLANS))
-def test_the_cef_collector_is_byte_identical_to_29e5dc0(name, tmp_path, monkeypatch):
-    base = load_at_base("quantt/collect/collect.py", "collect_29e5dc0", tmp_path, monkeypatch)
+def test_the_cef_collector_is_byte_identical_to_cee16ad(name, tmp_path, monkeypatch):
+    base = load_at_base("quantt/collect/collect.py", "collect_cee16ad", tmp_path, monkeypatch)
     b = core_day(base, monkeypatch, tmp_path / "run_base", PLANS[name])
     n = core_day(co, monkeypatch, tmp_path / "run_new", PLANS[name])
     for i, what in enumerate(("exit codes", "printed lines", "subprocess commands",
                               "client calls", "files written")):
-        assert n[i] == b[i], f"{name}: {what} differ from 29e5dc0"
+        assert n[i] == b[i], f"{name}: {what} differ from cee16ad"
     assert any("cefconnect_arrival.csv" in k or "report.json" in k for k in b[4])
 
 
@@ -249,12 +250,52 @@ def test_c4_refuses_a_state_directory_that_is_not_its_own(tmp_path, capsys):
     assert built == [("c4", own)]
 
 
-def test_nothing_schedules_a_c4_collect_until_the_installer_step():
-    """DEFAULT OFF. No template, unit or installer file names C4. The
-    installer step that adds C4's units changes this test, on purpose."""
+def test_only_the_installers_opt_in_book_schedules_a_c4_collect():
+    """DEFAULT OFF, as built at the installer step (C4 integration, 2026-10-29).
+    Under quantt/deploy only install_vm.py's C4 entry and the quantt-c4-*
+    templates name C4; the laptop installer names none; and install_vm installs
+    C4's units only when told `--book c4` (its default is the core:
+    quantt/deploy/tests/test_install_vm_books.py, which installs and checks it)."""
+    from quantt.deploy import install_vm as iv
     named = []
     for p in sorted((REPO / "quantt" / "deploy").rglob("*")):
         if p.is_file() and "tests" not in p.parts and p.suffix != ".pyc":
             if re.search(r"\bc4\b|cef_c4", p.read_text(errors="replace"), re.I):
                 named.append(str(p.relative_to(REPO)))
-    assert named == []
+    c4_templates = sorted(f"{iv.TEMPLATE_DIR}/{u}.tmpl" for u in iv.C4_VM.unit_files)
+    assert named == sorted(["quantt/deploy/install_vm.py", *c4_templates])
+    assert iv.BOOK == "cef" and iv.CORE_VM.unit_files == iv.ALL_UNIT_FILES
+
+
+def test_c4_reads_its_account_start_from_the_installers_environment(tmp_path):
+    """The installer's --eod-from reaches the collector as QUANTT_EOD_FROM, and
+    the official series is read from that date; a malformed value, or one set
+    for the core (which records its own start), stops the run before anything
+    is written."""
+    own = tmp_path / "c4"
+    own.mkdir()
+    env = c4_env(tmp_path / "x")
+    client = c4_client()
+
+    def make(book, sd):
+        return c4_ctx((sd, env[1]), client)
+    rc = co.main(["--book", "c4"], env={"QUANTT_STATE_DIR": str(own),
+                                         co.EOD_FROM_ENV: "2026-09-29"}, make_ctx=make)
+    s = json.loads((own / "data" / D.isoformat() / "status.json").read_text())["steps"]
+    assert s["eod_equity"]["ok"], s["eod_equity"]
+    assert [c[1] for c in client.calls if isinstance(c, tuple) and c[0] == "eod"] == \
+        [dt.date(2026, 9, 29)]
+    assert rc == co.EXIT_OK
+    for i, bad in enumerate(("2026-9-29", "yesterday", "")):
+        other = tmp_path / f"bad{i}" / "c4"
+        other.mkdir(parents=True)
+        rc = co.main(["--book", "c4"], env={"QUANTT_STATE_DIR": str(other), co.EOD_FROM_ENV: bad},
+                     make_ctx=lambda *a: pytest.fail("built a context on a malformed start"))
+        assert rc == co.EXIT_UNEXPECTED and list(other.iterdir()) == [], bad
+    core_state = tmp_path / "cef"
+    core_state.mkdir()
+    rc = co.main(["--book", "cef"], env={"QUANTT_STATE_DIR": str(core_state),
+                                          co.EOD_FROM_ENV: "2026-09-29"},
+                 make_ctx=lambda *a: pytest.fail("the core must refuse a second start"))
+    assert rc == co.EXIT_UNEXPECTED and list(core_state.iterdir()) == []
+    assert co.eod_from_from_env("cef", {}) is None and co.eod_from_from_env("c4", {}) is None

@@ -295,7 +295,9 @@ def test_a_single_spec_book_on_an_absent_panel_is_built_and_refused_at_the_read(
     assert f"panel file(s) {[str(p) for p in pn['b']]} absent" in run["error"], run["error"]
     assert run["refresh"]["exit"] is None
     assert run["refresh"]["incomplete"].startswith("not run: no fetcher for the panel")
-    assert "C4 plan step 3" in run["refresh"]["incomplete"]
+    # Step 3 is merged (c4-integrate): the refresh knows the core and the data
+    # books, and this tmp panel is neither, so it is still refused, saying so.
+    assert "the data books ['c4'] only" in run["refresh"]["incomplete"]
 
 
 # ------------------------------------------------- 4. a universe its panel does not cover
@@ -317,7 +319,7 @@ def test_a_universe_not_covered_by_its_own_panel_refuses(tmp_path, monkeypatch):
 def test_a_panel_with_no_fetcher_on_this_tree_is_refused_at_the_refresh(tmp_path,
                                                                          monkeypatch):
     """B alone on its own (present) panel: the refresh never runs fetch_daily
-    (step 3's --data-book is not merged) and gate 5 refuses the day, recorded.
+    (it is neither the core's nor a data book's) and gate 5 refuses the day, recorded.
     With --skip-refresh the book decides and sends on B's own closes."""
     def no_fetch(*a, **k):
         raise AssertionError("fetch_daily was run for a panel it does not write")

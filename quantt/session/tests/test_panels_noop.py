@@ -52,6 +52,21 @@ that again; never edit a hash by hand. This file uses only names that exist at
 5e627ff for that reason; the behaviour row 6A adds is tested in
 test_sleeve_panels.py.
 
+THE CORPORATE-ACTION GATE (c4-integrate, 2026-10-29). Main (35b429f) added the
+corporate-action gate after 5e627ff and set `corporate_actions.mode = "halt"` in
+the released book json. 5e627ff's code (= cee16ad's, release-20261029-3, prod)
+never reads that block, so the pins above are made, and checked, with it
+REMOVED (`_book`, GATE_BLOCK): with the gate absent the integrated tree is
+cee16ad, byte for byte. The released json AS IS -- the gate in halt, the hold
+on -- is pinned separately (`RELEASED_*`, `test_*_released_book_is_35b429f`):
+made on 35b429f (main, which c4-integrate was cut from) the same way, with
+`git archive 35b429f` in place of 5e627ff, and the client given a feed that
+lists nothing and one filled order per held name (test_c4_synthetic_pin's
+`_gate_arm`), so the gate can date each held name and finds it CLEAR. Those
+two pins together are the core's no-op proof for the C4 integration: the
+session default_deps builds is cee16ad's with the gate absent and 35b429f's
+as released.
+
 Hermetic: no network (netguard; the CEFConnect reader raises), no key file (the
 client factory is faked), state under tmp_path, the real panels read only.
 """
@@ -73,6 +88,7 @@ from quantt.session.tests.test_combine_noop import (
     _real_panel_ready,
     _write_synthetic,
 )
+from quantt.session.tests.test_run import FakeClient
 from quantt.session.tests.test_missing_nav_hold import (
     ASOF,
     CLS_SCALE,
@@ -94,6 +110,7 @@ from quantt.session.tests.test_missing_nav_hold import (
 )
 
 MISSING_NAV_KEYS = ("missing_nav", "missing_nav_max_sessions", "_missing_nav_note")
+GATE_BLOCK = "corporate_actions"     # main's gate (module docstring); 5e627ff never reads it
 
 
 def _sha(b) -> str:
@@ -111,15 +128,24 @@ def _runner_keys(book: dict) -> dict:
     return strip(book)
 
 
-def _book(work: Path, spec_path: Path, key: bool) -> tuple:
+def _book(work: Path, spec_path: Path, key: bool, *, released: bool = False) -> tuple:
     """(Book, sha of its runner-read keys): the released book json with the
     missing-NAV keys removed (`key` False) or set to the team lead's values
     (True), its one sleeve naming `spec_path`. A spec outside the repository is
-    named by its absolute path, which `combine.load_sleeves` resolves as itself."""
+    named by its absolute path, which `combine.load_sleeves` resolves as itself.
+
+    The corporate-action gate's block is removed too (module docstring, THE
+    CORPORATE-ACTION GATE), unless `released`: then the json is exactly as
+    released, gate and hold included, and `key` must say the hold is on."""
     book = json.loads(rn.BOOKS["cef"].book_path.read_text())
-    data = {k: v for k, v in (book.get("data") or {}).items() if k not in MISSING_NAV_KEYS}
-    if key:
-        data.update(missing_nav=HOLD, missing_nav_max_sessions=MAX_SESSIONS)
+    if released:
+        assert key and (book.get("data") or {}).get("missing_nav") == HOLD, book.get("data")
+        data = dict(book.get("data") or {})
+    else:
+        book.pop(GATE_BLOCK, None)
+        data = {k: v for k, v in (book.get("data") or {}).items() if k not in MISSING_NAV_KEYS}
+        if key:
+            data.update(missing_nav=HOLD, missing_nav_max_sessions=MAX_SESSIONS)
     book["data"] = data
     assert len(book["sleeves"]) == 1, book["sleeves"]
     try:
@@ -128,7 +154,8 @@ def _book(work: Path, spec_path: Path, key: bool) -> tuple:
     except ValueError:
         sp, shown = str(spec_path), "<SPEC>"
     book["sleeves"] = [dict(book["sleeves"][0], spec_path=sp)]
-    path = work / ("book_hold.json" if key else "book_absent.json")
+    path = work / ("book_released.json" if released else
+                   "book_hold.json" if key else "book_absent.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(book, indent=1))
     pinned = _runner_keys(book)
@@ -137,10 +164,33 @@ def _book(work: Path, spec_path: Path, key: bool) -> tuple:
             _sha(json.dumps(pinned, sort_keys=True)))
 
 
+class _ClearFeedClient(FakeClient):
+    """test_run's FakeClient with Alpaca's corporate-action read, listing nothing
+    (test_c4_synthetic_pin's _ClearFeed): the released book's gate reads it."""
+    def corporate_actions(self, symbols, start, end):
+        self.calls.append(("corporate_actions", tuple(sorted(symbols)), start, end))
+        return []
+
+
+def _gate_client(state, held, closes, clock_ts):
+    """test_combine_noop's `_client`, plus the feed above and one filled order per
+    held name (test_c4_synthetic_pin's `_gate_arm`), so the gate dates each one."""
+    closed = [{"id": f"fill-{s}", "client_order_id": f"cef-20260902-{s}-1", "symbol": s,
+               "side": "buy" if q > 0 else "sell", "status": "filled",
+               "filled_qty": str(abs(q)), "submitted_at": "2026-09-01T19:52:00Z"}
+              for s, q in sorted(held.items())]
+    c = _ClearFeedClient(state, positions=held, closed=closed, clock_ts=clock_ts)
+    c.long_mv = sum(q * closes[s] for s, q in held.items() if q > 0)
+    c.short_mv = sum(q * closes[s] for s, q in held.items() if q < 0)
+    c.maint = 0.5 * (c.long_mv - c.short_mv)                 # fixture, not a measurement
+    return c
+
+
 def _session(work: Path, book, spec, held, now, mp, *, refresh_exit, key: bool,
-             execution=None, armed=False):
+             execution=None, armed=False, gate=False):
     """One run_session on deps built by `default_deps(book, spec, env)`, with
-    only the fakes the module docstring names replaced after it is built."""
+    only the fakes the module docstring names replaced after it is built.
+    `gate`: the released book, whose corporate-action gate reads the clear feed."""
     from ops.schedule.nyse_calendar import previous_trading_day
     from quantt.broker import alpaca
     from src.deploy.sleeves import cef_discount as cefmod
@@ -154,7 +204,7 @@ def _session(work: Path, book, spec, held, now, mp, *, refresh_exit, key: bool,
     if armed:
         (state / "AUTO_ARMED").touch()
     closes = {s: v[0] for s, v in rn.last_closes(cefmod.PX_PATH, ASOF, p["universe"]).items()}
-    c = _client(state, held, closes, now)
+    c = (_gate_client if gate else _client)(state, held, closes, now)
     mp.setattr(alpaca.AlpacaClient, "from_environment",
                classmethod(lambda cls, name, **kw: c))
     deps = rn.default_deps(book, spec, {"QUANTT_ENV_FILE": "unused"})
@@ -173,23 +223,24 @@ def _session(work: Path, book, spec, held, now, mp, *, refresh_exit, key: bool,
 
 
 def _scenarios(work: Path, base: Path, mp, spec, spec_path: Path, missing: str,
-               key: bool) -> dict:
-    book, book_sha = _book(work, spec_path, key)
+               key: bool, *, released: bool = False) -> dict:
+    book, book_sha = _book(work, spec_path, key, released=released)
+    g = {"gate": released}
     out = {"book": book_sha}
     _scenario_panel(base, work / "complete" / "panel", mp, ASOF)
     held = _held_book(spec, ASOF, rn.spec_params(spec)["capital_usd"])
     w = work / "complete"
-    code, state, c = _session(w, book, spec, held, EVE, mp, refresh_exit=0, key=key)
+    code, state, c = _session(w, book, spec, held, EVE, mp, refresh_exit=0, key=key, **g)
     out["complete|decide"] = _hashes(w, state, code, c)
     code, state, c = _session(w, book, spec, held, SEND, mp, refresh_exit=0, key=key,
-                              armed=True)
+                              armed=True, **g)
     out["complete|send"] = _hashes(w, state, code, c, send=True)
     for label, now, ex, armed in (("eve", EVE, None, False), ("final", FINAL, None, False),
                                   ("final_cls", FINAL, CLS_SCALE, True)):
         w = work / f"missing_{label}"
         _scenario_panel(base, w / "panel", mp, ASOF, nav=(missing,))
         code, state, c = _session(w, book, spec, held, now, mp, refresh_exit=4, key=key,
-                                  execution=ex, armed=armed)
+                                  execution=ex, armed=armed, **g)
         out[f"missing|{label}"] = _hashes(w, state, code, c)
     return out
 
@@ -219,15 +270,41 @@ def _real_pins(work: Path, mp) -> dict | None:
             for name, key in (("absent", False), ("hold", True))}
 
 
-def print_pins():
-    """Print both pins (module docstring, HOW THE PINS WERE MADE)."""
+def _released_synthetic_pins(work: Path, mp) -> dict:
+    """The released book json as is, on the synthetic panel (module docstring,
+    THE CORPORATE-ACTION GATE)."""
+    base = work / "base"
+    base.mkdir(parents=True)
+    _, _, _, panel_sha = _write_synthetic(base)
+    spec_path = work / "synthetic.frozen.json"
+    spec_path.write_text(json.dumps(SYN_SPEC))
+    return {"panel": panel_sha,
+            "released": _scenarios(work / "released", base, mp, SYN_SPEC, spec_path,
+                                   SYN_MISSING, True, released=True)}
+
+
+def _released_real_pins(work: Path, mp) -> dict | None:
+    spec = json.loads(LIVE_SPEC_PATH.read_text())
+    base = work / "base"
+    base.mkdir(parents=True)
+    got = {"panel": _frozen_copy(base, mp, spec["frozen"]["universe"]),
+           "spec": _sha(LIVE_SPEC_PATH.read_bytes())}
+    if got != COMBINE_PINNED_INPUT:
+        return None
+    return {"released": _scenarios(work / "released", base, mp, spec, LIVE_SPEC_PATH,
+                                   REAL_MISSING, True, released=True)}
+
+
+def print_pins(which: str = "5e627ff"):
+    """Print the pins (module docstring, HOW THE PINS WERE MADE): `5e627ff` the
+    gate-absent pair, `35b429f` the released book's pair."""
     import tempfile
-    with tempfile.TemporaryDirectory() as d, pytest.MonkeyPatch.context() as mp:
-        print("SYN_PINNED =", json.dumps(_synthetic_pins(Path(d) / "syn", mp), indent=1,
-                                          sort_keys=True))
-    with tempfile.TemporaryDirectory() as d, pytest.MonkeyPatch.context() as mp:
-        print("REAL_PINNED =", json.dumps(_real_pins(Path(d) / "real", mp), indent=1,
-                                           sort_keys=True))
+    fns = ({"SYN_PINNED": _synthetic_pins, "REAL_PINNED": _real_pins} if which == "5e627ff"
+           else {"RELEASED_SYN_PINNED": _released_synthetic_pins,
+                 "RELEASED_REAL_PINNED": _released_real_pins})
+    for name, fn in fns.items():
+        with tempfile.TemporaryDirectory() as d, pytest.MonkeyPatch.context() as mp:
+            print(name, "=", json.dumps(fn(Path(d) / "w", mp), indent=1, sort_keys=True))
 
 
 # PINNED 2026-10-29 on 5e627ff (release-20261029-2); module docstring: how, and how
@@ -486,6 +563,141 @@ REAL_PINNED = {
 }
 
 
+# PINNED 2026-10-29 on 35b429f (origin/main, which c4-integrate was cut from): the
+# released book json as is, the corporate-action gate in halt against a clear feed
+# (module docstring, THE CORPORATE-ACTION GATE). Made as the 5e627ff pins were,
+# `print_pins("35b429f")` in a `git archive 35b429f` tree, unseeded and under
+# PYTHONHASHSEED 1 (identical), then on c4-integrate (identical again).
+RELEASED_SYN_PINNED = {
+    "panel": "172d57548229a8776518927875787e15e3c5476f9e57cd9df99e90c78738b277",
+    "released": {
+        "book": "e66eb81ba26a054e8daca787884b58e706091ce3f8117afd70e75264e21a7fd2",
+        "complete|decide": {
+            "exit": 6,
+            "n_orders": 7,
+            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+            "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
+            "plan_json": "8bb9b3afdce5efe5cbaf080a089085b885c4c85d15e111f4b9b7e216fe1de865",
+            "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
+            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "run_record": "7fb02530f4f73be2673b8461440cd893ce0f136645c5134c1cb124108766c220",
+            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "decided",
+            "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
+        },
+        "complete|send": {
+            "exit": 0,
+            "run_record": "049746ef2353e73cb3ede8e1ead785f5f7b84747bd2598bf55f1c1ea088eed9a",
+            "send_json": "26f2e40c25f4b9221ec335c43057ab1408f43ec0c320afbdcac19cf5556987e8",
+            "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
+        },
+        "missing|eve": {
+            "exit": 11,
+            "n_orders": 0,
+            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "plan_json": "9025b800b4547f17532f711515855ad0affb3bc56e90cc0206a62efe5fa017a5",
+            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "refusals": "0d32802d42ce7301e6a64fd20245a41f44cf43cb6831cad8175bff9375748d66",
+            "run_record": "2839c3f73980377f7c6fd5631069e2c4ccf0834d85c7fe1ce585cff8d01a4c89",
+            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "refused",
+            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "missing|final": {
+            "exit": 6,
+            "n_orders": 6,
+            "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
+            "orders": "8e83a5fab26db52c76fcfbc357e9d9674bb742cca88049155b4f2a64e7f63d9a",
+            "plan_json": "76c9fba86a6e4b44ceddb9a09ae7c17873f7ad54b72671e75c4704bde0d4fbe5",
+            "plan_sha": "dabc5f382dc87baecf74fe4782e0c5f07902dc744eb7c5ae8bf5e0e59cdcb500",
+            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "run_record": "21b51e0a303c1c0110149ff0d46e0ec280f3f5c21aac28bc3350f17d9f55e889",
+            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "decided",
+            "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
+        },
+        "missing|final_cls": {
+            "exit": 0,
+            "n_orders": 6,
+            "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
+            "orders": "97bb764435fad43e59e6fe5be9480eccf28231974fd49bc8555bbdba79fa5a88",
+            "plan_json": "767a08295511de403a653159b8f1e0847adfb08994a8bc7df255beb09dc8db13",
+            "plan_sha": "11b246acc248978f8cfb0e8f0d9ba58b4cead022b23bfa9284e31de4d7db92cb",
+            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "run_record": "2bc7af07ba73c5c2c75568c1aa1611533fbd283a9ba4768304cae0b4425b782f",
+            "sent": "178635e34eccb5810101fda355a3f703e6f4f17a7bef24cee399e3a9e60afbc5",
+            "status": None,
+            "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
+        }
+    }
+}
+# PINNED 2026-10-29 on 35b429f, on the laptop's dev panels (test_combine_noop's input pin).
+RELEASED_REAL_PINNED = {
+    "released": {
+        "book": "643b281d0fc89e08755b91527240934d3b31f46f623cf6fd050ad9828db8d04a",
+        "complete|decide": {
+            "exit": 6,
+            "n_orders": 6,
+            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+            "orders": "f198dd92f1f473578190d104e61bd70d8bb2352ecb253bc12ccc6c9b23d75a2c",
+            "plan_json": "48172b61b71c6faac27fc6a4e76285dd9797525d0ccfa1053f44a57e69a921e8",
+            "plan_sha": "e69a46f6680840664ed3b44e21eb767cf4d9f641e0b3f9ee0fd07e45fa084e05",
+            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "run_record": "5117439bbb11952848310427eabfc9d2bf5c4d2a5be7e48e0db8be8b7d388ba9",
+            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "decided",
+            "targets": "978e2df32387f0be9e49a3a5966369bed1866e780b1ca8d79d562d11f2c37f56"
+        },
+        "complete|send": {
+            "exit": 0,
+            "run_record": "42dba88f6f33006723bc144f64825684f16c23995ef70c41a8448475d55d554d",
+            "send_json": "fc20e7bf095c218400e3cf2a6bf8db0ff26cd5c1972e7b6cdcae0d8345a09835",
+            "sent": "b30cc665d139dfebf931d9cac73299e66c22518a92a49e5c70d6a68e9532139d"
+        },
+        "missing|eve": {
+            "exit": 11,
+            "n_orders": 0,
+            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "plan_json": "4ae354c2c92b1914bb21159e4797d14c01b49e7152b72a8667134a1385a0ddce",
+            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "refusals": "45fb724cc5c4f4b809d81561866376313a6deee1633f27933aef93a6c4e09b03",
+            "run_record": "ee0c2301882216982fa21cc24a53243b70d1ae8871c08af6fd6d0baf6655fc15",
+            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "refused",
+            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        "missing|final": {
+            "exit": 6,
+            "n_orders": 5,
+            "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
+            "orders": "8eed4bbdede1d23018a30be99b635b0de15d950e92dcb109a205e7f3b7df6369",
+            "plan_json": "55a1fecf747f13ebcad15cc2ed93fff51a5aff5cb68676db9e7a0ffbd0313f58",
+            "plan_sha": "335ff6880608490519e3c98bbf824d94ddc3bbaebd968290892c099fa1f32d44",
+            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "run_record": "28792045440f4129f8a253d2f1710b2977866fe5249e77cde4d4929dff589d3d",
+            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "decided",
+            "targets": "76f210ae5b86000c56d0cee23a8d046725f78b6795ec4c543d242ffd81561947"
+        },
+        "missing|final_cls": {
+            "exit": 0,
+            "n_orders": 5,
+            "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
+            "orders": "0dc9a3fc8ed8347907e3c97b0dedbde02770b1eb34384b693e41cf45afcc11bd",
+            "plan_json": "59c243f3cf348c7ae3202b5c71f183d8c8f02200a99240bf22ea6bd00de846c4",
+            "plan_sha": "11a7e458821ae6b6f380183d33fde28c9dd4d406533cb4ec512c70506513ed14",
+            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "run_record": "df65a06c54180eacd39e7b2e492f65ddc532b8b619a2cf4055540ca27f45fe76",
+            "sent": "64329bbbd615fe4d2ae0d658f443b9fde2e006213c9b0bfbd0f130572f7f0d93",
+            "status": None,
+            "targets": "76f210ae5b86000c56d0cee23a8d046725f78b6795ec4c543d242ffd81561947"
+        }
+    }
+}
+
+
 def _not_vacuous(got: dict):
     """Both variants decide and send a complete day; the key absent refuses every
     missing-NAV day; the key set holds the fund at the final check and decides."""
@@ -526,6 +738,52 @@ def test_real_panel_default_deps_is_5e627ff(tmp_path, monkeypatch):
         pytest.skip(why)
     assert got == REAL_PINNED
     _not_vacuous(got)
+    assert all(f.read_bytes() == b for f, b in real.items()), "a real panel changed"
+
+
+TRADES = ("exit", "n_orders", "orders", "plan_sha", "targets", "refusals", "sent", "status")
+
+
+def _released_not_vacuous(got: dict, gate_absent: dict):
+    """The released book's gate changed nothing that trades: every scenario's
+    exit, orders, plan_sha, targets, refusals and what reached the broker equal
+    the gate-absent pin's `hold` (the same book without the gate block), while
+    plan.json and the run records differ by the gate's own record."""
+    r, h = got["released"], gate_absent["hold"]
+    for scen, hashes in r.items():
+        if scen == "book":
+            continue
+        for k in TRADES:
+            if k in hashes:
+                assert hashes[k] == h[scen][k], (scen, k)
+    assert r["complete|decide"]["plan_json"] != h["complete|decide"]["plan_json"]
+
+
+def test_synthetic_released_book_is_35b429f(tmp_path, monkeypatch):
+    got = _released_synthetic_pins(tmp_path, monkeypatch)
+    assert got["released"]["book"] == RELEASED_SYN_PINNED["released"]["book"], (
+        "today's released book json is not the one this pin was made on: what the runner "
+        "reads from it changed. Re-derive the pin on the release it ships with (module "
+        "docstring)")
+    assert got == RELEASED_SYN_PINNED
+    _released_not_vacuous(got, SYN_PINNED)
+
+
+@pytest.mark.skipif(not _real_panel_ready(), reason="real CEF panels absent (data/ is "
+                                                     "gitignored); the synthetic pin still runs")
+def test_real_panel_released_book_is_35b429f(tmp_path, monkeypatch):
+    from src.deploy.sleeves import cef_discount as cefmod
+    real = {f: f.read_bytes() for f in (cefmod.PX_PATH, cefmod.NAV_PATH)}
+    got = _released_real_pins(tmp_path, monkeypatch)
+    if got is None:
+        import warnings
+        why = (f"REAL-PANEL RELEASED-BOOK PIN NOT APPLIED: it was made on panel/spec "
+               f"{COMBINE_PINNED_INPUT} (test_combine_noop's input pin); this tree's copy "
+               f"differs. The synthetic pin still runs")
+        warnings.warn(why, RealPanelPinNotApplicable)
+        pytest.skip(why)
+    assert got == RELEASED_REAL_PINNED
+    _released_not_vacuous(got, REAL_PINNED)
     assert all(f.read_bytes() == b for f, b in real.items()), "a real panel changed"
 
 

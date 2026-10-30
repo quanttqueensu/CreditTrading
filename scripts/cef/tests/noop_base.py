@@ -10,10 +10,19 @@ is read from git, not copied into the repo: a copy could drift from what was
 released, git's object cannot. results/events/exdrift/noop_fetch_cef_distributions.py
 did the same for that script's 2026-10-27 edit.
 
-BASE is origin/main when step 3 was cut (PR #19). When a reviewed change to the
-core path lands after it, the proofs that use this are re-based on that commit,
-deliberately, in the same commit as the change: they pin "unchanged since BASE",
-and a core change is exactly what they exist to catch. If git cannot produce the
+BASE was origin/main when step 3 was cut (29e5dc0, PR #19). When a reviewed change
+to the core path lands after it, the proofs that use this are re-based on that
+commit, deliberately, in the same commit as the change: they pin "unchanged since
+BASE", and a core change is exactly what they exist to catch.
+
+RE-BASED 2026-10-29 to cee16ad (release-20261029-3, prod's code), in the merge
+that integrated step 3 with main (branch c4-integrate). Main had changed
+collect.py after 29e5dc0 (the collector's SECOND SOURCE UNAVAILABLE status,
+reviewed and released in cee16ad), so the collector's proof against 29e5dc0 no
+longer pinned the released file. fetch_daily.py and fetch_cef_distributions.py
+are byte-identical at 29e5dc0 and cee16ad (`git diff 29e5dc0 cee16ad` on them is
+empty), so their proofs make the same claim as before; and cee16ad's three files
+equal origin/main's (35b429f) too. If git cannot produce the
 file (no history, a shallow clone), the test FAILS saying so; it is never
 skipped, because a skipped no-op proof reads as a passed one.
 """
@@ -25,7 +34,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
-BASE = "29e5dc0"
+BASE = "cee16ad"
 
 
 def load_at_base(rel: str, name: str, tmp_path: Path, monkeypatch):

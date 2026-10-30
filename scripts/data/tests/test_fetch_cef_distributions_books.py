@@ -1,14 +1,14 @@
 """`--data-book` of scripts/fetch_cef_distributions.py (C4 deployment plan step 3, DARK, 2026-10-29).
 
 THE CORE IS UNCHANGED: the bare run (the collector's) and `--out/--tickers`, run
-by 29e5dc0's file (from git, `scripts/cef/tests/noop_base.py`), by this one, and
+by cee16ad's file (from git, `scripts/cef/tests/noop_base.py`), by this one, and
 by this one with `--data-book cef`, write the same bytes to the same files and
 print the same lines, on one fake yfinance with the clock frozen.
 
 C4 HAS ITS OWN PANEL: `--data-book c4` fetches exactly the frozen funds, never
 reads `cef_universe.csv`, writes only the actions panels, only into
 data/cef_c4/, and refuses an unseeded directory before fetching anything. Each
-of these fails on 29e5dc0, which has no `--data-book`.
+of these fails on cee16ad, which has no `--data-book`.
 
 Synthetic actions: the claim is about this code. Hermetic: tmp_path only (the
 root conftest refuses a write under data/), and netguard refuses any socket.
@@ -99,8 +99,8 @@ def new(tmp_path):
 
 @pytest.mark.parametrize("argv", [[], ["--out", "{root}/copy", "--tickers", "AAA,CCC"]],
                          ids=["bare run (the collector's)", "--out with --tickers"])
-def test_the_core_is_byte_identical_to_29e5dc0(argv, new, tmp_path, monkeypatch):
-    base = load_at_base("scripts/fetch_cef_distributions.py", "fetch_cef_distributions_29e5dc0",
+def test_the_core_is_byte_identical_to_cee16ad(argv, new, tmp_path, monkeypatch):
+    base = load_at_base("scripts/fetch_cef_distributions.py", "fetch_cef_distributions_cee16ad",
                         tmp_path, monkeypatch)
     got = []
     for label, m, extra in (("run_base", base, []), ("run_new", new, []),
@@ -111,8 +111,8 @@ def test_the_core_is_byte_identical_to_29e5dc0(argv, new, tmp_path, monkeypatch)
         got.append((rc, out.replace(str(root), "<ROOT>"), files(cef), files(root / "copy"), yf.asked))
     b, n, c = got
     for i, what in enumerate(("exit", "stdout", "data/cef files", "--out files", "yfinance requests")):
-        assert n[i] == b[i], f"{what} differs from 29e5dc0 with no --data-book"
-        assert c[i] == b[i], f"{what} differs from 29e5dc0 with --data-book cef"
+        assert n[i] == b[i], f"{what} differs from cee16ad with no --data-book"
+        assert c[i] == b[i], f"{what} differs from cee16ad with --data-book cef"
     assert b[0] == 0 and "cef_distributions.parquet" in (b[2] if not argv else b[3])
 
 
