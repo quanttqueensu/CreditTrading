@@ -330,6 +330,42 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    `corporate_actions.mode` to `report`. The gate then records and sends. Do it in
    the dev repo through a release (sections 1–2), never by hand-editing prod.
    Set it back to `halt` the same way.
+7. **A long-window row no trade can clear: acknowledge that action** (team lead,
+   2026-10-29). The case it is for: a name change, redemption, worthless removal
+   or partial call carries only a process date, so a BACKFILLED one (processed
+   long after it happened) is judged as if it had just happened, and repeats
+   every session. A corrective order may be impossible (a redeemed or removed
+   security) or pointless (the action predates the holding). Do step 1 first:
+   the primary source must show what the action was and when. Then the team
+   lead, and only the team lead, runs ONE command per action id:
+
+   ```bash
+   # laptop prod clone
+   cd ~/prod/quantt-alpaca
+   QUANTT_STATE_DIR=~/quantt_state/cef QUANTT_ENV_FILE=~/.config/quantt/alpaca.env \
+     python3 -m quantt.session ca-ack --book cef --id <action id> --reason "<one line>"
+
+   # the VM
+   sudo -u quantt env HOME=/home/quantt QUANTT_STATE_DIR=/home/quantt/quantt_state/cef \
+     QUANTT_ENV_FILE=/run/quantt/alpaca.env \
+     bash -c 'cd /home/quantt/prod/quantt-alpaca &&
+       /home/quantt/venv/bin/python -m quantt.session ca-ack --book cef --id <action id> --reason "<one line>"'
+   ```
+
+   The `<action id>` is the `id` in `corporate_actions.blocking`. The command
+   reads the feed, read-only, for the names and window of the gate's latest
+   record, and refuses an id the feed does not list, an id already
+   acknowledged, a reason that is not one line, and a `ca_acks.json` it cannot
+   read. Otherwise it writes the entry (id, reason, UTC time, the event as
+   listed) to `<state>/ca_acks.json` atomically and prints what it
+   acknowledged. The gate then clears THAT ID ONLY: any other action, a new one
+   on the same fund included, still halts. The cleared rows stay in the record
+   under `corporate_actions.acknowledged`. Nothing else may write the file. A
+   `ca_acks.json` the gate cannot read refuses every session (UNMEASURED) until
+   it is fixed: restore it, or remove it and acknowledge again. An
+   acknowledgement for a split, a stock dividend, a spin-off or a merger clears
+   the halt but fixes no count: steps 2–5 still apply, and the command prints a
+   NOTE saying so.
 
 **A skipped malformed row** (team lead, 2026-10-29). A row whose required
 symbol is null or empty, and none of whose present symbols is in the book's

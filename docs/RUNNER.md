@@ -471,7 +471,18 @@ halt on. A reverse split ex Wednesday 10-07 is not cleared by a Thursday 10-08
 order, and is cleared by a Friday 10-09 one. The start stays inclusive so that
 a late-listed action dated on an ordinary fill's sizing close is still flagged
 (third review, 2026-10-29). The other way is for the team lead to set the mode
-to `report` for the sessions that should go. No per-event acknowledgement was built. `docs/RUNBOOK.md`,
+to `report` for the sessions that should go. A third way is the team lead's
+acknowledgement of the action's id (team lead, 2026-10-29). It is built for a
+backfilled name change, redemption, worthless removal or partial call: these
+carry only a process date, so a backfill is judged as if it had just happened,
+and no trade may be able to clear it. `python3 -m quantt.session ca-ack --book
+cef --id <id> --reason "..."` checks the id in the feed, read-only, and writes
+`<state>/ca_acks.json` atomically. It is the only writer. The gate clears that
+id only: any other action, a new one on the same fund included, still halts. The
+cleared rows stay in the record under `acknowledged`. A file the gate cannot
+read refuses (UNMEASURED); it is never read as empty. No file means nothing is
+acknowledged. (corp_actions.py, ACKNOWLEDGEMENTS; `run.ca_ack_main`.) Until
+2026-10-29 no per-event acknowledgement was built. `docs/RUNBOOK.md`,
 "Corporate-action halt", is the procedure, including the phantom P&L that paper
 keeps.
 

@@ -939,8 +939,8 @@ def corporate_actions_for(book: Book) -> str | None:
 
 
 def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, targets,
-                       asof: dt.date, session_date: dt.date, *,
-                       universe) -> tuple[dict, str | None, list]:
+                       asof: dt.date, session_date: dt.date, *, universe, state: Path,
+                       book_name: str) -> tuple[dict, str | None, list]:
     """Step 3b, the corporate-action gate (quantt/session/corp_actions.py):
     (record, the `data` refusal's sentence or None, log lines).
 
@@ -955,17 +955,32 @@ def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, t
     error, not a FAIL: refusing is the gate's own answer to "cannot see", and
     the next slot retries the read (the team lead's brief, 2026-10-28).
 
-    `universe`, the book's symbols, lets the read skip and record a malformed
-    row that cannot be ours (team lead 2026-10-29; AlpacaClient.corporate_actions,
-    MALFORMED ROWS)."""
+    The two rulings of 2026-10-29 (corp_actions.py, ACKNOWLEDGEMENTS; and
+    AlpacaClient.corporate_actions, MALFORMED ROWS): `universe`, the book's
+    symbols, lets the read skip and record a malformed row that cannot be ours;
+    the team lead's acknowledgements are read from `<state>/ca_acks.json`
+    inside the same try, so a file that cannot be read is UNMEASURED too, never
+    "no acknowledgement"."""
     mode = deps.corp_actions
     try:
+        acks = _read_ca_acks(state / cam.ACKS_FILE, book_name)
         res = cam.check(deps.client.corporate_actions, read_closed(), positions, targets,
-                        asof, session_date, mode, universe=universe)
+                        asof, session_date, mode, universe=universe, acks=acks)
     except Exception as e:  # recorded in plan.json and printed, never swallowed (docstring)
         res = cam.unmeasured_record(mode, asof, session_date, f"{type(e).__name__}: {e}")
     refusal = cam.refusal_text(res) if mode == cam.HALT else None
     return res, refusal, cam.lines(res)
+
+
+def _read_ca_acks(path: Path, book_name: str) -> dict | None:
+    """The team lead's corporate-action acknowledgements (corp_actions.py,
+    ACKNOWLEDGEMENTS): None when no file is there (nothing acknowledged, the
+    state before the 2026-10-29 ruling), else `cam.parse_acks` of it. Anything
+    at the path that cannot be read and parsed raises, a dangling link
+    included (`os.path.lexists`): it is never read as empty."""
+    if not os.path.lexists(path):
+        return None
+    return cam.parse_acks(json.loads(path.read_text()), book_name)
 
 
 def _gate6_orders(c, after: dt.datetime) -> tuple[list | None, list | None, str | None]:
@@ -1560,7 +1575,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
                 deps, lambda: closed, pos,
                 _plan_targets(decision.targets, record.get("combine")), asof, session_date,
-                universe=p["universe"])
+                universe=p["universe"], state=state, book_name=book.name)
             for line in ca_lines:
                 print(line, file=out)
 
@@ -1845,7 +1860,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
             deps, lambda: c.orders(status="closed"), pos,
             _plan_targets(plan["targets"], plan.get("combine")),
-            asof, session_date, universe=p["universe"])
+            asof, session_date, universe=p["universe"], state=state, book_name=book.name)
     approve_sha = approve or approval_for(day)
     # Gate 6's lists: the last broker read before the gate's clock read, after
     # the asset GETs, the closed-order history and the corporate-action pages
@@ -1970,6 +1985,113 @@ def approve_main(argv=None) -> int:
     print(f"APPROVED {a.date} plan_sha {a.sha} ({len(plan['orders'])} orders); it is sent in "
           f"the window {plan['send_window'][0]} -> {plan['send_window'][1]} if every gate passes")
     return 0
+
+
+def _latest_ca_record(state: Path) -> tuple[Path, dict]:
+    """The gate's most recent record that read the feed: (file, its
+    `corporate_actions`). Day directories newest first; in each, send.json (the
+    later read, at the late-market send) before plan.json. Raises when none has
+    a `query`: then there is no window to read the feed on."""
+    days = sorted((d for d in state.iterdir()
+                   if d.is_dir() and len(d.name) == 10 and d.name[4] == d.name[7] == "-"),
+                  key=lambda d: d.name, reverse=True)
+    for d in days:
+        for name in ("send.json", "plan.json"):
+            f = d / name
+            if f.exists():
+                ca = json.loads(f.read_text()).get("corporate_actions")
+                if isinstance(ca, dict) and ca.get("query"):
+                    return f, ca
+    raise SessionError(f"no corporate-action record with a feed read in {state}: the window "
+                       f"to look the id up in is the gate's own last read, so run a session "
+                       f"(it may refuse) and acknowledge after it")
+
+
+def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> int:
+    """`python3 -m quantt.session ca-ack --book cef --id ACTION_ID --reason "one line"`.
+
+    Records the team lead's acknowledgement of ONE corporate action, by its
+    Alpaca id, in `<state>/ca_acks.json` (corp_actions.py, ACKNOWLEDGEMENTS;
+    team lead 2026-10-29). The gate then clears that id only. This is the ONLY
+    writer of the file, and it is run by the team lead or on the team lead's
+    explicit instruction for that id (docs/RUNBOOK.md §6.1). It sends nothing:
+    its one broker call is the read-only corporate-action read (`client`, in
+    tests a fake; otherwise `AlpacaClient.from_environment`, keys from
+    QUANTT_ENV_FILE, never printed).
+
+    Refuses (exit 11 REFUSED, the file untouched) unless: the id is one token
+    and the reason one non-empty line; the file, if there, parses
+    (`cam.parse_acks`; never read as empty) and does not already hold the id;
+    the state dir holds a gate record that read the feed (`_latest_ca_record`);
+    and the feed, read for that record's names over that record's window (how
+    the gate read it), lists the id. An unknown id is refused, so a typo
+    cannot acknowledge nothing and leave the halt on unexplained. Writes with
+    `records.write_json_atomic` (temp file, fsync, rename): a reader sees the
+    old file or the new one, never half of either.
+    """
+    ap = argparse.ArgumentParser(prog="python3 -m quantt.session ca-ack")
+    ap.add_argument("--book", required=True, choices=sorted(BOOKS))
+    ap.add_argument("--id", required=True, help="the Alpaca corporate-action id")
+    ap.add_argument("--reason", required=True, help="the team lead's reason, one line")
+    a = ap.parse_args(argv)
+    book = BOOKS[a.book]
+    try:
+        aid, reason = a.id.strip(), a.reason.strip()
+        if not aid or any(ch.isspace() for ch in aid):
+            raise SessionError(f"--id {a.id!r} is not one action id")
+        if not reason or "\n" in reason or "\r" in reason:
+            raise SessionError("--reason must be one non-empty line")
+        state = rec.state_dir_from_env(os.environ)
+        path = state / cam.ACKS_FILE
+        existing = []
+        if os.path.lexists(path):
+            raw = json.loads(path.read_text())
+            known = cam.parse_acks(raw, book.name)        # raises: never read as empty
+            if aid in known:
+                raise SessionError(f"{aid} is already acknowledged, at "
+                                   f"{known[aid]['acked_utc']}: {known[aid]['reason']}")
+            existing = raw["acks"]
+        src, ca = _latest_ca_record(state)
+        names = sorted(ca["names"])
+        qs, qe = (dt.date.fromisoformat(x) for x in ca["query"])
+        universe = sorted(set(spec_params(load_spec(book.spec_path))["universe"]) | set(names))
+        c = client if client is not None else _ca_ack_client(book)
+        events = c.corporate_actions(names, qs, qe, universe=universe, skipped=[])
+        found = [e for e in events if e["id"] == aid]
+        if not found:
+            raise SessionError(f"{aid} is not in the feed for {names} over {qs}..{qe} (the "
+                               f"window of {src.relative_to(state)}); nothing acknowledged")
+        e = found[0]
+        stamp = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
+        entry = {"id": aid, "reason": reason, "acked_utc": stamp.isoformat(), "book": book.name,
+                 "event": {k: e[k] for k in ("type", "date", "date_field", "process_date",
+                                             "parties")},
+                 "feed_window": [qs, qe], "from_record": str(src.relative_to(state))}
+        blocked = any(b["id"] == aid for b in ca.get("blocking", []))
+    except Exception as ex:  # printed, never swallowed: nothing is written
+        print(f"REFUSED: {type(ex).__name__}: {ex}")
+        return EXIT_REFUSED
+    try:
+        rec.write_json_atomic(path, {"acks": [*existing, entry]})
+    except Exception as ex:  # printed, never swallowed: the rename did not happen
+        print(f"FAIL: {type(ex).__name__}: {ex}; {path} was not changed, nothing acknowledged")
+        return EXIT_FAIL
+    print(f"ACKNOWLEDGED {aid}: {e['type']} {e['parties']} ({e['date_field']} {e['date']}, "
+          f"process_date {e['process_date']}), book {book.name}, at {entry['acked_utc']}: "
+          f"{reason}")
+    print(f"  {'it blocked' if blocked else 'it did not block'} in {entry['from_record']}; the "
+          f"gate clears this id only, and any other action still halts. Written to {path}")
+    if e["type"] not in cam.PROCESS_DATE_TYPES:
+        print(f"  NOTE: {e['type']} is not one of the types dated by process_date alone "
+              f"{sorted(cam.PROCESS_DATE_TYPES)}: the halt clears, but the paper share count "
+              f"is not fixed (docs/RUNBOOK.md §6.1)")
+    return 0
+
+
+def _ca_ack_client(book: Book):
+    """The read-only client `ca_ack_main` reads the feed with; a seam for tests."""
+    from quantt.broker.alpaca import AlpacaClient
+    return AlpacaClient.from_environment(book.name)
 
 
 def _opening_part(o, cur: int) -> int:
