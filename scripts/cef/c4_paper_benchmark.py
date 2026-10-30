@@ -5,6 +5,8 @@
                                                          #   and c4_paper_fidelity_2026-10-29.csv
     python3 scripts/cef/c4_paper_benchmark.py fidelity   # the fidelity check alone (no CRSP needed); prints, writes nothing
     python3 scripts/cef/c4_paper_benchmark.py seed-rulings   # writes results/cef/c4/c4_seed_rulings_2026-10-29.json (IGR, step 3)
+    python3 scripts/cef/c4_paper_benchmark.py recap --probe results/ops/alpaca_probe/<date>_c4.json --mark-sensitivity X
+                                                         # the cap re-derived from a fresh account read (ruling 3); writes nothing
 
 WHY THIS EXISTS. The team lead fast-tracked C4 (CEF trial 52) to paper on 2026-10-28 and keeps
 every gate. Plan `results/cef/C4_DEPLOY_PLAN_2026-10-27.md` §2 step 2 is row 2 (the frozen spec,
@@ -1043,12 +1045,77 @@ def run(argv_out: bool = True) -> int:
     return 0
 
 
+def _usd(v, what: str) -> float:
+    """A dollar figure as Alpaca serves it (a decimal string), or raise naming it."""
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        raise ValueError(f"{what} {v!r} is not a number") from None
+    if not math.isfinite(x) or x < 0:
+        raise ValueError(f"{what} {v!r} is not a finite non-negative number")
+    return x
+
+
+def recap(probe_path: Path, mark_sensitivity: float) -> dict:
+    """THE ARMING GATE (the spec's _max_gross_stress_note, ruling 3; team lead 2026-10-29):
+    the cap re-derived by the frozen rule from a FRESH read of C4's account.
+
+    NLV is the probe snapshot's `account.equity`; M_other is its
+    `account.maintenance_margin`, which is the other book's (the agent lab's) margin
+    only while C4 itself holds nothing, so a snapshot holding any of C4's 74 is
+    refused: M_other could not be told apart from C4's own. m and w5 are the
+    committed derivation's (OUT_JSON `cap`: Reg T 0.50, the fit window's worst
+    week), E_book the spec's capital_usd, and the mark sensitivity of the other
+    book is the caller's REQUIRED input (no default: it is a ruled input, as the
+    core's was). Writes nothing; the caller compares `cap` with the spec's
+    `max_gross_stress` and, if they differ, the spec takes a new id (/spec-change)
+    before C4 arms."""
+    snap = json.loads(Path(probe_path).read_text())
+    if snap.get("book") != "c4":
+        raise ValueError(f"{probe_path} is the probe of book {snap.get('book')!r}, not c4")
+    acct = snap.get("account") or {}
+    nlv = _usd(acct.get("equity"), "account.equity")
+    m_other = _usd(acct.get("maintenance_margin"), "account.maintenance_margin")
+    spec = load_spec()
+    held_c4 = sorted(p.get("symbol") for p in (snap.get("positions") or [])
+                     if p.get("symbol") in set(spec["frozen"]["universe"]))
+    if held_c4:
+        raise ValueError(f"the account holds C4 names {held_c4}: its maintenance margin is not "
+                         f"the other book's alone, so M_other is not measured")
+    d = json.loads(OUT_JSON.read_text())["cap"]
+    w5, m = float(d["w5"]), float(d["inputs"]["m"][0])
+    e_book = float(spec["capital_usd"])
+    mark = _usd(mark_sensitivity, "--mark-sensitivity")
+    G = g_stress(nlv, m_other, m, w5, e_book)
+    cap = floor_to(G - mark)
+    spec_cap = float(spec["frozen"]["max_gross_stress"])
+    return {"probe": str(probe_path), "fetched_at_utc": snap.get("fetched_at_utc"),
+            "nlv_usd": nlv, "m_other_usd": m_other, "m": m, "w5": w5, "e_book_usd": e_book,
+            "mark_sensitivity": mark, "g_stress": G, "cap": cap, "spec_cap": spec_cap,
+            "positions": len(snap.get("positions") or []), "same_as_spec": cap == spec_cap}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("what", choices=["stage", "run", "fidelity", "seed-rulings"])
+    ap.add_argument("what", choices=["stage", "run", "fidelity", "seed-rulings", "recap"])
+    ap.add_argument("--probe", type=Path, default=None,
+                    help="recap: the C4 probe snapshot (python3 -m quantt.broker.alpaca_probe --book c4)")
+    ap.add_argument("--mark-sensitivity", type=float, default=None,
+                    help="recap: the other book's mark sensitivity, a multiple of sleeve NAV (REQUIRED)")
     a = ap.parse_args(argv)
     from ops import netguard
     netguard.install()                         # offline: no broker, no R2, no network
+    if a.what == "recap":
+        if a.probe is None or a.mark_sensitivity is None:
+            ap.error("recap needs --probe and --mark-sensitivity (no defaults)")
+        r = recap(a.probe, a.mark_sensitivity)
+        print(f"  G_stress = ({r['nlv_usd']:,.2f} - {r['m_other_usd']:,.2f}) / ({r['m']} + "
+              f"{r['w5']:.7f}) / {r['e_book_usd']:,.0f} = {r['g_stress']:.6f}; less mark "
+              f"{r['mark_sensitivity']}, floored to 0.05: {r['cap']:.2f}")
+        print(f"  the spec's max_gross_stress {r['spec_cap']:.2f}: "
+              + ("SAME, C4 may arm on this cap" if r["same_as_spec"] else
+                 "DIFFERENT: a new spec id (/spec-change) and release before C4 arms"))
+        return 0 if r["same_as_spec"] else 1
     if a.what == "stage":
         for k, v in stage().items():
             print(f"{v:>8}  {k}")

@@ -52,6 +52,24 @@ Lines at `simon` dff4b5c. Nothing changed.
 4. Row 4.
 5. Row 6A (or 6S) and row 9, at `DRY_RUN=1` for at least 5 sessions.
    - *Row 6A as built 2026-10-29 (`c4-row6a`, DARK):* the runner reads each sleeve's closes, NAV dates, pre-flight history and stale-NAV file from the panel its spec decides on (`quantt/session/run.py` PER-SLEEVE PANELS); `require_core_panel` is gone. The released book is byte-identical to 5e627ff, with `data.missing_nav` absent and set (`quantt/session/tests/test_panels_noop.py`). An absent panel, or a universe its own panel does not cover, FAILs the decide naming it. A non-core panel's refresh is refused at gate 5 until step 3's `--data-book` fills `run.refresh_flags`. Still open: `BOOKS["c4"]` and its book json, the installer units, and verify's distributions panel (row 8).
+   - *Integrated 2026-10-29 (`c4-integrate`, DARK, zero trials):*
+     - steps 2 and 3 and row 6A are merged onto main 35b429f;
+     - `run.refresh_flags` gives C4's panel `--data-book c4`;
+     - `BOOKS["c4"]` and `ops/books/c4_families_book.json` exist, with no stale-NAV
+       gate, the missing-NAV hold, report drawdown (UNMEASURED: the spec names no
+       levels) and the corporate-action gate in `halt`;
+     - verify scores against C4's own distributions panel (row 8);
+     - row 11 is built: `install_vm --book c4`, with `--eod-from` required.
+
+     The core's session and install are proved byte-identical to cee16ad
+     (release-20261029-3). Still open, for the team lead:
+     - the vault secrets;
+     - the seed;
+     - the release and install;
+     - the halve/kill levels;
+     - the cap re-derived before arming.
+
+     The steps are `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
 6. Arm, on the team lead's go.
 
 ## 3. Decisions for the team lead

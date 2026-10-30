@@ -338,13 +338,44 @@ other panel (`require_core_panel`, C4 step 1). The why of each choice is in
   FAILs the decide naming the files or the names. Not in `default_deps`, which the
   15:52 send also builds and which reads no panel.
 - **The refresh.** `refresh_flags` is the interface C4 step 3 fills: the core
-  panel gets today's `--nav-fallback cefconnect` command; any other panel, and a
-  book whose sleeves read two panels, gets no fetcher, and gate 5 refuses the day
-  (recorded). `--skip-refresh` still runs.
+  panel gets today's `--nav-fallback cefconnect` command; a data book's panel
+  (`DATA_BOOK_DIRS`: C4's `data/cef_c4/`, since the 2026-10-29 integration below)
+  gets `--data-book c4`; any other panel, and a book whose sleeves read two
+  panels, gets no fetcher, and gate 5 refuses the day (recorded).
+  `--skip-refresh` still runs.
 - **The stale-NAV gate** stays on the core panel: `data.stale_nav` on a book
   with a sleeve on another NAV file is refused before any client is built
   (CEFConnect is disabled for C4; the gate locks and logs as the core's fetch).
-- **Revert:** the commit; no book json or spec names another panel yet.
+- **Revert:** the commit. C4's spec and book json name another panel (below).
+
+## As built (2026-10-29): C4's own book, dark (C4 plan rows 6A, 8 and 11)
+
+Branch `c4-integrate` merges C4 steps 2 and 3 and row 6A onto main, then builds
+what C4 needs to dry-run on its own Alpaca paper account. Nothing schedules it
+until the team lead installs it; the steps are
+`results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
+
+- **`BOOKS["c4"]`** (`quantt/session/run.py`): spec
+  `ops/specs/c4_families.frozen.json`, book json `ops/books/c4_families_book.json`,
+  order ids `c4-<YYYYMMDD>-…`, keys `ALPACA_C4_KEY_ID` / `_SECRET_KEY`. A C4
+  session, approve or verify refuses a state directory not named `c4`
+  (`records.STATE_DIR_NAMES`) before writing anything there.
+- **The book json:** one sleeve at its own $100k; late-market execution as for
+  the core; the missing-NAV hold (2 sessions); drawdown in report mode, which
+  records UNMEASURED because the C4 spec names no halve/kill levels (open for
+  the team lead); the corporate-action gate in `halt`. **No `data.stale_nav`**:
+  CEFConnect is disabled for C4, and the spec's NAV-repeat mask is its defence.
+- **The refresh** is `fetch_daily --data-book c4 --book ops/books/c4_families_book.json`
+  under C4's own lock. Its exit 6 (an unruled spike-and-revert bar) is a gate-5
+  refusal.
+- **verify** scores distributions against C4's own panel
+  (`dist_score.PANELS["c4"]`, `data/cef_c4/cef_distributions.parquet`).
+- **The installer:** `install_vm --book c4 --eod-from YYYY-MM-DD` writes seven
+  `quantt-c4-*` units beside the core's (`docs/RUNBOOK.md` §8.9).
+- **The no-op:** the core's session is cee16ad's with the corporate-action block
+  absent, and 35b429f's as released (`tests/test_panels_noop.py`). The core's
+  install is byte-identical to cee16ad's installer
+  (`quantt/deploy/tests/test_install_vm_books.py`).
 
 ## As built (2026-10-28): the corporate-action gate, `halt` on paper
 

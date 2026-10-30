@@ -1004,6 +1004,33 @@ The VM's compute price was not measured here, so this table is not a total.
 - **Burstable CPU:** B-series sizes are burstable [S]: they run below full
   speed once their burst credit is spent. Whether that slows the evening decide or a pytest run on
   the VM is unmeasured.
+### 8.9 A second book on the VM: C4 (dark, 2026-10-29)
+
+`install_vm --book c4` installs C4's own units beside the core's: seven
+`quantt-c4-*` units, the core's jobs with `--book c4` at the same times. They
+touch none of the core's units. The default book is still the core, whose
+install is byte-identical to release-20261029-3's
+(`quantt/deploy/tests/test_install_vm_books.py`).
+
+| what | the core | C4 |
+|---|---|---|
+| state | `quantt_state/cef` | `quantt_state/c4` (the runner, verify and collector refuse any other) |
+| keys | `/run/quantt/alpaca.env` from `alpaca-cef-*` | `/run/quantt-c4/alpaca.env` from `alpaca-c4-*`, through `quantt-c4-secret.service` |
+| panels and lock | `data/cef/`, `.fetch.lock` there | `data/cef_c4/`, its own `.fetch.lock` |
+| account start | in the collector | `--eod-from`, required with no default, rendered as `QUANTT_EOD_FROM` |
+| seed | `--seed-from` the laptop's `data/cef` files | `--seed-from` a `data_books.py seed-c4` directory whose manifest names the tag's IGR ruling |
+
+**One clone, one tag.**
+- `--book c4` never checks the clone out. It refuses unless the clone is
+  already at the tag, so install the core first.
+- The core's install refuses to move the clone while a C4 timer is enabled or
+  running, or a C4 job is busy. To release: disable C4's timers, install the
+  core, then re-install C4 at the same tag.
+
+Every guard in this section applies to C4 too. The team lead's steps, from the
+vault secrets to the arming go, are in
+`results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
+
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`

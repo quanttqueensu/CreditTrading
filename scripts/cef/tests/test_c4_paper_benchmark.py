@@ -319,3 +319,38 @@ def test_the_guard_accepts_exactly_those_four_cells_and_nothing_else(tmp_path):
     p.write_text(json.dumps(extra))                            # one cell more: a ruling with no bar
     with pytest.raises(SpikeRevertError, match="matches no"):
         bm.families_guard(p)
+
+
+# ---------------------------------------------------------------------------
+# the arming gate: the cap re-derived from a fresh account read (C4 integration)
+# ---------------------------------------------------------------------------
+
+def _probe(tmp_path, equity, maint, positions=(), book="c4"):
+    p = tmp_path / f"probe_{book}.json"
+    p.write_text(json.dumps({"book": book, "fetched_at_utc": "2026-10-30T21:00:00+00:00",
+                             "account": {"equity": equity, "maintenance_margin": maint},
+                             "positions": [{"symbol": s} for s in positions]}))
+    return p
+
+
+def test_recap_rederives_the_cap_from_the_probe_and_the_committed_w5(tmp_path):
+    """Ruling 3: from a fresh read of the account's NLV and of the other book's
+    margin. The ruled inputs ($100k, nothing else held) give the spec's 1.90 by
+    the committed w5; $5,000 of the agent lab's margin moves it a step down, and
+    the command says a new spec id is needed. A snapshot holding a C4 name is
+    refused (M_other would include C4's own margin)."""
+    r = bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
+    assert r["cap"] == r["spec_cap"] == 1.90 and r["same_as_spec"]
+    assert r["w5"] == json.loads(bm.OUT_JSON.read_text())["cap"]["w5"]
+    r = bm.recap(_probe(tmp_path, "100000", "5000", positions=("SPY",)), 0.0)
+    assert r["cap"] == 1.80 and not r["same_as_spec"] and r["positions"] == 1
+    assert bm.main(["recap", "--probe", str(_probe(tmp_path, "100000", "5000")),
+                    "--mark-sensitivity", "0"]) == 1
+    with pytest.raises(ValueError, match="holds C4 names"):
+        bm.recap(_probe(tmp_path, "100000", "0", positions=("ADX",)), 0.0)
+    with pytest.raises(ValueError, match="not c4"):
+        bm.recap(_probe(tmp_path, "100000", "0", book="cef"), 0.0)
+    with pytest.raises(ValueError, match="maintenance_margin"):
+        bm.recap(_probe(tmp_path, "100000", None), 0.0)
+    with pytest.raises(SystemExit):
+        bm.main(["recap", "--probe", str(_probe(tmp_path, "100000", "0"))])   # no default mark
