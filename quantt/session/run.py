@@ -30,7 +30,8 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                `nav_gate.py`, "DEFERRAL AND THE ORDER PATH" below). After the
                sleeve has read the panel, `still_holds` checks it was the panel
                the gate certified, or the session FAILs.
-  2. read      Alpaca clock, calendar, account, positions, orders, assets.
+  2. read      Alpaca clock, calendar, account, positions, closed orders, assets.
+               Gate 6's order lists are read at step 4, not here.
   2b. drawdown only when the book json sets `risk.drawdown` (absent = off;
                `report` is the only mode built). The book's drawdown from its
                high-water mark on `<state>/eod_equity.csv` (Alpaca's EOD
@@ -55,7 +56,10 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                the targets are the netted decision's AND every sleeve's own
                (`_plan_targets`), and the held names are still the broker's.
   4. gate      all nine (`gate.evaluate`), on a clock read AFTER the slow
-               steps, never the one from the start. Any refusal: nothing is sent.
+               steps, never the one from the start. Gate 6's order lists
+               (status=all since midnight before the as-of, and open) are the
+               last broker read before that clock read (`_gate6_orders`; review
+               2026-10-29); a failed read refuses. Any refusal: nothing is sent.
   5. record    `<state>/<date>/STARTED`, exclusively, BEFORE the first order
                (CLAUDE.md order-path rule 2).
   6. transmit  in `decide.transmit_sequence` order (running net kept near
@@ -85,7 +89,9 @@ the session runs in two phases:
           halt, late clock, no-set, shortability, exposure and sanity are
           re-evaluated on fresh broker reads, and so is the corporate-action
           gate when the book sets it (step 3b): Alpaca can list an action
-          effective on the session date only after the evening decide.
+          effective on the session date only after the evening decide. Gate
+          6's lists are read after all of those, just before the gate's clock
+          read (step 4).
 Why: paper runs no closing auction and under-fills `cls` (11 of 13 expired on
 2026-09-29). Absent the key, the book runs as `cls` exactly as before.
 
@@ -957,6 +963,44 @@ def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, t
     return res, refusal, cam.lines(res)
 
 
+def _gate6_orders(c, after: dt.datetime) -> tuple[list | None, list | None, str | None]:
+    """Gate 6's two Alpaca lists: (orders_recent, orders_open, None), or
+    (None, None, why) when either read fails.
+
+    WHY HERE, AND LAST (execution-trader, release-check of 35b429f, 2026-10-29).
+    Gate 6's Alpaca check is the only guard against a second runner, or a lost
+    state directory, doubling the book (CLAUDE.md order-path rule 2), and
+    `_transmit` never reads the orders again. Until this fix both send paths
+    read the lists early and judged them at the gate, so they were as old as
+    everything read in between: the asset GETs, the sleeve (at decide and
+    `cls`), the closed-order history and every corporate-action page (the
+    late send's gap widened by PR #20). One GET that exhausts its retries takes
+    about 250 s (docs/RUNNER.md "Latency at the send"), and the send-budget
+    gate refuses only once the clock passes the window's end minus the set's
+    budget, so a stall that finished earlier sent on lists minutes old, blind
+    to an order another runner placed meanwhile.
+
+    So each path calls this after every other broker read, immediately before
+    the gate's own clock read. The clock read stays AFTER it on purpose: the
+    late-clock and send-budget gates (gate 4 for `cls`) then judge a time after
+    this read too, as they do the corporate-action read, so a slow read here can
+    only make them see a later time. Between these lists and the first POST
+    stand only that clock GET, the pure gates, STARTED and `_transmit`'s clock
+    GET before the POST.
+
+    A FAILED READ REFUSES: gate 6 is handed `unread` and refuses, naming it
+    (gate.gate_no_set_in_auction). A list that cannot be read is not an empty
+    one, and no earlier read stands in for it: neither path reads the lists
+    anywhere else. Not a FAIL, so the next slot is free to try again, as for
+    the corporate-action gate's failed read."""
+    try:
+        recent = c.orders(status="all", after=after)
+        open_ = c.orders(status="open")
+    except Exception as e:  # a gate-6 refusal naming it, never swallowed (docstring)
+        return None, None, f"{type(e).__name__}: {e}"
+    return recent, open_, None
+
+
 def _plan_targets(targets: dict, combine: dict | None = None) -> list:
     """The symbols the session wants to hold, for the corporate-action gate:
     every name whose target is not zero in the decision (`Decision.targets`,
@@ -1384,10 +1428,12 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         pos = c.positions().qty
         # From midnight before the as-of date: an evening run's set (sent on the
         # as-of date, possibly a Friday for a Monday auction) must be in view.
+        # Gate 6's own lists (status=all after it, and open) are NOT read here:
+        # they are the last broker read before the gate's clock read, at step 4
+        # (`_gate6_orders`). The closed-order history is read here because the
+        # decide needs it (is_opening_session) and step 3b dates held names on it.
         midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0),
                                        tzinfo=gt.ET)
-        orders_recent = c.orders(status="all", after=midnight)
-        orders_open = c.orders(status="open")
         closed = c.orders(status="closed")
         opening = is_opening_session(pos, closed)
         assets = {s: c.asset(s) for s in p["universe"]}
@@ -1395,8 +1441,6 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         record.update(
             account={k: v for k, v in acct.items() if k != "raw"},
             positions=pos, opening_session=opening,
-            orders_recent=[_order_summary(o) for o in orders_recent],
-            orders_open=[_order_summary(o) for o in orders_open],
             assets={s: {k: a.get(k) for k in ("tradable", "shortable", "borrow_status",
                                               "easy_to_borrow", "marginable")}
                     for s, a in assets.items()})
@@ -1514,7 +1558,16 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             for line in ca_lines:
                 print(line, file=out)
 
-        # 4. gate -- on a clock read NOW, not the one from before the refresh.
+        # 4. gate. Gate 6's lists first, as the last broker read before the
+        # gate's clock read (`_gate6_orders`, review 2026-10-29): read at step 2
+        # they were as old as the asset GETs, the sleeve and the corporate-action
+        # pages, and a second runner's set placed meanwhile went unseen. A failed
+        # read is a gate-6 refusal; nothing else stands in for it.
+        orders_recent, orders_open, orders_unread = _gate6_orders(c, midnight)
+        if orders_unread is None:
+            record.update(orders_recent=[_order_summary(o) for o in orders_recent],
+                          orders_open=[_order_summary(o) for o in orders_open])
+        # Then a clock read NOW, not the one from before the refresh.
         # Review 2026-09-28: the refresh, 13 asset GETs (each with retries) and
         # the sleeve all run after the first read; gating on it let a session
         # that reached here after 19:00 ET pass gate 4 and have its orders
@@ -1529,7 +1582,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             nyse_trading_today=_nyse_trading(session_date),
             asof=asof, refresh_exit=refresh_exit, close_dates=close_dates, nav_dates=nav_dates,
             started_exists=(day / "STARTED").exists(), orders_recent=orders_recent,
-            orders_open=orders_open, cid_prefix=book.cid_prefix,
+            orders_open=orders_open, orders_unread=orders_unread, cid_prefix=book.cid_prefix,
             orders=decision.orders, positions=pos, shortable=shortable,
             shorting_enabled=acct["shorting_enabled"], closes=closes, equity=equity,
             sized_equity=equity,               # decide: the plan is sized on this equity
@@ -1732,13 +1785,13 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     acct = c.account()
     pos = c.positions().qty
     asof = dt.date.fromisoformat(plan["asof"])
+    # Gate 6's lists are read after everything else, just before the gate's
+    # clock read (`_gate6_orders`), and nowhere earlier: nothing before the
+    # gate needs them.
     midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0), tzinfo=gt.ET)
-    orders_recent = c.orders(status="all", after=midnight)
-    orders_open = c.orders(status="open")
     assets = {s: c.asset(s) for s in p["universe"]}
     shortable = {s: a["shortable"] for s, a in assets.items()}
-    record.update(account={k: v for k, v in acct.items() if k != "raw"}, positions=pos,
-                  orders_open=[_order_summary(o) for o in orders_open])
+    record.update(account={k: v for k, v in acct.items() if k != "raw"}, positions=pos)
     # The plan was sized on these holdings; if they moved, it is not the plan any more.
     moved = {s: {"plan": t["current"], "now": pos.get(s, 0)}
              for s, t in plan["targets"].items() if pos.get(s, 0) != t["current"]}
@@ -1788,6 +1841,12 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
             _plan_targets(plan["targets"], plan.get("combine")),
             asof, session_date)
     approve_sha = approve or approval_for(day)
+    # Gate 6's lists: the last broker read before the gate's clock read, after
+    # the asset GETs, the closed-order history and the corporate-action pages
+    # (`_gate6_orders`, review 2026-10-29). A failed read is a gate-6 refusal.
+    orders_recent, orders_open, orders_unread = _gate6_orders(c, midnight)
+    if orders_unread is None:
+        record["orders_open"] = [_order_summary(o) for o in orders_open]
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
     cal_today = [r for r in cal if r["date"] == session_date]
@@ -1803,7 +1862,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         # #6): see gate.gate_late_send_budget for the budget and its provenance.
         *budget_short,
         *gt.gate_no_set_in_auction((day / "STARTED").exists(), orders_recent, orders_open,
-                                   book.cid_prefix, session_date),
+                                   book.cid_prefix, session_date, unread=orders_unread),
         *gt.gate_shortability(orders, pos, shortable, acct["shorting_enabled"]),
         *gt.gate_exposure(orders, pos, closes, acct["equity"], acct["buying_power"],
                           p["max_gross_usd"], p["max_gross_stress"],
