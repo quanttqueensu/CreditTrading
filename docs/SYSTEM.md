@@ -668,6 +668,10 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | Corporate-action gate (PR #20), a malformed row (empty or null required symbol) | **Skip it, and record it, unless it could concern one of our funds**; refuse only then. Before this, any malformed row in the market could stop the book |
 | Corporate-action gate, a backfilled name change, redemption, worthless removal or partial call that never clears under `halt` | **It clears by the team lead's recorded acknowledgement** of that action ID only (`ca-ack` CLI, logged; RUNBOOK §6.1) |
 | When `main`, with the corporate-action gate on, is released | **After A, B and the gate-6 fix are built**: one release-check, one VM update |
+| Sizing the sleeves, after the four-sleeve analysis showed equal shares across three $100k accounts give about 6.1%/yr (2026-10-30) | **Maximise the % return on all capital**, the real-money view. **Core + C4** at their per-account equal-risk multipliers (core ×1.24, C4 ×1.41, 5.75% combined target; about 9% gross on the fit). The ex-date short and PCEF stay built but off, because they lower the percentage. This supersedes 2026-10-29's "full equal-risk share for every sleeve" |
+| Raising the core's vol target (×1.24, about 6% → 7.4%) | **Pre-register it as CEF trial 53** (`results/cef/PREREG_VOLTARGET_2026-10-30.md`, draft) through /spec-change. The counter moves on approval |
+| C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
+| PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
 ## 6. Governance — where each rule lives
 

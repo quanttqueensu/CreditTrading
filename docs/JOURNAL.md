@@ -125,3 +125,17 @@ from a named source; [doc] copied from a named note.
 - the team lead to create the C4 vault secrets and the third paper account;
 - French's 202610 factors for the ex-date test;
 - watch the hold's first final check (2026-10-30, 14:30 ET).
+
+## 2026-10-30 (Fri)
+
+**Found:**
+- The gate-6 release-check found a second order-path defect in the corporate-action reader: rows de-duplicated by a null `id`. Being fixed.
+- The four-sleeve, three-account split (zero trials, fit) gives **6.1%/yr gross** at full equal shares. Reg T caps each account, and PCEF's $100k sits idle on 93% of days. Core + C4 gives about 9% (scratchpad `alloc4/NOTE.md`).
+
+**Rulings** (`docs/SYSTEM.md` §5):
+- maximise % return on all capital: **core + C4**, with the ex-date short and PCEF built but off;
+- raise the core's vol target as **CEF trial 53** (pre-registration drafting);
+- C4 uses the core's HALVE/KILL;
+- Invesco's written consent for PCEF holdings, with the team lead to file a copy.
+
+**Prod:** no change (`release-20261029-3`, armed). The missing-NAV hold's first final check is 14:30 ET.
