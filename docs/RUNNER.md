@@ -497,8 +497,14 @@ backfilled name change, redemption, worthless removal or partial call: these
 carry only a process date, so a backfill is judged as if it had just happened,
 and no trade may be able to clear it. `python3 -m quantt.session ca-ack --book
 cef --id <id> --reason "..."` checks the id in the feed, read-only, and writes
-`<state>/ca_acks.json` atomically. It is the only writer. The gate clears that
-id only: any other action, a new one on the same fund included, still halts. The
+`<state>/ca_acks.json` atomically, with the feed row exactly as listed. It is
+the only writer. The gate clears that id only, and only while the feed's row
+for it still equals the acknowledged row in every field: type, dates,
+parties, ratio and the rest. Any other action, a new one on the same fund
+included, still halts. So does a revised row under the same id: its record
+carries `ack_mismatch`, and the refusal names each changed field, so it needs
+a new acknowledgement. *Added 2026-11-01 (release-check of 9cf5cf2): the
+first build cleared by id alone.* The
 cleared rows stay in the record under `acknowledged`. A file the gate cannot
 read refuses (UNMEASURED); it is never read as empty. No file means nothing is
 acknowledged. (corp_actions.py, ACKNOWLEDGEMENTS; `run.ca_ack_main`.) Until

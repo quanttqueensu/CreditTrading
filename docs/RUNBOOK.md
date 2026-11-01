@@ -355,11 +355,18 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    The `<action id>` is the `id` in `corporate_actions.blocking`. The command
    reads the feed, read-only, for the names and window of the gate's latest
    record, and refuses an id the feed does not list, an id already
-   acknowledged, a reason that is not one line, and a `ca_acks.json` it cannot
-   read. Otherwise it writes the entry (id, reason, UTC time, the event as
+   acknowledged whose row is unchanged, a reason that is not one line, and a
+   `ca_acks.json` it cannot read. Otherwise it writes the entry (id, reason, UTC time, the event as
    listed) to `<state>/ca_acks.json` atomically and prints what it
-   acknowledged. The gate then clears THAT ID ONLY: any other action, a new one
-   on the same fund included, still halts. The cleared rows stay in the record
+   acknowledged. The entry keeps the feed row exactly as listed. The gate then
+   clears THAT ID ONLY, and only while the feed's row for it is unchanged in
+   every field (type, dates, parties, ratio and the rest). Any other action, a
+   new one on the same fund included, still halts. If Alpaca revises the row,
+   the gate halts again, and the refusal names each changed field
+   (`acknowledged at ..., but the feed row has changed since (...)`). Do step 1
+   again for the revised action, and if it still stands run the same command
+   again. For a revised row it replaces the old entry, which it keeps as
+   `supersedes`; for an unchanged row it refuses. Never edit the file by hand. The cleared rows stay in the record
    under `corporate_actions.acknowledged`. Nothing else may write the file. A
    `ca_acks.json` the gate cannot read refuses every session (UNMEASURED) until
    it is fixed: restore it, or remove it and acknowledge again. An

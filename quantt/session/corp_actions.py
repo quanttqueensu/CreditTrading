@@ -182,8 +182,14 @@ pointless (the action predates the holding). The ruling: the team lead may
 acknowledge one action by its Alpaca id, with a one-line reason, recorded in
 `<state>/ca_acks.json` (ACKS_FILE). Only `python3 -m quantt.session ca-ack`
 writes it (`run.ca_ack_main`: it confirms the id in the feed, read-only, and
-writes atomically). The gate then clears THAT ID ONLY: every other action, a new
-one on the same fund included, still blocks. The cleared pairs stay in the
+writes atomically, with the row exactly as Alpaca listed it). The gate then
+clears THAT ID ONLY: every other action, a new one on the same fund included,
+still blocks. And only WHILE THE ROW IS UNCHANGED (release-check of 9cf5cf2,
+2026-11-01): the feed's current row for that id must equal the acknowledged
+row field for field (type, dates, parties, ratio, every other field), or the
+action blocks again, its record carrying `ack_mismatch` and its refusal naming
+each changed field. A revised action is a different action from the one the
+team lead judged, so it needs a new acknowledgement. The cleared pairs stay in the
 record under `acknowledged`, with the acknowledgement, and in the log. An id no
 longer in the feed is harmless. A file that cannot be read or does not parse
 (`parse_acks`) is never read as empty: the gate is UNMEASURED and, under
@@ -430,6 +436,9 @@ def parse_acks(obj, book: str) -> dict:
         parse_ts(e.get("acked_utc"), f"{where} ({aid}) acked_utc")
         if e.get("book") != book:
             raise ValueError(f"{where} ({aid}): book {e.get('book')!r} is not {book!r}")
+        if not isinstance(e.get("row"), dict):
+            raise ValueError(f"{where} ({aid}): row {e.get('row')!r} is not the feed row "
+                             f"acknowledged, so the acknowledgement cannot be checked")
         if aid in out:
             raise ValueError(f"{where}: {aid} is acknowledged twice")
         out[aid] = e
@@ -449,8 +458,11 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
     `skipped_malformed` only when there is one. None, the default, is the read
     before the 2026-10-29 ruling: any malformed row raises. `acks`
     (`parse_acks`, or None for no file): a blocking pair whose action id is
-    acknowledged leaves `blocking` for `acknowledged`, added only when one is
-    (ACKNOWLEDGEMENTS). Absent both, the record is exactly as before."""
+    acknowledged, and whose every current feed row equals the acknowledged row
+    (the fetch's `rows`), leaves `blocking` for `acknowledged`, added only when
+    one is; a changed row stays blocking with `ack_mismatch` (ACKNOWLEDGEMENTS).
+    Absent both, the record is exactly as before, and the fetch is called as
+    before."""
     if mode not in MODES:
         raise ValueError(f"corporate-action mode {mode!r} is not one of {MODES}")
     held = held_since(closed_orders, [s for s, q in positions.items() if q])
@@ -462,16 +474,32 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
         return {**rec, "status": CLEAR, "query": None, "events": [], "blocking": [],
                 "note": "nothing held and nothing targeted: no name to check"}
     qs, qe = query_window(win)
-    skipped = None
-    if universe is None:
-        events = fetch(list(win), qs, qe)
-    else:
+    skipped, rows, kw = None, None, {}
+    if universe is not None:
         skipped = []
-        events = fetch(list(win), qs, qe, universe=sorted(set(universe)), skipped=skipped)
+        kw.update(universe=sorted(set(universe)), skipped=skipped)
+    if acks:
+        rows = {}
+        kw["rows"] = rows
+    events = fetch(list(win), qs, qe, **kw)
     blocking = blocking_events(events, held=held, targets=targets, asof=asof,
                                session_date=session_date)
-    acked = [b for b in blocking if acks and b["id"] in acks]
-    blocking = [b for b in blocking if not (acks and b["id"] in acks)]
+    acked, still = [], []
+    for b in blocking:
+        if not (acks and b["id"] in acks):
+            still.append(b)
+            continue
+        a = acks[b["id"]]
+        now = rows.get(b["id"], [])
+        changed = next((_row_changes(a["row"], r) for r in now if r != a["row"]), None)
+        if now and changed is None:
+            acked.append(b)
+        else:
+            # ACKNOWLEDGEMENTS: the row changed since it was acknowledged.
+            still.append({**b, "ack_mismatch": {"acked_utc": a["acked_utc"],
+                                                "reason": a["reason"],
+                                                "changed": changed or {"row": "not returned"}}})
+    blocking = still
     out = {**rec, "status": BLOCKING if blocking else CLEAR, "query": [qs, qe],
            "events": events, "blocking": blocking}
     if skipped:
@@ -481,6 +509,13 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
     return out
 
 
+def _row_changes(acked: dict, now: dict) -> dict:
+    """{field: [acknowledged value, current value]} for every field that differs
+    (absent on one side reads None there, and still counts)."""
+    return {k: [acked.get(k), now.get(k)] for k in sorted(set(acked) | set(now))
+            if (k in acked) != (k in now) or acked.get(k) != now.get(k)}
+
+
 def unmeasured_record(mode: str, asof, session_date, why: str) -> dict:
     """The record when `check` failed: never CLEAR (module docstring, MODES)."""
     return {"mode": mode, "asof": asof, "session_date": session_date,
@@ -488,9 +523,17 @@ def unmeasured_record(mode: str, asof, session_date, why: str) -> dict:
 
 
 def _event_text(b: dict) -> str:
-    return (f"{b['symbol']} ({'held' if b['held'] else 'target'}) is the {b['role']} in "
+    text = (f"{b['symbol']} ({'held' if b['held'] else 'target'}) is the {b['role']} in "
             f"{b['type']} {b['id']} ({b['date_field']} {b['date']}, process_date "
             f"{b['process_date']}; {b['rule']} window {b['window'][0]}..{b['window'][1]})")
+    if "ack_mismatch" in b:
+        m = b["ack_mismatch"]
+        changes = "; ".join(f"{k}: {v[0]!r} -> {v[1]!r}" if isinstance(v, list) else f"{k}: {v}"
+                            for k, v in m["changed"].items())
+        text += (f" [acknowledged at {m['acked_utc']}, but the feed row has changed since "
+                 f"({changes}); not cleared: acknowledge the revised action again if it "
+                 f"still stands]")
+    return text
 
 
 def refusal_text(rec: dict) -> str | None:

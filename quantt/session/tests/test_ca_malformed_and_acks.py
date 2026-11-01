@@ -40,6 +40,7 @@ built from its field lists: they test the code, never a claim about the market.
 import datetime as dt
 import hashlib
 import json
+import shutil
 
 import pytest
 
@@ -348,9 +349,14 @@ NEW_SPLIT_CCC = dict(OLD_SPLIT_CCC, id="rs-ccc-new", ex_date="2026-09-25",
 ACKED_AT = "2026-09-29T13:05:00+00:00"
 
 
-def _acks_text(ids, book="cef", reason="backfilled: the action predates the holding"):
-    return json.dumps({"acks": [{"id": i, "reason": reason, "acked_utc": ACKED_AT, "book": book}
-                                for i in ids]})
+def _acks_text(ids, book="cef", reason="backfilled: the action predates the holding",
+               rows=None):
+    """ca_acks.json as the CLI writes it. Each entry's `row` is the feed row
+    acknowledged: `rows[id]`, else the backfill's own row for its id, else a
+    synthetic row for an id the feed does not list."""
+    rows = {"nc-ccc-backfill": BACKFILL_NC, **(rows or {})}
+    return json.dumps({"acks": [{"id": i, "reason": reason, "acked_utc": ACKED_AT, "book": book,
+                                 "row": rows.get(i, {"id": i})} for i in ids]})
 
 
 def _refusal_details(state, path="cls"):
@@ -407,13 +413,16 @@ def test_an_ack_clears_that_id_only_and_any_other_action_still_halts(tmp_path, p
 
 @pytest.mark.parametrize("text,why", [
     ("{not json", "JSONDecodeError"),
-    (json.dumps({"acks": [{"id": "nc-ccc-backfill", "acked_utc": ACKED_AT, "book": "cef"}]}),
-     "reason None"),
+    (json.dumps({"acks": [{"id": "nc-ccc-backfill", "acked_utc": ACKED_AT, "book": "cef",
+                           "row": BACKFILL_NC}]}), "reason None"),
+    (json.dumps({"acks": [{"id": "nc-ccc-backfill", "reason": "r", "acked_utc": ACKED_AT,
+                           "book": "cef"}]}), "row None is not the feed row"),
     (_acks_text(["nc-ccc-backfill"], book="other"), "book 'other'"),
     (_acks_text(["x", "x"]), "acknowledged twice"),
     (json.dumps([]), "expected"),
     ("", "JSONDecodeError"),
-], ids=["not-json", "no-reason", "other-book", "duplicate", "not-an-object", "empty-file"])
+], ids=["not-json", "no-reason", "no-row", "other-book", "duplicate", "not-an-object",
+        "empty-file"])
 @pytest.mark.parametrize("path", PATHS)
 def test_an_unreadable_ack_file_refuses_even_with_nothing_blocking(tmp_path, path, text, why):
     """Ruling B: a file that cannot be read is never read as empty. With a feed
@@ -536,3 +545,93 @@ def test_the_dispatcher_routes_ca_ack(monkeypatch):
     monkeypatch.setattr(rn, "ca_ack_main", lambda argv: seen.append(argv) or 0)
     assert qm.main(["ca-ack", "--book", "cef", "--id", "x", "--reason", "y"]) == 0
     assert seen == [["--book", "cef", "--id", "x", "--reason", "y"]]
+
+
+# ---------------------- an acknowledgement holds only while the row is unchanged
+#
+# Release-check of 9cf5cf2 (2026-11-01): an acknowledgement cleared its id
+# whatever the feed now said under it, so a revised action (another ratio, date
+# or party) passed on the strength of a judgement made about a different row.
+# Every test below FAILS on 9cf5cf2.
+
+RS_ACKED = dict(OLD_SPLIT_CCC, id="rs-ccc-acked", ex_date="2026-09-25", process_date="2026-09-25")
+
+
+@pytest.mark.parametrize("key,acked,revised,changed", [
+    ("name_changes", BACKFILL_NC, dict(BACKFILL_NC, new_symbol="CCCX"),
+     {"new_symbol": ["CCCN", "CCCX"]}),                                   # a party
+    ("name_changes", BACKFILL_NC, dict(BACKFILL_NC, process_date="2026-09-25"),
+     {"process_date": ["2026-09-24", "2026-09-25"]}),                     # a date
+    ("reverse_splits", RS_ACKED, dict(RS_ACKED, old_rate=4),
+     {"old_rate": [2, 4]}),                                               # the ratio
+    ("reverse_splits", RS_ACKED, {k: v for k, v in RS_ACKED.items() if k != "cusip"},
+     {"cusip": ["CCC000000", None]}),                                     # a field dropped
+], ids=["party", "date", "ratio", "field-dropped"])
+@pytest.mark.parametrize("path", PATHS)
+def test_a_revised_row_under_an_acknowledged_id_halts_again_naming_the_change(
+        tmp_path, path, key, acked, revised, changed):
+    """Control first: the acknowledged row, unchanged, clears. Then the same id
+    with one field revised: REFUSED, nothing sent, the refusal and the record
+    (`ack_mismatch`) naming the field, its acknowledged and its current value."""
+    acks = _acks_text([acked["id"]], rows={acked["id"]: acked})
+    c, deps, state, out, _ = _session(tmp_path / "same", path, _feed({key: [acked]}), acks=acks)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT, "".join(out)
+
+    c, deps, state, out, _ = _session(tmp_path / "revised", path, _feed({key: [revised]}),
+                                      acks=acks)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED and c.submits() == []
+    ca = _ca_record(state, path)
+    assert "acknowledged" not in ca
+    assert [(b["id"], b["ack_mismatch"]["changed"]) for b in ca["blocking"]] == [
+        (acked["id"], changed)]
+    data = [d for d in _refusal_details(state, path) if "corporate-action gate" in d]
+    field, (was, now) = next(iter(changed.items()))
+    assert len(data) == 1 and f"{field}: {was!r} -> {now!r}" in data[0] \
+        and "the feed row has changed since" in data[0], data
+
+
+def test_the_same_id_under_another_type_halts_again(tmp_path):
+    """The acknowledged name change's id, now listed as a redemption of CCC."""
+    redemption = {"id": BACKFILL_NC["id"], "symbol": "CCC", "cusip": "CCC000000",
+                  "process_date": BACKFILL_NC["process_date"], "rate": 25.0}
+    c, deps, state, out, _ = _session(tmp_path, "cls", _feed({"redemptions": [redemption]}),
+                                      acks=_acks_text(["nc-ccc-backfill"]))
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    (b,) = _ca_record(state, "cls")["blocking"]
+    assert b["type"] == "redemption" and "old_symbol" in b["ack_mismatch"]["changed"]
+
+
+def test_the_cli_saves_the_row_and_a_revision_after_it_halts_again(tmp_path, monkeypatch,
+                                                                  capsys):
+    """End to end: refused -> ca-ack (which saves the feed row as listed) ->
+    the next session sends -> Alpaca revises the row -> the session after
+    that refuses, naming the change."""
+    c, deps, state = _refused_session(tmp_path, monkeypatch)
+    assert _ack(c, "--id", "nc-ccc-backfill", "--reason", REASON) == 0
+    entry = json.loads((state / cam.ACKS_FILE).read_text())["acks"][0]
+    assert entry["row"] == BACKFILL_NC
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    c.feed = _feed({"name_changes": [dict(BACKFILL_NC, new_symbol="CCCX")]})
+    shutil.rmtree(state / DAY)                 # the next session: a fresh day dir
+    c.accepted.clear()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert any("new_symbol: 'CCCN' -> 'CCCX'" in d for d in _refusal_details(state))
+    # The team lead re-judges the revised action: the same command replaces the
+    # entry (the old one kept as `supersedes`) and the next session sends.
+    assert _ack(c, "--id", "nc-ccc-backfill", "--reason", "revised: still stands") == 0
+    (entry,) = json.loads((state / cam.ACKS_FILE).read_text())["acks"]
+    assert entry["row"]["new_symbol"] == "CCCX" and entry["supersedes"]["reason"] == REASON
+    assert _ack(c, "--id", "nc-ccc-backfill", "--reason", "again") == rn.EXIT_REFUSED
+    shutil.rmtree(state / DAY)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+
+
+def test_the_cli_refuses_an_id_the_feed_lists_with_differing_rows(tmp_path, monkeypatch,
+                                                                 capsys):
+    """Two rows under one id that read as the same event but differ in another
+    field: which one the team lead judged could not be told, so no ack."""
+    c, deps, state = _refused_session(tmp_path, monkeypatch)
+    c.feed = _feed({"name_changes": [BACKFILL_NC, dict(BACKFILL_NC, new_cusip="CCC000009")]})
+    assert _ack(c, "--id", "nc-ccc-backfill", "--reason", REASON) == rn.EXIT_REFUSED
+    assert "differing or no row(s)" in capsys.readouterr().out
+    assert not (state / cam.ACKS_FILE).exists()

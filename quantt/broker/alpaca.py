@@ -66,6 +66,7 @@ Source for every [V]/[S]/[U] claim: `results/ops/ALPACA_API_FACTS_2026-09-28.md`
 """
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import math
 import os
@@ -1227,7 +1228,7 @@ class AlpacaClient:
         return sorted(out, key=lambda e: (e["symbol"], e["ex_date"], e["kind"], e["id"]))
 
     def corporate_actions(self, symbols, start: dt.date, end: dt.date, *, universe=None,
-                          skipped: list | None = None) -> list[dict]:
+                          skipped: list | None = None, rows: dict | None = None) -> list[dict]:
         """Every NON-dividend corporate action that names one of `symbols`, in any role.
 
         GET {DATA_BASE}/v1/corporate-actions, types = the thirteen in
@@ -1335,6 +1336,13 @@ class AlpacaClient:
         empty a type for every issuer, ours included), a symbol that is present
         but not a string, a leg with no `symbol` key.
 
+        RAW ROWS (`rows`, release-check of 9cf5cf2, 2026-11-01). When `rows` is
+        a dict, each row returned as an event is also recorded there as Alpaca
+        sent it, `rows[id] = [row, ...]` (a repeat appended too). The gate
+        compares these with what the team lead acknowledged
+        (corp_actions.py, ACKNOWLEDGEMENTS): an acknowledgement holds only
+        while the row is unchanged, ratio and every other field included.
+
         THE WINDOW FILTERS ON process_date. The reference does not say what
         `start`/`end` filter (`distributions` docstring). Measured 2026-10-29 on
         twelve months of the real feed: all 3,443 rows had a process_date
@@ -1377,6 +1385,9 @@ class AlpacaClient:
             if not isinstance(s, str) or not _SYMBOL_RE.match(s):
                 raise ValueError(f"symbol {s!r} is not an upper-case equity symbol")
         wanted = set(syms)
+        if rows is not None and not isinstance(rows, dict):
+            raise ValueError("rows must be a dict (RAW ROWS)")
+        raw_rows = rows             # `rows` is each type's list in the loop below
         if (universe is None) != (skipped is None):
             raise ValueError("universe and skipped go together (MALFORMED ROWS): a skipped row "
                              "needs the universe it was judged against, and a record to go to")
@@ -1459,6 +1470,8 @@ class AlpacaClient:
                     ev = {"id": rid, "type": kind, "date": dates[date_field],
                           "date_field": date_field, "process_date": dates["process_date"],
                           "parties": [[s, role] for s, role in parties]}
+                    if raw_rows is not None:
+                        raw_rows.setdefault(rid, []).append(copy.deepcopy(r))
                     if rid in seen:
                         if seen[rid] != ev:
                             raise UnexpectedResponse(

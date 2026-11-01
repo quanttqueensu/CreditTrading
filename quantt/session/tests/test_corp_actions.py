@@ -409,14 +409,19 @@ class CAClient(FakeClient):
         self.events = list(events)
         self.ca_error = ca_error
 
-    def corporate_actions(self, symbols, start, end, *, universe=None, skipped=None):
+    def corporate_actions(self, symbols, start, end, *, universe=None, skipped=None, rows=None):
         # `universe`/`skipped` (AlpacaClient.corporate_actions, MALFORMED ROWS):
         # these synthetic events are well-formed, so nothing is ever skipped.
+        # `rows` (RAW ROWS): a synthetic event has no raw row, so it stands as its own.
         self.ca_at = len(self.calls)          # where in the call log the read happened
         self.calls.append(("corporate_actions", tuple(symbols), start, end))
         if self.ca_error is not None:
             raise self.ca_error
-        return [e for e in self.events if any(s in symbols for s, _ in e["parties"])]
+        out = [e for e in self.events if any(s in symbols for s, _ in e["parties"])]
+        if rows is not None:
+            for e in out:
+                rows.setdefault(e["id"], []).append(dict(e))
+        return out
 
 
 def run(tmp_path, mode, *, events=(), ca_error=None, positions=None, closed=None,

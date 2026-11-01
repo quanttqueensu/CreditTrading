@@ -2019,10 +2019,16 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
     tests a fake; otherwise `AlpacaClient.from_environment`, keys from
     QUANTT_ENV_FILE, never printed).
 
+    The entry keeps the feed row exactly as listed (`row`): the gate clears the
+    id only while the feed's row still equals it (corp_actions.py,
+    ACKNOWLEDGEMENTS).
+
     Refuses (exit 11 REFUSED, the file untouched) unless: the id is one token
     and the reason one non-empty line; the file, if there, parses
-    (`cam.parse_acks`; never read as empty) and does not already hold the id;
+    (`cam.parse_acks`; never read as empty);
     the state dir holds a gate record that read the feed (`_latest_ca_record`);
+    an id already acknowledged is refused unless its row has since been
+    revised, when the new entry replaces the old (kept as `supersedes`);
     and the feed, read for that record's names over that record's window (how
     the gate read it), lists the id. An unknown id is refused, so a typo
     cannot acknowledge nothing and leave the halt on unexplained. Writes with
@@ -2043,30 +2049,43 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
             raise SessionError("--reason must be one non-empty line")
         state = rec.state_dir_from_env(os.environ)
         path = state / cam.ACKS_FILE
-        existing = []
+        existing, known = [], {}
         if os.path.lexists(path):
             raw = json.loads(path.read_text())
             known = cam.parse_acks(raw, book.name)        # raises: never read as empty
-            if aid in known:
-                raise SessionError(f"{aid} is already acknowledged, at "
-                                   f"{known[aid]['acked_utc']}: {known[aid]['reason']}")
             existing = raw["acks"]
         src, ca = _latest_ca_record(state)
         names = sorted(ca["names"])
         qs, qe = (dt.date.fromisoformat(x) for x in ca["query"])
         universe = sorted(set(spec_params(load_spec(book.spec_path))["universe"]) | set(names))
         c = client if client is not None else _ca_ack_client(book)
-        events = c.corporate_actions(names, qs, qe, universe=universe, skipped=[])
+        rows: dict = {}
+        events = c.corporate_actions(names, qs, qe, universe=universe, skipped=[], rows=rows)
         found = [e for e in events if e["id"] == aid]
         if not found:
             raise SessionError(f"{aid} is not in the feed for {names} over {qs}..{qe} (the "
                                f"window of {src.relative_to(state)}); nothing acknowledged")
         e = found[0]
+        seen_rows = rows.get(aid, [])
+        if not seen_rows or any(r != seen_rows[0] for r in seen_rows):
+            raise SessionError(f"{aid}: the feed returned {len(seen_rows)} differing or no "
+                               f"row(s) for it; an acknowledgement must name one row")
+        # One entry per id. The same row again is refused; a REVISED row (the
+        # gate halts on it again) replaces the old entry, which is kept inside
+        # the new one as `supersedes`, so this stays the file's only writer.
+        old = known.get(aid)
+        if old is not None and old["row"] == seen_rows[0]:
+            raise SessionError(f"{aid} is already acknowledged, at {old['acked_utc']}, and its "
+                               f"row is unchanged: {old['reason']}")
+        existing = [x for x in existing if x.get("id") != aid]
         stamp = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
         entry = {"id": aid, "reason": reason, "acked_utc": stamp.isoformat(), "book": book.name,
                  "event": {k: e[k] for k in ("type", "date", "date_field", "process_date",
                                              "parties")},
+                 "row": seen_rows[0],     # as Alpaca listed it: the gate compares it
                  "feed_window": [qs, qe], "from_record": str(src.relative_to(state))}
+        if old is not None:
+            entry["supersedes"] = old
         blocked = any(b["id"] == aid for b in ca.get("blocking", []))
     except Exception as ex:  # printed, never swallowed: nothing is written
         print(f"REFUSED: {type(ex).__name__}: {ex}")
