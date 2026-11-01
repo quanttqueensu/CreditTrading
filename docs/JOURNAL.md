@@ -139,3 +139,17 @@ from a named source; [doc] copied from a named note.
 - Invesco's written consent for PCEF holdings, with the team lead to file a copy.
 
 **Prod:** no change (`release-20261029-3`, armed). The missing-NAV hold's first final check is 14:30 ET.
+
+## 2026-11-01 (Sun)
+
+**Research / build:**
+- CEF trial 53 approved at **×1.13 core / ×1.27 C4** (CEF 52 → 53, on `prereg-voltarget` 6a86905). The `sizing_multiplier` code is a proved no-op when absent (f52a613); the core's activation is eca5feb (spec v8). Not released.
+- Corporate-action gate fixes: gate 6 reads fresh orders; acks match content.
+
+**Found:** release-checks NO-GO on 10-30 (null `id` de-duplication) and 11-01 (null subject, then null acquirer, skipped as "not ours").
+
+**Rulings** (`docs/SYSTEM.md` §5): **any null party symbol refuses**, since it can't be proved not ours. Skip-and-record applies only when every party symbol is present and none is ours.
+
+**Prod:** no change.
+
+**Live [V, ops.prod_state]:** 2026-10-30 PASS, 7 orders, 7 filled (the first session with the missing-NAV hold on). Equity $99,124.35 at the close. The 2026-11-02 plan is decided (4 orders).
