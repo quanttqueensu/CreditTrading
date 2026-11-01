@@ -805,11 +805,16 @@ def test_a_combined_book_with_the_key_fails_naming_it(tmp_path, monkeypatch):
     base = _synthetic_base(tmp_path, monkeypatch)
     _scenario_panel(base, tmp_path / "p", monkeypatch, ASOF)
     from quantt.session import combine as cmb
+    from quantt.session.tests.test_combine_noop import combinable
+    # The live spec without `sizing_multiplier` (CEF trial 53): a combined book refuses that key
+    # first (combine.py, ONE SIZING AUTHORITY PER BOOK), and this test is about missing_nav.
+    sp = tmp_path / "live_combinable.frozen.json"
+    sp.write_text(json.dumps(combinable(json.loads(LIVE_SPEC_PATH.read_text()))))
     bj = tmp_path / "book.json"
     bj.write_text(json.dumps({"book_id": "t", "sleeves": [
         {"name": "cef_discount", "enabled": True,
-         "spec_path": LIVE_SPEC_PATH.relative_to(rn.REPO).as_posix(), "risk_budget": 1.0}]}))
-    sleeves = cmb.load_sleeves(bj, LIVE_SPEC_PATH, rn.REPO, rn._sleeve_target_fn)
+         "spec_path": sp.name, "risk_budget": 1.0}]}))
+    sleeves = cmb.load_sleeves(bj, sp, tmp_path, rn._sleeve_target_fn)
     state = tmp_path / "state"
     state.mkdir()
     from quantt.session.tests.test_run import FakeClient

@@ -187,3 +187,24 @@ def test_orient_reports_the_multiplier():
     f = orient.spec_fields({"frozen": {"vol_target_annual": 0.06, "sizing_multiplier": 1.13}})
     assert f["sizing_multiplier"] == 1.13
     assert orient.spec_fields({"frozen": {"vol_target_annual": 0.06}})["sizing_multiplier"] is None
+
+
+def test_the_live_spec_carries_the_approved_multiplier_with_its_note():
+    """The activation (2026-11-01, CEF trial 53; /spec-change steps 4-5). The core's spec carries
+    the approved value with its sibling note, under a new spec id that supersedes v7, and it still
+    validates. This test FAILS on the code commit f52a613 (the key absent), by design: it pins the
+    activation, not the code. The REVERT is to delete the key and this test's expectations."""
+    from pathlib import Path
+    from src.deploy.registry import cef_sizing_multiplier
+    from src.deploy.sleeves import cef_discount as cefmod
+    spec = json.loads((Path(cefmod.__file__).resolve().parents[3] /
+                       "ops/specs/cef_discount.frozen.json").read_text())
+    f = spec["frozen"]
+    assert cef_sizing_multiplier(f) == 1.13
+    note = f["_sizing_multiplier_note"]
+    for word in ("UNITS", "DERIVED", "NOT CHOSEN", "CONSEQUENCE", "READ BY", "REVERT", "1.1357"):
+        assert word in note, word
+    assert spec["spec_id"] == "cef_discount.v8.20261101"
+    assert spec["_supersedes"] == "cef_discount.v7.20260928"
+    assert f["vol_target_annual"] == 0.06                       # NOT moved: the unit book is v7's
+    validate_spec(spec)
