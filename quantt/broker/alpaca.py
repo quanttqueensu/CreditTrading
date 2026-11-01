@@ -1294,44 +1294,52 @@ class AlpacaClient:
         raised and the whole read failed, which under `halt` refuses every
         session.
 
-        MALFORMED ROWS (team lead, 2026-10-29, on the review of 4c63b1f). A row
-        with a REQUIRED symbol that is present but null or "" (or a
-        reorganization leg whose symbol is null or "" with no CUSIP) cannot be
-        fully read. Without `skipped` (the default) such a row raises, as before
-        the ruling, so a caller that keeps no record never loses one in
-        silence. With `skipped` (a list) and `universe` (the book's symbols;
-        the two go together), the ruling applies:
-          * SKIPPED only when the row's SUBJECT symbol (the side whose share
-            count changes: a split's or dividend's own `symbol`, a merger's
-            acquiree, a spin-off's source, a unit split's or name change's old
-            symbol, a reorganization's own `symbol`; CA_SUBJECT_ROLES) is
-            present, and it and every other symbol present are outside
-            `universe` and `symbols`. Then the row is skipped and a record of
-            it appended to `skipped` (its id, type, the missing field(s), the
-            symbols and CUSIPs present, its dates). The gate puts that list in
-            plan.json, the run record and one log line per row
-            (corp_actions.check, `lines`). Never silent.
-          * otherwise it raises, naming the row, and under `halt` the session
-            refuses: a present symbol is ours (a merger with our fund on one
-            side and the other symbol null); or the subject is null or empty,
-            no symbol present at all included, so nothing in the row shows
-            that the count that changes is not one of ours.
-        WHY THE SUBJECT (release-check of 9cf5cf2, 2026-11-01, reproduced).
-        The first build skipped whenever no PRESENT symbol was ours, and a row
-        with no symbol present has none: a reverse split on a held fund,
-        effective on the session date, its `symbol` null and its CUSIP the
-        fund's, was skipped, and the gate read CLEAR and sent on both paths.
-        The ruling skips a row only when it cannot concern one of our funds
-        (docs/SYSTEM.md §5), and only the subject side can prove that. A row
-        skipped on its subject can still have a null acquirer that was one of
-        our funds. An acquirer keeps its count, and the record lists the row
-        for a person to read.
+        MALFORMED ROWS. The team lead's ruling of 2026-10-29 (docs/SYSTEM.md §5,
+        the 2026-10-29 rows; recorded at f2ba460): "skip it, and record it,
+        unless it could concern one of our funds; refuse only then". As
+        applied since the release-check of 04aca24 (2026-11-01, reproduced):
+          * A NULL OR EMPTY PARTY SYMBOL REFUSES. A row with any required
+            symbol field present but null or "" (a split's or dividend's own
+            symbol, an acquiree, an acquirer, a unit split's old, new or
+            alternate, a spin-off's source or new, a name change's old or new,
+            a reorganization's own symbol) or a reorganization leg whose symbol
+            is null or "" with no CUSIP raises, naming the row and the missing
+            field, whoever else it names. That party could be one of our
+            funds: nothing on the live path knows their CUSIPs, so it cannot be
+            shown not to be ours. Under `halt` the session refuses. The
+            reviewer measured the cost: 0 of 945 rows (data_quality=all,
+            2026-07-31..2026-10-29) had a null required symbol.
+          * SKIPPED AND RECORDED, only with `skipped` (a list) and `universe`
+            (the book's symbols; the two go together): a row whose every party
+            symbol is present, none of them in `universe` or `symbols`, while a
+            NON-party required field is malformed (its id not a non-empty
+            string, or its date field or process_date absent or not
+            YYYY-MM-DD). It is appended to `skipped` (id, type, the malformed
+            fields and their values, the symbols and CUSIPs present, the
+            dates). The gate puts that list in plan.json, the run record and
+            one log line per row (corp_actions.check, `lines`). Never silent.
+            The same fault on a row naming a fund of the universe raises: it
+            concerns one of ours. Without `skipped`, a row naming none of
+            `symbols` is not read further, as before the ruling.
+          * Unchanged, and not "malformed": the two OPTIONAL party fields the
+            reference documents, a reverse split's new_symbol ("Empty when the
+            reverse split does not change the ticker") and a cash merger's
+            acquirer_symbol, name nobody when absent, null or "". So does a
+            reorganization leg with no ticker but a CUSIP (ONE MEASURED
+            EXCEPTION above).
+        HOW IT GOT HERE (both reproduced by release-checks, 2026-11-01). The
+        first build skipped a malformed row whenever no PRESENT symbol was ours,
+        so a held fund's own split with its symbol null was skipped and sent
+        (9cf5cf2). The second skipped whenever the subject side was present and
+        not ours, so a stock merger with the acquirer null and an outside
+        acquiree was skipped and sent for a held acquirer on its merger date
+        (04aca24). That case was never ruled an acceptable limit.
         Identification is by SYMBOL only. The ruling also names a CUSIP or a
         name "if Alpaca provides it". The rows do carry CUSIPs, but the live
         path holds no CUSIP for any fund in the universe, so none can be
-        compared: each skipped row's CUSIPs are recorded instead, for a person
-        to check. The reference's schemas (test_alpaca_client.CA_REFERENCE)
-        carry no issuer name. Still raises on any row, ours or not: a row that
+        compared, which is why a null party refuses. A skipped row's CUSIPs are
+        recorded for a person to read. The reference's schemas
+        (test_alpaca_client.CA_REFERENCE) carry no issuer name. Still raises on any row, ours or not: a row that
         is not an object, a required symbol field ABSENT (a renamed field would
         empty a type for every issuer, ours included), a symbol that is present
         but not a string, a leg with no `symbol` key.
@@ -1428,31 +1436,33 @@ class AlpacaClient:
                     where = f"{w} {key}[{i}]"
                     parties, unread = _ca_parties(r, kind, fields, where)
                     if unread:
-                        # MALFORMED ROWS (docstring): raise unless the caller
-                        # records skips and no present symbol is ours.
+                        # MALFORMED ROWS (docstring): a null or empty party
+                        # symbol refuses, whoever else the row names.
                         if skipped is None:
                             raise UnexpectedResponse(unread[0]["error"])
-                        mine = sorted({s for s, _ in parties if s in ours})
-                        if mine:
-                            raise UnexpectedResponse(
-                                f"{unread[0]['error']}; the row also names {mine}, in the "
-                                f"book's universe, so it could concern one of ours and is "
-                                f"not skipped")
-                        subject = [f for f, role, _ in fields if role in CA_SUBJECT_ROLES][0]
-                        if not any(role in CA_SUBJECT_ROLES for _, role in parties):
-                            raise UnexpectedResponse(
-                                f"{unread[0]['error']}; its subject symbol {subject} is "
-                                f"{r.get(subject)!r}, so nothing in the row (id {r.get('id')!r}, "
-                                f"present {[list(x) for x in parties]}) shows the share count "
-                                f"that changes is not one of ours: not skipped")
-                        rid = r.get("id")
-                        if isinstance(rid, str) and rid in seen_skipped:
-                            continue          # the same row repeated across pages
-                        if isinstance(rid, str):
-                            seen_skipped.add(rid)
-                        skipped.append(_ca_skip_record(r, kind, date_field, unread, parties))
-                        continue
+                        raise UnexpectedResponse(
+                            f"{unread[0]['error']}; row id {r.get('id')!r} ({kind}), party "
+                            f"field(s) {[u['field'] for u in unread]} null or empty, present "
+                            f"{[list(x) for x in parties]}: a party with no symbol could be "
+                            f"one of our funds (no CUSIP for them on the live path), so the "
+                            f"row is not skipped")
                     if not any(s in wanted for s, _ in parties):
+                        if skipped is not None:
+                            bad = _ca_nonparty_faults(r, date_field)
+                            mine = sorted({s for s, _ in parties if s in ours})
+                            if bad and mine:
+                                raise UnexpectedResponse(
+                                    f"{where}: row id {r.get('id')!r} ({kind}) names {mine}, of "
+                                    f"the book's universe, with {sorted(bad)} malformed: it "
+                                    f"concerns one of ours, so it is not skipped")
+                            if bad:
+                                rid = r.get("id")
+                                if isinstance(rid, str) and rid in seen_skipped:
+                                    continue      # the same row repeated across pages
+                                if isinstance(rid, str):
+                                    seen_skipped.add(rid)
+                                skipped.append(_ca_skip_record(r, kind, date_field, bad,
+                                                               parties))
                         continue
                     _require(r, ("id", date_field, "process_date"), where)
                     rid = r["id"]
@@ -1531,14 +1541,6 @@ CORPORATE_ACTION_TYPES = {
     "reorganization": ("reorganizations", "effective_date", (("symbol", "subject", True),)),
     "partial_call": ("partial_calls", "process_date", (("symbol", "subject", True),)),
 }
-# The roles on the side whose share count the action changes (MALFORMED ROWS):
-# every type has exactly one symbol field in one of them, and it is required.
-CA_SUBJECT_ROLES = frozenset({"subject", "old", "source", "acquiree"})
-for _k, (_, _, _f) in CORPORATE_ACTION_TYPES.items():
-    if [req for _, role, req in _f if role in CA_SUBJECT_ROLES] != [True]:
-        raise AssertionError(f"CORPORATE_ACTION_TYPES[{_k!r}] needs exactly one required "
-                             f"subject-side symbol field")
-del _k, _f
 # Every key the reference's `corporate_actions` object can hold: the thirteen
 # above plus the three types the gate does not ask for.
 CORPORATE_ACTION_RESPONSE_KEYS = frozenset(
@@ -1597,19 +1599,35 @@ def _ca_parties(r, kind: str, fields, where: str) -> tuple[list[tuple[str, str]]
     return out, unread
 
 
-def _ca_skip_record(r: dict, kind: str, date_field: str, unread: list, parties) -> dict:
+def _ca_nonparty_faults(r: dict, date_field: str) -> dict:
+    """{field: raw value} for each NON-party required field that is malformed
+    (MALFORMED ROWS): `id` not a non-empty string, the date field or
+    process_date absent or not YYYY-MM-DD. An absent field reads None."""
+    bad = {}
+    rid = r.get("id")
+    if not isinstance(rid, str) or not rid.strip():
+        bad["id"] = rid
+    for f in (date_field, "process_date"):
+        v = r.get(f)
+        if not (isinstance(v, str) and _DATE_RE.match(v)):
+            bad[f] = v
+    return bad
+
+
+def _ca_skip_record(r: dict, kind: str, date_field: str, bad: dict, parties) -> dict:
     """The record of one skipped malformed row (`AlpacaClient.corporate_actions`,
     MALFORMED ROWS): enough for a person to find it and judge it. Raw values,
-    unparsed: the row was not read further. CUSIPs are every non-empty string
-    field whose name ends in `cusip`, and each leg's; none is compared with the
-    universe (the live path holds no CUSIP for it), so they are here to be read."""
+    unparsed: the row was not read further. `malformed` is each bad non-party
+    field and its value. CUSIPs are every non-empty string field whose name
+    ends in `cusip`, and each leg's; none is compared with the universe (the
+    live path holds no CUSIP for it), so they are here to be read."""
     cusips = {k: v for k, v in sorted(r.items())
               if k.endswith("cusip") and isinstance(v, str) and v}
     if kind == "reorganization":
         for j, m in enumerate(r.get("stock_movements") or []):
             if isinstance(m.get("cusip"), str) and m["cusip"]:
                 cusips[f"stock_movements[{j}].cusip"] = m["cusip"]
-    return {"id": r.get("id"), "type": kind, "missing": [u["field"] for u in unread],
+    return {"id": r.get("id"), "type": kind, "malformed": dict(sorted(bad.items())),
             "present": [[s, role] for s, role in parties], "cusips": cusips,
             "dates": {f: r.get(f) for f in (date_field, "process_date") if f in r}}
 

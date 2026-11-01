@@ -384,31 +384,46 @@ records (2026-10-29). A reorganization leg with no ticker but a CUSIP names
 nobody. On twelve months of the real feed, 29 reorganizations carried such legs,
 and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc).
 
-**A malformed row** (team lead, 2026-10-29, on the review of 4c63b1f). A row
-whose required symbol is present but null or "" used to fail the whole read, so
-under `halt` one bad row for ANY issuer refused every session. Now the gate
-skips such a row only when its SUBJECT symbol is present and outside the
-book's universe, and no other present symbol is in it. The subject is the side
-whose share count changes: a split's or dividend's own symbol, a merger's
-acquiree, a spin-off's source, a unit split's or name change's old symbol. A
-skipped row is recorded: `corporate_actions.skipped_malformed` in plan.json,
-send.json and the run record (its id, type, missing field, the symbols and
-CUSIPs present, its dates), and one log line naming the id and the missing
-field. Every other malformed row refuses (UNMEASURED), naming the row: a
-present symbol in the universe (a merger with our fund on one side and the
-other symbol null), or a subject that is null or empty, no symbol at all
-included. *Corrected 2026-11-01 (release-check of 9cf5cf2, reproduced): the
-first build skipped whenever no PRESENT symbol was ours. A held fund's own
-reverse split, effective on the session date with its symbol null and its
-CUSIP the fund's, has no present symbol, so it was skipped and the gate sent.*
-A row skipped on its subject may still have a null acquirer that is one of our
-funds. An acquirer keeps its count, and the row is in the record. Identification is by symbol
-only. The ruling also names a CUSIP or a name where Alpaca provides one. The rows
-carry CUSIPs, but the live path holds no CUSIP for any fund in the universe, so
-they are recorded rather than compared. The reference's schemas carry no issuer
-name. A required field that is ABSENT, a symbol that is not a string, or a row
-that is not an object still fails the read for any issuer: a renamed field would
-empty a type for ours too. (`AlpacaClient.corporate_actions`, MALFORMED ROWS.)
+**A malformed row.** The team lead's ruling of 2026-10-29 is in `docs/SYSTEM.md`
+§5, in its 2026-10-29 rows (recorded at f2ba460): "skip it, and record it, unless
+it could concern one of our funds; refuse only then". Before it, any malformed
+row in the market refused every session under `halt`. As applied since the
+release-check of 04aca24 (2026-11-01, reproduced):
+
+- **A null or empty party symbol refuses.** This covers any required symbol
+  field, of any type and any role: a split's or dividend's own symbol, an
+  acquiree, an acquirer, a unit split's old, new or alternate, a spin-off's
+  source or new, a name change's old or new, and a reorganization's own symbol.
+  It also covers a reorganization leg with no ticker and no CUSIP. The read
+  fails, naming the row and the missing field, whatever else the row names.
+  That party could be one of our funds, and nothing on the live path knows our
+  CUSIPs, so it cannot be shown not to be ours. The reviewer measured the cost:
+  0 of 945 rows (`data_quality=all`, 2026-07-31..2026-10-29) had a null required
+  symbol.
+- **Skipped and recorded, and nothing else is.** This applies only to a row
+  whose every party symbol is present, none of them in the book's universe,
+  while a non-party required field is malformed: its id is not a non-empty
+  string, or its date field or `process_date` is absent or not YYYY-MM-DD. It
+  goes in `corporate_actions.skipped_malformed` in plan.json, send.json and the
+  run record, with its id, type, the malformed fields and their values, the
+  symbols and CUSIPs present, and its dates. One log line names the id and the
+  field. The same fault on a row naming a fund of the universe refuses.
+- **Not malformed, as before.** Two optional party fields name nobody when
+  empty, as the reference documents: a reverse split's `new_symbol`, which is
+  empty when the ticker does not change, and a cash merger's `acquirer_symbol`.
+  A reorganization leg with no ticker but a CUSIP also names nobody, the
+  measured exception above. A required field that is absent, a symbol that is
+  not a string, or a row that is not an object still fails the read for any
+  issuer.
+
+*Corrected 2026-11-01, twice, each correction reproduced by a release-check.*
+- The first build skipped a malformed row whenever no symbol present was ours.
+  A held fund's own split with a null symbol was therefore skipped, and the
+  session sent (9cf5cf2).
+- The second build skipped whenever the subject side was present and not ours.
+  A stock merger with a null acquirer and an outside acquiree was skipped, and
+  the session sent for a held acquirer on its merger date (04aca24). That case
+  was described as an accepted limit. It was never ruled one.
 
 **One id, one event** (release-check of 9630322, 2026-10-30, reproduced). Rows
 naming ours are de-duplicated by id, because a page boundary can repeat a row.

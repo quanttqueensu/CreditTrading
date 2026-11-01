@@ -218,6 +218,11 @@ UNRELATED_NULL_ACQUIRER = dict(CA_REFERENCE["stock_mergers"][0], id="sm-null-acq
 OURS_NULL_ACQUIRER = dict(UNRELATED_NULL_ACQUIRER, id="sm-ccc-null", acquiree_symbol="CCC")
 OURS_EMPTY_ACQUIREE = dict(UNRELATED_NULL_ACQUIRER, id="sm-ccc-acquirer",
                            acquirer_symbol="CCC", acquiree_symbol="")
+# A row whose every party is present and none ours, a NON-party field spoiled:
+# the only kind skipped and recorded (release-check of 04aca24, 2026-11-01).
+UNRELATED_BAD_DATE = dict(CA_REFERENCE["stock_mergers"][0], id="sm-bad-date",
+                          effective_date="2023-7-20")
+PARTY_REFUSES = "a party with no symbol could be one of our funds"
 # A reorganization of a TARGETED name whose stock leg has neither ticker nor CUSIP.
 OURS_REORG_BAD_LEG = {"id": "reorg-aaa-bad-leg", "symbol": "AAA", "cusip": "AAA000000",
                       "effective_date": "2023-09-01", "process_date": "2023-09-01",
@@ -248,23 +253,26 @@ def _gate_records(state, path):
 
 @pytest.mark.parametrize("path", PATHS)
 def test_a_malformed_row_for_unrelated_issuers_is_skipped_and_recorded(tmp_path, path):
-    """Ruling A: every symbol present (LSI) is outside the universe, so the row
-    is skipped, the session sends, and the row is in plan.json or send.json, the
-    run record and ONE log line naming its id and the missing field. On
-    4c63b1f the read raised and the session was REFUSED."""
-    feed = _feed({"stock_mergers": [UNRELATED_NULL_ACQUIRER]})
+    """Ruling A, as applied since 2026-11-01: every party (LSI, EXR) present
+    and outside the universe, a non-party field (the date) malformed: skipped,
+    the session sends, and the row is in plan.json or send.json, the run
+    record and ONE log line naming its id and the field. (Corrected
+    2026-11-01: this test's row was a null acquirer, which now refuses.)
+    FAILS on 04aca24, which ignored the row and recorded nothing."""
+    feed = _feed({"stock_mergers": [UNRELATED_BAD_DATE]})
     c, state, log, decide_exit, code = _transmit(tmp_path, path, feed)
     assert code == rn.EXIT_SENT, log
     assert decide_exit in (None, rn.EXIT_PLANNED)
-    want = [{"id": "sm-null-acquirer", "type": "stock_merger", "missing": ["acquirer_symbol"],
-             "present": [["LSI", "acquiree"]],
+    want = [{"id": "sm-bad-date", "type": "stock_merger",
+             "malformed": {"effective_date": "2023-7-20"},
+             "present": [["LSI", "acquiree"], ["EXR", "acquirer"]],
              "cusips": {"acquiree_cusip": "53223X107", "acquirer_cusip": "30225T102"},
-             "dates": {"effective_date": "2023-07-20", "process_date": "2023-07-20"}}]
+             "dates": {"effective_date": "2023-7-20", "process_date": "2023-07-20"}}]
     for name, ca in _gate_records(state, path).items():
         assert ca["status"] == cam.CLEAR and ca["skipped_malformed"] == want, name
     skipped = [x for x in log.splitlines() if "SKIPPED a malformed row" in x]
-    assert len(skipped) == 1 and "sm-null-acquirer" in skipped[0] \
-        and "acquirer_symbol null or empty" in skipped[0], log
+    assert len(skipped) == 1 and "sm-bad-date" in skipped[0] \
+        and "effective_date='2023-7-20'" in skipped[0], log
 
 
 @pytest.mark.parametrize("key,row,ours", [
@@ -274,17 +282,14 @@ def test_a_malformed_row_for_unrelated_issuers_is_skipped_and_recorded(tmp_path,
 ], ids=["reorg-of-ours-bad-leg", "ours-acquiree-null-acquirer", "ours-acquirer-empty-acquiree"])
 @pytest.mark.parametrize("path", PATHS)
 def test_a_malformed_row_that_could_be_ours_refuses(tmp_path, path, key, row, ours):
-    """Ruling A: a present symbol is ours, so the row is never skipped. That
-    covers a merger with our fund on one side and the other symbol null or
-    empty. Under `halt`: REFUSED, nothing sent, the refusal names our symbol.
-    On 4c63b1f the session refused too, but without saying the row could be
-    ours (the assertion on that sentence fails there)."""
+    """A null or empty party on a row that also names ours: REFUSED, nothing
+    sent, the refusal naming the row, its present symbols and the rule."""
     c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
     assert code == rn.EXIT_REFUSED and c.submits() == []
     refusal = [r for r in _refusals(state, path) if r["gate"] == "data"]
     assert len(refusal) == 1 and "UNMEASURED" in refusal[0]["detail"]
-    assert f"names ['{ours}'], in the book's universe, so it could concern one of ours" \
-        in refusal[0]["detail"], refusal
+    d = refusal[0]["detail"]
+    assert PARTY_REFUSES in d and repr(row["id"]) in d and f"'{ours}'" in d, refusal
 
 
 # The release-check of 9cf5cf2 (2026-11-01, reproduced by the reviewer's
@@ -314,7 +319,34 @@ def test_a_malformed_row_whose_subject_is_missing_refuses_the_session(tmp_path, 
     assert code == rn.EXIT_REFUSED and c.submits() == [], log
     data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
     assert len(data) == 1 and "UNMEASURED" in data[0] and row["id"] in data[0] \
-        and f"its subject symbol {subject} is None" in data[0], data
+        and PARTY_REFUSES in data[0] and f"['{subject}']" in data[0], data
+
+
+# The release-check of 04aca24 (2026-11-01, reproduced): a held fund as the
+# ACQUIRER with its symbol null (acquiree outside the universe), and a
+# reorganization leg with neither ticker nor CUSIP, both on the session date.
+# 04aca24 skipped both and SENT on both paths.
+HELD_ACQUIRER_NULL = dict(UNRELATED_NULL_ACQUIRER, id="sm-ccc-acquirer-null",
+                          acquirer_cusip="CCC000000", effective_date=DAY, process_date=DAY)
+LEG_NULL_TODAY = {"id": "reorg-leg-null-today", "symbol": "AIMTF", "cusip": "G0137D100",
+                  "effective_date": DAY, "process_date": DAY,
+                  "stock_movements": [{"symbol": None, "new_rate": 1, "source_rate": 1}]}
+
+
+@pytest.mark.parametrize("key,row,field", [
+    ("stock_mergers", HELD_ACQUIRER_NULL, "acquirer_symbol"),
+    ("reorganizations", LEG_NULL_TODAY, "stock_movements[0].symbol"),
+], ids=["held-acquirer-null", "reorg-leg-null"])
+@pytest.mark.parametrize("path", PATHS)
+def test_a_null_party_with_every_present_symbol_outside_the_book_refuses(tmp_path, path, key,
+                                                                         row, field):
+    """Nothing present is ours, and still: REFUSED, nothing sent, the refusal
+    naming the row and the missing field. FAILS on 04aca24 (SENT)."""
+    c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
+    assert code == rn.EXIT_REFUSED and c.submits() == [], log
+    data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
+    assert len(data) == 1 and PARTY_REFUSES in data[0] and repr(row["id"]) in data[0] \
+        and f"['{field}']" in data[0], data
 
 
 # ------------------------------- one id, one event (release-check of 9630322)

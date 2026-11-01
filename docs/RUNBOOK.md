@@ -374,21 +374,20 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    the halt but fixes no count: steps 2–5 still apply, and the command prints a
    NOTE saying so.
 
-**A skipped malformed row** (team lead, 2026-10-29; corrected 2026-11-01). A
-row with a required symbol null or empty no longer refuses the session when
-its subject symbol (the split's own symbol, a merger's acquiree, a spin-off's
-source, the old symbol) is present and not in the book's universe, and no other
-present symbol is. A skipped row is listed under
-`corporate_actions.skipped_malformed` in `plan.json` (and `send.json`), with a
-`SKIPPED a malformed row` log line naming its id and the missing field, and the
-session sends on. Identification is by symbol only. The row's CUSIPs are listed
-but not compared, because the prod clone holds no CUSIP for our funds. So read
-the listed CUSIPs against the funds' own (from their filings) when one appears.
-Every other malformed row refuses (UNMEASURED), naming the row, until Alpaca
-completes it: one of our symbols present ("could concern one of ours"), or its
-subject null or empty, a row with no symbol at all included ("its subject
-symbol ... is None"). Until 2026-11-01 a row with no symbol present was
-skipped, so a held fund's own split with a null symbol went through.
+**A malformed row** (team lead, 2026-10-29, `docs/SYSTEM.md` §5: "skip it, and
+record it, unless it could concern one of our funds"; applied as below since
+2026-11-01). A row with any party symbol null or empty refuses the session,
+naming the row and the field, until Alpaca completes it. That covers an
+acquirer, an acquiree, an old, new or source symbol, a split's own symbol, and
+a reorganization leg with no ticker and no CUSIP. It refuses even when every
+symbol present is someone else's, because the missing party could be one of our
+funds and the prod clone holds no CUSIP for them. Only a row whose every party
+is present and none ours, with a non-party field malformed (its id, or a date),
+is skipped. It is listed under `corporate_actions.skipped_malformed` in
+`plan.json` (and `send.json`), with a `SKIPPED a malformed row` log line naming
+its id and the field, and the session sends on. Until 2026-11-01 a row with a
+null symbol, or with a null acquirer and an outside acquiree, was skipped, and
+the session sent.
 
 ## 7. Keeping the laptop awake
 

@@ -453,8 +453,9 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
     under `halt`, a refusal).
 
     `universe` (the book's symbols; run.py always passes it): the fetch skips a
-    malformed row none of whose present symbols is ours and hands it back
-    (AlpacaClient.corporate_actions, MALFORMED ROWS); the record gains
+    row whose every party symbol is present and none ours, while a non-party
+    field is malformed, and hands it back (AlpacaClient.corporate_actions,
+    MALFORMED ROWS: a null or empty party symbol refuses); the record gains
     `skipped_malformed` only when there is one. None, the default, is the read
     before the 2026-10-29 ruling: any malformed row raises. `acks`
     (`parse_acks`, or None for no file): a blocking pair whose action id is
@@ -566,8 +567,8 @@ def lines(rec: dict) -> list[str]:
         out.append(f"{head}: ACKNOWLEDGED, cleared for this id only: {_event_text(b)}; by "
                    f"the team lead at {a['acked_utc']}: {a['reason']}")
     for k in rec.get("skipped_malformed", []):
-        out.append(f"{head}: SKIPPED a malformed row: {k['type']} id {k['id']!r}, "
-                   f"{', '.join(k['missing'])} null or empty; no symbol present is the "
-                   f"book's (present: {k['present'] or 'none'}; CUSIPs, not compared: "
-                   f"{k['cusips'] or 'none'})")
+        bad = ", ".join(f"{f}={v!r}" for f, v in k["malformed"].items())
+        out.append(f"{head}: SKIPPED a malformed row: {k['type']} id {k['id']!r}, malformed "
+                   f"{bad}; every party symbol present and none the book's (present: "
+                   f"{k['present']}; CUSIPs, not compared: {k['cusips'] or 'none'})")
     return out
