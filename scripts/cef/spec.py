@@ -180,6 +180,14 @@ def _optional(key: str) -> "float | None":
 GROUP_CAP: "float | None" = _optional("group_cap")
 MAX_GROSS_STRESS: "float | None" = _optional("max_gross_stress")
 
+# CEF trial 53: the account holds SIZING_MULTIPLIER x the unit book (None: 1.0, today).
+# The research harness (band_frontier.build_targets -> band_gross_capped) builds the UNIT
+# book at VOL_TARGET, and nothing in it reads this. A study of the account as it trades
+# holds m x band_gross_capped(T, band, MAX_GROSS_STRESS / m)
+# (results/cef/prereg_voltarget/impl_core.py, route B). The registry, not this reader,
+# validates the value.
+SIZING_MULTIPLIER: "float | None" = _optional("sizing_multiplier")
+
 # The live policy label, for table headers, so a chart cannot silently claim to
 # show a policy the book is not running. A constraint appears only when it is
 # ON, so a v6 header is unchanged and a v7 header cannot be mistaken for it.
