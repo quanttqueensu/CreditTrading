@@ -85,6 +85,8 @@ def main() -> int:
     ap.add_argument("--scratch", type=Path, required=True)
     ap.add_argument("--m", type=float, default=None,
                     help="the core's multiplier; required (the ruled value is 1.24)")
+    ap.add_argument("--stamp", default=STAMP,
+                    help="output stamp (2026-11-01: the approved x1.13 run writes its own files)")
     a = ap.parse_args()
     if a.m is None:
         raise SystemExit("--m is required: the multiplier is an input, never a default")
@@ -190,8 +192,8 @@ def main() -> int:
           f"sessions; identical to B after {r_['sessions_to_identical']}")
     n95s = [r_["sessions_to_95pct_gross"] for r_ in ramp if r_["sessions_to_95pct_gross"] is not None]
     p(f"  median sessions to 95% of B's gross: {float(np.median(n95s)) if n95s else None} (of {len(ramp)} switches)")
-    (HERE / f"impl_core_{STAMP}.json").write_text(json.dumps(out, indent=1, default=float))
-    (HERE / f"impl_core_output_{STAMP}.txt").write_text("\n".join(say) + "\n")
+    (HERE / f"impl_core_{a.stamp}.json").write_text(json.dumps(out, indent=1, default=float))
+    (HERE / f"impl_core_output_{a.stamp}.txt").write_text("\n".join(say) + "\n")
     return 0
 
 

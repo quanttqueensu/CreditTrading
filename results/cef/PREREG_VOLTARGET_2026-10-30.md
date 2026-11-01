@@ -1,9 +1,59 @@
-# Pre-registration DRAFT: raise the live book's volatility target, core ×1.24 and C4 ×1.39 (CEF trial 53)
+# Pre-registration: raise the live book's volatility target, core ×1.13 and C4 ×1.27 (CEF trial 53, APPROVED)
 
-Date: 2026-10-30. Counter: CEF, trial 53 **on approval**. Author: an agent, for the team lead.
-Status: **DRAFT.** Writing it spends no trial. The CEF counter stays at 52, and no spec or book json is
-edited, until the team lead approves this note. The counter moves in the commit that records the
-approval.
+Date: drafted 2026-10-30; **APPROVED 2026-11-01 by the team lead** (answered interactively, relayed by
+the coordinating session). Counter: **CEF, trial 53**, moved 52 → 53 in the commit that records this
+approval (`docs/RESEARCH_STATE.md`, same commit). Author: an agent, for the team lead.
+
+## 0.A The approval (2026-11-01, the team lead)
+
+**The approved values are the milder pair, not the draft's.** The team lead chose the 2026-10-29
+rule's variant (§3.3): **core ×1.13, C4 ×1.27, at a 5.25% combined target**, not the draft's
+×1.24 / ×1.39 at 5.75%. The body below is the draft as approved. Where it says 1.24, 1.39 or 1.41,
+read 1.13 and 1.27 for what trades. The figures at the approved values are in the table below. Each
+was computed by the same helpers before the approval, apart from the two exact builds, which were run
+on 2026-11-01 at the approved values (`impl_core_2026-11-01_m1.13.*`, `impl_c4_2026-11-01_m1.27.*`).
+
+**The values, exactly as the draft's rule computes them** [V `derive.py` §4]:
+- the 2026-10-29 rule's term (d) binds at 5.25% on the spec series;
+- the per-account multipliers there are **core 1.1357, C4 1.2712** (C4 on its 1.90 spec book);
+- written to two decimals and rounded down (the declared rule): **1.13 and 1.27**;
+- the effective ex-ante vol targets are core 0.06 × 1.13 = 6.78%, C4 0.06 × 1.27 = 7.62%; combined
+  5.25%.
+
+**The answers to §10, as ruled:**
+
+| question | ruling |
+|---|---|
+| 1. C4's value | **The derived value on C4's spec book.** At the approved rule that is 1.2712 → **1.27** |
+| 2. Which declared rule governs | **Answered by the choice of values:** the 2026-10-29 rule (5.25%) governs this book. At ×1.13 / ×1.27 its term (d) holds: mean uncapped gross core 1.36 against 1.80, C4 1.84 against 1.90 [V `risk.py`]. So **no override of term (d) is needed**, and none is recorded. What is recorded (`docs/SYSTEM.md` §5, 2026-11-01) is that the 2026-10-29 rule, not the 2026-10-28 one, sets this book's target |
+| 3. The framework's gate on a vol increase (`PORTFOLIO_FRAMEWORK` §2.6) | **Waived for paper only**, recorded in `docs/SYSTEM.md` §5. Never for real money |
+| 4. The stops | **R1–R3 as written, acted on by the team lead** through `/spec-change`. The R1 line in the drawdown report (§6.2) is **not built in this pass**: the runner has no fit series to re-measure D_R from. Until it is, the team lead reads `stops.py` |
+| 5. Start | **The core at its next release; C4 at its arming,** already at its multiplier, with its H11 reference rebuilt on the raised book |
+| 6. Trials | **One trial, CEF 53, N = 53**, bar √(2 ln 53) = 2.818 |
+| 7. The documents that call the core's 2023+ "sealed" | **Corrected** with dated notes in `docs/RESEARCH_STATE.md` and `PORTFOLIO_FRAMEWORK_2026-10-15.md` §9, and recorded in `docs/SYSTEM.md` §5, 2026-11-01 |
+
+**What the approved book expects, and the stops at the approved values** [V `risk.py` book
+"rule-2026-10-29"; `impl_core.py --m 1.13`, `impl_c4.py --m 1.27`; fit only]:
+
+| | value |
+|---|---|
+| gross, fit path, combined | **8.50%/yr total return, 9.18% price only**, Sharpe 1.681 / 1.756 (model). Exact implementation: 8.76% / 9.65% (mean of the accounts) |
+| core account, exact B | 6.66% TR (SR 0.923) / 7.25% PR (0.974); vol 7.22%; maxDD 14.84% TR; held at the cap on 19.5% of sessions (today 7.3%) |
+| C4 account, exact B | own window 9.17% TR (SR 1.272) / 10.57% PR (1.409); vol 7.21%; maxDD 10.57% TR; held at the cap on 22.1% of sessions (26.9% on 2013–22) |
+| P(HALVE), 12 months, zero edge, through 2008 (min / median / max over the 10 core books) | combined **1.6 / 3.4 / 11.7%**; core account **7.2 / 15.2 / 51.4%**; C4 account **16.3%** |
+| P(KILL), same | combined **0.00 / 0.08 / 0.92%**; core account **0.35 / 2.4 / 17.4%**; C4 account **1.6%** |
+| worst drawdown | core account W1 14.05% model / 14.84% exact; through 2008 14.8 / 22.5 / 36.4%; C4 10.8%; combined through 2008 6.8 / 7.9 / 15.6% |
+| costs (model, TR) | combined net **+6.63 / +2.88 / −2.73 %/yr** at 5 / 15 / 30bp, breakeven 22.7bp; C4 account 16.9bp. The sign flips between 15 and 30bp. Gross decides; real money is gated separately (§8) |
+| R1 | core **D_R 11.17%**; C4 **10.09%** (drafting-day values; `stops.py --m-core 1.13 --m-c4 1.27` re-measures on the read date) |
+| R2 | core **−3.52%**; C4 **−3.04%** (120 armed sessions) |
+| R3 | core **12.12%**; C4 **9.96%** (60 armed sessions) |
+
+**Implementation** (§1, unchanged by the approval): the frozen key `sizing_multiplier`, absent =
+today. The core's value is set in `ops/specs/cef_discount.frozen.json` as the activation commit, after
+the code. C4's value goes into C4's spec on `c4-integrate` at its arming. The edit is written out in
+that activation commit's message, and is not applied to that branch here.
+
+---
 
 **Labels.**
 - **[V]** computed in this session by the helper named, in `results/cef/prereg_voltarget/`. Fit
@@ -28,7 +78,7 @@ the plateau test, the risk statistics and the stops. It also lists the prior num
 
 ---
 
-## 0. The answer in one table
+## 0. The draft's answer in one table (its values are superseded by §0.A)
 
 | item | answer |
 |---|---|
@@ -577,8 +627,8 @@ turnover. It scales turnover with m, so it scales the drag with it.
 - **Bar at N = 53: √(2 ln 53) = 2.818** (2.811 at N = 52).
 - The raise is judged by §6.2, not by the bar. Counting it raises the bar every later CEF trial must
   clear.
-- Updated in `docs/RESEARCH_STATE.md` in the same commit as the approval: **no, not in this draft**,
-  by instruction.
+- Updated in `docs/RESEARCH_STATE.md` in the same commit as the approval: **yes** (2026-11-01, the
+  approval commit). The draft, written 2026-10-30, did not move it.
 
 ---
 

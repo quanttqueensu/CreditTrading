@@ -40,6 +40,8 @@ def main() -> int:
     ap.add_argument("--scratch", type=Path, required=True)
     ap.add_argument("--c4-tree", type=Path, required=True)
     ap.add_argument("--m", type=float, action="append", required=True)
+    ap.add_argument("--stamp", default=STAMP,
+                    help="output stamp (2026-11-01: the approved x1.27 run writes its own files)")
     a = ap.parse_args()
     dec = json.loads((HERE / "declared_2026-10-30.json").read_text())
     if not datetime.fromisoformat(dec["declared_utc"].replace("Z", "+00:00")) < datetime.now(timezone.utc):
@@ -112,8 +114,8 @@ def main() -> int:
                     p(f"  {k:20s} SR {v['sr']:.3f} ann {v['ann'] * 100:5.2f}% vol {v['vol'] * 100:4.2f}% maxDD {v['mdd'] * 100:5.2f}% "
                       f"turn {v['turn']:5.1f}/yr mean gross {v['mean_gross']:.3f} at cap {v['at_cap']:.1%} | net "
                       + " / ".join(f"{x:+.2f}" for x in v["net_pct"].values()) + f" %/yr | breakeven {v['breakeven_bp']:.1f}bp" + extra)
-    (HERE / f"impl_c4_{STAMP}.json").write_text(json.dumps(out, indent=1, default=float))
-    (HERE / f"impl_c4_output_{STAMP}.txt").write_text("\n".join(say) + "\n")
+    (HERE / f"impl_c4_{a.stamp}.json").write_text(json.dumps(out, indent=1, default=float))
+    (HERE / f"impl_c4_output_{a.stamp}.txt").write_text("\n".join(say) + "\n")
     return 0
 
 
