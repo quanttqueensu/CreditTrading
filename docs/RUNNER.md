@@ -386,13 +386,23 @@ and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc)
 
 **A malformed row** (team lead, 2026-10-29, on the review of 4c63b1f). A row
 whose required symbol is present but null or "" used to fail the whole read, so
-under `halt` one bad row for ANY issuer refused every session. Now, when no
-symbol present in it is in the book's universe, the gate skips it and records
-it: `corporate_actions.skipped_malformed` in plan.json, send.json and the run
-record (its id, type, missing field, the symbols and CUSIPs present, its
-dates), and one log line naming the id and the missing field. It still refuses
-(UNMEASURED) when a present symbol is in the universe, so a merger with our
-fund on one side and the other symbol null refuses. Identification is by symbol
+under `halt` one bad row for ANY issuer refused every session. Now the gate
+skips such a row only when its SUBJECT symbol is present and outside the
+book's universe, and no other present symbol is in it. The subject is the side
+whose share count changes: a split's or dividend's own symbol, a merger's
+acquiree, a spin-off's source, a unit split's or name change's old symbol. A
+skipped row is recorded: `corporate_actions.skipped_malformed` in plan.json,
+send.json and the run record (its id, type, missing field, the symbols and
+CUSIPs present, its dates), and one log line naming the id and the missing
+field. Every other malformed row refuses (UNMEASURED), naming the row: a
+present symbol in the universe (a merger with our fund on one side and the
+other symbol null), or a subject that is null or empty, no symbol at all
+included. *Corrected 2026-11-01 (release-check of 9cf5cf2, reproduced): the
+first build skipped whenever no PRESENT symbol was ours. A held fund's own
+reverse split, effective on the session date with its symbol null and its
+CUSIP the fund's, has no present symbol, so it was skipped and the gate sent.*
+A row skipped on its subject may still have a null acquirer that is one of our
+funds. An acquirer keeps its count, and the row is in the record. Identification is by symbol
 only. The ruling also names a CUSIP or a name where Alpaca provides one. The rows
 carry CUSIPs, but the live path holds no CUSIP for any fund in the universe, so
 they are recorded rather than compared. The reference's schemas carry no issuer

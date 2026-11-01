@@ -1075,15 +1075,16 @@ NO_TICKER_LEG = dict(REAL_REORG_NO_TICKER, id="reorg-bad-leg",
 
 
 def test_a_malformed_row_for_unrelated_issuers_is_skipped_and_recorded(env_file, sleeps):
-    page = ca_page({"stock_mergers": [NULL_ACQUIRER], "forward_splits": [EMPTY_SPLIT],
-                    "reorganizations": [NO_TICKER_LEG]})
+    """Its subject symbol is present and not ours (LSI the acquiree, AIMTF the
+    reorganized security), and no other present symbol is ours. (Corrected
+    2026-11-01: this test also skipped a forward split with NO symbol present,
+    the fail-open the release-check of 9cf5cf2 found; that row now refuses,
+    `test_a_malformed_row_whose_subject_is_missing_refuses`.)"""
+    page = ca_page({"stock_mergers": [NULL_ACQUIRER], "reorganizations": [NO_TICKER_LEG]})
     c, _ = ca_client(env_file, sleeps, page)
     skipped = []
     assert c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped) == []
     assert skipped == [
-        {"id": "fs-empty", "type": "forward_split", "missing": ["symbol"], "present": [],
-         "cusips": {"cusip": "816851109"},
-         "dates": {"ex_date": "2023-08-22", "process_date": "2023-08-22"}},
         {"id": "sm-null", "type": "stock_merger", "missing": ["acquirer_symbol"],
          "present": [["LSI", "acquiree"]],
          "cusips": {"acquiree_cusip": "53223X107", "acquirer_cusip": "30225T102"},
@@ -1095,6 +1096,40 @@ def test_a_malformed_row_for_unrelated_issuers_is_skipped_and_recorded(env_file,
     c, _ = ca_client(env_file, sleeps, page)
     with pytest.raises(al.UnexpectedResponse, match="is not a symbol"):
         c.corporate_actions(["PDI"], W0, W1)
+
+
+@pytest.mark.parametrize("key,row,subject", [
+    ("forward_splits", EMPTY_SPLIT, "symbol"),                           # no symbol at all
+    ("reverse_splits", dict(CA_REFERENCE["reverse_splits"][0], id="rs-null", symbol=None),
+     "symbol"),                                                           # its CUSIP present
+    ("stock_mergers", dict(CA_REFERENCE["stock_mergers"][0], id="sm-null-acquiree",
+                           acquiree_symbol=None), "acquiree_symbol"),     # the acquirer present
+    ("unit_splits", dict(CA_REFERENCE["unit_splits"][0], id="us-null-old", old_symbol=""),
+     "old_symbol"),
+    ("spin_offs", dict(CA_REFERENCE["spin_offs"][0], id="so-null-source", source_symbol=None),
+     "source_symbol"),
+    ("name_changes", dict(CA_REFERENCE["name_changes"][0], id="nc-null-old", old_symbol=None),
+     "old_symbol"),
+    ("reorganizations", dict(REAL_REORG_NO_TICKER, id="reorg-null", symbol=""), "symbol"),
+], ids=["no-symbol-at-all", "split-symbol-null", "acquiree-null", "unit-old-empty",
+        "spin-source-null", "name-change-old-null", "reorg-symbol-empty"])
+def test_a_malformed_row_whose_subject_is_missing_refuses(env_file, sleeps, key, row, subject):
+    """Release-check of 9cf5cf2 (2026-11-01, reproduced): a row is skipped only
+    when its SUBJECT, the side whose share count changes, is present and not
+    ours. With the subject null or empty -- no symbol at all included, and
+    whatever else is present -- it could be one of ours (its CUSIP may be),
+    so the read fails, naming it. FAILS on 9cf5cf2, which skipped every case.
+    The guard beside it: the same page with only a subject-present malformed
+    row (NULL_ACQUIRER, acquiree LSI) still skips and records that row."""
+    c, _ = ca_client(env_file, sleeps, ca_page({key: [row], "stock_mergers": [NULL_ACQUIRER]}
+                                               if key != "stock_mergers" else {key: [row]}))
+    skipped = []
+    with pytest.raises(al.UnexpectedResponse, match=f"its subject symbol {subject} is"):
+        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped)
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [NULL_ACQUIRER]}))
+    skipped = []
+    assert c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped) == []
+    assert [k["id"] for k in skipped] == ["sm-null"]
 
 
 @pytest.mark.parametrize("key,row", [
@@ -1194,18 +1229,24 @@ def test_a_repeated_id_identical_is_dropped_and_different_refuses(env_file, slee
 
 def test_a_null_id_is_skipped_and_recorded_on_a_malformed_row_naming_none_of_ours(env_file,
                                                                                  sleeps):
-    """Rule A stands: a malformed row naming none of ours is skipped and
-    recorded, a null id and all, each such row on its own (none dropped as a
-    "duplicate"). A well-formed row naming none of ours is not read, whatever
-    its id. The same page with a null-id row naming ours refuses."""
-    theirs = [dict(EMPTY_SPLIT, id=None), dict(EMPTY_SPLIT, id=None, ex_date="2023-09-01"),
-              dict(CA_REFERENCE["forward_splits"][0], id=None)]           # well-formed, not ours
-    c, _ = ca_client(env_file, sleeps, ca_page({"forward_splits": theirs}))
+    """Rule A stands: a malformed row naming none of ours (its subject present
+    and not ours) is skipped and recorded, a null id and all, each such row on
+    its own (none dropped as a "duplicate"). A well-formed row naming none of
+    ours is not read, whatever its id. The same page with a null-id row naming
+    ours refuses. (Corrected 2026-11-01: the malformed rows here were forward
+    splits with no symbol at all, which now refuse; they are null-acquirer
+    mergers with the acquiree present.)"""
+    mergers = [dict(NULL_ACQUIRER, id=None),
+               dict(NULL_ACQUIRER, id=None, effective_date="2023-09-01")]
+    well_formed = [dict(CA_REFERENCE["forward_splits"][0], id=None)]     # not ours
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": mergers,
+                                                "forward_splits": well_formed}))
     skipped = []
     assert c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped) == []
-    assert [(k["id"], k["missing"], k["dates"]["ex_date"]) for k in skipped] == [
-        (None, ["symbol"], "2023-08-22"), (None, ["symbol"], "2023-09-01")]
-    c, _ = ca_client(env_file, sleeps, ca_page({"forward_splits": theirs,
+    assert [(k["id"], k["missing"], k["dates"]["effective_date"]) for k in skipped] == [
+        (None, ["acquirer_symbol"], "2023-07-20"), (None, ["acquirer_symbol"], "2023-09-01")]
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": mergers,
+                                                "forward_splits": well_formed,
                                                 "reverse_splits": PROBE_NULL_IDS}))
     with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
         c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1), universe=UNI + ["NAD", "NVG"],

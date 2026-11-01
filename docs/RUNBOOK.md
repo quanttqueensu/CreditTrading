@@ -367,16 +367,21 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    the halt but fixes no count: steps 2–5 still apply, and the command prints a
    NOTE saying so.
 
-**A skipped malformed row** (team lead, 2026-10-29). A row whose required
-symbol is null or empty, and none of whose present symbols is in the book's
-universe, no longer refuses the session. It is skipped and listed under
+**A skipped malformed row** (team lead, 2026-10-29; corrected 2026-11-01). A
+row with a required symbol null or empty no longer refuses the session when
+its subject symbol (the split's own symbol, a merger's acquiree, a spin-off's
+source, the old symbol) is present and not in the book's universe, and no other
+present symbol is. A skipped row is listed under
 `corporate_actions.skipped_malformed` in `plan.json` (and `send.json`), with a
-`SKIPPED a malformed row` log line naming its id and the missing field. It sends
-on. Identification is by symbol only. The row's CUSIPs are listed but not
-compared, because the prod clone holds no CUSIP for our funds. So read the
-listed CUSIPs against the funds' own (from their filings) when one appears. A
-malformed row with one of our symbols present still refuses (UNMEASURED,
-"could concern one of ours"), until Alpaca completes the row.
+`SKIPPED a malformed row` log line naming its id and the missing field, and the
+session sends on. Identification is by symbol only. The row's CUSIPs are listed
+but not compared, because the prod clone holds no CUSIP for our funds. So read
+the listed CUSIPs against the funds' own (from their filings) when one appears.
+Every other malformed row refuses (UNMEASURED), naming the row, until Alpaca
+completes it: one of our symbols present ("could concern one of ours"), or its
+subject null or empty, a row with no symbol at all included ("its subject
+symbol ... is None"). Until 2026-11-01 a row with no symbol present was
+skipped, so a held fund's own split with a null symbol went through.
 
 ## 7. Keeping the laptop awake
 

@@ -286,6 +286,36 @@ def test_a_malformed_row_that_could_be_ours_refuses(tmp_path, path, key, row, ou
         in refusal[0]["detail"], refusal
 
 
+# The release-check of 9cf5cf2 (2026-11-01, reproduced by the reviewer's
+# probe): a held fund's own action with its subject symbol null, its CUSIP the
+# fund's, effective on the session date. 9cf5cf2 skipped both as "naming none
+# of ours", read CLEAR under `halt` and SENT on both paths.
+HELD_SPLIT_NULL_SYMBOL = dict(OLD_SPLIT_CCC, id="rs-ccc-null-symbol", symbol=None, ex_date=DAY,
+                              process_date=DAY)
+HELD_ACQUIRED_NULL_ACQUIREE = dict(UNRELATED_NULL_ACQUIRER, id="sm-ccc-acquired-null",
+                                   acquiree_symbol=None, acquirer_symbol="XOM",
+                                   acquiree_cusip="CCC000000", effective_date=DAY,
+                                   process_date=DAY)
+
+
+@pytest.mark.parametrize("key,row,subject", [
+    ("reverse_splits", HELD_SPLIT_NULL_SYMBOL, "symbol"),
+    ("stock_mergers", HELD_ACQUIRED_NULL_ACQUIREE, "acquiree_symbol"),
+], ids=["split-symbol-null", "acquiree-null"])
+@pytest.mark.parametrize("path", PATHS)
+def test_a_malformed_row_whose_subject_is_missing_refuses_the_session(tmp_path, path, key, row,
+                                                                      subject):
+    """The probe's four cases. The subject side is the only one that can show a
+    row is not ours; with it null, the row may be our fund's own action, so
+    under `halt` the session REFUSES, naming the row: nothing sent, nothing
+    skipped. FAILS on 9cf5cf2 (SENT)."""
+    c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
+    assert code == rn.EXIT_REFUSED and c.submits() == [], log
+    data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
+    assert len(data) == 1 and "UNMEASURED" in data[0] and row["id"] in data[0] \
+        and f"its subject symbol {subject} is None" in data[0], data
+
+
 # ------------------------------- one id, one event (release-check of 9630322)
 
 @pytest.mark.parametrize("path", PATHS)

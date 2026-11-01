@@ -1300,14 +1300,31 @@ class AlpacaClient:
         the ruling, so a caller that keeps no record never loses one in
         silence. With `skipped` (a list) and `universe` (the book's symbols;
         the two go together), the ruling applies:
-          * every symbol PRESENT in the row is outside `universe` and `symbols`:
-            the row is skipped and a record of it appended to `skipped` (its
-            id, type, the missing field(s), the symbols and CUSIPs present, its
-            dates). The gate puts that list in plan.json, the run record and
-            one log line per row (corp_actions.check, `lines`). Never silent.
-          * a present symbol IS one of ours: it raises, naming it. That covers
-            a merger with our fund on one side and the other symbol null: the
-            row could concern one of ours, and under `halt` it refuses.
+          * SKIPPED only when the row's SUBJECT symbol (the side whose share
+            count changes: a split's or dividend's own `symbol`, a merger's
+            acquiree, a spin-off's source, a unit split's or name change's old
+            symbol, a reorganization's own `symbol`; CA_SUBJECT_ROLES) is
+            present, and it and every other symbol present are outside
+            `universe` and `symbols`. Then the row is skipped and a record of
+            it appended to `skipped` (its id, type, the missing field(s), the
+            symbols and CUSIPs present, its dates). The gate puts that list in
+            plan.json, the run record and one log line per row
+            (corp_actions.check, `lines`). Never silent.
+          * otherwise it raises, naming the row, and under `halt` the session
+            refuses: a present symbol is ours (a merger with our fund on one
+            side and the other symbol null); or the subject is null or empty,
+            no symbol present at all included, so nothing in the row shows
+            that the count that changes is not one of ours.
+        WHY THE SUBJECT (release-check of 9cf5cf2, 2026-11-01, reproduced).
+        The first build skipped whenever no PRESENT symbol was ours, and a row
+        with no symbol present has none: a reverse split on a held fund,
+        effective on the session date, its `symbol` null and its CUSIP the
+        fund's, was skipped, and the gate read CLEAR and sent on both paths.
+        The ruling skips a row only when it cannot concern one of our funds
+        (docs/SYSTEM.md §5), and only the subject side can prove that. A row
+        skipped on its subject can still have a null acquirer that was one of
+        our funds. An acquirer keeps its count, and the record lists the row
+        for a person to read.
         Identification is by SYMBOL only. The ruling also names a CUSIP or a
         name "if Alpaca provides it". The rows do carry CUSIPs, but the live
         path holds no CUSIP for any fund in the universe, so none can be
@@ -1410,6 +1427,13 @@ class AlpacaClient:
                                 f"{unread[0]['error']}; the row also names {mine}, in the "
                                 f"book's universe, so it could concern one of ours and is "
                                 f"not skipped")
+                        subject = [f for f, role, _ in fields if role in CA_SUBJECT_ROLES][0]
+                        if not any(role in CA_SUBJECT_ROLES for _, role in parties):
+                            raise UnexpectedResponse(
+                                f"{unread[0]['error']}; its subject symbol {subject} is "
+                                f"{r.get(subject)!r}, so nothing in the row (id {r.get('id')!r}, "
+                                f"present {[list(x) for x in parties]}) shows the share count "
+                                f"that changes is not one of ours: not skipped")
                         rid = r.get("id")
                         if isinstance(rid, str) and rid in seen_skipped:
                             continue          # the same row repeated across pages
@@ -1494,6 +1518,14 @@ CORPORATE_ACTION_TYPES = {
     "reorganization": ("reorganizations", "effective_date", (("symbol", "subject", True),)),
     "partial_call": ("partial_calls", "process_date", (("symbol", "subject", True),)),
 }
+# The roles on the side whose share count the action changes (MALFORMED ROWS):
+# every type has exactly one symbol field in one of them, and it is required.
+CA_SUBJECT_ROLES = frozenset({"subject", "old", "source", "acquiree"})
+for _k, (_, _, _f) in CORPORATE_ACTION_TYPES.items():
+    if [req for _, role, req in _f if role in CA_SUBJECT_ROLES] != [True]:
+        raise AssertionError(f"CORPORATE_ACTION_TYPES[{_k!r}] needs exactly one required "
+                             f"subject-side symbol field")
+del _k, _f
 # Every key the reference's `corporate_actions` object can hold: the thirteen
 # above plus the three types the gate does not ask for.
 CORPORATE_ACTION_RESPONSE_KEYS = frozenset(
