@@ -71,9 +71,17 @@ now leaves a residual of exactly 0 (in Fraction) on every session [V: re-run
 none; CAT on both sides or sells only). The next best matched 13 of 24. Alpaca's
 paper page says paper does not simulate regulatory fees (docs/REFERENCES.md,
 the paper-trading rows [V: page fetched 2026-10-13]). The page and the account disagree,
-and this module follows the account. That the charge IS these fees, and not
-something equal to them, stays [U] until the account's FEE activities are read
-(that needs keys; this module reads only FILLs).
+and this module follows the account.
+
+CONFIRMED against the account's own record (2026-11-02): GET
+/v2/account/activities/FEE lists 37 FEE activities over 2026-09-29..10-30, "REG
+fee" (SEC) and "CAT fee" rows, summing to -$6.16; each REG row's "proceed" equals
+the session's value sold computed here, and the per-session totals equal the
+modelled fees on 34 of 34 sessions [V: read-only, by the main session with keys,
+2026-11-02]. One trap for anyone re-checking: with `until=2026-10-31` the 10-30
+rows were missing, so `until` appears to filter on posting time, not trade date;
+the unbounded read has them. The model stays as the line (it needs only FILLs);
+the FEE activities are its check.
 
 So the fees line is modelled from the schedule and labelled as such. It is
 reported per session and in total, never per name: it is rounded per session,
@@ -262,6 +270,11 @@ CA_QUERY_PAD_AFTER_DAYS = 120
 # NAVs are fetched from this many days before the first session, so the first
 # held day has a previous NAV even across a long weekend.
 NAV_LOOKBACK_DAYS = 10
+# An account funded before --since is shown flat by this many sessions of
+# identical EOD equity before its first fill (flat_by_constant_equity). One week
+# of closes: a held CEF position moves equity by at least a cent on nearly every
+# close, so five unchanged closes are not a coincidence.
+MIN_FLAT_SESSIONS = 5
 
 FILES = {"manifest": "manifest.json", "fills": "fills.json", "eod": "eod.csv",
          "bars": "bars.csv", "dists": "distributions.json",
@@ -637,6 +650,41 @@ def check_flat_start(inp: Inputs, s0: dt.date) -> None:
         raise AttributionError(
             f"{len(early)} fill(s) before flat_start {inp.flat_start} (first: {early[0].symbol} "
             f"{early[0].date}): the account was not flat where the rebuild starts")
+
+
+def flat_by_constant_equity(points, fills, since: dt.date) -> dict:
+    """The flat-start evidence for an account funded before --since.
+
+    WHY. The first build showed a flat start only by an unfunded session before
+    the first EOD point. The cef paper account was funded with $100,000 months
+    before its first fill [V: EOD history read 2026-11-02, flat from 2026-05-04
+    at the latest], so no --since could satisfy that rule and `fetch` never ran.
+    For such an account the evidence is that equity did not move: Alpaca marks
+    every held position at each close, so an account whose equity is identical
+    to the cent on every one of at least MIN_FLAT_SESSIONS sessions before its
+    first fill (and with no fill from --since until then) held nothing. Raises,
+    naming why, otherwise; a moved equity may mean a position from before
+    --since, which only an earlier --since can show or rule out.
+    """
+    first_fill = min(f.date for f in fills)
+    pre = [(d, e) for d, e, _ in points if d < first_fill]
+    if len(pre) < MIN_FLAT_SESSIONS:
+        raise AttributionError(
+            f"the account was already funded at --since {since}, and only {len(pre)} EOD point(s) "
+            f"precede its first fill ({first_fill}); {MIN_FLAT_SESSIONS} sessions of unchanged "
+            f"equity are needed to show it flat; pass an earlier --since")
+    moved = sorted({e for _, e in pre})
+    if len(moved) != 1:
+        raise AttributionError(
+            f"equity moved before the first fill ({first_fill}): {len(moved)} distinct values on "
+            f"{pre[0][0]}..{pre[-1][0]}, so a position from before --since {since} cannot be ruled "
+            f"out; pass an earlier --since")
+    return {"date": pre[0][0].isoformat(),
+            "evidence": (f"the account was funded before --since {since}; its EOD equity is "
+                         f"unchanged at {moved[0]:,.2f} on all {len(pre)} sessions from {pre[0][0]} "
+                         f"to {pre[-1][0]}, and no FILL activity exists from {since} until the "
+                         f"first fill on {first_fill}. Alpaca marks held positions at each close, "
+                         f"so the account held nothing at the start of {pre[0][0]}")}
 
 
 def default_breaks(eod: list, sessions: list) -> tuple[list, str]:
@@ -1048,12 +1096,12 @@ def summary_markdown(res: Result, tabs: dict) -> str:
          "generation]; the sources are listed at the end. Research output: zero trials, no "
          "counter moved, nothing on the live path.", "",
          "Paper charges no borrow and credits no distributions (CLAUDE.md landmine 1). It does "
-         "charge something that equals Alpaca's live regulatory fees to the cent (SEC on the "
-         "value sold, CAT on shares traded, per session, rounded up), although Alpaca's paper "
-         "page says it does not simulate them. The fees line below is that schedule, modelled; "
-         "that the charge IS those fees is [U] until the account's FEE activities are read "
-         "(the module docstring, FEES). The distribution line is what a real account would have "
-         "booked, never part of the reconciliation.", "",
+         "charge Alpaca's live regulatory fees (SEC on the value sold, CAT on shares traded, per "
+         "session, rounded up), although Alpaca's paper page says it does not simulate them: the "
+         "cef account's FEE activities are REG and CAT rows that equal this schedule on every "
+         "session read so far (the module docstring, FEES). The fees line below is that "
+         "schedule, modelled from the fills; the FEE activities are its check. The distribution "
+         "line is what a real account would have booked, never part of the reconciliation.", "",
          "## Reconciliation against Alpaca's EOD history (the P&L of record)", "",
          "| line | USD |", "|---|---|",
          f"| official: EOD equity change, {res.first_session}..{res.asof} | {t['eod_change']:,.2f} |",
@@ -1256,29 +1304,34 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
                                "not final yet; fetch again later")
     eod_rows = [(d.isoformat(), repr(float(e))) for d, e, _ in points]
     first, last = points[0][0], points[-1][0]
-    before = [r["date"] for r in client.calendar(since, first - dt.timedelta(days=1))] if since < first else []
-    if not before:
-        raise AttributionError(
-            f"no session between --since {since} and the first funded EOD point {first} was asked "
-            f"for, so the account cannot be shown flat at {first}; pass an earlier --since")
     after = client.calendar(last + dt.timedelta(days=1), last + dt.timedelta(days=14))
     if not after:
         raise AttributionError(f"the calendar lists no session in the 14 days after {last}")
     next_session = after[0]["date"]
-    flat = {"date": first.isoformat(),
-            "evidence": (f"Alpaca's EOD history, asked from {since}, has no funded point before "
-                         f"{first}: {len(before)} session(s) from {before[0]} to {before[-1]} carry "
-                         f"equity 0 or no point, so the account held nothing at the start of {first}")}
 
     fills = []
     day = since
     while day <= last:
         fills.extend(client.activities_fills(day))
         day += dt.timedelta(days=1)
-    parse_fills(fills)                                  # raises on duplicates before writing
+    parsed = parse_fills(fills)                         # raises on duplicates before writing
     syms = sorted({a["symbol"] for a in fills})
     if not syms:
         raise AttributionError(f"no FILL activity in {since}..{last}")
+
+    if since < first:
+        before = [r["date"] for r in client.calendar(since, first - dt.timedelta(days=1))]
+        if not before:
+            raise AttributionError(
+                f"no session between --since {since} and the first funded EOD point {first} was "
+                f"asked for, so the account cannot be shown flat at {first}; pass an earlier --since")
+        flat = {"date": first.isoformat(),
+                "evidence": (f"Alpaca's EOD history, asked from {since}, has no funded point before "
+                             f"{first}: {len(before)} session(s) from {before[0]} to {before[-1]} "
+                             f"carry equity 0 or no point, so the account held nothing at the start "
+                             f"of {first}")}
+    else:
+        flat = flat_by_constant_equity(points, parsed, since)
 
     bars = AD.fetch_bars(client, syms, first, last)
     d_lo = first - dt.timedelta(days=DIST_QUERY_PAD_DAYS)

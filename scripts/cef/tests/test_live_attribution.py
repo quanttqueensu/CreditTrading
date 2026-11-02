@@ -608,6 +608,58 @@ def test_fetch_refuses_when_the_flat_start_cannot_be_shown(tmp_path):
     assert not (tmp_path / "c").exists()
 
 
+class FundedEarlyClient(FakeClient):
+    """The real cef account's shape (read 2026-11-02): funded with $100,000 months
+    before its first fill, so every --since already has a funded EOD point. `pre`
+    funded sessions are prepended at `pre_equity` (a list, one per session)."""
+
+    def __init__(self, pre_equity):
+        super().__init__()
+        self.pre = [(D(2026, 1, 2) + dt.timedelta(days=i), F(e)) for i, e in enumerate(pre_equity)]
+
+    def eod_equity_history(self, start, end):
+        self.calls.append("eod")
+        series = self.pre + equity_series()     # S0 is funded and has no fill
+        return [(d, float(e), dt.datetime.combine(d + dt.timedelta(days=1), dt.time(0), UTC))
+                for d, e in series if start <= d <= end]
+
+    def calendar(self, start, end):
+        self.calls.append("calendar")
+        days = [d for d, _ in self.pre] + SESSIONS + [NEXT]
+        return [{"date": d} for d in days if start <= d <= end]
+
+
+def test_fetch_accepts_a_flat_start_shown_by_constant_equity(tmp_path):
+    """Funded before --since: flat is shown by equity unchanged to the cent on
+    every session before the first fill (a held name would be marked), with no
+    fill from --since until then. The first build demanded an unfunded session
+    and so could never run on the real account (2026-11-02)."""
+    client = FundedEarlyClient(["100000"] * LA.MIN_FLAT_SESSIONS)
+    since = client.pre[0][0]
+    man = _fetch(tmp_path / "c", client=client, since=since)
+    assert man["flat_start"]["date"] == since.isoformat()
+    assert "unchanged" in man["flat_start"]["evidence"]
+    res, _ = LA.analyse(tmp_path / "c", tmp_path / "out", grp=dict(GRP))
+    assert all(r == 0 for r in res.daily["residual"])
+    mem = LA.attribute(inputs())
+    for k in LA.MONEY:
+        assert sum(res.name_day[k]) == sum(mem.name_day[k]), k
+
+
+def test_fetch_refuses_a_flat_start_when_equity_moved_before_the_first_fill(tmp_path):
+    client = FundedEarlyClient(["100000"] * (LA.MIN_FLAT_SESSIONS - 1) + ["100000.01"])
+    with pytest.raises(LA.AttributionError, match="equity moved.*pass an earlier --since"):
+        _fetch(tmp_path / "c", client=client, since=client.pre[0][0])
+    assert not (tmp_path / "c").exists()
+
+
+def test_fetch_refuses_too_few_constant_sessions(tmp_path):
+    client = FundedEarlyClient(["100000"] * (LA.MIN_FLAT_SESSIONS - 2))   # + S0: one short
+    with pytest.raises(LA.AttributionError, match="pass an earlier --since"):
+        _fetch(tmp_path / "c", client=client, since=client.pre[0][0])
+    assert not (tmp_path / "c").exists()
+
+
 def test_fetch_refuses_an_unfinished_eod_point(tmp_path):
     with pytest.raises(LA.AttributionError, match="not final yet"):
         _fetch(tmp_path / "c", now=dt.datetime(2026, 1, 23, 22, tzinfo=UTC))
