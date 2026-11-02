@@ -2,17 +2,18 @@
 
 WHY THESE TESTS
 ---------------
-The attribution splits the paper account's P&L into hold, fill, NAV, discount and
-distributions. On 2026-11-02 that split moved the explanation of the book's
--$982.14 from "the signal failed" to "muni NAVs rose under two shorts". A figure
-that moves a judgement like that must not rest on a sign nobody checked. So the
-fixture below is small enough to work by hand. Two names, AAA and BBB, go long
-and short; AAA flips from long to short; CCC is bought on its own ex-date. Two
-distributions fall on the flip day, one falls the day after, and one falls on a
-market holiday. The account's equity is computed independently, as cash plus
-positions marked at the close (the way Alpaca marks paper equity). It is never
-computed from the attribution's own formulas, so the reconciliation test is a
-real check.
+The attribution splits the paper account's P&L into hold, fill, fees, NAV,
+discount and distributions. On 2026-11-02 that split moved the explanation of
+the book's -$982.14 from "the signal failed" to "muni NAVs rose under two
+shorts". A figure that moves a judgement like that must not rest on a sign
+nobody checked. So the fixture below is small enough to work by hand. Two
+names, AAA and BBB, go long and short; AAA flips from long to short; CCC is
+bought on its own ex-date. Two distributions fall on the flip day, one falls the
+day after, and one falls on a market holiday. AAA's first buy fills in two
+partial activities. The account's equity is computed independently, as cash
+plus positions marked at the close, less the fees, the way the paper account
+was measured to behave. It is never computed from the attribution's own
+formulas, sign table or fee rates, so the reconciliation test is a real check.
 
 The suite was run against four deliberately wrong copies of the module, one
 mutation at a time (2026-11-02). Each copy failed:
@@ -29,6 +30,16 @@ sign table, so a wrong `sell_short` sign moved both sides and the
 reconciliation still passed. The fixture now has its own table
 (FIXTURE_SIGN).
 
+The review of 2026-11-02 found four more wrong copies that passed all 29
+tests: fills dated in UTC, `cum_qty` read as the quantity (the fixture had
+cum_qty == qty, while 218 of the account's 344 fills are partial), and the
+data/ guard removed from write_outputs or from fetch (only the helper was
+tested). Each has a test below that fails against it, and so do the review's
+other findings: the fees, the second distribution source, the git-visible
+output directory and the summary's distribution kinds. A test that guards a
+write never writes where a broken module could do harm: data/ and the
+repository are swapped for tmp_path first.
+
 The fixture's sessions skip Monday 2026-01-19 (Martin Luther King Jr. Day), so an
 ex-date or a bar on that date is off the session calendar.
 """
@@ -36,6 +47,8 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
+import subprocess
 import sys
 from fractions import Fraction as F
 from pathlib import Path
@@ -49,12 +62,17 @@ sys.path.insert(0, str(REPO))
 from scripts.cef import live_attribution as LA  # noqa: E402
 
 D = dt.date
+UTC = dt.timezone.utc
 PRE = [D(2026, 1, 14), D(2026, 1, 15)]                      # sessions before funding
 S0, S1, S2, S3, S4 = (D(2026, 1, 16), D(2026, 1, 20), D(2026, 1, 21),
                       D(2026, 1, 22), D(2026, 1, 23))
 SESSIONS = [S0, S1, S2, S3, S4]
+NEXT = D(2026, 1, 26)                                       # the session after the last EOD point
 HOLIDAY = D(2026, 1, 19)
 GRP = {"AAA": "muni", "BBB": "multi", "CCC": "hy"}
+# NEXT closes at 16:00 EST = 21:00 UTC. The second source fetched after that can
+# call both sources' silence on S4 a zero; one fetched before it cannot.
+CHECK_AT = dt.datetime(2026, 1, 27, 12, tzinfo=UTC)
 
 CLOSES = {
     "AAA": {S0: "9.90", S1: "10.10", S2: "10.30", S3: "10.25", S4: "10.00"},
@@ -66,14 +84,17 @@ NAVS = {
     "BBB": {S0: "22.00", S1: "22.00", S2: "22.44", S3: "22.00", S4: "22.22"},
     "CCC": {S2: "6.00", S3: "6.10", S4: "6.05"},
 }
-# (id, symbol, side, qty, price, NY date): 15:52 ET is 20:52 UTC in January (EST).
+# (id, symbol, side, qty, price, NY date, order id, cum_qty, seconds past 20:52 UTC).
+# 15:52 ET is 20:52 UTC in January (EST). `qty` is each activity's own increment;
+# `cum_qty` is the order's running total, as Alpaca reports partial fills.
 FILLS = [
-    ("f1", "AAA", "buy", "100", "10.00", S1),
-    ("f2", "BBB", "sell_short", "50", "20.00", S1),
-    ("f3", "CCC", "buy", "10", "5.00", S2),          # bought on its ex-date
-    ("f4", "AAA", "sell", "100", "10.20", S3),       # the flip, in two partial fills
-    ("f5", "AAA", "sell_short", "50", "10.20", S3),
-    ("f6", "BBB", "buy", "50", "20.50", S4),         # the short is closed
+    ("f1a", "AAA", "buy", "60", "10.00", S1, "o-1", "60", 4),     # a partial fill...
+    ("f1b", "AAA", "buy", "40", "10.00", S1, "o-1", "100", 5),    # ...and the rest of o-1
+    ("f2", "BBB", "sell_short", "50", "20.00", S1, "o-2", "50", 6),
+    ("f3", "CCC", "buy", "10", "5.00", S2, "o-3", "10", 4),       # bought on its ex-date
+    ("f4", "AAA", "sell", "100", "10.20", S3, "o-4", "100", 4),   # the flip, as two orders
+    ("f5", "AAA", "sell_short", "50", "10.20", S3, "o-5", "50", 5),
+    ("f6", "BBB", "buy", "50", "20.50", S4, "o-6", "50", 4),      # the short is closed
 ]
 DISTS = [
     ("d1", "AAA", S3, "0.05"),      # held long 100 into S3 -> credited +5.00
@@ -85,31 +106,56 @@ DISTS = [
 
 def raw_fills():
     return [{"id": i, "activity_type": "FILL", "symbol": s, "side": side, "qty": q,
-             "price": px, "transaction_time": f"{d.isoformat()}T20:52:04.123456Z",
-             "type": "fill", "order_id": f"o-{i}", "cum_qty": q, "leaves_qty": "0",
-             "order_status": "filled"} for i, s, side, q, px, d in FILLS]
+             "price": px, "transaction_time": f"{d.isoformat()}T20:52:{sec:02d}.123456Z",
+             "type": "partial_fill" if i == "f1a" else "fill", "order_id": oid,
+             "cum_qty": cq, "leaves_qty": "0" if i != "f1a" else "40",
+             "order_status": "filled" if i != "f1a" else "partially_filled"}
+            for i, s, side, q, px, d, oid, cq, sec in FILLS]
 
 
 FIXTURE_SIGN = {"buy": 1, "sell": -1, "sell_short": -1}   # the fixture's own, not LA.SIDE_SIGN
+FIXTURE_SEC = F("0.0000206")                              # the fixture's own, not LA's constants
+FIXTURE_CAT = F("0.000003")
+
+
+def fixture_fees(d):
+    """The session's fees, computed here from the fixture's own rates: SEC on the
+    value sold plus CAT on every share, each summed over the session and rounded
+    up to the cent (the rule the paper account was measured to follow)."""
+    sold = sum((int(q) * F(px) for _, _, side, q, px, fd, *_ in FILLS
+                if fd == d and side != "buy"), F(0))
+    shares = sum(int(q) for _, _, _, q, _, fd, *_ in FILLS if fd == d)
+    up = lambda x: F(math.ceil(x * 100), 100)               # noqa: E731
+    return up(FIXTURE_SEC * sold) + up(FIXTURE_CAT * shares)
 
 
 def equity_series():
-    """Cash plus positions at the close, per session: Alpaca's way of marking
-    paper equity. Independent of the attribution's formulas AND of its sign table,
-    so a wrong sign in the module cannot also move the fixture."""
+    """Cash plus positions at the close, less the fees, per session: how the paper
+    account was measured to mark equity. Independent of the attribution's
+    formulas, sign table and fee constants, so a wrong one in the module cannot
+    also move the fixture."""
     cash, q, out = F(100000), {}, []
     for d in SESSIONS:
-        for _, s, side, qty, px, fd in FILLS:
+        for _, s, side, qty, px, fd, *_ in FILLS:
             if fd == d:
                 sq = FIXTURE_SIGN[side] * int(qty)
                 cash -= sq * F(px)
                 q[s] = q.get(s, 0) + sq
+        cash -= fixture_fees(d)
         out.append((d, cash + sum(x * F(CLOSES[s][d]) for s, x in q.items() if x)))
     return out
 
 
 def table(src):
     return {(s, d): F(v) for s, days in src.items() for d, v in days.items()}
+
+
+def check_rows(rows=None):
+    """The second distribution source: by default it lists what Alpaca lists."""
+    rows = [(s, d, a) for _, s, d, a in DISTS] if rows is None else rows
+    return LA.parse_dist_check(pd.DataFrame(
+        [{"ticker": s, "ex_date": d.isoformat(), "amount": a} for s, d, a in rows],
+        columns=["ticker", "ex_date", "amount"]))
 
 
 def inputs(**over):
@@ -119,7 +165,8 @@ def inputs(**over):
                                              "amount": a, "kind": "cash_dividend"}
                                             for i, s, d, a in DISTS]),
               corp=[], grp=dict(GRP), flat_start=S0, fills_from=PRE[0],
-              corp_types=LA.SPLIT_TYPES, dist_kinds=LA.DIST_KINDS)
+              corp_types=LA.SPLIT_TYPES, dist_kinds=LA.DIST_KINDS,
+              dist_check=check_rows(), dist_check_at=CHECK_AT, next_session=NEXT)
     kw.update(over)
     return LA.Inputs(**kw)
 
@@ -128,6 +175,10 @@ def row(res, s, d):
     r = res.name_day[(res.name_day["symbol"] == s) & (res.name_day["date"] == d)]
     assert len(r) == 1, (s, d, len(r))
     return r.iloc[0]
+
+
+def daily(res, col):
+    return res.daily.set_index("date")[col].to_dict()
 
 
 # --- the identity and the reconciliation -------------------------------------
@@ -160,6 +211,45 @@ def test_warn_line_on_a_residual_above_threshold():
     assert len(warns) == 2 and warns[0].startswith(f"WARN {S2}")
 
 
+# --- fees: paper charged them after all (review 2026-11-02) -------------------
+
+def test_fees_by_hand():
+    res = LA.attribute(inputs())
+    # S1: sold 50 x 20.00 = 1,000 -> SEC 0.0206 -> 0.03; 150 shares -> CAT 0.00045 -> 0.01.
+    # S2: nothing sold; 10 shares -> 0.01. S3: sold 150 x 10.20 = 1,530 -> 0.031518 -> 0.04,
+    # plus 0.01. S4: nothing sold; 50 shares -> 0.01.
+    assert daily(res, "fees") == {S1: F("-0.04"), S2: F("-0.01"), S3: F("-0.05"), S4: F("-0.01")}
+    assert daily(res, "sold_usd") == {S1: F(1000), S2: 0, S3: F(1530), S4: 0}
+    assert daily(res, "shares_traded") == {S1: 150, S2: 10, S3: 150, S4: 50}
+    for r in res.daily.itertuples():
+        assert r.rebuilt == r.hold + r.fill + r.fees
+
+
+def test_session_fees_rate_and_rounding():
+    def fill(q, px):
+        return LA.Fill(id="x", symbol="X", date=S1, time="t", signed_qty=q, price=F(px))
+    # $100,000 sold and 10,000 shares: SEC 2.06 exactly, CAT 0.03 exactly.
+    assert LA.session_fees([fill(-10000, "10")]) == (F("-2.09"), F(100000), 10000)
+    # Rounded UP per session, not per fill: two $1 sales owe 0.01, not 0.02.
+    assert LA.session_fees([fill(-1, "1"), fill(-1, "1")])[0] == F("-0.02")   # SEC 0.01 + CAT 0.01
+    assert LA.session_fees([fill(1, "1")])[0] == F("-0.01")                   # a buy: CAT only
+    assert LA.session_fees([]) == (0, 0, 0)
+
+
+def test_fee_rates_match_real_money_costs():
+    from scripts.cef import real_money_costs as RMC
+    assert LA.SEC_FEE_PER_USD_SOLD == F(str(RMC.SEC_FEE_PER_DOLLAR_SOLD))
+    assert LA.CAT_FEE_PER_SHARE == F(str(RMC.CAT_FEE_PER_SHARE))
+
+
+def test_summary_does_not_say_paper_charges_no_fees(tmp_path):
+    res = LA.attribute(inputs())
+    text = LA.write_outputs(res, tmp_path / "out")["summary"].read_text()
+    assert "no fees" not in text and "fill + fees" in text
+    assert "rebuilt: hold + fill + fees" in text
+    assert "fees (modelled)" in LA.report(res)
+
+
 # --- signs, by hand ------------------------------------------------------------
 
 def test_short_side_signs():
@@ -184,7 +274,7 @@ def test_long_nav_part_by_hand():
 
 def test_fill_against_the_close():
     res = LA.attribute(inputs())
-    assert row(res, "AAA", S1).fill == F("10")       # bought 100 at 10.00, closed 10.10
+    assert row(res, "AAA", S1).fill == F("10")       # bought 60 + 40 at 10.00, closed 10.10
     assert row(res, "BBB", S1).fill == F("5")        # shorted 50 at 20.00, closed 19.90
     assert row(res, "AAA", S3).fill == F("-7.5")     # sold 150 at 10.20, closed 10.25
     assert row(res, "AAA", S1).hold == 0             # opened that day: nothing held into it
@@ -201,6 +291,19 @@ def test_flip_long_to_short():
     assert pos == {"AAA": -50, "CCC": 10}            # BBB closed on S4
 
 
+def test_partial_fills_count_qty_not_cum_qty():
+    fs = {f.id: f for f in LA.parse_fills(raw_fills())}
+    assert (fs["f1a"].signed_qty, fs["f1b"].signed_qty) == (60, 40)   # cum_qty says 60, then 100
+    assert row(LA.attribute(inputs()), "AAA", S1).q_end == 100
+
+
+def test_fill_is_dated_in_new_york_not_utc():
+    raw = dict(raw_fills()[0], id="late", transaction_time="2026-01-21T01:15:00Z")
+    assert LA.parse_fills([raw])[0].date == S1           # 20:15 EST on 01-20; 01-21 in UTC
+    raw = dict(raw, transaction_time="2026-07-01T00:30:00.5Z")
+    assert LA.parse_fills([raw])[0].date == D(2026, 6, 30)   # 20:30 EDT
+
+
 # --- distributions: the holder at the previous close is entitled --------------------
 
 def test_ex_date_entitlement():
@@ -212,17 +315,88 @@ def test_ex_date_entitlement():
     ev = res.events.set_index("id")
     assert ev.loc["d4", "q_prev"] == 0 and ev.loc["d1", "q_prev"] == 100
     assert sum(res.daily["dist"]) == F("-2")
-    # No event, no distribution: every other name-day is zero.
+    # No event in either source, the second current: every other name-day is zero.
     others = res.name_day[~res.name_day.apply(
         lambda r: (r.symbol, r.date) in {(s, d) for _, s, d, _ in DISTS}, axis=1)]
     assert all(x == 0 for x in others["dist"])
+    assert not res.dist_unmeasured
+
+
+# --- distributions: Alpaca's silence is not a zero (review 2026-11-02) ----------
+
+def test_alpaca_silence_is_not_a_zero():
+    # The second source lists a BBB ex-date on S2 that Alpaca does not (BBB is short 50).
+    res = LA.attribute(inputs(dist_check=check_rows([(s, d, a) for _, s, d, a in DISTS]
+                                                    + [("BBB", S2, "0.07")])))
+    b = row(res, "BBB", S2)
+    assert b.dist is None and "Alpaca's silence is not a zero" in b.dist_status
+    assert daily(res, "dist")[S2] is None and daily(res, "dist")[S3] == 0   # S3: +5 - 5
+    assert LA.totals(res)["dist"] is None and LA.totals(res)["with_dist"] is None
+    assert [(d, s) for d, s, *_ in res.dist_unmeasured] == [(S2, "BBB")]
+    assert any("UNMEASURED" in g for g in res.gaps)
+
+
+def test_one_silent_source_is_not_two():
+    # The second source has no row for CCC at all: CCC held into S3 and S4 has only
+    # Alpaca's silence behind a zero.
+    res = LA.attribute(inputs(dist_check=check_rows([(s, d, a) for _, s, d, a in DISTS
+                                                     if s != "CCC"])))
+    assert [(d, s) for d, s, *_ in res.dist_unmeasured] == [(S3, "CCC"), (S4, "CCC")]
+    assert "only one source is silent" in row(res, "CCC", S3).dist_status
+    assert row(res, "CCC", S2).dist == 0             # not held into S2: not entitled
+
+
+def test_a_zero_needs_a_current_second_source():
+    # Fetched before the close of NEXT (21:00 UTC): S4's silences cannot be zeros yet.
+    res = LA.attribute(inputs(dist_check_at=dt.datetime(2026, 1, 26, 20, tzinfo=UTC)))
+    assert [(d, s) for d, s, *_ in res.dist_unmeasured] == [(S4, "BBB"), (S4, "CCC")]
+    assert row(res, "AAA", S4).dist == F("-2")       # Alpaca lists it: measured
+    assert daily(res, "dist")[S3] == 0               # S3 is current
+    # And without the session after the last point, the last point cannot be judged.
+    res2 = LA.attribute(inputs(next_session=None))
+    assert [(d, s) for d, s, *_ in res2.dist_unmeasured] == [(S4, "BBB"), (S4, "CCC")]
+
+
+def test_no_second_source_is_unmeasured():
+    res = LA.attribute(inputs(dist_check=None, dist_check_at=None))
+    held_silent = res.name_day[(res.name_day["q_prev"] != 0) & ~res.name_day.apply(
+        lambda r: (r.symbol, r.date) in {(s, d) for _, s, d, _ in DISTS}, axis=1)]
+    assert len(held_silent) and all(x is None for x in held_silent["dist"])
+    assert row(res, "AAA", S3).dist == F("5")        # Alpaca's record still counts
+
+
+def test_sources_disagree_or_round():
+    far = [(s, d, "0.06" if s == "AAA" and d == S3 else a) for _, s, d, a in DISTS]
+    res = LA.attribute(inputs(dist_check=check_rows(far)))
+    assert row(res, "AAA", S3).dist is None and "disagree" in row(res, "AAA", S3).dist_status
+    near = [(s, d, "0.0504" if s == "AAA" and d == S3 else a) for _, s, d, a in DISTS]
+    res = LA.attribute(inputs(dist_check=check_rows(near)))
+    assert row(res, "AAA", S3).dist == F("5")        # within 0.0005: Alpaca's amount, exactly
+
+
+def test_unmeasured_prints_as_unmeasured_never_zero(tmp_path):
+    res = LA.attribute(inputs(dist_check=check_rows([(s, d, a) for _, s, d, a in DISTS]
+                                                    + [("BBB", S2, "0.07")])))
+    by_name = LA.group_table(res.name_day, ["symbol", "grp"]).set_index("symbol")
+    assert math.isnan(by_name.loc["BBB", "dist"]) and math.isnan(by_name.loc["BBB", "with_dist"])
+    assert by_name.loc["AAA", "dist"] == 3.0          # +5 - 2, all measured
+    text = LA.write_outputs(res, tmp_path / "o")["summary"].read_text()
+    assert "| UNMEASURED |" in text and "UNMEASURED" in LA.report(res)
+
+
+def test_summary_kinds_come_from_the_cache(tmp_path):
+    res = LA.attribute(inputs(dist_kinds=("cash_dividend",)))
+    text = LA.write_outputs(res, tmp_path / "o")["summary"].read_text()
+    assert "not credited by paper (cash_dividend)" in text
 
 
 def test_periods_split_after_the_equity_peak():
     res = LA.attribute(inputs())
     eq = dict(equity_series())
-    # By hand: 100,000 / 100,015 / 100,026 / 100,027.50 / 100,007 -> the peak is S3.
-    assert [eq[d] for d in SESSIONS] == [F(100000), F(100015), F(100026), F("100027.5"), F(100007)]
+    # By hand: 100,000 / 100,015 / 100,026 / 100,027.50 / 100,007 before fees, and
+    # fees to date 0.04 / 0.05 / 0.10 / 0.11 (test_fees_by_hand) -> the peak is S3.
+    assert [eq[d] for d in SESSIONS] == [F(100000), F("100014.96"), F("100025.95"),
+                                         F("100027.40"), F("100006.89")]
     assert [(p[1], p[2]) for p in res.periods] == [(S1, S3), (S4, S4)]
     assert "peak on 2026-01-22" in res.period_rule
     res2 = LA.attribute(inputs(), breaks=[S3, S3])
@@ -278,7 +452,7 @@ def test_raises_on_fill_on_a_day_with_no_bar():
 def test_raises_on_duplicate_activity_ids():
     raw = raw_fills()
     raw.append(dict(raw[0]))
-    with pytest.raises(LA.AttributionError, match="duplicate FILL activity ids.*f1"):
+    with pytest.raises(LA.AttributionError, match="duplicate FILL activity ids.*f1a"):
         LA.parse_fills(raw)
 
 
@@ -317,6 +491,8 @@ def test_raises_on_ex_date_off_the_session_calendar():
                                  "amount": "0.05", "kind": "cash_dividend"}])
     with pytest.raises(LA.AttributionError, match="is not a session of the EOD history"):
         LA.attribute(inputs(dists=d))
+    with pytest.raises(LA.AttributionError, match="second distribution source: AAA ex 2026-01-19"):
+        LA.attribute(inputs(dist_check=check_rows([("AAA", HOLIDAY, "0.05")])))
 
 
 def test_raises_on_a_bar_the_eod_history_lacks():
@@ -345,15 +521,20 @@ def test_fills_after_asof_are_excluded_and_counted():
 class FakeClient:
     """The read methods `fetch` calls, answering from the fixture. No network."""
 
+    def __init__(self):
+        self.calls = []
+
     def eod_equity_history(self, start, end):
-        return [(d, float(e), dt.datetime.combine(d + dt.timedelta(days=1), dt.time(0),
-                                                  dt.timezone.utc))
+        self.calls.append("eod")
+        return [(d, float(e), dt.datetime.combine(d + dt.timedelta(days=1), dt.time(0), UTC))
                 for d, e in equity_series() if start <= d <= end]
 
     def calendar(self, start, end):
-        return [{"date": d} for d in PRE + SESSIONS if start <= d <= end]
+        self.calls.append("calendar")
+        return [{"date": d} for d in PRE + SESSIONS + [NEXT] if start <= d <= end]
 
     def activities_fills(self, date):
+        self.calls.append("fills")
         return [a for a in raw_fills() if a["transaction_time"][:10] == date.isoformat()]
 
     def distributions(self, symbols, start, end):
@@ -377,19 +558,30 @@ def fake_navs(symbols, start, end):
     return pd.DataFrame(rows, columns=["date", "ticker", "nav"]), []
 
 
-NOW = dt.datetime(2026, 1, 26, 12, tzinfo=dt.timezone.utc)
+def fake_dividends(symbols):
+    rows = [{"ticker": s, "ex_date": d.isoformat(), "amount": repr(float(a))}
+            for _, s, d, a in DISTS if s in symbols]
+    return pd.DataFrame(rows, columns=["ticker", "ex_date", "amount"]), []
+
+
+def _fetch(cache, now=CHECK_AT, client=None, since=PRE[0]):
+    return LA.fetch(cache, since=since, asof=S4, client=FakeClient() if client is None else client,
+                    nav_fetcher=fake_navs, dist_check_fetcher=fake_dividends, now=now)
 
 
 def test_fetch_then_analyse_reproduces_the_in_memory_result(tmp_path):
-    man = LA.fetch(tmp_path / "cache", since=PRE[0], asof=S4, client=FakeClient(),
-                   nav_fetcher=fake_navs, now=NOW)
+    man = _fetch(tmp_path / "cache")
     assert man["flat_start"]["date"] == S0.isoformat()
+    assert man["eod"]["next_session"] == NEXT.isoformat()
+    assert man["distributions_check"]["fetched_at_utc"] == CHECK_AT.isoformat()
     assert "reverse_split" in man["corporate_actions"]["types"]
     res, paths = LA.analyse(tmp_path / "cache", tmp_path / "out", grp=dict(GRP))
     mem = LA.attribute(inputs())
     for k in LA.MONEY:
         assert sum(res.name_day[k]) == sum(mem.name_day[k]), k
+    assert list(res.daily["fees"]) == list(mem.daily["fees"])
     assert all(r == 0 for r in res.daily["residual"])
+    assert not res.dist_unmeasured
     for k in ("summary", "name_day", "daily", "by_name", "by_side", "by_grp", "by_period"):
         assert paths[k].is_file() and paths[k].parent == tmp_path / "out" / S4.isoformat()
     text = paths["summary"].read_text()
@@ -397,19 +589,97 @@ def test_fetch_then_analyse_reproduces_the_in_memory_result(tmp_path):
     assert json.loads((tmp_path / "cache" / "manifest.json").read_text())["fills"]["n"] == len(FILLS)
 
 
+def test_load_cache_refuses_a_cache_without_the_second_source(tmp_path):
+    _fetch(tmp_path / "c")
+    (tmp_path / "c" / "distributions_check.csv").unlink()
+    with pytest.raises(LA.AttributionError, match="files missing.*distributions_check.csv"):
+        LA.load_cache(tmp_path / "c", grp=dict(GRP))
+    _fetch(tmp_path / "d")
+    man = json.loads((tmp_path / "d" / "manifest.json").read_text())
+    man["eod"].pop("next_session")
+    (tmp_path / "d" / "manifest.json").write_text(json.dumps(man))
+    with pytest.raises(LA.AttributionError, match="eod.next_session"):
+        LA.load_cache(tmp_path / "d", grp=dict(GRP))
+
+
 def test_fetch_refuses_when_the_flat_start_cannot_be_shown(tmp_path):
     with pytest.raises(LA.AttributionError, match="pass an earlier --since"):
-        LA.fetch(tmp_path / "c", since=S0, asof=S4, client=FakeClient(),
-                 nav_fetcher=fake_navs, now=NOW)
+        _fetch(tmp_path / "c", since=S0)
     assert not (tmp_path / "c").exists()
 
 
 def test_fetch_refuses_an_unfinished_eod_point(tmp_path):
     with pytest.raises(LA.AttributionError, match="not final yet"):
-        LA.fetch(tmp_path / "c", since=PRE[0], asof=S4, client=FakeClient(),
-                 nav_fetcher=fake_navs, now=dt.datetime(2026, 1, 23, 22, tzinfo=dt.timezone.utc))
+        _fetch(tmp_path / "c", now=dt.datetime(2026, 1, 23, 22, tzinfo=UTC))
 
+
+# --- where it writes: never data/, never anywhere git can see -------------------
 
 def test_never_writes_under_data():
     with pytest.raises(LA.AttributionError, match="under data/"):
         LA._refuse_data_dir(LA.DATA_DIR / "cef" / "live_attribution")
+
+
+@pytest.fixture
+def fake_data_dir(tmp_path, monkeypatch):
+    """data/ swapped for an empty tmp directory, so that a module whose guard is
+    broken writes there and not into the real panels."""
+    d = tmp_path / "data"
+    d.mkdir()
+    monkeypatch.setattr(LA, "DATA_DIR", d)
+    return d
+
+
+def test_write_outputs_refuses_data_dir(fake_data_dir):
+    res = LA.attribute(inputs())
+    with pytest.raises(LA.AttributionError, match="under data/"):
+        LA.write_outputs(res, fake_data_dir / "cef" / "out")
+    assert not any(fake_data_dir.iterdir())
+
+
+def test_fetch_refuses_data_dir_before_any_call(fake_data_dir):
+    client = FakeClient()
+    with pytest.raises(LA.AttributionError, match="under data/"):
+        _fetch(fake_data_dir / "cache", client=client)
+    assert client.calls == [] and not any(fake_data_dir.iterdir())
+
+
+def test_default_directories_are_ignored_by_git():
+    # The real repository, read-only: every file either step writes by default.
+    files = ([(LA.DEFAULT_CACHE / n) for n in LA.FILES.values()]
+             + [(LA.DEFAULT_OUT / "2026-10-30" / f"{k}.csv") for k in LA.OUTPUT_TABLES]
+             + [LA.DEFAULT_OUT / "2026-10-30" / "summary.md"])
+    rel = [p.relative_to(REPO).as_posix() for p in files]
+    r = subprocess.run(["git", "-C", str(REPO), "check-ignore", *rel], capture_output=True, text=True)
+    assert r.returncode in (0, 1), r.stderr
+    assert sorted(set(rel) - set(r.stdout.splitlines())) == []
+
+
+@pytest.fixture
+def sandbox_repo(tmp_path, monkeypatch):
+    """A throwaway git repository standing in for this one: `ignored/` is ignored,
+    `visible/` is not. A module whose git guard is broken writes in here."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    (root / ".gitignore").write_text("ignored/\n")
+    monkeypatch.setattr(LA, "REPO", root)
+    return root
+
+
+def test_refuses_to_write_where_git_can_see(sandbox_repo, tmp_path):
+    res = LA.attribute(inputs())
+    with pytest.raises(LA.AttributionError, match="git can see them"):
+        LA.write_outputs(res, sandbox_repo / "visible" / "2026-01-23")
+    assert not (sandbox_repo / "visible").exists()
+    paths = LA.write_outputs(res, sandbox_repo / "ignored" / "2026-01-23")
+    assert paths["summary"].is_file()
+    LA.write_outputs(res, tmp_path / "outside")          # outside the repository: allowed
+
+
+def test_fetch_refuses_a_cache_git_can_see(sandbox_repo):
+    client = FakeClient()
+    with pytest.raises(LA.AttributionError, match="git can see them"):
+        _fetch(sandbox_repo / "visible_cache", client=client)
+    assert client.calls == [] and not (sandbox_repo / "visible_cache").exists()
+    _fetch(sandbox_repo / "ignored" / "cache")

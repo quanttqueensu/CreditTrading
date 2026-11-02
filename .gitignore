@@ -20,6 +20,9 @@ results/**/_cache_*
 # public; account fills are never committed (docs/REFERENCES.md §12an keeps the
 # series of record outside the repository for the same reason).
 results/cef/live_attribution/_cache/
+# Its analyse outputs carry the same account data (daily.csv holds the EOD equity
+# of every session); the tool refuses to write either where git can see it.
+results/cef/live_attribution/_out/
 .ipynb_checkpoints/
 *.log
 
