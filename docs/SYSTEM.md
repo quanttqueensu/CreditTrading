@@ -644,6 +644,21 @@ Their verified findings are cited in the docstrings of `scripts/research/`.
 | Where and how often | **The team lead's laptop**, a scheduled Claude Code session, **one research cycle per day** after the close |
 | The backtester | **`evaluate()` may be restructured as necessary.** Done: `scripts/research/harness.py`. `band_frontier.evaluate` delegates to it, byte-identical on the live book (`results/research/HARNESS_RESTRUCTURE_2026-10-27.md`). The named gaps were non-CEF families and an ML pipeline (`scripts/research/ml.py`) |
 
+### Team lead, 2026-11-01 — the vol-target raise (CEF trial 53)
+
+Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md` (written 2026-10-30;
+§0.A records the approval). It also records the ruling of 2026-10-29/30 that it implements.
+
+| question | decision |
+|---|---|
+| What the book optimises (2026-10-29/30) | **The percentage return on ALL capital, the real-money view.** The book is the core 13 in its own account plus C4 (74 non-credit CEFs) in the spare account. The ex-date short and PCEF stay built but OFF, because on the evidence they lower the percentage |
+| How each account is sized | **At its per-account equal-risk multiplier, the milder pair: core ×1.13, C4 ×1.27, at a 5.25% combined target.** These come from the 2026-10-29 rule (its term (d): each account's mean uncapped gross within its own cap), derived 1.1357 / 1.2712 on C4's spec book and rounded down. **Chosen over** the draft's ×1.24 / ×1.39 at 5.75% (the 2026-10-28 rule, under which C4's mean uncapped gross, 2.01, is above its 1.90 cap). The 2026-10-29 rule, not the 2026-10-28 one, sets this book's target. **No override of term (d) is needed at these values.** CEF trial 53, N = 53 |
+| How it is implemented | **A new optional frozen key, `sizing_multiplier`** (absent = today, byte for byte), in each cef_discount-type spec. `vol_target_annual` stays 0.06, so C4's fidelity gate and every reader of `spec.VOL_TARGET` are untouched. The core's value is its own activation commit, after the code: spec `cef_discount.v8.20261101`, which supersedes `cef_discount.v7.20260928`. C4's goes into its spec at its arming |
+| The framework's gate on a vol increase (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.6: HALVE/KILL armed, the cost gate, 20 armed sessions, p\* stated) | **Waived for paper only,** with the raise's own stops (below) standing in for the unarmed HALVE. **Never for real money** |
+| The raise's stops | **R1 (drawdown past D_R), R2 (the 120-session return below its 5th percentile), R3 (the 60-session vol above its 95th percentile)**, per account, on the P&L of record. Each is re-measured on the read date by `results/cef/prereg_voltarget/stops.py`. They are acted on by the team lead: the account's multiplier is reverted through `/spec-change`. No acting mode is built |
+| When it starts | **The core at its next release; C4 at its arming,** already at ×1.27, with C4's H11 reference rebuilt on the raised book |
+| The core's 2023+ "sealed" (2026-10-09's row above) | **Corrected:** for the core book it has been seen. 2024–26 was opened on 2026-07-31, and the v7 pre-registration computed 2013-06-14 → 2026-09-21. The 2026-10-09 rule still holds for any book whose 2023+ has not been computed. Dated notes are in `docs/RESEARCH_STATE.md` and the framework's §9 |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |
@@ -683,3 +698,4 @@ Their verified findings are cited in the docstrings of `scripts/research/`.
 | 2026-10-26 | §5 records what the lanes feed (one multi-sleeve book), no hand-offs, MACRO widened to all of fixed income, the data platform to the dashboard lane, the dashboard's snapshot in the repository, and the branches renamed for the people. | team setup, for the team lead |
 | 2026-10-28 | §5's research-method table records the team lead's 2026-10-28 ruling to keep the paper-admission rule as written, and that the later paper-view finding is not ruled on. | re-open (1), for the team lead |
 | 2026-10-28 | §5's research-method table records the team lead's ruling that a counter with one stored trial gates on the desk's bar until a second is stored. | research loop, for the team lead |
+| 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |

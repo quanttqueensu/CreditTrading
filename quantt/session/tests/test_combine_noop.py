@@ -526,14 +526,34 @@ def test_one_sleeve_through_the_combiner_sends_what_the_single_sleeve_book_sends
     _assert_same_trades(single, combined, budget_nav=100_000.0)
 
 
+def combinable(spec: dict) -> dict:
+    """The spec with `sizing_multiplier` and its note removed (CEF trial 53, 2026-11-01).
+
+    A combined book refuses the key (quantt/session/combine.py, ONE SIZING AUTHORITY PER
+    BOOK), so since the live spec carries it (cef_discount.v8.20261101) the combiner's tests
+    on the live spec take it without the key. Everything else is the live spec's."""
+    s = json.loads(json.dumps(spec))
+    s["frozen"].pop("sizing_multiplier", None)
+    s["frozen"].pop("_sizing_multiplier_note", None)
+    return s
+
+
 @pytest.mark.skipif(not _real_panel_ready(), reason="real CEF panels absent (data/ is "
                                                      "gitignored); the synthetic version runs")
 def test_one_sleeve_through_the_combiner_on_the_real_panel(tmp_path, monkeypatch):
-    spec = json.loads(LIVE_SPEC_PATH.read_text())
+    from quantt.session import combine as cmb
+    live = json.loads(LIVE_SPEC_PATH.read_text())
+    if "sizing_multiplier" in live["frozen"]:          # refused as it stands (one sizing authority)
+        (tmp_path / "refused").mkdir()
+        with pytest.raises(cmb.CombineError, match="sizing_multiplier"):
+            _one_sleeve(tmp_path / "refused", LIVE_SPEC_PATH, rn.REPO)
+    spec = combinable(live)
+    sp = tmp_path / "live_combinable.frozen.json"
+    sp.write_text(json.dumps(spec))
     (tmp_path / "panels").mkdir()
     _frozen_copy(tmp_path / "panels", monkeypatch, spec["frozen"]["universe"])
     single = _session(tmp_path / "single", spec)
     combined = _session(tmp_path / "combined", spec,
-                        sleeves=_one_sleeve(tmp_path, LIVE_SPEC_PATH, rn.REPO))
+                        sleeves=_one_sleeve(tmp_path, sp, tmp_path))
     _assert_not_vacuous(single)
     _assert_same_trades(single, combined, budget_nav=100_000.0)
