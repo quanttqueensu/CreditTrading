@@ -456,11 +456,14 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
             if m is None:
                 continue
             rule, (lo, hi), hits = m
-            out.append({"symbol": sym, "role": role, "held": sym in held,
-                        "id": e["id"], "type": e["type"], "date": e["date"],
-                        "date_field": e["date_field"], "process_date": e["process_date"],
-                        "rule": rule, "in_window": hits, "window": [lo, hi],
-                        "parties": e["parties"]})
+            b = {"symbol": sym, "role": role, "held": sym in held,
+                 "id": e["id"], "type": e["type"], "date": e["date"],
+                 "date_field": e["date_field"], "process_date": e["process_date"],
+                 "rule": rule, "in_window": hits, "window": [lo, hi],
+                 "parties": e["parties"]}
+            if "row_id" in e:         # keyed by its hash (AlpacaClient `_ca_key_events`)
+                b.update(row_id=e["row_id"], conflict=bool(e.get("conflict")))
+            out.append(b)
     return sorted(out, key=lambda b: (b["date"] or dt.date.min, b["symbol"], b["type"], b["id"]))
 
 
@@ -567,14 +570,16 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
            "events": events, "blocking": blocking}
     if skipped:
         out["skipped_malformed"] = skipped
-    unresolved = [e for e in events if e.get("missing")]
+    unresolved = [e for e in events if "row_id" in e]      # every irregular row
     if unresolved:
         # UNRESOLVED ROWS (blocking_events): each, and whether it blocked.
         blocked = {b["id"] for b in blocking}
         out["unresolved"] = [{"id": e["id"], "row_id": e["row_id"], "type": e["type"],
                               "date": e["date"], "date_field": e["date_field"],
                               "process_date": e["process_date"], "parties": e["parties"],
-                              "missing": e["missing"], "blocks": e["id"] in blocked,
+                              "missing": e.get("missing", []),
+                              "undated": e.get("undated"), "conflict": bool(e.get("conflict")),
+                              "blocks": e["id"] in blocked,
                               "acknowledged": e["id"] in would_block and e["id"] not in blocked}
                              for e in unresolved]
     if acked:
@@ -615,6 +620,11 @@ def _event_text(b: dict) -> str:
         text = (f"{b['symbol']} ({'held' if b['held'] else 'target'}) is the {b['role']} in "
                 f"{b['type']} {b['id']} ({b['date_field']} {b['date']}, process_date "
                 f"{b['process_date']}; {b['rule']} window {b['window'][0]}..{b['window'][1]})")
+        if "row_id" in b:
+            why = ("Alpaca lists that id with different content" if b.get("conflict")
+                   else "it is not a usable id")
+            text += (f" [keyed by its content: its id as sent is {b['row_id']!r} and {why}; "
+                     f"the team lead clears it with ca-ack --id {b['id']}]")
     if "ack_mismatch" in b:
         m = b["ack_mismatch"]
         changes = "; ".join(f"{k}: {v[0]!r} -> {v[1]!r}" if isinstance(v, list) else f"{k}: {v}"
@@ -658,6 +668,7 @@ def lines(rec: dict) -> list[str]:
         if not e["blocks"] and not e["acknowledged"]:
             out.append(f"{head}: UNRESOLVED, recorded only: {e['type']} {e['id']} (row id "
                        f"{e['row_id']!r}; {[m['field'] for m in e['missing']]} missing; "
+                       f"undated {e['undated']}; "
                        f"present {e['parties']}; {e['date_field']} {e['date']}): treated as "
                        f"each of the gate's names, it blocks for none")
     for k in rec.get("skipped_malformed", []):

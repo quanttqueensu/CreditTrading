@@ -407,16 +407,24 @@ def test_two_null_id_rows_naming_ours_refuse_and_never_hide_the_blocking_one(tmp
     `id: null`: the first on the held CCC before its shares were last set
     (blocks nothing), the second on the targeted AAA effective on the session
     date (must block). On 9630322 the second was dropped as a "duplicate" of
-    the first, the gate read CLEAR under `halt` and the session SENT. Now the
-    read fails, naming the row, and the session is REFUSED: nothing sent."""
+    the first, the gate read CLEAR under `halt` and the session SENT. From
+    9cf5cf2 to 7df8926 the read raised (UNMEASURED), which only a release could
+    unstick. Now each row is keyed by its content and neither is dropped: the
+    session REFUSES on the AAA split, naming its key, and records the CCC one
+    as not blocking. FAILS on 7df8926 (UNMEASURED)."""
     rows = [dict(OLD_SPLIT_CCC, id=None),
             dict(OLD_SPLIT_CCC, id=None, symbol="AAA", cusip="AAA000000", ex_date=DAY,
                  process_date=DAY)]
+    k_ccc, k_aaa = (al.ca_row_key(r) for r in rows)
     c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({"reverse_splits": rows}))
     assert code == rn.EXIT_REFUSED and c.submits() == [], log
     data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
-    assert len(data) == 1 and "UNMEASURED" in data[0] and "id None" in data[0] \
-        and "not a non-empty string" in data[0], data
+    assert len(data) == 1 and "UNMEASURED" not in data[0], data
+    assert f"AAA (target) is the subject in reverse_split {k_aaa}" in data[0] \
+        and f"ca-ack --id {k_aaa}" in data[0] and k_ccc not in data[0], data
+    ca = _ca_record(state, path)
+    assert sorted((u["id"], u["blocks"]) for u in ca["unresolved"]) == sorted(
+        [(k_ccc, False), (k_aaa, True)])
 
 
 # -------------------------------------------- B. acknowledgements (ruling B)
@@ -715,15 +723,18 @@ def test_the_cli_saves_the_row_and_a_revision_after_it_halts_again(tmp_path, mon
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
 
 
-def test_the_cli_refuses_an_id_the_feed_lists_with_differing_rows(tmp_path, monkeypatch,
-                                                                 capsys):
+def test_an_id_listed_with_differing_rows_is_ackable_row_by_row(tmp_path, monkeypatch, capsys):
     """Two rows under one id that read as the same event but differ in another
-    field: which one the team lead judged could not be told, so no ack."""
-    c, deps, state = _refused_session(tmp_path, monkeypatch)
-    c.feed = _feed({"name_changes": [BACKFILL_NC, dict(BACKFILL_NC, new_cusip="CCC000009")]})
+    field: which one is true cannot be told, so each is keyed by its content
+    (`conflict`) and judged; the plain id is not acknowledgeable, each key is.
+    (Until 7df8926 the CLI refused the id and the gate could never clear it.)"""
+    rows = [BACKFILL_NC, dict(BACKFILL_NC, new_cusip="CCC000009")]
+    c, deps, state = _refused_session(tmp_path, monkeypatch, _feed({"name_changes": rows}))
     assert _ack(c, "--id", "nc-ccc-backfill", "--reason", REASON) == rn.EXIT_REFUSED
-    assert "differing or no row(s)" in capsys.readouterr().out
-    assert not (state / cam.ACKS_FILE).exists()
+    assert "not in the feed" in capsys.readouterr().out
+    for r in rows:
+        assert _ack(c, "--id", al.ca_row_key(r), "--reason", REASON) == 0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
 
 
 # ---------------------------- unresolved rows: cleared by ca-ack, on full content
@@ -863,6 +874,46 @@ def test_ca_ack_clears_an_undated_row_by_its_key_and_a_revision_halts_again(
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
     revised = dict(UNDATED_OUTSIDE, acquirer_rate=0.9)
     c.feed = _feed({"stock_mergers": [revised]})
+    shutil.rmtree(state / DAY)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert any(al.ca_row_key(revised) in d for d in _refusal_details(state))
+
+
+
+# ------------- a null id on a row naming ours (team lead 2026-11-02; until 7df8926 a raise)
+#
+# A row naming a held fund with a null, empty or non-string id raised, which
+# only a release could unstick. It is keyed by its content and judged like any
+# other row naming ours: it halts whenever the gate would halt for that fund,
+# and ca-ack clears it on its full raw content. Every test FAILS on 7df8926.
+NULL_ID_HELD_SPLIT = dict(OLD_SPLIT_CCC, id=None, ex_date="2026-09-25", process_date="2026-09-25")
+
+
+@pytest.mark.parametrize("bad_id", [None, "", 7], ids=["null", "empty", "int"])
+@pytest.mark.parametrize("path", PATHS)
+def test_a_null_id_row_naming_a_held_fund_in_its_window_halts_naming_its_key(tmp_path, path,
+                                                                            bad_id):
+    row = dict(NULL_ID_HELD_SPLIT, id=bad_id)
+    key = al.ca_row_key(row)
+    c, state, log, decide_exit, code = _transmit(tmp_path, path,
+                                                 _feed({"reverse_splits": [row]}))
+    assert code == rn.EXIT_REFUSED and c.submits() == [], log
+    data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
+    assert len(data) == 1 and "UNMEASURED" not in data[0], data
+    assert f"CCC (held) is the subject in reverse_split {key}" in data[0] \
+        and "it is not a usable id" in data[0] and f"ca-ack --id {key}" in data[0], data
+
+
+def test_ca_ack_clears_a_null_id_row_and_a_revision_halts_again(tmp_path, monkeypatch, capsys):
+    key = al.ca_row_key(NULL_ID_HELD_SPLIT)
+    c, deps, state = _refused_session(tmp_path, monkeypatch,
+                                      _feed({"reverse_splits": [NULL_ID_HELD_SPLIT]}))
+    assert _ack(c, "--id", key, "--reason", "split confirmed on EDGAR; count fixed") == 0
+    (entry,) = json.loads((state / cam.ACKS_FILE).read_text())["acks"]
+    assert entry["row"] == NULL_ID_HELD_SPLIT and entry["event"]["row_id"] is None
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    revised = dict(NULL_ID_HELD_SPLIT, old_rate=4)
+    c.feed = _feed({"reverse_splits": [revised]})
     shutil.rmtree(state / DAY)
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
     assert any(al.ca_row_key(revised) in d for d in _refusal_details(state))

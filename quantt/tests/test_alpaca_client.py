@@ -1139,20 +1139,21 @@ def test_a_null_reorganization_leg_is_returned_unresolved(env_file, sleeps, leg)
     assert e["parties"] == [["AIMTF", "subject"]]
 
 
-def test_an_unresolved_row_with_a_null_id_is_keyed_by_its_hash_unless_it_names_ours(
+def test_an_unresolved_row_with_a_null_id_is_keyed_by_its_hash(
         env_file, sleeps):
     """A null id AND a null party: keyed by the SHA-256 of the raw row, so the
     team lead can acknowledge it; any change to the row is another key. Named
-    one of `symbols`, a null id still refuses (ONE ID, ONE EVENT). A date the
-    windows cannot be applied to refuses too."""
+    one of `symbols` it is keyed the same way (2026-11-02; it raised until
+    7df8926)."""
     row = dict(NULL_ACQUIRER, id=None)
     c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [row]}))
     (e,) = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
     assert e["id"] == al.ca_row_key(row) and e["id"].startswith("row-sha256:")
     assert e["row_id"] is None and al.ca_row_key(dict(row, acquiree_rate=2)) != e["id"]
-    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(row, acquiree_symbol="PDI")]}))
-    with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
-        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    named = dict(row, acquiree_symbol="PDI")         # names ours: keyed by content too
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [named]}))
+    (e,) = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    assert e["id"] == al.ca_row_key(named) and e["parties"] == [["PDI", "acquiree"]]
 
 
 
@@ -1186,8 +1187,9 @@ def test_a_row_with_every_party_present_and_not_ours_and_a_nonparty_fault_is_ski
         env_file, sleeps, spoil, bad):
     """The skip-and-record path, and the only one: LSI and EXR are present and
     not ours; the id or a date is spoiled. Recorded with the fault and its
-    value. The same fault on a row naming a fund of the universe refuses, and
-    without a record to go to such a row is not read at all (as before)."""
+    value. The same fault on a row naming a fund of the universe is returned
+    keyed by its content, for the gate to judge (2026-11-02; it raised until
+    7df8926), and without a record to go to such a row is not read at all."""
     row = dict(CA_REFERENCE["stock_mergers"][0], **spoil)
     c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [row]}))
     skipped = []
@@ -1197,9 +1199,11 @@ def test_a_row_with_every_party_present_and_not_ours_and_a_nonparty_fault_is_ski
                         "cusips": {"acquiree_cusip": "53223X107", "acquirer_cusip": "30225T102"},
                         "dates": {f: row.get(f) for f in ("effective_date", "process_date")
                                   if f in row}}]
-    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(row, acquirer_symbol="PTY")]}))
-    with pytest.raises(al.UnexpectedResponse, match=r"names \['PTY'\], of the book's universe"):
-        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    ours = dict(row, acquirer_symbol="PTY")
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [ours]}))
+    skipped = []
+    (e,) = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=skipped)
+    assert skipped == [] and e["id"] == al.ca_row_key(ours) and e["row_id"] == ours.get("id")
     c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [row]}))
     assert c.corporate_actions(["PDI"], W0, W1) == []
 
@@ -1238,12 +1242,20 @@ PROBE_NULL_IDS = [_rsplit("NAD", "2026-08-03", None), _rsplit("NVG", "2026-10-30
                                   [_rsplit("NVG", "2026-10-30", "  ")],
                                   [_rsplit("NVG", "2026-10-30", 7)]],
                          ids=["probe-two-null-ids", "empty-id", "blank-id", "int-id"])
-@pytest.mark.parametrize("record", [False, True], ids=["plain", "with-skip-record"])
-def test_a_row_naming_ours_without_a_string_id_refuses(env_file, sleeps, rows, record):
+def test_a_row_naming_ours_without_a_string_id_is_keyed_by_its_content(env_file, sleeps, rows):
+    """With a record to go to (the gate's and ca-ack's read), a row naming ours
+    with a null, empty, blank or non-string id is returned keyed by
+    `ca_row_key`, `row_id` the id as sent; none is dropped, so the probe's
+    second null-id row stays in view (team lead 2026-11-02: nothing may need a
+    release to unstick; it was a raise until 7df8926, which FAILS here).
+    Without a record, the strict read raises as before."""
     c, _ = ca_client(env_file, sleeps, ca_page({"reverse_splits": rows}))
-    kw = {"universe": ["NAD", "NVG"], "skipped": []} if record else {}
+    got = c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1),
+                              universe=["NAD", "NVG"], skipped=[], rows={})
+    assert sorted((e["id"], e["row_id"]) for e in got) == sorted(
+        (al.ca_row_key(r), r["id"]) for r in rows)
     with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
-        c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1), **kw)
+        c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1))
 
 
 def test_a_repeated_id_identical_is_dropped_and_different_refuses(env_file, sleeps):
@@ -1286,9 +1298,9 @@ def test_a_null_id_is_skipped_and_recorded_on_a_row_naming_none_of_ours(env_file
         (None, {"id": None}, "2023-07-20"), (None, {"id": None}, "2023-09-01")]
     c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": theirs,
                                                 "reverse_splits": PROBE_NULL_IDS}))
-    with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
-        c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1), universe=UNI + ["NAD", "NVG"],
-                            skipped=[])
+    got = c.corporate_actions(["NAD", "NVG"], W0, dt.date(2028, 1, 1),
+                              universe=UNI + ["NAD", "NVG"], skipped=[])
+    assert sorted(e["id"] for e in got) == sorted(al.ca_row_key(r) for r in PROBE_NULL_IDS)
 
 
 def test_next_page_token_is_required_and_only_null_or_empty_ends_paging(env_file, sleeps):

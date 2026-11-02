@@ -1313,10 +1313,23 @@ class AlpacaClient:
         (corp_actions.blocking_events, UNRESOLVED ROWS): it blocks exactly when
         a well-formed row of the same type and dates would block for one of
         the gate's names in the missing role, and is otherwise recorded only.
-        A row whose dates cannot be read is UNDATED (`_ca_unresolved`): keyed
-        by its hash and treated as inside every window, so it blocks until
-        acknowledged. It still raises when its id is null and it names one of
-        `symbols` (ONE ID, ONE EVENT). Without
+        A row whose dates cannot be read is UNDATED (`_ca_event`): keyed by its
+        hash and treated as inside every window, so it blocks until
+        acknowledged. A row naming one of `symbols` with a null, empty or
+        non-string id, and every row of an id listed with different content,
+        is keyed by its hash too (`_ca_key_events`) and judged on the windows
+        like any other; it names ours, so it halts whenever the gate would halt
+        for that fund, and ca-ack clears it on its full raw content (team lead
+        2026-11-02: never needs a release to unstick).
+        WHAT STILL RAISES, with `skipped` (the gate's and ca-ack's read): only
+        transport and SHAPE failures, which no acknowledgement could address
+        because no row can be read: a failed GET, a body that is not JSON or not
+        an object, `corporate_actions` not an object, a type's list not a list,
+        a response key outside the reference, a missing or bad
+        next_page_token, too many pages, a row that is not an object, a
+        required symbol field ABSENT (a renamed field), a symbol present but
+        not a string, a reorganization leg with no `symbol` key. Without
+        `skipped`, the strict read from before the rulings (`_ca_strict`). Without
         `skipped`, such a row raises, as before the ruling. Why not refuse
         every such row (709d6cb): one in the market, anywhere and of any date,
         then refused every session for good, and `ca-ack`, which reads the
@@ -1420,6 +1433,7 @@ class AlpacaClient:
 
         w = "GET /v1/corporate-actions"
         out, seen, seen_skipped = [], {}, set()       # seen: id -> the event read
+        cands = []          # (id as sent, event without its key, raw row): `_ca_key_events`
         token = None
         for _ in range(MAX_PAGES):
             params = {"types": ",".join(CORPORATE_ACTION_TYPES),
@@ -1445,67 +1459,32 @@ class AlpacaClient:
                 for i, r in enumerate(rows):
                     where = f"{w} {key}[{i}]"
                     parties, unread = _ca_parties(r, kind, fields, where)
-                    if unread:
-                        # UNRESOLVED ROWS (docstring; team lead 2026-11-02):
-                        # returned, never raised on, when the caller records.
-                        if skipped is None:
+                    names_wanted = any(s in wanted for s, _ in parties)
+                    if skipped is None:
+                        # No record to go to: the read before the rulings, strict.
+                        if unread:
                             raise UnexpectedResponse(unread[0]["error"])
-                        ev = _ca_unresolved(r, kind, date_field, unread, parties, wanted, where)
-                        if raw_rows is not None:
-                            raw_rows.setdefault(ev["id"], []).append(copy.deepcopy(r))
-                        if ev["id"] in seen:
-                            if seen[ev["id"]] != ev:
-                                raise UnexpectedResponse(
-                                    f"{where}: id {ev['id']!r} repeats with a different event: "
-                                    f"{seen[ev['id']]} and {ev}; which is true cannot be told")
+                        if names_wanted:
+                            _ca_strict(r, kind, date_field, parties, where, seen, out,
+                                       raw_rows)
+                        continue
+                    bad = _ca_nonparty_faults(r, date_field)
+                    if not unread and not names_wanted:
+                        if not bad:
+                            continue          # well-formed and not one of `symbols`
+                        if not any(s in ours for s, _ in parties):
+                            # SKIPPED AND RECORDED (docstring): every party present,
+                            # none ours, a non-party field malformed.
+                            rid = r.get("id")
+                            if isinstance(rid, str) and rid in seen_skipped:
+                                continue      # the same row repeated across pages
+                            if isinstance(rid, str):
+                                seen_skipped.add(rid)
+                            skipped.append(_ca_skip_record(r, kind, date_field, bad, parties))
                             continue
-                        seen[ev["id"]] = ev
-                        out.append(ev)
-                        continue
-                    if not any(s in wanted for s, _ in parties):
-                        if skipped is not None:
-                            bad = _ca_nonparty_faults(r, date_field)
-                            mine = sorted({s for s, _ in parties if s in ours})
-                            if bad and mine:
-                                raise UnexpectedResponse(
-                                    f"{where}: row id {r.get('id')!r} ({kind}) names {mine}, of "
-                                    f"the book's universe, with {sorted(bad)} malformed: it "
-                                    f"concerns one of ours, so it is not skipped")
-                            if bad:
-                                rid = r.get("id")
-                                if isinstance(rid, str) and rid in seen_skipped:
-                                    continue      # the same row repeated across pages
-                                if isinstance(rid, str):
-                                    seen_skipped.add(rid)
-                                skipped.append(_ca_skip_record(r, kind, date_field, bad,
-                                                               parties))
-                        continue
-                    _require(r, ("id", date_field, "process_date"), where)
-                    rid = r["id"]
-                    if not isinstance(rid, str) or not rid.strip():
-                        # ONE ID, ONE EVENT (docstring): never de-duplicated on.
-                        raise UnexpectedResponse(
-                            f"{where}: a {kind} naming {[list(p) for p in parties]} has id "
-                            f"{rid!r}, not a non-empty string; rows naming ours are told "
-                            f"apart by id, so the read fails rather than drop one")
-                    dates = {}
-                    for f in (date_field, "process_date"):
-                        if not (isinstance(r[f], str) and _DATE_RE.match(r[f])):
-                            raise UnexpectedResponse(f"{where}: {f} {r[f]!r} is not YYYY-MM-DD")
-                        dates[f] = dt.date.fromisoformat(r[f])
-                    ev = {"id": rid, "type": kind, "date": dates[date_field],
-                          "date_field": date_field, "process_date": dates["process_date"],
-                          "parties": [[s, role] for s, role in parties]}
-                    if raw_rows is not None:
-                        raw_rows.setdefault(rid, []).append(copy.deepcopy(r))
-                    if rid in seen:
-                        if seen[rid] != ev:
-                            raise UnexpectedResponse(
-                                f"{where}: id {rid!r} repeats with a different event: "
-                                f"{seen[rid]} and {ev}; which is true cannot be told")
-                        continue          # the same event repeated across pages
-                    seen[rid] = ev
-                    out.append(ev)
+                    # IRREGULAR or naming ours: judged by the gate (docstring).
+                    cands.append((r.get("id"), _ca_event(r, kind, date_field, parties, unread,
+                                                         bad), copy.deepcopy(r)))
             nxt = body["next_page_token"]          # required (docstring, VALIDATION)
             if nxt is None or nxt == "":
                 break
@@ -1516,7 +1495,9 @@ class AlpacaClient:
             token = nxt
         else:
             raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
-        # An undated unresolved event (date None) sorts first.
+        if skipped is not None:
+            _ca_key_events(cands, out, raw_rows)
+        # An undated event (date None) sorts first.
         return sorted(out, key=lambda e: (e["date"] or dt.date.min, e["type"], e["id"]))
 
 
@@ -1628,47 +1609,98 @@ def ca_row_key(r: dict) -> str:
     return UNRESOLVED_KEY_PREFIX + hashlib.sha256(blob.encode()).hexdigest()
 
 
-def _ca_unresolved(r: dict, kind: str, date_field: str, unread: list, parties, wanted,
-                   where: str) -> dict:
-    """The event for a row with a null or empty party symbol (UNRESOLVED ROWS):
-    the usual fields, plus `missing` (each missing field and its role) and
-    `row_id` (the id as sent). `id` is that id when it is a non-empty string,
-    else `ca_row_key` of the row, so that it can still be acknowledged.
-    UNDATED (release-check of d90e68f, 2026-11-02): a date field or
-    process_date absent or not YYYY-MM-DD no longer raises. Raising made it
-    UNMEASURED, so `halt` refused every session and ca-ack, reading the same
-    way, could not clear it: only a release could, against the ruling ("never
-    needs a release to unstick"). Such an event carries `undated` (each bad
-    field and its raw value) and None for the unreadable dates, is keyed by
-    `ca_row_key` whatever its id (a revision is a new key), and
-    `corp_actions.blocking_events` treats it as inside every window, so it
-    blocks until the team lead acknowledges it. Raises only for a null id on a
-    row that names one of `symbols` (ONE ID, ONE EVENT, as ruled)."""
-    rid = r.get("id")
-    if not (isinstance(rid, str) and rid.strip()):
-        named = sorted({s for s, _ in parties if s in wanted})
-        if named:
-            raise UnexpectedResponse(
-                f"{where}: a {kind} naming {[list(p) for p in parties]} has id {rid!r}, not a "
-                f"non-empty string; rows naming ours are told apart by id, so the read fails "
-                f"rather than drop one")
-        key = ca_row_key(r)
-    else:
-        key = rid
-    dates, undated = {}, {}
-    for f in (date_field, "process_date"):
-        v = r.get(f)
-        if isinstance(v, str) and _DATE_RE.match(v):
-            dates[f] = dt.date.fromisoformat(v)
-        else:
-            undated[f] = v
-    ev = {"id": ca_row_key(r) if undated else key, "type": kind, "date": dates.get(date_field),
-          "date_field": date_field, "process_date": dates.get("process_date"),
-          "parties": [[s, role] for s, role in parties],
-          "missing": [{"field": u["field"], "role": u["role"]} for u in unread], "row_id": rid}
+def _ca_event(r: dict, kind: str, date_field: str, parties, unread: list, bad: dict) -> dict:
+    """One row's event, before its key is assigned (`_ca_key_events`): the usual
+    fields, plus `missing` (each missing party field and its role) when a party
+    symbol is null or empty, and `undated` (each unreadable date field and its
+    raw value) when a date is absent or not YYYY-MM-DD; an unreadable date is
+    None. Never raises: what the gate cannot read it judges fail-closed
+    (corp_actions.blocking_events: an undated event is inside every window)."""
+    ev = {"type": kind,
+          "date": None if date_field in bad else dt.date.fromisoformat(r[date_field]),
+          "date_field": date_field,
+          "process_date": None if "process_date" in bad else dt.date.fromisoformat(
+              r["process_date"]),
+          "parties": [[s, role] for s, role in parties]}
+    if unread:
+        ev["missing"] = [{"field": u["field"], "role": u["role"]} for u in unread]
+    undated = {f: v for f, v in bad.items() if f != "id"}
     if undated:
         ev["undated"] = undated
     return ev
+
+
+def _ca_key_events(cands: list, out: list, raw_rows: dict | None) -> None:
+    """Give each candidate event its key and append it to `out` (ONE ID, ONE
+    EVENT, and the 2026-11-02 rulings in the docstring).
+
+    A row whose id is a non-empty string and whose dates are readable is keyed
+    by that id; repeats of exactly the same raw row are one event. Every other
+    row is keyed by `ca_row_key`, the SHA-256 of its raw content, and carries
+    `row_id` (the id as sent): a null, empty or non-string id, an undated row,
+    and every row of an id that Alpaca lists with DIFFERENT raw content
+    (`conflict`, since which one is true cannot be told, so each is judged).
+    None is dropped, none raises, and each can be acknowledged by its key;
+    a revision of a hash-keyed row is a new key, so it halts again."""
+    by_id, hashed = {}, []
+    for rid, ev, raw in cands:
+        if isinstance(rid, str) and rid.strip() and "undated" not in ev:
+            by_id.setdefault(rid, []).append((ev, raw))
+        else:
+            hashed.append((rid, ev, raw))
+    for rid, items in by_id.items():
+        raws = []
+        for _, raw in items:
+            if raw not in raws:
+                raws.append(raw)
+        if len(raws) == 1:
+            e = {"id": rid, **items[0][0]}
+            if "missing" in e:
+                e["row_id"] = rid
+            out.append(e)
+            if raw_rows is not None:
+                raw_rows.setdefault(rid, []).extend(raw for _, raw in items)
+        else:
+            hashed.extend((rid, {**ev, "conflict": True}, raw) for ev, raw in items)
+    keys = set()
+    for rid, ev, raw in hashed:
+        key = ca_row_key(raw)
+        if raw_rows is not None:
+            raw_rows.setdefault(key, []).append(raw)
+        if key in keys:
+            continue                  # the same raw row repeated
+        keys.add(key)
+        out.append({"id": key, **ev, "row_id": rid})
+
+
+def _ca_strict(r: dict, kind: str, date_field: str, parties, where: str, seen: dict, out: list,
+               raw_rows: dict | None) -> None:
+    """A row naming one of `symbols`, read WITHOUT a record to go to (`skipped`
+    None): the strict read from before the rulings. A bad id or date, or one id
+    with two different events, raises."""
+    _require(r, ("id", date_field, "process_date"), where)
+    rid = r["id"]
+    if not isinstance(rid, str) or not rid.strip():
+        raise UnexpectedResponse(
+            f"{where}: a {kind} naming {[list(p) for p in parties]} has id {rid!r}, not a "
+            f"non-empty string; rows naming ours are told apart by id, so the read fails "
+            f"rather than drop one")
+    dates = {}
+    for f in (date_field, "process_date"):
+        if not (isinstance(r[f], str) and _DATE_RE.match(r[f])):
+            raise UnexpectedResponse(f"{where}: {f} {r[f]!r} is not YYYY-MM-DD")
+        dates[f] = dt.date.fromisoformat(r[f])
+    ev = {"id": rid, "type": kind, "date": dates[date_field], "date_field": date_field,
+          "process_date": dates["process_date"], "parties": [[s, role] for s, role in parties]}
+    if raw_rows is not None:
+        raw_rows.setdefault(rid, []).append(copy.deepcopy(r))
+    if rid in seen:
+        if seen[rid] != ev:
+            raise UnexpectedResponse(f"{where}: id {rid!r} repeats with a different event: "
+                                     f"{seen[rid]} and {ev}; which is true cannot be told")
+        return
+    seen[rid] = ev
+    out.append(ev)
 
 
 def _ca_nonparty_faults(r: dict, date_field: str) -> dict:

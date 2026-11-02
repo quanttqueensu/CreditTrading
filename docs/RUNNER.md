@@ -403,8 +403,9 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
   session and then clears. A long-window case, such as a missing subject on a
   held name, halts until the team lead acknowledges it with `ca-ack`, matched
   on its full raw content and its type. When the id is null too, the key is a
-  hash of the raw row (`row-sha256:...`). A row naming ours with a null id
-  still refuses, and so does an unresolved row whose dates cannot be read.
+  hash of the raw row (`row-sha256:...`). An unresolved row whose dates
+  cannot be read is UNDATED: keyed by its hash and treated as inside every
+  window, so it halts until acknowledged.
 - **Skipped and recorded.** This applies to a row whose every party symbol is
   present, none in the book's universe, with a non-party field malformed: its
   id, its date field or `process_date`. It goes in
@@ -431,11 +432,19 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
 naming ours are de-duplicated by id, because a page boundary can repeat a row.
 The id was only required to be present, so two rows with `id: null` counted as
 one, and the second was dropped. In the reviewer's probe that was a split
-effective on the session date, and the gate read CLEAR under `halt`. Now a row
-naming ours whose id is not a non-empty string fails the read, and so does an id
-that repeats with a different event (type, dates or parties). Under `halt` both
-refuse. Only an identical repeat is dropped. A malformed row naming none of ours
-is still skipped and recorded, whatever its id.
+effective on the session date, and the gate read CLEAR under `halt`. From
+9cf5cf2 such a row, and an id repeated with a different event, failed the read,
+which only a release could unstick. Since 2026-11-02 (team lead: nothing may
+need a release to unstick) each is keyed by its content (`row-sha256:...`,
+with `row_id` the id as sent). A row naming ours with a null, empty or
+non-string id is one such row; every row of an id that Alpaca lists with
+different raw content is another (`conflict`). Each is judged like any row
+naming ours, so it halts whenever the gate would halt for that fund, and
+`ca-ack` clears it on its full raw content. None is dropped. Only an identical
+repeat is one event. A malformed row naming none of ours is still skipped and
+recorded, whatever its id. With a record to go to, the read now raises only on
+transport and shape faults (`AlpacaClient.corporate_actions`, WHAT STILL
+RAISES).
 
 **The windows** (ET calendar dates, inclusive; the module docstring has the
 alignment in full):
@@ -509,7 +518,8 @@ and a person has to look.
 | UNDATED unresolved row (a party missing and a date unreadable): blocks in every window | `ca-ack` of its `row-sha256:...` key; or Alpaca completing the row, which is then a new row, judged afresh |
 | an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
 | UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
-| UNMEASURED that persists: a schema fault (a renamed field, a row that is not an object) or a null id on a row naming ours | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| a row naming ours with a null, empty or non-string id, or an id listed with different content: keyed by its content (`row-sha256:...`) and judged like any row naming ours | as for its window above; `ca-ack` of its `row-sha256:` key |
+| UNMEASURED that persists: a transport or SHAPE fault only (a body that is not JSON or not an object, a list that is not a list, a renamed or absent required symbol field, a row that is not an object) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
 | `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
 | any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
 
