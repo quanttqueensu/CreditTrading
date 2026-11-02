@@ -266,7 +266,7 @@ event's id, type, market and process dates, its parties, the rule and the window
 | an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
 | UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
 | a row naming ours with a null, empty or non-string id, or an id listed with different content: keyed by its content (`row-sha256:...`) and judged like any row naming ours | as for its window above; `ca-ack` of its `row-sha256:` key |
-| UNMEASURED that persists: a transport or SHAPE fault only (a body that is not JSON or not an object, a list that is not a list, a renamed or absent required symbol field, a row that is not an object) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| UNMEASURED that persists: a transport or response-SHAPE fault only (a failed GET, a body that is not JSON or not an object, a type's list that is not a list, an unknown response key, a bad page token). No value in any field of any row can cause it (2026-11-02, `test_ca_read_property.py`) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
 | `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
 | any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
 

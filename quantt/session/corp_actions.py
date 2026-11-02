@@ -353,7 +353,8 @@ def query_window(win: dict) -> tuple[dt.date, dt.date]:
 
 # Which rule judged a blocking pair (module docstring, TWO WINDOWS).
 LONG, SHORT_PROCESS = "long", "short: process_date only"
-UNDATED_RULE = "undated: its dates cannot be read, so it is inside every window"
+UNDATED_RULE = ("unreadable: its dates or terms cannot be read, so it is inside every "
+                "window")
 SHORT_ACQUIRER, SHORT_ALLOCATED = "short: merger acquirer", "short: reorganization allocated"
 
 
@@ -417,7 +418,7 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
     short_w = (asof + dt.timedelta(days=1), session_date)
     out = []
     for e in events:
-        if e.get("undated"):
+        if e.get("undated") or e.get("faults"):
             # UNDATED (AlpacaClient `_ca_unresolved`): its dates cannot be read, so
             # it is treated as inside every window (fail-closed): each missing
             # party, as each of the gate's names, and each present party that is
@@ -430,9 +431,10 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
                     b = {"symbol": sym, "role": role, "held": sym in held,
                          "id": e["id"], "type": e["type"], "date": e["date"],
                          "date_field": e["date_field"], "process_date": e["process_date"],
-                         "rule": UNDATED_RULE, "in_window": sorted(e["undated"]),
+                         "rule": UNDATED_RULE,
+                         "in_window": sorted({**e.get("undated", {}), **e.get("faults", {})}),
                          "window": list(win[sym]), "parties": e["parties"],
-                         "undated": e["undated"]}
+                         "undated": {**e.get("undated", {}), **e.get("faults", {})}}
                     if field is not None:
                         b.update(unresolved=field, row_id=e.get("row_id"))
                     out.append(b)
@@ -578,7 +580,8 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
                               "date": e["date"], "date_field": e["date_field"],
                               "process_date": e["process_date"], "parties": e["parties"],
                               "missing": e.get("missing", []),
-                              "undated": e.get("undated"), "conflict": bool(e.get("conflict")),
+                              "undated": e.get("undated"), "faults": e.get("faults"),
+                              "conflict": bool(e.get("conflict")),
                               "blocks": e["id"] in blocked,
                               "acknowledged": e["id"] in would_block and e["id"] not in blocked}
                              for e in unresolved]
@@ -605,7 +608,7 @@ def _event_text(b: dict) -> str:
         who = (f"its missing {b['role']} ({b['unresolved']}, row id {b['row_id']!r}) treated "
                f"as {b['symbol']}" if "unresolved" in b else
                f"{b['symbol']} as its {b['role']}")
-        text = (f"an UNRESOLVED, UNDATED {b['type']} {b['id']} (its dates cannot be read: "
+        text = (f"an UNRESOLVED, UNDATED {b['type']} {b['id']} (fields it cannot read: "
                 f"{b['undated']}; present {b['parties']}), {who} "
                 f"({'held' if b['held'] else 'target'}), treated as inside every window; the "
                 f"team lead clears it with ca-ack --id {b['id']}")
