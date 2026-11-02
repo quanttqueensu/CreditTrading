@@ -164,4 +164,8 @@ from a named source; [doc] copied from a named note.
 
 **Rulings** (`docs/SYSTEM.md` §5): a row with a missing party symbol **halts only where it would halt for one of our held funds**, and the team lead clears it with `ca-ack`, matched on its full content. Outside our windows it is recorded only.
 
+**Build:** the corporate-action read now validates every field. A property test (4,598 adversarial cases) fails 794 on 1c64638 and 0 on a40170c. **Release branch `rel-20261102`** (3478159) = the gate fixes + CEF trial 53's activation (core ×1.13, spec v8), released together.
+
+**Rulings** (`docs/SYSTEM.md` §5): trial 53 ships tonight even if the gate fails review (gate in report mode). C4 uses the existing spare account; no new account.
+
 **Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).
