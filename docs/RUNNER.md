@@ -419,6 +419,24 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
   symbol that is not a string, or a row that is not an object still fails the
   read.
 
+**Every field validated** (release-check of 1c64638, 2026-11-02). Every
+field the reader knows goes through a validator that returns a value or a named
+fault, and none can raise: the party symbols, the id, every date, every ratio,
+rate, cash amount and price, every CUSIP, each reorganization leg, and the row
+itself. Dates must fully match YYYY-MM-DD and be real days, so "2026-02-30",
+"0000-00-00" and a trailing newline are faults. Numbers must be finite and
+positive (`cash_rate` may be 0).
+- A fault on a party field makes the row unresolved.
+- A fault on any other field of a row naming ours makes it inside every window,
+  keyed for `ca-ack`.
+- On a row whose parties are all present and none ours, it is skipped and
+  recorded.
+
+`quantt/session/tests/test_ca_read_property.py` substitutes 19 adversarial
+values into every field of every type, on a held-fund row and on an outside
+row. The read never raises, and every rejected value either blocks, naming a
+key `ca-ack` can take, or is recorded.
+
 *History, each step reproduced by a release-check.*
 - 9cf5cf2 skipped a malformed row when no symbol present was ours, so a held
   fund's split with a null symbol was skipped and sent.
@@ -427,6 +445,10 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
 - 709d6cb refused every such row, on a brief that was never a ruling. One
   outside row, of any date, then halted the book indefinitely, and `ca-ack`
   could not clear it.
+- 1c64638 let a date such as "2026-02-30", or one with a trailing newline,
+  through its pattern. The date then raised unnamed, and `ca-ack` could not
+  clear it. On 1c64638 the property test fails 2026 of its 4598 cases; 794 of
+  those raise.
 
 **One id, one event** (release-check of 9630322, 2026-10-30, reproduced). Rows
 naming ours are de-duplicated by id, because a page boundary can repeat a row.
@@ -519,7 +541,7 @@ and a person has to look.
 | an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
 | UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
 | a row naming ours with a null, empty or non-string id, or an id listed with different content: keyed by its content (`row-sha256:...`) and judged like any row naming ours | as for its window above; `ca-ack` of its `row-sha256:` key |
-| UNMEASURED that persists: a transport or SHAPE fault only (a body that is not JSON or not an object, a list that is not a list, a renamed or absent required symbol field, a row that is not an object) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| UNMEASURED that persists: a transport or response-SHAPE fault only (a failed GET, a body that is not JSON or not an object, a type's list that is not a list, an unknown response key, a bad page token). No value in any field of any row can cause it (2026-11-02, `test_ca_read_property.py`) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
 | `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
 | any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
 

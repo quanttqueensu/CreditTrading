@@ -1321,14 +1321,23 @@ class AlpacaClient:
         like any other; it names ours, so it halts whenever the gate would halt
         for that fund, and ca-ack clears it on its full raw content (team lead
         2026-11-02: never needs a release to unstick).
+        EVERY FIELD VALIDATED, NOTHING RAISES (release-check of 1c64638,
+        2026-11-02; `_ca_read`). With `skipped`, no value in any field of any
+        row can make the read raise: each field the reader knows (the party
+        symbols, `id`, every date, every ratio, rate, cash amount and price,
+        every CUSIP, each reorganization leg, the row itself) goes through a
+        validator that returns a value or a named fault. A party fault makes
+        the row unresolved; a non-party fault on a row naming ours makes it
+        fail-closed (inside every window) and keyed for ca-ack; on a row whose
+        parties are all present and none ours it is skipped and recorded.
+        quantt/session/tests/test_ca_read_property.py is the property test
+        over every field of every type, held and outside, with each adversarial
+        value.
         WHAT STILL RAISES, with `skipped` (the gate's and ca-ack's read): only
-        transport and SHAPE failures, which no acknowledgement could address
-        because no row can be read: a failed GET, a body that is not JSON or not
-        an object, `corporate_actions` not an object, a type's list not a list,
-        a response key outside the reference, a missing or bad
-        next_page_token, too many pages, a row that is not an object, a
-        required symbol field ABSENT (a renamed field), a symbol present but
-        not a string, a reorganization leg with no `symbol` key. Without
+        transport and SHAPE failures of the response, before any row: a failed
+        GET, a body that is not JSON or not an object, `corporate_actions` not
+        an object, a type's list not a list, a response key outside the
+        reference, a missing or bad next_page_token, too many pages. Without
         `skipped`, the strict read from before the rulings (`_ca_strict`). Without
         `skipped`, such a row raises, as before the ruling. Why not refuse
         every such row (709d6cb): one in the market, anywhere and of any date,
@@ -1458,17 +1467,19 @@ class AlpacaClient:
                     raise UnexpectedResponse(f"{w}: {key} is {type(rows).__name__}, not a list")
                 for i, r in enumerate(rows):
                     where = f"{w} {key}[{i}]"
-                    parties, unread = _ca_parties(r, kind, fields, where)
-                    names_wanted = any(s in wanted for s, _ in parties)
                     if skipped is None:
                         # No record to go to: the read before the rulings, strict.
+                        parties, unread = _ca_parties(r, kind, fields, where)
                         if unread:
                             raise UnexpectedResponse(unread[0]["error"])
-                        if names_wanted:
+                        if any(s in wanted for s, _ in parties):
                             _ca_strict(r, kind, date_field, parties, where, seen, out,
                                        raw_rows)
                         continue
-                    bad = _ca_nonparty_faults(r, date_field)
+                    # EVERY FIELD VALIDATED, NOTHING RAISES (docstring): a value
+                    # or a named fault, field by field (`_ca_read`).
+                    parties, unread, bad = _ca_read(r, kind, date_field, fields)
+                    names_wanted = any(s in wanted for s, _ in parties)
                     if not unread and not names_wanted:
                         if not bad:
                             continue          # well-formed and not one of `symbols`
@@ -1483,8 +1494,9 @@ class AlpacaClient:
                             skipped.append(_ca_skip_record(r, kind, date_field, bad, parties))
                             continue
                     # IRREGULAR or naming ours: judged by the gate (docstring).
-                    cands.append((r.get("id"), _ca_event(r, kind, date_field, parties, unread,
-                                                         bad), copy.deepcopy(r)))
+                    cands.append((r.get("id") if isinstance(r, dict) else None,
+                                  _ca_event(r, kind, date_field, parties, unread, bad),
+                                  copy.deepcopy(r)))
             nxt = body["next_page_token"]          # required (docstring, VALIDATION)
             if nxt is None or nxt == "":
                 break
@@ -1616,17 +1628,20 @@ def _ca_event(r: dict, kind: str, date_field: str, parties, unread: list, bad: d
     raw value) when a date is absent or not YYYY-MM-DD; an unreadable date is
     None. Never raises: what the gate cannot read it judges fail-closed
     (corp_actions.blocking_events: an undated event is inside every window)."""
-    ev = {"type": kind,
-          "date": None if date_field in bad else dt.date.fromisoformat(r[date_field]),
-          "date_field": date_field,
-          "process_date": None if "process_date" in bad else dt.date.fromisoformat(
-              r["process_date"]),
-          "parties": [[s, role] for s, role in parties]}
+    def day(f):
+        return None if f in bad else _ca_date(r.get(f))[0]
+    ev = {"type": kind, "date": day(date_field), "date_field": date_field,
+          "process_date": day("process_date"), "parties": [[s, role] for s, role in parties]}
     if unread:
         ev["missing"] = [{"field": u["field"], "role": u["role"]} for u in unread]
-    undated = {f: v for f, v in bad.items() if f != "id"}
+    undated = {f: v for f, v in bad.items() if f in (date_field, "process_date")}
     if undated:
         ev["undated"] = undated
+    faults = {f: v for f, v in bad.items() if f not in (date_field, "process_date", "id")}
+    if faults:
+        # Any other field unreadable (a ratio, a cash amount, a price, a CUSIP,
+        # another date): its terms cannot be read, so it is fail-closed too.
+        ev["faults"] = faults
     return ev
 
 
@@ -1644,7 +1659,7 @@ def _ca_key_events(cands: list, out: list, raw_rows: dict | None) -> None:
     a revision of a hash-keyed row is a new key, so it halts again."""
     by_id, hashed = {}, []
     for rid, ev, raw in cands:
-        if isinstance(rid, str) and rid.strip() and "undated" not in ev:
+        if _ca_id(rid)[1] is None and "undated" not in ev:     # one token, dates readable
             by_id.setdefault(rid, []).append((ev, raw))
         else:
             hashed.append((rid, ev, raw))
@@ -1701,6 +1716,155 @@ def _ca_strict(r: dict, kind: str, date_field: str, parties, where: str, seen: d
         return
     seen[rid] = ev
     out.append(ev)
+
+
+# EVERY FIELD VALIDATED, NOTHING RAISES (release-check of 1c64638, 2026-11-02,
+# reproduced: "2026-02-30", "0000-00-00" and "2026-10-29\n" passed `_DATE_RE`,
+# whose `$` also matches before a trailing newline, and then raised in
+# `fromisoformat`, unnamed and un-ackable). Each validator returns
+# (value, None) or (None, fault); none can raise, whatever JSON value it is
+# handed. `_ca_read` applies them to every field of a row it knows the
+# meaning of: the party symbols of its type, `id`, every `*_date`, every
+# `rate` / `*_rate` / `price`, every `*cusip`, and each reorganization leg.
+_CA_DATE_FULL = re.compile(r"\d{4}-\d{2}-\d{2}")
+_CA_NUMBER_FULL = re.compile(r"\d+(\.\d+)?([eE][+-]?\d+)?")
+
+
+def _ca_date(v):
+    """A calendar date: a str that FULLY matches YYYY-MM-DD and is a real day."""
+    if not (isinstance(v, str) and _CA_DATE_FULL.fullmatch(v)):
+        return None, f"{v!r:.80} is not YYYY-MM-DD"
+    try:
+        return dt.date.fromisoformat(v), None
+    except ValueError:
+        return None, f"{v!r} is not a calendar date"
+
+
+def _ca_symbol(v):
+    """A ticker: a str that FULLY matches _SYMBOL_RE (no trailing newline)."""
+    if isinstance(v, str) and _SYMBOL_RE.fullmatch(v):
+        return v, None
+    return None, f"{v!r:.80} is not a symbol"
+
+
+def _ca_id(v):
+    """An action id: a non-empty str with no whitespace (ca-ack takes it as one token)."""
+    if isinstance(v, str) and v and not any(ch.isspace() for ch in v):
+        return v, None
+    return None, f"{v!r:.80} is not a usable id"
+
+
+def _ca_number(v, *, zero_ok: bool):
+    """A ratio, rate, cash amount or price: an int or float (never a bool), or a
+    plain decimal string, finite, > 0 (>= 0 when `zero_ok`)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+        return None, f"{v!r:.80} is not a number"
+    if isinstance(v, str) and not _CA_NUMBER_FULL.fullmatch(v):
+        return None, f"{v!r:.80} is not a number"
+    try:
+        x = float(v)
+    except (OverflowError, ValueError):
+        return None, f"{v!r:.80} is not a number"
+    if not math.isfinite(x) or x < 0 or (x == 0 and not zero_ok):
+        return None, f"{v!r:.80} is not a finite number {'>= 0' if zero_ok else '> 0'}"
+    return x, None
+
+
+def _ca_text(v):
+    """A CUSIP: a non-empty str with no surrounding whitespace and no control
+    characters. (Never compared with anything: read so that garbage is named.)"""
+    if isinstance(v, str) and v and v == v.strip() and v.isprintable():
+        return v, None
+    return None, f"{v!r:.80} is not a CUSIP"
+
+
+def _ca_field_kind(k: str):
+    if k == "id":
+        return "id"
+    if k.endswith("_date"):
+        return "date"
+    if k == "rate" or k.endswith("_rate") or k == "price":
+        return "number"
+    if k.endswith("cusip"):
+        return "text"
+    return None
+
+
+def _ca_check_value(k: str, v, bad: dict) -> None:
+    kind = _ca_field_kind(k)
+    if kind == "date":
+        if _ca_date(v)[1]:
+            bad[k] = v
+    elif kind == "number":
+        if _ca_number(v, zero_ok=(k == "cash_rate"))[1]:
+            bad[k] = v
+    elif kind == "text":
+        if _ca_text(v)[1]:
+            bad[k] = v
+
+
+def _ca_read(r, kind: str, date_field: str, fields) -> tuple[list, list, dict]:
+    """(parties, unread, bad) for one row, and it NEVER raises.
+
+    `parties`: [(symbol, role)] for each party symbol that validates.
+    `unread`: each party that does not, as {"field", "role"}: a required party
+    field absent, null, empty or not a ticker; an optional one (a reverse
+    split's new_symbol, a cash merger's acquirer) only when present and not a
+    ticker (absent, null or "" names nobody, as the reference says); a
+    reorganization leg that is not an object, or whose symbol is not a ticker
+    unless it is null or "" with a valid CUSIP (ONE MEASURED EXCEPTION); a
+    `stock_movements` that is neither null nor a list.
+    `bad`: {field: raw value} for each NON-party field that is malformed: `id`
+    (`_ca_id`), the date field and process_date (required), and, when present
+    and not null, every other date, number and CUSIP (`_ca_field_kind`). A row
+    that is not an object has every required party unread and both dates bad."""
+    if not isinstance(r, dict):
+        unread = [{"field": f, "role": role} for f, role, req in fields if req]
+        return [], unread, {"id": None, date_field: None, "process_date": None}
+    parties, unread, bad = [], [], {}
+    for f, role, req in fields:
+        v = r.get(f)
+        if not req and (v is None or v == ""):
+            continue
+        sym, fault = _ca_symbol(v)
+        if fault:
+            unread.append({"field": f, "role": role})
+        else:
+            parties.append((sym, role))
+    if kind == "reorganization":
+        legs = r.get("stock_movements")
+        if legs is not None and not isinstance(legs, list):
+            unread.append({"field": "stock_movements", "role": "allocated"})
+        for j, m in enumerate(legs if isinstance(legs, list) else []):
+            leg = f"stock_movements[{j}]"
+            if not isinstance(m, dict):
+                unread.append({"field": leg, "role": "allocated"})
+                continue
+            sym, cusip = m.get("symbol"), m.get("cusip")
+            if cusip is not None and _ca_text(cusip)[1] and cusip != "":
+                bad[f"{leg}.cusip"] = cusip
+            for k in ("new_rate", "source_rate"):
+                if m.get(k) is not None and _ca_number(m[k], zero_ok=False)[1]:
+                    bad[f"{leg}.{k}"] = m[k]
+            if (sym is None or sym == "") and not _ca_text(cusip)[1]:
+                continue              # no ticker but a CUSIP: names nobody (measured)
+            ok, fault = _ca_symbol(sym)
+            if fault:
+                unread.append({"field": f"{leg}.symbol", "role": "allocated"})
+            else:
+                parties.append((ok, "allocated"))
+    if _ca_id(r.get("id"))[1]:
+        bad["id"] = r.get("id")
+    for f in (date_field, "process_date"):
+        if _ca_date(r.get(f))[1]:
+            bad[f] = r.get(f)
+    party_fields = {f for f, _, _ in fields}
+    for k, v in r.items():
+        if k in party_fields or k in bad or k in ("id", date_field, "process_date"):
+            continue
+        if v is not None:
+            _ca_check_value(k, v, bad)
+    return parties, unread, bad
 
 
 def _ca_nonparty_faults(r: dict, date_field: str) -> dict:
