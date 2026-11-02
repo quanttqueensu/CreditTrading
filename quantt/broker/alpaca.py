@@ -1313,9 +1313,10 @@ class AlpacaClient:
         (corp_actions.blocking_events, UNRESOLVED ROWS): it blocks exactly when
         a well-formed row of the same type and dates would block for one of
         the gate's names in the missing role, and is otherwise recorded only.
-        It still raises: when its id is null and it names one of `symbols`
-        (ONE ID, ONE EVENT), and when its date field or process_date is not
-        YYYY-MM-DD, since then the windows cannot be applied. Without
+        A row whose dates cannot be read is UNDATED (`_ca_unresolved`): keyed
+        by its hash and treated as inside every window, so it blocks until
+        acknowledged. It still raises when its id is null and it names one of
+        `symbols` (ONE ID, ONE EVENT). Without
         `skipped`, such a row raises, as before the ruling. Why not refuse
         every such row (709d6cb): one in the market, anywhere and of any date,
         then refused every session for good, and `ca-ack`, which reads the
@@ -1515,7 +1516,8 @@ class AlpacaClient:
             token = nxt
         else:
             raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
-        return sorted(out, key=lambda e: (e["date"], e["type"], e["id"]))
+        # An undated unresolved event (date None) sorts first.
+        return sorted(out, key=lambda e: (e["date"] or dt.date.min, e["type"], e["id"]))
 
 
 # The thirteen NON-dividend types `AlpacaClient.corporate_actions` asks for:
@@ -1631,10 +1633,17 @@ def _ca_unresolved(r: dict, kind: str, date_field: str, unread: list, parties, w
     """The event for a row with a null or empty party symbol (UNRESOLVED ROWS):
     the usual fields, plus `missing` (each missing field and its role) and
     `row_id` (the id as sent). `id` is that id when it is a non-empty string,
-    else `ca_row_key` of the row, so that it can still be acknowledged. Raises
-    when it cannot be judged: a null id on a row that names one of `symbols`
-    (ONE ID, ONE EVENT, as before), or a date that is absent or not YYYY-MM-DD
-    (without its dates the windows cannot be applied to it)."""
+    else `ca_row_key` of the row, so that it can still be acknowledged.
+    UNDATED (release-check of d90e68f, 2026-11-02): a date field or
+    process_date absent or not YYYY-MM-DD no longer raises. Raising made it
+    UNMEASURED, so `halt` refused every session and ca-ack, reading the same
+    way, could not clear it: only a release could, against the ruling ("never
+    needs a release to unstick"). Such an event carries `undated` (each bad
+    field and its raw value) and None for the unreadable dates, is keyed by
+    `ca_row_key` whatever its id (a revision is a new key), and
+    `corp_actions.blocking_events` treats it as inside every window, so it
+    blocks until the team lead acknowledges it. Raises only for a null id on a
+    row that names one of `symbols` (ONE ID, ONE EVENT, as ruled)."""
     rid = r.get("id")
     if not (isinstance(rid, str) and rid.strip()):
         named = sorted({s for s, _ in parties if s in wanted})
@@ -1646,19 +1655,20 @@ def _ca_unresolved(r: dict, kind: str, date_field: str, unread: list, parties, w
         key = ca_row_key(r)
     else:
         key = rid
-    dates = {}
+    dates, undated = {}, {}
     for f in (date_field, "process_date"):
         v = r.get(f)
-        if not (isinstance(v, str) and _DATE_RE.match(v)):
-            raise UnexpectedResponse(
-                f"{where}: an unresolved {kind} (row id {rid!r}, "
-                f"{[u['field'] for u in unread]} missing) has {f} {v!r}, not YYYY-MM-DD; "
-                f"without its dates it cannot be judged against the windows")
-        dates[f] = dt.date.fromisoformat(v)
-    return {"id": key, "type": kind, "date": dates[date_field], "date_field": date_field,
-            "process_date": dates["process_date"], "parties": [[s, role] for s, role in parties],
-            "missing": [{"field": u["field"], "role": u["role"]} for u in unread],
-            "row_id": rid}
+        if isinstance(v, str) and _DATE_RE.match(v):
+            dates[f] = dt.date.fromisoformat(v)
+        else:
+            undated[f] = v
+    ev = {"id": ca_row_key(r) if undated else key, "type": kind, "date": dates.get(date_field),
+          "date_field": date_field, "process_date": dates.get("process_date"),
+          "parties": [[s, role] for s, role in parties],
+          "missing": [{"field": u["field"], "role": u["role"]} for u in unread], "row_id": rid}
+    if undated:
+        ev["undated"] = undated
+    return ev
 
 
 def _ca_nonparty_faults(r: dict, date_field: str) -> dict:

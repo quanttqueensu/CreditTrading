@@ -353,6 +353,7 @@ def query_window(win: dict) -> tuple[dt.date, dt.date]:
 
 # Which rule judged a blocking pair (module docstring, TWO WINDOWS).
 LONG, SHORT_PROCESS = "long", "short: process_date only"
+UNDATED_RULE = "undated: its dates cannot be read, so it is inside every window"
 SHORT_ACQUIRER, SHORT_ALLOCATED = "short: merger acquirer", "short: reorganization allocated"
 
 
@@ -416,6 +417,26 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
     short_w = (asof + dt.timedelta(days=1), session_date)
     out = []
     for e in events:
+        if e.get("undated"):
+            # UNDATED (AlpacaClient `_ca_unresolved`): its dates cannot be read, so
+            # it is treated as inside every window (fail-closed): each missing
+            # party, as each of the gate's names, and each present party that is
+            # one of them, blocks. Only the team lead's ca-ack, by its hash key,
+            # clears it.
+            for sym in win:
+                hits = [(u["role"], u["field"]) for u in e.get("missing", ())]
+                hits += [(role, None) for s2, role in e["parties"] if s2 == sym]
+                for role, field in hits:
+                    b = {"symbol": sym, "role": role, "held": sym in held,
+                         "id": e["id"], "type": e["type"], "date": e["date"],
+                         "date_field": e["date_field"], "process_date": e["process_date"],
+                         "rule": UNDATED_RULE, "in_window": sorted(e["undated"]),
+                         "window": list(win[sym]), "parties": e["parties"],
+                         "undated": e["undated"]}
+                    if field is not None:
+                        b.update(unresolved=field, row_id=e.get("row_id"))
+                    out.append(b)
+            continue
         for u in e.get("missing", ()):
             for sym in win:
                 m = _match(e, u["role"], win[sym], short_w)
@@ -440,7 +461,7 @@ def blocking_events(events, *, held: dict, targets, asof: dt.date,
                         "date_field": e["date_field"], "process_date": e["process_date"],
                         "rule": rule, "in_window": hits, "window": [lo, hi],
                         "parties": e["parties"]})
-    return sorted(out, key=lambda b: (b["date"], b["symbol"], b["type"], b["id"]))
+    return sorted(out, key=lambda b: (b["date"] or dt.date.min, b["symbol"], b["type"], b["id"]))
 
 
 def parse_acks(obj, book: str) -> dict:
@@ -575,7 +596,15 @@ def unmeasured_record(mode: str, asof, session_date, why: str) -> dict:
 
 
 def _event_text(b: dict) -> str:
-    if "unresolved" in b:
+    if "undated" in b:
+        who = (f"its missing {b['role']} ({b['unresolved']}, row id {b['row_id']!r}) treated "
+               f"as {b['symbol']}" if "unresolved" in b else
+               f"{b['symbol']} as its {b['role']}")
+        text = (f"an UNRESOLVED, UNDATED {b['type']} {b['id']} (its dates cannot be read: "
+                f"{b['undated']}; present {b['parties']}), {who} "
+                f"({'held' if b['held'] else 'target'}), treated as inside every window; the "
+                f"team lead clears it with ca-ack --id {b['id']}")
+    elif "unresolved" in b:
         text = (f"an UNRESOLVED {b['type']} {b['id']} (row id {b['row_id']!r}; its "
                 f"{b['unresolved']} is missing; present {b['parties']}), its missing "
                 f"{b['role']} treated as {b['symbol']} ({'held' if b['held'] else 'target'}) "

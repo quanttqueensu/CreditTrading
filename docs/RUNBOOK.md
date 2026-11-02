@@ -253,6 +253,22 @@ The day's `plan.json` (or `send.json`, when the send refused) carries
 event's id, type, market and process dates, its parties, the rule and the window
 (`docs/RUNNER.md`, "As built (2026-10-28)").
 
+**What clears each kind of halt** (the same table as `docs/RUNNER.md`):
+
+| halt | what clears it |
+|---|---|
+| short-window match: a merger acquirer, a reorganization's allocated leg, any match through the process date alone | itself, at the next session |
+| long-window match on a target-only name | itself, once the as-of date passes the event's date |
+| long-window match on a held name | a filled order in the name submitted on the second trading day after the event or later, through the team lead (§6.1 step 3); or `ca-ack` of its id (step 7) |
+| unresolved row (a party symbol missing), short role: acquirer, allocated leg | itself, at the next session |
+| unresolved row, any other role, in a name's window | `ca-ack` of the id its refusal names (`row-sha256:...` when its own id is null); or Alpaca completing the row, which is then judged afresh |
+| UNDATED unresolved row (a party missing and a date unreadable): blocks in every window | `ca-ack` of its `row-sha256:...` key; or Alpaca completing the row, which is then a new row, judged afresh |
+| an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
+| UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
+| UNMEASURED that persists: a schema fault (a renamed field, a row that is not an object) or a null id on a row naming ours | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
+| any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
+
 A **short-window** row clears by itself after one session: a merger acquirer
 or a reorganization's allocated leg (both judged on the market date only), or
 any other match through the process date alone. Confirm the event (step 1) and let it

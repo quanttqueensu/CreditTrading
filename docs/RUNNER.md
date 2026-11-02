@@ -94,7 +94,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: the as-of evening from **19:15 ET** (Alpaca queues `cls` sent after 19:00 into the next auction) to 01:00 ET, or the session day until **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
 5. **Data** — the refresh exited 0 for the required as-of date. That checks each NAV's *date*, not its value; the stale-NAV gate (step 1b, "As built (2026-10-13)") checks the value when the book turns it on.
    - **Corporate actions** (step 3b, when the book json sets `corporate_actions.mode`; team lead 2026-10-28). Under `halt`, refuse when Alpaca lists a non-dividend corporate action (split, stock dividend, spin-off, merger, redemption, name change, worthless removal, reorganization, partial call) naming a held or targeted name, in any role, inside the window that role and match call for: the long window for an acquiree, a split, a name change and the rest, and the short window `(as-of, session]`, one session, for a merger acquirer and a reorganization's allocated leg (both on the market date only) and for any other match through the process date alone (team lead and re-review, 2026-10-29). Also refuse when that list cannot be read. The refusal is a gate-5 `data` refusal naming each event or the error. It runs at decide and again at the late-market send. Under `report` the same is recorded and the session sends. "As built (2026-10-28)" below.
-6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account. The two Alpaca lists are read after every other broker read, just before the gate's clock read, on both paths that transmit; a failed read refuses ("As built (2026-10-29): gate 6 reads its lists last").
+6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open order in the account, of any type or time in force (`gate.gate_no_set_in_auction`; *corrected 2026-11-02: this line said any open `cls` order, which the code has never been*). The two Alpaca lists are read after every other broker read, just before the gate's clock read, on both paths that transmit; a failed read refuses ("As built (2026-10-29): gate 6 reads its lists last").
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
 8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the **lower** of the equity the plan was sized on and live equity, unless the plan does not add to the gross held now (2026-10-09; the lower of the two from 2026-10-11); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
 9. **Sanity** — every qty a positive integer, every symbol in the frozen universe, no symbol with two opposite-side orders.
@@ -496,6 +496,22 @@ absent = no gate, today's behaviour, `run.corporate_actions_for`):
 **Verify.** A refused day reads `MISSED: ... [data] corporate-action gate ...`, a
 FAIL. It is not a deliberate `halt`. The book should have traded and could not,
 and a person has to look.
+
+**What clears each halt** (`docs/RUNBOOK.md` §6.1 is the procedure):
+
+| halt | what clears it |
+|---|---|
+| short-window match: a merger acquirer, a reorganization's allocated leg, any match through the process date alone | itself, at the next session |
+| long-window match on a target-only name | itself, once the as-of date passes the event's date |
+| long-window match on a held name | a filled order in the name submitted on the second trading day after the event or later, through the team lead (§6.1 step 3); or `ca-ack` of its id (step 7) |
+| unresolved row (a party symbol missing), short role: acquirer, allocated leg | itself, at the next session |
+| unresolved row, any other role, in a name's window | `ca-ack` of the id its refusal names (`row-sha256:...` when its own id is null); or Alpaca completing the row, which is then judged afresh |
+| UNDATED unresolved row (a party missing and a date unreadable): blocks in every window | `ca-ack` of its `row-sha256:...` key; or Alpaca completing the row, which is then a new row, judged afresh |
+| an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
+| UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
+| UNMEASURED that persists: a schema fault (a renamed field, a row that is not an object) or a null id on a row naming ours | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
+| any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
 
 **What clears it.** A short-window match clears by itself once the as-of passes
 it. A long-window match does not clear by itself. While the gate refuses,

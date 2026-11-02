@@ -817,3 +817,52 @@ def test_ca_ack_treats_a_type_change_as_a_revision(tmp_path, monkeypatch, capsys
     assert entry["event"]["type"] == "reverse_split"
     assert entry["supersedes"]["event"]["type"] == "forward_split"
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+
+
+
+# ----------------- an UNDATED unresolved row (release-check of d90e68f, 2026-11-02)
+#
+# A null party AND an unreadable date, anywhere in the market: the read raised,
+# UNMEASURED, so `halt` refused every session and ca-ack (reading the same way)
+# could not clear it, and only a release could, against the ruling ("never
+# needs a release to unstick"). Now it is returned undated, keyed by its hash,
+# and treated as inside every window. Every test below FAILS on d90e68f.
+UNDATED_OUTSIDE = dict(UNRELATED_NULL_ACQUIRER, id="sm-undated", effective_date=None)
+
+
+@pytest.mark.parametrize("path", PATHS)
+def test_an_undated_null_party_row_outside_the_universe_halts_naming_the_row(tmp_path, path):
+    """LSI is outside the universe and the acquirer is null: with no date, the
+    row cannot be shown outside any window, so it blocks (the gate's refusal,
+    not UNMEASURED), naming its hash key and its unreadable date."""
+    key = al.ca_row_key(UNDATED_OUTSIDE)
+    c, state, log, decide_exit, code = _transmit(tmp_path, path,
+                                                 _feed({"stock_mergers": [UNDATED_OUTSIDE]}))
+    assert code == rn.EXIT_REFUSED and c.submits() == [], log
+    data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
+    assert len(data) == 1 and "UNMEASURED" not in data[0], data
+    assert "UNRESOLVED, UNDATED stock_merger" in data[0] and f"ca-ack --id {key}" in data[0] \
+        and "'effective_date': None" in data[0], data
+    (u,) = _ca_record(state, path)["unresolved"]
+    assert u["id"] == key and u["blocks"] is True and u["row_id"] == "sm-undated"
+
+
+def test_ca_ack_clears_an_undated_row_by_its_key_and_a_revision_halts_again(
+        tmp_path, monkeypatch, capsys):
+    """The way out without a release: ca-ack by the hash key the refusal
+    names (matched on the full raw row); the next session sends. Alpaca then
+    revises the row, still undated (another ratio): a new key, so it halts
+    again until acknowledged again."""
+    key = al.ca_row_key(UNDATED_OUTSIDE)
+    c, deps, state = _refused_session(tmp_path, monkeypatch,
+                                      _feed({"stock_mergers": [UNDATED_OUTSIDE]}))
+    assert _ack(c, "--id", key, "--reason", "outside issuers; no date in the feed") == 0
+    assert f"ACKNOWLEDGED {key}: stock_merger" in capsys.readouterr().out
+    (entry,) = json.loads((state / cam.ACKS_FILE).read_text())["acks"]
+    assert entry["row"] == UNDATED_OUTSIDE and entry["event"]["type"] == "stock_merger"
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    revised = dict(UNDATED_OUTSIDE, acquirer_rate=0.9)
+    c.feed = _feed({"stock_mergers": [revised]})
+    shutil.rmtree(state / DAY)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert any(al.ca_row_key(revised) in d for d in _refusal_details(state))

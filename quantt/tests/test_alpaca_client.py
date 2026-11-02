@@ -1153,10 +1153,27 @@ def test_an_unresolved_row_with_a_null_id_is_keyed_by_its_hash_unless_it_names_o
     c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(row, acquiree_symbol="PDI")]}))
     with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
         c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
-    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(NULL_ACQUIRER,
-                                                                       effective_date=None)]}))
-    with pytest.raises(al.UnexpectedResponse, match="cannot be judged against the windows"):
-        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+
+
+
+@pytest.mark.parametrize("spoil", [{"effective_date": None}, {"process_date": "2023-7-20"},
+                                   {"effective_date": "", "id": None}],
+                         ids=["date-null", "process-date-bad", "date-empty-id-null"])
+def test_an_undated_unresolved_row_is_returned_keyed_by_its_hash(env_file, sleeps, spoil):
+    """Release-check of d90e68f (2026-11-02): a null party AND an unreadable
+    date used to raise, which only a release could unstick. It is returned,
+    `undated` naming the bad fields and their values, its unreadable dates
+    None, keyed by `ca_row_key` whatever its id, so ca-ack can clear it and a
+    revision is a new key. (Corrected 2026-11-02: this test asserted the
+    raise.) FAILS on d90e68f."""
+    row = dict(NULL_ACQUIRER, **spoil)
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [row]}))
+    (e,) = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    bad = {k: v for k, v in spoil.items() if k != "id"}
+    assert e["undated"] == bad and e["id"] == al.ca_row_key(row) and e["row_id"] == row["id"]
+    assert (e["date"] is None) == ("effective_date" in bad)
+    assert (e["process_date"] is None) == ("process_date" in bad)
+    assert e["missing"] == [{"field": "acquirer_symbol", "role": "acquirer"}]
 
 
 @pytest.mark.parametrize("spoil,bad", [
