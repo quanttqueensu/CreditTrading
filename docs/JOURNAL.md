@@ -148,8 +148,20 @@ from a named source; [doc] copied from a named note.
 
 **Found:** release-checks NO-GO on 10-30 (null `id` de-duplication) and 11-01 (null subject, then null acquirer, skipped as "not ours").
 
-**Rulings** (`docs/SYSTEM.md` §5): **any null party symbol refuses**, since it can't be proved not ours. Skip-and-record applies only when every party symbol is present and none is ours.
+**Rulings** (`docs/SYSTEM.md` §5): **any null party symbol refuses**, since it can't be proved not ours. Skip-and-record applies only when every party symbol is present and none is ours. *[Corrected 2026-11-02: this was not a team-lead ruling; see 2026-11-02.]*
 
 **Prod:** no change.
 
 **Live [V, ops.prod_state]:** 2026-10-30 PASS, 7 orders, 7 filled (the first session with the missing-NAV hold on). Equity $99,124.35 at the close. The 2026-11-02 plan is decided (4 orders).
+
+## 2026-11-02 (Mon)
+
+**Found:** the release-check on 709d6cb was NO-GO.
+- The 2026-11-01 "any null party refuses" rule would stop the book indefinitely: one malformed row anywhere in the market halts every session, and `ca-ack` could not clear it.
+- An acknowledgement still cleared an action whose type had changed.
+
+**Correction:** the 2026-11-01 entry recorded that rule as a team-lead ruling. It was the agent's reading of ruling A, so it is corrected in place in `docs/SYSTEM.md` §5.
+
+**Rulings** (`docs/SYSTEM.md` §5): a row with a missing party symbol **halts only where it would halt for one of our held funds**, and the team lead clears it with `ca-ack`, matched on its full content. Outside our windows it is recorded only.
+
+**Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).
