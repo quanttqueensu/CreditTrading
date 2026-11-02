@@ -355,18 +355,20 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    The `<action id>` is the `id` in `corporate_actions.blocking`. The command
    reads the feed, read-only, for the names and window of the gate's latest
    record, and refuses an id the feed does not list, an id already
-   acknowledged whose row is unchanged, a reason that is not one line, and a
+   acknowledged whose row and type are unchanged, a reason that is not one line, and a
    `ca_acks.json` it cannot read. Otherwise it writes the entry (id, reason, UTC time, the event as
    listed) to `<state>/ca_acks.json` atomically and prints what it
-   acknowledged. The entry keeps the feed row exactly as listed. The gate then
-   clears THAT ID ONLY, and only while the feed's row for it is unchanged in
-   every field (type, dates, parties, ratio and the rest). Any other action, a
+   acknowledged. The entry keeps the feed row exactly as listed, and its type.
+   The gate then clears THAT ID ONLY, and only while the feed's row for it is
+   unchanged in every field (dates, parties, ratio and the rest) and its type
+   is unchanged. An unresolved row is acknowledged by the id its refusal
+   names, a `row-sha256:...` key when its own id is null. Any other action, a
    new one on the same fund included, still halts. If Alpaca revises the row,
-   the gate halts again, and the refusal names each changed field
+   or lists it under another type, the gate halts again, and the refusal names each changed field
    (`acknowledged at ..., but the feed row has changed since (...)`). Do step 1
    again for the revised action, and if it still stands run the same command
-   again. For a revised row it replaces the old entry, which it keeps as
-   `supersedes`; for an unchanged row it refuses. Never edit the file by hand. The cleared rows stay in the record
+   again. For a revised row or type it replaces the old entry, which it keeps as
+   `supersedes`; for an unchanged one it refuses. Never edit the file by hand. The cleared rows stay in the record
    under `corporate_actions.acknowledged`. Nothing else may write the file. A
    `ca_acks.json` the gate cannot read refuses every session (UNMEASURED) until
    it is fixed: restore it, or remove it and acknowledge again. An
@@ -374,20 +376,30 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    the halt but fixes no count: steps 2–5 still apply, and the command prints a
    NOTE saying so.
 
-**A malformed row** (team lead, 2026-10-29, `docs/SYSTEM.md` §5: "skip it, and
-record it, unless it could concern one of our funds"; applied as below since
-2026-11-01). A row with any party symbol null or empty refuses the session,
-naming the row and the field, until Alpaca completes it. That covers an
-acquirer, an acquiree, an old, new or source symbol, a split's own symbol, and
-a reorganization leg with no ticker and no CUSIP. It refuses even when every
-symbol present is someone else's, because the missing party could be one of our
-funds and the prod clone holds no CUSIP for them. Only a row whose every party
-is present and none ours, with a non-party field malformed (its id, or a date),
-is skipped. It is listed under `corporate_actions.skipped_malformed` in
-`plan.json` (and `send.json`), with a `SKIPPED a malformed row` log line naming
-its id and the field, and the session sends on. Until 2026-11-01 a row with a
-null symbol, or with a null acquirer and an outside acquiree, was skipped, and
-the session sent.
+**An unresolved row** (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows)). A row with a party symbol null or empty
+(an acquirer, an acquiree, an old, new or source symbol, a split's own symbol,
+or a reorganization leg with no ticker and no CUSIP) is not a read failure. The
+gate treats the missing party as each held and targeted fund in turn, on the
+usual windows.
+- If it would block one of them, the session refuses with `an UNRESOLVED <type>
+  <id> ... its <field> is missing ...; the team lead clears it with ca-ack --id
+  <id>`.
+- Otherwise the row is listed under `corporate_actions.unresolved` with an
+  `UNRESOLVED, recorded only` log line, and the session sends.
+
+A missing acquirer or allocated leg halts one session and then clears by
+itself. Any other missing party in a held name's window halts until it is
+acknowledged. Do step 1 for it; if it is not one of our funds, run the step 7
+command with the id the refusal names. That id is a `row-sha256:...` key when
+the row's own id is null. A revised row, or the same row under another type,
+halts again.
+
+**A skipped malformed row** (team lead 2026-10-29, `docs/SYSTEM.md` §5: "skip
+it, and record it, unless it could concern one of our funds"). A row whose
+every party symbol is present and none ours, but whose id or a date is
+malformed, is listed under `corporate_actions.skipped_malformed` with a
+`SKIPPED a malformed row` log line, and the session sends on. The same fault
+on a row naming one of our funds refuses, naming the row.
 
 ## 7. Keeping the laptop awake
 

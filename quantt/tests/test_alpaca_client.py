@@ -1061,22 +1061,19 @@ def test_a_reorganization_leg_that_cannot_be_identified_still_raises(env_file, s
         c.corporate_actions(["PDI"], W0, W1)
 
 
-# MALFORMED ROWS: the team lead's ruling of 2026-10-29 (docs/SYSTEM.md §5,
-# "skip it, and record it, unless it could concern one of our funds"), as
-# applied since the release-check of 04aca24 (2026-11-01, reproduced). A null
-# or empty PARTY symbol could be one of ours (nothing on the live path knows
-# our CUSIPs): the row refuses. Only a row whose every party symbol is present
-# and none ours, with a NON-party field malformed, is skipped and recorded.
-# The rows are the reference's examples with one field spoiled. Every test in
-# this block FAILS on 04aca24 (which skipped a null acquirer or leg, recorded
-# no non-party fault, and refused with other words) except the well-formed
-# guard after it.
+# UNRESOLVED ROWS (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved
+# corporate-action rows)): a row with a null or empty PARTY symbol is returned
+# as an unresolved event, its missing fields named, never raised on when the
+# caller records; the gate decides whether it blocks (test_ca_malformed_and_acks).
+# Skip-and-record (team lead 2026-10-29) stays for a row whose every party is
+# present and none ours, with a NON-party field malformed. The rows are the
+# reference's examples with one field spoiled. The unresolved tests FAIL on
+# 709d6cb, which refused every such row; the non-party tests on 04aca24.
 UNI = ["PDI", "PTY"]                                  # the book's universe in these tests
 NULL_ACQUIRER = dict(CA_REFERENCE["stock_mergers"][0], id="sm-null", acquirer_symbol=None)
 EMPTY_SPLIT = dict(CA_REFERENCE["forward_splits"][0], id="fs-empty", symbol="")
 NO_TICKER_LEG = dict(REAL_REORG_NO_TICKER, id="reorg-bad-leg",
                      stock_movements=[{"symbol": None, "new_rate": 1, "source_rate": 1}])
-PARTY_REFUSES = "a party with no symbol could be one of our funds"
 
 
 def _party_cases():
@@ -1094,54 +1091,72 @@ def _party_cases():
 
 
 @pytest.mark.parametrize("key,row,field", _party_cases())
-def test_every_null_or_empty_party_symbol_refuses_naming_the_row(env_file, sleeps, key, row,
+def test_every_null_or_empty_party_symbol_is_returned_unresolved(env_file, sleeps, key, row,
                                                                  field):
-    """No symbol in the row is ours (UNI), and still it refuses: the missing
-    party could be. The refusal names the row's id and the field."""
+    """Whatever else the row names (here nothing of ours), it is returned, not
+    raised on: its id, the missing field and its role, the present parties.
+    Without a record to go to, the read raises on it as it always did."""
     c, _ = ca_client(env_file, sleeps, ca_page({key: [row]}))
-    with pytest.raises(al.UnexpectedResponse, match=PARTY_REFUSES) as ex:
-        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
-    assert repr(row["id"]) in str(ex.value) and f"['{field}']" in str(ex.value)
+    got = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    kind = next(k for k, v in al.CORPORATE_ACTION_TYPES.items() if v[0] == key)
+    role = next(r for f, r, _ in al.CORPORATE_ACTION_TYPES[kind][2] if f == field)
+    assert [(e["id"], e["type"], e["missing"], e["row_id"]) for e in got] == [
+        (row["id"], kind, [{"field": field, "role": role}], row["id"])]
+    assert [field, role] not in got[0]["parties"]
+    with pytest.raises(al.UnexpectedResponse, match="is not a symbol"):
+        c.corporate_actions(["PDI"], W0, W1)
 
 
-def test_the_null_acquirer_repro_refuses(env_file, sleeps):
+def test_the_null_acquirer_repro_is_returned_unresolved(env_file, sleeps):
     """The release-check's repro (2026-11-01): a stock merger, acquiree MYD
-    outside the universe, acquirer null. With the acquirer named MQY, the held
-    acquirer, it is an event; with it null, 04aca24 skipped the row and the
-    gate read CLEAR. Now it refuses."""
+    outside the universe, acquirer null. Returned with its acquirer missing;
+    whether it blocks is the gate's (it does, for a held MQY on its merger
+    date: test_ca_malformed_and_acks)."""
     base = dict(CA_REFERENCE["stock_mergers"][0], acquiree_symbol="MYD",
                 effective_date="2026-11-03", process_date="2026-11-03")
-    named = dict(base, id="sm-MQY", acquirer_symbol="MQY")
-    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [named]}))
-    got = c.corporate_actions(["MQY"], dt.date(2026, 11, 2), dt.date(2026, 11, 3),
-                              universe=["MQY", "MHD"], skipped=[])
-    assert [(e["id"], e["parties"]) for e in got] == [
-        ("sm-MQY", [["MYD", "acquiree"], ["MQY", "acquirer"]])]
     c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(base, id="sm-None",
                                                                        acquirer_symbol=None)]}))
     skipped = []
-    with pytest.raises(al.UnexpectedResponse, match=PARTY_REFUSES):
-        c.corporate_actions(["MQY"], dt.date(2026, 11, 2), dt.date(2026, 11, 3),
-                            universe=["MQY", "MHD"], skipped=skipped)
+    got = c.corporate_actions(["MQY"], dt.date(2026, 11, 2), dt.date(2026, 11, 3),
+                              universe=["MQY", "MHD"], skipped=skipped)
+    assert [(e["id"], e["parties"], e["missing"]) for e in got] == [
+        ("sm-None", [["MYD", "acquiree"]], [{"field": "acquirer_symbol", "role": "acquirer"}])]
     assert skipped == []
-    # Without a record to go to, the read raises on it as it always did.
-    with pytest.raises(al.UnexpectedResponse, match="acquirer_symbol None is not a symbol"):
-        c.corporate_actions(["MQY"], dt.date(2026, 11, 2), dt.date(2026, 11, 3))
 
 
 @pytest.mark.parametrize("leg", [{"symbol": None, "new_rate": 1},
                                  {"symbol": "", "cusip": "", "new_rate": 1},
                                  {"symbol": "", "cusip": None, "new_rate": 1}],
                          ids=["null", "empty-empty-cusip", "empty-null-cusip"])
-def test_a_null_reorganization_leg_refuses(env_file, sleeps, leg):
+def test_a_null_reorganization_leg_is_returned_unresolved(env_file, sleeps, leg):
     """A leg with no ticker and no CUSIP: the allocated security could be one
     of ours. (A leg with no ticker but a CUSIP still names nobody: the
     measured exception, above.)"""
     c, _ = ca_client(env_file, sleeps,
                      ca_page({"reorganizations": [dict(NO_TICKER_LEG, stock_movements=[leg])]}))
-    with pytest.raises(al.UnexpectedResponse, match=PARTY_REFUSES) as ex:
+    (e,) = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    assert e["missing"] == [{"field": "stock_movements[0].symbol", "role": "allocated"}]
+    assert e["parties"] == [["AIMTF", "subject"]]
+
+
+def test_an_unresolved_row_with_a_null_id_is_keyed_by_its_hash_unless_it_names_ours(
+        env_file, sleeps):
+    """A null id AND a null party: keyed by the SHA-256 of the raw row, so the
+    team lead can acknowledge it; any change to the row is another key. Named
+    one of `symbols`, a null id still refuses (ONE ID, ONE EVENT). A date the
+    windows cannot be applied to refuses too."""
+    row = dict(NULL_ACQUIRER, id=None)
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [row]}))
+    (e,) = c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
+    assert e["id"] == al.ca_row_key(row) and e["id"].startswith("row-sha256:")
+    assert e["row_id"] is None and al.ca_row_key(dict(row, acquiree_rate=2)) != e["id"]
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(row, acquiree_symbol="PDI")]}))
+    with pytest.raises(al.UnexpectedResponse, match="not a non-empty string"):
         c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
-    assert "stock_movements[0].symbol" in str(ex.value)
+    c, _ = ca_client(env_file, sleeps, ca_page({"stock_mergers": [dict(NULL_ACQUIRER,
+                                                                       effective_date=None)]}))
+    with pytest.raises(al.UnexpectedResponse, match="cannot be judged against the windows"):
+        c.corporate_actions(["PDI"], W0, W1, universe=UNI, skipped=[])
 
 
 @pytest.mark.parametrize("spoil,bad", [

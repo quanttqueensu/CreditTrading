@@ -48,7 +48,7 @@ from quantt.broker import alpaca as al
 from quantt.session import corp_actions as cam
 from quantt.session import run as rn
 from quantt.session.tests.test_corp_actions import CLOSED, HELD, L_SET, CAClient
-from quantt.session.tests.test_run import BOOK, D, EVE, LATE, SPEC, make, to_send_time
+from quantt.session.tests.test_run import ASOF, BOOK, D, EVE, LATE, SPEC, make, to_send_time
 from quantt.tests.test_alpaca_client import (CA_REFERENCE, KEY_ID, SECRET, FakeResp,
                                              FakeSession, route)
 
@@ -222,7 +222,6 @@ OURS_EMPTY_ACQUIREE = dict(UNRELATED_NULL_ACQUIRER, id="sm-ccc-acquirer",
 # the only kind skipped and recorded (release-check of 04aca24, 2026-11-01).
 UNRELATED_BAD_DATE = dict(CA_REFERENCE["stock_mergers"][0], id="sm-bad-date",
                           effective_date="2023-7-20")
-PARTY_REFUSES = "a party with no symbol could be one of our funds"
 # A reorganization of a TARGETED name whose stock leg has neither ticker nor CUSIP.
 OURS_REORG_BAD_LEG = {"id": "reorg-aaa-bad-leg", "symbol": "AAA", "cusip": "AAA000000",
                       "effective_date": "2023-09-01", "process_date": "2023-09-01",
@@ -275,23 +274,6 @@ def test_a_malformed_row_for_unrelated_issuers_is_skipped_and_recorded(tmp_path,
         and "effective_date='2023-7-20'" in skipped[0], log
 
 
-@pytest.mark.parametrize("key,row,ours", [
-    ("reorganizations", OURS_REORG_BAD_LEG, "AAA"),
-    ("stock_mergers", OURS_NULL_ACQUIRER, "CCC"),
-    ("stock_mergers", OURS_EMPTY_ACQUIREE, "CCC"),
-], ids=["reorg-of-ours-bad-leg", "ours-acquiree-null-acquirer", "ours-acquirer-empty-acquiree"])
-@pytest.mark.parametrize("path", PATHS)
-def test_a_malformed_row_that_could_be_ours_refuses(tmp_path, path, key, row, ours):
-    """A null or empty party on a row that also names ours: REFUSED, nothing
-    sent, the refusal naming the row, its present symbols and the rule."""
-    c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
-    assert code == rn.EXIT_REFUSED and c.submits() == []
-    refusal = [r for r in _refusals(state, path) if r["gate"] == "data"]
-    assert len(refusal) == 1 and "UNMEASURED" in refusal[0]["detail"]
-    d = refusal[0]["detail"]
-    assert PARTY_REFUSES in d and repr(row["id"]) in d and f"'{ours}'" in d, refusal
-
-
 # The release-check of 9cf5cf2 (2026-11-01, reproduced by the reviewer's
 # probe): a held fund's own action with its subject symbol null, its CUSIP the
 # fund's, effective on the session date. 9cf5cf2 skipped both as "naming none
@@ -302,24 +284,6 @@ HELD_ACQUIRED_NULL_ACQUIREE = dict(UNRELATED_NULL_ACQUIRER, id="sm-ccc-acquired-
                                    acquiree_symbol=None, acquirer_symbol="XOM",
                                    acquiree_cusip="CCC000000", effective_date=DAY,
                                    process_date=DAY)
-
-
-@pytest.mark.parametrize("key,row,subject", [
-    ("reverse_splits", HELD_SPLIT_NULL_SYMBOL, "symbol"),
-    ("stock_mergers", HELD_ACQUIRED_NULL_ACQUIREE, "acquiree_symbol"),
-], ids=["split-symbol-null", "acquiree-null"])
-@pytest.mark.parametrize("path", PATHS)
-def test_a_malformed_row_whose_subject_is_missing_refuses_the_session(tmp_path, path, key, row,
-                                                                      subject):
-    """The probe's four cases. The subject side is the only one that can show a
-    row is not ours; with it null, the row may be our fund's own action, so
-    under `halt` the session REFUSES, naming the row: nothing sent, nothing
-    skipped. FAILS on 9cf5cf2 (SENT)."""
-    c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
-    assert code == rn.EXIT_REFUSED and c.submits() == [], log
-    data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
-    assert len(data) == 1 and "UNMEASURED" in data[0] and row["id"] in data[0] \
-        and PARTY_REFUSES in data[0] and f"['{subject}']" in data[0], data
 
 
 # The release-check of 04aca24 (2026-11-01, reproduced): a held fund as the
@@ -333,20 +297,106 @@ LEG_NULL_TODAY = {"id": "reorg-leg-null-today", "symbol": "AIMTF", "cusip": "G01
                   "stock_movements": [{"symbol": None, "new_rate": 1, "source_rate": 1}]}
 
 
-@pytest.mark.parametrize("key,row,field", [
+# UNRESOLVED ROWS (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved
+# corporate-action rows)). Each row below has a null or empty party. In a
+# window of one of the gate's names, in the missing role, it blocks, naming the
+# row and the field; outside every window it is recorded only. Every test in
+# this section FAILS on 709d6cb, which refused every such row as UNMEASURED,
+# in or out of a window.
+def _at(row, day):
+    """The row with every date field set to `day`."""
+    return {k: (day if k in ("ex_date", "effective_date", "process_date") else v)
+            for k, v in row.items()}
+
+
+UNRESOLVED_CASES = [
+    ("reverse_splits", HELD_SPLIT_NULL_SYMBOL, "symbol"),
+    ("stock_mergers", HELD_ACQUIRED_NULL_ACQUIREE, "acquiree_symbol"),
     ("stock_mergers", HELD_ACQUIRER_NULL, "acquirer_symbol"),
     ("reorganizations", LEG_NULL_TODAY, "stock_movements[0].symbol"),
-], ids=["held-acquirer-null", "reorg-leg-null"])
+    ("reorganizations", OURS_REORG_BAD_LEG, "stock_movements[0].symbol"),
+    ("stock_mergers", OURS_NULL_ACQUIRER, "acquirer_symbol"),
+    ("stock_mergers", OURS_EMPTY_ACQUIREE, "acquiree_symbol"),
+]
+UNRESOLVED_IDS = ["split-symbol-null", "acquiree-null", "acquirer-null", "outside-reorg-leg-null",
+                  "ours-reorg-leg-null", "ours-acquiree-acquirer-null",
+                  "ours-acquirer-acquiree-empty"]
+
+
+@pytest.mark.parametrize("key,row,field", UNRESOLVED_CASES, ids=UNRESOLVED_IDS)
 @pytest.mark.parametrize("path", PATHS)
-def test_a_null_party_with_every_present_symbol_outside_the_book_refuses(tmp_path, path, key,
-                                                                         row, field):
-    """Nothing present is ours, and still: REFUSED, nothing sent, the refusal
-    naming the row and the missing field. FAILS on 04aca24 (SENT)."""
+def test_an_unresolved_row_in_a_window_refuses_naming_the_row_and_the_field(tmp_path, path, key,
+                                                                          row, field):
+    """Dated the session date: treated as each of the gate's names, the missing
+    party blocks. REFUSED, nothing sent; the refusal is the gate's own
+    (not UNMEASURED), naming the row, the missing field and how to clear it."""
+    row = _at(row, DAY)
     c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
     assert code == rn.EXIT_REFUSED and c.submits() == [], log
     data = [r["detail"] for r in _refusals(state, path) if r["gate"] == "data"]
-    assert len(data) == 1 and PARTY_REFUSES in data[0] and repr(row["id"]) in data[0] \
-        and f"['{field}']" in data[0], data
+    assert len(data) == 1 and "UNMEASURED" not in data[0], data
+    assert f"an UNRESOLVED" in data[0] and f"its {field} is missing" in data[0] \
+        and f"ca-ack --id {row['id']}" in data[0], data
+    (u,) = _ca_record(state, path)["unresolved"]
+    assert u["id"] == row["id"] and u["blocks"] is True
+
+
+@pytest.mark.parametrize("key,row,field", UNRESOLVED_CASES, ids=UNRESOLVED_IDS)
+@pytest.mark.parametrize("path", PATHS)
+def test_an_unresolved_row_outside_every_window_is_recorded_only(tmp_path, path, key, row,
+                                                                 field):
+    """Dated 2023: no name's window holds it, so it blocks for none. The
+    session SENDS, and the row is in the record and one log line."""
+    row = _at(row, "2023-07-20")
+    c, state, log, decide_exit, code = _transmit(tmp_path, path, _feed({key: [row]}))
+    assert code == rn.EXIT_SENT, log
+    ca = _ca_record(state, path)
+    assert ca["status"] == cam.CLEAR and [(u["id"], u["blocks"], u["missing"][0]["field"])
+                                          for u in ca["unresolved"]] == [(row["id"], False, field)]
+    lines = [x for x in log.splitlines() if "UNRESOLVED, recorded only" in x]
+    assert len(lines) == 1 and row["id"] in lines[0] and field in lines[0], log
+
+
+def _real_check(tmp_path, feed, asof, session):
+    """cam.check through the REAL parser, held CCC (CLOSED) and target AAA."""
+    c = RealParserClient(tmp_path / "rc", feed=feed, key_file=_key_file(tmp_path))
+    return cam.check(c.corporate_actions, CLOSED, HELD, ["AAA"], asof, session, cam.HALT,
+                     universe=SPEC["frozen"]["universe"])
+
+
+def test_a_short_window_unresolved_row_halts_one_session_and_then_clears(tmp_path):
+    """The book json's promise, kept: a null acquirer dated the session date
+    blocks that session (its missing acquirer treated as CCC) and not the next.
+    On 709d6cb the read raised in both, and in every later session."""
+    feed = _feed({"stock_mergers": [HELD_ACQUIRER_NULL]})
+    assert _real_check(tmp_path, feed, ASOF, D)["status"] == cam.BLOCKING
+    nxt = _real_check(tmp_path, feed, D, D + dt.timedelta(days=1))
+    assert nxt["status"] == cam.CLEAR and nxt["unresolved"][0]["blocks"] is False
+
+
+def test_the_release_check_probe_an_outside_null_acquirer_never_halts(tmp_path):
+    """The reviewer's probe (2026-11-02): a merger of two outside issuers,
+    acquirer "", effective 2026-12-15, with PDI held since 2026-10-01. Sessions
+    2026-11-04, 2026-12-17 and 2027-01-29 are CLEAR, the row recorded in each
+    (the acquirer's short window never holds 12-15 for them); and `ca-ack`'s
+    own read returns it. On 709d6cb all three raised, and so did that read."""
+    row = {"id": "sm-outside-1", "acquiree_symbol": "ZZZQ", "acquiree_cusip": "1",
+           "acquirer_symbol": "", "acquirer_cusip": "2", "effective_date": "2026-12-15",
+           "process_date": "2026-12-15", "acquirer_rate": 0.5}
+    c = RealParserClient(tmp_path / "p", feed={"stock_mergers": [row]},
+                         key_file=_key_file(tmp_path))
+    closed = [{"id": "o1", "client_order_id": "cef-20261001-PDI-1", "symbol": "PDI",
+               "filled_qty": "100", "submitted_at": "2026-10-01T19:52:00Z"}]
+    for asof, sess in [(dt.date(2026, 11, 3), dt.date(2026, 11, 4)),
+                       (dt.date(2026, 12, 16), dt.date(2026, 12, 17)),
+                       (dt.date(2027, 1, 28), dt.date(2027, 1, 29))]:
+        r = cam.check(c.corporate_actions, closed, {"PDI": 100}, ["PDI"], asof, sess, cam.HALT,
+                      universe=["PDI", "PHK", "MHD"])
+        assert r["status"] == cam.CLEAR, sess
+        assert [(u["id"], u["blocks"]) for u in r["unresolved"]] == [("sm-outside-1", False)]
+    ev = c.corporate_actions(["PDI"], dt.date(2026, 9, 1), dt.date(2028, 12, 1),
+                             universe=["PDI", "PHK", "MHD"], skipped=[], rows={})
+    assert [e["id"] for e in ev] == ["sm-outside-1"]
 
 
 # ------------------------------- one id, one event (release-check of 9630322)
@@ -382,12 +432,15 @@ ACKED_AT = "2026-09-29T13:05:00+00:00"
 
 
 def _acks_text(ids, book="cef", reason="backfilled: the action predates the holding",
-               rows=None):
+               rows=None, types=None):
     """ca_acks.json as the CLI writes it. Each entry's `row` is the feed row
     acknowledged: `rows[id]`, else the backfill's own row for its id, else a
-    synthetic row for an id the feed does not list."""
+    synthetic row for an id the feed does not list; `event.type` is the type
+    it was listed as (`types[id]`, else the known ids' own, else name_change)."""
     rows = {"nc-ccc-backfill": BACKFILL_NC, **(rows or {})}
+    types = {"nc-ccc-backfill": "name_change", "rs-ccc-acked": "reverse_split", **(types or {})}
     return json.dumps({"acks": [{"id": i, "reason": reason, "acked_utc": ACKED_AT, "book": book,
+                                 "event": {"type": types.get(i, "name_change")},
                                  "row": rows.get(i, {"id": i})} for i in ids]})
 
 
@@ -448,13 +501,17 @@ def test_an_ack_clears_that_id_only_and_any_other_action_still_halts(tmp_path, p
     (json.dumps({"acks": [{"id": "nc-ccc-backfill", "acked_utc": ACKED_AT, "book": "cef",
                            "row": BACKFILL_NC}]}), "reason None"),
     (json.dumps({"acks": [{"id": "nc-ccc-backfill", "reason": "r", "acked_utc": ACKED_AT,
-                           "book": "cef"}]}), "row None is not the feed row"),
+                           "book": "cef", "event": {"type": "name_change"}}]}),
+     "row None is not the feed row"),
+    (json.dumps({"acks": [{"id": "nc-ccc-backfill", "reason": "r", "acked_utc": ACKED_AT,
+                           "book": "cef", "row": BACKFILL_NC}]}),
+     "does not say the action type acknowledged"),
     (_acks_text(["nc-ccc-backfill"], book="other"), "book 'other'"),
     (_acks_text(["x", "x"]), "acknowledged twice"),
     (json.dumps([]), "expected"),
     ("", "JSONDecodeError"),
-], ids=["not-json", "no-reason", "no-row", "other-book", "duplicate", "not-an-object",
-        "empty-file"])
+], ids=["not-json", "no-reason", "no-row", "no-event-type", "other-book", "duplicate",
+        "not-an-object", "empty-file"])
 @pytest.mark.parametrize("path", PATHS)
 def test_an_unreadable_ack_file_refuses_even_with_nothing_blocking(tmp_path, path, text, why):
     """Ruling B: a file that cannot be read is never read as empty. With a feed
@@ -667,3 +724,96 @@ def test_the_cli_refuses_an_id_the_feed_lists_with_differing_rows(tmp_path, monk
     assert _ack(c, "--id", "nc-ccc-backfill", "--reason", REASON) == rn.EXIT_REFUSED
     assert "differing or no row(s)" in capsys.readouterr().out
     assert not (state / cam.ACKS_FILE).exists()
+
+
+# ---------------------------- unresolved rows: cleared by ca-ack, on full content
+#
+# docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows):
+# the team lead clears an unresolved row with ca-ack, matched on its full raw
+# content, and a revision halts again; a null id is keyed by the row's hash.
+# Every test below FAILS on 709d6cb, whose read (the gate's and ca-ack's)
+# raised on any such row.
+
+def test_ca_ack_clears_an_unresolved_row_and_a_revision_halts_again(tmp_path, monkeypatch,
+                                                                    capsys):
+    """A held-window split with its symbol null blocks every session (long
+    window, the missing subject treated as CCC). ca-ack clears it by its id and
+    the next session sends; Alpaca then revises the row (the ratio), and the
+    session after refuses, naming the change."""
+    feed = _feed({"reverse_splits": [HELD_SPLIT_NULL_SYMBOL]})
+    c, deps, state = _refused_session(tmp_path, monkeypatch, feed)
+    assert _ack(c, "--id", "rs-ccc-null-symbol", "--reason", "checked: not one of ours") == 0
+    printed = capsys.readouterr().out
+    assert "ACKNOWLEDGED rs-ccc-null-symbol: reverse_split" in printed
+    (entry,) = json.loads((state / cam.ACKS_FILE).read_text())["acks"]
+    assert entry["row"] == HELD_SPLIT_NULL_SYMBOL
+    assert entry["event"]["missing"] == [{"field": "symbol", "role": "subject"}]
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    ca = json.loads((state / DAY / "plan.json").read_text())["corporate_actions"]
+    assert {a["id"] for a in ca["acknowledged"]} == {"rs-ccc-null-symbol"}
+    c.feed = _feed({"reverse_splits": [dict(HELD_SPLIT_NULL_SYMBOL, old_rate=4)]})
+    shutil.rmtree(state / DAY)
+    c.accepted.clear()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert any("old_rate: 2 -> 4" in d for d in _refusal_details(state))
+
+
+def test_an_unresolved_row_with_a_null_id_is_ackable_by_its_hash(tmp_path, monkeypatch,
+                                                                 capsys):
+    """A null id AND a null symbol: the refusal names the row's hash key, and
+    ca-ack with that key clears it; the next session sends. A revised row is a
+    new key, so it halts again, unacknowledged."""
+    row = dict(HELD_SPLIT_NULL_SYMBOL, id=None)
+    key = al.ca_row_key(row)
+    c, deps, state = _refused_session(tmp_path, monkeypatch,
+                                      _feed({"reverse_splits": [row]}))
+    assert any(f"ca-ack --id {key}" in d for d in _refusal_details(state))
+    assert _ack(c, "--id", key, "--reason", "checked by hand") == 0
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    revised = dict(row, old_rate=4)
+    c.feed = _feed({"reverse_splits": [revised]})
+    shutil.rmtree(state / DAY)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
+    assert any(al.ca_row_key(revised) in d for d in _refusal_details(state))
+
+
+def test_a_type_change_after_an_ack_reblocks_in_check(tmp_path):
+    """The raw row carries no type (it is the list Alpaca put the row in), so
+    a row moved from forward_splits to reverse_splits is unchanged byte for
+    byte. The acknowledgement names the type; another type re-blocks. (The
+    reviewer's probe, 2026-11-02.) On 709d6cb it cleared either type."""
+    row = dict(RS_ACKED)
+    acks = cam.parse_acks(json.loads(_acks_text(["rs-ccc-acked"], rows={"rs-ccc-acked": row},
+                                                types={"rs-ccc-acked": "forward_split"})), "cef")
+    c = RealParserClient(tmp_path / "t", feed=_feed({"forward_splits": [row]}),
+                         key_file=_key_file(tmp_path))
+    same = cam.check(c.corporate_actions, CLOSED, HELD, ["AAA"], ASOF, D, cam.HALT,
+                     universe=SPEC["frozen"]["universe"], acks=acks)
+    assert same["status"] == cam.CLEAR and [a["id"] for a in same["acknowledged"]] == [
+        "rs-ccc-acked"]
+    c.feed = _feed({"reverse_splits": [row]})
+    moved = cam.check(c.corporate_actions, CLOSED, HELD, ["AAA"], ASOF, D, cam.HALT,
+                      universe=SPEC["frozen"]["universe"], acks=acks)
+    assert moved["status"] == cam.BLOCKING
+    assert [b["ack_mismatch"]["changed"] for b in moved["blocking"]] == [
+        {"type": ["forward_split", "reverse_split"]}]
+    assert "type: 'forward_split' -> 'reverse_split'" in cam.refusal_text(moved)
+
+
+def test_ca_ack_treats_a_type_change_as_a_revision(tmp_path, monkeypatch, capsys):
+    """ca-ack refuses an unchanged re-acknowledgement, but the same raw row
+    under another type is a revision: it is re-acknowledged (the old entry kept
+    as `supersedes`) and the next session sends. On 709d6cb it refused it as
+    unchanged, and the gate had cleared it anyway."""
+    c, deps, state = _refused_session(tmp_path, monkeypatch,
+                                      _feed({"forward_splits": [dict(RS_ACKED)]}))
+    assert _ack(c, "--id", "rs-ccc-acked", "--reason", "first") == 0
+    assert _ack(c, "--id", "rs-ccc-acked", "--reason", "again") == rn.EXIT_REFUSED
+    assert "row and type are unchanged" in capsys.readouterr().out
+    c.feed = _feed({"reverse_splits": [dict(RS_ACKED)]})
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED            # the type re-blocks
+    assert _ack(c, "--id", "rs-ccc-acked", "--reason", "re-judged as a reverse split") == 0
+    (entry,) = json.loads((state / cam.ACKS_FILE).read_text())["acks"]
+    assert entry["event"]["type"] == "reverse_split"
+    assert entry["supersedes"]["event"]["type"] == "forward_split"
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT

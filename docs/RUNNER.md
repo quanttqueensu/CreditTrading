@@ -384,46 +384,48 @@ records (2026-10-29). A reorganization leg with no ticker but a CUSIP names
 nobody. On twelve months of the real feed, 29 reorganizations carried such legs,
 and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc).
 
-**A malformed row.** The team lead's ruling of 2026-10-29 is in `docs/SYSTEM.md`
-§5, in its 2026-10-29 rows (recorded at f2ba460): "skip it, and record it, unless
-it could concern one of our funds; refuse only then". Before it, any malformed
-row in the market refused every session under `halt`. As applied since the
-release-check of 04aca24 (2026-11-01, reproduced):
+**A malformed row.** Two rulings apply. The first is `docs/SYSTEM.md` §5,
+team lead 2026-10-29: "skip it, and record it, unless it could concern one of
+our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows), which governs a row with a missing party.
 
-- **A null or empty party symbol refuses.** This covers any required symbol
-  field, of any type and any role: a split's or dividend's own symbol, an
-  acquiree, an acquirer, a unit split's old, new or alternate, a spin-off's
-  source or new, a name change's old or new, and a reorganization's own symbol.
-  It also covers a reorganization leg with no ticker and no CUSIP. The read
-  fails, naming the row and the missing field, whatever else the row names.
-  That party could be one of our funds, and nothing on the live path knows our
-  CUSIPs, so it cannot be shown not to be ours. The reviewer measured the cost:
-  0 of 945 rows (`data_quality=all`, 2026-07-31..2026-10-29) had a null required
-  symbol.
-- **Skipped and recorded, and nothing else is.** This applies only to a row
-  whose every party symbol is present, none of them in the book's universe,
-  while a non-party required field is malformed: its id is not a non-empty
-  string, or its date field or `process_date` is absent or not YYYY-MM-DD. It
-  goes in `corporate_actions.skipped_malformed` in plan.json, send.json and the
-  run record, with its id, type, the malformed fields and their values, the
-  symbols and CUSIPs present, and its dates. One log line names the id and the
-  field. The same fault on a row naming a fund of the universe refuses.
-- **Not malformed, as before.** Two optional party fields name nobody when
-  empty, as the reference documents: a reverse split's `new_symbol`, which is
-  empty when the ticker does not change, and a cash merger's `acquirer_symbol`.
-  A reorganization leg with no ticker but a CUSIP also names nobody, the
-  measured exception above. A required field that is absent, a symbol that is
-  not a string, or a row that is not an object still fails the read for any
-  issuer.
+- **An UNRESOLVED row: a party symbol null or empty.** This covers any required
+  symbol field of any type and role, and a reorganization leg with no ticker
+  and no CUSIP. The reader returns such a row, with its id, its raw row and the
+  missing fields named, and does not raise on it. The gate treats the missing
+  party as each of its names in turn (held, and targeted), in the missing
+  role, on its usual short and long windows.
+  - If that would block for one of them, the session refuses, naming the row
+    and the field (`an UNRESOLVED ... its <field> is missing ...`).
+  - Otherwise the row is recorded only, under `corporate_actions.unresolved`
+    with one log line.
 
-*Corrected 2026-11-01, twice, each correction reproduced by a release-check.*
-- The first build skipped a malformed row whenever no symbol present was ours.
-  A held fund's own split with a null symbol was therefore skipped, and the
-  session sent (9cf5cf2).
-- The second build skipped whenever the subject side was present and not ours.
-  A stock merger with a null acquirer and an outside acquiree was skipped, and
-  the session sent for a held acquirer on its merger date (04aca24). That case
-  was described as an accepted limit. It was never ruled one.
+  A short-window case, such as a missing acquirer or allocated leg, halts one
+  session and then clears. A long-window case, such as a missing subject on a
+  held name, halts until the team lead acknowledges it with `ca-ack`, matched
+  on its full raw content and its type. When the id is null too, the key is a
+  hash of the raw row (`row-sha256:...`). A row naming ours with a null id
+  still refuses, and so does an unresolved row whose dates cannot be read.
+- **Skipped and recorded.** This applies to a row whose every party symbol is
+  present, none in the book's universe, with a non-party field malformed: its
+  id, its date field or `process_date`. It goes in
+  `corporate_actions.skipped_malformed` in plan.json, send.json and the run
+  record, with one log line. The same fault on a row naming a fund of the
+  universe refuses.
+- **Not malformed.** Two optional party fields name nobody when empty, as the
+  reference documents: a reverse split's `new_symbol` and a cash merger's
+  `acquirer_symbol`. A reorganization leg with no ticker but a CUSIP also names
+  nobody, the measured exception above. A required field that is absent, a
+  symbol that is not a string, or a row that is not an object still fails the
+  read.
+
+*History, each step reproduced by a release-check.*
+- 9cf5cf2 skipped a malformed row when no symbol present was ours, so a held
+  fund's split with a null symbol was skipped and sent.
+- 04aca24 skipped it when the subject was present and not ours, so a null
+  acquirer was skipped and sent for a held acquirer.
+- 709d6cb refused every such row, on a brief that was never a ruling. One
+  outside row, of any date, then halted the book indefinitely, and `ca-ack`
+  could not clear it.
 
 **One id, one event** (release-check of 9630322, 2026-10-30, reproduced). Rows
 naming ours are de-duplicated by id, because a page boundary can repeat a row.
@@ -512,10 +514,13 @@ backfilled name change, redemption, worthless removal or partial call: these
 carry only a process date, so a backfill is judged as if it had just happened,
 and no trade may be able to clear it. `python3 -m quantt.session ca-ack --book
 cef --id <id> --reason "..."` checks the id in the feed, read-only, and writes
-`<state>/ca_acks.json` atomically, with the feed row exactly as listed. It is
-the only writer. The gate clears that id only, and only while the feed's row
-for it still equals the acknowledged row in every field: type, dates,
-parties, ratio and the rest. Any other action, a new one on the same fund
+`<state>/ca_acks.json` atomically, with the feed row exactly as listed and its
+type. It is the only writer. The gate clears that id only, and only while the
+feed's row for it still equals the acknowledged row in every field (dates,
+parties, ratio and the rest) and its type is the acknowledged type. The raw row
+carries no type, so the type is checked on its own (release-check of 709d6cb,
+2026-11-02). An unresolved row is acknowledged by its id, or by its
+`row-sha256:` key when its id is null. Any other action, a new one on the same fund
 included, still halts. So does a revised row under the same id: its record
 carries `ack_mismatch`, and the refusal names each changed field, so it needs
 a new acknowledgement. *Added 2026-11-01 (release-check of 9cf5cf2): the

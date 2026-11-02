@@ -2019,9 +2019,12 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
     tests a fake; otherwise `AlpacaClient.from_environment`, keys from
     QUANTT_ENV_FILE, never printed).
 
-    The entry keeps the feed row exactly as listed (`row`): the gate clears the
-    id only while the feed's row still equals it (corp_actions.py,
-    ACKNOWLEDGEMENTS).
+    The entry keeps the feed row exactly as listed (`row`) and its type
+    (`event.type`): the gate clears the id only while the feed's row still
+    equals it and its type is unchanged (corp_actions.py, ACKNOWLEDGEMENTS).
+    An UNRESOLVED row (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows)) is acknowledged the same way, by its id or,
+    when its id is null too, by the `row-sha256:` key the refusal names; the
+    read never raises on such a row, so this works on it.
 
     Refuses (exit 11 REFUSED, the file untouched) unless: the id is one token
     and the reason one non-empty line; the file, if there, parses
@@ -2074,14 +2077,16 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
         # gate halts on it again) replaces the old entry, which is kept inside
         # the new one as `supersedes`, so this stays the file's only writer.
         old = known.get(aid)
-        if old is not None and old["row"] == seen_rows[0]:
+        if old is not None and old["row"] == seen_rows[0] and old["event"]["type"] == e["type"]:
+            # A changed TYPE is a revision too: the raw row carries none (it is
+            # which list Alpaca put the row in), so the row alone cannot show it.
             raise SessionError(f"{aid} is already acknowledged, at {old['acked_utc']}, and its "
-                               f"row is unchanged: {old['reason']}")
+                               f"row and type are unchanged: {old['reason']}")
         existing = [x for x in existing if x.get("id") != aid]
         stamp = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
         entry = {"id": aid, "reason": reason, "acked_utc": stamp.isoformat(), "book": book.name,
                  "event": {k: e[k] for k in ("type", "date", "date_field", "process_date",
-                                             "parties")},
+                                             "parties", "missing", "row_id") if k in e},
                  "row": seen_rows[0],     # as Alpaca listed it: the gate compares it
                  "feed_window": [qs, qe], "from_record": str(src.relative_to(state))}
         if old is not None:

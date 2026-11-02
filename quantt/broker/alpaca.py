@@ -68,6 +68,8 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import hashlib
+import json
 import math
 import os
 import re
@@ -1294,51 +1296,58 @@ class AlpacaClient:
         raised and the whole read failed, which under `halt` refuses every
         session.
 
-        MALFORMED ROWS. The team lead's ruling of 2026-10-29 (docs/SYSTEM.md §5,
-        the 2026-10-29 rows; recorded at f2ba460): "skip it, and record it,
-        unless it could concern one of our funds; refuse only then". As
-        applied since the release-check of 04aca24 (2026-11-01, reproduced):
-          * A NULL OR EMPTY PARTY SYMBOL REFUSES. A row with any required
-            symbol field present but null or "" (a split's or dividend's own
-            symbol, an acquiree, an acquirer, a unit split's old, new or
-            alternate, a spin-off's source or new, a name change's old or new,
-            a reorganization's own symbol) or a reorganization leg whose symbol
-            is null or "" with no CUSIP raises, naming the row and the missing
-            field, whoever else it names. That party could be one of our
-            funds: nothing on the live path knows their CUSIPs, so it cannot be
-            shown not to be ours. Under `halt` the session refuses. The
-            reviewer measured the cost: 0 of 945 rows (data_quality=all,
-            2026-07-31..2026-10-29) had a null required symbol.
-          * SKIPPED AND RECORDED, only with `skipped` (a list) and `universe`
-            (the book's symbols; the two go together): a row whose every party
-            symbol is present, none of them in `universe` or `symbols`, while a
-            NON-party required field is malformed (its id not a non-empty
-            string, or its date field or process_date absent or not
-            YYYY-MM-DD). It is appended to `skipped` (id, type, the malformed
-            fields and their values, the symbols and CUSIPs present, the
-            dates). The gate puts that list in plan.json, the run record and
-            one log line per row (corp_actions.check, `lines`). Never silent.
-            The same fault on a row naming a fund of the universe raises: it
-            concerns one of ours. Without `skipped`, a row naming none of
-            `symbols` is not read further, as before the ruling.
-          * Unchanged, and not "malformed": the two OPTIONAL party fields the
-            reference documents, a reverse split's new_symbol ("Empty when the
-            reverse split does not change the ticker") and a cash merger's
-            acquirer_symbol, name nobody when absent, null or "". So does a
-            reorganization leg with no ticker but a CUSIP (ONE MEASURED
-            EXCEPTION above).
-        HOW IT GOT HERE (both reproduced by release-checks, 2026-11-01). The
-        first build skipped a malformed row whenever no PRESENT symbol was ours,
-        so a held fund's own split with its symbol null was skipped and sent
-        (9cf5cf2). The second skipped whenever the subject side was present and
-        not ours, so a stock merger with the acquirer null and an outside
-        acquiree was skipped and sent for a held acquirer on its merger date
-        (04aca24). That case was never ruled an acceptable limit.
+        UNRESOLVED ROWS (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved
+        corporate-action rows); it supersedes the brief applied at 709d6cb,
+        which refused every such row and was never a ruling). A row whose
+        required party symbol is present but null or "" (a split's or
+        dividend's own symbol, an acquiree, an acquirer, a unit split's old,
+        new or alternate, a spin-off's source or new, a name change's old or
+        new, a reorganization's own symbol), or a reorganization leg with no
+        ticker and no CUSIP, is an UNRESOLVED event. With `skipped` (the
+        recording caller) it is RETURNED, never raised on: its usual fields,
+        `missing` (each missing field and its role), `row_id` (the id as sent),
+        and `id`, which is that id or, when the id is null too, `ca_row_key`
+        (a hash of the raw row) so that the team lead can still acknowledge
+        it. It is returned whatever it names, because the missing party could
+        be any of our funds. The gate decides what it means
+        (corp_actions.blocking_events, UNRESOLVED ROWS): it blocks exactly when
+        a well-formed row of the same type and dates would block for one of
+        the gate's names in the missing role, and is otherwise recorded only.
+        It still raises: when its id is null and it names one of `symbols`
+        (ONE ID, ONE EVENT), and when its date field or process_date is not
+        YYYY-MM-DD, since then the windows cannot be applied. Without
+        `skipped`, such a row raises, as before the ruling. Why not refuse
+        every such row (709d6cb): one in the market, anywhere and of any date,
+        then refused every session for good, and `ca-ack`, which reads the
+        same way, could not clear it (release-check of 709d6cb, 2026-11-02,
+        reproduced).
+        SKIPPED AND RECORDED (team lead 2026-10-29, docs/SYSTEM.md §5: "skip it,
+        and record it, unless it could concern one of our funds"), only with
+        `skipped` and `universe` (the book's symbols; the two go together): a
+        row whose every party symbol is present, none of them in `universe` or
+        `symbols`, while a NON-party required field is malformed (its id not a
+        non-empty string, or its date field or process_date absent or not
+        YYYY-MM-DD). It is appended to `skipped` (id, type, the malformed fields
+        and their values, the symbols and CUSIPs present, the dates); the gate
+        records it in plan.json, the run record and one log line. The same
+        fault on a row naming a fund of the universe raises. Without
+        `skipped`, a row naming none of `symbols` is not read further.
+        NOT UNRESOLVED: the two OPTIONAL party fields the reference documents,
+        a reverse split's new_symbol ("Empty when the reverse split does not
+        change the ticker") and a cash merger's acquirer_symbol, name nobody
+        when absent, null or ""; so does a reorganization leg with no ticker
+        but a CUSIP (ONE MEASURED EXCEPTION above).
+        HISTORY (each reproduced by a release-check). 9cf5cf2 skipped a
+        malformed row when no PRESENT symbol was ours, so a held fund's split
+        with its symbol null was skipped and sent. 04aca24 skipped it when the
+        subject side was present and not ours, so a null acquirer was skipped
+        and sent for a held acquirer. 709d6cb refused every such row, so one
+        outside row halted the book indefinitely.
         Identification is by SYMBOL only. The ruling also names a CUSIP or a
         name "if Alpaca provides it". The rows do carry CUSIPs, but the live
         path holds no CUSIP for any fund in the universe, so none can be
-        compared, which is why a null party refuses. A skipped row's CUSIPs are
-        recorded for a person to read. The reference's schemas
+        compared, which is why a missing party is treated as possibly any of
+        ours. A skipped row's CUSIPs are recorded for a person to read. The reference's schemas
         (test_alpaca_client.CA_REFERENCE) carry no issuer name. Still raises on any row, ours or not: a row that
         is not an object, a required symbol field ABSENT (a renamed field would
         empty a type for every issuer, ours included), a symbol that is present
@@ -1436,16 +1445,22 @@ class AlpacaClient:
                     where = f"{w} {key}[{i}]"
                     parties, unread = _ca_parties(r, kind, fields, where)
                     if unread:
-                        # MALFORMED ROWS (docstring): a null or empty party
-                        # symbol refuses, whoever else the row names.
+                        # UNRESOLVED ROWS (docstring; team lead 2026-11-02):
+                        # returned, never raised on, when the caller records.
                         if skipped is None:
                             raise UnexpectedResponse(unread[0]["error"])
-                        raise UnexpectedResponse(
-                            f"{unread[0]['error']}; row id {r.get('id')!r} ({kind}), party "
-                            f"field(s) {[u['field'] for u in unread]} null or empty, present "
-                            f"{[list(x) for x in parties]}: a party with no symbol could be "
-                            f"one of our funds (no CUSIP for them on the live path), so the "
-                            f"row is not skipped")
+                        ev = _ca_unresolved(r, kind, date_field, unread, parties, wanted, where)
+                        if raw_rows is not None:
+                            raw_rows.setdefault(ev["id"], []).append(copy.deepcopy(r))
+                        if ev["id"] in seen:
+                            if seen[ev["id"]] != ev:
+                                raise UnexpectedResponse(
+                                    f"{where}: id {ev['id']!r} repeats with a different event: "
+                                    f"{seen[ev['id']]} and {ev}; which is true cannot be told")
+                            continue
+                        seen[ev["id"]] = ev
+                        out.append(ev)
+                        continue
                     if not any(s in wanted for s, _ in parties):
                         if skipped is not None:
                             bad = _ca_nonparty_faults(r, date_field)
@@ -1597,6 +1612,53 @@ def _ca_parties(r, kind: str, fields, where: str) -> tuple[list[tuple[str, str]]
                     raise UnexpectedResponse(why)
                 out.append((sym, "allocated"))
     return out, unread
+
+
+UNRESOLVED_KEY_PREFIX = "row-sha256:"
+
+
+def ca_row_key(r: dict) -> str:
+    """The key an unresolved row with no usable id is acknowledged by: the
+    SHA-256 of its raw content, canonical JSON (sorted keys, no spaces).
+    Any change to the row is a different key, so an acknowledgement of it
+    cannot outlive a revision."""
+    blob = json.dumps(r, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return UNRESOLVED_KEY_PREFIX + hashlib.sha256(blob.encode()).hexdigest()
+
+
+def _ca_unresolved(r: dict, kind: str, date_field: str, unread: list, parties, wanted,
+                   where: str) -> dict:
+    """The event for a row with a null or empty party symbol (UNRESOLVED ROWS):
+    the usual fields, plus `missing` (each missing field and its role) and
+    `row_id` (the id as sent). `id` is that id when it is a non-empty string,
+    else `ca_row_key` of the row, so that it can still be acknowledged. Raises
+    when it cannot be judged: a null id on a row that names one of `symbols`
+    (ONE ID, ONE EVENT, as before), or a date that is absent or not YYYY-MM-DD
+    (without its dates the windows cannot be applied to it)."""
+    rid = r.get("id")
+    if not (isinstance(rid, str) and rid.strip()):
+        named = sorted({s for s, _ in parties if s in wanted})
+        if named:
+            raise UnexpectedResponse(
+                f"{where}: a {kind} naming {[list(p) for p in parties]} has id {rid!r}, not a "
+                f"non-empty string; rows naming ours are told apart by id, so the read fails "
+                f"rather than drop one")
+        key = ca_row_key(r)
+    else:
+        key = rid
+    dates = {}
+    for f in (date_field, "process_date"):
+        v = r.get(f)
+        if not (isinstance(v, str) and _DATE_RE.match(v)):
+            raise UnexpectedResponse(
+                f"{where}: an unresolved {kind} (row id {rid!r}, "
+                f"{[u['field'] for u in unread]} missing) has {f} {v!r}, not YYYY-MM-DD; "
+                f"without its dates it cannot be judged against the windows")
+        dates[f] = dt.date.fromisoformat(v)
+    return {"id": key, "type": kind, "date": dates[date_field], "date_field": date_field,
+            "process_date": dates["process_date"], "parties": [[s, role] for s, role in parties],
+            "missing": [{"field": u["field"], "role": u["role"]} for u in unread],
+            "row_id": rid}
 
 
 def _ca_nonparty_faults(r: dict, date_field: str) -> dict:
