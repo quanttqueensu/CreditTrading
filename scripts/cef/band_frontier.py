@@ -258,7 +258,7 @@ def _unshortable_mask(unshortable, T):
     return unshortable.reindex(columns=T.columns, fill_value=False).to_numpy(dtype=bool)
 
 
-def band_gross_capped(T, b, cap, unshortable=None):
+def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False):
     """`band()` with the frozen `max_gross_stress` ceiling applied to the HELD
     book after the band, exactly where the sleeve applies it (added 2026-09-28).
 
@@ -290,6 +290,27 @@ def band_gross_capped(T, b, cap, unshortable=None):
     so it cannot open a short either. Nothing here re-neutralises the book: a
     blocked short leaves it net long by that weight, which is what the runner
     does today (R13 of the IBKR note) and the beta the comparison must show.
+
+    `defer_flips` (added 2026-11-02 for
+    `results/backtests/turnover-live-2026-11-02/`, a zero-trial report): False,
+    the default, is the code path above, unchanged: sha256 of the held book's
+    values+index+columns on the panel of 2026-10-14, before and after the edit,
+    173f767e...2432 with the v7 ceiling and 2c205883...70cc with cap=inf (equal
+    to band(T, BAND_WIDTH)). True models the live runner's
+    deferred flip, `quantt/session/decide.py` with `FLIP_SAME_SESSION =
+    False`: when the book decided today would hold a name on the OTHER side of
+    zero from what it held yesterday (long -> short or short -> long), only the
+    closing leg is sent, so the name is held FLAT for this session; the next
+    session sees flat and the band opens from there (to the same edge, A - b
+    toward zero, if the target is still outside the band; not at all if it is
+    not). It is applied LAST, after the band, the unshortable floor and the
+    ceiling, because decide.py runs on the sleeve's output (band, then
+    `_cap_gross`), and it does not rescale the other names: decide.py sends
+    them as the sleeve sized them, so a deferred flip leaves the book's gross
+    below the ceiling for that session. decide.py tests the flip in SHARES
+    (`cur != 0 and tgt != 0` with opposite signs); in weight space that is
+    `prev * cur < 0`. A target that truncates to zero shares is a close, not a
+    flip, and ends flat either way, so the two agree on what is held.
     """
     from src.deploy.sleeves.cef_discount import _cap_gross
     A, cur = T.values, np.zeros(T.shape[1])
@@ -308,6 +329,10 @@ def band_gross_capped(T, b, cap, unshortable=None):
         if np.isfinite(cap):
             w, _ = _cap_gross(pd.Series(cur, index=cols), cap)
             cur = w.values
+        if defer_flips:
+            # decide.py: a long<->short flip sends only the closing leg today
+            cur = cur.copy()
+            cur[(prev * cur) < 0] = 0.0
         H[i] = cur
     return pd.DataFrame(H, index=T.index, columns=T.columns)
 
