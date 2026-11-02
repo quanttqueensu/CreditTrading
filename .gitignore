@@ -15,6 +15,11 @@ config/.env.*
 *.pyc
 .pytest_cache/
 results/**/_cache_*
+# The live attribution's cache (scripts/cef/live_attribution.py fetch): the cef
+# paper account's FILL activities and EOD equity series. This repository is
+# public; account fills are never committed (docs/REFERENCES.md §12an keeps the
+# series of record outside the repository for the same reason).
+results/cef/live_attribution/_cache/
 .ipynb_checkpoints/
 *.log
 
