@@ -49,7 +49,8 @@ measured to go wrong.
                       sum(taxable w)|. It buys risk and breadth, not return --
                       the paired return difference is statistically zero on
                       every window measured. `ng/05_research_group_neutrality.md`
-                      (GN-N2, CEF trial 55).
+                      (GN-N2: the nextgen branch's shadow "CEF trial 55", not
+                      this repository's trial 55; see `_group_cap`).
 
   `max_gross_stress`  The vol scalar targets 6% of volatility; nothing targets
                       MARGIN, and margin is what this account is actually short
@@ -106,6 +107,58 @@ impl_core.py). The unit book here IS that `w`, untouched. ABSENT (or null) the
 code below is today's, byte for byte (quantt/session/tests/test_sizing_multiplier_noop.py
 pins it against 35b429f's code; src/deploy/tests/test_sizing_multiplier.py tests
 what the key does).
+
+ONE MORE VALUE OF `below_min_names`, "trade_eligible", WITH `below_min_names_floor`
+(CEF trial 55, "te4", results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md,
+approved by the team lead 2026-11-03, PAPER ONLY). On a session with fewer than
+`min_names` eligible funds but at least the floor, and no NAV holds, the book is
+built on the eligible funds with THIS sleeve's own construction instead of being
+closed: the same demean and normalise, the same vol scalar on those funds' own
+trailing 63 sessions, the band, the gross ceiling and m, all unchanged. Below the
+floor every name is FLAT, today's rule. The harness version, which this must
+equal, is `band_frontier.band_gross_capped(below_min_names="trade_eligible",
+floor=)` on `build_targets(min_names=floor)`; the floor is derived there (one
+name is 0/0, two carry only a sign, three force a side onto one fund).
+
+  WHY PAPER ONLY, AND WHY THE SLEEVE ENFORCES IT. The rule was chosen because
+  paper is scored on gross P&L with no borrow (D19/D20); net of measured 2023+
+  borrow it LOSES to flatten (the pre-registration's §2.3). It is not shown to
+  be alpha. So `target_positions` refuses to decide under the key unless the
+  sleeve was built with `account="paper"` AND the runner passed
+  `extras["thin_rule"]`, saying whether K0 (the account's drawdown record) or
+  gate 7 (a short-open dropped as not shortable) stops the reduced build. A
+  runner that knows nothing of the rule therefore gets a refusal, not a trade
+  (§1.2: a runner revived from a tag, or written for another broker, would
+  never reach a check that lived only in run.py). CONSTRUCTION CHECKS ONLY THE
+  VALUE of `account` (None or exactly "paper"): the runner's `spec_panel`,
+  `ops/common.py::deployed_tickers` and `quantt/session/combine.py` build this
+  class every session without deciding, and must keep working with the key set.
+
+  WHAT IS DELIBERATELY NOT CHANGED. With any NAV hold present the reduced build
+  never runs, and today's `min_names` block runs as it is, tag included (§10
+  Q10: the runner's missing-NAV refusal keys on that tag). The min-weight
+  re-neutralisation still needs `min_names` survivors (Q12), so a reduced set is
+  never re-neutralised: a name under `min_abs_weight` is flattened at the
+  output and leaves a residual under that weight. A data shortfall still
+  flattens (`strict` is set only by `panel_source` and "hold"). The one new
+  refusal: on the reduced path a non-finite weight (every eligible z equal, so
+  0/0) RAISES, naming the date and the names; a full session is untouched
+  (PR #33 §5.H's silent hold is the owner's open question there).
+
+  THE RECORD. Under the key, and only under it, every target carries
+  `meta["cef_thin"]` = {eligible, n, min_names, floor, holds, reduced,
+  stopped_by}: `reduced` is True exactly when the reduced build produced these
+  targets (the trial's unit of evidence, §4.2, read as a structured field and
+  never parsed from a reason), and `stopped_by` names K0 or gate 7 only where a
+  stop removed a build that would otherwise have run. Reduced targets' reasons
+  also say "reduced-set n=<n>/<min_names>". (The pre-registration's draft
+  called the record `cef_reduced_set`; `cef_thin` is a superset of it.)
+
+  ABSENT, "flatten" or "hold": byte for byte today's targets, meta included,
+  proved on every real-panel decision date, flat and held books, against
+  ac15d09's code (results/cef/te4_impl/sleeve_noop_diff.py; the commit
+  message). `src/deploy/tests/test_below_min_names_trade_eligible.py` tests
+  what the key does, the refusals, and the harness equality on the real panel.
 """
 from __future__ import annotations
 
@@ -332,6 +385,14 @@ def _nav_hold(market_state, last: pd.Timestamp, universe) -> dict:
 # fell short of `min_names` eligible names (release-check of 6d42f4f, 2026-10-29).
 SHORT_OF_MIN_NAMES = "cef_short_of_min_names"
 
+# The structured record every target carries under `below_min_names =
+# "trade_eligible"` (CEF trial 55; module docstring, THE RECORD), and only then.
+THIN_META = "cef_thin"
+# What may stop a reduced build that would otherwise run (`extras["thin_rule"]`):
+# K0, the account's drawdown record reading anything but OK (pre-registration
+# §6.3), and gate 7, a short-open dropped as not shortable (§7.5).
+THIN_STOPS = ("K0", "gate7")
+
 
 def _hold_requested(market_state) -> bool:
     """True when the runner passed holds (a non-empty `extras["nav_hold"]["names"]`).
@@ -412,15 +473,29 @@ class CEFDiscountSleeve(Sleeve):
 
     alloc_type = "cef_discount"
 
-    def __init__(self, spec: dict, capital_usd: float):
+    def __init__(self, spec: dict, capital_usd: float, *, account=None):
         """Parses the four optional C4 keys at construction (absent: nothing to
         parse, and nothing else happens). Tests and tools build this class
         without the registry; a malformed key must refuse there too, and on
-        every day rather than on the first day its branch is reached."""
+        every day rather than on the first day its branch is reached.
+
+        `account` (CEF trial 55, PAPER ONLY): None, or exactly the string
+        "paper", the caller's declaration that the account this sleeve decides
+        for is a paper account. Anything else raises here. Only its VALUE is
+        checked at construction, whatever the spec says: three callers build
+        this class every session without deciding (module docstring), so the
+        refusal of `below_min_names = "trade_eligible"` without the declaration
+        is in `target_positions`, on every call. Absent, nothing changes."""
         super().__init__(spec, capital_usd)
         cef_optional_keys(self.frozen)
         cef_sizing_multiplier(self.frozen)      # a malformed multiplier refuses at construction
         cef_below_min_names_floor(self.frozen)  # and a floor beside the wrong rule (CEF trial 55)
+        if account is not None and not (type(account) is str and account == "paper"):
+            raise ValueError(
+                f"cef: account {account!r} must be None or exactly 'paper'. The only "
+                f"declaration this sleeve takes is that its account is paper "
+                f"(below_min_names='trade_eligible' is PAPER ONLY); there is no other value")
+        self._account = account
 
     # ---- config ------------------------------------------------------------
     # Every knob below is REQUIRED in the frozen spec, and a missing one raises
@@ -480,8 +555,13 @@ class CEFDiscountSleeve(Sleeve):
         `band_width` was activated. The no-op is PROVED, not asserted:
         `src/deploy/tests/test_group_cap.py::test_absent_and_null_are_byte_identical`.
 
-        Adopted from GN-N2 (`ng/05_research_group_neutrality.md`), CEF trial 55,
-        already spent. What it buys is measured and is NOT a return improvement:
+        Adopted from GN-N2 (`ng/05_research_group_neutrality.md`), already
+        spent. The nextgen branch numbered GN-N2 "CEF trial 55"; the team lead
+        ruled on 2026-09-28 that the counter on `main` is authoritative and the
+        nextgen trials (53-56) were shadow research (docs/RESEARCH_STATE.md, the
+        CEF 48 -> 50 note). CEF trial 55 in this repository is te4, the
+        thin-session rule `below_min_names = "trade_eligible"` (relabelled
+        2026-11-03). What it buys is measured and is NOT a return improvement:
         the paired daily return difference against the uncapped band is
         statistically zero on every window (traded -0.71 %/yr, NW t -1.06). It
         buys lower vol (5.56% vs 6.57%), lower turnover (25.9 vs 28.8), lower
@@ -526,9 +606,52 @@ class CEFDiscountSleeve(Sleeve):
 
     @property
     def _below_min_names(self) -> str:
-        """"flatten" (ABSENT: today's rule) or "hold" (trial C4's). See the
+        """"flatten" (ABSENT: today's rule), "hold" (trial C4's) or
+        "trade_eligible" (CEF trial 55, paper only; `_thin_rule`). See the
         `min_names` block in `target_positions`; parsed in the registry."""
         return cef_below_min_names(self.frozen)
+
+    def _thin_rule(self, market_state) -> "dict | None":
+        """{"floor", "stop"} under `below_min_names = "trade_eligible"`; None otherwise.
+
+        THE PAPER-ONLY REFUSAL, ON EVERY CALL (pre-registration §1.2, §10 Q14).
+        Under the key this raises, naming it, unless the sleeve was built with
+        `account="paper"` and the runner passed `extras["thin_rule"]` =
+        {"stop": None | {"by": "K0" | "gate7", "why": <non-empty str>}}. The
+        extra is required even when nothing stops the build: a runner that
+        does not pass it has not measured K0, and a reduced build on an
+        unmeasured account drawdown is the case K0 exists to stop (§6.3:
+        UNMEASURED flattens). Any other shape raises rather than be read as
+        "no stop". Under any other rule the extra is not read at all, so the
+        key-absent path cannot depend on it."""
+        if self._below_min_names != "trade_eligible":
+            return None
+        floor = cef_below_min_names_floor(self.frozen)
+        if self._account != "paper":
+            raise ValueError(
+                f"cef: below_min_names='trade_eligible' is PAPER ONLY (CEF trial 55) and this "
+                f"sleeve was built with account={self._account!r}. The runner declares "
+                f"account='paper' only when its broker client's endpoint is the paper "
+                f"endpoint; nothing decided")
+        extras = getattr(market_state, "extras", None) or {}
+        if "thin_rule" not in extras:
+            raise ValueError(
+                "cef: below_min_names='trade_eligible' needs extras['thin_rule'] = "
+                "{'stop': None | {'by': 'K0'|'gate7', 'why': str}}: the runner must say "
+                "whether K0 or gate 7 stops the reduced build; nothing decided")
+        tr = extras["thin_rule"]
+        well_formed = isinstance(tr, dict) and set(tr) == {"stop"}
+        stop = tr["stop"] if well_formed else None
+        if well_formed and stop is not None:
+            well_formed = (isinstance(stop, dict) and set(stop) == {"by", "why"}
+                           and stop["by"] in THIN_STOPS and isinstance(stop["why"], str)
+                           and bool(stop["why"].strip()))
+        if not well_formed:
+            raise ValueError(
+                f"cef: below_min_names='trade_eligible': extras['thin_rule'] must be "
+                f"{{'stop': None | {{'by': one of {list(THIN_STOPS)}, 'why': non-empty str}}}}, "
+                f"got {tr!r}; nothing decided")
+        return {"floor": floor, "stop": None if stop is None else dict(stop)}
 
     def panel_paths(self) -> tuple[Path, Path]:
         """(prices, nav): the two parquet files this sleeve decides on.
@@ -734,8 +857,34 @@ class CEFDiscountSleeve(Sleeve):
                                      f"decision date {ts.date()}; lookahead")
         return out
 
+    def _thin_record(self, out: list, thin: dict, rec: dict, market_state) -> list:
+        """`out`, each target with `meta["cef_thin"]` (THIN_META): te4's record.
+
+        Called only under `below_min_names = "trade_eligible"` (`target_positions`
+        routes every return through `done`, which is the identity otherwise).
+        `rec` is filled at the `min_names` test; a return before it (no panel, a
+        panel too short to score) records no eligible names and no reduced
+        build. Each target gets its own copy, so no two share a list."""
+        info = {"eligible": [], "n": 0, "min_names": int(self._req("min_names")),
+                "floor": thin["floor"], "holds": _hold_requested(market_state),
+                "reduced": False, "stopped_by": None, **rec}
+        return [dataclasses.replace(t, meta={**t.meta, THIN_META: {
+                    **info, "eligible": list(info["eligible"])}}) for t in out]
+
     # ---- signal ------------------------------------------------------------
     def target_positions(self, asof, market_state: MarketState) -> list[PositionTarget]:
+        # CEF TRIAL 55 (te4). `_thin_rule` runs first, so the paper-only refusal
+        # precedes every read of the panel. Every return below goes through
+        # `done`: the identity unless the key is "trade_eligible", when it adds
+        # te4's record (`_thin_record`). The body stays in THIS function on
+        # purpose: scripts/cef/c4_paper_benchmark.py's Probe reads `w` from this
+        # frame where `min_abs_weight` is read, and refuses any other frame.
+        thin = self._thin_rule(market_state)
+        rec = {}
+        if thin is None:
+            done = lambda out: out                                       # noqa: E731
+        else:
+            done = lambda out: self._thin_record(out, thin, rec, market_state)  # noqa: E731
         panel = self._read_panel(asof)
         uni = self.instruments()
         # A DATA SHORTFALL NEVER FLATTENS A C4-STYLE BOOK (review of 11790b5).
@@ -748,6 +897,8 @@ class CEFDiscountSleeve(Sleeve):
         # on the 13's last 150 sessions with hold on: held PDI +500 / HYT -800
         # came out FLAT "insufficient history". A raise is a missed day, which
         # the runner records. Both keys ABSENT: the FLAT returns below, as ever.
+        # "trade_eligible" does not set `strict` (CEF trial 55, pre-registration
+        # §1.3 item 4): a data shortfall under it flattens, as under "flatten".
         strict = (cef_panel_source(self.frozen) is not None
                   or self._below_min_names == "hold")
         if panel is None:
@@ -762,7 +913,7 @@ class CEFDiscountSleeve(Sleeve):
                 out = _tag_short(out, {"eligible": [], "min_names": int(self._req("min_names")),
                                        "held_out": [], "excluded": {t: "no price/NAV panel"
                                                                     for t in uni}})
-            return out
+            return done(out)
         px, nav, vol, navrows = panel
         if len(px) < self._win + 20:
             if strict:
@@ -777,7 +928,7 @@ class CEFDiscountSleeve(Sleeve):
                 out = _tag_short(out, {"eligible": [], "min_names": int(self._req("min_names")),
                                        "held_out": [], "excluded": {t: "insufficient history"
                                                                     for t in uni}})
-            return out
+            return done(out)
 
         disc = 100.0 * (px - nav) / nav
         no_disc = self._discount_masks(navrows, px, vol, asof)
@@ -877,7 +1028,28 @@ class CEFDiscountSleeve(Sleeve):
                 held_out.append(tk); continue
             row[tk] = float(zi)
 
-        if len(row) < int(self._req("min_names")):
+        # ---- CEF TRIAL 55, te4: THE REDUCED BUILD -----------------------------
+        # Under `below_min_names = "trade_eligible"` (paper only; `_thin_rule`)
+        # a session with floor <= n < min_names eligible names and NO holds does
+        # not enter the block below: it falls through to the construction that
+        # follows, on `row`, unchanged. With any hold present the block runs
+        # exactly as before, tag included (§10 Q10), and below the floor it
+        # flattens, as before. A stop (K0 or gate 7, from the runner) sends a
+        # session that would have built the reduced book into the flatten path,
+        # and only such a session records `stopped_by`. `thin` None (every other
+        # rule): `reduced` is False and nothing here runs.
+        reduced, stop_note = False, ""
+        if thin is not None:
+            could = (len(row) < int(self._req("min_names")) and not hold
+                     and len(row) >= thin["floor"])
+            stop = thin["stop"]
+            reduced = could and stop is None
+            if could and stop is not None:
+                stop_note = f" (reduced build stopped by {stop['by']}: {stop['why']})"
+            rec.update(eligible=sorted(row), n=len(row), holds=bool(hold), reduced=reduced,
+                       stopped_by=stop["by"] if (could and stop is not None) else None)
+
+        if len(row) < int(self._req("min_names")) and not reduced:
             # WITH HOLDS, every return in this block is tagged (`_tag_short`,
             # release-check of 6d42f4f): the runner must know that no name was
             # decided on its signal. Without holds `tag` is the identity, so the
@@ -927,29 +1099,42 @@ class CEFDiscountSleeve(Sleeve):
                 if held_out:
                     why += f"; NAV unverified for {sorted(held_out)}"
                 order_type = str(self._req("order_type")).upper()
-                return tag([_held_target(t, market_state, why, order_type) for t in uni])
+                return done(tag([_held_target(t, market_state, why, order_type) for t in uni]))
             if not hold:
-                return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                       reason=f"cef: only {len(row)} eligible names")
-                        for t in uni]
+                return done([PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                            reason=f"cef: only {len(row)} eligible names{stop_note}")
+                             for t in uni])
             order_type = str(self._req("order_type")).upper()
             if len(row) + len(held_out) >= int(self._req("min_names")):
                 # Short of min_names only because of the gate's holds: the whole
                 # book holds for the day. Holds never trigger the flatten (_nav_hold).
                 why = (f"book holds: NAV unverified for {sorted(held_out)} leaves "
                        f"{len(row)} eligible names")
-                return tag([_held_target(t, market_state, why, order_type) for t in uni])
+                return done(tag([_held_target(t, market_state, why, order_type) for t in uni]))
             # Short of min_names without the holds: today's rule for every name
             # but the held ones, which keep their shares.
-            return tag([_held_target(t, market_state, f"NAV unverified: {hold[t]}", order_type)
-                        if t in hold else
-                        PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                       reason=f"cef: only {len(row)} eligible names")
-                        for t in uni])
+            return done(tag([_held_target(t, market_state, f"NAV unverified: {hold[t]}", order_type)
+                             if t in hold else
+                             PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                            reason=f"cef: only {len(row)} eligible names")
+                             for t in uni]))
 
         s = pd.Series(row)
         w = -(s - s.mean())                       # cheap -> long, rich -> short
         w = w / w.abs().sum()
+        if reduced and not np.isfinite(w.to_numpy(dtype=float)).all():
+            # NO SILENT 0/0 ON THE REDUCED PATH (CEF trial 55, pre-registration
+            # §1.3 new piece 1). Every eligible z equal makes z - mean(z) zero
+            # and the weights 0/0 (on 2020-03-18 and 2025-04-07 every eligible z
+            # sat at the -4 clip: band_frontier._check_thin_matches_T). A full session's path is not changed
+            # here (it holds silently; PR #33 §5.H, the owner's question); the
+            # reduced path refuses: a raise is a missed day, which the runner
+            # records, and the book stays as it is in shares.
+            raise ValueError(
+                f"cef: below_min_names='trade_eligible' reduced build on {last.date()} "
+                f"(as of {pd.Timestamp(asof).date()}): the weights on {sorted(row)} are not "
+                f"finite (z {dict(sorted(row.items()))}): every eligible z is equal, so the "
+                f"book is 0/0. Nothing decided")
 
         # constant-risk sizing off the sleeve's own trailing realised vol
         ret = px.pct_change(fill_method=None).where(lambda x: x.abs() < 0.5)
@@ -964,6 +1149,12 @@ class CEFDiscountSleeve(Sleeve):
         # which is exactly the credit beta this book exists to avoid carrying.
         minw = float(self._req("min_abs_weight"))
         keep = w[w.abs() >= minw]
+        # DELIBERATELY `min_names`, NOT the te4 floor (CEF trial 55, §10 Q12):
+        # a reduced set (n < min_names) is therefore never re-neutralised, and
+        # a name under `min_abs_weight` is flattened by the dust filter at the
+        # output, leaving a residual under that weight. Re-neutralising a 3-name
+        # survivor set would recreate the degeneracy the floor excludes, and two
+        # thresholds in one block would be a second rule.
         if len(keep) >= int(self._req("min_names")):
             keep = keep - keep.mean()
             denom = keep.abs().sum()
@@ -991,11 +1182,13 @@ class CEFDiscountSleeve(Sleeve):
         # rather than hidden, and is in the direction that helps (mean traded
         # gross 1.44x -> 1.23x).
         #
-        # ADOPTION, NOT A NEW SEARCH. CEF trial 55 (GN-N2) is already spent on
-        # this operator and this k. What is claimed is risk and breadth, not
-        # return: the paired return difference is statistically zero on every
-        # window, including -1.13 %/yr (t -1.67) on the only window that is out
-        # of sample for k. See results/cef/PREREG_GROUP_CAP_2026-09-16.md.
+        # ADOPTION, NOT A NEW SEARCH. GN-N2 (the nextgen branch's shadow "CEF
+        # trial 55", not this repository's trial 55, te4: see `_group_cap`) is
+        # already spent on this operator and this k. What is claimed is risk
+        # and breadth, not return: the paired return difference is
+        # statistically zero on every window, including -1.13 %/yr (t -1.67) on
+        # the only window that is out of sample for k. See
+        # results/cef/PREREG_GROUP_CAP_2026-09-16.md.
         group_cap = self._group_cap
         gcap_bound = False
         if group_cap is not None:
@@ -1098,18 +1291,18 @@ class CEFDiscountSleeve(Sleeve):
             # day one exactly as it refuses on every other day.
             nav_now = float(extras.get("sleeve_nav", 0.0))
             if nav_now <= 0:
-                return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                       reason="cef: band on but sleeve NAV unknown")
-                        for t in uni]
+                return done([PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                            reason="cef: band on but sleeve NAV unknown")
+                             for t in uni])
         elif band_w is not None:
             nav_now = float((getattr(market_state, "extras", None) or {})
                             .get("sleeve_nav", 0.0))
             if nav_now <= 0:
                 # No denominator, no band. Refusing is correct: sizing the band
                 # off a guessed NAV would move real money on an invented number.
-                return [PositionTarget(instrument=t, side=FLAT, kind=ETF,
-                                       reason="cef: band on but sleeve NAV unknown")
-                        for t in uni]
+                return done([PositionTarget(instrument=t, side=FLAT, kind=ETF,
+                                            reason="cef: band on but sleeve NAV unknown")
+                             for t in uni])
             holds = getattr(market_state, "holdings", None) or {}
             held_w = {}
             # With m set, what the account holds is m x the unit book, so the band
@@ -1183,6 +1376,9 @@ class CEFDiscountSleeve(Sleeve):
         # flag is True, so absent/False reasons are unchanged byte-for-byte.
         if opening:
             cap_tag += " opening-session: full target, band skipped"
+        # te4's reduced build says so in every reason; appended only when it ran.
+        if reduced:
+            cap_tag += f" reduced-set n={len(row)}/{int(self._req('min_names'))}"
 
         out = []
         for tk in uni:
@@ -1263,7 +1459,7 @@ class CEFDiscountSleeve(Sleeve):
                     self._req("order_type")).upper()},
                 reason=f"cef discount z={row.get(tk, float('nan')):+.2f} "
                        f"w={wt_out:+.4f} volscal={scal:.2f}{cap_tag}"))
-        return out
+        return done(out)
 
     # ---- risk --------------------------------------------------------------
     def risk_check(self, ledger_view) -> RiskVerdict:

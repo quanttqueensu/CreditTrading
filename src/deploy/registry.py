@@ -128,7 +128,9 @@ def _validate_static_weights(spec):
 
 CEF_PANEL_SOURCE_KEYS = ("prices", "nav")
 CEF_MASK_KEYS = ("nav_repeat_mask", "zero_volume_mask")
-CEF_BELOW_MIN_NAMES = ("flatten", "hold")       # the first is the default
+# "trade_eligible" (CEF trial 55, te4, PAPER ONLY; results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md)
+# needs `below_min_names_floor` (`cef_below_min_names_floor`) and, in the sleeve, a paper declaration.
+CEF_BELOW_MIN_NAMES = ("flatten", "hold", "trade_eligible")       # the first is the default
 
 
 def cef_panel_source(frozen):
@@ -188,7 +190,9 @@ def cef_mask_flag(frozen, key):
 
 
 def cef_below_min_names(frozen):
-    """`below_min_names`: "flatten" (absent; today's rule) or "hold" (trial C4's)."""
+    """`below_min_names`: "flatten" (absent; today's rule), "hold" (trial C4's) or
+    "trade_eligible" (CEF trial 55's, paper only: build on the eligible names when at
+    least `below_min_names_floor` of them are; `cef_below_min_names_floor`)."""
     if "below_min_names" not in frozen:
         return CEF_BELOW_MIN_NAMES[0]
     v = frozen["below_min_names"]
