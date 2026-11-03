@@ -143,8 +143,17 @@ symbols, lock and CEFConnect use come from its config (`resolve_data_book`,
     2026-07-29..08-11 shape, which cost the holdout -10.87% -- is printed as
     `SPIKE-REVERT` and the run exits 6. The panel is still written whole, as
     for exit 4: the fetch records what Yahoo served, and the exit code is the
-    verdict a C4 session must refuse on. Exit 4 (INCOMPLETE) outranks 6, so a
-    caller retrying until the pair is complete still retries.
+    verdict a C4 session must refuse on. AN UNRULED SPIKE OUTRANKS AN INCOMPLETE
+    PAIR: with both, the run exits 6, not 4, and prints both lines (release-check
+    of 8b14298, 2026-11-02). Until then exit 4 outranked 6, and C4's book sets
+    `data.missing_nav = "hold"`, under which gate 5 treats exit 4 at the final
+    check as expected (quantt/session/gate.py missing_nav_hold): on any day one
+    C4 NAV was late, the session decided and sent on a panel still holding the
+    unruled bar, and nothing in the runner reads the SPIKE-REVERT line. Exit 6 is
+    refused at every check. A caller still retries: a refused session is not a
+    FAIL, and the next slot re-runs the refresh; the collector reads an exit 6
+    whose output names INCOMPLETE_TAG as an unfinished step, not a done one. The
+    core runs no spike guard, so its exits are what they always were.
 """
 from __future__ import annotations
 
@@ -201,6 +210,10 @@ EXIT_REFUSED = 2
 # C4 only (DATA BOOKS, THE SPIKE GUARD): the panel was written, and a split-like
 # spike-and-revert bar in the fetched window has no ruling.
 EXIT_SPIKE = 6
+# The INCOMPLETE line's prefix. quantt/collect reads it from an exit 6's output to
+# tell "spike, pair complete" (its step done) from "spike, pair incomplete" (not
+# done, retried), since exit 6 now outranks exit 4 (THE SPIKE GUARD, above).
+INCOMPLETE_TAG = "INCOMPLETE for"
 
 
 class DataBook:
@@ -737,15 +750,19 @@ def _refresh_locked(period, require_asof, nav_fallback, book, cfg: DataBook | No
         print(f"  SPIKE-REVERT (data book {cfg.name}; the panel is written, the bar is not "
               f"to be traded until ruled): {spike}")
     if incomplete:
-        print(f"  INCOMPLETE for {pd.Timestamp(require_asof).date()} on "
+        print(f"  {INCOMPLETE_TAG} {pd.Timestamp(require_asof).date()} on "
               f"{len(incomplete)} deployed name(s): " + "; ".join(incomplete))
-        return 4
-    if require_asof is not None:
+    elif require_asof is not None:
         print(f"  today's pair complete: every deployed name has a close and a "
               f"NAV dated {pd.Timestamp(require_asof).date()}")
     if spike is not None:
+        # AN UNRULED SPIKE OUTRANKS AN INCOMPLETE PAIR (module docstring, THE SPIKE
+        # GUARD; release-check of 8b14298): exit 4 is what C4's missing-NAV hold
+        # accepts at the final check, so 4 here would trade the unruled bar on any
+        # day a NAV is late. Only a data book with the guard on reaches this line;
+        # the core's `spike` is always None, so its exits below are unchanged.
         return EXIT_SPIKE
-    return 0
+    return 4 if incomplete else 0
 
 
 def main(argv=None) -> int:

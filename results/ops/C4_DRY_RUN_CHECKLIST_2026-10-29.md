@@ -171,7 +171,10 @@ Expected on each day:
 
 - `data.log`: the first night's `fetch_daily --data-book c4` exits 0, or 6 (`SPIKE-REVERT`, an
   unruled split-like bar). If IGR's four bars come back from Yahoo, the standing rule needs a new
-  ruling; until then gate 5 refuses every C4 session.
+  ruling; until then gate 5 refuses every C4 session, **including a day a NAV is also late**:
+  exit 6 outranks the INCOMPLETE exit 4 since the release-check of 8b14298 (before it, a late NAV
+  turned the 6 into a 4, which the missing-NAV hold accepts at the final check, and C4 decided on
+  the unruled bar). The collector then records the spike flag and leaves `prices_nav` unfinished.
 - **After the first fetch, compare the replaced rows with the seed.** The fetch replaces every
   seeded row in its six-month window with Yahoo's. Look hardest at IGR (1:3 reverse split,
   2026-09-08) and the split-ruled BTO, TYG, NXG and EMO. The spike guard catches a spike that

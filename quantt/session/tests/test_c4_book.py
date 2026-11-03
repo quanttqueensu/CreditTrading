@@ -388,3 +388,104 @@ def test_c4_verify_scores_distributions_against_its_own_panel(monkeypatch, tmp_p
     assert seen["panel"] == rn.REPO / "data" / "cef_c4" / "cef_distributions.parquet"
     vf.run_distributions(object(), tmp_path, dt.date(2026, 9, 28), book="cef")
     assert seen["panel"] == dist_score.DEFAULT_PANEL
+
+
+# ------------------------------------- release-check of 8b14298: an unruled spike outranks the hold
+#
+# The REAL fetch_daily, on test_fetch_daily_books' C4 fixture (its `c4` fixture, imported
+# below), gives the refresh's verdict: IGR's unruled spike-and-revert bar in the window and
+# EVT's NAV for D (2026-09-29) late. The session then decides C4 at the FINAL CHECK of
+# 2026-09-30 (as-of D) on test_c4_book's generated 74, with EVT's as-of NAV missing too:
+# the same facts. Under data.missing_nav = "hold", gate 5 accepts an exit 4 there (EVT
+# held, the rest decide), so before the fix (fetch_daily exited 4 over 6) C4 decided and
+# would have sent on the unruled bar. Nothing in the runner reads the SPIKE-REVERT line.
+
+from scripts.cef.tests.test_fetch_daily_books import c4  # noqa: E402,F401  (the fetch fixture)
+
+SPIKE_ASOF = dt.date(2026, 9, 29)                           # test_fetch_daily_books.D
+SPIKE_SESSION = "2026-09-30"
+
+
+def _fetch_verdict(c4_fetch, spike: bool):
+    """(exit, output) of the real fetch_daily --data-book c4 --require-asof D on its fixture,
+    EVT's NAV for D absent, and IGR's spike in the window when `spike`."""
+    from scripts.cef.tests import test_fetch_daily_books as tf
+    P, N = tf.c4_panels()
+    f = tf.spike_frames() if spike else tf.c4_frames()
+    del f["XEVTX"]
+    rc, out, *_ = c4_fetch(tf.ASOF, P, N, f)
+    return rc, out
+
+
+def _final_check_with_evt_late(tmp_path, monkeypatch, refresh_exit, refresh_tail):
+    """C4's session at the final check of SPIKE_SESSION, built by default_deps from its book
+    json on the generated 74 (ending SPIKE_ASOF) with EVT's as-of NAV removed. Returns
+    (exit, plan.json)."""
+    import sys
+    from quantt.broker import alpaca
+    from src.deploy.sleeves import cef_discount as cefmod
+    me = sys.modules[__name__]
+    root = tmp_path / "repo"
+    monkeypatch.setattr(me, "ASOF", SPIKE_ASOF)              # the generated panel ends here
+    _write_c4_panel(root / "data" / "cef_c4")
+    nav_path = root / "data" / "cef_c4" / "cef_nav.parquet"
+    nav = pd.read_parquet(nav_path)
+    nav = nav[~((nav["ticker"] == "EVT") & (pd.to_datetime(nav["date"]) == pd.Timestamp(SPIKE_ASOF)))]
+    nav.to_parquet(nav_path)                                 # EVT's NAV for the as-of is late
+    monkeypatch.setattr(cefmod, "REPO", root)
+    for name in ("PX_PATH", "NAV_PATH", "GRP_PATH"):        # the core's panel: absent
+        monkeypatch.setattr(cefmod, name, root / "data/cef" / "absent.parquet")
+    monkeypatch.setitem(rn.DATA_BOOK_DIRS, "c4", root / "data" / "cef_c4")
+    from quantt.session.nav_gate import final_check_at
+    now = final_check_at(dt.date.fromisoformat(SPIKE_SESSION), "16:00") + dt.timedelta(minutes=5)
+    state = tmp_path / "quantt_state" / "c4"
+    state.mkdir(parents=True)
+    # The previous session's record, every NAV dated: the age limit's count starts at 0
+    # (test_missing_nav_hold's fixture), so the hold is decided on this day's facts only.
+    from quantt.session.tests.test_missing_nav_hold import _prior_plan, _write_priors
+    _write_priors(state, {SPIKE_ASOF: _prior_plan(SPIKE_ASOF)})
+    c = _C4Client(state, now)
+    monkeypatch.setattr(alpaca.AlpacaClient, "from_environment",
+                        classmethod(lambda cls, name, **kw: c))
+    spec = _spec()
+    deps = rn.default_deps(_c4(), spec, {"QUANTT_ENV_FILE": "unused"})
+    assert deps.missing_nav == "hold"
+    deps.env = {"QUANTT_STATE_DIR": str(state), "DRY_RUN": "1"}
+    deps.refresh = lambda a, t: rn.RefreshResult(exit=refresh_exit, tail=refresh_tail)
+    deps.halts = lambda: []
+    deps.utcnow = lambda: now.astimezone(dt.timezone.utc)
+    deps.out = type("Quiet", (), {"write": lambda self, s: None, "flush": lambda self: None})()
+    code = rn.run_session(_c4(), spec, deps)
+    plan = json.loads((state / SPIKE_SESSION / "plan.json").read_text())
+    assert c.submits() == []
+    return code, plan
+
+
+def test_at_the_final_check_an_unruled_spike_refuses_c4_even_with_a_late_nav(
+        c4, tmp_path, monkeypatch):
+    """The defect: a late NAV must not let an unruled spike through the missing-NAV hold.
+    fetch_daily now exits 6 over its INCOMPLETE, and gate 5 refuses 6 at every check: the
+    final-check decide is REFUSED, a `data` refusal naming the exit. Fails on 8b14298 (the
+    fetch exited 4, EVT was held and C4 decided)."""
+    rc, out = _fetch_verdict(c4, spike=True)
+    assert "SPIKE-REVERT" in out and "INCOMPLETE for" in out, out
+    monkeypatch.undo()                                       # the fetch fixture's patches end here
+    code, plan = _final_check_with_evt_late(tmp_path / "s", monkeypatch, rc, out)
+    assert code == rn.EXIT_REFUSED and plan["status"] == "refused", plan["refusals"]
+    # Gate 5 exactly as without the key (gate.missing_nav_hold: a refresh failure other than
+    # INCOMPLETE refuses the day): the exit, and EVT's undated NAV, both `data`.
+    assert {r["gate"] for r in plan["refusals"]} == {"data"}, plan["refusals"]
+    assert any("exited 6" in r["detail"] for r in plan["refusals"]), plan["refusals"]
+    assert plan["missing_nav"]["missing"] == {"EVT": "2026-09-28"}
+    assert not plan["missing_nav"]["held"]                    # nothing held: the day is refused
+
+
+def test_at_the_final_check_a_late_nav_alone_is_still_held(c4, tmp_path, monkeypatch):
+    """The control, unchanged by the fix: EVT's NAV late and no spike is the fetch's exit 4,
+    and at the final check gate 5 holds EVT and C4 decides the other 73."""
+    rc, out = _fetch_verdict(c4, spike=False)
+    assert rc == 4 and "SPIKE" not in out, out
+    monkeypatch.undo()
+    code, plan = _final_check_with_evt_late(tmp_path / "s", monkeypatch, rc, out)
+    assert code == rn.EXIT_PLANNED and plan["status"] == "decided", plan["refusals"]
+    assert plan["refusals"] == [] and set(plan["missing_nav"]["held"]) == {"EVT"}

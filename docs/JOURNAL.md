@@ -207,5 +207,6 @@ from a named source; [doc] copied from a named note.
 - The benchmark, re-run on the raised spec: fidelity passes; H11's reference is the ×1.27 book.
 - The core is proved to be 862b1d0's (`test_panels_noop.py`, re-pinned there). Its own three pin files are untouched and pass.
 - **C4's corporate-action `halt`, measured** on a replica of today's three unresolved rows: a flat C4 book is refused only on 11-03 (the JAGX merger); a held one on every session. On every unresolved row in today's read, a flat book would have been refused on 17 of the 23 sessions from 10-01 to 11-02 [U: feed as read today]. **Ruled the same evening: C4's gate runs in REPORT, as the core**, until the ISIN fix and the re-ruling of the unresolved rows land (book json `_mode_report_note`, with the RESTORE line; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`).
+- **Release-check of 8b14298: NO-GO, fixed.** C4's fetch exited 4 (INCOMPLETE) over 6 (unruled spike), and C4's missing-NAV hold accepts 4 at the final check, so on a day with a late NAV C4 would have decided on an unruled spike bar. Now 6 outranks 4 when the spike guard is on, and the collector treats a 6 that names INCOMPLETE as an unfinished step. The core runs no spike guard: its fetch is still proved byte-identical to cee16ad's.
 
 **Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).

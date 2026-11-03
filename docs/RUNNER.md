@@ -413,7 +413,9 @@ until the team lead installs it; the steps are
   CEFConnect is disabled for C4, and the spec's NAV-repeat mask is its defence.
 - **The refresh** is `fetch_daily --data-book c4 --book ops/books/c4_families_book.json`
   under C4's own lock. Its exit 6 (an unruled spike-and-revert bar) is a gate-5
-  refusal.
+  refusal at every check. It outranks the fetch's INCOMPLETE exit 4 (since the
+  release-check of 8b14298), so a late NAV, which the missing-NAV hold accepts at
+  the final check, can no longer let an unruled bar through.
 - **verify** scores distributions against C4's own panel
   (`dist_score.PANELS["c4"]`, `data/cef_c4/cef_distributions.parquet`).
 - **The installer:** `install_vm --book c4 --eod-from YYYY-MM-DD` writes seven
