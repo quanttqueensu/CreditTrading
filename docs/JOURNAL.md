@@ -220,3 +220,11 @@ from a named source; [doc] copied from a named note.
 - CI's `arch` dependency;
 - the paper-fees correction to CLAUDE.md and REFERENCES.md (team lead: not yet);
 - show the team lead the first ×1.13 plan before the 2026-11-03 send.
+
+**Rulings, later on 2026-11-02** (`docs/SYSTEM.md` §5, "autonomy"):
+- **Agents may run releases and arming end to end** when every gate passes. That is now CLAUDE.md rule 1's standing authority.
+- The journal is the only notice.
+- The NAV hedge is closed (UNDERPOWERED).
+- CI gets `requirements-research.txt` (`arch`), so main's tests can go green without touching the VM's environment.
+
+**Found:** CLAUDE.md rule 1's 2026-10-27 exception lets the autonomous research loop trade in the same spare account that C4 will trade in. That account is flat today [V, connector read: $100,000 cash, no positions]. Before C4 is armed, the loop must be confirmed off it (rule 2).
