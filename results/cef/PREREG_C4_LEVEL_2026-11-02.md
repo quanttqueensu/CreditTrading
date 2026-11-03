@@ -14,6 +14,18 @@ Date: 2026-11-02 (finalised the same day)   Counter: **CEF trial 54**   Author: 
 >   P3, then the holdout opened once. Speed comes from running the stages back to back and building the sleeve key
 >   in parallel, never from skipping one.
 > - Files this note calls "in this folder" are in `results/cef/screens_2026-11-02/`.
+>
+> **2026-11-03 (later), K3 OVERRIDDEN POST-DATA by the team lead.**
+> - **K3 (D4) FAILED as committed.** The level-only book's post-2007 alpha is t 2.96 < 3.0, and every |β| ≤ 0.082.
+>   The failure is significance, not factor exposure.
+> - **The team lead overrode it post-data,** asked interactively on 2026-11-03 after seeing the KILL: "revive it and
+>   figure out a way to not kill it". The coordinator had recommended recording the KILL and was overruled.
+> - **This is NOT a pass of K3 and must never be described as one.**
+> - **P1 is lag-fragile.** Its t is 2.8271 at the automatic lag 6 on the residual, as committed, and 2.791 at lag 5 on
+>   the dependent series, against a bar of 2.8245.
+> - **The trial continues under the pre-registered remainder:** P3, then DG-L4, then the 2023–26 holdout opened once.
+>   **The holdout's result is decisive.** The override covers K3 only. A failure at P3, DG-L4 or the holdout is a
+>   KILL.
 
 The team lead chose on 2026-11-02 to take this signal to a pre-registration. The evidence is the zero-trial
 screen `screens_2026-11-02/ALPHA_SLATE.md` §S5 (fit only, yfinance return leg). The design inputs are in

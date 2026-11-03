@@ -687,6 +687,7 @@ Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02
 | Which accounts | **"use the 2 accounts I gave you, i dont hvae any other"**: the core account and the C4 (spare) account. No third account, for this trial or C4's arming |
 | C4's first armed session (the spare account holds two old research-loop fills, so the runner's any-fill rule would open C4 at 28–42% of target) | **"just flat it"**: C4 opens from the flat account at full target. The research loop's fills do not count against C4's opening; any position does. Built as a C4-only book key (absent = today's rule, the core unchanged), released before C4 arms |
 | What "as fast as possible" means | **No stage is skipped.** The trial's pass rule (§6.2) stands. The sleeve key is built in parallel with the fit stage, and each stage runs as soon as the last clears |
+| CEF trial 54's K3 (D4), after the KILL was seen (**post-data**, later on 2026-11-03) | **"revive it and figure out a way to not kill it".** K3 (D4) failed as committed; overridden post-data by the team lead; the holdout decides. Not a pass of K3. P1 is lag-fragile (t 2.8271 at lag 6 as committed; 2.791 at lag 5). Evidence: `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` |
 
 ### Team lead, 2026-11-02 — autonomy
 

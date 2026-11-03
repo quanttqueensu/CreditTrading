@@ -14,6 +14,18 @@ All figures are [V], from `results/cef/prereg_c4_level/trial54.py` (one subcomma
 - CRSP primary returns (C4's fit source);
 - C4's spec `c4_families.v4.20261102` read at run time: m 1.26, cap 1.90, band 0.048.
 
+**2026-11-03 (later), K3 OVERRIDDEN POST-DATA by the team lead.**
+- **K3 (D4) FAILED as committed.** The level-only book's post-2007 alpha is t 2.96 < 3.0, and every |β| ≤ 0.082.
+  The failure is significance, not factor exposure.
+- **The team lead overrode it post-data,** asked interactively on 2026-11-03 after seeing the KILL: "revive it and
+  figure out a way to not kill it". The coordinator had recommended recording the KILL and was overruled.
+- **This is NOT a pass of K3 and must never be described as one.**
+- **P1 is lag-fragile.** Its t is 2.8271 at the automatic lag 6 on the residual, as committed, and 2.791 at lag 5 on
+  the dependent series, against a bar of 2.8245.
+- **The trial continues under the pre-registered remainder:** P3, then DG-L4, then the 2023–26 holdout opened once.
+  **The holdout's result is decisive.** The override covers K3 only. A failure at P3, DG-L4 or the holdout is a
+  KILL.
+
 ## 1. The stages, in order
 
 | stage | rule | result | read |
