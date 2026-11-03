@@ -17,7 +17,7 @@ screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The
 | **what changes** (§1) | One new optional frozen key in C4's spec, `level_signal`. **Absent, C4 is today's book byte for byte.** Present, C4's unit target becomes an equal-risk blend of its z target and a within-family discount-level target, through the same vol scalar, multiplier, band and **the same 1.90 gross cap** |
 | **the split** (§3) | **Half the ex-ante risk on each signal.** Derived from the two-sleeve mean-variance rule on fit inputs (gives 0.515 on z) and rounded to equal risk. Plateau: SR 1.443–1.549 across 0.30–0.70; the derived 0.50 is also the grid's argmax, so nothing was moved toward it |
 | **the shared cap** (§3.3) | Kept at 1.90 (a margin rule, not a tuned parameter). On the fit at ×1.27 the blend's held book sits at the cap on **29.0%** of sessions, against 22.0% for z alone. Turnover falls from 48.9 to **33.2** turns a year (construction properties only; no P&L of the blend computed) |
-| **Gate 0** (§4b) | Survivorship, with dead funds included, run **before approval**. **A team-lead judgment on the result** (ruled 2026-11-02: "keep it flexible and make judgment off results"), recorded **post-data** in `docs/SYSTEM.md` §5. It is evidence, **not a pre-registered gate**. `gate0_analysis.py` reports the ratio with 95% CIs, the sign test, and the verdict under both candidate rules (≥ 0.5, ≥ 0.75) with each one's power and false-alarm rate. Pull 1 (CRSP) was too thin; pull 2 (EDGAR N-CSR) is running |
+| **Gate 0** (§4b) | Survivorship, with dead funds included, run **before approval**. **A team-lead judgment on the result** (ruled 2026-11-02: "keep it flexible and make judgment off results"), recorded **post-data** in `docs/SYSTEM.md` §5. It is evidence, **not a pre-registered gate**. `gate0_analysis.py` reports the ratio with 95% CIs, the sign test, and the verdict under both candidate rules (≥ 0.5, ≥ 0.75) with each one's power and false-alarm rate. Pull 1 (CRSP) was too thin; pull 2 (EDGAR N-CSR) is running **2026-11-03 evidence: b_D/b_A 1.36 (CI 0.80–2.13), sign test 30 of 33, both rules met; coverage 0.642; stress bound 1.03. Recommendation: proceed** |
 | **pass rule** (§6.2) | Fit: the level book's spanning alpha on C4's z book, **NW t ≥ 2.825** (√(2 ln 54)). Also the deflated-Sharpe bars at declared N = 54, NC1, the placebo and D4. Then the 2023–26 holdout's **sign** (the C4 precedent). Net at 15bp is reported (D2 label) **Unchanged by the Gate 0 ruling, and still pre-registered** |
 | **stops** (§6.3) | C4's own kill rule and the trial-53 stops, **rebuilt on the blended book**, plus L1: the level component's modelled 120-session P&L below its fit 5th percentile → revert the key |
 | **revert** (§9) | Delete `level_signal` from C4's spec |
@@ -223,6 +223,60 @@ survives the cap; the account's level of risk does not. That haircut is in §5.
 >   Pre-condition: on `ncsr_calibration.parquet` (up to 40 survivors), the report NAV and the panel NAV agree
 >   within 1% on ≥ 95% of rows. Else HALT. This replaces "one NAV source for everyone", which would need N-CSRs
 >   for about 125 live funds as well.
+
+> **2026-11-03: GATE 0 EVIDENCE (post-data; for the team lead's judgment, NOT a pre-registered pass).** Pull 2 ran
+> 2026-11-03T03:59Z (`ncsr_manifest.json`):
+> - 2,380 filings read: 1,795 NAVs, for 148 of 190 dead candidates;
+> - misses: "CRSP close not found beside a NAV" 516, period outside the fund's life 61, no CRSP close 8;
+> - 36 candidates had no CIK mapped.
+>
+> All figures are [V] from `gate0_analysis.py`, `gate0_missingness.py` and `gate0_stress.py` (their `_output.txt`),
+> fit only.
+>
+> **Coverage.** 0.642 of candidate fund-half-years. That **fails the 80% reference** in the table below, which
+> would have been a HALT for a ruling before 2026-11-02 and is now an input to the judgment. Calibration: the
+> report NAV is within 1% of the panel NAV on 24 of 24 survivor reports.
+>
+> **Is the loss random?**
+> - **At report level, yes.** P(missed) is *lower* near death: 14.1% within 6 months of delisting against 27.8%
+>   beyond 5 years, and 13.3% on the last report. Missed and found reports have the same forward CRSP excess
+>   return (−22bp, t −0.34) and trailing return (t −0.23).
+> - **At fund level, no.** The 42 never-covered funds earned −1,535bp against covered dead funds in their last
+>   year (t −2.70). They are the worst dying funds.
+> - **The stress bound.** Their last two half-years are imputed at the covered dead funds' 5th-percentile
+>   demeaned level (−8.63pp), with their measured returns. b_B/b_A is still **1.031** (1.156 at the 25th
+>   percentile).
+> - **The cheap parser fix recovers little.** Prior-session closes or ±$0.01 recover 79 of 516 reports, about
+>   +1.5% coverage.
+>
+> **The slopes** (primary cells, family × period-end month; bp per pp; half-year-clustered t):
+> - b_A −27.35 (t −4.96), on 1,728 fund-half-years in 65 funds;
+> - **b_D −37.19 (t −6.48)**, on 1,478 in 133 funds;
+> - b_B −32.90 (t −7.55).
+>
+> **The ratios, with two bootstraps:**
+> - **b_D/b_A 1.360**: 95% CI 0.799–2.127 by fund-half-year, 0.946–2.321 by calendar half-year;
+> - **b_B/b_A 1.203**: 0.955–1.542 by fund-half-year, 0.998–1.661 by calendar half-year.
+>
+> **Sign test:** the dead-only slope is negative in **30 of 33** half-years (binomial p < 0.001), and
+> P(b_D ≥ 0) is 0.000.
+>
+> **Both reference rules are MET**, at the point estimate and at the fund-half-year CI's lower bound:
+> - ≥ 0.5: power P(flag | halving) 0.12 at this sample, false alarm 0.00;
+> - ≥ 0.75: power 0.89, false alarm 0.01.
+>
+> **Sensitivities:**
+> - with unclassified names excluded: b_B/b_A 1.134 (CI 0.924–1.439);
+> - on half-year cells: 1.371 (CI 1.083–1.880).
+>
+> **Reading.** The dead funds show the effect at least as strongly as the survivors, so survivorship does not
+> explain it. If anything, the survivor-only fit understates it. **Recommendation: proceed to approval.**
+> The coverage shortfall is real and sits in the worst dying funds, but even an adverse imputation leaves the
+> ratio above 1. Mapping the 36 unmapped names by ruling is the only fix that addresses the fund-level gap; it is
+> optional, and not needed for this judgment.
+>
+> **The team lead's call is to be recorded in `docs/SYSTEM.md` §5, dated and labelled "post-data".** It is not
+> recorded here, and the counter does not move until the approval commit.
 
 **The data gates, after approval** (the C4 trial's own machinery, `require_stage0_rulings` in
 `scripts/cef/data_guards.py`):
