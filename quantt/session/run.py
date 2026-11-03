@@ -851,7 +851,11 @@ def refresh_flags(panel: Panel):
         `--nav-fallback cefconnect` (exit 2; CEFConnect is disabled for C4, team
         lead 2026-10-28), so no fallback flag is passed. Its exit 6 (a
         spike-and-revert bar with no ruling, the panel written) is a non-zero
-        refresh, which gate 5 refuses, as step 3 requires;
+        refresh, which gate 5 refuses at every check, as step 3 requires. That
+        holds on a day a C4 NAV is also late only because exit 6 OUTRANKS the
+        INCOMPLETE exit 4 in fetch_daily (release-check of 8b14298): exit 4 is
+        what C4's missing-NAV hold accepts at the final check, and until that fix
+        a late NAV turned an unruled spike into a held, decided day;
       * any other panel: None, and the book's refresh is refused
         (`book_refresh`), recorded, so a panel nothing refreshes is never
         decided on.

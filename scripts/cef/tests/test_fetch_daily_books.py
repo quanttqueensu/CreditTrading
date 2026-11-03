@@ -485,12 +485,44 @@ def test_c4_writes_a_spike_and_revert_bar_and_exits_6_naming_it(c4):
         "the panel must still be written whole"
 
 
-def test_an_incomplete_pair_outranks_the_spike_exit(c4):
+def test_on_c4_an_unruled_spike_outranks_an_incomplete_pair(c4):
+    """Release-check of 8b14298 (2026-11-02): with IGR's unruled spike in the window AND
+    EVT's NAV for D late, C4's fetch exits 6, not 4, and prints both lines. Exit 4 is what
+    C4's missing-NAV hold accepts at the final check (gate.missing_nav_hold), so the old
+    4-over-6 order (this test asserted rc == 4 until then) let the session decide and send
+    on the unruled bar whenever a NAV was late. The INCOMPLETE line keeps the prefix the
+    collector reads (fd.INCOMPLETE_TAG). Fails on 8b14298."""
     P, N = c4_panels()
     f = spike_frames()
     del f["XEVTX"]
     rc, out, *_ = c4(ASOF, P, N, f)
-    assert rc == 4 and "SPIKE-REVERT" in out and "INCOMPLETE" in out, out
+    assert rc == fd.EXIT_SPIKE == 6, out
+    lines = [x.strip() for x in out.splitlines()]
+    assert any(x.startswith("SPIKE-REVERT") and "IGR" in x for x in lines), out
+    (inc,) = [x for x in lines if x.startswith(fd.INCOMPLETE_TAG)]
+    assert "EVT" in inc, inc
+
+
+def test_on_c4_a_late_nav_with_no_spike_is_still_exit_4(c4):
+    """The order changed only where a spike is found: no spike and EVT's NAV late is still
+    exit 4 (INCOMPLETE), the hold's case."""
+    P, N = c4_panels()
+    f = c4_frames()
+    del f["XEVTX"]
+    rc, out, *_ = c4(ASOF, P, N, f)
+    assert rc == 4 and "SPIKE" not in out and fd.INCOMPLETE_TAG in out, out
+
+
+def test_the_cores_incomplete_exit_is_unchanged_whatever_its_closes_look_like(tmp_path, monkeypatch):
+    """The core (spike_guard off): the same IGR-shaped closes with one NAV for D missing is
+    exit 4 and no SPIKE line, as at cee16ad, whose ordering the core never left (its full
+    no-op proof is test_the_core_is_byte_identical_to_cee16ad_*, run against this code)."""
+    P, N = c4_panels()
+    f = {k: v for k, v in spike_frames().items() if not k.startswith("X")}
+    f.update({f"X{t}X": navs_frame([("2026-09-28", 11.0), (D, 11.1)]) for t in C4_FUNDS
+              if t != "EVT"})
+    rc, out, *_ = run(fd, monkeypatch, tmp_path / "core", ASOF, P, N, f)
+    assert rc == 4 and "SPIKE" not in out and "INCOMPLETE for" in out and "EVT" in out, out
 
 
 def test_the_core_runs_no_spike_guard(tmp_path, monkeypatch):

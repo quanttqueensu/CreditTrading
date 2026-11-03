@@ -234,6 +234,11 @@ CREDENTIAL_KEY = re.compile(r"key|secret|token|password|auth", re.I)
 C4_STEPS = ("prices_nav", "nav_repeats", "official_closes", "close_crosscheck",
             "account_snapshot", "distributions", "borrow_snapshot", "eod_equity")
 FETCH_EXIT_SPIKE = 6                 # scripts/cef/fetch_daily.py EXIT_SPIKE
+# scripts/cef/fetch_daily.py INCOMPLETE_TAG, MIRRORED (this module imports
+# fetch_daily nowhere at module level): since the release-check of 8b14298 an
+# unruled spike OUTRANKS an incomplete pair there, so an exit 6 may carry an
+# INCOMPLETE line. scripts/cef/tests/test_fetch_daily_books.py pins the prefix.
+FETCH_INCOMPLETE_TAG = "INCOMPLETE for"
 BOOKS = {"cef": {"book_path": "ops/books/cef_discount_book.json",
                  "eod_from": dt.date(2026, 9, 28),
                  "steps": STEPS, "data_book": None, "close_universe": "cef_universe.csv",
@@ -422,7 +427,10 @@ def step_prices_nav(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
 
     C4 (module docstring, THE C4 BOOK): `--data-book c4` and no `--book`, and
     exit 6 is a flag naming the spike guard's verdict, with the step done: the
-    panel was written whole and complete, and the verdict is the session's."""
+    panel was written whole and complete, and the verdict is the session's. An
+    exit 6 whose output also names the pair INCOMPLETE (FETCH_INCOMPLETE_TAG;
+    the spike outranks it in fetch_daily since the release-check of 8b14298) is
+    the flag AND a failed step, as an exit 4 is."""
     conf = BOOKS[ctx.book]
     cmd = [sys.executable, "scripts/cef/fetch_daily.py", "--require-asof", day.isoformat()]
     if ctx.book_path is not None:
@@ -438,6 +446,12 @@ def step_prices_nav(ctx: Ctx, day: dt.date, clk: dict, status: dict) -> dict:
                                 "reason": "fetch_daily exited 6: a split-like spike-and-revert "
                                           "bar in the fetched window has no ruling (its tail "
                                           "names it); the panel was written"})
+        # Exit 6 outranks fetch_daily's INCOMPLETE (exit 4) since the release-check of
+        # 8b14298. With the pair incomplete the step is NOT done: it fails as an exit 4
+        # always has, so the day stays INCOMPLETE and is retried, the flag recorded.
+        if any(ln.strip().startswith(FETCH_INCOMPLETE_TAG) for ln in (tail or "").splitlines()):
+            raise StepFailed("fetch_daily exited 6 (an unruled spike) with the pair INCOMPLETE "
+                             "(its tail names the gaps)", detail)
         return detail
     if code != 0:
         raise StepFailed(f"fetch_daily exited {code}", detail)

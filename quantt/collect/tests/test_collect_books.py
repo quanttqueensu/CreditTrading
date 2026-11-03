@@ -217,6 +217,28 @@ def test_c4_spike_exit_is_a_flag_and_the_cross_checks_still_run(tmp_path):
     assert f["check"] == "spike_revert" and s["prices_nav"]["detail"]["exit"] == 6
 
 
+def test_c4_spike_exit_with_the_pair_incomplete_is_a_flag_and_a_failed_step(tmp_path):
+    """fetch_daily's unruled spike outranks its INCOMPLETE since the release-check of 8b14298,
+    so an exit 6 can carry an incomplete pair. Then the step is not done: it fails, as an
+    exit 4 does, and the spike is still flagged. The prefix is fetch_daily's own."""
+    from scripts.cef import fetch_daily as fd
+    assert co.FETCH_INCOMPLETE_TAG == fd.INCOMPLETE_TAG
+
+    class Run(FakeRun):
+        def __call__(self, cmd, timeout_s):
+            code, out = super().__call__(cmd, timeout_s)
+            if Path(cmd[1]).name == "fetch_daily.py":
+                out += f"\n  SPIKE-REVERT (data book c4; ...): IGR\n  {fd.INCOMPLETE_TAG} {D} on 1 " \
+                       f"deployed name(s): EVT (no NAV dated {D})"
+            return code, out
+    env = c4_env(tmp_path)
+    co.collect(c4_ctx(env, run=Run({"fetch_daily.py": 6})))
+    p = status(env[0])["steps"]["prices_nav"]
+    assert not p["ok"] and "INCOMPLETE" in p["err"], p
+    (f,) = p["detail"]["flags"]
+    assert f["check"] == "spike_revert" and p["detail"]["exit"] == 6
+
+
 def test_on_the_core_exit_6_is_still_a_failure(tmp_path):
     state, cef = tmp_path / "state", tmp_path / "cef"
     state.mkdir()
