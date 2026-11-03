@@ -38,8 +38,12 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                portfolio history, the official daily P&L) is compared with the
                frozen spec's risk.halve_drawdown / risk.kill_drawdown and
                recorded in plan.json and the log, with what an `on` mode would
-               do. Nothing that trades reads it (`drawdown.py`; team lead
-               2026-10-19).
+               do. Report mode acts on nothing (`drawdown.py`; team lead
+               2026-10-19). ONE READER RESTRICTS ON IT: under the core spec's
+               `below_min_names = "trade_eligible"` (CEF trial 55, paper only),
+               K0 builds a reduced book only when the status is exactly OK, and
+               otherwise takes today's flatten (CEF TRIAL 55 block below). With
+               that key absent nothing reads it.
   3. decide    the sleeve on the as-of date with the broker's holdings and
                `extras={"sleeve_nav": equity, "opening_session": bool}`, then
                `decide.decide` -> whole-share orders and `plan_sha`.
@@ -921,7 +925,8 @@ def stale_nav_panel(panels: BookPanels, mode: str) -> Path:
 
 
 def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
-                   equity: float, opening: bool, nav_hold: dict | None = None) -> list:
+                   equity: float, opening: bool, nav_hold: dict | None = None, *,
+                   account: str | None = None, thin_rule: dict | None = None) -> list:
     """The strategy's targets, built exactly as RUNNER.md step 3 says: the
     registry's sleeve from the frozen spec at the spec's capital, asked on the
     as-of date with the broker's holdings and the two extras. `nav_hold`
@@ -930,18 +935,28 @@ def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
     unchanged. MarketState's prices are the sleeve's OWN price file
     (`spec_panel`; for the core spec `cefmod.PX_PATH`, as before row 6A); the
     sleeve reads its panel itself and its own guard refuses an absent one named
-    by panel_source (cef_discount._read_panel)."""
+    by panel_source (cef_discount._read_panel).
+
+    `account` and `thin_rule` (CEF trial 55, te4; PAPER ONLY): the sleeve's paper
+    declaration and the `extras["thin_rule"]` it requires under `below_min_names
+    = "trade_eligible"` (cef_discount `_thin_rule`). The runner passes them only
+    when the spec sets that key (`_thin_target_kw`); otherwise both are None and
+    the sleeve is built and asked exactly as before, so the key-absent session is
+    byte-identical (tests/test_trade_eligible_noop.py)."""
     import pandas as pd
     from src.deploy.registry import build_sleeve
     from src.deploy.sleeve import MarketState
     px_path = spec_panel(spec).prices
-    sl = build_sleeve(spec, capital)
+    sl = build_sleeve(spec, capital) if account is None else build_sleeve(spec, capital,
+                                                                           account=account)
     ts = pd.Timestamp(asof)
     prices = pd.read_parquet(px_path)              # MarketState requires it; this sleeve reads its own panel
     prices = prices[pd.to_datetime(prices["date"]) <= ts]
     extras = {"sleeve_nav": equity, "opening_session": opening}
     if nav_hold is not None:
         extras["nav_hold"] = nav_hold
+    if thin_rule is not None:
+        extras["thin_rule"] = thin_rule
     ms = MarketState(asof=ts, prices=prices, holdings=dict(holdings), extras=extras)
     return sl.target_positions(ts, ms)
 
@@ -1510,6 +1525,187 @@ def _drawdown(deps, state: Path, spec: dict, asof: dt.date) -> tuple[dict, list]
                      f"no order changed."]
 
 
+# ---------------------------------------------------------------------------
+# CEF TRIAL 55, "te4": below_min_names = "trade_eligible", PAPER ONLY
+# ---------------------------------------------------------------------------
+#
+# results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md, approved by the team
+# lead 2026-11-03 for paper only. On a session with fewer than `min_names`
+# eligible funds but at least the floor, and no NAV hold, the core sleeve
+# builds its book on the eligible funds instead of closing it (the sleeve's
+# module docstring). The runner's part, every piece of it in the functions
+# below, each with one call line in `run_session`:
+#
+#   * THE PAPER DECLARATION (§1.2, §10 Q14). The sleeve refuses to decide under
+#     the key unless it was built with account="paper" and given
+#     extras["thin_rule"]. The runner declares paper only when its broker
+#     client's trading endpoint is exactly alpaca.PAPER_BASE (`thin_rule_for`).
+#     Today the client cannot be anything else (AlpacaClient refuses another
+#     endpoint), so the check exists for the day a live client is written.
+#   * K0 (§1.3 item 5, §6.3; the owner's term 3). A reduced book is built only
+#     when the decide's drawdown record reads exactly OK. HALVE, KILL,
+#     UNMEASURED, a stale series, a missing status: the stop goes to the sleeve
+#     and the session takes today's flatten path. This is the FIRST ACTING
+#     READER of quantt/session/drawdown.py's status, and it can only restrict:
+#     its one action is today's rule, so no status can size up or unlock a send
+#     (tests/test_trade_eligible_runner.py, the gross pin).
+#   * THE GATE-7 FLATTEN (§7.5, §10 Q7). A reduced decision that loses a
+#     short-opening order to gate 7 (decide's "not shortable today") is
+#     re-decided flat: a 4-5 name book without its short leg is not the book the
+#     trial scored (`_thin_gate7`).
+#   * THE RECORD (§4.2; the owner's answer 6). plan.json and the run record gain
+#     `thin_session` (and `thin_stops`, the K0-K3 report lines) ONLY when the key
+#     is set; every key-absent field is byte-identical
+#     (tests/test_trade_eligible_noop.py, against 0b1a2ef).
+#   * NOT HERE, BY RULING: a short skipped at the late-market SEND (`_send_planned`
+#     is unchanged; team lead, 2026-11-03, "accept it and label it"). The next
+#     decide's `thin_stops.send_skip` reads that session's send.json and records it.
+#
+# With the key ABSENT `thin_rule_for` returns None and nothing below runs.
+
+def _sets_trade_eligible(spec: dict) -> bool:
+    """True when `spec` is a cef_discount spec whose `below_min_names` is
+    "trade_eligible" (the registry's parse; a malformed value raises there)."""
+    from src.deploy.registry import CEF_DISCOUNT_ALLOC_TYPE, cef_below_min_names
+    if (spec.get("allocation") or {}).get("type") != CEF_DISCOUNT_ALLOC_TYPE:
+        return False
+    return cef_below_min_names(spec.get("frozen") or {}) == "trade_eligible"
+
+
+def thin_rule_for(spec: dict, deps) -> dict | None:
+    """The te4 declaration for this session, or None when no spec of the book sets
+    `below_min_names = "trade_eligible"` (today's behaviour: nothing reads the
+    client's endpoint, the drawdown mode or the sleeves for this).
+
+    With the key set it REFUSES, at session start, with a SessionError naming the
+    key, before any sleeve is built:
+      * a combined book (`deps.sleeves`) whose book spec sets it. The rule and its
+        stops were measured on the core's own account; netted with another sleeve
+        it is a book nobody scored. A combined SLEEVE whose own spec sets it is
+        refused by the sleeve at its first decide: the combiner passes no paper
+        declaration (`_sleeve_target_fn`), so the sleeve's own refusal stands;
+      * the book json without `risk.drawdown` (`deps.drawdown` None; the owner's
+        answer 4). K0 reads the drawdown record, and a stop whose input is never
+        measured must not fail open: loud and closed;
+      * a broker client whose `trading_endpoint` is not exactly
+        `alpaca.PAPER_BASE` (§1.2), or that does not say what its endpoint is.
+    Returns {"rule", "account": "paper", "floor", "min_names", "endpoint"}."""
+    from quantt.broker.alpaca import PAPER_BASE
+    from src.deploy.registry import cef_below_min_names_floor
+    key = "frozen.below_min_names = 'trade_eligible' (CEF trial 55, PAPER ONLY)"
+    on = _sets_trade_eligible(spec)
+    if not on:
+        return None
+    if deps.sleeves is not None:
+        raise SessionError(
+            f"{key} is set on a combined book: the rule is built and measured for the core's "
+            f"own account only. Delete the key or the risk_budgets")
+    if deps.drawdown is None:
+        raise SessionError(
+            f"{key} is set but the book json has no risk.drawdown: K0 builds a reduced book "
+            f"only on a drawdown record that reads OK, and without the check there is no "
+            f"record. Set risk.drawdown to 'report' or delete the key")
+    endpoint = getattr(deps.client, "trading_endpoint", None)
+    if endpoint is None:
+        raise SessionError(
+            f"{key} is set and the broker client {type(deps.client).__name__} does not say "
+            f"what its trading endpoint is (no `trading_endpoint`); the runner declares the "
+            f"account paper only on the paper endpoint {PAPER_BASE}")
+    if endpoint != PAPER_BASE:
+        raise SessionError(
+            f"{key} is set and the broker client's trading endpoint is {endpoint!r}, not the "
+            f"paper endpoint {PAPER_BASE!r}. The rule is PAPER ONLY and never applies to a "
+            f"live-money account; nothing decided")
+    frozen = spec["frozen"]
+    return {"rule": "trade_eligible", "account": "paper",
+            "floor": cef_below_min_names_floor(frozen), "min_names": min_names_of(spec),
+            "endpoint": endpoint}
+
+
+def _thin_k0_stop(dd: dict | None) -> dict | None:
+    """K0 (pre-registration §6.3): None when the decide's drawdown record reads
+    exactly "OK", else the stop the sleeve takes ({"by": "K0", "why"}).
+
+    Anything but an exact OK stops the reduced build: HALVE, KILL, UNMEASURED
+    (a missing or stale eod_equity.csv, bad levels, a check that raised in
+    report mode), and any other or missing status. A missing RECORD raises:
+    `thin_rule_for` refused a book without the check, so a missing record here
+    is a runner bug, never "no stop"."""
+    if not isinstance(dd, dict):
+        raise SessionError(f"K0 (CEF trial 55): no drawdown record to read ({dd!r}); "
+                           f"not deciding a reduced book without it")
+    status = dd.get("status")
+    if type(status) is str and status == ddm.OK:
+        return None
+    why = (f"the account's drawdown record reads {status!r} (as-of {dd.get('asof')}"
+           + (f": {dd['why']}" if dd.get("why") else "") + "); K0 builds a reduced book only "
+           "on OK, and its one action is today's flatten")
+    return {"by": "K0", "why": why}
+
+
+def _thin_k0(thin: dict, dd: dict | None) -> dict:
+    """The session's `thin_session` record as K0 leaves it, before the sleeve
+    runs: the rule, the floor, K0's reading and the stop it passes. The sleeve's
+    own answer is added by `_thin_record`; a session refused before the sleeve
+    ran keeps `decided` False and the eligible fields None (not measured)."""
+    stop = _thin_k0_stop(dd)
+    return {"rule": thin["rule"], "floor": thin["floor"], "min_names": thin["min_names"],
+            "decided": False, "eligible": None, "eligible_names": None, "holds": None,
+            "reduced": False, "stopped_by": None,
+            "k0": {"status": dd.get("status"), "asof": dd.get("asof"), "stop": stop}}
+
+
+def _thin_target_kw(thin: dict | None, record: dict, stop: dict | None = None) -> dict:
+    """The sleeve-call keywords for te4: {} when the key is absent, so the call is
+    the one before the key existed. Set: the paper declaration and
+    extras["thin_rule"] with K0's stop, or `stop` when given (gate 7's)."""
+    if thin is None:
+        return {}
+    use = stop if stop is not None else record["thin_session"]["k0"]["stop"]
+    return {"account": thin["account"], "thin_rule": {"stop": None if use is None else dict(use)}}
+
+
+def _thin_record(targets, thin: dict, stop: dict | None) -> dict:
+    """The sleeve's te4 record, read from its targets' `meta["cef_thin"]` (a
+    structured field, never a reason string; §4.2), checked:
+      * every target carries it and every copy is identical, or this raises: a
+        mixed answer is a sleeve bug, as for `_short_of_min_names`;
+      * its floor and min_names are the spec's (`thin`);
+      * a reduced build with a stop passed, or a `stopped_by` that is not the
+        stop passed, raises: the sleeve ignored or invented a stop.
+    Returns the fields `thin_session` takes."""
+    from src.deploy.sleeves.cef_discount import THIN_META
+    infos = [t.meta.get(THIN_META) for t in targets]
+    if not infos or any(not isinstance(i, dict) for i in infos):
+        raise SessionError(f"CEF trial 55: the sleeve returned {len(infos)} targets and not "
+                           f"every one carries meta[{THIN_META!r}]; not deciding on it")
+    if any(i != infos[0] for i in infos):
+        raise SessionError(f"CEF trial 55: the sleeve's meta[{THIN_META!r}] differs between "
+                           f"targets; not deciding on a mixed answer")
+    i = infos[0]
+    if (i["floor"], i["min_names"]) != (thin["floor"], thin["min_names"]):
+        raise SessionError(f"CEF trial 55: the sleeve read floor {i['floor']} / min_names "
+                           f"{i['min_names']}, the spec says {thin['floor']} / "
+                           f"{thin['min_names']}")
+    if stop is not None and i["reduced"]:
+        raise SessionError(f"CEF trial 55: {stop['by']} stopped the reduced build and the "
+                           f"sleeve built it anyway")
+    if i["stopped_by"] is not None and (stop is None or i["stopped_by"] != stop["by"]):
+        raise SessionError(f"CEF trial 55: the sleeve says {i['stopped_by']} stopped the build "
+                           f"and the runner passed {stop!r}")
+    return {"decided": True, "eligible": i["n"], "eligible_names": list(i["eligible"]),
+            "holds": i["holds"], "reduced": i["reduced"], "stopped_by": i["stopped_by"]}
+
+
+def _thin_after_targets(thin: dict | None, record: dict, targets) -> None:
+    """Records the sleeve's te4 answer on `record["thin_session"]`; nothing when
+    the key is absent."""
+    if thin is None:
+        return
+    ts = record["thin_session"]
+    ts.update(_thin_record(targets, thin, ts["k0"]["stop"]))
+
+
 def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_csv):
     """Step 1b, the stale-NAV gate (quantt/session/nav_gate.py). Returns
     (record dict, GateResult or None).
@@ -1739,6 +1935,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             raise SessionError(f"data.missing_nav={deps.missing_nav!r} needs "
                                f"data.missing_nav_max_sessions, a positive int; got "
                                f"{deps.missing_nav_max_sessions!r}")
+        thin = thin_rule_for(spec, deps)     # CEF trial 55 (te4): None unless the spec sets it
         record["spec_id"] = p["spec_id"]
         c = deps.client
         clock = c.clock()
@@ -1934,11 +2131,14 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
 
         # 2b. the drawdown check (quantt/session/drawdown.py). Off unless the
         # book json sets risk.drawdown; in `report` mode it is recorded and
-        # printed, and nothing below reads it.
+        # printed, and nothing below reads it except K0 under CEF trial 55's
+        # key, which can only stop a reduced build (`_thin_k0`).
         if deps.drawdown is not None:
             record["drawdown"], dd_lines = _drawdown(deps, state, spec, asof)
             for line in dd_lines:
                 print(line, file=out)
+        if thin is not None:                 # CEF trial 55 (te4): K0 reads the record just made
+            record["thin_session"] = _thin_k0(thin, record.get("drawdown"))
 
         # 3. decide -- only on data that passed gate 5
         if data_refusals:
@@ -1969,9 +2169,10 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                     time_in_force="day" if late else dec.TIME_IN_FORCE)
             elif hold:
                 targets = deps.targets(asof, pos, equity, opening,
-                                       nav_hold={"asof": asof, "names": hold})
+                                       nav_hold={"asof": asof, "names": hold},
+                                       **_thin_target_kw(thin, record))
             else:
-                targets = deps.targets(asof, pos, equity, opening)
+                targets = deps.targets(asof, pos, equity, opening, **_thin_target_kw(thin, record))
             if gate_res is not None:
                 # The sleeve has read the panel; was it the panel the gate
                 # certified? (PanelGate.still_holds: a fetch between the two.)
@@ -1979,6 +2180,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 if changed:
                     raise SessionError(f"the NAV panel changed between the stale-NAV gate and "
                                        f"the sleeve's read: {changed}; not deciding on it")
+            _thin_after_targets(thin, record, None if deps.sleeves is not None else targets)
             if missing_held:
                 # THE HOLD SHORT OF min_names (release-check of 6d42f4f; the
                 # execution-trader's case, reproduced). With the missing-NAV holds
@@ -2135,6 +2337,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan["combine"] = record["combine"]
         if "missing_nav" in record:          # only when the book sets data.missing_nav
             plan["missing_nav"] = record["missing_nav"]
+        if "thin_session" in record:         # only when the spec sets below_min_names "trade_eligible"
+            plan["thin_session"] = record["thin_session"]
         shown = refusals
         if late:
             # DECIDE phase: dry-run, arming and the clock belong to the SEND phase.
