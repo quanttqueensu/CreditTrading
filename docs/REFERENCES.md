@@ -101,6 +101,7 @@ why `W4_artifact_battery.md` runs before any further trial.
 | **Nasdaq differs materially: MOC until 15:55, LOC until 15:58**, IO until 16:00; cancel/modify frozen from 15:50. **NOII refreshes every 10s from 15:50, every 1s from 15:55**, with no share threshold | Nasdaq Closing Cross FAQ | [V] |
 | NYSE **Closing IO Order** (Rule 7.31(c)(2)(D)) is limit-only, auction-only, and may be entered on **both sides up to 16:00**. **Being amended now** — SR-NYSE-2026-36, implementation by Q1 2027 | RM-24-02; SR-NYSE-2026-36 | [V] |
 | **NYSE Arca's cutoff and imbalance threshold could NOT be verified** — and Arca lists HYG, LQD and SPY. *2026-10-08: SEC Rel. 34-84804 (SR-NYSE-2018-58, 12 Dec 2018) states Arca "initiates its 'Closing Auction Imbalance Freeze' for all MOC and LOC Orders at 3:59 p.m.", citing Arca Rule 7.35-E(d)(2). That is a 2018 secondary statement, not the current rule text* | SEC Rel. 34-84804, https://www.sec.gov/files/rules/sro/nyse/2018/34-84804.pdf | **[U]** current rule; [S] 2018 statement |
+| **Correction 2026-11-02: NYSE Arca's closing freeze is 15:59, confirmed by a 2025 release and NYSE's own timetable.** SEC Rel. 34-103886 (SR-NYSEARCA-2025-67, "Notice of Filing and Immediate Effectiveness"): "Rule 7.35-E(d)(2) provides that the Closing Auction Imbalance Freeze will begin one minute before the scheduled time for the Closing Auction"; from then, MOC/LOC orders on the same side of the imbalance, or that would flip it or create one, are rejected; "Auction Imbalance Information is updated at least every second" (proprietary feed). NYSE's auctions page, NYSE Arca section: "3:00 p.m. Imbalance Publication Begins"; "3:59 p.m. Closing Freeze Period Begins; only offsetting MOC/LOC order accepted. Requests to cancel MOC/LOC orders will be rejected". **Arca's imbalance publication threshold: none found** | 90 FR 43676-43679 (10 Sep 2025), https://www.govinfo.gov/content/pkg/FR-2025-09-10/html/2025-17337.htm (sha256 01f109024fc0…); https://www.nyse.com/trade/auctions (fetched 2026-11-02, sha256 beb93c4672c5…) | [V] both texts as fetched 2026-11-02; [U] the current rulebook text itself (not read) and the threshold. None of it moves our timing: Alpaca rejects `cls` from 15:50 on every venue |
 | **NYSE retains DMM discretion** (7.35B(b)–(c)): may close without a trade, may run the auction manually. Arca and Nasdaq have no equivalent | RM-24-02 | [V] |
 | Closing auctions matched **$55.5bn/day = 9.44% of US notional**, Q2 2024; NYSE-listed share 10.52%. Large indexed names have a *higher* auction share than the broad universe | NYSE Data Insights | [V] |
 | **~3.3% of NYSE auction volume goes unfilled; 6.3% for non-Russell-1000 names** — the category all 17 CEFs are in | NYSE Research Insights, Q1 2026 | [V] |
@@ -373,7 +374,8 @@ prompts that use them:
 
 ### Still open, in priority order
 
-1. **NYSE Arca's closing-auction cutoff and imbalance threshold.** Arca lists
+1. *2026-11-02: the cutoff is now verified (15:59 freeze; §3, the correction row after the Arca row); the imbalance threshold is still open.*
+   **NYSE Arca's closing-auction cutoff and imbalance threshold.** Arca lists
    HYG, LQD and SPY — everything the gamma hedging touches. Attempted again
    2026-09-10: nyse.com's Arca rulebook PDF 404s, and EDGAR full-text search
    returns zero hits for the Rule 7.35-E closing-auction timing language.
