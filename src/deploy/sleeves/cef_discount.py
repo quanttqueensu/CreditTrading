@@ -82,6 +82,30 @@ plan_sha were pinned from the code before the keys existed
 diffed before and after on 1,758 real-panel date-books (the commit message).
 Each key is parsed once, in `src/deploy/registry.py`, and a malformed value
 raises naming it.
+
+ONE MORE OPTIONAL KEY SIZES THE ACCOUNT, NOT THE STRATEGY: `sizing_multiplier`
+(CEF trial 53, results/cef/PREREG_VOLTARGET_2026-10-30.md, approved 2026-11-01).
+The account holds m times the UNIT book, which is the book this spec builds at its
+own `vol_target_annual`, exactly as before. Three things change, and only when
+the key is set:
+
+  * the band compares the unit target with held / m;
+  * `_cap_gross` acts at `max_gross_stress / m` in unit weights, so at
+    `max_gross_stress` x the account's NAV: the same object gate 8 and
+    `fit_to_buying_power` enforce;
+  * every weight target is emitted as m x the unit weight. A band HOLD stays in
+    shares, and the dust filter reads the unit weight.
+
+WHY NOT RAISE `vol_target_annual`. On C4 it would break the fidelity gate
+(scripts/cef/c4_paper_benchmark.py compares this sleeve's `w` at the
+`min_abs_weight` read with the trial's T, and that key is its negative control).
+On the core it would trade a different book from the one the multiplier was
+derived on: the band would become 4.8% of a book m times larger. Measured on the
+fit at m = 1.24, that is 19.2 turns a year against 17.1 (results/cef/prereg_voltarget/
+impl_core.py). The unit book here IS that `w`, untouched. ABSENT (or null) the
+code below is today's, byte for byte (quantt/session/tests/test_sizing_multiplier_noop.py
+pins it against 35b429f's code; src/deploy/tests/test_sizing_multiplier.py tests
+what the key does).
 """
 from __future__ import annotations
 
@@ -93,7 +117,7 @@ import numpy as np
 import pandas as pd
 
 from ..registry import (CEF_MASK_KEYS, cef_below_min_names, cef_mask_flag,
-                        cef_optional_keys, cef_panel_source, register)
+                        cef_optional_keys, cef_panel_source, cef_sizing_multiplier, register)
 from ..sleeve import ETF, FLAT, LONG, OK, SHORT, HALVE, KILL
 from ..sleeve import MarketState, PositionTarget, RiskVerdict, Sleeve
 
@@ -394,6 +418,7 @@ class CEFDiscountSleeve(Sleeve):
         every day rather than on the first day its branch is reached."""
         super().__init__(spec, capital_usd)
         cef_optional_keys(self.frozen)
+        cef_sizing_multiplier(self.frozen)      # a malformed multiplier refuses at construction
 
     # ---- config ------------------------------------------------------------
     # Every knob below is REQUIRED in the frozen spec, and a missing one raises
@@ -481,6 +506,19 @@ class CEFDiscountSleeve(Sleeve):
         return None if v in (None, "") else float(v)
 
     @property
+    def _sizing_multiplier(self) -> "float | None":
+        """m: the account holds m x this spec's unit book. ABSENT (or null) MEANS TODAY.
+
+        Parsed by `registry.cef_sizing_multiplier` (a non-number, a value of zero or
+        below, or a near-miss spelling raises). `_validate_cef_discount` also
+        requires `max_gross_stress` alongside it and keeps 0.06 x m in the sane
+        band. What the sleeve does with it is in the module docstring. The
+        derivation, the value and the REVERT are in the spec's
+        `_sizing_multiplier_note`.
+        """
+        return cef_sizing_multiplier(self.frozen)
+
+    @property
     def _rebal_days(self) -> int:
         return max(1, int(self._req("rebalance_days")))
 
@@ -500,14 +538,13 @@ class CEFDiscountSleeve(Sleeve):
         path is). C4's will name the families panels that plan row 3 builds
         nightly, so the core's `data/cef/` is never written for it.
 
-        NOT YET READ BY THE RUNNER. `quantt/session/run.py` still takes the
-        closes it sizes on, the NAV dates gate 5 checks and the stale-NAV gate's
-        panel from `cefmod.PX_PATH` / `NAV_PATH` (run.py:552, 748-755). Making
-        it read this method is plan row 6A (§2 step 5). Until then a spec whose
-        panel is not the core's would decide on one panel and size on another,
-        so the runner REFUSES it (`quantt/session/run.py::require_core_panel`,
-        called by `sleeve_targets` and `default_deps`). The refusal lives in the
-        runner, not the registry: research and the tests build such specs.
+        READ BY THE RUNNER TOO (plan row 6A, 2026-10-29). `quantt/session/run.py`
+        `spec_panel` calls this method, and the runner takes the closes it sizes
+        on, the NAV dates gate 5 checks, the pre-flight's history and the
+        stale-NAV gate's file from the panel it returns, so a sleeve is decided,
+        sized and gated on one panel (run.py PER-SLEEVE PANELS). Until row 6A
+        the runner read `data/cef/` whatever this returned and refused any
+        other panel (C4 step 1's `require_core_panel`).
         """
         src = cef_panel_source(self.frozen)
         if src is None:
@@ -1047,6 +1084,10 @@ class CEFDiscountSleeve(Sleeve):
         band_w = self._band_width
         band_note = {}
         held_q = {}          # ticker -> signed held qty, for the HOLD targets below
+        # SIZING MULTIPLIER (module docstring). None is today's code: every line
+        # that reads `m_size` below takes its unchanged branch, and the band's
+        # denominator `nav_unit` is then `nav_now` itself.
+        m_size = self._sizing_multiplier
         if band_w is not None and opening:
             # The book is flat (checked above), so there is no HOLD to express
             # and `held_q` stays empty; `w` passes through untouched. The NAV
@@ -1069,13 +1110,16 @@ class CEFDiscountSleeve(Sleeve):
                         for t in uni]
             holds = getattr(market_state, "holdings", None) or {}
             held_w = {}
+            # With m set, what the account holds is m x the unit book, so the band
+            # reads it back in unit weights: held / (nav x m).
+            nav_unit = nav_now if m_size is None else nav_now * m_size
             for tk in uni:
                 if tk in hold:          # fixed shares: never banded (_nav_hold)
                     continue
                 q = float(holds.get(tk, 0.0) or 0.0)
                 pr = float(px[tk].iloc[-1]) if tk in px.columns else float("nan")
                 if q and np.isfinite(pr) and pr > 0:
-                    held_w[tk] = q * pr / nav_now
+                    held_w[tk] = q * pr / nav_unit
                     held_q[tk] = q
             banded = {}
             for tk in set(w.index) | set(held_w):
@@ -1113,7 +1157,9 @@ class CEFDiscountSleeve(Sleeve):
         gross_cap = self._max_gross_stress
         gross_scal = 1.0
         if gross_cap is not None:
-            w, gross_scal = _cap_gross(w, gross_cap)
+            # In unit weights the account's cap is cap / m: m x the capped unit book
+            # is then at most `max_gross_stress` x the account's NAV.
+            w, gross_scal = _cap_gross(w, gross_cap if m_size is None else gross_cap / m_size)
             if gross_scal != 1.0:
                 band_note = {tk: "trade" for tk in band_note}
 
@@ -1127,6 +1173,10 @@ class CEFDiscountSleeve(Sleeve):
             cap_tag += f" gmax={gross_cap:.4f}"
             if gross_scal != 1.0:
                 cap_tag += f"*x{gross_scal:.4f}"
+        # The multiplier is named in every reason when it changes the book; at
+        # exactly 1.0 (and absent) the reasons are today's.
+        if m_size is not None and m_size != 1.0:
+            cap_tag += f" smult={m_size:.4f}"
         # Opening-session targets say so in the log. Appended only when the
         # flag is True, so absent/False reasons are unchanged byte-for-byte.
         if opening:
@@ -1197,9 +1247,10 @@ class CEFDiscountSleeve(Sleeve):
                 out.append(PositionTarget(instrument=tk, side=FLAT, kind=ETF,
                                           reason=f"cef: {why}{cap_tag}"))
                 continue
+            wt_out = wt if m_size is None else wt * m_size     # the account's weight
             out.append(PositionTarget(
                 instrument=tk, side=LONG if wt > 0 else SHORT, kind=ETF,
-                weight=wt,
+                weight=wt_out,
                 # The signal is only computable after the close (the fund's NAV
                 # does not exist until then), so this sleeve necessarily decides
                 # in the evening. A plain market order would then rest overnight
@@ -1209,7 +1260,7 @@ class CEFDiscountSleeve(Sleeve):
                 meta={"order_type": str(
                     self._req("order_type")).upper()},
                 reason=f"cef discount z={row.get(tk, float('nan')):+.2f} "
-                       f"w={wt:+.4f} volscal={scal:.2f}{cap_tag}"))
+                       f"w={wt_out:+.4f} volscal={scal:.2f}{cap_tag}"))
         return out
 
     # ---- risk --------------------------------------------------------------

@@ -140,3 +140,21 @@ def test_the_books_are_exactly_the_two_the_team_lead_kept():
 def test_the_cef_universe_comes_from_the_frozen_spec():
     spec = json.loads(ap.BOOK_SPECS["cef"].read_text())
     assert ap.universe("cef") == list(spec["frozen"]["universe"])
+
+
+def test_c4_is_read_only_when_named_and_never_by_default(monkeypatch, capsys):
+    """C4 (dark) is an opt-in book: `--book c4` reads its own account with its
+    own keys, from its own spec's universe; the default `all` is still the two
+    books, so the routine probe and ops.orient are unchanged."""
+    assert set(ap.OPT_IN_BOOK_SPECS) == {"c4"} and not set(ap.OPT_IN_BOOK_SPECS) & set(ap.BOOK_SPECS)
+    spec = json.loads(ap.OPT_IN_BOOK_SPECS["c4"].read_text())
+    assert ap.universe("c4") == list(spec["frozen"]["universe"]) and len(ap.universe("c4")) == 74
+    assert ap.env_names("c4") == ("ALPACA_C4_KEY_ID", "ALPACA_C4_SECRET_KEY")
+    monkeypatch.setattr(ap, "read_env_file", lambda: {"ALPACA_C4_KEY_ID": "k"})
+    assert ap.main(["--check-keys", "--book", "c4"]) == 0
+    out = capsys.readouterr().out
+    assert out == "ALPACA_C4_KEY_ID: SET\nALPACA_C4_SECRET_KEY: NOT SET\n" and "k\n" not in out
+    assert ap.main(["--check-keys"]) == 0
+    assert "C4" not in capsys.readouterr().out
+    with pytest.raises(KeyError):
+        ap.spec_path("nope")
