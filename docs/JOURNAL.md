@@ -184,4 +184,21 @@ from a named source; [doc] copied from a named note.
 
 **Rulings** (`docs/SYSTEM.md` §5): trial 53 ships tonight even if the gate fails review (gate in report mode). C4 uses the existing spare account; no new account.
 
+**Later on 2026-11-02:**
+- **Release-check on 3478159 (the gate fixes + trial 53): NO-GO.**
+  - Today's real feed carries three market-wide rows with a missing party symbol: a partial call, an SNTI spin-off and a JAGX merger. Under the unresolved-rows ruling, each halts for every held fund, so `halt` would refuse the next session.
+  - `ca-ack` could write a file the gate then rejects.
+  - Two no-op pins still skipped on the v7 hash.
+- **Applied the team lead's fallback ruling:** the corporate-action gate ships in **report** mode, and trial 53 ships tonight. Report mode records events and sends anyway (book json `_mode_report_note`).
+- **Found (another session, read-only):**
+  - **Alpaca's winter end-of-day stamps are 01:00Z** (20:00 EST), and the client accepted only 00:00Z. From 11-02, the official P&L would stay PENDING; prices and NAVs are unaffected, since collector steps are independent. Fixed in this release.
+  - **Paper DOES charge regulatory fees** on this account: 37 SEC and CAT fee activities, −$6.16 over 09-29..10-30 [V, that session's GET of FEE activities]. This contradicts CLAUDE.md landmine 1 and the paper rows in `docs/REFERENCES.md`; the correction goes to the team lead.
+  - **Live attribution, 2026-09-15..10-30** (that session's note on branch `research-live-attribution`) [V, there]:
+    - official −$982.14, rebuilt to $0.00 on all 34 sessions;
+    - holding −$667.27 = NAV −$2,250.74 + discount +$1,583.47, with the muni NAVs alone −$1,849.36;
+    - fills vs close −$308.71 (−5.5bp of $558,926.55 traded);
+    - fees −$6.16;
+    - distributions paper did not credit +$320.85, equal to our third score to the cent.
+  - **The canonical harness holds on thin sessions; the live sleeve flattens.** Under a replica of the live rule, the fit-era break-even is 18.6bp, not 45.8bp [that session's turnover study, report only]. This is a question for the team lead, and trial 53's fit figures inherit it.
+
 **Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).
