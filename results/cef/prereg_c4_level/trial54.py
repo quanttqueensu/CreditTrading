@@ -21,7 +21,10 @@ min_names from the core spec module, so every one of those is asserted EQUAL to 
 mismatch raises. `band_width` comes from C4's spec. Nothing is written as a literal.
 
 HOLDOUT. Every frame is cut at 2022-12-30 (`c4.fit_slice`, asserted). The holdout stage is not in this file
-yet: it is added, and run once, only after every fit kill has cleared.
+yet: it is added, and run once, only after every fit kill and DG-L4 have cleared.
+
+ORDER (§6.2): dgl2 -> dgl3 (signed rulings) -> p1 -> record --variant blend (judged), level, z -> p2 -> k1 -> k2
+-> k3 -> p3. Each stage refuses unless every earlier one reads PASS or CLEAR (`need`).
 """
 from __future__ import annotations
 
@@ -89,7 +92,8 @@ def _rv(W: np.ndarray, ret: np.ndarray, i: int, w: np.ndarray, lookback: int) ->
     return float(np.std(h, ddof=1) * np.sqrt(252)) if len(h) > 1 else np.nan
 
 
-def level_targets(UF: list, fam: pd.Series, S: dict) -> dict:
+def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = None, perm: dict | None = None,
+                  blend: bool = True) -> dict:
     """Unit targets T_z (C4's own build_book), T_L (the level with its own scalar) and T_B (the blend), fit cut.
 
     Eligibility, the hold on thin days and the vol scalar repeat `bf.build_targets` exactly:
@@ -102,6 +106,16 @@ def level_targets(UF: list, fam: pd.Series, S: dict) -> dict:
     Tz = c4.fit_slice(c4.build_book(UF))
     idx = Tz.index
     z, adv, disc, ret = (x.reindex(idx)[UF] for x in (z, adv, disc, ret))
+    # The LEVEL leg's discount only (DG-L3, signed 2026-11-03): the ruled misprint name-days carry no level.
+    # z (and so T_z, C4's v4 book) is untouched.
+    disc = disc.copy()
+    for (t, d) in (level_mask or set()):
+        if t in disc.columns and pd.Timestamp(d) in disc.index:
+            disc.at[pd.Timestamp(d), t] = np.nan
+    if perm is not None:          # K2's placebo: another fund's level, same family, same date (whole-history shuffle)
+        src = disc.copy()
+        for f, (cols, order) in perm.items():
+            disc[cols] = src[[cols[k] for k in order]].to_numpy()
     R = ret.to_numpy()
     TL = np.zeros((len(idx), len(UF)))
     TB = np.zeros_like(TL)
@@ -133,6 +147,8 @@ def level_targets(UF: list, fam: pd.Series, S: dict) -> dict:
         s_z, s_l = _rv(None, R, i, wz, bf.VOL_LOOKBACK), _rv(None, R, i, wl, bf.VOL_LOOKBACK)
         sc = lambda rv: float(np.clip(S["vol"] / rv, 0.2, 2.5)) if rv and rv > 0 else 1.0   # build_targets' rule
         TL[i] = wl * sc(s_l)
+        if not blend:
+            continue
         if not (s_z > 0 and s_l > 0):
             TB[i] = TB[i - 1] if i else 0.0
             continue
@@ -309,6 +325,281 @@ def stage_dgl3() -> int:
     return 0
 
 
+
+
+# ============================================================================ the fit stages (§6.2, read in order)
+
+FLAGS_PROPOSAL = HERE / f"dgl3_rulings_PROPOSAL_{STAMP}.csv"
+RULINGS = HERE / f"dgl3_rulings_{STAMP}.csv"
+BAR = float(np.sqrt(2 * np.log(54)))
+DSR_PASS = c4.DSR_PASS
+NC1_T = 2.0
+PLACEBO_N, PLACEBO_NEED = 20, 19
+H2_TOL = 0.05
+
+
+def ruled_masks() -> set:
+    """The signed DG-L3 rulings, through the house block: no P&L while any flag lacks a ruling."""
+    from scripts.cef.data_guards import require_stage0_rulings
+    flags = pd.read_csv(FLAGS_PROPOSAL)[["check", "ticker", "date"]]
+    J = require_stage0_rulings(flags, RULINGS, context="CEF trial 54 DG-L3")
+    m = J[J["ruling"].str.startswith("MASK")]
+    return set(zip(m["ticker"], m["date"].astype(str)))
+
+
+def verdict_of(stage: str) -> str:
+    f = HERE / f"{stage}_{STAMP}.json"
+    if not f.exists():
+        raise RuntimeError(f"{stage} has not been read; §6.2 reads the kills in order")
+    return json.loads(f.read_text())["verdict"]
+
+
+def need(*stages):
+    for st in stages:
+        v = verdict_of(st)
+        if not v.startswith("PASS") and not v.startswith("CLEAR"):
+            raise RuntimeError(f"{st} reads {v}; the trial stopped there (stop at the first KILL)")
+
+
+def write(stage: str, lines: list, out: dict) -> None:
+    (HERE / f"{stage}_output_{STAMP}.txt").write_text("\n".join(lines) + "\n")
+    (HERE / f"{stage}_{STAMP}.json").write_text(json.dumps(out, indent=1, default=float))
+
+
+def books(S: dict, masks: set) -> dict:
+    """The three books on CRSP primary returns, fit only, and their series (cached, gitignored)."""
+    U, pool, UF, px, nav, crsp, qr, fam = inputs()
+    B = level_targets(UF, fam, S, level_mask=masks)
+    idx = B["Tz"].index
+    R = c4.crsp_pivot(crsp, pool, idx, qr, "ret", px=px)
+    out = dict(R=R, B=B, UF=UF, fam=fam)
+    for k, T in (("z", B["Tz"]), ("level", B["TL"]), ("blend", B["TB"])):
+        out[k] = score(book(T, S), R, f"{k} book")
+    return out
+
+
+def _hac_alpha(y: pd.Series, x: pd.Series, lag: int):
+    import statsmodels.api as sm
+    d = pd.concat([y.rename("y"), x.rename("x")], axis=1).dropna()
+    f = sm.OLS(d["y"], sm.add_constant(d[["x"]])).fit(cov_type="HAC", cov_kwds={"maxlags": lag})
+    return f, d
+
+
+def stage_p1() -> int:
+    from scripts.cef import w4_artifacts as w4
+    need("dgl2")
+    masks = ruled_masks()
+    S = c4_spec()
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    K = books(S, masks)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    for k in ("z", "level", "blend"):
+        K[k]["P"].rename("pnl").to_frame().to_parquet(CACHE / f"pnl_{k}.parquet")
+        K[k]["TU"].rename("turn").to_frame().to_parquet(CACHE / f"turn_{k}.parquet")
+    for k in ("Tz", "TL", "TB"):
+        K["B"][k].to_parquet(CACHE / f"target_{k}.parquet")
+    say(f"CEF trial 54, P1 ({dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')}); C4 spec {SPEC_ID}: m {S['m']}, "
+        f"cap {S['cap']}, band {S['band']}; DG-L3 masks on the level leg: {len(masks)}; CRSP primary returns; fit only")
+    for k, lab in (("z", "z-only spec book"), ("level", "level-only spec book"), ("blend", "blend (1/2 : 1/2)")):
+        r = K[k]
+        say(f"  {lab:<22} gross SR {r['sr']:+.3f}  ann {r['ann_pct']:+.2f}%  vol {r['vol_pct']:.2f}%  turn {r['turn']:.1f}/yr  "
+            f"net @5/15/30 {r['net5']:+.3f} / {r['net15']:+.3f} / {r['net30']:+.3f}  flips {r['flips']}  (from {r['p0'].date()})")
+    y, x = K["level"]["P"], K["z"]["P"]
+    start = max(K["level"]["p0"], K["z"]["p0"])
+    y, x = y.loc[start:], x.loc[start:]
+    f0, d = _hac_alpha(y, x, 0)
+    L = w4.nw_auto_lag(f0.resid)
+    f, d = _hac_alpha(y, x, L)
+    t, a, b = float(f.tvalues["const"]), float(f.params["const"]) * 252 * 100, float(f.params["x"])
+    side = {lag: float(_hac_alpha(y, x, lag)[0].tvalues["const"]) for lag in (5, 21)}
+    ok = t >= BAR
+    verdict = "PASS" if ok else "KILL (D1)"
+    say(f"  P1: level-only on z-only, {len(d)} sessions {d.index[0].date()}..{d.index[-1].date()}: alpha {a:+.2f}%/yr, beta {b:+.3f}, "
+        f"NW t {t:.2f} (Newey-West 1994 automatic lag {L} on the residual); beside it t at L=5 {side[5]:.2f}, L=21 {side[21]:.2f}")
+    say(f"  rule NW t >= sqrt(2 ln 54) = {BAR:.3f}: {verdict}")
+    write("p1", lines, dict(verdict=verdict, alpha_t=t, alpha_pct=a, beta=b, lag=L, t_L5=side[5], t_L21=side[21],
+                            n=len(d), bar=BAR, masks=len(masks), spec=SPEC_ID, m=S["m"], cap=S["cap"], band=S["band"],
+                            books={k: {kk: K[k][kk] for kk in ("sr", "ann_pct", "vol_pct", "turn", "net5", "net15", "net30",
+                                                               "flips")} | {"first_held": str(K[k]["p0"].date())}
+                                   for k in ("z", "level", "blend")}))
+    return 0 if ok else 3
+
+
+def stage_record(variant: str) -> int:
+    """Store a series in the registry (CEF-54). The tree must be clean (registry.record refuses otherwise)."""
+    from scripts.research import registry
+    need("p1")
+    P = pd.read_parquet(CACHE / f"pnl_{variant}.parquet")["pnl"]
+    S = c4_spec()
+    line = registry.record(P, counter="CEF", trial="CEF-54", variant=variant, judged=(variant == "blend"),
+                           params=dict(spec=SPEC_ID, m=S["m"], cap=S["cap"], band=S["band"], risk_share_z=RISK_SHARE_Z,
+                                       returns="CRSP primary (C4's fit source), total return", fit_end=str(FIT_END.date()),
+                                       dgl3_masks=len(ruled_masks())),
+                           note=f"CEF trial 54 ({variant} book), results/cef/prereg_c4_level/trial54.py p1; fit only")
+    print(json.dumps({k: line[k] for k in ("trial", "variant", "judged", "n", "sr_annual", "sha256", "commit", "dirty")}))
+    return 0
+
+
+def stage_p2() -> int:
+    from scripts.research import registry
+    need("dgl2", "p1")
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    r = registry.bars("CEF", trial="CEF-54", variant="blend", declared_n=54)
+    desk = r["desk"]["dsr"]
+    paper = r["paper"]["dsr"] if r["paper"] else None
+    ok = desk >= DSR_PASS and paper is not None and paper >= DSR_PASS
+    verdict = "PASS" if ok else ("HALT (paper bar refused: a ruling)" if paper is None else "KILL")
+    say(f"CEF trial 54, P2: registry bars CEF CEF-54 blend --declared-n 54 (T {r['T']}, SR {r['sr_annual']:.3f}/yr, skew "
+        f"{r['skew']:.2f}, kurt {r['kurt']:.2f})")
+    say(f"  desk bar: SR0 {r['desk']['sr0_annual']:.3f}/yr, DSR {desk:.4f}")
+    if r["paper"]:
+        p = r["paper"]
+        say(f"  paper bar: N_eff {p['n_effective']:.2f}, rho_bar {p['rho_bar']:.3f}, floor binds {p['floor_binds']}, SR0 "
+            f"{p['sr0_annual']:.3f}/yr, DSR {paper:.4f}")
+    else:
+        say(f"  paper bar REFUSED: {r['paper_refused']} ({r['paper_refused_code']})")
+    say(f"  rule: both DSR >= {DSR_PASS}: {verdict}")
+    write("p2", lines, dict(verdict=verdict, bars=r))
+    return 0 if ok else 4
+
+
+def stage_k1() -> int:
+    """NC1 on the leg the screen measured it on: the level's slope on the NAV total-return leg (h 21, z in,
+    within family, date-clustered), with the ruled masks on the level."""
+    need("dgl2", "p1", "p2")
+    masks = ruled_masks()
+    sys.path.insert(0, str(REPO / "results" / "cef" / "screens_2026-11-02"))
+    import alpha_common as ac
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    D = ac.load_c4()
+    disc = D["disc"].copy()
+    for (t, d) in masks:
+        if t in disc.columns and pd.Timestamp(d) in disc.index:
+            disc.at[pd.Timestamp(d), t] = np.nan
+    elig = D["z"].notna() & disc.notna()
+    lvl = ac.cs_demean(disc.where(elig), D["grp"])
+    zz = ac.cs_demean(D["z"].where(elig), D["grp"])
+    grid = D["idx"][::21]
+    res = {}
+    for lab, r in (("NAV TR (NC1)", D["r_nav_tr"]), ("price TR", D["r_tr"]), ("discount leg", D["r_tr"] - D["r_nav_tr"])):
+        y = ac.cs_demean(ac.fwd(r, 2, 21).where(elig), D["grp"]) * 1e4
+        o = ac.pooled_ols(y, {"lvl": lvl, "z": zz}, grid, min_n=ac.MIN_NAMES)
+        res[lab] = dict(coef=o["lvl"]["coef"], t=o["lvl"]["t"], n=o["n"], dates=o["dates"])
+        say(f"  {lab:<14}: level slope {o['lvl']['coef']:+.2f} bp/pp, t {o['lvl']['t']:+.2f} (n {o['n']}, {o['dates']} dates)")
+    t = res["NAV TR (NC1)"]["t"]
+    verdict = "PASS" if abs(t) < NC1_T else "KILL (D1)"
+    say(f"  rule |t| < {NC1_T} on the NAV leg: {verdict}")
+    write("k1", ["CEF trial 54, K1 (NC1): the level slope by leg, h 21, z in, within family (yfinance leg; masks applied)"]
+          + lines, dict(verdict=verdict, legs=res, masks=len(masks)))
+    return 0 if abs(t) < NC1_T else 5
+
+
+def stage_k2() -> int:
+    need("dgl2", "p1", "p2", "k1")
+    masks = ruled_masks()
+    S = c4_spec()
+    U, pool, UF, px, nav, crsp, qr, fam = inputs()
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    real = json.loads((HERE / f"p1_{STAMP}.json").read_text())["books"]["level"]["sr"]
+    idx = pd.read_parquet(CACHE / "target_Tz.parquet").index
+    R = c4.crsp_pivot(crsp, pool, idx, qr, "ret", px=px)
+    rng = np.random.default_rng(SEED)
+    fam_cols = {f: [t for t in UF if fam.get(t) == f] for f in sorted(set(fam.reindex(UF).dropna()))}
+    sr = []
+    for k in range(PLACEBO_N):
+        perm = {f: (cols, rng.permutation(len(cols))) for f, cols in fam_cols.items() if len(cols) > 1}
+        B = level_targets(UF, fam, S, level_mask=masks, perm=perm, blend=False)
+        sr.append(score(book(B["TL"], S), R, f"placebo {k}")["sr"])
+        say(f"  placebo {k + 1:>2}: gross SR {sr[-1]:+.3f}")
+    above = int(sum(x < real for x in sr))
+    verdict = "PASS" if above >= PLACEBO_NEED else "KILL (D1)"
+    say(f"  real level-only book {real:+.3f} ranks above {above} of {PLACEBO_N} (placebo mean {np.mean(sr):+.3f}, max "
+        f"{np.max(sr):+.3f}); rule >= {PLACEBO_NEED}: {verdict}")
+    write("k2", ["CEF trial 54, K2: within-family shuffle placebo (another fund's level, same family; seed "
+                 f"{SEED}; the level-only spec book on CRSP)"] + lines, dict(verdict=verdict, real=real, placebo=sr, above=above))
+    return 0 if above >= PLACEBO_NEED else 6
+
+
+def stage_k3() -> int:
+    need("dgl2", "p1", "p2", "k1", "k2")
+    S = c4_spec()
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    X = c4.factor_frame()
+    res, ok = {}, True
+    for k in ("level", "blend"):
+        P = pd.read_parquet(CACHE / f"pnl_{k}.parquet")["pnl"]
+        sig = float(P.std() * np.sqrt(252))
+        scale = S["vol"] / sig
+        A = c4.dimson(P, X, c4.FF6 + ["TERM"], scale)
+        PB = P.loc[max(c4.HY_START, P.index[0]):FIT_END]
+        Bq = c4.dimson(PB, X, c4.FF6 + ["TERM", "HY"], scale)
+        okA = A["alpha_t"] >= c4.D4_ALPHA_T and A["max_abs_beta"] <= c4.D4_BETA
+        okB = Bq["alpha_t"] >= c4.D4_ALPHA_T and Bq["max_abs_beta"] <= c4.D4_BETA
+        res[k] = dict(full=A, hy=Bq, pass_=bool(okA and okB), scale=scale)
+        for lab, r_, o in (("full fit, FF6+TERM", A, okA), ("from HYG, +HY", Bq, okB)):
+            say(f"  {k:<6} {lab:<20} n {r_['n']} alpha {r_['alpha_pct']:+.2f}%/yr t {r_['alpha_t']:.2f} max|beta| "
+                f"{r_['max_abs_beta']:.3f} ({', '.join(f'{c} {v:+.3f}' for c, v in r_['betas'].items())}) -> {'pass' if o else 'FAIL'}")
+        if k == "level":
+            ok = okA and okB
+    verdict = "PASS" if ok else "KILL (D4)"
+    say(f"  rule (C4's D4 block, on the level-only book): alpha t >= {c4.D4_ALPHA_T} and every |beta| <= {c4.D4_BETA} in "
+        f"both: {verdict}  (the blend is reported beside it)")
+    write("k3", ["CEF trial 54, K3 (D4): Dimson FF5+UMD, TERM, HY at t and t-1, HAC(21), betas scaled to the spec's vol "
+                 "target"] + lines, dict(verdict=verdict, results=res))
+    return 0 if ok else 7
+
+
+def stage_p3() -> int:
+    from scripts.research.resampling import calibrate_block, sharpe_diff
+    need("dgl2", "p1", "p2", "k1", "k2", "k3")
+    S = c4_spec()
+    U, pool, UF, px, nav, crsp, qr, fam = inputs()
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    Tz = pd.read_parquet(CACHE / "target_Tz.parquet")
+    R = c4.crsp_pivot(crsp, pool, Tz.index, qr, "ret", px=px)
+    PB = pd.read_parquet(CACHE / "pnl_blend.parquet")["pnl"]
+    turn_b = json.loads((HERE / f"p1_{STAMP}.json").read_text())["books"]["blend"]["turn"]
+    # H2: the z-only spec book's band width that matches the blend's turnover -- band_frontier.match_band_width's
+    # bisection, on TURNOVER ONLY, extended visibly to the capped, multiplied spec book (the account's policy)
+    f = lambda b: score(book(Tz, S, band=b), R, "z at band")["turn"]
+    lo, hi = S["band"], 0.60
+    tlo, thi = f(lo), f(hi)
+    if not (thi <= turn_b <= tlo):
+        raise ValueError(f"the blend's turnover {turn_b:.2f} is outside the z book's bracket [{thi:.2f}, {tlo:.2f}]")
+    for _ in range(30):
+        mid = 0.5 * (lo + hi)
+        if f(mid) > turn_b:
+            lo = mid
+        else:
+            hi = mid
+    bstar = 0.5 * (lo + hi)
+    zr = score(book(Tz, S, band=bstar), R, "z matched")
+    rel = abs(zr["turn"] / turn_b - 1)
+    if rel > H2_TOL:
+        raise ValueError(f"turnover match {rel:.1%} outside the 5% tolerance")
+    sr_b = json.loads((HERE / f"p1_{STAMP}.json").read_text())["books"]["blend"]["sr"]
+    ok = sr_b > zr["sr"]
+    a, b2 = PB.align(zr["P"], join="inner")
+    cb = calibrate_block(a.to_numpy(), b2.to_numpy(), candidates=[1, 5, 10, 21, 42], K=1000, M=199, seed=SEED)
+    sd = sharpe_diff(a.to_numpy(), b2.to_numpy(), block=int(cb["block"]), M=4999, seed=SEED)
+    verdict = "PASS" if ok else "KILL"
+    say(f"  blend: gross SR {sr_b:+.3f} at {turn_b:.1f} turns/yr; z-only spec book at band {bstar:.4f} (matched within "
+        f"{rel:.1%}): gross SR {zr['sr']:+.3f} at {zr['turn']:.1f}/yr")
+    say(f"  sharpe_diff (reported, not gated): block {int(cb['block'])}; " +
+        ", ".join(f"{k} {v:.4g}" for k, v in sd.items() if isinstance(v, (int, float))))
+    say(f"  rule blend gross SR > matched z-only: {verdict}")
+    write("p3", ["CEF trial 54, P3 (H2): matched turnover"] + lines,
+          dict(verdict=verdict, sr_blend=sr_b, turn_blend=turn_b, band_star=bstar, sr_z_matched=zr["sr"],
+               turn_z_matched=zr["turn"], match_rel=rel, sharpe_diff=sd, block=cb))
+    return 0 if ok else 8
+
+
 NAV_JUMP, NAV_BACK, NAV_RUN, PX_FLAT = 0.05, 0.01, 3, 0.02
 
 
@@ -372,9 +663,15 @@ def stage_navscan() -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan"])
+    ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan", "p1", "record", "p2", "k1", "k2", "k3", "p3"])
+    ap.add_argument("--variant", choices=["blend", "level", "z"], default=None)
     a = ap.parse_args(argv)
-    return {"dgl2": stage_dgl2, "dgl3": stage_dgl3, "navscan": stage_navscan}[a.stage]()
+    if a.stage == "record":
+        if a.variant is None:
+            raise SystemExit("record needs --variant")
+        return stage_record(a.variant)
+    return {"dgl2": stage_dgl2, "dgl3": stage_dgl3, "navscan": stage_navscan, "p1": stage_p1, "p2": stage_p2,
+            "k1": stage_k1, "k2": stage_k2, "k3": stage_k3, "p3": stage_p3}[a.stage]()
 
 
 if __name__ == "__main__":
