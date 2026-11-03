@@ -201,4 +201,11 @@ from a named source; [doc] copied from a named note.
     - distributions paper did not credit +$320.85, equal to our third score to the cent.
   - **The canonical harness holds on thin sessions; the live sleeve flattens.** Under a replica of the live rule, the fit-era break-even is 18.6bp, not 45.8bp [that session's turnover study, report only]. This is a question for the team lead, and trial 53's fit figures inherit it.
 
+**C4 brought up to date with main** (branch `c4-rel`, local; not pushed, tagged, installed or armed):
+- `c4-integrate` merged onto 862b1d0 (release-20261102-1) with no textual conflict. Fixed after it: `ca-ack` now refuses another book's state directory, as approve and the session do; five C4 tests that main's gate, trial 53 and the released book json broke.
+- C4's spec: `c4_families.v2.20261101` (trial 53's `sizing_multiplier` 1.27, the committed patch) and then `v3.20261102` (the core's halve/kill levels, report only, per the 2026-10-30 ruling). Revert tags for v1 and v2 are local.
+- The benchmark, re-run on the raised spec: fidelity passes; H11's reference is the ×1.27 book.
+- The core is proved to be 862b1d0's (`test_panels_noop.py`, re-pinned there). Its own three pin files are untouched and pass.
+- **C4's corporate-action `halt`, measured** on a replica of today's three unresolved rows: a flat C4 book is refused only on 11-03 (the JAGX merger); a held one on every session. On every unresolved row in today's read, a flat book would have been refused on 17 of the 23 sessions from 10-01 to 11-02 [U: feed as read today]. The mode is unchanged; the team lead decides (`results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`).
+
 **Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).

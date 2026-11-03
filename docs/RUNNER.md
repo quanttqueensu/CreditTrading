@@ -404,9 +404,11 @@ until the team lead installs it; the steps are
   session, approve or verify refuses a state directory not named `c4`
   (`records.STATE_DIR_NAMES`) before writing anything there.
 - **The book json:** one sleeve at its own $100k; late-market execution as for
-  the core; the missing-NAV hold (2 sessions); drawdown in report mode, which
-  records UNMEASURED because the C4 spec names no halve/kill levels (open for
-  the team lead); the corporate-action gate in `halt`. **No `data.stale_nav`**:
+  the core; the missing-NAV hold (2 sessions); drawdown in report mode, against
+  the core's halve/kill levels since spec `c4_families.v3.20261102` (team lead
+  2026-10-30; until v3 the spec named none and every decide recorded
+  UNMEASURED); the corporate-action gate in `halt` (measured, not changed, on
+  2026-11-02: the checklist's "corporate-action mode"). **No `data.stale_nav`**:
   CEFConnect is disabled for C4, and the spec's NAV-repeat mask is its defence.
 - **The refresh** is `fetch_daily --data-book c4 --book ops/books/c4_families_book.json`
   under C4's own lock. Its exit 6 (an unruled spike-and-revert bar) is a gate-5
@@ -419,6 +421,13 @@ until the team lead installs it; the steps are
   absent, and 35b429f's as released (`tests/test_panels_noop.py`). The core's
   install is byte-identical to cee16ad's installer
   (`quantt/deploy/tests/test_install_vm_books.py`).
+- **Merged onto main, 2026-11-02 (branch `c4-rel`).** On 862b1d0
+  (release-20261102-1): no textual conflict. `ca-ack` gained the per-book
+  state-dir rule. C4's spec took CEF trial 53's `sizing_multiplier` 1.27
+  (`c4_families.v2.20261101`) and then the core's halve/kill levels
+  (`v3.20261102`). `tests/test_panels_noop.py` was re-pinned on
+  `git archive 862b1d0`, so the core's session is now proved to be 862b1d0's,
+  with the gate block removed and as released.
 
 ## As built (2026-10-28): the corporate-action gate, `halt` on paper
 
