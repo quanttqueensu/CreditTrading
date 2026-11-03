@@ -116,8 +116,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..registry import (CEF_MASK_KEYS, cef_below_min_names, cef_mask_flag,
-                        cef_optional_keys, cef_panel_source, cef_sizing_multiplier, register)
+from ..registry import (CEF_MASK_KEYS, cef_below_min_names, cef_below_min_names_floor,
+                        cef_mask_flag, cef_optional_keys, cef_panel_source,
+                        cef_sizing_multiplier, register)
 from ..sleeve import ETF, FLAT, LONG, OK, SHORT, HALVE, KILL
 from ..sleeve import MarketState, PositionTarget, RiskVerdict, Sleeve
 
@@ -419,6 +420,7 @@ class CEFDiscountSleeve(Sleeve):
         super().__init__(spec, capital_usd)
         cef_optional_keys(self.frozen)
         cef_sizing_multiplier(self.frozen)      # a malformed multiplier refuses at construction
+        cef_below_min_names_floor(self.frozen)  # and a floor beside the wrong rule (CEF trial 55)
 
     # ---- config ------------------------------------------------------------
     # Every knob below is REQUIRED in the frozen spec, and a missing one raises

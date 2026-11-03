@@ -198,14 +198,86 @@ def cef_below_min_names(frozen):
     return v
 
 
-CEF_C4_KEYS = ("panel_source", *CEF_MASK_KEYS, "below_min_names")
+CEF_FLOOR_KEY = "below_min_names_floor"
+
+
+def cef_below_min_names_floor(frozen):
+    """`below_min_names_floor` as an int, or None when the thin-session rule does not read it.
+
+    WHAT IT IS (CEF trial 55, "te4", results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md
+    §1.1, approved 2026-11-03, PAPER ONLY). Under `below_min_names = "trade_eligible"`, a
+    session with fewer than `min_names` eligible funds but at least this many builds the book
+    on the eligible funds with the sleeve's own construction; below it the book goes FLAT, as
+    under "flatten". It is the harness's `floor` argument
+    (`scripts/cef/band_frontier.py::band_gross_capped`), with the harness's checks.
+
+    UNITS: a COUNT of eligible funds. Not a weight, not a fraction.
+
+    WHEN IT IS READ. Required when, and only when, `below_min_names` is "trade_eligible":
+    there it has no default, because the spec is the only authority on a live parameter
+    (CLAUDE.md) and a floor the sleeve invented would be one no derivation produced. Under
+    "flatten", "hold" or the key absent it is REFUSED, as the harness refuses `floor`: a floor
+    that nothing reads is a spec that says one thing and trades another, and an absent
+    `below_min_names` (flatten) with a floor beside it is most likely a half-applied edit.
+
+    REFUSED, naming the value: a bool (JSON `true` is not 1 fund), any non-int (4.0 included:
+    the harness takes an int, and a float that happens to be whole is a typed-by-hand
+    number), anything below 2 (one name is z - mean(z) = 0, so the weights are 0/0), and
+    anything at or above `min_names` (at `min_names` the rule IS flatten). It does NOT
+    hard-code 4: the derivation's reason for 4 belongs in the spec's note. A missing or
+    non-integer `min_names` raises here too, because the upper bound cannot be checked
+    without it. A misspelling (`below_min_names_flor`) is refused by `cef_optional_keys`,
+    whose near-miss guard lists this key (CEF_C4_KEYS).
+
+    READ BY `_validate_cef_discount` (a bad floor refuses the spec at load) and the sleeve's
+    constructor (so a sleeve built without the registry refuses it too, on every day, not
+    only on the first thin one). `cef_optional_keys`' returned dict does NOT carry it: that
+    dict is pinned (`scripts/cef/tests/test_c4_paper_benchmark.py`) and describes C4's keys.
+    """
+    rule = cef_below_min_names(frozen)
+    present = CEF_FLOOR_KEY in frozen
+    if rule != "trade_eligible":
+        if present:
+            raise ValueError(
+                f"cef_discount {CEF_FLOOR_KEY} is set ({frozen[CEF_FLOOR_KEY]!r}) but "
+                f"below_min_names is {rule!r}"
+                + (" (absent)" if "below_min_names" not in frozen else "")
+                + "; the floor is read only under 'trade_eligible'. Delete it, or set "
+                  "below_min_names to 'trade_eligible'")
+        return None
+    if not present:
+        raise ValueError(
+            f"cef_discount below_min_names 'trade_eligible' needs {CEF_FLOOR_KEY}, the "
+            f"smallest eligible count it trades; it has no default")
+    v = frozen[CEF_FLOOR_KEY]
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise ValueError(f"cef_discount {CEF_FLOOR_KEY} must be an int (a count of eligible "
+                         f"funds), got {v!r} ({type(v).__name__})")
+    if "min_names" not in frozen:
+        raise ValueError(f"cef_discount {CEF_FLOOR_KEY} {v} cannot be checked: the spec has no "
+                         f"min_names, its upper bound")
+    mn = frozen["min_names"]
+    if isinstance(mn, bool) or not isinstance(mn, (int, float)) or int(mn) != mn:
+        raise ValueError(f"cef_discount min_names {mn!r} is not a whole number; "
+                         f"{CEF_FLOOR_KEY} cannot be checked against it")
+    if not 2 <= v < int(mn):
+        raise ValueError(f"cef_discount {CEF_FLOOR_KEY} {v} must satisfy 2 <= floor < min_names "
+                         f"({int(mn)}): one name is 0/0, and at min_names the rule is 'flatten'")
+    return v
+
+
+CEF_C4_KEYS = ("panel_source", *CEF_MASK_KEYS, "below_min_names", CEF_FLOOR_KEY)
 # A key's documentation sibling, in the spec's own convention (`_band_width_note`).
 CEF_C4_NOTES = tuple(f"_{k}_note" for k in CEF_C4_KEYS)
-# How far a frozen key may be from one of the four and still be read as a
+# How far a frozen key may be from one of these and still be read as a
 # misspelling of it: 2 edits (insert, delete, substitute or swap two adjacent
 # letters) covers a plural, a dropped or doubled letter and a transposition.
-# Every key the live spec carries is at least 6 edits from all four
-# (`test_c4_sleeve_keys.py` checks the live file, key by key).
+# Every key the live spec carries is at least 6 edits from all of them
+# (`test_c4_sleeve_keys.py` checks the live file, key by key). The fifth,
+# `below_min_names_floor` (CEF trial 55, te4), is not one of C4's but rides the
+# same guard: absent under "trade_eligible" refuses, so a misspelt floor would
+# refuse anyway, but under any other rule a misspelt floor would be silently
+# ignored where the correctly spelt one is refused.
 CEF_C4_NEAR = 2
 
 
@@ -243,6 +315,9 @@ def cef_c4_near_miss(key: str):
         convention a leading underscore is a note nothing reads, so the key
         would be ignored while reading as set. Absent is the default; delete it.
 
+    `below_min_names_floor` (CEF trial 55) is checked the same way, as the
+    fifth name in CEF_C4_KEYS.
+
     A `_<key>_note` sibling is not a miss, and a misspelt note is checked as its
     stem (`_nav_repeat_masks_note` is a miss of `nav_repeat_mask`).
     """
@@ -261,9 +336,12 @@ def cef_c4_near_miss(key: str):
 def cef_optional_keys(frozen) -> dict:
     """All four C4 keys parsed, each to its default when absent. Raises on the
     first malformed one, and on a frozen key that is a near-miss of one of them
-    (`cef_c4_near_miss`). Called by `_validate_cef_discount` and by the sleeve's
-    constructor, so a bad `below_min_names` refuses on every day and not only on
-    the first day the book falls below `min_names`."""
+    or of `below_min_names_floor` (`cef_c4_near_miss`). Called by
+    `_validate_cef_discount` and by the sleeve's constructor, so a bad
+    `below_min_names` refuses on every day and not only on the first day the
+    book falls below `min_names`. The returned dict is C4's four and is pinned
+    (`scripts/cef/tests/test_c4_paper_benchmark.py`); the floor is parsed by
+    `cef_below_min_names_floor`, beside this call in both callers."""
     for key in frozen:
         k = cef_c4_near_miss(key)
         if k is not None:
@@ -343,6 +421,7 @@ def _validate_cef_discount(spec):
     the spec at load rather than at the first decide."""
     f = _require_dict(spec, "frozen")
     cef_optional_keys(f)
+    cef_below_min_names_floor(f)
     uni = f.get("universe")
     if not isinstance(uni, list) or len(uni) < 6:
         raise ValueError("cef_discount needs a frozen universe of >= 6 funds; "
@@ -390,10 +469,21 @@ def validate_spec(spec) -> None:
 # Construction
 # ---------------------------------------------------------------------------
 
-def build_sleeve(spec, capital_usd):
+def build_sleeve(spec, capital_usd, **sleeve_kw):
     """Instantiate the Sleeve for this spec. Validates first. The import is
     not wrapped: a sleeve module that fails to import must fail loudly here,
-    not degrade into a misleading "not implemented" message."""
+    not degrade into a misleading "not implemented" message.
+
+    `sleeve_kw` (added 2026-11-03, CEF trial 55) is passed to the sleeve's
+    constructor unchanged, and nothing here reads it. It exists for the
+    `cef_discount` sleeve's `account` declaration: `below_min_names =
+    "trade_eligible"` is PAPER ONLY, and the sleeve refuses to decide under it
+    unless its caller declared the account paper at construction
+    (PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md §1.2). With none given the call is
+    the one before the argument existed, so every caller that passes nothing
+    builds exactly what it built before. A sleeve that does not take a keyword
+    raises TypeError, naming it: a declaration silently dropped would be no
+    declaration."""
     validate_spec(spec)
     t = spec["allocation"]["type"]
     from . import sleeves  # noqa: F401  (imports register the built sleeves)
@@ -402,4 +492,4 @@ def build_sleeve(spec, capital_usd):
         raise NotImplementedError(
             f"allocation type {t!r} validates but no sleeve class registers "
             f"under it. Registered: {sorted(_REGISTRY)}.")
-    return cls(spec, capital_usd)
+    return cls(spec, capital_usd, **sleeve_kw)
