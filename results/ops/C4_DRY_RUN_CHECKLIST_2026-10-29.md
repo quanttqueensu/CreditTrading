@@ -4,7 +4,9 @@
 > C4 (CEF trial 52) was fast-tracked on 2026-10-28/29 with every gate kept (docs/SYSTEM.md §5,
 > 2026-10-29). **Updated 2026-11-02:** the integration (`c4-integrate`) is merged onto main's
 > release-20261102-1 on branch **`c4-rel`**. That branch carries C4's whole path, dark: spec
-> **`c4_families.v4.20261102`** (CEF trial 53 amendment 1's `sizing_multiplier` **1.26**; the core's halve/kill
+> **`c4_families.v5.20261103`** (since 2026-11-03: v4.20261102 plus CEF trial 54's `level_signal`, PASSED,
+> which adds ` level z_share=0.5000 s_z=... s_L=...` to every weight reason; CEF trial 53 amendment 1's
+> `sizing_multiplier` **1.26**; the core's halve/kill
 > levels, report only; the corporate-action gate in `report`, as the core, by the team lead's
 > 2026-11-02 ruling), the data path, the per-sleeve runner, `BOOKS["c4"]`, its book json and its
 > installer units. The core is proved byte-identical to 862b1d0 (below). Release is the team

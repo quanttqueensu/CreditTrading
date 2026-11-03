@@ -108,6 +108,34 @@ code below is today's, byte for byte (quantt/session/tests/test_sizing_multiplie
 pins it against 35b429f's code; src/deploy/tests/test_sizing_multiplier.py tests
 what the key does).
 
+ONE MORE OPTIONAL KEY ADDS A SECOND SIGNAL: `level_signal` (CEF trial 54,
+results/cef/PREREG_C4_LEVEL_2026-11-02.md §1, approved 2026-11-03; C4 only). The
+z cannot see a fund that has sat rich of its peers for a year: standardised
+against its own history, its z is near zero. Inside C4's families the discount
+LEVEL against family peers predicts returns beyond the z, through the discount
+and not the NAV (§2). With the key set, the UNIT target is no longer the z book
+alone but an equal-risk blend, built on the date-t panel only:
+
+  1. w_z: today's unit-gross z weights, exactly as before;
+  2. w_L: on the SAME eligible names, -(disc - the family's mean disc), unit
+     gross; a family with fewer than 2 eligible names contributes zero
+     (`_level_weights`). `disc` is the masked discount the z is built from;
+  3. s_z, s_L: each unit book's trailing realised vol, by the estimator the
+     vol scalar has always used (`_book_vol`); mix = risk_share * w_z / s_z +
+     (1 - risk_share) * w_L / s_L, renormalised to unit gross
+     (`_blend_unit_book`);
+  4. ONE vol scalar, the existing one, on s_mix;
+  5. then today's path unchanged: the min-weight block, the band on held / m,
+     `_cap_gross` at max_gross_stress / m, the dust filter on the unit weight.
+
+C4's fidelity probe (scripts/cef/c4_paper_benchmark.py) reads `w` where it
+always has, at the `min_abs_weight` read, so with the key set it reads the
+blend. ABSENT, steps 2-3 do not run and the code is today's, byte for byte
+(src/deploy/tests/test_level_signal.py pins it against f7f7be5's code; the
+commit message diffs the real panels). Parsed and refused in
+`registry.cef_level_signal`; the derivation and the REVERT are in C4's spec,
+`_level_signal_note`.
+
 ONE MORE VALUE OF `below_min_names`, "trade_eligible", WITH `below_min_names_floor`
 (CEF trial 55, "te4", results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md,
 approved by the team lead 2026-11-03, PAPER ONLY). On a session with fewer than
@@ -173,8 +201,8 @@ import numpy as np
 import pandas as pd
 
 from ..registry import (CEF_MASK_KEYS, cef_below_min_names, cef_below_min_names_floor,
-                        cef_mask_flag, cef_optional_keys, cef_panel_source,
-                        cef_sizing_multiplier, register)
+                        cef_level_signal, cef_mask_flag, cef_optional_keys,
+                        cef_panel_source, cef_sizing_multiplier, register)
 from ..sleeve import ETF, FLAT, LONG, OK, SHORT, HALVE, KILL
 from ..sleeve import MarketState, PositionTarget, RiskVerdict, Sleeve
 
@@ -320,6 +348,117 @@ def _cap_gross(w: pd.Series, cap: float) -> tuple[pd.Series, float]:
         return w, 1.0
     f = cap / gross
     return w * f, f
+
+
+def _book_vol(ret: pd.DataFrame, w: pd.Series):
+    """Annualised realised vol of the book `w` held over the last 63 sessions of `ret`.
+
+    THE SLEEVE'S ONE VOL ESTIMATOR. It is the expression the vol scalar has used
+    since the book went live, moved here unchanged so that `level_signal`'s two
+    unit books and their blend are measured by the same estimator as the z book
+    (PREREG_C4_LEVEL §1.2 step 3: "the estimator `build_targets` already uses for
+    its vol scalar"; `band_frontier.build_targets` is the same sum, std and
+    sqrt(252)). Today's weights on past returns: a NaN return (a gap, or a move
+    of 50% or more, filtered by the caller) adds nothing to that day's P&L.
+
+    ALIGNMENT is the caller's: every row of `ret` must be dated on or before the
+    decision. `target_positions` passes returns through the signal date only.
+    """
+    hist = (ret[list(w.index)].mul(w, axis=1)).sum(axis=1).tail(63)
+    return hist.std() * np.sqrt(252)
+
+
+def _level_weights(disc_t: pd.Series, family_of: dict) -> pd.Series:
+    """w_L: -(discount - its family's mean discount) on today's eligible names, unit gross.
+
+    PREREG_C4_LEVEL §1.2 step 2, declared before the screen first ran
+    (alpha_level.py) and never varied: within family, unit gross, the raw
+    discount level, z-blind.
+
+    WITHIN FAMILY, NEVER POOLED. A pooled level would be a permanent bet on one
+    family's structural discount against another's (docs/SYSTEM.md; §3.2 "not
+    chosen"). Each family is demeaned on its OWN eligible names today, so the
+    level book is dollar-neutral inside every family.
+
+    A FAMILY WITH FEWER THAN 2 ELIGIBLE NAMES CONTRIBUTES ZERO: one name has no
+    peer to be rich or cheap against. (Its deviation from its own mean is 0.0
+    exactly anyway; the zero is set explicitly so the rule does not rest on that.)
+
+    `disc_t` is the date-t discount of the eligible names, in `target_positions`'
+    row order, with C4's M1|M2 masks already applied (an eligible name has an
+    unmasked, finite discount: its z is computed from it). The output has the
+    same index, in the same order, so it lines up with w_z name for name.
+
+    NO SILENT FALLBACK. An eligible ticker with no family, a non-finite discount
+    and a level book with no gross (every family a singleton, or every family's
+    discounts exactly equal) each RAISE, naming the cause. Unreachable for C4
+    (74 names, 5 families, min_names 6: by pigeonhole at least one family has two
+    eligible names), so a raise there means a broken input, not a quiet day.
+    """
+    missing = [t for t in disc_t.index if t not in family_of]
+    if missing:
+        raise ValueError(f"cef level_signal: no family for eligible ticker(s) {missing} in "
+                         f"family_of; refusing to guess a family")
+    if not np.isfinite(disc_t.to_numpy(dtype=float)).all():
+        raise ValueError(f"cef level_signal: non-finite discount on the signal date for "
+                         f"{list(disc_t.index[~np.isfinite(disc_t.to_numpy(dtype=float))])}")
+    fam = pd.Series({t: family_of[t] for t in disc_t.index}, index=disc_t.index)
+    dev = disc_t - disc_t.groupby(fam).transform("mean")
+    n = fam.map(fam.value_counts())
+    dev = dev.where(n >= 2, 0.0)
+    w = -dev
+    g = float(w.abs().sum())
+    if not (np.isfinite(g) and g > 0.0):
+        raise ValueError(f"cef level_signal: the level book has no gross on the signal date "
+                         f"(families {fam.value_counts().to_dict()}); a unit-gross w_L does "
+                         f"not exist")
+    return w / g
+
+
+def _blend_unit_book(w_z: pd.Series, w_L: pd.Series, ret: pd.DataFrame,
+                     risk_share: float) -> tuple[pd.Series, dict]:
+    """(mix, vols): the equal-risk blend of the unit-gross z and level books, unit gross.
+
+    PREREG_C4_LEVEL §1.2 step 3. s_z and s_L are each book's trailing realised vol
+    (`_book_vol`, today's weights on the last 63 sessions of price returns through
+    t), and
+
+        mix = risk_share * w_z / s_z + (1 - risk_share) * w_L / s_L,  / sum|.|
+
+    so that, before the renormalisation (one positive factor on both), the z part
+    and the level part each carry their share of the ex-ante vol: risk_share and
+    1 - risk_share of a unit. At 0.50, the derived value (§3.1: the two-sleeve
+    mean-variance rule gives 0.514 on z, and two Sharpes this noisy do not support
+    0.514 over a half), the two parts have EQUAL standalone vol, which is also
+    what makes their Euler risk contributions equal whatever their correlation.
+    `vols["s_mix"]` is the blend's own vol by the same estimator, for the one vol
+    scalar that follows.
+
+    WHY RISK AND NOT GROSS. The two books have different vols per unit of gross
+    (the level book's names are the structurally rich and cheap funds), so a gross
+    split would hand the risk to whichever book is more volatile that quarter.
+
+    NO SILENT FALLBACK. A non-finite or zero vol for either book or for the blend
+    has no ratio to take, and raises naming which; the z path's `else 1.0` scalar
+    stays on the key-absent path only, where it has always been.
+    """
+    if not w_z.index.equals(w_L.index):
+        raise ValueError("cef level_signal: w_z and w_L are not on the same names in the same order")
+    vols = {"s_z": _book_vol(ret, w_z), "s_L": _book_vol(ret, w_L)}
+    for k, s in vols.items():
+        if not (np.isfinite(s) and s > 0.0):
+            raise ValueError(f"cef level_signal: {k} = {s!r}; the risk-equalised blend needs a "
+                             f"finite, positive trailing vol for both books")
+    mix = risk_share * (w_z / vols["s_z"]) + (1.0 - risk_share) * (w_L / vols["s_L"])
+    g = float(mix.abs().sum())
+    if not (np.isfinite(g) and g > 0.0):
+        raise ValueError(f"cef level_signal: the blend has gross {g!r}; nothing to renormalise")
+    mix = mix / g
+    vols["s_mix"] = _book_vol(ret, mix)
+    if not (np.isfinite(vols["s_mix"]) and vols["s_mix"] > 0.0):
+        raise ValueError(f"cef level_signal: s_mix = {vols['s_mix']!r}; the blend's vol scalar "
+                         f"needs a finite, positive trailing vol")
+    return mix, vols
 
 
 def _nav_hold(market_state, last: pd.Timestamp, universe) -> dict:
@@ -492,6 +631,7 @@ class CEFDiscountSleeve(Sleeve):
         super().__init__(spec, capital_usd)
         cef_optional_keys(self.frozen)
         cef_sizing_multiplier(self.frozen)      # a malformed multiplier refuses at construction
+        cef_level_signal(self.frozen)           # so does a malformed level_signal or family map
         cef_below_min_names_floor(self.frozen)  # and a floor beside the wrong rule (CEF trial 55)
         if account is not None and not (type(account) is str and account == "paper"):
             raise ValueError(
@@ -602,6 +742,21 @@ class CEFDiscountSleeve(Sleeve):
         `_sizing_multiplier_note`.
         """
         return cef_sizing_multiplier(self.frozen)
+
+    @property
+    def _level_signal(self) -> "dict | None":
+        """{"risk_share", "family_of"}: the within-family level blend. ABSENT MEANS TODAY.
+
+        Parsed by `registry.cef_level_signal` on every read, so a spec edited
+        under a built sleeve is refused on the next decide rather than half-read:
+        null, a risk_share outside (0, 1), a family map that does not cover the
+        universe exactly, the key without `band_width`, and a near-miss spelling
+        all raise. `risk_share` is the share of ex-ante risk on the Z book. What
+        the sleeve does with it is in the module docstring (`_level_weights`,
+        `_blend_unit_book`); the derivation, the value and the REVERT are in the
+        spec's `_level_signal_note`.
+        """
+        return cef_level_signal(self.frozen)
 
     @property
     def _rebal_days(self) -> int:
@@ -1146,9 +1301,38 @@ class CEFDiscountSleeve(Sleeve):
 
         # constant-risk sizing off the sleeve's own trailing realised vol
         ret = px.pct_change(fill_method=None).where(lambda x: x.abs() < 0.5)
-        hist = (ret[list(row)].mul(w, axis=1)).sum(axis=1).tail(63)
-        rv = hist.std() * np.sqrt(252)
-        scal = float(np.clip(self._vol_target / rv, 0.2, 2.5)) if rv > 0 else 1.0
+        level = self._level_signal
+        level_vols = None
+        if level is None:
+            # TODAY'S PATH: the z book's own vol, and its scalar (with its `else 1.0`).
+            rv = _book_vol(ret, w)
+            scal = float(np.clip(self._vol_target / rv, 0.2, 2.5)) if rv > 0 else 1.0
+        else:
+            # ---- LEVEL SIGNAL (CEF trial 54; module docstring, steps 2-4) --------
+            # ALIGNMENT (H7). Everything below is read from the date-t panel, t =
+            # `last`, the signal date: w_z from t's z (t's discount against a mean
+            # and sd that end at t-1, the shift(1) above); w_L from t's masked
+            # discount of the same eligible names; s_z, s_L and s_mix from today's
+            # weights on price returns r_s = px_s / px_{s-1} - 1 for the 63
+            # sessions s <= t, each known at s's close. The sleeve decides after
+            # t's close and t's NAV, so the book earns from t+2 (shift(2)). The
+            # registry requires `band_width` with this key, so the signal date is
+            # the last paired session and the returns end exactly there; the two
+            # checks below refuse anything else, including any row after t.
+            if not (ret.index[-1] == last and last <= pd.Timestamp(asof)):
+                raise AssertionError(
+                    f"cef level_signal: returns end {ret.index[-1].date()}, signal date "
+                    f"{last.date()}, decision {pd.Timestamp(asof).date()}; the blend reads "
+                    f"returns through the signal date only (lookahead or a stale signal)")
+            if disc.index.max() > last:
+                raise AssertionError(f"cef level_signal: discount dated {disc.index.max().date()} "
+                                     f"is after the signal date {last.date()}; lookahead")
+            w_L = _level_weights(disc.loc[last, list(row)], level["family_of"])
+            w, level_vols = _blend_unit_book(w, w_L, ret, level["risk_share"])
+            rv = level_vols["s_mix"]
+            # ONE vol scalar, the existing one (clip bounds and all), on the blend's
+            # own vol: target = mix x clip(vol_target_annual / s_mix, 0.2, 2.5).
+            scal = float(np.clip(self._vol_target / rv, 0.2, 2.5))
         w = w * scal * float(self._req("gross_leverage"))
 
         # Drop sub-threshold names FIRST, then re-neutralise and re-normalise on
@@ -1380,6 +1564,11 @@ class CEFDiscountSleeve(Sleeve):
         # exactly 1.0 (and absent) the reasons are today's.
         if m_size is not None and m_size != 1.0:
             cap_tag += f" smult={m_size:.4f}"
+        # The level blend names itself, and the two vols it equalised, in every
+        # reason of a decide it shaped. Absent, the reasons are today's.
+        if level_vols is not None:
+            cap_tag += (f" level z_share={level['risk_share']:.4f}"
+                        f" s_z={level_vols['s_z']:.4f} s_L={level_vols['s_L']:.4f}")
         # Opening-session targets say so in the log. Appended only when the
         # flag is True, so absent/False reasons are unchanged byte-for-byte.
         if opening:
