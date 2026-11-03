@@ -701,6 +701,8 @@ def f_tca(b: Build, rel: pd.DataFrame, book="cef"):
     if be is not None:
         ax.axhline(be, color=C["green"], lw=1.4, ls="-.", label=f"model breakeven {be:.1f}bp at ×{m_live} (fit W1)")
     ax.axhline(0, color=C["black"], lw=0.5)
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo, hi + 0.55 * (hi - lo))      # headroom for the legend, above the data
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
     ax.set_xlabel("session date (2026)")
     ax.set_ylabel("fill vs official close, bp (+ = worse)")

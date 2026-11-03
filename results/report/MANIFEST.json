@@ -1,0 +1,401 @@
+{
+ "about": "Every output of the research evidence pack, its inputs with sha256, and what is PENDING. Rebuild: python3 -m scripts.report.build_pack",
+ "built_at_utc": "2026-11-03T21:15:11+00:00",
+ "commit": "1b2496e60f4092842cf6517555573a7344574473",
+ "clean_inputs": true,
+ "newest_release_tag": "release-20261103-4",
+ "builder": "scripts/report/build_pack.py",
+ "outputs": [
+  {
+   "id": "T01_releases",
+   "kind": "table",
+   "title": "Release tags and the specs each carried",
+   "path": "results/report/tables/T01_releases.csv",
+   "sha256": "20577c119bc47b4eb41f1297f562c7bd3cbb4b8c54d3e5164add520dcf09ac0b",
+   "inputs": [
+    "git:refs/tags/release-*"
+   ],
+   "data_last_date": "2026-11-03"
+  },
+  {
+   "id": "T02_spec_lineage",
+   "kind": "table",
+   "title": "Frozen-spec lineage",
+   "path": "results/report/tables/T02_spec_lineage.csv",
+   "sha256": "33906709d147617e9c2c09906597b1026cc5bd0951d46508fad35468492cf74a",
+   "inputs": [
+    "git:HEAD:ops/specs history",
+    "git:refs/tags/release-*"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "F02_spec_lineage",
+   "kind": "figure",
+   "title": "Spec lineage",
+   "path": "results/report/figures/F02_spec_lineage.png",
+   "sha256": "acd263ae24a3d8b8f45d86b1e0e8df830a965d16e810175e433463fae27cfbfb",
+   "inputs": [
+    "git:HEAD:ops/specs history",
+    "git:refs/tags/release-*"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "T03_deployed_spec_keys",
+   "kind": "table",
+   "title": "Every frozen-spec key at release-20261103-4",
+   "path": "results/report/tables/T03_deployed_spec_keys.csv",
+   "sha256": "d9f027cf060f93156062604fe4d0e354772e95026736925be8489bdd96d64554",
+   "inputs": [
+    "git:release-20261103-4:ops/specs/cef_discount.frozen.json",
+    "git:release-20261103-4:ops/specs/c4_families.frozen.json"
+   ],
+   "data_last_date": "2026-11-03"
+  },
+  {
+   "id": "F01_deployment_timeline",
+   "kind": "figure",
+   "title": "Deployment timeline",
+   "path": "results/report/figures/F01_deployment_timeline.png",
+   "sha256": "dec51e9370a434b7431f17c9ef04e8a8bacb84a5468bfb125fd9b16caee49c62",
+   "inputs": [
+    "results/report/data/deployments.csv",
+    "git:refs/tags/release-*"
+   ],
+   "data_last_date": "2026-11-03"
+  },
+  {
+   "id": "T07_trial53_odds",
+   "kind": "table",
+   "title": "Trial 53: P(HALVE)/P(KILL) by multiplier",
+   "path": "results/report/tables/T07_trial53_odds.csv",
+   "sha256": "bb80f85e05b7fbc63d8f37946ae1e72a2d4c3b3d0b1acd3e4a649d5e808d4a61",
+   "inputs": [
+    "results/cef/prereg_voltarget/risk_2026-10-30.json",
+    "results/cef/prereg_voltarget/risk_2026-11-02_flatten.json"
+   ],
+   "data_last_date": "2022-12-30"
+  },
+  {
+   "id": "F03_trial53_halve_kill",
+   "kind": "figure",
+   "title": "Trial 53 HALVE/KILL odds",
+   "path": "results/report/figures/F03_trial53_halve_kill.png",
+   "sha256": "111542e69024b8592933b481e8fc48dc614ca8e9871c1d93de6d7efc1e2e760a",
+   "inputs": [
+    "results/cef/prereg_voltarget/risk_2026-10-30.json",
+    "results/cef/prereg_voltarget/risk_2026-11-02_flatten.json",
+    "git:release-20261103-4:ops/specs/cef_discount.frozen.json"
+   ],
+   "data_last_date": "2022-12-30"
+  },
+  {
+   "id": "T08_trial54_gate0",
+   "kind": "table",
+   "title": "Trial 54 Gate 0 slopes",
+   "path": "results/report/tables/T08_trial54_gate0.csv",
+   "sha256": "c709d7e59bf89540d94ab2d9bb0072a86452e7c6f6b813e24b4ed76721065a8e",
+   "inputs": [
+    "results/cef/screens_2026-11-02/gate0_analysis.json"
+   ],
+   "data_last_date": "2022-12-30"
+  },
+  {
+   "id": "F04_trial54_gate0",
+   "kind": "figure",
+   "title": "Trial 54 Gate 0",
+   "path": "results/report/figures/F04_trial54_gate0.png",
+   "sha256": "675b235f839bfbc28dc63e69b80a4350c6fe1705cb231c0b21cdf903815b8e03",
+   "inputs": [
+    "results/cef/screens_2026-11-02/gate0_analysis.json"
+   ],
+   "data_last_date": "2022-12-30"
+  },
+  {
+   "id": "T09_c4_trial52",
+   "kind": "table",
+   "title": "C4 (CEF trial 52): fit vs holdout, gross and cost grid",
+   "path": "results/report/tables/T09_c4_trial52.csv",
+   "sha256": "769b9811a596ad598f37094646822f7452081d106b695937e67698bf5146f278",
+   "inputs": [
+    "results/cef/c4/c4_fit_verdict_2026-10-14.json",
+    "results/cef/c4/c4_holdout_verdict_2026-10-18.json",
+    "results/cef/c4/holdout_review_2026-10-18/checks2_output.txt"
+   ],
+   "data_last_date": "2026-09-30"
+  },
+  {
+   "id": "F05_c4_trial52",
+   "kind": "figure",
+   "title": "C4 fit vs holdout",
+   "path": "results/report/figures/F05_c4_trial52.png",
+   "sha256": "f98d81313ace04c5f2cf93c3f14737f0b576b3aabee69525ab05b9c6128ddb47",
+   "inputs": [
+    "results/cef/c4/c4_fit_verdict_2026-10-14.json",
+    "results/cef/c4/c4_holdout_verdict_2026-10-18.json",
+    "results/cef/c4/holdout_review_2026-10-18/checks2_output.txt"
+   ],
+   "data_last_date": "2026-09-30"
+  },
+  {
+   "id": "F06_live_equity",
+   "kind": "figure",
+   "title": "Live equity",
+   "path": "results/report/figures/F06_live_equity.png",
+   "sha256": "2f00d7b60a7c5e6aa72e2346b02a68f375c151860facfb9e42a46e10f8a8b96f",
+   "inputs": [
+    "results/report/data/live/cef/equity_snapshot.csv",
+    "git:refs/tags/release-*"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "T10_live_daily",
+   "kind": "table",
+   "title": "Live daily P&L, four labelled lines",
+   "path": "results/report/tables/T10_live_daily.csv",
+   "sha256": "cdbc587e5bef642d1dc76c0d116f947685e6bd399c01d5a4554bc67d4aa152a0",
+   "inputs": [
+    "results/report/data/live/cef/scores.csv",
+    "results/report/data/live/cef/distribution_scores.csv",
+    "results/report/data/live/cef/verify_shadow.csv"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "F07_live_pnl_lines",
+   "kind": "figure",
+   "title": "Live P&L lines",
+   "path": "results/report/figures/F07_live_pnl_lines.png",
+   "sha256": "006134c24b2a595bb2992de65173514a5bc222d876f9a16009f2f565b3584818",
+   "inputs": [
+    "results/report/data/live/cef/scores.csv",
+    "results/report/data/live/cef/distribution_scores.csv",
+    "results/report/data/live/cef/verify_shadow.csv"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "T11_live_attribution",
+   "kind": "table",
+   "title": "Live attribution 2026-09-29..10-30",
+   "path": "results/report/tables/T11_live_attribution.csv",
+   "sha256": "7ef6fd8654cefa16fcb80d65c9dd9a855f77dfe0974f502077fd64897c6a66ba",
+   "inputs": [
+    "results/cef/LIVE_ATTRIBUTION_2026-11-02.md"
+   ],
+   "data_last_date": "2026-10-30"
+  },
+  {
+   "id": "F08_live_attribution",
+   "kind": "figure",
+   "title": "Live attribution",
+   "path": "results/report/figures/F08_live_attribution.png",
+   "sha256": "61a8ee7f6d83abed8e465101b384a78c5607eef2af0267e7aee518d49c307249",
+   "inputs": [
+    "results/cef/LIVE_ATTRIBUTION_2026-11-02.md"
+   ],
+   "data_last_date": "2026-10-30"
+  },
+  {
+   "id": "F09_tca",
+   "kind": "figure",
+   "title": "Fill cost by session",
+   "path": "results/report/figures/F09_tca.png",
+   "sha256": "9ec81e5d90e7a0c43412fd49dcb5cd5ed0bf031ceda649f04111d51860b0d44f",
+   "inputs": [
+    "results/report/data/live/cef/fill_cost_daily.csv",
+    "results/report/data/live/cef/fill_cost_pooled.csv",
+    "results/cef/prereg_voltarget/risk_2026-11-02_flatten.json",
+    "git:release-20261103-4:ops/specs/cef_discount.frozen.json"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "F10_verify_history",
+   "kind": "figure",
+   "title": "Verify and gate history",
+   "path": "results/report/figures/F10_verify_history.png",
+   "sha256": "5d2f3a2b51ac03b1e69c6f19c13cebcb3f57a995b3103f1aa93f838defed0e38",
+   "inputs": [
+    "results/report/data/live/cef/verify.csv"
+   ],
+   "data_last_date": "2026-11-02"
+  },
+  {
+   "id": "T05_trial_registry",
+   "kind": "table",
+   "title": "Stored trial series (registry ledger)",
+   "path": "results/report/tables/T05_trial_registry.csv",
+   "sha256": "ee76424b6bdd97ba062cf650d5727c1f62b38b60769e1af26d6df94db27ad2b2",
+   "inputs": [
+    "results/research/trials/ledger.jsonl"
+   ],
+   "data_last_date": "2022-12-30"
+  },
+  {
+   "id": "T06_evidence_index",
+   "kind": "table",
+   "title": "Evidence-log index",
+   "path": "results/report/tables/T06_evidence_index.csv",
+   "sha256": "17460486e307f6465f7913127477869586ac2b8299ff87ce2883687fbd0e4bfb",
+   "inputs": [
+    "results/report/EVIDENCE_LOG.md"
+   ],
+   "data_last_date": "2026-11-03"
+  },
+  {
+   "id": "T04_counter_history",
+   "kind": "table",
+   "title": "Trial counters as recorded at each commit",
+   "path": "results/report/tables/T04_counter_history.csv",
+   "sha256": "575109e0495d9a11f7121db852880106445f1482f27823f3dcbc065b36e3ed19",
+   "inputs": [
+    "git:HEAD:docs/RESEARCH_STATE.md history"
+   ],
+   "data_last_date": "2026-11-03"
+  },
+  {
+   "id": "F11_trial_counters",
+   "kind": "figure",
+   "title": "Trial counters",
+   "path": "results/report/figures/F11_trial_counters.png",
+   "sha256": "a7d81dc28f2aced1d9b65b17d9c70ba4f58888c47b04bb1d0aa743db0e35192d",
+   "inputs": [
+    "git:HEAD:docs/RESEARCH_STATE.md history"
+   ],
+   "data_last_date": "2026-11-03"
+  }
+ ],
+ "inputs": {
+  "git:HEAD:docs/RESEARCH_STATE.md history": {
+   "sha256": "d01b17fd974d796ff3ad80ce89624f4657d63de4d9bd380416ca6546ae349d83",
+   "committed": true,
+   "n_objects": 50
+  },
+  "git:HEAD:ops/specs history": {
+   "sha256": "15405a61c8499f3731e4be6cdf947e4b3749f0edc4af8700ee8f972235b50b0e",
+   "committed": true,
+   "n_objects": 27
+  },
+  "git:refs/tags/release-*": {
+   "sha256": "8284be196029c4231c8bd54dbb1e43eeec2da06f8e1e3f4606e4ec0e8632fe2b",
+   "committed": true,
+   "n_objects": 21
+  },
+  "git:release-20261103-4:ops/specs/c4_families.frozen.json": {
+   "sha256": "a419959d38d2a2447593ea3f4f4ce308216461fa30efe3f7af5a5809687064b3",
+   "committed": true
+  },
+  "git:release-20261103-4:ops/specs/cef_discount.frozen.json": {
+   "sha256": "dd92e06d814ae6b89462348696da3dd537fcdb114c54bba6f37cc133eb55d313",
+   "committed": true
+  },
+  "results/cef/LIVE_ATTRIBUTION_2026-11-02.md": {
+   "sha256": "0f1954cdedb5bd9351b397016163143bb29a1995b7e49f92e8021b27bce05f07",
+   "committed": true
+  },
+  "results/cef/c4/c4_fit_verdict_2026-10-14.json": {
+   "sha256": "6f71c4ff3c44f23e204a27e7597903883be28aa8c51af618d7824acda15faa6d",
+   "committed": true
+  },
+  "results/cef/c4/c4_holdout_verdict_2026-10-18.json": {
+   "sha256": "4f17a4506ca1f245a74fdec599b5fb164bf25f5fa5537b15ee3efaaa3a07b571",
+   "committed": true
+  },
+  "results/cef/c4/holdout_review_2026-10-18/checks2_output.txt": {
+   "sha256": "0fa091b625eda5bf65f9ea169c683f441f8276eed3d473bb89285014298a856f",
+   "committed": true
+  },
+  "results/cef/prereg_voltarget/risk_2026-10-30.json": {
+   "sha256": "3336cdbcfbdafbeb3f410a8a83ba57678aa84ed91aa0ea716666368988df9fee",
+   "committed": true
+  },
+  "results/cef/prereg_voltarget/risk_2026-11-02_flatten.json": {
+   "sha256": "0286753b6d2a0e79d8b9bdfb9225f43c9d5b6c2129bd6a5bd5e7027cfcbb7817",
+   "committed": true
+  },
+  "results/cef/screens_2026-11-02/gate0_analysis.json": {
+   "sha256": "2a4ad55a23ddc0c9e59791a72a386f6a8d97e05a6836d4897824ad0407d44b58",
+   "committed": true
+  },
+  "results/report/EVIDENCE_LOG.md": {
+   "sha256": "318bd14fc262309cdd0d3995d4c6d80d184f77367a41e75a4dc9e6df09d9849e",
+   "committed": true
+  },
+  "results/report/data/deployments.csv": {
+   "sha256": "bf4ea199c95737d753e4c2cfbfffbaebc74298cd539906f69a3baffc398ba1f9",
+   "committed": true
+  },
+  "results/report/data/live/cef/distribution_scores.csv": {
+   "sha256": "4d34c496166f4abb32ddbc73242ba1eac81cef29c8b7251fefccf84c05fbda2f",
+   "committed": true
+  },
+  "results/report/data/live/cef/equity_snapshot.csv": {
+   "sha256": "e088924090be1392546070f2c4eecb1e4602385e9b6a7ce823ad6cad0b4a4647",
+   "committed": true
+  },
+  "results/report/data/live/cef/fill_cost_daily.csv": {
+   "sha256": "a5afac159c4074a058deb614c4dc50d4203acb4ced17ff43328599d9f2829ad3",
+   "committed": true
+  },
+  "results/report/data/live/cef/fill_cost_pooled.csv": {
+   "sha256": "097ce59ba0c02a48a62b164b10f0687422622d03c12fdabe0aaa61d80c81001e",
+   "committed": true
+  },
+  "results/report/data/live/cef/scores.csv": {
+   "sha256": "e0c6e0796a86b577fb1764dc588c360696deeceb5df29ae7177b67ebe06b1fb3",
+   "committed": true
+  },
+  "results/report/data/live/cef/verify.csv": {
+   "sha256": "5d17adb5436a373df749f7f505042fa6274302e990dcf78fbb17ccee4213ad0b",
+   "committed": true
+  },
+  "results/report/data/live/cef/verify_shadow.csv": {
+   "sha256": "a78b8c43a665e3b3ae2f4fe8a126972b9e9283f3118e0ff0772243da53f931eb",
+   "committed": true
+  },
+  "results/research/trials/ledger.jsonl": {
+   "sha256": "f9d7ad6806b23ae70f6240a0bf29055002a11e280b26b7cdeb0f5a17bed1750b",
+   "committed": true
+  }
+ },
+ "pending": [
+  {
+   "id": "F06_live_equity.eod",
+   "title": "official EOD equity line",
+   "needs": "PENDING: the official EOD line needs results/report/data/live/cef/eod_equity.csv from a vmpnl.sh pull made after its grep gained eod_equity (2026-11-03). Not drawn from the snapshot."
+  },
+  {
+   "id": "P1_trial54_stages",
+   "title": "Trial 54: stage-by-stage table and fit vs holdout for the z, level and blend books",
+   "needs": "a figure function in build_pack.py; its inputs, results/cef/prereg_c4_level/*.json, are on main since PR #42 (65ea0c1)"
+  },
+  {
+   "id": "P6_daily_nav_discount",
+   "title": "Daily attribution: the NAV and discount parts of hold P&L",
+   "needs": "per-name NAV returns joined to the cached positions (results/report/_cache_live), written as daily account totals; the committed split covers 2026-09-29..10-30 only (results/cef/LIVE_ATTRIBUTION_2026-11-02.md, figure F08)"
+  },
+  {
+   "id": "P2_core_tearsheet",
+   "title": "Deployed core: fit / holdout tearsheet (daily curve, eras)",
+   "needs": "a committed daily P&L series of the deployed core (the registry's series are gitignored, and CEF-50 (v7) is not in results/research/trials/ledger.jsonl); the v7 prereg commits summary rows only"
+  },
+  {
+   "id": "P3_band_plateau",
+   "title": "Band derivation: cube-root law and the plateau around 4.8%",
+   "needs": "a committed machine-readable band grid (band width vs gross/net Sharpe and turnover) from scripts/cef/band_frontier.py; PREREG_BAND_2026-09-06.md carries prose and tables only"
+  },
+  {
+   "id": "P4_gate_records",
+   "title": "Corporate-action and missing-NAV gate history",
+   "needs": "the VM day folders' gate records (corporate-action and NAV-hold JSON) in the vmpnl.sh pull, with a sanitising schema in snapshot_live.SCHEMAS"
+  },
+  {
+   "id": "P5_c4_live",
+   "title": "C4 account live record",
+   "needs": "C4 armed (2026-11-03 install) and its state folder pulled; snapshot_live --book c4"
+  }
+ ]
+}
