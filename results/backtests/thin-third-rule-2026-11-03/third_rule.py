@@ -72,6 +72,20 @@ the report can cite committed code:
     tilt; extra execution delay; a Dimson factor regression on the repo's ETF
     panel; and the power of a forward test by independent episodes.
 
+CHANGED IN THE FINISHING PASS (2026-11-03), after the second full run, stated so
+the order is visible:
+  * the Dimson lag in attack l is DERIVED, not copied. The second run used lags
+    0..2, the beta-detector's scratch choice, which nothing derived (the team
+    lead, 2026-11-02: re-derive the exposure readout's Dimson lag properly
+    before its next reading). The rule, declared before it ran: regress the
+    universe's equal-weight return (the instruments, never the gap under test)
+    on the four factors at lags 0..DIMSON_MAX over the FIT window; K is the
+    last lag of the unbroken run of lags 1, 2, ... whose four coefficients are
+    jointly significant (HAC Wald, p < 0.05). The gap is regressed at lags
+    0..K; lags 0, 1 (the repo's convention: W4 section 6, the portfolio
+    framework's risk model) and 2 (the second run's) are printed beside it as
+    sensitivities, and nothing is chosen from them.
+
 SECOND METHODS, all asserted:
   * the reduced-set targets equal the LIVE SLEEVE's own output on every thin
     session (sleeve_reduced.csv, from sleeve_reduced_check.py), after its gross
@@ -119,6 +133,8 @@ FLIPS = ("instant", "deferred")
 MAIN = ("hold", "flatten", "te4")
 NS = (52, 53, 54)            # the CEF counter on main (52), at the release tag (53), and the next trial (54)
 ADV_WINDOW = 63              # build_panel's ADV rolling window (asserted in review_attacks): the episode merge gap
+DIMSON_MAX = 10              # the derivation's bound (two trading weeks); it RAISES if the derived lag reaches it
+DIMSON_P = 0.05              # a lag counts while its four factor coefficients are jointly significant at this level
 LOG, OUT = [], {}
 
 
@@ -968,8 +984,12 @@ def review_attacks(H, T, thin, TF, BF, cnt, panel, keep, Rt, res, dist_end):
       k. extra execution delay: H.shift(k - 2) through evaluate(), k = 3, 4, 6 (k = 2 is the canonical shift(2));
       l. a Dimson factor regression of the daily gap on the repo's ETF panel (data/rv/etf_panel.parquet;
          docs/REFERENCES.md, the 2026-10-11 fetchers row): credit HYG-IEF, rates IEF, loans BKLN-IEF, equity SPY,
-         lags 0..2 summed, HAC with the Newey-West 1994 lag. The beta-detector's fifth factor, MUB, came from a
-         scratch yfinance pull with no fetcher, so it is not used (CLAUDE.md data rules);
+         lags 0..K summed, HAC with the Newey-West 1994 lag. K is DERIVED first, on the instruments and not on
+         the gap (the finishing pass; the module docstring states the rule): Dimson's summed betas exist because
+         a thinly traded close answers a factor move late, so the lag count is how late the universe's own
+         equal-weight return answers the four factors over FIT. Lags 0, 1 and 2 are printed beside it. The
+         beta-detector's fifth factor, MUB, came from a scratch yfinance pull with no fetcher, so it is not
+         used (CLAUDE.md data rules);
       m. the power of a pre-registered forward test, by independent episodes."""
     import inspect
     from math import erf, sqrt as _sqrt
@@ -1128,11 +1148,17 @@ def review_attacks(H, T, thin, TF, BF, cnt, panel, keep, Rt, res, dist_end):
                       "equity": E["SPY"]})
     first_all = F.dropna().index.min()
 
-    def reg(y, cols, lags):
+    def ols(y, cols, lags):
+        # the factor lags are taken on the ETF panel's own calendar BEFORE alignment, so a thin-days-only y still
+        # sees each factor's return 1..lags sessions earlier, not the previous thin day's
         X = pd.concat({f"{c}_L{L}": F[c].shift(L) for c in cols for L in range(lags + 1)}, axis=1)
         d = pd.concat([y.rename("y"), X], axis=1).dropna()
         nwl = int(4 * (len(d) / 100) ** (2 / 9))
-        m = sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC", cov_kwds={"maxlags": nwl})
+        return d, nwl, sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC",
+                                                                                  cov_kwds={"maxlags": nwl})
+
+    def reg(y, cols, lags):
+        d, nwl, m = ols(y, cols, lags)
         betas = {}
         for c in cols:
             ks = [f"{c}_L{L}" for L in range(lags + 1)]
@@ -1141,17 +1167,44 @@ def review_attacks(H, T, thin, TF, BF, cnt, panel, keep, Rt, res, dist_end):
             betas[c] = dict(beta=b, t=b / se)
         return dict(n=int(len(d)), alpha=float(m.params["const"] * P), alpha_t=float(m.tvalues["const"]),
                     r2=float(m.rsquared), betas=betas, nw_lag=nwl, first=str(d.index.min().date()))
-    out["l_factors"] = dict(first_all_four=str(first_all.date()), etf_panel_last=str(E.index.max().date()))
-    p(f"\n=== REVIEW ATTACK l: Dimson factor regression of the daily gap (lags 0..2 summed; HAC, NW 1994 lag); "
-      f"ETF panel to {E.index.max().date()}; all four factors from {first_all.date()} ===")
     cols4 = ["credit", "rates", "loans", "equity"]
+    # THE LAG, derived on the instruments before the gap is regressed (the rule is in the module docstring): the
+    # equal-weight return of the universe names with a return that day, FIT from the first date all four factors
+    # exist, on lags 0..DIMSON_MAX; each lag's four coefficients tested jointly (HAC Wald)
+    ew = Rt[UNIVERSE].mean(axis=1).loc[first_all:fit[1]]
+    _, nwl_k, mk = ols(ew, cols4, DIMSON_MAX)
+    names_k = list(mk.params.index)
+    pv = {}
+    for L in range(1, DIMSON_MAX + 1):
+        Rm = np.zeros((len(cols4), len(names_k)))
+        for j, c in enumerate(cols4):
+            Rm[j, names_k.index(f"{c}_L{L}")] = 1.0
+        pv[L] = float(np.asarray(mk.wald_test(Rm, use_f=False, scalar=True).pvalue))
+    K = 0
+    while K < DIMSON_MAX and pv[K + 1] < DIMSON_P:
+        K += 1
+    if K == DIMSON_MAX:
+        raise AssertionError(f"the derived Dimson lag reached its bound {DIMSON_MAX}; widen DIMSON_MAX, do not "
+                             "truncate (the lag would be understated)")
+    lag_rows = tuple(L for L in (0, 1, 2) if L != K)     # none: 1 is the repo's convention, 2 the second run's
+    out["l_factors"] = dict(first_all_four=str(first_all.date()), etf_panel_last=str(E.index.max().date()),
+                            lag_derivation=dict(K=K, bound=DIMSON_MAX, p_level=DIMSON_P, wald_p={str(L): v for L, v in pv.items()},
+                                                n=int(mk.nobs), nw_lag=nwl_k, sample=f"{ew.index.min().date()}.."
+                                                f"{ew.index.max().date()}", r2=float(mk.rsquared)))
+    p(f"\n=== REVIEW ATTACK l: Dimson factor regression of the daily gap (lags 0..K summed, K DERIVED; HAC, NW 1994 "
+      f"lag); ETF panel to {E.index.max().date()}; all four factors from {first_all.date()} ===")
+    p(f"the lag: the universe's equal-weight return on the four factors at lags 0..{DIMSON_MAX}, "
+      f"{ew.index.min().date()}..{ew.index.max().date()} (n {int(mk.nobs)}, HAC {nwl_k}, R2 {mk.rsquared:.3f}); joint "
+      f"Wald p by lag: " + "  ".join(f"L{L} {v:.4f}" for L, v in pv.items())
+      + f"  -> K = {K} (the last lag of the unbroken significant run from lag 1, p < {DIMSON_P})")
+    l_rows = ((f"FIT (4 factors), lags 0..{K}", first_all, fit[1], cols4, K, "all"),
+              (f"FIT (4 factors), lags 0..{K}, thin days", first_all, fit[1], cols4, K, "thin"),
+              (f"FIT (3, no loans), lags 0..{K}", pd.Timestamp(bf.SAMPLE_START), fit[1],
+               ["credit", "rates", "equity"], K, "all"),
+              (f"H13 2023+ (4 factors), lags 0..{K}", HOLDOUT_START, dist_end, cols4, K, "all")) + tuple(
+        (f"FIT (4 factors), lags 0..{L} [sensitivity]", first_all, fit[1], cols4, L, "all") for L in lag_rows)
     for ref in ("flatten", "hold"):
-        for lab, a, b, cols, lags, days in (
-                ("FIT (4 factors)", first_all, fit[1], cols4, 2, "all"),
-                ("FIT (4 factors), thin days", first_all, fit[1], cols4, 2, "thin"),
-                ("FIT (4 factors), lag 0 only", first_all, fit[1], cols4, 0, "all"),
-                ("FIT (3, no loans)", pd.Timestamp(bf.SAMPLE_START), fit[1], ["credit", "rates", "equity"], 2, "all"),
-                ("H13 2023+ (4 factors)", HOLDOUT_START, dist_end, cols4, 2, "all")):
+        for lab, a, b, cols, lags, days in l_rows:
             y = gap[ref].loc[a:b]
             if days == "thin":
                 y = y[thin_d.loc[a:b]]

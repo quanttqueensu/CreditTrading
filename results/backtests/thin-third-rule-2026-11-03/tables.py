@@ -417,9 +417,14 @@ def review():
     for k, o in R["k_delay"].items():
         print(f"| {k} | " + " | ".join(f"{pc(o[f'flatten/{w}']['pp'], sign=True)} ({f2(o[f'flatten/{w}']['t'])}) / "
                                        f"{pc(o[f'hold/{w}']['pp'], sign=True)} ({f2(o[f'hold/{w}']['t'])})" for w in ws) + " |")
-    section("P5. Dimson factor regression of the daily gap (lags 0..2 summed; HAC, NW 1994 lag)")
     L = R["l_factors"]
+    k = L["lag_derivation"]
+    section(f"P5. Dimson factor regression of the daily gap (lags 0..{k['K']} summed, the lag derived; HAC, NW 1994 lag)")
     print(f"ETF panel to {L['etf_panel_last']}; all four factors from {L['first_all_four']}\n")
+    print(f"the lag, derived on the instruments: the universe's equal-weight return on the four factors at lags "
+          f"0..{k['bound']}, {k['sample']} (n {k['n']}, HAC {k['nw_lag']}, R2 {k['r2']:.3f}); joint Wald p by lag: "
+          + ", ".join(f"L{a} {v:.4f}" for a, v in k["wald_p"].items())
+          + f"; K = {k['K']}, the last lag of the unbroken run from lag 1 with p < {k['p_level']}\n")
     print("| vs | sample | n | alpha pp/yr (t) | R2 | credit | rates | loans | equity |")
     print("|---|---|---:|---|---:|---|---|---|---|")
     for k, r in L.items():
