@@ -946,19 +946,169 @@ def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
     return sl.target_positions(ts, ms)
 
 
-def is_opening_session(positions: dict, closed_orders: list) -> bool:
-    """No position AND no order in the account's history ever filled."""
+# `execution.opening_session_fills` (book json): which filled orders make a session
+# not an opening one. ABSENT = "any", today's rule.
+OPENING_FILLS_ANY, OPENING_FILLS_OWN = "any", "own_prefix"
+OPENING_FILLS_MODES = (OPENING_FILLS_ANY, OPENING_FILLS_OWN)
+
+
+def is_opening_session(positions: dict, closed_orders: list, *, fills: str = OPENING_FILLS_ANY,
+                       cid_prefix: str | None = None) -> bool:
+    """No position AND no COUNTED order in the account's history ever filled.
+
+    The opening session trades to FULL target instead of the band edge (team lead
+    2026-09-28); a flat book is not told it is opening (a failed day or a manual
+    flatten also looks flat), so the account's own history decides.
+
+    `fills` (the book json's `execution.opening_session_fills`, `opening_session_fills_for`):
+      * "any" (ABSENT, today's rule, the core's): every filled order counts;
+      * "own_prefix": a filled order counts only if its client_order_id starts with
+        `<cid_prefix>-`, this book's own order-id prefix (`Book.cid_prefix`, passed by
+        the runner, never a literal).
+    WHY "own_prefix" EXISTS (C4; team lead 2026-11-02: C4 trades the EXISTING spare
+    paper account, no new account). The research loop may trade that account too
+    (CLAUDE.md rule 1's 2026-10-27 exception). Under "any", the loop's fills there, even
+    ones flattened long before, would starve C4's first session of its opening: it
+    would open from flat at the band EDGE, 28-42% of full target and net long +4.7% to
+    +11.1% (the release-check of 336df9d, measured on data/cef_families to 2026-10-09,
+    spec v4), and stay there, because nothing makes a later session an opening one.
+    Another runner's fills say nothing about C4's book. POSITIONS STILL COUNT whatever
+    their origin: a held share is exposure in this account, so any position means not
+    an opening session, under either rule. An order whose filled_qty cannot be read
+    raises under either rule, as before: an unreadable history is not a clean one."""
+    if fills not in OPENING_FILLS_MODES:
+        raise SessionError(f"opening-session fills rule {fills!r} is not one of {OPENING_FILLS_MODES}")
+    if fills == OPENING_FILLS_OWN and not cid_prefix:
+        raise SessionError("the own_prefix opening-session rule needs the book's order-id prefix")
     if positions:
         return False
+    own = f"{cid_prefix}-" if fills == OPENING_FILLS_OWN else None
     for o in closed_orders:
         try:
             f = Decimal(str(o["filled_qty"]))
         except (KeyError, InvalidOperation):
             raise SessionError(f"closed order {o.get('client_order_id')!r} has unreadable "
                                f"filled_qty {o.get('filled_qty')!r}") from None
-        if f > 0:
+        if f > 0 and (own is None or str(o.get("client_order_id") or "").startswith(own)):
             return False
     return True
+
+
+def opening_session_fills_for(book: Book) -> str | None:
+    """The book json's `execution.opening_session_fills`, or None (ABSENT: "any", today's
+    rule; `is_opening_session`). Present, it must be one of OPENING_FILLS_MODES."""
+    ex = json.loads(book.book_path.read_text()).get("execution") or {}
+    if "opening_session_fills" not in ex:
+        return None
+    v = ex["opening_session_fills"]
+    if v not in OPENING_FILLS_MODES:
+        raise SessionError(f"{book.book_path}: execution.opening_session_fills {v!r} is not one "
+                           f"of {OPENING_FILLS_MODES} (or the key must be deleted)")
+    return v
+
+
+# THE FIRST-SESSION GATE (release-check of 336df9d, QR1; a code gate since 2026-11-03).
+# A book listed here must make its FIRST armed session an opening session in a clean
+# account. C4 trades the EXISTING spare paper account (team lead 2026-11-02: no new
+# account), which the research loop may also trade (CLAUDE.md rule 1's 2026-10-27
+# exception). Its book json sets `execution.opening_session_fills = "own_prefix"`, so
+# the loop's past fills do not starve the opening (`is_opening_session`: else 28-42% of
+# target, net long). What can still make the first session wrong is what is THERE: a
+# position (any origin: it is exposure in this account, and makes the session not an
+# opening one) or an open order that is not the book's own. So, while no filled order in
+# the account carries the book's own prefix (`<cid_prefix>-`; from its first fill the gate
+# is spent): ARMED (DRY_RUN exactly "0", and AUTO_ARMED or an approval), a session that is
+# not an opening one under the book's rule, or with another runner's open order, is
+# refused before any order, as gate 2 (`arming`: the book is not fit to arm on this
+# account as it stands), naming what it found; UNARMED (every dry session), recorded in
+# plan.json / send.json `first_session` and printed, never refused. The core is not
+# listed: it computes and records nothing new. NO OVERRIDE: the account must be flat, and
+# no other runner armed on it (checklist step 6), before C4 arms.
+OPENING_REQUIRED_BOOKS = frozenset({"c4"})
+
+
+def first_session_check(book: Book, positions: dict, closed_orders: list,
+                        open_orders: list | None, fills: str | None) -> dict | None:
+    """THE FIRST-SESSION GATE's reading (above): None for a book not in
+    OPENING_REQUIRED_BOOKS, or once the account holds a filled order with the book's own
+    prefix. Else {"opening", "fills_rule", "positions", "foreign_fills",
+    "newest_foreign_fill_date", "newest_foreign_fill_prefix", "foreign_open_orders"}:
+    `opening` is `is_opening_session` under the book's rule (`fills`, None = "any"); the
+    foreign fills are reported whatever the rule, the newest by `submitted_at` with its ET
+    date and the first dash-field of its client_order_id (who sent it). `open_orders`
+    None (gate 6's read failed; gate 6 refuses) records `foreign_open_orders` None. Raises,
+    naming it, on an order whose filled_qty or submitted_at cannot be read."""
+    if book.name not in OPENING_REQUIRED_BOOKS:
+        return None
+    from quantt.broker.alpaca import parse_ts
+    own = f"{book.cid_prefix}-"
+    rule = fills or OPENING_FILLS_ANY
+    foreign = []
+    for o in closed_orders:
+        cid = o.get("client_order_id")
+        try:
+            f = Decimal(str(o["filled_qty"]))
+        except (KeyError, InvalidOperation):
+            raise SessionError(f"closed order {cid!r} has unreadable filled_qty "
+                               f"{o.get('filled_qty')!r}") from None
+        if f > 0:
+            if isinstance(cid, str) and cid.startswith(own):
+                return None                       # the book has traded here: gate spent
+            foreign.append((parse_ts(o.get("submitted_at"), f"closed order {cid!r} submitted_at"),
+                            cid))
+    newest = max(foreign, key=lambda x: x[0]) if foreign else None
+    return {"opening": is_opening_session(positions, closed_orders, fills=rule,
+                                          cid_prefix=book.cid_prefix),
+            "fills_rule": rule,
+            "positions": sum(1 for q in positions.values() if q),
+            "foreign_fills": len(foreign),
+            "newest_foreign_fill_date": newest[0].astimezone(gt.ET).date() if newest else None,
+            "newest_foreign_fill_prefix": ((str(newest[1]).split("-")[0] if newest[1] else "(none)")
+                                           if newest else None),
+            "foreign_open_orders": (None if open_orders is None else
+                                    sum(1 for o in open_orders
+                                        if not str(o.get("client_order_id") or "").startswith(own)))}
+
+
+def first_session_gate(book: Book, check: dict | None, armed: bool) -> tuple:
+    """(record or None, refusal text or None, log lines) for THE FIRST-SESSION GATE.
+    Armed, and not an opening session under the book's rule or with another runner's
+    open order: refused (the caller adds it as gate 2, `arming`). Unarmed: recorded and
+    printed only."""
+    if check is None:
+        return None, None, []
+    fills = (f"{check['foreign_fills']} filled order(s) not {book.name}'s in the account's "
+             f"closed-order history"
+             + (f" (newest submitted {check['newest_foreign_fill_date']}, client_order_id "
+                f"prefix {check['newest_foreign_fill_prefix']!r})" if check["foreign_fills"] else ""))
+    problems = []
+    if not check["opening"]:
+        problems.append(f"not an opening session under the {check['fills_rule']!r} rule: "
+                        f"{check['positions']} position(s); {fills}")
+    if check["foreign_open_orders"]:
+        problems.append(f"{check['foreign_open_orders']} open order(s) not {book.name}'s")
+    rec = {**check, "armed": armed,
+           "action": "clear" if not problems else ("refused" if armed else "reported")}
+    if not problems:
+        return rec, None, [f"  FIRST SESSION ({book.name}): an opening session under the "
+                           f"{check['fills_rule']!r} rule (full target); {fills}"]
+    what = "; ".join(problems)
+    text = (f"{book.name}'s first armed session is not fit to send: {what}. An account that is "
+            f"not flat, or another runner's order in it, would open {book.name} from the band "
+            f"edge or beside foreign exposure (for C4 28-42% of target, net long: the "
+            f"release-check of 336df9d). Nothing is sent. The account must be flat and no other "
+            f"runner armed on it before arming (results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md "
+            f"step 6)")
+    if armed:
+        return rec, text, [f"  FIRST SESSION ({book.name}): REFUSED: {text}"]
+    return rec, None, [f"  FIRST SESSION ({book.name}): NOT FIT TO ARM (unarmed: reported only): "
+                       f"{what}"]
+
+
+def _armed(env, approve_sha, state: Path) -> bool:
+    """DRY_RUN exactly "0" and AUTO_ARMED or an approval: gates 1 and 2's arming."""
+    return env.get("DRY_RUN") == "0" and (approve_sha is not None
+                                           or (state / "AUTO_ARMED").exists())
 
 
 def halts_for(book: Book) -> list:
@@ -1452,6 +1602,9 @@ class Deps:
     # off, today's behaviour; `corporate_actions_for`). The read itself is
     # `client.corporate_actions`.
     corp_actions: str | None = None
+    # `execution.opening_session_fills` (`opening_session_fills_for`): None = "any",
+    # today's opening-session rule; "own_prefix" counts only this book's own fills.
+    opening_session_fills: str | None = None
 
 
 def _sleeve_target_fn(sleeve_spec: dict):
@@ -1502,6 +1655,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         missing_nav=missing_nav_for(book),
         missing_nav_max_sessions=missing_nav_max_sessions_for(book),
         corp_actions=corporate_actions_for(book),
+        opening_session_fills=opening_session_fills_for(book),
     )
 
 
@@ -1744,7 +1898,11 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0),
                                        tzinfo=gt.ET)
         closed = c.orders(status="closed")
-        opening = is_opening_session(pos, closed)
+        # The book's opening-session rule (`opening_session_fills_for`; None = "any", the
+        # core's and today's): the prefix is the runner's own, `book.cid_prefix`.
+        opening = is_opening_session(pos, closed,
+                                     fills=deps.opening_session_fills or OPENING_FILLS_ANY,
+                                     cid_prefix=book.cid_prefix)
         assets = {s: c.asset(s) for s in p["universe"]}
         shortable = {s: a["shortable"] for s, a in assets.items()}
         record.update(
@@ -1877,6 +2035,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if orders_unread is None:
             record.update(orders_recent=[_order_summary(o) for o in orders_recent],
                           orders_open=[_order_summary(o) for o in orders_open])
+        # THE FIRST-SESSION GATE (OPENING_REQUIRED_BOOKS; None for the core), on the same
+        # closed-order history and on gate 6's open orders.
+        first_rec, first_refusal, first_lines = first_session_gate(
+            book, first_session_check(book, pos, closed,
+                                      orders_open if orders_unread is None else None,
+                                      deps.opening_session_fills),
+            _armed(deps.env, approve, state))
+        if first_rec is not None:
+            record["first_session"] = first_rec
+        for line in first_lines:
+            print(line, file=out)
         # Then a clock read NOW, not the one from before the refresh.
         # Review 2026-09-28: the refresh, 13 asset GETs (each with retries) and
         # the sleeve all run after the first read; gating on it let a session
@@ -1923,6 +2092,10 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if ca_refusal is not None:
             # The corporate-action gate under `halt` (corp_actions.py, WHY A `data` REFUSAL).
             refusals.append(gt.Refusal("data", ca_refusal))
+        if first_refusal is not None:
+            # THE FIRST-SESSION GATE, armed: gate 2's refusal (the book is not fit to arm
+            # here). At a late-market DECIDE it is the SEND's, as arming always is.
+            refusals.append(gt.Refusal("arming", first_refusal))
         record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
 
         plan = {"book": book.name, "spec_id": p["spec_id"], "session_date": session_date,
@@ -1935,6 +2108,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan["drawdown"] = record["drawdown"]
         if "corporate_actions" in record:    # only when the book turns the gate on
             plan["corporate_actions"] = record["corporate_actions"]
+        if "first_session" in record:        # only a book in OPENING_REQUIRED_BOOKS
+            plan["first_session"] = record["first_session"]
         if "bp_scale" in record:
             plan["bp_scale"] = record["bp_scale"]
         if "combine" in record:              # only a combined book (combine.py)
@@ -2151,12 +2326,23 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
             _plan_targets(plan["targets"], plan.get("combine")),
             asof, session_date, universe=p["universe"], state=state, book_name=book.name)
     approve_sha = approve or approval_for(day)
+    # THE FIRST-SESSION GATE's closed-order history, on the account as it is at the send
+    # (OPENING_REQUIRED_BOOKS only; the core reads nothing more here).
+    first_closed = c.orders(status="closed") if book.name in OPENING_REQUIRED_BOOKS else None
     # Gate 6's lists: the last broker read before the gate's clock read, after
     # the asset GETs, the closed-order history and the corporate-action pages
     # (`_gate6_orders`, review 2026-10-29). A failed read is a gate-6 refusal.
     orders_recent, orders_open, orders_unread = _gate6_orders(c, midnight)
     if orders_unread is None:
         record["orders_open"] = [_order_summary(o) for o in orders_open]
+    first_rec, first_refusal, first_lines = (None, None, [])
+    if first_closed is not None:
+        first_rec, first_refusal, first_lines = first_session_gate(
+            book, first_session_check(book, pos, first_closed,
+                                      orders_open if orders_unread is None else None,
+                                      deps.opening_session_fills),
+            _armed(deps.env, approve_sha, state))
+        record["first_session"] = first_rec
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
     cal_today = [r for r in cal if r["date"] == session_date]
@@ -2186,12 +2372,16 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         refusals.append(gt.Refusal("sanity", f"positions moved since the plan was decided: {moved}"))
     if ca_refusal is not None:
         refusals.append(gt.Refusal("data", ca_refusal))
+    if first_refusal is not None:
+        refusals.append(gt.Refusal("arming", first_refusal))
     record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
     print(f"{book.name} SEND {session_date} (plan decided on as-of {plan['asof']}), equity "
           f"${acct['equity']:,.2f}, window {win[0]:%H:%M}-{win[1]:%H:%M} ET", file=out)
     print(order_table(orders), file=out)
     print(f"plan_sha {plan['plan_sha']}", file=out)
     for line in ca_lines:
+        print(line, file=out)
+    for line in first_lines:
         print(line, file=out)
     for x in skipped:
         print(f"  SKIPPED {x}", file=out)
@@ -2209,6 +2399,8 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         # send.json is unchanged when it is off.
         extra = ({"corporate_actions": record["corporate_actions"]}
                  if "corporate_actions" in record else {})
+        if record.get("first_session") is not None:     # a book in OPENING_REQUIRED_BOOKS
+            extra["first_session"] = record["first_session"]
         rec.write_json_atomic(day / "send.json", {**extra,
             "session_date": session_date, "plan_sha": plan["plan_sha"], "at": stamp,
             "exit": EXIT_NAMES[code], "refusals": record["refusals"], "skipped": skipped,

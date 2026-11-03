@@ -158,3 +158,81 @@ def test_c4_is_read_only_when_named_and_never_by_default(monkeypatch, capsys):
     assert "C4" not in capsys.readouterr().out
     with pytest.raises(KeyError):
         ap.spec_path("nope")
+
+
+# ------------------------------------------- the opening-session read (QR1, release-check of 336df9d)
+
+def _closed(n, filled_at=None, cid="lab-20261020-ADX-1"):
+    """n closed orders, newest first; the one at index `filled_at` filled."""
+    return [{"id": f"o{i}", "client_order_id": cid if i == filled_at else f"x-{i}", "symbol": "ADX",
+             "filled_qty": "5" if i == filled_at else "0", "status": "filled" if i == filled_at
+             else "canceled", "submitted_at": f"2026-10-{20 - i % 19:02d}T19:53:00Z"}
+            for i in range(n)]
+
+
+def _c4_snap(closed, positions=()):
+    t = _table(ap.universe("c4"))
+    t["/v2/positions"] = (200, list(positions))
+    t[ap.CLOSED_ORDERS_PATH] = (200, closed)
+    s = FakeSession(t)
+    return ap.probe_book("c4", s), s
+
+
+def test_c4s_probe_reads_whether_its_first_session_opens_at_full_target():
+    """QR1: the arming read must see a PAST fill, which positions and open orders cannot.
+    Under C4's book-json rule (`execution.opening_session_fills = "own_prefix"`, team lead
+    2026-11-02: the existing spare account), the research loop's fill is read and named but
+    does not count: still an opening session. A fill with C4's own prefix does count.
+    Fails on 336df9d (no opening-session read) and on f7f7be5 (the lab fill counted)."""
+    snap, s = _c4_snap(_closed(3))
+    o = snap["opening_session"]
+    assert o["value"] is True and o["closed_orders_read"] == 3 and o["newest_fill"] is None
+    assert o["rule"] == "own_prefix"
+    assert any(u.endswith(ap.CLOSED_ORDERS_PATH) for u in s.urls)
+    assert "opening_session: True" in ap.summarise(snap)
+    snap, _ = _c4_snap(_closed(3, filled_at=1))
+    o = snap["opening_session"]
+    assert o["value"] is True and (o["filled_orders_read"], o["counted_fills"]) == (1, 0)
+    assert o["newest_fill"]["client_order_id_prefix"] == "lab" and "o1" not in json.dumps(o)
+    snap, _ = _c4_snap(_closed(3, filled_at=1, cid="c4-20261020-ADX-1"))
+    o = snap["opening_session"]
+    assert o["value"] is False and o["counted_fills"] == 1
+    assert "opening_session: False" in ap.summarise(snap)
+
+
+def test_a_position_alone_makes_the_first_session_not_an_opening():
+    snap, _ = _c4_snap([], positions=[{"symbol": "ADX", "qty": "3"}])
+    assert snap["opening_session"]["value"] is False
+
+
+def test_a_full_page_with_no_fill_is_unmeasured_never_true():
+    snap, _ = _c4_snap(_closed(ap.CLOSED_ORDERS_PAGE))
+    o = snap["opening_session"]
+    assert o["value"] is None and o["why"].startswith("UNMEASURED")
+    assert "opening_session: UNMEASURED" in ap.summarise(snap)
+
+
+def test_the_read_is_the_runners_rule_on_the_same_orders():
+    from quantt.session import run as rn
+    b = rn.BOOKS["c4"]
+    rule = rn.opening_session_fills_for(b)
+    for closed, pos in ((_closed(4), []), (_closed(4, filled_at=3), []),
+                        (_closed(4, filled_at=2, cid="c4-20261020-ADX-1"), []),
+                        ([], [{"symbol": "ADX", "qty": "1"}])):
+        snap, _ = _c4_snap(closed, positions=pos)
+        assert snap["opening_session"]["value"] == rn.is_opening_session(
+            {p["symbol"]: p["qty"] for p in pos}, closed, fills=rule, cid_prefix=b.cid_prefix)
+
+
+def test_an_unreadable_fill_raises_naming_the_order():
+    bad = _closed(2)
+    bad[0]["filled_qty"] = None
+    with pytest.raises(RuntimeError, match="x-0"):
+        _c4_snap(bad)
+
+
+def test_the_routine_probe_makes_no_closed_orders_request():
+    """The core and b6 snapshots are unchanged: no closed-order GET, no new key."""
+    s = FakeSession(_table(ap.universe("cef")))
+    snap = ap.probe_book("cef", s)
+    assert "opening_session" not in snap and not any("status=closed" in u for u in s.urls)

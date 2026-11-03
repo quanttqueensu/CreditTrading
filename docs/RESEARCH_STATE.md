@@ -32,7 +32,7 @@ counter (156) covers all ETF-price/PD work done to date.
 | DISP | PD dispersion / staleness decomposition | 3 |
 | DEALER | NY Fed primary dealer inventory | 1 |
 | MBS | mortgage prepayment staleness | 0 |
-| **CEF** | **credit closed-end fund discounts** | **53** |
+| **CEF** | **credit closed-end fund discounts** | **54** |
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
 | **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **3** |
@@ -189,6 +189,15 @@ counter (156) covers all ETF-price/PD work done to date.
 > (`results/cef/prereg_voltarget/c4_families_sizing_multiplier_2026-11-01.patch`), on branch
 > `c4-rel`, before C4's dry sessions, so that they rehearse the book C4 arms at ("C4 at its
 > arming, already at ×1.27"). C4 stays unarmed. Revert: local tag `spec-c4_families.v1.20261029`.
+
+> **2026-11-03: CEF moves 53 → 54** (team lead, 2026-11-03; this commit records the approval).
+> **CEF trial 54 is C4-LEVEL**, `results/cef/PREREG_C4_LEVEL_2026-11-02.md`: C4's discount level against
+> family peers, blended at equal risk with C4's z inside the C4 account (frozen key `level_signal` in C4's
+> spec, absent = v4 byte for byte). Gate 0 (survivorship with dead funds) was cleared by the team lead
+> **post-data** (b_D/b_A 1.36, CI 0.80–2.13; coverage 0.642 against an 80% reference; §4b, commit 389f61a,
+> reproduced byte for byte). That is a judgment on seen data, not a pre-registered pass. The pass rule (§6.2)
+> is unchanged: P1 alpha NW t ≥ √(2 ln 54) = 2.825 on the fit, the deflated-Sharpe bars at declared N = 54,
+> NC1, the placebo, D4, P3, then the 2023–26 holdout's sign, opened once.
 
 > **2026-11-02: CEF trial 53 AMENDMENT 1 — the counter does not move; CEF stays 53** (team lead,
 > 2026-11-02, about 22:00 ET; `results/cef/PREREG_VOLTARGET_2026-10-30.md` §0.B). The core's
@@ -406,6 +415,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | BREADTH | 45-instrument universe | agent staging | data fetch |
 | **C4** (CEF trial 52) | the live discount z-score pooled over five CEF families, on the 74 funds frozen at the 2026-10-14 re-read (65 with fit data) (`results/cef/PREREG_C4_FAMILIES_2026-10-13.md` and its four amendments) | **PASS on the corrected book** (team lead's ruling 2026-10-19, result note §9: gross SR 1.434, net 0.999 / **+0.130** / −1.174 at 5 / 15 / 30bp, NW t 2.89; stage 9 passes; recorded deviation, the four IGR bars fixed after the opening; **paper only, no real-money sleeve**). As first committed: PASS, labelled D2 (2026-10-18; holdout opened once at `353dc57`). Fit (2026-10-14, 3be92cd; both independent reviews confirmed it): gross SR 1.217 (NW t 5.32), `_dsr` 0.991 at N = 52, every kill passed. Holdout 2023-01-03 → 2026-09-30: gross SR **0.725** (NW t 1.32), the fit's sign (stage 8 pass); net 0.382 at 5bp, **−0.304 at 15bp** (stage 9: D2), −1.332 at 30bp, flips; 2023–24 +12.78%/yr, 2025–26 −3.50%/yr. Report-only: without IGR 1.486 (net@15 +0.086); 82% of the holdout P&L in the ex-date window [0,2] (fit 33%); rho21 with the book 0.134/0.196. Recorded deviation: BTX's Stage-0 flags were cleared after the fit P&L (zero weight in the fit) **CORRECTION PENDING (2026-10-18, result note §8):** an independent review found four bad IGR price bars (2026-07-29, 08-04, 08-07, 08-11; post-split basis inside a raw pre-split series, flagged by Stage 0 Q5 on 2026-10-14 and never triaged) costing −10.87% of capital. Corrected: gross SR 1.434, net@15 +0.130, NW t 2.89; grid still flips by 30bp. R-IGR's 1.486 was this defect. **Ruled 2026-10-19: the corrected book is the verdict** | none for the verdict: paper only by ruling. IGR's 2026-08-20 amount moves the Sharpe by 0.002 either way (§8). Before any real-money proposal: borrow measured, not modelled at zero |
 | **VT** (CEF trial 53) | sizing each account at its per-account equal-risk multiplier (`results/cef/PREREG_VOLTARGET_2026-10-30.md`): the frozen key `sizing_multiplier`, core ×1.13, C4 ×1.27, at a 5.25% combined target; **amendment 1 (2026-11-02): core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule (§0.B)**; `vol_target_annual` stays 0.06 | **APPROVED 2026-11-01** (team lead). Implementation: the code commit (absent = today, proved against 35b429f's pins), then the core's value as a separate activation commit; C4's value goes in at C4's arming. Expected on the fit (model, gross): combined 8.50% TR / 9.18% PR, Sharpe 1.68 / 1.76; per account, zero-edge P(HALVE) through 2008: core 15.2% median, C4 16.3% | forward paper only: R3 at 60 armed sessions, R2 at 120, R1 at any time, per account; the core's 60-session kill rule and C4's H11 rule, which is rebuilt on the raised book |
+| **C4-LEVEL** (CEF trial 54) | C4's within-family discount level, blended at equal ex-ante risk with C4's z under one vol scalar, C4's spec multiplier, band and 1.90 cap (`results/cef/PREREG_C4_LEVEL_2026-11-02.md`; frozen key `level_signal`, spec `c4_families.v5` on activation) | **APPROVED 2026-11-03** (team lead). Gate 0 cleared post-data. Next: the data gates DG-L2–L4, then P1–P3 and K1–K3 on the fit, then the holdout opened once. Expected [model, U]: +0.4 to +1.0%/yr gross on all capital | the fit stage (§6.2), then the holdout's sign; live: C4's kill rule and trial 53's stops rebuilt on the blended book, plus L1 |
 
 > Rows above that point elsewhere in this file ("See QUEUE rank 1", "RESOLVED,
 > see below") refer to sections now in the snapshot at git tag `pre-clean-slate`
