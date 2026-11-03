@@ -1,14 +1,19 @@
-# C4 dry run on its own Alpaca paper account: the team lead's checklist (2026-10-29; updated 2026-11-02)
+# C4 dry run on its own Alpaca paper account: the team lead's checklist (2026-10-29; updated 2026-11-03)
 
 > **For the team lead. Nothing here has been run on the VM, and nothing is armed.**
 > C4 (CEF trial 52) was fast-tracked on 2026-10-28/29 with every gate kept (docs/SYSTEM.md §5,
 > 2026-10-29). **Updated 2026-11-02:** the integration (`c4-integrate`) is merged onto main's
 > release-20261102-1 on branch **`c4-rel`**. That branch carries C4's whole path, dark: spec
-> **`c4_families.v3.20261102`** (CEF trial 53's `sizing_multiplier` **1.27**; the core's halve/kill
+> **`c4_families.v4.20261102`** (CEF trial 53 amendment 1's `sizing_multiplier` **1.26**; the core's halve/kill
 > levels, report only; the corporate-action gate in `report`, as the core, by the team lead's
 > 2026-11-02 ruling), the data path, the per-sleeve runner, `BOOKS["c4"]`, its book json and its
 > installer units. The core is proved byte-identical to 862b1d0 (below). Release is the team
 > lead's. C4 spends no trial; the CEF counter is 53 because of trial 53, not C4.
+> **Updated 2026-11-03:** merged to main (f27ef81, release-20261103-1) with the core at
+> **`cef_discount.v9.20261102`, ×1.30**. That release was GO for the core only; `--book c4` waits
+> for branch `c4-arm-prep` (the release-check's QR1, QR3 and ET1: step 6's opening-session gate,
+> these specs named everywhere, and the C4 install's scan of every book's units). The spec ids
+> and multipliers on this page are checked against the specs by `ops/tests/test_book_text.py`.
 >
 > **Every step marked TEAM LEAD RUNS needs the VM, a key or an account.** No agent runs it.
 
@@ -37,8 +42,8 @@ qi() { sudo env PYTHONPATH=/home/quantt/prod/quantt-alpaca \
 | The core's own no-op pins are unchanged and pass | `test_combine_noop.py`, `test_missing_nav_hold.py`, `test_sizing_multiplier_noop.py`, untouched by `c4-rel` | [V] 2026-11-02 |
 | C4's four optional keys, absent, are 66ec3df's 13-name book | `test_c4_keys_noop.py`, now on the core's pre-trial spec from git at 35b429f; runs on the laptop's real panel | [V] 2026-11-02 |
 | The core's install is cee16ad's installer's | `quantt/deploy/tests/test_install_vm_books.py` | [V] 2026-10-29 |
-| A C4 session in DRY decides from `data/cef_c4/` only, at ×1.27 (every weight target says `smult=1.2700`) | `test_c4_book.py`, fixture panel | [V] 2026-11-02 |
-| The fidelity gate passes on the raised spec, and H11 reads the account's book (1.27 × the unit book capped at 1.90/1.27) | `python3 scripts/cef/c4_paper_benchmark.py run` → `results/cef/c4/c4_paper_benchmark_2026-11-02.txt` | [V] 2026-11-02 |
+| A C4 session in DRY decides from `data/cef_c4/` only, at ×1.26 (every weight target says `smult=1.2600`) | `test_c4_book.py`, fixture panel | [V] 2026-11-03 |
+| The fidelity gate passes on the raised spec, and H11 reads the account's book (1.26 × the unit book capped at 1.90/1.26) | `python3 scripts/cef/c4_paper_benchmark.py run` → `results/cef/c4/c4_paper_benchmark_2026-11-02.txt` | [V] 2026-11-02 |
 | `ca-ack --book c4` refuses another book's state directory before any read | `test_c4_book.py::test_c4_ca_ack_refuses_another_books_state_dir_before_any_read` | [V] 2026-11-02 |
 
 ## The corporate-action mode: DECIDED, `report` (team lead, 2026-11-02)
@@ -126,6 +131,7 @@ ET, which the installer refuses):
 
 ```bash
 ssh quantt-vm
+sudo ls -d /etc/systemd/system/quantt-c4* /run/systemd/system/quantt-c4* 2>/dev/null   # nothing yet: any output = inspect first
 qi --tag <T> --vault <V> --book c4 --eod-from <YYYY-MM-DD> --seed-from /home/<admin>/c4_seed            # DRY RUN: read every check and unit
 qi --tag <T> --vault <V> --book c4 --eod-from <YYYY-MM-DD> --seed-from /home/<admin>/c4_seed --apply --enable
 systemctl list-timers 'quantt-*' --no-pager              # both books' timers
@@ -161,7 +167,8 @@ ssh quantt-vm "sudo tail -n 60 /home/quantt/quantt_state/c4/logs/session.out.log
 ssh quantt-vm "sudo /home/quantt/venv/bin/python -c \"import json,sys; p=json.load(open(sys.argv[1])); \
   ca=p.get('corporate_actions',{}); print(p['status'], [r['gate'] for r in p['refusals']], 'orders', len(p['orders']), \
   'ca', ca.get('status'), [u['id'][:8] for u in ca.get('unresolved',[]) if u['blocks']], \
-  'dd', p.get('drawdown',{}).get('status'), 'missing_nav', p.get('missing_nav',{}).get('missing'))\" \
+  'dd', p.get('drawdown',{}).get('status'), 'missing_nav', p.get('missing_nav',{}).get('missing'), \
+  'opening_session', p.get('opening_session'))\" \
   /home/quantt/quantt_state/c4/$D/plan.json"
 ssh quantt-vm "sudo tail -n 3 /home/quantt/quantt_state/c4/verify.log"
 python3 -m quantt.broker.alpaca_probe --book c4          # laptop, read-only: positions 0, open orders 0
@@ -179,7 +186,7 @@ Expected on each day:
   seeded row in its six-month window with Yahoo's. Look hardest at IGR (1:3 reverse split,
   2026-09-08) and the split-ruled BTO, TYG, NXG and EMO. The spike guard catches a spike that
   reverts, not a step. Any step: stop, and rule on it before arming. UNMEASURED: no network here.
-- The evening decide is PLANNED (exit 6) on C4's 74 at ×1.27, and the 15:52 send is DRY (exit
+- The evening decide is PLANNED (exit 6) on C4's 74 at ×1.26, and the 15:52 send is DRY (exit
   10). The gate is in `report`: a day whose `corporate_actions.status` is BLOCKING (an
   UNRESOLVED row in the window, as on 11-03) still decides and sends DRY; read which rows, and
   note it for the re-ruling. A REFUSED decide now means another gate.
@@ -213,9 +220,33 @@ Expected on each day:
       echo "== $u"; systemctl cat "$u" | grep -E "QUANTT_ENV_FILE|DRY_RUN|--book"; done; \
     sudo find /home/quantt/quantt_state -maxdepth 2 -name AUTO_ARMED -print'
                                                            # expect /run/quantt-c4 only in quantt-c4-*; AUTO_ARMED only under cef/
-  # the account: nothing open, nothing held, before the first armed session
+  # the account: nothing open, nothing held, NOTHING EVER FILLED, before the first armed session
   python3 -m quantt.broker.alpaca_probe --book c4          # "positions: 0   open orders: 0"
+                                                           # "opening_session: True   (no position, and none of
+                                                           #  all N closed order(s) filled; ...)"
   ```
+- **C4's first armed session must be an OPENING session** (the release-check of 336df9d, QR1).
+  The runner trades a book's first session to FULL target only when the account has no position
+  and no order in its history ever filled (`quantt/session/run.py` `is_opening_session`, team lead
+  2026-09-28); otherwise it opens from flat at the band EDGE. Measured by the release-check on
+  `data/cef_families` (to 2026-10-09, spec v4): the band-edge open is 28-42% of full target and net
+  long +4.7% to +11.1% [V there; not C4's seeded panel]. The spare account may have been traded
+  by the research loop (the gate above), and positions and open orders cannot show a past fill.
+  Two reads, the same day as the go, and both must say True:
+
+  ```bash
+  python3 -m quantt.broker.alpaca_probe --book c4          # the line "opening_session: True"
+  D=<the last dry session's date>
+  ssh quantt-vm "sudo /home/quantt/venv/bin/python -c \"import json,sys; \
+    print(json.load(open(sys.argv[1]))['opening_session'])\" /home/quantt/quantt_state/c4/$D/plan.json"   # True
+  ```
+
+  The probe applies the runner's own rule to the account's positions and its newest 500 closed
+  orders (`alpaca_probe.opening_read`); the plan is the runner's own reading of the real account
+  on that day's decide. **False** (a fill, which the probe names by symbol, time and order-id
+  prefix, or a position) or **UNMEASURED** (500 closed orders and no fill among them): STOP. C4
+  would open at the band edge. Nothing here resets an account's history or forces a full-target
+  open; that is the team lead's ruling to make before arming, not a default.
 
   The repository has no lab book today (`BOOKS` holds `cef` and `c4` only), and the loop's
   wrapper denies `python3 -m quantt.session` and holds no key file
@@ -239,6 +270,13 @@ Expected on each day:
 - **A new release:** the core's install refuses to move the shared clone while a C4 timer is
   enabled or running, or a C4 job is busy. Disable C4's timers, install the core at the new tag,
   then re-run step 4's `--apply --enable` at the same tag.
+- **The core's install does not look at C4's units on disk** (its scan is pinned to cee16ad's;
+  the release-check of 336df9d, ET1), yet its `daemon-reload` loads them. Before every core
+  install, TEAM LEAD RUNS on the VM, and reads every line:
+  `sudo ls -d /etc/systemd/system/quantt-c4* /run/systemd/system/quantt-c4* 2>/dev/null`.
+  Expected: only the seven `quantt-c4-*.service`/`.timer` files `--book c4` wrote, and no
+  `quantt-c4-*.d/` directory. A C4 install scans every book's units and any other `quantt-`
+  unit itself (`install_vm.scan_units`), and refuses, naming the file.
 - **Not built yet:** `ops.prod_state` and `ops.orient` report the core's units only; the probe
   reads C4 only when named (`--book c4`); how the agent lab's sleeves net against C4's targets in
   the shared account is decided when the lab book is built (docs/SYSTEM.md §5, 2026-10-28).

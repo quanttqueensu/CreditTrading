@@ -258,3 +258,10 @@ from a named source; [doc] copied from a named note.
 - Agents merge with the admin bypass only after CI passes on the exact head.
 
 **Prod:** PR #29 merged (26ed351): CI is green again; autonomy is in CLAUDE.md rule 1.
+
+## 2026-11-03 (Tue)
+
+**C4 arming prep** (branch `c4-arm-prep`, on main f27ef81 = release-20261103-1): the release-check of 336df9d was GO for the core only, and the fixes below must land before `--book c4` is cleared.
+- **QR1, the C4 opening-session check:** the arming go never checked whether C4's first armed session opens at full target. The runner does so only if the account has no position and has never had a fill. The spare account is shared with the research loop, so a past fill there would open C4 at the band edge: 28–42% of target, net long [V, the release-check, `data/cef_families` to 10-09]. Now `alpaca_probe --book c4` prints `opening_session` using the runner's own rule, over the account's positions and its newest 500 closed orders. Step 6 of the checklist requires that line and the last dry plan's `opening_session` both to read True; otherwise STOP.
+- **QR3:** the book jsons and the checklist now name core v9 ×1.30 and C4 v4 ×1.26 (`smult=1.2600`). `ops/tests/test_book_text.py` checks them against the specs.
+- **ET1:** a C4 install now scans every book's units and any stray `quantt-` unit before it reloads. The core's install is unchanged, so the checklist adds a disk check before each core install.

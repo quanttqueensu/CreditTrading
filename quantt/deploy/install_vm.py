@@ -784,7 +784,8 @@ def dropin_dir_names(unit: str) -> list:
             + [f"{typ}.d"])
 
 
-def dormant_overrides(run_cmd: Callable, layout: "Layout", units=ALL_UNIT_FILES) -> list:
+def dormant_overrides(run_cmd: Callable, layout: "Layout", units=ALL_UNIT_FILES, *,
+                      unexpected_prefixes: tuple = ()) -> list:
     """Files on disk that would change what systemd runs for our units at the
     next daemon-reload, which is the installer's own. They are invisible to
     `systemctl show` until then (measured; see the comment above). Returns a
@@ -793,7 +794,10 @@ def dormant_overrides(run_cmd: Callable, layout: "Layout", units=ALL_UNIT_FILES)
       * any `*.conf` in any drop-in directory of any of our units, in any
         directory of the search path or the control/transient directories;
       * a unit file with one of our names in a directory that outranks ours,
-        which systemd would load instead of the file written here.
+        which systemd would load instead of the file written here;
+      * with `unexpected_prefixes` (a C4 install, `scan_units`): any `.service`
+        or `.timer` file named with one of those prefixes, in any of those
+        directories, that is not one of `units`. The reload would load it too.
     """
     search = unit_search_path(run_cmd)
     resolved = [d.resolve() for d in search]
@@ -817,12 +821,36 @@ def dormant_overrides(run_cmd: Callable, layout: "Layout", units=ALL_UNIT_FILES)
         for unit in units:
             if (d / unit).exists() or (d / unit).is_symlink():
                 found.add(f"unit file {d / unit} (control/transient) for {unit}")
+    known = set(units)
+    for d in roots if unexpected_prefixes else ():
+        for f in sorted(d.glob("*")) if d.is_dir() else ():
+            if (f.name.startswith(unexpected_prefixes) and f.suffix in (".service", ".timer")
+                    and f.name not in known and (f.is_file() or f.is_symlink())):
+                found.add(f"unit file {f} is no unit any book installs")
     return sorted(found)
 
 
+def scan_units(vb: "VmBook") -> tuple:
+    """(units, unexpected prefixes) an install of `vb` scans on disk before its reload.
+
+    The core: its own units and nothing else, exactly as before (its whole install
+    is pinned to cee16ad's installer, quantt/deploy/tests/test_install_vm_books.py).
+    Any other book, i.e. C4 (release-check of 336df9d, ET1, 2026-11-03): EVERY
+    book's units, and any other `quantt-` unit file. Its `systemctl daemon-reload`
+    applies to every unit on the machine, so a drop-in waiting on the core's ARMED
+    units (say `Environment=DRY_RUN=0` on a C4 unit, or anything on the core's)
+    would go live through a C4 install that never looked at it. Gate 2 still needs
+    AUTO_ARMED or an approved sha before anything transmits; this refuses earlier,
+    naming the file."""
+    if vb is CORE_VM:
+        return vb.unit_files, ()
+    every = tuple(dict.fromkeys(f for b in VM_BOOKS.values() for f in b.unit_files))
+    return every, ("quantt-",)
+
+
 def _refuse_if_overridden_on_disk(run_cmd: Callable, layout: "Layout",
-                                  units=ALL_UNIT_FILES) -> None:
-    found = dormant_overrides(run_cmd, layout, units)
+                                  units=ALL_UNIT_FILES, unexpected_prefixes: tuple = ()) -> None:
+    found = dormant_overrides(run_cmd, layout, units, unexpected_prefixes=unexpected_prefixes)
     if found:
         raise InstallRefused(
             "files on disk would change what systemd runs at the next daemon-reload "
@@ -1417,7 +1445,7 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
 
     # Files on disk first: a drop-in written without daemon-reload is invisible
     # to `systemctl show`, and would go live at this install's own reload.
-    _refuse_if_overridden_on_disk(run_cmd, layout, vb.unit_files)
+    _refuse_if_overridden_on_disk(run_cmd, layout, *scan_units(vb))
     # What systemd runs now: no drop-ins, no unit loaded from another file.
     # And no job running, because a checkout or a unit change under a send is
     # never safe.
@@ -1563,7 +1591,7 @@ def build_plan(*, tag: str, vault: str, layout: Layout, python: Path, armed: boo
     # -- units
     def last_look():
         _refuse_if_busy(run_cmd, vb)
-        _refuse_if_overridden_on_disk(run_cmd, layout, vb.unit_files)
+        _refuse_if_overridden_on_disk(run_cmd, layout, *scan_units(vb))
     steps.append(Step(f"confirm again, before the units change, that no quantt-{vb.name} job is "
                       "running and no drop-in is waiting on disk", last_look))
     for unit_file in vb.unit_files:
