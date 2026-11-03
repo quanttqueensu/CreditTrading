@@ -3383,3 +3383,51 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `8ed6135`; `.gitignore` @ `8ed6135`; `scripts/report/snapshot_live.py` @ `8ed6135`
 - supports: §4, §5
 - status: current (the branch's history was rewritten so the row files never appear in it)
+
+### E-2026-11-02-30 · The Sharpe-framed NAV hedge on the core book was closed as underpowered at Stage 0, spending no trial; a report-only exposure readout replaces it
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "close the Sharpe-framed NAV hedge as UNDERPOWERED at Stage 0"; "Zero trials, no hedged return computed, no data pulled" (team lead, 2026-11-02) [S]
+  - the factor R² on record is 0.011–0.074 [S]
+  - with an oracle hedge, at book Sharpe 0.96 over 9.5 years: P(paired ΔSR passes one-sided 5%) is 0.07–0.11, and P(PRESENT at N=54) is at most 0.002 [V]
+  - P(pass) = 0.5 needs the hedge to remove R² ≥ 0.51 (one-sided) or 0.79 (Šidák, N=54) [V]
+  - "NYSE Arca's closing freeze is 15:59", recorded as a dated correction (SEC Rel. 34-103886) [S]
+- source: `results/cef/NAVHEDGE_SCREEN_2026-11-02.md` @ `df87c59`; `results/cef/navhedge_2026-11-02/navhedge_power.py` @ `df87c59`; `docs/REFERENCES.md` @ `8ed6135`
+- supports: §3, §5
+- status: current
+
+### E-2026-11-03-35 · The exposure readout's declared lag rule gave L = 0, and the team lead made MUNI its headline, with TERM, CREDIT and LOANS indicative
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - "THE RULE'S RESULT: L = 0, so DIMSON_LAGS = 0", run 2026-11-02, 5 s after the commit that declared the rule (09d3dad) [V]
+  - "Keep DIMSON_LAGS = 0, the declared rule's output, and make MUNI the headline; TERM, CREDIT and LOANS are marked indicative. No new lag rule is declared." (team lead, 2026-11-03) [S]
+  - a factor whose vol contribution exceeds REVIEW_FRACTION = 0.10 × vol_target_annual goes to the team lead's review; "No hedge is ever added automatically" [S]
+- source: `scripts/cef/exposure_readout.py` @ `6eee579`; `results/cef/NAVHEDGE_SCREEN_2026-11-02.md` @ `df87c59`
+- supports: §5
+- status: current
+
+### E-2026-11-03-36 · On the current window the muni funds' own MUNI beta rises with the lag choice, unlike the fit era; the L = 0 headline is unchanged pending the team lead
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - summed MUNI beta on the 252 sessions strictly before 2026-10-30, at L = 0, 1, 2, 3: MHD +1.21 +1.49 +1.59 +1.65, MQY +1.27 +1.33 +1.44 +1.67 [V]
+  - the taxable names' group medians fall from L = 0 to L = 3: hy +0.02 to -0.31; loan (JFR alone) -0.13 to -0.55; multi +0.24 to -0.06 [V]
+  - "it changes nothing; whether it bears on the ruling is the team lead's call" [S]
+- source: `scripts/cef/exposure_readout.py` @ `6eee579`
+- supports: §3, §5
+- status: current
+
+### E-2026-11-03-37 · Ruling: on a te4 reduced session, a short skipped at send time is accepted and labelled; the send path is unchanged
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - none (a ruling: "Ruled: accept it and label it." Today's skip-and-send stays on reduced and full sessions alike; the owning session's preference, refusing the whole reduced send, was not chosen; team lead, 2026-11-03)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ac15d09`
+- supports: §5
+- status: current
