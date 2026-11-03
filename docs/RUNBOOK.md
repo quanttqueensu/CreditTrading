@@ -253,6 +253,23 @@ The day's `plan.json` (or `send.json`, when the send refused) carries
 event's id, type, market and process dates, its parties, the rule and the window
 (`docs/RUNNER.md`, "As built (2026-10-28)").
 
+**What clears each kind of halt** (the same table as `docs/RUNNER.md`):
+
+| halt | what clears it |
+|---|---|
+| short-window match: a merger acquirer, a reorganization's allocated leg, any match through the process date alone | itself, at the next session |
+| long-window match on a target-only name | itself, once the as-of date passes the event's date |
+| long-window match on a held name | a filled order in the name submitted on the second trading day after the event or later, through the team lead (§6.1 step 3); or `ca-ack` of its id (step 7) |
+| unresolved row (a party symbol missing), short role: acquirer, allocated leg | itself, at the next session |
+| unresolved row, any other role, in a name's window | `ca-ack` of the id its refusal names (`row-sha256:...` when its own id is null); or Alpaca completing the row, which is then judged afresh |
+| UNDATED unresolved row (a party missing and a date unreadable): blocks in every window | `ca-ack` of its `row-sha256:...` key; or Alpaca completing the row, which is then a new row, judged afresh |
+| an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
+| UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
+| a row naming ours with a null, empty or non-string id, or an id listed with different content: keyed by its content (`row-sha256:...`) and judged like any row naming ours | as for its window above; `ca-ack` of its `row-sha256:` key |
+| UNMEASURED that persists: a transport or response-SHAPE fault only (a failed GET, a body that is not JSON or not an object, a type's list that is not a list, an unknown response key, a bad page token). No value in any field of any row can cause it (2026-11-02, `test_ca_read_property.py`) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
+| any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
+
 A **short-window** row clears by itself after one session: a merger acquirer
 or a reorganization's allocated leg (both judged on the market date only), or
 any other match through the process date alone. Confirm the event (step 1) and let it
@@ -330,6 +347,76 @@ holds the old count, or the old symbol (`docs/REFERENCES.md` §12pc).
    `corporate_actions.mode` to `report`. The gate then records and sends. Do it in
    the dev repo through a release (sections 1–2), never by hand-editing prod.
    Set it back to `halt` the same way.
+7. **A long-window row no trade can clear: acknowledge that action** (team lead,
+   2026-10-29). The case it is for: a name change, redemption, worthless removal
+   or partial call carries only a process date, so a BACKFILLED one (processed
+   long after it happened) is judged as if it had just happened, and repeats
+   every session. A corrective order may be impossible (a redeemed or removed
+   security) or pointless (the action predates the holding). Do step 1 first:
+   the primary source must show what the action was and when. Then the team
+   lead, and only the team lead, runs ONE command per action id:
+
+   ```bash
+   # laptop prod clone
+   cd ~/prod/quantt-alpaca
+   QUANTT_STATE_DIR=~/quantt_state/cef QUANTT_ENV_FILE=~/.config/quantt/alpaca.env \
+     python3 -m quantt.session ca-ack --book cef --id <action id> --reason "<one line>"
+
+   # the VM
+   sudo -u quantt env HOME=/home/quantt QUANTT_STATE_DIR=/home/quantt/quantt_state/cef \
+     QUANTT_ENV_FILE=/run/quantt/alpaca.env \
+     bash -c 'cd /home/quantt/prod/quantt-alpaca &&
+       /home/quantt/venv/bin/python -m quantt.session ca-ack --book cef --id <action id> --reason "<one line>"'
+   ```
+
+   The `<action id>` is the `id` in `corporate_actions.blocking`. The command
+   reads the feed, read-only, for the names and window of the gate's latest
+   record, and refuses an id the feed does not list, an id already
+   acknowledged whose row and type are unchanged, a reason that is not one line, and a
+   `ca_acks.json` it cannot read. Otherwise it writes the entry (id, reason, UTC time, the event as
+   listed) to `<state>/ca_acks.json` atomically and prints what it
+   acknowledged. The entry keeps the feed row exactly as listed, and its type.
+   The gate then clears THAT ID ONLY, and only while the feed's row for it is
+   unchanged in every field (dates, parties, ratio and the rest) and its type
+   is unchanged. An unresolved row is acknowledged by the id its refusal
+   names, a `row-sha256:...` key when its own id is null. Any other action, a
+   new one on the same fund included, still halts. If Alpaca revises the row,
+   or lists it under another type, the gate halts again, and the refusal names each changed field
+   (`acknowledged at ..., but the feed row has changed since (...)`). Do step 1
+   again for the revised action, and if it still stands run the same command
+   again. For a revised row or type it replaces the old entry, which it keeps as
+   `supersedes`; for an unchanged one it refuses. Never edit the file by hand. The cleared rows stay in the record
+   under `corporate_actions.acknowledged`. Nothing else may write the file. A
+   `ca_acks.json` the gate cannot read refuses every session (UNMEASURED) until
+   it is fixed: restore it, or remove it and acknowledge again. An
+   acknowledgement for a split, a stock dividend, a spin-off or a merger clears
+   the halt but fixes no count: steps 2–5 still apply, and the command prints a
+   NOTE saying so.
+
+**An unresolved row** (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows)). A row with a party symbol null or empty
+(an acquirer, an acquiree, an old, new or source symbol, a split's own symbol,
+or a reorganization leg with no ticker and no CUSIP) is not a read failure. The
+gate treats the missing party as each held and targeted fund in turn, on the
+usual windows.
+- If it would block one of them, the session refuses with `an UNRESOLVED <type>
+  <id> ... its <field> is missing ...; the team lead clears it with ca-ack --id
+  <id>`.
+- Otherwise the row is listed under `corporate_actions.unresolved` with an
+  `UNRESOLVED, recorded only` log line, and the session sends.
+
+A missing acquirer or allocated leg halts one session and then clears by
+itself. Any other missing party in a held name's window halts until it is
+acknowledged. Do step 1 for it; if it is not one of our funds, run the step 7
+command with the id the refusal names. That id is a `row-sha256:...` key when
+the row's own id is null. A revised row, or the same row under another type,
+halts again.
+
+**A skipped malformed row** (team lead 2026-10-29, `docs/SYSTEM.md` §5: "skip
+it, and record it, unless it could concern one of our funds"). A row whose
+every party symbol is present and none ours, but whose id or a date is
+malformed, is listed under `corporate_actions.skipped_malformed` with a
+`SKIPPED a malformed row` log line, and the session sends on. The same fault
+on a row naming one of our funds refuses, naming the row.
 
 ## 7. Keeping the laptop awake
 
@@ -849,6 +936,8 @@ cancels an order already at Alpaca.
    `sudo systemctl disable --now quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
 
 **Updating** to a new release. Never change code under a running job.
+
+Since 2026-11-02 an agent may run every step below itself, arming included (team lead; CLAUDE.md rule 1, standing authority; `docs/SYSTEM.md` §5). It does so only through the laptop's wrapper, and only when each gate passes: a release-check GO on the exact commit, CI passed on the PR's exact head (the merge then uses the team lead's `--admin` bypass, which main's ruleset requires for every merge, with `--match-head-commit`), a replay with no run refused now, outside the send windows, and the read-back. It stops at the first failure and records the outcome in `docs/JOURNAL.md` the same day.
 **Start any `--apply` before 15:30 ET, or after 16:00.** The installer
 refuses to start inside 15:30–16:00. It also refuses to restart the timers
 from 15:52, which would leave them stopped, and the key fetch can take about 4
@@ -1004,6 +1093,33 @@ The VM's compute price was not measured here, so this table is not a total.
 - **Burstable CPU:** B-series sizes are burstable [S]: they run below full
   speed once their burst credit is spent. Whether that slows the evening decide or a pytest run on
   the VM is unmeasured.
+### 8.9 A second book on the VM: C4 (dark, 2026-10-29)
+
+`install_vm --book c4` installs C4's own units beside the core's: seven
+`quantt-c4-*` units, the core's jobs with `--book c4` at the same times. They
+touch none of the core's units. The default book is still the core, whose
+install is byte-identical to release-20261029-3's
+(`quantt/deploy/tests/test_install_vm_books.py`).
+
+| what | the core | C4 |
+|---|---|---|
+| state | `quantt_state/cef` | `quantt_state/c4` (the runner, verify and collector refuse any other) |
+| keys | `/run/quantt/alpaca.env` from `alpaca-cef-*` | `/run/quantt-c4/alpaca.env` from `alpaca-c4-*`, through `quantt-c4-secret.service` |
+| panels and lock | `data/cef/`, `.fetch.lock` there | `data/cef_c4/`, its own `.fetch.lock` |
+| account start | in the collector | `--eod-from`, required with no default, rendered as `QUANTT_EOD_FROM` |
+| seed | `--seed-from` the laptop's `data/cef` files | `--seed-from` a `data_books.py seed-c4` directory whose manifest names the tag's IGR ruling |
+
+**One clone, one tag.**
+- `--book c4` never checks the clone out. It refuses unless the clone is
+  already at the tag, so install the core first.
+- The core's install refuses to move the clone while a C4 timer is enabled or
+  running, or a C4 job is busy. To release: disable C4's timers, install the
+  core, then re-install C4 at the same tag.
+
+Every guard in this section applies to C4 too. The team lead's steps, from the
+vault secrets to the arming go, are in
+`results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
+
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`
