@@ -56,6 +56,16 @@ on data/cef_c4/; nothing schedules it until install_vm --book c4.)
    the cut and enter the trial's T as zero columns, which is what the full-panel run gives them
    before 2023; `trial_book` proves it by reproducing the committed fit to 1e-9.
 
+   CEF TRIAL 54 (PREREG_C4_LEVEL_2026-11-02.md §1.3 test 6, added 2026-11-03). With the spec's
+   `level_signal` set, the sleeve's `w` at the min_abs_weight read is the equal-risk blend of the z and
+   the within-family level, so the trial side is the trial's blend (`spec_targets`, a line-for-line
+   port of trial54.py's `level_targets`, unmasked), not build_book's z-only T. Absent, `spec_targets`
+   returns T itself and every line here is as before. Two controls join the list (the key dropped, the
+   risk share moved), and `band_width dropped` is then REFUSED by the registry, recorded as such. H11's
+   reference becomes the blended spec book (§6.3), checked against the raw primary returns. The
+   reproduction gate and the cap rule still read the trial's z T: the gate proves T is trial 52's, and
+   the 1.90 cap was kept, not re-derived, for trial 54 (§3.3).
+
 2. MAX_GROSS_STRESS (spec row 2: "its own max_gross_stress, re-derived by the frozen rule"). The
    rule is the one the core's 1.80 came from, pre-registered in
    `results/cef/PREREG_GROUP_CAP_2026-09-16.md` §3b and applied for Alpaca in
@@ -287,6 +297,112 @@ def trial_targets(cut: Path) -> tuple[pd.DataFrame, dict]:
         T = c4.fit_slice(c4.build_book(UFd)).reindex(columns=UF, fill_value=0.0)
     _fit_dates(T)
     return T, {"universe": UF, "with_rows": UFd, "without_rows": sorted(set(UF) - have)}
+
+
+def spec_targets(cut: Path, T: pd.DataFrame, spec: dict, level_only: bool = False) -> pd.DataFrame:
+    """The trial-side unit target the spec's sleeve must reproduce: `T` itself when the spec carries
+    no `level_signal` (byte for byte: the same object is returned), and CEF trial 54's blend when it
+    does (PREREG_C4_LEVEL_2026-11-02.md §1.2; §1.3 test 6). `level_only` returns the level book with
+    its own vol scalar instead (§6.2 P1's level-only book, which L1 reads).
+
+    WHY THE PROBE NEEDS IT. The probe reads the sleeve's `w` at the `min_abs_weight` read. With the key
+    set that `w` is the blend, and against build_book's z-only T every trading session would break. The
+    trial's blend is the comparison, so this builds it from the trial's own machinery on the same cut.
+
+    THE CONSTRUCTION IS THE TRIAL'S, LINE FOR LINE: `level_targets` in
+    results/cef/prereg_c4_level/trial54.py (branch trial54-run at 62f006d), with no DG-L3 level masks
+    and no placebo. Those are the trial's research inputs, and the sleeve has neither: DG-L4 compared
+    the sleeve at 3b4c963 with exactly this unmasked blend, 907 of 907 sessions both ways. On each
+    session of T's index:
+      * eligible = a z-score on t and ADV through t-1 at or above the spec's floor (`build_targets`'
+        rule). With fewer than min_names, hold the previous row, as build_targets and the sleeve's
+        `below_min_names = "hold"` do;
+      * w_z = -(z - mean z), unit gross; w_L = -(disc - family mean disc) on the same names, unit
+        gross, a family with fewer than 2 eligible names contributing zero;
+      * s_z, s_L, s_mix = today's weights on the last VOL_LOOKBACK price returns through t, over the
+        panel's WHOLE history (the DG-L4 fix of 2026-11-03: a window cut at the fit index's first day
+        broke 6 sessions in 2005);
+      * mix = risk_share w_z / s_z + (1 - risk_share) w_L / s_L, unit gross; then
+        T_B = mix x clip(vol_target / s_mix, 0.2, 2.5).
+    risk_share and the vol target are read from the spec. The family map is the frozen CSV, the file
+    the trial read, and it must equal the spec's `family_of`. If they differ, this raises: the probe
+    would then be comparing two different books.
+
+    WHERE THE TRIAL AND THE SLEEVE DIFFER, both outside anything the fit can show. On a session where
+    the level book has no gross, or a vol is not positive, the trial holds its previous row and the
+    sleeve RAISES. With 5 families and min_names 6 the first cannot happen: by pigeonhole some family
+    has two eligible names. Neither happens on the fit.
+
+    H7: row t reads z, disc and ADV on t (z's mean and sd end at t-1, ADV is shifted one session) and
+    returns through t, nothing later; `_fit_dates` asserts no row passes the fit end."""
+    lv = registry.cef_level_signal(spec["frozen"])
+    if lv is None:
+        if level_only:
+            raise ValueError(f"spec {spec.get('spec_id')!r} carries no level_signal; there is no level book")
+        return T
+    f = spec["frozen"]
+    fam_csv = pd.read_csv(c4.FROZEN).set_index("ticker")["family"]
+    if fam_csv.to_dict() != lv["family_of"]:
+        diff = sorted(t for t in set(fam_csv.index) | set(lv["family_of"])
+                      if fam_csv.get(t) != lv["family_of"].get(t))
+        raise ValueError(f"the spec's level_signal.family_of differs from {c4.FROZEN.name} for {diff[:10]}; the "
+                         f"trial read the file, the sleeve reads the spec, so the probe would compare two books")
+    with trial_reads(cut):
+        UF = c4.universes()["frozen"]
+        have = set(bf.build_panel(universe=UF, source=c4.FAM_SRC)["px"].columns)
+        UFd = [t for t in UF if t in have]
+        p = bf.build_panel(universe=UFd, source=c4.FAM_SRC, mask=c4.declared_mask(UFd, "M1M2"))
+    idx = T.index
+    RF = p["ret"][UFd].to_numpy()
+    posF = p["ret"].index.get_indexer(idx)
+    if (posF < 0).any() or not (p["ret"].index[posF] == idx).all():
+        raise AssertionError("T's index is not a subset of the panel's own index")
+    z, adv, disc = (p[k].reindex(idx)[UFd] for k in ("z", "adv", "disc"))
+    floor, n_min = float(f["min_adv_usd"]), int(f["min_names"])
+    vt, rs = float(f["vol_target_annual"]), float(lv["risk_share"])
+    famv = fam_csv.reindex(UFd).to_numpy()
+
+    def rv(j, w):
+        h = np.nansum(RF[max(0, j - bf.VOL_LOOKBACK + 1):j + 1] * w, axis=1)
+        return float(np.std(h, ddof=1) * np.sqrt(252)) if len(h) > 1 else np.nan
+
+    def sc(x):                                            # build_targets' scalar, and the trial's
+        return float(np.clip(vt / x, 0.2, 2.5)) if x and x > 0 else 1.0
+
+    TL, TB = np.zeros((len(idx), len(UFd))), np.zeros((len(idx), len(UFd)))
+    for i in range(len(idx)):
+        zr = z.iloc[i].to_numpy()
+        ok = np.isfinite(zr) & (adv.iloc[i].fillna(-1).to_numpy() >= floor)
+        if ok.sum() < n_min:
+            if i:
+                TL[i], TB[i] = TL[i - 1], TB[i - 1]
+            continue
+        zz = np.where(ok, zr, np.nan)
+        wz = np.where(ok, -(zz - np.nanmean(zz)), 0.0)
+        wz = wz / np.abs(wz).sum()
+        dv = np.where(ok, disc.iloc[i].to_numpy(), np.nan)
+        wl = np.zeros(len(UFd))
+        for g in pd.unique(famv[ok]):
+            sel = ok & (famv == g) & np.isfinite(dv)
+            if sel.sum() >= 2:
+                wl[sel] = -(dv[sel] - dv[sel].mean())
+        if np.abs(wl).sum() == 0:
+            if i:
+                TL[i], TB[i] = TL[i - 1], TB[i - 1]
+            continue
+        wl = wl / np.abs(wl).sum()
+        j = posF[i]
+        s_z, s_l = rv(j, wz), rv(j, wl)
+        TL[i] = wl * sc(s_l)
+        if not (s_z > 0 and s_l > 0):
+            TB[i] = TB[i - 1] if i else 0.0
+            continue
+        mix = rs * wz / s_z + (1 - rs) * wl / s_l
+        mix = mix / np.abs(mix).sum()
+        TB[i] = mix * sc(rv(j, mix))
+    out = pd.DataFrame(TL if level_only else TB, index=idx, columns=UFd).reindex(columns=T.columns, fill_value=0.0)
+    _fit_dates(out)
+    return out
 
 
 def sleeve_root(cut: Path, spec: dict, root: Path) -> dict:
@@ -521,7 +637,16 @@ def controls(spec: dict) -> list[tuple[str, dict]]:
             ("min_adv_usd x 0.9", with_keys(spec, min_adv_usd=f["min_adv_usd"] * 0.9)),
             (f"min_names {f['min_names']} -> {f['min_names'] + 1}", with_keys(spec, min_names=f["min_names"] + 1)),
             ("gross_leverage x 1.1", with_keys(spec, gross_leverage=f["gross_leverage"] * 1.1)),
-            ("band_width dropped (the rebalance_days calendar)", with_keys(spec, drop=("band_width",)))]
+            ("band_width dropped (the rebalance_days calendar)", with_keys(spec, drop=("band_width",)))] + (
+        # CEF trial 54: the blend's own controls. Dropping the key is the z book alone; moving the
+        # risk share moves the blend. With the key set, `band_width dropped` above is REFUSED by the
+        # registry before the probe runs (cef_level_signal: the blend is defined through the band),
+        # which `run_controls` records as a refusal, stronger than a break.
+        [] if "level_signal" not in f else
+        [("level_signal dropped (the z book alone)", with_keys(spec, drop=("level_signal", "_level_signal_note"))),
+         (f"level_signal.risk_share {f['level_signal']['risk_share']} x 1.1",
+          with_keys(spec, level_signal=dict(f["level_signal"],
+                                            risk_share=float(f["level_signal"]["risk_share"]) * 1.1)))])
 
 
 # --------------------------------------------------------------------------- CRSP, the trial's book, the lines
@@ -585,7 +710,11 @@ def trial_book(cut: Path, T: pd.DataFrame) -> dict:
     if not (Hx.equals(H) and p0x == p0):
         raise AssertionError("the price-only line is not on the same book")
     _fit_dates(P, Px, R0, R0x)
-    return dict(H=H, R0=R0, R0x=R0x, p0=p0, UF=UF, total_sr=row["sr"], price_sr=rowx["sr"])
+    # R_raw / Rx_raw: the primary returns BEFORE check_held filled the z book's unheld NaN cells with 0.
+    # Any other book (the level blend, CEF trial 54) is checked against these, never against R0, whose
+    # zeros would let a held name meet a missing return in silence (H15).
+    return dict(H=H, R0=R0, R0x=R0x, p0=p0, UF=UF, total_sr=row["sr"], price_sr=rowx["sr"],
+                R_raw=R_ret[list(UF)].reindex(T.index), Rx_raw=R_retx[list(UF)].reindex(T.index))
 
 
 def line(H: pd.DataFrame, R: pd.DataFrame, label: str) -> dict:
@@ -623,16 +752,30 @@ def h11_reference(tb: dict, spec: dict) -> dict:
     # Absent, the line below is today's reference, unchanged.
     m = f.get("sizing_multiplier")
     cap = float(f["max_gross_stress"])
-    if m is None:
-        H = bf.band_gross_capped(tb["T"], float(f["band_width"]), cap)
+    # CEF trial 54 (PREREG_C4_LEVEL §6.3: C4's kill rule "rebuilt on the blended spec book"). With
+    # `level_signal` set, the book the spec trades is the BLEND (`spec_targets`), so H11 reads that,
+    # and it is checked against the raw primary returns (`trial_book`'s R_raw), never against the z
+    # book's zero-filled R0. Absent, T and R0 as before, unchanged.
+    lv = registry.cef_level_signal(f)
+    if lv is not None:
+        if "T_spec" not in tb or "R_raw" not in tb:
+            raise KeyError(f"{spec.get('spec_id')} sets level_signal: H11 reads the blended spec book, and "
+                           f"`tb` carries no T_spec (spec_targets) or no raw returns (trial_book)")
+        T, R_src, Rx_src = tb["T_spec"], tb["R_raw"], tb["Rx_raw"]
     else:
-        H = float(m) * bf.band_gross_capped(tb["T"], float(f["band_width"]), cap / float(m))
-    R = c4.check_held(H, tb["R0"].reindex(columns=H.columns), "H11 reference, total")
-    Rx = c4.check_held(H, tb["R0x"].reindex(columns=H.columns), "H11 reference, price-only")
+        T, R_src, Rx_src = tb["T"], tb["R0"], tb["R0x"]
+    if m is None:
+        H = bf.band_gross_capped(T, float(f["band_width"]), cap)
+    else:
+        H = float(m) * bf.band_gross_capped(T, float(f["band_width"]), cap / float(m))
+    R = c4.check_held(H, R_src.reindex(columns=H.columns), "H11 reference, total")
+    Rx = c4.check_held(H, Rx_src.reindex(columns=H.columns), "H11 reference, price-only")
     _fit_dates(H, R, Rx)
     return {"H": H, "total": R, "price": Rx,
             "policy": f"band {f['band_width']} + cap {f['max_gross_stress']}"
-                      + ("" if m is None else f" x sizing_multiplier {m}") + f" ({spec['spec_id']})"}
+                      + ("" if m is None else f" x sizing_multiplier {m}")
+                      + ("" if lv is None else f" + level_signal (z_share {lv['risk_share']})")
+                      + f" ({spec['spec_id']})"}
 
 
 def lines(tb: dict, spec: dict) -> dict:
@@ -914,8 +1057,10 @@ def _fmt_line(s: dict) -> str:
 
 def run_fidelity(spec: dict, cut: Path, T: pd.DataFrame, say: Log, csv: Path | None = None) -> dict:
     dates = fidelity_dates(T)
+    against = ("CEF trial 54's blend (spec_targets)" if registry.cef_level_signal(spec["frozen"]) is not None
+               else "c4_families.build_book's T")         # absent: today's text, unchanged
     say(f"\n[1] FIDELITY: the live sleeve under {spec['spec_id']} (built through the registry) against "
-        f"c4_families.build_book's T, on {len(dates)} fit sessions ({dates[0].date()}..{dates[-1].date()}, "
+        f"{against}, on {len(dates)} fit sessions ({dates[0].date()}..{dates[-1].date()}, "
         f"every {FIDELITY_STEP}th session of T's index and its last); compared at the sleeve's target "
         f"before min_abs_weight; tolerance {TOL:g}")
     try:
@@ -946,6 +1091,13 @@ def run_controls(spec: dict, cut: Path, T: pd.DataFrame, say: Log) -> list:
     say("\n[1b] NEGATIVE CONTROLS: each spec below should break fidelity (each stops at its first break)")
     out = []
     for name, sp in controls(spec):
+        try:
+            registry.validate_spec(sp)
+        except ValueError as e:                  # refused before it could trade: stronger than a break
+            r = dict(control=name, broke=True, refused=True, first=None, note=f"REFUSED by the registry: {e}"[:150])
+            out.append(r)
+            say(f"  {name:<52} REFUSED  {r['note']}")
+            continue
         try:
             fidelity(sp, cut, dates, T=T, first_break=True)
             if name.startswith("zero_volume_mask"):
@@ -987,12 +1139,18 @@ def run(argv_out: bool = True) -> int:
                                f"{committed['funds_without_fit_data']}")
         say(f"trial T: {T.shape[1]} frozen funds ({len(info['with_rows'])} with fit rows; zero columns for "
             f"{', '.join(info['without_rows'])}), {len(T)} sessions {T.index[0].date()}..{T.index[-1].date()}")
-        res["fidelity"] = {k: v for k, v in run_fidelity(spec, cut, T, say, csv=OUT_CSV).items() if k != "rows"}
-        res["controls"] = run_controls(spec, cut, T, say)
+        TS = spec_targets(cut, T, spec)
+        if TS is not T:
+            say(f"spec target: CEF trial 54's blend (level_signal, z_share "
+                f"{spec['frozen']['level_signal']['risk_share']}), built by spec_targets from the same cut; "
+                f"fidelity and H11 read it, the reproduction gate and the cap rule read the trial's z T")
+        res["fidelity"] = {k: v for k, v in run_fidelity(spec, cut, TS, say, csv=OUT_CSV).items() if k != "rows"}
+        res["controls"] = run_controls(spec, cut, TS, say)
 
         say(f"\n[2] THE TRIAL'S BOOK, GATED (CRSP extract sha256 {CRSP_SHA256[:16]}..., rows <= {FIT_END.date()})")
         tb = trial_book(cut, T)
         tb["T"] = T
+        tb["T_spec"] = TS
         say(f"  GATE PASS: total-return gross SR {tb['total_sr']:.12f}, price-only {tb['price_sr']:.12f}: both "
             f"the committed figures to 1e-9 (c4_fit_verdict_2026-10-14.json stage1, R-P); first held {tb['p0'].date()}")
 
@@ -1049,6 +1207,9 @@ def run(argv_out: bool = True) -> int:
         res["lines"] = {k: {kk: ({x: y for x, y in vv.items() if x != "_P"} if isinstance(vv, dict) else vv)
                             for kk, vv in v.items()} for k, v in L.items()}
         res["h11_reference"] = H11_BOOK
+        if argv_out:
+            sb = write_spec_book_series(L, spec)
+            say(f"  the H11 reference's daily P&L for stops.py --c4-exact: {sb.relative_to(REPO)} (gitignored)")
         say("\nBorrow is not charged in any line above (H4): all 74 were easy to borrow at the frozen read and "
             "Alpaca charges no fee on an easy-to-borrow short; one snapshot is a counterfactual over 17.8 years.")
     if argv_out:
@@ -1057,6 +1218,35 @@ def run(argv_out: bool = True) -> int:
         OUT_TXT.write_text("\n".join(say.lines) + "\n")
         say(f"\nwrote {OUT_TXT.relative_to(REPO)}, {OUT_JSON.relative_to(REPO)}, {OUT_CSV.relative_to(REPO)}")
     return 0
+
+
+def spec_book_series_path(spec: dict) -> Path:
+    """Where `run` leaves the H11 reference's daily P&L for the spec it read (gitignored: CRSP-derived)."""
+    return c4.CACHE / f"h11_spec_book_{spec['spec_id']}.parquet"
+
+
+def write_spec_book_series(L: dict, spec: dict) -> Path:
+    """The H11 reference book's daily P&L, CRSP total return (`tr`) and price only (`pr`), in the
+    account's units (m applied, the exact construction), with a sidecar naming the spec file's sha256.
+    results/cef/prereg_voltarget/stops.py --c4-exact reads it, so R1-R3 are re-measured on the book the
+    LIVE spec defines (PREREG_C4_LEVEL §6.3), the blend when it sets level_signal, and it refuses a
+    series made from another spec. CRSP-derived and licensed: written only under the gitignored cache,
+    and this refuses a path git would track."""
+    b = L[H11_BOOK]
+    d = pd.DataFrame({"tr": b["total"]["_P"], "pr": b["price"]["_P"]})
+    if not d["tr"].index.equals(b["price"]["_P"].index) or d.isna().any().any():
+        raise ValueError("the H11 reference's total and price lines are not on one calendar")
+    _fit_dates(d)
+    out = spec_book_series_path(spec)
+    if subprocess.run(["git", "check-ignore", "-q", str(out.relative_to(REPO))], cwd=REPO).returncode != 0:
+        raise RuntimeError(f"{out} is not gitignored; CRSP-derived series must never be tracked")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    d.to_parquet(out)
+    out.with_suffix(".json").write_text(json.dumps(
+        {"spec_id": spec["spec_id"], "spec_sha256": _sha(SPEC_PATH), "policy": b["policy"],
+         "first": str(d.index[0].date()), "last": str(d.index[-1].date()),
+         "written_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}, indent=1) + "\n")
+    return out
 
 
 def _usd(v, what: str) -> float:
@@ -1147,7 +1337,7 @@ def main(argv=None) -> int:
             cut = Path(tmp) / "families"
             cut_families(cut)
             T, _ = trial_targets(cut)
-            run_fidelity(spec, cut, T, Log())
+            run_fidelity(spec, cut, spec_targets(cut, T, spec), Log())
         return 0
     return run()
 

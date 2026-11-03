@@ -6,22 +6,27 @@ target, through the same vol scalar, multiplier, band and 1.90 gross cap
 (src/deploy/sleeves/cef_discount.py, module docstring; `_level_weights`, `_blend_unit_book`).
 
 THE NO-OP (§1.3 test 1), against the code BEFORE the key, f7f7be5 (origin/main when this branch
-was cut; C4's spec there is c4_families.v4.20261102):
+was cut; C4's spec there is c4_families.v4.20261102), and against 4485a96 (origin/main when it was
+merged in, 2026-11-03; the same sleeve and spec, a newer runner):
   1. `test_key_absent_targets_are_f7f7be5s` NEVER SKIPS. The sleeve on a generated 74-fund C4
      panel, on C4's live spec with `level_signal` and its note removed (asserted to leave v4's
      frozen block, byte for byte), on a flat book and a held book at three dates. Every target's
-     fingerprint (repr floats, reasons, meta) is hashed and compared with hashes computed by
-     f7f7be5's code.
+     fingerprint (repr floats, reasons, meta) is hashed, in full and with floats to 10 significant
+     digits, and compared with hashes computed by f7f7be5's code (and by 4485a96's: identical).
   2. `test_key_absent_session_is_f7f7be5s`: a full C4 session through `run_session` on that
      panel with C4's v4 spec (the live file while it is v4, else `git show f7f7be5:...`, so the
      proof survives the activation): plan.json, plan_sha, orders, targets and the run record of
-     the evening decide, and the run record of the 15:52 send. Skips, warning, only when
-     neither source gives v4's bytes.
-  HOW THE PINS WERE MADE: `git archive f7f7be5` into a scratch directory, this file copied into
+     the evening decide, and the run record of the 15:52 send, against 4485a96's runner. Skips,
+     warning, only when neither source gives v4's bytes.
+  ON OTHER CPUs (`_check_pins`, test_combine_noop's rule). The pins were made on an arm64 Mac. CI's
+  x86 moves the last ulp of the repr fingerprints, plan.json and the run records (seen on the CI run
+  of 3b4c963), so those are exact on the pin machine only and a warning elsewhere; every other entry
+  (the rounded fingerprints, orders, plan_sha, plan targets, counts, exits) must match everywhere.
+  HOW THE PINS WERE MADE: `git archive <commit>` into a scratch directory, this file copied into
   that tree, `print_pins()` run there unseeded and under PYTHONHASHSEED 1 and 2 (identical every
-  time); then on this tree (identical again). Never edit a hash by hand. Both pass on f7f7be5 by
+  time); then on this tree (identical again). Never edit a hash by hand. Both pass on the old code by
   construction: they are no-op proofs. The real-panel proof (the last 10 dates of the core's and
-  C4's panels, both specs) is in the commit message.
+  C4's panels, both specs) is in the commit messages.
 
 WHAT THE KEY DOES. Each test below fails on f7f7be5 (shown before it was kept; the commit
 message says how each fails):
@@ -49,6 +54,7 @@ import datetime as dt
 import hashlib
 import json
 import math
+import platform
 import re
 import subprocess
 import sys
@@ -68,7 +74,8 @@ from src.deploy.tests.test_group_cap import _fingerprint
 
 C4_SPEC = rn.REPO / "ops" / "specs" / "c4_families.frozen.json"
 FAMILIES = rn.REPO / "results" / "cef" / "c4" / "c4_universe_frozen_2026-10-14.csv"
-BASE_COMMIT = "f7f7be5"
+BASE_COMMIT = "f7f7be5"            # the code before the key (the target pins)
+SESSION_BASE = "4485a96"           # origin/main merged in: the runner the session pins were made on
 # sha256 of C4's spec file at BASE_COMMIT (c4_families.v4.20261102), and of its `frozen` block
 # as canonical JSON (sort_keys, no spaces): what "the key absent" must leave.
 V4_FILE_SHA = "a419959d38d2a2447593ea3f4f4ce308216461fa30efe3f7af5a5809687064b3"
@@ -217,6 +224,45 @@ def _half(targets, closes, cap) -> dict:
     return out
 
 
+def _rounded(targets) -> str:
+    """The fingerprint with every float to 10 significant digits: the form a pin can hold on any CPU.
+    The repr form (`_fingerprint`) moves in the last ulp between an arm64 Mac and CI's x86 (the CI run
+    of 3b4c963 showed it), so it is exact only on the pin machine (`_check_pins`)."""
+    g = lambda x: "None" if x is None else format(float(x), ".10g")      # noqa: E731
+    return "\n".join("|".join([t.instrument, t.side, t.kind, g(t.qty), g(t.weight), t.reason,
+                                str(t.combo_id), repr(sorted(t.meta.items()))]) for t in targets)
+
+
+PIN_MACHINE = "arm64"
+# Exact on every machine: orders, plan_sha, plan targets, counts, exits, status, the rounded target
+# fingerprints. Exact on the pin machine only, where floats are printed in full: the repr target
+# fingerprints, plan.json and the run records (they carry gross, NAV and cap figures to 17 digits).
+FLOAT_KEYS = frozenset({"plan_json", "run_record"})
+
+
+class PinMachineDrift(UserWarning):
+    """A full-precision pin moved off the pin machine; every stable entry still matched."""
+
+
+def _check_pins(what: str, got: dict, pinned: dict, float_keys) -> None:
+    """test_combine_noop's rule: everything on the pin machine; elsewhere the stable entries exactly,
+    and a moved full-precision entry is a warning naming it, never silent."""
+    assert set(got) == set(pinned), (what, sorted(set(got) ^ set(pinned)))
+    if platform.machine() == PIN_MACHINE:
+        assert got == pinned, what
+        return
+    flat = lambda d: {(k, kk): vv for k, v in d.items() for kk, vv in (v.items() if isinstance(v, dict)  # noqa: E731
+                                                                       else [("", v)])}
+    g, p = flat(got), flat(pinned)
+    assert set(g) == set(p), what
+    moved = sorted(k for k in p if k[0] in float_keys or k[1] in float_keys if g[k] != p[k])
+    assert {k: g[k] for k in p if not (k[0] in float_keys or k[1] in float_keys)} == \
+        {k: v for k, v in p.items() if not (k[0] in float_keys or k[1] in float_keys)}, what
+    if moved:
+        warnings.warn(f"{what}: full-precision entries {moved} differ on {platform.machine()} from the "
+                      f"{PIN_MACHINE} pin; every stable entry matches exactly", PinMachineDrift)
+
+
 def _weights(targets) -> dict:
     return {t.instrument: float(t.weight) for t in targets if t.weight}
 
@@ -226,7 +272,7 @@ def _weights(targets) -> dict:
 # ---------------------------------------------------------------------------
 
 def _absent_fingerprints(root: Path, spec: dict) -> dict:
-    """{date|book: sha of the fingerprint} for PIN_DATES, flat and held."""
+    """{date|book: {repr, rounded}: sha of each fingerprint} for PIN_DATES, flat and held."""
     dates = pd.bdate_range(end=pd.Timestamp(ASOF), periods=N_DAYS)
     cap = float(spec["capital_usd"])
     out = {}
@@ -239,8 +285,8 @@ def _absent_fingerprints(root: Path, spec: dict) -> dict:
         # hash seed (the band's set union orders `_cap_gross`'s sum; test_combine_noop.py).
         assert not any("gmax=" in t.reason and "*x" in t.reason for t in held), day
         assert any("band hold" in t.reason for t in held) and any(t.weight for t in held), day
-        out[f"{day.date()}|flat"] = _sha(_fingerprint(flat))
-        out[f"{day.date()}|held"] = _sha(_fingerprint(held))
+        for lab, tg in (("flat", flat), ("held", held)):
+            out[f"{day.date()}|{lab}"] = {"repr": _sha(_fingerprint(tg)), "rounded": _sha(_rounded(tg))}
     return out
 
 
@@ -265,7 +311,8 @@ def _session_hashes(root: Path, work: Path, spec: dict, mp) -> dict:
     from quantt.session.tests.test_c4_book import EVE, SEND, SESSION, _C4Client, _c4
     state = work / "quantt_state" / "c4"
     state.mkdir(parents=True)
-    norm = lambda b: b.replace(str(work).encode(), b"<WORK>")      # noqa: E731
+    norm = lambda b: (b.replace(str(work).encode(), b"<WORK>")             # noqa: E731
+                      .replace(str(rn.REPO).encode(), b"<REPO>"))
     out = {}
     for label, now in (("decide", EVE), ("send", SEND)):
         c = _C4Client(state, now)
@@ -308,30 +355,35 @@ def print_pins():
                                            indent=1, sort_keys=True))
 
 
-# PINNED 2026-11-03 on f7f7be5 (module docstring): unseeded and under PYTHONHASHSEED 1 and 2,
-# identical every time, and identical on this tree. Arm64 Mac, Python 3.13.5, pandas 2.3.3,
-# numpy 2.3.4.
+# PINNED 2026-11-03 (module docstring): TARGET_PINS by f7f7be5's code and again by 4485a96's (origin/main
+# after the merge), identical; SESSION_PINS by 4485a96's, whose runner (#40, the C4 arming gate) writes a
+# different plan.json and run record from f7f7be5's. Each unseeded and under PYTHONHASHSEED 1 and 2,
+# identical every time, and identical on this tree. Arm64 Mac, Python 3.13.5, pandas 2.3.3, numpy 2.3.4.
 PANEL_SHA = "40f63cf6abe235957e2ab157693f44636619a6bdf803c94c3c6503758e53c80c"
 TARGET_PINS = {
-    "2026-08-14|flat": "44bcd85d2a1463dfa760e18da25c4133060daaba8d16b22532522ade7a279a3e",
-    "2026-08-14|held": "683adac58b4ebe11cc7747324412f378b081180ee68f69211243a71e5d585585",
-    "2026-09-24|flat": "e1c28269ac8840a61295a32c75d77b0ee7a4be89387cf50bd3d23047db5399b1",
-    "2026-09-24|held": "b6ab80b1e1e49561cffd95a26fb7e622bfb97c9515f102b870bdbe20f100b2a1",
-    "2026-09-25|flat": "475d91fa100eed698b9c7eeec2a3b5c7dbbe334357260b466d266b593b710207",
-    "2026-09-25|held": "638c99c7752010aa9540606794906a1e450d2c8c63fb4a651e13ddd8e97001a0",
+    "2026-08-14|flat": {"repr": "44bcd85d2a1463dfa760e18da25c4133060daaba8d16b22532522ade7a279a3e", "rounded": "c0a53875acacab6ba3f9e92891a518bc5557088e22b541a8eb40d6ea16589020"},
+    "2026-08-14|held": {"repr": "683adac58b4ebe11cc7747324412f378b081180ee68f69211243a71e5d585585", "rounded": "3d8357b7b40543cb5d4e692073965f22170ddd5ce987a52a0c2ffe9eaefa0882"},
+    "2026-09-24|flat": {"repr": "e1c28269ac8840a61295a32c75d77b0ee7a4be89387cf50bd3d23047db5399b1", "rounded": "d2203cf257cbe126810711bdcf848731ce9aa48e9870d1ab87336a37aa00e48f"},
+    "2026-09-24|held": {"repr": "b6ab80b1e1e49561cffd95a26fb7e622bfb97c9515f102b870bdbe20f100b2a1", "rounded": "f7ddaf06e7dc796dc52bd653bd14871e81fa04b18110738632c67f878a2969c9"},
+    "2026-09-25|flat": {"repr": "475d91fa100eed698b9c7eeec2a3b5c7dbbe334357260b466d266b593b710207", "rounded": "a5170a98a91ad3ac623dd5da50a14c14e8b21cfb53b8e758606da078dafe952f"},
+    "2026-09-25|held": {"repr": "638c99c7752010aa9540606794906a1e450d2c8c63fb4a651e13ddd8e97001a0", "rounded": "b910637456e2ad105b368eef407e59bd8e3c889ae0953f337c1eaad2f7c81df4"},
 }
 SESSION_PINS = {
     "decide": {
-        "exit": 6, "n_orders": 60, "status": "decided", "submits": 0,
+        "exit": 6,
+        "n_orders": 60,
         "orders": "dc62cc3047434e6e004edc0ada3c0c9f354397837dcff43cde1ec9ed1d0c8d14",
-        "plan_json": "9c21505185e1f42ebd216a88a68d06bac19513e99219be24428fdbdfefb9101e",
+        "plan_json": "488434c6d3e3958cf83e1734296192f102d2159fedce966f6b4db903650a18bb",
         "plan_sha": "9a45e9805d3ac937009c9dc5cb923eb5ccf62fdceb6b8e2ff4874606687848d4",
-        "run_record": "8a9720d32903908e8816446d8a8b98cf180ace54cc68cd1c0ffa032eb1c96906",
+        "run_record": "10638d0fa02f89794f848acdd16a57206e16c77b437a8f0a21bb1ae3dd52626f",
+        "status": "decided",
+        "submits": 0,
         "targets": "f6ab2ad2e9ca4253b88085c260e6e90d128649dc7e7b4c6944a786208d1feaf2",
     },
     "send": {
-        "exit": 10, "submits": 0,
-        "run_record": "8b1ccaf2517db575d7a902e764c459451a3a9f798659e6883dec218915eb1e94",
+        "exit": 10,
+        "run_record": "bf94169f1cefdb24ee6ad54cb9c767a154f3ac1dcf5fc4e9d91bb7cb211e9b0d",
+        "submits": 0,
     },
 }
 
@@ -346,7 +398,7 @@ def test_key_absent_targets_are_f7f7be5s(tmp_path, monkeypatch):
     spec = _absent_spec()
     assert _sha(_canon(spec["frozen"])) == V4_FROZEN_SHA, \
         "C4's live spec minus level_signal is not v4's frozen block: something else moved"
-    assert _absent_fingerprints(root, spec) == TARGET_PINS
+    _check_pins("C4 v4 targets, key absent", _absent_fingerprints(root, spec), TARGET_PINS, {"repr"})
 
 
 def test_key_absent_session_is_f7f7be5s(tmp_path, monkeypatch):
@@ -359,7 +411,7 @@ def test_key_absent_session_is_f7f7be5s(tmp_path, monkeypatch):
         pytest.skip(why)
     root, _, _ = _panel(tmp_path, monkeypatch)
     got = _session_hashes(root, tmp_path, json.loads(raw), monkeypatch)
-    assert got == SESSION_PINS
+    _check_pins("C4 v4 session, key absent", got, SESSION_PINS, FLOAT_KEYS)
     assert got["decide"]["exit"] == rn.EXIT_PLANNED and got["decide"]["n_orders"] > 0
     assert got["send"]["exit"] == rn.EXIT_DRY and got["send"]["submits"] == 0
 
@@ -652,6 +704,31 @@ def test_equal_risk_contributions_on_known_vols():
         if rs == 0.5:
             assert abs(vz - vl) < 1e-12 and abs(rc_z - rc_l) < 1e-12
             assert abs(vols["s_mix"] - _book_vol(ret, mix)) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# 9b. the combiner refuses the key (§1.3 test 7)
+# ---------------------------------------------------------------------------
+
+def test_a_combined_book_refuses_the_level_signal(tmp_path):
+    """§1.3 test 7: a budgeted sleeve whose spec carries level_signal is refused by the combiner, as
+    one carrying sizing_multiplier is. The blend was measured only as one account's book. The spec
+    here drops sizing_multiplier, so the refusal is the key's own; with the key removed as well, the
+    same book loads (the refusal is not the book's). Fails on f7f7be5, which loads it."""
+    from quantt.session import combine as cmb
+    base = _absent_spec()
+    del base["frozen"]["sizing_multiplier"]
+    del base["frozen"]["_sizing_multiplier_note"]
+    bj = tmp_path / "book.json"
+    bj.write_text(json.dumps({"book_id": "t", "sleeves": [
+        {"name": "c4", "enabled": True, "spec_path": "s.json", "risk_budget": 1.0}]}))
+    sp = tmp_path / "s.json"
+    sp.write_text(json.dumps(_with_level(base)))
+    with pytest.raises(cmb.CombineError, match="level_signal"):
+        cmb.load_sleeves(bj, sp, tmp_path, lambda spec: (lambda *a, **k: []))
+    sp.write_text(json.dumps(base))
+    got = cmb.load_sleeves(bj, sp, tmp_path, lambda spec: (lambda *a, **k: []))
+    assert got is not None and len(got) == 1
 
 
 # ---------------------------------------------------------------------------

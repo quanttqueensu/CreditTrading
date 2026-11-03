@@ -340,6 +340,17 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
                 f"{where}: {sp} sets frozen.sizing_multiplier, which sizes a single-sleeve "
                 f"account; a combined book sizes every sleeve by its risk_budget, and the two "
                 f"would compound. Delete the multiplier or re-express it as the budget")
+        # CEF TRIAL 54 (PREREG_C4_LEVEL_2026-11-02.md §1.3 test 7): `level_signal` blends C4's z and
+        # family-level books at equal ex-ante risk under the account's own 1.90 cap. That construction was
+        # measured as ONE account's book only: the blend's cap-binding share and turnover (§3.3), the
+        # fidelity probe and the kill rule's reference are all single-sleeve objects. Netted with another
+        # sleeve under a shared budget and the book-level cap, it is a book nobody measured, so a budgeted
+        # sleeve whose spec carries the key (null included) is refused here, as the multiplier is.
+        if "level_signal" in (spec.get("frozen") or {}):
+            raise CombineError(
+                f"{where}: {sp} sets frozen.level_signal (CEF trial 54), a blend measured only as a "
+                f"single-sleeve account's book; a combined book would net it with other sleeves under a "
+                f"shared budget and cap that were never measured with it. Trade it as its own book")
         # The built sleeve's own instruments, as deployed_tickers reads them:
         # "the exact list the runner will trade". The registry validates the spec.
         universe = tuple(sorted(build_sleeve(spec, float(spec["capital_usd"])).instruments()))
