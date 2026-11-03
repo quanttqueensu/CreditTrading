@@ -95,7 +95,9 @@ that cannot be undone.
    Agents may merge, tag and install a release on the VM, and arm or disarm a
    book's scheduled runner, without asking, when every gate passes:
    - a release-check GO on the exact commit;
-   - CI green, with no admin override;
+   - CI passed on the PR's exact head commit. Main's ruleset admits a merge only
+     through the team lead's admin bypass, so an agent uses `--admin` only then,
+     with `--match-head-commit`;
    - a history replay with no run refused now;
    - outside the send windows;
    - an `ops.prod_state` read-back afterwards.

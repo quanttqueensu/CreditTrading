@@ -685,6 +685,7 @@ Answered interactively on 2026-11-02, after `release-20261102-1` went live.
 | Do the trades need the team lead's approval? | **No, and they never did.** The VM has been armed since 2026-10-08: every decided plan is sent on schedule |
 | What may agents do without the team lead | **Everything, arming included:** merge, tag and install releases, and arm or disarm a book's runner, when every gate passes (CLAUDE.md rule 1, standing authority). Unchanged: `DRY_RUN=1` set by the team lead wins; credentials are never read or moved; approving a trial stays the team lead's |
 | How the team lead hears about it | **The journal only** (`docs/JOURNAL.md`), with no notifications |
+| How agents merge, since main's ruleset admits a merge only through the team lead's admin bypass | **Agents use `--admin`, only after CI has passed on the PR's exact head**, with `--match-head-commit`. The ruleset that keeps analysts off main is unchanged |
 | The paper-fees correction to CLAUDE.md landmine 1 and `docs/REFERENCES.md` | **Not yet** (2026-11-02) |
 | The Sharpe-framed NAV hedge (another session's screen) | **Closed at the power gate, UNDERPOWERED**, with zero trials. A report-only exposure readout replaces it (`docs/RESEARCH_STATE.md`, CLOSED) |
 
