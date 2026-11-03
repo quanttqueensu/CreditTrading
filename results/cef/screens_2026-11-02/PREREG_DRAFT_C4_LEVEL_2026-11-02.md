@@ -17,12 +17,12 @@ screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The
 | **what changes** (§1) | One new optional frozen key in C4's spec, `level_signal`. **Absent, C4 is today's book byte for byte.** Present, C4's unit target becomes an equal-risk blend of its z target and a within-family discount-level target, through the same vol scalar, multiplier, band and **the same 1.90 gross cap** |
 | **the split** (§3) | **Half the ex-ante risk on each signal.** Derived from the two-sleeve mean-variance rule on fit inputs (gives 0.515 on z) and rounded to equal risk. Plateau: SR 1.443–1.549 across 0.30–0.70; the derived 0.50 is also the grid's argmax, so nothing was moved toward it |
 | **the shared cap** (§3.3) | Kept at 1.90 (a margin rule, not a tuned parameter). On the fit at ×1.27 the blend's held book sits at the cap on **29.0%** of sessions, against 22.0% for z alone. Turnover falls from 48.9 to **33.2** turns a year (construction properties only; no P&L of the blend computed) |
-| **Gate 0** (§4b) | Survivorship, with dead funds included, on CRSP plus period-end NAVs, run **before approval**. PASS if the all-funds slope has the survivors' sign and at least half its size |
+| **Gate 0** (§4b) | Survivorship, with dead funds included, on CRSP plus period-end NAVs, run **before approval**. PASS if the all-funds slope has the survivors' sign and at least half its size. **Pull 1 (CRSP) is not enough** (2 genuine NAV matches); pull 2 (EDGAR N-CSR) is written; amendment A1 proposes a 0.75 threshold |
 | **pass rule** (§6.2) | Fit: the level book's spanning alpha on C4's z book, **NW t ≥ 2.825** (√(2 ln 54)). Also the deflated-Sharpe bars at declared N = 54, NC1, the placebo and D4. Then the 2023–26 holdout's **sign** (the C4 precedent). Net at 15bp is reported (D2 label) |
 | **stops** (§6.3) | C4's own kill rule and the trial-53 stops, **rebuilt on the blended book**, plus L1: the level component's modelled 120-session P&L below its fit 5th percentile → revert the key |
 | **revert** (§9) | Delete `level_signal` from C4's spec |
 | **expected** (§5) | +0.4 to +1.0%/yr gross on all capital [model, U] after the cap haircut; the blend's ex-ante SR about 1.5 vs 1.18 uncapped |
-| **open questions** (§10) | nine, each with a recommended answer |
+| **open questions** (§10) | ten, each with a recommended answer (the tenth: amendment A1, after pull 1 proved too thin) |
 
 ---
 
@@ -169,6 +169,31 @@ survives the cap; the account's level of risk does not. That haircut is in §5.
 | G0-family | each pulled CEF permno is assigned to one of C4's five families or to "out" (credit, muni, global, convertible, other). The script proposes from name keywords; every row is ruled in `gate0_family_rulings_<date>.csv` | **HALT** if unruled rows exceed 10% of fund-half-years; unruled rows are excluded and counted |
 | G0-run | the level statistic at semiannual frequency, with one NAV source for everyone. At each half-year's period-end NAV: the pooled within-family slope of the forward CRSP total return over t+2 .. t+127, delisting returns included, on the within-family discount level. z is not included (there is no daily NAV for the dead). Standard errors clustered by half-year. **A** = the 65 fit funds alone; **B** = every five-family CEF, alive or dead (the 60 left-out live funds included) | **PASS** if b_B < 0 and b_B / b_A ≥ 0.5. **HALT** (team lead rules) if 0 < b_B / b_A < 0.5. **FAIL → withdraw, no trial spent** if b_B ≥ 0. **HALT** also if b_A ≥ 0, because then the frequency change broke the test, not survivorship |
 
+> **2026-11-02 (later): Gate 0, pull 1 is NOT enough; pull 2 is written.** The team lead ran `run_gate0_pull.sh`
+> (manifest 2026-11-03T03:01Z: 1,003 CEF permnos; dsf 2,902,916 rows, 2004-01-02..2022-12-30; 36 CRSP-MF NAV matches).
+> Measured by `gate0_coverage.py` (output `gate0_coverage_output.txt`), zero trials, no Gate 0 statistic formed:
+> - **0 of 36 matches are on CUSIP. 34 are recycled tickers** (ETFs that took a dead CEF's ticker). Only **2 are
+>   genuine**: First Trust Value Line Dividend and Value Line 100, CEFs that later became ETFs. Both are dead C4
+>   candidates, with **9 fund-half-years** in the fit window.
+> - The dead set: 498 CEFs died in 2005–22. **190 are C4 candidates or unclassified** by name (75 + 115):
+>   2,626 fund-half-years, against the survivors' 1,570.
+> - **Power.** The survivors' semiannual slope is b_A −27.24bp/pp (t −4.55). With pull 1's NAVs, B ≈ A, so
+>   **P(flag | halving) = 0.00** whatever the truth. With full EDGAR coverage, under the rule as stated
+>   (flag below 0.5): P(flag | halving) = **0.50** at any sample size, because a halving sits on the boundary;
+>   0.99 at r = 0.25; 1.00 at r = 0; 0.00 false alarms at r = 1. At 80% coverage the figures are 0.35 / 0.95 / 1.00.
+> - **Pull 2:** `run_gate0_ncsr.sh` → `gate0_pull_ncsr.py`, the funds' N-CSR/N-CSRS period-end NAVs from EDGAR.
+>   `--plan` on the census's cached index: 133 of 190 candidates map to a filer (57 for rulings); 1,630 filings
+>   2008-01..2023-06, plus the 2004–07 quarters.
+>
+> **Amendment proposal A1, for the team lead. It changes no rule until ruled, and it is made before any dead-fund
+> NAV has been read:**
+> - (i) **Flag below 0.75, not 0.5.** Full coverage: P(flag | halving) 0.97, false alarms at r = 1 0.03. At 80%:
+>   0.94 / 0.03.
+> - (ii) **Live funds use the families panel's NAV on the same period-end; dead funds use the report NAV.**
+>   Pre-condition: on `ncsr_calibration.parquet` (up to 40 survivors), the report NAV and the panel NAV agree
+>   within 1% on ≥ 95% of rows. Else HALT. This replaces "one NAV source for everyone", which would need N-CSRs
+>   for about 125 live funds as well.
+
 **The data gates, after approval** (the C4 trial's own machinery, `require_stage0_rulings` in
 `scripts/cef/data_guards.py`):
 
@@ -279,6 +304,9 @@ Real money stays gated as for C4 (paper only, 2026-10-19).
    survivorship is about the population, not the tradable list.
 9. **Where the final file lives:** **move it to `results/cef/PREREG_C4_LEVEL_2026-11-02.md`** in the approval
    commit, with this folder's draft path left as a one-line pointer.
+10. **Amendment A1 (§4b, 2026-11-02 later): flag below 0.75, and live funds on panel NAV with a calibration
+    pre-condition?** **Yes to both.** Under the rule as stated, a true halving is flagged only half the time at any
+    sample size.
 
 ## 11. Reproduce
 
