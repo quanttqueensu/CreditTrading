@@ -41,7 +41,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                         "As built (2026-10-13)" below. With data.missing_nav = hold
                         (dark), a name whose NAV is not dated the as-of date is held
                         the same way from the final check. "As built (2026-10-29)".
-          2. read       Alpaca account (equity), positions, today's orders, clock
+          2. read       Alpaca account (equity), positions, closed orders, assets
           2b. drawdown  only when the book json sets risk.drawdown (absent: off; report
                         is the only mode built: record only). The drawdown from the
                         high-water mark of <state>/eod_equity.csv against the frozen
@@ -57,7 +57,8 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                         non-dividend corporate action naming a held or targeted name
                         inside that name's window; again at the late-market send.
                         "As built (2026-10-28)" below.
-          4. gate       every check below; any failure -> nothing sent, logged
+          4. gate       gate 6's order lists, then the clock, are the last broker reads;
+                        every check below; any failure -> nothing sent, logged
           5. record     <state>/<date>/STARTED written BEFORE the first order
           6. transmit   POST /v2/orders, type=market, time_in_force=cls, whole-share qty,
                         client_order_id = cef-<YYYYMMDD>-<SYMBOL>-<leg>
@@ -93,7 +94,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: the as-of evening from **19:15 ET** (Alpaca queues `cls` sent after 19:00 into the next auction) to 01:00 ET, or the session day until **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
 5. **Data** — the refresh exited 0 for the required as-of date. That checks each NAV's *date*, not its value; the stale-NAV gate (step 1b, "As built (2026-10-13)") checks the value when the book turns it on.
    - **Corporate actions** (step 3b, when the book json sets `corporate_actions.mode`; team lead 2026-10-28). Under `halt`, refuse when Alpaca lists a non-dividend corporate action (split, stock dividend, spin-off, merger, redemption, name change, worthless removal, reorganization, partial call) naming a held or targeted name, in any role, inside the window that role and match call for: the long window for an acquiree, a split, a name change and the rest, and the short window `(as-of, session]`, one session, for a merger acquirer and a reorganization's allocated leg (both on the market date only) and for any other match through the process date alone (team lead and re-review, 2026-10-29). Also refuse when that list cannot be read. The refusal is a gate-5 `data` refusal naming each event or the error. It runs at decide and again at the late-market send. Under `report` the same is recorded and the session sends. "As built (2026-10-28)" below.
-6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
+6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open order in the account, of any type or time in force (`gate.gate_no_set_in_auction`; *corrected 2026-11-02: this line said any open `cls` order, which the code has never been*). The two Alpaca lists are read after every other broker read, just before the gate's clock read, on both paths that transmit; a failed read refuses ("As built (2026-10-29): gate 6 reads its lists last").
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
 8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the **lower** of the equity the plan was sized on and live equity, unless the plan does not add to the gross held now (2026-10-09; the lower of the two from 2026-10-11); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
 9. **Sanity** — every qty a positive integer, every symbol in the frozen universe, no symbol with two opposite-side orders.
@@ -203,6 +204,48 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-29): gate 6 reads its lists last
+
+**The defect** (execution-trader, release-check of 35b429f, 2026-10-29;
+confirmed in code). Gate 6's Alpaca check is the only guard against a second
+runner, or a lost state directory, doubling the book (CLAUDE.md order-path
+rule 2), and `_transmit` never reads the orders again. Both paths that transmit
+read `orders_recent` and `orders_open` early and judged them at the gate. The
+late-market send read them before the asset GETs, the closed-order history and
+the corporate-action pages (the gap PR #20 widened). The `cls` run, which is
+also the late-market decide, read them at step 2, before the asset GETs, the
+sleeve and the corporate-action pages. One GET that exhausts its retries takes
+about 250 s ("Latency at the send"). The send-budget gate refuses only past the
+window's end minus the set's budget, so a stall that finished earlier sent on
+lists minutes old, blind to a set placed meanwhile.
+
+**The fix** (`run._gate6_orders`). On both paths the two lists are the last
+broker read before the gate's clock read: after every asset GET, the
+closed-order history and the corporate-action read. The clock read stays after
+them on purpose, so the late-clock and send-budget gates (gate 4 for `cls`)
+judge a time after this read too: a slow read can only make them see a later
+time. Between the lists and the first POST stand only that clock GET, the pure
+gates, STARTED and `_transmit`'s clock GET before the POST. Neither path reads
+the lists anywhere else, so no earlier read can stand in for them. A failed read
+is a gate-6 refusal naming the error (`gate_no_set_in_auction(..., unread=)`),
+never an empty list. It is not a FAIL, so the next slot may retry, and verify
+reads the day as MISSED. The closed-order history stays at step 2 of the `cls`
+run, because the decide needs it (`is_opening_session`) and step 3b dates held
+names on it.
+
+**What did not change.** With no other runner, the orders sent, send.json,
+plan.json, orders.jsonl, STARTED (bar its pid) and every run record are
+byte-identical to 35b429f. Records are written with sorted keys, so moving
+where `orders_recent` and `orders_open` enter the run record changes no byte.
+`quantt/session/tests/test_gate6_fresh.py` pins this against hashes computed by 35b429f's
+code. It also has the cases that failed there: an order landing during the
+corporate-action read or the asset GETs, on both paths, refuses; and a failed
+read at the gate refuses.
+
+**Not covered.** Two runners that both read before either sends still both
+send; gate 6 narrows that race and cannot close it. Only one armed scheduler
+per account closes it (RUNBOOK §8.5).
 
 ## As built (2026-10-29): gate 5's missing-NAV hold, dark
 
@@ -341,6 +384,90 @@ records (2026-10-29). A reorganization leg with no ticker but a CUSIP names
 nobody. On twelve months of the real feed, 29 reorganizations carried such legs,
 and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc).
 
+**A malformed row.** Two rulings apply. The first is `docs/SYSTEM.md` §5,
+team lead 2026-10-29: "skip it, and record it, unless it could concern one of
+our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows), which governs a row with a missing party.
+
+- **An UNRESOLVED row: a party symbol null or empty.** This covers any required
+  symbol field of any type and role, and a reorganization leg with no ticker
+  and no CUSIP. The reader returns such a row, with its id, its raw row and the
+  missing fields named, and does not raise on it. The gate treats the missing
+  party as each of its names in turn (held, and targeted), in the missing
+  role, on its usual short and long windows.
+  - If that would block for one of them, the session refuses, naming the row
+    and the field (`an UNRESOLVED ... its <field> is missing ...`).
+  - Otherwise the row is recorded only, under `corporate_actions.unresolved`
+    with one log line.
+
+  A short-window case, such as a missing acquirer or allocated leg, halts one
+  session and then clears. A long-window case, such as a missing subject on a
+  held name, halts until the team lead acknowledges it with `ca-ack`, matched
+  on its full raw content and its type. When the id is null too, the key is a
+  hash of the raw row (`row-sha256:...`). An unresolved row whose dates
+  cannot be read is UNDATED: keyed by its hash and treated as inside every
+  window, so it halts until acknowledged.
+- **Skipped and recorded.** This applies to a row whose every party symbol is
+  present, none in the book's universe, with a non-party field malformed: its
+  id, its date field or `process_date`. It goes in
+  `corporate_actions.skipped_malformed` in plan.json, send.json and the run
+  record, with one log line. The same fault on a row naming a fund of the
+  universe refuses.
+- **Not malformed.** Two optional party fields name nobody when empty, as the
+  reference documents: a reverse split's `new_symbol` and a cash merger's
+  `acquirer_symbol`. A reorganization leg with no ticker but a CUSIP also names
+  nobody, the measured exception above. A required field that is absent, a
+  symbol that is not a string, or a row that is not an object still fails the
+  read.
+
+**Every field validated** (release-check of 1c64638, 2026-11-02). Every
+field the reader knows goes through a validator that returns a value or a named
+fault, and none can raise: the party symbols, the id, every date, every ratio,
+rate, cash amount and price, every CUSIP, each reorganization leg, and the row
+itself. Dates must fully match YYYY-MM-DD and be real days, so "2026-02-30",
+"0000-00-00" and a trailing newline are faults. Numbers must be finite and
+positive (`cash_rate` may be 0).
+- A fault on a party field makes the row unresolved.
+- A fault on any other field of a row naming ours makes it inside every window,
+  keyed for `ca-ack`.
+- On a row whose parties are all present and none ours, it is skipped and
+  recorded.
+
+`quantt/session/tests/test_ca_read_property.py` substitutes 19 adversarial
+values into every field of every type, on a held-fund row and on an outside
+row. The read never raises, and every rejected value either blocks, naming a
+key `ca-ack` can take, or is recorded.
+
+*History, each step reproduced by a release-check.*
+- 9cf5cf2 skipped a malformed row when no symbol present was ours, so a held
+  fund's split with a null symbol was skipped and sent.
+- 04aca24 skipped it when the subject was present and not ours, so a null
+  acquirer was skipped and sent for a held acquirer.
+- 709d6cb refused every such row, on a brief that was never a ruling. One
+  outside row, of any date, then halted the book indefinitely, and `ca-ack`
+  could not clear it.
+- 1c64638 let a date such as "2026-02-30", or one with a trailing newline,
+  through its pattern. The date then raised unnamed, and `ca-ack` could not
+  clear it. On 1c64638 the property test fails 2026 of its 4598 cases; 794 of
+  those raise.
+
+**One id, one event** (release-check of 9630322, 2026-10-30, reproduced). Rows
+naming ours are de-duplicated by id, because a page boundary can repeat a row.
+The id was only required to be present, so two rows with `id: null` counted as
+one, and the second was dropped. In the reviewer's probe that was a split
+effective on the session date, and the gate read CLEAR under `halt`. From
+9cf5cf2 such a row, and an id repeated with a different event, failed the read,
+which only a release could unstick. Since 2026-11-02 (team lead: nothing may
+need a release to unstick) each is keyed by its content (`row-sha256:...`,
+with `row_id` the id as sent). A row naming ours with a null, empty or
+non-string id is one such row; every row of an id that Alpaca lists with
+different raw content is another (`conflict`). Each is judged like any row
+naming ours, so it halts whenever the gate would halt for that fund, and
+`ca-ack` clears it on its full raw content. None is dropped. Only an identical
+repeat is one event. A malformed row naming none of ours is still skipped and
+recorded, whatever its id. With a record to go to, the read now raises only on
+transport and shape faults (`AlpacaClient.corporate_actions`, WHAT STILL
+RAISES).
+
 **The windows** (ET calendar dates, inclusive; the module docstring has the
 alignment in full):
 
@@ -401,6 +528,23 @@ absent = no gate, today's behaviour, `run.corporate_actions_for`):
 FAIL. It is not a deliberate `halt`. The book should have traded and could not,
 and a person has to look.
 
+**What clears each halt** (`docs/RUNBOOK.md` §6.1 is the procedure):
+
+| halt | what clears it |
+|---|---|
+| short-window match: a merger acquirer, a reorganization's allocated leg, any match through the process date alone | itself, at the next session |
+| long-window match on a target-only name | itself, once the as-of date passes the event's date |
+| long-window match on a held name | a filled order in the name submitted on the second trading day after the event or later, through the team lead (§6.1 step 3); or `ca-ack` of its id (step 7) |
+| unresolved row (a party symbol missing), short role: acquirer, allocated leg | itself, at the next session |
+| unresolved row, any other role, in a name's window | `ca-ack` of the id its refusal names (`row-sha256:...` when its own id is null); or Alpaca completing the row, which is then judged afresh |
+| UNDATED unresolved row (a party missing and a date unreadable): blocks in every window | `ca-ack` of its `row-sha256:...` key; or Alpaca completing the row, which is then a new row, judged afresh |
+| an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
+| UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
+| a row naming ours with a null, empty or non-string id, or an id listed with different content: keyed by its content (`row-sha256:...`) and judged like any row naming ours | as for its window above; `ca-ack` of its `row-sha256:` key |
+| UNMEASURED that persists: a transport or response-SHAPE fault only (a failed GET, a body that is not JSON or not an object, a type's list that is not a list, an unknown response key, a bad page token). No value in any field of any row can cause it (2026-11-02, `test_ca_read_property.py`) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
+| any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
+
 **What clears it.** A short-window match clears by itself once the as-of passes
 it. A long-window match does not clear by itself. While the gate refuses,
 nothing trades, so the event stays inside the window. It clears in one of two
@@ -412,7 +556,27 @@ halt on. A reverse split ex Wednesday 10-07 is not cleared by a Thursday 10-08
 order, and is cleared by a Friday 10-09 one. The start stays inclusive so that
 a late-listed action dated on an ordinary fill's sizing close is still flagged
 (third review, 2026-10-29). The other way is for the team lead to set the mode
-to `report` for the sessions that should go. No per-event acknowledgement was built. `docs/RUNBOOK.md`,
+to `report` for the sessions that should go. A third way is the team lead's
+acknowledgement of the action's id (team lead, 2026-10-29). It is built for a
+backfilled name change, redemption, worthless removal or partial call: these
+carry only a process date, so a backfill is judged as if it had just happened,
+and no trade may be able to clear it. `python3 -m quantt.session ca-ack --book
+cef --id <id> --reason "..."` checks the id in the feed, read-only, and writes
+`<state>/ca_acks.json` atomically, with the feed row exactly as listed and its
+type. It is the only writer. The gate clears that id only, and only while the
+feed's row for it still equals the acknowledged row in every field (dates,
+parties, ratio and the rest) and its type is the acknowledged type. The raw row
+carries no type, so the type is checked on its own (release-check of 709d6cb,
+2026-11-02). An unresolved row is acknowledged by its id, or by its
+`row-sha256:` key when its id is null. Any other action, a new one on the same fund
+included, still halts. So does a revised row under the same id: its record
+carries `ack_mismatch`, and the refusal names each changed field, so it needs
+a new acknowledgement. *Added 2026-11-01 (release-check of 9cf5cf2): the
+first build cleared by id alone.* The
+cleared rows stay in the record under `acknowledged`. A file the gate cannot
+read refuses (UNMEASURED); it is never read as empty. No file means nothing is
+acknowledged. (corp_actions.py, ACKNOWLEDGEMENTS; `run.ca_ack_main`.) Until
+2026-10-29 no per-event acknowledgement was built. `docs/RUNBOOK.md`,
 "Corporate-action halt", is the procedure, including the phantom P&L that paper
 keeps.
 
@@ -431,7 +595,9 @@ and the late-clock or send-budget gate refuses before STARTED. Either way verify
 reads a MISSED FAIL. Under `report` the same time is spent although the result
 blocks nothing. Normal reads take a fraction of a second; the slowest measured
 order cycle, a clock GET and a POST, was 0.259 s (`gate.py`). No code was
-changed for this (review 2026-10-29).
+changed for this (review 2026-10-29). Gate 6's order lists, which were read
+before both of these GETs, are now read after them ("As built (2026-10-29):
+gate 6 reads its lists last").
 
 **Not covered.** Rights distributions, cash dividends and capital-gains
 distributions change no share count. An action Alpaca never lists is not seen

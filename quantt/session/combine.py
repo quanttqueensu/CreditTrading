@@ -225,7 +225,14 @@ def _vol_target(spec: dict, where: str) -> float:
 
 def book_vol_target(book_spec: dict) -> float:
     """The book's vol target: the BOOK spec's frozen.vol_target_annual (docstring,
-    THE RISK BUDGET). Raises if it is absent or not a fraction in the band."""
+    THE RISK BUDGET). Raises if it is absent or not a fraction in the band, and
+    if the book spec sets `sizing_multiplier` (`load_sleeves`, ONE SIZING
+    AUTHORITY PER BOOK)."""
+    if (book_spec.get("frozen") or {}).get("sizing_multiplier") is not None:
+        raise CombineError(
+            f"book spec {book_spec.get('spec_id')!r} sets frozen.sizing_multiplier, which sizes a "
+            f"single-sleeve account; a combined book is sized by its budgets and this spec's vol "
+            f"target, and the two would compound. Delete the multiplier or re-express it as budgets")
     return _vol_target(book_spec, f"book spec {book_spec.get('spec_id')!r}")
 
 
@@ -287,6 +294,12 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
                            f"{budgeted} do; a combined book sizes every enabled sleeve by its "
                            f"budget and assumes none")
     from src.deploy.registry import build_sleeve
+    # ONE SIZING AUTHORITY PER BOOK (CEF trial 53). A spec's `sizing_multiplier`
+    # sizes a single-sleeve account (src/deploy/sleeves/cef_discount.py); a
+    # combined book sizes each sleeve by its budget (THE RISK BUDGET). Both at
+    # once would compound, so an enabled budgeted sleeve whose spec sets the key
+    # is refused here, naming it, and a book spec that sets it is refused by
+    # `book_vol_target`. Re-express it as budgets first.
     out, seen = [], set()
     for i, e in enabled:
         where = f"{book_path}: sleeves[{i}]"
@@ -305,6 +318,11 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
         spec = json.loads((repo / sp).read_text())
         if "capital_usd" not in spec or "spec_id" not in spec:
             raise CombineError(f"{where}: {sp} has no capital_usd or spec_id")
+        if (spec.get("frozen") or {}).get("sizing_multiplier") is not None:
+            raise CombineError(
+                f"{where}: {sp} sets frozen.sizing_multiplier, which sizes a single-sleeve "
+                f"account; a combined book sizes every sleeve by its risk_budget, and the two "
+                f"would compound. Delete the multiplier or re-express it as the budget")
         # The built sleeve's own instruments, as deployed_tickers reads them:
         # "the exact list the runner will trade". The registry validates the spec.
         universe = tuple(sorted(build_sleeve(spec, float(spec["capital_usd"])).instruments()))

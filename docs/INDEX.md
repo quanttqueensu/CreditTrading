@@ -31,6 +31,7 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/RUNBOOK.md` | reference | release, install, arm, disarm and check the laptop prod clone | `ops.doc_audit` (pointers) |
 | `docs/DATA.md` | reference | which data source feeds what (live vs research), the R2 layout | `ops.doc_audit` (pointers) |
 | `.claude/workflows/*.js` | desk | saved multi-agent workflows: research-idea, backtest-request, release-check, daily-ops, ss-census | — |
+| `docs/JOURNAL.md` | ledger | the day-by-day desk journal: what was tried, found, ruled, shipped to prod and earned; updated in the same commit as each change; owns nothing (every figure names its owner) | — |
 | `docs/RESEARCH_STATE.md` | ledger | trial counters and the killed list | `ops.orient` TRIALS |
 | `docs/BRIEF.md` | reference | the edge's theory, CEF market structure, and harness rules H1–H15 | `ops.doc_audit` (spec id) |
 | `docs/REFERENCES.md` | reference | every external claim and its verification status | — |

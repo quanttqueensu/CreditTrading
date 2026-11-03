@@ -66,7 +66,10 @@ Source for every [V]/[S]/[U] claim: `results/ops/ALPACA_API_FACTS_2026-09-28.md`
 """
 from __future__ import annotations
 
+import copy
 import datetime as dt
+import hashlib
+import json
 import math
 import os
 import re
@@ -817,23 +820,30 @@ class AlpacaClient:
         Alpaca's own 1D example agrees: every stamp is 00:00Z, and the last is a
         Saturday, which only a Friday session can carry. So two things are
         required of every stamp, or the call raises naming it:
-          * it is exactly 00:00:00 UTC, the only stamp either source shows; and
-          * converted to New York time (19:00 or 20:00 the evening before, by
-            the season), its date is a trading day by `calendar` (the
-            client's own method, one more GET).
+          * converted to New York time, it is exactly 20:00:00 local: 00:00Z
+            while New York is on EDT and 01:00Z while it is on EST. Measured
+            [V: a peer's read-only GET, 2026-11-02 23:49Z]: a window into last
+            winter carried 2025-12-03T01:00:00Z, and summer windows read
+            00:00Z, so the stamp follows New York's 20:00, not UTC midnight
+            (until 2026-11-02 this rule was "exactly 00:00 UTC, the only stamp
+            either source shows", which refused every winter point; DST ended
+            2026-11-01); and
+          * its New York date, the session date, is a trading day by
+            `calendar` (the client's own method, one more GET).
         Each rule catches a change that would otherwise file sessions under the
         wrong date. A session stamped at New York midnight after it (04:00Z,
-        or 05:00Z after the 2026-11-01 clock change) falls on the next date,
-        which trades Monday to Thursday. A session stamped at the start of its
-        own UTC day ("left-labeled") falls on the previous evening, which
-        trades Tuesday to Friday. The first rule refuses both, and the second
-        catches the left label on every Monday, since every read spans months.
-        The first rule also refuses an intraday reading, a stamp at the read
-        time or at the close, which could pass for a finished day. The cost is
-        deliberate. If Alpaca moves its winter stamps to 01:00Z (20:00 EST),
-        this raises from the first such point, and the official figure is
-        PENDING until a person looks. That is a loud stop, never a wrong date
-        (`docs/REFERENCES.md` §12an).
+        or 05:00Z in winter) falls on the next date, which trades Monday to
+        Thursday; the first rule refuses it. A session stamped at the start of
+        its own UTC day ("left-labeled") is 20:00 the previous evening in
+        summer and 19:00 in winter: the first rule refuses it in winter, and
+        the second catches it on every Monday in summer, since every read spans
+        months. The first rule also refuses an intraday reading, a stamp at the
+        read time or at the close, which could pass for a finished day, and a
+        winter 00:00Z (19:00 EST). Any other convention still raises from its
+        first point, and the official figure is PENDING until a person looks:
+        a loud stop, never a wrong date (`docs/REFERENCES.md` §12an). Every
+        point in the response is checked, those after `end` included, before
+        the window is applied.
 
         PRE-FUNDING ZEROS ARE DROPPED, BY NAME. Alpaca returns equity 0 for the
         days before the account was funded (read 2026-10-19). Those leading zeros
@@ -885,11 +895,13 @@ class AlpacaClient:
             except (ValueError, OverflowError, OSError):
                 raise UnexpectedResponse(
                     f"{w}: timestamp[{i}] = {ts} is outside the clock's range") from None
-            if ts % 86400:
+            ny = when.astimezone(NY)
+            if (ny.hour, ny.minute, ny.second, ny.microsecond) != (20, 0, 0, 0):
                 raise UnexpectedResponse(
-                    f"{w}: stamp {when.isoformat()} is "
-                    f"not 00:00 UTC; every 1D stamp seen (the 2026-10-19 read, the reference's "
-                    f"example) is. Refused rather than placed on a session")
+                    f"{w}: stamp {when.isoformat()} is {ny.isoformat()} in New York, not "
+                    f"20:00:00 local; every 1D stamp seen is 20:00 New York (00:00Z on EDT, "
+                    f"01:00Z on EST; measured 2026-10-19 and 2026-11-02). Refused rather than "
+                    f"placed on a session")
             x = _num({"equity": eq}, "equity", f"{w} [{i}]")      # None/bool/junk raise
             if not math.isfinite(x):
                 raise UnexpectedResponse(f"{w}: equity[{i}] = {eq!r} is not finite")
@@ -901,8 +913,8 @@ class AlpacaClient:
             return []
 
         local = [s.astimezone(NY) for s in stamps]
-        # Distinct UTC midnights, strictly increasing, map to distinct New York
-        # dates, so no two points can share a session.
+        # Distinct 20:00 New York stamps, strictly increasing, map to distinct
+        # New York dates, so no two points can share a session.
         cal = {row["date"] for row in self.calendar(local[0].date(), local[-1].date())}
         for s, t in zip(stamps, local):
             if t.date() not in cal:
@@ -1226,7 +1238,8 @@ class AlpacaClient:
             raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
         return sorted(out, key=lambda e: (e["symbol"], e["ex_date"], e["kind"], e["id"]))
 
-    def corporate_actions(self, symbols, start: dt.date, end: dt.date) -> list[dict]:
+    def corporate_actions(self, symbols, start: dt.date, end: dt.date, *, universe=None,
+                          skipped: list | None = None, rows: dict | None = None) -> list[dict]:
         """Every NON-dividend corporate action that names one of `symbols`, in any role.
 
         GET {DATA_BASE}/v1/corporate-actions, types = the thirteen in
@@ -1258,7 +1271,17 @@ class AlpacaClient:
         VALIDATION, and why it is split. Every row must carry its type's
         symbol fields as strings, or this raises: a row whose parties cannot be
         read might be ours. A row that names one of `symbols` must also carry
-        its id, its date field and process_date as YYYY-MM-DD, or this raises.
+        its id as a non-empty string, its date field and process_date as
+        YYYY-MM-DD, or this raises.
+        ONE ID, ONE EVENT (release-check of 9630322, 2026-10-30, reproduced).
+        Rows naming ours are de-duplicated by id, because a page boundary can
+        repeat one. The check used to be the key's presence only, so two rows
+        with `id: null` were one id, and every row after the first was dropped:
+        a null-id split effective on the session date went unseen and the gate
+        read CLEAR under `halt`. Now an id that is not a non-empty string raises,
+        naming the row, and so does an id that repeats with a DIFFERENT event
+        (type, dates or parties: what the gate reads), because which one is
+        true cannot be told. Only an identical repeat is dropped.
         A row that names none of them is not read further, so a malformed date
         on some other issuer's action cannot halt this book. A response key
         outside the reference's sixteen raises (a renamed key would otherwise
@@ -1281,6 +1304,93 @@ class AlpacaClient:
         symbol nor a CUSIP still raises. Until this rule, the first such row
         raised and the whole read failed, which under `halt` refuses every
         session.
+
+        UNRESOLVED ROWS (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved
+        corporate-action rows); it supersedes the brief applied at 709d6cb,
+        which refused every such row and was never a ruling). A row whose
+        required party symbol is present but null or "" (a split's or
+        dividend's own symbol, an acquiree, an acquirer, a unit split's old,
+        new or alternate, a spin-off's source or new, a name change's old or
+        new, a reorganization's own symbol), or a reorganization leg with no
+        ticker and no CUSIP, is an UNRESOLVED event. With `skipped` (the
+        recording caller) it is RETURNED, never raised on: its usual fields,
+        `missing` (each missing field and its role), `row_id` (the id as sent),
+        and `id`, which is that id or, when the id is null too, `ca_row_key`
+        (a hash of the raw row) so that the team lead can still acknowledge
+        it. It is returned whatever it names, because the missing party could
+        be any of our funds. The gate decides what it means
+        (corp_actions.blocking_events, UNRESOLVED ROWS): it blocks exactly when
+        a well-formed row of the same type and dates would block for one of
+        the gate's names in the missing role, and is otherwise recorded only.
+        A row whose dates cannot be read is UNDATED (`_ca_event`): keyed by its
+        hash and treated as inside every window, so it blocks until
+        acknowledged. A row naming one of `symbols` with a null, empty or
+        non-string id, and every row of an id listed with different content,
+        is keyed by its hash too (`_ca_key_events`) and judged on the windows
+        like any other; it names ours, so it halts whenever the gate would halt
+        for that fund, and ca-ack clears it on its full raw content (team lead
+        2026-11-02: never needs a release to unstick).
+        EVERY FIELD VALIDATED, NOTHING RAISES (release-check of 1c64638,
+        2026-11-02; `_ca_read`). With `skipped`, no value in any field of any
+        row can make the read raise: each field the reader knows (the party
+        symbols, `id`, every date, every ratio, rate, cash amount and price,
+        every CUSIP, each reorganization leg, the row itself) goes through a
+        validator that returns a value or a named fault. A party fault makes
+        the row unresolved; a non-party fault on a row naming ours makes it
+        fail-closed (inside every window) and keyed for ca-ack; on a row whose
+        parties are all present and none ours it is skipped and recorded.
+        quantt/session/tests/test_ca_read_property.py is the property test
+        over every field of every type, held and outside, with each adversarial
+        value.
+        WHAT STILL RAISES, with `skipped` (the gate's and ca-ack's read): only
+        transport and SHAPE failures of the response, before any row: a failed
+        GET, a body that is not JSON or not an object, `corporate_actions` not
+        an object, a type's list not a list, a response key outside the
+        reference, a missing or bad next_page_token, too many pages. Without
+        `skipped`, the strict read from before the rulings (`_ca_strict`). Without
+        `skipped`, such a row raises, as before the ruling. Why not refuse
+        every such row (709d6cb): one in the market, anywhere and of any date,
+        then refused every session for good, and `ca-ack`, which reads the
+        same way, could not clear it (release-check of 709d6cb, 2026-11-02,
+        reproduced).
+        SKIPPED AND RECORDED (team lead 2026-10-29, docs/SYSTEM.md §5: "skip it,
+        and record it, unless it could concern one of our funds"), only with
+        `skipped` and `universe` (the book's symbols; the two go together): a
+        row whose every party symbol is present, none of them in `universe` or
+        `symbols`, while a NON-party required field is malformed (its id not a
+        non-empty string, or its date field or process_date absent or not
+        YYYY-MM-DD). It is appended to `skipped` (id, type, the malformed fields
+        and their values, the symbols and CUSIPs present, the dates); the gate
+        records it in plan.json, the run record and one log line. The same
+        fault on a row naming a fund of the universe raises. Without
+        `skipped`, a row naming none of `symbols` is not read further.
+        NOT UNRESOLVED: the two OPTIONAL party fields the reference documents,
+        a reverse split's new_symbol ("Empty when the reverse split does not
+        change the ticker") and a cash merger's acquirer_symbol, name nobody
+        when absent, null or ""; so does a reorganization leg with no ticker
+        but a CUSIP (ONE MEASURED EXCEPTION above).
+        HISTORY (each reproduced by a release-check). 9cf5cf2 skipped a
+        malformed row when no PRESENT symbol was ours, so a held fund's split
+        with its symbol null was skipped and sent. 04aca24 skipped it when the
+        subject side was present and not ours, so a null acquirer was skipped
+        and sent for a held acquirer. 709d6cb refused every such row, so one
+        outside row halted the book indefinitely.
+        Identification is by SYMBOL only. The ruling also names a CUSIP or a
+        name "if Alpaca provides it". The rows do carry CUSIPs, but the live
+        path holds no CUSIP for any fund in the universe, so none can be
+        compared, which is why a missing party is treated as possibly any of
+        ours. A skipped row's CUSIPs are recorded for a person to read. The reference's schemas
+        (test_alpaca_client.CA_REFERENCE) carry no issuer name. Still raises on any row, ours or not: a row that
+        is not an object, a required symbol field ABSENT (a renamed field would
+        empty a type for every issuer, ours included), a symbol that is present
+        but not a string, a leg with no `symbol` key.
+
+        RAW ROWS (`rows`, release-check of 9cf5cf2, 2026-11-01). When `rows` is
+        a dict, each row returned as an event is also recorded there as Alpaca
+        sent it, `rows[id] = [row, ...]` (a repeat appended too). The gate
+        compares these with what the team lead acknowledged
+        (corp_actions.py, ACKNOWLEDGEMENTS): an acknowledgement holds only
+        while the row is unchanged, ratio and every other field included.
 
         THE WINDOW FILTERS ON process_date. The reference does not say what
         `start`/`end` filter (`distributions` docstring). Measured 2026-10-29 on
@@ -1324,9 +1434,24 @@ class AlpacaClient:
             if not isinstance(s, str) or not _SYMBOL_RE.match(s):
                 raise ValueError(f"symbol {s!r} is not an upper-case equity symbol")
         wanted = set(syms)
+        if rows is not None and not isinstance(rows, dict):
+            raise ValueError("rows must be a dict (RAW ROWS)")
+        raw_rows = rows             # `rows` is each type's list in the loop below
+        if (universe is None) != (skipped is None):
+            raise ValueError("universe and skipped go together (MALFORMED ROWS): a skipped row "
+                             "needs the universe it was judged against, and a record to go to")
+        ours = set(wanted)
+        if universe is not None:
+            if isinstance(universe, str) or not isinstance(skipped, list):
+                raise ValueError("universe must be a list of symbols and skipped a list")
+            for s in universe:
+                if not isinstance(s, str) or not _SYMBOL_RE.match(s):
+                    raise ValueError(f"universe symbol {s!r} is not an upper-case equity symbol")
+            ours |= set(universe)
 
         w = "GET /v1/corporate-actions"
-        out, seen = [], set()
+        out, seen, seen_skipped = [], {}, set()       # seen: id -> the event read
+        cands = []          # (id as sent, event without its key, raw row): `_ca_key_events`
         token = None
         for _ in range(MAX_PAGES):
             params = {"types": ",".join(CORPORATE_ACTION_TYPES),
@@ -1351,21 +1476,36 @@ class AlpacaClient:
                     raise UnexpectedResponse(f"{w}: {key} is {type(rows).__name__}, not a list")
                 for i, r in enumerate(rows):
                     where = f"{w} {key}[{i}]"
-                    parties = _ca_parties(r, kind, fields, where)
-                    if not any(s in wanted for s, _ in parties):
+                    if skipped is None:
+                        # No record to go to: the read before the rulings, strict.
+                        parties, unread = _ca_parties(r, kind, fields, where)
+                        if unread:
+                            raise UnexpectedResponse(unread[0]["error"])
+                        if any(s in wanted for s, _ in parties):
+                            _ca_strict(r, kind, date_field, parties, where, seen, out,
+                                       raw_rows)
                         continue
-                    _require(r, ("id", date_field, "process_date"), where)
-                    dates = {}
-                    for f in (date_field, "process_date"):
-                        if not (isinstance(r[f], str) and _DATE_RE.match(r[f])):
-                            raise UnexpectedResponse(f"{where}: {f} {r[f]!r} is not YYYY-MM-DD")
-                        dates[f] = dt.date.fromisoformat(r[f])
-                    if r["id"] in seen:
-                        continue          # the same event repeated across pages
-                    seen.add(r["id"])
-                    out.append({"id": r["id"], "type": kind, "date": dates[date_field],
-                                "date_field": date_field, "process_date": dates["process_date"],
-                                "parties": [[s, role] for s, role in parties]})
+                    # EVERY FIELD VALIDATED, NOTHING RAISES (docstring): a value
+                    # or a named fault, field by field (`_ca_read`).
+                    parties, unread, bad = _ca_read(r, kind, date_field, fields)
+                    names_wanted = any(s in wanted for s, _ in parties)
+                    if not unread and not names_wanted:
+                        if not bad:
+                            continue          # well-formed and not one of `symbols`
+                        if not any(s in ours for s, _ in parties):
+                            # SKIPPED AND RECORDED (docstring): every party present,
+                            # none ours, a non-party field malformed.
+                            rid = r.get("id")
+                            if isinstance(rid, str) and rid in seen_skipped:
+                                continue      # the same row repeated across pages
+                            if isinstance(rid, str):
+                                seen_skipped.add(rid)
+                            skipped.append(_ca_skip_record(r, kind, date_field, bad, parties))
+                            continue
+                    # IRREGULAR or naming ours: judged by the gate (docstring).
+                    cands.append((r.get("id") if isinstance(r, dict) else None,
+                                  _ca_event(r, kind, date_field, parties, unread, bad),
+                                  copy.deepcopy(r)))
             nxt = body["next_page_token"]          # required (docstring, VALIDATION)
             if nxt is None or nxt == "":
                 break
@@ -1376,7 +1516,10 @@ class AlpacaClient:
             token = nxt
         else:
             raise UnexpectedResponse(f"{w}: more than {MAX_PAGES} pages")
-        return sorted(out, key=lambda e: (e["date"], e["type"], e["id"]))
+        if skipped is not None:
+            _ca_key_events(cands, out, raw_rows)
+        # An undated event (date None) sorts first.
+        return sorted(out, key=lambda e: (e["date"] or dt.date.min, e["type"], e["id"]))
 
 
 # The thirteen NON-dividend types `AlpacaClient.corporate_actions` asks for:
@@ -1424,19 +1567,30 @@ CORPORATE_ACTION_RESPONSE_KEYS = frozenset(
     + ["cash_dividends", "capital_gains_distributions", "rights_distributions"])
 
 
-def _ca_parties(r, kind: str, fields, where: str) -> list[tuple[str, str]]:
-    """[(symbol, role)] for one corporate-action row; raises on a row whose
-    parties cannot be read (`AlpacaClient.corporate_actions`, VALIDATION). An
-    optional field that is absent, null or "" names nobody."""
+def _ca_parties(r, kind: str, fields, where: str) -> tuple[list[tuple[str, str]], list[dict]]:
+    """([(symbol, role)], unread) for one corporate-action row
+    (`AlpacaClient.corporate_actions`, VALIDATION and MALFORMED ROWS).
+
+    `unread` holds each REQUIRED symbol that is present but null or "", and
+    each reorganization leg whose symbol is null or "" with no CUSIP, as
+    {"field", "role", "error"}; `error` is the sentence the read raised with
+    before the 2026-10-29 ruling, so a caller that keeps no record raises
+    exactly as before. The caller decides what such a row means. This still
+    raises, for any row: not a JSON object, a required symbol field absent, a
+    symbol present but not a string, a leg with no `symbol` key. An optional
+    field that is absent, null or "" names nobody."""
     if not isinstance(r, dict):
         raise UnexpectedResponse(f"{where}: expected a JSON object, got {type(r).__name__}")
     _require(r, [f for f, _, req in fields if req], where)
-    out = []
+    out, unread = [], []
     for f, role, req in fields:
         v = r.get(f)
-        if not req and v in (None, ""):
+        if v is None or v == "":
+            if req:
+                unread.append({"field": f, "role": role,
+                               "error": f"{where}: {f} {v!r} is not a symbol"})
             continue
-        if not isinstance(v, str) or not v:
+        if not isinstance(v, str):
             raise UnexpectedResponse(f"{where}: {f} {v!r} is not a symbol")
         out.append((v, role))
     if kind == "reorganization":
@@ -1452,11 +1606,319 @@ def _ca_parties(r, kind: str, fields, where: str) -> list[tuple[str, str]]:
                     # A security with no ticker, identified by its CUSIP: names
                     # nobody (corporate_actions docstring, ONE MEASURED EXCEPTION).
                     continue
-                if not isinstance(sym, str) or not sym:
-                    raise UnexpectedResponse(f"{leg}: symbol {sym!r} is not a symbol, and the "
-                                             f"leg has no CUSIP ({cusip!r}) to say it has no ticker")
+                why = (f"{leg}: symbol {sym!r} is not a symbol, and the leg has no CUSIP "
+                       f"({cusip!r}) to say it has no ticker")
+                if sym is None or sym == "":
+                    unread.append({"field": f"stock_movements[{j}].symbol", "role": "allocated",
+                                   "error": why})
+                    continue
+                if not isinstance(sym, str):
+                    raise UnexpectedResponse(why)
                 out.append((sym, "allocated"))
-    return out
+    return out, unread
+
+
+UNRESOLVED_KEY_PREFIX = "row-sha256:"
+
+
+def ca_row_canonical(r) -> str:
+    """The canonical JSON TEXT of one raw feed item, ANY JSON value (an object,
+    a list, a string, a number, null): sorted keys, no spaces, ASCII, and a
+    non-finite float written as its token (NaN, Infinity) inside this string.
+    It is the ONE form an acknowledgement is matched on (corp_actions
+    ACKNOWLEDGEMENTS; `ca-ack` writes it, `parse_acks` checks it, the gate
+    compares it): a NaN equals itself here, which it never does as a float,
+    and an item that is not an object has a form too (execution-trader,
+    2026-11-02, reproduced: such a row was written as `"row": null` and then
+    refused the whole file). An item parsed from JSON always serialises."""
+    return json.dumps(r, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+                      allow_nan=True)
+
+
+def ca_row_key(r) -> str:
+    """The key an irregular row is acknowledged by: the SHA-256 of
+    `ca_row_canonical`. Any change to the row is a different key, so an
+    acknowledgement of it cannot outlive a revision."""
+    return UNRESOLVED_KEY_PREFIX + hashlib.sha256(ca_row_canonical(r).encode()).hexdigest()
+
+
+def _ca_event(r: dict, kind: str, date_field: str, parties, unread: list, bad: dict) -> dict:
+    """One row's event, before its key is assigned (`_ca_key_events`): the usual
+    fields, plus `missing` (each missing party field and its role) when a party
+    symbol is null or empty, and `undated` (each unreadable date field and its
+    raw value) when a date is absent or not YYYY-MM-DD; an unreadable date is
+    None. Never raises: what the gate cannot read it judges fail-closed
+    (corp_actions.blocking_events: an undated event is inside every window)."""
+    def day(f):
+        return None if f in bad else _ca_date(r.get(f))[0]
+    ev = {"type": kind, "date": day(date_field), "date_field": date_field,
+          "process_date": day("process_date"), "parties": [[s, role] for s, role in parties]}
+    if unread:
+        ev["missing"] = [{"field": u["field"], "role": u["role"]} for u in unread]
+    undated = {f: v for f, v in bad.items() if f in (date_field, "process_date")}
+    if undated:
+        ev["undated"] = undated
+    faults = {f: v for f, v in bad.items() if f not in (date_field, "process_date", "id")}
+    if faults:
+        # Any other field unreadable (a ratio, a cash amount, a price, a CUSIP,
+        # another date): its terms cannot be read, so it is fail-closed too.
+        ev["faults"] = faults
+    return ev
+
+
+def _ca_key_events(cands: list, out: list, raw_rows: dict | None) -> None:
+    """Give each candidate event its key and append it to `out` (ONE ID, ONE
+    EVENT, and the 2026-11-02 rulings in the docstring).
+
+    A row whose id is a non-empty string and whose dates are readable is keyed
+    by that id; repeats of exactly the same raw row are one event. Every other
+    row is keyed by `ca_row_key`, the SHA-256 of its raw content, and carries
+    `row_id` (the id as sent): a null, empty or non-string id, an undated row,
+    and every row of an id that Alpaca lists with DIFFERENT raw content
+    (`conflict`, since which one is true cannot be told, so each is judged).
+    None is dropped, none raises, and each can be acknowledged by its key;
+    a revision of a hash-keyed row is a new key, so it halts again."""
+    by_id, hashed = {}, []
+    for rid, ev, raw in cands:
+        if _ca_id(rid)[1] is None and "undated" not in ev:     # one token, dates readable
+            by_id.setdefault(rid, []).append((ev, raw))
+        else:
+            hashed.append((rid, ev, raw))
+    for rid, items in by_id.items():
+        raws = []
+        for _, raw in items:
+            if raw not in raws:
+                raws.append(raw)
+        if len(raws) == 1:
+            e = {"id": rid, **items[0][0]}
+            if "missing" in e:
+                e["row_id"] = rid
+            out.append(e)
+            if raw_rows is not None:
+                raw_rows.setdefault(rid, []).extend(raw for _, raw in items)
+        else:
+            hashed.extend((rid, {**ev, "conflict": True}, raw) for ev, raw in items)
+    keys = set()
+    for rid, ev, raw in hashed:
+        key = ca_row_key(raw)
+        if raw_rows is not None:
+            raw_rows.setdefault(key, []).append(raw)
+        if key in keys:
+            continue                  # the same raw row repeated
+        keys.add(key)
+        out.append({"id": key, **ev, "row_id": rid})
+
+
+def _ca_strict(r: dict, kind: str, date_field: str, parties, where: str, seen: dict, out: list,
+               raw_rows: dict | None) -> None:
+    """A row naming one of `symbols`, read WITHOUT a record to go to (`skipped`
+    None): the strict read from before the rulings. A bad id or date, or one id
+    with two different events, raises."""
+    _require(r, ("id", date_field, "process_date"), where)
+    rid = r["id"]
+    if not isinstance(rid, str) or not rid.strip():
+        raise UnexpectedResponse(
+            f"{where}: a {kind} naming {[list(p) for p in parties]} has id {rid!r}, not a "
+            f"non-empty string; rows naming ours are told apart by id, so the read fails "
+            f"rather than drop one")
+    dates = {}
+    for f in (date_field, "process_date"):
+        if not (isinstance(r[f], str) and _DATE_RE.match(r[f])):
+            raise UnexpectedResponse(f"{where}: {f} {r[f]!r} is not YYYY-MM-DD")
+        dates[f] = dt.date.fromisoformat(r[f])
+    ev = {"id": rid, "type": kind, "date": dates[date_field], "date_field": date_field,
+          "process_date": dates["process_date"], "parties": [[s, role] for s, role in parties]}
+    if raw_rows is not None:
+        raw_rows.setdefault(rid, []).append(copy.deepcopy(r))
+    if rid in seen:
+        if seen[rid] != ev:
+            raise UnexpectedResponse(f"{where}: id {rid!r} repeats with a different event: "
+                                     f"{seen[rid]} and {ev}; which is true cannot be told")
+        return
+    seen[rid] = ev
+    out.append(ev)
+
+
+# EVERY FIELD VALIDATED, NOTHING RAISES (release-check of 1c64638, 2026-11-02,
+# reproduced: "2026-02-30", "0000-00-00" and "2026-10-29\n" passed `_DATE_RE`,
+# whose `$` also matches before a trailing newline, and then raised in
+# `fromisoformat`, unnamed and un-ackable). Each validator returns
+# (value, None) or (None, fault); none can raise, whatever JSON value it is
+# handed. `_ca_read` applies them to every field of a row it knows the
+# meaning of: the party symbols of its type, `id`, every `*_date`, every
+# `rate` / `*_rate` / `price`, every `*cusip`, and each reorganization leg.
+_CA_DATE_FULL = re.compile(r"\d{4}-\d{2}-\d{2}")
+_CA_NUMBER_FULL = re.compile(r"\d+(\.\d+)?([eE][+-]?\d+)?")
+
+
+def _ca_date(v):
+    """A calendar date: a str that FULLY matches YYYY-MM-DD and is a real day."""
+    if not (isinstance(v, str) and _CA_DATE_FULL.fullmatch(v)):
+        return None, f"{v!r:.80} is not YYYY-MM-DD"
+    try:
+        return dt.date.fromisoformat(v), None
+    except ValueError:
+        return None, f"{v!r} is not a calendar date"
+
+
+def _ca_symbol(v):
+    """A ticker: a str that FULLY matches _SYMBOL_RE (no trailing newline)."""
+    if isinstance(v, str) and _SYMBOL_RE.fullmatch(v):
+        return v, None
+    return None, f"{v!r:.80} is not a symbol"
+
+
+def _ca_id(v):
+    """An action id: a non-empty str with no whitespace (ca-ack takes it as one token)."""
+    if isinstance(v, str) and v and not any(ch.isspace() for ch in v):
+        return v, None
+    return None, f"{v!r:.80} is not a usable id"
+
+
+def _ca_number(v, *, zero_ok: bool):
+    """A ratio, rate, cash amount or price: an int or float (never a bool), or a
+    plain decimal string, finite, > 0 (>= 0 when `zero_ok`)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+        return None, f"{v!r:.80} is not a number"
+    if isinstance(v, str) and not _CA_NUMBER_FULL.fullmatch(v):
+        return None, f"{v!r:.80} is not a number"
+    try:
+        x = float(v)
+    except (OverflowError, ValueError):
+        return None, f"{v!r:.80} is not a number"
+    if not math.isfinite(x) or x < 0 or (x == 0 and not zero_ok):
+        return None, f"{v!r:.80} is not a finite number {'>= 0' if zero_ok else '> 0'}"
+    return x, None
+
+
+def _ca_text(v):
+    """A CUSIP: a non-empty str with no surrounding whitespace and no control
+    characters. (Never compared with anything: read so that garbage is named.)"""
+    if isinstance(v, str) and v and v == v.strip() and v.isprintable():
+        return v, None
+    return None, f"{v!r:.80} is not a CUSIP"
+
+
+def _ca_field_kind(k: str):
+    if k == "id":
+        return "id"
+    if k.endswith("_date"):
+        return "date"
+    if k == "rate" or k.endswith("_rate") or k == "price":
+        return "number"
+    if k.endswith("cusip"):
+        return "text"
+    return None
+
+
+def _ca_check_value(k: str, v, bad: dict) -> None:
+    kind = _ca_field_kind(k)
+    if kind == "date":
+        if _ca_date(v)[1]:
+            bad[k] = v
+    elif kind == "number":
+        if _ca_number(v, zero_ok=(k == "cash_rate"))[1]:
+            bad[k] = v
+    elif kind == "text":
+        if _ca_text(v)[1]:
+            bad[k] = v
+
+
+def _ca_read(r, kind: str, date_field: str, fields) -> tuple[list, list, dict]:
+    """(parties, unread, bad) for one row, and it NEVER raises.
+
+    `parties`: [(symbol, role)] for each party symbol that validates.
+    `unread`: each party that does not, as {"field", "role"}: a required party
+    field absent, null, empty or not a ticker; an optional one (a reverse
+    split's new_symbol, a cash merger's acquirer) only when present and not a
+    ticker (absent, null or "" names nobody, as the reference says); a
+    reorganization leg that is not an object, or whose symbol is not a ticker
+    unless it is null or "" with a valid CUSIP (ONE MEASURED EXCEPTION); a
+    `stock_movements` that is neither null nor a list.
+    `bad`: {field: raw value} for each NON-party field that is malformed: `id`
+    (`_ca_id`), the date field and process_date (required), and, when present
+    and not null, every other date, number and CUSIP (`_ca_field_kind`). A row
+    that is not an object has every required party unread and both dates bad."""
+    if not isinstance(r, dict):
+        unread = [{"field": f, "role": role} for f, role, req in fields if req]
+        return [], unread, {"id": None, date_field: None, "process_date": None}
+    parties, unread, bad = [], [], {}
+    for f, role, req in fields:
+        v = r.get(f)
+        if not req and (v is None or v == ""):
+            continue
+        sym, fault = _ca_symbol(v)
+        if fault:
+            unread.append({"field": f, "role": role})
+        else:
+            parties.append((sym, role))
+    if kind == "reorganization":
+        legs = r.get("stock_movements")
+        if legs is not None and not isinstance(legs, list):
+            unread.append({"field": "stock_movements", "role": "allocated"})
+        for j, m in enumerate(legs if isinstance(legs, list) else []):
+            leg = f"stock_movements[{j}]"
+            if not isinstance(m, dict):
+                unread.append({"field": leg, "role": "allocated"})
+                continue
+            sym, cusip = m.get("symbol"), m.get("cusip")
+            if cusip is not None and _ca_text(cusip)[1] and cusip != "":
+                bad[f"{leg}.cusip"] = cusip
+            for k in ("new_rate", "source_rate"):
+                if m.get(k) is not None and _ca_number(m[k], zero_ok=False)[1]:
+                    bad[f"{leg}.{k}"] = m[k]
+            if (sym is None or sym == "") and not _ca_text(cusip)[1]:
+                continue              # no ticker but a CUSIP: names nobody (measured)
+            ok, fault = _ca_symbol(sym)
+            if fault:
+                unread.append({"field": f"{leg}.symbol", "role": "allocated"})
+            else:
+                parties.append((ok, "allocated"))
+    if _ca_id(r.get("id"))[1]:
+        bad["id"] = r.get("id")
+    for f in (date_field, "process_date"):
+        if _ca_date(r.get(f))[1]:
+            bad[f] = r.get(f)
+    party_fields = {f for f, _, _ in fields}
+    for k, v in r.items():
+        if k in party_fields or k in bad or k in ("id", date_field, "process_date"):
+            continue
+        if v is not None:
+            _ca_check_value(k, v, bad)
+    return parties, unread, bad
+
+
+def _ca_nonparty_faults(r: dict, date_field: str) -> dict:
+    """{field: raw value} for each NON-party required field that is malformed
+    (MALFORMED ROWS): `id` not a non-empty string, the date field or
+    process_date absent or not YYYY-MM-DD. An absent field reads None."""
+    bad = {}
+    rid = r.get("id")
+    if not isinstance(rid, str) or not rid.strip():
+        bad["id"] = rid
+    for f in (date_field, "process_date"):
+        v = r.get(f)
+        if not (isinstance(v, str) and _DATE_RE.match(v)):
+            bad[f] = v
+    return bad
+
+
+def _ca_skip_record(r: dict, kind: str, date_field: str, bad: dict, parties) -> dict:
+    """The record of one skipped malformed row (`AlpacaClient.corporate_actions`,
+    MALFORMED ROWS): enough for a person to find it and judge it. Raw values,
+    unparsed: the row was not read further. `malformed` is each bad non-party
+    field and its value. CUSIPs are every non-empty string field whose name
+    ends in `cusip`, and each leg's; none is compared with the universe (the
+    live path holds no CUSIP for it), so they are here to be read."""
+    cusips = {k: v for k, v in sorted(r.items())
+              if k.endswith("cusip") and isinstance(v, str) and v}
+    if kind == "reorganization":
+        for j, m in enumerate(r.get("stock_movements") or []):
+            if isinstance(m.get("cusip"), str) and m["cusip"]:
+                cusips[f"stock_movements[{j}].cusip"] = m["cusip"]
+    return {"id": r.get("id"), "type": kind, "malformed": dict(sorted(bad.items())),
+            "present": [[s, role] for s, role in parties], "cusips": cusips,
+            "dates": {f: r.get(f) for f in (date_field, "process_date") if f in r}}
 
 
 def _load_keys(book: str, env_file: Path) -> tuple[str, str]:
