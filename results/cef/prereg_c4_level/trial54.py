@@ -451,7 +451,10 @@ def stage_record(variant: str) -> int:
     """Store a series in the registry (CEF-54). The tree must be clean (registry.record refuses otherwise)."""
     from scripts.research import registry
     need("p1")
-    P = pd.read_parquet(CACHE / f"pnl_{variant}.parquet")["pnl"]
+    # The first read stored blend (judged), level and z; a judged line is never replaced. The corrected book
+    # (2ed752f: the full-history vol lookback) is stored under NEW, unjudged names; z's book did not change.
+    src = {"blend": "blend", "level": "level", "z": "z", "blend_corrected": "blend", "level_corrected": "level"}[variant]
+    P = pd.read_parquet(CACHE / f"pnl_{src}.parquet")["pnl"]
     S = c4_spec()
     line = registry.record(P, counter="CEF", trial="CEF-54", variant=variant, judged=(variant == "blend"),
                            params=dict(spec=SPEC_ID, m=S["m"], cap=S["cap"], band=S["band"], risk_share_z=RISK_SHARE_Z,
@@ -467,7 +470,28 @@ def stage_p2() -> int:
     need("dgl2", "p1")
     lines = []
     say = lambda s_="": (print(s_), lines.append(s_))
+    # THE CORRECTED READ (2ed752f). The judged ledger line is the first read's blend, and `registry.bars` gives
+    # bars on the judged series only. The corrected blend is stored as CEF-54/blend_corrected (unjudged), so its
+    # desk DSR is computed here with the registry's own functions on its stored bytes, exactly as `bars` does
+    # (T, per-period SR, pandas skew, kurt + 3, desk_dsr at the declared N). The paper bar's refusal depends on
+    # the counter, not the series, so `bars` on the judged first read supplies it, and it is shown beside.
+    from scripts.research.inference import desk_dsr, upper_bound_max_z
+    hit = [e for e in registry.entries("CEF", trials=["CEF-54"]) if e["variant"] == "blend_corrected"]
+    if len(hit) != 1:
+        raise RuntimeError("CEF-54/blend_corrected is not stored once in the ledger; run `record --variant blend_corrected`")
+    xs = registry.load(hit[0])
+    x = xs.to_numpy(dtype=float)
+    T = len(x)
+    sr = float(x.mean() / x.std(ddof=1))
+    skew, kurt = float(pd.Series(x).skew()), float(pd.Series(x).kurt() + 3.0)
     r = registry.bars("CEF", trial="CEF-54", variant="blend", declared_n=54)
+    r_first = dict(desk_dsr=r["desk"]["dsr"], sr_annual=r["sr_annual"], T=r["T"])
+    r["T"], r["sr_annual"], r["skew"], r["kurt"] = T, sr * np.sqrt(252), skew, kurt
+    r["desk"] = dict(n_trials=54, T=T, sr0=np.sqrt(1 / T) * upper_bound_max_z(54),
+                     sr0_annual=np.sqrt(1 / T) * upper_bound_max_z(54) * np.sqrt(252),
+                     dsr=desk_dsr(sr * np.sqrt(252), T, skew, kurt, 54))
+    r["series"] = "CEF-54/blend_corrected (sha256 " + hit[0]["sha256"][:12] + ")"
+    r["first_read"] = r_first
     desk = r["desk"]["dsr"]
     paper = r["paper"]["dsr"] if r["paper"] else None
     # WHICH BAR GATES is the team lead's, read from docs/SYSTEM.md §5 (registry.bars' docstring). The row "Which bar
@@ -487,7 +511,9 @@ def stage_p2() -> int:
                    "construction, not_qualified)") if ok else "KILL"
     else:
         ok, verdict = False, f"HALT (paper bar refused, {r['paper_refused_code']}: a ruling)"
-    say(f"CEF trial 54, P2: registry bars CEF CEF-54 blend --declared-n 54 (T {r['T']}, SR {r['sr_annual']:.3f}/yr, skew "
+    say(f"  first read (trial script bug: truncated vol lookback, 6 sessions 2005-02-23..03-31): judged CEF-54/blend, "
+        f"desk DSR {r_first['desk_dsr']:.4f}, SR {r_first['sr_annual']:.3f}/yr")
+    say(f"CEF trial 54, P2 on {r['series']} (T {r['T']}, SR {r['sr_annual']:.3f}/yr, skew "
         f"{r['skew']:.2f}, kurt {r['kurt']:.2f})")
     say(f"  desk bar: SR0 {r['desk']['sr0_annual']:.3f}/yr, DSR {desk:.4f}")
     if r["paper"]:
@@ -740,7 +766,7 @@ def stage_navscan() -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan", "p1", "record", "p2", "k1", "k2", "k3", "p3", "dgl4"])
-    ap.add_argument("--variant", choices=["blend", "level", "z"], default=None)
+    ap.add_argument("--variant", choices=["blend", "level", "z", "blend_corrected", "level_corrected"], default=None)
     ap.add_argument("--impl-root", default=None, help="dgl4: a checkout of c4-level-impl at its code commit")
     a = ap.parse_args(argv)
     if a.stage == "dgl4":
