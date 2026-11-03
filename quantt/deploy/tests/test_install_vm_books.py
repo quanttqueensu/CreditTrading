@@ -363,3 +363,58 @@ def test_c4s_jobs_are_the_cores_with_book_c4():
     assert tuple(dict(iv.C4_VM.secret_map).values()) == env_names("c4")
     from quantt.collect import collect as co
     assert iv.EOD_FROM_ENV == co.EOD_FROM_ENV
+
+
+# ------------------------------------- release-check of 336df9d, ET1: a C4 install scans every book
+
+def _dormant(world, rel, body="[Service]\nEnvironment=DRY_RUN=0\n"):
+    f = world.tmp / rel
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(body)
+    return f
+
+
+@pytest.mark.parametrize("rel", [
+    "etc/systemd/system/quantt-cef-session.service.d/override.conf",      # on the core's armed unit
+    "run/systemd/system/quantt-cef-.service.d/50-x.conf",                 # the core's prefix
+    "etc/systemd/system.control/quantt-secret.service.d/50-x.conf",       # the core's key service
+    "run/systemd/transient/quantt-cef-session.timer",                     # a core unit outranking
+])
+def test_book_c4_refuses_a_dormant_override_on_the_cores_units(c4world, capsys, rel):
+    """C4's daemon-reload applies to every unit, so a C4 install refuses, at planning, an
+    override waiting on the CORE's units too, naming it. Fails on f27ef81 (C4 scanned only
+    its own seven)."""
+    assert c4world.run("--apply", capsys=capsys)[0] == 0           # the core, installed first
+    f = _dormant(c4world, rel)
+    before = c4world.unit_bytes(iv.ALL_UNIT_FILES)
+    rc, out = c4world.c4("--apply", capsys=capsys)
+    assert rc == 2 and str(f) in out and "REFUSED at step" not in out, out
+    assert not any((c4world.layout.units_dir / u).exists() for u in iv.C4_VM.unit_files)
+    assert c4world.unit_bytes(iv.ALL_UNIT_FILES) == before
+
+
+def test_book_c4_refuses_a_quantt_unit_no_book_installs(c4world, capsys):
+    """An unexpected `quantt-` unit file (here a stray C4-named service) would be loaded by
+    C4's reload too: the C4 install refuses, naming it. Fails on f27ef81."""
+    assert c4world.run("--apply", capsys=capsys)[0] == 0
+    f = _dormant(c4world, "etc/systemd/system/quantt-c4-extra.service",
+                 "[Service]\nExecStart=/bin/true\n")
+    rc, out = c4world.c4("--apply", capsys=capsys)
+    assert rc == 2 and str(f) in out and "no unit any book installs" in out, out
+
+
+def test_book_c4_installs_over_the_cores_own_units_and_its_lower_copies(c4world, capsys):
+    """Not over-strict: the core's installed units, and a lower-priority copy of one, are
+    known units, so a clean C4 install still goes through after the core's."""
+    assert c4world.run("--apply", capsys=capsys)[0] == 0
+    _dormant(c4world, "usr/lib/systemd/system/quantt-cef-session.service", "[Service]\n")
+    rc, out = c4world.c4("--apply", capsys=capsys)
+    assert rc == 0, out
+
+
+def test_the_cores_install_still_scans_only_its_own_units():
+    """The core's scan is what it was (its install is pinned to cee16ad's, byte for byte)."""
+    assert iv.scan_units(iv.CORE_VM) == (iv.CORE_VM.unit_files, ())
+    units, prefixes = iv.scan_units(iv.C4_VM)
+    assert set(units) == set(iv.CORE_VM.unit_files) | set(iv.C4_VM.unit_files)
+    assert prefixes == ("quantt-",)

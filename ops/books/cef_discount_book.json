@@ -1,6 +1,6 @@
 {
  "book_id": "cef_discount_paper",
- "description": "The credit CEF discount sleeve, deployed to its own Alpaca paper account (since 2026-09-28; IBKR retired). Capital and limits follow the frozen spec cef_discount.v8.20261101 (capital_usd 100000, risk.max_gross_exposure_usd 260000, sizing_multiplier 1.13 from CEF trial 53). The runner reads this file for the ticker list; figures about the book come from `python3 -m ops.orient`, never from here.",
+ "description": "The credit CEF discount sleeve, deployed to its own Alpaca paper account (since 2026-09-28; IBKR retired). Capital and limits follow the frozen spec cef_discount.v9.20261102 (capital_usd 100000, risk.max_gross_exposure_usd 260000, sizing_multiplier 1.3 from CEF trial 53 amendment 1; ops/tests/test_book_text.py fails if this sentence and the spec disagree). The runner reads this file for the ticker list; figures about the book come from `python3 -m ops.orient`, never from here.",
  "sleeves": [
   {
    "name": "cef_discount",
