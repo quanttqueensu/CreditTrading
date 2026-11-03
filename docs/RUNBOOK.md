@@ -890,6 +890,23 @@ tomorrow's send refused or scaled. The detail is in that day's `plan.json`
 (`preflight`) and the session log (`docs/RUNNER.md` "As built (2026-10-09)"). The collector's INCOMPLETE (exit
 5) also shows as failed, on purpose: one that never clears is worth seeing.
 
+**The evidence log, each evening** (after verify's 17:30 ET line; `results/report/README.md`).
+Every live day gets an entry in `results/report/EVIDENCE_LOG.md`, in the same commit as its data:
+
+```bash
+! sh vmpnl.sh        # the team lead's local, read-only wrapper; it copies the VM's P&L records to the scratchpad
+python3 -m scripts.report.snapshot_live --src "$(sed -n 's/^OUT="\(.*\)"$/\1/p' vmpnl.sh)" --book cef
+git add results/report/data results/report/EVIDENCE_LOG.md && git commit -m "Evidence pack: live day <date>"   # aggregates only; the cache is ignored
+python3 -m scripts.report.build_pack && git add results/report && git commit -m "Evidence pack: rebuild for <date>"
+```
+
+`snapshot_live` sanitises (it refuses, naming the field, anything it cannot drop) and is
+idempotent: a pull it has already ingested adds nothing. **Aggregates go to the repository,
+rows to the gitignored `results/report/_cache_live/`** (team lead, 2026-11-03: "Aggregates in
+repo, rows private"); it refuses to write a row file where git can see it. `vmpnl.sh` copies
+`eod_equity.csv` (since 2026-11-03), so the official EOD line is built from the pull. The
+cache's R2 backup is the team lead's step (`results/report/README.md`).
+
 **Halting**, the VM equivalents of section 4, fastest first. None of them
 cancels an order already at Alpaca.
 

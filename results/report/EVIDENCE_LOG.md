@@ -1,0 +1,3385 @@
+# Evidence log
+
+**The dated record a research report on this desk will be written from.** One entry per result,
+ruling, release, incident or live-P&L day, from the desk's first commits (tag `pre-clean-slate`)
+to today. What the pack is and the report skeleton the `supports:` field points at:
+`results/report/README.md`. The format is checked by `scripts/report/evidence_log.py`; the
+reproducer for the pack's figures is `python3 -m scripts.report.build_pack`.
+
+**How it is appended to.**
+- **Append-only.** A new entry goes at the end, in the same commit as the change it records
+  (`CLAUDE.md`, research rules; `.claude/rules/report.md`). Live days are appended by
+  `python3 -m scripts.report.snapshot_live` (ids `E-<date>-90` for the core, `-91` for C4).
+- **Corrections are dated, never silent edits.** An existing entry is never changed or deleted.
+  A correction is a new entry (`kind: correction`) giving the old and the new figure and what it
+  supersedes. `build_pack.py` and `snapshot_live.py` refuse a log whose existing entries changed.
+- **The backfill of 2026-11-03** (everything before the first live-day entry) was copied from
+  the named files by the pack's agents, file by file, and is in date order; later entries are in
+  the order they were appended.
+
+**Tags on every figure.**
+- `[S]` copied verbatim from the named committed file, not re-run by the pack (the default);
+- `[V]` the named file itself labels the figure verified or re-run, or `build_pack.py` re-derived it
+  from committed data;
+- `[U]` the source labels it uncertain, or two sources disagree. Then both figures are given, each
+  tagged `[U]`, and the entry says which is the record (`docs/SYSTEM.md` §0, order of authority).
+
+**Eras.** `HISTORY` is everything before the 2026-09-28 clean slate, read from tag
+`pre-clean-slate` (f6d155f) or `ibkr-final` (db795a9): **provenance, never evidence of what is
+true now** (`CLAUDE.md`). Where a later correction superseded a HISTORY figure, both are shown,
+dated. `ALPACA` is 2026-09-28 onward.
+
+**Sources.** `path @ commit` is the file the figures were copied from and its last commit on
+`main` (or the tag's commit). A branch file not yet on `main` says so. A live day cites the VM
+pull it came from (`pull:<sha12>`, recorded in `data/live/<book>/pulls.csv`), because the commit
+that adds it does not exist when it is written.
+
+## Entries
+
+### E-2026-07-28-01 · credit_rv, the first family: a real cross-sectional signal on credit ETFs that was far too small to pay for its own execution
+- kind: result
+- era: HISTORY
+- date: 2026-07-28
+- figures:
+  - signal information coefficient (h=1..20) −0.076 to −0.082, t = −12 to −13 [S]
+  - gross Sharpe, costs switched off +0.56 (CAGR +5.15% at 7.5% vol) [S]
+  - net Sharpe, realistic costs −0.62 (CAGR −3.49%) [S]
+  - net edge per trade at |s|≥2, ex-COVID +2.51bp, t = 3.71 [S]
+  - trials consumed 82 against a pre-registered budget of 60 [S]
+- source: `pre-clean-slate:results/credit_rv/FINDINGS.md` @ `f6d155f`
+- supports: §6
+- status: superseded by E-2026-07-30-01 (2026-07-30)
+
+### E-2026-07-30-01 · credit_rv was killed at its sealed holdout: the gross edge was negative before costs (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - gross edge NEGATIVE before costs (−0.19%/yr) [S]
+  - sealed holdout net SR −1.44, t −2.29 [S]
+  - holdout n_obs 644; spec_id credit_rv.v1.20260730 [S]
+  - credit_rv got 141 trials and a sealed holdout before being killed [S]
+- source: `pre-clean-slate:results/credit_rv/HOLDOUT_OPENED.json` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-30-02 · E1 (HYG vs JNK premium/discount reversion) died because the dislocation collapsed, not because the mechanism was wrong; its band form went to WATCH (D1 reclassified D5)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - relative-premium σ_eq IS 2007–2019 65.2bp → OOS 2020–2023 14.2bp [S]
+  - gross bp/turn IS 3.72 → OOS −0.15; net SR IS +0.64 → OOS −6.65 [S]
+  - headline net conservative Sharpe −0.17 in-sample, −3.97 out-of-sample [S]
+  - band form: Sharpe held 0.75→2.64→0.41→0.48 across eras while return fell 2.54%→0.05%/yr [S]
+- source: `pre-clean-slate:results/e1/E1_RESEARCH_NOTE.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-30-03 · Night one found that HYG's published NAV is smoothed and that the ETF "opportunity" shrank with the smoothing: the stale-price well is dry in ETFs
+- kind: result
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - today's published-value change predicts tomorrow's +0.388; price change −0.005 [S]
+  - published-value volatility 6.05% vs the fund's 9.51% [S]
+  - smoothing and apparent opportunity by era: 2007–10 +0.580 / 187.9bp; 2011–14 +0.427 / 14.0bp; 2015–18 +0.303 / 5.6bp; 2023–26 +0.148 / 3.8bp [S]
+- source: `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §3, §6
+- status: provenance only
+
+### E-2026-07-30-04 · S1-as-specified was killed: cross-issuer bond-price disagreement carries no information because every issuer buys from the same vendor (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - median disagreement 0.09bp, p99 1.03bp across 1,132 shared bonds [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-30-05 · S3 forced flow: index deletion of fallen angels causes real, temporary price pressure, but only as a rare crisis-regime sleeve (WATCH, D6)
+- kind: result
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - 16,388 bonds, 2003 to 2025 [S]
+  - −424bp trough, t −17.5, 82–85% reversal with dropouts carried flat [S]
+  - the first run showed a 414% recovery, caused by survivorship and broken event time [S]
+  - crisis regime (>400 migrations/mo) fired 4× in 273 months; 104 migrating bonds vs 350 holdings is 5× noise [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-30-06 · S3-wrapper was killed: the fallen-angel ETF expression was a credit-quality premium in costume, and the unconditional pair beat the signal (D4)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - alpha t 1.98 (need 3.0), HY beta −0.163, IG beta +0.123 (need ≤0.10) [S]
+  - unconditional pair (0.37) BEATS signal-conditioned (0.03–0.24) [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-30-07 · raw-flow-z was killed: an ETF creation/redemption z-score is a precise zero, and the Treasury control is equally flat (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - 28,025 obs, all |t|<0.8 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-30-08 · Benchmarks and a random null trader were run through one accounting path; the null trader lost exactly its costs, so the accounting does not invent profit
+- kind: method
+- era: HISTORY
+- date: 2026-07-30
+- figures:
+  - null trader lost 20.68% a year against a modelled cost of 21.2% a year [S]
+  - before-cost Sharpe of the null trader −0.77 before the financing fix, −0.39 after [S]
+- source: `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §2
+- status: provenance only
+
+### E-2026-07-31-01 · The 21.2%/yr cost headline was a full-sample artefact of 2007–14 ETF illiquidity; current-era cost is 1.73bp per trade, and fixing it rescued no dead signal
+- kind: correction
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - 2007–10 13.91bp/trade, 42.5%/yr; 2023–26 1.73bp/trade, 5.9%/yr [S]
+  - current-era cost 1.73bp/trade, 3.7× cheaper than the full-sample 6.36bp [S]
+  - ANGL modelled 4.334bp vs measured 1.735bp, over-charged by exactly 2.5× [S]
+  - half-spread modelled/measured 1.00–1.02 on 7 of 8 names [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §2, §6
+- status: provenance only
+
+### E-2026-07-31-02 · single-fund-PD was killed: wide ETF premium/discount dispersion is NAV staleness, and trading it fades price discovery (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - dispersion EMB 28.6bp, ANGL 23.3bp, viability 6-19x cost [S]
+  - PD predicts the NAV revision at t=15-24; where it predicts price the sign is positive (EMB +15.3, LQD +11.7, HYG +10.0) [S]
+  - Treasury controls mid->mid t=-15..-18 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-03 · leadlag was killed: thin-wrapper lag was non-synchronous trading measured on a price that cannot be traded (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - raw mean t by group IG_long 17.7, HY 12.4, MBS 11.7, EM 11.0, PREF 9.5 on (H+L)/2 [S]
+  - executable close-to-close overall mean t 5.20 -> −0.50 [S]
+  - Treasury CONTROL +3.48, higher than every credit group but one [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-04 · nport-trace-nav was infeasible: the bonds that print on TRACE each day cover too little of a fund and are selected for news (D7)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - daily TRACE coverage of HYG's N-PORT weight 17-30% and declining (26.5% in 2020 -> 17.4% in 2022) [S]
+  - N-PORT 136,268 rows, 95.3% CUSIP overlap vs the live iShares file [S]
+  - fair_val_level degenerate: 135,850/135,870 corporate bonds are Level 2 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-05 · dealer-constraint was killed: no credit name responds to primary-dealer inventory, and the Treasury control shows the same magnitude (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - ZERO credit names significant at any horizon 5-63d (best t=1.59, ANGL 42d) [S]
+  - UST control mean t 0.95-1.50 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-06 · short-pressure was killed: crowded credit hedges do not reverse, and the rates comparison group scores higher (D1)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - credit mean t 0.28/0.03/-0.20/-0.42 at h=1/3/5/10d; 2/10 names significant at the best horizon [S]
+  - RATES comparison group 1.01/0.92/1.05/0.45 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-07 · pair-reversion was killed on arithmetic: the 22 pairs diversified, but costs do not, and the book could not reach the mandate's vol (D2 + capacity)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - mean pairwise correlation +0.027, combined GROSS Sharpe +1.03, net -0.16 [S]
+  - combined vol 0.37%; the 12% mandate needs 32.8x leverage against a ~2x Reg T ceiling [S]
+  - capacity chain: all 22 pairs achievable vol 0.65%; best subset (both legs >$100M ADV) net SR +0.03 at 4.85% vol, ~0.15%/yr [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §5, §6
+- status: provenance only
+
+### E-2026-07-31-08 · The trial counters as they stood when the ETF search was stopped: LEGACY carried the ETF work, and each new data source got its own counter
+- kind: counter
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - LEGACY 162 (counter table, the file's canonical record) [`pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md`]; the record, because the file states the counter table is canonical and its prose is not [U]
+  - "Global trial count: 156" and "the legacy counter (156)" (same file's header and prose); `results/credit_rv/trial_log.csv` "holds 156 numbered trials" [`pre-clean-slate:_archive/docs/SUMMER_2026_SUMMARY.md`]; not the record [U]
+  - NPORT 1, BREADTH 4, DISP 3, DEALER 1, MBS 0, CEF 18, POSITIONING 1 [S]
+  - "Thirteen mechanisms tested. Twelve dead."; the luck threshold had risen to about 3.2; our best real result was 0.37 [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SUMMER_2026_SUMMARY.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §5, §6
+- status: provenance only
+
+### E-2026-07-31-09 · The pivot: "credit" had silently meant "credit ETFs"; the instruction "it has to be credit" opened closed-end funds
+- kind: ruling
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - none (a ruling)
+- source: `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §3, §6
+- status: provenance only
+
+### E-2026-07-31-10 · The CEF premise was checked first: credit CEF discounts are about 150× the ETF gap, and the ETF decomposition reverses — the discount predicts price, not NAV
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - credit CEF discounts average −3.16% with sd 5.95%, p5 −11.88%, p95 +7.11%, roughly 150x the ETF gap [S]
+  - discount → NAV revision: ETF t = +15 to +24 (artifact); CEF t = +1.72 (weak) [S]
+  - discount → PRICE: ETF ~0; CEF t = −1.75 mean, 6/18 at t<−2 [S]
+  - joint regression against trailing 21d price return: 11/18 funds keep a significant discount effect (mean joint t = −3.16) [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §2, §3, §6
+- status: provenance only
+
+### E-2026-07-31-11 · The first CEF sleeve was the first candidate to pass Test 7 (not a market exposure); its modern-era alpha t missed the 3.0 gate, and the gate was lowered to 2.0 on instruction
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - long 4 cheapest / short 4 richest, 5d hold: gross SR 1.06, net SR 0.76, CAGR 2.69%, vol 3.57%, maxDD −7.3% [S]
+  - Test 7 full 2005–26: R² 0.005, alpha +2.68%/yr, t +3.11, 5/5 factor betas pass [S]
+  - modern 2019–26: alpha +5.10%/yr, t +2.58, FAIL against a 3.0 gate [S]
+  - era net SR 1.17 (2010–14), 0.62 (2015–19), 1.87 (2020–22), 0.13–0.32 (2023–26) [S]
+  - opportunity narrowed: discount sd 15.22% → 9.52%, top-bottom spread 27.48% → 22.47% [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §3, §6
+- status: provenance only
+
+### E-2026-07-31-12 · Sizing up into dislocation was backwards: the strategy is best in calm markets, so vol targeting replaced dispersion sizing
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - net Sharpe by quintile of discount dispersion, calm → dislocated: 1.24 / 0.59 / 0.80 / -0.23 / 0.68 [S]
+  - sizing up into dislocation produced 2008: -12.9% return at 35.8% vol with a -31.5% drawdown [S]
+  - universe-wide flat gross 0.97 / net 0.73 → vol-target 6% gross 1.09 / net 0.72; turnover 24 -> 29/yr [S]
+  - maxDD -27.1% → -15.4% (spec table) [`pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md`]; the record, because it is the measured row for the vol-targeted spec [U]
+  - "Vol targeting cut full-sample drawdown −27% → −12%" [`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md`; also HOW_WE_GOT_HERE §4.6]; not the record [U]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`
+- supports: §3, §5, §6
+- status: provenance only
+
+### E-2026-07-31-13 · Hard group (muni) neutrality was measured and rejected: within-group demeaning throws away most of a thin cross-section
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - group-neutral, flat: gross 0.97 → 0.82, net 0.73 → 0.57 [S]
+  - with only 18 funds across 5 groups, several groups hold 2-3 members [S]
+  - later nextgen reading (GN-N1): traded turnover 1.5002× the reference, stress cap breached on 83.3% of last-12m days [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/cef/PREREG_GROUP_CAP_2026-09-16.md` @ `6217c96`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-14 · Sizing up on |z| was rejected: every threshold above zero lowers the Sharpe, so the edge is spread across the cross-section
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - every |z| threshold above zero lowers the Sharpe (0.81 → 0.40 → 0.29 → 0.27) [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-15 · How the names were chosen: a credit-only CEF list, a first cut on today's ADV that was then rebuilt point-in-time, and 17 names frozen at a $3m ADV screen
+- kind: method
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - staging universe is credit ONLY: municipal, high yield, bank loan, EM debt, and multi-sector credit; no equity or covered-call funds [S]
+  - closed-end funds: 44 funds, 265,615 price rows, 232,799 value rows, back to 1986 [S]
+  - the first version picked 18 funds using today's trading volumes; point-in-time rebuild improved net Sharpe 0.72 → 0.82 (median 8 eligible, up to 25) [S]
+  - specification under test: 17 credit CEFs, PIT-eligible, ADV >= $3m evaluated per date [S]
+- source: `pre-clean-slate:scripts/cef/stage_cef.py` @ `f6d155f`; `pre-clean-slate:_archive/docs/HOW_WE_GOT_HERE.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_AND_METHODOLOGY.md` @ `f6d155f`; `pre-clean-slate:results/cef/HOLDOUT_PREREG.md` @ `f6d155f`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-07-31-16 · The CEF search was stopped at ten specifications, with a deflated Sharpe that passed only because the trial count was recorded as ten
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - SEARCH STOPPED at 10 specifications; DSR haircut at N=10 is sqrt(2*ln 10) = 2.15 [S]
+  - deflated Sharpe 0.956, roughly a 95.6% probability the edge is real [S]
+  - 0.956 was computed at N=10 by a validate.py that hard-coded N_SPECS_TRIED = 10 [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_AND_METHODOLOGY.md` @ `f6d155f`; `pre-clean-slate:ops/specs/cef_discount.frozen.json` @ `f6d155f`
+- supports: §6
+- status: superseded by E-2026-09-09-01 and E-2026-09-10-01 (2026-09-10)
+
+### E-2026-07-31-17 · The CEF book was deployed to IBKR paper at $500k on a validation battery that later failed to reproduce
+- kind: release
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - evidence block: gross_sharpe 1.26, net_sharpe 0.82, vol_pct 6.0, cagr_pct 4.85, max_dd_pct -12.0 [S]
+  - purged_walkforward "9/9 blocks positive, median 1.12, worst 0.01"; block_bootstrap_p_sr_le_0 0.0; deflated_sharpe 0.956; test7_alpha_t 3.11 [S]
+  - known weaknesses: kurtosis 41.2; most recent walk-forward block 0.05; 2023-26 era net Sharpe 0.30 [S]
+  - deployed at $751,463 gross, long $375,678 / short $375,784, net -$106 [S]
+- source: `pre-clean-slate:_archive/ops/_archive/cef_discount.v5.20260731.frozen.json` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §2, §4, §5
+- status: superseded by E-2026-09-10-01 (2026-09-10)
+
+### E-2026-07-31-18 · Day one: plain market orders rested overnight and filled pre-market, costing far more than the modelled spread; the order type was changed to MOC
+- kind: incident
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - traded $682,351, slippage $6,405, realised 0.94% vs modelled ~0.10%, ratio 9.4x [`pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md`]; $6,405 / $682,351, not the record [U]
+  - 2026-07-31 overnight market orders realised 100.5bp against a 32.6bp breakeven [`pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md`]; the record, the figure CLAUDE.md rule 3 cites; it is the share-weighted mean of the 16 rows [U]
+  - 16 fills, 120.6bp realised vs 15.5 modelled [`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md`]; the simple mean of the 16 rows, not the record [U]
+  - priced at decision prices +$50 (+0.01%); at fills −$7,350; difference $7,399 [S]
+  - fills at 07:27 ET; worst names BIT 2.87%, DSL 2.62%, PFN 2.27% [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §4, §5
+- status: provenance only
+
+### E-2026-07-31-19 · Standing instruction: the paper book runs observe-only; the pre-committed kill rule became a human checklist and automatic drawdown suspends were raised to 99%
+- kind: ruling
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - original rule: KILL if, after 60 live sessions, (a) live net Sharpe < 0.0; (b) realised slippage exceeds modelled by more than 2x for 5 consecutive sessions; (c) top-bottom discount spread below 12% (half its current 22.5%) [S]
+  - every book-level drawdown suspend is raised to 99% [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §5
+- status: provenance only
+
+### E-2026-07-31-20 · The 2026-07-31 audit tried twice to kill the alpha as a muni-vs-taxable bet and failed; the signal is a breadth machine, not a timing machine
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - live book 66% net short municipal CEFs and 57% net long multi-sector taxable; full-sample mean net muni −5.1% of gross [S]
+  - Test 7 set alpha +8.21%/yr, t +5.67; + MUB, HYD, duration spread +8.83, t +5.67 [S]
+  - all five CEF group factors: alpha +7.63%/yr, t +5.90, R² 0.0057; every group beta ≤ 0.025 [S]
+  - IC 0.040 at 1d rising to 0.103 at 42d; IC/√h half-life 31.1 trading days; n = 41,000–42,000 fund-days per horizon [S]
+- source: `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`
+- supports: §3, §6
+- status: provenance only
+
+### E-2026-07-31-21 · The audit diagnosed that the headline backtest entered at a price that did not exist (shift(1)), predicted its cost, and left it unfixed
+- kind: correction
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - gross SR shift(1) 1.26 → shift(2) 0.95 (−25%) [S]
+  - net SR at hold=5 0.82 → 0.51 (−38%) [S]
+  - the honest expected net Sharpe of the running configuration is 0.51 [S]
+- source: `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`
+- supports: §2, §6
+- status: superseded by E-2026-09-10-01 (2026-09-10)
+
+### E-2026-07-31-22 · Specification, code and optimum disagreed on the holding period: the spec said 5 days, the sleeve traded every session, and the measured optimum was 2
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - net SR at shift(2), what MOC gets: hold 1 0.62, hold 2 0.73, hold 3 0.70, hold 5 0.51 [S]
+  - turn/yr: hold 1 52.8, hold 2 36.8, hold 5 24.2 [S]
+- source: `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`
+- supports: §2, §5
+- status: superseded by E-2026-09-06-04 (2026-09-06)
+
+### E-2026-07-31-23 · Order stacking during the fix: repeated armed runs queued orders unseen from fresh client ids, which established that the trade phase is not idempotent
+- kind: incident
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - reqAllOpenOrders() finally showed 79 PreSubmitted MOC orders [S]
+  - end state: one clean set of 16 MOC orders, $27,790 notional [S]
+- source: `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`
+- supports: §5
+- status: provenance only
+
+### E-2026-07-31-24 · The graveyard's two patterns: most deaths were stale-price artefacts, the next most common a control group scoring as well as the treatment
+- kind: method
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - six were stale-price artifacts: credit_rv (bid-ask bounce), S1 (one vendor prices every issuer), single-fund-PD (NAV staleness, sign positive), leadlag (non-synchronous trading), E1, nport-trace-nav [S]
+  - three lost to their own control group: dealer-constraint, short-pressure, S3-wrapper [S]
+  - two died on arithmetic: pair-reversion needed 32.8× leverage [S]
+  - the well is dry in ETFs because APs arbitraged it (188bp → 3.8bp); CEF discount works because no AP mechanism exists there [S]
+- source: `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`; `.claude/skills/graveyard/SKILL.md` @ `20e9755`; `docs/HISTORY.md` @ `bdbe563`
+- supports: §3, §6
+- status: provenance only
+
+### E-2026-07-31-25 · A distribution-cut filter was rejected: cuts do re-rate the discount, but the damage arrives at 63 days and excluding cut funds costs more breadth than it saves
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - 11,988 distributions across 44 funds, 1987–2026, of which 1,145 cuts [S]
+  - cuts widen the discount −0.580pp at t+60; raises tighten +0.557 [S]
+  - cut-minus-no-cut excess return at 63d −0.486%, t −2.91; at 5–21d |t| < 0.8 [S]
+  - only one of eight variants beats baseline (+0.83 → +0.88 shift2), chosen after looking at eight [S]
+  - CEF counter +9 [S]
+- source: `pre-clean-slate:results/cef/DIST_CUT_NOTE.md` @ `f6d155f`
+- supports: §6
+- status: provenance only
+
+### E-2026-07-31-26 · A Kalman state-space estimator was built and lost to a shorter rolling window; z_window 252 → 63 was recommended, at a cost of 29 trials
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - phi = 0.9722 measured, a 24.6-day dislocation half-life [S]
+  - rolling z net SR: 21d 0.37, 63d 0.84, 126d 0.65, 252d (live) 0.69; turn/yr 63d 45.3, 252d 26.3 [S]
+  - Kalman lam=30 gross 1.60, net 0.81 [S]
+  - distribution cuts inside the Kalman: cuts-on 1.28 vs cuts-off 1.60 [S]
+  - CEF source counter +29: 9 (distribution-cut study) + 16 (Kalman sweeps) + 4 (window control) [S]
+- source: `pre-clean-slate:results/cef/ESTIMATOR_NOTE.md` @ `f6d155f`
+- supports: §2, §6
+- status: superseded by E-2026-07-31-28 (2026-07-31)
+
+### E-2026-07-31-27 · Spec v3 (z_window 63, rebalance 2) was frozen and the 2024+ holdout pre-registered with a decision rule written before it was run
+- kind: ruling
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - spec_id cef_discount.v3.20260731: z_window 63, rebalance_days 2, execution shift 2 [S]
+  - holdout window 2024-01-01 → 2026-07-30; rule ≥ +0.40 PASS, 0.00 to +0.40 WEAK, < 0.00 FAIL [S]
+  - 0.40 is roughly half the pre-holdout net of 0.84; haircut at N=29 is sqrt(2*ln 29) = 2.60 [S]
+- source: `pre-clean-slate:results/cef/HOLDOUT_PREREG.md` @ `f6d155f`
+- supports: §5, §6
+- status: provenance only
+
+### E-2026-07-31-28 · The holdout was opened once and the z_window 63 change failed on net: the signal generalised but its turnover did not (the argmax lesson)
+- kind: kill
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - v3 (63/2), 646 days: gross_sharpe 1.75, net_sharpe -0.298, net_t_stat -0.48, cagr_pct -2.05 [S]
+  - turnover_per_yr 102.6 (vs 45.3×/yr in-sample); cost_pct_of_gross 117.2 [S]
+  - by year 2024 0.02, 2025 -1.12, 2026 0.61; verdict FAIL [S]
+  - reference as deployed (252/5): gross 0.962, net 0.352, net t 0.56, turnover 32.0, cost_pct_of_gross 63.8 [S]
+  - opened_utc 2026-07-31T21:47:15 [S]
+- source: `pre-clean-slate:results/cef/HOLDOUT_OPENED.json` @ `f6d155f`; `pre-clean-slate:results/cef/ESTIMATOR_NOTE.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §5, §6
+- status: provenance only
+
+### E-2026-07-31-29 · Spec v4 reverted to z_window 252 and a 5-day rebalance after the holdout failure; the 16 queued MOC orders for the failed configuration were cancelled
+- kind: release
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - reverted to z_window=252, rebalance_days=5 (cef_discount.v4.20260731) [S]
+  - the 16 MOC orders queued for Monday's close were cancelled [S]
+- source: `pre-clean-slate:results/cef/ESTIMATOR_NOTE.md` @ `f6d155f`
+- supports: §2, §5
+- status: superseded by E-2026-07-31-30 (2026-07-31)
+
+### E-2026-07-31-30 · Spec v5 set the calendar to 2 days with a cadence gate and fixed the order type at MOC; it was the live spec until the band
+- kind: release
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - rebalance_days changed 5 -> 2 on 2026-07-31 with user sign-off; the sleeve gained the cadence gate [S]
+  - measured net Sharpe at shift(2): hold=1 0.62, hold=2 0.73, hold=3 0.70, hold=5 0.51, hold=10 0.30, hold=21 0.20 (36.8 vs 24.2 turns/yr) [S]
+  - order_type MOC; on 2026-07-31 market orders filled at 07:27 ET at up to 2.9% from the decision price against a ~0.1% modelled cost [S]
+  - capital_usd 500000.0; kill_drawdown 0.18, halve_drawdown 0.12, max_gross_exposure_usd 1300000.0 [S]
+  - in force from 2026-07-31 to 2026-09-06 [S]
+- source: `pre-clean-slate:_archive/ops/_archive/cef_discount.v5.20260731.frozen.json` @ `f6d155f`; `pre-clean-slate:_archive/ops/_archive/README.md` @ `f6d155f`
+- supports: §2, §5
+- status: superseded by E-2026-09-06-04 (2026-09-06)
+
+### E-2026-07-31-31 · The first execution study rejected a no-trade band on the 5-day calendar and found that holding longer destroys the edge; price-weighting was recommended but never entered a frozen spec
+- kind: result
+- era: HISTORY
+- date: 2026-07-31
+- figures:
+  - baseline hold 5d net 0.82; no-trade band 0.01 net 0.83; band 0.05 net 0.74 (rejected) [S]
+  - hold 10d net 0.47, hold 21d 0.27 [S]
+  - price-weighted, hold 5d: gross 1.37, net 0.98, modelled cost 265 → 215bp [S]
+  - January CEF basis: +11.71bp/day, t 3.99, 20/23 Januaries positive, correlation with the deployed strategy -0.001 [S]
+- source: `pre-clean-slate:results/cef/research/NICHE_EDGE_RESEARCH.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §2, §6
+- status: superseded by E-2026-09-06-02 (2026-09-06)
+
+### E-2026-09-01-01 · A 21-session silent outage ended: the book had refused to arm on a broker-port misconfiguration while every surface read "ok"
+- kind: incident
+- era: HISTORY
+- date: 2026-09-01
+- figures:
+  - 21 consecutive silent dry-runs, 08-03 → 08-28, all ok_not_armed, reason "nothing listening on 127.0.0.1:4002" [V]
+  - config/.env had IBKR_PORT=7497 (TWS paper) while the gateway serves 4002; corrected by ops/switch_broker.py at 2026-09-01 16:58 [S]
+- source: `pre-clean-slate:_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`; `docs/HISTORY.md` @ `bdbe563`
+- supports: §4, §5
+- status: provenance only
+
+### E-2026-09-01-02 · The units trap: a drawdown limit meant to be off at 99% was live at 0.99% because the code divides percent keys by 100
+- kind: incident
+- era: HISTORY
+- date: 2026-09-01
+- figures:
+  - book_drawdown_suspend_pct read 0.99; cap = -abs(pct)/100 made it live at 0.99%, breached 2026-08-31 at -1.84%; now 99.0 [S]
+  - kill_drawdown (0.18) and halve_drawdown (0.12) read by no code path [S]
+  - pointing risk.py at kill_drawdown (0.18, a fraction) would arm a KILL at -0.18% [S]
+- source: `pre-clean-slate:_archive/ops/books/phase0_book.json` @ `f6d155f`; `pre-clean-slate:.claude/skills/spec-change/SKILL.md` @ `f6d155f`; `pre-clean-slate:results/ops/hardening_2026-09-21/FINDINGS.json` @ `f6d155f`
+- supports: §5
+- status: provenance only
+
+### E-2026-09-01-03 · The first MOC session realised a few basis points, but it was one session, and its own documents disagree on the cost, the dispersion and the fill count
+- kind: live-pnl
+- era: HISTORY
+- date: 2026-09-01
+- figures:
+  - 15 fills, realised 2.8bp vs 12.1 modelled; n=1, dispersion ±93.8bp [`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md`]; taken as the record because it is the per-session row with its modelled comparator that later documents cite, though broker_fills.csv is the authority and was not re-read [U]
+  - one MOC session (2026-09-01, 15 fills), 3.4bp, dispersion ±25bp per fill [`pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md`]; not the record [U]
+  - 2026-09-01: 19 broker-confirmed executions [`pre-clean-slate:_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md`]; broker_fills.csv is the fact under SYSTEM.md §0's order of authority, so 19 executions is the record for the count [U]
+- source: `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`; `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` @ `f6d155f`; `pre-clean-slate:_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` @ `f6d155f`
+- supports: §4, §5
+- status: provenance only
+
+### E-2026-09-05-01 · An independent alpha audit confirmed the discount IC at a tradable lag, distinct from reversal, not credit beta, not one name, and present in every era
+- kind: result
+- era: HISTORY
+- date: 2026-09-05
+- figures:
+  - 17 frozen names, 6,989 days, 1998-11-18 to 2026-09-02 [S]
+  - IC 1d / 2d / 5d / 21d traded at close t+1: −0.053 (t −12.1) / −0.074 (t −11.6) / −0.096 (t −9.4) / −0.131 (t −6.1) [`pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md`]; the record, because the archived SYSTEM.md names this note as what settles the claim [U]
+  - IC 0.040 at 1d and 0.097 at 21d, n = 41,000–42,000 fund-days per horizon [`pre-clean-slate:results/AUDIT_2026-07-31.md`]; a different construction, not the record [U]
+  - operative cell −0.074, t −11.6, 57.9% of periods correctly signed; lagging a day costs ~31% of the 1d IC and ~10% of the 21d IC [S]
+  - price-reversal control IC −0.046 (t −6.7); the two IC series correlate 0.575 [S]
+  - beta on the equal-weighted universe +0.013, R² 0.0008 [S]
+  - leave-one-out gross Sharpe 2.23 (without PFN) to 2.93 (without PHK) against 2.49 [S]
+  - mean IC by period 1998-2004 −0.094, 2005-2010 −0.086, 2011-2015 −0.091, 2016-2020 −0.047, 2021-2026 −0.064 [S]
+  - the deployed 13-name, ADV-filtered IC is about half the 17-name figure the docs quote (W4, 2026-10-11) [S]
+- source: `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` @ `f6d155f`; `pre-clean-slate:results/AUDIT_2026-07-31.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SYSTEM_2026-09-28.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2, §3, §6
+- status: provenance only
+
+### E-2026-09-05-02 · The audit fixed the strategy's cost threshold: breakeven is 32.6bp per unit turnover, so whether the edge is harvestable is a question of execution
+- kind: result
+- era: HISTORY
+- date: 2026-09-05
+- figures:
+  - 2-day rebalance, 6% vol target, T+1: gross 17.68%, Sharpe 2.90; net @ 15bp 1.57; net @ 30bp 0.23; net @ 50bp −1.46 [S]
+  - turnover 21.5% of gross per day, 54x annualised [S]
+  - breakeven 32.6bp full sample, 28.9bp for 2021-2026 [S]
+  - survivorship: the panel contains only funds alive today; PDO 1,402 days of history, MHD 6,989 [S]
+- source: `pre-clean-slate:results/cef/ALPHA_AUDIT_2026-09-05.md` @ `f6d155f`
+- supports: §3, §5
+- status: provenance only
+
+### E-2026-09-06-01 · The short leg was charged for the first time: borrow cost about a quarter of a Sharpe on one day's fees, and availability bound on two Nuveen munis
+- kind: result
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - borrow 1.22%/yr on held short market value, 0.23 of Sharpe [S]
+  - net after spread and borrow: calendar 2d 0.10; band 4.8% 0.43; band 6.4% 0.48 [S]
+  - fees median 0.83%, mean 2.29%, max 10.56%; HYT 10.56, NAD 9.98, NVG 4.23 [S]
+  - PHK 1.06%, PTY 1.09%, PCN 0.63%: premium does not predict borrow cost [S]
+  - NAD binds at $44,978; 11.4% of the desired short book unfillable at $500k; capacity roughly $5m [S]
+- source: `pre-clean-slate:results/cef/BORROW_NOTE_2026-09-06.md` @ `f6d155f`
+- supports: §3, §5
+- status: superseded by E-2026-09-10-05 and E-2026-09-10-06 (2026-09-10)
+
+### E-2026-09-06-02 · On the 2-day calendar, a no-trade band dominated the calendar at matched turnover and stayed positive at 30bp where every calendar went negative
+- kind: result
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - 5,452 trading days, identical signal and T+1 MOC execution [S]
+  - calendar 2d: gross 1.20, 31.1 turn/yr, net@15bp 0.33, net@30bp −0.55 [S]
+  - band 4.8%: gross 1.16, 17.6 turn/yr, hold 12.6d, net@15bp 0.66, net@30bp 0.17 [S]
+  - band 6.4%, which topped the swept column: gross 1.11, 14.2 turn/yr, net@15bp 0.71 [S]
+  - turnover sd/mean 2015+: calendar 2d 12.2%, band 6.4% 20.9% (the band's turnover is less stable) [S]
+  - capture after measured borrow: calendar 1.20 gross → 0.10 net, kept 8% [S]
+- source: `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`
+- supports: §2, §3
+- status: provenance only
+
+### E-2026-09-06-03 · The band width was derived from the cube-root law on measured target-weight dynamics, not swept; the sweep-topping 6.4% was deliberately not chosen
+- kind: method
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - σ_w = 0.04083/day, φ_w = 0.95280, κ_w = 0.04835, half-life 14.3d [S]
+  - h* = 4.26% at 15bp, 4.85% at 22bp [S]
+  - h(30)/h(15) = 1.260 against 2^(1/3) = 1.2599 [S]
+  - 4.8% is the lower edge of the measured plateau (4.8–9.6%) [S]
+- source: `results/cef/PREREG_BAND_2026-09-06.md` @ `9636502`
+- supports: §2
+- status: provenance only
+
+### E-2026-09-06-04 · Spec v6 replaced the 2-day calendar with the 4.8% band (CEF trial 48), proved a byte-identical no-op with the key absent
+- kind: release
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - spec cef_discount.v5.20260731 → cef_discount.v6.20260906; band_width = 0.048; rebalance_days retained and inert [S]
+  - Trial 48 of the CEF counter [S]
+  - committed readout: turnover ~17.6×/yr against 31.1, average hold ~6 to ~12 business days, within 20 armed sessions [S]
+  - the book had armed on 3 of 26 sessions when this was written [S]
+- source: `results/cef/PREREG_BAND_2026-09-06.md` @ `9636502`; `pre-clean-slate:ops/specs/cef_discount.frozen.json` @ `f6d155f`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-06-05 · Per-name OU reversion speed in the score was withdrawn: the z-score already carries κ^(1/2), so the extra term double-counts
+- kind: kill
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - band 6.4% net@15bp: A live z 0.70; C OU shrunk per-name κ 0.49; E raw κ 0.35 [S]
+  - score = x·κ^p/σ^d, band net@15bp: p −0.50 0.70, 0 (live) 0.71, +0.50 0.65, +1.00 0.57 [S]
+  - slope of log σ^d on log κ across 17 names −0.463 against OU's predicted −0.500 [S]
+  - Trials: 0 — withdrawn [S]
+- source: `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`
+- supports: §2, §6
+- status: provenance only
+
+### E-2026-09-06-06 · Σ⁻¹α construction confirmed the concentration diagnosis and raised gross Sharpe, but bought breadth with turnover; it wins only if execution is cheap
+- kind: result
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - w ∝ Σ⁻¹(σz) (LW): gross 1.54, 44.4 turn/yr, net@15bp 0.28, BR_eff 3.95 vs live 1.20 / 31.1 / 0.33 / 2.24 [S]
+  - turnover-matched: Σ⁻¹ band 6.4% net@5bp 1.11 vs live 0.97; net@30bp −0.03 vs 0.31 [S]
+- source: `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`
+- supports: §2, §6
+- status: provenance only
+
+### E-2026-09-06-07 · Sequential Σ⁻¹α plus a scalar band was rejected: the band gives back what Σ⁻¹ buys
+- kind: kill
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - at matched turnover gross 1.07, below plain α's 1.10 [S]
+  - Σ⁻¹α + band 12.1% (sequential), 14.2 turn/yr: net@15bp 0.62 [S]
+- source: `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: provenance only
+
+### E-2026-09-06-08 · A joint cost-aware optimiser beat the band at matched turnover but was not deployed, on turnover stability and an ADV modelling fork
+- kind: result
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - turnover-matched at 14.2 turns/yr: joint net@15bp 0.90 vs band 6.4% 0.70; c_model 25.2bp [S]
+  - turnover stability era sd/mean 36.9% vs 11.9%; 2013–16 loses (0.92 vs 1.43) [S]
+  - leaving ineligible names as decision variables puts 28% of gross in untradeable names and loses (0.54) [S]
+- source: `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`
+- supports: §2, §6
+- status: superseded by E-2026-09-10-04 (2026-09-10)
+
+### E-2026-09-06-09 · Effective breadth was 2.24, not 17: two-thirds of book variance was one unmanaged muni-versus-taxable factor
+- kind: result
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - PC1 3.6%, PC2 65.7% (muni vs taxable), PC3 9.6%, PC4–17 21.1% [S]
+  - BR_eff = 2.24 of 17 names; IR computed on 17 names overstates by 2.75× [S]
+  - effective breadth 1.17 on the live weights and 2.24 historically, as of 2026-09-07 [S]
+- source: `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`; `docs/BRIEF.md` @ `df87c59`
+- supports: §3, §5
+- status: provenance only
+
+### E-2026-09-06-10 · Combining the discount with a price-reversal signal was rejected: the price signal is almost entirely subsumed
+- kind: kill
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - optimal combined |IC| 0.0748 vs 0.0747 for discount alone = +0.1% [S]
+  - price signal 95% subsumed (weights −0.95/−0.05) [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §6
+- status: provenance only
+
+### E-2026-09-06-11 · Cointegration pairs were listed among the rejected CEF construction variants, on the same figures as the ETF pair-reversion kill
+- kind: kill
+- era: HISTORY
+- date: 2026-09-06
+- figures:
+  - gross 1.03 → net −0.16; needed 32.8× leverage against a 2× ceiling [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §6
+- status: provenance only
+
+### E-2026-09-08-01 · Team lead: keep the 17 as the liquid set, treat the other 27 CEFs as the illiquid tail and a sealed holdout, and add a 2023 time holdout to every fit
+- kind: ruling
+- era: HISTORY
+- date: 2026-09-08
+- figures:
+  - Keep the 17. They already are the liquid set (median $5.6m ADV). The 27 are the illiquid tail [S]
+  - Holdout: keep the 27 and add a 2023–2026 time holdout to every fit [S]
+  - later correction: for the core book the 2023+ has been seen; 2024–26 was opened on 2026-07-31 [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-08-02 · Team lead's standing decisions of 2026-09-08: two trial counters (CEF and GAMMA), HALVE/KILL to be armed on broker NAV, paper indefinitely, retire the null trader
+- kind: ruling
+- era: HISTORY
+- date: 2026-09-08
+- figures:
+  - Trial counters: two, CEF and GAMMA, each its own bar; GAMMA opened at 0 [S]
+  - Judged on absolute return; derive the vol target, cap 20% [S]
+  - Risk controls: arm HALVE/KILL on broker-confirmed NAV once W6 §A lands [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §5
+- status: provenance only
+
+### E-2026-09-08-03 · Dust orders: band HOLDs were leaking out as small live orders through a price mismatch; HOLDs were expressed in shares and a derived $517 minimum trade added
+- kind: correction
+- era: HISTORY
+- date: 2026-09-08
+- figures:
+  - 12 orders/session of share-rounding drift, $3,019 gross, ~$14.91/session = 0.75%/yr of the book [S]
+  - 1.52x/yr of phantom turnover against the band's pre-registered 17.6x readout [S]
+  - min_trade_usd N = 1e4/(30 − 10.67) = $517.33, floored to $517 [S]
+  - not a trial; the CEF counter stays at 48 [S]
+- source: `pre-clean-slate:results/cef/DUST_ORDERS_2026-09.md` @ `f6d155f`; `pre-clean-slate:ops/specs/cef_discount.frozen.json` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-09-01 · The CEF trial counter was corrected from 18 to 48: it had missed the 29 trials of the estimator session and the band trial
+- kind: counter
+- era: HISTORY
+- date: 2026-09-09
+- figures:
+  - the CEF row read 18 until today; 48 is correct [S]
+  - it missed the +29 (9 distribution-cut + 16 Kalman sweeps + 4 window control) and the band trial [S]
+  - GAMMA opened by the 2026-09-08 standing decisions at 0 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §5, §6
+- status: supersedes the CEF 18 of E-2026-07-31-08
+
+### E-2026-09-09-02 · The harness books raw-price returns, so longs were never credited distributions; the bias nets out on average but swings by era
+- kind: correction
+- era: HISTORY
+- date: 2026-09-09
+- figures:
+  - band holdings path, 3,962 ex-dates, 2005–2026: −0.01%/yr full sample [S]
+  - −0.77%/yr in 2010–14, +0.25 to +0.36 since 2015; standard deviation 1.23%/yr [S]
+- source: `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §2
+- status: provenance only
+
+### E-2026-09-09-03 · The book's first real band trades were transmitted from the 2026-09-09 decision, sized against the epoch NAV row
+- kind: live-pnl
+- era: HISTORY
+- date: 2026-09-09
+- figures:
+  - transmitted JFR SELL 4,630; MHD BUY 115; MQY BUY 185; NEA SELL 4,458 [V]
+  - SKIP NAD +37 @ 11.15 = $413 < min_trade_usd $517 [V]
+  - placement sized against the epoch NAV $500,000.00; the 09-09 mark of $504,573.20 is 0.914% larger [V]
+- source: `pre-clean-slate:_archive/results/cef/FIRST_BAND_SESSIONS.md` @ `f6d155f`
+- supports: §4
+- status: provenance only
+
+### E-2026-09-10-01 · The headline validation was re-scored at shift(2) with its announced embargo applied: the retired calendar fails its deflated-Sharpe bar at every trial count
+- kind: correction
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - point-in-time: gross 1.26 → 1.27 (shift(1), 14:37) → 0.94; net 0.82 → 0.83 → 0.51 [S]
+  - walk-forward 9/9 (as run 07-31) → 8/9 (shift(1), 14:37) → 7/9, median 0.63, worst −0.45 [S]
+  - block bootstrap P(SR≤0) 0.000% → 0.300%; 5th/95th 0.20/0.79 [S]
+  - DSR 0.956 at N=10 → 0.870 at N=48 → 0.333 at N=48; also 0.588 at N=10, 0.197 at N=162 [S]
+  - observed Sharpe 0.51 below the best-of-48 null of 0.60 [S]
+  - shift(2) era gross: 2005-2009 −0.18, 2010-2014 1.26, 2015-2019 0.89, 2020-2022 1.74, 2023-2026 0.83 (universe 2.6 / 6.3 / 9.3 / 11.8 / 12.3 funds) [S]
+  - counter stays at 48: a lookahead fix re-measures an existing trial [S]
+- source: `pre-clean-slate:results/cef/EXECUTION_CONVENTION_2026-09-10.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`; `pre-clean-slate:ops/specs/cef_discount.frozen.json` @ `f6d155f`
+- supports: §2, §5, §6
+- status: supersedes the shift(1) figures (E-2026-07-31-16, E-2026-07-31-17, E-2026-07-31-21)
+
+### E-2026-09-10-02 · "Gross 1.23 in-sample, 1.75 out-of-sample" was withdrawn as evidence: 1.75 is the gross of a holdout whose recorded verdict is FAIL
+- kind: correction
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - 1.23 reproduces from nothing currently runnable [S]
+  - 1.75 is the gross of a holdout with net_sharpe -0.298 and cost_pct_of_gross 117.2 [S]
+- source: `pre-clean-slate:results/cef/EXECUTION_CONVENTION_2026-09-10.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/PLAN.md` @ `f6d155f`
+- supports: §5, §6
+- status: provenance only
+
+### E-2026-09-10-03 · The traded band policy has never been walk-forwarded, bootstrapped or deflated; its only figures come from the full-sample harness
+- kind: result
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - band 4.8% on the same panel: gross 1.17, net@15bp 0.67, turn 17.6×/yr, hold 12.6d [S]
+  - band_frontier output byte-identical before and after the validate.py change [S]
+- source: `pre-clean-slate:results/cef/EXECUTION_CONVENTION_2026-09-10.md` @ `f6d155f`; `docs/HISTORY.md` @ `bdbe563`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-10-04 · The joint optimiser's comparison had been run against the band width not chosen; re-run against the live 4.8% band its edge was larger
+- kind: correction
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - as first written: matched at 14.2/yr, net@15bp 0.90 vs the band's 0.70, against band(T, 0.064) [S]
+  - corrected: turnover-matched at 17.6/yr, net@15bp 0.91 vs the band's 0.67; +0.24 at 15bp, +0.26 at 5bp [S]
+  - c_model "moved 25.4 → 20.1bp" [`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md`]; the record for the corrected 20.1bp, which no other file contradicts [U]
+  - c_model 25.2bp in the original turnover-matched table [`pre-clean-slate:_archive/docs/PLAN.md`]; disagrees with the 25.4 the correction says it moved from, not the record [U]
+- source: `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §2, §6
+- status: supersedes E-2026-09-06-08
+
+### E-2026-09-10-05 · Borrow history overturned the one-day borrow estimate: the PIMCO premium funds had borrowed at double-digit fees over 2021–26
+- kind: correction
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - daily fee series by name, 2021-09-13 onward, 43 of 44 names, 52,978 rows, as built 2026-09-10 [S]
+  - 2021–26 averages PTY 29.7% (max 178%), PFN 19.7%, PHK 16.6%, PCN 13.8%, PDO 13.4%, against 0.3–1% today [S]
+  - every net-of-borrow figure computed on today's fees (the 1.22%/yr drag included) is suspect until re-measured [S]
+  - on the live 4.8% band the top three borrow names are 28.2 / 27.1 / 12.1 = 67.4% of the drag (was "70%" on the retired calendar) [S]
+- source: `docs/BRIEF.md` @ `df87c59`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §5
+- status: supersedes E-2026-09-06-01
+
+### E-2026-09-10-06 · The borrow-availability dispute could not be settled: the two sources never reported on the same day, and the public file died
+- kind: result
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - NAD available: 3,000 (public file, 2026-09-06 and -08) vs 83,942 (TWS tick 236, 2026-09-10) [V]
+  - paired readings in the panel: zero; the public file returns HTTP 404 [V]
+  - NAD fee 9.98 → 10.21 → 10.88 %/yr over the four dates [V]
+  - no live short under 5× cover; NEA returned no availability tick [V]
+- source: `pre-clean-slate:results/cef/BORROW_AVAILABILITY_2026-09-10.md` @ `f6d155f`
+- supports: §5
+- status: supersedes E-2026-09-06-01
+
+### E-2026-09-10-07 · The IBKR arm rate and fill record as re-measured on 2026-09-10: few sessions armed, three dates with broker-confirmed fills, and a ledger of modelled fills
+- kind: live-pnl
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - 5 of 29 sessions reached ARMED: 08-31, 09-01, 09-04, 09-08, 09-09 [V]
+  - "armed on 3 of 26 sessions" was stale, repeated undated in eight places [V]
+  - 294 broker-confirmed executions, 3 fill dates (07-31: 257, 09-01: 19, 09-08: 18) [V]
+  - 22 of 24 ledger trade dates are modelled, true only against the pre-epoch archive [V]
+- source: `pre-clean-slate:_archive/results/ops/NUMBER_CONSISTENCY_2026-09-10.md` @ `f6d155f`
+- supports: §4
+- status: provenance only
+
+### E-2026-09-10-08 · The honest CEF track record on IBKR was two NAV observations: the pre-epoch ledger had booked fills for sessions the account never made
+- kind: live-pnl
+- era: HISTORY
+- date: 2026-09-10
+- figures:
+  - pre-epoch ledger booked 22 sessions of fills the account never made (broker port misconfigured 2026-08-03..2026-09-03) [S]
+  - archived series 2026-07-30 → 2026-09-03 ends at 498,178.71; live restarts at 500,000.00 on 2026-09-08 [V]
+  - NAV observations 2; trades in the live ledger 0; broker-confirmed fills post-epoch 0; quotable return +0.9146% over one session [S]
+- source: `pre-clean-slate:results/ops/LEDGER_DIVERGENCE_2026-09-10.md` @ `f6d155f`
+- supports: §4, §5
+- status: provenance only
+
+### E-2026-09-11-01 · The book is not short volatility in a way an option can profitably hedge: the convexity overlay's pre-written gate failed on both conditions
+- kind: result
+- era: HISTORY
+- date: 2026-09-11
+- figures:
+  - β_ΔVIX −0.000092/pt, t −0.69 (NW5, n = 2,742); univariate −0.000343 (t −2.80) [S]
+  - 0 of 10 worst 21-session windows start in the top VIX quintile [S]
+  - SHORTVOL loading +0.105 (t +1.34) full sample [S]
+  - full-model R² 0.036, alpha +10.09%/yr (t +5.05) [S]
+  - IC by VIX tercile −0.0392 / −0.0417 / −0.0936 [S]
+  - Feb–Mar 2020: book −3.98%, PHK −8.37%, the other sixteen names +4.39% [S]
+  - Trials spent: 0 on either counter [S]
+- source: `pre-clean-slate:results/cef/STRESS_BETA_2026-09-11.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/RESEARCH_STATE_2026-09-14.md` @ `f6d155f`
+- supports: §5
+- status: provenance only
+
+### E-2026-09-11-02 · The live band held nothing before 2013-06-14, so the book has never traded a credit crisis; the documented flat-period count was wrong
+- kind: correction
+- era: HISTORY
+- date: 2026-09-11
+- figures:
+  - flat on 2,126 of 5,456 sessions, first position 2013-06-14 (measured on the live band) [`pre-clean-slate:results/cef/STRESS_BETA_2026-09-11.md`]; the record, measured on the live policy [U]
+  - "the 2411 dates before 2013 are flat" [`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md`, CLAUDE.md landmine 6 as then written]; not the record [U]
+  - traded sessions only: gross SR 1.551, 28.8 turn/yr, 2013-06-14 .. 2026-09-10; full panel 1.210 [S]
+- source: `pre-clean-slate:results/cef/STRESS_BETA_2026-09-11.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-13-01 · The options programme was closed: credit gamma is far more expensive than equity gamma and no declared conditioner times it; GAMMA stays at 0
+- kind: kill
+- era: HISTORY
+- date: 2026-09-13
+- figures:
+  - variance ratio HYG (credit) 2.77x vs SPY (equity) 1.28x; HYG implied 7.78% vs realised 4.68% [S]
+  - implied below subsequent realised on 9.1% of days full sample, 1.8% in 2023–2026 [S]
+  - C3 beside C1: β +0.0097, t +2.42, incremental R² +0.0358 [S]
+  - C3 on the 2023–2026 holdout falls to 24% of full sample, t +1.69; on the stated target −0.20 [S]
+  - best cell C3 > 2.0 at −0.0113 [S]
+- source: `pre-clean-slate:results/gamma/CREDIT_BASE_RATE_2026-09-13.md` @ `f6d155f`; `pre-clean-slate:results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §5, §6
+- status: provenance only
+
+### E-2026-09-13-02 · The vol scalar was measured over its history: the "1.5×" in the sizing note was never a bound, and the real bound is the gross-exposure cap
+- kind: result
+- era: HISTORY
+- date: 2026-09-13
+- figures:
+  - 3,046 decision dates 2013-06-14 .. 2026-09-11: scalar median 1.330, mean 1.345 [S]
+  - above 1.5 on 1,115 dates (36.6%); at the 2.5 cap on 75 (2.5%) [`pre-clean-slate:results/cef/VOL_SCALAR_2026-09-13.md`]; the record, measured on the traded window with its command named [U]
+  - "pinned at its 2.5 cap on 5.2% of days" [`pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md`, 2026-09-06]; sample not stated, not the record [U]
+  - 2026-09-11 scalar 0.06/0.0379 = 1.58; gross $813,682, 63% of max_gross_exposure_usd $1,300,000 [S]
+  - Trials: 0 [S]
+- source: `pre-clean-slate:results/cef/VOL_SCALAR_2026-09-13.md` @ `f6d155f`; `pre-clean-slate:_archive/docs/SYSTEM_AND_STRATEGY.md` @ `f6d155f`
+- supports: §5
+- status: provenance only
+
+### E-2026-09-13-03 · The W3 go-live moved decisions to the morning on yesterday's complete pair and re-seeded the CEF ledger from broker positions at a clean epoch
+- kind: release
+- era: HISTORY
+- date: 2026-09-13
+- figures:
+  - re-seeded at epoch 2026-09-11, NAV $500,000, at 2026-09-13 23:04 [V]
+  - prod worktree detached at v2026.09.13.4 when IBKR was retired [S]
+- source: `pre-clean-slate:results/ops/GO_LIVE_W3_2026-09-13.md` @ `f6d155f`; `pre-clean-slate:results/ops/LEDGER_NOOP_MORNING_2026-09-15.md` @ `f6d155f`; `pre-clean-slate:_archive/prod_state_2026-09-28/README.md` @ `f6d155f`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-14-01 · Team lead, 2026-09-14: the frozen vol target stays in force until W6 derives a new one; retiring the null trader is open
+- kind: ruling
+- era: HISTORY
+- date: 2026-09-14
+- figures:
+  - vol_target_annual stays in force (0.06 when this was decided) until W6 derives a new value [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: provenance only
+
+### E-2026-09-15-01 · Ledger desyncs halted all three IBKR books: the morning schedule's first sessions sent orders the ledger never recorded; the last broker-confirmed fills were on 2026-09-15
+- kind: incident
+- era: HISTORY
+- date: 2026-09-15
+- figures:
+  - cef_discount_paper halted 2026-09-15 08:39:04; benchmarks_paper 2026-09-14 17:25:10; phase0_null 2026-09-10 [V]
+  - broker_fills.csv carries 4 executions on 2026-09-14 and 4 on 2026-09-15, filled in the closing auction [V]
+  - UnbookedExecution: the broker reports 4 execution(s) that no ledger order accounts for [S]
+  - last broker-confirmed fill 2026-09-15 [V]
+- source: `pre-clean-slate:results/ops/LEDGER_NOOP_MORNING_2026-09-15.md` @ `f6d155f`; `pre-clean-slate:_archive/prod_state_2026-09-28/ops/HALT_cef_discount_paper.md` @ `f6d155f`; `pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` @ `f6d155f`
+- supports: §4, §5
+- status: provenance only
+
+### E-2026-09-15-02 · Team lead (D19/D20): the paper account is scored on gross P&L with no borrow or execution cost
+- kind: ruling
+- era: HISTORY
+- date: 2026-09-15
+- figures:
+  - none (a ruling)
+- source: `pre-clean-slate:CLAUDE.md` @ `f6d155f`; `ng/05_research_no_borrow_rescore.md` @ `7b8eb25` (branch nextgen-20260914, no PR, unmerged)
+- supports: §3, §5
+- status: provenance only
+
+### E-2026-09-16-01 · Spec v7 (group cap 0.30, gross ceiling 1.90×) was pre-registered on the nextgen branch as a risk change, not a return change; it never traded on IBKR
+- kind: release
+- era: HISTORY
+- date: 2026-09-16
+- figures:
+  - spec cef_discount.v6.20260906 → cef_discount.v7.20260916 [S]
+  - group_cap k = 0.30 from the pre-2023 median |net group weight| 0.304953; the argmax k = 0.15 (traded gross SR 1.706) was not chosen [S]
+  - max_gross_stress = floor₀.₀₅(1.930940 − 0.02) = 1.90 [S]
+  - v6 live band traded era: gross SR 1.537, ann 10.10%, vol 6.57%, maxDD −9.47%, turn 28.8/yr, max gross 2.77× [S]
+  - v7 both: gross SR 1.724, vol 5.45%, maxDD −5.58%, turn 25.6/yr, max gross 1.90× [S]
+  - paired change vs v6: traded −0.71 %/yr, t −1.06; pre-2023 −1.16 %/yr, t −1.71 [S]
+  - counter on the nextgen branch: CEF 55 → 56, bar √(2 ln 56) = 2.836 [S]
+- source: `results/cef/PREREG_GROUP_CAP_2026-09-16.md` @ `6217c96`; `docs/HISTORY.md` @ `bdbe563`
+- supports: §2, §5
+- status: superseded by the Alpaca v7 pre-registration, group_cap not adopted (2026-09-28)
+
+### E-2026-09-21-01 · The hardening freeze decisions D1–D20: no external alerting, retire the null trader before re-arming, nextgen and spec v7 parked
+- kind: ruling
+- era: HISTORY
+- date: 2026-09-21
+- figures:
+  - D3/D4: no external dead-man; alerts local only [S]
+  - D6: retire phase0 BEFORE re-arm [S]
+  - D14: nextgen and spec v7 parked and pushed, never merged; eligible after 20 clean sessions [S]
+  - D19 (off-disk copy) and D20 (20-session bar: launch-to-trade ≤ 30 min, verifier PASS) are different questions from the 2026-09-15 D19/D20 scoring ruling [S]
+- source: `pre-clean-slate:results/ops/hardening_2026-09-21/DECISIONS.md` @ `f6d155f`
+- supports: §5
+- status: provenance only
+
+### E-2026-09-28-01 · IBKR was retired: a final flatten of 34 MOC orders was sent, reached the broker as PendingSubmit, and was left unconfirmed by the team lead's decision
+- kind: incident
+- era: HISTORY
+- date: 2026-09-28
+- figures:
+  - all 12 com.quantt.* launchd jobs unloaded; launchctl list | grep quantt empty afterwards [V]
+  - dry run: 34 whole-share USD stock positions, no open orders [V]
+  - 15:05:57 ET re-read: exactly 34 open orders at the broker, all MOC, no duplicates, all PendingSubmit [V]
+  - whether the account ended flat is unknown and will not be checked [S]
+  - three scoped halts active in prod: cef_discount_paper, benchmarks_paper, phase0_null [V]
+- source: `pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` @ `f6d155f`
+- supports: §4, §5
+- status: provenance only
+
+### E-2026-09-28-02 · Team lead, 2026-09-28: move to Alpaca paper with one account per book, keep only the CEF book and the b6 benchmark, and hold main's CEF counter of 48 as authoritative
+- kind: ruling
+- era: HISTORY
+- date: 2026-09-28
+- figures:
+  - Books: CEF strategy + b6 equal-weight credit benchmark; phase0/null trader, b1/b3/b4/b5 and credit_rv retire [S]
+  - CEF trial counter 48 (main) is authoritative; nextgen's 53–56 were shadow research [S]
+  - Spec: v7 from day one on Alpaca, superseding hardening D14 [S]
+  - max_gross_stress re-derived on Alpaca; its 1.90 came from the IBKR-Canada account [S]
+  - Capital $100k default per paper account [S]
+- source: `pre-clean-slate:results/ops/ALPACA_MIGRATION_MANIFEST_2026-09-28.md` @ `f6d155f`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §5
+- status: supersedes the nextgen counter of E-2026-09-16-01
+
+### E-2026-09-28-03 · The 17-name v6 spec was tagged as the revert path for v7-on-Alpaca; ibkr-final marks the last IBKR-era commit
+- kind: release
+- era: HISTORY
+- date: 2026-09-28
+- figures:
+  - spec_id cef_discount.v6.20260906, 17 names, capital_usd 500000.0, band_width 0.048, z_window 252 [S]
+  - revert path example: spec-cef_discount.v6.20260906 [S]
+- source: `ops/specs/cef_discount.frozen.json` @ `22b3a64` (tag spec-cef_discount.v6.20260906); `ibkr-final:ops/specs/cef_discount.frozen.json` @ `db795a9`; `.claude/skills/spec-change/SKILL.md` @ `b2b0509`
+- supports: §2, §5
+- status: provenance only
+
+### E-2026-09-28-04 · IBKR was retired and the book moved to Alpaca paper, one $100k account per book, with both P&Ls recorded
+- kind: ruling
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - Accounts: "One Alpaca paper account per book, $100k each (the default)" [S]
+  - Books: "The CEF strategy and the b6 equal-weight credit benchmark"; phase0/null trader, b1/b3/b4/b5 and credit_rv retire [S]
+  - CEF trial counter: "48 is authoritative; adopting v7 makes it 49" [S]
+  - The IBKR record ended "with 34 flatten orders left unacknowledged and the account's final state unknown by decision" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §4, §5
+- status: current (the scoring row was refined by E-2026-10-19-02; hosting by E-2026-10-07-02)
+
+### E-2026-09-28-05 · Spec v7 for Alpaca spent two CEF trials: the universe cut 17 → 13 (trial 49) and a 1.80 gross ceiling derived from Reg T (trial 50)
+- kind: counter
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - Counter "CEF, 48 → 50. Bar √(2 ln 50) = 2.797" [S]
+  - NAD, NEA, NVG, NZF "`shortable: false`, `borrow_status: hard_to_borrow`" on the first Alpaca probe [V]
+  - G_stress = 1.843041 from NLV $100,000, m 0.50 (Reg T), w5 0.0425814 ending 2020-03-18; floored to 0.05 → `max_gross_stress` 1.80 [S]
+  - without a cap "the 13-name band reaches 2.77× gross, and exceeds 1.80× on 13.2% of traded days" [S]
+  - plateau: gross SR 1.141 / 1.155 / 1.170 / 1.174 / 1.168 / 1.160 at caps 1.60 / 1.70 / 1.80 / 1.843 / 2.00 / none [S]
+  - `group_cap` not adopted: its rule gives k = 0.00 on 13 names (0.304953 on 17 [V]); R² of the 13-name P&L to the muni-minus-taxable spread 0.091 against 0.754 on 17 [S]
+  - `min_trade_usd` 517 → 0.0, `capital_usd` 500,000 → 100,000, `risk.max_gross_exposure_usd` 1,300,000 → 260,000 [S]
+- source: `results/cef/PREREG_ALPACA_V7_2026-09-28.md` @ `fcf0f27`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §3, §5
+- status: current (v7's `sizing_multiplier` was later added by v8/v9: E-2026-11-01-01, E-2026-11-02-17)
+
+### E-2026-09-28-06 · The v7 report-only backtest (2013-06-14 → 2026-09-21) showed the 13-name book weaker than the 17 overall but stronger since 2023
+- kind: result
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - v7-on-Alpaca (13 + cap 1.80): gross SR 1.17, ann 7.29%, vol 6.23%, maxDD −12.78%, turn 22.2/yr; net@5/15/30 0.99 / 0.64 / 0.10 [S]
+  - v6 band, 17 names: gross SR 1.54, ann 10.15%, maxDD −9.47%, turn 28.8/yr; net@30 0.23 [S]
+  - by era, v7: 2010–14 0.72 (2.2), 2015–19 0.82 (5.6), 2020–22 1.06 (6.7), 2023–26 1.90 (10.4), last 12m 1.60 (9.9) [S]
+  - "This is a report, not a gate" — the change went ahead on tradability grounds whatever §5 showed [S]
+- source: `results/cef/PREREG_ALPACA_V7_2026-09-28.md` @ `fcf0f27`
+- supports: §2, §5, §6
+- status: current; its 2023–26 rows mean the core's 2023+ is no longer sealed (E-2026-11-01-02)
+
+### E-2026-09-28-07 · release-20260928-1: the first Alpaca runner release, laptop prod, DRY_RUN=1 until the team lead's go
+- kind: release
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - tag message: "First Alpaca runner release: laptop prod, DRY_RUN=1 until the team lead's go" (tag at aa244f4, created 2026-09-28 17:24:28 −0400) [S]
+  - "The build, two independent reviews (quant, execution) and the fixes changed or settled these points" (flips deferred; reject skips a symbol; gate 8 on Reg T) [S]
+  - release-check verdict: none recorded in the tag or the files read [U]
+- source: `tag:release-20260928-1` @ `aa244f4`; `docs/RUNNER.md` @ `8ce0395`; `docs/ROADMAP.md` @ `82a30f6`
+- supports: §2, §5
+- status: superseded by release-20260928-2 (2026-09-28)
+
+### E-2026-09-28-08 · release-20260928-2: verify reads closing-auction prints in a timestamp window (Basic-plan SIP 403 fix)
+- kind: release
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - tag message: "Verify reads auction prints with timestamp window (Basic-plan SIP 403 fix)" (b9cd0a3, 2026-09-28 19:56:27 −0400) [S]
+  - release-check verdict: none recorded [U]
+- source: `tag:release-20260928-2` @ `b9cd0a3`
+- supports: §2, §5
+- status: superseded by release-20260929-1 (2026-09-29)
+
+### E-2026-09-28-09 · Go-live rulings: arm on 2026-09-29, trade day one to full target, no fallback from `cls` to `day`, skip a rejected name and send the rest
+- kind: ruling
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - none (a ruling)
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/ROADMAP.md` @ `82a30f6`
+- supports: §4, §5
+- status: current ("If cls is rejected: no trade" was overtaken on paper by the late_market exception, E-2026-09-29-02)
+
+### E-2026-09-29-01 · The first armed Alpaca session sent 13 MOC (`cls`) orders; paper filled 2 and let 11 expire
+- kind: incident
+- era: ALPACA
+- date: 2026-09-29
+- figures:
+  - "13 `cls` orders accepted at 10:33 ET, plan_sha `74154e1e…`, sent on the team lead's go" [S]
+  - "paper filled 2 of 13 `cls` orders (PHK 4,019/4,019, PFN 1,529/2,227; eleven expired)" [S]
+  - every NYSE auction printed more shares than were asked for; Alpaca staff say paper treats `cls` as a market order at the close with random partial fills [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §4, §5
+- status: current
+
+### E-2026-09-29-02 · Paper-only exception to the MOC rule: decide in the evening, send market `day` orders 8 to 2 minutes before the close, fully automatic
+- kind: ruling
+- era: ALPACA
+- date: 2026-09-29
+- figures:
+  - "obviously this is unacceptable" (team lead) → `execution = {mode: late_market, window_minutes_before_close: [8, 2]}`, paper only [S]
+  - schedule: evening 22:00 ET retrying every 30 min until 01:00; morning backstop every 30 min 06:00–15:15 ET [S]
+  - "Fully automatic from 2026-09-29 evening: prod installed with DRY_RUN=0 and AUTO_ARMED" [S]
+  - the two unhedged longs (PHK 4,019, PFN 1,529) were not flattened [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §4, §5
+- status: current (never for a live-money account)
+
+### E-2026-09-29-03 · release-20260929-1: evening decision, morning backstop, nightly collector and shadow benchmark
+- kind: release
+- era: ALPACA
+- date: 2026-09-29
+- figures:
+  - tag message: "Evening decision + morning backstop, nightly collector, shadow benchmark, review fixes" (7051359, 2026-09-29 18:00:57 −0400) [S]
+  - release-check verdict: none recorded; the commit is "Review fixes: send window, collector independence, no silent data loss" [U]
+- source: `tag:release-20260929-1` @ `7051359`; `commit:7051359` (subject) @ `7051359`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20260929-2 (2026-09-29)
+
+### E-2026-09-29-04 · release-20260929-2: paper late-market execution (decide in the evening, send market `day` from 15:52)
+- kind: release
+- era: ALPACA
+- date: 2026-09-29
+- figures:
+  - tag message: "Paper late-market execution (decide evening, send 15:52 market day), review fixes" (e465f56, 2026-09-29 19:15:44 −0400) [S]
+  - release-check verdict: none recorded [U]
+- source: `tag:release-20260929-2` @ `e465f56`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261007-1 (2026-10-07)
+
+### E-2026-10-07-01 · The laptop prod sent no orders on three of its first six sessions; two sources give different causes for 2026-10-06
+- kind: incident
+- era: ALPACA
+- date: 2026-10-07
+- figures:
+  - "from 2026-09-30 to 2026-10-07 the laptop sent no orders on 2026-10-02, 2026-10-05 and 2026-10-06, each time because it was asleep or offline" (SYSTEM.md §5) [U]
+  - "2026-10-06's 21 buying-power refusals"; "The old `min(buying_power, regt_buying_power)` refused 2026-10-06's catch-up plan that Alpaca would have accepted" (RUNNER.md) [U]
+  - the two disagree on 2026-10-06's cause. SYSTEM.md ranks above design notes in SYSTEM.md §0, but neither cites a broker read; unresolved, both kept [U]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §4, §5
+- status: current
+
+### E-2026-10-07-02 · The cloud VM was chosen: Azure for Students, Standard_B2pts_v2 (Arm64) in canadacentral
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-07
+- figures:
+  - "The VM size is free for 12 months; anything else ... comes out of the $100 student credit" [S]
+  - when the credit or the 12 months run out "the subscription is disabled and the book stops" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/ROADMAP.md` @ `82a30f6`
+- supports: §5
+- status: current
+
+### E-2026-10-07-03 · release-20261007-1: verify parses `sell_short` fills
+- kind: release
+- era: ALPACA
+- date: 2026-10-07
+- figures:
+  - tag message: "Verify parses sell_short fills" (415eb59, 2026-10-07 10:39:29 −0400) [S]
+  - release-check verdict: none recorded [U]
+- source: `tag:release-20261007-1` @ `415eb59`
+- supports: §2, §5
+- status: superseded by release-20261007-2 (2026-10-07)
+
+### E-2026-10-07-04 · release-20261007-2: the exposure gate becomes two checks, plans scale to fit, fills are polled and TCA is recorded
+- kind: release
+- era: ALPACA
+- date: 2026-10-07
+- figures:
+  - tag message: "Exposure gate two checks, scale-to-fit, polling, TCA, regime-proof test, frontier repro" (fce577e, 2026-10-07 16:49:28 −0400) [S]
+  - maintenance at the account's live measured ratio, "47.8% on 2026-10-06" [S]
+  - slower rebalancing re-tested: "no slower policy matches or beats the live band on the fit period; no trial spent" [S]
+  - release-check verdict: none recorded ("Execution-desk review after the first week") [U]
+- source: `tag:release-20261007-2` @ `fce577e`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261008-1 (2026-10-08)
+
+### E-2026-10-08-01 · release-20261008-1: the Azure VM prod package and the late-market send-budget gate, after eight release-check NO-GOs
+- kind: release
+- era: ALPACA
+- date: 2026-10-08
+- figures:
+  - tag message: "Azure VM prod package (systemd installer, Key Vault boot secrets, bootstrap, runbook) + late-market send budget gate" (e8fde26, 2026-10-08 08:56:06 −0400) [S]
+  - commits marked "release-check no-go" #1 to #8 on 2026-10-07/08, the last being e8fde26 itself [S]
+  - send budget `n_orders × 3 s + 42 s` (margin corrected from 30 s, release-check #7) [S]
+  - final release-check verdict: not recorded [U]
+- source: `tag:release-20261008-1` @ `e8fde26`; `git-log:35202aa..e8fde26` (commit subjects, 2026-10-07/08) @ `e8fde26`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261008-2 (2026-10-08)
+
+### E-2026-10-08-02 · release-20261008-2: a duckdb pin with no order-path change; the VM was armed at this tag
+- kind: release
+- era: ALPACA
+- date: 2026-10-08
+- figures:
+  - tag message: "duckdb==1.5.2 pin (research R2 layer) + test_r2 httpfs skip; no order-path change" (d769fb3, 2026-10-08 10:36:15 −0400) [S]
+  - "Armed 2026-10-08 11:35 ET at `release-20261008-2`" [S]
+  - release-check verdict: none recorded [U]
+- source: `tag:release-20261008-2` @ `d769fb3`; `docs/ROADMAP.md` @ `82a30f6`
+- supports: §2, §5
+- status: superseded by release-20261011-1 (2026-10-11)
+
+### E-2026-10-08-03 · Prod cut over from the laptop to the VM the same morning, skipping the shadow, and the VM was made fully automatic
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-08
+- figures:
+  - shadow: "same 8 orders; 2 names 1 share apart, explained by equity read 0.02% apart" [S]
+  - cut-over "2026-10-08 11:32–11:38 ET"; laptop launchd jobs unloaded and disabled [S]
+  - first VM send: "the laptop's decided plan `c5f20357…` (8 orders)", approved by the team lead and sent by the VM's 15:52 timer [S]
+  - "I want the VM fully automated and deployed" — `AUTO_ARMED` after the first armed send's verify PASSes [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/ROADMAP.md` @ `82a30f6`
+- supports: §4, §5
+- status: current
+
+### E-2026-10-09-01 · On 2026-10-09 the VM refused both sends on the stress cap, for a plan that took gross down, and verify read PASS
+- kind: incident
+- era: ALPACA
+- date: 2026-10-09
+- figures:
+  - "projected gross $182,154.75 > max_gross_stress 1.8 x equity $100,666.16" [S]
+  - sized at 1.7994× the evening's equity ($101,229.74); equity 0.56% lower at 15:52, so 1.8095× live [S]
+  - the plan took gross down from $183,413.36 to $182,154.75; refusing it left the book at 1.83× [S]
+  - replay of 40 recorded runs (38 replayable): the old rule passed 10-07 by $168 and 10-08 by $765, refused 10-09 by $956 at 15:52 and $702 at 15:55; the new code refuses none [S]
+- source: `docs/RUNNER.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §4, §5
+- status: current (fixed by E-2026-10-11-01, E-2026-10-11-02)
+
+### E-2026-10-09-02 · Real capital was planned, the target set at ≥10%/yr gross, the book made alpha-only, and EVENTS and XASSET opened as counters
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-09
+- figures:
+  - "≥10%/yr absolute return, measured gross of costs, with net shown beside it. Reg T for now (`max_gross_stress` 1.80). The vol target is derived under W6 (cap 20%)" [S]
+  - "the real-money cost re-run is the gate for deploying any capital" [S]
+  - the 27-name holdout opened for event trades; "The 2023-01-01 time holdout stays sealed" [S]
+  - a passing sleeve runs "Inside the CEF account, one combined book"; dividends on paper get a third, distribution-adjusted P&L line [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §3, §4, §5
+- status: superseded by E-2026-10-28-05 (2026-10-28) for "real capital soon", by E-2026-10-27-01 (2026-10-27) for "one combined book", and by E-2026-11-01-02 (2026-11-01) for "2023+ stays sealed" as applied to the core
+
+### E-2026-10-09-03 · The research plan put C4 (the z-score on other CEF families) on the slate to add breadth, the book's binding weakness
+- kind: method
+- era: ALPACA
+- date: 2026-10-09
+- figures:
+  - "The book's effective breadth is a small fraction of its name count — 1.17 on the live weights and 2.24 historically when this was written (2026-09-07 [S]) — because most of its variance is one factor: municipal CEFs against taxable ones ... This is the biggest hole in the strategy" (BRIEF.md §1) [S]
+  - the group spread M5: "Taken by accident at 92.5% of risk" (BRIEF.md M5 row) [S]
+  - "N independent sleeves of equal Sharpe combine to about √N times that Sharpe" (SCALING_RESEARCH_2026-10-08, "Arithmetic") [S]
+  - "Return comes from breadth and the vol target"; plan row 9: "C4: discount z-score on equity, preferred and multi-asset CEF families", kill on "D1/D4, or correlation with the book ≥ 0.5" [S]
+- source: `docs/BRIEF.md` @ `df87c59`; `results/cef/SCALING_RESEARCH_2026-10-08.md` @ `8315ba7`; `results/cef/RESEARCH_PLAN_2026-10-09.md` @ `deba719`
+- supports: §2, §3, §6
+- status: current; the 1.17 / 92.5% figure was later shown to be a 17-name fact (E-2026-10-12-02)
+
+### E-2026-10-11-01 · The stress cap is judged on the lower of the sized and the live equity for a plan that adds gross; a plan that cuts gross always passes
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-11
+- figures:
+  - judging on sized equity alone "lets an adding plan exceed the derived G_stress 1.843 × live once equity falls more than 2.34% after decide" [S]
+  - a no-trade day not explained by DRY_RUN, arming or a halt becomes a `MISSED:` FAIL [S]
+  - pre-flight: the worst one-day loss of the book held into 2026-10-12 was $2,074.61 (2.06% of equity) on 2026-03-20 [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-10-11-02 · release-20261011-1: the missed-day fix, release-check GO on cd5082e after a NO-GO on b3e4e9e
+- kind: release
+- era: ALPACA
+- date: 2026-10-11
+- figures:
+  - tag message: "Missed-day fix: stress cap on the lower of sized and live equity (team lead 2026-10-11), fit rounds whole shares the safe way, missed days FAIL, evening pre-flight. Release-check GO 2026-10-11 on cd5082e." [S]
+  - "Release-check of b3e4e9e (2026-10-11) said NO-GO on one order-path defect" (commit cd5082e) [S]
+- source: `tag:release-20261011-1` @ `cd5082e`; `commit:cd5082e` (message body) @ `cd5082e`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261014-1 (2026-10-14)
+
+### E-2026-10-11-03 · W4: the signal the book actually trades is about half as strong as the documents quoted, and no artifact explains it
+- kind: result
+- era: ALPACA
+- date: 2026-10-11
+- figures:
+  - deployed 13 with the ADV filter: IC "−0.033 (t −1.68) on 523 non-overlapping dates" [S]
+  - factor alpha "t 2.94 daily on FF5 + momentum, every |β| ≤ 0.021; 3.22 monthly with Pástor–Stambaugh" [S]
+  - "half the summed IC sits on December–January signal dates"; none of bounce, stale NAV, distributions, ex-dates or crises explains more than about 7% [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `results/cef/W4_ARTIFACTS_2026-10-11.md` @ `b466565`
+- supports: §2, §5, §6
+- status: current
+
+### E-2026-10-12-01 · SYSTEM.md's IC row was corrected: the −0.074 is the wide 17-name set, the deployed book's is −0.033
+- kind: correction
+- era: ALPACA
+- date: 2026-10-12
+- figures:
+  - wide 17-name set, no ADV filter: "−0.078, t −11.1, 2005–22; the −0.074 quoted elsewhere" [S]
+  - deployed 13 with the ADV filter: "−0.033 (t −1.68)" [S]
+  - record: the deployed figure for anything about the book that trades (team lead, 2026-10-12: "Corrected") [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/BRIEF.md` @ `df87c59`
+- supports: §2, §5
+- status: supersedes the −0.074 row as a statement about the book (provenance at tag pre-clean-slate)
+
+### E-2026-10-12-02 · W10-B: the "BR_eff 1.17, 92.5% of risk" figure is a 17-name fact; the deployed 13's fit book had median BR_eff 3.30, and its edge is within-group selection
+- kind: correction
+- era: ALPACA
+- date: 2026-10-12
+- figures:
+  - "today PC2 is 92.5%, BR_eff 1.17, net muni weight −74.9%" is "a 17-name measurement from before v7" (W10_PARTB) [U]
+  - 13-name deployed fit book: BR_eff median 3.30 (p10–p90 2.25–5.55), between risk share 0.140 (W10_PARTB) [U]
+  - record: W10_PARTB for the deployed 13 (the later dated note, by its method); BRIEF.md §1 still reads "1.17 on the live weights" and was not edited [S]
+  - within −9.07bp/z (t −3.02), between −3.29 (t −0.87); "today's book is 67% between (long multi, short muni and JFR)" [S]
+- source: `results/cef/W10_PARTB_2026-10-12.md` @ `b466565`; `docs/BRIEF.md` @ `df87c59`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2, §3, §6
+- status: current
+
+### E-2026-10-12-03 · The real-money cost gate failed: net of measured borrow the deployed book lost money over 2021-09-14 → 2022-12-30, so real capital waits
+- kind: result
+- era: ALPACA
+- date: 2026-10-12
+- figures:
+  - gross, total returns: +9.63%/yr (SR 1.57) [V]
+  - measured borrow (IBKR FEE_RATE by name-date): −13.11%/yr [V]
+  - net, MOC at the print: −3.51%/yr (t −0.65 / −0.64; CI [−11.5, +5.6]); net at 30bp −11.57 [V]
+  - "The short book paid a short-weighted 19.91%/yr in that window, against a breakeven fee of 14.58%/yr (at MOC)" [V]
+- source: `results/cef/REAL_MONEY_COSTS_2026-10-12.md` @ `7e8dc83`
+- supports: §5
+- status: current
+
+### E-2026-10-12-04 · Live NAV quality: Yahoo served stale NAV copies at decision time, and real orders were sized on them
+- kind: incident
+- era: ALPACA
+- date: 2026-10-12
+- figures:
+  - "stale copies at decision time on 28 of 73 checkable name-days on the laptop" [S]
+  - "11 submitted orders were in a name whose own NAV" was stale [S]
+- source: `results/cef/LIVE_NAV_QUALITY_2026-10-12.md` @ `eeb5cb2`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: current (answered by E-2026-10-13-01)
+
+### E-2026-10-12-05 · Appendix — CORE-a/CORE-b: no distribution adjustment around specials, and no December–January tax-loss sleeve or gate
+- kind: kill
+- era: ALPACA
+- date: 2026-10-12
+- figures:
+  - (a) around specials the deployed z "reads funds rich and is right (slope −49.5bp/z, t −3.76; 22 dates, D7)" [S]
+  - (b) the loser/winner gradient holds in Feb–Nov too; "there are 9 seasons (D7)"; kept as a declared stratum; zero trials [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-13-01 · The stale-NAV gate was redesigned the same day to defer and hold rather than drop, and starts in report mode
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-13
+- figures:
+  - the first rule "Use CEFConnect, else drop" was replayed: "on 2026-10-05 the drops would have flattened the whole book" [S]
+  - under the redesign, worst case "2026-10-05: 9 names held, 4 left eligible, so the whole book holds that day"; "No date flattens the book" [S]
+  - "Report mode first, `on` after a measured week" [S]
+  - the released book json still sets `data.stale_nav = report` at 4485a96 [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`; `ops/books/cef_discount_book.json` @ `de75da4`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-13-02 · Appendix — E1-G1a: E1's short-acquirer leg cannot be built at Alpaca for munis, where the merger-pair effect lives
+- kind: kill
+- era: ALPACA
+- date: 2026-10-13
+- figures:
+  - pending muni acquirers "1 of 2 shortable (NZF no, MMU yes)"; historical muni acquirers "7 of 23 on today's flags: FAIL" [S]
+  - taxable (78%) and equity (62.5%) pass, but their at-announcement medians (+4.6bp, +15bp [S]) are under E1's kill line; zero trials [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-14-01 · release-20261014-1: the stale-NAV gate in report mode, MISSED on a send scaled to zero, the exact fit and the third P&L line
+- kind: release
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - tag message: "stale-NAV gate in report mode (record failure never stops the session; no scripts/ on the send path); verify MISSED on a zero-order send; exact fit; phase 0 (third P&L line, borrow snapshot, ADV-NaN guard)" (0e99db2) [S]
+  - "Release-check said GO on the second run, after the first run's two defects were fixed"; the first run was NO-GO on 35c6514 [S]
+  - installed on the VM, armed, "at 17:05 ET, after the day's send" [S]
+  - exact fit: on the 2026-10-07 plan after a 0.5% dip it keeps 98.7% of traded notional against the grid's 72.0%; mean share kept 48.3% → 60.0% over 1,741 binding draws [S]
+- source: `tag:release-20261014-1` @ `0e99db2`; `commit:0e99db2` (message body) @ `0e99db2`; `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261019-1 (2026-10-19)
+
+### E-2026-10-14-02 · CEF 50 → 52: C5 (the opening-auction fill) became trial 51 and C4 (the z-score on five other CEF families) trial 52
+- kind: counter
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - "Both are judged at N = 52, bar √(2 ln 52) = 2.811" [S]
+  - C4's holdout "ends 2026-09-30, fixed" [S]
+  - C4 universe: "74 of the 105 pool funds tradable and shortable, all easy to borrow", frozen at one `GET /v2/assets` read at 2026-10-14T21:40:33Z [S]
+  - by family: sector 29, covered-call 15, multi-asset 15, preferred 9, domestic 6 [S]
+  - breadth: the declared C4 book's median eligible funds per session is 10 over the fit 2005–22 (13 in 2023–26); "The deployed 13 have a median of 5 eligible by the same rule over 2013–22"; "Breadth is about twice the deployed set's" [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/cef/PREREG_C4_FAMILIES_2026-10-13.md` @ `9131197`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §6
+- status: current
+
+### E-2026-10-14-03 · C4 (CEF trial 52) passed all six fit stages: gross Sharpe 1.217 over 2005–22, positive in 16 of 18 years, with costs flipping its sign by 30bp
+- kind: result
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - 74 frozen funds, 65 with paired price and NAV before 2023; fit 2005-02-22 → 2022-12-30, 4,497 sessions, CRSP total return [S]
+  - gross SR 1.217, ann 7.16%, vol 5.89%, turn 38.1/yr; net@5/15/30 0.894 / 0.247 / −0.724, flips between 15 and 30bp [S]
+  - `_dsr` 0.991 at N = 52, NW t 5.32; both independent reviews confirmed the fit [S]
+  - eras: 2005–09 1.135, 2010–14 1.004, 2015–19 1.217, 2020–22 1.686 [S]
+- source: `results/cef/C4_RESULT_2026-10-14.md` @ `daac2bb`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2, §6
+- status: current
+
+### E-2026-10-14-04 · Appendix — C5 (CEF trial 51), the opening-auction fill, was killed at the fit: a placebo earned more than the treatment
+- kind: kill
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - gain +293bp/yr (SR 1.16, t 2.82, 2016–22 WIDE); the same open fill on the trade decided a day earlier earns +351bp/yr [S]
+  - also fails D4 (MUB β −0.22) and `_dsr` (0.61 at N = 52) [S]
+  - holdout opened once on 2026-10-19 under the D-5 repair rule: G +313.6bp/yr, SR 2.12, NW t 4.66, the fit's sign; "C5 stays KILLED (D1)" [S]
+  - evidence outcome (2026-10-27): gain PRESENT, lagged-placebo split INCONCLUSIVE (t −0.56) [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/cef/C5_RESULT_2026-10-14.md` @ `6096ef9`
+- supports: §6
+- status: current (D1; evidence PRESENT / INCONCLUSIVE)
+
+### E-2026-10-14-05 · Appendix — XASSET-X1, credit and rates trend (MOP TSMOM on nine ETFs): D1
+- kind: kill
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - slate declared at N = 4, bar √(2 ln 4) = 1.665 [S]
+  - sized gross Sharpe 0.41, NW t 1.62 < 1.96 (2008-05 to 2022-12); holdout Sharpe −0.39; spanned by AQR TSMOM^FI (alpha t 0.65) [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/xasset/XASSET_RESULTS_2026-10-14.md` @ `c52a3ec`
+- supports: §6
+- status: current (D1; spanned, D4 in substance)
+
+### E-2026-10-14-06 · Appendix — XASSET-X2, front-running pension rebalancing (SPY vs IEF): D1
+- kind: kill
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - Sharpe 0.33, NW t 1.59 (2002-09 to 2022-12); the rates control scores 0.18; 57 turns a year, net −1.09 at 15bp; holdout 0.25 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current (D1)
+
+### E-2026-10-14-07 · Appendix — XASSET-X3, month-end Treasury extension: real effect, but term premium in a part-time wrapper (D4, and D2)
+- kind: kill
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - Sharpe 1.04, NW t 4.94; `_dsr` 0.999; but TERM β 0.34 / 0.33 (> 0.10); 58 turns a year, net −0.42 at 15bp; holdout 0.59 [S]
+  - the TERM-hedged re-open was closed at the power gate on 2026-10-28: P(pass) ≤ 0.13 over 10 years [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (D4; re-open UNDERPOWERED)
+
+### E-2026-10-14-08 · Appendix — XASSET-X4, multi-asset trend: D4 on the historical-mean rule; the XASSET slate closed with no sleeve
+- kind: kill
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - Sharpe 0.45, NW t 1.964; alpha t 1.00; `_dsr` 0.58; holdout 0.19; spanned by AQR TSMOM (t 5.3) [S]
+  - "XASSET is at 4 = N. The slate is closed" [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current (D4)
+
+### E-2026-10-18-01 · C4's holdout, opened once, first read gross Sharpe 0.725 and net −0.304 at 15bp (labelled D2)
+- kind: result
+- era: ALPACA
+- date: 2026-10-18
+- figures:
+  - holdout 2023-01-03 → 2026-09-30, 939 sessions: mean daily gross +2.07bp (+5.20%/yr), gross SR 0.725 (NW t 1.32) [S]
+  - net 0.382 / −0.304 / −1.332 at 5 / 15 / 30bp; 2023–24 +12.78%/yr, 2025–26 −3.50%/yr [S]
+  - 82% of the holdout P&L in the ex-date window [0,2] (fit 33%) [S]
+- source: `results/cef/C4_RESULT_2026-10-14.md` @ `daac2bb`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2
+- status: superseded by E-2026-10-18-02 and the ruling E-2026-10-19-01 (2026-10-19)
+
+### E-2026-10-18-02 · An independent review found four bad IGR price bars in C4's holdout; corrected, gross Sharpe is 1.434 and net at 15bp turns positive
+- kind: correction
+- era: ALPACA
+- date: 2026-10-18
+- figures:
+  - four bars (2026-07-29, 08-04, 08-07, 08-11), post-split basis inside a raw pre-split series, flagged by Stage 0 Q5 on 2026-10-14 and never triaged, "costing −10.87% of capital" [S]
+  - as committed: gross SR 0.725, net@5/15/30 0.382 / −0.304 / −1.332, NW t21 1.32 [S]
+  - corrected: gross SR 1.434, net@5/15/30 0.999 / +0.130 / −1.174, NW t21 2.89 [V]
+- source: `results/cef/C4_RESULT_2026-10-14.md` @ `daac2bb`
+- supports: §2, §5
+- status: supersedes E-2026-10-18-01
+
+### E-2026-10-18-03 · Appendix — SS5-MA / SS5-IBKR: equity merger arbitrage is D4 in costume on the published evidence; IBKR's cost and unlocks measured
+- kind: kill
+- era: ALPACA
+- date: 2026-10-18
+- figures:
+  - MP2001's index manager net of costs: α t 2.9, β 0.12, and β 0.49 in months below −4% (a short index put) [S]
+  - regex reader right on all fields for 0 of 16 sampled deals; IBKR would short the six munis Alpaca cannot at 0.83–5.15%/yr today; zero trials [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-19-01 · C4's verdict is the corrected book: PASS, with a recorded deviation, paper only and no real-money sleeve
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-19
+- figures:
+  - verdict book: gross SR 1.434, net@15 +0.130; "Stage 9 (net@15 > 0) now passes, so the D2 label does not apply" [S]
+  - paper only because "The grid turns negative by 30bp" and borrow is a single-snapshot counterfactual at 0.000%/yr; measured borrow cost the core 13.11%/yr over 2021-09-14 → 2022-12-30 [V]
+  - "The CEF counter stays at 52" [S]
+- source: `results/cef/C4_RESULT_2026-10-14.md` @ `daac2bb`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-19-02 · Alpaca's end-of-day portfolio history became the paper book's official daily P&L; the 17:30 reading is a labelled snapshot
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-19
+- figures:
+  - on four sessions (2026-09-29, 10-05, 10-07, 10-16) the snapshot "differed from Alpaca's end-of-day change on every day, by tens to hundreds of dollars" [V]
+  - "The end-of-day change agreed with verify's auction-marked score to within fifty cents on every day" [V]
+  - 1D stamps read at 00:00 UTC of the day after the session (2026-10-17T00:00Z carries the 2026-10-16 close) [V]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/REFERENCES.md` @ `1be6750`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §4, §5
+- status: supersedes the 2026-09-28 "Alpaca's paper fill is the official record" reading of E-2026-09-28-04
+
+### E-2026-10-19-03 · HALVE/KILL had been read by no code on the Alpaca path; they were wired in report mode on the official equity series
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-19
+- figures:
+  - "The frozen spec's two drawdown lines were read by no code on the Alpaca path, and the runner never called `risk_check`" [S]
+  - series: Alpaca's end-of-day history in `<state>/eod_equity.csv`; "Absent or unreadable is UNMEASURED; never a fallback" [S]
+  - "An acting mode is not built"; the book json sets `risk.drawdown = report` [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`; `ops/books/cef_discount_book.json` @ `de75da4`
+- supports: §5
+- status: current
+
+### E-2026-10-19-04 · release-20261019-1: the official daily P&L is Alpaca's end-of-day history; the collector writes eod_equity.csv
+- kind: release
+- era: ALPACA
+- date: 2026-10-19
+- figures:
+  - tag message: "Official daily P&L = Alpaca end-of-day history; collector writes eod_equity.csv (team lead ruling 2026-10-19). release-20261014-1 + 64c253b, 109cb2b, abc20b9. Release-check GO." [S]
+- source: `tag:release-20261019-1` @ `abc20b9`
+- supports: §2, §5
+- status: superseded by release-20261019-2 (2026-10-20)
+
+### E-2026-10-19-05 · Appendix — SSX-1: of 57 special-situation candidates, 8 passed a zero-trial gate and 20 were killed
+- kind: kill
+- era: ALPACA
+- date: 2026-10-19
+- figures:
+  - "8 pass a gate" (D1 clustered insider buying, CR15 PFF additions, D9 earnings delay, A2, A1, D6, D8, B4); "20 killed" [S]
+  - "The adversary's base rate: 2 of 207 published predictors pass the desk's D4 as published"; no trial spent [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-20-01 · release-20261019-2 (tagged 2026-10-20): the HALVE/KILL drawdown check in report mode, orders proved unchanged
+- kind: release
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - tag message: "Drawdown check HALVE/KILL in report mode (risk.drawdown = report; orders unchanged, proved); orient official P&L section; equity.csv labelled a snapshot. release-20261019-1 + 97 commits. Release-check GO (wf_2b4ca4ae-f6b)." (ebf1fac, 2026-10-20 11:39:39 −0400) [S]
+- source: `tag:release-20261019-2` @ `ebf1fac`
+- supports: §2, §5
+- status: superseded by release-20261028-1 (2026-10-28)
+
+### E-2026-10-20-02 · Appendix — IBKR as a second broker waits for a trigger: its benefit to the core is small and indistinguishable from zero
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - extreme case f = 1: +0.33%/yr gross (NW t 0.26) on the deployed set, +0.76%/yr (t 0.64) on WIDE; after IBKR's own borrow and commissions +0.12 and +0.09%/yr [V]
+  - VM resize USD 26.86 a month; "52 manual logins a year" [V]
+  - "MHD never cleared the ADV floor before 2023, and MQY did on 3.7% of 2013-06 → 2022 sessions" while the live book holds both short at 13–26% of equity each [V]
+- source: `results/ops/IBKR_WORTH_IT_2026-10-19.md` @ `a255aa7`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5, §6
+- status: current
+
+### E-2026-10-20-03 · Appendix — EVENTS trial 2, NAV tenders: a real gross payoff that costs eat (D2 at stage 3)
+- kind: kill
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - 104 events (96 groups), 2010–22: gross +1.08% per event (cluster t 2.80), above the placebo p95 (+0.74%); net at 15bp +0.59% (t 1.53) [S]
+  - sleeve gross Sharpe 0.450, net 0.381 / 0.244 / 0.037 at 5 / 15 / 30bp; D4 fails (alpha t 1.92, MUNI β 0.17); `_dsr` 0.39 at N = 6 [S]
+  - holdout halted at its own 20% unread gate (14 of 42); paper admission (2026-10-28): gross Sharpe 0.055 on paper's convention, the combined book falls 0.959 → 0.738, "does not qualify" [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/events/NAV_TENDER_RESULT_2026-10-20.md` @ `ac2c7ca`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (D2)
+
+### E-2026-10-20-04 · Appendix — SPAC-DL: the deadline-only SPAC route is a premium in costume (D4), closed at zero trials
+- kind: kill
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - every pre-deal SPAC common 2019–22: alpha 8.93%/yr t 2.18; MKT β 0.090 daily, 0.154 weekly, 0.463 monthly; β 0.53 in months below −4% [S]
+  - −6.6% over bills in Feb–Mar 2020; top 5 names 34% of gross [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (D4)
+
+### E-2026-10-20-05 · Appendix — MA-HZ, merger arbitrage on the completion-hazard hump: mechanism holds, cost marginal; WATCH, then closed UNDERPOWERED
+- kind: kill
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - hump holds on unseen 2001–09 deals (High-week hazard 0.069 vs Low-1 0.025); half-spread drag 202–233bp/yr between the decayed (174) and late-sample (276) gross; P(D4 t ≥ 3) ≈ 1–10% [S]
+  - 2026-10-28: closed UNDERPOWERED, P(pass) ≤ 7% after post-publication decay [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (WATCH → UNDERPOWERED)
+
+### E-2026-10-20-06 · Appendix — A1-ISSUANCE: CEF share issuance at a premium gives no event the z-score misses; closed at zero trials
+- kind: kill
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - 33 programme events in 31 funds, 2008–22; only 7 have a premium path outside the 44; premium +10.9% at the event, live z +2.02 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-20-07 · Appendix — A2-INSIDER: insider buying in CEFs and BDCs is the book's own signal; gate G2 fails
+- kind: kill
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - event z mean −0.35 vs +0.03 for all fund-days; matched on z, 21-session discount excess +0.15pp (t 1.09), price excess +9.5bp (t 0.44), 1,179 events 2006–22 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-20-08 · Appendix — MUNI-HZ (B1, B2): subtract-only muni hazard flags are not worth building, not even in report mode
+- kind: kill
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - B1 fails on its source: EMMA's terms bar monitoring and "the MSRB feed costs $45,000/yr"; N-PORT default flags are quarterly, 54–59 days late [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-22-01 · The book missed 2026-10-22: one late NAV refused all 13 names, because CEFConnect had refused every scripted request since 2026-10-21
+- kind: incident
+- era: ALPACA
+- date: 2026-10-22
+- figures:
+  - "PDO's NAV was late, there was no fallback, and gate 5 refused all 13" [S]
+  - "CEFConnect has refused every scripted request since 2026-10-21 (JSONDecodeError)"; the collector ended INCOMPLETE and the stale-NAV gate could verify nothing (found 2026-10-29) [S]
+  - CEFConnect's terms prohibit automated commercial use (2026-10-19 ruling: options brief first; NAV licensing is upstream, at Nasdaq Fund Network) [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current (answered by the missing-NAV hold, E-2026-10-29-06)
+
+### E-2026-10-22-02 · Appendix — EVENTS trial 1, E1 (the CEF merger pair): Stage 0 cleared on 2026-10-22; the fit's alpha failed D4 on power; parked until real capital
+- kind: kill
+- era: ALPACA
+- date: 2026-10-22
+- figures:
+  - "Stage 0 CLEAR 2026-10-22 at 732fc9d: all seven gates pass" (RESEARCH_STATE ACTIVE row, which still says "The fit has not run") [U]
+  - "muni pair median +167.4bp, t 2.79"; "D4 alpha t 1.90 < 3.0, with max |Σβ| 0.021"; the pre-registration forecast P(alpha t ≥ 3) ≈ 0.28 (DESK_METHOD, citing `E1_RESULT_2026-10-22.md` on branch trial-events-e1, not read here) [U]
+  - record: the later dated DESK_METHOD note and the 2026-10-27 relabel (alpha INCONCLUSIVE); the ACTIVE row is stale [S]
+  - 2026-10-28: "Parked until real capital. No paper account open to the desk processes mergers" [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/research/DESK_METHOD_2026-10-27.md` @ `db88b14`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (D4; evidence INCONCLUSIVE)
+
+### E-2026-10-26-01 · C4's ex-date P&L concentration was MIXED: the drift is generic, and paper overstates C4; the team lead sent C4 to paper anyway
+- kind: result
+- era: ALPACA
+- date: 2026-10-26
+- figures:
+  - ex-date window P&L share: fit 33.1%; holdout 82.1% committed, 52.6% corrected [S]
+  - data causes carry 12.6% of window P&L; once the z-blind ex-date profile is removed, C4's own window excess is t 1.69 against the 2.0 bar [S]
+  - "Paper overstates C4: price-only Sharpe 1.360 vs total return 1.217 on the fit" [S]
+  - ruling: "Proceed anyway (2026-10-26). Paper is scored against a price-only backtest" [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-26-02 · Live session 2026-10-26: PASS, 6 of 6 orders filled; snapshot −$446.70, auction-marked −$520.85
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-26
+- figures:
+  - "PASS, 6 orders, 6 filled. Snapshot −$446.70 gross; auction-marked −$520.85" [V]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4
+- status: superseded by E-2026-11-02-03 (2026-11-02) as a P&L figure; the order count stands
+
+### E-2026-10-26-03 · Appendix — SCR-MACRO-STATE: no fund group's own macro observable changes the within-group IC
+- kind: kill
+- era: ALPACA
+- date: 2026-10-26
+- figures:
+  - no own-observable split reaches |t| 2 on the deployed 13 or the wide 17; within-muni IC holds in every SIFMA state (−0.077 to −0.123, all t ≤ −3.7) [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-26-04 · Appendix — SCR-MACRO-DAYS: discount moves on FOMC, CPI and NFP days do not revert more; the placebo scores more
+- kind: kill
+- era: ALPACA
+- date: 2026-10-26
+- figures:
+  - extra reversion −6.9bp per unit (t −0.36); placebo weeks +19.1 (t +0.97); ordinary-day reversion runs through price (−37.3, t −3.39), not NAV [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-27-01 · C4 goes in its own paper account (the spare connector account), an exception to "one combined book", because one account couples the books
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - "the runner's gates refuse a shared account (`quantt/session/gate.py` gates 6 and 9)" [S]
+  - one account couples the 13 in five places: gate 9, gate 6, gate 5 ("any one missing NAV"), verify's missing print, and `max_gross_stress`'s M_other = $0 [S]
+  - "An enabled C4 entry in the core book json would make the 13's refresh exit 4 every day"; the universes are disjoint (0 of 74 in the core panel [V]) [S]
+  - C4's setup as a set: its own $100k, the spec's vol target, its own gross cap, no CEFConnect (the NAV-repeat mask instead) [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `results/cef/C4_DEPLOY_PLAN_2026-10-27.md` @ `da72ebb`
+- supports: §3, §5
+- status: current; confirmed 2026-11-02 and 2026-11-03 (E-2026-11-02-05, E-2026-11-03-06)
+
+### E-2026-10-27-02 · The 82-kill audit: most kills were sound, but four of seven counted-trial kills since 2026-09-28 had a real gross effect killed by a gate their own power forecast said they would fail
+- kind: method
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - 82 ideas: CORRECT KILL 29, IMPLEMENTATION 26, UNDERPOWERED 20, STANDALONE 3, PROCESS ERROR 1 (C5) [S]
+  - "Four of the seven counted-trial kills since 2026-09-28 (C5, E1, NAV tenders, X3) had a real gross effect that beat its own control or placebo" [S]
+  - named failures: power computed and then ignored; verdicts that name the gate, not the evidence; a passing component dying with a failing expression; sleeves judged alone; a bar stricter than the method it cites [S]
+- source: `results/research/DESK_METHOD_2026-10-27.md` @ `db88b14`
+- supports: §2, §6
+- status: current
+
+### E-2026-10-27-03 · Research-method rulings: evidence outcomes beside every D-code, a power gate in the workflow, paper-only admission by marginal contribution, and the paper's deflated-Sharpe bar once trial series are stored
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - "The workflow stops when any P(pass) is below 0.5, unless overridden" [S]
+  - evidence outcome PRESENT / ABSENT / INCONCLUSIVE; "Only ABSENT justifies 'never re-test without new data'" [S]
+  - admission by marginal contribution: "Allowed, paper only" (SR > ρ·SR_book across ρ's range and the combined net positive across 5/15/30bp) [S]
+  - trial P&L series: "Backfill what is reproducible" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-27-04 · The autonomous research loop: a daily cycle on the laptop that approves its own trials, and the canonical evaluate() restructured into a harness byte-identical on the live book
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - "Who approves a trial: The loop, with no cap"; each trial is counted and stores its daily P&L [S]
+  - `band_frontier.evaluate` delegates to `scripts/research/harness.py`, "byte-identical on the live book" [S]
+  - revised 2026-10-28: the lab uses the spare connector account, which C4 also trades in [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current; the 2026-11-02 autonomy table lists "approving a trial stays the team lead's" as unchanged, which reads against "The loop, with no cap"; not reconciled in the files read
+
+### E-2026-10-27-05 · A "pytest exit 0" had been read through a pipe, so it measured tail's exit; re-verified and corrected
+- kind: correction
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - "commit 7c02236's 'pytest exit 0' had been read through a pipe (`| tail`) ... It was re-verified and corrected in ef6b1b4" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-10-27-06 · Live session 2026-10-27: PASS, 6 of 6 orders filled; snapshot +$251.43, auction-marked +$192.95
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - "PASS, 6 orders, 6 filled. Snapshot +$251.43; auction-marked +$192.95" [V]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4
+- status: superseded by E-2026-11-02-03 (2026-11-02) as a P&L figure; the order count stands
+
+### E-2026-10-27-07 · Appendix — SCR-IDX-REBAL: fund-of-CEF index reconstitution pressure is an artifact when pooled; the placebo scores more
+- kind: kill
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - 137 events ≥ 1 ADV: pressure +50bp (t 2.23), reversal −73bp (t −3.58); the placebo one month earlier +113bp (t 2.87) [S]
+  - PCEF alone +184bp (t 5.5) then −120bp (t −5.6), a post-hoc subgroup [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-27-08 · Appendix — SCR-BDC-DISC: the discount z-score on BDCs is nothing in the tradable set; at ADV ≥ $3m it is short-term reversal
+- kind: kill
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - all 54 BDCs: IC +0.0258 (t 5.14); at ADV ≥ $3m, 2012–17 is null and the 2018–22 NAV term is t 0.48 next to 5-day reversal [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-28-01 · fetch_daily had written yfinance's empty ex-date rows over good bars; prod's panel held 91 empty closes, 24 of them on the live book
+- kind: incident
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - empty rows: "no close, volume 0"; "The laptop's refresh had blanked 15 bars; prod's panel held 91 empty closes (Feb–Apr 2026), 24 of them on the live book" [S]
+  - rulings: fix the fetcher, NAV side included, in one release; repair prod's panel from Alpaca's official closing prints [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-28-02 · release-20261028-1: empty fetched rows and non-finite NAVs are refused (PR #6), release-check GO
+- kind: release
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - tag message: "empty fetched rows and non-finite NAVs are refused (de6e9c5; PR #6; release-check GO 2026-10-28)" [S]
+  - installed 16:30 ET; "Empty price or NAV rows are never merged; NAVs must be finite (and later positive)" [V]
+- source: `tag:release-20261028-1` @ `de6e9c5`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261029-1 (2026-10-29)
+
+### E-2026-10-28-03 · Prod's panel was repaired from Alpaca's closing-auction prints; the day's plan barely moved
+- kind: incident
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - "87 closes filled from Alpaca's closing-auction prints"; one log line per cell [V]
+  - "Measured effect on the day's plan: weights moved ≤ 0.0008, and PTY went flat" [V]
+  - "4 NYSE American cells (DHY, EAD) are left empty. DHY's history is split-adjusted, so a raw print would be 10× off" [V]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-28-04 · The trial-series backfill: EVENTS and XASSET qualify for the paper's deflated-Sharpe bar (with safeguards); CEF stays on the desk's √(2 ln N)
+- kind: method
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - stored: EVENTS 2 of 2, XASSET 4 of 4, CEF 2 of 52 (C5 and C4) [V]
+  - safeguarded hurdles (annualised): EVENTS 0.363 against the desk's 0.530; XASSET 0.337 against 0.435; unfloored, EVENTS would be 0.060 [V]
+  - CEF: "every committed CEF headline before C4 and C5 used data from 2023 on"; trials 1–18 were scored at `shift(1)` [S]
+  - ruling: "The desk's √(2 ln N) on the raw counter, unchanged" for CEF, because 50 of its 52 trials cannot be rebuilt [S]
+- source: `results/research/BACKFILL_TRIAL_SERIES_2026-10-28.md` @ `73324fe`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §6
+- status: current
+
+### E-2026-10-28-05 · Real capital is deferred until Alpaca Canada is approved; paper stays on Alpaca because no paper broker processes corporate actions
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - "Alpaca Clearing & Custody Canada Ltd. is not yet a CIRO Dealer Member" [V]
+  - "IBKR Canada is the only candidate that meets every hard requirement"; it was not chosen [V]
+  - approval "takes at least six months, scope [U]"; re-check each quarter [U]
+  - IBKR paper: "certain corporate actions like dividends and splits won't be processed" [V]
+- source: `results/ops/BROKER_OPTIONS_CANADA_2026-10-28.md` @ `8b180ca`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: supersedes the "real capital soon" row of E-2026-10-09-02
+
+### E-2026-10-28-06 · A corporate-action HALT guard was ruled for the paper runner, because Alpaca paper processes no splits or mergers
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - "paper accounts do not implement any corporate actions such as stock splits or dividends" (Alpaca staff, 2026-07-15) [V]
+  - the session refuses when Alpaca lists a non-dividend corporate action naming a held or targeted name in its window, and when the list cannot be read; modes off / `report` / `halt` [S]
+  - twelve months of the real feed (2025-10-29 → 2026-10-29): 3,443 rows across 13 non-dividend types [V]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`; `docs/REFERENCES.md` @ `1be6750`
+- supports: §5
+- status: current (shipped in report mode, E-2026-11-02-12)
+
+### E-2026-10-28-07 · Live session 2026-10-28: PASS, 10 of 10 filled; the "equity at the close" figure was a 17:10 after-hours read
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - "PASS, 10 orders, 10 filled. Snapshot +$414.46; auction-marked +$421.90" [V]
+  - "Equity $99,528.31 at the close" [U]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4
+- status: superseded by E-2026-11-02-04 (2026-11-02): official close $99,535.06, official day +$421.21
+
+### E-2026-10-28-08 · Appendix — A1-BOOK: the live book's shorts earned more, not less, inside share-issuance windows; blocking them would cost Sharpe
+- kind: kill
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - out − in −0.935bp per short name-day (SE 0.552), INCONCLUSIVE; blocking costs gross Sharpe 0.955 → 0.735 [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current
+
+### E-2026-10-28-09 · Appendix — GAMMA G2 (TLT short-variance) closed UNDERPOWERED with no data pulled; GAMMA stays at 0
+- kind: kill
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - "G2's variance premium is t 1.33 before 2023, which no cost convention makes significant" [S]
+  - the GAMMA holdout was touched before it was opened: on the strict window the upper bound nets −18.9 %² (t −1.12) against −18.4 (t −1.09) [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §6
+- status: current (UNDERPOWERED)
+
+### E-2026-10-29-01 · An order-path defect reached main in PR #20: gate 6 judged order lists read before the corporate-action fetch
+- kind: incident
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - "One GET that exhausts its retries takes about 250 s", so a stall could send on lists minutes old, blind to a set placed meanwhile [S]
+  - "Nothing from `main`'s head is released until it is fixed" (branch `fix-gate6-stale`) [S]
+- source: `docs/RUNNER.md` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: current (fixed in release-20261102-1)
+
+### E-2026-10-29-02 · C4's spec v1 was frozen with its own gross cap, 1.90, derived by the core's Reg T rule; the team lead ruled it is not a trial
+- kind: counter
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - G_stress = 1.900638 → 1.90; w5 = 0.0261393 ending 2008-07-23 (IGR, RQI and RNP short and rising) [S]
+  - the uncapped band "reaches 3.20x and is above 1.90x on 34.1% of fit sessions" [S]
+  - plateau fit gross SR: 1.60 1.247, 1.70 1.233, 1.80 1.217, 1.90 1.200, 2.00 1.185, none 1.137 [S]
+  - "Not counted as a CEF trial: applying a frozen rule with no performance test, unlike trial 50"; CEF stays 52 [S]
+- source: `ops/specs/c4_families.frozen.json` @ `ccf783e`; `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2, §5
+- status: current (spec moved to v2–v4 for trial 53, E-2026-11-02-20)
+
+### E-2026-10-29-03 · C4 step 2: the live sleeve rebuilds trial 52's book on 907 of 907 fit sessions; at the 1.90 cap paper trades a book the trial did not test exactly
+- kind: result
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - "sessions compared 907: trial trades on 829, holds on 78; matched 907 (100.0000%)" at tolerance 1e-12 [S]
+  - spec book (1.90): gross SR 1.200 TR / 1.344 PR; trial book (1.80): 1.217 / 1.360 [S]
+  - re-run on spec v4 (2026-11-02): matched 907 of 907 again [S]
+- source: `results/cef/c4/c4_paper_benchmark_2026-10-29.txt` @ `6f62527`; `results/cef/c4/c4_paper_benchmark_2026-11-02.txt` @ `ccf783e`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-29-04 · The independent risk-split review chose equal risk per account; core + C4 came to about 9% gross on the fit
+- kind: result
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - "Core + C4 is about 9% gross on the fit, with a realistic Sharpe of 1.2–1.5 and P(HALVE in 12m) of 4–6%. Three sleeves is about 10.6% in-sample. Reg T binds before KILL" (journal; its owner, scratchpad `alloc/` and `alloc_review/`, is not committed) [U]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: superseded by the 2026-10-30 sizing ruling (E-2026-10-30-02)
+
+### E-2026-10-29-05 · "Add all 3": C4, the ex-date short as a forward test and PCEF (EVENTS trial 4) were all to go to paper at a full equal-risk share
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - PCEF as "EVENTS trial 4 (N = 8) in a third paper account"; "Its counter moves in the commit that records its pre-registration" [S]
+  - "Full equal-risk share for every sleeve from day one" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §5
+- status: superseded by E-2026-10-30-02 (2026-10-30): core + C4 only; the ex-date short and PCEF built but off
+
+### E-2026-10-29-06 · One missing NAV no longer refuses the book: the fund is held for at most 2 sessions (a policy, not derived) and the rest trade; switched ON the same day
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - limit `data.missing_nav_max_sessions` = 2; "prod's NAV panel (copy of 2026-10-28) shows no gap in 12 months", and PDO's 10-22 gap was one session long [S]
+  - refused as before past `gate.max_missing_nav_holds` = n − `min_names` missing NAVs [S]
+  - "Switched ON 2026-10-29 (`release-20261029-3`)"; the collector records CEFConnect as an unavailable second source [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RUNNER.md` @ `8ce0395`; `ops/books/cef_discount_book.json` @ `de75da4`
+- supports: §2, §5
+- status: current
+
+### E-2026-10-29-07 · release-20261029-1: the multi-sleeve combiner, dark for the one-sleeve book, GO after a first NO-GO on two defects
+- kind: release
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - tag message: "multi-sleeve combiner, dark for the one-sleeve book; stale-NAV gate on fetch exit 4; overlapping universes refused (bd87144; PR #19; release-check GO 2026-10-28)" [S]
+  - "The first release-check was NO-GO on two defects, both fixed"; installed 10:36 ET [V]
+- source: `tag:release-20261029-1` @ `bd87144`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261029-2 (2026-10-29)
+
+### E-2026-10-29-08 · release-20261029-2: the missing-NAV hold built dark, CEFConnect-down status and NYSE American/Nasdaq official closes; both reviewers GO
+- kind: release
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - tag message: "missing-NAV hold for gate 5 (dark, data.missing_nav) with a 2-session limit and the min_names refusal; collector reports CEFConnect down; NYSE American and Nasdaq official closes; C4 sleeve keys (no-op when absent). PR #21. quant-reviewer GO ... + execution-trader GO (run separately after the workflow failed to start it)" [S]
+  - installed 19:04 ET [V]
+- source: `tag:release-20261029-2` @ `5e627ff`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261029-3 (2026-10-29)
+
+### E-2026-10-29-09 · release-20261029-3: the missing-NAV hold switched ON, deliberately excluding PR #20's corporate-action gate; the VM armed at it
+- kind: release
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - tag message: "missing-NAV hold ON (data.missing_nav hold, missing_nav_max_sessions 2; team lead 2026-10-29). Book json + one test only over release-20261029-2; excludes PR #20's corporate-action gate (merged later, NO-GO). quant-reviewer GO (wf 2026-10-29 on cee16ad) + execution-trader GO (separate run)" [S]
+  - every release that day "passed a release-check (both reviewers) and a history replay (0 new refusals), and was applied with `--armed`"; installed 20:20 ET [V]
+- source: `tag:release-20261029-3` @ `cee16ad`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261102-1 (2026-11-02)
+
+### E-2026-10-29-10 · The corporate-action gate's windows and malformed rows were ruled: two windows, and a malformed row is skipped and recorded unless it could be ours
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - a merger acquirer and a process-date-only match use the short window `(as-of, session]`; every other role keeps the long window back to when the name's shares were last set [S]
+  - "Skip it, and record it, unless it could concern one of our funds; refuse only then" [S]
+  - a stuck backfilled action "clears by the team lead's recorded acknowledgement of that action ID only (`ca-ack` CLI, logged)" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: current (the missing-party case was re-ruled on 2026-11-02, E-2026-11-02-01)
+
+### E-2026-10-29-11 · Live session 2026-10-29: PASS, 3 of 3 filled; the "equity at the close" figure was again a 17:10 read
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - "PASS, 3 orders, 3 filled. Snapshot +$78.64; auction-marked −$13.43" [V]
+  - "Equity $99,530.59 at the close" [U]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4
+- status: superseded by E-2026-11-02-04 (2026-11-02): official close $99,521.57, official day −$13.49
+
+### E-2026-10-29-12 · Appendix — EVENTS trial 3, the post-ex-date short: passes D4 on the full 2005–22 fit but every era fails alone; kept built and off as a forward test
+- kind: kill
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - approved 2026-10-27 at N = 7, bar √(2 ln 7) = 1.973; part (a) withdrawn on power (expected t 0.80) [S]
+  - full fit: "+11.6bp per event, t 3.87, alpha t 4.57, rate betas ≈ −0.05. Every 3.8-year era fails D4 on its own"; amendment 1 (a duration hedge) was worse and withdrawn [S]
+  - Stage 0 CLEAR on 649 events; `open` (the sealed 2023+ test) waits on French's 202610 vintage; not run [S]
+  - 2026-10-30: built but off, "because they lower the percentage" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (no verdict; forward test, off)
+
+### E-2026-10-29-13 · Appendix — EVENTS trial 4, PCEF reconstitution: approved, weakly powered, built and kept off; its counter never moved
+- kind: kill
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - "PCEF pre-registration drafted: about 23 test events, so power is weak" [S]
+  - EVENTS counter reads 3 at 5dbd739; the PCEF pre-registration is not on main [S]
+  - 2026-10-30: "PCEF's $100k sits idle on 93% of days"; built but off [U]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current (off; no verdict)
+
+### E-2026-10-30-01 · Four sleeves across three $100k accounts would give only about 6.1%/yr gross; core + C4 gives about 9%
+- kind: result
+- era: ALPACA
+- date: 2026-10-30
+- figures:
+  - "The four-sleeve, three-account split (zero trials, fit) gives 6.1%/yr gross at full equal shares. Reg T caps each account, and PCEF's $100k sits idle on 93% of days. Core + C4 gives about 9%" (journal; owner scratchpad `alloc4/NOTE.md`, not committed) [U]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: current
+
+### E-2026-10-30-02 · The book optimises % return on all capital: core + C4 only, the ex-date short and PCEF built but off, and the core's vol-target raise pre-registered as trial 53
+- kind: ruling
+- era: ALPACA
+- date: 2026-10-30
+- figures:
+  - "Core + C4 at their per-account equal-risk multipliers (core ×1.24, C4 ×1.41, 5.75% combined target; about 9% gross on the fit)" [S]
+  - "C4's HALVE/KILL drawdown levels: The core's levels, in report mode" [S]
+  - "Invesco gave written consent" for PCEF holdings (team lead, 2026-10-30) [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4, §5
+- status: supersedes E-2026-10-29-05; the multipliers were superseded by trial 53's approval (E-2026-11-01-01)
+
+### E-2026-10-30-03 · The corporate-action gate's release-check found a second order-path defect: rows with a null id were de-duplicated as one
+- kind: incident
+- era: ALPACA
+- date: 2026-10-30
+- figures:
+  - "two rows with `id: null` counted as one, and the second was dropped. In the reviewer's probe that was a split effective on the session date, and the gate read CLEAR under `halt`" (release-check of 9630322) [S]
+- source: `docs/RUNNER.md` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §5
+- status: current (fixed from 9cf5cf2)
+
+### E-2026-10-30-04 · Live session 2026-10-30, the first with the missing-NAV hold on: PASS, 7 of 7 filled
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-30
+- figures:
+  - "2026-10-30 PASS, 7 orders, 7 filled (the first session with the missing-NAV hold on)" [V]
+  - "Equity $99,124.35 at the close" [U]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4
+- status: superseded by E-2026-11-02-04 (2026-11-02): official close $99,017.86, official day −$503.71
+
+### E-2026-11-01-01 · CEF 52 → 53: the vol-target raise was approved at the milder pair, core ×1.13 and C4 ×1.27, through a new `sizing_multiplier` key; spec v8 activated
+- kind: counter
+- era: ALPACA
+- date: 2026-11-01
+- figures:
+  - derived 1.1357 / 1.2712 at a 5.25% combined target, rounded down to 1.13 / 1.27; chosen over the draft's ×1.24 / ×1.39 at 5.75% [V]
+  - "Judged at N = 53, bar √(2 ln 53) = 2.818"; the raise claims no Sharpe and is judged by its stops [S]
+  - expected (fit, model): combined 8.50%/yr TR, 9.18% PR, Sharpe 1.681 / 1.756; net +6.63 / +2.88 / −2.73 %/yr at 5 / 15 / 30bp [V]
+  - core account P(HALVE, 12m, zero edge, through 2008) 7.2 / 15.2 / 51.4% (min/median/max); C4 16.3% [V]
+  - stops at approval: core R1 11.17%, R2 −3.52%, R3 12.12% [V]
+  - framework gate on a vol increase "Waived for paper only ... Never for real money"; core activation eca5feb (v7 → v8) [S]
+- source: `results/cef/PREREG_VOLTARGET_2026-10-30.md` @ `debb128`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by E-2026-11-02-17 (2026-11-02) in its multipliers and stops; the trial and its key stand
+
+### E-2026-11-01-02 · The core's 2023+ is not sealed: its 2024–26 returns were opened on 2026-07-31 and the v7 pre-registration computed 2013-06-14 → 2026-09-21
+- kind: correction
+- era: ALPACA
+- date: 2026-11-01
+- figures:
+  - "its 2024-01-01 → 2026-07-30 returns were opened on 2026-07-31 (`pre-clean-slate:results/cef/HOLDOUT_OPENED.json`, FAIL on net, for z 63)" [S]
+  - "the v7 pre-registration then computed the deployed book over 2013-06-14 → 2026-09-21" [S]
+  - "Treat the core's 2023+ as seen. The rule still holds for any book whose 2023+ has not been computed" [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §2, §5
+- status: supersedes the 2026-10-09 "2023-01-01 time holdout stays sealed" as applied to the core
+
+### E-2026-11-01-03 · After two more corporate-action NO-GOs, "any null party symbol refuses" was recorded as a team-lead ruling; it was not one
+- kind: correction
+- era: ALPACA
+- date: 2026-11-01
+- figures:
+  - release-checks NO-GO on 10-30 (null `id` de-duplication) and 11-01 (null subject, then null acquirer, skipped as "not ours") [S]
+  - the rule was recorded on 2026-11-01 as "any null party symbol refuses" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §5
+- status: superseded by E-2026-11-02-01 (2026-11-02)
+
+### E-2026-11-02-01 · The null-party rule was corrected: a row with a missing party symbol halts only where a well-formed row would halt for one of our held funds, and ca-ack clears it on its full content
+- kind: correction
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - the 2026-11-01 "any null party refuses" rule "would stop the book indefinitely: one malformed row anywhere in the market halts every session, and `ca-ack` could not clear it" (release-check of 709d6cb) [S]
+  - "It was the agent's reading of ruling A, so it is corrected in place in `docs/SYSTEM.md` §5" [S]
+  - team lead, 2026-11-02: it halts only "when a well-formed row with the same type and dates would halt for one of our held funds"; outside those windows it is recorded only [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §5
+- status: supersedes E-2026-11-01-03
+
+### E-2026-11-02-02 · The corporate-action reader now validates every field; the journal and the runner design give different failure counts for the property test on 1c64638
+- kind: correction
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "A property test (4,598 adversarial cases) fails 794 on 1c64638 and 0 on a40170c" (JOURNAL.md) [U]
+  - "On 1c64638 the property test fails 2026 of its 4598 cases; 794 of those raise" (RUNNER.md) [U]
+  - record: RUNNER.md, the design that owns the gate; the journal says "It owns nothing ... If this journal and an owner disagree, the owner is right" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-11-02-03 · Reconciled against Alpaca's official closes, the desk's own records had flattered the account: the 17:30 snapshot ran $560 too favourable over 10-07..10-30
+- kind: correction
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - 10-07..10-30 total: Alpaca official end-of-day (the P&L of record) −$1,794.53 [U]
+  - same window: auction-marked score −$1,789.74 ($4.79 from official; never more than $0.69 on a day) [U]
+  - same window: 17:30 snapshot (`alpaca_equity_change_usd`) −$1,234.29, "+$560.24: after-hours marks" [U]
+  - record: Alpaca official end-of-day history (the broker, SYSTEM.md §0 rank 1; team lead ruling 2026-10-19) [S]
+  - `equity.csv`'s 17:10 read differs from the official close by $52.88 a day on average, at most $332.00 (10-09) [S]
+  - "This journal's 10-26..10-30 snapshots sum to −$89.05; official is −$424.44" [S]
+  - "Official total since $100,000, to the 10-30 close: −$982.14" [V]
+  - days with no score at all, 2026-09-30..10-02 and 10-06: official −$192.97, +$626.70, $0.00, +$252.63 [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4, §5
+- status: supersedes the snapshot figures of E-2026-10-26-02 and E-2026-10-27-06 as P&L
+
+### E-2026-11-02-04 · The journal's "equity at the close" for 10-28, 10-29 and 10-30 were 17:10 ET after-hours reads; the official closes differ
+- kind: correction
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - 10-28: $99,528.31 (17:10 read) against the official close $99,535.06; official day +$421.21 [U]
+  - 10-29: $99,530.59 (17:10 read) against $99,521.57; official day −$13.49 [U]
+  - 10-30: $99,124.35 (17:10 read) against $99,017.86; official day −$503.71 [U]
+  - record: the official close (Alpaca end-of-day history, the broker) [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §4
+- status: supersedes the equity figures in E-2026-10-28-07, E-2026-10-29-11, E-2026-10-30-04
+
+### E-2026-11-02-05 · Trial 53 ships tonight even if the gate fails review, and C4 uses the existing spare account: no new account, and not inside the core's
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "if the gate fails its release-check, the book runs with `corporate_actions` in report mode (records, does not block). Prod had no gate at all before this" [S]
+  - C4 inside the core's account was declined: "shared gross cap, the combiner cannot yet run with the missing-NAV hold, and the trial-53 sizing assumes two accounts" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-11-02-06 · The release-check of 3478159 was NO-GO on three market-wide unresolved rows; the corporate-action gate shipped in report mode under the fallback ruling
+- kind: incident
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "Today's real feed carries three market-wide rows with a missing party symbol: a partial call, an SNTI spin-off and a JAGX merger"; under halt each halts for every held fund [S]
+  - "`ca-ack` could write a file the gate then rejects"; "Two no-op pins still skipped on the v7 hash" [S]
+  - book json `corporate_actions.mode = report` at release; the bond-ISIN misread must be fixed before it returns to `halt` [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `ops/books/cef_discount_book.json` @ `de75da4`
+- supports: §5
+- status: current
+
+### E-2026-11-02-07 · Alpaca's winter end-of-day stamps are 01:00Z, which the client refused; from 11-02 the official P&L would have stayed PENDING
+- kind: incident
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "Alpaca's winter end-of-day stamps are 01:00Z (20:00 EST), and the client accepted only 00:00Z" [S]
+  - "prices and NAVs are unaffected, since collector steps are independent. Fixed in this release" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/REFERENCES.md` @ `1be6750`
+- supports: §5
+- status: current
+
+### E-2026-11-02-08 · Paper does charge SEC and CAT regulatory fees on this account, contradicting CLAUDE.md landmine 1; the team lead deferred the correction
+- kind: correction
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - CLAUDE.md landmine 1: paper charges "no borrow, no dividends and no regulatory fees [V: docs]" [U]
+  - broker: "GET /v2/account/activities/FEE lists 37 REG (SEC) and CAT rows, summing to −6.16" over 09-29..10-30; the per-session totals equal the modelled fees on 34 of 34 sessions [U]
+  - record: the broker's FEE activities (SYSTEM.md §0 rank 1); "The paper-fees correction ... Not yet (2026-11-02)" [S]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `32d9961`; `CLAUDE.md` @ `9cd5951`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-02-09 · Live attribution 09-29 → 10-30: the signal's discount leg earned +$1,583; unchosen NAV exposure, mostly the muni shorts, lost −$2,251
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - official EOD equity change 09-28 close → 10-30 close −982.14 USD; rebuilt hold + fill + fees −982.14; largest single-session residual 0.00 over 34 sessions [V]
+  - hold −667.27 = NAV part −2,250.74 + discount part +1,583.47 USD [V]
+  - muni group NAV part −1,849.36 USD (short MQY/MHD), after 10-13 [V]
+  - fill against that day's close −308.71 USD (−5.5bp) on $558,926.55 traded; regulatory fees −6.16 [V]
+  - distributions paper did not book +320.85 USD (long +956.04, short −635.19) [V]
+  - EOD equity peak 2026-10-12, 101,474.24; 10-13..10-30 fill −9.5bp [V]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `32d9961`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-02-10 · Live fill cost and live turnover: two zero-trial notes measure them on different windows and reach different readings
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - fill vs close −5.5bp on $558,926.55 traded, 09-29..10-30 (LIVE_ATTRIBUTION, reconciled to the official EOD to $0.00) [U]
+  - "The late-market fill cost (5.1bp vs close) is the quoted half-spread (6.2bp) less about 1bp of drift"; "The live account traded $570,482 in 20 sessions on about $100,000: 5.7× capital", against the fit's 20-session 95th percentile 4.42× (UNIQUE_ANGLES) [U]
+  - "The live rate of about 58.7/yr [U] ... matches the policy's trailing-year rate: 57.2/yr"; "I found no sign that the live book trades more than the policy" (turnover-live) [U]
+  - record: for fill cost, LIVE_ATTRIBUTION (broker-reconciled); for turnover neither is a broker figure, and the two compare against different baselines (fit windows vs the policy's trailing year) [S]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `32d9961`; `results/cef/screens_2026-11-02/UNIQUE_ANGLES.md` @ `69609e6`; `results/backtests/turnover-live-2026-11-02/REPORT.md` @ `32f69df`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-02-11 · The canonical harness holds the last target on thin sessions where the live sleeve flattens, so the fit-era cost case for the live policy was weaker than stated
+- kind: correction
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "Thin, held books earn 3,484 of the 4,531 fit-period P&L days"; they carry 1.41 of the fit period's 3.29%/yr [V]
+  - under the live flatten rule, "Fit break-even is 18.6bp, against 45.8bp on the hold book. H13 break-even is 23.8bp under either rule" [V]
+  - "There has been no thin session since 2026-09-28" [V]
+- source: `results/backtests/turnover-live-2026-11-02/REPORT.md` @ `32f69df`
+- supports: §2, §5
+- status: current (fed trial 53 amendment 1, E-2026-11-02-17, and trial 55)
+
+### E-2026-11-02-12 · release-20261102-1: CEF trial 53 live at ×1.13 (spec v8), the corporate-action gate in report mode, the gate-6 fix and the winter stamp fix; GO after six NO-GOs
+- kind: release
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - tag message: "CEF trial 53 (spec cef_discount.v8.20261101, sizing_multiplier 1.13); corporate-action gate in report mode; gate-6 fresh reads; winter EOD stamps" (f83b2a3; PR #28, merged as 862b1d0) [S]
+  - "The release-check was GO on f83b2a3, after NO-GOs on 9630322, 9cf5cf2, 04aca24, 709d6cb, 1c64638 and 3478159" [V]
+  - "History replay: 67 runs, 0 refused now. Dry run clean. Applied with `--armed`"; first decided at the 22:00 ET slot [V]
+  - main's CI had been red since 2026-10-29 on a research test needing `arch`; PR #29 (26ed351) made it green [S]
+- source: `tag:release-20261102-1` @ `f83b2a3`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261103-1 (2026-11-03)
+
+### E-2026-11-02-13 · Autonomy: agents may run releases and arming end to end when every gate passes; the journal is the only notice
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "Do the trades need the team lead's approval? No, and they never did. The VM has been armed since 2026-10-08" [S]
+  - unchanged: `DRY_RUN=1` set by the team lead wins; credentials are never read or moved; "approving a trial stays the team lead's" [S]
+  - agents merge "with `--admin`, only after CI has passed on the PR's exact head" [S]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-11-02-14 · Two accounts as one portfolio: arming C4 is the largest available gain, about +6%/yr gross on all capital, and the accounts are uncorrelated
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - arm C4 at ×1.27: +6.0 / +5.4 %/yr gross on all capital (PR / TR, W1); combined Sharpe 0.97 → 1.84 PR; net +4.5 / +1.5 / −3.1 at 5 / 15 / 30bp, flips [V]
+  - daily ρ core–C4, W1 2013-06 → 2022: +0.011 (−0.029, +0.055) [V]
+  - "Reg T's 2× never binds"; joint re-split +0.07 / +0.10, "On a plateau and inside the noise" [V]
+  - "The fit's core book never held the muni group": MHD clears the ADV floor on 0% of W1 sessions [V]
+- source: `results/cef/screens_2026-11-02/PM_TWO_ACCOUNTS.md` @ `69609e6`
+- supports: §2, §3, §5
+- status: current
+
+### E-2026-11-02-15 · Thin sessions: the harness's hold rule out-earned the live flatten rule on the fit, but the gap is one name, ten days and one stretch, not alpha
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - hold − flatten, fit before 2023: +1.71pp/yr (NW t 2.13); 2015–19 +4.76 (1.81); H13 2023 on −0.02 (−0.03) [V]
+  - "Take PHK's own P&L out of the gap and the fit edge falls from 1.71 to 0.58pp/yr (t 0.87)" [V]
+  - "The ten best days of the gap in 2015-19 sum to 23.77pp, against an era total of 23.74pp" [V]
+  - report labelled 2026-11-03, committed 2026-11-02 21:44 −0500 (c7a1635) [S]
+- source: `results/backtests/thin-days-2026-11-03/REPORT.md` @ `c7a1635`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-02-16 · Trial 53 re-measured on the live flatten rule: the core is flat on 56% of W1, and the same sizing rule on the sessions it trades gives ×1.30
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "W1 sessions on which the core earns: 1,045 of 2,398 (43.6%)" [V]
+  - core unit daily sd: hold 0.004095; flatten 0.002351 calendar, 0.003556 on earning sessions [V]
+  - the rule literally (calendar sd): core 1.9675 → 1.96, C4 1.2642 → 1.26; on earning sessions: core 1.3007 → 1.30 [V]
+  - at ×1.13 on earning sessions zero-edge P(HALVE) / P(KILL) 10.3% / 0.66% against 15.9% / 1.5% approved on the hold book [V]
+  - the hold-calibrated stops under-fire while the book trades: 0.4% (R1), 3.1% (R2), 3.6% (R3) against a 5% design [V]
+  - the note recommended keeping ×1.13 and amending only the stops; ×1.30 was "The team lead's alternative" [S]
+- source: `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md` @ `50af817`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-02-17 · Trial 53 amendment 1: core ×1.13 → ×1.30 (spec v9), C4 ×1.27 → ×1.26 (spec v4), the core's stops recalibrated; CEF stays 53
+- kind: counter
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - approved "about 22:00 ET"; "It is an amendment, NOT a new trial: CEF stays 53"; bar stays 2.818 [S]
+  - while trading at ×1.30, zero-edge P(HALVE) / P(KILL) in 12 months 16.7% / 1.68% [V]
+  - new core stops R1 10.14%, R2 −3.06%, R3 12.07%; C4 at ×1.26 R1 10.04%, R2 −3.02%, R3 9.90% [V]
+  - expected core account: 3.78%/yr over the calendar and 8.67%/yr while trading (SR 1.222); combined +0.21pp/yr (model) [V]
+  - the literal ×1.96 "was not chosen"; activation commits 82a30f6 (core v8 → v9) and ccf783e (C4 v3 → v4) [S]
+- source: `results/cef/PREREG_VOLTARGET_2026-10-30.md` @ `debb128`; `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `git-log:ops/specs/` (commit subjects 82a30f6, ccf783e) @ `ccf783e`
+- supports: §2, §5
+- status: supersedes the values of E-2026-11-01-01
+
+### E-2026-11-02-18 · C4's corporate-action halt was measured on today's unresolved rows; C4's gate was ruled into report mode, as the core's
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - on a replica of the three unresolved rows "a flat C4 book is refused only on 11-03 (the JAGX merger); a held one on every session" [S]
+  - on every unresolved row in the day's read "a flat book would have been refused on 17 of the 23 sessions from 10-01 to 11-02 [U: feed as read today]" [U]
+  - ruled: "C4's gate runs in REPORT, as the core, until the ISIN fix and the re-ruling of the unresolved rows land" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5
+- status: current
+
+### E-2026-11-02-19 · The release-check of 8b14298 was NO-GO: C4 could decide on an unruled spike bar on a day with a late NAV; fixed by exit-code precedence
+- kind: incident
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "C4's fetch exited 4 (INCOMPLETE) over 6 (unruled spike), and C4's missing-NAV hold accepts 4 at the final check"; now 6 outranks 4 [S]
+  - "The core runs no spike guard: its fetch is still proved byte-identical to cee16ad's" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-11-02-20 · C4's spec moved v1 → v4 before arming: ×1.27 (v2), the core's halve/kill levels in report (v3), ×1.26 (v4)
+- kind: counter
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - v2.20261101: `sizing_multiplier` 1.27 (3961ba7); v3.20261102: the core's halve/kill levels, report only (8c92088); v4.20261102: 1.26 (ccf783e) [S]
+  - at 1.26 (fit only): W1 10.05%/yr total return, SR 1.449; at the cap's decided-gross line on 46.2% of W1 sessions; zero-edge P(HALVE) 15.95%, P(KILL) 1.52% through 2008 [S]
+  - "The unit book's effective cap is 1.90 / 1.26 = 1.508"; effective ex-ante vol target 0.06 × 1.26 = 7.56% [S]
+  - C4 spends no trial; "the CEF counter is 53 because of trial 53, not C4" [S]
+- source: `ops/specs/c4_families.frozen.json` @ `ccf783e`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` @ `8ce0395`; `git-log:ops/specs/` (commit subjects 3961ba7, 8c92088, ccf783e) @ `ccf783e`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-02-21 · The research loop's standing exception lets it trade in the same spare account C4 will use; the account read flat, and the loop must be confirmed off before C4 arms
+- kind: incident
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "That account is flat today [V, connector read: $100,000 cash, no positions]" [V]
+  - "The repository has no lab book today (`BOOKS` holds `cef` and `c4` only), and the loop's wrapper denies `python3 -m quantt.session` and holds no key file" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-11-02-22 · The 2026-11-02 alpha slate found one signal to pursue: C4's discount level against its family peers, which the z-score cannot see; it went to a pre-registration
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - S5-C4 (monthly, yfinance leg, fit only): book gross SR +1.12, 5.77%/yr, turn 5.4; net +1.06 / +0.96 / +0.80 at 5/15/30bp, no flip [S]
+  - NC1 NAV leg −0.26bp/pp (t −0.32); placebo 20 of 20; corr with C4's z book +0.10; "Equal-risk blend SR 1.52 vs z alone 1.13" [S]
+  - the same signal on the credit names fails its own control: NAV leg +1.17bp/pp (t 3.01) [S]
+  - expected "+0.4 to +1.0%/yr [model, U]", corrected from +0.8 to +1.5 once the shared 1.90 cap was measured [U]
+  - ruling: "The C4 family-level discount signal only" goes to a pre-registration; Gate 0 (survivorship with dead funds) before any 2023+ return [S]
+- source: `results/cef/screens_2026-11-02/ALPHA_SLATE.md` @ `4ed3c04`; `docs/SYSTEM.md` @ `4ed3c04`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §6
+- status: current
+
+### E-2026-11-02-23 · Gate 0 became a post-data judgment ("keep it flexible and make judgment off results"); the first CRSP pull was too thin to test survivorship
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "A gate decided after its data have been seen is not a pre-registered gate ... It cannot claim a pre-registered pass" [S]
+  - pull 1: 1,003 CEF permnos; "0 of 36 matches are on CUSIP. 34 are recycled tickers"; only 2 genuine, 9 fund-half-years [S]
+  - survivors' semiannual slope b_A −27.24bp/pp (t −4.55); with pull 1's NAVs P(flag | halving) = 0.00 [S]
+- source: `results/cef/PREREG_C4_LEVEL_2026-11-02.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-02-24 · Appendix — the rest of the 2026-11-02 alpha slate: tax-loss on WATCH; distribution cuts, lead-lag, fast/slow z and own-name corporate events killed
+- kind: kill
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - S1 tax-loss WATCH: discount leg t 3.54, but tradable price TR +191 (t 1.25); P(pass) 0.06 [S]
+  - S2 distribution cuts KILL as a sleeve (D2): cut-book gross SR 0.33, net 0.20 / −0.06 / −0.45 [S]
+  - S3 lead-lag KILL (D1): wrong sign, −40bp per pp (t −2.16) [S]
+  - S4 fast + slow z KILL (graveyard `z_window = 63`); S6 own-name events KILL (D7): 0 NAV tenders on the deployed 13, 2005–22 [S]
+- source: `results/cef/screens_2026-11-02/ALPHA_SLATE.md` @ `4ed3c04`
+- supports: §6
+- status: current
+
+### E-2026-11-02-25 · Appendix — the 2026-11-02 unique angles: turn-of-month found post hoc and left on WATCH; the NAV drag, muni recall, bond holidays and leverage cost killed; paper scoring an artefact
+- kind: kill
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - F turn-of-month: +54.6bp a month, t 5.06 (CRSP, 187 months), placebo 10 sessions earlier −42.4bp (t −3.28); "a hypothesis found after the fit was seen, not evidence"; WATCH by ruling until a test anchored on pay dates [S]
+  - A NAV drag KILL: the NAV part is unpriced, −0.27%/yr (t −0.36), against the discount part's +6.70%/yr (t 3.29) [S]
+  - E bond holidays KILL: 0.17% of fit turnover; D leverage cost KILL: +0.61 (t 1.20), the wrong sign; C muni recall KILL: +0.003 (t 0.08) [S]
+  - B paper scoring: PAPER ARTEFACT; the distribution leg averages −0.21%/yr (t −0.65) on the fit [S]
+- source: `results/cef/screens_2026-11-02/UNIQUE_ANGLES.md` @ `69609e6`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §6
+- status: current
+
+### E-2026-11-02-26 · Appendix — NAV-HEDGE-1: an ETF overlay to hedge the core's NAV moves was closed at the power gate (UNDERPOWERED), zero trials
+- kind: kill
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "P(pass) 0.07–0.11 one-sided at the factor R² 0.011–0.074 on record, and it cannot raise return on capital under Reg T"; replaced by a report-only exposure readout [S]
+- source: `docs/RESEARCH_STATE.md` @ `5dbd739`; `docs/SYSTEM.md` @ `4ed3c04`
+- supports: §5, §6
+- status: current
+
+### E-2026-11-02-27 · Paper fills cost 10.8bp against the 15:50 mid: about 6.2bp half-spread at the fill and 4.6bp mid drift to 15:52
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - scope 344 fills, 2026-09-29..2026-11-02, 20 sessions, 13 names [V]
+  - 99.4% of fills in the 15:52 ET minute (paper late_market); earliest 15:52:02, latest 15:59:58 [V]
+  - A (fill vs 15:50 mid) 10.76bp, notional-weighted, positive = worse [V]
+  - B (fill vs close) 5.1bp; C (15:50 mid to close, in trade direction) 5.67bp; A = B + C asserted [V]
+  - D (15:50 mid to fill-time mid) 4.6bp; E (fill vs fill-time mid, effective half-spread) 6.16bp [V]
+  - buys A 14.97bp against sells 6.59bp [V]
+- source: `results/cef/FILL_DRIFT_2026-11-02.md` @ `45b7c9d`; `results/cef/fill_drift_2026-11-02/aggregates_2026-11-02.json` @ `45b7c9d`
+- supports: §4, §3
+- status: current (report only, zero trials; twenty sessions, no cell is a tested effect)
+
+### E-2026-11-02-28 · The fill-vs-close cost splits by period: zero to 2026-10-12, 8.6bp from 2026-10-13, because the post-15:50 market move stopped running against the book
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - to 10-12: 97 fills, B −0bp, C 12.64bp, A 12.64bp [V]
+  - 10-13 on: 247 fills, B 8.63bp, C 0.83bp, A 9.46bp [V]
+  - over the 338 fills to 10-30, B in USD is a $308.71 cost, equal to the live attribution's fill line −$308.71 [V]
+- source: `results/cef/FILL_DRIFT_2026-11-02.md` @ `45b7c9d`; `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `9bd43ad`
+- supports: §4
+- status: current
+
+### E-2026-11-02-29 · No evidence that the pre-15:50 move predicts the fill cost or the move to the close (127 symbol-days)
+- kind: result
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - difference (+1 minus −1), clustered by date over 17 days: B 2.95bp (t 0.55), C 0.03bp (t 0.0) [V]
+  - Spearman over 127 symbol-days: x vs B 0.009, x vs C 0.061 [V]
+- source: `results/cef/FILL_DRIFT_2026-11-02.md` @ `45b7c9d`
+- supports: §4, §3
+- status: current (INCONCLUSIVE at this sample)
+
+### E-2026-11-03-01 · release-20261103-1: trial 53 amendment 1 (core ×1.30, spec v9) with C4 integrated dark (spec v4, ×1.26); GO for the core only
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag message: "CEF trial 53 amendment 1: core sizing_multiplier 1.30 (cef_discount.v9.20261102); C4 integrated dark (c4_families.v4.20261102, x1.26)" (336df9d, 2026-11-03 02:14:36 −0500; merged to main as f27ef81, PR #36) [S]
+  - "That release was GO for the core only" [S]
+  - whether it was installed on the VM is not recorded in the files read [U]
+- source: `tag:release-20261103-1` @ `336df9d`; `git-log:f27ef81` (merge subject, PR #36) @ `f27ef81`; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261103-2 (2026-11-03)
+
+### E-2026-11-03-02 · A third thin-session rule, trading the 4 or 5 eligible names, scored the highest gross return in every window but was not shown to be alpha
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - gross ann %, fit before 2023 (instant / deferred flips): hold 3.29 / 3.16, flatten (live) 1.58 / 1.46, te4 5.77 / 5.35 [V]
+  - at matched turnover (H2) the gap over flatten is +2.13pp/yr, NW t 2.34, under the bar of 2.818; `read_result` INCONCLUSIVE, interval [−0.87, +5.14] [V]
+  - "Take PHK's and PDI's own P&L out, and the fit gap is +1.08 (t 1.43)"; the six PIMCO funds carry +3.63 of the +4.19pp/yr [V]
+  - 2023 holdout gap +0.87pp/yr (t 0.72); net of measured 2023+ borrow −2.33pp/yr [V]
+  - "There has been no thin session since 2023-08-30" [V]
+- source: `results/backtests/thin-third-rule-2026-11-03/REPORT.md` @ `9245459`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-03-03 · Gate 0 evidence for trial 54: dead CEFs show the family-level discount effect at least as strongly as survivors, so survivorship does not explain it
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - pull 2 (EDGAR N-CSR): 1,795 NAVs for 148 of 190 dead candidates; coverage 0.642, below the 80% reference [V]
+  - slopes (bp per pp, half-year-clustered t): b_A −27.35 (t −4.96) on 65 funds; b_D −37.19 (t −6.48) on 133; b_B −32.90 (t −7.55) [V]
+  - b_D/b_A +1.360, 95% CI 0.799–2.127 by fund-half-year, 0.946–2.321 by calendar half-year; b_B/b_A +1.203 (0.955–1.542) [V]
+  - dead-only slope negative in 30 of 33 half-years; P(b_D ≥ 0) 0.000 [V]
+  - the 42 never-covered funds earned −1,535bp against covered dead funds in their last year (t −2.70); the adverse imputation still gives b_B/b_A 1.031 [V]
+- source: `results/cef/screens_2026-11-02/gate0_analysis_output.txt` @ `389f61a`; `results/cef/PREREG_C4_LEVEL_2026-11-02.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current (post-data evidence, not a pre-registered pass)
+
+### E-2026-11-03-04 · release-20261103-2: C4 arming prep — the opening-session probe, specs named everywhere, and a C4 install that scans every book's units
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag message: "C4 arming prep (QR1 opening-session probe, QR3 book text, ET1 C4 unit scan); core order path unchanged since release-20261103-1" (de75da4; merged as f7f7be5, PR #37) [S]
+  - QR1: in the shared spare account a past fill "would open C4 at the band edge: 28–42% of target, net long" [V]
+  - release-check of de75da4: verdict word not recorded; it "left" R1 (the first-session gate in code) [U]
+- source: `tag:release-20261103-2` @ `de75da4`; `git-log:f7f7be5` (merge subject, PR #37) @ `f7f7be5`; `docs/JOURNAL.md` @ `8ce0395`; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261103-3 (2026-11-03)
+
+### E-2026-11-03-05 · The journal and the C4 checklist had named f27ef81 as release-20261103-1; the tag's commit is 336df9d
+- kind: correction
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - "this line first said f27ef81 = release-20261103-1, but `git rev-parse release-20261103-1^{commit}` is 336df9d" [S]
+- source: `docs/JOURNAL.md` @ `8ce0395`; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` @ `8ce0395`
+- supports: §5
+- status: current
+
+### E-2026-11-03-06 · CEF 53 → 54: Gate 0 cleared post-data ("I approve, lets try and deploy as fast as possible"), trial 54 approved, on the two existing accounts, with C4 to open from flat
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - Gate 0 "Not a pre-registered pass, and never to be described as one" [S]
+  - pass rule unchanged: P1 alpha NW t ≥ √(2 ln 54) = 2.825 on the fit, the deflated-Sharpe bars at N = 54, NC1, the placebo, D4, P3, then the 2023–26 holdout's sign, opened once [S]
+  - accounts: "use the 2 accounts I gave you, i dont hvae any other" — the core account and the C4 (spare) account [S]
+  - C4's first session: "just flat it" — the research loop's fills do not count against C4's opening; any position does [S]
+  - risk split 0.50; the 1.90 cap kept; expected +0.4 to +1.0%/yr gross on all capital [U]
+- source: `docs/SYSTEM.md` @ `4ed3c04`; `docs/RESEARCH_STATE.md` @ `5dbd739`; `results/cef/PREREG_C4_LEVEL_2026-11-02.md` @ `4ed3c04`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-03-07 · release-20261103-3: C4 opens correctly in the shared spare account (`own_prefix`), and an armed first session is gated in code
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag message: "C4 own_prefix opening rule + first-session gate (R1 amended; team lead 2026-11-03 'just flat it'); core identical to release-20261103-2" (4f759a9; PR #38 merged as 61589a8) [S]
+  - on the loop-history fixture armed C4 opens at full target: "the same 63 orders and $188,509 gross as a fresh account"; with the key absent "11 band-edge orders ($20,377), which the gate refuses" [S]
+  - release-check of 4f759a9: verdict word not recorded; it left five fixes [U]
+- source: `tag:release-20261103-3` @ `4f759a9`; `git-log:61589a8` (merge subject, PR #38) @ `61589a8`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: superseded by release-20261103-4 (2026-11-03)
+
+### E-2026-11-03-08 · Trial 54 Stage 0: the second-source gate cleared and the team lead signed the data-flag rulings as proposed (KEEP 237, MASK 9)
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - DG-L2: level-only book gross SR +0.882 on CRSP against +0.810 on the yfinance leg; |difference| 0.071 against 0.2: CLEAR [V]
+  - DG-L3: 242 fit name-days with |price TR − NAV TR| > 10%; signed "KEEP 237, MASK 9" (the masks on the level leg's discount only) [V]
+- source: `results/cef/prereg_c4_level/dgl2_output_2026-11-03.txt` @ `3d1c37c` (branch trial54-run, PR #42, unmerged); `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` @ `f78255a` (branch trial54-run, PR #42, unmerged)
+- supports: §2
+- status: current
+
+### E-2026-11-03-09 · CEF 54 → 55: the thin-session rule `trade_eligible` (floor 4) was approved for paper only, against the drafting session's recommendation
+- kind: counter
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - approved "at about 09:25 ET, for paper only, with K0"; judged at N = 55, bar 2.831, one-sided p 0.00232; each declared PRESENT read at p / 4 = 0.00058 [V]
+  - trial 53 under te4 at ×1.30: zero-edge P(HALVE) / P(KILL) 23.2% / 3.28%, against 16.7% / 1.69% at ×1.15 and flatten's 17.1% / 1.75% [V]
+  - "The drafting session recommended keeping flatten (§10 Q1, option c). The team lead chose approval" [S]
+  - key absent until activation, after the core's 60-session review is graded; "This commit changes no spec and no live code" [S]
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ac15d09`; `docs/RESEARCH_STATE.md` @ `5dbd739`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-03-10 · Trial 54's fit stages, as committed: P1 passed at the bar, P2, K1 and K2 passed, and K3 (D4) killed it on the level book's post-2007 alpha t 2.96
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - P1 level-only on z-only: alpha +5.72%/yr, β +0.191, t 2.8271 at lag 6 against 2.8245; "2.791 at lag 5 on the dependent series" [V]
+  - P2 blend desk DSR 0.9997 (SR 1.481, SR0 0.669); K1 NAV leg −0.26bp/pp (t −0.32); K2 real +0.882 above 20 of 20 placebos [V]
+  - K3 level-only: full fit alpha t 3.06 (pass); "from 2007-04-12 with HY: alpha +7.14%/yr, t 2.96, max|β| 0.082 (fail)"; on the blend D4 passes (alpha t 6.68) [V]
+  - fit books gross SR: z-only 1.269, level-only 0.882, blend 1.481; net@15 0.256 / 0.269 / 0.424 [V]
+- source: `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` @ `f78255a` (branch trial54-run, PR #42, unmerged)
+- supports: §2
+- status: superseded by E-2026-11-03-12 (2026-11-03) in its P1 figure; K3 overridden by E-2026-11-03-11 (2026-11-03)
+
+### E-2026-11-03-11 · The team lead overrode trial 54's K3 kill post-data ("revive it and figure out a way to not kill it"); it is not a pass of K3, and the holdout decides
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - "verdict_as_committed": "KILL (D4)", "is_a_pass": false, "ruled_by": "team lead (post-data, asked interactively)" [V]
+  - "The coordinator had recommended recording the KILL and was overruled" [V]
+  - covers K3 only: "a failure at P3, DG-L4 or the holdout is a KILL" [V]
+- source: `results/cef/prereg_c4_level/k3_override_2026-11-03.json` @ `e4b0d71` (branch trial54-run, PR #42, unmerged); `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` @ `f78255a` (branch trial54-run, PR #42, unmerged)
+- supports: §2, §5
+- status: current
+
+### E-2026-11-03-12 · DG-L4 halted trial 54 on a defect in the trial script (a truncated vol lookback); the corrected run matched the sleeve on 907 of 907 sessions and moved P1 to t 2.8315
+- kind: correction
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - first read: key present against the trial's blend 901 of 907; "6 breaks, all from 2005-02-23 to 2005-03-31, largest gap 0.0499 (RNP 2005-03-09)" [V]
+  - corrected (2ed752f): 907 of 907, 61,346 cells, gap 5.6e-16 [V]
+  - P1 t: first read 2.8271 → corrected 2.8315 (L = 5: 2.80; L = 21: 2.80), bar 2.8245; "lag-fragile" [V]
+  - every other fit stage unchanged; K3 still reads KILL (D4), overridden [V]
+- source: `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` @ `f78255a` (branch trial54-run, PR #42, unmerged)
+- supports: §2, §5
+- status: supersedes the P1 figure of E-2026-11-03-10
+
+### E-2026-11-03-13 · Trial 54 P3 passed: the blend beat the z-only book at matched turnover on the fit
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - blend gross SR 1.481 at 51.2 turns/yr against the z-only spec book at its turnover-matched band 0.0447: 1.310 at 51.2/yr [V]
+  - `sharpe_diff`, reported and not gated: Δ +0.17/yr, d 0.93, p 0.353 (corrected run p 0.354) [V]
+- source: `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` @ `f78255a` (branch trial54-run, PR #42, unmerged)
+- supports: §2
+- status: current
+
+### E-2026-11-03-14 · release-20261103-4: the C4 arming fixes; the team lead ruled "no dry sessions", so C4 arms at the night's install
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag message: "C4 arming fixes (first_session gate name, cls-path test, UNMEASURED open orders, probe paging, ruling citations); core unchanged" (8ce0395; PR #40 merged as 4485a96) [S]
+  - the probe pages the whole closed-order history and "caps at 200 pages, beyond which it reads UNMEASURED"; each fix's test fails on 61589a8 [S]
+  - "the team lead ruled 'no dry sessions': C4 arms at tonight's install" [S]
+  - release-check verdict for 8ce0395: none recorded [U]
+- source: `tag:release-20261103-4` @ `8ce0395`; `git-log:4485a96` (merge subject, PR #40) @ `4485a96`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §2, §5
+- status: current (newest release tag)
+
+### E-2026-11-03-15 · Trial 54's holdout, opened once (2023-01-03 → 2026-09-30), passed: the level book earned a gross Sharpe of 1.636 and the blend beat C4's z book; the evidence is still INCONCLUSIVE
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - z-only: gross SR +1.497, ann +10.32%, net@5/15/30 +1.040 / +0.125 / −1.247 [V]
+  - level-only: gross SR +1.636, ann +12.18%, net +1.394 / +0.911 / +0.186, no flip [V]
+  - blend ½ : ½: gross SR +2.065, ann +14.56%, vol 7.05%, turn 57.4/yr, net +1.658 / +0.843 / −0.378 [V]
+  - rule: level gross SR > 0 and blend ann above z-only: PASS; net@15 0.843 ≥ 0.125, so no D2 [V]
+  - level-on-z alpha +10.43%/yr, SE 3.80, NW t 2.74 (lag 7); Šidák interval at N = 54 −2.14 to +22.99%/yr: INCONCLUSIVE, straddling the declared 0.8%/yr [V]
+  - C4's z-only 2023–26 had been seen for trial 52; "This signal's 2023+ is new" [V]
+- source: `results/cef/prereg_c4_level/holdout_output_2026-11-03.txt` @ `f78255a` (branch trial54-run, PR #42, unmerged); `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` @ `f78255a` (branch trial54-run, PR #42, unmerged)
+- supports: §2, §5
+- status: current (PASS on the pre-registered remainder; K3 overridden post-data; not yet activated: spec c4_families.v5 pending)
+
+### E-2026-11-03-16 · Release tag release-20261103-4 is commit 8ce0395, carrying core spec v9 at ×1.30 and C4 spec v4 at ×1.26 with C4's arming fixes
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - Capital and limits follow the frozen spec cef_discount.v9.20261102 (capital_usd 100000, risk.max_gross_exposure_usd 260000, sizing_multiplier 1.3 from CEF trial 53 amendment 1 (from `ops/books/cef_discount_book.json`) [S]
+  - Capital and limits follow the frozen spec c4_families.v4.20261102 (CEF trial 52's book; sizing_multiplier 1.26 from CEF trial 53 amendment 1 (from `ops/books/c4_families_book.json`) [S]
+  - Each fix's test fails on 61589a8, and the core is unchanged by its pins. (from `docs/JOURNAL.md`) [S]
+  - It caps at 200 pages, beyond which it reads UNMEASURED and plan.json is the authority (from `docs/JOURNAL.md`) [S]
+- source: `ops/books/cef_discount_book.json` @ `8ce0395`; `ops/books/c4_families_book.json` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §1, §2, §3, §5
+- status: current
+
+### E-2026-11-03-17 · The core account trades cef_discount.v9.20261102: 13 credit CEFs, a 6% unit vol target held at ×1.30, a 4.8% no-trade band and a 1.80× gross cap
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - universe AWF, BIT, DSL, HYT, JFR, MHD, MQY, PCN, PDI, PDO, PFN, PHK, PTY (13 names) [S]
+  - z_window 252; min_names 6; min_adv_usd 3000000.0; max_nav_age_bd 3; min_abs_weight 0.005 [S]
+  - the account's effective ex-ante vol target is 0.06 x 1.30 = 7.8% on the unit book's 6% scale [S]
+  - band_width 0.048: gives 4.26% at 15bp and 4.85% at 22bp; the lower edge of the measured plateau (4.8-9.6%) [S]
+  - 6.4% topped the swept column and was NOT chosen [S]
+  - Measured full sample: gross 1.16, turnover 17.6x/yr (vs 31.1 on the calendar), net@15bp 0.66 (vs 0.33), and net@30bp +0.17 [S]
+  - 17 -> 13 … traded-era gross SR 1.54 -> 1.16 on the band alone [S]
+  - capital_usd 100000.0; risk.max_gross_exposure_usd 260000.0 [S]
+- source: `ops/specs/cef_discount.frozen.json` @ `8ce0395`
+- supports: §1, §2, §3
+- status: current
+
+### E-2026-11-03-18 · The core's sizing multiplier 1.30 was re-derived on the live thin-day rule (flatten); 1.13 and 1.96 were not chosen
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - the core is flat on 1,353 of W1's 2,398 sessions [S]
+  - 1.2642 x 0.003659 / 0.003556 = 1.3007, written to 2 dp ROUNDED DOWN: 1.30 [S]
+  - NOT CHOSEN: 1.13 (v8: the hold book's sd 0.004095 … zero-edge P(HALVE)/P(KILL) 10.3% / 0.66% while trading) [S]
+  - and 1.96, the same rule fed the flatten book's CALENDAR sd 0.002351, which is inflated because the flat sessions count as zero risk [S]
+  - with C4 at 1.26 the combined Sharpe is 1.624-1.638 for every core multiplier from 0.8 to 2.5; 1.30 is at 1.626 [S]
+  - exact-build gross 3.78%/yr total return over the calendar and 8.67%/yr while trading (SR 1.222), against 3.31 / 7.59 at 1.13 [S]
+  - max drawdown 8.39% (7.53% at 1.13); zero-edge P(HALVE in 12 months) 16.7%, P(KILL) 1.68% while trading [S]
+  - It is an amendment, not a new trial: CEF stays 53 [S]
+- source: `ops/specs/cef_discount.frozen.json` @ `8ce0395`
+- supports: §1, §2, §3, §5
+- status: current
+
+### E-2026-11-03-19 · C4 is spec c4_families.v4.20261102: the core's z-score on 74 non-credit CEFs in five families, ×1.26, its own 1.90× cap, holding on thin days; its book json says DARK
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - 74 of the 105 pool funds tradable, shortable and easy to borrow [S]
+  - By family: sector 29, covered-call 15, multi-asset 15, preferred 9, domestic 6 [S]
+  - G_stress = 1.900638; no mark sensitivity (no other book's margin) -> floor_0.05 = 1.90 [S]
+  - w5 = 0.0261393, the worst 5-session total-return loss per unit gross held of C4's UNCAPPED 4.8% band [S]
+  - PLATEAU (fit gross SR; the value comes from the arithmetic, not from this): 1.60 1.247, 1.70 1.233, 1.80 1.217, 1.90 1.200, 2.00 1.185, none 1.137 [S]
+  - -> 1.2642, written to 2 dp ROUNDED DOWN: 1.26 [S]
+  - the account's effective ex-ante vol target is 0.06 x 1.26 = 7.56% [S]
+  - W1 10.05%/yr total return, SR 1.449; held at the cap's decided-gross line on 46.2% of W1 sessions [S]
+  - The declared book had fewer than 6 eligible on 10.5% of fit sessions [S]
+- source: `ops/specs/c4_families.frozen.json` @ `8ce0395`
+- supports: §1, §2, §3, §5
+- status: current
+
+### E-2026-11-03-20 · The b6 equal-weight credit benchmark has a frozen spec but no book json and no runner entry, so nothing trades it at this tag
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - capital_usd 20000.0 (from `ops/specs/bench_b6_ew_credit.frozen.json`) [S]
+  - weights HYG, JNK, LQD, VCIT, USHY, SHYG, EMB, ANGL 0.125 each; rebalance_days 21 (from `ops/specs/bench_b6_ew_credit.frozen.json`) [S]
+  - BOOKS holds "cef" and "c4" only (from `quantt/session/run.py`) [S]
+- source: `ops/specs/bench_b6_ew_credit.frozen.json` @ `8ce0395`; `quantt/session/run.py` @ `8ce0395`
+- supports: §1, §3, §5
+- status: current
+
+### E-2026-11-03-21 · The run pipeline: collector at :10/:40; session slots at 22:00–01:00 and 06:00–15:15 ET; final check at close − 90 min; late send at 15:52/15:55; verify at 17:30 ET
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - every :10 and :40, every day (from `quantt/deploy/templates/systemd/quantt-cef-collect.timer.tmpl`) [S]
+  - every :00 and :30, every day. The runner decides whether this is a slot (evening 22:00-01:00 ET, morning 06:00-15:15 ET) and otherwise idles (from `quantt/deploy/templates/systemd/quantt-cef-session.timer.tmpl`) [S]
+  - 15:52 and 15:55 Mon-Fri: the paper account's late-market send window for a 16:00 close. 12:52 and 12:55: the same window for a 13:00 early close (from `quantt/deploy/templates/systemd/quantt-cef-session.timer.tmpl`) [S]
+  - 17:30 ET Mon-Fri, after the close and the auction prints (from `quantt/deploy/templates/systemd/quantt-cef-verify.timer.tmpl`) [S]
+  - The final check is the session's calendar close minus 90 minutes, on the session date: 14:30 ET, or 11:30 ET on a 13:00 close (from `docs/RUNNER.md`) [S]
+  - At the live size (13 orders) the budget is 81 s. A set may start until 15:56:39 (from `quantt/session/gate.py`) [S]
+  - The refresh timeout is capped at 25 minutes (from `docs/RUNNER.md`) [S]
+- source: `quantt/deploy/templates/systemd/quantt-cef-collect.timer.tmpl` @ `8ce0395`; `quantt/deploy/templates/systemd/quantt-cef-session.timer.tmpl` @ `8ce0395`; `quantt/deploy/templates/systemd/quantt-cef-verify.timer.tmpl` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`; `quantt/session/gate.py` @ `8ce0395`
+- supports: §1, §5
+- status: current
+
+### E-2026-11-03-22 · Both paper books decide in the evening and send market day orders 8 to 2 minutes before the close, the recorded paper-only exception to the MOC rule, because paper runs no closing auction
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - on 2026-09-29 eleven of thirteen cls orders expired unfilled although every NYSE closing auction printed more shares than we asked for (from `ops/books/cef_discount_book.json`) [S]
+  - window_minutes_before_close [8, 2] (15:52-15:58 ET; 12:52-12:58 on a 13:00 early close) (from `ops/books/cef_discount_book.json`) [S]
+  - paper filled 2 of 13 `cls` orders (PHK 4,019/4,019, PFN 1,529/2,227; eleven expired) (from `docs/RUNNER.md`) [S]
+  - Overnight market orders realised 100.5bp against a 32.6bp breakeven on 2026-07-31 (from `CLAUDE.md`) [S]
+- source: `ops/books/cef_discount_book.json` @ `8ce0395`; `ops/books/c4_families_book.json` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`; `CLAUDE.md` @ `8ce0395`
+- supports: §1, §2, §5
+- status: current
+
+### E-2026-11-03-23 · The official daily P&L is Alpaca's end-of-day portfolio history (1D); the 17:30 ET equity reading is a labelled snapshot, never blended
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - On the four days compared on 2026-10-19 it disagreed with the history every time, while the history agreed with the auction-marked score (from `docs/RUNNER.md`) [S]
+  - It stamped the 2026-10-16 close at 20:00 ET (from `docs/RUNNER.md`) [S]
+  - Alpaca's winter end-of-day stamps are 01:00Z (20:00 EST), and the client accepted only 00:00Z (from `docs/JOURNAL.md`) [S]
+  - Each write rewrites every funded session from 2026-09-28, atomically (from `docs/RUNNER.md`) [S]
+- source: `docs/RUNNER.md` @ `8ce0395`; `docs/SYSTEM.md` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §1, §4, §5
+- status: current
+
+### E-2026-11-03-24 · Nine pure pre-transmit gates run on every send, and every refusal is returned; only dry_run, arming and halt explain a no-trade day, and any other refusal is a MISSED FAIL
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - CLS_CUTOFF_ET = dt.time(15, 45); QUEUE_OPEN_ET = dt.time(19, 15) (from `quantt/session/gate.py`) [S]
+  - SEND_MARGIN_S = 10 + 30 + 2; MEASURED_MAX_ORDER_CYCLE_S = 0.259 (from `quantt/session/gate.py`) [S]
+  - SHORT_ORDER_BP_MULTIPLIER = 1.03 (from `quantt/session/gate.py`) [S]
+  - DELIBERATE_GATES = frozenset({"dry_run", "arming", "halt"}) (from `quantt/session/verify.py`) [S]
+  - One GET that exhausts its retries takes about 250 s (from `docs/RUNNER.md`) [S]
+  - The late window is 360 s (15:52–15:58 ET), and a 13-order set needs 81 s of it (from `docs/RUNNER.md`) [S]
+- source: `quantt/session/gate.py` @ `8ce0395`; `quantt/session/verify.py` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §1, §5
+- status: current
+
+### E-2026-11-03-25 · C4's first armed session must be an opening session: only C4's own c4- fills count against it, and a position, another runner's open order or an unreadable order list refuses it under its own gate
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - 28-42% of full target and net long +4.7% to +11.1% (the release-check of 336df9d, data/cef_families to 2026-10-09, spec v4) (from `ops/books/c4_families_book.json`) [S]
+  - armed C4 now opens at full target: the same 63 orders and $188,509 gross as a fresh account. With the key absent it is still 11 band-edge orders ($20,377) (from `docs/JOURNAL.md`) [S]
+  - OPENING_REQUIRED_BOOKS = frozenset({"c4"}) (from `quantt/session/run.py`) [S]
+- source: `ops/books/c4_families_book.json` @ `8ce0395`; `quantt/session/run.py` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`
+- supports: §1, §5
+- status: current
+
+### E-2026-11-03-26 · Data gates at the tag: the core's stale-NAV gate records only (report); both books hold a late-NAV fund for at most 2 sessions; C4 has no stale-NAV gate and relies on its NAV-repeat mask
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - stale_nav report: 28 of 73 checkable laptop name-days decided on NAV(D-1), 11 orders sized on one (from `ops/books/cef_discount_book.json`) [S]
+  - missing_nav_max_sessions 2: the team lead's POLICY of 2026-10-29, 2 consecutive sessions, NOT derived (from `ops/books/cef_discount_book.json`) [S]
+  - more missing NAVs than n - min_names from the frozen spec (13 - 6 = 7 (from `ops/books/cef_discount_book.json`) [S]
+  - The name limit is derived by the runner from the C4 spec's min_names (74 - 6 = 68) (from `ops/books/c4_families_book.json`) [S]
+  - prod's NAV panel (copy of 2026-10-28) shows 0 gaps in 12 months (from `ops/books/cef_discount_book.json`) [S]
+- source: `ops/books/cef_discount_book.json` @ `8ce0395`; `ops/books/c4_families_book.json` @ `8ce0395`; `quantt/session/gate.py` @ `8ce0395`
+- supports: §1, §2, §5
+- status: current
+
+### E-2026-11-03-27 · The corporate-action gate runs in report mode on both books at this tag, recording events and sending anyway, until the ISIN fix and the re-ruling of unresolved rows
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - today's real feed carries three market-wide rows with a missing party symbol (a partial call, an SNTI spin-off, a JAGX merger) (from `ops/books/cef_discount_book.json`) [S]
+  - on all 43 unresolved rows in the core's 2026-11-02 read, a flat C4 book would have been refused on 17 of the 23 sessions 2026-10-01..11-02 (the feed as read on 11-02, not as it stood on each date) (from `ops/books/c4_families_book.json`) [U]
+  - The query asks for process dates from 31 days before the earliest window to 731 days after the session (from `docs/RUNNER.md`) [S]
+  - On twelve months of the real feed, 29 reorganizations carried such legs (from `docs/RUNNER.md`) [S]
+- source: `ops/books/cef_discount_book.json` @ `8ce0395`; `ops/books/c4_families_book.json` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §1, §5
+- status: current
+
+### E-2026-11-03-28 · HALVE/KILL are measured on the EOD equity series in report mode only, and trial 53's stops R1–R3 are read and acted on by the team lead; no stop is enforced in code
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - risk.halve_drawdown 0.12; risk.kill_drawdown 0.18 (from `ops/specs/cef_discount.frozen.json`) [S]
+  - THE STOPS (pre-registration section 0.B): R1 10.14%, R2 -3.06%, R3 12.07% … read and acted on by the team lead; nothing in code reads them (from `ops/specs/cef_discount.frozen.json`) [S]
+  - the stops R1 10.04%, R2 -3.02%, R3 9.90% (stops.py --m-c4 1.26) (from `ops/specs/c4_families.frozen.json`) [S]
+  - Review at 60 live sessions, not before. KILL if any of: (a) live net Sharpe < 0.0; (b) realised slippage > 2x modelled for 5 consecutive sessions (from `ops/specs/cef_discount.frozen.json`) [S]
+  - REVERSE at 120 armed sessions if the live cumulative gross return on the official-fill line is below the 5th percentile (from `ops/specs/c4_families.frozen.json`) [S]
+  - book_drawdown_suspend_pct 99.0: Effectively disabled 2026-07-31 on standing instruction (from `ops/books/cef_discount_book.json`) [S]
+- source: `ops/specs/cef_discount.frozen.json` @ `8ce0395`; `ops/specs/c4_families.frozen.json` @ `8ce0395`; `ops/books/cef_discount_book.json` @ `8ce0395`; `ops/books/c4_families_book.json` @ `8ce0395`
+- supports: §1, §5
+- status: current
+
+### E-2026-11-03-29 · The gross ceiling is derived from Reg T initial margin and the worst five-session loss; gate 8 judges it on the lower of sized and live equity and always passes a plan that does not add gross
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - G_stress = 1.843041; no mark sensitivity (no other books) -> floor_0.05 = 1.80 (from `ops/specs/cef_discount.frozen.json`) [S]
+  - w5 = 0.0425814 = worst 5-session total-return loss per unit gross held of the 13-name band, ending 2020-03-18 (from `ops/specs/cef_discount.frozen.json`) [S]
+  - Reg T initial margin 50%, so 1.80x gross needs $90k of margin against $100k equity (from `ops/specs/cef_discount.frozen.json`) [S]
+  - more than 1 - 1.8/1.843 = 2.34% under the sized equity (from `quantt/session/gate.py`) [S]
+  - projected gross $182,154.75 > max_gross_stress 1.8 x equity $100,666.16 (the 2026-10-09 refusal) (from `docs/RUNNER.md`) [S]
+  - Alpaca's maintenance on these names is 0.30 (from `ops/specs/cef_discount.frozen.json`; the core spec's stated rate, not what gate 8 uses) [U]
+  - maintenance at the account's LIVE measured ratio, maintenance_margin / current gross, 47.8% on 2026-10-06 (from `quantt/session/gate.py`; gate 8 uses this live ratio, never a literal, so it is the record) [U]
+- source: `ops/specs/cef_discount.frozen.json` @ `8ce0395`; `quantt/session/gate.py` @ `8ce0395`; `docs/RUNNER.md` @ `8ce0395`
+- supports: §1, §5
+- status: current
+
+### E-2026-11-03-30 · Each book has its own Alpaca paper account because Alpaca rejects opposite-side orders in one symbol and gates 6 and 9 refuse a shared account; paper diverges from a live account
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - One Alpaca paper account per book, $100k each (the default) (from `docs/SYSTEM.md`) [S]
+  - Putting C4 inside the core's account was declined: shared gross cap, the combiner cannot yet run with the missing-NAV hold, and the trial-53 sizing assumes two accounts (from `docs/SYSTEM.md`) [S]
+  - REG_T_INITIAL = 0.5 (from `quantt/session/gate.py`) [S]
+  - Paper DOES charge regulatory fees on this account: 37 SEC and CAT fee activities, −$6.16 over 09-29..10-30 (from `docs/JOURNAL.md`, a broker read of FEE activities; the record, since the broker ranks first in docs/SYSTEM.md §0) [U]
+  - Paper also charges no borrow, no dividends and no regulatory fees (from `CLAUDE.md` landmine 1, labelled verified from Alpaca docs; the team lead ruled the correction Not yet on 2026-11-02) [U]
+- source: `docs/SYSTEM.md` @ `8ce0395`; `quantt/session/gate.py` @ `8ce0395`; `docs/JOURNAL.md` @ `8ce0395`; `CLAUDE.md` @ `8ce0395`
+- supports: §1, §3, §4, §5
+- status: current
+
+### E-2026-11-03-31 · The pack's own re-derivation of paper fill cost against the official close agrees with FILL-DRIFT within 0.2bp
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - notional-weighted fill vs primary-exchange official close (condition M), 115 name-side-days in 18 sessions, 2026-09-29..2026-11-02: +4.99bp, positive = worse (fill_cost_pooled.csv, group all) [V]
+  - FILL-DRIFT's B (fill vs the SIP daily-bar close, 344 fills, same window): 5.1bp [V]
+  - the references differ (official closing print against the SIP daily close; per name-side-day against per fill), so agreement is a cross-check, not an identity [S]
+- source: `results/report/data/live/cef/fill_cost_pooled.csv` @ `pull:24d55dcbfe1b` (figure F09); `results/cef/FILL_DRIFT_2026-11-02.md` @ `45b7c9d`
+- supports: §4
+- status: current
+
+### E-2026-11-03-32 · The 17:10 ET equity snapshot and the P&L of record disagree over 2026-09-28..10-30; Alpaca's own last_equity confirms the record
+- kind: correction
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - official EOD equity change 09-28 close → 10-30 close: −982.14 USD (Alpaca portfolio history, the record) [U]
+  - collector snapshot equity on 2026-10-30 (read 21:10 UTC): 99,124.35 USD, i.e. −875.65 USD against the 100,000 funding [U]
+  - the 2026-11-02 snapshot's last_equity (Alpaca's prior-close equity) 99,017.86 USD = 100,000 − 982.14, so the record reconciles and the 10-30 snapshot carried after-hours marks [V]
+  - the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [S]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `9bd43ad`; `results/report/data/live/cef/equity_snapshot.csv` @ `pull:24d55dcbfe1b`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-03-33 · The research evidence pack opens: an append-only evidence log, the sanitised live record, and figures rebuilt from committed sources
+- kind: method
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - first live pull ingested: 22 core score days, 2026-09-28..2026-11-02, 245 name-day rows, 115 name-side fills; verify lines from 2026-10-08 [V]
+  - the official EOD line is PENDING: the pull carries no eod_equity.csv [V]
+- source: `results/report/data/live/cef/pulls.csv` @ `pull:24d55dcbfe1b`
+- supports: §4, §5
+- status: current
+
+### E-2026-09-28-90 · cef paper book, 2026-09-28: FAIL, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-09-28
+- figures:
+  - verify verdict FAIL; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change 0.00 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 0.00 USD [S]
+  - distribution-adjusted P&L 0.00 USD (credits distributions paper does not) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-09-29-90 · cef paper book, 2026-09-29: FAIL, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-09-29
+- figures:
+  - verify verdict FAIL; orders sent 13, filled 1 [S]
+  - 17:30 ET snapshot equity change -80.38 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 0.00 USD [S]
+  - fills vs official close 0.00 bp (+ = worse) [S]
+  - distribution-adjusted P&L 0.00 USD (credits distributions paper does not) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-05-90 · cef paper book, 2026-10-05: FAIL, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-05
+- figures:
+  - verify verdict FAIL; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change 1068.53 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 126.05 USD [S]
+  - distribution-adjusted P&L 126.05 USD (credits distributions paper does not) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-07-90 · cef paper book, 2026-10-07: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-07
+- figures:
+  - verify verdict PASS; orders sent 12, filled 12 [S]
+  - 17:30 ET snapshot equity change 368.67 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 329.08 USD [S]
+  - fills vs official close -17.95 bp (+ = worse) [S]
+  - TCA notional-weighted slippage -17.95 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 329.08 USD (credits distributions paper does not) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-08-90 · cef paper book, 2026-10-08: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-08
+- figures:
+  - verify verdict PASS; orders sent 8, filled 8 [S]
+  - 17:30 ET snapshot equity change -8.91 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 71.09 USD [S]
+  - fills vs official close 15.75 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 15.75 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 71.09 USD (credits distributions paper does not) [S]
+  - shadow book 131.47 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-09-90 · cef paper book, 2026-10-09: PASS, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-09
+- figures:
+  - verify verdict PASS; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change -445.67 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -777.67 USD [S]
+  - distribution-adjusted P&L -777.67 USD (credits distributions paper does not) [S]
+  - shadow book -777.67 USD (MODELLED, not broker evidence) [S]
+  - refusing gate(s): exposure [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-12-90 · cef paper book, 2026-10-12: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-12
+- figures:
+  - verify verdict PASS; orders sent 4, filled 4 [S]
+  - 17:30 ET snapshot equity change 1085.88 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 1040.50 USD [S]
+  - fills vs official close 9.52 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 9.52 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 1040.50 USD (credits distributions paper does not) [S]
+  - shadow book 1053.60 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-13-90 · cef paper book, 2026-10-13: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-13
+- figures:
+  - verify verdict PASS; orders sent 13, filled 13 [S]
+  - 17:30 ET snapshot equity change -1249.71 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -1238.87 USD [S]
+  - fills vs official close 11.86 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 11.86 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L -717.71 USD (credits distributions paper does not) [S]
+  - shadow book -1198.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-14-90 · cef paper book, 2026-10-14: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-14
+- figures:
+  - verify verdict PASS; orders sent 7, filled 7 [S]
+  - 17:30 ET snapshot equity change -748.26 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -791.69 USD [S]
+  - fills vs official close 15.06 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 15.06 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L -574.33 USD (credits distributions paper does not) [S]
+  - shadow book -732.18 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-15-90 · cef paper book, 2026-10-15: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-15
+- figures:
+  - verify verdict PASS; orders sent 6, filled 6 [S]
+  - 17:30 ET snapshot equity change -233.09 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -238.34 USD [S]
+  - fills vs official close 9.89 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 9.89 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L -656.01 USD (credits distributions paper does not) [S]
+  - shadow book -193.74 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-16-90 · cef paper book, 2026-10-16: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-16
+- figures:
+  - verify verdict PASS; orders sent 5, filled 5 [S]
+  - 17:30 ET snapshot equity change 242.56 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 160.68 USD [S]
+  - fills vs official close 29.77 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 29.77 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 160.68 USD (credits distributions paper does not) [S]
+  - shadow book 428.59 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-19-90 · cef paper book, 2026-10-19: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-19
+- figures:
+  - verify verdict PASS; orders sent 6, filled 6 [S]
+  - 17:30 ET snapshot equity change -573.86 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -579.99 USD [S]
+  - fills vs official close 19.90 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 19.90 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L -579.99 USD (credits distributions paper does not) [S]
+  - shadow book -531.51 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-20-90 · cef paper book, 2026-10-20: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-20
+- figures:
+  - verify verdict PASS; orders sent 5, filled 5 [S]
+  - 17:30 ET snapshot equity change 162.04 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 235.81 USD [S]
+  - fills vs official close 24.33 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 24.33 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 235.81 USD (credits distributions paper does not) [S]
+  - shadow book 234.54 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-21-90 · cef paper book, 2026-10-21: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-21
+- figures:
+  - verify verdict PASS; orders sent 9, filled 9 [S]
+  - 17:30 ET snapshot equity change 261.16 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 309.02 USD [S]
+  - fills vs official close 8.92 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 8.92 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 309.02 USD (credits distributions paper does not) [S]
+  - shadow book 314.92 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-22-90 · cef paper book, 2026-10-22: FAIL MISSED, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-22
+- figures:
+  - verify verdict FAIL MISSED; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change -216.30 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -94.28 USD [S]
+  - distribution-adjusted P&L -94.28 USD (credits distributions paper does not) [S]
+  - shadow book -136.03 USD (MODELLED, not broker evidence) [S]
+  - refusing gate(s): data [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-23-90 · cef paper book, 2026-10-23: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-23
+- figures:
+  - verify verdict PASS; orders sent 2, filled 2 [S]
+  - 17:30 ET snapshot equity change 210.25 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 207.85 USD [S]
+  - fills vs official close 9.79 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 9.79 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 207.85 USD (credits distributions paper does not) [S]
+  - shadow book 242.96 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-26-90 · cef paper book, 2026-10-26: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-26
+- figures:
+  - verify verdict PASS; orders sent 6, filled 6 [S]
+  - 17:30 ET snapshot equity change -446.70 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -520.85 USD [S]
+  - fills vs official close 1.43 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 1.43 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L -520.85 USD (credits distributions paper does not) [S]
+  - shadow book -536.83 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-27-90 · cef paper book, 2026-10-27: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-27
+- figures:
+  - verify verdict PASS; orders sent 6, filled 6 [S]
+  - 17:30 ET snapshot equity change 251.43 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 192.95 USD [S]
+  - fills vs official close 2.22 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 2.22 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 192.95 USD (credits distributions paper does not) [S]
+  - shadow book 19.41 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-28-90 · cef paper book, 2026-10-28: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-28
+- figures:
+  - verify verdict PASS; orders sent 10, filled 10 [S]
+  - 17:30 ET snapshot equity change 414.46 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 421.90 USD [S]
+  - fills vs official close -4.57 bp (+ = worse) [S]
+  - TCA notional-weighted slippage -4.57 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L 421.90 USD (credits distributions paper does not) [S]
+  - shadow book 518.50 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-29-90 · cef paper book, 2026-10-29: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-29
+- figures:
+  - verify verdict PASS; orders sent 3, filled 3 [S]
+  - 17:30 ET snapshot equity change 78.64 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -13.43 USD [S]
+  - fills vs official close 21.27 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 21.27 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L -13.43 USD (credits distributions paper does not) [S]
+  - shadow book -86.17 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-10-30-90 · cef paper book, 2026-10-30: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-10-30
+- figures:
+  - verify verdict PASS; orders sent 7, filled 7 [S]
+  - 17:30 ET snapshot equity change -386.88 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -503.50 USD [S]
+  - fills vs official close -6.82 bp (+ = worse) [S]
+  - TCA notional-weighted slippage -6.82 bp, fill rate 1.0000 of shares [S]
+  - shadow book -525.84 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-11-02-90 · cef paper book, 2026-11-02: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - verify verdict PASS; orders sent 4, filled 4 [S]
+  - 17:30 ET snapshot equity change 103.87 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 178.71 USD [S]
+  - fills vs official close -15.25 bp (+ = worse) [S]
+  - TCA notional-weighted slippage -15.25 bp, fill rate 1.0000 of shares [S]
+  - shadow book 174.59 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
+- supports: §4
+- status: current
+
+### E-2026-11-03-34 · Ruling: the public repository keeps the live record as daily aggregates; per-name and per-fill rows stay in a gitignored cache
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - none (a ruling: "Aggregates in repo, rows private", team lead, on PR #45)
+- source: `docs/SYSTEM.md` @ `8ed6135`; `.gitignore` @ `8ed6135`; `scripts/report/snapshot_live.py` @ `8ed6135`
+- supports: §4, §5
+- status: current (the branch's history was rewritten so the row files never appear in it)
