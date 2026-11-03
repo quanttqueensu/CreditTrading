@@ -114,6 +114,46 @@ machine's date is already tomorrow and every fund read one business day older.
 through the stale check, and the closing line still said "all N NAV series
 fresh". Such funds are now listed as UNCHECKED, by name and why, and are not
 counted as fresh.
+
+DATA BOOKS (C4 deployment plan step 3, DARK; team lead's fast-track 2026-10-28).
+`--data-book` names whose panels to refresh; the book's directory, funds, NAV
+symbols, lock and CEFConnect use come from its config (`resolve_data_book`,
+`scripts/cef/data_books.py`).
+
+  * none, or `cef`: THE CORE, exactly as at 29e5dc0 -- data/cef/, the price
+    panel's own tickers, X<TK>X, the core lock, CEFConnect when asked for, the
+    same lines and exit codes. Resolved at call time from this module's
+    constants (PX_PATH, NAV_PATH, LOCK_PATH, FALLBACK_LOG), so everything that
+    patches or imports them (the session's stale-NAV gate, the tests) sees no
+    change. Proved byte for byte against 29e5dc0's file on fixtures
+    (scripts/cef/tests/test_fetch_daily_books.py).
+  * `c4`: data/cef_c4/ under its own lock data/cef_c4/.fetch.lock, so the
+    core's refresh never waits on a 74-name fetch, nor the other way round. The
+    74 frozen funds; each fund's NAV from the committed NAV-symbol map, the
+    symbol the families panel the trial ran on was built from; every empty-row
+    guard above unchanged. CEFConnect is DISABLED: `--nav-fallback cefconnect`
+    raises `CefConnectDisabled` before the lock is taken or a panel is read
+    (exit 2 from the command line). A panel holding a fund outside the 74, or
+    a fund under another family, raises: a mis-seeded panel is refused, never
+    fetched into. With `--book`, every deployed name must be one of the 74.
+    THE SPIKE GUARD (plan row 3, `guard_closes`): after the write, the merged
+    panel is scanned by `data_guards.guard_closes` over the fetched window
+    (no split multipliers: yfinance's close is already split-adjusted; no
+    rulings file yet). A split-like spike-and-revert bar there -- IGR's
+    2026-07-29..08-11 shape, which cost the holdout -10.87% -- is printed as
+    `SPIKE-REVERT` and the run exits 6. The panel is still written whole, as
+    for exit 4: the fetch records what Yahoo served, and the exit code is the
+    verdict a C4 session must refuse on. AN UNRULED SPIKE OUTRANKS AN INCOMPLETE
+    PAIR: with both, the run exits 6, not 4, and prints both lines (release-check
+    of 8b14298, 2026-11-02). Until then exit 4 outranked 6, and C4's book sets
+    `data.missing_nav = "hold"`, under which gate 5 treats exit 4 at the final
+    check as expected (quantt/session/gate.py missing_nav_hold): on any day one
+    C4 NAV was late, the session decided and sent on a panel still holding the
+    unruled bar, and nothing in the runner reads the SPIKE-REVERT line. Exit 6 is
+    refused at every check. A caller still retries: a refused session is not a
+    FAIL, and the next slot re-runs the refresh; the collector reads an exit 6
+    whose output names INCOMPLETE_TAG as an unfinished step, not a done one. The
+    core runs no spike guard, so its exits are what they always were.
 """
 from __future__ import annotations
 
@@ -136,6 +176,10 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:            # run as a script, not -m
     sys.path.insert(0, str(REPO))
 from ops.common import atomic_write      # noqa: E402
+# Standard library only, no side effects at import (its docstring): the core
+# path reads nothing from it but the name of an error it never raises.
+from scripts.cef import data_books       # noqa: E402
+from scripts.cef.data_books import CefConnectDisabled, DataBookError  # noqa: E402,F401
 OUT = REPO / "data" / "cef"
 PX_PATH = OUT / "cef_prices.parquet"
 NAV_PATH = OUT / "cef_nav.parquet"
@@ -159,6 +203,106 @@ LOCK_PATH = OUT / ".fetch.lock"
 LOCK_WAIT_S = 600.0
 LOCK_POLL_S = 1.0
 EXIT_LOCKED = 3
+# A data book whose CEFConnect use is disabled was asked for the fallback
+# (DATA BOOKS). The same code argparse gives a usage error: the command, not the
+# data, is what is wrong. Never returned on the core path.
+EXIT_REFUSED = 2
+# C4 only (DATA BOOKS, THE SPIKE GUARD): the panel was written, and a split-like
+# spike-and-revert bar in the fetched window has no ruling.
+EXIT_SPIKE = 6
+# The INCOMPLETE line's prefix. quantt/collect reads it from an exit 6's output to
+# tell "spike, pair complete" (its step done) from "spike, pair incomplete" (not
+# done, retried), since exit 6 now outranks exit 4 (THE SPIKE GUARD, above).
+INCOMPLETE_TAG = "INCOMPLETE for"
+
+
+class DataBook:
+    """Where one book's price and NAV panels live and how they are fetched.
+
+    `tickers`, `families` and `nav_symbols` None is the core's rule, unchanged
+    since before data books existed: the price panel's own tickers, the
+    panel's own `grp`, and the NAV symbol X<TK>X. `fallback_log` is where a
+    CEFConnect fill is logged (None: no fill is possible).
+
+    A plain class, not a dataclass: test_fetch_daily_clock.py loads this file
+    without registering it in sys.modules, and `dataclass` looks the module up
+    there."""
+    __slots__ = ("name", "px_path", "nav_path", "lock_path", "fallback_log", "tickers",
+                 "families", "nav_symbols", "cefconnect", "spike_guard")
+
+    def __init__(self, name, px_path, nav_path, lock_path, fallback_log, tickers, families,
+                 nav_symbols, *, cefconnect: bool, spike_guard: bool):
+        self.name, self.px_path, self.nav_path, self.lock_path = name, px_path, nav_path, lock_path
+        self.fallback_log, self.tickers, self.families = fallback_log, tickers, families
+        self.nav_symbols, self.cefconnect, self.spike_guard = nav_symbols, cefconnect, spike_guard
+
+    def nav_symbol(self, tk: str) -> str:
+        return f"X{tk}X" if self.nav_symbols is None else self.nav_symbols[tk]
+
+
+def resolve_data_book(name: str | None = None) -> DataBook:
+    """The config for `name` (DATA BOOKS). None or "cef" is the core, read from
+    this module's constants NOW, at call time, as the code before data books
+    read them; "c4" is read from `scripts/cef/data_books.py` and refuses any
+    path it would share with the core."""
+    if name in (None, data_books.CORE):
+        return DataBook(data_books.CORE, PX_PATH, NAV_PATH, LOCK_PATH, FALLBACK_LOG,
+                        None, None, None, cefconnect=True, spike_guard=False)
+    if name != data_books.C4:
+        raise DataBookError(f"no data book {name!r}; the books are {list(data_books.BOOK_NAMES)}")
+    d = Path(data_books.C4_DIR)
+    fam = data_books.c4_universe()
+    cfg = DataBook(data_books.C4, d / "cef_prices.parquet", d / "cef_nav.parquet", d / ".fetch.lock",
+                   None, tuple(sorted(fam)), dict(fam), data_books.c4_nav_symbols(universe=fam),
+                   cefconnect=False, spike_guard=True)
+    shared = [p for p in (cfg.px_path, cfg.nav_path, cfg.lock_path)
+              if os.path.realpath(p) in {os.path.realpath(q) for q in
+                                         (PX_PATH, NAV_PATH, LOCK_PATH, FALLBACK_LOG)}]
+    if shared or os.path.realpath(d) == os.path.realpath(PX_PATH.parent):
+        raise DataBookError(f"data book c4 would share {shared or [d]} with the core's data/cef; "
+                            f"C4 has its own directory and lock")
+    return cfg
+
+
+def _check_book_panel(P: pd.DataFrame, N: pd.DataFrame, cfg: DataBook) -> None:
+    """A book with a fixed universe refuses a panel that is not that book's:
+    a fund outside it, or a fund under another family than the frozen one.
+    Either means the panel was seeded from the wrong place, and fetching into
+    it would extend the mistake every night."""
+    extra = sorted((set(P["ticker"]) | set(N["ticker"])) - set(cfg.tickers))
+    if extra:
+        raise DataBookError(f"{cfg.px_path.parent} holds {extra}, not in data book {cfg.name}'s "
+                            f"{len(cfg.tickers)} funds: a mis-seeded panel (data_books.py, SEED)")
+    wrong = {t: sorted(map(str, g)) for t, g in P.groupby("ticker")["grp"].unique().items()
+             if list(g) != [cfg.families[t]]}
+    if wrong:
+        raise DataBookError(f"{cfg.px_path} gives {wrong} a grp other than the frozen family")
+
+
+def _spike_check(P: pd.DataFrame, N: pd.DataFrame, fetched: list, cfg: DataBook):
+    """The C4 spike guard (DATA BOOKS): `data_guards.guard_closes`' message for
+    the fetched window of the merged panel, or None when it is clean.
+
+    In scope: any spike-and-revert run that touches [first fetched date, last
+    panel date], so a bar rewritten tonight is judged tonight, and a run whose
+    revert arrives tomorrow is judged tomorrow. No split multipliers (yfinance
+    back-adjusts its close for every split it knows, so a recorded multiplier
+    would create a step, data_guards.py guard 3), and no rulings file: C4's
+    research ruling of 2026-10-19 was made on the families panel for the
+    trial's holdout, not on this one. A close that is not positive raises
+    from the guard itself, by design."""
+    from scripts.cef.data_guards import SpikeRevertError, guard_closes
+    dated = [p["date"].min() for p in fetched if len(p)]
+    if not dated:
+        return None
+    close = P.pivot(index="date", columns="ticker", values="close")
+    nav = N.pivot(index="date", columns="ticker", values="nav")
+    try:
+        guard_closes(close, cols=list(cfg.tickers), lo=min(dated), hi=P["date"].max(), nav=nav,
+                     splits=None, rulings=None, context=f"fetch_daily --data-book {cfg.name}")
+    except SpikeRevertError as e:
+        return str(e)
+    return None
 
 
 class PanelLockTimeout(RuntimeError):
@@ -412,26 +556,54 @@ def _deployed(book_path) -> list:
     return sorted({t for insts in deployed_tickers(Path(book_path)).values() for t in insts})
 
 
+def _refuse_cefconnect(nav_fallback, cfg: DataBook) -> None:
+    """Raise if `cfg` may not read CEFConnect and the fallback was asked for
+    (DATA BOOKS): before the lock and before any panel is read."""
+    if nav_fallback is not None and not cfg.cefconnect:
+        raise CefConnectDisabled(
+            f"--nav-fallback {nav_fallback} is refused for data book {cfg.name}: CEFConnect is "
+            f"disabled for it (team lead, 2026-10-28; C4's NAV-repeat mask M1 catches a stale "
+            f"NAV instead)")
+
+
 def refresh(period: str = "6mo", require_asof=None, nav_fallback=None,
-            book=None) -> int:
-    if not PX_PATH.exists():
-        print("no staged panel; run scripts/cef/stage_cef.py first")
+            book=None, data_book=None) -> int:
+    cfg = resolve_data_book(data_book)
+    _refuse_cefconnect(nav_fallback, cfg)
+    if not cfg.px_path.exists():
+        print("no staged panel; run scripts/cef/stage_cef.py first" if cfg.name == data_books.CORE
+              else f"no {cfg.name} panel at {cfg.px_path}; seed it first "
+                   f"(scripts/cef/data_books.py, SEED)")
         return 1
-    # The read below and the write at its end are one transaction (LOCKING).
-    with panel_lock(LOCK_PATH, LOCK_WAIT_S, LOCK_POLL_S):
-        return _refresh_locked(period, require_asof, nav_fallback, book)
+    # The read below and the write at its end are one transaction (LOCKING),
+    # under this book's own lock (DATA BOOKS).
+    with panel_lock(cfg.lock_path, LOCK_WAIT_S, LOCK_POLL_S):
+        if cfg.name == data_books.CORE:
+            return _refresh_locked(period, require_asof, nav_fallback, book)
+        return _refresh_locked(period, require_asof, nav_fallback, book, cfg)
 
 
-def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
-    P, N = pd.read_parquet(PX_PATH), pd.read_parquet(NAV_PATH)
+def _refresh_locked(period, require_asof, nav_fallback, book, cfg: DataBook | None = None) -> int:
+    # `cfg` None is the core, resolved now (DATA BOOKS): the four-argument call
+    # is the one this function has always had.
+    cfg = resolve_data_book(None) if cfg is None else cfg
+    _refuse_cefconnect(nav_fallback, cfg)
+    P, N = pd.read_parquet(cfg.px_path), pd.read_parquet(cfg.nav_path)
     now = datetime.now(ET)
     today = pd.Timestamp(now.date())
     session_open = before_close(now)
     if session_open:
         print(f"  {now:%H:%M} is before the close: any bar dated {today.date()} "
               f"is a partial session and will not be written")
-    tickers = sorted(P.ticker.unique())
-    grp = P.drop_duplicates("ticker").set_index("ticker")["grp"].to_dict()
+    if cfg.tickers is None:
+        tickers = sorted(P.ticker.unique())
+        grp = P.drop_duplicates("ticker").set_index("ticker")["grp"].to_dict()
+    else:
+        # A fixed universe (C4): its own funds and families, and a panel that
+        # holds anything else is refused (`_check_book_panel`).
+        _check_book_panel(P, N, cfg)
+        tickers = list(cfg.tickers)
+        grp = dict(cfg.families)
 
     newp, newn, stale = [], [], []
     # Funds the stale check could not date (FOLLOW-UPS (3)): never "fresh".
@@ -439,7 +611,7 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     for tk in tickers:
         try:
             px = yf.Ticker(tk).history(period=period, auto_adjust=False)
-            nav = yf.Ticker(f"X{tk}X").history(period=period, auto_adjust=False)
+            nav = yf.Ticker(cfg.nav_symbol(tk)).history(period=period, auto_adjust=False)
         except Exception as e:
             print(f"  ERR {tk:<6} {type(e).__name__}")
             unchecked.append((tk, f"fetch error: {type(e).__name__}"))
@@ -482,6 +654,13 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
     if require_asof is not None:
         asof = pd.Timestamp(require_asof).normalize()
         names = _deployed(book) if book else sorted(tickers)
+        if cfg.tickers is not None:
+            # A deployed name this book never fetches could never be complete;
+            # that is a wrong book json, said so, not an exit 4 every night.
+            stray = sorted(set(names) - set(cfg.tickers))
+            if stray:
+                raise DataBookError(f"--book {book} deploys {stray}, which data book "
+                                    f"{cfg.name} does not fetch")
         # A row dated D with no close is not D's close (EMPTY ROWS): the panel
         # can still hold one written before 2026-10-28, and the fetch may not
         # have brought the bar. Same test as the merge (`has_close`).
@@ -520,7 +699,7 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
             if filled:
                 F = pd.DataFrame(filled)
                 N = merge_nav_fills(N, F)
-                log_nav_fills(F, "cefconnect")
+                log_nav_fills(F, "cefconnect", cfg.fallback_log)
                 have_nav |= set(F["ticker"])
         def gap(t):
             # A missing row reads exactly as it always did; an empty one says so.
@@ -535,8 +714,11 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
 
     # Atomic: these two ARE what the sleeve prices from, and the session
     # holding them open overlaps this write. See ops.common.atomic_write.
-    atomic_write(P, PX_PATH)
-    atomic_write(N, NAV_PATH)
+    atomic_write(P, cfg.px_path)
+    atomic_write(N, cfg.nav_path)
+    # C4 only: judged after the write, so the panel is the record of what was
+    # served either way (DATA BOOKS, THE SPIKE GUARD).
+    spike = _spike_check(P, N, newp, cfg) if cfg.spike_guard else None
 
     tally = {w: sum(e["what"] == w for e in bar_log) for w in ("NO CLOSE", "REPAIRED")}
     print(f"  prices {len(P):,} rows -> {P.date.max().date()}"
@@ -564,14 +746,23 @@ def _refresh_locked(period, require_asof, nav_fallback, book) -> int:
         # Never counted as fresh (FOLLOW-UPS (3)): the check never saw them.
         print(f"  UNCHECKED NAV ({len(unchecked)} funds, freshness not measured): "
               + "; ".join(f"{tk} ({why})" for tk, why in unchecked))
+    if spike is not None:
+        print(f"  SPIKE-REVERT (data book {cfg.name}; the panel is written, the bar is not "
+              f"to be traded until ruled): {spike}")
     if incomplete:
-        print(f"  INCOMPLETE for {pd.Timestamp(require_asof).date()} on "
+        print(f"  {INCOMPLETE_TAG} {pd.Timestamp(require_asof).date()} on "
               f"{len(incomplete)} deployed name(s): " + "; ".join(incomplete))
-        return 4
-    if require_asof is not None:
+    elif require_asof is not None:
         print(f"  today's pair complete: every deployed name has a close and a "
               f"NAV dated {pd.Timestamp(require_asof).date()}")
-    return 0
+    if spike is not None:
+        # AN UNRULED SPIKE OUTRANKS AN INCOMPLETE PAIR (module docstring, THE SPIKE
+        # GUARD; release-check of 8b14298): exit 4 is what C4's missing-NAV hold
+        # accepts at the final check, so 4 here would trade the unruled bar on any
+        # day a NAV is late. Only a data book with the guard on reaches this line;
+        # the core's `spike` is always None, so its exits below are unchanged.
+        return EXIT_SPIKE
+    return 4 if incomplete else 0
 
 
 def main(argv=None) -> int:
@@ -582,12 +773,21 @@ def main(argv=None) -> int:
     ap.add_argument("--book", default=None,
                     help="book json; with --require-asof, only its deployed "
                          "names must be complete (default: the whole panel)")
+    ap.add_argument("--data-book", choices=sorted(data_books.BOOK_NAMES), default=None,
+                    help="whose panels: cef (the default; data/cef) or c4 (data/cef_c4, the "
+                         "74 frozen funds, its own lock, CEFConnect refused); module "
+                         "docstring, DATA BOOKS")
     a = ap.parse_args(argv)
     try:
-        return refresh(a.period, a.require_asof, a.nav_fallback, a.book)
+        if a.data_book is None:          # the call this command has always made
+            return refresh(a.period, a.require_asof, a.nav_fallback, a.book)
+        return refresh(a.period, a.require_asof, a.nav_fallback, a.book, data_book=a.data_book)
     except PanelLockTimeout as e:
         print(f"  LOCKED: {e}")
         return EXIT_LOCKED
+    except CefConnectDisabled as e:
+        print(f"  REFUSED: {e}")
+        return EXIT_REFUSED
 
 
 if __name__ == "__main__":

@@ -121,6 +121,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from quantt.session.records import StateDirError, require_book_state_dir
 from quantt.session.score import (COST_BASIS, OFFICIAL_SOURCE, PENDING, UNMEASURED,
                                   AuctionPrints, DayScore, Fill, OfficialPnL,
                                   official_change, score_day)
@@ -832,6 +833,14 @@ def main(argv=None) -> int:
     if not state_dir.is_dir():
         print(f"QUANTT_STATE_DIR {state_dir} is not a directory", file=sys.stderr)
         return 2
+    try:
+        # C4's state dir must be named c4 (records.STATE_DIR_NAMES): its line, scores
+        # and reconcile.json must never land in the core's verify.log. Nothing is
+        # written, as for an unset QUANTT_STATE_DIR. No entry for the core.
+        require_book_state_dir(args.book, state_dir)
+    except StateDirError as e:
+        print(str(e), file=sys.stderr)
+        return 2
 
     client = None
     try:
@@ -853,7 +862,8 @@ def main(argv=None) -> int:
         # written; the error goes to stderr (the job log), naming the hook.
         for name, hook in (
                 ("shadow", lambda: run_shadow(client, state_dir, v.date, condition=args.condition)),
-                ("distributions", lambda: run_distributions(client, state_dir, v.date))):
+                ("distributions", lambda: run_distributions(client, state_dir, v.date,
+                                                            book=args.book))):
             try:
                 hook()
             except Exception as e:  # noqa: BLE001 -- reported on stderr; the verdict stands
@@ -862,21 +872,25 @@ def main(argv=None) -> int:
     return 0 if v.ok else 1
 
 
-def run_distributions(client, state_dir: Path, today: dt.date) -> None:
+def run_distributions(client, state_dir: Path, today: dt.date, *, book: str) -> None:
     """The distribution-adjusted third score (quantt/session/dist_score.py), after
     the verdict is written and never able to change it (team lead 2026-10-09:
     Alpaca paper credits no dividends, so carry a third line). It scores every
     session at least two sessions old that has no measured row yet, from that
     day's reconcile.json and scores.csv, so the yfinance cross-check has caught
-    up (review 2026-10-09). A day it cannot measure is an UNMEASURED row, retried."""
+    up (review 2026-10-09). A day it cannot measure is an UNMEASURED row, retried.
+    Its second source is `book`'s own distributions panel (`dist_score.panel_for`:
+    data/cef/ for the core, as always; data/cef_c4/ for C4, plan row 8)."""
     from ops.schedule.nyse_calendar import is_trading_day, next_trading_day, previous_trading_day
     from quantt.session import dist_score
     if not is_trading_day(today):
         return
+    panel = dist_score.panel_for(book)
     now = dt.datetime.now(dt.timezone.utc)
     for d, status in dist_score.run_pending(client, state_dir, today, now_utc=now,
                                             previous_trading_day=previous_trading_day,
-                                            next_trading_day=next_trading_day):
+                                            next_trading_day=next_trading_day,
+                                            panel_path=panel):
         print(f"distributions {d}: {status} USD ({dist_score.LABEL.split(':')[0]})")
 
 
