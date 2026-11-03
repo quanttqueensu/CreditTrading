@@ -104,11 +104,12 @@ def test_the_c4_book_json_validates_through_every_runner_reader():
     assert lim["max_gross_exposure_usd"] == spec["risk"]["max_gross_exposure_usd"]
     assert lim["per_sleeve_capital_band"] == [0.0, spec["capital_usd"]]
     assert lim["book_drawdown_suspend_pct"] == 99.0                          # whole-number percent
-    # The spec defines no halve/kill levels on purpose; report mode then records
-    # UNMEASURED, never a number from nowhere.
+    # The halve/kill levels are the core's, read in report mode only (spec v3, team lead
+    # 2026-10-30). Until v3 the spec named none and this asserted Unmeasured.
     from quantt.session import drawdown as ddm
-    with pytest.raises(ddm.Unmeasured):
-        ddm.levels(spec)
+    core_risk = rn.load_spec(rn.BOOKS["cef"].spec_path)["risk"]
+    lv = ddm.levels(spec)
+    assert (lv["halve"], lv["kill"]) == (core_risk["halve_drawdown"], core_risk["kill_drawdown"])
     # Every block carries its note; every top-level key is a block the runner reads or prose.
     for block in ("limits", "execution", "data", "risk", "corporate_actions"):
         assert any(k.startswith("_") for k in book[block]), block
@@ -309,8 +310,11 @@ def test_a_c4_session_in_dry_decides_from_data_cef_c4_only(c4_world, monkeypatch
     mv = plan["missing_nav"]
     assert (mv["mode"], mv["action"], mv["missing"], mv["n_universe"], mv["max_held"]) == \
         ("hold", "none", {}, 74, 74 - 6)
-    assert plan["drawdown"]["status"] == "UNMEASURED"           # the spec names no levels
-    assert "halve_drawdown" in plan["drawdown"]["why"]
+    # The core's levels, report only (spec v3, team lead 2026-10-30): read, and UNMEASURED here
+    # only because the fresh state dir has no eod_equity.csv yet (the collector writes it).
+    dd = plan["drawdown"]
+    assert dd["status"] == "UNMEASURED" and "eod_equity.csv" in dd["why"] and not dd["acted"]
+    assert (dd["levels"]["halve"], dd["levels"]["kill"]) == (0.12, 0.18)
     assert plan["corporate_actions"]["status"] == "CLEAR"
     # CEF trial 53 (spec c4_families.v2.20261101): every weight target is the account's,
     # m x the unit weight, and says so (cef_discount.py, `smult`).

@@ -1,8 +1,8 @@
 {
- "spec_id": "c4_families.v2.20261101",
- "spec_sha256": "6d215ff177f76d0eb2bee66ff538a5e846aa4ee9244c3462d122bffe0ca3c48c",
+ "spec_id": "c4_families.v3.20261102",
+ "spec_sha256": "1baa56f188ad5b7e27a08b776063646ce38aa722597b5c32c936fca9aee1eecf",
  "core_spec_id": "cef_discount.v8.20261101",
- "run_utc": "2026-11-03T02:17:28.482923+00:00",
+ "run_utc": "2026-11-03T02:25:34.755566+00:00",
  "families_cut": {
   "cef_prices": {
    "rows": 775180,
@@ -18,7 +18,7 @@
   }
  },
  "fidelity": {
-  "spec_id": "c4_families.v2.20261101",
+  "spec_id": "c4_families.v3.20261102",
   "sessions": 907,
   "first": "2005-01-03",
   "last": "2022-12-30",
@@ -142,7 +142,7 @@
    ],
    "e_book_usd": [
     100000.0,
-    "capital_usd of c4_families.v2.20261101"
+    "capital_usd of c4_families.v3.20261102"
    ],
    "mark_sensitivity": [
     0.0,
@@ -223,7 +223,7 @@
  "lines": {
   "spec_book": {
    "role": "H11 REFERENCE (team lead 2026-10-29): the book paper trades",
-   "policy": "band 0.048 + cap 1.9 x sizing_multiplier 1.27 (c4_families.v2.20261101)",
+   "policy": "band 0.048 + cap 1.9 x sizing_multiplier 1.27 (c4_families.v3.20261102)",
    "total": {
     "label": "spec book, CRSP ret (total return)",
     "first_held": "2005-02-22",

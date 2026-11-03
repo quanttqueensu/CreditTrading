@@ -108,8 +108,32 @@ def test_the_spec_carries_trial_53s_multiplier_with_its_note():
         assert must in note, must
     # The unit book is the trial's: the vol target, gross leverage and band are not moved.
     assert (f["vol_target_annual"], f["max_gross_stress"]) == (0.06, 1.9)
-    assert s["spec_id"] == "c4_families.v2.20261101" and s["_supersedes"] == "c4_families.v1.20261029"
+    # v2.20261101 applied it; v3.20261102 added only the halve/kill levels (the next test).
+    assert s["spec_id"] == "c4_families.v3.20261102" and s["_supersedes"] == "c4_families.v2.20261101"
     registry.build_sleeve(s, float(s["capital_usd"]))          # validates (cap set, 0.06 x m sane)
+
+
+def test_the_halve_kill_levels_are_the_cores_and_read_in_report_mode_only():
+    """Team lead 2026-10-30 (docs/SYSTEM.md section 5): C4's HALVE/KILL drawdown levels are the
+    core's, in report mode, until a C4-specific derivation exists. Wired as the core's are: the
+    spec's risk.halve_drawdown / risk.kill_drawdown, read by quantt/session/drawdown.py through the
+    book json's risk.drawdown = 'report'. Copied, so this fails the day the two specs differ: a
+    change to the core's levels is then a C4 spec change too, never an inheritance by accident.
+    Fails on v2 (no levels)."""
+    from quantt.session import drawdown as ddm
+    from scripts.cef import spec as core
+    c4r, corer = _spec()["risk"], json.loads(core.SPEC_PATH.read_text())["risk"]
+    assert (c4r["halve_drawdown"], c4r["kill_drawdown"]) == \
+        (corer["halve_drawdown"], corer["kill_drawdown"])
+    for k in ("_halve_drawdown_note", "_kill_drawdown_note"):
+        for must in ("THE CORE'S LEVEL", "team lead 2026-10-30", "UNITS", "REPORT", "NOTHING ACTS",
+                     "REVERT"):
+            assert must.lower() in c4r[k].lower(), (k, must)
+    lv = ddm.levels(_spec())
+    assert (lv["halve"], lv["kill"]) == (corer["halve_drawdown"], corer["kill_drawdown"])
+    assert lv["source"].startswith(_spec()["spec_id"])
+    book = json.loads((REPO / "ops" / "books" / "c4_families_book.json").read_text())
+    assert book["risk"]["drawdown"] == ddm.REPORT == "report"
 
 
 def test_h11_reads_the_account_book_under_the_multiplier(monkeypatch):
@@ -147,7 +171,8 @@ def test_the_four_c4_keys_say_what_the_trial_did():
 def test_every_key_has_its_note_and_every_frozen_note_a_revert():
     """The spec-change standard (`_band_width_note`): a sibling note per key. Top level, the
     self-describing blocks (description, the blocks themselves, the kill rule's own text and the
-    evidence pointers) are exempt; `_drawdown_levels_note` documents keys left out on purpose."""
+    evidence pointers) are exempt. (v1 and v2 had `_drawdown_levels_note` for the halve/kill
+    levels they left out on purpose; v3 carries the core's, each with its own note.)"""
     s = _spec()
     exempt_top = {"description", "frozen", "rebalance", "risk", "kill_rule", "evidence"}
     for name, b, exempt in (("top", s, exempt_top), ("frozen", s["frozen"], set()),
@@ -160,8 +185,7 @@ def test_every_key_has_its_note_and_every_frozen_note_a_revert():
         if k.startswith("_"):
             assert k.endswith("_note") and k[1:-len("_note")] in s["frozen"], f"frozen.{k} documents no key"
             assert "REVERT" in v, f"frozen.{k} names no REVERT"
-    assert "halve_drawdown" not in s["risk"] and "kill_drawdown" not in s["risk"]
-    assert "_drawdown_levels_note" in s["risk"]
+    assert "_drawdown_levels_note" not in s["risk"]          # the levels are there now (v3)
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +360,8 @@ def test_the_rulings_are_in_the_notes_and_the_counter_stays():
     for must in ("KEEP 1.90", "does NOT count as a CEF trial", "trial-50 precedent", "ARMING GATE",
                  "0.02632", "2023-26 returns are not read", "left for step 5's book json"):
         assert must in note, must
-    assert "left for step 5's book json" in _spec()["risk"]["_drawdown_levels_note"]
+    assert "superseded 2026-10-30: the core's levels" in note       # ruling (4), then 2026-10-30
+    assert "team lead 2026-10-29 left them to the book json" in _spec()["risk"]["_halve_drawdown_note"]
     # The cap spent no trial: the counter was 52 at the ruling, and the only trial since is
     # CEF trial 53, the vol-target raise (results/cef/PREREG_VOLTARGET_2026-10-30.md, approved
     # 2026-11-01), which does count. A further trial fails here: re-read this line then.
