@@ -749,7 +749,21 @@ def stage_holdout(rehearse: bool = False) -> int:
     act = CACHE / "holdout_actions_ruled.parquet"
     c4.ruled_actions(yfa, RT, excluded).to_parquet(act, index=False)
     cr = c4.crsp_pivot(crsp, cols, sess, qr, "ret", px=px)
-    fill = {} if rehearse else c4.igr_fill(c4.alpaca_pool(), px, sess)[0]     # the fill is on 2026-09-08/09 only
+    # IGR's ruled fill (C4's holdout ruling 2026-10-14: Alpaca's split-adjusted closes on 2026-09-08/09). The real
+    # run applies it and says so; the rehearsal's window ends 2022-12-30, so it cannot hold those dates, and it
+    # says that it skips them. Neither path is silent.
+    if rehearse:
+        fill = {}
+        pre_notes = [f"  IGR fill: SKIPPED in the rehearsal (its dates {', '.join(str(d.date()) for d in c4.IGR_FILL)} are "
+                     f"outside 2021-01-04..2022-12-30); the real holdout run applies it"]
+    else:
+        fill = c4.igr_fill(c4.alpaca_pool(), px, sess)[0]
+        if sorted(fill) != sorted(c4.IGR_FILL) or not all(d in sess for d in fill):
+            raise RuntimeError(f"IGR fill dates {sorted(fill)} are not C4's ruled {c4.IGR_FILL} inside the session index")
+        pre_notes = ["  IGR fill APPLIED (C4's ruling 2026-10-14, Alpaca split-adjusted): " +
+                     ", ".join(f"{d.date()} {v:+.4%}" for d, v in sorted(fill.items()))]
+    for n_ in pre_notes:
+        print(n_)
     yf = c4.yf_total_returns(px, cols, sess, actions=act, rulings=c4.BAR_RULINGS, split_rulings=c4.SPLIT_RULINGS)
     for d, v in fill.items():
         if rehearse and d not in yf.index:
@@ -768,10 +782,11 @@ def stage_holdout(rehearse: bool = False) -> int:
         HOLDOUT_MARKER.write_text(f"CEF trial 54 holdout opened {dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')} "
                                   f"at commit {head} by `trial54.py holdout`. Opened once; this file makes a second run refuse.\n")
     # ---- holdout P&L exists from here
-    lines = []
+    lines = list(pre_notes)
     say = lambda s_="": (print(s_), lines.append(s_))
     fitj = json.loads((HERE / f"p1_{STAMP}.json").read_text())["books"]
-    out = {"commit": head, "window": [str(HOLDOUT_START.date()), str(HOLDOUT_END.date())], "books": {}}
+    out = {"commit": head, "window": [str(HOLDOUT_START.date()), str(HOLDOUT_END.date())], "books": {},
+           "igr_fill": {str(d.date()): float(v) for d, v in fill.items()}, "rehearsal": rehearse}
     pn = {}
     for k, T in (("z", B["Tz"]), ("level", B["TL"]), ("blend", B["TB"])):
         H = book(T, S)
