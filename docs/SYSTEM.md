@@ -692,6 +692,12 @@ Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02
 | Where the pre-arming reads run (checklist steps 3 and 6), with C4's keys absent from the laptop | **"they are on the vm"**: the read-only probe and the cap re-check run on the VM, authenticated by the key file its C4 secret service wrote. No key is printed, copied or moved (`vmrelease.sh c4-probe`, git-excluded) |
 | CEF trial 54's outcome (the holdout, opened once, 2026-11-03) | **PASS on the pre-registered remainder, with the holdout decisive** (`results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md`): level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32% [S]. Evidence INCONCLUSIVE at N = 54, K3 overridden as above. Per "deploy as fast as possible", `level_signal` is activated in C4's spec (v5) through `/spec-change` and a release-check, paper only |
 
+### Team lead, 2026-11-03 — the research evidence pack's live data
+
+| question | decision |
+|---|---|
+| What of the paper accounts' live record may the public repository carry (PR #45, `results/report/`)? | **"Aggregates in repo, rows private."** Daily, account-level aggregates only: equity (the EOD record and the snapshot, labelled), P&L, attribution totals, fill-cost summaries in bp with counts, order counts, gate and verify outcomes (precedent: `results/cef/fill_drift_2026-11-02/`). Per-name quantities, per-name or per-fill prices, positions and order-level rows go to the gitignored `results/report/_cache_live/`; `scripts/report/snapshot_live.py` refuses to write a row file where git can see it. The branch's history was rewritten so the row files never appear in it. Backing up the cache to R2 is the team lead's step |
+
 ### Team lead, 2026-11-02 — autonomy
 
 Answered interactively on 2026-11-02, after `release-20261102-1` went live.
@@ -764,3 +770,4 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | 2026-10-28 | §5's research-method table records the team lead's ruling that a counter with one stored trial gates on the desk's bar until a second is stored. | research loop, for the team lead |
 | 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |
 | 2026-11-02 | §5's trial-53 table records amendment 1: core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule; CEF stays 53. | CEF trial 53 amendment 1, for the team lead |
+| 2026-11-03 | §5 records the evidence pack's live-data ruling: aggregates in the repository, rows in a gitignored cache. | research evidence pack, for the team lead |
