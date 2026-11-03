@@ -676,6 +676,21 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-02 — autonomy
+
+Answered interactively on 2026-11-02, after `release-20261102-1` went live.
+
+| question | decision |
+|---|---|
+| Do the trades need the team lead's approval? | **No, and they never did.** The VM has been armed since 2026-10-08: every decided plan is sent on schedule |
+| What may agents do without the team lead | **Everything, arming included:** merge, tag and install releases, and arm or disarm a book's runner, when every gate passes (CLAUDE.md rule 1, standing authority). Unchanged: `DRY_RUN=1` set by the team lead wins; credentials are never read or moved; approving a trial stays the team lead's |
+| How the team lead hears about it | **The journal only** (`docs/JOURNAL.md`), with no notifications |
+| How agents merge, since main's ruleset admits a merge only through the team lead's admin bypass | **Agents use `--admin`, only after CI has passed on the PR's exact head**, with `--match-head-commit`. The ruleset that keeps analysts off main is unchanged |
+| C4's corporate-action gate (a flat C4 would have refused 17 of the last 23 sessions under `halt`; once holding, every session on the three unresolved rows) | **Report, the same as the core**, until the ISIN fix and the re-ruling of the unresolved rows land; then both go back to `halt` together |
+| Which new signal goes to a pre-registration (screens 2026-11-02, zero trials) | **The C4 family-level discount signal only.** It takes the next CEF number at approval. Gate 0 (survivorship, re-run including dead funds) runs before any 2023+ return is read and needs the team lead's CRSP pull. Turn-of-month stays on WATCH until a test anchored on pay dates |
+| The paper-fees correction to CLAUDE.md landmine 1 and `docs/REFERENCES.md` | **Not yet** (2026-11-02) |
+| The Sharpe-framed NAV hedge (another session's screen) | **Closed at the power gate, UNDERPOWERED**, with zero trials. A report-only exposure readout replaces it (`docs/RESEARCH_STATE.md`, CLOSED) |
+
 ### Team lead, 2026-11-01 — the vol-target raise (CEF trial 53)
 
 Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md` (written 2026-10-30;
@@ -690,6 +705,7 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | The raise's stops | **R1 (drawdown past D_R), R2 (the 120-session return below its 5th percentile), R3 (the 60-session vol above its 95th percentile)**, per account, on the P&L of record. Each is re-measured on the read date by `results/cef/prereg_voltarget/stops.py`. They are acted on by the team lead: the account's multiplier is reverted through `/spec-change`. No acting mode is built |
 | When it starts | **The core at its next release; C4 at its arming,** already at ×1.27, with C4's H11 reference rebuilt on the raised book |
 | The core's 2023+ "sealed" (2026-10-09's row above) | **Corrected:** for the core book it has been seen. 2024–26 was opened on 2026-07-31, and the v7 pre-registration computed 2013-06-14 → 2026-09-21. The 2026-10-09 rule still holds for any book whose 2023+ has not been computed. Dated notes are in `docs/RESEARCH_STATE.md` and the framework's §9 |
+| Amendment 1 (team lead, **2026-11-02**, about 22:00 ET) | **Core ×1.30 (spec `cef_discount.v9.20261102`), C4 ×1.26 (`c4_families.v4.20261102`, before C4 arms), and the core's stops recalibrated on the live thin-day rule: R1 10.14%, R2 −3.06%, R3 12.07%.** The multipliers above were derived on the harness's thin-day HOLD book, but the live core FLATTENS. On the sessions it trades, the same rule gives ×1.30, which restores the risk this trial approved (zero-edge P(HALVE) / P(KILL) 16.7% / 1.7% while trading). The literal calendar-vol figure, ×1.96, is inflated by the flat sessions and was **not chosen**. It is **an amendment, not a new trial: CEF stays 53** (`results/cef/PREREG_VOLTARGET_2026-10-30.md` §0.B; `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md`) |
 
 ## 6. Governance — where each rule lives
 
@@ -731,3 +747,4 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | 2026-10-28 | §5's research-method table records the team lead's 2026-10-28 ruling to keep the paper-admission rule as written, and that the later paper-view finding is not ruled on. | re-open (1), for the team lead |
 | 2026-10-28 | §5's research-method table records the team lead's ruling that a counter with one stored trial gates on the desk's bar until a second is stored. | research loop, for the team lead |
 | 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |
+| 2026-11-02 | §5's trial-53 table records amendment 1: core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule; CEF stays 53. | CEF trial 53 amendment 1, for the team lead |

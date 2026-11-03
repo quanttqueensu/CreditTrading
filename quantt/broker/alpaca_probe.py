@@ -16,7 +16,9 @@ WHAT IT DOES, AND THE ONE THING IT CANNOT DO
 -------------------------------------------
 For each book (one Alpaca paper account per book, team lead 2026-09-28) it
 GETs the account, its configuration, every spec-universe asset, the open
-positions and the open orders, and writes what came back, verbatim, to
+positions and the open orders (and, for an opt-in book such as C4, one page of
+closed orders for the opening-session read, recorded as a summary only), and
+writes what came back, verbatim, to
 `results/ops/alpaca_probe/<date>_<book>.json`. It cannot place, replace or
 cancel anything: `_get` is the only function that talks to the network and it
 issues GET and nothing else. There is no code path to a POST or DELETE here, and
@@ -60,6 +62,44 @@ BOOK_SPECS = {
     "cef": REPO / "ops" / "specs" / "cef_discount.frozen.json",
     "b6": REPO / "ops" / "specs" / "bench_b6_ew_credit.frozen.json",
 }
+# Books read ONLY when named (`--book c4`), never by the default `all`, so the
+# routine probe and ops.orient (which iterate BOOK_SPECS) are unchanged while
+# C4 is dark. C4 (CEF trial 52) trades its own paper account, the spare
+# connector account (team lead 2026-10-26); its keys are ALPACA_C4_KEY_ID /
+# _SECRET_KEY. Its read is the input to re-deriving its gross cap before arming
+# (ops/specs/c4_families.frozen.json _max_gross_stress_note, ruling 3;
+# `scripts/cef/c4_paper_benchmark.py recap`).
+OPT_IN_BOOK_SPECS = {
+    "c4": REPO / "ops" / "specs" / "c4_families.frozen.json",
+}
+
+# THE OPENING-SESSION READ (quant-reviewer QR1 on the release-check of 336df9d,
+# 2026-11-03). The runner trades a book's first session to FULL target only when
+# `quantt.session.run.is_opening_session` is True: no position AND no order in the
+# account's history EVER filled (team lead 2026-09-28). Otherwise it opens from
+# flat at the band EDGE: for C4 on data/cef_families to 2026-10-09 that was 28-42%
+# of target and net long +4.7% to +11.1% (the reviewer's measurement, spec v4).
+# C4 arms on the spare paper account, which the research loop may also trade
+# (CLAUDE.md rule 1's 2026-10-27 exception), so one fill there, even one since
+# flattened, changes how C4 opens. Open orders and positions cannot show a past
+# fill; this read can. Opt-in books only, so the routine probe of the core and b6
+# makes exactly the requests it always made. The value is the runner's own
+# function applied to the account's positions and closed orders, newest first,
+# one page: a fill ends the question (False); a short page with no fill and no
+# position reads the whole history (True); a FULL page with no fill is
+# UNMEASURED (None), never guessed, because older orders were not read.
+OPENING_READ_BOOKS = frozenset(OPT_IN_BOOK_SPECS)
+CLOSED_ORDERS_PAGE = 500                 # Alpaca's maximum `limit` for GET /v2/orders [V: docs]
+CLOSED_ORDERS_PATH = f"/v2/orders?status=closed&limit={CLOSED_ORDERS_PAGE}&direction=desc"
+
+
+def spec_path(book: str) -> Path:
+    """The frozen spec of `book`, default or opt-in; an unknown book raises."""
+    if book in BOOK_SPECS:
+        return BOOK_SPECS[book]
+    if book in OPT_IN_BOOK_SPECS:
+        return OPT_IN_BOOK_SPECS[book]
+    raise KeyError(f"no book {book!r}; the books are {sorted({**BOOK_SPECS, **OPT_IN_BOOK_SPECS})}")
 
 # Asset fields the migration decides on. Shown in the summary as returned, or
 # as ABSENT when Alpaca did not send the field -- a missing field is itself a
@@ -140,11 +180,11 @@ def universe(book: str) -> list[str]:
         sys.path.insert(0, str(REPO / "scripts" / "cef"))
         import spec  # noqa: E402  (path set just above)
         return list(spec.frozen("universe"))
-    d = json.loads(BOOK_SPECS[book].read_text())
+    d = json.loads(spec_path(book).read_text())
     try:
         return list(d["frozen"]["universe"])
     except KeyError as e:
-        raise KeyError(f"{BOOK_SPECS[book]} has no frozen.universe") from e
+        raise KeyError(f"{spec_path(book)} has no frozen.universe") from e
 
 
 def _get(session, path: str, *, allow_404: bool = False):
@@ -166,6 +206,55 @@ def _get(session, path: str, *, allow_404: bool = False):
     return r.json()
 
 
+def opening_read(session, positions: list) -> dict:
+    """The opening-session read for one account (OPENING_READ_BOOKS, above): the
+    runner's `is_opening_session` on its positions and its closed orders.
+
+    Returns {"value": True | False | None, "why", "positions", "closed_orders_read",
+    "filled_orders_read", "newest_fill"}. `newest_fill` is the newest filled
+    order's symbol, submission time and client_order_id prefix (who sent it: `c4`,
+    or anything else, e.g. the lab), or None; no order id, no account identifier.
+    Raises, naming it, on a page that is not a list or an order whose filled_qty
+    cannot be read: an unreadable history is not a clean one."""
+    from decimal import Decimal, InvalidOperation
+    from quantt.session.run import is_opening_session
+    page = _get(session, CLOSED_ORDERS_PATH)
+    if not isinstance(page, list):
+        raise RuntimeError(f"GET {CLOSED_ORDERS_PATH}: expected a list, got {type(page).__name__}")
+    held = {}
+    for p in positions:
+        if not isinstance(p, dict) or "symbol" not in p:
+            raise RuntimeError(f"GET /v2/positions: a position without a symbol: {p!r:.120}")
+        held[p["symbol"]] = p.get("qty")
+    filled = []
+    for o in page:
+        try:
+            if Decimal(str(o["filled_qty"])) > 0:
+                filled.append(o)
+        except (KeyError, TypeError, InvalidOperation):
+            raise RuntimeError(f"closed order {o.get('client_order_id') if isinstance(o, dict) else o!r}"
+                               f": unreadable filled_qty") from None
+    rule = is_opening_session(held, page)          # the runner's own rule, on this read
+    if held or filled:
+        value, why = False, (f"{len(held)} position(s)" if held else
+                             f"{len(filled)} filled order(s) among the newest {len(page)} closed")
+    elif len(page) < CLOSED_ORDERS_PAGE:
+        value, why = True, f"no position, and none of all {len(page)} closed order(s) filled"
+    else:
+        value, why = None, (f"UNMEASURED: none of the newest {len(page)} closed orders filled, "
+                            f"and older ones were not read")
+    if value is not None and value != rule:
+        raise RuntimeError(f"opening read {value} disagrees with run.is_opening_session {rule}")
+    newest = None
+    if filled:
+        o = max(filled, key=lambda x: str(x.get("submitted_at") or ""))
+        cid = str(o.get("client_order_id") or "")
+        newest = {"symbol": o.get("symbol"), "submitted_at": o.get("submitted_at"),
+                  "client_order_id_prefix": cid.split("-")[0] if "-" in cid else "(none)"}
+    return {"value": value, "why": why, "positions": len(held), "closed_orders_read": len(page),
+            "filled_orders_read": len(filled), "newest_fill": newest}
+
+
 def probe_book(book: str, session) -> dict:
     """Everything this probe knows about one book's account, as fetched."""
     names = universe(book)
@@ -173,11 +262,11 @@ def probe_book(book: str, session) -> dict:
     for sym in names:
         a = _get(session, f"/v2/assets/{sym}", allow_404=True)
         assets[sym] = a if a is not None else {"_probe": "NOT FOUND AT ALPACA (404)"}
-    return {
+    snap = {
         "book": book,
         "fetched_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "base_url": PAPER_BASE,
-        "spec": str(BOOK_SPECS[book].relative_to(REPO)),
+        "spec": str(spec_path(book).relative_to(REPO)),
         "universe": names,
         "account": redact(_get(session, "/v2/account"), is_account=True),
         "account_configurations": redact(_get(session, "/v2/account/configurations")),
@@ -185,6 +274,9 @@ def probe_book(book: str, session) -> dict:
         "positions": redact(_get(session, "/v2/positions")),
         "open_orders": redact(_get(session, "/v2/orders?status=open&limit=500")),
     }
+    if book in OPENING_READ_BOOKS:
+        snap["opening_session"] = opening_read(session, snap["positions"])
+    return snap
 
 
 def summarise(snap: dict) -> str:
@@ -192,8 +284,14 @@ def summarise(snap: dict) -> str:
     lines = [f"== {snap['book']}  ({snap['fetched_at_utc']}, {snap['base_url']})",
              "account: " + "  ".join(
                  f"{k}={acct[k] if k in acct else 'ABSENT'}" for k in ACCOUNT_FIELDS),
-             f"positions: {len(snap['positions'])}   open orders: {len(snap['open_orders'])}",
-             "symbol  " + "  ".join(ASSET_FIELDS)]
+             f"positions: {len(snap['positions'])}   open orders: {len(snap['open_orders'])}"]
+    if "opening_session" in snap:
+        o = snap["opening_session"]
+        v = {True: "True", False: "False", None: "UNMEASURED"}[o["value"]]
+        lines.append(f"opening_session: {v}   ({o['why']}; the runner's rule: no position and no "
+                     f"filled order ever)"
+                     + (f"   newest fill: {o['newest_fill']}" if o["newest_fill"] else ""))
+    lines.append("symbol  " + "  ".join(ASSET_FIELDS))
     for sym, a in snap["assets"].items():
         if "_probe" in a:
             lines.append(f"{sym:<7} {a['_probe']}")
@@ -214,7 +312,9 @@ def _session(key_id: str, secret: str):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--book", choices=[*BOOK_SPECS, "all"], default="all")
+    ap.add_argument("--book", choices=[*BOOK_SPECS, *OPT_IN_BOOK_SPECS, "all"], default="all",
+                    help="all = " + ", ".join(BOOK_SPECS) + "; an opt-in book ("
+                         + ", ".join(OPT_IN_BOOK_SPECS) + ") is read only when named")
     ap.add_argument("--check-keys", action="store_true",
                     help="print only whether each book's keys are SET; no network")
     args = ap.parse_args(argv)

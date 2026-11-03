@@ -1,8 +1,74 @@
-# Pre-registration: raise the live book's volatility target, core ×1.13 and C4 ×1.27 (CEF trial 53, APPROVED)
+# Pre-registration: raise the live book's volatility target, core ×1.30 and C4 ×1.26 (CEF trial 53, APPROVED; amendment 1)
 
 Date: drafted 2026-10-30; **APPROVED 2026-11-01 by the team lead** (answered interactively, relayed by
 the coordinating session). Counter: **CEF, trial 53**, moved 52 → 53 in the commit that records this
 approval (`docs/RESEARCH_STATE.md`, same commit). Author: an agent, for the team lead.
+**Amendment 1, APPROVED 2026-11-02 (§0.B):** core ×1.13 → ×1.30, C4 ×1.27 → ×1.26, and the core's stops
+recalibrated on the live thin-day rule. It is an amendment, not a new trial; the counter stays at 53.
+
+## 0.B Amendment 1 (APPROVED 2026-11-02, the team lead)
+
+**Approved interactively on 2026-11-02, about 22:00 ET, relayed by the coordinating session.
+It is an amendment, NOT a new trial: CEF stays 53.** The hypothesis (H-VT), the rule and the
+implementation (`sizing_multiplier`) are unchanged. What changed is one input the rule was fed.
+
+**What changed, and why.**
+- §0.A's multipliers were derived on the canonical harness's book, which HOLDS the previous target on
+  a thin session (fewer than `min_names` eligible). The live core sleeve FLATTENS there instead
+  (`src/deploy/sleeves/cef_discount.py`, the `min_names` block). The thin-days report found this:
+  `results/backtests/thin-days-2026-11-03/REPORT.md` §6, branch `research-thin-days`.
+- Re-measured on the flatten book: `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md`,
+  PR #35, carried on this branch as 2c67a85 and ef3041e [V there]:
+  - **the core is flat on 56% of W1** (1,353 of 2,398 sessions);
+  - its unit daily sd is **0.002351** over the calendar and **0.003556 on the sessions it trades**,
+    against the hold book's 0.004095;
+  - **the 2026-10-29 rule applied literally gives core ×1.96 (C4 ×1.26)**. That figure is inflated:
+    the rule's identity m_core / m_c4 = sd_c4 / sd_core counts the flat sessions as zero risk;
+  - **on the sessions the core trades, the same rule gives ×1.3007 → 1.30** (C4 1.2642 → 1.26).
+- **×1.30 restores the risk the trial approved.** While the book trades, zero-edge P(HALVE) / P(KILL)
+  in 12 months are **16.7% / 1.68%**, against the 15.9% / 1.5% approved in §0.A on the hold book.
+  ×1.13 carries 10.3% / 0.66% on the live book.
+- ×1.30 is inside the plateau: combined Sharpe 1.626 TR / 1.745 PR, within 1.624–1.638 for every core
+  multiplier from 0.8 to 2.5.
+
+**The new values.**
+
+| | §0.A (2026-11-01) | **Amendment 1 (2026-11-02)** |
+|---|---|---|
+| core `sizing_multiplier` | 1.13 (hold book) | **1.30** (flatten book, trading sessions) |
+| core spec | `cef_discount.v8.20261101` | **`cef_discount.v9.20261102`** |
+| C4 `sizing_multiplier` (before C4 arms) | 1.27 | **1.26** (re-derived 1.2642, rounded down) |
+| C4 spec | `c4_families.v3.20261102` | **`c4_families.v4.20261102`** |
+
+**The new stops** (§6.2's R1–R3).
+- The core's stops are now **calibrated on the flatten book's trading sessions**: R1 **10.14%**, R2
+  **−3.06%**, R3 **12.07%** at ×1.30 [V `stops.py --core-earning-only`].
+- C4's stops at ×1.26, on its own book (C4 holds, so it is unaffected): R1 10.04%, R2 −3.02%, R3 9.90%.
+- These supersede §0.A's 11.17% / −3.52% / 12.12% (core) and 10.09% / −3.04% / 9.96% (C4). The rules
+  and horizons are unchanged.
+- H14 still governs: they are re-measured on the read date by
+  `stops.py --scratch FLAT --m-core 1.30 --m-c4 1.26 --core-earning-only FLAT/flatten_masks.parquet`.
+  FLAT is `flatten_series.py`'s root.
+- **Why trading sessions and not every session.** A calibration on every session would fire
+  spuriously while the book trades: R3 18.5% of the time at ×1.30, against its 5% design
+  (FLATTEN_REMEASURE §4).
+- **Nothing in code reads these thresholds.** No runner, orient or ops path acts on R1–R3. They are
+  read by the team lead, through `stops.py`, and acted on through `/spec-change` (§6.2).
+
+**Expected, on the fit** (exact implementation B, core account, total return): 3.78%/yr over the
+calendar and 8.67%/yr while trading (SR 1.222). Against ×1.13 that is +0.47 and +1.08pp/yr. The
+combined book gains +0.21pp/yr (model) [V FLATTEN_REMEASURE §4b]. Worst drawdown is 8.39% (W1), and
+9.7 / 18.3 / 39.1% through 2008 over the 5 non-thin year-end books.
+
+**The REVERT.**
+- **Core:** set `sizing_multiplier` back to 1.13 (spec v8), or restore it whole with
+  `git show spec-cef_discount.v8.20261101:ops/specs/cef_discount.frozen.json`. That tag is local only,
+  on the commit before the change.
+- **C4:** `git show spec-c4_families.v3.20261102:ops/specs/c4_families.frozen.json` (local).
+- Deleting the key on either returns that account to the unit book (§9).
+
+---
+
 
 ## 0.A The approval (2026-11-01, the team lead)
 
@@ -44,7 +110,7 @@ on 2026-11-01 at the approved values (`impl_core_2026-11-01_m1.13.*`, `impl_c4_2
 | P(KILL), same | combined **0.00 / 0.08 / 0.92%**; core account **0.35 / 2.4 / 17.4%**; C4 account **1.6%** |
 | worst drawdown | core account W1 14.05% model / 14.84% exact; through 2008 14.8 / 22.5 / 36.4%; C4 10.8%; combined through 2008 6.8 / 7.9 / 15.6% |
 | costs (model, TR) | combined net **+6.63 / +2.88 / −2.73 %/yr** at 5 / 15 / 30bp, breakeven 22.7bp; C4 account 16.9bp. The sign flips between 15 and 30bp. Gross decides; real money is gated separately (§8) |
-| R1 | core **D_R 11.17%**; C4 **10.09%** (drafting-day values; `stops.py --m-core 1.13 --m-c4 1.27` re-measures on the read date) |
+| R1 (superseded by §0.B) | core **D_R 11.17%**; C4 **10.09%** (drafting-day values; `stops.py --m-core 1.13 --m-c4 1.27` re-measures on the read date) |
 | R2 | core **−3.52%**; C4 **−3.04%** (120 armed sessions) |
 | R3 | core **12.12%**; C4 **9.96%** (60 armed sessions) |
 

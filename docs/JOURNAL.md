@@ -201,4 +201,67 @@ from a named source; [doc] copied from a named note.
     - distributions paper did not credit +$320.85, equal to our third score to the cent.
   - **The canonical harness holds on thin sessions; the live sleeve flattens.** Under a replica of the live rule, the fit-era break-even is 18.6bp, not 45.8bp [that session's turnover study, report only]. This is a question for the team lead, and trial 53's fit figures inherit it.
 
+**C4 brought up to date with main** (branch `c4-rel`, local; not pushed, tagged, installed or armed):
+- `c4-integrate` merged onto 862b1d0 (release-20261102-1) with no textual conflict. Fixed after it: `ca-ack` now refuses another book's state directory, as approve and the session do; five C4 tests that main's gate, trial 53 and the released book json broke.
+- C4's spec: `c4_families.v2.20261101` (trial 53's `sizing_multiplier` 1.27, the committed patch) and then `v3.20261102` (the core's halve/kill levels, report only, per the 2026-10-30 ruling). Revert tags for v1 and v2 are local.
+- The benchmark, re-run on the raised spec: fidelity passes; H11's reference is the ×1.27 book.
+- The core is proved to be 862b1d0's (`test_panels_noop.py`, re-pinned there). Its own three pin files are untouched and pass.
+- **C4's corporate-action `halt`, measured** on a replica of today's three unresolved rows: a flat C4 book is refused only on 11-03 (the JAGX merger); a held one on every session. On every unresolved row in today's read, a flat book would have been refused on 17 of the 23 sessions from 10-01 to 11-02 [U: feed as read today]. **Ruled the same evening: C4's gate runs in REPORT, as the core**, until the ISIN fix and the re-ruling of the unresolved rows land (book json `_mode_report_note`, with the RESTORE line; `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`).
+- **Release-check of 8b14298: NO-GO, fixed.** C4's fetch exited 4 (INCOMPLETE) over 6 (unruled spike), and C4's missing-NAV hold accepts 4 at the final check, so on a day with a late NAV C4 would have decided on an unruled spike bar. Now 6 outranks 4 when the spike guard is on, and the collector treats a 6 that names INCOMPLETE as an unfinished step. The core runs no spike guard: its fetch is still proved byte-identical to cee16ad's.
+
+**Rulings, about 22:00 ET** (`docs/SYSTEM.md` §5, the trial-53 table): **CEF trial 53 amendment 1 is approved.** Core ×1.13 → ×1.30 (spec `cef_discount.v9.20261102`), C4 ×1.27 → ×1.26 (`c4_families.v4.20261102`, before C4 arms), and the core's stops recalibrated on the live thin-day rule's trading sessions: R1 10.14%, R2 −3.06%, R3 12.07%. It is an amendment, not a new trial; **CEF stays 53**. The evidence is `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md` (PR #35) [doc]. Built on branch `trial53-amend1`, cut from `c4-rel` at 8b14298.
+
 **Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).
+
+**Prod, evening of 2026-11-02 [V, `ops.prod_state` after the install]:**
+- **`release-20261102-1` (f83b2a3, PR #28, merged as 862b1d0)** is installed on the VM, **ARMED**. It carries:
+  - **CEF trial 53, the core at ×1.13** (spec `cef_discount.v8.20261101`), first decided at the 22:00 ET slot;
+  - the corporate-action gate in **report** mode;
+  - the gate-6 fresh-order fix;
+  - the winter end-of-day stamp fix.
+- The release-check was GO on f83b2a3, after NO-GOs on 9630322, 9cf5cf2, 04aca24, 709d6cb, 1c64638 and 3478159.
+- History replay: 67 runs, **0 refused now**. Dry run clean. Applied with `--armed`.
+- PR #28 was merged with the admin override. Main's CI has been red since 2026-10-29 on a research test that needs the `arch` package, which CI doesn't install; this release did not cause it.
+- The Azure CLI's MFA had expired and was renewed by the team lead before the dry run.
+
+**Open:**
+- the bond-ISIN misread must be fixed before the gate returns to `halt`;
+- re-pin C4's real-panel no-op test;
+- CI's `arch` dependency;
+- the paper-fees correction to CLAUDE.md and REFERENCES.md (team lead: not yet);
+- show the team lead the first ×1.13 plan before the 2026-11-03 send.
+
+**Rulings, later on 2026-11-02** (`docs/SYSTEM.md` §5, "autonomy"):
+- **Agents may run releases and arming end to end** when every gate passes. That is now CLAUDE.md rule 1's standing authority.
+- The journal is the only notice.
+- The NAV hedge is closed (UNDERPOWERED).
+- CI gets `requirements-research.txt` (`arch`), so main's tests can go green without touching the VM's environment.
+
+**Found:** CLAUDE.md rule 1's 2026-10-27 exception lets the autonomous research loop trade in the same spare account that C4 will trade in. That account is flat today [V, connector read: $100,000 cash, no positions]. Before C4 is armed, the loop must be confirmed off it (rule 2).
+
+**Research, evening of 2026-11-02** (zero trials; dates ≤ 2022-12-30; PR #30, `results/cef/screens_2026-11-02/` on its branch) [V, re-run there]:
+- **Two accounts as one:**
+  - the approved ×1.13 / ×1.27 is close to optimal (a joint re-split adds +0.07%/yr);
+  - the accounts are uncorrelated (ρ +0.011), and Reg T never binds;
+  - **arming C4 adds +6.0%/yr gross** on the fit (Sharpe 0.97 → 1.84), and turns negative between 15 and 30bp of cost.
+- **New alpha:**
+  - the C4 family-level discount signal is the one to **pursue**: gross Sharpe 1.12, still positive net at 30bp, correlation 0.10 with the z-book;
+  - turn-of-month **pursue** as a hypothesis only: found post hoc, fails at 15bp, and part paper artefact;
+  - tax-loss: WATCH;
+  - killed: distribution cuts, cross-universe lead-lag, the level signal on the credit names, fast plus slow z, corporate events on the deployed 13, the live NAV drag (unpriced), the muni recall, bond holidays and leverage cost;
+  - paper's uncredited distributions are a scoring artefact.
+- **Found:** live turnover is 5.7× capital over 20 sessions, above the fit's 95th percentile (4.42×). On 56% of fit sessions too few names cleared, so the harness holds where the live book flattens (the other session's thin-day study).
+
+**Rulings** (`docs/SYSTEM.md` §5):
+- C4's gate runs in report mode.
+- The C4 family-level signal goes to a pre-registration.
+- Agents merge with the admin bypass only after CI passes on the exact head.
+
+**Prod:** PR #29 merged (26ed351): CI is green again; autonomy is in CLAUDE.md rule 1.
+
+## 2026-11-03 (Tue)
+
+**C4 arming prep** (branch `c4-arm-prep`, on main f27ef81 = release-20261103-1): the release-check of 336df9d was GO for the core only, and the fixes below must land before `--book c4` is cleared.
+- **QR1, the C4 opening-session check:** the arming go never checked whether C4's first armed session opens at full target. The runner does so only if the account has no position and has never had a fill. The spare account is shared with the research loop, so a past fill there would open C4 at the band edge: 28–42% of target, net long [V, the release-check, `data/cef_families` to 10-09]. Now `alpaca_probe --book c4` prints `opening_session` using the runner's own rule, over the account's positions and its newest 500 closed orders. Step 6 of the checklist requires that line and the last dry plan's `opening_session` both to read True; otherwise STOP.
+- **QR3:** the book jsons and the checklist now name core v9 ×1.30 and C4 v4 ×1.26 (`smult=1.2600`). `ops/tests/test_book_text.py` checks them against the specs.
+- **ET1:** a C4 install now scans every book's units and any stray `quantt-` unit before it reloads. The core's install is unchanged, so the checklist adds a disk check before each core install.

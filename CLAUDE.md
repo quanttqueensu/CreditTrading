@@ -88,9 +88,25 @@ that cannot be undone.
    C4 trades in, not a new one. It does so only through the `quantt` runner for
    that account, never by an ad-hoc API call. The loop may also promote a lab
    sleeve into the main paper book once the criteria fixed in its
-   pre-registration are met; installing on the VM still needs the team lead's
-   `!`. Rules 2–5 bind every one of those transmissions. It never applies to a
+   pre-registration are met; installing on the VM follows the standing authority
+   below. Rules 2–5 bind every one of those transmissions. It never applies to a
    live-money account. `docs/SYSTEM.md` §5, 2026-10-27 (the autonomous loop).
+   **Standing authority (team lead, 2026-11-02): agents run releases and arming.**
+   Agents may merge, tag and install a release on the VM, and arm or disarm a
+   book's scheduled runner, without asking, when every gate passes:
+   - a release-check GO on the exact commit;
+   - CI passed on the PR's exact head commit. Main's ruleset admits a merge only
+     through the team lead's admin bypass, so an agent uses `--admin` only then,
+     with `--match-head-commit`;
+   - a history replay with no run refused now;
+   - outside the send windows;
+   - an `ops.prod_state` read-back afterwards.
+   Each act goes into `docs/JOURNAL.md` the same day; that is the only notice.
+   Before arming a book, confirm that no other runner is armed on its account (rule 2).
+   The armed runner then sends each decided plan on its schedule. The per-session go
+   above still binds any order an agent would send by hand. `DRY_RUN=1` set by the
+   team lead always wins (rule 4). Credentials are never read or moved (rule 5).
+   Approving a trial stays the team lead's. `docs/SYSTEM.md` §5, 2026-11-02.
 2. **The trade phase is not idempotent, and the broker does not dedupe.** Open
    positions exclude unfilled MOC orders, so a second armed run's orders fill in
    the same auction and the book doubles. At Alpaca, `client_order_id` is unique

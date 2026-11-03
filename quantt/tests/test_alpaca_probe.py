@@ -140,3 +140,89 @@ def test_the_books_are_exactly_the_two_the_team_lead_kept():
 def test_the_cef_universe_comes_from_the_frozen_spec():
     spec = json.loads(ap.BOOK_SPECS["cef"].read_text())
     assert ap.universe("cef") == list(spec["frozen"]["universe"])
+
+
+def test_c4_is_read_only_when_named_and_never_by_default(monkeypatch, capsys):
+    """C4 (dark) is an opt-in book: `--book c4` reads its own account with its
+    own keys, from its own spec's universe; the default `all` is still the two
+    books, so the routine probe and ops.orient are unchanged."""
+    assert set(ap.OPT_IN_BOOK_SPECS) == {"c4"} and not set(ap.OPT_IN_BOOK_SPECS) & set(ap.BOOK_SPECS)
+    spec = json.loads(ap.OPT_IN_BOOK_SPECS["c4"].read_text())
+    assert ap.universe("c4") == list(spec["frozen"]["universe"]) and len(ap.universe("c4")) == 74
+    assert ap.env_names("c4") == ("ALPACA_C4_KEY_ID", "ALPACA_C4_SECRET_KEY")
+    monkeypatch.setattr(ap, "read_env_file", lambda: {"ALPACA_C4_KEY_ID": "k"})
+    assert ap.main(["--check-keys", "--book", "c4"]) == 0
+    out = capsys.readouterr().out
+    assert out == "ALPACA_C4_KEY_ID: SET\nALPACA_C4_SECRET_KEY: NOT SET\n" and "k\n" not in out
+    assert ap.main(["--check-keys"]) == 0
+    assert "C4" not in capsys.readouterr().out
+    with pytest.raises(KeyError):
+        ap.spec_path("nope")
+
+
+# ------------------------------------------- the opening-session read (QR1, release-check of 336df9d)
+
+def _closed(n, filled_at=None, cid="lab-20261020-ADX-1"):
+    """n closed orders, newest first; the one at index `filled_at` filled."""
+    return [{"id": f"o{i}", "client_order_id": cid if i == filled_at else f"x-{i}", "symbol": "ADX",
+             "filled_qty": "5" if i == filled_at else "0", "status": "filled" if i == filled_at
+             else "canceled", "submitted_at": f"2026-10-{20 - i % 19:02d}T19:53:00Z"}
+            for i in range(n)]
+
+
+def _c4_snap(closed, positions=()):
+    t = _table(ap.universe("c4"))
+    t["/v2/positions"] = (200, list(positions))
+    t[ap.CLOSED_ORDERS_PATH] = (200, closed)
+    s = FakeSession(t)
+    return ap.probe_book("c4", s), s
+
+
+def test_c4s_probe_reads_whether_its_first_session_opens_at_full_target():
+    """QR1: the arming read must see a PAST fill, which positions and open orders cannot.
+    Fails on 336df9d (no opening-session read)."""
+    snap, s = _c4_snap(_closed(3))
+    o = snap["opening_session"]
+    assert o["value"] is True and o["closed_orders_read"] == 3 and o["newest_fill"] is None
+    assert any(u.endswith(ap.CLOSED_ORDERS_PATH) for u in s.urls)
+    assert "opening_session: True" in ap.summarise(snap)
+    snap, _ = _c4_snap(_closed(3, filled_at=1))
+    o = snap["opening_session"]
+    assert o["value"] is False and o["filled_orders_read"] == 1
+    assert o["newest_fill"]["client_order_id_prefix"] == "lab" and "o1" not in json.dumps(o)
+    assert "opening_session: False" in ap.summarise(snap)
+
+
+def test_a_position_alone_makes_the_first_session_not_an_opening():
+    snap, _ = _c4_snap([], positions=[{"symbol": "ADX", "qty": "3"}])
+    assert snap["opening_session"]["value"] is False
+
+
+def test_a_full_page_with_no_fill_is_unmeasured_never_true():
+    snap, _ = _c4_snap(_closed(ap.CLOSED_ORDERS_PAGE))
+    o = snap["opening_session"]
+    assert o["value"] is None and o["why"].startswith("UNMEASURED")
+    assert "opening_session: UNMEASURED" in ap.summarise(snap)
+
+
+def test_the_read_is_the_runners_rule_on_the_same_orders():
+    from quantt.session.run import is_opening_session
+    for closed, pos in ((_closed(4), []), (_closed(4, filled_at=3), []),
+                        ([], [{"symbol": "ADX", "qty": "1"}])):
+        snap, _ = _c4_snap(closed, positions=pos)
+        assert snap["opening_session"]["value"] == is_opening_session(
+            {p["symbol"]: p["qty"] for p in pos}, closed)
+
+
+def test_an_unreadable_fill_raises_naming_the_order():
+    bad = _closed(2)
+    bad[0]["filled_qty"] = None
+    with pytest.raises(RuntimeError, match="x-0"):
+        _c4_snap(bad)
+
+
+def test_the_routine_probe_makes_no_closed_orders_request():
+    """The core and b6 snapshots are unchanged: no closed-order GET, no new key."""
+    s = FakeSession(_table(ap.universe("cef")))
+    snap = ap.probe_book("cef", s)
+    assert "opening_session" not in snap and not any("status=closed" in u for u in s.urls)
