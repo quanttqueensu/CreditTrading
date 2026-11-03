@@ -3384,6 +3384,53 @@ that adds it does not exist when it is written.
 - supports: §4, §5
 - status: current (the branch's history was rewritten so the row files never appear in it)
 
+### E-2026-11-03-38 · Release: release-20261103-4 installed; the core armed at ×1.30 (spec v9) and C4 installed and armed on v4 after VM pre-arm reads
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag release-20261103-4 = 8ce0395 (release-check GO 12:21 ET) [V]
+  - replay: 69 runs, 0 refused now [V]
+  - C4 pre-arm (VM probe): positions 0, open orders 0, equity $100,000.00, 0 closed orders in the account's history, opening_session True under own_prefix; cap re-check G_stress 1.900638 → 1.90 [V]
+  - C4 seed sha256 3fb68e38… / c7073db8…, the same on laptop and VM; treated_closes = IGR's four rebases [V]
+- source: `docs/JOURNAL.md` @ `0aaaa1f`
+- supports: §1, §4
+- status: superseded the same evening by E-2026-11-03-40 (release-20261103-5)
+
+### E-2026-11-03-39 · Ruling: C4 v5's gross cap stays 1.90 over the frozen rule's 1.80 (the blend's w5 0.0536 against the z book's 0.0261)
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - blend w5 0.0536 (total return), 0.0560 (price only); z book 0.0261; the rule gives 1.80 / 1.75 / 1.90 [S: release-check of e41f10b, measured two ways]
+  - a 2020-03-12..18 week held at 1.90×: blend about −10.2% of NLV, z book about −4.6% [S]
+- source: `docs/SYSTEM.md` §5 "C4 v5's gross cap" (PR #48); the release-check of e41f10b (workflow run wf_266f659d-5f8)
+- supports: §1, §5
+- status: current. An override of the rule, made with these figures in front of the team lead ("Keep 1.90, install tonight"). The arming gate's `recap` still read the z book's w5 at install, and is to be fixed
+
+### E-2026-11-03-40 · Release: release-20261103-5 installed; C4 re-armed on the v5 blend (CEF trial 54's level_signal); the core byte-identical
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag release-20261103-5 = e41f10b (PR #41 merged d963fb1); spec `c4_families.v5.20261103`; the core `cef_discount.v9.20261102` unchanged [V]
+  - v5 on the VM's C4 panel as of 2026-11-02 (read-only): 74 targets, 18 eligible (8 long / 10 short), held gross 1.667× NAV, net 0.000 [V]
+  - C4 AUTO_ARMED 18:02 ET; the first armed decide 22:00 2026-11-03; first sends 2026-11-04 15:52 [V]
+- source: `docs/JOURNAL.md` (PR #48); `ops/specs/c4_families.frozen.json` @ `d963fb1`
+- supports: §1, §4
+- status: current
+
+### E-2026-11-03-41 · Finding: the drawdown read is UNMEASURED at every 22:00 decide, because the EOD row for the as-of date is never written yet
+- kind: finding
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - 4 of 4 core decides that carry the field (as-of 10-28, 10-29, 10-30, 11-02): UNMEASURED, each because eod_equity.csv's newest row is D−1 [V: prod plan.json records, read 2026-11-03]
+  - the missing-NAV field: present in 3 decides, 0 holds (n too small) [V]
+- source: the VM's `quantt_state/cef/<date>/plan.json` (not tracked; read over ssh, read-only)
+- supports: §5
+- status: open. HALVE/KILL in `on` mode would refuse every decide, and te4's K0 would flatten every reduced session, until the read rule is ruled on
+
 ### E-2026-11-03-90 · cef paper book, 2026-11-03: PASS, traded
 - kind: live-pnl
 - era: ALPACA
