@@ -82,6 +82,10 @@ that cannot be undone.
    an explicit go before transmitting.** (Until 2026-09-28 the rule was "the human
    runs it with `!`"; the team lead asked agents to run the migration commands
    themselves, and this is that instruction made durable.)
+   **SUSPENDED (team lead, 2026-11-03): the loop is research-only.** "Have the loop only
+   get us to what we should trade and deploy, and then we figure it out from there": it
+   transmits nothing, promotes nothing and installs nothing, and C4 is the only runner on
+   the spare account. The 2026-10-27 text below is kept as the record and the revert.
    **One recorded exception (team lead, 2026-10-27), paper only.** The
    autonomous research loop may transmit to the **agent-lab** paper account
    without a per-session go. Since 2026-10-28 that is the spare connector account

@@ -274,3 +274,25 @@ from a named source; [doc] copied from a named note.
   - **The probe pages the whole closed-order history,** as the runner does. It caps at 200 pages, beyond which it reads UNMEASURED and plan.json is the authority.
   - **Citations:** the opening rule now cites the team lead's 2026-11-03 "just flat it" (`docs/SYSTEM.md` §5, PR #30).
   - Each fix's test fails on 61589a8, and the core is unchanged by its pins.
+
+**Prod, 16:07–16:14 ET: the core at release-20261103-4 ARMED, and C4 installed and ARMED** (standing authority; the team lead ruled "no dry sessions" and "they are on the vm").
+- **Tag.** -5 (PR #41, the C4 v5 activation) had no release-check GO by 16:07, because its check died in a network outage and was restarted. So -4 = 8ce0395 went in (release-check GO 12:21 ET; PR #40 merged 4485a96).
+- **Pre-flight.**
+  - Today's 7-order plan was sent at 15:52 (DONE).
+  - The replay: 69 runs, 0 refused now.
+  - Today's send went out with 6 orders against 7 planned (gross 101,365 against 124,149). That is for tonight's read.
+- **The core.**
+  - stop; ET1 (no `quantt-c4*` units on disk); dry run (23 steps, no refusal); install (clone at -4, venv unchanged); apply `--armed`; verify.
+  - `ops.prod_state`: VM at release-20261103-4, ARMED, timers active, laptop OFF.
+- **C4.**
+  - seed: treated_closes = IGR's four rebases only; sha256 `3fb68e38…` / `c7073db8…`, the same on laptop and VM.
+  - dry run (18 steps) and apply (unarmed).
+  - 4b: secret service active, `/run/quantt-c4/alpaca.env` quantt:quantt 600; the log names ALPACA_C4_KEY_ID and ALPACA_C4_SECRET_KEY from the vault. This is the first verification of the team lead's 11-02 "done".
+- **Pre-arm reads, on the VM** (`vmrelease.sh c4-probe`):
+  - positions 0, open orders 0, equity $100,000.00;
+  - opening_session True under own_prefix, with 0 closed orders and 0 fills in the account's history;
+  - cap re-check G_stress 1.900638 → 1.90, the same as the spec.
+  - Not the core's account: the core holds positions, with equity ≈ $100,134 at the send.
+  - Runners: C4's units read only `/run/quantt-c4`; AUTO_ARMED only under cef/ before arming; no laptop job loaded. The loop is research-only (the team lead, today).
+- **Armed 16:13:** `c4-arm` (DRY_RUN=0, `--book c4`) and AUTO_ARMED under c4/.
+  - The first armed C4 decide is 22:00 tonight, on v4 (z only) unless -5 is installed before then. The first send is 2026-11-04 15:52.
