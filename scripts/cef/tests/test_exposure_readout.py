@@ -20,13 +20,18 @@ undone (checked 2026-11-02 by loading each broken copy in place of the module). 
 survivor is equivalent, not missed: `total_factor_vol` with the covariance's diagonal only.
 The orthogonal factors are uncorrelated on the window by construction, so the two agree.
 
-THE RULE (the lead-placebo Dimson lag rule, declared 2026-11-03 before its first run): the
+THE RULE (the lead-placebo Dimson lag rule, declared 2026-11-02 before its first run): the
 tests under "THE RULE" kill nine broken copies, checked by loading each in place of the
 module: a tie counted as a pass, no stop at the first gap, the bound taken as the median
 lead count, the bound taken as Binomial(52, 0.05), a censored L returned as K, the lag-0
 check removed, the H13 cut removed (with and without its check), and the leads never
 counted. Their synthetic fixture gave L = 2 on 19 of 20 other seeds and 3 on one, which is
 what a 5% test should do.
+
+AFTER THE RESULT (review of 2026-11-02): the tests under "diagnostics and the cache hash" pin
+the cache the recorded counts came from and the diagnostics that frame the team lead's
+choice (the episode mask, the year control, the trend test). They decide nothing: no test
+there moves DIMSON_LAGS or touches THE RULE.
 """
 from __future__ import annotations
 
@@ -611,8 +616,10 @@ def test_lead_placebo_rule_gives_zero_lags_to_a_same_day_response():
     assert r["L"] == 0 and r["stop_lag"] == 1
 
 
-# The fit-era counts `derive` recorded on 2026-11-03 (module docstring, THE RULE'S RESULT):
+# The fit-era counts `derive` recorded on 2026-11-02 (module docstring, THE RULE'S RESULT):
 # public yfinance prices, 2011-03-18 .. 2022-12-02, 13 names, 52 pairs. No account data.
+# They came from the cache whose prices.parquet hashes to ER.RULE_CACHE_SHA256 (asof
+# ER.RULE_CACHE_ASOF); `derive` says whether the cache it reads is that one.
 RECORDED_LAG_COUNTS = dict(enumerate([46, 18, 16, 8, 4, 12, 14, 13, 6, 7, 17]))
 RECORDED_LEAD_COUNTS = dict(enumerate([12, 6, 12, 16, 8, 13, 13, 12, 14, 11, 7, 11, 19, 18, 3, 4, 1, 5, 5],
                                       start=1))
@@ -632,6 +639,101 @@ def test_lead_placebo_counts_raise_on_a_missing_name():
     R, _, fit_end, names = _placebo_fixture(n_names=1)
     with pytest.raises(ER.LagRuleError, match="not in the returns panel"):
         ER.lead_placebo_counts(R, names + ["ZZZ"], fit_end=fit_end)
+
+
+# --------------------------------------------------------------------------- diagnostics and the cache hash
+
+def test_the_recorded_counts_name_the_cache_they_came_from(tmp_path):
+    """Review 2026-11-02, finding 3: the recorded counts are literals, so a re-fetched cache
+    could move L while every test passed. The cache's hash is recorded, and `derive` says
+    whether its cache is that one."""
+    assert len(ER.RULE_CACHE_SHA256) == 64 and set(ER.RULE_CACHE_SHA256) <= set("0123456789abcdef")
+    assert ER.RULE_CACHE_ASOF == "2026-10-30"
+    (tmp_path / "prices.parquet").write_bytes(b"not the recorded cache")
+    import hashlib
+    sha = ER.cache_sha256(tmp_path)
+    assert sha == hashlib.sha256(b"not the recorded cache").hexdigest()
+    assert "DIFFERS" in ER.cache_provenance_line(sha)
+    assert "came from" in ER.cache_provenance_line(ER.RULE_CACHE_SHA256)
+    assert "UNMEASURED" in ER.cache_provenance_line(None)
+    with pytest.raises(ER.ReadoutError, match="missing"):
+        ER.cache_sha256(tmp_path / "nowhere")
+
+
+def test_episode_rows_drop_exactly_the_rows_whose_span_touches_the_window():
+    idx = pd.DatetimeIndex(SESS[:60])
+    got = ER.episode_rows(idx, idx[30], idx[32], max_lag=2, leads=3)
+    # row p spans p-2 .. p+3; it touches 30..32 iff p + 3 >= 30 and p - 2 <= 32
+    assert list(got) == list(idx[27:35])
+    # a window between sessions (a weekend) holds no factor row: raise, never guess
+    sat = idx[4] + pd.Timedelta(days=1)
+    while sat in idx:
+        sat += pd.Timedelta(days=1)
+    with pytest.raises(ER.ReadoutError, match="no factor row"):
+        ER.episode_rows(idx, sat, sat, max_lag=2, leads=3)
+
+
+def test_trend_test_reads_an_ordered_and_a_degenerate_set_of_counts():
+    pytest.importorskip("scipy")
+    rho, p1, p2 = ER._trend_test({j: 20 - j for j in range(1, 20)}, n_perm=2000)
+    assert rho == pytest.approx(-1.0) and p1 < 0.01 and p2 < 0.01
+    rho, p1, _ = ER._trend_test({j: j for j in range(1, 20)}, n_perm=2000)
+    assert rho == pytest.approx(1.0) and p1 > 0.99
+    with pytest.raises(ER.ReadoutError, match="not all equal"):
+        ER._trend_test({j: 5 for j in range(1, 20)}, n_perm=10)
+
+
+def _episode_fixture(seed=21):
+    """`_placebo_fixture`'s same-day funds, plus a fake lead-13 response confined to one
+    60-session episode inside the fit era: the shape the review found in March-April 2020.
+    Tests the code; claims nothing about any fund."""
+    R, sess, fit_end, names = _placebo_fixture(seed=seed, weights=(1.0,))
+    E = R[ETFS]
+    rng = np.random.default_rng(seed + 7)
+    i0 = 600
+    ep = (sess[i0], sess[i0 + 59])
+    in_ep = np.asarray((sess >= ep[0]) & (sess <= ep[1]))
+    for n in names:
+        x = E @ rng.uniform(0.3, 0.8, 4)
+        R[n] = R[n] + np.where(in_ep, 8.0 * x.shift(-13).to_numpy(), 0.0)
+    return R, sess, fit_end, names, ep
+
+
+def test_placebo_diagnostics_reproduce_the_rule_and_remove_an_episode():
+    """The diagnostics fit THE RULE's model (their full-sample counts equal
+    `lead_placebo_counts`'), drop exactly the rows `episode_rows` names, and a lead response
+    that lives only in the episode inflates T and goes when the episode is dropped, while
+    the year control moves T only for the episode's year."""
+    pytest.importorskip("statsmodels.api")
+    R, sess, fit_end, names, ep = _episode_fixture()
+    groups = {n: "g" for n in names}
+    pc = ER.lead_placebo_counts(R, names, fit_end=fit_end)
+    d = ER.placebo_diagnostics(R, names, groups, fit_end=fit_end, episode=ep, lead_cut=14)
+    assert d["lag"] == pc["lag"] and d["lead"] == pc["lead"]
+    assert d["at_T"] == [13] and d["lead"][13] >= 3 * ER.DERIVE_RULE_ALPHA * pc["n_pairs"]
+    assert {t[0] for t in d["T_pairs"]} == {13} and len(d["T_pairs"]) == d["lead"][13]
+    e = d["episode"]
+    want = 60 + ER.DERIVE_MAX_LAG + ER.DERIVE_RULE_LEADS        # the window plus every span reaching it
+    assert set(e["rows_dropped"].values()) == {want}
+    assert e["lead"][13] < d["lead"][13] and e["T"] < max(d["lead"].values())
+    assert d["per_name"]["lead_tests"].eq(4 * ER.DERIVE_RULE_LEADS).all()
+    ep_year = pd.Timestamp(ep[0]).year
+    assert set(d["years"]) == set(range(sess[0].year, pd.Timestamp(fit_end).year + 1))
+    others = [T for y, (T, *_rest) in d["years"].items() if y != ep_year]
+    assert d["years"][ep_year][0] < min(others)
+    assert set(d["far"]) == {"11..14", "15..19", "11..19"}
+
+
+def test_placebo_diagnostics_never_read_past_the_fit_end():
+    """H13: data after the fit end cannot reach the diagnostics."""
+    pytest.importorskip("statsmodels.api")
+    R, sess, fit_end, names, ep = _episode_fixture()
+    groups = {n: "g" for n in names}
+    a = ER.placebo_diagnostics(R, names, groups, fit_end=fit_end, episode=ep, years=False)
+    R2 = R.copy()
+    R2.loc[R2.index > fit_end] = np.random.default_rng(3).normal(0, 0.05, R2.loc[R2.index > fit_end].shape)
+    b = ER.placebo_diagnostics(R2, names, groups, fit_end=fit_end, episode=ep, years=False)
+    assert a["lag"] == b["lag"] and a["lead"] == b["lead"] and a["episode"]["lead"] == b["episode"]["lead"]
 
 
 # --------------------------------------------------------------------------- cross-check labels

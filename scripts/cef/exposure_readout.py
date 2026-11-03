@@ -72,8 +72,9 @@ anchors to a NAV that is struck from stale evaluated bond prices (W4 measured NA
 regresses on the factor at t, t-1, ..., t-L and sums the betas. The exposure uses that sum:
 the whole eventual response of the price to a factor move.
 
-THE RULE. Written into this module, with its tests, and committed on its own (2026-11-03)
-before it was first run on any data. No alternative to it was computed before that commit.
+THE RULE. Written into this module, with its tests, and committed on its own (09d3dad,
+2026-11-02 22:02:51 New York time) before it was first run on any data. No alternative to
+it was computed before that commit.
 `lead_placebo_counts` makes the counts and `placebo_lag_rule` decides; `derive` runs both.
   Data      the cache's total returns, cut at FIT_END (2022-12-30) BEFORE anything is
             shifted, so no response, lag or lead is dated 2023 or later (H13;
@@ -121,6 +122,9 @@ WHY EACH PIECE
     not null: T is then too high and L too short. (b) Exchangeability of lag and lead counts
     is an assumption [U]. (c) The 19 lead counts are correlated with each other, so the
     maximum comes from fewer than 19 effective draws [U how many].
+    [Added after the result, 2026-11-02; the rule above is unchanged: on this data the lead
+    counts are not null draws. One episode inflates some of them, so T is too high, which is
+    (a)'s effect by another cause. See WHAT L = 0 DOES AND DOES NOT SHOW, below.]
 WHAT WAS IN SIGHT WHEN THE RULE WAS WRITTEN: the review's figures below (the lags-only counts
 at K = 10 and the five lead counts), all of 2026-11-02. No piece of the rule (K, J, the 5% per
 pair, HAC(5), the maximum, the tie, the stop, the single joint model) was computed on data
@@ -133,24 +137,73 @@ The plateau check sits beside it, as before, and nothing is chosen from it: `der
 the muni names' summed MUNI beta at every L, and `analyse --plateau` the per-factor review
 counts at L - 1 .. L + 2.
 
-THE RULE'S RESULT: L = 0, so DIMSON_LAGS = 0 [V: `derive`, run 2026-11-03, after the commit
-that declared the rule, on the cache asof 2026-10-30. Sample 2011-03-18 .. 2022-12-02, the
+THE RULE'S RESULT: L = 0, so DIMSON_LAGS = 0 [V: `derive`, run 2026-11-02 at 22:02:56 New
+York time, 5 s after the commit that declared the rule (09d3dad, 22:02:51 -0500). The cache
+was asof RULE_CACHE_ASOF (2026-10-30), and its prices.parquet hashes to RULE_CACHE_SHA256;
+`derive` prints whether the cache it reads is that one. Sample 2011-03-18 .. 2022-12-02, the
 last response row, whose lead-19 row is 2022-12-30. 464 to 2,949 sessions per name; PDO
 starts 2021-02-02]:
   lag counts  c(0..10)  46 18 16  8  4 12 14 13  6  7 17                      (of 52 pairs)
   lead counts p(1..19)  12  6 12 16  8 13 13 12 14 11  7 11 19 18  3  4  1  5  5
   T = 19, at lead 13. Lag 1's count is 18, not above 19, so the sequence stops at lag 1.
-  * The leads reject at nearly four times the nominal rate: 190 of 988 lead tests (19.2%).
-    Lags 4..10 reject at the same rate (73 of 364, 20.1%), and lags 1..3 only somewhat more
-    (42 of 156, 26.9%) [V: a per-name diagnostic, 2026-11-03, run after the result and
-    used to choose nothing]. Either the HAC(5) tests on these funds are oversized about
-    fourfold, or the returns carry structure at every offset [U which]. That dependence is
-    what the placebo is there to absorb, and it is why the Binomial bound of 5 gave L = 3.
-    No single name drives it: PDO, on 464 sessions, rejects 9 of its 76 lead tests.
+  The margin is thin: L leaves 0 if lag 1 gains 2 pairs, or if lead 13 loses 2 and lead 14
+  loses 1. That is why the cache's hash is recorded beside the counts.
+
+WHAT L = 0 DOES AND DOES NOT SHOW. The review of this result (2026-11-02) measured most of
+what follows. The session that fixed the review's findings added the year control, the
+trend test with no cut and the offset-for-offset comparison of far lags and leads.
+`derive` section 2b prints every count and rate below [V: re-run 2026-11-02 in this module,
+and by a second implementation that builds the episode mask from dates, with identical
+counts]. All of it came after the result. Nothing was chosen from it, the rule was not re-run
+on it, and the episode's window and the lead cut at 14 were picked by the review after it
+had seen the counts.
+  * L = 0 is what the declared rule outputs. It is NOT evidence that the lags carry nothing.
+    The rule reads T as the largest of 19 null draws, and on this data T is not that.
+  * One episode sets T. The 19 significant pairs at lead 13 are all taxable funds (no MHD or
+    MQY): 18 CREDIT or LOANS pairs and PCN's MUNI, every coefficient negative. Drop, from
+    every name, the rows whose regressor span t-10..t+19 touches 2020-02-20 .. 2020-04-30
+    (79 rows of a full-sample name, 2.7% of it; PDO, which starts in 2021, loses none).
+    Lead rejections fall from 190/988 (19.2%) to 86/988 (8.7%), lags 4..10 from 73/364
+    (20.1%) to 38/364 (10.4%), lead 13's count from 19 to 5, and the largest lead count from
+    19 to 10. The lag counts become 45 14 10 4 3 6 10 1 4 7 7, on which the same decision
+    step would give L = 1. That is the review's reading, disclosed and not adopted.
+  * The control. Dropping each calendar year in turn instead (its rows and those whose span
+    reaches into it): for every year but 2020, lead rejections stay at 19.1% to 21.0% and the
+    largest lead count at 18 to 21. Dropping 2020 gives 7.9% and 8. It is the episode, not
+    the loss of any one year of rows.
+  * Exchangeability, measured. Every lead count at 1..14 (smallest 6) is above every count at
+    15..19 (largest 5): 172/728 tests (23.6%) against 18/260 (6.9%). The review put the
+    chance of that, under exchangeable counts, at 1/C(19,5) = 1/11,628, or about 1.5e-3
+    "allowing for the 18 possible cut points". That allowance is too small. The cut was
+    chosen after seeing the counts, and over every cut 1..18 the chance of some such clean
+    split is at most the sum of 1/C(19,k), 0.12 [V: arithmetic], and about 0.11 [V: 400,000
+    random orders, seed 0; not printed by derive]. A test that needs no cut,
+    the Spearman trend of count on lead with a permutation null, gives rho -0.45, one-sided
+    p 0.025 and two-sided p 0.053 [V: derive 2b, 20,000 permutations, seed 0]. So the order
+    of the lead counts alone is suggestive, not decisive. What shows that T is not a null
+    draw is the episode recount and its control.
+  * Direction. An episode that inflates some lead counts raises T, so on this data the rule
+    leans conservative: L too short, as in risk (a). How far is [U].
+  * Far lags against far leads, offset for offset (lags 0..19 beside leads 1..19, full
+    sample): at offsets 11..14 lags reject 13.9% and leads 28.8%; at 15..19, 10.8% and 6.2%;
+    over 11..19, 12.2% and 16.2%. The review set lags 11..19 (12.2%) beside leads 15..19
+    (6.2%), which are different offsets. Offset for offset, the far leads reject at least as
+    often as the far lags overall, so that comparison does not show the lags falling off more
+    slowly than the leads.
+  * The cause of the excess, corrected. This docstring said, after the result, that "either
+    the HAC(5) tests on these funds are oversized about fourfold, or the returns carry
+    structure at every offset", and that "no single name drives it". Most of the excess is
+    the one episode, and it sits in the taxable funds. By name, leads reject 27 of 76 tests
+    for BIT, 16 to 20 for AWF, DSL, HYT, JFR, PCN and PFN, 8 to 13 for PDI, PDO, PHK and PTY,
+    and 7 for each muni fund, against 3.8 at 5%. With the episode dropped, BIT rejects 13 and
+    every other name 2 to 9. Whether the episode is real crash-and-rebound dynamics or a HAC
+    test losing its size on a few extreme cross-products is [U]. A wider Newey-West bandwidth
+    corrects for serial correlation; nothing here shows it would correct either. Even with
+    the episode dropped, leads reject 8.7% against 5%.
   * By name, the muni funds show the clearest lag response. MHD and MQY reject 6 and 8 of
-    their 12 lag 1..3 tests and 7 of their 76 lead tests each [V: the same diagnostic].
-    The rule pools all 52 pairs and does not look by group. That is a property of the rule
-    as declared; the rule was not re-run on it.
+    their 12 lag 1..3 tests and 7 of their 76 lead tests each [V: derive 2b]. The rule pools
+    all 52 pairs and does not look by group. That is a property of the rule as declared; the
+    rule was not re-run on it.
   * The plateau at L = 0 is the median cumulative summed beta by group, from the lags-only
     0..10 models; L - 1 does not exist. The muni group's MUNI beta is 1.03 at L = 0, 0.97 at
     L = 1 and 1.10 at L = 10, so that cell is level. The muni group's TERM beta is 0.40 at
@@ -160,9 +213,11 @@ starts 2021-02-02]:
   * At L = 0 the exposure is the same-day beta only. It no longer carries the staleness
     response that the Dimson sum was put in to catch. Each window's design falls from 17
     regressors to 5.
-Whether to keep L = 0 or to declare a different rule (one by group, or one that corrects the
-oversized per-pair test) is the team lead's call. Any new rule is declared and committed
-before it runs, as this one was.
+Whether to keep L = 0, knowing that T is set by March-April 2020, or to declare a different
+rule first (one that withstands the episode, one by group, or neither) is the team lead's
+call. A rule declared now would be written with the episode-dropped counts and the year
+control in view, and must say so, as this one disclosed the counts it was written beside.
+Any new rule is declared and committed before it runs, as this one was.
 
 THE RULES IT REPLACES (2026-11-02; history). DIMSON_LAGS = 3 came from this rule (`derive`,
 fit era, 13 names, factors orthogonalised on the whole era, HAC(5)) [V: derive, re-run
@@ -333,6 +388,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import math
 import subprocess
@@ -383,6 +439,20 @@ DERIVE_RULE_ALPHA = 0.05 # two-sided p at which each (name, factor) lag or lead 
 DERIVE_RULE_HAC = 5      # Newey-West lags of every derive regression (unchanged from 2026-11-02)
 DERIVE_ALT_MAX_LAG = 5   # the bound the first lag rule was tried at (superseded; history)
 DERIVE_PLACEBO_LEADS = 5 # leads in the review's 2026-11-02 placebo (superseded; history)
+
+# The cache THE RULE's recorded counts were made on (review of the result, 2026-11-02,
+# finding 3). The tests pin those counts as literals, so a re-fetch that revised a few Yahoo
+# distributions could flip two or three pair verdicts and move L while every test still
+# passed. `derive` prints whether the cache it reads is this one.
+RULE_CACHE_ASOF = "2026-10-30"
+RULE_CACHE_SHA256 = "0bda865692aa6d79047a79c9f0d153efaf7707790846e71223f0c603b1058a7c"  # prices.parquet
+
+# The diagnostics printed AFTER THE RESULT (module docstring; they decide nothing and THE RULE
+# is never re-run on them). Both were chosen by the review of the result, after it had seen
+# the counts: the episode's window, and the split of the leads into 1..14 and 15..J.
+DIAG_EPISODE = ("2020-02-20", "2020-04-30")
+DIAG_LEAD_CUT = 14
+DIAG_PERMUTATIONS = 20_000   # draws of the trend test's permutation null (fixed seed 0)
 
 # The tolerances the cross-check reports against. They label disagreements; they decide
 # nothing. Half a cent: yfinance stores closes as float32 and Yahoo rounds to the cent
@@ -587,6 +657,30 @@ def load_cache(cache_dir: Path) -> tuple[pd.DataFrame, dict]:
     meta = json.loads((cache_dir / "meta.json").read_text())
     validate_prices(px, dt.date.fromisoformat(meta["asof"]))
     return px, meta
+
+
+def cache_sha256(cache_dir: Path) -> str:
+    """sha256 of the cache's prices.parquet: which cache a set of `derive` counts came from.
+    The asof alone does not say it (review 2026-11-02, finding 3): two fetches with one asof
+    can differ where Yahoo revised a distribution (docs/REFERENCES.md §8)."""
+    p = Path(cache_dir) / "prices.parquet"
+    if not p.exists():
+        raise ReadoutError(f"{p} is missing: run `exposure_readout.py fetch` first")
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def cache_provenance_line(sha: str | None) -> str:
+    """The line `derive` prints beside THE RULE's counts: is this the cache the recorded
+    counts (module docstring, THE RULE'S RESULT; the tests' RECORDED_*_COUNTS) came from?"""
+    if not sha:
+        return ("cache prices.parquet sha256 UNMEASURED (no cache path given): whether these counts "
+                f"come from the recorded cache (asof {RULE_CACHE_ASOF}) is unknown")
+    if sha == RULE_CACHE_SHA256:
+        return (f"cache prices.parquet sha256 {sha[:16]}...: the cache the recorded counts came from "
+                f"(asof {RULE_CACHE_ASOF}); they should reproduce exactly")
+    return (f"cache prices.parquet sha256 {sha[:16]}... DIFFERS from the recorded cache's "
+            f"{RULE_CACHE_SHA256[:16]}... (asof {RULE_CACHE_ASOF}): these counts need not match the "
+            "recorded ones, and a different L here is a different cache, not a different rule")
 
 
 # --------------------------------------------------------------------------- returns
@@ -1206,11 +1300,13 @@ def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR) -> tuple[pd.DataFram
 # --------------------------------------------------------------------------- derive
 
 def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = FIT_END,
-           max_lag: int = DERIVE_MAX_LAG, window: int = WINDOW) -> dict:
+           max_lag: int = DERIVE_MAX_LAG, window: int = WINDOW, cache_sha: str | None = None,
+           diagnostics: bool = True) -> dict:
     """Re-measure the two modelling choices on the fit era only (< 2023, H13): factor
     collinearity (whether to orthogonalise) and the Dimson lag count (THE RULE, the lead
-    placebo; the superseded rules are printed after it as history). Prints the tables the
-    module docstring quotes and returns them."""
+    placebo; then the diagnostics after its result, and the superseded rules as history).
+    Prints the tables the module docstring quotes and returns them. `cache_sha` is the
+    cache's prices.parquet sha256 (`cache_sha256`); the CLI always passes it."""
     from scipy.stats import binom
     names = list(names or UNIVERSE)
     R, _, _ = returns_panel(px)
@@ -1258,13 +1354,14 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
                       for j, k in enumerate(FACTOR_NAMES)))
     out.update(corr=corr, vif=vif, rolling=rc, resid=rr)
 
-    # 2. THE RULE (module docstring): the lead-placebo lag rule, adopted 2026-11-03. The
+    # 2. THE RULE (module docstring): the lead-placebo lag rule, adopted 2026-11-02. The
     # counts are printed before the decision, so a raise still leaves the table on screen.
     npairs = len(names) * len(FACTOR_NAMES)
     pc = lead_placebo_counts(R, names, fit_end=fit_end, max_lag=max_lag)
     print(f"\n2. DIMSON LAGS, THE RULE (adopted; module docstring): one OLS per name, lags 0..{max_lag} "
           f"and leads 1..{DERIVE_RULE_LEADS}, HAC({DERIVE_RULE_HAC}); pairs (of {pc['n_pairs']}) with "
           f"p < {DERIVE_RULE_ALPHA}")
+    print("   " + cache_provenance_line(cache_sha))
     print(f"   sample {pc['first'].date()}..{pc['last'].date()} (last response row; its lead-"
           f"{DERIVE_RULE_LEADS} row is on or before {pd.Timestamp(fit_end).date()}), sessions per name "
           f"{min(pc['nobs'].values())}..{max(pc['nobs'].values())}")
@@ -1278,6 +1375,8 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
           + ("equals the rule's L" if DIMSON_LAGS == rule["L"] else
              f"DIFFERS from the rule's L = {rule['L']}; set it from the rule in a commit of its own"))
     L = rule["L"]
+    if diagnostics:
+        out.update(diagnostics=_print_diagnostics(R, names, groups, fit_end, max_lag))
 
     # 3. SUPERSEDED (2026-11-02; history). Every rule the build session tried, at both lag
     # bounds, and the review's 5-lead placebo, kept so the docstring's review figures stay
@@ -1308,7 +1407,7 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
         tab.append(dict(K=K, rule=f"sum of lags L+1..K, pairs significant <= {bound}",
                         counts=_fmt_counts(c["tail"], "L"), L=_smallest_within(c["tail"], bound)))
         tab.append(dict(K=K, rule=f"single-lag first gap, pairs significant <= {bound}"
-                                  + (" (adopted until 2026-11-03)" if K == max_lag else ""),
+                                  + (" (adopted until 2026-11-02)" if K == max_lag else ""),
                         counts=_fmt_counts(c["single"]), L=_first_gap(c["single"], bound)))
     tab = pd.DataFrame(tab)
     with pd.option_context("display.width", 250, "display.max_colwidth", 120):
@@ -1342,6 +1441,39 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
     out.update(sig=sig, bound=bound, L=L, L_superseded=L_old, placebo_counts=pc, rule=rule, cum=cm,
                rules=rules, rule_table=tab, placebo=lead)
     return out
+
+
+def _print_diagnostics(R, names, groups, fit_end, max_lag) -> dict:
+    """Section 2b of `derive`: `placebo_diagnostics`, printed. Decides nothing."""
+    d = placebo_diagnostics(R, names, groups, fit_end=fit_end, max_lag=max_lag)
+    pct = lambda r, n: f"{r}/{n} ({100 * r / n:.1f}%)"
+    print(f"\n2b. AFTER THE RESULT (review 2026-11-02; DECIDES NOTHING, and THE RULE is not re-run on it). "
+          f"The episode window and the lead cut at {DIAG_LEAD_CUT} were chosen by the review after it "
+          "had seen the counts.")
+    print("   rejections by band, nominal 5%: " + "; ".join(f"{k} {pct(*v)}" for k, v in d["bands"].items()))
+    lo = [d["lead"][j] for j in range(1, DIAG_LEAD_CUT + 1)]
+    hi = [d["lead"][j] for j in range(DIAG_LEAD_CUT + 1, DERIVE_RULE_LEADS + 1)]
+    print(f"   lead counts 1..{DIAG_LEAD_CUT}: smallest {min(lo)}; {DIAG_LEAD_CUT + 1}..{DERIVE_RULE_LEADS}: "
+          f"largest {max(hi)}. T sits at lead {d['at_T']}; its significant pairs: "
+          + ", ".join(f"m{j} {n} ({g}) {k} {t:+.1f}" for j, n, g, k, t in d["T_pairs"]))
+    rho, p1, p2 = d["trend"]
+    print(f"   trend test of the 19 lead counts (Spearman rho of count on lead, {DIAG_PERMUTATIONS} "
+          f"permutations, seed 0; no cut chosen): rho {rho:+.3f}, one-sided p {p1:.3f}, two-sided p {p2:.3f}")
+    with pd.option_context("display.width", 200):
+        print("   per name, THE RULE's joint model:\n" + d["per_name"].to_string(index=False))
+    e = d["episode"]
+    rows = sorted(set(e["rows_dropped"].values()))
+    print(f"   rows whose regressor span t-{max_lag}..t+{DERIVE_RULE_LEADS} touches {e['window'][0]}.."
+          f"{e['window'][1]} dropped ({rows[0]}..{rows[-1]} rows a name):")
+    print("     lag counts  c(l): " + _fmt_counts(e["lag"]))
+    print("     lead counts p(j): " + _fmt_counts(e["lead"], "m") + f"; their maximum {e['T']}")
+    print("     " + "; ".join(f"{k} {pct(*v)}" for k, v in e["bands"].items())
+          + "; leads rejected by name: " + ", ".join(f"{n} {c}" for n, c in e["per_name"].items()))
+    print(f"   lags 0..{DERIVE_RULE_LEADS} beside leads 1..{DERIVE_RULE_LEADS}, full sample, like-for-like "
+          "offsets: " + "; ".join(f"{k}: lags {pct(*a)}, leads {pct(*b)}" for k, (a, b) in d["far"].items()))
+    print("   control, each calendar year's rows dropped in turn (largest lead count, at lead; lead "
+          "rejections): " + "; ".join(f"{y} {T} at {at}, {pct(r, n)}" for y, (T, at, r, n) in d["years"].items()))
+    return d
 
 
 def _dimson_ols(y: pd.Series, F: pd.DataFrame, max_lag: int, leads: int = 0):
@@ -1436,6 +1568,134 @@ def placebo_lag_rule(lag_counts: dict, lead_counts: dict) -> dict:
     raise LagRuleError(f"placebo_lag_rule: every lag 1..{lags[-1]} exceeds the largest lead count {T}: "
                        f"L is censored at K = {lags[-1]}. Widen K only under a new rule declared first; "
                        "K is not the answer")
+
+
+# ------------------------------------------------- after the result: diagnostics, deciding nothing
+
+def episode_rows(f_index: pd.DatetimeIndex, start, end, max_lag: int, leads: int) -> pd.DatetimeIndex:
+    """The response rows t whose regressor span, factor rows t-max_lag .. t+leads, touches a
+    factor row dated start..end. Dropping these removes the episode from every lag AND lead
+    coefficient at once: a row dated weeks before the episode still reaches it through a lead.
+    Positions are rows of `f_index`, which are contiguous NYSE sessions in `derive`, so a row
+    offset is a session offset. Raises if no factor row falls in start..end."""
+    f_index = pd.DatetimeIndex(f_index)
+    inside = np.flatnonzero((f_index >= pd.Timestamp(start)) & (f_index <= pd.Timestamp(end)))
+    if len(inside) == 0:
+        raise ReadoutError(f"episode_rows: no factor row in {start}..{end}")
+    lo, hi = int(inside.min()), int(inside.max())
+    p = np.arange(len(f_index))
+    return f_index[(p + leads >= lo) & (p - max_lag <= hi)]
+
+
+def _trend_test(counts: dict, n_perm: int = DIAG_PERMUTATIONS, seed: int = 0) -> tuple[float, float, float]:
+    """Spearman rho between the offset and its count, with a permutation null (fixed seed):
+    (rho, one-sided p that rho is this low, two-sided p). Under exchangeable counts every
+    ordering is equally likely, so this is a test of exchangeability that needs no cut chosen
+    after seeing the counts."""
+    from scipy.stats import rankdata
+    x = rankdata(list(counts.keys()))
+    y = np.asarray(list(counts.values()), dtype=float)
+    if len(y) < 3 or np.all(y == y[0]):
+        raise ReadoutError(f"_trend_test: {len(y)} counts, {len(set(y.tolist()))} distinct; a rank "
+                           "correlation needs at least 3 counts that are not all equal")
+
+    def rho(v):
+        r = rankdata(v)
+        return float(np.corrcoef(x, r)[0, 1])
+    obs = rho(y)
+    rng = np.random.default_rng(seed)
+    null = np.array([rho(rng.permutation(y)) for _ in range(n_perm)])
+    return obs, float(np.mean(null <= obs + 1e-12)), float(np.mean(np.abs(null) >= abs(obs) - 1e-12))
+
+
+def placebo_diagnostics(R: pd.DataFrame, names, groups: dict, fit_end: pd.Timestamp = FIT_END,
+                        max_lag: int = DERIVE_MAX_LAG, leads: int = DERIVE_RULE_LEADS,
+                        alpha: float = DERIVE_RULE_ALPHA, episode=DIAG_EPISODE,
+                        lead_cut: int = DIAG_LEAD_CUT, years: bool = True) -> dict:
+    """AFTER THE RESULT (review of 2026-11-02; module docstring, WHAT L = 0 DOES AND DOES NOT
+    SHOW). Reproduces the figures that frame the team lead's choice. It DECIDES NOTHING: THE
+    RULE is never re-run on any of it, DIMSON_LAGS is never set from it, and the episode window
+    and the lead cut were chosen by the review after it had seen the counts.
+
+    Same model as THE RULE (one OLS per name, lags 0..max_lag and leads 1..leads, HAC(5)), on
+    the same fit-era cut (H13: R is cut at fit_end before any shift; an explicit raise checks
+    it). Returns
+      per_name   per name: group, sessions, lead rejections (of 4 x leads), lag 1..3 (of 12);
+      bands      {label: (rejections, tests)} for lags 1..3, lags 4..K, leads 1..cut, leads cut+1..J;
+      trend      the lead counts' trend test (`_trend_test`);
+      T_pairs    the significant (lead, name, group, factor, t) at the lead(s) that set T;
+      episode    THE RULE's counts with `episode_rows` dropped from every name: lag, lead, T,
+                 rows dropped per name;
+      far        lags 0..J beside leads 1..J on the full sample, by like-for-like offset band;
+      years      {year: (T, lead at T, lead rejections, tests)} with each calendar year's
+                 rows dropped in turn: the control that says whether ANY 8% of the rows moves
+                 T as the episode does (only when years=True)."""
+    names = list(names)
+    fit_end = pd.Timestamp(fit_end)
+    Rc = R.loc[:fit_end]                       # H13: cut first, shift afterwards
+    E = Rc[list(FACTOR_ETFS)].dropna()
+    if len(E) == 0 or E.index.max() > fit_end:
+        raise LookaheadError(f"placebo_diagnostics: factor rows must end on or before {fit_end.date()} (H13)")
+    F = E @ orthogonaliser(E)
+    F.columns = list(FACTOR_NAMES)
+    tests_per = len(FACTOR_NAMES)
+
+    def run(drop=None, K=max_lag):
+        fits = {}
+        for n in names:
+            y = Rc[n] if drop is None else Rc[n].where(~Rc.index.isin(drop))
+            fits[n] = _dimson_ols(y, F, K, leads=leads)
+        lag = {l: sum(int(fits[n].pvalues[f"{k}_{l}"] < alpha) for n in names for k in FACTOR_NAMES)
+               for l in range(K + 1)}
+        lead = {j: sum(int(fits[n].pvalues[f"{k}_m{j}"] < alpha) for n in names for k in FACTOR_NAMES)
+                for j in range(1, leads + 1)}
+        return fits, lag, lead
+
+    def band(c, lo, hi):
+        ks = [k for k in c if lo <= k <= hi]
+        return sum(c[k] for k in ks), len(ks) * len(names) * tests_per
+
+    fits, lag, lead = run()
+    per = []
+    for n in names:
+        p = fits[n].pvalues
+        per.append(dict(name=n, group=groups.get(n, "?"), sessions=int(fits[n].nobs),
+                        leads_rejected=sum(int(p[f"{k}_m{j}"] < alpha) for k in FACTOR_NAMES
+                                           for j in range(1, leads + 1)),
+                        lead_tests=tests_per * leads,
+                        lag1_3_rejected=sum(int(p[f"{k}_{l}"] < alpha) for k in FACTOR_NAMES
+                                            for l in range(1, min(3, max_lag) + 1)),
+                        lag1_3_tests=tests_per * min(3, max_lag)))
+    bands = {"lags 1..3": band(lag, 1, 3), f"lags 4..{max_lag}": band(lag, 4, max_lag),
+             f"leads 1..{lead_cut}": band(lead, 1, lead_cut),
+             f"leads {lead_cut + 1}..{leads}": band(lead, lead_cut + 1, leads),
+             f"leads 1..{leads}": band(lead, 1, leads)}
+    at_T = [j for j, c in lead.items() if c == max(lead.values())]
+    T_pairs = [(j, n, groups.get(n, "?"), k, float(fits[n].tvalues[f"{k}_m{j}"])) for j in at_T
+               for n in names for k in FACTOR_NAMES if fits[n].pvalues[f"{k}_m{j}"] < alpha]
+
+    drop = episode_rows(F.index, episode[0], episode[1], max_lag, leads)
+    efits, elag, elead = run(drop)
+    episode_out = dict(window=episode, lag=elag, lead=elead, T=max(elead.values()),
+                       rows_dropped={n: int(fits[n].nobs - efits[n].nobs) for n in names},
+                       bands={f"leads 1..{leads}": band(elead, 1, leads),
+                              f"lags 4..{max_lag}": band(elag, 4, max_lag)},
+                       per_name={n: sum(int(efits[n].pvalues[f"{k}_m{j}"] < alpha) for k in FACTOR_NAMES
+                                        for j in range(1, leads + 1)) for n in names})
+
+    _, flag, flead = run(K=leads)
+    far = {f"{lo}..{hi}": (band(flag, lo, hi), band(flead, lo, hi))
+           for lo, hi in ((max_lag + 1, lead_cut), (lead_cut + 1, leads), (max_lag + 1, leads))}
+
+    yrs = {}
+    if years:
+        for y in sorted(set(F.index.year)):
+            d = episode_rows(F.index, f"{y}-01-01", f"{y}-12-31", max_lag, leads)
+            _, _, yl = run(d)
+            T = max(yl.values())
+            yrs[y] = (T, [j for j, c in yl.items() if c == T], *band(yl, 1, leads))
+    return dict(lag=lag, lead=lead, at_T=at_T, T_pairs=T_pairs, per_name=pd.DataFrame(per), bands=bands,
+                trend=_trend_test(lead), episode=episode_out, far=far, years=yrs)
 
 
 def lag_rule_counts(models: dict, alpha: float = 0.05) -> dict:
@@ -1542,7 +1802,7 @@ def main(argv=None) -> int:
         _print_crosscheck(tab, notes)
         return 0
     if args.cmd == "derive":
-        derive(px, load_groups())
+        derive(px, load_groups(), cache_sha=cache_sha256(Path(args.cache_dir)))
         return 0
     P = read_positions(Path(args.positions))
     groups = load_groups()
