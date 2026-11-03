@@ -26,8 +26,8 @@ REVISED 2026-11-03, after the quant and PM reviews of the draft (both findings a
     draft's original reading and under the declared fix (looks at k = 5, 9, 13, 20 only, Bonferroni p/4),
     and prints the exact single-read power at k = 10, the first k past a coin flip (quant review, finding 5).
 
-ZERO TRIALS. Written for `results/cef/PREREG_DRAFT_THIN_TRADE_ELIGIBLE_2026-11-03.md` (a DRAFT, not
-approved). FIT WINDOW ONLY: every frame is cut by `band_frontier.fit_only` (strictly before 2023-01-01,
+ZERO TRIALS. Written for `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` (drafted
+as `PREREG_DRAFT_THIN_TRADE_ELIGIBLE_2026-11-03.md`; approved 2026-11-03 as CEF trial 55). FIT WINDOW ONLY: every frame is cut by `band_frontier.fit_only` (strictly before 2023-01-01,
 asserted there and again here), so nothing in this file reads a 2023+ row. The screen
 (`results/backtests/thin-third-rule-2026-11-03/REPORT.md`) has already printed te4's 2023+ rows; this
 file adds nothing to that. It reads data/ and writes only beside itself (CLAUDE.md landmine 9).

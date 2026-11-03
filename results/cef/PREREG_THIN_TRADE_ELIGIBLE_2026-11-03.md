@@ -1,10 +1,86 @@
-# Pre-registration (DRAFT, NOT APPROVED): on a thin session, trade the eligible names — `below_min_names = "trade_eligible"`, floor 4, PAPER ONLY
+# Pre-registration (APPROVED 2026-11-03, CEF trial 55): on a thin session, trade the eligible names — `below_min_names = "trade_eligible"`, floor 4, PAPER ONLY
 
-Date: drafted 2026-11-03. **Status: DRAFT, not approved. Nothing here trades, no spec or live file is
-edited, and no counter moves.** Counter: **CEF, trial N (assigned at approval)**. The CEF counter reads
-53 on `main` and on this branch [V `docs/RESEARCH_STATE.md`]. Author: an agent, for the team lead, who
-chose on 2026-11-03 to pre-register this rule **for paper**. Branch `research-thin-third-rule`; origin/main
-is merged at f27ef81, so trial 53's amendment 1 (#35, #36) is in view.
+Date: drafted 2026-11-03; **APPROVED 2026-11-03 by the team lead as CEF trial 55** (see "Approval",
+next). **Nothing here trades yet.** This note edits no spec or live file, and the key activates only on
+the conditions listed under "Approval". Counter: **CEF 54 → 55, in the commit that records the
+approval.**
+- When this note was drafted the CEF counter read 53 on `main` and on this branch [V
+  `docs/RESEARCH_STATE.md`].
+- CEF 54 (C4-LEVEL, PR #30) was approved earlier the same day.
+- Author: an agent, for the team lead, who chose on 2026-11-03 to pre-register this rule **for paper**.
+- Branch `research-thin-third-rule`. origin/main was merged at f27ef81 when this was drafted, so trial
+  53's amendment 1 (#35, #36) is in view.
+
+## Approval (2026-11-03)
+
+**The ruling.** The team lead approved this rule at about 09:25 ET, for paper only, with K0 and the
+recommended answer to every question in §10 (Q1–Q17).
+- Before ruling, the team lead was shown that the rule is not shown to be alpha, that it is negative on
+  real money, and that it is worth about zero going forward while no session is thin.
+- The drafting session recommended keeping flatten (§10 Q1, option c). The team lead chose approval.
+
+**The trial.**
+- **CEF 54 → 55, in this commit.** Trials are numbered in approval order, and CEF 54 is C4-LEVEL.
+- **Judged at N = 55:** bar 2.831, one-sided p 0.00232, so each declared PRESENT read is at p / 4 =
+  0.00058 [V §G].
+- §6.2's declared-reads column was simulated at N = 54 [V §G2]. The single-read figures at N = 55 differ
+  from N = 54 in the third decimal [V §G].
+- On every read date N is read from the counter (H14), not from this paragraph.
+- **Not the nextgen shadow "CEF trial 55" (GN-N2)** that the group-cap docstrings in
+  `src/deploy/sleeves/cef_discount.py` cite. That numbering was ruled shadow research on 2026-09-28
+  (`docs/RESEARCH_STATE.md`, the CEF 48 → 50 note), and the implementation PR relabels it.
+
+**The answers as approved** (the recommended answer in §10, each):
+
+| Q | answer |
+|---|---|
+| 1 | approve for paper, with K0 and the conditions |
+| 2 | m stays ×1.30 on reduced sessions, with K0 |
+| 3 | (a): R1–R3 read on full-session earning days only while the key is set |
+| 4 | K0 in code |
+| 5 | K0 during an open episode means KILLED |
+| 6 | measure, before activation, how often the evening decide reads UNMEASURED; never loosen K0 |
+| 7 | a reduced decision that loses a short to gate 7 flattens |
+| 8 | kill rule (a) is also read on full sessions alone; (c) on the spec's cross-section; (b) can be tripped by reduced sessions, accepted |
+| 9 | activate only after the core's 60-session review is graded |
+| 10 | no reduced build when any hold is present |
+| 11 | PRESENT read only at k = 5, 9, 13 and 20, each at p / 4 |
+| 12 | the min-weight guard stays at `min_names` |
+| 13 | no change to the deferred flip |
+| 14 | the paper-only refusal sits in the sleeve, with the runner's endpoint check behind it |
+| 15 | borrow is recorded UNMEASURED per episode, and nothing is decided on it |
+| 16 | the HALVE/KILL owner is told (done 2026-11-03) |
+| 17 | re-measuring the core's margin cushion is trial 53's owner's job |
+
+**The owner's terms.** The session that owns trial 53, HALVE/KILL and the runner agreed on 2026-11-03, on
+these terms. They bind the implementation and the activation.
+1. **Q2.** Trial 53's zero-edge P(HALVE) / P(KILL) under te4 at ×1.30, **23.2% / 3.28%**, stand beside
+   the ×1.15 figure, **16.7% / 1.69%**, and beside flatten's 17.1% / 1.75% (§7.2) [V §D2]. That puts the
+   extra risk on reduced sessions on the record.
+2. **Q3.** The change to how R1–R3 are read amends trial 53's stops, conditional on the key. It is recorded
+   as a dated note in `results/cef/PREREG_VOLTARGET_2026-10-30.md` **in the activation commit, not
+   before**.
+3. **Q4/Q5.** `quantt/session/drawdown.py`'s status may only ever restrict: flatten or hold. It never sizes
+   up and never unlocks a send, and UNMEASURED flattens. **A test pins that no drawdown status can increase
+   gross.**
+4. **Q6 and Q10.** The owner measures both from prod's `plan.json` records: the drawdown status at each
+   decide, and missing-NAV holds per session. The counts are reported here before activation.
+5. **The implementation is its own PR.**
+   - It is cut from `main` after the owner's `c4-arm-fixes` merges.
+   - Its `quantt/session/run.py` changes sit in their own functions, away from the first-session gate.
+   - It carries the core's no-op pins and a byte-identical sleeve diff with the key absent.
+   - Every change has a test that fails on the old code.
+
+**What this commit does not do.** It sets no spec key, changes no live-path code and activates nothing.
+The key stays absent until the activation commit, which needs all of:
+- the implementation merged;
+- the core's 60-session review graded;
+- the Q6/Q10 counts;
+- the K0–K3 report lines and the pre-built revert spec in the activation release;
+- the trial-53 note in term 2.
+
+---
+
 
 **Revision 1, 2026-11-03, after a quant review and a PM review of ecf62ea.** Every finding was re-measured
 before anything changed (`review_checks.py`, below), and §12 lists each one with its disposition. What
@@ -70,7 +146,7 @@ changed in substance:
 | **composition with trial 53** | **m = 1.30 multiplies the reduced book too, and trial 53's figures move** (§7.2). On W1 at ×1.30 with deferred flips: maxDD 13.76% price only and 13.79% total return, against 8.48% and 8.63%, crossing the spec's 12% HALVE line. Zero-edge P(HALVE) / P(KILL) while trading: 23.2% / 3.28% against 17.1% / 1.75%. Trial 53's rule fed te4's trading-session sd gives ×1.15, not ×1.30. The approved R3 fires 8.3% of the time on te4's fit mix, against its 5% design [V §B–§D]. **Recommended: keep m = 1.30 and read R1–R3 on full sessions only, but only with K0.** Without K0, use ×1.15 or do not approve (§7.2, §7.3, Q2–Q3) |
 | **deferred flips** | On 4–5 names, a deferred flip of a one-fund side leaves the book one-sided for a session: \|net\| up to 0.833 of NAV on the fit (2019-10-09), against 0.235 with instant flips [V §E] (§7.6) |
 | **revert** | Set `below_min_names` back to `"flatten"`, or delete both keys. The sleeve is then v9's, byte for byte, by the same pins. A revert during an episode closes the book at the next reduced decision (§6.5) |
-| **trial** | CEF trial N (assigned at approval). The counter moves only in the commit that records the approval, and the bar is read from the counter on the read date (§9) |
+| **trial** | **CEF trial 55, approved 2026-11-03.** The counter moved 54 → 55 in the commit that records the approval. The bar is read from the counter on the read date (§9) |
 
 ---
 
@@ -962,6 +1038,8 @@ runner's missing-NAV refusal keys. Such days inside an episode are held-book day
 - **One trial.** One rule, one derived floor, one account.
 - **Updated in `docs/RESEARCH_STATE.md` in the same commit as the approval: to be done by the owning
   session.** This draft does not edit that file.
+  - **Applied 2026-11-03 with N = 55**, in the approval commit. The owning session agreed that this
+    session make that commit.
 
 **The edit, exactly** (replace `<N>` with the counter's value at approval plus one, `<date>` with the
 approval date, and `<file>` with the approved note's name):

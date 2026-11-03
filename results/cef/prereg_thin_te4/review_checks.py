@@ -4,8 +4,8 @@
         -> review_checks_<stamp>.json, review_checks_output_<stamp>.txt (this folder); about a minute.
         Needs compose_<stamp>.json beside it (run compose.py with the same --stamp first): §R9 reads D_E there.
 
-ZERO TRIALS. Written for `results/cef/PREREG_DRAFT_THIN_TRADE_ELIGIBLE_2026-11-03.md` (a DRAFT, not
-approved), section 12. FIT WINDOW ONLY for every return: the books are compose.py's (`bf.fit_only`, strictly
+ZERO TRIALS. Written for `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` (drafted
+as `PREREG_DRAFT_THIN_TRADE_ELIGIBLE_2026-11-03.md`; approved 2026-11-03 as CEF trial 55), section 12. FIT WINDOW ONLY for every return: the books are compose.py's (`bf.fit_only`, strictly
 before 2023-01-01, asserted again here). One what-if reads a later row: §R8 applies the price panel's LAST
 CLOSES (Alpaca's margin tiers are price-dependent) to the fit's weights; no return is computed on it. It
 reads data/ and writes only beside itself (CLAUDE.md landmine 9).
