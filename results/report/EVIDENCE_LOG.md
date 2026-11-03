@@ -3383,3 +3383,19 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `8ed6135`; `.gitignore` @ `8ed6135`; `scripts/report/snapshot_live.py` @ `8ed6135`
 - supports: §4, §5
 - status: current (the branch's history was rewritten so the row files never appear in it)
+
+### E-2026-11-03-90 · cef paper book, 2026-11-03: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - verify verdict PASS; orders sent 6, filled 6 [S]
+  - 17:30 ET snapshot equity change 813.19 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 793.28 USD [S]
+  - fills vs official close 16.67 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 16.67 bp, fill rate 1.0000 of shares [S]
+  - shadow book 864.14 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:b5e46b822424`; `results/report/data/live/cef/verify.csv` @ `pull:b5e46b822424`; `results/report/data/live/cef/tca.csv` @ `pull:b5e46b822424`
+- supports: §4
+- status: current
