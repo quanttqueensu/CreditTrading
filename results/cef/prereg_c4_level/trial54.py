@@ -354,9 +354,20 @@ def verdict_of(stage: str) -> str:
     return json.loads(f.read_text())["verdict"]
 
 
+K3_OVERRIDE = HERE / f"k3_override_{STAMP}.json"
+
+
 def need(*stages):
+    """Every earlier stage must read PASS or CLEAR. ONE recorded exception: K3, which FAILED as committed
+    (KILL D4) and was overridden POST-DATA by the team lead on 2026-11-03 ("revive it and figure out a way to
+    not kill it"; k3_override_2026-11-03.json; docs/SYSTEM.md §5). That is not a pass of K3: k3's own output
+    still reads KILL, and this function lets the pre-registered remainder run past it and nothing else."""
     for st in stages:
         v = verdict_of(st)
+        if st == "k3" and v.startswith("KILL") and K3_OVERRIDE.exists():
+            o = json.loads(K3_OVERRIDE.read_text())
+            if o.get("stage") == "k3" and o.get("is_a_pass") is False and o.get("ruled_by", "").startswith("team lead"):
+                continue
         if not v.startswith("PASS") and not v.startswith("CLEAR"):
             raise RuntimeError(f"{st} reads {v}; the trial stopped there (stop at the first KILL)")
 
