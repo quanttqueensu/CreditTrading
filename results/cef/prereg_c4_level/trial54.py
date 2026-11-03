@@ -93,7 +93,7 @@ def _rv(W: np.ndarray, ret: np.ndarray, i: int, w: np.ndarray, lookback: int) ->
 
 
 def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = None, perm: dict | None = None,
-                  blend: bool = True) -> dict:
+                  blend: bool = True, end: pd.Timestamp | None = None) -> dict:
     """Unit targets T_z (C4's own build_book), T_L (the level with its own scalar) and T_B (the blend), fit cut.
 
     Eligibility, the hold on thin days and the vol scalar repeat `bf.build_targets` exactly:
@@ -103,7 +103,8 @@ def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = No
     mask = c4.declared_mask(UF, "M1M2")
     p = bf.build_panel(universe=UF, source=c4.FAM_SRC, mask=mask)
     z, adv, disc, ret = p["z"], p["adv"], p["disc"], p["ret"]
-    Tz = c4.fit_slice(c4.build_book(UF))
+    # end None = the fit (fit_slice, asserted). Only `holdout` passes an end, and only after every fit stage cleared.
+    Tz = c4.fit_slice(c4.build_book(UF)) if end is None else c4.build_book(UF).loc[:end]
     idx = Tz.index
     # THE VOL ESTIMATOR READS THE FULL HISTORY THROUGH t (fixed 2026-11-03). §1.2 and `build_targets` (and the
     # sleeve's `_book_vol`) take the last 63 sessions of price returns from the panel's whole history. The first
@@ -168,7 +169,7 @@ def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = No
     TL = pd.DataFrame(TL, index=idx, columns=UF)
     TB = pd.DataFrame(TB, index=idx, columns=UF)
     for f in (Tz, TL, TB):
-        if f.index.max() > FIT_END:
+        if end is None and f.index.max() > FIT_END:
             raise AssertionError("holdout leak in a target")
     return dict(Tz=Tz, TL=TL, TB=TB, disc=disc)
 
@@ -702,6 +703,123 @@ def stage_dgl4(impl_root: str) -> int:
     return 0 if ok else 9
 
 
+HOLDOUT_START, HOLDOUT_END = pd.Timestamp("2023-01-03"), pd.Timestamp("2026-09-30")   # §4: C4's own holdout window
+HOLDOUT_MARKER = HERE / f"holdout_opened_{STAMP}.txt"
+MEANINGFUL_PCT = 0.8      # read_result's "meaningful": §5's lower bound, +0.4%/yr on all capital = 0.8%/yr on C4's
+#                           $100k; declared here, before the holdout is opened
+
+
+def stage_holdout(rehearse: bool = False) -> int:
+    """§6.2 step 6, OPENED ONCE: the level book's gross SR > 0 AND the blend's gross return above the z-only book's,
+    on 2023-01-03 .. 2026-09-30. Returns as C4's holdout built them (c4_families.holdout): CRSP `ret` to
+    2024-12-31 (identity-checked), then the yfinance formula on amendment 4's ruled actions with C4's bar and split
+    rulings, and IGR's ruled Alpaca fill. Every book is the declared rule run continuously from 2005; its rows
+    through 2022-12-30 are asserted equal to the fit's. The marker is written before any holdout P&L exists."""
+    from scripts.cef import w4_artifacts as w4
+    from scripts.research.inference import read_result
+    need("dgl2", "p1", "p2", "k1", "k2", "k3", "p3", "dgl4")
+    # REHEARSAL (C4's precedent): the identical code on fit data, 2021-01-04..2022-12-30; no marker, nothing written
+    # beside the trial's files, and no number it prints is a holdout number.
+    lo_, hi_ = (pd.Timestamp("2021-01-04"), FIT_END) if rehearse else (HOLDOUT_START, HOLDOUT_END)
+    if not rehearse:
+        for f in (HOLDOUT_MARKER, HERE / f"holdout_{STAMP}.json", HERE / f"holdout_output_{STAMP}.txt"):
+            if f.exists():
+                raise RuntimeError(f"the holdout has been opened ({f.name}); it is opened once and never recomputed")
+    masks = ruled_masks()
+    S = c4_spec()
+    U, pool, UF, px, nav, crsp, qr, fam = inputs()
+    RT = pd.read_csv(c4.RESOLUTION_TABLE, parse_dates=["date"])
+    if (RT["resolved"] == "STOP").any():
+        raise RuntimeError("amendment 4 carries an unresolved STOP; C4's holdout returns cannot be built")
+    excluded = json.loads(c4.EXCLUSIONS_A4.read_text())["excluded"]
+    UH = [t for t in UF if t not in excluded]
+    if UH != UF:
+        raise RuntimeError(f"C4's holdout excludes {excluded}; this stage was written for an empty exclusion list")
+    # C4's holdout's own identity windows (c4_families.holdout): the fit, and the holdout's CRSP leg; each raises
+    # naming a failing fund. The rehearsal checks the fit window only (its data end there).
+    c4.crsp_identity(crsp, px, UF, c4.SAMPLE_START, FIT_END)
+    if not rehearse:
+        c4.crsp_identity(crsp, px, UF, HOLDOUT_START, c4.CRSP_END)
+    B = level_targets(UH, fam, S, level_mask=masks, end=None if rehearse else HOLDOUT_END)
+    sess = B["Tz"].index
+    cols = sorted(set(UF) | set(U["snap68"]))
+    yfa = pd.read_parquet(c4.FAM_DIR / "cef_actions.parquet")
+    yfa["date"] = pd.to_datetime(yfa["date"])
+    CACHE.mkdir(parents=True, exist_ok=True)
+    act = CACHE / "holdout_actions_ruled.parquet"
+    c4.ruled_actions(yfa, RT, excluded).to_parquet(act, index=False)
+    cr = c4.crsp_pivot(crsp, cols, sess, qr, "ret", px=px)
+    fill = {} if rehearse else c4.igr_fill(c4.alpaca_pool(), px, sess)[0]     # the fill is on 2026-09-08/09 only
+    yf = c4.yf_total_returns(px, cols, sess, actions=act, rulings=c4.BAR_RULINGS, split_rulings=c4.SPLIT_RULINGS)
+    for d, v in fill.items():
+        if rehearse and d not in yf.index:
+            continue
+        if pd.notna(yf.loc[d, "IGR"]):
+            raise RuntimeError(f"IGR {d.date()} already has a yfinance return; the ruled fill does not apply")
+        yf.loc[d, "IGR"] = v
+    R = pd.concat([cr.loc[:c4.CRSP_END], yf.loc[c4.YF_START:]])
+    if not R.index.equals(sess):
+        raise RuntimeError("the CRSP and yfinance legs do not tile the session index at the seam")
+    head = __import__("subprocess").run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True,
+                                        text=True, check=True).stdout.strip()
+    if rehearse:
+        print("REHEARSAL on fit data 2021-01-04..2022-12-30: not the holdout")
+    else:
+        HOLDOUT_MARKER.write_text(f"CEF trial 54 holdout opened {dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')} "
+                                  f"at commit {head} by `trial54.py holdout`. Opened once; this file makes a second run refuse.\n")
+    # ---- holdout P&L exists from here
+    lines = []
+    say = lambda s_="": (print(s_), lines.append(s_))
+    fitj = json.loads((HERE / f"p1_{STAMP}.json").read_text())["books"]
+    out = {"commit": head, "window": [str(HOLDOUT_START.date()), str(HOLDOUT_END.date())], "books": {}}
+    pn = {}
+    for k, T in (("z", B["Tz"]), ("level", B["TL"]), ("blend", B["TB"])):
+        H = book(T, S)
+        Hfit = book(T.loc[:FIT_END], S)
+        if not np.array_equal(H.loc[:FIT_END].to_numpy(), Hfit.to_numpy()):
+            raise AssertionError(f"the {k} book's rows through 2022-12-30 are not the fit's")
+        R0 = c4.check_held(H, R.reindex(H.index)[H.columns], f"{k} holdout")
+        res = bf.evaluate(H, R0)
+        fitP = res["pnl"].loc[pd.Timestamp(fitj[k]["first_held"]):FIT_END]
+        if abs(c4.sr_of(fitP) - fitj[k]["sr"]) > 1e-9:
+            raise AssertionError(f"the {k} book's fit P&L does not reproduce P1's ({c4.sr_of(fitP):.6f} vs {fitj[k]['sr']:.6f})")
+        P, TU = res["pnl"].loc[lo_:hi_], res["turn_series"].loc[lo_:hi_]
+        if rehearse and P.index.max() > FIT_END:
+            raise AssertionError("the rehearsal formed a P&L row after 2022-12-30")
+        st = c4.row_stats(P, TU)
+        eras = {lab: c4.row_stats(P.loc[a:b], TU.loc[a:b]) for lab, a, b in
+                ((("2021", "2021-01-01", "2021-12-31"), ("2022", "2022-01-01", "2022-12-31")) if rehearse else
+                 (("2023-24", "2023-01-01", "2024-12-31"), ("2025-26", "2025-01-01", "2026-09-30")))}
+        out["books"][k] = dict(**st, eras=eras)
+        pn[k] = P
+        say(f"  {k:<6} holdout: gross SR {st['sr']:+.3f}  ann {st['ann_pct']:+.2f}%  vol {st['vol_pct']:.2f}%  turn {st['turn']:.1f}/yr  "
+            f"net @5/15/30 {st['net5']:+.3f} / {st['net15']:+.3f} / {st['net30']:+.3f}  flips {st['flips']};  "
+            + "; ".join(f"{e} SR {v['sr']:+.2f} ann {v['ann_pct']:+.2f}%" for e, v in eras.items()))
+    bz, bl, bb = out["books"]["z"], out["books"]["level"], out["books"]["blend"]
+    ok = bl["sr"] > 0 and bb["ann_pct"] > bz["ann_pct"]
+    verdict = "PASS" if ok else "KILL (D3)"
+    d2 = bb["net15"] >= bz["net15"]
+    y, x = pn["level"], pn["z"]
+    f0, _ = _hac_alpha(y, x, 0)
+    L = w4.nw_auto_lag(f0.resid)
+    f, d = _hac_alpha(y, x, L)
+    a_pct, se_pct = float(f.params["const"]) * 252 * 100, float(f.bse["const"]) * 252 * 100
+    ev = read_result(a_pct, se_pct, MEANINGFUL_PCT, n_trials=54)
+    out.update(verdict=verdict, d2_label=(not d2), level_alpha_on_z=dict(alpha_pct=a_pct, se_pct=se_pct,
+               t=float(f.tvalues["const"]), lag=L), evidence=ev)
+    say(f"  rule: level gross SR {bl['sr']:+.3f} > 0 AND blend ann {bb['ann_pct']:+.2f}% > z-only ann {bz['ann_pct']:+.2f}%: {verdict}")
+    say(f"  net at 15bp: blend {bb['net15']:+.3f} vs z-only {bz['net15']:+.3f} -> {'no D2' if d2 else 'D2 label'}")
+    say(f"  evidence (report): level-on-z alpha {a_pct:+.2f}%/yr, SE {se_pct:.2f}, NW t {float(f.tvalues['const']):.2f} (lag {L}); "
+        f"read_result at N 54, meaningful {MEANINGFUL_PCT}%/yr: {ev.get('outcome', ev)}")
+    if rehearse:
+        (CACHE / "holdout_REHEARSAL.txt").write_text("\n".join(lines) + "\n")
+        return 0
+    write("holdout", [f"CEF trial 54 HOLDOUT, opened ONCE ({HOLDOUT_START.date()}..{HOLDOUT_END.date()}), commit {head}; "
+                      f"C4 spec {SPEC_ID}, m {S['m']}, cap {S['cap']}; CRSP ret to 2024-12-31, yfinance ruled leg from 2025"]
+          + lines, out)
+    return 0 if ok else 10
+
+
 NAV_JUMP, NAV_BACK, NAV_RUN, PX_FLAT = 0.05, 0.01, 3, 0.02
 
 
@@ -765,9 +883,10 @@ def stage_navscan() -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan", "p1", "record", "p2", "k1", "k2", "k3", "p3", "dgl4"])
+    ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan", "p1", "record", "p2", "k1", "k2", "k3", "p3", "dgl4", "holdout"])
     ap.add_argument("--variant", choices=["blend", "level", "z", "blend_corrected", "level_corrected"], default=None)
     ap.add_argument("--impl-root", default=None, help="dgl4: a checkout of c4-level-impl at its code commit")
+    ap.add_argument("--rehearse", action="store_true", help="holdout: the identical code on fit data 2021-22")
     a = ap.parse_args(argv)
     if a.stage == "dgl4":
         if not a.impl_root:
@@ -778,7 +897,8 @@ def main(argv=None) -> int:
             raise SystemExit("record needs --variant")
         return stage_record(a.variant)
     return {"dgl2": stage_dgl2, "dgl3": stage_dgl3, "navscan": stage_navscan, "p1": stage_p1, "p2": stage_p2,
-            "k1": stage_k1, "k2": stage_k2, "k3": stage_k3, "p3": stage_p3}[a.stage]()
+            "k1": stage_k1, "k2": stage_k2, "k3": stage_k3, "p3": stage_p3,
+            "holdout": lambda: stage_holdout(a.rehearse)}[a.stage]()
 
 
 if __name__ == "__main__":
