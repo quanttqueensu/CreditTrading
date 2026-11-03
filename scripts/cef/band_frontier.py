@@ -171,7 +171,32 @@ def build_panel(end=None, universe=None, source=None, mask=None):
     return dict(px=px, nav=nav, vol=vol, ret=ret, disc=disc, mu=mu, sd=sd, z=z, adv=adv)
 
 
-def build_targets(universe=None, source=None, mask=None, min_adv=None):
+def _min_names_arg(min_names):
+    """`min_names` as `build_targets` and `thin_sessions` read it (added 2026-11-03
+    for `below_min_names="trade_eligible"`). None, the default, is the spec's
+    `min_names`, read from the module's `MIN_NAMES` at call time, so the
+    production path is unchanged. Otherwise an int of at least 2.
+
+    WHY 2, AND NOT 1. The weights are w = -(z - zbar) / sum|z - zbar| over the
+    eligible names. With one name z - zbar is exactly 0, so w is 0/0 = NaN, and
+    `build_targets` would fill it with 0 on a session it calls active: a silent
+    degenerate book, which this refuses. Two names are defined, but carry only
+    the sign of z1 - z2 (w = +-1/2 whatever the z magnitudes); three force one
+    side to a single fund holding half the gross. Those are the reasons the
+    third-rule report derives its floor at 4
+    (`results/backtests/thin-third-rule-2026-11-03/REPORT.md` section 1); this
+    check refuses only the case that is undefined."""
+    if min_names is None:
+        return int(MIN_NAMES)
+    if isinstance(min_names, bool) or not isinstance(min_names, (int, np.integer)):
+        raise TypeError(f"min_names must be an int (or None for the spec's), got {min_names!r}")
+    if int(min_names) < 2:
+        raise ValueError(f"min_names must be at least 2, got {min_names}: with one eligible name "
+                         "z - mean(z) is 0 and the weights are 0/0")
+    return int(min_names)
+
+
+def build_targets(universe=None, source=None, mask=None, min_adv=None, min_names=None):
     """Frictionless daily target weights, exactly as the sleeve would build them.
 
     `universe=None` is the spec's universe; `source` and `mask` are passed to
@@ -191,9 +216,24 @@ def build_targets(universe=None, source=None, mask=None, min_adv=None):
     the FIRST call in a process hashes 007e221b...7cdc and the SECOND
     c8291c1e...e599, identically on both sides of the edit. (The bytes differ
     between first and second call although the frames are value-identical: a
-    pickle memo quirk, present before this edit. Compare like with like.)"""
+    pickle memo quirk, present before this edit. Compare like with like.)
+
+    `min_names` (added 2026-11-03 for `results/backtests/thin-third-rule-2026-11-03/`,
+    a zero-trial report): the smallest eligible count on which a target is
+    built; below it the previous target is held, as before. None (the default)
+    is the spec's `min_names`, so the production path is unchanged: sha256 of
+    the default T and R before and after the edit in that folder's
+    noop_before.txt / noop_after.txt. A smaller value builds the target on the
+    SMALLER eligible set with the unchanged construction (demean, normalise,
+    the vol scalar on that set's own trailing 63-session return), which is
+    what the live sleeve would do on that set: its construction (l.911-920)
+    does not depend on how many names there are. The third-rule report runs the
+    live sleeve on every such session to confirm it (`sleeve_reduced_check.py`).
+    Pair it with `thin_sessions(..., min_names=)` at the same value and
+    `band_gross_capped(below_min_names="trade_eligible", floor=)`."""
     U = UNIVERSE if universe is None else list(universe)
     floor = MIN_ADV if min_adv is None else float(min_adv)
+    n_min = _min_names_arg(min_names)
     p = build_panel(universe=U, source=source, mask=mask)
     ret, z, adv = p["ret"], p["z"], p["adv"]
 
@@ -201,17 +241,36 @@ def build_targets(universe=None, source=None, mask=None, min_adv=None):
     start = z.index.searchsorted(pd.Timestamp(SAMPLE_START))
     for i in range(start, len(z.index)):
         row = _eligible(z.iloc[i], adv.iloc[i], floor)
-        if len(row) < MIN_NAMES:
+        if len(row) < n_min:
             tgt.iloc[i] = tgt.iloc[i - 1]          # hold; nothing eligible
             continue
-        w = -(row - row.mean())
-        w = w / w.abs().sum()
-        hist = ret[list(row.index)].iloc[:i + 1].mul(w, axis=1).sum(axis=1).tail(VOL_LOOKBACK)
-        rv = hist.std() * np.sqrt(252)
-        scal = float(np.clip(VOL_TARGET / rv, 0.2, 2.5)) if rv > 0 else 1.0
-        tgt.iloc[i] = (w * scal).reindex(U).fillna(0.0).values
+        tgt.iloc[i] = _target_row(row, ret, i).reindex(U).fillna(0.0).values
     T = tgt.iloc[start:]
     return T, ret.reindex(T.index)[U].fillna(0.0)
+
+
+def _target_row(row, ret, i):
+    """The target on one decision date from its eligible z-scores `row`: the
+    sleeve's construction (`cef_discount.py::target_positions` l.911-920),
+    w = -(z - mean z) / sum|z - mean z|, times the vol scalar
+    clip(VOL_TARGET / rv, 0.2, 2.5), rv the annualised sd of the last
+    VOL_LOOKBACK rows of these names' returns times w, through row i.
+
+    Moved out of `build_targets`' loop VERBATIM on 2026-11-03 (the third-rule
+    report), so that a caller asking "what would the book be on this smaller
+    set" uses this one definition rather than a second copy of the signal.
+    sha256 of the default T and R before and after: that report's
+    noop_before.txt / noop_after.txt. ALIGNMENT (H7): `row` is date i of
+    `build_panel` (z standardised on a window ending i-1; ADV through i-1) and
+    `ret` through row i is known at i's close, which is when the sleeve
+    decides. NaN weights (every z equal: 0/0) are returned as NaN; the caller
+    decides what that means (`build_targets` fills 0)."""
+    w = -(row - row.mean())
+    w = w / w.abs().sum()
+    hist = ret[list(row.index)].iloc[:i + 1].mul(w, axis=1).sum(axis=1).tail(VOL_LOOKBACK)
+    rv = hist.std() * np.sqrt(252)
+    scal = float(np.clip(VOL_TARGET / rv, 0.2, 2.5)) if rv > 0 else 1.0
+    return w * scal
 
 
 def _eligible(z_row, adv_row, floor):
@@ -239,7 +298,7 @@ def _eligible(z_row, adv_row, floor):
     return row[[t for t in row.index if (adv_row.get(t, 0) or 0) >= floor]]
 
 
-def thin_sessions(index, universe=None, source=None, mask=None, min_adv=None):
+def thin_sessions(index, universe=None, source=None, mask=None, min_adv=None, min_names=None):
     """Bool Series on `index`: True on a decision date with fewer than the
     spec's `min_names` eligible names (`_eligible`, the rule `build_targets`
     holds on). Added 2026-11-03 for `band_gross_capped(below_min_names=
@@ -249,9 +308,17 @@ def thin_sessions(index, universe=None, source=None, mask=None, min_adv=None):
     Every date of `index` must be a date of the panel: a date the panel does
     not hold has no eligibility to count, and treating it as thin or as active
     would be a guess, so it raises. Dates before `SAMPLE_START` are counted like
-    any other (`build_targets` starts there; this does not need to)."""
+    any other (`build_targets` starts there; this does not need to).
+
+    `min_names` (added 2026-11-03, the third-rule report): None, the default,
+    counts against the spec's `min_names` and returns the Series named "thin",
+    unchanged (noop_before.txt / noop_after.txt in that folder). An int counts
+    against that floor instead and names the Series "thin_below_<n>", so that
+    `band_gross_capped(below_min_names="trade_eligible", floor=n)` can refuse a
+    mask counted at another floor."""
     U = UNIVERSE if universe is None else list(universe)
     floor = MIN_ADV if min_adv is None else float(min_adv)
+    n_min = _min_names_arg(min_names)
     p = build_panel(universe=U, source=source, mask=mask)
     z, adv = p["z"], p["adv"]
     idx = pd.DatetimeIndex(index)
@@ -261,7 +328,13 @@ def thin_sessions(index, universe=None, source=None, mask=None, min_adv=None):
                          f"first {missing[0].date()}")
     pos = z.index.get_indexer(idx)
     n = [len(_eligible(z.iloc[i], adv.iloc[i], floor)) for i in pos]
-    return pd.Series(np.asarray(n) < MIN_NAMES, index=idx, name="thin")
+    name = "thin" if min_names is None else _below_name(n_min)
+    return pd.Series(np.asarray(n) < n_min, index=idx, name=name)
+
+
+def _below_name(n):
+    """The name `thin_sessions(..., min_names=n)` gives its mask."""
+    return f"thin_below_{int(n)}"
 
 
 def calendar(T, k):
@@ -307,7 +380,7 @@ def _unshortable_mask(unshortable, T):
     return unshortable.reindex(columns=T.columns, fill_value=False).to_numpy(dtype=bool)
 
 
-BELOW_MIN_NAMES = ("hold", "flatten")       # the first is the harness default
+BELOW_MIN_NAMES = ("hold", "flatten", "trade_eligible")       # the first is the harness default
 
 
 def _thin_mask(thin, T):
@@ -375,7 +448,7 @@ def _check_thin_matches_T(flat, T):
 
 
 def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
-                      below_min_names="hold", thin=None):
+                      below_min_names="hold", thin=None, floor=None):
     """`band()` with the frozen `max_gross_stress` ceiling applied to the HELD
     book after the band, exactly where the sleeve applies it (added 2026-09-28).
 
@@ -463,19 +536,56 @@ def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
           was built with. T's values on a thin row are not used, but they are
           CHECKED (`_check_thin_matches_T`, added 2026-11-03 after review):
           a mask built with other arguments than T raises.
+      "trade_eligible" (added 2026-11-03 for
+          `results/backtests/thin-third-rule-2026-11-03/`, a zero-trial report;
+          NOT the live rule): on a session with fewer than `min_names` but at
+          least `floor` eligible names, the book TRADES THE ELIGIBLE NAMES: the
+          sleeve's own construction on the smaller set, then the band and the
+          ceiling as on any other day. Below `floor` it does what the live
+          sleeve does, FLAT (the "flatten" path above). The floor is derived in
+          that report's section 1 from what the construction does at each count:
+          one name is 0/0, two carry only the sign of z1 - z2, three force one
+          side to a single fund holding half the gross, four is the first count
+          with none of those. It is an argument, never a default, because it is
+          not a spec key. Callers pass
+              T     = build_targets(min_names=floor, <the same arguments>)
+              thin  = thin_sessions(T.index, min_names=floor, <the same arguments>)
+          so T already carries the reduced-set target on the sessions between
+          `floor` and `min_names`, and `thin` flags only the sessions below
+          `floor`. Three checks refuse a mismatch: `floor` must be an int with
+          2 <= floor < the spec's `min_names` (at `min_names` it IS "flatten");
+          `thin` must be named "thin_below_<floor>", the name thin_sessions
+          gives a mask counted at that floor (the spec mask is named "thin");
+          and `_check_thin_matches_T` must pass, so T was built at the mask's
+          floor. `floor` is refused under "hold" and "flatten".
     """
     from src.deploy.sleeves.cef_discount import _cap_gross
     if below_min_names not in BELOW_MIN_NAMES:
         raise ValueError(f"below_min_names must be one of {BELOW_MIN_NAMES}, got {below_min_names!r}")
+    if below_min_names != "trade_eligible" and floor is not None:
+        raise ValueError(f"floor is only read with below_min_names='trade_eligible', not {below_min_names!r}")
     if below_min_names == "hold":
         if thin is not None:
-            raise ValueError("thin is only read with below_min_names='flatten'; under 'hold' "
-                             "build_targets has already held the target on a thin session")
+            raise ValueError("thin is only read with below_min_names='flatten' or 'trade_eligible'; under "
+                             "'hold' build_targets has already held the target on a thin session")
         flat = None
     else:
         if thin is None:
-            raise ValueError("below_min_names='flatten' needs thin (thin_sessions(T.index)); "
+            raise ValueError(f"below_min_names={below_min_names!r} needs thin (thin_sessions(T.index)); "
                              "the harness will not guess which sessions were thin")
+        if below_min_names == "trade_eligible":
+            if floor is None:
+                raise ValueError("below_min_names='trade_eligible' needs floor, the smallest eligible count "
+                                 "it trades; it is not a spec key, so there is no default")
+            if isinstance(floor, bool) or not isinstance(floor, (int, np.integer)):
+                raise TypeError(f"floor must be an int, got {floor!r}")
+            if not 2 <= int(floor) < int(MIN_NAMES):
+                raise ValueError(f"floor must satisfy 2 <= floor < min_names ({MIN_NAMES}), got {floor}: "
+                                 "one name is 0/0, and at min_names the rule is 'flatten'")
+            if thin.name != _below_name(floor):
+                raise ValueError(f"thin is named {thin.name!r}, not {_below_name(floor)!r}: it was not "
+                                 f"counted at floor {floor}; build it with "
+                                 f"thin_sessions(T.index, min_names={floor}, <T's arguments>)")
         flat = _thin_mask(thin, T)
         _check_thin_matches_T(flat, T)
     A, cur = T.values, np.zeros(T.shape[1])
@@ -484,7 +594,8 @@ def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
     blocked = None if unshortable is None else _unshortable_mask(unshortable, T)
     for i in range(len(A)):
         if flat is not None and flat[i]:
-            # the live sleeve: every name FLAT, straight to zero (see above)
+            # the live sleeve: every name FLAT, straight to zero (see above);
+            # under "trade_eligible" only below `floor`, the rows thin flags
             cur = np.zeros(T.shape[1])
             H[i] = cur
             continue
