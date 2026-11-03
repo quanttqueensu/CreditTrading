@@ -1,15 +1,25 @@
-# Pre-registration: C4's discount level against family peers, as a second signal in the C4 account (CEF trial 54 if approved)
+# Pre-registration: C4's discount level against family peers, as a second signal in the C4 account (CEF trial 54)
 
-Date: 2026-11-02 (finalised the same day)   Counter: CEF, trial 54 **on approval**   Author: idea-generation seat
-**Status: FINAL, awaiting the team lead's approval. CEF stays 53.** The counter moves only in the commit that
-records the approval (`docs/RESEARCH_STATE.md`; `/prereg`). No trial has been spent. No 2023+ return of this
-signal has been computed, and **Gate 0 (§4b) runs before any 2023+ return of it is read.**
+Date: 2026-11-02 (finalised the same day)   Counter: **CEF trial 54**   Author: idea-generation seat
+**Status: APPROVED 2026-11-03 by the team lead; CEF 53 → 54 in the commit that records it** (`docs/RESEARCH_STATE.md`,
+`docs/SYSTEM.md` §5 "Team lead, 2026-11-03"). No 2023+ return of this signal had been computed at approval.
+
+> **§0.A — the approval (team lead, 2026-11-03, answered interactively).**
+> - **Gate 0: cleared, post-data.** The team lead's words: "I approve, lets try and deploy as fast as possible". The
+>   evidence was §4b (commit 389f61a, reproduced byte for byte 2026-11-03). It is a judgment on seen data, **not a
+>   pre-registered pass**.
+> - **Open questions 2–9: the recommended answers, all accepted**, with "use the 2 accounts I gave you, i dont hvae
+>   any other": the book is the core account plus the C4 (spare) account, and no third account.
+> - **"As fast as possible" changes no rule.** §6.2 is unchanged: the data gates, then P1 at NW t ≥ 2.825, P2, K1–K3,
+>   P3, then the holdout opened once. Speed comes from running the stages back to back and building the sleeve key
+>   in parallel, never from skipping one.
+> - Files this note calls "in this folder" are in `results/cef/screens_2026-11-02/`.
 
 The team lead chose on 2026-11-02 to take this signal to a pre-registration. The evidence is the zero-trial
-screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The design inputs are in
+screen `screens_2026-11-02/ALPHA_SLATE.md` §S5 (fit only, yfinance return leg). The design inputs are in
 `prereg_c4_level_design.py` → `prereg_c4_level_design_output_v4.txt` (C4's v4 spec; the first run at v3 is
 `prereg_c4_level_design_output.txt`). On approval this file moves to
-`results/cef/PREREG_C4_LEVEL_2026-11-02.md` (open question 9).
+`results/cef/PREREG_C4_LEVEL_2026-11-02.md` (open question 9); done 2026-11-03, the draft path deleted (git keeps it).
 
 ## 0. The answer in one table
 

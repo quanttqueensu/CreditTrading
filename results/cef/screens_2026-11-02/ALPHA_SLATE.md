@@ -4,7 +4,7 @@
 `alpha_common.counters()`). Nothing here touches the live path, a broker, or `data/`.** The team lead asked
 on 2026-11-02 for new return sources that this exact set-up can trade: the core's 13 credit CEFs (account 1)
 and C4's 74 non-credit CEFs (account 2). One candidate earns a pre-registration, and it is a **DRAFT** for the
-team lead: `PREREG_DRAFT_C4_LEVEL_2026-11-02.md` in this folder.
+team lead: `results/cef/PREREG_C4_LEVEL_2026-11-02.md` (approved 2026-11-03 as CEF trial 54).
 
 **Holdout discipline.** Every statistic is computed on sessions on or before 2022-12-30. `build_panel(end=…)`
 truncates the raw history before any z, mean or ADV is formed, and `alpha_common.assert_fit` asserts it on
