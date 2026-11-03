@@ -13,7 +13,7 @@ switched on.
 HOW IT IS PROVED, AND WHY THE PINS ARE PINS.
 
   1. `test_keys_absent_is_byte_identical_to_the_code_before_them`. The real
-     sleeve, the real live spec and the real panels, decided as of 2026-09-25
+     sleeve, the core's pre-trial spec (below) and the real panels, decided as of 2026-09-25
      on a held book (half the day-one book, the `test_nav_gate.py` fixture, so
      the band both trades and holds), driven through `run_session` exactly as
      the drawdown and stale-NAV proofs drive it. Every output -- the day-one
@@ -24,12 +24,23 @@ HOW IT IS PROVED, AND WHY THE PINS ARE PINS.
      `_session_hashes` on that tree. The pins are those numbers, not
      expectations.
 
+     THE SPEC IS THE CORE'S PRE-TRIAL ONE, FROM GIT (re-pinned 2026-11-02, as
+     fb4671e did for test_combine_noop.py and test_missing_nav_hold.py). The
+     pin was made on cef_discount.v7.20260928, which was then the live spec.
+     CEF trial 53 made the live spec v8 (`sizing_multiplier` 1.13), and the
+     test hashed the LIVE spec, so from eca5feb it skipped on every machine.
+     66ec3df's code cannot run v8's key, so the code-versus-code proof stays
+     on v7, read from git at 35b429f (test_combine_noop.pre_trial_spec; the
+     same bytes as the local revert tag spec-cef_discount.v7.20260928). The
+     pins are unchanged: they were made on these bytes. That the key-absent
+     path is still today's on v8's code is test_sizing_multiplier_noop.py's.
+
      A pin is only a proof on the inputs it was made on. The panel is a
      refreshed vendor series (the 2026-10-15 refresh took in Yahoo's corrections
      of 2026-09-25, `test_nav_gate.py`), the prod VM's panel was captured at
-     other times than the laptop's, and the live spec may be bumped. So the
+     other times than the laptop's, and the spec may be bumped. So the
      test copies the panel rows it reads (the universe, through ASOF) into
-     tmp_path in a canonical order, hashes that content and the live spec, and
+     tmp_path in a canonical order, hashes that content and the spec, and
      SKIPS, naming both hashes, when either is not what the pin was made on.
      Skipping is the honest answer there: the old code's output on a different
      input is unmeasured, and comparing against it would be comparing against a
@@ -60,6 +71,7 @@ import pandas as pd
 import pytest
 
 from quantt.session import run as rn
+from quantt.session.tests.test_combine_noop import PRE_TRIAL_COMMIT, pre_trial_spec
 from quantt.session.tests.test_run import BOOK, LATE, FakeClient
 from src.deploy.tests.test_group_cap import _fingerprint
 
@@ -198,12 +210,18 @@ PINNED = {
 
 @needs_panel
 def test_keys_absent_is_byte_identical_to_the_code_before_them(tmp_path, monkeypatch):
-    spec = json.loads(LIVE_SPEC_PATH.read_text())
+    pre = pre_trial_spec()
+    if pre is None:
+        why = (f"REAL-PANEL C4 NO-OP PIN NOT APPLIED: git cannot show "
+               f"{PRE_TRIAL_COMMIT}:ops/specs/cef_discount.frozen.json, the spec the pin was made on")
+        warnings.warn(why, RealPanelPinNotApplicable)
+        pytest.skip(why)
+    raw, spec = pre
     assert not set(C4_KEYS) & set(spec["frozen"]), \
-        "the live spec carries a C4 key; this test proves the ABSENT path only"
+        "the pre-trial spec carries a C4 key; this test proves the ABSENT path only"
     (tmp_path / "panels").mkdir()
     got_input = {"panel": _frozen_copy(tmp_path / "panels", monkeypatch, spec["frozen"]["universe"]),
-                 "spec": _sha(LIVE_SPEC_PATH.read_bytes())}
+                 "spec": _sha(raw)}
     if got_input != PINNED_INPUT:
         why = (f"REAL-PANEL C4 NO-OP PIN NOT APPLIED: it was made on panel/spec {PINNED_INPUT}; "
                f"this tree has {got_input} (a refresh revised rows through {ASOF}, another "
