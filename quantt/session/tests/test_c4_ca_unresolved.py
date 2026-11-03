@@ -1,12 +1,18 @@
-"""C4 under its book's corporate-action mode (`halt`), on a replica of the three unresolved rows of 2026-11-02.
+"""C4's corporate-action gate on a replica of the three unresolved rows of 2026-11-02: `halt` measured, `report` deployed.
 
 WHY THIS EXISTS (2026-11-02). The core's release-check on 3478159 found three
 market-wide rows in Alpaca's real corporate-action feed with a party symbol
 missing, and under the team lead's 2026-11-02 unresolved-rows ruling each one
 halts for every held fund, so the core shipped with its gate in `report`
-(ops/books/cef_discount_book.json `_mode_report_note`). C4's book json keeps
-`halt`. Whether that refuses C4's dry sessions is the team lead's decision to
-make, and this measures it. It changes no mode.
+(ops/books/cef_discount_book.json `_mode_report_note`). C4's book json then
+kept `halt`, and this file measured what that would do to C4's dry sessions.
+
+THE RULING IT INFORMED (team lead, 2026-11-02). C4's gate runs in REPORT, the
+same as the core, until the ISIN fix and the re-ruling of the unresolved rows
+land (ops/books/c4_families_book.json `_mode_report_note`, which says how to
+RESTORE halt). `test_the_deployed_c4_book_sets_report_until_the_unresolved_rows_are_re_ruled`
+pins that. The measurements below still name `halt` explicitly, because halt
+is what the RESTORE line brings back, and they show what it will do then.
 
 THE REPLICA. The three rows as the core's gate recorded them in its preview of
 session 2026-11-03 (as-of 2026-11-02, read 2026-11-02 23:34-00:14Z, the record's
@@ -25,8 +31,8 @@ synthetic placeholder that passes the read's validators. A missing symbol is
 `null`, which the read treats as "" (AlpacaClient.corporate_actions,
 UNRESOLVED ROWS). The rows go through the REAL `AlpacaClient.corporate_actions`
 parser over a fake HTTP session, then the runner's own step 3b
-(`run._corporate_actions`) under the mode `run.corporate_actions_for` reads
-from C4's book json. Synthetic data: this is a statement about the code, not
+(`run._corporate_actions`), with C4's universe, state dir and book name, under
+the mode each test names. Synthetic data: this is a statement about the code, not
 about what Alpaca will list.
 
 WHAT IT MEASURES. A FLAT C4 account (the dry sessions: DRY_RUN=1 sends nothing,
@@ -49,6 +55,7 @@ import pytest
 
 from ops.schedule.nyse_calendar import is_trading_day, next_trading_day, previous_trading_day
 from quantt.broker import alpaca as al
+from quantt.session import corp_actions as cam
 from quantt.session import run as rn
 from quantt.tests.test_alpaca_client import KEY_ID, SECRET, FakeResp, FakeSession, route
 
@@ -103,9 +110,9 @@ def _held_since_oct20(names):
     return pos, closed
 
 
-def _step_3b(tmp_path, session_date, positions, closed, targets):
-    """run._corporate_actions under C4's book-json mode: (record, refusal or None)."""
-    deps = SimpleNamespace(corp_actions=rn.corporate_actions_for(_c4()),
+def _step_3b(tmp_path, session_date, positions, closed, targets, mode=cam.HALT):
+    """run._corporate_actions for C4 under `mode`: (record, refusal or None)."""
+    deps = SimpleNamespace(corp_actions=mode,
                            client=SimpleNamespace(corporate_actions=_parser(tmp_path).corporate_actions))
     state = tmp_path / "c4"
     state.mkdir(exist_ok=True)
@@ -115,9 +122,30 @@ def _step_3b(tmp_path, session_date, positions, closed, targets):
     return rec, refusal
 
 
-def test_the_mode_measured_is_c4s_halt():
-    """What is measured is the book json as it stands; the team lead decides the mode."""
-    assert rn.corporate_actions_for(_c4()) == "halt"
+def test_the_deployed_c4_book_sets_report_until_the_unresolved_rows_are_re_ruled():
+    """Team lead 2026-11-02: C4's gate in REPORT, the same as the core, until the ISIN fix
+    and the re-ruling of the unresolved rows land (this file's measurements decided it).
+    The book json says how to restore halt; this pin makes the switch back a visible,
+    tested edit (test_corp_actions.py pins the core's the same way). Fails on ebb73ab."""
+    assert rn.corporate_actions_for(_c4()) == cam.REPORT
+    block = json.loads(_c4().book_path.read_text())["corporate_actions"]
+    note = block["_mode_report_note"]
+    assert "RESTORE" in note and "halt" in note and "together with the core" in note
+    assert rn.corporate_actions_for(rn.BOOKS["cef"]) == cam.REPORT      # the core's, as the note says
+
+
+def test_report_mode_records_the_same_rows_and_never_refuses(tmp_path):
+    """The deployed mode on the same replica: every session's record lists the rows halt
+    would block (flat: the JAGX merger on 11-03; held: all three), and none refuses."""
+    names = sorted(_universe())[:10]
+    pos, closed = _held_since_oct20(names)
+    for d in SESSIONS:
+        rec, refusal = _step_3b(tmp_path, d, {}, [], sorted(_universe()), mode=cam.REPORT)
+        assert refusal is None and rec["mode"] == cam.REPORT
+        assert {b["id"] for b in rec["blocking"]} == ({JAGX_MERGER} if d == dt.date(2026, 11, 3)
+                                                     else set())
+        rec, refusal = _step_3b(tmp_path, d, pos, closed, names, mode=cam.REPORT)
+        assert refusal is None and {b["id"] for b in rec["blocking"]} == ALL3
 
 
 @pytest.mark.parametrize("targets", ["all 74", "one name"])
@@ -155,10 +183,11 @@ def test_held_c4_halt_refuses_every_session_on_all_three(tmp_path):
 
 # ------------------------------------------------- the C4 runner end to end, DRY
 
-def _dry_decide(tmp_path, monkeypatch, asof: dt.date):
+def _dry_decide(tmp_path, monkeypatch, asof: dt.date, mode=None):
     """One evening DRY decide of the C4 book, built by default_deps from its book json on
     test_c4_book's generated panel (ending `asof`), with C4's client reading the replica
-    through the real parser. (exit code, plan.json)."""
+    through the real parser. `mode` overrides the book json's gate mode (None: as deployed).
+    (exit code, plan.json)."""
     from quantt.session.tests import test_c4_book as t4
     from quantt.session.tests.test_run import FakeClient
     from src.deploy.sleeves import cef_discount as cefmod
@@ -182,6 +211,8 @@ def _dry_decide(tmp_path, monkeypatch, asof: dt.date):
     monkeypatch.setattr(al.AlpacaClient, "from_environment", classmethod(lambda cls, n, **kw: c))
     spec = rn.load_spec(_c4().spec_path)
     deps = rn.default_deps(_c4(), spec, {"QUANTT_ENV_FILE": "unused"})
+    if mode is not None:
+        deps.corp_actions = mode
     deps.env = {"QUANTT_STATE_DIR": str(state), "DRY_RUN": "1"}
     deps.refresh = lambda a, t: rn.RefreshResult(exit=0, tail="fixture")
     deps.halts = lambda: []
@@ -194,17 +225,31 @@ def _dry_decide(tmp_path, monkeypatch, asof: dt.date):
     return code, plan
 
 
-def test_the_c4_dry_decide_refuses_on_the_merger_and_plans_the_next_day(tmp_path, monkeypatch):
-    """The same answer through the whole runner: the evening decide for 2026-11-03 is
-    REFUSED (exit 11), a gate-5 `data` refusal naming the JAGX row; the one for 2026-11-04
-    is PLANNED (exit 6), the three rows in the record as unresolved, blocking nothing."""
-    code, plan = _dry_decide(tmp_path / "a", monkeypatch, dt.date(2026, 11, 2))
+def test_under_halt_the_c4_dry_decide_refuses_on_the_merger_and_plans_the_next_day(
+        tmp_path, monkeypatch):
+    """The same answer through the whole runner, under halt (the RESTORE target): the
+    evening decide for 2026-11-03 is REFUSED (exit 11), a gate-5 `data` refusal naming the
+    JAGX row; the one for 2026-11-04 is PLANNED (exit 6), the three rows in the record as
+    unresolved, blocking nothing."""
+    code, plan = _dry_decide(tmp_path / "a", monkeypatch, dt.date(2026, 11, 2), mode=cam.HALT)
     assert code == rn.EXIT_REFUSED and plan["status"] == "refused"
     assert [r["gate"] for r in plan["refusals"]] == ["data"]
     assert JAGX_MERGER in plan["refusals"][0]["detail"]
     assert plan["corporate_actions"]["mode"] == "halt"
-    code, plan = _dry_decide(tmp_path / "b", monkeypatch, dt.date(2026, 11, 3))
+    code, plan = _dry_decide(tmp_path / "b", monkeypatch, dt.date(2026, 11, 3), mode=cam.HALT)
     assert code == rn.EXIT_PLANNED and plan["status"] == "decided", plan["refusals"]
     ca = plan["corporate_actions"]
     assert ca["status"] == "CLEAR" and ca["blocking"] == []
     assert {u["id"] for u in ca["unresolved"]} == ALL3 and not any(u["blocks"] for u in ca["unresolved"])
+
+
+def test_as_deployed_the_c4_dry_decide_plans_and_records_the_merger(tmp_path, monkeypatch):
+    """The book json as deployed (report): the evening decide for 2026-11-03 is PLANNED
+    (exit 6) with no refusal, and its record carries the JAGX row as BLOCKING, recorded
+    only, with the three listed as unresolved."""
+    code, plan = _dry_decide(tmp_path, monkeypatch, dt.date(2026, 11, 2))
+    assert code == rn.EXIT_PLANNED and plan["status"] == "decided" and plan["refusals"] == []
+    ca = plan["corporate_actions"]
+    assert ca["mode"] == "report" and ca["status"] == "BLOCKING"
+    assert {b["id"] for b in ca["blocking"]} == {JAGX_MERGER}
+    assert {u["id"] for u in ca["unresolved"]} == ALL3

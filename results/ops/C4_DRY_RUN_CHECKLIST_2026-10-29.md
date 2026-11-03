@@ -5,7 +5,8 @@
 > 2026-10-29). **Updated 2026-11-02:** the integration (`c4-integrate`) is merged onto main's
 > release-20261102-1 on branch **`c4-rel`**. That branch carries C4's whole path, dark: spec
 > **`c4_families.v3.20261102`** (CEF trial 53's `sizing_multiplier` **1.27**; the core's halve/kill
-> levels, report only), the data path, the per-sleeve runner, `BOOKS["c4"]`, its book json and its
+> levels, report only; the corporate-action gate in `report`, as the core, by the team lead's
+> 2026-11-02 ruling), the data path, the per-sleeve runner, `BOOKS["c4"]`, its book json and its
 > installer units. The core is proved byte-identical to 862b1d0 (below). Release is the team
 > lead's. C4 spends no trial; the CEF counter is 53 because of trial 53, not C4.
 >
@@ -40,10 +41,16 @@ qi() { sudo env PYTHONPATH=/home/quantt/prod/quantt-alpaca \
 | The fidelity gate passes on the raised spec, and H11 reads the account's book (1.27 × the unit book capped at 1.90/1.27) | `python3 scripts/cef/c4_paper_benchmark.py run` → `results/cef/c4/c4_paper_benchmark_2026-11-02.txt` | [V] 2026-11-02 |
 | `ca-ack --book c4` refuses another book's state directory before any read | `test_c4_book.py::test_c4_ca_ack_refuses_another_books_state_dir_before_any_read` | [V] 2026-11-02 |
 
-## The corporate-action mode: measured, not changed (open for the team lead)
+## The corporate-action mode: DECIDED, `report` (team lead, 2026-11-02)
 
-C4's book json keeps `corporate_actions.mode = "halt"`; the core runs `report` since 2026-11-02.
-Measured on a synthetic replica of the three unresolved rows the core's gate hit on 2026-11-02
+**Ruled 2026-11-02 on the measurement below: C4's gate runs in `report`, the same as the core,
+until the ISIN fix and the re-ruling of the unresolved rows land.** The book json's
+`corporate_actions._mode_report_note` cites the ruling and says how to RESTORE `halt` (together
+with the core); `test_c4_ca_unresolved.py::test_the_deployed_c4_book_sets_report_until_the_unresolved_rows_are_re_ruled`
+pins it. Report records every event in `plan.json` and the run record, prints it and sends
+anyway; a failed read is UNMEASURED, never clear.
+
+What `halt` would do, measured before the ruling (when C4's book json still set it) on a synthetic replica of the three unresolved rows the core's gate hit on 2026-11-02
 (ids, types, dates and missing fields from the core's own preview record of session 2026-11-03;
 `quantt/session/tests/test_c4_ca_unresolved.py`, the real parser and the runner's step 3b):
 
@@ -59,14 +66,10 @@ already listed refuse 11-03, 11-09 and 11-10 [U: the feed as read on 2026-11-02,
 on each date; rows are revised and backfilled. Measured by the scratch replay of that record
 through `corp_actions.blocking_events`, not committed]. **Re-measure at run time**: each refused
 decide names its rows in `<D>/plan.json` `refusals`, and `corporate_actions.unresolved` lists
-every one and whether it blocked. What follows under either answer:
-
-- **keep `halt`**: a dry decide refused only by the corporate-action gate still decided its
-  targets; count it as a dry session or not (your call), and expect the send path to be
-  exercised on few days. After arming, every new unresolved row in a long-window role refuses
-  every session until you `ca-ack` it (RUNBOOK §6.1).
-- **`report`, as the core**: every session decides and sends DRY; the gate records and never
-  blocks. That is a book json edit (`/spec-change`) and a release.
+every one and whether it would have blocked. Under `report` those rows are in
+`corporate_actions.blocking` with the session going on. When `halt` is restored, a held C4 book
+refuses every session on each new unresolved row in a long-window role until it is `ca-ack`ed
+(RUNBOOK §6.1): read the measurement again then.
 
 ## The steps
 
@@ -174,8 +177,9 @@ Expected on each day:
   2026-09-08) and the split-ruled BTO, TYG, NXG and EMO. The spike guard catches a spike that
   reverts, not a step. Any step: stop, and rule on it before arming. UNMEASURED: no network here.
 - The evening decide is PLANNED (exit 6) on C4's 74 at ×1.27, and the 15:52 send is DRY (exit
-  10), **or** the decide is REFUSED (exit 11) by the corporate-action gate naming an UNRESOLVED
-  row (the measurement above); decide how such a day counts.
+  10). The gate is in `report`: a day whose `corporate_actions.status` is BLOCKING (an
+  UNRESOLVED row in the window, as on 11-03) still decides and sends DRY; read which rows, and
+  note it for the re-ruling. A REFUSED decide now means another gate.
 - `drawdown`: UNMEASURED naming `eod_equity.csv` until the collector has written a row, then
   measured against the core's 0.12 / 0.18, report only.
 - `missing_nav` naming any late NAV, held at the final check.
@@ -215,7 +219,8 @@ Expected on each day:
   (`.claude/loop/run_research_loop.sh`). When a lab runner is built for this account, this gate
   becomes the place where the two are reconciled (docs/SYSTEM.md §5, 2026-10-28).
 - Re-run step 3 that day: it must give 1.90, or the new spec is released first.
-- Rule on the corporate-action mode (above).
+- The corporate-action mode is decided: `report` (team lead 2026-11-02, above). Arming does not
+  change it; `halt` comes back with the core's, through a release.
 - The halve/kill levels are the core's, report only, until a C4 derivation exists (ruled
   2026-10-30; spec v3). Nothing acts on them.
 - Then `qi --tag <T> --vault <V> --book c4 --eod-from <YYYY-MM-DD> --apply --armed` and, as the

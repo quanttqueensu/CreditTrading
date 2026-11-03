@@ -407,8 +407,9 @@ until the team lead installs it; the steps are
   the core; the missing-NAV hold (2 sessions); drawdown in report mode, against
   the core's halve/kill levels since spec `c4_families.v3.20261102` (team lead
   2026-10-30; until v3 the spec named none and every decide recorded
-  UNMEASURED); the corporate-action gate in `halt` (measured, not changed, on
-  2026-11-02: the checklist's "corporate-action mode"). **No `data.stale_nav`**:
+  UNMEASURED); the corporate-action gate in `report`, as the core, since the
+  team lead's 2026-11-02 ruling (it was `halt` until then; the ruling followed the
+  measurement in the checklist's "corporate-action mode"). **No `data.stale_nav`**:
   CEFConnect is disabled for C4, and the spec's NAV-repeat mask is its defence.
 - **The refresh** is `fetch_daily --data-book c4 --book ops/books/c4_families_book.json`
   under C4's own lock. Its exit 6 (an unruled spike-and-revert bar) is a gate-5
