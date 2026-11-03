@@ -936,6 +936,8 @@ cancels an order already at Alpaca.
    `sudo systemctl disable --now quantt-cef-session.timer quantt-cef-verify.timer quantt-cef-collect.timer`.
 
 **Updating** to a new release. Never change code under a running job.
+
+Since 2026-11-02 an agent may run every step below itself, arming included (team lead; CLAUDE.md rule 1, standing authority; `docs/SYSTEM.md` §5). It does so only through the laptop's wrapper, and only when each gate passes: a release-check GO on the exact commit, CI passed on the PR's exact head (the merge then uses the team lead's `--admin` bypass, which main's ruleset requires for every merge, with `--match-head-commit`), a replay with no run refused now, outside the send windows, and the read-back. It stops at the first failure and records the outcome in `docs/JOURNAL.md` the same day.
 **Start any `--apply` before 15:30 ET, or after 16:00.** The installer
 refuses to start inside 15:30–16:00. It also refuses to restart the timers
 from 15:52, which would leave them stopped, and the key fetch can take about 4

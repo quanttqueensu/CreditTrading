@@ -202,3 +202,29 @@ from a named source; [doc] copied from a named note.
   - **The canonical harness holds on thin sessions; the live sleeve flattens.** Under a replica of the live rule, the fit-era break-even is 18.6bp, not 45.8bp [that session's turnover study, report only]. This is a question for the team lead, and trial 53's fit figures inherit it.
 
 **Prod:** no change (`release-20261029-3`, armed; no corporate-action gate yet).
+
+**Prod, evening of 2026-11-02 [V, `ops.prod_state` after the install]:**
+- **`release-20261102-1` (f83b2a3, PR #28, merged as 862b1d0)** is installed on the VM, **ARMED**. It carries:
+  - **CEF trial 53, the core at ×1.13** (spec `cef_discount.v8.20261101`), first decided at the 22:00 ET slot;
+  - the corporate-action gate in **report** mode;
+  - the gate-6 fresh-order fix;
+  - the winter end-of-day stamp fix.
+- The release-check was GO on f83b2a3, after NO-GOs on 9630322, 9cf5cf2, 04aca24, 709d6cb, 1c64638 and 3478159.
+- History replay: 67 runs, **0 refused now**. Dry run clean. Applied with `--armed`.
+- PR #28 was merged with the admin override. Main's CI has been red since 2026-10-29 on a research test that needs the `arch` package, which CI doesn't install; this release did not cause it.
+- The Azure CLI's MFA had expired and was renewed by the team lead before the dry run.
+
+**Open:**
+- the bond-ISIN misread must be fixed before the gate returns to `halt`;
+- re-pin C4's real-panel no-op test;
+- CI's `arch` dependency;
+- the paper-fees correction to CLAUDE.md and REFERENCES.md (team lead: not yet);
+- show the team lead the first ×1.13 plan before the 2026-11-03 send.
+
+**Rulings, later on 2026-11-02** (`docs/SYSTEM.md` §5, "autonomy"):
+- **Agents may run releases and arming end to end** when every gate passes. That is now CLAUDE.md rule 1's standing authority.
+- The journal is the only notice.
+- The NAV hedge is closed (UNDERPOWERED).
+- CI gets `requirements-research.txt` (`arch`), so main's tests can go green without touching the VM's environment.
+
+**Found:** CLAUDE.md rule 1's 2026-10-27 exception lets the autonomous research loop trade in the same spare account that C4 will trade in. That account is flat today [V, connector read: $100,000 cash, no positions]. Before C4 is armed, the loop must be confirmed off it (rule 2).
