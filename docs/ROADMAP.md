@@ -33,6 +33,7 @@ fetchers, the research memory, `quantt/`, and the agent layer.
 | 2.1 | Re-derive `max_gross_stress` with the pre-registered rule (`results/cef/PREREG_GROUP_CAP_2026-09-16.md`) on the Alpaca account: Reg T, one book per account. | A | done 2026-09-28: 1.80 (and `group_cap` left off — its rule gives k = 0 on 13 names) |
 | 2.2 | Re-derive `min_trade_usd` (its old derivation used IBKR's $1 minimum commission; Alpaca charges none) and re-size capital to $100k. | A | done 2026-09-28: $0 (whole shares), $100k |
 | 2.3 | One `/spec-change` to v7-on-Alpaca: universe, `max_gross_stress`, capital, min trade. Pre-registration, CEF counter in the same commit. | A, TL approves | done 2026-09-28: `cef_discount.v7.20260928`, `results/cef/PREREG_ALPACA_V7_2026-09-28.md`, CEF 48 → 50, revert tag `spec-cef_discount.v6.20260906` |
+| 2.4 | One `/spec-change` to v8: `sizing_multiplier` 1.13 on the core (CEF trial 53, `results/cef/PREREG_VOLTARGET_2026-10-30.md`; the account holds 1.13x the unit book, `vol_target_annual` unchanged). C4's 1.27 goes in at C4's arming. | A, TL approves | spec edited 2026-11-01: `cef_discount.v8.20261101`, CEF 52 → 53, revert tag `spec-cef_discount.v7.20260928` (local). It trades from the first release that carries it. **Amendment 1 (2026-11-02):** core 1.30 on the live thin-day rule, spec `cef_discount.v9.20261102`, revert tag `spec-cef_discount.v8.20261101` (local); C4 1.26 (`c4_families.v4.20261102`); CEF stays 53 |
 
 ## Phase 3 — how Alpaca actually behaves (paper, before any code relies on it)
 

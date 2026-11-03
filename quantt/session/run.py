@@ -30,7 +30,8 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                `nav_gate.py`, "DEFERRAL AND THE ORDER PATH" below). After the
                sleeve has read the panel, `still_holds` checks it was the panel
                the gate certified, or the session FAILs.
-  2. read      Alpaca clock, calendar, account, positions, orders, assets.
+  2. read      Alpaca clock, calendar, account, positions, closed orders, assets.
+               Gate 6's order lists are read at step 4, not here.
   2b. drawdown only when the book json sets `risk.drawdown` (absent = off;
                `report` is the only mode built). The book's drawdown from its
                high-water mark on `<state>/eod_equity.csv` (Alpaca's EOD
@@ -55,7 +56,10 @@ RUNNER.md "The session, in order"; the reasons for the order are the incidents:
                the targets are the netted decision's AND every sleeve's own
                (`_plan_targets`), and the held names are still the broker's.
   4. gate      all nine (`gate.evaluate`), on a clock read AFTER the slow
-               steps, never the one from the start. Any refusal: nothing is sent.
+               steps, never the one from the start. Gate 6's order lists
+               (status=all since midnight before the as-of, and open) are the
+               last broker read before that clock read (`_gate6_orders`; review
+               2026-10-29); a failed read refuses. Any refusal: nothing is sent.
   5. record    `<state>/<date>/STARTED`, exclusively, BEFORE the first order
                (CLAUDE.md order-path rule 2).
   6. transmit  in `decide.transmit_sequence` order (running net kept near
@@ -85,7 +89,9 @@ the session runs in two phases:
           halt, late clock, no-set, shortability, exposure and sanity are
           re-evaluated on fresh broker reads, and so is the corporate-action
           gate when the book sets it (step 3b): Alpaca can list an action
-          effective on the session date only after the evening decide.
+          effective on the session date only after the evening decide. Gate
+          6's lists are read after all of those, just before the gate's clock
+          read (step 4).
 Why: paper runs no closing auction and under-fills `cls` (11 of 13 expired on
 2026-09-29). Absent the key, the book runs as `cls` exactly as before.
 
@@ -123,11 +129,21 @@ exactly as before (proved against de6e9c5: tests/test_combine_noop.py). It is
 set only when every enabled entry of the book json's `sleeves[]` carries a
 `risk_budget`. Then step 3 builds each sleeve from its own spec on its own
 sleeve_nav and decides the NETTED book once; the closes, NAVs, assets, gate 9
-and the send read the union of the sleeves' universes; gate 5 acts per sleeve
-(`gate.gate_data_by_sleeve`); the stale-NAV gate's holds go to the sleeve that
-owns the name; and plan.json gains `combine`, the per-sleeve record. The
-book-level limits stay the book spec's, applied to the netted orders by
-`fit_to_buying_power` and gate 8.
+and the send read the union of the sleeves' universes, each name's closes and
+NAVs from its own sleeve's panel (PER-SLEEVE PANELS, below `refresh_subprocess`);
+gate 5 acts per sleeve (`gate.gate_data_by_sleeve`); the stale-NAV gate's holds
+go to the sleeve that owns the name; and plan.json gains `combine`, the
+per-sleeve record. The book-level limits stay the book spec's, applied to the
+netted orders by `fit_to_buying_power` and gate 8.
+
+EACH SLEEVE'S OWN PANEL (C4 plan row 6A; DARK, 2026-10-29). Every panel read
+-- the closes sized on, the NAV dates gate 5 and the missing-NAV hold check,
+the pre-flight's history, the stale-NAV gate's file, the refresh -- is of the
+panel the sleeve decides on (`spec_panel`, the sleeve's own `panel_paths()`).
+For the released book that is `data/cef/`, by the same calls as before (proved
+against 5e627ff: tests/test_panels_noop.py). A sleeve whose panel files are
+absent, or whose universe its own panel does not cover, FAILs the decide naming
+them; a panel this tree has no fetcher for is refused at step 1.
 
 GATE 5'S MISSING-NAV HOLD (book json `data.missing_nav`; DARK, team lead
 2026-10-29). `Deps.missing_nav` is None for the released book json, and gate 5
@@ -193,7 +209,7 @@ import traceback
 from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 
 from quantt.session import combine as cmb
 from quantt.session import corp_actions as cam
@@ -252,6 +268,16 @@ class Book:
 BOOKS = {
     "cef": Book("cef", "cef", REPO / "ops/specs/cef_discount.frozen.json",
                 REPO / "ops/books/cef_discount_book.json"),
+    # C4 (CEF trial 52) on its own Alpaca paper account (team lead 2026-10-26,
+    # docs/SYSTEM.md section 5; deploy plan row 6A). DARK: nothing schedules it
+    # until quantt/deploy/install_vm.py is run with `--book c4`, and that renders
+    # DRY_RUN=1 unless armed. Its keys are ALPACA_C4_KEY_ID / _SECRET_KEY (the
+    # `name`, as alpaca_probe.env_names derives them); its order ids `c4-<D>-...`,
+    # which verify reads as `<book>-<D>-`; its state directory must be named
+    # `c4` (records.STATE_DIR_NAMES), so a C4 run can never write the core's
+    # STARTED, plan.json or verify.log for the same session.
+    "c4": Book("c4", "c4", REPO / "ops/specs/c4_families.frozen.json",
+               REPO / "ops/books/c4_families_book.json"),
 }
 
 
@@ -581,9 +607,27 @@ def _text(v) -> str:
     return v.decode("utf-8", "replace") if isinstance(v, bytes) else v
 
 
-def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshResult:
+# The fetch_daily flags, after `--require-asof D`, that refresh the CORE panel:
+# the command this runner has always run (RUNNER.md step 1). `refresh_flags`.
+CORE_REFRESH_FLAGS = ("--nav-fallback", "cefconnect")
+
+# fetch_daily's other data books (`--data-book`, scripts/cef/data_books.py): the
+# directory each one writes, under its own lock. MIRRORED, not imported: the
+# session imports nothing from scripts/ at module level (load_spec), and the
+# refresh it runs is a child process. tests/test_c4_book.py pins every entry to
+# data_books.C4_DIR and to the C4 spec's panel_source, so the three cannot drift.
+DATA_BOOK_DIRS = {"c4": REPO / "data" / "cef_c4"}
+
+
+def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float,
+                       flags=CORE_REFRESH_FLAGS) -> RefreshResult:
     """RUNNER.md step 1, verbatim flags. A child process so a fetcher crash
     cannot take the session with it, and its exit code is the whole verdict.
+
+    `flags` are the ones `refresh_flags` gives for the book's panel. The
+    default is the core's, so the command is the one it has always been,
+    `--require-asof D --nav-fallback cefconnect --book <book json>`
+    (tests/test_run.py, test_refresh_subprocess_flags).
 
     TIMEOUT (review 2026-09-28). A fetch that hangs (cefconnect has no
     timeout of its own here) once meant the session could reach the gate after
@@ -595,7 +639,7 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     gate-5 refusal, recorded with whatever the fetcher printed.
     """
     cmd = [sys.executable, str(REPO / "scripts/cef/fetch_daily.py"),
-           "--require-asof", asof.isoformat(), "--nav-fallback", "cefconnect",
+           "--require-asof", asof.isoformat(), *flags,
            "--book", str(book.book_path.relative_to(REPO))]
     try:
         p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=timeout_s)
@@ -608,35 +652,272 @@ def refresh_subprocess(asof: dt.date, book: Book, timeout_s: float) -> RefreshRe
     return RefreshResult(exit=p.returncode, tail=tail)
 
 
-def require_core_panel(spec: dict) -> None:
-    """Refuse a spec whose sleeve decides on another panel than this runner reads.
+# ------------------------------------------------------- each sleeve's own panel
 
-    WHY (C4 step 1 review, 2026-10-27). The `cef_discount` sleeve can now read a
-    panel named by its spec's `panel_source` (C4_DEPLOY_PLAN_2026-10-27.md §1
-    row 1), but this runner still takes the closes it sizes orders on, the NAV
-    dates gate 5 checks, the pre-flight's close history and the stale-NAV gate's
-    panel from the core paths `cefmod.PX_PATH` / `NAV_PATH` (`sleeve_targets`'s
-    MarketState prices; `default_deps`). Run as it stands, such a spec would
-    decide on one panel and size and gate on another, and nothing would say so.
-    Wiring the sleeve's `panel_paths()` through the runner is plan row 6A (§2
-    step 5); until it lands, the runner refuses. The check is here and not in
-    the registry because research and the tests build such specs on purpose.
+class Panel(NamedTuple):
+    """The two parquet files one sleeve decides on (`cef_discount.panel_paths`)."""
+    prices: Path
+    nav: Path
 
-    The comparison is of the paths the sleeve would read against the module's
-    core paths at call time, so it is a no-op for the core spec (no
-    `panel_source`: the sleeve returns those very paths) and for a spec that
-    names `data/cef/` explicitly.
-    """
+
+def core_panel() -> Panel:
+    """The 13's panel, `data/cef/`: the sleeve module's PX_PATH and NAV_PATH,
+    read at CALL time, so tests that point them at a copy move it here too."""
     from src.deploy.sleeves import cef_discount as cefmod
-    got = cefmod.CEFDiscountSleeve(spec, 0.0).panel_paths()
-    core = (cefmod.PX_PATH, cefmod.NAV_PATH)
-    if got != core:
-        raise SessionError(
-            f"spec {spec.get('spec_id')!r} decides on panel {[str(p) for p in got]} "
-            f"(panel_source), but this runner prices, gates and checks NAV dates on "
-            f"{[str(p) for p in core]}. Plan row 6A (results/cef/C4_DEPLOY_PLAN_2026-10-27.md "
-            f"§1 row 6A, §2 step 5) must land first; refusing to decide on one panel and "
-            f"size on another")
+    return Panel(cefmod.PX_PATH, cefmod.NAV_PATH)
+
+
+def spec_panel(spec: dict) -> Panel:
+    """The panel this spec's sleeve decides on, and so the panel the runner
+    sizes, gates and NAV-checks it on (PER-SLEEVE PANELS below).
+
+    It is the sleeve's own `panel_paths()`, never a second derivation of it:
+    with `panel_source` absent the core's `data/cef/` (read now, as above),
+    present `REPO / <path>` (registry.cef_panel_source). Only `cef_discount`
+    names a panel. Another allocation type raises rather than be priced on the
+    core's panel, which holds none of its names."""
+    from src.deploy.registry import CEF_DISCOUNT_ALLOC_TYPE
+    from src.deploy.sleeves import cef_discount as cefmod
+    t = (spec.get("allocation") or {}).get("type")
+    if t != CEF_DISCOUNT_ALLOC_TYPE:
+        raise SessionError(f"spec {spec.get('spec_id')!r}: allocation type {t!r} names no "
+                           f"price and NAV panel; the runner prices and gates a sleeve on the "
+                           f"panel it decides on, and only {CEF_DISCOUNT_ALLOC_TYPE} has one")
+    return Panel(*cefmod.CEFDiscountSleeve(spec, 0.0).panel_paths())
+
+
+# PER-SLEEVE PANELS (C4 deploy plan row 6A, §2 step 5; DARK, team lead's
+# fast-track 2026-10-28/29). Until this, the runner took every close it sized
+# on, every NAV date gate 5 checked, the pre-flight's history and the stale-NAV
+# gate's file from the core's `data/cef/`, whatever panel the sleeve decided on,
+# and `require_core_panel` refused any other (C4 step 1). Now each name is read
+# from the panel of the sleeve that owns it (`BookPanels`): its closes for
+# sizing, gate 8 and the fit; its NAV dates for gate 5 (per sleeve on a
+# combined book, `gate.gate_data_by_sleeve`) and the missing-NAV hold; its close
+# history for the pre-flight; its NAV file for the stale-NAV gate; and the
+# refresh that writes it (`refresh_flags`). So C4 can decide, size and gate on
+# `data/cef_c4/` while the 13 stay on `data/cef/`. For the released book (one
+# sleeve, the core spec) every read is the call it was, on the same file, with
+# the same arguments: the no-op is pinned against 5e627ff
+# (tests/test_panels_noop.py).
+#
+# THE GUARD (`require_panel`), at each read, inside the session so a refusal is
+# recorded: a sleeve whose panel files are absent, or whose universe has a name
+# with no row in its own price or NAV file, FAILs the session naming the files
+# or the names. A name missing from its own panel means the spec and the panel
+# do not belong together (a mis-wired panel_source, a mis-seeded panel); read on,
+# gate 5 would only say "no close at all", and a spec whose panel_source were
+# dropped would be decided on `data/cef/`, which holds none of C4's names. It is
+# not in `default_deps`, which the 15:52 SEND also builds: the send reads no
+# panel (it sends the plan, priced on the plan's own closes), and a panel gone
+# by then must not stop a decided plan going.
+
+@dataclass(frozen=True)
+class BookPanels:
+    """Which panel each name the book trades is read from.
+
+    `entries`: one (label, Panel, universe) per sleeve, the single-spec book's
+    one spec or each enabled sleeve of a combined book. A name in two entries
+    raises: one name has one panel, as combine.py gives it one owner."""
+    entries: tuple
+
+    def __post_init__(self):
+        seen = {}
+        for label, panel, uni in self.entries:
+            if not isinstance(panel, Panel):
+                raise SessionError(f"{label}: no panel ({panel!r}); the runner reads each "
+                                   f"sleeve from the panel it decides on and assumes none")
+            for s in uni:
+                if s in seen:
+                    raise SessionError(f"{s} is in {seen[s]}'s universe and {label}'s: one "
+                                       f"name is read from one panel")
+                seen[s] = label
+
+    def panels(self) -> tuple:
+        """The distinct panels, in entry order."""
+        return tuple(dict.fromkeys(p for _, p, _ in self.entries))
+
+    def by_panel(self, universe) -> list:
+        """[(Panel, names, labels)]: `universe` split by the panel each name is
+        read from, each group in `universe`'s order. Raises for a name no
+        entry owns: nothing is read from a panel by default."""
+        own = {s: (label, panel) for label, panel, uni in self.entries for s in uni}
+        stray = [s for s in universe if s not in own]
+        if stray:
+            raise SessionError(f"{stray} belong to no sleeve of this book "
+                               f"({[label for label, _, _ in self.entries]}); no panel to read "
+                               f"them from")
+        groups = {}
+        for s in universe:
+            label, panel = own[s]
+            names, labels = groups.setdefault(panel, ([], []))
+            names.append(s)
+            if label not in labels:
+                labels.append(label)
+        return [(p, tuple(n), tuple(lb)) for p, (n, lb) in groups.items()]
+
+
+def book_panels(spec: dict, sleeves) -> BookPanels:
+    """The single-spec book: its spec's panel for its universe. A combined book
+    (combine.load_sleeves with `panel_of`): each enabled sleeve's own panel for
+    its own universe."""
+    if sleeves is None:
+        return BookPanels(((f"spec {spec.get('spec_id')!r}", spec_panel(spec),
+                            spec_params(spec)["universe"]),))
+    return BookPanels(tuple((f"sleeve {e.name!r} ({e.spec_id})", e.panel, e.universe)
+                            for e in sleeves))
+
+
+def require_panel(panel: Panel, names, labels) -> None:
+    """THE GUARD (PER-SLEEVE PANELS): refuse, naming them, a panel whose files
+    are absent, or whose price or NAV file has no row at all for one of `names`.
+    Reads only the files' `ticker` column."""
+    absent = [str(p) for p in panel if not Path(p).exists()]
+    if absent:
+        raise SessionError(f"{', '.join(labels)}: panel file(s) {absent} absent (panel "
+                           f"{[str(p) for p in panel]}); not pricing, gating or deciding on a "
+                           f"panel that is not there")
+    import pandas as pd
+    for what, path in (("price", panel.prices), ("NAV", panel.nav)):
+        have = set(pd.read_parquet(path, columns=["ticker"])["ticker"])
+        missing = [s for s in names if s not in have]
+        if missing:
+            raise SessionError(f"{', '.join(labels)}: universe not covered by its own panel: "
+                               f"{missing} have no row in its {what} file {path}. A sleeve's "
+                               f"names and its panel must match; refusing to read them from "
+                               f"it")
+
+
+def panel_closes(panels: BookPanels, asof: dt.date, universe) -> dict:
+    """`last_closes` for `universe`, each name from its own sleeve's panel, in
+    `universe`'s order. One panel: exactly `last_closes(prices, asof, universe)`."""
+    groups = panels.by_panel(universe)
+    for panel, names, labels in groups:
+        require_panel(panel, names, labels)
+    if len(groups) == 1:
+        return last_closes(groups[0][0].prices, asof, universe)
+    got = {}
+    for panel, names, _ in groups:
+        got.update(last_closes(panel.prices, asof, names))
+    return {s: got[s] for s in universe}
+
+
+def panel_navs(panels: BookPanels, asof: dt.date, universe) -> dict:
+    """`last_navs` for `universe`, each name from its own sleeve's NAV file: so
+    gate 5, per sleeve or not, checks the NAV dates the sleeve decides on. One
+    panel: exactly `last_navs(nav, asof, universe)`."""
+    groups = panels.by_panel(universe)
+    for panel, names, labels in groups:
+        require_panel(panel, names, labels)
+    if len(groups) == 1:
+        return last_navs(groups[0][0].nav, asof, universe)
+    got = {}
+    for panel, names, _ in groups:
+        got.update(last_navs(panel.nav, asof, names))
+    return {s: got[s] for s in universe}
+
+
+def panel_history(panels: BookPanels, asof: dt.date, universe, rows: int):
+    """`close_history` for the pre-flight, each name from its own sleeve's
+    panel. One panel: exactly `close_history(prices, asof, universe, rows)`.
+    Several: each panel's last `rows` closes, joined on date, each name
+    forward-filled over the dates its own panel lacks (landmine 6's rule, one
+    level up), then the last `rows` dates. A name its panel does not reach back
+    `rows` sessions shows as a gap, which `worst_day_loss` refuses by name."""
+    groups = panels.by_panel(universe)
+    for panel, names, labels in groups:
+        require_panel(panel, names, labels)
+    if len(groups) == 1:
+        return close_history(groups[0][0].prices, asof, universe, rows)
+    import pandas as pd
+    wide = pd.concat([close_history(p.prices, asof, names, rows) for p, names, _ in groups],
+                     axis=1).sort_index().ffill()
+    assert wide.index.max().date() <= asof, f"lookahead: close history past {asof}"
+    return wide[[s for s in universe if s in wide.columns]].iloc[-rows:]
+
+
+def refresh_flags(panel: Panel):
+    """THE DATA-REFRESH INTERFACE (C4 plan row 6A; filled by plan step 3): the
+    fetch_daily flags, after `--require-asof D`, that refresh `panel`, or None
+    when this tree has no fetcher for it.
+
+      * the core panel: CORE_REFRESH_FLAGS, the command the runner has always
+        run, unchanged (checked first, so the core's answer is the one it was);
+      * a data book's panel (DATA_BOOK_DIRS: `cef_prices.parquet` and
+        `cef_nav.parquet` in its directory, exactly): `("--data-book", <name>)`.
+        For C4 that is `fetch_daily --data-book c4`, which writes `data/cef_c4/`
+        under its OWN lock (`data/cef_c4/.fetch.lock`, never the core's, so the
+        two books' refreshes never wait on each other) and REFUSES
+        `--nav-fallback cefconnect` (exit 2; CEFConnect is disabled for C4, team
+        lead 2026-10-28), so no fallback flag is passed. Its exit 6 (a
+        spike-and-revert bar with no ruling, the panel written) is a non-zero
+        refresh, which gate 5 refuses at every check, as step 3 requires. That
+        holds on a day a C4 NAV is also late only because exit 6 OUTRANKS the
+        INCOMPLETE exit 4 in fetch_daily (release-check of 8b14298): exit 4 is
+        what C4's missing-NAV hold accepts at the final check, and until that fix
+        a late NAV turned an unruled spike into a held, decided day;
+      * any other panel: None, and the book's refresh is refused
+        (`book_refresh`), recorded, so a panel nothing refreshes is never
+        decided on.
+    """
+    if panel == core_panel():
+        return CORE_REFRESH_FLAGS
+    for name, d in DATA_BOOK_DIRS.items():
+        if panel == Panel(d / "cef_prices.parquet", d / "cef_nav.parquet"):
+            return ("--data-book", name)
+    return None
+
+
+def book_refresh(book: Book, panels: BookPanels) -> Callable[[dt.date, float], RefreshResult]:
+    """The session's step-1 callable for a book whose sleeves read `panels`.
+
+    One panel with flags (`refresh_flags`): `refresh_subprocess` with them,
+    which for the core is today's command. Otherwise it does not run the
+    fetcher at all and returns a refresh that DID NOT COMPLETE, saying why, so
+    gate 5 refuses the day, recorded, as for a timeout: a panel nothing
+    refreshed is never decided on. The two cases: a panel this tree has no
+    fetcher for (C4's, until step 3), and a book whose sleeves read more than
+    one panel (one `fetch_daily --book` run refreshes one data book, and step
+    3's requires every deployed name to be that book's). `--skip-refresh`
+    still skips it, as for any book (gate 5 then checks the panel's dates)."""
+    ps = panels.panels()
+    flags = refresh_flags(ps[0]) if len(ps) == 1 else None
+    if flags is not None:
+        return lambda asof, timeout_s: refresh_subprocess(asof, book, timeout_s, flags)
+    if len(ps) != 1:
+        why = (f"the book's sleeves read {len(ps)} panels "
+               f"({[str(p.prices.parent) for p in ps]}); one fetch_daily run refreshes one, "
+               f"and a refresh per panel is not built")
+    else:
+        why = (f"no fetcher for the panel {[str(p) for p in ps[0]]} on this tree: "
+               f"fetch_daily refreshes data/cef/ and the data books "
+               f"{sorted(DATA_BOOK_DIRS)} only (run.refresh_flags)")
+    note = f"not run: {why}; gate 5 refuses rather than decide on a panel nothing refreshed"
+    return lambda asof, timeout_s: RefreshResult(exit=None, tail="", incomplete=note)
+
+
+def stale_nav_panel(panels: BookPanels, mode: str) -> Path:
+    """The NAV file the stale-NAV gate certifies: the one every sleeve of the
+    book reads, which must be the core's. Raises otherwise, naming the sleeves.
+
+    WHY ONLY THE CORE'S. The gate reads CEFConnect for every name, and
+    CEFConnect is disabled for C4 (team lead 2026-10-28; plan row 5: M1, the
+    NAV-repeat mask, is C4's defence). And `PanelGate` writes under
+    fetch_daily's CORE lock and fallback log when it acts, which are not
+    another panel's. A per-panel gate, like a per-sleeve stale-NAV mode
+    (combine.py, NOT BUILT), is new code; until it exists a book json that sets
+    data.stale_nav on another panel is refused before any client is built."""
+    navs = tuple(dict.fromkeys(p.nav for p in panels.panels()))
+    core = core_panel().nav
+    if navs != (core,):
+        other = [label for label, p, _ in panels.entries if p.nav != core]
+        raise SessionError(f"data.stale_nav={mode!r}, but {other} read NAV file(s) "
+                           f"{[str(n) for n in navs if n != core]}, not the core's {core}. "
+                           f"The stale-NAV gate reads CEFConnect (disabled for C4, team lead "
+                           f"2026-10-28) and locks and logs as the core's fetch_daily; it is "
+                           f"not built for another panel. Delete data.stale_nav from this "
+                           f"book json")
+    return core
 
 
 def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
@@ -646,15 +927,17 @@ def sleeve_targets(spec: dict, capital: float, asof: dt.date, holdings: dict,
     as-of date with the broker's holdings and the two extras. `nav_hold`
     ({"asof", "names"}, from the stale-NAV gate in `on` mode) is added as a third
     extra only when the gate holds a name, so otherwise the sleeve's input is
-    unchanged."""
+    unchanged. MarketState's prices are the sleeve's OWN price file
+    (`spec_panel`; for the core spec `cefmod.PX_PATH`, as before row 6A); the
+    sleeve reads its panel itself and its own guard refuses an absent one named
+    by panel_source (cef_discount._read_panel)."""
     import pandas as pd
     from src.deploy.registry import build_sleeve
     from src.deploy.sleeve import MarketState
-    from src.deploy.sleeves import cef_discount as cefmod
-    require_core_panel(spec)              # until plan row 6A: one panel for deciding and sizing
+    px_path = spec_panel(spec).prices
     sl = build_sleeve(spec, capital)
     ts = pd.Timestamp(asof)
-    prices = pd.read_parquet(cefmod.PX_PATH)       # MarketState requires it; this sleeve reads its own panel
+    prices = pd.read_parquet(px_path)              # MarketState requires it; this sleeve reads its own panel
     prices = prices[pd.to_datetime(prices["date"]) <= ts]
     extras = {"sleeve_nav": equity, "opening_session": opening}
     if nav_hold is not None:
@@ -933,7 +1216,8 @@ def corporate_actions_for(book: Book) -> str | None:
 
 
 def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, targets,
-                       asof: dt.date, session_date: dt.date) -> tuple[dict, str | None, list]:
+                       asof: dt.date, session_date: dt.date, *, universe, state: Path,
+                       book_name: str) -> tuple[dict, str | None, list]:
     """Step 3b, the corporate-action gate (quantt/session/corp_actions.py):
     (record, the `data` refusal's sentence or None, log lines).
 
@@ -946,15 +1230,72 @@ def _corporate_actions(deps, read_closed: Callable[[], list], positions: dict, t
     both modes, and never as CLEAR. Under `report` the session goes on, like the
     drawdown check's report mode. Under `halt` it is a refusal naming the
     error, not a FAIL: refusing is the gate's own answer to "cannot see", and
-    the next slot retries the read (the team lead's brief, 2026-10-28)."""
+    the next slot retries the read (the team lead's brief, 2026-10-28).
+
+    The two rulings of 2026-10-29 (corp_actions.py, ACKNOWLEDGEMENTS; and
+    AlpacaClient.corporate_actions, MALFORMED ROWS): `universe`, the book's
+    symbols, lets the read skip and record a malformed row that cannot be ours;
+    the team lead's acknowledgements are read from `<state>/ca_acks.json`
+    inside the same try, so a file that cannot be read is UNMEASURED too, never
+    "no acknowledgement"."""
     mode = deps.corp_actions
     try:
+        acks = _read_ca_acks(state / cam.ACKS_FILE, book_name)
         res = cam.check(deps.client.corporate_actions, read_closed(), positions, targets,
-                        asof, session_date, mode)
+                        asof, session_date, mode, universe=universe, acks=acks)
     except Exception as e:  # recorded in plan.json and printed, never swallowed (docstring)
         res = cam.unmeasured_record(mode, asof, session_date, f"{type(e).__name__}: {e}")
     refusal = cam.refusal_text(res) if mode == cam.HALT else None
     return res, refusal, cam.lines(res)
+
+
+def _read_ca_acks(path: Path, book_name: str) -> dict | None:
+    """The team lead's corporate-action acknowledgements (corp_actions.py,
+    ACKNOWLEDGEMENTS): None when no file is there (nothing acknowledged, the
+    state before the 2026-10-29 ruling), else `cam.parse_acks` of it. Anything
+    at the path that cannot be read and parsed raises, a dangling link
+    included (`os.path.lexists`): it is never read as empty."""
+    if not os.path.lexists(path):
+        return None
+    return cam.parse_acks(json.loads(path.read_text()), book_name)
+
+
+def _gate6_orders(c, after: dt.datetime) -> tuple[list | None, list | None, str | None]:
+    """Gate 6's two Alpaca lists: (orders_recent, orders_open, None), or
+    (None, None, why) when either read fails.
+
+    WHY HERE, AND LAST (execution-trader, release-check of 35b429f, 2026-10-29).
+    Gate 6's Alpaca check is the only guard against a second runner, or a lost
+    state directory, doubling the book (CLAUDE.md order-path rule 2), and
+    `_transmit` never reads the orders again. Until this fix both send paths
+    read the lists early and judged them at the gate, so they were as old as
+    everything read in between: the asset GETs, the sleeve (at decide and
+    `cls`), the closed-order history and every corporate-action page (the
+    late send's gap widened by PR #20). One GET that exhausts its retries takes
+    about 250 s (docs/RUNNER.md "Latency at the send"), and the send-budget
+    gate refuses only once the clock passes the window's end minus the set's
+    budget, so a stall that finished earlier sent on lists minutes old, blind
+    to an order another runner placed meanwhile.
+
+    So each path calls this after every other broker read, immediately before
+    the gate's own clock read. The clock read stays AFTER it on purpose: the
+    late-clock and send-budget gates (gate 4 for `cls`) then judge a time after
+    this read too, as they do the corporate-action read, so a slow read here can
+    only make them see a later time. Between these lists and the first POST
+    stand only that clock GET, the pure gates, STARTED and `_transmit`'s clock
+    GET before the POST.
+
+    A FAILED READ REFUSES: gate 6 is handed `unread` and refuses, naming it
+    (gate.gate_no_set_in_auction). A list that cannot be read is not an empty
+    one, and no earlier read stands in for it: neither path reads the lists
+    anywhere else. Not a FAIL, so the next slot is free to try again, as for
+    the corporate-action gate's failed read."""
+    try:
+        recent = c.orders(status="all", after=after)
+        open_ = c.orders(status="open")
+    except Exception as e:  # a gate-6 refusal naming it, never swallowed (docstring)
+        return None, None, f"{type(e).__name__}: {e}"
+    return recent, open_, None
 
 
 def _plan_targets(targets: dict, combine: dict | None = None) -> list:
@@ -1122,26 +1463,33 @@ def _sleeve_target_fn(sleeve_spec: dict):
 
 
 def default_deps(book: Book, spec: dict, env) -> Deps:
-    require_core_panel(spec)              # before any client is built (plan row 6A)
+    """The session's real dependencies. Every panel read goes through the book's
+    `BookPanels` (PER-SLEEVE PANELS): for the released book json one entry, the
+    core spec on `data/cef/`, so each reader is the call it replaced. Nothing
+    here reads a panel file: the 15:52 send builds this too, and reads none."""
     from quantt.broker.alpaca import AlpacaClient
     if not env.get("QUANTT_ENV_FILE"):
         raise SessionError("QUANTT_ENV_FILE is not set: it must name the key file")
-    from src.deploy.sleeves import cef_discount as cefmod
     p = spec_params(spec)
+    # None for the released book json (combine.load_sleeves, OFF BY DEFAULT).
+    sleeves = cmb.load_sleeves(book.book_path, book.spec_path, REPO, _sleeve_target_fn,
+                               panel_of=spec_panel)
+    panels = book_panels(spec, sleeves)
     stale_nav = stale_nav_for(book)
     gate = None
     if stale_nav is not None:
-        # The sleeve's own NAV path: the gate certifies the file the sleeve reads.
-        # The fallback log and the panel lock are fetch_daily's, resolved only when
-        # the gate writes, so no run imports scripts/ here (`nav_gate.PanelGate`).
-        gate = ng.PanelGate(nav_path=cefmod.NAV_PATH)
+        # The sleeves' own NAV file, which must be the core's (`stale_nav_panel`):
+        # the gate certifies the file the sleeve reads. The fallback log and the
+        # panel lock are fetch_daily's, resolved only when the gate writes, so no
+        # run imports scripts/ here (`nav_gate.PanelGate`).
+        gate = ng.PanelGate(nav_path=stale_nav_panel(panels, stale_nav))
     return Deps(
         client=AlpacaClient.from_environment(book.name),
         env=dict(env),
-        refresh=lambda asof, timeout_s: refresh_subprocess(asof, book, timeout_s),
-        closes=lambda asof, uni: last_closes(cefmod.PX_PATH, asof, uni),
-        navs=lambda asof, uni: last_navs(cefmod.NAV_PATH, asof, uni),
-        history=lambda asof, uni, rows: close_history(cefmod.PX_PATH, asof, uni, rows),
+        refresh=book_refresh(book, panels),
+        closes=lambda asof, uni: panel_closes(panels, asof, uni),
+        navs=lambda asof, uni: panel_navs(panels, asof, uni),
+        history=lambda asof, uni, rows: panel_history(panels, asof, uni, rows),
         targets=lambda asof, h, eq, op, **kw: sleeve_targets(spec, p["capital_usd"], asof, h,
                                                              eq, op, **kw),
         halts=lambda: halts_for(book),
@@ -1149,8 +1497,7 @@ def default_deps(book: Book, spec: dict, env) -> Deps:
         stale_nav=stale_nav,
         nav_gate=gate,
         drawdown=drawdown_for(book),
-        # None for the released book json (combine.load_sleeves, OFF BY DEFAULT).
-        sleeves=cmb.load_sleeves(book.book_path, book.spec_path, REPO, _sleeve_target_fn),
+        sleeves=sleeves,
         # None for the released book json (missing_nav_for; dark, 2026-10-29).
         missing_nav=missing_nav_for(book),
         missing_nav_max_sessions=missing_nav_max_sessions_for(book),
@@ -1200,7 +1547,13 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                              "skip_refresh": skip_refresh, "scheduled": scheduled}}
     state = day = None
     try:
-        state = rec.state_dir_from_env(deps.env)    # required; nothing runs without it
+        given = rec.state_dir_from_env(deps.env)    # required; nothing runs without it
+        # A book whose state dir must carry its own name (C4: records.STATE_DIR_NAMES)
+        # is refused in any other BEFORE `state` is set, so even the FAIL's run
+        # record is not written there. No entry for the core: `state` is the
+        # directory it always was.
+        rec.require_book_state_dir(book.name, given)
+        state = given
         p = spec_params(spec)
         if deps.sleeves is not None:     # combined book: everything below covers the union
             p = cmb.book_params(p, deps.sleeves)
@@ -1384,10 +1737,12 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         pos = c.positions().qty
         # From midnight before the as-of date: an evening run's set (sent on the
         # as-of date, possibly a Friday for a Monday auction) must be in view.
+        # Gate 6's own lists (status=all after it, and open) are NOT read here:
+        # they are the last broker read before the gate's clock read, at step 4
+        # (`_gate6_orders`). The closed-order history is read here because the
+        # decide needs it (is_opening_session) and step 3b dates held names on it.
         midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0),
                                        tzinfo=gt.ET)
-        orders_recent = c.orders(status="all", after=midnight)
-        orders_open = c.orders(status="open")
         closed = c.orders(status="closed")
         opening = is_opening_session(pos, closed)
         assets = {s: c.asset(s) for s in p["universe"]}
@@ -1395,8 +1750,6 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         record.update(
             account={k: v for k, v in acct.items() if k != "raw"},
             positions=pos, opening_session=opening,
-            orders_recent=[_order_summary(o) for o in orders_recent],
-            orders_open=[_order_summary(o) for o in orders_open],
             assets={s: {k: a.get(k) for k in ("tradable", "shortable", "borrow_status",
                                               "easy_to_borrow", "marginable")}
                     for s, a in assets.items()})
@@ -1510,11 +1863,21 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         if deps.corp_actions is not None:
             record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
                 deps, lambda: closed, pos,
-                _plan_targets(decision.targets, record.get("combine")), asof, session_date)
+                _plan_targets(decision.targets, record.get("combine")), asof, session_date,
+                universe=p["universe"], state=state, book_name=book.name)
             for line in ca_lines:
                 print(line, file=out)
 
-        # 4. gate -- on a clock read NOW, not the one from before the refresh.
+        # 4. gate. Gate 6's lists first, as the last broker read before the
+        # gate's clock read (`_gate6_orders`, review 2026-10-29): read at step 2
+        # they were as old as the asset GETs, the sleeve and the corporate-action
+        # pages, and a second runner's set placed meanwhile went unseen. A failed
+        # read is a gate-6 refusal; nothing else stands in for it.
+        orders_recent, orders_open, orders_unread = _gate6_orders(c, midnight)
+        if orders_unread is None:
+            record.update(orders_recent=[_order_summary(o) for o in orders_recent],
+                          orders_open=[_order_summary(o) for o in orders_open])
+        # Then a clock read NOW, not the one from before the refresh.
         # Review 2026-09-28: the refresh, 13 asset GETs (each with retries) and
         # the sleeve all run after the first read; gating on it let a session
         # that reached here after 19:00 ET pass gate 4 and have its orders
@@ -1529,7 +1892,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             nyse_trading_today=_nyse_trading(session_date),
             asof=asof, refresh_exit=refresh_exit, close_dates=close_dates, nav_dates=nav_dates,
             started_exists=(day / "STARTED").exists(), orders_recent=orders_recent,
-            orders_open=orders_open, cid_prefix=book.cid_prefix,
+            orders_open=orders_open, orders_unread=orders_unread, cid_prefix=book.cid_prefix,
             orders=decision.orders, positions=pos, shortable=shortable,
             shorting_enabled=acct["shorting_enabled"], closes=closes, equity=equity,
             sized_equity=equity,               # decide: the plan is sized on this equity
@@ -1732,13 +2095,13 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     acct = c.account()
     pos = c.positions().qty
     asof = dt.date.fromisoformat(plan["asof"])
+    # Gate 6's lists are read after everything else, just before the gate's
+    # clock read (`_gate6_orders`), and nowhere earlier: nothing before the
+    # gate needs them.
     midnight = dt.datetime.combine(asof - dt.timedelta(days=1), dt.time(0), tzinfo=gt.ET)
-    orders_recent = c.orders(status="all", after=midnight)
-    orders_open = c.orders(status="open")
     assets = {s: c.asset(s) for s in p["universe"]}
     shortable = {s: a["shortable"] for s, a in assets.items()}
-    record.update(account={k: v for k, v in acct.items() if k != "raw"}, positions=pos,
-                  orders_open=[_order_summary(o) for o in orders_open])
+    record.update(account={k: v for k, v in acct.items() if k != "raw"}, positions=pos)
     # The plan was sized on these holdings; if they moved, it is not the plan any more.
     moved = {s: {"plan": t["current"], "now": pos.get(s, 0)}
              for s, t in plan["targets"].items() if pos.get(s, 0) != t["current"]}
@@ -1786,8 +2149,14 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         record["corporate_actions"], ca_refusal, ca_lines = _corporate_actions(
             deps, lambda: c.orders(status="closed"), pos,
             _plan_targets(plan["targets"], plan.get("combine")),
-            asof, session_date)
+            asof, session_date, universe=p["universe"], state=state, book_name=book.name)
     approve_sha = approve or approval_for(day)
+    # Gate 6's lists: the last broker read before the gate's clock read, after
+    # the asset GETs, the closed-order history and the corporate-action pages
+    # (`_gate6_orders`, review 2026-10-29). A failed read is a gate-6 refusal.
+    orders_recent, orders_open, orders_unread = _gate6_orders(c, midnight)
+    if orders_unread is None:
+        record["orders_open"] = [_order_summary(o) for o in orders_open]
     clock_gate = c.clock()
     record["clock_at_gate"] = clock_gate["timestamp"]
     cal_today = [r for r in cal if r["date"] == session_date]
@@ -1803,7 +2172,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         # #6): see gate.gate_late_send_budget for the budget and its provenance.
         *budget_short,
         *gt.gate_no_set_in_auction((day / "STARTED").exists(), orders_recent, orders_open,
-                                   book.cid_prefix, session_date),
+                                   book.cid_prefix, session_date, unread=orders_unread),
         *gt.gate_shortability(orders, pos, shortable, acct["shorting_enabled"]),
         *gt.gate_exposure(orders, pos, closes, acct["equity"], acct["buying_power"],
                           p["max_gross_usd"], p["max_gross_stress"],
@@ -1890,6 +2259,7 @@ def approve_main(argv=None) -> int:
     a = ap.parse_args(argv)
     try:
         state = rec.state_dir_from_env(os.environ)
+        rec.require_book_state_dir(a.book, state)
         day = rec.day_dir(state, a.date)
         if (day / "STARTED").exists():
             raise SessionError(f"a set already STARTED for {a.date}; nothing to approve")
@@ -1905,6 +2275,150 @@ def approve_main(argv=None) -> int:
     print(f"APPROVED {a.date} plan_sha {a.sha} ({len(plan['orders'])} orders); it is sent in "
           f"the window {plan['send_window'][0]} -> {plan['send_window'][1]} if every gate passes")
     return 0
+
+
+def _latest_ca_record(state: Path) -> tuple[Path, dict]:
+    """The gate's most recent record that read the feed: (file, its
+    `corporate_actions`). Day directories newest first; in each, send.json (the
+    later read, at the late-market send) before plan.json. Raises when none has
+    a `query`: then there is no window to read the feed on."""
+    days = sorted((d for d in state.iterdir()
+                   if d.is_dir() and len(d.name) == 10 and d.name[4] == d.name[7] == "-"),
+                  key=lambda d: d.name, reverse=True)
+    for d in days:
+        for name in ("send.json", "plan.json"):
+            f = d / name
+            if f.exists():
+                ca = json.loads(f.read_text()).get("corporate_actions")
+                if isinstance(ca, dict) and ca.get("query"):
+                    return f, ca
+    raise SessionError(f"no corporate-action record with a feed read in {state}: the window "
+                       f"to look the id up in is the gate's own last read, so run a session "
+                       f"(it may refuse) and acknowledge after it")
+
+
+def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> int:
+    """`python3 -m quantt.session ca-ack --book cef --id ACTION_ID --reason "one line"`.
+
+    Records the team lead's acknowledgement of ONE corporate action, by its
+    Alpaca id, in `<state>/ca_acks.json` (corp_actions.py, ACKNOWLEDGEMENTS;
+    team lead 2026-10-29). The gate then clears that id only. This is the ONLY
+    writer of the file, and it is run by the team lead or on the team lead's
+    explicit instruction for that id (docs/RUNBOOK.md §6.1). It sends nothing:
+    its one broker call is the read-only corporate-action read (`client`, in
+    tests a fake; otherwise `AlpacaClient.from_environment`, keys from
+    QUANTT_ENV_FILE, never printed).
+
+    The entry keeps the feed row exactly as listed (`row`) and its type
+    (`event.type`): the gate clears the id only while the feed's row still
+    equals it and its type is unchanged (corp_actions.py, ACKNOWLEDGEMENTS).
+    An UNRESOLVED row (docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows)) is acknowledged the same way, by its id or,
+    when its id is null too, by the `row-sha256:` key the refusal names; the
+    read never raises on such a row, so this works on it.
+
+    Refuses (exit 11 REFUSED, the file untouched) unless: the id is one token
+    and the reason one non-empty line; the file, if there, parses
+    (`cam.parse_acks`; never read as empty);
+    the state dir holds a gate record that read the feed (`_latest_ca_record`);
+    an id already acknowledged is refused unless its row has since been
+    revised, when the new entry replaces the old (kept as `supersedes`);
+    and the feed, read for that record's names over that record's window (how
+    the gate read it), lists the id. An unknown id is refused, so a typo
+    cannot acknowledge nothing and leave the halt on unexplained. Writes with
+    `records.write_json_atomic` (temp file, fsync, rename): a reader sees the
+    old file or the new one, never half of either.
+    """
+    ap = argparse.ArgumentParser(prog="python3 -m quantt.session ca-ack")
+    ap.add_argument("--book", required=True, choices=sorted(BOOKS))
+    ap.add_argument("--id", required=True, help="the Alpaca corporate-action id")
+    ap.add_argument("--reason", required=True, help="the team lead's reason, one line")
+    a = ap.parse_args(argv)
+    book = BOOKS[a.book]
+    try:
+        aid, reason = a.id.strip(), a.reason.strip()
+        if not aid or any(ch.isspace() for ch in aid):
+            raise SessionError(f"--id {a.id!r} is not one action id")
+        if not reason or "\n" in reason or "\r" in reason:
+            raise SessionError("--reason must be one non-empty line")
+        state = rec.state_dir_from_env(os.environ)
+        # A book whose state dir must carry its own name (C4: records.STATE_DIR_NAMES)
+        # is refused in any other, before anything is read or written: `--book c4`
+        # pointed at the core's directory would otherwise write a c4 acknowledgement
+        # into the core's ca_acks.json, which the core's gate then cannot parse
+        # (parse_acks: another book's entry) and, under `halt`, refuses on. No entry
+        # for the core: its directory is checked exactly as before (approve_main does
+        # the same; merge of c4-integrate onto 862b1d0, 2026-11-02).
+        rec.require_book_state_dir(book.name, state)
+        path = state / cam.ACKS_FILE
+        existing, known = [], {}
+        if os.path.lexists(path):
+            raw = json.loads(path.read_text())
+            known = cam.parse_acks(raw, book.name)        # raises: never read as empty
+            existing = raw["acks"]
+        src, ca = _latest_ca_record(state)
+        names = sorted(ca["names"])
+        qs, qe = (dt.date.fromisoformat(x) for x in ca["query"])
+        universe = sorted(set(spec_params(load_spec(book.spec_path))["universe"]) | set(names))
+        c = client if client is not None else _ca_ack_client(book)
+        rows: dict = {}
+        events = c.corporate_actions(names, qs, qe, universe=universe, skipped=[], rows=rows)
+        found = [e for e in events if e["id"] == aid]
+        if not found:
+            raise SessionError(f"{aid} is not in the feed for {names} over {qs}..{qe} (the "
+                               f"window of {src.relative_to(state)}); nothing acknowledged")
+        e = found[0]
+        from quantt.broker.alpaca import ca_row_canonical
+        seen_rows = rows.get(aid, [])
+        canon = ca_row_canonical(seen_rows[0]) if seen_rows else None
+        if not seen_rows or any(ca_row_canonical(r) != canon for r in seen_rows):
+            raise SessionError(f"{aid}: the feed returned {len(seen_rows)} differing or no "
+                               f"row(s) for it; an acknowledgement must name one row")
+        # One entry per id. The same row again is refused; a REVISED row (the
+        # gate halts on it again) replaces the old entry, which is kept inside
+        # the new one as `supersedes`, so this stays the file's only writer.
+        old = known.get(aid)
+        if (old is not None and cam.ack_row_canonical(old) == canon
+                and old["event"]["type"] == e["type"]):
+            # A changed TYPE is a revision too: the raw row carries none (it is
+            # which list Alpaca put the row in), so the row alone cannot show it.
+            raise SessionError(f"{aid} is already acknowledged, at {old['acked_utc']}, and its "
+                               f"row and type are unchanged: {old['reason']}")
+        existing = [x for x in existing if x.get("id") != aid]
+        stamp = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
+        entry = {"id": aid, "reason": reason, "acked_utc": stamp.isoformat(), "book": book.name,
+                 "event": {k: e[k] for k in ("type", "date", "date_field", "process_date",
+                                             "parties", "missing", "row_id") if k in e},
+                 "row": seen_rows[0],     # as Alpaca listed it (any JSON value)
+                 # the ONE form the gate and parse_acks match on (ack_row_canonical)
+                 "row_canonical": canon,
+                 "feed_window": [qs, qe], "from_record": str(src.relative_to(state))}
+        if old is not None:
+            entry["supersedes"] = old
+        blocked = any(b["id"] == aid for b in ca.get("blocking", []))
+    except Exception as ex:  # printed, never swallowed: nothing is written
+        print(f"REFUSED: {type(ex).__name__}: {ex}")
+        return EXIT_REFUSED
+    try:
+        rec.write_json_atomic(path, {"acks": [*existing, entry]})
+    except Exception as ex:  # printed, never swallowed: the rename did not happen
+        print(f"FAIL: {type(ex).__name__}: {ex}; {path} was not changed, nothing acknowledged")
+        return EXIT_FAIL
+    print(f"ACKNOWLEDGED {aid}: {e['type']} {e['parties']} ({e['date_field']} {e['date']}, "
+          f"process_date {e['process_date']}), book {book.name}, at {entry['acked_utc']}: "
+          f"{reason}")
+    print(f"  {'it blocked' if blocked else 'it did not block'} in {entry['from_record']}; the "
+          f"gate clears this id only, and any other action still halts. Written to {path}")
+    if e["type"] not in cam.PROCESS_DATE_TYPES:
+        print(f"  NOTE: {e['type']} is not one of the types dated by process_date alone "
+              f"{sorted(cam.PROCESS_DATE_TYPES)}: the halt clears, but the paper share count "
+              f"is not fixed (docs/RUNBOOK.md §6.1)")
+    return 0
+
+
+def _ca_ack_client(book: Book):
+    """The read-only client `ca_ack_main` reads the feed with; a seam for tests."""
+    from quantt.broker.alpaca import AlpacaClient
+    return AlpacaClient.from_environment(book.name)
 
 
 def _opening_part(o, cur: int) -> int:

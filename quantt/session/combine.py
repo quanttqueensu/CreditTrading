@@ -142,14 +142,22 @@ DEFERRAL AND THE ORDER PATH), and it cannot be decided for one sleeve now and
 another later. It costs the other sleeves time, never the day, because from the
 final check every unverified name is held by the sleeve that owns it.
 
+PANELS, PER SLEEVE (C4 plan row 6A, 2026-10-29; run.py PER-SLEEVE PANELS). Each
+sleeve's closes, NAV dates and pre-flight history are read from the panel its
+own spec decides on (`SleeveEntry.panel`), so gate 5 per sleeve checks the NAV
+dates that sleeve decides on and the netted orders are priced on each owner's
+own closes. The stale-NAV gate and the refresh still read ONE panel: a combined
+book whose sleeves read two is refused by both (`run.stale_nav_panel`,
+`run.book_refresh`).
+
 NOT BUILT HERE (each named so nobody assumes it): per-sleeve sub-ledgers, and so
 any symbol two enabled sleeves share (lab sleeves netting into C4's own names
 need them first); a per-sleeve opening session (a sleeve added to a live
-account opens at its band edge, because the account is not flat); per-sleeve
-panels (closes and NAVs come from the core panel, `cef_discount.PX_PATH`;
-C4 plan row 6A); a per-sleeve stale-NAV mode; sleeve `state` close_only or flat,
-and sleeve-scoped halts (framework §3.5); the P&L split in verify, score and
-TCA; and the combined `max_gross_stress` re-derivation.
+account opens at its band edge, because the account is not flat); a refresh
+per panel and a stale-NAV gate per panel (above); a per-sleeve stale-NAV mode;
+sleeve `state` close_only or flat, and sleeve-scoped halts (framework §3.5);
+the P&L split in verify, score and TCA; and the combined `max_gross_stress`
+re-derivation.
 """
 from __future__ import annotations
 
@@ -208,6 +216,12 @@ class SleeveEntry:
     risk_budget: float        # share of the book's vol target, in (0, 1]
     vol_target: float         # the sleeve spec's frozen.vol_target_annual
     targets: Callable         # (asof, holdings, sleeve_nav, opening, **kw) -> [PositionTarget]
+    # The (prices, nav) panel the sleeve decides on, and so the panel the runner
+    # prices, gates and NAV-checks its names on (run.py PER-SLEEVE PANELS):
+    # `panel_of(spec)` of the very spec that built `targets`. None when
+    # load_sleeves was given no `panel_of` (tests of the netting arithmetic);
+    # the runner's `book_panels` refuses a None.
+    panel: object = None
 
 
 def _vol_target(spec: dict, where: str) -> float:
@@ -225,7 +239,14 @@ def _vol_target(spec: dict, where: str) -> float:
 
 def book_vol_target(book_spec: dict) -> float:
     """The book's vol target: the BOOK spec's frozen.vol_target_annual (docstring,
-    THE RISK BUDGET). Raises if it is absent or not a fraction in the band."""
+    THE RISK BUDGET). Raises if it is absent or not a fraction in the band, and
+    if the book spec sets `sizing_multiplier` (`load_sleeves`, ONE SIZING
+    AUTHORITY PER BOOK)."""
+    if (book_spec.get("frozen") or {}).get("sizing_multiplier") is not None:
+        raise CombineError(
+            f"book spec {book_spec.get('spec_id')!r} sets frozen.sizing_multiplier, which sizes a "
+            f"single-sleeve account; a combined book is sized by its budgets and this spec's vol "
+            f"target, and the two would compound. Delete the multiplier or re-express it as budgets")
     return _vol_target(book_spec, f"book spec {book_spec.get('spec_id')!r}")
 
 
@@ -239,7 +260,8 @@ def _budget(entry: dict, where: str) -> float:
 
 
 def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
-                 make_targets: Callable[[dict], Callable]) -> tuple | None:
+                 make_targets: Callable[[dict], Callable],
+                 panel_of: Callable[[dict], object] | None = None) -> tuple | None:
     """The book json's `sleeves[]` as the runner reads it: None for the
     single-sleeve book (today's path), else one `SleeveEntry` per ENABLED
     sleeve, in the book json's order. See the module docstring, OFF BY DEFAULT.
@@ -248,7 +270,9 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
     (so the refresh checks exactly the sleeves the runner trades); present, it
     must be a bool. A DISABLED entry is not read further: not its spec, not its
     budget, not its name. `make_targets(spec)` returns the sleeve's target
-    callable (run.py binds `sleeve_targets`; tests pass fakes)."""
+    callable (run.py binds `sleeve_targets`; tests pass fakes). `panel_of(spec)`,
+    when given, is the sleeve's panel (run.py binds `spec_panel`), read from the
+    same spec, once; it is never called on the single-sleeve path."""
     book_path, repo = Path(book_path), Path(repo)
     book = json.loads(book_path.read_text())
     if "sleeves" not in book:
@@ -287,6 +311,12 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
                            f"{budgeted} do; a combined book sizes every enabled sleeve by its "
                            f"budget and assumes none")
     from src.deploy.registry import build_sleeve
+    # ONE SIZING AUTHORITY PER BOOK (CEF trial 53). A spec's `sizing_multiplier`
+    # sizes a single-sleeve account (src/deploy/sleeves/cef_discount.py); a
+    # combined book sizes each sleeve by its budget (THE RISK BUDGET). Both at
+    # once would compound, so an enabled budgeted sleeve whose spec sets the key
+    # is refused here, naming it, and a book spec that sets it is refused by
+    # `book_vol_target`. Re-express it as budgets first.
     out, seen = [], set()
     for i, e in enabled:
         where = f"{book_path}: sleeves[{i}]"
@@ -305,6 +335,11 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
         spec = json.loads((repo / sp).read_text())
         if "capital_usd" not in spec or "spec_id" not in spec:
             raise CombineError(f"{where}: {sp} has no capital_usd or spec_id")
+        if (spec.get("frozen") or {}).get("sizing_multiplier") is not None:
+            raise CombineError(
+                f"{where}: {sp} sets frozen.sizing_multiplier, which sizes a single-sleeve "
+                f"account; a combined book sizes every sleeve by its risk_budget, and the two "
+                f"would compound. Delete the multiplier or re-express it as the budget")
         # The built sleeve's own instruments, as deployed_tickers reads them:
         # "the exact list the runner will trade". The registry validates the spec.
         universe = tuple(sorted(build_sleeve(spec, float(spec["capital_usd"])).instruments()))
@@ -313,7 +348,8 @@ def load_sleeves(book_path: Path, book_spec_path: Path, repo: Path,
         out.append(SleeveEntry(name=name, spec_id=str(spec["spec_id"]), spec_path=sp,
                                universe=universe, risk_budget=_budget(e, where),
                                vol_target=_vol_target(spec, f"{where} ({sp})"),
-                               targets=make_targets(spec)))
+                               targets=make_targets(spec),
+                               panel=None if panel_of is None else panel_of(spec)))
     _refuse_shared(out, str(book_path))
     return tuple(out)
 

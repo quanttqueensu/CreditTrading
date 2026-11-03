@@ -276,6 +276,65 @@ def cef_optional_keys(frozen) -> dict:
             "below_min_names": cef_below_min_names(frozen)}
 
 
+# ---------------------------------------------------------------------------
+# sizing_multiplier (CEF trial 53, results/cef/PREREG_VOLTARGET_2026-10-30.md)
+# ---------------------------------------------------------------------------
+
+CEF_SIZING_KEY = "sizing_multiplier"
+
+
+def cef_sizing_multiplier(frozen):
+    """`sizing_multiplier` as a float, or None when absent or null (today's book).
+
+    WHAT IT IS. The account holds m times the sleeve's UNIT book: the book this
+    spec builds at its own `vol_target_annual`. The band compares the unit target
+    with held / m, `_cap_gross` acts at `max_gross_stress / m` in unit weights
+    (so at `max_gross_stress` x the account's NAV), and every weight target is
+    emitted as m x the unit weight (src/deploy/sleeves/cef_discount.py,
+    `target_positions`). `vol_target_annual` is NOT moved. C4's fidelity gate
+    (scripts/cef/c4_paper_benchmark.py on its branches) compares the sleeve's `w`
+    at the `min_abs_weight` read with the trial's T, and names that key and
+    `gross_leverage` as its negative controls; the unit book is that `w`,
+    untouched. Every research reader of `spec.VOL_TARGET` stays on the unit book
+    too.
+
+    UNITS: a multiple of the unit book. Not a percent, not a vol. 1.13 means
+    13% larger.
+
+    REFUSED, naming the value: a bool, a string or any non-number, NaN or inf,
+    and zero or below. A frozen key that looks like a misspelling of it
+    (`cef_c4_near_miss`'s rule: within CEF_C4_NEAR edits, the same letters
+    without underscores, or dressed as a `_comment`) also raises. Absent is
+    today's book, so a misspelt key would size the book at 1.0 while the spec
+    reads as raised. The cross-key checks (the cap must be set, and the effective
+    vol target must stay in the sane band) are in `_validate_cef_discount`.
+    """
+    note = f"_{CEF_SIZING_KEY}_note"
+    for key in frozen:
+        if not isinstance(key, str) or key in (CEF_SIZING_KEY, note):
+            continue
+        stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+        if stem.endswith("_note"):
+            stem = stem[:-len("_note")].strip("_")
+        if (stem == CEF_SIZING_KEY or stem.replace("_", "") == CEF_SIZING_KEY.replace("_", "")
+                or _osa_distance(stem, CEF_SIZING_KEY) <= CEF_C4_NEAR):
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of "
+                f"{CEF_SIZING_KEY!r}; the sleeve would ignore it and size the book at 1.0. "
+                f"Spell it {CEF_SIZING_KEY!r}, or delete it (absent is today's book)")
+    if CEF_SIZING_KEY not in frozen or frozen[CEF_SIZING_KEY] is None:
+        return None
+    v = frozen[CEF_SIZING_KEY]
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(f"cef_discount {CEF_SIZING_KEY} must be a number, got {v!r} "
+                         f"({type(v).__name__})")
+    import math
+    if not math.isfinite(float(v)) or not float(v) > 0.0:
+        raise ValueError(f"cef_discount {CEF_SIZING_KEY} {v!r} must be a finite number above 0 "
+                         f"(a multiple of the unit book; 1.0 is today's size)")
+    return float(v)
+
+
 def _validate_cef_discount(spec):
     """The CEF sleeve's whole signal is price minus NAV, so the things that can
     silently break it are a missing universe, a NAV staleness tolerance wide
@@ -291,6 +350,18 @@ def _validate_cef_discount(spec):
     vt = float(f.get("vol_target_annual", 0.0))
     if not 0.005 <= vt <= 0.40:
         raise ValueError(f"vol_target_annual {vt} outside a sane 0.5%-40% band")
+    m = cef_sizing_multiplier(f)
+    if m is not None:
+        # A multiplier with no cap would lever the account past Reg T with nothing in the
+        # sleeve to stop it, and the effective target is the one the sane band guards.
+        if f.get("max_gross_stress") in (None, ""):
+            raise ValueError(
+                f"cef_discount {CEF_SIZING_KEY} {m} is set but max_gross_stress is not; the "
+                f"multiplier is held under the account's own gross cap and there is none")
+        if not 0.005 <= vt * m <= 0.40:
+            raise ValueError(
+                f"cef_discount {CEF_SIZING_KEY} {m} x vol_target_annual {vt} = {vt * m:.4f} is "
+                f"outside the sane 0.5%-40% band for the account's effective vol target")
     age = int(f.get("max_nav_age_bd", 3))
     if not 1 <= age <= 5:
         raise ValueError(
