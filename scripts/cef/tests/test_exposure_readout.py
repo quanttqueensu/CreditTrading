@@ -554,10 +554,11 @@ def test_the_number_of_leads_makes_the_maximum_a_test_at_the_pair_level():
     assert ER.DERIVE_RULE_HAC == 5 and ER.DERIVE_MAX_LAG == 10
 
 
-def _placebo_fixture(seed=21, n_names=8):
-    """Synthetic funds that respond to the factors at lags 0, 1 and 2 and share a common
-    shock (so their t-statistics co-move, as 13 CEFs do), plus a strong lag-3 response that
-    exists ONLY after the fit end. Tests the code; claims nothing about any fund."""
+def _placebo_fixture(seed=21, n_names=8, weights=(1.0, 0.6, 0.4)):
+    """Synthetic funds that respond to the factors at lags 0..len(weights) - 1 (by default
+    0, 1 and 2) and share a common shock (so their t-statistics co-move, as 13 CEFs do),
+    plus a strong lag-3 response that exists ONLY after the fit end. Tests the code; claims
+    nothing about any fund."""
     sess = ER.nyse_sessions(dt.date(2004, 1, 2), dt.date(2011, 12, 30))
     E = _factor_returns(seed, sessions=sess)
     rng = np.random.default_rng(seed + 100)
@@ -567,7 +568,7 @@ def _placebo_fixture(seed=21, n_names=8):
     R = E.copy()
     for i in range(n_names):
         x = E @ rng.uniform(0.3, 0.8, 4)                        # a mix of IEF, HYG, MUB, BKLN
-        resp = x + 0.6 * x.shift(1) + 0.4 * x.shift(2)
+        resp = sum(w * x.shift(l) for l, w in enumerate(weights))
         late = np.where(post, 0.8 * x.shift(3).to_numpy(), 0.0)
         R[f"N{i}"] = resp + late + common + rng.normal(0, 0.003, len(sess))
     return R, sess, fit_end, [f"N{i}" for i in range(n_names)]
@@ -597,6 +598,34 @@ def test_lead_placebo_rule_recovers_a_two_lag_response_on_the_fit_era_only():
     # the lag-3 response after the fit end is strong enough to matter if it were read
     full = ER.lead_placebo_counts(R, names, fit_end=sess[-1])
     assert ER.placebo_lag_rule(full["lag"], full["lead"])["L"] >= 3
+
+
+def test_lead_placebo_rule_gives_zero_lags_to_a_same_day_response():
+    """The rule's adopted output, L = 0, on a fixture built to have it: every fund responds
+    on the day only. The fit-era lag-1 count must not clear the placebo."""
+    pytest.importorskip("statsmodels.api")
+    R, _, fit_end, names = _placebo_fixture(weights=(1.0,))
+    pc = ER.lead_placebo_counts(R, names, fit_end=fit_end)
+    assert pc["lag"][0] == pc["n_pairs"]
+    r = ER.placebo_lag_rule(pc["lag"], pc["lead"])
+    assert r["L"] == 0 and r["stop_lag"] == 1
+
+
+# The fit-era counts `derive` recorded on 2026-11-03 (module docstring, THE RULE'S RESULT):
+# public yfinance prices, 2011-03-18 .. 2022-12-02, 13 names, 52 pairs. No account data.
+RECORDED_LAG_COUNTS = dict(enumerate([46, 18, 16, 8, 4, 12, 14, 13, 6, 7, 17]))
+RECORDED_LEAD_COUNTS = dict(enumerate([12, 6, 12, 16, 8, 13, 13, 12, 14, 11, 7, 11, 19, 18, 3, 4, 1, 5, 5],
+                                      start=1))
+
+
+def test_dimson_lags_is_the_rules_output_on_the_recorded_fit_era_counts():
+    assert len(RECORDED_LEAD_COUNTS) == ER.DERIVE_RULE_LEADS
+    assert len(RECORDED_LAG_COUNTS) == ER.DERIVE_MAX_LAG + 1
+    r = ER.placebo_lag_rule(RECORDED_LAG_COUNTS, RECORDED_LEAD_COUNTS)
+    assert r == {"L": 0, "T": 19, "stop_lag": 1}
+    assert ER.DIMSON_LAGS == r["L"]
+    # the superseded Binomial first gap on the lags-only counts gave 3 (history)
+    assert ER._first_gap({0: 43, 1: 14, 2: 10, 3: 7, 4: 2, 5: 12}, 5) == 3
 
 
 def test_lead_placebo_counts_raise_on_a_missing_name():

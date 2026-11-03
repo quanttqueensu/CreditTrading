@@ -133,6 +133,37 @@ The plateau check sits beside it, as before, and nothing is chosen from it: `der
 the muni names' summed MUNI beta at every L, and `analyse --plateau` the per-factor review
 counts at L - 1 .. L + 2.
 
+THE RULE'S RESULT: L = 0, so DIMSON_LAGS = 0 [V: `derive`, run 2026-11-03, after the commit
+that declared the rule, on the cache asof 2026-10-30. Sample 2011-03-18 .. 2022-12-02, the
+last response row, whose lead-19 row is 2022-12-30. 464 to 2,949 sessions per name; PDO
+starts 2021-02-02]:
+  lag counts  c(0..10)  46 18 16  8  4 12 14 13  6  7 17                      (of 52 pairs)
+  lead counts p(1..19)  12  6 12 16  8 13 13 12 14 11  7 11 19 18  3  4  1  5  5
+  T = 19, at lead 13. Lag 1's count is 18, not above 19, so the sequence stops at lag 1.
+  * The leads reject at nearly four times the nominal rate: 190 of 988 lead tests (19.2%).
+    Lags 4..10 reject at the same rate (73 of 364, 20.1%), and lags 1..3 only somewhat more
+    (42 of 156, 26.9%) [V: a per-name diagnostic, 2026-11-03, run after the result and
+    used to choose nothing]. Either the HAC(5) tests on these funds are oversized about
+    fourfold, or the returns carry structure at every offset [U which]. That dependence is
+    what the placebo is there to absorb, and it is why the Binomial bound of 5 gave L = 3.
+    No single name drives it: PDO, on 464 sessions, rejects 9 of its 76 lead tests.
+  * By name, the muni funds show the clearest lag response. MHD and MQY reject 6 and 8 of
+    their 12 lag 1..3 tests and 7 of their 76 lead tests each [V: the same diagnostic].
+    The rule pools all 52 pairs and does not look by group. That is a property of the rule
+    as declared; the rule was not re-run on it.
+  * The plateau at L = 0 is the median cumulative summed beta by group, from the lags-only
+    0..10 models; L - 1 does not exist. The muni group's MUNI beta is 1.03 at L = 0, 0.97 at
+    L = 1 and 1.10 at L = 10, so that cell is level. The muni group's TERM beta is 0.40 at
+    L = 0, 0.50 at 1 and 0.73 at 10, so that cell is not. The taxable groups' MUNI beta
+    loses half or more from L = 0 to L = 1: hy 0.66 -> 0.11, multi 1.00 -> 0.40, loan
+    1.01 -> 0.64. Loan TERM goes -0.26 -> -0.42 (-0.66 at L = 10).
+  * At L = 0 the exposure is the same-day beta only. It no longer carries the staleness
+    response that the Dimson sum was put in to catch. Each window's design falls from 17
+    regressors to 5.
+Whether to keep L = 0 or to declare a different rule (one by group, or one that corrects the
+oversized per-pair test) is the team lead's call. Any new rule is declared and committed
+before it runs, as this one was.
+
 THE RULES IT REPLACES (2026-11-02; history). DIMSON_LAGS = 3 came from this rule (`derive`,
 fit era, 13 names, factors orthogonalised on the whole era, HAC(5)) [V: derive, re-run
 2026-11-02]. For each lag l, count the (name, factor) pairs, of 52, whose lag-l coefficient
@@ -175,8 +206,8 @@ prints the first three points below and `analyse --plateau` the fourth [V: both 
 
 The team lead ruled on 2026-11-02: re-derive L properly, under a lead-calibrated null
 declared before it is run, before the next reading. THE RULE above is that null. At the
-commit that declares it DIMSON_LAGS is still 3, from the superseded first-gap rule; it is
-set to the new rule's output in a commit of its own, after `derive` has run it. The rule
+commit that declared it DIMSON_LAGS was still 3, from the superseded first-gap rule. The
+next commit, made after `derive` had run the rule, set it to the rule's output, 0. The rule
 reads only the fit era's public prices, never a reading of any account. Each lag costs
 estimation noise: at L = 3, 17 regressors on 252 sessions, about 15 sessions each.
 
@@ -338,8 +369,8 @@ FACTORS: tuple[tuple[str, str], ...] = (("TERM", "IEF"), ("CREDIT", "HYG"), ("MU
 FACTOR_NAMES = tuple(f for f, _ in FACTORS)
 FACTOR_ETFS = tuple(e for _, e in FACTORS)
 
-DIMSON_LAGS = 3          # from the SUPERSEDED first-gap rule; to be set from the lead-placebo
-                         # rule's output in a commit of its own (module docstring, THE RULE)
+DIMSON_LAGS = 0          # THE RULE's output on the fit era (module docstring, THE RULE'S
+                         # RESULT); was 3 under the superseded first-gap rule
 WINDOW = Z_WINDOW        # the sleeve's own z_window, read from the frozen spec
 ANNUALISE = 252          # sessions a year, the convention of every vol on this desk
 D4_BETA_BAR = 0.10       # D4: factor betas <= 0.10 (docs/BRIEF.md; research-harness rules)
