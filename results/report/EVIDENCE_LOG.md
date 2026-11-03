@@ -3373,3 +3373,13 @@ that adds it does not exist when it is written.
 - source: `results/report/data/live/cef/scores.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/verify.csv` @ `pull:24d55dcbfe1b`; `results/report/data/live/cef/tca.csv` @ `pull:24d55dcbfe1b`
 - supports: §4
 - status: current
+
+### E-2026-11-03-34 · Ruling: the public repository keeps the live record as daily aggregates; per-name and per-fill rows stay in a gitignored cache
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - none (a ruling: "Aggregates in repo, rows private", team lead, on PR #45)
+- source: `docs/SYSTEM.md` @ `8ed6135`; `.gitignore` @ `8ed6135`; `scripts/report/snapshot_live.py` @ `8ed6135`
+- supports: §4, §5
+- status: current (the branch's history was rewritten so the row files never appear in it)
