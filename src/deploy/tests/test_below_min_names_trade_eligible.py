@@ -523,6 +523,73 @@ def test_the_sleeve_still_builds_the_way_every_caller_builds_it(tmp_path, panel)
 # 6. the harness, on the real panel, every reduced fit date
 # ---------------------------------------------------------------------------
 
+# The pre-registration's approved floor (§1.1, derived there, not here). Used only while the live
+# spec does not decide under te4; once it does, the spec's own floor is the only authority.
+PREREG_FLOOR = 4
+
+
+def _te4_real_spec(spec):
+    """(a deep copy of `spec` that decides under te4, the floor it decides with), for the
+    real-panel harness equality (group 6). The spec passed in is never changed.
+
+    WHY (the quant review of f1d9f62, finding 3). The fixture first asserted the live spec did
+    NOT set `below_min_names`, while its own comment said it would read the spec's floor "once
+    the activation commit sets it". The activation commit would then have turned the two
+    harness-equality tests into errors, on the one check that most needs to keep running at
+    activation. Now:
+      * the spec already decides under "trade_eligible": used AS WRITTEN, floor included. The
+        floor must be a plain int (not a bool, a float or a string): the harness is built on it
+        too (`build_targets(min_names=floor)`), and an `int()` cast here would let the harness
+        and the sleeve run on different floors;
+      * the key absent, "flatten" (a revert) or "hold": te4 is set IN THE COPY with the
+        pre-registration's floor. The tests compare two implementations of one rule, so they
+        stay meaningful whatever the live spec trades (the sleeve's te4 code exists either way).
+    """
+    sp = copy.deepcopy(spec)
+    fr = sp["frozen"]
+    if fr.get(KEY) == "trade_eligible":
+        floor = fr.get("below_min_names_floor")
+        if type(floor) is not int:
+            raise ValueError(f"the live spec sets {KEY}='trade_eligible' with "
+                             f"below_min_names_floor={floor!r}; the real-panel equality needs "
+                             f"the int floor the sleeve decides with")
+        return sp, floor
+    fr[KEY] = "trade_eligible"
+    fr["below_min_names_floor"] = PREREG_FLOOR
+    return sp, PREREG_FLOOR
+
+
+def test_the_real_panel_spec_uses_an_activated_spec_as_written():
+    live = {"spec_id": "x", "frozen": {"min_names": 6, KEY: "trade_eligible",
+                                       "below_min_names_floor": 5, "band_width": 0.048}}
+    before = copy.deepcopy(live)
+    sp, floor = _te4_real_spec(live)
+    assert (sp, floor) == (before, 5)
+    assert sp is not live and sp["frozen"] is not live["frozen"] and live == before
+
+
+@pytest.mark.parametrize("rule", [ABSENT, "flatten", "hold"])
+def test_the_real_panel_spec_sets_te4_in_a_copy_otherwise(rule):
+    live = {"spec_id": "x", "frozen": {"min_names": 6, "band_width": 0.048}}
+    if rule is not ABSENT:
+        live["frozen"][KEY] = rule
+    before = copy.deepcopy(live)
+    sp, floor = _te4_real_spec(live)
+    assert floor == 4
+    assert sp["frozen"] == {**before["frozen"], KEY: "trade_eligible",
+                            "below_min_names_floor": 4}
+    assert live == before
+
+
+@pytest.mark.parametrize("bad", [None, 4.5, True, "4"])
+def test_the_real_panel_spec_refuses_te4_without_an_integer_floor(bad):
+    live = {"spec_id": "x", "frozen": {"min_names": 6, KEY: "trade_eligible"}}
+    if bad is not None:
+        live["frozen"]["below_min_names_floor"] = bad
+    with pytest.raises(ValueError, match="below_min_names_floor"):
+        _te4_real_spec(live)
+
+
 @pytest.fixture(scope="module")
 def real():
     """The harness's te4 book on the real panel, and the reduced fit dates. Skips, saying why,
@@ -533,10 +600,7 @@ def real():
                     f"gitignored); the synthetic groups above still run")
     from scripts.cef import band_frontier as bf
     from scripts.cef import spec as S
-    # The floor: the spec's once the activation commit sets it; until then the
-    # pre-registration's approved value (§1.1), as results/cef/prereg_thin_te4/compose.py reads it.
-    floor = getattr(S, "BELOW_MIN_NAMES_FLOOR", None)
-    floor = 4 if floor is None else int(floor)
+    sp, floor = _te4_real_spec(S.spec())
     m = 1.0 if S.SIZING_MULTIPLIER is None else float(S.SIZING_MULTIPLIER)
     cap = float(S.MAX_GROSS_STRESS) / m
     T, _ = bf.build_targets(min_names=floor)
@@ -548,10 +612,6 @@ def real():
     fit = T.index < pd.Timestamp(bf.HOLDOUT_START)
     reduced = T.index[(~thin_f.to_numpy()) & thin_n.to_numpy() & fit]
     assert len(reduced) > 0
-    sp = copy.deepcopy(S.spec())
-    assert KEY not in sp["frozen"]
-    sp["frozen"][KEY] = "trade_eligible"
-    sp["frozen"]["below_min_names_floor"] = floor
     return dict(bf=bf, T=T, H=H, p=p, reduced=reduced, spec=sp, m=m, cap=cap, floor=floor,
                 nav=float(sp["capital_usd"]), minw=float(S.MIN_ABS_WEIGHT))
 
