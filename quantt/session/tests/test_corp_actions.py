@@ -394,9 +394,16 @@ def test_the_setting_absent_is_no_gate_and_a_bad_one_raises(tmp_path):
                    halts=None).corp_actions is None
 
 
-def test_the_deployed_book_sets_halt():
-    """Team lead 2026-10-28: a HALT guard for the paper runner."""
-    assert rn.corporate_actions_for(rn.BOOKS["cef"]) == cam.HALT
+def test_the_deployed_book_sets_report_until_the_unresolved_rows_are_re_ruled():
+    """Team lead 2026-10-28: a HALT guard for the paper runner. Team lead 2026-11-02:
+    REPORT for the release that carries CEF trial 53, because three real market-wide
+    rows with a missing party would halt every session under the unresolved-rows
+    ruling (release-check on 3478159). The book json says how to restore halt; this
+    pin makes the switch back a visible, tested edit rather than a silent one."""
+    assert rn.corporate_actions_for(rn.BOOKS["cef"]) == cam.REPORT
+    import json
+    block = json.loads(rn.BOOKS["cef"].book_path.read_text())["corporate_actions"]
+    assert "RESTORE" in block["_mode_report_note"] and "halt" in block["_mode_report_note"]
 
 
 # ------------------------------------------------------------- run_session
