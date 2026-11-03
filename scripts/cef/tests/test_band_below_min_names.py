@@ -17,7 +17,11 @@ eligible"). These tests pin:
      masks, with and without the ceiling and the deferred flip;
   4. the argument checks raise rather than guess;
   5. `thin_sessions` and `build_targets` count eligibility with one rule: the
-     sessions build_targets holds on are exactly the ones thin_sessions flags.
+     sessions build_targets holds on are exactly the ones thin_sessions flags;
+  6. flatten and hold agree up to the first thin session;
+  7. a `thin` mask counted with other arguments than T raises, in both
+     directions (added 2026-11-03 after review: the WIDE targets with the
+     spec-floor mask were accepted and flattened 3,621 trading sessions).
 
 Synthetic panels: the claim is about the code, not the market.
 
@@ -32,6 +36,12 @@ to band_frontier.py and the file restored after:
     and 6 fail;
   * `thin_sessions` given its own floor test (`> floor` for `>= floor`):
     test 5 fails.
+Test 7 and the guard it pins (`_check_thin_matches_T`), each mutation applied
+and the file restored after (2026-11-03):
+  * the guard's call removed: test 7 fails;
+  * the "moved on a thin row" raise removed: test 7 fails;
+  * the "held a nonzero row the mask calls active" raise removed: test 7 fails;
+  * the zero-row exemption removed: test 7 fails.
 Used by results/backtests/thin-days-2026-11-03/thin_days.py.
 """
 import inspect
@@ -64,6 +74,18 @@ def _thin(T, seed=0, p=0.15):
             i += k
         i += 1
     return pd.Series(on, index=T.index)
+
+
+def _hold_on_thin(T, thin):
+    """T as `build_targets` would leave it: the previous row repeated on every
+    thin session after the first row (the contract `_check_thin_matches_T`
+    enforces on the flatten path)."""
+    A = T.values.copy()
+    th = thin.to_numpy()
+    for i in range(1, len(A)):
+        if th[i]:
+            A[i] = A[i - 1]
+    return pd.DataFrame(A, index=T.index, columns=T.columns)
 
 
 def _old_loop(T, b, cap):
@@ -119,12 +141,14 @@ def test_1_default_is_hold_and_is_the_old_loop():
 def test_2_flatten_goes_straight_to_zero_then_reopens_at_the_edge():
     idx = pd.bdate_range("2021-01-04", periods=6)
     # under hold, build_targets carries the target through the thin days 2-3
-    a = [0.30, 0.30, 0.30, 0.30, 0.30, 0.02]
+    # (day1 moves to 0.29 so that no ACTIVE day repeats its predecessor, which
+    # the mask check would refuse; 0.29 is inside the band of day0's 0.25)
+    a = [0.30, 0.29, 0.29, 0.29, 0.30, 0.02]
     T = pd.DataFrame({"A": a, "B": [-x for x in a]}, index=idx)
     thin = pd.Series([False, False, True, True, False, False], index=idx)
     b = 0.05
     F = bf.band_gross_capped(T, b, np.inf, below_min_names="flatten", thin=thin)["A"].round(12).tolist()
-    # day0 from flat: edge 0.25; day1 hold; day2-3 thin: ZERO (a band toward a
+    # day0 from flat: edge 0.25; day1 inside the band, held; day2-3 thin: ZERO (a band toward a
     # zero target would stop at the edge 0.05); day4 from flat: edge 0.25;
     # day5: target 0.02, gap -0.23 > b -> edge 0.07
     assert F == [0.25, 0.25, 0.0, 0.0, 0.25, 0.07]
@@ -136,20 +160,22 @@ def test_2_flatten_goes_straight_to_zero_then_reopens_at_the_edge():
 @pytest.mark.parametrize("defer", [False, True])
 def test_3_flatten_equals_an_independent_loop(cap, defer):
     for seed, scale in ((2, 1.0), (3, 3.0)):
-        T = _targets(seed=seed, scale=scale)
-        thin = _thin(T, seed=seed)
+        T0 = _targets(seed=seed, scale=scale)
+        thin = _thin(T0, seed=seed)
         assert thin.any() and (~thin).any(), "vacuous mask"
+        T = _hold_on_thin(T0, thin)
         got = bf.band_gross_capped(T, 0.048, cap, defer_flips=defer,
                                    below_min_names="flatten", thin=thin)
         ref = _independent_flatten(T, 0.048, cap, thin, defer=defer)
         np.testing.assert_allclose(got.values, ref.values, rtol=0, atol=1e-15)
         assert (got[thin.values] == 0.0).all().all()
-        # a book with no thin session is the hold book exactly
-        none = pd.Series(False, index=T.index)
+        # a book with no thin session is the hold book exactly (on the random
+        # targets, which repeat no row, so the mask check has nothing to refuse)
+        none = pd.Series(False, index=T0.index)
         np.testing.assert_array_equal(
-            bf.band_gross_capped(T, 0.048, cap, defer_flips=defer, below_min_names="flatten",
+            bf.band_gross_capped(T0, 0.048, cap, defer_flips=defer, below_min_names="flatten",
                                  thin=none).values,
-            bf.band_gross_capped(T, 0.048, cap, defer_flips=defer).values)
+            bf.band_gross_capped(T0, 0.048, cap, defer_flips=defer).values)
 
 
 def test_4_arguments_raise_rather_than_guess():
@@ -220,3 +246,42 @@ def test_6_flatten_with_the_real_mask_differs_from_hold_only_from_a_thin_session
     assert first > 20 and thin.iloc[first:].mean() < 0.6, "the fake panel no longer tests a prefix"
     pd.testing.assert_frame_equal(Hf.iloc[:first], Hh.iloc[:first])
     assert (Hf[thin.values] == 0.0).all().all()
+
+
+def test_7_a_mask_counted_with_other_arguments_than_T_raises(monkeypatch):
+    # by hand: the mask flags a session on which T moved
+    T0 = _targets(seed=7)
+    thin = _thin(T0, seed=7)
+    T = _hold_on_thin(T0, thin)
+    bf.band_gross_capped(T, 0.048, 1.8, below_min_names="flatten", thin=thin)   # consistent: no raise
+    extra = thin.copy()
+    j = int(np.flatnonzero(~thin.to_numpy()[1:])[0]) + 1
+    extra.iloc[j] = True
+    with pytest.raises(ValueError, match="on which T moved"):
+        bf.band_gross_capped(T, 0.048, 1.8, below_min_names="flatten", thin=extra)
+    # by hand: T held a nonzero row that the mask calls active
+    missing = thin.copy()
+    k = int(np.flatnonzero(thin.to_numpy()[1:])[0]) + 1
+    missing.iloc[k] = False
+    with pytest.raises(ValueError, match="repeats a nonzero row"):
+        bf.band_gross_capped(T, 0.048, 1.8, below_min_names="flatten", thin=missing)
+    # zero rows are exempt: a book that has not opened repeats zero on active sessions
+    Z = T.copy()
+    Z.iloc[:5] = 0.0
+    zthin = thin.copy()
+    zthin.iloc[:5] = False
+    bf.band_gross_capped(_hold_on_thin(Z, zthin), 0.048, 1.8, below_min_names="flatten", thin=zthin)
+
+    # on a panel: T at the spec floor, the mask at another floor, both directions
+    cols = [f"N{i}" for i in range(10)]
+    _fake_panel(monkeypatch, cols, seed=6)
+    T, _ = bf.build_targets(universe=cols)
+    ok = bf.thin_sessions(T.index, universe=cols)
+    bf.band_gross_capped(T, 0.048, 1.8, below_min_names="flatten", thin=ok)
+    looser = bf.thin_sessions(T.index, universe=cols, min_adv=0)
+    stricter = bf.thin_sessions(T.index, universe=cols, min_adv=2 * bf.MIN_ADV)
+    assert (looser != ok).any() and (stricter != ok).any(), "the floors no longer change the mask"
+    with pytest.raises(ValueError, match="repeats a nonzero row"):
+        bf.band_gross_capped(T, 0.048, 1.8, below_min_names="flatten", thin=looser)
+    with pytest.raises(ValueError, match="on which T moved"):
+        bf.band_gross_capped(T, 0.048, 1.8, below_min_names="flatten", thin=stricter)

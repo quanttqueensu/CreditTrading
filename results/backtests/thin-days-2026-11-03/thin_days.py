@@ -30,6 +30,14 @@ SECOND METHODS, all asserted, none optional:
   * `scripts.research.harness.report` (nan_policy="raise") reproduces the fit
     and holdout rows of the flatten instant book.
 
+REVIEW FIXES (2026-11-03, after the review, the re-derivation and the
+beta-detector pass): the "[days]" count of the flatten-minus-hold split no
+longer counts NaN != NaN on the first two rows (974 / 977, not 976 / 979, in
+the fit period); step 5 adds trial 53's book as activated in the newest release
+tag (sizing_multiplier read from that tag's frozen spec) under both rules, with
+the hold row asserted equal to trial 53's committed figures. The attacks on
+hold's extra return are in attack.py beside this file.
+
     python3 results/backtests/thin-days-2026-11-03/thin_days.py     # about 1-2 min
 
 Writes run.log and results.json beside this file. Reads data/ only.
@@ -490,7 +498,14 @@ def flatten_gap(H, res, thin, thin_d, dist_end):
     for flips in ("instant", "deferred"):
         hf, hh = H[("flatten", flips)], H[("hold", flips)]
         rf, rh = res[("flatten", flips)]["pnl"], res[("hold", flips)]["pnl"]
-        diffbook = (hf.shift(2) != hh.shift(2)).any(axis=1).reindex(rf.index).fillna(False)
+        # the shifted books' first two rows are NaN (nothing decided yet): a real
+        # zero, filled as one. Without the fill NaN != NaN counted 2005-01-03/04
+        # as "books differ" (re-derivation, 2026-11-03): FIT [days] read 976 / 979
+        # for 974 / 977. P&L was unaffected (both books earn 0 there).
+        diffbook = (hf.shift(2).fillna(0.0) != hh.shift(2).fillna(0.0)).any(axis=1).reindex(rf.index)
+        if diffbook.isna().any():
+            raise AssertionError("the held books do not cover every earning day")
+        diffbook = diffbook.astype(bool)
         for lab, a, b in W:
             d = (rf - rh).loc[a:b]
             m, db = thin_d.loc[a:b], diffbook.loc[a:b]
@@ -549,23 +564,79 @@ def runs_table(H, res, thin, a, b, label):
     return rows
 
 
-def w1_rows(H, res, T, thin):
+RELEASE_TAG = "release-20261102-1"     # the newest release tag on 2026-11-03; carries spec v8 (CEF trial 53)
+
+
+def _git_show_json(ref_path):
+    """A tracked JSON file at a git ref, read with `git show` (read-only). Raises,
+    naming the ref, when the clone does not hold it: there is no fallback value."""
+    import subprocess
+    r = subprocess.run(["git", "-C", str(REPO), "show", ref_path], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git show {ref_path} failed: {r.stderr.strip()}")
+    return json.loads(r.stdout)
+
+
+def w1_rows(H, res, T, thin, keep, Rt):
     """Step 5 context: trial 53's unit book window (W1 2013-06-25..2022-12-30, total return), under both rules.
-    The hold row must reproduce the committed impl_core figures; the flatten row is what they would read."""
+    The hold row must reproduce the committed impl_core figures; the flatten row is what they would read.
+
+    ADDED 2026-11-03 after review (defect 1): trial 53 is not only approved, it is
+    ACTIVE in the newest release tag (commit eca5feb, spec cef_discount.v8.20261101,
+    `sizing_multiplier` in the frozen spec there). The m-sized rows read the
+    multiplier from that tag's frozen spec (never a literal) and build the book the
+    way the spec note says the sleeve does: band in unit weights, `_cap_gross` at
+    max_gross_stress / m, emitted as m x the unit weight. The hold row at m is
+    asserted equal to trial 53's committed "B sizing_multiplier" row
+    (impl_core_2026-11-01_m1.13.json at the tag), so the flatten row beside it is
+    the same construction under the live thin rule."""
     a, b = pd.Timestamp("2013-06-25"), pd.Timestamp("2022-12-30")
     p("\n=== STEP 5 context: trial 53's core unit book on its W1 window (2013-06-25..2022-12-30, TR) ===")
     p("(not trial 53's derivation; the same unit book under each thin rule, on the canonical path)")
     out = {}
-    for key in (("hold", "instant"), ("flatten", "instant"), ("hold", "deferred"), ("flatten", "deferred")):
-        r = res[key]
+
+    def row(label, h, r):
         s = stats(r["pnl"].loc[a:b], r["turn_series"].loc[a:b])
-        g = H[key].abs().sum(axis=1).loc[a:b]
+        g = h.abs().sum(axis=1).loc[a:b]
         atcap = float((g >= MAX_GROSS_STRESS - 1e-9).mean())
-        s.update(mean_gross=float(g.mean()), at_cap=atcap)
-        out[f"{key[0]}/{key[1]}"] = s
-        p(f"{key[0]:<8}{key[1]:<9} SR {s['sr']:.3f} ann {s['ann'] * 100:5.2f}% vol {s['vol'] * 100:5.2f}% "
+        s.update(mean_gross=float(g.mean()), at_cap=atcap, sd_daily=float(r["pnl"].loc[a:b].std()))
+        out[label] = s
+        p(f"{label:<22} SR {s['sr']:.3f} ann {s['ann'] * 100:5.2f}% vol {s['vol'] * 100:5.2f}% "
           f"maxDD {-s['maxdd'] * 100:5.2f}% turn {s['turn']:5.1f}/yr mean gross {s['mean_gross']:.3f} "
-          f"at cap {atcap * 100:4.1f}% | BE {s['be']:5.1f}bp")
+          f"at cap {atcap * 100:4.1f}% | BE {s['be']:5.1f}bp | daily sd {s['sd_daily']:.6f}")
+        return s
+
+    for key in (("hold", "instant"), ("flatten", "instant"), ("hold", "deferred"), ("flatten", "deferred")):
+        row(f"{key[0]}/{key[1]}", H[key], res[key])
+
+    tag_spec = _git_show_json(f"{RELEASE_TAG}:ops/specs/cef_discount.frozen.json")
+    if "frozen" not in tag_spec:
+        raise AssertionError(f"{RELEASE_TAG}'s spec file has no 'frozen' block")
+    m = tag_spec["frozen"].get("sizing_multiplier")
+    if not isinstance(m, (int, float)) or not m > 0:
+        raise AssertionError(f"{RELEASE_TAG}'s frozen spec has no positive sizing_multiplier ({m!r})")
+    if cef_below_min_names(tag_spec["frozen"]) != "flatten":
+        raise AssertionError(f"{RELEASE_TAG}'s frozen spec sets below_min_names; the flatten label is wrong there")
+    p(f"\n--- trial 53 as ACTIVATED at {RELEASE_TAG} (spec {tag_spec.get('spec_id')}, sizing_multiplier {m}): "
+      "m x band_gross_capped(T, band, max_gross_stress / m) ---")
+    out["release"] = dict(tag=RELEASE_TAG, spec_id=tag_spec.get("spec_id"), m=float(m))
+    for rule in ("hold", "flatten"):
+        for flips in ("instant", "deferred"):
+            kw = {} if rule == "hold" else dict(below_min_names="flatten", thin=thin)
+            h = m * bf.band_gross_capped(T, BAND_WIDTH, MAX_GROSS_STRESS / m,
+                                         defer_flips=(flips == "deferred"), **kw)
+            row(f"m={m} {rule}/{flips}", h, bf.evaluate(h.loc[keep], Rt))
+    ref = _git_show_json(f"{RELEASE_TAG}:results/cef/prereg_voltarget/impl_core_2026-11-01_m1.13.json")
+    if float(ref["m"]) != float(m):
+        raise AssertionError(f"impl_core's m {ref['m']} is not the tag spec's {m}")
+    mine, theirs = out[f"m={m} hold/instant"], ref["TR"]["B sizing_multiplier"]
+    for k_mine, k_ref, sign in (("sr", "sr", 1), ("ann", "ann", 1), ("maxdd", "mdd", -1),
+                                ("mean_gross", "mean_gross", 1), ("at_cap", "at_cap", 1)):
+        if abs(mine[k_mine] - sign * theirs[k_ref]) > 1e-9:
+            raise AssertionError(f"m-sized hold book does not reproduce trial 53's {k_ref}: "
+                                 f"{mine[k_mine]} vs {sign * theirs[k_ref]}")
+    p(f"the m={m} hold/instant row reproduces trial 53's committed 'B sizing_multiplier' row "
+      "(SR, ann, maxDD, mean gross, at cap; |diff| <= 1e-9)")
     x = res[("hold", "instant")]["pnl"].loc[a:b]
     eq = (1 + x).cumprod()
     dd = eq / eq.cummax() - 1
@@ -672,7 +743,7 @@ def main():
     OUT["gap"] = flatten_gap(H, res, thin, thin_d, dist_end)
     OUT["runs_2020_22"] = runs_table(H, res, thin, "2020-01-01", "2022-12-31", "2020-22")
     OUT["runs_2023"] = runs_table(H, res, thin, "2023-01-01", str(dist_end.date()), "2023+")
-    OUT["w1"] = w1_rows(H, res, T, thin)
+    OUT["w1"] = w1_rows(H, res, T, thin, keep, Rt)
     OUT["matched"] = matched(T, Rt, thin, keep, rows[(("hold", "instant"), "FIT <2023")]["turn"])
 
     (HERE / "run.log").write_text("\n".join(LOG) + "\n")

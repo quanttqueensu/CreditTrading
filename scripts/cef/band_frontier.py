@@ -326,6 +326,54 @@ def _thin_mask(thin, T):
     return thin.to_numpy(dtype=bool)
 
 
+def _check_thin_matches_T(flat, T):
+    """Refuse a `thin` mask that was not built with T's own arguments (added
+    2026-11-03, review of the thin-days report, defect 3).
+
+    WHY. `_thin_mask` checks the calendar, NaNs and dtype, but cannot see the
+    universe, source, mask or ADV floor a mask was counted with. The review
+    built the WIDE targets (`build_targets(min_adv=0)`, which hold on NO
+    session) and passed `thin_sessions(T.index)` at the spec floor: it was
+    accepted and flattened 3,621 sessions on which the WIDE book was trading.
+    The reverse mistake is as quiet: a mask counted on a larger universe than T
+    (a leave-one-name-out run that forgets `universe=`) flags fewer sessions,
+    so flatten silently returns the hold book on the rest.
+
+    THE CHECK uses `build_targets`' own signature: on a session with fewer than
+    `min_names` eligible names it copies the previous row ("hold; nothing
+    eligible"), and on every other session it recomputes the row from that
+    day's z-scores and vol scalar. So, from the second row on:
+      * a row flagged thin must repeat the previous row exactly;
+      * a NONZERO row that repeats the previous row exactly must be flagged
+        thin. Zero rows are exempt: a book that has never opened repeats zero,
+        and on 2020-03-18 and 2025-04-07 every eligible z sat at the -4 clip,
+        the weights were 0/0 and `build_targets` filled them with 0 on an
+        active session.
+    On the panel of 2026-10-15 both hold on all 5,480 rows of the spec targets
+    and of the WIDE targets (no active nonzero row repeats its predecessor), and
+    the review's mismatch fails the first test on 3,621 rows. A hand-made T
+    must satisfy the same contract: hold the row on a thin session, move it
+    otherwise."""
+    A = np.asarray(T.values)
+    same = np.zeros(len(A), dtype=bool)
+    if len(A) > 1:
+        same[1:] = (A[1:] == A[:-1]).all(axis=1)
+    nonzero = np.abs(A).sum(axis=1) > 0
+    moved_on_thin = flat & ~same
+    moved_on_thin[0] = False
+    held_not_thin = same & nonzero & ~flat
+    if moved_on_thin.any():
+        bad = T.index[moved_on_thin]
+        raise ValueError(f"thin flags {len(bad)} session(s) on which T moved, first {bad[0].date()}: "
+                         "the mask was not counted with T's own arguments (universe, source, mask, "
+                         "min_adv); build it with thin_sessions(T.index, <the same arguments>)")
+    if held_not_thin.any():
+        bad = T.index[held_not_thin]
+        raise ValueError(f"T repeats a nonzero row on {len(bad)} session(s) that thin calls active, "
+                         f"first {bad[0].date()}: build_targets held there, so the mask was counted "
+                         "with other arguments than T")
+
+
 def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
                       below_min_names="hold", thin=None):
     """`band()` with the frozen `max_gross_stress` ceiling applied to the HELD
@@ -412,7 +460,9 @@ def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
           nothing to floor, scale or defer); on every other row the loop is
           the one above, from that zero. `thin` is required, a bool Series on
           T's index, normally `thin_sessions(T.index)` with the arguments T
-          was built with. T's values on a thin row are ignored.
+          was built with. T's values on a thin row are not used, but they are
+          CHECKED (`_check_thin_matches_T`, added 2026-11-03 after review):
+          a mask built with other arguments than T raises.
     """
     from src.deploy.sleeves.cef_discount import _cap_gross
     if below_min_names not in BELOW_MIN_NAMES:
@@ -427,6 +477,7 @@ def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
             raise ValueError("below_min_names='flatten' needs thin (thin_sessions(T.index)); "
                              "the harness will not guess which sessions were thin")
         flat = _thin_mask(thin, T)
+        _check_thin_matches_T(flat, T)
     A, cur = T.values, np.zeros(T.shape[1])
     H = np.zeros_like(A)
     cols = T.columns
