@@ -627,6 +627,45 @@ def stage_p3() -> int:
     return 0 if ok else 8
 
 
+def stage_dgl4(impl_root: str) -> int:
+    """DG-L4 (§4b): the key absent reproduces C4's v4 book, and the trial's blend reproduces the sleeve's.
+    The sleeve is the one on branch c4-level-impl at the commit `impl_root` holds; it is run, never edited,
+    through that tree's own fidelity machinery (dgl4_driver.py). Any break stops the trial."""
+    import subprocess
+    need("dgl2", "p1", "p2", "k1", "k2", "k3", "p3")
+    S = c4_spec()
+    U, pool, UF, px, nav, crsp, qr, fam = inputs()
+    B = level_targets(UF, fam, S, level_mask=None)          # the sleeve has no DG-L3 masks
+    CACHE.mkdir(parents=True, exist_ok=True)
+    B["Tz"].to_parquet(CACHE / "dgl4_Tz.parquet")
+    B["TB"].to_parquet(CACHE / "dgl4_TB_unmasked.parquet")
+    root = Path(impl_root)
+    head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True,
+                          check=True).stdout.strip()
+    out = CACHE / "dgl4_driver.json"
+    r = subprocess.run([sys.executable, "-B", str(HERE / "dgl4_driver.py"), str(root), str(CACHE), str(out)],
+                       capture_output=True, text=True, cwd=str(root))
+    print(r.stdout[-4000:])
+    if r.returncode:
+        print(r.stderr[-3000:])
+        raise RuntimeError("the DG-L4 driver failed")
+    j = json.loads(out.read_text())
+    a, b = j["a_key_absent"]["report"], j["b_key_present"]["report"]
+    ok = a["n_breaks"] == 0 and b["n_breaks"] == 0
+    verdict = "CLEAR" if ok else "HALT (a diff: stop and report)"
+    lines = [f"CEF trial 54, DG-L4 against the sleeve at {head[:7]} (c4-level-impl): C4 spec {SPEC_ID}",
+             *(f"  ({k}) sessions {x['sessions']} ({x['first']}..{x['last']}), matched {x['sessions_matched']}, cells "
+               f"{x['cells_matched']}/{x['cells_compared']}, largest gap {x['largest_gap']}, breaks {x['n_breaks']}"
+               for k, x in (("a, key absent vs build_book", a), ("b, key present vs the trial's blend", b))),
+             *(f"     break {br['date']} {br['kind']}: {br['detail'][:200]}" for br in (a["breaks"] + b["breaks"])[:12]),
+             f"  {verdict}"]
+    for line in lines:
+        print(line)
+    write("dgl4", lines, dict(verdict=verdict, sleeve_head=head,
+                              a={k: v for k, v in a.items() if k != "rows"}, b={k: v for k, v in b.items() if k != "rows"}))
+    return 0 if ok else 9
+
+
 NAV_JUMP, NAV_BACK, NAV_RUN, PX_FLAT = 0.05, 0.01, 3, 0.02
 
 
@@ -690,9 +729,14 @@ def stage_navscan() -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan", "p1", "record", "p2", "k1", "k2", "k3", "p3"])
+    ap.add_argument("stage", choices=["dgl2", "dgl3", "navscan", "p1", "record", "p2", "k1", "k2", "k3", "p3", "dgl4"])
     ap.add_argument("--variant", choices=["blend", "level", "z"], default=None)
+    ap.add_argument("--impl-root", default=None, help="dgl4: a checkout of c4-level-impl at its code commit")
     a = ap.parse_args(argv)
+    if a.stage == "dgl4":
+        if not a.impl_root:
+            raise SystemExit("dgl4 needs --impl-root")
+        return stage_dgl4(a.impl_root)
     if a.stage == "record":
         if a.variant is None:
             raise SystemExit("record needs --variant")
