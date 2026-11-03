@@ -445,6 +445,35 @@ def test_a_stop_with_a_hold_records_nothing(panel):
     assert _thin_of(out)["stopped_by"] is None and _thin_of(out)["holds"] is True
 
 
+@pytest.mark.parametrize("opening", [True, False], ids=["opening", "held"])
+@pytest.mark.parametrize("nav", [ABSENT, 0.0, -1.0], ids=["missing", "zero", "negative"])
+def test_the_nav_unknown_refusal_after_the_min_names_test_records_no_reduced_build(panel, opening,
+                                                                                   nav):
+    """The band's "sleeve NAV unknown" refusal (both branches: the opening session and a held
+    book) returns every name FLAT AFTER the min_names test has decided the session could build
+    the reduced book. The record must say what produced the targets: the refusal, not the reduced
+    build. `reduced` is how the pre-registration counts a reduced decision (§4.2: "the sleeve's
+    reduced build ran and its targets were sent"), so a True here would score a flattened session
+    as one. Found by the quant and adversarial reviews of f1d9f62: there `reduced` was set at the
+    min_names test and read True on this path."""
+    asof, _ = panel
+    keep = MUNI[:2] + TAX[:2]
+    _keep_liquid(keep)
+    held = {} if opening else {MUNI[0]: 900.0, TAX[0]: -700.0}
+    ex = {"opening_session": opening, "thin_rule": NO_STOP}
+    if nav is not ABSENT:
+        ex["sleeve_nav"] = nav
+    sl = CEFDiscountSleeve(_spec(), NAV_USD, account="paper")
+    out = sl.target_positions(pd.Timestamp(asof),
+                              MarketState(asof=pd.Timestamp(asof), prices=pd.DataFrame(),
+                                          holdings=dict(held), extras=ex))
+    assert {(t.side, t.reason) for t in out} == {(FLAT, "cef: band on but sleeve NAV unknown")}
+    assert _thin_of(out) == {"eligible": sorted(keep), "n": 4, "min_names": 6, "floor": 4,
+                             "holds": False, "reduced": False, "stopped_by": None}
+    # the same session WITH its NAV is the reduced build, so the refusal is what moved the flag
+    assert _thin_of(_run(_spec(), asof, held, opening=opening))["reduced"] is True
+
+
 def test_a_reduced_set_is_recorded_on_every_return_under_the_key(panel, monkeypatch):
     """Under the key every target carries the record, the early returns included (no panel: no
     eligible names, no reduced build); under every other rule none does."""

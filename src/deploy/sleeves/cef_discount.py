@@ -862,9 +862,11 @@ class CEFDiscountSleeve(Sleeve):
 
         Called only under `below_min_names = "trade_eligible"` (`target_positions`
         routes every return through `done`, which is the identity otherwise).
-        `rec` is filled at the `min_names` test; a return before it (no panel, a
-        panel too short to score) records no eligible names and no reduced
-        build. Each target gets its own copy, so no two share a list."""
+        `rec` is filled at the `min_names` test, except `reduced`, which only the
+        final return of the built book writes; a return before the test (no
+        panel, a panel too short to score) records no eligible names, and no
+        return but the last records a reduced build. Each target gets its own
+        copy, so no two share a list."""
         info = {"eligible": [], "n": 0, "min_names": int(self._req("min_names")),
                 "floor": thin["floor"], "holds": _hold_requested(market_state),
                 "reduced": False, "stopped_by": None, **rec}
@@ -1037,7 +1039,10 @@ class CEFDiscountSleeve(Sleeve):
         # flattens, as before. A stop (K0 or gate 7, from the runner) sends a
         # session that would have built the reduced book into the flatten path,
         # and only such a session records `stopped_by`. `thin` None (every other
-        # rule): `reduced` is False and nothing here runs.
+        # rule): `reduced` is False and nothing here runs. `reduced` steers the
+        # branch from here, but the RECORD's `reduced` is written only at the
+        # final return (below): a refusal on the way (the band's "sleeve NAV
+        # unknown") is not the reduced build's targets.
         reduced, stop_note = False, ""
         if thin is not None:
             could = (len(row) < int(self._req("min_names")) and not hold
@@ -1046,7 +1051,7 @@ class CEFDiscountSleeve(Sleeve):
             reduced = could and stop is None
             if could and stop is not None:
                 stop_note = f" (reduced build stopped by {stop['by']}: {stop['why']})"
-            rec.update(eligible=sorted(row), n=len(row), holds=bool(hold), reduced=reduced,
+            rec.update(eligible=sorted(row), n=len(row), holds=bool(hold),
                        stopped_by=stop["by"] if (could and stop is not None) else None)
 
         if len(row) < int(self._req("min_names")) and not reduced:
@@ -1459,6 +1464,13 @@ class CEFDiscountSleeve(Sleeve):
                     self._req("order_type")).upper()},
                 reason=f"cef discount z={row.get(tk, float('nan')):+.2f} "
                        f"w={wt_out:+.4f} volscal={scal:.2f}{cap_tag}"))
+        # te4's record says `reduced` HERE, on the one return the reduced build
+        # produces, and nowhere earlier (review of f1d9f62): set at the min_names
+        # test, it read True on the band's "sleeve NAV unknown" FLAT refusals
+        # above, and the pre-registration counts a reduced decision by this flag
+        # (§4.2). Any return between the min_names test and this line keeps
+        # `_thin_record`'s False.
+        rec["reduced"] = reduced
         return done(out)
 
     # ---- risk --------------------------------------------------------------
