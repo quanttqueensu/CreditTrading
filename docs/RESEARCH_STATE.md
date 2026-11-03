@@ -32,7 +32,7 @@ counter (156) covers all ETF-price/PD work done to date.
 | DISP | PD dispersion / staleness decomposition | 3 |
 | DEALER | NY Fed primary dealer inventory | 1 |
 | MBS | mortgage prepayment staleness | 0 |
-| **CEF** | **credit closed-end fund discounts** | **52** |
+| **CEF** | **credit closed-end fund discounts** | **53** |
 | **GAMMA** | **options / volatility sleeve (NEW SOURCE 2026-09-08)** | **0** |
 | POSITIONING | FINRA short interest + daily short volume | 1 |
 | **EVENTS** | **corporate actions from EDGAR/CRSP: CEF/BDC mergers, CEF IPOs, convertible issuance, term/tender events (NEW SOURCE 2026-10-09)** | **3** |
@@ -154,6 +154,8 @@ counter (156) covers all ETF-price/PD work done to date.
 > **The 27-name holdout is opened for event trades.** It is consumed by the first
 > pre-registered test that computes returns on a `cef_universe.csv` name. The
 > 2023-01-01 time holdout stays sealed.
+> *Corrected 2026-11-01 (Q7 of CEF trial 53): for the core book its 2023+ has been seen; see
+> the 2026-11-01 CEF note below.*
 
 > **2026-10-13: the GAMMA holdout was touched before it was opened.** Recorded
 > so that whoever opens it knows what has already been seen. The holdout is
@@ -180,6 +182,50 @@ counter (156) covers all ETF-price/PD work done to date.
 > only". `scripts/gamma/vrp_summary.py` still prints them, and its 2004–22 row
 > also runs its last window into January 2023; neither was changed here.
 > **GAMMA stays at 0.**
+
+> **2026-11-02: trial 53's C4 value applied, counter unchanged at 53** (the approval moved it):
+> `ops/specs/c4_families.frozen.json` `c4_families.v1.20261029` → `c4_families.v2.20261101`,
+> `sizing_multiplier` 1.27, by the committed patch
+> (`results/cef/prereg_voltarget/c4_families_sizing_multiplier_2026-11-01.patch`), on branch
+> `c4-rel`, before C4's dry sessions, so that they rehearse the book C4 arms at ("C4 at its
+> arming, already at ×1.27"). C4 stays unarmed. Revert: local tag `spec-c4_families.v1.20261029`.
+
+> **2026-11-02: CEF trial 53 AMENDMENT 1 — the counter does not move; CEF stays 53** (team lead,
+> 2026-11-02, about 22:00 ET; `results/cef/PREREG_VOLTARGET_2026-10-30.md` §0.B). The core's
+> `sizing_multiplier` goes 1.13 → **1.30** (spec `cef_discount.v9.20261102`), and C4's goes 1.27 → **1.26**
+> (`c4_families.v4.20261102`, before C4 arms). The core's stops are recalibrated on the live thin-day
+> rule's trading sessions: R1 10.14%, R2 −3.06%, R3 12.07%.
+> - **Why.** The multipliers were derived on the harness's HOLD book, but the live core FLATTENS on
+>   thin sessions. On the sessions it trades, the same rule gives ×1.30. Taken literally, on
+>   calendar vol, it gives ×1.96, which the flat sessions inflate.
+> - **Evidence:** `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md`. It is fit only, and
+>   no 2023+ return was computed.
+> - **It is not a trial.** The same hypothesis and rule are fed a corrected input, and no return
+>   statistic decided it.
+> - **The bar stays at N = 53** (2.818).
+>
+> **2026-11-01: CEF 52 → 53** (team lead; this commit records the approval):
+> - **Trial 53 is the vol-target raise**, `results/cef/PREREG_VOLTARGET_2026-10-30.md`:
+>   each account sized at its per-account equal-risk multiplier through a new frozen key,
+>   `sizing_multiplier` (absent = today). `vol_target_annual` stays 0.06.
+> - **Approved at the milder values, core ×1.13 and C4 ×1.27, at a 5.25% combined target**: the
+>   2026-10-29 rule's term (d), derived 1.1357 / 1.2712 on C4's spec book, rounded down. These are not
+>   the draft's ×1.24 / ×1.39 at 5.75%. All seven open questions take the recommended answers (§0.A of
+>   the pre-registration). The answer to Q2 needs no override, because at these values term (d) holds.
+> - **Judged at N = 53, bar √(2 ln 53) = 2.818.** The raise claims no Sharpe, so the bar judges
+>   nothing here. It is judged by its stops (R1–R3, §6.2), read per account on the P&L of record and
+>   acted on by the team lead. Verdicts are recorded as H-VT PRESENT / ABSENT / INCONCLUSIVE.
+> - **Evidence:** forward paper only (Q7 below). No 2023+ return was computed. The core starts at its
+>   next release; C4 starts at its arming.
+> - **Q7, correction (2026-11-01):** the 2026-10-09 note above says "the 2023-01-01 time holdout stays
+>   sealed". **For the core book that is no longer true.**
+>   - its 2024-01-01 → 2026-07-30 returns were opened on 2026-07-31
+>     (`pre-clean-slate:results/cef/HOLDOUT_OPENED.json`, FAIL on net, for z 63);
+>   - the v7 pre-registration then computed the deployed book over 2013-06-14 → 2026-09-21
+>     (`results/cef/PREREG_ALPACA_V7_2026-09-28.md` §5).
+>
+>   Treat the core's 2023+ as seen. The rule still holds for any book whose 2023+ has not been
+>   computed. C4's was opened on 2026-10-18 (its row below).
 
 > **2026-10-14: CEF 50 → 52** (team lead's approval of two pre-registrations;
 > each counted in the commit that records its approval):
@@ -237,6 +283,8 @@ counter (156) covers all ETF-price/PD work done to date.
 > - X4: **D4**, the historical-mean rule.
 >
 > All four holdouts were opened once. **XASSET is at 4 = N. The slate is closed.**
+
+> **2026-10-29: C4's re-derived `max_gross_stress` (1.90, `ops/specs/c4_families.frozen.json`) spends no CEF trial; CEF stays 52** (team lead, answered interactively): it applies the frozen §3b rule with no performance test, unlike trial 50 below, where the core's adoption was counted.
 
 > **2026-09-28: CEF 48 → 50** (`results/cef/PREREG_ALPACA_V7_2026-09-28.md`). Trial 49:
 > the universe change 17 → 13 (NAD, NEA, NVG, NZF not shortable on Alpaca). Trial
@@ -357,6 +405,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 | NPORT | monthly holdings history 2019+ from SEC EDGAR *(corrected 2026-10-19: public N-PORT is one month-end snapshot per fiscal quarter, filed within 60 days, and its XML first reaches EDGAR in filings of Oct–Nov 2019 (FR 2019-03958 [V]; EDGAR index counts [V]); monthly public N-PORT starts 2027-11-17. `results/events/ssx/ssx_risk/CARDS_2026-10-19.md`)* | agent staging | EDGAR parse |
 | BREADTH | 45-instrument universe | agent staging | data fetch |
 | **C4** (CEF trial 52) | the live discount z-score pooled over five CEF families, on the 74 funds frozen at the 2026-10-14 re-read (65 with fit data) (`results/cef/PREREG_C4_FAMILIES_2026-10-13.md` and its four amendments) | **PASS on the corrected book** (team lead's ruling 2026-10-19, result note §9: gross SR 1.434, net 0.999 / **+0.130** / −1.174 at 5 / 15 / 30bp, NW t 2.89; stage 9 passes; recorded deviation, the four IGR bars fixed after the opening; **paper only, no real-money sleeve**). As first committed: PASS, labelled D2 (2026-10-18; holdout opened once at `353dc57`). Fit (2026-10-14, 3be92cd; both independent reviews confirmed it): gross SR 1.217 (NW t 5.32), `_dsr` 0.991 at N = 52, every kill passed. Holdout 2023-01-03 → 2026-09-30: gross SR **0.725** (NW t 1.32), the fit's sign (stage 8 pass); net 0.382 at 5bp, **−0.304 at 15bp** (stage 9: D2), −1.332 at 30bp, flips; 2023–24 +12.78%/yr, 2025–26 −3.50%/yr. Report-only: without IGR 1.486 (net@15 +0.086); 82% of the holdout P&L in the ex-date window [0,2] (fit 33%); rho21 with the book 0.134/0.196. Recorded deviation: BTX's Stage-0 flags were cleared after the fit P&L (zero weight in the fit) **CORRECTION PENDING (2026-10-18, result note §8):** an independent review found four bad IGR price bars (2026-07-29, 08-04, 08-07, 08-11; post-split basis inside a raw pre-split series, flagged by Stage 0 Q5 on 2026-10-14 and never triaged) costing −10.87% of capital. Corrected: gross SR 1.434, net@15 +0.130, NW t 2.89; grid still flips by 30bp. R-IGR's 1.486 was this defect. **Ruled 2026-10-19: the corrected book is the verdict** | none for the verdict: paper only by ruling. IGR's 2026-08-20 amount moves the Sharpe by 0.002 either way (§8). Before any real-money proposal: borrow measured, not modelled at zero |
+| **VT** (CEF trial 53) | sizing each account at its per-account equal-risk multiplier (`results/cef/PREREG_VOLTARGET_2026-10-30.md`): the frozen key `sizing_multiplier`, core ×1.13, C4 ×1.27, at a 5.25% combined target; **amendment 1 (2026-11-02): core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule (§0.B)**; `vol_target_annual` stays 0.06 | **APPROVED 2026-11-01** (team lead). Implementation: the code commit (absent = today, proved against 35b429f's pins), then the core's value as a separate activation commit; C4's value goes in at C4's arming. Expected on the fit (model, gross): combined 8.50% TR / 9.18% PR, Sharpe 1.68 / 1.76; per account, zero-edge P(HALVE) through 2008: core 15.2% median, C4 16.3% | forward paper only: R3 at 60 armed sessions, R2 at 120, R1 at any time, per account; the core's 60-session kill rule and C4's H11 rule, which is rebuilt on the raised book |
 
 > Rows above that point elsewhere in this file ("See QUEUE rank 1", "RESOLVED,
 > see below") refer to sections now in the snapshot at git tag `pre-clean-slate`
@@ -368,6 +417,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 
 | id | question | verdict | evidence | date |
 |---|---|---|---|---|
+| NAV-HEDGE-1 | Can an ETF overlay hedge the core's NAV moves (live NAV component −$2,250.74 over 2026-09-15..10-30, PR #26) for a better Sharpe? | **Closed at the power gate, UNDERPOWERED** (team lead, 2026-11-02). No data pulled; zero trials. P(pass) 0.07–0.11 one-sided at the factor R² 0.011–0.074 on record, and it cannot raise return on capital under Reg T. If ever run, it counts on CEF. Replaced by a report-only exposure readout (MUNI/TERM/credit/loan) | the screen note on branch `research-nav-hedge` (another session) [S, not re-read here] | 2026-11-02 |
 | W14-A | Is the book short volatility in a sense that gives a hedging option a job? | **No** — the convexity overlay (W14 Part B) is closed by its own pre-written gate | `pre-clean-slate:results/cef/STRESS_BETA_2026-09-11.md`; `python3 scripts/cef/stress_beta.py` | 2026-09-11 |
 | W4 | Is the deployed discount IC an artifact of distributions, bid–ask bounce, stale NAV, ex-dates or crises, and is its P&L factor beta? | **No artifact explains a material share; not factor beta** (FF5 + UMD + Pástor–Stambaugh; betas ≤ 0.10, gross alpha t on the 3.0 bar). **The deployed 13-name, ADV-filtered IC is about half the 17-name figure the docs quote, and is concentrated in Dec–Jan and volatile states.** Fit period only; the 2023 holdout was not opened. No trial spent, no counter moved | `results/cef/W4_ARTIFACTS_2026-10-11.md`; `python3 scripts/cef/w4_artifacts.py` | 2026-10-11 |
 | G6 | Can long credit gamma be timed by a declared conditioner? | **No** — no conditioner times it, and G7 does not run (C3 is in KILLED above) | `pre-clean-slate:results/gamma/PREREG_GAMMA_TIMING_2026-09-13.md`, `pre-clean-slate:results/gamma/CREDIT_BASE_RATE_2026-09-13.md`, `pre-clean-slate:results/gamma/CONDITIONERS_2026-09-13.md` | 2026-09-13 |

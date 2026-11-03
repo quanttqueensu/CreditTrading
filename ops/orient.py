@@ -534,6 +534,7 @@ def spec_fields(s: dict) -> dict:
             "spec_id": s.get("spec_id"), "status": s.get("status"),
             "vol_target_annual": fr.get("vol_target_annual"),
             "vol_target_absent": "vol_target_annual" not in fr,
+            "sizing_multiplier": fr.get("sizing_multiplier"),
             "capital_usd": s.get("capital_usd"),
             "band_width": fr.get("band_width"),
             "rebalance_days": fr.get("rebalance_days"),
@@ -934,6 +935,13 @@ def render(d: dict) -> None:
            "ABSENT from the frozen spec — the sleeve applies its own code "
            "default (src/deploy/sleeves/cef_discount.py _vol_target)"
            if sec["vol_target_absent"] else f"{sec['vol_target_annual']}")
+        m = sec.get("sizing_multiplier")
+        vt = sec.get("vol_target_annual")
+        _p("sizing_multiplier",
+           "absent (the account holds the unit book: today's sizing)" if m is None else
+           f"{m}   effective vol target {vt} x {m} = "
+           + (f"{float(vt) * float(m):.4f}" if isinstance(vt, (int, float)) else "UNMEASURED (no vol target)")
+           + "   (CEF trial 53)")
         _p("band_width", f"{sec['band_width']}   "
                          f"z_window {sec['z_window']}   "
                          f"{sec['n_universe']} names   {sec['order_type']}")
