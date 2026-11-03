@@ -223,6 +223,10 @@ recall of any specific figure is wrong until you have fetched it.**
 - **Check the graveyard before proposing anything** (`/graveyard`). The most
   common cause of death is a stale-price artifact; the second, a control group
   scoring as well as the treatment.
+- **Log it for the report.** Every result, ruling, release, incident or live-P&L
+  day gets an entry in `results/report/EVIDENCE_LOG.md`, in the same commit, with
+  provenance (`results/report/README.md`; `.claude/rules/report.md`). Live data:
+  daily aggregates in the repo; rows only in the gitignored `results/report/_cache_live/`.
 
 ## Commands
 
