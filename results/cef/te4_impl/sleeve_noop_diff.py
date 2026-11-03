@@ -26,13 +26,26 @@ default: the checkout this file is in) -- each in its own fresh interpreter, wit
 Variants (a child each):
   base:absent     ac15d09's code, the live spec              -- the reference
   base:flatten    ac15d09's code, below_min_names "flatten"   -- the default written out, before
+  base:hold       ac15d09's code, below_min_names "hold"      -- the reference for "hold"
   new:absent      the new code, the live spec                 -- must equal base:absent
   new:flatten     the new code, below_min_names "flatten"     -- must equal base:absent
+  new:hold        the new code, below_min_names "hold"        -- must equal base:hold
   new:te4         the new code, below_min_names "trade_eligible", floor (below), account "paper",
                   extras thin_rule {"stop": None}: on every date with at least `min_names`
                   eligible names its targets, with meta["cef_thin"] removed, must equal
                   base:absent (§1.6 item 2); the thin dates are counted, not compared, because
                   there the rule is meant to differ.
+
+WHY "hold" IS COMPARED WITH base:hold, NOT base:absent (added after the reviews of f1d9f62).
+The sleeve's module docstring says the targets under ABSENT, "flatten" or "hold" are today's,
+byte for byte, and cites this script; as first written the script ran no "hold" child, so that
+third claim cited evidence the repository did not contain. "hold" is a different rule from
+"flatten" by design (it holds the book, and it sets `strict`, so a panel too short to score
+RAISES instead of flattening), so the claim is that te4's code did not change what "hold" does:
+new:hold against ac15d09's own "hold". The raises are compared like target lists; both children
+read the same `data/cef/`, so a message that names a panel path names the same one. `COMPARE`
+below is the table of claims the verdict checks; src/deploy/tests/ pins that it covers every rule
+the sleeve's docstring names.
 
 EVERY CHILD RUNS WITH PYTHONHASHSEED=0. The band iterates `set(w.index) | set(held_w)`, so the
 order in which the banded book is summed for the gross ceiling follows the string hash seed, and
@@ -56,8 +69,8 @@ the key exists; until the activation commit sets it, the pre-registration's appr
 which.
 
     python3 results/cef/te4_impl/sleeve_noop_diff.py --base-tree <worktree at ac15d09>
-    # five children in parallel, each about 21 minutes on every date (measured 2026-11-03:
-    # 1,278-1,293 s per child, 7,018 dates); --dates last:200 for a quick look (about 30 s)
+    # seven children in parallel, each about 21 minutes on every date (measured 2026-11-03
+    # with five: 1,278-1,293 s per child, 7,018 dates); --dates last:200 for a quick look
 
 Writes `sleeve_noop_diff_output_<stamp>.txt` beside this file (never overwriting another stamp's
 without --overwrite), and the per-variant pickles under --workdir (a temporary directory unless
@@ -80,7 +93,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 NEW_TREE = HERE.parents[2]
-VARIANTS = ("base:absent", "base:flatten", "new:absent", "new:flatten", "new:te4")
+VARIANTS = ("base:absent", "base:flatten", "base:hold", "new:absent", "new:flatten", "new:hold",
+            "new:te4")
+# Each claim the verdict checks: variant -> the variant it must equal byte for byte, every
+# (date, book). new:te4 is checked separately (full sessions only, meta["cef_thin"] removed).
+COMPARE = {"base:flatten": "base:absent", "new:absent": "base:absent",
+           "new:flatten": "base:absent", "new:hold": "base:hold"}
 PREREG_FLOOR = 4          # §1.1 of the pre-registration; used only until the spec carries the key
 HELD_LONG, HELD_SHORT = 700.0, -500.0
 
@@ -130,8 +148,8 @@ def child(tree: Path, variant: str, data: Path, dates_file: Path, out: Path) -> 
         raise AssertionError("the live spec sets below_min_names; this proof is of the key ABSENT")
     kw, extras_add, floor_note = {}, {}, ""
     rule = variant.split(":")[1]
-    if rule == "flatten":
-        fr["below_min_names"] = "flatten"
+    if rule in ("flatten", "hold"):
+        fr["below_min_names"] = rule
     elif rule == "te4":
         floor = getattr(S, "BELOW_MIN_NAMES_FLOOR", None)
         floor_note = ("the spec's below_min_names_floor" if floor is not None
@@ -280,13 +298,15 @@ def driver(a) -> int:
           f"{R[v]['seconds']:.0f}s")
     P("")
     ok = True
-    for v in ("base:flatten", "new:absent", "new:flatten"):
-        diff = [k for k in keys if R[v]["blob"][k] != ref[k]]
+    for v, against in COMPARE.items():
+        want = R[against]["blob"]
+        diff = [k for k in keys if R[v]["blob"][k] != want[k]]
         # A byte difference with equal reprs would be pickle's memo (shared objects), not a value;
         # it is reported separately and still fails the verdict.
-        vals = [k for k in diff if repr(pickle.loads(R[v]["blob"][k])) != repr(pickle.loads(ref[k]))]
+        vals = [k for k in diff
+                if repr(pickle.loads(R[v]["blob"][k])) != repr(pickle.loads(want[k]))]
         ok &= not diff
-        P(f"{v:<13} vs base:absent: {len(keys) - len(diff)} of {len(keys)} (date, book) pickles "
+        P(f"{v:<13} vs {against}: {len(keys) - len(diff)} of {len(keys)} (date, book) pickles "
           f"byte-identical" + (f"; {len(diff)} differ in bytes, {len(vals)} in value; FIRST "
                                f"{diff[0]}" if diff else ""))
     # te4: equal to the reference wherever at least min_names were eligible (meta["cef_thin"]

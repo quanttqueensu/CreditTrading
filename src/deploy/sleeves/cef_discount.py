@@ -156,9 +156,12 @@ name is 0/0, two carry only a sign, three force a side onto one fund).
 
   ABSENT, "flatten" or "hold": byte for byte today's targets, meta included,
   proved on every real-panel decision date, flat and held books, against
-  ac15d09's code (results/cef/te4_impl/sleeve_noop_diff.py; the commit
-  message). `src/deploy/tests/test_below_min_names_trade_eligible.py` tests
-  what the key does, the refusals, and the harness equality on the real panel.
+  ac15d09's code under the same rule (results/cef/te4_impl/sleeve_noop_diff.py
+  and the dated output beside it; "hold" was first run there after the reviews
+  of f1d9f62, which found this sentence citing a comparison the script did not
+  make; src/deploy/tests/test_te4_noop_proof_coverage.py pins the two together).
+  `src/deploy/tests/test_below_min_names_trade_eligible.py` tests what the key
+  does, the refusals, and the harness equality on the real panel.
 """
 from __future__ import annotations
 
