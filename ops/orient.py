@@ -535,6 +535,9 @@ def spec_fields(s: dict) -> dict:
             "vol_target_annual": fr.get("vol_target_annual"),
             "vol_target_absent": "vol_target_annual" not in fr,
             "sizing_multiplier": fr.get("sizing_multiplier"),
+            "below_min_names": fr.get("below_min_names"),
+            "below_min_names_absent": "below_min_names" not in fr,
+            "below_min_names_floor": fr.get("below_min_names_floor"),
             "capital_usd": s.get("capital_usd"),
             "band_width": fr.get("band_width"),
             "rebalance_days": fr.get("rebalance_days"),
@@ -942,6 +945,14 @@ def render(d: dict) -> None:
            f"{m}   effective vol target {vt} x {m} = "
            + (f"{float(vt) * float(m):.4f}" if isinstance(vt, (int, float)) else "UNMEASURED (no vol target)")
            + "   (CEF trial 53)")
+        # CEF trial 55 (te4): the thin-session rule, and its floor only where one is written.
+        # ABSENT is said as absent, with what the registry reads it as, never as a value.
+        rule, floor = sec.get("below_min_names"), sec.get("below_min_names_floor")
+        _p("below_min_names",
+           ("absent (read as 'flatten': FLAT under min_names eligible names)"
+            if sec.get("below_min_names_absent") else str(rule))
+           + (f"   floor {floor}" if floor is not None else "")
+           + ("   PAPER ONLY (CEF trial 55)" if rule == "trade_eligible" else ""))
         _p("band_width", f"{sec['band_width']}   "
                          f"z_window {sec['z_window']}   "
                          f"{sec['n_universe']} names   {sec['order_type']}")
