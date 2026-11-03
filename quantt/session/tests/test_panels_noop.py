@@ -1,4 +1,4 @@
-"""Plan row 6A is DARK: the session `default_deps` builds for today's book json is byte-identical to 5e627ff.
+"""Plan row 6A is DARK: the session `default_deps` builds for today's book json is byte-identical to 862b1d0.
 
 WHAT ROW 6A CHANGED (results/cef/C4_DEPLOY_PLAN_2026-10-27.md §1 row 6A, §2
 step 5; quantt/session/run.py PER-SLEEVE PANELS). `default_deps` used to read
@@ -67,6 +67,23 @@ two pins together are the core's no-op proof for the C4 integration: the
 session default_deps builds is cee16ad's with the gate absent and 35b429f's
 as released.
 
+RE-PINNED ON 862b1d0 (merge of c4-integrate onto main, 2026-11-02). Main moved
+on after c4-integrate was cut: release-20261102-1 (862b1d0) is prod's code, the
+released book json sets the gate to `report` (team lead 2026-11-02) and names spec
+v8 in its description, and the live spec is cef_discount.v8.20261101 (CEF trial
+53, `sizing_multiplier` 1.13). The 5e627ff/35b429f pins above were proofs about
+book jsons and code that no longer ship, and both `book` hashes failed, as they
+are built to. So BOTH families are now made on `git archive 862b1d0`, the code
+the merged tree must equal for the core, the same way as before (this file
+copied in, data/ symlinked read only, `print_pins` in fresh processes, unseeded
+and under PYTHONHASHSEED 1; identical every time, and on c4-rel): the gate-absent
+pair (`print_pins("gate_absent")`) and the released pair (`print_pins("released")`).
+Two edits made that possible, and neither changes what is hashed: the clear feed
+takes main's keywords (`_ClearFeedClient`), and the real-panel pins read the LIVE
+spec as released, v8, against test_combine_noop's `PINNED_INPUT_V8` (the same panel
+copy and v8's sha), where they used to need v7 and so skipped on every machine
+since trial 53. The 5e627ff and 35b429f pins are in git at 8b001c9.
+
 Hermetic: no network (netguard; the CEFConnect reader raises), no key file (the
 client factory is faked), state under tmp_path, the real panels read only.
 """
@@ -80,7 +97,7 @@ import pytest
 from quantt.session import run as rn
 from quantt.session.tests.test_combine_noop import (
     LIVE_SPEC_PATH,
-    PINNED_INPUT as COMBINE_PINNED_INPUT,
+    PINNED_INPUT_V8 as COMBINE_PINNED_INPUT,
     SYN_SPEC,
     RealPanelPinNotApplicable,
     _client,
@@ -167,7 +184,9 @@ def _book(work: Path, spec_path: Path, key: bool, *, released: bool = False) -> 
 class _ClearFeedClient(FakeClient):
     """test_run's FakeClient with Alpaca's corporate-action read, listing nothing
     (test_c4_synthetic_pin's _ClearFeed): the released book's gate reads it."""
-    def corporate_actions(self, symbols, start, end):
+    def corporate_actions(self, symbols, start, end, **kw):
+        # **kw: main's gate passes `universe` and `skipped` (corp_actions.check,
+        # a40170c); an empty feed has nothing to skip or record.
         self.calls.append(("corporate_actions", tuple(sorted(symbols)), start, end))
         return []
 
@@ -295,11 +314,14 @@ def _released_real_pins(work: Path, mp) -> dict | None:
                                    REAL_MISSING, True, released=True)}
 
 
-def print_pins(which: str = "5e627ff"):
-    """Print the pins (module docstring, HOW THE PINS WERE MADE): `5e627ff` the
-    gate-absent pair, `35b429f` the released book's pair."""
+def print_pins(which: str = "gate_absent"):
+    """Print the pins (module docstring, RE-PINNED ON 862b1d0): `gate_absent` the
+    gate-absent pair, `released` the released book's pair. Run in a `git archive`
+    of the reference commit with this file copied in, never on the tree tested."""
     import tempfile
-    fns = ({"SYN_PINNED": _synthetic_pins, "REAL_PINNED": _real_pins} if which == "5e627ff"
+    if which not in ("gate_absent", "released"):
+        raise ValueError(f"which={which!r}: 'gate_absent' or 'released'")
+    fns = ({"SYN_PINNED": _synthetic_pins, "REAL_PINNED": _real_pins} if which == "gate_absent"
            else {"RELEASED_SYN_PINNED": _released_synthetic_pins,
                  "RELEASED_REAL_PINNED": _released_real_pins})
     for name, fn in fns.items():
@@ -307,394 +329,397 @@ def print_pins(which: str = "5e627ff"):
             print(name, "=", json.dumps(fn(Path(d) / "w", mp), indent=1, sort_keys=True))
 
 
-# PINNED 2026-10-29 on 5e627ff (release-20261029-2); module docstring: how, and how
-# to re-derive. The key-absent entries equal test_missing_nav_hold.py's pins, made
-# on bd87144 with hand-built deps: default_deps builds what those deps build.
+# PINNED 2026-11-02 on 862b1d0 (release-20261102-1, main), the gate block removed:
+# `print_pins("gate_absent")` in a `git archive 862b1d0` tree, unseeded and under
+# PYTHONHASHSEED 1 (identical); module docstring, RE-PINNED ON 862b1d0. Until then
+# made on 5e627ff (in git at 8b001c9).
 SYN_PINNED = {
-    "absent": {
-        "book": "485fe7f7f1ff8c99cd559f049a43c8f5ba75f358f59aa7a25075004e60446e42",
-        "complete|decide": {
-            "exit": 6,
-            "n_orders": 7,
-            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
-            "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
-            "plan_json": "6d81b758b730f5c5901cc307decf1f6ea354da71d7cc3dd0b0f4c181d8835368",
-            "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "fef25235298115511f49fb9e859527400d2f4e51f24338506c2c0e7032cd2779",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
-        },
-        "complete|send": {
-            "exit": 0,
-            "run_record": "2ba2408c6f4f2039f65594d86948e8d88ef22afaf654b6d118f60f35dc3babee",
-            "send_json": "28900ab87d89f8716cc885b35b3612f9f9b33ca0be117b85d12659cbd5624819",
-            "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
-        },
-        "missing|eve": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": None,
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "eac2080f6b0e3099dd1b535da8d0434a75d3717f32da5f61e1a314629bd5f7b6",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "630bfc011cbaf9c3a07f35493598a808548ddb9c617fbcb8e42f2a19bc5d25ed",
-            "run_record": "676630c02f863db9e92089d8e63f55171e62b598acbdd6b5bf9600d67a900c98",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": None,
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "eac2080f6b0e3099dd1b535da8d0434a75d3717f32da5f61e1a314629bd5f7b6",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "630bfc011cbaf9c3a07f35493598a808548ddb9c617fbcb8e42f2a19bc5d25ed",
-            "run_record": "f241e3222dc6c112b0cb1bedab8baf0b9988505404d6a991ec969a7979c38b83",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final_cls": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": None,
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "9edca0afad5cacdaed81517f4048bf86c3a39ccfb7f595c5f2f1b75cccc9fdc5",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "630bfc011cbaf9c3a07f35493598a808548ddb9c617fbcb8e42f2a19bc5d25ed",
-            "run_record": "1f4caf668b2f85cc257816187e5cc00bafb93538350a5f7b942b7357926d4066",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": None,
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        }
-    },
-    "hold": {
-        "book": "22356114d717b84f473c7b146adaf4b1d5525a47299b6f257f43b47411785455",
-        "complete|decide": {
-            "exit": 6,
-            "n_orders": 7,
-            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
-            "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
-            "plan_json": "8a419869b91ed92c14e6bbc1b4881fdf00ab64b5f599626abfba35f28f5ae720",
-            "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "ce6efea304c72a4585826377403a017b11fe37f465e1bde7aac4a52d9bcb07cf",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
-        },
-        "complete|send": {
-            "exit": 0,
-            "run_record": "2ba2408c6f4f2039f65594d86948e8d88ef22afaf654b6d118f60f35dc3babee",
-            "send_json": "28900ab87d89f8716cc885b35b3612f9f9b33ca0be117b85d12659cbd5624819",
-            "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
-        },
-        "missing|eve": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "13a0b7b2b75614aa4d6eb3841d666ab2312641b4147df66a06c955942603cedf",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "0d32802d42ce7301e6a64fd20245a41f44cf43cb6831cad8175bff9375748d66",
-            "run_record": "80c8df9a59d20ef25fb9bfc081be216b07cee5929c5ee328260f7fdadfcd50c0",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final": {
-            "exit": 6,
-            "n_orders": 6,
-            "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
-            "orders": "8e83a5fab26db52c76fcfbc357e9d9674bb742cca88049155b4f2a64e7f63d9a",
-            "plan_json": "e7df59e91474884e49aa3ed87e4a752cfc4f021a286b19bafbf98280a4cb40a2",
-            "plan_sha": "dabc5f382dc87baecf74fe4782e0c5f07902dc744eb7c5ae8bf5e0e59cdcb500",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "8ae2bf7126afc593fa4bfda3113196f6867722a38222efdc07f296cad6204103",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
-        },
-        "missing|final_cls": {
-            "exit": 0,
-            "n_orders": 6,
-            "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
-            "orders": "97bb764435fad43e59e6fe5be9480eccf28231974fd49bc8555bbdba79fa5a88",
-            "plan_json": "c1d1366fbafbaa92c94f52a7e4840ee628a60b08eff9f6674132c35a776e1bf3",
-            "plan_sha": "11b246acc248978f8cfb0e8f0d9ba58b4cead022b23bfa9284e31de4d7db92cb",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "9191f3f986c4831a2ea07cc2d33e4219df0ec8ec2fb5047ae00073719eece36f",
-            "sent": "178635e34eccb5810101fda355a3f703e6f4f17a7bef24cee399e3a9e60afbc5",
-            "status": None,
-            "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
-        }
-    },
-    "panel": "172d57548229a8776518927875787e15e3c5476f9e57cd9df99e90c78738b277"
+ "absent": {
+  "book": "c146ca017d79bd32221b6648836b922f57df8ec2d0547f0f39df5ef539603c80",
+  "complete|decide": {
+   "exit": 6,
+   "n_orders": 7,
+   "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+   "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
+   "plan_json": "6d81b758b730f5c5901cc307decf1f6ea354da71d7cc3dd0b0f4c181d8835368",
+   "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "fef25235298115511f49fb9e859527400d2f4e51f24338506c2c0e7032cd2779",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
+  },
+  "complete|send": {
+   "exit": 0,
+   "run_record": "2ba2408c6f4f2039f65594d86948e8d88ef22afaf654b6d118f60f35dc3babee",
+   "send_json": "28900ab87d89f8716cc885b35b3612f9f9b33ca0be117b85d12659cbd5624819",
+   "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
+  },
+  "missing|eve": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": None,
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "eac2080f6b0e3099dd1b535da8d0434a75d3717f32da5f61e1a314629bd5f7b6",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "630bfc011cbaf9c3a07f35493598a808548ddb9c617fbcb8e42f2a19bc5d25ed",
+   "run_record": "676630c02f863db9e92089d8e63f55171e62b598acbdd6b5bf9600d67a900c98",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": None,
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "eac2080f6b0e3099dd1b535da8d0434a75d3717f32da5f61e1a314629bd5f7b6",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "630bfc011cbaf9c3a07f35493598a808548ddb9c617fbcb8e42f2a19bc5d25ed",
+   "run_record": "f241e3222dc6c112b0cb1bedab8baf0b9988505404d6a991ec969a7979c38b83",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final_cls": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": None,
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "9edca0afad5cacdaed81517f4048bf86c3a39ccfb7f595c5f2f1b75cccc9fdc5",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "630bfc011cbaf9c3a07f35493598a808548ddb9c617fbcb8e42f2a19bc5d25ed",
+   "run_record": "1f4caf668b2f85cc257816187e5cc00bafb93538350a5f7b942b7357926d4066",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": None,
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  }
+ },
+ "hold": {
+  "book": "bb392b8efdcfc91cdffc70e3b3472d31bdb11cb66880a664868f6df32d76d30e",
+  "complete|decide": {
+   "exit": 6,
+   "n_orders": 7,
+   "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+   "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
+   "plan_json": "8a419869b91ed92c14e6bbc1b4881fdf00ab64b5f599626abfba35f28f5ae720",
+   "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "ce6efea304c72a4585826377403a017b11fe37f465e1bde7aac4a52d9bcb07cf",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
+  },
+  "complete|send": {
+   "exit": 0,
+   "run_record": "2ba2408c6f4f2039f65594d86948e8d88ef22afaf654b6d118f60f35dc3babee",
+   "send_json": "28900ab87d89f8716cc885b35b3612f9f9b33ca0be117b85d12659cbd5624819",
+   "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
+  },
+  "missing|eve": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "13a0b7b2b75614aa4d6eb3841d666ab2312641b4147df66a06c955942603cedf",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "0d32802d42ce7301e6a64fd20245a41f44cf43cb6831cad8175bff9375748d66",
+   "run_record": "80c8df9a59d20ef25fb9bfc081be216b07cee5929c5ee328260f7fdadfcd50c0",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final": {
+   "exit": 6,
+   "n_orders": 6,
+   "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
+   "orders": "8e83a5fab26db52c76fcfbc357e9d9674bb742cca88049155b4f2a64e7f63d9a",
+   "plan_json": "e7df59e91474884e49aa3ed87e4a752cfc4f021a286b19bafbf98280a4cb40a2",
+   "plan_sha": "dabc5f382dc87baecf74fe4782e0c5f07902dc744eb7c5ae8bf5e0e59cdcb500",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "8ae2bf7126afc593fa4bfda3113196f6867722a38222efdc07f296cad6204103",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
+  },
+  "missing|final_cls": {
+   "exit": 0,
+   "n_orders": 6,
+   "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
+   "orders": "97bb764435fad43e59e6fe5be9480eccf28231974fd49bc8555bbdba79fa5a88",
+   "plan_json": "c1d1366fbafbaa92c94f52a7e4840ee628a60b08eff9f6674132c35a776e1bf3",
+   "plan_sha": "11b246acc248978f8cfb0e8f0d9ba58b4cead022b23bfa9284e31de4d7db92cb",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "9191f3f986c4831a2ea07cc2d33e4219df0ec8ec2fb5047ae00073719eece36f",
+   "sent": "178635e34eccb5810101fda355a3f703e6f4f17a7bef24cee399e3a9e60afbc5",
+   "status": None,
+   "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
+  }
+ },
+ "panel": "172d57548229a8776518927875787e15e3c5476f9e57cd9df99e90c78738b277"
 }
-# PINNED 2026-10-29 on 5e627ff, on the laptop's dev panels (test_combine_noop's
-# input pin; only rows through 2026-09-25 are read).
+# PINNED 2026-11-02 on 862b1d0, the gate block removed, on the laptop's dev panels
+# (cef_prices to 2026-10-15; only rows through 2026-09-25 are read) and the live spec v8
+# (test_combine_noop's PINNED_INPUT_V8). Until then made on 5e627ff with v7.
 REAL_PINNED = {
-    "absent": {
-        "book": "9b0aa0cbdf97c496ee859c2af47430f6728495152143a41ebec0362017658c27",
-        "complete|decide": {
-            "exit": 6,
-            "n_orders": 6,
-            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
-            "orders": "f198dd92f1f473578190d104e61bd70d8bb2352ecb253bc12ccc6c9b23d75a2c",
-            "plan_json": "46a4beb72f9164c126769a765a2c350144262d9cc2c77240f3e7be5fa39a7d30",
-            "plan_sha": "e69a46f6680840664ed3b44e21eb767cf4d9f641e0b3f9ee0fd07e45fa084e05",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "ef7329ad8ebfaccef04d1e0eb58d8b9a719bb1369f3be2407e2a23c5a3ecc6c3",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "978e2df32387f0be9e49a3a5966369bed1866e780b1ca8d79d562d11f2c37f56"
-        },
-        "complete|send": {
-            "exit": 0,
-            "run_record": "8003b25c902c0bc09863598ac0910fe44e0ca3ce245b912b05e8f07c28d37003",
-            "send_json": "ac1adb88597ac75eb557fc634eae9f879b5196a07c03cdbbcfc05fa2a46d6a9b",
-            "sent": "b30cc665d139dfebf931d9cac73299e66c22518a92a49e5c70d6a68e9532139d"
-        },
-        "missing|eve": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": None,
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "52e45d9baa3c8d5cd7a2e9e0cee5341c5f7f0d3347e7b2b6dc86b24953f752f3",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "0bd11e7d2acb6a4d1333ffa81814bd978c4247336c94639a7005ddcefcb9a865",
-            "run_record": "35f91aaac82e1f8865858e33dfce21928282a0da31889e7e3a3cd692e3258931",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": None,
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "52e45d9baa3c8d5cd7a2e9e0cee5341c5f7f0d3347e7b2b6dc86b24953f752f3",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "0bd11e7d2acb6a4d1333ffa81814bd978c4247336c94639a7005ddcefcb9a865",
-            "run_record": "ace60f3823f434048528b0a37871dabde32a64435cb42cff43fb096a0ad70fc7",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final_cls": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": None,
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "f783d446fc82ca1ca6f78e2a8caa3b7973224132afbe2905e7b7dd32d34fda0c",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "0bd11e7d2acb6a4d1333ffa81814bd978c4247336c94639a7005ddcefcb9a865",
-            "run_record": "494b3176742219873c4938795cf82efa8dce534907245657dbdfe9bb436d015a",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": None,
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        }
-    },
-    "hold": {
-        "book": "8dd27cdf6ed7909842a55380a22b1c0a1bbb9a505aa5fa2abb47d5d092d414b9",
-        "complete|decide": {
-            "exit": 6,
-            "n_orders": 6,
-            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
-            "orders": "f198dd92f1f473578190d104e61bd70d8bb2352ecb253bc12ccc6c9b23d75a2c",
-            "plan_json": "da8602893fb148bae6227dcea166fde9de26bcdbb9f5c84cc0c831e41f2352f6",
-            "plan_sha": "e69a46f6680840664ed3b44e21eb767cf4d9f641e0b3f9ee0fd07e45fa084e05",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "6b2f5e2fc5095a03715c90e674db43af24748d2a6d68a3d864a17c9d563bdc4b",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "978e2df32387f0be9e49a3a5966369bed1866e780b1ca8d79d562d11f2c37f56"
-        },
-        "complete|send": {
-            "exit": 0,
-            "run_record": "8003b25c902c0bc09863598ac0910fe44e0ca3ce245b912b05e8f07c28d37003",
-            "send_json": "ac1adb88597ac75eb557fc634eae9f879b5196a07c03cdbbcfc05fa2a46d6a9b",
-            "sent": "b30cc665d139dfebf931d9cac73299e66c22518a92a49e5c70d6a68e9532139d"
-        },
-        "missing|eve": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "07ed83190bad6371138f20035962beabde965b77ad3704210271814e598f5337",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "45fb724cc5c4f4b809d81561866376313a6deee1633f27933aef93a6c4e09b03",
-            "run_record": "55e1e0a78a4394c47e0f5f81cbede1488ea42402dd2a2e2a2b455b95a62caf96",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final": {
-            "exit": 6,
-            "n_orders": 5,
-            "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
-            "orders": "8eed4bbdede1d23018a30be99b635b0de15d950e92dcb109a205e7f3b7df6369",
-            "plan_json": "35d665a545dc2ce046281af36231e8ad4dbbac4418c0237aa2ec80dd8f884b03",
-            "plan_sha": "335ff6880608490519e3c98bbf824d94ddc3bbaebd968290892c099fa1f32d44",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "26c1009974d0499ce407c9c9207f2fe04d0291280d82ea7eafc3fb6af7877548",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "76f210ae5b86000c56d0cee23a8d046725f78b6795ec4c543d242ffd81561947"
-        },
-        "missing|final_cls": {
-            "exit": 0,
-            "n_orders": 5,
-            "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
-            "orders": "0dc9a3fc8ed8347907e3c97b0dedbde02770b1eb34384b693e41cf45afcc11bd",
-            "plan_json": "89ff6f5513af313530b83baf8b63633f8d916e1fb9e6d99c96e22590faabfedc",
-            "plan_sha": "11a7e458821ae6b6f380183d33fde28c9dd4d406533cb4ec512c70506513ed14",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "9bd6b7e00277111f3889514b0034c1d580edb84374d6b60fa761ac253022b5c2",
-            "sent": "64329bbbd615fe4d2ae0d658f443b9fde2e006213c9b0bfbd0f130572f7f0d93",
-            "status": None,
-            "targets": "76f210ae5b86000c56d0cee23a8d046725f78b6795ec4c543d242ffd81561947"
-        }
-    }
+ "absent": {
+  "book": "f1b28f7d56d5e0b2e676417e7146bca3fe90b50bed60c81e0f94f2649a3a6dab",
+  "complete|decide": {
+   "exit": 6,
+   "n_orders": 6,
+   "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+   "orders": "037bdf2b328be4ea86d1c6b581918fc8219d9f2e8a58e2d6da31edf1f0794830",
+   "plan_json": "991d914652f1979f8aac2320a5c7d256c81160fc1eb51a2e533cee759901a41e",
+   "plan_sha": "03509da3b3be0cc129fb1029116a58dac5a1ef26c90fb6590216d2b8ce3eebc7",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "e6fdf113663edd8b6a0211cc79acbdd047f800cecfddbe6d670069132f6cb134",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "a18254b6c48fd1c58d2c45eb84ea766c8f3df55368f6520ab4d9cf055ef34369"
+  },
+  "complete|send": {
+   "exit": 0,
+   "run_record": "6746d7f7d948500b0ca6785a2f27f5ded6738e6075115fc40d7ea6770573af23",
+   "send_json": "9829d3c1a7c04b1596dec5f6aa8924273f02443bab9b918f19ba6a6e56552834",
+   "sent": "8aaa3cd32318320fe85ad32276dbdb7c144fecbda9370e7e7d319ef50a666a50"
+  },
+  "missing|eve": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": None,
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "9e9d2be31ed25f4473ca903c8c15b310dd2eaaa7c3e3a8be745d825771d62fda",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "0bd11e7d2acb6a4d1333ffa81814bd978c4247336c94639a7005ddcefcb9a865",
+   "run_record": "6a86132b45401cb883bba86490409ff4044e94fa360dad710718be269163b428",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": None,
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "9e9d2be31ed25f4473ca903c8c15b310dd2eaaa7c3e3a8be745d825771d62fda",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "0bd11e7d2acb6a4d1333ffa81814bd978c4247336c94639a7005ddcefcb9a865",
+   "run_record": "530bb0921eb51791a32f60289cfaf8e0eb2ce725e71c271d2cbb320a86763d11",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final_cls": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": None,
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "af85cb16502c451cd708fd88bafa66657847e0a9b9f2579471bdd0e8a0bbea5e",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "0bd11e7d2acb6a4d1333ffa81814bd978c4247336c94639a7005ddcefcb9a865",
+   "run_record": "2ef3c0d65960601bd0c482223327cec36a06fe05cfe629798a7b548f26667f6b",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": None,
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  }
+ },
+ "hold": {
+  "book": "3d52db4475c31877817884159bae350a9d6a0a821c36f5327cba391016229a86",
+  "complete|decide": {
+   "exit": 6,
+   "n_orders": 6,
+   "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+   "orders": "037bdf2b328be4ea86d1c6b581918fc8219d9f2e8a58e2d6da31edf1f0794830",
+   "plan_json": "0dea67e8b4670266699994bd0d507ca0455a963d6e0078138dd385573c48d290",
+   "plan_sha": "03509da3b3be0cc129fb1029116a58dac5a1ef26c90fb6590216d2b8ce3eebc7",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "b0d49c1f8731863e1078a6e3742583e3cf17c550185a863a03b6422ad95d3ada",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "a18254b6c48fd1c58d2c45eb84ea766c8f3df55368f6520ab4d9cf055ef34369"
+  },
+  "complete|send": {
+   "exit": 0,
+   "run_record": "6746d7f7d948500b0ca6785a2f27f5ded6738e6075115fc40d7ea6770573af23",
+   "send_json": "9829d3c1a7c04b1596dec5f6aa8924273f02443bab9b918f19ba6a6e56552834",
+   "sent": "8aaa3cd32318320fe85ad32276dbdb7c144fecbda9370e7e7d319ef50a666a50"
+  },
+  "missing|eve": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "0ebac7bd4b0c739aa43265ecff3079d13a31be3d2463dd8e6abe6940e1b27761",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "45fb724cc5c4f4b809d81561866376313a6deee1633f27933aef93a6c4e09b03",
+   "run_record": "c68b4f26a8866838d7d23191473ee37adabc946c9777003b61c7db4881705519",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final": {
+   "exit": 6,
+   "n_orders": 5,
+   "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
+   "orders": "9b7f367c05673eb6e51a7617ca8c1e3df33a1ac8b670a8d0b2b3e41904843b07",
+   "plan_json": "98416e6bc5c8f40e095955695b612daad219483556fed542fc126aa67aa2e040",
+   "plan_sha": "424ed40c4df4bf5ad166484b392ab1062cc948ad894722444930904bdf534a82",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "f7bfc0f210a784739fb8ecfa9eb7fac8b2ff388b4611dbd16da4ac4c49da2c93",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "5b9f106426de44eaeb18641a86c3f53452d223ae4fc466df6df9970d7dbc2036"
+  },
+  "missing|final_cls": {
+   "exit": 0,
+   "n_orders": 5,
+   "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
+   "orders": "71adff005d8e0ea1f5f46af244f5d3b547961dacc8c0a0c2a091ec089f6f1e67",
+   "plan_json": "95270a2dcf88e121e2b8d4f5f56102ccd2659ea7f2f204a7264b994f052185d0",
+   "plan_sha": "f6095fcfa894c6253137a628d3d00190547065d3c51db6634ce0c33c80e2caee",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "cbb83246aa73d4b353c282a70ed2c78947b33672400665a29d06cd46c1535d32",
+   "sent": "6f7bccd5afbf21a8e7298cff39b9c1e238f3252e6a6da0c56204624bb01dfc85",
+   "status": None,
+   "targets": "5b9f106426de44eaeb18641a86c3f53452d223ae4fc466df6df9970d7dbc2036"
+  }
+ }
 }
 
 
-# PINNED 2026-10-29 on 35b429f (origin/main, which c4-integrate was cut from): the
-# released book json as is, the corporate-action gate in halt against a clear feed
-# (module docstring, THE CORPORATE-ACTION GATE). Made as the 5e627ff pins were,
-# `print_pins("35b429f")` in a `git archive 35b429f` tree, unseeded and under
-# PYTHONHASHSEED 1 (identical), then on c4-integrate (identical again).
+# PINNED 2026-11-02 on 862b1d0 (release-20261102-1, main): the released book json as
+# is, the corporate-action gate in REPORT (team lead 2026-11-02) against a clear feed
+# (module docstring, THE CORPORATE-ACTION GATE). `print_pins("released")` in a
+# `git archive 862b1d0` tree, unseeded and under PYTHONHASHSEED 1 (identical), then on
+# c4-rel (identical again). Until then made on 35b429f with the gate in halt.
 RELEASED_SYN_PINNED = {
-    "panel": "172d57548229a8776518927875787e15e3c5476f9e57cd9df99e90c78738b277",
-    "released": {
-        "book": "e66eb81ba26a054e8daca787884b58e706091ce3f8117afd70e75264e21a7fd2",
-        "complete|decide": {
-            "exit": 6,
-            "n_orders": 7,
-            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
-            "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
-            "plan_json": "8bb9b3afdce5efe5cbaf080a089085b885c4c85d15e111f4b9b7e216fe1de865",
-            "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "7fb02530f4f73be2673b8461440cd893ce0f136645c5134c1cb124108766c220",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
-        },
-        "complete|send": {
-            "exit": 0,
-            "run_record": "049746ef2353e73cb3ede8e1ead785f5f7b84747bd2598bf55f1c1ea088eed9a",
-            "send_json": "26f2e40c25f4b9221ec335c43057ab1408f43ec0c320afbdcac19cf5556987e8",
-            "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
-        },
-        "missing|eve": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "9025b800b4547f17532f711515855ad0affb3bc56e90cc0206a62efe5fa017a5",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "0d32802d42ce7301e6a64fd20245a41f44cf43cb6831cad8175bff9375748d66",
-            "run_record": "2839c3f73980377f7c6fd5631069e2c4ccf0834d85c7fe1ce585cff8d01a4c89",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final": {
-            "exit": 6,
-            "n_orders": 6,
-            "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
-            "orders": "8e83a5fab26db52c76fcfbc357e9d9674bb742cca88049155b4f2a64e7f63d9a",
-            "plan_json": "76c9fba86a6e4b44ceddb9a09ae7c17873f7ad54b72671e75c4704bde0d4fbe5",
-            "plan_sha": "dabc5f382dc87baecf74fe4782e0c5f07902dc744eb7c5ae8bf5e0e59cdcb500",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "21b51e0a303c1c0110149ff0d46e0ec280f3f5c21aac28bc3350f17d9f55e889",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
-        },
-        "missing|final_cls": {
-            "exit": 0,
-            "n_orders": 6,
-            "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
-            "orders": "97bb764435fad43e59e6fe5be9480eccf28231974fd49bc8555bbdba79fa5a88",
-            "plan_json": "767a08295511de403a653159b8f1e0847adfb08994a8bc7df255beb09dc8db13",
-            "plan_sha": "11b246acc248978f8cfb0e8f0d9ba58b4cead022b23bfa9284e31de4d7db92cb",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "2bc7af07ba73c5c2c75568c1aa1611533fbd283a9ba4768304cae0b4425b782f",
-            "sent": "178635e34eccb5810101fda355a3f703e6f4f17a7bef24cee399e3a9e60afbc5",
-            "status": None,
-            "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
-        }
-    }
+ "panel": "172d57548229a8776518927875787e15e3c5476f9e57cd9df99e90c78738b277",
+ "released": {
+  "book": "e96b51fa494ab0aa8847fa429b2c5080634bc7d705e6377053d77da4fd40bde9",
+  "complete|decide": {
+   "exit": 6,
+   "n_orders": 7,
+   "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+   "orders": "e628eb451ee60ed44c2a3432437a51e54f7759a97439d112ce119d11e3271024",
+   "plan_json": "8451da694905286c408bd0edb65c7114dc55dffcbe863b207ca0ac0207201352",
+   "plan_sha": "aa3cc8b1827344eac6a143892be4faa969df5bcb1431b09903b93b8c229a780e",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "dc6b959a8ec8dd31ac59491aa0e0e974542a5cd72fb8d8e6a55d11b1ce140315",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "732894a285fe4821a443ae4ce9d9d609cc3e382edc831ccb239c03e155f5fb6f"
+  },
+  "complete|send": {
+   "exit": 0,
+   "run_record": "87395a39cab28cd27326eaa2f773684d2499459c0cc2e1d1aaf89ea3298d017d",
+   "send_json": "c8247f662bb788c21d1bf1701a4641330bf23679d05a0b4e106b8403eb5dc05b",
+   "sent": "5409c95d63e197ab80437a44fa71fb69e234f2578348b84b75cc9217193f6aaf"
+  },
+  "missing|eve": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": "a43fad90c4741dc4b1cc9cef3f7eb697a360c4779d3ac981ee8df218e287a845",
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "2510ad85d2f6fc70341c47fbce077bb02511a86718f8761ceace41d7d03cc3f6",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "0d32802d42ce7301e6a64fd20245a41f44cf43cb6831cad8175bff9375748d66",
+   "run_record": "638d3b0a452032271b710e277e7943acb496d67ffc734a15e974bfb7049fc5ee",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final": {
+   "exit": 6,
+   "n_orders": 6,
+   "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
+   "orders": "8e83a5fab26db52c76fcfbc357e9d9674bb742cca88049155b4f2a64e7f63d9a",
+   "plan_json": "05ae1230eee06a990adf7e07418a1617b20811054710878d7207f1542a33b7d1",
+   "plan_sha": "dabc5f382dc87baecf74fe4782e0c5f07902dc744eb7c5ae8bf5e0e59cdcb500",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "8bffa8cc96573dc32871f0987aca903e8ba8398a23f1a6737410551ddc0ded21",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
+  },
+  "missing|final_cls": {
+   "exit": 0,
+   "n_orders": 6,
+   "nav_gate_csv": "8c5ca313d8bddeb168b5f6b56f8f909f90e67576f2309c9dde7157d758097d86",
+   "orders": "97bb764435fad43e59e6fe5be9480eccf28231974fd49bc8555bbdba79fa5a88",
+   "plan_json": "1e531bae16ad7ec1edd3233d6b5c6a183192e735a9caaa3b6e4c3d30c18b964d",
+   "plan_sha": "11b246acc248978f8cfb0e8f0d9ba58b4cead022b23bfa9284e31de4d7db92cb",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "e32815e98847c81e5bc7c194bdd5400bbb45bd1fc32f2042ded5e9673e5db8c9",
+   "sent": "178635e34eccb5810101fda355a3f703e6f4f17a7bef24cee399e3a9e60afbc5",
+   "status": None,
+   "targets": "ad3fafebc78bba0add3d0f9c46c1c629d3d30a6e15a852a9cc04ed8594c0f9c0"
+  }
+ }
 }
-# PINNED 2026-10-29 on 35b429f, on the laptop's dev panels (test_combine_noop's input pin).
+# PINNED 2026-11-02 on 862b1d0, on the laptop's dev panels and the live spec v8
+# (test_combine_noop's PINNED_INPUT_V8). Until then made on 35b429f with v7.
 RELEASED_REAL_PINNED = {
-    "released": {
-        "book": "643b281d0fc89e08755b91527240934d3b31f46f623cf6fd050ad9828db8d04a",
-        "complete|decide": {
-            "exit": 6,
-            "n_orders": 6,
-            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
-            "orders": "f198dd92f1f473578190d104e61bd70d8bb2352ecb253bc12ccc6c9b23d75a2c",
-            "plan_json": "48172b61b71c6faac27fc6a4e76285dd9797525d0ccfa1053f44a57e69a921e8",
-            "plan_sha": "e69a46f6680840664ed3b44e21eb767cf4d9f641e0b3f9ee0fd07e45fa084e05",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "5117439bbb11952848310427eabfc9d2bf5c4d2a5be7e48e0db8be8b7d388ba9",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "978e2df32387f0be9e49a3a5966369bed1866e780b1ca8d79d562d11f2c37f56"
-        },
-        "complete|send": {
-            "exit": 0,
-            "run_record": "42dba88f6f33006723bc144f64825684f16c23995ef70c41a8448475d55d554d",
-            "send_json": "fc20e7bf095c218400e3cf2a6bf8db0ff26cd5c1972e7b6cdcae0d8345a09835",
-            "sent": "b30cc665d139dfebf931d9cac73299e66c22518a92a49e5c70d6a68e9532139d"
-        },
-        "missing|eve": {
-            "exit": 11,
-            "n_orders": 0,
-            "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
-            "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "plan_json": "4ae354c2c92b1914bb21159e4797d14c01b49e7152b72a8667134a1385a0ddce",
-            "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "refusals": "45fb724cc5c4f4b809d81561866376313a6deee1633f27933aef93a6c4e09b03",
-            "run_record": "ee0c2301882216982fa21cc24a53243b70d1ae8871c08af6fd6d0baf6655fc15",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "refused",
-            "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-        },
-        "missing|final": {
-            "exit": 6,
-            "n_orders": 5,
-            "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
-            "orders": "8eed4bbdede1d23018a30be99b635b0de15d950e92dcb109a205e7f3b7df6369",
-            "plan_json": "55a1fecf747f13ebcad15cc2ed93fff51a5aff5cb68676db9e7a0ffbd0313f58",
-            "plan_sha": "335ff6880608490519e3c98bbf824d94ddc3bbaebd968290892c099fa1f32d44",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "28792045440f4129f8a253d2f1710b2977866fe5249e77cde4d4929dff589d3d",
-            "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "status": "decided",
-            "targets": "76f210ae5b86000c56d0cee23a8d046725f78b6795ec4c543d242ffd81561947"
-        },
-        "missing|final_cls": {
-            "exit": 0,
-            "n_orders": 5,
-            "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
-            "orders": "0dc9a3fc8ed8347907e3c97b0dedbde02770b1eb34384b693e41cf45afcc11bd",
-            "plan_json": "59c243f3cf348c7ae3202b5c71f183d8c8f02200a99240bf22ea6bd00de846c4",
-            "plan_sha": "11a7e458821ae6b6f380183d33fde28c9dd4d406533cb4ec512c70506513ed14",
-            "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            "run_record": "df65a06c54180eacd39e7b2e492f65ddc532b8b619a2cf4055540ca27f45fe76",
-            "sent": "64329bbbd615fe4d2ae0d658f443b9fde2e006213c9b0bfbd0f130572f7f0d93",
-            "status": None,
-            "targets": "76f210ae5b86000c56d0cee23a8d046725f78b6795ec4c543d242ffd81561947"
-        }
-    }
+ "released": {
+  "book": "a0d514887425496aece1373f90b9e833c0c53cfd6fc17476842f196869eaa1ed",
+  "complete|decide": {
+   "exit": 6,
+   "n_orders": 6,
+   "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+   "orders": "037bdf2b328be4ea86d1c6b581918fc8219d9f2e8a58e2d6da31edf1f0794830",
+   "plan_json": "771a3fd00558ee44f066dd5e4e8a191348397ed05efe05428dcce505f476e71e",
+   "plan_sha": "03509da3b3be0cc129fb1029116a58dac5a1ef26c90fb6590216d2b8ce3eebc7",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "ec6e656060a47b26e15d5d63dd4b6ecff468e4d16dd4549115248d7db061bee0",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "a18254b6c48fd1c58d2c45eb84ea766c8f3df55368f6520ab4d9cf055ef34369"
+  },
+  "complete|send": {
+   "exit": 0,
+   "run_record": "4d8e558a97fab4b2df5afd7bd18e1359969722a4ffa6d72388770cb2be5be8d7",
+   "send_json": "4c6221e465ef1f44e839b4d51d807ec6f5de8eb8717bf172c17ec92b06676af7",
+   "sent": "8aaa3cd32318320fe85ad32276dbdb7c144fecbda9370e7e7d319ef50a666a50"
+  },
+  "missing|eve": {
+   "exit": 11,
+   "n_orders": 0,
+   "nav_gate_csv": "18734cfdbe33cc779a2277bef135248fcafa1c90de9b2a0c203ae82a729af304",
+   "orders": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "plan_json": "02515ffc4fd4e42db85691605570ad38b0cc5ff2e5e019ecd9bde249ba405023",
+   "plan_sha": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "refusals": "45fb724cc5c4f4b809d81561866376313a6deee1633f27933aef93a6c4e09b03",
+   "run_record": "6e20e49fb1270d57699f033574f6354c86cb24a15794d90c3ee46828f89184eb",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "refused",
+   "targets": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "missing|final": {
+   "exit": 6,
+   "n_orders": 5,
+   "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
+   "orders": "9b7f367c05673eb6e51a7617ca8c1e3df33a1ac8b670a8d0b2b3e41904843b07",
+   "plan_json": "ce0d283983fb816adf875d84252a324c0c886d7e8db65dc1fd6440f52a043d4d",
+   "plan_sha": "424ed40c4df4bf5ad166484b392ab1062cc948ad894722444930904bdf534a82",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "049163f3202d3e035d0cdf5c95a6cedb809066e50466923212ef24cd57f09f7b",
+   "sent": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "decided",
+   "targets": "5b9f106426de44eaeb18641a86c3f53452d223ae4fc466df6df9970d7dbc2036"
+  },
+  "missing|final_cls": {
+   "exit": 0,
+   "n_orders": 5,
+   "nav_gate_csv": "3e17b6fc3741ec740818874935a3a078f2b300f7ee49a86dd1204828f1597100",
+   "orders": "71adff005d8e0ea1f5f46af244f5d3b547961dacc8c0a0c2a091ec089f6f1e67",
+   "plan_json": "6fceb8179dc3273a80ecf5dcb7c5e9ce4fca08424f414783df4d36f121535629",
+   "plan_sha": "f6095fcfa894c6253137a628d3d00190547065d3c51db6634ce0c33c80e2caee",
+   "refusals": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "run_record": "d298afff744e3c41f39369b5c44f012d0bcda86e3360c7ffda46729f61785934",
+   "sent": "6f7bccd5afbf21a8e7298cff39b9c1e238f3252e6a6da0c56204624bb01dfc85",
+   "status": None,
+   "targets": "5b9f106426de44eaeb18641a86c3f53452d223ae4fc466df6df9970d7dbc2036"
+  }
+ }
 }
 
 
@@ -712,7 +737,7 @@ def _not_vacuous(got: dict):
     assert got["hold"]["missing|final_cls"]["exit"] == rn.EXIT_SENT
 
 
-def test_synthetic_default_deps_is_5e627ff(tmp_path, monkeypatch):
+def test_synthetic_default_deps_is_862b1d0(tmp_path, monkeypatch):
     got = _synthetic_pins(tmp_path, monkeypatch)
     for v in ("absent", "hold"):
         assert got[v]["book"] == SYN_PINNED[v]["book"], (
@@ -725,14 +750,14 @@ def test_synthetic_default_deps_is_5e627ff(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(not _real_panel_ready(), reason="real CEF panels absent (data/ is "
                                                      "gitignored); the synthetic pin still runs")
-def test_real_panel_default_deps_is_5e627ff(tmp_path, monkeypatch):
+def test_real_panel_default_deps_is_862b1d0(tmp_path, monkeypatch):
     from src.deploy.sleeves import cef_discount as cefmod
     real = {f: f.read_bytes() for f in (cefmod.PX_PATH, cefmod.NAV_PATH)}
     got = _real_pins(tmp_path, monkeypatch)
     if got is None:
         import warnings
         why = (f"REAL-PANEL ROW-6A NO-OP PIN NOT APPLIED: it was made on panel/spec "
-               f"{COMBINE_PINNED_INPUT} (test_combine_noop's input pin); this tree's copy "
+               f"{COMBINE_PINNED_INPUT} (test_combine_noop's v8 input pin); this tree's copy "
                f"differs. The synthetic pin still runs")
         warnings.warn(why, RealPanelPinNotApplicable)
         pytest.skip(why)
@@ -759,7 +784,7 @@ def _released_not_vacuous(got: dict, gate_absent: dict):
     assert r["complete|decide"]["plan_json"] != h["complete|decide"]["plan_json"]
 
 
-def test_synthetic_released_book_is_35b429f(tmp_path, monkeypatch):
+def test_synthetic_released_book_is_862b1d0(tmp_path, monkeypatch):
     got = _released_synthetic_pins(tmp_path, monkeypatch)
     assert got["released"]["book"] == RELEASED_SYN_PINNED["released"]["book"], (
         "today's released book json is not the one this pin was made on: what the runner "
@@ -771,14 +796,14 @@ def test_synthetic_released_book_is_35b429f(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(not _real_panel_ready(), reason="real CEF panels absent (data/ is "
                                                      "gitignored); the synthetic pin still runs")
-def test_real_panel_released_book_is_35b429f(tmp_path, monkeypatch):
+def test_real_panel_released_book_is_862b1d0(tmp_path, monkeypatch):
     from src.deploy.sleeves import cef_discount as cefmod
     real = {f: f.read_bytes() for f in (cefmod.PX_PATH, cefmod.NAV_PATH)}
     got = _released_real_pins(tmp_path, monkeypatch)
     if got is None:
         import warnings
         why = (f"REAL-PANEL RELEASED-BOOK PIN NOT APPLIED: it was made on panel/spec "
-               f"{COMBINE_PINNED_INPUT} (test_combine_noop's input pin); this tree's copy "
+               f"{COMBINE_PINNED_INPUT} (test_combine_noop's v8 input pin); this tree's copy "
                f"differs. The synthetic pin still runs")
         warnings.warn(why, RealPanelPinNotApplicable)
         pytest.skip(why)

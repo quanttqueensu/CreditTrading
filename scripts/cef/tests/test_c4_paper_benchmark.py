@@ -65,11 +65,27 @@ def test_the_universe_is_the_trials_frozen_file_and_disjoint_from_the_core():
 
 def test_every_signal_parameter_is_the_one_the_trial_read():
     """Equal to scripts/cef/spec.py, which `build_targets` read for the trial, AND that file is
-    still the spec the trial recorded. If the core moves on, this fails: whether C4 follows is a
-    decision (a new trial), never an inheritance by accident."""
+    still the spec the trial recorded, or that spec plus CEF trial 53's account key and nothing
+    else. If the core moves on in any other way, this fails: whether C4 follows is a decision (a
+    new trial), never an inheritance by accident.
+
+    TRIAL 53 (merged here 2026-11-02). The core's spec became cef_discount.v8.20261101: v7, the
+    spec trial C4 recorded, plus `sizing_multiplier` 1.13 and its note. That key sizes the core's
+    ACCOUNT, not the signal, and trial 53 decided C4's own value separately (1.27, its spec's
+    `_sizing_multiplier_note`), so it is the one difference allowed. v7 is read from git at
+    35b429f (test_combine_noop.pre_trial_spec, the same bytes as the local revert tag)."""
+    from quantt.session.tests.test_combine_noop import (
+        PRE_TRIAL_COMMIT, assert_live_is_pre_trial_plus_the_multiplier, pre_trial_spec)
     from scripts.cef import spec as core
-    assert core.SPEC_ID == json.loads(c4.FIT_JSON.read_text())["spec"], (
-        "the core spec is no longer the one trial C4 read; decide what C4's spec should hold")
+    recorded = json.loads(c4.FIT_JSON.read_text())["spec"]
+    if core.SPEC_ID != recorded:
+        pre = pre_trial_spec()
+        if pre is None:
+            pytest.skip(f"git cannot show {PRE_TRIAL_COMMIT}:ops/specs/cef_discount.frozen.json, "
+                        f"the spec trial C4 recorded ({recorded}); the core is {core.SPEC_ID}")
+        assert pre[1]["spec_id"] == recorded, (
+            "the core spec is no longer the one trial C4 read; decide what C4's spec should hold")
+        assert_live_is_pre_trial_plus_the_multiplier(pre[1], json.loads(core.SPEC_PATH.read_text()))
     f = _spec()["frozen"]
     want = {"z_window": core.Z_WINDOW, "vol_target_annual": core.VOL_TARGET, "min_adv_usd": core.MIN_ADV_USD,
             "min_names": core.MIN_NAMES, "band_width": core.BAND_WIDTH, "min_abs_weight": core.MIN_ABS_WEIGHT,
@@ -280,7 +296,10 @@ def test_the_rulings_are_in_the_notes_and_the_counter_stays():
                  "0.02632", "2023-26 returns are not read", "left for step 5's book json"):
         assert must in note, must
     assert "left for step 5's book json" in _spec()["risk"]["_drawdown_levels_note"]
-    assert c4.cef_counter() == 52
+    # The cap spent no trial: the counter was 52 at the ruling, and the only trial since is
+    # CEF trial 53, the vol-target raise (results/cef/PREREG_VOLTARGET_2026-10-30.md, approved
+    # 2026-11-01), which does count. A further trial fails here: re-read this line then.
+    assert c4.cef_counter() == 53
     rs = (REPO / "docs" / "RESEARCH_STATE.md").read_text()
     assert "2026-10-29: C4's re-derived `max_gross_stress`" in rs and "CEF stays 52" in rs
 

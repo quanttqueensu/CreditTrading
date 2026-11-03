@@ -257,7 +257,10 @@ class _C4Client:
         from quantt.session.tests.test_run import FakeClient
 
         class C(FakeClient):
-            def corporate_actions(self, symbols, start, end):
+            # **kw: main's gate (a40170c and before) passes `universe`, `skipped` and,
+            # with acknowledgements, `rows` (corp_actions.check); an empty feed
+            # ignores them, as AlpacaClient.corporate_actions does for no rows.
+            def corporate_actions(self, symbols, start, end, **kw):
                 self.calls.append(("corporate_actions",))
                 return []
         return C(state, clock_ts=clock_ts)
@@ -336,6 +339,29 @@ def test_a_c4_session_refuses_another_books_state_dir_and_writes_nothing_there(
     # approve: refused the same way.
     assert rn.approve_main(["--book", "c4", "--date", SESSION, "--sha", "x"]) == rn.EXIT_REFUSED
     assert list(core_state.iterdir()) == []
+
+
+def test_c4_ca_ack_refuses_another_books_state_dir_before_any_read(monkeypatch, tmp_path):
+    """main's `ca-ack` (merged onto c4-integrate 2026-11-02) keeps the per-book
+    state-dir rule too. Without it, `--book c4` with the core's QUANTT_STATE_DIR read
+    the core's last gate record, asked the feed with C4's keys and wrote a c4 entry
+    into the core's ca_acks.json, which the core's gate then refuses to parse
+    (corp_actions.parse_acks: another book's entry) and, under `halt`, refuses on.
+    The core's directory here holds a gate record that read the feed, so only the
+    state-dir rule can stop ca-ack before its client is built. Fails on 8b001c9."""
+    core_state = tmp_path / "quantt_state" / "cef"
+    day = core_state / SESSION
+    day.mkdir(parents=True)
+    gate_rec = {"corporate_actions": {"query": ["2026-08-25", "2028-09-28"],
+                                      "names": {"PDI": {}}, "blocking": []}}
+    (day / "plan.json").write_text(json.dumps(gate_rec))
+    before = sorted(p.relative_to(core_state) for p in core_state.rglob("*"))
+    monkeypatch.setenv("QUANTT_STATE_DIR", str(core_state))
+    monkeypatch.setattr(rn, "_ca_ack_client", lambda book: pytest.fail("no client may be built"))
+    assert rn.ca_ack_main(["--book", "c4", "--id", "any-id", "--reason", "test"]) == \
+        rn.EXIT_REFUSED
+    assert sorted(p.relative_to(core_state) for p in core_state.rglob("*")) == before
+    assert not (core_state / "ca_acks.json").exists()
 
 
 def test_c4_verify_scores_distributions_against_its_own_panel(monkeypatch, tmp_path):

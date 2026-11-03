@@ -2337,6 +2337,14 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
         if not reason or "\n" in reason or "\r" in reason:
             raise SessionError("--reason must be one non-empty line")
         state = rec.state_dir_from_env(os.environ)
+        # A book whose state dir must carry its own name (C4: records.STATE_DIR_NAMES)
+        # is refused in any other, before anything is read or written: `--book c4`
+        # pointed at the core's directory would otherwise write a c4 acknowledgement
+        # into the core's ca_acks.json, which the core's gate then cannot parse
+        # (parse_acks: another book's entry) and, under `halt`, refuses on. No entry
+        # for the core: its directory is checked exactly as before (approve_main does
+        # the same; merge of c4-integrate onto 862b1d0, 2026-11-02).
+        rec.require_book_state_dir(book.name, state)
         path = state / cam.ACKS_FILE
         existing, known = [], {}
         if os.path.lexists(path):
