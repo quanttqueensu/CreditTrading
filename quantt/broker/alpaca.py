@@ -820,23 +820,30 @@ class AlpacaClient:
         Alpaca's own 1D example agrees: every stamp is 00:00Z, and the last is a
         Saturday, which only a Friday session can carry. So two things are
         required of every stamp, or the call raises naming it:
-          * it is exactly 00:00:00 UTC, the only stamp either source shows; and
-          * converted to New York time (19:00 or 20:00 the evening before, by
-            the season), its date is a trading day by `calendar` (the
-            client's own method, one more GET).
+          * converted to New York time, it is exactly 20:00:00 local: 00:00Z
+            while New York is on EDT and 01:00Z while it is on EST. Measured
+            [V: a peer's read-only GET, 2026-11-02 23:49Z]: a window into last
+            winter carried 2025-12-03T01:00:00Z, and summer windows read
+            00:00Z, so the stamp follows New York's 20:00, not UTC midnight
+            (until 2026-11-02 this rule was "exactly 00:00 UTC, the only stamp
+            either source shows", which refused every winter point; DST ended
+            2026-11-01); and
+          * its New York date, the session date, is a trading day by
+            `calendar` (the client's own method, one more GET).
         Each rule catches a change that would otherwise file sessions under the
         wrong date. A session stamped at New York midnight after it (04:00Z,
-        or 05:00Z after the 2026-11-01 clock change) falls on the next date,
-        which trades Monday to Thursday. A session stamped at the start of its
-        own UTC day ("left-labeled") falls on the previous evening, which
-        trades Tuesday to Friday. The first rule refuses both, and the second
-        catches the left label on every Monday, since every read spans months.
-        The first rule also refuses an intraday reading, a stamp at the read
-        time or at the close, which could pass for a finished day. The cost is
-        deliberate. If Alpaca moves its winter stamps to 01:00Z (20:00 EST),
-        this raises from the first such point, and the official figure is
-        PENDING until a person looks. That is a loud stop, never a wrong date
-        (`docs/REFERENCES.md` §12an).
+        or 05:00Z in winter) falls on the next date, which trades Monday to
+        Thursday; the first rule refuses it. A session stamped at the start of
+        its own UTC day ("left-labeled") is 20:00 the previous evening in
+        summer and 19:00 in winter: the first rule refuses it in winter, and
+        the second catches it on every Monday in summer, since every read spans
+        months. The first rule also refuses an intraday reading, a stamp at the
+        read time or at the close, which could pass for a finished day, and a
+        winter 00:00Z (19:00 EST). Any other convention still raises from its
+        first point, and the official figure is PENDING until a person looks:
+        a loud stop, never a wrong date (`docs/REFERENCES.md` §12an). Every
+        point in the response is checked, those after `end` included, before
+        the window is applied.
 
         PRE-FUNDING ZEROS ARE DROPPED, BY NAME. Alpaca returns equity 0 for the
         days before the account was funded (read 2026-10-19). Those leading zeros
@@ -888,11 +895,13 @@ class AlpacaClient:
             except (ValueError, OverflowError, OSError):
                 raise UnexpectedResponse(
                     f"{w}: timestamp[{i}] = {ts} is outside the clock's range") from None
-            if ts % 86400:
+            ny = when.astimezone(NY)
+            if (ny.hour, ny.minute, ny.second, ny.microsecond) != (20, 0, 0, 0):
                 raise UnexpectedResponse(
-                    f"{w}: stamp {when.isoformat()} is "
-                    f"not 00:00 UTC; every 1D stamp seen (the 2026-10-19 read, the reference's "
-                    f"example) is. Refused rather than placed on a session")
+                    f"{w}: stamp {when.isoformat()} is {ny.isoformat()} in New York, not "
+                    f"20:00:00 local; every 1D stamp seen is 20:00 New York (00:00Z on EDT, "
+                    f"01:00Z on EST; measured 2026-10-19 and 2026-11-02). Refused rather than "
+                    f"placed on a session")
             x = _num({"equity": eq}, "equity", f"{w} [{i}]")      # None/bool/junk raise
             if not math.isfinite(x):
                 raise UnexpectedResponse(f"{w}: equity[{i}] = {eq!r} is not finite")
@@ -904,8 +913,8 @@ class AlpacaClient:
             return []
 
         local = [s.astimezone(NY) for s in stamps]
-        # Distinct UTC midnights, strictly increasing, map to distinct New York
-        # dates, so no two points can share a session.
+        # Distinct 20:00 New York stamps, strictly increasing, map to distinct
+        # New York dates, so no two points can share a session.
         cal = {row["date"] for row in self.calendar(local[0].date(), local[-1].date())}
         for s, t in zip(stamps, local):
             if t.date() not in cal:
@@ -1612,13 +1621,25 @@ def _ca_parties(r, kind: str, fields, where: str) -> tuple[list[tuple[str, str]]
 UNRESOLVED_KEY_PREFIX = "row-sha256:"
 
 
-def ca_row_key(r: dict) -> str:
-    """The key an unresolved row with no usable id is acknowledged by: the
-    SHA-256 of its raw content, canonical JSON (sorted keys, no spaces).
-    Any change to the row is a different key, so an acknowledgement of it
-    cannot outlive a revision."""
-    blob = json.dumps(r, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-    return UNRESOLVED_KEY_PREFIX + hashlib.sha256(blob.encode()).hexdigest()
+def ca_row_canonical(r) -> str:
+    """The canonical JSON TEXT of one raw feed item, ANY JSON value (an object,
+    a list, a string, a number, null): sorted keys, no spaces, ASCII, and a
+    non-finite float written as its token (NaN, Infinity) inside this string.
+    It is the ONE form an acknowledgement is matched on (corp_actions
+    ACKNOWLEDGEMENTS; `ca-ack` writes it, `parse_acks` checks it, the gate
+    compares it): a NaN equals itself here, which it never does as a float,
+    and an item that is not an object has a form too (execution-trader,
+    2026-11-02, reproduced: such a row was written as `"row": null` and then
+    refused the whole file). An item parsed from JSON always serialises."""
+    return json.dumps(r, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+                      allow_nan=True)
+
+
+def ca_row_key(r) -> str:
+    """The key an irregular row is acknowledged by: the SHA-256 of
+    `ca_row_canonical`. Any change to the row is a different key, so an
+    acknowledgement of it cannot outlive a revision."""
+    return UNRESOLVED_KEY_PREFIX + hashlib.sha256(ca_row_canonical(r).encode()).hexdigest()
 
 
 def _ca_event(r: dict, kind: str, date_field: str, parties, unread: list, bad: dict) -> dict:

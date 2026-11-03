@@ -2069,15 +2069,18 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
             raise SessionError(f"{aid} is not in the feed for {names} over {qs}..{qe} (the "
                                f"window of {src.relative_to(state)}); nothing acknowledged")
         e = found[0]
+        from quantt.broker.alpaca import ca_row_canonical
         seen_rows = rows.get(aid, [])
-        if not seen_rows or any(r != seen_rows[0] for r in seen_rows):
+        canon = ca_row_canonical(seen_rows[0]) if seen_rows else None
+        if not seen_rows or any(ca_row_canonical(r) != canon for r in seen_rows):
             raise SessionError(f"{aid}: the feed returned {len(seen_rows)} differing or no "
                                f"row(s) for it; an acknowledgement must name one row")
         # One entry per id. The same row again is refused; a REVISED row (the
         # gate halts on it again) replaces the old entry, which is kept inside
         # the new one as `supersedes`, so this stays the file's only writer.
         old = known.get(aid)
-        if old is not None and old["row"] == seen_rows[0] and old["event"]["type"] == e["type"]:
+        if (old is not None and cam.ack_row_canonical(old) == canon
+                and old["event"]["type"] == e["type"]):
             # A changed TYPE is a revision too: the raw row carries none (it is
             # which list Alpaca put the row in), so the row alone cannot show it.
             raise SessionError(f"{aid} is already acknowledged, at {old['acked_utc']}, and its "
@@ -2087,7 +2090,9 @@ def ca_ack_main(argv=None, *, client=None, now: dt.datetime | None = None) -> in
         entry = {"id": aid, "reason": reason, "acked_utc": stamp.isoformat(), "book": book.name,
                  "event": {k: e[k] for k in ("type", "date", "date_field", "process_date",
                                              "parties", "missing", "row_id") if k in e},
-                 "row": seen_rows[0],     # as Alpaca listed it: the gate compares it
+                 "row": seen_rows[0],     # as Alpaca listed it (any JSON value)
+                 # the ONE form the gate and parse_acks match on (ack_row_canonical)
+                 "row_canonical": canon,
                  "feed_window": [qs, qe], "from_record": str(src.relative_to(state))}
         if old is not None:
             entry["supersedes"] = old

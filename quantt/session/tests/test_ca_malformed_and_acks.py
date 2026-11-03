@@ -917,3 +917,51 @@ def test_ca_ack_clears_a_null_id_row_and_a_revision_halts_again(tmp_path, monkey
     shutil.rmtree(state / DAY)
     assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_REFUSED
     assert any(al.ca_row_key(revised) in d for d in _refusal_details(state))
+
+
+# ------------- ca-ack and parse_acks agree on every row (execution-trader, 2026-11-02)
+#
+# A feed item that is not a JSON object was written by ca-ack as `"row": null`
+# (or a list, a string), which parse_acks then refused, so EVERY later session
+# refused and every later ca-ack too, until a hand-edit; and a NaN in a row
+# never compared equal to itself, so its acknowledgement never cleared. One
+# validator now (corp_actions.ack_row_canonical over alpaca.ca_row_canonical).
+# Each test below FAILS on 3478159.
+
+@pytest.mark.parametrize("item", [None, ["junk"], "not a row", 7],
+                         ids=["null", "list", "string", "number"])
+def test_a_non_object_feed_item_round_trips_through_ca_ack(tmp_path, monkeypatch, capsys,
+                                                           item):
+    """Blocks (unresolved, every party missing, undated); ca-ack writes it,
+    parse_acks accepts the file, and the next session sends."""
+    key = al.ca_row_key(item)
+    c, deps, state = _refused_session(tmp_path, monkeypatch, _feed({"reverse_splits": [item]}))
+    assert any(f"ca-ack --id {key}" in d for d in _refusal_details(state))
+    assert _ack(c, "--id", key, "--reason", "a feed glitch, checked") == 0
+    raw = json.loads((state / cam.ACKS_FILE).read_text())
+    assert cam.parse_acks(raw, "cef")[key]["row"] == item
+    assert raw["acks"][0]["row_canonical"] == al.ca_row_canonical(item)
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+
+
+def test_a_row_with_a_nan_round_trips_and_clears(tmp_path, monkeypatch, capsys):
+    """A held fund's split whose ratio is NaN: blocks (its terms cannot be
+    read), ca-ack clears it, and the acknowledgement still matches when read
+    back, because it is compared on the canonical text, where NaN equals NaN."""
+    row = dict(OLD_SPLIT_CCC, id="rs-ccc-nan", ex_date="2026-09-25", process_date="2026-09-25",
+               old_rate=float("nan"))
+    c, deps, state = _refused_session(tmp_path, monkeypatch, _feed({"reverse_splits": [row]}))
+    assert _ack(c, "--id", "rs-ccc-nan", "--reason", "ratio confirmed 1:2 on EDGAR") == 0
+    assert "NaN" in (state / cam.ACKS_FILE).read_text()
+    assert rn.run_session(BOOK, SPEC, deps) == rn.EXIT_SENT
+    ca = json.loads((state / DAY / "plan.json").read_text())["corporate_actions"]
+    assert [a["id"] for a in ca["acknowledged"]] == ["rs-ccc-nan"]
+
+
+def test_parse_acks_names_the_entry_whose_canonical_form_disagrees(tmp_path):
+    entry = {"id": "a1", "reason": "r", "acked_utc": ACKED_AT, "book": "cef",
+             "event": {"type": "reverse_split"}, "row": ["junk"], "row_canonical": "[]"}
+    with pytest.raises(ValueError, match=r"ca_acks.json acks\[0\] \(a1\): row_canonical"):
+        cam.parse_acks({"acks": [entry]}, "cef")
+    entry["row_canonical"] = al.ca_row_canonical(["junk"])
+    assert cam.parse_acks({"acks": [entry]}, "cef")["a1"]["row"] == ["junk"]

@@ -495,13 +495,31 @@ def parse_acks(obj, book: str) -> dict:
         if not (isinstance(e.get("event"), dict) and isinstance(e["event"].get("type"), str)):
             raise ValueError(f"{where} ({aid}): event {e.get('event')!r} does not say the "
                              f"action type acknowledged, so the acknowledgement cannot be checked")
-        if not isinstance(e.get("row"), dict):
-            raise ValueError(f"{where} ({aid}): row {e.get('row')!r} is not the feed row "
-                             f"acknowledged, so the acknowledgement cannot be checked")
+        if "row" not in e:
+            raise ValueError(f"{where} ({aid}): row None is not the feed row acknowledged "
+                             f"(no `row`), so the acknowledgement cannot be checked")
+        if ack_row_canonical(e) is None:
+            raise ValueError(f"{where} ({aid}): row_canonical {e.get('row_canonical')!r:.80} is "
+                             f"not the canonical form of its row, so the acknowledgement "
+                             f"cannot be checked")
         if aid in out:
             raise ValueError(f"{where}: {aid} is acknowledged twice")
         out[aid] = e
     return out
+
+
+def ack_row_canonical(entry: dict) -> str | None:
+    """The canonical form an acknowledgement matches on (`alpaca.ca_row_canonical`),
+    or None when the entry's `row_canonical` disagrees with its `row`. ONE
+    validator for both sides: `ca-ack` writes `row` and `row_canonical`, and
+    `parse_acks` and the gate read them through this, so any row the feed can
+    serve (an object or not, with a NaN or not) can be acknowledged and read
+    back (execution-trader, 2026-11-02, reproduced). An entry written before
+    `row_canonical` existed is matched on the canonical form of its `row`."""
+    from quantt.broker.alpaca import ca_row_canonical
+    canon = ca_row_canonical(entry["row"])
+    given = entry.get("row_canonical", canon)
+    return canon if isinstance(given, str) and given == canon else None
 
 
 def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
@@ -548,6 +566,8 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
     blocking = blocking_events(events, held=held, targets=targets, asof=asof,
                                session_date=session_date)
     would_block = {b["id"] for b in blocking}
+    if acks:
+        from quantt.broker.alpaca import ca_row_canonical
     acked, still = [], []
     for b in blocking:
         if not (acks and b["id"] in acks):
@@ -555,7 +575,11 @@ def check(fetch, closed_orders, positions: dict, targets, asof: dt.date,
             continue
         a = acks[b["id"]]
         now = rows.get(b["id"], [])
-        changed = next((_row_changes(a["row"], r) for r in now if r != a["row"]), None)
+        canon = ack_row_canonical(a)           # parse_acks has checked it is not None
+        changed = next(((_row_changes(a["row"], r) if isinstance(a["row"], dict)
+                         and isinstance(r, dict) else None)
+                        or {"row": [canon, ca_row_canonical(r)]}
+                        for r in now if ca_row_canonical(r) != canon), None)
         if a["event"]["type"] != b["type"]:
             # The raw row carries no type: the type is which list Alpaca put it
             # in (release-check of 709d6cb, 2026-11-02, reproduced).

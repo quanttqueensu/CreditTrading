@@ -1523,20 +1523,55 @@ def test_eod_history_is_one_get_with_period_and_1d_only(env_file, sleeps):
     assert all(isinstance(p, al.EODPoint) for p in out)
 
 
+def ny20(d):
+    """20:00 New York on session date `d`, as epoch seconds: how Alpaca stamps a
+    1D point (00:00Z on EDT, 01:00Z on EST) [V: read 2026-10-19; a peer's
+    read-only GET 2026-11-02 23:49Z showed 2025-12-03T01:00:00Z in winter]."""
+    return int(dt.datetime.combine(d, dt.time(20), tzinfo=al.NY).timestamp())
+
+
 def test_eod_stamps_map_to_the_new_york_session_either_side_of_the_dst_change(env_file, sleeps):
-    """00:00Z is 20:00 the evening before in EDT and 19:00 in EST: the session
-    date is the same either side of 2026-11-01, and an early close is honoured."""
+    """20:00 New York on each session: 00:00Z on EDT, 01:00Z on EST (after
+    2026-11-01). The session date is the New York date, and an early close is
+    honoured. (Corrected 2026-11-02: this test had EST sessions at 00:00Z,
+    19:00 EST, which Alpaca does not serve.) FAILS on 3478159, which refused
+    every 01:00Z point."""
     sessions = [dt.date(2026, 10, 29), dt.date(2026, 10, 30),     # EDT
                 dt.date(2026, 11, 2), dt.date(2026, 11, 3),        # EST, after 2026-11-01
                 dt.date(2026, 11, 25), dt.date(2026, 11, 27)]      # 11-27 closes at 13:00
-    stamps = [utc0(*(d + dt.timedelta(days=1)).timetuple()[:3]) for d in sessions]
+    stamps = [ny20(d) for d in sessions]
     eq = [100000.0 + i for i in range(len(sessions))]
     c, _ = eod_client(env_file, sleeps, history(stamps, eq), early={dt.date(2026, 11, 27)})
     out = c.eod_equity_history(dt.date(2026, 10, 29), dt.date(2026, 11, 27))
     assert [p.date for p in out] == sessions
     assert [p.equity for p in out] == eq
-    assert out[2].stamp == dt.datetime(2026, 11, 3, tzinfo=dt.timezone.utc)
-    assert out[2].stamp.astimezone(al.NY).hour == 19              # EST: 19:00, still Monday
+    assert out[1].stamp == dt.datetime(2026, 10, 31, 0, tzinfo=dt.timezone.utc)   # EDT: 00:00Z
+    assert out[2].stamp == dt.datetime(2026, 11, 3, 1, tzinfo=dt.timezone.utc)    # EST: 01:00Z
+
+
+def test_eod_a_winter_0100z_point_is_accepted_under_its_session_date(env_file, sleeps):
+    """The point Alpaca will serve for Monday 2026-11-02: 2026-11-03T01:00Z,
+    20:00 EST. FAILS on 3478159 ("not 00:00 UTC")."""
+    c, _ = eod_client(env_file, sleeps, history([at_utc(2026, 11, 3, 1)], [100000.0]))
+    (p,) = c.eod_equity_history(dt.date(2026, 11, 2), dt.date(2026, 11, 2))
+    assert p.date == dt.date(2026, 11, 2) and p.equity == 100000.0
+
+
+def test_eod_a_summer_0000z_point_is_still_accepted(env_file, sleeps):
+    c, _ = eod_client(env_file, sleeps, history([utc0(2026, 10, 17)], [100000.0]))
+    (p,) = c.eod_equity_history(dt.date(2026, 10, 16), dt.date(2026, 10, 16))
+    assert p.date == dt.date(2026, 10, 16)
+
+
+def test_eod_a_window_across_the_dst_change_reads_both_sides(env_file, sleeps):
+    """Friday 10-30 at 00:00Z (EDT) and Monday 11-02 at 01:00Z (EST) in one
+    response, and a point after `end` (11-03 at 01:00Z, validated then left
+    out). FAILS on 3478159."""
+    stamps = [utc0(2026, 10, 31), at_utc(2026, 11, 3, 1), at_utc(2026, 11, 4, 1)]
+    c, _ = eod_client(env_file, sleeps, history(stamps, [1.0, 2.0, 3.0]))
+    out = c.eod_equity_history(dt.date(2026, 10, 30), dt.date(2026, 11, 2))
+    assert [(p.date, p.equity) for p in out] == [(dt.date(2026, 10, 30), 1.0),
+                                                (dt.date(2026, 11, 2), 2.0)]
 
 
 def test_eod_a_stamp_on_a_non_trading_day_raises_naming_it(env_file, sleeps):
@@ -1557,16 +1592,27 @@ def at_utc(y, m, d, h, mi=0, s=0):
     (at_utc(2026, 10, 20, 4), "New York midnight after Monday 10-19 (EDT): would file it on Tuesday"),
     (at_utc(2026, 10, 19, 21, 29, 41), "an intraday reading at 17:29 ET, not a finished day"),
     (at_utc(2026, 10, 19, 20), "a stamp at the 16:00 ET close"),
-    (at_utc(2026, 11, 3, 1), "20:00 EST: a possible winter convention, refused until seen"),
+    (at_utc(2026, 11, 3, 2), "02:00Z in winter: 21:00 EST"),
+    (at_utc(2026, 11, 3, 0), "00:00Z in winter: 19:00 EST, the summer convention one zone off"),
+    (at_utc(2026, 11, 3, 1, 0, 1), "a second past 20:00 EST"),
 ])
-def test_eod_a_stamp_that_is_not_utc_midnight_raises_rather_than_being_placed(
+def test_eod_a_stamp_that_is_not_2000_new_york_raises_rather_than_being_placed(
         env_file, sleeps, stamp, why):
-    """Every 1D stamp seen (the 2026-10-19 read, the reference's example) is
-    00:00 UTC. Any other time is refused, loudly: some would silently move a
-    session to the next date, the rest could be a day that has not finished."""
+    """Every 1D stamp seen is 20:00 New York (00:00Z on EDT, 01:00Z on EST).
+    Any other time is refused, loudly: some would silently move a session to
+    the next date, the rest could be a day that has not finished."""
     c, _ = eod_client(env_file, sleeps, history([utc0(2026, 10, 16), stamp], [100000.0, 100001.0]))
-    with pytest.raises(al.UnexpectedResponse, match="is not 00:00 UTC"):
+    with pytest.raises(al.UnexpectedResponse, match="not 20:00:00 local"):
         c.eod_equity_history(dt.date(2026, 10, 1), dt.date(2026, 11, 3))
+
+
+def test_eod_a_2000_stamp_on_a_non_trading_day_still_raises(env_file, sleeps):
+    """Saturday 2026-11-07 at 20:00 EST (2026-11-08T01:00Z): the right hour on
+    a day with no session."""
+    c, _ = eod_client(env_file, sleeps, history([at_utc(2026, 11, 3, 1), at_utc(2026, 11, 8, 1)],
+                                                [1.0, 2.0]))
+    with pytest.raises(al.UnexpectedResponse, match="2026-11-07 is not a trading day"):
+        c.eod_equity_history(dt.date(2026, 11, 2), dt.date(2026, 11, 9))
 
 
 def test_eod_pre_funding_zeros_are_dropped_and_a_later_zero_raises(env_file, sleeps):
