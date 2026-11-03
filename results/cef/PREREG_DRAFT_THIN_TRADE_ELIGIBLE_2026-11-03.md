@@ -1084,7 +1084,7 @@ approval date, and `<file>` with the approved note's name):
 14. **The paper-only refusal** (§1.2).
     - **Recommend: build it in the sleeve, with the runner's endpoint check behind it.**
     - Whether the same refusal should cover `late_market` is a separate question for the runner's owner.
-15. **The forward borrow column.** It is UNMEASURED: IBKR is retired and paper has no fees.
+15. **The forward borrow column.** It is UNMEASURED: IBKR is retired and paper charges no borrow. (Paper does charge SEC and CAT regulatory fees on sales [V: the cef account's FEE activities, `results/cef/LIVE_ATTRIBUTION_2026-11-02.md`, PR #26]; that is an execution cost, not borrow.)
     - **Recommend:** record it as UNMEASURED per episode and decide nothing on it.
     - If a real-money proposal ever cites this rule, the first purchase is a point-in-time
       securities-lending history for PHK, PDI and PTY (the screen's open question 8).
