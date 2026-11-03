@@ -96,20 +96,23 @@ def test_every_signal_parameter_is_the_one_the_trial_read():
 
 
 def test_the_spec_carries_trial_53s_multiplier_with_its_note():
-    """CEF trial 53's C4 value, applied 2026-11-02 (c4_families_sizing_multiplier_2026-11-01.patch):
-    1.27 (1.2712 derived on this spec's 1.90 book, rounded down), with its sibling note, and
-    nothing the fidelity gate reads moved. Fails on v1 (no key), by design."""
+    """CEF trial 53's C4 value, as amended (amendment 1, team lead 2026-11-02, spec v4.20261102):
+    1.26 (1.2642, derived once the core is measured on its live thin-day rule; rounded down), with
+    its sibling note, which names 1.27 (1.2712, applied 2026-11-02 in v2/v3) as not chosen.
+    Nothing the fidelity gate reads moved. Fails on v3 (1.27) and on v1 (no key), by design."""
     s = _spec()
     f = s["frozen"]
-    assert f["sizing_multiplier"] == 1.27
-    assert registry.cef_sizing_multiplier(f) == 1.27
+    assert f["sizing_multiplier"] == 1.26
+    assert registry.cef_sizing_multiplier(f) == 1.26
     note = f["_sizing_multiplier_note"]
-    for must in ("CEF trial 53", "1.2712", "ROUNDED DOWN", "NOT CHOSEN", "REVERT", "UNITS"):
+    for must in ("CEF trial 53", "AMENDMENT 1", "1.2642", "1.2712", "ROUNDED DOWN", "NOT CHOSEN",
+                 "REVERT", "UNITS", "spec-c4_families.v3.20261102"):
         assert must in note, must
     # The unit book is the trial's: the vol target, gross leverage and band are not moved.
     assert (f["vol_target_annual"], f["max_gross_stress"]) == (0.06, 1.9)
-    # v2.20261101 applied it; v3.20261102 added only the halve/kill levels (the next test).
-    assert s["spec_id"] == "c4_families.v3.20261102" and s["_supersedes"] == "c4_families.v2.20261101"
+    # v2.20261101 applied it (1.27); v3.20261102 added only the halve/kill levels (the next test);
+    # v4.20261102 is amendment 1's 1.26, nothing else.
+    assert s["spec_id"] == "c4_families.v4.20261102" and s["_supersedes"] == "c4_families.v3.20261102"
     registry.build_sleeve(s, float(s["capital_usd"]))          # validates (cap set, 0.06 x m sane)
 
 

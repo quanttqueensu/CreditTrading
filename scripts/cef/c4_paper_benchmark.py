@@ -131,7 +131,9 @@ from src.deploy.sleeves import cef_discount as cefmod    # noqa: E402
 
 SPEC_PATH = REPO / "ops" / "specs" / "c4_families.frozen.json"
 # The date stamp of a run. 2026-10-29 was the run on c4_families.v1 (kept, committed); 2026-11-02
-# the re-run on the spec as raised by CEF trial 53 (sizing_multiplier 1.27), branch c4-rel.
+# the re-run on the spec as raised by CEF trial 53 (sizing_multiplier 1.27, branch c4-rel), then
+# re-run the same day on amendment 1's v4 (1.26, branch trial53-amend1). The 1.27 outputs are in
+# git at 8b14298.
 STAMP = "2026-11-02"
 OUT_TXT = c4.OUT_DIR / f"c4_paper_benchmark_{STAMP}.txt"
 OUT_JSON = c4.OUT_DIR / f"c4_paper_benchmark_{STAMP}.json"
