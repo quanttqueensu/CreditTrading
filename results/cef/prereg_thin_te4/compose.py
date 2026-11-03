@@ -1,0 +1,506 @@
+"""The thin-session rule `trade_eligible` (floor 4) composed with CEF trial 53, on the fit (2026-11-03).
+
+    python3 results/cef/prereg_thin_te4/compose.py
+        -> compose_2026-11-03.json, compose_output_2026-11-03.txt (this folder); a few minutes
+
+ZERO TRIALS. Written for `results/cef/PREREG_DRAFT_THIN_TRADE_ELIGIBLE_2026-11-03.md` (a DRAFT, not
+approved). FIT WINDOW ONLY: every frame is cut by `band_frontier.fit_only` (strictly before 2023-01-01,
+asserted there and again here), so nothing in this file reads a 2023+ row. The screen
+(`results/backtests/thin-third-rule-2026-11-03/REPORT.md`) has already printed te4's 2023+ rows; this
+file adds nothing to that. It reads data/ and writes only beside itself (CLAUDE.md landmine 9).
+
+WHY IT EXISTS. Trial 53's multiplier and stops were measured on the FLATTEN book's trading sessions
+(`results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md`, PR #35; amendment 1, PR #36). Under
+te4 the core also trades on sessions with 4 or 5 eligible names, so the series those figures were
+measured on changes. The owning session asked whether trial 53's figures move under te4. This
+measures it, with trial 53's own definitions, rather than arguing it.
+
+WHAT IT ANSWERS
+  A. Reproduction, or it raises (a figure that does not reproduce is not quoted):
+       the flatten book at m = 1.00 / 1.13 / 1.30, instant flips, against trial 53's committed exact
+       build (`prereg_voltarget/flatten_exact_2026-11-02.json`);
+       the flatten unit book's trading-session daily sd against `flatten_remeasure_2026-11-02_m1.30.json`;
+       the te4 unit book's fit episodes against the screen's `results.json` (review_attacks.h_episodes).
+  B. flatten_exact.py's rows on the te4 book, at m read from the frozen spec (and at 1.00 / 1.13 /
+     the spec's m), instant and deferred flips (the live runner defers: quantt/session/decide.py
+     FLIP_SAME_SESSION = False).
+  C. The 2026-10-29 rule's core multiplier fed te4's trading-session sd instead of flatten's. Its other
+     inputs (sd_c4 and the rule's C4 multiplier) are read from `flatten_remeasure_2026-11-02_m1.30.json`
+     ([S] there), never written here as literals.
+  D. Trial 53's stops R1-R3, by their declared definitions (`prereg_voltarget/stops.py`'s docstring),
+     calibrated on the exact build's trading sessions of each book at the spec's m; and how often the
+     flatten-calibrated stops fire when te4 is the truth (fit edge, SB21; FLATTEN_REMEASURE §4's table).
+     trial 53's own figures use the house cap model; the exact-build flatten row here is the
+     like-for-like reference for the te4 row, and the difference between the two methods is printed.
+  E. The draft's in-episode stops, at the spec's m, deferred flips:
+       D_E(L)  the 95th percentile of the maximum drawdown over L reduced-session earning days, the
+               largest of SB21 / SB63 / GAUSS, the worse of total return and price only (trial 53's R1
+               construction on a shorter horizon), L = 21, 63, 126, 252;
+       C*      the 99th percentile and the maximum, over reduced decisions, of the HELD book's largest
+               single-name |weight| in account units; and the same for |net weight|.
+  F. The draft's unit of inference at the spec's m, deferred: each fit episode's value (the account's
+     P&L summed over the episode's thin earning days, where flatten earns exactly 0), its length and
+     its within-episode drawdown; the per-episode effect (mean / sd) on price only, paper's basis; and
+     P(pass) by number of forward episodes at bars for N = 53..55 (`inference.p_clear_bar`, as the
+     screen's attack m).
+
+DEFINITIONS (shared with the screen; asserted, not restated):
+  reduced session  4 <= eligible < min_names: `thin_sessions(min_names=spec)` and not
+                   `thin_sessions(min_names=FLOOR)`; te4 builds its reduced-set target there.
+  earning day      the decision two sessions earlier (shift(2): decide t, fill t+1, earn t+2).
+  episode          runs of reduced decisions merged when fewer than 63 sessions apart (build_panel's ADV
+                   window), as `third_rule.episodes`; its value sums the daily P&L over the runs'
+                   earning days (i0+2 .. i1+2).
+
+H14. Every threshold the draft names is RE-MEASURED by re-running this file on the read date; the draft
+quotes drafting-day values only. m, the band, the ceiling and min_names are read from the frozen spec
+through scripts/cef/spec.py at run time. FLOOR is the draft's proposed value, not yet a spec key: when
+the key exists, read it from the spec instead.
+"""
+from __future__ import annotations
+
+import json
+import sys
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings("ignore")
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[2]
+PV = REPO / "results" / "cef" / "prereg_voltarget"
+SCREEN = REPO / "results" / "backtests" / "thin-third-rule-2026-11-03"
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(PV))
+
+from scripts.cef import band_frontier as bf                       # noqa: E402
+from scripts.cef import spec as S                                  # noqa: E402
+from scripts.cef.portfolio_baseline import (HALVE_DD, max_drawdown,  # noqa: E402
+                                            path_max_drawdown)
+from scripts.research.inference import p_clear_bar, upper_bound_max_z   # noqa: E402
+from _common import Paths, draw, odds                              # noqa: E402  (trial 53's bootstrap)
+from _common import worst as worst_of                              # noqa: E402
+
+STAMP = "2026-11-03"
+FLOOR = 4                    # the draft's proposed floor (screen REPORT.md section 1): derived, not swept
+W1 = pd.Timestamp("2013-06-25")   # trial 53's W1 start (the core's first P&L-bearing session)
+ADV_WINDOW = 63              # build_panel's ADV window: the episode merge gap (asserted below)
+LS = (21, 63, 126, 252)      # in-episode drawdown horizons, in reduced-session earning days
+NS = (53, 54, 55)            # bars shown: the CEF counter on main (53) and the next two values
+P = 252
+LOG, OUT = [], {}
+
+
+def p(*a):
+    s = " ".join(str(x) for x in a)
+    print(s, flush=True)
+    LOG.append(s)
+
+
+def runs_of(mask: pd.Series) -> list:
+    """(first, last) positions of every run of True; the same as the screen's `attack.runs_of`."""
+    a, out, i = mask.to_numpy(), [], 0
+    while i < len(a):
+        if not a[i]:
+            i += 1
+            continue
+        j = i
+        while j + 1 < len(a) and a[j + 1]:
+            j += 1
+        out.append((i, j))
+        i = j + 1
+    return out
+
+
+def episodes(trade: pd.Series) -> list:
+    """Runs of reduced decisions merged when fewer than ADV_WINDOW sessions apart (the screen's rule)."""
+    eps = []
+    for i0, i1 in runs_of(trade):
+        if eps and i0 - eps[-1]["i1"] - 1 < ADV_WINDOW:
+            eps[-1]["i1"] = i1
+            eps[-1]["parts"].append((i0, i1))
+        else:
+            eps.append(dict(i0=i0, i1=i1, parts=[(i0, i1)]))
+    return eps
+
+
+def earn_days(idx, parts) -> pd.DatetimeIndex:
+    days = [idx[i0 + 2: i1 + 3] for i0, i1 in parts]
+    return days[0].append(days[1:]) if len(days) > 1 else days[0]
+
+
+def rows(H, Rtr, R, cap, win=W1) -> dict:
+    """flatten_exact.py's figures for one book (the same expressions), plus the trading-session sd."""
+    g = H.abs().sum(axis=1)
+    earn = (g.shift(2).fillna(0.0) > 0).loc[win:]
+    held = (g > 0).loc[win:]
+    r = {}
+    for b, RR in (("TR", Rtr), ("PR", R)):
+        x = bf.evaluate(H, RR)["pnl"].loc[win:]
+        xe = x[earn]
+        dd = max_drawdown(x)
+        r[b] = dict(ann=float(x.mean() * P), sr=float(x.mean() / x.std() * np.sqrt(P)),
+                    mdd=float(dd["mdd"]), mdd_peak=str(dd["peak"])[:10], mdd_trough=str(dd["trough"])[:10],
+                    ann_trading=float(xe.mean() * P),
+                    vol_trading=float(xe.std() * np.sqrt(P)), sd_trading=float(xe.std()),
+                    sr_trading=float(xe.mean() / xe.std() * np.sqrt(P)), sd_calendar=float(x.std()))
+    at_cap = g.loc[win:] >= cap - 1e-9
+    r["at_cap_all"] = float(at_cap.mean())
+    r["at_cap_held"] = float(at_cap[held].mean())
+    r["mean_gross_held"] = float(g.loc[win:][held].mean())
+    r["earn_share"] = float(earn.mean())
+    r["earn_days"] = int(earn.sum())
+    return r
+
+
+def fmt(lab, r) -> str:
+    return (f"{lab}: TR {r['TR']['ann'] * 100:.2f}%/yr SR {r['TR']['sr']:.3f} maxDD {r['TR']['mdd'] * 100:.2f}% | "
+            f"while trading {r['TR']['ann_trading'] * 100:.2f}%/yr vol {r['TR']['vol_trading'] * 100:.2f}% "
+            f"SR {r['TR']['sr_trading']:.3f} | PR {r['PR']['ann'] * 100:.2f}%/yr SR {r['PR']['sr']:.3f} "
+            f"maxDD {r['PR']['mdd'] * 100:.2f}% ({r['PR']['mdd_peak']} .. {r['PR']['mdd_trough']}) | earns on {r['earn_share']:.1%} of W1 | held at the cap "
+            f"{r['at_cap_held']:.1%} of sessions with a book; mean gross when held {r['mean_gross_held']:.3f}")
+
+
+def stops(x: dict, paths: Paths) -> dict:
+    """R1-R3 by trial 53's declared definitions (stops.py docstring), on daily series x = {TR, PR}."""
+    p95 = {b: max(float(np.quantile(path_max_drawdown(pth), 0.95))
+                  for pth in draw(x[b], paths, "fit").values()) for b in ("TR", "PR")}
+    I21 = paths.get(len(x["PR"]))[0]
+    r2 = float(np.quantile(np.prod(1 + x["PR"][I21[:, :120]], axis=1) - 1, 0.05))
+    r3 = float(np.quantile(x["PR"][I21[:, :60]].std(axis=1, ddof=1) * np.sqrt(P), 0.95))
+    return dict(R1=min(HALVE_DD, max(p95.values())), R1_p95_raw=max(p95.values()), R2=r2, R3=r3)
+
+
+def fire(x: dict, th: dict, paths: Paths) -> dict:
+    """P(each stop fires within its horizon) when x is the truth, fit edge, SB21 (FLATTEN_REMEASURE §4)."""
+    I21 = {b: paths.get(len(x[b]))[0] for b in ("TR", "PR")}
+    r1 = max(float((path_max_drawdown(x[b][I21[b]]) >= th["R1"]).mean()) for b in ("TR", "PR"))
+    r2 = float(((np.prod(1 + x["PR"][I21["PR"][:, :120]], axis=1) - 1) < th["R2"]).mean())
+    r3 = float(((x["PR"][I21["PR"][:, :60]].std(axis=1, ddof=1) * np.sqrt(P)) > th["R3"]).mean())
+    return dict(R1=r1, R2=r2, R3=r3)
+
+
+def q(s: pd.Series) -> dict:
+    return dict(p50=float(s.quantile(0.5)), p90=float(s.quantile(0.9)), p99=float(s.quantile(0.99)),
+                max=float(s.max()), n=int(len(s)))
+
+
+def main() -> int:
+    import inspect
+    if "rolling(63," not in inspect.getsource(bf.build_panel):
+        raise AssertionError("build_panel's ADV window is no longer 63 sessions; ADV_WINDOW is stale")
+    BAND, CAP, M = float(S.BAND_WIDTH), float(S.MAX_GROSS_STRESS), S.SIZING_MULTIPLIER
+    if M is None:
+        raise AssertionError(f"{S.SPEC_ID} carries no sizing_multiplier; this file composes te4 with trial 53")
+    M = float(M)
+    if not 2 <= FLOOR < int(S.MIN_NAMES):
+        raise AssertionError(f"FLOOR {FLOOR} must satisfy 2 <= FLOOR < min_names {S.MIN_NAMES}")
+    p(f"spec {S.SPEC_ID}: sizing_multiplier {M}, band {BAND}, max_gross_stress {CAP}, min_names {S.MIN_NAMES}, "
+      f"min_abs_weight {S.MIN_ABS_WEIGHT}; FLOOR {FLOOR} (the draft's; not a spec key)")
+    OUT["spec"] = dict(id=S.SPEC_ID, m=M, band=BAND, cap=CAP, min_names=int(S.MIN_NAMES), floor=FLOOR)
+
+    # ---------------------------------------------------------------- the books, fit only
+    T6, R = bf.build_targets()
+    T4, R4 = bf.build_targets(min_names=FLOOR)
+    if not (R4.equals(R) and T4.index.equals(T6.index)):
+        raise AssertionError("build_targets(min_names=FLOOR) changed R or the index")
+    thin6 = bf.thin_sessions(T6.index)
+    thin4 = bf.thin_sessions(T4.index, min_names=FLOOR)
+    T6, Rf = bf.fit_only(T6, R)
+    T4, _ = bf.fit_only(T4, R)
+    thin6, thin4 = thin6.loc[T6.index], thin4.loc[T4.index]
+    if T6.index.max() >= pd.Timestamp("2023-01-01") or Rf.index.max() >= pd.Timestamp("2023-01-01"):
+        raise AssertionError("holdout leak")
+    act = (~thin6).to_numpy()
+    if not (T4.values[act] == T6.values[act]).all():
+        raise AssertionError("te4 and the spec build different targets on a session with >= min_names eligible")
+    reduced = thin6 & ~thin4
+    Rtr = bf.total_returns(Rf)
+    p(f"fit panel {T6.index.min().date()} .. {T6.index.max().date()}: {len(T6)} sessions, {int(thin6.sum())} thin "
+      f"(< {S.MIN_NAMES} eligible), {int(reduced.sum())} reduced ({FLOOR}..{int(S.MIN_NAMES) - 1} eligible), "
+      f"{int(thin4.sum())} below the floor; W1 ({W1.date()} on): {int(thin6.loc[W1:].sum())} thin, "
+      f"{int(reduced.loc[W1:].sum())} reduced")
+    OUT["sessions"] = dict(fit=len(T6), thin=int(thin6.sum()), reduced=int(reduced.sum()),
+                           below_floor=int(thin4.sum()), w1_thin=int(thin6.loc[W1:].sum()),
+                           w1_reduced=int(reduced.loc[W1:].sum()))
+
+    def book(rule, m, deferred):
+        if rule == "flatten":
+            H = bf.band_gross_capped(T6, BAND, CAP / m, defer_flips=deferred, below_min_names="flatten", thin=thin6)
+        else:
+            H = bf.band_gross_capped(T4, BAND, CAP / m, defer_flips=deferred, below_min_names="trade_eligible",
+                                     thin=thin4, floor=FLOOR)
+        return m * H
+
+    ms = sorted({1.0, 1.13, M})
+    H = {(r, m, fl): book(r, m, fl == "deferred") for r in ("flatten", "te4") for m in ms
+         for fl in ("instant", "deferred")}
+
+    # ---------------------------------------------------------------- A. reproduction
+    ref = json.loads((PV / "flatten_exact_2026-11-02.json").read_text())
+    worst = 0.0
+    for m in (1.0, 1.13, 1.3):
+        if (m in ms) and str(m) in ref:
+            r = rows(H[("flatten", m, "instant")], Rtr, Rf, CAP)
+            for k in ("ann", "sr", "mdd", "ann_trading", "vol_trading", "sr_trading"):
+                worst = max(worst, abs(r["TR"][k] - ref[str(m)]["TR"][k]))
+            for k in ("ann", "sr"):
+                worst = max(worst, abs(r["PR"][k] - ref[str(m)]["PR"][k]))
+            for k in ("at_cap_all", "at_cap_held", "mean_gross_held"):
+                worst = max(worst, abs(r[k] - ref[str(m)][k]))
+    if worst > 1e-9:
+        raise AssertionError(f"the flatten book does not reproduce trial 53's flatten_exact_2026-11-02.json "
+                             f"(largest difference {worst:.3e})")
+    rem = json.loads((PV / "flatten_remeasure_2026-11-02_m1.30.json").read_text())
+    sd_flat = rows(H[("flatten", 1.0, "instant")], Rtr, Rf, CAP)["TR"]["sd_trading"]
+    if abs(sd_flat - rem["sd_daily"]["flatten_active"]) > 1e-9:
+        raise AssertionError(f"flatten trading-session sd {sd_flat} != {rem['sd_daily']['flatten_active']}")
+    scr = json.loads((SCREEN / "results.json").read_text())["review_attacks"]["h_episodes"]["flatten"]
+    eps = episodes(reduced)
+    gap = (bf.evaluate(H[("te4", 1.0, "instant")], Rtr)["pnl"] - bf.evaluate(H[("flatten", 1.0, "instant")], Rtr)["pnl"])
+    vals = [float(gap.loc[earn_days(T6.index, e["parts"]).intersection(gap.index)].sum()) for e in eps]
+    d_ep = max(abs(a - b) for a, b in zip(vals, scr["values"])) if len(vals) == len(scr["values"]) else np.inf
+    if d_ep > 1e-9:
+        raise AssertionError(f"the te4 fit episodes do not reproduce the screen's ({len(vals)} against "
+                             f"{len(scr['values'])}; largest difference {d_ep:.3e})")
+    p(f"A. reproduced: flatten at m 1.00 / 1.13 / 1.30 = trial 53's flatten_exact_2026-11-02.json (largest "
+      f"difference {worst:.1e}); flatten trading-session unit sd {sd_flat:.6f} = flatten_remeasure's; te4's "
+      f"{len(vals)} fit episodes = the screen's (largest difference {d_ep:.1e})")
+    OUT["reproduction"] = dict(flatten_exact_max_diff=worst, sd_flatten_active=sd_flat, episodes_max_diff=d_ep)
+
+    # ---------------------------------------------------------------- B. trial 53's rows under te4
+    p("\nB. trial 53's exact-build rows (W1 2013-06-25 .. 2022-12-30), flatten against te4")
+    OUT["rows"] = {}
+    for m in ms:
+        for fl in ("instant", "deferred"):
+            for rule in ("flatten", "te4"):
+                r = rows(H[(rule, m, fl)], Rtr, Rf, CAP)
+                OUT["rows"][f"{rule}/{m}/{fl}"] = r
+                p("  " + fmt(f"{rule:7s} x{m:.2f} {fl:8s}", r))
+
+    # ---------------------------------------------------------------- C. the rule's multiplier fed te4
+    sd = rem["sd_daily"]
+    m_c4_rule = rem["implied_core_multiplier"]["flatten_active"] * sd["flatten_active"] / sd["c4"]
+    sd_te4 = OUT["rows"]["te4/1.0/instant"]["TR"]["sd_trading"]
+    m_te4 = m_c4_rule * sd["c4"] / sd_te4
+    p(f"\nC. the 2026-10-29 rule (m_core = m_c4_rule x sd_c4 / sd_core; m_c4_rule {m_c4_rule:.4f}, sd_c4 "
+      f"{sd['c4']:.6f}, both from flatten_remeasure_2026-11-02_m1.30.json [S]): flatten trading-session sd "
+      f"{sd['flatten_active']:.6f} -> {rem['implied_core_multiplier']['flatten_active']:.4f}; te4 trading-session "
+      f"sd {sd_te4:.6f} -> {m_te4:.4f} (rounded down to 2 dp: {np.floor(m_te4 * 100) / 100:.2f})")
+    OUT["multiplier"] = dict(m_c4_rule=m_c4_rule, sd_c4=sd["c4"], sd_flatten_active=sd["flatten_active"],
+                             sd_te4_active=sd_te4, m_flatten=rem["implied_core_multiplier"]["flatten_active"],
+                             m_te4=m_te4, m_te4_2dp_down=float(np.floor(m_te4 * 100) / 100))
+
+    # ---------------------------------------------------------------- D. trial 53's stops
+    paths = Paths()
+    ser = {}
+    for rule in ("flatten", "te4"):
+        for fl in ("instant", "deferred"):
+            Hx = H[(rule, M, fl)]
+            g = Hx.abs().sum(axis=1)
+            earn = (g.shift(2).fillna(0.0) > 0).loc[W1:]
+            ser[(rule, fl)] = {b: bf.evaluate(Hx, RR)["pnl"].loc[W1:][earn].to_numpy()
+                               for b, RR in (("TR", Rtr), ("PR", Rf))}
+    th = {k: stops(v, paths) for k, v in ser.items()}
+    approved = rem["thresholds_core"]["flatten_active"]
+    p(f"\nD. trial 53's R1 / R2 / R3 at m {M}, calibrated on each exact book's W1 trading sessions (fit edge; "
+      f"stops.py definitions). Trial 53's approved values (house cap model, flatten, earning-only) "
+      f"{approved['R1'] * 100:.2f}% / {approved['R2'] * 100:+.2f}% / {approved['R3'] * 100:.2f}%:")
+    for k, v in th.items():
+        p(f"  {k[0]:7s} {k[1]:8s}: R1 {v['R1'] * 100:.2f}% (p95 raw {v['R1_p95_raw'] * 100:.2f}%) | "
+          f"R2 {v['R2'] * 100:+.2f}% | R3 {v['R3'] * 100:.2f}% | trading sessions {len(ser[k]['TR'])}")
+    fm = {}
+    for truth in ser:
+        for cal in th:
+            fm[f"{truth[0]}/{truth[1]} <- {cal[0]}/{cal[1]}"] = fire(ser[truth], th[cal], paths)
+    fm["te4/deferred <- approved (flatten, cap model)"] = fire(ser[("te4", "deferred")], approved, paths)
+    fm["flatten/deferred <- approved (flatten, cap model)"] = fire(ser[("flatten", "deferred")], approved, paths)
+    p("  P(fire within horizon), truth <- calibration, fit edge SB21 (nominal 5%; R1 below 5% by construction):")
+    for k, v in fm.items():
+        p(f"    {k:52s} R1 {v['R1']:.1%}  R2 {v['R2']:.1%}  R3 {v['R3']:.1%}")
+    OUT["stops"] = dict(thresholds={f"{k[0]}/{k[1]}": v for k, v in th.items()}, approved=approved, fire=fm,
+                        n_trading={f"{k[0]}/{k[1]}": int(len(v["TR"])) for k, v in ser.items()})
+
+    # D2. zero-edge P(HALVE) / P(KILL) in 12 months while trading (trial 53's statistic: worst of SB21 /
+    # SB63 / GAUSS, worse of TR / PR, HALVE not acting), at the spec's m and at te4's own rule value
+    m_alt = float(np.floor(m_te4 * 100) / 100)
+    od = {}
+    for rule in ("flatten", "te4"):
+        for fl in ("instant", "deferred"):
+            od[f"{rule}/{M}/{fl}"] = ser[(rule, fl)]
+    for fl in ("instant", "deferred"):
+        Hx = book("te4", m_alt, fl == "deferred")
+        g = Hx.abs().sum(axis=1)
+        earn = (g.shift(2).fillna(0.0) > 0).loc[W1:]
+        od[f"te4/{m_alt}/{fl}"] = {b: bf.evaluate(Hx, RR)["pnl"].loc[W1:][earn].to_numpy()
+                                   for b, RR in (("TR", Rtr), ("PR", Rf))}
+    OUT["odds_zero_trading"] = {}
+    p(f"\nD2. zero-edge P(HALVE {HALVE_DD:.0%}) / P(KILL) within 252 trading sessions, W1 trading sessions, worst method, "
+      f"worse of TR / PR (trial 53 approved 15.9% / 1.5% on the hold book; amendment 1: 16.7% / 1.68% on the "
+      f"flatten book's trading sessions, house cap model [S]):")
+    for k, x in od.items():
+        o = {b: odds(x[b], paths, "zero") for b in ("TR", "PR")}
+        h, kl = max(worst_of(o[b], 0) for b in o), max(worst_of(o[b], 1) for b in o)
+        OUT["odds_zero_trading"][k] = dict(halve=h, kill=kl)
+        p(f"  {k:22s}: P(HALVE) {h:.1%}  P(KILL) {kl:.2%}")
+
+    # ---------------------------------------------------------------- E. the draft's in-episode stops
+    Hi = H[("te4", M, "instant")]
+    Hd = H[("te4", M, "deferred")]
+    first = reduced.index[reduced.to_numpy()].min()
+    red_dec = reduced.loc[first:]
+    red_earn = reduced.shift(2).reindex(Hd.index).fillna(False).astype(bool)
+    xr = {b: bf.evaluate(Hd, RR)["pnl"][red_earn].to_numpy() for b, RR in (("TR", Rtr), ("PR", Rf))}
+    de = {}
+    for L in LS:
+        pl = Paths(horizon=L)
+        de[L] = {b: {lab: float(np.quantile(path_max_drawdown(pth), 0.95))
+                     for lab, pth in draw(xr[b], pl, "fit").items()} for b in ("TR", "PR")}
+        de[L]["D_E"] = max(max(de[L][b].values()) for b in ("TR", "PR"))
+    gH = Hd.abs().sum(axis=1)
+    mx = Hd.abs().max(axis=1)
+    net = Hd.sum(axis=1).abs()
+    rd = red_dec.index[red_dec.to_numpy()]
+    ad = T6.index[(~thin6).to_numpy() & (T6.index >= first)]
+    ad = ad[gH.loc[ad].to_numpy() > 0]
+    tw = T4.loc[rd]
+    single = ((tw > 0).sum(axis=1).eq(1) | (tw < 0).sum(axis=1).eq(1))
+    conc = dict(reduced_max_w=q(mx.loc[rd]), active_max_w=q(mx.loc[ad]), reduced_net=q(net.loc[rd]),
+                active_net=q(net.loc[ad]), reduced_gross=q(gH.loc[rd]),
+                reduced_at_cap=float((gH.loc[rd] >= CAP - 1e-9).mean()),
+                active_at_cap=float((gH.loc[ad] >= CAP - 1e-9).mean()),
+                reduced_single_fund_side=float(single.mean()),
+                reduced_net_instant=q(Hi.sum(axis=1).abs().loc[rd]),
+                # the vol scalar IS the unit target's gross (sum|w| = 1 before it): clip(0.06 / rv, 0.2, 2.5)
+                scalar_reduced=q(T4.loc[rd].abs().sum(axis=1)), scalar_active=q(T6.loc[ad].abs().sum(axis=1)),
+                scalar_at_clip_reduced=int(((T4.loc[rd].abs().sum(axis=1) - 2.5).abs() < 1e-12).sum()
+                                           + ((T4.loc[rd].abs().sum(axis=1) - 0.2).abs() < 1e-12).sum()),
+                reduced_net_top_deferred={str(k.date()): float(v) for k, v in
+                                          net.loc[rd].sort_values(ascending=False).head(5).items()})
+    p(f"\nE. in-episode stops at m {M}, te4 deferred, fit from the first reduced decision {first.date()} "
+      f"({len(rd)} reduced decisions, {int(red_earn.sum())} reduced earning days):")
+    for L in LS:
+        p(f"  D_E({L}) = {de[L]['D_E'] * 100:.2f}% (TR {', '.join(f'{k} {v * 100:.2f}' for k, v in de[L]['TR'].items())}; "
+          f"PR {', '.join(f'{k} {v * 100:.2f}' for k, v in de[L]['PR'].items())})")
+    for k in ("reduced_max_w", "active_max_w", "reduced_net", "active_net", "reduced_net_instant", "reduced_gross",
+              "scalar_reduced", "scalar_active"):
+        v = conc[k]
+        p(f"  {k:14s} p50 {v['p50']:.3f}  p90 {v['p90']:.3f}  p99 {v['p99']:.3f}  max {v['max']:.3f}  [n {v['n']}]")
+    p(f"  largest reduced |net| (deferred): {conc['reduced_net_top_deferred']}; vol scalar at a clip on "
+      f"{conc['scalar_at_clip_reduced']} reduced decisions")
+    p(f"  held at the cap ({CAP}x NAV): reduced {conc['reduced_at_cap']:.1%}, active {conc['active_at_cap']:.1%}; "
+      f"a single-fund side in the reduced TARGET on {conc['reduced_single_fund_side']:.1%} of reduced decisions")
+    # does the vol scalar hold the 6% unit target on 4-5 names? realised vol of the UNIT te4 book (instant)
+    # on earning days after a reduced decision against earning days after a full one, fit from `first`
+    pu = bf.evaluate(H[("te4", 1.0, "instant")], Rtr)["pnl"].loc[first:]
+    gu = H[("te4", 1.0, "instant")].abs().sum(axis=1).shift(2).reindex(pu.index).fillna(0.0) > 0
+    re_ = red_earn.reindex(pu.index).fillna(False).astype(bool)
+    vol_split = dict(reduced=float(pu[re_ & gu].std() * np.sqrt(P)), full=float(pu[~re_ & gu].std() * np.sqrt(P)),
+                     n_reduced=int((re_ & gu).sum()), n_full=int((~re_ & gu).sum()),
+                     target=float(S.VOL_TARGET))
+    p(f"  unit te4 (instant) realised vol, fit from {first.date()}: reduced earning days "
+      f"{vol_split['reduced'] * 100:.2f}% [n {vol_split['n_reduced']}], full earning days "
+      f"{vol_split['full'] * 100:.2f}% [n {vol_split['n_full']}] (the scalar targets vol_target_annual "
+      f"{vol_split['target']})")
+    conc["vol_split_unit"] = vol_split
+    # how often the draft's persistence rule (3 consecutive reduced decisions above the fit p99) fires on the
+    # fit itself, per statistic: the false-alarm count of the rule on the book it was calibrated on
+    def runs_above(stat: pd.Series, thr: float, k: int) -> int:
+        a = (stat.loc[rd] > thr).to_numpy()
+        n, c = 0, 0
+        for v in a:
+            c = c + 1 if v else 0
+            n += int(c == k)
+        return n
+    persist = {lab: {"p99": float(st.loc[rd].quantile(0.99)), "max": float(st.loc[rd].max()),
+                     "runs_of_3_above_p99": runs_above(st, float(st.loc[rd].quantile(0.99)), 3),
+                     "runs_of_2_above_p99": runs_above(st, float(st.loc[rd].quantile(0.99)), 2)}
+               for lab, st in (("max_w", mx), ("net", net))}
+    p("  persistence on the fit (reduced decisions in sequence): " + "; ".join(
+        f"{k}: runs of 2 above p99 {v['runs_of_2_above_p99']}, runs of 3 {v['runs_of_3_above_p99']}"
+        for k, v in persist.items()))
+    OUT["in_episode"] = dict(first_reduced=str(first.date()), D_E={str(L): de[L] for L in LS}, concentration=conc,
+                             persistence=persist)
+
+    # ---------------------------------------------------------------- F. the unit of inference at m
+    OUT["episodes"] = {}
+    for fl in ("instant", "deferred"):
+        Hx = H[("te4", M, fl)]
+        pn = {b: bf.evaluate(Hx, RR)["pnl"] for b, RR in (("TR", Rtr), ("PR", Rf))}
+        tab = []
+        for e in eps:
+            d = earn_days(T6.index, e["parts"]).intersection(pn["TR"].index)
+            dec = T6.index[e["i0"]: e["i1"] + 1]
+            dec = dec[reduced.loc[dec].to_numpy()]
+            tab.append(dict(first=str(T6.index[e["i0"]].date()), last=str(T6.index[e["i1"]].date()),
+                            runs=len(e["parts"]), earn_days=int(len(d)),
+                            TR=float(pn["TR"].loc[d].sum()), PR=float(pn["PR"].loc[d].sum()),
+                            mdd_TR=float(max_drawdown(pn["TR"].loc[d])["mdd"]),
+                            mdd_PR=float(max_drawdown(pn["PR"].loc[d])["mdd"]),
+                            max_w=float(Hx.abs().max(axis=1).loc[dec].max())))
+        v = {b: np.array([t[b] for t in tab]) for b in ("TR", "PR")}
+        es = {b: float(v[b].mean() / v[b].std(ddof=1)) for b in ("TR", "PR")}
+        pw = {N: {n: float(p_clear_bar(es["PR"] * np.sqrt(n), float(upper_bound_max_z(N)))) for n in (2, 3, 5, 9, 13)}
+              for N in NS}
+        OUT["episodes"][fl] = dict(table=tab, effect=es, p_pass_PR=pw,
+                                   bars={N: float(upper_bound_max_z(N)) for N in NS})
+        p(f"\nF. te4 fit episodes at m {M}, {fl} flips (pp of NAV over the episode's thin earning days; flatten "
+          f"earns exactly 0 there):")
+        for t in tab:
+            p(f"  {t['first']}..{t['last']} ({t['runs']} runs, {t['earn_days']} earning days): TR {t['TR'] * 100:+.2f} "
+              f"PR {t['PR'] * 100:+.2f} | within-episode maxDD TR {t['mdd_TR'] * 100:.2f}% PR {t['mdd_PR'] * 100:.2f}% "
+              f"| largest single-name |w| {t['max_w']:.3f}")
+        p(f"  per-episode effect (mean/sd): TR {es['TR']:.2f}, PR {es['PR']:.2f}; P(pass) at the PR effect by forward "
+          f"episodes: " + " | ".join(f"N={N} (bar {upper_bound_max_z(N):.3f}): " + ", ".join(
+              f"{n}: {pw[N][n]:.2f}" for n in (2, 3, 5, 9, 13)) for N in NS))
+
+    # G. the declared pass and ABSENT rules, at the per-episode effect on paper's basis (PR, deferred, m) and at
+    # the screen's holdout shrink (results.json review_attacks.m_power.shrink). PASS: one-sample t of k episode
+    # values >= the t(k-1) critical value at the bar's one-sided p (the screen's attack h). Exact small-sample
+    # power from the noncentral t, beside the screen's normal approximation (inference.p_clear_bar), which is
+    # generous at small k. ABSENT: the first two episodes both negative, or the mean of the first three <= 0.
+    from math import erf, sqrt as _sqrt
+    from scipy import stats as sps
+    shrink = json.loads((SCREEN / "results.json").read_text())["review_attacks"]["m_power"]["shrink"]
+    es0 = OUT["episodes"]["deferred"]["effect"]["PR"]
+    G = dict(effect_pr_deferred=es0, shrink=shrink, power={}, absent={})
+    p(f"\nG. declared rules at per-episode effect {es0:.2f} (PR, deferred, m {M}) and shrunk x{shrink:.2f} "
+      f"({es0 * shrink:.2f}), and at zero:")
+    for N in NS:
+        bar = float(upper_bound_max_z(N))
+        pb = 0.5 * (1 - erf(bar / _sqrt(2)))
+        G["power"][N] = {}
+        for k in (3, 5, 9, 13, 20):
+            crit = float(sps.t.ppf(1 - pb, k - 1))
+            row = {}
+            for lab, e in (("fit", es0), ("shrunk", es0 * shrink)):
+                row[lab] = dict(normal=float(p_clear_bar(e * np.sqrt(k), bar)),
+                                exact_t=float(1 - sps.nct.cdf(crit, k - 1, e * np.sqrt(k))))
+            row["t_crit"] = crit
+            G["power"][N][k] = row
+        p(f"  N={N} (bar {bar:.3f}, one-sided p {pb:.5f}): P(PASS) normal / exact-t, fit | shrunk: " + "; ".join(
+            f"k={k}: {G['power'][N][k]['fit']['normal']:.2f}/{G['power'][N][k]['fit']['exact_t']:.3f} | "
+            f"{G['power'][N][k]['shrunk']['normal']:.2f}/{G['power'][N][k]['shrunk']['exact_t']:.3f} "
+            f"(t crit {G['power'][N][k]['t_crit']:.2f})" for k in (3, 5, 9, 13, 20)))
+    for lab, e in (("fit", es0), ("shrunk", es0 * shrink), ("zero", 0.0)):
+        ph = 0.5 * (1 + erf(-e / _sqrt(2)))
+        G["absent"][lab] = dict(first_two_negative=ph ** 2,
+                                mean_of_three_le_0=0.5 * (1 + erf(-e * np.sqrt(3) / _sqrt(2))))
+        # P(either) is simulated: the two events overlap, so their probabilities do not add
+        rng = np.random.default_rng(20261103)
+        z = rng.standard_normal((200_000, 3)) + e
+        G["absent"][lab]["either"] = float((((z[:, 0] < 0) & (z[:, 1] < 0)) | (z.mean(axis=1) <= 0)).mean())
+        p(f"  ABSENT at effect {lab} ({e:.2f}): first two negative {G['absent'][lab]['first_two_negative']:.3f}; mean "
+          f"of three <= 0 {G['absent'][lab]['mean_of_three_le_0']:.3f}; either (simulated, 200,000) "
+          f"{G['absent'][lab]['either']:.3f}")
+    OUT["rules"] = G
+
+    (HERE / f"compose_{STAMP}.json").write_text(json.dumps(OUT, indent=1, default=str))
+    (HERE / f"compose_output_{STAMP}.txt").write_text("\n".join(LOG) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
