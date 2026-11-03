@@ -32,6 +32,12 @@ AFTER THE RESULT (review of 2026-11-02): the tests under "diagnostics and the ca
 the cache the recorded counts came from and the diagnostics that frame the team lead's
 choice (the episode mask, the year control, the trend test). They decide nothing: no test
 there moves DIMSON_LAGS or touches THE RULE.
+
+THE TEAM LEAD'S RULING (2026-11-03: keep DIMSON_LAGS = 0, MUNI the headline, TERM/CREDIT/LOANS
+indicative): the tests under "the report's order" pin summary.md's order and the
+muni-vs-taxable split. They were run against the first build's summary_md and failed there.
+The ruling changed no computation; the session that recorded it diffed analyse's CSVs before
+and after on synthetic positions files and found them byte-identical.
 """
 from __future__ import annotations
 
@@ -485,6 +491,103 @@ def test_plateau_counts_say_unmeasured_without_equity():
     ro = ER.readout(px, P, {"AAA": "multi"}, window=W, lags=L)
     s = ER.plateau_summary(ro)
     assert s["review"] is None and s["review_t2"] is None
+
+
+# --------------------------------------------------------------------------- the report's order
+# (team lead, 2026-11-03: keep DIMSON_LAGS = 0, MUNI is the headline, TERM/CREDIT/LOANS indicative)
+
+def _two_group_book():
+    """A book short two muni-group names and long two taxable ones, with equity, so MUNI has
+    a muni side and a taxable side and the rule is measured."""
+    R = _correlated_names()
+    px = _px_from_returns(R)
+    dates = list(SESS[150:153])
+    book = {"AAA": 20_000.0, "CCC": 20_000.0, "BBB": -40_000.0, "DDD": -30_000.0}
+    groups = {"AAA": "multi", "CCC": "hy", "BBB": "muni", "DDD": "muni"}
+    return px, dates, book, groups
+
+
+def test_summary_leads_with_muni_and_puts_term_credit_loans_under_indicative():
+    """The first section after the header is MUNI's: its reading against the rule, its
+    exposure, vol contribution and flag per date, and the muni-vs-taxable group reading, in
+    that order. No TERM, CREDIT or LOANS reading appears before INDICATIVE_HEADING; after it
+    each of the three has its rule line and a row per date. The plateau check stays last.
+    The first build's summary (rule, then all four factors interleaved, TERM first) fails."""
+    px, dates, book, groups = _two_group_book()
+    ro = ER.readout(px, _positions(dates, book), groups, window=W, lags=L)
+    md = ER.summary_md(ro, {"asof": "x", "fetched_at_utc": "y"},
+                       [dict(ER.plateau_summary(ro), adopted=True)])
+    lines = md.splitlines()
+    h2 = [s for s in lines if s.startswith("## ")]
+    assert h2[0] == "## Headline: MUNI"
+    assert h2.count(f"## {ER.INDICATIVE_HEADING}") == 1
+    assert ER.INDICATIVE_HEADING == "Indicative: depends on the lag choice (see DIMSON_LAGS docstring)"
+    assert h2[-1].startswith("## Plateau check")
+    cut = lines.index(f"## {ER.INDICATIVE_HEADING}")
+    head, tail = lines[:cut], lines[cut:]
+
+    # nothing of TERM, CREDIT or LOANS is read before the indicative heading
+    assert ER.INDICATIVE_FACTORS == ("TERM", "CREDIT", "LOANS")
+    for k in ER.INDICATIVE_FACTORS:
+        assert not [s for s in head if f"| {k} |" in s or f"{k}: " in s or f"**{k}" in s], k
+
+    # MUNI's rule line, then its per-date rows (exposure, vol contribution, flag), then the
+    # group reading, all in the head and in that order
+    ex = ro.exposure.set_index(["date", "factor"])
+    rule_at = next(i for i, s in enumerate(head) if s.startswith(("- **MUNI: REVIEW", "- MUNI: within")))
+    rows_at = []
+    for d in dates:
+        r = ex.loc[(d, "MUNI")]
+        want = (f"| {d.date()} | MUNI | {ER._fmt_money(r['exposure_usd'])} | {r['exposure_frac']:+.3f} | "
+                f"{r['factor_vol']:.4f} | {r['contrib_of_target']:.3f} | {r['t_stat']:+.2f} | "
+                f"{r['d4_literal_breach']} | {r['review']} |")
+        rows_at.append(head.index(want))
+    grp_at = head.index("### MUNI exposure: the muni group against the taxable groups")
+    assert rule_at < min(rows_at) and max(rows_at) < grp_at
+    mv = ER.muni_vs_taxable(ro).set_index("date")
+    for d in dates:
+        assert any(s.startswith(f"| {d.date()} | {ER._fmt_money(mv.at[d, 'muni_usd'])} | ")
+                   and f"| {ER._fmt_money(mv.at[d, 'book_usd'])} |" in s for s in head[grp_at:])
+
+    # the three indicative factors, each read against the rule and on every date, after the cut
+    for k in ER.INDICATIVE_FACTORS:
+        assert [s for s in tail if s.startswith((f"- **{k}: REVIEW", f"- {k}: within"))], k
+        for d in dates:
+            assert [s for s in tail if s.startswith(f"| {d.date()} | {k} |")], (k, d)
+    assert not [s for s in tail if "| MUNI |" in s and s.startswith("| 20")]
+
+    # without equity MUNI still leads, and its UNMEASURED line comes before the cut
+    P = _positions(dates, book).drop(columns=["equity"])
+    md0 = ER.summary_md(ER.readout(px, P, groups, window=W, lags=L), {"asof": "x", "fetched_at_utc": "y"})
+    l0 = md0.splitlines()
+    assert [s for s in l0 if s.startswith("## ")][0] == "## Headline: MUNI"
+    assert l0.index("- UNMEASURED on 3 date(s): no equity in the positions file.") < \
+        l0.index(f"## {ER.INDICATIVE_HEADING}")
+
+
+def test_muni_vs_taxable_adds_up_to_the_book_and_names_a_side_not_held():
+    px, dates, book, groups = _two_group_book()
+    ro = ER.readout(px, _positions(dates, book, equity=250_000.0), groups, window=W, lags=L)
+    mv = ER.muni_vs_taxable(ro).set_index("date")
+    bg = ro.by_group[ro.by_group["factor"] == "MUNI"]
+    for d in dates:
+        g = bg[bg["date"] == d].set_index("grp")["exposure_usd"]
+        assert mv.at[d, "muni_usd"] == pytest.approx(g["muni"], rel=1e-12)
+        assert mv.at[d, "taxable_usd"] == pytest.approx(g["hy"] + g["multi"], rel=1e-12)
+        assert mv.at[d, "muni_usd"] + mv.at[d, "taxable_usd"] == pytest.approx(mv.at[d, "book_usd"], rel=1e-10)
+        assert mv.at[d, "taxable_frac"] == pytest.approx(mv.at[d, "taxable_usd"] / 250_000.0, rel=1e-12)
+        assert mv.at[d, "taxable_by_group"] == {"hy": g["hy"], "multi": g["multi"]}
+    # no muni name held: that side says so, it is not printed as a measured exposure
+    taxable_only = {k: v for k, v in book.items() if groups[k] != "muni"}
+    ro2 = ER.readout(px, _positions(dates, taxable_only), groups, window=W, lags=L)
+    mv2 = ER.muni_vs_taxable(ro2)
+    assert not mv2["muni_held"].any() and mv2["taxable_held"].all()
+    md = ER.summary_md(ro2, {"asof": "x", "fetched_at_utc": "y"})
+    assert f"| {dates[0].date()} | none held | n/a | " in md
+    # no equity: the fractions are NaN, never a sum of NaNs read as 0
+    ro3 = ER.readout(px, _positions(dates, book).drop(columns=["equity"]), groups, window=W, lags=L)
+    mv3 = ER.muni_vs_taxable(ro3)
+    assert mv3["muni_frac"].isna().all() and mv3["taxable_frac"].isna().all()
 
 
 # --------------------------------------------------------------------------- derive's lag rules

@@ -1,4 +1,4 @@
-"""Report-only exposure readout: the book's TERM / CREDIT / MUNI / LOANS exposure, per day.
+"""Report-only exposure readout: the book's MUNI exposure (headline) and TERM / CREDIT / LOANS (indicative), per day.
 
 ZERO TRIALS. IT READS A BOOK AND REPORTS. IT NEVER TRADES.
 
@@ -218,6 +218,46 @@ rule first (one that withstands the episode, one by group, or neither) is the te
 call. A rule declared now would be written with the episode-dropped counts and the year
 control in view, and must say so, as this one disclosed the counts it was written beside.
 Any new rule is declared and committed before it runs, as this one was.
+
+THE TEAM LEAD'S RULING (2026-11-03). Keep DIMSON_LAGS = 0, the declared rule's output, and
+make MUNI the headline; TERM, CREDIT and LOANS are marked indicative. No new lag rule is
+declared. THE RULE, DIMSON_LAGS, REVIEW_FRACTION and every computation are unchanged: the
+five CSVs `analyse` writes are byte-identical before and after the change [V: diffed on
+synthetic positions files, with and without equity and with --plateau, 2026-11-03]. Only the
+order and headings of summary.md, which `analyse` also prints, changed (`summary_md`):
+  * first, "Headline: MUNI": the review rule, then MUNI against it, MUNI per date (exposure,
+    vol contribution, review flag), and the muni-vs-taxable group reading
+    (`muni_vs_taxable`): the book's MUNI exposure from the muni group (grp `muni` in
+    data/cef/cef_universe.csv) beside the taxable groups (every other grp), with the MUNI
+    factor P&L by group;
+  * then, under INDICATIVE_HEADING ("Indicative: depends on the lag choice (see DIMSON_LAGS
+    docstring)"): TERM, CREDIT and LOANS against the rule and per date, the book totals
+    (whose total factor vol sums all four factors) and the factor P&L of the three and of
+    all four;
+  * the plateau check, when asked for, stays last.
+Each factor now gets its own line against the rule, "within the line" included; the first
+build listed only the flagged ones, which would have left a MUNI within the line silent.
+Why MUNI leads and the other three do not, from the fit-era plateau and the review counts
+above [S: this docstring; not re-run for the ruling]: the muni group's MUNI beta is level
+across L; the muni group's TERM beta moves with L, LOANS has no plateau at any L, and the
+review counts moved more with L for TERM, CREDIT and LOANS than for MUNI. Even in the fit
+era the book's MUNI exposure also sums the taxable funds' MUNI betas, and those move with L.
+MEASURED WHILE RECORDING THE RULING (it changes nothing; whether it bears on the ruling is
+the team lead's call). On the current window the muni funds' own MUNI beta is NOT level in
+L. Summed MUNI beta on the 252 sessions strictly before 2026-10-30 (cache asof 2026-10-30),
+at L = 0, 1, 2, 3: MHD +1.21 +1.49 +1.59 +1.65, MQY +1.27 +1.33 +1.44 +1.67; the taxable
+names' group medians fall from L = 0 to L = 3 (hy +0.02 to -0.31, loan, JFR alone, -0.13 to
+-0.55, multi +0.24 to -0.06) [V: `fit_window` on the 13 spec names, 2026-11-03, public
+prices only; MHD, MQY, PDI and JFR re-derived by a second implementation, statsmodels' OLS
+for both the Gram-Schmidt and the regression, agreeing to 2 dp]. So on this window a book
+short munis and long taxable funds has a MUNI exposure that grows in size with L from both
+sides. The fit-era level cell is a fit-era fact, and the headline at L = 0 is
+the same-day beta, as every factor's is. Re-measure, never read these figures: `analyse
+--plateau` prints the MUNI review counts and mean |E| at L = 0 .. 2 on the book read, and
+`fit_window(...).beta_sum["MUNI"]` gives the names' betas at any L. If MUNI's reading moves
+with L on the book read, the plateau rows show it beside the adopted row; if it does not,
+they show that. The group reading sits in the headline so that the muni and taxable shares
+of MUNI are read on every date, not assumed. A test pins the order.
 
 THE RULES IT REPLACES (2026-11-02; history). DIMSON_LAGS = 3 came from this rule (`derive`,
 fit era, 13 names, factors orthogonalised on the whole era, HAC(5)) [V: derive, re-run
@@ -1110,51 +1150,162 @@ def _fmt_money(x: float) -> str:
     return "n/a" if not np.isfinite(x) else f"{x:,.0f}"
 
 
+# THE ORDER OF THE REPORT (team lead, 2026-11-03; module docstring, THE TEAM LEAD'S RULING).
+# Presentation only: nothing below changes a number the readout computes or writes to a CSV.
+HEADLINE_FACTOR = "MUNI"
+INDICATIVE_FACTORS = tuple(k for k in FACTOR_NAMES if k != HEADLINE_FACTOR)   # TERM, CREDIT, LOANS
+INDICATIVE_HEADING = "Indicative: depends on the lag choice (see DIMSON_LAGS docstring)"
+# The muni funds' `grp` in data/cef/cef_universe.csv. Every other group (hy, multi, loan, emd
+# today; whatever the table holds at run time) is a taxable group.
+MUNI_GROUP = "muni"
+
+
+def _rule_lines(ex: pd.DataFrame, factors) -> list:
+    """The readings of `factors` against the review rule, one bullet each, in `factors` order.
+
+    The first build printed one bullet per FLAGGED factor and "no factor over the line" when
+    none was, so a factor within the line was silent. With MUNI read on its own (team lead,
+    2026-11-03) a silent MUNI would read as missing, so each factor gets its own line."""
+    sub = ex[ex["factor"].isin(factors)]
+    n_all = sub["date"].nunique()
+    unm = sub[sub["review"] == "UNMEASURED"]
+    meas = sub[sub["review"] != "UNMEASURED"]
+    out = []
+    if len(unm):
+        out.append(f"- UNMEASURED on {unm['date'].nunique()} date(s): no equity in the positions file.")
+    for k in factors:
+        g = meas[meas["factor"] == k]
+        if not len(g):
+            continue
+        rev = g[g["review"] == "REVIEW"]
+        if len(rev):
+            m = rev.loc[rev["contrib_of_target"].idxmax()]
+            out.append(f"- **{k}: REVIEW on {rev['date'].nunique()} of {n_all} dates**; "
+                       f"largest c/target {m['contrib_of_target']:.3f} on {m['date'].date()} "
+                       f"(E {_fmt_money(m['exposure_usd'])} USD, t {m['t_stat']:.2f})")
+        else:
+            out.append(f"- {k}: within the line on all {g['date'].nunique()} measured date(s)")
+    return out
+
+
+def _per_date_lines(ex: pd.DataFrame, factors) -> list:
+    """The per-date rule table for `factors` (same columns and formats as the first build)."""
+    out = ["| date | factor | E USD | E/equity | sigma | c/target | t | D4 literal | rule |",
+           "|---|---|---:|---:|---:|---:|---:|---|---|"]
+    for r in ex[ex["factor"].isin(factors)].itertuples():
+        out.append(f"| {r.date.date()} | {r.factor} | {_fmt_money(r.exposure_usd)} | "
+                   f"{r.exposure_frac:+.3f} | {r.factor_vol:.4f} | {r.contrib_of_target:.3f} | "
+                   f"{r.t_stat:+.2f} | {r.d4_literal_breach} | {r.review} |")
+    return out
+
+
+def muni_vs_taxable(ro: Readout) -> pd.DataFrame:
+    """The book's MUNI exposure split into the muni group and the taxable groups, per date.
+
+    A reading of `ro.by_group` (exposure_by_group.csv), summed: no number is re-estimated.
+    The groups add up to the book (a test pins it). A side with no held name on a date is
+    `held = False` and its exposure is the empty sum, 0. The fractions are each side's USD
+    over that date's equity, NaN with no equity: never summed from NaNs into a 0.
+
+    Why the split is in the headline (module docstring, THE TEAM LEAD'S RULING): the book's
+    MUNI exposure sums the taxable funds' MUNI betas too, which move with the lag choice in
+    the fit-era plateau. On the window measured when the ruling was recorded the muni funds'
+    moved as well, so neither side is assumed level: the split is read on every date."""
+    ex = ro.exposure[ro.exposure["factor"] == HEADLINE_FACTOR].set_index("date")
+    eq = ro.total_vol.set_index("date")["equity"]
+    bg = ro.by_group[ro.by_group["factor"] == HEADLINE_FACTOR] if len(ro.by_group) else \
+        pd.DataFrame(columns=["date", "grp", "factor", "exposure_usd"])
+    rows = []
+    for t in ex.index:
+        g = bg[bg["date"] == t].set_index("grp")["exposure_usd"]
+        tax = g[g.index != MUNI_GROUP]
+        muni_usd = float(g.get(MUNI_GROUP, 0.0))
+        tax_usd = float(tax.sum()) if len(tax) else 0.0
+        e = float(eq.at[t])
+        rows.append(dict(date=t, muni_held=MUNI_GROUP in g.index, muni_usd=muni_usd,
+                         muni_frac=(muni_usd / e if np.isfinite(e) else float("nan")),
+                         taxable_held=bool(len(tax)), taxable_usd=tax_usd,
+                         taxable_frac=(tax_usd / e if np.isfinite(e) else float("nan")),
+                         book_usd=float(ex.at[t, "exposure_usd"]),
+                         taxable_by_group={k: float(v) for k, v in tax.sort_index().items()}))
+    return pd.DataFrame(rows)
+
+
 def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
+    """summary.md, which `analyse` also prints. MUNI first, then TERM, CREDIT and LOANS under
+    INDICATIVE_HEADING (team lead, 2026-11-03), then the plateau check when asked for.
+
+    Presentation only. Every number here is read from `ro`, whose frames are the CSVs; the
+    ruling changed the order and the headings, not one computed value."""
+    H = HEADLINE_FACTOR
+    ind = ", ".join(INDICATIVE_FACTORS[:-1]) + " and " + INDICATIVE_FACTORS[-1]
     L = ["# Exposure readout (report only; zero trials)", "",
          f"- spec: `{SPEC_ID}`; vol_target_annual {VOL_TARGET:.4g} (read at run time)",
          f"- window {ro.window} sessions strictly before each date; Dimson lags 0..{ro.lags}; "
          f"factors {', '.join(f'{f}={e}' for f, e in FACTORS)}, Gram-Schmidt in that order",
          f"- price cache: yfinance, asof {meta.get('asof')}, fetched {meta.get('fetched_at_utc')}",
-         "", "## Review rule (declared before the first reading)", "", REVIEW_RULE,
+         f"- {H} is the headline; {ind} follow under \"{INDICATIVE_HEADING}\" "
+         "(team lead, 2026-11-03; module docstring, THE TEAM LEAD'S RULING)",
+         "", f"## Headline: {H}", "",
+         "### Review rule (declared before the first reading; it applies to every factor)", "",
+         REVIEW_RULE,
          f"REVIEW_FRACTION = {REVIEW_FRACTION} (D4's beta bar on factors rescaled to the vol "
          "target; module docstring). Nothing is hedged automatically.", ""]
     ex = ro.exposure
-    rev = ex[ex["review"] == "REVIEW"]
-    unm = ex[ex["review"] == "UNMEASURED"]
-    L += ["## Readings against the rule", ""]
-    if len(unm):
-        L.append(f"- UNMEASURED on {unm['date'].nunique()} date(s): no equity in the positions file.")
-    if len(rev):
-        for k, g in rev.groupby("factor", sort=False):
-            m = g.loc[g["contrib_of_target"].idxmax()]
-            L.append(f"- **{k}: REVIEW on {g['date'].nunique()} of {ex['date'].nunique()} dates**; "
-                     f"largest c/target {m['contrib_of_target']:.3f} on {m['date'].date()} "
-                     f"(E {_fmt_money(m['exposure_usd'])} USD, t {m['t_stat']:.2f})")
-    else:
-        L.append("- no factor over the line on any date read")
-    L += ["", "## Per date", "",
-          "| date | factor | E USD | E/equity | sigma | c/target | t | D4 literal | rule |",
-          "|---|---|---:|---:|---:|---:|---:|---|---|"]
-    for r in ex.itertuples():
-        L.append(f"| {r.date.date()} | {r.factor} | {_fmt_money(r.exposure_usd)} | "
-                 f"{r.exposure_frac:+.3f} | {r.factor_vol:.4f} | {r.contrib_of_target:.3f} | "
-                 f"{r.t_stat:+.2f} | {r.d4_literal_breach} | {r.review} |")
-    L += ["", "## Book totals per date (information; not part of the rule)", "",
+    L += [f"### {H} against the rule", ""] + _rule_lines(ex, (H,))
+    L += ["", f"### {H} per date: exposure, vol contribution, review flag", ""] + _per_date_lines(ex, (H,))
+
+    mv = muni_vs_taxable(ro)
+    L += ["", f"### {H} exposure: the muni group against the taxable groups", "",
+          f"The book's {H} exposure by fund group (exposure_by_group.csv, summed): `{MUNI_GROUP}` "
+          "against every other group in data/cef/cef_universe.csv, which add up to the book. "
+          "Both sides are summed Dimson betas at the adopted L, and neither is assumed level in "
+          "L (module docstring, THE TEAM LEAD'S RULING); `analyse --plateau` re-reads MUNI at "
+          "other L on this book.", "",
+          "| date | muni group E USD | muni group E/equity | taxable groups E USD | "
+          "taxable groups E/equity | book E USD | taxable by group, E USD |",
+          "|---|---:|---:|---:|---:|---:|---|"]
+    for r in mv.itertuples():
+        mu = (f"{_fmt_money(r.muni_usd)} | {r.muni_frac:+.3f}" if r.muni_held else "none held | n/a")
+        tx = (f"{_fmt_money(r.taxable_usd)} | {r.taxable_frac:+.3f}" if r.taxable_held else "none held | n/a")
+        by = ", ".join(f"{g} {_fmt_money(v)}" for g, v in r.taxable_by_group.items()) or "none held"
+        L.append(f"| {r.date.date()} | {mu} | {tx} | {_fmt_money(r.book_usd)} | {by} |")
+
+    fp = ro.factor_pnl
+    if len(fp):
+        fh = fp[fp["factor"] == H]
+        L += ["", f"### {H} factor P&L by group (model reading, USD): E(t-1) x f(t) and the "
+              "lag-distributed method", "",
+              "| scope | summed-beta | lag-distributed |", "|---|---:|---:|"]
+        for sc, g in fh.groupby("scope", sort=False):
+            L.append(f"| {sc} | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
+        tax = fh[fh["scope"].str.startswith("grp:") & (fh["scope"] != f"grp:{MUNI_GROUP}")]
+        if len(tax):
+            L.append(f"| taxable groups (sum of the grp: rows other than grp:{MUNI_GROUP}) | "
+                     f"{tax['pnl_summed'].sum():,.2f} | {tax['pnl_lagdist'].sum():,.2f} |")
+        L.append(f"\nSessions: {fp['date'].nunique()} ({fp['date'].min().date()}..{fp['date'].max().date()}).")
+
+    L += ["", f"## {INDICATIVE_HEADING}", "",
+          f"{ind}. The team lead ruled on 2026-11-03 to keep DIMSON_LAGS = 0 and to read these three "
+          "as indicative: the module docstring shows their fit-era betas and review counts moving "
+          "with L more than MUNI's. The review rule applies to them unchanged.",
+          "", f"### {ind} against the rule", ""] + _rule_lines(ex, INDICATIVE_FACTORS)
+    L += ["", f"### {ind} per date", ""] + _per_date_lines(ex, INDICATIVE_FACTORS)
+    L += ["", "### Book totals per date (information; not part of the rule; the total factor vol "
+          "sums all four factors, so it moves with L too)", "",
           "| date | gross USD | net USD | total factor vol USD | total / target |",
           "|---|---:|---:|---:|---:|"]
     for r in ro.total_vol.itertuples():
         L.append(f"| {r.date.date()} | {_fmt_money(r.gross_usd)} | {_fmt_money(r.net_usd)} | "
                  f"{_fmt_money(r.total_factor_vol_usd)} | {r.total_of_target:.3f} |")
-    if len(ro.factor_pnl):
-        fp = ro.factor_pnl
-        L += ["", "## Factor P&L (model reading, USD): E(t-1) x f(t) and the lag-distributed method", "",
+    if len(fp):
+        L += ["", f"### Factor P&L, {ind}, and ALL four factors (model reading, USD)", "",
               "| scope | factor | summed-beta | lag-distributed |", "|---|---|---:|---:|"]
-        for (sc, k), g in fp.groupby(["scope", "factor"], sort=False):
+        fi = fp[fp["factor"].isin(INDICATIVE_FACTORS)]
+        for (sc, k), g in fi.groupby(["scope", "factor"], sort=False):
             L.append(f"| {sc} | {k} | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
         for sc, g in fp.groupby("scope", sort=False):
             L.append(f"| {sc} | ALL | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
-        L.append(f"\nSessions: {fp['date'].nunique()} ({fp['date'].min().date()}..{fp['date'].max().date()}).")
     if plateau:
         fac = "/".join(FACTOR_NAMES)
         L += ["", "## Plateau check: window and Dimson lags (nothing is chosen from it)", "",
