@@ -14,6 +14,20 @@ All figures are [V], from `results/cef/prereg_c4_level/trial54.py` (one subcomma
 - CRSP primary returns (C4's fit source);
 - C4's spec `c4_families.v4.20261102` read at run time: m 1.26, cap 1.90, band 0.048.
 
+> **FINAL (2026-11-03): the trial PASSES its pre-registered remainder, and the holdout (opened once) is
+> decisive.**
+> - **K3 (D4) FAILED as committed** (the level-only book's post-2007 alpha t 2.96 < 3.0, every |β| ≤ 0.082). It was
+>   **overridden post-data by the team lead**. That stays in the record: this is not a pass of K3.
+> - **Corrected run** (the trial-script vol-lookback fix, 2ed752f):
+>   - DG-L4 907 of 907 both ways;
+>   - **P1 t 2.8315** (lag 6, bar 2.8245; lag-fragile: 2.80 at L = 5 and L = 21);
+>   - P2 desk DSR 0.9997, K1 t −0.32, K2 20 of 20, P3 1.481 vs 1.310.
+> - **Holdout 2023-01-03 → 2026-09-30:** level-only gross SR **+1.636**, blend **+14.56%/yr** against z-only
+>   **+10.32%/yr**. **PASS.** Net at 15bp: blend +0.843 against z-only +0.125, so **no D2 label**.
+> - **Evidence: INCONCLUSIVE.** The holdout's level-on-z alpha is +10.43%/yr, NW t 2.74. At N = 54 the Šidák-adjusted
+>   interval is −2.14 to +22.99%/yr, so it includes zero and straddles the 0.8%/yr meaningful effect.
+> - **D-code: none at the holdout; D4 at K3, overridden.** Details are in §7.
+
 **2026-11-03 (later), K3 OVERRIDDEN POST-DATA by the team lead.**
 - **K3 (D4) FAILED as committed.** The level-only book's post-2007 alpha is t 2.96 < 3.0, and every |β| ≤ 0.082.
   The failure is significance, not factor exposure.
@@ -128,3 +142,58 @@ python3 -B results/cef/prereg_c4_level/trial54.py k3
   earlier vintage over 2005–22.
 
 **Panels:** the families panels, last date 2026-10-09, read to 2022-12-30.
+
+
+## 7. The corrected run and the holdout (2026-11-03)
+
+### 7.1 The fit stages: corrected beside the first read
+
+The fix (2ed752f) changes one thing: the 63-session vol lookback now reads the full history through t, as §1.2,
+`build_targets` and the sleeve do. Every stage was read once more, in order. The first reads are kept in
+`*_firstread_2026-11-03.*`.
+
+| stage | first read (trial script bug: truncated vol lookback, 6 sessions 2005-02-23..03-31) | corrected | read |
+|---|---|---|---|
+| DG-L4 (a) key absent | 907 of 907, gap 0.0 | 907 of 907, gap 0.0 | CLEAR |
+| DG-L4 (b) key present | 901 of 907, 6 breaks, max 0.0499 | **907 of 907**, 61,346 cells, gap 5.6e-16 | **CLEAR** |
+| P1 alpha NW t (lag 6, residual) | 2.8271 | **2.8315** (L = 5: 2.80; L = 21: 2.80) | PASS, at the bar |
+| P2 desk DSR (blend) | 0.9997 (CEF-54/blend, judged) | 0.9997 (CEF-54/blend_corrected, unjudged) | PASS |
+| K1 NAV-leg t | −0.32 | −0.32 | PASS |
+| K2 placebo | 20 of 20 | 20 of 20 | PASS |
+| K3 level-only | full t 3.06; **HY t 2.96** | full t 3.06; **HY t 2.96** | **KILL (D4), overridden post-data** |
+| P3 blend vs matched z-only | 1.481 vs 1.310 (band 0.0447) | 1.481 vs 1.310 (band 0.0447), sharpe_diff p 0.354 | PASS |
+
+**The registry.** The judged ledger line is still the first read's CEF-54/blend, because a judged line is never
+replaced or re-flagged. The corrected series are stored as CEF-54/blend_corrected and CEF-54/level_corrected, both
+unjudged. P2's corrected DSR uses the registry's own `desk_dsr` on the stored corrected bytes.
+
+### 7.2 The holdout, opened once
+
+The holdout ran 2023-01-03 → 2026-09-30 at commit 4badc45; its marker is `holdout_opened_2026-11-03.txt`. Returns
+are C4's holdout construction:
+- CRSP `ret` to 2024-12-31, identity-checked on the fit and on the 2023–24 leg;
+- the yfinance formula from 2025, on amendment 4's ruled actions with C4's bar and split rulings;
+- IGR's ruled fill, applied: 2026-09-08 −0.4454%, 2026-09-09 −3.5048%.
+
+Each book is the declared rule run continuously. Its rows through 2022-12-30 were asserted equal to the fit's, and
+its fit P&L reproduces P1's.
+
+| book | gross SR | ann | vol | turns/yr | net @5 / 15 / 30bp | flips | 2023–24 SR (ann) | 2025–26 SR (ann) |
+|---|---:|---:|---:|---:|---|---|---|---|
+| z-only (C4's v4 spec book) | 1.497 | 10.32% | 6.89% | 63.1 | +1.040 / +0.125 / −1.247 | yes | +2.21 (+15.43%) | +0.66 (+4.45%) |
+| level-only | **1.636** | 12.18% | 7.44% | 36.0 | +1.394 / +0.911 / +0.186 | no | +1.37 (+10.57%) | +1.97 (+14.03%) |
+| **blend, ½ : ½** | **2.065** | **14.56%** | 7.05% | 57.4 | +1.658 / **+0.843** / −0.378 | yes | +2.34 (+16.80%) | +1.74 (+11.99%) |
+
+- **The rule** (§6.2 step 6): the level gross SR is +1.636 > 0, and the blend's +14.56% is above z-only's +10.32%.
+  **PASS.**
+- **Net at 15bp:** the blend's +0.843 is at least z-only's +0.125, so there is **no D2**. The blend flips sign
+  only at 30bp.
+- **Evidence** (`read_result`, report): the level-on-z alpha in the holdout is +10.43%/yr, SE 3.80, NW t 2.74 at
+  lag 7. At N = 54 (α_adj 0.00095) the interval is −2.14 to +22.99%/yr, **INCONCLUSIVE**, and it **straddles** the
+  0.8%/yr meaningful effect declared before opening.
+- **Seen before:** C4's z-only book's 2023–26 returns had been opened for trial 52 (declared in §4). This signal's
+  2023+ is new.
+
+### 7.3 Suggested ACTIVE row for `docs/RESEARCH_STATE.md` (the coordinator writes the ledger)
+
+> | **C4-LEVEL** (CEF trial 54) | the discount level against family peers, blended ½ : ½ by risk into C4's z book (`results/cef/PREREG_C4_LEVEL_2026-11-02.md`) | **PASS on the pre-registered remainder; holdout decisive.** Holdout 2023-01-03 → 2026-09-30: level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32%; net@15 0.843 against 0.125 (no D2). **K3 (D4) failed as committed** (HY-window alpha t 2.96 < 3.0, betas ≤ 0.082) and was **overridden post-data by the team lead** (2026-11-03), so it is not a pass. P1 t 2.8315 at the bar, lag-fragile. Evidence INCONCLUSIVE at N 54 (holdout alpha t 2.74). Gate 0 was cleared post-data. Paper only, as C4 | the sleeve key `level_signal` (PR #41, 3b4c963; DG-L4 907 of 907) and its activation in C4's spec; borrow on the premium-fund shorts measured before any real-money view |
