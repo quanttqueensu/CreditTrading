@@ -71,6 +71,20 @@ these terms. They bind the implementation and the activation.
    - It carries the core's no-op pins and a byte-identical sleeve diff with the key absent.
    - Every change has a test that fails on the old code.
 
+**A ruling after approval (team lead, 2026-11-03): a short skipped at send time on a reduced session.**
+- **The case.** The late-market send re-checks `shortable` at about 15:52. It skips any order that opens or
+  increases a short whose name has stopped being shortable since the decide, and sends the rest
+  (`quantt/session/run.py`, the send's skip, `skipped_at_send`). On a 4–5 name book that can leave the book
+  one-sided for a session. §7.5's gate-7 flatten covers only a short dropped at the evening decide.
+- **Ruled: accept it and label it.** Today's skip-and-send stays unchanged, on reduced and full sessions
+  alike.
+  - The send record shows the skipped short.
+  - The session's `thin_session` record marks the reduced send as having lost a short at send time.
+  - K3 watches for a book that stays one-sided.
+- **The other option, not chosen.** The owning session preferred refusing the whole send on a reduced
+  session that loses a short at send time, while keeping full sessions byte-identical. The team lead chose
+  to leave the send path as it is.
+
 **What this commit does not do.** It sets no spec key, changes no live-path code and activates nothing.
 The key stays absent until the activation commit, which needs all of:
 - the implementation merged;
