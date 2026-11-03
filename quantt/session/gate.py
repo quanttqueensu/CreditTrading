@@ -38,7 +38,12 @@ from zoneinfo import ZoneInfo
 ET = ZoneInfo("America/New_York")
 
 GATES = ("dry_run", "arming", "halt", "clock", "data", "no_set_in_auction",
-         "shortability", "exposure", "sanity")
+         "shortability", "exposure", "sanity",
+         # run.py THE FIRST-SESSION GATE (C4; release-check of 4f759a9, execution-trader 1):
+         # its own name, outside verify's DELIBERATE_GATES, so an armed day it refuses is
+         # scored a MISSED day, not an explained one. Raised only by run.py, never by
+         # `evaluate`.
+         "first_session")
 
 # Gate 4. Alpaca: "CLS orders submitted after 3:50pm but before 7:00pm ET will
 # be rejected" [V, docs "orders-at-alpaca"]; 15:45 leaves five minutes (RUNNER.md).
