@@ -9,6 +9,16 @@ Each test was run against a deliberately broken copy of the module (window inclu
 lag 0 only, unsigned value, signed contribution, a default equity, the refusals and the
 finite-data check removed, the orthogonalisation turned off) and failed there; the
 session that built this recorded that check.
+
+The review of 2026-11-02 (finding 2) found eight more broken copies that passed: price-only
+returns, the distribution over today's close, the split ratio inverted or ignored, factor
+vol not annualised or annualised by 360, a t-stat SE from the residual-covariance diagonal
+only, group exposures on lag-0 betas, and P&L booked across a gap in the positions dates.
+The tests under "arithmetic the first suite did not reach" kill each of them, and the tests
+of the guard, equity, plateau, lag-rule and cross-check fixes each kill a copy with that fix
+undone (checked 2026-11-02 by loading each broken copy in place of the module). One
+survivor is equivalent, not missed: `total_factor_vol` with the covariance's diagonal only.
+The orthogonal factors are uncorrelated on the window by construction, so the two agree.
 """
 from __future__ import annotations
 
@@ -297,6 +307,252 @@ def test_readout_lag_distributed_pnl_reproduces_an_exact_lagged_response():
     assert pnl == pytest.approx(C2.loc[dates[1], "AAA"] - C2.loc[dates[0], "AAA"], rel=1e-8)
 
 
+# --------------------------------------------------------------------------- arithmetic the
+# first suite did not reach (review 2026-11-02, finding 2: eight mutants of these lines passed)
+
+def _flat_px(ticker="AAA", n=10, close=50.0):
+    d = SESS[:n]
+    return pd.DataFrame({"date": d, "ticker": ticker, "close": close, "adj_close": close,
+                         "dividend": 0.0, "split": 0.0})
+
+
+def test_total_return_adds_the_distribution_over_the_previous_close():
+    """H15: r = close_t / close_{t-1} - 1 + D_t / close_{t-1}, on the ex-date."""
+    px = _flat_px()
+    m = px["date"] == SESS[5]
+    px.loc[m, "close"] = 49.6
+    px.loc[m, "dividend"] = 0.5
+    R, _, _ = ER.returns_panel(px)
+    assert R.at[SESS[5], "AAA"] == pytest.approx((49.6 + 0.5) / 50.0 - 1.0, rel=1e-12, abs=1e-15)
+    assert R.at[SESS[6], "AAA"] == pytest.approx(50.0 / 49.6 - 1.0, rel=1e-12)
+    assert R.at[SESS[4], "AAA"] == 0.0 and np.isnan(R.at[SESS[0], "AAA"])
+
+
+def test_total_return_multiplies_by_the_split_ratio_on_a_raw_close():
+    """A 2-for-1 split on a raw (unadjusted) close: 50 -> 25.2 is a +0.8% day, not -49.6%."""
+    px = _flat_px()
+    m = px["date"] == SESS[5]
+    px.loc[m, "close"] = 25.2
+    px.loc[m, "split"] = 2.0
+    px.loc[px["date"] > SESS[5], "close"] = 25.2
+    R, _, _ = ER.returns_panel(px)
+    assert R.at[SESS[5], "AAA"] == pytest.approx(25.2 * 2.0 / 50.0 - 1.0, rel=1e-12)
+    assert R.at[SESS[6], "AAA"] == 0.0
+
+
+def test_factor_vol_is_the_window_sd_of_the_orthogonal_factors_annualised_by_252():
+    """sigma_k = sd(F_k on the W sessions before t) x sqrt(252): on the y rows only (not the
+    W + L lagged rows), and annualised exactly once, by the desk's 252."""
+    R = _returns_with_names()
+    t = SESS[150]
+    fit = ER.fit_window(R, SESS, t, ["AAA"], window=W, lags=L)
+    F = R.loc[fit.y_dates, ETFS] @ ER.orthogonaliser(R.loc[fit.y_dates, ETFS])
+    want = F.std(ddof=1).to_numpy() * math.sqrt(252)
+    assert fit.factor_vol.to_numpy() == pytest.approx(want, rel=1e-12)
+    assert np.diag(fit.factor_cov.to_numpy()) == pytest.approx(want ** 2, rel=1e-12)
+    # and the readout's contribution uses that annualised vol
+    px = _px_from_returns(R)
+    ro = ER.readout(px, _positions([t], {"AAA": 100.0}), {"AAA": "multi"}, window=W, lags=L)
+    R2, C2, _ = ER.returns_panel(px)
+    fit2 = ER.fit_window(R2, SESS, t, ["AAA"], window=W, lags=L)
+    F2 = R2.loc[fit2.y_dates, ETFS] @ fit2.M
+    ex = ro.exposure.set_index("factor")
+    E = 100.0 * C2.at[t, "AAA"] * fit2.beta_sum.loc["AAA"]
+    for j, k in enumerate(ER.FACTOR_NAMES):
+        sig = float(F2.iloc[:, j].std(ddof=1)) * math.sqrt(252)
+        assert ex.at[k, "factor_vol"] == pytest.approx(sig, rel=1e-12)
+        assert ex.at[k, "contrib_frac"] == pytest.approx(abs(E[k]) / 100_000.0 * sig, rel=1e-10)
+
+
+def _correlated_names(seed=7):
+    """AAA and BBB plus two names CCC, DDD whose residuals share a common shock, so a
+    portfolio's residual variance carries cross terms."""
+    R = _returns_with_names(seed)
+    rng = np.random.default_rng(seed + 10)
+    common = rng.normal(0, 0.003, len(R))
+    R["CCC"] = 0.5 * R["IEF"] + 0.2 * _lagged(R["HYG"], 1) + common + rng.normal(0, 0.001, len(R))
+    R["DDD"] = 0.7 * _lagged(R["MUB"], 1) + 0.9 * common + rng.normal(0, 0.001, len(R))
+    return R
+
+
+def test_book_t_stat_equals_the_portfolio_return_regression_with_correlated_residuals():
+    """t = E_k / SE with SE^2 = (v' S v) a' (X'X)^-1 a is the OLS t-test on the portfolio's
+    own return series v'Y: the cross-name residual covariance counts, not just its diagonal."""
+    sm = pytest.importorskip("statsmodels.api")
+    R = _correlated_names()
+    t = SESS[150]
+    names = ["CCC", "DDD"]
+    fit = ER.fit_window(R, SESS, t, names, window=W, lags=L)
+    v = pd.Series({"CCC": 3_000.0, "DDD": 2_000.0})          # same sign: the common shock adds
+    ex = ER.exposures(fit, v, equity=None).set_index("factor")
+    X, cols = ER.design((R.loc[fit.f_dates, ETFS] @ fit.M).set_axis(list(ER.FACTOR_NAMES), axis=1),
+                        fit.y_dates, L)
+    port = R.loc[fit.y_dates, names].to_numpy() @ v[names].to_numpy()
+    m = sm.OLS(port, X).fit()
+    for k in ER.FACTOR_NAMES:
+        a = np.array([1.0 if (c != "const" and c[0] == k) else 0.0 for c in cols])
+        assert ex.at[k, "t_stat"] == pytest.approx(float(np.ravel(m.t_test(a).tvalue)[0]), rel=1e-8)
+    # the residuals really are correlated, so a diagonal-only SE would differ
+    S = fit.resid_cov.to_numpy()
+    assert S[0, 1] / math.sqrt(S[0, 0] * S[1, 1]) > 0.5
+
+
+def test_group_exposures_use_the_summed_dimson_betas_and_add_up_to_the_book():
+    R = _correlated_names()
+    px = _px_from_returns(R)
+    dates = list(SESS[150:152])
+    book = {"AAA": 1000.0, "CCC": 500.0, "DDD": -800.0}
+    groups = {"AAA": "multi", "CCC": "multi", "DDD": "muni"}
+    ro = ER.readout(px, _positions(dates, book), groups, window=W, lags=L)
+    R2, C2, _ = ER.returns_panel(px)
+    for t in dates:
+        fit = ER.fit_window(R2, SESS, t, list(book), window=W, lags=L)
+        v = pd.Series(book) * C2.loc[t, list(book)]
+        g = ro.by_group[ro.by_group["date"] == t].set_index(["grp", "factor"])["exposure_usd"]
+        for grp in ("multi", "muni"):
+            mem = [s for s in book if groups[s] == grp]
+            want = v[mem].to_numpy() @ fit.beta_sum.loc[mem].to_numpy()
+            got = g.xs(grp, level="grp").reindex(list(ER.FACTOR_NAMES)).to_numpy()
+            assert got == pytest.approx(want, rel=1e-10)
+        tot = g.groupby(level="factor").sum().reindex(list(ER.FACTOR_NAMES)).to_numpy()
+        ex = ro.exposure[ro.exposure["date"] == t].set_index("factor")["exposure_usd"]
+        assert tot == pytest.approx(ex.reindex(list(ER.FACTOR_NAMES)).to_numpy(), rel=1e-10)
+    # AAA's response is spread over lags, so a lag-0 beta would not be the sum
+    assert abs(fit.beta.at["AAA", ("TERM", 0)] - fit.beta_sum.at["AAA", "TERM"]) > 0.5
+
+
+def test_factor_pnl_needs_the_immediately_previous_session_in_the_positions():
+    """E(t-1) x f(t) needs the book at t-1's close. Across a gap in the positions dates no
+    P&L is booked: an older book is not t-1's book."""
+    R = _returns_with_names()
+    px = _px_from_returns(R)
+    gap = [SESS[150], SESS[152]]
+    ro = ER.readout(px, _positions(gap, {"AAA": 1.0}), {"AAA": "multi"}, window=W, lags=L)
+    assert len(ro.factor_pnl) == 0
+    some = [SESS[150], SESS[151], SESS[153]]
+    ro = ER.readout(px, _positions(some, {"AAA": 1.0}), {"AAA": "multi"}, window=W, lags=L)
+    assert sorted(ro.factor_pnl["date"].unique()) == [SESS[151]]
+    assert set(ro.factor_pnl["prev"]) == {SESS[150]}
+
+
+# --------------------------------------------------------------------------- plateau check
+
+def test_plateau_check_brackets_w_and_l_and_reports_review_counts():
+    R = _returns_with_names()
+    px = _px_from_returns(R)
+    dates = list(SESS[150:153])
+    P = _positions(dates, {"AAA": 20_000.0, "BBB": -40_000.0}, equity=100_000.0)
+    groups = {"AAA": "multi", "BBB": "muni"}
+    ro = ER.readout(px, P, groups, window=W, lags=L)
+    rows = ER.plateau_check(px, P, groups, ro)
+    runs = [(r["window"], r["lags"]) for r in rows]
+    assert runs == [(W // 2, L), (W, L), (2 * W, L)] + [(W, l) for l in range(L + ER.PLATEAU_LAG_SPAN + 1)
+                                                         if l != L]
+    assert [r["adopted"] for r in rows] == [r == (W, L) for r in runs]
+    adopted = rows[1]
+    rev = ro.exposure[ro.exposure["review"] == "REVIEW"]
+    assert adopted["review"] == {k: int(rev.loc[rev["factor"] == k, "date"].nunique()) for k in ER.FACTOR_NAMES}
+    big = rev[rev["t_stat"].abs() >= 2.0]
+    assert adopted["review_t2"] == {k: int(big.loc[big["factor"] == k, "date"].nunique()) for k in ER.FACTOR_NAMES}
+    assert len(big) < len(rev)                                # the |t| filter bites on this book
+    assert sum(adopted["review"].values()) > 0                # the book is large enough to flag
+    assert adopted["book_summed"] == pytest.approx(
+        ro.factor_pnl.loc[ro.factor_pnl["scope"] == "book", "pnl_summed"].sum())
+    for r in rows[3:]:                                        # each lag row is its own readout
+        other = ER.readout(px, P, groups, window=W, lags=r["lags"])
+        assert r == dict(ER.plateau_summary(other), adopted=False)
+    md = ER.summary_md(ro, {"asof": "x", "fetched_at_utc": "y"}, rows)
+    assert "REVIEW dates TERM/CREDIT/MUNI/LOANS" in md and "(adopted)" in md
+
+
+def test_plateau_counts_say_unmeasured_without_equity():
+    R = _returns_with_names()
+    px = _px_from_returns(R)
+    P = _positions(list(SESS[150:152]), {"AAA": 1.0}).drop(columns=["equity"])
+    ro = ER.readout(px, P, {"AAA": "multi"}, window=W, lags=L)
+    s = ER.plateau_summary(ro)
+    assert s["review"] is None and s["review_t2"] is None
+
+
+# --------------------------------------------------------------------------- derive's lag rules
+
+def test_lag_rule_helpers():
+    single = {0: 43, 1: 14, 2: 10, 3: 7, 4: 2, 5: 12}
+    assert ER._first_gap(single, 5) == 3
+    assert ER._first_gap(single, 9) == 2
+    assert ER._first_gap(single, 13) == 1
+    assert ER._first_gap(single, 14) == 0
+    assert ER._first_gap(single, 1) is None
+    assert ER._smallest_within({0: 17, 1: 15, 2: 5, 3: 3}, 5) == 2
+    assert ER._smallest_within({0: 17}, 5) is None
+    assert ER._fmt_runs({b: ER._first_gap(single, b) for b in range(0, 16)}) == \
+        "bound 0-1 -> L None; 2-6 -> L 3; 7-9 -> L 2; 10-13 -> L 1; 14+ -> L 0"
+
+
+def test_lag_rule_counts_on_a_lagged_response():
+    """A response at lags 0, 1 and (weakly) 2, none at 3. The lag-2 effect is set so its
+    joint p-value sits well inside (0, 0.05), so the count follows the 5% level, not just a
+    huge signal. Checks the counting, not any market."""
+    pytest.importorskip("statsmodels.api")
+    rng = np.random.default_rng(3)
+    n = 2000
+    F = pd.DataFrame(rng.normal(0, 0.01, (n, 4)), columns=list(ER.FACTOR_NAMES),
+                     index=pd.RangeIndex(n))
+    y = (2.0 * F["TERM"] + 1.5 * F["TERM"].shift(1) + 0.1 * F["TERM"].shift(2)
+         + rng.normal(0, 0.011, n)).rename("y")
+    m = ER._dimson_ols(y, F, 3)
+    idx = list(m.params.index)
+    Rm = np.zeros((4, len(idx)))
+    for j, k in enumerate(ER.FACTOR_NAMES):
+        Rm[j, idx.index(f"{k}_2")] = 1.0
+    p2 = float(m.wald_test(Rm, scalar=True).pvalue)
+    assert 1e-6 < p2 < 0.01                                   # moderate, by construction
+    c = ER.lag_rule_counts({"X": m})
+    assert c["joint"] == {0: 1, 1: 1, 2: 1, 3: 0}
+    assert c["single"][0] >= 1 and c["single"][1] >= 1 and c["single"][2] >= 1
+    assert c["tail"][0] == 1 and c["tail"][1] == 1             # lags 1..3 and 2..3 carry signal
+    assert set(c["single"]) == {0, 1, 2, 3} and set(c["tail"]) == {0, 1, 2}
+
+
+# --------------------------------------------------------------------------- cross-check labels
+
+def test_crosscheck_names_each_panels_vendor_and_splits_etf_daily_by_leg(tmp_path):
+    """Review 2026-11-02, finding 6: agreeing with a yfinance panel checks the fetch, not the
+    data. Every row says whose numbers it compared against."""
+    R = _returns_with_names()[ETFS + ["AAA"]]
+    px = _px_from_returns(R)
+    R2, C2, _ = ER.returns_panel(px)
+    d = tmp_path / "data"
+    (d / "rv").mkdir(parents=True)
+    (d / "cef").mkdir()
+    etf = [e for e in ETFS if e != "MUB"]
+    C2[etf].to_parquet(d / "rv" / "close_unadj_wide.parquet")
+    R2[etf].to_parquet(d / "rv" / "returns_wide.parquet")
+    long = px[px["ticker"].isin(ETFS)].merge(
+        R2.stack().rename("ret_total").reset_index().rename(columns={"level_1": "ticker"}),
+        on=["date", "ticker"])
+    long[["date", "ticker", "close", "ret_total", "dividend"]].to_parquet(d / "rv" / "etf_ohlc_extended.parquet")
+    ed = long[long["ticker"] == "IEF"][["date", "ticker", "ret_total"]].copy()
+    ed["source"] = np.where(ed["date"] < SESS[100], "crsp", "yfinance")
+    ed.to_parquet(d / "etf_daily.parquet")
+    px[px["ticker"] == "AAA"][["date", "ticker", "close"]].to_parquet(d / "cef" / "cef_prices.parquet")
+    pd.DataFrame({"ticker": ["AAA"], "ex_date": [SESS[10]], "amount": [0.0]}).to_parquet(
+        d / "cef" / "cef_distributions.parquet")
+    tab, notes = ER.crosscheck(px, data_dir=d)
+    legs = tab[tab["panel"].str.startswith("etf_daily")].set_index("panel")
+    assert set(legs.index) == {"etf_daily[crsp]", "etf_daily[yfinance]"}
+    assert legs.at["etf_daily[crsp]", "independent_of_yfinance"] == "yes"
+    assert legs.at["etf_daily[yfinance]", "independent_of_yfinance"] == "no"
+    assert legs.at["etf_daily[crsp]", "last"] < SESS[100].date() <= legs.at["etf_daily[yfinance]", "first"]
+    assert (tab.loc[tab["panel"].str.startswith("cef/"), "independent_of_yfinance"] == "no").all()
+    assert tab["vendor"].notna().all()
+    assert any("confirms the fetch, not the data" in n for n in notes)
+    ed.loc[ed.index[0], "source"] = "bloomberg"
+    ed.to_parquet(d / "etf_daily.parquet")
+    with pytest.raises(ER.ReadoutError, match="bloomberg"):
+        ER.crosscheck(px, data_dir=d)
+
+
 # --------------------------------------------------------------------------- refusals
 
 def test_fit_raises_naming_a_missing_return_in_a_held_names_window():
@@ -329,6 +585,14 @@ def test_readout_refuses_a_split_after_the_first_positions_date_on_a_held_name()
     P = _positions(list(SESS[150:153]), {"AAA": 100.0})
     with pytest.raises(ER.ReadoutError, match="split"):
         ER.readout(px, P, {"AAA": "multi"}, window=W, lags=L)
+
+
+def test_readout_refuses_a_missing_close_on_a_positions_date():
+    R = _returns_with_names()
+    px = _px_from_returns(R)
+    px.loc[(px["ticker"] == "AAA") & (px["date"] == SESS[151]), "close"] = np.nan
+    with pytest.raises(ER.ReadoutError, match=r"no close on 2020.*AAA"):
+        ER.readout(px, _positions([SESS[151]], {"AAA": 1.0}), {"AAA": "multi"}, window=W, lags=L)
 
 
 def test_readout_refuses_a_held_symbol_without_a_group_and_a_non_session_date():
@@ -369,6 +633,23 @@ def test_positions_without_equity_are_accepted_and_carry_none():
     assert "equity" not in ER.validate_positions(P).columns
 
 
+@pytest.mark.parametrize("value, msg", [("$100,000.00", "not plain numbers"),
+                                        ("100,000", "not plain numbers"),
+                                        ("", "empty on every row"),
+                                        (np.nan, "empty on every row")])
+def test_an_equity_that_does_not_parse_raises_naming_the_column(value, msg):
+    """Review 2026-11-02, finding 4: the first build coerced an unparseable equity to NaN,
+    dropped the column without a word, and the summary blamed a missing equity."""
+    P = _positions(list(SESS[150:152]), {"AAA": 1.0, "BBB": -2.0}).assign(equity=value)
+    with pytest.raises(ER.ReadoutError, match=f"equity.*{msg}|{msg}"):
+        ER.validate_positions(P)
+
+
+def test_an_equity_written_as_a_numeric_string_is_read():
+    P = _positions(list(SESS[150:152]), {"AAA": 1.0}).assign(equity="100000.5")
+    assert (ER.validate_positions(P)["equity"] == 100000.5).all()
+
+
 def test_validate_prices_raises_on_a_missing_session_an_extra_row_and_a_bad_close():
     R = _returns_with_names()
     px = _px_from_returns(R)
@@ -383,6 +664,32 @@ def test_validate_prices_raises_on_a_missing_session_an_extra_row_and_a_bad_clos
     bad.loc[bad.index[5], "close"] = 0.0
     with pytest.raises(ER.ReadoutError, match="non-positive"):
         ER.validate_prices(bad, asof)
+
+
+class _FakeTicker:
+    """Stands in for yfinance.Ticker: no network. Rows on the given sessions."""
+    def __init__(self, sessions):
+        self.sessions = sessions
+
+    def history(self, start, end, auto_adjust, actions):
+        assert auto_adjust is False and actions is True
+        d = self.sessions[(self.sessions >= pd.Timestamp(start)) & (self.sessions < pd.Timestamp(end))]
+        idx = pd.DatetimeIndex(d).tz_localize("America/New_York")
+        return pd.DataFrame({"Close": 50.0, "Adj Close": 50.0, "Dividends": 0.0, "Stock Splits": 0.0},
+                            index=idx)
+
+
+def test_fetch_refuses_a_last_row_that_is_not_the_asof(monkeypatch):
+    import sys
+    import types
+    asof = SESS[-1].date()
+    fake = types.SimpleNamespace(Ticker=lambda tk: _FakeTicker(SESS))
+    monkeypatch.setitem(sys.modules, "yfinance", fake)
+    px, cg = ER.fetch_yf(["IEF"], SESS[0].date(), asof)
+    assert px["date"].max().date() == asof and cg == {"IEF": "absent"}
+    fake.Ticker = lambda tk: _FakeTicker(SESS[:-1])           # the vendor stops a session short
+    with pytest.raises(ER.ReadoutError, match="not the asof session"):
+        ER.fetch_yf(["IEF"], SESS[0].date(), asof)
 
 
 def test_check_asof_refuses_today_and_a_non_session():
@@ -404,18 +711,75 @@ def test_refuses_to_write_under_data(tmp_path):
     ER._refuse_data_dir(tmp_path / "elsewhere", data_dir=d)
 
 
+def _git(*args, cwd):
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", *args],
+                   cwd=str(cwd), check=True, capture_output=True)
+
+
 def test_refuses_to_write_a_file_git_can_see(tmp_path, monkeypatch):
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)       # no user excludes file
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _git("init", "-q", cwd=repo)
     out = repo / "results" / "out"
-    with pytest.raises(ER.ReadoutError, match="git can see"):
-        ER._refuse_git_visible(out, ["exposure.csv"], repo=repo)
+    with pytest.raises(ER.ReadoutError, match="can see"):
+        ER._refuse_git_visible(out, ["exposure.csv"])
     (repo / ".gitignore").write_text("results/out/\n")
-    ER._refuse_git_visible(out, ["exposure.csv"], repo=repo)
-    ER._refuse_git_visible(tmp_path / "outside", ["exposure.csv"], repo=repo)
+    ER._refuse_git_visible(out, ["exposure.csv"])
+    outside = tmp_path / "outside"
+    if ER._enclosing_repo(outside) is None:                 # tmp dirs sit outside any repository
+        ER._refuse_git_visible(outside, ["exposure.csv"])
+
+
+def test_git_guard_checks_the_repository_enclosing_the_target_not_its_own(tmp_path, monkeypatch):
+    """Review 2026-11-02, finding 3: a linked worktree inside the main checkout. Written from
+    the worktree, a target in the MAIN checkout is visible to the main checkout's git, and
+    the first build let it through because it checked only its own checkout."""
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    main = tmp_path / "main"
+    main.mkdir()
+    _git("init", "-q", cwd=main)
+    (main / ".gitignore").write_text(".claude/worktrees/\n")
+    _git("add", ".gitignore", cwd=main)
+    _git("commit", "-q", "-m", "init", cwd=main)
+    wt = main / ".claude" / "worktrees" / "wt"
+    _git("worktree", "add", "-q", "-b", "wt", str(wt), cwd=main)
+    assert (wt / ".git").is_file()                           # a linked worktree's .git is a file
+    assert ER._enclosing_repo(wt / "results" / "x") == wt.resolve()
+    assert ER._enclosing_repo(main / "results" / "x") == main.resolve()
+    with pytest.raises(ER.ReadoutError, match="can see"):
+        ER._refuse_git_visible(main / "results" / "cef" / "x", ["summary.md"])
+    with pytest.raises(ER.ReadoutError, match="can see"):
+        ER._refuse_git_visible(wt / "results" / "cef" / "x", ["summary.md"])
+    (wt / ".gitignore").write_text("results/cef/x/\n")
+    ER._refuse_git_visible(wt / "results" / "cef" / "x", ["summary.md"])
+    with pytest.raises(ER.ReadoutError, match="can see"):   # ignoring it in the worktree
+        ER._refuse_git_visible(main / "results" / "cef" / "x", ["summary.md"])  # does not cover main
+
+
+def test_git_guard_refuses_when_git_cannot_answer(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git("init", "-q", cwd=repo)
+    (repo / ".gitignore").write_text("out/\n")
+    real = subprocess.run
+
+    def failing(step):
+        def run(args, *a, **k):
+            if step in args:
+                return subprocess.CompletedProcess(args, 128, "", "fatal: simulated")
+            return real(args, *a, **k)
+        return run
+    ER._refuse_git_visible(repo / "out", ["x.csv"])           # ignored: allowed
+    for step, msg in (("check-ignore", "exited 128"), ("rev-parse", "top level")):
+        monkeypatch.setattr(ER.subprocess, "run", failing(step))
+        with pytest.raises(ER.ReadoutError, match=msg):
+            ER._refuse_git_visible(repo / "out", ["x.csv"])
+        monkeypatch.setattr(ER.subprocess, "run", real)
 
 
 def test_the_repository_defaults_are_gitignored():

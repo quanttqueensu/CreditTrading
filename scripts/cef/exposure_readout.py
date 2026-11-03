@@ -64,40 +64,58 @@ Orthogonalising changes how the exposure is SPLIT, never its total. On the windo
 orthogonal set spans the same space as the raw ETFs, so the fitted values, and the total
 factor P&L sum_k E_k f_k, are identical in either basis; a test pins that.
 
-DIMSON LAGS: THREE, DERIVED ON THE FIT ERA
-------------------------------------------
+DIMSON LAGS: THREE, SET BEFORE THE FIRST READING; HOW WELL THE DATA PIN IT IS OPEN
+----------------------------------------------------------------------------------
 A CEF's close can trail the ETFs' closes: the fund trades thinner, and its price partly
 anchors to a NAV that is struck from stale evaluated bond prices (W4 measured NAV AC(1) of
 +0.26 to +0.54 by group; results/cef/W4_ARTIFACTS_2026-10-11.md §3 [S]). Dimson (1979)
 regresses on the factor at t, t-1, ..., t-L and sums the betas. The exposure uses that sum:
 the whole eventual response of the price to a factor move.
 
-L was derived, not swept (`derive`, fit era, 13 names, factors orthogonalised on the whole
-era, lags 0..10, HAC(5)) [V: derive, re-run 2026-11-02]. The bound of 10 is the one W4 used
-for its NAV-staleness sensitivity. For each lag l, count the (name, factor) pairs, of 52,
-whose lag-l coefficient is significant at 5%. Under no lag effect the count is
-Binomial(52, 0.05), whose 95% point is 5. The counts were 43, 14, 10, 7, 2 at lags 0..4.
-Staleness decays, so the rule is the first gap: L = the last lag before the first lag
-whose count is within the null bound. Lag 4 (count 2) is that gap, so L = 3.
-  * The plateau check (group medians of the cumulative summed beta, `derive` prints the
-    whole table). The muni names' MUNI beta is 0.97 at L = 1, 1.42 at L = 3 and 1.38-1.40
-    at L = 4-5. Their TERM beta is 0.50 at L = 1 and 0.63-0.65 at L = 3-5. CREDIT moves by
-    at most 0.10 per group from L = 3 to L = 5 (hy 1.28 -> 1.37, multi 1.35 -> 1.43, loan
-    1.00 -> 1.17, muni 0.74 -> 0.75). LOANS has no plateau at any L: it is noise around
-    0.2-0.5 outside the loan fund (JFR). Past L = 5 the muni MUNI sum falls to 1.10-1.23,
-    in the lag cluster described below.
-  * The first rule tried, in a scratch session before `derive` was written, was a joint test
-    of each lag with a majority of names. It gave L = 1, the framework's (t, t-1)
-    convention [V: scratch, 2026-11-02; not reproduced by `derive`]. Its plateau check
-    FAILED on exactly the exposure this readout exists for: at L = 1 the muni names' MUNI
-    beta is about a third short of its L = 3 value. So that rule was replaced by one on
-    the quantity the exposure uses. This is written down because the replacement came
-    after seeing the data.
-  * Counts at lags 5..10 sit above the null bound again (12, 9, 12, 5, 7, 10), with no
-    decay. That is not a staleness signature. A weekly pattern in ETF or fund flows is one
-    candidate [U, not investigated]; the readout does not chase it.
-L = 3 costs estimation noise: 17 regressors on 252 sessions, about 15 sessions each. The
-bias it removes on the muni names is larger than that noise.
+DIMSON_LAGS = 3 came from this rule (`derive`, fit era, 13 names, factors orthogonalised on
+the whole era, HAC(5)) [V: derive, re-run 2026-11-02]. For each lag l, count the (name,
+factor) pairs, of 52, whose lag-l coefficient is significant at 5%, with lags 0..K in the
+model and K = 10, the bound W4 used for its NAV-staleness sensitivity. Take the first gap:
+L = the last lag before the first lag whose count is within Binomial(52, 0.05)'s 95% point,
+5. The counts were 43, 14, 10, 7, 2 at lags 0..4, so L = 3.
+
+The review of 2026-11-02 (finding 1) showed that the data pin this L weakly. `derive` now
+prints the first three points below and `analyse --plateau` the fourth [V: both re-run
+2026-11-02]:
+  * The adopted rule was the fourth tried, all in one session, and the only one that gave
+    3. The first build's docstring disclosed only the first. All four, at both lag bounds:
+                                                              K = 5   K = 10
+      joint Wald test of lag l, a majority of the 13 names      1       1    (tried first)
+      sum of lags L+1..K, pairs within the bound                2       1
+      single-lag first gap (adopted)                            2       3
+    One (rule, K) pair of the six gives 3. The adopted rule gives 2 at K = 5.
+  * The null bound fails a placebo. Binomial(52, 0.05) treats the 52 pairs as independent,
+    and 13 co-moving funds are not. With five LEADS in the model (the factors' returns at
+    t+1..t+5, which cannot cause anything), 18, 1, 9, 11 and 4 pairs come out significant:
+    three of the five exceed 5. Under the first-gap rule a bound of 2-6 gives L = 3, 7-9
+    gives 2, 10-13 gives 1, and 14 or more gives 0. The counts at lags 5..10 (12, 9, 12, 5,
+    7, 10), which the first build read as a possible weekly flow pattern, sit in the same
+    range as the lead counts, so noise under that dependence explains them as well [U which].
+  * The plateau check picks a hump, not a plateau. The muni names' summed MUNI beta (group
+    median) is 0.97 at L = 1, 1.13 at 2, 1.42 at 3, 1.38-1.40 at 4-5, 1.11-1.23 at 6-9 and
+    1.10 at 10. L = 3 is the peak, 29% above the L = 10 value. The first build called
+    L = 1 "about a third short"; that compared it to the peak, and against L = 10 it is 12%
+    short. The muni names' TERM beta does level off: 0.50 at L = 1, 0.63-0.65 at 3-5,
+    0.63-0.74 at 6-10. CREDIT moves by up to 0.17 per group from L = 3 to L = 5 (loan
+    1.00 -> 1.17, hy 1.28 -> 1.37, multi 1.35 -> 1.43, muni 0.74 -> 0.75; the first build
+    said "at most 0.10", which these same figures contradict). LOANS has no plateau at any
+    L: outside the loan fund (JFR) its group medians wander between -0.20 and 0.73.
+  * The per-factor review counts move with L. On the first validation book, between
+    L = 1 and L = 3 the dates flagged moved by 7 to 12 of 24 for TERM, CREDIT and LOANS,
+    and by 3 for MUNI [V: `analyse --plateau`, 2026-11-02; the reading is not committed,
+    because it derives from the account's positions]. `analyse --plateau` prints the
+    counts at L = 0 .. L + 2 beside the adopted row.
+
+DIMSON_LAGS stays 3. It was set before the first reading, and changing it after seeing the
+reading would repeat the error above. Whether to keep it, to show L = 1 beside it, or to
+re-derive it under a lead-calibrated null declared before it is run, is the team lead's
+call (open since 2026-11-02). L = 3 costs estimation noise: 17 regressors on 252 sessions,
+about 15 sessions each.
 
 THE WINDOW: THE SLEEVE'S OWN z_window
 -------------------------------------
@@ -107,8 +125,9 @@ W = frozen `z_window` (252 sessions today, read through scripts/cef/spec.py at r
   * It is the framework's trailing-beta convention (PORTFOLIO_FRAMEWORK_2026-10-15 §3.1).
   * One year spans a full distribution and tax calendar, including munis' year-end.
   * A shorter window was tried for z and failed out of sample (the spec's z_window note).
-`analyse --plateau` re-runs at W/2 and 2W and prints the totals beside W. That is a check
-for a plateau; nothing is chosen from it.
+`analyse --plateau` re-runs at W/2 and 2W (lags fixed) and at lags 0 .. L + 2 (window
+fixed), and prints the factor P&L, by book and by group, and the per-factor review counts
+beside the adopted row. That is a check for a plateau; nothing is chosen from it.
 
 NO LOOKAHEAD (H7, asserted at run time)
 ---------------------------------------
@@ -131,6 +150,16 @@ A split and a distribution on one name-date raise, as in the harness. Yahoo repo
 capital-gains column for the CEFs; for an ETF a non-zero `Capital Gains` value raises,
 because whether Yahoo also counts it in `Dividends` is not documented here [U].
 
+The CEF closes and distributions come from the same vendor as data/cef/'s panels, so
+`crosscheck` agreeing with those panels confirms the fetch, not the data (review 2026-11-02,
+finding 6); every cross-check row now names its panel's vendor. docs/REFERENCES.md records
+11 CRSP distributions missing from the yfinance distribution panel in 2005-2022 [S], three
+of them large year-end specials (PFN 2012-12-26, PTY 2011-12-28, PCN 2012-12-26). The cache
+lacks those three as well [V: cache read, 2026-11-02], so they enter `derive` as price
+returns. Dropping the three name-days from derive's regressions leaves its lag counts and
+the muni group's plateau table unchanged [V: re-run 2026-11-02]. All three fall years
+before any 2025-26 window.
+
 EXPOSURE, VOL CONTRIBUTION AND THE REVIEW RULE
 ----------------------------------------------
 For held name i on date t, v_i = shares_i(t) x close_i(t), signed (a short is negative):
@@ -145,7 +174,13 @@ The total factor vol is sqrt(e' Sigma_f e), with Sigma_f the window covariance o
 factors (diagonal on the window, by construction).
 
 REVIEW RULE (proposed 2026-11-02, declared and committed BEFORE the first reading on any
-account's positions; it is a proposal, and the team lead decides it):
+account's positions; it is a proposal, and the team lead decides it). Provenance: the rule
+landed in one commit with this module, its tests and its REFERENCES row (034f1df), so git
+alone cannot show that it came first (review 2026-11-02, finding 5). File times show it as
+far as they go: the first analyse run on the account's positions wrote its outputs 11 s
+after that commit, and the only earlier analyse run used invented three-name positions
+[V: file times, 2026-11-02]. Any change to the rule lands in a commit of its own, before
+any reading made under it.
   On each date t, a factor k whose c_k(t) exceeds REVIEW_FRACTION x vol_target_annual goes
   to the team lead's review. vol_target_annual is read from the frozen spec at run time.
   NOTHING IS EVER HEDGED, TRADED OR RESIZED AUTOMATICALLY. Without an equity figure for t
@@ -179,11 +214,14 @@ WHAT IT REFUSES (raises, naming what is missing; never a default)
   * a split on a held name after the first positions date (the cached close would no
     longer match the share count), and a split the guard reads as already adjusted;
   * a positions file with a duplicate (date, symbol), a non-finite share count, a date
-    that is not a cached session, or an equity that is missing on some rows of a date,
-    differs within a date, or is not a finite positive number;
+    that is not a cached session, or an equity column that holds a value that is not a
+    plain number (e.g. "$100,000.00"), is empty on every row, is missing on some rows,
+    differs within a date, or is not a finite positive number. A file without the column
+    reads every rule cell as UNMEASURED;
   * a held symbol with no group in data/cef/cef_universe.csv;
-  * any write under data/ (CLAUDE.md landmine 9), or of a file git could see in this
-    repository: the outputs carry the caller's positions, and this repository is public.
+  * any write under data/ (CLAUDE.md landmine 9), or of a file git could see in the
+    repository that encloses the target (from a linked worktree, that can be the main
+    checkout): the outputs carry the caller's positions, and this repository is public.
 
 USAGE
 -----
@@ -195,7 +233,7 @@ USAGE
 The positions CSV has columns date, symbol, shares (signed; short < 0), and optionally
 equity (one value per date). A date's rows are the book at that date's close; a symbol
 absent on a date is not held. Both default directories (results/cef/exposure_readout/
-_cache and _out) are gitignored. A directory outside the repository is allowed.
+_cache and _out) are gitignored. A directory outside every git repository is allowed.
 """
 from __future__ import annotations
 
@@ -223,7 +261,8 @@ from scripts.cef.spec import SPEC_ID, UNIVERSE, VOL_TARGET, Z_WINDOW  # noqa: E4
 NY = ZoneInfo("America/New_York")
 DATA_DIR = REPO / "data"
 UNIVERSE_CSV = DATA_DIR / "cef" / "cef_universe.csv"
-# Both gitignored (.gitignore); `_refuse_git_visible` enforces it at write time.
+# Both gitignored (.gitignore); `_refuse_git_visible` enforces it at write time, in whichever
+# repository encloses the target.
 DEFAULT_CACHE = REPO / "results" / "cef" / "exposure_readout" / "_cache"
 DEFAULT_OUT = REPO / "results" / "cef" / "exposure_readout" / "_out"
 CACHE_FILES = ("prices.parquet", "meta.json")
@@ -236,7 +275,8 @@ FACTORS: tuple[tuple[str, str], ...] = (("TERM", "IEF"), ("CREDIT", "HYG"), ("MU
 FACTOR_NAMES = tuple(f for f, _ in FACTORS)
 FACTOR_ETFS = tuple(e for _, e in FACTORS)
 
-DIMSON_LAGS = 3          # derived on the fit era by the first-gap rule (module docstring)
+DIMSON_LAGS = 3          # set by the first-gap rule before the first reading; weakly pinned,
+                         # and the team lead's call (module docstring)
 WINDOW = Z_WINDOW        # the sleeve's own z_window, read from the frozen spec
 ANNUALISE = 252          # sessions a year, the convention of every vol on this desk
 D4_BETA_BAR = 0.10       # D4: factor betas <= 0.10 (docs/BRIEF.md; research-harness rules)
@@ -244,6 +284,8 @@ REVIEW_FRACTION = D4_BETA_BAR   # D4 applied to each factor rescaled to the vol 
 FETCH_START = dt.date(2010, 1, 1)   # covers the fit era from BKLN's 2011-03 inception
 FIT_END = pd.Timestamp("2022-12-30")   # H13: derive reads nothing after this
 DERIVE_MAX_LAG = 10      # W4's NAV-staleness sensitivity bound (module docstring)
+DERIVE_ALT_MAX_LAG = 5   # the bound the first lag rule was tried at (module docstring)
+DERIVE_PLACEBO_LEADS = 5 # leads in derive's null placebo: as many as the shorter bound
 
 # The tolerances the cross-check reports against. They label disagreements; they decide
 # nothing. Half a cent: yfinance stores closes as float32 and Yahoo rounds to the cent
@@ -279,25 +321,48 @@ def _refuse_data_dir(path: Path, data_dir: Path = DATA_DIR) -> None:
         raise ReadoutError(f"refusing to write {path}: it is under data/ ({d})")
 
 
-def _refuse_git_visible(directory: Path, names, repo: Path = REPO) -> None:
+def _enclosing_repo(path: Path) -> Path | None:
+    """The innermost git work tree containing `path` (which need not exist yet), found the way
+    git finds it: the nearest ancestor holding a `.git` entry, a directory in a main checkout
+    or a file in a linked worktree. None if no ancestor has one."""
+    p = Path(path).resolve()
+    for d in (p, *p.parents):
+        if (d / ".git").exists():
+            return d
+    return None
+
+
+def _refuse_git_visible(directory: Path, names) -> None:
     """Refuse to write any of `names` into `directory` if git could see it.
 
     Copied from scripts/cef/live_attribution.py (branch research-live-attribution), whose
     first build had a git-visible default out-dir (review 2026-11-02). The analyse outputs
     carry the caller's positions and the cache sits beside them, and this repository is
-    public. Outside the repository git cannot see the files, so nothing is checked. Inside
-    it every file must be ignored (`git check-ignore`; a tracked file counts as visible). If
-    git cannot answer, the write is refused: there is no default."""
-    root = Path(repo).resolve()
+    public.
+
+    The check runs in the repository that encloses the TARGET, not in this module's own
+    checkout. The first build checked only its own checkout (review 2026-11-02, finding 3):
+    a linked worktree sits inside the main checkout, so from the worktree `--out-dir
+    <main checkout>/results/cef/x` counted as "outside the repository", was let through, and
+    git in the main checkout could see the files. Now: no enclosing repository, nothing to
+    check; otherwise every file must be ignored there (`git check-ignore`; a tracked file
+    counts as visible). If git cannot answer, the write is refused: there is no default."""
     p = Path(directory).resolve()
-    if p != root and root not in p.parents:
+    root = _enclosing_repo(p)
+    if root is None:
         return
-    paths = [(p / n).relative_to(root).as_posix() for n in names]
     try:
+        top = subprocess.run(["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, timeout=30)
+        if top.returncode != 0 or Path(top.stdout.strip()).resolve() != root:
+            raise ReadoutError(f"refusing to write in {directory}: {root} holds a .git entry but git "
+                               f"does not report it as a work tree's top level (exit {top.returncode}: "
+                               f"{(top.stderr or top.stdout).strip()[:200]})")
+        paths = [(p / n).relative_to(root).as_posix() for n in names]
         r = subprocess.run(["git", "-C", str(root), "check-ignore", *paths],
                            capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError) as e:
-        raise ReadoutError(f"refusing to write in {directory}: git check-ignore could not run "
+        raise ReadoutError(f"refusing to write in {directory}: git could not run "
                            f"({type(e).__name__}: {e})") from None
     if r.returncode not in (0, 1):      # 0 some ignored, 1 none ignored, else an error
         raise ReadoutError(f"refusing to write in {directory}: git check-ignore exited "
@@ -305,9 +370,9 @@ def _refuse_git_visible(directory: Path, names, repo: Path = REPO) -> None:
     visible = sorted(set(paths) - set(r.stdout.splitlines()))
     if visible:
         raise ReadoutError(
-            f"refusing to write {visible[:3]}{' ...' if len(visible) > 3 else ''}: git can see "
-            "them, and this public repository must not carry an account's positions. Use the "
-            f"gitignored default, or a directory outside {root}")
+            f"refusing to write {visible[:3]}{' ...' if len(visible) > 3 else ''}: git in {root} "
+            "can see them, and this public repository must not carry an account's positions. "
+            "Use the gitignored default, or a directory outside every git repository")
 
 
 def _refuse_write(directory: Path, names) -> None:
@@ -654,20 +719,32 @@ def validate_positions(P: pd.DataFrame, where: str = "positions") -> pd.DataFram
         raise ReadoutError(f"{where}: duplicate (date, symbol) rows "
                            f"{P.loc[dup, ['date', 'symbol']].astype(str).head(5).values.tolist()}")
     if "equity" in P.columns:
-        eq = pd.to_numeric(P["equity"], errors="coerce")
-        if eq.isna().any() and eq.notna().any():
+        # A value that is present but does not parse raises, naming it. The first build
+        # coerced it to NaN, so "$100,000.00" on every row dropped the column without a word
+        # and the summary blamed a missing equity (review 2026-11-02, finding 4). No format
+        # is guessed here: write the equity as a plain number.
+        raw = P["equity"]
+        blank = raw.isna() | raw.astype(str).str.strip().eq("")
+        eq = pd.to_numeric(raw.where(~blank), errors="coerce")
+        bad = ~blank & eq.isna()
+        if bad.any():
+            raise ReadoutError(f"{where}: column 'equity' holds values that are not plain numbers, e.g. "
+                               f"{raw[bad].astype(str).head(3).tolist()} (dates "
+                               f"{sorted(P.loc[bad, 'date'].dt.date.astype(str).unique())[:5]}). Write it "
+                               "as a number, with no currency sign or thousands separator")
+        if blank.all():
+            raise ReadoutError(f"{where}: column 'equity' is present but empty on every row. Drop the "
+                               "column to read without equity (every rule reading is then UNMEASURED)")
+        if blank.any():
             raise ReadoutError(f"{where}: equity is given on some rows and missing on others "
-                               f"(dates {sorted(P.loc[eq.isna(), 'date'].dt.date.astype(str).unique())[:5]})")
-        if eq.notna().all():
-            if not (np.isfinite(eq.to_numpy()) & (eq.to_numpy() > 0)).all():
-                raise ReadoutError(f"{where}: equity must be a finite positive number")
-            n = eq.groupby(P["date"]).nunique()
-            if (n > 1).any():
-                raise ReadoutError(f"{where}: more than one equity on dates "
-                                   f"{[d.date().isoformat() for d in n[n > 1].index[:5]]}")
-            P["equity"] = eq.astype(float)
-        else:
-            P = P.drop(columns=["equity"])
+                               f"(dates {sorted(P.loc[blank, 'date'].dt.date.astype(str).unique())[:5]})")
+        if not (np.isfinite(eq.to_numpy(float)) & (eq.to_numpy(float) > 0)).all():
+            raise ReadoutError(f"{where}: equity must be a finite positive number")
+        n = eq.groupby(P["date"]).nunique()
+        if (n > 1).any():
+            raise ReadoutError(f"{where}: more than one equity on dates "
+                               f"{[d.date().isoformat() for d in n[n > 1].index[:5]]}")
+        P["equity"] = eq.astype(float)
     return P.sort_values(["date", "symbol"]).reset_index(drop=True)
 
 
@@ -794,6 +871,48 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
                    total_vol=pd.DataFrame(tv_rows), window=window, lags=lags)
 
 
+# --------------------------------------------------------------------------- plateau check
+
+PLATEAU_LAG_SPAN = 2     # lags 0 .. L + 2: brackets L the way W/2 .. 2W brackets W
+
+
+def plateau_summary(ro: Readout) -> dict:
+    """One plateau row: the book and group factor P&L, and the review counts per factor.
+
+    The counts are here because the first build printed only P&L and mean |E| (review
+    2026-11-02, finding 1), while the per-factor review counts were the quantity that moved
+    most with the Dimson lag count."""
+    ex = ro.exposure
+    fp = ro.factor_pnl
+    by_scope = fp.groupby("scope", sort=True)[["pnl_summed", "pnl_lagdist"]].sum() if len(fp) else None
+    measured = bool((ex["review"] != "UNMEASURED").any())
+    rev = ex[ex["review"] == "REVIEW"]
+    big_t = rev[rev["t_stat"].abs() >= 2.0]
+    count = (lambda g: {k: int(g.loc[g["factor"] == k, "date"].nunique()) for k in FACTOR_NAMES})
+    return dict(
+        window=ro.window, lags=ro.lags,
+        book_summed=(float(by_scope.at["book", "pnl_summed"]) if by_scope is not None else float("nan")),
+        book_lagdist=(float(by_scope.at["book", "pnl_lagdist"]) if by_scope is not None else float("nan")),
+        group_summed=({s[4:]: float(v) for s, v in by_scope["pnl_summed"].items() if s.startswith("grp:")}
+                      if by_scope is not None else {}),
+        n_dates=int(ex["date"].nunique()), measured=measured,
+        review=(count(rev) if measured else None), review_t2=(count(big_t) if measured else None),
+        mean_abs_E={k: float(ex.loc[ex["factor"] == k, "exposure_usd"].abs().mean()) for k in FACTOR_NAMES})
+
+
+def plateau_check(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, ro: Readout) -> list:
+    """The readout re-run at W/2 and 2W with the lags fixed, and at lags 0 .. L + 2 with the
+    window fixed. A check for a plateau: NOTHING IS CHOSEN FROM IT, and the rule keeps the
+    adopted W and L whatever it prints."""
+    runs = [(w, ro.lags) for w in (ro.window // 2, ro.window, 2 * ro.window)]
+    runs += [(ro.window, l) for l in range(0, ro.lags + PLATEAU_LAG_SPAN + 1) if l != ro.lags]
+    out = []
+    for w, l in runs:
+        r2 = ro if (w, l) == (ro.window, ro.lags) else readout(px, positions, groups, window=w, lags=l)
+        out.append(dict(plateau_summary(r2), adopted=((w, l) == (ro.window, ro.lags))))
+    return out
+
+
 # --------------------------------------------------------------------------- outputs
 
 def _fmt_money(x: float) -> str:
@@ -846,11 +965,20 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
             L.append(f"| {sc} | ALL | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
         L.append(f"\nSessions: {fp['date'].nunique()} ({fp['date'].min().date()}..{fp['date'].max().date()}).")
     if plateau:
-        L += ["", "## Window plateau check (nothing is chosen from it)", "",
-              "| window | book factor P&L summed | lag-distributed | mean abs E USD by factor |",
-              "|---:|---:|---:|---|"]
-        for w, s, ld, me in plateau:
-            L.append(f"| {w} | {s:,.2f} | {ld:,.2f} | {', '.join(f'{k} {v:,.0f}' for k, v in me.items())} |")
+        fac = "/".join(FACTOR_NAMES)
+        L += ["", "## Plateau check: window and Dimson lags (nothing is chosen from it)", "",
+              "The adopted row is marked; every other row changes one of W and L. The review "
+              "counts are the dates (of those read) on which the rule flagged each factor.", "",
+              f"| window | lags | book P&L summed | lag-distributed | P&L summed by group | "
+              f"REVIEW dates {fac} | REVIEW and abs t >= 2 {fac} | mean abs E USD by factor |",
+              "|---:|---:|---:|---:|---|---|---|---|"]
+        cnt = (lambda d: "UNMEASURED" if d is None else "/".join(str(d[k]) for k in FACTOR_NAMES))
+        for r in plateau:
+            L.append(f"| {r['window']}{' (adopted)' if r['adopted'] else ''} | {r['lags']} | "
+                     f"{r['book_summed']:,.2f} | {r['book_lagdist']:,.2f} | "
+                     f"{', '.join(f'{g} {v:,.0f}' for g, v in r['group_summed'].items())} | "
+                     f"{cnt(r['review'])} | {cnt(r['review_t2'])} | "
+                     f"{', '.join(f'{k} {v:,.0f}' for k, v in r['mean_abs_E'].items())} |")
     return "\n".join(L) + "\n"
 
 
@@ -875,28 +1003,47 @@ def _panel(path: Path) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+# Who supplies each panel's numbers, and so what agreeing with it can show. This cache is
+# yfinance. Agreeing with a yfinance panel shows that this fetch reproduces that one; it does
+# not show the data are right (review 2026-11-02, finding 6). Only a different vendor checks
+# the data. Sources: docs/REFERENCES.md, the "ETF research panels: their fetchers" row (the rv
+# panels and etf_daily) and the cef_distributions-against-CRSP row (the CEF panels).
+# etf_daily carries a `source` column, so it is compared one leg at a time.
+PANEL_VENDOR = {
+    "rv/close_unadj_wide": ("yfinance, then Alpaca after the 2026-10-11 restore's YF_LAST", "partly"),
+    "rv/returns_wide": ("yfinance, then Alpaca after the 2026-10-11 restore's YF_LAST", "partly"),
+    "rv/etf_ohlc_extended": ("yfinance, then Alpaca after the 2026-10-11 restore's YF_LAST", "partly"),
+    "cef/cef_prices": ("yfinance", "no"),
+    "cef/cef_distributions": ("yfinance Ticker.actions", "no"),
+}
+ETF_DAILY_LEG_INDEPENDENT = {"crsp": "yes", "alpaca": "yes", "yfinance": "no"}
+
+
 def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, list]:
     """The cache against the repo's own panels on their overlap (read-only). Reports; decides
     nothing. Returns (table, notes): one row per (panel, field, ticker) with the overlap, the
-    count above the tolerance and the largest gap, and the panels' last dates."""
+    count above the tolerance, the largest gap, the panel's vendor on that overlap and whether
+    that vendor is independent of yfinance; and notes with the panels' last dates."""
     R, C, _ = returns_panel(px)
     Dv = px.pivot(index="date", columns="ticker", values="dividend").reindex_like(C)
     rows, notes = [], []
     etfs = [e for e in FACTOR_ETFS if e in C.columns]
     cefs = [c for c in C.columns if c not in FACTOR_ETFS]
 
-    def comp(panel, field, tk, ours: pd.Series, theirs: pd.Series, tol, scale=1.0):
+    def comp(panel, field, tk, ours: pd.Series, theirs: pd.Series, tol, scale=1.0, vendor=None):
+        vend, indep = vendor if vendor is not None else PANEL_VENDOR[panel]
         a, b = ours.dropna(), theirs.dropna()
         ix = a.index.intersection(b.index)
         if not len(ix):
-            rows.append(dict(panel=panel, field=field, ticker=tk, n=0))
+            rows.append(dict(panel=panel, field=field, ticker=tk, n=0, vendor=vend,
+                             independent_of_yfinance=indep))
             return
         d = (a.loc[ix] - b.loc[ix]) * scale
         ad = d.abs()
         rows.append(dict(panel=panel, field=field, ticker=tk, n=len(ix), first=ix.min().date(),
                          last=ix.max().date(), n_over_tol=int((ad > tol).sum()), tol=tol,
                          max_abs=float(ad.max()), max_on=ad.idxmax().date(),
-                         p99_abs=float(ad.quantile(0.99))))
+                         p99_abs=float(ad.quantile(0.99)), vendor=vend, independent_of_yfinance=indep))
 
     cu = _panel(data_dir / "rv" / "close_unadj_wide.parquet")
     rw = _panel(data_dir / "rv" / "returns_wide.parquet")
@@ -926,11 +1073,19 @@ def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR) -> tuple[pd.DataFram
             comp("rv/etf_ohlc_extended", "dividend", tk, Dv[tk], g["dividend"], TOL_DIV)
         else:
             notes.append(f"{tk}: not in data/rv/etf_ohlc_extended.parquet")
-        g = ed[ed["ticker"] == tk].set_index("date")
+        g = ed[ed["ticker"] == tk]
         if len(g):
-            comp("etf_daily", "total return (bp)", tk, R[tk], g["ret_total"], TOL_TR_BP, 1e4)
+            for src, leg in g.groupby("source", sort=True):
+                if src not in ETF_DAILY_LEG_INDEPENDENT:
+                    raise ReadoutError(f"data/etf_daily.parquet: source leg {src!r} is not one this "
+                                       "cross-check knows the vendor of")
+                comp(f"etf_daily[{src}]", "total return (bp)", tk, R[tk], leg.set_index("date")["ret_total"],
+                     TOL_TR_BP, 1e4, vendor=(src, ETF_DAILY_LEG_INDEPENDENT[src]))
         else:
             notes.append(f"{tk}: not in data/etf_daily.parquet")
+    notes.append("cef/cef_prices and cef/cef_distributions are yfinance panels, the cache's own "
+                 "vendor: agreement there confirms the fetch, not the data. Their known gaps against "
+                 "CRSP are in docs/REFERENCES.md (the cef_distributions-against-CRSP row)")
     last_cd = pd.Timestamp(cd["ex_date"].max())
     for tk in cefs:
         g = cp[cp["ticker"] == tk].set_index("date")
@@ -958,7 +1113,6 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
     """Re-measure the two modelling choices on the fit era only (< 2023, H13): factor
     collinearity (whether to orthogonalise) and the Dimson lag count (first-gap rule).
     Prints the tables the module docstring quotes and returns them."""
-    import statsmodels.api as sm
     from scipy.stats import binom
     names = list(names or UNIVERSE)
     R, _, _ = returns_panel(px)
@@ -1010,33 +1164,135 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
     M = orthogonaliser(E)
     F = E @ M
     F.columns = list(FACTOR_NAMES)
-    sig = {l: 0 for l in range(max_lag + 1)}
-    cum = {}
-    npairs = 0
-    for n in names:
-        y = R[n]
-        X = pd.concat({f"{k}_{l}": F[k].shift(l) for k in FACTOR_NAMES for l in range(max_lag + 1)}, axis=1)
-        d = pd.concat([y.rename("y"), X], axis=1).dropna()
-        m = sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC", cov_kwds={"maxlags": 5})
-        for k in FACTOR_NAMES:
-            npairs += 1
-            for l in range(max_lag + 1):
-                sig[l] += int(m.pvalues[f"{k}_{l}"] < 0.05)
-            cum[(n, groups.get(n, "?"), k)] = np.cumsum([m.params[f"{k}_{l}"] for l in range(max_lag + 1)])
+    models = {K: {n: _dimson_ols(R[n], F, K) for n in names} for K in sorted({DERIVE_ALT_MAX_LAG, max_lag})}
+    npairs = len(names) * len(FACTOR_NAMES)
     bound = int(binom.ppf(0.95, npairs, 0.05))
-    first_gap = next((l for l in range(1, max_lag + 1) if sig[l] <= bound), None)
-    L = None if first_gap is None else first_gap - 1
+    rules = {K: lag_rule_counts(ms, alpha=0.05) for K, ms in models.items()}
+    sig = rules[max_lag]["single"]
+    cum = {}
+    for n in names:
+        m = models[max_lag][n]
+        for k in FACTOR_NAMES:
+            cum[(n, groups.get(n, "?"), k)] = np.cumsum([m.params[f"{k}_{l}"] for l in range(max_lag + 1)])
+    L = _first_gap(sig, bound)
     print(f"\n2. DIMSON LAGS: pairs (of {npairs}) with the lag-l coefficient significant at 5%, "
           f"lags 0..{max_lag}, HAC(5)")
     print("   " + ", ".join(f"l{l} {c}" for l, c in sig.items()) + f"; Binomial({npairs}, 0.05) 95% point {bound}")
-    print(f"   first lag within the null bound: {first_gap}; so L = {L} (module constant {DIMSON_LAGS})")
+    print(f"   first lag within the null bound: {None if L is None else L + 1}; so L = {L} "
+          f"(module constant {DIMSON_LAGS})")
+
+    # Every rule the build session tried, at both lag bounds (review 2026-11-02, finding 1:
+    # only one rule of four gave 3, and the docstring disclosed one). Reported; nothing is
+    # chosen here, and DIMSON_LAGS is not set from this table.
+    maj = len(names) // 2 + 1
+    print("\n   the four lag rules tried on 2026-11-02, at both lag bounds K (nothing is chosen here):")
+    tab = []
+    for K, c in rules.items():
+        tab.append(dict(K=K, rule=f"joint Wald test of lag l, a majority ({maj} of {len(names)}) of names",
+                        counts=_fmt_counts(c["joint"]), L=_first_gap(c["joint"], maj - 1)))
+        tab.append(dict(K=K, rule=f"sum of lags L+1..K, pairs significant <= {bound}",
+                        counts=_fmt_counts(c["tail"], "L"), L=_smallest_within(c["tail"], bound)))
+        tab.append(dict(K=K, rule=f"single-lag first gap, pairs significant <= {bound}"
+                                  + (" (ADOPTED)" if K == max_lag else ""),
+                        counts=_fmt_counts(c["single"]), L=_first_gap(c["single"], bound)))
+    tab = pd.DataFrame(tab)
+    with pd.option_context("display.width", 250, "display.max_colwidth", 120):
+        print(tab.to_string(index=False))
+
+    # The null bound, tested. Binomial(npairs, .05) treats the pairs as independent; 13
+    # co-moving funds are not. A LEAD coefficient (the factor's FUTURE return, a deliberate
+    # placebo regressor, never an estimate used on any date) has no causal channel, so its
+    # significant count is what noise alone produces under this dependence.
+    lead = {j: 0 for j in range(1, DERIVE_PLACEBO_LEADS + 1)}
+    for n in names:
+        m = _dimson_ols(R[n], F, max_lag, leads=DERIVE_PLACEBO_LEADS)
+        for k in FACTOR_NAMES:
+            for j in lead:
+                lead[j] += int(m.pvalues[f"{k}_m{j}"] < 0.05)
+    over = sum(c > bound for c in lead.values())
+    print(f"\n   placebo: pairs (of {npairs}) with a LEAD coefficient (t+j, a future factor return) "
+          f"significant at 5%, lags 0..{max_lag} kept: " + ", ".join(f"lead{j} {c}" for j, c in lead.items())
+          + f"; {over} of {len(lead)} leads exceed the Binomial bound {bound}")
+    span = range(0, max(sig[l] for l in range(1, max_lag + 1)) + 2)
+    print("   the adopted rule's L as a function of the bound (single-lag counts above): "
+          + _fmt_runs({b: _first_gap(sig, b) for b in span}))
+
     cm = pd.DataFrame(cum).T
     cm.index.names = ["name", "grp", "factor"]
     cm.columns = [f"L{l}" for l in range(max_lag + 1)]
     med = cm.groupby(level=["grp", "factor"]).median()
     print("\n   plateau check: median cumulative summed beta by group and factor\n" + med.round(2).to_string())
-    out.update(sig=sig, bound=bound, L=L, cum=cm)
+    out.update(sig=sig, bound=bound, L=L, cum=cm, rules=rules, rule_table=tab, placebo=lead)
     return out
+
+
+def _dimson_ols(y: pd.Series, F: pd.DataFrame, max_lag: int, leads: int = 0):
+    """OLS of y on F at lags 0..max_lag (and, for the placebo only, leads 1..leads), HAC(5)."""
+    import statsmodels.api as sm
+    cols = {f"{k}_{l}": F[k].shift(l) for k in F.columns for l in range(max_lag + 1)}
+    cols.update({f"{k}_m{j}": F[k].shift(-j) for k in F.columns for j in range(1, leads + 1)})
+    X = pd.concat(cols, axis=1)
+    d = pd.concat([y.rename("y"), X], axis=1).dropna()
+    return sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC", cov_kwds={"maxlags": 5})
+
+
+def lag_rule_counts(models: dict, alpha: float = 0.05) -> dict:
+    """The counts behind the four lag rules, from per-name fits at lags 0..K:
+    single[l]: (name, factor) pairs whose lag-l coefficient is significant;
+    joint[l]:  names whose four lag-l coefficients are jointly significant (Wald);
+    tail[L]:   pairs whose sum of the lag L+1..K coefficients is significant (L < K)."""
+    any_m = next(iter(models.values()))
+    K = max(int(c.rsplit("_", 1)[1]) for c in any_m.params.index if c != "const" and "_m" not in c)
+    single = {l: 0 for l in range(K + 1)}
+    joint = {l: 0 for l in range(K + 1)}
+    tail = {L: 0 for L in range(K)}
+    for m in models.values():
+        idx = list(m.params.index)
+        for l in range(K + 1):
+            Rm = np.zeros((len(FACTOR_NAMES), len(idx)))
+            for j, k in enumerate(FACTOR_NAMES):
+                Rm[j, idx.index(f"{k}_{l}")] = 1.0
+                single[l] += int(m.pvalues[f"{k}_{l}"] < alpha)
+            joint[l] += int(float(m.wald_test(Rm, scalar=True).pvalue) < alpha)
+        for k in FACTOR_NAMES:
+            for L in range(K):
+                r = np.zeros(len(idx))
+                for l in range(L + 1, K + 1):
+                    r[idx.index(f"{k}_{l}")] = 1.0
+                tail[L] += int(float(m.t_test(r).pvalue) < alpha)
+    return dict(single=single, joint=joint, tail=tail)
+
+
+def _first_gap(counts: dict, bound: int):
+    """The last lag before the first lag l >= 1 whose count is within the bound (<= bound).
+    None if no lag is. For the majority rule the bound is (majority - 1)."""
+    for l in sorted(counts):
+        if l >= 1 and counts[l] <= bound:
+            return l - 1
+    return None
+
+
+def _smallest_within(counts: dict, bound: int):
+    """The smallest L whose count is within the bound. None if none is."""
+    return next((L for L in sorted(counts) if counts[L] <= bound), None)
+
+
+def _fmt_counts(c: dict, p: str = "l") -> str:
+    return " ".join(f"{p}{k}:{v}" for k, v in c.items())
+
+
+def _fmt_runs(m: dict) -> str:
+    """{bound: L} as runs, e.g. 'bound 2-6 -> L 3; 7-9 -> L 2'. The last run holds for every
+    larger bound too."""
+    out, keys, i = [], sorted(m), 0
+    while i < len(keys):
+        j = i
+        while j + 1 < len(keys) and m[keys[j + 1]] == m[keys[i]]:
+            j += 1
+        last = j == len(keys) - 1
+        out.append(f"{keys[i]}{'+' if last else ('' if i == j else '-' + str(keys[j]))} -> L {m[keys[i]]}")
+        i = j + 1
+    return "bound " + "; ".join(out)
 
 
 # --------------------------------------------------------------------------- CLI
@@ -1089,15 +1345,7 @@ def main(argv=None) -> int:
     P = read_positions(Path(args.positions))
     groups = load_groups()
     ro = readout(px, P, groups)
-    plateau = None
-    if args.plateau:
-        plateau = []
-        for w in (ro.window // 2, ro.window, 2 * ro.window):
-            r2 = ro if w == ro.window else readout(px, P, groups, window=w)
-            b = r2.factor_pnl[r2.factor_pnl["scope"] == "book"] if len(r2.factor_pnl) else r2.factor_pnl
-            me = r2.exposure.groupby("factor", sort=False)["exposure_usd"].apply(lambda s: s.abs().mean())
-            plateau.append((w, float(b["pnl_summed"].sum()) if len(b) else float("nan"),
-                            float(b["pnl_lagdist"].sum()) if len(b) else float("nan"), me.to_dict()))
+    plateau = plateau_check(px, P, groups, ro) if args.plateau else None
     out = Path(args.out_dir) if args.out_dir else DEFAULT_OUT / P["date"].max().date().isoformat()
     write_outputs(out, ro, meta, plateau)
     print((out / "summary.md").read_text())
