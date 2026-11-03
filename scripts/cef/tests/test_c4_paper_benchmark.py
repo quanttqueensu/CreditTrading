@@ -95,6 +95,47 @@ def test_every_signal_parameter_is_the_one_the_trial_read():
     assert _spec()["rebalance"]["min_trade_usd"] == core.MIN_TRADE_USD
 
 
+def test_the_spec_carries_trial_53s_multiplier_with_its_note():
+    """CEF trial 53's C4 value, applied 2026-11-02 (c4_families_sizing_multiplier_2026-11-01.patch):
+    1.27 (1.2712 derived on this spec's 1.90 book, rounded down), with its sibling note, and
+    nothing the fidelity gate reads moved. Fails on v1 (no key), by design."""
+    s = _spec()
+    f = s["frozen"]
+    assert f["sizing_multiplier"] == 1.27
+    assert registry.cef_sizing_multiplier(f) == 1.27
+    note = f["_sizing_multiplier_note"]
+    for must in ("CEF trial 53", "1.2712", "ROUNDED DOWN", "NOT CHOSEN", "REVERT", "UNITS"):
+        assert must in note, must
+    # The unit book is the trial's: the vol target, gross leverage and band are not moved.
+    assert (f["vol_target_annual"], f["max_gross_stress"]) == (0.06, 1.9)
+    assert s["spec_id"] == "c4_families.v2.20261101" and s["_supersedes"] == "c4_families.v1.20261029"
+    registry.build_sleeve(s, float(s["capital_usd"]))          # validates (cap set, 0.06 x m sane)
+
+
+def test_h11_reads_the_account_book_under_the_multiplier(monkeypatch):
+    """`h11_reference` (trial 53's edit): with `sizing_multiplier` m the reference is
+    m x band_gross_capped(T, band, cap / m), the book the account trades (the sleeve bands on
+    held / m and caps at cap / m in unit weights); absent, it is band_gross_capped(T, band, cap)
+    exactly as before. Synthetic T and zero returns: a test of the construction, not a market."""
+    from scripts.cef import band_frontier as bf
+    idx = pd.bdate_range("2005-03-01", periods=40)
+    cols = ["AAA", "BBB", "CCC", "DDD"]
+    k = pd.DataFrame([[((i * 7 + j * 3) % 11 - 5) / 10.0 for j in range(4)] for i in range(40)],
+                     index=idx, columns=cols)
+    T = k * 1.9      # unit gross 1.90-2.28: capped at 1.90 without m, at 1.90 / 1.27 = 1.496 with it
+    zero = pd.DataFrame(0.0, index=idx, columns=cols)
+    tb = {"T": T, "R0": zero, "R0x": zero}
+    base = {"spec_id": "synthetic", "frozen": {"band_width": 0.048, "max_gross_stress": 1.9}}
+    with_m = {"spec_id": "synthetic-m", "frozen": dict(base["frozen"], sizing_multiplier=1.27)}
+    absent = bm.h11_reference(tb, base)["H"]
+    pd.testing.assert_frame_equal(absent, bf.band_gross_capped(T, 0.048, 1.9))
+    got = bm.h11_reference(tb, with_m)
+    pd.testing.assert_frame_equal(got["H"], 1.27 * bf.band_gross_capped(T, 0.048, 1.9 / 1.27))
+    assert "sizing_multiplier 1.27" in got["policy"]
+    assert got["H"].abs().sum(axis=1).max() <= 1.9 + 1e-12          # the account's cap holds
+    assert not got["H"].equals(1.27 * absent)                        # the cap binds differently
+
+
 def test_the_four_c4_keys_say_what_the_trial_did():
     s = _spec()
     assert registry.cef_optional_keys(s["frozen"]) == {

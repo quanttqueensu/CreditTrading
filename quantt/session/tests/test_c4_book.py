@@ -312,6 +312,10 @@ def test_a_c4_session_in_dry_decides_from_data_cef_c4_only(c4_world, monkeypatch
     assert plan["drawdown"]["status"] == "UNMEASURED"           # the spec names no levels
     assert "halve_drawdown" in plan["drawdown"]["why"]
     assert plan["corporate_actions"]["status"] == "CLEAR"
+    # CEF trial 53 (spec c4_families.v2.20261101): every weight target is the account's,
+    # m x the unit weight, and says so (cef_discount.py, `smult`).
+    weighted = [t for t in plan["targets"].values() if t["reason"].startswith("cef discount z=")]
+    assert weighted and all(" smult=1.2700" in t["reason"] for t in weighted), weighted[:2]
     assert c.submits() == []
     # THE SEND at 15:52, still DRY: nothing reaches the broker.
     reads.clear()

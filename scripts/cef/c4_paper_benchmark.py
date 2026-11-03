@@ -1,8 +1,8 @@
 """C4 on paper, step 2: the frozen spec's fidelity to trial 52, its own gross cap, and the H11 lines.
 
     python3 scripts/cef/c4_paper_benchmark.py stage      # copy the trial's gitignored CRSP extract and Alpaca read in (read-only source)
-    python3 scripts/cef/c4_paper_benchmark.py run        # all three; ~4 min; writes results/cef/c4/c4_paper_benchmark_2026-10-29.{txt,json}
-                                                         #   and c4_paper_fidelity_2026-10-29.csv
+    python3 scripts/cef/c4_paper_benchmark.py run        # all three; ~4 min; writes results/cef/c4/c4_paper_benchmark_<STAMP>.{txt,json}
+                                                         #   and c4_paper_fidelity_<STAMP>.csv (STAMP below)
     python3 scripts/cef/c4_paper_benchmark.py fidelity   # the fidelity check alone (no CRSP needed); prints, writes nothing
     python3 scripts/cef/c4_paper_benchmark.py seed-rulings   # writes results/cef/c4/c4_seed_rulings_2026-10-29.json (IGR, step 3)
     python3 scripts/cef/c4_paper_benchmark.py recap --probe results/ops/alpaca_probe/<date>_c4.json --mark-sensitivity X
@@ -130,7 +130,9 @@ from src.deploy.sleeve import MarketState                # noqa: E402
 from src.deploy.sleeves import cef_discount as cefmod    # noqa: E402
 
 SPEC_PATH = REPO / "ops" / "specs" / "c4_families.frozen.json"
-STAMP = "2026-10-29"
+# The date stamp of a run. 2026-10-29 was the run on c4_families.v1 (kept, committed); 2026-11-02
+# the re-run on the spec as raised by CEF trial 53 (sizing_multiplier 1.27), branch c4-rel.
+STAMP = "2026-11-02"
 OUT_TXT = c4.OUT_DIR / f"c4_paper_benchmark_{STAMP}.txt"
 OUT_JSON = c4.OUT_DIR / f"c4_paper_benchmark_{STAMP}.json"
 OUT_CSV = c4.OUT_DIR / f"c4_paper_fidelity_{STAMP}.csv"
@@ -613,12 +615,22 @@ def h11_reference(tb: dict, spec: dict) -> dict:
     f = spec["frozen"]
     if "max_gross_stress" not in f:
         raise KeyError(f"{spec.get('spec_id')} has no max_gross_stress; H11 reads the spec's own cap")
-    H = bf.band_gross_capped(tb["T"], float(f["band_width"]), float(f["max_gross_stress"]))
+    # CEF trial 53: with `sizing_multiplier` m set, the account holds m x the unit book, banded
+    # on held / m and capped at max_gross_stress / m in unit weights (cef_discount.py). H11 reads
+    # THAT book, so its percentile and its fit-worst drawdown are in the account's own units.
+    # Absent, the line below is today's reference, unchanged.
+    m = f.get("sizing_multiplier")
+    cap = float(f["max_gross_stress"])
+    if m is None:
+        H = bf.band_gross_capped(tb["T"], float(f["band_width"]), cap)
+    else:
+        H = float(m) * bf.band_gross_capped(tb["T"], float(f["band_width"]), cap / float(m))
     R = c4.check_held(H, tb["R0"].reindex(columns=H.columns), "H11 reference, total")
     Rx = c4.check_held(H, tb["R0x"].reindex(columns=H.columns), "H11 reference, price-only")
     _fit_dates(H, R, Rx)
     return {"H": H, "total": R, "price": Rx,
-            "policy": f"band {f['band_width']} + cap {f['max_gross_stress']} ({spec['spec_id']})"}
+            "policy": f"band {f['band_width']} + cap {f['max_gross_stress']}"
+                      + ("" if m is None else f" x sizing_multiplier {m}") + f" ({spec['spec_id']})"}
 
 
 def lines(tb: dict, spec: dict) -> dict:

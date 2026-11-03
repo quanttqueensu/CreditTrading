@@ -183,6 +183,13 @@ counter (156) covers all ETF-price/PD work done to date.
 > also runs its last window into January 2023; neither was changed here.
 > **GAMMA stays at 0.**
 
+> **2026-11-02: trial 53's C4 value applied, counter unchanged at 53** (the approval moved it):
+> `ops/specs/c4_families.frozen.json` `c4_families.v1.20261029` → `c4_families.v2.20261101`,
+> `sizing_multiplier` 1.27, by the committed patch
+> (`results/cef/prereg_voltarget/c4_families_sizing_multiplier_2026-11-01.patch`), on branch
+> `c4-rel`, before C4's dry sessions, so that they rehearse the book C4 arms at ("C4 at its
+> arming, already at ×1.27"). C4 stays unarmed. Revert: local tag `spec-c4_families.v1.20261029`.
+
 > **2026-11-01: CEF 52 → 53** (team lead; this commit records the approval):
 > - **Trial 53 is the vol-target raise**, `results/cef/PREREG_VOLTARGET_2026-10-30.md`:
 >   each account sized at its per-account equal-risk multiplier through a new frozen key,
