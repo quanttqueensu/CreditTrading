@@ -335,14 +335,118 @@ def cef_sizing_multiplier(frozen):
     return float(v)
 
 
+# ---------------------------------------------------------------------------
+# level_signal (CEF trial 54, results/cef/PREREG_C4_LEVEL_2026-11-02.md)
+# ---------------------------------------------------------------------------
+
+CEF_LEVEL_KEY = "level_signal"
+CEF_LEVEL_FIELDS = ("risk_share", "family_of")
+
+
+def cef_level_signal(frozen):
+    """`level_signal` parsed to {"risk_share": float, "family_of": {ticker: family}}, or None
+    when ABSENT (today's book: the z target alone).
+
+    WHAT IT IS. A second, within-family DISCOUNT-LEVEL target blended with the z target at
+    equal ex-ante risk (PREREG_C4_LEVEL §1.2; what the sleeve does is in
+    src/deploy/sleeves/cef_discount.py, `_level_weights` and `_blend_unit_book`). The z is
+    standardised against each fund's own 252-session history, so a fund that has sat 10pp rich
+    of its family for a year has z near zero; the level sees it (§2).
+
+    `risk_share` IS THE SHARE OF EX-ANTE RISK ON THE Z BOOK, the level book taking
+    1 - risk_share: mix = risk_share * w_z / s_z + (1 - risk_share) * w_L / s_L. That is the
+    quantity §3.1 derives ("0.514 on z", rounded to 0.50) and its plateau table varies ("share
+    of risk on z"). §1.3 test 2 reads "risk_share 0 (all risk on z)", the other way round; at
+    the pre-registered 0.50 the two readings are the same book, and the spec's note says which
+    one this code is. UNITS: a fraction of risk, not of gross and not a percent.
+
+    REFUSED, naming the value (no silent defaults):
+      * null, or anything but an object with exactly the keys {risk_share, family_of}. A null
+        here would read as "off" beside a note that describes it as on; the REVERT is to
+        delete the key, so there is no second spelling of absent;
+      * risk_share a bool, a non-number, NaN or inf, or outside the OPEN interval (0, 1). At 0
+        or 1 one book has no risk and its weights only add noise to the arithmetic; the
+        z-only book is the key ABSENT, and an all-level book is a different trial;
+      * family_of not an object of non-empty ticker -> non-empty family strings, or not
+        covering the universe EXACTLY. A universe name with no family would raise on the first
+        day it became eligible (a missed day, found late); a family for a name outside the
+        universe says the map and the universe were copied from different files. Both are
+        refused here, naming the tickers, at load and at the sleeve's construction;
+      * `band_width` absent or null beside it. The trial measures the daily level through the
+        band (§3.2); without a band the signal date can sit before the last panel date (the
+        `rebalance_days` calendar), and the blend's vols would then read returns past the date
+        its weights were formed on. That construction was never measured;
+      * a frozen key that looks like a misspelling of it (`cef_c4_near_miss`'s rule). Absent
+        is today's book, so a misspelt key would trade the z book while the spec reads as
+        blended.
+    """
+    note = f"_{CEF_LEVEL_KEY}_note"
+    for key in frozen:
+        if not isinstance(key, str) or key in (CEF_LEVEL_KEY, note):
+            continue
+        stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+        if stem.endswith("_note"):
+            stem = stem[:-len("_note")].strip("_")
+        if (stem == CEF_LEVEL_KEY or stem.replace("_", "") == CEF_LEVEL_KEY.replace("_", "")
+                or _osa_distance(stem, CEF_LEVEL_KEY) <= CEF_C4_NEAR):
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of {CEF_LEVEL_KEY!r}; "
+                f"the sleeve would ignore it and trade the z book alone. Spell it "
+                f"{CEF_LEVEL_KEY!r}, or delete it (absent is today's book)")
+    if CEF_LEVEL_KEY not in frozen:
+        return None
+    v = frozen[CEF_LEVEL_KEY]
+    if not isinstance(v, dict) or set(v) != set(CEF_LEVEL_FIELDS):
+        got = f"keys {sorted(map(str, v))}" if isinstance(v, dict) else f"{v!r} ({type(v).__name__})"
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY} must be an object with exactly the keys "
+                         f"{list(CEF_LEVEL_FIELDS)}, got {got}")
+    rs = v["risk_share"]
+    if isinstance(rs, bool) or not isinstance(rs, (int, float)):
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.risk_share must be a number, got {rs!r} "
+                         f"({type(rs).__name__})")
+    import math
+    if not math.isfinite(float(rs)) or not 0.0 < float(rs) < 1.0:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.risk_share {rs!r} must be strictly between "
+                         f"0 and 1 (the share of ex-ante risk on the z book; the z book alone is "
+                         f"the key absent)")
+    fam = v["family_of"]
+    if not isinstance(fam, dict) or not fam:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of must be a non-empty object "
+                         f"{{ticker: family}}, got {type(fam).__name__}")
+    bad = sorted(repr(k) for k, g in fam.items()
+                 if not (isinstance(k, str) and k and isinstance(g, str) and g.strip()))
+    if bad:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of must map non-empty ticker "
+                         f"strings to non-empty family strings; bad entries for {bad}")
+    uni = frozen.get("universe")
+    if not isinstance(uni, list):
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY} is set but the frozen universe is "
+                         f"{uni!r}; family_of is checked against it")
+    missing = sorted(set(uni) - set(fam))
+    if missing:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of has no family for {missing}; "
+                         f"every universe name needs one (refusing to guess a family)")
+    stray = sorted(set(fam) - set(uni))
+    if stray:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of names {stray}, which are not "
+                         f"in the frozen universe")
+    if frozen.get("band_width") in (None, ""):
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY} is set but band_width is not; the level "
+                         f"blend is defined on the daily signal through the band (PREREG_C4_LEVEL "
+                         f"§3.2), never on the rebalance_days calendar")
+    return {"risk_share": float(rs), "family_of": {str(k): str(g) for k, g in fam.items()}}
+
+
 def _validate_cef_discount(spec):
     """The CEF sleeve's whole signal is price minus NAV, so the things that can
     silently break it are a missing universe, a NAV staleness tolerance wide
     enough to trade blind, and an unbounded volatility scalar. The four
     optional C4 keys (above) are parsed here too, so a malformed one refuses
-    the spec at load rather than at the first decide."""
+    the spec at load rather than at the first decide, and so is `level_signal`
+    (CEF trial 54), whose family map is checked against the universe here."""
     f = _require_dict(spec, "frozen")
     cef_optional_keys(f)
+    cef_level_signal(f)
     uni = f.get("universe")
     if not isinstance(uni, list) or len(uni) < 6:
         raise ValueError("cef_discount needs a frozen universe of >= 6 funds; "

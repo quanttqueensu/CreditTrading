@@ -111,8 +111,9 @@ def test_the_spec_carries_trial_53s_multiplier_with_its_note():
     # The unit book is the trial's: the vol target, gross leverage and band are not moved.
     assert (f["vol_target_annual"], f["max_gross_stress"]) == (0.06, 1.9)
     # v2.20261101 applied it (1.27); v3.20261102 added only the halve/kill levels (the next test);
-    # v4.20261102 is amendment 1's 1.26, nothing else.
-    assert s["spec_id"] == "c4_families.v4.20261102" and s["_supersedes"] == "c4_families.v3.20261102"
+    # v4.20261102 is amendment 1's 1.26, nothing else; v5.20261103 adds CEF trial 54's
+    # level_signal (src/deploy/tests/test_level_signal.py pins it) and moves nothing this reads.
+    assert s["spec_id"] == "c4_families.v5.20261103" and s["_supersedes"] == "c4_families.v4.20261102"
     registry.build_sleeve(s, float(s["capital_usd"]))          # validates (cap set, 0.06 x m sane)
 
 
@@ -282,12 +283,14 @@ def short(tmp_path_factory):
     cut = tmp_path_factory.mktemp("c4cut")
     bm.cut_families(cut, lo=LO, hi=HI)
     T, info = bm.trial_targets(cut)
-    return dict(cut=cut, T=T, dates=bm.fidelity_dates(T, step=STEP))
+    # TS: what the spec's sleeve must reproduce. T itself when the spec has no level_signal; CEF
+    # trial 54's blend when it does (bm.spec_targets).
+    return dict(cut=cut, T=T, TS=bm.spec_targets(cut, T, _spec()), dates=bm.fidelity_dates(T, step=STEP))
 
 
 @needs_families
 def test_the_spec_matches_the_trial_on_every_compared_session(short):
-    rep = bm.fidelity(_spec(), short["cut"], short["dates"], T=short["T"])
+    rep = bm.fidelity(_spec(), short["cut"], short["dates"], T=short["TS"])
     assert rep["n_breaks"] == 0 and rep["session_match_rate"] == 1.0 and rep["cell_match_rate"] == 1.0
     assert rep["largest_gap"] <= bm.TOL
     assert rep["hold_sessions"] >= 1 and rep["trade_sessions"] >= 5, "not vacuous: both paths compared"
@@ -298,8 +301,17 @@ def test_the_spec_matches_the_trial_on_every_compared_session(short):
                                   if not n.startswith("zero_volume_mask")])
 def test_the_check_breaks_when_a_mask_the_hold_or_a_parameter_changes(short, name):
     sp = dict(bm.controls(_spec()))[name]
+    if name.startswith("band_width dropped") and "level_signal" in sp["frozen"]:
+        # CEF trial 54: with level_signal set, a spec without a band is REFUSED by the registry
+        # (cef_level_signal: the blend is defined through the band), before the probe can run.
+        # A refusal is a stronger answer than a break, and it is the one asserted here.
+        with pytest.raises(ValueError, match="band_width is not"):
+            registry.validate_spec(sp)
+        with pytest.raises(ValueError, match="band_width is not"):
+            bm.fidelity(sp, short["cut"], short["dates"], T=short["TS"], first_break=True)
+        return
     with pytest.raises(bm.FidelityBreak) as e:
-        bm.fidelity(sp, short["cut"], short["dates"], T=short["T"], first_break=True)
+        bm.fidelity(sp, short["cut"], short["dates"], T=short["TS"], first_break=True)
     assert e.value.report["n_breaks"] >= 1
 
 
@@ -323,12 +335,93 @@ def test_the_check_breaks_with_m2_off_on_a_zero_volume_day(short, tmp_path):
         df.to_parquet(cut / f"{f}.parquet")
     T1, _ = bm.trial_targets(cut)
     assert T1.loc[d, tk] == 0 and T0.loc[d, tk] != 0, "the injected day is masked in the trial"
+    TS1 = bm.spec_targets(cut, T1, _spec())         # the blend's own masked day, when the spec sets it
+    assert TS1.loc[d, tk] == 0
     dates = [x for x in short["dates"] if x <= d][-3:]
-    rep = bm.fidelity(_spec(), cut, dates, T=T1)
+    rep = bm.fidelity(_spec(), cut, dates, T=TS1)
     assert rep["n_breaks"] == 0
     with pytest.raises(bm.FidelityBreak) as e:
-        bm.fidelity(bm.with_keys(_spec(), zero_volume_mask=False), cut, dates, T=T1)
+        bm.fidelity(bm.with_keys(_spec(), zero_volume_mask=False), cut, dates, T=TS1)
     assert any(b["date"] == str(d.date()) and b["kind"] == "eligibility" for b in e.value.report["breaks"])
+
+
+def _level_on(spec):
+    """`spec` with CEF trial 54's key at the pre-registered value (the live value once activated)."""
+    fam = pd.read_csv(c4.FROZEN).set_index("ticker")["family"].to_dict()
+    return bm.with_keys(spec, level_signal={"risk_share": 0.5, "family_of": fam})
+
+
+def _level_off(spec):
+    return bm.with_keys(spec, drop=[k for k in ("level_signal", "_level_signal_note") if k in spec["frozen"]])
+
+
+@needs_families
+def test_the_blended_sleeve_matches_the_trials_blend(short):
+    """§1.3 test 6 (CEF trial 54). With level_signal set, the probe compares the sleeve's blend with
+    the trial's blend (`spec_targets`, trial54.py's `level_targets` unmasked) and every compared
+    session matches to TOL, trades and holds; the blend is not the z book (not vacuous); and the
+    key absent, `spec_targets` is T itself. Fails before spec_targets existed."""
+    on, off = _level_on(_spec()), _level_off(_spec())
+    TB = bm.spec_targets(short["cut"], short["T"], on)
+    assert bm.spec_targets(short["cut"], short["T"], off) is short["T"]
+    rep = bm.fidelity(on, short["cut"], short["dates"], T=TB)
+    assert rep["n_breaks"] == 0 and rep["session_match_rate"] == 1.0 and rep["largest_gap"] <= bm.TOL
+    assert rep["hold_sessions"] >= 1 and rep["trade_sessions"] >= 5
+    traded = [d for d in short["dates"] if bm._trial_kind(TB, TB.index.get_loc(d)) == "trade"]
+    assert float((TB.loc[traded] - short["T"].loc[traded]).abs().max().max()) > 1e-3
+
+
+@needs_families
+def test_the_blend_check_breaks_against_the_other_book(short):
+    """The probe has teeth both ways: the blended sleeve against build_book's z T breaks, and the
+    z sleeve against the blend breaks. Fails before spec_targets existed."""
+    on, off = _level_on(_spec()), _level_off(_spec())
+    TB = bm.spec_targets(short["cut"], short["T"], on)
+    with pytest.raises(bm.FidelityBreak):
+        bm.fidelity(on, short["cut"], short["dates"], T=short["T"], first_break=True)
+    with pytest.raises(bm.FidelityBreak):
+        bm.fidelity(off, short["cut"], short["dates"], T=TB, first_break=True)
+
+
+def test_spec_targets_refuses_a_family_map_that_is_not_the_trials(tmp_path):
+    """The trial read the frozen CSV; the sleeve reads the spec's family_of. If they differ the
+    probe would compare two books, so spec_targets refuses before reading any panel."""
+    on = _level_on(_spec())
+    fam = dict(on["frozen"]["level_signal"]["family_of"], ADX="preferred")
+    bad = bm.with_keys(on, level_signal={"risk_share": 0.5, "family_of": fam})
+    with pytest.raises(ValueError, match=r"differs from .* for \['ADX'\]"):
+        bm.spec_targets(tmp_path, pd.DataFrame(), bad)
+    with pytest.raises(ValueError, match="no level book"):
+        bm.spec_targets(tmp_path, pd.DataFrame(), _level_off(_spec()), level_only=True)
+
+
+def test_h11_reads_the_blended_book_against_raw_returns():
+    """§6.3: C4's kill rule is rebuilt on the BLENDED spec book. With level_signal set, h11_reference
+    reads tb["T_spec"] and checks it against the RAW returns, so a blended position on a name-day the
+    z book never held, with no return, raises (H15) instead of meeting R0's zero. Without T_spec it
+    refuses. Synthetic frames: a test of the construction, not a market."""
+    from scripts.cef import band_frontier as bf
+    idx = pd.bdate_range("2005-03-01", periods=30)
+    cols = list(_spec()["frozen"]["universe"])[:4]
+    T = pd.DataFrame(0.0, index=idx, columns=cols)
+    T[cols[0]], T[cols[1]] = 0.3, -0.3
+    TS = T.copy()
+    TS[cols[2]], TS[cols[3]] = 0.2, -0.2
+    R0 = pd.DataFrame(0.0, index=idx, columns=cols)
+    raw = R0.copy()
+    spec = _level_on(_spec())
+    tb = {"T": T, "T_spec": TS, "R0": R0, "R0x": R0, "R_raw": raw, "Rx_raw": raw}
+    got = bm.h11_reference(tb, spec)
+    f = spec["frozen"]
+    m, cap = float(f["sizing_multiplier"]), float(f["max_gross_stress"])
+    pd.testing.assert_frame_equal(got["H"], m * bf.band_gross_capped(TS, float(f["band_width"]), cap / m))
+    assert "level_signal (z_share 0.5)" in got["policy"]
+    raw2 = raw.copy()
+    raw2.loc[idx[10], cols[2]] = float("nan")
+    with pytest.raises(c4.GateError, match="no primary return"):
+        bm.h11_reference(dict(tb, R_raw=raw2, Rx_raw=raw2), spec)
+    with pytest.raises(KeyError, match="T_spec"):
+        bm.h11_reference({"T": T, "R0": R0, "R0x": R0}, spec)
 
 
 @needs_families
