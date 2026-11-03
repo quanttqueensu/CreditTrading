@@ -49,7 +49,25 @@ from scripts.cef import band_frontier as bf  # noqa: E402
 from scripts.cef import c4_families as c4  # noqa: E402
 from scripts.cef.spec import BAND_WIDTH, VOL_TARGET  # noqa: E402
 
-C4_CAP, C4_M = 1.90, 1.27        # c4_families.v3.20261102 (branch c4-rel, 8b14298): max_gross_stress, sizing_multiplier
+# C4's cap and multiplier come from C4's FROZEN SPEC at a named git ref, never a literal (CLAUDE.md: the spec
+# is the only authority). This worktree predates C4's spec on main, so the file is read with `git show <ref>:...`.
+# Default: the release tag that carries c4_families.v4.20261102 (x1.26, cap 1.90). The first run (2026-11-02,
+# prereg_c4_level_design_output.txt) used c4-rel 8b14298, c4_families.v3.20261102 (x1.27).
+DEFAULT_SPEC_REF = "release-20261103-1"
+
+
+def c4_spec(ref: str) -> tuple[str, float, float]:
+    """(spec_id, max_gross_stress, sizing_multiplier) of ops/specs/c4_families.frozen.json at `ref`."""
+    import json
+    import subprocess
+    txt = subprocess.run(["git", "-C", str(ac.WT), "show", f"{ref}:ops/specs/c4_families.frozen.json"],
+                         check=True, capture_output=True, text=True).stdout
+    d = json.loads(txt)
+    f = d["frozen"]
+    for k in ("max_gross_stress", "sizing_multiplier"):
+        if k not in f:
+            raise KeyError(f"C4 spec at {ref} has no frozen.{k}")
+    return d["spec_id"], float(f["max_gross_stress"]), float(f["sizing_multiplier"])
 VOL_LOOKBACK = bf.VOL_LOOKBACK
 A_GRID = (0.30, 0.40, 0.50, 0.60, 0.70)
 
@@ -74,10 +92,16 @@ def unit(w: pd.DataFrame) -> pd.DataFrame:
     return w.div(g.where(g > 0), axis=0).fillna(0.0)
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--spec-ref", default=DEFAULT_SPEC_REF, help="git ref whose C4 frozen spec sets the cap and multiplier")
+    a = ap.parse_args(argv)
+    spec_id, C4_CAP, C4_M = c4_spec(a.spec_ref)
     lines = []
     say = lambda s="": (print(s), lines.append(s))
     say(ac.header("PREREG_C4_LEVEL design inputs (zero trials; no P&L of the blended book)"))
+    say(f"C4 spec at {a.spec_ref}: {spec_id}; max_gross_stress {C4_CAP}; sizing_multiplier {C4_M}")
     D = ac.load_c4()
     U = D["U"]
     m = c4.declared_mask(pd.read_csv(c4.FROZEN).ticker.tolist(), "M1M2")[U]
@@ -143,7 +167,9 @@ def main() -> int:
         say(f"   {r[0]:<18}{r[1]:>13.3f}{r[2]:>11.1%}{r[3]:>14.3f}{r[4]:>9.1%}{r[5]:>11.3f}{r[6]:>10.1%}{r[7]:>9.1f}")
     say(f"\n   level book's own ex-ante scalar: median {(VOL_TARGET / sL).clip(0.2, 2.5).median():.2f}; "
         f"z: {(VOL_TARGET / sz).clip(0.2, 2.5).median():.2f}; blend: {scal.median():.2f}")
-    (Path(__file__).with_name("prereg_c4_level_design_output.txt")).write_text("\n".join(lines) + "\n")
+    out = "prereg_c4_level_design_output.txt" if spec_id == "c4_families.v3.20261102" else \
+        f"prereg_c4_level_design_output_{spec_id.split('.')[1]}.txt"
+    (Path(__file__).with_name(out)).write_text("\n".join(lines) + "\n")
     return 0
 
 

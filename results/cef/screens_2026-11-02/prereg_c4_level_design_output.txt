@@ -3,6 +3,7 @@ PREREG_C4_LEVEL design inputs (zero trials; no P&L of the blended book)
 spec: cef_discount.v8.20261101 | live policy: band 4.8% + gmax 1.80x | universe 13
 fit window only: <= 2022-12-30 (asserted)
 ====================================================================================================
+C4 spec at c4-rel: c4_families.v3.20261102; max_gross_stress 1.9; sizing_multiplier 1.27
 
 A. SPLIT INPUTS (fit 2005-02-22 -> 2022-12-30; total return; already seen in K4):
    z spec book (x1.27, cap 1.9) SR 1.178; level book SR 1.123; daily corr +0.104

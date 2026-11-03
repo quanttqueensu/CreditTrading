@@ -7,7 +7,8 @@ signal has been computed, and **Gate 0 (§4b) runs before any 2023+ return of it
 
 The team lead chose on 2026-11-02 to take this signal to a pre-registration. The evidence is the zero-trial
 screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The design inputs are in
-`prereg_c4_level_design.py` → `prereg_c4_level_design_output.txt`. On approval this file moves to
+`prereg_c4_level_design.py` → `prereg_c4_level_design_output_v4.txt` (C4's v4 spec; the first run at v3 is
+`prereg_c4_level_design_output.txt`). On approval this file moves to
 `results/cef/PREREG_C4_LEVEL_2026-11-02.md` (open question 9).
 
 ## 0. The answer in one table
@@ -15,8 +16,8 @@ screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The
 | item | answer |
 |---|---|
 | **what changes** (§1) | One new optional frozen key in C4's spec, `level_signal`. **Absent, C4 is today's book byte for byte.** Present, C4's unit target becomes an equal-risk blend of its z target and a within-family discount-level target, through the same vol scalar, multiplier, band and **the same 1.90 gross cap** |
-| **the split** (§3) | **Half the ex-ante risk on each signal.** Derived from the two-sleeve mean-variance rule on fit inputs (gives 0.515 on z) and rounded to equal risk. Plateau: SR 1.443–1.549 across 0.30–0.70; the derived 0.50 is also the grid's argmax, so nothing was moved toward it |
-| **the shared cap** (§3.3) | Kept at 1.90 (a margin rule, not a tuned parameter). On the fit at ×1.27 the blend's held book sits at the cap on **29.0%** of sessions, against 22.0% for z alone. Turnover falls from 48.9 to **33.2** turns a year (construction properties only; no P&L of the blend computed) |
+| **the split** (§3) | **Half the ex-ante risk on each signal.** Derived from the two-sleeve mean-variance rule on fit inputs (gives 0.514 on z at C4's v4 spec, ×1.26; 0.515 at v3's ×1.27) and rounded to equal risk. Plateau: SR 1.442–1.547 across 0.30–0.70 (1.443–1.549 at ×1.27); the derived 0.50 is also the grid's argmax, so nothing was moved toward it |
+| **the shared cap** (§3.3) | Kept at 1.90 (a margin rule, not a tuned parameter). On the fit at C4's spec multiplier (v4: ×1.26) the blend's held book sits at the cap on **28.3%** of sessions, against 21.5% for z alone (29.0% / 22.0% at v3's ×1.27). Turnover falls from 48.5 to **32.9** turns a year (48.9 → 33.2 at ×1.27) (construction properties only; no P&L of the blend computed) |
 | **Gate 0** (§4b) | Survivorship, with dead funds included, run **before approval**. **A team-lead judgment on the result** (ruled 2026-11-02: "keep it flexible and make judgment off results"), recorded **post-data** in `docs/SYSTEM.md` §5. It is evidence, **not a pre-registered gate**. `gate0_analysis.py` reports the ratio with 95% CIs, the sign test, and the verdict under both candidate rules (≥ 0.5, ≥ 0.75) with each one's power and false-alarm rate. Pull 1 (CRSP) was too thin; pull 2 (EDGAR N-CSR) is running **2026-11-03 evidence: b_D/b_A 1.36 (CI 0.80–2.13), sign test 30 of 33, both rules met; coverage 0.642; stress bound 1.03. Recommendation: proceed** |
 | **pass rule** (§6.2) | Fit: the level book's spanning alpha on C4's z book, **NW t ≥ 2.825** (√(2 ln 54)). Also the deflated-Sharpe bars at declared N = 54, NC1, the placebo and D4. Then the 2023–26 holdout's **sign** (the C4 precedent). Net at 15bp is reported (D2 label) **Unchanged by the Gate 0 ruling, and still pre-registered** |
 | **stops** (§6.3) | C4's own kill rule and the trial-53 stops, **rebuilt on the blended book**, plus L1: the level component's modelled 120-session P&L below its fit 5th percentile → revert the key |
@@ -30,14 +31,23 @@ screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The
 
 ### 1.1 The key, the file, the value
 
+> **CORRECTED 2026-11-03.** This pre-registration was first written against `c4_families.v3.20261102` (branch
+> `c4-rel`, 8b14298, dark), at `sizing_multiplier` 1.27. Trial 53 amendment 1 then put C4 on `main`
+> (f27ef81, tag `release-20261103-1`) as **`c4_families.v4.20261102`, ×1.26, cap 1.90**. So:
+> - the trial's spec becomes **v5**, and the no-op test diffs against **v4**;
+> - every C4 multiplier below is read from C4's spec at run time, not written as a literal;
+> - the construction figures (§3.1 and §3.3) and the account figure (§5) were re-measured at v4 with
+>   `prereg_c4_level_design.py`, fit only, with no blend P&L, and sit beside the v3 values;
+> - the v3 run reproduces byte for byte with `--spec-ref c4-rel`.
+
 | spec | file | today | after |
 |---|---|---|---|
-| C4 | `ops/specs/c4_families.frozen.json` (branch `c4-rel`, 8b14298; dark, not on `main`) | `c4_families.v3.20261102`; key absent | **`level_signal: {"risk_share": 0.5, "family_of": {<ticker>: <family>, ... 74 rows>}}`**, spec id v4 |
+| C4 | `ops/specs/c4_families.frozen.json` (on `main` at f27ef81; tag `release-20261103-1`) | `c4_families.v4.20261102`; key absent | **`level_signal: {"risk_share": 0.5, "family_of": {<ticker>: <family>, ... 74 rows>}}`**, spec id **v5** |
 
 - `family_of` is C4's frozen family map (`results/cef/c4/c4_universe_frozen_2026-10-14.csv`, column `family`),
   copied into the spec so the sleeve reads no second file.
 - **Nothing else in the spec moves:**
-  - `vol_target_annual` 0.06, `sizing_multiplier` 1.27, `band_width` 0.048 and `max_gross_stress` 1.9;
+  - `vol_target_annual` 0.06, `sizing_multiplier` (1.26 at v4, trial 53 amendment 1), `band_width` 0.048 and `max_gross_stress` 1.9;
   - `z_window` 252, `min_adv_usd` $3m, `min_names` 6 and `min_abs_weight` 0.005;
   - the masks, and the `risk` block.
 
@@ -60,7 +70,7 @@ When the key is absent, steps 2–4 do not run, and w_z × its scalar is today's
 
 ### 1.3 Tests, each shown to fail against the old code before it is kept
 
-1. **Key absent: byte-identical** to `c4_families.v3.20261102` on the real panel and on the synthetic one. It
+1. **Key absent: byte-identical** to `c4_families.v4.20261102` on the real panel and on the synthetic one. It
    covers plan.json, plan_sha, orders, targets and the run record, as the trial-53 pins do.
 2. **Key present with `risk_share` 0** (all risk on z): identical to absent.
 3. **Equal risk:** on a synthetic panel with known vols, the blend's ex-ante risk contributions are equal to
@@ -96,21 +106,22 @@ The rule: for two unit-vol strategies with Sharpe s1, s2 and correlation ρ, the
 are ∝ (s1 − ρ s2, s2 − ρ s1). The inputs were measured on the fit, 2005-02-22 → 2022-12-30, total return, on
 the series the screen had already seen [V `prereg_c4_level_design.py` §A]:
 
-- s_z = 1.178 (C4's spec book, ×1.27, cap 1.90);
+- s_z = 1.176 (C4's v4 spec book, ×1.26, cap 1.90; 1.178 at v3's ×1.27);
 - s_L = 1.123 (the level book);
 - ρ = +0.104.
 
-The weights come out 1.073 : 1.011, which puts **0.515 on z**. Two Sharpes estimated this noisily do not
-support 0.515 over ½, so **the derived value is equal risk, 0.50.**
+The weights come out 1.071 : 1.011, which puts **0.514 on z** (1.073 : 1.011 and 0.515 at ×1.27). Two Sharpes
+estimated this noisily do not support 0.514 over ½, so **the derived value is equal risk, 0.50.**
 
 **The plateau** (an equal-weight-of-risk blend of the two unit-risk series, fit, already seen):
 
 | share of risk on z | 0.30 | 0.40 | **0.50** | 0.60 | 0.70 |
 |---|---|---|---|---|---|
-| Sharpe | 1.443 | 1.517 | **1.549** | 1.531 | 1.471 |
+| Sharpe, v4 (×1.26) | 1.442 | 1.515 | **1.547** | 1.530 | 1.469 |
+| Sharpe, v3 (×1.27), first run | 1.443 | 1.517 | 1.549 | 1.531 | 1.471 |
 
 The surface is flat within 0.03 Sharpe across 0.40–0.60, and the derived value sits on top of it. **The grid's
-argmax is also 0.50.** It was not chosen from the grid: the rule gives 0.515 before the grid is read.
+argmax is also 0.50.** It was not chosen from the grid: the rule gives 0.514 (0.515 at ×1.27) before the grid is read.
 
 ### 3.2 The level's construction
 
@@ -126,12 +137,16 @@ within family, unit gross, the raw discount level, and z-blind.
 
 `max_gross_stress` 1.90 is C4's margin rule, re-derived by the core's frozen rule (`docs/SYSTEM.md` §5), and
 it is not re-tuned for this trial. Lower correlation means more gross per unit of risk, so the cap binds more
-often. Construction properties on the fit, at ×1.27, band 4.8% [V `prereg_c4_level_design.py` §B]:
+often. Construction properties on the fit, band 4.8%, at C4's spec multiplier: v4 (×1.26, re-measured
+2026-11-03, `prereg_c4_level_design_output_v4.txt`) beside the first run at v3 (×1.27,
+`prereg_c4_level_design_output.txt`) [V `prereg_c4_level_design.py` §B]:
 
 | book | target gross | target > cap | uncapped held gross | held gross | at the cap | turns/yr |
 |---|---:|---:|---:|---:|---:|---:|
-| z only (the v3 spec book) | 1.525 | 23.2% | 2.118 | 1.556 | 22.0% | 48.9 |
-| **blend, ½ : ½** | **2.298** | **72.6%** | **2.556** | **1.722** | **29.0%** | **33.2** |
+| z only, v4 (×1.26) | 1.513 | 22.4% | 2.101 | 1.550 | 21.5% | 48.5 |
+| **blend ½ : ½, v4 (×1.26)** | **2.279** | **72.0%** | **2.536** | **1.719** | **28.3%** | **32.9** |
+| z only, v3 (×1.27) | 1.525 | 23.2% | 2.118 | 1.556 | 22.0% | 48.9 |
+| blend ½ : ½, v3 (×1.27) | 2.298 | 72.6% | 2.556 | 1.722 | 29.0% | 33.2 |
 
 The cap scales the whole held book by one factor, so it takes risk from both signals in proportion. The split
 survives the cap; the account's level of risk does not. That haircut is in §5.
@@ -277,6 +292,8 @@ survives the cap; the account's level of risk does not. That haircut is in §5.
 >
 > **The team lead's call is to be recorded in `docs/SYSTEM.md` §5, dated and labelled "post-data".** It is not
 > recorded here, and the counter does not move until the approval commit.
+>
+> Reproduced 2026-11-03 by an independent re-run (byte-identical output).
 
 **The data gates, after approval** (the C4 trial's own machinery, `require_stage0_rulings` in
 `scripts/cef/data_guards.py`):
@@ -285,16 +302,16 @@ survives the cap; the account's level of risk does not. That haircut is in §5.
 |---|---|---|
 | DG-L2 second source | the fit's level book on CRSP primary vs the yfinance leg | gross SR differs by more than 0.2, unexplained |
 | DG-L3 data | the 242 fit name-days with \|price TR − NAV TR\| > 10% are triaged; C4's split, bar and seed rulings applied | any flag without a ruling |
-| DG-L4 identity | the key absent reproduces C4's v3 book, and the trial script's blend reproduces the sleeve's | any diff |
+| DG-L4 identity | the key absent reproduces C4's v4 book, and the trial script's blend reproduces the sleeve's | any diff |
 
 ---
 
 ## 5. What we expect [model, U]
 
 - **Fit, already seen.** Unit-risk blend Sharpe about 1.55 against z alone 1.18, uncapped. Under the cap the
-  held gross falls to 0.67 of its uncapped level, against 0.73 for z alone.
-- **Account return.** Scaling each book's Sharpe by its cap ratio, at C4's 7.62% ex-ante vol (0.06 × 1.27),
-  gives +1.4%/yr on C4's $100k. That is **+0.7%/yr on all capital** ($200k across the two accounts,
+  held gross falls to 0.68 of its uncapped level, against 0.74 for z alone, at v4 (0.67 and 0.73 at ×1.27).
+- **Account return.** Scaling each book's Sharpe by its cap ratio, at C4's 7.56% ex-ante vol (0.06 × 1.26,
+  v4), gives **+1.37%/yr on C4's $100k** (+1.36% at v3's 7.62%; rounded, +1.4% either way). That is **+0.7%/yr on all capital** ($200k across the two accounts,
   `docs/SYSTEM.md`). **Range +0.4 to +1.0%/yr** for out-of-sample shrink.
 - **Holdout** (3.74 years). The level book's gross SR 0.5–1.1: P(SR > 0) 0.86–0.99, but P(t ≥ 2.825 on the
   holdout alone) only 0.04–0.26. That is why the judging structure is the C4 precedent (open question 2).
@@ -315,8 +332,12 @@ its D-code (team lead 2026-10-27).
 2026-11-02). Each kill is read once, in order:
 
 1. **Gate 0 and the data gates** (§4b).
-2. **P1, fit, the bar.** Regress the daily P&L of the level-only spec book (w_L with its own scalar, ×1.27,
-   band, cap 1.90 / m) on the daily P&L of the z-only v3 spec book. The alpha's NW t (automatic lag,
+2. **P1, fit, the bar.** Regress the daily P&L of the level-only spec book (w_L with its own scalar, × m =
+   C4's spec `sizing_multiplier`, read at run time from `ops/specs/c4_families.frozen.json`, never a literal;
+   band; cap `max_gross_stress` / m) on the daily P&L of the z-only spec book, which is C4's spec without
+   `level_signal`. *Note:* at `release-20261103-1`, `scripts/cef/spec.py` reads only the core's spec. The trial
+   script reads C4's the way `scripts/cef/c4_paper_benchmark.py` does (its `SPEC_PATH`), or through `spec.py` once
+   that module carries a C4 reader. The alpha's NW t (automatic lag,
    `w4_artifacts.nw_auto_lag`) must be **≥ 2.825**. Else **KILL (D1)**.
 3. **P2, fit.** The blended book passes both deflated-Sharpe bars:
    `python3 -m scripts.research.registry bars CEF 54 blend --declared-n 54`. Else KILL.
@@ -341,7 +362,7 @@ in the spec.
 | C4 kill rule, **rebuilt on the blended spec book** | HALT on a fidelity break. REVERSE at 120 armed sessions below the 5th percentile of the blended spec book's 120-session price-only returns (stationary bootstrap, mean block 21). REVERSE on a drawdown past its fit worst | as today's rule |
 | trial-53 stops R1–R3, rebuilt on the blended book | as `PREREG_VOLTARGET_2026-10-30.md` §6.2 | revert the multiplier |
 | **L1, the level component** | at 120 armed sessions, the level-only book's **modelled** P&L on the live panel, decided as the runner decided, below the 5th percentile of its fit 120-session distribution. Modelled, so it is a stop, not evidence | **revert `level_signal`** |
-| reported, no rule | the share of sessions at the 1.90 cap, against the fit's 29.0% | — |
+| reported, no rule | the share of sessions at the spec's cap, against the fit's share re-measured on the read date (28.3% at v4) | — |
 
 ---
 
@@ -359,14 +380,14 @@ in the spec.
 
 ## 8. Costs
 
-**Gross decides on paper.** Turnover falls under the blend (33.2 against 48.9 turns a year at ×1.27, §3.3), so
+**Gross decides on paper.** Turnover falls under the blend (32.9 against 48.5 turns a year at v4's ×1.26; 33.2 against 48.9 at ×1.27; §3.3), so
 the drag at any cost is lower than z alone's. **Borrow on the premium-fund shorts is unmeasured.** It is the
 arbitrage cost the mechanism relies on, so it must be measured, not modelled, before any real-money proposal.
 Real money stays gated as for C4 (paper only, 2026-10-19).
 
 ## 9. The revert and the trial count
 
-- **Revert:** delete `level_signal`. C4 is then v3 byte for byte (test 1). A revert is a spec change through
+- **Revert:** delete `level_signal`. C4 is then v4 byte for byte (test 1). A revert is a spec change through
   `/spec-change`, recorded in the stop's row.
 - **The trial:** CEF 53 → 54 in the commit that records the approval, not before. The bar at N = 54 is 2.825.
   If Gate 0 runs first as recommended and fails, there is no approval and no trial.
@@ -378,7 +399,7 @@ Real money stays gated as for C4 (paper only, 2026-10-19).
 2. **Judging structure:** the fit at the bar, then the holdout's sign (C4's precedent), or the holdout alone at
    2.825? **The C4 precedent.** The holdout alone has P(pass) 0.04–0.26.
 3. **The split:** **0.50**, derived (§3.1).
-4. **The cap:** **keep 1.90.** It is a margin rule; the blend binds on 29.0% of sessions against 22.0%. Re-derive
+4. **The cap:** **keep 1.90.** It is a margin rule; the blend binds on 28.3% of sessions against 21.5% at v4 (29.0% / 22.0% at ×1.27). Re-derive
    only if the margin rule changes.
 5. **Gate 0's pulls:** **the team lead runs `run_gate0_pull.sh`** (CRSP via R2), then the EDGAR N-CSR NAV fetch
    if the mutual-fund probe finds no CEF NAVs.
@@ -398,11 +419,13 @@ Real money stays gated as for C4 (paper only, 2026-10-19).
 ```bash
 python3 -B results/cef/screens_2026-11-02/alpha_level.py              # the screen (S5)
 python3 -B results/cef/screens_2026-11-02/alpha_level_checks.py       # K1-K8
-python3 -B results/cef/screens_2026-11-02/prereg_c4_level_design.py   # §3: the split, its plateau, the shared cap
+python3 -B results/cef/screens_2026-11-02/prereg_c4_level_design.py   # §3 at C4's v4 spec (release-20261103-1)
+python3 -B results/cef/screens_2026-11-02/prereg_c4_level_design.py --spec-ref c4-rel   # the first run, v3
 python3 -B results/cef/screens_2026-11-02/gate0_pull_crsp.py --self-test   # Gate 0's SQL on synthetic tables
 python3 -B results/cef/screens_2026-11-02/gate0_pull_crsp.py --dry-run     # Gate 0's SQL, printed; no connection
 QUANTT_ENV_FILE=<abs path> results/cef/screens_2026-11-02/run_gate0_pull.sh   # the team lead: the pull
 ```
 
 **Panels:** C4's families panels (`data/cef_families/`, last date 2026-10-09), read only to 2022-12-30. **Code:**
-this branch at the commit that adds this file. C4's spec is read from `c4-rel` 8b14298 (`c4_families.v3.20261102`).
+this branch at the commit that adds this file. C4's spec is read from `release-20261103-1` (`c4_families.v4.20261102`, identical on `main` at f27ef81).
+The first run read `c4-rel` 8b14298 (`c4_families.v3.20261102`).
