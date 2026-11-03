@@ -49,13 +49,22 @@ test is 7, which gives 1.973 (`docs/RESEARCH_STATE.md`, 2026-10-27). That discre
 bars are shown where they matter. P(pass) is Φ(t_expected − bar) with the in-sample t taken as the truth, so it
 is an upper bound.
 
+> **CORRECTED 2026-11-02 (later), the EVENTS bar.** Neither 1.665 nor "a running N of 7" is the bar of record.
+> `docs/RESEARCH_STATE.md` on `origin/main` (26ed351) reads EVENTS **3**. `results/research/trials/declared_slates.json`
+> holds a **standing EVENTS slate at N = 6** (ruled 2026-10-19). So `scripts/research/registry.py::minimum_declared_n("EVENTS",
+> pending=1)` returns **6**, and `_check_declared` would refuse a declared N of 4. **The bar of record for a new EVENTS
+> trial is therefore at least √(2 ln 6) = 1.893.** N = 7 (1.973) was trial 3's own declaration ("The N = 6 fixed on
+> 2026-10-19 covered six named tests, and this is not one of them", RESEARCH_STATE.md, 2026-10-27). By that precedent,
+> a further test outside the six named would be declared above 6, which is the team lead's ruling at approval. S2's
+> EVENTS P(pass) at 1.893 is 0.31 on the fit and 0.11 on 2023–26. Its verdict (KILL, D2) does not change.
+
 ---
 
 ## The slate, ranked by information per trial
 
 | rank | id | candidate | universe | verdict | key figures (gross headline; grid beside it) | P(pass) | expected gross gain, all capital |
 |---|---|---|---|---|---|---|---|
-| **1** | **S5-C4** | **The discount level against family peers (Pontiff), monthly. The z cannot see it by construction** | C4 | **PURSUE (draft prereg)** | Book gross SR **+1.12**, 5.77%/yr, turn 5.4; net **+1.06 / +0.96 / +0.80** at 5/15/30bp, no flip. Every era positive (1.02 / 1.53 / 0.66 / 1.75). NC1 NAV leg −0.26bp/pp (t −0.32). Placebo 20 of 20. Corr with C4's z book +0.10. **Equal-risk blend SR 1.52 vs z alone 1.13.** Second method: FM IC −0.074 (NW t −5.72) | fit bar: ≈0.97 [in-sample]; holdout-sign (C4 precedent): 0.86–0.99; holdout alone at 2.825: **0.04–0.26** | **+0.8 to +1.5%/yr** [model, U]: (1.52 − 1.13) × C4's ~7.9% vol, on $100k of $200k, halved for shrink at the low end |
+| **1** | **S5-C4** | **The discount level against family peers (Pontiff), monthly. The z cannot see it by construction** | C4 | **PURSUE (draft prereg)** | Book gross SR **+1.12**, 5.77%/yr, turn 5.4; net **+1.06 / +0.96 / +0.80** at 5/15/30bp, no flip. Every era positive (1.02 / 1.53 / 0.66 / 1.75). NC1 NAV leg −0.26bp/pp (t −0.32). Placebo 20 of 20. Corr with C4's z book +0.10. **Equal-risk blend SR 1.52 vs z alone 1.13.** Second method: FM IC −0.074 (NW t −5.72) | fit bar: ≈0.97 [in-sample]; holdout-sign (C4 precedent): 0.86–0.99; holdout alone at 2.825: **0.04–0.26** | **+0.4 to +1.0%/yr** [model, U] *(corrected 2026-11-02, later: first written +0.8 to +1.5 before the shared 1.90 cap was measured; under it the blend's held gross is 0.67 of uncapped and it sits at the cap on 29.0% of sessions, `prereg_c4_level_design.py`)* |
 | 2 | S1-C4 | Year-end tax-loss: losers' discounts recover in January, beyond z | C4 | **WATCH** (mechanism PRESENT, magnitude and seasons fail) | Discount leg b_L +242bp/rank (t **3.54**, z in); NC1 NAV −58 (t −0.51), pass; NC2 Dec − other months t **4.43**, pass. But the tradable price TR is +191 (t 1.25). Overlay: gross SR 0.39, +64bp/season, net 0.33/0.21/0.02. 2020–22 negative | 0.06 | ≈ +0.3% (≈ +0.18% net@15) |
 | 3 | S2-C4 | Distribution cuts re-rate the fund; the z reads that as cheap | C4 (core null) | **KILL as a sleeve (D2)**; mechanism PRESENT on C4's discount leg | Cut discount leg −72bp/42 sessions (t **−3.18**), NC1 NAV +18 (t 0.47). Price TR −57 (t −1.73). Cut-book gross SR 0.33, net 0.20 / −0.06 / −0.45, **flips**. Raise-book 0.05 | CEF 0.08; EVENTS (1.665) 0.40 fit, 0.15 on 2023–26 | ≈ +0.2% gross, ≈ 0 net@15. A flag is worth < 0.01% |
 | 4 | S3 | C4 fresh-NAV discount move leads the core (executable closes) | both | **KILL (D1 for the stated mechanism)** | Wrong sign: −40bp per pp (t −2.16), i.e. reversal, not lead. 2020–22 carries it (Y2 t −4.11); the other three eras are null. NC1 NAV −0.8 (t −0.11), NC2 IEF −3.8 (t −0.78) | — | 0 |
