@@ -676,6 +676,18 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-03 — Gate 0 and CEF trial 54 (C4's family level)
+
+Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02.md` (its §0.A records it).
+
+| question | decision |
+|---|---|
+| Gate 0: does survivorship explain C4's family-level discount effect? (**post-data**: ruled after the result was seen; the 2026-11-02 ruling made Gate 0 a judgment, not a mechanical gate) | **Cleared: "I approve, lets try and deploy as fast as possible".** Evidence: the prereg's §4b, commit 389f61a, reproduced byte for byte on 2026-11-03. Dead funds show the effect at least as strongly as survivors (b_D/b_A 1.36, 95% CI 0.80–2.13; negative in 30 of 33 half-years). NAV coverage 0.642 is under the 80% reference; the never-covered funds are the worst dying ones, and an adverse imputation still gives b_B/b_A 1.03. **Not a pre-registered pass**, and never to be described as one |
+| Approve CEF trial 54? | **Approved. CEF 53 → 54**, with the draft's recommended answers to its open questions 2–9 (the C4 judging precedent: the fit at the bar, then the holdout's sign; risk split 0.50; the 1.90 cap kept; CRSP primary with yfinance second; borrow in its own column; sample B every five-family CEF) |
+| Which accounts | **"use the 2 accounts I gave you, i dont hvae any other"**: the core account and the C4 (spare) account. No third account, for this trial or C4's arming |
+| C4's first armed session (the spare account holds two old research-loop fills, so the runner's any-fill rule would open C4 at 28–42% of target) | **"just flat it"**: C4 opens from the flat account at full target. The research loop's fills do not count against C4's opening; any position does. Built as a C4-only book key (absent = today's rule, the core unchanged), released before C4 arms |
+| What "as fast as possible" means | **No stage is skipped.** The trial's pass rule (§6.2) stands. The sleeve key is built in parallel with the fit stage, and each stage runs as soon as the last clears |
+
 ### Team lead, 2026-11-02 — autonomy
 
 Answered interactively on 2026-11-02, after `release-20261102-1` went live.
