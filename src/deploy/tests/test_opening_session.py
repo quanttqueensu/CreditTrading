@@ -126,10 +126,16 @@ UNIT_SPEC["frozen"].pop("_sizing_multiplier_note", None)
 
 
 def _pinned_dates():
-    """(asof, which spec) pairs for the HOLD-branch test: the live spec on HOLD_DATES_LIVE, the
-    unit book on every HOLD_DATES date (above)."""
+    """The HOLD_DATES the panel holds (other test files import this; it stays a list of dates)."""
     d = pd.read_parquet(cefmod.PX_PATH, columns=["date"])["date"]
     have = {str(x.date()) for x in pd.to_datetime(d).unique()}
+    return [x for x in HOLD_DATES if x in have]
+
+
+def _hold_cases():
+    """(asof, which spec) pairs for this file's HOLD-branch test: the live spec on
+    HOLD_DATES_LIVE, the unit book on every HOLD_DATES date (above)."""
+    have = set(_pinned_dates())
     return ([(x, "live") for x in HOLD_DATES_LIVE if x in have]
             + [(x, "unit") for x in HOLD_DATES if x in have])
 
@@ -158,7 +164,7 @@ def _held_book(targets, nav, close):
 # ---------------------------------------------------------------------------
 
 @needs_panel
-@pytest.mark.parametrize("asof,which", _pinned_dates() if cefmod.PX_PATH.exists() else [])
+@pytest.mark.parametrize("asof,which", _hold_cases() if cefmod.PX_PATH.exists() else [])
 def test_real_panel_absent_and_false_are_byte_identical(asof, which):
     # The held book is what day one would have bought (full target, gross-
     # capped), so on the next call the band sees gaps smaller than its width
