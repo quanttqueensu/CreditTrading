@@ -9,11 +9,14 @@
 > 2026-11-02 ruling), the data path, the per-sleeve runner, `BOOKS["c4"]`, its book json and its
 > installer units. The core is proved byte-identical to 862b1d0 (below). Release is the team
 > lead's. C4 spends no trial; the CEF counter is 53 because of trial 53, not C4.
-> **Updated 2026-11-03:** merged to main (f27ef81, release-20261103-1) with the core at
-> **`cef_discount.v9.20261102`, ×1.30**. That release was GO for the core only; `--book c4` waits
-> for branch `c4-arm-prep` (the release-check's QR1, QR3 and ET1: step 6's opening-session gate,
-> these specs named everywhere, and the C4 install's scan of every book's units). The spec ids
-> and multipliers on this page are checked against the specs by `ops/tests/test_book_text.py`.
+> **Updated 2026-11-03:** release-20261103-1 is 336df9d (`git rev-parse release-20261103-1^{commit}`;
+> merged to main as f27ef81; *corrected 2026-11-03: this line first said f27ef81 was the release*),
+> with the core at **`cef_discount.v9.20261102`, ×1.30**. That release was GO for the core only.
+> **release-20261103-2 is de75da4** (branch `c4-arm-prep`, merged as f7f7be5): QR1's probe read and
+> step 6's opening-session check, QR3's specs named everywhere, ET1's C4 install scan of every
+> book's units. Branch `c4-arm-gate` makes QR1 a CODE gate (step 6 below); `--book c4 --armed`
+> waits for the release that carries it. The spec ids and multipliers on this page are checked
+> against the specs by `ops/tests/test_book_text.py`.
 >
 > **Every step marked TEAM LEAD RUNS needs the VM, a key or an account.** No agent runs it.
 
@@ -226,6 +229,14 @@ Expected on each day:
                                                            #  all N closed order(s) filled; ...)"
   ```
 - **C4's first armed session must be an OPENING session** (the release-check of 336df9d, QR1).
+  **The runner enforces it** (branch `c4-arm-gate`; `quantt/session/run.py` THE FIRST-SESSION
+  GATE, `OPENING_REQUIRED_BOOKS`): while no filled order in the account carries C4's own `c4-`
+  prefix, an ARMED C4 run whose account shows a position or any past fill is REFUSED before its
+  first order, as gate 2 (`arming`), naming the count of filled orders and the newest one's date
+  and prefix; in `send.json` (and, in `cls` mode, `plan.json`) under `refusals` and
+  `first_session`. Every DRY session records the same reading in `plan.json` `first_session`
+  (`action` `clear`, or `reported`) and prints a `FIRST SESSION (c4)` line, so the dry sessions
+  show it days before the go. The reads below are now the check that the gate will pass.
   The runner trades a book's first session to FULL target only when the account has no position
   and no order in its history ever filled (`quantt/session/run.py` `is_opening_session`, team lead
   2026-09-28); otherwise it opens from flat at the band EDGE. Measured by the release-check on
@@ -243,10 +254,13 @@ Expected on each day:
 
   The probe applies the runner's own rule to the account's positions and its newest 500 closed
   orders (`alpaca_probe.opening_read`); the plan is the runner's own reading of the real account
-  on that day's decide. **False** (a fill, which the probe names by symbol, time and order-id
-  prefix, or a position) or **UNMEASURED** (500 closed orders and no fill among them): STOP. C4
-  would open at the band edge. Nothing here resets an account's history or forces a full-target
-  open; that is the team lead's ruling to make before arming, not a default.
+  on that day's decide, and its `first_session.action` must read `clear`. **False** (a fill,
+  which the probe names by symbol, time and order-id prefix, or a position) or **UNMEASURED**
+  (500 closed orders and no fill among them): STOP. Armed, the runner would refuse every session
+  (exit 11, `arming`) until the account is reset. NO OVERRIDE IS BUILT: clearing it is a fresh
+  paper account (new keys in the vault, a fresh `--eod-from`), or the team lead's ruling that C4
+  may open at the band edge, which would then be built as a recorded, content-matched
+  acknowledgement like `ca-ack`.
 
   The repository has no lab book today (`BOOKS` holds `cef` and `c4` only), and the loop's
   wrapper denies `python3 -m quantt.session` and holds no key file

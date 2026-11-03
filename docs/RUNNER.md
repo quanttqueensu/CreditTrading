@@ -416,6 +416,14 @@ until the team lead installs it; the steps are
   refusal at every check. It outranks the fetch's INCOMPLETE exit 4 (since the
   release-check of 8b14298), so a late NAV, which the missing-NAV hold accepts at
   the final check, can no longer let an unruled bar through.
+- **The first-session gate** (`run.OPENING_REQUIRED_BOOKS`, C4 only; release-check of
+  336df9d, R1, 2026-11-03). Until C4 has a filled order of its own (`c4-` prefix) in
+  its account, an ARMED C4 run whose account shows a position or any past fill (the
+  research loop shares the account) is refused before its first order, as gate 2
+  (`arming`), naming the fills; unarmed, `plan.json`/`send.json` `first_session`
+  records it and nothing is refused. Why: a non-opening first session opens from
+  flat at the band edge, 28-42% of target and net long. The core reads and records
+  nothing new.
 - **verify** scores distributions against C4's own panel
   (`dist_score.PANELS["c4"]`, `data/cef_c4/cef_distributions.parquet`).
 - **The installer:** `install_vm --book c4 --eod-from YYYY-MM-DD` writes seven
