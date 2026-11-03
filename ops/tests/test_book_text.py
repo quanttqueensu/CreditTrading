@@ -69,3 +69,20 @@ def test_the_c4_checklist_names_the_current_specs_and_multipliers():
         assert sid == c4["spec_id"], f"the checklist names {sid}; C4's spec is {c4['spec_id']}"
     for sid in re.findall(r"(?<![-\w])(cef_discount\.v\d+\.\d{8})", text):
         assert sid == core["spec_id"], f"the checklist names {sid}; the core's is {core['spec_id']}"
+
+
+def test_the_opening_rule_cites_the_2026_11_03_ruling():
+    """quant-reviewer 3 (release-check of 4f759a9): the own-prefix opening rule was cited
+    to 2026-11-02, the date of the ACCOUNT ruling (no new account). The rule itself is the
+    team lead's 2026-11-03 "just flat it", recorded in docs/SYSTEM.md section 5 on PR #30.
+    Fails on 61589a8."""
+    from quantt.session import run as rn
+    note = json.loads((REPO / "ops/books/c4_families_book.json").read_text())[
+        "execution"]["_opening_session_fills_note"]
+    for where, text in (("run.is_opening_session", rn.is_opening_session.__doc__),
+                        ("the book json's _opening_session_fills_note", note),
+                        ("the checklist", CHECKLIST.read_text()),
+                        ("docs/RUNNER.md", (REPO / "docs/RUNNER.md").read_text())):
+        assert "2026-11-03" in text and "just flat it" in text, where
+    assert "OPENING-SESSION RULE (team lead 2026-11-02" not in note
+    assert "own_prefix\" EXISTS (C4; team lead 2026-11-02" not in rn.is_opening_session.__doc__
