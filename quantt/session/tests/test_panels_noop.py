@@ -84,6 +84,11 @@ spec as released, v8, against test_combine_noop's `PINNED_INPUT_V8` (the same pa
 copy and v8's sha), where they used to need v7 and so skipped on every machine
 since trial 53. The 5e627ff and 35b429f pins are in git at 8b001c9.
 
+SINCE CEF TRIAL 53 AMENDMENT 1 (2026-11-02) the live spec is v9 (x1.30). The 862b1d0
+pins are unchanged, byte for byte. Their real-panel pair now reads v8 from git at
+862b1d0 (`test_combine_noop.v8_spec`, `_v8_input`) instead of the live file, so they
+still run. The book json still names the live spec's path, as when they were made.
+
 Hermetic: no network (netguard; the CEFConnect reader raises), no key file (the
 client factory is faked), state under tmp_path, the real panels read only.
 """
@@ -98,6 +103,7 @@ from quantt.session import run as rn
 from quantt.session.tests.test_combine_noop import (
     LIVE_SPEC_PATH,
     PINNED_INPUT_V8 as COMBINE_PINNED_INPUT,
+    v8_spec,
     SYN_SPEC,
     RealPanelPinNotApplicable,
     _client,
@@ -276,13 +282,25 @@ def _synthetic_pins(work: Path, mp) -> dict:
     return out
 
 
-def _real_pins(work: Path, mp) -> dict | None:
-    """None when the real copy or the live spec is not what the pin was made on."""
-    spec = json.loads(LIVE_SPEC_PATH.read_text())
+def _v8_input(work: Path, mp):
+    """(spec, input) for the 862b1d0 pins: the core's spec as released at 862b1d0 (v8), read from
+    git (test_combine_noop.v8_spec), since the live spec moved to v9 (CEF trial 53 amendment 1). The
+    book still names LIVE_SPEC_PATH, as when the pins were made. Nothing in the session reads that
+    file's content (the spec dict is passed in), so the book's runner-read keys and every output
+    are the same bytes. (None, None) when git cannot show it."""
+    v8 = v8_spec()
+    if v8 is None:
+        return None, None
+    raw, spec = v8
     base = work / "base"
     base.mkdir(parents=True)
-    got = {"panel": _frozen_copy(base, mp, spec["frozen"]["universe"]),
-           "spec": _sha(LIVE_SPEC_PATH.read_bytes())}
+    return spec, {"panel": _frozen_copy(base, mp, spec["frozen"]["universe"]), "spec": _sha(raw)}
+
+
+def _real_pins(work: Path, mp) -> dict | None:
+    """None when git cannot show v8, or the real copy or v8 is not what the pin was made on."""
+    spec, got = _v8_input(work, mp)
+    base = work / "base"
     if got != COMBINE_PINNED_INPUT:
         return None
     return {name: _scenarios(work / name, base, mp, spec, LIVE_SPEC_PATH, REAL_MISSING, key)
@@ -303,11 +321,8 @@ def _released_synthetic_pins(work: Path, mp) -> dict:
 
 
 def _released_real_pins(work: Path, mp) -> dict | None:
-    spec = json.loads(LIVE_SPEC_PATH.read_text())
+    spec, got = _v8_input(work, mp)
     base = work / "base"
-    base.mkdir(parents=True)
-    got = {"panel": _frozen_copy(base, mp, spec["frozen"]["universe"]),
-           "spec": _sha(LIVE_SPEC_PATH.read_bytes())}
     if got != COMBINE_PINNED_INPUT:
         return None
     return {"released": _scenarios(work / "released", base, mp, spec, LIVE_SPEC_PATH,
