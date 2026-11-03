@@ -105,6 +105,16 @@ def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = No
     z, adv, disc, ret = p["z"], p["adv"], p["disc"], p["ret"]
     Tz = c4.fit_slice(c4.build_book(UF))
     idx = Tz.index
+    # THE VOL ESTIMATOR READS THE FULL HISTORY THROUGH t (fixed 2026-11-03). §1.2 and `build_targets` (and the
+    # sleeve's `_book_vol`) take the last 63 sessions of price returns from the panel's whole history. The first
+    # build reindexed the returns to the fit index (from 2005-01-03), which truncated the window for the first
+    # 62 sessions and broke DG-L4 on 6 sessions, 2005-02-23..03-31 (dgl4_firstread_2026-11-03.json). RF and posF
+    # keep the full history; row i of the fit index is row posF[i] of RF, and nothing after it is read (H7).
+    retF = ret[UF]
+    RF = retF.to_numpy()
+    posF = retF.index.get_indexer(idx)
+    if (posF < 0).any() or not (retF.index[posF] == idx).all():
+        raise AssertionError("the fit index is not a subset of the panel's own index")
     z, adv, disc, ret = (x.reindex(idx)[UF] for x in (z, adv, disc, ret))
     # The LEVEL leg's discount only (DG-L3, signed 2026-11-03): the ruled misprint name-days carry no level.
     # z (and so T_z, C4's v4 book) is untouched.
@@ -116,7 +126,6 @@ def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = No
         src = disc.copy()
         for f, (cols, order) in perm.items():
             disc[cols] = src[[cols[k] for k in order]].to_numpy()
-    R = ret.to_numpy()
     TL = np.zeros((len(idx), len(UF)))
     TB = np.zeros_like(TL)
     famv = fam.reindex(UF).to_numpy()
@@ -144,7 +153,8 @@ def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = No
                 TL[i], TB[i] = TL[i - 1], TB[i - 1]
             continue
         wl = wl / np.abs(wl).sum()
-        s_z, s_l = _rv(None, R, i, wz, bf.VOL_LOOKBACK), _rv(None, R, i, wl, bf.VOL_LOOKBACK)
+        j = posF[i]                                       # row t of the full history
+        s_z, s_l = _rv(None, RF, j, wz, bf.VOL_LOOKBACK), _rv(None, RF, j, wl, bf.VOL_LOOKBACK)
         sc = lambda rv: float(np.clip(S["vol"] / rv, 0.2, 2.5)) if rv and rv > 0 else 1.0   # build_targets' rule
         TL[i] = wl * sc(s_l)
         if not blend:
@@ -154,7 +164,7 @@ def level_targets(UF: list, fam: pd.Series, S: dict, level_mask: set | None = No
             continue
         mix = RISK_SHARE_Z * wz / s_z + (1 - RISK_SHARE_Z) * wl / s_l
         mix = mix / np.abs(mix).sum()
-        TB[i] = mix * sc(_rv(None, R, i, mix, bf.VOL_LOOKBACK))
+        TB[i] = mix * sc(_rv(None, RF, j, mix, bf.VOL_LOOKBACK))
     TL = pd.DataFrame(TL, index=idx, columns=UF)
     TB = pd.DataFrame(TB, index=idx, columns=UF)
     for f in (Tz, TL, TB):
