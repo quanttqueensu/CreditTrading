@@ -26,6 +26,23 @@ All figures are [V], from `results/cef/prereg_c4_level/trial54.py` (one subcomma
   **The holdout's result is decisive.** The override covers K3 only. A failure at P3, DG-L4 or the holdout is a
   KILL.
 
+**2026-11-03 (later still): P3 PASS; DG-L4 HALT, on a defect in the trial script, not in the sleeve.**
+- **P3**, read once (`p3_output`): the blend's gross SR 1.481 at 51.2 turns/yr, against the z-only spec book at its
+  turnover-matched band 0.0447: 1.310 at 51.2/yr. `sharpe_diff`, reported and not gated: Δ +0.17/yr, d 0.93,
+  p 0.353, block 42 (`calibrate_block`). The first P3 run raised before forming any Sharpe, because its turnover
+  bracket started at the live band; the corrected bracket is `match_band_width`'s own (4823db0).
+- **DG-L4** (`dgl4_output`), against the sleeve at 3b4c963 (c4-level-impl, PR #41), through that tree's own
+  fidelity machinery (TOL 1e-12, 907 sessions). The sleeve was run, never edited.
+  - (a) key absent against `build_book`: 907 of 907 sessions match, 61,346 of 61,346 cells, largest gap 0.0.
+  - (b) key present against the trial's blend: 901 of 907 match. **6 breaks, all from 2005-02-23 to 2005-03-31**,
+    largest gap 0.0499 (RNP 2005-03-09). After that every session matches.
+  - **The cause is the trial script.** `level_targets` reindexed price returns to the fit index, which starts
+    2005-01-03, so the 63-session vol window was truncated for the first 62 sessions. §1.2 and `build_targets` use
+    the full history, as the sleeve does. The defect touches about the first 30 sessions with targets. **P1's
+    margin is 0.0026 (t 2.8271 against 2.8245), so the correction could move P1 either way.**
+  - **Stopped here** (the instruction: any DG-L4 diff stops the trial). No corrected figure has been computed, and
+    the holdout is not opened.
+
 ## 1. The stages, in order
 
 | stage | rule | result | read |
