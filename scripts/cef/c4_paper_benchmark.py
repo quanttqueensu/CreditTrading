@@ -143,8 +143,10 @@ SPEC_PATH = REPO / "ops" / "specs" / "c4_families.frozen.json"
 # The date stamp of a run. 2026-10-29 was the run on c4_families.v1 (kept, committed); 2026-11-02
 # the re-run on the spec as raised by CEF trial 53 (sizing_multiplier 1.27, branch c4-rel), then
 # re-run the same day on amendment 1's v4 (1.26, branch trial53-amend1). The 1.27 outputs are in
-# git at 8b14298.
-STAMP = "2026-11-02"
+# git at 8b14298. 2026-11-03 is the run on c4_families.v5.20261103 (CEF trial 54's level_signal):
+# fidelity against the trial's blend, and H11's reference rebuilt on the blended spec book. The v4
+# outputs (2026-11-02) are kept as they were.
+STAMP = "2026-11-03"
 OUT_TXT = c4.OUT_DIR / f"c4_paper_benchmark_{STAMP}.txt"
 OUT_JSON = c4.OUT_DIR / f"c4_paper_benchmark_{STAMP}.json"
 OUT_CSV = c4.OUT_DIR / f"c4_paper_fidelity_{STAMP}.csv"

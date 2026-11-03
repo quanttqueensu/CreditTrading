@@ -111,8 +111,9 @@ def test_the_spec_carries_trial_53s_multiplier_with_its_note():
     # The unit book is the trial's: the vol target, gross leverage and band are not moved.
     assert (f["vol_target_annual"], f["max_gross_stress"]) == (0.06, 1.9)
     # v2.20261101 applied it (1.27); v3.20261102 added only the halve/kill levels (the next test);
-    # v4.20261102 is amendment 1's 1.26, nothing else.
-    assert s["spec_id"] == "c4_families.v4.20261102" and s["_supersedes"] == "c4_families.v3.20261102"
+    # v4.20261102 is amendment 1's 1.26, nothing else; v5.20261103 adds CEF trial 54's
+    # level_signal (src/deploy/tests/test_level_signal.py pins it) and moves nothing this reads.
+    assert s["spec_id"] == "c4_families.v5.20261103" and s["_supersedes"] == "c4_families.v4.20261102"
     registry.build_sleeve(s, float(s["capital_usd"]))          # validates (cap set, 0.06 x m sane)
 
 

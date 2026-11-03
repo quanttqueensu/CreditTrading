@@ -802,3 +802,47 @@ def test_a_well_formed_key_and_its_note_validate_and_parse():
     # every key both live specs carry today is clear of the near-miss rule
     for path in (C4_SPEC, rn.REPO / "ops" / "specs" / "cef_discount.frozen.json"):
         registry.validate_spec(json.loads(path.read_text()))
+
+
+# ---------------------------------------------------------------------------
+# 11. the activation (this test pins the spec, not the code)
+# ---------------------------------------------------------------------------
+
+def test_the_c4_spec_carries_trial_54s_level_signal_with_its_note():
+    """The activation, /spec-change steps 4-5, after CEF trial 54 passed (holdout decisive; K3 overridden
+    post-data by the team lead): C4's spec is c4_families.v5.20261103, superseding v4, with `level_signal`
+    at risk_share 0.5 (the share of risk on z, PREREG_C4_LEVEL §3.1) and family_of exactly the frozen
+    CSV's `family` column (74 rows, in the universe's order), and its sibling note. The note records the
+    result as it is (K3 overridden, not passed), the §3.3 figures re-measured on the sleeve's construction
+    beside the design run's, the turnover correction, L1's reference and the stops' sources. Deleting the
+    key and its note leaves v4's frozen block (test 1 holds that too). FAILS on the code commits 3b4c963
+    and ec3b01a (key absent) and on f7f7be5, by design: it pins the activation. The REVERT is the note's."""
+    s = _live_spec()
+    f = s["frozen"]
+    assert s["spec_id"] == "c4_families.v5.20261103"
+    assert s["_supersedes"] == "c4_families.v4.20261102"
+    got = registry.cef_level_signal(f)
+    assert got["risk_share"] == 0.5
+    assert got["family_of"] == _families() and len(got["family_of"]) == 74
+    assert list(got["family_of"]) == list(f["universe"])
+    note = f["_level_signal_note"]
+    for must in ("CEF TRIAL 54", "PASSED", "OVERRIDDEN POST-DATA", "not a pass of K3", "INCONCLUSIVE",
+                 "907 of 907", "UNITS", "FRACTION OF EX-ANTE RISK placed on the Z book", "DERIVED",
+                 "1.071 : 1.011", "0.514", "PLATEAU", "NOT CHOSEN", "CONSEQUENCE",
+                 "RE-MEASURED ON THE SLEEVE'S CONSTRUCTION [V]", "activation_measures_2026-11-03.txt",
+                 "CORRECTION", "RISES", "STOPS", "L1", "stops.py --c4-exact", "READ BY", "combine.py",
+                 "REVERT", "spec-c4_families.v4.20261102"):
+        assert must in note, must
+    # the note's re-measured figures are the measures file's, not retyped
+    m = json.loads((rn.REPO / "results" / "cef" / "prereg_c4_level" /
+                    "activation_measures_2026-11-03.json").read_text())
+    b, z = m["section_3_3"]["blend_spec_book"], m["section_3_3"]["z_only_spec_book"]
+    for x in (f"target gross {b['target_gross']:.3f}", f"held at the cap on {b['p_at_cap']:.1%}",
+              f"turnover {b['turn_per_yr']:.1f} turns a year", f"z {z['turn_per_yr']:.1f})",
+              f"{m['l1']['price_only']['p5_120_sb21'] * 100:+.2f}% over 120 sessions"):
+        assert x in note, x
+    assert m["spec_sha256"] == _sha(C4_SPEC.read_bytes()), "the measures were not made on this spec file"
+    assert _sha(_canon(_absent_spec()["frozen"])) == V4_FROZEN_SHA
+    assert s["_spec_id_note"].startswith("v5.20261103 = v4.20261102 plus CEF trial 54's")
+    registry.validate_spec(s)
+    registry.build_sleeve(s, float(s["capital_usd"]))
