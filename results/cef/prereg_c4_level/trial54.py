@@ -594,7 +594,8 @@ def stage_p3() -> int:
     # H2: the z-only spec book's band width that matches the blend's turnover -- band_frontier.match_band_width's
     # bisection, on TURNOVER ONLY, extended visibly to the capped, multiplied spec book (the account's policy)
     f = lambda b: score(book(Tz, S, band=b), R, "z at band")["turn"]
-    lo, hi = S["band"], 0.60
+    lo, hi = 0.0005, 0.60          # match_band_width's own bracket (the first run started at the live band and
+    #                                the blend turns MORE than z at it, 51.2 vs 48.4, so it raised before any SR)
     tlo, thi = f(lo), f(hi)
     if not (thi <= turn_b <= tlo):
         raise ValueError(f"the blend's turnover {turn_b:.2f} is outside the z book's bracket [{thi:.2f}, {tlo:.2f}]")
