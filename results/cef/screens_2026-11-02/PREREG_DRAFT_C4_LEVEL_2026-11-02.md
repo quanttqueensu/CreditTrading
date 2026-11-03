@@ -17,8 +17,8 @@ screen `ALPHA_SLATE.md` §S5 in this folder (fit only, yfinance return leg). The
 | **what changes** (§1) | One new optional frozen key in C4's spec, `level_signal`. **Absent, C4 is today's book byte for byte.** Present, C4's unit target becomes an equal-risk blend of its z target and a within-family discount-level target, through the same vol scalar, multiplier, band and **the same 1.90 gross cap** |
 | **the split** (§3) | **Half the ex-ante risk on each signal.** Derived from the two-sleeve mean-variance rule on fit inputs (gives 0.515 on z) and rounded to equal risk. Plateau: SR 1.443–1.549 across 0.30–0.70; the derived 0.50 is also the grid's argmax, so nothing was moved toward it |
 | **the shared cap** (§3.3) | Kept at 1.90 (a margin rule, not a tuned parameter). On the fit at ×1.27 the blend's held book sits at the cap on **29.0%** of sessions, against 22.0% for z alone. Turnover falls from 48.9 to **33.2** turns a year (construction properties only; no P&L of the blend computed) |
-| **Gate 0** (§4b) | Survivorship, with dead funds included, on CRSP plus period-end NAVs, run **before approval**. PASS if the all-funds slope has the survivors' sign and at least half its size. **Pull 1 (CRSP) is not enough** (2 genuine NAV matches); pull 2 (EDGAR N-CSR) is written; amendment A1 proposes a 0.75 threshold |
-| **pass rule** (§6.2) | Fit: the level book's spanning alpha on C4's z book, **NW t ≥ 2.825** (√(2 ln 54)). Also the deflated-Sharpe bars at declared N = 54, NC1, the placebo and D4. Then the 2023–26 holdout's **sign** (the C4 precedent). Net at 15bp is reported (D2 label) |
+| **Gate 0** (§4b) | Survivorship, with dead funds included, run **before approval**. **A team-lead judgment on the result** (ruled 2026-11-02: "keep it flexible and make judgment off results"), recorded **post-data** in `docs/SYSTEM.md` §5. It is evidence, **not a pre-registered gate**. `gate0_analysis.py` reports the ratio with 95% CIs, the sign test, and the verdict under both candidate rules (≥ 0.5, ≥ 0.75) with each one's power and false-alarm rate. Pull 1 (CRSP) was too thin; pull 2 (EDGAR N-CSR) is running |
+| **pass rule** (§6.2) | Fit: the level book's spanning alpha on C4's z book, **NW t ≥ 2.825** (√(2 ln 54)). Also the deflated-Sharpe bars at declared N = 54, NC1, the placebo and D4. Then the 2023–26 holdout's **sign** (the C4 precedent). Net at 15bp is reported (D2 label) **Unchanged by the Gate 0 ruling, and still pre-registered** |
 | **stops** (§6.3) | C4's own kill rule and the trial-53 stops, **rebuilt on the blended book**, plus L1: the level component's modelled 120-session P&L below its fit 5th percentile → revert the key |
 | **revert** (§9) | Delete `level_signal` from C4's spec |
 | **expected** (§5) | +0.4 to +1.0%/yr gross on all capital [model, U] after the cap haircut; the blend's ex-ante SR about 1.5 vs 1.18 uncapped |
@@ -162,6 +162,36 @@ survives the cap; the account's level of risk does not. That haircut is in §5.
 
 **Gate 0 — survivorship, run before the approval commit** (open question 1), on fit data only:
 
+> **RULED 2026-11-02 (the team lead): "keep it flexible and make judgment off results".**
+>
+> - **Gate 0 is a team-lead judgment on its result, not a mechanical gate.** The rules in the table below (and
+>   amendment A1's 0.75) stay as the declared reference points. Neither one decides.
+> - **The caveat, plainly.** A gate decided after its data have been seen is not a pre-registered gate. Gate 0 is
+>   evidence for the team lead's judgment. It cannot claim a pre-registered pass, and the record must not describe
+>   it as one.
+> - **What the evidence is.** `gate0_analysis.py`, which writes `gate0_analysis_output.txt` and `.json`. It
+>   reports:
+>   - b_D / b_A (dead against survivor slope) and b_B / b_A (all funds against survivors), each with a 95% CI from
+>     (1) a bootstrap by fund-half-year, the headline, and (2) a bootstrap by calendar half-year as a second
+>     method. The two are reported side by side and not averaged;
+>   - the sign test: the share of half-years whose dead-only slope is negative, a binomial p, and P(b_D ≥ 0);
+>   - the verdict under both candidate rules, ≥ 0.5 (the original) and ≥ 0.75 (A1), each with its power
+>     P(flag | halving) and false-alarm rate P(flag | r = 1) at the realised NAV coverage. For reference, at full
+>     coverage the power is 0.50 and the false-alarm rate 0.00 for ≥ 0.5, and 0.97 and 0.03 for ≥ 0.75
+>     (`gate0_coverage_output.txt`);
+>   - coverage, the calibration agreement, and two sensitivities: cells of family × period-end month (primary,
+>     declared before any dead-fund NAV was read) against family × half-year, and with the dead funds whose names
+>     go unclassified excluded.
+> - **The record.** The team lead's Gate 0 call goes into `docs/SYSTEM.md` §5 with its date, labelled
+>   **"post-data"**. It names the evidence file's commit and the reasons in a sentence. A negative call means no
+>   approval and no trial; a positive one leaves §6.2 to judge the trial.
+> - **What does not change.** The trial's own pass rule (§6.2: the fit's spanning alpha NW t ≥ 2.825 at N = 54,
+>   the deflated-Sharpe bars, NC1, the placebo, D4, then the holdout's sign) is unchanged and stays pre-registered.
+> - **Code check.** `gate0_analysis.py --self-test` (15 survivors posing as dead) gives b_B / b_A 1.047, CI (1)
+>   0.873–1.297. That is the expected answer with no survivorship by construction, so the test can see a null.
+
+
+
 | step | what | rule, stated now |
 |---|---|---|
 | G0-pull | the team lead runs `results/cef/screens_2026-11-02/run_gate0_pull.sh`: the CRSP dead population and a CRSP mutual-fund NAV probe (§11) | the manifest's row counts and dates are recorded; `check_holdout` must pass |
@@ -185,7 +215,7 @@ survives the cap; the account's level of risk does not. That haircut is in §5.
 >   `--plan` on the census's cached index: 133 of 190 candidates map to a filer (57 for rulings); 1,630 filings
 >   2008-01..2023-06, plus the 2004–07 quarters.
 >
-> **Amendment proposal A1, for the team lead. It changes no rule until ruled, and it is made before any dead-fund
+> **Amendment proposal A1, for the team lead** *(superseded 2026-11-02 by the ruling above: both thresholds are now reported reference points; neither is mechanical)*. **It changes no rule until ruled, and it is made before any dead-fund
 > NAV has been read:**
 > - (i) **Flag below 0.75, not 0.5.** Full coverage: P(flag | halving) 0.97, false alarms at r = 1 0.03. At 80%:
 >   0.94 / 0.03.
@@ -227,7 +257,7 @@ its D-code (team lead 2026-10-27).
 
 ### 6.2 The pass rule, at the CEF bar for N = 54
 
-The bar is √(2 ln 54) = **2.825**. The registry's least N for CEF is 54 (`minimum_declared_n`, measured
+**This rule is unchanged by the 2026-11-02 Gate 0 ruling and stays pre-registered.** The bar is √(2 ln 54) = **2.825**. The registry's least N for CEF is 54 (`minimum_declared_n`, measured
 2026-11-02). Each kill is read once, in order:
 
 1. **Gate 0 and the data gates** (§4b).
@@ -290,7 +320,7 @@ Real money stays gated as for C4 (paper only, 2026-10-19).
 ## 10. Open questions for the team lead, each with a recommended answer
 
 1. **Run Gate 0 before the approval commit?** **Yes.** It reads fit data only, like the screen, so a failure
-   spends no trial.
+   spends no trial. *Ruled 2026-11-02: Gate 0 is the team lead's post-data judgment (§4b).*
 2. **Judging structure:** the fit at the bar, then the holdout's sign (C4's precedent), or the holdout alone at
    2.825? **The C4 precedent.** The holdout alone has P(pass) 0.04–0.26.
 3. **The split:** **0.50**, derived (§3.1).
@@ -305,8 +335,9 @@ Real money stays gated as for C4 (paper only, 2026-10-19).
 9. **Where the final file lives:** **move it to `results/cef/PREREG_C4_LEVEL_2026-11-02.md`** in the approval
    commit, with this folder's draft path left as a one-line pointer.
 10. **Amendment A1 (§4b, 2026-11-02 later): flag below 0.75, and live funds on panel NAV with a calibration
-    pre-condition?** **Yes to both.** Under the rule as stated, a true halving is flagged only half the time at any
-    sample size.
+    pre-condition?** **Superseded by the ruling** ("keep it flexible and make judgment off results"): both thresholds
+    are reported with their power and false-alarm rates, and the team lead judges. Live funds use the panel NAV; the
+    calibration agreement is reported.
 
 ## 11. Reproduce
 

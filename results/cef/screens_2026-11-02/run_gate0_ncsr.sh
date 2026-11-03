@@ -13,7 +13,7 @@ if [ -n "${INDEX_CACHE:-}" ]; then ARGS=(--index-cache "$INDEX_CACHE"); fi
 python3 -B results/cef/screens_2026-11-02/gate0_pull_ncsr.py --self-test
 for attempt in 1 2 3 4 5; do
     echo "== N-CSR pull (attempt $attempt)"
-    if python3 -B results/cef/screens_2026-11-02/gate0_pull_ncsr.py "${ARGS[@]}"; then
+    if python3 -B results/cef/screens_2026-11-02/gate0_pull_ncsr.py ${ARGS[@]+"${ARGS[@]}"}; then   # bash 3.2 (macOS): an empty array under set -u
         echo "== done: results/cef/screens_2026-11-02/_cache_gate0/ncsr_manifest.json"; exit 0
     fi
     echo "   failed; retrying in 60 s (cached responses are not re-fetched)"; sleep 60
