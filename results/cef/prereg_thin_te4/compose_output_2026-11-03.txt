@@ -1,6 +1,7 @@
-spec cef_discount.v9.20261102: sizing_multiplier 1.3, band 0.048, max_gross_stress 1.8, min_names 6, min_abs_weight 0.005; FLOOR 4 (the draft's; not a spec key)
+spec cef_discount.v9.20261102: sizing_multiplier 1.3, band 0.048, max_gross_stress 1.8, min_names 6, min_abs_weight 0.005; FLOOR 4 (the draft's proposed value; not yet a spec key); stamp 2026-11-03
 fit panel 2005-01-03 .. 2022-12-30: 4531 sessions, 3484 thin (< 6 eligible), 1570 reduced (4..5 eligible), 1914 below the floor; W1 (2013-06-25 on): 1353 thin, 1353 reduced
-A. reproduced: flatten at m 1.00 / 1.13 / 1.30 = trial 53's flatten_exact_2026-11-02.json (largest difference 0.0e+00); flatten trading-session unit sd 0.003556 = flatten_remeasure's; te4's 9 fit episodes = the screen's (largest difference 1.4e-17)
+A1. every scored book (flatten and te4, m 1.00, 1.13, 1.30, instant and deferred) = the independent row-by-row loop at this spec (largest difference 5.6e-17)
+A2. reproduced: flatten at m 1.00 / 1.13 / 1.30 = trial 53's flatten_exact_2026-11-02.json (largest difference 0.0e+00); flatten trading-session unit sd 0.003556 = flatten_remeasure's; te4's 9 fit episodes = the screen's (largest difference 1.4e-17)
 
 B. trial 53's exact-build rows (W1 2013-06-25 .. 2022-12-30), flatten against te4
   flatten x1.00 instant : TR 2.98%/yr SR 0.799 maxDD 6.64% | while trading 6.84%/yr vol 5.65% SR 1.212 | PR 3.39%/yr SR 0.866 maxDD 6.52% (2017-06-02 .. 2019-01-25) | earns on 43.6% of W1 | held at the cap 1.2% of sessions with a book; mean gross when held 1.068
@@ -100,3 +101,12 @@ G. declared rules at per-episode effect 1.16 (PR, deferred, m 1.3) and shrunk x0
   ABSENT at effect fit (1.16): first two negative 0.015; mean of three <= 0 0.022; either (simulated, 200,000) 0.031
   ABSENT at effect shrunk (0.56): first two negative 0.082; mean of three <= 0 0.165; either (simulated, 200,000) 0.188
   ABSENT at effect zero (0.00): first two negative 0.250; mean of three <= 0 0.500; either (simulated, 200,000) 0.527
+
+G2. repeated reads at N=54 (bar 2.825, single-read one-sided p 0.00237); P(PRESENT by k), simulated 400,000 paths with the ABSENT stop; 'every' = read at every episode at p (the draft as first written); 'declared' = read only at k in (5, 9, 13, 20), each at p/4 = 0.000592:
+  zero   every   : k=3 0.0045, k=5 0.0079, k=9 0.0122, k=13 0.0150, k=20 0.0179
+  zero   declared: k=3 0.0000, k=5 0.0006, k=9 0.0011, k=13 0.0016, k=20 0.0021
+  fit    every   : k=3 0.0312, k=5 0.1316, k=9 0.4943, k=13 0.7877, k=20 0.9464
+  fit    declared: k=3 0.0000, k=5 0.0293, k=9 0.2192, k=13 0.5356, k=20 0.8749
+  shrunk every   : k=3 0.0136, k=5 0.0373, k=9 0.1101, k=13 0.2026, k=20 0.3621
+  shrunk declared: k=3 0.0000, k=5 0.0054, k=9 0.0253, k=13 0.0645, k=20 0.1595
+  exact single-read P(PRESENT) at the fit effect 1.16: k=5 0.098, k=9 0.427, k=10 0.518, k=13 0.744, k=20 0.964; first k at or past 0.5: 10 (14.1 years at 0.71/yr, 36.7 at 0.27/yr [S screen rates])

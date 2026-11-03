@@ -1,7 +1,30 @@
 """The thin-session rule `trade_eligible` (floor 4) composed with CEF trial 53, on the fit (2026-11-03).
 
-    python3 results/cef/prereg_thin_te4/compose.py
-        -> compose_2026-11-03.json, compose_output_2026-11-03.txt (this folder); a few minutes
+    python3 results/cef/prereg_thin_te4/compose.py [--stamp YYYY-MM-DD] [--overwrite]
+        -> compose_<stamp>.json, compose_output_<stamp>.txt (this folder); a few minutes.
+        --stamp defaults to today's date, so a read-date re-measure writes its own dated files and never
+        overwrites the drafting-day record (compose_2026-11-03.*). Writing to a stamp whose files exist
+        raises unless --overwrite is given (reproduce the drafting day with --stamp 2026-11-03 --overwrite,
+        then `git diff` the two files).
+
+REVISED 2026-11-03, after the quant and PM reviews of the draft (both findings are in the draft's §12):
+  * STAMP was the literal "2026-11-03", so every read-date run overwrote the drafting-day outputs with new
+    numbers under the old date (quant review, finding 6). It is now --stamp, defaulting to today.
+  * §A RAISED when the flatten book did not reproduce trial 53's 2026-11-02 json files or the screen's
+    results.json. Those references were built at band 0.048, ceiling 1.8 and the 2026-10-15 panel, so a
+    read date after a /spec-change of the band or the ceiling, or a vendor revision of a fit row, made the
+    file raise, and the draft turned that into a mandatory revert: only a change in m got through (quant
+    review, finding 6). §A now has two parts. A1, ASSERTED at every run: every book this file scores
+    equals an independent row-by-row loop (`independent_book`) at the read date's spec, to 1e-12. That is
+    a check on the code that holds at any band, ceiling or panel. A2, REPORTED, never raised: the
+    drafting-day references, with the largest difference. A difference says the inputs or the fit rows
+    have moved since 2026-11-03; the read date's values then govern, as the draft says.
+  * FLOOR is read from the spec (`scripts/cef/spec.py`, BELOW_MIN_NAMES_FLOOR) once that key exists; until
+    then it is the draft's proposed 4, and the output says which.
+  * §G2 (new): the PRESENT rule read at every completed episode against the single-read p inflates the
+    false-PRESENT rate (quant review, finding 4). G2 simulates the null and the fit effect under the
+    draft's original reading and under the declared fix (looks at k = 5, 9, 13, 20 only, Bonferroni p/4),
+    and prints the exact single-read power at k = 10, the first k past a coin flip (quant review, finding 5).
 
 ZERO TRIALS. Written for `results/cef/PREREG_DRAFT_THIN_TRADE_ELIGIBLE_2026-11-03.md` (a DRAFT, not
 approved). FIT WINDOW ONLY: every frame is cut by `band_frontier.fit_only` (strictly before 2023-01-01,
@@ -16,7 +39,8 @@ measured on changes. The owning session asked whether trial 53's figures move un
 measures it, with trial 53's own definitions, rather than arguing it.
 
 WHAT IT ANSWERS
-  A. Reproduction, or it raises (a figure that does not reproduce is not quoted):
+  A. Reproduction. A1 (asserted; it raises): every scored book against `independent_book`. A2
+     (reported; since the 2026-11-03 revision it no longer raises, see above):
        the flatten book at m = 1.00 / 1.13 / 1.30, instant flips, against trial 53's committed exact
        build (`prereg_voltarget/flatten_exact_2026-11-02.json`);
        the flatten unit book's trading-session daily sd against `flatten_remeasure_2026-11-02_m1.30.json`;
@@ -83,8 +107,14 @@ from scripts.research.inference import p_clear_bar, upper_bound_max_z   # noqa: 
 from _common import Paths, draw, odds                              # noqa: E402  (trial 53's bootstrap)
 from _common import worst as worst_of                              # noqa: E402
 
-STAMP = "2026-11-03"
-FLOOR = 4                    # the draft's proposed floor (screen REPORT.md section 1): derived, not swept
+STAMP = None                 # set in main() from --stamp (default: today); never a literal (finding 6)
+# The floor: the spec's, once `below_min_names_floor` exists and scripts/cef/spec.py exposes it; until then
+# the draft's proposed value (screen REPORT.md section 1: derived, not swept). The output names the source.
+_FLOOR_SPEC = getattr(S, "BELOW_MIN_NAMES_FLOOR", None)
+FLOOR = int(_FLOOR_SPEC) if _FLOOR_SPEC is not None else 4
+FLOOR_SOURCE = "the spec's below_min_names_floor" if _FLOOR_SPEC is not None else \
+    "the draft's proposed value; not yet a spec key"
+LOOKS = (5, 9, 13, 20)       # the draft's declared PRESENT reads (section 6.1, after the quant review)
 W1 = pd.Timestamp("2013-06-25")   # trial 53's W1 start (the core's first P&L-bearing session)
 ADV_WINDOW = 63              # build_panel's ADV window: the episode merge gap (asserted below)
 LS = (21, 63, 126, 252)      # in-episode drawdown horizons, in reduced-session earning days
@@ -129,6 +159,34 @@ def episodes(trade: pd.Series) -> list:
 def earn_days(idx, parts) -> pd.DatetimeIndex:
     days = [idx[i0 + 2: i1 + 3] for i0, i1 in parts]
     return days[0].append(days[1:]) if len(days) > 1 else days[0]
+
+
+def independent_book(T: pd.DataFrame, below: pd.Series, band: float, cap: float, defer: bool) -> pd.DataFrame:
+    """Second method for §A1 (2026-11-03, after the quant review's finding 6): the unit book written again,
+    row by row in numpy, without `band_gross_capped`. PR #33's `independent_flatten`
+    (results/backtests/thin-days-2026-11-03/thin_days.py) with the band and the ceiling as arguments, so it
+    holds at the read date's spec: a `below` row is FLAT; any other row moves each name more than `band`
+    from its target to the band EDGE, scales the whole book down to `cap` if its gross is above it, and,
+    with `defer`, holds a name whose sign flipped at zero for that session. For flatten, `below` is the
+    min_names mask; for te4, the floor's mask (the screen reproduced every te book this way, to 1e-12)."""
+    Tv, bv = T.to_numpy(dtype=float), below.reindex(T.index).to_numpy(dtype=bool)
+    prev, out = np.zeros(T.shape[1]), np.empty(Tv.shape)
+    for i in range(len(Tv)):
+        if bv[i]:
+            now = np.zeros_like(prev)
+        else:
+            d = Tv[i] - prev
+            now = prev.copy()
+            o = np.abs(d) > band
+            now[o] = Tv[i][o] - np.sign(d[o]) * band
+            g = np.abs(now).sum()
+            if g > cap:
+                now = now * (cap / g)
+            if defer:
+                now[(prev * now) < 0] = 0.0
+        out[i] = now
+        prev = now
+    return pd.DataFrame(out, index=T.index, columns=T.columns)
 
 
 def rows(H, Rtr, R, cap, win=W1) -> dict:
@@ -188,7 +246,20 @@ def q(s: pd.Series) -> dict:
 
 
 def main() -> int:
+    import argparse
+    import datetime as dt
     import inspect
+    global STAMP
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--stamp", default=dt.date.today().isoformat(),
+                    help="date in the output file names (default: today)")
+    ap.add_argument("--overwrite", action="store_true", help="allow replacing this stamp's existing files")
+    args = ap.parse_args()
+    STAMP = args.stamp
+    outs = (HERE / f"compose_{STAMP}.json", HERE / f"compose_output_{STAMP}.txt")
+    if any(f.exists() for f in outs) and not args.overwrite:
+        raise SystemExit(f"{[f.name for f in outs if f.exists()]} exist: a dated record is not overwritten "
+                         f"silently. Pass --overwrite to replace it, or another --stamp.")
     if "rolling(63," not in inspect.getsource(bf.build_panel):
         raise AssertionError("build_panel's ADV window is no longer 63 sessions; ADV_WINDOW is stale")
     BAND, CAP, M = float(S.BAND_WIDTH), float(S.MAX_GROSS_STRESS), S.SIZING_MULTIPLIER
@@ -198,7 +269,7 @@ def main() -> int:
     if not 2 <= FLOOR < int(S.MIN_NAMES):
         raise AssertionError(f"FLOOR {FLOOR} must satisfy 2 <= FLOOR < min_names {S.MIN_NAMES}")
     p(f"spec {S.SPEC_ID}: sizing_multiplier {M}, band {BAND}, max_gross_stress {CAP}, min_names {S.MIN_NAMES}, "
-      f"min_abs_weight {S.MIN_ABS_WEIGHT}; FLOOR {FLOOR} (the draft's; not a spec key)")
+      f"min_abs_weight {S.MIN_ABS_WEIGHT}; FLOOR {FLOOR} ({FLOOR_SOURCE}); stamp {STAMP}")
     OUT["spec"] = dict(id=S.SPEC_ID, m=M, band=BAND, cap=CAP, min_names=int(S.MIN_NAMES), floor=FLOOR)
 
     # ---------------------------------------------------------------- the books, fit only
@@ -239,6 +310,20 @@ def main() -> int:
          for fl in ("instant", "deferred")}
 
     # ---------------------------------------------------------------- A. reproduction
+    # A1, ASSERTED (a code check valid at any band, ceiling or panel): every book scored below equals the
+    # independent loop at the read date's spec.
+    worst_ind = 0.0
+    for (rule, m, fl), Hx in H.items():
+        T_, below = (T6, thin6) if rule == "flatten" else (T4, thin4)
+        ind = independent_book(T_, below, BAND, CAP / m, fl == "deferred")
+        worst_ind = max(worst_ind, float((Hx / m - ind).abs().to_numpy().max()))
+    if worst_ind > 1e-12:
+        raise AssertionError(f"a scored book differs from the independent loop (largest difference {worst_ind:.3e})")
+    p(f"A1. every scored book (flatten and te4, m {', '.join(f'{m:.2f}' for m in ms)}, instant and deferred) = "
+      f"the independent row-by-row loop at this spec (largest difference {worst_ind:.1e})")
+    # A2, REPORTED, never raised: the drafting-day references (built at band 0.048, ceiling 1.8 and the
+    # 2026-10-15 panel). A difference means the inputs or the fit rows moved since 2026-11-03; the read
+    # date's values then govern (draft section 6.3).
     ref = json.loads((PV / "flatten_exact_2026-11-02.json").read_text())
     worst = 0.0
     for m in (1.0, 1.13, 1.3):
@@ -250,25 +335,26 @@ def main() -> int:
                 worst = max(worst, abs(r["PR"][k] - ref[str(m)]["PR"][k]))
             for k in ("at_cap_all", "at_cap_held", "mean_gross_held"):
                 worst = max(worst, abs(r[k] - ref[str(m)][k]))
-    if worst > 1e-9:
-        raise AssertionError(f"the flatten book does not reproduce trial 53's flatten_exact_2026-11-02.json "
-                             f"(largest difference {worst:.3e})")
     rem = json.loads((PV / "flatten_remeasure_2026-11-02_m1.30.json").read_text())
     sd_flat = rows(H[("flatten", 1.0, "instant")], Rtr, Rf, CAP)["TR"]["sd_trading"]
-    if abs(sd_flat - rem["sd_daily"]["flatten_active"]) > 1e-9:
-        raise AssertionError(f"flatten trading-session sd {sd_flat} != {rem['sd_daily']['flatten_active']}")
+    d_sd = abs(sd_flat - rem["sd_daily"]["flatten_active"])
     scr = json.loads((SCREEN / "results.json").read_text())["review_attacks"]["h_episodes"]["flatten"]
     eps = episodes(reduced)
     gap = (bf.evaluate(H[("te4", 1.0, "instant")], Rtr)["pnl"] - bf.evaluate(H[("flatten", 1.0, "instant")], Rtr)["pnl"])
     vals = [float(gap.loc[earn_days(T6.index, e["parts"]).intersection(gap.index)].sum()) for e in eps]
     d_ep = max(abs(a - b) for a, b in zip(vals, scr["values"])) if len(vals) == len(scr["values"]) else np.inf
-    if d_ep > 1e-9:
-        raise AssertionError(f"the te4 fit episodes do not reproduce the screen's ({len(vals)} against "
-                             f"{len(scr['values'])}; largest difference {d_ep:.3e})")
-    p(f"A. reproduced: flatten at m 1.00 / 1.13 / 1.30 = trial 53's flatten_exact_2026-11-02.json (largest "
-      f"difference {worst:.1e}); flatten trading-session unit sd {sd_flat:.6f} = flatten_remeasure's; te4's "
-      f"{len(vals)} fit episodes = the screen's (largest difference {d_ep:.1e})")
-    OUT["reproduction"] = dict(flatten_exact_max_diff=worst, sd_flatten_active=sd_flat, episodes_max_diff=d_ep)
+    if max(worst, d_sd, d_ep) <= 1e-9:
+        p(f"A2. reproduced: flatten at m 1.00 / 1.13 / 1.30 = trial 53's flatten_exact_2026-11-02.json (largest "
+          f"difference {worst:.1e}); flatten trading-session unit sd {sd_flat:.6f} = flatten_remeasure's; te4's "
+          f"{len(vals)} fit episodes = the screen's (largest difference {d_ep:.1e})")
+    else:
+        p(f"A2. NOT reproduced (reported, not raised): flatten_exact difference {worst:.3e}; trading-session sd "
+          f"{sd_flat:.6f} against {rem['sd_daily']['flatten_active']:.6f}; episodes {len(vals)} against "
+          f"{len(scr['values'])}, difference {d_ep:.3e}. The band, the ceiling, m or the fit rows have moved "
+          f"since 2026-11-03; A1 passed, so the values below are this read date's and govern")
+    OUT["reproduction"] = dict(independent_loop_max_diff=worst_ind, flatten_exact_max_diff=worst,
+                               sd_flatten_active=sd_flat, sd_diff=d_sd, episodes_max_diff=d_ep,
+                               drafting_day_references_reproduced=bool(max(worst, d_sd, d_ep) <= 1e-9))
 
     # ---------------------------------------------------------------- B. trial 53's rows under te4
     p("\nB. trial 53's exact-build rows (W1 2013-06-25 .. 2022-12-30), flatten against te4")
@@ -497,8 +583,60 @@ def main() -> int:
           f"{G['absent'][lab]['either']:.3f}")
     OUT["rules"] = G
 
-    (HERE / f"compose_{STAMP}.json").write_text(json.dumps(OUT, indent=1, default=str))
-    (HERE / f"compose_output_{STAMP}.txt").write_text("\n".join(LOG) + "\n")
+    # G2. Repeated reads (quant review, findings 4 and 5). The draft first read PRESENT at EVERY completed
+    # episode against the single-read one-sided p: the chance of a false PRESENT then accumulates over the
+    # reads. Simulated here for k = 2..20 under the null and at the fit and shrunk effects, with the ABSENT
+    # stop applied (an ABSENT ends the path; a futility stop can only lower the false-PRESENT rate), for:
+    #   every     PRESENT read at every completed episode, at p (the draft as first written);
+    #   declared  PRESENT read only at LOOKS = 5, 9, 13, 20, each at p / len(LOOKS) (Bonferroni): the
+    #             family-wise false-PRESENT rate is at most p by construction, and the simulation shows it.
+    # Episode values are N(effect, 1): the per-episode effect is mean / sd, as §F and §G. Also the exact
+    # single-read power by k, to find the first k past a coin flip at the fit effect.
+    N2 = NS[1]
+    bar2 = float(upper_bound_max_z(N2))
+    pb2 = 0.5 * (1 - erf(bar2 / _sqrt(2)))
+    G2 = dict(N=N2, bar=bar2, p_single=pb2, looks=list(LOOKS), p_each=pb2 / len(LOOKS), sim={})
+    REPS2, KMAX = 400_000, max(LOOKS)
+    for lab, e in (("zero", 0.0), ("fit", es0), ("shrunk", es0 * shrink)):
+        Z = np.random.default_rng(20261103).standard_normal((REPS2, KMAX)) + e
+        res = {}
+        for design, looks, a in (("every", tuple(range(2, KMAX + 1)), pb2),
+                                 ("declared", LOOKS, pb2 / len(LOOKS))):
+            alive = np.ones(REPS2, bool)
+            present = np.zeros(REPS2, bool)
+            byk = {}
+            for k in range(2, KMAX + 1):
+                z = Z[:, :k]
+                mk = z.mean(axis=1)
+                t = mk / (z.std(axis=1, ddof=1) / np.sqrt(k))
+                ab = ((k == 2) & (z[:, 0] < 0) & (z[:, 1] < 0)) | ((k >= 3) & (mk <= 0))
+                newp = (alive & (t >= float(sps.t.ppf(1 - a, k - 1))) & ~ab) if k in looks else np.zeros(REPS2, bool)
+                present |= newp
+                alive &= ~(newp | ab)
+                byk[k] = float(present.mean())
+            res[design] = {k: byk[k] for k in (3, 5, 9, 13, 20)}
+        G2["sim"][lab] = res
+    rates = json.loads((SCREEN / "results.json").read_text())["review_attacks"]["m_power"]
+    single = {k: float(1 - sps.nct.cdf(float(sps.t.ppf(1 - pb2, k - 1)), k - 1, es0 * np.sqrt(k))) for k in range(3, 21)}
+    k_half = min(k for k, v in single.items() if v >= 0.5)
+    G2.update(exact_single_read_fit=single, first_k_past_half=k_half,
+              years_first_k_past_half=dict(fit_rate=k_half / rates["rate_fit"], since_2023=k_half / rates["rate_since_2023"]),
+              years_looks=dict(fit_rate={k: k / rates["rate_fit"] for k in LOOKS},
+                               since_2023={k: k / rates["rate_since_2023"] for k in LOOKS}))
+    p(f"\nG2. repeated reads at N={N2} (bar {bar2:.3f}, single-read one-sided p {pb2:.5f}); P(PRESENT by k), "
+      f"simulated {REPS2:,} paths with the ABSENT stop; 'every' = read at every episode at p (the draft as first "
+      f"written); 'declared' = read only at k in {LOOKS}, each at p/{len(LOOKS)} = {pb2 / len(LOOKS):.6f}:")
+    for lab in ("zero", "fit", "shrunk"):
+        for design in ("every", "declared"):
+            p(f"  {lab:6s} {design:8s}: " + ", ".join(f"k={k} {v:.4f}" for k, v in G2['sim'][lab][design].items()))
+    p(f"  exact single-read P(PRESENT) at the fit effect {es0:.2f}: " + ", ".join(
+        f"k={k} {single[k]:.3f}" for k in (5, 9, 10, 13, 20)) + f"; first k at or past 0.5: {k_half} "
+      f"({k_half / rates['rate_fit']:.1f} years at {rates['rate_fit']:.2f}/yr, {k_half / rates['rate_since_2023']:.1f} "
+      f"at {rates['rate_since_2023']:.2f}/yr [S screen rates])")
+    OUT["rules"]["repeated_reads"] = G2
+
+    outs[0].write_text(json.dumps(OUT, indent=1, default=str))
+    outs[1].write_text("\n".join(LOG) + "\n")
     return 0
 
 
