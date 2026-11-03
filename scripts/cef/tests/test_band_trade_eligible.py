@@ -29,7 +29,11 @@ These tests pin:
   6. every argument mismatch raises: no floor, a floor out of range or of the
      wrong type, the spec mask, a mask counted at another floor, a floor under
      "hold" or "flatten", T built at another floor than the mask, and
-     min_names below 2.
+     min_names below 2;
+  7. the gross ceiling binds under "trade_eligible", on sessions between the
+     floor and min_names too (added after the review of 2026-11-03: test 4's
+     cap of 1.8 never bound on its panel, whose held gross peaked at 1.04, so a
+     ceiling skipped or doubled under this option passed every test).
 
 Synthetic panels: the claim is about the code, not the market.
 
@@ -44,6 +48,9 @@ section 2):
   * thin_sessions ignoring `min_names`: tests 1, 4, 5 and 6 fail;
   * the mask-name check removed: test 6 fails;
   * `_min_names_arg` accepting 1: test 6 fails.
+Added after the review (2026-11-03), whose mutation run found two survivors:
+  * the ceiling skipped under "trade_eligible" (the review's N3): test 7 fails;
+  * the ceiling doubled under "trade_eligible" (the review's N12): test 7 fails.
 The seven tests of test_band_below_min_names.py pass under every one of these
 mutations (they pin "hold" and "flatten", which none of them touches).
 """
@@ -54,14 +61,16 @@ import pandas as pd
 import pytest
 
 from scripts.cef import band_frontier as bf
-from scripts.cef.spec import MIN_NAMES, VOL_TARGET
+from scripts.cef.spec import MAX_GROSS_STRESS, MIN_NAMES, VOL_TARGET
 
 FLOOR = 3          # a floor below the derived 4, so the fake panel exercises n = 3, 4 and 5
 
 
-def _fake_panel(monkeypatch, cols, seed=11, p_elig=0.5):
+def _fake_panel(monkeypatch, cols, seed=11, p_elig=0.5, ret_sd=0.01):
     """z with NaN holes and ADVs straddling the floor, tuned so that the eligible
-    count visits every value from 1 to about 9 (10 names, about half eligible)."""
+    count visits every value from 1 to about 9 (10 names, about half eligible).
+    `ret_sd` is the daily return sd: at the default the vol scalar keeps the
+    target's gross near 1; test 7 lowers it so the scalar reaches its 2.5 clip."""
     rng = np.random.default_rng(seed)
     idx = pd.bdate_range("2004-11-01", periods=320)
     z = pd.DataFrame(rng.normal(0, 1.2, (len(idx), len(cols))), index=idx, columns=cols).clip(-4, 4)
@@ -74,7 +83,7 @@ def _fake_panel(monkeypatch, cols, seed=11, p_elig=0.5):
     # the first 80 sessions are fully eligible, so every book opens on the same prefix
     z.iloc[:80] = rng.normal(0, 1.2, (80, len(cols)))
     adv.iloc[:80] = 2 * f
-    ret = pd.DataFrame(rng.normal(0, 0.01, z.shape), index=idx, columns=cols)
+    ret = pd.DataFrame(rng.normal(0, ret_sd, z.shape), index=idx, columns=cols)
     monkeypatch.setattr(bf, "build_panel",
                         lambda end=None, universe=None, source=None, mask=None: dict(ret=ret, z=z, adv=adv))
     ok = z.notna() & (adv >= f)
@@ -259,3 +268,30 @@ def test_6_mismatches_raise(monkeypatch):
     for bad in (True, 3.0):
         with pytest.raises(TypeError, match="min_names must be an int"):
             bf.build_targets(universe=cols, min_names=bad)
+
+
+@pytest.mark.parametrize("defer", [False, True])
+def test_7_the_ceiling_binds_under_trade_eligible(monkeypatch, defer):
+    """The gross ceiling after the band (band_frontier.band_gross_capped, the
+    `_cap_gross` call; the sleeve's l.1113-1116) under "trade_eligible", at the
+    spec's own max_gross_stress. The returns are quiet (daily sd 0.002), so the
+    vol scalar reaches its 2.5 clip and the target's gross passes the ceiling,
+    on sessions with floor <= n < min_names eligible names as well as on full
+    ones. The book must equal the independent loop (which applies the ceiling),
+    never exceed the ceiling, and sit exactly at it on reduced-set sessions."""
+    cols = [f"N{i}" for i in range(10)]
+    _fake_panel(monkeypatch, cols, ret_sd=0.002)
+    cap = float(MAX_GROSS_STRESS)
+    T3, _ = bf.build_targets(universe=cols, min_names=FLOOR)
+    below = bf.thin_sessions(T3.index, universe=cols, min_names=FLOOR)
+    between = (bf.thin_sessions(T3.index, universe=cols) & ~below).to_numpy()
+    tg = T3.abs().sum(axis=1).to_numpy()
+    assert (tg[between] > cap).sum() >= 5, "vacuous panel: the reduced-set target never passes the ceiling"
+    H = bf.band_gross_capped(T3, 0.048, cap, defer_flips=defer, below_min_names="trade_eligible",
+                             thin=below, floor=FLOOR)
+    np.testing.assert_allclose(H.values, _independent_book(T3, 0.048, cap, below, defer).values,
+                               rtol=0, atol=1e-15)
+    g = H.abs().sum(axis=1).to_numpy()
+    assert (g <= cap + 1e-12).all()
+    at_cap = np.abs(g - cap) < 1e-12
+    assert at_cap[between].sum() >= 5, f"the ceiling bound on only {at_cap[between].sum()} reduced-set sessions"

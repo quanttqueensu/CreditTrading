@@ -43,6 +43,35 @@ per-traded-session plateau; and the replay of the two degenerate sessions. The
 direction control had not yet run. A fix to the hypothetical in step 5 (one 0/0
 target, 2025-04-07, made its median cosine NaN) was made at the same time.
 
+CHANGED AND ADDED AFTER THE REVIEW AND THE BETA-DETECTOR PASS (2026-11-03), after
+the first full run, stated so the order is visible. Nothing below chooses a
+parameter; each item is a check the two passes made in scratch, moved here so
+the report can cite committed code:
+  * H2 (the review's finding 1): `matched` now prints the paired gap, its NW t,
+    the bar and `read_result` at the matched turnover, not only ann% and SR. The
+    HEADLINE is the device declared before the smoke run (te4 re-banded to each
+    reference's FIT turnover); each reference re-banded to te4's FIT turnover
+    is printed beside it as a sensitivity, declared at the same time;
+  * `read_result`'s `meaningful` is now the cost hurdle its docstring asks for:
+    te4's extra FIT turnover over the reference at the spec band, times the
+    grid's middle cost (15bp). It was the observed estimate, which made ABSENT
+    unreachable (the review's open question 4);
+  * borrow (the review's finding 4) goes through `bf.borrow_charge`, the
+    harness's one definition (fee at t-1, 102% collateral, actual/360 on the
+    shift(2) held book); the simple annual rate on short weight is gone;
+  * the forward estimate (the review's finding 3) adds the one out-of-sample
+    analogue (2023+ itself) as a base, and sizes the book at m the way trial 53
+    is activated (m x band_gross_capped(T, band, max_gross_stress / m)) rather
+    than ignoring the ceiling;
+  * the beta-detector's attacks, re-run here (`review_attacks`): the gap by fund
+    sponsor (every sponsor printed); te4's own two largest contributors (PHK,
+    PDI) left out by attribution and by rebuilt universe; the FIT stretches
+    merged into independent episodes when fewer than 63 sessions apart (the
+    ADV window in `build_panel`); the gap without its three largest stretches;
+    the recent-books placebo (PR #33's lagged books, adapted) and a static
+    tilt; extra execution delay; a Dimson factor regression on the repo's ETF
+    panel; and the power of a forward test by independent episodes.
+
 SECOND METHODS, all asserted:
   * the reduced-set targets equal the LIVE SLEEVE's own output on every thin
     session (sleeve_reduced.csv, from sleeve_reduced_check.py), after its gross
@@ -84,9 +113,12 @@ FLOOR = 4                    # derived (REPORT.md section 1), not swept
 PLATEAU = (3, 4, 5)          # the floor and one either side
 SEED, N_DRAWS = 20261103, 500
 COSTS = (5, 15, 30)
+HURDLE_BP = 15               # the cost grid's middle: read_result's `meaningful` is the extra turnover at this cost
 P = 252
 FLIPS = ("instant", "deferred")
 MAIN = ("hold", "flatten", "te4")
+NS = (52, 53, 54)            # the CEF counter on main (52), at the release tag (53), and the next trial (54)
+ADV_WINDOW = 63              # build_panel's ADV rolling window (asserted in review_attacks): the episode merge gap
 LOG, OUT = [], {}
 
 
@@ -291,46 +323,112 @@ def era_cv(rows, rules):
     OUT.setdefault("era_turnover_cv", {}).update(out)
 
 
-def matched(T, thin, TF, BF, keep, Rt, rows):
-    """H2: te4 (instant) re-banded so that its FIT turnover equals flatten's and hold's, by bisection on
-    turnover only (never on P&L). A matching device, not a proposal."""
-    fit = Rt.index < HOLDOUT_START
+def _bisect_band(build, target, lo=0.002, hi=0.40):
+    """The band width at which build(bw)'s FIT turnover equals `target`, by bisection on turnover only (never on
+    P&L); turnover falls as the band widens. Raises if `target` lies outside the bracket."""
+    tlo, thi = build(lo)[0], build(hi)[0]
+    if not (thi <= target <= tlo):
+        raise ValueError(f"fit turnover {target:.2f} outside [{thi:.2f}, {tlo:.2f}] for bands [{lo}, {hi}]")
+    for _ in range(30):
+        mid = 0.5 * (lo + hi)
+        if build(mid)[0] > target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
-    def build(bw):
-        h = bf.band_gross_capped(TF[FLOOR], bw, MAX_GROSS_STRESS, below_min_names="trade_eligible",
-                                 thin=BF[FLOOR], floor=FLOOR).loc[keep]
-        r = bf.evaluate(h, Rt)
+
+def gap_read(x_res, y_res, hurdle, a, b):
+    """x minus y over [a, b]: pp/yr, NW t, the extra turnover, the gap after the cost grid, and at each N the bar,
+    whether the t clears it, and read_result (Sidak at N; `meaningful` = `hurdle`, the cost hurdle)."""
+    from scripts.research.inference import read_result, upper_bound_max_z
+    d = (x_res["pnl"] - y_res["pnl"]).loc[a:b]
+    est, t = float(d.mean() * P), nwt(d.to_numpy())
+    dturn = float((x_res["turn_series"] - y_res["turn_series"]).loc[a:b].mean() * P)
+    o = dict(pp=est, t=t, extra_turn=dturn, net={c: est - dturn * c / 1e4 for c in COSTS}, hurdle=hurdle, reads={})
+    for N in NS:
+        bar = float(upper_bound_max_z(N))
+        rr = read_result(est, abs(est / t), hurdle, n_trials=N)
+        o["reads"][N] = dict(bar=bar, clears=bool(t > bar), read=rr["outcome"], lo=rr["lo"], hi=rr["hi"],
+                             vs=rr["vs_meaningful"])
+    return o
+
+
+def fmt_read(o, N=53):
+    r = o["reads"][N]
+    return (f"{o['pp'] * 100:+.2f}pp/yr (NW t {o['t']:.2f}; bar {r['bar']:.3f} at N={N}: "
+            f"{'clears' if r['clears'] else 'does not clear'}; read_result {r['read']} [{r['lo'] * 100:+.2f}, "
+            f"{r['hi'] * 100:+.2f}], hurdle {o['hurdle'] * 100:.2f} {r['vs']}); extra turn {o['extra_turn']:+.2f}/yr; "
+            "net @5/@15/@30 " + "/".join(f"{o['net'][c] * 100:+.2f}" for c in COSTS))
+
+
+def matched(T, thin, TF, BF, keep, Rt, rows, res, hurdle):
+    """H2: the comparison at matched FIT turnover, in both directions, by bisection on turnover only (never on
+    P&L). The band widths are matching devices, not proposals.
+      (i)  HEADLINE (declared before the smoke run): te4 (instant) re-banded so that its FIT turnover equals each
+           reference's;
+      (ii) SENSITIVITY (declared after the review, before it ran): each reference re-banded so that its FIT
+           turnover equals te4's at the spec band.
+    The first version printed only ann% and SR at the match; the paired gap, its t, the bar and read_result are
+    the review's finding 1 (H2 allows turnover-matched comparisons only)."""
+    fit = Rt.index < HOLDOUT_START
+    WM = (("FIT <2023", pd.Timestamp(bf.SAMPLE_START), HOLDOUT_START - pd.Timedelta(days=1)),
+          ("H13 2023+", HOLDOUT_START, Rt.index[-1]))
+
+    def ev(h):
+        r = bf.evaluate(h.loc[keep], Rt)
         return float(r["turn_series"][fit].mean() * P), r
 
+    build = {"te4": lambda bw: ev(bf.band_gross_capped(TF[FLOOR], bw, MAX_GROSS_STRESS, below_min_names="trade_eligible",
+                                                       thin=BF[FLOOR], floor=FLOOR)),
+             "flatten": lambda bw: ev(bf.band_gross_capped(T, bw, MAX_GROSS_STRESS, below_min_names="flatten",
+                                                           thin=thin)),
+             "hold": lambda bw: ev(bf.band_gross_capped(T, bw, MAX_GROSS_STRESS))}
     out = {}
     te_turn = rows[(te(FLOOR), "instant", "FIT <2023")]["turn"]
     for ref in ("flatten", "hold"):
         target = rows[(ref, "instant", "FIT <2023")]["turn"]
         gap = te_turn / target - 1
-        lo, hi = 0.002, 0.40
-        tlo, thi = build(lo)[0], build(hi)[0]
-        if not (thi <= target <= tlo):
-            raise ValueError(f"{ref} fit turnover {target:.2f} outside [{thi:.2f}, {tlo:.2f}]")
-        for _ in range(30):
-            mid = 0.5 * (lo + hi)
-            if build(mid)[0] > target:
-                lo = mid
-            else:
-                hi = mid
-        bw = 0.5 * (lo + hi)
-        t_, r = build(bw)
+        bw = _bisect_band(build["te4"], target)
+        t_, r = build["te4"](bw)
         o = dict(ref_turn=target, te_turn_at_spec_band=te_turn, gap_at_spec_band=gap, band=bw, matched_turn=t_)
-        p(f"\n=== H2: te{FLOOR} (instant) FIT turnover {te_turn:.2f}/yr vs {ref} {target:.2f}/yr at the spec band "
-          f"({gap * 100:+.1f}%); re-banded to {bw:.4f} it turns {t_:.2f}/yr ({(t_ / target - 1) * 100:+.2f}%) ===")
-        for lab, a, b in (("FIT <2023", pd.Timestamp(bf.SAMPLE_START), HOLDOUT_START - pd.Timedelta(days=1)),
-                          ("H13 2023+", HOLDOUT_START, Rt.index[-1])):
+        p(f"\n=== H2 (i) HEADLINE: te{FLOOR} (instant) FIT turnover {te_turn:.2f}/yr vs {ref} {target:.2f}/yr at the "
+          f"spec band ({gap * 100:+.1f}%); re-banded to {bw:.4f} it turns {t_:.2f}/yr ({(t_ / target - 1) * 100:+.2f}%) ===")
+        for lab, a, b in WM:
             s = td.stats(r["pnl"].loc[a:b], r["turn_series"].loc[a:b])
             ref_s = rows[(ref, "instant", lab)]
-            o[lab] = dict(te=s, ref=ref_s)
+            o[lab] = dict(te=s, ref=ref_s, gap=gap_read(r, res[(ref, "instant")], hurdle[ref], a, b))
             p(f"{lab:<10} te{FLOOR}@{bw:.4f}: SR {s['sr']:.2f} ann {s['ann'] * 100:.2f}% turn {s['turn']:.1f} net "
               + "/".join(f"{s['net'][c] * 100:.2f}" for c in COSTS) + f" BE {s['be']:.1f}bp | {ref}: SR "
               f"{ref_s['sr']:.2f} ann {ref_s['ann'] * 100:.2f}% turn {ref_s['turn']:.1f} net "
               + "/".join(f"{ref_s['net'][c] * 100:.2f}" for c in COSTS))
+            p(f"{'':<10} te{FLOOR}@{bw:.4f} minus {ref}: " + fmt_read(o[lab]["gap"]))
+        # (ii) needs the reference to reach te4's turnover; a band of 0 (trade to the target every session) is the
+        # most a reference can turn over. If even that falls short, the direction is infeasible, and is reported
+        # as such with the shortfall (not skipped)
+        t0 = build[ref](0.0)[0]
+        if t0 < te_turn:
+            o["reverse"] = dict(feasible=False, target=te_turn, max_turn_at_band_0=t0)
+            p(f"--- H2 (ii) sensitivity INFEASIBLE: {ref} turns at most {t0:.2f}/yr over FIT (band 0, trading to the "
+              f"target every session), {(t0 / te_turn - 1) * 100:+.1f}% vs te{FLOOR}'s {te_turn:.2f}/yr; outside H2's "
+              f"5% ---" if t0 < 0.95 * te_turn else
+              f"--- H2 (ii) sensitivity: {ref} at band 0 turns {t0:.2f}/yr, within 5% of te{FLOOR}'s {te_turn:.2f} ---")
+            if t0 < 0.95 * te_turn:
+                out[ref] = o
+                continue
+            bw2 = 0.0
+        else:
+            bw2 = _bisect_band(build[ref], te_turn, lo=0.0)
+        t2, r2 = build[ref](bw2)
+        rv = dict(feasible=True, band=bw2, matched_turn=t2, target=te_turn)
+        p(f"--- H2 (ii) sensitivity: {ref} re-banded to {bw2:.4f} turns {t2:.2f}/yr over FIT "
+          f"({(t2 / te_turn - 1) * 100:+.2f}% vs te{FLOOR} at the spec band) ---")
+        for lab, a, b in WM:
+            s = td.stats(r2["pnl"].loc[a:b], r2["turn_series"].loc[a:b])
+            rv[lab] = dict(ref=s, gap=gap_read(res[("te4", "instant")], r2, hurdle[ref], a, b))
+            p(f"{lab:<10} {ref}@{bw2:.4f}: SR {s['sr']:.2f} ann {s['ann'] * 100:.2f}% turn {s['turn']:.1f}; te{FLOOR} "
+              f"(spec band) minus it: " + fmt_read(rv[lab]["gap"]))
+        o["reverse"] = rv
         out[ref] = o
     OUT["matched"] = out
 
@@ -374,7 +472,7 @@ def plateau_per_session(res, thin, cnt, dist_end):
 
 
 # --------------------------------------------------------------------------- attacks on te4's gap
-def attack(H, T, thin, cnt, panel, keep, Rt, res, dist_end):
+def attack(H, T, thin, cnt, panel, keep, Rt, res, dist_end, hurdle):
     """Declared before reading any te4 result beyond the smoke run's scoreboard: where te4's thin-day P&L sits,
     whether it is stale prices, distributions or beta, the stretches as the unit, the best days, the bar."""
     from itertools import product as _prod
@@ -506,18 +604,20 @@ def attack(H, T, thin, cnt, panel, keep, Rt, res, dist_end):
           f"{o['t_without_best10']:.2f}")
         est, t_day = float(x.mean() * P), nwt(x.to_numpy())
         o["bars"] = {}
-        for N in (52, 53, 54):
+        # meaningful = the cost hurdle (te4's extra FIT turnover at the spec band x 15bp), as read_result's
+        # docstring asks; the first version passed the observed estimate, which made ABSENT unreachable
+        for N in NS:
             bar = float(upper_bound_max_z(N))
-            rr = read_result(est, est / t_day, est, n_trials=N) if est > 0 else None
+            rr = read_result(est, abs(est / t_day), hurdle[ref], n_trials=N)
             o["bars"][N] = dict(bar=bar, p_clear_paired=float(p_clear_bar(t_day, bar)),
                                 p_clear_runs=float(p_clear_bar(t_runs, bar)),
-                                read=rr["outcome"] if rr else "n/a (negative)", lo=rr["lo"] if rr else None,
-                                hi=rr["hi"] if rr else None)
+                                read=rr["outcome"], lo=rr["lo"], hi=rr["hi"], vs=rr["vs_meaningful"],
+                                hurdle=hurdle[ref])
             b = o["bars"][N]
             p(f"f. N={N}: bar {bar:.3f}; paired t {t_day:.2f}, run t {t_runs:.2f}; P(clear | true t = observed) "
-              f"{b['p_clear_paired']:.2f} / {b['p_clear_runs']:.2f}; read_result (Sidak at N, meaningful = the "
-              f"observed {est * 100:.2f}pp/yr) {b['read']}"
-              + (f" [{b['lo'] * 100:.2f}, {b['hi'] * 100:.2f}]" if rr else ""))
+              f"{b['p_clear_paired']:.2f} / {b['p_clear_runs']:.2f}; read_result (Sidak at N, meaningful = the cost "
+              f"hurdle {hurdle[ref] * 100:.2f}pp/yr) {b['read']} [{b['lo'] * 100:.2f}, {b['hi'] * 100:.2f}], "
+              f"vs hurdle {b['vs']}")
         out[f"d_f_vs_{ref}"] = o
     OUT["attack"] = out
 
@@ -620,7 +720,9 @@ def concentration(H, T, thin, TF, cnt, dist_end):
 
 
 def leave_out(H, keep, Rt, dist_end, ref):
-    """te4 minus ref with one name's own P&L taken out (attribution), PHK and PTY first."""
+    """te4 minus ref with one name's own P&L taken out (attribution), PHK and PTY first. Added after the
+    beta-detector pass (2026-11-03): PHK and PTY were PR #33's two largest contributors to HOLD's thin-day P&L;
+    te4's own two largest against flatten are PHK and PDI, so PHK+PDI and PHK+PDI+PTY are printed too."""
     W = [w for w in td.windows(dist_end) if w[0] in ("2010-14", "2015-19", "2020-22", "FIT <2023", "H13 2023+")]
     A, B = H[("te4", "instant")], H[(ref, "instant")]
     Dn = (A.loc[keep].shift(2).fillna(0.0) - B.loc[keep].shift(2).fillna(0.0)) * Rt   # H1; first 2 rows hold nothing
@@ -632,7 +734,7 @@ def leave_out(H, keep, Rt, dist_end, ref):
     p(f"\n=== STEP 4: te4 minus {ref} with each name's own P&L taken out (attribution; instant flips; pp/yr, NW t) ===")
     p(f"{'left out':<10}" + "".join(f"{lab:>18}" for lab, _, _ in W))
     out = {}
-    for drop in [[]] + [[t] for t in order] + [["PHK", "PTY"]]:
+    for drop in [[]] + [[t] for t in order] + [["PHK", "PTY"], ["PHK", "PDI"], ["PHK", "PDI", "PTY"]]:
         cells = []
         for lab, a, b in W:
             X = Dn.loc[a:b]
@@ -653,7 +755,8 @@ def rebuilt(dist_end):
     p("\n=== STEP 4: books REBUILT on the universe without the name(s) (targets, masks and books recomputed; "
       "a smaller universe is thin more often, so this is a different book) ===")
     out = {}
-    for drop in (["PHK"], ["PTY"], ["PHK", "PTY"]):
+    # PDI and PHK+PDI added after the beta-detector pass (te4's own two largest contributors vs flatten)
+    for drop in (["PHK"], ["PTY"], ["PHK", "PTY"], ["PDI"], ["PHK", "PDI"]):
         U = [u for u in UNIVERSE if u not in drop]
         T, R = bf.build_targets(universe=U)
         thin = bf.thin_sessions(T.index, universe=U)
@@ -683,22 +786,31 @@ def rebuilt(dist_end):
 
 
 def borrow(H, keep, Rt, dist_end, res):
-    p("\n=== STEP 4: borrow on the shorts te4 carries and the reference does not (charged nowhere else) ===")
-    sh = {r: H[(r, "instant")].loc[keep].clip(upper=0).abs().shift(2).fillna(0.0) for r in MAIN}   # earning-day aligned
+    """Borrow on the shorts each book holds, charged nowhere else. Every charge goes through `bf.borrow_charge`,
+    the harness's one definition: the shift(2) held book, the fee in force at t-1, 102% collateral, actual/360 per
+    calendar day. (The first version charged a simple annual rate on short weight with the fee at t, a second
+    copy of the convention: the review's finding 4.) Returns the as-of fee frame for `forward`."""
+    p("\n=== STEP 4: borrow on the shorts (bf.borrow_charge; charged nowhere else) ===")
+    Hk = {r: H[(r, "instant")].loc[keep] for r in MAIN}
     W = [w for w in td.windows(dist_end) if w[0] in ("2010-14", "2015-19", "2020-22", "FIT <2023", "H13 2023+")]
-    out = dict(breakeven={}, extra_by_name={})
+    out = dict(breakeven={}, extra_by_name={}, measured={}, backcast={})
+    # break-even: the canonical charge at a constant 1%/yr on every name; the fee that erases the gap is
+    # gap / (extra charge per 1%)
+    one = pd.DataFrame(1.0, index=Rt.index, columns=UNIVERSE)
+    c1 = {r: bf.borrow_charge(Hk[r], one) for r in MAIN}
     for ref in ("flatten", "hold"):
-        xs = sh["te4"] - sh[ref]
         for lab, a, b in W:
             gap = float((res[("te4", "instant")]["pnl"] - res[(ref, "instant")]["pnl"]).loc[a:b].mean() * P)
-            ex = float(xs.loc[a:b].sum(axis=1).mean())
-            fee = gap / ex if ex > 0 else float("nan")
-            out["breakeven"][f"{ref}/{lab}"] = dict(gap=gap, extra_short=ex, fee=fee)
+            ex = float((c1["te4"]["short"] - c1[ref]["short"]).loc[a:b].mean())
+            per1 = float((c1["te4"]["cost"] - c1[ref]["cost"]).loc[a:b].mean() * P)      # extra charge at 1%/yr
+            fee = gap / per1 if per1 > 0 else float("nan")                                # in %/yr
+            out["breakeven"][f"{ref}/{lab}"] = dict(gap=gap, extra_short=ex, extra_charge_per_1pct=per1, fee_pct=fee)
             p(f"te4 - {ref} {lab}: gap {gap * 100:+.2f}pp/yr; mean extra short weight {ex:+.3f}; uniform fee that "
-              f"erases the gap {fee * 100:.1f}%/yr" if ex > 0 else
-              f"te4 - {ref} {lab}: gap {gap * 100:+.2f}pp/yr; mean extra short weight {ex:+.3f} (te4 carries no "
-              "more short than the reference: no break-even fee)")
-        bn = xs.loc[: HOLDOUT_START - pd.Timedelta(days=1)].mean()
+              f"erases the gap {fee:.1f}%/yr" if per1 > 0 else
+              f"te4 - {ref} {lab}: gap {gap * 100:+.2f}pp/yr; mean extra short weight {ex:+.3f} (no extra borrow "
+              "charge: no break-even fee)")
+        sh = {r: (-Hk[r].shift(2).fillna(0.0)).clip(lower=0.0) for r in ("te4", ref)}   # the held short, by name
+        bn = (sh["te4"] - sh[ref]).loc[: HOLDOUT_START - pd.Timedelta(days=1)].mean()
         out["extra_by_name"][ref] = {t: float(v) for t, v in bn.items() if abs(v) > 0.005}
         p(f"FIT mean extra short weight by name vs {ref}: "
           + ", ".join(f"{t} {v:+.3f}" for t, v in bn.sort_values().items() if abs(v) > 0.005))
@@ -712,23 +824,49 @@ def borrow(H, keep, Rt, dist_end, res):
     p(f"IBKR FEE_RATE panel {fee.index.min().date()}..{fee.index.max().date()} (data/cef/cef_borrow_history.parquet; "
       "docs/REFERENCES.md: no independent source for its levels before 2026-09). Before "
       f"{fee.index.min().date()} borrow is UNMEASURED.")
-    meas = {}
-    for lab, a, b in (("2021-09-13..2022-12-30", fee.index.min(), pd.Timestamp("2022-12-30")),
+    meas = Rt.index[(Rt.index >= fee.index.min()) & (Rt.index <= fee.index.max())]
+    f_, n_stale = ak._asof_fee(fee, meas)                     # each name's fee at most 5 sessions old, else raises
+    fee_full = pd.DataFrame(np.nan, index=Rt.index, columns=UNIVERSE)
+    fee_full.loc[meas] = f_[UNIVERSE].to_numpy()
+    BC = {r: bf.borrow_charge(Hk[r], fee_full) for r in MAIN}
+    # the first measured row reads a fee at t-1 before the panel: start one session later
+    for lab, a, b in ((f"{meas[1].date()}..2022-12-30", meas[1], pd.Timestamp("2022-12-30")),
                       ("2023-01-03..DIST_END", HOLDOUT_START, min(dist_end, fee.index.max()))):
         days = Rt.loc[a:b].index
-        f, n_stale = ak._asof_fee(fee, days)
-        ch = {r: float((sh[r].loc[days] * f / 100).sum(axis=1).mean()) for r in MAIN}
+        ch, cov = {}, {}
+        for r in MAIN:
+            ch[r] = float(BC[r]["cost"].loc[days].mean() * P)
+            tot = float(BC[r]["short"].loc[days].sum())
+            cov[r] = 1.0 - float(BC[r]["uncovered"].loc[days].sum()) / tot if tot > 0 else 1.0
+            if cov[r] != 1.0:
+                raise AssertionError(f"{r} {lab}: a short held on a name-day with no fee (covered {cov[r]:.4f})")
         gaps = {r: float((res[("te4", "instant")]["pnl"] - res[(r, "instant")]["pnl"]).loc[days].mean() * P)
                 for r in ("flatten", "hold")}
-        meas[lab] = dict(borrow=ch, gap=gaps, net={r: gaps[r] - (ch["te4"] - ch[r]) for r in gaps},
-                         stale_name_days=n_stale)
-        p(f"{lab}: borrow on short weight, simple annual rate: hold {ch['hold'] * 100:.2f}%, flatten "
-          f"{ch['flatten'] * 100:.2f}%, te4 {ch['te4'] * 100:.2f}%/yr; te4 - flatten gap {gaps['flatten'] * 100:+.2f} "
-          f"gross -> {meas[lab]['net']['flatten'] * 100:+.2f} net of the extra borrow; te4 - hold "
-          f"{gaps['hold'] * 100:+.2f} -> {meas[lab]['net']['hold'] * 100:+.2f} (fee up to 5 sessions old on {n_stale} "
+        out["measured"][lab] = dict(borrow=ch, covered=cov, gap=gaps,
+                                    net={r: gaps[r] - (ch["te4"] - ch[r]) for r in gaps}, days=len(days),
+                                    stale_name_days=n_stale)
+        m_ = out["measured"][lab]
+        p(f"{lab} ({len(days)} days; every held short has a fee): borrow hold {ch['hold'] * 100:.2f}%, flatten "
+          f"{ch['flatten'] * 100:.2f}%, te4 {ch['te4'] * 100:.2f}%/yr of NAV; te4 - flatten gap "
+          f"{gaps['flatten'] * 100:+.2f} gross -> {m_['net']['flatten'] * 100:+.2f} net of the extra borrow; te4 - hold "
+          f"{gaps['hold'] * 100:+.2f} -> {m_['net']['hold'] * 100:+.2f} (fee carried up to 5 sessions on {n_stale} "
           "name-days)")
-    out["measured"] = meas
+    # BACK-CAST [U]: each name's median and p90 measured fee (the whole panel), constant, charged to the years
+    # before the panel. Not a measurement: what the fees were before 2021-09-13 is unknown
+    for q in ("median", "p90"):
+        lvl = fee.median() if q == "median" else fee.quantile(0.9)
+        fr = pd.DataFrame(np.tile(lvl.to_numpy(), (len(Rt.index), 1)), index=Rt.index, columns=UNIVERSE)
+        cq = {r: bf.borrow_charge(Hk[r], fr)["cost"] for r in MAIN}
+        for ref in ("flatten", "hold"):
+            for lab, a, b in W:
+                gap = float((res[("te4", "instant")]["pnl"] - res[(ref, "instant")]["pnl"]).loc[a:b].mean() * P)
+                ex = float((cq["te4"] - cq[ref]).loc[a:b].mean() * P)
+                out["backcast"][f"{q}/{ref}/{lab}"] = dict(gap=gap, extra_borrow=ex, net=gap - ex)
+        p(f"BACK-CAST [U] at each name's {q} measured fee ("
+          + ", ".join(f"{t} {v:.1f}" for t, v in lvl.items()) + "%/yr): te4 - flatten net "
+          + "  ".join(f"{lab} {out['backcast'][f'{q}/flatten/{lab}']['net'] * 100:+.2f}" for lab, _, _ in W))
     OUT["borrow"] = out
+    return fee_full
 
 
 # --------------------------------------------------------------------------- H12 control
@@ -781,8 +919,287 @@ def direction_control(T, thin, TF, BF, cnt, keep, Rt, res, dist_end):
     OUT["direction_control"] = out
 
 
+# --------------------------------------------------------------------------- review attacks
+def sponsors():
+    """Each universe name's sponsor: the first word of `longName` in data/cef/cef_facts.csv (yfinance fund facts,
+    fetched 2026-09-11), upper-cased. Raises if a name is missing or has two different names."""
+    f = pd.read_csv(bf.DATA_DIR / "cef_facts.csv")
+    f = f[f["ticker"].isin(UNIVERSE)]
+    nm = f.groupby("ticker")["longName"].agg(lambda x: set(x.dropna()))
+    bad = [t for t in UNIVERSE if t not in nm.index or len(nm[t]) != 1]
+    if bad:
+        raise AssertionError(f"cef_facts.csv has no single longName for {bad}")
+    return {t: next(iter(nm[t])).split()[0].upper() for t in UNIVERSE}
+
+
+def episodes(trade, idx, gap_series):
+    """Runs of traded thin sessions merged into one episode when fewer than ADV_WINDOW sessions separate them (two
+    such runs share most of their trailing-ADV state, so they are not independent liquidity episodes). Never
+    merged across HOLDOUT_START. Each episode's value is the gap summed over its runs' earning days (t+2)."""
+    eps = []
+    for i0, i1 in ak.runs_of(trade):
+        fit = idx[i0] < HOLDOUT_START
+        if eps and eps[-1]["fit"] == fit and i0 - eps[-1]["i1"] - 1 < ADV_WINDOW:
+            eps[-1]["i1"] = i1
+            eps[-1]["parts"].append((i0, i1))
+        else:
+            eps.append(dict(i0=i0, i1=i1, fit=fit, parts=[(i0, i1)]))
+    for e in eps:
+        v = 0.0
+        for i0, i1 in e["parts"]:
+            earn = idx[i0 + 2: i1 + 3]
+            v += float(gap_series.loc[earn[earn.isin(gap_series.index)]].sum())
+        e.update(first=str(idx[e["i0"]].date()), last=str(idx[e["i1"]].date()), value=v, runs=len(e["parts"]))
+    return eps
+
+
+def review_attacks(H, T, thin, TF, BF, cnt, panel, keep, Rt, res, dist_end):
+    """Declared after the review and the beta-detector pass (2026-11-03), before any of it ran here. Each item
+    re-runs on committed code an attack that pass made in scratch:
+      g. the gap by fund sponsor, every sponsor printed (sponsors());
+      h. the FIT stretches merged into independent episodes (episodes()); t, exact sign-flip p, and the
+         small-sample t critical value at the bar's one-sided p;
+      i. the gap without its three largest FIT stretches;
+      j. the recent-books placebo (PR #33's lagged books, adapted to te4): on every session te4 trades and the
+         spec does not, the target is rebuilt on THE SAME eligible names from the z-scores of L sessions earlier
+         (the vol scalar as of the decision date), L = 0 / 5 / 21 / 63 / 126 / 252; and a static tilt (each
+         name's mean te4 FIT thin target, demeaned on the day's eligible names, at the day's te4 gross). The
+         static tilt is IN-SAMPLE, which favours the placebo;
+      k. extra execution delay: H.shift(k - 2) through evaluate(), k = 3, 4, 6 (k = 2 is the canonical shift(2));
+      l. a Dimson factor regression of the daily gap on the repo's ETF panel (data/rv/etf_panel.parquet;
+         docs/REFERENCES.md, the 2026-10-11 fetchers row): credit HYG-IEF, rates IEF, loans BKLN-IEF, equity SPY,
+         lags 0..2 summed, HAC with the Newey-West 1994 lag. The beta-detector's fifth factor, MUB, came from a
+         scratch yfinance pull with no fetcher, so it is not used (CLAUDE.md data rules);
+      m. the power of a pre-registered forward test, by independent episodes."""
+    import inspect
+    from math import erf, sqrt as _sqrt
+    from scipy import stats as sps
+    import statsmodels.api as sm
+    from scripts.research.inference import p_clear_bar, upper_bound_max_z
+    if "rolling(63," not in inspect.getsource(bf.build_panel):
+        raise AssertionError("build_panel's ADV window is no longer 63 sessions; ADV_WINDOW is stale")
+    W = [w for w in td.windows(dist_end) if w[0] in ("2010-14", "2015-19", "2020-22", "FIT <2023", "H13 2023+")]
+    fit = (pd.Timestamp(bf.SAMPLE_START), HOLDOUT_START - pd.Timedelta(days=1))
+    out = {}
+    idx = T.index
+    trade = thin & (cnt >= FLOOR)
+    gap = {r: res[("te4", "instant")]["pnl"] - res[(r, "instant")]["pnl"] for r in ("flatten", "hold")}
+
+    # g. sponsor split
+    sp = sponsors()
+    fam = sorted(set(sp.values()))
+    p("\n=== REVIEW ATTACK g: the gap by fund sponsor (attribution; instant; pp/yr, NW t) ===")
+    p("sponsors (cef_facts.csv longName): " + "; ".join(f"{f}: {', '.join(t for t in UNIVERSE if sp[t] == f)}"
+                                                       for f in fam))
+    out["g_sponsor"] = dict(map=sp)
+    for ref in ("flatten", "hold"):
+        A = H[("te4", "instant")].loc[keep].shift(2).fillna(0.0)
+        B = H[(ref, "instant")].loc[keep].shift(2).fillna(0.0)
+        Dn = (A - B) * Rt
+        for f in fam:
+            cols = [t for t in UNIVERSE if sp[t] == f]
+            x = Dn[cols].sum(axis=1)
+            out["g_sponsor"][f"{ref}/{f}"] = {lab: dict(pp=float(x.loc[a:b].mean() * P), t=nwt(x.loc[a:b].to_numpy()))
+                                              for lab, a, b in W}
+            p(f"te4 - {ref}, {f} ({len(cols)}): " + "  ".join(
+                f"{lab} {out['g_sponsor'][f'{ref}/{f}'][lab]['pp'] * 100:+.2f} ({out['g_sponsor'][f'{ref}/{f}'][lab]['t']:+.2f})"
+                for lab, _, _ in W))
+
+    # h. independent episodes; i. without the three largest stretches
+    out["h_episodes"], out["i_top3"] = {}, {}
+    for ref in ("flatten", "hold"):
+        eps = episodes(trade, idx, gap[ref])
+        v = np.array([e["value"] for e in eps if e["fit"]])
+        vh = [e["value"] for e in eps if not e["fit"]]
+        n = len(v)
+        t = float(v.mean() / v.std(ddof=1) * np.sqrt(n))
+        signs = ((np.arange(2 ** n)[:, None] >> np.arange(n)[None, :]) & 1).astype(np.int8) * 2 - 1
+        pf = float(((signs @ v) >= v.sum() - 1e-15).mean())
+        crit = {}
+        for N in NS:
+            bar = float(upper_bound_max_z(N))
+            p1 = 0.5 * (1 - erf(bar / _sqrt(2)))           # the bar's one-sided normal p
+            crit[N] = dict(bar=bar, p_bar=p1, t_crit=float(sps.t.ppf(1 - p1, n - 1)),
+                           sign_pass=bool(pf <= p1), t_pass=bool(t >= float(sps.t.ppf(1 - p1, n - 1))))
+        o = dict(n=n, values=[float(x) for x in v], t=t, positive=int((v > 0).sum()), p_signflip=pf,
+                 effect=float(v.mean() / v.std(ddof=1)), h13=[float(x) for x in vh], crit=crit,
+                 table=[dict(first=e["first"], last=e["last"], runs=e["runs"], pp=e["value"], fit=e["fit"]) for e in eps])
+        out["h_episodes"][ref] = o
+        p(f"\n=== REVIEW ATTACK h: te4 - {ref}, the FIT thin stretches merged when fewer than {ADV_WINDOW} sessions "
+          f"apart: {n} episodes ===")
+        p("  " + ", ".join(f"{e['first']}..{e['last']} ({e['runs']} runs) {e['value'] * 100:+.2f}pp" for e in eps if e["fit"]))
+        p(f"  t {t:.2f}; positive {o['positive']}/{n}; exact sign-flip p {pf:.4f}; 2023+ episode(s) "
+          f"{[round(x * 100, 2) for x in vh]}pp; " + "; ".join(
+              f"N={N}: bar {c['bar']:.3f} (one-sided p {c['p_bar']:.5f}), t({n - 1}) critical {c['t_crit']:.2f} -> "
+              f"t {'passes' if c['t_pass'] else 'fails'}, sign test {'passes' if c['sign_pass'] else 'fails'}"
+              for N, c in crit.items()))
+        runs = []
+        x = gap[ref].loc[fit[0]:fit[1]]
+        for i0, i1 in ak.runs_of(trade):
+            if idx[i0] >= HOLDOUT_START:
+                continue
+            earn = idx[i0 + 2: i1 + 3]
+            earn = earn[earn.isin(x.index)]
+            runs.append((float(x.loc[earn].sum()), str(idx[i0].date()), earn))
+        top = sorted(runs, key=lambda r: -r[0])[:3]
+        y = x.drop(top[0][2].append([r[2] for r in top[1:]]))
+        out["i_top3"][ref] = dict(dropped=[r[1] for r in top], pp=float(y.mean() * P), t=nwt(y.to_numpy()),
+                                  days_dropped=int(len(x) - len(y)))
+        p(f"i. te4 - {ref} FIT without its three largest stretches (starting {[r[1] for r in top]}): "
+          f"{out['i_top3'][ref]['pp'] * 100:+.2f}pp/yr (NW t {out['i_top3'][ref]['t']:.2f})")
+
+    # j. recent-books placebo and a static tilt
+    zp, retp, adv = panel["z"], panel["ret"], panel["adv"]
+    T4, B4 = TF[FLOOR], BF[FLOOR]
+    elig = zp.reindex(idx)[UNIVERSE].notna() & (adv.reindex(idx)[UNIVERSE] >= MIN_ADV_USD)
+    tr_dates = idx[trade.to_numpy()]
+    below = B4.to_numpy()
+    thin_d = thin_days_of(thin, Rt.index)
+
+    def run_book(Tx):
+        A_ = Tx.values.copy()
+        for k in range(1, len(A_)):                  # below-floor rows repeat the previous row, as build_targets does
+            if below[k]:
+                A_[k] = A_[k - 1]
+        h = bf.band_gross_capped(pd.DataFrame(A_, index=T4.index, columns=T4.columns), BAND_WIDTH, MAX_GROSS_STRESS,
+                                 below_min_names="trade_eligible", thin=B4, floor=FLOOR)
+        return bf.evaluate(h.loc[keep], Rt)["pnl"]
+
+    def summ(x):
+        g = x - res[("flatten", "instant")]["pnl"]
+        return {lab: dict(thin=float(x.loc[a:b][thin_d.loc[a:b]].sum() / len(x.loc[a:b]) * P),
+                          gap=float(g.loc[a:b].mean() * P), t=nwt(g.loc[a:b].to_numpy())) for lab, a, b in W}
+    out["j_placebo"] = {}
+    p("\n=== REVIEW ATTACK j: recent-books placebo (same names, z from L sessions earlier) and a static tilt; "
+      "te4's thin-day ann% and te4 - flatten (NW t) ===")
+    for L in (0, 5, 21, 63, 126, 252):
+        Tx = T4.copy()
+        kept = fell = 0
+        for d in tr_dates:
+            i = zp.index.get_loc(d)
+            names = list(elig.columns[elig.loc[d].to_numpy()])
+            row = zp.iloc[i - L][names].dropna()
+            if len(row) < FLOOR:
+                fell += 1                              # too few lagged z-scores: te4's own row is kept (counted)
+                continue
+            Tx.loc[d] = bf._target_row(row, retp, i).reindex(UNIVERSE).fillna(0.0).values
+            kept += 1
+        x = run_book(Tx)
+        if L == 0 and not np.allclose(x.to_numpy(), res[("te4", "instant")]["pnl"].to_numpy(), atol=1e-12):
+            raise AssertionError("the placebo at L = 0 does not reproduce te4")
+        out["j_placebo"][str(L)] = dict(rebuilt=kept, kept_te4_row=fell, **summ(x))
+        p(f"L={L:3d} (rebuilt {kept}, te4 row kept {fell}): " + "  ".join(
+            f"{lab} thin {out['j_placebo'][str(L)][lab]['thin'] * 100:+.2f} gap {out['j_placebo'][str(L)][lab]['gap'] * 100:+.2f} "
+            f"({out['j_placebo'][str(L)][lab]['t']:.2f})" for lab, _, _ in W))
+    mw = T4[(trade & (idx < HOLDOUT_START)).to_numpy()].mean()
+    Tx = T4.copy()
+    for d in tr_dates:
+        names = list(elig.columns[elig.loc[d].to_numpy()])
+        w = mw[names] - mw[names].mean()
+        if w.abs().sum() == 0:
+            raise AssertionError(f"the static tilt is 0/0 on {d.date()}")
+        Tx.loc[d] = (w / w.abs().sum() * T4.loc[d].abs().sum()).reindex(UNIVERSE).fillna(0.0).values
+    out["j_placebo"]["static (in-sample)"] = summ(run_book(Tx))
+    o = out["j_placebo"]["static (in-sample)"]
+    p("static FIT-mean tilt (IN-SAMPLE): " + "  ".join(
+        f"{lab} thin {o[lab]['thin'] * 100:+.2f} gap {o[lab]['gap'] * 100:+.2f} ({o[lab]['t']:.2f})" for lab, _, _ in W))
+
+    # k. extra execution delay
+    out["k_delay"] = {}
+    p("\n=== REVIEW ATTACK k: extra execution delay, evaluate(H.shift(k - 2)) (k = 2 is shift(2)); te4 minus each, "
+      "pp/yr (NW t) ===")
+    for k in (2, 3, 4, 6):
+        pk = {r: bf.evaluate(H[(r, "instant")].loc[keep].shift(k - 2).fillna(0.0), Rt)["pnl"] for r in MAIN}
+        if k == 2 and not np.allclose(pk["te4"].to_numpy(), res[("te4", "instant")]["pnl"].to_numpy(), atol=1e-15):
+            raise AssertionError("the delay at k = 2 does not reproduce te4")
+        out["k_delay"][str(k)] = {f"{r}/{lab}": dict(pp=float((pk["te4"] - pk[r]).loc[a:b].mean() * P),
+                                                     t=nwt((pk["te4"] - pk[r]).loc[a:b].to_numpy()))
+                                  for r in ("flatten", "hold") for lab, a, b in W}
+        p(f"k={k}: " + "  ".join(f"{lab} -flat {out['k_delay'][str(k)][f'flatten/{lab}']['pp'] * 100:+.2f} "
+                                 f"({out['k_delay'][str(k)][f'flatten/{lab}']['t']:.2f})" for lab, _, _ in W))
+
+    # l. Dimson factor regression on the ETF panel
+    ep = pd.read_parquet(bf.DATA_DIR.parent / "rv" / "etf_panel.parquet")
+    ep["date"] = pd.to_datetime(ep["date"])
+    E = ep.pivot_table(index="date", columns="ticker", values="ret_total")
+    if E.index.max() < dist_end:
+        raise AssertionError(f"etf_panel ends {E.index.max().date()}, before DIST_END {dist_end.date()}")
+    F = pd.DataFrame({"credit": E["HYG"] - E["IEF"], "rates": E["IEF"], "loans": E["BKLN"] - E["IEF"],
+                      "equity": E["SPY"]})
+    first_all = F.dropna().index.min()
+
+    def reg(y, cols, lags):
+        X = pd.concat({f"{c}_L{L}": F[c].shift(L) for c in cols for L in range(lags + 1)}, axis=1)
+        d = pd.concat([y.rename("y"), X], axis=1).dropna()
+        nwl = int(4 * (len(d) / 100) ** (2 / 9))
+        m = sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC", cov_kwds={"maxlags": nwl})
+        betas = {}
+        for c in cols:
+            ks = [f"{c}_L{L}" for L in range(lags + 1)]
+            b = float(m.params[ks].sum())
+            se = float(np.sqrt(np.ones(len(ks)) @ m.cov_params().loc[ks, ks].to_numpy() @ np.ones(len(ks))))
+            betas[c] = dict(beta=b, t=b / se)
+        return dict(n=int(len(d)), alpha=float(m.params["const"] * P), alpha_t=float(m.tvalues["const"]),
+                    r2=float(m.rsquared), betas=betas, nw_lag=nwl, first=str(d.index.min().date()))
+    out["l_factors"] = dict(first_all_four=str(first_all.date()), etf_panel_last=str(E.index.max().date()))
+    p(f"\n=== REVIEW ATTACK l: Dimson factor regression of the daily gap (lags 0..2 summed; HAC, NW 1994 lag); "
+      f"ETF panel to {E.index.max().date()}; all four factors from {first_all.date()} ===")
+    cols4 = ["credit", "rates", "loans", "equity"]
+    for ref in ("flatten", "hold"):
+        for lab, a, b, cols, lags, days in (
+                ("FIT (4 factors)", first_all, fit[1], cols4, 2, "all"),
+                ("FIT (4 factors), thin days", first_all, fit[1], cols4, 2, "thin"),
+                ("FIT (4 factors), lag 0 only", first_all, fit[1], cols4, 0, "all"),
+                ("FIT (3, no loans)", pd.Timestamp(bf.SAMPLE_START), fit[1], ["credit", "rates", "equity"], 2, "all"),
+                ("H13 2023+ (4 factors)", HOLDOUT_START, dist_end, cols4, 2, "all")):
+            y = gap[ref].loc[a:b]
+            if days == "thin":
+                y = y[thin_d.loc[a:b]]
+            r = reg(y, cols, lags)
+            out["l_factors"][f"{ref}/{lab}"] = r
+            p(f"te4 - {ref} {lab:<28} n {r['n']:5d} from {r['first']}: alpha {r['alpha'] * 100:+.2f}pp/yr "
+              f"(t {r['alpha_t']:.2f}) R2 {r['r2']:.3f} | " + "  ".join(
+                  f"{c} {v['beta']:+.3f} ({v['t']:+.1f})" for c, v in r["betas"].items()))
+
+    # m. power of a forward test by independent episodes
+    o = out["h_episodes"]["flatten"]
+    es = o["effect"]
+    x = gap["flatten"]
+    trd = thin_days_of(trade, Rt.index)
+    per_fit = float(x.loc[fit[0]:fit[1]][trd.loc[fit[0]:fit[1]]].mean())
+    per_h13 = float(x.loc[HOLDOUT_START:dist_end][trd.loc[HOLDOUT_START:dist_end]].mean())
+    shrink = per_h13 / per_fit
+    first_te = idx[trade.to_numpy()].min()
+    yrs_fit = (fit[1] - first_te).days / 365.25
+    yrs_h13 = (dist_end - HOLDOUT_START).days / 365.25
+    rate_fit, rate_h13 = o["n"] / yrs_fit, len(o["h13"]) / yrs_h13
+    xx = x.loc[fit[0]:fit[1]][trd.loc[fit[0]:fit[1]]]
+    sr_d = float(xx.mean() / xx.std() * np.sqrt(P))
+    pw = {}
+    for N in NS:
+        bar = float(upper_bound_max_z(N))
+        pw[N] = {nf: dict(fit=float(p_clear_bar(es * np.sqrt(nf), bar)),
+                          shrunk=float(p_clear_bar(es * shrink * np.sqrt(nf), bar))) for nf in (2, 3, 5, 9, 13)}
+    out["m_power"] = dict(effect=es, shrink=shrink, per_day_fit=per_fit * P, per_day_h13=per_h13 * P,
+                          first_te4=str(first_te.date()), rate_fit=rate_fit, rate_since_2023=rate_h13,
+                          years_for_5={"fit_rate": 5 / rate_fit, "since_2023_rate": 5 / rate_h13 if rate_h13 else None},
+                          day_sr=sr_d, days_for_half={N: float((upper_bound_max_z(N) / sr_d) ** 2 * P) for N in NS},
+                          p_pass=pw)
+    p(f"\n=== REVIEW ATTACK m: power of a forward test of te4 - flatten, by independent episodes ===")
+    p(f"per-episode effect (mean/sd, FIT) {es:.2f}; shrink = 2023+ / FIT gap per traded thin earning day "
+      f"({per_h13 * P * 100:+.2f} / {per_fit * P * 100:+.2f}%/yr) = {shrink:.2f}; episodes per year: FIT {rate_fit:.2f} "
+      f"(from {first_te.date()}), since 2023 {rate_h13:.2f}; years for 5 episodes {5 / rate_fit:.1f} / "
+      + (f"{5 / rate_h13:.1f}" if rate_h13 else "never"))
+    for N in NS:
+        p(f"N={N}: P(pass) fit / shrunk effect by forward episodes: " + "; ".join(
+            f"{nf}: {v['fit']:.2f} / {v['shrunk']:.2f}" for nf, v in pw[N].items()))
+    p(f"day level: FIT thin-traded earning days {len(xx)}, gap SR {sr_d:.2f}; thin earning days for P(pass) = 0.5 at "
+      f"N=54: {out['m_power']['days_for_half'][54]:.0f} (IID; overstated if the days are autocorrelated)")
+    OUT["review_attacks"] = out
+
+
 # --------------------------------------------------------------------------- step 5
-def forward(T, thin, panel, cnt, H, res, keep, Rt, dist_end):
+def forward(T, thin, panel, cnt, H, res, keep, Rt, dist_end, TF, BF, fee_full):
     p("\n=== STEP 5: forward relevance ===")
     out = {}
     c23 = cnt.loc[HOLDOUT_START:]
@@ -869,39 +1286,72 @@ def forward(T, thin, panel, cnt, H, res, keep, Rt, dist_end):
       + "; ".join(f"{r} earned {v['pp_on_thin_days'] * 100:+.2f}pp over them, mean gross {v['gross_mean']:.3f}"
                   for r, v in on.items()))
 
-    # expected annual effect [U]: (te4 - flatten) per unit share of traded thin sessions, times a forward share
-    def per_share(lab, a_, b_):
-        d = (res[("te4", "instant")]["pnl"] - res[("flatten", "instant")]["pnl"]).loc[a_:b_]
-        s = float(((thin & (cnt >= FLOOR)).loc[a_:b_]).mean())
-        dt = (res[("te4", "deferred")]["pnl"] - res[("flatten", "deferred")]["pnl"]).loc[a_:b_]
-        tt = (res[("te4", "instant")]["turn_series"] - res[("flatten", "instant")]["turn_series"]).loc[a_:b_]
-        return dict(window=lab, gap=float(d.mean() * P), gap_deferred=float(dt.mean() * P), share=s,
-                    per_share=float(d.mean() * P / s) if s > 0 else float("nan"),
-                    per_share_deferred=float(dt.mean() * P / s) if s > 0 else float("nan"),
-                    extra_turn=float(tt.mean() * P), extra_turn_per_share=float(tt.mean() * P / s) if s > 0 else
-                    float("nan"))
-    bases = [per_share("FIT <2023", pd.Timestamp(bf.SAMPLE_START), HOLDOUT_START - pd.Timedelta(days=1)),
-             per_share("2015-22 (thin = 4-5 names)", pd.Timestamp("2015-01-01"), pd.Timestamp("2022-12-31"))]
-    shares = {"0 (the state since 2023-08-30)": 0.0,
-              "the 2023+ share": float(((thin & (cnt >= FLOOR)).loc[HOLDOUT_START:dist_end]).mean())}
+    # expected annual effect [U]: (te4 - flatten) per unit share of traded thin sessions, times a forward share.
+    # CHANGED AFTER THE REVIEW (finding 3): the one out-of-sample analogue, 2023+ itself (thin at a 15% share,
+    # one stretch), is a base beside the fit-period ones, and leads; and the book at m is built the way trial 53
+    # is activated at the tag (m x band_gross_capped(T, band, max_gross_stress / m), PR #33's reproduction of
+    # impl_core), not by multiplying the unit gap and ignoring the ceiling
     tag = td._git_show_json(f"{td.RELEASE_TAG}:ops/specs/cef_discount.frozen.json")
     mult = float(tag["frozen"]["sizing_multiplier"])
     if cef_below_min_names(tag["frozen"]) != "flatten":
         raise AssertionError(f"{td.RELEASE_TAG} sets below_min_names; the comparison is not against its live rule")
-    out["expected"] = dict(bases=bases, shares=shares, m=mult, tag=td.RELEASE_TAG, spec_id=tag.get("spec_id"))
+    rm = {}
+    for rule, TT, kw in (("flatten", T, dict(below_min_names="flatten", thin=thin)),
+                         ("te4", TF[FLOOR], dict(below_min_names="trade_eligible", thin=BF[FLOOR], floor=FLOOR))):
+        for fl in FLIPS:
+            hm = mult * bf.band_gross_capped(TT, BAND_WIDTH, MAX_GROSS_STRESS / mult, defer_flips=fl == "deferred",
+                                             **kw)
+            rm[(rule, fl)] = dict(evaluate=bf.evaluate(hm.loc[keep], Rt), H=hm)
+    trade = thin & (cnt >= FLOOR)
+    h13 = (HOLDOUT_START, dist_end)
+    bm = {(r, sz): bf.borrow_charge(rm[(r, "instant")]["H"].loc[keep] if sz == "m" else H[(r, "instant")].loc[keep],
+                                    fee_full)["cost"]
+          for r in ("te4", "flatten") for sz in ("unit", "m")}
+
+    def per_share(lab, a_, b_):
+        s_ = float(trade.loc[a_:b_].mean())
+        o = dict(window=lab, share=s_)
+        for sz, src in (("unit", {k: v for k, v in res.items()}),
+                        ("m", {k: v["evaluate"] for k, v in rm.items()})):
+            d = (src[("te4", "instant")]["pnl"] - src[("flatten", "instant")]["pnl"]).loc[a_:b_]
+            dt = (src[("te4", "deferred")]["pnl"] - src[("flatten", "deferred")]["pnl"]).loc[a_:b_]
+            tt = (src[("te4", "instant")]["turn_series"] - src[("flatten", "instant")]["turn_series"]).loc[a_:b_]
+            o[sz] = dict(gap=float(d.mean() * P), t=nwt(d.to_numpy()), gap_deferred=float(dt.mean() * P),
+                         per_share=float(d.mean() * P / s_), per_share_deferred=float(dt.mean() * P / s_),
+                         extra_turn_per_share=float(tt.mean() * P / s_))
+        return o
+    bases = [per_share("H13 2023+ (the out-of-sample analogue)", *h13),
+             per_share("FIT <2023", pd.Timestamp(bf.SAMPLE_START), HOLDOUT_START - pd.Timedelta(days=1)),
+             per_share("2015-22 (thin = 4-5 names)", pd.Timestamp("2015-01-01"), pd.Timestamp("2022-12-31"))]
+    sh13 = float(trade.loc[h13[0]:h13[1]].mean())
+    days13 = Rt.loc[h13[0]:min(h13[1], fee_full.dropna(how="all").index.max())].index
+    borrow_ps = {sz: float((bm[("te4", sz)] - bm[("flatten", sz)]).loc[days13].mean() * P / sh13)
+                 for sz in ("unit", "m")}                  # extra borrow per unit share, at 2023+'s measured fees
+    shares = {"0 (the state since 2023-08-30)": 0.0, "the 2023+ share": sh13}
+    out["expected"] = dict(bases=bases, shares=shares, m=mult, tag=td.RELEASE_TAG, spec_id=tag.get("spec_id"),
+                           borrow_per_share_2023=borrow_ps, rows=[])
     p(f"EXPECTED ANNUAL EFFECT [U] = (te4 - flatten gap per unit share of sessions te4 trades and flatten does not) x "
-      f"(a forward share); the current book at {td.RELEASE_TAG} ({tag.get('spec_id')}) multiplies the unit book by m "
-      f"= {mult} (ceiling 1.8/m ignored)")
+      f"(a forward share); the current book at {td.RELEASE_TAG} ({tag.get('spec_id')}) is built at m = {mult}: "
+      f"m x band_gross_capped(T, band, {MAX_GROSS_STRESS} / m). Extra borrow per unit share at 2023+'s measured fees: "
+      f"unit {borrow_ps['unit'] * 100:+.2f}, at m {borrow_ps['m'] * 100:+.2f}pp/yr")
     for bs in bases:
-        p(f"  base {bs['window']}: gap {bs['gap'] * 100:+.2f}pp/yr (deferred {bs['gap_deferred'] * 100:+.2f}) on a "
-          f"share {bs['share'] * 100:.1f}% -> {bs['per_share'] * 100:+.2f}pp/yr per unit share (deferred "
-          f"{bs['per_share_deferred'] * 100:+.2f}); extra turnover {bs['extra_turn']:+.2f}/yr -> "
-          f"{bs['extra_turn_per_share']:+.1f}/yr per unit share")
+        p(f"  base {bs['window']}: share {bs['share'] * 100:.1f}%; " + "; ".join(
+            f"{sz}: gap {bs[sz]['gap'] * 100:+.2f}pp/yr (t {bs[sz]['t']:.2f}; deferred {bs[sz]['gap_deferred'] * 100:+.2f}) "
+            f"-> {bs[sz]['per_share'] * 100:+.2f} per unit share (deferred {bs[sz]['per_share_deferred'] * 100:+.2f}); "
+            f"extra turnover {bs[sz]['extra_turn_per_share']:+.1f}/yr per unit share" for sz in ("unit", "m")))
         for sk, sv in shares.items():
-            g = bs["per_share"] * sv
-            c15 = bs["extra_turn_per_share"] * sv * 15 / 1e4
-            p(f"    forward share {sk} = {sv * 100:.1f}%: {g * 100:+.2f}pp/yr gross unit ({g * mult * 100:+.2f} at m); "
-              f"extra turnover cost at 15bp {c15 * 100:.2f}pp/yr unit")
+            row = dict(base=bs["window"], share_key=sk, share=sv)
+            for sz in ("unit", "m"):
+                g = bs[sz]["per_share"] * sv
+                c15 = bs[sz]["extra_turn_per_share"] * sv * 15 / 1e4
+                br = borrow_ps[sz] * sv
+                row[sz] = dict(gross=g, gross_deferred=bs[sz]["per_share_deferred"] * sv, cost15=c15, borrow=br,
+                               net=g - c15 - br)
+            out["expected"]["rows"].append(row)
+            p(f"    forward share {sk} = {sv * 100:.1f}%: " + "; ".join(
+                f"{sz} gross {row[sz]['gross'] * 100:+.2f} (deferred {row[sz]['gross_deferred'] * 100:+.2f}), extra "
+                f"turnover @15bp {row[sz]['cost15'] * 100:.2f}, extra borrow at 2023+ fees {row[sz]['borrow'] * 100:.2f}, "
+                f"net {row[sz]['net'] * 100:+.2f}pp/yr" for sz in ("unit", "m")))
     OUT["forward"] = out
 
 
@@ -949,15 +1399,22 @@ def main():
     era_cv(prow, tuple(te(f) for f in PLATEAU))
     plateau(res, dist_end)
     plateau_per_session(res, thin, cnt, dist_end)
-    matched(T, thin, TF, BF, keep, Rt, rows)
+    # the cost hurdle read_result is given: te4's extra FIT turnover over each reference at the spec band x 15bp
+    hurdle = {r: (rows[("te4", "instant", "FIT <2023")]["turn"] - rows[(r, "instant", "FIT <2023")]["turn"])
+              * HURDLE_BP / 1e4 for r in ("flatten", "hold")}
+    OUT["hurdle"] = dict(bp=HURDLE_BP, **hurdle)
+    p("\ncost hurdle for read_result (te4's extra FIT turnover at the spec band x "
+      f"{HURDLE_BP}bp): " + ", ".join(f"vs {r} {v * 100:.2f}pp/yr" for r, v in hurdle.items()))
+    matched(T, thin, TF, BF, keep, Rt, rows, res, hurdle)
     concentration(H, T, thin, TF, cnt, dist_end)
     leave_out(H, keep, Rt, dist_end, "flatten")
     leave_out(H, keep, Rt, dist_end, "hold")
     rebuilt(dist_end)
-    borrow(H, keep, Rt, dist_end, res)
-    attack(H, T, thin, cnt, panel, keep, Rt, res, dist_end)
+    fee_full = borrow(H, keep, Rt, dist_end, res)
+    attack(H, T, thin, cnt, panel, keep, Rt, res, dist_end, hurdle)
+    review_attacks(H, T, thin, TF, BF, cnt, panel, keep, Rt, res, dist_end)
     degenerate_replay(T, thin, TF, BF, keep, Rt, dist_end)
-    forward(T, thin, panel, cnt, H, res, keep, Rt, dist_end)
+    forward(T, thin, panel, cnt, H, res, keep, Rt, dist_end, TF, BF, fee_full)
     direction_control(T, thin, TF, BF, cnt, keep, Rt, res, dist_end)
 
     (HERE / "run.log").write_text("\n".join(LOG) + "\n")

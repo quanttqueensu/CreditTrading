@@ -146,6 +146,27 @@ def turnover():
             print(f"| {ref} | {m['band']:.4f} | {m['matched_turn']:.2f} | {m['ref_turn']:.2f} | {w} (turn {a['turn']:.1f} "
                   f"vs {b['turn']:.1f}) | {a['sr']:.2f} / {pc(a['ann'])} / " + ", ".join(pc(a["net"][c]) for c in COSTS)
                   + f" | {b['sr']:.2f} / {pc(b['ann'])} / " + ", ".join(pc(b["net"][c]) for c in COSTS) + " |")
+    section("F2. H2: the paired gap at matched FIT turnover (instant), both directions; read_result Sidak at N, "
+            "meaningful = the cost hurdle")
+    print("| device | vs | band | window | gap pp/yr (NW t) | clears bar N=52 / 53 / 54 | read_result N=53 [interval] | "
+          "vs hurdle | extra turn/yr | net gap @5 / @15 / @30 |")
+    print("|---|---|---:|---|---|---|---|---|---:|---|")
+    for ref in ("flatten", "hold"):
+        m = M[ref]
+        for dev, blk, band in (("(i) te4 re-banded (headline)", m, m["band"]),
+                               ("(ii) ref re-banded (sensitivity)", m["reverse"], m["reverse"].get("band"))):
+            if not blk.get("feasible", True):
+                print(f"| {dev} | {ref} | infeasible | FIT <2023 | {ref}'s FIT turnover peaks at "
+                      f"{blk['max_turn_at_band_0']:.2f}/yr at band 0, against te4's {blk['target']:.2f} | | | | | |")
+                continue
+            for w in ("FIT <2023", "H13 2023+"):
+                g = blk[w]["gap"]
+                r = g["reads"]
+                print(f"| {dev} | {ref} | {band:.4f} | {w} | {pc(g['pp'], sign=True)} ({f2(g['t'])}) | "
+                      + " / ".join("yes" if r[n]["clears"] else "no" for n in ("52", "53", "54"))
+                      + f" | {r['53']['read']} [{pc(r['53']['lo'], sign=True)}, {pc(r['53']['hi'], sign=True)}] | "
+                      f"{r['53']['vs']} ({pc(g['hurdle'])}) | {g['extra_turn']:+.2f} | "
+                      + " / ".join(pc(g["net"][c], sign=True) for c in COSTS) + " |")
 
 
 def plateau():
@@ -211,20 +232,28 @@ def leave_out():
 
 
 def borrow():
-    section("J. borrow (charged nowhere else): break-even and the IBKR panel where it exists")
+    section("J. borrow (bf.borrow_charge; charged nowhere else): break-even, the IBKR panel where it exists, back-cast")
     B = J["borrow"]
     print("| vs | window | gross gap pp/yr | mean extra short weight | uniform fee that erases the gap |")
     print("|---|---|---:|---:|---:|")
     for k, v in B["breakeven"].items():
         ref, w = k.split("/")
-        fee = f"{v['fee'] * 100:.1f}%/yr" if v["extra_short"] > 0 else "none (no extra short)"
+        fee = f"{v['fee_pct']:.1f}%/yr" if v["extra_charge_per_1pct"] > 0 else "none (no extra borrow)"
         print(f"| {ref} | {w} | {pc(v['gap'], sign=True)} | {v['extra_short']:+.3f} | {fee} |")
-    print("\n| measured window | borrow hold / flatten / te4 (%/yr of NAV) | te4 - flatten gross -> net | te4 - hold gross -> net |")
-    print("|---|---|---|---|")
+    print("\n| measured window | days | borrow hold / flatten / te4 (%/yr of NAV) | te4 - flatten gross -> net | te4 - hold gross -> net |")
+    print("|---|---:|---|---|---|")
     for w, v in B["measured"].items():
         b = v["borrow"]
-        print(f"| {w} | {pc(b['hold'])} / {pc(b['flatten'])} / {pc(b['te4'])} | {pc(v['gap']['flatten'], sign=True)} -> "
+        print(f"| {w} | {v['days']} | {pc(b['hold'])} / {pc(b['flatten'])} / {pc(b['te4'])} | {pc(v['gap']['flatten'], sign=True)} -> "
               f"{pc(v['net']['flatten'], sign=True)} | {pc(v['gap']['hold'], sign=True)} -> {pc(v['net']['hold'], sign=True)} |")
+    print("\nBACK-CAST [U]: each name's median / p90 measured fee charged, constant, to every window (pp/yr):\n")
+    print("| vs | window | gross gap | extra borrow at median -> net | extra borrow at p90 -> net |")
+    print("|---|---|---:|---|---|")
+    for ref in ("flatten", "hold"):
+        for w in ("2010-14", "2015-19", "2020-22", "FIT <2023", "H13 2023+"):
+            m_, q_ = B["backcast"][f"median/{ref}/{w}"], B["backcast"][f"p90/{ref}/{w}"]
+            print(f"| {ref} | {w} | {pc(m_['gap'], sign=True)} | {pc(m_['extra_borrow'])} -> {pc(m_['net'], sign=True)} | "
+                  f"{pc(q_['extra_borrow'])} -> {pc(q_['net'], sign=True)} |")
     print("\nFIT mean extra short weight by name: " + "; ".join(
         f"vs {ref}: " + ", ".join(f"{t} {x:+.3f}" for t, x in sorted(d.items(), key=lambda kv: -kv[1]))
         for ref, d in B["extra_by_name"].items()))
@@ -266,7 +295,7 @@ def attacks():
               f"({o['p_how']}) | {pc(o['largest'])}pp ({o['largest_share'] * 100:.0f}%; {o['largest_run'][0]}.."
               f"{o['largest_run'][1]}) | {pc(o['best10_pp'])} / {pc(o['total_pp'])} | {o['t_without_best10']:.2f} | "
               f"{bars} | {J['paired_te4'][f'{ref}/instant/FIT <2023']['t']:.2f} | {rr['read']}"
-              + (f" [{pc(rr['lo'])}, {pc(rr['hi'])}]" if rr["lo"] is not None else "") + " |")
+              f" [{pc(rr['lo'])}, {pc(rr['hi'])}]; vs hurdle {pc(rr['hurdle'])}: {rr['vs']} |")
 
 
 def control():
@@ -321,16 +350,22 @@ def forward():
     print(f"\nthe 2023+ thin sessions ({h['first']}..{h['last']}, {h['days']} earning days): " + "; ".join(
         f"{r} {pc(h[r]['pp_on_thin_days'], sign=True)}pp, mean gross {h[r]['gross_mean']:.3f}" for r in MAIN))
     e = F["expected"]
-    print(f"\nEXPECTED ANNUAL EFFECT [U] (unit book; at {e['tag']} the book is m = {e['m']} times the unit book):\n")
-    print("| base | gap pp/yr (deferred) | share traded | per unit share (deferred) | forward share | gross unit "
-          "(at m) | extra turnover cost @15bp, unit |")
-    print("|---|---|---:|---|---|---|---:|")
-    for b in e["bases"]:
-        for sk, sv in e["shares"].items():
-            g = b["per_share"] * sv
-            print(f"| {b['window']} | {pc(b['gap'], sign=True)} ({pc(b['gap_deferred'], sign=True)}) | {pc(b['share'], 1)}% | "
-                  f"{pc(b['per_share'], sign=True)} ({pc(b['per_share_deferred'], sign=True)}) | {sk}: {pc(sv, 1)}% | "
-                  f"{pc(g, sign=True)} ({pc(g * e['m'], sign=True)}) | {pc(b['extra_turn_per_share'] * sv * 15 / 1e4)} |")
+    print(f"\nEXPECTED ANNUAL EFFECT [U] (unit book, and at {e['tag']} built at m = {e['m']}: "
+          "m x band_gross_capped(T, band, cap / m)); extra borrow per unit share at 2023+'s measured fees: unit "
+          f"{pc(e['borrow_per_share_2023']['unit'], sign=True)}, at m {pc(e['borrow_per_share_2023']['m'], sign=True)}\n")
+    print("| base | gap pp/yr unit (NW t) | share traded | per unit share, unit (deferred) | forward share | gross unit "
+          "(deferred) | gross at m | extra turnover @15bp, unit / at m | extra borrow at 2023+ fees, unit / at m | "
+          "net unit / at m |")
+    print("|---|---|---:|---|---|---|---|---|---|---|")
+    bases = {b_["window"]: b_ for b_ in e["bases"]}
+    for r in e["rows"]:
+        b_ = bases[r["base"]]
+        u, m_ = r["unit"], r["m"]
+        print(f"| {r['base']} | {pc(b_['unit']['gap'], sign=True)} ({f2(b_['unit']['t'])}) | {pc(b_['share'], 1)}% | "
+              f"{pc(b_['unit']['per_share'], sign=True)} ({pc(b_['unit']['per_share_deferred'], sign=True)}) | "
+              f"{r['share_key']}: {pc(r['share'], 1)}% | {pc(u['gross'], sign=True)} ({pc(u['gross_deferred'], sign=True)}) | "
+              f"{pc(m_['gross'], sign=True)} | {pc(u['cost15'])} / {pc(m_['cost15'])} | {pc(u['borrow'])} / "
+              f"{pc(m_['borrow'])} | {pc(u['net'], sign=True)} / {pc(m_['net'], sign=True)} |")
 
 
 def checks():
@@ -340,6 +375,72 @@ def checks():
           f"{s['below']}; traded on {s['traded']}; equal to the harness after the ceiling on {s['clean']} to "
           f"{s['max_abs_diff_clean']:.1e}; min-weight block acts on {s['minw_rows']} (by count {s['minw_by_n']}; at "
           f"floor 4: {s['minw_by_n_floor4']}), max abs weight difference there {s['max_abs_diff_minw']:.4f}")
+
+
+def review():
+    R = J["review_attacks"]
+    ws = ("2010-14", "2015-19", "2020-22", "FIT <2023", "H13 2023+")
+    section("P1. the gap by fund sponsor (attribution, instant), pp/yr (NW t)")
+    print("| vs | sponsor (names) | " + " | ".join(ws) + " |")
+    print("|---|---|" + "---|" * len(ws))
+    sp = R["g_sponsor"]["map"]
+    for ref in ("flatten", "hold"):
+        for f in sorted(set(sp.values())):
+            names = ", ".join(t for t, v in sp.items() if v == f)
+            row = R["g_sponsor"][f"{ref}/{f}"]
+            print(f"| {ref} | {f} ({names}) | " + " | ".join(f"{pc(row[w]['pp'], sign=True)} ({f2(row[w]['t'])})"
+                                                           for w in ws) + " |")
+    section("P2. independent episodes (FIT stretches merged when fewer than 63 sessions apart)")
+    print("| vs | FIT episodes | values pp | t | positive | exact sign-flip p | N=53: bar p / t crit -> t, sign | "
+          "N=54: bar p / t crit -> t, sign | 2023+ episode(s) pp | without the 3 largest stretches pp/yr (NW t) |")
+    print("|---|---:|---|---:|---|---:|---|---|---|---|")
+    for ref in ("flatten", "hold"):
+        o, t3 = R["h_episodes"][ref], R["i_top3"][ref]
+        c = lambda n: (f"{o['crit'][n]['p_bar']:.5f} / {o['crit'][n]['t_crit']:.2f} -> "            # noqa: E731
+                       f"{'pass' if o['crit'][n]['t_pass'] else 'fail'}, {'pass' if o['crit'][n]['sign_pass'] else 'fail'}")
+        print(f"| {ref} | {o['n']} | {', '.join(f'{v * 100:+.2f}' for v in o['values'])} | {o['t']:.2f} | "
+              f"{o['positive']}/{o['n']} | {o['p_signflip']:.4f} | {c('53')} | {c('54')} | "
+              f"{', '.join(f'{v * 100:+.2f}' for v in o['h13'])} | {pc(t3['pp'], sign=True)} ({f2(t3['t'])}) |")
+    print("\nepisodes vs flatten: " + "; ".join(f"{e['first']}..{e['last']} ({e['runs']} runs) {pc(e['pp'], sign=True)}"
+                                               for e in R["h_episodes"]["flatten"]["table"]))
+    section("P3. recent-books placebo: te4 thin-day ann % / te4 - flatten pp/yr (NW t)")
+    print("| book | " + " | ".join(ws) + " |")
+    print("|---|" + "---|" * len(ws))
+    for k, o in R["j_placebo"].items():
+        lab = f"L = {k}" if k[0].isdigit() else k
+        extra = f" (rebuilt {o['rebuilt']}, te4 row kept {o['kept_te4_row']})" if "rebuilt" in o else ""
+        print(f"| {lab}{extra} | " + " | ".join(f"{pc(o[w]['thin'], sign=True)} / {pc(o[w]['gap'], sign=True)} "
+                                                f"({f2(o[w]['t'])})" for w in ws) + " |")
+    section("P4. extra execution delay: te4 minus flatten / minus hold, pp/yr (NW t)")
+    print("| k (decide t, earn t+k) | " + " | ".join(ws) + " |")
+    print("|---|" + "---|" * len(ws))
+    for k, o in R["k_delay"].items():
+        print(f"| {k} | " + " | ".join(f"{pc(o[f'flatten/{w}']['pp'], sign=True)} ({f2(o[f'flatten/{w}']['t'])}) / "
+                                       f"{pc(o[f'hold/{w}']['pp'], sign=True)} ({f2(o[f'hold/{w}']['t'])})" for w in ws) + " |")
+    section("P5. Dimson factor regression of the daily gap (lags 0..2 summed; HAC, NW 1994 lag)")
+    L = R["l_factors"]
+    print(f"ETF panel to {L['etf_panel_last']}; all four factors from {L['first_all_four']}\n")
+    print("| vs | sample | n | alpha pp/yr (t) | R2 | credit | rates | loans | equity |")
+    print("|---|---|---:|---|---:|---|---|---|---|")
+    for k, r in L.items():
+        if "/" not in k:
+            continue
+        ref, lab = k.split("/", 1)
+        b = r["betas"]
+        print(f"| {ref} | {lab} (from {r['first']}) | {r['n']} | {pc(r['alpha'], sign=True)} ({r['alpha_t']:.2f}) | "
+              f"{r['r2']:.3f} | " + " | ".join(f"{b[c]['beta']:+.3f} ({b[c]['t']:+.1f})" if c in b else "-"
+                                              for c in ("credit", "rates", "loans", "equity")) + " |")
+    section("P6. power of a forward test of te4 - flatten, by independent episodes")
+    m = R["m_power"]
+    print(f"per-episode effect {m['effect']:.2f}; shrink {m['shrink']:.2f} (2023+ / FIT gap per traded thin earning day, "
+          f"{pc(m['per_day_h13'], sign=True)} / {pc(m['per_day_fit'], sign=True)}%/yr); episodes per year FIT "
+          f"{m['rate_fit']:.2f} (from {m['first_te4']}), since 2023 {m['rate_since_2023']:.2f}; years for 5 episodes "
+          f"{m['years_for_5']['fit_rate']:.1f} / {f2(m['years_for_5']['since_2023_rate'], 1)}; day-level gap SR "
+          f"{m['day_sr']:.2f}, thin earning days for P(pass) = 0.5 at N=54: {m['days_for_half']['54']:.0f}\n")
+    print("| N | 2 episodes | 3 | 5 | 9 | 13 |")
+    print("|---|---|---|---|---|---|")
+    for N, row in m["p_pass"].items():
+        print(f"| {N} | " + " | ".join(f"{v['fit']:.2f} / {v['shrunk']:.2f}" for v in row.values()) + " |")
 
 
 if __name__ == "__main__":
@@ -359,5 +460,6 @@ if __name__ == "__main__":
     attacks()
     control()
     degenerate()
+    review()
     forward()
     checks()
