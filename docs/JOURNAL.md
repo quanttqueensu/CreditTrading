@@ -14,8 +14,9 @@ file or command that owns it:
 If this journal and an owner disagree, the owner is right, and the journal gets a
 dated correction.
 
-**Live P&L** is copied from prod's `verify.log` line for the day: Alpaca's 17:30 ET
-snapshot and the auction-marked P&L, both gross. Alpaca's end-of-day history is
+**Live P&L** is Alpaca's **official** end-of-day figure first, with the auction-marked P&L
+beside it, both gross. The 17:30 ET snapshot carries after-hours marks and ran $560
+too favourable over 10-07..10-30 (2026-11-02 entry), so it is never the headline. Alpaca's end-of-day history is
 the **official** figure (team lead, 2026-10-19), and it lands the next day.
 Until it does, the line says *official pending*. Labels: [V] measured or read
 from a named source; [doc] copied from a named note.
@@ -80,7 +81,7 @@ from a named source; [doc] copied from a named note.
 - **16:30 ET: `release-20261028-1` (de6e9c5).** Empty price or NAV rows are never merged; NAVs must be finite (and later positive).
 - **17:14 ET: prod panel repair.** 87 closes filled from Alpaca's closing-auction prints; a backup sits next to the panel; one log line per cell (`quantt_state/cef/logs/repair_empty_closes.log`). Measured effect on the day's plan: weights moved ≤ 0.0008, and PTY went flat. 4 NYSE American cells (DHY, EAD) are left empty. DHY's history is split-adjusted, so a raw print would be 10× off.
 
-**Live [V]:** PASS, 10 orders, 10 filled. Snapshot +$414.46; auction-marked +$421.90. Equity $99,528.31 at the close.
+**Live [V]:** PASS, 10 orders, 10 filled. Snapshot +$414.46; auction-marked +$421.90. Equity $99,528.31 at the close. *[Corrected 2026-11-02: $99,528.31 was a 17:10 ET after-hours read; the official close was $99,535.06, official day +$421.21. See 2026-11-02.]*
 
 ## 2026-10-29 (Thu)
 
@@ -115,7 +116,7 @@ from a named source; [doc] copied from a named note.
 - Ssh allowlist: the team lead's current IP was added to the VM's network rule (`vmallow.sh`, git-excluded), keeping the existing entries.
 - Every release passed a release-check (both reviewers) and a history replay (0 new refusals), and was applied with `--armed`. The VM is ARMED at `release-20261029-3`.
 
-**Live [V]:** PASS, 3 orders, 3 filled. Snapshot +$78.64; auction-marked −$13.43. Equity $99,530.59 at the close.
+**Live [V]:** PASS, 3 orders, 3 filled. Snapshot +$78.64; auction-marked −$13.43. Equity $99,530.59 at the close. *[Corrected 2026-11-02: a 17:10 ET read; the official close was $99,521.57, official day −$13.49.]*
 
 **Open at end of day:**
 - the gate-6 fix for PR #20 (4c63b1f, done), plus rulings A and B (being built);
@@ -152,7 +153,7 @@ from a named source; [doc] copied from a named note.
 
 **Prod:** no change.
 
-**Live [V, ops.prod_state]:** 2026-10-30 PASS, 7 orders, 7 filled (the first session with the missing-NAV hold on). Equity $99,124.35 at the close. The 2026-11-02 plan is decided (4 orders).
+**Live [V, ops.prod_state]:** 2026-10-30 PASS, 7 orders, 7 filled (the first session with the missing-NAV hold on). Equity $99,124.35 at the close. The 2026-11-02 plan is decided (4 orders). *[Corrected 2026-11-02: a 17:10 ET read; the official close was $99,017.86, official day −$503.71, official total since $100,000 −$982.14.]*
 
 ## 2026-11-02 (Mon)
 
@@ -165,6 +166,21 @@ from a named source; [doc] copied from a named note.
 **Rulings** (`docs/SYSTEM.md` §5): a row with a missing party symbol **halts only where it would halt for one of our held funds**, and the team lead clears it with `ca-ack`, matched on its full content. Outside our windows it is recorded only.
 
 **Build:** the corporate-action read now validates every field. A property test (4,598 adversarial cases) fails 794 on 1c64638 and 0 on a40170c. **Release branch `rel-20261102`** (3478159) = the gate fixes + CEF trial 53's activation (core ×1.13, spec v8), released together.
+
+**Found: our records flattered the account.** Reconciled day by day against Alpaca's official closes, rebuilt from each day's `last_equity` (VM `equity.csv` and `scores.csv`, copied 2026-11-02; `eod_equity.csv` not yet read):
+
+| 10-07..10-30 | total | vs official |
+|---|---|---|
+| Alpaca official (end-of-day, P&L of record) | **−$1,794.53** | — |
+| auction-marked score | −$1,789.74 | $4.79; never more than $0.69 on a day |
+| 17:30 snapshot (`alpaca_equity_change_usd`) | −$1,234.29 | **+$560.24**: after-hours marks |
+
+- The 17:30 snapshot carries Alpaca's after-hours marks. Each day's gap equals that day's 17:30 equity minus its official close.
+- `equity.csv`'s 17:10 read differs from the official close by $52.88 a day on average, at most $332.00 (10-09).
+- **This journal's 10-26..10-30 snapshots sum to −$89.05; official is −$424.44.**
+- Official total since $100,000, to the 10-30 close: **−$982.14** [V, reconstructed from `last_equity`].
+- Days 2026-09-30..10-02 and 10-06 have no score at all (official −$192.97, +$626.70, $0.00, +$252.63).
+- From today the journal quotes the official figure first.
 
 **Rulings** (`docs/SYSTEM.md` §5): trial 53 ships tonight even if the gate fails review (gate in report mode). C4 uses the existing spare account; no new account.
 
