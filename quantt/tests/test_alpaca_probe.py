@@ -163,25 +163,42 @@ def test_c4_is_read_only_when_named_and_never_by_default(monkeypatch, capsys):
 # ------------------------------------------- the opening-session read (QR1, release-check of 336df9d)
 
 def _closed(n, filled_at=None, cid="lab-20261020-ADX-1"):
-    """n closed orders, newest first; the one at index `filled_at` filled."""
+    """n closed orders, OLDEST first (one a minute from 2026-01-02, as Alpaca serves
+    direction=asc); the one at index `filled_at` filled."""
+    import datetime as dt
+    t0 = dt.datetime(2026, 1, 2, 14, 30, tzinfo=dt.timezone.utc)
     return [{"id": f"o{i}", "client_order_id": cid if i == filled_at else f"x-{i}", "symbol": "ADX",
              "filled_qty": "5" if i == filled_at else "0", "status": "filled" if i == filled_at
-             else "canceled", "submitted_at": f"2026-10-{20 - i % 19:02d}T19:53:00Z"}
+             else "canceled",
+             "submitted_at": (t0 + dt.timedelta(minutes=i)).isoformat().replace("+00:00", "Z")}
             for i in range(n)]
+
+
+def _pages(closed):
+    """{path: (200, page)} serving `closed` as the runner's client pages it: 500 a page,
+    each later page asked `after` the last time strictly before the previous page's end."""
+    out, start, after = {}, 0, None
+    while True:
+        page = closed[start:start + ap.CLOSED_ORDERS_PAGE]
+        out[ap._closed_orders_path(after)] = (200, page)
+        if len(page) < ap.CLOSED_ORDERS_PAGE:
+            return out
+        after = page[-2]["submitted_at"]              # times are distinct in `_closed`
+        start += ap.CLOSED_ORDERS_PAGE - 1             # the overlap: the page's last order
 
 
 def _c4_snap(closed, positions=()):
     t = _table(ap.universe("c4"))
     t["/v2/positions"] = (200, list(positions))
-    t[ap.CLOSED_ORDERS_PATH] = (200, closed)
+    t.update(_pages(closed))
     s = FakeSession(t)
     return ap.probe_book("c4", s), s
 
 
 def test_c4s_probe_reads_whether_its_first_session_opens_at_full_target():
     """QR1: the arming read must see a PAST fill, which positions and open orders cannot.
-    Under C4's book-json rule (`execution.opening_session_fills = "own_prefix"`, team lead
-    2026-11-02: the existing spare account), the research loop's fill is read and named but
+    Under C4's book-json rule (`execution.opening_session_fills = "own_prefix"`; team lead
+    2026-11-03, "just flat it", docs/SYSTEM.md section 5, PR #30), the research loop's fill is read and named but
     does not count: still an opening session. A fill with C4's own prefix does count.
     Fails on 336df9d (no opening-session read) and on f7f7be5 (the lab fill counted)."""
     snap, s = _c4_snap(_closed(3))
@@ -205,11 +222,42 @@ def test_a_position_alone_makes_the_first_session_not_an_opening():
     assert snap["opening_session"]["value"] is False
 
 
-def test_a_full_page_with_no_fill_is_unmeasured_never_true():
-    snap, _ = _c4_snap(_closed(ap.CLOSED_ORDERS_PAGE))
+def test_the_read_pages_through_every_closed_order_not_the_newest_500():
+    """execution-trader 2 (release-check of 4f759a9): the read stopped at one page of 500.
+    Now it pages as the runner's client does: a C4 fill on the third page is found (not an
+    opening), and 1,200 foreign-only orders read whole are an opening. Fails on 61589a8."""
+    n = 2 * ap.CLOSED_ORDERS_PAGE + 200
+    snap, s = _c4_snap(_closed(n, filled_at=n - 3, cid="c4-20261020-ADX-1"))
     o = snap["opening_session"]
-    assert o["value"] is None and o["why"].startswith("UNMEASURED")
+    assert o["value"] is False and o["counted_fills"] == 1 and o["closed_orders_read"] == n
+    assert sum("status=closed" in u for u in s.urls) == 3
+    snap, _ = _c4_snap(_closed(n, filled_at=n - 3))
+    o = snap["opening_session"]
+    assert o["value"] is True and o["closed_orders_read"] == n and o["filled_orders_read"] == 1
+
+
+def test_past_the_page_cap_the_read_is_unmeasured_and_names_plan_json(monkeypatch):
+    """Past CLOSED_ORDERS_MAX_PAGES the read is UNMEASURED, never True, and names the
+    session's own plan.json `first_session` as the authority. Fails on 61589a8."""
+    monkeypatch.setattr(ap, "CLOSED_ORDERS_MAX_PAGES", 1)
+    snap, _ = _c4_snap(_closed(ap.CLOSED_ORDERS_PAGE + 10))
+    o = snap["opening_session"]
+    assert o["value"] is None and o["why"].startswith("UNMEASURED") and "plan.json" in o["why"]
     assert "opening_session: UNMEASURED" in ap.summarise(snap)
+
+
+def test_a_page_the_runners_paging_cannot_trust_raises_naming_it():
+    """Out of order, or a full page at one timestamp: raised, never read as complete."""
+    bad = list(reversed(_closed(3)))
+    with pytest.raises(RuntimeError, match="ascending"):
+        _c4_snap(bad)
+    same = _closed(ap.CLOSED_ORDERS_PAGE)
+    for o in same:
+        o["submitted_at"] = "2026-01-02T14:30:00Z"
+    t = _table(ap.universe("c4"))
+    t[ap.CLOSED_ORDERS_PATH] = (200, same)
+    with pytest.raises(RuntimeError, match="one timestamp|cannot page"):
+        ap.probe_book("c4", FakeSession(t))
 
 
 def test_the_read_is_the_runners_rule_on_the_same_orders():
