@@ -20,6 +20,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from _common import HALVE_DD, W1_START, W2_START, Paths, account, c4_spec_from, core_spec, load
 from risk import pctl_maxdd
@@ -30,13 +31,22 @@ def main() -> int:
     ap.add_argument("--scratch", type=Path, required=True)
     ap.add_argument("--m-core", type=float, required=True)
     ap.add_argument("--m-c4", type=float, required=True)
+    ap.add_argument("--core-earning-only", type=Path, default=None,
+                    help="flatten_series.py's flatten_masks.parquet: calibrate the CORE's stops on the sessions its "
+                         "book earns on (FLATTEN_REMEASURE_2026-11-02.md); absent, every session, as before")
     a = ap.parse_args()
     D = load(a.scratch)
     cap = {"core": float(core_spec.MAX_GROSS_STRESS), "c4": float(c4_spec_from()["frozen"]["max_gross_stress"])}
     paths = Paths()
     for who, m, win in (("core", a.m_core, W1_START), ("c4", a.m_c4, W2_START)):
-        x = {b: account((D["PT"] if b == "TR" else D["PP"])[who], D["G"][who], m, cap[who])[0].loc[win:].values
+        x = {b: account((D["PT"] if b == "TR" else D["PP"])[who], D["G"][who], m, cap[who])[0].loc[win:]
              for b in ("TR", "PR")}
+        if who == "core" and a.core_earning_only is not None:
+            earn = pd.read_parquet(a.core_earning_only)["earning"].reindex(x["TR"].index)
+            if earn.isna().any():
+                raise ValueError("the earning mask does not cover the core's window")
+            x = {b: v[earn.to_numpy(dtype=bool)] for b, v in x.items()}
+        x = {b: v.values for b, v in x.items()}
         p95 = {b: max(pctl_maxdd(x[b], paths, 0.95).values()) for b in ("TR", "PR")}
         d_r = min(HALVE_DD, max(p95.values()))
         I21 = paths.get(len(x["PR"]))[0]
