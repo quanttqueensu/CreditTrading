@@ -200,8 +200,7 @@ def build_targets(universe=None, source=None, mask=None, min_adv=None):
     tgt = pd.DataFrame(0.0, index=z.index, columns=U)
     start = z.index.searchsorted(pd.Timestamp(SAMPLE_START))
     for i in range(start, len(z.index)):
-        row = z.iloc[i].dropna()
-        row = row[[t for t in row.index if (adv.iloc[i].get(t, 0) or 0) >= floor]]
+        row = _eligible(z.iloc[i], adv.iloc[i], floor)
         if len(row) < MIN_NAMES:
             tgt.iloc[i] = tgt.iloc[i - 1]          # hold; nothing eligible
             continue
@@ -213,6 +212,56 @@ def build_targets(universe=None, source=None, mask=None, min_adv=None):
         tgt.iloc[i] = (w * scal).reindex(U).fillna(0.0).values
     T = tgt.iloc[start:]
     return T, ret.reindex(T.index)[U].fillna(0.0)
+
+
+def _eligible(z_row, adv_row, floor):
+    """The names eligible on one decision date: a z-score, and an ADV at or
+    above `floor`. ONE definition, shared by `build_targets` and
+    `thin_sessions` (added 2026-11-03), so the session the target holds on and
+    the session the policy flattens on can never be two different sets.
+
+    The expression is `build_targets`'s loop body before 2026-11-03, moved here
+    verbatim. A NaN ADV fails at any floor: `nan or 0` is `nan` (NaN is truthy)
+    and `nan >= floor` is False, which `scripts/cef/tests/test_c5_harness.py`
+    pins. ALIGNMENT (H7): both rows are date-t rows of `build_panel`, whose z is
+    standardised on a window ending t-1 and whose ADV ends t-1.
+
+    WHY THIS IS THE LIVE SLEEVE'S TEST ON HISTORY, NOT A SUBSET OF IT. The
+    sleeve (`src/deploy/sleeves/cef_discount.py::target_positions`) also drops
+    a name with no NAV or a NAV older than `max_nav_age_bd` (l.829-834), but its
+    `nav` is the pivot of the SAME inner join of prices and NAV (`_read_panel`),
+    so a name with a finite z on t has a paired row on t and a NAV age of 0: that
+    test cannot bind behind a finite z. The runner's stale-NAV and missing-NAV
+    holds (`extras["nav_hold"]`, l.837) exist only at run time and have no
+    history. `results/backtests/thin-days-2026-11-03/sleeve_thin_check.py` ran
+    the sleeve itself on every decision date and compares its count."""
+    row = z_row.dropna()
+    return row[[t for t in row.index if (adv_row.get(t, 0) or 0) >= floor]]
+
+
+def thin_sessions(index, universe=None, source=None, mask=None, min_adv=None):
+    """Bool Series on `index`: True on a decision date with fewer than the
+    spec's `min_names` eligible names (`_eligible`, the rule `build_targets`
+    holds on). Added 2026-11-03 for `band_gross_capped(below_min_names=
+    "flatten")`, the live sleeve's rule; the arguments are `build_targets`'s and
+    must be the same ones the targets were built with.
+
+    Every date of `index` must be a date of the panel: a date the panel does
+    not hold has no eligibility to count, and treating it as thin or as active
+    would be a guess, so it raises. Dates before `SAMPLE_START` are counted like
+    any other (`build_targets` starts there; this does not need to)."""
+    U = UNIVERSE if universe is None else list(universe)
+    floor = MIN_ADV if min_adv is None else float(min_adv)
+    p = build_panel(universe=U, source=source, mask=mask)
+    z, adv = p["z"], p["adv"]
+    idx = pd.DatetimeIndex(index)
+    missing = idx.difference(z.index)
+    if len(missing):
+        raise ValueError(f"thin_sessions: {len(missing)} date(s) the panel does not hold, "
+                         f"first {missing[0].date()}")
+    pos = z.index.get_indexer(idx)
+    n = [len(_eligible(z.iloc[i], adv.iloc[i], floor)) for i in pos]
+    return pd.Series(np.asarray(n) < MIN_NAMES, index=idx, name="thin")
 
 
 def calendar(T, k):
@@ -258,7 +307,27 @@ def _unshortable_mask(unshortable, T):
     return unshortable.reindex(columns=T.columns, fill_value=False).to_numpy(dtype=bool)
 
 
-def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False):
+BELOW_MIN_NAMES = ("hold", "flatten")       # the first is the harness default
+
+
+def _thin_mask(thin, T):
+    """`band_gross_capped`'s `thin` argument as a bool array on T's grid,
+    validated like `_unshortable_mask`: a mask on another calendar, a NaN, or a
+    number where a bool belongs raises, because a mask that silently misses a
+    session would hold that session where the live sleeve closes the book."""
+    if not isinstance(thin, pd.Series):
+        raise TypeError("thin must be a bool Series on T's index (thin_sessions(T.index))")
+    if not thin.index.equals(T.index):
+        raise ValueError("thin must be on T's own index, row for row")
+    if thin.isna().any():
+        raise ValueError("thin holds NaN; every session must say True or False")
+    if thin.dtype != bool:
+        raise TypeError(f"thin must be bool, got {thin.dtype}")
+    return thin.to_numpy(dtype=bool)
+
+
+def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False,
+                      below_min_names="hold", thin=None):
     """`band()` with the frozen `max_gross_stress` ceiling applied to the HELD
     book after the band, exactly where the sleeve applies it (added 2026-09-28).
 
@@ -311,13 +380,63 @@ def band_gross_capped(T, b, cap, unshortable=None, defer_flips=False):
     (`cur != 0 and tgt != 0` with opposite signs); in weight space that is
     `prev * cur < 0`. A target that truncates to zero shares is a close, not a
     flip, and ends flat either way, so the two agree on what is held.
+
+    `below_min_names` and `thin` (added 2026-11-03 for
+    `results/backtests/thin-days-2026-11-03/`, a zero-trial report): what the
+    book does on a decision date with fewer than `min_names` eligible names.
+
+      "hold" (the default) is the code path above, unchanged: `build_targets`
+          has already carried the previous TARGET onto such a date ("hold;
+          nothing eligible"), and the band and the ceiling act on it as on any
+          other day. `thin` must be None. sha256 of the held book (values,
+          index, columns) on the panel of 2026-10-15, before and after the
+          edit, with the v7 ceiling, cap=inf and defer_flips:
+          `results/backtests/thin-days-2026-11-03/noop_before.txt` and
+          `noop_after.txt`.
+      "flatten" is the LIVE rule, read from the code on 2026-11-03. The frozen
+          spec carries no `below_min_names` key, which the registry reads as
+          "flatten" (`src/deploy/registry.py::cef_below_min_names`). With fewer
+          than `min_names` eligible and no stale-NAV holds, the sleeve returns
+          every name FLAT before the band and the ceiling run
+          (`src/deploy/sleeves/cef_discount.py` l.841, l.892-895). decide.py
+          sizes FLAT as 0 shares (`target_shares`, l.243-244), a close is not a
+          flip (l.332: `tgt != 0`) and never needs a borrow check (l.262-264),
+          and v7's `min_trade_usd` is $0, so every whole share is closed: the
+          book goes STRAIGHT TO ZERO, not to within the band of zero. The next
+          session the sleeve bands against what the account holds, which is
+          flat, so the band reopens from zero to the EDGE (l.1070-1091); the
+          runner sets `opening_session` only when the account has never had a
+          fill (`quantt/session/run.py::is_opening_session`), so re-entry after
+          a thin day is NOT a full-target build. Here: on a row where `thin`
+          is True the held book is zero and nothing else runs (a zero book has
+          nothing to floor, scale or defer); on every other row the loop is
+          the one above, from that zero. `thin` is required, a bool Series on
+          T's index, normally `thin_sessions(T.index)` with the arguments T
+          was built with. T's values on a thin row are ignored.
     """
     from src.deploy.sleeves.cef_discount import _cap_gross
+    if below_min_names not in BELOW_MIN_NAMES:
+        raise ValueError(f"below_min_names must be one of {BELOW_MIN_NAMES}, got {below_min_names!r}")
+    if below_min_names == "hold":
+        if thin is not None:
+            raise ValueError("thin is only read with below_min_names='flatten'; under 'hold' "
+                             "build_targets has already held the target on a thin session")
+        flat = None
+    else:
+        if thin is None:
+            raise ValueError("below_min_names='flatten' needs thin (thin_sessions(T.index)); "
+                             "the harness will not guess which sessions were thin")
+        flat = _thin_mask(thin, T)
     A, cur = T.values, np.zeros(T.shape[1])
     H = np.zeros_like(A)
     cols = T.columns
     blocked = None if unshortable is None else _unshortable_mask(unshortable, T)
     for i in range(len(A)):
+        if flat is not None and flat[i]:
+            # the live sleeve: every name FLAT, straight to zero (see above)
+            cur = np.zeros(T.shape[1])
+            H[i] = cur
+            continue
         gap = A[i] - cur
         mv = np.abs(gap) > b
         prev = cur
