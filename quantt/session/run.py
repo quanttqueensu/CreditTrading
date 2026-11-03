@@ -965,8 +965,8 @@ def is_opening_session(positions: dict, closed_orders: list, *, fills: str = OPE
       * "own_prefix": a filled order counts only if its client_order_id starts with
         `<cid_prefix>-`, this book's own order-id prefix (`Book.cid_prefix`, passed by
         the runner, never a literal).
-    WHY "own_prefix" EXISTS (C4; team lead 2026-11-02: C4 trades the EXISTING spare
-    paper account, no new account). The research loop may trade that account too
+    WHY "own_prefix" EXISTS (C4; the rule is the team lead 2026-11-03, "just flat it" (docs/SYSTEM.md section 5, PR #30); C4 trades the EXISTING
+    spare paper account, no new account, ruled 2026-11-02). The research loop may trade that account too
     (CLAUDE.md rule 1's 2026-10-27 exception). Under "any", the loop's fills there, even
     ones flattened long before, would starve C4's first session of its opening: it
     would open from flat at the band EDGE, 28-42% of full target and net long +4.7% to
@@ -1009,26 +1009,32 @@ def opening_session_fills_for(book: Book) -> str | None:
 
 # THE FIRST-SESSION GATE (release-check of 336df9d, QR1; a code gate since 2026-11-03).
 # A book listed here must make its FIRST armed session an opening session in a clean
-# account. C4 trades the EXISTING spare paper account (team lead 2026-11-02: no new
-# account), which the research loop may also trade (CLAUDE.md rule 1's 2026-10-27
-# exception). Its book json sets `execution.opening_session_fills = "own_prefix"`, so
+# account. C4 trades the EXISTING spare paper account (no new account, ruled 2026-11-02),
+# which the research loop may also trade (CLAUDE.md rule 1's 2026-10-27 exception). Its
+# book json sets `execution.opening_session_fills = "own_prefix"` (the rule: the
+# team lead 2026-11-03, "just flat it" (docs/SYSTEM.md section 5, PR #30)), so
 # the loop's past fills do not starve the opening (`is_opening_session`: else 28-42% of
 # target, net long). What can still make the first session wrong is what is THERE: a
 # position (any origin: it is exposure in this account, and makes the session not an
 # opening one) or an open order that is not the book's own. So, while no filled order in
 # the account carries the book's own prefix (`<cid_prefix>-`; from its first fill the gate
 # is spent): ARMED (DRY_RUN exactly "0", and AUTO_ARMED or an approval), a session that is
-# not an opening one under the book's rule, or with another runner's open order, is
-# refused before any order, as gate 2 (`arming`: the book is not fit to arm on this
-# account as it stands), naming what it found; UNARMED (every dry session), recorded in
-# plan.json / send.json `first_session` and printed, never refused. The core is not
-# listed: it computes and records nothing new. NO OVERRIDE: the account must be flat, and
-# no other runner armed on it (checklist step 6), before C4 arms.
+# not an opening one under the book's rule, or with another runner's open order, or whose
+# open orders could not be read (UNMEASURED: never read as none), is refused before any
+# order, under its OWN gate name, `first_session` (release-check of 4f759a9: filed under
+# `arming`, which verify counts as a human's choice, a refused armed day read as an
+# explained no-trade day; this one is a MISSED day), naming what it found. At a
+# late-market DECIDE it refuses there too, unlike `arming`: what it judges is the account,
+# not an approval still to come. UNARMED, recorded in plan.json / send.json
+# `first_session` and printed, never refused. The core is not listed: it computes and
+# records nothing new. NO OVERRIDE: the account must be flat, and no other runner armed
+# on it (checklist step 6), before C4 arms.
 OPENING_REQUIRED_BOOKS = frozenset({"c4"})
 
 
 def first_session_check(book: Book, positions: dict, closed_orders: list,
-                        open_orders: list | None, fills: str | None) -> dict | None:
+                        open_orders: list | None, fills: str | None,
+                        open_orders_unread: str | None = None) -> dict | None:
     """THE FIRST-SESSION GATE's reading (above): None for a book not in
     OPENING_REQUIRED_BOOKS, or once the account holds a filled order with the book's own
     prefix. Else {"opening", "fills_rule", "positions", "foreign_fills",
@@ -1036,8 +1042,11 @@ def first_session_check(book: Book, positions: dict, closed_orders: list,
     `opening` is `is_opening_session` under the book's rule (`fills`, None = "any"); the
     foreign fills are reported whatever the rule, the newest by `submitted_at` with its ET
     date and the first dash-field of its client_order_id (who sent it). `open_orders`
-    None (gate 6's read failed; gate 6 refuses) records `foreign_open_orders` None. Raises,
-    naming it, on an order whose filled_qty or submitted_at cannot be read."""
+    None means they could NOT be read (gate 6's read failed, `open_orders_unread` saying
+    why): `foreign_open_orders` is then None and `open_orders_unread` names it, and the
+    gate reads that as UNMEASURED, never as none (release-check of 4f759a9, quant-reviewer
+    2: it read as clear). Raises, naming it, on an order whose filled_qty or submitted_at
+    cannot be read."""
     if book.name not in OPENING_REQUIRED_BOOKS:
         return None
     from quantt.broker.alpaca import parse_ts
@@ -1067,14 +1076,17 @@ def first_session_check(book: Book, positions: dict, closed_orders: list,
                                            if newest else None),
             "foreign_open_orders": (None if open_orders is None else
                                     sum(1 for o in open_orders
-                                        if not str(o.get("client_order_id") or "").startswith(own)))}
+                                        if not str(o.get("client_order_id") or "").startswith(own))),
+            "open_orders_unread": (None if open_orders is not None else
+                                   (open_orders_unread or "the open-order list was not read"))}
 
 
 def first_session_gate(book: Book, check: dict | None, armed: bool) -> tuple:
     """(record or None, refusal text or None, log lines) for THE FIRST-SESSION GATE.
-    Armed, and not an opening session under the book's rule or with another runner's
-    open order: refused (the caller adds it as gate 2, `arming`). Unarmed: recorded and
-    printed only."""
+    The record's `status` is CLEAR, NOT_FIT (not an opening session under the book's
+    rule, or another runner's open order) or UNMEASURED (the open orders could not be
+    read). Armed and not CLEAR: refused (the caller adds it as gate `first_session`).
+    Unarmed: recorded and printed only."""
     if check is None:
         return None, None, []
     fills = (f"{check['foreign_fills']} filled order(s) not {book.name}'s in the account's "
@@ -1087,7 +1099,14 @@ def first_session_gate(book: Book, check: dict | None, armed: bool) -> tuple:
                         f"{check['positions']} position(s); {fills}")
     if check["foreign_open_orders"]:
         problems.append(f"{check['foreign_open_orders']} open order(s) not {book.name}'s")
-    rec = {**check, "armed": armed,
+    unmeasured = check["foreign_open_orders"] is None
+    if unmeasured:
+        problems.append(f"UNMEASURED: the account's open orders could not be read "
+                        f"({check['open_orders_unread']}), so another runner's order cannot "
+                        f"be ruled out")
+    status = "CLEAR" if not problems else ("UNMEASURED" if unmeasured and len(problems) == 1
+                                           else "NOT_FIT")
+    rec = {**check, "armed": armed, "status": status,
            "action": "clear" if not problems else ("refused" if armed else "reported")}
     if not problems:
         return rec, None, [f"  FIRST SESSION ({book.name}): an opening session under the "
@@ -1101,7 +1120,7 @@ def first_session_gate(book: Book, check: dict | None, armed: bool) -> tuple:
             f"step 6)")
     if armed:
         return rec, text, [f"  FIRST SESSION ({book.name}): REFUSED: {text}"]
-    return rec, None, [f"  FIRST SESSION ({book.name}): NOT FIT TO ARM (unarmed: reported only): "
+    return rec, None, [f"  FIRST SESSION ({book.name}): {status} (unarmed: reported only): "
                        f"{what}"]
 
 
@@ -2040,7 +2059,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         first_rec, first_refusal, first_lines = first_session_gate(
             book, first_session_check(book, pos, closed,
                                       orders_open if orders_unread is None else None,
-                                      deps.opening_session_fills),
+                                      deps.opening_session_fills, orders_unread),
             _armed(deps.env, approve, state))
         if first_rec is not None:
             record["first_session"] = first_rec
@@ -2093,9 +2112,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             # The corporate-action gate under `halt` (corp_actions.py, WHY A `data` REFUSAL).
             refusals.append(gt.Refusal("data", ca_refusal))
         if first_refusal is not None:
-            # THE FIRST-SESSION GATE, armed: gate 2's refusal (the book is not fit to arm
-            # here). At a late-market DECIDE it is the SEND's, as arming always is.
-            refusals.append(gt.Refusal("arming", first_refusal))
+            # THE FIRST-SESSION GATE, armed: its own gate (a MISSED day in verify, not a
+            # human's choice). Shown at a late-market DECIDE too: it judges the account.
+            refusals.append(gt.Refusal("first_session", first_refusal))
         record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
 
         plan = {"book": book.name, "spec_id": p["spec_id"], "session_date": session_date,
@@ -2340,7 +2359,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
         first_rec, first_refusal, first_lines = first_session_gate(
             book, first_session_check(book, pos, first_closed,
                                       orders_open if orders_unread is None else None,
-                                      deps.opening_session_fills),
+                                      deps.opening_session_fills, orders_unread),
             _armed(deps.env, approve_sha, state))
         record["first_session"] = first_rec
     clock_gate = c.clock()
@@ -2373,7 +2392,7 @@ def _send_planned(book: Book, spec: dict, deps: Deps, record: dict, *, state: Pa
     if ca_refusal is not None:
         refusals.append(gt.Refusal("data", ca_refusal))
     if first_refusal is not None:
-        refusals.append(gt.Refusal("arming", first_refusal))
+        refusals.append(gt.Refusal("first_session", first_refusal))
     record["refusals"] = [{"gate": r.gate, "detail": r.detail} for r in refusals]
     print(f"{book.name} SEND {session_date} (plan decided on as-of {plan['asof']}), equity "
           f"${acct['equity']:,.2f}, window {win[0]:%H:%M}-{win[1]:%H:%M} ET", file=out)

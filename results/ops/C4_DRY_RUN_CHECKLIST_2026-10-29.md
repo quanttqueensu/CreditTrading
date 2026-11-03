@@ -229,7 +229,8 @@ Expected on each day:
                                                            #  all N closed order(s) filled; ...)"
   ```
 - **C4's first armed session must be an OPENING session, in the existing spare account**
-  (the release-check of 336df9d, QR1; team lead 2026-11-02: no new account). Arming needs all
+  (the release-check of 336df9d, QR1; the rule: team lead 2026-11-03, "just flat it",
+  `docs/SYSTEM.md` §5, PR #30; no new account, ruled 2026-11-02). Arming needs all
   three, the same day as the go:
   1. **`opening_session: True` under C4's rule.** C4's book json sets
      `execution.opening_session_fills = "own_prefix"`: only fills carrying C4's own order-id
@@ -245,29 +246,36 @@ Expected on each day:
 
   **The runner enforces 1 and 2** (`quantt/session/run.py` THE FIRST-SESSION GATE,
   `OPENING_REQUIRED_BOOKS`): while no filled order in the account carries C4's `c4-` prefix, an
-  ARMED C4 run that is not an opening session under its rule (a position) or that finds another
-  runner's open order is REFUSED before its first order, as gate 2 (`arming`), naming the
-  positions, the foreign fills (count, newest date and prefix) and the open orders; in
-  `send.json` (and, in `cls` mode, `plan.json`) under `refusals` and `first_session`. Every DRY
-  session records the same reading in `plan.json` `first_session` (`action` `clear`, or
-  `reported`) and prints a `FIRST SESSION (c4)` line, so the dry sessions show it days before the
-  go. 3 is the read-only gate above; the runner cannot see another machine's scheduler. The reads:
+  ARMED C4 run that is not an opening session under its rule (a position), that finds another
+  runner's open order, or that could not read the open orders (`first_session.status`
+  UNMEASURED, never read as none) is REFUSED before its first order, under its own gate,
+  `first_session` (release-check of 4f759a9: verify scores it a MISSED day, not a human's
+  choice), naming the positions, the foreign fills (count, newest date and prefix) and the
+  open orders; at the evening decide (plan.json) and again at the 15:52 send (send.json), under
+  `refusals` and `first_session`. An unarmed run records the same reading (`action` `clear`, or
+  `reported`) and prints a `FIRST SESSION (c4)` line. **No dry sessions (team lead 2026-11-03):**
+  C4 arms at its install, so the probe below is the only read before the first armed decide, and
+  that decide's own gate is the hard guard. 3 is the read-only gate above; the runner cannot see
+  another machine's scheduler. The reads:
 
   ```bash
   python3 -m quantt.broker.alpaca_probe --book c4          # "positions: 0   open orders: 0" and
                                                            # "opening_session: True (... rule 'own_prefix' ...)"
-  D=<the last dry session's date>
+  D=<the first armed session's date>                      # after that evening's decide
   ssh quantt-vm "sudo /home/quantt/venv/bin/python -c \"import json,sys; p=json.load(open(sys.argv[1])); \
-    print(p['opening_session'], p['first_session']['action'])\" /home/quantt/quantt_state/c4/$D/plan.json"   # True clear
+    print(p['status'], p['opening_session'], p['first_session']['status'], p['first_session']['action'])\" \
+    /home/quantt/quantt_state/c4/$D/plan.json"            # decided True CLEAR clear
   ```
 
-  The probe applies the runner's own rule, the book's, to the account's positions and its newest
-  500 closed orders (`alpaca_probe.opening_read`), and names every fill it read (symbol, time,
-  order-id prefix) whether or not it counts; the plan is the runner's own reading of the real
-  account on that day's decide. **False** (a position, or a C4 fill), **UNMEASURED** (500 closed
-  orders and none counted), an open order that is not C4's, or `first_session.action` not
-  `clear`: STOP. Armed, the runner would refuse every session (exit 11, `arming`) until the
-  account is flat. NO OVERRIDE IS BUILT. REVERT of the rule: delete the book json key and its
+  The probe applies the runner's own rule, the book's, to the account's positions and its WHOLE
+  closed-order history, paged as the runner pages it (`alpaca_probe.opening_read`,
+  `_closed_orders`; release-check of 4f759a9: it read the newest 500 only), and names every fill
+  it read (symbol, time, order-id prefix) whether or not it counts; the plan is the runner's
+  own reading of the real account on the decide, and is the AUTHORITY when the probe says
+  UNMEASURED (more than 200 pages, or a page it cannot trust, which raises). **False** (a
+  position, or a C4 fill), **UNMEASURED**, an open order that is not C4's, or
+  `first_session.action` not `clear`: STOP. Armed, the runner refuses every session (exit 11,
+  `first_session`) until the account is flat. NO OVERRIDE IS BUILT. REVERT of the rule: delete the book json key and its
   note (the default `any` then makes the loop's fills count again).
 
   The repository has no lab book today (`BOOKS` holds `cef` and `c4` only), and the loop's
