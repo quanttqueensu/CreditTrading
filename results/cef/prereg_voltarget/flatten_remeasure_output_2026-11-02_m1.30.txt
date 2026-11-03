@@ -22,4 +22,8 @@ W1 2013-06-25..2022-12-30: 2398 sessions; the flatten core earns on 1045 (43.6%)
 5. CORE ACCOUNT at x1.3 on the EARNING sessions only (the live book while it trades)
   zero edge, P(HALVE) / P(KILL) in 12 months: flatten earning 16.68% / 1.68% | flatten all sessions 1.98% / 0.01% | hold 22.50% / 3.07%
   fit edge, P(HALVE) / P(KILL) in 12 months: flatten earning 1.81% / 0.07% | flatten all sessions 0.25% / 0.00% | hold 5.72% / 0.36%
+  cap binding (decided gross above 1.80) at x1.3: 16.5% of the sessions with a decided book, 7.2% of all W1 sessions
+
+6. THROUGH 2008 ON TRADING SESSIONS (W2 2005-02-22..2022-12-30; core proxied before 2013-06-25 by each non-thin year-end flatten book), x1.3
+  5 non-thin books: zero-edge P(HALVE) 5.08/15.07/47.09% | P(KILL) 0.18/1.78/14.40% | worst drawdown 9.7/18.3/39.1% (min/median/max; worst book 2018-12-31)
   earning-session series at x1.3, TR: 8.69%/yr while trading, vol 7.19%, SR 1.209, maxDD 8.52% (sessions concatenated)

@@ -34,6 +34,12 @@ WHAT IS COMPUTED.
    cell is that stop's false-alarm rate when the live book behaves like the truth series.
 5. P(HALVE) and P(KILL) in 12 months at --m-core on the earning series (zero edge and fit edge; the
    worst of SB21, SB63 and GAUSS; the worse of TR and PR): the live book's risk while it trades.
+6. (added 2026-11-02, the x1.30 comparison) THROUGH 2008 ON TRADING SESSIONS. W2 = 2005-02-22 ->
+   2022-12-30 with the core proxied before 2013-06-25 by each NON-THIN year-end flatten book. The
+   5 thin ones are flat under the live rule and trade nothing. The account series keeps only the
+   sessions on which a book earns. Reported: P(HALVE) and P(KILL) at zero edge, and the worst
+   drawdown, as min / median / max over those books. Also the share of trading sessions on which the
+   account's decided gross is above its cap (the house cap model).
 """
 from __future__ import annotations
 
@@ -44,8 +50,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from _common import (HALVE_DD, HERE, HORIZON, KILL_DD, W1_START, Paths, account, c4_spec_from, core_spec,
-                     draw, load, odds, path_max_drawdown, stats, worst)
+from _common import (HALVE_DD, HERE, HORIZON, KILL_DD, W1_START, W2_START, Paths, account, c4_spec_from,
+                     core_spec, draw, load, max_drawdown, odds, path_max_drawdown, stats, worst, with_proxy)
 
 STAMP = "2026-11-02"
 
@@ -149,6 +155,44 @@ def main() -> int:
           f"{q['flatten_all']['kill'] * 100:.2f}% | hold {q['hold']['halve'] * 100:.2f}% / {q['hold']['kill'] * 100:.2f}%")
     st_e = stats(pd.Series(ser["flatten_active"][0]))
     out["flatten_active_stats_TR"] = st_e
+    # cap binding on trading sessions (the house model: decided uncapped gross above the cap)
+    _, fa, Ga, _ = account(F["PT"]["core"], F["G"]["core"], a.m_core, cap)
+    dec = (Ga > 0).to_numpy() & w1
+    out["cap_binds_decided_W1"] = dict(trading_days=float((fa.to_numpy()[dec] < 1).mean()),
+                                       all_days=float((fa.to_numpy()[w1] < 1).mean()))
+    p(f"  cap binding (decided gross above 1.80) at x{a.m_core}: {out['cap_binds_decided_W1']['trading_days']:.1%} of the "
+      f"sessions with a decided book, {out['cap_binds_decided_W1']['all_days']:.1%} of all W1 sessions")
+    # ---- 6. through 2008, trading sessions only, over the non-thin year-end books ----
+    p(f"\n6. THROUGH 2008 ON TRADING SESSIONS (W2 {W2_START.date()}..2022-12-30; core proxied before "
+      f"{W1_START.date()} by each non-thin year-end flatten book), x{a.m_core}")
+    rows = []
+    for sn in F["prox_t"].columns:
+        if float(F["prox_g"][sn]) == 0.0:
+            continue                                   # a thin year-end book: flat under the live rule
+        r = {"book": sn}
+        for b in ("TR", "PR"):
+            Px, Gx = with_proxy(F, sn, b)
+            x = account(Px["core"], Gx["core"], a.m_core, cap)[0]
+            keep = pd.Series(e, index=x.index)
+            keep.loc[x.index < W1_START] = True        # the fixed proxy book earns on every pre-2013 session
+            keep.loc[x.index < W2_START] = False
+            xs = x[keep.to_numpy()].to_numpy()
+            o = odds(xs, paths, "zero")
+            r[f"H_{b}"], r[f"K_{b}"] = worst(o, 0), worst(o, 1)
+            r[f"mdd_{b}"] = float(max_drawdown(pd.Series(xs))["mdd"])
+        rows.append(r)
+    T6 = pd.DataFrame(rows)
+    H6, K6 = np.maximum(T6.H_TR, T6.H_PR), np.maximum(T6.K_TR, T6.K_PR)
+    M6 = np.maximum(T6.mdd_TR, T6.mdd_PR)
+    out["w2_trading"] = dict(books=T6.to_dict(orient="records"),
+                             halve=[float(H6.min()), float(H6.median()), float(H6.max())],
+                             kill=[float(K6.min()), float(K6.median()), float(K6.max())],
+                             mdd=[float(M6.min()), float(M6.median()), float(M6.max())],
+                             worst_book=str(T6.book[int(K6.values.argmax())]))
+    w = out["w2_trading"]
+    p(f"  {len(T6)} non-thin books: zero-edge P(HALVE) {'/'.join(f'{v * 100:.2f}' for v in w['halve'])}% | P(KILL) "
+      f"{'/'.join(f'{v * 100:.2f}' for v in w['kill'])}% | worst drawdown {'/'.join(f'{v * 100:.1f}' for v in w['mdd'])}% "
+      f"(min/median/max; worst book {w['worst_book']})")
     p(f"  earning-session series at x{a.m_core}, TR: {st_e['ann'] * 100:.2f}%/yr while trading, vol {st_e['vol'] * 100:.2f}%, "
       f"SR {st_e['sr']:.3f}, maxDD {st_e['mdd'] * 100:.2f}% (sessions concatenated)")
     (HERE / f"flatten_remeasure_{a.stamp}.json").write_text(json.dumps(out, indent=1, default=float))
