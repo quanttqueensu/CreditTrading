@@ -15,9 +15,19 @@ SAME rule ("hold" against ac15d09's "hold", because "hold" is meant to differ fr
 Nothing here runs the proof (it takes about 21 minutes on the real panel); the script imports only
 the standard library at module level, so loading it opens nothing.
 
-FAILS ON f1d9f62: the script has no `COMPARE` and no "hold" variant.
+THE EVIDENCE, NOT ONLY THE SCRIPT (the third test). A script that could make the comparison is not
+a comparison made: the docstring cites "the dated output beside it", so the repository must hold
+one full run (`--dates all`, from a clean checkout, verdict NO-OP PROVED) that reports every
+`COMPARE` claim byte-identical on every (date, book). It does not tie that output to the sleeve's
+current bytes (the output records the git blob ids it ran on): a blob pin would fail on every later
+edit of cef_discount.py, the C4 and activation commits included. Re-run the script after changing
+the sleeve.
+
+FAILS ON f1d9f62: the script has no `COMPARE` and no "hold" variant. The third test also fails on
+0283fae, where the script ran "hold" but no committed output had yet run it.
 """
 import importlib.util
+import re
 from pathlib import Path
 
 from src.deploy.sleeves import cef_discount as cefmod
@@ -53,3 +63,22 @@ def test_the_script_compares_every_claimed_rule_with_ac15d09_under_the_same_rule
     # every comparison is of two variants the script actually runs
     for v, against in mod.COMPARE.items():
         assert v in mod.VARIANTS and against in mod.VARIANTS, (v, against)
+
+
+def test_the_repository_holds_a_full_run_proving_every_claim():
+    """A committed output of the script on EVERY decision date (`--dates all`, not a quick look),
+    from a CLEAN checkout, whose verdict is NO-OP PROVED and which reports each `COMPARE` claim
+    byte-identical on every (date, book): "N of N"."""
+    mod = _script()
+    found = []
+    for p in sorted(SCRIPT.parent.glob("sleeve_noop_diff_output_*.txt")):
+        text = p.read_text()
+        if not ("--dates all" in text and "(clean)" in text
+                and "VERDICT: NO-OP PROVED" in text):
+            continue
+        if all(re.search(rf"^{re.escape(v)}\s+vs {re.escape(a)}: (\d+) of \1 \(date, book\) "
+                         rf"pickles byte-identical$", text, re.M)
+               for v, a in mod.COMPARE.items()):
+            found.append(p.name)
+    assert found, (f"no committed full run of {SCRIPT.name} in {SCRIPT.parent} proves every "
+                   f"COMPARE claim ({sorted(mod.COMPARE)}); run it and commit its output")
