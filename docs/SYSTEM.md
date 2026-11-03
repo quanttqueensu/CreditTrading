@@ -676,6 +676,28 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-03 — the analyst lanes redrawn as risk
+
+Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` §1 holds who keeps which paths.
+
+| question | decision |
+|---|---|
+| What the analysts work on | **"Ryan work on the credit / fixed income risk, James equity risk, Lucy stays same and everything else to me, so the analysts dont have much work to do."** The fixed-income lane becomes **credit and fixed-income risk**, the equities lane becomes **equity risk**, and both are report-only: a weekly readout of the deployed book, with no signal, no trial and no live-path change. The dashboard-and-data lane is unchanged. This supersedes 2026-10-26's "the analysts bring new signals only" |
+| Who does the signal work | **The team lead, on every counter.** MACRO (0) and XASSET (4) stay open, with their rows, and are kept by the PM. The E1-band WATCH row (non-industrialised fixed-income wrappers) is the PM's |
+| What a risk finding feeds | **The PM's judgment.** A readout that suggests a hedge, an overlay or a signal goes to the PM, who decides whether it becomes a pre-registration. Nothing in a readout acts on the book (CLAUDE.md: any monitor is read-only) |
+
+### Team lead, 2026-11-03 — the research loop becomes research-only
+
+Answered interactively on 2026-11-03, before C4's arming, when C4 and the loop would have shared the spare account
+(two runners on one account can double a book: `CLAUDE.md` rule 2).
+
+| question | decision |
+|---|---|
+| May the autonomous research loop still trade? | **No: "have the loop only get us to what we should trade and deploy, and then we figure it out from there."** The 2026-10-27 exception in `CLAUDE.md` rule 1 is suspended: the loop transmits nothing, promotes no lab sleeve into the book and installs nothing. Its output is a recommendation; what trades or deploys is the team lead's call. C4 is the only runner on the spare account. Revert: delete the SUSPENDED paragraph in `CLAUDE.md` rule 1 and this row |
+| Unchanged | The loop's trials are still counted and stored (2026-10-27). Its wrapper already denies `python3 -m quantt.session` and holds no key file (`.claude/loop/run_research_loop.sh`) |
+| Install C4's v5 (the trial-54 blend) tonight, as a second release? | **"install tonight"**, through every gate of the standing authority (release-check GO, CI on the exact head, the replay, outside the send windows, the read-back), finished before 21:50 ET |
+| The three analyst briefs | **"not yet"** |
+
 ### Team lead, 2026-11-03 — Gate 0 and CEF trial 54 (C4's family level)
 
 Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02.md` (its §0.A records it).
