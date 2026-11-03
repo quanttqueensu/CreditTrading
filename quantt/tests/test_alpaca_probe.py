@@ -180,16 +180,23 @@ def _c4_snap(closed, positions=()):
 
 def test_c4s_probe_reads_whether_its_first_session_opens_at_full_target():
     """QR1: the arming read must see a PAST fill, which positions and open orders cannot.
-    Fails on 336df9d (no opening-session read)."""
+    Under C4's book-json rule (`execution.opening_session_fills = "own_prefix"`, team lead
+    2026-11-02: the existing spare account), the research loop's fill is read and named but
+    does not count: still an opening session. A fill with C4's own prefix does count.
+    Fails on 336df9d (no opening-session read) and on f7f7be5 (the lab fill counted)."""
     snap, s = _c4_snap(_closed(3))
     o = snap["opening_session"]
     assert o["value"] is True and o["closed_orders_read"] == 3 and o["newest_fill"] is None
+    assert o["rule"] == "own_prefix"
     assert any(u.endswith(ap.CLOSED_ORDERS_PATH) for u in s.urls)
     assert "opening_session: True" in ap.summarise(snap)
     snap, _ = _c4_snap(_closed(3, filled_at=1))
     o = snap["opening_session"]
-    assert o["value"] is False and o["filled_orders_read"] == 1
+    assert o["value"] is True and (o["filled_orders_read"], o["counted_fills"]) == (1, 0)
     assert o["newest_fill"]["client_order_id_prefix"] == "lab" and "o1" not in json.dumps(o)
+    snap, _ = _c4_snap(_closed(3, filled_at=1, cid="c4-20261020-ADX-1"))
+    o = snap["opening_session"]
+    assert o["value"] is False and o["counted_fills"] == 1
     assert "opening_session: False" in ap.summarise(snap)
 
 
@@ -206,12 +213,15 @@ def test_a_full_page_with_no_fill_is_unmeasured_never_true():
 
 
 def test_the_read_is_the_runners_rule_on_the_same_orders():
-    from quantt.session.run import is_opening_session
+    from quantt.session import run as rn
+    b = rn.BOOKS["c4"]
+    rule = rn.opening_session_fills_for(b)
     for closed, pos in ((_closed(4), []), (_closed(4, filled_at=3), []),
+                        (_closed(4, filled_at=2, cid="c4-20261020-ADX-1"), []),
                         ([], [{"symbol": "ADX", "qty": "1"}])):
         snap, _ = _c4_snap(closed, positions=pos)
-        assert snap["opening_session"]["value"] == is_opening_session(
-            {p["symbol"]: p["qty"] for p in pos}, closed)
+        assert snap["opening_session"]["value"] == rn.is_opening_session(
+            {p["symbol"]: p["qty"] for p in pos}, closed, fills=rule, cid_prefix=b.cid_prefix)
 
 
 def test_an_unreadable_fill_raises_naming_the_order():

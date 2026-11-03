@@ -9,11 +9,14 @@
 > 2026-11-02 ruling), the data path, the per-sleeve runner, `BOOKS["c4"]`, its book json and its
 > installer units. The core is proved byte-identical to 862b1d0 (below). Release is the team
 > lead's. C4 spends no trial; the CEF counter is 53 because of trial 53, not C4.
-> **Updated 2026-11-03:** merged to main (f27ef81, release-20261103-1) with the core at
-> **`cef_discount.v9.20261102`, ×1.30**. That release was GO for the core only; `--book c4` waits
-> for branch `c4-arm-prep` (the release-check's QR1, QR3 and ET1: step 6's opening-session gate,
-> these specs named everywhere, and the C4 install's scan of every book's units). The spec ids
-> and multipliers on this page are checked against the specs by `ops/tests/test_book_text.py`.
+> **Updated 2026-11-03:** release-20261103-1 is 336df9d (`git rev-parse release-20261103-1^{commit}`;
+> merged to main as f27ef81; *corrected 2026-11-03: this line first said f27ef81 was the release*),
+> with the core at **`cef_discount.v9.20261102`, ×1.30**. That release was GO for the core only.
+> **release-20261103-2 is de75da4** (branch `c4-arm-prep`, merged as f7f7be5): QR1's probe read and
+> step 6's opening-session check, QR3's specs named everywhere, ET1's C4 install scan of every
+> book's units. Branch `c4-arm-gate` makes QR1 a CODE gate (step 6 below); `--book c4 --armed`
+> waits for the release that carries it. The spec ids and multipliers on this page are checked
+> against the specs by `ops/tests/test_book_text.py`.
 >
 > **Every step marked TEAM LEAD RUNS needs the VM, a key or an account.** No agent runs it.
 
@@ -225,28 +228,47 @@ Expected on each day:
                                                            # "opening_session: True   (no position, and none of
                                                            #  all N closed order(s) filled; ...)"
   ```
-- **C4's first armed session must be an OPENING session** (the release-check of 336df9d, QR1).
-  The runner trades a book's first session to FULL target only when the account has no position
-  and no order in its history ever filled (`quantt/session/run.py` `is_opening_session`, team lead
-  2026-09-28); otherwise it opens from flat at the band EDGE. Measured by the release-check on
-  `data/cef_families` (to 2026-10-09, spec v4): the band-edge open is 28-42% of full target and net
-  long +4.7% to +11.1% [V there; not C4's seeded panel]. The spare account may have been traded
-  by the research loop (the gate above), and positions and open orders cannot show a past fill.
-  Two reads, the same day as the go, and both must say True:
+- **C4's first armed session must be an OPENING session, in the existing spare account**
+  (the release-check of 336df9d, QR1; team lead 2026-11-02: no new account). Arming needs all
+  three, the same day as the go:
+  1. **`opening_session: True` under C4's rule.** C4's book json sets
+     `execution.opening_session_fills = "own_prefix"`: only fills carrying C4's own order-id
+     prefix make a session not an opening one (`quantt/session/run.py` `is_opening_session`), so
+     the research loop's past fills in this account do not starve C4's first session. Without
+     the key (the default `any`) one such fill, even flattened, would open C4 from flat at the
+     band EDGE: 28-42% of full target and net long +4.7% to +11.1% (the release-check, on
+     `data/cef_families` to 2026-10-09, spec v4 [V there; not C4's seeded panel]).
+  2. **The account flat**: no position of any origin (positions always count) and no open order
+     that is not C4's.
+  3. **No other runner armed on the account** (CLAUDE.md rule 1's 2026-10-27 exception: the
+     gate above, laptop launchd, the loop clone, the VM's units, AUTO_ARMED).
+
+  **The runner enforces 1 and 2** (`quantt/session/run.py` THE FIRST-SESSION GATE,
+  `OPENING_REQUIRED_BOOKS`): while no filled order in the account carries C4's `c4-` prefix, an
+  ARMED C4 run that is not an opening session under its rule (a position) or that finds another
+  runner's open order is REFUSED before its first order, as gate 2 (`arming`), naming the
+  positions, the foreign fills (count, newest date and prefix) and the open orders; in
+  `send.json` (and, in `cls` mode, `plan.json`) under `refusals` and `first_session`. Every DRY
+  session records the same reading in `plan.json` `first_session` (`action` `clear`, or
+  `reported`) and prints a `FIRST SESSION (c4)` line, so the dry sessions show it days before the
+  go. 3 is the read-only gate above; the runner cannot see another machine's scheduler. The reads:
 
   ```bash
-  python3 -m quantt.broker.alpaca_probe --book c4          # the line "opening_session: True"
+  python3 -m quantt.broker.alpaca_probe --book c4          # "positions: 0   open orders: 0" and
+                                                           # "opening_session: True (... rule 'own_prefix' ...)"
   D=<the last dry session's date>
-  ssh quantt-vm "sudo /home/quantt/venv/bin/python -c \"import json,sys; \
-    print(json.load(open(sys.argv[1]))['opening_session'])\" /home/quantt/quantt_state/c4/$D/plan.json"   # True
+  ssh quantt-vm "sudo /home/quantt/venv/bin/python -c \"import json,sys; p=json.load(open(sys.argv[1])); \
+    print(p['opening_session'], p['first_session']['action'])\" /home/quantt/quantt_state/c4/$D/plan.json"   # True clear
   ```
 
-  The probe applies the runner's own rule to the account's positions and its newest 500 closed
-  orders (`alpaca_probe.opening_read`); the plan is the runner's own reading of the real account
-  on that day's decide. **False** (a fill, which the probe names by symbol, time and order-id
-  prefix, or a position) or **UNMEASURED** (500 closed orders and no fill among them): STOP. C4
-  would open at the band edge. Nothing here resets an account's history or forces a full-target
-  open; that is the team lead's ruling to make before arming, not a default.
+  The probe applies the runner's own rule, the book's, to the account's positions and its newest
+  500 closed orders (`alpaca_probe.opening_read`), and names every fill it read (symbol, time,
+  order-id prefix) whether or not it counts; the plan is the runner's own reading of the real
+  account on that day's decide. **False** (a position, or a C4 fill), **UNMEASURED** (500 closed
+  orders and none counted), an open order that is not C4's, or `first_session.action` not
+  `clear`: STOP. Armed, the runner would refuse every session (exit 11, `arming`) until the
+  account is flat. NO OVERRIDE IS BUILT. REVERT of the rule: delete the book json key and its
+  note (the default `any` then makes the loop's fills count again).
 
   The repository has no lab book today (`BOOKS` holds `cef` and `c4` only), and the loop's
   wrapper denies `python3 -m quantt.session` and holds no key file

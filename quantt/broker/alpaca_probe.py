@@ -206,18 +206,27 @@ def _get(session, path: str, *, allow_404: bool = False):
     return r.json()
 
 
-def opening_read(session, positions: list) -> dict:
+def opening_read(session, positions: list, book: str) -> dict:
     """The opening-session read for one account (OPENING_READ_BOOKS, above): the
-    runner's `is_opening_session` on its positions and its closed orders.
+    runner's `is_opening_session`, under the BOOK's own rule (its book json's
+    `execution.opening_session_fills`, read by `run.opening_session_fills_for`; C4 sets
+    "own_prefix": only fills carrying its own order-id prefix count, so the research
+    loop's fills in the shared spare account do not make C4's first session open at the
+    band edge), on the account's positions and its closed orders.
 
-    Returns {"value": True | False | None, "why", "positions", "closed_orders_read",
-    "filled_orders_read", "newest_fill"}. `newest_fill` is the newest filled
-    order's symbol, submission time and client_order_id prefix (who sent it: `c4`,
-    or anything else, e.g. the lab), or None; no order id, no account identifier.
-    Raises, naming it, on a page that is not a list or an order whose filled_qty
-    cannot be read: an unreadable history is not a clean one."""
+    Returns {"value": True | False | None, "why", "rule", "positions",
+    "closed_orders_read", "filled_orders_read", "counted_fills", "newest_fill"}.
+    `filled_orders_read` is every fill read, whoever sent it; `counted_fills` those the
+    rule counts. `newest_fill` is the newest fill's symbol, submission time and
+    client_order_id prefix (who sent it), or None; no order id, no account identifier.
+    A full page with nothing counted is UNMEASURED (None): older orders were not read.
+    Raises, naming it, on a page that is not a list or an order whose filled_qty cannot
+    be read: an unreadable history is not a clean one."""
     from decimal import Decimal, InvalidOperation
-    from quantt.session.run import is_opening_session
+    from quantt.session import run as rn
+    b = rn.BOOKS[book]
+    rule = rn.opening_session_fills_for(b) or rn.OPENING_FILLS_ANY
+    own = f"{b.cid_prefix}-"
     page = _get(session, CLOSED_ORDERS_PATH)
     if not isinstance(page, list):
         raise RuntimeError(f"GET {CLOSED_ORDERS_PATH}: expected a list, got {type(page).__name__}")
@@ -234,25 +243,29 @@ def opening_read(session, positions: list) -> dict:
         except (KeyError, TypeError, InvalidOperation):
             raise RuntimeError(f"closed order {o.get('client_order_id') if isinstance(o, dict) else o!r}"
                                f": unreadable filled_qty") from None
-    rule = is_opening_session(held, page)          # the runner's own rule, on this read
-    if held or filled:
+    counted = [o for o in filled if rule == rn.OPENING_FILLS_ANY
+               or str(o.get("client_order_id") or "").startswith(own)]
+    runner = rn.is_opening_session(held, page, fills=rule, cid_prefix=b.cid_prefix)
+    if held or counted:
         value, why = False, (f"{len(held)} position(s)" if held else
-                             f"{len(filled)} filled order(s) among the newest {len(page)} closed")
+                             f"{len(counted)} counted fill(s) among the newest {len(page)} closed")
     elif len(page) < CLOSED_ORDERS_PAGE:
-        value, why = True, f"no position, and none of all {len(page)} closed order(s) filled"
+        value, why = True, (f"no position, and no counted fill in all {len(page)} closed "
+                            f"order(s) ({len(filled)} fill(s) read, rule {rule!r})")
     else:
-        value, why = None, (f"UNMEASURED: none of the newest {len(page)} closed orders filled, "
-                            f"and older ones were not read")
-    if value is not None and value != rule:
-        raise RuntimeError(f"opening read {value} disagrees with run.is_opening_session {rule}")
+        value, why = None, (f"UNMEASURED: no counted fill in the newest {len(page)} closed "
+                            f"orders, and older ones were not read")
+    if value is not None and value != runner:
+        raise RuntimeError(f"opening read {value} disagrees with run.is_opening_session {runner}")
     newest = None
     if filled:
         o = max(filled, key=lambda x: str(x.get("submitted_at") or ""))
         cid = str(o.get("client_order_id") or "")
         newest = {"symbol": o.get("symbol"), "submitted_at": o.get("submitted_at"),
                   "client_order_id_prefix": cid.split("-")[0] if "-" in cid else "(none)"}
-    return {"value": value, "why": why, "positions": len(held), "closed_orders_read": len(page),
-            "filled_orders_read": len(filled), "newest_fill": newest}
+    return {"value": value, "why": why, "rule": rule, "positions": len(held),
+            "closed_orders_read": len(page), "filled_orders_read": len(filled),
+            "counted_fills": len(counted), "newest_fill": newest}
 
 
 def probe_book(book: str, session) -> dict:
@@ -275,7 +288,7 @@ def probe_book(book: str, session) -> dict:
         "open_orders": redact(_get(session, "/v2/orders?status=open&limit=500")),
     }
     if book in OPENING_READ_BOOKS:
-        snap["opening_session"] = opening_read(session, snap["positions"])
+        snap["opening_session"] = opening_read(session, snap["positions"], book)
     return snap
 
 
@@ -288,8 +301,8 @@ def summarise(snap: dict) -> str:
     if "opening_session" in snap:
         o = snap["opening_session"]
         v = {True: "True", False: "False", None: "UNMEASURED"}[o["value"]]
-        lines.append(f"opening_session: {v}   ({o['why']}; the runner's rule: no position and no "
-                     f"filled order ever)"
+        lines.append(f"opening_session: {v}   ({o['why']}; the runner's rule {o['rule']!r}: no "
+                     f"position and no counted fill ever)"
                      + (f"   newest fill: {o['newest_fill']}" if o["newest_fill"] else ""))
     lines.append("symbol  " + "  ".join(ASSET_FIELDS))
     for sym, a in snap["assets"].items():
