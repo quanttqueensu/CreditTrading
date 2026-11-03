@@ -228,3 +228,23 @@ from a named source; [doc] copied from a named note.
 - CI gets `requirements-research.txt` (`arch`), so main's tests can go green without touching the VM's environment.
 
 **Found:** CLAUDE.md rule 1's 2026-10-27 exception lets the autonomous research loop trade in the same spare account that C4 will trade in. That account is flat today [V, connector read: $100,000 cash, no positions]. Before C4 is armed, the loop must be confirmed off it (rule 2).
+
+**Research, evening of 2026-11-02** (zero trials; dates ≤ 2022-12-30; PR #30, `results/cef/screens_2026-11-02/` on its branch) [V, re-run there]:
+- **Two accounts as one:**
+  - the approved ×1.13 / ×1.27 is close to optimal (a joint re-split adds +0.07%/yr);
+  - the accounts are uncorrelated (ρ +0.011), and Reg T never binds;
+  - **arming C4 adds +6.0%/yr gross** on the fit (Sharpe 0.97 → 1.84), and turns negative between 15 and 30bp of cost.
+- **New alpha:**
+  - the C4 family-level discount signal is the one to **pursue**: gross Sharpe 1.12, still positive net at 30bp, correlation 0.10 with the z-book;
+  - turn-of-month **pursue** as a hypothesis only: found post hoc, fails at 15bp, and part paper artefact;
+  - tax-loss: WATCH;
+  - killed: distribution cuts, cross-universe lead-lag, the level signal on the credit names, fast plus slow z, corporate events on the deployed 13, the live NAV drag (unpriced), the muni recall, bond holidays and leverage cost;
+  - paper's uncredited distributions are a scoring artefact.
+- **Found:** live turnover is 5.7× capital over 20 sessions, above the fit's 95th percentile (4.42×). On 56% of fit sessions too few names cleared, so the harness holds where the live book flattens (the other session's thin-day study).
+
+**Rulings** (`docs/SYSTEM.md` §5):
+- C4's gate runs in report mode.
+- The C4 family-level signal goes to a pre-registration.
+- Agents merge with the admin bypass only after CI passes on the exact head.
+
+**Prod:** PR #29 merged (26ed351): CI is green again; autonomy is in CLAUDE.md rule 1.
