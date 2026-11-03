@@ -1706,6 +1706,61 @@ def _thin_after_targets(thin: dict | None, record: dict, targets) -> None:
     ts.update(_thin_record(targets, thin, ts["k0"]["stop"]))
 
 
+def _thin_gate7(thin: dict | None, record: dict, decision, *, retarget, recheck, redecide):
+    """THE GATE-7 FLATTEN (pre-registration §1.3 item 6, §7.5; §10 Q7, approved). Returns the
+    decision to plan: `decision` itself, unless the key is set, the sleeve built the reduced
+    book (`thin_session.reduced`) and gate 7 dropped a short-opening order
+    (`Decision.dropped_shorts`, decide's "not shortable today").
+
+    Then the reduced targets are not sent. The sleeve is asked again with the stop
+    {"by": "gate7"} (`retarget`), so it takes today's flatten path with the reason in every
+    target; the stale-NAV gate's panel check is asked again (`recheck`), because the sleeve
+    read the panel again; and the flat targets are decided (`redecide`). Why: on 4-5 names a
+    dropped short can be the whole short side (10.3% of fit reduced decisions have one fund
+    there), and the book left is net long by up to the long side, a book the trial never
+    scored. It costs one round trip each time it fires.
+
+    No loop: an all-FLAT book opens no short, so the re-decision can drop none; if it did,
+    that is a bug and this raises. `thin_session` records `stopped_by` "gate7", `reduced`
+    False and `gate7` {"dropped": [...]}. Runs BEFORE the buying-power scaling, which only
+    shrinks opening orders. A short skipped later, at the late-market SEND, is not this
+    (team lead 2026-11-03: accepted and labelled; `thin_stops.send_skip`)."""
+    if thin is None:
+        return decision
+    ts = record["thin_session"]
+    if ts["reduced"] is not True or not decision.dropped_shorts:
+        return decision
+    dropped = list(decision.dropped_shorts)
+    stop = {"by": "gate7",
+            "why": (f"gate 7 dropped the short-opening order(s) of {dropped} (not shortable "
+                    f"today); a reduced book without its short leg is not the book the trial "
+                    f"scored")}
+    targets = retarget(stop)
+    recheck()
+    info = _thin_record(targets, thin, stop)
+    if info["reduced"] or info["stopped_by"] != "gate7":
+        raise SessionError(f"CEF trial 55: gate 7's stop did not flatten the reduced build "
+                           f"({info}); not deciding")
+    redone = redecide(targets)
+    if redone.dropped_shorts:
+        raise SessionError(f"CEF trial 55: the flattened decision still drops shorts "
+                           f"{list(redone.dropped_shorts)}; an all-FLAT book opens none")
+    ts.update(info)
+    ts["gate7"] = {"dropped": dropped}
+    return redone
+
+
+def _thin_recheck(deps, gate_res) -> None:
+    """The stale-NAV gate's panel check after a second sleeve read (`_thin_gate7`): the same
+    check, and the same refusal, as after the first."""
+    if gate_res is not None:
+        changed = deps.nav_gate.still_holds(gate_res)
+        if changed:
+            raise SessionError(f"the NAV panel changed between the stale-NAV gate and the "
+                               f"sleeve's second read (gate 7's flatten): {changed}; not "
+                               f"deciding on it")
+
+
 def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_csv):
     """Step 1b, the stale-NAV gate (quantt/session/nav_gate.py). Returns
     (record dict, GateResult or None).
@@ -2208,11 +2263,19 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                 decision = dec.Decision(orders=(), targets={}, notes={"*": [
                     "not decided: the data gate refused"]}, plan_sha=dec.plan_sha(()))
             elif deps.sleeves is None:
-                decision = dec.decide(targets, pos, equity, closes, shortable,
+                def decide_single(tg):
+                    return dec.decide(tg, pos, equity, closes, shortable,
                                       session_date=session_date, universe=p["universe"],
                                       cid_prefix=book.cid_prefix,
                                       min_trade_usd=p["min_trade_usd"],
                                       time_in_force="day" if late else dec.TIME_IN_FORCE)
+                decision = decide_single(targets)
+                # CEF trial 55 (te4): a reduced decision that loses a short flattens.
+                decision = _thin_gate7(
+                    thin, record, decision, redecide=decide_single,
+                    retarget=lambda stop: deps.targets(asof, pos, equity, opening,
+                                                       **_thin_target_kw(thin, record, stop)),
+                    recheck=lambda: _thin_recheck(deps, gate_res))
         if decision.orders and deps.execution.get("bp_shortfall") == "scale":
             scaled, factor, binding = fit_to_buying_power(
                 decision.orders, pos, closes, equity, acct["buying_power"], _gross_now(acct),
@@ -2227,7 +2290,9 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
                                         notes={**decision.notes, "*": list(decision.notes.get("*", []))
                                                + [f"opening orders scaled x{factor:.4f} to fit "
                                                   f"{binding}"]},
-                                        plan_sha=dec.plan_sha(scaled))
+                                        plan_sha=dec.plan_sha(scaled),
+                                        # kept: decide.py, "rebuilt ... must carry it across"
+                                        dropped_shorts=decision.dropped_shorts)
         record["decision"] = decision.to_dict()
         borrow_warnings = hard_to_borrow_short_opens(decision.orders, pos, assets)
         record["borrow_warnings"] = borrow_warnings
