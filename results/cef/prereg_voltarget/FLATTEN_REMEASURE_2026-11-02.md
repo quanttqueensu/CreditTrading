@@ -174,6 +174,61 @@ construction, because it takes the largest method's 95th percentile.
 5. **The earning-session calibration is the right one.** It is nominal while the book trades. If the
    book goes thin, it fires less.
 
+## 4b. ×1.30 against ×1.13, on the trading-session flatten book (added 2026-11-02, for the team lead's choice)
+
+**Basis.**
+- "While trading" means the sessions on which the core earns: a book held two sessions earlier.
+- "Through 2008" is W2 (2005-02-22 → 2022-12-30). The core before 2013-06-25 is proxied by each of
+  the **5 non-thin** year-end flatten books; the 5 thin ones are flat under the live rule and trade
+  nothing. Only trading sessions are kept.
+- Odds are at zero edge: the worst of SB21, SB63 and GAUSS, and the worse of total return and price
+  only. HALVE does not act.
+- C4 is at 1.27 beside ×1.13 and at 1.26 beside ×1.30 (§0). It does not enter the core account's
+  figures.
+
+Sources: [V `flatten_remeasure.py` at each multiplier; `flatten_exact.py` (exact implementation B);
+`risk.py`; `derive.py --remeasure` §6].
+
+| core account | ×1.13 (live) | ×1.30 |
+|---|---:|---:|
+| P(HALVE) in 12 months, W1, while trading | 10.3% | **16.7%** |
+| P(KILL) in 12 months, W1, while trading | 0.66% | **1.68%** |
+| P(HALVE) through 2008, while trading (min / median / max over 5 books) | 2.2 / 8.9 / 35.5% | **5.1 / 15.1 / 47.1%** |
+| P(KILL) through 2008, while trading (same) | 0.04 / 0.65 / 9.7% | **0.18 / 1.78 / 14.4%** |
+| worst drawdown, W1 (exact B, calendar) | 7.53% | **8.39%** |
+| worst drawdown, W1, trading sessions joined (model) | 7.55% | **8.52%** |
+| worst drawdown through 2008, while trading (5 books; worst 2018-12-31) | 8.5 / 16.1 / 34.7% | **9.7 / 18.3 / 39.1%** |
+| Sharpe, while trading (exact B, TR) | 1.205 | **1.222** |
+| Sharpe, calendar W1 (exact B, TR / PR) | 0.795 / 0.862 | 0.805 / 0.875 |
+| combined Sharpe with C4 (model, TR / PR) | 1.632 / 1.750 | 1.626 / 1.745 |
+| gross cap: held at the cap, sessions with a book (exact B) | 6.5% | **15.2%** |
+| gross cap: decided gross above the cap, sessions with a book (model) | 7.4% | 16.5% |
+| mean gross when held (exact B) | 1.20 | 1.34 |
+| **R1 / R2 / R3**, recalibrated on trading sessions | 9.02% / −2.76% / 10.70% | **10.14% / −3.06% / 12.07%** |
+| gross %/yr, core account, exact B, TR: calendar / while trading | 3.31 / 7.59 | 3.78 / 8.67 |
+
+**The gain from ×1.30 over ×1.13, on the fit:**
+- the core account gains **+0.47pp/yr gross** over the calendar, and **+1.08pp/yr while trading**
+  (exact B, total return);
+- the combined $200k book gains **+0.21pp/yr** (model, total return), with C4 1.26 against 1.27;
+- the core's change alone adds about +0.23pp to the combined book [U: half the core account's
+  +0.46pp model gain].
+
+These are fit-path figures (W1 2013-06-25 → 2022-12-30) [V]. They are not a forecast, and the
+forward evidence is paper only (pre-registration §6.1).
+
+**×1.30 is inside the plateau, not at its edge.**
+- With C4 at 1.26, combined Sharpe moves only between 1.624 and 1.638 over every core multiplier
+  from 0.8 to 2.5. ×1.30 is at 1.626, within 0.05 of the maximum (1.638 at ×1.00), in the middle of
+  that range [V `live_pair_grid_2026-11-02_flatten_m1.30.csv`].
+- The core's share of the combined variance rises from 0.26 at ×1.13 to 0.31 at ×1.30.
+- The choice is risk against return, not Sharpe: about +1.1pp/yr while the core trades, for roughly
+  1.6 times the HALVE odds and 2.5 times the KILL odds.
+
+**×1.30 restores what the trial approved.** The approval accepted 15.9% / 1.5% zero-edge P(HALVE) /
+P(KILL) on the hold book. On the live book while it trades, ×1.30 carries 16.7% / 1.7%; ×1.13
+carries 10.3% / 0.66%.
+
 ## 5. What this does not settle
 
 - The thin-days report's open question 1, hold or flatten as the live rule, is the team lead's. If
@@ -197,6 +252,9 @@ python3 stops.py --scratch HOLD --m-core 1.13 --m-c4 1.27                 # repr
 python3 stops.py --scratch FLAT --m-core 1.13 --m-c4 1.27 [--core-earning-only FLAT/flatten_masks.parquet]
 python3 flatten_remeasure.py --flat-root FLAT --hold-root HOLD --m-core 1.13 --m-c4 1.27 --m-c4-rule 1.2642
 python3 flatten_remeasure.py --flat-root FLAT --hold-root HOLD --m-core 1.30 --m-c4 1.26 --m-c4-rule 1.2642 --stamp 2026-11-02_m1.30
+python3 derive.py --scratch FLAT --remeasure --stamp 2026-11-02_flatten_m1.30 --m-core 1.30 --m-c4 1.26   # §4b: the plateau at x1.30
+cd ../../.. && python3 -I results/cef/prereg_voltarget/flatten_exact.py --flat-root FLAT \
+    --harness-tree WORKTREES/research-thin-days --m 1.0 --m 1.13 --m 1.30        # §4b: exact B, cap binding
 ```
 
 Outputs: `flatten_series_2026-11-02.json`, `derive_*_2026-11-02_flatten.*`, `plateau_grid_2026-11-02_flatten.csv`,
