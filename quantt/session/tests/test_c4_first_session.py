@@ -2,7 +2,8 @@
 
 WHY. The runner trades a book's first session to FULL target only when
 `run.is_opening_session` is True (team lead 2026-09-28). C4 trades the EXISTING spare
-paper account (team lead 2026-11-02: no new account), which the research loop may also
+paper account (no new account, ruled 2026-11-02; the opening rule below is the team lead's
+2026-11-03 "just flat it", docs/SYSTEM.md section 5, PR #30), which the research loop may also
 trade (CLAUDE.md rule 1's 2026-10-27 exception). Under the default rule ("any": no
 position and no order EVER filled) the loop's past fills there, even flattened, would
 open C4 from flat at the band EDGE: 28-42% of target and net long +4.7% to +11.1% (the
@@ -89,11 +90,20 @@ def _gross(plan):
     return sum(abs(o["qty"]) * float(plan["closes"][o["symbol"]]) for o in plan["orders"])
 
 
-def _decide(tmp_path, monkeypatch, **kw):
+def _decide(tmp_path, monkeypatch, expect=rn.EXIT_PLANNED, **kw):
     state = _state(tmp_path)
-    code, _ = _session(state, EVE, monkeypatch, **kw)
-    assert code == rn.EXIT_PLANNED, _read(state, "plan.json")["refusals"]
+    code, c = _session(state, EVE, monkeypatch, **kw)
+    assert code == expect, _read(state, "plan.json")["refusals"]
+    assert c.submits() == []                            # a late-market decide never sends
     return state, _read(state, "plan.json")
+
+
+def _first_session_refusal(refusals):
+    """The one first-session refusal: under its OWN gate name since the release-check of
+    4f759a9 (it was `arming`, which verify counts as a human's choice)."""
+    (r,) = [r for r in refusals if "first armed session" in r["detail"]]
+    assert r["gate"] == "first_session", r
+    return r
 
 
 # ----------------------------------------------------- key ABSENT: today's rule
@@ -117,14 +127,20 @@ def test_key_absent_the_cores_rule_is_todays_and_it_reads_nothing_new():
 def test_key_absent_c4_keeps_the_old_band_edge_open_and_armed_it_is_refused(
         c4_world, monkeypatch, tmp_path):
     """C4 with the key deleted (its REVERT) on the loop's two flattened fills: not an
-    opening session, so the decide plans the band-edge book; armed, the send refuses it
-    (gate `arming`), naming the fills, and sends nothing."""
-    state, plan = _decide(tmp_path, monkeypatch, closed=LAB_FILLS, armed=True, key_absent=True)
-    assert plan["opening_session"] is False and plan["first_session"]["fills_rule"] == "any"
+    opening session, so the decide plans the band-edge book; armed, the decide itself
+    refuses (gate `first_session`), naming the fills. Decided unarmed and armed by the
+    15:52 send, the send refuses it and sends nothing."""
+    state, plan = _decide(tmp_path / "armed", monkeypatch, expect=rn.EXIT_REFUSED,
+                          closed=LAB_FILLS, armed=True, key_absent=True)
+    assert plan["status"] == "refused" and plan["opening_session"] is False
+    assert plan["first_session"]["fills_rule"] == "any"
+    r = _first_session_refusal(plan["refusals"])
+    assert "2 filled order(s)" in r["detail"] and "2026-09-24" in r["detail"]
+    state, plan = _decide(tmp_path / "late", monkeypatch, closed=LAB_FILLS, armed=False,
+                          key_absent=True)
     code, c = _session(state, SEND, monkeypatch, closed=LAB_FILLS, armed=True, key_absent=True)
     assert code == rn.EXIT_REFUSED and c.submits() == []
-    (r,) = [r for r in _read(state, "send.json")["refusals"] if "first armed session" in r["detail"]]
-    assert r["gate"] == "arming" and "2 filled order(s)" in r["detail"] and "2026-09-24" in r["detail"]
+    _first_session_refusal(_read(state, "send.json")["refusals"])
 
 
 # ----------------------------------------------------- key SET ("own_prefix"), as shipped
@@ -137,7 +153,7 @@ def test_key_set_foreign_fills_only_open_at_full_target_not_the_band_edge(
     goes."""
     _, fresh = _decide(tmp_path / "fresh", monkeypatch, armed=True)
     state, keyed = _decide(tmp_path / "keyed", monkeypatch, closed=LAB_FILLS, armed=True)
-    _, edge = _decide(tmp_path / "edge", monkeypatch, closed=LAB_FILLS, armed=True, key_absent=True)
+    _, edge = _decide(tmp_path / "edge", monkeypatch, closed=LAB_FILLS, armed=False, key_absent=True)
     assert fresh["opening_session"] is True and keyed["opening_session"] is True
     assert edge["opening_session"] is False
     assert keyed["orders"] == fresh["orders"] and keyed["plan_sha"] == fresh["plan_sha"]
@@ -165,14 +181,17 @@ def test_key_set_a_foreign_position_is_refused_when_armed_and_reported_when_not(
         c4_world, monkeypatch, tmp_path):
     """Positions count whatever their origin: a position the loop left in the account
     makes the session not an opening one under either rule. Armed, refused before any
-    order; unarmed, reported only."""
+    order (at the decide, and at a send armed after an unarmed decide); unarmed,
+    reported only."""
     pos, closed = {"ADX": 10}, LAB_FILLS[:1]            # the loop bought and never sold
-    state, plan = _decide(tmp_path / "armed", monkeypatch, closed=closed, positions=pos, armed=True)
+    state, plan = _decide(tmp_path / "armed", monkeypatch, expect=rn.EXIT_REFUSED,
+                          closed=closed, positions=pos, armed=True)
     assert plan["opening_session"] is False and plan["first_session"]["action"] == "refused"
+    assert "1 position(s)" in _first_session_refusal(plan["refusals"])["detail"]
+    state, plan = _decide(tmp_path / "late", monkeypatch, closed=closed, positions=pos, armed=False)
     code, c = _session(state, SEND, monkeypatch, closed=closed, positions=pos, armed=True)
     assert code == rn.EXIT_REFUSED and c.submits() == []
-    (r,) = [r for r in _read(state, "send.json")["refusals"] if "first armed session" in r["detail"]]
-    assert r["gate"] == "arming" and "1 position(s)" in r["detail"]
+    assert "1 position(s)" in _first_session_refusal(_read(state, "send.json")["refusals"])["detail"]
     state, plan = _decide(tmp_path / "dry", monkeypatch, closed=closed, positions=pos, armed=False)
     assert plan["first_session"]["action"] == "reported"
     code, c = _session(state, SEND, monkeypatch, closed=closed, positions=pos, armed=False)
@@ -206,3 +225,97 @@ def test_the_book_json_key_reads_and_refuses_a_wrong_value(tmp_path):
     del book["execution"]["opening_session_fills"]
     bad.write_text(json.dumps(book))
     assert rn.opening_session_fills_for(rn.Book(b.name, b.cid_prefix, b.spec_path, bad)) is None
+
+
+# ----------------------------------------------- release-check of 4f759a9 (2026-11-03)
+
+def test_an_unreadable_open_order_list_is_unmeasured_and_armed_it_refuses():
+    """quant-reviewer 2: gate 6's open-order read failed, and the check recorded CLEAR.
+    Fail-open is wrong (CLAUDE.md: no silent fallbacks): UNMEASURED, naming the read;
+    armed, refused; unarmed, recorded only. Fails on 61589a8 (CLEAR, no refusal)."""
+    b = rn.BOOKS["c4"]
+    why = "AlpacaHTTPError: GET /v2/orders -> HTTP 503"
+    chk = rn.first_session_check(b, {}, LAB_FILLS, None, rn.opening_session_fills_for(b), why)
+    assert chk["opening"] is True and chk["foreign_open_orders"] is None
+    assert chk["open_orders_unread"] == why
+    rec, refusal, lines = rn.first_session_gate(b, chk, armed=True)
+    assert (rec["status"], rec["action"]) == ("UNMEASURED", "refused")
+    assert refusal is not None and "UNMEASURED" in refusal and why in refusal
+    rec, refusal, lines = rn.first_session_gate(b, chk, armed=False)
+    assert (rec["status"], rec["action"], refusal) == ("UNMEASURED", "reported", None)
+    assert any("UNMEASURED" in ln for ln in lines)
+
+
+def test_an_unreadable_open_order_list_refuses_the_armed_c4_session(
+        c4_world, monkeypatch, tmp_path):
+    """The same through the runner: gate 6's read fails at the decide; armed, the decide is
+    refused, its first_session record UNMEASURED and its refusal under `first_session` naming
+    the failed read, beside gate 6's own; unarmed, recorded UNMEASURED and nothing refused by
+    this gate. Fails on 61589a8."""
+    def failing(monkeypatch):
+        monkeypatch.setattr(rn, "_gate6_orders",
+                            lambda c, after: (None, None, "AlpacaHTTPError: HTTP 503 (fixture)"))
+    failing(monkeypatch)
+    state, plan = _decide(tmp_path / "armed", monkeypatch, expect=rn.EXIT_REFUSED,
+                          closed=LAB_FILLS, armed=True)
+    fs = plan["first_session"]
+    assert (fs["status"], fs["action"]) == ("UNMEASURED", "refused")
+    r = _first_session_refusal(plan["refusals"])
+    assert "HTTP 503 (fixture)" in r["detail"]
+    # Unarmed: gate 6 still refuses its unread list, as it always has; this gate adds no
+    # refusal of its own and records UNMEASURED.
+    state, plan = _decide(tmp_path / "dry", monkeypatch, expect=rn.EXIT_REFUSED,
+                          closed=LAB_FILLS, armed=False)
+    fs = plan["first_session"]
+    assert (fs["status"], fs["action"]) == ("UNMEASURED", "reported")
+    assert [r["gate"] for r in plan["refusals"]] == ["no_set_in_auction"]
+
+
+def test_on_the_cls_path_the_armed_first_session_is_refused_at_the_decide(
+        c4_world, monkeypatch, tmp_path):
+    """quant-reviewer 1: in `cls` mode the decide IS the send, so its own first-session
+    refusal (run_session, `refusals.append(gt.Refusal("first_session", ...))`) is the only
+    guard. A position left by the loop, armed: REFUSED, nothing submitted. Without that line
+    the cls run sends (checked by deleting it). Fails on 61589a8 (gate `arming`)."""
+    from quantt.broker import alpaca
+    pos, closed = {"ADX": 10}, LAB_FILLS[:1]
+    state = _state(tmp_path)
+    c = _client(state, EVE, closed, pos)
+    monkeypatch.setattr(alpaca.AlpacaClient, "from_environment",
+                        classmethod(lambda cls, name, **kw: c))
+    spec = _spec()
+    deps = rn.default_deps(_c4(), spec, {"QUANTT_ENV_FILE": "unused"})
+    deps.execution = {"mode": "cls", "bp_shortfall": "scale"}
+    deps.env = {"QUANTT_STATE_DIR": str(state), "DRY_RUN": "0"}
+    (state / "AUTO_ARMED").touch()
+    deps.refresh = lambda a, t: rn.RefreshResult(exit=0, tail="fixture")
+    deps.halts = lambda: []
+    deps.utcnow = lambda: EVE.astimezone(dt.timezone.utc)
+    deps.out = type("Quiet", (), {"write": lambda self, s: None, "flush": lambda self: None})()
+    code = rn.run_session(_c4(), spec, deps)
+    plan = _read(state, "plan.json")
+    assert code == rn.EXIT_REFUSED and c.submits() == [], plan["refusals"]
+    assert not (state / SESSION / "STARTED").exists()
+    assert "1 position(s)" in _first_session_refusal(plan["refusals"])["detail"]
+
+
+def test_verify_scores_a_first_session_refusal_as_a_missed_day_not_an_explained_one():
+    """execution-trader 1: filed under `arming` (in verify's DELIBERATE_GATES), an armed
+    C4 day the gate refused read "PASS ... refused". Its own gate is outside them: MISSED,
+    at the decide and at the send. Fails on 61589a8 (the gate's name was `arming`)."""
+    from quantt.session import gate as gt
+    from quantt.session import verify as vf
+    assert "first_session" in gt.GATES and "first_session" not in vf.DELIBERATE_GATES
+    b = rn.BOOKS["c4"]
+    chk = rn.first_session_check(b, {"ADX": 10}, LAB_FILLS[:1], [], "own_prefix")
+    _, text, _ = rn.first_session_gate(b, chk, armed=True)
+    refusal = {"gate": gt.Refusal("first_session", text).gate, "detail": text}
+    day = dt.date.fromisoformat(SESSION)
+    refused_plan = {"book": "c4", "session_date": SESSION, "mode": "run",
+                    "execution": "late_market", "status": "refused", "orders": [{"x": 1}],
+                    "refusals": [refusal]}
+    ok, prob = vf.late_no_trade_reason(refused_plan, None, day, "c4")
+    assert ok is None and prob.startswith("MISSED") and "[first_session]" in prob
+    decided = {**refused_plan, "status": "decided", "refusals": [], "send_window": ["a", "b"]}
+    ok, prob = vf.late_no_trade_reason(decided, {"exit": "REFUSED", "refusals": [refusal]}, day, "c4")
+    assert ok is None and prob.startswith("MISSED") and "[first_session]" in prob

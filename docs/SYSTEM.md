@@ -676,6 +676,28 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-03 — the analyst lanes redrawn as risk
+
+Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` §1 holds who keeps which paths.
+
+| question | decision |
+|---|---|
+| What the analysts work on | **"Ryan work on the credit / fixed income risk, James equity risk, Lucy stays same and everything else to me, so the analysts dont have much work to do."** The fixed-income lane becomes **credit and fixed-income risk**, the equities lane becomes **equity risk**, and both are report-only: a weekly readout of the deployed book, with no signal, no trial and no live-path change. The dashboard-and-data lane is unchanged. This supersedes 2026-10-26's "the analysts bring new signals only" |
+| Who does the signal work | **The team lead, on every counter.** MACRO (0) and XASSET (4) stay open, with their rows, and are kept by the PM. The E1-band WATCH row (non-industrialised fixed-income wrappers) is the PM's |
+| What a risk finding feeds | **The PM's judgment.** A readout that suggests a hedge, an overlay or a signal goes to the PM, who decides whether it becomes a pre-registration. Nothing in a readout acts on the book (CLAUDE.md: any monitor is read-only) |
+
+### Team lead, 2026-11-03 — the research loop becomes research-only
+
+Answered interactively on 2026-11-03, before C4's arming, when C4 and the loop would have shared the spare account
+(two runners on one account can double a book: `CLAUDE.md` rule 2).
+
+| question | decision |
+|---|---|
+| May the autonomous research loop still trade? | **No: "have the loop only get us to what we should trade and deploy, and then we figure it out from there."** The 2026-10-27 exception in `CLAUDE.md` rule 1 is suspended: the loop transmits nothing, promotes no lab sleeve into the book and installs nothing. Its output is a recommendation; what trades or deploys is the team lead's call. C4 is the only runner on the spare account. Revert: delete the SUSPENDED paragraph in `CLAUDE.md` rule 1 and this row |
+| Unchanged | The loop's trials are still counted and stored (2026-10-27). Its wrapper already denies `python3 -m quantt.session` and holds no key file (`.claude/loop/run_research_loop.sh`) |
+| Install C4's v5 (the trial-54 blend) tonight, as a second release? | **"install tonight"**, through every gate of the standing authority (release-check GO, CI on the exact head, the replay, outside the send windows, the read-back), finished before 21:50 ET |
+| The three analyst briefs | **"not yet"** |
+
 ### Team lead, 2026-11-03 — Gate 0 and CEF trial 54 (C4's family level)
 
 Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02.md` (its §0.A records it).
@@ -687,6 +709,10 @@ Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02
 | Which accounts | **"use the 2 accounts I gave you, i dont hvae any other"**: the core account and the C4 (spare) account. No third account, for this trial or C4's arming |
 | C4's first armed session (the spare account holds two old research-loop fills, so the runner's any-fill rule would open C4 at 28–42% of target) | **"just flat it"**: C4 opens from the flat account at full target. The research loop's fills do not count against C4's opening; any position does. Built as a C4-only book key (absent = today's rule, the core unchanged), released before C4 arms |
 | What "as fast as possible" means | **No stage is skipped.** The trial's pass rule (§6.2) stands. The sleeve key is built in parallel with the fit stage, and each stage runs as soon as the last clears |
+| CEF trial 54's K3 (D4), after the KILL was seen (**post-data**, later on 2026-11-03) | **"revive it and figure out a way to not kill it".** K3 (D4) failed as committed; overridden post-data by the team lead; the holdout decides. Not a pass of K3. P1 is lag-fragile (t 2.8271 at lag 6 as committed; 2.791 at lag 5). Evidence: `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` |
+| C4's first armed session: dry sessions (checklist step 5) | **"i want no dry sessions"**: C4 arms at its first install (2026-11-03). Its first armed decide is read before its first send, and C4 is disarmed before 15:45 ET if that plan is wrong |
+| Where the pre-arming reads run (checklist steps 3 and 6), with C4's keys absent from the laptop | **"they are on the vm"**: the read-only probe and the cap re-check run on the VM, authenticated by the key file its C4 secret service wrote. No key is printed, copied or moved (`vmrelease.sh c4-probe`, git-excluded) |
+| CEF trial 54's outcome (the holdout, opened once, 2026-11-03) | **PASS on the pre-registered remainder, with the holdout decisive** (`results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md`): level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32% [S]. Evidence INCONCLUSIVE at N = 54, K3 overridden as above. Per "deploy as fast as possible", `level_signal` is activated in C4's spec (v5) through `/spec-change` and a release-check, paper only |
 
 ### Team lead, 2026-11-02 — autonomy
 
