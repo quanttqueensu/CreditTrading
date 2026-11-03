@@ -130,7 +130,11 @@ def with_proxy(D: dict, snap: str, basis: str):
 def account(p: pd.Series, g: pd.Series, m: float, cap: float, turn: pd.Series | None = None):
     """One account holding one sleeve at multiplier m under its own cap. Returns (pnl, f, G, turnover)."""
     G = g * m
-    f = np.minimum(1.0, cap / G.where(G > 0, np.inf))
+    # A session with no decided book has nothing to cap: f = 1 there (2026-11-02). Before, it read
+    # cap / inf = 0, which left the P&L unchanged (no book, no P&L) but counted the session as
+    # "the cap binds". The hold book is invested on every W1 session, so its figures do not move.
+    # The flatten book is flat on 56% of them, and its binding shares need this.
+    f = np.minimum(1.0, cap / G.where(G > 0, np.inf)).where(G > 0, 1.0)
     pnl = p * m * f.shift(2).fillna(1.0)
     tu = None
     if turn is not None:

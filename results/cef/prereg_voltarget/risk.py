@@ -75,7 +75,12 @@ def pctl_maxdd(x: np.ndarray, paths: Paths, q: float) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scratch", type=Path, required=True)
+    ap.add_argument("--stamp", default=STAMP)
+    ap.add_argument("--books", default=None,
+                    help="name=core,c4;... (2026-11-02, the flatten re-measure). Absent: the BOOKS above")
     a = ap.parse_args()
+    books = BOOKS if a.books is None else {
+        n: tuple(float(x) for x in v.split(",")) for n, v in (kv.split("=") for kv in a.books.split(";"))}
     dec = json.loads((HERE / "declared_2026-10-30.json").read_text())
     if not datetime.fromisoformat(dec["declared_utc"].replace("Z", "+00:00")) < datetime.now(timezone.utc):
         raise AssertionError("the declaration is not older than this run")
@@ -92,7 +97,7 @@ def main() -> int:
 
     p(f"HALVE {HALVE_DD}, KILL {KILL_DD} (core spec risk, fractions); caps core {cap['core']}, C4 {cap['c4']}; "
       f"W1 {W1_START.date()}..{FIT_END.date()}, W2 {W2_START.date()}..{FIT_END.date()}; 10 core books {snaps[0]}..{snaps[-1]}")
-    for name, (mc, m4) in BOOKS.items():
+    for name, (mc, m4) in books.items():
         p(f"\n=== {name}: core x{mc}, C4 x{m4}")
         r = dict(m_core=mc, m_c4=m4)
         acc = {}
@@ -228,8 +233,8 @@ def main() -> int:
               f"{max(k_med.core_K_TR_zero, k_med.core_K_PR_zero) * 100:.2f}% -> {st['core']['W2_kill_zero_with_R1'] * 100:.2f}% with R1 acting")
             r["stops"] = st
         out[name] = r
-    (HERE / f"risk_{STAMP}.json").write_text(json.dumps(out, indent=1, default=float))
-    (HERE / f"risk_output_{STAMP}.txt").write_text("\n".join(say) + "\n")
+    (HERE / f"risk_{a.stamp}.json").write_text(json.dumps(out, indent=1, default=float))
+    (HERE / f"risk_output_{a.stamp}.txt").write_text("\n".join(say) + "\n")
     return 0
 
 
