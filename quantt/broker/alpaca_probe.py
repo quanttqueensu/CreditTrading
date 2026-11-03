@@ -60,6 +60,25 @@ BOOK_SPECS = {
     "cef": REPO / "ops" / "specs" / "cef_discount.frozen.json",
     "b6": REPO / "ops" / "specs" / "bench_b6_ew_credit.frozen.json",
 }
+# Books read ONLY when named (`--book c4`), never by the default `all`, so the
+# routine probe and ops.orient (which iterate BOOK_SPECS) are unchanged while
+# C4 is dark. C4 (CEF trial 52) trades its own paper account, the spare
+# connector account (team lead 2026-10-26); its keys are ALPACA_C4_KEY_ID /
+# _SECRET_KEY. Its read is the input to re-deriving its gross cap before arming
+# (ops/specs/c4_families.frozen.json _max_gross_stress_note, ruling 3;
+# `scripts/cef/c4_paper_benchmark.py recap`).
+OPT_IN_BOOK_SPECS = {
+    "c4": REPO / "ops" / "specs" / "c4_families.frozen.json",
+}
+
+
+def spec_path(book: str) -> Path:
+    """The frozen spec of `book`, default or opt-in; an unknown book raises."""
+    if book in BOOK_SPECS:
+        return BOOK_SPECS[book]
+    if book in OPT_IN_BOOK_SPECS:
+        return OPT_IN_BOOK_SPECS[book]
+    raise KeyError(f"no book {book!r}; the books are {sorted({**BOOK_SPECS, **OPT_IN_BOOK_SPECS})}")
 
 # Asset fields the migration decides on. Shown in the summary as returned, or
 # as ABSENT when Alpaca did not send the field -- a missing field is itself a
@@ -140,11 +159,11 @@ def universe(book: str) -> list[str]:
         sys.path.insert(0, str(REPO / "scripts" / "cef"))
         import spec  # noqa: E402  (path set just above)
         return list(spec.frozen("universe"))
-    d = json.loads(BOOK_SPECS[book].read_text())
+    d = json.loads(spec_path(book).read_text())
     try:
         return list(d["frozen"]["universe"])
     except KeyError as e:
-        raise KeyError(f"{BOOK_SPECS[book]} has no frozen.universe") from e
+        raise KeyError(f"{spec_path(book)} has no frozen.universe") from e
 
 
 def _get(session, path: str, *, allow_404: bool = False):
@@ -177,7 +196,7 @@ def probe_book(book: str, session) -> dict:
         "book": book,
         "fetched_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "base_url": PAPER_BASE,
-        "spec": str(BOOK_SPECS[book].relative_to(REPO)),
+        "spec": str(spec_path(book).relative_to(REPO)),
         "universe": names,
         "account": redact(_get(session, "/v2/account"), is_account=True),
         "account_configurations": redact(_get(session, "/v2/account/configurations")),
@@ -214,7 +233,9 @@ def _session(key_id: str, secret: str):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--book", choices=[*BOOK_SPECS, "all"], default="all")
+    ap.add_argument("--book", choices=[*BOOK_SPECS, *OPT_IN_BOOK_SPECS, "all"], default="all",
+                    help="all = " + ", ".join(BOOK_SPECS) + "; an opt-in book ("
+                         + ", ".join(OPT_IN_BOOK_SPECS) + ") is read only when named")
     ap.add_argument("--check-keys", action="store_true",
                     help="print only whether each book's keys are SET; no network")
     args = ap.parse_args(argv)

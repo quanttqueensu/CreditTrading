@@ -538,14 +538,13 @@ class CEFDiscountSleeve(Sleeve):
         path is). C4's will name the families panels that plan row 3 builds
         nightly, so the core's `data/cef/` is never written for it.
 
-        NOT YET READ BY THE RUNNER. `quantt/session/run.py` still takes the
-        closes it sizes on, the NAV dates gate 5 checks and the stale-NAV gate's
-        panel from `cefmod.PX_PATH` / `NAV_PATH` (run.py:552, 748-755). Making
-        it read this method is plan row 6A (§2 step 5). Until then a spec whose
-        panel is not the core's would decide on one panel and size on another,
-        so the runner REFUSES it (`quantt/session/run.py::require_core_panel`,
-        called by `sleeve_targets` and `default_deps`). The refusal lives in the
-        runner, not the registry: research and the tests build such specs.
+        READ BY THE RUNNER TOO (plan row 6A, 2026-10-29). `quantt/session/run.py`
+        `spec_panel` calls this method, and the runner takes the closes it sizes
+        on, the NAV dates gate 5 checks, the pre-flight's history and the
+        stale-NAV gate's file from the panel it returns, so a sleeve is decided,
+        sized and gated on one panel (run.py PER-SLEEVE PANELS). Until row 6A
+        the runner read `data/cef/` whatever this returned and refused any
+        other panel (C4 step 1's `require_core_panel`).
         """
         src = cef_panel_source(self.frozen)
         if src is None:
