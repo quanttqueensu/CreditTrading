@@ -449,8 +449,23 @@ def stage_p2() -> int:
     r = registry.bars("CEF", trial="CEF-54", variant="blend", declared_n=54)
     desk = r["desk"]["dsr"]
     paper = r["paper"]["dsr"] if r["paper"] else None
-    ok = desk >= DSR_PASS and paper is not None and paper >= DSR_PASS
-    verdict = "PASS" if ok else ("HALT (paper bar refused: a ruling)" if paper is None else "KILL")
+    # WHICH BAR GATES is the team lead's, read from docs/SYSTEM.md §5 (registry.bars' docstring). The row "Which bar
+    # gates the CEF counter, ruled 2026-10-28" reads: the desk's sqrt(2 ln N) on the raw counter, unchanged; the
+    # paper's switch condition can never be met for CEF. So on CEF the paper bar is refused by construction
+    # (code not_qualified) and the desk bar gates. PREREG §6.2's "both bars" was drafted without that row; the
+    # standing ruling governs, and the output says so. Any OTHER refusal halts for a ruling.
+    rule_row = "Which bar gates the CEF counter, ruled **2026-10-28**"
+    if rule_row not in (REPO / "docs" / "SYSTEM.md").read_text():
+        raise RuntimeError("docs/SYSTEM.md §5 no longer carries the 2026-10-28 CEF bar ruling; re-read it before P2")
+    if paper is not None:
+        ok = desk >= DSR_PASS and paper >= DSR_PASS
+        verdict = "PASS" if ok else "KILL"
+    elif r["paper_refused_code"] == "not_qualified":
+        ok = desk >= DSR_PASS
+        verdict = ("PASS (the desk bar gates CEF: docs/SYSTEM.md §5, 2026-10-28; the paper bar is refused by "
+                   "construction, not_qualified)") if ok else "KILL"
+    else:
+        ok, verdict = False, f"HALT (paper bar refused, {r['paper_refused_code']}: a ruling)"
     say(f"CEF trial 54, P2: registry bars CEF CEF-54 blend --declared-n 54 (T {r['T']}, SR {r['sr_annual']:.3f}/yr, skew "
         f"{r['skew']:.2f}, kurt {r['kurt']:.2f})")
     say(f"  desk bar: SR0 {r['desk']['sr0_annual']:.3f}/yr, DSR {desk:.4f}")
@@ -460,7 +475,7 @@ def stage_p2() -> int:
             f"{p['sr0_annual']:.3f}/yr, DSR {paper:.4f}")
     else:
         say(f"  paper bar REFUSED: {r['paper_refused']} ({r['paper_refused_code']})")
-    say(f"  rule: both DSR >= {DSR_PASS}: {verdict}")
+    say(f"  rule: DSR >= {DSR_PASS} on the bar(s) that gate CEF: {verdict}")
     write("p2", lines, dict(verdict=verdict, bars=r))
     return 0 if ok else 4
 
