@@ -367,8 +367,10 @@ def test_the_rulings_are_in_the_notes_and_the_counter_stays():
     assert "team lead 2026-10-29 left them to the book json" in _spec()["risk"]["_halve_drawdown_note"]
     # The cap spent no trial: the counter was 52 at the ruling, and the only trial since is
     # CEF trial 53, the vol-target raise (results/cef/PREREG_VOLTARGET_2026-10-30.md, approved
-    # 2026-11-01), which does count. A further trial fails here: re-read this line then.
-    assert c4.cef_counter() == 53
+    # 2026-11-01), which does count, and CEF trial 54, C4's family-level signal
+    # (results/cef/PREREG_C4_LEVEL_2026-11-02.md, approved 2026-11-03), which does too; neither
+    # is the cap. Re-read 2026-11-03. A further trial fails here: re-read this line then.
+    assert c4.cef_counter() == 54
     rs = (REPO / "docs" / "RESEARCH_STATE.md").read_text()
     assert "2026-10-29: C4's re-derived `max_gross_stress`" in rs and "CEF stays 52" in rs
 
