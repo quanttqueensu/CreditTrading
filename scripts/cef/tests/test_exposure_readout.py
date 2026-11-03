@@ -19,6 +19,14 @@ of the guard, equity, plateau, lag-rule and cross-check fixes each kill a copy w
 undone (checked 2026-11-02 by loading each broken copy in place of the module). One
 survivor is equivalent, not missed: `total_factor_vol` with the covariance's diagonal only.
 The orthogonal factors are uncorrelated on the window by construction, so the two agree.
+
+THE RULE (the lead-placebo Dimson lag rule, declared 2026-11-03 before its first run): the
+tests under "THE RULE" kill nine broken copies, checked by loading each in place of the
+module: a tie counted as a pass, no stop at the first gap, the bound taken as the median
+lead count, the bound taken as Binomial(52, 0.05), a censored L returned as K, the lag-0
+check removed, the H13 cut removed (with and without its check), and the leads never
+counted. Their synthetic fixture gave L = 2 on 19 of 20 other seeds and 3 on one, which is
+what a 5% test should do.
 """
 from __future__ import annotations
 
@@ -512,6 +520,89 @@ def test_lag_rule_counts_on_a_lagged_response():
     assert c["single"][0] >= 1 and c["single"][1] >= 1 and c["single"][2] >= 1
     assert c["tail"][0] == 1 and c["tail"][1] == 1             # lags 1..3 and 2..3 carry signal
     assert set(c["single"]) == {0, 1, 2, 3} and set(c["tail"]) == {0, 1, 2}
+
+
+# --------------------------------------------------------------------------- THE RULE (lead placebo)
+
+def test_placebo_lag_rule_includes_lags_while_they_strictly_exceed_the_largest_lead_count():
+    leads = {1: 3, 2: 9, 3: 5}                                  # T = 9
+    r = ER.placebo_lag_rule({0: 40, 1: 20, 2: 15, 3: 9, 4: 30}, leads)
+    assert r == {"L": 2, "T": 9, "stop_lag": 3}                 # a tie stops; lag 4 is after the gap
+    assert ER.placebo_lag_rule({0: 40, 1: 10, 2: 10, 3: 3, 4: 30}, leads)["L"] == 2
+    assert ER.placebo_lag_rule({0: 40, 1: 9, 2: 30}, leads)["L"] == 0       # tie at lag 1
+    assert ER.placebo_lag_rule({0: 40, 1: 10, 2: 9}, leads) == {"L": 1, "T": 9, "stop_lag": 2}
+    # the bound is the MAXIMUM lead count, not a typical one
+    assert ER.placebo_lag_rule({0: 40, 1: 8, 2: 30}, {1: 1, 2: 1, 3: 9})["L"] == 0
+
+
+@pytest.mark.parametrize("lag, lead, msg", [
+    ({0: 9, 1: 20, 2: 3}, {1: 9}, "lag 0 count"),                # lag 0 must clear the placebo
+    ({0: 40, 1: 20, 2: 15}, {1: 9}, "censored"),                 # every lag clears: never K
+    ({0: 40, 2: 15}, {1: 9}, "cover 0..K"),                      # a hole in the lags
+    ({0: 40}, {1: 9}, "cover 0..K"),                             # no lag to decide
+    ({0: 40, 1: 2}, {}, "no lead counts"),
+])
+def test_placebo_lag_rule_raises_rather_than_guess(lag, lead, msg):
+    with pytest.raises(ER.LagRuleError, match=msg):
+        ER.placebo_lag_rule(lag, lead)
+
+
+def test_the_number_of_leads_makes_the_maximum_a_test_at_the_pair_level():
+    """1/(J + 1) is the rank test's size; J = 19 is the fewest leads that reach 5%."""
+    J, a = ER.DERIVE_RULE_LEADS, ER.DERIVE_RULE_ALPHA
+    assert 1 / (J + 1) <= a < 1 / J
+    assert ER.DERIVE_RULE_HAC == 5 and ER.DERIVE_MAX_LAG == 10
+
+
+def _placebo_fixture(seed=21, n_names=8):
+    """Synthetic funds that respond to the factors at lags 0, 1 and 2 and share a common
+    shock (so their t-statistics co-move, as 13 CEFs do), plus a strong lag-3 response that
+    exists ONLY after the fit end. Tests the code; claims nothing about any fund."""
+    sess = ER.nyse_sessions(dt.date(2004, 1, 2), dt.date(2011, 12, 30))
+    E = _factor_returns(seed, sessions=sess)
+    rng = np.random.default_rng(seed + 100)
+    fit_end = sess[1300]
+    post = np.asarray(sess > fit_end)
+    common = rng.normal(0, 0.003, len(sess))
+    R = E.copy()
+    for i in range(n_names):
+        x = E @ rng.uniform(0.3, 0.8, 4)                        # a mix of IEF, HYG, MUB, BKLN
+        resp = x + 0.6 * x.shift(1) + 0.4 * x.shift(2)
+        late = np.where(post, 0.8 * x.shift(3).to_numpy(), 0.0)
+        R[f"N{i}"] = resp + late + common + rng.normal(0, 0.003, len(sess))
+    return R, sess, fit_end, [f"N{i}" for i in range(n_names)]
+
+
+def test_lead_placebo_rule_recovers_a_two_lag_response_on_the_fit_era_only():
+    pytest.importorskip("statsmodels.api")
+    R, sess, fit_end, names = _placebo_fixture()
+    pc = ER.lead_placebo_counts(R, names, fit_end=fit_end)
+    n = pc["n_pairs"]
+    assert n == 4 * len(names)
+    assert set(pc["lag"]) == set(range(ER.DERIVE_MAX_LAG + 1))
+    assert set(pc["lead"]) == set(range(1, ER.DERIVE_RULE_LEADS + 1))
+    assert pc["lag"][0] == pc["lag"][1] == pc["lag"][2] == n    # the response, every pair
+    # H13: the last response row is exactly J sessions before the fit end
+    i_end = int(sess.get_loc(fit_end))
+    assert pc["last"] == sess[i_end - ER.DERIVE_RULE_LEADS]
+    r = ER.placebo_lag_rule(pc["lag"], pc["lead"])
+    assert r["L"] == 2 and r["stop_lag"] == 3
+    assert pc["lag"][3] <= r["T"] < n
+    # the leads are counted at the pair level (mean near alpha x pairs), and the shared shock
+    # pushes their maximum past the Binomial 95% point: the dependence the placebo absorbs
+    from scipy.stats import binom
+    mean_lead = float(np.mean(list(pc["lead"].values())))
+    assert 0.5 * ER.DERIVE_RULE_ALPHA * n < mean_lead < 2.0 * ER.DERIVE_RULE_ALPHA * n
+    assert r["T"] > binom.ppf(0.95, n, ER.DERIVE_RULE_ALPHA)
+    # the lag-3 response after the fit end is strong enough to matter if it were read
+    full = ER.lead_placebo_counts(R, names, fit_end=sess[-1])
+    assert ER.placebo_lag_rule(full["lag"], full["lead"])["L"] >= 3
+
+
+def test_lead_placebo_counts_raise_on_a_missing_name():
+    R, _, fit_end, names = _placebo_fixture(n_names=1)
+    with pytest.raises(ER.LagRuleError, match="not in the returns panel"):
+        ER.lead_placebo_counts(R, names + ["ZZZ"], fit_end=fit_end)
 
 
 # --------------------------------------------------------------------------- cross-check labels

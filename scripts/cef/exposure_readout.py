@@ -64,20 +64,82 @@ Orthogonalising changes how the exposure is SPLIT, never its total. On the windo
 orthogonal set spans the same space as the raw ETFs, so the fitted values, and the total
 factor P&L sum_k E_k f_k, are identical in either basis; a test pins that.
 
-DIMSON LAGS: THREE, SET BEFORE THE FIRST READING; HOW WELL THE DATA PIN IT IS OPEN
-----------------------------------------------------------------------------------
+DIMSON LAGS: THE LEAD-PLACEBO RULE (team lead, 2026-11-02: re-derive L before the next reading)
+-----------------------------------------------------------------------------------------------
 A CEF's close can trail the ETFs' closes: the fund trades thinner, and its price partly
 anchors to a NAV that is struck from stale evaluated bond prices (W4 measured NAV AC(1) of
 +0.26 to +0.54 by group; results/cef/W4_ARTIFACTS_2026-10-11.md §3 [S]). Dimson (1979)
 regresses on the factor at t, t-1, ..., t-L and sums the betas. The exposure uses that sum:
 the whole eventual response of the price to a factor move.
 
-DIMSON_LAGS = 3 came from this rule (`derive`, fit era, 13 names, factors orthogonalised on
-the whole era, HAC(5)) [V: derive, re-run 2026-11-02]. For each lag l, count the (name,
-factor) pairs, of 52, whose lag-l coefficient is significant at 5%, with lags 0..K in the
-model and K = 10, the bound W4 used for its NAV-staleness sensitivity. Take the first gap:
-L = the last lag before the first lag whose count is within Binomial(52, 0.05)'s 95% point,
-5. The counts were 43, 14, 10, 7, 2 at lags 0..4, so L = 3.
+THE RULE. Written into this module, with its tests, and committed on its own (2026-11-03)
+before it was first run on any data. No alternative to it was computed before that commit.
+`lead_placebo_counts` makes the counts and `placebo_lag_rule` decides; `derive` runs both.
+  Data      the cache's total returns, cut at FIT_END (2022-12-30) BEFORE anything is
+            shifted, so no response, lag or lead is dated 2023 or later (H13;
+            `lead_placebo_counts` raises if one is). The four ETFs orthogonalised once on the
+            whole fit era, in FACTORS order. Names: the frozen spec's UNIVERSE, read at run
+            time; the pairs are names x 4 factors (52 on 13 names).
+  Model     ONE OLS per name: its daily total return on a constant, the four factors at lags
+            0..K and the four factors at leads 1..J, with HAC (Newey-West, 5 lags) standard
+            errors, on every session where all of them exist. K = DERIVE_MAX_LAG = 10, the
+            bound W4 used for its NAV-staleness sensitivity. J = DERIVE_RULE_LEADS = 19.
+  Counts    c(l), l = 0..K: pairs whose lag-l coefficient has a two-sided p < 0.05.
+            p(j), j = 1..J: pairs whose lead-j coefficient does. Same model, same sample.
+  Bound     T = max over j of p(j): the largest count the placebo produced.
+  Decision  Lag 0 must have c(0) > T, or the rule raises: the factors would then explain the
+            funds no better than their future returns, and no L means anything. Then for
+            l = 1, 2, ..., K in that order, lag l is included if and only if c(l) > T,
+            strictly. L is the last lag included before the first lag that is not.
+  Ties      c(l) = T does not include lag l, and it stops the sequence.
+  Gaps      A lag that clears T after a lag that did not is NOT included: the Dimson sum
+            needs lags 0..L without a hole, and the sequence below needs the stop.
+  Censoring If every lag 1..K clears T the rule raises. L would then be censored at K; K is
+            widened only under a new rule declared first, and K is never taken as the answer.
+WHY EACH PIECE
+  * The null is a placebo, not Binomial(52, 0.05). A lead coefficient loads the fund's
+    return on the factor's FUTURE return. With the lags in the model it has no causal
+    channel unless the fund leads the ETF. So its count is what 5% noise produces under the
+    real dependence among 13 co-moving funds' t-statistics, which a Binomial treats as 52
+    independent draws: the review's 5-lead placebo reached 18 against a Binomial 95% point
+    of 5 (below). Lags and leads come from ONE model per name so that they share the
+    residuals, the HAC weights, the sample and the design; the leads are then the nearest
+    available copies of a lag that carries nothing.
+  * q is the maximum of J = 19 lead counts. If lag l carries no response, its count is
+    (assumed) exchangeable with the 19 lead counts, and the chance that it strictly exceeds
+    all 19 is at most 1/20 = 0.05. That is the placebo's 95% point in the rank sense. It
+    matches the 5% that each pair is counted at, and it needs no quantile interpolated from
+    a small sample. J = 19 is the fewest leads at which the maximum gives a 5% test
+    (1/(J + 1) <= 0.05); a test pins that relation.
+  * The fixed order. Testing lags 1, 2, ... in a declared order, each at 5%, and stopping at
+    the first that fails keeps the chance of including ANY null lag at 5% with no
+    multiplicity adjustment: including a null lag requires including the first null lag in
+    the order, and that is one 5% event.
+  * The tie. Strict ">" keeps the rank test at or below 5% when counts tie. A lag that only
+    matches the largest placebo count has not shown more than the placebo.
+  * Risks, stated and not corrected. (a) If a fund does lead an ETF, some lead counts are
+    not null: T is then too high and L too short. (b) Exchangeability of lag and lead counts
+    is an assumption [U]. (c) The 19 lead counts are correlated with each other, so the
+    maximum comes from fewer than 19 effective draws [U how many].
+WHAT WAS IN SIGHT WHEN THE RULE WAS WRITTEN: the review's figures below (the lags-only counts
+at K = 10 and the five lead counts), all of 2026-11-02. No piece of the rule (K, J, the 5% per
+pair, HAC(5), the maximum, the tie, the stop, the single joint model) was computed on data
+before the commit that declared it. One consequence was visible in advance: the review's
+lead-1 count (18) exceeds every lags-only count from lag 1 on, so if the 19-lead maximum
+lands near it, this rule gives L = 0. That outcome was accepted in advance. The rule is not
+re-tuned after it runs, and any change to it lands in a commit of its own, before it is run.
+
+The plateau check sits beside it, as before, and nothing is chosen from it: `derive` prints
+the muni names' summed MUNI beta at every L, and `analyse --plateau` the per-factor review
+counts at L - 1 .. L + 2.
+
+THE RULES IT REPLACES (2026-11-02; history). DIMSON_LAGS = 3 came from this rule (`derive`,
+fit era, 13 names, factors orthogonalised on the whole era, HAC(5)) [V: derive, re-run
+2026-11-02]. For each lag l, count the (name, factor) pairs, of 52, whose lag-l coefficient
+is significant at 5%, with lags 0..K in the model and K = 10. Take the first gap: L = the last
+lag before the first lag whose count is within Binomial(52, 0.05)'s 95% point, 5. The counts
+were 43, 14, 10, 7, 2 at lags 0..4, so L = 3. `derive` still prints it and the three rules
+tried before it, labelled superseded; nothing is chosen from them.
 
 The review of 2026-11-02 (finding 1) showed that the data pin this L weakly. `derive` now
 prints the first three points below and `analyse --plateau` the fourth [V: both re-run
@@ -111,11 +173,12 @@ prints the first three points below and `analyse --plateau` the fourth [V: both 
     because it derives from the account's positions]. `analyse --plateau` prints the
     counts at L = 0 .. L + 2 beside the adopted row.
 
-DIMSON_LAGS stays 3. It was set before the first reading, and changing it after seeing the
-reading would repeat the error above. Whether to keep it, to show L = 1 beside it, or to
-re-derive it under a lead-calibrated null declared before it is run, is the team lead's
-call (open since 2026-11-02). L = 3 costs estimation noise: 17 regressors on 252 sessions,
-about 15 sessions each.
+The team lead ruled on 2026-11-02: re-derive L properly, under a lead-calibrated null
+declared before it is run, before the next reading. THE RULE above is that null. At the
+commit that declares it DIMSON_LAGS is still 3, from the superseded first-gap rule; it is
+set to the new rule's output in a commit of its own, after `derive` has run it. The rule
+reads only the fit era's public prices, never a reading of any account. Each lag costs
+estimation noise: at L = 3, 17 regressors on 252 sessions, about 15 sessions each.
 
 THE WINDOW: THE SLEEVE'S OWN z_window
 -------------------------------------
@@ -275,17 +338,20 @@ FACTORS: tuple[tuple[str, str], ...] = (("TERM", "IEF"), ("CREDIT", "HYG"), ("MU
 FACTOR_NAMES = tuple(f for f, _ in FACTORS)
 FACTOR_ETFS = tuple(e for _, e in FACTORS)
 
-DIMSON_LAGS = 3          # set by the first-gap rule before the first reading; weakly pinned,
-                         # and the team lead's call (module docstring)
+DIMSON_LAGS = 3          # from the SUPERSEDED first-gap rule; to be set from the lead-placebo
+                         # rule's output in a commit of its own (module docstring, THE RULE)
 WINDOW = Z_WINDOW        # the sleeve's own z_window, read from the frozen spec
 ANNUALISE = 252          # sessions a year, the convention of every vol on this desk
 D4_BETA_BAR = 0.10       # D4: factor betas <= 0.10 (docs/BRIEF.md; research-harness rules)
 REVIEW_FRACTION = D4_BETA_BAR   # D4 applied to each factor rescaled to the vol target
 FETCH_START = dt.date(2010, 1, 1)   # covers the fit era from BKLN's 2011-03 inception
 FIT_END = pd.Timestamp("2022-12-30")   # H13: derive reads nothing after this
-DERIVE_MAX_LAG = 10      # W4's NAV-staleness sensitivity bound (module docstring)
-DERIVE_ALT_MAX_LAG = 5   # the bound the first lag rule was tried at (module docstring)
-DERIVE_PLACEBO_LEADS = 5 # leads in derive's null placebo: as many as the shorter bound
+DERIVE_MAX_LAG = 10      # K: W4's NAV-staleness sensitivity bound (module docstring)
+DERIVE_RULE_LEADS = 19   # J: the lead placebo's draws; the max of 19 is a 1/(J+1) = 5% rank test
+DERIVE_RULE_ALPHA = 0.05 # two-sided p at which each (name, factor) lag or lead is counted
+DERIVE_RULE_HAC = 5      # Newey-West lags of every derive regression (unchanged from 2026-11-02)
+DERIVE_ALT_MAX_LAG = 5   # the bound the first lag rule was tried at (superseded; history)
+DERIVE_PLACEBO_LEADS = 5 # leads in the review's 2026-11-02 placebo (superseded; history)
 
 # The tolerances the cross-check reports against. They label disagreements; they decide
 # nothing. Half a cent: yfinance stores closes as float32 and Yahoo rounds to the cent
@@ -1111,8 +1177,9 @@ def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR) -> tuple[pd.DataFram
 def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = FIT_END,
            max_lag: int = DERIVE_MAX_LAG, window: int = WINDOW) -> dict:
     """Re-measure the two modelling choices on the fit era only (< 2023, H13): factor
-    collinearity (whether to orthogonalise) and the Dimson lag count (first-gap rule).
-    Prints the tables the module docstring quotes and returns them."""
+    collinearity (whether to orthogonalise) and the Dimson lag count (THE RULE, the lead
+    placebo; the superseded rules are printed after it as history). Prints the tables the
+    module docstring quotes and returns them."""
     from scipy.stats import binom
     names = list(names or UNIVERSE)
     R, _, _ = returns_panel(px)
@@ -1160,12 +1227,34 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
                       for j, k in enumerate(FACTOR_NAMES)))
     out.update(corr=corr, vif=vif, rolling=rc, resid=rr)
 
-    # 2. Dimson lags, factors orthogonalised on the whole era
+    # 2. THE RULE (module docstring): the lead-placebo lag rule, adopted 2026-11-03. The
+    # counts are printed before the decision, so a raise still leaves the table on screen.
+    npairs = len(names) * len(FACTOR_NAMES)
+    pc = lead_placebo_counts(R, names, fit_end=fit_end, max_lag=max_lag)
+    print(f"\n2. DIMSON LAGS, THE RULE (adopted; module docstring): one OLS per name, lags 0..{max_lag} "
+          f"and leads 1..{DERIVE_RULE_LEADS}, HAC({DERIVE_RULE_HAC}); pairs (of {pc['n_pairs']}) with "
+          f"p < {DERIVE_RULE_ALPHA}")
+    print(f"   sample {pc['first'].date()}..{pc['last'].date()} (last response row; its lead-"
+          f"{DERIVE_RULE_LEADS} row is on or before {pd.Timestamp(fit_end).date()}), sessions per name "
+          f"{min(pc['nobs'].values())}..{max(pc['nobs'].values())}")
+    print("   lag counts  c(l): " + _fmt_counts(pc["lag"]))
+    print("   lead counts p(j): " + _fmt_counts(pc["lead"], "m"))
+    rule = placebo_lag_rule(pc["lag"], pc["lead"])
+    at = [j for j, c in pc["lead"].items() if c == rule["T"]]
+    print(f"   T = max lead count = {rule['T']} (at lead {at}); first lag not above T: {rule['stop_lag']} "
+          f"(count {pc['lag'][rule['stop_lag']]}); so L = {rule['L']}")
+    print(f"   module constant DIMSON_LAGS = {DIMSON_LAGS}: "
+          + ("equals the rule's L" if DIMSON_LAGS == rule["L"] else
+             f"DIFFERS from the rule's L = {rule['L']}; set it from the rule in a commit of its own"))
+    L = rule["L"]
+
+    # 3. SUPERSEDED (2026-11-02; history). Every rule the build session tried, at both lag
+    # bounds, and the review's 5-lead placebo, kept so the docstring's review figures stay
+    # reproducible. Nothing is chosen from them.
     M = orthogonaliser(E)
     F = E @ M
     F.columns = list(FACTOR_NAMES)
     models = {K: {n: _dimson_ols(R[n], F, K) for n in names} for K in sorted({DERIVE_ALT_MAX_LAG, max_lag})}
-    npairs = len(names) * len(FACTOR_NAMES)
     bound = int(binom.ppf(0.95, npairs, 0.05))
     rules = {K: lag_rule_counts(ms, alpha=0.05) for K, ms in models.items()}
     sig = rules[max_lag]["single"]
@@ -1174,18 +1263,13 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
         m = models[max_lag][n]
         for k in FACTOR_NAMES:
             cum[(n, groups.get(n, "?"), k)] = np.cumsum([m.params[f"{k}_{l}"] for l in range(max_lag + 1)])
-    L = _first_gap(sig, bound)
-    print(f"\n2. DIMSON LAGS: pairs (of {npairs}) with the lag-l coefficient significant at 5%, "
-          f"lags 0..{max_lag}, HAC(5)")
+    L_old = _first_gap(sig, bound)
+    print(f"\n3. SUPERSEDED (2026-11-02; history, nothing is chosen here). Lags-only models, lags "
+          f"0..{max_lag}, HAC(5): pairs (of {npairs}) with the lag-l coefficient significant at 5%")
     print("   " + ", ".join(f"l{l} {c}" for l, c in sig.items()) + f"; Binomial({npairs}, 0.05) 95% point {bound}")
-    print(f"   first lag within the null bound: {None if L is None else L + 1}; so L = {L} "
-          f"(module constant {DIMSON_LAGS})")
-
-    # Every rule the build session tried, at both lag bounds (review 2026-11-02, finding 1:
-    # only one rule of four gave 3, and the docstring disclosed one). Reported; nothing is
-    # chosen here, and DIMSON_LAGS is not set from this table.
+    print(f"   the superseded first-gap rule's L = {L_old}")
     maj = len(names) // 2 + 1
-    print("\n   the four lag rules tried on 2026-11-02, at both lag bounds K (nothing is chosen here):")
+    print("\n   the four lag rules tried on 2026-11-02, at both lag bounds K (superseded):")
     tab = []
     for K, c in rules.items():
         tab.append(dict(K=K, rule=f"joint Wald test of lag l, a majority ({maj} of {len(names)}) of names",
@@ -1193,16 +1277,11 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
         tab.append(dict(K=K, rule=f"sum of lags L+1..K, pairs significant <= {bound}",
                         counts=_fmt_counts(c["tail"], "L"), L=_smallest_within(c["tail"], bound)))
         tab.append(dict(K=K, rule=f"single-lag first gap, pairs significant <= {bound}"
-                                  + (" (ADOPTED)" if K == max_lag else ""),
+                                  + (" (adopted until 2026-11-03)" if K == max_lag else ""),
                         counts=_fmt_counts(c["single"]), L=_first_gap(c["single"], bound)))
     tab = pd.DataFrame(tab)
     with pd.option_context("display.width", 250, "display.max_colwidth", 120):
         print(tab.to_string(index=False))
-
-    # The null bound, tested. Binomial(npairs, .05) treats the pairs as independent; 13
-    # co-moving funds are not. A LEAD coefficient (the factor's FUTURE return, a deliberate
-    # placebo regressor, never an estimate used on any date) has no causal channel, so its
-    # significant count is what noise alone produces under this dependence.
     lead = {j: 0 for j in range(1, DERIVE_PLACEBO_LEADS + 1)}
     for n in names:
         m = _dimson_ols(R[n], F, max_lag, leads=DERIVE_PLACEBO_LEADS)
@@ -1210,19 +1289,27 @@ def derive(px: pd.DataFrame, groups: dict, names=None, fit_end: pd.Timestamp = F
             for j in lead:
                 lead[j] += int(m.pvalues[f"{k}_m{j}"] < 0.05)
     over = sum(c > bound for c in lead.values())
-    print(f"\n   placebo: pairs (of {npairs}) with a LEAD coefficient (t+j, a future factor return) "
-          f"significant at 5%, lags 0..{max_lag} kept: " + ", ".join(f"lead{j} {c}" for j, c in lead.items())
+    print(f"\n   the review's placebo: pairs (of {npairs}) with a LEAD coefficient significant at 5%, "
+          f"lags 0..{max_lag} and leads 1..{DERIVE_PLACEBO_LEADS}: "
+          + ", ".join(f"lead{j} {c}" for j, c in lead.items())
           + f"; {over} of {len(lead)} leads exceed the Binomial bound {bound}")
     span = range(0, max(sig[l] for l in range(1, max_lag + 1)) + 2)
-    print("   the adopted rule's L as a function of the bound (single-lag counts above): "
+    print("   the superseded rule's L as a function of the bound: "
           + _fmt_runs({b: _first_gap(sig, b) for b in span}))
 
+    # 4. The plateau check, beside the rule; nothing is chosen from it.
     cm = pd.DataFrame(cum).T
     cm.index.names = ["name", "grp", "factor"]
     cm.columns = [f"L{l}" for l in range(max_lag + 1)]
     med = cm.groupby(level=["grp", "factor"]).median()
-    print("\n   plateau check: median cumulative summed beta by group and factor\n" + med.round(2).to_string())
-    out.update(sig=sig, bound=bound, L=L, cum=cm, rules=rules, rule_table=tab, placebo=lead)
+    print(f"\n4. PLATEAU CHECK (nothing is chosen from it): median cumulative summed beta by group and "
+          f"factor, from the lags-only 0..{max_lag} models\n" + med.round(2).to_string())
+    near = [f"L{l}" for l in (L - 1, L, L + 1) if 0 <= l <= max_lag]
+    if ("muni", "MUNI") in med.index:
+        print(f"   muni names' MUNI beta at the rule's L - 1, L, L + 1: "
+              + ", ".join(f"{c} {med.at[('muni', 'MUNI'), c]:.2f}" for c in near))
+    out.update(sig=sig, bound=bound, L=L, L_superseded=L_old, placebo_counts=pc, rule=rule, cum=cm,
+               rules=rules, rule_table=tab, placebo=lead)
     return out
 
 
@@ -1233,7 +1320,91 @@ def _dimson_ols(y: pd.Series, F: pd.DataFrame, max_lag: int, leads: int = 0):
     cols.update({f"{k}_m{j}": F[k].shift(-j) for k in F.columns for j in range(1, leads + 1)})
     X = pd.concat(cols, axis=1)
     d = pd.concat([y.rename("y"), X], axis=1).dropna()
-    return sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(cov_type="HAC", cov_kwds={"maxlags": 5})
+    return sm.OLS(d["y"], sm.add_constant(d.drop(columns="y"))).fit(
+        cov_type="HAC", cov_kwds={"maxlags": DERIVE_RULE_HAC})
+
+
+# --------------------------------------------------------------------------- the lag rule
+
+class LagRuleError(ReadoutError):
+    """The lead-placebo lag rule cannot place L (module docstring, THE RULE): lag 0 fails
+    the placebo, every lag clears it (L censored at K), or its inputs are malformed."""
+
+
+def lead_placebo_counts(R: pd.DataFrame, names, fit_end: pd.Timestamp = FIT_END,
+                        max_lag: int = DERIVE_MAX_LAG, leads: int = DERIVE_RULE_LEADS,
+                        alpha: float = DERIVE_RULE_ALPHA) -> dict:
+    """The counts THE RULE decides on (module docstring): one OLS per name on the four
+    orthogonal factors at lags 0..max_lag AND leads 1..leads, HAC; c(l) and p(j) are the
+    (name, factor) pairs whose lag-l / lead-j coefficient has a two-sided p < alpha.
+
+    H13: R is cut at fit_end BEFORE any shift, so a lead can never reach a 2023 return; the
+    cut is then checked explicitly on every name's sample (an explicit raise, not an assert):
+    its last response row must sit `leads` sessions before the last factor row, and that row
+    must be on or before fit_end. The factors are orthogonalised once on the whole cut era,
+    as `derive` always has. Returns dict(lag, lead, n_pairs, nobs, first, last)."""
+    names = list(names)
+    if not names:
+        raise LagRuleError("lead_placebo_counts: no names")
+    miss = [c for c in (*FACTOR_ETFS, *names) if c not in R.columns]
+    if miss:
+        raise LagRuleError(f"lead_placebo_counts: not in the returns panel: {miss}")
+    fit_end = pd.Timestamp(fit_end)
+    Rc = R.loc[:fit_end]                       # H13: cut first, shift afterwards
+    E = Rc[list(FACTOR_ETFS)].dropna()
+    if len(E) == 0:
+        raise LagRuleError(f"lead_placebo_counts: no factor rows on or before {fit_end.date()}")
+    if E.index.max() > fit_end:
+        raise LookaheadError(f"lead_placebo_counts: factor rows reach {E.index.max().date()}, "
+                             f"after the fit era's end {fit_end.date()} (H13)")
+    M = orthogonaliser(E)
+    F = E @ M
+    F.columns = list(FACTOR_NAMES)
+    lag = {l: 0 for l in range(max_lag + 1)}
+    lead = {j: 0 for j in range(1, leads + 1)}
+    nobs, first, last = {}, [], []
+    for n in names:
+        m = _dimson_ols(Rc[n], F, max_lag, leads=leads)
+        rows = pd.DatetimeIndex(m.model.data.row_labels)
+        k_reg = len(m.params)
+        if len(rows) <= k_reg:
+            raise LagRuleError(f"lead_placebo_counts: {n} has {len(rows)} sessions for {k_reg} regressors")
+        pos_last = int(F.index.get_loc(rows.max()))
+        if rows.max() > fit_end or pos_last + leads > len(F) - 1 or F.index[pos_last + leads] > fit_end:
+            raise LookaheadError(f"lead_placebo_counts: {n}'s sample ends {rows.max().date()} and its "
+                                 f"lead-{leads} row passes {fit_end.date()} (H13)")
+        nobs[n], first, last = len(rows), first + [rows.min()], last + [rows.max()]
+        for k in FACTOR_NAMES:
+            for l in lag:
+                lag[l] += int(m.pvalues[f"{k}_{l}"] < alpha)
+            for j in lead:
+                lead[j] += int(m.pvalues[f"{k}_m{j}"] < alpha)
+    return dict(lag=lag, lead=lead, n_pairs=len(names) * len(FACTOR_NAMES), nobs=nobs,
+                first=min(first), last=max(last))
+
+
+def placebo_lag_rule(lag_counts: dict, lead_counts: dict) -> dict:
+    """THE RULE's decision (module docstring), on counts already made. T = the largest lead
+    count. Lag 0 must exceed T, or this raises. Lags 1, 2, ... are included in order while
+    their count exceeds T STRICTLY; a tie stops the sequence; a lag after the first that
+    fails is never included. Every lag 1..K clearing T raises (L censored at K). Returns
+    dict(L, T, stop_lag): stop_lag is the first lag not included."""
+    if not lead_counts:
+        raise LagRuleError("placebo_lag_rule: no lead counts, so no placebo bound")
+    lags = sorted(lag_counts)
+    if lags != list(range(len(lags))) or len(lags) < 2:
+        raise LagRuleError(f"placebo_lag_rule: lag counts must cover 0..K with K >= 1, got lags {lags}")
+    T = max(lead_counts.values())
+    if not lag_counts[0] > T:
+        raise LagRuleError(f"placebo_lag_rule: lag 0 count {lag_counts[0]} does not exceed the largest "
+                           f"lead count {T}; the factors explain the funds no better than their future "
+                           "returns, and no L is meaningful")
+    for l in lags[1:]:
+        if not lag_counts[l] > T:
+            return dict(L=l - 1, T=T, stop_lag=l)
+    raise LagRuleError(f"placebo_lag_rule: every lag 1..{lags[-1]} exceeds the largest lead count {T}: "
+                       f"L is censored at K = {lags[-1]}. Widen K only under a new rule declared first; "
+                       "K is not the answer")
 
 
 def lag_rule_counts(models: dict, alpha: float = 0.05) -> dict:
