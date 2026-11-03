@@ -1,7 +1,7 @@
 {
  "about": "Every output of the research evidence pack, its inputs with sha256, and what is PENDING. Rebuild: python3 -m scripts.report.build_pack",
- "built_at_utc": "2026-11-03T21:15:11+00:00",
- "commit": "1b2496e60f4092842cf6517555573a7344574473",
+ "built_at_utc": "2026-11-03T22:30:09+00:00",
+ "commit": "1d36accaaeea6222e48cd026c17ecbc08322445b",
  "clean_inputs": true,
  "newest_release_tag": "release-20261103-4",
  "builder": "scripts/report/build_pack.py",
@@ -34,7 +34,7 @@
    "kind": "figure",
    "title": "Spec lineage",
    "path": "results/report/figures/F02_spec_lineage.png",
-   "sha256": "acd263ae24a3d8b8f45d86b1e0e8df830a965d16e810175e433463fae27cfbfb",
+   "sha256": "5ce66ec10cb95b1ca0e8d87c401152285d654c21ea58014c5463bd555c9bbed2",
    "inputs": [
     "git:HEAD:ops/specs history",
     "git:refs/tags/release-*"
@@ -58,7 +58,7 @@
    "kind": "figure",
    "title": "Deployment timeline",
    "path": "results/report/figures/F01_deployment_timeline.png",
-   "sha256": "dec51e9370a434b7431f17c9ef04e8a8bacb84a5468bfb125fd9b16caee49c62",
+   "sha256": "64b3f1119e58507399c527bb2be10ecd75c77df7b07710052da202a1bc465569",
    "inputs": [
     "results/report/data/deployments.csv",
     "git:refs/tags/release-*"
@@ -82,7 +82,7 @@
    "kind": "figure",
    "title": "Trial 53 HALVE/KILL odds",
    "path": "results/report/figures/F03_trial53_halve_kill.png",
-   "sha256": "111542e69024b8592933b481e8fc48dc614ca8e9871c1d93de6d7efc1e2e760a",
+   "sha256": "f78027613507c5d3ff194a811ff514c04e5afabe5c51e179d35aa7b2667916c2",
    "inputs": [
     "results/cef/prereg_voltarget/risk_2026-10-30.json",
     "results/cef/prereg_voltarget/risk_2026-11-02_flatten.json",
@@ -106,7 +106,7 @@
    "kind": "figure",
    "title": "Trial 54 Gate 0",
    "path": "results/report/figures/F04_trial54_gate0.png",
-   "sha256": "675b235f839bfbc28dc63e69b80a4350c6fe1705cb231c0b21cdf903815b8e03",
+   "sha256": "3f538ea1fdff94ea5f74742597de7bbbf407788e4a675cf7879ed94fff58228d",
    "inputs": [
     "results/cef/screens_2026-11-02/gate0_analysis.json"
    ],
@@ -130,7 +130,7 @@
    "kind": "figure",
    "title": "C4 fit vs holdout",
    "path": "results/report/figures/F05_c4_trial52.png",
-   "sha256": "f98d81313ace04c5f2cf93c3f14737f0b576b3aabee69525ab05b9c6128ddb47",
+   "sha256": "317d93210d95f36b603cfc827d998d044aed6765fe2e3c08ecbdece86e97074d",
    "inputs": [
     "results/cef/c4/c4_fit_verdict_2026-10-14.json",
     "results/cef/c4/c4_holdout_verdict_2026-10-18.json",
@@ -143,7 +143,7 @@
    "kind": "figure",
    "title": "Live equity",
    "path": "results/report/figures/F06_live_equity.png",
-   "sha256": "2f00d7b60a7c5e6aa72e2346b02a68f375c151860facfb9e42a46e10f8a8b96f",
+   "sha256": "a461cc86ad1e175a2b69b0e44db1b61a1ba417a72c1b98516bde3ffe737c3eb3",
    "inputs": [
     "results/report/data/live/cef/equity_snapshot.csv",
     "git:refs/tags/release-*"
@@ -168,7 +168,7 @@
    "kind": "figure",
    "title": "Live P&L lines",
    "path": "results/report/figures/F07_live_pnl_lines.png",
-   "sha256": "006134c24b2a595bb2992de65173514a5bc222d876f9a16009f2f565b3584818",
+   "sha256": "19652abbf8e45232cd654b65a296d88e50ad5e3e1f4fc0b919524b220d47db24",
    "inputs": [
     "results/report/data/live/cef/scores.csv",
     "results/report/data/live/cef/distribution_scores.csv",
@@ -192,7 +192,7 @@
    "kind": "figure",
    "title": "Live attribution",
    "path": "results/report/figures/F08_live_attribution.png",
-   "sha256": "61a8ee7f6d83abed8e465101b384a78c5607eef2af0267e7aee518d49c307249",
+   "sha256": "1b56c7cc53a6d64904afecfb5ed9f14025a8b694c26587a7c4e0cea3b0f3416d",
    "inputs": [
     "results/cef/LIVE_ATTRIBUTION_2026-11-02.md"
    ],
@@ -203,7 +203,7 @@
    "kind": "figure",
    "title": "Fill cost by session",
    "path": "results/report/figures/F09_tca.png",
-   "sha256": "9ec81e5d90e7a0c43412fd49dcb5cd5ed0bf031ceda649f04111d51860b0d44f",
+   "sha256": "ae2afa1d2c884534ab136f61114782fa19f12ad3a61f7d126068bb13362eb044",
    "inputs": [
     "results/report/data/live/cef/fill_cost_daily.csv",
     "results/report/data/live/cef/fill_cost_pooled.csv",
@@ -217,7 +217,7 @@
    "kind": "figure",
    "title": "Verify and gate history",
    "path": "results/report/figures/F10_verify_history.png",
-   "sha256": "5d2f3a2b51ac03b1e69c6f19c13cebcb3f57a995b3103f1aa93f838defed0e38",
+   "sha256": "572254d8a3834c6f530bb2f98ae9aca8577302f4a238ee1e3dd16b799bbd5af0",
    "inputs": [
     "results/report/data/live/cef/verify.csv"
    ],
@@ -261,7 +261,7 @@
    "kind": "figure",
    "title": "Trial counters",
    "path": "results/report/figures/F11_trial_counters.png",
-   "sha256": "a7d81dc28f2aced1d9b65b17d9c70ba4f58888c47b04bb1d0aa743db0e35192d",
+   "sha256": "f66c946c9e7afdd3fb0cff6f9f2073b795e44cfc14e49418dc1d0d8872bcdf85",
    "inputs": [
     "git:HEAD:docs/RESEARCH_STATE.md history"
    ],
