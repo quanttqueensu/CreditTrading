@@ -359,6 +359,136 @@ def cef_optional_keys(frozen) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# CEF trial 55 (te4): the K1-K3 report thresholds, in the spec's `risk` block
+# ---------------------------------------------------------------------------
+
+# Each is a line the K1-K3 REPORT reads (quantt/session/drawdown.py `thin_stop_record`);
+# nothing trades on any of them (pre-registration §6.3: "No code acts on them"; the team lead
+# acts, through the revert spec). Units and the pre-registration's drafting-day values:
+CEF_THIN_STOP_KEYS = (
+    "thin_k1_episode_drawdown",   # K1: a FRACTION of the episode's high-water mark (D_E, 0.1052)
+    "thin_k2_max_name_frac",      # K2: largest |name market value| / equity (0.956)
+    "thin_k3_net_run",            # K3: |long - short| / equity, on 3 reduced closes in sequence (0.248)
+    "thin_k3_net_once",           # K3: |long - short| / equity, once (0.833)
+)
+# The provenance a threshold must carry: the file of `results/cef/prereg_thin_te4/compose.py`'s
+# run on the read date that derived it (H14; the owner's answer 3, 2026-11-03).
+CEF_THIN_STOP_SOURCE = "compose_"
+
+
+def _thin_stop_near_miss(key: str):
+    """The K-line threshold `key` is, or looks like a misspelling of, or None
+    (`cef_c4_near_miss`'s rule, CEF_C4_NEAR edits). A `_<key>_note` is checked
+    as its stem, so a note is a match of its own key."""
+    stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+    if stem.endswith("_note"):
+        stem = stem[:-len("_note")].strip("_")
+    for k in CEF_THIN_STOP_KEYS:
+        if (stem == k or stem.replace("_", "") == k.replace("_", "")
+                or _osa_distance(stem, k) <= CEF_C4_NEAR):
+            return k
+    return None
+
+
+def cef_thin_stop_levels(spec) -> dict:
+    """{key: float | None} for CEF_THIN_STOP_KEYS, from `spec["risk"]`; None where absent.
+
+    WHAT THEY ARE (CEF trial 55, "te4", results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md
+    §6.3; the runner's owner, answer 3, 2026-11-03). The thresholds of the K1-K3 report lines
+    that the activation release must carry. They are REPORT-ONLY spec keys: the activation
+    commit sets them, each re-measured on its read date by `compose.py --stamp <date>`, and a
+    report line whose key is absent reads UNMEASURED, never a default. The live path never
+    reads `results/`, so the value lives here, with its provenance beside it.
+
+    REFUSED, naming the key and the value:
+      * a key present while `below_min_names` is not "trade_eligible": a threshold nothing
+        reads is a spec that says one thing and does another (the floor's rule,
+        `cef_below_min_names_floor`). The revert spec deletes them with the floor;
+      * a key without its sibling note `_<key>_note`, or a note that does not name the
+        `compose_<stamp>.json` that derived it: a threshold without provenance is a rumour
+        (CLAUDE.md, data rules), and H14 requires that it was re-measured;
+      * a bool or a non-number, NaN or inf, or zero or below;
+      * `thin_k1_episode_drawdown` at or above 1: a drawdown line is a FRACTION, and 10.52
+        is a percent written where a fraction belongs (drawdown.py `levels`, the units trap);
+      * the three exposure lines at or above `frozen.max_gross_stress`: each is a share of
+        equity that the account's own gross cap bounds at the decision (a single name, or
+        the net, is at most the gross), so a value at or above the cap is unreachable but by
+        drift, and 95.6 is a percent; and `max_gross_stress` absent, since then there is no
+        bound to check against;
+      * `thin_k3_net_run` not below `thin_k3_net_once`: the persistent line is the lower one
+        (p99 against the fit maximum), or the run rule could never fire first;
+      * a key in `risk` that looks like a misspelling of one of them (`cef_c4_near_miss`'s
+        rule: within CEF_C4_NEAR edits, the letters without underscores, or a `_comment`):
+        absent reads UNMEASURED, so a misspelt key would leave the line unread while the spec
+        reads as set.
+    """
+    risk = spec.get("risk")
+    if risk is None:
+        risk = {}
+    if not isinstance(risk, dict):
+        raise ValueError(f"spec risk block is {type(risk).__name__}, not an object")
+    notes = tuple(f"_{k}_note" for k in CEF_THIN_STOP_KEYS)
+    for key in risk:
+        if not isinstance(key, str) or key in CEF_THIN_STOP_KEYS or key in notes:
+            continue
+        k = _thin_stop_near_miss(key)
+        if k is not None:
+            raise ValueError(
+                f"cef_discount risk key {key!r} looks like a misspelling of {k!r}; its K-line "
+                f"would read UNMEASURED while the spec reads as set. Spell it {k!r}, or "
+                f"delete it")
+    # In the wrong block: `frozen` is not where these are read, so one written there would be
+    # ignored as silently as a misspelt one.
+    for key in (spec.get("frozen") or {}):
+        k = _thin_stop_near_miss(key) if isinstance(key, str) else None
+        if k is not None:
+            raise ValueError(f"cef_discount frozen key {key!r} is (or looks like) the K-line "
+                             f"threshold {k!r}, which is read from the spec's `risk` block only; "
+                             f"move it to risk.{k}")
+    out = {k: None for k in CEF_THIN_STOP_KEYS}
+    present = [k for k in CEF_THIN_STOP_KEYS if k in risk]
+    if not present:
+        return out
+    frozen = spec.get("frozen") or {}
+    rule = cef_below_min_names(frozen)
+    if rule != "trade_eligible":
+        raise ValueError(f"cef_discount risk {present} set but below_min_names is {rule!r}; the "
+                         f"K1-K3 lines are read only under 'trade_eligible'. Delete them, or set "
+                         f"the rule")
+    import math
+    cap = frozen.get("max_gross_stress")
+    for k in present:
+        v = risk[k]
+        note = risk.get(f"_{k}_note")
+        if not (isinstance(note, str) and CEF_THIN_STOP_SOURCE in note and ".json" in note):
+            raise ValueError(f"cef_discount risk.{k} needs its sibling note _{k}_note naming the "
+                             f"{CEF_THIN_STOP_SOURCE}<stamp>.json that derived it (H14: re-measured "
+                             f"on the read date); got {note!r}")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) \
+                or not v > 0:
+            raise ValueError(f"cef_discount risk.{k} {v!r} must be a finite number above 0")
+        if k == "thin_k1_episode_drawdown":
+            if not v < 1:
+                raise ValueError(f"cef_discount risk.{k} {v!r}: a drawdown line is a FRACTION of "
+                                 f"the high-water mark, in (0, 1); {v!r} reads as a percent. "
+                                 f"Refused, not rescaled")
+        else:
+            if isinstance(cap, bool) or not isinstance(cap, (int, float)) or not math.isfinite(cap):
+                raise ValueError(f"cef_discount risk.{k} cannot be checked: frozen."
+                                 f"max_gross_stress is {cap!r}")
+            if not v < cap:
+                raise ValueError(f"cef_discount risk.{k} {v!r} is not below max_gross_stress "
+                                 f"{cap}: a share of equity the gross cap bounds at the decision; "
+                                 f"a percent written where a fraction belongs?")
+        out[k] = float(v)
+    run, once = out["thin_k3_net_run"], out["thin_k3_net_once"]
+    if run is not None and once is not None and not run < once:
+        raise ValueError(f"cef_discount risk.thin_k3_net_run {run} must be below "
+                         f"thin_k3_net_once {once}")
+    return out
+
+
+# ---------------------------------------------------------------------------
 # sizing_multiplier (CEF trial 53, results/cef/PREREG_VOLTARGET_2026-10-30.md)
 # ---------------------------------------------------------------------------
 
@@ -529,6 +659,7 @@ def _validate_cef_discount(spec):
     f = _require_dict(spec, "frozen")
     cef_optional_keys(f)
     cef_below_min_names_floor(f)
+    cef_thin_stop_levels(spec)      # CEF trial 55's K1-K3 report lines (risk block); absent: nothing
     cef_level_signal(f)
     uni = f.get("universe")
     if not isinstance(uni, list) or len(uni) < 6:

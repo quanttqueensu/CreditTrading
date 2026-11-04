@@ -19,9 +19,19 @@ At every DECIDE the runner (quantt/session/run.py, step 2b) asks `check` for the
 book's drawdown from its high-water mark on the official daily equity series,
 compares it with the two lines, and records the result, together with what an
 `on` mode WOULD do, in plan.json and the run record (`drawdown`). It also prints
-it to the session log (`lines`). Nothing that trades reads the result. The
+it to the session log (`lines`). Report mode acts on nothing. ONE READER OF THE
+STATUS RESTRICTS ON IT, and only while the core spec sets `below_min_names =
+"trade_eligible"` (CEF trial 55, paper only; added 2026-11-03): run.py's K0
+(`_thin_k0_stop`) lets the sleeve build a reduced 4-5 name book only when the
+status is exactly OK, and on HALVE, KILL, UNMEASURED or anything else passes the
+stop that takes today's flatten instead. Its one action is today's rule: it never
+sizes up and never unlocks a send (the owner's term, pinned by
+quantt/session/tests/test_trade_eligible_runner.py, "no drawdown status can
+increase gross"). With that key absent nothing reads the status, and the
 orders, the plan_sha and plan.json are a check-off session's, byte for byte,
-apart from the added `drawdown` record. quantt/session/tests/test_drawdown.py
+apart from the added `drawdown` record. The K0-K3 REPORT lines for that trial
+are at the end of this module (`thin_stop_record`); they report and act on
+nothing. quantt/session/tests/test_drawdown.py
 proves it on the live spec, the real sleeve and the real panel. This is the
 stale-NAV gate's report-mode design (quantt/session/nav_gate.py, 2026-10-13),
 reused.
@@ -356,4 +366,284 @@ def lines(rec: dict) -> list[str]:
                 else f"unreadable: {snap['unmeasured']}")
         out.append(f"  DRAWDOWN snapshot ({SNAPSHOT_FILE}, after-hours marks, NOT the "
                    f"check's input): {what}")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# CEF TRIAL 55 ("te4"): the K0-K3 report lines
+# ---------------------------------------------------------------------------
+#
+# results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md §6.3 requires, in the activation release,
+# report lines for K0-K3 "in report mode and tested": "a stop that lives only in a document is
+# a stop nobody reads". This is them. REPORT ONLY: nothing that trades reads any of it. K0's
+# ACTION (a reduced build only on an exact OK) is quantt/session/run.py `_thin_k0_stop`, which
+# reads this module's status; the line here reports whether that reading also KILLS the trial.
+# Called only while the core spec sets `below_min_names = "trade_eligible"` (run.py
+# `_thin_stops`), so with the key absent nothing here runs and plan.json has no `thin_stops`.
+#
+# Every input is passed in (the records, the series, the positions, the thresholds), so the
+# function is tested on synthetic records; run.py does the reading.
+#
+# DEFINITIONS (§4.2, §6.3; compose.py's, where it has one):
+#   reduced decision  a prior plan.json whose `thin_session.reduced` is true and whose
+#                     `refusals` list is empty (the structured flag, never a reason string).
+#                     Whether its SEND then went is not read: a decided reduced plan whose send
+#                     was refused still counts, which can only open an episode sooner (K0's
+#                     KILLED reads more often, never less).
+#   episode           reduced decisions fewer than THIN_EPISODE_GAP sessions apart; OPEN at this
+#                     decide while the newest is fewer than THIN_EPISODE_GAP sessions back.
+#   earning day       for a reduced decision whose session is s (filled at s's late window), the
+#                     next session e; its return is eod_equity(e) / eod_equity(s) - 1, counted
+#                     only once e is on or before the as-of date (no lookahead).
+#   K1                the maximum drawdown of the episode's earning-day returns compounded end
+#                     to end from 1.0 at the episode's start; TRIPPED at or above the line.
+#   K2, K3            at this decide, if the previous session's decision was reduced: the
+#                     account's positions (after that session's fills) at the as-of closes,
+#                     over eod_equity(as-of). K2 the largest |name|, K3 |long - short|. TRIPPED
+#                     above the line. K3's run counts reduced closes IN SEQUENCE (compose.py's
+#                     `runs_above` over reduced decisions; a full session between them does not
+#                     break it), read back from earlier plans' `thin_stops.K3.net` within the
+#                     open episode only (a run that crossed two episodes, which compose.py
+#                     would count, is not seen: episodes are 63 or more sessions apart), against
+#                     today's line.
+#   send skip         the previous session's late-market SEND (send.json `skipped`, the run
+#                     record's `skipped_at_send`) after a reduced decision. The send skips only
+#                     orders that open or increase a short of a name no longer shortable
+#                     (run.py `_send_planned`), so any entry is a lost short. Ruled 2026-11-03:
+#                     accept it and label it; this is the label, and K3 watches the result.
+# READING BACK. Sessions are walked newest first from the one before this decide. A session
+# with no plan.json, or one that cannot be read, makes the episode UNMEASURED (named): a
+# missing record is not a session without a reduced build. A plan.json with no
+# `thin_session` was decided with the key absent, when no reduced build could run, and ends
+# the walk (the rule was off before it).
+
+THIN_EPISODE_GAP = 63    # sessions: build_panel's ADV window, the screen's merge rule (§4.2)
+THIN_K3_RUN = 3          # K3's persistence: above the run line on 3 reduced closes (§6.3)
+THIN_SCAN_LIMIT = 2000   # sessions walked back at most; beyond it the episode is UNMEASURED
+TRIPPED, CLEAR, KILLED, NOT_APPLICABLE = "TRIPPED", "CLEAR", "KILLED", "N/A"
+
+
+def _is_reduced(plan: dict) -> bool:
+    ts = plan.get("thin_session") or {}
+    return ts.get("reduced") is True and plan.get("refusals") == []
+
+
+def _walk(session_date, previous_session, read_day) -> dict:
+    """The open episode's records, read back from the session before `session_date`.
+
+    Walks newest first. It stops at a session THIN_EPISODE_GAP or more sessions back from the
+    oldest reduced decision found so far (from this decide when none is found): that session
+    cannot belong to the episode. Returns {"status": "OPEN" | "NONE" | "UNMEASURED", "why",
+    "days": [(session, day)] newest first, "reduced": [session, ...] newest first, "scanned"}.
+    OPEN means a reduced decision fewer than THIN_EPISODE_GAP sessions back."""
+    days, reduced, d, k, last = [], [], session_date, 0, 0
+    while True:
+        d = previous_session(d)
+        k += 1
+        if k - last >= THIN_EPISODE_GAP:
+            why = f"{THIN_EPISODE_GAP} sessions back from the " + (
+                "oldest reduced decision found" if reduced else "this decide") + " reached"
+            break
+        if k > THIN_SCAN_LIMIT:
+            return {"status": UNMEASURED, "why": f"more than {THIN_SCAN_LIMIT} sessions read back",
+                    "days": days, "reduced": reduced, "scanned": k - 1}
+        try:
+            day = read_day(d)
+        except Exception as e:  # recorded, named: an unreadable record is not an empty one
+            return {"status": UNMEASURED, "why": f"the record of {d} could not be read: "
+                    f"{type(e).__name__}: {e}", "days": days, "reduced": reduced, "scanned": k}
+        plan = day.get("plan")
+        if plan is None:
+            return {"status": UNMEASURED, "why": f"no plan.json for the session {d}",
+                    "days": days, "reduced": reduced, "scanned": k}
+        if "thin_session" not in plan:
+            why = f"{d} was decided with the key absent"
+            break
+        days.append((d, day))
+        if _is_reduced(plan):
+            reduced.append(d)
+            last = k
+    return {"status": "OPEN" if reduced else "NONE", "why": why, "days": days,
+            "reduced": reduced, "scanned": k}
+
+
+def _verdict(stat, line, above_or_at: bool) -> str:
+    if line is None:
+        return UNMEASURED
+    return TRIPPED if (stat >= line if above_or_at else stat > line) else CLEAR
+
+
+def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previous_session,
+                     read_day, series, positions: dict, closes: dict,
+                     thresholds: dict) -> dict:
+    """The K0-K3 report lines for the decide on `asof` for `session_date` (block comment above).
+
+    `drawdown` is this decide's drawdown record (`check`); `current` its `thin_session`;
+    `previous_session(d)` the NYSE session before d; `read_day(d)` -> {"plan": dict | None,
+    "send": dict | None} for the session d (it may raise); `series` the eod_equity rows
+    [(date, equity)] on or before `asof`, or a string saying why there are none; `positions`
+    {symbol: signed shares} now; `closes` {symbol: as-of close}; `thresholds` the four
+    `risk.thin_*` values (None where absent: that line reads UNMEASURED). Pure: reads nothing
+    but what it is given."""
+    eq = dict(series) if isinstance(series, list) else None
+    eq_why = None if eq is not None else f"no equity series: {series}"
+    assert eq is None or all(d <= asof for d in eq), "lookahead: an equity row after the as-of"
+    th = dict(thresholds)
+    w = _walk(session_date, previous_session, read_day)
+    rec = {"report_only": True, "asof": asof, "session_date": session_date,
+           "episode": {"status": w["status"], "why": w["why"], "scanned": w["scanned"],
+                       "reduced_sessions": sorted(w["reduced"]),
+                       "this_decide_reduced": current.get("reduced") is True}}
+    # ---- K0: the account, read at this decide
+    status = drawdown.get("status")
+    k0 = {"status": status, "asof": drawdown.get("asof"),
+          "acted": current.get("stopped_by") == "K0"}
+    if status in (HALVE, KILL):
+        k0["verdict"] = {"OPEN": KILLED, "NONE": CLEAR}.get(w["status"], UNMEASURED)
+    else:
+        k0["verdict"] = CLEAR       # OK, or UNMEASURED: flattens the session, kills nothing
+    rec["K0"] = k0
+    # ---- K1: the episode's earning days
+    line = th.get("thin_k1_episode_drawdown")
+    k1 = {"line": line}
+    if w["status"] == UNMEASURED:
+        k1.update(verdict=UNMEASURED, why=f"episode unmeasured: {w['why']}")
+    elif w["status"] == "NONE" and current.get("reduced") is True:
+        k1.update(earning_days=0, drawdown=0.0, verdict=_verdict(0.0, line, True),
+                  why="the episode opens at this decide; no day earned yet")
+    elif w["status"] == "NONE":
+        k1.update(verdict=NOT_APPLICABLE, why="no open episode")
+    else:
+        sessions = [x[0] for x in w["days"]]          # newest first
+        rets, missing = [], None
+        for s in sorted(w["reduced"]):
+            i = sessions.index(s)
+            e = session_date if i == 0 else sessions[i - 1]
+            if e > asof:
+                continue                              # not yet earned
+            if eq is None:
+                missing = eq_why
+            elif s not in eq or e not in eq:
+                missing = f"no eod_equity row for {s if s not in eq else e}"
+            if missing is not None:
+                break
+            rets.append((e, eq[e] / eq[s] - 1.0))
+        if missing is not None:
+            k1.update(verdict=UNMEASURED, why=missing)
+        else:
+            path, peak, worst = 1.0, 1.0, 0.0
+            for _, r in sorted(rets):
+                path *= 1.0 + r
+                peak = max(peak, path)
+                worst = max(worst, 1.0 - path / peak)
+            k1.update(earning_days=len(rets), drawdown=round(worst, 8),
+                      verdict=_verdict(worst, line, True))
+    rec["K1"] = k1
+    # ---- K2, K3: the previous session's close, after a reduced decision
+    prev = w["days"][0] if w["days"] and w["days"][0][0] == asof else None
+    prev_unread = prev is None and w["status"] == UNMEASURED and not w["days"]
+    run_line, once_line = th.get("thin_k3_net_run"), th.get("thin_k3_net_once")
+    k2 = {"line": th.get("thin_k2_max_name_frac"), "session": asof}
+    k3 = {"line_run": run_line, "line_once": once_line, "session": asof}
+    if prev_unread:
+        for k in (k2, k3):
+            k.update(verdict=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
+    elif prev is None or not _is_reduced(prev[1]["plan"]):
+        for k in (k2, k3):
+            k.update(verdict=NOT_APPLICABLE, why=f"{asof} was not a reduced session")
+    else:
+        held = {s: q for s, q in positions.items() if q}
+        nocl = sorted(s for s in held if not isinstance(closes.get(s), (int, float)))
+        why = (eq_why if eq is None else f"no eod_equity row for {asof}" if asof not in eq
+               else f"no as-of close for {nocl}" if nocl else None)
+        if why is not None:
+            for k in (k2, k3):
+                k.update(verdict=UNMEASURED, why=why)
+        else:
+            mv = {s: q * float(closes[s]) for s, q in held.items()}
+            e = eq[asof]
+            k2_stat = max((abs(v) for v in mv.values()), default=0.0) / e
+            net = abs(sum(mv.values())) / e
+            k2.update(stat=round(k2_stat, 8), verdict=_verdict(k2_stat, k2["line"], False))
+            k3["net"] = round(net, 8)
+            if run_line is None or once_line is None:
+                k3.update(verdict=UNMEASURED, why="a K3 line is not set")
+            else:
+                run, broken = (1, None) if net > run_line else (0, None)
+                if run:
+                    for _, day in w["days"][1:]:            # newest first, past `prev`
+                        k = ((day["plan"].get("thin_stops") or {}).get("K3") or {})
+                        if "net" not in k and k.get("verdict") == NOT_APPLICABLE:
+                            continue                        # not a reduced close
+                        if not isinstance(k.get("net"), (int, float)):
+                            broken = f"an earlier reduced close's K3 is unmeasured ({k!r})"
+                            break
+                        if k["net"] > run_line:
+                            run += 1
+                            if run >= THIN_K3_RUN:
+                                break
+                        else:
+                            break
+                k3["run"] = run
+                if net > once_line or run >= THIN_K3_RUN:
+                    k3["verdict"] = TRIPPED
+                elif broken is not None:
+                    k3.update(verdict=UNMEASURED, why=broken)
+                else:
+                    k3["verdict"] = CLEAR
+    rec["K2"], rec["K3"] = k2, k3
+    # ---- the send-time skip after a reduced decision (ruled 2026-11-03: label it)
+    sk = {"session": asof}
+    if prev_unread:
+        sk.update(applies=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
+    elif prev is None or not _is_reduced(prev[1]["plan"]):
+        sk.update(applies=False, why=f"{asof} was not a reduced session")
+    elif prev[1]["plan"].get("execution") != "late_market":
+        sk.update(applies=False, why="cls: the decide is the send; there is no send-time skip")
+    else:
+        send = prev[1].get("send")
+        skipped = None if send is None else send.get("skipped")
+        if send is None:
+            sk.update(applies=True, lost_short=UNMEASURED, why=f"no send.json for {asof}")
+        elif not isinstance(skipped, list):
+            sk.update(applies=True, lost_short=UNMEASURED,
+                      why=f"send.json for {asof} has no `skipped` list ({skipped!r})")
+        else:
+            sk.update(applies=True, skipped_at_send=list(skipped), lost_short=bool(skipped))
+    rec["send_skip"] = sk
+    return rec
+
+
+def thin_unmeasured_record(asof, why: str) -> dict:
+    """The record when the K-lines could not be computed at all (run.py `_thin_stops`)."""
+    return {"report_only": True, "asof": asof, "unmeasured": why}
+
+
+def thin_stop_lines(rec: dict) -> list[str]:
+    """The session log's K0-K3 lines (report only)."""
+    head = "  TE4 STOPS (report only)"
+    if "unmeasured" in rec:
+        return [f"{head}: UNMEASURED: {rec['unmeasured']}"]
+    ep = rec["episode"]
+    out = [f"{head}: episode {ep['status']}"
+           + (f" (reduced sessions {ep['reduced_sessions']})" if ep["reduced_sessions"] else "")
+           + (f"; {ep['why']}" if ep["status"] == UNMEASURED else "")]
+    k0 = rec["K0"]
+    out.append(f"    K0 {k0['verdict']}: drawdown status {k0['status']} (as-of {k0['asof']})"
+               + ("; it stopped this session's reduced build" if k0["acted"] else ""))
+    for name in ("K1", "K2", "K3"):
+        k = rec[name]
+        stat = {"K1": k.get("drawdown"), "K2": k.get("stat"), "K3": k.get("net")}[name]
+        lines_ = (f"line {k['line']}" if name != "K3"
+                  else f"lines run {k['line_run']} / once {k['line_once']}")
+        out.append(f"    {name} {k['verdict']}: {stat if stat is not None else '-'} against "
+                   f"{lines_}" + (f", run {k['run']}" if name == "K3" and "run" in k else "")
+                   + (f"; {k['why']}" if k.get("why") else ""))
+    sk = rec["send_skip"]
+    if sk.get("applies") is True:
+        out.append(f"    SEND SKIP {sk['session']}: lost a short at send: {sk['lost_short']}"
+                   + (f" {sk['skipped_at_send']}" if sk.get("skipped_at_send") else "")
+                   + (f"; {sk['why']}" if sk.get("why") else ""))
+    elif sk.get("applies") == UNMEASURED:
+        out.append(f"    SEND SKIP {sk['session']}: UNMEASURED; {sk['why']}")
     return out

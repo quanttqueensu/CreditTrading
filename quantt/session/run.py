@@ -1761,6 +1761,61 @@ def _thin_recheck(deps, gate_res) -> None:
                                f"deciding on it")
 
 
+def _thin_read_day(state: Path, d: dt.date) -> dict:
+    """{"plan", "send"}: the session d's plan.json and send.json under `state`, each a dict,
+    or None where the file is not there. Creates nothing (never `records.day_dir`). A file
+    that is there and cannot be read or parsed raises, and `drawdown.thin_stop_record`
+    records the episode UNMEASURED, naming the session."""
+    day = state / d.isoformat()
+    out = {}
+    for name in ("plan", "send"):
+        f = day / f"{name}.json"
+        out[name] = json.loads(f.read_text()) if os.path.lexists(f) else None
+    return out
+
+
+def _thin_stops(thin: dict | None, spec: dict, state: Path, asof: dt.date,
+                session_date: dt.date, positions: dict, record: dict, out) -> None:
+    """THE K0-K3 REPORT LINES (pre-registration §6.3: required in the activation release, in
+    report mode, tested; drawdown.py `thin_stop_record`). Nothing when the key is absent;
+    with it, `record["thin_stops"]` (plan.json's too) and the log lines. REPORT ONLY:
+    nothing in this session reads them, and the team lead acts on a stop that reads true
+    through the revert spec. K0's ACTION is `_thin_k0_stop`, not this.
+
+    Its inputs, all read now: the official eod_equity series to the as-of (a series that
+    cannot be read is passed as its reason, never a fallback); the earlier sessions' plan.json
+    and send.json (`_thin_read_day`), which carry the episode, K3's earlier closes and the
+    previous session's send-time skip (team lead 2026-11-03: a short skipped at the SEND is
+    accepted and labelled here, `_send_planned` unchanged); the broker's positions now; the
+    closes DATED the as-of only (a staler close is not a close of the session K2 and K3
+    judge); and the spec's `risk.thin_*` lines (registry `cef_thin_stop_levels`; absent: the
+    line reads UNMEASURED). Report mode: an unexpected error is recorded as UNMEASURED with
+    its type, as `_drawdown` records its own."""
+    if thin is None:
+        return
+    from ops.schedule.nyse_calendar import previous_trading_day
+    from src.deploy.registry import cef_thin_stop_levels
+    try:
+        try:
+            series = ddm.read_series(state / ddm.OFFICIAL_FILE, asof)
+        except ddm.Unmeasured as e:
+            series = str(e)
+        closes = {s: c["close"] for s, c in record["closes"].items()
+                  if c["date"] == asof and c["close"] is not None}
+        res = ddm.thin_stop_record(
+            asof=asof, session_date=session_date, drawdown=record["drawdown"],
+            current=record["thin_session"], previous_session=previous_trading_day,
+            read_day=lambda d: _thin_read_day(state, d), series=series, positions=positions,
+            closes=closes, thresholds=cef_thin_stop_levels(spec))
+        lines = ddm.thin_stop_lines(res)
+    except Exception as e:  # report only: recorded in plan.json and printed, never swallowed
+        res = ddm.thin_unmeasured_record(asof, f"{type(e).__name__}: {e}")
+        lines = ddm.thin_stop_lines(res)
+    record["thin_stops"] = res
+    for line in lines:
+        print(line, file=out)
+
+
 def _nav_gate(deps, asof: dt.date, universe, refresh_exit, final: bool, record_csv):
     """Step 1b, the stale-NAV gate (quantt/session/nav_gate.py). Returns
     (record dict, GateResult or None).
@@ -2296,6 +2351,7 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         record["decision"] = decision.to_dict()
         borrow_warnings = hard_to_borrow_short_opens(decision.orders, pos, assets)
         record["borrow_warnings"] = borrow_warnings
+        _thin_stops(thin, spec, state, asof, session_date, pos, record, out)  # CEF trial 55: K0-K3
 
         # 3b. the corporate-action gate (quantt/session/corp_actions.py). Off
         # unless the book json sets corporate_actions.mode. It runs before the
@@ -2404,6 +2460,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
             plan["missing_nav"] = record["missing_nav"]
         if "thin_session" in record:         # only when the spec sets below_min_names "trade_eligible"
             plan["thin_session"] = record["thin_session"]
+        if "thin_stops" in record:           # the same: the K0-K3 report lines
+            plan["thin_stops"] = record["thin_stops"]
         shown = refusals
         if late:
             # DECIDE phase: dry-run, arming and the clock belong to the SEND phase.
