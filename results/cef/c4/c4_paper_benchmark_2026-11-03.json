@@ -2,7 +2,7 @@
  "spec_id": "c4_families.v5.20261103",
  "spec_sha256": "6e131c14de08193597f79e52d549cf95e86099fd6729a7c06a5a635d0d26b48c",
  "core_spec_id": "cef_discount.v9.20261102",
- "run_utc": "2026-11-03T17:53:39.823793+00:00",
+ "run_utc": "2026-11-03T23:31:11.127230+00:00",
  "families_cut": {
   "cef_prices": {
    "rows": 775180,
@@ -119,27 +119,27 @@
    ],
    "traded_start": "2013-06-14"
   },
-  "w5": 0.02613925057386521,
-  "w5_window_end": "2008-07-23",
+  "w5": 0.05360827081145146,
+  "w5_window_end": "2020-03-18",
   "traded_start": "2005-02-22",
   "traded_end": "2022-12-30",
   "w5_second_method": "direct sum agrees to 1e-12",
   "worst_windows": [
    [
+    "2020-03-18",
+    0.05360827081145146
+   ],
+   [
     "2008-07-23",
-    0.02613925057386521
+    0.03412478151962817
    ],
    [
-    "2020-03-17",
-    0.024382093742581153
-   ],
-   [
-    "2009-04-08",
-    0.024192278122398367
+    "2011-08-08",
+    0.024626335691845382
    ]
   ],
-  "w5_for_next_step_down": 0.02631578947368418,
-  "w5_headroom": 0.00017653889981896972,
+  "w5_for_next_step_down": 0.05555555555555558,
+  "w5_headroom": 0.0019472847441041191,
   "inputs": {
    "nlv_usd": [
     100000.0,
@@ -175,63 +175,76 @@
     "NASDAQ": 4
    }
   },
-  "g_stress": 1.9006375192675518,
-  "max_gross_stress": 1.9,
-  "uncapped_max_gross": 3.2001100959362905,
-  "uncapped_mean_gross": 1.6676663651231332,
-  "uncapped_share_above_cap": 0.3408939292861908,
+  "g_stress": 1.8063313948222806,
+  "max_gross_stress": 1.8,
+  "uncapped_max_gross": 4.035314550549265,
+  "uncapped_mean_gross": 2.1191110471802728,
+  "uncapped_share_above_cap": 0.6786746720035579,
   "spec_value": 1.9,
   "plateau": [
    {
     "cap": 1.6,
-    "sr": 1.2473869860533136,
-    "ann_pct": 7.180342309001797,
-    "turn": 38.25996547457479,
-    "max_gross": 1.600000000000001
+    "sr": 1.5237110199000568,
+    "ann_pct": 10.422371572838388,
+    "turn": 51.69686290356787,
+    "max_gross": 1.6000000000000012
    },
    {
     "cap": 1.7,
-    "sr": 1.2328714800610623,
-    "ann_pct": 7.184983925047848,
-    "turn": 38.14761910440891,
+    "sr": 1.5087344202441608,
+    "ann_pct": 10.576088214869356,
+    "turn": 51.51780338027793,
     "max_gross": 1.7000000000000008
    },
    {
     "cap": 1.8,
-    "sr": 1.216957834377122,
-    "ann_pct": 7.164335203125429,
-    "turn": 38.082282348979426,
+    "sr": 1.4879429567919393,
+    "ann_pct": 10.651070464599531,
+    "turn": 51.327714990567465,
     "max_gross": 1.8000000000000012
    },
    {
-    "cap": 1.9,
-    "sr": 1.2002684537305317,
-    "ann_pct": 7.115250735147092,
-    "turn": 38.031955890852856,
-    "max_gross": 1.900000000000001
+    "cap": 1.8063,
+    "sr": 1.4868888940138711,
+    "ann_pct": 10.656134066676184,
+    "turn": 51.316177480748856,
+    "max_gross": 1.806300000000001
    },
    {
-    "cap": 1.9006,
-    "sr": 1.2001740759781023,
-    "ann_pct": 7.11492943957584,
-    "turn": 38.03169494324643,
-    "max_gross": 1.9006000000000012
+    "cap": 1.9,
+    "sr": 1.481314654350013,
+    "ann_pct": 10.757132418768043,
+    "turn": 51.15890904816472,
+    "max_gross": 1.9000000000000008
    },
    {
     "cap": 2.0,
-    "sr": 1.184646477671881,
-    "ann_pct": 7.058854772920589,
-    "turn": 37.992513458555,
-    "max_gross": 2.0000000000000013
+    "sr": 1.4789666769726273,
+    "ann_pct": 10.848390660671383,
+    "turn": 50.99320068593063,
+    "max_gross": 2.000000000000001
    },
    {
     "cap": null,
-    "sr": 1.137014610134491,
-    "ann_pct": 7.203878408716275,
-    "turn": 37.789016025415215,
-    "max_gross": 3.2001100959362905
+    "sr": 1.4062862854478082,
+    "ann_pct": 11.870119938049687,
+    "turn": 50.35395405809558,
+    "max_gross": 4.035314550549265
    }
-  ]
+  ],
+  "derived_on": {
+   "book": "blend: CEF trial 54's level_signal (z_share 0.5), spec_targets, x sizing_multiplier 1.26, uncapped band",
+   "spec_id": "c4_families.v5.20261103",
+   "spec_sha256": "6e131c14de08193597f79e52d549cf95e86099fd6729a7c06a5a635d0d26b48c"
+  },
+  "override": {
+   "ruled": "2026-11-03",
+   "ruled_by": "team lead",
+   "words": "Keep 1.90, install tonight.",
+   "citation": "docs/SYSTEM.md \u00a75, 'Team lead, 2026-11-03 \u2014 C4 v5's gross cap (after the release-check of e41f10b)' (PR #48, branch journal-20261103b): an override of the rule's 1.80, made with the blend's w5 0.0536 against the z book's 0.0261 in front of the team lead",
+   "_file": "results/cef/c4/c4_cap_override_2026-11-03.json",
+   "key": "40b909aceb820baf4c49971919b5a0e6c8922a04125ff8feb4bb7f306cafbe94"
+  }
  },
  "lines": {
   "spec_book": {
