@@ -21,3 +21,4 @@ date,book,verdict,traded,n_orders,n_filled,alpaca_equity,alpaca_last_equity,alpa
 2026-10-29,cef,PASS,True,3,3,99613.70,99535.06,78.64,-13.43,-7.72,-5.71,21.27,,M,"gross; no borrow, no dividends, no fees (Alpaca paper charges and pays none; nothing added here)",2026-10-29T17:30:01.507861-04:00
 2026-10-30,cef,PASS,True,7,7,99134.69,99521.57,-386.88,-503.50,-516.03,12.53,-6.82,,M,"gross; no borrow, no dividends, no fees (Alpaca paper charges and pays none; nothing added here)",2026-10-30T17:30:01.458226-04:00
 2026-11-02,cef,PASS,True,4,4,99121.73,99017.86,103.87,178.71,160.73,17.98,-15.25,,M,"gross; no borrow, no dividends, no fees (Alpaca paper charges and pays none; nothing added here)",2026-11-02T17:30:01.347142-05:00
+2026-11-03,cef,PASS,True,6,6,100009.60,99196.41,813.19,793.28,864.14,-70.86,16.67,,M,"gross; no borrow, no dividends, no fees (Alpaca paper charges and pays none; nothing added here)",2026-11-03T17:30:02.204438-05:00

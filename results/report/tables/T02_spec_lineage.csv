@@ -8,6 +8,7 @@ c4_families.v1.20261029,c4_families,3c3cc60,2026-10-29,ops/specs/c4_families.fro
 c4_families.v2.20261101,c4_families,3961ba7,2026-11-02,ops/specs/c4_families.frozen.json,c4_families.v1.20261029,v2,2026-11-01,,,spec-c4_families.v2.20261101
 c4_families.v4.20261102,c4_families,ccf783e,2026-11-02,ops/specs/c4_families.frozen.json,c4_families.v3.20261102,v4,2026-11-02,release-20261103-1,2026-11-03,spec-c4_families.v4.20261102
 c4_families.v3.20261102,c4_families,8c92088,2026-11-02,ops/specs/c4_families.frozen.json,c4_families.v2.20261101,v3,2026-11-02,,,spec-c4_families.v3.20261102
+c4_families.v5.20261103,c4_families,e41f10b,2026-11-03,ops/specs/c4_families.frozen.json,c4_families.v4.20261102,v5,2026-11-03,release-20261103-5,2026-11-03,
 cef_discount.v5.20260731,cef_discount,1335a91,2026-08-16,ops/specs/cef_discount.frozen.json,,v5,2026-07-31,,,
 cef_discount.v6.20260906,cef_discount,9636502,2026-09-08,ops/specs/cef_discount.frozen.json,cef_discount.v5.20260731,v6,2026-09-06,,,spec-cef_discount.v6.20260906
 cef_discount.v7.20260928,cef_discount,fcf0f27,2026-09-28,ops/specs/cef_discount.frozen.json,cef_discount.v6.20260906,v7,2026-09-28,release-20260928-1,2026-09-28,spec-cef_discount.v7.20260928
