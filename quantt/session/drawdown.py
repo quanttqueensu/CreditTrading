@@ -405,7 +405,15 @@ def lines(rec: dict) -> list[str]:
 #                     break it), read back from earlier plans' `thin_stops.K3.net` within the
 #                     open episode only (a run that crossed two episodes, which compose.py
 #                     would count, is not seen: episodes are 63 or more sessions apart), against
-#                     today's line.
+#                     today's line. WHICH RECORD HOLDS WHICH CLOSE: the decide for session X
+#                     reads as-of previous(X), so plan(X).thin_stops.K3 judges the close of the
+#                     session BEFORE X (its `session` field says so). The close before this
+#                     decide's as-of is therefore in the as-of session's own plan, the newest
+#                     record read back; the first build skipped it and counted one close too far
+#                     back, so K3 tripped a close late on a true run and could trip on a broken
+#                     one (both reviews of 7fcc2b7). Each earlier K3 counted must name the close
+#                     it judged, or the run is UNMEASURED; so is a run still open where the
+#                     walk stopped at a record it could not read.
 #   send skip         the previous session's late-market SEND (send.json `skipped`, the run
 #                     record's `skipped_at_send`) after a reduced decision. The send skips only
 #                     orders that open or increase a short of a name no longer shortable
@@ -571,12 +579,25 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
             else:
                 run, broken = (1, None) if net > run_line else (0, None)
                 if run:
-                    for _, day in w["days"][1:]:            # newest first, past `prev`
+                    # Newest first FROM `prev` itself: w["days"][i]'s K3 judges the close of
+                    # w["days"][i + 1] (the decide for X reads as-of previous(X); block
+                    # comment, WHICH RECORD HOLDS WHICH CLOSE). Only the closes of reduced
+                    # decisions count; a full session between them does not break the run.
+                    # The oldest day's K3 judges a close outside the walk: skipped.
+                    reduced_set = set(w["reduced"])
+                    sessions = [x[0] for x in w["days"]]
+                    for i, (d, day) in enumerate(w["days"]):
+                        judged = sessions[i + 1] if i + 1 < len(sessions) else None
+                        if judged not in reduced_set:
+                            continue                        # not a reduced decision's close
                         k = ((day["plan"].get("thin_stops") or {}).get("K3") or {})
-                        if "net" not in k and k.get("verdict") == NOT_APPLICABLE:
-                            continue                        # not a reduced close
                         if not isinstance(k.get("net"), (int, float)):
-                            broken = f"an earlier reduced close's K3 is unmeasured ({k!r})"
+                            broken = (f"the K3 of {judged}'s reduced close (in {d}'s plan) is "
+                                      f"unmeasured ({k!r})")
+                            break
+                        if str(k.get("session")) != judged.isoformat():
+                            broken = (f"{d}'s K3 names the close of {k.get('session')!r}, not "
+                                      f"{judged}; not counting a run on it")
                             break
                         if k["net"] > run_line:
                             run += 1
@@ -584,6 +605,15 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
                                 break
                         else:
                             break
+                    else:
+                        # The walk ran out with the run still open. A walk that stopped at a
+                        # record it could not read may have cut a longer run short (the oldest
+                        # day's K3 judges the close of the session it could not read): not
+                        # CLEAR. One that stopped at the key-absent plan or the 63-session gap
+                        # did not: no reduced close lies beyond either.
+                        if w["status"] == UNMEASURED and run < THIN_K3_RUN:
+                            broken = (f"the walk back stopped before the run ended, at "
+                                      f"{w['why']}")
                 k3["run"] = run
                 if net > once_line or run >= THIN_K3_RUN:
                     k3["verdict"] = TRIPPED

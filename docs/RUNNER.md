@@ -287,7 +287,7 @@ watches the one-sided book that results.
 | K0 | the drawdown status at this decide: KILLED if HALVE or KILL while an episode is open | `risk.halve_drawdown` / `kill_drawdown`, through the status |
 | K1 | the maximum drawdown of the episode's earning days, compounded: a decision for session s earns eod_equity(e) / eod_equity(s) − 1 on the next session e, counted once e is on or before the as-of | `risk.thin_k1_episode_drawdown` |
 | K2 | the largest \|position × as-of close\| / eod_equity, at the close after a reduced decision | `risk.thin_k2_max_name_frac` |
-| K3 | \|long − short\| / eod_equity at that close: above the run line on 3 reduced closes in sequence (within the open episode), or above the once line | `risk.thin_k3_net_run`, `risk.thin_k3_net_once` |
+| K3 | \|long − short\| / eod_equity at that close: above the run line on 3 reduced closes in sequence (within the open episode), or above the once line. The earlier closes are read back from earlier plans: the decide for session X records the close of the session before X, so the close before the as-of is in the as-of session's own plan (corrected after the reviews of 7fcc2b7, which found the first build counting one close too far back). An earlier K3 that is unmeasured, or that names another close, makes the run UNMEASURED, as does a run still open where the walk stopped at a record it could not read | `risk.thin_k3_net_run`, `risk.thin_k3_net_once` |
 | send_skip | the label above | — |
 
 A line whose threshold is absent reads UNMEASURED, never a default.

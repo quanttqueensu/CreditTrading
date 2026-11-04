@@ -7,6 +7,12 @@ a calendar of consecutive sessions, plan.json / send.json dicts per session, an 
 positions, closes and thresholds. Each test fails on the code before this commit, which has no
 `thin_stop_record`.
 
+K3's run (review fix after 7fcc2b7). The first build's K3 test hand-built the earlier records, and
+not in the shape the runner writes them, so it passed with K3 reading one close too far back.
+`_chain` now decides session after session as run.py does, storing each record where run.py
+stores it, and the K3 tests read those records; a runner-level test does the same on plan.json
+files. Those tests fail on 7fcc2b7.
+
 The runner's side (plan.json carries `thin_stops` only with the key set, and the label read from
 the previous session's send.json) is in tests/test_trade_eligible_runner.py.
 """
@@ -192,24 +198,98 @@ def test_k2_and_k3_read_the_close_after_a_reduced_decision():
     assert r["K3"]["net"] == pytest.approx(0.8) and r["K3"]["verdict"] == ddm.CLEAR
 
 
-def test_k3_trips_above_the_once_line_or_on_three_reduced_closes_in_sequence():
+def _chain(kinds: str, nets: list):
+    """Decide session after session exactly as run.py does, and return each decide's K3.
+
+    Sessions S[0], S[1], ...: S[0] was decided with the key absent; S[j] (j >= 1) is a reduced
+    decision ("R") or a full one ("F") as `kinds[j - 1]` says. The decide for S[j + 1] runs on
+    as-of S[j], with the account's book at the S[j] close worth `nets[j - 1]` of equity, net;
+    its record goes into plan(S[j + 1])["thin_stops"], as run.py `_thin_stops` stores it. So
+    plan(X).thin_stops.K3 judges the close of the session BEFORE X: the records K3 reads back
+    are the runner's own, never hand-built (the first build's test hand-built them and could
+    not see the off-by-one; both reviews of 7fcc2b7)."""
+    S = CAL[200:200 + len(kinds) + 2]
+    days = {S[0]: {"plan": plan(key=False)}}
+    for j, kind in enumerate(kinds, start=1):
+        days[S[j]] = {"plan": plan(kind == "R")}
+    days[S[-1]] = {"plan": plan(False)}
+    out = []
+    for j in range(1, len(kinds) + 1):
+        asof, sd = S[j], S[j + 1]
+        r = ddm.thin_stop_record(
+            asof=asof, session_date=sd, drawdown=OK, current={"reduced": False},
+            previous_session=prev, read_day=reader(days), series=[(asof, 100.0)],
+            positions={"A": round(nets[j - 1] * 10)}, closes={"A": 10.0}, thresholds=LINES)
+        days[sd]["plan"]["thin_stops"] = r
+        assert r["K3"]["session"] == asof
+        out.append(r["K3"])
+    return out
+
+
+def _runs(k3s):
+    return [(k.get("run"), k["verdict"]) for k in k3s]
+
+
+def test_k3_trips_on_exactly_the_third_reduced_close_in_a_row_above_its_run_line():
+    """§6.3: above the run line (0.25) on 3 consecutive reduced sessions. Fails on 7fcc2b7,
+    which read 1, 1, 2 here: it skipped the as-of session's own plan, the one holding the close
+    before the as-of, and tripped a close late (1, 1, 2, 3 on four closes)."""
+    k3 = _chain("RRR", [0.4, 0.4, 0.4])
+    assert _runs(k3) == [(1, ddm.CLEAR), (2, ddm.CLEAR), (3, ddm.TRIPPED)]
+    assert _runs(_chain("RRR", [0.3, 0.3, 0.4]))[-1] == (3, ddm.TRIPPED)
+
+
+def test_k3_does_not_trip_on_a_run_broken_by_a_close_below_the_line():
+    """above, above, below, above is a run of 1 at the last close. Fails on 7fcc2b7, which read
+    3 and TRIPPED there: a false kill of the trial (the quant review's chain B)."""
+    k3 = _chain("RRRR", [0.4, 0.4, 0.1, 0.4])
+    assert _runs(k3) == [(1, ddm.CLEAR), (2, ddm.CLEAR), (0, ddm.CLEAR), (1, ddm.CLEAR)]
+
+
+def test_a_full_session_between_reduced_closes_does_not_break_the_run():
+    """compose.py's `runs_above` runs over reduced decisions only: a full session's close is
+    not one of them (its K3 reads N/A) and neither breaks nor extends the run."""
+    k3 = _chain("RFRR", [0.4, 0.9, 0.4, 0.4])
+    assert _runs(k3) == [(1, ddm.CLEAR), (None, ddm.NOT_APPLICABLE), (2, ddm.CLEAR),
+                         (3, ddm.TRIPPED)]
+
+
+def test_k3_trips_above_the_once_line_and_reads_unmeasured_on_an_unread_earlier_close():
     pos, eq = {"A": 3000, "B": -500}, [(ASOF, 50_000.0)]    # net 20k / 50k = 0.4 > run 0.25
-    above = {"net": 0.3, "verdict": ddm.CLEAR}
-    below = {"net": 0.1, "verdict": ddm.CLEAR}
-    na = {"verdict": ddm.NOT_APPLICABLE}
-    # Two earlier reduced closes above the run line, a full session (K3 N/A) between them.
-    days = {back(1): {"plan": plan(True)}, back(2): {"plan": plan(True, k3=above)},
-            back(3): {"plan": plan(False, k3=na)}, back(4): {"plan": plan(True, k3=above)}}
-    r = record(days, positions=pos, closes=PRICES, series=eq)
-    assert r["K3"]["run"] == 3 and r["K3"]["verdict"] == ddm.TRIPPED
-    days[back(4)] = {"plan": plan(True, k3=below)}
-    r = record(days, positions=pos, closes=PRICES, series=eq)
-    assert r["K3"]["run"] == 2 and r["K3"]["verdict"] == ddm.CLEAR
-    days[back(4)] = {"plan": plan(True, k3={"verdict": ddm.UNMEASURED, "why": "x"})}
-    r = record(days, positions=pos, closes=PRICES, series=eq)
-    assert r["K3"]["verdict"] == ddm.UNMEASURED
     r = record({back(1): {"plan": plan(True)}}, positions={"A": 5000}, closes=PRICES, series=eq)
     assert r["K3"]["net"] == pytest.approx(1.0) and r["K3"]["verdict"] == ddm.TRIPPED
+    # The as-of session's plan holds the K3 of the close before it (back(2)'s, a reduced one).
+    for k3, why in (({"verdict": ddm.UNMEASURED, "why": "x", "session": back(2)}, "unmeasured"),
+                    ({"net": 0.3, "verdict": ddm.CLEAR, "session": back(3)}, "names the close")):
+        days = {back(1): {"plan": plan(True, k3=k3)}, back(2): {"plan": plan(True)}}
+        r = record(days, positions=pos, closes=PRICES, series=eq)
+        assert r["K3"]["verdict"] == ddm.UNMEASURED and why in r["K3"]["why"], r["K3"]
+    # And read as JSON writes it (the session an ISO string), the same close counts.
+    days = {back(1): {"plan": plan(True, k3={"net": 0.3, "verdict": ddm.CLEAR,
+                                             "session": back(2).isoformat()})},
+            back(2): {"plan": plan(True)}}
+    assert record(days, positions=pos, closes=PRICES, series=eq)["K3"]["run"] == 2
+
+
+def test_k3_is_not_clear_on_a_run_the_walk_could_not_finish_reading():
+    """Two reduced closes above the run line are read (the as-of's and back(2)'s), and back(2)'s
+    own plan holds a K3 above the line for back(3)'s close; back(3)'s plan.json is missing, so
+    whether that close was a reduced one, the run's third, is unknown. K3 reads UNMEASURED, not
+    CLEAR. Fails on 7fcc2b7, which read a run of 2 and CLEAR there."""
+    pos, eq = {"A": 3000, "B": -500}, [(ASOF, 50_000.0)]    # net 0.4 > run 0.25
+    days = {back(1): {"plan": plan(True, k3={"net": 0.3, "verdict": ddm.CLEAR,
+                                             "session": back(2).isoformat()})},
+            back(2): {"plan": plan(True, k3={"net": 0.3, "verdict": ddm.CLEAR,
+                                             "session": back(3).isoformat()})},
+            back(3): {"plan": None}}
+    r = record(days, positions=pos, closes=PRICES, series=eq)
+    assert r["episode"]["status"] == ddm.UNMEASURED
+    assert r["K3"]["run"] == 2 and r["K3"]["verdict"] == ddm.UNMEASURED, r["K3"]
+    assert "stopped before the run ended" in r["K3"]["why"]
+    # The same records ending at a plan decided with the key absent: the run is complete, CLEAR.
+    days[back(3)] = {"plan": plan(key=False)}
+    r = record(days, positions=pos, closes=PRICES, series=eq)
+    assert r["K3"]["run"] == 2 and r["K3"]["verdict"] == ddm.CLEAR, r["K3"]
 
 
 def test_k2_k3_unmeasured_without_equity_a_close_or_a_line_and_n_a_after_a_full_session():
@@ -300,6 +380,42 @@ def test_the_next_decide_labels_a_short_skipped_at_the_reduced_sessions_send(
     assert st["K1"]["earning_days"] == 0              # 09-25's earning day is 09-28, after the as-of
     run_rec = json.loads(sorted((state / "2026-09-28" / "runs").glob("*.json"))[-1].read_text())
     assert run_rec["thin_stops"] == st
+
+
+def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, monkeypatch):
+    """K3's run in the real session, on prior plan.json files in the runner's own shape: the
+    decide for X records the K3 of the close BEFORE X (`session`), so the 09-24 close is in
+    the 09-25 plan. Reduced decisions on 09-23, 09-24 and 09-25, each close above the run line,
+    with 09-22 decided with the key absent: today's decide (as-of 09-25) reads a run of 3 and
+    TRIPS. Fails on 7fcc2b7, which skipped the 09-25 plan and read 2, CLEAR."""
+    import copy
+    from quantt.session import run as rn
+    from quantt.session.tests import test_missing_nav_hold as M
+    from quantt.session.tests import test_trade_eligible_noop as N
+    from quantt.session.tests.test_trade_eligible_runner import TE4_SPEC, run
+    spec = copy.deepcopy(TE4_SPEC)
+    note = "test only: compose_2026-12-01.json §E"
+    spec["risk"].update(thin_k3_net_run=0.00005, _thin_k3_net_run_note=note,
+                        thin_k3_net_once=1.7, _thin_k3_net_once_note=note)
+    base, bk = N.thin_books(tmp_path / "b", monkeypatch)
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    state = tmp_path / "r" / "state"
+    d = [dt.date(2026, 9, 22), dt.date(2026, 9, 23), dt.date(2026, 9, 24), M.ASOF]
+
+    def reduced(k3):
+        return {"refusals": [], "execution": "late_market", "orders": [], "plan_sha": "s",
+                "thin_session": {"reduced": True}, "thin_stops": {"K3": k3}}
+    _prior_session(state, d[0], {"refusals": []})                        # the key absent then
+    _prior_session(state, d[1], reduced({"verdict": ddm.NOT_APPLICABLE, "session": "2026-09-22"}))
+    _prior_session(state, d[2], reduced({"net": 0.5, "verdict": ddm.CLEAR, "session": "2026-09-23"}))
+    _prior_session(state, d[3], reduced({"net": 0.5, "verdict": ddm.CLEAR, "session": "2026-09-24"}))
+    code, state, _, _ = run(tmp_path / "r", spec, bk["held"], "ok")
+    assert code == rn.EXIT_PLANNED
+    k3 = M._plan(state)["thin_stops"]["K3"]
+    assert k3["session"] == "2026-09-25"
+    # The held book is near neutral (net about 1.2e-4 of equity): the run line sits below it.
+    assert 0.00005 < k3["net"] < 1.7                  # above the run line, below the once line
+    assert k3["run"] == 3 and k3["verdict"] == ddm.TRIPPED
 
 
 def test_with_the_key_set_every_decide_carries_the_lines_and_a_failure_is_recorded(
