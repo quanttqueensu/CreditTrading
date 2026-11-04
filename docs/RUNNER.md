@@ -263,17 +263,29 @@ the pre-registration's "Approval" section and in E-2026-11-03-42). At prod's 22:
 EOD row for the as-of D is never there yet: 4 of 4 core decides that carry the drawdown field
 read UNMEASURED because `eod_equity.csv`'s newest row was D−1 (E-2026-11-03-41, the owner's
 finding, from prod's plan.json records [S]). K0 as first built read step 2b's record, so it
-would have flattened every reduced session and the trial would never trade. K0 now makes its
-own reading (`run._thin_k0_drawdown`): `drawdown.check(..., read_through=<the session before
-the as-of>)`, the date from `asof_for` (nyse_calendar and Alpaca's calendar, which must agree;
-never a weekday guess). That is the same check through the newest row on or before D−1, with
-the high-water mark over the rows on or before it. The newest such row must be D−1: an older
-one, a missing or bad file reads UNMEASURED and the session flattens. The record carries
-`read_through` and the reading's `stale` = {`row_date`, `sessions`} (1 at the evening decide),
-and is stored whole in `thin_session.k0.drawdown`. At the morning backstop, when D's row is
-there, K0 still reads D−1's: the ruling's rule, not the freshest row. Its cost, accepted by the
-ruling: a loss on D is seen only at the next evening's decide, so one more reduced build can go
-out after a session that crossed HALVE. **Step 2b's own record (HALVE/KILL's report) is
+would have flattened every reduced session and the trial would never trade.
+
+K0 now makes its own reading (`run._thin_k0_drawdown`), always from the FRESHEST row it has
+(the team lead's second ruling, 2026-11-04):
+- **The as-of's own row first.** It runs `drawdown.check(..., read_through=D)`, labelled 0
+  sessions stale.
+  - If D's row is there, it decides, whatever it reads. That includes a bad row, which reads
+    UNMEASURED: K0 never falls back past a row it has.
+  - This is what happens at the morning backstop. Before this ruling, K0 read D−1's row there,
+    and a reduced book went out on a stale OK while D's row read KILL.
+- **Only if D's row has not landed** (the 22:00 decide, every time), it runs
+  `drawdown.check(..., read_through=<the session before the as-of>)`. The date comes from
+  `asof_for` (nyse_calendar and Alpaca's calendar, which must agree; never a weekday guess).
+  - That is the same check through the newest row on or before D−1, with the high-water mark
+    over those rows.
+  - The newest such row must be D−1. An older one, or a missing or bad file, reads UNMEASURED
+    and the session flattens.
+
+The record carries `read_through` and the reading's `stale` = {`row_date`, `sessions`}: 1 at the
+evening decide, 0 when D's own row was read. It is stored whole in `thin_session.k0.drawdown`.
+
+The cost, accepted by the ruling: at the evening decide, a loss on D is seen only at the next
+decide, so one more reduced build can go out after a session that crossed HALVE. **Step 2b's own record (HALVE/KILL's report) is
 unchanged** (`read_through` None is today's check, byte for byte) and K0 does not read it. The sleeve then takes today's flatten, with the reason in every target. A missing
 record raises. K0 has one action, today's rule: it never sizes up and never unlocks a send. The
 gross pin in `quantt/session/tests/test_trade_eligible_runner.py` proves it. The projected

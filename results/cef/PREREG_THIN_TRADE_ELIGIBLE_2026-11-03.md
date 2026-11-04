@@ -118,6 +118,20 @@ these terms. They bind the implementation and the activation.
   session's count, 2026-11-03]. With n = 3 the hold frequency stays UNMEASURED until there is a run of
   history. It is re-read at activation, which already waits for the core's 60-session review.
 
+**A third ruling after approval (team lead, 2026-11-04): K0 reads the freshest EOD row it has.**
+- **The case.** The verification of the te4 implementation (f3ad29f) found a gap at the morning
+  backstop, when the as-of's own EOD row exists. K0 still read D−1's row there, as the second
+  ruling's literal text says. In a test, that let a reduced book through on a stale OK while D's
+  row read KILL.
+- **Ruled: the freshest row.**
+  - K0 reads the as-of's own row when it is there (labelled 0 sessions stale), whatever it reads; a
+    bad row reads UNMEASURED.
+  - Only when D's row has not landed does it read D−1's (labelled one session stale).
+  - Anything older, or a missing or bad file, reads UNMEASURED and the session flattens.
+- **Why it is safe.** A fresher row can only make K0 stricter. At the 22:00 decide nothing changes,
+  because D's row is never there.
+- **The other option, not chosen.** Always D−1, as first built.
+
 **What this commit does not do.** It sets no spec key, changes no live-path code and activates nothing.
 The key stays absent until the activation commit, which needs all of:
 - the implementation merged;

@@ -1553,9 +1553,11 @@ def _drawdown(deps, state: Path, spec: dict, asof: dt.date) -> tuple[dict, list]
 #     E-2026-11-03-42; `_thin_k0_drawdown`): at the 22:00 decide the as-of's
 #     own EOD row never exists (E-2026-11-03-41: prod's 4 of 4 decides with the
 #     field read UNMEASURED for it), so K0 as first built would have flattened
-#     every reduced session. It reads `drawdown.check(..., read_through=<the
-#     NYSE session before the as-of>)`, labelled one session stale; an older
-#     row, a missing or bad file reads UNMEASURED and the session flattens.
+#     every reduced session. It reads the as-of's own row when it is there
+#     (the morning backstop; ruling 2026-11-04: the freshest row, which can only
+#     be stricter), else `drawdown.check(..., read_through=<the NYSE session
+#     before the as-of>)`, labelled one session stale; an older row, a missing
+#     or bad file reads UNMEASURED and the session flattens.
 #     Step 2b's own record (HALVE/KILL's report) is unchanged and not read.
 #   * THE GATE-7 FLATTEN (§7.5, §10 Q7). A reduced decision that loses a
 #     short-opening order to gate 7 (decide's "not shortable today") is
@@ -1631,19 +1633,32 @@ def thin_rule_for(spec: dict, deps) -> dict | None:
 
 
 def _thin_k0_drawdown(deps, state: Path, spec: dict, asof: dt.date, cal: list) -> dict:
-    """K0's own drawdown record (team lead's ruling 2026-11-03, E-2026-11-03-42): the same
-    check as step 2b, read through the NYSE session before the as-of (`drawdown.check`'s
-    `read_through`; its module docstring, READ THROUGH). Why: at the 22:00 decide the EOD row
-    for the as-of never exists yet (E-2026-11-03-41), so an exact OK on the as-of's row never
-    comes and K0 would flatten every reduced session. The read-through date is `asof_for(asof,
-    cal)`: the session before the as-of from nyse_calendar AND Alpaca's calendar, the source
-    that gave this session its as-of, never a weekday guess (it raises if they differ).
+    """K0's own drawdown record: the FRESHEST EOD row the decide has, never an older one
+    (team lead's rulings 2026-11-03, E-2026-11-03-42, and 2026-11-04).
 
-    An error anywhere, the dates included, is recorded as UNMEASURED with its type (as step
-    2b's report mode records its own), and K0 then stops the reduced build: an input K0
-    cannot read fails closed. HALVE/KILL's own record (step 2b) is not this, and unchanged."""
+    1. Read through the as-of itself (`drawdown.check(..., read_through=asof)`: today's check,
+       labelled 0 sessions stale). If the as-of's row is there, whatever it reads decides,
+       a bad row included (UNMEASURED: K0 flattens; it never falls back past a row it has).
+    2. Only if the as-of's row has NOT landed yet (the newest row is older than the as-of),
+       read through the NYSE session before the as-of, labelled one session stale. Why: at
+       the 22:00 decide the as-of's row never exists (E-2026-11-03-41), so step 1 alone would
+       flatten every reduced session (the 2026-11-03 ruling). A newest row older than that,
+       or none, reads UNMEASURED and the session flattens.
+    Why the as-of's row first (ruling 2026-11-04): at the morning backstop the as-of's row
+    exists; reading D-1 there let a reduced book through on a stale OK while the fresh row
+    read KILL (the verification of f3ad29f). A fresher row can only make K0 stricter.
+
+    The read-through dates come from `asof_for(asof, cal)` (nyse_calendar AND Alpaca's
+    calendar, never a weekday guess; it raises if they differ). An error anywhere is
+    recorded as UNMEASURED with its type and K0 stops the reduced build: an input K0 cannot
+    read fails closed. HALVE/KILL's own record (step 2b) is not this, and unchanged."""
     try:
-        return ddm.check(state, spec, asof, deps.drawdown, read_through=asof_for(asof, cal))
+        prev = asof_for(asof, cal)
+        fresh = ddm.check(state, spec, asof, deps.drawdown, read_through=asof)
+        r = fresh.get("reading")
+        if fresh["status"] == ddm.UNMEASURED and r is not None and r["last_date"] < asof:
+            return ddm.check(state, spec, asof, deps.drawdown, read_through=prev)
+        return fresh
     except Exception as e:  # recorded in thin_session.k0, and K0 stops on it: fails closed
         return ddm.unmeasured_record(deps.drawdown, asof, f"{type(e).__name__}: {e}")
 

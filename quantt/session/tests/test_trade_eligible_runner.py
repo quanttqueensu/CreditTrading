@@ -62,8 +62,10 @@ STATUSES = ("ok", "halve", "kill", "stale", "absent", "raises")
 # as-of 2026-09-25. On the high of 101,000 (2026-09-22): OK 0.40% below it, HALVE 13.86%, KILL
 # 20.79%, against the fixture spec's 12% / 18% lines; "stale" ends on 2026-09-23, two sessions
 # before the as-of (UNMEASURED); "absent" has no file (UNMEASURED). "morning" is the backstop
-# decide on the session day: the as-of's own row is there, at KILL, and K0 still reads the
-# row before it (OK). "raises" has "ok"'s rows and Alpaca's calendar without K0_RAISES_OMITS.
+# decide on the session day: the as-of's own row is there, at KILL, and K0 reads it (the
+# freshest row, ruling 2026-11-04), so it flattens although the row before reads OK.
+# "morning_bad" has the as-of's row present but unreadable: UNMEASURED, never a fall back to
+# the row before it. "raises" has "ok"'s rows and Alpaca's calendar without K0_RAISES_OMITS.
 K0_EOD = {
     "ok": N._EOD_HEAD + [("2026-09-24", 100600.0)],
     "halve": N._EOD_HEAD + [("2026-09-24", 87000.0)],
@@ -71,10 +73,12 @@ K0_EOD = {
     "stale": list(N._EOD_HEAD),
     "absent": None,
     "morning": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", 80000.0)],
+    "morning_bad": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", -1.0)],
     "raises": N._EOD_HEAD + [("2026-09-24", 100600.0)],
 }
 K0_STATUS = {"ok": "OK", "halve": "HALVE", "kill": "KILL", "stale": "UNMEASURED",
-             "absent": "UNMEASURED", "morning": "OK", "raises": "UNMEASURED"}
+             "absent": "UNMEASURED", "morning": "KILL", "morning_bad": "UNMEASURED",
+             "raises": "UNMEASURED"}
 # "raises": K0's reading raises, and only the fail-closed branch of `_thin_k0_drawdown` flattens
 # (module docstring). Alpaca's calendar omits 2026-09-24, the session before the as-of, as on an
 # unannounced closure that nyse_calendar's SPECIAL_CLOSURES has not yet been told about. The
@@ -374,12 +378,11 @@ def test_k0_reads_the_previous_sessions_row_one_session_stale(tmp_path, monkeypa
     assert st["read_through"]["sessions_stale"] == 1
 
 
-def test_at_the_morning_backstop_k0_still_reads_the_session_before_the_asof(
-        tmp_path, monkeypatch, books):
-    """The backstop decide on the session day: the as-of's own row is there (at KILL here), and
-    HALVE/KILL's record reads it. K0's rule is the previous session's row (the ruling), so it
-    reads 2026-09-24 (OK) and builds; the record says which row it read. Fails on a323971,
-    where K0 read the as-of's KILL and flattened."""
+def test_at_the_morning_backstop_k0_reads_the_asofs_own_row(tmp_path, monkeypatch, books):
+    """The backstop decide on the session day: the as-of's own row is there (at KILL here).
+    K0 reads the freshest row it has (ruling 2026-11-04), so it reads 2026-09-25 (KILL),
+    labelled 0 sessions stale, and the session flattens although 2026-09-24 reads OK. Fails
+    on 69fccf3, where K0 always read the session before the as-of (OK) and built."""
     base, bk = books
     N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
     code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "morning")
@@ -387,8 +390,27 @@ def test_at_the_morning_backstop_k0_still_reads_the_session_before_the_asof(
     plan = M._plan(state)
     assert plan["drawdown"]["status"] == "KILL"
     k0 = plan["thin_session"]["k0"]
-    assert k0["status"] == "OK" and k0["read_through"] == "2026-09-24"
-    assert plan["thin_session"]["reduced"] is True
+    assert k0["status"] == "KILL" and k0["read_through"] == "2026-09-25"
+    assert k0["stale"]["sessions"] == 0
+    assert k0["stop"]["by"] == "K0"
+    assert plan["thin_session"]["reduced"] is False and plan["thin_session"]["stopped_by"] == "K0"
+
+
+def test_at_the_morning_backstop_a_bad_asof_row_never_falls_back(tmp_path, monkeypatch, books):
+    """The as-of's row is there but unreadable (a negative equity): UNMEASURED and the session
+    flattens. K0 never falls back past a row it has to an older, readable one. A PIN, not a
+    regression test: it passes on 69fccf3 too, because `drawdown.read_series` refuses a bad
+    row anywhere in the file, so reading through D-1 was UNMEASURED there as well. It fails
+    for an implementation that falls back to D-1 on any UNMEASURED and reads only rows up to
+    the read-through date."""
+    base, bk = books
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "morning_bad")
+    assert code == rn.EXIT_PLANNED
+    plan = M._plan(state)
+    k0 = plan["thin_session"]["k0"]
+    assert k0["status"] == "UNMEASURED"
+    assert plan["thin_session"]["reduced"] is False and plan["thin_session"]["stopped_by"] == "K0"
 
 
 @pytest.mark.parametrize("eod", ["stale", "absent"])
@@ -402,7 +424,10 @@ def test_k0_reads_unmeasured_on_an_older_row_or_no_file_and_flattens(tmp_path, m
     assert code == rn.EXIT_PLANNED
     ts = M._plan(state)["thin_session"]
     assert ts["k0"]["status"] == "UNMEASURED" and ts["stopped_by"] == "K0"
-    assert ts["k0"]["read_through"] == "2026-09-24"
+    # "stale": the as-of's row has not landed, so K0 falls back to the session before it, whose
+    # row is missing too. "absent": no file, so there is no reading to fall back from; the
+    # record names the as-of it tried first (ruling 2026-11-04: the freshest row first).
+    assert ts["k0"]["read_through"] == ("2026-09-24" if eod == "stale" else "2026-09-25")
     if eod == "stale":
         assert ts["k0"]["stale"] == {"row_date": "2026-09-23", "sessions": 2}
         assert "read-through date 2026-09-24 is 2026-09-23" in ts["k0"]["stop"]["why"]
