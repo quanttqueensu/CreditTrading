@@ -311,3 +311,10 @@ from a named source; [doc] copied from a named note.
 - **C4 re-armed at 18:02.** probe: positions 0, open orders 0, opening_session True. `c4-arm` at -5; DRY_RUN=0 on both books' sessions; AUTO_ARMED under cef/ and c4/; timers active.
   - **C4's first armed decide, 22:00 tonight, is on the v5 blend.** The first sends are 2026-11-04 15:52.
 
+**22:17–23:50 ET: the first plans read; C4 halted for 11-04 on an IGR data step** (`results/report/EVIDENCE_LOG.md` E-2026-11-03-43, -44).
+- **The core's first ×1.30 plan:** 11 orders, gross 1.025× → 1.797× (the 1.80 cap binds), pre-flight ok, no refusals. It sends at 15:52 on 11-04.
+- **C4's first armed plan (v5):** 15 orders, gross 1.267×, net 0, opening session CLEAR, no refusals.
+- **Checklist step 5 found a STEP.** C4's first fetch replaced IGR's pre-split closes for 05-04..09-04 with Yahoo's split-adjusted ×3 against unadjusted NAVs, so IGR's discount reads about +200% for four months. The plan bought 520 IGR on it.
+- **The team lead ruled "Hold C4 one day, fix IGR".** `ops/HALT_c4.md` was written on the VM at 23:47 ET; the send phase re-gates on it. The core is unaffected.
+- **The fix,** a C4 fetch that keeps one price basis with its NAVs plus a step guard, goes to a release on 11-04. Then the halt clears before the 22:00 decide, and C4's first send is 11-05.
+

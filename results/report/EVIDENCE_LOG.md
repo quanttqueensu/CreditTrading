@@ -3475,6 +3475,30 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. HALVE/KILL in `on` mode would refuse every decide, and te4's K0 would flatten every reduced session, until the read rule is ruled on
 
+### E-2026-11-03-43 · The first plans at release-20261103-5: the core's first ×1.30 and C4's first armed plan on the v5 blend (session 2026-11-04)
+- kind: live-plan
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - core `cef_discount.v9.20261102`, smult 1.30: decided, no refusals; 11 orders (buy $14,313, sell $36,892); gross 1.025× → 1.797× NAV against the 1.80 cap (binding: gmax 1.80×0.9237); net −0.010×; pre-flight ok, stressed equity $98,431.87 (shock $1,529.38, 2026-03-20); gate 8 bp_scale 1.0, not binding; missing NAV none; 3 unresolved corporate-action rows BLOCKING in report mode, so nothing refused [V: the VM's quantt_state/cef/2026-11-04/plan.json]
+  - C4 `c4_families.v5.20261103`, smult 1.26: decided, no refusals; 15 orders (buy $63,363, sell $63,331); gross 0 → 1.267× NAV against the 1.90 cap; net 0.000×; all 74 targets tagged `level z_share=0.5000`; opening_session True, first_session CLEAR (0 foreign fills, 0 positions); missing NAV none; borrow: 7 names not shortable (DNP, HGLB, NFJ, PFO, RFI, RNP, SCD), none of them among the plan's shorts [V: quantt_state/c4/2026-11-04/plan.json and data/2026-11-03/report.json]
+  - C4's first fetch: `fetch_daily` exit 0, prices 402,947 rows and NAV 326,846 rows to 2026-11-03; 12 NAV-repeat flags masked by C4's M1; VM memory 292 MB used of 950 with both books [V]
+- source: the VM's plan.json and collect report (not tracked; read over ssh, read-only)
+- supports: §1, §4
+- status: the core's plan stands; C4's is withheld (E-2026-11-03-44)
+
+### E-2026-11-03-44 · Incident: C4's first fetch wrote IGR's split-adjusted pre-split closes against unadjusted NAVs; C4 halted for the 2026-11-04 session
+- kind: incident
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - IGR closes for 2026-05-04..2026-09-04 replaced at a constant ×3.0 against the seed (83 rows); NAVs unchanged; IGR's discount reads about +200% (05-04: close 14.04 vs NAV 4.64; seed close 4.68) instead of about +1.5% [V: the VM's data/cef_c4 against ~/c4_seed]
+  - the 2026-11-04 plan bought 520 IGR (about $5,876, 5.9% of NAV) on z=−0.79, mostly the artifact; the other 14 orders were clean (no other price row moved beyond 0.5%; one SCD NAV row 0.7%) [V]
+  - checklist step 5 (a step, not a spike, means STOP): the team lead ruled "Hold C4 one day, fix IGR". `ops/HALT_c4.md` was written in the prod clone at 23:47 ET; the runner's `halts_for` reads it for c4 and nothing for cef [V]
+- source: `docs/JOURNAL.md` (this PR); `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` step 5
+- supports: §4, §5
+- status: open. The fix makes C4's fetch keep one price basis with its NAVs, plus a fetch-time step guard, then a release; the halt is cleared after a clean decide
+
 ### E-2026-11-03-90 · cef paper book, 2026-11-03: PASS, traded
 - kind: live-pnl
 - era: ALPACA
