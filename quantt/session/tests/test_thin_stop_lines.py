@@ -13,6 +13,12 @@ not in the shape the runner writes them, so it passed with K3 reading one close 
 stores it, and the K3 tests read those records; a runner-level test does the same on plan.json
 files. Those tests fail on 7fcc2b7.
 
+The send-skip label (review fix F3 after 7fcc2b7) reads whether the send went (`_send_state`:
+plan.json's orders and plan_sha, send.json's exit and plan_sha, <D>/STARTED). The prior
+plans and send records here therefore carry the fields run.py writes (`plan`, `send`,
+`reader`'s `started`). The tests of a send that did not go, or whose outcome is not
+established, fail on the F1 commit, which labelled a refused or dry send's list a lost short.
+
 The runner's side (plan.json carries `thin_stops` only with the key set, and the label read from
 the previous session's send.json) is in tests/test_trade_eligible_runner.py.
 """
@@ -41,8 +47,16 @@ def back(k):
     return CAL[300 - k]
 
 
-def plan(reduced=False, *, refusals=(), execution="late_market", k3=None, key=True):
-    p = {"refusals": list(refusals), "execution": execution}
+ORDER = {"symbol": "A", "side": "buy", "qty": 10, "client_order_id": "cef-test-A"}
+SHA = "sha-test"
+
+
+def plan(reduced=False, *, refusals=(), execution="late_market", k3=None, key=True, orders=(),
+         sha=SHA):
+    """A prior plan.json as run.py writes it: its `orders` and `plan_sha` are what its send.json
+    is matched against (`drawdown._send_state`); with no orders no send runs."""
+    p = {"refusals": list(refusals), "execution": execution, "orders": list(orders),
+         "plan_sha": sha}
     if key:
         p["thin_session"] = {"reduced": reduced}
         # A decide with the key set always records its K3 line: N/A when the session before it
@@ -51,17 +65,28 @@ def plan(reduced=False, *, refusals=(), execution="late_market", k3=None, key=Tr
     return p
 
 
+def send(exit="SENT", *, skipped=(), sha=SHA):
+    """A send.json as `_send_planned` writes it (the fields read here)."""
+    return {"plan_sha": sha, "exit": exit, "skipped": list(skipped)}
+
+
 def reader(days: dict, default="plain"):
-    """read_day over `days` {session: {"plan", "send"}}; other sessions get a plan with the key
-    set and nothing reduced ("plain"), the key absent ("absent"), or no plan.json ("missing")."""
+    """read_day over `days` {session: {"plan", "send", "started"}}; other sessions get a plan
+    with the key set and nothing reduced ("plain"), the key absent ("absent"), or no plan.json
+    ("missing"). `started` (<D>/STARTED exists), unless given, is what run.py leaves: True
+    exactly when a send went or failed part-way (exit SENT or FAIL)."""
     def read(d):
         if d in days:
-            return {"plan": days[d].get("plan"), "send": days[d].get("send")}
+            x = days[d]
+            sd = x.get("send")
+            went = isinstance(sd, dict) and sd.get("exit") in ("SENT", "FAIL")
+            started = x.get("started", went)
+            return {"plan": x.get("plan"), "send": sd, "started": started}
         if default == "plain":
-            return {"plan": plan(), "send": None}
+            return {"plan": plan(), "send": None, "started": False}
         if default == "absent":
-            return {"plan": plan(key=False), "send": None}
-        return {"plan": None, "send": None}
+            return {"plan": plan(key=False), "send": None, "started": False}
+        return {"plan": None, "send": None, "started": False}
     return read
 
 
@@ -310,23 +335,62 @@ def test_k2_k3_unmeasured_without_equity_a_close_or_a_line_and_n_a_after_a_full_
 
 def test_the_send_time_skip_after_a_reduced_decision_is_labelled():
     skipped = ["cef-20260105-PDI-x: PDI shortable=False at send; skipped, the rest go"]
-    r = record({back(1): {"plan": plan(True), "send": {"skipped": skipped}}})
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": send(skipped=skipped)}})
     assert r["send_skip"] == {"session": ASOF, "applies": True, "skipped_at_send": skipped,
                               "lost_short": True}
-    r = record({back(1): {"plan": plan(True), "send": {"skipped": []}}})
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": send()}})
     assert r["send_skip"]["lost_short"] is False
-    r = record({back(1): {"plan": plan(True), "send": None}})
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]),
+                          "send": {"plan_sha": SHA, "exit": "SENT"}}})
     assert r["send_skip"]["lost_short"] == ddm.UNMEASURED
-    r = record({back(1): {"plan": plan(True), "send": {"exit": "SENT"}}})
-    assert r["send_skip"]["lost_short"] == ddm.UNMEASURED
-    r = record({back(1): {"plan": plan(True, execution=None), "send": None}})
+    r = record({back(1): {"plan": plan(True, execution=None, orders=[ORDER]), "send": None}})
     assert r["send_skip"]["applies"] is False and "cls" in r["send_skip"]["why"]
-    r = record({back(1): {"plan": plan(False), "send": {"skipped": skipped}}})
+    r = record({back(1): {"plan": plan(False, orders=[ORDER]), "send": send(skipped=skipped)}})
     assert r["send_skip"]["applies"] is False
 
 
+@pytest.mark.parametrize("exit_", ["DRY", "REFUSED", "NOTHING_TO_SEND"])
+def test_a_send_that_did_not_go_labels_no_lost_short(exit_):
+    """Review fix F3 after 7fcc2b7: `_send_planned` builds its skipped list BEFORE its gates,
+    so a refused or dry send writes the list and sends nothing. 7fcc2b7 labelled it a lost
+    short (lost_short True), and so fails here."""
+    skipped = ["cef-20260105-PDI-x: PDI shortable=False at send; skipped, the rest go"]
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]),
+                          "send": send(exit_, skipped=skipped)}})
+    sk = r["send_skip"]
+    assert sk["applies"] is False and sk.get("lost_short") is not True, sk
+    assert "skipped_at_send" not in sk and exit_ in sk["why"]
+
+
+def test_a_send_whose_outcome_is_not_established_reads_unmeasured():
+    """FAIL (part of a set may have gone), another plan's send.json, a STARTED beside a refused
+    or missing send record, a SENT without STARTED: the label is UNMEASURED, never a guess.
+    7fcc2b7 read the skipped list in each (True, or False on an empty one), and fails here."""
+    skipped = ["x: PDI shortable=False at send; skipped, the rest go"]
+    for day in ({"send": send("FAIL", skipped=skipped)},
+                {"send": send(skipped=skipped, sha="another")},
+                {"send": send("REFUSED"), "started": True},
+                {"send": send(skipped=skipped), "started": False}):
+        r = record({back(1): {"plan": plan(True, orders=[ORDER]), **day}})
+        assert r["send_skip"]["applies"] is True, day
+        assert r["send_skip"]["lost_short"] == ddm.UNMEASURED, (day, r["send_skip"])
+
+
+def test_no_send_ran_after_a_reduced_decision_with_or_without_orders():
+    """No orders: a late-market decide with nothing to send exits NOTHING_TO_SEND and no send
+    runs, so nothing could be skipped at one. With orders and no send.json (and no STARTED), no
+    send ran in the window. Neither is a lost short. 7fcc2b7 read both UNMEASURED ("no
+    send.json"), and fails here; a STARTED with no send.json stays UNMEASURED."""
+    for orders in ((), (ORDER,)):
+        r = record({back(1): {"plan": plan(True, orders=orders), "send": None}})
+        assert r["send_skip"]["applies"] is False, (orders, r["send_skip"])
+        assert "lost_short" not in r["send_skip"]
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": None, "started": True}})
+    assert r["send_skip"]["lost_short"] == ddm.UNMEASURED and "STARTED" in r["send_skip"]["why"]
+
+
 def test_the_lines_render_every_stop():
-    days = {back(1): {"plan": plan(True), "send": {"skipped": ["x"]}}}
+    days = {back(1): {"plan": plan(True, orders=[ORDER]), "send": send(skipped=["x"])}}
     lines = ddm.thin_stop_lines(record(days, positions={"A": 100}, closes=PRICES))
     text = "\n".join(lines)
     for word in ("episode OPEN", "K0", "K1", "K2", "K3", "SEND SKIP", "report only"):
@@ -337,12 +401,14 @@ def test_the_lines_render_every_stop():
 
 # --------------------------------------------------------------- in the session (run.py)
 
-def _prior_session(state, d, plan_, send=None):
+def _prior_session(state, d, plan_, send=None, *, started=False):
     day = state / d.isoformat()
     day.mkdir(parents=True, exist_ok=True)
     (day / "plan.json").write_text(json.dumps(plan_))
     if send is not None:
         (day / "send.json").write_text(json.dumps(send))
+    if started:                     # run.py writes STARTED before the first order of a set
+        (day / "STARTED").write_text("{}")
 
 
 @pytest.mark.parametrize("eod,k0", [("ok", ddm.CLEAR), ("halve", ddm.KILLED)])
@@ -360,9 +426,10 @@ def test_the_next_decide_labels_a_short_skipped_at_the_reduced_sessions_send(
     state = tmp_path / "r" / "state"
     skipped = ["cef-20260925-SYD-1: SYD shortable=False at send; skipped, the rest go"]
     _prior_session(state, M.ASOF, {"refusals": [], "execution": "late_market",
+                                   "orders": [ORDER], "plan_sha": SHA,
                                    "thin_session": {"reduced": True},
                                    "thin_stops": {"K3": {"verdict": ddm.NOT_APPLICABLE}}},
-                   {"skipped": skipped, "exit": "SENT"})
+                   send(skipped=skipped), started=True)
     _prior_session(state, dt.date(2026, 9, 24), {"refusals": []})        # the key absent then
     code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], eod)
     assert code == rn.EXIT_PLANNED
@@ -380,6 +447,31 @@ def test_the_next_decide_labels_a_short_skipped_at_the_reduced_sessions_send(
     assert st["K1"]["earning_days"] == 0              # 09-25's earning day is 09-28, after the as-of
     run_rec = json.loads(sorted((state / "2026-09-28" / "runs").glob("*.json"))[-1].read_text())
     assert run_rec["thin_stops"] == st
+
+
+def test_the_next_decide_labels_nothing_after_a_reduced_send_that_did_not_go(
+        tmp_path, monkeypatch):
+    """The same session as above, but the 09-25 send was dry: send.json carries the skipped
+    list `_send_planned` built before its gates, exit DRY, and no STARTED (nothing was sent).
+    The label does not apply. Fails on 7fcc2b7, which labelled it a lost short."""
+    from quantt.session import run as rn
+    from quantt.session.tests import test_missing_nav_hold as M
+    from quantt.session.tests import test_trade_eligible_noop as N
+    from quantt.session.tests.test_trade_eligible_runner import TE4_SPEC, run
+    base, bk = N.thin_books(tmp_path / "b", monkeypatch)
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    state = tmp_path / "r" / "state"
+    skipped = ["cef-20260925-SYD-1: SYD shortable=False at send; skipped, the rest go"]
+    _prior_session(state, M.ASOF, {"refusals": [], "execution": "late_market",
+                                   "orders": [ORDER], "plan_sha": SHA,
+                                   "thin_session": {"reduced": True},
+                                   "thin_stops": {"K3": {"verdict": ddm.NOT_APPLICABLE}}},
+                   send("DRY", skipped=skipped))
+    _prior_session(state, dt.date(2026, 9, 24), {"refusals": []})        # the key absent then
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "ok")
+    assert code == rn.EXIT_PLANNED
+    sk = M._plan(state)["thin_stops"]["send_skip"]
+    assert sk["applies"] is False and "lost_short" not in sk and "DRY" in sk["why"], sk
 
 
 def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, monkeypatch):

@@ -271,7 +271,14 @@ being shortable after the decide is skipped and the rest go. The next decide's
 `thin_stops.send_skip` reads that session's plan.json (`thin_session.reduced`) and send.json
 (`skipped`, the run record's `skipped_at_send`), and records whether the reduced session lost a
 short at send. The send skips only short-opening orders, so any entry is a lost short. K3
-watches the one-sided book that results.
+watches the one-sided book that results. **Only a send that went is labelled** (review fix after
+7fcc2b7): `_send_planned` builds its skipped list before its gates, so a refused or dry send
+writes the list and sends nothing. Whether a send went is read from the session's own records
+(`drawdown._send_state`): a plan with no orders needed no send; under `cls` a set went exactly
+when `<D>/STARTED` exists; under the late market, send.json's `exit` SENT with STARTED went,
+DRY, REFUSED or NOTHING_TO_SEND without STARTED (or no send.json and no STARTED) did not, and
+anything else (FAIL, a send.json of another plan_sha, a STARTED beside a refused or missing
+send record) reads UNMEASURED.
 
 **The records** appear in plan.json and the run record only when the key is set:
 - `thin_session`: `rule`, `floor`, `min_names`, `decided` (did the sleeve run), `eligible` (a

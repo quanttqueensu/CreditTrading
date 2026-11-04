@@ -1762,15 +1762,19 @@ def _thin_recheck(deps, gate_res) -> None:
 
 
 def _thin_read_day(state: Path, d: dt.date) -> dict:
-    """{"plan", "send"}: the session d's plan.json and send.json under `state`, each a dict,
-    or None where the file is not there. Creates nothing (never `records.day_dir`). A file
-    that is there and cannot be read or parsed raises, and `drawdown.thin_stop_record`
-    records the episode UNMEASURED, naming the session."""
+    """{"plan", "send", "started"}: the session d's plan.json and send.json under `state`,
+    each a dict, or None where the file is not there, and whether <d>/STARTED exists (written
+    before the first order of a set and never otherwise: with send.json's `exit`, what
+    `drawdown._send_state` reads to say whether a decision's targets were sent). Creates
+    nothing (never `records.day_dir`). A file that is there and cannot be read or parsed
+    raises, and `drawdown.thin_stop_record` records the episode UNMEASURED, naming the
+    session."""
     day = state / d.isoformat()
     out = {}
     for name in ("plan", "send"):
         f = day / f"{name}.json"
         out[name] = json.loads(f.read_text()) if os.path.lexists(f) else None
+    out["started"] = os.path.lexists(day / "STARTED")
     return out
 
 

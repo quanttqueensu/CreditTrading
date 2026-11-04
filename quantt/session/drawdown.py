@@ -419,6 +419,30 @@ def lines(rec: dict) -> list[str]:
 #                     orders that open or increase a short of a name no longer shortable
 #                     (run.py `_send_planned`), so any entry is a lost short. Ruled 2026-11-03:
 #                     accept it and label it; this is the label, and K3 watches the result.
+#                     ONLY FROM A SEND THAT WENT (`_send_state`; review fix F3 after 7fcc2b7).
+#                     `_send_planned` builds the skipped list BEFORE its gates, so a send that
+#                     was then refused, or dry, writes the list and sends nothing; the first
+#                     build labelled that a lost short. A send that did not go labels nothing
+#                     (applies False, naming its exit); one whose outcome is not established
+#                     reads UNMEASURED.
+#   sent              (`_send_state`) whether a decision's targets went to the broker, read
+#                     from the session's own records: plan.json `orders` / `plan_sha` /
+#                     `execution`, send.json `plan_sha` / `exit`, and whether <D>/STARTED exists
+#                     (run.py writes it before the first order of a set, and never otherwise;
+#                     CLAUDE.md order-path rule 2). The rule:
+#                       * no orders: nothing needed sending, and the account already held the
+#                         plan's targets when it was decided (a late-market decide with no
+#                         orders exits NOTHING_TO_SEND and no send runs): SENT;
+#                       * cls (the decide is the send): SENT exactly when STARTED exists (a cls
+#                         transmit that failed part-way counts as sent; its run record, not
+#                         read here, says what filled);
+#                       * late market: send.json's `exit` SENT with STARTED: SENT. DRY, REFUSED
+#                         or NOTHING_TO_SEND without STARTED, or no send.json and no STARTED (no
+#                         send ran in the window): NOT SENT. Anything else is UNMEASURED, named:
+#                         FAIL (part of a set may have gone), a send.json of another plan_sha,
+#                         a STARTED beside a refused, dry or missing send record (a later run's
+#                         record over the send's, or a send that never wrote one), a SENT
+#                         without STARTED.
 # READING BACK. Sessions are walked newest first from the one before this decide. A session
 # with no plan.json, or one that cannot be read, makes the episode UNMEASURED (named): a
 # missing record is not a session without a reduced build. A plan.json with no
@@ -434,6 +458,46 @@ TRIPPED, CLEAR, KILLED, NOT_APPLICABLE = "TRIPPED", "CLEAR", "KILLED", "N/A"
 def _is_reduced(plan: dict) -> bool:
     ts = plan.get("thin_session") or {}
     return ts.get("reduced") is True and plan.get("refusals") == []
+
+
+SEND_WENT = "SENT"                                         # send.json `exit` of a set that went
+SEND_NOT_GONE = ("DRY", "REFUSED", "NOTHING_TO_SEND")      # exits that send nothing
+
+
+def _send_state(d, day: dict) -> tuple[bool, str]:
+    """(sent, how) for the decision recorded for session `d` (`day` = read_day(d)): did its
+    targets go to the broker? The rule is the block comment's `sent`. Raises `Unmeasured`,
+    naming the session and the record, when the records cannot say: never a guess either way."""
+    plan = day["plan"]
+    orders = plan.get("orders")
+    if not isinstance(orders, list):
+        raise Unmeasured(f"{d}'s plan.json has no `orders` list ({orders!r}): whether its "
+                         f"targets were sent cannot be read")
+    if not orders:
+        return True, f"{d}'s plan had no orders: the account already held its targets"
+    started = day.get("started")
+    if not isinstance(started, bool):
+        raise Unmeasured(f"whether a set STARTED for {d} was not read ({started!r})")
+    if plan.get("execution") != "late_market":
+        return started, (f"cls: the decide is the send, and a set "
+                         + ("STARTED" if started else "never STARTED") + f" for {d}")
+    send = day.get("send")
+    if send is None:
+        if started:
+            raise Unmeasured(f"a set STARTED for {d} and there is no send.json: what went is "
+                             f"not recorded")
+        return False, f"no send ran for {d} (no send.json, no STARTED)"
+    if send.get("plan_sha") != plan.get("plan_sha"):
+        raise Unmeasured(f"{d}'s send.json is of plan_sha {send.get('plan_sha')!r}, its "
+                         f"plan.json of {plan.get('plan_sha')!r}")
+    ex = send.get("exit")
+    if ex == SEND_WENT and started:
+        return True, f"{d}'s send exited {ex}"
+    if ex in SEND_NOT_GONE and not started:
+        return False, f"{d}'s send exited {ex}: nothing was sent"
+    raise Unmeasured(f"{d}'s send.json exit is {ex!r} and a set "
+                     + ("STARTED" if started else "never STARTED")
+                     + ": whether its targets were sent is not established")
 
 
 def _walk(session_date, previous_session, read_day) -> dict:
@@ -488,8 +552,9 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
 
     `drawdown` is this decide's drawdown record (`check`); `current` its `thin_session`;
     `previous_session(d)` the NYSE session before d; `read_day(d)` -> {"plan": dict | None,
-    "send": dict | None} for the session d (it may raise); `series` the eod_equity rows
-    [(date, equity)] on or before `asof`, or a string saying why there are none; `positions`
+    "send": dict | None, "started": bool} for the session d (it may raise); `series` the
+    eod_equity rows [(date, equity)] on or before `asof`, or a string saying why there are
+    none; `positions`
     {symbol: signed shares} now; `closes` {symbol: as-of close}; `thresholds` the four
     `risk.thin_*` values (None where absent: that line reads UNMEASURED). Pure: reads nothing
     but what it is given."""
@@ -631,10 +696,20 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     elif prev[1]["plan"].get("execution") != "late_market":
         sk.update(applies=False, why="cls: the decide is the send; there is no send-time skip")
     else:
+        # Only a send that went can have lost a short (block comment, send skip): a refused or
+        # dry send wrote its skipped list and sent nothing.
+        try:
+            went, how = _send_state(asof, prev[1])
+        except Unmeasured as e:
+            went, how = None, str(e)
         send = prev[1].get("send")
         skipped = None if send is None else send.get("skipped")
-        if send is None:
-            sk.update(applies=True, lost_short=UNMEASURED, why=f"no send.json for {asof}")
+        if went is None:
+            sk.update(applies=True, lost_short=UNMEASURED, why=how)
+        elif not went:
+            sk.update(applies=False, why=f"the reduced decision was not sent: {how}")
+        elif not prev[1]["plan"]["orders"]:
+            sk.update(applies=False, why=f"{how}; no send ran, so nothing was skipped at one")
         elif not isinstance(skipped, list):
             sk.update(applies=True, lost_short=UNMEASURED,
                       why=f"send.json for {asof} has no `skipped` list ({skipped!r})")
