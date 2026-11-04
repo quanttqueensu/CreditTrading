@@ -3527,3 +3527,30 @@ that adds it does not exist when it is written.
 - source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `e45e852`
 - supports: §5
 - status: current (answers E-2026-11-03-41, the owning session's finding; covers te4's K0 only)
+
+### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
+- kind: method
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - base: a worktree at 0b1a2ef2b308101b3512aec24dc49a22de98c888 [S]
+  - decision dates: 7018 (1998-11-18 .. 2026-10-14, --dates all); books flat and held; 14036 (date, book) target lists per variant [S]
+  - new:absent vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:flatten vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:hold vs base:hold: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:te4 vs base:absent on (date, book) with >= min_names eligible: 3716 of 3716 byte-identical with meta['cef_thin'] removed [S]
+  - thin (date, book): 10320; reduced build ran on 3416; below the floor (FLAT) 6904; with holds 0 [S]
+  - VERDICT: NO-OP PROVED (every comparison byte-identical) [S]
+- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-04-headf3ad29f-main0b1a2ef.txt` @ `e4953e4`; `quantt/session/tests/test_trade_eligible_noop.py` @ `29ba857`; `quantt/session/run.py` @ `dbe46f3`; `quantt/session/drawdown.py` @ `f3ad29f`; `src/deploy/sleeves/cef_discount.py` @ `f3ad29f`
+- supports: §1, §5
+- status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-04-02 · Ruling: te4's K0 reads the freshest EOD row it has, the as-of's own when it is there, else the previous session's
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - none (a ruling: "K0 reads the as-of's own row when it is there (labelled 0 sessions stale), whatever it reads; a bad row reads UNMEASURED. Only when D's row has not landed does it read D−1's (labelled one session stale)"; team lead, 2026-11-04)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `dbe46f3`; `quantt/session/run.py` @ `dbe46f3`
+- supports: §5
+- status: current (refines E-2026-11-03-42: at the 22:00 decide nothing changes)
