@@ -6,7 +6,8 @@
     python3 scripts/cef/c4_paper_benchmark.py fidelity   # the fidelity check alone (no CRSP needed); prints, writes nothing
     python3 scripts/cef/c4_paper_benchmark.py seed-rulings   # writes results/cef/c4/c4_seed_rulings_2026-10-29.json (IGR, step 3)
     python3 scripts/cef/c4_paper_benchmark.py recap --probe results/ops/alpaca_probe/<date>_c4.json --mark-sensitivity X
-                                                         # the cap re-derived from a fresh account read (ruling 3); writes nothing
+                                                         # the cap re-derived from a fresh account read (ruling 3) on the
+                                                         #   live spec book's w5: exit 0 SAME, 2 OVERRIDE ON RECORD, 1 STOP
 
 WHY THIS EXISTS. The team lead fast-tracked C4 (CEF trial 52) to paper on 2026-10-28 and keeps
 every gate. Plan `results/cef/C4_DEPLOY_PLAN_2026-10-27.md` §2 step 2 is row 2 (the frozen spec,
@@ -846,15 +847,58 @@ def core_w5_check(cut_core: Path) -> dict:
     return {"w5_13": w13, "end": got[1], "recorded": list(want), "traded_start": v7.TRADED_START}
 
 
+def cap_book(tb: dict, spec: dict) -> dict:
+    """The book the frozen margin rule is applied to: the LIVE spec's book, with the cap removed.
+
+    WHY (the release-check of e41f10b, 2026-11-03). Until this, `derive_cap` read the trial's z T
+    whatever the spec said. On c4_families.v5 the spec trades CEF trial 54's blend, and its worst
+    week per unit of gross is about twice the z book's (0.0536 against 0.0261), so the rule gives
+    1.80 where the z book gives 1.90. `recap` read that z w5, and the arming gate printed "1.90,
+    same as spec" for a book the rule caps at 1.80.
+
+    THE CONSTRUCTION IS H11's (`h11_reference`), with the cap taken away, because the cap is what
+    the rule derives:
+      * level_signal set: m x band(T_spec, band), where T_spec is the blend (`spec_targets`) and m is
+        the spec's sizing_multiplier, if set. It is checked against the RAW primary returns
+        (`trial_book`'s R_raw), never against the z book's zero-filled R0 (H15).
+      * absent: band(T, band) on the trial's z T and R0, exactly as before, byte for byte.
+    w5 is a loss per unit of gross, so m only scales the gross it is divided by. It is applied so the
+    plateau below is the account's book, as H11's is.
+
+    Returns {T, R, H (uncapped), m (the multiplier, or 1.0 when absent), derived_on}. `derived_on`
+    names the book, the spec id and the spec file's sha256, and it is written into the output json.
+    `recap` refuses an output whose spec sha256 is not the live file's."""
+    f = spec["frozen"]
+    b = float(f["band_width"])
+    lv = registry.cef_level_signal(f)
+    if lv is None:
+        T, R, mult = tb["T"], tb["R0"], 1.0
+        H = bf.band(T, b)
+        book = "z: the trial's build_book T (the spec carries no level_signal), uncapped band"
+    else:
+        if "T_spec" not in tb or "R_raw" not in tb:
+            raise KeyError(f"{spec.get('spec_id')} sets level_signal: the cap is derived on the blended spec "
+                           f"book, and `tb` carries no T_spec (spec_targets) or no raw returns (trial_book)")
+        m = f.get("sizing_multiplier")
+        T, R, mult = tb["T_spec"], tb["R_raw"], (1.0 if m is None else float(m))
+        H = bf.band(T, b) * mult
+        book = (f"blend: CEF trial 54's level_signal (z_share {lv['risk_share']}), spec_targets, "
+                f"x sizing_multiplier {mult}, uncapped band")
+    return {"T": T, "R": R, "H": H, "m": mult,
+            "derived_on": {"book": book, "spec_id": spec.get("spec_id"), "spec_sha256": _sha(SPEC_PATH)}}
+
+
 def derive_cap(tb: dict, spec: dict, cut_core: Path) -> dict:
-    """C4's max_gross_stress by the frozen rule (module docstring, part 2)."""
+    """C4's max_gross_stress by the frozen rule (module docstring, part 2), on the live spec's
+    book (`cap_book`): the blend when the spec sets level_signal, the z book when it does not."""
     from scripts.cef import alpaca_v7_derivation as v7
     check = core_w5_check(cut_core)
     f = spec["frozen"]
     b = float(f["band_width"])
-    T = tb["T"]
-    Hb = bf.band(T, b)                         # the UNCAPPED band: the cap is what is derived
-    Rb = c4.check_held(Hb, tb["R0"].reindex(columns=Hb.columns), "uncapped band, total")
+    cb = cap_book(tb, spec)
+    T, mult = cb["T"], cb["m"]
+    Hb = cb["H"]                               # the UNCAPPED band: the cap is what is derived
+    Rb = c4.check_held(Hb, cb["R"].reindex(columns=Hb.columns), "uncapped band, total")
     held = Hb.shift(2).abs().sum(axis=1)
     p0 = held.index[held > 0][0]
     old = v7.TRADED_START
@@ -886,9 +930,15 @@ def derive_cap(tb: dict, spec: dict, cut_core: Path) -> dict:
     w5_edge = (nlv - m_other) / ((cap + mark) * e_book) - v7.MARGIN
     gross = Hb.abs().sum(axis=1).loc[p0:FIT_END]
     plateau = []
-    for c in sorted({1.60, 1.70, cap, round(G, 4), 1.80, 2.00}) + [np.inf]:
-        Hc = bf.band_gross_capped(T, b, c)
-        Rc = c4.check_held(Hc, tb["R0"].reindex(columns=Hc.columns), f"cap {c}")
+    # The spec's own cap joins the grid (a no-op when it is the rule's): with an override on record it
+    # is not the rule's, and the plateau must show what the spec's value costs or buys.
+    spec_cap = f.get("max_gross_stress")
+    grid = {1.60, 1.70, cap, round(G, 4), 1.80, 2.00} | ({float(spec_cap)} if spec_cap not in (None, "") else set())
+    for c in sorted(grid) + [np.inf]:
+        # absent: the trial's unit book at cap c, as before; level_signal: the account's book at its
+        # cap c, m x band_gross_capped(T_spec, band, c / m), H11's construction
+        Hc = bf.band_gross_capped(T, b, c) if mult == 1.0 else mult * bf.band_gross_capped(T, b, c / mult)
+        Rc = c4.check_held(Hc, cb["R"].reindex(columns=Hc.columns), f"cap {c}")
         s = line(Hc, Rc, f"cap {c}")
         plateau.append(dict(cap=None if not np.isfinite(c) else c, sr=s["sr"], ann_pct=s["ann_pct"],
                             turn=s["turn"], max_gross=float(Hc.abs().sum(axis=1).loc[p0:FIT_END].max())))
@@ -904,7 +954,7 @@ def derive_cap(tb: dict, spec: dict, cut_core: Path) -> dict:
                 margin_at_frozen_read=assets, g_stress=G, max_gross_stress=cap,
                 uncapped_max_gross=float(gross.max()), uncapped_mean_gross=float(gross.mean()),
                 uncapped_share_above_cap=float((gross > cap + 1e-12).mean()),
-                spec_value=f.get("max_gross_stress"), plateau=plateau)
+                spec_value=f.get("max_gross_stress"), plateau=plateau, derived_on=cb["derived_on"])
 
 
 def margin_check(spec: dict) -> dict:
@@ -1162,6 +1212,8 @@ def run(argv_out: bool = True) -> int:
         mc = cap["method_check"]
         say(f"  method check: the v7 w5 on the core's 13, panels cut at {FIT_END.date()}, traded era from "
             f"{mc['traded_start']}: {mc['w5_13']:.10f} ending {mc['end']} = recorded {mc['recorded']}")
+        if registry.cef_level_signal(spec["frozen"]) is not None:      # absent: today's text, unchanged
+            say(f"  derived on the LIVE spec book: {cap['derived_on']['book']} ({spec['spec_id']})")
         say(f"  C4 w5 (uncapped band {spec['frozen']['band_width']}, CRSP total return, {cap['traded_start']}.."
             f"{cap['traded_end']}): {cap['w5']:.10f}, the 5 sessions ending {cap['w5_window_end']} "
             f"({cap['w5_second_method']}); the three worst non-overlapping windows "
@@ -1185,9 +1237,16 @@ def run(argv_out: bool = True) -> int:
             say(f"    cap {('none' if p['cap'] is None else p['cap']):>7}  gross SR {p['sr']:.3f}  ann {p['ann_pct']:.2f}%  "
                 f"turn {p['turn']:.1f}  max gross {p['max_gross']:.2f}")
         if cap["spec_value"] is not None and abs(float(cap["spec_value"]) - cap["max_gross_stress"]) > 1e-12:
-            raise RuntimeError(f"the spec's max_gross_stress {cap['spec_value']} is not the rule's "
-                               f"{cap['max_gross_stress']}")
-        say(f"  the spec carries {cap['spec_value']}: the rule's value")
+            ov = cap_override_for(spec["spec_id"], cap["w5"], cap["max_gross_stress"], float(cap["spec_value"]))
+            if ov is None:
+                raise RuntimeError(f"the spec's max_gross_stress {cap['spec_value']} is not the rule's "
+                                   f"{cap['max_gross_stress']}, and no team-lead override on record "
+                                   f"({CAP_OVERRIDE_GLOB}) names w5 {cap['w5']!r} with these caps")
+            cap["override"] = {k: ov[k] for k in ("ruled", "ruled_by", "words", "citation", "_file", "key")}
+            say(f"  the spec carries {cap['spec_value']}, NOT the rule's {cap['max_gross_stress']}: OVERRIDE ON RECORD "
+                f"({ov['ruled_by']}, {ov['ruled']}: \"{ov['words']}\"; {ov['citation']}; {ov['_file']})")
+        else:
+            say(f"  the spec carries {cap['spec_value']}: the rule's value")
 
         say(f"\n[4] THE H11 LINES (fit; gross is the headline, the 5/15/30bp grid beside it as the real-money "
             f"view, labelled; descriptive only, H14: PREREG_C4 §14 re-measures on the read date). H11 READS THE "
@@ -1251,6 +1310,74 @@ def write_spec_book_series(L: dict, spec: dict) -> Path:
     return out
 
 
+# A TEAM-LEAD OVERRIDE OF THE RULE'S CAP, ON RECORD (2026-11-03). The frozen margin rule gives C4 v5's
+# blend 1.80. The team lead ruled to keep 1.90 with that figure in front of him (docs/SYSTEM.md §5,
+# "Team lead, 2026-11-03 — C4 v5's gross cap"). The ruling is not the rule, so neither `run` nor `recap`
+# may report the spec's cap as the rule's. An override is honoured only when a file here names, on
+# content, the exact spec id, w5, rule's cap and spec cap being compared, like `ca-ack`'s
+# acknowledgements: `key` is the sha256 of those four fields in canonical JSON. A file whose fields no
+# longer hash to its key (an edited w5, say) is REFUSED, and a fresh w5 or cap that no file names is
+# STOP. Revert: delete the file. The spec then needs the rule's cap through /spec-change, or a new
+# ruling with a new file.
+CAP_OVERRIDE_DIR = c4.OUT_DIR
+CAP_OVERRIDE_GLOB = "c4_cap_override_*.json"
+CAP_OVERRIDE_MATCHED = ("spec_id", "w5", "rule_cap", "spec_cap")
+CAP_OVERRIDE_RECORD = ("ruled", "ruled_by", "words", "citation")
+
+
+def cap_override_key(doc: dict) -> str:
+    """The sha256 of the matched fields in canonical JSON (sorted keys, no spaces): the one form an
+    override is matched on, so a changed figure is a different key."""
+    core = {k: doc[k] for k in CAP_OVERRIDE_MATCHED}
+    return hashlib.sha256(json.dumps(core, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def cap_override_doc(spec_id: str, w5: float, rule_cap: float, spec_cap: float, ruled: str, ruled_by: str,
+                     words: str, citation: str) -> dict:
+    """An override record, keyed on its content (written once per ruling; never edited)."""
+    doc = {"what": "a team-lead override of the frozen margin rule's max_gross_stress for C4: the spec's cap "
+                   "stands by ruling, not by the rule (scripts/cef/c4_paper_benchmark.py recap)",
+           "spec_id": str(spec_id), "w5": float(w5), "rule_cap": float(rule_cap), "spec_cap": float(spec_cap),
+           "ruled": str(ruled), "ruled_by": str(ruled_by), "words": str(words), "citation": str(citation),
+           "revert": "delete this file; the spec then takes the rule's cap through /spec-change, or a new ruling"}
+    doc["key"] = cap_override_key(doc)
+    return doc
+
+
+def load_cap_overrides(where: Path | None = None) -> list[dict]:
+    """Every override on record, validated. A malformed file, one not ruled by the team lead, or one
+    whose matched fields do not hash to its key RAISES, naming the file: an override that has been
+    edited since its ruling overrides nothing, and skipping it in silence would hide that."""
+    out = []
+    for p in sorted((CAP_OVERRIDE_DIR if where is None else where).glob(CAP_OVERRIDE_GLOB)):
+        doc = json.loads(p.read_text())
+        missing = [k for k in CAP_OVERRIDE_MATCHED + CAP_OVERRIDE_RECORD + ("key",) if k not in doc]
+        if missing:
+            raise ValueError(f"{p.name}: an override record lacks {missing}")
+        if not str(doc["ruled_by"]).lower().startswith("team lead"):
+            raise ValueError(f"{p.name}: ruled_by {doc['ruled_by']!r}; only the team lead overrides the rule")
+        if not all(isinstance(doc[k], (int, float)) and not isinstance(doc[k], bool)
+                   for k in ("w5", "rule_cap", "spec_cap")):
+            raise ValueError(f"{p.name}: w5, rule_cap and spec_cap must be numbers")
+        if cap_override_key(doc) != doc["key"]:
+            raise ValueError(f"{p.name}: its content (w5 {doc['w5']!r}, rule_cap {doc['rule_cap']!r}, spec_cap "
+                             f"{doc['spec_cap']!r}, {doc['spec_id']}) does not match its key: edited after the "
+                             f"ruling it records, so it overrides nothing")
+        out.append(dict(doc, _file=str(p.relative_to(REPO)) if p.is_relative_to(REPO) else str(p)))
+    return out
+
+
+def cap_override_for(spec_id: str, w5: float, rule_cap: float, spec_cap: float,
+                     where: Path | None = None) -> "dict | None":
+    """The override on record naming exactly these four, or None. Exact equality on w5: it is the
+    committed derivation's float, read from the output json, not a re-estimate."""
+    for doc in load_cap_overrides(where):
+        if (doc["spec_id"] == spec_id and float(doc["w5"]) == float(w5)
+                and float(doc["rule_cap"]) == float(rule_cap) and float(doc["spec_cap"]) == float(spec_cap)):
+            return doc
+    return None
+
+
 def _usd(v, what: str) -> float:
     """A dollar figure as Alpaca serves it (a decimal string), or raise naming it."""
     try:
@@ -1271,11 +1398,20 @@ def recap(probe_path: Path, mark_sensitivity: float) -> dict:
     only while C4 itself holds nothing, so a snapshot holding any of C4's 74 is
     refused: M_other could not be told apart from C4's own. m and w5 are the
     committed derivation's (OUT_JSON `cap`: Reg T 0.50, the fit window's worst
-    week), E_book the spec's capital_usd, and the mark sensitivity of the other
-    book is the caller's REQUIRED input (no default: it is a ruled input, as the
-    core's was). Writes nothing; the caller compares `cap` with the spec's
-    `max_gross_stress` and, if they differ, the spec takes a new id (/spec-change)
-    before C4 arms."""
+    week ON THE LIVE SPEC'S BOOK, `cap_book`: the blend when the spec sets
+    level_signal), E_book the spec's capital_usd, and the mark sensitivity of the
+    other book is the caller's REQUIRED input (no default: it is a ruled input, as
+    the core's was). An output made on another spec file is refused, naming both
+    sha256s: until 2026-11-03 this read the z book's w5 whatever the spec was, and
+    printed "SAME" for a v5 book the rule caps at 1.80 (the release-check of e41f10b).
+
+    The verdict (`status`), reported with the rule's cap, the spec's cap and
+    `same_as_spec` as they are: "SAME" when they agree; "OVERRIDE ON RECORD" when
+    they do not and a team-lead override names this exact spec id, w5 and both caps
+    (`cap_override_for`; it carries the ruling's citation); "STOP" otherwise, when the
+    spec takes a new id (/spec-change) or a new ruling is recorded before C4 trades
+    on that cap. It never says the book may arm: arming is the team lead's.
+    Writes nothing."""
     snap = json.loads(Path(probe_path).read_text())
     if snap.get("book") != "c4":
         raise ValueError(f"{probe_path} is the probe of book {snap.get('book')!r}, not c4")
@@ -1288,17 +1424,35 @@ def recap(probe_path: Path, mark_sensitivity: float) -> dict:
     if held_c4:
         raise ValueError(f"the account holds C4 names {held_c4}: its maintenance margin is not "
                          f"the other book's alone, so M_other is not measured")
-    d = json.loads(OUT_JSON.read_text())["cap"]
+    # THE OUTPUT MUST BE THE LIVE SPEC'S (the release-check of e41f10b): w5 and m come from the
+    # committed run, and a run made on another spec file measured another book. Both the run's spec
+    # sha256 and its cap derivation's `derived_on` must name the live file.
+    out = json.loads(OUT_JSON.read_text())
+    live = _sha(SPEC_PATH)
+    if out.get("spec_sha256") != live:
+        raise ValueError(f"{OUT_JSON.name} was made from spec sha256 {out.get('spec_sha256')} ({out.get('spec_id')}); "
+                         f"the live {SPEC_PATH.name} is sha256 {live} ({spec['spec_id']}). Its w5 is another book's: "
+                         f"re-run `python3 scripts/cef/c4_paper_benchmark.py run` on the live spec")
+    d = out["cap"]
+    don = d.get("derived_on")
+    if not isinstance(don, dict) or don.get("spec_sha256") != live:
+        raise ValueError(f"{OUT_JSON.name}: the cap's w5 was not derived on the live spec's book (derived_on "
+                         f"{don!r}); re-run `python3 scripts/cef/c4_paper_benchmark.py run`")
     w5, m = float(d["w5"]), float(d["inputs"]["m"][0])
     e_book = float(spec["capital_usd"])
     mark = _usd(mark_sensitivity, "--mark-sensitivity")
     G = g_stress(nlv, m_other, m, w5, e_book)
     cap = floor_to(G - mark)
     spec_cap = float(spec["frozen"]["max_gross_stress"])
+    same = cap == spec_cap
+    ov = None if same else cap_override_for(spec["spec_id"], w5, cap, spec_cap)
+    status = "SAME" if same else ("OVERRIDE ON RECORD" if ov is not None else "STOP")
     return {"probe": str(probe_path), "fetched_at_utc": snap.get("fetched_at_utc"),
             "nlv_usd": nlv, "m_other_usd": m_other, "m": m, "w5": w5, "e_book_usd": e_book,
             "mark_sensitivity": mark, "g_stress": G, "cap": cap, "spec_cap": spec_cap,
-            "positions": len(snap.get("positions") or []), "same_as_spec": cap == spec_cap}
+            "positions": len(snap.get("positions") or []), "same_as_spec": same, "status": status,
+            "derived_on": don, "override": None if ov is None else
+            {k: ov[k] for k in ("ruled", "ruled_by", "words", "citation", "_file")}}
 
 
 def main(argv=None) -> int:
@@ -1318,10 +1472,21 @@ def main(argv=None) -> int:
         print(f"  G_stress = ({r['nlv_usd']:,.2f} - {r['m_other_usd']:,.2f}) / ({r['m']} + "
               f"{r['w5']:.7f}) / {r['e_book_usd']:,.0f} = {r['g_stress']:.6f}; less mark "
               f"{r['mark_sensitivity']}, floored to 0.05: {r['cap']:.2f}")
-        print(f"  the spec's max_gross_stress {r['spec_cap']:.2f}: "
-              + ("SAME, C4 may arm on this cap" if r["same_as_spec"] else
-                 "DIFFERENT: a new spec id (/spec-change) and release before C4 arms"))
-        return 0 if r["same_as_spec"] else 1
+        print(f"  w5 {r['w5']!r} derived on {r['derived_on']['book']} ({r['derived_on']['spec_id']})")
+        print(f"  the rule's cap {r['cap']:.2f}; the spec's max_gross_stress {r['spec_cap']:.2f}; "
+              f"same_as_spec {r['same_as_spec']}")
+        if r["status"] == "SAME":
+            print("  SAME: the spec's cap is the rule's")
+            return 0
+        if r["status"] == "OVERRIDE ON RECORD":
+            o = r["override"]
+            print(f"  OVERRIDE ON RECORD: the spec's {r['spec_cap']:.2f} stands by ruling, not by the rule "
+                  f"({o['ruled_by']}, {o['ruled']}: \"{o['words']}\"; {o['citation']}; {o['_file']})")
+            return 2
+        print(f"  STOP: the rule gives {r['cap']:.2f} and the spec carries {r['spec_cap']:.2f}, and no "
+              f"team-lead override on record ({CAP_OVERRIDE_GLOB}) names w5 {r['w5']!r} with these caps. A "
+              f"new spec id (/spec-change) and a release, or a new ruling, before C4 trades on this cap")
+        return 1
     if a.what == "stage":
         for k, v in stage().items():
             print(f"{v:>8}  {k}")

@@ -248,13 +248,22 @@ def test_the_rule_reproduces_both_of_the_cores_applications():
     assert bm.floor_to(1.95) == 1.95 and bm.floor_to(1.9499999) == 1.90   # down, never to nearest
 
 
-def test_the_specs_cap_is_the_committed_derivation():
+def test_the_specs_cap_is_the_committed_derivation_or_a_recorded_override():
+    """The rule's arithmetic reproduces from the committed inputs, on the live spec book. The spec's
+    cap is EITHER the rule's, OR stands by a team-lead override on record naming this exact w5 and
+    both caps. On c4_families.v5 it is the second: the rule gives 1.80 and the team lead kept 1.90
+    (docs/SYSTEM.md §5, 2026-11-03). Until that ruling this asserted the spec's cap equal to the
+    rule's, which v5's blend is not; an unrecorded difference still fails here."""
     d = json.loads(bm.OUT_JSON.read_text())["cap"]
     s = _spec()
     want = bm.floor_to(bm.g_stress(d["inputs"]["nlv_usd"][0], d["inputs"]["m_other_usd"][0],
                                    d["inputs"]["m"][0], d["w5"], s["capital_usd"])
                        - d["inputs"]["mark_sensitivity"][0])
-    assert s["frozen"]["max_gross_stress"] == want == d["max_gross_stress"]
+    assert want == d["max_gross_stress"]
+    if s["frozen"]["max_gross_stress"] != want:
+        ov = bm.cap_override_for(s["spec_id"], d["w5"], want, float(s["frozen"]["max_gross_stress"]))
+        assert ov is not None, "the spec's cap is neither the rule's nor a recorded team-lead override"
+        assert d["override"]["key"] == ov["key"]
     assert d["method_check"]["end"] == "2020-03-18" and d["traded_end"] <= str(bm.FIT_END.date())
     from scripts.cef.spec import MAX_GROSS_STRESS as CORE_CAP
     assert d["inputs"]["e_book_usd"][0] == s["capital_usd"]
@@ -519,17 +528,25 @@ def _probe(tmp_path, equity, maint, positions=(), book="c4"):
     return p
 
 
-def test_recap_rederives_the_cap_from_the_probe_and_the_committed_w5(tmp_path):
-    """Ruling 3: from a fresh read of the account's NLV and of the other book's
-    margin. The ruled inputs ($100k, nothing else held) give the spec's 1.90 by
-    the committed w5; $5,000 of the agent lab's margin moves it a step down, and
-    the command says a new spec id is needed. A snapshot holding a C4 name is
-    refused (M_other would include C4's own margin)."""
+def test_recap_rederives_the_cap_from_the_probe_and_the_committed_w5(tmp_path, capsys):
+    """Ruling 3: the cap from a fresh read of the account's NLV and of the other book's margin, with
+    the committed w5. That w5 is now the LIVE spec book's: on c4_families.v5 the blend's (the
+    release-check of e41f10b). At the ruled inputs ($100k, nothing else held) the rule gives 1.80
+    against the spec's 1.90, and the team lead's override of 2026-11-03 is on record, so the gate
+    says OVERRIDE ON RECORD (exit 2), never "SAME" and never "may arm". $5,000 of the agent lab's
+    margin moves the rule to 1.70, which no override names: STOP (exit 1). A snapshot holding a C4
+    name is refused (M_other would include C4's own margin)."""
+    out = json.loads(bm.OUT_JSON.read_text())
     r = bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
-    assert r["cap"] == r["spec_cap"] == 1.90 and r["same_as_spec"]
-    assert r["w5"] == json.loads(bm.OUT_JSON.read_text())["cap"]["w5"]
+    assert r["w5"] == out["cap"]["w5"] and r["derived_on"]["book"].startswith("blend")
+    assert (r["cap"], r["spec_cap"], r["same_as_spec"], r["status"]) == (1.80, 1.90, False, "OVERRIDE ON RECORD")
+    assert "C4 v5's gross cap" in r["override"]["citation"]
+    capsys.readouterr()
+    assert bm.main(["recap", "--probe", str(_probe(tmp_path, "100000", "0")), "--mark-sensitivity", "0"]) == 2
+    printed = capsys.readouterr().out
+    assert "OVERRIDE ON RECORD" in printed and "same_as_spec False" in printed and "may arm" not in printed
     r = bm.recap(_probe(tmp_path, "100000", "5000", positions=("SPY",)), 0.0)
-    assert r["cap"] == 1.80 and not r["same_as_spec"] and r["positions"] == 1
+    assert r["cap"] == 1.70 and not r["same_as_spec"] and r["status"] == "STOP" and r["positions"] == 1
     assert bm.main(["recap", "--probe", str(_probe(tmp_path, "100000", "5000")),
                     "--mark-sensitivity", "0"]) == 1
     with pytest.raises(ValueError, match="holds C4 names"):
@@ -540,3 +557,131 @@ def test_recap_rederives_the_cap_from_the_probe_and_the_committed_w5(tmp_path):
         bm.recap(_probe(tmp_path, "100000", None), 0.0)
     with pytest.raises(SystemExit):
         bm.main(["recap", "--probe", str(_probe(tmp_path, "100000", "0"))])   # no default mark
+
+
+# ---------------------------------------------------------------------------
+# the cap on the LIVE spec book (the release-check of e41f10b, 2026-11-03)
+# ---------------------------------------------------------------------------
+
+def _tb_two_books():
+    """Synthetic: a z target on names A, B and a blend that also holds C, D, with C crashing 30%
+    over five sessions. R0 is the z book's zero-filled returns; R_raw carries C's crash."""
+    idx = pd.bdate_range("2006-01-02", periods=60)
+    cols = list(_spec()["frozen"]["universe"])[:4]
+    T = pd.DataFrame(0.0, index=idx, columns=cols)
+    T[cols[0]], T[cols[1]] = 0.40, -0.40
+    TS = T.copy()
+    TS[cols[2]], TS[cols[3]] = 0.30, -0.30
+    raw = pd.DataFrame(0.0, index=idx, columns=cols)
+    raw.iloc[:, 0] = 0.001
+    raw.iloc[40:45, 2] = -0.06
+    R0 = raw.copy()
+    R0.iloc[:, 2:] = 0.0                       # what check_held left the z book: zeros on unheld names
+    return {"T": T, "T_spec": TS, "R0": R0, "R0x": R0, "R_raw": raw, "Rx_raw": raw}
+
+
+def test_the_cap_is_derived_on_the_blend_with_the_key_and_on_z_without():
+    """`cap_book`: with level_signal set, the rule's book is the blend, m x band(T_spec), checked
+    against the RAW returns; absent, it is band(T) on R0, as before. `derived_on` names the book,
+    the spec id and the spec's sha256. The w5 the rule reads differs accordingly: the blend's
+    crash on C is in it, the z book cannot see it. Fails on d963fb1, where the cap is always the z
+    book's (no cap_book)."""
+    from scripts.cef import alpaca_v7_derivation as v7
+    from scripts.cef import band_frontier as bf
+    tb, on = _tb_two_books(), _level_on(_spec())
+    off = _level_off(_spec())
+    f = on["frozen"]
+    b, m = float(f["band_width"]), float(f["sizing_multiplier"])
+    c_on, c_off = bm.cap_book(tb, on), bm.cap_book(tb, off)
+    assert c_on["T"] is tb["T_spec"] and c_on["R"] is tb["R_raw"] and c_on["m"] == m
+    pd.testing.assert_frame_equal(c_on["H"], bf.band(tb["T_spec"], b) * m)
+    assert c_off["T"] is tb["T"] and c_off["R"] is tb["R0"] and c_off["m"] == 1.0
+    pd.testing.assert_frame_equal(c_off["H"], bf.band(tb["T"], b))
+    assert c_on["derived_on"]["book"].startswith("blend") and c_off["derived_on"]["book"].startswith("z")
+    for c, sp in ((c_on, on), (c_off, off)):
+        assert c["derived_on"]["spec_id"] == sp["spec_id"] and c["derived_on"]["spec_sha256"] == bm._sha(bm.SPEC_PATH)
+    old = v7.TRADED_START
+    v7.TRADED_START = str(tb["T"].index[0].date())
+    try:
+        w_on, _ = v7.w5(c_on["H"], c_on["R"])
+        w_off, _ = v7.w5(c_off["H"], c_off["R"])
+    finally:
+        v7.TRADED_START = old
+    # the blend's worst week (C's crash) is in w5; the z book holds no C, so its worst 5 sessions are a
+    # gain (w5 < 0): the z book's w5 cannot see the blend's risk, which is the defect fixed here
+    assert w_on > 0.05 and w_off < 0
+    with pytest.raises(KeyError, match="T_spec"):
+        bm.cap_book({"T": tb["T"], "R0": tb["R0"]}, on)
+
+
+def test_the_committed_output_derives_the_cap_on_the_live_spec_book():
+    """The committed benchmark output is the live spec's (sha256), its cap's w5 was derived on the
+    blended book, and the rule gives 1.80 there. The spec's 1.90 stands only by the override on
+    record, and the output says so. Fails on d963fb1: its output's w5 is the z book's 0.0261 and
+    names no book."""
+    out = json.loads(bm.OUT_JSON.read_text())
+    cap = out["cap"]
+    assert out["spec_sha256"] == bm._sha(bm.SPEC_PATH) == cap["derived_on"]["spec_sha256"]
+    assert cap["derived_on"]["book"].startswith("blend") and cap["derived_on"]["spec_id"] == _spec()["spec_id"]
+    assert cap["max_gross_stress"] == 1.80 and float(cap["spec_value"]) == 1.90
+    assert cap["w5"] > 2 * 0.0261392506              # not the z book's
+    assert cap["override"]["key"] == bm.cap_override_for(
+        _spec()["spec_id"], cap["w5"], cap["max_gross_stress"], float(cap["spec_value"]))["key"]
+
+
+def test_recap_refuses_an_output_made_on_another_spec(tmp_path, monkeypatch):
+    """w5 is a property of the book a spec defines, so an output made on another spec file is
+    another book's: recap refuses it, naming both sha256s, and refuses an output whose cap names no
+    derivation on the live spec. Fails on d963fb1, which read any output's w5."""
+    out = json.loads(bm.OUT_JSON.read_text())
+    live = bm._sha(bm.SPEC_PATH)
+    stale = dict(out, spec_sha256="0" * 64, spec_id="c4_families.v4.20261102")
+    p = tmp_path / "out.json"
+    p.write_text(json.dumps(stale))
+    monkeypatch.setattr(bm, "OUT_JSON", p)
+    with pytest.raises(ValueError, match=f"sha256 {'0' * 64}.*sha256 {live}"):
+        bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
+    no_don = dict(out, cap={k: v for k, v in out["cap"].items() if k != "derived_on"})
+    p.write_text(json.dumps(no_don))
+    with pytest.raises(ValueError, match="not derived on the live spec's book"):
+        bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
+
+
+def test_an_override_matches_on_content_and_an_edited_one_is_refused(tmp_path, monkeypatch):
+    """The override on record names the exact spec id, w5, rule's cap and spec cap. Copied
+    unchanged it matches; with its w5 edited (the key left as written) it is REFUSED, naming the
+    file; re-keyed with another w5 it is valid but names another derivation, so recap says STOP.
+    Fails on d963fb1 (no override record)."""
+    src = sorted(bm.CAP_OVERRIDE_DIR.glob(bm.CAP_OVERRIDE_GLOB))
+    assert [x.name for x in src] == ["c4_cap_override_2026-11-03.json"]
+    doc = json.loads(src[0].read_text())
+    d = tmp_path / "ov"
+    d.mkdir()
+    monkeypatch.setattr(bm, "CAP_OVERRIDE_DIR", d)
+    (d / src[0].name).write_text(json.dumps(doc))
+    assert bm.recap(_probe(tmp_path, "100000", "0"), 0.0)["status"] == "OVERRIDE ON RECORD"
+    (d / src[0].name).write_text(json.dumps(dict(doc, w5=doc["w5"] + 1e-6)))
+    with pytest.raises(ValueError, match="does not match its key"):
+        bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
+    other = bm.cap_override_doc(doc["spec_id"], doc["w5"] + 1e-6, doc["rule_cap"], doc["spec_cap"],
+                                doc["ruled"], doc["ruled_by"], doc["words"], doc["citation"])
+    (d / src[0].name).write_text(json.dumps(other))
+    assert bm.recap(_probe(tmp_path, "100000", "0"), 0.0)["status"] == "STOP"
+    (d / src[0].name).write_text(json.dumps(dict(doc, ruled_by="the coordinator")))
+    with pytest.raises(ValueError, match="only the team lead"):
+        bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
+
+
+def test_a_mismatch_without_an_override_prints_stop(tmp_path, monkeypatch, capsys):
+    """No override on record: the rule's 1.80 against the spec's 1.90 is STOP, exit 1, with both
+    figures printed and same_as_spec False, and never "may arm". Fails on d963fb1, which printed
+    "SAME, C4 may arm" from the z book's w5."""
+    d = tmp_path / "none"
+    d.mkdir()
+    monkeypatch.setattr(bm, "CAP_OVERRIDE_DIR", d)
+    r = bm.recap(_probe(tmp_path, "100000", "0"), 0.0)
+    assert (r["status"], r["cap"], r["spec_cap"], r["same_as_spec"], r["override"]) == ("STOP", 1.80, 1.90, False, None)
+    capsys.readouterr()
+    assert bm.main(["recap", "--probe", str(_probe(tmp_path, "100000", "0")), "--mark-sensitivity", "0"]) == 1
+    printed = capsys.readouterr().out
+    assert "STOP" in printed and "1.80" in printed and "1.90" in printed and "may arm" not in printed

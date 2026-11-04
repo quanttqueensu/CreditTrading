@@ -686,6 +686,13 @@ Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` 
 | Who does the signal work | **The team lead, on every counter.** MACRO (0) and XASSET (4) stay open, with their rows, and are kept by the PM. The E1-band WATCH row (non-industrialised fixed-income wrappers) is the PM's |
 | What a risk finding feeds | **The PM's judgment.** A readout that suggests a hedge, an overlay or a signal goes to the PM, who decides whether it becomes a pre-registration. Nothing in a readout acts on the book (CLAUDE.md: any monitor is read-only) |
 
+### Team lead, 2026-11-03 — C4 v5's gross cap (after the release-check of e41f10b)
+
+| question | decision |
+|---|---|
+| The frozen margin rule (`_max_gross_stress_note`, ruling 3: "C4 arms only on the re-derived value") gives the v5 blend **1.80**, not 1.90 (blend w5 0.0536 against the z book's 0.0261; a 2020-03 week ≈ −10.2% of NLV held at 1.90, against −4.6% for the z book) | **"Keep 1.90, install tonight."** It is **an override of the rule's 1.80**, made with these figures in front of the team lead, and recorded with them. release-20261103-5 (e41f10b) was tagged unchanged and installed at 18:02 ET. Revert: a `/spec-change` to 1.80 with fidelity, H11 and the stops re-run |
+| The arming gate read 1.90 because `recap` reads the z book's w5 | **To be fixed** (not ruled): `recap` must read the live spec book's w5 |
+
 ### Team lead, 2026-11-03 — the research loop becomes research-only
 
 Answered interactively on 2026-11-03, before C4's arming, when C4 and the loop would have shared the spare account

@@ -115,7 +115,9 @@ SCHEMAS = {
                          "basis"], "drop": []},
     # The P&L of record (drawdown.py: `date`, `equity`, `change_usd`, "possibly with extra
     # columns"); an extra column refuses here until a human adds it to this list.
-    "eod_equity.csv": {"keep": ["date", "equity", "change_usd"], "drop": [], "optional": True},
+    # read_at_utc: when the collector read Alpaca's EOD history (a timestamp, no identifier); kept so a
+    # restated EOD point can be told from the first read (first seen in the 2026-11-03 pull).
+    "eod_equity.csv": {"keep": ["date", "equity", "change_usd", "read_at_utc"], "drop": [], "optional": True},
 }
 SCORE_SYMBOL_KEYS = {"symbol", "auction_d", "auction_prev", "auction_pnl", "fill_pnl", "held_qty",
                      "hold_pnl", "sides"}

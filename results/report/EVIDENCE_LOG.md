@@ -3384,19 +3384,146 @@ that adds it does not exist when it is written.
 - supports: §4, §5
 - status: current (the branch's history was rewritten so the row files never appear in it)
 
-### E-2026-11-03-35 · CEF trial 55's runner is built dark: paper declared only on the paper endpoint, K0 restricting on the drawdown record, a gate-7 flatten, and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
-- kind: method
+### E-2026-11-02-30 · The Sharpe-framed NAV hedge on the core book was closed as underpowered at Stage 0, spending no trial; a report-only exposure readout replaces it
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-02
+- figures:
+  - "close the Sharpe-framed NAV hedge as UNDERPOWERED at Stage 0"; "Zero trials, no hedged return computed, no data pulled" (team lead, 2026-11-02) [S]
+  - the factor R² on record is 0.011–0.074 [S]
+  - with an oracle hedge, at book Sharpe 0.96 over 9.5 years: P(paired ΔSR passes one-sided 5%) is 0.07–0.11, and P(PRESENT at N=54) is at most 0.002 [V]
+  - P(pass) = 0.5 needs the hedge to remove R² ≥ 0.51 (one-sided) or 0.79 (Šidák, N=54) [V]
+  - "NYSE Arca's closing freeze is 15:59", recorded as a dated correction (SEC Rel. 34-103886) [S]
+- source: `results/cef/NAVHEDGE_SCREEN_2026-11-02.md` @ `df87c59`; `results/cef/navhedge_2026-11-02/navhedge_power.py` @ `df87c59`; `docs/REFERENCES.md` @ `8ed6135`
+- supports: §3, §5
+- status: current
+
+### E-2026-11-03-35 · The exposure readout's declared lag rule gave L = 0, and the team lead made MUNI its headline, with TERM, CREDIT and LOANS indicative
+
+### E-2026-11-03-38 · Release: release-20261103-4 installed; the core armed at ×1.30 (spec v9) and C4 installed and armed on v4 after VM pre-arm reads
+- kind: release
 - era: ALPACA
 - date: 2026-11-03
 - figures:
-  - base: a worktree at 0b1a2ef2b308101b3512aec24dc49a22de98c888 [S]
-  - decision dates: 7018 (1998-11-18 .. 2026-10-14, --dates all); books flat and held; 14036 (date, book) target lists per variant [S]
-  - new:absent vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
-  - new:flatten vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
-  - new:hold vs base:hold: 14036 of 14036 (date, book) pickles byte-identical [S]
-  - new:te4 vs base:absent on (date, book) with >= min_names eligible: 3716 of 3716 byte-identical with meta['cef_thin'] removed [S]
-  - thin (date, book): 10320; reduced build ran on 3416; below the floor (FLAT) 6904; with holds 0 [S]
-  - VERDICT: NO-OP PROVED (every comparison byte-identical) [S]
-- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-03-main0b1a2ef.txt` @ `6b0a222`; `quantt/session/tests/test_trade_eligible_noop.py` @ `29ba857`; `quantt/session/tests/test_trade_eligible_runner.py` @ `d995157`; `quantt/session/tests/test_trade_eligible_gate7.py` @ `90b4be9`; `quantt/session/drawdown.py` @ `88cf841`; `src/deploy/registry.py` @ `88cf841` (branch te4-impl, not yet on main)
+  - tag release-20261103-4 = 8ce0395 (release-check GO 12:21 ET) [V]
+  - replay: 69 runs, 0 refused now [V]
+  - C4 pre-arm (VM probe): positions 0, open orders 0, equity $100,000.00, 0 closed orders in the account's history, opening_session True under own_prefix; cap re-check G_stress 1.900638 → 1.90 [V]
+  - C4 seed sha256 3fb68e38… / c7073db8…, the same on laptop and VM; treated_closes = IGR's four rebases [V]
+- source: `docs/JOURNAL.md` @ `0aaaa1f`
+- supports: §1, §4
+- status: superseded the same evening by E-2026-11-03-40 (release-20261103-5)
+
+### E-2026-11-03-39 · Ruling: C4 v5's gross cap stays 1.90 over the frozen rule's 1.80 (the blend's w5 0.0536 against the z book's 0.0261)
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - "THE RULE'S RESULT: L = 0, so DIMSON_LAGS = 0", run 2026-11-02, 5 s after the commit that declared the rule (09d3dad) [V]
+  - "Keep DIMSON_LAGS = 0, the declared rule's output, and make MUNI the headline; TERM, CREDIT and LOANS are marked indicative. No new lag rule is declared." (team lead, 2026-11-03) [S]
+  - a factor whose vol contribution exceeds REVIEW_FRACTION = 0.10 × vol_target_annual goes to the team lead's review; "No hedge is ever added automatically" [S]
+- source: `scripts/cef/exposure_readout.py` @ `6eee579`; `results/cef/NAVHEDGE_SCREEN_2026-11-02.md` @ `df87c59`
+- supports: §5
+- status: current
+
+### E-2026-11-03-36 · On the current window the muni funds' own MUNI beta rises with the lag choice, unlike the fit era; the L = 0 headline is unchanged pending the team lead
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - summed MUNI beta on the 252 sessions strictly before 2026-10-30, at L = 0, 1, 2, 3: MHD +1.21 +1.49 +1.59 +1.65, MQY +1.27 +1.33 +1.44 +1.67 [V]
+  - the taxable names' group medians fall from L = 0 to L = 3: hy +0.02 to -0.31; loan (JFR alone) -0.13 to -0.55; multi +0.24 to -0.06 [V]
+  - "it changes nothing; whether it bears on the ruling is the team lead's call" [S]
+- source: `scripts/cef/exposure_readout.py` @ `6eee579`
+- supports: §3, §5
+- status: current
+
+### E-2026-11-03-37 · Ruling: on a te4 reduced session, a short skipped at send time is accepted and labelled; the send path is unchanged
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - none (a ruling: "Ruled: accept it and label it." Today's skip-and-send stays on reduced and full sessions alike; the owning session's preference, refusing the whole reduced send, was not chosen; team lead, 2026-11-03)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ac15d09`
+- supports: §5
+
+  - blend w5 0.0536 (total return), 0.0560 (price only); z book 0.0261; the rule gives 1.80 / 1.75 / 1.90 [S: release-check of e41f10b, measured two ways]
+  - a 2020-03-12..18 week held at 1.90×: blend about −10.2% of NLV, z book about −4.6% [S]
+- source: `docs/SYSTEM.md` §5 "C4 v5's gross cap" (PR #48); the release-check of e41f10b (workflow run wf_266f659d-5f8)
 - supports: §1, §5
-- status: current (the key is not set; it trades only from its activation commit)
+- status: current. An override of the rule, made with these figures in front of the team lead ("Keep 1.90, install tonight"). The arming gate's `recap` still read the z book's w5 at install, and is to be fixed
+
+### E-2026-11-03-40 · Release: release-20261103-5 installed; C4 re-armed on the v5 blend (CEF trial 54's level_signal); the core byte-identical
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag release-20261103-5 = e41f10b (PR #41 merged d963fb1); spec `c4_families.v5.20261103`; the core `cef_discount.v9.20261102` unchanged [V]
+  - v5 on the VM's C4 panel as of 2026-11-02 (read-only): 74 targets, 18 eligible (8 long / 10 short), held gross 1.667× NAV, net 0.000 [V]
+  - C4 AUTO_ARMED 18:02 ET; the first armed decide 22:00 2026-11-03; first sends 2026-11-04 15:52 [V]
+- source: `docs/JOURNAL.md` (PR #48); `ops/specs/c4_families.frozen.json` @ `d963fb1`
+- supports: §1, §4
+- status: current
+
+### E-2026-11-03-41 · Finding: the drawdown read is UNMEASURED at every 22:00 decide, because the EOD row for the as-of date is never written yet
+- kind: finding
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - 4 of 4 core decides that carry the field (as-of 10-28, 10-29, 10-30, 11-02): UNMEASURED, each because eod_equity.csv's newest row is D−1 [V: prod plan.json records, read 2026-11-03]
+  - the missing-NAV field: present in 3 decides, 0 holds (n too small) [V]
+- source: the VM's `quantt_state/cef/<date>/plan.json` (not tracked; read over ssh, read-only)
+- supports: §5
+- status: open. HALVE/KILL in `on` mode would refuse every decide, and te4's K0 would flatten every reduced session, until the read rule is ruled on
+
+### E-2026-11-03-43 · The first plans at release-20261103-5: the core's first ×1.30 and C4's first armed plan on the v5 blend (session 2026-11-04)
+- kind: live-plan
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - core `cef_discount.v9.20261102`, smult 1.30: decided, no refusals; 11 orders (buy $14,313, sell $36,892); gross 1.025× → 1.797× NAV against the 1.80 cap (binding: gmax 1.80×0.9237); net −0.010×; pre-flight ok, stressed equity $98,431.87 (shock $1,529.38, 2026-03-20); gate 8 bp_scale 1.0, not binding; missing NAV none; 3 unresolved corporate-action rows BLOCKING in report mode, so nothing refused [V: the VM's quantt_state/cef/2026-11-04/plan.json]
+  - C4 `c4_families.v5.20261103`, smult 1.26: decided, no refusals; 15 orders (buy $63,363, sell $63,331); gross 0 → 1.267× NAV against the 1.90 cap; net 0.000×; all 74 targets tagged `level z_share=0.5000`; opening_session True, first_session CLEAR (0 foreign fills, 0 positions); missing NAV none; borrow: 7 names not shortable (DNP, HGLB, NFJ, PFO, RFI, RNP, SCD), none of them among the plan's shorts [V: quantt_state/c4/2026-11-04/plan.json and data/2026-11-03/report.json]
+  - C4's first fetch: `fetch_daily` exit 0, prices 402,947 rows and NAV 326,846 rows to 2026-11-03; 12 NAV-repeat flags masked by C4's M1; VM memory 292 MB used of 950 with both books [V]
+- source: the VM's plan.json and collect report (not tracked; read over ssh, read-only)
+- supports: §1, §4
+- status: the core's plan stands; C4's is withheld (E-2026-11-03-44)
+
+### E-2026-11-03-44 · Incident: C4's first fetch wrote IGR's split-adjusted pre-split closes against unadjusted NAVs; C4 halted for the 2026-11-04 session
+- kind: incident
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - IGR closes for 2026-05-04..2026-09-04 replaced at a constant ×3.0 against the seed (83 rows); NAVs unchanged; IGR's discount reads about +200% (05-04: close 14.04 vs NAV 4.64; seed close 4.68) instead of about +1.5% [V: the VM's data/cef_c4 against ~/c4_seed]
+  - the 2026-11-04 plan bought 520 IGR (about $5,876, 5.9% of NAV) on z=−0.79, mostly the artifact; the other 14 orders were clean (no other price row moved beyond 0.5%; one SCD NAV row 0.7%) [V]
+  - checklist step 5 (a step, not a spike, means STOP): the team lead ruled "Hold C4 one day, fix IGR". `ops/HALT_c4.md` was written in the prod clone at 23:47 ET; the runner's `halts_for` reads it for c4 and nothing for cef [V]
+- source: `docs/JOURNAL.md` (this PR); `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` step 5
+- supports: §4, §5
+- status: open. The fix makes C4's fetch keep one price basis with its NAVs, plus a fetch-time step guard, then a release; the halt is cleared after a clean decide
+
+### E-2026-11-03-90 · cef paper book, 2026-11-03: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - verify verdict PASS; orders sent 6, filled 6 [S]
+  - 17:30 ET snapshot equity change 813.19 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L 793.28 USD [S]
+  - fills vs official close 16.67 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 16.67 bp, fill rate 1.0000 of shares [S]
+  - shadow book 864.14 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:b5e46b822424`; `results/report/data/live/cef/verify.csv` @ `pull:b5e46b822424`; `results/report/data/live/cef/tca.csv` @ `pull:b5e46b822424`
+- supports: §4
+- status: current
+
+### E-2026-11-03-42 · Ruling: te4's K0 reads the previous session's EOD row, answering E-2026-11-03-41 (the 22:00 decide never has the day's row); the missing-NAV hold frequency stays unmeasured
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - The drawdown field exists in 4 decides (as-of 10-28, 10-29, 10-30, 11-02). All 4 read UNMEASURED for the same reason: "eod_equity.csv's newest row on or before the as-of is D−1, not the as-of D" [S]
+  - "Ruled: K0 reads D−1's row, labelled one session stale." If that row is older than D−1, missing or bad, K0 reads UNMEASURED and the session flattens (team lead, 2026-11-03) [S]
+  - §6.3's bootstrap modelled K0 acting from the second session after the crossing; under D−1 it acts from the third, so §6.3's K0 figures are slightly optimistic [U]
+  - The `missing_nav` field exists in 3 decides, none with a hold; the hold frequency stays UNMEASURED [S]
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `e45e852`
+- supports: §5
+- status: current (answers E-2026-11-03-41, the owning session's finding; covers te4's K0 only)

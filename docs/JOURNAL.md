@@ -296,3 +296,25 @@ from a named source; [doc] copied from a named note.
   - Runners: C4's units read only `/run/quantt-c4`; AUTO_ARMED only under cef/ before arming; no laptop job loaded. The loop is research-only (the team lead, today).
 - **Armed 16:13:** `c4-arm` (DRY_RUN=0, `--book c4`) and AUTO_ARMED under c4/.
   - The first armed C4 decide is 22:00 tonight, on v4 (z only) unless -5 is installed before then. The first send is 2026-11-04 15:52.
+
+**Prod, 17:58–18:03 ET: release-20261103-5 installed. The core is unchanged and ARMED; C4 is re-armed on v5, the trial-54 blend** (team lead: "install tonight").
+- **The release-check of e41f10b: NO-GO as it stood, on one ruling.** The frozen margin rule gives C4's v5 blend a cap of 1.80, not 1.90. The blend's w5 (worst 5-session loss per unit gross) is 0.0536, against the z book's 0.0261, and 0.0560 price only. In a 2020-03-12..18 week, the blend held at 1.90× loses about 10.2% of NLV, against 4.6% for the z book, and leaves equity about 5% short of initial margin.
+  - The arming gate's `recap` still reads the z book's w5 from `c4_paper_benchmark_2026-11-03.json`, so the 16:13 "1.90, same as spec" was true for v4 only. **To fix: point `recap` at the live spec book's w5.**
+  - **The team lead ruled "Keep 1.90, install tonight"** (`docs/SYSTEM.md` §5). That is an override of the rule's 1.80, with the blend's w5 on record.
+- **Merged and tagged:** PR #41 merged as d963fb1 at its CI-green head; tag release-20261103-5 = e41f10b; the spec revert tag `spec-c4_families.v4.20261102` (ec3b01a) pushed.
+- **Install sequence.**
+  - `c4-stop`. The services reading "failed" were explained, not faults: the collectors' exit 5 is EXIT_INCOMPLETE (today's NAVs and EOD equity not yet in), the same as the core on 11-02. C4's 17:30 verify FAIL ("no STARTED and no plan.json") is the install-day artifact: C4 was installed after the send slot, and no gate reads a previous verdict.
+  - The core: stop, dry run (23 steps), replay (69 runs, 0 refused now), install, apply `--armed`, and `ops.prod_state` showing the VM at -5, ARMED.
+- **v5 on C4's real panel, read-only.**
+  - A DRY preview in a scratch state dir refused on data: no NAV dated 11-03 yet, as expected before NAVs publish. It also read opening_session True, full target, and corporate actions clear.
+  - `sleeve_targets` as of 2026-11-02 on the VM's C4 panel: 74 targets, 18 eligible (8 long / 10 short; 56 under the ADV floor), held gross 1.667× NAV, net 0.000, all tagged `level z_share=0.5000`.
+- **C4 re-armed at 18:02.** probe: positions 0, open orders 0, opening_session True. `c4-arm` at -5; DRY_RUN=0 on both books' sessions; AUTO_ARMED under cef/ and c4/; timers active.
+  - **C4's first armed decide, 22:00 tonight, is on the v5 blend.** The first sends are 2026-11-04 15:52.
+
+**22:17–23:50 ET: the first plans read; C4 halted for 11-04 on an IGR data step** (`results/report/EVIDENCE_LOG.md` E-2026-11-03-43, -44).
+- **The core's first ×1.30 plan:** 11 orders, gross 1.025× → 1.797× (the 1.80 cap binds), pre-flight ok, no refusals. It sends at 15:52 on 11-04.
+- **C4's first armed plan (v5):** 15 orders, gross 1.267×, net 0, opening session CLEAR, no refusals.
+- **Checklist step 5 found a STEP.** C4's first fetch replaced IGR's pre-split closes for 05-04..09-04 with Yahoo's split-adjusted ×3 against unadjusted NAVs, so IGR's discount reads about +200% for four months. The plan bought 520 IGR on it.
+- **The team lead ruled "Hold C4 one day, fix IGR".** `ops/HALT_c4.md` was written on the VM at 23:47 ET; the send phase re-gates on it. The core is unaffected.
+- **The fix,** a C4 fetch that keeps one price basis with its NAVs plus a step guard, goes to a release on 11-04. Then the halt clears before the 22:00 decide, and C4's first send is 11-05.
+

@@ -264,3 +264,4 @@ E-2026-11-03-31,2026-11-03,method,ALPACA,§4,3,SV,The pack's own re-derivation o
 E-2026-11-03-32,2026-11-03,correction,ALPACA,"§4, §5",4,SUV,The 17:10 ET equity snapshot and the P&L of record disagree over 2026-09-28..10-30; Alpaca's own last_equity confirms the record
 E-2026-11-03-33,2026-11-03,method,ALPACA,"§4, §5",2,V,"The research evidence pack opens: an append-only evidence log, the sanitised live record, and figures rebuilt from committed sources"
 E-2026-11-03-34,2026-11-03,ruling,ALPACA,"§4, §5",1,,Ruling: the public repository keeps the live record as daily aggregates; per-name and per-fill rows stay in a gitignored cache
+E-2026-11-03-90,2026-11-03,live-pnl,ALPACA,§4,7,SU,"cef paper book, 2026-11-03: PASS, traded"
