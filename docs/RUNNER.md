@@ -252,7 +252,11 @@ the spec's, a build under a stop, and a stop it did not pass.
 §6.3; the owner's term 3). K0's drawdown record is read before the sleeve runs. Only an exact
 `OK` lets a reduced book be built. HALVE, KILL or UNMEASURED (no `eod_equity.csv`, a newest row
 older than the read-through date, bad levels, a check that raised), or any other status,
-becomes the stop `{"by": "K0"}`.
+becomes the stop `{"by": "K0"}`. A reading that raises anywhere, its read-through date
+included (nyse_calendar and Alpaca's calendar disagreeing on the session before the as-of), is
+recorded as UNMEASURED with the exception's type, and the session flattens: K0 fails closed.
+`test_k0_fails_closed_when_its_reading_raises` and the gross pin's "raises" case cover that
+branch (review finding after f3ad29f: before them, a fail-open branch passed every test).
 
 **K0 reads through the session before the as-of** (team lead's ruling, 2026-11-03, recorded in
 the pre-registration's "Approval" section and in E-2026-11-03-42). At prod's 22:00 decide the

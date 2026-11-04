@@ -14,8 +14,9 @@ endpoint, the drawdown or the panel. The tests that must refuse also check WHERE
 
 THE GROSS PIN (the owner's term 3: "a test pins that no drawdown status can increase gross").
 On the thin panel at 5 and 4 eligible names and on the complete panel (12 eligible), flat and
-held books, under every drawdown record (OK, HALVE, KILL, a stale series, no series), the
-projected gross after the plan (sum over names of |target shares x as-of close|):
+held books, under every drawdown record (OK, HALVE, KILL, a stale series, no series, and a
+K0 reading that RAISED), the projected gross after the plan (sum over names of |target shares
+x as-of close|):
   * under any status but OK is at most the gross under OK, and equals the key-absent session's;
   * with the key absent it is the same under every status (report mode acts on nothing);
   * on a full session it is the key-absent session's under EVERY status, orders and targets
@@ -29,6 +30,13 @@ fixtures here (`K0_EOD`) are therefore what prod has at 22:00: no row dated the 
 sessions back, UNMEASURED), or no file. Every test that builds a reduced book at OK fails on
 the commit before the read-through (a323971), where K0 read the as-of's row, found none, read
 UNMEASURED and flattened; so do the K0 status assertions.
+
+K0 FAILS CLOSED WHEN ITS READING RAISES (review finding after f3ad29f). `_thin_k0_drawdown`
+records any error in K0's own reading, its read-through date included, as UNMEASURED, and K0
+then stops the reduced build. No test covered that branch: with it changed to return an OK
+record, every test here passed. The "raises" case (`K0_RAISES_OMITS`; in the K0 flatten test
+and the gross pin) and `test_k0_fails_closed_when_its_reading_raises` fail on that fail-open
+branch, where K0 reads OK and builds the reduced book; the rest of the module passes on it.
 
 Hermetic: test_run's FakeClient (with `trading_endpoint` set where the key needs it), fixed
 clocks, the refresh a fixture, no CEFConnect, netguard refuses any socket.
@@ -49,13 +57,13 @@ from quantt.session.tests.test_combine_noop import SYN_SPEC, _client
 from quantt.session.tests.test_run import BOOK
 
 LIVE = "https://api.alpaca.markets"           # Alpaca's live trading host: what must refuse
-STATUSES = ("ok", "halve", "kill", "stale", "absent")
+STATUSES = ("ok", "halve", "kill", "stale", "absent", "raises")
 # K0's `<state>/eod_equity.csv` (module docstring): as at prod's 22:00 decide, no row for the
 # as-of 2026-09-25. On the high of 101,000 (2026-09-22): OK 0.40% below it, HALVE 13.86%, KILL
 # 20.79%, against the fixture spec's 12% / 18% lines; "stale" ends on 2026-09-23, two sessions
 # before the as-of (UNMEASURED); "absent" has no file (UNMEASURED). "morning" is the backstop
 # decide on the session day: the as-of's own row is there, at KILL, and K0 still reads the
-# row before it (OK).
+# row before it (OK). "raises" has "ok"'s rows and Alpaca's calendar without K0_RAISES_OMITS.
 K0_EOD = {
     "ok": N._EOD_HEAD + [("2026-09-24", 100600.0)],
     "halve": N._EOD_HEAD + [("2026-09-24", 87000.0)],
@@ -63,9 +71,29 @@ K0_EOD = {
     "stale": list(N._EOD_HEAD),
     "absent": None,
     "morning": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", 80000.0)],
+    "raises": N._EOD_HEAD + [("2026-09-24", 100600.0)],
 }
 K0_STATUS = {"ok": "OK", "halve": "HALVE", "kill": "KILL", "stale": "UNMEASURED",
-             "absent": "UNMEASURED", "morning": "OK"}
+             "absent": "UNMEASURED", "morning": "OK", "raises": "UNMEASURED"}
+# "raises": K0's reading raises, and only the fail-closed branch of `_thin_k0_drawdown` flattens
+# (module docstring). Alpaca's calendar omits 2026-09-24, the session before the as-of, as on an
+# unannounced closure that nyse_calendar's SPECIAL_CLOSURES has not yet been told about. The
+# session's own as-of (`asof_for(2026-09-28)` = 2026-09-25) still agrees, so the session goes
+# on; K0's read-through date (`asof_for(2026-09-25)`) does not, and raises "previous trading day
+# disagrees". The rows are "ok"'s, so a reading that did not raise would read OK and build.
+K0_RAISES_OMITS = dt.date(2026, 9, 24)
+
+
+def alpaca_calendar_without(day: dt.date, around: dt.date) -> list:
+    """FakeClient calendar rows for the window the runner asks for (`around` +/- 14 days),
+    NYSE trading days as FakeClient's default gives them, without `day`."""
+    from ops.schedule.nyse_calendar import is_trading_day
+    rows, d = [], around - dt.timedelta(days=14)
+    while d <= around + dt.timedelta(days=14):
+        if is_trading_day(d) and d != day:
+            rows.append({"date": d, "open": "09:30", "close": "16:00"})
+        d += dt.timedelta(days=1)
+    return rows
 
 
 def write_k0_eod(state: Path, which: str) -> None:
@@ -109,7 +137,8 @@ def run(work: Path, spec, holdings: dict, eod: str, *, endpoint=alpaca.PAPER_BAS
     """One session as M._session builds it, with the drawdown mode, the client's endpoint
     (None: the attribute is absent) and the combiner's sleeves as arguments, and the sleeve
     call spied on. A flat book has a filled order in its history (not an opening session).
-    Returns (exit, state, client, spy)."""
+    `eod` names the K0_EOD rows; "raises" also gives the client Alpaca's calendar without
+    K0_RAISES_OMITS, so K0's reading raises. Returns (exit, state, client, spy)."""
     from ops.schedule.nyse_calendar import previous_trading_day
     from src.deploy.sleeves import cef_discount as cefmod
     state = work / "state"
@@ -123,6 +152,8 @@ def run(work: Path, spec, holdings: dict, eod: str, *, endpoint=alpaca.PAPER_BAS
     closes = {s: v[0] for s, v in rn.last_closes(cefmod.PX_PATH, M.ASOF, uni).items()}
     now = now or M.EVE
     c = _client(state, holdings, closes, now)
+    if eod == "raises":                       # K0's read-through date raises (K0_RAISES_OMITS)
+        c._calendar = alpaca_calendar_without(K0_RAISES_OMITS, now.date())
     if not holdings:
         c._closed = list(N.FILLED_BEFORE)
     if endpoint is not None:
@@ -284,7 +315,7 @@ def test_the_callers_that_build_without_deciding_still_work_with_the_key_set(
 
 # --------------------------------------------------------------- K0
 
-@pytest.mark.parametrize("eod", ["halve", "kill", "stale", "absent"])
+@pytest.mark.parametrize("eod", ["halve", "kill", "stale", "absent", "raises"])
 @pytest.mark.parametrize("n", [5, 4])
 def test_k0_flattens_a_reduced_session_unless_the_drawdown_reads_ok(tmp_path, monkeypatch,
                                                                      books, n, eod):
@@ -377,6 +408,67 @@ def test_k0_reads_unmeasured_on_an_older_row_or_no_file_and_flattens(tmp_path, m
         assert "read-through date 2026-09-24 is 2026-09-23" in ts["k0"]["stop"]["why"]
     else:
         assert ts["k0"]["stale"] is None and "no eod_equity.csv" in ts["k0"]["stop"]["why"]
+
+
+class _CheckRaises:
+    """`drawdown.check` that raises OSError on K0's call (the one with `read_through`) and is
+    the real check on step 2b's: an error in K0's reading that is not about the dates."""
+
+    def __init__(self, real):
+        self.real, self.k0_calls = real, 0
+
+    def __call__(self, *a, **kw):
+        if kw.get("read_through") is not None:
+            self.k0_calls += 1
+            raise OSError("fixture: eod_equity.csv could not be read for K0")
+        return self.real(*a, **kw)
+
+
+@pytest.mark.parametrize("cause", ["calendar", "check"])
+@pytest.mark.parametrize("n", [5, 4])
+def test_k0_fails_closed_when_its_reading_raises(tmp_path, monkeypatch, books, n, cause):
+    """§6.3: K0 "acts in code and fails closed". When K0's own reading raises, in the dates
+    (`calendar`: Alpaca's calendar omits the session before the as-of, K0_RAISES_OMITS, and
+    `asof_for` refuses to choose) or in the check itself (`check`: an OSError), the record is
+    UNMEASURED naming the exception's type, it carries no read-through date, K0 passes the stop,
+    the session takes today's flatten and nothing is sent. The EOD rows read OK, so a reading
+    that did not raise would build the reduced book. Step 2b's record (HALVE/KILL's report) is
+    still made, and the K-lines say K0's record names no read-through date.
+
+    Fails on the fail-open branch (`_thin_k0_drawdown`'s except returning an OK record): K0
+    reads OK there, the reduced book is built, and the status and stop assertions fail."""
+    from quantt.session import drawdown as ddm
+    base, bk = books
+    N.thin_panel(base, tmp_path / "p", monkeypatch, n)
+    eod = "raises" if cause == "calendar" else "ok"
+    if cause == "check":
+        fake = _CheckRaises(ddm.check)
+        monkeypatch.setattr(ddm, "check", fake)
+    for book in ("held", "flat"):
+        code, state, c, spy = run(tmp_path / book, TE4_SPEC, bk[book], eod)
+        assert code == (rn.EXIT_PLANNED if book == "held" else rn.EXIT_NOTHING), (book, code)
+        plan = M._plan(state)
+        ts = plan["thin_session"]
+        k0 = ts["k0"]
+        assert k0["status"] == "UNMEASURED", (book, k0)
+        assert k0["read_through"] is None and k0["stale"] is None
+        why = k0["drawdown"]["why"]
+        if cause == "calendar":
+            assert why.startswith("SessionError: previous trading day disagrees"), why
+            assert "nyse_calendar 2026-09-24, Alpaca calendar 2026-09-23" in why
+        else:
+            assert why.startswith("OSError: fixture: eod_equity.csv could not be read"), why
+        assert k0["stop"]["by"] == "K0" and why in k0["stop"]["why"]
+        assert spy.calls == [{"account": "paper", "thin_rule": {"stop": k0["stop"]}}]
+        assert ts["stopped_by"] == "K0" and ts["reduced"] is False
+        assert {t["target"] for t in plan["targets"].values()} == {0}       # every name FLAT
+        assert all("reduced build stopped by K0" in t["reason"] for t in plan["targets"].values())
+        assert not c.accepted
+        assert plan["drawdown"]["status"] == "UNMEASURED"       # step 2b: no as-of row (prod)
+        assert "2026-09-24, not the as-of 2026-09-25" in plan["drawdown"]["why"]
+        assert "names no read-through date" in plan["thin_stops"]["unmeasured"]
+    if cause == "check":
+        assert fake.k0_calls == 2                                   # K0 read once per session
 
 
 def test_below_the_floor_k0_records_no_stop_on_the_build(tmp_path, monkeypatch, books):
@@ -474,3 +566,4 @@ def test_no_drawdown_status_can_increase_gross(tmp_path, monkeypatch, books, pan
             assert g[("te4", "ok")] > 0
         else:
             assert g[("te4", "ok")] > 0 and g[("te4", "halve")] == 0, (book, g)
+            assert g[("te4", "raises")] == 0, (book, g)      # K0's reading raised: flat
