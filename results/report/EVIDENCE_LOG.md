@@ -3514,3 +3514,16 @@ that adds it does not exist when it is written.
 - source: `results/report/data/live/cef/scores.csv` @ `pull:b5e46b822424`; `results/report/data/live/cef/verify.csv` @ `pull:b5e46b822424`; `results/report/data/live/cef/tca.csv` @ `pull:b5e46b822424`
 - supports: §4
 - status: current
+
+### E-2026-11-03-42 · Ruling: te4's K0 reads the previous session's EOD row, answering E-2026-11-03-41 (the 22:00 decide never has the day's row); the missing-NAV hold frequency stays unmeasured
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - The drawdown field exists in 4 decides (as-of 10-28, 10-29, 10-30, 11-02). All 4 read UNMEASURED for the same reason: "eod_equity.csv's newest row on or before the as-of is D−1, not the as-of D" [S]
+  - "Ruled: K0 reads D−1's row, labelled one session stale." If that row is older than D−1, missing or bad, K0 reads UNMEASURED and the session flattens (team lead, 2026-11-03) [S]
+  - §6.3's bootstrap modelled K0 acting from the second session after the crossing; under D−1 it acts from the third, so §6.3's K0 figures are slightly optimistic [U]
+  - The `missing_nav` field exists in 3 decides, none with a hold; the hold frequency stays UNMEASURED [S]
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `e45e852`
+- supports: §5
+- status: current (answers E-2026-11-03-41, the owning session's finding; covers te4's K0 only)
