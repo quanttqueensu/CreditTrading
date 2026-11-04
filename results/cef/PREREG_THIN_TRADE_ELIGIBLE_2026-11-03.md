@@ -85,6 +85,39 @@ these terms. They bind the implementation and the activation.
   session that loses a short at send time, while keeping full sessions byte-identical. The team lead chose
   to leave the send path as it is.
 
+**A second ruling after approval (team lead, 2026-11-03, after prod's Q6 count): K0 reads the previous session's EOD row.**
+- **The measurement (Q6).** The owning session counted prod's core `plan.json` records: 26 decides, with
+  run folders 2026-09-29..11-04.
+  - The drawdown field exists in 4 decides (as-of 10-28, 10-29, 10-30, 11-02). All 4 read UNMEASURED for
+    the same reason: "eod_equity.csv's newest row on or before the as-of is D−1, not the as-of D".
+  - At the 22:00 ET decide, the EOD row for D is not there yet.
+  - [S: the owning session's count, 2026-11-03. The run records are prod's and are not in this repository.]
+- **Consequence: K0 as written made te4 inert.** Every reduced session would flatten. §6.3 had said the
+  remedy would be the drawdown record's timing, never a looser K0. This ruling changes K0's reading time,
+  and its cost is stated below.
+- **Ruled: K0 reads D−1's row, labelled one session stale.** At the evening decide for as-of D:
+  - K0 reads the account's drawdown status through the newest EOD row on or before D−1, with the
+    high-water mark over the rows on or before that date.
+  - If that row is older than D−1, missing or bad, K0 reads UNMEASURED and the session flattens.
+  - The record carries the row's date and its staleness in sessions (1).
+  - K0 stays restrict-only: it can flatten a session, never size up or unlock a send. The test that no
+    drawdown status can increase gross is unchanged.
+- **The cost, accepted.** A loss on day D is seen only at the next evening's decide, so one more reduced
+  build can go out after a session that crossed HALVE.
+  - §6.3's bootstrap modelled K0 acting from the second session after the crossing. Under D−1 it acts
+    from the third.
+  - So §6.3's K0 figures are slightly optimistic [U: not re-measured].
+  - The kill on HALVE or KILL during an open episode reads the same D−1 status.
+- **Options not chosen.**
+  - Re-checking K0 before the 15:52 send. It is fresher, but it changes the send path, which the team
+    lead kept unchanged.
+  - Leaving K0 as written. te4 would never trade.
+- **Scope.** This ruling covers K0 only. HALVE/KILL's own report, and any future `on` mode, belong to the
+  owning session, which records the same finding for them.
+- **Q10, the hold count.** The `missing_nav` field exists in 3 decides, none with a hold [S: the owning
+  session's count, 2026-11-03]. With n = 3 the hold frequency stays UNMEASURED until there is a run of
+  history. It is re-read at activation, which already waits for the core's 60-session review.
+
 **What this commit does not do.** It sets no spec key, changes no live-path code and activates nothing.
 The key stays absent until the activation commit, which needs all of:
 - the implementation merged;
