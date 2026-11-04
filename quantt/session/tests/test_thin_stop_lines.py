@@ -24,10 +24,13 @@ there). `read_through` None is the as-of reading the earlier tests pin; the read
 fail on the F2 commit (a323971), which has no `read_through`.
 
 The send-skip label (review fix F3 after 7fcc2b7) reads whether the send went (`_send_state`:
-plan.json's orders and plan_sha, send.json's exit and plan_sha, <D>/STARTED). The prior
-plans and send records here therefore carry the fields run.py writes (`plan`, `send`,
-`reader`'s `started`). The tests of a send that did not go, or whose outcome is not
+plan.json's orders and plan_sha, send.json's exit, plan_sha, `final` and `not_final`,
+<D>/STARTED). The prior plans and send records here therefore carry the fields run.py writes
+(`plan`, `send`, `reader`'s `started`); test_thin_send_state.py checks that shape against the
+records the real send writes. The tests of a send that did not go, or whose outcome is not
 established, fail on the F1 commit, which labelled a refused or dry send's list a lost short.
+A FAILed send whose `final` records what went is a reduced decision sent in part (the runner
+owner's review 2026-11-04, items 5 and 10); that test fails on 87ad4e9.
 
 The runner's side (plan.json carries `thin_stops` only with the key set, and the label read from
 the previous session's send.json) is in tests/test_trade_eligible_runner.py.
@@ -75,9 +78,18 @@ def plan(reduced=False, *, refusals=(), execution="late_market", k3=None, key=Tr
     return p
 
 
-def send(exit="SENT", *, skipped=(), sha=SHA):
-    """A send.json as `_send_planned` writes it (the fields read here)."""
-    return {"plan_sha": sha, "exit": exit, "skipped": list(skipped)}
+FILLED = {"status": "filled", "filled": 10, "unfilled": 0, "filled_avg_price": "10.0"}
+
+
+def send(exit="SENT", *, skipped=(), sha=SHA, final=None, not_final=()):
+    """A send.json as `_send_planned` writes it (the fields read here). `final` / `not_final`
+    are `_poll_final`'s: only orders Alpaca accepted and the confirm read found. Unless given,
+    a SENT or FAIL send records ORDER filled, and any other exit records nothing, as run.py
+    writes them."""
+    if final is None:
+        final = {ORDER["client_order_id"]: dict(FILLED)} if exit in ("SENT", "FAIL") else {}
+    return {"plan_sha": sha, "exit": exit, "skipped": list(skipped), "final": dict(final),
+            "not_final": list(not_final)}
 
 
 def reader(days: dict, default="plain"):
@@ -197,16 +209,42 @@ def test_a_reduced_decision_whose_send_did_not_go_opens_no_episode():
 
 
 def test_a_send_that_cannot_be_read_leaves_the_episode_unmeasured_only_on_a_reduced_plan():
-    """A decided reduced plan whose send exited FAIL: whether its targets went is not
-    established, so the episode is UNMEASURED, named (7fcc2b7 read it OPEN). A FAIL on a full
-    session's send changes nothing here: only a reduced plan's send is read."""
-    r = record({back(3): {"plan": plan(True, orders=[ORDER]), "send": send("FAIL")}},
+    """A decided reduced plan whose send exited FAIL with nothing in send.json's `final` or
+    `not_final`: whether any order went is not established (an accepted POST the confirm read
+    did not find is in neither), so the episode is UNMEASURED, named (7fcc2b7 read it OPEN). A
+    FAIL on a full session's send changes nothing here: only a reduced plan's send is read."""
+    fail_empty = send("FAIL", final={})
+    r = record({back(3): {"plan": plan(True, orders=[ORDER]), "send": fail_empty}},
                dd={"status": "HALVE", "asof": "x"})
     assert r["episode"]["status"] == ddm.UNMEASURED and "FAIL" in r["episode"]["why"]
     assert r["K0"]["verdict"] == ddm.UNMEASURED and r["K1"]["verdict"] == ddm.UNMEASURED
-    r = record({back(3): {"plan": plan(False, orders=[ORDER]), "send": send("FAIL")}},
+    r = record({back(3): {"plan": plan(False, orders=[ORDER]), "send": fail_empty}},
                dd={"status": "HALVE", "asof": "x"})
     assert r["episode"]["status"] == "NONE" and r["K0"]["verdict"] == ddm.CLEAR
+
+
+def test_a_failed_send_whose_final_records_what_went_is_a_reduced_decision_sent_in_part():
+    """The runner owner's review (2026-11-04), items 5 and 10: a FAILed send whose send.json
+    `final` records what went is classified from `final`. Part of the reduced book went (a
+    rejected order skips its symbol and the rest are sent, team lead 2026-09-28), so the
+    account holds it: the session is a reduced decision, the episode is OPEN and names it
+    `sent_in_part`, K0 can read KILLED on it, and K2/K3 read the close it left. 87ad4e9 read
+    every FAIL UNMEASURED, and fails here."""
+    two = [ORDER, {**ORDER, "symbol": "B", "side": "sell", "client_order_id": "cef-test-B"}]
+    days = {back(1): {"plan": plan(True, orders=two), "send": send("FAIL")}}
+    r = record(days, dd={"status": "HALVE", "asof": "x"}, positions={"A": 100},
+               closes=PRICES, series=[(ASOF, 50_000.0)])
+    ep = r["episode"]
+    assert ep["status"] == "OPEN" and ep["reduced_sessions"] == [ASOF], ep
+    assert list(ep["sent_in_part"]) == [str(ASOF)]
+    assert "FAIL" in ep["sent_in_part"][str(ASOF)] and "1 of the plan's 2" in \
+        ep["sent_in_part"][str(ASOF)]
+    assert r["K0"]["verdict"] == ddm.KILLED
+    assert r["K2"]["stat"] == pytest.approx(0.02) and r["K3"]["net"] == pytest.approx(0.02)
+    assert r["send_skip"]["applies"] is True and r["send_skip"]["lost_short"] is False
+    # A send that went whole names nothing sent in part.
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": send()}})
+    assert r["episode"]["status"] == "OPEN" and "sent_in_part" not in r["episode"]
 
 
 # --------------------------------------------------------------- K1
@@ -455,8 +493,8 @@ def test_the_send_time_skip_after_a_reduced_decision_is_labelled():
                               "lost_short": True}
     r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": send()}})
     assert r["send_skip"]["lost_short"] is False
-    r = record({back(1): {"plan": plan(True, orders=[ORDER]),
-                          "send": {"plan_sha": SHA, "exit": "SENT"}}})
+    no_list = {k: v for k, v in send().items() if k != "skipped"}
+    r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": no_list}})
     assert r["send_skip"]["lost_short"] == ddm.UNMEASURED
     r = record({back(1): {"plan": plan(True, execution=None, orders=[ORDER]), "send": None}})
     assert r["send_skip"]["applies"] is False and "cls" in r["send_skip"]["why"]
@@ -478,13 +516,13 @@ def test_a_send_that_did_not_go_labels_no_lost_short(exit_):
 
 
 def test_a_send_whose_outcome_is_not_established_reads_unmeasured():
-    """FAIL (part of a set may have gone), another plan's send.json, a STARTED beside a refused
-    or missing send record, a SENT without STARTED: never a guess. Whether that session was a
-    reduced decision is unknown (review fix F2), so the episode and whether the label applies
-    read UNMEASURED, naming the record. 7fcc2b7 read the skipped list in each (True, or False
-    on an empty one), and fails here."""
+    """A FAIL whose `final` records nothing (part of a set may have gone), another plan's
+    send.json, a STARTED beside a refused or missing send record, a SENT without STARTED:
+    never a guess. Whether that session was a reduced decision is unknown (review fix F2), so
+    the episode and whether the label applies read UNMEASURED, naming the record. 7fcc2b7 read
+    the skipped list in each (True, or False on an empty one), and fails here."""
     skipped = ["x: PDI shortable=False at send; skipped, the rest go"]
-    for day in ({"send": send("FAIL", skipped=skipped)},
+    for day in ({"send": send("FAIL", skipped=skipped, final={})},
                 {"send": send(skipped=skipped, sha="another")},
                 {"send": send("REFUSED"), "started": True},
                 {"send": send(skipped=skipped), "started": False}):

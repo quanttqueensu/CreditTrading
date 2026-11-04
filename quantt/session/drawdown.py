@@ -510,22 +510,53 @@ def lines(rec: dict) -> list[str]:
 #                     unmeasured, so whether the label applies reads UNMEASURED.
 #   sent              (`_send_state`) whether a decision's targets went to the broker, read
 #                     from the session's own records: plan.json `orders` / `plan_sha` /
-#                     `execution`, send.json `plan_sha` / `exit`, and whether <D>/STARTED exists
-#                     (run.py writes it before the first order of a set, and never otherwise;
-#                     CLAUDE.md order-path rule 2). The rule:
+#                     `execution`, send.json `plan_sha` / `exit` / `final` / `not_final`, and
+#                     whether <D>/STARTED exists (run.py writes it before the first order of a
+#                     set, and never otherwise; CLAUDE.md order-path rule 2).
+#                     WHAT run.py WRITES (read 2026-11-04, the runner owner's review item 10:
+#                     te4 is PAPER ONLY and paper runs `late_market`, so this is the only case
+#                     that will run). The late-market SEND (`_send_planned`) writes send.json on
+#                     every outcome it reaches: `exit` (SENT, FAIL, DRY, REFUSED,
+#                     NOTHING_TO_SEND), `plan_sha`, `skipped`, and `final` / `not_final`, which
+#                     `_poll_final` fills ONLY for orders Alpaca accepted and the confirm read
+#                     found: `final` {client_order_id: {status, filled, unfilled, ...}} for
+#                     each that reached a final state by 30 s before the close, `not_final` the
+#                     rest. A refused, dry or empty send writes `final` {} and `not_final` [].
+#                     STARTED comes first, before any POST: a refusal never writes it. A FAIL
+#                     comes from `_transmit` alone, after STARTED: a rejection (the rest still
+#                     go), an ambiguous submit, a clock past the window, an order the confirm
+#                     read did not find. The cls decide writes NO send.json: STARTED, then
+#                     plan.json, then the transmit; its run record holds `sent`.
+#                     THE RULE:
 #                       * no orders: nothing needed sending, and the account already held the
 #                         plan's targets when it was decided (a late-market decide with no
 #                         orders exits NOTHING_TO_SEND and no send runs): SENT;
-#                       * cls (the decide is the send): SENT exactly when STARTED exists (a cls
-#                         transmit that failed part-way counts as sent; its run record, not
-#                         read here, says what filled);
-#                       * late market: send.json's `exit` SENT with STARTED: SENT. DRY, REFUSED
-#                         or NOTHING_TO_SEND without STARTED, or no send.json and no STARTED (no
-#                         send ran in the window): NOT SENT. Anything else is UNMEASURED, named:
-#                         FAIL (part of a set may have gone), a send.json of another plan_sha,
-#                         a STARTED beside a refused, dry or missing send record (a later run's
-#                         record over the send's, or a send that never wrote one), a SENT
-#                         without STARTED.
+#                       * late market, SENT: STARTED exists AND send.json's `exit` is SENT
+#                         (the runner's rule-2 marker plus the send record), AND its `final` /
+#                         `not_final` record at least one of the plan's orders. Partially
+#                         filled orders are sent: what filled is the account's, which K1-K3
+#                         read from the broker's own figures;
+#                       * late market, a FAIL CLASSIFIED FROM `final`: STARTED exists, `exit`
+#                         FAIL, and `final` / `not_final` record what went (at least one of the
+#                         plan's orders): SENT IN PART, and the episode names it
+#                         (`sent_in_part`). Part of the reduced book is held, and K2/K3 must see
+#                         it: a rejected short leaves exactly the one-sided book K3 watches;
+#                       * late market, NOT SENT: DRY, REFUSED or NOTHING_TO_SEND with no STARTED
+#                         and nothing in `final` / `not_final`; or no send.json and no STARTED
+#                         (no send ran in the window);
+#                       * late market, UNMEASURED, named, never a guess: a FAIL whose `final` and
+#                         `not_final` are empty (an accepted POST the confirm read did not find,
+#                         or an ambiguous submit, is in neither: orders may have gone); SENT or
+#                         FAIL without STARTED; a STARTED beside a refused, dry, empty or missing
+#                         send record (a later run's record over the send's, or a send that never
+#                         wrote one); a send.json of another plan_sha; `final` or `not_final`
+#                         missing or malformed, or naming an order the plan does not hold; an
+#                         `exit` no send writes;
+#                       * cls (the decide is the send): SENT exactly when STARTED exists. A cls
+#                         run writes no send.json, so STARTED is its only per-session record of
+#                         the set; a set that began counts as sent, including one that failed
+#                         part-way or whose every order was rejected (its run record, not read
+#                         here, says what went). Not a mode te4 trades in: paper is late_market.
 # READING BACK. Sessions are walked newest first from the one before this decide. A session
 # with no plan.json, or one that cannot be read, makes the episode UNMEASURED (named): a
 # missing record is not a session without a reduced build. A plan.json with no
@@ -544,24 +575,57 @@ def _decided_reduced(plan: dict) -> bool:
     return ts.get("reduced") is True and plan.get("refusals") == []
 
 
-def _is_reduced(d, day: dict) -> tuple[bool, str | None]:
-    """(reduced, why not) for the session d: a REDUCED DECISION (block comment) is a decided
-    reduced plan whose targets were sent (`_send_state`). `why not` names a decided reduced
-    plan that was not sent, else None. Raises `Unmeasured` when the send cannot be read."""
-    if not _decided_reduced(day["plan"]):
-        return False, None
+def _is_reduced(d, day: dict) -> tuple[bool, str | None, str | None]:
+    """(reduced, why not, in part) for the session d: a REDUCED DECISION (block comment) is a
+    decided reduced plan whose targets were sent (`_send_state`). `why not` names a decided
+    reduced plan that was not sent, else None; `in part` says how, when the send went only in
+    part (a late-market FAIL that `_send_state` classified from send.json's `final`), else
+    None. Raises `Unmeasured` when the send cannot be read."""
+    plan = day["plan"]
+    if not _decided_reduced(plan):
+        return False, None, None
     went, how = _send_state(d, day)
-    return (True, None) if went else (False, f"{d}'s reduced decision was not sent: {how}")
+    if not went:
+        return False, f"{d}'s reduced decision was not sent: {how}", None
+    failed = (plan.get("execution") == "late_market" and bool(plan.get("orders"))
+              and (day.get("send") or {}).get("exit") == SEND_FAILED)
+    return True, None, (how if failed else None)
 
 
 SEND_WENT = "SENT"                                         # send.json `exit` of a set that went
+SEND_FAILED = "FAIL"                                       # `_transmit` stopped or was rejected
 SEND_NOT_GONE = ("DRY", "REFUSED", "NOTHING_TO_SEND")      # exits that send nothing
+
+
+def _went(d, plan: dict, send: dict) -> list:
+    """The client_order_ids send.json records as having reached Alpaca: the keys of `final`
+    (accepted, confirmed, final by the poll's deadline, with their fills) and `not_final`
+    (accepted and confirmed, still working at it). `_poll_final` writes both, and nothing
+    else does (block comment, WHAT run.py WRITES). Raises `Unmeasured`, naming the session
+    and the field, when either is missing or malformed, or names an order the plan does not
+    hold: a record of an order nobody decided is not a record of this plan's send."""
+    final, not_final = send.get("final"), send.get("not_final")
+    if not isinstance(final, dict):
+        raise Unmeasured(f"{d}'s send.json has no `final` object ({final!r}): what went is "
+                         f"not recorded")
+    if not isinstance(not_final, list):
+        raise Unmeasured(f"{d}'s send.json has no `not_final` list ({not_final!r}): what went "
+                         f"is not recorded")
+    ids = set(final) | set(not_final)
+    planned = {o.get("client_order_id") for o in plan["orders"] if isinstance(o, dict)}
+    stray = sorted(map(str, ids - planned))
+    if stray:
+        raise Unmeasured(f"{d}'s send.json records order(s) {stray} that its plan.json does not "
+                         f"hold: not this plan's send")
+    return sorted(ids)
 
 
 def _send_state(d, day: dict) -> tuple[bool, str]:
     """(sent, how) for the decision recorded for session `d` (`day` = read_day(d)): did its
-    targets go to the broker? The rule is the block comment's `sent`. Raises `Unmeasured`,
-    naming the session and the record, when the records cannot say: never a guess either way."""
+    targets go to the broker? The rule, and what run.py writes that it reads, is the block
+    comment's `sent` (the runner owner's review 2026-11-04, item 10, and item 5: classify the
+    send from send.json's `final` wherever it exists). Raises `Unmeasured`, naming the session
+    and the record, when the records cannot say: never a guess either way."""
     plan = day["plan"]
     orders = plan.get("orders")
     if not isinstance(orders, list):
@@ -581,17 +645,45 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
             raise Unmeasured(f"a set STARTED for {d} and there is no send.json: what went is "
                              f"not recorded")
         return False, f"no send ran for {d} (no send.json, no STARTED)"
+    if not isinstance(send, dict):
+        raise Unmeasured(f"{d}'s send.json is {type(send).__name__}, not an object")
     if send.get("plan_sha") != plan.get("plan_sha"):
         raise Unmeasured(f"{d}'s send.json is of plan_sha {send.get('plan_sha')!r}, its "
                          f"plan.json of {plan.get('plan_sha')!r}")
     ex = send.get("exit")
-    if ex == SEND_WENT and started:
-        return True, f"{d}'s send exited {ex}"
-    if ex in SEND_NOT_GONE and not started:
+    went = _went(d, plan, send)
+    of = f"{len(went)} of the plan's {len(orders)} order(s)"
+    if ex in (SEND_WENT, SEND_FAILED):
+        if not started:
+            raise Unmeasured(f"{d}'s send.json exit is {ex} and no STARTED exists: run.py writes "
+                             f"STARTED before the first order of a set (CLAUDE.md order-path "
+                             f"rule 2), so the records contradict each other")
+        if not went:
+            raise Unmeasured(f"{d}'s send exited {ex} and its `final` and `not_final` record no "
+                             f"order: whether any went is not established (an accepted POST "
+                             f"the confirm read did not find, or an ambiguous submit, is in "
+                             f"neither)")
+        unfilled = sorted(c for c, f in send["final"].items()
+                          if isinstance(f, dict) and f.get("unfilled"))
+        fills = (f"; unfilled at the deadline: {unfilled}" if unfilled else "") + (
+            f"; not final by the deadline: {sorted(send['not_final'])}"
+            if send["not_final"] else "")
+        if ex == SEND_WENT:
+            return True, f"{d}'s send exited SENT; send.json records {of} as sent{fills}"
+        return True, (f"{d}'s send exited FAIL after part of the set went: send.json's "
+                      f"`final` records {of} as sent ({went}){fills}")
+    if ex in SEND_NOT_GONE:
+        if started:
+            raise Unmeasured(f"{d}'s send.json exit is {ex} and a set STARTED: a later run's "
+                             f"record over the send's, or a send that never wrote one; whether "
+                             f"its targets were sent is not established")
+        if went:
+            raise Unmeasured(f"{d}'s send.json exit is {ex} and it records orders that went "
+                             f"({went}): the record contradicts itself")
         return False, f"{d}'s send exited {ex}: nothing was sent"
-    raise Unmeasured(f"{d}'s send.json exit is {ex!r} and a set "
-                     + ("STARTED" if started else "never STARTED")
-                     + ": whether its targets were sent is not established")
+    raise Unmeasured(f"{d}'s send.json exit is {ex!r}, not one a send writes "
+                     f"({[SEND_WENT, SEND_FAILED, *SEND_NOT_GONE]}): whether its targets were "
+                     f"sent is not established")
 
 
 def _walk(session_date, previous_session, read_day) -> dict:
@@ -601,10 +693,12 @@ def _walk(session_date, previous_session, read_day) -> dict:
     oldest reduced decision found so far (from this decide when none is found): that session
     cannot belong to the episode. Returns {"status": "OPEN" | "NONE" | "UNMEASURED", "why",
     "days": [(session, day)] newest first, "reduced": [session, ...] newest first, "unsent":
-    {session: why} (decided reduced plans that were not sent), "scanned"}. OPEN means a
-    reduced decision fewer than THIN_EPISODE_GAP sessions back. A session whose send cannot be
-    read is not appended to `days` (it is the record that could not be read)."""
-    days, reduced, unsent, d, k, last = [], [], {}, session_date, 0, 0
+    {session: why} (decided reduced plans that were not sent), "in_part": {session: how}
+    (reduced decisions whose send went only in part: a FAIL classified from send.json's
+    `final`), "scanned"}. OPEN means a reduced decision fewer than THIN_EPISODE_GAP sessions
+    back. A session whose send cannot be read is not appended to `days` (it is the record
+    that could not be read)."""
+    days, reduced, unsent, part, d, k, last = [], [], {}, {}, session_date, 0, 0
     while True:
         d = previous_session(d)
         k += 1
@@ -614,33 +708,37 @@ def _walk(session_date, previous_session, read_day) -> dict:
             break
         if k > THIN_SCAN_LIMIT:
             return {"status": UNMEASURED, "why": f"more than {THIN_SCAN_LIMIT} sessions read back",
-                    "days": days, "reduced": reduced, "unsent": unsent, "scanned": k - 1}
+                    "days": days, "reduced": reduced, "unsent": unsent, "in_part": part,
+                    "scanned": k - 1}
         try:
             day = read_day(d)
         except Exception as e:  # recorded, named: an unreadable record is not an empty one
             return {"status": UNMEASURED, "why": f"the record of {d} could not be read: "
                     f"{type(e).__name__}: {e}", "days": days, "reduced": reduced,
-                    "unsent": unsent, "scanned": k}
+                    "unsent": unsent, "in_part": part, "scanned": k}
         plan = day.get("plan")
         if plan is None:
             return {"status": UNMEASURED, "why": f"no plan.json for the session {d}",
-                    "days": days, "reduced": reduced, "unsent": unsent, "scanned": k}
+                    "days": days, "reduced": reduced, "unsent": unsent, "in_part": part,
+                    "scanned": k}
         if "thin_session" not in plan:
             why = f"{d} was decided with the key absent"
             break
         try:
-            is_red, not_sent = _is_reduced(d, day)
+            is_red, not_sent, in_part = _is_reduced(d, day)
         except Unmeasured as e:     # a send that cannot be read is not a send that did not go
             return {"status": UNMEASURED, "why": str(e), "days": days, "reduced": reduced,
-                    "unsent": unsent, "scanned": k}
+                    "unsent": unsent, "in_part": part, "scanned": k}
         days.append((d, day))
         if is_red:
             reduced.append(d)
             last = k
+            if in_part is not None:
+                part[d] = in_part
         elif not_sent is not None:
             unsent[d] = not_sent
     return {"status": "OPEN" if reduced else "NONE", "why": why, "days": days,
-            "reduced": reduced, "unsent": unsent, "scanned": k}
+            "reduced": reduced, "unsent": unsent, "in_part": part, "scanned": k}
 
 
 def _verdict(stat, line, above_or_at: bool) -> str:
@@ -682,6 +780,10 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
            "episode": {"status": w["status"], "why": w["why"], "scanned": w["scanned"],
                        "reduced_sessions": sorted(w["reduced"]),
                        "this_decide_reduced": current.get("reduced") is True}}
+    if w["in_part"]:
+        # A reduced decision whose send exited FAIL after part of the set went (`_send_state`,
+        # classified from send.json's `final`): counted, and named, never silently whole.
+        rec["episode"]["sent_in_part"] = {str(d): how for d, how in sorted(w["in_part"].items())}
     if read_through is not None:
         n, d = 0, asof
         while d > read_through:
@@ -841,7 +943,9 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
         sk.update(applies=False, why="cls: the decide is the send; there is no send-time skip")
     else:
         # A reduced decision's targets were sent (`_is_reduced`): with no orders no send ran;
-        # with orders send.json exited SENT (`_send_state`).
+        # with orders send.json exited SENT, or FAIL with `final` recording what went
+        # (`_send_state`). Either way the send ran past its gates, so its `skipped` list is
+        # what it did not send (`_send_planned` skips before the gates and sends the rest).
         send = prev[1].get("send")
         skipped = None if send is None else send.get("skipped")
         if not prev[1]["plan"]["orders"]:

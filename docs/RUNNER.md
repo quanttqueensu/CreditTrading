@@ -310,11 +310,30 @@ short at send. The send skips only short-opening orders, so any entry is a lost 
 watches the one-sided book that results. **Only a send that went is labelled** (review fix after
 7fcc2b7): `_send_planned` builds its skipped list before its gates, so a refused or dry send
 writes the list and sends nothing. Whether a send went is read from the session's own records
-(`drawdown._send_state`): a plan with no orders needed no send; under `cls` a set went exactly
-when `<D>/STARTED` exists; under the late market, send.json's `exit` SENT with STARTED went,
-DRY, REFUSED or NOTHING_TO_SEND without STARTED (or no send.json and no STARTED) did not, and
-anything else (FAIL, a send.json of another plan_sha, a STARTED beside a refused or missing
-send record) reads UNMEASURED.
+(`drawdown._send_state`; the runner owner's review of PR #55, 2026-11-04, items 5 and 10). te4
+is PAPER ONLY and paper runs `late_market`, so the late-market rule is the one that runs:
+- **What the send writes.** `_send_planned` writes `<D>/STARTED` before its first POST and
+  never on a refusal. Its send.json carries `exit`, `plan_sha`, `skipped`, and `final` /
+  `not_final`: `_poll_final` fills them only with orders Alpaca accepted and the confirm read
+  found (`final` with each one's fills once it is final, `not_final` the rest at the deadline).
+  A refused, dry or empty send writes them empty.
+- **Sent:** STARTED exists AND send.json's `exit` is SENT (the rule-2 marker plus the send
+  record), with at least one of the plan's orders in `final` / `not_final`. Partially filled is
+  sent: what filled is the account's.
+- **Sent in part:** STARTED and `exit` FAIL, with `final` / `not_final` recording what went (a
+  rejection skips its symbol and the rest go). It is classified from `final`: a reduced
+  decision, named in the episode's `sent_in_part`. K2 and K3 then see the book it left.
+- **Not sent:** DRY, REFUSED or NOTHING_TO_SEND with no STARTED and nothing recorded as gone;
+  or no send.json and no STARTED (no send ran in the window).
+- **UNMEASURED, named:** a FAIL with nothing in `final` / `not_final` (an accepted POST the
+  confirm read did not find is in neither, so orders may have gone); SENT or FAIL without
+  STARTED; a STARTED beside a refused, dry, empty or missing send record (a later manual run's
+  REFUSED over the send's, for one); another plan_sha; `final` / `not_final` missing or naming
+  an order the plan does not hold; an `exit` no send writes.
+- **cls** writes no send.json. A set went exactly when `<D>/STARTED` exists, including one
+  whose orders then failed (its run record says what went). te4 does not trade under cls.
+- `quantt/session/tests/test_thin_send_state.py` has the real send write each of these records
+  and reads them back through the runner's own reader.
 
 **The records** appear in plan.json and the run record only when the key is set:
 - `thin_session`: `rule`, `floor`, `min_names`, `decided` (did the sleeve run), `eligible` (a
