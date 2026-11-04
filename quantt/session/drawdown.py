@@ -385,11 +385,18 @@ def lines(rec: dict) -> list[str]:
 # function is tested on synthetic records; run.py does the reading.
 #
 # DEFINITIONS (§4.2, §6.3; compose.py's, where it has one):
-#   reduced decision  a prior plan.json whose `thin_session.reduced` is true and whose
-#                     `refusals` list is empty (the structured flag, never a reason string).
-#                     Whether its SEND then went is not read: a decided reduced plan whose send
-#                     was refused still counts, which can only open an episode sooner (K0's
-#                     KILLED reads more often, never less).
+#   reduced decision  §4.2: "a decide on which the sleeve's reduced build ran AND ITS TARGETS
+#                     WERE SENT". A prior plan.json whose `thin_session.reduced` is true and
+#                     whose `refusals` list is empty (the structured flag, never a reason
+#                     string), whose targets were sent (`sent`, below; review fix F2 after
+#                     7fcc2b7). The first build did not read the send, so a decided reduced plan
+#                     whose late-market SEND was refused, dry or never ran counted, and K1
+#                     compounded its earning day although the account held another book that
+#                     session. A decided reduced plan that was NOT sent is not a reduced
+#                     decision: it opens no episode, earns K1 nothing, and its close is not a
+#                     reduced close for K2 or K3 (it neither breaks nor extends K3's run). One
+#                     whose send cannot be established (`sent`'s UNMEASURED cases) makes the
+#                     episode UNMEASURED, named, as a missing record does.
 #   episode           reduced decisions fewer than THIN_EPISODE_GAP sessions apart; OPEN at this
 #                     decide while the newest is fewer than THIN_EPISODE_GAP sessions back.
 #   earning day       for a reduced decision whose session is s (filled at s's late window), the
@@ -423,8 +430,9 @@ def lines(rec: dict) -> list[str]:
 #                     `_send_planned` builds the skipped list BEFORE its gates, so a send that
 #                     was then refused, or dry, writes the list and sends nothing; the first
 #                     build labelled that a lost short. A send that did not go labels nothing
-#                     (applies False, naming its exit); one whose outcome is not established
-#                     reads UNMEASURED.
+#                     (applies False, naming its exit): it is not a reduced decision (below).
+#                     One whose outcome is not established leaves the session's record
+#                     unmeasured, so whether the label applies reads UNMEASURED.
 #   sent              (`_send_state`) whether a decision's targets went to the broker, read
 #                     from the session's own records: plan.json `orders` / `plan_sha` /
 #                     `execution`, send.json `plan_sha` / `exit`, and whether <D>/STARTED exists
@@ -455,9 +463,20 @@ THIN_SCAN_LIMIT = 2000   # sessions walked back at most; beyond it the episode i
 TRIPPED, CLEAR, KILLED, NOT_APPLICABLE = "TRIPPED", "CLEAR", "KILLED", "N/A"
 
 
-def _is_reduced(plan: dict) -> bool:
+def _decided_reduced(plan: dict) -> bool:
+    """The sleeve's reduced build ran on a decided plan: the structured flag, no refusals."""
     ts = plan.get("thin_session") or {}
     return ts.get("reduced") is True and plan.get("refusals") == []
+
+
+def _is_reduced(d, day: dict) -> tuple[bool, str | None]:
+    """(reduced, why not) for the session d: a REDUCED DECISION (block comment) is a decided
+    reduced plan whose targets were sent (`_send_state`). `why not` names a decided reduced
+    plan that was not sent, else None. Raises `Unmeasured` when the send cannot be read."""
+    if not _decided_reduced(day["plan"]):
+        return False, None
+    went, how = _send_state(d, day)
+    return (True, None) if went else (False, f"{d}'s reduced decision was not sent: {how}")
 
 
 SEND_WENT = "SENT"                                         # send.json `exit` of a set that went
@@ -506,9 +525,11 @@ def _walk(session_date, previous_session, read_day) -> dict:
     Walks newest first. It stops at a session THIN_EPISODE_GAP or more sessions back from the
     oldest reduced decision found so far (from this decide when none is found): that session
     cannot belong to the episode. Returns {"status": "OPEN" | "NONE" | "UNMEASURED", "why",
-    "days": [(session, day)] newest first, "reduced": [session, ...] newest first, "scanned"}.
-    OPEN means a reduced decision fewer than THIN_EPISODE_GAP sessions back."""
-    days, reduced, d, k, last = [], [], session_date, 0, 0
+    "days": [(session, day)] newest first, "reduced": [session, ...] newest first, "unsent":
+    {session: why} (decided reduced plans that were not sent), "scanned"}. OPEN means a
+    reduced decision fewer than THIN_EPISODE_GAP sessions back. A session whose send cannot be
+    read is not appended to `days` (it is the record that could not be read)."""
+    days, reduced, unsent, d, k, last = [], [], {}, session_date, 0, 0
     while True:
         d = previous_session(d)
         k += 1
@@ -518,25 +539,33 @@ def _walk(session_date, previous_session, read_day) -> dict:
             break
         if k > THIN_SCAN_LIMIT:
             return {"status": UNMEASURED, "why": f"more than {THIN_SCAN_LIMIT} sessions read back",
-                    "days": days, "reduced": reduced, "scanned": k - 1}
+                    "days": days, "reduced": reduced, "unsent": unsent, "scanned": k - 1}
         try:
             day = read_day(d)
         except Exception as e:  # recorded, named: an unreadable record is not an empty one
             return {"status": UNMEASURED, "why": f"the record of {d} could not be read: "
-                    f"{type(e).__name__}: {e}", "days": days, "reduced": reduced, "scanned": k}
+                    f"{type(e).__name__}: {e}", "days": days, "reduced": reduced,
+                    "unsent": unsent, "scanned": k}
         plan = day.get("plan")
         if plan is None:
             return {"status": UNMEASURED, "why": f"no plan.json for the session {d}",
-                    "days": days, "reduced": reduced, "scanned": k}
+                    "days": days, "reduced": reduced, "unsent": unsent, "scanned": k}
         if "thin_session" not in plan:
             why = f"{d} was decided with the key absent"
             break
+        try:
+            is_red, not_sent = _is_reduced(d, day)
+        except Unmeasured as e:     # a send that cannot be read is not a send that did not go
+            return {"status": UNMEASURED, "why": str(e), "days": days, "reduced": reduced,
+                    "unsent": unsent, "scanned": k}
         days.append((d, day))
-        if _is_reduced(plan):
+        if is_red:
             reduced.append(d)
             last = k
+        elif not_sent is not None:
+            unsent[d] = not_sent
     return {"status": "OPEN" if reduced else "NONE", "why": why, "days": days,
-            "reduced": reduced, "scanned": k}
+            "reduced": reduced, "unsent": unsent, "scanned": k}
 
 
 def _verdict(stat, line, above_or_at: bool) -> str:
@@ -615,15 +644,19 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     # ---- K2, K3: the previous session's close, after a reduced decision
     prev = w["days"][0] if w["days"] and w["days"][0][0] == asof else None
     prev_unread = prev is None and w["status"] == UNMEASURED and not w["days"]
+    # A reduced decision is one whose targets were sent (`_is_reduced`): the walk classified
+    # `prev` already. Not one: N/A, naming a decided reduced plan that was not sent.
+    prev_reduced = prev is not None and asof in w["reduced"]
+    not_reduced = w["unsent"].get(asof) or f"{asof} was not a reduced session"
     run_line, once_line = th.get("thin_k3_net_run"), th.get("thin_k3_net_once")
     k2 = {"line": th.get("thin_k2_max_name_frac"), "session": asof}
     k3 = {"line_run": run_line, "line_once": once_line, "session": asof}
     if prev_unread:
         for k in (k2, k3):
             k.update(verdict=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
-    elif prev is None or not _is_reduced(prev[1]["plan"]):
+    elif not prev_reduced:
         for k in (k2, k3):
-            k.update(verdict=NOT_APPLICABLE, why=f"{asof} was not a reduced session")
+            k.update(verdict=NOT_APPLICABLE, why=not_reduced)
     else:
         held = {s: q for s, q in positions.items() if q}
         nocl = sorted(s for s in held if not isinstance(closes.get(s), (int, float)))
@@ -691,25 +724,20 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     sk = {"session": asof}
     if prev_unread:
         sk.update(applies=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
-    elif prev is None or not _is_reduced(prev[1]["plan"]):
-        sk.update(applies=False, why=f"{asof} was not a reduced session")
+    elif not prev_reduced:
+        # Only a send that went can have lost a short (block comment, send skip): a refused or
+        # dry send wrote its skipped list and sent nothing, and is not a reduced decision.
+        sk.update(applies=False, why=not_reduced)
     elif prev[1]["plan"].get("execution") != "late_market":
         sk.update(applies=False, why="cls: the decide is the send; there is no send-time skip")
     else:
-        # Only a send that went can have lost a short (block comment, send skip): a refused or
-        # dry send wrote its skipped list and sent nothing.
-        try:
-            went, how = _send_state(asof, prev[1])
-        except Unmeasured as e:
-            went, how = None, str(e)
+        # A reduced decision's targets were sent (`_is_reduced`): with no orders no send ran;
+        # with orders send.json exited SENT (`_send_state`).
         send = prev[1].get("send")
         skipped = None if send is None else send.get("skipped")
-        if went is None:
-            sk.update(applies=True, lost_short=UNMEASURED, why=how)
-        elif not went:
-            sk.update(applies=False, why=f"the reduced decision was not sent: {how}")
-        elif not prev[1]["plan"]["orders"]:
-            sk.update(applies=False, why=f"{how}; no send ran, so nothing was skipped at one")
+        if not prev[1]["plan"]["orders"]:
+            sk.update(applies=False, why=f"{asof}'s plan had no orders: no send ran, so nothing "
+                                         f"was skipped at one")
         elif not isinstance(skipped, list):
             sk.update(applies=True, lost_short=UNMEASURED,
                       why=f"send.json for {asof} has no `skipped` list ({skipped!r})")

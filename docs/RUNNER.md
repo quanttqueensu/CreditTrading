@@ -290,7 +290,7 @@ send record) reads UNMEASURED.
 
 | line | what it reads | its threshold |
 |---|---|---|
-| episode | reduced decisions (`thin_session.reduced` on a plan with no refusals) fewer than 63 sessions apart, walked back through earlier plan.json files. A missing or unreadable record reads UNMEASURED. A plan decided with the key absent ends the walk | — |
+| episode | reduced decisions (`thin_session.reduced` on a plan with no refusals, **whose targets were sent**, by the rule in the send-skip paragraph above; §4.2) fewer than 63 sessions apart, walked back through earlier plan.json, send.json and STARTED files. A decided reduced plan whose send did not go is not a reduced decision: it opens no episode, earns K1 nothing and is not a reduced close for K2 or K3 (corrected after the reviews of 7fcc2b7, whose first build counted it). A missing or unreadable record, or a send whose outcome cannot be established, reads UNMEASURED. A plan decided with the key absent ends the walk | — |
 | K0 | the drawdown status at this decide: KILLED if HALVE or KILL while an episode is open | `risk.halve_drawdown` / `kill_drawdown`, through the status |
 | K1 | the maximum drawdown of the episode's earning days, compounded: a decision for session s earns eod_equity(e) / eod_equity(s) − 1 on the next session e, counted once e is on or before the as-of | `risk.thin_k1_episode_drawdown` |
 | K2 | the largest \|position × as-of close\| / eod_equity, at the close after a reduced decision | `risk.thin_k2_max_name_frac` |

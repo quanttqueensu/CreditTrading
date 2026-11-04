@@ -13,6 +13,11 @@ not in the shape the runner writes them, so it passed with K3 reading one close 
 stores it, and the K3 tests read those records; a runner-level test does the same on plan.json
 files. Those tests fail on 7fcc2b7.
 
+A reduced decision is one whose targets were SENT (§4.2; review fix F2 after 7fcc2b7): a
+decided reduced plan whose send did not go opens no episode, earns K1 nothing and is not a
+reduced close; one whose send cannot be read leaves the episode UNMEASURED. Those tests fail
+on the F3 commit.
+
 The send-skip label (review fix F3 after 7fcc2b7) reads whether the send went (`_send_state`:
 plan.json's orders and plan_sha, send.json's exit and plan_sha, <D>/STARTED). The prior
 plans and send records here therefore carry the fields run.py writes (`plan`, `send`,
@@ -166,6 +171,39 @@ def test_a_refused_reduced_plan_is_not_a_reduced_decision():
     assert r["episode"]["status"] == "NONE"
 
 
+def test_a_reduced_decision_whose_send_did_not_go_opens_no_episode():
+    """Review fix F2 after 7fcc2b7. §4.2: a reduced decision is one whose reduced build ran
+    "and its targets were sent". A decided reduced plan whose late-market SEND was dry,
+    refused, emptied or never ran left the account holding another book: it opens no episode
+    (K0 cannot read KILLED on it), and its close is not a reduced close (K2 and K3 N/A, naming
+    why). 7fcc2b7 counted it, and fails here."""
+    for sd in (send("DRY"), send("REFUSED"), send("NOTHING_TO_SEND"), None):
+        days = {back(1): {"plan": plan(True, orders=[ORDER]), "send": sd}}
+        r = record(days, dd={"status": "HALVE", "asof": "x"}, positions={"A": 100},
+                   closes=PRICES)
+        assert r["episode"]["status"] == "NONE" and r["episode"]["reduced_sessions"] == [], sd
+        assert r["K0"]["verdict"] == ddm.CLEAR
+        assert r["K2"]["verdict"] == r["K3"]["verdict"] == ddm.NOT_APPLICABLE
+        assert "was not sent" in r["K3"]["why"], r["K3"]
+    # The same plan whose send went is a reduced decision.
+    days = {back(1): {"plan": plan(True, orders=[ORDER]), "send": send()}}
+    r = record(days, dd={"status": "HALVE", "asof": "x"})
+    assert r["episode"]["reduced_sessions"] == [ASOF] and r["K0"]["verdict"] == ddm.KILLED
+
+
+def test_a_send_that_cannot_be_read_leaves_the_episode_unmeasured_only_on_a_reduced_plan():
+    """A decided reduced plan whose send exited FAIL: whether its targets went is not
+    established, so the episode is UNMEASURED, named (7fcc2b7 read it OPEN). A FAIL on a full
+    session's send changes nothing here: only a reduced plan's send is read."""
+    r = record({back(3): {"plan": plan(True, orders=[ORDER]), "send": send("FAIL")}},
+               dd={"status": "HALVE", "asof": "x"})
+    assert r["episode"]["status"] == ddm.UNMEASURED and "FAIL" in r["episode"]["why"]
+    assert r["K0"]["verdict"] == ddm.UNMEASURED and r["K1"]["verdict"] == ddm.UNMEASURED
+    r = record({back(3): {"plan": plan(False, orders=[ORDER]), "send": send("FAIL")}},
+               dd={"status": "HALVE", "asof": "x"})
+    assert r["episode"]["status"] == "NONE" and r["K0"]["verdict"] == ddm.CLEAR
+
+
 # --------------------------------------------------------------- K1
 
 def _k1_days():
@@ -191,6 +229,24 @@ def test_k1_compounds_the_episodes_earning_days_and_trips_at_its_line():
     r = record(_k1_days(), series=series + [(ASOF, 90.0)],
                lines={**LINES, "thin_k1_episode_drawdown": None})
     assert r["K1"]["verdict"] == ddm.UNMEASURED and r["K1"]["drawdown"] == pytest.approx(want)
+
+
+def test_k1_does_not_compound_the_earning_day_of_a_reduced_decision_that_was_not_sent():
+    """Review fix F2: the reduced decision on back(4) has orders and its send was dry, so the
+    account held another book on its earning day (back(3)): K1 compounds back(5)'s day only,
+    -5%, under the 10% line. 7fcc2b7 compounded both (0.95 x 0.94, 10.7%: TRIPPED), and fails
+    here."""
+    series = _series({6: 100.0, 5: 95.0, 4: 96.0, 3: 90.24, 1: 90.0}) + [(ASOF, 90.0)]
+    days = _k1_days()
+    days[back(4)] = {"plan": plan(True, orders=[ORDER]), "send": send("DRY")}
+    r = record(days, series=series)
+    assert r["episode"]["reduced_sessions"] == [back(6)]
+    assert r["K1"]["earning_days"] == 1
+    assert r["K1"]["drawdown"] == pytest.approx(0.05, abs=1e-8)
+    assert r["K1"]["verdict"] == ddm.CLEAR
+    # Sent, it is compounded (the test above).
+    days[back(4)] = {"plan": plan(True, orders=[ORDER]), "send": send()}
+    assert record(days, series=series)["K1"]["earning_days"] == 2
 
 
 def test_k1_reads_unmeasured_on_a_missing_equity_row_and_never_reads_past_the_asof():
@@ -364,16 +420,20 @@ def test_a_send_that_did_not_go_labels_no_lost_short(exit_):
 
 def test_a_send_whose_outcome_is_not_established_reads_unmeasured():
     """FAIL (part of a set may have gone), another plan's send.json, a STARTED beside a refused
-    or missing send record, a SENT without STARTED: the label is UNMEASURED, never a guess.
-    7fcc2b7 read the skipped list in each (True, or False on an empty one), and fails here."""
+    or missing send record, a SENT without STARTED: never a guess. Whether that session was a
+    reduced decision is unknown (review fix F2), so the episode and whether the label applies
+    read UNMEASURED, naming the record. 7fcc2b7 read the skipped list in each (True, or False
+    on an empty one), and fails here."""
     skipped = ["x: PDI shortable=False at send; skipped, the rest go"]
     for day in ({"send": send("FAIL", skipped=skipped)},
                 {"send": send(skipped=skipped, sha="another")},
                 {"send": send("REFUSED"), "started": True},
                 {"send": send(skipped=skipped), "started": False}):
         r = record({back(1): {"plan": plan(True, orders=[ORDER]), **day}})
-        assert r["send_skip"]["applies"] is True, day
-        assert r["send_skip"]["lost_short"] == ddm.UNMEASURED, (day, r["send_skip"])
+        assert r["episode"]["status"] == ddm.UNMEASURED, day
+        assert r["send_skip"]["applies"] == ddm.UNMEASURED, (day, r["send_skip"])
+        assert "lost_short" not in r["send_skip"]
+        assert str(ASOF) in r["send_skip"]["why"]
 
 
 def test_no_send_ran_after_a_reduced_decision_with_or_without_orders():
@@ -386,7 +446,7 @@ def test_no_send_ran_after_a_reduced_decision_with_or_without_orders():
         assert r["send_skip"]["applies"] is False, (orders, r["send_skip"])
         assert "lost_short" not in r["send_skip"]
     r = record({back(1): {"plan": plan(True, orders=[ORDER]), "send": None, "started": True}})
-    assert r["send_skip"]["lost_short"] == ddm.UNMEASURED and "STARTED" in r["send_skip"]["why"]
+    assert r["send_skip"]["applies"] == ddm.UNMEASURED and "STARTED" in r["send_skip"]["why"]
 
 
 def test_the_lines_render_every_stop():
@@ -470,8 +530,13 @@ def test_the_next_decide_labels_nothing_after_a_reduced_send_that_did_not_go(
     _prior_session(state, dt.date(2026, 9, 24), {"refusals": []})        # the key absent then
     code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "ok")
     assert code == rn.EXIT_PLANNED
-    sk = M._plan(state)["thin_stops"]["send_skip"]
+    st = M._plan(state)["thin_stops"]
+    sk = st["send_skip"]
     assert sk["applies"] is False and "lost_short" not in sk and "DRY" in sk["why"], sk
+    # Review fix F2: nor is it a reduced decision (its targets were not sent): no episode,
+    # and the 09-25 close is not a reduced close.
+    assert st["episode"]["status"] == "NONE" and st["episode"]["reduced_sessions"] == []
+    assert st["K3"]["verdict"] == ddm.NOT_APPLICABLE and "not sent" in st["K3"]["why"]
 
 
 def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, monkeypatch):
