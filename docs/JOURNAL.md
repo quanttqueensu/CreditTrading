@@ -318,3 +318,15 @@ from a named source; [doc] copied from a named note.
 - **The team lead ruled "Hold C4 one day, fix IGR".** `ops/HALT_c4.md` was written on the VM at 23:47 ET; the send phase re-gates on it. The core is unaffected.
 - **The fix,** a C4 fetch that keeps one price basis with its NAVs plus a step guard, goes to a release on 11-04. Then the halt clears before the 22:00 decide, and C4's first send is 11-05.
 
+## 2026-11-04 (Wed)
+
+**08:32–09:36 ET: the C4 IGR fix is deployed, and C4's 11-04 plan is re-decided on clean data and approved** (team lead: "can we just fix and deploy now"; `results/report/EVIDENCE_LOG.md` E-2026-11-04-11, -12).
+- **The ruling.** The team lead signed the IGR split ruling: ex-date 2026-09-08, factor 1/3, to_nav_basis.
+- **The release.** PR #53 was merged as b24af5e and tagged release-20261104-1 (509b3ff), after a release-check GO with conditions.
+  - The core was installed ARMED and unchanged, after a replay with 0 refused now. Its ×1.30 plan sends at 15:52.
+- **The repair.** The C4 panel was backed up first. repair-basis then converted 87 IGR rows at ×3.0, identical to the seed's raw closes, and IGR's premium for 05-04..09-04 is now a median of +0.64%. A direct fetch exited 0 with its BASIS IGR line.
+- **The plan.** The unsent 22:00 plan was retired into `_retired/`, after confirming no send and no Alpaca orders. HALT_c4.md was cleared, and C4 was armed without AUTO_ARMED.
+  - The 09:30 slot re-decided: 15 orders, gross 1.284×; IGR z −2.65, buy 1,019.
+  - It was approved by sha 17ddda95… at 09:36, and AUTO_ARMED was restored.
+- **Also merged:** #54, the evidence-log repair, which adds a CI test that validates the log.
+

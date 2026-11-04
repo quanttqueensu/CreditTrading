@@ -3542,6 +3542,33 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: current. Each header has its own body again, with the text as first written. E-39, -41, -43 and -44 have their format fixed: kind `finding`/`live-plan` became `result`, the provenance tags moved to the end of each figure, and sources now cite `path` @ `commit`. No figure changed. Found by 2027-ae
 
+### E-2026-11-04-11 · Release: release-20261104-1 (C4 fetch keeps one price basis with its NAVs; fetch-time basis-step guard; repair-basis) installed, and IGR's stored history repaired
+- kind: release
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - tag release-20261104-1 = 509b3ff (PR #53 merged b24af5e; release-check GO with conditions); the core unchanged, armed at ×1.30 [V]
+  - IGR ruling signed by the team lead on 2026-11-04: ex-date 2026-09-08, factor 1/3, to_nav_basis [V]
+  - repair-basis on the VM's C4 panel: 87 IGR rows 2026-05-04..2026-09-04, close_before/close_after = 3.0 on every row, and close_after identical to the seed's raw close on all 87 (max difference 0.0) [V]
+  - IGR premium 2026-05-04..09-04 after the repair: median +0.64%, min −1.96%, max +3.17% (about +200% before) [V]
+  - a direct `fetch_daily --data-book c4 --require-asof 2026-11-03`: exit 0, with the line "BASIS IGR 2026-05-04..2026-09-04: 87 fetched pre-split row(s) ... put on the NAV's" and no BASIS-STEP [V]
+- source: `scripts/cef/data_books.py` @ `509b3ff`; `results/cef/c4/c4_fetch_split_rulings_2026-11-03.json` @ `509b3ff`; the VM's repair log `data/cef_c4/basis_repair_log.csv` (not tracked), read-only
+- supports: §1, §4, §5
+- status: current. A pre-repair backup is at `quantt_state/c4/_backup_20261104_pre_repair/`
+
+### E-2026-11-04-12 · C4's 2026-11-04 plan re-decided on the repaired panel and approved by sha; the unsent corrupt plan retired
+- kind: result
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - the retired plan (decided 22:00 on 11-03, never sent: no STARTED, send.json or orders.jsonl; at Alpaca 0 positions, 0 open and 0 closed orders) moved to `quantt_state/c4/_retired/2026-11-04_igr_basis/` [V]
+  - re-decided at the 09:30 slot: 15 orders, gross 1.284× against the 1.90 cap, net +0.001×, opening_session True, first_session CLEAR, no refusals; plan_sha 17ddda95fe06df1de726cd3fec0ab99efaada7bdc4eb62682fbe489d17e67ee5 [V]
+  - IGR: z −2.65, w +0.1152, buy 1,019, against the retired plan's z −0.79, w +0.0588, buy 520; the same 15 names, the others re-scaled [V]
+  - approved by sha at 09:36 ET (C4 was armed without AUTO_ARMED until then); AUTO_ARMED restored at 09:36 for later sessions; the send window is 15:52–15:58 [V]
+- source: `scripts/cef/fetch_daily.py` @ `509b3ff`; the VM's `quantt_state/c4/2026-11-04/plan.json` and APPROVED (not tracked), read-only
+- supports: §1, §4
+- status: current
+
 ### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
 - kind: method
 - era: ALPACA
