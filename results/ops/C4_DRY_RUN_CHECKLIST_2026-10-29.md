@@ -128,8 +128,21 @@ python3 scripts/cef/c4_paper_benchmark.py recap \
   --probe results/ops/alpaca_probe/<date>_c4.json --mark-sensitivity <the lab book's>
 ```
 
-Exit 0: the rule still gives 1.90. Exit 1: a new spec id (`/spec-change`) and a release before C4
-arms. True on its date only: run it again on the day of the arming go (step 6).
+It prints the rule's cap, the spec's `max_gross_stress` and `same_as_spec`, and one verdict:
+- **exit 0, `SAME`**: the rule gives the spec's cap;
+- **exit 2, `OVERRIDE ON RECORD`**: the rule gives less, and a team-lead override on record names
+  this exact w5 and both caps (`results/cef/c4/c4_cap_override_*.json`, matched on content; an
+  edited file is refused). It prints the ruling's citation. For `c4_families.v5.20261103` the rule
+  gives 1.80 and the team lead kept 1.90 (`docs/SYSTEM.md` §5, "Team lead, 2026-11-03 — C4 v5's
+  gross cap");
+- **exit 1, `STOP`**: any other mismatch. A new spec id (`/spec-change`) and a release, or a new
+  ruling with its own record, before C4 trades on that cap.
+
+The w5 is the LIVE spec book's, taken from the committed benchmark output: the blend's on v5, the
+z book's only when the spec carries no `level_signal`. `recap` refuses an output made on another
+spec file, naming both sha256s. Until 2026-11-03 it read the z book's w5 whatever the spec was
+(the release-check of e41f10b). True on its date only: run it again on the day of the arming go
+(step 6).
 
 **4. Install C4 UNARMED (DRY_RUN=1). TEAM LEAD RUNS** (on the VM, a weekday outside 15:30-16:00
 ET, which the installer refuses):
@@ -284,7 +297,8 @@ Expected on each day:
   wrapper denies `python3 -m quantt.session` and holds no key file
   (`.claude/loop/run_research_loop.sh`). When a lab runner is built for this account, this gate
   becomes the place where the two are reconciled (docs/SYSTEM.md §5, 2026-10-28).
-- Re-run step 3 that day: it must give 1.90, or the new spec is released first.
+- Re-run step 3 that day: it must say `SAME` (exit 0), or `OVERRIDE ON RECORD` (exit 2) citing the
+  ruling it matched. `STOP` (exit 1) means the new spec is released, or a new ruling recorded, first.
 - The corporate-action mode is decided: `report` (team lead 2026-11-02, above). Arming does not
   change it; `halt` comes back with the core's, through a release.
 - The halve/kill levels are the core's, report only, until a C4 derivation exists (ruled
