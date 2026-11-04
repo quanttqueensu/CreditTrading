@@ -56,3 +56,13 @@ def test_append_only_allows_appends_and_refuses_edits_deletes_inserts():
 
 def test_tag_counts():
     assert elog.tag_counts(elog.parse(GOOD + "\n\n" + LIVE)) == {"V": 1, "S": 2, "U": 0, "none": 0}
+
+
+def test_the_repositorys_log_validates():
+    """The committed log itself must pass `validate`. Without this test, CI never ran the checker, and on
+    2026-11-03 a bad merge (b66179f) interleaved five entries' bodies and still went green
+    (EVIDENCE_LOG E-2026-11-04-10)."""
+    from pathlib import Path
+    log = Path(__file__).resolve().parents[3] / "results" / "report" / "EVIDENCE_LOG.md"
+    errs = elog.validate(elog.parse(log.read_text()))
+    assert errs == [], "\n".join(errs[:20])

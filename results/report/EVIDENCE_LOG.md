@@ -3399,21 +3399,6 @@ that adds it does not exist when it is written.
 - status: current
 
 ### E-2026-11-03-35 · The exposure readout's declared lag rule gave L = 0, and the team lead made MUNI its headline, with TERM, CREDIT and LOANS indicative
-
-### E-2026-11-03-38 · Release: release-20261103-4 installed; the core armed at ×1.30 (spec v9) and C4 installed and armed on v4 after VM pre-arm reads
-- kind: release
-- era: ALPACA
-- date: 2026-11-03
-- figures:
-  - tag release-20261103-4 = 8ce0395 (release-check GO 12:21 ET) [V]
-  - replay: 69 runs, 0 refused now [V]
-  - C4 pre-arm (VM probe): positions 0, open orders 0, equity $100,000.00, 0 closed orders in the account's history, opening_session True under own_prefix; cap re-check G_stress 1.900638 → 1.90 [V]
-  - C4 seed sha256 3fb68e38… / c7073db8…, the same on laptop and VM; treated_closes = IGR's four rebases [V]
-- source: `docs/JOURNAL.md` @ `0aaaa1f`
-- supports: §1, §4
-- status: superseded the same evening by E-2026-11-03-40 (release-20261103-5)
-
-### E-2026-11-03-39 · Ruling: C4 v5's gross cap stays 1.90 over the frozen rule's 1.80 (the blend's w5 0.0536 against the z book's 0.0261)
 - kind: ruling
 - era: ALPACA
 - date: 2026-11-03
@@ -3445,10 +3430,29 @@ that adds it does not exist when it is written.
   - none (a ruling: "Ruled: accept it and label it." Today's skip-and-send stays on reduced and full sessions alike; the owning session's preference, refusing the whole reduced send, was not chosen; team lead, 2026-11-03)
 - source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ac15d09`
 - supports: §5
+- status: current
 
-  - blend w5 0.0536 (total return), 0.0560 (price only); z book 0.0261; the rule gives 1.80 / 1.75 / 1.90 [S: release-check of e41f10b, measured two ways]
+### E-2026-11-03-38 · Release: release-20261103-4 installed; the core armed at ×1.30 (spec v9) and C4 installed and armed on v4 after VM pre-arm reads
+- kind: release
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - tag release-20261103-4 = 8ce0395 (release-check GO 12:21 ET) [V]
+  - replay: 69 runs, 0 refused now [V]
+  - C4 pre-arm (VM probe): positions 0, open orders 0, equity $100,000.00, 0 closed orders in the account's history, opening_session True under own_prefix; cap re-check G_stress 1.900638 → 1.90 [V]
+  - C4 seed sha256 3fb68e38… / c7073db8…, the same on laptop and VM; treated_closes = IGR's four rebases [V]
+- source: `docs/JOURNAL.md` @ `0aaaa1f`
+- supports: §1, §4
+- status: superseded the same evening by E-2026-11-03-40 (release-20261103-5)
+
+### E-2026-11-03-39 · Ruling: C4 v5's gross cap stays 1.90 over the frozen rule's 1.80 (the blend's w5 0.0536 against the z book's 0.0261)
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - blend w5 0.0536 (total return), 0.0560 (price only); z book 0.0261; the rule gives 1.80 / 1.75 / 1.90 (release-check of e41f10b, measured two ways) [S]
   - a 2020-03-12..18 week held at 1.90×: blend about −10.2% of NLV, z book about −4.6% [S]
-- source: `docs/SYSTEM.md` §5 "C4 v5's gross cap" (PR #48); the release-check of e41f10b (workflow run wf_266f659d-5f8)
+- source: `docs/SYSTEM.md` @ `b95296d` (§5 "Team lead, 2026-11-03 — C4 v5's gross cap"; the release-check of e41f10b, workflow run wf_266f659d-5f8)
 - supports: §1, §5
 - status: current. An override of the rule, made with these figures in front of the team lead ("Keep 1.90, install tonight"). The arming gate's `recap` still read the z book's w5 at install, and is to be fixed
 
@@ -3465,25 +3469,38 @@ that adds it does not exist when it is written.
 - status: current
 
 ### E-2026-11-03-41 · Finding: the drawdown read is UNMEASURED at every 22:00 decide, because the EOD row for the as-of date is never written yet
-- kind: finding
+- kind: result
 - era: ALPACA
 - date: 2026-11-03
 - figures:
-  - 4 of 4 core decides that carry the field (as-of 10-28, 10-29, 10-30, 11-02): UNMEASURED, each because eod_equity.csv's newest row is D−1 [V: prod plan.json records, read 2026-11-03]
+  - 4 of 4 core decides that carry the field (as-of 10-28, 10-29, 10-30, 11-02): UNMEASURED, each because eod_equity.csv's newest row is D−1 (prod plan.json records, read 2026-11-03) [V]
   - the missing-NAV field: present in 3 decides, 0 holds (n too small) [V]
-- source: the VM's `quantt_state/cef/<date>/plan.json` (not tracked; read over ssh, read-only)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `37806f7` (the K0 ruling that answers this finding); the VM's `quantt_state/cef/<date>/plan.json` records, read over ssh, read-only, not tracked
 - supports: §5
 - status: open. HALVE/KILL in `on` mode would refuse every decide, and te4's K0 would flatten every reduced session, until the read rule is ruled on
 
-### E-2026-11-03-43 · The first plans at release-20261103-5: the core's first ×1.30 and C4's first armed plan on the v5 blend (session 2026-11-04)
-- kind: live-plan
+### E-2026-11-03-42 · Ruling: te4's K0 reads the previous session's EOD row, answering E-2026-11-03-41 (the 22:00 decide never has the day's row); the missing-NAV hold frequency stays unmeasured
+- kind: ruling
 - era: ALPACA
 - date: 2026-11-03
 - figures:
-  - core `cef_discount.v9.20261102`, smult 1.30: decided, no refusals; 11 orders (buy $14,313, sell $36,892); gross 1.025× → 1.797× NAV against the 1.80 cap (binding: gmax 1.80×0.9237); net −0.010×; pre-flight ok, stressed equity $98,431.87 (shock $1,529.38, 2026-03-20); gate 8 bp_scale 1.0, not binding; missing NAV none; 3 unresolved corporate-action rows BLOCKING in report mode, so nothing refused [V: the VM's quantt_state/cef/2026-11-04/plan.json]
-  - C4 `c4_families.v5.20261103`, smult 1.26: decided, no refusals; 15 orders (buy $63,363, sell $63,331); gross 0 → 1.267× NAV against the 1.90 cap; net 0.000×; all 74 targets tagged `level z_share=0.5000`; opening_session True, first_session CLEAR (0 foreign fills, 0 positions); missing NAV none; borrow: 7 names not shortable (DNP, HGLB, NFJ, PFO, RFI, RNP, SCD), none of them among the plan's shorts [V: quantt_state/c4/2026-11-04/plan.json and data/2026-11-03/report.json]
+  - The drawdown field exists in 4 decides (as-of 10-28, 10-29, 10-30, 11-02). All 4 read UNMEASURED for the same reason: "eod_equity.csv's newest row on or before the as-of is D−1, not the as-of D" [S]
+  - "Ruled: K0 reads D−1's row, labelled one session stale." If that row is older than D−1, missing or bad, K0 reads UNMEASURED and the session flattens (team lead, 2026-11-03) [S]
+  - §6.3's bootstrap modelled K0 acting from the second session after the crossing; under D−1 it acts from the third, so §6.3's K0 figures are slightly optimistic [U]
+  - The `missing_nav` field exists in 3 decides, none with a hold; the hold frequency stays UNMEASURED [S]
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `e45e852`
+- supports: §5
+- status: current (answers E-2026-11-03-41, the owning session's finding; covers te4's K0 only)
+
+### E-2026-11-03-43 · The first plans at release-20261103-5: the core's first ×1.30 and C4's first armed plan on the v5 blend (session 2026-11-04)
+- kind: result
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - core `cef_discount.v9.20261102`, smult 1.30: decided, no refusals; 11 orders (buy $14,313, sell $36,892); gross 1.025× → 1.797× NAV against the 1.80 cap (binding: gmax 1.80×0.9237); net −0.010×; pre-flight ok, stressed equity $98,431.87 (shock $1,529.38, 2026-03-20); gate 8 bp_scale 1.0, not binding; missing NAV none; 3 unresolved corporate-action rows BLOCKING in report mode, so nothing refused (the VM's quantt_state/cef/2026-11-04/plan.json) [V]
+  - C4 `c4_families.v5.20261103`, smult 1.26: decided, no refusals; 15 orders (buy $63,363, sell $63,331); gross 0 → 1.267× NAV against the 1.90 cap; net 0.000×; all 74 targets tagged `level z_share=0.5000`; opening_session True, first_session CLEAR (0 foreign fills, 0 positions); missing NAV none; borrow: 7 names not shortable (DNP, HGLB, NFJ, PFO, RFI, RNP, SCD), none of them among the plan's shorts (quantt_state/c4/2026-11-04/plan.json and data/2026-11-03/report.json) [V]
   - C4's first fetch: `fetch_daily` exit 0, prices 402,947 rows and NAV 326,846 rows to 2026-11-03; 12 NAV-repeat flags masked by C4's M1; VM memory 292 MB used of 950 with both books [V]
-- source: the VM's plan.json and collect report (not tracked; read over ssh, read-only)
+- source: `docs/JOURNAL.md` @ `f296969` (2026-11-03, 22:17–23:50 ET); the VM's plan.json and collect report, read-only, not tracked
 - supports: §1, §4
 - status: the core's plan stands; C4's is withheld (E-2026-11-03-44)
 
@@ -3492,10 +3509,10 @@ that adds it does not exist when it is written.
 - era: ALPACA
 - date: 2026-11-03
 - figures:
-  - IGR closes for 2026-05-04..2026-09-04 replaced at a constant ×3.0 against the seed (83 rows); NAVs unchanged; IGR's discount reads about +200% (05-04: close 14.04 vs NAV 4.64; seed close 4.68) instead of about +1.5% [V: the VM's data/cef_c4 against ~/c4_seed]
+  - IGR closes for 2026-05-04..2026-09-04 replaced at a constant ×3.0 against the seed (83 rows); NAVs unchanged; IGR's discount reads about +200% (05-04: close 14.04 vs NAV 4.64; seed close 4.68) instead of about +1.5% (the VM's data/cef_c4 against ~/c4_seed) [V]
   - the 2026-11-04 plan bought 520 IGR (about $5,876, 5.9% of NAV) on z=−0.79, mostly the artifact; the other 14 orders were clean (no other price row moved beyond 0.5%; one SCD NAV row 0.7%) [V]
   - checklist step 5 (a step, not a spike, means STOP): the team lead ruled "Hold C4 one day, fix IGR". `ops/HALT_c4.md` was written in the prod clone at 23:47 ET; the runner's `halts_for` reads it for c4 and nothing for cef [V]
-- source: `docs/JOURNAL.md` (this PR); `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` step 5
+- source: `docs/JOURNAL.md` @ `f296969` (2026-11-03, 22:17–23:50 ET); `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md` @ `f296969` step 5
 - supports: §4, §5
 - status: open. The fix makes C4's fetch keep one price basis with its NAVs, plus a fetch-time step guard, then a release; the halt is cleared after a clean decide
 
@@ -3515,18 +3532,15 @@ that adds it does not exist when it is written.
 - supports: §4
 - status: current
 
-### E-2026-11-03-42 · Ruling: te4's K0 reads the previous session's EOD row, answering E-2026-11-03-41 (the 22:00 decide never has the day's row); the missing-NAV hold frequency stays unmeasured
-- kind: ruling
+### E-2026-11-04-10 · Correction: a merge interleaved E-2026-11-03-35..39, and E-39/41/43/44 failed the log's format; restored from the clean commits, no figure changed
+- kind: correction
 - era: ALPACA
-- date: 2026-11-03
+- date: 2026-11-04
 - figures:
-  - The drawdown field exists in 4 decides (as-of 10-28, 10-29, 10-30, 11-02). All 4 read UNMEASURED for the same reason: "eod_equity.csv's newest row on or before the as-of is D−1, not the as-of D" [S]
-  - "Ruled: K0 reads D−1's row, labelled one session stale." If that row is older than D−1, missing or bad, K0 reads UNMEASURED and the session flattens (team lead, 2026-11-03) [S]
-  - §6.3's bootstrap modelled K0 acting from the second session after the crossing; under D−1 it acts from the third, so §6.3's K0 figures are slightly optimistic [U]
-  - The `missing_nav` field exists in 3 decides, none with a hold; the hold frequency stays UNMEASURED [S]
-- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `e45e852`
+  - none (a structural repair: the merge of #49 into #50's branch, b66179f, joined conflict hunks so that E-2026-11-03-35..39 each carried another entry's body, and E-37 had two source blocks; `scripts/report/evidence_log.validate` found 12 problems on main f296969, and CI does not run it)
+- source: `results/report/EVIDENCE_LOG.md` @ `f296969` (corrupted); restored from `results/report/EVIDENCE_LOG.md` @ `37806f7` for E-35..37 and E-42 (main before #50 merged, the merge's first parent), @ `fde513b` for E-38..41 and E-2026-11-03-90, and @ `699a15b` for E-43..44
 - supports: §5
-- status: current (answers E-2026-11-03-41, the owning session's finding; covers te4's K0 only)
+- status: current. Each header has its own body again, with the text as first written. E-39, -41, -43 and -44 have their format fixed: kind `finding`/`live-plan` became `result`, the provenance tags moved to the end of each figure, and sources now cite `path` @ `commit`. No figure changed. Found by 2027-ae
 
 ### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
 - kind: method
