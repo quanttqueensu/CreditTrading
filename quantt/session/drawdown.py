@@ -24,8 +24,11 @@ STATUS RESTRICTS ON IT, and only while the core spec sets `below_min_names =
 "trade_eligible"` (CEF trial 55, paper only; added 2026-11-03): run.py's K0
 (`_thin_k0_stop`) lets the sleeve build a reduced 4-5 name book only when the
 status is exactly OK, and on HALVE, KILL, UNMEASURED or anything else passes the
-stop that takes today's flatten instead. Its one action is today's rule: it never
-sizes up and never unlocks a send (the owner's term, pinned by
+stop that takes today's flatten instead. K0 reads its OWN record of this check,
+through the previous session's row (READ THROUGH, below; team lead's ruling
+2026-11-03), not the `drawdown` record above, which is unchanged. Its one action
+is today's rule: it never sizes up and never unlocks a send (the owner's term,
+pinned by
 quantt/session/tests/test_trade_eligible_runner.py, "no drawdown status can
 increase gross"). With that key absent nothing reads the status, and the
 orders, the plan_sha and plan.json are a check-off session's, byte for byte,
@@ -73,8 +76,30 @@ on D+1) may use the EOD equity of D and earlier, never later. Rows dated after D
 are dropped before anything is computed, and that is asserted. The newest row
 must BE D. A series that ends before D is UNMEASURED and says so; the stale
 figures are still recorded, labelled with their own date. Whether the EOD row
-for D exists by the 22:00 ET evening decide is not established [U]: report mode
-measures it.
+for D exists by the 22:00 ET evening decide was open when this was built; report
+mode measured it, and it does not: prod's 4 of 4 decides that carry the field
+(as-of 10-28, 10-29, 10-30, 11-02) read UNMEASURED because eod_equity.csv's
+newest row was D-1 (E-2026-11-03-41, the owner's finding, from prod's plan.json
+records [S: not in this repository]). This default reading is unchanged by that
+finding: what HALVE/KILL and any `on` mode read is the owning session's to rule.
+
+READ THROUGH AN EARLIER SESSION (`check(..., read_through=d)`; CEF trial 55's K0
+only, team lead's ruling 2026-11-03, E-2026-11-03-42). At 22:00 the EOD row for
+the as-of D never exists yet (above), so a stop that needs an exact OK at the
+evening decide would never pass: te4's K0 would flatten every reduced session and
+the trial would never trade. The ruling: K0 reads the previous session's row,
+labelled one session stale. With `read_through` set, the check is the same check
+on the rows dated on or before `read_through`: the high-water mark over them, the
+drawdown of the newest of them, the same status. The newest such row must BE
+`read_through`; an older one, a missing or bad file, is UNMEASURED, exactly as an
+as-of reading that ends early is. The reading carries `stale` = {row_date,
+sessions}, its staleness in NYSE sessions after its row up to the as-of
+(ops/schedule/nyse_calendar.py, the runner's own calendar; 1 when `read_through`
+is the session before the as-of), and the record names `read_through`. No
+lookahead: `read_through` after the as-of raises. Its cost, accepted by the
+ruling: a loss on D is seen only at the next evening's decide. `read_through`
+None (the default) is the reading above, byte for byte; only run.py's K0
+(`_thin_k0_drawdown`) passes it, and HALVE/KILL's own record is unchanged.
 The record also gives the worst drawdown in the series and the first date each
 line was crossed. A STICKY `on` (below) would still be holding a line crossed
 earlier, even after the book recovered above it.
@@ -294,31 +319,67 @@ def _snapshot(state_dir: Path, asof: dt.date, lv: dict | None) -> dict:
     return out
 
 
-def check(state_dir: Path, spec: dict, asof: dt.date, mode: str) -> dict:
+def sessions_after(row_date: dt.date, asof: dt.date) -> int:
+    """The NYSE sessions s with row_date < s <= asof: a reading's staleness at the decide on
+    `asof` (module docstring, READ THROUGH). From ops/schedule/nyse_calendar.py, the calendar
+    run.py's `asof_for` reads (imported here, not at module level: standard library only
+    there), never a weekday count."""
+    from ops.schedule.nyse_calendar import is_trading_day, previous_trading_day
+    if row_date > asof:
+        raise ValueError(f"row {row_date} is after the as-of {asof}: lookahead")
+    n, d = 0, asof if is_trading_day(asof) else previous_trading_day(asof)
+    while d > row_date:
+        n, d = n + 1, previous_trading_day(d)
+    return n
+
+
+def check(state_dir: Path, spec: dict, asof: dt.date, mode: str,
+          read_through: dt.date | None = None) -> dict:
     """The drawdown record for the decide on `asof` (module docstring). Expected
     failures (no file, bad rows, bad levels, a series that ends before `asof`)
     give status UNMEASURED with `why`. Anything else is a bug and is raised; in
-    report mode run.py records it as UNMEASURED."""
+    report mode run.py records it as UNMEASURED.
+
+    `read_through` (module docstring, READ THROUGH; te4's K0 only): None reads
+    through `asof`, as always. A date on or before `asof` reads through it
+    instead: the status of the newest row on or before it, which must be that
+    date (else UNMEASURED), with the high-water mark over the rows on or before
+    it, the reading labelled `stale` and the record naming `read_through`. Why:
+    at the 22:00 decide the as-of's own EOD row never exists (E-2026-11-03-41)."""
     if mode not in MODES:
         raise ValueError(f"drawdown mode {mode!r} is not one of {MODES}")
+    if read_through is not None and read_through > asof:
+        raise ValueError(f"read_through {read_through} is after the as-of {asof}: lookahead")
     path = Path(state_dir) / OFFICIAL_FILE
     rec = {"mode": mode, "asof": asof, "series": OFFICIAL_LABEL, "file": str(path),
            "acted": False}       # report mode never acts on what it finds
+    if read_through is not None:
+        rec["read_through"] = read_through
+    upto = asof if read_through is None else read_through
     lv = None
     try:
         lv = levels(spec)
         rec["levels"] = lv
-        reading = measure(read_series(path, asof), lv)
+        reading = measure(read_series(path, upto), lv)   # NO LOOKAHEAD: rows <= upto <= asof
+        if read_through is not None:
+            reading["stale"] = {"row_date": reading["last_date"],
+                                "sessions": sessions_after(reading["last_date"], asof)}
         rec["reading"] = reading
-        if reading["last_date"] != asof:
+        if read_through is None and reading["last_date"] != asof:
             raise Unmeasured(f"{path.name}'s newest row on or before the as-of is "
                              f"{reading['last_date']}, not the as-of {asof}: the figures in "
                              f"`reading` are as of {reading['last_date']}")
+        if read_through is not None and reading["last_date"] != read_through:
+            raise Unmeasured(f"{path.name}'s newest row on or before the read-through date "
+                             f"{read_through} is {reading['last_date']}, not {read_through}: "
+                             f"the figures in `reading` are as of {reading['last_date']}, "
+                             f"{reading['stale']['sessions']} sessions before the as-of "
+                             f"{asof}")
         rec["status"] = reading["status"]
     except Unmeasured as e:
         rec["status"], rec["why"] = UNMEASURED, str(e)
     rec["would_on"] = WOULD_ON[rec["status"]]
-    rec["snapshot"] = _snapshot(state_dir, asof, lv)
+    rec["snapshot"] = _snapshot(state_dir, upto, lv)
     return rec
 
 
@@ -381,6 +442,18 @@ def lines(rec: dict) -> list[str]:
 # Called only while the core spec sets `below_min_names = "trade_eligible"` (run.py
 # `_thin_stops`), so with the key absent nothing here runs and plan.json has no `thin_stops`.
 #
+# READ THROUGH THE PREVIOUS SESSION (team lead's ruling 2026-11-03, E-2026-11-03-42). At the
+# 22:00 decide the as-of's own EOD row never exists (E-2026-11-03-41), so K0 reads its status
+# through the previous session's row, labelled one session stale (`check`'s `read_through`).
+# The K1-K3 lines read eod_equity too, and as first built read the as-of's row, so every one
+# of them would read UNMEASURED at 22:00 (the quant review). They are report only; they get
+# the same read-through and the same label (`thin_stop_record`'s `read_through`, which run.py
+# passes): K1 counts an earning day once its row is on or before the read-through date (the
+# as-of's own earning day is counted at the next decide), and K2 and K3 divide the as-of
+# close's positions by the read-through date's equity, one session stale (they are off by the
+# ratio of the two equities, one session's return; labelled, never mixed with a fresh one).
+# `read_through` None is the as-of reading, as first built.
+#
 # Every input is passed in (the records, the series, the positions, the thresholds), so the
 # function is tested on synthetic records; run.py does the reading.
 #
@@ -401,12 +474,14 @@ def lines(rec: dict) -> list[str]:
 #                     decide while the newest is fewer than THIN_EPISODE_GAP sessions back.
 #   earning day       for a reduced decision whose session is s (filled at s's late window), the
 #                     next session e; its return is eod_equity(e) / eod_equity(s) - 1, counted
-#                     only once e is on or before the as-of date (no lookahead).
+#                     only once e is on or before the as-of date (no lookahead), or the
+#                     read-through date when one is given.
 #   K1                the maximum drawdown of the episode's earning-day returns compounded end
 #                     to end from 1.0 at the episode's start; TRIPPED at or above the line.
 #   K2, K3            at this decide, if the previous session's decision was reduced: the
 #                     account's positions (after that session's fills) at the as-of closes,
-#                     over eod_equity(as-of). K2 the largest |name|, K3 |long - short|. TRIPPED
+#                     over eod_equity(as-of), or eod_equity(read-through date) when one is
+#                     given (labelled). K2 the largest |name|, K3 |long - short|. TRIPPED
 #                     above the line. K3's run counts reduced closes IN SEQUENCE (compose.py's
 #                     `runs_above` over reduced decisions; a full session between them does not
 #                     break it), read back from earlier plans' `thin_stops.K3.net` within the
@@ -576,30 +651,56 @@ def _verdict(stat, line, above_or_at: bool) -> str:
 
 def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previous_session,
                      read_day, series, positions: dict, closes: dict,
-                     thresholds: dict) -> dict:
+                     thresholds: dict, read_through=None) -> dict:
     """The K0-K3 report lines for the decide on `asof` for `session_date` (block comment above).
 
-    `drawdown` is this decide's drawdown record (`check`); `current` its `thin_session`;
-    `previous_session(d)` the NYSE session before d; `read_day(d)` -> {"plan": dict | None,
-    "send": dict | None, "started": bool} for the session d (it may raise); `series` the
-    eod_equity rows [(date, equity)] on or before `asof`, or a string saying why there are
-    none; `positions`
+    `drawdown` is K0's drawdown record (`check`; run.py passes K0's own, read through the
+    previous session); `current` this decide's `thin_session`; `previous_session(d)` the NYSE
+    session before d; `read_day(d)` -> {"plan": dict | None, "send": dict | None, "started":
+    bool} for the session d (it may raise); `series` the eod_equity rows [(date, equity)] on
+    or before `asof` (or `read_through`), or a string saying why there are none; `positions`
     {symbol: signed shares} now; `closes` {symbol: as-of close}; `thresholds` the four
-    `risk.thin_*` values (None where absent: that line reads UNMEASURED). Pure: reads nothing
-    but what it is given."""
+    `risk.thin_*` values (None where absent: that line reads UNMEASURED); `read_through` None
+    (K1-K3 read eod_equity through the as-of) or a session on or before it (they read through
+    that session, labelled with its staleness: block comment, READ THROUGH THE PREVIOUS
+    SESSION). Pure: reads nothing but what it is given."""
+    upto = asof if read_through is None else read_through
     eq = dict(series) if isinstance(series, list) else None
     eq_why = None if eq is not None else f"no equity series: {series}"
-    assert eq is None or all(d <= asof for d in eq), "lookahead: an equity row after the as-of"
+    if read_through is None:
+        assert eq is None or all(d <= asof for d in eq), "lookahead: an equity row after the as-of"
+    else:
+        # NO LOOKAHEAD: the read-through date is on or before the as-of, and no row after it
+        # is read (run.py reads the series through it).
+        if read_through > asof:
+            raise ValueError(f"read_through {read_through} is after the as-of {asof}: lookahead")
+        assert eq is None or all(d <= read_through for d in eq), (
+            "lookahead: an equity row after the read-through date")
     th = dict(thresholds)
     w = _walk(session_date, previous_session, read_day)
     rec = {"report_only": True, "asof": asof, "session_date": session_date,
            "episode": {"status": w["status"], "why": w["why"], "scanned": w["scanned"],
                        "reduced_sessions": sorted(w["reduced"]),
                        "this_decide_reduced": current.get("reduced") is True}}
-    # ---- K0: the account, read at this decide
+    if read_through is not None:
+        n, d = 0, asof
+        while d > read_through:
+            d, n = previous_session(d), n + 1
+        if d != read_through:
+            raise ValueError(f"read_through {read_through} is not a session before the as-of "
+                             f"{asof} (the walk back reached {d})")
+        rec["read_through"] = {"date": read_through, "sessions_stale": n,
+                               "label": (f"eod_equity read through {read_through}, {n} "
+                                         f"session(s) before the as-of {asof}: at the 22:00 "
+                                         f"decide the as-of's row is not there yet (team "
+                                         f"lead's ruling 2026-11-03)")}
+    # ---- K0: the account, read at this decide (K0's own reading: its record says through when)
     status = drawdown.get("status")
     k0 = {"status": status, "asof": drawdown.get("asof"),
           "acted": current.get("stopped_by") == "K0"}
+    if "read_through" in drawdown:
+        k0["read_through"] = drawdown["read_through"]
+        k0["stale"] = (drawdown.get("reading") or {}).get("stale")
     if status in (HALVE, KILL):
         k0["verdict"] = {"OPEN": KILLED, "NONE": CLEAR}.get(w["status"], UNMEASURED)
     else:
@@ -617,12 +718,15 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
         k1.update(verdict=NOT_APPLICABLE, why="no open episode")
     else:
         sessions = [x[0] for x in w["days"]]          # newest first
-        rets, missing = [], None
+        rets, missing, unread = [], None, []
         for s in sorted(w["reduced"]):
             i = sessions.index(s)
             e = session_date if i == 0 else sessions[i - 1]
             if e > asof:
                 continue                              # not yet earned
+            if e > upto:
+                unread.append(e)                      # earned, its row after the read-through
+                continue
             if eq is None:
                 missing = eq_why
             elif s not in eq or e not in eq:
@@ -640,6 +744,8 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
                 worst = max(worst, 1.0 - path / peak)
             k1.update(earning_days=len(rets), drawdown=round(worst, 8),
                       verdict=_verdict(worst, line, True))
+        if read_through is not None:
+            k1.update(read_through=read_through, earned_not_yet_read=unread)
     rec["K1"] = k1
     # ---- K2, K3: the previous session's close, after a reduced decision
     prev = w["days"][0] if w["days"] and w["days"][0][0] == asof else None
@@ -660,14 +766,17 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     else:
         held = {s: q for s, q in positions.items() if q}
         nocl = sorted(s for s in held if not isinstance(closes.get(s), (int, float)))
-        why = (eq_why if eq is None else f"no eod_equity row for {asof}" if asof not in eq
+        if read_through is not None:          # the equity is the read-through date's, labelled
+            for k in (k2, k3):
+                k["equity_date"] = upto
+        why = (eq_why if eq is None else f"no eod_equity row for {upto}" if upto not in eq
                else f"no as-of close for {nocl}" if nocl else None)
         if why is not None:
             for k in (k2, k3):
                 k.update(verdict=UNMEASURED, why=why)
         else:
             mv = {s: q * float(closes[s]) for s, q in held.items()}
-            e = eq[asof]
+            e = eq[upto]
             k2_stat = max((abs(v) for v in mv.values()), default=0.0) / e
             net = abs(sum(mv.values())) / e
             k2.update(stat=round(k2_stat, 8), verdict=_verdict(k2_stat, k2["line"], False))
@@ -758,11 +867,18 @@ def thin_stop_lines(rec: dict) -> list[str]:
     if "unmeasured" in rec:
         return [f"{head}: UNMEASURED: {rec['unmeasured']}"]
     ep = rec["episode"]
+    rt = rec.get("read_through")
     out = [f"{head}: episode {ep['status']}"
            + (f" (reduced sessions {ep['reduced_sessions']})" if ep["reduced_sessions"] else "")
-           + (f"; {ep['why']}" if ep["status"] == UNMEASURED else "")]
+           + (f"; {ep['why']}" if ep["status"] == UNMEASURED else "")
+           + (f"; K1-K3 {rt['label']}" if rt else "")]
     k0 = rec["K0"]
-    out.append(f"    K0 {k0['verdict']}: drawdown status {k0['status']} (as-of {k0['asof']})"
+    st = k0.get("stale") or {}
+    through = (f", read through {k0['read_through']}"
+               + (f", {st['sessions']} session(s) stale" if "sessions" in st else "")
+               if "read_through" in k0 else "")
+    out.append(f"    K0 {k0['verdict']}: drawdown status {k0['status']} (as-of {k0['asof']}"
+               f"{through})"
                + ("; it stopped this session's reduced build" if k0["acted"] else ""))
     for name in ("K1", "K2", "K3"):
         k = rec[name]

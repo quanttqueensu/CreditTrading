@@ -47,8 +47,10 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                         high-water mark of <state>/eod_equity.csv against the frozen
                         spec's risk.halve_drawdown / risk.kill_drawdown, recorded in
                         plan.json and the log. "As built (2026-10-19)" below. Under
-                        CEF trial 55's key (dark) K0 reads it: only OK lets a reduced
-                        book be built. "As built (2026-11-03)".
+                        CEF trial 55's key (dark) K0 makes its own reading of the same
+                        check through the session before the as-of (the team lead's
+                        ruling of 2026-11-03): only OK lets a reduced book be built.
+                        "As built (2026-11-03)".
           3. decide     sleeve.target_positions(asof=<prev trading day>, MarketState(
                           holdings=<Alpaca positions>, extras={"sleeve_nav": <equity>,
                           "opening_session": <bool>}))
@@ -80,7 +82,7 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
 | `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) equal to the previous NAV or to CEFConnect's NAV(D-1), reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, defers or holds the unverified, records every check. | Transmits. Decides a target. |
-| `quantt/session/drawdown.py` | The drawdown check (step 2b): reads `<state>/eod_equity.csv` by header, the frozen spec's two drawdown lines (units-checked), and records the status and what an acting mode would do. Also CEF trial 55's K0-K3 report lines (`thin_stop_record`). Its status is read by run.py's K0 under that trial's key, which only restricts. | Transmits. Changes an order. Falls back to `equity.csv`. |
+| `quantt/session/drawdown.py` | The drawdown check (step 2b): reads `<state>/eod_equity.csv` by header, the frozen spec's two drawdown lines (units-checked), and records the status and what an acting mode would do. Also CEF trial 55's K0-K3 report lines (`thin_stop_record`). Under that trial's key run.py's K0 makes its own reading of the check, through the session before the as-of (`read_through`; the team lead's ruling of 2026-11-03), and it only restricts. | Transmits. Changes an order. Falls back to `equity.csv`. |
 | `quantt/session/combine.py` | The multi-sleeve combiner (2026-10-28, **dark**): reads the book json's `sleeves[]`; for a book whose enabled sleeves all carry `risk_budget`, builds each from its own spec on its own sleeve_nav, nets the whole-share targets per symbol into one `decide`, and records the per-sleeve attribution. Absent a budget, `None`: the single-spec session, byte-identical to de6e9c5 (proved by test). | Transmits. Splits a held position between sleeves. |
 | `quantt/session/corp_actions.py` | The corporate-action gate (step 3b): dates each held name's shares from the account's closed orders, draws each name's window, keeps the actions that block, and writes the record and the refusal's sentence. Pure apart from the read it is handed. | Transmits. Changes an order. Reads an absent or failed feed as clear. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
@@ -247,10 +249,28 @@ a reason string (`_thin_record`). It refuses a mixed answer, a floor or `min_nam
 the spec's, a build under a stop, and a stop it did not pass.
 
 **K0: the first acting reader of the drawdown status, and it only restricts** (§1.3 item 5,
-§6.3; the owner's term 3). The decide's drawdown record (step 2b) is read before the sleeve
-runs. Only an exact `OK` lets a reduced book be built. HALVE, KILL or UNMEASURED (no or stale
-`eod_equity.csv`, bad levels, a check that raised), or any other status, becomes the stop
-`{"by": "K0"}`. The sleeve then takes today's flatten, with the reason in every target. A missing
+§6.3; the owner's term 3). K0's drawdown record is read before the sleeve runs. Only an exact
+`OK` lets a reduced book be built. HALVE, KILL or UNMEASURED (no `eod_equity.csv`, a newest row
+older than the read-through date, bad levels, a check that raised), or any other status,
+becomes the stop `{"by": "K0"}`.
+
+**K0 reads through the session before the as-of** (team lead's ruling, 2026-11-03, recorded in
+the pre-registration's "Approval" section and in E-2026-11-03-42). At prod's 22:00 decide the
+EOD row for the as-of D is never there yet: 4 of 4 core decides that carry the drawdown field
+read UNMEASURED because `eod_equity.csv`'s newest row was D−1 (E-2026-11-03-41, the owner's
+finding, from prod's plan.json records [S]). K0 as first built read step 2b's record, so it
+would have flattened every reduced session and the trial would never trade. K0 now makes its
+own reading (`run._thin_k0_drawdown`): `drawdown.check(..., read_through=<the session before
+the as-of>)`, the date from `asof_for` (nyse_calendar and Alpaca's calendar, which must agree;
+never a weekday guess). That is the same check through the newest row on or before D−1, with
+the high-water mark over the rows on or before it. The newest such row must be D−1: an older
+one, a missing or bad file reads UNMEASURED and the session flattens. The record carries
+`read_through` and the reading's `stale` = {`row_date`, `sessions`} (1 at the evening decide),
+and is stored whole in `thin_session.k0.drawdown`. At the morning backstop, when D's row is
+there, K0 still reads D−1's: the ruling's rule, not the freshest row. Its cost, accepted by the
+ruling: a loss on D is seen only at the next evening's decide, so one more reduced build can go
+out after a session that crossed HALVE. **Step 2b's own record (HALVE/KILL's report) is
+unchanged** (`read_through` None is today's check, byte for byte) and K0 does not read it. The sleeve then takes today's flatten, with the reason in every target. A missing
 record raises. K0 has one action, today's rule: it never sizes up and never unlocks a send. The
 gross pin in `quantt/session/tests/test_trade_eligible_runner.py` proves it. The projected
 gross after the plan under any status is at most the gross under OK, and equals the key-absent
@@ -284,17 +304,22 @@ send record) reads UNMEASURED.
 - `thin_session`: `rule`, `floor`, `min_names`, `decided` (did the sleeve run), `eligible` (a
   count), `eligible_names`, `holds`, `reduced` (the trial's unit of evidence, §4.2),
   `stopped_by` (K0, gate7 or null, set only where a stop removed a build that would have run),
-  `k0` {`status`, `asof`, `stop`}, and `gate7` {`dropped`} when it fired.
+  `k0` {`status`, `asof`, `read_through`, `stale`, `stop`, `drawdown` (K0's whole record)},
+  and `gate7` {`dropped`} when it fired.
 - `thin_stops`: the K0-K3 report lines (`drawdown.thin_stop_record`), **report only**. An error
-  inside them is recorded as UNMEASURED, and the session goes on.
+  inside them is recorded as UNMEASURED, and the session goes on. **They read `eod_equity.csv`
+  through K0's read-through date too**, labelled (`thin_stops.read_through` = {`date`,
+  `sessions_stale`, `label`}): read through the as-of, every one of them would read UNMEASURED
+  at the 22:00 decide (the quant review). They are report only, so they take the same reading
+  and say so.
 
 | line | what it reads | its threshold |
 |---|---|---|
 | episode | reduced decisions (`thin_session.reduced` on a plan with no refusals, **whose targets were sent**, by the rule in the send-skip paragraph above; §4.2) fewer than 63 sessions apart, walked back through earlier plan.json, send.json and STARTED files. A decided reduced plan whose send did not go is not a reduced decision: it opens no episode, earns K1 nothing and is not a reduced close for K2 or K3 (corrected after the reviews of 7fcc2b7, whose first build counted it). A missing or unreadable record, or a send whose outcome cannot be established, reads UNMEASURED. A plan decided with the key absent ends the walk | — |
-| K0 | the drawdown status at this decide: KILLED if HALVE or KILL while an episode is open | `risk.halve_drawdown` / `kill_drawdown`, through the status |
-| K1 | the maximum drawdown of the episode's earning days, compounded: a decision for session s earns eod_equity(e) / eod_equity(s) − 1 on the next session e, counted once e is on or before the as-of | `risk.thin_k1_episode_drawdown` |
-| K2 | the largest \|position × as-of close\| / eod_equity, at the close after a reduced decision | `risk.thin_k2_max_name_frac` |
-| K3 | \|long − short\| / eod_equity at that close: above the run line on 3 reduced closes in sequence (within the open episode), or above the once line. The earlier closes are read back from earlier plans: the decide for session X records the close of the session before X, so the close before the as-of is in the as-of session's own plan (corrected after the reviews of 7fcc2b7, which found the first build counting one close too far back). An earlier K3 that is unmeasured, or that names another close, makes the run UNMEASURED, as does a run still open where the walk stopped at a record it could not read | `risk.thin_k3_net_run`, `risk.thin_k3_net_once` |
+| K0 | K0's drawdown status at this decide, read through the session before the as-of: KILLED if HALVE or KILL while an episode is open | `risk.halve_drawdown` / `kill_drawdown`, through the status |
+| K1 | the maximum drawdown of the episode's earning days, compounded: a decision for session s earns eod_equity(e) / eod_equity(s) − 1 on the next session e, counted once e's row is on or before the read-through date (the as-of's own earning day is listed as `earned_not_yet_read` and counted at the next decide) | `risk.thin_k1_episode_drawdown` |
+| K2 | the largest \|position × as-of close\| / eod_equity of the read-through date (`equity_date`; one session stale, so off by one session's return), at the close after a reduced decision | `risk.thin_k2_max_name_frac` |
+| K3 | \|long − short\| / eod_equity of the read-through date, at that close: above the run line on 3 reduced closes in sequence (within the open episode), or above the once line. The earlier closes are read back from earlier plans: the decide for session X records the close of the session before X, so the close before the as-of is in the as-of session's own plan (corrected after the reviews of 7fcc2b7, which found the first build counting one close too far back). An earlier K3 that is unmeasured, or that names another close, makes the run UNMEASURED, as does a run still open where the walk stopped at a record it could not read | `risk.thin_k3_net_run`, `risk.thin_k3_net_once` |
 | send_skip | the label above | — |
 
 A line whose threshold is absent reads UNMEASURED, never a default.
@@ -836,7 +861,12 @@ it sends already carries the record.
   date; drawdown = 1 − newest ÷ HWM. Rows after the as-of are never read
   (asserted). The newest row must be the as-of date. If it is not, the status is
   UNMEASURED, and the figures are recorded under their own date. Whether the EOD
-  row exists by the 22:00 ET evening decide is [U]; report mode measures it.
+  row exists by the 22:00 ET evening decide was [U] when this was built; report
+  mode measured it, and it does not: prod's 4 of 4 decides with the field read
+  UNMEASURED because the newest row was D−1 (E-2026-11-03-41 [S]). This record is
+  unchanged by that finding (what HALVE/KILL reads is the owning session's to
+  rule); CEF trial 55's K0 alone reads the check through D−1 (`read_through`,
+  "As built (2026-11-03)").
 - **Lines.** `risk.halve_drawdown` and `risk.kill_drawdown`, read from the spec
   that `run.load_spec` loaded, never a literal. Each must be a fraction in (0, 1),
   with halve below kill. A percent written where a fraction belongs is refused,

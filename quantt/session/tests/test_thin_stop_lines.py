@@ -18,6 +18,11 @@ decided reduced plan whose send did not go opens no episode, earns K1 nothing an
 reduced close; one whose send cannot be read leaves the episode UNMEASURED. Those tests fail
 on the F3 commit.
 
+K0 and the K1-K3 lines read eod_equity through the session before the as-of, labelled one
+session stale (team lead's ruling 2026-11-03: at the 22:00 decide the as-of's row is never
+there). `read_through` None is the as-of reading the earlier tests pin; the read-through tests
+fail on the F2 commit (a323971), which has no `read_through`.
+
 The send-skip label (review fix F3 after 7fcc2b7) reads whether the send went (`_send_state`:
 plan.json's orders and plan_sha, send.json's exit and plan_sha, <D>/STARTED). The prior
 plans and send records here therefore carry the fields run.py writes (`plan`, `send`,
@@ -96,12 +101,12 @@ def reader(days: dict, default="plain"):
 
 
 def record(days=None, *, default="plain", dd=None, current=None, series=None, positions=None,
-           closes=None, lines=None):
+           closes=None, lines=None, **kw):
     return ddm.thin_stop_record(
         asof=ASOF, session_date=SESSION, drawdown=dd or OK, current=current or {"reduced": False},
         previous_session=prev, read_day=reader(days or {}, default),
         series=series if series is not None else [(ASOF, 100_000.0)],
-        positions=positions or {}, closes=closes or {}, thresholds=lines or LINES)
+        positions=positions or {}, closes=closes or {}, thresholds=lines or LINES, **kw)
 
 
 # --------------------------------------------------------------- the episode and K0
@@ -385,6 +390,60 @@ def test_k2_k3_unmeasured_without_equity_a_close_or_a_line_and_n_a_after_a_full_
     assert r["K2"]["stat"] == pytest.approx(10.0)
     r = record({back(1): {"plan": plan(False)}}, positions={"A": 1}, closes=PRICES)
     assert r["K2"]["verdict"] == r["K3"]["verdict"] == ddm.NOT_APPLICABLE
+
+
+# --------------------------------------------------------------- read through the previous session
+
+def test_k1_k3_read_through_the_previous_session_labelled_one_session_stale():
+    """The team lead's ruling (2026-11-03), applied to the report lines as to K0: at the 22:00
+    decide there is no eod_equity row for the as-of, so read through the as-of K1, K2 and K3
+    all read UNMEASURED. Read through the session before it (back(2)): K1 compounds the earning
+    days whose rows are there and lists the as-of's own as earned, not yet read; K2 and K3 divide
+    the as-of close's positions by back(2)'s equity, and say so. Fails on a323971, whose
+    `thin_stop_record` takes no `read_through`."""
+    below = {"net": 0.1, "verdict": ddm.CLEAR, "session": back(2).isoformat()}
+    days = {back(4): {"plan": plan(True)}, back(2): {"plan": plan(True)},
+            back(1): {"plan": plan(True, k3=below)}}
+    # Earning days: back(3) for back(4) (100 -> 95: read); the as-of for back(2) (earned, its
+    # row not there yet); this session for back(1) (not yet earned).
+    series = _series({4: 100.0, 3: 95.0, 2: 50_000.0})
+    pos = {"A": 4000, "B": -1000}                          # +40k, -20k on 50k: K2 0.8, K3 0.4
+    r = record(days, series=series, positions=pos, closes=PRICES, read_through=back(2))
+    assert r["read_through"]["date"] == back(2) and r["read_through"]["sessions_stale"] == 1
+    assert r["K1"]["earning_days"] == 1 and r["K1"]["drawdown"] == pytest.approx(0.05)
+    assert r["K1"]["read_through"] == back(2) and r["K1"]["earned_not_yet_read"] == [ASOF]
+    assert r["K2"]["stat"] == pytest.approx(0.8) and r["K2"]["equity_date"] == back(2)
+    assert r["K3"]["net"] == pytest.approx(0.4) and r["K3"]["equity_date"] == back(2)
+    assert r["K2"]["verdict"] == r["K3"]["verdict"] == ddm.CLEAR
+    text = "\n".join(ddm.thin_stop_lines(r))
+    assert f"read through {back(2)}, 1 session(s) before the as-of" in text
+    # The same series read through the as-of: no row for it, so K2 and K3 are UNMEASURED.
+    r = record(days, series=series, positions=pos, closes=PRICES)
+    assert r["K2"]["verdict"] == r["K3"]["verdict"] == ddm.UNMEASURED
+    assert f"no eod_equity row for {ASOF}" in r["K3"]["why"]
+
+
+def test_read_through_with_no_row_for_it_or_a_row_after_it():
+    days = {back(1): {"plan": plan(True)}}
+    r = record(days, series=[(back(3), 50_000.0)], positions={"A": 1}, closes=PRICES,
+               read_through=back(2))
+    assert r["K2"]["verdict"] == r["K3"]["verdict"] == ddm.UNMEASURED
+    assert f"no eod_equity row for {back(2)}" in r["K2"]["why"]
+    with pytest.raises(AssertionError, match="read-through"):    # no lookahead past it
+        record(days, series=[(back(2), 1.0), (ASOF, 1.0)], read_through=back(2))
+    with pytest.raises(ValueError, match="lookahead"):
+        record(days, read_through=SESSION)
+
+
+def test_k0s_line_names_the_row_it_read():
+    dd = {"status": "HALVE", "asof": ASOF, "read_through": back(2),
+          "reading": {"stale": {"row_date": back(2), "sessions": 1}}}
+    r = record({back(5): {"plan": plan(True)}}, dd=dd, series=[(back(2), 1.0)],
+               read_through=back(2))
+    assert r["K0"]["verdict"] == ddm.KILLED and r["K0"]["read_through"] == back(2)
+    assert r["K0"]["stale"] == {"row_date": back(2), "sessions": 1}
+    line = [x for x in ddm.thin_stop_lines(r) if "K0" in x][0]
+    assert f"read through {back(2)}, 1 session(s) stale" in line
 
 
 # --------------------------------------------------------------- the send-time skip label

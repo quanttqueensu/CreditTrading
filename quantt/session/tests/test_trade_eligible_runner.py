@@ -21,6 +21,15 @@ projected gross after the plan (sum over names of |target shares x as-of close|)
   * on a full session it is the key-absent session's under EVERY status, orders and targets
     included (K0 never touches a session the reduced build would not run on).
 
+K0 READS THROUGH THE PREVIOUS SESSION (team lead's ruling 2026-11-03, E-2026-11-03-42). At
+prod's 22:00 decide the as-of's own EOD row is never there yet (E-2026-11-03-41), so K0 reads
+its own drawdown record through the session before the as-of, labelled one session stale. The
+fixtures here (`K0_EOD`) are therefore what prod has at 22:00: no row dated the as-of
+2026-09-25, the newest dated 2026-09-24 at OK / HALVE / KILL, or 2026-09-23 ("stale": two
+sessions back, UNMEASURED), or no file. Every test that builds a reduced book at OK fails on
+the commit before the read-through (a323971), where K0 read the as-of's row, found none, read
+UNMEASURED and flattened; so do the K0 status assertions.
+
 Hermetic: test_run's FakeClient (with `trading_endpoint` set where the key needs it), fixed
 clocks, the refresh a fixture, no CEFConnect, netguard refuses any socket.
 """
@@ -41,6 +50,36 @@ from quantt.session.tests.test_run import BOOK
 
 LIVE = "https://api.alpaca.markets"           # Alpaca's live trading host: what must refuse
 STATUSES = ("ok", "halve", "kill", "stale", "absent")
+# K0's `<state>/eod_equity.csv` (module docstring): as at prod's 22:00 decide, no row for the
+# as-of 2026-09-25. On the high of 101,000 (2026-09-22): OK 0.40% below it, HALVE 13.86%, KILL
+# 20.79%, against the fixture spec's 12% / 18% lines; "stale" ends on 2026-09-23, two sessions
+# before the as-of (UNMEASURED); "absent" has no file (UNMEASURED). "morning" is the backstop
+# decide on the session day: the as-of's own row is there, at KILL, and K0 still reads the
+# row before it (OK).
+K0_EOD = {
+    "ok": N._EOD_HEAD + [("2026-09-24", 100600.0)],
+    "halve": N._EOD_HEAD + [("2026-09-24", 87000.0)],
+    "kill": N._EOD_HEAD + [("2026-09-24", 80000.0)],
+    "stale": list(N._EOD_HEAD),
+    "absent": None,
+    "morning": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", 80000.0)],
+}
+K0_STATUS = {"ok": "OK", "halve": "HALVE", "kill": "KILL", "stale": "UNMEASURED",
+             "absent": "UNMEASURED", "morning": "OK"}
+
+
+def write_k0_eod(state: Path, which: str) -> None:
+    """`<state>/eod_equity.csv` for K0_EOD[which], in the collector's shape (N.write_eod's);
+    nothing for "absent"."""
+    state.mkdir(parents=True, exist_ok=True)
+    rows = K0_EOD[which]
+    if rows is None:
+        return
+    lines, prev = ["date,equity,change_usd"], None
+    for d, e in rows:
+        lines.append(f"{d},{e},{'' if prev is None else round(e - prev, 2)}")
+        prev = e
+    (state / "eod_equity.csv").write_text("\n".join(lines) + "\n")
 
 
 def te4(spec: dict, floor: int = 4) -> dict:
@@ -74,7 +113,7 @@ def run(work: Path, spec, holdings: dict, eod: str, *, endpoint=alpaca.PAPER_BAS
     from ops.schedule.nyse_calendar import previous_trading_day
     from src.deploy.sleeves import cef_discount as cefmod
     state = work / "state"
-    N.write_eod(state, eod)
+    write_k0_eod(state, eod)
     if key is not None:
         prev = previous_trading_day(M.SESSION)
         M._write_priors(state, {prev: M._prior_plan(prev)})
@@ -139,7 +178,9 @@ def test_the_runner_declares_paper_and_passes_k0_to_the_sleeve(tmp_path, monkeyp
     assert ts["reduced"] is True and ts["stopped_by"] is None and ts["decided"] is True
     assert (ts["eligible"], ts["eligible_names"]) == (5, list(N.THIN_ELIGIBLE[:5]))
     assert (ts["rule"], ts["floor"], ts["min_names"]) == ("trade_eligible", 4, 6)
-    assert ts["k0"] == {"status": "OK", "asof": M.ASOF.isoformat(), "stop": None}
+    k0 = {k: v for k, v in ts["k0"].items() if k != "drawdown"}
+    assert k0 == {"status": "OK", "asof": M.ASOF.isoformat(), "read_through": "2026-09-24",
+                  "stale": {"row_date": "2026-09-24", "sessions": 1}, "stop": None}
 
 
 def test_a_non_paper_endpoint_refuses_before_any_sleeve_is_built(tmp_path, monkeypatch, books):
@@ -254,7 +295,7 @@ def test_k0_flattens_a_reduced_session_unless_the_drawdown_reads_ok(tmp_path, mo
         assert code == (rn.EXIT_PLANNED if book == "held" else rn.EXIT_NOTHING), (book, code)
         plan = M._plan(state)
         ts = plan["thin_session"]
-        assert ts["k0"]["status"] == N.EOD_STATUS[eod]
+        assert ts["k0"]["status"] == K0_STATUS[eod]
         assert ts["k0"]["stop"]["by"] == "K0"
         assert spy.calls == [{"account": "paper", "thin_rule": {"stop": ts["k0"]["stop"]}}]
         assert ts["stopped_by"] == "K0" and ts["reduced"] is False
@@ -274,6 +315,68 @@ def test_at_ok_the_reduced_book_is_built_on_both_sides(tmp_path, monkeypatch, bo
         assert plan["thin_session"]["reduced"] is True
         tg = {s: t["target"] for s, t in plan["targets"].items() if s in N.THIN_ELIGIBLE[:n]}
         assert any(v > 0 for v in tg.values()) and any(v < 0 for v in tg.values()), tg
+
+
+def test_k0_reads_the_previous_sessions_row_one_session_stale(tmp_path, monkeypatch, books):
+    """The team lead's ruling (2026-11-03): at the 22:00 decide there is no row for the as-of,
+    and K0 reads its status through the session before it, labelled one session stale, from
+    the runner's calendar (2026-09-24 before Friday 2026-09-25). At OK the reduced book is
+    built. HALVE/KILL's own record (step 2b, `plan["drawdown"]`) is unchanged: it reads the
+    as-of's row, finds none and says UNMEASURED, as on prod. Fails on a323971, where K0 read
+    that record and flattened."""
+    base, bk = books
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "ok")
+    assert code == rn.EXIT_PLANNED
+    plan = M._plan(state)
+    k0 = plan["thin_session"]["k0"]
+    assert k0["status"] == "OK" and k0["stop"] is None and plan["thin_session"]["reduced"]
+    assert k0["asof"] == "2026-09-25" and k0["read_through"] == "2026-09-24"
+    assert k0["stale"] == {"row_date": "2026-09-24", "sessions": 1}
+    assert k0["drawdown"]["reading"]["last_date"] == "2026-09-24"
+    assert plan["drawdown"]["status"] == "UNMEASURED"
+    assert "read_through" not in plan["drawdown"]
+    assert "2026-09-24, not the as-of 2026-09-25" in plan["drawdown"]["why"]
+    st = plan["thin_stops"]
+    assert st["K0"]["read_through"] == "2026-09-24" and st["K0"]["verdict"] == "CLEAR"
+    assert st["read_through"]["date"] == "2026-09-24"
+    assert st["read_through"]["sessions_stale"] == 1
+
+
+def test_at_the_morning_backstop_k0_still_reads_the_session_before_the_asof(
+        tmp_path, monkeypatch, books):
+    """The backstop decide on the session day: the as-of's own row is there (at KILL here), and
+    HALVE/KILL's record reads it. K0's rule is the previous session's row (the ruling), so it
+    reads 2026-09-24 (OK) and builds; the record says which row it read. Fails on a323971,
+    where K0 read the as-of's KILL and flattened."""
+    base, bk = books
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "morning")
+    assert code == rn.EXIT_PLANNED
+    plan = M._plan(state)
+    assert plan["drawdown"]["status"] == "KILL"
+    k0 = plan["thin_session"]["k0"]
+    assert k0["status"] == "OK" and k0["read_through"] == "2026-09-24"
+    assert plan["thin_session"]["reduced"] is True
+
+
+@pytest.mark.parametrize("eod", ["stale", "absent"])
+def test_k0_reads_unmeasured_on_an_older_row_or_no_file_and_flattens(tmp_path, monkeypatch,
+                                                                     books, eod):
+    """A newest row older than the session before the as-of (2026-09-23, two sessions stale),
+    or no eod_equity.csv: UNMEASURED, and the session flattens, naming why."""
+    base, bk = books
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], eod)
+    assert code == rn.EXIT_PLANNED
+    ts = M._plan(state)["thin_session"]
+    assert ts["k0"]["status"] == "UNMEASURED" and ts["stopped_by"] == "K0"
+    assert ts["k0"]["read_through"] == "2026-09-24"
+    if eod == "stale":
+        assert ts["k0"]["stale"] == {"row_date": "2026-09-23", "sessions": 2}
+        assert "read-through date 2026-09-24 is 2026-09-23" in ts["k0"]["stop"]["why"]
+    else:
+        assert ts["k0"]["stale"] is None and "no eod_equity.csv" in ts["k0"]["stop"]["why"]
 
 
 def test_below_the_floor_k0_records_no_stop_on_the_build(tmp_path, monkeypatch, books):

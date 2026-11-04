@@ -1543,12 +1543,20 @@ def _drawdown(deps, state: Path, spec: dict, asof: dt.date) -> tuple[dict, list]
 #     Today the client cannot be anything else (AlpacaClient refuses another
 #     endpoint), so the check exists for the day a live client is written.
 #   * K0 (§1.3 item 5, §6.3; the owner's term 3). A reduced book is built only
-#     when the decide's drawdown record reads exactly OK. HALVE, KILL,
-#     UNMEASURED, a stale series, a missing status: the stop goes to the sleeve
-#     and the session takes today's flatten path. This is the FIRST ACTING
-#     READER of quantt/session/drawdown.py's status, and it can only restrict:
-#     its one action is today's rule, so no status can size up or unlock a send
-#     (tests/test_trade_eligible_runner.py, the gross pin).
+#     when K0's drawdown record reads exactly OK. HALVE, KILL, UNMEASURED, a
+#     stale series, a missing status: the stop goes to the sleeve and the
+#     session takes today's flatten path. This is the FIRST ACTING READER of
+#     quantt/session/drawdown.py's status, and it can only restrict: its one
+#     action is today's rule, so no status can size up or unlock a send
+#     (tests/test_trade_eligible_runner.py, the gross pin). K0'S RECORD IS ITS
+#     OWN, READ THROUGH THE PREVIOUS SESSION (team lead's ruling 2026-11-03,
+#     E-2026-11-03-42; `_thin_k0_drawdown`): at the 22:00 decide the as-of's
+#     own EOD row never exists (E-2026-11-03-41: prod's 4 of 4 decides with the
+#     field read UNMEASURED for it), so K0 as first built would have flattened
+#     every reduced session. It reads `drawdown.check(..., read_through=<the
+#     NYSE session before the as-of>)`, labelled one session stale; an older
+#     row, a missing or bad file reads UNMEASURED and the session flattens.
+#     Step 2b's own record (HALVE/KILL's report) is unchanged and not read.
 #   * THE GATE-7 FLATTEN (§7.5, §10 Q7). A reduced decision that loses a
 #     short-opening order to gate 7 (decide's "not shortable today") is
 #     re-decided flat: a 4-5 name book without its short leg is not the book the
@@ -1622,14 +1630,33 @@ def thin_rule_for(spec: dict, deps) -> dict | None:
             "endpoint": endpoint}
 
 
+def _thin_k0_drawdown(deps, state: Path, spec: dict, asof: dt.date, cal: list) -> dict:
+    """K0's own drawdown record (team lead's ruling 2026-11-03, E-2026-11-03-42): the same
+    check as step 2b, read through the NYSE session before the as-of (`drawdown.check`'s
+    `read_through`; its module docstring, READ THROUGH). Why: at the 22:00 decide the EOD row
+    for the as-of never exists yet (E-2026-11-03-41), so an exact OK on the as-of's row never
+    comes and K0 would flatten every reduced session. The read-through date is `asof_for(asof,
+    cal)`: the session before the as-of from nyse_calendar AND Alpaca's calendar, the source
+    that gave this session its as-of, never a weekday guess (it raises if they differ).
+
+    An error anywhere, the dates included, is recorded as UNMEASURED with its type (as step
+    2b's report mode records its own), and K0 then stops the reduced build: an input K0
+    cannot read fails closed. HALVE/KILL's own record (step 2b) is not this, and unchanged."""
+    try:
+        return ddm.check(state, spec, asof, deps.drawdown, read_through=asof_for(asof, cal))
+    except Exception as e:  # recorded in thin_session.k0, and K0 stops on it: fails closed
+        return ddm.unmeasured_record(deps.drawdown, asof, f"{type(e).__name__}: {e}")
+
+
 def _thin_k0_stop(dd: dict | None) -> dict | None:
-    """K0 (pre-registration §6.3): None when the decide's drawdown record reads
-    exactly "OK", else the stop the sleeve takes ({"by": "K0", "why"}).
+    """K0 (pre-registration §6.3): None when K0's drawdown record (`_thin_k0_drawdown`, read
+    through the previous session) reads exactly "OK", else the stop the sleeve takes
+    ({"by": "K0", "why"}).
 
     Anything but an exact OK stops the reduced build: HALVE, KILL, UNMEASURED
-    (a missing or stale eod_equity.csv, bad levels, a check that raised in
-    report mode), and any other or missing status. A missing RECORD raises:
-    `thin_rule_for` refused a book without the check, so a missing record here
+    (a missing eod_equity.csv, a newest row older than the read-through date, bad
+    levels, a check that raised), and any other or missing status. A missing RECORD
+    raises: `thin_rule_for` refused a book without the check, so a missing record here
     is a runner bug, never "no stop"."""
     if not isinstance(dd, dict):
         raise SessionError(f"K0 (CEF trial 55): no drawdown record to read ({dd!r}); "
@@ -1638,6 +1665,7 @@ def _thin_k0_stop(dd: dict | None) -> dict | None:
     if type(status) is str and status == ddm.OK:
         return None
     why = (f"the account's drawdown record reads {status!r} (as-of {dd.get('asof')}"
+           + (f", read through {dd['read_through']}" if dd.get("read_through") else "")
            + (f": {dd['why']}" if dd.get("why") else "") + "); K0 builds a reduced book only "
            "on OK, and its one action is today's flatten")
     return {"by": "K0", "why": why}
@@ -1645,14 +1673,19 @@ def _thin_k0_stop(dd: dict | None) -> dict | None:
 
 def _thin_k0(thin: dict, dd: dict | None) -> dict:
     """The session's `thin_session` record as K0 leaves it, before the sleeve
-    runs: the rule, the floor, K0's reading and the stop it passes. The sleeve's
-    own answer is added by `_thin_record`; a session refused before the sleeve
-    ran keeps `decided` False and the eligible fields None (not measured)."""
+    runs: the rule, the floor, K0's reading (`k0`: its status, the as-of, the
+    read-through date and the reading's staleness, the stop, and the whole record
+    as `drawdown`) and the stop it passes. The sleeve's own answer is added by
+    `_thin_record`; a session refused before the sleeve ran keeps `decided` False
+    and the eligible fields None (not measured)."""
     stop = _thin_k0_stop(dd)
     return {"rule": thin["rule"], "floor": thin["floor"], "min_names": thin["min_names"],
             "decided": False, "eligible": None, "eligible_names": None, "holds": None,
             "reduced": False, "stopped_by": None,
-            "k0": {"status": dd.get("status"), "asof": dd.get("asof"), "stop": stop}}
+            "k0": {"status": dd.get("status"), "asof": dd.get("asof"),
+                   "read_through": dd.get("read_through"),
+                   "stale": (dd.get("reading") or {}).get("stale"), "stop": stop,
+                   "drawdown": dd}}
 
 
 def _thin_target_kw(thin: dict | None, record: dict, stop: dict | None = None) -> dict:
@@ -1786,8 +1819,13 @@ def _thin_stops(thin: dict | None, spec: dict, state: Path, asof: dt.date,
     nothing in this session reads them, and the team lead acts on a stop that reads true
     through the revert spec. K0's ACTION is `_thin_k0_stop`, not this.
 
-    Its inputs, all read now: the official eod_equity series to the as-of (a series that
-    cannot be read is passed as its reason, never a fallback); the earlier sessions' plan.json
+    Its inputs, all read now: K0's own drawdown record (`thin_session.k0.drawdown`, read
+    through the session before the as-of); the official eod_equity series through the same
+    date (team lead's ruling 2026-11-03, applied to these report lines as to K0: at the 22:00
+    decide the as-of's own row never exists, so read through the as-of they would all read
+    UNMEASURED; a series that cannot be read is passed as its reason, never a fallback, and
+    a K0 record with no read-through date makes the whole record UNMEASURED, naming why);
+    the earlier sessions' plan.json
     and send.json (`_thin_read_day`), which carry the episode, K3's earlier closes and the
     previous session's send-time skip (team lead 2026-11-03: a short skipped at the SEND is
     accepted and labelled here, `_send_planned` unchanged); the broker's positions now; the
@@ -1800,17 +1838,22 @@ def _thin_stops(thin: dict | None, spec: dict, state: Path, asof: dt.date,
     from ops.schedule.nyse_calendar import previous_trading_day
     from src.deploy.registry import cef_thin_stop_levels
     try:
+        k0 = record["thin_session"]["k0"]
+        through = k0["read_through"]
+        if through is None:
+            raise ddm.Unmeasured(f"K0's drawdown record names no read-through date: "
+                                 f"{k0['drawdown'].get('why')}")
         try:
-            series = ddm.read_series(state / ddm.OFFICIAL_FILE, asof)
+            series = ddm.read_series(state / ddm.OFFICIAL_FILE, through)
         except ddm.Unmeasured as e:
             series = str(e)
         closes = {s: c["close"] for s, c in record["closes"].items()
                   if c["date"] == asof and c["close"] is not None}
         res = ddm.thin_stop_record(
-            asof=asof, session_date=session_date, drawdown=record["drawdown"],
+            asof=asof, session_date=session_date, drawdown=k0["drawdown"],
             current=record["thin_session"], previous_session=previous_trading_day,
             read_day=lambda d: _thin_read_day(state, d), series=series, positions=positions,
-            closes=closes, thresholds=cef_thin_stop_levels(spec))
+            closes=closes, thresholds=cef_thin_stop_levels(spec), read_through=through)
         lines = ddm.thin_stop_lines(res)
     except Exception as e:  # report only: recorded in plan.json and printed, never swallowed
         res = ddm.thin_unmeasured_record(asof, f"{type(e).__name__}: {e}")
@@ -2245,14 +2288,17 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
 
         # 2b. the drawdown check (quantt/session/drawdown.py). Off unless the
         # book json sets risk.drawdown; in `report` mode it is recorded and
-        # printed, and nothing below reads it except K0 under CEF trial 55's
-        # key, which can only stop a reduced build (`_thin_k0`).
+        # printed, and nothing below reads it. Under CEF trial 55's key K0 makes
+        # its OWN reading of the same check, through the previous session's EOD
+        # row (`_thin_k0_drawdown`; team lead's ruling 2026-11-03), and can only
+        # stop a reduced build (`_thin_k0`).
         if deps.drawdown is not None:
             record["drawdown"], dd_lines = _drawdown(deps, state, spec, asof)
             for line in dd_lines:
                 print(line, file=out)
-        if thin is not None:                 # CEF trial 55 (te4): K0 reads the record just made
-            record["thin_session"] = _thin_k0(thin, record.get("drawdown"))
+        if thin is not None:                 # CEF trial 55 (te4): K0 reads through D-1
+            record["thin_session"] = _thin_k0(
+                thin, _thin_k0_drawdown(deps, state, spec, asof, cal))
 
         # 3. decide -- only on data that passed gate 5
         if data_refusals:
