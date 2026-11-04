@@ -204,7 +204,7 @@ Expected on each day:
   2026-05-04..09-04 closes split-adjusted (x3) against its unadjusted NAV. Since then the fetch
   puts ruled splits' pre-ex rows on the NAV's basis and refuses (exit 7, `BASIS-STEP`, nothing
   written) any split-like step against the stored rows; `data_books.py repair-basis --book c4`
-  repaired the written window once (docs/JOURNAL.md 2026-11-04). A new split in any C4 fund
+  repairs the window that fetch wrote, run once on the VM before the next collect (TEAM LEAD RUNS). A new split in any C4 fund
   refuses until ruled in `results/cef/c4/c4_fetch_split_rulings_2026-11-03.json`.
 - **After the first fetch, compare the replaced rows with the seed.** The fetch replaces every
   seeded row in its six-month window with Yahoo's. Look hardest at IGR (1:3 reverse split,
