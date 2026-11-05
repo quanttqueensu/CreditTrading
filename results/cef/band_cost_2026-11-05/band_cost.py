@@ -219,6 +219,11 @@ def dynamics(T: pd.DataFrame, inactive: np.ndarray, era=None, nonzero: str = "bo
             "last_pair": str(idx[ap][-1].date())}
 
 
+def written(h: float) -> float:
+    """The value the spec would hold: truncated to 0.1pp, as 2026-09-06 wrote its derived 4.85% as 0.048."""
+    return math.floor(h * 1000 + 1e-9) / 1000
+
+
 def h_star(c_bp: float, sigma: float, kappa: float) -> float:
     """The cube-root law, c in bp per unit of notional traded (one way, as `evaluate`'s turnover counts it)."""
     return (3.0 * (c_bp / 1e4) * sigma ** 2 / (2.0 * kappa)) ** (1.0 / 3.0)
@@ -281,7 +286,8 @@ def model_change(a: dict, b: dict, c_bp: float, say) -> dict:
 def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, say) -> dict:
     """Score every width of the declared grid on each return basis; read P1/P2 at c_star."""
     ladder = [h] + [round(h * 2 ** (k / 3), 5) for k in (-3, -2, -1, 1, 2, 3)]   # k = 0 is h* itself, unrounded
-    widths = sorted(set(ladder) | set(FRONTIER_POINTS) | {live})
+    spec_value = written(h)
+    widths = sorted(set(ladder) | set(FRONTIER_POINTS) | {live, spec_value})
     costs = {"c_star": c_star, **{f"{int(c)}bp": c for c in GRID_BP}}
     out = {"widths": widths, "c_star_bp": c_star, "h_star": h, "live": live, "basis": {}}
     books = {b: build(b) for b in widths}
@@ -297,7 +303,8 @@ def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, 
             r = rows[b]
             n = r["net_sr"]
             flip = "YES" if len({np.sign(n['5bp']), np.sign(n['15bp']), np.sign(n['30bp'])}) > 1 else "no"
-            tag = "  <- h* (derived)" if abs(b - h) < 1e-12 else ("  <- live" if abs(b - live) < 1e-12 else "")
+            tag = ("  <- h* (derived)" if abs(b - h) < 1e-12 else ("  <- live" if abs(b - live) < 1e-12 else
+                   ("  <- h* as the spec would hold it (0.1pp, truncated)" if abs(b - spec_value) < 1e-12 else "")))
             say(f"    {b * 100:6.2f}% {r['gross_sr']:9.3f} {r['ann'] * 100:6.2f} {r['turn']:8.1f} "
                 f"{n['c_star']:8.3f} {n['5bp']:7.3f} {n['15bp']:7.3f} {n['30bp']:7.3f} {flip:>7}{tag}")
         grid = [b for b in widths]
@@ -315,6 +322,7 @@ def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, 
                              "net_at_live": rows[live]["eras"][lab]["net_sr"]["c_star"],
                              "turn_at_h": rows[h]["eras"][lab]["turn"], "turn_at_live": rows[live]["eras"][lab]["turn"]}
         turn_gap = rows[h]["turn"] / rows[live]["turn"] - 1
+        test_spec = paired(rows[spec_value], rows[live], c_star) if abs(spec_value - live) > 1e-12 else None
         say(f"    grid argmax of net@c*: {best * 100:.2f}% (NOT chosen; named so the draft can say so). "
             f"P1: best - h* = {p1:+.3f} ({'within' if p1 <= P1_TOL else 'OUTSIDE'} {P1_TOL}). "
             + (f"P2: argmax - h* {test_best['delta_annual']:+.3f}/yr, SE {test_best['se_annual']:.3f}, HAC p "
@@ -322,6 +330,10 @@ def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, 
         say(f"    h* - live at c*: {test_live['delta_annual']:+.3f}/yr (SE {test_live['se_annual']:.3f}, HAC p "
             f"{test_live['hac_p']:.3f}); turnover h* / live - 1 = {turn_gap:+.1%} "
             f"({'an H2 pair (within 5%)' if abs(turn_gap) <= 0.05 else 'NOT an H2 pair: priced at c instead'})")
+        if test_spec:
+            say(f"    spec value {spec_value * 100:.1f}% - live at c*: {test_spec['delta_annual']:+.3f}/yr (SE "
+                f"{test_spec['se_annual']:.3f}, HAC p {test_spec['hac_p']:.3f}); turnover "
+                f"{rows[spec_value]['turn'] / rows[live]['turn'] - 1:+.1%}")
         for lab, e in eras.items():
             say(f"    {lab}: argmax {e['argmax'] * 100:.2f}% ({e['side']} than h*); net@c* at h* {e['net_at_h']:.3f}, "
                 f"at live {e['net_at_live']:.3f}, at argmax {e['net_at_best']:.3f}; turn/yr h* {e['turn_at_h']:.1f}, "
@@ -330,7 +342,9 @@ def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, 
             "rows": {f"{b:.5f}": {k: v for k, v in r.items() if not k.startswith("_")} for b, r in rows.items()},
             "argmax_c_star": best, "P1_best_minus_h": p1, "P1_on_plateau": bool(p1 <= P1_TOL),
             "P2_argmax_vs_h": test_best, "P2_on_plateau": (True if test_best is None else bool(test_best["hac_p"] >= 0.05)),
-            "h_vs_live": test_live, "turn_gap_h_vs_live": turn_gap, "h2_pair": bool(abs(turn_gap) <= 0.05),
+            "h_vs_live": test_live, "spec_value": spec_value, "spec_value_vs_live": test_spec,
+            "turn_gap_spec_value_vs_live": rows[spec_value]["turn"] / rows[live]["turn"] - 1,
+            "turn_gap_h_vs_live": turn_gap, "h2_pair": bool(abs(turn_gap) <= 0.05),
             "eras": eras, "model_change_h_vs_live": model_change(rows[h], rows[live], c_star, say)}
     return out
 
