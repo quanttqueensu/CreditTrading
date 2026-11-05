@@ -676,6 +676,16 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
+
+Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAND_COST_REDERIVATION_2026-11-05.md`
+(PR #61, drafted as a pre-registration) and `results/cef/EXEC_COST_STUDY_2026-11-05.md` (PR #58, merged as 1f44bbf).
+
+| question | decision |
+|---|---|
+| Re-derive the no-trade band from the measured execution cost? (that morning's ruling: "pre-register a re-derivation of the rebalancing band using the measured execution cost") | **"Accept: keep 4.8%, close."** Both books keep `band_width` 0.048. CLOSED at zero trials; CEF stays 55 (`docs/RESEARCH_STATE.md`, CLOSED, BAND-COST). The cube-root law at the measured paper cost gives the core 4.55% and C4 4.07%. Neither beats live beyond its own error: the core's 0.045 − 0.048 has NW t 1.34 against 2.837. Two follow-ups, both measurements: **C4's band is re-measured on its own fill cost after 21 sessions, no earlier than 2026-12-03**; and **the band is re-derived on a measured live auction impact before any real capital**, as part of the real-money cost re-run (2026-10-09) |
+| Post-then-cross on paper? (the execution study's candidate 1: a passive limit at the touch at 15:52, the remainder crossed at 15:58) | **"Not now."** Not built. **Re-test after 60+ sessions of fills**: its −2.2bp against actual (95% CI −4.5 to +0.2) rests on 21 days [S: the study] |
+
 ### Team lead, 2026-11-03 — the analyst lanes redrawn as risk
 
 Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` §1 holds who keeps which paths.
