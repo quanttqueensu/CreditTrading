@@ -65,7 +65,9 @@ STATUSES = ("ok", "halve", "kill", "stale", "absent", "raises")
 # decide on the session day: the as-of's own row is there, at KILL, and K0 reads it (the
 # freshest row, ruling 2026-11-04), so it flattens although the row before reads OK.
 # "morning_bad" has the as-of's row present but unreadable: UNMEASURED, never a fall back to
-# the row before it. "raises" has "ok"'s rows and Alpaca's calendar without K0_RAISES_OMITS.
+# the row before it. "morning_ok" is the backstop with the as-of's row there at OK (0.20% below
+# the high): K0 and the K1-K3 lines read it (the runner owner's review 2026-11-04, item 6).
+# "raises" has "ok"'s rows and Alpaca's calendar without K0_RAISES_OMITS.
 K0_EOD = {
     "ok": N._EOD_HEAD + [("2026-09-24", 100600.0)],
     "halve": N._EOD_HEAD + [("2026-09-24", 87000.0)],
@@ -74,11 +76,12 @@ K0_EOD = {
     "absent": None,
     "morning": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", 80000.0)],
     "morning_bad": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", -1.0)],
+    "morning_ok": N._EOD_HEAD + [("2026-09-24", 100600.0), ("2026-09-25", 100800.0)],
     "raises": N._EOD_HEAD + [("2026-09-24", 100600.0)],
 }
 K0_STATUS = {"ok": "OK", "halve": "HALVE", "kill": "KILL", "stale": "UNMEASURED",
              "absent": "UNMEASURED", "morning": "KILL", "morning_bad": "UNMEASURED",
-             "raises": "UNMEASURED"}
+             "morning_ok": "OK", "raises": "UNMEASURED"}
 # "raises": K0's reading raises, and only the fail-closed branch of `_thin_k0_drawdown` flattens
 # (module docstring). Alpaca's calendar omits 2026-09-24, the session before the as-of, as on an
 # unannounced closure that nyse_calendar's SPECIAL_CLOSURES has not yet been told about. The

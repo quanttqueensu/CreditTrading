@@ -581,6 +581,54 @@ def test_k1_k3_read_through_the_previous_session_labelled_one_session_stale():
     assert f"no eod_equity row for {ASOF}" in r["K3"]["why"]
 
 
+def test_k1_k3_read_the_asofs_own_row_at_the_morning_backstop_and_k0s_date_exactly():
+    """The runner owner's review (2026-11-04), item 6, on the team lead's freshest-row ruling of
+    the same day. At the morning backstop K0 reads the as-of's own row, so the K1-K3 lines read
+    through the as-of too: K1 counts the as-of's own earning day (nothing is left unread), K2
+    and K3 divide by the as-of's own equity (`equity_date` the as-of, no `equity_note`), and the
+    label says 0 sessions stale and why. Read through D-1 (22:00) the same records divide by
+    D-1's equity, labelled with an `equity_note`. A K0 record whose read-through date is not the
+    lines' is refused: never two dates mixed silently. `equity_date` is recorded whatever the
+    read-through. Fails on 69ef368 (its 0-stale label said the as-of's row was not there; it had
+    no `equity_note`, no `equity_date` without a read-through, and no check against K0's date)."""
+    below = {"net": 0.1, "verdict": ddm.CLEAR, "session": back(2).isoformat()}
+    days = {back(4): {"plan": plan(True)}, back(2): {"plan": plan(True)},
+            back(1): {"plan": plan(True, k3=below)}}
+    # back(4) earns back(3): 100 -> 95; back(2) earns the as-of: 50,000 -> 50,000; back(1)
+    # (the as-of session) earns this session, not yet.
+    series = _series({4: 100.0, 3: 95.0, 2: 50_000.0, 1: 50_000.0})
+    pos = {"A": 4000, "B": -1000}                          # +40k, -20k: K2 0.8, K3 0.4
+    k0 = {"status": "OK", "asof": ASOF, "read_through": ASOF,
+          "reading": {"stale": {"row_date": ASOF, "sessions": 0}}}
+    r = record(days, dd=k0, series=series, positions=pos, closes=PRICES, read_through=ASOF)
+    assert r["read_through"]["date"] == ASOF and r["read_through"]["sessions_stale"] == 0
+    assert "the as-of's own row" in r["read_through"]["label"]
+    assert "not there yet" not in r["read_through"]["label"]
+    assert r["K0"]["read_through"] == ASOF and r["K0"]["stale"]["sessions"] == 0
+    assert r["K1"]["earning_days"] == 2 and r["K1"]["earned_not_yet_read"] == []
+    assert r["K1"]["drawdown"] == pytest.approx(0.05)
+    for k, stat in (("K2", 0.8), ("K3", 0.4)):
+        assert r[k]["equity_date"] == ASOF and "equity_note" not in r[k], r[k]
+        assert r[k].get("stat", r[k].get("net")) == pytest.approx(stat)
+    # The 22:00 decide on the same records: D-1's row, labelled, the as-of's day unread.
+    k0_eve = {**k0, "read_through": back(2), "reading": {"stale": {"row_date": back(2),
+                                                                   "sessions": 1}}}
+    r = record(days, dd=k0_eve, series=series[:-1], positions=pos, closes=PRICES,
+               read_through=back(2))
+    assert r["K1"]["earning_days"] == 1 and r["K1"]["earned_not_yet_read"] == [ASOF]
+    for k in ("K2", "K3"):
+        assert r[k]["equity_date"] == back(2) and "1 session(s)" in r[k]["equity_note"]
+    assert f"equity of {back(2)}" in "\n".join(ddm.thin_stop_lines(r))
+    # Never K0's date and another: refused.
+    for rt in (back(2), None):
+        with pytest.raises(ValueError, match="must read the same row"):
+            record(days, dd=k0, series=series[:-1] if rt else series, positions=pos,
+                   closes=PRICES, read_through=rt)
+    # No read-through at all: the as-of's equity, recorded.
+    r = record(days, series=series, positions=pos, closes=PRICES)
+    assert r["K2"]["equity_date"] == r["K3"]["equity_date"] == ASOF
+
+
 def test_read_through_with_no_row_for_it_or_a_row_after_it():
     days = {back(1): {"plan": plan(True)}}
     r = record(days, series=[(back(3), 50_000.0)], positions={"A": 1}, closes=PRICES,
@@ -796,6 +844,63 @@ def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, mo
     # The held book is near neutral (net about 1.2e-4 of equity): the run line sits below it.
     assert 0.00005 < k3["net"] < 1.7                  # above the run line, below the once line
     assert k3["run"] == 3 and k3["verdict"] == want and k3["run_sessions"] == run_sessions
+
+
+@pytest.mark.parametrize("eod", ["ok", "morning_ok"])
+def test_the_session_reads_k1_k3_through_k0s_own_row_evening_and_morning(tmp_path, monkeypatch,
+                                                                          eod):
+    """The runner owner's review (2026-11-04), item 6, in the real session. Reduced decisions on
+    09-24 (it earns 09-25) and 09-25, with 09-23 decided with the key absent. "ok" is what prod
+    has at 22:00 (no 09-25 row): K0 reads 09-24, one session stale, and so do K1-K3, labelled;
+    the 09-25 earning day is listed unread. "morning_ok" is the backstop with the 09-25 row
+    there: K0 reads 09-25, 0 stale, and the lines read exactly that date: K1 counts the 09-25
+    day, and K2/K3 divide by the 09-25 equity with no note. Fails on 69ef368 (its morning label
+    said the as-of's row was not there yet, and the evening K2/K3 carried no `equity_note`)."""
+    from quantt.session import run as rn
+    from quantt.session.tests import test_missing_nav_hold as M
+    from quantt.session.tests import test_trade_eligible_noop as N
+    from quantt.session.tests.test_trade_eligible_runner import K0_EOD, TE4_SPEC, run
+    base, bk = N.thin_books(tmp_path / "b", monkeypatch)
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    state = tmp_path / "r" / "state"
+
+    def reduced(k3):
+        return {"refusals": [], "execution": "late_market", "orders": [], "plan_sha": "s",
+                "thin_session": {"reduced": True}, "thin_stops": {"K3": k3}}
+    _prior_session(state, dt.date(2026, 9, 23), {"refusals": []})        # the key absent then
+    _prior_session(state, dt.date(2026, 9, 24),
+                   reduced({"verdict": ddm.NOT_APPLICABLE, "session": "2026-09-23"}))
+    _prior_session(state, M.ASOF, reduced({"net": 0.01, "verdict": ddm.UNMEASURED,
+                                           "session": "2026-09-24"}))
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], eod)
+    assert code == rn.EXIT_PLANNED
+    plan = M._plan(state)
+    st, k0 = plan["thin_stops"], plan["thin_session"]["k0"]
+    want = "2026-09-25" if eod == "morning_ok" else "2026-09-24"
+    stale = 0 if eod == "morning_ok" else 1
+    assert k0["status"] == "OK" and k0["read_through"] == want
+    assert st["K0"]["read_through"] == want
+    assert st["read_through"]["date"] == want and st["read_through"]["sessions_stale"] == stale
+    assert st["episode"]["status"] == "OPEN"
+    assert st["episode"]["reduced_sessions"] == ["2026-09-24", "2026-09-25"]
+    eq = dict(K0_EOD[eod])
+    if eod == "morning_ok":
+        assert "the as-of's own row" in st["read_through"]["label"]
+        assert st["K1"]["earning_days"] == 1 and st["K1"]["earned_not_yet_read"] == []
+        assert st["K1"]["drawdown"] == 0.0              # 100,600 -> 100,800: a gain
+    else:
+        assert "not there yet" in st["read_through"]["label"]
+        assert st["K1"]["earning_days"] == 0
+        assert st["K1"]["earned_not_yet_read"] == ["2026-09-25"]
+    for k in ("K2", "K3"):
+        assert st[k]["equity_date"] == want
+        assert ("equity_note" in st[k]) is (eod == "ok")
+    # K2 by hand: the largest held name at the as-of close, over that one date's equity.
+    from src.deploy.sleeves import cef_discount as cefmod
+    closes = {s: v[0] for s, v in rn.last_closes(cefmod.PX_PATH, M.ASOF,
+                                                 list(bk["held"])).items()}
+    top = max(abs(q * closes[s]) for s, q in bk["held"].items() if q)
+    assert st["K2"]["stat"] == pytest.approx(top / eq[want], rel=1e-6)
 
 
 def test_with_the_key_set_every_decide_carries_the_lines_and_a_failure_is_recorded(

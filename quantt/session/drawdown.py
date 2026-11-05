@@ -453,6 +453,13 @@ def lines(rec: dict) -> list[str]:
 # close's positions by the read-through date's equity, one session stale (they are off by the
 # ratio of the two equities, one session's return; labelled, never mixed with a fresh one).
 # `read_through` None is the as-of reading, as first built.
+# THE FRESHEST ROW (team lead's ruling 2026-11-04; the runner owner's review the same day, item
+# 6). K0 reads the as-of's own row when it is there (the morning backstop), else D-1's
+# (`run._thin_k0_drawdown`). The K1-K3 lines read through EXACTLY K0's reading date: run.py
+# passes K0's `read_through`, and `thin_stop_record` refuses a K0 record that names another.
+# So at the morning backstop K1 counts the as-of's own earning day and K2/K3 divide by the
+# as-of's own equity (0 sessions stale, no note); at 22:00 they read D-1, labelled. K2 and K3
+# always record `equity_date`, and an `equity_note` whenever it is not the as-of.
 #
 # Every input is passed in (the records, the series, the positions, the thresholds), so the
 # function is tested on synthetic records; run.py does the reading.
@@ -840,18 +847,28 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
         # A reduced decision whose send exited FAIL after part of the set went (`_send_state`,
         # classified from send.json's `final`): counted, and named, never silently whole.
         rec["episode"]["sent_in_part"] = {str(d): how for d, how in sorted(w["in_part"].items())}
+    # K1-K3 READ THROUGH EXACTLY K0'S READING DATE (the runner owner's review 2026-11-04, item
+    # 6): the freshest row K0 had, the as-of's own at the morning backstop, else D-1's. A K0
+    # record that names a read-through date other than the one the lines are given would mix
+    # two dates silently: refused.
+    if "read_through" in drawdown and drawdown["read_through"] != read_through:
+        raise ValueError(f"the K1-K3 lines read through {read_through} and K0's record through "
+                         f"{drawdown['read_through']}: they must read the same row")
+    n = 0
     if read_through is not None:
-        n, d = 0, asof
+        d = asof
         while d > read_through:
             d, n = previous_session(d), n + 1
         if d != read_through:
             raise ValueError(f"read_through {read_through} is not a session before the as-of "
                              f"{asof} (the walk back reached {d})")
+        why_row = ("the as-of's own row: the freshest row (team lead's ruling 2026-11-04; the "
+                   "morning backstop)" if n == 0 else
+                   f"{n} session(s) before the as-of {asof}: the as-of's row is not there yet "
+                   f"(the 22:00 decide), so the freshest row is this one (team lead's rulings "
+                   f"2026-11-03 and 2026-11-04)")
         rec["read_through"] = {"date": read_through, "sessions_stale": n,
-                               "label": (f"eod_equity read through {read_through}, {n} "
-                                         f"session(s) before the as-of {asof}: at the 22:00 "
-                                         f"decide the as-of's row is not there yet (team "
-                                         f"lead's ruling 2026-11-03)")}
+                               "label": f"eod_equity read through {read_through}, {why_row}"}
     # ---- K0: the account, read at this decide (K0's own reading: its record says through when)
     status = drawdown.get("status")
     k0 = {"status": status, "asof": drawdown.get("asof"),
@@ -950,9 +967,16 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     else:
         held = {s: q for s, q in positions.items() if q}
         nocl = sorted(s for s in held if not isinstance(closes.get(s), (int, float)))
-        if read_through is not None:          # the equity is the read-through date's, labelled
-            for k in (k2, k3):
-                k["equity_date"] = upto
+        # The equity is the read-through date's, always recorded (the runner owner's review
+        # 2026-11-04, item 6: the as-of's own row when it exists, else D-1's), and labelled
+        # whenever it is not the as-of's: the positions are valued at the as-of closes, so the
+        # ratio is then off by one session's return. Never mixed silently.
+        for k in (k2, k3):
+            k["equity_date"] = upto
+            if upto != asof:
+                k["equity_note"] = (f"the {asof} closes over the {upto} equity, {n} session(s) "
+                                    f"earlier: the as-of's row is not there yet; off by that "
+                                    f"session's return")
         why = (eq_why if eq is None else f"no eod_equity row for {upto}" if upto not in eq
                else f"no as-of close for {nocl}" if nocl else None)
         if why is not None:
@@ -1090,6 +1114,7 @@ def thin_stop_lines(rec: dict) -> list[str]:
                        f"{k['line_once']}")
         out.append(f"    {name} {k['verdict']}: {stat if stat is not None else '-'} against "
                    f"{lines_}" + (f", run {k['run']}" if name == "K3" and "run" in k else "")
+                   + (f"; equity of {k['equity_date']}" if k.get("equity_note") else "")
                    + (f"; {k['why']}" if k.get("why") else ""))
     sk = rec["send_skip"]
     if sk.get("applies") is True:
