@@ -495,8 +495,11 @@ def lines(rec: dict) -> list[str]:
 #                     K3's run counts reduced closes IN SEQUENCE (compose.py's
 #                     `runs_above` over reduced decisions; a full session between them does not
 #                     break it), read back from earlier plans' `thin_stops.K3.net` within the
-#                     open episode only (a run that crossed two episodes, which compose.py
-#                     would count, is not seen: episodes are 63 or more sessions apart), against
+#                     open episode only (§6.3's heading, "K1-K3 inside an episode"; the runner's
+#                     owner confirmed it on 2026-11-04, recorded in the pre-registration's
+#                     Approval section: the rule is the note's, and this implements it). A run
+#                     that crossed two episodes, which compose.py would count, is not seen:
+#                     episodes are 63 or more sessions apart. Each close is judged against
 #                     today's line. WHICH RECORD HOLDS WHICH CLOSE: the decide for session X
 #                     reads as-of previous(X), so plan(X).thin_stops.K3 judges the close of the
 #                     session BEFORE X (its `session` field says so). The close before this
@@ -812,7 +815,9 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     """The K0-K3 report lines for the decide on `asof` for `session_date` (block comment above).
 
     `drawdown` is K0's drawdown record (`check`; run.py passes K0's own, read through the
-    previous session); `current` this decide's `thin_session`; `previous_session(d)` the NYSE
+    freshest row it had: the as-of's own, else the session before it; when it names a
+    `read_through`, that must be `read_through` here, or this raises); `current` this decide's
+    `thin_session`; `previous_session(d)` the NYSE
     session before d; `read_day(d)` -> {"plan": dict | None, "send": dict | None, "started":
     bool} for the session d (it may raise); `series` the eod_equity rows [(date, equity)] on
     or before `asof` (or `read_through`), or a string saying why there are none; `positions`
@@ -822,7 +827,7 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     registry requires under the rule); `read_through` None
     (K1-K3 read eod_equity through the as-of) or a session on or before it (they read through
     that session, labelled with its staleness: block comment, READ THROUGH THE PREVIOUS
-    SESSION). Pure: reads nothing but what it is given."""
+    SESSION and THE FRESHEST ROW). Pure: reads nothing but what it is given."""
     upto = asof if read_through is None else read_through
     eq = dict(series) if isinstance(series, list) else None
     eq_why = None if eq is not None else f"no equity series: {series}"

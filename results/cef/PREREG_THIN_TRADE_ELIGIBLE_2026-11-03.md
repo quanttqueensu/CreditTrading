@@ -132,6 +132,11 @@ these terms. They bind the implementation and the activation.
   because D's row is never there.
 - **The other option, not chosen.** Always D−1, as first built.
 
+**A note on K3's run (the runner's owner, 2026-11-04).** The owner confirmed on 2026-11-04 that K3's run
+of 3 (§6.3) counts reduced closes within the open episode only, as §6.3's heading "K1–K3 inside an
+episode" says; the rule is §6.3's and this note's, and the code (`quantt/session/drawdown.py`, which reads
+the count from the spec's `risk.thin_k3_run_sessions`) implements it and does not define it.
+
 **What this commit does not do.** It sets no spec key, changes no live-path code and activates nothing.
 The key stays absent until the activation commit, which needs all of:
 - the implementation merged;
