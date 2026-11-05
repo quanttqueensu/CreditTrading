@@ -3569,6 +3569,142 @@ that adds it does not exist when it is written.
 - supports: §1, §4
 - status: current
 
+### E-2026-11-04-90 · cef paper book, 2026-11-04: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - verify verdict PASS; orders sent 11, filled 11 [S]
+  - 17:30 ET snapshot equity change -69.91 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -232.04 USD [S]
+  - fills vs official close 18.30 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 18.30 bp, fill rate 1.0000 of shares [S]
+  - shadow book -249.75 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:c3fef52e05e2`; `results/report/data/live/cef/verify.csv` @ `pull:c3fef52e05e2`; `results/report/data/live/cef/tca.csv` @ `pull:c3fef52e05e2`
+- supports: §4
+- status: current
+
+### E-2026-11-04-13 · Both books traded on 2026-11-04: the core's first ×1.30 session and C4's first session ever, both verify PASS
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - core: 11 of 11 orders filled; verify PASS; snapshot 17:30 ET −$69.91, auction-marked −$232.04 (gross); fill against the auction +18.3bp (worse); official EOD pending at verify [V]
+  - C4: 15 of 15 orders filled (sha 17ddda95… approved at 09:36); verify PASS; snapshot 17:30 ET −$89.10, auction-marked −$8.60 (gross); fill against the auction +0.7bp; official EOD pending at verify [V]
+- source: `results/report/data/live/cef/verify.csv` @ `8fd35ee` (the core, pull:c3fef52e05e2); C4's pull `pull:98c1901d5803` (its verify.out.log; C4's automated ingest is PENDING because C4 writes no distribution_scores.csv yet)
+- supports: §4
+- status: current
+
+### E-2026-11-04-14 · Correction to E-2026-11-03-43: the core's "gross 1.025× → 1.797×" was the sleeve's target gross, not the book after the trades
+- kind: correction
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - E-43 summed |target shares × close| over every name. Names inside their band are not traded to target, so that is the target gross. 11-04's 11 orders totalled about $51.2k, so gross after them could not exceed about 1.54× [V]
+  - the core's book at the 11-05 decide (after 11-04's fills): 1.174× NAV, the measured figure [V]
+- source: `docs/JOURNAL.md` @ `718b699` (11-04 entry); `results/report/EVIDENCE_LOG.md` @ `718b699` (E-2026-11-03-43, as written)
+- supports: §1, §4
+- status: current. E-43's other figures stand. C4's 1.267× in E-43 was an opening session, where every name trades to target, so it is unaffected. The same error was in the 11-03 report to the team lead and is corrected there
+
+### E-2026-11-04-15 · C4's 11-05 decide is deferred on KYN's late NAV (the missing-NAV hold, by design); the IGR fix holds through a nightly fetch
+- kind: result
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - C4 22:00 decide REFUSED (data): "NAV not dated 2026-11-04 for KYN (2026-11-03)", deferred to a later slot; from the final check (14:30 ET) KYN is held at its current shares and the other names decide; refresh exit 4 (INCOMPLETE), not 7 [V]
+  - checklist step 5 after the 11-04 fetch: IGR premium 05-04..09-04 median +0.64%, min −1.96%, max +3.17%, unchanged; 0 seed-window closes moved beyond 0.5% [V]
+  - 20 collect flags, all borrow-snapshot changes in 10 funds (e.g. HPS, JRS, STK and TY no longer shortable, RNP now shortable); none of C4's eight held shorts is among them [V]
+  - the core's 11-05 plan: decided, 6 orders, the book 1.174× before, pre-flight ok, missing NAV none, drawdown UNMEASURED (the D−1 row, E-2026-11-03-41) [V]
+- source: C4's pull `pull:98c1901d5803`; `scripts/cef/fetch_daily.py` @ `509b3ff`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-03-91 · c4 paper book, 2026-11-03: FAIL, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - verify verdict FAIL; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change 0.00 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change 0.00 USD (Alpaca portfolio history 1D, the P&L of record) [S]
+  - auction-marked P&L 0.00 USD [S]
+  - distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]
+  - shadow book 0.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/verify.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/tca.csv` @ `pull:98c1901d5803`
+- supports: §4
+- status: current
+
+### E-2026-11-04-91 · c4 paper book, 2026-11-04: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - verify verdict PASS; orders sent 15, filled 15 [S]
+  - 17:30 ET snapshot equity change -89.10 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv in this pull has no change_usd for 2026-11-04 [U]
+  - auction-marked P&L -8.60 USD [S]
+  - fills vs official close 0.66 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 0.66 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]
+  - shadow book 0.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/verify.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/tca.csv` @ `pull:98c1901d5803`
+- supports: §4
+- status: current
+
+### E-2026-11-05-20 · Correction to E-2026-11-03-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-03 yet, not because the file was missing from the pull
+- kind: correction
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - E-2026-11-03-90 reads "official EOD equity change UNMEASURED: eod_equity.csv not in this pull"; its pull b5e46b822424 carried eod_equity.csv (pulls.csv lists it) [S]
+  - that file's last point was 2026-11-02 (change 178.55 USD), so it held none for 2026-11-03 [S]
+  - snapshot_live now writes "eod_equity.csv in this pull has no change_usd for <D>" in that case, and "not in this pull" only when the file is absent [S]
+- source: `results/report/data/live/cef/pulls.csv` @ `718b699`; `results/report/data/live/cef/eod_equity.csv` @ `718b699`; `scripts/report/snapshot_live.py` @ `f579eb1`
+- supports: §4
+- status: supersedes the stated reason in E-2026-11-03-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand. The earlier cef live-day entries (pull 24d55dcbfe1b) are right: that pull did not carry eod_equity.csv
+
+### E-2026-11-05-21 · Method: snapshot_live ingests a C4 pull without distribution_scores.csv and names the distribution-adjusted P&L UNMEASURED; a core pull must still carry the file
+- kind: method
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - none (a method change. C4's verify scores a session's distributions two sessions late, so its first pulls carry no distribution_scores.csv, and the core's rule refused them. Optional for C4 only: no distribution table is written, and each live-day entry says "distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull"; never a zero. The first ingest under it is C4's pull 98c1901d5803: E-2026-11-03-91 and E-2026-11-04-91. C4's equity is figure F06_live_equity_c4)
+- source: `scripts/report/snapshot_live.py` @ `264d00b`; `scripts/report/tests/test_snapshot_live.py` @ `264d00b`; `results/report/data/live/c4/pulls.csv` @ `905fb00`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-05-22 · Correction to E-2026-11-04-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-04 yet, not because the file was missing from the pull
+- kind: correction
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - E-2026-11-04-90 reads "official EOD equity change UNMEASURED: eod_equity.csv not in this pull"; its pull c3fef52e05e2 carried eod_equity.csv (pulls.csv lists it) [S]
+  - that file's last point was 2026-11-03 (change 793.10 USD), so it held none for 2026-11-04 [S]
+  - snapshot_live now writes "eod_equity.csv in this pull has no change_usd for <D>" in that case, and "not in this pull" only when the file is absent [S]
+- source: `results/report/data/live/cef/pulls.csv` @ `837408c`; `results/report/data/live/cef/eod_equity.csv` @ `837408c`; `scripts/report/snapshot_live.py` @ `f579eb1`
+- supports: §4
+- status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)
+
+### E-2026-11-05-30 · The core's paper fill cost is the quoted half-spread (half a cent a share); no send time inside the window narrows it, and none of it carries over to a live MOC fill
+- kind: result
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - core, 21 late_market sessions 2026-09-30..11-04, 142 orders, 376 fills: B (fill vs the official closing print) 7.14bp pooled; day mean 8.62bp, t 3.20 [V]
+  - of which paid vs the mid at send 5.90bp (day t 26.66) = quoted half-spread 5.98bp + fill vs touch −0.08bp; drift send → print C2 −1.24bp (day t −1.02) [V]
+  - every late_market fill of both books (427) printed at the touch; 89.7% of core notional traded at a one-cent spread; paid $0.00538 a share [V]
+  - fill vs the decide-time estimate 31.52bp, of which decide close → mid at send 25.62bp (day t 2.81; open → send 20.81bp) [V]
+  - B ties to verify.csv fill_vs_auction_bp on 17 of 17 days, max difference 0.05bp [V]
+  - quoted half-spread, core 13 names × 21 sessions: 8.98bp at 15:50:00, 5.98–6.15bp from 15:51:00 to 15:59:30 [V]
+  - post at the passive touch, cross the rest at 15:58:00: B 4.12bp, −2.18bp against actual (day t −1.93) [V]
+  - core turnover 62.14 turns/yr (2026-09-29..11-04) and 66.25 (from 10-07); paper B at that turnover 4.44–4.73% of NAV a year [V]
+  - core orders as a share of the day's primary closing cross: median 6.2%, notional-weighted median 15.2%, p90 35.9% [V]
+  - C4, one session (2026-11-04, opening build): B 0.66bp, spread paid 10.66bp; C4's 15 names quote a mean 10.55bp half-spread at 15:52 over 21 sessions [V]
+- source: `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `137ea8e`; `results/cef/exec_cost_2026-11-05/aggregates_2026-11-05.json` @ `137ea8e`; `results/cef/exec_cost_2026-11-05/exec_cost.py` @ `137ea8e`
+- supports: §4, §3
+- status: current (report only, zero trials; 21 sessions and one C4 session, so no cell or counterfactual is a tested effect; candidates proposed, none adopted)
+
 ### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
 - kind: method
 - era: ALPACA

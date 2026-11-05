@@ -45,7 +45,11 @@ git add results/report && git commit -m "Evidence pack: rebuild for <date>"
 ```
 
 `snapshot_live` writes the aggregates under `data/live/` and the rows under the gitignored
-`_cache_live/`, and refuses to write a row file anywhere git can see it. `vmpnl.sh` lives at
+`_cache_live/`, and refuses to write a row file anywhere git can see it. C4's pull goes in
+the same way with `--book c4`. `distribution_scores.csv` is required in a core pull and
+optional in a C4 pull (2026-11-05), because C4's verify scores a session's distributions
+two sessions late. Without it, C4 gets no distribution table, its live-day entry says the
+distribution-adjusted P&L is UNMEASURED and names the file, and F07 for C4 stays PENDING. `vmpnl.sh` lives at
 the main checkout's root and is not tracked. The same steps are in `docs/RUNBOOK.md` §8.6.
 
 **Backing up the private cache is the team lead's step.** The repository has no R2 write

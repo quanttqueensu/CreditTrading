@@ -229,6 +229,7 @@ E-2026-11-02-26,2026-11-02,kill,ALPACA,"§5, §6",1,S,"Appendix — NAV-HEDGE-1:
 E-2026-11-02-27,2026-11-02,result,ALPACA,"§4, §3",6,V,Paper fills cost 10.8bp against the 15:50 mid: about 6.2bp half-spread at the fill and 4.6bp mid drift to 15:52
 E-2026-11-02-28,2026-11-02,result,ALPACA,§4,3,V,"The fill-vs-close cost splits by period: zero to 2026-10-12, 8.6bp from 2026-10-13, because the post-15:50 market move stopped running against the book"
 E-2026-11-02-29,2026-11-02,result,ALPACA,"§4, §3",2,V,No evidence that the pre-15:50 move predicts the fill cost or the move to the close (127 symbol-days)
+E-2026-11-02-30,2026-11-02,ruling,ALPACA,"§3, §5",5,SV,"The Sharpe-framed NAV hedge on the core book was closed as underpowered at Stage 0, spending no trial; a report-only exposure readout replaces it"
 E-2026-11-02-90,2026-11-02,live-pnl,ALPACA,§4,7,SU,"cef paper book, 2026-11-02: PASS, traded"
 E-2026-11-03-01,2026-11-03,release,ALPACA,"§2, §5",3,SU,"release-20261103-1: trial 53 amendment 1 (core ×1.30, spec v9) with C4 integrated dark (spec v4, ×1.26); GO for the core only"
 E-2026-11-03-02,2026-11-03,result,ALPACA,"§2, §5",5,V,"A third thin-session rule, trading the 4 or 5 eligible names, scored the highest gross return in every window but was not shown to be alpha"
@@ -264,4 +265,26 @@ E-2026-11-03-31,2026-11-03,method,ALPACA,§4,3,SV,The pack's own re-derivation o
 E-2026-11-03-32,2026-11-03,correction,ALPACA,"§4, §5",4,SUV,The 17:10 ET equity snapshot and the P&L of record disagree over 2026-09-28..10-30; Alpaca's own last_equity confirms the record
 E-2026-11-03-33,2026-11-03,method,ALPACA,"§4, §5",2,V,"The research evidence pack opens: an append-only evidence log, the sanitised live record, and figures rebuilt from committed sources"
 E-2026-11-03-34,2026-11-03,ruling,ALPACA,"§4, §5",1,,Ruling: the public repository keeps the live record as daily aggregates; per-name and per-fill rows stay in a gitignored cache
+E-2026-11-03-35,2026-11-03,ruling,ALPACA,§5,3,SV,"The exposure readout's declared lag rule gave L = 0, and the team lead made MUNI its headline, with TERM, CREDIT and LOANS indicative"
+E-2026-11-03-36,2026-11-03,result,ALPACA,"§3, §5",3,SV,"On the current window the muni funds' own MUNI beta rises with the lag choice, unlike the fit era; the L = 0 headline is unchanged pending the team lead"
+E-2026-11-03-37,2026-11-03,ruling,ALPACA,§5,1,,"Ruling: on a te4 reduced session, a short skipped at send time is accepted and labelled; the send path is unchanged"
+E-2026-11-03-38,2026-11-03,release,ALPACA,"§1, §4",4,V,Release: release-20261103-4 installed; the core armed at ×1.30 (spec v9) and C4 installed and armed on v4 after VM pre-arm reads
+E-2026-11-03-39,2026-11-03,ruling,ALPACA,"§1, §5",2,S,Ruling: C4 v5's gross cap stays 1.90 over the frozen rule's 1.80 (the blend's w5 0.0536 against the z book's 0.0261)
+E-2026-11-03-40,2026-11-03,release,ALPACA,"§1, §4",3,V,Release: release-20261103-5 installed; C4 re-armed on the v5 blend (CEF trial 54's level_signal); the core byte-identical
+E-2026-11-03-41,2026-11-03,result,ALPACA,§5,2,V,"Finding: the drawdown read is UNMEASURED at every 22:00 decide, because the EOD row for the as-of date is never written yet"
+E-2026-11-03-42,2026-11-03,ruling,ALPACA,§5,4,SU,"Ruling: te4's K0 reads the previous session's EOD row, answering E-2026-11-03-41 (the 22:00 decide never has the day's row); the missing-NAV hold frequency stays unmeasured"
+E-2026-11-03-43,2026-11-03,result,ALPACA,"§1, §4",3,V,The first plans at release-20261103-5: the core's first ×1.30 and C4's first armed plan on the v5 blend (session 2026-11-04)
+E-2026-11-03-44,2026-11-03,incident,ALPACA,"§4, §5",3,V,Incident: C4's first fetch wrote IGR's split-adjusted pre-split closes against unadjusted NAVs; C4 halted for the 2026-11-04 session
 E-2026-11-03-90,2026-11-03,live-pnl,ALPACA,§4,7,SU,"cef paper book, 2026-11-03: PASS, traded"
+E-2026-11-03-91,2026-11-03,live-pnl,ALPACA,§4,6,SU,"c4 paper book, 2026-11-03: FAIL, did not trade"
+E-2026-11-04-10,2026-11-04,correction,ALPACA,§5,1,,"Correction: a merge interleaved E-2026-11-03-35..39, and E-39/41/43/44 failed the log's format; restored from the clean commits, no figure changed"
+E-2026-11-04-11,2026-11-04,release,ALPACA,"§1, §4, §5",5,V,"Release: release-20261104-1 (C4 fetch keeps one price basis with its NAVs; fetch-time basis-step guard; repair-basis) installed, and IGR's stored history repaired"
+E-2026-11-04-12,2026-11-04,result,ALPACA,"§1, §4",4,V,C4's 2026-11-04 plan re-decided on the repaired panel and approved by sha; the unsent corrupt plan retired
+E-2026-11-04-13,2026-11-04,live-pnl,ALPACA,§4,2,V,"Both books traded on 2026-11-04: the core's first ×1.30 session and C4's first session ever, both verify PASS"
+E-2026-11-04-14,2026-11-04,correction,ALPACA,"§1, §4",2,V,"Correction to E-2026-11-03-43: the core's ""gross 1.025× → 1.797×"" was the sleeve's target gross, not the book after the trades"
+E-2026-11-04-15,2026-11-04,result,ALPACA,"§4, §5",4,V,"C4's 11-05 decide is deferred on KYN's late NAV (the missing-NAV hold, by design); the IGR fix holds through a nightly fetch"
+E-2026-11-04-90,2026-11-04,live-pnl,ALPACA,§4,7,SU,"cef paper book, 2026-11-04: PASS, traded"
+E-2026-11-04-91,2026-11-04,live-pnl,ALPACA,§4,8,SU,"c4 paper book, 2026-11-04: PASS, traded"
+E-2026-11-05-20,2026-11-05,correction,ALPACA,§4,3,S,"Correction to E-2026-11-03-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-03 yet, not because the file was missing from the pull"
+E-2026-11-05-21,2026-11-05,method,ALPACA,"§4, §5",1,,Method: snapshot_live ingests a C4 pull without distribution_scores.csv and names the distribution-adjusted P&L UNMEASURED; a core pull must still carry the file
+E-2026-11-05-22,2026-11-05,correction,ALPACA,§4,3,S,"Correction to E-2026-11-04-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-04 yet, not because the file was missing from the pull"

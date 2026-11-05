@@ -330,3 +330,21 @@ from a named source; [doc] copied from a named note.
   - It was approved by sha 17ddda95… at 09:36, and AUTO_ARMED was restored.
 - **Also merged:** #54, the evidence-log repair, which adds a CI test that validates the log.
 
+**22:17 ET: the first sends, and the 11-05 plans** (`results/report/EVIDENCE_LOG.md` E-2026-11-04-13..15).
+- **Both books traded and verify PASSed.**
+  - The core: 11 of 11 filled, auction-marked −$232.04, fill against the auction +18.3bp.
+  - C4's first session: 15 of 15 filled, auction-marked −$8.60, fill against the auction +0.7bp.
+- **A correction** (E-14): the "1.797×" reported for the core's 11-04 plan was target gross. The book after the trades is 1.174×, because names inside the band don't trade to target.
+- **11-05.**
+  - The core decided 6 orders.
+  - C4's decide is deferred on KYN's late NAV (the missing-NAV hold): it retries in later slots and decides by the 14:30 final check, with KYN held.
+  - IGR's history stays clean after the nightly fetch (step 5: 0 rows moved).
+
+## 2026-11-05 (Thu)
+
+**Execution-cost study, both paper books (report only, zero trials; `results/cef/EXEC_COST_STUDY_2026-11-05.md`, `results/report/EVIDENCE_LOG.md` E-2026-11-05-30).**
+- **Where the cost comes from.** The core's paper fill vs the auction print is 7.14bp over 21 `late_market` sessions (day t 3.20). 5.90bp of it is the spread paid at send: half a cent a share, set by the tick. The remaining 1.24bp is drift to the close and not significant.
+- **What would cut it.** The spread is flat from 15:51 to 15:59:30, so the send time buys no spread. Posting at the passive touch and crossing the remainder at 15:58 would have cost 4.12bp (−2.2bp, t −1.93; the CI includes zero).
+- **Real money.** None of the paper cost carries over to MOC. The live cost is auction impact, which is unmeasured, on orders a notional-weighted median of 15% of the closing cross.
+- **C4.** Its names quote about twice the core's spread, about 5.4%/yr at its design turnover against a modelled 10.76%/yr gross.
+- **Status.** Ranked candidates are proposed and none adopted; each needs a pre-registration and a release. PR to `main`, not merged.
