@@ -209,3 +209,35 @@ def test_the_k3_run_length_written_in_frozen_is_refused():
     s["frozen"][RUN_KEY] = 3
     with pytest.raises(ValueError, match=f"move it to risk.{RUN_KEY}"):
         R.validate_spec(s)
+
+
+# ---------------------------------------------------------------------------
+# K2 and K3 below max_gross_stress, at construction, naming both values (owner's review item 4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("key", ["thin_k2_max_name_frac", "thin_k3_net_run", "thin_k3_net_once"])
+@pytest.mark.parametrize("over", [0.0, 0.2, 93.8])          # at the cap, above it, a percent
+def test_k2_and_k3_at_or_above_the_cap_refuse_at_construction_naming_both_values(key, over):
+    """The runner owner's review (2026-11-04), item 4: each K2/K3 threshold must be below
+    frozen.max_gross_stress, validated at construction, and a violation refuses AND NAMES THE
+    VALUES. Confirmed on 69ef368 (`cef_thin_stop_levels`, called by `validate_spec`, which
+    `build_sleeve` calls before it constructs): the message names the key, its value and the
+    cap. No code changed; this pins the confirmation, so it passes on 69ef368 by design. The
+    once line is moved with the run line where needed, so the run-below-once check is not what
+    refuses."""
+    cap = SPEC["frozen"]["max_gross_stress"]
+    v = cap + over
+    lines = {key: v}
+    if key == "thin_k3_net_run":
+        lines["thin_k3_net_once"] = 0.5                     # below the run line: never reached
+    s = spec_with(**lines)
+    for build in (R.validate_spec, lambda spec: R.build_sleeve(spec, 100_000.0)):
+        with pytest.raises(ValueError) as e:
+            build(s)
+        msg = str(e.value)
+        assert f"risk.{key} {v!r}" in msg and f"max_gross_stress {cap}" in msg, msg
+    # Just below the cap is accepted (with the run line below the once line).
+    ok = {key: cap - 0.01}
+    if key == "thin_k3_net_run":
+        ok["thin_k3_net_once"] = cap - 0.005
+    R.validate_spec(spec_with(**ok))

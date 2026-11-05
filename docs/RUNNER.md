@@ -371,7 +371,9 @@ without one. The registry also refuses:
 - any of them under another rule;
 - a non-number, NaN or a value at or below 0;
 - K1 at or above 1 (a fraction, never a percent);
-- K2 or K3 at or above `max_gross_stress`;
+- K2 or K3 (either K3 line) at or above `frozen.max_gross_stress`, at construction
+  (`validate_spec`, which `build_sleeve` runs before it builds), with a message naming the key,
+  its value and the cap (confirmed for the runner owner's review 2026-11-04, item 4);
 - the run line not below the once line;
 - a near-miss spelling in `risk`, and any of them written in `frozen`.
 
