@@ -118,6 +118,7 @@ from scripts.cef import c4_families as c4  # noqa: E402
 from scripts.cef import c4_paper_benchmark as bm  # noqa: E402
 from scripts.cef import spec as S  # noqa: E402
 from scripts.research import harness as hz  # noqa: E402
+from scripts.research.inference import newey_west_t  # noqa: E402
 from scripts.research.resampling import sharpe_diff  # noqa: E402
 
 STAMP = "2026-11-05"
@@ -135,7 +136,9 @@ V6_EXTRA = ("NAD", "NEA", "NVG", "NZF")          # the 17 = the 13 + these (PRER
 FRONTIER_POINTS = (0.016, 0.024, 0.032, 0.048, 0.064, 0.096)   # band_frontier.BAND_SWEEP's 1.6-9.6% points
 P1_TOL = 0.05
 SD_BLOCK, SD_M, SD_SEED = 21, 999, 20261105
-ERAS = (("2010-14", "2010-01-01", "2014-12-31"), ("2015-19", "2015-01-01", "2019-12-31"),
+NW_LAG, NW_LAG_ALT = 21, 63                       # the pass rule's t: Newey-West on the daily difference
+ERAS = (("2005-09", "2005-01-01", "2009-12-31"),
+        ("2010-14", "2010-01-01", "2014-12-31"), ("2015-19", "2015-01-01", "2019-12-31"),
         ("2020-22", "2020-01-01", "2022-12-31"))
 
 
@@ -168,6 +171,7 @@ def read_costs(ref: str) -> dict:
     c_core = float(core["B_bp"])
     half = T_975_20DF * float(core["B_day_mean_bp"]) / float(core["B_day_t"])
     ci = (float(core["B_day_mean_bp"]) - half, float(core["B_day_mean_bp"]) + half)
+    ci_c = (c_core - half, c_core + half)          # the same half-width, centred on the pooled c* (review)
     sp = d["spread_profile"]
     qc, q4 = sp["core universe"], sp["c4 traded names"]
     r_mean = float(q4["half_spread_bp_mean"][SEND_MINUTE]) / float(qc["half_spread_bp_mean"][SEND_MINUTE])
@@ -176,6 +180,7 @@ def read_costs(ref: str) -> dict:
     return {"ref": ref, "path": COST_PATH,
             "core_B_bp": c_core, "core_B_day_mean_bp": float(core["B_day_mean_bp"]),
             "core_B_day_t": float(core["B_day_t"]), "core_B_ci95_day_mean_bp": ci,
+            "core_B_ci95_centred_on_pooled_bp": ci_c,
             "core_QHS_bp": float(core["QHS_bp"]), "core_days": int(core["days"]), "core_orders": int(core["orders"]),
             "spread_core_mean_1552": float(qc["half_spread_bp_mean"][SEND_MINUTE]),
             "spread_c4_mean_1552": float(q4["half_spread_bp_mean"][SEND_MINUTE]),
@@ -191,7 +196,7 @@ def read_costs(ref: str) -> dict:
 
 # --------------------------------------------------------------------------- the law's inputs
 
-def dynamics(T: pd.DataFrame, inactive: np.ndarray, era=None, nonzero: str = "both") -> dict:
+def dynamics(T: pd.DataFrame, inactive: np.ndarray, era=None, nonzero: str = "both", flat_ok: bool = False) -> dict:
     """sigma_w, phi_w, kappa_w on active pairs (see the module docstring). `inactive` is a bool per row
     of T: True where the book does not trade (thin, or a hold)."""
     if len(inactive) != len(T):
@@ -203,6 +208,10 @@ def dynamics(T: pd.DataFrame, inactive: np.ndarray, era=None, nonzero: str = "bo
         ap &= (idx >= pd.Timestamp(era[0])) & (idx <= pd.Timestamp(era[1]))
     p, c = A[:-1][ap], A[1:][ap]
     sel = ((p != 0) & (c != 0)) if nonzero == "both" else ((p != 0) | (c != 0))
+    if sel.sum() < 100 and flat_ok:
+        # an ERA in which the book barely trades (the core before 2013 is thin: flat by the live rule). It is
+        # returned labelled FLAT, printed as such, and never fed to the law; a whole-book call still raises.
+        return {"flat": True, "active_pairs": int(ap.sum()), "name_days": int(sel.sum())}
     if sel.sum() < 100:
         raise ValueError(f"only {int(sel.sum())} name-days; too few to measure target dynamics")
     dT = (c - p)[sel]
@@ -249,9 +258,14 @@ def score(H: pd.DataFrame, R: pd.DataFrame, costs: dict) -> dict:
     w1 = r["pnl"].loc[W1:]
     tw = r["turn_series"].loc[W1:]
     trading = held.loc[W1:]
-    xe, te = w1[trading], tw[trading]
+    xe = w1[trading]
+    # Turnover is counted on DECISION sessions, every trade included: a session whose decided book is
+    # non-zero or which traded (an exit to flat, a re-entry). Averaging it over the earn mask above, as
+    # the first version did, dropped every re-entry after two or more thin sessions (review, 2026-11-05).
+    dec = ((H.abs().sum(axis=1) > 0) | (r["turn_series"] > 0)).loc[W1:]
     out["w1_trading"] = {"sessions": int(trading.sum()), "ann": float(xe.mean() * 252),
-                         "gross_sr": float(xe.mean() / xe.std() * np.sqrt(252)), "turn": float(te.mean() * 252)}
+                         "gross_sr": float(xe.mean() / xe.std() * np.sqrt(252)),
+                         "decision_sessions": int(dec.sum()), "turn": float(tw.sum() * 252 / dec.sum())}
     out["_pnl"], out["_turn"] = r["pnl"], r["turn_series"]
     return out
 
@@ -261,12 +275,20 @@ def paired(a: dict, b: dict, c_bp: float) -> dict:
     x = (a["_pnl"] - a["_turn"] * c_bp / 1e4).to_numpy()
     y = (b["_pnl"] - b["_turn"] * c_bp / 1e4).to_numpy()
     s = sharpe_diff(x, y, block=SD_BLOCK, M=SD_M, seed=SD_SEED)
+    # THE PASS RULE'S STATISTIC: the claim is "earns more net at c", a RETURN difference, so its t is the
+    # Newey-West t of the daily net-return difference (lag 21, one month; 63 beside it). The Sharpe
+    # difference above is the plateau's test; both are printed and named.
+    dn = x - y
+    dg = (a["_pnl"] - b["_pnl"]).to_numpy()
     return {"delta_annual": float(s["delta_annual"]), "se_annual": float(s["se"] * np.sqrt(252)),
             "hac_p": float(s["hac_p_value"]), "boot_p": float(s["p_value"]),
-            "ci_annual": [float(v) for v in s["ci_annual"]]}
+            "ci_annual": [float(v) for v in s["ci_annual"]],
+            "net_diff_pp_yr": float(dn.mean() * 252 * 100), "nw_t_net": float(newey_west_t(dn, NW_LAG)),
+            "nw_t_net_lag63": float(newey_west_t(dn, NW_LAG_ALT)),
+            "gross_diff_pp_yr": float(dg.mean() * 252 * 100), "nw_t_gross": float(newey_west_t(dg, NW_LAG))}
 
 
-def model_change(a: dict, b: dict, c_bp: float, say) -> dict:
+def model_change(a: dict, b: dict, c_bp: float, say, who: str = "h*") -> dict:
     """h* against the live width, as a MODEL on the fit: turnover, its cost at c, gross and net, over the
     fit calendar and in 2020-22 (the last fit era, the busiest). Account units (x m), %NAV a year."""
     out = {}
@@ -277,7 +299,7 @@ def model_change(a: dict, b: dict, c_bp: float, say) -> dict:
                     "d_gross_pct": (ra["ann"] - rb["ann"]) * 100,
                     "d_net_pct": ((ra["ann"] - rb["ann"]) - dt_ * c_bp / 1e4) * 100}
         o = out[lab]
-        say(f"    MODEL, h* vs live, {lab}: turn/yr {o['turn_h']:.1f} vs {o['turn_live']:.1f} ({o['turn_rel']:+.1%}); "
+        say(f"    MODEL, {who} vs live, {lab}: turn/yr {o['turn_h']:.1f} vs {o['turn_live']:.1f} ({o['turn_rel']:+.1%}); "
             f"cost at {c_bp:.2f}bp {o['d_cost_pct_nav']:+.3f}%NAV/yr; gross {o['d_gross_pct']:+.3f}pp/yr; net "
             f"{o['d_net_pct']:+.3f}pp/yr")
     return out
@@ -334,6 +356,10 @@ def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, 
             say(f"    spec value {spec_value * 100:.1f}% - live at c*: {test_spec['delta_annual']:+.3f}/yr (SE "
                 f"{test_spec['se_annual']:.3f}, HAC p {test_spec['hac_p']:.3f}); turnover "
                 f"{rows[spec_value]['turn'] / rows[live]['turn'] - 1:+.1%}")
+            say(f"    PASS-RULE STATISTIC, spec value - live: net at c* {test_spec['net_diff_pp_yr']:+.4f}pp/yr, "
+                f"Newey-West t (lag {NW_LAG}) {test_spec['nw_t_net']:.2f} (lag {NW_LAG_ALT}: "
+                f"{test_spec['nw_t_net_lag63']:.2f}); gross {test_spec['gross_diff_pp_yr']:+.4f}pp/yr, NW t "
+                f"{test_spec['nw_t_gross']:.2f}; against the bar sqrt(2 ln 56) = {math.sqrt(2 * math.log(56)):.3f}")
         for lab, e in eras.items():
             say(f"    {lab}: argmax {e['argmax'] * 100:.2f}% ({e['side']} than h*); net@c* at h* {e['net_at_h']:.3f}, "
                 f"at live {e['net_at_live']:.3f}, at argmax {e['net_at_best']:.3f}; turn/yr h* {e['turn_at_h']:.1f}, "
@@ -345,7 +371,8 @@ def plateau(book: str, build, R_by: dict, h: float, c_star: float, live: float, 
             "h_vs_live": test_live, "spec_value": spec_value, "spec_value_vs_live": test_spec,
             "turn_gap_spec_value_vs_live": rows[spec_value]["turn"] / rows[live]["turn"] - 1,
             "turn_gap_h_vs_live": turn_gap, "h2_pair": bool(abs(turn_gap) <= 0.05),
-            "eras": eras, "model_change_h_vs_live": model_change(rows[h], rows[live], c_star, say)}
+            "eras": eras, "model_change_h_vs_live": model_change(rows[h], rows[live], c_star, say),
+            "model_change_spec_value_vs_live": model_change(rows[spec_value], rows[live], c_star, say, "spec value")}
     return out
 
 
@@ -376,7 +403,7 @@ def core(cut: Path, data_root: Path, costs: dict, say) -> dict:
     say(f"  fit-cut panels: {info}")
     inactive = thin.to_numpy()
     dyn = {"primary": dynamics(T, inactive), "either_nonzero": dynamics(T, inactive, nonzero="either"),
-           "eras": {lab: dynamics(T, inactive, era=(a, b)) for lab, a, b in ERAS}}
+           "eras": {lab: dynamics(T, inactive, era=(a, b), flat_ok=True) for lab, a, b in ERAS}}
     U17 = list(S.UNIVERSE) + list(V6_EXTRA)
     T17, _ = bf.fit_only(*bf.build_targets(universe=U17))
     thin17 = bf.thin_sessions(T17.index, universe=U17)
@@ -401,13 +428,16 @@ def core(cut: Path, data_root: Path, costs: dict, say) -> dict:
     p = dyn["primary"]
     c_star = costs["core_B_bp"]
     lo, hi = costs["core_B_ci95_day_mean_bp"]
+    lo2, hi2 = costs["core_B_ci95_centred_on_pooled_bp"]
     hs = {"c_star": h_star(c_star, p["sigma_w"], p["kappa_w"]),
           "ci_lo": h_star(lo, p["sigma_w"], p["kappa_w"]), "ci_hi": h_star(hi, p["sigma_w"], p["kappa_w"]),
+          "ci_centred": [lo2, hi2, h_star(lo2, p["sigma_w"], p["kappa_w"]), h_star(hi2, p["sigma_w"], p["kappa_w"])],
           **{f"{int(c)}bp": h_star(c, p["sigma_w"], p["kappa_w"]) for c in GRID_BP + (22.0,)},
           "c_star_account_reading_in_unit_weights": h_star(c_star, m * p["sigma_w"], p["kappa_w"]) / m,
           "c_star_either_nonzero": h_star(c_star, dyn["either_nonzero"]["sigma_w"], dyn["either_nonzero"]["kappa_w"]),
           "c_star_per_name_sd": h_star(c_star, p["sigma_w_per_name_mean"], p["kappa_w"]),
-          "c_star_by_era": {lab: h_star(c_star, e["sigma_w"], e["kappa_w"]) for lab, e in dyn["eras"].items()},
+          "c_star_by_era": {lab: h_star(c_star, e["sigma_w"], e["kappa_w"]) for lab, e in dyn["eras"].items()
+                            if not e.get("flat")},
           "c_star_original_inputs": h_star(c_star, ORIGINAL["sigma_w"], ORIGINAL["kappa_w"])}
     _say_dyn("core", dyn, say)
     _say_h("core", hs, c_star, (lo, hi), m, say)
@@ -437,13 +467,13 @@ def c4book(cut: Path, data_root: Path, costs: dict, say) -> dict:
     nz = np.abs(A).sum(axis=1) > 0
     first = int(np.argmax(nz))
     inactive = same.copy()
-    inactive[:first + 1] = True
+    inactive[:first] = True                       # before the first book; the entry pair is a jump
     say(f"\nC4  spec {spec['spec_id']}: m {m}, cap {cap}, band {live}; {TB.shape[1]} names; the v5 blend "
         f"{TB.index[0].date()}..{TB.index[-1].date()}; first book {TB.index[first].date()}; "
         f"{int(same[first + 1:].sum())} hold rows after it; reproduction gate PASS (trial 52 fit SR "
         f"{tb['total_sr']:.6f} TR / {tb['price_sr']:.6f} PR)")
     dyn = {"primary": dynamics(TB, inactive), "either_nonzero": dynamics(TB, inactive, nonzero="either"),
-           "eras": {lab: dynamics(TB, inactive, era=(a, b)) for lab, a, b in ERAS}}
+           "eras": {lab: dynamics(TB, inactive, era=(a, b), flat_ok=True) for lab, a, b in ERAS}}
     p = dyn["primary"]
     c_c4, c_c4_med, c_core = costs["c4_B_bp"], costs["c4_B_bp_median_ratio"], costs["core_B_bp"]
     lo, hi = (x * costs["ratio_mean"] for x in costs["core_B_ci95_day_mean_bp"])
@@ -455,7 +485,8 @@ def c4book(cut: Path, data_root: Path, costs: dict, say) -> dict:
           "c_star_account_reading_in_unit_weights": h_star(c_c4, m * p["sigma_w"], p["kappa_w"]) / m,
           "c_star_either_nonzero": h_star(c_c4, dyn["either_nonzero"]["sigma_w"], dyn["either_nonzero"]["kappa_w"]),
           "c_star_per_name_sd": h_star(c_c4, p["sigma_w_per_name_mean"], p["kappa_w"]),
-          "c_star_by_era": {lab: h_star(c_c4, e["sigma_w"], e["kappa_w"]) for lab, e in dyn["eras"].items()}}
+          "c_star_by_era": {lab: h_star(c_c4, e["sigma_w"], e["kappa_w"]) for lab, e in dyn["eras"].items()
+                            if not e.get("flat")}}
     _say_dyn("C4", dyn, say)
     _say_h("C4", hs, c_c4, (lo, hi), m, say)
     say(f"  C4 at the median spread ratio ({costs['ratio_median']:.3f} -> {c_c4_med:.2f}bp): h* "
@@ -486,6 +517,9 @@ def _say_dyn(book, dyn, say):
     say(f"    sensitivity: either-day non-zero sigma_w {e['sigma_w']:.5f}, phi_w {e['phi_w']:.5f}; per-name mean "
         f"sd {p['sigma_w_per_name_mean']:.5f}")
     for lab, x in dyn["eras"].items():
+        if x.get("flat"):
+            say(f"    {lab}: FLAT ({x['active_pairs']} active pairs, {x['name_days']} name-days); not measured")
+            continue
         say(f"    {lab}: sigma_w {x['sigma_w']:.5f}, phi_w {x['phi_w']:.5f}, half-life {x['half_life']:.1f}d, "
             f"{x['active_pairs']} pairs")
     if "calibration_v6_17" in dyn:
@@ -507,6 +541,9 @@ def _say_h(book, hs, c, ci, m, say):
     say(f"  {book} DERIVED h* = (3 c sigma_w^2 / 2 kappa_w)^(1/3), unit weights (the spec key's units):")
     say(f"    at c* = {c:.2f}bp: {hs['c_star'] * 100:.2f}%   [95% interval of c {ci[0]:.2f}-{ci[1]:.2f}bp -> "
         f"{hs['ci_lo'] * 100:.2f}-{hs['ci_hi'] * 100:.2f}%]")
+    if "ci_centred" in hs:
+        a_, b_, ha, hb = hs["ci_centred"]
+        say(f"    the same half-width centred on the pooled c* ({a_:.2f}-{b_:.2f}bp) -> {ha * 100:.2f}-{hb * 100:.2f}%")
     say(f"    grid: 5bp {hs['5bp'] * 100:.2f}%, 15bp {hs['15bp'] * 100:.2f}%, 30bp {hs['30bp'] * 100:.2f}%; "
         f"22bp (the 2026-09-06 mid-range) {hs['22bp'] * 100:.2f}%")
     say(f"    sensitivities at c*: account-weight reading (x{m}) {hs['c_star_account_reading_in_unit_weights'] * 100:.2f}%"

@@ -167,7 +167,7 @@ def main() -> int:
     same[1:] = (A[1:] == A[:-1]).all(axis=1)
     first = int(np.argmax(np.abs(A).sum(axis=1) > 0))
     inactive = same.copy()
-    inactive[:first + 1] = True
+    inactive[:first] = True
     s4, ph4 = pandas_dynamics(TB, pd.Series(inactive, index=TB.index))
     check("C4 sigma_w", s4, q["sigma_w"], 1e-12)
     check("C4 phi_w", ph4, q["phi_w"], 1e-12)
