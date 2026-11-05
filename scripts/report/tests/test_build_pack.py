@@ -75,3 +75,27 @@ def test_markdown_table_reader_takes_the_named_section():
     df = bp._md_table(text, "Components")
     assert list(df.iloc[:, 0]) == ["hold (q)", "fill (x)"]
     assert bp._usd(df.iloc[1, 1]) == -308.71
+
+
+def test_c4_equity_is_its_own_figure_and_a_missing_distribution_file_is_pending_by_name(tmp_path):
+    """2026-11-05: C4's live aggregates carry no distribution_scores.csv until its verify writes
+    one. Its equity draws as F06_live_equity_c4 (never on the core's axis), and the P&L-lines
+    figure, which needs the file, is PENDING naming it rather than drawn from a default."""
+    r = _repo(tmp_path)
+    live = r / "results" / "report" / "data" / "live" / "c4"
+    live.mkdir(parents=True)
+    (live / "equity_snapshot.csv").write_text("date,equity\n2026-10-01,100000.0\n2026-10-02,99900.0\n")
+    (live / "eod_equity.csv").write_text("date,equity,change_usd\n2026-10-01,100000.0,0.00\n")
+    (live / "scores.csv").write_text("date,alpaca_equity_change_usd,auction_pnl_usd\n2026-10-02,-100.00,-90.00\n")
+    (live / "verify_shadow.csv").write_text("date,shadow_modelled_usd,label\n2026-10-02,0.00,MODELLED\n")
+    env = ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+    subprocess.run(["git", "-C", str(r), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(r), *env, "commit", "-q", "-m", "c4"], check=True)
+    b = bp.Build(repo=r)
+    rel = pd.DataFrame({"tag": ["release-20261002-1"], "tagged": ["2026-10-02T09:00:00-04:00"]})
+    bp.f_live_equity(b, rel, book="c4", fid="F06_live_equity_c4", title="Live equity, C4 account")
+    assert [o["id"] for o in b.outputs] == ["F06_live_equity_c4"]
+    assert (r / "results" / "report" / "figures" / "F06_live_equity_c4.png").exists()
+    assert not (r / "results" / "report" / "figures" / "F06_live_equity.png").exists()
+    with pytest.raises(bp.Pending, match=r"data/live/c4/distribution_scores\.csv \(snapshot_live writes it"):
+        bp.f_live_daily(b, book="c4")

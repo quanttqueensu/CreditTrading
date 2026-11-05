@@ -1,6 +1,6 @@
 """Ingest the VM's live P&L records into sanitised, committed daily CSVs.
 
-    python3 -m scripts.report.snapshot_live --src <vm_pnl dir> [--book cef] [--no-log] [--force]
+    python3 -m scripts.report.snapshot_live --src <vm_pnl dir> [--book cef|c4] [--no-log] [--force]
 
 WHY THIS FILE EXISTS (2026-11-03). The team lead's read-only wrapper `vmpnl.sh` copies
 the prod VM's P&L records (equity.csv, scores.csv, distribution_scores.csv, tca.csv and
@@ -50,6 +50,17 @@ whatever the line called it, and the old wording is kept in `verify_label`. The
 official series is `eod_equity.csv`, which `vmpnl.sh` copies only if its grep includes
 `eod_equity`; when it is absent, the official figure is written UNMEASURED, never
 filled from the snapshot (CLAUDE.md: no silent fallbacks).
+
+A FILE ONE BOOK MAY LACK (2026-11-05). `distribution_scores.csv` is required in a core
+(`cef`) pull, exactly as before, and optional in a C4 pull. C4's verify runs the same
+distribution score (quantt/session/verify.py `run_distributions`, against C4's own panel),
+but dist_score scores a session only once it is two sessions old and has a session folder
+(docs/DATA.md), so C4's first pulls, from its first trading week (armed 2026-11-03), carry
+no such file, and the core's rule refused every one of them. Optional means named, never
+defaulted: a C4 pull without the file writes no distribution aggregate and no distribution
+rows, and its live-day entry says the distribution-adjusted P&L is UNMEASURED because
+`distribution_scores.csv` is not in the pull. It is never written as zero. A C4 pull that
+carries the file is ingested exactly as the core's is.
 """
 from __future__ import annotations
 
@@ -105,10 +116,11 @@ SCHEMAS = {
                             "auction_pnl_usd", "auction_hold_pnl_usd", "auction_fill_pnl_usd",
                             "fill_vs_auction_bp", "unmeasured", "auction_condition", "cost_basis",
                             "read_at"], "drop": [], "json": "per_symbol_json"},
+    # Required for every book except those in `optional_for` (module docstring, 2026-11-05).
     "distribution_scores.csv": {"keep": ["date", "auction_pnl_usd", "distribution_pnl_usd",
                                          "auction_pnl_with_distributions_usd", "unmeasured", "source",
                                          "label", "written_at_utc"], "drop": [],
-                                "json": "per_symbol_json"},
+                                "json": "per_symbol_json", "optional_for": ("c4",)},
     "tca.csv": {"keep": ["date", "book", "n_orders", "n_full", "shares_ordered", "shares_filled",
                          "fill_rate_shares", "slip_bp_buy", "slip_bp_sell", "slip_bp_all",
                          "slip_unmeasured", "residual_gross_usd", "residual_net_usd", "residual_names",
@@ -275,9 +287,16 @@ def parse_verify(text: str, name: str = "logs/verify.out.log") -> tuple[list, li
 
 
 # ------------------------------------------------------------------- pull + merge --
-def read_pull(src: Path) -> dict:
+def required(name: str, book: str) -> bool:
+    """Whether `book`'s pull must carry input `name`. `book` is always named: a file one
+    book may lack is still required of every other (2026-11-05)."""
+    schema = SCHEMAS[name]
+    return not schema.get("optional") and book not in schema.get("optional_for", ())
+
+
+def read_pull(src: Path, book: str) -> dict:
     """Every recognised input file's bytes. Unknown files are refused, so nothing new
-    can ride along unseen."""
+    can ride along unseen; a file `book` requires (`required`) is refused if absent."""
     src = Path(src)
     if not src.is_dir():
         raise SanitiseError(f"{src}: not a directory (run vmpnl.sh first)")
@@ -290,8 +309,8 @@ def read_pull(src: Path) -> dict:
             raise SanitiseError(f"{rel}: an unknown file in the pull; add it to SCHEMAS or LOG_FILES "
                                 "with a sanitising rule first. Nothing was written.")
         files[rel] = p.read_bytes()
-    for name, schema in SCHEMAS.items():
-        if name not in files and not schema.get("optional"):
+    for name in SCHEMAS:
+        if name not in files and required(name, book):
             raise SanitiseError(f"{name}: missing from the pull at {src}")
     return files
 
@@ -315,9 +334,16 @@ def sanitise(files: dict, book: str) -> tuple[dict, dict]:
     sc = [r for r in _read_csv("scores.csv", files["scores.csv"]) if (r["book"] or book) == book]
     rows["scores_by_symbol.csv"] = (["date", "symbol", "side"], _explode_scores(sc, book))
     agg["scores.csv"] = (["date"], sc)
-    ds = _read_csv("distribution_scores.csv", files["distribution_scores.csv"])
-    rows["distributions_by_symbol.csv"] = (["date", "symbol"], _explode_dists(ds))
-    agg["distribution_scores.csv"] = (["date"], ds)
+    # A book that may lack distribution_scores.csv (C4, 2026-11-05) writes NO distribution
+    # table when its pull has none: no empty aggregate, no rows, never a zero. The live-day
+    # entry names the missing file instead (live_entries). Every other book still needs it.
+    has_dist = "distribution_scores.csv" in files
+    if not has_dist and required("distribution_scores.csv", book):
+        raise SanitiseError("distribution_scores.csv: missing from the pull")
+    if has_dist:
+        ds = _read_csv("distribution_scores.csv", files["distribution_scores.csv"])
+        rows["distributions_by_symbol.csv"] = (["date", "symbol"], _explode_dists(ds))
+        agg["distribution_scores.csv"] = (["date"], ds)
     tca = [r for r in _read_csv("tca.csv", files["tca.csv"]) if (r["book"] or book) == book]
     rows["tca_residual_names.csv"] = (["date"], [{"date": r["date"], "residual_names": r["residual_names"]}
                                                   for r in tca])
@@ -333,7 +359,11 @@ def sanitise(files: dict, book: str) -> tuple[dict, dict]:
                                                     for r in v])
     agg["verify.csv"] = (["date", "book"], [{k: x for k, x in r.items() if k != "detail"} for r in v])
     agg["verify_shadow.csv"] = (["date"], sh)
-    agg["verify_distributions.csv"] = (["date"], d)
+    # verify's own "distributions D:" lines. With no distribution_scores.csv in the pull and
+    # no such line either, there is no distribution record at all, so no table is written
+    # (a header-only file would read as a measured nothing). The core always has the file.
+    if has_dist or d:
+        agg["verify_distributions.csv"] = (["date"], d)
     return rows, agg
 
 
@@ -456,8 +486,10 @@ def _fmt(x: str) -> str:
     return x if x else "UNMEASURED"
 
 
-def live_entries(book: str, out_dir: Path, pid: str, existing_ids: set) -> list[str]:
-    """One `live-pnl` entry per session date not yet in the log, from the sanitised files."""
+def live_entries(book: str, out_dir: Path, pid: str, existing_ids: set, pulled: set) -> list[str]:
+    """One `live-pnl` entry per session date not yet in the log, from the sanitised files.
+    `pulled` is the set of file names in this pull: a figure whose input file the pull did
+    not carry is written UNMEASURED naming that file, never left out or zeroed."""
     nn = LIVE_NN.get(book)
     if nn is None:
         raise SanitiseError(f"book {book!r} has no live entry number; add it to LIVE_NN")
@@ -499,6 +531,8 @@ def live_entries(book: str, out_dir: Path, pid: str, existing_ids: set) -> list[
             figs.append("distribution-adjusted P&L "
                         f"{_fmt(dist[d].get('auction_pnl_with_distributions_usd', ''))} USD "
                         "(credits distributions paper does not) [S]")
+        elif "distribution_scores.csv" not in pulled:
+            figs.append("distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]")
         if d in shadow:
             figs.append(f"shadow book {shadow[d]['shadow_modelled_usd']} USD (MODELLED, not broker evidence) [S]")
         if v.get("refusal_gates"):
@@ -529,7 +563,7 @@ def append_entries(log: Path, blocks: list[str]) -> int:
 # --------------------------------------------------------------------------- main --
 def ingest(src: Path, book: str = "cef", out_root: Path = LIVE, log: Path | None = EVIDENCE_LOG,
            force: bool = False, cache_root: Path = CACHE) -> dict:
-    files = read_pull(src)
+    files = read_pull(src, book)
     pid = pull_id(files)
     out_dir, cache_dir = Path(out_root) / book, Path(cache_root) / book
     pulls = out_dir / "pulls.csv"
@@ -564,7 +598,7 @@ def ingest(src: Path, book: str = "cef", out_root: Path = LIVE, log: Path | None
     n = 0
     if log is not None:
         ids = {e.id for e in elog.parse(Path(log).read_text())} if Path(log).exists() else set()
-        n = append_entries(Path(log), live_entries(book, out_dir, pid, ids))
+        n = append_entries(Path(log), live_entries(book, out_dir, pid, ids, pulled=set(files)))
     return {"pull": pid, "status": "ingested", "added": added, "revised": revised, "entries": n}
 
 

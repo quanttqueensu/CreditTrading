@@ -29,7 +29,9 @@ def _scores_json(order_id=ORDER_ID, extra_side=None):
 
 
 def _write_pull(d: Path, *, scores_extra_col=False, verify_line=None, event_extra=None,
-                equity_note=None, side_extra=None):
+                equity_note=None, side_extra=None, book="cef", dist=True):
+    """A one-session pull. `book` and `dist` (2026-11-05) build a C4-shaped pull, with or
+    without distribution_scores.csv; the defaults write the same bytes as before."""
     d.mkdir(parents=True, exist_ok=True)
     (d / "logs").mkdir(exist_ok=True)
     eq_h = "date,equity,last_equity,cash,long_market_value,short_market_value,n_positions,read_at_utc"
@@ -44,7 +46,7 @@ def _write_pull(d: Path, *, scores_extra_col=False, verify_line=None, event_extr
     if scores_extra_col:
         sc_cols += ",account_id"
     pj = _scores_json(extra_side=side_extra).replace('"', '""')
-    row = (f'2026-10-02,cef,PASS,True,1,1,100050.00,100100.00,-50.00,-48.00,-47.50,-0.50,3.50,,M,gross,'
+    row = (f'2026-10-02,{book},PASS,True,1,1,100050.00,100100.00,-50.00,-48.00,-47.50,-0.50,3.50,,M,gross,'
            f'2026-10-02T17:30:00-04:00,"{pj}"')
     if scores_extra_col:
         row += ",PA0000000000"
@@ -54,21 +56,23 @@ def _write_pull(d: Path, *, scores_extra_col=False, verify_line=None, event_extr
         ev.update(event_extra)
     dj = json.dumps([{"alpaca_events": [ev], "dist_pnl": 5.0, "held_qty": 100, "per_share": 0.05,
                       "source": "Alpaca corporate actions", "symbol": "AAA"}]).replace('"', '""')
-    (d / "distribution_scores.csv").write_text(
-        "date,auction_pnl_usd,distribution_pnl_usd,auction_pnl_with_distributions_usd,unmeasured,"
-        "per_symbol_json,source,label,written_at_utc\n"
-        f'2026-10-02,-48.00,5.00,-43.00,,"{dj}",Alpaca corporate actions,distribution-adjusted,'
-        "2026-10-02T21:30:00+00:00\n")
+    if dist:
+        (d / "distribution_scores.csv").write_text(
+            "date,auction_pnl_usd,distribution_pnl_usd,auction_pnl_with_distributions_usd,unmeasured,"
+            "per_symbol_json,source,label,written_at_utc\n"
+            f'2026-10-02,-48.00,5.00,-43.00,,"{dj}",Alpaca corporate actions,distribution-adjusted,'
+            "2026-10-02T21:30:00+00:00\n")
     (d / "tca.csv").write_text(
         "date,book,n_orders,n_full,shares_ordered,shares_filled,fill_rate_shares,slip_bp_buy,slip_bp_sell,"
         "slip_bp_all,slip_unmeasured,residual_gross_usd,residual_net_usd,residual_names,basis\n"
-        "2026-10-02,cef,1,1,100,100,1.0000,3.50,,3.50,,0.00,0.00,,fills vs official close\n")
-    lines = ["2026-10-02 PASS cef traded 1 order(s), 1 filled; official PENDING (Alpaca's EOD history has "
+        f"2026-10-02,{book},1,1,100,100,1.0000,3.50,,3.50,,0.00,0.00,,fills vs official close\n")
+    lines = [f"2026-10-02 PASS {book} traded 1 order(s), 1 filled; official PENDING (Alpaca's EOD history has "
              "no point for D 2026-10-02 (read 2026-10-02T17:30-04:00)); snapshot 17:30 ET -50.00 USD (gross); "
              "auction-marked -48.00 USD (gross); fill vs auction +3.5bp (+ = worse)",
              "shadow 2026-10-02: -40.00 USD (MODELLED: intended book at official closing prints; not broker "
-             "evidence)",
-             "distributions 2026-10-02: -43.00 USD (distribution-adjusted)"]
+             "evidence)"]
+    if dist:
+        lines.append("distributions 2026-10-02: -43.00 USD (distribution-adjusted)")
     if verify_line:
         lines.append(verify_line)
     (d / "logs" / "verify.out.log").write_text("\n".join(lines) + "\n")
@@ -208,3 +212,109 @@ def test_pre_ruling_official_wording_is_stored_as_a_snapshot():
                               "(+ = worse)\n")
     assert v[0]["snapshot_1730_usd"] == "-8.91" and v[0]["official_usd"] == ""
     assert "pre-2026-10-19 wording" in v[0]["verify_label"]
+
+
+# ------------------------------------------- a file one book may lack (2026-11-05) --
+def _c4_ingest(pull, tmp: Path, **kw):
+    return sl.ingest(pull, "c4", out_root=tmp / "live", cache_root=tmp / "cache", **kw)
+
+
+def test_c4_without_distribution_scores_ingests_and_its_entry_names_the_file_unmeasured(tmp_path):
+    """C4's first pulls carry no distribution_scores.csv (its verify scores distributions two
+    sessions late). On origin/main the core's rule refused them: C4's days could not be logged."""
+    pull = _write_pull(tmp_path / "pull", book="c4", dist=False)
+    log = _log(tmp_path)
+    res = _c4_ingest(pull, tmp_path, log=log)
+    assert res["status"] == "ingested" and res["entries"] == 1
+    live, cache = tmp_path / "live" / "c4", tmp_path / "cache" / "c4"
+    assert (live / "scores.csv").exists() and (cache / "scores_by_symbol.csv").exists()
+    # No distribution table of any kind: not an empty one, and never a zero.
+    assert sorted(p.name for p in (tmp_path / "live").rglob("*distribution*")) == []
+    assert sorted(p.name for p in (tmp_path / "cache").rglob("*distribution*")) == []
+    entries = elog.parse(log.read_text())
+    assert [e.id for e in entries] == ["E-2026-10-02-91"] and elog.validate(entries) == []
+    dist_figs = [f for f in entries[0].figures if "distribution" in f]
+    assert dist_figs == ["distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]"]
+
+
+def test_c4_pull_that_carries_distribution_scores_is_ingested_like_the_cores(tmp_path):
+    """Optional is not ignored: once C4's verify writes the file, it is sanitised and logged."""
+    pull = _write_pull(tmp_path / "pull", book="c4")
+    log = _log(tmp_path)
+    _c4_ingest(pull, tmp_path, log=log)
+    assert "-43.00" in (tmp_path / "live" / "c4" / "distribution_scores.csv").read_text()
+    assert "cash_dividend:0.05" in (tmp_path / "cache" / "c4" / "distributions_by_symbol.csv").read_text()
+    figs = elog.parse(log.read_text())[0].figures
+    assert "distribution-adjusted P&L -43.00 USD (credits distributions paper does not) [S]" in figs
+    assert not any("UNMEASURED: distribution_scores.csv" in f for f in figs)
+
+
+def test_cef_without_distribution_scores_still_refuses_naming_it(tmp_path):
+    """Unchanged for the core: its pull must carry the file. The refusal through `ingest` is
+    the same as on origin/main; `sanitise` handed such a pull directly now refuses by name
+    too (on origin/main it raised a bare KeyError, which main() does not catch)."""
+    pull = _write_pull(tmp_path / "pull", dist=False)
+    with pytest.raises(sl.SanitiseError, match=r"^distribution_scores\.csv: missing from the pull at "):
+        _ingest(pull, tmp_path, log=_log(tmp_path))
+    assert not (tmp_path / "live").exists() and not (tmp_path / "cache").exists()
+    files = {p.relative_to(pull).as_posix(): p.read_bytes() for p in pull.rglob("*") if p.is_file()}
+    with pytest.raises(sl.SanitiseError, match="distribution_scores.csv: missing"):
+        sl.sanitise(files, "cef")
+    assert sl.required("distribution_scores.csv", "cef") and not sl.required("distribution_scores.csv", "c4")
+
+
+def _two_session_cef_pull(d: Path) -> Path:
+    """The core's usual evening shape: a second session (10-05) whose distribution row is not
+    scored yet (two sessions late), and an EOD history with a point for each session, one of
+    which disagrees with the snapshot."""
+    _write_pull(d)
+    with (d / "equity.csv").open("a") as f:
+        f.write("2026-10-05,100080.00,100050.00,50000.00,60000.00,-10000.00,2,2026-10-05T21:10:00+00:00\n")
+    pj = _scores_json().replace('"', '""')
+    with (d / "scores.csv").open("a") as f:
+        f.write(f'2026-10-05,cef,PASS,True,1,1,100080.00,100050.00,30.00,28.00,27.00,1.00,-2.00,,M,gross,'
+                f'2026-10-05T17:30:00-04:00,"{pj}"\n')
+    with (d / "tca.csv").open("a") as f:
+        f.write("2026-10-05,cef,1,1,100,100,1.0000,-2.00,,-2.00,,0.00,0.00,,fills vs official close\n")
+    with (d / "logs" / "verify.out.log").open("a") as f:
+        f.write("2026-10-05 PASS cef traded 1 order(s), 1 filled; official PENDING (Alpaca's EOD history has "
+                "no point for D 2026-10-05 (read 2026-10-05T17:30-04:00)); snapshot 17:30 ET +30.00 USD (gross); "
+                "auction-marked +28.00 USD (gross); fill vs auction -2.0bp (+ = worse)\n"
+                "shadow 2026-10-05: 25.00 USD (MODELLED: intended book at official closing prints; not broker "
+                "evidence)\n")
+    (d / "eod_equity.csv").write_text("date,equity,change_usd,read_at_utc\n"
+                                      "2026-10-01,100100.00,,2026-10-02T08:40:00+00:00\n"
+                                      "2026-10-02,100050.00,-50.00,2026-10-03T08:40:00+00:00\n"
+                                      "2026-10-05,100079.00,29.00,2026-10-06T08:40:00+00:00\n")
+    return d
+
+
+# sha256 of every file a core ingest writes, from scripts/report/snapshot_live.py at origin/main
+# 718b699, before the C4 change: the no-op proof (CLAUDE.md: prove a no-op byte-for-byte).
+CEF_GOLDEN = {
+    "EVIDENCE_LOG.md": "5c41be81c705fe49f61f824d84c82867e9effd4d882ff7e3f94dcbe7079c3512",
+    "cache/cef/distributions_by_symbol.csv": "984163572061bdc183212a8d487c1e8c7f62c281b7ce60cd1edbd4e35717a40a",
+    "cache/cef/scores_by_symbol.csv": "63371a186e8e092226d8eeb61e8f6aa126284b603c30e08ceeee7011a91c1ce6",
+    "cache/cef/tca_residual_names.csv": "5da04bee38cead4dee9c3972fdc471c99f47d31eb4f3b9cc652d623a1e0baea6",
+    "cache/cef/verify_detail.csv": "93ec26b9a8eef097f0565d56ed28940c4fbba5ffbcaefebb647315aa105ba816",
+    "live/cef/distribution_scores.csv": "462e971b3e0484aeecab5dc6e0a5c8752392cf47de5267e5b61a6084fce3cae0",
+    "live/cef/eod_equity.csv": "483a37dc9a43418406436c3b9055e9b567644ac4167aa26b71106047818be370",
+    "live/cef/equity_snapshot.csv": "ea68661e0474b345e83ca0ec51a7a2eb7ee432c4871fa6be319b8ae3eea18646",
+    "live/cef/fill_cost_daily.csv": "474a6e77679f44405539685ae72b1fd9a851e558477cb5c29af00a885475148a",
+    "live/cef/fill_cost_pooled.csv": "ebf26540f02df8c16f9b206430434d219cd1ed22440348bb095102de454f986e",
+    "live/cef/pulls.csv": "495fc61160846dd0a886a67eb7cb581a78074a39981d5ac57f141e63ee0db6bf",
+    "live/cef/scores.csv": "205640179bc8621a50468f2a99ee23e9c9dc240a1fe6b3ec8488fee4568c7e1e",
+    "live/cef/tca.csv": "cbb932017ae8c86426d3a6f0b7d300e7c00c0f19442d5b0262660a46b2707bd1",
+    "live/cef/verify.csv": "ebf728cdbdfcc00644737dd5356df55dfba8e44f138a62fedc4fdde3a2f13387",
+    "live/cef/verify_distributions.csv": "164dc91ab4f6d7c1916c8e1af5871196fea2aa48170ca9f430e232e6fd607652",
+    "live/cef/verify_shadow.csv": "45a03451c3a6d994c97cdb30b1ab0b3019d4727bf469c8c8a6fc6452146c0921",
+}
+
+
+def test_cef_output_is_byte_identical_to_before_the_c4_change(tmp_path):
+    pull = _two_session_cef_pull(tmp_path / "pull")
+    log = _log(tmp_path)
+    _ingest(pull, tmp_path, log=log)
+    got = {p.relative_to(tmp_path).as_posix(): sl.sha256_bytes(p.read_bytes())
+           for p in [*(tmp_path / "live").rglob("*.csv"), *(tmp_path / "cache").rglob("*.csv"), log]}
+    assert got == CEF_GOLDEN
