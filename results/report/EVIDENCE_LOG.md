@@ -3569,3 +3569,54 @@ that adds it does not exist when it is written.
 - supports: §1, §4
 - status: current
 
+### E-2026-11-04-90 · cef paper book, 2026-11-04: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - verify verdict PASS; orders sent 11, filled 11 [S]
+  - 17:30 ET snapshot equity change -69.91 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -232.04 USD [S]
+  - fills vs official close 18.30 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 18.30 bp, fill rate 1.0000 of shares [S]
+  - shadow book -249.75 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:c3fef52e05e2`; `results/report/data/live/cef/verify.csv` @ `pull:c3fef52e05e2`; `results/report/data/live/cef/tca.csv` @ `pull:c3fef52e05e2`
+- supports: §4
+- status: current
+
+### E-2026-11-04-13 · Both books traded on 2026-11-04: the core's first ×1.30 session and C4's first session ever, both verify PASS
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - core: 11 of 11 orders filled; verify PASS; snapshot 17:30 ET −$69.91, auction-marked −$232.04 (gross); fill against the auction +18.3bp (worse); official EOD pending at verify [V]
+  - C4: 15 of 15 orders filled (sha 17ddda95… approved at 09:36); verify PASS; snapshot 17:30 ET −$89.10, auction-marked −$8.60 (gross); fill against the auction +0.7bp; official EOD pending at verify [V]
+- source: `results/report/data/live/cef/verify.csv` @ `8fd35ee` (the core, pull:c3fef52e05e2); C4's pull `pull:98c1901d5803` (its verify.out.log; C4's automated ingest is PENDING because C4 writes no distribution_scores.csv yet)
+- supports: §4
+- status: current
+
+### E-2026-11-04-14 · Correction to E-2026-11-03-43: the core's "gross 1.025× → 1.797×" was the sleeve's target gross, not the book after the trades
+- kind: correction
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - E-43 summed |target shares × close| over every name. Names inside their band are not traded to target, so that is the target gross. 11-04's 11 orders totalled about $51.2k, so gross after them could not exceed about 1.54× [V]
+  - the core's book at the 11-05 decide (after 11-04's fills): 1.174× NAV, the measured figure [V]
+- source: `docs/JOURNAL.md` @ `718b699` (11-04 entry); `results/report/EVIDENCE_LOG.md` @ `718b699` (E-2026-11-03-43, as written)
+- supports: §1, §4
+- status: current. E-43's other figures stand. C4's 1.267× in E-43 was an opening session, where every name trades to target, so it is unaffected. The same error was in the 11-03 report to the team lead and is corrected there
+
+### E-2026-11-04-15 · C4's 11-05 decide is deferred on KYN's late NAV (the missing-NAV hold, by design); the IGR fix holds through a nightly fetch
+- kind: result
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - C4 22:00 decide REFUSED (data): "NAV not dated 2026-11-04 for KYN (2026-11-03)", deferred to a later slot; from the final check (14:30 ET) KYN is held at its current shares and the other names decide; refresh exit 4 (INCOMPLETE), not 7 [V]
+  - checklist step 5 after the 11-04 fetch: IGR premium 05-04..09-04 median +0.64%, min −1.96%, max +3.17%, unchanged; 0 seed-window closes moved beyond 0.5% [V]
+  - 20 collect flags, all borrow-snapshot changes in 10 funds (e.g. HPS, JRS, STK and TY no longer shortable, RNP now shortable); none of C4's eight held shorts is among them [V]
+  - the core's 11-05 plan: decided, 6 orders, the book 1.174× before, pre-flight ok, missing NAV none, drawdown UNMEASURED (the D−1 row, E-2026-11-03-41) [V]
+- source: C4's pull `pull:98c1901d5803`; `scripts/cef/fetch_daily.py` @ `509b3ff`
+- supports: §4, §5
+- status: current
+
