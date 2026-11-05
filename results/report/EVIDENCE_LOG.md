@@ -3719,3 +3719,16 @@ that adds it does not exist when it is written.
 - source: `results/cef/PREREG_DRAFT_BAND_COST_2026-11-05.md` @ `bb1c237`; `results/cef/band_cost_2026-11-05/band_cost_2026-11-05.json` @ `bb1c237`; `results/cef/band_cost_2026-11-05/crosscheck_2026-11-05.txt` @ `bb1c237`; `results/cef/band_cost_2026-11-05/band_cost.py` @ `d06ed06`
 - supports: §3, §6
 - status: current (a DRAFT pre-registration, not approved; zero trials; fit only, no 2023+ figure computed; the cost inputs are from the unmerged execution-cost study, PR #58 at 2476a16)
+
+### E-2026-11-05-41 · Ruling: the band stays 4.8% on both books (the re-derivation at the measured cost is CLOSED at zero trials, CEF stays 55), and post-then-cross is "not now"
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - the band: "Accept: keep 4.8%, close" (team lead, relayed by the coordinating session). Both books keep band_width 0.048; zero trials; CEF stays 55; a CLOSED row BAND-COST in docs/RESEARCH_STATE.md [S]
+  - follow-ups ruled with it: C4's band is re-measured on its own fill cost after 21 sessions, no earlier than 2026-12-03; the band is re-derived on a measured live auction impact before any real capital [S]
+  - post-then-cross on paper (the execution study's candidate 1): "Not now"; not built; re-test after 60+ sessions of fills [S]
+  - what was ruled on: derived h* 4.55% (core, at 7.14bp) and 4.07% (C4, at 12.43bp); the core's 0.045 minus 0.048 nets +0.0385pp/yr at NW t 1.34 against the bar 2.837 at N = 56 (E-2026-11-05-40) [V]
+- source: `results/cef/BAND_COST_REDERIVATION_2026-11-05.md` @ `3668da1`; `docs/SYSTEM.md` @ `3668da1`; `docs/RESEARCH_STATE.md` @ `3668da1`; `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `1f44bbf` (PR #58's merge to main; byte-identical to 2476a16, which the analysis read)
+- supports: §2, §3, §6
+- status: current; closes the draft pre-registration of E-2026-11-05-40 (that entry stands as the record of the analysis; its note was renamed from PREREG_DRAFT_BAND_COST_2026-11-05.md)
