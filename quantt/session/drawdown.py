@@ -469,7 +469,7 @@ def lines(rec: dict) -> list[str]:
 #                     decision: it opens no episode, earns K1 nothing, and its close is not a
 #                     reduced close for K2 or K3 (it neither breaks nor extends K3's run). One
 #                     whose send cannot be established (`sent`'s UNMEASURED cases) makes the
-#                     episode UNMEASURED, named, as a missing record does.
+#                     episode UNMEASURED, named, as an unreadable record does (READING BACK).
 #   episode           reduced decisions fewer than THIN_EPISODE_GAP sessions apart; OPEN at this
 #                     decide while the newest is fewer than THIN_EPISODE_GAP sessions back.
 #   earning day       for a reduced decision whose session is s (filled at s's late window), the
@@ -557,11 +557,30 @@ def lines(rec: dict) -> list[str]:
 #                         the set; a set that began counts as sent, including one that failed
 #                         part-way or whose every order was rejected (its run record, not read
 #                         here, says what went). Not a mode te4 trades in: paper is late_market.
-# READING BACK. Sessions are walked newest first from the one before this decide. A session
-# with no plan.json, or one that cannot be read, makes the episode UNMEASURED (named): a
-# missing record is not a session without a reduced build. A plan.json with no
-# `thin_session` was decided with the key absent, when no reduced build could run, and ends
-# the walk (the rule was off before it).
+# READING BACK. Sessions are walked newest first from the one before this decide. A plan.json
+# with no `thin_session` was decided with the key absent, when no reduced build could run, and
+# ends the walk (the rule was off before it). A record that is there and cannot be read, a
+# send whose outcome cannot be established (`sent`), or a session with a send.json or a
+# STARTED and no plan.json (something went with no plan on record) makes the WHOLE episode
+# UNMEASURED, named, and stops the walk: the walk cannot say what lies beyond it.
+#   A NAMED GAP (the runner owner's review 2026-11-04, item 5) is a session with NO record at
+#   all: no plan.json, no send.json, no STARTED (the runner did not run, or its decide failed
+#   before writing a plan; nothing was sent, but whether its decision would have been a reduced
+#   one is unknown). The walk records it in `gaps` and goes on. As first built a gap stopped
+#   the walk and made every line UNMEASURED for up to 63 sessions, so one missed evening blinded
+#   K0-K3 for three months. Now a gap makes UNMEASURED only the stops whose READ WINDOW holds it:
+#     K0's episode state  the sessions fewer than THIN_EPISODE_GAP back: OPEN still reads OPEN
+#                         when a known reduced decision lies in it (a gap can only add one); with
+#                         none known, a gap there makes the state UNMEASURED, so K0 cannot read
+#                         CLEAR on HALVE or KILL;
+#     K1                  the episode's decisions whose earning day is on or before the
+#                         read-through date: a gap there might be one whose day K1 would
+#                         compound. A gap whose earning day comes later (the as-of session's,
+#                         or the session before it when read through D-1) is outside it;
+#     K2, the send skip   the as-of session alone (its close, its send);
+#     K3                  the as-of session, then the closes its run reads back: a gap among them
+#                         (a close that might be a reduced one, or the plan that would hold one's
+#                         K3) makes the run UNMEASURED; a gap beyond where the run breaks does not.
 
 THIN_EPISODE_GAP = 63    # sessions: build_panel's ADV window, the screen's merge rule (§4.2)
 THIN_K3_RUN = 3          # K3's persistence: above the run line on 3 reduced closes (§6.3)
@@ -686,19 +705,42 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
                      f"sent is not established")
 
 
+def _dates(ds) -> str:
+    """A short list of sessions for a `why`: all of them up to five, else the newest and the
+    oldest and the count (the record keeps the whole list)."""
+    ds = sorted(ds)
+    if len(ds) <= 5:
+        return str([str(d) for d in ds])
+    return f"{len(ds)} sessions, {ds[0]} .. {ds[-1]}"
+
+
+def _gap(day: dict) -> bool:
+    """A NAMED GAP (block comment, READING BACK): no plan.json, no send.json and no STARTED."""
+    return day.get("plan") is None and day.get("send") is None and day.get("started") is False
+
+
 def _walk(session_date, previous_session, read_day) -> dict:
     """The open episode's records, read back from the session before `session_date`.
 
     Walks newest first. It stops at a session THIN_EPISODE_GAP or more sessions back from the
     oldest reduced decision found so far (from this decide when none is found): that session
     cannot belong to the episode. Returns {"status": "OPEN" | "NONE" | "UNMEASURED", "why",
-    "days": [(session, day)] newest first, "reduced": [session, ...] newest first, "unsent":
-    {session: why} (decided reduced plans that were not sent), "in_part": {session: how}
-    (reduced decisions whose send went only in part: a FAIL classified from send.json's
-    `final`), "scanned"}. OPEN means a reduced decision fewer than THIN_EPISODE_GAP sessions
-    back. A session whose send cannot be read is not appended to `days` (it is the record
-    that could not be read)."""
-    days, reduced, unsent, part, d, k, last = [], [], {}, {}, session_date, 0, 0
+    "days": [(session, day | None)] newest first (None for a gap), "reduced": [session, ...]
+    newest first, "unsent": {session: why} (decided reduced plans that were not sent),
+    "in_part": {session: how} (reduced decisions whose send went only in part: a FAIL
+    classified from send.json's `final`), "gaps": [session, ...] newest first (block comment,
+    READING BACK: sessions with no record at all), "complete" (False when the walk stopped at
+    a record it could not read, or the scan limit), "scanned"}. OPEN means a reduced decision
+    fewer than THIN_EPISODE_GAP sessions back; UNMEASURED with `complete` True means none is
+    known there and a gap is. A session whose send cannot be read is not appended to `days`
+    (it is the record that could not be read)."""
+    days, reduced, unsent, part, gaps = [], [], {}, {}, []
+    d, k, last = session_date, 0, 0
+
+    def out(status, why, complete, scanned):
+        return {"status": status, "why": why, "days": days, "reduced": reduced,
+                "unsent": unsent, "in_part": part, "gaps": gaps, "complete": complete,
+                "scanned": scanned}
     while True:
         d = previous_session(d)
         k += 1
@@ -707,28 +749,31 @@ def _walk(session_date, previous_session, read_day) -> dict:
                 "oldest reduced decision found" if reduced else "this decide") + " reached"
             break
         if k > THIN_SCAN_LIMIT:
-            return {"status": UNMEASURED, "why": f"more than {THIN_SCAN_LIMIT} sessions read back",
-                    "days": days, "reduced": reduced, "unsent": unsent, "in_part": part,
-                    "scanned": k - 1}
+            return out(UNMEASURED, f"more than {THIN_SCAN_LIMIT} sessions read back", False,
+                       k - 1)
         try:
             day = read_day(d)
         except Exception as e:  # recorded, named: an unreadable record is not an empty one
-            return {"status": UNMEASURED, "why": f"the record of {d} could not be read: "
-                    f"{type(e).__name__}: {e}", "days": days, "reduced": reduced,
-                    "unsent": unsent, "in_part": part, "scanned": k}
+            return out(UNMEASURED, f"the record of {d} could not be read: "
+                       f"{type(e).__name__}: {e}", False, k)
+        if _gap(day):
+            gaps.append(d)           # named; the stops whose window holds it read UNMEASURED
+            days.append((d, None))
+            continue
         plan = day.get("plan")
         if plan is None:
-            return {"status": UNMEASURED, "why": f"no plan.json for the session {d}",
-                    "days": days, "reduced": reduced, "unsent": unsent, "in_part": part,
-                    "scanned": k}
+            has = [n for n, v in (("a send.json", day.get("send") is not None),
+                                  ("a STARTED", day.get("started") is not False)) if v]
+            return out(UNMEASURED, f"no plan.json for the session {d}, which has "
+                       f"{' and '.join(has)}: something was recorded as sent with no plan on "
+                       f"record", False, k)
         if "thin_session" not in plan:
             why = f"{d} was decided with the key absent"
             break
         try:
             is_red, not_sent, in_part = _is_reduced(d, day)
         except Unmeasured as e:     # a send that cannot be read is not a send that did not go
-            return {"status": UNMEASURED, "why": str(e), "days": days, "reduced": reduced,
-                    "unsent": unsent, "in_part": part, "scanned": k}
+            return out(UNMEASURED, str(e), False, k)
         days.append((d, day))
         if is_red:
             reduced.append(d)
@@ -737,8 +782,13 @@ def _walk(session_date, previous_session, read_day) -> dict:
                 part[d] = in_part
         elif not_sent is not None:
             unsent[d] = not_sent
-    return {"status": "OPEN" if reduced else "NONE", "why": why, "days": days,
-            "reduced": reduced, "unsent": unsent, "in_part": part, "scanned": k}
+    if reduced:
+        return out("OPEN", why, True, k)
+    if gaps:
+        return out(UNMEASURED, f"no reduced decision is known within {THIN_EPISODE_GAP} "
+                   f"sessions, and {_dates(gaps)} have no record (no plan.json, send.json or "
+                   f"STARTED): whether any was a reduced decision is unknown; {why}", True, k)
+    return out("NONE", why, True, k)
 
 
 def _verdict(stat, line, above_or_at: bool) -> str:
@@ -780,6 +830,8 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
            "episode": {"status": w["status"], "why": w["why"], "scanned": w["scanned"],
                        "reduced_sessions": sorted(w["reduced"]),
                        "this_decide_reduced": current.get("reduced") is True}}
+    if w["gaps"]:
+        rec["episode"]["gaps"] = sorted(w["gaps"])      # named (block comment, READING BACK)
     if w["in_part"]:
         # A reduced decision whose send exited FAIL after part of the set went (`_send_state`,
         # classified from send.json's `final`): counted, and named, never silently whole.
@@ -811,15 +863,26 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     # ---- K1: the episode's earning days
     line = th.get("thin_k1_episode_drawdown")
     k1 = {"line": line}
-    if w["status"] == UNMEASURED:
+    sessions = [x[0] for x in w["days"]]              # newest first, consecutive sessions
+    # K1's read window holds a gap whose earning day (the next session) is read by now: it
+    # might be a reduced decision whose day K1 would compound (block comment, READING BACK).
+    k1_gaps = [g for i, g in enumerate(sessions) if w["days"][i][1] is None
+               and (session_date if i == 0 else sessions[i - 1]) <= upto]
+    if not w["complete"]:
         k1.update(verdict=UNMEASURED, why=f"episode unmeasured: {w['why']}")
-    elif w["status"] == "NONE" and current.get("reduced") is True:
+    elif k1_gaps:
+        k1.update(verdict=UNMEASURED,
+                  why=(f"{_dates(k1_gaps)} have no record (no plan.json, send.json or "
+                       f"STARTED), and their earning days are read by now: whether K1 would "
+                       f"compound them is unknown"))
+    elif not w["reduced"] and current.get("reduced") is True:
         k1.update(earning_days=0, drawdown=0.0, verdict=_verdict(0.0, line, True),
                   why="the episode opens at this decide; no day earned yet")
-    elif w["status"] == "NONE":
-        k1.update(verdict=NOT_APPLICABLE, why="no open episode")
+    elif not w["reduced"]:
+        k1.update(verdict=NOT_APPLICABLE, why="no open episode" + (
+            f" known; {_dates(w['gaps'])} have no record, and their earning days are not read "
+            f"yet" if w["gaps"] else ""))
     else:
-        sessions = [x[0] for x in w["days"]]          # newest first
         rets, missing, unread = [], None, []
         for s in sorted(w["reduced"]):
             i = sessions.index(s)
@@ -852,6 +915,11 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     # ---- K2, K3: the previous session's close, after a reduced decision
     prev = w["days"][0] if w["days"] and w["days"][0][0] == asof else None
     prev_unread = prev is None and w["status"] == UNMEASURED and not w["days"]
+    # The as-of session is a named gap: K2, K3 and the send skip read its close and its send,
+    # so all three are UNMEASURED; the other stops are judged on their own windows.
+    prev_gap = prev is not None and prev[1] is None
+    gap_why = (f"no record for the session {asof} (no plan.json, send.json or STARTED): "
+               f"whether its decision was a reduced one is unknown")
     # A reduced decision is one whose targets were sent (`_is_reduced`): the walk classified
     # `prev` already. Not one: N/A, naming a decided reduced plan that was not sent.
     prev_reduced = prev is not None and asof in w["reduced"]
@@ -862,6 +930,9 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     if prev_unread:
         for k in (k2, k3):
             k.update(verdict=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
+    elif prev_gap:
+        for k in (k2, k3):
+            k.update(verdict=UNMEASURED, why=gap_why)
     elif not prev_reduced:
         for k in (k2, k3):
             k.update(verdict=NOT_APPLICABLE, why=not_reduced)
@@ -892,13 +963,24 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
                     # w["days"][i + 1] (the decide for X reads as-of previous(X); block
                     # comment, WHICH RECORD HOLDS WHICH CLOSE). Only the closes of reduced
                     # decisions count; a full session between them does not break the run.
-                    # The oldest day's K3 judges a close outside the walk: skipped.
-                    reduced_set = set(w["reduced"])
-                    sessions = [x[0] for x in w["days"]]
+                    # The oldest day's K3 judges a close outside the walk: skipped. A named
+                    # gap among the closes the run reads back makes it UNMEASURED: the gap's
+                    # own close might be a reduced one, and a gap's plan would hold the K3 of
+                    # the close before it (block comment, READING BACK).
+                    reduced_set, gap_set = set(w["reduced"]), set(w["gaps"])
                     for i, (d, day) in enumerate(w["days"]):
                         judged = sessions[i + 1] if i + 1 < len(sessions) else None
+                        if judged in gap_set:
+                            broken = (f"no record for {judged} (no plan.json, send.json or "
+                                      f"STARTED): whether its close is the run's next reduced "
+                                      f"close is unknown")
+                            break
                         if judged not in reduced_set:
                             continue                        # not a reduced decision's close
+                        if day is None:
+                            broken = (f"no record for {d}, whose plan would hold the K3 of "
+                                      f"{judged}'s reduced close")
+                            break
                         k = ((day["plan"].get("thin_stops") or {}).get("K3") or {})
                         if not isinstance(k.get("net"), (int, float)):
                             broken = (f"the K3 of {judged}'s reduced close (in {d}'s plan) is "
@@ -920,7 +1002,7 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
                         # day's K3 judges the close of the session it could not read): not
                         # CLEAR. One that stopped at the key-absent plan or the 63-session gap
                         # did not: no reduced close lies beyond either.
-                        if w["status"] == UNMEASURED and run < THIN_K3_RUN:
+                        if not w["complete"] and run < THIN_K3_RUN:
                             broken = (f"the walk back stopped before the run ended, at "
                                       f"{w['why']}")
                 k3["run"] = run
@@ -935,6 +1017,8 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     sk = {"session": asof}
     if prev_unread:
         sk.update(applies=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
+    elif prev_gap:
+        sk.update(applies=UNMEASURED, why=gap_why)
     elif not prev_reduced:
         # Only a send that went can have lost a short (block comment, send skip): a refused or
         # dry send wrote its skipped list and sent nothing, and is not a reduced decision.

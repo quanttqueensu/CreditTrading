@@ -175,6 +175,79 @@ def test_a_missing_or_unreadable_record_reads_unmeasured_and_k0_cannot_clear_a_h
     assert r["episode"]["status"] == ddm.UNMEASURED and "ValueError" in r["episode"]["why"]
 
 
+def test_a_session_with_no_record_is_a_named_gap_that_blinds_only_the_stops_that_read_it():
+    """The runner owner's review (2026-11-04), item 5. A session with no plan.json, no send.json
+    and no STARTED (the runner did not run, or its decide failed before writing a plan) is a
+    NAMED GAP. It makes UNMEASURED only the stops whose read window holds it, not the whole
+    walk for 63 sessions. On 87ad4e9 every case below read the whole episode UNMEASURED (K0
+    could not read KILLED, K1 nothing, for up to 63 sessions), and fails here."""
+    halve = {"status": "HALVE", "asof": "x"}
+    pos, eq = {"A": 1000, "B": -400}, [(ASOF, 50_000.0)]    # K2 0.2, K3 net 0.04: no run
+    # A gap inside the open episode's K1 window: the episode is still OPEN (a gap can only add a
+    # reduced decision), K0 reads KILLED on HALVE, K1 is UNMEASURED naming the gap, and K2/K3
+    # read the as-of's close (a reduced one) as usual.
+    days = {back(1): {"plan": plan(True)}, back(5): {"plan": plan(True)},
+            back(30): {"plan": None}}
+    r = record(days, dd=halve, positions=pos, closes=PRICES, series=eq)
+    ep = r["episode"]
+    assert ep["status"] == "OPEN" and ep["gaps"] == [back(30)], ep
+    assert ep["reduced_sessions"] == [back(5), back(1)]
+    assert r["K0"]["verdict"] == ddm.KILLED
+    assert r["K1"]["verdict"] == ddm.UNMEASURED and str(back(30)) in r["K1"]["why"]
+    assert r["K2"]["stat"] == pytest.approx(0.2) and r["K2"]["verdict"] == ddm.CLEAR
+    assert r["K3"]["net"] == pytest.approx(0.04) and r["K3"]["verdict"] == ddm.CLEAR
+    # A gap 62 sessions before the oldest known reduced decision is still in K1's window (it
+    # might extend the episode back); the walk reads past it.
+    r = record({back(20): {"plan": plan(True)}, back(70): {"plan": None}}, dd=halve)
+    assert r["episode"]["status"] == "OPEN" and r["episode"]["gaps"] == [back(70)]
+    assert r["K0"]["verdict"] == ddm.KILLED and r["K1"]["verdict"] == ddm.UNMEASURED
+    # No reduced decision known within 62 sessions and a gap there: the episode state is
+    # UNMEASURED, so K0 cannot read CLEAR on HALVE; K1 too (the gap's day is read). K2/K3 and
+    # the send skip read the as-of session, a full one: N/A, as without the gap.
+    r = record({back(30): {"plan": None}}, dd=halve, positions=pos, closes=PRICES)
+    assert r["episode"]["status"] == ddm.UNMEASURED and str(back(30)) in r["episode"]["why"]
+    assert r["K0"]["verdict"] == ddm.UNMEASURED and r["K1"]["verdict"] == ddm.UNMEASURED
+    assert r["K2"]["verdict"] == r["K3"]["verdict"] == ddm.NOT_APPLICABLE
+    assert r["send_skip"]["applies"] is False
+    # A gap 63 sessions back is outside every window: never read.
+    r = record({back(63): {"plan": None}}, dd=halve)
+    assert r["episode"]["status"] == "NONE" and "gaps" not in r["episode"]
+
+
+def test_a_gap_on_the_asof_session_blinds_k2_k3_and_the_send_skip_not_k0_or_k1():
+    """The as-of session's own record is missing: K2, K3 and the send skip read its close and
+    its send, so they read UNMEASURED, named. Its earning day is this session, not read yet, so
+    K1 is measured on the known episode, and K0 reads KILLED on it. Read through the session
+    before the as-of (the 22:00 decide), a gap there is outside K1's window too. Fails on
+    87ad4e9, which read the whole episode UNMEASURED."""
+    halve = {"status": "HALVE", "asof": "x"}
+    series = _series({6: 100.0, 5: 95.0}) + [(ASOF, 95.0)]
+    r = record({back(1): {"plan": None}, back(6): {"plan": plan(True)}}, dd=halve,
+               series=series)
+    assert r["episode"]["status"] == "OPEN" and r["episode"]["gaps"] == [ASOF]
+    assert r["K0"]["verdict"] == ddm.KILLED
+    assert r["K1"]["earning_days"] == 1 and r["K1"]["drawdown"] == pytest.approx(0.05)
+    for k in ("K2", "K3"):
+        assert r[k]["verdict"] == ddm.UNMEASURED and f"no record for the session {ASOF}" in \
+            r[k]["why"], r[k]
+    assert r["send_skip"]["applies"] == ddm.UNMEASURED
+    # Read through back(2): a gap on back(2) earns on the as-of, after the read-through date.
+    r = record({back(2): {"plan": None}, back(6): {"plan": plan(True)}}, dd=halve,
+               series=_series({6: 100.0, 5: 95.0, 2: 95.0}), read_through=back(2))
+    assert r["episode"]["gaps"] == [back(2)]
+    assert r["K1"]["verdict"] == ddm.CLEAR and r["K1"]["earning_days"] == 1
+
+
+def test_a_session_with_a_send_or_a_started_and_no_plan_is_not_a_gap():
+    """Something recorded as sent with no plan on record cannot be read as a session the runner
+    skipped: the whole episode reads UNMEASURED, naming what is there."""
+    for extra, word in (({"send": send()}, "a send.json"), ({"started": True}, "a STARTED")):
+        r = record({back(3): {"plan": None, **extra}, back(5): {"plan": plan(True)}},
+                   dd={"status": "HALVE", "asof": "x"})
+        assert r["episode"]["status"] == ddm.UNMEASURED and word in r["episode"]["why"]
+        assert r["K0"]["verdict"] == ddm.UNMEASURED and r["K1"]["verdict"] == ddm.UNMEASURED
+
+
 def test_a_session_decided_with_the_key_absent_ends_the_walk():
     r = record({back(3): {"plan": plan(key=False)}, back(5): {"plan": plan(True)}},
                dd={"status": "KILL", "asof": "x"})
@@ -397,19 +470,42 @@ def test_k3_trips_above_the_once_line_and_reads_unmeasured_on_an_unread_earlier_
 
 def test_k3_is_not_clear_on_a_run_the_walk_could_not_finish_reading():
     """Two reduced closes above the run line are read (the as-of's and back(2)'s), and back(2)'s
-    own plan holds a K3 above the line for back(3)'s close; back(3)'s plan.json is missing, so
+    own plan holds a K3 above the line for back(3)'s close; back(3)'s record cannot be read, so
     whether that close was a reduced one, the run's third, is unknown. K3 reads UNMEASURED, not
-    CLEAR. Fails on 7fcc2b7, which read a run of 2 and CLEAR there."""
+    CLEAR. Fails on 7fcc2b7, which read a run of 2 and CLEAR there. back(3) with no record at
+    all (a named gap, the owner's review item 5) is the same for K3, named, while the episode
+    reads OPEN on the two reduced decisions it knows."""
     pos, eq = {"A": 3000, "B": -500}, [(ASOF, 50_000.0)]    # net 0.4 > run 0.25
     days = {back(1): {"plan": plan(True, k3={"net": 0.3, "verdict": ddm.CLEAR,
                                              "session": back(2).isoformat()})},
             back(2): {"plan": plan(True, k3={"net": 0.3, "verdict": ddm.CLEAR,
-                                             "session": back(3).isoformat()})},
-            back(3): {"plan": None}}
-    r = record(days, positions=pos, closes=PRICES, series=eq)
+                                             "session": back(3).isoformat()})}}
+    read = reader(days)
+
+    def unreadable(d):
+        if d == back(3):
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")
+        return read(d)
+    r = ddm.thin_stop_record(asof=ASOF, session_date=SESSION, drawdown=OK,
+                             current={"reduced": False}, previous_session=prev,
+                             read_day=unreadable, series=eq, positions=pos, closes=PRICES,
+                             thresholds=LINES)
     assert r["episode"]["status"] == ddm.UNMEASURED
     assert r["K3"]["run"] == 2 and r["K3"]["verdict"] == ddm.UNMEASURED, r["K3"]
     assert "stopped before the run ended" in r["K3"]["why"]
+    days[back(3)] = {"plan": None}                    # no record at all: a named gap
+    r = record(days, positions=pos, closes=PRICES, series=eq)
+    assert r["episode"]["status"] == "OPEN" and r["episode"]["gaps"] == [back(3)]
+    assert r["K3"]["run"] == 2 and r["K3"]["verdict"] == ddm.UNMEASURED, r["K3"]
+    assert f"no record for {back(3)}" in r["K3"]["why"]
+    # A gap beyond where the run breaks is outside K3's window: back(2)'s close is below the
+    # run line, so the run is 1 and CLEAR whatever back(4) was.
+    beyond = {back(1): {"plan": plan(True, k3={"net": 0.1, "verdict": ddm.CLEAR,
+                                               "session": back(2).isoformat()})},
+              back(2): {"plan": plan(True)}, back(4): {"plan": None}}
+    r = record(beyond, positions=pos, closes=PRICES, series=eq)
+    assert r["episode"]["gaps"] == [back(4)]
+    assert r["K3"]["run"] == 1 and r["K3"]["verdict"] == ddm.CLEAR, r["K3"]
     # The same records ending at a plan decided with the key absent: the run is complete, CLEAR.
     days[back(3)] = {"plan": plan(key=False)}
     r = record(days, positions=pos, closes=PRICES, series=eq)
@@ -682,8 +778,10 @@ def test_with_the_key_set_every_decide_carries_the_lines_and_a_failure_is_record
     N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
     code, state, _, _ = run(tmp_path / "plain", TE4_SPEC, bk["held"], "ok")
     st = M._plan(state)["thin_stops"]
-    # No earlier record in this state dir: the episode walk names the missing plan.json.
-    assert st["episode"]["status"] == ddm.UNMEASURED and "no plan.json" in st["episode"]["why"]
+    # No earlier record in this state dir: every session the walk reads is a named gap, so the
+    # episode state is UNMEASURED, naming them.
+    assert st["episode"]["status"] == ddm.UNMEASURED and "have no record" in st["episode"]["why"]
+    assert len(st["episode"]["gaps"]) == ddm.THIN_EPISODE_GAP - 1
     assert code == rn.EXIT_PLANNED
 
     def boom(**kw):
