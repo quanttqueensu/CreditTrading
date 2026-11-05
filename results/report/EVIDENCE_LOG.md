@@ -3620,3 +3620,68 @@ that adds it does not exist when it is written.
 - supports: §4, §5
 - status: current
 
+### E-2026-11-03-91 · c4 paper book, 2026-11-03: FAIL, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - verify verdict FAIL; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change 0.00 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change 0.00 USD (Alpaca portfolio history 1D, the P&L of record) [S]
+  - auction-marked P&L 0.00 USD [S]
+  - distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]
+  - shadow book 0.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/verify.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/tca.csv` @ `pull:98c1901d5803`
+- supports: §4
+- status: current
+
+### E-2026-11-04-91 · c4 paper book, 2026-11-04: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - verify verdict PASS; orders sent 15, filled 15 [S]
+  - 17:30 ET snapshot equity change -89.10 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv in this pull has no change_usd for 2026-11-04 [U]
+  - auction-marked P&L -8.60 USD [S]
+  - fills vs official close 0.66 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 0.66 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]
+  - shadow book 0.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/verify.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/tca.csv` @ `pull:98c1901d5803`
+- supports: §4
+- status: current
+
+### E-2026-11-05-20 · Correction to E-2026-11-03-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-03 yet, not because the file was missing from the pull
+- kind: correction
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - E-2026-11-03-90 reads "official EOD equity change UNMEASURED: eod_equity.csv not in this pull"; its pull b5e46b822424 carried eod_equity.csv (pulls.csv lists it) [S]
+  - that file's last point was 2026-11-02 (change 178.55 USD), so it held none for 2026-11-03 [S]
+  - snapshot_live now writes "eod_equity.csv in this pull has no change_usd for <D>" in that case, and "not in this pull" only when the file is absent [S]
+- source: `results/report/data/live/cef/pulls.csv` @ `718b699`; `results/report/data/live/cef/eod_equity.csv` @ `718b699`; `scripts/report/snapshot_live.py` @ `f579eb1`
+- supports: §4
+- status: supersedes the stated reason in E-2026-11-03-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand. The earlier cef live-day entries (pull 24d55dcbfe1b) are right: that pull did not carry eod_equity.csv
+
+### E-2026-11-05-21 · Method: snapshot_live ingests a C4 pull without distribution_scores.csv and names the distribution-adjusted P&L UNMEASURED; a core pull must still carry the file
+- kind: method
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - none (a method change. C4's verify scores a session's distributions two sessions late, so its first pulls carry no distribution_scores.csv, and the core's rule refused them. Optional for C4 only: no distribution table is written, and each live-day entry says "distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull"; never a zero. The first ingest under it is C4's pull 98c1901d5803: E-2026-11-03-91 and E-2026-11-04-91. C4's equity is figure F06_live_equity_c4)
+- source: `scripts/report/snapshot_live.py` @ `264d00b`; `scripts/report/tests/test_snapshot_live.py` @ `264d00b`; `results/report/data/live/c4/pulls.csv` @ `905fb00`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-05-22 · Correction to E-2026-11-04-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-04 yet, not because the file was missing from the pull
+- kind: correction
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - E-2026-11-04-90 reads "official EOD equity change UNMEASURED: eod_equity.csv not in this pull"; its pull c3fef52e05e2 carried eod_equity.csv (pulls.csv lists it) [S]
+  - that file's last point was 2026-11-03 (change 793.10 USD), so it held none for 2026-11-04 [S]
+  - snapshot_live now writes "eod_equity.csv in this pull has no change_usd for <D>" in that case, and "not in this pull" only when the file is absent [S]
+- source: `results/report/data/live/cef/pulls.csv` @ `837408c`; `results/report/data/live/cef/eod_equity.csv` @ `837408c`; `scripts/report/snapshot_live.py` @ `f579eb1`
+- supports: §4
+- status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)

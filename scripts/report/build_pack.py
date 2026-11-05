@@ -540,7 +540,10 @@ def _live(b: Build, book: str, name: str, needs: str) -> pd.DataFrame:
     return pd.read_csv(b.file(f"{PACK_REL}/data/live/{book}/{name}", needs=needs), dtype=str)
 
 
-def f_live_equity(b: Build, rel: pd.DataFrame, book="cef"):
+def f_live_equity(b: Build, rel: pd.DataFrame, book="cef", fid="F06_live_equity", title="Live equity"):
+    """One account's equity: the 17:30 snapshot and, where the pull carried it, the EOD record.
+    Each book is its own figure (`fid`; C4's is F06_live_equity_c4, 2026-11-05): the two
+    accounts hold different books, so one axis would invite a sum nobody measured."""
     eq = _live(b, book, "equity_snapshot.csv", f"{PACK_REL}/data/live/{book}/equity_snapshot.csv "
                "(run scripts/report/snapshot_live.py on a vmpnl.sh pull)")
     srcs = [f"{PACK_REL}/data/live/{book}/equity_snapshot.csv"]
@@ -557,7 +560,7 @@ def f_live_equity(b: Build, rel: pd.DataFrame, book="cef"):
     else:
         note = (f"PENDING: the official EOD line needs {PACK_REL}/data/live/{book}/eod_equity.csv from a "
                 "vmpnl.sh pull made after its grep gained eod_equity (2026-11-03). Not drawn from the snapshot.")
-        b.pending.append({"id": "F06_live_equity.eod", "title": "official EOD equity line",
+        b.pending.append({"id": f"{fid}.eod", "title": "official EOD equity line",
                           "needs": note})
     for t in rel.itertuples():
         x = pd.Timestamp(t.tagged[:10])
@@ -566,17 +569,23 @@ def f_live_equity(b: Build, rel: pd.DataFrame, book="cef"):
             ax.text(x, ax.get_ylim()[0], t.tag.replace("release-", ""), rotation=90, fontsize=5.5,
                     va="bottom", color=C["vermillion"])
     ax.set_ylabel("account equity (USD)")
+    # Plain dollars: an account that barely moved (C4 before its first send) would otherwise get
+    # matplotlib's "+1e5" offset, and the ticks would read as P&L rather than equity.
+    ax.ticklabel_format(axis="y", style="plain", useOffset=False)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
     ax.set_xlabel("session date (2026); red lines: release tags")
     ax.legend(fontsize=7, loc="upper right")
     ax.set_title(f"{book} paper account equity, gross (Alpaca paper charges no borrow and credits no distributions)")
-    b.save_fig(fig, "F06_live_equity", "Live equity", srcs + ["git:refs/tags/release-*"], eq["date"].max(), note)
+    b.save_fig(fig, fid, title, srcs + ["git:refs/tags/release-*"], eq["date"].max(), note)
 
 
 def f_live_daily(b: Build, book="cef"):
     sc = _live(b, book, "scores.csv", f"{PACK_REL}/data/live/{book}/scores.csv")
-    ds = _live(b, book, "distribution_scores.csv", "")
-    sh = _live(b, book, "verify_shadow.csv", "")
+    # Named when absent, never defaulted: a book whose pulls carry no distribution_scores.csv
+    # (C4's first week, snapshot_live 2026-11-05) has no such file, and this figure is PENDING.
+    ds = _live(b, book, "distribution_scores.csv", f"{PACK_REL}/data/live/{book}/distribution_scores.csv "
+               "(snapshot_live writes it only from a pull that carries distribution_scores.csv)")
+    sh = _live(b, book, "verify_shadow.csv", f"{PACK_REL}/data/live/{book}/verify_shadow.csv (snapshot_live.py)")
     df = sc[["date", "alpaca_equity_change_usd", "auction_pnl_usd"]].merge(
         ds[["date", "auction_pnl_with_distributions_usd"]], on="date", how="left").merge(
         sh[["date", "shadow_modelled_usd"]], on="date", how="left")
@@ -786,8 +795,12 @@ PENDING_STATIC = [
     {"id": "P4_gate_records", "title": "Corporate-action and missing-NAV gate history",
      "needs": "the VM day folders' gate records (corporate-action and NAV-hold JSON) in the vmpnl.sh pull, "
      "with a sanitising schema in snapshot_live.SCHEMAS"},
-    {"id": "P5_c4_live", "title": "C4 account live record", "needs": "C4 armed (2026-11-03 install) and its "
-     "state folder pulled; snapshot_live --book c4"},
+    {"id": "P5_c4_live", "title": "C4 account: P&L lines, fill cost and verify figures (its equity is "
+     "F06_live_equity_c4)", "needs": "F07 for c4: results/report/data/live/c4/distribution_scores.csv, from a C4 "
+     "pull that carries distribution_scores.csv (C4's verify scores a session two sessions late; its pull of "
+     "2026-11-04 had none), or a variant of F07 that omits that line, labelled UNMEASURED. F09 and F10 for c4: "
+     "a call in build() with their own figure ids on the committed c4 aggregates; F09 also needs C4's own "
+     "breakeven, not the core's"},
 ]
 
 
@@ -803,6 +816,8 @@ def build(repo: Path = REPO, allow_dirty: bool = False) -> dict:
         ("F04_trial54_gate0", "Trial 54 Gate 0", lambda: f_gate0(b)),
         ("F05_c4_trial52", "C4 fit vs holdout", lambda: f_c4(b)),
         ("F06_live_equity", "Live equity", lambda: f_live_equity(b, rel)),
+        ("F06_live_equity_c4", "Live equity, C4 account",
+         lambda: f_live_equity(b, rel, book="c4", fid="F06_live_equity_c4", title="Live equity, C4 account")),
         ("F07_live_pnl_lines", "Live P&L lines", lambda: f_live_daily(b)),
         ("F08_live_attribution", "Live attribution", lambda: f_attribution(b)),
         ("F09_tca", "TCA", lambda: f_tca(b, rel)),
