@@ -482,7 +482,10 @@ def lines(rec: dict) -> list[str]:
 #                     account's positions (after that session's fills) at the as-of closes,
 #                     over eod_equity(as-of), or eod_equity(read-through date) when one is
 #                     given (labelled). K2 the largest |name|, K3 |long - short|. TRIPPED
-#                     above the line. K3's run counts reduced closes IN SEQUENCE (compose.py's
+#                     above the line; K3 also above its run line on `thin_k3_run_sessions`
+#                     reduced closes (the spec's `risk` block, required under the rule; a
+#                     module constant until the runner owner's review 2026-11-04, item 9).
+#                     K3's run counts reduced closes IN SEQUENCE (compose.py's
 #                     `runs_above` over reduced decisions; a full session between them does not
 #                     break it), read back from earlier plans' `thin_stops.K3.net` within the
 #                     open episode only (a run that crossed two episodes, which compose.py
@@ -583,7 +586,6 @@ def lines(rec: dict) -> list[str]:
 #                         K3) makes the run UNMEASURED; a gap beyond where the run breaks does not.
 
 THIN_EPISODE_GAP = 63    # sessions: build_panel's ADV window, the screen's merge rule (§4.2)
-THIN_K3_RUN = 3          # K3's persistence: above the run line on 3 reduced closes (§6.3)
 THIN_SCAN_LIMIT = 2000   # sessions walked back at most; beyond it the episode is UNMEASURED
 TRIPPED, CLEAR, KILLED, NOT_APPLICABLE = "TRIPPED", "CLEAR", "KILLED", "N/A"
 
@@ -807,8 +809,10 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     session before d; `read_day(d)` -> {"plan": dict | None, "send": dict | None, "started":
     bool} for the session d (it may raise); `series` the eod_equity rows [(date, equity)] on
     or before `asof` (or `read_through`), or a string saying why there are none; `positions`
-    {symbol: signed shares} now; `closes` {symbol: as-of close}; `thresholds` the four
-    `risk.thin_*` values (None where absent: that line reads UNMEASURED); `read_through` None
+    {symbol: signed shares} now; `closes` {symbol: as-of close}; `thresholds` the five
+    `risk.thin_*` values (registry `cef_thin_stop_levels`: the four lines, None where absent,
+    that line then reading UNMEASURED, and K3's run length `thin_k3_run_sessions`, which the
+    registry requires under the rule); `read_through` None
     (K1-K3 read eod_equity through the as-of) or a session on or before it (they read through
     that session, labelled with its staleness: block comment, READ THROUGH THE PREVIOUS
     SESSION). Pure: reads nothing but what it is given."""
@@ -925,8 +929,15 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     prev_reduced = prev is not None and asof in w["reduced"]
     not_reduced = w["unsent"].get(asof) or f"{asof} was not a reduced session"
     run_line, once_line = th.get("thin_k3_net_run"), th.get("thin_k3_net_once")
+    # K3's run length: the spec's `risk.thin_k3_run_sessions` (registry `cef_thin_stop_levels`,
+    # required under the rule; the runner owner's review 2026-11-04, item 9), never a constant
+    # here. A value the registry would refuse is a caller's bug: raised, not read.
+    run_n = th.get("thin_k3_run_sessions")
+    if run_n is not None and (isinstance(run_n, bool) or not isinstance(run_n, int)
+                              or run_n < 2):
+        raise ValueError(f"thin_k3_run_sessions {run_n!r} is not an int of at least 2")
     k2 = {"line": th.get("thin_k2_max_name_frac"), "session": asof}
-    k3 = {"line_run": run_line, "line_once": once_line, "session": asof}
+    k3 = {"line_run": run_line, "line_once": once_line, "run_sessions": run_n, "session": asof}
     if prev_unread:
         for k in (k2, k3):
             k.update(verdict=UNMEASURED, why=f"the record of {asof} is unmeasured: {w['why']}")
@@ -954,8 +965,11 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
             net = abs(sum(mv.values())) / e
             k2.update(stat=round(k2_stat, 8), verdict=_verdict(k2_stat, k2["line"], False))
             k3["net"] = round(net, 8)
-            if run_line is None or once_line is None:
-                k3.update(verdict=UNMEASURED, why="a K3 line is not set")
+            unset = [n for n, v in (("thin_k3_net_run", run_line),
+                                    ("thin_k3_net_once", once_line),
+                                    ("thin_k3_run_sessions", run_n)) if v is None]
+            if unset:
+                k3.update(verdict=UNMEASURED, why=f"K3's {unset} not set")
             else:
                 run, broken = (1, None) if net > run_line else (0, None)
                 if run:
@@ -992,7 +1006,7 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
                             break
                         if k["net"] > run_line:
                             run += 1
-                            if run >= THIN_K3_RUN:
+                            if run >= run_n:
                                 break
                         else:
                             break
@@ -1002,11 +1016,11 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
                         # day's K3 judges the close of the session it could not read): not
                         # CLEAR. One that stopped at the key-absent plan or the 63-session gap
                         # did not: no reduced close lies beyond either.
-                        if not w["complete"] and run < THIN_K3_RUN:
+                        if not w["complete"] and run < run_n:
                             broken = (f"the walk back stopped before the run ended, at "
                                       f"{w['why']}")
                 k3["run"] = run
-                if net > once_line or run >= THIN_K3_RUN:
+                if net > once_line or run >= run_n:
                     k3["verdict"] = TRIPPED
                 elif broken is not None:
                     k3.update(verdict=UNMEASURED, why=broken)
@@ -1072,7 +1086,8 @@ def thin_stop_lines(rec: dict) -> list[str]:
         k = rec[name]
         stat = {"K1": k.get("drawdown"), "K2": k.get("stat"), "K3": k.get("net")}[name]
         lines_ = (f"line {k['line']}" if name != "K3"
-                  else f"lines run {k['line_run']} / once {k['line_once']}")
+                  else f"lines run {k['line_run']} x{k.get('run_sessions')} / once "
+                       f"{k['line_once']}")
         out.append(f"    {name} {k['verdict']}: {stat if stat is not None else '-'} against "
                    f"{lines_}" + (f", run {k['run']}" if name == "K3" and "run" in k else "")
                    + (f"; {k['why']}" if k.get("why") else ""))

@@ -114,9 +114,16 @@ def write_k0_eod(state: Path, which: str) -> None:
     (state / "eod_equity.csv").write_text("\n".join(lines) + "\n")
 
 
+# K3's run length (the runner owner's review 2026-11-04, item 9): required under the rule, so
+# every te4 spec here sets it, at the pre-registration's value (§6.3), with its note.
+K3_RUN = {"thin_k3_run_sessions": 3,
+          "_thin_k3_run_sessions_note": "test only: §6.3's 3 consecutive reduced closes"}
+
+
 def te4(spec: dict, floor: int = 4) -> dict:
     s = copy.deepcopy(spec)
     s["frozen"].update(below_min_names="trade_eligible", below_min_names_floor=floor)
+    s.setdefault("risk", {}).update(K3_RUN)
     return s
 
 

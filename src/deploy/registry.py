@@ -368,22 +368,29 @@ def cef_optional_keys(frozen) -> dict:
 CEF_THIN_STOP_KEYS = (
     "thin_k1_episode_drawdown",   # K1: a FRACTION of the episode's high-water mark (D_E, 0.1052)
     "thin_k2_max_name_frac",      # K2: largest |name market value| / equity (0.956)
-    "thin_k3_net_run",            # K3: |long - short| / equity, on 3 reduced closes in sequence (0.248)
+    "thin_k3_net_run",            # K3: |long - short| / equity, on CEF_THIN_K3_RUN_KEY reduced closes in a row (0.248)
     "thin_k3_net_once",           # K3: |long - short| / equity, once (0.833)
 )
 # The provenance a threshold must carry: the file of `results/cef/prereg_thin_te4/compose.py`'s
 # run on the read date that derived it (H14; the owner's answer 3, 2026-11-03).
 CEF_THIN_STOP_SOURCE = "compose_"
+# K3's persistence: how many reduced closes in sequence above `thin_k3_net_run` trip K3 (§6.3:
+# "above the fit p99 on 3 consecutive reduced sessions"). A COUNT, not a share of equity. It was
+# a module constant in quantt/session/drawdown.py until the runner owner's review of 2026-11-04
+# (item 9): a stop's rule belongs in the frozen spec, the only authority on a live parameter.
+CEF_THIN_K3_RUN_KEY = "thin_k3_run_sessions"
+# Every te4 key in the `risk` block: the misspelling guard and the other-rule refusal read all five.
+CEF_THIN_KEYS = (*CEF_THIN_STOP_KEYS, CEF_THIN_K3_RUN_KEY)
 
 
 def _thin_stop_near_miss(key: str):
-    """The K-line threshold `key` is, or looks like a misspelling of, or None
-    (`cef_c4_near_miss`'s rule, CEF_C4_NEAR edits). A `_<key>_note` is checked
-    as its stem, so a note is a match of its own key."""
+    """The te4 `risk` key (CEF_THIN_KEYS: a K-line threshold or K3's run length) `key` is, or
+    looks like a misspelling of, or None (`cef_c4_near_miss`'s rule, CEF_C4_NEAR edits). A
+    `_<key>_note` is checked as its stem, so a note is a match of its own key."""
     stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
     if stem.endswith("_note"):
         stem = stem[:-len("_note")].strip("_")
-    for k in CEF_THIN_STOP_KEYS:
+    for k in CEF_THIN_KEYS:
         if (stem == k or stem.replace("_", "") == k.replace("_", "")
                 or _osa_distance(stem, k) <= CEF_C4_NEAR):
             return k
@@ -391,7 +398,8 @@ def _thin_stop_near_miss(key: str):
 
 
 def cef_thin_stop_levels(spec) -> dict:
-    """{key: float | None} for CEF_THIN_STOP_KEYS, from `spec["risk"]`; None where absent.
+    """{key: float | None} for CEF_THIN_STOP_KEYS, from `spec["risk"]`, None where absent, and
+    CEF_THIN_K3_RUN_KEY: int | None (None only when `below_min_names` is not "trade_eligible").
 
     WHAT THEY ARE (CEF trial 55, "te4", results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md
     §6.3; the runner's owner, answer 3, 2026-11-03). The thresholds of the K1-K3 report lines
@@ -421,15 +429,30 @@ def cef_thin_stop_levels(spec) -> dict:
         rule: within CEF_C4_NEAR edits, the letters without underscores, or a `_comment`):
         absent reads UNMEASURED, so a misspelt key would leave the line unread while the spec
         reads as set.
+
+    K3'S RUN LENGTH, `risk.thin_k3_run_sessions` (CEF_THIN_K3_RUN_KEY; the runner owner's
+    review 2026-11-04, item 9). K3 trips on this many reduced closes in sequence above
+    `thin_k3_net_run` (§6.3: 3). It is the stop's rule, not a measured level, so unlike the four
+    lines it is REQUIRED whenever `below_min_names` is "trade_eligible", with no default:
+    absent there refuses the spec, as an absent floor does (`cef_below_min_names_floor`), and a
+    K3 whose rule the code supplied would be a rule no spec states. Present under any other
+    rule (absent, "flatten", "hold") it is refused, as the lines are. It must be an int (a
+    bool, a float, 3.0 included, or a string refuses) of at least 2: one close above the line
+    is the once rule's business, and a "run" of 1 would make the run line a second once line.
+    Its sibling `_thin_k3_run_sessions_note` is required, a non-empty string saying where the
+    count comes from (it is pre-registered in §6.3, not derived by compose.py, so the
+    compose_<stamp>.json rule of the four lines does not apply to it). The activation commit
+    sets it; quantt/session/drawdown.py reads it from the thresholds passed in, never a
+    constant of its own.
     """
     risk = spec.get("risk")
     if risk is None:
         risk = {}
     if not isinstance(risk, dict):
         raise ValueError(f"spec risk block is {type(risk).__name__}, not an object")
-    notes = tuple(f"_{k}_note" for k in CEF_THIN_STOP_KEYS)
+    notes = tuple(f"_{k}_note" for k in CEF_THIN_KEYS)
     for key in risk:
-        if not isinstance(key, str) or key in CEF_THIN_STOP_KEYS or key in notes:
+        if not isinstance(key, str) or key in CEF_THIN_KEYS or key in notes:
             continue
         k = _thin_stop_near_miss(key)
         if k is not None:
@@ -445,16 +468,34 @@ def cef_thin_stop_levels(spec) -> dict:
             raise ValueError(f"cef_discount frozen key {key!r} is (or looks like) the K-line "
                              f"threshold {k!r}, which is read from the spec's `risk` block only; "
                              f"move it to risk.{k}")
-    out = {k: None for k in CEF_THIN_STOP_KEYS}
-    present = [k for k in CEF_THIN_STOP_KEYS if k in risk]
-    if not present:
-        return out
+    out = {k: None for k in CEF_THIN_KEYS}
+    present = [k for k in CEF_THIN_KEYS if k in risk]
     frozen = spec.get("frozen") or {}
     rule = cef_below_min_names(frozen)
     if rule != "trade_eligible":
-        raise ValueError(f"cef_discount risk {present} set but below_min_names is {rule!r}; the "
-                         f"K1-K3 lines are read only under 'trade_eligible'. Delete them, or set "
-                         f"the rule")
+        if present:
+            raise ValueError(f"cef_discount risk {present} set but below_min_names is {rule!r}; "
+                             f"the K1-K3 lines are read only under 'trade_eligible'. Delete them, "
+                             f"or set the rule")
+        return out
+    rk = CEF_THIN_K3_RUN_KEY
+    if rk not in risk:
+        raise ValueError(f"cef_discount below_min_names 'trade_eligible' needs risk.{rk}, the "
+                         f"number of reduced closes in sequence above thin_k3_net_run that trips "
+                         f"K3 (pre-registration §6.3); it has no default")
+    v = risk[rk]
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise ValueError(f"cef_discount risk.{rk} must be an int (a count of reduced closes), "
+                         f"got {v!r} ({type(v).__name__})")
+    if v < 2:
+        raise ValueError(f"cef_discount risk.{rk} {v} must be at least 2: one close above the "
+                         f"line is the once rule's (thin_k3_net_once)")
+    note = risk.get(f"_{rk}_note")
+    if not (isinstance(note, str) and note.strip()):
+        raise ValueError(f"cef_discount risk.{rk} needs its sibling note _{rk}_note saying where "
+                         f"the count comes from; got {note!r}")
+    out[rk] = v
+    present = [k for k in CEF_THIN_STOP_KEYS if k in risk]
     import math
     cap = frozen.get("max_gross_stress")
     for k in present:

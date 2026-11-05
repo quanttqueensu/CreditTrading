@@ -74,6 +74,10 @@ def _spec(rule="trade_eligible", floor=4, m=M, cap=1.8, **frozen):
         s["frozen"][KEY] = rule
     if floor is not None and rule == "trade_eligible":
         s["frozen"]["below_min_names_floor"] = floor
+    if rule == "trade_eligible":     # K3's run length: required under the rule (registry)
+        s.setdefault("risk", {}).update(
+            thin_k3_run_sessions=3,
+            _thin_k3_run_sessions_note="test only: §6.3's 3 consecutive reduced closes")
     s["frozen"].update(frozen)
     return s
 

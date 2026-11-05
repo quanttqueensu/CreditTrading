@@ -18,10 +18,13 @@ from src.deploy import registry as R
 
 ROOT = Path(__file__).resolve().parents[3]
 
+# K3's run length is required under the rule (the runner owner's review 2026-11-04, item 9).
+K3_RUN_NOTE = "test only: §6.3's 3 consecutive reduced closes"
 SPEC = {
     "spec_id": "test.te4-lines.v1", "status": "test", "capital_usd": 100_000.0,
     "allocation": {"type": "cef_discount"},
-    "risk": {"max_gross_exposure_usd": 260_000.0, "halve_drawdown": 0.12, "kill_drawdown": 0.18},
+    "risk": {"max_gross_exposure_usd": 260_000.0, "halve_drawdown": 0.12, "kill_drawdown": 0.18,
+             "thin_k3_run_sessions": 3, "_thin_k3_run_sessions_note": K3_RUN_NOTE},
     "frozen": {"universe": [f"F{i}" for i in range(8)], "z_window": 252, "rebalance_days": 1,
                "vol_target_annual": 0.06, "min_adv_usd": 3_000_000.0, "max_nav_age_bd": 3,
                "min_names": 6, "min_abs_weight": 0.005, "gross_leverage": 1.0,
@@ -43,16 +46,17 @@ def spec_with(**kw) -> dict:
 
 
 def test_absent_reads_none_for_every_line_and_the_live_specs_validate():
-    assert R.cef_thin_stop_levels(SPEC) == {k: None for k in R.CEF_THIN_STOP_KEYS}
+    assert R.cef_thin_stop_levels(SPEC) == {**{k: None for k in R.CEF_THIN_STOP_KEYS},
+                                            "thin_k3_run_sessions": 3}
     for f in ("cef_discount", "c4_families"):
         live = json.loads((ROOT / "ops" / "specs" / f"{f}.frozen.json").read_text())
         R.validate_spec(live)
-        assert R.cef_thin_stop_levels(live) == {k: None for k in R.CEF_THIN_STOP_KEYS}
+        assert R.cef_thin_stop_levels(live) == {k: None for k in R.CEF_THIN_KEYS}
 
 
 def test_present_values_are_read_with_their_notes():
     got = R.cef_thin_stop_levels(spec_with(**VALUES))
-    assert got == VALUES
+    assert got == {**VALUES, "thin_k3_run_sessions": 3}
     R.validate_spec(spec_with(**VALUES))
 
 
@@ -90,6 +94,8 @@ def test_a_threshold_without_its_compose_note_is_refused():
 def test_a_threshold_under_another_rule_is_refused():
     for rule in ("flatten", "hold", None):
         s = spec_with(thin_k2_max_name_frac=0.956)
+        for k in ("thin_k3_run_sessions", "_thin_k3_run_sessions_note"):
+            s["risk"].pop(k)
         s["frozen"].pop("below_min_names_floor")
         if rule is None:
             s["frozen"].pop("below_min_names")
@@ -123,3 +129,83 @@ def test_the_live_keys_are_far_from_every_threshold():
         for block in ("risk", "frozen"):
             for key in live.get(block) or {}:
                 assert R._thin_stop_near_miss(key) is None, (f, block, key)
+
+
+# ---------------------------------------------------------------------------
+# K3's run length, `risk.thin_k3_run_sessions` (the runner owner's review 2026-11-04, item 9)
+# ---------------------------------------------------------------------------
+
+RUN_KEY = "thin_k3_run_sessions"
+
+
+def _without_run(s: dict) -> dict:
+    s = copy.deepcopy(s)
+    for k in (RUN_KEY, f"_{RUN_KEY}_note"):
+        s["risk"].pop(k, None)
+    return s
+
+
+def test_the_k3_run_length_is_required_under_the_rule_with_no_default():
+    """It was a module constant (drawdown.THIN_K3_RUN = 3). Now the spec states it, and under
+    "trade_eligible" a spec without it refuses at load, as one without a floor does. Fails on
+    8527488, which validates the spec without it."""
+    with pytest.raises(ValueError, match=f"needs risk.{RUN_KEY}.*no default"):
+        R.validate_spec(_without_run(SPEC))
+    with pytest.raises(ValueError, match=RUN_KEY):
+        R.cef_thin_stop_levels(_without_run(spec_with(**VALUES)))
+    for v in (2, 3, 5):
+        s = copy.deepcopy(SPEC)
+        s["risk"][RUN_KEY] = v
+        R.validate_spec(s)
+        assert R.cef_thin_stop_levels(s)[RUN_KEY] == v
+
+
+@pytest.mark.parametrize("bad", [True, 3.0, "3", 1, 0, -3, None])
+def test_a_bad_k3_run_length_is_refused_naming_the_key_and_the_value(bad):
+    s = copy.deepcopy(SPEC)
+    s["risk"][RUN_KEY] = bad
+    with pytest.raises(ValueError, match=RUN_KEY) as e:
+        R.validate_spec(s)
+    assert repr(bad) in str(e.value) or str(bad) in str(e.value)
+
+
+@pytest.mark.parametrize("note", [None, "", "   ", 3])
+def test_the_k3_run_length_needs_its_note(note):
+    s = copy.deepcopy(SPEC)
+    if note is None:
+        s["risk"].pop(f"_{RUN_KEY}_note")
+    else:
+        s["risk"][f"_{RUN_KEY}_note"] = note
+    with pytest.raises(ValueError, match=f"_{RUN_KEY}_note"):
+        R.validate_spec(s)
+
+
+def test_the_k3_run_length_under_another_rule_is_refused():
+    """As the floor and the lines: a count nothing reads is a spec that says one thing and does
+    another. The revert spec deletes it with them."""
+    for rule in ("flatten", "hold", None):
+        s = copy.deepcopy(SPEC)
+        s["frozen"].pop("below_min_names_floor")
+        if rule is None:
+            s["frozen"].pop("below_min_names")
+        else:
+            s["frozen"]["below_min_names"] = rule
+        with pytest.raises(ValueError, match=f"{RUN_KEY}.*read only under 'trade_eligible'"):
+            R.validate_spec(s)
+        R.validate_spec(_without_run(s))          # deleted with the rule: validates
+
+
+@pytest.mark.parametrize("typo", ["thin_k3_run_session", "thin_k3_runs_sessions", "think3runsessions",
+                                  "_thin_k3_run_sessions", "Thin-K3-Run-Sessions"])
+def test_a_misspelt_k3_run_length_is_refused(typo):
+    s = copy.deepcopy(SPEC)
+    s["risk"][typo] = 3
+    with pytest.raises(ValueError, match=f"looks like a misspelling of '{RUN_KEY}'"):
+        R.validate_spec(s)
+
+
+def test_the_k3_run_length_written_in_frozen_is_refused():
+    s = copy.deepcopy(SPEC)
+    s["frozen"][RUN_KEY] = 3
+    with pytest.raises(ValueError, match=f"move it to risk.{RUN_KEY}"):
+        R.validate_spec(s)

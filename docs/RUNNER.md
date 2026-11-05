@@ -218,8 +218,8 @@ but at least the floor, and no NAV hold, the core sleeve builds its book on the 
 with its own construction (the same z-neutralisation, vol scalar, band, gross ceiling and
 `sizing_multiplier`) instead of closing it. Below the floor it goes flat, as under the default.
 **The key is not set at this commit.** The activation commit sets it, with the K1-K3
-thresholds and their notes, once the conditions in the pre-registration's "Approval" section
-are met. **Absent, or `"flatten"` written out, is today's book, byte for byte**: the sleeve on
+thresholds, K3's run length (`risk.thin_k3_run_sessions`, required with the key) and their
+notes, once the conditions in the pre-registration's "Approval" section are met. **Absent, or `"flatten"` written out, is today's book, byte for byte**: the sleeve on
 every real-panel decision date against main's code
 (`results/cef/te4_impl/sleeve_noop_diff_output_2026-11-03-main0b1a2ef.txt`), and the whole
 session against 0b1a2ef (`quantt/session/tests/test_trade_eligible_noop.py`).
@@ -354,7 +354,7 @@ is PAPER ONLY and paper runs `late_market`, so the late-market rule is the one t
 | K0 | K0's drawdown status at this decide, read through the session before the as-of: KILLED if HALVE or KILL while an episode is open | `risk.halve_drawdown` / `kill_drawdown`, through the status |
 | K1 | the maximum drawdown of the episode's earning days, compounded: a decision for session s earns eod_equity(e) / eod_equity(s) − 1 on the next session e, counted once e's row is on or before the read-through date (the as-of's own earning day is listed as `earned_not_yet_read` and counted at the next decide) | `risk.thin_k1_episode_drawdown` |
 | K2 | the largest \|position × as-of close\| / eod_equity of the read-through date (`equity_date`; one session stale, so off by one session's return), at the close after a reduced decision | `risk.thin_k2_max_name_frac` |
-| K3 | \|long − short\| / eod_equity of the read-through date, at that close: above the run line on 3 reduced closes in sequence (within the open episode), or above the once line. The earlier closes are read back from earlier plans: the decide for session X records the close of the session before X, so the close before the as-of is in the as-of session's own plan (corrected after the reviews of 7fcc2b7, which found the first build counting one close too far back). An earlier K3 that is unmeasured, or that names another close, makes the run UNMEASURED, as does a named gap among the closes it reads back, or a run still open where the walk stopped at a record it could not read | `risk.thin_k3_net_run`, `risk.thin_k3_net_once` |
+| K3 | \|long − short\| / eod_equity of the read-through date, at that close: above the run line on `risk.thin_k3_run_sessions` reduced closes in sequence (§6.3's 3; within the open episode), or above the once line. The earlier closes are read back from earlier plans: the decide for session X records the close of the session before X, so the close before the as-of is in the as-of session's own plan (corrected after the reviews of 7fcc2b7, which found the first build counting one close too far back). An earlier K3 that is unmeasured, or that names another close, makes the run UNMEASURED, as does a named gap among the closes it reads back, or a run still open where the walk stopped at a record it could not read | `risk.thin_k3_net_run`, `risk.thin_k3_net_once`, `risk.thin_k3_run_sessions` |
 | send_skip | the label above | — |
 
 A line whose threshold is absent reads UNMEASURED, never a default.
@@ -371,6 +371,18 @@ without one. The registry also refuses:
 - the run line not below the once line;
 - a near-miss spelling in `risk`, and any of them written in `frozen`.
 
+**K3's run length, `risk.thin_k3_run_sessions`** (the runner owner's review 2026-11-04, item 9).
+How many reduced closes in sequence above the run line trip K3: §6.3's 3. It was a constant in
+`drawdown.py` (`THIN_K3_RUN`) until that review; the spec is the only authority on a stop's rule,
+so `drawdown.thin_stop_record` now reads it from the thresholds the runner passes, and holds no
+constant. Unlike the four lines it is **required** whenever `below_min_names` is
+`"trade_eligible"`, with no default: a spec without it refuses at load, as one without a floor
+does. The registry refuses it under any other rule, a non-int (a bool, `3.0`, a string), a value
+below 2 (one close is the once line's business), a missing or empty `_thin_k3_run_sessions_note`
+(the count is pre-registered, not derived by compose.py, so the note need not name a
+`compose_<stamp>.json`), a near-miss spelling and the key written in `frozen`. Tests that set the
+rule set it (`test_trade_eligible_runner.te4`).
+
 The live path never reads `results/`.
 
 **Unchanged.** The missing-NAV and stale-NAV holds: with any hold present the reduced build never
@@ -378,8 +390,15 @@ runs, and today's `min_names` path decides, tag included, so the missing-NAV ref
 on it (§7.7). `_send_planned`, the first-session gate, the arming refusals.
 
 **Revert.** Set `below_min_names` back to `"flatten"`, or delete it, through `/spec-change`.
-Delete the floor and the four `risk.thin_*` keys and their notes with it, because the registry
-refuses them under any other rule. The no-op pins prove the reverted session is today's.
+Delete the floor and the five `risk.thin_*` keys (the four lines and `thin_k3_run_sessions`) and
+their notes with it, because the registry refuses them under any other rule. The no-op pins prove
+the reverted session is today's.
+
+**Activation, for the record (the runner owner's review 2026-11-04, item 2; not done now).** The
+revert spec built in the activation release deletes `below_min_names`, its floor and the five
+`risk.thin_*` keys with their notes. With them absent, the revert spec must be **byte-identical
+to the pre-te4 spec**, the spec file as it stood before the activation commit. Diff the two files
+before tagging; any other difference is a second change riding on a revert.
 
 ## As built (2026-10-29): gate 6 reads its lists last
 

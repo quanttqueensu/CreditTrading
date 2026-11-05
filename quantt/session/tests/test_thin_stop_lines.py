@@ -47,7 +47,7 @@ CAL = [D0 + dt.timedelta(days=i) for i in range(400)]       # synthetic sessions
 SESSION = CAL[300]                                          # this decide's session
 ASOF = CAL[299]                                             # its as-of: the session before
 LINES = {"thin_k1_episode_drawdown": 0.10, "thin_k2_max_name_frac": 0.9,
-         "thin_k3_net_run": 0.25, "thin_k3_net_once": 0.8}
+         "thin_k3_net_run": 0.25, "thin_k3_net_once": 0.8, "thin_k3_run_sessions": 3}
 OK = {"status": "OK", "asof": ASOF.isoformat()}
 
 
@@ -395,7 +395,7 @@ def test_k2_and_k3_read_the_close_after_a_reduced_decision():
     assert r["K3"]["net"] == pytest.approx(0.8) and r["K3"]["verdict"] == ddm.CLEAR
 
 
-def _chain(kinds: str, nets: list):
+def _chain(kinds: str, nets: list, lines=None):
     """Decide session after session exactly as run.py does, and return each decide's K3.
 
     Sessions S[0], S[1], ...: S[0] was decided with the key absent; S[j] (j >= 1) is a reduced
@@ -416,7 +416,8 @@ def _chain(kinds: str, nets: list):
         r = ddm.thin_stop_record(
             asof=asof, session_date=sd, drawdown=OK, current={"reduced": False},
             previous_session=prev, read_day=reader(days), series=[(asof, 100.0)],
-            positions={"A": round(nets[j - 1] * 10)}, closes={"A": 10.0}, thresholds=LINES)
+            positions={"A": round(nets[j - 1] * 10)}, closes={"A": 10.0},
+            thresholds=lines or LINES)
         days[sd]["plan"]["thin_stops"] = r
         assert r["K3"]["session"] == asof
         out.append(r["K3"])
@@ -434,6 +435,29 @@ def test_k3_trips_on_exactly_the_third_reduced_close_in_a_row_above_its_run_line
     k3 = _chain("RRR", [0.4, 0.4, 0.4])
     assert _runs(k3) == [(1, ddm.CLEAR), (2, ddm.CLEAR), (3, ddm.TRIPPED)]
     assert _runs(_chain("RRR", [0.3, 0.3, 0.4]))[-1] == (3, ddm.TRIPPED)
+
+
+def test_k3s_run_length_is_the_specs_never_a_constant_here():
+    """The runner owner's review (2026-11-04), item 9: K3's run length is the spec's
+    `risk.thin_k3_run_sessions`, passed in with the lines; drawdown.py holds no constant. At 2
+    the run trips on the second close above the line; at 4 the third does not. Without it K3
+    reads UNMEASURED, naming it (no default); a value the registry would refuse raises. Fails on
+    8527488, whose THIN_K3_RUN = 3 ignored the thresholds."""
+    assert not hasattr(ddm, "THIN_K3_RUN")
+    k3 = _chain("RRR", [0.4, 0.4, 0.4], {**LINES, "thin_k3_run_sessions": 2})
+    # The count stops at the run length: the third close reads a run of 2, TRIPPED.
+    assert _runs(k3) == [(1, ddm.CLEAR), (2, ddm.TRIPPED), (2, ddm.TRIPPED)]
+    assert k3[0]["run_sessions"] == 2
+    k3 = _chain("RRRR", [0.4, 0.4, 0.4, 0.4], {**LINES, "thin_k3_run_sessions": 4})
+    assert _runs(k3) == [(1, ddm.CLEAR), (2, ddm.CLEAR), (3, ddm.CLEAR), (4, ddm.TRIPPED)]
+    lines = {k: v for k, v in LINES.items() if k != "thin_k3_run_sessions"}
+    r = record({back(1): {"plan": plan(True)}}, positions={"A": 3000}, closes=PRICES,
+               series=[(ASOF, 50_000.0)], lines=lines)
+    assert r["K3"]["net"] == pytest.approx(0.6) and r["K3"]["verdict"] == ddm.UNMEASURED
+    assert "thin_k3_run_sessions" in r["K3"]["why"]
+    for bad in (1, 3.0, True):
+        with pytest.raises(ValueError, match="thin_k3_run_sessions"):
+            record(lines={**LINES, "thin_k3_run_sessions": bad})
 
 
 def test_k3_does_not_trip_on_a_run_broken_by_a_close_below_the_line():
@@ -732,12 +756,17 @@ def test_the_next_decide_labels_nothing_after_a_reduced_send_that_did_not_go(
     assert st["K3"]["verdict"] == ddm.NOT_APPLICABLE and "not sent" in st["K3"]["why"]
 
 
-def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, monkeypatch):
+@pytest.mark.parametrize("run_sessions,want", [(3, ddm.TRIPPED), (4, ddm.CLEAR)])
+def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, monkeypatch,
+                                                                    run_sessions, want):
     """K3's run in the real session, on prior plan.json files in the runner's own shape: the
     decide for X records the K3 of the close BEFORE X (`session`), so the 09-24 close is in
     the 09-25 plan. Reduced decisions on 09-23, 09-24 and 09-25, each close above the run line,
     with 09-22 decided with the key absent: today's decide (as-of 09-25) reads a run of 3 and
-    TRIPS. Fails on 7fcc2b7, which skipped the 09-25 plan and read 2, CLEAR."""
+    TRIPS. Fails on 7fcc2b7, which skipped the 09-25 plan and read 2, CLEAR. With the spec's
+    `risk.thin_k3_run_sessions` at 4 the same run of 3 is CLEAR: the runner passes the spec's run
+    length to the K-lines (the runner owner's review 2026-11-04, item 9); 8527488 used its own
+    constant 3 whatever the spec said, and its 4 case fails."""
     import copy
     from quantt.session import run as rn
     from quantt.session.tests import test_missing_nav_hold as M
@@ -746,7 +775,8 @@ def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, mo
     spec = copy.deepcopy(TE4_SPEC)
     note = "test only: compose_2026-12-01.json §E"
     spec["risk"].update(thin_k3_net_run=0.00005, _thin_k3_net_run_note=note,
-                        thin_k3_net_once=1.7, _thin_k3_net_once_note=note)
+                        thin_k3_net_once=1.7, _thin_k3_net_once_note=note,
+                        thin_k3_run_sessions=run_sessions)
     base, bk = N.thin_books(tmp_path / "b", monkeypatch)
     N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
     state = tmp_path / "r" / "state"
@@ -765,7 +795,7 @@ def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, mo
     assert k3["session"] == "2026-09-25"
     # The held book is near neutral (net about 1.2e-4 of equity): the run line sits below it.
     assert 0.00005 < k3["net"] < 1.7                  # above the run line, below the once line
-    assert k3["run"] == 3 and k3["verdict"] == ddm.TRIPPED
+    assert k3["run"] == 3 and k3["verdict"] == want and k3["run_sessions"] == run_sessions
 
 
 def test_with_the_key_set_every_decide_carries_the_lines_and_a_failure_is_recorded(

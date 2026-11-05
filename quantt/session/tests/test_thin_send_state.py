@@ -56,7 +56,7 @@ from src.deploy.sleeve import FLAT, SHORT, PositionTarget
 
 NEXT = dt.date(2026, 9, 30)          # the session after D: its decide reads D's records back
 LINES = {"thin_k1_episode_drawdown": 0.10, "thin_k2_max_name_frac": 0.9,
-         "thin_k3_net_run": 0.25, "thin_k3_net_once": 0.8}
+         "thin_k3_net_run": 0.25, "thin_k3_net_once": 0.8, "thin_k3_run_sessions": 3}
 
 
 def _state_of(state, *, reduced=True):
