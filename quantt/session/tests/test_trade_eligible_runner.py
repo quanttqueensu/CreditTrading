@@ -279,26 +279,65 @@ def test_a_combined_book_with_the_key_fails_and_a_combined_sleeve_with_it_refuse
     code, state, c, spy = run(tmp_path / "book", TE4_SPEC, bk["held"], "ok", sleeves=sleeves)
     assert code == rn.EXIT_FAIL and spy.calls == [] and not c.accepted
     assert "combined book" in last_run(state)["error"]
-    # Only a sleeve's own spec sets it: the combiner builds it (construction checks only the
-    # declaration's value) and the sleeve refuses at its decide, because the combiner passes no
-    # declaration. Nothing is sent.
+    # Only a sleeve's own spec sets it: the combiner refuses it at load (the runner owner's
+    # review 2026-11-04, item 1; the test below). Until then it built the sleeve and the sleeve
+    # refused at its decide, because the combiner passes no declaration.
     tp = tmp_path / "te4.frozen.json"
     tp.write_text(json.dumps(TE4_SPEC))
     bj.write_text(json.dumps({"book_id": "t", "sleeves": [
         {"name": "cef_discount", "enabled": True, "spec_path": tp.name, "risk_budget": 1.0}]}))
-    sleeves = cmb.load_sleeves(bj, tp, tmp_path, rn._sleeve_target_fn)
-    code, state, c, _ = run(tmp_path / "sleeve", N.THIN_SPEC, bk["held"], "ok", sleeves=sleeves)
-    assert code == rn.EXIT_FAIL and not c.accepted
-    assert "PAPER ONLY" in last_run(state)["error"]
+    with pytest.raises(cmb.CombineError, match="trade_eligible"):
+        cmb.load_sleeves(bj, tp, tmp_path, rn._sleeve_target_fn)
+
+
+@pytest.mark.parametrize("key", ["rule", "below_min_names_floor", "thin_k1_episode_drawdown",
+                                 "thin_k2_max_name_frac", "thin_k3_net_run", "thin_k3_net_once",
+                                 "thin_k3_run_sessions"])
+def test_the_combiner_refuses_a_sleeve_that_sets_any_te4_key(tmp_path, key):
+    """The runner owner's review (2026-11-04), item 1: `combine.load_sleeves` refuses a budgeted
+    sleeve whose spec sets ANY te4 key, as it refuses `level_signal` (#41,
+    src/deploy/tests/test_level_signal.py). The rule and its stops were measured on the core's
+    own account; netted with another sleeve it is a book nobody scored. Each key alone (the rule
+    with its required floor and run length; any other key without the rule) is refused with a
+    CombineError naming it, before the sleeve is built; with every te4 key removed the same book
+    loads, so the refusal is the key's own. Fails on 42f9bd7, which loads the rule (and refuses
+    a lone key only through the registry's ValueError, not the combiner's)."""
+    from quantt.session import combine as cmb
+    from src.deploy.registry import CEF_THIN_KEYS
+    base = copy.deepcopy(N.THIN_SPEC)
+    assert base["frozen"].get("below_min_names") is None
+    assert not set(CEF_THIN_KEYS) & set(base.get("risk") or {})
+    note = "test only: compose_2026-12-01.json §E"
+    if key == "rule":
+        spec, named = TE4_SPEC, "frozen.below_min_names='trade_eligible'"
+    elif key == "below_min_names_floor":
+        spec, named = copy.deepcopy(base), f"frozen.{key}"
+        spec["frozen"][key] = 4
+    else:
+        spec, named = copy.deepcopy(base), f"risk.{key}"
+        spec.setdefault("risk", {}).update({key: 3 if key == "thin_k3_run_sessions" else 0.5,
+                                            f"_{key}_note": note})
+    bj = tmp_path / "book.json"
+    bj.write_text(json.dumps({"book_id": "t", "sleeves": [
+        {"name": "core", "enabled": True, "spec_path": "s.json", "risk_budget": 1.0}]}))
+    sp = tmp_path / "s.json"
+    sp.write_text(json.dumps(spec))
+    with pytest.raises(cmb.CombineError, match="CEF trial 55") as e:
+        cmb.load_sleeves(bj, sp, tmp_path, lambda s: (lambda *a, **k: []))
+    assert named in str(e.value)
+    sp.write_text(json.dumps(base))
+    (entry,) = cmb.load_sleeves(bj, sp, tmp_path, lambda s: (lambda *a, **k: []))
+    assert entry.universe == tuple(sorted(base["frozen"]["universe"]))
 
 
 def test_the_callers_that_build_without_deciding_still_work_with_the_key_set(
         tmp_path, monkeypatch):
-    """The owner's answer 1: run.py's spec_panel, ops/common.py's deployed_tickers and
-    combine.py's load_sleeves build the sleeve every session without deciding, and must keep
-    working with the key set. The one of them whose callable decides (the combiner's) passes no
-    declaration, so it refuses rather than decide by default; the runner's own call passes it
-    explicitly (test above)."""
+    """The owner's answer 1: run.py's spec_panel and ops/common.py's deployed_tickers build the
+    sleeve every session without deciding, and must keep working with the key set.
+    combine.py's load_sleeves refuses a budgeted sleeve with the key at load (the runner
+    owner's review 2026-11-04, item 1; the test above). The target callable it would bind
+    passes no declaration, so even built by hand it refuses rather than decide by default;
+    the runner's own call passes the declaration explicitly (tests above)."""
     from ops.common import deployed_tickers
     from quantt.session import combine as cmb
     from src.deploy.registry import build_sleeve
@@ -314,10 +353,10 @@ def test_the_callers_that_build_without_deciding_still_work_with_the_key_set(
     tp.write_text(json.dumps(TE4_SPEC))
     bj.write_text(json.dumps({"book_id": "t", "sleeves": [
         {"name": "core", "enabled": True, "spec_path": tp.name, "risk_budget": 1.0}]}))
-    (entry,) = cmb.load_sleeves(bj, tp, tmp_path, rn._sleeve_target_fn, panel_of=rn.spec_panel)
-    assert entry.universe == tuple(sorted(TE4_SPEC["frozen"]["universe"]))
+    with pytest.raises(cmb.CombineError, match="trade_eligible"):
+        cmb.load_sleeves(bj, tp, tmp_path, rn._sleeve_target_fn, panel_of=rn.spec_panel)
     with pytest.raises(ValueError, match="PAPER ONLY"):
-        entry.targets(M.ASOF, {}, 100_000.0, False)
+        rn._sleeve_target_fn(TE4_SPEC)(M.ASOF, {}, 100_000.0, False)
     # Declared but without the extra: still refused (the sleeve's `_thin_rule`).
     with pytest.raises(ValueError, match="thin_rule"):
         rn.sleeve_targets(TE4_SPEC, 100_000.0, M.ASOF, {}, 100_000.0, False, account="paper")

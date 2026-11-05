@@ -227,9 +227,13 @@ session against 0b1a2ef (`quantt/session/tests/test_trade_eligible_noop.py`).
 **Paper only, in two layers** (pre-registration §1.2):
 1. **The sleeve** refuses to decide under the key unless it was built with `account="paper"`
    and given `extras["thin_rule"]`. Construction checks only the declaration's value, so
-   `spec_panel`, `ops/common.py::deployed_tickers` and `combine.load_sleeves` still work with
-   the key set. The combiner's target callable passes no declaration, so a combined sleeve
-   with the key refuses at its decide rather than decide by default.
+   `spec_panel` and `ops/common.py::deployed_tickers` still work with the key set.
+   **`combine.load_sleeves` refuses a budgeted sleeve whose spec sets ANY te4 key** (the rule,
+   its floor, a `risk.thin_*` key), naming it, before the sleeve is built, as it refuses
+   `level_signal` (the runner owner's review 2026-11-04, item 1): the rule and its stops were
+   measured on the core's own account, and netted with another sleeve it is a book nobody
+   scored. Were such a sleeve built by hand, the combiner's target callable passes no
+   declaration, so it would still refuse at its decide rather than decide by default.
 2. **The runner** (`run.thin_rule_for`, at session start, the decide and the send alike)
    declares paper only when the broker client's `trading_endpoint`
    (`AlpacaClient.trading_endpoint`, read-only) is exactly `alpaca.PAPER_BASE`. Otherwise it

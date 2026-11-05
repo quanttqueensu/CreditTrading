@@ -1591,9 +1591,10 @@ def thin_rule_for(spec: dict, deps) -> dict | None:
     key, before any sleeve is built:
       * a combined book (`deps.sleeves`) whose book spec sets it. The rule and its
         stops were measured on the core's own account; netted with another sleeve
-        it is a book nobody scored. A combined SLEEVE whose own spec sets it is
-        refused by the sleeve at its first decide: the combiner passes no paper
-        declaration (`_sleeve_target_fn`), so the sleeve's own refusal stands;
+        it is a book nobody scored. A combined SLEEVE whose own spec sets any te4
+        key is refused earlier, by `combine.load_sleeves` (the runner owner's review
+        2026-11-04, item 1); were one built by hand, the combiner passes no paper
+        declaration (`_sleeve_target_fn`), so the sleeve's own refusal would stand;
       * the book json without `risk.drawdown` (`deps.drawdown` None; the owner's
         answer 4). K0 reads the drawdown record, and a stop whose input is never
         measured must not fail open: loud and closed;

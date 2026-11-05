@@ -498,7 +498,9 @@ def test_a_reduced_set_is_recorded_on_every_return_under_the_key(panel, monkeypa
 
 def test_the_sleeve_still_builds_the_way_every_caller_builds_it(tmp_path, panel):
     """With the key set and no declaration: run.py's `spec_panel` line, ops.common's
-    deployed_tickers, combine.load_sleeves and the registry all construct it (none decides)."""
+    deployed_tickers and the registry all construct it (none decides). combine.load_sleeves
+    refuses a budgeted sleeve with the key before building it (the runner owner's review
+    2026-11-04, item 1: the rule was measured on the core's own account), naming the key."""
     from ops.common import deployed_tickers
     from quantt.session import combine as cmb
     te4 = _spec(m=None)
@@ -517,10 +519,10 @@ def test_the_sleeve_still_builds_the_way_every_caller_builds_it(tmp_path, panel)
     combined.write_text(json.dumps({"sleeves": [
         {"name": "A", "spec_path": "a.json", "risk_budget": 0.5},
         {"name": "B", "spec_path": "b.json", "risk_budget": 0.5}]}))
-    got = cmb.load_sleeves(combined, tmp_path / "book_spec.json", tmp_path,
-                           lambda spec: (lambda *a, **k: []),
-                           panel_of=lambda spec: CEFDiscountSleeve(spec, 0.0).panel_paths())
-    assert [(e.name, e.universe) for e in got] == [("A", tuple(MUNI)), ("B", tuple(TAX))]
+    with pytest.raises(cmb.CombineError, match="trade_eligible"):
+        cmb.load_sleeves(combined, tmp_path / "book_spec.json", tmp_path,
+                         lambda spec: (lambda *a, **k: []),
+                         panel_of=lambda spec: CEFDiscountSleeve(spec, 0.0).panel_paths())
 
 
 # ---------------------------------------------------------------------------
