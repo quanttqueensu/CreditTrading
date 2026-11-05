@@ -330,3 +330,13 @@ from a named source; [doc] copied from a named note.
   - It was approved by sha 17ddda95… at 09:36, and AUTO_ARMED was restored.
 - **Also merged:** #54, the evidence-log repair, which adds a CI test that validates the log.
 
+**22:17 ET: the first sends, and the 11-05 plans** (`results/report/EVIDENCE_LOG.md` E-2026-11-04-13..15).
+- **Both books traded and verify PASSed.**
+  - The core: 11 of 11 filled, auction-marked −$232.04, fill against the auction +18.3bp.
+  - C4's first session: 15 of 15 filled, auction-marked −$8.60, fill against the auction +0.7bp.
+- **A correction** (E-14): the "1.797×" reported for the core's 11-04 plan was target gross. The book after the trades is 1.174×, because names inside the band don't trade to target.
+- **11-05.**
+  - The core decided 6 orders.
+  - C4's decide is deferred on KYN's late NAV (the missing-NAV hold): it retries in later slots and decides by the 14:30 final check, with KYN held.
+  - IGR's history stays clean after the nightly fetch (step 5: 0 rows moved).
+
