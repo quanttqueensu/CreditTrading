@@ -276,7 +276,15 @@ E-2026-11-03-42,2026-11-03,ruling,ALPACA,§5,4,SU,"Ruling: te4's K0 reads the pr
 E-2026-11-03-43,2026-11-03,result,ALPACA,"§1, §4",3,V,The first plans at release-20261103-5: the core's first ×1.30 and C4's first armed plan on the v5 blend (session 2026-11-04)
 E-2026-11-03-44,2026-11-03,incident,ALPACA,"§4, §5",3,V,Incident: C4's first fetch wrote IGR's split-adjusted pre-split closes against unadjusted NAVs; C4 halted for the 2026-11-04 session
 E-2026-11-03-90,2026-11-03,live-pnl,ALPACA,§4,7,SU,"cef paper book, 2026-11-03: PASS, traded"
+E-2026-11-03-91,2026-11-03,live-pnl,ALPACA,§4,6,SU,"c4 paper book, 2026-11-03: FAIL, did not trade"
 E-2026-11-04-10,2026-11-04,correction,ALPACA,§5,1,,"Correction: a merge interleaved E-2026-11-03-35..39, and E-39/41/43/44 failed the log's format; restored from the clean commits, no figure changed"
 E-2026-11-04-11,2026-11-04,release,ALPACA,"§1, §4, §5",5,V,"Release: release-20261104-1 (C4 fetch keeps one price basis with its NAVs; fetch-time basis-step guard; repair-basis) installed, and IGR's stored history repaired"
 E-2026-11-04-12,2026-11-04,result,ALPACA,"§1, §4",4,V,C4's 2026-11-04 plan re-decided on the repaired panel and approved by sha; the unsent corrupt plan retired
+E-2026-11-04-13,2026-11-04,live-pnl,ALPACA,§4,2,V,"Both books traded on 2026-11-04: the core's first ×1.30 session and C4's first session ever, both verify PASS"
+E-2026-11-04-14,2026-11-04,correction,ALPACA,"§1, §4",2,V,"Correction to E-2026-11-03-43: the core's ""gross 1.025× → 1.797×"" was the sleeve's target gross, not the book after the trades"
+E-2026-11-04-15,2026-11-04,result,ALPACA,"§4, §5",4,V,"C4's 11-05 decide is deferred on KYN's late NAV (the missing-NAV hold, by design); the IGR fix holds through a nightly fetch"
 E-2026-11-04-90,2026-11-04,live-pnl,ALPACA,§4,7,SU,"cef paper book, 2026-11-04: PASS, traded"
+E-2026-11-04-91,2026-11-04,live-pnl,ALPACA,§4,8,SU,"c4 paper book, 2026-11-04: PASS, traded"
+E-2026-11-05-20,2026-11-05,correction,ALPACA,§4,3,S,"Correction to E-2026-11-03-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-03 yet, not because the file was missing from the pull"
+E-2026-11-05-21,2026-11-05,method,ALPACA,"§4, §5",1,,Method: snapshot_live ingests a C4 pull without distribution_scores.csv and names the distribution-adjusted P&L UNMEASURED; a core pull must still carry the file
+E-2026-11-05-22,2026-11-05,correction,ALPACA,§4,3,S,"Correction to E-2026-11-04-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-04 yet, not because the file was missing from the pull"

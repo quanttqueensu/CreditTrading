@@ -1,0 +1,2 @@
+date,n_fills,n_buy,n_sell,notional_usd,wmean_bp,mean_bp,median_bp,p10_bp,p90_bp,min_bp,max_bp,sd_bp
+2026-11-04,15,7,8,129173.26,0.70,1.10,7.57,-13.28,16.82,-64.94,18.55,21.23
