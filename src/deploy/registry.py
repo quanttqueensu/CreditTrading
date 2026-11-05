@@ -223,6 +223,9 @@ def cef_below_min_names_floor(frozen):
     "flatten", "hold" or the key absent it is REFUSED, as the harness refuses `floor`: a floor
     that nothing reads is a spec that says one thing and trades another, and an absent
     `below_min_names` (flatten) with a floor beside it is most likely a half-applied edit.
+    Its note `_below_min_names_floor_note` is refused there too, naming it (review of 4e1ab0b):
+    the revert deletes the floor and its note, and a note left behind would otherwise load
+    cleanly in a spec that is then not byte-identical to the pre-te4 one.
 
     REFUSED, naming the value: a bool (JSON `true` is not 1 fund), any non-int (4.0 included:
     the harness takes an int, and a float that happens to be whole is a typed-by-hand
@@ -240,6 +243,7 @@ def cef_below_min_names_floor(frozen):
     """
     rule = cef_below_min_names(frozen)
     present = CEF_FLOOR_KEY in frozen
+    note = f"_{CEF_FLOOR_KEY}_note"
     if rule != "trade_eligible":
         if present:
             raise ValueError(
@@ -248,6 +252,16 @@ def cef_below_min_names_floor(frozen):
                 + (" (absent)" if "below_min_names" not in frozen else "")
                 + "; the floor is read only under 'trade_eligible'. Delete it, or set "
                   "below_min_names to 'trade_eligible'")
+        # The floor's NOTE, left behind (review of 4e1ab0b). te4's revert deletes the floor
+        # and its note, and the reverted spec must be byte-identical to the pre-te4 one
+        # (docs/RUNNER.md, te4's revert). A note nothing documents is the trace of a half-done
+        # revert, and nothing else would catch it: refused, as the floor is.
+        if note in frozen:
+            raise ValueError(
+                f"cef_discount {note} is set but below_min_names is {rule!r}"
+                + (" (absent)" if "below_min_names" not in frozen else "")
+                + f"; it documents {CEF_FLOOR_KEY}, which is read only under 'trade_eligible'. "
+                  f"Delete it with the floor, or set below_min_names to 'trade_eligible'")
         return None
     if not present:
         raise ValueError(
@@ -412,6 +426,11 @@ def cef_thin_stop_levels(spec) -> dict:
       * a key present while `below_min_names` is not "trade_eligible": a threshold nothing
         reads is a spec that says one thing and does another (the floor's rule,
         `cef_below_min_names_floor`). The revert spec deletes them with the floor;
+      * likewise any of their notes `_<key>_note` (the five CEF_THIN_KEYS') under another
+        rule, named (review of 4e1ab0b). The revert deletes each key with its note, and the
+        reverted spec must be byte-identical to the pre-te4 one (docs/RUNNER.md, te4's
+        revert); a note skipped by the misspelling guard and not counted here would load
+        cleanly, so only a manual diff would have caught it;
       * a key without its sibling note `_<key>_note`, or a note that does not name the
         `compose_<stamp>.json` that derived it: a threshold without provenance is a rumour
         (CLAUDE.md, data rules), and H14 requires that it was re-measured;
@@ -473,10 +492,13 @@ def cef_thin_stop_levels(spec) -> dict:
     frozen = spec.get("frozen") or {}
     rule = cef_below_min_names(frozen)
     if rule != "trade_eligible":
-        if present:
-            raise ValueError(f"cef_discount risk {present} set but below_min_names is {rule!r}; "
-                             f"the K1-K3 lines are read only under 'trade_eligible'. Delete them, "
-                             f"or set the rule")
+        # The keys and their notes alike (the notes since the review of 4e1ab0b: a note left
+        # by a revert is otherwise skipped by the guard above and loads cleanly).
+        stray = present + [n for n in notes if n in risk]
+        if stray:
+            raise ValueError(f"cef_discount risk {stray} set but below_min_names is {rule!r}; "
+                             f"the K1-K3 lines, K3's run length and their notes are read only "
+                             f"under 'trade_eligible'. Delete them, or set the rule")
         return out
     rk = CEF_THIN_K3_RUN_KEY
     if rk not in risk:

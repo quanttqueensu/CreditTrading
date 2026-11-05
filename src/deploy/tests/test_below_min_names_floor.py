@@ -8,13 +8,14 @@ count, read from the spec and nowhere else. These tests pin the parse before any
   1. REQUIRED ONLY UNDER "trade_eligible", REFUSED ELSEWHERE. Under the key absent, "flatten" or
      "hold", a floor is refused at load and at the sleeve's construction, naming the key: a floor
      nothing reads is a spec that says one thing and trades another. The harness refuses `floor`
-     the same way (`band_frontier.band_gross_capped`).
+     the same way (`band_frontier.band_gross_capped`). Its note `_below_min_names_floor_note`
+     is refused there too, named (review of 4e1ab0b: a revert that left it behind loaded).
   2. THE VALUE. An int with 2 <= floor < min_names; a bool, a float (4.0 included), a string,
      null, 1, and min_names itself all raise; a missing floor under "trade_eligible" raises; a
      missing `min_names` raises, because the bound cannot be checked without it.
   3. A MISSPELLING REFUSES. `below_min_names_flor` would otherwise validate as an unknown key
      while the spec reads as setting the floor (the near-miss guard, `cef_c4_near_miss`, review of
-     11790b5). Its `_note` sibling is not a miss.
+     11790b5). Its `_note` sibling is not a miss (and is read only beside the floor, group 1).
   4. `build_sleeve` FORWARDS KEYWORDS to the sleeve's constructor and adds none: the sleeve's
      paper declaration (`account="paper"`, the next commit) reaches it through the registry.
   5. THE LIVE SPECS ARE UNTOUCHED: neither the core's nor C4's carries the floor, both validate,
@@ -139,9 +140,39 @@ def test_a_near_miss_of_the_floor_raises_naming_both(key):
 
 
 def test_the_floor_note_is_not_a_miss():
+    """The note beside the floor, under the rule that reads the floor, validates. (As first
+    written this validated the note with the rule absent; since the review of 4e1ab0b a floor
+    note under any other rule is refused: the test below.)"""
     assert f"_{KEY}_note" in registry.CEF_C4_NOTES
     assert registry.cef_c4_near_miss(f"_{KEY}_note") is None
-    registry.validate_spec(_spec(**{f"_{KEY}_note": "the derivation"}))
+    s = _spec(below_min_names="trade_eligible", **{KEY: 4, f"_{KEY}_note": "the derivation"})
+    s.setdefault("risk", {}).update(
+        thin_k3_run_sessions=3, _thin_k3_run_sessions_note="test only: §6.3's 3")
+    registry.validate_spec(s)
+    assert registry.cef_below_min_names_floor(s["frozen"]) == 4
+
+
+@pytest.mark.parametrize("rule", ["absent", "flatten", "hold"])
+def test_the_floor_note_under_any_other_rule_is_refused_naming_it(rule):
+    """Review of 4e1ab0b (low, robustness). te4's revert deletes the floor WITH its note, and the
+    reverted spec must be byte-identical to the pre-te4 one (docs/RUNNER.md, te4's revert). The
+    floor was refused under another rule, its note was not (the near-miss guard passes a
+    `_<key>_note`), so a note left behind loaded cleanly. Now it is refused at load and at the
+    sleeve's construction, naming it, as the floor is. Fails on 8e7f545, where all three
+    accept it."""
+    note = f"_{KEY}_note"
+    keys = {note: "left behind by a revert"}
+    if rule != "absent":
+        keys["below_min_names"] = rule
+    s = _spec(**keys)
+    with pytest.raises(ValueError, match=note) as e:
+        registry.validate_spec(s)
+    assert "read only under 'trade_eligible'" in str(e.value)
+    with pytest.raises(ValueError, match=note):
+        registry.cef_below_min_names_floor(s["frozen"])
+    from src.deploy.sleeves.cef_discount import CEFDiscountSleeve
+    with pytest.raises(ValueError, match=note):       # built without the registry, too
+        CEFDiscountSleeve(s, 100_000.0)
 
 
 # ---------------------------------------------------------------------------

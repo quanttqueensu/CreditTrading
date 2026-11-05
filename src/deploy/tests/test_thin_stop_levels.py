@@ -105,6 +105,57 @@ def test_a_threshold_under_another_rule_is_refused():
             R.validate_spec(s)
 
 
+NOTES = [f"_{k}_note" for k in R.CEF_THIN_KEYS]
+
+
+def _reverted(rule) -> dict:
+    """SPEC as te4's revert leaves it: no rule (absent) or "flatten"/"hold", no floor, no
+    `risk.thin_*` key and no note of one."""
+    s = copy.deepcopy(SPEC)
+    for k in ("thin_k3_run_sessions", "_thin_k3_run_sessions_note"):
+        s["risk"].pop(k)
+    s["frozen"].pop("below_min_names_floor")
+    if rule is None:
+        s["frozen"].pop("below_min_names")
+    else:
+        s["frozen"]["below_min_names"] = rule
+    return s
+
+
+@pytest.mark.parametrize("note", NOTES)
+@pytest.mark.parametrize("rule", ["flatten", "hold", None])
+def test_a_note_left_under_another_rule_is_refused_naming_it(rule, note):
+    """Review of 4e1ab0b (low, robustness). te4's revert deletes the floor, the five `risk.thin_*`
+    keys AND their notes, and the reverted spec must be byte-identical to the pre-te4 one
+    (docs/RUNNER.md, te4's revert; the runner owner's review 2026-11-04, item 2). The registry
+    refused the keys under another rule but skipped the notes (the misspelling guard passes
+    them, and the other-rule check counted keys only), so a revert that left a note behind
+    loaded cleanly and only a manual diff would catch it. Now the note is refused, named. The
+    clean reverted spec still validates. Fails on 8e7f545, which validates every case."""
+    s = _reverted(rule)
+    R.validate_spec(s)
+    s["risk"][note] = "left behind by a revert"
+    with pytest.raises(ValueError, match="read only under 'trade_eligible'") as e:
+        R.validate_spec(s)
+    assert repr(note) in str(e.value), str(e.value)
+    with pytest.raises(ValueError, match="read only under 'trade_eligible'"):
+        R.cef_thin_stop_levels(s)
+
+
+@pytest.mark.parametrize("f", ["cef_discount", "c4_families"])
+def test_a_te4_note_added_to_a_live_spec_is_refused(f):
+    """The review's own probe: the live core spec (the rule absent) and C4's ("hold"), each with
+    one te4 note added to `risk`, validated and read every line as None. Now each refuses, naming
+    the note; the live files as committed still validate (test above). Fails on 8e7f545."""
+    live = json.loads((ROOT / "ops" / "specs" / f"{f}.frozen.json").read_text())
+    for note in NOTES:
+        s = copy.deepcopy(live)
+        s.setdefault("risk", {})[note] = "left behind by a revert"
+        with pytest.raises(ValueError, match="read only under 'trade_eligible'") as e:
+            R.validate_spec(s)
+        assert repr(note) in str(e.value), (f, note, str(e.value))
+
+
 @pytest.mark.parametrize("typo", ["thin_k1_episode_drawdwn", "thin_k2_max_name_fracs",
                                   "think3netrun", "_thin_k3_net_once", "Thin-K3-Net-Once"])
 def test_a_misspelt_threshold_is_refused(typo):

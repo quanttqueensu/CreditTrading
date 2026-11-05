@@ -375,7 +375,8 @@ block) are set in the activation commit. Each is re-measured on its read date by
 `results/cef/prereg_thin_te4/compose.py --stamp <date>` (H14), and each needs a sibling
 `_<key>_note` that names the `compose_<stamp>.json` that derived it; the registry refuses a key
 without one. The registry also refuses:
-- any of them under another rule;
+- any of them, or any of their `_<key>_note`s, under another rule (the notes since the review
+  of 4e1ab0b: a note left behind by a revert loaded cleanly until then);
 - a non-number, NaN or a value at or below 0;
 - K1 at or above 1 (a fraction, never a percent);
 - K2 or K3 (either K3 line) at or above `frozen.max_gross_stress`, at construction
@@ -404,14 +405,19 @@ on it (§7.7). `_send_planned`, the first-session gate, the arming refusals.
 
 **Revert.** Set `below_min_names` back to `"flatten"`, or delete it, through `/spec-change`.
 Delete the floor and the five `risk.thin_*` keys (the four lines and `thin_k3_run_sessions`) and
-their notes with it, because the registry refuses them under any other rule. The no-op pins prove
-the reverted session is today's.
+their notes with it, because the registry refuses them under any other rule: the keys, and since
+the review of 4e1ab0b their notes too (`_below_min_names_floor_note` in `frozen`, each
+`_thin_*_note` in `risk`), each named. **One note it cannot refuse:** `_below_min_names_note`,
+because C4's `"hold"` spec carries it legitimately; delete it with `below_min_names`, and only
+the diff below guards it. The no-op pins prove the reverted session is today's.
 
 **Activation, for the record (the runner owner's review 2026-11-04, item 2; not done now).** The
 revert spec built in the activation release deletes `below_min_names`, its floor and the five
 `risk.thin_*` keys with their notes. With them absent, the revert spec must be **byte-identical
 to the pre-te4 spec**, the spec file as it stood before the activation commit. Diff the two files
-before tagging; any other difference is a second change riding on a revert.
+before tagging; any other difference is a second change riding on a revert. The registry's
+refusals catch a te4 key or te4 note left behind, not `_below_min_names_note` and not any other
+edit: the diff is the guard of record.
 
 ## As built (2026-10-29): gate 6 reads its lists last
 
