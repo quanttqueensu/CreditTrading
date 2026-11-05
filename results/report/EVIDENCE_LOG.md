@@ -3569,3 +3569,18 @@ that adds it does not exist when it is written.
 - supports: §1, §4
 - status: current
 
+### E-2026-11-04-90 · cef paper book, 2026-11-04: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - verify verdict PASS; orders sent 11, filled 11 [S]
+  - 17:30 ET snapshot equity change -69.91 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]
+  - auction-marked P&L -232.04 USD [S]
+  - fills vs official close 18.30 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 18.30 bp, fill rate 1.0000 of shares [S]
+  - shadow book -249.75 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:c3fef52e05e2`; `results/report/data/live/cef/verify.csv` @ `pull:c3fef52e05e2`; `results/report/data/live/cef/tca.csv` @ `pull:c3fef52e05e2`
+- supports: §4
+- status: current

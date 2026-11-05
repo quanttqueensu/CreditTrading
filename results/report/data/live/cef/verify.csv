@@ -18,3 +18,4 @@ date,book,verdict,missed,traded,n_orders,n_filled,snapshot_1730_usd,verify_label
 2026-10-30,cef,PASS,False,True,7,7,-386.88,snapshot 17:30 ET,,PENDING at 17:30,-503.50,-6.8,
 2026-11-02,cef,PASS,False,True,4,4,+103.87,snapshot 17:30 ET,,PENDING at 17:30,+178.71,-15.3,
 2026-11-03,cef,PASS,False,True,6,6,+813.19,snapshot 17:30 ET,,PENDING at 17:30,+793.28,+16.7,
+2026-11-04,cef,PASS,False,True,11,11,-69.91,snapshot 17:30 ET,,PENDING at 17:30,-232.04,+18.3,
