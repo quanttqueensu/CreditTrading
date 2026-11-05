@@ -382,6 +382,22 @@ def core(cut: Path, data_root: Path, costs: dict, say) -> dict:
     thin17 = bf.thin_sessions(T17.index, universe=U17)
     _assert_fit(T17)
     dyn["calibration_v6_17"] = dynamics(T17, thin17.to_numpy())
+    # The DILUTED reading, for the calibration only: every name-day of every session, in the book or not,
+    # thin or not. It brackets the original's sigma_w from below (the draft's section 3.3); it is not a
+    # candidate input, because it counts days on which no target can move.
+    A17 = T17.to_numpy(dtype=float)
+    d17, p17, c17 = A17[1:] - A17[:-1], A17[:-1], A17[1:]
+    phi17 = float((c17 * p17).sum() / (p17 ** 2).sum())
+    dyn["calibration_v6_17_diluted"] = {"sigma_w": float(d17.std(ddof=1)), "phi_w": phi17,
+                                        "kappa_w": -math.log(phi17), "name_days": int(d17.size)}
+    k17 = dyn["calibration_v6_17"]
+    dyn["calibration_v6_17"]["h_15bp"] = h_star(15.0, k17["sigma_w"], k17["kappa_w"])
+    dyn["calibration_v6_17"]["h_22bp"] = h_star(22.0, k17["sigma_w"], k17["kappa_w"])
+    th = thin.to_numpy()
+    pre = T.index < W1
+    dyn["thin_counts"] = {"fit_thin": int(th.sum()), "fit_sessions": int(len(th)),
+                          "non_thin_before_w1": int((~th[pre]).sum()), "w1_sessions": int((~pre).sum()),
+                          "w1_thin": int(th[~pre].sum())}
     p = dyn["primary"]
     c_star = costs["core_B_bp"]
     lo, hi = costs["core_B_ci95_day_mean_bp"]
@@ -475,8 +491,16 @@ def _say_dyn(book, dyn, say):
     if "calibration_v6_17" in dyn:
         k = dyn["calibration_v6_17"]
         say(f"    CALIBRATION, the 17-name v6 book on the FIT only: sigma_w {k['sigma_w']:.5f}, phi_w {k['phi_w']:.5f}, "
-            f"half-life {k['half_life']:.1f}d. The 2026-09-06 inputs (17 names, whole sample to 2026-09, script not "
-            f"preserved) [S]: sigma_w {ORIGINAL['sigma_w']}, phi_w {ORIGINAL['phi_w']}, half-life {ORIGINAL['half_life']}d")
+            f"half-life {k['half_life']:.1f}d; the law at 15bp {k['h_15bp'] * 100:.2f}%, at 22bp {k['h_22bp'] * 100:.2f}%. "
+            f"The 2026-09-06 inputs (17 names, whole sample to 2026-09, script not preserved) [S]: sigma_w "
+            f"{ORIGINAL['sigma_w']}, phi_w {ORIGINAL['phi_w']}, half-life {ORIGINAL['half_life']}d")
+        k = dyn["calibration_v6_17_diluted"]
+        say(f"    the same 17 names, DILUTED (every name-day of every session): sigma_w {k['sigma_w']:.5f}, phi_w "
+            f"{k['phi_w']:.5f} ({k['name_days']} name-days); not a candidate input")
+    if "thin_counts" in dyn:
+        k = dyn["thin_counts"]
+        say(f"    thin sessions: {k['fit_thin']} of {k['fit_sessions']} on the fit; {k['non_thin_before_w1']} non-thin "
+            f"session(s) before W1; W1 {k['w1_thin']} thin of {k['w1_sessions']}")
 
 
 def _say_h(book, hs, c, ci, m, say):
