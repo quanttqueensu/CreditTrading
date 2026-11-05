@@ -3686,6 +3686,25 @@ that adds it does not exist when it is written.
 - supports: §4
 - status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)
 
+### E-2026-11-05-30 · The core's paper fill cost is the quoted half-spread (half a cent a share); no send time inside the window narrows it, and none of it carries over to a live MOC fill
+- kind: result
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - core, 21 late_market sessions 2026-09-30..11-04, 142 orders, 376 fills: B (fill vs the official closing print) 7.14bp pooled; day mean 8.62bp, t 3.20 [V]
+  - of which paid vs the mid at send 5.90bp (day t 26.66) = quoted half-spread 5.98bp + fill vs touch −0.08bp; drift send → print C2 −1.24bp (day t −1.02) [V]
+  - every late_market fill of both books (427) printed at the touch; 89.7% of core notional traded at a one-cent spread; paid $0.00538 a share [V]
+  - fill vs the decide-time estimate 31.52bp, of which decide close → mid at send 25.62bp (day t 2.81; open → send 20.81bp) [V]
+  - B ties to verify.csv fill_vs_auction_bp on 17 of 17 days, max difference 0.05bp [V]
+  - quoted half-spread, core 13 names × 21 sessions: 8.98bp at 15:50:00, 5.98–6.15bp from 15:51:00 to 15:59:30 [V]
+  - post at the passive touch, cross the rest at 15:58:00: B 4.12bp, −2.18bp against actual (day t −1.93) [V]
+  - core turnover 62.14 turns/yr (2026-09-29..11-04) and 66.25 (from 10-07); paper B at that turnover 4.44–4.73% of NAV a year [V]
+  - core orders as a share of the day's primary closing cross: median 6.2%, notional-weighted median 15.2%, p90 35.9% [V]
+  - C4, one session (2026-11-04, opening build): B 0.66bp, spread paid 10.66bp; C4's 15 names quote a mean 10.55bp half-spread at 15:52 over 21 sessions [V]
+- source: `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `137ea8e`; `results/cef/exec_cost_2026-11-05/aggregates_2026-11-05.json` @ `137ea8e`; `results/cef/exec_cost_2026-11-05/exec_cost.py` @ `137ea8e`
+- supports: §4, §3
+- status: current (report only, zero trials; 21 sessions and one C4 session, so no cell or counterfactual is a tested effect; candidates proposed, none adopted)
+
 ### E-2026-11-05-40 · Method: the band width re-derived from the measured paper cost lands at 4.55% (core) and 4.07% (C4); the draft recommends adopting neither, and CEF stays 55
 - kind: method
 - era: ALPACA
