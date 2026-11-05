@@ -569,6 +569,9 @@ def f_live_equity(b: Build, rel: pd.DataFrame, book="cef", fid="F06_live_equity"
             ax.text(x, ax.get_ylim()[0], t.tag.replace("release-", ""), rotation=90, fontsize=5.5,
                     va="bottom", color=C["vermillion"])
     ax.set_ylabel("account equity (USD)")
+    # Plain dollars: an account that barely moved (C4 before its first send) would otherwise get
+    # matplotlib's "+1e5" offset, and the ticks would read as P&L rather than equity.
+    ax.ticklabel_format(axis="y", style="plain", useOffset=False)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
     ax.set_xlabel("session date (2026); red lines: release tags")
     ax.legend(fontsize=7, loc="upper right")
