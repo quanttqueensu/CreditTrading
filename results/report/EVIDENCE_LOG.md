@@ -3569,3 +3569,34 @@ that adds it does not exist when it is written.
 - supports: §1, §4
 - status: current
 
+### E-2026-11-03-91 · c4 paper book, 2026-11-03: FAIL, did not trade
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-03
+- figures:
+  - verify verdict FAIL; orders sent 0, filled 0 [S]
+  - 17:30 ET snapshot equity change 0.00 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change 0.00 USD (Alpaca portfolio history 1D, the P&L of record) [S]
+  - auction-marked P&L 0.00 USD [S]
+  - distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]
+  - shadow book 0.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/verify.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/tca.csv` @ `pull:98c1901d5803`
+- supports: §4
+- status: current
+
+### E-2026-11-04-91 · c4 paper book, 2026-11-04: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - verify verdict PASS; orders sent 15, filled 15 [S]
+  - 17:30 ET snapshot equity change -89.10 USD (gross; a snapshot, not the P&L of record) [S]
+  - official EOD equity change UNMEASURED: eod_equity.csv in this pull has no change_usd for 2026-11-04 [U]
+  - auction-marked P&L -8.60 USD [S]
+  - fills vs official close 0.66 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 0.66 bp, fill rate 1.0000 of shares [S]
+  - distribution-adjusted P&L UNMEASURED: distribution_scores.csv not in this pull [U]
+  - shadow book 0.00 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/verify.csv` @ `pull:98c1901d5803`; `results/report/data/live/c4/tca.csv` @ `pull:98c1901d5803`
+- supports: §4
+- status: current
