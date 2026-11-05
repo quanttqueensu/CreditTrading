@@ -4,7 +4,7 @@
         -> results/cef/band_cost_2026-11-05/crosscheck_2026-11-05.txt
 
 WHY. CLAUDE.md: "double-check anything that drives a decision -- a second method". Four things drive
-`results/cef/PREREG_DRAFT_BAND_COST_2026-11-05.md`, and each is re-derived here a different way:
+`results/cef/BAND_COST_REDERIVATION_2026-11-05.md` (drafted as `PREREG_DRAFT_BAND_COST_2026-11-05.md`), and each is re-derived here a different way:
 
   1. BOOK IDENTITY. The plateau's books must be the books the accounts trade, as the trials that set
      them measured them. Core: trial 53's implementation B at x1.30 under the flatten rule, whose W1

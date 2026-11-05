@@ -7,8 +7,8 @@
     Before the first run in a fresh worktree: `python3 scripts/cef/c4_paper_benchmark.py stage`
     (copies C4's gitignored CRSP extract into results/cef/c4/_cache_c4/, sha-checked).
 
-ZERO TRIALS; FIT ONLY. This is the analysis behind `results/cef/PREREG_DRAFT_BAND_COST_2026-11-05.md`,
-a DRAFT pre-registration (CEF stays 55). It changes no spec and nothing on the live path. Every panel
+ZERO TRIALS; FIT ONLY. This is the analysis behind `results/cef/BAND_COST_REDERIVATION_2026-11-05.md` (drafted as `PREREG_DRAFT_BAND_COST_2026-11-05.md`),
+drafted as a pre-registration and CLOSED at zero trials by the team lead on 2026-11-05 (CEF stays 55). It changes no spec and nothing on the live path. Every panel
 is copied with a parquet filter at 2022-12-30 into --cut-dir before anything is computed, so no row of
 the 2023+ holdout is ever materialised, and every frame that reaches a statistic is asserted to end
 by 2022-12-30. Nothing under data/ is written; --cut-dir must be outside the repository.

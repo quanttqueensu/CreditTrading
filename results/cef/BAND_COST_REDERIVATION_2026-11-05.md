@@ -1,10 +1,26 @@
-# Pre-registration DRAFT: the no-trade band re-derived from the measured execution cost (core and C4)
+# The no-trade band re-derived from the measured execution cost (core and C4): keep 4.8%
 
-**Status: DRAFT, NOT APPROVED.** Written 2026-11-05 at the team lead's ruling of that day ("pre-register
-a re-derivation of the rebalancing band using the measured execution cost"). **It spends no trial: CEF
-stays 55.** If the team lead approves the change in §1, that commit records it as **CEF trial 56**,
-judged at **N = 56, bar √(2 ln 56) = 2.837**. This draft changes no spec, no book json and nothing on
-the live path.
+**Status: CLOSED at zero trials (team lead, 2026-11-05). CEF stays 55.** Both books keep `band_width`
+0.048. No spec, book json or live-path code changed.
+
+- **History.** Written on 2026-11-05 as a draft pre-registration (`PREREG_DRAFT_BAND_COST_2026-11-05.md`,
+  PR #61), at the team lead's ruling of that morning: "pre-register a re-derivation of the rebalancing
+  band using the measured execution cost". The team lead accepted its recommendations the same day
+  (the Ruling below). It is kept here as a recorded result.
+- **The analysis is unchanged.** §1 and §4–§9 describe a trial that was **not run**. They stay as the
+  record of what adopting the change would have meant, and what it would have been judged on.
+
+## Ruling (team lead, 2026-11-05; relayed by the coordinating session)
+
+| question | the team lead's answer | what it means |
+|---|---|---|
+| this note's Q1–Q4: adopt the re-derived band? | **"Accept: keep 4.8%, close"** | **keep 4.8% on both books** (core `cef_discount.v9.20261102`, C4 `c4_families.v5.20261103`); zero trials, CEF stays 55; a CLOSED row in `docs/RESEARCH_STATE.md` |
+| | | **re-measure C4's band on its own fill cost after 21 sessions, no earlier than 2026-12-03** (§11) |
+| | | **re-derive on a measured live auction impact before any real capital** (§10) |
+| the execution study's candidate 1, post-then-cross on paper (`results/cef/EXEC_COST_STUDY_2026-11-05.md`, PR #58) | **"Not now"** | not built; **re-test after 60+ sessions of fills** |
+
+- **No pass rule now applies.** §4's pass rule is kept as the record and labelled "not run".
+- **The 2023+ window §4 would have opened once was not opened.**
 
 - **Analysis:** `results/cef/band_cost_2026-11-05/band_cost.py` (fit only; panels cut at 2022-12-30
   outside the repository before anything is computed). Output of record:
@@ -24,6 +40,8 @@ the live path.
 
 ## 0. The answer in one table
 
+*As drafted. The recommendations in the last four rows were accepted (the Ruling above).*
+
 | question | answer |
 |---|---|
 | the core's derived width, at the measured paper cost (7.14bp) | **4.55%** (unit weights, the spec key's units); **0.045** as the spec would hold it. The cost's 95% interval gives 3.41–5.72% (2.72–5.52% centred on 7.14bp). Live: 4.8% [V] |
@@ -39,7 +57,7 @@ the live path.
 
 ---
 
-## 1. What changes (only if the team lead approves Q1 against the recommendation)
+## 1. What would have changed (NOT ADOPTED: the team lead kept 4.8%, 2026-11-05)
 
 | book | key | file | old → new | spec id |
 |---|---|---|---|---|
@@ -137,7 +155,7 @@ Definitions (declared in the script before the committed run):
 - Pooling every name-day of every session, in the book or not and thin or not, gives 0.0314 on the same
   data [V]. That reading counts days on which no target can move and is not a candidate input. The
   original lies between the two.
-- The original's window included 2023–26, which this draft may not compute.
+- The original's window included 2023–26, which this note may not compute.
 - **So the 4.8% the book trades was derived from a σ_w this desk can no longer reproduce.**
   - Under today's definition, 15–22bp on the 17-name fit gives 5.53–6.28%, not 4.26–4.85% [V].
   - This is [U] until the original recipe is found. It does not show that 4.8% is wrong: §3.4 shows the
@@ -257,7 +275,7 @@ The p-values are unadjusted, from about a dozen paired tests. Block 21, M 999, s
   cost all scale with m, and the optimal band in unit weights does not move.
 - **The κ-for-penalty law is not scale-free.** Fed account weights it gives h ∝ m^(2/3), which is
   m^(−1/3) in unit weights: 4.17% for the core and 3.77% for C4.
-- **The original was derived at m = 1, where the two readings agree.** This draft takes the
+- **The original was derived at m = 1, where the two readings agree.** This note takes the
   scale-free one (Q5).
 
 ### 3.6 Second method [V: `crosscheck_2026-11-05.txt`, ALL PASS]
@@ -312,7 +330,7 @@ silent fallback. The reviewer re-ran the definitions in its own scratch scripts 
 
 ---
 
-## 4. Committed in advance (applies only if Q1 is approved)
+## 4. Committed in advance: NOT RUN (kept as the record; Q1 was answered "keep 4.8%")
 
 - **Execution:** shift(2) through `scripts/research/harness.py`; no new backtester.
 - **Turnover-matched (H2).**
@@ -358,7 +376,7 @@ silent fallback. The reviewer re-ran the definitions in its own scratch scripts 
 
 ### 4b. Stage 0
 
-- **This draft reads no new data source.**
+- **This note reads no new data source.**
   - The core's panels are the live book's, cut to 2022-12-30.
   - C4's are trial 52's, cut the same way, with the CRSP extract sha-checked and the trial's
     reproduction gate passed.
@@ -389,7 +407,7 @@ silent fallback. The reviewer re-ran the definitions in its own scratch scripts 
 
 ---
 
-## 6. What would FALSIFY it
+## 6. What would have FALSIFIED it (not run)
 
 **No P&L statistic can.** The modelled improvement is +0.04pp/yr net, NW t 1.34 over the whole fit
 (1,045 sessions in which the book trades, about 4.1 years of them). At the same information per session,
@@ -439,7 +457,7 @@ because the modelled gain is +0.03pp/yr. Not waiting would cost trial 53 its one
 
 ---
 
-## 9. The live stops (if adopted)
+## 9. The live stops (if adopted; not adopted)
 
 - **Unchanged:**
   - the spec's HALVE / KILL lines (report only);
@@ -508,7 +526,7 @@ about each:
 
 ---
 
-## 12. Open questions for the team lead, each with a recommended answer
+## 12. Open questions for the team lead, each with a recommended answer (Q1–Q3 ruled 2026-11-05 as recommended; Q4 moot; Q5–Q8 open)
 
 | # | question | recommended answer |
 |---|---|---|
@@ -517,7 +535,7 @@ about each:
 | **Q3** | C4: scale the core's cost by the spread ratio, or defer? | **Defer** (§11): N = 21 sessions of C4's own fills; no change before 2027-02-01; adoption only if the re-derived width is no worse than live at C4's own cost |
 | **Q4** | If Q1 is approved anyway: wait for trial 53's 60-session review? | **Yes.** Activate no earlier than 2027-02-01, after R3 is read for the core, after the core's 60-session kill-rule review, and with compose.py re-run for te4 (§8) |
 | **Q5** | Derive in unit weights (the key's units, scale-free) or in account weights (×m)? | **Unit weights** (§3.5). The account reading (4.17% core, 3.77% C4) is shown and not used |
-| **Q6** | The 2026-09-06 σ_w (0.04083) cannot be reproduced (§3.3). Correct the record? | **Yes.** This draft's evidence-log entry records it. The core's `_band_width_note` carries a dated correction at the next `/spec-change` of that key; no spec is edited for a note alone |
+| **Q6** | The 2026-09-06 σ_w (0.04083) cannot be reproduced (§3.3). Correct the record? | **Yes.** This note's evidence-log entry (E-2026-11-05-40) records it. The core's `_band_width_note` carries a dated correction at the next `/spec-change` of that key; no spec is edited for a note alone |
 | **Q7** | Is the cost interval right to use? | **Yes, as a range, not a point.** The 95% interval is the study's day-clustered one (3.0–14.2bp). B's day sd is about 12bp, so it narrows only slowly (§3 of the study) |
 | **Q8** | By point estimate, the law's width sits away from the fit's net optimum in both books, in opposite directions (none significant). Replace κ_w as the penalty before the next re-derivation? | **Yes, as a zero-trial method note before the real-capital re-derivation.** Derive the penalty from the book's own forgone alpha (its IC term structure), check it reproduces the fit's net optimum on both books, and only then use it. Until then, any band re-derivation is labelled heuristic |
 
@@ -525,12 +543,11 @@ about each:
 
 ## 13. Trial accounting
 
-- **CEF stays 55.** This draft spends nothing. `docs/RESEARCH_STATE.md` is not edited here.
-- **If Q1 is approved:** CEF 55 → 56 in the commit that records the approval, with the counter table and
-  a CEF note in that same commit. Bar √(2 ln 56) = 2.837. The trial's daily P&L series (0.045 and 0.048,
-  fit) is stored with `scripts/research/registry.py`, 0.045 judged.
-- **If Q1 is answered as recommended:** add a CLOSED row naming this note and
-  `results/cef/band_cost_2026-11-05/`, in the commit that records the ruling.
+- **CEF stays 55.** Nothing was spent. Q1 was answered as recommended (the Ruling above). The commit
+  that records the ruling adds a CLOSED row naming this note and `results/cef/band_cost_2026-11-05/` to
+  `docs/RESEARCH_STATE.md`.
+- *As drafted, not taken:* had Q1 been approved, CEF would have gone 55 → 56, with the trial's daily P&L
+  series stored with `scripts/research/registry.py` and the bar at √(2 ln 56) = 2.837.
 
 ## Reproduce
 
