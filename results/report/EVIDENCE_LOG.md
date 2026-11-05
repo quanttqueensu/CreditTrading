@@ -3685,3 +3685,18 @@ that adds it does not exist when it is written.
 - source: `results/report/data/live/cef/pulls.csv` @ `837408c`; `results/report/data/live/cef/eod_equity.csv` @ `837408c`; `scripts/report/snapshot_live.py` @ `f579eb1`
 - supports: §4
 - status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)
+
+### E-2026-11-05-40 · Method: the band width re-derived from the measured paper cost lands at 4.55% (core) and 4.07% (C4); the draft recommends adopting neither, and CEF stays 55
+- kind: method
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - core: the cube-root law at the measured paper cost 7.14bp, sigma_w 0.06134/day and phi_w 0.95807 (half-life 16.2d) on the fit's active pairs 2013-06-24..2022-12-30, gives h* 4.55% in unit weights (0.045 as written); the cost's 95% interval 3.00-14.24bp gives 3.41-5.72%; live 4.8% [V]
+  - C4 (v5 blend): c = 7.14bp x quoted-spread ratio 1.741 = 12.43bp; sigma_w 0.04880, phi_w 0.93624; h* 4.07% (0.040 as written) [V]
+  - plateau on the fit, the accounts' books (core x1.30 flatten, C4 x1.26): both derived widths pass the declared paired test (argmax minus h*, HAC p 0.20 core, 0.14 C4); grid argmaxes 1.6% (core) and 6.4% (C4) named and not chosen [V]
+  - core 0.045 minus 0.048: net at 7.14bp +0.0385pp/yr, Newey-West t 1.34 (lag 21) against the bar sqrt(2 ln 56) = 2.837; turnover +3.3% [V]
+  - C4 h* minus live at 12.43bp: -0.058 Sharpe, HAC p 0.038 on total return (unadjusted), p 0.15 price only [V]
+  - the 2026-09-06 sigma_w (0.04083) is not reproduced: the 17-name fit gives 0.06050 under this definition, with phi_w 0.95246 against 0.95280 [V]
+- source: `results/cef/PREREG_DRAFT_BAND_COST_2026-11-05.md` @ `bb1c237`; `results/cef/band_cost_2026-11-05/band_cost_2026-11-05.json` @ `bb1c237`; `results/cef/band_cost_2026-11-05/crosscheck_2026-11-05.txt` @ `bb1c237`; `results/cef/band_cost_2026-11-05/band_cost.py` @ `d06ed06`
+- supports: §3, §6
+- status: current (a DRAFT pre-registration, not approved; zero trials; fit only, no 2023+ figure computed; the cost inputs are from the unmerged execution-cost study, PR #58 at 2476a16)
