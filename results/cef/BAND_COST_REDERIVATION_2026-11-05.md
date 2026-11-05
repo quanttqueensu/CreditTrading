@@ -17,7 +17,7 @@
 | this note's Q1–Q4: adopt the re-derived band? | **"Accept: keep 4.8%, close"** | **keep 4.8% on both books** (core `cef_discount.v9.20261102`, C4 `c4_families.v5.20261103`); zero trials, CEF stays 55; a CLOSED row in `docs/RESEARCH_STATE.md` |
 | | | **re-measure C4's band on its own fill cost after 21 sessions, no earlier than 2026-12-03** (§11) |
 | | | **re-derive on a measured live auction impact before any real capital** (§10) |
-| the execution study's candidate 1, post-then-cross on paper (`results/cef/EXEC_COST_STUDY_2026-11-05.md`, PR #58) | **"Not now"** | not built; **re-test after 60+ sessions of fills** |
+| the execution study's candidate 1, post-then-cross on paper (`results/cef/EXEC_COST_STUDY_2026-11-05.md`, PR #58, main `1f44bbf`) | **"Not now"** | not built; **re-test after 60+ sessions of fills** |
 
 - **No pass rule now applies.** §4's pass rule is kept as the record and labelled "not run".
 - **The 2023+ window §4 would have opened once was not opened.**
@@ -30,8 +30,10 @@
   applied.
 - **Provenance.** Every figure tagged [V] was produced by those two scripts on 2026-11-05. [S] figures
   are copied from the file named beside them. **The cost inputs are [S]:** they are read by the script
-  from the execution-cost study's aggregates at commit `2476a16` (branch `exec-cost-study`, PR #58,
-  **not yet merged**), `results/cef/EXEC_COST_STUDY_2026-11-05.md`.
+  from the execution-cost study's aggregates at commit `2476a16` (branch `exec-cost-study`, PR #58),
+  `results/cef/EXEC_COST_STUDY_2026-11-05.md`. **PR #58 merged to main as `1f44bbf` on 2026-11-05.** The
+  study note and `aggregates_2026-11-05.json` are byte-identical at `2476a16` and `1f44bbf` (`git diff`,
+  empty), so every cost figure here holds at main's commit.
 - **Panels.** Core: `data/cef/` prices to 2026-10-15 and NAV to 2026-10-14, distributions fetched
   2026-09-11; only rows to 2022-12-30 are read. C4: `data/cef_families/` and trial 52's CRSP extract
   (sha-checked), rows to 2022-12-30. **No 2023+ return, target or turnover was computed here.**
@@ -102,7 +104,7 @@ Re-measuring σ_w and κ_w on today's book pushes the other way:
 
 ## 3. How the width was DERIVED
 
-### 3.1 The cost inputs [S, read by the script from `2476a16`]
+### 3.1 The cost inputs [S, read by the script from `2476a16`; identical on main at `1f44bbf`]
 
 | input | value | source in the aggregates JSON |
 |---|---|---|

@@ -679,8 +679,7 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 ### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
 
 Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAND_COST_REDERIVATION_2026-11-05.md`
-(PR #61, drafted as a pre-registration) and the execution-cost study (PR #58, branch `exec-cost-study` at 2476a16,
-not merged when this was written).
+(PR #61, drafted as a pre-registration) and `results/cef/EXEC_COST_STUDY_2026-11-05.md` (PR #58, merged as 1f44bbf).
 
 | question | decision |
 |---|---|
