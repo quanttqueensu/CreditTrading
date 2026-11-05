@@ -3673,3 +3673,15 @@ that adds it does not exist when it is written.
 - source: `scripts/report/snapshot_live.py` @ `264d00b`; `scripts/report/tests/test_snapshot_live.py` @ `264d00b`; `results/report/data/live/c4/pulls.csv` @ `905fb00`
 - supports: §4, §5
 - status: current
+
+### E-2026-11-05-22 · Correction to E-2026-11-04-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-04 yet, not because the file was missing from the pull
+- kind: correction
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - E-2026-11-04-90 reads "official EOD equity change UNMEASURED: eod_equity.csv not in this pull"; its pull c3fef52e05e2 carried eod_equity.csv (pulls.csv lists it) [S]
+  - that file's last point was 2026-11-03 (change 793.10 USD), so it held none for 2026-11-04 [S]
+  - snapshot_live now writes "eod_equity.csv in this pull has no change_usd for <D>" in that case, and "not in this pull" only when the file is absent [S]
+- source: `results/report/data/live/cef/pulls.csv` @ `837408c`; `results/report/data/live/cef/eod_equity.csv` @ `837408c`; `scripts/report/snapshot_live.py` @ `f579eb1`
+- supports: §4
+- status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)
