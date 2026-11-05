@@ -353,7 +353,11 @@ is PAPER ONLY and paper runs `late_market`, so the late-market rule is the one t
   and say so. **Exactly K0's date** (the runner owner's review 2026-11-04, item 6, on the
   freshest-row ruling): the as-of's own row at the morning backstop (0 sessions stale), D−1's
   at 22:00. `drawdown.thin_stop_record` refuses a K0 record whose read-through date is not the
-  lines', so two dates are never mixed silently.
+  lines', so two dates are never mixed silently. **The label says what the data showed** (the
+  as-of's own row there at this decide, or not there yet), never which slot ran: the function is
+  not told the slot, and the row can be missing at a morning decide or there at 22:00. Until the
+  review of 4e1ab0b it named "the morning backstop" or "the 22:00 decide" from the staleness
+  alone, and so named the wrong slot whenever the two disagreed; the numbers were right.
 
 | line | what it reads | its threshold |
 |---|---|---|

@@ -846,20 +846,32 @@ def test_the_session_counts_k3s_run_from_the_asof_sessions_own_plan(tmp_path, mo
     assert k3["run"] == 3 and k3["verdict"] == want and k3["run_sessions"] == run_sessions
 
 
+@pytest.mark.parametrize("clock", ["09:00", "22:00"])
 @pytest.mark.parametrize("eod", ["ok", "morning_ok"])
 def test_the_session_reads_k1_k3_through_k0s_own_row_evening_and_morning(tmp_path, monkeypatch,
-                                                                          eod):
+                                                                          eod, clock):
     """The runner owner's review (2026-11-04), item 6, in the real session. Reduced decisions on
     09-24 (it earns 09-25) and 09-25, with 09-23 decided with the key absent. "ok" is what prod
     has at 22:00 (no 09-25 row): K0 reads 09-24, one session stale, and so do K1-K3, labelled;
     the 09-25 earning day is listed unread. "morning_ok" is the backstop with the 09-25 row
     there: K0 reads 09-25, 0 stale, and the lines read exactly that date: K1 counts the 09-25
     day, and K2/K3 divide by the 09-25 equity with no note. Fails on 69ef368 (its morning label
-    said the as-of's row was not there yet, and the evening K2/K3 carried no `equity_note`)."""
+    said the as-of's row was not there yet, and the evening K2/K3 carried no `equity_note`).
+
+    THE CLOCK (review of 4e1ab0b). Each case runs at the 22:00 decide on the as-of (M.EVE) AND
+    at 09:00 ET on the session day, a true morning-backstop clock: the item-6 morning case
+    ("morning_ok" at 09:00) had only ever run at 22:00. The numbers follow the data, never the
+    clock, and pass on 4e1ab0b in all four cases (pins; the review found them right by probe).
+    The `read_through` label must say what the data showed and name no slot, because the
+    function is not told which slot ran. 4e1ab0b's named one in every case, inferred from the
+    staleness: "the 22:00 decide" whenever the row was missing and "the morning backstop"
+    whenever it was there, so ("ok", 09:00) and ("morning_ok", 22:00) named the slot that did
+    not run. All four fail on 4e1ab0b on that assertion, and on nothing else."""
     from quantt.session import run as rn
     from quantt.session.tests import test_missing_nav_hold as M
     from quantt.session.tests import test_trade_eligible_noop as N
     from quantt.session.tests.test_trade_eligible_runner import K0_EOD, TE4_SPEC, run
+    now = {"09:00": dt.datetime(2026, 9, 28, 9, 0, tzinfo=M.ET), "22:00": M.EVE}[clock]
     base, bk = N.thin_books(tmp_path / "b", monkeypatch)
     N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
     state = tmp_path / "r" / "state"
@@ -872,10 +884,11 @@ def test_the_session_reads_k1_k3_through_k0s_own_row_evening_and_morning(tmp_pat
                    reduced({"verdict": ddm.NOT_APPLICABLE, "session": "2026-09-23"}))
     _prior_session(state, M.ASOF, reduced({"net": 0.01, "verdict": ddm.UNMEASURED,
                                            "session": "2026-09-24"}))
-    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], eod)
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], eod, now=now)
     assert code == rn.EXIT_PLANNED
     plan = M._plan(state)
     st, k0 = plan["thin_stops"], plan["thin_session"]["k0"]
+    assert plan["session_date"] == "2026-09-28" and plan["asof"] == "2026-09-25"
     want = "2026-09-25" if eod == "morning_ok" else "2026-09-24"
     stale = 0 if eod == "morning_ok" else 1
     assert k0["status"] == "OK" and k0["read_through"] == want
@@ -884,12 +897,16 @@ def test_the_session_reads_k1_k3_through_k0s_own_row_evening_and_morning(tmp_pat
     assert st["episode"]["status"] == "OPEN"
     assert st["episode"]["reduced_sessions"] == ["2026-09-24", "2026-09-25"]
     eq = dict(K0_EOD[eod])
+    label = st["read_through"]["label"]
+    text = "\n".join(ddm.thin_stop_lines(st))
+    for slot in ("22:00", "morning", "backstop", "evening"):
+        assert slot not in label and slot not in text, (slot, label)
     if eod == "morning_ok":
-        assert "the as-of's own row" in st["read_through"]["label"]
+        assert "the as-of's own row, there at this decide" in label
         assert st["K1"]["earning_days"] == 1 and st["K1"]["earned_not_yet_read"] == []
         assert st["K1"]["drawdown"] == 0.0              # 100,600 -> 100,800: a gain
     else:
-        assert "not there yet" in st["read_through"]["label"]
+        assert "not there yet at this decide" in label
         assert st["K1"]["earning_days"] == 0
         assert st["K1"]["earned_not_yet_read"] == ["2026-09-25"]
     for k in ("K2", "K3"):

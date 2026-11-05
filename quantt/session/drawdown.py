@@ -867,10 +867,15 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
         if d != read_through:
             raise ValueError(f"read_through {read_through} is not a session before the as-of "
                              f"{asof} (the walk back reached {d})")
-        why_row = ("the as-of's own row: the freshest row (team lead's ruling 2026-11-04; the "
-                   "morning backstop)" if n == 0 else
+        # The label says what the DATA showed at this decide (the as-of's row there or not),
+        # never which slot ran. This function is not told the slot, and the two do not always
+        # agree: the as-of's row can be missing at a morning decide and present at 22:00. As
+        # first built it named "the morning backstop" or "the 22:00 decide" from the staleness
+        # alone, and so named the wrong slot whenever they disagreed (review of 4e1ab0b).
+        why_row = ("the as-of's own row, there at this decide: the freshest row (team lead's "
+                   "ruling 2026-11-04)" if n == 0 else
                    f"{n} session(s) before the as-of {asof}: the as-of's row is not there yet "
-                   f"(the 22:00 decide), so the freshest row is this one (team lead's rulings "
+                   f"at this decide, so the freshest row is this one (team lead's rulings "
                    f"2026-11-03 and 2026-11-04)")
         rec["read_through"] = {"date": read_through, "sessions_stale": n,
                                "label": f"eod_equity read through {read_through}, {why_row}"}
