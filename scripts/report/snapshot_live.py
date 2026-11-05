@@ -511,11 +511,21 @@ def live_entries(book: str, out_dir: Path, pid: str, existing_ids: set, pulled: 
         n_orders = s.get("n_orders") or v.get("n_orders") or "0"
         n_filled = s.get("n_filled") or v.get("n_filled") or "0"
         missed = " MISSED" if v.get("missed") == "True" else ""
+        # Why the official figure is missing, said truly. Until 2026-11-05 every miss read "not in
+        # this pull", but the usual miss is a pull that carries eod_equity.csv without a point for
+        # D yet (Alpaca's EOD history for D is read the next morning; E-2026-11-03-90's pull had
+        # the file). The figure stays UNMEASURED either way; only the reason changes.
+        if off:
+            eod_fig = f"official EOD equity change {off} USD (Alpaca portfolio history 1D, the P&L of record) {tag}"
+        elif "eod_equity.csv" not in pulled:
+            eod_fig = "official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]"
+        else:
+            eod_fig = ("official EOD equity change UNMEASURED: eod_equity.csv in this pull has no change_usd "
+                       f"for {d} [U]")
         figs = [
             f"verify verdict {verdict}{missed}; orders sent {n_orders}, filled {n_filled} [S]",
             f"17:30 ET snapshot equity change {_fmt(snap)} USD (gross; a snapshot, not the P&L of record) {tag}",
-            (f"official EOD equity change {off} USD (Alpaca portfolio history 1D, the P&L of record) {tag}"
-             if off else "official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]"),
+            eod_fig,
             f"auction-marked P&L {_fmt(s.get('auction_pnl_usd') or v.get('auction_marked_usd', ''))} USD [S]",
         ]
         if disagree:

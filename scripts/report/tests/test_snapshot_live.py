@@ -318,3 +318,24 @@ def test_cef_output_is_byte_identical_to_before_the_c4_change(tmp_path):
     got = {p.relative_to(tmp_path).as_posix(): sl.sha256_bytes(p.read_bytes())
            for p in [*(tmp_path / "live").rglob("*.csv"), *(tmp_path / "cache").rglob("*.csv"), log]}
     assert got == CEF_GOLDEN
+
+
+def test_a_missing_eod_point_is_not_called_a_missing_file(tmp_path):
+    """The pull carries eod_equity.csv but no point for the session yet (the usual evening):
+    the entry says so, and says "not in this pull" only when the file is truly absent. On
+    origin/main both read "not in this pull" (E-2026-11-03-90's pull had the file)."""
+    pull = _write_pull(tmp_path / "pull")
+    (pull / "eod_equity.csv").write_text("date,equity,change_usd,read_at_utc\n"
+                                         "2026-10-01,100100.00,,2026-10-02T08:40:00+00:00\n")
+    log = _log(tmp_path)
+    _ingest(pull, tmp_path, log=log)
+    figs = elog.parse(log.read_text())[0].figures
+    assert ("official EOD equity change UNMEASURED: eod_equity.csv in this pull has no change_usd for "
+            "2026-10-02 [U]") in figs
+    assert not any("not in this pull" in f for f in figs)
+    pull2 = _write_pull(tmp_path / "pull2")
+    log2 = tmp_path / "log2"
+    log2.mkdir()
+    _ingest(pull2, log2, log=_log(log2))
+    assert ("official EOD equity change UNMEASURED: eod_equity.csv not in this pull [U]"
+            in elog.parse((log2 / "EVIDENCE_LOG.md").read_text())[0].figures)
