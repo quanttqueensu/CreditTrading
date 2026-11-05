@@ -3685,3 +3685,15 @@ that adds it does not exist when it is written.
 - source: `results/report/data/live/cef/pulls.csv` @ `837408c`; `results/report/data/live/cef/eod_equity.csv` @ `837408c`; `scripts/report/snapshot_live.py` @ `f579eb1`
 - supports: §4
 - status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)
+
+### E-2026-11-05-30 · Ruling: the analysts' lanes reopen as starting points, any analyst may propose a signal, and each pitches one idea to the execs at the end of November
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - no figures; lanes recorded as FICC risk, equity risk, and cross-asset signals with the dashboard, "open ended" [S]
+  - the team lead approves every test, and a trial still needs approval before any return is computed; supersedes the 2026-11-03 report-only lanes [S]
+  - each analyst pitches separately, a short talk with slides, end of November; date and length to be set [S]
+- source: `docs/SYSTEM.md` @ `b63253d`
+- supports: §5
+- status: current

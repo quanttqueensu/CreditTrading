@@ -340,3 +340,10 @@ from a named source; [doc] copied from a named note.
   - C4's decide is deferred on KYN's late NAV (the missing-NAV hold): it retries in later slots and decides by the 14:30 final check, with KYN held.
   - IGR's history stays clean after the nightly fetch (step 5: 0 rows moved).
 
+## 2026-11-05 (Thu)
+
+**The analysts' roles reopened** (team lead; `docs/SYSTEM.md` §5; `results/report/EVIDENCE_LOG.md` E-2026-11-05-30).
+- The lanes become recommended starting points: FICC risk, equity risk, and cross-asset signals with the dashboard. The work is open-ended.
+- Any analyst may propose a signal, and the team lead approves every test. This supersedes the 2026-11-03 report-only lanes.
+- Each analyst pitches one idea to the execs at the end of November, as a short talk with slides. The date and length are still to be set.
+- `docs/TEAM.md`, `docs/ONBOARDING.md`, `README.md` and the pull request template now say the same. Nothing on the live path changed.
