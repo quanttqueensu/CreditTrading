@@ -322,8 +322,17 @@ is PAPER ONLY and paper runs `late_market`, so the late-market rule is the one t
   found (`final` with each one's fills once it is final, `not_final` the rest at the deadline).
   A refused, dry or empty send writes them empty.
 - **Sent:** STARTED exists AND send.json's `exit` is SENT (the rule-2 marker plus the send
-  record), with at least one of the plan's orders in `final` / `not_final`. Partially filled is
-  sent: what filled is the account's.
+  record), with at least one of the plan's orders in `final` / `not_final`, and **at least one
+  fill** (the runner owner's round-2 answer (b), 2026-11-05). Partially filled is sent: what
+  filled is the account's. An order in `not_final` was still working 30 s before the close and
+  may yet fill, so a send with one stays sent, as the first review defined it.
+- **Sent, nothing filled** (round-2 answer (b); `drawdown.NOTHING_FILLED`): a SENT, or a FAIL
+  whose `final` records what went, where every order in `final` ended with 0 shares filled,
+  canceled, expired or rejected, and `not_final` is empty. The book did not change, so it is
+  **not a reduced decision**: it opens no episode, K1 does not compound its earning day, and it
+  is not a reduced close for K2 or K3 (N/A, "changed nothing", naming it). A 0-share final
+  under any other state (`replaced`, `done_for_day`, a `filled` with 0), or a `final` entry
+  without a whole-number `filled`, is UNMEASURED, named.
 - **Sent in part:** STARTED and `exit` FAIL, with `final` / `not_final` recording what went (a
   rejection skips its symbol and the rest go). It is classified from `final`: a reduced
   decision, named in the episode's `sent_in_part`. K2 and K3 then see the book it left.
@@ -377,7 +386,7 @@ is PAPER ONLY and paper runs `late_market`, so the late-market rule is the one t
 
 | line | what it reads | its threshold |
 |---|---|---|
-| episode | reduced decisions (`thin_session.reduced` on a plan with no refusals, **whose targets were sent**, by the rule in the send-skip paragraph above; §4.2) fewer than 63 sessions apart, walked back through earlier plan.json, send.json and STARTED files. A decided reduced plan whose send did not go is not a reduced decision: it opens no episode, earns K1 nothing and is not a reduced close for K2 or K3 (corrected after the reviews of 7fcc2b7, whose first build counted it). A record that cannot be read, a send whose outcome cannot be established, or a send.json or STARTED with no plan.json makes the whole episode UNMEASURED. A session with **no record at all** (no plan.json, send.json or STARTED: the runner did not run, or its decide failed before writing a plan) is a **named gap** (`episode.gaps`; the runner owner's review 2026-11-04, item 5): it makes UNMEASURED only the stops whose read window holds it, never the whole walk for 63 sessions. Those windows: the episode state (K0's KILLED), the 62 sessions before this decide, and a known reduced decision there still reads OPEN; K1, the decisions whose earning day is on or before the read-through date; K2 and the send skip, the as-of session; K3, the as-of session and the closes its run reads back until it breaks. A plan decided with the key absent ends the walk | — |
+| episode | reduced decisions (`thin_session.reduced` on a plan with no refusals, **whose targets were sent** and filled at least one share (round-2 answer (b)), by the rule in the send-skip paragraph above; §4.2) fewer than 63 sessions apart, walked back through earlier plan.json, send.json and STARTED files. A decided reduced plan whose send did not go is not a reduced decision: it opens no episode, earns K1 nothing and is not a reduced close for K2 or K3 (corrected after the reviews of 7fcc2b7, whose first build counted it). A record that cannot be read, a send whose outcome cannot be established, or a send.json or STARTED with no plan.json makes the whole episode UNMEASURED. A session with **no record at all** (no plan.json, send.json or STARTED: the runner did not run, or its decide failed before writing a plan) is a **named gap** (`episode.gaps`; the runner owner's review 2026-11-04, item 5): it makes UNMEASURED only the stops whose read window holds it, never the whole walk for 63 sessions. Those windows: the episode state (K0's KILLED), the 62 sessions before this decide, and a known reduced decision there still reads OPEN; K1, the decisions whose earning day is on or before the read-through date; K2 and the send skip, the as-of session; K3, the as-of session and the closes its run reads back until it breaks. A plan decided with the key absent ends the walk | — |
 | K0 | K0's drawdown status at this decide, read through the freshest row (the as-of's own when there, else the session before it): KILLED if HALVE or KILL while an episode is open | `risk.halve_drawdown` / `kill_drawdown`, through the status |
 | K1 | the maximum drawdown of the episode's earning days, compounded: a decision for session s earns eod_equity(e) / eod_equity(s) − 1 on the next session e, counted once e's row is on or before the read-through date (at 22:00 the as-of's own earning day is listed as `earned_not_yet_read` and counted at the next decide; at the morning backstop it is counted) | `risk.thin_k1_episode_drawdown` |
 | K2 | the largest \|position × as-of close\| / eod_equity of the read-through date, at the close after a reduced decision. Always recorded as `equity_date`: the as-of's own row when it exists (the morning backstop), else D−1's, which then carries an `equity_note` (off by one session's return) | `risk.thin_k2_max_name_frac` |

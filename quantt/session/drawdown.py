@@ -550,9 +550,22 @@ def lines(rec: dict) -> list[str]:
 #                         orders exits NOTHING_TO_SEND and no send runs): SENT;
 #                       * late market, SENT: STARTED exists AND send.json's `exit` is SENT
 #                         (the runner's rule-2 marker plus the send record), AND its `final` /
-#                         `not_final` record at least one of the plan's orders. Partially
+#                         `not_final` record at least one of the plan's orders, AND at least
+#                         one share filled, or an order is still working (below). Partially
 #                         filled orders are sent: what filled is the account's, which K1-K3
 #                         read from the broker's own figures;
+#                       * late market, "sent, nothing filled" (NOTHING_FILLED; the runner
+#                         owner's round-2 answer (b), 2026-11-05: sent requires at least one
+#                         fill): a SENT, or a FAIL whose `final` records what went, where every
+#                         order `final` records ended FINAL with 0 shares filled, canceled,
+#                         expired or rejected (NO_FILL_STATES), and `not_final` is empty. The
+#                         book did not change, so it is NOT a reduced decision: no episode,
+#                         nothing for K1 to compound, no reduced close for K2/K3. A 0-share final
+#                         under any other state (`replaced`: another order may have filled;
+#                         `done_for_day`; a `filled` with 0) is UNMEASURED, named, as is a
+#                         `final` entry without a whole-number `filled`. An order in `not_final`
+#                         was still working 30 s before the close and may yet fill, so with one
+#                         the send stays SENT, as the owner's first review defined it;
 #                       * late market, a FAIL CLASSIFIED FROM `final`: STARTED exists, `exit`
 #                         FAIL, and `final` / `not_final` record what went (at least one of the
 #                         plan's orders): SENT IN PART, and the episode names it
@@ -637,6 +650,9 @@ def _is_reduced(d, day: dict) -> tuple[bool, str | None, str | None]:
         return False, None, None
     went, how = _send_state(d, day)
     if not went:
+        if how.startswith(NOTHING_FILLED):
+            # Round-2 answer (b): it went to the broker and the book did not change.
+            return False, f"{d}'s reduced decision changed nothing: {how}", None
         return False, f"{d}'s reduced decision was not sent: {how}", None
     failed = (plan.get("execution") == "late_market" and bool(plan.get("orders"))
               and (day.get("send") or {}).get("exit") == SEND_FAILED)
@@ -646,6 +662,25 @@ def _is_reduced(d, day: dict) -> tuple[bool, str | None, str | None]:
 SEND_WENT = "SENT"                                         # send.json `exit` of a set that went
 SEND_FAILED = "FAIL"                                       # `_transmit` stopped or was rejected
 SEND_NOT_GONE = ("DRY", "REFUSED", "NOTHING_TO_SEND")      # exits that send nothing
+# Round-2 answer (b) (block comment, `sent`): the final states the owner named for an order that
+# ended with nothing filled, and the label of a send whose every order did.
+NO_FILL_STATES = ("canceled", "expired", "rejected")
+NOTHING_FILLED = "sent, nothing filled"
+
+
+def _filled(d, final: dict) -> dict:
+    """{client_order_id: shares filled} from send.json's `final` (`_poll_final` writes `filled`,
+    an int, for every order it saw final). Raises `Unmeasured`, naming the order, on an entry
+    without a whole, non-negative `filled`: whether anything filled is then not established."""
+    out = {}
+    for cid, f in final.items():
+        n = f.get("filled") if isinstance(f, dict) else None
+        if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+            raise Unmeasured(f"{d}'s send.json `final` records {cid} with filled {n!r}, not a "
+                             f"whole number of shares: whether anything filled is not "
+                             f"established")
+        out[cid] = n
+    return out
 
 
 def _went(d, plan: dict, send: dict) -> list:
@@ -718,6 +753,20 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
                 # owner's round-2 answer (a)); any weaker evidence raises, naming it.
                 return False, _zero_submissions(d, plan, day, unproved)
             raise Unmeasured(unproved)
+        # SENT REQUIRES AT LEAST ONE FILL (round-2 answer (b)): every order final at 0 shares,
+        # none still working, is "sent, nothing filled", not a reduced decision.
+        filled = _filled(d, send["final"])
+        if not send["not_final"] and not any(filled.values()):
+            states = {c: send["final"][c].get("status") for c in sorted(filled)}
+            odd = {c: s for c, s in states.items() if s not in NO_FILL_STATES}
+            if odd:
+                raise Unmeasured(f"{d}'s send exited {ex} and every order send.json's `final` "
+                                 f"records ended with 0 shares filled, but {odd} under a state "
+                                 f"other than {list(NO_FILL_STATES)}: whether the book changed "
+                                 f"is not established")
+            return False, (f"{NOTHING_FILLED}: {d}'s send exited {ex}; send.json's `final` "
+                           f"records {of} final with 0 shares filled ({states}) and none still "
+                           f"working: the book did not change")
         unfilled = sorted(c for c, f in send["final"].items()
                           if isinstance(f, dict) and f.get("unfilled"))
         fills = (f"; unfilled at the deadline: {unfilled}" if unfilled else "") + (
@@ -921,7 +970,8 @@ def _walk(session_date, previous_session, read_day) -> dict:
     oldest reduced decision found so far (from this decide when none is found): that session
     cannot belong to the episode. Returns {"status": "OPEN" | "NONE" | "UNMEASURED", "why",
     "days": [(session, day | None)] newest first (None for a gap), "reduced": [session, ...]
-    newest first, "unsent": {session: why} (decided reduced plans that were not sent),
+    newest first, "unsent": {session: why} (decided reduced plans that were not sent, or
+    sent with nothing filled: round-2 answer (b)),
     "in_part": {session: how} (reduced decisions whose send went only in part: a FAIL
     classified from send.json's `final`), "gaps": [session, ...] newest first (block comment,
     READING BACK: sessions with no record at all), "complete" (False when the walk stopped at

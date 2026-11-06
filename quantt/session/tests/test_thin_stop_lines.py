@@ -365,6 +365,27 @@ def test_k1_does_not_compound_the_earning_day_of_a_reduced_decision_that_was_not
     assert record(days, series=series)["K1"]["earning_days"] == 2
 
 
+@pytest.mark.parametrize("exit_", ["SENT", "FAIL"])
+def test_k1_does_not_compound_the_earning_day_of_a_reduced_decision_that_filled_nothing(exit_):
+    """The runner owner's round-2 answer (b), 2026-11-05: sent requires at least one fill. The
+    reduced decision on back(4) went to the broker (STARTED, exit SENT, or FAIL with `final`
+    recording what went) and its only order ended canceled with 0 shares filled: the book did
+    not change, so it is not a reduced decision for K1's compounding. K1 compounds back(5)'s
+    day only, -5%, under the 10% line. f0bc22d (the commit before it) compounded both (0.95 x
+    0.94, 10.7%: TRIPPED), and fails here."""
+    series = _series({6: 100.0, 5: 95.0, 4: 96.0, 3: 90.24, 1: 90.0}) + [(ASOF, 90.0)]
+    days = _k1_days()
+    none = {"status": "canceled", "filled": 0, "unfilled": ORDER["qty"],
+            "filled_avg_price": None}
+    days[back(4)] = {"plan": plan(True, orders=[ORDER]),
+                     "send": send(exit_, final={ORDER["client_order_id"]: none})}
+    r = record(days, series=series)
+    assert r["episode"]["reduced_sessions"] == [back(6)]
+    assert r["K1"]["earning_days"] == 1
+    assert r["K1"]["drawdown"] == pytest.approx(0.05, abs=1e-8)
+    assert r["K1"]["verdict"] == ddm.CLEAR
+
+
 def test_k1_reads_unmeasured_on_a_missing_equity_row_and_never_reads_past_the_asof():
     r = record(_k1_days(), series=_series({6: 100.0, 5: 95.0, 4: 96.0}) + [(ASOF, 90.0)])
     assert r["K1"]["verdict"] == ddm.UNMEASURED and str(back(3)) in r["K1"]["why"]

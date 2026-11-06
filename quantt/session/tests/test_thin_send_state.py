@@ -16,6 +16,11 @@ client and its late-market fixtures), read back by the runner's own reader
   ------------------------------------------------ -----------------------------------------
   SENT, every order filled                         yes
   SENT, partially filled                           yes (what filled is the account's)
+  SENT, every order final with 0 shares filled     no: "sent, nothing filled" (round-2 answer
+    (canceled, expired or rejected), none working  (b), 2026-11-05: sent requires a fill)
+  FAIL in part, what went filled nothing           no: "sent, nothing filled"
+  0 shares under another final state (replaced,    UNMEASURED, naming it
+    done_for_day, filled)
   DRY (DRY_RUN=1)                                  no
   REFUSED (not armed)                              no
   NOTHING_TO_SEND (the only order skipped at send) no
@@ -149,6 +154,95 @@ def test_late_market_partially_filled_is_sent(tmp_path):
     assert st[0] is True and "unfilled at the deadline" in st[1]
     ep, _ = _episode(state)
     assert ep["status"] == "OPEN" and ep["reduced_sessions"] == [D]
+
+
+# --------------------------------------------------------------- late market: sent, nothing filled
+
+def _ended(status, filled=lambda cid: 0):
+    """A `before_send` under which every accepted order is read back (confirm, then the poll)
+    in the final `status` with `filled(cid)` shares filled."""
+    def setup(c, deps, plan):
+        c._lookup = lambda cid: ({**c.accepted[cid], "status": status,
+                                  "filled_qty": str(filled(cid))}
+                                 if cid in c.accepted else None)
+    return setup
+
+
+def _record(state):
+    """The next decide's whole K-line record over the files run.py wrote."""
+    return ddm.thin_stop_record(
+        asof=D, session_date=NEXT, drawdown={"status": "HALVE", "asof": D.isoformat()},
+        current={"reduced": False}, previous_session=previous_trading_day,
+        read_day=lambda d: rn._thin_read_day(state, d, BOOK.cid_prefix),
+        series=[(D, 100_000.0)], positions={}, closes={}, thresholds=LINES)
+
+
+@pytest.mark.parametrize("status", ["canceled", "expired", "rejected"])
+def test_late_market_sent_with_nothing_filled_is_not_a_reduced_decision(tmp_path, status):
+    """The runner owner's round-2 answer (b), 2026-11-05: sent requires at least one fill. The
+    real send exits SENT and every order ends final with 0 shares filled, none still working:
+    "sent, nothing filled". The book did not change, so the decided reduced plan is NOT a
+    reduced decision: no episode (K0 CLEAR on HALVE), nothing for K1 to compound, K2/K3 N/A
+    naming it. Fails on f0bc22d (the commit before it), which read it SENT and opened an
+    episode on it."""
+    code, c, state, plan = _late_send(tmp_path, before_send=_ended(status))
+    assert code == rn.EXIT_SENT and len(c.submits()) == 2
+    sj = _send_json(state)
+    assert sj["not_final"] == [] and sorted(sj["final"]) == sorted(_cids(plan))
+    assert all(f["status"] == status and f["filled"] == 0 for f in sj["final"].values())
+    _, st = _state_of(state)
+    assert st[0] is False and st[1].startswith("sent, nothing filled"), st
+    assert "exited SENT" in st[1] and "the book did not change" in st[1]
+    r = _record(state)
+    assert r["episode"]["status"] == "NONE" and r["episode"]["reduced_sessions"] == []
+    assert r["K0"]["verdict"] == ddm.CLEAR and r["K1"]["verdict"] == ddm.NOT_APPLICABLE
+    for k in ("K2", "K3"):
+        assert r[k]["verdict"] == ddm.NOT_APPLICABLE and "changed nothing" in r[k]["why"], r[k]
+    assert r["send_skip"]["applies"] is False
+
+
+def test_late_market_fail_in_part_with_nothing_filled_is_not_a_reduced_decision(tmp_path):
+    """Round-2 answer (b) on a FAIL classified from `final`: one order rejected at the POST
+    (the rest go, team lead 2026-09-28), the other canceled with 0 shares filled. What went
+    changed nothing: "sent, nothing filled", not a reduced decision sent in part. Fails on
+    f0bc22d, which counted it a reduced decision sent in part."""
+    def setup(c, deps, plan):
+        cid = next(x for x in _cids(plan) if "-BBB-" in x)
+        c._submit = {cid: OrderRejected("403", status=403, client_order_id=cid)}
+        _ended("canceled")(c, deps, plan)
+    code, c, state, plan = _late_send(tmp_path, before_send=setup)
+    assert code == rn.EXIT_FAIL and len(c.accepted) == 1
+    sj = _send_json(state)
+    assert sj["exit"] == "FAIL" and [f["filled"] for f in sj["final"].values()] == [0]
+    _, st = _state_of(state)
+    assert st[0] is False and st[1].startswith("sent, nothing filled") and "FAIL" in st[1]
+    ep, k0 = _episode(state)
+    assert ep["status"] == "NONE" and "sent_in_part" not in ep and k0 == ddm.CLEAR
+
+
+def test_late_market_one_order_filled_in_part_and_one_with_nothing_is_sent(tmp_path):
+    """A PIN (f0bc22d reads it the same): one share filled is a fill, so the send is SENT and the
+    reduced decision counts (partial fills count, as before the round-2 answer)."""
+    code, c, state, plan = _late_send(
+        tmp_path, before_send=_ended("canceled", lambda cid: 1 if "-AAA-" in cid else 0))
+    assert code == rn.EXIT_SENT
+    assert sorted(f["filled"] for f in _send_json(state)["final"].values()) == [0, 1]
+    _, st = _state_of(state)
+    assert st[0] is True and "exited SENT" in st[1]
+    assert _episode(state)[0]["reduced_sessions"] == [D]
+
+
+@pytest.mark.parametrize("status", ["replaced", "done_for_day", "filled"])
+def test_late_market_zero_fills_under_another_final_state_are_unmeasured(tmp_path, status):
+    """Round-2 answer (b) names canceled, expired and rejected. A 0-share final under another
+    state is not read as nothing filled: `replaced` means another order took its place (and may
+    have filled); `done_for_day` and a `filled` with 0 shares are states the runner's day
+    orders are not known to reach. UNMEASURED, naming it. Fails on f0bc22d, which read SENT."""
+    code, c, state, plan = _late_send(tmp_path, before_send=_ended(status))
+    assert code == rn.EXIT_SENT
+    _, st = _state_of(state)
+    assert isinstance(st, ddm.Unmeasured) and status in str(st) and "0 shares" in str(st), st
+    assert _episode(state)[0]["status"] == ddm.UNMEASURED
 
 
 # --------------------------------------------------------------- late market: not sent
@@ -465,6 +559,14 @@ def _day(exit_, *, started, final=None, not_final=(), extra=None):
     # A FAIL that records no order, from a reader that did not read orders.jsonl and
     # reconcile.json: zero submissions cannot be proved (round-2 answer (a)).
     (_day("FAIL", started=True), "did not read"),
+    # Round-2 answer (b): an order final at 0 shares beside one still working at the deadline
+    # (which may yet fill) stays SENT, as the first review defined it (a PIN); a `final` entry
+    # without a whole-number `filled` cannot say whether anything filled.
+    (_day("SENT", started=True, not_final=[B],
+          final={A: {**FILLED, "status": "expired", "filled": 0, "unfilled": 10}}), True),
+    (_day("SENT", started=True, final={A: {"status": "filled"}}), "not a whole number"),
+    (_day("SENT", started=True, final={A: {**FILLED, "filled": True}}), "not a whole number"),
+    (_day("SENT", started=True, final={A: {**FILLED, "filled": -1}}), "not a whole number"),
 ])
 def test_records_the_runner_does_not_write_are_never_guessed(day, want):
     """Shapes `_send_planned` does not write, each read as what it says or UNMEASURED, naming
