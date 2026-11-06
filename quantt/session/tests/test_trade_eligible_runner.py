@@ -427,6 +427,45 @@ def test_k0_reads_the_previous_sessions_row_one_session_stale(tmp_path, monkeypa
     assert st["read_through"]["sessions_stale"] == 1
 
 
+def test_the_runner_reads_back_a_fail_before_any_post_under_its_own_order_prefix(
+        tmp_path, monkeypatch, books):
+    """The runner owner's round-2 answer (a), at the runner: `_thin_stops` passes the book's own
+    order-id prefix to the reader (`_thin_read_day(state, d, book.cid_prefix)`), so a reduced
+    decision for 2026-09-25 whose send exited FAIL at the clock read before its first POST
+    (STARTED; send.json FAIL with `final` / `not_final` empty; orders.jsonl holding only the
+    `cutoff` event, as `_transmit` writes it; test_thin_send_state.py has the real send write
+    these) reads NOT SENT, proved, at the next decide: no episode, K2/K3 N/A naming the proof.
+    2026-09-24 was decided with the key absent, so the walk ends there. Fails on 9e83e63,
+    which read the FAIL UNMEASURED and with it the whole episode."""
+    from quantt.session import records as rec
+    base, bk = books
+    N.thin_panel(base, tmp_path / "p", monkeypatch, 5)
+    state = tmp_path / "r" / "state"
+    prior, before = M.ASOF, dt.date(2026, 9, 24)
+    cid = f"{BOOK.cid_prefix}-{prior:%Y%m%d}-AAA-1"
+    M._write_priors(state, {before: {"refusals": []}})          # the key absent then
+    day = state / prior.isoformat()
+    day.mkdir(parents=True)
+    rec.write_json_atomic(day / "plan.json", {
+        "execution": "late_market", "plan_sha": "s", "refusals": [],
+        "orders": [{"client_order_id": cid}], "thin_session": {"reduced": True},
+        "thin_stops": {"K3": {"verdict": "N/A"}}})
+    assert rec.create_exclusive(day / "STARTED", {"plan_sha": "s"})
+    rec.append_jsonl(day / "orders.jsonl", {"event": "cutoff", "at": "2026-09-25T19:58:01Z",
+                                            "client_order_id": cid, "window": "test"})
+    rec.write_json_atomic(day / "send.json", {"plan_sha": "s", "exit": "FAIL", "skipped": [],
+                                              "final": {}, "not_final": []})
+    code, state, _, _ = run(tmp_path / "r", TE4_SPEC, bk["held"], "ok")
+    assert code == rn.EXIT_PLANNED
+    st = M._plan(state)["thin_stops"]
+    assert st["episode"]["status"] == "NONE", st["episode"]
+    for k in ("K2", "K3"):
+        assert st[k]["verdict"] == "N/A", st[k]
+        assert "not sent: 0 submissions proved by" in st[k]["why"], st[k]
+        assert "2026-09-25/orders.jsonl (1 event(s), 0 `submit`" in st[k]["why"]
+        assert "2026-09-25/reconcile.json absent" in st[k]["why"]
+
+
 def test_at_the_morning_backstop_k0_reads_the_asofs_own_row(tmp_path, monkeypatch, books):
     """The backstop decide on the session day: the as-of's own row is there (at KILL here).
     K0 reads the freshest row it has (ruling 2026-11-04), so it reads 2026-09-25 (KILL),

@@ -1810,26 +1810,40 @@ def _thin_recheck(deps, gate_res) -> None:
                                f"deciding on it")
 
 
-def _thin_read_day(state: Path, d: dt.date) -> dict:
-    """{"plan", "send", "started"}: the session d's plan.json and send.json under `state`,
-    each a dict, or None where the file is not there, and whether <d>/STARTED exists (written
-    before the first order of a set and never otherwise: with send.json's `exit` and `final` /
-    `not_final`, what `drawdown._send_state` reads to say whether a decision's targets were
-    sent; quantt/session/tests/test_thin_send_state.py reads what the real send writes). Creates
-    nothing (never `records.day_dir`). A file that is there and cannot be read or parsed
-    raises, and `drawdown.thin_stop_record` records the episode UNMEASURED, naming the
-    session."""
+def _thin_read_day(state: Path, d: dt.date, cid_prefix: str) -> dict:
+    """{"plan", "send", "started", "orders_log", "reconcile", "order_prefix"}: the session d's
+    plan.json and send.json under `state`, each a dict, or None where the file is not there,
+    and whether <d>/STARTED exists (written before the first order of a set and never
+    otherwise: with send.json's `exit` and `final` / `not_final`, what `drawdown._send_state`
+    reads to say whether a decision's targets were sent; quantt/session/tests/
+    test_thin_send_state.py reads what the real send writes). Creates nothing (never
+    `records.day_dir`). A file that is there and cannot be read or parsed raises, and
+    `drawdown.thin_stop_record` records the episode UNMEASURED, naming the session.
+
+    `orders_log` and `reconcile` are <d>/orders.jsonl (`_transmit`'s event log) and
+    <d>/reconcile.json (verify's), as BYTES or None where absent, and `order_prefix` the
+    session's client_order_id prefix, `<cid_prefix>-<YYYYMMDD>-` (decide.client_order_id's
+    scheme; the prefix gate 6 matches on). Only a late-market FAIL whose send.json records no
+    order reads them (`drawdown._zero_submissions`: "not sent" only on proof that no POST was
+    made, the runner owner's round-2 answer (a), 2026-11-05), and it parses them itself: read
+    as bytes here, a damaged log cannot make the whole walk UNMEASURED on a session whose
+    send.json already says what went."""
     day = state / d.isoformat()
     out = {}
     for name in ("plan", "send"):
         f = day / f"{name}.json"
         out[name] = json.loads(f.read_text()) if os.path.lexists(f) else None
     out["started"] = os.path.lexists(day / "STARTED")
+    for key, name in (("orders_log", "orders.jsonl"), ("reconcile", "reconcile.json")):
+        f = day / name
+        out[key] = f.read_bytes() if os.path.lexists(f) else None
+    out["order_prefix"] = f"{cid_prefix}-{d:%Y%m%d}-"
     return out
 
 
 def _thin_stops(thin: dict | None, spec: dict, state: Path, asof: dt.date,
-                session_date: dt.date, positions: dict, record: dict, out) -> None:
+                session_date: dt.date, positions: dict, record: dict, out, *,
+                cid_prefix: str) -> None:
     """THE K0-K3 REPORT LINES (pre-registration §6.3: required in the activation release, in
     report mode, tested; drawdown.py `thin_stop_record`). Nothing when the key is absent;
     with it, `record["thin_stops"]` (plan.json's too) and the log lines. REPORT ONLY:
@@ -1843,7 +1857,9 @@ def _thin_stops(thin: dict | None, spec: dict, state: Path, asof: dt.date,
     UNMEASURED; a series that cannot be read is passed as its reason, never a fallback, and
     a K0 record with no read-through date makes the whole record UNMEASURED, naming why);
     the earlier sessions' plan.json
-    and send.json (`_thin_read_day`), which carry the episode, K3's earlier closes and the
+    and send.json (`_thin_read_day`; with orders.jsonl and reconcile.json, under the book's own
+    order-id prefix `cid_prefix`, for a FAIL that records no order), which carry the episode,
+    K3's earlier closes and the
     previous session's send-time skip (team lead 2026-11-03: a short skipped at the SEND is
     accepted and labelled here, `_send_planned` unchanged); the broker's positions now; the
     closes DATED the as-of only (a staler close is not a close of the session K2 and K3
@@ -1869,7 +1885,8 @@ def _thin_stops(thin: dict | None, spec: dict, state: Path, asof: dt.date,
         res = ddm.thin_stop_record(
             asof=asof, session_date=session_date, drawdown=k0["drawdown"],
             current=record["thin_session"], previous_session=previous_trading_day,
-            read_day=lambda d: _thin_read_day(state, d), series=series, positions=positions,
+            read_day=lambda d: _thin_read_day(state, d, cid_prefix), series=series,
+            positions=positions,
             closes=closes, thresholds=cef_thin_stop_levels(spec), read_through=through)
         lines = ddm.thin_stop_lines(res)
     except Exception as e:  # report only: recorded in plan.json and printed, never swallowed
@@ -2418,7 +2435,8 @@ def run_session(book: Book, spec: dict, deps: Deps, *, preview: bool = False,
         record["decision"] = decision.to_dict()
         borrow_warnings = hard_to_borrow_short_opens(decision.orders, pos, assets)
         record["borrow_warnings"] = borrow_warnings
-        _thin_stops(thin, spec, state, asof, session_date, pos, record, out)  # CEF trial 55: K0-K3
+        _thin_stops(thin, spec, state, asof, session_date, pos, record, out,  # CEF trial 55: K0-K3
+                    cid_prefix=book.cid_prefix)
 
         # 3b. the corporate-action gate (quantt/session/corp_actions.py). Off
         # unless the book json sets corporate_actions.mode. It runs before the

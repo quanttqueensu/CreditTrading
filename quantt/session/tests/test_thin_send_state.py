@@ -21,7 +21,15 @@ client and its late-market fixtures), read back by the runner's own reader
   NOTHING_TO_SEND (the only order skipped at send) no
   FAIL, `final` records what went (a rejection)    yes, in part (item 5: classified from final)
   FAIL, `final` records nothing (no confirm)       UNMEASURED: the orders DID reach the broker
-  FAIL, `final` records nothing (all rejected)     UNMEASURED: send.json cannot tell it apart
+  FAIL, `final` records nothing (all rejected)     UNMEASURED: send.json cannot tell it apart,
+                                                   and orders.jsonl holds a `submit` per POST
+  FAIL before the first POST (clock read failed,   no: "not sent: 0 submissions proved by
+    or past the window), with or without verify's  <records>" (round-2 answer (a), 2026-11-05:
+    reconcile.json                                 orders.jsonl with zero `submit`, and a
+                                                   reconcile.json naming no order of D's prefix)
+  the same, one piece of that proof taken away     UNMEASURED, naming it (orders.jsonl missing,
+                                                   unreadable, empty or with a submit; a
+                                                   reconcile.json unreadable or naming an order)
   STARTED missing beside a SENT                    UNMEASURED
   send.json of another plan_sha                    UNMEASURED
   a later manual run's REFUSED over a SENT         UNMEASURED (STARTED beside a refused record)
@@ -51,7 +59,7 @@ from ops.schedule.nyse_calendar import previous_trading_day
 from quantt.broker.alpaca import OrderRejected
 from quantt.session import drawdown as ddm
 from quantt.session import run as rn
-from quantt.session.tests.test_run import (BOOK, D, SPEC, decided, make, to_send_time)
+from quantt.session.tests.test_run import (BOOK, D, ET, SPEC, decided, make, to_send_time)
 from src.deploy.sleeve import FLAT, SHORT, PositionTarget
 
 NEXT = dt.date(2026, 9, 30)          # the session after D: its decide reads D's records back
@@ -72,7 +80,7 @@ def _state_of(state, *, reduced=True):
     before = state / previous_trading_day(D).isoformat()
     before.mkdir(parents=True, exist_ok=True)
     (before / "plan.json").write_text(json.dumps({"refusals": []}))     # the key absent then
-    day = rn._thin_read_day(state, D)
+    day = rn._thin_read_day(state, D, BOOK.cid_prefix)
     try:
         return day, ddm._send_state(D, day)
     except ddm.Unmeasured as e:
@@ -84,7 +92,8 @@ def _episode(state):
     r = ddm.thin_stop_record(
         asof=D, session_date=NEXT, drawdown={"status": "HALVE", "asof": D.isoformat()},
         current={"reduced": False}, previous_session=previous_trading_day,
-        read_day=lambda d: rn._thin_read_day(state, d), series=[(D, 100_000.0)],
+        read_day=lambda d: rn._thin_read_day(state, d, BOOK.cid_prefix),
+        series=[(D, 100_000.0)],
         positions={}, closes={}, thresholds=LINES)
     return r["episode"], r["K0"]["verdict"]
 
@@ -216,6 +225,148 @@ def test_late_market_fail_whose_final_records_nothing_is_unmeasured(tmp_path, ho
     assert sj["exit"] == "FAIL" and sj["final"] == {} and sj["not_final"] == []
     _, st = _state_of(state)
     assert isinstance(st, ddm.Unmeasured) and "FAIL" in str(st) and "record no order" in str(st)
+    # Round-2 answer (a): orders.jsonl holds a `submit` for each POST, so zero submissions are
+    # not proved, and the reason names them.
+    assert "2 `submit` event(s)" in str(st)
+    ep, k0 = _episode(state)
+    assert ep["status"] == ddm.UNMEASURED and k0 == ddm.UNMEASURED
+
+
+# --------------------------------------------------------------- late market: FAIL before any POST
+
+AFTER_WINDOW = dt.datetime(2026, 9, 29, 15, 59, tzinfo=ET)     # past the 15:52-15:58 window
+PRE_POST = ("cutoff", "clock_error")
+
+
+def _stop_before_first_post(how):
+    """A `before_send` that lets the gate's clock read through, then makes `_transmit`'s first
+    clock read (the one before every POST; STARTED exists by then) fail (`clock_error`) or
+    land past the window (`cutoff`). The real send then exits FAIL having POSTed nothing, and
+    writes exactly what it writes in prod: STARTED, one orders.jsonl event, send.json."""
+    def setup(c, deps, plan):
+        read = c.clock
+
+        def clock():
+            if (c.state / D.isoformat() / "STARTED").exists():
+                if how == "clock_error":
+                    raise RuntimeError("Alpaca clock read failed (test)")
+                c._clock = AFTER_WINDOW
+            return read()
+        c.clock = clock
+    return setup
+
+
+def _fail_before_post(tmp_path, how="cutoff"):
+    code, c, state, plan = _late_send(tmp_path, before_send=_stop_before_first_post(how))
+    assert code == rn.EXIT_FAIL and c.submits() == []
+    sj = _send_json(state)
+    assert sj["exit"] == "FAIL" and sj["final"] == {} and sj["not_final"] == []
+    return state, plan
+
+
+def _verify(state, **client):
+    """The real post-close reconcile over the runner's own state dir (verify.verify_day, then
+    write_outputs, which writes <D>/reconcile.json), on test_verify's GET-only fake client at
+    17:30 ET on D. Returns the reconcile.json it wrote."""
+    from quantt.session.tests import test_verify as tv
+    tv.run(state, tv.FakeClient(**client))
+    return json.loads((state / D.isoformat() / "reconcile.json").read_text())
+
+
+@pytest.mark.parametrize("verified", [False, True])
+@pytest.mark.parametrize("how", PRE_POST)
+def test_late_market_fail_before_any_post_is_not_sent_proved_by_its_records(tmp_path, how,
+                                                                           verified):
+    """The runner owner's round-2 answer (a), 2026-11-05: a FAIL whose send.json records no
+    order is NOT SENT when the records prove no POST was made. Here the real send stops at the
+    clock read before its first POST: orders.jsonl holds that one event and no `submit`. With
+    verify's reconcile.json there too (the real verify, after the close) it names no order of
+    the session's prefix; the one mention of an order is verify's own refusal of the log line
+    ("... for <cid>, which has no submit line"), which is not an order. The decided reduced
+    plan therefore opens no episode, and K0 reads CLEAR on HALVE. Fails on 9e83e63, which read
+    every FAIL that records no order UNMEASURED."""
+    state, plan = _fail_before_post(tmp_path, how)
+    log = [json.loads(x) for x in (state / D.isoformat() / "orders.jsonl").read_text().splitlines()]
+    assert [e["event"] for e in log] == [how] and log[0]["client_order_id"] in _cids(plan)
+    if verified:
+        rc = _verify(state)
+        assert rc["started"] is True and rc["orders"] == []
+        assert any(f"event '{how}' for" in p and "no submit line" in p for p in rc["problems"])
+    else:
+        assert not (state / D.isoformat() / "reconcile.json").exists()
+    day, st = _state_of(state)
+    assert not isinstance(st, ddm.Unmeasured), st
+    assert st[0] is False and st[1].startswith("not sent: 0 submissions proved by"), st
+    for name in ("send.json", "STARTED", "orders.jsonl", "reconcile.json"):
+        assert f"{D}/{name}" in st[1], (name, st[1])
+    assert ("reconcile.json (started" in st[1]) is verified
+    assert ("reconcile.json absent" in st[1]) is (not verified)
+    ep, k0 = _episode(state)
+    assert ep["status"] == "NONE" and ep["reduced_sessions"] == [] and k0 == ddm.CLEAR
+
+
+def _append(path, line: bytes):
+    with open(path, "ab") as fh:
+        fh.write(line + b"\n")
+
+
+def _edit_reconcile(state, **kw):
+    f = state / D.isoformat() / "reconcile.json"
+    f.write_text(json.dumps({**json.loads(f.read_text()), **kw}))
+
+
+WEAKER = {
+    # orders.jsonl: missing, unreadable, empty, holding a submit or an event that needs one
+    "log missing": (lambda s, p: (s / D.isoformat() / "orders.jsonl").unlink(),
+                    "no 2026-09-29/orders.jsonl"),
+    "log line not JSON": (lambda s, p: _append(s / D.isoformat() / "orders.jsonl", b'{"event": '),
+                          "line 2 is not JSON"),
+    "log not UTF-8": (lambda s, p: _append(s / D.isoformat() / "orders.jsonl", b"\xff\xfe"),
+                      "not UTF-8"),
+    "log empty": (lambda s, p: (s / D.isoformat() / "orders.jsonl").write_bytes(b""),
+                  "holds no event"),
+    "log holds a submit": (lambda s, p: _append(
+        s / D.isoformat() / "orders.jsonl", json.dumps(
+            {"event": "submit", "client_order_id": _cids(p)[0], "symbol": "AAA", "side": "buy",
+             "qty": 1}).encode()), "1 `submit` event(s)"),
+    "log holds an event that follows a submit": (lambda s, p: _append(
+        s / D.isoformat() / "orders.jsonl", json.dumps(
+            {"event": "accepted", "client_order_id": _cids(p)[0]}).encode()),
+        "'accepted' event with no `submit`"),
+    # reconcile.json: a session order at the broker, any order of the prefix, unreadable,
+    # not written with STARTED, an order row
+    "reconcile names a plan order at Alpaca": (lambda s, p: _verify(s, orders=[
+        _vorder("AAA", "buy", 10, _cids(p)[0])]), "names order(s) of the session's prefix"),
+    "reconcile names another order of the prefix": (lambda s, p: _verify(s, orders=[
+        _vorder("ZZZ", "buy", 10, "cef-20260929-ZZZ-1")]), "cef-20260929-ZZZ-1"),
+    "reconcile not JSON": (lambda s, p: (s / D.isoformat() / "reconcile.json").write_bytes(b"{"),
+                           "reconcile.json is not JSON"),
+    "reconcile without STARTED": (lambda s, p: (_verify(s), _edit_reconcile(s, started=False)),
+                                  "written with started False"),
+    "reconcile with an order row": (lambda s, p: (_verify(s), _edit_reconcile(
+        s, orders=[{"client_order_id": "x-1"}])), "lists 1 order row(s)"),
+}
+
+
+def _vorder(sym, side, qty, cid):
+    from quantt.session.tests import test_verify as tv
+    return tv.order(sym, side, qty, c=cid)
+
+
+@pytest.mark.parametrize("case", sorted(WEAKER))
+def test_late_market_fail_before_any_post_on_weaker_evidence_stays_unmeasured(tmp_path, case):
+    """Round-2 answer (a): anything weaker than positive proof of zero submissions stays
+    UNMEASURED, fail-closed, naming the record. Each case starts from the real FAIL before the
+    first POST (the proved case above) and takes one piece of the proof away. The UNMEASURED
+    status (and the episode's) is a PIN: 9e83e63 read every one of these UNMEASURED too, since
+    it read every FAIL that records no order so (checked with the reason assertion removed).
+    The named reason is new and fails there."""
+    state, plan = _fail_before_post(tmp_path)
+    damage, want = WEAKER[case]
+    damage(state, plan)
+    _, st = _state_of(state)
+    assert isinstance(st, ddm.Unmeasured), (case, st)
+    assert "record no order" in str(st) and want in str(st), (case, str(st))
     ep, k0 = _episode(state)
     assert ep["status"] == ddm.UNMEASURED and k0 == ddm.UNMEASURED
 
@@ -311,6 +462,9 @@ def _day(exit_, *, started, final=None, not_final=(), extra=None):
     (_day("SENT", started=True, final={A: FILLED}, extra={"final": None}), "no `final`"),
     (_day("SENT", started=True, final={A: FILLED}, extra={"not_final": None}), "no `not_final`"),
     (_day("FAIL", started=False, final={A: FILLED}), "no STARTED"),
+    # A FAIL that records no order, from a reader that did not read orders.jsonl and
+    # reconcile.json: zero submissions cannot be proved (round-2 answer (a)).
+    (_day("FAIL", started=True), "did not read"),
 ])
 def test_records_the_runner_does_not_write_are_never_guessed(day, want):
     """Shapes `_send_planned` does not write, each read as what it says or UNMEASURED, naming

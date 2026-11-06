@@ -161,6 +161,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import json
 import math
 from pathlib import Path
 
@@ -525,7 +526,10 @@ def lines(rec: dict) -> list[str]:
 #                     from the session's own records: plan.json `orders` / `plan_sha` /
 #                     `execution`, send.json `plan_sha` / `exit` / `final` / `not_final`, and
 #                     whether <D>/STARTED exists (run.py writes it before the first order of a
-#                     set, and never otherwise; CLAUDE.md order-path rule 2).
+#                     set, and never otherwise; CLAUDE.md order-path rule 2); and, for a FAIL
+#                     whose send.json records no order only, <D>/orders.jsonl and
+#                     <D>/reconcile.json (run.py `_transmit`'s event log; verify.py's
+#                     reconcile, `write_outputs`).
 #                     WHAT run.py WRITES (read 2026-11-04, the runner owner's review item 10:
 #                     te4 is PAPER ONLY and paper runs `late_market`, so this is the only case
 #                     that will run). The late-market SEND (`_send_planned`) writes send.json on
@@ -557,9 +561,25 @@ def lines(rec: dict) -> list[str]:
 #                       * late market, NOT SENT: DRY, REFUSED or NOTHING_TO_SEND with no STARTED
 #                         and nothing in `final` / `not_final`; or no send.json and no STARTED
 #                         (no send ran in the window);
+#                       * late market, NOT SENT, "not sent: 0 submissions proved by <records>"
+#                         (the runner owner's round-2 answer (a), 2026-11-05): a FAIL whose
+#                         `final` and `not_final` are empty, with STARTED, ONLY when the records
+#                         prove positively that no POST was made (`_zero_submissions`): <D>'s
+#                         orders.jsonl exists and holds ZERO `submit` events, only the events
+#                         `_transmit` writes when it stops at the clock read that precedes
+#                         every POST (PRE_POST_EVENTS), each naming one of the plan's orders;
+#                         and, if <D>/reconcile.json is there (verify, after the close), it
+#                         names no order of the session's client_order_id prefix and was
+#                         written with STARTED. `_transmit` appends `submit` to orders.jsonl
+#                         BEFORE each POST (fsynced, records.append_jsonl), so no `submit`
+#                         means no POST; verify lists every order Alpaca holds with D's
+#                         prefix, so its silence is the broker's;
 #                       * late market, UNMEASURED, named, never a guess: a FAIL whose `final` and
-#                         `not_final` are empty (an accepted POST the confirm read did not find,
-#                         or an ambiguous submit, is in neither: orders may have gone); SENT or
+#                         `not_final` are empty and whose zero submissions are NOT proved (an
+#                         accepted POST the confirm read did not find, or an ambiguous submit,
+#                         is in neither: orders may have gone): orders.jsonl missing, unreadable
+#                         or holding a `submit`, a reconcile.json that cannot be read or names
+#                         one of the session's orders; SENT or
 #                         FAIL without STARTED; a STARTED beside a refused, dry, empty or missing
 #                         send record (a later run's record over the send's, or a send that never
 #                         wrote one); a send.json of another plan_sha; `final` or `not_final`
@@ -690,10 +710,14 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
                              f"STARTED before the first order of a set (CLAUDE.md order-path "
                              f"rule 2), so the records contradict each other")
         if not went:
-            raise Unmeasured(f"{d}'s send exited {ex} and its `final` and `not_final` record no "
-                             f"order: whether any went is not established (an accepted POST "
-                             f"the confirm read did not find, or an ambiguous submit, is in "
-                             f"neither)")
+            unproved = (f"{d}'s send exited {ex} and its `final` and `not_final` record no "
+                        f"order: whether any went is not established (an accepted POST the "
+                        f"confirm read did not find, or an ambiguous submit, is in neither)")
+            if ex == SEND_FAILED:
+                # Not sent only where the records prove that no POST was made (the runner
+                # owner's round-2 answer (a)); any weaker evidence raises, naming it.
+                return False, _zero_submissions(d, plan, day, unproved)
+            raise Unmeasured(unproved)
         unfilled = sorted(c for c, f in send["final"].items()
                           if isinstance(f, dict) and f.get("unfilled"))
         fills = (f"; unfilled at the deadline: {unfilled}" if unfilled else "") + (
@@ -715,6 +739,165 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
     raise Unmeasured(f"{d}'s send.json exit is {ex!r}, not one a send writes "
                      f"({[SEND_WENT, SEND_FAILED, *SEND_NOT_GONE]}): whether its targets were "
                      f"sent is not established")
+
+
+# What `_transmit` (run.py) writes to orders.jsonl when it stops at the Alpaca clock read that
+# precedes EVERY POST, before that POST: `clock_error` (the read failed) or `cutoff` (the clock
+# was outside the send window). Each names the order it stopped before. Nothing else it writes
+# can stand without a `submit` line before it: `accepted`, `rejected`, `ambiguous`, `lookup`,
+# `error`, `confirm`, `final`, `poll_error`, `not_final_at_deadline` and
+# `skipped_after_rejection` all follow a submit (of that order, or of the rejected one).
+PRE_POST_EVENTS = ("cutoff", "clock_error")
+NOT_SENT_PROVED = "not sent: 0 submissions proved by"      # the owner's name for the case
+
+
+def _utf8(d, raw, name: str, unproved: str) -> str:
+    """`raw`, a record's bytes as run.py's reader read them (`_thin_read_day`), as text; raises
+    `Unmeasured` naming the record when it is not bytes of UTF-8."""
+    if not isinstance(raw, bytes):
+        raise Unmeasured(f"{unproved}; {d}/{name} was read as {type(raw).__name__}, not bytes")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise Unmeasured(f"{unproved}; {d}/{name} is not UTF-8 ({e})") from None
+
+
+def _zero_submissions(d, plan: dict, day: dict, unproved: str) -> str:
+    """The label "not sent: 0 submissions proved by <records>" for a late-market send that
+    exited FAIL with STARTED and nothing in send.json's `final` / `not_final` (the caller has
+    read those), when the records PROVE that no order was POSTed. Raises `Unmeasured`, naming the
+    record that does not prove it, otherwise.
+
+    WHY (the runner owner's round-2 answer (a), 2026-11-05). `final` / `not_final` hold only
+    orders Alpaca accepted AND the confirm read found, so an empty pair cannot tell a send that
+    stopped before its first POST from one whose POSTs went unconfirmed: until this answer every
+    such FAIL read UNMEASURED, and with it the whole episode. The owner ruled it NOT SENT only on
+    positive proof, and fail-closed on anything weaker:
+      * <D>/orders.jsonl EXISTS and holds ZERO `submit` events. `_transmit` appends `submit`
+        (fsynced: records.append_jsonl) BEFORE each POST, so a POST without one cannot happen.
+        Missing, unreadable or empty, or holding a `submit`, it proves nothing. Every event it
+        holds must be one `_transmit` writes before a POST (PRE_POST_EVENTS) naming one of the
+        plan's orders: any other event with no `submit` is a log that contradicts itself.
+      * <D>/reconcile.json, IF PRESENT (verify, after the close), names no order of the
+        session's client_order_id prefix (`day["order_prefix"]`, `<cid_prefix>-<YYYYMMDD>-`:
+        decide.client_order_id's scheme, the prefix gate 6 and verify match on). verify lists
+        every order Alpaca holds with that prefix, into `orders` when orders.jsonl records it
+        and into `problems` ("at Alpaca but not in orders.jsonl") when it does not, so a
+        reconcile.json that never names the prefix is the broker's own word that no order of
+        the session exists. Every string in it is searched, keys included, so a new field
+        verify may add later cannot hide an order. ONE mention is not an order: verify's
+        `read_orders_jsonl` refuses any event that has no `submit` line, so on exactly the
+        session this proves it writes "orders.jsonl line <n>: event 'cutoff' for <cid>, which
+        has no submit line" into `problems` (and the verdict line). That text, for an event
+        this function has itself read from orders.jsonl at line <n>, is a statement about the
+        local log, and is the only text not searched. A reconcile.json written without STARTED
+        (`started` not true) is not the reconcile of this send. Absent, the proof rests on
+        orders.jsonl, send.json and STARTED (verify has not run, or runs at 17:30 after a
+        22:00 decide read the session back).
+    The reader passes the two files as BYTES, parsed only here: a damaged orders.jsonl must
+    not blind the walk on a session whose send.json already says what went."""
+    missing = [k for k in ("orders_log", "reconcile", "order_prefix") if k not in day]
+    if missing:
+        raise Unmeasured(f"{unproved}; the reader did not read {missing}, so zero submissions "
+                         f"cannot be proved")
+    prefix = day["order_prefix"]
+    if not (isinstance(prefix, str) and prefix):
+        raise Unmeasured(f"{unproved}; the session's client_order_id prefix is {prefix!r}")
+    planned = [o.get("client_order_id") for o in plan["orders"] if isinstance(o, dict)]
+    off = sorted(str(c) for c in planned if not (isinstance(c, str) and c.startswith(prefix)))
+    if off or len(planned) != len(plan["orders"]):
+        raise Unmeasured(f"{unproved}; the plan's order(s) {off} do not carry the session's "
+                         f"client_order_id prefix {prefix!r}: reconcile.json would be searched "
+                         f"for the wrong orders")
+    raw = day["orders_log"]
+    if raw is None:
+        raise Unmeasured(f"{unproved}; there is no {d}/orders.jsonl, so zero submissions cannot "
+                         f"be proved")
+    events = []
+    for n, line in enumerate(_utf8(d, raw, "orders.jsonl", unproved).splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError as err:
+            raise Unmeasured(f"{unproved}; {d}/orders.jsonl line {n} is not JSON ({err})") from None
+        if not (isinstance(e, dict) and isinstance(e.get("event"), str)):
+            raise Unmeasured(f"{unproved}; {d}/orders.jsonl line {n} is not an event object")
+        events.append((n, e))
+    submits = [e.get("client_order_id") for _, e in events if e["event"] == "submit"]
+    if submits:
+        raise Unmeasured(f"{unproved}; {d}/orders.jsonl records {len(submits)} `submit` "
+                         f"event(s) {submits}: a POST followed each")
+    if not events:
+        raise Unmeasured(f"{unproved}; {d}/orders.jsonl holds no event: `_transmit` writes one "
+                         f"before it stops, so this is not its log")
+    for n, e in events:
+        if e["event"] not in PRE_POST_EVENTS:
+            raise Unmeasured(f"{unproved}; {d}/orders.jsonl line {n} is a {e['event']!r} event "
+                             f"with no `submit` before it: the log contradicts itself")
+        if e.get("client_order_id") not in planned:
+            raise Unmeasured(f"{unproved}; {d}/orders.jsonl line {n} names "
+                             f"{e.get('client_order_id')!r}, which the plan does not hold")
+    log = ", ".join(f"{e['event']} before {e['client_order_id']}" for _, e in events)
+    rc = day["reconcile"]
+    if rc is None:
+        rc_how = f"{d}/reconcile.json absent (verify has not reconciled {d})"
+    else:
+        rc_how = _reconcile_silent(d, rc, prefix, events, unproved)
+    return (f"{NOT_SENT_PROVED} {d}/send.json (exit FAIL, `final` and `not_final` empty), "
+            f"{d}/STARTED, {d}/orders.jsonl ({len(events)} event(s), 0 `submit`: {log}), "
+            f"{rc_how}")
+
+
+def _reconcile_silent(d, raw, prefix: str, events: list, unproved: str) -> str:
+    """How <D>/reconcile.json (bytes) proves the broker holds no order of `prefix`, for
+    `_zero_submissions` (its docstring: what is searched and the one text that is not). Raises
+    `Unmeasured`, naming where it names one, or why it cannot be read."""
+    try:
+        rc = json.loads(_utf8(d, raw, "reconcile.json", unproved))
+    except json.JSONDecodeError as err:
+        raise Unmeasured(f"{unproved}; {d}/reconcile.json is not JSON ({err})") from None
+    if not isinstance(rc, dict):
+        raise Unmeasured(f"{unproved}; {d}/reconcile.json is {type(rc).__name__}, not an object")
+    if rc.get("started") is not True:
+        raise Unmeasured(f"{unproved}; {d}/reconcile.json was written with started "
+                         f"{rc.get('started')!r}: not the reconcile of this send")
+    for f in ("orders", "problems"):
+        if not isinstance(rc.get(f), list):
+            raise Unmeasured(f"{unproved}; {d}/reconcile.json has no `{f}` list "
+                             f"({rc.get(f)!r}): what verify found at the broker is not read")
+    own = {f"orders.jsonl line {n}: event {e['event']!r} for {e['client_order_id']}, which has "
+           f"no submit line" for n, e in events}
+    hits = []
+
+    def search(x, where):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                search(k, f"{where} (a key)")
+                search(v, f"{where}.{k}")
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                search(v, f"{where}[{i}]")
+        elif isinstance(x, str):
+            s = x
+            if where == "$.verdict":
+                for t in own:
+                    s = s.replace(t, "")
+            elif where.startswith("$.problems[") and x in own:
+                return
+            if prefix in s:
+                hits.append(f"{where}: {x[:200]!r}")
+    search(rc, "$")
+    if hits:
+        raise Unmeasured(f"{unproved}; {d}/reconcile.json names order(s) of the session's prefix "
+                         f"{prefix!r}: {hits}")
+    if rc["orders"]:
+        # verify fills `orders` from orders.jsonl's `submit` lines only: rows there mean it read
+        # a log with submits, which is not the log read here.
+        raise Unmeasured(f"{unproved}; {d}/reconcile.json lists {len(rc['orders'])} order "
+                         f"row(s), which verify builds from orders.jsonl's `submit` lines: not "
+                         f"the orders.jsonl read here")
+    return f"{d}/reconcile.json (started, no order row, no order of prefix {prefix!r})"
 
 
 def _dates(ds) -> str:
@@ -819,7 +1002,10 @@ def thin_stop_record(*, asof, session_date, drawdown: dict, current: dict, previ
     `read_through`, that must be `read_through` here, or this raises); `current` this decide's
     `thin_session`; `previous_session(d)` the NYSE
     session before d; `read_day(d)` -> {"plan": dict | None, "send": dict | None, "started":
-    bool} for the session d (it may raise); `series` the eod_equity rows [(date, equity)] on
+    bool, "orders_log": bytes | None, "reconcile": bytes | None, "order_prefix": str} for the
+    session d (it may raise; the last three are read only for a late-market FAIL that records
+    no order, `_zero_submissions`, and a reader without them leaves that case UNMEASURED);
+    `series` the eod_equity rows [(date, equity)] on
     or before `asof` (or `read_through`), or a string saying why there are none; `positions`
     {symbol: signed shares} now; `closes` {symbol: as-of close}; `thresholds` the five
     `risk.thin_*` values (registry `cef_thin_stop_levels`: the four lines, None where absent,
