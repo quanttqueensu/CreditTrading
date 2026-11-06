@@ -397,7 +397,8 @@ A line whose threshold is absent reads UNMEASURED, never a default.
 
 **The threshold keys** (`src/deploy/registry.py` `cef_thin_stop_levels`, in the spec's `risk`
 block) are set in the activation commit. Each is re-measured on its read date by
-`results/cef/prereg_thin_te4/compose.py --stamp <date>` (H14), and each needs a sibling
+`results/cef/prereg_thin_te4/compose.py --stamp <date> --k3-run-sessions <n>` (H14; `<n>` the
+spec's `risk.thin_k3_run_sessions`, below), and each needs a sibling
 `_<key>_note` that names the `compose_<stamp>.json` that derived it; the registry refuses a key
 without one. The registry also refuses:
 - any of them, or any of their `_<key>_note`s, under another rule (the notes since the review
@@ -421,6 +422,27 @@ below 2 (one close is the once line's business), a missing or empty `_thin_k3_ru
 (the count is pre-registered, not derived by compose.py, so the note need not name a
 `compose_<stamp>.json`), a near-miss spelling and the key written in `frozen`. Tests that set the
 rule set it (`test_trade_eligible_runner.te4`).
+
+**The run length and the compose run must agree** (the runner owner's round-2 answer (c),
+2026-11-05). `compose.py` counted §E's fit runs with a literal 3 (and 2 for context) while the
+spec carries the count, so the two could drift apart unseen. It now takes K3's run length as the
+**required** argument `--k3-run-sessions` (no default; at least 2, the registry's rule), counts
+§E's runs with it (runs of n above the fit p99, and of n − 1 for context) and records it in
+`compose_<stamp>.json` as `k3_run_sessions`. The drafting day's files (2026-11-03) predate it and
+record none. `src/deploy/tests/test_thin_k3_run_provenance.py` fails any committed spec under
+`ops/specs/` that sets `risk.thin_k3_run_sessions` when a `compose_<stamp>.json` named in its te4
+notes (the four lines' and the run length's own) is missing, unreadable, records no run length or
+records another one, or when a K-line's note names no compose file.
+
+**Why that guard is a test, not a registry check.** The owner asked that "the registry refuses a
+spec whose risk.thin_k3_run_sessions differs from the run length recorded in the compose file its
+threshold notes cite". The owner also ruled (answer 3, 2026-11-03) that the live path never reads
+`results/`, and `src/deploy/registry.py` validates on the live path: the sleeve's constructor and
+`run.py` call it on every session. So the guard reads `results/` in a test instead. CI runs it on
+every push (`.github/workflows/checks.yml`), and prod installs only a release-checked tag
+(`/release-check` runs the suite), so a spec and a compose file that disagree cannot reach a
+release together. What it does not catch: a prod clone edited by hand, which no release check
+sees. **The owner can overrule this** and move the check into the registry.
 
 The live path never reads `results/`.
 
