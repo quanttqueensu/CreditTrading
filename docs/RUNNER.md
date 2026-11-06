@@ -458,13 +458,23 @@ the review of 4e1ab0b their notes too (`_below_min_names_floor_note` in `frozen`
 because C4's `"hold"` spec carries it legitimately; delete it with `below_min_names`, and only
 the diff below guards it. The no-op pins prove the reverted session is today's.
 
-**Activation, for the record (the runner owner's review 2026-11-04, item 2; not done now).** The
+**Activation checklist, for the record (not done now).**
+1. **The revert spec** (the runner owner's review 2026-11-04, item 2). The
 revert spec built in the activation release deletes `below_min_names`, its floor and the five
 `risk.thin_*` keys with their notes. With them absent, the revert spec must be **byte-identical
 to the pre-te4 spec**, the spec file as it stood before the activation commit. Diff the two files
 before tagging; any other difference is a second change riding on a revert. The registry's
 refusals catch a te4 key or te4 note left behind, not `_below_min_names_note` and not any other
 edit: the diff is the guard of record.
+2. **K3's run length and its compose run** (the runner owner's round-2 answer (c), 2026-11-05).
+Set `risk.thin_k3_run_sessions` to the `k3_run_sessions` recorded in the `compose_<stamp>.json`
+the thresholds are taken from: **3 at the 2026-11-05 run** (`compose_2026-11-05.json`, run with
+`--k3-run-sessions 3`; every figure the drafting day's). A read-date re-run (H14) records its
+own; run it with the run length the spec will carry. **Cite that compose file in every threshold
+note** (`_thin_k1_episode_drawdown_note`, `_thin_k2_max_name_frac_note`, `_thin_k3_net_run_note`,
+`_thin_k3_net_once_note`). `src/deploy/tests/test_thin_k3_run_provenance.py` fails the activation
+commit if a cited file is missing or records no run length or another one (the files of
+2026-11-03 record none, so a spec citing them fails).
 
 ## As built (2026-10-29): gate 6 reads its lists last
 

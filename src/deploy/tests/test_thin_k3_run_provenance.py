@@ -104,6 +104,21 @@ def test_every_committed_spec_agrees_with_the_compose_runs_its_notes_cite():
         assert k3_run_drift(spec, COMPOSE_DIR) == [], f.name
 
 
+def test_the_2026_11_05_compose_run_records_its_run_length_and_the_drafting_day_one_does_not():
+    """The committed compose files, read through the guard as the activation spec would cite
+    them: the 2026-11-05 run (`--k3-run-sessions 3`, a126324) agrees with a spec at 3 and not
+    with one at 4; the drafting-day run (2026-11-03) records no run length, so a spec citing it
+    fails. Fails on 03d978b, the commit before the 2026-11-05 run (no such file)."""
+    rec = json.loads((COMPOSE_DIR / "compose_2026-11-05.json").read_text())
+    assert rec[RECORDED] == 3
+    assert RECORDED not in json.loads((COMPOSE_DIR / "compose_2026-11-03.json").read_text())
+    assert k3_run_drift(_spec("compose_2026-11-05.json", run=3), COMPOSE_DIR) == []
+    bad = k3_run_drift(_spec("compose_2026-11-05.json", run=4), COMPOSE_DIR)
+    assert len(bad) == 1 and "records k3_run_sessions 3" in bad[0] and "is 4" in bad[0]
+    old = k3_run_drift(_spec("compose_2026-11-03.json", run=3), COMPOSE_DIR)
+    assert len(old) == 1 and "records no k3_run_sessions" in old[0]
+
+
 def _call_name(node) -> str:
     f = node.func
     return f.id if isinstance(f, ast.Name) else f.attr if isinstance(f, ast.Attribute) else ""
