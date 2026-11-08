@@ -3759,3 +3759,15 @@ that adds it does not exist when it is written.
 - source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `dbe46f3`; `quantt/session/run.py` @ `dbe46f3`
 - supports: §5
 - status: current (refines E-2026-11-03-42: at the 22:00 decide nothing changes)
+
+### E-2026-11-08-01 · CEF trial 55's stop lines after the owner's review: a reduced decision counts only if its targets were sent and filled, K3's run length is a required spec key, and missing sessions blank only the stops whose window holds them
+- kind: method
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - VERDICT: NO-OP PROVED (every comparison byte-identical), base 718b6996d87cf9a5ef83873f4fae4f82272def18, new 44808edda54d87dab321746b4be58cc00f413afc [S]
+  - the compose.py re-run at `--k3-run-sessions 3` matches the drafting day's record apart from the stamp and the recorded run length [S]
+  - "Sent, nothing filled": a SENT where every order in `final` ended with 0 shares filled, canceled, expired or rejected, and `not_final` is empty; never a FAIL [S]
+- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-05-head44808ed-main718b699.txt` @ `30bcac5`; `results/cef/prereg_thin_te4/compose_output_2026-11-05.txt` @ `a126324`; `docs/RUNNER.md` @ `702b5de`; `quantt/session/drawdown.py` @ `702b5de`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `03d978b`
+- supports: §1, §5
+- status: current (the key is not set; it trades only from its activation commit)
