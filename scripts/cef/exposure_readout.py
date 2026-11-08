@@ -242,8 +242,8 @@ above [S: this docstring; not re-run for the ruling]: the muni group's MUNI beta
 across L; the muni group's TERM beta moves with L, LOANS has no plateau at any L, and the
 review counts moved more with L for TERM, CREDIT and LOANS than for MUNI. Even in the fit
 era the book's MUNI exposure also sums the taxable funds' MUNI betas, and those move with L.
-MEASURED WHILE RECORDING THE RULING (it changes nothing; whether it bears on the ruling is
-the team lead's call). On the current window the muni funds' own MUNI beta is NOT level in
+MEASURED WHILE RECORDING THE RULING (it changes nothing; whether it bears on the ruling was
+the team lead's call, and on 2026-11-08 the team lead ruled: keep L = 0 and the MUNI headline). On the current window the muni funds' own MUNI beta is NOT level in
 L. Summed MUNI beta on the 252 sessions strictly before 2026-10-30 (cache asof 2026-10-30),
 at L = 0, 1, 2, 3: MHD +1.21 +1.49 +1.59 +1.65, MQY +1.27 +1.33 +1.44 +1.67; the taxable
 names' group medians fall from L = 0 to L = 3 (hy +0.02 to -0.31, loan, JFR alone, -0.13 to
