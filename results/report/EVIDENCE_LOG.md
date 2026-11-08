@@ -3732,3 +3732,71 @@ that adds it does not exist when it is written.
 - source: `results/cef/BAND_COST_REDERIVATION_2026-11-05.md` @ `3668da1`; `docs/SYSTEM.md` @ `3668da1`; `docs/RESEARCH_STATE.md` @ `3668da1`; `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `1f44bbf` (PR #58's merge to main; byte-identical to 2476a16, which the analysis read)
 - supports: §2, §3, §6
 - status: current; closes the draft pre-registration of E-2026-11-05-40 (that entry stands as the record of the analysis; its note was renamed from PREREG_DRAFT_BAND_COST_2026-11-05.md)
+
+### E-2026-11-05-90 · cef paper book, 2026-11-05: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - verify verdict PASS; orders sent 5, filled 5 [S]
+  - 17:30 ET snapshot equity change 22.75 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -83.72 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -83.31 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 10.20 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 10.20 bp, fill rate 1.0000 of shares [S]
+  - shadow book 109.44 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/tca.csv` @ `pull:ae2279000743`
+- supports: §4
+- status: current
+
+### E-2026-11-06-90 · cef paper book, 2026-11-06: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-06
+- figures:
+  - verify verdict PASS; orders sent 13, filled 13 [S]
+  - 17:30 ET snapshot equity change -308.14 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -266.98 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -266.09 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 7.20 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 7.20 bp, fill rate 1.0000 of shares [S]
+  - shadow book -283.69 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/tca.csv` @ `pull:ae2279000743`
+- supports: §4
+- status: current
+
+### E-2026-11-05-91 · c4 paper book, 2026-11-05: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - verify verdict PASS; orders sent 2, filled 2 [S]
+  - 17:30 ET snapshot equity change 1278.00 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change 1243.68 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L 1244.07 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 18.04 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 18.04 bp, fill rate 1.0000 of shares [S]
+  - shadow book 1279.07 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
+- supports: §4
+- status: current
+
+### E-2026-11-06-91 · c4 paper book, 2026-11-06: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-06
+- figures:
+  - verify verdict PASS; orders sent 3, filled 3 [S]
+  - 17:30 ET snapshot equity change -1190.10 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -1225.93 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -1225.80 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 23.38 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 23.38 bp, fill rate 1.0000 of shares [S]
+  - shadow book -1181.63 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
+- supports: §4
+- status: current
