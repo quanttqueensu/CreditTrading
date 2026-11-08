@@ -3800,3 +3800,44 @@ that adds it does not exist when it is written.
 - source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
 - supports: §4
 - status: current
+
+### E-2026-11-08-01 · Sessions 2026-11-05 and 11-06: both books verify PASS; the core's ×1.30 book reaches its cap; one send-time short skip
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - official EOD change, core: 11-04 −$232.83, 11-05 −$83.72, 11-06 −$266.98; equity $99,405.98, −$594.02 since funding [V]
+  - official EOD change, C4: 11-04 −$9.96, 11-05 +$1,243.68, 11-06 −$1,225.93; equity $100,007.79, +$7.79 since funding [V]
+  - core 11-05: 5 of 6 planned orders sent and filled; the sixth, an MHD short, was skipped at send (shortable=False); 11-06: 13 of 13 filled [V]
+  - C4 11-05: 2 of 2 filled; 11-06: 3 of 3 filled [V]
+  - fill against the official close: core +10.2bp and +7.2bp; C4 +18.0bp and +23.4bp, on 2 and 3 orders [V]
+  - core gross from positions and orders: 1.517× before the 11-06 plan, 1.799× after it; Alpaca's account values read 2026-11-08 give 1.827× gross and +0.176× net, with maintenance margin 0.80 of equity [V]
+- source: `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; the VM's plan.json and send.json records, read-only, not tracked
+- supports: §4, §5
+- status: current
+
+### E-2026-11-08-02 · The plans for 2026-11-09, read before the send; C4's data checks clean
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - core `cef_discount.v9.20261102`: decided, no refusals, 13 orders ($37,973 notional); the book 1.828× before and 1.784× after them against the 1.80 cap; net +0.177× to +0.055×; pre-flight ok; gate 8 bp_scale 1.0; drawdown UNMEASURED [V]
+  - C4 `c4_families.v5.20261103`: decided, no refusals, 2 orders ($1,431 notional); the book 1.350× before and 1.335× after them against the 1.90 cap; net −0.089× to −0.075×; pre-flight ok [V]
+  - short-opens on 11-09: core PTY and JFR, both shortable in the 11-06 borrow snapshot; C4 none [V]
+  - C4 held shorts against borrow: UTF is no longer shortable (an existing short, no new short planned); the other eight are shortable [V]
+  - checklist step 5 on the panel to 2026-11-06: IGR premium 05-04..09-04 median +0.64%, min −1.96%, max +3.17%; 0 seed-window closes moved beyond 0.5% [V]
+- source: `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; the VM's plan.json and collect reports, read-only, not tracked
+- supports: §1, §4
+- status: current
+
+### E-2026-11-08-03 · Incident: the 2026-11-05 evening check ran three days late, and the VM was out of reach until the ssh firewall rule was updated
+- kind: incident
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the check scheduled for 22:17 ET on 2026-11-05 ran on 2026-11-08, because the scheduled job lives only in an open, idle Claude session; the 11-06 plans sent unread (both passed verify) [V]
+  - ssh timed out because the firewall rule no longer matched the team lead's IP; the VM was running and the book trading throughout (Alpaca: core fills on 11-05 and 11-06); the team lead updated the rule on 2026-11-08 [V]
+- source: `docs/RUNBOOK.md` @ `6c6b9fd` (the IP-change procedure)
+- supports: §5
+- status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
+
