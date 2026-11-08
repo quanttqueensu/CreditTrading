@@ -96,3 +96,6 @@ results/events/cef_corp_action_events_full.csv
 # book's series can be a licensed security's return. The tracked ledger holds each
 # series' sha256.
 /results/research/trials/series/
+
+# Generated dashboard page (dashboard/build.py); rebuilt from a snapshot, never committed.
+/dashboard/out/
