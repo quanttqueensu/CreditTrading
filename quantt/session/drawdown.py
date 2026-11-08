@@ -556,9 +556,10 @@ def lines(rec: dict) -> list[str]:
 #                         read from the broker's own figures;
 #                       * late market, "sent, nothing filled" (NOTHING_FILLED; the runner
 #                         owner's round-2 answer (b), 2026-11-05: sent requires at least one
-#                         fill): a SENT, or a FAIL whose `final` records what went, where every
-#                         order `final` records ended FINAL with 0 shares filled, canceled,
-#                         expired or rejected (NO_FILL_STATES), and `not_final` is empty. The
+#                         fill): a SENT (never a FAIL, whose `final` omits any order of unknown
+#                         fate) where every order `final` records ended FINAL with 0 shares
+#                         filled, canceled, expired or rejected (NO_FILL_STATES), and
+#                         `not_final` is empty. The
 #                         book did not change, so it is NOT a reduced decision: no episode,
 #                         nothing for K1 to compound, no reduced close for K2/K3. A 0-share final
 #                         under any other state (`replaced`: another order may have filled;
@@ -754,9 +755,14 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
                 return False, _zero_submissions(d, plan, day, unproved)
             raise Unmeasured(unproved)
         # SENT REQUIRES AT LEAST ONE FILL (round-2 answer (b)): every order final at 0 shares,
-        # none still working, is "sent, nothing filled", not a reduced decision.
+        # none still working, is "sent, nothing filled", not a reduced decision. ON EXIT SENT
+        # ONLY: SENT means no rejection, no ambiguous submit and no missing confirm, so `final`
+        # plus `not_final` covers every order sent. A FAIL's `final` leaves out any order whose
+        # outcome is unknown (accepted but not found at the confirm read, or ambiguous), so
+        # zeros there cannot say the book did not change: it stays "sent in part", which counts
+        # and fails closed (the review of fa9e101: a HALVE read CLEAR instead of KILLED).
         filled = _filled(d, send["final"])
-        if not send["not_final"] and not any(filled.values()):
+        if ex == SEND_WENT and not send["not_final"] and not any(filled.values()):
             states = {c: send["final"][c].get("status") for c in sorted(filled)}
             odd = {c: s for c, s in states.items() if s not in NO_FILL_STATES}
             if odd:

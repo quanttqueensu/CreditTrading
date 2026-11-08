@@ -326,9 +326,10 @@ is PAPER ONLY and paper runs `late_market`, so the late-market rule is the one t
   fill** (the runner owner's round-2 answer (b), 2026-11-05). Partially filled is sent: what
   filled is the account's. An order in `not_final` was still working 30 s before the close and
   may yet fill, so a send with one stays sent, as the first review defined it.
-- **Sent, nothing filled** (round-2 answer (b); `drawdown.NOTHING_FILLED`): a SENT, or a FAIL
-  whose `final` records what went, where every order in `final` ended with 0 shares filled,
-  canceled, expired or rejected, and `not_final` is empty. The book did not change, so it is
+- **Sent, nothing filled** (round-2 answer (b); `drawdown.NOTHING_FILLED`): a SENT where every
+  order in `final` ended with 0 shares filled, canceled, expired or rejected, and `not_final` is
+  empty. Never a FAIL: a FAIL's `final` leaves out any order whose outcome is unknown, so its
+  zeros cannot say the book did not change, and it stays "sent in part". The book did not change, so it is
   **not a reduced decision**: it opens no episode, K1 does not compound its earning day, and it
   is not a reduced close for K2 or K3 (N/A, "changed nothing", naming it). A 0-share final
   under any other state (`replaced`, `done_for_day`, a `filled` with 0), or a `final` entry

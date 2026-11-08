@@ -18,7 +18,8 @@ client and its late-market fixtures), read back by the runner's own reader
   SENT, partially filled                           yes (what filled is the account's)
   SENT, every order final with 0 shares filled     no: "sent, nothing filled" (round-2 answer
     (canceled, expired or rejected), none working  (b), 2026-11-05: sent requires a fill)
-  FAIL in part, what went filled nothing           no: "sent, nothing filled"
+  FAIL in part, what `final` records filled nothing yes, in part: a FAIL's `final` omits any
+                                                   order of unknown fate
   0 shares under another final state (replaced,    UNMEASURED, naming it
     done_for_day, filled)
   DRY (DRY_RUN=1)                                  no
@@ -201,11 +202,10 @@ def test_late_market_sent_with_nothing_filled_is_not_a_reduced_decision(tmp_path
     assert r["send_skip"]["applies"] is False
 
 
-def test_late_market_fail_in_part_with_nothing_filled_is_not_a_reduced_decision(tmp_path):
-    """Round-2 answer (b) on a FAIL classified from `final`: one order rejected at the POST
-    (the rest go, team lead 2026-09-28), the other canceled with 0 shares filled. What went
-    changed nothing: "sent, nothing filled", not a reduced decision sent in part. Fails on
-    f0bc22d, which counted it a reduced decision sent in part."""
+def test_late_market_fail_in_part_with_nothing_filled_stays_sent_in_part(tmp_path):
+    """A FAIL whose `final` shows only 0 shares is NOT "sent, nothing filled": answer (b) names
+    a SENT. Here one order is rejected at the POST and the other canceled at 0: the send stays
+    sent in part, and it counts. Fails on fa9e101, which read it "sent, nothing filled"."""
     def setup(c, deps, plan):
         cid = next(x for x in _cids(plan) if "-BBB-" in x)
         c._submit = {cid: OrderRejected("403", status=403, client_order_id=cid)}
@@ -215,9 +215,31 @@ def test_late_market_fail_in_part_with_nothing_filled_is_not_a_reduced_decision(
     sj = _send_json(state)
     assert sj["exit"] == "FAIL" and [f["filled"] for f in sj["final"].values()] == [0]
     _, st = _state_of(state)
-    assert st[0] is False and st[1].startswith("sent, nothing filled") and "FAIL" in st[1]
+    assert st[0] is True and "FAIL after part of the set went" in st[1]
     ep, k0 = _episode(state)
-    assert ep["status"] == "NONE" and "sent_in_part" not in ep and k0 == ddm.CLEAR
+    assert ep["status"] == "OPEN" and list(ep["sent_in_part"]) == [D.isoformat()]
+    assert k0 == ddm.KILLED
+
+
+def test_late_market_fail_with_an_order_of_unknown_fate_is_not_nothing_filled(tmp_path):
+    """The review of fa9e101, through the real send: BBB is accepted and canceled at 0 shares,
+    AAA is accepted by Alpaca but not found at the confirm read. send.json's `final` holds only
+    BBB, at 0, yet AAA may have filled, so the book may have changed. It stays sent in part and
+    K0 reads KILLED on a HALVE; fa9e101 read "the book did not change" and K0 CLEAR."""
+    def setup(c, deps, plan):
+        cid = next(x for x in _cids(plan) if "-AAA-" in x)
+        c._submit = {cid: "noconfirm"}
+        _ended("canceled")(c, deps, plan)
+    code, c, state, plan = _late_send(tmp_path, before_send=setup)
+    assert code == rn.EXIT_FAIL and len(c.submits()) == 2
+    sj = _send_json(state)
+    assert sj["exit"] == "FAIL" and [f["filled"] for f in sj["final"].values()] == [0]
+    assert sj["not_final"] == []
+    _, st = _state_of(state)
+    assert st[0] is True and "FAIL after part of the set went" in st[1]
+    ep, k0 = _episode(state)
+    assert ep["status"] == "OPEN" and list(ep["sent_in_part"]) == [D.isoformat()]
+    assert k0 == ddm.KILLED
 
 
 def test_late_market_one_order_filled_in_part_and_one_with_nothing_is_sent(tmp_path):
