@@ -38,8 +38,10 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                         NAV(D-1) is checked against CEFConnect's D: stale copy -> replaced,
                         genuine repeat -> kept, unverified -> the decide is deferred to the
                         morning; from the final check the name keeps its shares.
-                        "As built (2026-10-13)" below.
-          2. read       Alpaca account (equity), positions, today's orders, clock
+                        "As built (2026-10-13)" below. With data.missing_nav = hold
+                        (dark), a name whose NAV is not dated the as-of date is held
+                        the same way from the final check. "As built (2026-10-29)".
+          2. read       Alpaca account (equity), positions, closed orders, assets
           2b. drawdown  only when the book json sets risk.drawdown (absent: off; report
                         is the only mode built: record only). The drawdown from the
                         high-water mark of <state>/eod_equity.csv against the frozen
@@ -50,7 +52,13 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
                           "opening_session": <bool>}))
                         -> whole-share orders, one netted order per symbol,
                            a flip split into two orders
-          4. gate       every check below; any failure -> nothing sent, logged
+          3b. corp. actions  only when the book json sets corporate_actions.mode
+                        (absent: off; report: record and send; halt: refuse). Every
+                        non-dividend corporate action naming a held or targeted name
+                        inside that name's window; again at the late-market send.
+                        "As built (2026-10-28)" below.
+          4. gate       gate 6's order lists, then the clock, are the last broker reads;
+                        every check below; any failure -> nothing sent, logged
           5. record     <state>/<date>/STARTED written BEFORE the first order
           6. transmit   POST /v2/orders, type=market, time_in_force=cls, whole-share qty,
                         client_order_id = cef-<YYYYMMDD>-<SYMBOL>-<leg>
@@ -65,12 +73,14 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 
 | module | owns | never |
 |---|---|---|
-| `quantt/broker/alpaca.py` | The REST client: account, positions, orders (list/submit), clock, calendar, assets, account activities, end-of-day portfolio history, stock auctions (data API). Retries only idempotent GETs. | Decides anything. Holds a default for a missing field. |
+| `quantt/broker/alpaca.py` | The REST client: account, positions, orders (list/submit), clock, calendar, assets, account activities, end-of-day portfolio history, stock auctions and corporate actions (data API). Retries only idempotent GETs. | Decides anything. Holds a default for a missing field. |
 | `quantt/session/decide.py` | Pure function: sleeve targets + holdings + equity + last closes → order list. Whole shares, netting, flip split, shortability. | Touches the network. |
 | `quantt/session/gate.py` | Pure checks → a list of refusals. | Transmits. |
 | `quantt/session/run.py` (+ `__main__.py`) | Orchestration of the session above; the only caller of `submit_order`. | Transmits when any gate refuses. |
 | `quantt/session/nav_gate.py` | The stale-NAV gate (step 1b): finds each NAV(D) equal to the previous NAV or to CEFConnect's NAV(D-1), reads CEFConnect, replaces stale copies in the NAV panel through the logged fallback, defers or holds the unverified, records every check. | Transmits. Decides a target. |
 | `quantt/session/drawdown.py` | The drawdown check (step 2b): reads `<state>/eod_equity.csv` by header, the frozen spec's two drawdown lines (units-checked), and records the status and what an acting mode would do. | Transmits. Changes an order. Falls back to `equity.csv`. |
+| `quantt/session/combine.py` | The multi-sleeve combiner (2026-10-28, **dark**): reads the book json's `sleeves[]`; for a book whose enabled sleeves all carry `risk_budget`, builds each from its own spec on its own sleeve_nav, nets the whole-share targets per symbol into one `decide`, and records the per-sleeve attribution. Absent a budget, `None`: the single-spec session, byte-identical to de6e9c5 (proved by test). | Transmits. Splits a held position between sleeves. |
+| `quantt/session/corp_actions.py` | The corporate-action gate (step 3b): dates each held name's shares from the account's closed orders, draws each name's window, keeps the actions that block, and writes the record and the refusal's sentence. Pure apart from the read it is handed. | Transmits. Changes an order. Reads an absent or failed feed as clear. |
 | `quantt/session/verify.py` | Post-close reconcile + dual scoring + the one-line verdict. Read-only against the broker. | Transmits. |
 | `src/deploy/sleeves/cef_discount.py` | The strategy. Gains `extras["opening_session"]`: when True the band is skipped (trade to full target); **absent or False is byte-identical to today** (proved by test). Gains `extras["nav_hold"]` (2026-10-13): names the stale-NAV gate could not verify by its final check keep their current shares and leave the cross-section; holds never trigger the `min_names` flatten; absent is byte-identical. | — |
 | `quantt/deploy/` | launchd plist templates + an install script for the laptop prod clone + `docs/RUNBOOK.md`. | Stores a credential. |
@@ -83,7 +93,8 @@ every 30 min  python3 -m quantt.session run --book cef --scheduled
 3. **Halt** — `ops/halt.read_halt(book)` returns a halt → refuse.
 4. **Clock** — the session date is a trading day by both calendars and Alpaca's `/v2/clock` is inside the auction's send window: the as-of evening from **19:15 ET** (Alpaca queues `cls` sent after 19:00 into the next auction) to 01:00 ET, or the session day until **15:45 ET** (Alpaca rejects `cls` from 15:50; five minutes of margin). Early-close days: use `/v2/calendar`'s close, minus 10 minutes, cls cutoff per Alpaca docs.
 5. **Data** — the refresh exited 0 for the required as-of date. That checks each NAV's *date*, not its value; the stale-NAV gate (step 1b, "As built (2026-10-13)") checks the value when the book turns it on.
-6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open `cls` order in the account.
+   - **Corporate actions** (step 3b, when the book json sets `corporate_actions.mode`; team lead 2026-10-28). Under `halt`, refuse when Alpaca lists a non-dividend corporate action (split, stock dividend, spin-off, merger, redemption, name change, worthless removal, reorganization, partial call) naming a held or targeted name, in any role, inside the window that role and match call for: the long window for an acquiree, a split, a name change and the rest, and the short window `(as-of, session]`, one session, for a merger acquirer and a reorganization's allocated leg (both on the market date only) and for any other match through the process date alone (team lead and re-review, 2026-10-29). Also refuse when that list cannot be read. The refusal is a gate-5 `data` refusal naming each event or the error. It runs at decide and again at the late-market send. Under `report` the same is recorded and the session sends. "As built (2026-10-28)" below.
+6. **No set already headed for this auction** — refuse if `<state>/<date>/STARTED` exists, or Alpaca shows any order today whose `client_order_id` starts with `cef-<YYYYMMDD>-`, or any open order in the account, of any type or time in force (`gate.gate_no_set_in_auction`; *corrected 2026-11-02: this line said any open `cls` order, which the code has never been*). The two Alpaca lists are read after every other broker read, just before the gate's clock read, on both paths that transmit; a failed read refuses ("As built (2026-10-29): gate 6 reads its lists last").
 7. **Shortability** — an order that opens or increases a short needs `/v2/assets/<sym>` `shortable: true` today; else that symbol sends nothing and is logged (prereg v7 §6). Never substitute a name.
 8. **Exposure** — projected gross ≤ spec `risk.max_gross_exposure_usd`; ≤ `max_gross_stress` × the **lower** of the equity the plan was sized on and live equity, unless the plan does not add to the gross held now (2026-10-09; the lower of the two from 2026-10-11); and, on the live account, opening notional ≤ Alpaca `buying_power` and the overnight Reg T / maintenance limits on the book after the plan (2026-10-07). *Corrected 2026-10-09: this line read "≤ `max_gross_stress` × equity, and projected initial margin ≤ Alpaca buying power", the rule that refused 2026-10-09 ("As built (2026-10-09)" below).*
 9. **Sanity** — every qty a positive integer, every symbol in the frozen universe, no symbol with two opposite-side orders.
@@ -193,6 +204,492 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
 - **Scoring is unchanged:** verify marks every fill against the official closing
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
+
+## As built (2026-10-29): gate 6 reads its lists last
+
+**The defect** (execution-trader, release-check of 35b429f, 2026-10-29;
+confirmed in code). Gate 6's Alpaca check is the only guard against a second
+runner, or a lost state directory, doubling the book (CLAUDE.md order-path
+rule 2), and `_transmit` never reads the orders again. Both paths that transmit
+read `orders_recent` and `orders_open` early and judged them at the gate. The
+late-market send read them before the asset GETs, the closed-order history and
+the corporate-action pages (the gap PR #20 widened). The `cls` run, which is
+also the late-market decide, read them at step 2, before the asset GETs, the
+sleeve and the corporate-action pages. One GET that exhausts its retries takes
+about 250 s ("Latency at the send"). The send-budget gate refuses only past the
+window's end minus the set's budget, so a stall that finished earlier sent on
+lists minutes old, blind to a set placed meanwhile.
+
+**The fix** (`run._gate6_orders`). On both paths the two lists are the last
+broker read before the gate's clock read: after every asset GET, the
+closed-order history and the corporate-action read. The clock read stays after
+them on purpose, so the late-clock and send-budget gates (gate 4 for `cls`)
+judge a time after this read too: a slow read can only make them see a later
+time. Between the lists and the first POST stand only that clock GET, the pure
+gates, STARTED and `_transmit`'s clock GET before the POST. Neither path reads
+the lists anywhere else, so no earlier read can stand in for them. A failed read
+is a gate-6 refusal naming the error (`gate_no_set_in_auction(..., unread=)`),
+never an empty list. It is not a FAIL, so the next slot may retry, and verify
+reads the day as MISSED. The closed-order history stays at step 2 of the `cls`
+run, because the decide needs it (`is_opening_session`) and step 3b dates held
+names on it.
+
+**What did not change.** With no other runner, the orders sent, send.json,
+plan.json, orders.jsonl, STARTED (bar its pid) and every run record are
+byte-identical to 35b429f. Records are written with sorted keys, so moving
+where `orders_recent` and `orders_open` enter the run record changes no byte.
+`quantt/session/tests/test_gate6_fresh.py` pins this against hashes computed by 35b429f's
+code. It also has the cases that failed there: an order landing during the
+corporate-action read or the asset GETs, on both paths, refuses; and a failed
+read at the gate refuses.
+
+**Not covered.** Two runners that both read before either sends still both
+send; gate 6 narrows that race and cannot close it. Only one armed scheduler
+per account closes it (RUNBOOK §8.5).
+
+## As built (2026-10-29): gate 5's missing-NAV hold, dark
+
+The team lead approved it on 2026-10-29. On 2026-10-22 PDO's NAV for the as-of
+2026-10-21 never reached the panel. fetch_daily exited 4 on every slot, because
+its CEFConnect fallback has failed with JSONDecodeError since 2026-10-21. Gate 5
+then refused all 13 names, and the book missed the day. The why of each choice is
+in `quantt/session/gate.py` `missing_nav_hold`.
+
+- **Off by default.** The book json key is `data.missing_nav`, and `hold` is its only
+  value. With the key absent, `Deps.missing_nav` is None and the session is bd87144's
+  (release-20261029-1), byte for byte. The proof is hashes computed by bd87144's code
+  on the real panel and on a synthetic panel that never skips: a complete day, and a
+  day with one as-of NAV missing at the evening decide and at the final check
+  (`quantt/session/tests/test_missing_nav_hold.py`).
+- **Evening and morning, before the final check** (close − 90 min, the stale-NAV
+  gate's `final_check_at`). A name whose NAV is not dated the as-of date refuses the
+  decide with today's gate-5 refusals, plus one line saying it is deferred. Nothing is
+  decided or marked, and the next slot re-runs the refresh. A NAV that lands in the
+  meantime is simply used.
+- **From the final check.** Each such name is held. It keeps its current shares, gets
+  no order, leaves the cross-section and is never targeted to zero. The other names
+  decide. The hold goes to the sleeve as the stale-NAV gate's `nav_hold` extra. A held
+  name has no paired row on the date, so the sleeve counts it toward `min_names`: if
+  the holds leave too few eligible names, the whole book holds. They never cause the
+  flatten. The stale-NAV gate also runs on that exit-4 refresh.
+- **Still refused, at any hour, as today.** A missing or stale close; a name with no
+  NAV at all; a refresh failure other than exit 4; and more missing NAVs than
+  `gate.max_missing_nav_holds` = n − `min_names`, read from the frozen spec. Past that
+  limit fewer than `min_names` names would have a NAV, the sleeve could trade none of
+  them on its signal, and so it is a broken feed, not a late NAV.
+- **Short of `min_names` after the sleeve's own exclusions** (release-check of 6d42f4f).
+  The n − `min_names` cap counts only the names without a NAV. Holds plus names the
+  sleeve leaves out (illiquid, ADV unmeasured, NAV stale, no z-score, no panel) can still
+  leave fewer than `min_names` names eligible on their signal. The sleeve would then hold
+  the whole book, the plan would read NOTHING_TO_SEND, and the day would be marked DONE.
+  Instead the day is **refused** as without the key, naming the held funds, the eligible
+  count and each exclusion. The count is the sleeve's own `min_names` count, carried in a
+  structured tag on its targets (`cef_discount._tag_short`); the runner never parses a
+  reason string. The stale-NAV gate's own holds keep their ruled whole-book hold.
+- **The age limit (team lead 2026-10-29, a policy).** A fund may be held for at most
+  `data.missing_nav_max_sessions` consecutive sessions: 2. This is the book json's value,
+  not a code literal, and it is required when the hold is on. It was meant to be derived
+  from how long the vendor's NAV gaps last, but prod's NAV panel (copy of 2026-10-28) shows
+  no gap in 12 months. The vendor backfills dates, so a late NAV survives only as a
+  repeated value. Two sessions were chosen because PDO's 10-22 gap was one session long,
+  so a late NAV can land the next day. The limit is to be reviewed against the live gaps
+  in the run records' `nav_dates`.
+  At the final check after that limit, if the fund's NAV is still not dated as-of, the day
+  is **refused** exactly as without the key, with one line naming the fund and its count.
+  The count is re-read at each final check from the prior sessions' plan.json
+  (`run.missing_nav_streaks`). A dated NAV resets it. A record that is missing,
+  unreadable or silent about the fund refuses the day; it is never counted as zero.
+- **Records.** plan.json and the run record carry `missing_nav`: the action (`none`,
+  `deferred`, `held` or `refused`), why, each missing name's last NAV date, the limit,
+  each name's prior count (`held_before`), and what was held. The log prints one
+  `MISSING NAV` line.
+- **Single-sleeve book only.** A combined book holds whole sleeves
+  (`gate.gate_data_by_sleeve`). The key with a combined book fails the session,
+  naming it.
+- **Revert:** delete both keys.
+
+## As built (2026-10-28): the multi-sleeve combiner, dark
+
+The team lead approved building it on 2026-10-28 ("build the combiner, decide
+placement after"). One Alpaca account takes one order per symbol (CLAUDE.md
+landmine 2), and the agent lab must net into C4's targets in the account they
+share (`docs/SYSTEM.md` §5, 2026-10-28). The design is the portfolio framework's
+phase C (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.10, §7). The why of
+each choice is in `quantt/session/combine.py`'s docstring.
+
+- **Off by default.** It is on only when every enabled entry of the book json's
+  `sleeves[]` carries `risk_budget`. The released json carries none, so
+  `Deps.sleeves` is None and the session is de6e9c5's, byte for byte. That is
+  proved against hashes computed by de6e9c5's code on the real panel and on a
+  synthetic panel that never skips (`quantt/session/tests/test_combine_noop.py`).
+  With no budget, the json must name exactly one enabled sleeve whose spec is the
+  book's, else the run fails before it starts.
+- **Sizing.** sleeve_nav = equity × risk_budget × σ_book / σ_sleeve. σ_book is the
+  book spec's `frozen.vol_target_annual`, so the budget is the sleeve's share of the
+  book's vol target. The budgets are inputs from the allocation analysis.
+- **Netting.** The sleeves' whole-share targets are summed per symbol, and `decide`
+  runs once on the net: one order per symbol, flips and shortability on the net.
+  **Enabled sleeves may not share a symbol** until per-sleeve sub-ledgers exist
+  (release-check of 00ec423). `load_sleeves` and `combine.decide` refuse an
+  overlap, naming the symbols. Accepted, the shared symbol would net from flat on
+  day one, and every later session would FAIL on the position that built. The
+  cross-sleeve arithmetic is kept behind `combine.SHARED_SYMBOLS_ALLOWED` (False).
+- **Book-level limits.** The book spec's `max_gross_stress`, applied once to the
+  netted orders by `fit_to_buying_power` and gate 8. Its value was derived for the
+  13 alone and must be re-derived on the combined book before a second sleeve is
+  enabled (framework §2.7).
+- **Gates.** Gate 9 and the send read the union of the enabled sleeves' universes.
+  Gate 5 runs per sleeve (`gate.gate_data_by_sleeve`). Before the final check
+  (close − 90 min) a failing sleeve refuses the decide, as today. From the final
+  check it is held at its shares and the rest decide. fetch_daily's exit 4 is
+  attributed by that per-name check, and every other refresh failure stays
+  book-wide. The stale-NAV gate's holds go to the sleeve that owns each name; a
+  deferral stays book-wide (one plan per day). On a combined book the stale-NAV
+  gate also runs when the refresh exits 4, over every enabled sleeve's names, and
+  its record says so (`refresh_exit`). Exit 4 is the case in which some sleeves
+  decide; 00ec423 skipped the gate there and sent them unchecked. That is safe
+  because the gate never acts on a name with no NAV dated as-of; that name is
+  gate 5's.
+- **Attribution.** plan.json `combine`: each sleeve's spec, budget, sleeve_nav,
+  status, and per symbol its current and target shares. Verify, score and TCA do
+  not split P&L by sleeve yet.
+- **Not built:** per-sleeve sub-ledgers (a held position in a symbol two enabled
+  sleeves trade fails the session, naming it), a per-sleeve opening session, a
+  refresh and a stale-NAV gate per panel (next section), sleeve `state` and
+  sleeve-scoped halts (framework §3.5).
+
+## As built (2026-10-29): each sleeve on its own panel (C4 plan row 6A), dark
+
+The team lead fast-tracked C4 on 2026-10-28/29, keeping every gate. C4 decides on
+`data/cef_c4/` (its spec's `panel_source`), the 13 on `data/cef/`. Until this the
+runner priced, gated and NAV-checked every name on `data/cef/` and refused any
+other panel (`require_core_panel`, C4 step 1). The why of each choice is in
+`quantt/session/run.py`, PER-SLEEVE PANELS.
+
+- **What reads the sleeve's own panel.** `spec_panel` is the sleeve's own
+  `panel_paths()`. From it come the closes the orders are sized on (and gate 8 and
+  the fit), the NAV dates gate 5 checks (per sleeve on a combined book) and the
+  missing-NAV hold reads, the pre-flight's close history, MarketState's prices,
+  the stale-NAV gate's file and the refresh's flags. verify and score read
+  Alpaca's prints, not a panel; TCA's tagged fallback reads plan.json's `closes`,
+  which now come from each sleeve's own panel.
+- **The no-op.** The released book json, with `data.missing_nav` absent and set,
+  decides byte-identically to 5e627ff through `default_deps` itself
+  (`quantt/session/tests/test_panels_noop.py`, synthetic and real panel).
+- **The guard.** At each read, inside the session: a sleeve whose panel files are
+  absent, or whose universe has a name with no row in its own price or NAV file,
+  FAILs the decide naming the files or the names. Not in `default_deps`, which the
+  15:52 send also builds and which reads no panel.
+- **The refresh.** `refresh_flags` is the interface C4 step 3 fills: the core
+  panel gets today's `--nav-fallback cefconnect` command; a data book's panel
+  (`DATA_BOOK_DIRS`: C4's `data/cef_c4/`, since the 2026-10-29 integration below)
+  gets `--data-book c4`; any other panel, and a book whose sleeves read two
+  panels, gets no fetcher, and gate 5 refuses the day (recorded).
+  `--skip-refresh` still runs.
+- **The stale-NAV gate** stays on the core panel: `data.stale_nav` on a book
+  with a sleeve on another NAV file is refused before any client is built
+  (CEFConnect is disabled for C4; the gate locks and logs as the core's fetch).
+- **Revert:** the commit. C4's spec and book json name another panel (below).
+
+## As built (2026-10-29): C4's own book, dark (C4 plan rows 6A, 8 and 11)
+
+Branch `c4-integrate` merges C4 steps 2 and 3 and row 6A onto main, then builds
+what C4 needs to dry-run on its own Alpaca paper account. Nothing schedules it
+until the team lead installs it; the steps are
+`results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
+
+- **`BOOKS["c4"]`** (`quantt/session/run.py`): spec
+  `ops/specs/c4_families.frozen.json`, book json `ops/books/c4_families_book.json`,
+  order ids `c4-<YYYYMMDD>-…`, keys `ALPACA_C4_KEY_ID` / `_SECRET_KEY`. A C4
+  session, approve or verify refuses a state directory not named `c4`
+  (`records.STATE_DIR_NAMES`) before writing anything there.
+- **The book json:** one sleeve at its own $100k; late-market execution as for
+  the core; the missing-NAV hold (2 sessions); drawdown in report mode, against
+  the core's halve/kill levels since spec `c4_families.v3.20261102` (team lead
+  2026-10-30; until v3 the spec named none and every decide recorded
+  UNMEASURED); the corporate-action gate in `report`, as the core, since the
+  team lead's 2026-11-02 ruling (it was `halt` until then; the ruling followed the
+  measurement in the checklist's "corporate-action mode"). **No `data.stale_nav`**:
+  CEFConnect is disabled for C4, and the spec's NAV-repeat mask is its defence.
+- **The refresh** is `fetch_daily --data-book c4 --book ops/books/c4_families_book.json`
+  under C4's own lock. Its exit 6 (an unruled spike-and-revert bar) is a gate-5
+  refusal at every check. It outranks the fetch's INCOMPLETE exit 4 (since the
+  release-check of 8b14298), so a late NAV, which the missing-NAV hold accepts at
+  the final check, can no longer let an unruled bar through.
+- **The opening-session rule and the first-session gate** (C4 only; release-check of
+  336df9d, R1; the rule: team lead 2026-11-03, "just flat it", `docs/SYSTEM.md` §5,
+  PR #30; the existing spare account, ruled 2026-11-02). C4's book json sets
+  `execution.opening_session_fills = "own_prefix"` (`run.opening_session_fills_for`):
+  `is_opening_session` then counts only fills with C4's own `c4-` prefix, so the research
+  loop's fills in the shared account do not open C4 at the band edge (28-42% of target, net
+  long); positions count whatever their origin. ABSENT (the core) is `any`, today's rule.
+  Until C4 has a fill of its own, an ARMED C4 run that is not an opening session under that
+  rule, that finds another runner's open order, or that cannot read the open orders
+  (UNMEASURED), is refused before its first order, at the decide and at the send, under its
+  own gate `first_session` (outside verify's DELIBERATE_GATES: a MISSED day); unarmed,
+  `plan.json`/`send.json` `first_session` records it (`run.OPENING_REQUIRED_BOOKS`). The core
+  reads and records nothing new.
+- **verify** scores distributions against C4's own panel
+  (`dist_score.PANELS["c4"]`, `data/cef_c4/cef_distributions.parquet`).
+- **The installer:** `install_vm --book c4 --eod-from YYYY-MM-DD` writes seven
+  `quantt-c4-*` units beside the core's (`docs/RUNBOOK.md` §8.9).
+- **The no-op:** the core's session is cee16ad's with the corporate-action block
+  absent, and 35b429f's as released (`tests/test_panels_noop.py`). The core's
+  install is byte-identical to cee16ad's installer
+  (`quantt/deploy/tests/test_install_vm_books.py`).
+- **Merged onto main, 2026-11-02 (branch `c4-rel`).** On 862b1d0
+  (release-20261102-1): no textual conflict. `ca-ack` gained the per-book
+  state-dir rule. C4's spec took CEF trial 53's `sizing_multiplier` 1.27
+  (`c4_families.v2.20261101`) and then the core's halve/kill levels
+  (`v3.20261102`). `tests/test_panels_noop.py` was re-pinned on
+  `git archive 862b1d0`, so the core's session is now proved to be 862b1d0's,
+  with the gate block removed and as released.
+
+## As built (2026-10-28): the corporate-action gate, `halt` on paper
+
+**The defect.** Alpaca paper processes no corporate actions: no splits and no
+mergers (`docs/REFERENCES.md` §12pc). IBKR paper processes none either, so paper
+stays on Alpaca (`docs/SYSTEM.md` §5, 2026-10-28). The runner reads broker share
+counts as they are and prices them at the as-of close. Take a held fund that
+reverse-splits 1:4. Paper keeps the old count while the price is four times
+higher, so the plan's dollar exposure, equity and the orders sent to reach
+target are all wrong. Nothing handled this. The team lead ruled a HALT guard
+(2026-10-28).
+
+**What runs.** `quantt/session/corp_actions.py` is step 3b of every DECIDE, after
+the decision and before the gate's clock read. It runs again at the late-market
+SEND, on fresh reads, because Alpaca can list an action effective today after the
+evening decide.
+`AlpacaClient.corporate_actions` reads the thirteen non-dividend types: reverse,
+forward and unit splits, stock dividends, spin-offs, cash, stock and
+stock-and-cash mergers, redemptions, name changes, worthless removals,
+reorganizations and partial calls. The request sends no `symbols` filter,
+because the reference does not say which field it matches on a merger. Every
+symbol field is matched client-side, so the acquirer and the acquiree are both
+mapped. It asks for `data_quality=all`, which includes the early, unprocessed
+records (2026-10-29). A reorganization leg with no ticker but a CUSIP names
+nobody. On twelve months of the real feed, 29 reorganizations carried such legs,
+and the first version of the parser raised on them (`docs/REFERENCES.md` §12pc).
+
+**A malformed row.** Two rulings apply. The first is `docs/SYSTEM.md` §5,
+team lead 2026-10-29: "skip it, and record it, unless it could concern one of
+our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved corporate-action rows), which governs a row with a missing party.
+
+- **An UNRESOLVED row: a party symbol null or empty.** This covers any required
+  symbol field of any type and role, and a reorganization leg with no ticker
+  and no CUSIP. The reader returns such a row, with its id, its raw row and the
+  missing fields named, and does not raise on it. The gate treats the missing
+  party as each of its names in turn (held, and targeted), in the missing
+  role, on its usual short and long windows.
+  - If that would block for one of them, the session refuses, naming the row
+    and the field (`an UNRESOLVED ... its <field> is missing ...`).
+  - Otherwise the row is recorded only, under `corporate_actions.unresolved`
+    with one log line.
+
+  A short-window case, such as a missing acquirer or allocated leg, halts one
+  session and then clears. A long-window case, such as a missing subject on a
+  held name, halts until the team lead acknowledges it with `ca-ack`, matched
+  on its full raw content and its type. When the id is null too, the key is a
+  hash of the raw row (`row-sha256:...`). An unresolved row whose dates
+  cannot be read is UNDATED: keyed by its hash and treated as inside every
+  window, so it halts until acknowledged.
+- **Skipped and recorded.** This applies to a row whose every party symbol is
+  present, none in the book's universe, with a non-party field malformed: its
+  id, its date field or `process_date`. It goes in
+  `corporate_actions.skipped_malformed` in plan.json, send.json and the run
+  record, with one log line. The same fault on a row naming a fund of the
+  universe refuses.
+- **Not malformed.** Two optional party fields name nobody when empty, as the
+  reference documents: a reverse split's `new_symbol` and a cash merger's
+  `acquirer_symbol`. A reorganization leg with no ticker but a CUSIP also names
+  nobody, the measured exception above. A required field that is absent, a
+  symbol that is not a string, or a row that is not an object still fails the
+  read.
+
+**Every field validated** (release-check of 1c64638, 2026-11-02). Every
+field the reader knows goes through a validator that returns a value or a named
+fault, and none can raise: the party symbols, the id, every date, every ratio,
+rate, cash amount and price, every CUSIP, each reorganization leg, and the row
+itself. Dates must fully match YYYY-MM-DD and be real days, so "2026-02-30",
+"0000-00-00" and a trailing newline are faults. Numbers must be finite and
+positive (`cash_rate` may be 0).
+- A fault on a party field makes the row unresolved.
+- A fault on any other field of a row naming ours makes it inside every window,
+  keyed for `ca-ack`.
+- On a row whose parties are all present and none ours, it is skipped and
+  recorded.
+
+`quantt/session/tests/test_ca_read_property.py` substitutes 19 adversarial
+values into every field of every type, on a held-fund row and on an outside
+row. The read never raises, and every rejected value either blocks, naming a
+key `ca-ack` can take, or is recorded.
+
+*History, each step reproduced by a release-check.*
+- 9cf5cf2 skipped a malformed row when no symbol present was ours, so a held
+  fund's split with a null symbol was skipped and sent.
+- 04aca24 skipped it when the subject was present and not ours, so a null
+  acquirer was skipped and sent for a held acquirer.
+- 709d6cb refused every such row, on a brief that was never a ruling. One
+  outside row, of any date, then halted the book indefinitely, and `ca-ack`
+  could not clear it.
+- 1c64638 let a date such as "2026-02-30", or one with a trailing newline,
+  through its pattern. The date then raised unnamed, and `ca-ack` could not
+  clear it. On 1c64638 the property test fails 2026 of its 4598 cases; 794 of
+  those raise.
+
+**One id, one event** (release-check of 9630322, 2026-10-30, reproduced). Rows
+naming ours are de-duplicated by id, because a page boundary can repeat a row.
+The id was only required to be present, so two rows with `id: null` counted as
+one, and the second was dropped. In the reviewer's probe that was a split
+effective on the session date, and the gate read CLEAR under `halt`. From
+9cf5cf2 such a row, and an id repeated with a different event, failed the read,
+which only a release could unstick. Since 2026-11-02 (team lead: nothing may
+need a release to unstick) each is keyed by its content (`row-sha256:...`,
+with `row_id` the id as sent). A row naming ours with a null, empty or
+non-string id is one such row; every row of an id that Alpaca lists with
+different raw content is another (`conflict`). Each is judged like any row
+naming ours, so it halts whenever the gate would halt for that fund, and
+`ca-ack` clears it on its full raw content. None is dropped. Only an identical
+repeat is one event. A malformed row naming none of ours is still skipped and
+recorded, whatever its id. With a record to go to, the read now raises only on
+transport and shape faults (`AlpacaClient.corporate_actions`, WHAT STILL
+RAISES).
+
+**The windows** (ET calendar dates, inclusive; the module docstring has the
+alignment in full):
+
+| window | for | why |
+|---|---|---|
+| long, held name: from the earlier of the date its shares were last set and the as-of date, through the session date | a market-date match in any role but a merger acquirer: acquiree, every split type, stock dividend, spin-off, reorganization, name change, redemption, worthless removal, partial call | paper never adjusts a count, so an action after the shares were last set leaves them on the wrong basis until the name trades again. A name change stays long because paper may leave the position under the old symbol |
+| long, target-only name: the as-of date through the session date | the same | every order is priced at the as-of close and fills on the session date |
+| short: after the as-of date, through the session date, `(as-of, session]` (team lead 2026-10-29) | a merger acquirer (all three merger types) and a reorganization's allocated leg, both on the **market date only**; and any other match through the process date alone | an acquirer's count does not change, only its price on the terms; the allocated security's holders likewise keep their count (re-review 2026-10-29, flagged to the team lead). The market date only, because the feed lists each real MQY merger twice, processed 02-23 and 02-24, and paper never applies a process date. The feed also backfills old actions years later (a 2016 split processed in 2025), so a process date by itself matters only on the day a broker applies it |
+
+"Last set" is the NYSE trading day before the ET submission date of the latest
+order in that name that filled anything. The order comes from the closed-order
+history step 2 already reads. That day's close is the latest the order can have
+been sized on. A late-market order submitted Monday at 15:52 ET was sized on
+Friday's close, so an action effective that Saturday is inside the window
+(re-review 2026-10-29). So in both modes the window can only start early. Every role blocks, each on
+its own window. A short-window match blocks ONE session: the one whose window
+holds its date. The next session's as-of is that date, so it is outside, and the
+match clears by itself. By then the as-of close and the counts are post-event and
+consistent, so there is nothing left to protect. The long window keeps the as-of
+inside, because there the count is wrong.
+
+**The query** asks for process dates from 31 days before the earliest window to
+731 days after the session. The API filters on the process date. On the real
+feed, process dates ran from 4 days before an action's market date to 3,358 days
+after it (`corp_actions.py`, the constants' comment; §12pc).
+
+**On a combined book** (the multi-sleeve combiner above, when a book json turns it
+on), the gate's targets are the netted decision's non-zero targets **and** every
+sleeve's own (`run._plan_targets`, from plan.json's `combine`). A name two sleeves
+net to zero still blocks. Today enabled sleeves may not share a symbol, so the net
+equals the owning sleeve's target, but the gate does not rely on that switch. The
+held names are still the broker's positions. The decide and the send both run the
+gate on that path (`quantt/session/tests/test_corp_actions.py`, the `combined`
+tests).
+
+A malformed `combine` record makes the session FAIL (exit 20). It does not
+produce the gate's UNMEASURED: `_plan_targets` reads the record as an argument,
+before the gate's own error handling, so the error ends the session as any
+unexpected error does. That still fails closed, since nothing is sent. Only the
+runner writes `combine`: `combine.decide` builds it in-process at decide, and
+the send reads it back from that run's plan.json (third review, 2026-10-29;
+no code change).
+
+**Modes** (`ops/books/cef_discount_book.json`, `"corporate_actions": {"mode": ...}`;
+absent = no gate, today's behaviour, `run.corporate_actions_for`):
+
+- **`report`.** Records the result in plan.json, the run record and send.json,
+  prints it, and sends anyway. A read that fails is recorded as UNMEASURED, never
+  as clear. With a blocking event it sends the same orders as the gate absent,
+  and plan.json is identical once `corporate_actions` is removed
+  (`quantt/session/tests/test_corp_actions.py`).
+- **`halt`** (set). A blocking event is a gate-5 `data` refusal naming the
+  symbol, its role, the type, the id, the dates and the window: exit 11 REFUSED,
+  nothing sent. A failed or unparseable read refuses too and names the error. So
+  does a held name the order history cannot date.
+
+**Verify.** A refused day reads `MISSED: ... [data] corporate-action gate ...`, a
+FAIL. It is not a deliberate `halt`. The book should have traded and could not,
+and a person has to look.
+
+**What clears each halt** (`docs/RUNBOOK.md` §6.1 is the procedure):
+
+| halt | what clears it |
+|---|---|
+| short-window match: a merger acquirer, a reorganization's allocated leg, any match through the process date alone | itself, at the next session |
+| long-window match on a target-only name | itself, once the as-of date passes the event's date |
+| long-window match on a held name | a filled order in the name submitted on the second trading day after the event or later, through the team lead (§6.1 step 3); or `ca-ack` of its id (step 7) |
+| unresolved row (a party symbol missing), short role: acquirer, allocated leg | itself, at the next session |
+| unresolved row, any other role, in a name's window | `ca-ack` of the id its refusal names (`row-sha256:...` when its own id is null); or Alpaca completing the row, which is then judged afresh |
+| UNDATED unresolved row (a party missing and a date unreadable): blocks in every window | `ca-ack` of its `row-sha256:...` key; or Alpaca completing the row, which is then a new row, judged afresh |
+| an acknowledged row, revised or listed under another type (`ack_mismatch`) | `ca-ack` again, which replaces the entry |
+| UNMEASURED: the read or the order history failed | itself, when a later slot reads cleanly |
+| a row naming ours with a null, empty or non-string id, or an id listed with different content: keyed by its content (`row-sha256:...`) and judged like any row naming ours | as for its window above; `ca-ack` of its `row-sha256:` key |
+| UNMEASURED that persists: a transport or response-SHAPE fault only (a failed GET, a body that is not JSON or not an object, a type's list that is not a list, an unknown response key, a bad page token). No value in any field of any row can cause it (2026-11-02, `test_ca_read_property.py`) | Alpaca correcting the feed; otherwise a release (code or `report` mode) |
+| `ca_acks.json` unreadable | restoring or removing the file, then acknowledging again |
+| any of these, on the team lead's decision | `corporate_actions.mode` set to `report`, through a release |
+
+**What clears it.** A short-window match clears by itself once the as-of passes
+it. A long-window match does not clear by itself. While the gate refuses,
+nothing trades, so the event stays inside the window. It clears in one of two
+ways. One is a person's order in the name, through the team lead (CLAUDE.md
+order-path rule 1). It must be submitted on the SECOND trading day after the
+event's latest date or later. An order submitted on the first trading day after
+is sized on the event's own close, and the inclusive window start keeps the
+halt on. A reverse split ex Wednesday 10-07 is not cleared by a Thursday 10-08
+order, and is cleared by a Friday 10-09 one. The start stays inclusive so that
+a late-listed action dated on an ordinary fill's sizing close is still flagged
+(third review, 2026-10-29). The other way is for the team lead to set the mode
+to `report` for the sessions that should go. A third way is the team lead's
+acknowledgement of the action's id (team lead, 2026-10-29). It is built for a
+backfilled name change, redemption, worthless removal or partial call: these
+carry only a process date, so a backfill is judged as if it had just happened,
+and no trade may be able to clear it. `python3 -m quantt.session ca-ack --book
+cef --id <id> --reason "..."` checks the id in the feed, read-only, and writes
+`<state>/ca_acks.json` atomically, with the feed row exactly as listed and its
+type. It is the only writer. The gate clears that id only, and only while the
+feed's row for it still equals the acknowledged row in every field (dates,
+parties, ratio and the rest) and its type is the acknowledged type. The raw row
+carries no type, so the type is checked on its own (release-check of 709d6cb,
+2026-11-02). An unresolved row is acknowledged by its id, or by its
+`row-sha256:` key when its id is null. Any other action, a new one on the same fund
+included, still halts. So does a revised row under the same id: its record
+carries `ack_mismatch`, and the refusal names each changed field, so it needs
+a new acknowledgement. *Added 2026-11-01 (release-check of 9cf5cf2): the
+first build cleared by id alone.* The
+cleared rows stay in the record under `acknowledged`. A file the gate cannot
+read refuses (UNMEASURED); it is never read as empty. No file means nothing is
+acknowledged. (corp_actions.py, ACKNOWLEDGEMENTS; `run.ca_ack_main`.) Until
+2026-10-29 no per-event acknowledgement was built. `docs/RUNBOOK.md`,
+"Corporate-action halt", is the procedure, including the phantom P&L that paper
+keeps.
+
+**Latency at the send.** The gate adds at least two GETs to the SEND phase: the
+closed-order history and the corporate-action pages. Both come before the gate's
+clock read. One GET that exhausts its retries takes about 250 s:
+- five attempts at the 10 s connect and 30 s read timeouts, 200 s;
+- the backoffs 2 + 5 + 15 + 30, 52 s;
+- `alpaca.GET_BACKOFF_S` and `TIMEOUT_S` hold the constants.
+
+The late window is 360 s (15:52–15:58 ET), and a 13-order set needs 81 s of it
+(`gate.send_budget_s`). So one such stall at the 15:52 send leaves too little
+time. The outcome is a refusal, never a partial or late batch. Under `halt` a
+failed read refuses. A slow read that succeeds puts the gate's clock read late,
+and the late-clock or send-budget gate refuses before STARTED. Either way verify
+reads a MISSED FAIL. Under `report` the same time is spent although the result
+blocks nothing. Normal reads take a fraction of a second; the slowest measured
+order cycle, a clock GET and a POST, was 0.259 s (`gate.py`). No code was
+changed for this (review 2026-10-29). Gate 6's order lists, which were read
+before both of these GETs, are now read after them ("As built (2026-10-29):
+gate 6 reads its lists last").
+
+**Not covered.** Rights distributions, cash dividends and capital-gains
+distributions change no share count. An action Alpaca never lists is not seen
+either: its merger coverage is mostly effective actions (§12p). A split inside
+the signal's own lookback is a panel-quality question for gates 5 and 1b.
 
 ## As built (2026-10-19): the drawdown check, HALVE/KILL in `report` mode
 

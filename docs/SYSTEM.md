@@ -590,6 +590,20 @@ and the IBKR option order path were deleted on 2026-09-28 (tag `pre-clean-slate`
 
 ---
 
+### Team lead, 2026-10-26 and 2026-10-27 — the screens, the ex-date drift, and C4 on paper
+
+Answered interactively. The five zero-trial screens are in `results/cef/screens_2026-10-26/README.md`. The
+counter is in `docs/RESEARCH_STATE.md`.
+
+| question | decision |
+|---|---|
+| Macro regime filters on the core book | **Measured first, at zero trials** (2005–22). Nothing found: no group's own observable changes the within-group IC (`r1_macro_state/`). The same goes for FOMC, CPI and NFP days (`r2_macro_days/`) |
+| C4 to paper, after the ex-date check came back MIXED | **Proceed anyway** (2026-10-26). Paper is scored against a price-only backtest, because paper charges shorts no distribution. The plan is `results/cef/C4_DEPLOY_PLAN_2026-10-27.md` |
+| Where C4 trades | **Its own paper account**: the never-traded paper account behind the Alpaca connector (created 2026-09-29). **This is an exception to 2026-10-09's "one combined book"**, because the runner's gates refuse a shared account (`quantt/session/gate.py` gates 6 and 9). The team lead adds its keys as `ALPACA_C4_KEY_ID` / `_SECRET_KEY` |
+| C4's setup | **The plan's §3, as a set:** its own $100k, the spec's vol target and its own gross cap; no CEFConnect for C4 (the NAV-repeat mask instead); shorts Alpaca will not lend are skipped, with no substitute; halt on a fidelity break; reverse below the price-only 5th percentile at 120 sessions, or on a drawdown past the fit's worst; the 9 non-NYSE funds scored as gaps for now. *2026-10-29, within the 2026-10-28 C4 fast-track: their official closes are now mapped (NYSE American `A`, Nasdaq `Q`, condition `M`; `docs/REFERENCES.md` §12bl). Gaps already recorded for past days are not refilled by that change* |
+| The post-ex-date drift | **Pre-registration approved, all 17 recommended answers** (2026-10-27). Part (b) is EVENTS trial 3 at N = 7; part (a) is withdrawn on power. `results/events/PREREG_EXDATE_DRIFT_2026-10-26.md` |
+| R2 pulls for the BDC and index-rebalance screens | **Run by the team lead** (2026-10-27), into a gitignored `_cache_` folder under results/events (never committed: the rows are licensed) |
+
 ### Team lead, 2026-10-27: the research method
 
 Answered interactively after the zero-trial audit of 82 kills and the desk
@@ -604,6 +618,16 @@ rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
 | The audit's zero-trial re-opens | **All queued, in this order:** (1) NAV tenders and E1 judged by their contribution to the book, on fit-period series only; (2) C5 as an execution choice, with the opening-auction cost re-measured on 2023–26 quotes; (3) X3 hedged against TERM, power check first because its holdout is spent; (4) A1 as a conditioner, G2's two named inputs, MA-HZ on the 2001 census. Each spends no trial; any test that follows is pre-registered |
 | Trial P&L series | **Backfill what is reproducible.** Re-run each past trial whose script still reproduces, store its daily series, and list those that cannot be rebuilt. The desk's bar keeps gating until it is done |
 | Admission by marginal contribution, after re-open (1) (**2026-10-28**) | **Kept as written:** "Kept the paper-admission rule as written, after seeing that, under the 1.80× cap, NAV tenders lowers the book's Sharpe and E1 leaves it flat." Ruled on the first version of `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` (b43bf35). That note's paper view, with book and sleeve both on price returns, was found afterwards by an independent review: NAV tenders no longer meets the rule, and E1 still does. Superseded the same day by the next row |
+| How the paper's bar is computed once a counter qualifies (**2026-10-28**) | **With safeguards.** N is the counter's declared slate size, adjusted by the measured mean correlation (negative counts as 0). The cross-trial variance is floored at the null 1/T, because a spread measured on two to four trials is noise. `scripts/research/inference.py::safeguarded_sr0`. On the 2026-10-28 backfill (`results/research/BACKFILL_TRIAL_SERIES_2026-10-28.md`), EVENTS and XASSET qualify. Their hurdles (annualised Sharpe) are EVENTS 0.36 against the desk's 0.53, and XASSET 0.34 against 0.44. Unfloored, EVENTS' would be 0.06 |
+| E1's route to paper, ruled **2026-10-28** | **Try IBKR paper.** Alpaca paper processes no corporate actions, so E1 cannot run there as specified (`results/events/E1_PAPER_BROKER_CHECK_2026-10-28.md`). Whether IBKR paper does is unknown. The check is that note's Activity Statement step, for the team lead's login |
+| The broker for real capital, ruled **2026-10-28** | **Wait for Alpaca Canada.** Alpaca live is not open to Canadian residents: "Alpaca Clearing & Custody Canada Ltd. is not yet a CIRO Dealer Member". IBKR Canada is the only current broker that fits the book (`results/ops/BROKER_OPTIONS_CANADA_2026-10-28.md`), and it was not chosen. **Real capital is deferred** until Alpaca Canada is approved, which takes at least six months, scope [U]. This narrows 2026-10-09's "real capital soon". Re-check Alpaca's Canadian status each quarter: whether it offers the trading API, closing-auction orders, short selling and paper |
+| Where paper runs meanwhile, ruled **2026-10-28** | **Alpaca paper, unchanged.** IBKR paper processes no dividends or splits either, so moving buys no corporate-action gain |
+| A corporate-action halt gate for the paper runner, ruled **2026-10-28** | **Build a HALT guard.** Paper keeps a split or merged name at its old share count, and the runner reads broker counts as they are. So a session refuses when Alpaca lists a non-dividend corporate action naming a held or targeted name, in any role, inside that name's window. It also refuses when the list cannot be read. It runs at decide and again at the send (`docs/RUNNER.md`, "As built (2026-10-28)"). A runner setting in the book json (`corporate_actions.mode`: absent off, `report`, `halt`). Which mode is set is that file, not this one |
+| The corporate-action gate's windows, ruled **2026-10-29** | **Two windows.** A merger acquirer, in any of the three merger types, and a match through the process date alone use the short window `(as-of, session]`. The acquirer is judged on its market date only: the feed listed each real MQY merger twice, processed on consecutive days. *Re-review, the same day, flagged to the team lead: a reorganization's allocated leg goes on the short window too, and a held name's long window starts at the trading day before its last fill's submission, the latest close that fill was sized on.* They halt for one session and then clear: by the next session the as-of close and the counts are post-event and consistent. Every other role keeps the long window, which reaches back to when the name's shares were last set: acquiree, splits, stock dividends, spin-offs, reorganizations, name changes (paper may leave the position under the old symbol), redemptions, worthless removals and partial calls. The feed is read with `data_quality=all`. A long-window halt on a held name follows `docs/RUNBOOK.md` §6.1, which covers phantom P&L, and orders go only through the team lead |
+| E1, ruled **2026-10-28** | **Parked until real capital.** No paper account open to the desk processes mergers. A merged-away position would sit in the account and distort the P&L of record. E1 stays eligible and untraded |
+| Re-opens (3) and (4), ruled **2026-10-28** | **X3 hedged against TERM: closed at the power gate.** As a fifth declared XASSET test, P(pass) is ≤ 0.13 over 10 years at net Sharpe 0.44–0.55 (`results/research/REOPEN_X3_FORWARD_POWER_2026-10-28.md`). **G2 and MA-HZ: closed, UNDERPOWERED,** with no data pulled. MA-HZ's P(pass) is ≤ 7% after post-publication decay (`results/events/MERGER_ARB_V2_2026-10-19.md`); G2's variance premium is t 1.33 before 2023, which no cost convention makes significant (`results/gamma/G2_GATE_FREE_DATA_2026-10-12.md`). **A1: run the zero-trial live-book measurement.** It compares the fit-period P&L of the book's shorts inside versus outside share-issuance programme windows. It computes P&L on the deployed names, which A1's brief excluded |
+| Which bar gates the CEF counter, ruled **2026-10-28** | **The desk's √(2 ln N) on the raw counter, unchanged.** 50 of CEF's 52 trials cannot be rebuilt without opening the 2023 time holdout, or their scripts were deleted, their ids are ambiguous, or they ran at `shift(1)`. So the paper's switch condition can never be met. Those unrebuildable trials are also the ones whose correlation cannot be measured |
+| Which bar gates a qualifying counter with one stored trial (**2026-10-28, later**) | **The desk's √(2 ln N) at the declared N, until a second trial is stored**; from then, the safeguarded paper bar. With one trial the correlation between trials cannot be measured, so the paper's bar is refused (`scripts/research/registry.py::paper_sr0`, refusal code `one_trial`). Extends 2026-10-27's "the desk's bar gates until the paper's inputs exist", and is the stricter of the two bars. Chosen over treating the unmeasured ρ̄ as 0, and over closing the standalone route for that trial. Any other refusal of the paper's bar still closes the standalone route |
 | Which return convention decides paper admission (**2026-10-28, later**) | **Paper's own P&L of record** (Alpaca paper, which pays no distributions), on the paper view of `results/research/REOPEN_BOOK_NAVTENDER_E1_2026-10-28.md` at f7b4562. **NAV tenders does not qualify for the paper book.** On that view its gross Sharpe is 0.055 and the combined book falls from 0.959 to 0.738. It remains a real-capital candidate on total returns. **E1 qualifies.** Admission still goes through `quant-trader`'s rollout: a broker check (whether Alpaca paper processes a merger conversion is unknown), then shadow, then a paper sleeve |
 
 ### Team lead, 2026-10-27: the autonomous loop and the harness
@@ -619,6 +643,120 @@ Their verified findings are cited in the docstrings of `scripts/research/`.
 | Where agents trade, revised 2026-10-28 | **Not a new account.** The lab uses the attached Alpaca account (the spare connector account), which C4 also trades in (team lead, 2026-10-28). The runner sizes orders from the account's open positions, and Alpaca rejects opposite-side orders in one symbol (CLAUDE.md landmine 2). So lab sleeves must be netted into C4's targets symbol by symbol, or the runner must hold positions per book. That is decided when the lab book is built, on top of C4's multi-book runner work (C4's 2026-10-27 deploy plan, row 6A, on the C4 branches) |
 | Where and how often | **The team lead's laptop**, a scheduled Claude Code session, **one research cycle per day** after the close |
 | The backtester | **`evaluate()` may be restructured as necessary.** Done: `scripts/research/harness.py`. `band_frontier.evaluate` delegates to it, byte-identical on the live book (`results/research/HARNESS_RESTRUCTURE_2026-10-27.md`). The named gaps were non-CEF families and an ML pipeline (`scripts/research/ml.py`) |
+
+### Team lead, 2026-10-28 and 2026-10-29 — the data fixes, the releases, and adding all three sleeves
+
+Answered interactively. Day by day, what was found, shipped and earned is in
+`docs/JOURNAL.md`. The counters are in `docs/RESEARCH_STATE.md`.
+
+| question | decision |
+|---|---|
+| `fetch_daily` wrote yfinance's empty ex-date rows over good bars | **Fix it, NAV side included, in one release.** Shipped as `release-20261028-1` |
+| Prod's panel held 91 empty Feb–Apr 2026 closes, older than the refetch window | **Measure the effect, then repair** from Alpaca's official closing prints. Applied 2026-10-28; 4 NYSE American cells are left empty |
+| Gross headroom for more sleeves | **Build the combiner first, dark; decide placement after.** Each addition goes live only after its own test passes (superseded below by "add all 3") |
+| How risk is split | **The best risk-adjusted return, good returns.** Equal risk across sleeves, per account (independent review, 2026-10-29) |
+| One missing NAV refuses all 13 names, as on 2026-10-22, since CEFConnect died | **Hold that fund and trade the rest**, for at most **2 consecutive sessions**. The limit is a POLICY, not derived, to be reviewed against the live gaps. **Switched ON 2026-10-29** (`release-20261029-3`) |
+| The collector ends INCOMPLETE because CEFConnect is down | **Record CEFConnect as an unavailable second source** |
+| A replacement NAV source | **The team lead chases the Nuveen and Nasdaq Fund Network replies.** No code |
+| C4's gross cap | **1.90, re-derived by the core's frozen rule.** H11 and the stop rule read the 1.90 book. **Not counted as a CEF trial**: applying a frozen rule with no performance test, unlike trial 50. Re-derive against the shared account's margin before arming |
+| IGR's four bad bars in C4's seed | **Seed with the trial's 2026-10-19 correction**, logged per cell. The guard accepts exactly those four |
+| Two or three sleeves | **Three is preferred.** If the ex-date short passes, it trades in the **spare account beside C4** (no symbol overlap) |
+| The three additions (2026-10-29) | **Add all three, on paper:** C4 (passed); the **ex-date short as a forward test** (EVENTS trial 3; the sealed 2023+ test still runs once French publishes, and trading forward does not touch it); and **PCEF reconstitution as EVENTS trial 4 (N = 8)** in a **third paper account**, approved with every recommended answer except question 1, which the team lead overrode to spend the trial. Its counter moves in the commit that records its pre-registration |
+| How big the untested sleeves start | **A full equal-risk share from day one**, for all four sleeves |
+| PR #20's gate-6 defect (another session's corporate-action gate) | **Fix it** (branch `fix-gate6-stale`). Nothing from `main`'s head is released until it is fixed |
+| A record of progress | **A desk journal in the repo:** `docs/JOURNAL.md`, updated in the same commit as each change |
+| Corporate-action gate (PR #20), a malformed row (empty or null required symbol) | **Skip it, and record it, unless it could concern one of our funds**; refuse only then. Before this, any malformed row in the market could stop the book |
+| A corporate-action row with a missing (null or empty) party symbol, which can be neither ruled in nor out as ours (release-checks 2026-10-30 to 11-02) | **Team lead, 2026-11-02:** it **halts only when a well-formed row with the same type and dates would halt for one of our held funds** (the gate's short and long windows), naming the row. **The team lead clears it with `ca-ack`**, matched on its full content, so a revised row halts again. Outside those windows it is recorded only, and never needs a release to unstick. *Correction (2026-11-02): the row first written here on 2026-11-01 read "a null party symbol always refuses". That was the agent's reading of ruling A, recorded as a ruling in error. The team lead never made it, and the release-check of 2026-11-02 showed it would stop the book indefinitely on one malformed row anywhere in the market.* |
+| Trial 53 (core ×1.13) and the corporate-action gate ship together (2026-11-02), but the gate's fixes might not pass review in time | **Ship trial 53 regardless**: if the gate fails its release-check, the book runs with `corporate_actions` in **report** mode (records, does not block). Prod had no gate at all before this. It switches to `halt` in the next release |
+| C4's account (2026-11-02) | **No new account: the existing spare paper account** (ruled 2026-10-27). The team lead puts its API keys in the vault as `alpaca-c4-key-id` and `alpaca-c4-secret-key` (RUNBOOK §8). Putting C4 inside the core's account was declined: shared gross cap, the combiner cannot yet run with the missing-NAV hold, and the trial-53 sizing assumes two accounts |
+| Corporate-action gate, a backfilled name change, redemption, worthless removal or partial call that never clears under `halt` | **It clears by the team lead's recorded acknowledgement** of that action ID only (`ca-ack` CLI, logged; RUNBOOK §6.1) |
+| When `main`, with the corporate-action gate on, is released | **After A, B and the gate-6 fix are built**: one release-check, one VM update |
+| Sizing the sleeves, after the four-sleeve analysis showed equal shares across three $100k accounts give about 6.1%/yr (2026-10-30) | **Maximise the % return on all capital**, the real-money view. **Core + C4** at their per-account equal-risk multipliers (core ×1.24, C4 ×1.41, 5.75% combined target; about 9% gross on the fit). The ex-date short and PCEF stay built but off, because they lower the percentage. This supersedes 2026-10-29's "full equal-risk share for every sleeve" |
+| Raising the core's vol target (×1.24, about 6% → 7.4%) | **Pre-register it as CEF trial 53** (`results/cef/PREREG_VOLTARGET_2026-10-30.md`; approved 2026-11-01 at the milder ×1.13 / ×1.27, see the next section) through /spec-change. The counter moves on approval |
+| C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
+| PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
+
+### Team lead, 2026-11-03 — the analyst lanes redrawn as risk
+
+Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` §1 holds who keeps which paths.
+
+| question | decision |
+|---|---|
+| What the analysts work on | **"Ryan work on the credit / fixed income risk, James equity risk, Lucy stays same and everything else to me, so the analysts dont have much work to do."** The fixed-income lane becomes **credit and fixed-income risk**, the equities lane becomes **equity risk**, and both are report-only: a weekly readout of the deployed book, with no signal, no trial and no live-path change. The dashboard-and-data lane is unchanged. This supersedes 2026-10-26's "the analysts bring new signals only" |
+| Who does the signal work | **The team lead, on every counter.** MACRO (0) and XASSET (4) stay open, with their rows, and are kept by the PM. The E1-band WATCH row (non-industrialised fixed-income wrappers) is the PM's |
+| What a risk finding feeds | **The PM's judgment.** A readout that suggests a hedge, an overlay or a signal goes to the PM, who decides whether it becomes a pre-registration. Nothing in a readout acts on the book (CLAUDE.md: any monitor is read-only) |
+
+### Team lead, 2026-11-03 — C4 v5's gross cap (after the release-check of e41f10b)
+
+| question | decision |
+|---|---|
+| The frozen margin rule (`_max_gross_stress_note`, ruling 3: "C4 arms only on the re-derived value") gives the v5 blend **1.80**, not 1.90 (blend w5 0.0536 against the z book's 0.0261; a 2020-03 week ≈ −10.2% of NLV held at 1.90, against −4.6% for the z book) | **"Keep 1.90, install tonight."** It is **an override of the rule's 1.80**, made with these figures in front of the team lead, and recorded with them. release-20261103-5 (e41f10b) was tagged unchanged and installed at 18:02 ET. Revert: a `/spec-change` to 1.80 with fidelity, H11 and the stops re-run |
+| The arming gate read 1.90 because `recap` reads the z book's w5 | **To be fixed** (not ruled): `recap` must read the live spec book's w5 |
+
+### Team lead, 2026-11-03 — the research loop becomes research-only
+
+Answered interactively on 2026-11-03, before C4's arming, when C4 and the loop would have shared the spare account
+(two runners on one account can double a book: `CLAUDE.md` rule 2).
+
+| question | decision |
+|---|---|
+| May the autonomous research loop still trade? | **No: "have the loop only get us to what we should trade and deploy, and then we figure it out from there."** The 2026-10-27 exception in `CLAUDE.md` rule 1 is suspended: the loop transmits nothing, promotes no lab sleeve into the book and installs nothing. Its output is a recommendation; what trades or deploys is the team lead's call. C4 is the only runner on the spare account. Revert: delete the SUSPENDED paragraph in `CLAUDE.md` rule 1 and this row |
+| Unchanged | The loop's trials are still counted and stored (2026-10-27). Its wrapper already denies `python3 -m quantt.session` and holds no key file (`.claude/loop/run_research_loop.sh`) |
+| Install C4's v5 (the trial-54 blend) tonight, as a second release? | **"install tonight"**, through every gate of the standing authority (release-check GO, CI on the exact head, the replay, outside the send windows, the read-back), finished before 21:50 ET |
+| The three analyst briefs | **"not yet"** |
+
+### Team lead, 2026-11-03 — Gate 0 and CEF trial 54 (C4's family level)
+
+Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02.md` (its §0.A records it).
+
+| question | decision |
+|---|---|
+| Gate 0: does survivorship explain C4's family-level discount effect? (**post-data**: ruled after the result was seen; the 2026-11-02 ruling made Gate 0 a judgment, not a mechanical gate) | **Cleared: "I approve, lets try and deploy as fast as possible".** Evidence: the prereg's §4b, commit 389f61a, reproduced byte for byte on 2026-11-03. Dead funds show the effect at least as strongly as survivors (b_D/b_A 1.36, 95% CI 0.80–2.13; negative in 30 of 33 half-years). NAV coverage 0.642 is under the 80% reference; the never-covered funds are the worst dying ones, and an adverse imputation still gives b_B/b_A 1.03. **Not a pre-registered pass**, and never to be described as one |
+| Approve CEF trial 54? | **Approved. CEF 53 → 54**, with the draft's recommended answers to its open questions 2–9 (the C4 judging precedent: the fit at the bar, then the holdout's sign; risk split 0.50; the 1.90 cap kept; CRSP primary with yfinance second; borrow in its own column; sample B every five-family CEF) |
+| Which accounts | **"use the 2 accounts I gave you, i dont hvae any other"**: the core account and the C4 (spare) account. No third account, for this trial or C4's arming |
+| C4's first armed session (the spare account holds two old research-loop fills, so the runner's any-fill rule would open C4 at 28–42% of target) | **"just flat it"**: C4 opens from the flat account at full target. The research loop's fills do not count against C4's opening; any position does. Built as a C4-only book key (absent = today's rule, the core unchanged), released before C4 arms |
+| What "as fast as possible" means | **No stage is skipped.** The trial's pass rule (§6.2) stands. The sleeve key is built in parallel with the fit stage, and each stage runs as soon as the last clears |
+| CEF trial 54's K3 (D4), after the KILL was seen (**post-data**, later on 2026-11-03) | **"revive it and figure out a way to not kill it".** K3 (D4) failed as committed; overridden post-data by the team lead; the holdout decides. Not a pass of K3. P1 is lag-fragile (t 2.8271 at lag 6 as committed; 2.791 at lag 5). Evidence: `results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md` |
+| C4's first armed session: dry sessions (checklist step 5) | **"i want no dry sessions"**: C4 arms at its first install (2026-11-03). Its first armed decide is read before its first send, and C4 is disarmed before 15:45 ET if that plan is wrong |
+| Where the pre-arming reads run (checklist steps 3 and 6), with C4's keys absent from the laptop | **"they are on the vm"**: the read-only probe and the cap re-check run on the VM, authenticated by the key file its C4 secret service wrote. No key is printed, copied or moved (`vmrelease.sh c4-probe`, git-excluded) |
+| CEF trial 54's outcome (the holdout, opened once, 2026-11-03) | **PASS on the pre-registered remainder, with the holdout decisive** (`results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md`): level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32% [S]. Evidence INCONCLUSIVE at N = 54, K3 overridden as above. Per "deploy as fast as possible", `level_signal` is activated in C4's spec (v5) through `/spec-change` and a release-check, paper only |
+
+### Team lead, 2026-11-03 — the research evidence pack's live data
+
+| question | decision |
+|---|---|
+| What of the paper accounts' live record may the public repository carry (PR #45, `results/report/`)? | **"Aggregates in repo, rows private."** Daily, account-level aggregates only: equity (the EOD record and the snapshot, labelled), P&L, attribution totals, fill-cost summaries in bp with counts, order counts, gate and verify outcomes (precedent: `results/cef/fill_drift_2026-11-02/`). Per-name quantities, per-name or per-fill prices, positions and order-level rows go to the gitignored `results/report/_cache_live/`; `scripts/report/snapshot_live.py` refuses to write a row file where git can see it. The branch's history was rewritten so the row files never appear in it. Backing up the cache to R2 is the team lead's step |
+
+### Team lead, 2026-11-02 — autonomy
+
+Answered interactively on 2026-11-02, after `release-20261102-1` went live.
+
+| question | decision |
+|---|---|
+| Do the trades need the team lead's approval? | **No, and they never did.** The VM has been armed since 2026-10-08: every decided plan is sent on schedule |
+| What may agents do without the team lead | **Everything, arming included:** merge, tag and install releases, and arm or disarm a book's runner, when every gate passes (CLAUDE.md rule 1, standing authority). Unchanged: `DRY_RUN=1` set by the team lead wins; credentials are never read or moved; approving a trial stays the team lead's |
+| How the team lead hears about it | **The journal only** (`docs/JOURNAL.md`), with no notifications |
+| How agents merge, since main's ruleset admits a merge only through the team lead's admin bypass | **Agents use `--admin`, only after CI has passed on the PR's exact head**, with `--match-head-commit`. The ruleset that keeps analysts off main is unchanged |
+| C4's corporate-action gate (a flat C4 would have refused 17 of the last 23 sessions under `halt`; once holding, every session on the three unresolved rows) | **Report, the same as the core**, until the ISIN fix and the re-ruling of the unresolved rows land; then both go back to `halt` together |
+| Which new signal goes to a pre-registration (screens 2026-11-02, zero trials) | **The C4 family-level discount signal only.** It takes the next CEF number at approval. Gate 0 (survivorship, re-run including dead funds) runs before any 2023+ return is read and needs the team lead's CRSP pull. Turn-of-month stays on WATCH until a test anchored on pay dates |
+| The paper-fees correction to CLAUDE.md landmine 1 and `docs/REFERENCES.md` | **Not yet** (2026-11-02) |
+| The Sharpe-framed NAV hedge (another session's screen) | **Closed at the power gate, UNDERPOWERED**, with zero trials. A report-only exposure readout replaces it (`docs/RESEARCH_STATE.md`, CLOSED) |
+
+### Team lead, 2026-11-01 — the vol-target raise (CEF trial 53)
+
+Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md` (written 2026-10-30;
+§0.A records the approval). It also records the ruling of 2026-10-29/30 that it implements.
+
+| question | decision |
+|---|---|
+| What the book optimises (2026-10-29/30) | **The percentage return on ALL capital, the real-money view.** The book is the core 13 in its own account plus C4 (74 non-credit CEFs) in the spare account. The ex-date short and PCEF stay built but OFF, because on the evidence they lower the percentage |
+| How each account is sized | **At its per-account equal-risk multiplier, the milder pair: core ×1.13, C4 ×1.27, at a 5.25% combined target.** These come from the 2026-10-29 rule (its term (d): each account's mean uncapped gross within its own cap), derived 1.1357 / 1.2712 on C4's spec book and rounded down. **Chosen over** the draft's ×1.24 / ×1.39 at 5.75% (the 2026-10-28 rule, under which C4's mean uncapped gross, 2.01, is above its 1.90 cap). The 2026-10-29 rule, not the 2026-10-28 one, sets this book's target. **No override of term (d) is needed at these values.** CEF trial 53, N = 53 |
+| How it is implemented | **A new optional frozen key, `sizing_multiplier`** (absent = today, byte for byte), in each cef_discount-type spec. `vol_target_annual` stays 0.06, so C4's fidelity gate and every reader of `spec.VOL_TARGET` are untouched. The core's value is its own activation commit, after the code: spec `cef_discount.v8.20261101`, which supersedes `cef_discount.v7.20260928`. C4's goes into its spec at its arming |
+| The framework's gate on a vol increase (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.6: HALVE/KILL armed, the cost gate, 20 armed sessions, p\* stated) | **Waived for paper only,** with the raise's own stops (below) standing in for the unarmed HALVE. **Never for real money** |
+| The raise's stops | **R1 (drawdown past D_R), R2 (the 120-session return below its 5th percentile), R3 (the 60-session vol above its 95th percentile)**, per account, on the P&L of record. Each is re-measured on the read date by `results/cef/prereg_voltarget/stops.py`. They are acted on by the team lead: the account's multiplier is reverted through `/spec-change`. No acting mode is built |
+| When it starts | **The core at its next release; C4 at its arming,** already at ×1.27, with C4's H11 reference rebuilt on the raised book |
+| The core's 2023+ "sealed" (2026-10-09's row above) | **Corrected:** for the core book it has been seen. 2024–26 was opened on 2026-07-31, and the v7 pre-registration computed 2013-06-14 → 2026-09-21. The 2026-10-09 rule still holds for any book whose 2023+ has not been computed. Dated notes are in `docs/RESEARCH_STATE.md` and the framework's §9 |
+| Amendment 1 (team lead, **2026-11-02**, about 22:00 ET) | **Core ×1.30 (spec `cef_discount.v9.20261102`), C4 ×1.26 (`c4_families.v4.20261102`, before C4 arms), and the core's stops recalibrated on the live thin-day rule: R1 10.14%, R2 −3.06%, R3 12.07%.** The multipliers above were derived on the harness's thin-day HOLD book, but the live core FLATTENS. On the sessions it trades, the same rule gives ×1.30, which restores the risk this trial approved (zero-edge P(HALVE) / P(KILL) 16.7% / 1.7% while trading). The literal calendar-vol figure, ×1.96, is inflated by the flat sessions and was **not chosen**. It is **an amendment, not a new trial: CEF stays 53** (`results/cef/PREREG_VOLTARGET_2026-10-30.md` §0.B; `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md`) |
 
 ## 6. Governance — where each rule lives
 
@@ -658,3 +796,7 @@ Their verified findings are cited in the docstrings of `scripts/research/`.
 | 2026-10-22 | §5 records the lanes revised: MACRO (a new counter), equities and ETFs on XASSET, the dashboard; EVENTS and GAMMA work to the team lead; branches renamed. | team setup, for the team lead |
 | 2026-10-26 | §5 records what the lanes feed (one multi-sleeve book), no hand-offs, MACRO widened to all of fixed income, the data platform to the dashboard lane, the dashboard's snapshot in the repository, and the branches renamed for the people. | team setup, for the team lead |
 | 2026-10-28 | §5's research-method table records the team lead's 2026-10-28 ruling to keep the paper-admission rule as written, and that the later paper-view finding is not ruled on. | re-open (1), for the team lead |
+| 2026-10-28 | §5's research-method table records the team lead's ruling that a counter with one stored trial gates on the desk's bar until a second is stored. | research loop, for the team lead |
+| 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |
+| 2026-11-02 | §5's trial-53 table records amendment 1: core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule; CEF stays 53. | CEF trial 53 amendment 1, for the team lead |
+| 2026-11-03 | §5 records the evidence pack's live-data ruling: aggregates in the repository, rows in a gitignored cache. | research evidence pack, for the team lead |

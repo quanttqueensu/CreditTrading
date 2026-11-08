@@ -30,7 +30,8 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/RUNNER.md` | canonical | the Alpaca runner's design: the session, module boundaries, the nine gates | `ops.doc_audit` (pointers) |
 | `docs/RUNBOOK.md` | reference | release, install, arm, disarm and check the laptop prod clone | `ops.doc_audit` (pointers) |
 | `docs/DATA.md` | reference | which data source feeds what (live vs research), the R2 layout | `ops.doc_audit` (pointers) |
-| `.claude/workflows/*.js` | desk | saved multi-agent workflows: research-idea, backtest-request, release-check, daily-ops | — |
+| `.claude/workflows/*.js` | desk | saved multi-agent workflows: research-idea, backtest-request, release-check, daily-ops, ss-census | — |
+| `docs/JOURNAL.md` | ledger | the day-by-day desk journal: what was tried, found, ruled, shipped to prod and earned; updated in the same commit as each change; owns nothing (every figure names its owner) | — |
 | `docs/RESEARCH_STATE.md` | ledger | trial counters and the killed list | `ops.orient` TRIALS |
 | `docs/BRIEF.md` | reference | the edge's theory, CEF market structure, and harness rules H1–H15 | `ops.doc_audit` (spec id) |
 | `docs/REFERENCES.md` | reference | every external claim and its verification status | — |
@@ -48,6 +49,9 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `.claude/skills/*/SKILL.md` | desk | one workflow each | `ops.doc_audit` (desk inventory) |
 | `.claude/agents/*.md` | desk | one specialist seat each | `ops.doc_audit` (desk inventory) |
 | `results/cef/DATA_GUARDS_2026-10-19.md` | reference | the research-path data guards every trial inherits (split-like spike-and-revert bars raise; Stage-0 flags block P&L until ruled; since 2026-10-20, a recorded split applied to an already split-adjusted close raises), their rules, and what they found and touched | `scripts/cef/tests/test_data_guards.py` |
+| `results/report/README.md` | reference | the research evidence pack: what it holds, how to append to it, the evening procedure, the report's section skeleton and the data-licensing note | `scripts/report/tests/` |
+| `results/report/EVIDENCE_LOG.md` | ledger | the dated, append-only evidence log a research report will be written from: one entry per result, ruling, release, incident or live day, each with provenance; updated in the same commit as the event; owns nothing (every figure names its owner) | `python3 -m scripts.report.build_pack` (format, append-only) |
+| `results/report/SOURCES.md` | reference | literature and primary sources the report could cite, each FETCHED (then also in `docs/REFERENCES.md`) or TO VERIFY | — |
 
 **Not indexed, by design:** `results/**` (dated records, each true as of its date;
 `ops.doc_audit` checks their pre-registration shape) and runtime output written
@@ -56,4 +60,6 @@ exceptions (2026-10-19):** a results note holding a decision still open for the 
 lead keeps a row until the decision is recorded in `docs/SYSTEM.md` (the first:
 CEFConnect); a dated design note that later build work is written against gets a
 row (the first: the IBKR design); and a note defining guards every later trial
-inherits gets a row (the first: the data guards).
+inherits gets a row (the first: the data guards). **A fourth (2026-11-03):** the research
+evidence pack under `results/report/` is a standing, append-only record, not a dated note, so
+its three authored files have rows.

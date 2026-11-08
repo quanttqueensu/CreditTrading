@@ -291,6 +291,73 @@ def test_inputs_it_cannot_use_raise():
         I.expected_max_z(0)
 
 
+# -- clustered_mean_diff (added 2026-10-28 for the A1 re-open) -------------------
+
+def _clustered_panel(seed=11, dates=60, per=5):
+    """Synthetic name-days: a common date shock, so clustering matters. A statement
+    about the code only."""
+    rng = np.random.default_rng(seed)
+    g = np.repeat(np.arange(dates), per)
+    y = rng.normal(0, 1, g.size) + 2.0 * rng.normal(0, 1, dates)[g]
+    a = rng.random(g.size) < 0.3
+    return y, a, g
+
+
+def test_clustered_mean_diff_matches_statsmodels_cluster_ols():
+    # The second method: OLS of y on [1, 1(A)] with cov_type="cluster". statsmodels
+    # applies G/(G-1) x (N-1)/(N-K); this module applies G/(G-1) only (the desk's
+    # convention), so the variances differ by exactly (N-1)/(N-K).
+    import statsmodels.api as sm
+    y, a, g = _clustered_panel()
+    r = I.clustered_mean_diff(y, a, g)
+    N = y.size
+    X = np.column_stack([np.ones(N), a.astype(float)])
+    fit = sm.OLS(y, X).fit(cov_type="cluster", cov_kwds={"groups": g})
+    assert r["diff"] == pytest.approx(fit.params[1], abs=1e-12)
+    assert r["se_diff"] * sqrt((N - 1) / (N - 2)) == pytest.approx(fit.bse[1], rel=1e-10)
+    for grp, key in ((a, "a"), (~a, "b")):
+        f1 = sm.OLS(y[grp], np.ones(grp.sum())).fit(cov_type="cluster", cov_kwds={"groups": g[grp]})
+        assert r[f"mean_{key}"] == pytest.approx(f1.params[0], abs=1e-12)
+        assert r[f"se_{key}"] == pytest.approx(f1.bse[0], rel=1e-10)   # K = 1: no extra factor
+
+
+def test_clustered_mean_diff_by_hand_on_four_observations():
+    # Two dates, each with one A and one B observation. A: 1, 3 (mean 2); B: 0, 4
+    # (mean 2). Scores on the difference: date 0: (1-2)/2 - (0-2)/2 = +0.5;
+    # date 1: (3-2)/2 - (4-2)/2 = -0.5. Var = 2/1 x (0.25 + 0.25) = 1.0.
+    r = I.clustered_mean_diff([1.0, 0.0, 3.0, 4.0], np.array([True, False, True, False]), [0, 0, 1, 1])
+    assert r["diff"] == 0.0
+    assert r["se_diff"] == pytest.approx(1.0, abs=1e-15)
+    # se_a: scores -0.5, +0.5 on two dates -> 2 x 0.5 = 1.0; se_b: -1, +1 -> 2 x 2 = 4
+    assert r["se_a"] == pytest.approx(1.0) and r["se_b"] == pytest.approx(2.0)
+
+
+def test_clustered_mean_diff_sees_the_covariance_a_naive_difference_misses():
+    # Every date holds 2 A and 3 B observations and one shock moves them all, so the
+    # two means co-move and the shock cancels from their difference: its SE is far
+    # below sqrt(se_a^2 + se_b^2), which treats the two means as independent.
+    y, _, g = _clustered_panel(seed=3)
+    a = np.tile(np.array([True, True, False, False, False]), 60)
+    r = I.clustered_mean_diff(y, a, g)
+    assert r["se_diff"] < 0.5 * sqrt(r["se_a"] ** 2 + r["se_b"] ** 2)
+
+
+def test_clustered_mean_diff_refuses_what_it_cannot_use():
+    y, a, g = _clustered_panel()
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(np.r_[y[:-1], np.nan], a, g)
+    with pytest.raises(TypeError):
+        I.clustered_mean_diff(y, a.astype(float), g)
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(y, np.zeros_like(a), g)            # group A empty
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(y, a, np.zeros_like(g))            # one cluster
+    one_date_a = np.zeros_like(a)
+    one_date_a[:3] = True                                        # A on date 0 only
+    with pytest.raises(ValueError):
+        I.clustered_mean_diff(y, one_date_a, g)
+
+
 # -- the range on rho (added 2026-10-28, scripts/research/reopen_book/) ----------
 
 def _w4():
@@ -376,3 +443,20 @@ def test_fisher_interval_matches_scipy():
     assert lo == pytest.approx(ci.low, abs=1e-12) and hi == pytest.approx(ci.high, abs=1e-12)
     with pytest.raises(ValueError):
         I.fisher_corr_ci(0.2, 3)
+
+
+def test_safeguarded_sr0_reproduces_the_2026_10_28_bars():
+    # bar_inputs on the backfilled ledger (2026-10-28): EVENTS rho 0.006, V 5.27e-05,
+    # T 3217, declared N 6; XASSET rho 0.187, V 4.99e-04, T 3693, N 4. The
+    # annualised hurdles the team lead ruled on were 0.363 and 0.337.
+    ev = I.safeguarded_sr0(6, 0.005956912823026237, 5.27284983388247e-05, 3217)
+    xa = I.safeguarded_sr0(4, 0.18682479180006195, 0.0004994654446952893, 3693)
+    assert ev * sqrt(252) == pytest.approx(0.363, abs=1e-3)
+    assert xa * sqrt(252) == pytest.approx(0.337, abs=1e-3)
+    # The floor binds for EVENTS (measured spread below sampling noise) and not for XASSET.
+    assert I.safeguarded_sr0(6, 0.006, 0.0, 3217) == pytest.approx(ev, rel=1e-3)
+    assert I.safeguarded_sr0(4, 0.187, 0.0, 3693) < xa
+    # Negative correlation counts as independent, never as fewer than N trials.
+    assert I.safeguarded_sr0(6, -0.3, 1e-4, 3000) == I.safeguarded_sr0(6, 0.0, 1e-4, 3000)
+    with pytest.raises(ValueError):
+        I.safeguarded_sr0(0, 0.0, 1e-4, 3000)

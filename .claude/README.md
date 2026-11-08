@@ -95,6 +95,28 @@ backtests do in the canonical harness. The four event-desk seats on branch
 `credit-situations-analyst`) are domain seats that plug into station 1 and the
 domain row. A new agent file becomes a subagent type only in a new session.
 
+**The event desk** (added 2026-10-19; the programme is
+`results/events/SS_DESK_EXPANSION_2026-10-19.md`):
+
+| agent | seat |
+|---|---|
+| `event-scout` | special-situation ideas as event cards: the forced party, the clock, the count, the zero-trial gate |
+| `filings-analyst` | EDGAR forms and 8-K items, acceptance-time PIT, the SEC's structured data sets, extraction you can score |
+| `deal-analyst` | merger arb, tenders, CEF/BDC mergers, SPACs, spin-offs, index events: terms, timelines, the D4 kink |
+| `credit-situations-analyst` | listed preferreds and baby bonds, BDC loan marks, ratings, distress, fund leverage |
+| `data-librarian` | what R2 holds and lacks, free sources, PIT fields, terms of use, fetchers with source notes |
+| `event-econometrician` | power and MDE, overlap and clustering, the evaluate() mapping, controls; designs, never runs |
+
+## Workflows — saved multi-agent pipelines (`.claude/workflows/`)
+
+| workflow | use it for |
+|---|---|
+| `research-idea` | one idea from graveyard screen to a reviewed, pre-registered harness result (spends at most one trial, after approval) |
+| `backtest-request` | one backtest question on the canonical harness, independently re-derived |
+| `release-check` | go/no-go on one commit for a prod release tag |
+| `daily-ops` | read-only morning/evening check of the live book |
+| `ss-census` | one or many event ideas from screen to an event card and a zero-trial gate verdict; never computes a return |
+
 ## Maintaining this
 
 - A convention Claude gets wrong twice → `CLAUDE.md`, or a `rules/` file if it is

@@ -82,15 +82,35 @@ that cannot be undone.
    an explicit go before transmitting.** (Until 2026-09-28 the rule was "the human
    runs it with `!`"; the team lead asked agents to run the migration commands
    themselves, and this is that instruction made durable.)
+   **SUSPENDED (team lead, 2026-11-03): the loop is research-only.** "Have the loop only
+   get us to what we should trade and deploy, and then we figure it out from there": it
+   transmits nothing, promotes nothing and installs nothing, and C4 is the only runner on
+   the spare account. The 2026-10-27 text below is kept as the record and the revert.
    **One recorded exception (team lead, 2026-10-27), paper only.** The
    autonomous research loop may transmit to the **agent-lab** paper account
    without a per-session go. Since 2026-10-28 that is the spare connector account
    C4 trades in, not a new one. It does so only through the `quantt` runner for
    that account, never by an ad-hoc API call. The loop may also promote a lab
    sleeve into the main paper book once the criteria fixed in its
-   pre-registration are met; installing on the VM still needs the team lead's
-   `!`. Rules 2–5 bind every one of those transmissions. It never applies to a
+   pre-registration are met; installing on the VM follows the standing authority
+   below. Rules 2–5 bind every one of those transmissions. It never applies to a
    live-money account. `docs/SYSTEM.md` §5, 2026-10-27 (the autonomous loop).
+   **Standing authority (team lead, 2026-11-02): agents run releases and arming.**
+   Agents may merge, tag and install a release on the VM, and arm or disarm a
+   book's scheduled runner, without asking, when every gate passes:
+   - a release-check GO on the exact commit;
+   - CI passed on the PR's exact head commit. Main's ruleset admits a merge only
+     through the team lead's admin bypass, so an agent uses `--admin` only then,
+     with `--match-head-commit`;
+   - a history replay with no run refused now;
+   - outside the send windows;
+   - an `ops.prod_state` read-back afterwards.
+   Each act goes into `docs/JOURNAL.md` the same day; that is the only notice.
+   Before arming a book, confirm that no other runner is armed on its account (rule 2).
+   The armed runner then sends each decided plan on its schedule. The per-session go
+   above still binds any order an agent would send by hand. `DRY_RUN=1` set by the
+   team lead always wins (rule 4). Credentials are never read or moved (rule 5).
+   Approving a trial stays the team lead's. `docs/SYSTEM.md` §5, 2026-11-02.
 2. **The trade phase is not idempotent, and the broker does not dedupe.** Open
    positions exclude unfilled MOC orders, so a second armed run's orders fill in
    the same auction and the book doubles. At Alpaca, `client_order_id` is unique
@@ -203,6 +223,10 @@ recall of any specific figure is wrong until you have fetched it.**
 - **Check the graveyard before proposing anything** (`/graveyard`). The most
   common cause of death is a stale-price artifact; the second, a control group
   scoring as well as the treatment.
+- **Log it for the report.** Every result, ruling, release, incident or live-P&L
+  day gets an entry in `results/report/EVIDENCE_LOG.md`, in the same commit, with
+  provenance (`results/report/README.md`; `.claude/rules/report.md`). Live data:
+  daily aggregates in the repo; rows only in the gitignored `results/report/_cache_live/`.
 
 ## Commands
 
@@ -246,7 +270,11 @@ the Alpaca prod. `ibkr-final` tags the last IBKR-era commit.
 
 1. **Alpaca paper does not simulate the closing auction.** Staff say paper fills
    MOC at the current quote [V: forum staff post, 2026-09-28]. Paper also charges
-   no borrow, no dividends and no regulatory fees [V: docs]. Paper P&L on this
+   no borrow, no dividends and no regulatory fees [V: docs]. **Paper processes no
+   corporate actions at all: no splits and no mergers** [V: Alpaca staff forum
+   replies, 2024-06-10 and 2026-07-15]. A held fund that splits keeps its old share
+   count on paper, and a merger never converts. The runner has no handling for
+   either (`results/events/E1_PAPER_BROKER_CHECK_2026-10-28.md`). Paper P&L on this
    book is structurally different from a live auction fill; score both (research
    rules above).
 2. **Alpaca rejects opposite-side orders in one symbol as wash trades**, paper
@@ -291,7 +319,10 @@ Subagents, in research-line order (`.claude/README.md` has the line; rebuilt
 2026-10-27, `results/research/DESK_METHOD_2026-10-27.md`): `quant-researcher`,
 `data-engineer`, `data-analyst`, `statistician`, `ml-engineer`,
 `backtest-engineer`, `beta-detector`, `quant-reviewer`, `portfolio-manager`,
-`quant-trader`, and `market-structure-analyst` for the domain.
+`quant-trader`, and `market-structure-analyst` for the domain. The event desk's
+seats (2026-10-19): `event-scout`, `filings-analyst`, `deal-analyst`,
+`credit-situations-analyst`, `data-librarian`, `event-econometrician`; the saved
+workflow `ss-census` chains them from screen to a zero-trial gate verdict.
 
 **Options are closed, except through one pre-registered standalone short-premium
 test (team lead, 2026-10-09), and that is recorded rather than remembered**:

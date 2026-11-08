@@ -99,11 +99,354 @@ def _validate_static_weights(spec):
             "not borrow; wire the financing leg first.")
 
 
+# ---------------------------------------------------------------------------
+# cef_discount: the four optional keys that let a second spec reuse the sleeve
+# ---------------------------------------------------------------------------
+#
+# WHY THEY EXIST (C4 deployment plan, results/cef/C4_DEPLOY_PLAN_2026-10-27.md
+# §1 row 1). Trial C4 ran THIS sleeve's z-score on 74 other funds through
+# `band_frontier.build_targets(universe=, source=, mask=)`, and the plan reuses
+# the sleeve with a second frozen spec rather than writing a second copy of the
+# z-score (two copies of a signal agree until one of them is edited). The trial
+# differs from the sleeve in exactly three ways the sleeve could not express:
+# where its panels live, two masks on the discount (PREREG_C4_FAMILIES §4.3),
+# and what it does below `min_names` (`build_targets` holds; the sleeve
+# flattens). These keys express them.
+#
+# ABSENT IS TODAY'S BEHAVIOUR, BYTE FOR BYTE, for every one of them, and the
+# live spec carries none (`quantt/session/tests/test_c4_keys_noop.py` pins the
+# 13's plan.json and plan_sha against the code before the keys existed). The
+# parse lives HERE, once: `_validate_cef_discount` calls it on the spec, and the
+# sleeve calls it again on its own `frozen` block, so a sleeve built without the
+# registry still cannot read a value the registry would refuse.
+#
+# NO NULL, NO TRUTHINESS. Unlike `band_width`, whose null means off, a present
+# key must hold one of its declared values: `null`, `1`, `"true"` or a typo
+# raises, naming the key and the value. A key that decides whether a fund has a
+# discount, or whether the book is closed, must not be decided by Python
+# truthiness or by a spelling.
+
+CEF_PANEL_SOURCE_KEYS = ("prices", "nav")
+CEF_MASK_KEYS = ("nav_repeat_mask", "zero_volume_mask")
+CEF_BELOW_MIN_NAMES = ("flatten", "hold")       # the first is the default
+
+
+def cef_panel_source(frozen):
+    """`panel_source` as (prices, nav) repo-relative POSIX strings, or None when absent.
+
+    The value is `{"prices": "<path>", "nav": "<path>"}`, each relative to the
+    repository root -- the root of the prod clone, so one spec names the same
+    file on the laptop and on the VM. An absolute path would name one machine's
+    disk inside a governance object, and `..` would let a spec read outside
+    the clone; both raise. Each must be a `.parquet` in the live panels' schema
+    (`date ... close volume ticker grp` / `date nav ticker`, as `data/cef/` and
+    `data/cef_families/` are built), and the two must differ: a price file read
+    as NAV would give every fund a discount of zero, which is a book, not an
+    error.
+    """
+    if "panel_source" not in frozen:
+        return None
+    v = frozen["panel_source"]
+    if not isinstance(v, dict):
+        raise ValueError(f"cef_discount panel_source must be an object "
+                         f"{{'prices': <path>, 'nav': <path>}}, got {v!r}")
+    unknown = sorted(set(v) - set(CEF_PANEL_SOURCE_KEYS))
+    missing = [k for k in CEF_PANEL_SOURCE_KEYS if k not in v]
+    if unknown or missing:
+        raise ValueError(f"cef_discount panel_source has unknown key(s) {unknown} and lacks "
+                         f"{missing}; it takes exactly {list(CEF_PANEL_SOURCE_KEYS)}")
+    from pathlib import PurePosixPath
+    out = []
+    for k in CEF_PANEL_SOURCE_KEYS:
+        p = v[k]
+        if not isinstance(p, str) or not p.strip() or p != p.strip():
+            raise ValueError(f"cef_discount panel_source[{k!r}] must be a non-empty path "
+                             f"string without surrounding space, got {p!r}")
+        pp = PurePosixPath(p)
+        if pp.is_absolute() or "\\" in p or ".." in pp.parts:
+            raise ValueError(f"cef_discount panel_source[{k!r}] = {p!r}: must be relative to "
+                             f"the repository root, with '/' and no '..'")
+        if pp.suffix != ".parquet":
+            raise ValueError(f"cef_discount panel_source[{k!r}] = {p!r}: not a .parquet file")
+        out.append(str(pp))
+    if out[0] == out[1]:
+        raise ValueError(f"cef_discount panel_source names {out[0]!r} for both prices and nav")
+    return tuple(out)
+
+
+def cef_mask_flag(frozen, key):
+    """`nav_repeat_mask` / `zero_volume_mask`: exactly true or false; absent is false."""
+    if key not in CEF_MASK_KEYS:
+        raise KeyError(f"{key!r} is not a cef_discount mask key {CEF_MASK_KEYS}")
+    if key not in frozen:
+        return False
+    v = frozen[key]
+    if v is not True and v is not False:
+        raise ValueError(f"cef_discount {key} must be exactly true or false, got {v!r} "
+                         f"({type(v).__name__})")
+    return v
+
+
+def cef_below_min_names(frozen):
+    """`below_min_names`: "flatten" (absent; today's rule) or "hold" (trial C4's)."""
+    if "below_min_names" not in frozen:
+        return CEF_BELOW_MIN_NAMES[0]
+    v = frozen["below_min_names"]
+    if not isinstance(v, str) or v not in CEF_BELOW_MIN_NAMES:
+        raise ValueError(f"cef_discount below_min_names {v!r} is not one of "
+                         f"{list(CEF_BELOW_MIN_NAMES)}")
+    return v
+
+
+CEF_C4_KEYS = ("panel_source", *CEF_MASK_KEYS, "below_min_names")
+# A key's documentation sibling, in the spec's own convention (`_band_width_note`).
+CEF_C4_NOTES = tuple(f"_{k}_note" for k in CEF_C4_KEYS)
+# How far a frozen key may be from one of the four and still be read as a
+# misspelling of it: 2 edits (insert, delete, substitute or swap two adjacent
+# letters) covers a plural, a dropped or doubled letter and a transposition.
+# Every key the live spec carries is at least 6 edits from all four
+# (`test_c4_sleeve_keys.py` checks the live file, key by key).
+CEF_C4_NEAR = 2
+
+
+def _osa_distance(a: str, b: str) -> int:
+    """Optimal-string-alignment edit distance: insertions, deletions,
+    substitutions and adjacent transpositions, each costing 1."""
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
+def cef_c4_near_miss(key: str):
+    """The C4 key that `key` looks like a misspelling of, or None.
+
+    WHY (review of 11790b5). An absent C4 key means "today's behaviour", so a
+    misspelt one is silently absent: `nav_repeat_masks: true` validated, and the
+    sleeve then ran WITHOUT the mask the spec plainly asks for; `below_min_name:
+    "hold"` flattened the book the spec says to hold. Rejecting every unknown key
+    would reject keys other specs and the live one legitimately carry (notes,
+    `warmup_days`), so only near-misses of the four new names are refused:
+
+      * within CEF_C4_NEAR edits of one of them, after lower-casing and reading
+        `-` and spaces as `_`;
+      * the same letters with the underscores dropped (`navrepeatmask`);
+      * one of them dressed as a comment (`_nav_repeat_mask`): in this spec's
+        convention a leading underscore is a note nothing reads, so the key
+        would be ignored while reading as set. Absent is the default; delete it.
+
+    A `_<key>_note` sibling is not a miss, and a misspelt note is checked as its
+    stem (`_nav_repeat_masks_note` is a miss of `nav_repeat_mask`).
+    """
+    if key in CEF_C4_KEYS or key in CEF_C4_NOTES or not isinstance(key, str):
+        return None
+    stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+    if stem.endswith("_note"):
+        stem = stem[:-len("_note")].strip("_")
+    for k in CEF_C4_KEYS:
+        if (stem == k or stem.replace("_", "") == k.replace("_", "")
+                or _osa_distance(stem, k) <= CEF_C4_NEAR):
+            return k
+    return None
+
+
+def cef_optional_keys(frozen) -> dict:
+    """All four C4 keys parsed, each to its default when absent. Raises on the
+    first malformed one, and on a frozen key that is a near-miss of one of them
+    (`cef_c4_near_miss`). Called by `_validate_cef_discount` and by the sleeve's
+    constructor, so a bad `below_min_names` refuses on every day and not only on
+    the first day the book falls below `min_names`."""
+    for key in frozen:
+        k = cef_c4_near_miss(key)
+        if k is not None:
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of {k!r}; the "
+                f"sleeve would ignore it and run {k}'s default. Spell it {k!r}, or delete "
+                f"it (absent is the default)")
+    return {"panel_source": cef_panel_source(frozen),
+            **{k: cef_mask_flag(frozen, k) for k in CEF_MASK_KEYS},
+            "below_min_names": cef_below_min_names(frozen)}
+
+
+# ---------------------------------------------------------------------------
+# sizing_multiplier (CEF trial 53, results/cef/PREREG_VOLTARGET_2026-10-30.md)
+# ---------------------------------------------------------------------------
+
+CEF_SIZING_KEY = "sizing_multiplier"
+
+
+def cef_sizing_multiplier(frozen):
+    """`sizing_multiplier` as a float, or None when absent or null (today's book).
+
+    WHAT IT IS. The account holds m times the sleeve's UNIT book: the book this
+    spec builds at its own `vol_target_annual`. The band compares the unit target
+    with held / m, `_cap_gross` acts at `max_gross_stress / m` in unit weights
+    (so at `max_gross_stress` x the account's NAV), and every weight target is
+    emitted as m x the unit weight (src/deploy/sleeves/cef_discount.py,
+    `target_positions`). `vol_target_annual` is NOT moved. C4's fidelity gate
+    (scripts/cef/c4_paper_benchmark.py on its branches) compares the sleeve's `w`
+    at the `min_abs_weight` read with the trial's T, and names that key and
+    `gross_leverage` as its negative controls; the unit book is that `w`,
+    untouched. Every research reader of `spec.VOL_TARGET` stays on the unit book
+    too.
+
+    UNITS: a multiple of the unit book. Not a percent, not a vol. 1.13 means
+    13% larger.
+
+    REFUSED, naming the value: a bool, a string or any non-number, NaN or inf,
+    and zero or below. A frozen key that looks like a misspelling of it
+    (`cef_c4_near_miss`'s rule: within CEF_C4_NEAR edits, the same letters
+    without underscores, or dressed as a `_comment`) also raises. Absent is
+    today's book, so a misspelt key would size the book at 1.0 while the spec
+    reads as raised. The cross-key checks (the cap must be set, and the effective
+    vol target must stay in the sane band) are in `_validate_cef_discount`.
+    """
+    note = f"_{CEF_SIZING_KEY}_note"
+    for key in frozen:
+        if not isinstance(key, str) or key in (CEF_SIZING_KEY, note):
+            continue
+        stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+        if stem.endswith("_note"):
+            stem = stem[:-len("_note")].strip("_")
+        if (stem == CEF_SIZING_KEY or stem.replace("_", "") == CEF_SIZING_KEY.replace("_", "")
+                or _osa_distance(stem, CEF_SIZING_KEY) <= CEF_C4_NEAR):
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of "
+                f"{CEF_SIZING_KEY!r}; the sleeve would ignore it and size the book at 1.0. "
+                f"Spell it {CEF_SIZING_KEY!r}, or delete it (absent is today's book)")
+    if CEF_SIZING_KEY not in frozen or frozen[CEF_SIZING_KEY] is None:
+        return None
+    v = frozen[CEF_SIZING_KEY]
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(f"cef_discount {CEF_SIZING_KEY} must be a number, got {v!r} "
+                         f"({type(v).__name__})")
+    import math
+    if not math.isfinite(float(v)) or not float(v) > 0.0:
+        raise ValueError(f"cef_discount {CEF_SIZING_KEY} {v!r} must be a finite number above 0 "
+                         f"(a multiple of the unit book; 1.0 is today's size)")
+    return float(v)
+
+
+# ---------------------------------------------------------------------------
+# level_signal (CEF trial 54, results/cef/PREREG_C4_LEVEL_2026-11-02.md)
+# ---------------------------------------------------------------------------
+
+CEF_LEVEL_KEY = "level_signal"
+CEF_LEVEL_FIELDS = ("risk_share", "family_of")
+
+
+def cef_level_signal(frozen):
+    """`level_signal` parsed to {"risk_share": float, "family_of": {ticker: family}}, or None
+    when ABSENT (today's book: the z target alone).
+
+    WHAT IT IS. A second, within-family DISCOUNT-LEVEL target blended with the z target at
+    equal ex-ante risk (PREREG_C4_LEVEL §1.2; what the sleeve does is in
+    src/deploy/sleeves/cef_discount.py, `_level_weights` and `_blend_unit_book`). The z is
+    standardised against each fund's own 252-session history, so a fund that has sat 10pp rich
+    of its family for a year has z near zero; the level sees it (§2).
+
+    `risk_share` IS THE SHARE OF EX-ANTE RISK ON THE Z BOOK, the level book taking
+    1 - risk_share: mix = risk_share * w_z / s_z + (1 - risk_share) * w_L / s_L. That is the
+    quantity §3.1 derives ("0.514 on z", rounded to 0.50) and its plateau table varies ("share
+    of risk on z"). §1.3 test 2 reads "risk_share 0 (all risk on z)", the other way round; at
+    the pre-registered 0.50 the two readings are the same book, and the spec's note says which
+    one this code is. UNITS: a fraction of risk, not of gross and not a percent.
+
+    REFUSED, naming the value (no silent defaults):
+      * null, or anything but an object with exactly the keys {risk_share, family_of}. A null
+        here would read as "off" beside a note that describes it as on; the REVERT is to
+        delete the key, so there is no second spelling of absent;
+      * risk_share a bool, a non-number, NaN or inf, or outside the OPEN interval (0, 1). At 0
+        or 1 one book has no risk and its weights only add noise to the arithmetic; the
+        z-only book is the key ABSENT, and an all-level book is a different trial;
+      * family_of not an object of non-empty ticker -> non-empty family strings, or not
+        covering the universe EXACTLY. A universe name with no family would raise on the first
+        day it became eligible (a missed day, found late); a family for a name outside the
+        universe says the map and the universe were copied from different files. Both are
+        refused here, naming the tickers, at load and at the sleeve's construction;
+      * `band_width` absent or null beside it. The trial measures the daily level through the
+        band (§3.2); without a band the signal date can sit before the last panel date (the
+        `rebalance_days` calendar), and the blend's vols would then read returns past the date
+        its weights were formed on. That construction was never measured;
+      * a frozen key that looks like a misspelling of it (`cef_c4_near_miss`'s rule). Absent
+        is today's book, so a misspelt key would trade the z book while the spec reads as
+        blended.
+    """
+    note = f"_{CEF_LEVEL_KEY}_note"
+    for key in frozen:
+        if not isinstance(key, str) or key in (CEF_LEVEL_KEY, note):
+            continue
+        stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+        if stem.endswith("_note"):
+            stem = stem[:-len("_note")].strip("_")
+        if (stem == CEF_LEVEL_KEY or stem.replace("_", "") == CEF_LEVEL_KEY.replace("_", "")
+                or _osa_distance(stem, CEF_LEVEL_KEY) <= CEF_C4_NEAR):
+            raise ValueError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of {CEF_LEVEL_KEY!r}; "
+                f"the sleeve would ignore it and trade the z book alone. Spell it "
+                f"{CEF_LEVEL_KEY!r}, or delete it (absent is today's book)")
+    if CEF_LEVEL_KEY not in frozen:
+        return None
+    v = frozen[CEF_LEVEL_KEY]
+    if not isinstance(v, dict) or set(v) != set(CEF_LEVEL_FIELDS):
+        got = f"keys {sorted(map(str, v))}" if isinstance(v, dict) else f"{v!r} ({type(v).__name__})"
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY} must be an object with exactly the keys "
+                         f"{list(CEF_LEVEL_FIELDS)}, got {got}")
+    rs = v["risk_share"]
+    if isinstance(rs, bool) or not isinstance(rs, (int, float)):
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.risk_share must be a number, got {rs!r} "
+                         f"({type(rs).__name__})")
+    import math
+    if not math.isfinite(float(rs)) or not 0.0 < float(rs) < 1.0:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.risk_share {rs!r} must be strictly between "
+                         f"0 and 1 (the share of ex-ante risk on the z book; the z book alone is "
+                         f"the key absent)")
+    fam = v["family_of"]
+    if not isinstance(fam, dict) or not fam:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of must be a non-empty object "
+                         f"{{ticker: family}}, got {type(fam).__name__}")
+    bad = sorted(repr(k) for k, g in fam.items()
+                 if not (isinstance(k, str) and k and isinstance(g, str) and g.strip()))
+    if bad:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of must map non-empty ticker "
+                         f"strings to non-empty family strings; bad entries for {bad}")
+    uni = frozen.get("universe")
+    if not isinstance(uni, list):
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY} is set but the frozen universe is "
+                         f"{uni!r}; family_of is checked against it")
+    missing = sorted(set(uni) - set(fam))
+    if missing:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of has no family for {missing}; "
+                         f"every universe name needs one (refusing to guess a family)")
+    stray = sorted(set(fam) - set(uni))
+    if stray:
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY}.family_of names {stray}, which are not "
+                         f"in the frozen universe")
+    if frozen.get("band_width") in (None, ""):
+        raise ValueError(f"cef_discount {CEF_LEVEL_KEY} is set but band_width is not; the level "
+                         f"blend is defined on the daily signal through the band (PREREG_C4_LEVEL "
+                         f"§3.2), never on the rebalance_days calendar")
+    return {"risk_share": float(rs), "family_of": {str(k): str(g) for k, g in fam.items()}}
+
+
 def _validate_cef_discount(spec):
     """The CEF sleeve's whole signal is price minus NAV, so the things that can
     silently break it are a missing universe, a NAV staleness tolerance wide
-    enough to trade blind, and an unbounded volatility scalar."""
+    enough to trade blind, and an unbounded volatility scalar. The four
+    optional C4 keys (above) are parsed here too, so a malformed one refuses
+    the spec at load rather than at the first decide, and so is `level_signal`
+    (CEF trial 54), whose family map is checked against the universe here."""
     f = _require_dict(spec, "frozen")
+    cef_optional_keys(f)
+    cef_level_signal(f)
     uni = f.get("universe")
     if not isinstance(uni, list) or len(uni) < 6:
         raise ValueError("cef_discount needs a frozen universe of >= 6 funds; "
@@ -111,6 +454,18 @@ def _validate_cef_discount(spec):
     vt = float(f.get("vol_target_annual", 0.0))
     if not 0.005 <= vt <= 0.40:
         raise ValueError(f"vol_target_annual {vt} outside a sane 0.5%-40% band")
+    m = cef_sizing_multiplier(f)
+    if m is not None:
+        # A multiplier with no cap would lever the account past Reg T with nothing in the
+        # sleeve to stop it, and the effective target is the one the sane band guards.
+        if f.get("max_gross_stress") in (None, ""):
+            raise ValueError(
+                f"cef_discount {CEF_SIZING_KEY} {m} is set but max_gross_stress is not; the "
+                f"multiplier is held under the account's own gross cap and there is none")
+        if not 0.005 <= vt * m <= 0.40:
+            raise ValueError(
+                f"cef_discount {CEF_SIZING_KEY} {m} x vol_target_annual {vt} = {vt * m:.4f} is "
+                f"outside the sane 0.5%-40% band for the account's effective vol target")
     age = int(f.get("max_nav_age_bd", 3))
     if not 1 <= age <= 5:
         raise ValueError(

@@ -268,9 +268,11 @@ _KNOWN_DESK_NAMES = {
               # naming one is caught as a ghost.
               "quant-researcher", "data-engineer", "data-analyst", "statistician",
               "ml-engineer", "backtest-engineer", "quant-trader",
-              # the SS seats on branch simon; data-librarian and
-              # event-econometrician are superseded by data-engineer and
-              # statistician and should be deleted when simon merges
+              # the event desk's seats, added 2026-10-19 on branch simon;
+              # data-librarian and event-econometrician are superseded by
+              # data-engineer and statistician and should be deleted when simon
+              # merges. The 2026-10-28 merge of simon kept both seats (a merge
+              # drops nothing); deleting them is the team lead's call.
               "event-scout", "filings-analyst", "deal-analyst",
               "credit-situations-analyst", "data-librarian", "event-econometrician"},
 }
@@ -485,6 +487,11 @@ def _pointer_targets(text: str) -> list[tuple[str, str]]:
 RUNTIME_ARTEFACTS = (
     re.compile(r"^results/ops/alpaca_probe/"),
     re.compile(r"^ops/HALT.*\.md$"),
+    # The evidence pack's private cache of row-level live records: gitignored by the team
+    # lead's ruling of 2026-11-03 ("Aggregates in repo, rows private"), written by
+    # scripts/report/snapshot_live.py, so it exists only where that has run. CI's fresh
+    # clone has none, and its pointer read as missing (CI run of 327d0b3, 2026-11-03).
+    re.compile(r"^results/report/_cache_live/"),
 )
 
 

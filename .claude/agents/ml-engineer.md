@@ -47,7 +47,11 @@ and walk-forward does not protect you. Instead:
 
 **Every configuration you fit is a trial.** That covers each hyperparameter set
 and each feature set. Store each configuration's out-of-sample per-period P&L,
-because the statistician needs it for effective N, V[SR_n] and PBO.
+because the statistician needs it for effective N, V[SR_n] and PBO. Store every
+one with `scripts/research/registry.py` `record(...)`, and mark exactly one,
+the configuration the pre-registration selects, `judged=True`. The paper's bar
+takes that one series per trial; without it the bar is refused for the whole
+counter.
 
 ## Building it correctly
 

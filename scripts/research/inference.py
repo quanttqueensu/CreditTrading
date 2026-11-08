@@ -259,6 +259,31 @@ def p_pass_dsr(sr_true_annual: float, T: int, n_trials: float, *, bound: str,
     return 1 - _N.cdf((sr0 + _N.inv_cdf(conf) * se - sr) / se)
 
 
+def safeguarded_sr0(declared_n: float, rho_bar: float, sr_var_measured: float, T: int) -> float:
+    """The paper's best-of-N bar with the team lead's 2026-10-28 safeguards. Per-period SR0.
+
+    `docs/SYSTEM.md` §5, 2026-10-28. The bar is the Gumbel expected maximum,
+    scaled by √V and evaluated at:
+    - N = `effective_trials(declared_n, ρ̄)`. The counter's DECLARED slate size
+      (EVENTS was declared at 6 while only 2 trials existed), adjusted by the
+      measured mean correlation. A negative ρ̄ counts as 0: independence is the
+      conservative case.
+    - V = max(measured cross-trial variance, 1/T), floored at the variance a
+      skill-less trial's Sharpe has by sampling alone. A spread measured from two
+      to four trials has one to three degrees of freedom. EVENTS' two trials
+      happened to have similar Sharpes, and unfloored the bar fell to an
+      annualised 0.06 (2026-10-28).
+    Pass `declared_n` from the counter's record, never as a literal (H14). CEF
+    keeps the desk's √(2 ln N) bar under the same ruling: 50 of its 52 trials
+    cannot be rebuilt.
+    """
+    if declared_n < 1 or T < 2 or sr_var_measured < 0 or not -1 <= rho_bar <= 1:
+        raise ValueError(f"need declared_n >= 1, T >= 2, sr_var >= 0, -1 <= rho <= 1; "
+                         f"got {declared_n}, {T}, {sr_var_measured}, {rho_bar}")
+    n = effective_trials(declared_n, max(rho_bar, 0.0))
+    return sqrt(max(sr_var_measured, 1 / T)) * expected_max_z(n)
+
+
 def bh_fdr(pvals, q: float = 0.05) -> np.ndarray:
     """Benjamini-Hochberg (1995) step-up. Returns a boolean mask of discoveries.
 
@@ -305,6 +330,70 @@ def newey_west_t(x, lags: int | None = None) -> float:
     if s <= 0:
         raise ValueError("long-run variance is non-positive")
     return x.mean() / sqrt(s / n)
+
+
+def clustered_mean_diff(y, in_a, clusters) -> dict:
+    """Two group means of one pooled sample, and their difference, with SEs clustered.
+
+    Added 2026-10-28 for the A1 re-open (`scripts/research/reopen_a1/`), which asks
+    whether the book's short name-days inside share-issuance windows earn less than
+    those outside. Name-days on one date share that date's market move, so a naive
+    SE treats as independent what is one draw (H6: cluster by date). The desk had
+    this estimator only as private copies (`a2_insider_buying.clustered`,
+    `exec_capacity_open_cross`); this is the shared one.
+
+    y         the per-observation values (e.g. P&L per short name-day), finite.
+    in_a      bool, True for group A (e.g. inside a window); both groups need >= 2
+              observations.
+    clusters  one label per observation (e.g. the decision date); >= 2 clusters
+              overall, and >= 2 within each group for its own SE.
+
+    The estimator is the OLS sandwich of y on [1, 1(A)] with clustered scores, the
+    CR0 sum times G/(G-1), which is the desk's convention (`a2_insider_buying.
+    clustered`). Each observation's score on the difference is e_i/n_A in A and
+    −e_i/n_B in B, where e_i is its deviation from its own group's mean; the
+    variance is G/(G−1)·Σ_g (Σ_{i∈g} score_i)². A date holding name-days in both
+    groups therefore enters once, with the covariance between the two means, which
+    a difference of two separately clustered SEs would miss. statsmodels' cluster
+    covariance multiplies by a further (N−1)/(N−K) (K = 2 here, 1 for one mean);
+    the parity test pins that relation exactly, as the second method.
+
+    Returns mean_a, se_a, n_a, clusters_a; the same for b; diff = mean_a − mean_b,
+    se_diff, clusters (overall G). Raises on NaN, on a group too small to have a
+    mean and a spread, and on fewer than two clusters: there is no default.
+    """
+    y = np.asarray(y, dtype=float)
+    a = np.asarray(in_a)
+    g = np.asarray(clusters)
+    if y.ndim != 1 or a.shape != y.shape or g.shape != y.shape:
+        raise ValueError("y, in_a and clusters must be 1-D and the same length")
+    if a.dtype != bool:
+        raise TypeError("in_a must be a bool array, not a number that might be a weight")
+    if not np.isfinite(y).all():
+        raise ValueError("y holds NaN or inf; drop them explicitly and report the count")
+    n_a, n_b = int(a.sum()), int((~a).sum())
+    if n_a < 2 or n_b < 2:
+        raise ValueError(f"each group needs >= 2 observations, got {n_a} and {n_b}")
+    _, gid = np.unique(g, return_inverse=True)
+    G = int(gid.max()) + 1
+    if G < 2:
+        raise ValueError("fewer than two clusters: a clustered SE does not exist")
+    m_a, m_b = float(y[a].mean()), float(y[~a].mean())
+    e = np.where(a, y - m_a, y - m_b)
+
+    def _cr(score: np.ndarray, mask: np.ndarray) -> tuple[float, int]:
+        s = np.bincount(gid[mask], weights=score[mask], minlength=G)
+        k = int(np.unique(gid[mask]).size)
+        if k < 2:
+            raise ValueError("a group spans fewer than two clusters: its clustered SE does not exist")
+        return sqrt(k / (k - 1) * float(s @ s)), k
+
+    se_a, G_a = _cr(e / n_a, a)
+    se_b, G_b = _cr(e / n_b, ~a)
+    se_d, _ = _cr(np.where(a, e / n_a, -e / n_b), np.ones_like(a))
+    return {"mean_a": m_a, "se_a": se_a, "n_a": n_a, "clusters_a": G_a,
+            "mean_b": m_b, "se_b": se_b, "n_b": n_b, "clusters_b": G_b,
+            "diff": m_a - m_b, "se_diff": se_d, "clusters": G}
 
 
 def read_result(estimate: float, se: float, meaningful: float, *, n_trials: float,
