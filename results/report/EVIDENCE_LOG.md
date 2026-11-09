@@ -3879,3 +3879,18 @@ that adds it does not exist when it is written.
 - source: `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` @ `95d429c`; `quantt/broker/alpaca.py` @ `95d429c`; `results/ops/ca_unresolved_2026-11-08/measure.py` @ `95d429c`
 - supports: §1, §5
 - status: open. Fix unreleased; both books stay in report until the team lead's rulings and a release. A CUSIP-format party needs its own ruling before halt returns
+
+### E-2026-11-09-30 · Team lead: "Build a check against our CUSIPs" and "Accept all three"; the corporate-action CUSIP check is built on a branch, not released
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - rulings: "Build a check against our CUSIPs"; "Accept all three" (db0847b7 no action; e34ddd44 and 6abeb209 acked with `ca-ack`, both books, at the return to `halt`), relayed by the coordinating session [S]
+  - the CUSIP table reads PROVED for both books over a 731-day lookback: 13 funds and 13 CUSIPs for the core, 74 funds and 75 CUSIPs for C4; IGR's old and new CUSIPs are both held [V]
+  - `halt` over 2026-10-01..11-09 (28 sessions, the table as read 2026-11-09), before any fix, ISIN fix alone, with this check: flat book 21, 19, 0 of 28; the core as actually held 25, 25, 5 of 28 [V]
+  - the core's 5 sessions are 10-01 to 10-07, on two worthless removals with `NOEA:XETR` and `NOEA:XTER` as party, dated 2026-09-28, the only rows still unresolved in the read [V]
+  - C4 as held: 0 blocking on 11-04 and 11-05 (recorded), 0 on 11-06 and 11-09 (upper bound on 11-05's windows; C4's account keys are not on this machine) [V]
+  - the 25 new tests of `quantt/session/tests/test_ca_cusip_table.py` fail on `0153db3` and on `935d1e3` [V]
+- source: `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` @ `d8f1c70`; `docs/SYSTEM.md` @ `d8f1c70`; `quantt/broker/alpaca.py` @ `d8f1c70`; `results/ops/ca_unresolved_2026-11-08/measure.py` @ `d8f1c70`
+- supports: §1, §5
+- status: open. Built on `ca-isin-fix`, unreleased; both books stay in report until reviewed and released, with `mode` and its two pins changed in that release
