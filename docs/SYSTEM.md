@@ -764,6 +764,17 @@ Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02
 | Where the pre-arming reads run (checklist steps 3 and 6), with C4's keys absent from the laptop | **"they are on the vm"**: the read-only probe and the cap re-check run on the VM, authenticated by the key file its C4 secret service wrote. No key is printed, copied or moved (`vmrelease.sh c4-probe`, git-excluded) |
 | CEF trial 54's outcome (the holdout, opened once, 2026-11-03) | **PASS on the pre-registered remainder, with the holdout decisive** (`results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md`): level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32% [S]. Evidence INCONCLUSIVE at N = 54, K3 overridden as above. Per "deploy as fast as possible", `level_signal` is activated in C4's spec (v5) through `/spec-change` and a release-check, paper only |
 
+### Team lead, 2026-11-03 — CEF trial 55 ("te4"): trade the eligible names on a thin session, paper only
+
+Answered interactively on 2026-11-03, on `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` (its "Approval" section records the ruling, the answers to §10 Q1–Q17 and the runner owner's terms; the counter moved CEF 54 → 55 in `docs/RESEARCH_STATE.md`). The runner's part is `docs/RUNNER.md`, "As built (2026-11-03)".
+
+| question | decision |
+|---|---|
+| On a session with 4–5 eligible names, build the core's book on them (`below_min_names = "trade_eligible"`, floor 4) instead of closing it? | **Approved for paper only, as CEF trial 55, with K0 and the recommended answer to every open question.** Before ruling, the team lead was shown that the rule is not shown to be alpha, that it is negative on real money, and that it is worth about zero going forward while no session is thin. The drafting session recommended keeping flatten |
+| Where it may run | **`below_min_names = "trade_eligible"` is PAPER ONLY. It never applies to a live-money account,** as the `late_market` exception never does (2026-10-09). Delete the key, with its floor and its K1–K3 lines, before any live-money arming of the core. Enforced in code twice: the sleeve refuses to decide under the key without a paper declaration, and the runner declares paper only when its broker client's trading endpoint is the paper endpoint |
+| A short skipped at the late-market send on a reduced session (the name stopped being shortable after the decide) | **Accept it and label it.** The send's skip-and-send stays as it is on reduced and full sessions alike. The record marks the reduced session that lost a short at send (`thin_stops.send_skip`), and K3 watches for a book that stays one-sided. Not chosen: refusing the whole send on such a session (the runner owner's preference) |
+| When it trades | **Only from its activation commit**, which needs: the implementation merged; the core's 60-session review graded; the Q6/Q10 counts; the K0–K3 report lines and the pre-built revert spec in the activation release; and the trial-53 note. Until then the key is absent and the book is today's, byte for byte |
+
 ### Team lead, 2026-11-03 — the research evidence pack's live data
 
 | question | decision |
