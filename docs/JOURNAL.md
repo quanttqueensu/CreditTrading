@@ -372,3 +372,17 @@ from a named source; [doc] copied from a named note.
 - **Counting.** Every re-test and every holdout look is a counted trial, and holdouts can be re-opened. Paper trading on later data is the clean check before real money.
 - **The loop.** Follow-ups come first. It no longer admits anything: it writes a scorecard and the team lead decides.
 - **Not changed.** The live book's stops, real-capital admission, the analysts' process and the guides.
+
+## 2026-11-09 (Mon)
+
+**The mission** (`docs/SYSTEM.md` §5, 2026-11-09; `docs/MISSION.md`; `results/report/EVIDENCE_LOG.md` E-2026-11-09-01, -02).
+- **Rulings.** The team lead gave a standing brief, kept verbatim as `docs/MISSION.md`.
+  - Scope is open, and the CEF book is one sleeve.
+  - Paper trading is the test. Research is judged on gross signal, with no cost model.
+  - Pre-registration, the trial counters, the holdout ceremony, "no sweeping" and alpha-only are dropped.
+  - An agent may start a paper or shadow book itself, through a separate path whose design the team lead approves once. That design is not written yet, so nothing new is on paper.
+  - Prod releases are the team lead's alone again: the 2026-11-02 standing authority is withdrawn.
+- **Research.** No return computed. `results/IDEA_LEDGER.md` replaces the counters and carries a one-line backfill of everything in `docs/RESEARCH_STATE.md`, which is frozen as history. 13 old ideas had a measured positive gross effect and were stopped by a gate that no longer applies.
+- **Found.** `results/mission/PHASE0_2026-11-09.md`: why the book has too few bets (one signal, small universes, one horizon, gates that kept no inventory, a prod release for every sleeve); every laptop panel is stale, from about 17 sessions (the core) to seven months (futures); and the agent layer still describes the old gates. `CLAUDE.md` is rewritten and wins where they differ. The research loop now stops at its own gate until it is rebuilt.
+- **Prod.** No change. The VM is armed at `release-20261104-1` [V: `python3 -m ops.orient`].
+- **Live.** Core: verify PASS, 12 of 12 filled; official pending; snapshot equity $98,838.46 at the 2026-11-09 close [V: `python3 -m ops.orient`].

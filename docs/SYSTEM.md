@@ -57,6 +57,9 @@ answering different questions.
 
 ## 1. What we trade
 
+> **2026-11-09 (team lead, §5): this section describes the core CEF sleeve.** Scope is now open and the
+> CEF book is one sleeve among those the desk is building toward one combined book (`docs/MISSION.md`).
+
 A **systematic credit closed-end-fund discount-reversion book** that places its
 own MOC orders on a schedule. It ran on an IBKR paper account until 2026-09-28
 and has traded on Alpaca paper since 2026-09-29 (§4). Capital and
@@ -823,14 +826,39 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | The core's 2023+ "sealed" (2026-10-09's row above) | **Corrected:** for the core book it has been seen. 2024–26 was opened on 2026-07-31, and the v7 pre-registration computed 2013-06-14 → 2026-09-21. The 2026-10-09 rule still holds for any book whose 2023+ has not been computed. Dated notes are in `docs/RESEARCH_STATE.md` and the framework's §9 |
 | Amendment 1 (team lead, **2026-11-02**, about 22:00 ET) | **Core ×1.30 (spec `cef_discount.v9.20261102`), C4 ×1.26 (`c4_families.v4.20261102`, before C4 arms), and the core's stops recalibrated on the live thin-day rule: R1 10.14%, R2 −3.06%, R3 12.07%.** The multipliers above were derived on the harness's thin-day HOLD book, but the live core FLATTENS. On the sessions it trades, the same rule gives ×1.30, which restores the risk this trial approved (zero-edge P(HALVE) / P(KILL) 16.7% / 1.7% while trading). The literal calendar-vol figure, ×1.96, is inflated by the flat sessions and was **not chosen**. It is **an amendment, not a new trial: CEF stays 53** (`results/cef/PREREG_VOLTARGET_2026-10-30.md` §0.B; `results/cef/prereg_voltarget/FLATTEN_REMEASURE_2026-11-02.md`) |
 
+### Team lead, 2026-11-09 — the mission: open scope, paper as the test, the old research gates dropped
+
+Given as a written brief, kept verbatim as `docs/MISSION.md`, and three questions answered interactively the same day
+(the last three rows). **Where an earlier row in this section disagrees, this one wins**; the rows it supersedes are named
+and are not rewritten. How it changes the agents' rules is `CLAUDE.md`, "Hard rules — research".
+
+| question | decision |
+|---|---|
+| Scope | **Open.** CEFs and nearby markets, fixed income, equities, ETFs, futures, volatility, multi-asset; systematic, fundamental, mid-frequency, event-driven and tools that assist discretion. The CEF discount book is one sleeve, not the identity of the fund. Supersedes §1's framing of the book and 2026-10-09's "instruments in bounds" (options no longer need the pre-registered short-premium route) |
+| What tests an idea | **Paper trading.** Research finds and shapes signals. An idea proves itself on paper (Alpaca, IBKR paper, or a simulated shadow book on live data) before capital |
+| Costs in research | **Not modelled.** Ideas are judged on gross signal. No cost grid, borrow haircut or slippage assumption goes into a research result, and no idea is rejected on a guessed cost. Real costs are measured from paper fills and examined only in a go-live proposal. Supersedes 2026-09-28's "cost grid beside it" and the turnover-matched net comparison |
+| The research gates | **Dropped: pre-registration, the trial counters and the deflated-Sharpe bar, the holdout ceremony, and "no sweeping and picking".** Supersedes 2026-09-08's two counters and time holdout, 2026-10-09's counter per source, 2026-10-27's bars and power gate, and 2026-11-08's "every re-test is a counted trial". The counter table in `docs/RESEARCH_STATE.md` is frozen at its 2026-11-09 values, as history. What stays is the hygiene in the next row |
+| What stays | **No lookahead** (decision-time data only: NAV publication lags, filing dates and not period ends, index membership as of the day); **no invented numbers**, every figure labelled `[V]`, `[S]` or `[U]` with the panel's last date; **no silent fallbacks**; **an idea ledger**, `results/IDEA_LEDGER.md`, one line per idea tested, a record and not a gate; and **one time split** before paper: early against late, and at least two market regimes |
+| Who promotes an idea to paper | **The agent, without asking**, through a paper and shadow path that is separate from the prod release path. The team lead approves that path's design once; until that approval no agent starts a new paper book. Supersedes 2026-11-08's "the team lead decides on a scorecard" for paper. **Real money always needs the team's explicit approval** |
+| The core and C4 books | **May be changed**: reworked, retired, or folded into a combined portfolio, on paper first. A change to what prod runs still reaches the VM as a release (below) |
+| Data | **Free and public only.** No paid subscription. The repository's panels, the R2 WRDS mirror for research, and free public sources |
+| Go-live bars | **Set per strategy.** Each go-live proposal states its own bar, reasoned from how often the strategy trades and how many bets it takes, and the team signs off. Supersedes the single standalone deflated-Sharpe gate for real capital (2026-10-27) |
+| The portfolio | **Toward one combined alpha model**: each sleeve gives a forecast, the forecasts are combined with shrinkage toward equal risk, and the whole book is sized to a risk target that the paper record supports. More risk is acceptable where the evidence supports it |
+| Who installs a prod release (asked 2026-11-09) | **The team lead only.** The 2026-11-02 standing authority ("agents merge, tag, install and arm when every gate passes") is **withdrawn**. Agents prepare a release and run the release check; the team lead merges, tags, installs and arms |
+| Alpha only (asked 2026-11-09) | **Dropped.** Risk premia (carry, trend, short volatility) may be sized sleeves. Factor exposures are reported beside every result and managed at book level; exposure no longer ends an idea. Supersedes 2026-10-09's "deliberate beta: no" and the D4 gate as a kill |
+| `CLAUDE.md`'s research rules (asked 2026-11-09) | **Rewritten to the brief's §2.** The `/prereg` skill and the counters are retired for research; `docs/RESEARCH_STATE.md` stays as history |
+| Not changed | The order-path rules (`CLAUDE.md`): no order on a real-money account without the team lead's go on the full list, `DRY_RUN=1` wins, credentials are never read. The live books' own stops and gates as they run today. `/spec-change` for any frozen-spec key. The analysts' lanes and process (`docs/TEAM.md`): **confirmed by the team lead the same day ("Keep TEAM.md process")**. The analysts still bring each test to the team lead and pitch at the end of November; only the team lead's sessions use the mission's rules |
+| The paper/shadow runner's first form (asked 2026-11-09) | **Shadow books first**: simulated books on live data, with no account and no keys. Paper accounts are added for the ideas that look best. This sets the direction of the design; the design itself still needs the one-time approval above |
+| Refreshing research data (asked 2026-11-09) | **The agent runs the free-source fetchers** from the laptop into a research data folder, never into the live `data/` panels (`CLAUDE.md` landmine 9). The team lead runs only the R2 pulls that need the token |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |
 |---|---|
 | Hard rules: order path, code, data, research | `CLAUDE.md` |
-| Trial counters and the killed list | `docs/RESEARCH_STATE.md` (counter table and KILLED table are canonical) |
+| Ideas tested, and what each showed | `results/IDEA_LEDGER.md` (a record, not a gate; from 2026-11-09). `docs/RESEARCH_STATE.md` is the history before it: its counters are frozen |
 | Harness rules H1–H15 (`shift(2)`, turnover matching, cost grid, eras, IC, holdouts, H14) | `docs/BRIEF.md` §5, and `/harness` |
-| Pre-registration | `/prereg`; shape: `results/cef/PREREG_BAND_2026-09-06.md` |
+| The mission and the pipeline (idea, explore, paper, go-live proposal, live) | `docs/MISSION.md`; §5, 2026-11-09. Pre-registration is retired for research |
 | Changing a frozen spec key | `/spec-change` |
 | Ideas that have failed so far — check before proposing anything; nothing is banned (2026-11-08) | `/graveyard`, and the KILLED table |
 | External claims | `docs/REFERENCES.md` |
@@ -867,3 +895,4 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | 2026-11-03 | §5 records the evidence pack's live-data ruling: aggregates in the repository, rows in a gitignored cache. | research evidence pack, for the team lead |
 | 2026-11-05 | §5 records the analysts' roles reopened as starting points, any analyst may propose a signal, and the end-of-November pitch. | analyst guide, for the team lead |
 | 2026-11-08 | §5 records that research is not pass or fail; §1's holdout sentence and the 2026-10-27 power and admission rows point at it. | research method, for the team lead |
+| 2026-11-09 | §5 records the mission (`docs/MISSION.md`): open scope, paper as the test, no costs in research, the research gates dropped, self-promotion to paper through a separate path, releases by the team lead only, alpha-only dropped. §1 and §6 point at it. | the mission, for the team lead |
