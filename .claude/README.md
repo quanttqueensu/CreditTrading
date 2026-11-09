@@ -52,7 +52,7 @@ The Alpaca order path will get its own rule file when it is built
 |---|---|
 | `/morning-brief` | data freshness, what the signal wants today, the Alpaca accounts |
 | `/next-task` | what to work on, ranked against the actual constraints |
-| `/graveyard` | the dead mechanisms and how each died — **read before proposing anything** |
+| `/graveyard` | the ideas that have failed so far and how; nothing is banned — **read before proposing anything** |
 | `/harness` | how to run a backtest that is comparable to existing numbers |
 | `/repro` | reproduce a number before quoting it; check panel freshness |
 | `/prereg` | write a pre-registration before a change trades |
@@ -69,10 +69,10 @@ route it. `/research-idea` runs the whole line.
 
 ```
 quant-researcher → data-engineer → data-analyst → statistician ─┬─ PROCEED → /prereg → approved (CLAUDE.md)
-   the question      data gathering   data audit     power gate  └─ UNDERPOWERED: redesign, nothing spent
+   the question      data gathering   data audit     power check └─ VERY LOW ODDS: redesign, nothing spent
                                                                    ↓
-        backtest-engineer (or ml-engineer) → beta-detector + quant-reviewer + statistician → portfolio-manager + quant-trader → verdict
-           one run, P&L series stored        the adversaries: claim, code, inference      what it adds; can it be traded    evidence + D-code
+        backtest-engineer (or ml-engineer) → beta-detector + quant-reviewer + statistician → portfolio-manager + quant-trader → quant-researcher → verdict
+           one run, P&L series stored        the adversaries: claim, code, inference      what it adds; can it be traded    what next, and why  evidence + D-code
 ```
 
 | station | agent | the seat |
