@@ -3841,3 +3841,18 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
 
+
+### E-2026-11-08-30 · The corporate-action gate's bond-ISIN misread is fixed on a branch: 58 of the 208 unreadable-party rows are bonds and leave the gate; the other 150 stay unresolved, two of the team lead's three rows among them
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - over process dates 2025-11-01..2028-11-08 (feed read 2026-11-08, 3,638 rows) 208 rows had a party value the parser read as missing; 58 are US ISINs of bonds (57 partial calls, one reorganization), 148 a 9-character CUSIP-format value, 2 an exchange-suffixed code, 0 null or empty [V]
+  - the fix classifies only the 58 as bonds: no other event changes (`saw` aside), the 24 malformed-row records are the same [V]
+  - all 88 CUSIPs of the 87 funds carry numeric issue codes (84 `10`, 3 `20`, one `87`), so an alphabetic issue code cannot be a share of one of them [V]
+  - a flat book would be refused on 17 of 23 sessions 2026-10-01..11-02 before the fix and 15 of 23 after it, and on 4 of 5 sessions 2026-11-03..11-09 before and after (feed as read 2026-11-08) [V]
+  - db0847b7 (an Office Properties 8.375% 2029 Reg S bond) is resolved by the fix; e34ddd44 (SNTI CVRs, 816CVR021) and 6abeb209 (JAGX Series R conversion, 47010C847) stay unresolved; none of the three can be one of the funds [V]
+  - the 25 new tests of `quantt/session/tests/test_ca_isin.py` fail on `a5b94c8`; the pins of what must not change also fail against a naive fix that classifies any 12-character string as a bond [V]
+- source: `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` @ `95d429c`; `quantt/broker/alpaca.py` @ `95d429c`; `results/ops/ca_unresolved_2026-11-08/measure.py` @ `95d429c`
+- supports: §1, §5
+- status: open. Fix unreleased; both books stay in report until the team lead's rulings and a release. A CUSIP-format party needs its own ruling before halt returns
