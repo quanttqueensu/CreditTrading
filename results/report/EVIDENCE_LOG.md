@@ -3852,3 +3852,15 @@ that adds it does not exist when it is written.
 - source: `results/research/DESK_METHOD_2026-10-27.md` @ `a5b94c8`; `docs/SYSTEM.md` @ `a5b94c8` (the rows it changes; the ruling itself is added in this commit)
 - supports: §5
 - status: current; for research agents and the research loop only. The live book's stops, real-capital admission and the analysts' process are unchanged
+
+### E-2026-11-05-31 · Ruling: the analysts' lanes reopen as starting points, any analyst may propose a signal, and each pitches one idea to the execs at the end of November
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - no figures; lanes recorded as FICC risk, equity risk, and cross-asset signals with the dashboard, "open ended" [S]
+  - the team lead approves every test, and a trial still needs approval before any return is computed; supersedes the 2026-11-03 report-only lanes [S]
+  - each analyst pitches separately, a short talk with slides, end of November; date and length to be set [S]
+- source: `docs/SYSTEM.md` @ `b63253d`
+- supports: §5
+- status: current
