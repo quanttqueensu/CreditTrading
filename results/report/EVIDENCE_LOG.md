@@ -3934,3 +3934,15 @@ that adds it does not exist when it is written.
 - source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ca80123`
 - supports: §2, §5
 - status: current
+
+### E-2026-11-09-01 · CEF trial 55's three pre-activation fixes from the owner's release-check: late_market only, a plan the buying-power fit emptied is not sent, and the drift guard compares the K-line values
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - "`thin_rule_for` refuses, at session start, any execution mode but `late_market`" [S]
+  - "a reduced plan the buying-power fit scaled to nothing (`bp_scale` orders_in > 0, orders_out 0) is not sent" [S]
+  - "A spec value may be the compose value rounded, at 3 decimals or more; any other difference fails the activation commit" [S]
+- source: `docs/RUNNER.md` @ `5eb8bf5`; `quantt/session/run.py` @ `5eb8bf5`; `quantt/session/drawdown.py` @ `5eb8bf5`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `5eb8bf5`
+- supports: §5
+- status: current (the key is not set; it trades only from its activation commit)
