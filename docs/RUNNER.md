@@ -689,8 +689,8 @@ until the team lead installs it; the steps are
   the core; the missing-NAV hold (2 sessions); drawdown in report mode, against
   the core's halve/kill levels since spec `c4_families.v3.20261102` (team lead
   2026-10-30; until v3 the spec named none and every decide recorded
-  UNMEASURED); the corporate-action gate in `report`, as the core, since the
-  team lead's 2026-11-02 ruling (it was `halt` until then; the ruling followed the
+  UNMEASURED); the corporate-action gate in `halt`, with the core, since the
+  team lead's 2026-11-09 ruling (`report` from 2026-11-02, a ruling that followed the
   measurement in the checklist's "corporate-action mode"). **No `data.stale_nav`**:
   CEFConnect is disabled for C4, and the spec's NAV-repeat mask is its defence.
 - **The refresh** is `fetch_daily --data-book c4 --book ops/books/c4_families_book.json`
@@ -775,6 +775,33 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
   hash of the raw row (`row-sha256:...`). An unresolved row whose dates
   cannot be read is UNDATED: keyed by its hash and treated as inside every
   window, so it halts until acknowledged.
+- **A bond by its ISIN** (team lead, 2026-11-08, "Start the fix"). A party field
+  holding a bond's ISIN (ISO 6166 check digit, US, its CUSIP part equal to the
+  row's own CUSIP field, an alphabetic issue code) is a bond, not a missing
+  party. It never reaches the party list, so it cannot match one of our
+  tickers. The row is listed under `corporate_actions.bond_rows`, with one log
+  line, and blocks nothing. Anything else that is not a ticker stays
+  unresolved, and the record's `saw` says what the field held.
+  *Measured 2026-11-08 (`results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`):
+  on the real feed every unresolved row carries a value there, a CUSIP or
+  (before this fix) an ISIN; none is empty. So "missing" in the record means
+  "not read as a ticker".*
+- **A CUSIP-format party** (team lead, 2026-11-09, "Build a check against our
+  CUSIPs"; `alpaca._CaCusipTable`). A 9-character value with a valid CUSIP check
+  digit, digit-led or letter-led, is judged against every CUSIP seen for every
+  fund of the book's universe across the last 731 days, read when first needed
+  from Alpaca's cash-dividend and non-dividend rows. It names nobody only if
+  that is proved: every fund read, no split, reorganisation or CUSIP change left
+  unconfirmed, the row inside the table's coverage, the value on a CUSIP field
+  of its own row, and nothing on the row naming one of ours. The row is then
+  listed under `corporate_actions.foreign_cusip_rows` and blocks nothing.
+  Otherwise it stays unresolved, naming the fund and the reason in `saw`. A
+  party matching one of our CUSIPs, a superseded one included, also names that
+  fund and blocks. A table that cannot be read or proved leaves every such row
+  unresolved (`corporate_actions.cusip_table`, one log line), never "not ours".
+  A failed read lasts that read. A fund's row with no CUSIP lasts until the row leaves
+  the lookback, up to about two years, and each row it refuses then needs `ca-ack`.
+  Measured in `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` §5.
 - **Skipped and recorded.** This applies to a row whose every party symbol is
   present, none in the book's universe, with a non-party field malformed: its
   id, its date field or `process_date`. It goes in
@@ -967,6 +994,13 @@ order cycle, a clock GET and a POST, was 0.259 s (`gate.py`). No code was
 changed for this (review 2026-10-29). Gate 6's order lists, which were read
 before both of these GETs, are now read after them ("As built (2026-10-29):
 gate 6 reads its lists last").
+
+The CUSIP table (`alpaca._CaCusipTable`, 2026-11-09) adds its own reads at the decide and
+again at the send, on a day a CUSIP-format party appears: the funds' dividend rows and the
+non-dividend rows over the 731-day lookback, about 1 to 4 s when measured (read from the
+laptop, not the VM). It has no deadline of its own. One GET that exhausts its retries costs
+the same 250 s and the table then reads NOT_PROVED; a page token that does not advance
+fails it at once. The decide's table is not reused at the send.
 
 **Not covered.** Rights distributions, cash dividends and capital-gains
 distributions change no share count. An action Alpaca never lists is not seen
