@@ -676,6 +676,15 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-08 — the nightly check moves to VM timers
+
+| question | decision |
+|---|---|
+| Where does the nightly check live? (it lived only in an open session, ran three days late on 2026-11-05, and the 11-06 plans sent unread: E-2026-11-08-03) | **A VM timer**: `scripts/ops/data_qa.py` before the decide and `scripts/ops/risk_daily.py` after it, per book, report-only (`docs/RUNBOOK.md` 8.10) |
+| What pushes? | **ACT only**: a pre-registered stop that has fired. Everything else stays in the journal. With no channel the report records `ACT: notification NOT delivered` and exits non-zero |
+| Per-name concentration | **"Measure it, change nothing."** Largest name, top-3 and per-name share of NAV in the risk report; it never raises severity |
+| The drawdown read at 22:15, when that day's EOD row is not written | **The freshest row**: the as-of's own row if it exists, else D−1, labelled stale. Until PR #55 merges (`drawdown.read_through`) the report reads `drawdown.check` as it stands and marks the line for follow-up |
+
 ### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
 
 Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAND_COST_REDERIVATION_2026-11-05.md`
