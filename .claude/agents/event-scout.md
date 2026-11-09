@@ -71,8 +71,8 @@ that is a trial, and it needs `/prereg` and the team lead's approval first.
 
 - **EDGAR**: only through `scripts/data/edgar_client.py`, offline cache first,
   inside the SEC's fair-access rate.
-- **R2**: only through `src/data/r2.py`; CRSP ends where `results/data/R2_CATALOG.md`
-  says it does.
+- **R2**: only through `src/data/r2.py`; CRSP ends where the inventory in `docs/DATA.md`
+  §3 says it does.
 - **Alpaca**: read-only GETs only.
 - **Counting code**: reuse `scripts/events/ss_catalogue_counts.py` and
   `scripts/events/ss_credit_catalogue_counts.py` before writing a new counter.

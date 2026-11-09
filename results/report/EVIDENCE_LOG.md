@@ -3944,3 +3944,13 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
 - supports: §1, §5
 - status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
+
+### E-2026-11-09-01 · Four row-level CRSP tables and the R2 inventories leave the repository and are git-ignored
+- kind: incident
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (a repository clean-up asked for by the team lead; no figure)
+- source: `.gitignore` @ `3595ec8` (the block is added by this commit, on top of that main)
+- supports: §5
+- status: current
