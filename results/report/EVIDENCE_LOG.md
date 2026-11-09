@@ -3924,3 +3924,13 @@ that adds it does not exist when it is written.
 - source: `scripts/cef/exposure_readout.py` @ `55dc94e`
 - supports: §5
 - status: current
+
+### E-2026-11-08-23 · Rulings on CEF trial 55: the code ships dark, and the in-place edit of the approved pre-registration's compose commands is accepted
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (rulings: "The implementation (PR #55) merges with the key absent, so the book keeps today's flatten rule"; the in-place edit carries a dated note and changes no figure; team lead, 2026-11-08)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ca80123`
+- supports: §2, §5
+- status: current
