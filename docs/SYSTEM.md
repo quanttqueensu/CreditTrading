@@ -111,8 +111,9 @@ and `EXEC_LAG` in `scripts/cef/validate.py` is asserted at runtime. Why MOC and
 not a market order: `CLAUDE.md`, order-path rule 3.
 
 **Universe and holdouts.** The deployed names are the spec's `universe`;
-`data/cef/cef_universe.csv` holds the wider set. Two holdouts are sealed and
-opened once: **the untouched CEFs** outside the deployed universe (trading any of
+`data/cef/cef_universe.csv` holds the wider set. Two holdouts are sealed until
+a pre-registered test opens them (research agents may re-open one, each look counted
+and labelled: §5, 2026-11-08): **the untouched CEFs** outside the deployed universe (trading any of
 them consumes the set), and **a 2023-01-01 time holdout** on every fit.
 
 ---
@@ -612,8 +613,8 @@ rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
 | question | decision |
 |---|---|
 | Which deflated-Sharpe bar gates | **The paper's bar** (Gumbel expected maximum, effective N, measured cross-trial V[SR_n]), **once trials store their daily P&L series**. Until then both bars are shown, labelled, and the desk's √(2 ln N) on the raw counter gates |
-| The power gate | **In the `research-idea` workflow only**, not a `CLAUDE.md` rule. The workflow stops when any P(pass) is below 0.5, unless overridden |
-| Admission by marginal contribution | **Allowed, paper only.** A sleeve that fails the standalone deflated Sharpe may join the paper book, labelled, if it adds to the book (SR > ρ·SR_book across ρ's range) and the combined net is positive across the 5/15/30bp grid. Real capital keeps the standalone gate (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1) |
+| The power gate | **In the `research-idea` workflow only**, not a `CLAUDE.md` rule. The workflow stops when any P(pass) is below 0.5, unless overridden. *(Changed 2026-11-08, above: it stops below 0.10 and warns below 0.50.)* |
+| Admission by marginal contribution | **Allowed, paper only.** A sleeve that fails the standalone deflated Sharpe may join the paper book, labelled, if it adds to the book (SR > ρ·SR_book across ρ's range) and the combined net is positive across the 5/15/30bp grid. Real capital keeps the standalone gate (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1). *(Paper entry became the team lead's decision on a scorecard, 2026-11-08, above. Real capital is unchanged.)* |
 | Evidence outcome | **Every verdict records PRESENT / ABSENT / INCONCLUSIVE beside its D-code**, and C5, E1 and X1 are relabelled (`docs/RESEARCH_STATE.md`, 2026-10-27 note) |
 | The audit's zero-trial re-opens | **All queued, in this order:** (1) NAV tenders and E1 judged by their contribution to the book, on fit-period series only; (2) C5 as an execution choice, with the opening-auction cost re-measured on 2023–26 quotes; (3) X3 hedged against TERM, power check first because its holdout is spent; (4) A1 as a conditioner, G2's two named inputs, MA-HZ on the 2001 census. Each spends no trial; any test that follows is pre-registered |
 | Trial P&L series | **Backfill what is reproducible.** Re-run each past trial whose script still reproduces, store its daily series, and list those that cannot be rebuilt. The desk's bar keeps gating until it is done |
@@ -675,6 +676,25 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | Raising the core's vol target (×1.24, about 6% → 7.4%) | **Pre-register it as CEF trial 53** (`results/cef/PREREG_VOLTARGET_2026-10-30.md`; approved 2026-11-01 at the milder ×1.13 / ×1.27, see the next section) through /spec-change. The counter moves on approval |
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
+
+### Team lead, 2026-11-08 — research is not pass or fail
+
+Answered interactively on 2026-11-08, after the team lead said of the desk's research: "not a no go no only rules, we need
+to be dynamic - this is too binary". It covers the research agents and the research loop.
+
+| question | decision |
+|---|---|
+| The power check in `research-idea` | **Stop only at very low odds: any P(pass) below 0.10.** From 0.10 to 0.50 the test runs, with a warning at the top of the pre-registration. The team lead can still override with `override_power`. 0.10 is the figure offered in the question |
+| How long to keep working on an idea after a test falls short | **The agent judges, with reasons.** There is no fixed number of rounds. The reasons come from economics, market history and how markets have reacted historically, whether an angle is missing, and which tweaks remain. An idea is set aside only with those reasons and what would reopen it |
+| How re-tests count | **Every re-test is a counted trial**, pre-registered and stored like any other |
+| The holdouts | **Re-opens are allowed, any number, each look counted and labelled.** This supersedes "opened once" for research agents. After the first look the data is no longer clean, so paper trading on data that arrives afterwards is the clean check before real money |
+| What decides entry to the paper account | **A scorecard with a recommendation, and the team lead decides.** Pass marks, including the deflated-Sharpe bar and the marginal route of 2026-10-27, are shown as guides. Real capital keeps its standalone gate |
+| The 2026-10-27 audit's kills | **Re-review the practical blocks and the tests too weak to tell**, best first on market reasoning, skipping any already re-opened. The audit note gives counts only (26 and 20), so the loop finds them in the ledger |
+| The graveyard | **Nothing is banned.** An idea can return if the agent says what is different. One that failed on a data error must deal with that error first |
+| The loop's order | **Follow-ups first**, then the existing queues and new ideas |
+| The analysts | **Not changed.** Their process, the guides and their end-of-November pitches stay as they are |
+| The live book | **Not changed.** The order path, `DRY_RUN`, HALVE/KILL and the 60-session review stay as written |
+| Not discussed, so still standing | No lookahead, no invented numbers, one harness, turnover-matched tables, and no picking the best of a swept column |
 
 ### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
 
@@ -788,7 +808,7 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | Harness rules H1–H15 (`shift(2)`, turnover matching, cost grid, eras, IC, holdouts, H14) | `docs/BRIEF.md` §5, and `/harness` |
 | Pre-registration | `/prereg`; shape: `results/cef/PREREG_BAND_2026-09-06.md` |
 | Changing a frozen spec key | `/spec-change` |
-| Dead mechanisms — check before proposing anything | `/graveyard`, and the KILLED table |
+| Ideas that have failed so far — check before proposing anything; nothing is banned (2026-11-08) | `/graveyard`, and the KILLED table |
 | External claims | `docs/REFERENCES.md` |
 | Work orders and the plan | `docs/ROADMAP.md`. The old work orders were deleted 2026-09-28 (tag `pre-clean-slate`). |
 | Which document owns which question | `docs/INDEX.md`, checked by `python3 -m ops.doc_audit` |
@@ -821,3 +841,4 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |
 | 2026-11-02 | §5's trial-53 table records amendment 1: core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule; CEF stays 53. | CEF trial 53 amendment 1, for the team lead |
 | 2026-11-03 | §5 records the evidence pack's live-data ruling: aggregates in the repository, rows in a gitignored cache. | research evidence pack, for the team lead |
+| 2026-11-08 | §5 records that research is not pass or fail; §1's holdout sentence and the 2026-10-27 power and admission rows point at it. | research method, for the team lead |

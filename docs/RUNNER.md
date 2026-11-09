@@ -476,6 +476,16 @@ note** (`_thin_k1_episode_drawdown_note`, `_thin_k2_max_name_frac_note`, `_thin_
 `_thin_k3_net_once_note`). `src/deploy/tests/test_thin_k3_run_provenance.py` fails the activation
 commit if a cited file is missing or records no run length or another one (the files of
 2026-11-03 record none, so a spec citing them fails).
+3. **Three fixes required before activation** (the owner's release-check of 78e3483, 2026-11-09:
+GO to merge dark, these before the key is set).
+   - `thin_rule_for` must check the execution mode. It does not, so under `cls` on paper an
+     episode can open on STARTED alone, with no fill known.
+   - `_send_state`: a reduced plan emptied by the buying-power fit reads as sent. It must not.
+   - The K3 drift guard (`test_thin_k3_run_provenance.py`) compares only the run length. It must
+     also compare the four K-line values and the compose run's m and floor with the spec.
+4. **A known limit to revisit at activation** (the owner, 2026-11-08). A set rejected in full at
+the POST (a 4xx on every order) has a `submit` line per order, so it reads UNMEASURED even though
+each `rejected` event shows the order does not exist. It is rare and fails closed.
 
 ## As built (2026-10-29): gate 6 reads its lists last
 

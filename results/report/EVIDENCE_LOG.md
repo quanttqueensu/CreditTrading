@@ -3733,6 +3733,126 @@ that adds it does not exist when it is written.
 - supports: §2, §3, §6
 - status: current; closes the draft pre-registration of E-2026-11-05-40 (that entry stands as the record of the analysis; its note was renamed from PREREG_DRAFT_BAND_COST_2026-11-05.md)
 
+### E-2026-11-05-90 · cef paper book, 2026-11-05: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - verify verdict PASS; orders sent 5, filled 5 [S]
+  - 17:30 ET snapshot equity change 22.75 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -83.72 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -83.31 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 10.20 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 10.20 bp, fill rate 1.0000 of shares [S]
+  - shadow book 109.44 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/tca.csv` @ `pull:ae2279000743`
+- supports: §4
+- status: current
+
+### E-2026-11-06-90 · cef paper book, 2026-11-06: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-06
+- figures:
+  - verify verdict PASS; orders sent 13, filled 13 [S]
+  - 17:30 ET snapshot equity change -308.14 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -266.98 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -266.09 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 7.20 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 7.20 bp, fill rate 1.0000 of shares [S]
+  - shadow book -283.69 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/tca.csv` @ `pull:ae2279000743`
+- supports: §4
+- status: current
+
+### E-2026-11-05-91 · c4 paper book, 2026-11-05: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - verify verdict PASS; orders sent 2, filled 2 [S]
+  - 17:30 ET snapshot equity change 1278.00 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change 1243.68 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L 1244.07 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 18.04 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 18.04 bp, fill rate 1.0000 of shares [S]
+  - shadow book 1279.07 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
+- supports: §4
+- status: current
+
+### E-2026-11-06-91 · c4 paper book, 2026-11-06: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-06
+- figures:
+  - verify verdict PASS; orders sent 3, filled 3 [S]
+  - 17:30 ET snapshot equity change -1190.10 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -1225.93 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -1225.80 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 23.38 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 23.38 bp, fill rate 1.0000 of shares [S]
+  - shadow book -1181.63 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
+- supports: §4
+- status: current
+
+### E-2026-11-08-01 · Sessions 2026-11-05 and 11-06: both books verify PASS; the core's ×1.30 book reaches its cap; one send-time short skip
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - official EOD change, core: 11-04 −$232.83, 11-05 −$83.72, 11-06 −$266.98; equity $99,405.98, −$594.02 since funding [V]
+  - official EOD change, C4: 11-04 −$9.96, 11-05 +$1,243.68, 11-06 −$1,225.93; equity $100,007.79, +$7.79 since funding [V]
+  - core 11-05: 5 of 6 planned orders sent and filled; the sixth, an MHD short, was skipped at send (shortable=False); 11-06: 13 of 13 filled [V]
+  - C4 11-05: 2 of 2 filled; 11-06: 3 of 3 filled [V]
+  - fill against the official close: core +10.2bp and +7.2bp; C4 +18.0bp and +23.4bp, on 2 and 3 orders [V]
+  - core gross from positions and orders: 1.517× before the 11-06 plan, 1.799× after it; Alpaca's account values read 2026-11-08 give 1.827× gross and +0.176× net, with maintenance margin 0.80 of equity [V]
+- source: `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; the VM's plan.json and send.json records, read-only, not tracked
+- supports: §4, §5
+- status: current
+
+### E-2026-11-08-02 · The plans for 2026-11-09, read before the send; C4's data checks clean
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - core `cef_discount.v9.20261102`: decided, no refusals, 13 orders ($37,973 notional); the book 1.828× before and 1.784× after them against the 1.80 cap; net +0.177× to +0.055×; pre-flight ok; gate 8 bp_scale 1.0; drawdown UNMEASURED [V]
+  - C4 `c4_families.v5.20261103`: decided, no refusals, 2 orders ($1,431 notional); the book 1.350× before and 1.335× after them against the 1.90 cap; net −0.089× to −0.075×; pre-flight ok [V]
+  - short-opens on 11-09: core PTY and JFR, both shortable in the 11-06 borrow snapshot; C4 none [V]
+  - C4 held shorts against borrow: UTF is no longer shortable (an existing short, no new short planned); the other eight are shortable [V]
+  - checklist step 5 on the panel to 2026-11-06: IGR premium 05-04..09-04 median +0.64%, min −1.96%, max +3.17%; 0 seed-window closes moved beyond 0.5% [V]
+- source: `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; the VM's plan.json and collect reports, read-only, not tracked
+- supports: §1, §4
+- status: current
+
+### E-2026-11-08-03 · Incident: the 2026-11-05 evening check ran three days late, and the VM was out of reach until the ssh firewall rule was updated
+- kind: incident
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the check scheduled for 22:17 ET on 2026-11-05 ran on 2026-11-08, because the scheduled job lives only in an open, idle Claude session; the 11-06 plans sent unread (both passed verify) [V]
+  - ssh timed out because the firewall rule no longer matched the team lead's IP; the VM was running and the book trading throughout (Alpaca: core fills on 11-05 and 11-06); the team lead updated the rule on 2026-11-08 [V]
+- source: `docs/RUNBOOK.md` @ `6c6b9fd` (the IP-change procedure)
+- supports: §5
+- status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
+
+### E-2026-11-08-04 · Ruling: research is not pass or fail. A failed gate no longer ends an idea, the power check stops only at very low odds, holdouts can be re-opened with each look counted, and entry to the paper account is the team lead's decision on a scorecard
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the team lead: "not a no go no only rules, we need to be dynamic - this is too binary" [S]
+  - the audit behind the re-review, 82 ideas: CORRECT KILL 29, IMPLEMENTATION 26, UNDERPOWERED 20; the 26 and the 20 are re-reviewed, best first on market reasoning [S]
+  - the power check stops below P(pass) 0.10 and warns from 0.10 to 0.50; it stopped below 0.50 before (the 2026-10-27 row of `docs/SYSTEM.md` §5) [S]
+- source: `results/research/DESK_METHOD_2026-10-27.md` @ `a5b94c8`; `docs/SYSTEM.md` @ `a5b94c8` (the rows it changes; the ruling itself is added in this commit)
+- supports: §5
+- status: current; for research agents and the research loop only. The live book's stops, real-capital admission and the analysts' process are unchanged
+
 ### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
 - kind: method
 - era: ALPACA
@@ -3760,7 +3880,7 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: current (refines E-2026-11-03-42: at the 22:00 decide nothing changes)
 
-### E-2026-11-08-01 · CEF trial 55's stop lines after the owner's review: a reduced decision counts only if its targets were sent and filled, K3's run length is a required spec key, and missing sessions blank only the stops whose window holds them
+### E-2026-11-08-22 · CEF trial 55's stop lines after the owner's review: a reduced decision counts only if its targets were sent and filled, K3's run length is a required spec key, and missing sessions blank only the stops whose window holds them
 - kind: method
 - era: ALPACA
 - date: 2026-11-08
