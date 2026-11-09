@@ -3894,3 +3894,16 @@ that adds it does not exist when it is written.
 - source: `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` @ `d8f1c70`; `docs/SYSTEM.md` @ `d8f1c70`; `quantt/broker/alpaca.py` @ `d8f1c70`; `results/ops/ca_unresolved_2026-11-08/measure.py` @ `d8f1c70`
 - supports: §1, §5
 - status: open. Built on `ca-isin-fix`, unreleased; both books stay in report until reviewed and released, with `mode` and its two pins changed in that release
+
+### E-2026-11-09-31 · Team lead: the corporate-action gate goes back to halt in tonight's release, and the two acks are dropped unless needed
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - rulings: "Halt in tonight's release"; the acks for e34ddd44 and 6abeb209 "Drop them unless needed", answered directly [V]
+  - `corporate_actions.mode` is `halt` in both book files from `1aab61d` [V]
+  - with the gate's `"mode": "halt"` mapped back to `"report"`, all 50 fields of the core's synthetic session pin and all 12 of C4's equal the earlier pins byte for byte: against a clear feed halt and report trade the same [V]
+  - on the real panels the core's pin moved only in `book`, `plan_json`, `run_record` and `send_json` [V]
+- source: `ops/books/cef_discount_book.json` @ `1aab61d`; `ops/books/c4_families_book.json` @ `1aab61d`; `quantt/session/tests/test_panels_noop.py` @ `a822c44`; `src/deploy/tests/test_level_signal.py` @ `a822c44`; `docs/SYSTEM.md` @ `a822c44`
+- supports: §1, §5
+- status: open. Installs only on release-check GO, after the 2026-11-09 verify; cut from `ca-isin-fix`, so te4's dark code is not in it
