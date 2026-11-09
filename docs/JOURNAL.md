@@ -373,7 +373,7 @@ from a named source; [doc] copied from a named note.
 - **The loop.** Follow-ups come first. It no longer admits anything: it writes a scorecard and the team lead decides.
 - **Not changed.** The live book's stops, real-capital admission, the analysts' process and the guides.
 
-**Nightly report-only checks built** (`results/report/EVIDENCE_LOG.md` E-2026-11-08-20; PR open, not merged, not installed).
+**Nightly report-only checks built** (`results/report/EVIDENCE_LOG.md` E-2026-11-09-40; PR open, not merged, not installed).
 - **What.** `scripts/ops/data_qa.py` (Q1–Q8, per book) and `scripts/ops/risk_daily.py` (per account), wrapping the existing readers, on VM timers installed by a separate `install_vm --reports` (`docs/RUNBOOK.md` 8.10). Book installs and rendered units are byte-identical to before.
 - **Thresholds** are derived on the fit panels to the design's budget; the calibration note says what falls short: Q3 cannot catch one-row stale copies, Q6 13/22 on the core, Q4's split-basis names are not panel steps (`results/ops/DATA_QA_CALIBRATION_2026-11-08.md`).
 - **Push on ACT only** through the existing SMTP path; until the team lead adds the two vault secrets, a fired stop says `ACT: notification NOT delivered` and fails loudly.

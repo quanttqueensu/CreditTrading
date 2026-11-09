@@ -3865,10 +3865,10 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: current
 
-### E-2026-11-08-20 · Nightly report-only data QA and risk checks built on VM timers; thresholds derived on fit data with recall as measured
+### E-2026-11-09-40 · Nightly report-only data QA and risk checks built on VM timers; thresholds derived on fit data with recall as measured
 - kind: method
 - era: ALPACA
-- date: 2026-11-08
+- date: 2026-11-09
 - figures:
   - budget 1 flag per book per week jointly, 0.2/wk per free-threshold check; fit 2005-01-01..2022-12-31 (Q6 from 2013), deployed names only, sealed names and 2023+ not read for any rate; sum of check rates core 0.683/wk, C4 0.653/wk [V]
   - Q2 z core 6.5 (0.192/wk), C4 10.0 (0.177/wk); recall on C4's 9 DG-L3 masks 9/9 (7 episodes); the core has no positive in its 13 names [V]
