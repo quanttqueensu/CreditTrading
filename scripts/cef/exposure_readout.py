@@ -412,12 +412,32 @@ WHAT IT REFUSES (raises, naming what is missing; never a default)
     repository that encloses the target (from a linked worktree, that can be the main
     checkout): the outputs carry the caller's positions, and this repository is public.
 
+TWO BOOKS (team lead, 2026-11-09)
+---------------------------------
+The team lead ordered a daily report for both paper books. Everything above is the
+core's (book "cef"). C4 (book "c4") is a set of equity, sector, covered-call,
+preferred and multi-asset CEFs, so the core's four credit factors are the wrong set
+for it. The ruling: a factor set designed for C4, EQUITY = SPY (the headline), TERM =
+IEF, CREDIT = HYG, PREFERRED = PFF, orthogonalised by the same Gram-Schmidt in that
+order (general to specific, as the core's), TERM, CREDIT and PREFERRED marked
+indicative as the core's non-headline factors are, and the book read in the report
+split by family (equity_domestic, equity_sector, equity_covered_call, preferred,
+multi_asset; C4's spec's frozen.level_signal.family_of) as the core's is split muni
+against taxable. C4's method is the core's: the same lag rule, declared in its own
+commit before any C4 result is read; the rolling z_window sessions strictly before t;
+the review line at REVIEW_FRACTION x C4's own vol_target_annual, read from its spec at
+run time. Zero trials, no counter moved. `FactorSet` holds what differs and the
+functions take it, defaulting to the core's, so the core's outputs do not move; the
+proof is a byte diff on a synthetic positions file before and after this change.
+Until C4's lag rule has run, `factor_set("c4").dimson_lags` is None and `analyse
+--book c4` raises naming the missing rule.
+
 USAGE
 -----
-    python3 scripts/cef/exposure_readout.py fetch --asof YYYY-MM-DD [--start YYYY-MM-DD] [--cache-dir D] [--symbols S ...]
-    python3 scripts/cef/exposure_readout.py crosscheck [--cache-dir D]
-    python3 scripts/cef/exposure_readout.py derive [--cache-dir D]
-    python3 scripts/cef/exposure_readout.py analyse --positions P.csv [--cache-dir D] [--out-dir D] [--plateau]
+    python3 scripts/cef/exposure_readout.py fetch --asof YYYY-MM-DD [--book cef|c4] [--start YYYY-MM-DD] [--cache-dir D] [--symbols S ...]
+    python3 scripts/cef/exposure_readout.py crosscheck [--book cef|c4] [--cache-dir D]
+    python3 scripts/cef/exposure_readout.py derive [--book cef|c4] [--cache-dir D]
+    python3 scripts/cef/exposure_readout.py analyse --positions P.csv [--book cef|c4] [--cache-dir D] [--out-dir D] [--plateau]
 
 The positions CSV has columns date, symbol, shares (signed; short < 0), and optionally
 equity (one value per date). A date's rows are the book at that date's close; a symbol
@@ -455,6 +475,8 @@ UNIVERSE_CSV = DATA_DIR / "cef" / "cef_universe.csv"
 # repository encloses the target.
 DEFAULT_CACHE = REPO / "results" / "cef" / "exposure_readout" / "_cache"
 DEFAULT_OUT = REPO / "results" / "cef" / "exposure_readout" / "_out"
+DEFAULT_CACHE_C4 = REPO / "results" / "cef" / "exposure_readout" / "_cache_c4"   # results/**/_cache_*
+DEFAULT_OUT_C4 = REPO / "results" / "cef" / "exposure_readout" / "_out_c4"
 CACHE_FILES = ("prices.parquet", "meta.json")
 OUT_FILES = ("exposure.csv", "exposure_by_group.csv", "betas.csv", "factor_defs.csv",
              "factor_pnl.csv", "summary.md")
@@ -507,6 +529,83 @@ REVIEW_RULE = (
     "REVIEW_FRACTION x vol_target_annual (the frozen spec's, read at run time) goes to the team "
     "lead's review. Nothing is ever hedged, traded or resized automatically. With no equity for "
     "t the rule is UNMEASURED on t.")
+
+
+@dataclass(frozen=True)
+class FactorSet:
+    """One book's factor model and the frozen values the readout reads for it (module
+    docstring, TWO BOOKS). `factors` is in Gram-Schmidt order; `headline` is the factor the
+    report leads with; `dimson_lags` is None until the book's lag rule has been run."""
+    book: str
+    factors: tuple
+    headline: str
+    spec_id: str
+    vol_target: float
+    window: int
+    universe: tuple
+    dimson_lags: int | None
+    group_split: str          # "muni": muni against taxable (cef); "family": by family (c4)
+    groups_path: str = ""     # what the group labels come from, printed in summary.md
+
+    @property
+    def names(self) -> tuple:
+        return tuple(f for f, _ in self.factors)
+
+    @property
+    def etfs(self) -> tuple:
+        return tuple(e for _, e in self.factors)
+
+    @property
+    def indicative(self) -> tuple:
+        return tuple(k for k in self.names if k != self.headline)
+
+
+CORE = FactorSet("cef", FACTORS, "MUNI", SPEC_ID, VOL_TARGET, WINDOW, tuple(UNIVERSE), DIMSON_LAGS, "muni",
+                 "data/cef/cef_universe.csv")
+
+# C4's factors (team lead, 2026-11-09), in Gram-Schmidt order, general to specific. EQUITY is
+# the headline; TERM, CREDIT and PREFERRED are indicative, as the core's non-headline
+# factors are. FETCH_START covers the fit era (SPY 1993, IEF 2002, HYG 2007, PFF 2007).
+C4_SPEC = REPO / "ops" / "specs" / "c4_families.frozen.json"
+C4_FACTORS: tuple[tuple[str, str], ...] = (("EQUITY", "SPY"), ("TERM", "IEF"), ("CREDIT", "HYG"),
+                                           ("PREFERRED", "PFF"))
+C4_HEADLINE = "EQUITY"
+C4_DIMSON_LAGS: int | None = None   # no lag rule has been run for C4 yet (module docstring, TWO BOOKS)
+
+
+def c4_frozen() -> dict:
+    """C4's frozen spec section, read at run time (H14, the spec is the authority)."""
+    if not C4_SPEC.is_file():
+        raise ReadoutError(f"C4's frozen spec is missing at {C4_SPEC}")
+    spec = json.loads(C4_SPEC.read_text())
+    frozen = spec.get("frozen")
+    if not isinstance(frozen, dict):
+        raise ReadoutError(f"{C4_SPEC} has no `frozen` section")
+    for k in ("vol_target_annual", "z_window", "universe", "level_signal"):
+        if k not in frozen:
+            raise ReadoutError(f"{C4_SPEC} frozen section lacks {k!r}")
+    if not isinstance(frozen["level_signal"], dict) or not frozen["level_signal"].get("family_of"):
+        raise ReadoutError(f"{C4_SPEC} frozen.level_signal has no family_of map")
+    return frozen
+
+
+def c4_families() -> dict:
+    """C4's family of each fund: the frozen spec's level_signal.family_of (team lead,
+    2026-11-09, the report's split by family), read, never retyped."""
+    return dict(c4_frozen()["level_signal"]["family_of"])
+
+
+def factor_set(book: str) -> FactorSet:
+    """The factor set of `book` ("cef" or "c4"). C4's is built from its frozen spec here,
+    at run time, so a missing or changed key is a raise naming it, never a stale literal."""
+    if book == "cef":
+        return CORE
+    if book == "c4":
+        f = c4_frozen()
+        return FactorSet("c4", C4_FACTORS, C4_HEADLINE, json.loads(C4_SPEC.read_text()).get("spec_id", "<unknown>"),
+                         float(f["vol_target_annual"]), int(f["z_window"]), tuple(f["universe"]),
+                         C4_DIMSON_LAGS, "family", "ops/specs/c4_families.frozen.json level_signal.family_of")
+    raise ReadoutError(f"unknown book {book!r} (books: cef, c4)")
 
 
 class ReadoutError(RuntimeError):
@@ -792,13 +891,14 @@ def _require_finite(frame: pd.DataFrame, what: str) -> None:
 
 # --------------------------------------------------------------------------- the fit
 
-def orthogonaliser(E: pd.DataFrame) -> pd.DataFrame:
-    """M (ETF rows x factor columns) such that E @ M is the Gram-Schmidt factor set in FACTORS
-    order: each ETF less its OLS slopes (with intercept) on the earlier ETFs, on E's rows."""
-    M = pd.DataFrame(0.0, index=list(FACTOR_ETFS), columns=list(FACTOR_NAMES))
-    for k, (fname, etf) in enumerate(FACTORS):
+def orthogonaliser(E: pd.DataFrame, fs: FactorSet = CORE) -> pd.DataFrame:
+    """M (ETF rows x factor columns) such that E @ M is the Gram-Schmidt factor set in the
+    book's factor order: each ETF less its OLS slopes (with intercept) on the earlier ETFs,
+    on E's rows."""
+    M = pd.DataFrame(0.0, index=list(fs.etfs), columns=list(fs.names))
+    for k, (fname, etf) in enumerate(fs.factors):
         M.loc[etf, fname] = 1.0
-        prev = list(FACTOR_ETFS[:k])
+        prev = list(fs.etfs[:k])
         if prev:
             X = np.column_stack([np.ones(len(E)), E[prev].to_numpy(float)])
             b = np.linalg.lstsq(X, E[etf].to_numpy(float), rcond=None)[0][1:]
@@ -836,26 +936,27 @@ class WindowFit:
     factor_cov: pd.DataFrame        # annualised, on y_dates
     n_obs: int
     lags: int
+    fs: FactorSet = CORE
 
 
 def fit_window(R: pd.DataFrame, sessions: pd.DatetimeIndex, t, names, *,
-               window: int = WINDOW, lags: int = DIMSON_LAGS) -> WindowFit:
+               window: int = WINDOW, lags: int = DIMSON_LAGS, fs: FactorSet = CORE) -> WindowFit:
     """Summed-Dimson betas of each name's total return on the orthogonal factors, the
     orthogonalisation slopes and the factor vols, all from sessions strictly before t."""
     t = pd.Timestamp(t)
     names = list(names)
     y_dates, f_dates = window_rows(sessions, t, window, lags)
-    for etf in FACTOR_ETFS:
+    for etf in fs.etfs:
         if etf not in R.columns:
             raise ReadoutError(f"factor ETF {etf} is not in the price cache")
     miss = [n for n in names if n not in R.columns]
     if miss:
         raise ReadoutError(f"held symbols not in the price cache: {miss}")
-    Eraw = R.loc[f_dates, list(FACTOR_ETFS)]
+    Eraw = R.loc[f_dates, list(fs.etfs)]
     _require_finite(Eraw, f"factor ETF returns on the window for {t.date()}")
-    M = orthogonaliser(Eraw.loc[y_dates])
+    M = orthogonaliser(Eraw.loc[y_dates], fs)
     F = Eraw @ M
-    F.columns = list(FACTOR_NAMES)
+    F.columns = list(fs.names)
     X, cols = design(F, y_dates, lags)
     p = X.shape[1]
     if len(y_dates) <= p:
@@ -875,13 +976,13 @@ def fit_window(R: pd.DataFrame, sessions: pd.DatetimeIndex, t, names, *,
         S = np.zeros((0, 0))
     idx = pd.MultiIndex.from_tuples(cols[1:], names=["factor", "lag"])
     beta = pd.DataFrame(B[1:].T, index=names, columns=idx)
-    beta_sum = beta.T.groupby(level="factor", sort=False).sum().T.reindex(columns=list(FACTOR_NAMES))
+    beta_sum = beta.T.groupby(level="factor", sort=False).sum().T.reindex(columns=list(fs.names))
     Fy = F.loc[y_dates]
     fcov = Fy.cov() * ANNUALISE
     return WindowFit(t=t, y_dates=y_dates, f_dates=f_dates, M=M, beta=beta, beta_sum=beta_sum,
                      cols=cols, xtx_inv=xtx_inv, resid_cov=pd.DataFrame(S, index=names, columns=names),
-                     factor_vol=np.sqrt(pd.Series(np.diag(fcov), index=list(FACTOR_NAMES))),
-                     factor_cov=fcov, n_obs=len(y_dates), lags=lags)
+                     factor_vol=np.sqrt(pd.Series(np.diag(fcov), index=list(fs.names))),
+                     factor_cov=fcov, n_obs=len(y_dates), lags=lags, fs=fs)
 
 
 def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
@@ -896,11 +997,12 @@ def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
     if v.isna().any():
         raise ReadoutError(f"no position value for fitted names {list(v[v.isna()].index)}")
     vv = v.to_numpy(float)
-    E = pd.Series(vv @ fit.beta_sum.to_numpy(float), index=list(FACTOR_NAMES)) if names else \
-        pd.Series(0.0, index=list(FACTOR_NAMES))
+    fnames = list(fit.fs.names)
+    E = pd.Series(vv @ fit.beta_sum.to_numpy(float), index=fnames) if names else \
+        pd.Series(0.0, index=fnames)
     vSv = float(vv @ fit.resid_cov.to_numpy(float) @ vv) if names else 0.0
     rows = []
-    for k in FACTOR_NAMES:
+    for k in fnames:
         a = np.array([1.0 if (c != "const" and c[0] == k) else 0.0 for c in fit.cols])
         se = math.sqrt(max(vSv, 0.0) * float(a @ fit.xtx_inv @ a))
         sig = float(fit.factor_vol[k])
@@ -922,7 +1024,7 @@ def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
 
 def total_factor_vol(fit: WindowFit, E: pd.Series) -> float:
     """sqrt(E' Sigma_f E), in the units of E (dollars, or a fraction of equity)."""
-    e = E.reindex(list(FACTOR_NAMES)).to_numpy(float)
+    e = E.reindex(list(fit.fs.names)).to_numpy(float)
     return math.sqrt(max(float(e @ fit.factor_cov.to_numpy(float) @ e), 0.0))
 
 
@@ -1001,13 +1103,23 @@ class Readout:
     total_vol: pd.DataFrame
     window: int
     lags: int
+    fs: FactorSet = CORE
 
 
-def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: int = WINDOW,
-            lags: int = DIMSON_LAGS, vol_target: float = VOL_TARGET) -> Readout:
+def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: int | None = None,
+            lags: int | None = None, vol_target: float | None = None, fs: FactorSet = CORE) -> Readout:
     """Exposures on every positions date, and the factor P&L on every positions date whose
     previous session is also a positions date (E(t-1) x f(t), and the lag-distributed
-    second method)."""
+    second method). `window`, `lags` and `vol_target` default to the book's (`fs`); a book
+    whose lag rule has not run raises rather than guess a lag."""
+    window = fs.window if window is None else window
+    vol_target = fs.vol_target if vol_target is None else vol_target
+    if lags is None:
+        if fs.dimson_lags is None:
+            raise ReadoutError(f"book {fs.book} has no Dimson lag: its lag rule has not been run "
+                               "(exposure_readout.py derive --book c4, then set C4_DIMSON_LAGS from it; "
+                               "module docstring, TWO BOOKS)")
+        lags = fs.dimson_lags
     P = validate_positions(positions)
     dates = list(pd.DatetimeIndex(P["date"].unique()).sort_values())
     have_eq = "equity" in P.columns
@@ -1037,7 +1149,7 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
             raise ReadoutError(f"no close on {t.date()} for {list(close[~np.isfinite(close)].index)}")
         value = Pt.loc[held, "shares"] * close
         eq = float(Pt["equity"].iloc[0]) if have_eq else None
-        fit = fit_window(R, sessions, t, held, window=window, lags=lags)
+        fit = fit_window(R, sessions, t, held, window=window, lags=lags, fs=fs)
         fits[t], values[t], eqs[t] = fit, value, eq
         ex = exposures(fit, value, eq, vol_target=vol_target)
         ex_rows.append(ex)
@@ -1051,17 +1163,17 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
         for g in sorted({groups[s] for s in held}):
             mem = [s for s in held if groups[s] == g]
             Eg = value.reindex(mem).to_numpy(float) @ fit.beta_sum.loc[mem].to_numpy(float)
-            for k, x in zip(FACTOR_NAMES, Eg):
+            for k, x in zip(fs.names, Eg):
                 grp_rows.append(dict(date=t, grp=g, factor=k, exposure_usd=float(x),
                                      exposure_frac=(float(x) / eq if eq else float("nan"))))
         for s in held:
-            for k in FACTOR_NAMES:
+            for k in fs.names:
                 row = dict(date=t, symbol=s, grp=groups[s], factor=k, beta_sum=float(fit.beta_sum.at[s, k]))
                 for l in range(lags + 1):
                     row[f"beta_l{l}"] = float(fit.beta.at[s, (k, l)])
                 beta_rows.append(row)
-        for etf in FACTOR_ETFS:
-            def_rows.append(dict(date=t, etf=etf, **{k: float(fit.M.at[etf, k]) for k in FACTOR_NAMES}))
+        for etf in fs.etfs:
+            def_rows.append(dict(date=t, etf=etf, **{k: float(fit.M.at[etf, k]) for k in fs.names}))
 
     # factor P&L: t whose previous session is a positions date
     pnl_rows = []
@@ -1073,21 +1185,21 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
         tp = sessions[i - 1]
         fit, value = fits[tp], values[tp]
         held = list(value.index)
-        f_t = R.loc[[t], list(FACTOR_ETFS)]
+        f_t = R.loc[[t], list(fs.etfs)]
         _require_finite(f_t, f"factor ETF returns on {t.date()}")
         ft = (f_t @ fit.M).iloc[0]
-        ft.index = list(FACTOR_NAMES)
+        ft.index = list(fs.names)
         lagdates = sessions[i - lags:i + 1]           # t - lags .. t
         assert_strictly_before(fit.y_dates, tp + pd.Timedelta(days=1), "P&L fit window")
-        Fl = R.loc[lagdates, list(FACTOR_ETFS)]
+        Fl = R.loc[lagdates, list(fs.etfs)]
         _require_finite(Fl, f"factor ETF returns on {lagdates[0].date()}..{t.date()}")
         Fl = Fl @ fit.M
-        Fl.columns = list(FACTOR_NAMES)
+        Fl.columns = list(fs.names)
         for scope, mem in [("book", held)] + [(f"grp:{g}", [s for s in held if groups[s] == g])
                                                for g in sorted({groups[s] for s in held})]:
             v = value.reindex(mem).to_numpy(float)
-            Es = v @ fit.beta_sum.loc[mem].to_numpy(float) if mem else np.zeros(len(FACTOR_NAMES))
-            for j, k in enumerate(FACTOR_NAMES):
+            Es = v @ fit.beta_sum.loc[mem].to_numpy(float) if mem else np.zeros(len(fs.names))
+            for j, k in enumerate(fs.names):
                 # second method: sum_l beta_l x F_k(t - l), on t-1's holdings
                 lagd = 0.0
                 for l in range(lags + 1):
@@ -1099,7 +1211,7 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
     return Readout(exposure=pd.concat(ex_rows, ignore_index=True),
                    by_group=pd.DataFrame(grp_rows), betas=pd.DataFrame(beta_rows),
                    factor_defs=pd.DataFrame(def_rows), factor_pnl=pd.DataFrame(pnl_rows),
-                   total_vol=pd.DataFrame(tv_rows), window=window, lags=lags)
+                   total_vol=pd.DataFrame(tv_rows), window=window, lags=lags, fs=fs)
 
 
 # --------------------------------------------------------------------------- plateau check
@@ -1119,7 +1231,7 @@ def plateau_summary(ro: Readout) -> dict:
     measured = bool((ex["review"] != "UNMEASURED").any())
     rev = ex[ex["review"] == "REVIEW"]
     big_t = rev[rev["t_stat"].abs() >= 2.0]
-    count = (lambda g: {k: int(g.loc[g["factor"] == k, "date"].nunique()) for k in FACTOR_NAMES})
+    count = (lambda g: {k: int(g.loc[g["factor"] == k, "date"].nunique()) for k in ro.fs.names})
     return dict(
         window=ro.window, lags=ro.lags,
         book_summed=(float(by_scope.at["book", "pnl_summed"]) if by_scope is not None else float("nan")),
@@ -1128,7 +1240,7 @@ def plateau_summary(ro: Readout) -> dict:
                       if by_scope is not None else {}),
         n_dates=int(ex["date"].nunique()), measured=measured,
         review=(count(rev) if measured else None), review_t2=(count(big_t) if measured else None),
-        mean_abs_E={k: float(ex.loc[ex["factor"] == k, "exposure_usd"].abs().mean()) for k in FACTOR_NAMES})
+        mean_abs_E={k: float(ex.loc[ex["factor"] == k, "exposure_usd"].abs().mean()) for k in ro.fs.names})
 
 
 def plateau_check(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, ro: Readout) -> list:
@@ -1139,7 +1251,7 @@ def plateau_check(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, ro: R
     runs += [(ro.window, l) for l in range(0, ro.lags + PLATEAU_LAG_SPAN + 1) if l != ro.lags]
     out = []
     for w, l in runs:
-        r2 = ro if (w, l) == (ro.window, ro.lags) else readout(px, positions, groups, window=w, lags=l)
+        r2 = ro if (w, l) == (ro.window, ro.lags) else readout(px, positions, groups, window=w, lags=l, fs=ro.fs)
         out.append(dict(plateau_summary(r2), adopted=((w, l) == (ro.window, ro.lags))))
     return out
 
@@ -1199,6 +1311,26 @@ def _per_date_lines(ex: pd.DataFrame, factors) -> list:
     return out
 
 
+def headline_by_group(ro: Readout) -> pd.DataFrame:
+    """C4's report split (team lead, 2026-11-09): the book's headline-factor exposure by
+    fund family, one row per (date, family held) plus the family's share of the book's
+    headline exposure and the book's total, read from `ro.by_group`; nothing is
+    re-estimated. Families add up to the book (a test pins it); `exposure_frac` is NaN
+    with no equity, never a default."""
+    H = ro.fs.headline
+    ex = ro.exposure[ro.exposure["factor"] == H].set_index("date")
+    bg = ro.by_group[ro.by_group["factor"] == H] if len(ro.by_group) else \
+        pd.DataFrame(columns=["date", "grp", "factor", "exposure_usd", "exposure_frac"])
+    rows = []
+    for r in bg.itertuples():
+        book = float(ex.at[r.date, "exposure_usd"])
+        rows.append(dict(date=r.date, grp=r.grp, exposure_usd=float(r.exposure_usd),
+                         exposure_frac=float(r.exposure_frac),
+                         share_of_book=(float(r.exposure_usd) / book if book != 0.0 else float("nan")),
+                         book_usd=book))
+    return pd.DataFrame(rows, columns=["date", "grp", "exposure_usd", "exposure_frac", "share_of_book", "book_usd"])
+
+
 def muni_vs_taxable(ro: Readout) -> pd.DataFrame:
     """The book's MUNI exposure split into the muni group and the taxable groups, per date.
 
@@ -1211,9 +1343,10 @@ def muni_vs_taxable(ro: Readout) -> pd.DataFrame:
     MUNI exposure sums the taxable funds' MUNI betas too, which move with the lag choice in
     the fit-era plateau. On the window measured when the ruling was recorded the muni funds'
     moved as well, so neither side is assumed level: the split is read on every date."""
-    ex = ro.exposure[ro.exposure["factor"] == HEADLINE_FACTOR].set_index("date")
+    H = ro.fs.headline
+    ex = ro.exposure[ro.exposure["factor"] == H].set_index("date")
     eq = ro.total_vol.set_index("date")["equity"]
-    bg = ro.by_group[ro.by_group["factor"] == HEADLINE_FACTOR] if len(ro.by_group) else \
+    bg = ro.by_group[ro.by_group["factor"] == H] if len(ro.by_group) else \
         pd.DataFrame(columns=["date", "grp", "factor", "exposure_usd"])
     rows = []
     for t in ex.index:
@@ -1232,20 +1365,23 @@ def muni_vs_taxable(ro: Readout) -> pd.DataFrame:
 
 
 def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
-    """summary.md, which `analyse` also prints. MUNI first, then TERM, CREDIT and LOANS under
-    INDICATIVE_HEADING (team lead, 2026-11-03), then the plateau check when asked for.
+    """summary.md, which `analyse` also prints. The headline factor first (MUNI for the core,
+    EQUITY for C4), then the other factors under INDICATIVE_HEADING, then the plateau check
+    when asked for.
 
     Presentation only. Every number here is read from `ro`, whose frames are the CSVs; the
     ruling changed the order and the headings, not one computed value."""
-    H = HEADLINE_FACTOR
-    ind = ", ".join(INDICATIVE_FACTORS[:-1]) + " and " + INDICATIVE_FACTORS[-1]
+    fs = ro.fs
+    H = fs.headline
+    ind = ", ".join(fs.indicative[:-1]) + " and " + fs.indicative[-1]
+    ruling = ("(team lead, 2026-11-03; module docstring, THE TEAM LEAD'S RULING)" if fs.book == "cef"
+              else "(team lead, 2026-11-09; module docstring, TWO BOOKS)")
     L = ["# Exposure readout (report only; zero trials)", "",
-         f"- spec: `{SPEC_ID}`; vol_target_annual {VOL_TARGET:.4g} (read at run time)",
+         f"- spec: `{fs.spec_id}`; vol_target_annual {fs.vol_target:.4g} (read at run time)",
          f"- window {ro.window} sessions strictly before each date; Dimson lags 0..{ro.lags}; "
-         f"factors {', '.join(f'{f}={e}' for f, e in FACTORS)}, Gram-Schmidt in that order",
+         f"factors {', '.join(f'{f}={e}' for f, e in fs.factors)}, Gram-Schmidt in that order",
          f"- price cache: yfinance, asof {meta.get('asof')}, fetched {meta.get('fetched_at_utc')}",
-         f"- {H} is the headline; {ind} follow under \"{INDICATIVE_HEADING}\" "
-         "(team lead, 2026-11-03; module docstring, THE TEAM LEAD'S RULING)",
+         f"- {H} is the headline; {ind} follow under \"{INDICATIVE_HEADING}\" {ruling}",
          "", f"## Headline: {H}", "",
          "### Review rule (declared before the first reading; it applies to every factor)", "",
          REVIEW_RULE,
@@ -1255,21 +1391,33 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
     L += [f"### {H} against the rule", ""] + _rule_lines(ex, (H,))
     L += ["", f"### {H} per date: exposure, vol contribution, review flag", ""] + _per_date_lines(ex, (H,))
 
-    mv = muni_vs_taxable(ro)
-    L += ["", f"### {H} exposure: the muni group against the taxable groups", "",
-          f"The book's {H} exposure by fund group (exposure_by_group.csv, summed): `{MUNI_GROUP}` "
-          "against every other group in data/cef/cef_universe.csv, which add up to the book. "
-          "Both sides are summed Dimson betas at the adopted L, and neither is assumed level in "
-          "L (module docstring, THE TEAM LEAD'S RULING); `analyse --plateau` re-reads MUNI at "
-          "other L on this book.", "",
-          "| date | muni group E USD | muni group E/equity | taxable groups E USD | "
-          "taxable groups E/equity | book E USD | taxable by group, E USD |",
-          "|---|---:|---:|---:|---:|---:|---|"]
-    for r in mv.itertuples():
-        mu = (f"{_fmt_money(r.muni_usd)} | {r.muni_frac:+.3f}" if r.muni_held else "none held | n/a")
-        tx = (f"{_fmt_money(r.taxable_usd)} | {r.taxable_frac:+.3f}" if r.taxable_held else "none held | n/a")
-        by = ", ".join(f"{g} {_fmt_money(v)}" for g, v in r.taxable_by_group.items()) or "none held"
-        L.append(f"| {r.date.date()} | {mu} | {tx} | {_fmt_money(r.book_usd)} | {by} |")
+    if fs.group_split == "muni":
+        mv = muni_vs_taxable(ro)
+        L += ["", f"### {H} exposure: the muni group against the taxable groups", "",
+              f"The book's {H} exposure by fund group (exposure_by_group.csv, summed): `{MUNI_GROUP}` "
+              "against every other group in data/cef/cef_universe.csv, which add up to the book. "
+              "Both sides are summed Dimson betas at the adopted L, and neither is assumed level in "
+              "L (module docstring, THE TEAM LEAD'S RULING); `analyse --plateau` re-reads MUNI at "
+              "other L on this book.", "",
+              "| date | muni group E USD | muni group E/equity | taxable groups E USD | "
+              "taxable groups E/equity | book E USD | taxable by group, E USD |",
+              "|---|---:|---:|---:|---:|---:|---|"]
+        for r in mv.itertuples():
+            mu = (f"{_fmt_money(r.muni_usd)} | {r.muni_frac:+.3f}" if r.muni_held else "none held | n/a")
+            tx = (f"{_fmt_money(r.taxable_usd)} | {r.taxable_frac:+.3f}" if r.taxable_held else "none held | n/a")
+            by = ", ".join(f"{g} {_fmt_money(v)}" for g, v in r.taxable_by_group.items()) or "none held"
+            L.append(f"| {r.date.date()} | {mu} | {tx} | {_fmt_money(r.book_usd)} | {by} |")
+    else:
+        hg = headline_by_group(ro)
+        L += ["", f"### {H} exposure by family ({fs.groups_path})", "",
+              f"The book's {H} exposure by fund family (exposure_by_group.csv): the families add up "
+              "to the book. Summed Dimson betas at the adopted L; `analyse --plateau` re-reads at "
+              "other L on this book.", "",
+              "| date | family | E USD | E/equity | share of book E | book E USD |",
+              "|---|---|---:|---:|---:|---:|"]
+        for r in hg.itertuples():
+            L.append(f"| {r.date.date()} | {r.grp} | {_fmt_money(r.exposure_usd)} | {r.exposure_frac:+.3f} | "
+                     f"{r.share_of_book:+.3f} | {_fmt_money(r.book_usd)} |")
 
     fp = ro.factor_pnl
     if len(fp):
@@ -1280,17 +1428,20 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
         for sc, g in fh.groupby("scope", sort=False):
             L.append(f"| {sc} | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
         tax = fh[fh["scope"].str.startswith("grp:") & (fh["scope"] != f"grp:{MUNI_GROUP}")]
-        if len(tax):
+        if fs.group_split == "muni" and len(tax):
             L.append(f"| taxable groups (sum of the grp: rows other than grp:{MUNI_GROUP}) | "
                      f"{tax['pnl_summed'].sum():,.2f} | {tax['pnl_lagdist'].sum():,.2f} |")
         L.append(f"\nSessions: {fp['date'].nunique()} ({fp['date'].min().date()}..{fp['date'].max().date()}).")
 
-    L += ["", f"## {INDICATIVE_HEADING}", "",
-          f"{ind}. The team lead ruled on 2026-11-03 to keep DIMSON_LAGS = 0 and to read these three "
-          "as indicative: the module docstring shows their fit-era betas and review counts moving "
-          "with L more than MUNI's. The review rule applies to them unchanged.",
-          "", f"### {ind} against the rule", ""] + _rule_lines(ex, INDICATIVE_FACTORS)
-    L += ["", f"### {ind} per date", ""] + _per_date_lines(ex, INDICATIVE_FACTORS)
+    indnote = (f"{ind}. The team lead ruled on 2026-11-03 to keep DIMSON_LAGS = 0 and to read these three "
+               "as indicative: the module docstring shows their fit-era betas and review counts moving "
+               "with L more than MUNI's. The review rule applies to them unchanged."
+               if fs.book == "cef" else
+               f"{ind}. The team lead ruled on 2026-11-09 that these are marked indicative, as the core's "
+               "non-headline factors are; the review rule applies to them unchanged.")
+    L += ["", f"## {INDICATIVE_HEADING}", "", indnote,
+          "", f"### {ind} against the rule", ""] + _rule_lines(ex, fs.indicative)
+    L += ["", f"### {ind} per date", ""] + _per_date_lines(ex, fs.indicative)
     L += ["", "### Book totals per date (information; not part of the rule; the total factor vol "
           "sums all four factors, so it moves with L too)", "",
           "| date | gross USD | net USD | total factor vol USD | total / target |",
@@ -1299,22 +1450,22 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
         L.append(f"| {r.date.date()} | {_fmt_money(r.gross_usd)} | {_fmt_money(r.net_usd)} | "
                  f"{_fmt_money(r.total_factor_vol_usd)} | {r.total_of_target:.3f} |")
     if len(fp):
-        L += ["", f"### Factor P&L, {ind}, and ALL four factors (model reading, USD)", "",
+        L += ["", f"### Factor P&L, {ind}, and ALL {_num_words(len(fs.names))} factors (model reading, USD)", "",
               "| scope | factor | summed-beta | lag-distributed |", "|---|---|---:|---:|"]
-        fi = fp[fp["factor"].isin(INDICATIVE_FACTORS)]
+        fi = fp[fp["factor"].isin(fs.indicative)]
         for (sc, k), g in fi.groupby(["scope", "factor"], sort=False):
             L.append(f"| {sc} | {k} | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
         for sc, g in fp.groupby("scope", sort=False):
             L.append(f"| {sc} | ALL | {g['pnl_summed'].sum():,.2f} | {g['pnl_lagdist'].sum():,.2f} |")
     if plateau:
-        fac = "/".join(FACTOR_NAMES)
+        fac = "/".join(fs.names)
         L += ["", "## Plateau check: window and Dimson lags (nothing is chosen from it)", "",
               "The adopted row is marked; every other row changes one of W and L. The review "
               "counts are the dates (of those read) on which the rule flagged each factor.", "",
               f"| window | lags | book P&L summed | lag-distributed | P&L summed by group | "
               f"REVIEW dates {fac} | REVIEW and abs t >= 2 {fac} | mean abs E USD by factor |",
               "|---:|---:|---:|---:|---|---|---|---|"]
-        cnt = (lambda d: "UNMEASURED" if d is None else "/".join(str(d[k]) for k in FACTOR_NAMES))
+        cnt = (lambda d: "UNMEASURED" if d is None else "/".join(str(d[k]) for k in fs.names))
         for r in plateau:
             L.append(f"| {r['window']}{' (adopted)' if r['adopted'] else ''} | {r['lags']} | "
                      f"{r['book_summed']:,.2f} | {r['book_lagdist']:,.2f} | "
@@ -1322,6 +1473,10 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
                      f"{cnt(r['review'])} | {cnt(r['review_t2'])} | "
                      f"{', '.join(f'{k} {v:,.0f}' for k, v in r['mean_abs_E'].items())} |")
     return "\n".join(L) + "\n"
+
+
+def _num_words(n: int) -> str:
+    return {4: "four"}.get(n, str(n))
 
 
 def write_outputs(out_dir: Path, ro: Readout, meta: dict, plateau=None) -> None:
@@ -1361,7 +1516,7 @@ PANEL_VENDOR = {
 ETF_DAILY_LEG_INDEPENDENT = {"crsp": "yes", "alpaca": "yes", "yfinance": "no"}
 
 
-def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, list]:
+def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR, fs: FactorSet = CORE) -> tuple[pd.DataFrame, list]:
     """The cache against the repo's own panels on their overlap (read-only). Reports; decides
     nothing. Returns (table, notes): one row per (panel, field, ticker) with the overlap, the
     count above the tolerance, the largest gap, the panel's vendor on that overlap and whether
@@ -1369,8 +1524,8 @@ def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR) -> tuple[pd.DataFram
     R, C, _ = returns_panel(px)
     Dv = px.pivot(index="date", columns="ticker", values="dividend").reindex_like(C)
     rows, notes = [], []
-    etfs = [e for e in FACTOR_ETFS if e in C.columns]
-    cefs = [c for c in C.columns if c not in FACTOR_ETFS]
+    etfs = [e for e in fs.etfs if e in C.columns]
+    cefs = [c for c in C.columns if c not in fs.etfs]
 
     def comp(panel, field, tk, ours: pd.Series, theirs: pd.Series, tol, scale=1.0, vendor=None):
         vend, indep = vendor if vendor is not None else PANEL_VENDOR[panel]
@@ -1647,7 +1802,7 @@ class LagRuleError(ReadoutError):
 
 def lead_placebo_counts(R: pd.DataFrame, names, fit_end: pd.Timestamp = FIT_END,
                         max_lag: int = DERIVE_MAX_LAG, leads: int = DERIVE_RULE_LEADS,
-                        alpha: float = DERIVE_RULE_ALPHA) -> dict:
+                        alpha: float = DERIVE_RULE_ALPHA, fs: FactorSet = CORE) -> dict:
     """The counts THE RULE decides on (module docstring): one OLS per name on the four
     orthogonal factors at lags 0..max_lag AND leads 1..leads, HAC; c(l) and p(j) are the
     (name, factor) pairs whose lag-l / lead-j coefficient has a two-sided p < alpha.
@@ -1660,20 +1815,20 @@ def lead_placebo_counts(R: pd.DataFrame, names, fit_end: pd.Timestamp = FIT_END,
     names = list(names)
     if not names:
         raise LagRuleError("lead_placebo_counts: no names")
-    miss = [c for c in (*FACTOR_ETFS, *names) if c not in R.columns]
+    miss = [c for c in (*fs.etfs, *names) if c not in R.columns]
     if miss:
         raise LagRuleError(f"lead_placebo_counts: not in the returns panel: {miss}")
     fit_end = pd.Timestamp(fit_end)
     Rc = R.loc[:fit_end]                       # H13: cut first, shift afterwards
-    E = Rc[list(FACTOR_ETFS)].dropna()
+    E = Rc[list(fs.etfs)].dropna()
     if len(E) == 0:
         raise LagRuleError(f"lead_placebo_counts: no factor rows on or before {fit_end.date()}")
     if E.index.max() > fit_end:
         raise LookaheadError(f"lead_placebo_counts: factor rows reach {E.index.max().date()}, "
                              f"after the fit era's end {fit_end.date()} (H13)")
-    M = orthogonaliser(E)
+    M = orthogonaliser(E, fs)
     F = E @ M
-    F.columns = list(FACTOR_NAMES)
+    F.columns = list(fs.names)
     lag = {l: 0 for l in range(max_lag + 1)}
     lead = {j: 0 for j in range(1, leads + 1)}
     nobs, first, last = {}, [], []
@@ -1688,12 +1843,12 @@ def lead_placebo_counts(R: pd.DataFrame, names, fit_end: pd.Timestamp = FIT_END,
             raise LookaheadError(f"lead_placebo_counts: {n}'s sample ends {rows.max().date()} and its "
                                  f"lead-{leads} row passes {fit_end.date()} (H13)")
         nobs[n], first, last = len(rows), first + [rows.min()], last + [rows.max()]
-        for k in FACTOR_NAMES:
+        for k in fs.names:
             for l in lag:
                 lag[l] += int(m.pvalues[f"{k}_{l}"] < alpha)
             for j in lead:
                 lead[j] += int(m.pvalues[f"{k}_m{j}"] < alpha)
-    return dict(lag=lag, lead=lead, n_pairs=len(names) * len(FACTOR_NAMES), nobs=nobs,
+    return dict(lag=lag, lead=lead, n_pairs=len(names) * len(fs.names), nobs=nobs,
                 first=min(first), last=max(last))
 
 
@@ -1910,31 +2065,42 @@ def _fmt_runs(m: dict) -> str:
 
 # --------------------------------------------------------------------------- CLI
 
+def _default_cache(fs: FactorSet) -> Path:
+    """Each book's default price cache: the core's as ever, and C4's beside it (gitignored)."""
+    return DEFAULT_CACHE if fs.book == "cef" else DEFAULT_CACHE_C4
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fetch")
     f.add_argument("--asof", required=True)
     f.add_argument("--start", default=FETCH_START.isoformat())
-    f.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
+    f.add_argument("--cache-dir", default=None)
     f.add_argument("--symbols", nargs="*", default=[])
+    f.add_argument("--book", choices=("cef", "c4"), default="cef")
     c = sub.add_parser("crosscheck")
-    c.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
+    c.add_argument("--cache-dir", default=None)
+    c.add_argument("--book", choices=("cef", "c4"), default="cef")
     d = sub.add_parser("derive")
-    d.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
+    d.add_argument("--cache-dir", default=None)
+    d.add_argument("--book", choices=("cef", "c4"), default="cef")
     a = sub.add_parser("analyse")
     a.add_argument("--positions", required=True)
-    a.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
+    a.add_argument("--cache-dir", default=None)
     a.add_argument("--out-dir", default=None)
     a.add_argument("--plateau", action="store_true")
+    a.add_argument("--book", choices=("cef", "c4"), default="cef")
     args = ap.parse_args(argv)
+    fs = factor_set(args.book)
+    cache_dir = Path(args.cache_dir) if args.cache_dir else _default_cache(fs)
 
     if args.cmd == "fetch":
         asof = dt.date.fromisoformat(args.asof)
         check_asof(asof)
-        cache = Path(args.cache_dir)
+        cache = cache_dir
         _refuse_write(cache, CACHE_FILES)            # before any network call
-        tickers = sorted(set(FACTOR_ETFS) | set(UNIVERSE) | {s.upper() for s in args.symbols})
+        tickers = sorted(set(fs.etfs) | set(fs.universe) | {s.upper() for s in args.symbols})
         px, cg = fetch_yf(tickers, dt.date.fromisoformat(args.start), asof)
         validate_prices(px, asof)
         import yfinance
@@ -1944,22 +2110,26 @@ def main(argv=None) -> int:
                 "fetched_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
         write_cache(cache, px, meta)
         print(f"wrote {len(px)} rows, {len(tickers)} tickers, asof {asof}, into {cache}")
-        tab, notes = crosscheck(px)
+        tab, notes = crosscheck(px, fs=fs)
         _print_crosscheck(tab, notes)
         return 0
-    px, meta = load_cache(Path(args.cache_dir))
+    px, meta = load_cache(cache_dir)
     if args.cmd == "crosscheck":
-        tab, notes = crosscheck(px)
+        tab, notes = crosscheck(px, fs=fs)
         _print_crosscheck(tab, notes)
         return 0
     if args.cmd == "derive":
-        derive(px, load_groups(), cache_sha=cache_sha256(Path(args.cache_dir)))
+        if args.book != "cef":
+            raise ReadoutError("derive --book c4: C4's lag rule is declared in a commit of its own "
+                               "before it runs (module docstring, TWO BOOKS)")
+        derive(px, load_groups(), cache_sha=cache_sha256(cache_dir))
         return 0
     P = read_positions(Path(args.positions))
-    groups = load_groups()
-    ro = readout(px, P, groups)
+    groups = load_groups() if fs.book == "cef" else c4_families()
+    ro = readout(px, P, groups, fs=fs)
     plateau = plateau_check(px, P, groups, ro) if args.plateau else None
-    out = Path(args.out_dir) if args.out_dir else DEFAULT_OUT / P["date"].max().date().isoformat()
+    out_root = DEFAULT_OUT if fs.book == "cef" else DEFAULT_OUT_C4
+    out = Path(args.out_dir) if args.out_dir else out_root / P["date"].max().date().isoformat()
     write_outputs(out, ro, meta, plateau)
     print((out / "summary.md").read_text())
     print(f"outputs in {out}")

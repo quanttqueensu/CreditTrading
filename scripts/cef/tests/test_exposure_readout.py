@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import ast
 import datetime as dt
+import json
 import math
 import os
 import subprocess
@@ -51,6 +52,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from dataclasses import replace
 
 from scripts.cef import exposure_readout as ER
 
@@ -1135,3 +1137,113 @@ def test_review_constants_trace_to_d4_and_the_spec():
     assert ER.REVIEW_FRACTION == ER.D4_BETA_BAR == 0.10
     from scripts.cef.spec import VOL_TARGET, Z_WINDOW
     assert ER.VOL_TARGET == VOL_TARGET and ER.WINDOW == Z_WINDOW
+
+
+# --------------------------------------------------------------------------- two books (team lead, 2026-11-09)
+
+C4_NAMES = {"AAA": "equity_domestic", "BBB": "equity_covered_call", "CCC": "preferred"}
+
+
+def _c4_fs():
+    """C4's factor set with a lag supplied by hand: the set as the spec reads it, for tests
+    of what the readout DOES with the set. Its lag is None until the rule has run."""
+    return replace(ER.factor_set("c4"), dimson_lags=0)
+
+
+def _c4_returns(seed=3):
+    rng = np.random.default_rng(seed)
+    n = len(SESS)
+    z = rng.normal(0, 0.005, size=(n, 4))
+    spy = z[:, 0]
+    ief = z[:, 1] - 0.2 * spy
+    hyg = z[:, 2] + 0.3 * spy + 0.2 * ief
+    pff = z[:, 3] + 0.5 * hyg + 0.1 * spy
+    R = pd.DataFrame({"SPY": spy, "IEF": ief, "HYG": hyg, "PFF": pff}, index=SESS)
+    R["AAA"] = 0.9 * spy + rng.normal(0, 1e-4, n)
+    R["BBB"] = 0.6 * spy + rng.normal(0, 1e-4, n)
+    R["CCC"] = 0.7 * pff + rng.normal(0, 1e-4, n)
+    return R
+
+
+def test_the_core_factor_set_is_the_module_constants():
+    """Pin (passes before and after this change): the default set is the core's."""
+    assert ER.factor_set("cef") is ER.CORE
+    assert ER.CORE.factors == ER.FACTORS and ER.CORE.headline == "MUNI" and ER.CORE.indicative == ER.INDICATIVE_FACTORS
+    assert ER.CORE.vol_target == ER.VOL_TARGET and ER.CORE.window == ER.WINDOW and ER.CORE.dimson_lags == ER.DIMSON_LAGS
+
+
+def test_the_c4_factor_set_reads_c4s_own_spec_never_the_cores():
+    frozen = json.loads((ER.REPO / "ops/specs/c4_families.frozen.json").read_text())["frozen"]
+    fs = ER.factor_set("c4")
+    assert fs.factors == (("EQUITY", "SPY"), ("TERM", "IEF"), ("CREDIT", "HYG"), ("PREFERRED", "PFF"))
+    assert fs.headline == "EQUITY" and fs.indicative == ("TERM", "CREDIT", "PREFERRED")
+    assert fs.vol_target == frozen["vol_target_annual"] and fs.window == frozen["z_window"]
+    assert list(fs.universe) == frozen["universe"] and fs.group_split == "family"
+    assert fs.spec_id != ER.SPEC_ID
+    # the family map is the spec's frozen family_of, and every universe name has one
+    fam = ER.c4_families()
+    assert fam == frozen["level_signal"]["family_of"] and set(fam) == set(frozen["universe"])
+    assert set(fam.values()) == {"equity_domestic", "equity_sector", "equity_covered_call", "preferred", "multi_asset"}
+    # the frozen universe file agrees, name by name
+    u = pd.read_csv(ER.REPO / "results/cef/c4/c4_universe_frozen_2026-10-14.csv", dtype=str)
+    assert fam == dict(zip(u["ticker"], u["family"]))
+
+
+def test_c4_without_a_lag_raises_naming_the_rule():
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    P = _positions(list(SESS[150:152]), {"AAA": 1000.0})
+    with pytest.raises(ER.ReadoutError, match="lag rule has not been run"):
+        ER.readout(px, P, {"AAA": "equity_domestic"}, fs=ER.factor_set("c4"))
+
+
+def test_c4_orthogonalises_its_own_factors_in_its_own_order():
+    R = _c4_returns()
+    E = R[["SPY", "IEF", "HYG", "PFF"]].iloc[10:200]
+    fs = _c4_fs()
+    M = ER.orthogonaliser(E, fs)
+    F = E @ M
+    F.columns = list(fs.names)
+    C = F.corr().to_numpy()
+    assert abs(C - np.eye(4)).max() < 1e-9                                   # exactly uncorrelated in sample
+    # EQUITY is SPY itself: the most general factor is not netted of anything (GS order)
+    assert M.loc["SPY", "EQUITY"] == 1.0 and M.loc["IEF", "EQUITY"] == 0.0 and M.loc["PFF", "EQUITY"] == 0.0
+    # PFF is netted of everything before it
+    assert M.loc["PFF", "PREFERRED"] == 1.0 and M.loc["SPY", "PREFERRED"] != 0.0
+
+
+def test_c4_exposure_and_review_line_use_the_set_they_are_given():
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    fs = _c4_fs()
+    dates = list(SESS[150:152])
+    P = _positions(dates, {"AAA": 2000.0, "BBB": -1000.0, "CCC": 500.0}, equity=250_000.0)
+    ro = ER.readout(px, P, C4_NAMES, window=W, fs=fs)
+    assert list(ro.exposure["factor"].unique()) == ["EQUITY", "TERM", "CREDIT", "PREFERRED"]
+    assert ro.fs is fs and ro.lags == 0
+    # the line is REVIEW_FRACTION x C4's vol target (the spec's), and c/target is what the set says
+    ex = ro.exposure[ro.exposure["date"] == dates[0]].set_index("factor")
+    eq_contrib = ex.at["EQUITY", "contrib_frac"] / fs.vol_target
+    assert ex.at["EQUITY", "contrib_of_target"] == pytest.approx(eq_contrib)
+    flag = "REVIEW" if ex.at["EQUITY", "contrib_frac"] > ER.REVIEW_FRACTION * fs.vol_target else "within"
+    assert ex.at["EQUITY", "review"] == flag
+    # the family split adds up to the book, date by date
+    hg = ER.headline_by_group(ro)
+    for d in dates:
+        assert hg.loc[hg["date"] == d, "exposure_usd"].sum() == pytest.approx(ex.at["EQUITY", "exposure_usd"] if d == dates[0]
+                                                                                else ro.exposure[(ro.exposure["date"] == d) & (ro.exposure["factor"] == "EQUITY")]["exposure_usd"].item())
+    assert set(hg["grp"]) == {"equity_domestic", "equity_covered_call", "preferred"}
+
+
+def test_c4_summary_leads_with_equity_and_splits_by_family():
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    fs = _c4_fs()
+    P = _positions(list(SESS[150:152]), {"AAA": 2000.0, "BBB": -1000.0, "CCC": 500.0}, equity=250_000.0)
+    ro = ER.readout(px, P, C4_NAMES, window=W, fs=fs)
+    md = ER.summary_md(ro, {"asof": "2020-12-31", "fetched_at_utc": "x"})
+    assert md.index("## Headline: EQUITY") < md.index("## Indicative")
+    assert "TERM, CREDIT and PREFERRED" in md and "by family" in md and "equity_covered_call" in md
+    assert "muni group" not in md and "MUNI" not in md
+    assert fs.spec_id in md and f"{fs.vol_target:.4g}" in md
+    assert "ALL four factors" in md
