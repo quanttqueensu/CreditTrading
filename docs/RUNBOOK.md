@@ -406,9 +406,12 @@ usual windows.
 
 A party that is a bond by its ISIN is not unresolved at all: the row is listed under
 `corporate_actions.bond_rows` and blocks nothing (`docs/RUNNER.md`, "A bond by its
-ISIN"). A CUSIP in a party field is still unresolved. The refusal and the record's
-`saw` name the value the feed sent, so look it up (step 1) before acknowledging. It can
-be a right, an escrow or a share class of any issuer, and the gate cannot tell which
+ISIN"). A CUSIP-format party is unresolved only when the CUSIP table cannot prove it
+names none of ours (`docs/RUNNER.md`, "A CUSIP-format party"): it is then listed under
+`corporate_actions.foreign_cusip_rows` and blocks nothing. When such a row does refuse,
+`saw` names the value, the fund and the reason, and `corporate_actions.cusip_table` says
+whether the table itself failed. Look the value up (step 1) before acknowledging. It can
+be a right, an escrow or a share class of any issuer, and a matched fund means it is ours
 (`results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`).
 
 A missing acquirer or allocated leg halts one session and then clears by

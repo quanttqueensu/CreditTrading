@@ -677,6 +677,15 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-09 — the corporate-action CUSIP check, and the three rows
+
+Relayed by the coordinating session, 2026-11-09, on `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`.
+
+| question | decision |
+|---|---|
+| CUSIP-format parties on corporate-action rows, unresolved after the bond-ISIN fix | **"Build a check against our CUSIPs".** A CUSIP-format party matching none of the funds of the book's universe, read at run time from Alpaca across a stated lookback, names nobody and blocks nothing; a party matching one of ours is that fund. Every CUSIP seen for a fund is held. If any fund's CUSIP cannot be read, the read fails, or a split, reorganisation or CUSIP change inside the lookback cannot be confirmed, such rows stay unresolved, naming the fund and the reason; never "not ours". A rule may only move a row from unresolved to resolved on proof of non-membership, and no row naming one of our tickers or CUSIPs may stop blocking. Letter-led CUSIPs take the same path as digit-led ones |
+| The three unresolved rows brought for a ruling | **"Accept all three"**: db0847b7 no action; e34ddd44 and 6abeb209 acked with `ca-ack`, both books, at the return to `halt` |
+
 ### Team lead, 2026-11-08 — research is not pass or fail
 
 Answered interactively on 2026-11-08, after the team lead said of the desk's research: "not a no go no only rules, we need

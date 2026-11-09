@@ -499,11 +499,25 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
   party. It never reaches the party list, so it cannot match one of our
   tickers. The row is listed under `corporate_actions.bond_rows`, with one log
   line, and blocks nothing. Anything else that is not a ticker stays
-  unresolved, a CUSIP included, and the record's `saw` says what the field
-  held. *Measured 2026-11-08 (`results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`):
+  unresolved, and the record's `saw` says what the field held.
+  *Measured 2026-11-08 (`results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`):
   on the real feed every unresolved row carries a value there, a CUSIP or
   (before this fix) an ISIN; none is empty. So "missing" in the record means
   "not read as a ticker".*
+- **A CUSIP-format party** (team lead, 2026-11-09, "Build a check against our
+  CUSIPs"; `alpaca._CaCusipTable`). A 9-character value with a valid CUSIP check
+  digit, digit-led or letter-led, is judged against every CUSIP seen for every
+  fund of the book's universe across the last 731 days, read when first needed
+  from Alpaca's cash-dividend and non-dividend rows. It names nobody only if
+  that is proved: every fund read, no split, reorganisation or CUSIP change left
+  unconfirmed, the row inside the table's coverage, the value on a CUSIP field
+  of its own row, and nothing on the row naming one of ours. The row is then
+  listed under `corporate_actions.foreign_cusip_rows` and blocks nothing.
+  Otherwise it stays unresolved, naming the fund and the reason in `saw`. A
+  party matching one of our CUSIPs, a superseded one included, also names that
+  fund and blocks. A table that cannot be read or proved leaves every such row
+  unresolved (`corporate_actions.cusip_table`, one log line), never "not ours".
+  Measured in `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` §5.
 - **Skipped and recorded.** This applies to a row whose every party symbol is
   present, none in the book's universe, with a non-party field malformed: its
   id, its date field or `process_date`. It goes in

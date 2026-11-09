@@ -379,3 +379,11 @@ from a named source; [doc] copied from a named note.
 - **The three rows.** db0847b7 (the Office Properties 8.375% 2029 bond) is resolved by the fix. e34ddd44 (SNTI's CVRs) and 6abeb209 (the JAGX Series R conversion) are CUSIP-format and stay unresolved; they are for the team lead to acknowledge. None of the three can be one of our funds.
 - **Found:** the fix removes only part of the problem. A flat book would still be refused on 15 of 23 sessions (10-01..11-02, down from 17) and 4 of 5 (11-03..11-09): every row still blocking is CUSIP-format, which needs its own ruling before `halt` returns (the note, §3).
 - **No mode changed, no `ca-ack` run.** Both books stay in report.
+
+## 2026-11-09 (Mon)
+
+**The corporate-action gate: the CUSIP check** (branch `ca-isin-fix`, not released; `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` §5; E-2026-11-09-30).
+- **Rulings** (`docs/SYSTEM.md` §5, 2026-11-09): "Build a check against our CUSIPs", and "Accept all three" on the rows.
+- **The check.** A CUSIP-format party, digit-led or letter-led, leaves the unresolved list only when a run-time table of every CUSIP seen for every fund in the book's universe, over a stated lookback (731 days), proves it names none of ours. Anything short of proof, a fund or read it cannot confirm included, stays unresolved and names why.
+- **Measured** (feed as read today; the table as read today, not as each past session could read it): `halt` over 10-01..11-09 would have refused a flat book 21 of 28 sessions before any fix, 19 with the ISIN fix alone, and 0 now. The core as actually held: 25 of 28, 25, then 5, all on two `NOEA:` worthless removals that left the core's window after 10-07. C4 as held: 0 in the sessions it has run (11-06 and 11-09 are upper bounds; its keys are not on this machine).
+- **Open.** A review and release of this branch, which also sets both books' `mode` back to `halt` and updates the two pins. Both books stay in `report` until then. `e34ddd44` and `6abeb209` are now proved foreign, so `ca-ack` refuses them while the table is proved: the acks are needed only on a day it is not.

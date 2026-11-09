@@ -10,6 +10,11 @@
 > Reproducer for every measured figure: `results/ops/ca_unresolved_2026-11-08/measure.py`
 > (read-only, GET only; the recorded-window figures also need the private plan copies).
 
+> **Updated 2026-11-09.** The team lead ruled "Accept all three" on §2's rows and "Build a
+> check against our CUSIPs" on §3's open question; the check is built and §5 says what it
+> changes (branch `ca-isin-fix`, unreleased; both books stay in `report`). §1–§3 are the
+> note as written on 2026-11-08, with dated corrections where a statement has been overtaken.
+
 ## 1. What was wrong, and what the fix changes
 
 **The bug [V].** `quantt/broker/alpaca.py` `_ca_symbol` accepts a value only if it
@@ -150,6 +155,10 @@ from the frozen specs through `spec_params` [V].
 
 ## 3. What still stands between these rulings and `halt`
 
+> *Corrected 2026-11-09: item 1 below is what was open on 2026-11-08. The team lead has
+> since ruled, and the CUSIP check is built (§5). Item 3 still stands; §5 lists what
+> remains now.*
+
 1. **The CUSIP-format rows, by far the largest item.** The fix classifies bonds by
    ISIN only. The other two rows above are CUSIP-format, and so is every other row
    that still blocks a flat book over 10-01..11-09 (22 rows in all) [V]. On today's read, a flat book would still be refused on 15 of the
@@ -185,13 +194,71 @@ from the frozen specs through `spec_params` [V].
    unchanged [V: `corp_actions` ACKNOWLEDGEMENTS]. Alpaca may yet complete these rows;
    a revised row blocks again and needs a new ack.
 
-## 4. Final table: one row per item, the ruling needed
+## 4. Final table: one row per item, the ruling, and what the code now does
 
-| item | event | parties, identifiers | could be ours? | after the ISIN fix | recommended ruling |
-|---|---|---|---|---|---|
-| **db0847b7-9523-4b2f-afba-ae51ddb77ec5** | partial call, process 2026-10-30, Office Properties Holdco II 8.375% 2029 Reg S [V] | `symbol` USU67540AA98 (ISIN), `cusip` U67540AA9 [V] | No: a bond; not one of the 88 fund CUSIPs [V] | Resolved: `bond_rows`, blocks nothing [V] | **NO ACTION** |
-| **e34ddd44-1ed2-4b30-b668-be3f16e11dce** | spin-off of non-transferable CVRs, ex 2026-10-30, payable 2026-11-02 [V] | SNTI (source, 816944102); `new_symbol`/`new_cusip` 816CVR021 (CUSIP-format, no ticker) [V] | No: SNTI not in either universe; 816CVR021 not a fund CUSIP [V] | **Still unresolved** (a CUSIP, not an ISIN) [V] | **ACK** with `ca-ack`, core and C4, at the return to halt |
-| **6abeb209-f747-4bf3-a231-67b8c0984d4a** | stock merger: JAGX Series R converts to common 5:1, effective 2026-11-02 [V] | JAGX (acquirer, 47010C854); `acquiree_symbol`/`acquiree_cusip` 47010C847 (Series R, CUSIP-format) [V; the CUSIP is the Series R by match of dates and ratio, U] | No: JAGX not in either universe; 47010C847 not a fund CUSIP [V] | **Still unresolved** (a CUSIP, not an ISIN) [V] | **ACK** with `ca-ack`, core and C4, at the return to halt |
+Rulings: team lead, 2026-11-09, "Accept all three" (`docs/SYSTEM.md` §5).
 
-Additional ruling needed before `halt` (§3, item 1): **what to do about CUSIP-format
-rows**, of which these two are the first.
+| item | event | parties, identifiers | could be ours? | after the ISIN fix | after the CUSIP check, table PROVED | ruling (team lead, 2026-11-09) |
+|---|---|---|---|---|---|---|
+| **db0847b7-9523-4b2f-afba-ae51ddb77ec5** | partial call, process 2026-10-30, Office Properties Holdco II 8.375% 2029 Reg S [V] | `symbol` USU67540AA98 (ISIN), `cusip` U67540AA9 [V] | No: a bond; not one of the 88 fund CUSIPs [V] | Resolved: `bond_rows`, blocks nothing [V] | Resolved, as before [V] | **Accepted: no action** |
+| **e34ddd44-1ed2-4b30-b668-be3f16e11dce** | spin-off of non-transferable CVRs, ex 2026-10-30, payable 2026-11-02 [V] | SNTI (source, 816944102); `new_symbol`/`new_cusip` 816CVR021 [V] | No: SNTI not in either universe; 816CVR021 not a fund CUSIP [V] | Still unresolved (a CUSIP, not an ISIN) [V] | Proved foreign: `foreign_cusip_rows`, blocks nothing [V] | **Accepted: ack with `ca-ack`, core and C4, at the return to `halt`.** While the table is PROVED the row is not an event, so `ca-ack` refuses it and it blocks nothing: the ack is needed only on a day the table cannot be proved. |
+| **6abeb209-f747-4bf3-a231-67b8c0984d4a** | stock merger: JAGX Series R converts to common 5:1, effective 2026-11-02 [V] | JAGX (acquirer, 47010C854); `acquiree_symbol`/`acquiree_cusip` 47010C847 [V; that it is the Series R is by match of dates and ratio, U] | No: JAGX not in either universe; 47010C847 not a fund CUSIP [V] | Still unresolved (a CUSIP, not an ISIN) [V] | Proved foreign: `foreign_cusip_rows`, blocks nothing [V] | **Accepted: ack with `ca-ack`, core and C4, at the return to `halt`.** As for e34ddd44 |
+
+## 5. The CUSIP check (team lead, 2026-11-09, "Build a check against our CUSIPs")
+
+`alpaca._CaCusipTable`. At run time, when a CUSIP-format party appears, the gate reads every
+CUSIP seen for every fund of the book's universe across the last 731 days (the fund's
+cash-dividend rows and every non-dividend row naming it). **A CUSIP-format party leaves
+`unresolved` only on proof it is none of ours**: the table read in full with a CUSIP for
+every fund, no split, reorganisation or CUSIP change left unconfirmed, the row dated inside
+the table's coverage, the value corroborated by a CUSIP field of its own row, and nothing
+on the row (a party ticker, a CUSIP field, a shared six-character issuer base) naming one
+of ours. It is then recorded under `foreign_cusip_rows` and blocks nothing. Anything else
+stays unresolved, naming the fund and the reason in `saw`; a party matching a CUSIP of ours,
+a superseded one included, also names that fund, and the row cannot block less than it did.
+Digit-led and letter-led CUSIPs take this one path. **The two rulings it depends on are the
+team lead's; the design choices that follow are this session's, listed so they can be challenged:**
+the 731-day lookback (it must exceed the longest gap between a fund's dividend rows, 374 days
+measured [V]); the issuer-base guard (a new CUSIP after a reverse split keeps its base [V for
+IGR and JAGX]); and the corroboration and coverage conditions.
+
+**What the table cannot see [U].** A CUSIP change with a new issuer base, unlisted by Alpaca,
+inside the gap since the fund's last dividend row. The table holds all it has seen and
+Alpaca is its only source.
+
+**Measured [V]** (`results/ops/ca_unresolved_2026-11-08/measure.py`, the feed as read
+2026-11-09). The table is PROVED for both books: 13 funds and 13 CUSIPs for the core, 74
+funds and 75 CUSIPs for C4 (IGR's two). No fund's change is unconfirmed: the one split in
+the lookback, IGR's, names both CUSIPs. The real read takes about 1 to 4 seconds. On the
+3,643 rows over process dates 2025-11-01 → 2028-11-09: 58 rows are bonds, 162 are proved
+foreign CUSIP rows, 2 stay unresolved (§ below), the 24 malformed rows are unchanged, and
+no row was added or changed in the gate's events.
+
+Sessions `halt` would have refused, **2026-10-01..11-09 (28 sessions)**, the table as read
+today, not as each past session could have read it:
+
+| book | before any fix | ISIN fix only | ISIN fix + CUSIP check |
+|---|---|---|---|
+| flat core | 21 of 28 [V] | 19 of 28 [V] | **0 of 28** [V] |
+| flat C4 | 21 of 28 [V] | 19 of 28 [V] | **0 of 28** [V] |
+| core as actually held (from its own account's closed orders) | 25 of 28 [V] | 25 of 28 [V] | **5 of 28** (10-01 to 10-07 only) [V] |
+| C4 as actually held | 2 blocking on 11-05 [V, recorded]; 3 on 11-06, 4 on 11-09 [upper bound, §] | 2, 3, 3 | **0 on 11-04 and 11-05 [V, recorded]; 0 on 11-06 and 11-09** [upper bound, §] |
+
+C4's held figures for 11-06 and 11-09 are upper bounds on 11-05's held windows: C4's keys are
+not on this machine, so its account could not be read; its windows on those days can only be
+narrower. C4 first traded on 11-04 (`results/report/data/live/c4/verify.csv`), and its gate
+records start there.
+
+The 5 core sessions that remain, and the only rows still unresolved anywhere in the read,
+are 3afd31c6 and 70f6398e: worthless removals dated 2026-09-28 whose party is an
+exchange-suffixed code, `NOEA:XETR` and `NOEA:XTER`, neither a ticker, an ISIN nor a CUSIP [V].
+They stayed in the core's held windows until the windows passed them on 10-07 [V]. Nothing blocks
+a held or flat book on 11-09 [V]. A new row of that shape would stay unresolved and need
+`ca-ack`, as the 2026-11-02 ruling says.
+
+**What still stands between this and `halt`:** a review and release of this branch, which
+sets both books' `mode` back to `halt` and updates the two pins in the same commit (§3,
+item 3). The table read adds a few seconds, inside the late-market send's time budget; a
+read that stalls is the same class of risk as the gate's own read. Under `halt`, a day the
+table cannot be proved is a day every CUSIP-format row inside a held name's window refuses
+the session, naming why (`cusip_table` in the record).

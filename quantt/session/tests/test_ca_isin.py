@@ -19,9 +19,8 @@ unchanged); a variant changes one field only.
 WHAT MUST NOT CHANGE. A value that is not a bond's ISIN stays a missing party:
 the row stays unresolved and blocks exactly as before, for the same windows,
 and its record now says what was actually there (`saw`), which the old record did
-not. A CUSIP in a party field is the main case: the two other real rows of the
-team lead's three (the SNTI CVR, the JAGX Series R) stay unresolved and are for the
-team lead to rule on (results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md).
+not. Here the fake session serves no CUSIP table, so a CUSIP in a party field stays
+unresolved (test_ca_cusip_table.py pins the table's proof, including that case).
 
 Hermetic: netguard refuses any socket; the key file holds test constants.
 """
@@ -171,8 +170,8 @@ def test_a_value_that_is_not_a_bonds_isin_stays_unresolved(tmp_path, label, valu
 
 
 def test_the_real_snti_cvr_row_stays_unresolved_a_cusip_is_not_an_isin(tmp_path):
-    """e34ddd44: the CVR in Senti's spin-off row is a CUSIP-format value (816CVR021),
-    which this fix deliberately does not classify; it is for the team lead to rule on."""
+    """e34ddd44: the CVR in Senti's spin-off row is a CUSIP-format value (816CVR021). With no
+    CUSIP table served here it stays unresolved: the table's proof is test_ca_cusip_table."""
     rec = _check(tmp_path, {"spin_offs": [SNTI_SPIN_ROW]})
     assert rec["status"] == cam.BLOCKING
     _assert_stays_unresolved_and_names_what_it_saw(
@@ -180,8 +179,8 @@ def test_the_real_snti_cvr_row_stays_unresolved_a_cusip_is_not_an_isin(tmp_path)
 
 
 def test_the_real_jagx_preferred_row_stays_unresolved_a_cusip_is_not_an_isin(tmp_path):
-    """6abeb209: the Series R conversion, its acquiree a CUSIP (47010C847). Unresolved,
-    for the team lead to rule on."""
+    """6abeb209: the Series R conversion, its acquiree a CUSIP (47010C847). With no CUSIP
+    table served here it stays unresolved: the table's proof is test_ca_cusip_table."""
     rec = _check(tmp_path, {"stock_mergers": [JAGX_MERGER_ROW]}, session_date=D1102, asof=A1102)
     assert rec["status"] == cam.BLOCKING
     _assert_stays_unresolved_and_names_what_it_saw(
