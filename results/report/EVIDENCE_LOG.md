@@ -3841,6 +3841,69 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
 
+### E-2026-11-08-04 · Ruling: research is not pass or fail. A failed gate no longer ends an idea, the power check stops only at very low odds, holdouts can be re-opened with each look counted, and entry to the paper account is the team lead's decision on a scorecard
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the team lead: "not a no go no only rules, we need to be dynamic - this is too binary" [S]
+  - the audit behind the re-review, 82 ideas: CORRECT KILL 29, IMPLEMENTATION 26, UNDERPOWERED 20; the 26 and the 20 are re-reviewed, best first on market reasoning [S]
+  - the power check stops below P(pass) 0.10 and warns from 0.10 to 0.50; it stopped below 0.50 before (the 2026-10-27 row of `docs/SYSTEM.md` §5) [S]
+- source: `results/research/DESK_METHOD_2026-10-27.md` @ `a5b94c8`; `docs/SYSTEM.md` @ `a5b94c8` (the rows it changes; the ruling itself is added in this commit)
+- supports: §5
+- status: current; for research agents and the research loop only. The live book's stops, real-capital admission and the analysts' process are unchanged
+
+### E-2026-11-05-31 · Ruling: the analysts' lanes reopen as starting points, any analyst may propose a signal, and each pitches one idea to the execs at the end of November
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - no figures; lanes recorded as FICC risk, equity risk, and cross-asset signals with the dashboard, "open ended" [S]
+  - the team lead approves every test, and a trial still needs approval before any return is computed; supersedes the 2026-11-03 report-only lanes [S]
+  - each analyst pitches separately, a short talk with slides, end of November; date and length to be set [S]
+- source: `docs/SYSTEM.md` @ `b63253d`
+- supports: §5
+- status: current
+
+### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
+- kind: method
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - base: a worktree at 0b1a2ef2b308101b3512aec24dc49a22de98c888 [S]
+  - decision dates: 7018 (1998-11-18 .. 2026-10-14, --dates all); books flat and held; 14036 (date, book) target lists per variant [S]
+  - new:absent vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:flatten vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:hold vs base:hold: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:te4 vs base:absent on (date, book) with >= min_names eligible: 3716 of 3716 byte-identical with meta['cef_thin'] removed [S]
+  - thin (date, book): 10320; reduced build ran on 3416; below the floor (FLAT) 6904; with holds 0 [S]
+  - VERDICT: NO-OP PROVED (every comparison byte-identical) [S]
+- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-04-headf3ad29f-main0b1a2ef.txt` @ `e4953e4`; `quantt/session/tests/test_trade_eligible_noop.py` @ `29ba857`; `quantt/session/run.py` @ `dbe46f3`; `quantt/session/drawdown.py` @ `f3ad29f`; `src/deploy/sleeves/cef_discount.py` @ `f3ad29f`
+- supports: §1, §5
+- status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-04-02 · Ruling: te4's K0 reads the freshest EOD row it has, the as-of's own when it is there, else the previous session's
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - none (a ruling: "K0 reads the as-of's own row when it is there (labelled 0 sessions stale), whatever it reads; a bad row reads UNMEASURED. Only when D's row has not landed does it read D−1's (labelled one session stale)"; team lead, 2026-11-04)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `dbe46f3`; `quantt/session/run.py` @ `dbe46f3`
+- supports: §5
+- status: current (refines E-2026-11-03-42: at the 22:00 decide nothing changes)
+
+### E-2026-11-08-22 · CEF trial 55's stop lines after the owner's review: a reduced decision counts only if its targets were sent and filled, K3's run length is a required spec key, and missing sessions blank only the stops whose window holds them
+- kind: method
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - VERDICT: NO-OP PROVED (every comparison byte-identical), base 718b6996d87cf9a5ef83873f4fae4f82272def18, new 44808edda54d87dab321746b4be58cc00f413afc [S]
+  - the compose.py re-run at `--k3-run-sessions 3` matches the drafting day's record apart from the stamp and the recorded run length [S]
+  - "Sent, nothing filled": a SENT where every order in `final` ended with 0 shares filled, canceled, expired or rejected, and `not_final` is empty; never a FAIL [S]
+- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-05-head44808ed-main718b699.txt` @ `30bcac5`; `results/cef/prereg_thin_te4/compose_output_2026-11-05.txt` @ `a126324`; `docs/RUNNER.md` @ `702b5de`; `quantt/session/drawdown.py` @ `702b5de`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `03d978b`
+- supports: §1, §5
+- status: current (the key is not set; it trades only from its activation commit)
+
 ### E-2026-11-08-20 · Correction: Alpaca paper does charge SEC and CAT regulatory fees, so CLAUDE.md landmine 1 and the paper rows of docs/REFERENCES.md are corrected
 - kind: correction
 - era: ALPACA

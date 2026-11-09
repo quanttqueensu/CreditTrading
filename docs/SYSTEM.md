@@ -111,8 +111,9 @@ and `EXEC_LAG` in `scripts/cef/validate.py` is asserted at runtime. Why MOC and
 not a market order: `CLAUDE.md`, order-path rule 3.
 
 **Universe and holdouts.** The deployed names are the spec's `universe`;
-`data/cef/cef_universe.csv` holds the wider set. Two holdouts are sealed and
-opened once: **the untouched CEFs** outside the deployed universe (trading any of
+`data/cef/cef_universe.csv` holds the wider set. Two holdouts are sealed until
+a pre-registered test opens them (research agents may re-open one, each look counted
+and labelled: §5, 2026-11-08): **the untouched CEFs** outside the deployed universe (trading any of
 them consumes the set), and **a 2023-01-01 time holdout** on every fit.
 
 ---
@@ -612,8 +613,8 @@ rebuild (`results/research/DESK_METHOD_2026-10-27.md` §7).
 | question | decision |
 |---|---|
 | Which deflated-Sharpe bar gates | **The paper's bar** (Gumbel expected maximum, effective N, measured cross-trial V[SR_n]), **once trials store their daily P&L series**. Until then both bars are shown, labelled, and the desk's √(2 ln N) on the raw counter gates |
-| The power gate | **In the `research-idea` workflow only**, not a `CLAUDE.md` rule. The workflow stops when any P(pass) is below 0.5, unless overridden |
-| Admission by marginal contribution | **Allowed, paper only.** A sleeve that fails the standalone deflated Sharpe may join the paper book, labelled, if it adds to the book (SR > ρ·SR_book across ρ's range) and the combined net is positive across the 5/15/30bp grid. Real capital keeps the standalone gate (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1) |
+| The power gate | **In the `research-idea` workflow only**, not a `CLAUDE.md` rule. The workflow stops when any P(pass) is below 0.5, unless overridden. *(Changed 2026-11-08, above: it stops below 0.10 and warns below 0.50.)* |
+| Admission by marginal contribution | **Allowed, paper only.** A sleeve that fails the standalone deflated Sharpe may join the paper book, labelled, if it adds to the book (SR > ρ·SR_book across ρ's range) and the combined net is positive across the 5/15/30bp grid. Real capital keeps the standalone gate (`results/cef/PORTFOLIO_FRAMEWORK_2026-10-15.md` §2.1). *(Paper entry became the team lead's decision on a scorecard, 2026-11-08, above. Real capital is unchanged.)* |
 | Evidence outcome | **Every verdict records PRESENT / ABSENT / INCONCLUSIVE beside its D-code**, and C5, E1 and X1 are relabelled (`docs/RESEARCH_STATE.md`, 2026-10-27 note) |
 | The audit's zero-trial re-opens | **All queued, in this order:** (1) NAV tenders and E1 judged by their contribution to the book, on fit-period series only; (2) C5 as an execution choice, with the opening-auction cost re-measured on 2023–26 quotes; (3) X3 hedged against TERM, power check first because its holdout is spent; (4) A1 as a conditioner, G2's two named inputs, MA-HZ on the 2001 census. Each spends no trial; any test that follows is pre-registered |
 | Trial P&L series | **Backfill what is reproducible.** Re-run each past trial whose script still reproduces, store its daily series, and list those that cannot be rebuilt. The desk's bar keeps gating until it is done |
@@ -676,6 +677,25 @@ Answered interactively. Day by day, what was found, shipped and earned is in
 | C4's HALVE/KILL drawdown levels | **The core's levels**, in report mode, until a C4-specific derivation exists |
 | PCEF holdings | **Invesco gave written consent** (team lead, 2026-10-30). The team lead saves a copy outside the public repo; its date and scope are cited in `docs/REFERENCES.md` before any automated download |
 
+### Team lead, 2026-11-08 — research is not pass or fail
+
+Answered interactively on 2026-11-08, after the team lead said of the desk's research: "not a no go no only rules, we need
+to be dynamic - this is too binary". It covers the research agents and the research loop.
+
+| question | decision |
+|---|---|
+| The power check in `research-idea` | **Stop only at very low odds: any P(pass) below 0.10.** From 0.10 to 0.50 the test runs, with a warning at the top of the pre-registration. The team lead can still override with `override_power`. 0.10 is the figure offered in the question |
+| How long to keep working on an idea after a test falls short | **The agent judges, with reasons.** There is no fixed number of rounds. The reasons come from economics, market history and how markets have reacted historically, whether an angle is missing, and which tweaks remain. An idea is set aside only with those reasons and what would reopen it |
+| How re-tests count | **Every re-test is a counted trial**, pre-registered and stored like any other |
+| The holdouts | **Re-opens are allowed, any number, each look counted and labelled.** This supersedes "opened once" for research agents. After the first look the data is no longer clean, so paper trading on data that arrives afterwards is the clean check before real money |
+| What decides entry to the paper account | **A scorecard with a recommendation, and the team lead decides.** Pass marks, including the deflated-Sharpe bar and the marginal route of 2026-10-27, are shown as guides. Real capital keeps its standalone gate |
+| The 2026-10-27 audit's kills | **Re-review the practical blocks and the tests too weak to tell**, best first on market reasoning, skipping any already re-opened. The audit note gives counts only (26 and 20), so the loop finds them in the ledger |
+| The graveyard | **Nothing is banned.** An idea can return if the agent says what is different. One that failed on a data error must deal with that error first |
+| The loop's order | **Follow-ups first**, then the existing queues and new ideas |
+| The analysts | **Not changed.** Their process, the guides and their end-of-November pitches stay as they are |
+| The live book | **Not changed.** The order path, `DRY_RUN`, HALVE/KILL and the 60-session review stay as written |
+| Not discussed, so still standing | No lookahead, no invented numbers, one harness, turnover-matched tables, and no picking the best of a swept column |
+
 ### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
 
 Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAND_COST_REDERIVATION_2026-11-05.md`
@@ -686,7 +706,20 @@ Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAN
 | Re-derive the no-trade band from the measured execution cost? (that morning's ruling: "pre-register a re-derivation of the rebalancing band using the measured execution cost") | **"Accept: keep 4.8%, close."** Both books keep `band_width` 0.048. CLOSED at zero trials; CEF stays 55 (`docs/RESEARCH_STATE.md`, CLOSED, BAND-COST). The cube-root law at the measured paper cost gives the core 4.55% and C4 4.07%. Neither beats live beyond its own error: the core's 0.045 − 0.048 has NW t 1.34 against 2.837. Two follow-ups, both measurements: **C4's band is re-measured on its own fill cost after 21 sessions, no earlier than 2026-12-03**; and **the band is re-derived on a measured live auction impact before any real capital**, as part of the real-money cost re-run (2026-10-09) |
 | Post-then-cross on paper? (the execution study's candidate 1: a passive limit at the touch at 15:52, the remainder crossed at 15:58) | **"Not now."** Not built. **Re-test after 60+ sessions of fills**: its −2.2bp against actual (95% CI −4.5 to +0.2) rests on 21 days [S: the study] |
 
+### Team lead, 2026-11-05 — the analysts' roles reopened, and the end-of-November pitch
+
+Answered interactively on 2026-11-05, while the analyst guide was being rewritten. It supersedes the 2026-11-03 rows below on what
+the analysts work on and who does the signal work. `docs/TEAM.md` §1 holds who keeps which paths.
+
+| question | decision |
+|---|---|
+| What the analysts work on | **Recommended starting points, and the work is open-ended.** `ryan` starts on FICC risk, `james` on equity risk, and `lucy` on cross-asset signals and the dashboard. These are not limits. Supersedes 2026-11-03's report-only risk lanes |
+| Who may propose a signal | **Any analyst.** The team lead approves every test, and a trial still needs that approval before any return is computed (`docs/TEAM.md` §4). Supersedes 2026-11-03's "the team lead, on every counter". The PM still keeps every counter's rows |
+| What each analyst delivers | **One pitch to the execs at the end of November:** an addition to the strategy, a signal, or anything else that helps overall. Each analyst pitches separately, as a short talk with slides. The date and length are still to be set |
+
 ### Team lead, 2026-11-03 — the analyst lanes redrawn as risk
+
+*(Superseded 2026-11-05, above, on what the analysts work on and who does the signal work.)*
 
 Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` §1 holds who keeps which paths.
 
@@ -730,6 +763,17 @@ Answered interactively on 2026-11-03, on `results/cef/PREREG_C4_LEVEL_2026-11-02
 | C4's first armed session: dry sessions (checklist step 5) | **"i want no dry sessions"**: C4 arms at its first install (2026-11-03). Its first armed decide is read before its first send, and C4 is disarmed before 15:45 ET if that plan is wrong |
 | Where the pre-arming reads run (checklist steps 3 and 6), with C4's keys absent from the laptop | **"they are on the vm"**: the read-only probe and the cap re-check run on the VM, authenticated by the key file its C4 secret service wrote. No key is printed, copied or moved (`vmrelease.sh c4-probe`, git-excluded) |
 | CEF trial 54's outcome (the holdout, opened once, 2026-11-03) | **PASS on the pre-registered remainder, with the holdout decisive** (`results/cef/prereg_c4_level/TRIAL54_RESULT_2026-11-03.md`): level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32% [S]. Evidence INCONCLUSIVE at N = 54, K3 overridden as above. Per "deploy as fast as possible", `level_signal` is activated in C4's spec (v5) through `/spec-change` and a release-check, paper only |
+
+### Team lead, 2026-11-03 — CEF trial 55 ("te4"): trade the eligible names on a thin session, paper only
+
+Answered interactively on 2026-11-03, on `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` (its "Approval" section records the ruling, the answers to §10 Q1–Q17 and the runner owner's terms; the counter moved CEF 54 → 55 in `docs/RESEARCH_STATE.md`). The runner's part is `docs/RUNNER.md`, "As built (2026-11-03)".
+
+| question | decision |
+|---|---|
+| On a session with 4–5 eligible names, build the core's book on them (`below_min_names = "trade_eligible"`, floor 4) instead of closing it? | **Approved for paper only, as CEF trial 55, with K0 and the recommended answer to every open question.** Before ruling, the team lead was shown that the rule is not shown to be alpha, that it is negative on real money, and that it is worth about zero going forward while no session is thin. The drafting session recommended keeping flatten |
+| Where it may run | **`below_min_names = "trade_eligible"` is PAPER ONLY. It never applies to a live-money account,** as the `late_market` exception never does (2026-10-09). Delete the key, with its floor and its K1–K3 lines, before any live-money arming of the core. Enforced in code twice: the sleeve refuses to decide under the key without a paper declaration, and the runner declares paper only when its broker client's trading endpoint is the paper endpoint |
+| A short skipped at the late-market send on a reduced session (the name stopped being shortable after the decide) | **Accept it and label it.** The send's skip-and-send stays as it is on reduced and full sessions alike. The record marks the reduced session that lost a short at send (`thin_stops.send_skip`), and K3 watches for a book that stays one-sided. Not chosen: refusing the whole send on such a session (the runner owner's preference) |
+| When it trades | **Only from its activation commit**, which needs: the implementation merged; the core's 60-session review graded; the Q6/Q10 counts; the K0–K3 report lines and the pre-built revert spec in the activation release; and the trial-53 note. Until then the key is absent and the book is today's, byte for byte |
 
 ### Team lead, 2026-11-03 — the research evidence pack's live data
 
@@ -777,7 +821,7 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | Harness rules H1–H15 (`shift(2)`, turnover matching, cost grid, eras, IC, holdouts, H14) | `docs/BRIEF.md` §5, and `/harness` |
 | Pre-registration | `/prereg`; shape: `results/cef/PREREG_BAND_2026-09-06.md` |
 | Changing a frozen spec key | `/spec-change` |
-| Dead mechanisms — check before proposing anything | `/graveyard`, and the KILLED table |
+| Ideas that have failed so far — check before proposing anything; nothing is banned (2026-11-08) | `/graveyard`, and the KILLED table |
 | External claims | `docs/REFERENCES.md` |
 | Work orders and the plan | `docs/ROADMAP.md`. The old work orders were deleted 2026-09-28 (tag `pre-clean-slate`). |
 | Which document owns which question | `docs/INDEX.md`, checked by `python3 -m ops.doc_audit` |
@@ -810,3 +854,5 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |
 | 2026-11-02 | §5's trial-53 table records amendment 1: core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule; CEF stays 53. | CEF trial 53 amendment 1, for the team lead |
 | 2026-11-03 | §5 records the evidence pack's live-data ruling: aggregates in the repository, rows in a gitignored cache. | research evidence pack, for the team lead |
+| 2026-11-05 | §5 records the analysts' roles reopened as starting points, any analyst may propose a signal, and the end-of-November pitch. | analyst guide, for the team lead |
+| 2026-11-08 | §5 records that research is not pass or fail; §1's holdout sentence and the 2026-10-27 power and admission rows point at it. | research method, for the team lead |

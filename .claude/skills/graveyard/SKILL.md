@@ -1,6 +1,6 @@
 ---
 name: graveyard
-description: The dead mechanisms, how each died, and the patterns behind them. Use BEFORE proposing any new signal or research direction, when an idea feels familiar, or when asked what has already been tried. Rebuilding one of these is a wasted week.
+description: The ideas that have failed so far, how each failed, and the patterns behind them. Use BEFORE proposing any new signal or research direction, when an idea feels familiar, or when asked what has already been tried. Nothing here is banned: bringing one back means saying what is different this time.
 ---
 
 # The graveyard
@@ -9,7 +9,13 @@ description: The dead mechanisms, how each died, and the patterns behind them. U
 in `docs/RESEARCH_STATE.md`; this skill is the reading guide. Many of the deaths
 were the same mistake wearing different clothes.
 
-## Dead — never re-test without new data
+**Nothing here is banned** (team lead, 2026-11-08, `docs/SYSTEM.md` §5). An idea can
+come back if you say what is different this time: the mechanism, the data, the
+expression, the design or the market. If it failed on a data error such as a stale
+price, deal with that error first. Read each entry for what the test actually
+showed and for the angle it did not try.
+
+## Failed so far
 
 | id | hypothesis | cause of death |
 |---|---|---|
@@ -42,7 +48,9 @@ were the same mistake wearing different clothes.
   1.10**. The scalar band destroys what Σ⁻¹ buys. Use the joint objective instead.
 - **Full Kalman state-space model** — net 0.81, beaten by a one-line window change.
 
-## Do not build
+## Argued against so far
+
+These are reasons, not bans. Say what has changed.
 
 **Machine learning** — 17 names, one feature, IC 0.075; the bias–variance trade-off
 is emphatically against it. **Regime-switching** — the dispersion-quintile table
