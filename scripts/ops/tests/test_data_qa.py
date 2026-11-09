@@ -173,6 +173,14 @@ def test_q5_flags_a_discount_past_the_line():
     assert res["Q5"]["flags"][0]["value"] > 0.5
 
 
+def test_q5_flags_a_crossing_once_and_names_a_standing_excursion():
+    p = clean_panels()
+    d = p.nav.index[-2:]
+    p.nav.loc[d, "CCC"] = (p.close.loc[d, "CCC"] / 1.75).round(2)    # past the line on both of the last two days
+    res = run(p, thresholds={**TH, "q2_z": 1e9})
+    assert res["Q5"]["status"] == "OK" and "CCC" in res["Q5"]["why"] and "standing" in res["Q5"]["why"]
+
+
 # ------------------------------------------------------------------ Q6
 
 def test_q6_flags_when_an_adv_dip_would_leave_the_sleeve_below_min_names():

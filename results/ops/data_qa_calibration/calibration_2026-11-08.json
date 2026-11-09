@@ -52,15 +52,15 @@
    "recall": []
   },
   "Q5": {
-   "line": 0.67,
-   "flags_per_week": 0.188,
+   "line": 0.22,
+   "flags_per_week": 0.181,
    "plateau": {
-    "0.66": 0.224,
-    "0.68": 0.167
+    "0.21": 0.206,
+    "0.23": 0.177
    },
    "known_positive_BME_2021_06_28": null,
    "recall": null,
-   "design_line_50pp_rate": 0.839
+   "design_line_50pp_rate": 0.053
   },
   "Q6": {
    "median_least_liquid_eligible_over_floor": 1.141,
@@ -166,7 +166,7 @@
    ],
    "recall": "13/22"
   },
-  "joint_flags_per_week_sum_of_shares": 0.69
+  "joint_flags_per_week_sum_of_shares": 0.683
  },
  "c4": {
   "book": "c4",
@@ -356,15 +356,15 @@
    ]
   },
   "Q5": {
-   "line": 0.37,
-   "flags_per_week": 0.169,
+   "line": 0.27,
+   "flags_per_week": 0.189,
    "plateau": {
-    "0.36": 0.21,
-    "0.38": 0.134
+    "0.26": 0.218,
+    "0.28": 0.144
    },
    "known_positive_BME_2021_06_28": 0.7562,
    "recall": true,
-   "design_line_50pp_rate": 0.006
+   "design_line_50pp_rate": 0.004
   },
   "Q6": {
    "median_least_liquid_eligible_over_floor": 1.029,
@@ -380,19 +380,19 @@
    ],
    "recall": "NOT MEASURABLE: no thin-session record exists for C4 (thin-days-2026-11-03 is the core's)"
   },
-  "joint_flags_per_week_sum_of_shares": 0.633
+  "joint_flags_per_week_sum_of_shares": 0.653
  },
  "thresholds": {
   "cef": {
    "q2_z": 6.5,
    "q3_delta": 0,
-   "q5_line": 0.67,
+   "q5_line": 0.22,
    "q6_margin": 0.025
   },
   "c4": {
    "q2_z": 10.0,
    "q3_delta": 1,
-   "q5_line": 0.37,
+   "q5_line": 0.27,
    "q6_margin": 0.13
   }
  }

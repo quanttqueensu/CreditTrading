@@ -40,7 +40,7 @@ Q3 stale NAV          the NAV unchanged (to the cent) for longer than the name's
                       own longest run over the trailing year.
 Q4 split-like step    a close or NAV ratio near an integer split factor with no
                       corporate-action row naming it (tolerance: data_guards').
-Q5 discount outlier   |close / NAV - 1| beyond the line.
+Q5 discount outlier   |close / NAV - 1| crossing the line tonight (first night only).
 Q6 ADV-floor margin   an ADV dip of `q6_margin` would leave fewer than `min_names`
                       eligible names ("one ADV dip from thin"; the count, not the
                       least liquid name alone, for the reason in `q6_margin_flag`).
@@ -113,8 +113,8 @@ BUDGET_SHARE = 0.2                    # each of Q2..Q6 gets a fifth of it (docst
 # Derived by results/ops/data_qa_calibration/calibrate.py (docstring); a test pins
 # these to that script's output JSON. `q5_line` is a fraction, |close/nav - 1|.
 THRESHOLDS = {
-    "cef": {"q2_z": 6.5, "q3_delta": 0, "q5_line": 0.67, "q6_margin": 0.025},
-    "c4": {"q2_z": 10.0, "q3_delta": 1, "q5_line": 0.37, "q6_margin": 0.13},
+    "cef": {"q2_z": 6.5, "q3_delta": 0, "q5_line": 0.22, "q6_margin": 0.025},
+    "c4": {"q2_z": 10.0, "q3_delta": 1, "q5_line": 0.27, "q6_margin": 0.13},
 }
 
 
@@ -499,15 +499,36 @@ def discounts(close: pd.DataFrame, nav: pd.DataFrame) -> pd.DataFrame:
     return px_ok / nav_ok - 1
 
 
-def q5_flags(close: pd.DataFrame, nav: pd.DataFrame, line: float, asof) -> list[Flag]:
+def q5_flags(close: pd.DataFrame, nav: pd.DataFrame, line: float, asof) -> tuple[list[Flag], list[str]]:
+    """(flags, standing names). Flag a name on the FIRST night its discount is
+    beyond the line: yesterday's discount inside the line (or absent), today's
+    outside. A misprint is a jump past the line, and a fund that simply stays at
+    a wide discount or a standing premium is the sleeve's own signal, not a data
+    defect. Flagging it every night would break the budget by itself (HGLB read
+    -39.9% on 2026-10-09, past C4's line; on the core, counting every night past the
+    design's flat +/-50pp line ran 0.84 flags per week on the fit panels). Standing names are
+    returned so the report still names them."""
     d = discounts(close, nav)
-    if pd.Timestamp(asof) not in d.index:
-        return []
-    row = d.loc[pd.Timestamp(asof)].dropna()
-    return [Flag("Q5", t, str(pd.Timestamp(asof).date()),
-                 f"discount {v:+.1%} beyond the {line:.0%} line",
-                 value=float(v), threshold=float(line))
-            for t, v in row.items() if abs(v) > line]
+    t = pd.Timestamp(asof)
+    if t not in d.index:
+        return [], []
+    i = d.index.get_loc(t)
+    today = d.iloc[i].dropna()
+    prev = d.iloc[i - 1] if i > 0 else pd.Series(np.nan, index=d.columns)
+    beyond = today[today.abs() > line]
+    prev_in = prev.reindex(beyond.index).abs() <= line
+    new_names = beyond[prev_in | prev.reindex(beyond.index).isna()]
+    standing = sorted(set(beyond.index) - set(new_names.index))
+    return [Flag("Q5", tk, str(t.date()), f"discount {v:+.1%} crossed the {line:.0%} line tonight",
+                 value=float(v), threshold=float(line),
+                 evidence={"previous": None if pd.isna(prev.get(tk)) else float(prev[tk])})
+            for tk, v in new_names.items()], standing
+
+
+def q5_result(close: pd.DataFrame, nav: pd.DataFrame, line: float, asof) -> tuple[list[Flag], str | None]:
+    flags, standing = q5_flags(close, nav, line, asof)
+    return flags, (f"standing beyond the {line:.0%} line (flagged on their first night only): "
+                   f"{', '.join(standing)}" if standing else None)
 
 
 def adv_panel(close: pd.DataFrame, volume: pd.DataFrame) -> pd.DataFrame:
@@ -649,14 +670,15 @@ def run_checks(book: str, panels: Panels, universe: list, thresholds: dict, asof
                                                 int(threshold("q3_delta")), cut)),
                         ("Q4", lambda: q4_flags(q4_candidates(close, nav, splits), cut,
                                                 has_ca_rows=splits is not None)),
-                        ("Q5", lambda: q5_flags(close, nav, threshold("q5_line"), cut)),
+                        ("Q5", lambda: q5_result(close, nav, threshold("q5_line"), cut)),
                         ("Q6", lambda: q6_margin_flag(close, volume, nav,
                                                       float(spec["frozen"]["min_adv_usd"]),
                                                       int(spec["frozen"]["min_names"]),
                                                       threshold("q6_margin"), cut))):
             try:
-                flags = fn()
-                add(qid, FLAG if flags else OK, flags)
+                got = fn()
+                flags, note = got if isinstance(got, tuple) else (got, None)
+                add(qid, FLAG if flags else OK, flags, note)
             except Unmeasured as e:
                 add(qid, UNMEASURED, [], str(e))
             except Exception as e:      # a check's own bug: UNMEASURED, named, and the

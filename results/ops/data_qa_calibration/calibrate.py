@@ -156,15 +156,22 @@ def run_book(book: str) -> dict:
     if (pd.Timestamp("2021-06-28") in d.index) and ("BME" in d.columns):
         keep.loc[pd.Timestamp("2021-06-28"), "BME"] = False
     def q5_rate(line):
-        return float(((d.abs() > line) & keep).sum().sum()) / wk
+        """Flags as the check emits them: first night past the line (yesterday inside or absent)."""
+        past = d.abs() > line
+        return float((past & ~past.shift(1, fill_value=False) & keep).sum().sum()) / wk
     line_star = next((float(x) for x in LINE_GRID if q5_rate(x) <= BUDGET), None)
     bme = None
     if "BME" in p.nav.columns and pd.Timestamp("2021-06-28") in p.nav.index:
         bme = float(p.close.loc["2021-06-28", "BME"] / p.nav.loc["2021-06-28", "BME"] - 1)
+    bme_flagged = None
+    if bme is not None and line_star is not None:
+        bme_d = (p.close["BME"] / p.nav["BME"] - 1)
+        before = float(bme_d.shift(1).loc["2021-06-28"])
+        bme_flagged = bool(abs(bme) > line_star and abs(before) <= line_star)
     out["Q5"] = {"line": line_star, "flags_per_week": None if line_star is None else round(q5_rate(line_star), 3),
                  "plateau": {str(line_star + k): round(q5_rate(line_star + k), 3) for k in (-0.01, 0.01)} if line_star else {},
                  "known_positive_BME_2021_06_28": None if bme is None else round(bme, 4),
-                 "recall": None if bme is None or line_star is None else bool(abs(bme) > line_star),
+                 "recall": bme_flagged,
                  "design_line_50pp_rate": round(q5_rate(0.5), 3)}
 
     # ---------------------------------------------------------------- Q6
