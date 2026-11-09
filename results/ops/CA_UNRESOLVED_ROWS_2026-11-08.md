@@ -262,3 +262,9 @@ item 3). The table read adds a few seconds, inside the late-market send's time b
 read that stalls is the same class of risk as the gate's own read. Under `halt`, a day the
 table cannot be proved is a day every CUSIP-format row inside a held name's window refuses
 the session, naming why (`cusip_table` in the record).
+
+*Added 2026-11-09, after the team lead's answers (`docs/SYSTEM.md` §5): "Halt in tonight's
+release", and the acks for e34ddd44 and 6abeb209 are dropped unless needed. Commit 1aab61d
+sets both books' `mode` to `halt` and moves the two pins. Against a clear feed the session's
+output is unchanged byte for byte apart from the gate's mode string (the re-derived pins in
+`quantt/session/tests/test_panels_noop.py` and `src/deploy/tests/test_level_signal.py`).*

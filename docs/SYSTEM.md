@@ -684,7 +684,9 @@ Relayed by the coordinating session, 2026-11-09, on `results/ops/CA_UNRESOLVED_R
 | question | decision |
 |---|---|
 | CUSIP-format parties on corporate-action rows, unresolved after the bond-ISIN fix | **"Build a check against our CUSIPs".** A CUSIP-format party matching none of the funds of the book's universe, read at run time from Alpaca across a stated lookback, names nobody and blocks nothing; a party matching one of ours is that fund. Every CUSIP seen for a fund is held. If any fund's CUSIP cannot be read, the read fails, or a split, reorganisation or CUSIP change inside the lookback cannot be confirmed, such rows stay unresolved, naming the fund and the reason; never "not ours". A rule may only move a row from unresolved to resolved on proof of non-membership, and no row naming one of our tickers or CUSIPs may stop blocking. Letter-led CUSIPs take the same path as digit-led ones |
-| The three unresolved rows brought for a ruling | **"Accept all three"**: db0847b7 no action; e34ddd44 and 6abeb209 acked with `ca-ack`, both books, at the return to `halt` |
+| The three unresolved rows brought for a ruling | **"Accept all three"**: db0847b7 no action; e34ddd44 and 6abeb209 acked with `ca-ack`, both books, at the return to `halt`. Amended by the last row below |
+| How the gate goes back to `halt` (asked after the check was built, answered directly) | **"Halt in tonight's release".** One release, after the day's verify and subject to release-check GO, carries the fix and `halt` for both books. The first `halt` decide is that night's, for the 2026-11-10 session. Cost accepted: on a day the CUSIP table cannot be proved, a CUSIP-format row inside a held or targeted name's window refuses the session |
+| The two acks, since `ca-ack` refuses a row the table proves foreign (answered directly) | **"Drop them unless needed".** No acks at the release. If the table cannot be proved on a day either row is in a window, it blocks again and comes to the team lead that day |
 
 ### Team lead, 2026-11-08 — research is not pass or fail
 
