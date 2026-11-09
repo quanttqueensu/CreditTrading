@@ -1247,3 +1247,131 @@ def test_c4_summary_leads_with_equity_and_splits_by_family():
     assert "muni group" not in md and "MUNI" not in md
     assert fs.spec_id in md and f"{fs.vol_target:.4g}" in md
     assert "ALL four factors" in md
+
+
+# --------------------------------------------------------------------------- THE C4 LAG RULE (synthetic only)
+
+def _c4_placebo_fixture(seed=21, n_names=8, weights=(1.0, 0.6, 0.4), n_short=2):
+    """Synthetic funds responding to C4's factors at lags 0..len(weights) - 1, sharing a
+    common shock, plus a strong lag-3 response that exists ONLY after the fit end, and
+    `n_short` names listed so late they have too few fit-era rows. Tests the code;
+    claims nothing about any fund."""
+    sess = ER.nyse_sessions(dt.date(2004, 1, 2), dt.date(2011, 12, 30))
+    rng = np.random.default_rng(seed)
+    n = len(sess)
+    z = rng.normal(0, 0.005, size=(n, 4))
+    spy = z[:, 0]
+    ief = z[:, 1] - 0.2 * spy
+    hyg = z[:, 2] + 0.3 * spy + 0.2 * ief
+    pff = z[:, 3] + 0.5 * hyg + 0.1 * spy
+    E = pd.DataFrame({"SPY": spy, "IEF": ief, "HYG": hyg, "PFF": pff}, index=sess)
+    fit_end = sess[1300]
+    post = np.asarray(sess > fit_end)
+    common = rng.normal(0, 0.003, n)
+    R = E.copy()
+    names = [f"N{i}" for i in range(n_names)]
+    for name in names:
+        x = E @ rng.uniform(0.3, 0.8, 4)
+        resp = sum(w * x.shift(l) for l, w in enumerate(weights))
+        late = np.where(post, 0.8 * x.shift(3).to_numpy(), 0.0)
+        R[name] = resp + late + common + rng.normal(0, 0.003, n)
+    shorts = [f"SHORT{i}" for i in range(n_short)]
+    for name in shorts:
+        R[name] = (E @ rng.uniform(0.3, 0.8, 4)) + rng.normal(0, 0.003, n)
+    return R, sess, fit_end, names, shorts
+
+
+def test_c4_rule_runs_on_fit_rows_only_and_excludes_short_histories(capsys):
+    pytest.importorskip("statsmodels.api")
+    R, sess, fit_end, names, shorts = _c4_placebo_fixture()
+    px = _px_from_returns(R)
+    # the short names exist only over their last 100 fit-era sessions
+    i_end = int(sess.get_loc(fit_end))
+    cutoff = sess[i_end - 100]
+    px = px[~px["ticker"].isin(shorts) | (px["date"] >= cutoff)].reset_index(drop=True)
+    out = ER.derive_c4(px, names=names + shorts, fit_end=fit_end)
+    assert out["L"] == 2 and out["stop_lag"] == 3
+    assert set(out["excluded"]) == set(shorts) and all("usable rows" in v for v in out["excluded"].values())
+    assert sorted(out["sample"]) == sorted(names)
+    assert out["counts"]["n_pairs"] == 4 * len(names)
+    # H13: the last response row is J sessions before the fit end; nothing later was read
+    assert out["counts"]["last"] == sess[i_end - ER.DERIVE_RULE_LEADS]
+    printed = capsys.readouterr().out
+    assert "lag counts" in printed and "lead counts" in printed and "so L = 2" in printed
+    assert "PLATEAU CHECK" in printed and "nothing is chosen" in printed
+    # the lag-3 response after the fit end cannot have been read: over the full sample it would change L
+    full = ER.derive_c4(px, names=names, fit_end=sess[-1])
+    assert full["L"] >= 3
+
+
+def test_c4_rule_declares_no_answer_rather_than_default(capsys):
+    pytest.importorskip("statsmodels.api")
+    # pure noise: every factor coefficient is noise, so lag 0 cannot beat the 19 leads' maximum
+    sess = ER.nyse_sessions(dt.date(2004, 1, 2), dt.date(2011, 12, 30))
+    rng = np.random.default_rng(5)
+    E = pd.DataFrame(rng.normal(0, 0.005, size=(len(sess), 4)), index=sess, columns=["SPY", "IEF", "HYG", "PFF"])
+    R = E.copy()
+    names = [f"N{i}" for i in range(12)]
+    for n in names:
+        R[n] = rng.normal(0, 0.01, len(sess))
+    px = _px_from_returns(R)
+    out = ER.derive_c4(px, names=names, fit_end=sess[1300])
+    assert out["L"] is None and "does not exceed" in out["why"]
+    printed = capsys.readouterr().out
+    assert "THE RULE HAS NO ANSWER" in printed and "UNMEASURED" in printed
+
+
+def test_c4_rule_drops_a_split_read_as_adjusted_and_names_it():
+    pytest.importorskip("statsmodels.api")
+    R, sess, fit_end, names, _ = _c4_placebo_fixture(n_names=4, n_short=0)
+    px = _px_from_returns(R)
+    # a recorded 3:1 split on a close series with no step: yfinance's post-split Close
+    day = sess[500]
+    px.loc[(px["ticker"] == "N0") & (px["date"] == day), "split"] = 3.0
+    from scripts.cef.data_guards import SplitBasisError
+    with pytest.raises(SplitBasisError, match="already on the post-split"):
+        ER.returns_panel(px)                                       # the core's path still raises
+    out = ER.derive_c4(px, names=names, fit_end=fit_end)
+    assert out["splits_dropped"] == [("N0", day.date().isoformat(), 3.0)]
+    assert out["L"] == 2
+
+
+def test_the_readout_applies_the_split_rule_only_for_c4():
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    day = SESS[100]                                  # inside the window, before the positions
+    px.loc[(px["ticker"] == "AAA") & (px["date"] == day), "split"] = 3.0
+    P = _positions(list(SESS[150:152]), {"AAA": 1000.0})
+    fs = _c4_fs()
+    ro = ER.readout(px, P, {"AAA": "equity_domestic"}, window=W, fs=fs)
+    assert len(ro.exposure) == 8
+    # a core-book readout over the same frames still refuses, naming the split
+    core_like = replace(ER.CORE, factors=fs.factors, headline=fs.headline, universe=("AAA",))
+    from scripts.cef.data_guards import SplitBasisError
+    with pytest.raises(SplitBasisError):
+        ER.readout(px, P, {"AAA": "x"}, window=W, lags=0, fs=core_like)
+
+
+def test_c4_rule_constants_are_the_declared_ones():
+    """Pin: THE C4 LAG RULE's declared numbers; a change must be a new declared rule."""
+    assert ER.C4_RULE_MIN_SESSIONS == 252
+    assert ER.DERIVE_MAX_LAG == 10 and ER.DERIVE_RULE_LEADS == 19 and ER.DERIVE_RULE_ALPHA == 0.05
+    assert ER.FIT_END == pd.Timestamp("2022-12-30")
+
+
+def test_fetch_each_excludes_a_failed_name_and_raises_on_a_failed_factor(monkeypatch):
+    sess = ER.nyse_sessions(dt.date(2026, 1, 2), dt.date(2026, 1, 9))
+    asof = sess[-1].date()
+
+    def fake_fetch(tickers, start, asof_):
+        tk = tickers[0]
+        if tk == "BAD":
+            raise ER.ReadoutError("yfinance returned no rows for BAD")
+        return pd.DataFrame({"date": sess, "ticker": tk, "close": 10.0, "adj_close": 10.0,
+                             "dividend": 0.0, "split": 0.0}), {tk: "absent"}
+
+    monkeypatch.setattr(ER, "fetch_yf", fake_fetch)
+    px, cg, failed = ER.fetch_each(["SPY", "AAA", "BAD"], sess[0].date(), asof, required=("SPY",))
+    assert sorted(px["ticker"].unique()) == ["AAA", "SPY"] and set(failed) == {"BAD"}
+    with pytest.raises(ER.ReadoutError, match="BAD"):
+        ER.fetch_each(["BAD"], sess[0].date(), asof, required=("BAD",))

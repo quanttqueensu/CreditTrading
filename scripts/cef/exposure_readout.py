@@ -432,6 +432,56 @@ proof is a byte diff on a synthetic positions file before and after this change.
 Until C4's lag rule has run, `factor_set("c4").dimson_lags` is None and `analyse
 --book c4` raises naming the missing rule.
 
+THE C4 LAG RULE (DECLARED 2026-11-09, ITS OWN COMMIT, BEFORE ANY C4 PRICE WAS FETCHED
+OR ANY C4 RESULT READ; team lead, 2026-11-09: "the same lag rule", "fit rows only").
+Nothing in this rule was computed on C4's data before the commit that declares it: no C4
+price had been fetched, and the only C4 facts in sight were the frozen universe, the
+family map and the vol target, all from the spec. It is the core's rule (THE RULE, above),
+applied to C4's factors, and its counts are `lead_placebo_counts` and `placebo_lag_rule`,
+the core's code, with C4's factor set. `derive --book c4` runs it; `derive_c4` holds it.
+  Data      Total returns (`returns_panel`, the harness's formula, one difference: a
+            yfinance split record the split-basis check reads as `adjusted`, meaning the
+            cached close has no split-sized step because yfinance adjusts Close for splits
+            after the fact, is not applied, and each such name-date is named in the output
+            [C4's fit booked BTO, TYG, NXG and EMO at -75% to -80% when this was not
+            handled; `data_guards.guard_split_basis`]. The core has no such name). Cut at
+            FIT_END (2022-12-30) BEFORE anything is shifted, so no response, lag or lead
+            is dated 2023 or later (H13; `lead_placebo_counts` raises if one is). Fetched
+            keyless by `fetch --book c4`, tickers SPY, IEF, HYG, PFF and the frozen universe,
+            FETCH_START (2010-01-01) to the asof session.
+  Factors   C4's, orthogonalised once on the whole fit era in C4's order (module docstring,
+            TWO BOOKS).
+  Names     The frozen C4 universe (the 74 of ops/specs/c4_families.frozen.json, read at
+            run time), each with the rule's model (K = DERIVE_MAX_LAG = 10, J = 19, HAC(5),
+            5%) on every session where all of the name's return and the 120 factor rows it
+            needs exist. A name enters the pair set only if that sample has at least
+            C4_RULE_MIN_SESSIONS = 252 rows (one readout window; 121 regressors need
+            room beyond them); fewer, it is excluded and named in the output. A
+            name whose yfinance history fails the cache's validation (`validate_prices`), or
+            that yfinance has no rows for, is excluded and named. A factor ETF's failure
+            raises. The pairs are names x 4 factors, on whatever names remain: the output
+            states the count; the counts are compared within that count, so the rule does
+            not depend on 74 being reached. THE SAMPLE IS STATED IN THE OUTPUT (first and
+            last rows, sessions per name).
+  Model, counts, bound, decision, ties, gaps, censoring: exactly as THE RULE above,
+            including that lag 0 must beat T and that every lag 1..K clearing T raises.
+  OUTCOMES (H14: re-measured when `derive --book c4` runs, and what follows either way
+            is fixed here). If the rule returns L = 0: C4_DIMSON_LAGS = 0, C4's report uses
+            same-day betas, exactly as the core's does. If it returns L >= 1:
+            C4_DIMSON_LAGS = L and C4's report uses the summed Dimson beta 0..L. If it raises
+            (lag 0 does not beat the largest lead count, or every lag 1..K clears it, or fewer than
+            one name qualifies), the rule has no answer: C4_DIMSON_LAGS stays None, C4's
+            factor readout in the report is UNMEASURED naming the raise, and nothing defaults
+            to the core's L or to 0; the team lead decides whether a new rule is declared.
+            Whichever it is, the result lands in the commit that follows this one, with the
+            counts, the cache hash and the sample, and the rule is not re-tuned after it runs.
+  What is NOT re-derived for C4: K, J, the 5%, HAC(5), the maximum-of-leads bound and the
+            stop-at-first-failure sequence are the core's own, kept by instruction; the
+            core's risks (a) to (c) (lead counts that are not null draws, exchangeability,
+            the 19 leads' correlation) apply unchanged, and the same caveat holds: an episode
+            could set T. No diagnostics are run after the result: section 2b of the core's
+            `derive` is the core's review, and C4's was not ordered.
+
 USAGE
 -----
     python3 scripts/cef/exposure_readout.py fetch --asof YYYY-MM-DD [--book cef|c4] [--start YYYY-MM-DD] [--cache-dir D] [--symbols S ...]
@@ -465,7 +515,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from ops.schedule import nyse_calendar as NYSE  # noqa: E402  (stdlib only)
-from scripts.cef.data_guards import guard_split_basis  # noqa: E402  (numpy/pandas only)
+from scripts.cef.data_guards import guard_split_basis, split_basis_check  # noqa: E402  (numpy/pandas only)
 from scripts.cef.spec import SPEC_ID, UNIVERSE, VOL_TARGET, Z_WINDOW  # noqa: E402  (a JSON read)
 
 NY = ZoneInfo("America/New_York")
@@ -571,6 +621,8 @@ C4_FACTORS: tuple[tuple[str, str], ...] = (("EQUITY", "SPY"), ("TERM", "IEF"), (
                                            ("PREFERRED", "PFF"))
 C4_HEADLINE = "EQUITY"
 C4_DIMSON_LAGS: int | None = None   # no lag rule has been run for C4 yet (module docstring, TWO BOOKS)
+C4_RULE_MIN_SESSIONS = 252          # THE C4 LAG RULE: a name's regression sample must be at least this many
+                                    # rows (one readout window; it has 121 regressors at K = 10, J = 19)
 
 
 def c4_frozen() -> dict:
@@ -778,6 +830,27 @@ def fetch_yf(tickers, start: dt.date, asof: dt.date) -> tuple[pd.DataFrame, dict
     return px, cg
 
 
+def fetch_each(tickers, start: dt.date, asof: dt.date, *, required=()) -> tuple[pd.DataFrame, dict, dict]:
+    """`fetch_yf` and `validate_prices` one ticker at a time: (px, cg, failed). A ticker that
+    fails is put in `failed` with the reason (THE C4 LAG RULE names such exclusions) and
+    the fetch goes on, except a `required` ticker (a factor ETF), whose failure raises."""
+    frames, cg, failed = [], {}, {}
+    for tk in sorted(set(tickers)):
+        try:
+            one, c = fetch_yf([tk], start, asof)
+            validate_prices(one, asof)
+        except Exception as e:
+            if tk in required:
+                raise
+            failed[tk] = f"{type(e).__name__}: {e}"
+            continue
+        frames.append(one)
+        cg.update(c)
+    if not frames:
+        raise ReadoutError("fetch_each: no ticker could be fetched")
+    return pd.concat(frames, ignore_index=True).sort_values(["ticker", "date"]).reset_index(drop=True), cg, failed
+
+
 def write_cache(cache_dir: Path, px: pd.DataFrame, meta: dict) -> None:
     cache_dir = Path(cache_dir)
     _refuse_write(cache_dir, CACHE_FILES)
@@ -824,12 +897,18 @@ def cache_provenance_line(sha: str | None) -> str:
 
 # --------------------------------------------------------------------------- returns
 
-def returns_panel(px: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
+def returns_panel(px: pd.DataFrame, *, drop_adjusted_splits: bool = False,
+                  dropped: list | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
     """(R, C, sessions): wide daily total returns, wide raw closes, and the session index.
 
     R is the harness's formula on yfinance's raw Close and Dividends (module docstring,
     TOTAL RETURNS), with the split-basis guard. A ticker's first row has no return (NaN):
-    that is the absence of a previous close, and any window that needs it raises later."""
+    that is the absence of a previous close, and any window that needs it raises later.
+
+    `drop_adjusted_splits` (C4 only; module docstring, THE C4 LAG RULE): a split the check
+    reads as `adjusted` (the cached close made no split-sized step; yfinance adjusts Close
+    for splits after the fact) is not applied, and each such (ticker, date, factor) is
+    appended to `dropped`. The core's call keeps False: the guard raises on such a cell."""
     C = px.pivot(index="date", columns="ticker", values="close").sort_index()
     D = px.pivot(index="date", columns="ticker", values="dividend").reindex_like(C)
     S = px.pivot(index="date", columns="ticker", values="split").reindex_like(C)
@@ -839,6 +918,15 @@ def returns_panel(px: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Date
     # yfinance codes "no split" as 0.0; the multiplier is the ratio where one is recorded
     # and 1.0 (the identity, not an estimate) where none is.
     k = S.where((S != 0.0) & S.notna(), 1.0).astype(float)
+    if drop_adjusted_splits:
+        chk = split_basis_check(Rpx, k)
+        adj = chk[chk["basis"] == "adjusted"]
+        if len(adj):
+            k = k.copy()
+            for r in adj.itertuples():
+                k.at[r.ex_date, r.ticker] = 1.0
+                if dropped is not None:
+                    dropped.append((r.ticker, pd.Timestamp(r.ex_date).date().isoformat(), float(r.factor)))
     k = guard_split_basis(Rpx, k, series="close", context="exposure_readout.returns_panel")
     clash = (k != 1.0) & (D.fillna(0.0) != 0.0)
     if clash.to_numpy().any():
@@ -1131,7 +1219,7 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
     if len(sp):
         raise ReadoutError(f"split records after the first positions date on held names: "
                            f"{sp[['ticker', 'date']].astype(str).values.tolist()}")
-    R, C, sessions = returns_panel(px)
+    R, C, sessions = returns_panel(px, drop_adjusted_splits=(fs.book == "c4"))
     off = [d for d in dates if d not in sessions]
     if off:
         raise ReadoutError(f"positions dates that are not cached sessions: {[d.date().isoformat() for d in off[:5]]}")
@@ -1793,6 +1881,101 @@ def _dimson_ols(y: pd.Series, F: pd.DataFrame, max_lag: int, leads: int = 0):
         cov_type="HAC", cov_kwds={"maxlags": DERIVE_RULE_HAC})
 
 
+def _regression_rows(y: pd.Series, F: pd.DataFrame, max_lag: int, leads: int) -> int:
+    """The number of rows `_dimson_ols` would use for this response: the sessions on which
+    the response and every factor at lags 0..max_lag and leads 1..leads exist."""
+    cols = {f"{k}_{l}": F[k].shift(l) for k in F.columns for l in range(max_lag + 1)}
+    cols.update({f"{k}_m{j}": F[k].shift(-j) for k in F.columns for j in range(1, leads + 1)})
+    d = pd.concat([y.rename("y"), pd.concat(cols, axis=1)], axis=1).dropna()
+    return int(len(d))
+
+
+def derive_c4(px: pd.DataFrame, meta: dict | None = None, *, names=None, fit_end: pd.Timestamp = FIT_END,
+              max_lag: int = DERIVE_MAX_LAG, leads: int = DERIVE_RULE_LEADS, cache_sha: str | None = None) -> dict:
+    """THE C4 LAG RULE (module docstring): the core's lead-placebo rule on C4's factors and
+    fit-era names. Prints the sample, the counts, T and L (or that the rule has no answer),
+    and the plateau by family; returns them. The rule's verdict is the only thing here that
+    decides anything; the family plateau is printed beside it and nothing is chosen from it."""
+    fs = factor_set("c4")
+    groups = c4_families()
+    dropped: list = []
+    R, _, _ = returns_panel(px, drop_adjusted_splits=True, dropped=dropped)
+    fit_end = pd.Timestamp(fit_end)
+    Rc = R.loc[:fit_end]                       # H13: cut first, shift afterwards
+    miss_etf = [e for e in fs.etfs if e not in Rc.columns]
+    if miss_etf:
+        raise LagRuleError(f"derive_c4: factor ETF(s) {miss_etf} not in the cache")
+    E = Rc[list(fs.etfs)].dropna()
+    if len(E) == 0 or E.index.max() > fit_end:
+        raise LagRuleError(f"derive_c4: no factor rows on or before {fit_end.date()}")
+    M = orthogonaliser(E, fs)
+    F = E @ M
+    F.columns = list(fs.names)
+    print(f"C4 LAG RULE (declared in its own commit; module docstring). Factors "
+          f"{', '.join(f'{f}={e}' for f, e in fs.factors)}, GS in that order. Fit era "
+          f"{E.index.min().date()}..{E.index.max().date()}, {len(E)} sessions (all four ETFs), cut at "
+          f"{fit_end.date()} before any shift (H13). K = {max_lag}, J = {leads}, HAC({DERIVE_RULE_HAC}), "
+          f"alpha {DERIVE_RULE_ALPHA}.")
+    print("   " + cache_provenance_line(cache_sha).replace("RULE_CACHE", "the core's recorded cache"))
+    if meta is not None:
+        print(f"   cache asof {meta.get('asof')}, fetched {meta.get('fetched_at_utc')}, excluded at fetch "
+              f"(no rows or failed validation): {meta.get('excluded', {})}")
+    if dropped:
+        print(f"   splits read as `adjusted` (yfinance Close already post-split) and not applied: {dropped}")
+    universe = list(names if names is not None else fs.universe)
+    rows, out = {}, {}
+    for n in universe:
+        if n not in Rc.columns:
+            out[n] = "not in the cache"
+            continue
+        k = _regression_rows(Rc[n], F, max_lag, leads)
+        if k < C4_RULE_MIN_SESSIONS:
+            out[n] = f"{k} usable rows < {C4_RULE_MIN_SESSIONS}"
+        else:
+            rows[n] = k
+    in_sample = sorted(rows)
+    print(f"   names in the pair set: {len(in_sample)} of {len(universe)}; excluded: {out or 'none'}")
+    if not in_sample:
+        msg = "no name qualifies: the C4 lag rule has no answer"
+        print("   " + msg)
+        return dict(L=None, T=None, sample=in_sample, excluded=out, why=msg, splits_dropped=dropped)
+    pc = lead_placebo_counts(R, in_sample, fit_end=fit_end, max_lag=max_lag, leads=leads, fs=fs)
+    print(f"   sample {pc['first'].date()}..{pc['last'].date()} (last response row; its lead-{leads} row is on "
+          f"or before {fit_end.date()}), sessions per name {min(pc['nobs'].values())}..{max(pc['nobs'].values())}; "
+          f"{pc['n_pairs']} pairs")
+    print("   lag counts  c(l): " + _fmt_counts(pc["lag"]))
+    print("   lead counts p(j): " + _fmt_counts(pc["lead"], "m"))
+    try:
+        rule = placebo_lag_rule(pc["lag"], pc["lead"])
+    except LagRuleError as e:
+        print(f"   THE RULE HAS NO ANSWER: {e}")
+        print("   C4_DIMSON_LAGS stays None; C4's factor readout is UNMEASURED and names this; nothing "
+              "defaults to the core's L or to 0 (module docstring, THE C4 LAG RULE, OUTCOMES)")
+        return dict(L=None, T=None, counts=pc, sample=in_sample, excluded=out, why=str(e), splits_dropped=dropped)
+    at = [j for j, c in pc["lead"].items() if c == rule["T"]]
+    print(f"   T = max lead count = {rule['T']} (at lead {at}); first lag not above T: {rule['stop_lag']} "
+          f"(count {pc['lag'][rule['stop_lag']]}); so L = {rule['L']}")
+    print(f"   module constant C4_DIMSON_LAGS = {C4_DIMSON_LAGS}: "
+          + ("equals the rule's L" if C4_DIMSON_LAGS == rule["L"]
+             else f"not yet the rule's L = {rule['L']}; set it from the rule in a commit of its own"))
+    # the family plateau, beside the rule: nothing is chosen from it
+    ks = range(max_lag + 1)
+    cum = {}
+    for n in in_sample:
+        m = _dimson_ols(Rc[n], F, max_lag)
+        fam = groups.get(n, "(no family: not in the C4 family map)")
+        for k in fs.names:
+            cum[(n, fam, k)] = np.cumsum([m.params[f"{k}_{l}"] for l in ks])
+    cm = pd.DataFrame(cum).T
+    cm.index.names = ["name", "family", "factor"]
+    cm.columns = [f"L{l}" for l in ks]
+    med = cm.groupby(level=["family", "factor"]).median()
+    print("\n   PLATEAU CHECK (nothing is chosen from it): median cumulative summed beta by family and factor, "
+          f"lags-only 0..{max_lag} models\n" + med.round(2).to_string())
+    return dict(L=rule["L"], T=rule["T"], stop_lag=rule["stop_lag"], counts=pc, sample=in_sample, excluded=out,
+                splits_dropped=dropped)
+
+
 # --------------------------------------------------------------------------- the lag rule
 
 class LagRuleError(ReadoutError):
@@ -2101,10 +2284,14 @@ def main(argv=None) -> int:
         cache = cache_dir
         _refuse_write(cache, CACHE_FILES)            # before any network call
         tickers = sorted(set(fs.etfs) | set(fs.universe) | {s.upper() for s in args.symbols})
-        px, cg = fetch_yf(tickers, dt.date.fromisoformat(args.start), asof)
+        failed: dict = {}
+        if fs.book == "cef":
+            px, cg = fetch_yf(tickers, dt.date.fromisoformat(args.start), asof)
+        else:
+            px, cg, failed = fetch_each(tickers, dt.date.fromisoformat(args.start), asof, required=fs.etfs)
         validate_prices(px, asof)
         import yfinance
-        meta = {"asof": asof.isoformat(), "start": args.start, "tickers": tickers,
+        meta = {"asof": asof.isoformat(), "start": args.start, "tickers": tickers, "excluded": failed,
                 "source": "yfinance Ticker.history(auto_adjust=False, actions=True), keyless",
                 "yfinance_version": yfinance.__version__, "capital_gains_column": cg,
                 "fetched_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
@@ -2119,9 +2306,9 @@ def main(argv=None) -> int:
         _print_crosscheck(tab, notes)
         return 0
     if args.cmd == "derive":
-        if args.book != "cef":
-            raise ReadoutError("derive --book c4: C4's lag rule is declared in a commit of its own "
-                               "before it runs (module docstring, TWO BOOKS)")
+        if args.book == "c4":
+            derive_c4(px, meta, cache_sha=cache_sha256(cache_dir))
+            return 0
         derive(px, load_groups(), cache_sha=cache_sha256(cache_dir))
         return 0
     P = read_positions(Path(args.positions))
