@@ -377,6 +377,19 @@ class AlpacaClient:
                                     "holding this book's Alpaca keys")
         return cls(book, path, **kw)
 
+    @property
+    def trading_endpoint(self) -> str:
+        """The trading endpoint this client talks to: today always PAPER_BASE, which
+        the constructor enforces. Read-only (no setter), and reading it sends nothing.
+
+        WHY IT EXISTS (CEF trial 55, te4; the runner's owner, 2026-11-03).
+        `below_min_names = "trade_eligible"` is PAPER ONLY. The runner declares the
+        account paper to the sleeve only when this reads exactly PAPER_BASE
+        (`quantt/session/run.py` `thin_rule_for`), so the declaration rests on what
+        the client says it talks to, not on an assumption about which client it is.
+        A live-money client, if one is ever written, must answer differently here."""
+        return self._base
+
     def __repr__(self) -> str:
         return f"AlpacaClient(book={self.book!r}, base_url={self._base!r}, data_url={self._data!r})"
 

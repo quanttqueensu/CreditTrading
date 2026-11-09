@@ -283,7 +283,10 @@ the Alpaca prod. `ibkr-final` tags the last IBKR-era commit.
 
 1. **Alpaca paper does not simulate the closing auction.** Staff say paper fills
    MOC at the current quote [V: forum staff post, 2026-09-28]. Paper also charges
-   no borrow, no dividends and no regulatory fees [V: docs]. **Paper processes no
+   no borrow and no dividends [V: docs]. **It does charge regulatory fees (SEC and
+   CAT)**, although Alpaca's paper page says they are not simulated [V: the cef
+   account's own FEE activities, `results/cef/LIVE_ATTRIBUTION_2026-11-02.md`;
+   corrected 2026-11-08, team lead]. **Paper processes no
    corporate actions at all: no splits and no mergers** [V: Alpaca staff forum
    replies, 2024-06-10 and 2026-07-15]. A held fund that splits keeps its old share
    count on paper, and a merger never converts. The runner has no handling for

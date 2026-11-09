@@ -122,6 +122,19 @@ def test_a_live_or_any_non_paper_trading_endpoint_is_refused(env_file):
             al.AlpacaClient("cef", env_file, base_url=bad, session=FakeSession())
 
 
+def test_trading_endpoint_reads_the_paper_endpoint_sends_nothing_and_cannot_be_set(env_file,
+                                                                                 sleeps):
+    """CEF trial 55 (te4): the runner declares the account paper only when this reads exactly
+    PAPER_BASE (quantt/session/run.py `thin_rule_for`). Reading it is not a request, and it
+    cannot be overwritten to make a client claim the paper endpoint."""
+    c, s = client(env_file, sleeps)
+    assert c.trading_endpoint == al.PAPER_BASE == "https://paper-api.alpaca.markets"
+    assert s.gets == [] and s.posts == []
+    with pytest.raises(AttributeError):
+        c.trading_endpoint = "https://api.alpaca.markets"
+    assert c.trading_endpoint == al.PAPER_BASE
+
+
 def test_a_non_default_data_endpoint_is_refused(env_file):
     with pytest.raises(ValueError, match="data endpoint"):
         al.AlpacaClient("cef", env_file, data_url="https://example.com", session=FakeSession())

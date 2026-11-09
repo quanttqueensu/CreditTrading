@@ -3865,6 +3865,86 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: current
 
+### E-2026-11-04-01 · CEF trial 55's code is built dark: paper declared only on the paper endpoint, K0 restricting on the freshest EOD row, a gate-7 flatten and K0–K3 report lines; with the key absent the sleeve and the session are byte-identical to main
+- kind: method
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - base: a worktree at 0b1a2ef2b308101b3512aec24dc49a22de98c888 [S]
+  - decision dates: 7018 (1998-11-18 .. 2026-10-14, --dates all); books flat and held; 14036 (date, book) target lists per variant [S]
+  - new:absent vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:flatten vs base:absent: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:hold vs base:hold: 14036 of 14036 (date, book) pickles byte-identical [S]
+  - new:te4 vs base:absent on (date, book) with >= min_names eligible: 3716 of 3716 byte-identical with meta['cef_thin'] removed [S]
+  - thin (date, book): 10320; reduced build ran on 3416; below the floor (FLAT) 6904; with holds 0 [S]
+  - VERDICT: NO-OP PROVED (every comparison byte-identical) [S]
+- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-04-headf3ad29f-main0b1a2ef.txt` @ `e4953e4`; `quantt/session/tests/test_trade_eligible_noop.py` @ `29ba857`; `quantt/session/run.py` @ `dbe46f3`; `quantt/session/drawdown.py` @ `f3ad29f`; `src/deploy/sleeves/cef_discount.py` @ `f3ad29f`
+- supports: §1, §5
+- status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-04-02 · Ruling: te4's K0 reads the freshest EOD row it has, the as-of's own when it is there, else the previous session's
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-04
+- figures:
+  - none (a ruling: "K0 reads the as-of's own row when it is there (labelled 0 sessions stale), whatever it reads; a bad row reads UNMEASURED. Only when D's row has not landed does it read D−1's (labelled one session stale)"; team lead, 2026-11-04)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `dbe46f3`; `quantt/session/run.py` @ `dbe46f3`
+- supports: §5
+- status: current (refines E-2026-11-03-42: at the 22:00 decide nothing changes)
+
+### E-2026-11-08-22 · CEF trial 55's stop lines after the owner's review: a reduced decision counts only if its targets were sent and filled, K3's run length is a required spec key, and missing sessions blank only the stops whose window holds them
+- kind: method
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - VERDICT: NO-OP PROVED (every comparison byte-identical), base 718b6996d87cf9a5ef83873f4fae4f82272def18, new 44808edda54d87dab321746b4be58cc00f413afc [S]
+  - the compose.py re-run at `--k3-run-sessions 3` matches the drafting day's record apart from the stamp and the recorded run length [S]
+  - "Sent, nothing filled": a SENT where every order in `final` ended with 0 shares filled, canceled, expired or rejected, and `not_final` is empty; never a FAIL [S]
+- source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-05-head44808ed-main718b699.txt` @ `30bcac5`; `results/cef/prereg_thin_te4/compose_output_2026-11-05.txt` @ `a126324`; `docs/RUNNER.md` @ `702b5de`; `quantt/session/drawdown.py` @ `702b5de`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `03d978b`
+- supports: §1, §5
+- status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-08-20 · Correction: Alpaca paper does charge SEC and CAT regulatory fees, so CLAUDE.md landmine 1 and the paper rows of docs/REFERENCES.md are corrected
+- kind: correction
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - "GET /v2/account/activities/FEE lists 37 REG (SEC) and CAT rows, summing to −6.16" [V]
+  - released by the team lead on 2026-11-08, after being held on 2026-11-02; Alpaca's page still says regulatory fees are not simulated, and the quotes of it are kept with a dated note [S]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `32d9961`; `CLAUDE.md` @ `55dc94e`; `docs/REFERENCES.md` @ `55dc94e`
+- supports: §4
+- status: supersedes E-2026-11-02-08 (its deferral); corrects the landmine text quoted in E-2026-11-03-30
+
+### E-2026-11-08-21 · Ruling: the exposure readout keeps 0 lags and the MUNI headline after the current-window lag sensitivity was put to the team lead
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (a ruling: "on 2026-11-08 the team lead ruled: keep L = 0 and the MUNI headline"; it answers the question left open in E-2026-11-03-36)
+- source: `scripts/cef/exposure_readout.py` @ `55dc94e`
+- supports: §5
+- status: current
+
+### E-2026-11-08-23 · Rulings on CEF trial 55: the code ships dark, and the in-place edit of the approved pre-registration's compose commands is accepted
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (rulings: "The implementation (PR #55) merges with the key absent, so the book keeps today's flatten rule"; the in-place edit carries a dated note and changes no figure; team lead, 2026-11-08)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ca80123`
+- supports: §2, §5
+- status: current
+
+### E-2026-11-08-05 · Rulings: a VM timer owns the nightly check, with push on fired stops; single-name size is measured, not capped; the corporate-action gate goes back to halt after a fix; HALVE/KILL's read is fixed, report-only
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (rulings by the team lead: "VM timer, push on stops", "Measure it, change nothing", "Start the fix", "Fix the read, stay report-only")
+- source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
+- supports: §1, §5
+- status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
+
 ### E-2026-11-08-30 · The corporate-action gate's bond-ISIN misread is fixed on a branch: 58 of the 208 unreadable-party rows are bonds and leave the gate; the other 150 stay unresolved, two of the team lead's three rows among them
 - kind: result
 - era: ALPACA
