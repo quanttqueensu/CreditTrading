@@ -56,22 +56,26 @@ def worthless(sym, cusip, rid="w-1"):
 
 
 def _client(tmp_path, gate_feed, *, dividends=DIVIDENDS, lookback=(IGR_SPLIT,),
-            div_error=None, nd_error=None):
-    """The real AlpacaClient over a session serving each of the three reads."""
+            div_error=None, nd_error=None, lookback_feed=None, div_token=None, calls=None):
+    """The real AlpacaClient over a session serving each of the three reads.
+    `lookback_feed`: other rows for the table's non-dividend read, by response key."""
     kf = tmp_path / "alpaca-test.env"              # test constants, never config/.env
     kf.write_text(f"ALPACA_CEF_KEY_ID={KEY_ID}\nALPACA_CEF_SECRET_KEY={SECRET}\n")
 
     def handler(p):
+        if calls is not None:
+            calls.append(dict(p))
         types = p.get("types")
         if types == "cash_dividend":
             if div_error is not None:
                 return FakeResp(*div_error)
             return FakeResp(200, {"corporate_actions": {"cash_dividends": list(dividends)},
-                                  "next_page_token": None})
+                                  "next_page_token": div_token})
         if nd_error is not None and p.get("start", "") < "2025":
             return FakeResp(*nd_error)
         if p.get("start", "") < "2025":              # the table's non-dividend read
-            return FakeResp(200, {"corporate_actions": {"reverse_splits": list(lookback)},
+            return FakeResp(200, {"corporate_actions": {"reverse_splits": list(lookback),
+                                                        **(lookback_feed or {})},
                                   "next_page_token": None})
         return FakeResp(200, {"corporate_actions": gate_feed, "next_page_token": None})
 
@@ -266,3 +270,107 @@ def test_a_universe_ticker_is_never_read_as_a_cusip_while_a_foreign_one_is(tmp_p
     got = c.corporate_actions(["G29CVR019"], D, D, universe=["G29CVR019", *UNI], skipped=sk, rows={})
     assert [(e["id"], e["parties"]) for e in got] == [("w-universe", [["G29CVR019", "subject"]])]
     assert [k["id"] for k in sk if "foreign_cusips" in k] == ["w-foreign"]
+
+
+# ----------------------------------------- what the release-check on dd2c084 found
+# Each fails on dd2c084. The first three are the failure direction the ruling names:
+# a row of ours read as foreign, so the gate reads CLEAR on a wrong share basis.
+
+OLD_CCC = "98765X106"                          # a fixture: another issuer base from CCC's
+FOREIGN = "816CVR021"
+
+
+def _foreign_row(rid="w-f", **extra):
+    return {**worthless(FOREIGN, FOREIGN, rid), **extra}
+
+
+def _blocks_as_ccc(rec):
+    assert rec["status"] == cam.BLOCKING and "foreign_cusip_rows" not in rec, rec.get("foreign_cusip_rows")
+    assert rec["cusip_table"]["status"] == "PROVED" and rec["cusip_table"]["cusips"] == 5
+    assert "CCC" in {b["symbol"] for b in rec["blocking"]}
+
+
+def test_the_fixture_cusip_is_valid_and_outside_cccs_issuer_base():
+    assert al._ca_cusip_format(OLD_CCC) and OLD_CCC[:6] != CCC[:6]
+
+
+def test_a_renamed_funds_old_cusip_is_that_fund_and_blocks(tmp_path):
+    """OLDT -> CCC: the old CUSIP sits beside a ticker the universe does not hold."""
+    rename = {"id": "nc-1", "old_symbol": "OLDT", "new_symbol": "CCC", "old_cusip": OLD_CCC,
+              "new_cusip": CCC, "process_date": "2026-03-02"}
+    _blocks_as_ccc(_check(tmp_path, {"worthless_removals": [worthless(OLD_CCC, OLD_CCC, "w-old")]},
+                          lookback_feed={"name_changes": [rename]}))
+
+
+def test_a_reverse_split_into_a_new_ticker_holds_the_old_cusip(tmp_path):
+    split = {**IGR_SPLIT, "id": "rs-1", "symbol": "OLDT", "new_symbol": "CCC", "old_cusip": OLD_CCC,
+             "new_cusip": CCC, "ex_date": "2026-03-02", "process_date": "2026-03-02",
+             "payable_date": "2026-03-02", "record_date": "2026-03-02"}
+    _blocks_as_ccc(_check(tmp_path, {"worthless_removals": [worthless(OLD_CCC, OLD_CCC, "w-old")]},
+                          lookback=(IGR_SPLIT, split)))
+
+
+def test_a_reorganization_leg_naming_a_fund_holds_the_rows_cusip(tmp_path):
+    reorg = {"id": "ro-1", "symbol": "OLDT", "cusip": OLD_CCC, "effective_date": "2026-03-02",
+             "process_date": "2026-03-02",
+             "stock_movements": [{"symbol": "CCC", "cusip": CCC, "new_rate": 1, "source_rate": 1}]}
+    _blocks_as_ccc(_check(tmp_path, {"worthless_removals": [worthless(OLD_CCC, OLD_CCC, "w-old")]},
+                          lookback_feed={"reorganizations": [reorg]}))
+
+
+@pytest.mark.parametrize("extra, where", [
+    ({"old_cusip": ["x"]}, "old_cusip"),
+    ({"stock_movements": 5}, "stock_movements"),
+    ({"stock_movements": ["x"]}, "stock_movements[0]"),
+    ({"stock_movements": [{"cusip": ["x"]}]}, "stock_movements[0].cusip"),
+])
+def test_an_unreadable_field_stays_unresolved_names_itself_and_never_raises(tmp_path, extra, where):
+    """On dd2c084 this raised out of the read: every decide and send refused without naming
+    the row, and `ca-ack`, which makes the same read, could not clear it."""
+    rec = _check(tmp_path, {"worthless_removals": [_foreign_row(**extra)]})
+    assert rec["status"] == cam.BLOCKING and "foreign_cusip_rows" not in rec
+    (u,) = rec["unresolved"]
+    assert u["id"] == "w-f" and where in u["saw"]["symbol"] and "cannot be read" in u["saw"]["symbol"]
+
+
+def test_that_row_is_an_event_ca_ack_can_find(tmp_path):
+    """A row whose terms cannot be read is inside every window, as the 2026-11-02 ruling has
+    it, so it refuses wherever it is dated. It must refuse by name and be there for `ca-ack`,
+    which looks the id up in this same read. On dd2c084 the read raised, so only a release
+    could clear it."""
+    feed = {"worthless_removals": [_foreign_row(old_cusip=["x"], process_date="2027-06-01")]}
+    events = _client(tmp_path, feed).corporate_actions(sorted(UNI), A, D, universe=UNI, skipped=[])
+    assert [e["id"] for e in events] == ["w-f"] and events[0]["faults"] == {"old_cusip": ["x"]}
+    rec = _check(tmp_path, feed)
+    assert rec["status"] == cam.BLOCKING and {b["id"] for b in rec["blocking"]} == {"w-f"}
+
+
+def test_an_unreadable_party_on_another_lookback_row_leaves_the_table_proved(tmp_path):
+    junk = {"id": "j-1", "symbol": ["ZZZ"], "cusip": "816944102", "process_date": "2026-01-02"}
+    rec = _check(tmp_path, {"worthless_removals": [_foreign_row()]},
+                 lookback_feed={"worthless_removals": [junk]})
+    assert rec["cusip_table"]["status"] == "PROVED" and rec["status"] == cam.CLEAR
+
+
+def test_an_unreadable_party_mentioning_our_fund_is_a_reason_naming_the_row(tmp_path):
+    junk = {"id": "j-2", "symbol": ["CCC"], "cusip": "816944102", "process_date": "2026-01-02"}
+    rec = _check(tmp_path, {"worthless_removals": [_foreign_row()]},
+                 lookback_feed={"worthless_removals": [junk]})
+    assert rec["cusip_table"]["status"] == "NOT_PROVED" and rec["status"] == cam.BLOCKING
+    assert "CCC" in rec["cusip_table"]["reasons"][0] and "j-2" in rec["cusip_table"]["reasons"][0]
+
+
+def test_an_unreadable_dividend_symbol_leaves_the_table_proved(tmp_path):
+    divs = [*DIVIDENDS, {"id": "d-x", "symbol": ["AAA"], "cusip": AAA, "ex_date": "2026-09-15",
+                         "process_date": "2026-09-30"}]
+    rec = _check(tmp_path, {"worthless_removals": [_foreign_row()]}, dividends=divs)
+    assert rec["cusip_table"]["status"] == "PROVED" and rec["status"] == cam.CLEAR
+
+
+def test_a_repeating_page_token_fails_the_table_at_once(tmp_path):
+    """On dd2c084 it made MAX_PAGES GETs, enough to use up the send window."""
+    calls = []
+    rec = _check(tmp_path, {"worthless_removals": [_foreign_row()]}, div_token="SAME", calls=calls)
+    assert rec["cusip_table"]["status"] == "NOT_PROVED"
+    assert "did not advance" in rec["cusip_table"]["reasons"][0]
+    assert sum(p.get("types") == "cash_dividend" for p in calls) == 2

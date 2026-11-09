@@ -1878,6 +1878,13 @@ def _ca_cusip_format(v) -> bool:
     return (10 - total % 10) % 10 == int(v[8])
 
 
+def _ca_legs(r: dict) -> list:
+    """A row's readable `stock_movements` legs; anything else is no legs here, and
+    `_CaCusipTable._unreadable` says what could not be read. Never raises."""
+    legs = r.get("stock_movements")
+    return [m for m in legs if isinstance(m, dict)] if isinstance(legs, list) else []
+
+
 class _CaCusipTable:
     """Every CUSIP seen for every fund of the book, read once when first needed.
 
@@ -1897,7 +1904,23 @@ class _CaCusipTable:
     CUSIP on the row, so the table cannot confirm it covers the change. While not
     proved, every CUSIP-format party stays unresolved, naming the first reason in
     `saw` (`judge`). One unreadable fund turns the check off for every row, on
-    purpose: the check is about whether anything is ours.
+    purpose: the check is about whether anything is ours. It lasts as long as its
+    cause: a failed read, that read; a fund's row with no CUSIP, until the row leaves
+    the lookback, up to about two years.
+
+    A MOVE HOLDS EVERY CUSIP ON ITS ROW (release-check on dd2c084). A rename, a split
+    or a reorganization naming a fund on any side makes every CUSIP on that row the
+    fund's, before or after: OLDA -> AAA carries AAA's old CUSIP under `old_cusip`, beside
+    a ticker the universe does not hold, and a table that kept only the side whose ticker
+    is ours proved a row quoting that CUSIP foreign. The directions are not equal: a
+    CUSIP held needlessly can only keep a row unresolved, one missed can pass a row of ours.
+
+    AN UNREADABLE FIELD PROVES NOTHING AND RAISES NOTHING (same release-check, and the
+    2026-11-02 ruling that the read never raises). A `*cusip` field or a leg that is
+    present but cannot be read keeps its row unresolved and names the field in `saw`, so
+    the gate judges the row on its windows and `ca-ack` can clear it. A party that is not
+    text on some other row of the lookback names nobody, and leaves the table proved,
+    unless its text mentions one of ours, which is a reason naming the row.
 
     WHY IT CANNOT MOVE A ROW THE WRONG WAY (point 4 of the ruling). `judge` proves
     a row foreign only if nothing on it names one of ours (`_row_names_ours`). A
@@ -1933,9 +1956,14 @@ class _CaCusipTable:
             body = self.client._get(self.client._data, "/v1/corporate-actions", p)
             _require(body, ("corporate_actions", "next_page_token"), "CUSIP table")
             yield body["corporate_actions"] or {}
-            token = body["next_page_token"]
-            if not token:
+            nxt = body["next_page_token"]
+            if nxt is None or nxt == "":
                 return
+            if not isinstance(nxt, str):
+                raise UnexpectedResponse(f"CUSIP table: next_page_token {nxt!r} is not a string or null")
+            if nxt == token:          # as the gate's own read: at the send a spin costs the window
+                raise UnexpectedResponse("CUSIP table: next_page_token did not advance")
+            token = nxt
         raise UnexpectedResponse(f"CUSIP table: more than {MAX_PAGES} pages")
 
     def _take(self, table: dict, fund: str, cusip, where: str) -> None:
@@ -1959,7 +1987,7 @@ class _CaCusipTable:
                     "limit": 1000, "data_quality": "all"}
             for ca in self._pages({**span, "types": "cash_dividend", "symbols": ",".join(funds)}):
                 for r in ca.get("cash_dividends") or []:
-                    if isinstance(r, dict) and r.get("symbol") in table:
+                    if isinstance(r, dict) and isinstance(r.get("symbol"), str) and r["symbol"] in table:
                         self._take(table, r["symbol"], r.get("cusip"),
                                    f"dividend row {r.get('id')!r}")
             for ca in self._pages({**span, "types": ",".join(CORPORATE_ACTION_TYPES)}):
@@ -1979,29 +2007,70 @@ class _CaCusipTable:
 
     def _row(self, table: dict, kind: str, fields, r: dict) -> None:
         """Take a fund's CUSIPs from a non-dividend row naming it; a split, a
-        reorganization or a CUSIP change that names none is a reason."""
+        reorganization or a CUSIP change that names none is a reason (A MOVE HOLDS
+        EVERY CUSIP ON ITS ROW and AN UNREADABLE FIELD in the class docstring)."""
+        where = f"{kind} row {r.get('id')!r}"
         for f, _, _ in fields:
             fund = r.get(f)
+            if not isinstance(fund, str):
+                hit = None if fund is None else next((s for s in table if s in str(fund)), None)
+                if hit is not None:
+                    self.reasons.append(f"{hit}: {where} has an unreadable {f} that mentions it")
+                continue
             if fund not in table:
                 continue
             own = _CA_OWN_CUSIP.get((kind, f), (f.removesuffix("symbol") + "cusip",))
             for k in own:
-                self._take(table, fund, r.get(k), f"{kind} row {r.get('id')!r}")
-            if (kind, f) in _CA_CUSIP_MOVES and not any(r.get(k) for k in own):
-                self.reasons.append(f"{fund}: {kind} row {r.get('id')!r} inside the lookback "
-                                    f"names no CUSIP in {own}, so the table cannot confirm "
-                                    f"it covers the change")
+                self._take(table, fund, r.get(k), where)
+            if (kind, f) in _CA_CUSIP_MOVES:
+                if not any(r.get(k) for k in own):
+                    self.reasons.append(f"{fund}: {where} inside the lookback names no CUSIP in "
+                                        f"{own}, so the table cannot confirm it covers the change")
+                self._take_the_whole_move(table, fund, r, where)
+        for m in _ca_legs(r):                       # a leg names what the row became
+            if isinstance(m.get("symbol"), str) and m["symbol"] in table:
+                self._take_the_whole_move(table, m["symbol"], r, where)
+
+    def _take_the_whole_move(self, table: dict, fund: str, r: dict, where: str) -> None:
+        """Every CUSIP on a move row is `fund`'s (A MOVE HOLDS EVERY CUSIP ON ITS ROW)."""
+        for k, v in r.items():
+            if k.endswith("cusip"):
+                self._take(table, fund, v, where)
+        for m in _ca_legs(r):
+            self._take(table, fund, m.get("cusip"), where)
+
+    @staticmethod
+    def _unreadable(r: dict) -> str | None:
+        """The first CUSIP-bearing field of a row that is present and cannot be read, or
+        None (AN UNREADABLE FIELD PROVES NOTHING). `_ca_read` keeps the row's other faults."""
+        for k, v in r.items():
+            if k.endswith("cusip") and v is not None and v != "" and not isinstance(v, str):
+                return k
+        legs = r.get("stock_movements")
+        if legs is None:
+            return None
+        if not isinstance(legs, list):
+            return "stock_movements"
+        for j, m in enumerate(legs):
+            if not isinstance(m, dict):
+                return f"stock_movements[{j}]"
+            c = m.get("cusip")
+            if c is not None and c != "" and not isinstance(c, str):
+                return f"stock_movements[{j}].cusip"
+        return None
 
     def _row_names_ours(self, r: dict, parties) -> str | None:
-        """Why the row names one of ours, or None. Every party ticker, every `*cusip`
-        field and every leg's CUSIP are read, and an issuer base counts."""
+        """Why the row names one of ours or cannot be shown not to, or None. Every party
+        ticker, every `*cusip` field and every leg's CUSIP are read, and an issuer base
+        counts."""
         for s, _ in parties:
             if s in self.ours:
                 return f"the row also names our fund {s}"
+        bad = self._unreadable(r)
+        if bad is not None:
+            return f"its {bad} cannot be read, so nothing proves the row names none of ours"
         cs = [v for k, v in r.items() if k.endswith("cusip") and isinstance(v, str)]
-        for m in r.get("stock_movements") or []:
-            if isinstance(m, dict) and isinstance(m.get("cusip"), str):
-                cs.append(m["cusip"])
+        cs += [m["cusip"] for m in _ca_legs(r) if isinstance(m.get("cusip"), str)]
         for c in cs:
             if c in self.by_cusip:
                 return f"the row carries {c}, a CUSIP of our fund {self.by_cusip[c]}"
@@ -2023,10 +2092,8 @@ class _CaCusipTable:
                                      if len(self.reasons) > 1 else "")
             return [], [self._unread(f, role, v, why) for f, role, v in seen], []
         ours_why = self._row_names_ours(r, parties)
-        cusip_fields = {x for k, x in r.items() if k.endswith("cusip")}
-        for m in r.get("stock_movements") or []:
-            if isinstance(m, dict):
-                cusip_fields.add(m.get("cusip"))
+        cusip_fields = {x for k, x in r.items() if k.endswith("cusip") and isinstance(x, str)}
+        cusip_fields |= {m["cusip"] for m in _ca_legs(r) if isinstance(m.get("cusip"), str)}
         foreign, unread, named = [], [], []
         for f, role, v in seen:
             fund = self.by_cusip.get(v)

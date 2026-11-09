@@ -517,6 +517,8 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
   party matching one of our CUSIPs, a superseded one included, also names that
   fund and blocks. A table that cannot be read or proved leaves every such row
   unresolved (`corporate_actions.cusip_table`, one log line), never "not ours".
+  A failed read lasts that read. A fund's row with no CUSIP lasts until the row leaves
+  the lookback, up to about two years, and each row it refuses then needs `ca-ack`.
   Measured in `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md` §5.
 - **Skipped and recorded.** This applies to a row whose every party symbol is
   present, none in the book's universe, with a non-party field malformed: its
@@ -710,6 +712,13 @@ order cycle, a clock GET and a POST, was 0.259 s (`gate.py`). No code was
 changed for this (review 2026-10-29). Gate 6's order lists, which were read
 before both of these GETs, are now read after them ("As built (2026-10-29):
 gate 6 reads its lists last").
+
+The CUSIP table (`alpaca._CaCusipTable`, 2026-11-09) adds its own reads at the decide and
+again at the send, on a day a CUSIP-format party appears: the funds' dividend rows and the
+non-dividend rows over the 731-day lookback, about 1 to 4 s when measured (read from the
+laptop, not the VM). It has no deadline of its own. One GET that exhausts its retries costs
+the same 250 s and the table then reads NOT_PROVED; a page token that does not advance
+fails it at once. The decide's table is not reused at the send.
 
 **Not covered.** Rights distributions, cash dividends and capital-gains
 distributions change no share count. An action Alpaca never lists is not seen
