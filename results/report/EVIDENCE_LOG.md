@@ -3732,3 +3732,24 @@ that adds it does not exist when it is written.
 - source: `results/cef/BAND_COST_REDERIVATION_2026-11-05.md` @ `3668da1`; `docs/SYSTEM.md` @ `3668da1`; `docs/RESEARCH_STATE.md` @ `3668da1`; `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `1f44bbf` (PR #58's merge to main; byte-identical to 2476a16, which the analysis read)
 - supports: §2, §3, §6
 - status: current; closes the draft pre-registration of E-2026-11-05-40 (that entry stands as the record of the analysis; its note was renamed from PREREG_DRAFT_BAND_COST_2026-11-05.md)
+
+### E-2026-11-08-02 · Correction: Alpaca paper does charge SEC and CAT regulatory fees, so CLAUDE.md landmine 1 and the paper rows of docs/REFERENCES.md are corrected
+- kind: correction
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - "GET /v2/account/activities/FEE lists 37 REG (SEC) and CAT rows, summing to −6.16" [V]
+  - released by the team lead on 2026-11-08, after being held on 2026-11-02; Alpaca's page still says regulatory fees are not simulated, and the quotes of it are kept with a dated note [S]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `32d9961`; `CLAUDE.md` @ `55dc94e`; `docs/REFERENCES.md` @ `55dc94e`
+- supports: §4
+- status: supersedes E-2026-11-02-08 (its deferral); corrects the landmine text quoted in E-2026-11-03-30
+
+### E-2026-11-08-03 · Ruling: the exposure readout keeps 0 lags and the MUNI headline after the current-window lag sensitivity was put to the team lead
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (a ruling: "on 2026-11-08 the team lead ruled: keep L = 0 and the MUNI headline"; it answers the question left open in E-2026-11-03-36)
+- source: `scripts/cef/exposure_readout.py` @ `55dc94e`
+- supports: §5
+- status: current
