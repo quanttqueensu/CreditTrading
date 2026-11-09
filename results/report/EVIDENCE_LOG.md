@@ -3841,3 +3841,18 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
 
+### E-2026-11-08-20 · Nightly report-only data QA and risk checks built on VM timers; thresholds derived on fit data with recall as measured
+- kind: method
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - budget 1 flag per book per week jointly, 0.2/wk per free-threshold check; fit 2005-01-01..2022-12-31 (Q6 from 2013), deployed names only, sealed names and 2023+ not read for any rate; sum of check rates core 0.69/wk, C4 0.633/wk [V]
+  - Q2 z core 6.5 (0.192/wk), C4 10.0 (0.177/wk); recall on C4's 9 DG-L3 masks 9/9 (7 episodes); the core has no positive in its 13 names [V]
+  - Q3 delta core 0 (0.110 new runs/wk), C4 1 (0.087/wk); recall not measurable and 0 by construction on the gate's one-row stale copies [V]
+  - Q4 tolerance ln(1.15), 0.000/wk core, 0.004/wk C4; IGR's step of 2026-09-08 flagged (close x2.88, NAV x2.99); BTO, NXG, EMO 0/3 (no panel step), TYG not in C4's 74 [V]
+  - Q5 line core 67% (0.188/wk), C4 37% (0.169/wk); BME 2021-06-28 +75.6% flagged [V]
+  - Q6 margin core 2.5% (0.200/wk), recall 13/22 thin-episode starts; C4 13% (0.196/wk), recall not measurable [V]
+  - peak memory measured on the laptop's panels: data_qa 151 MB core, 220 MB C4; risk_daily 102 MB; units set MemoryMax=450M; not yet measured on the VM [V]
+- source: `results/ops/DATA_QA_CALIBRATION_2026-11-08.md` @ `65a0919`
+- supports: §5
+- status: built, PR open, not merged or installed; the ACT push needs the team lead's two vault secrets (docs/RUNBOOK.md 8.10); drawdown read marked for follow-up on PR #55
