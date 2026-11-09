@@ -210,9 +210,21 @@ recall of any specific figure is wrong until you have fetched it.**
   (`docs/SYSTEM.md` §5, 2026-10-27). **The research loop approves its own trials,
   with no cap** (team lead, 2026-10-27). That is why every trial is counted and
   stored: each one raises the bar for the next.
-- **Holdouts are sealed and opened once**: the untouched CEFs outside the
-  deployed universe (trading any of them consumes the set), and a **2023-01-01
-  time holdout**.
+- **Research is not pass or fail** (team lead, 2026-11-08, `docs/SYSTEM.md` §5).
+  This covers the research agents and the loop. A failed gate is a finding to
+  read, never the end of an idea. Show the results, say where it worked and where
+  it did not, reason from economics and from how markets have reacted historically,
+  look for the missing angle, then tweak and test again. Set an idea aside only
+  with written reasons and what would reopen it; there is no fixed number of
+  rounds. Every re-test is a counted trial. Entry to the paper account is the team
+  lead's decision on a scorecard, with pass marks as guides. The live book's stops,
+  real-capital admission and the analysts' process do not change.
+- **Holdouts are sealed until a pre-registered test opens them**: the untouched
+  CEFs outside the deployed universe (trading any of them consumes the set), and a
+  **2023-01-01 time holdout**. Research agents may re-open one any number of times
+  (team lead, 2026-11-08). Each look is a counted trial, labelled with its look
+  number. After the first look that data is no longer clean, so paper trading on
+  data that arrives afterwards is the clean check before real money.
 - **Pre-register before the session that trades it** (`/prereg`).
 - **Modelled sessions are not evidence.** Only broker-confirmed fills count
   toward any live statistic. On Alpaca paper, record both the fill Alpaca reports
@@ -220,9 +232,10 @@ recall of any specific figure is wrong until you have fetched it.**
   separately (team lead, 2026-09-28) — paper does not simulate the auction.
 - **No decision rule may key on a number written in a document** (H14). Re-measure
   at run time and say what you do under either outcome.
-- **Check the graveyard before proposing anything** (`/graveyard`). The most
-  common cause of death is a stale-price artifact; the second, a control group
-  scoring as well as the treatment.
+- **Check the graveyard before proposing anything** (`/graveyard`). Nothing in it
+  is banned: say what is different this time, and if an idea failed on a data
+  error, deal with that error first. The most common failure is a stale-price
+  artifact; the second, a control group scoring as well as the treatment.
 - **Log it for the report.** Every result, ruling, release, incident or live-P&L
   day gets an entry in `results/report/EVIDENCE_LOG.md`, in the same commit, with
   provenance (`results/report/README.md`; `.claude/rules/report.md`). Live data:

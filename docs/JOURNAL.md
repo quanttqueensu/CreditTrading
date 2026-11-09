@@ -342,8 +342,33 @@ from a named source; [doc] copied from a named note.
 
 ## 2026-11-05 (Thu)
 
-**The analysts' roles reopened** (team lead; `docs/SYSTEM.md` §5; `results/report/EVIDENCE_LOG.md` E-2026-11-05-30).
+**The analysts' roles reopened** (team lead; `docs/SYSTEM.md` §5; `results/report/EVIDENCE_LOG.md` E-2026-11-05-31).
 - The lanes become recommended starting points: FICC risk, equity risk, and cross-asset signals with the dashboard. The work is open-ended.
 - Any analyst may propose a signal, and the team lead approves every test. This supersedes the 2026-11-03 report-only lanes.
 - Each analyst pitches one idea to the execs at the end of November, as a short talk with slides. The date and length are still to be set.
 - `docs/TEAM.md`, `docs/ONBOARDING.md`, `README.md` and the pull request template now say the same. Nothing on the live path changed.
+
+**Execution-cost study, both paper books (report only, zero trials; `results/cef/EXEC_COST_STUDY_2026-11-05.md`, `results/report/EVIDENCE_LOG.md` E-2026-11-05-30).**
+- **Where the cost comes from.** The core's paper fill vs the auction print is 7.14bp over 21 `late_market` sessions (day t 3.20). 5.90bp of it is the spread paid at send: half a cent a share, set by the tick. The remaining 1.24bp is drift to the close and not significant.
+- **What would cut it.** The spread is flat from 15:51 to 15:59:30, so the send time buys no spread. Posting at the passive touch and crossing the remainder at 15:58 would have cost 4.12bp (−2.2bp, t −1.93; the CI includes zero).
+- **Real money.** None of the paper cost carries over to MOC. The live cost is auction impact, which is unmeasured, on orders a notional-weighted median of 15% of the closing cross.
+- **C4.** Its names quote about twice the core's spread, about 5.4%/yr at its design turnover against a modelled 10.76%/yr gross.
+- **Status.** Ranked candidates are proposed and none adopted; each needs a pre-registration and a release. PR to `main`, not merged.
+
+## 2026-11-08 (Sun)
+
+**The check of 2026-11-05's evening, run late** (`results/report/EVIDENCE_LOG.md` E-2026-11-08-01..03).
+- **Why late.** The scheduled job lives only in an open, idle session, so it ran three days after its slot. The VM was also out of reach: the ssh rule no longer matched the team lead's IP, and the team lead updated it. The VM kept running and trading throughout. The 11-06 plans sent unread.
+- **Sessions.** All passed verify.
+  - The core sent 5 of 6 on 11-05 (an MHD short was skipped: not shortable) and 13 of 13 on 11-06.
+  - C4 sent 2 of 2 and 3 of 3.
+- **Official P&L since funding.** Core −$594.02 (equity $99,405.98). C4 +$7.79 (equity $100,007.79; +$1,243.68 on 11-05, −$1,225.93 on 11-06).
+- **The core's ×1.30 book has phased in:** 1.827× gross on Alpaca's values, slightly over the 1.80 cap on marks. Maintenance margin is 0.80 of equity.
+- **Plans for 11-09.** The core: 13 orders, taking the book to 1.784× and net from +0.177× to +0.055×. C4: 2 orders, at 1.335×.
+- **C4's data.** IGR's history is unchanged and no seed-window close moved. C4's UTF short is no longer shortable; it is an existing position and no new short is planned.
+
+**Research is not pass or fail** (`docs/SYSTEM.md` §5, 2026-11-08; `results/report/EVIDENCE_LOG.md` E-2026-11-08-04). The team lead ruled that a failed gate should not end an idea.
+- **The research line.** The power check now stops only below 0.10 and warns up to 0.50. A new Follow-up station reads every result on economics and market history, then names the next tweak or gives the reasons to set the idea aside.
+- **Counting.** Every re-test and every holdout look is a counted trial, and holdouts can be re-opened. Paper trading on later data is the clean check before real money.
+- **The loop.** Follow-ups come first. It no longer admits anything: it writes a scorecard and the team lead decides.
+- **Not changed.** The live book's stops, real-capital admission, the analysts' process and the guides.

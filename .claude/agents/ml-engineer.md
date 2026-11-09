@@ -82,7 +82,8 @@ counter.
   backtest paths from the train/test splits, giving a distribution of Sharpe
   ratios rather than one likely-overfit number.
 - **The time holdout still applies** (H13). CV happens inside the pre-2023 fit.
-  The 2023–26 holdout is opened once, on the final fixed model.
+  The 2023–26 holdout is looked at on a fixed model, and each look is a counted
+  trial, labelled with its look number.
 
 ## Shared tooling, never private copies
 

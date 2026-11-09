@@ -3686,7 +3686,174 @@ that adds it does not exist when it is written.
 - supports: §4
 - status: supersedes the stated reason in E-2026-11-04-90's EOD figure only; the figure was UNMEASURED either way and its other figures stand (the same defect as E-2026-11-03-90, corrected by E-2026-11-05-20)
 
-### E-2026-11-05-30 · Ruling: the analysts' lanes reopen as starting points, any analyst may propose a signal, and each pitches one idea to the execs at the end of November
+### E-2026-11-05-30 · The core's paper fill cost is the quoted half-spread (half a cent a share); no send time inside the window narrows it, and none of it carries over to a live MOC fill
+- kind: result
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - core, 21 late_market sessions 2026-09-30..11-04, 142 orders, 376 fills: B (fill vs the official closing print) 7.14bp pooled; day mean 8.62bp, t 3.20 [V]
+  - of which paid vs the mid at send 5.90bp (day t 26.66) = quoted half-spread 5.98bp + fill vs touch −0.08bp; drift send → print C2 −1.24bp (day t −1.02) [V]
+  - every late_market fill of both books (427) printed at the touch; 89.7% of core notional traded at a one-cent spread; paid $0.00538 a share [V]
+  - fill vs the decide-time estimate 31.52bp, of which decide close → mid at send 25.62bp (day t 2.81; open → send 20.81bp) [V]
+  - B ties to verify.csv fill_vs_auction_bp on 17 of 17 days, max difference 0.05bp [V]
+  - quoted half-spread, core 13 names × 21 sessions: 8.98bp at 15:50:00, 5.98–6.15bp from 15:51:00 to 15:59:30 [V]
+  - post at the passive touch, cross the rest at 15:58:00: B 4.12bp, −2.18bp against actual (day t −1.93) [V]
+  - core turnover 62.14 turns/yr (2026-09-29..11-04) and 66.25 (from 10-07); paper B at that turnover 4.44–4.73% of NAV a year [V]
+  - core orders as a share of the day's primary closing cross: median 6.2%, notional-weighted median 15.2%, p90 35.9% [V]
+  - C4, one session (2026-11-04, opening build): B 0.66bp, spread paid 10.66bp; C4's 15 names quote a mean 10.55bp half-spread at 15:52 over 21 sessions [V]
+- source: `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `137ea8e`; `results/cef/exec_cost_2026-11-05/aggregates_2026-11-05.json` @ `137ea8e`; `results/cef/exec_cost_2026-11-05/exec_cost.py` @ `137ea8e`
+- supports: §4, §3
+- status: current (report only, zero trials; 21 sessions and one C4 session, so no cell or counterfactual is a tested effect; candidates proposed, none adopted)
+
+### E-2026-11-05-40 · Method: the band width re-derived from the measured paper cost lands at 4.55% (core) and 4.07% (C4); the draft recommends adopting neither, and CEF stays 55
+- kind: method
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - core: the cube-root law at the measured paper cost 7.14bp, sigma_w 0.06134/day and phi_w 0.95807 (half-life 16.2d) on the fit's active pairs 2013-06-24..2022-12-30, gives h* 4.55% in unit weights (0.045 as written); the cost's 95% interval 3.00-14.24bp gives 3.41-5.72%; live 4.8% [V]
+  - C4 (v5 blend): c = 7.14bp x quoted-spread ratio 1.741 = 12.43bp; sigma_w 0.04880, phi_w 0.93624; h* 4.07% (0.040 as written) [V]
+  - plateau on the fit, the accounts' books (core x1.30 flatten, C4 x1.26): both derived widths pass the declared paired test (argmax minus h*, HAC p 0.20 core, 0.14 C4); grid argmaxes 1.6% (core) and 6.4% (C4) named and not chosen [V]
+  - core 0.045 minus 0.048: net at 7.14bp +0.0385pp/yr, Newey-West t 1.34 (lag 21) against the bar sqrt(2 ln 56) = 2.837; turnover +3.3% [V]
+  - C4 h* minus live at 12.43bp: -0.058 Sharpe, HAC p 0.038 on total return (unadjusted), p 0.15 price only [V]
+  - the 2026-09-06 sigma_w (0.04083) is not reproduced: the 17-name fit gives 0.06050 under this definition, with phi_w 0.95246 against 0.95280 [V]
+- source: `results/cef/PREREG_DRAFT_BAND_COST_2026-11-05.md` @ `bb1c237`; `results/cef/band_cost_2026-11-05/band_cost_2026-11-05.json` @ `bb1c237`; `results/cef/band_cost_2026-11-05/crosscheck_2026-11-05.txt` @ `bb1c237`; `results/cef/band_cost_2026-11-05/band_cost.py` @ `d06ed06`
+- supports: §3, §6
+- status: current (a DRAFT pre-registration, not approved; zero trials; fit only, no 2023+ figure computed; the cost inputs are from the unmerged execution-cost study, PR #58 at 2476a16)
+
+### E-2026-11-05-41 · Ruling: the band stays 4.8% on both books (the re-derivation at the measured cost is CLOSED at zero trials, CEF stays 55), and post-then-cross is "not now"
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - the band: "Accept: keep 4.8%, close" (team lead, relayed by the coordinating session). Both books keep band_width 0.048; zero trials; CEF stays 55; a CLOSED row BAND-COST in docs/RESEARCH_STATE.md [S]
+  - follow-ups ruled with it: C4's band is re-measured on its own fill cost after 21 sessions, no earlier than 2026-12-03; the band is re-derived on a measured live auction impact before any real capital [S]
+  - post-then-cross on paper (the execution study's candidate 1): "Not now"; not built; re-test after 60+ sessions of fills [S]
+  - what was ruled on: derived h* 4.55% (core, at 7.14bp) and 4.07% (C4, at 12.43bp); the core's 0.045 minus 0.048 nets +0.0385pp/yr at NW t 1.34 against the bar 2.837 at N = 56 (E-2026-11-05-40) [V]
+- source: `results/cef/BAND_COST_REDERIVATION_2026-11-05.md` @ `3668da1`; `docs/SYSTEM.md` @ `3668da1`; `docs/RESEARCH_STATE.md` @ `3668da1`; `results/cef/EXEC_COST_STUDY_2026-11-05.md` @ `1f44bbf` (PR #58's merge to main; byte-identical to 2476a16, which the analysis read)
+- supports: §2, §3, §6
+- status: current; closes the draft pre-registration of E-2026-11-05-40 (that entry stands as the record of the analysis; its note was renamed from PREREG_DRAFT_BAND_COST_2026-11-05.md)
+
+### E-2026-11-05-90 · cef paper book, 2026-11-05: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - verify verdict PASS; orders sent 5, filled 5 [S]
+  - 17:30 ET snapshot equity change 22.75 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -83.72 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -83.31 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 10.20 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 10.20 bp, fill rate 1.0000 of shares [S]
+  - shadow book 109.44 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/tca.csv` @ `pull:ae2279000743`
+- supports: §4
+- status: current
+
+### E-2026-11-06-90 · cef paper book, 2026-11-06: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-06
+- figures:
+  - verify verdict PASS; orders sent 13, filled 13 [S]
+  - 17:30 ET snapshot equity change -308.14 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -266.98 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -266.09 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 7.20 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 7.20 bp, fill rate 1.0000 of shares [S]
+  - shadow book -283.69 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/cef/scores.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/cef/tca.csv` @ `pull:ae2279000743`
+- supports: §4
+- status: current
+
+### E-2026-11-05-91 · c4 paper book, 2026-11-05: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - verify verdict PASS; orders sent 2, filled 2 [S]
+  - 17:30 ET snapshot equity change 1278.00 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change 1243.68 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L 1244.07 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 18.04 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 18.04 bp, fill rate 1.0000 of shares [S]
+  - shadow book 1279.07 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
+- supports: §4
+- status: current
+
+### E-2026-11-06-91 · c4 paper book, 2026-11-06: PASS, traded
+- kind: live-pnl
+- era: ALPACA
+- date: 2026-11-06
+- figures:
+  - verify verdict PASS; orders sent 3, filled 3 [S]
+  - 17:30 ET snapshot equity change -1190.10 USD (gross; a snapshot, not the P&L of record) [U]
+  - official EOD equity change -1225.93 USD (Alpaca portfolio history 1D, the P&L of record) [U]
+  - auction-marked P&L -1225.80 USD [S]
+  - snapshot and EOD disagree; the record is the EOD history (docs/SYSTEM.md §5, 2026-10-19) [U]
+  - fills vs official close 23.38 bp (+ = worse) [S]
+  - TCA notional-weighted slippage 23.38 bp, fill rate 1.0000 of shares [S]
+  - shadow book -1181.63 USD (MODELLED, not broker evidence) [S]
+- source: `results/report/data/live/c4/scores.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; `results/report/data/live/c4/tca.csv` @ `pull:56ee16669d9a`
+- supports: §4
+- status: current
+
+### E-2026-11-08-01 · Sessions 2026-11-05 and 11-06: both books verify PASS; the core's ×1.30 book reaches its cap; one send-time short skip
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - official EOD change, core: 11-04 −$232.83, 11-05 −$83.72, 11-06 −$266.98; equity $99,405.98, −$594.02 since funding [V]
+  - official EOD change, C4: 11-04 −$9.96, 11-05 +$1,243.68, 11-06 −$1,225.93; equity $100,007.79, +$7.79 since funding [V]
+  - core 11-05: 5 of 6 planned orders sent and filled; the sixth, an MHD short, was skipped at send (shortable=False); 11-06: 13 of 13 filled [V]
+  - C4 11-05: 2 of 2 filled; 11-06: 3 of 3 filled [V]
+  - fill against the official close: core +10.2bp and +7.2bp; C4 +18.0bp and +23.4bp, on 2 and 3 orders [V]
+  - core gross from positions and orders: 1.517× before the 11-06 plan, 1.799× after it; Alpaca's account values read 2026-11-08 give 1.827× gross and +0.176× net, with maintenance margin 0.80 of equity [V]
+- source: `results/report/data/live/cef/verify.csv` @ `pull:ae2279000743`; `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; the VM's plan.json and send.json records, read-only, not tracked
+- supports: §4, §5
+- status: current
+
+### E-2026-11-08-02 · The plans for 2026-11-09, read before the send; C4's data checks clean
+- kind: result
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - core `cef_discount.v9.20261102`: decided, no refusals, 13 orders ($37,973 notional); the book 1.828× before and 1.784× after them against the 1.80 cap; net +0.177× to +0.055×; pre-flight ok; gate 8 bp_scale 1.0; drawdown UNMEASURED [V]
+  - C4 `c4_families.v5.20261103`: decided, no refusals, 2 orders ($1,431 notional); the book 1.350× before and 1.335× after them against the 1.90 cap; net −0.089× to −0.075×; pre-flight ok [V]
+  - short-opens on 11-09: core PTY and JFR, both shortable in the 11-06 borrow snapshot; C4 none [V]
+  - C4 held shorts against borrow: UTF is no longer shortable (an existing short, no new short planned); the other eight are shortable [V]
+  - checklist step 5 on the panel to 2026-11-06: IGR premium 05-04..09-04 median +0.64%, min −1.96%, max +3.17%; 0 seed-window closes moved beyond 0.5% [V]
+- source: `results/report/data/live/c4/verify.csv` @ `pull:56ee16669d9a`; the VM's plan.json and collect reports, read-only, not tracked
+- supports: §1, §4
+- status: current
+
+### E-2026-11-08-03 · Incident: the 2026-11-05 evening check ran three days late, and the VM was out of reach until the ssh firewall rule was updated
+- kind: incident
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the check scheduled for 22:17 ET on 2026-11-05 ran on 2026-11-08, because the scheduled job lives only in an open, idle Claude session; the 11-06 plans sent unread (both passed verify) [V]
+  - ssh timed out because the firewall rule no longer matched the team lead's IP; the VM was running and the book trading throughout (Alpaca: core fills on 11-05 and 11-06); the team lead updated the rule on 2026-11-08 [V]
+- source: `docs/RUNBOOK.md` @ `6c6b9fd` (the IP-change procedure)
+- supports: §5
+- status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
+
+### E-2026-11-08-04 · Ruling: research is not pass or fail. A failed gate no longer ends an idea, the power check stops only at very low odds, holdouts can be re-opened with each look counted, and entry to the paper account is the team lead's decision on a scorecard
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the team lead: "not a no go no only rules, we need to be dynamic - this is too binary" [S]
+  - the audit behind the re-review, 82 ideas: CORRECT KILL 29, IMPLEMENTATION 26, UNDERPOWERED 20; the 26 and the 20 are re-reviewed, best first on market reasoning [S]
+  - the power check stops below P(pass) 0.10 and warns from 0.10 to 0.50; it stopped below 0.50 before (the 2026-10-27 row of `docs/SYSTEM.md` §5) [S]
+- source: `results/research/DESK_METHOD_2026-10-27.md` @ `a5b94c8`; `docs/SYSTEM.md` @ `a5b94c8` (the rows it changes; the ruling itself is added in this commit)
+- supports: §5
+- status: current; for research agents and the research loop only. The live book's stops, real-capital admission and the analysts' process are unchanged
+
+### E-2026-11-05-31 · Ruling: the analysts' lanes reopen as starting points, any analyst may propose a signal, and each pitches one idea to the execs at the end of November
 - kind: ruling
 - era: ALPACA
 - date: 2026-11-05
