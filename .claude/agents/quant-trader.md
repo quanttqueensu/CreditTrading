@@ -17,7 +17,8 @@ TC recovered has been worth more than any realistic signal improvement.
 - Modelled fills are not evidence. On Alpaca paper, record both the fill Alpaca
   reports (the record of P&L, from Alpaca's end-of-day history) and the P&L at the
   official closing-auction print. Label them separately. Paper runs no closing
-  auction and charges no borrow, dividends or regulatory fees (landmine 1).
+  auction and charges no borrow or dividends; it does charge regulatory fees
+  (landmine 1, corrected 2026-11-08).
 - **Split every cost statistic by session and by method.** The desk once quoted
   a pooled realised/modelled ratio that averaged in the overnight-market-order
   disaster which caused the switch to MOC. Never pool across a regime change.

@@ -3903,3 +3903,34 @@ that adds it does not exist when it is written.
 - source: `results/cef/te4_impl/sleeve_noop_diff_output_2026-11-05-head44808ed-main718b699.txt` @ `30bcac5`; `results/cef/prereg_thin_te4/compose_output_2026-11-05.txt` @ `a126324`; `docs/RUNNER.md` @ `702b5de`; `quantt/session/drawdown.py` @ `702b5de`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `03d978b`
 - supports: §1, §5
 - status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-08-20 · Correction: Alpaca paper does charge SEC and CAT regulatory fees, so CLAUDE.md landmine 1 and the paper rows of docs/REFERENCES.md are corrected
+- kind: correction
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - "GET /v2/account/activities/FEE lists 37 REG (SEC) and CAT rows, summing to −6.16" [V]
+  - released by the team lead on 2026-11-08, after being held on 2026-11-02; Alpaca's page still says regulatory fees are not simulated, and the quotes of it are kept with a dated note [S]
+- source: `results/cef/LIVE_ATTRIBUTION_2026-11-02.md` @ `32d9961`; `CLAUDE.md` @ `55dc94e`; `docs/REFERENCES.md` @ `55dc94e`
+- supports: §4
+- status: supersedes E-2026-11-02-08 (its deferral); corrects the landmine text quoted in E-2026-11-03-30
+
+### E-2026-11-08-21 · Ruling: the exposure readout keeps 0 lags and the MUNI headline after the current-window lag sensitivity was put to the team lead
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (a ruling: "on 2026-11-08 the team lead ruled: keep L = 0 and the MUNI headline"; it answers the question left open in E-2026-11-03-36)
+- source: `scripts/cef/exposure_readout.py` @ `55dc94e`
+- supports: §5
+- status: current
+
+### E-2026-11-08-23 · Rulings on CEF trial 55: the code ships dark, and the in-place edit of the approved pre-registration's compose commands is accepted
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (rulings: "The implementation (PR #55) merges with the key absent, so the book keeps today's flatten rule"; the in-place edit carries a dated note and changes no figure; team lead, 2026-11-08)
+- source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ca80123`
+- supports: §2, §5
+- status: current
