@@ -696,6 +696,17 @@ to be dynamic - this is too binary". It covers the research agents and the resea
 | The live book | **Not changed.** The order path, `DRY_RUN`, HALVE/KILL and the 60-session review stay as written |
 | Not discussed, so still standing | No lookahead, no invented numbers, one harness, turnover-matched tables, and no picking the best of a swept column |
 
+### Team lead, 2026-11-08 — the nightly check, single-name size, and the two gates
+
+Answered interactively on 2026-11-08, after the evening check of 2026-11-05 ran three days late (`results/report/EVIDENCE_LOG.md` E-2026-11-08-03).
+
+| question | decision |
+|---|---|
+| Who owns the nightly check | **A VM timer, with a push notification only when a stop fires** ("VM timer, push on stops"). The report-only data-QA and risk scripts of draft PR #46 run on the VM; everything but a fired stop stays in the journal. This narrows 2026-11-02's "journal only" for that one case, and brings forward PR #46's proposal to wait two weeks before a timer. Push needs a credential the team lead adds to the vault |
+| C4's single-name size (the HQH short, about 20% of NAV) | **"Measure it, change nothing."** Per-name concentration joins the daily risk report and the equity-risk readout. No cap: one would be a new trial |
+| The corporate-action gate | **"Start the fix."** Fix the bond-ISIN misread, bring the three unresolved rows to the team lead to re-rule, then return both books to `halt` through a release |
+| HALVE/KILL's read at the 22:00 decide (UNMEASURED every session: `EVIDENCE_LOG` E-2026-11-03-41) | **"Fix the read, stay report-only."** The freshest-row rule ruled for te4's K0: the as-of's own EOD row if it exists, else D−1 labelled stale. Nothing acts on it. Turning HALVE/KILL on is a later ruling |
+
 ### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
 
 Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAND_COST_REDERIVATION_2026-11-05.md`

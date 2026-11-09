@@ -3934,3 +3934,13 @@ that adds it does not exist when it is written.
 - source: `results/cef/PREREG_THIN_TRADE_ELIGIBLE_2026-11-03.md` @ `ca80123`
 - supports: §2, §5
 - status: current
+
+### E-2026-11-08-05 · Rulings: a VM timer owns the nightly check, with push on fired stops; single-name size is measured, not capped; the corporate-action gate goes back to halt after a fix; HALVE/KILL's read is fixed, report-only
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (rulings by the team lead: "VM timer, push on stops", "Measure it, change nothing", "Start the fix", "Fix the read, stay report-only")
+- source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
+- supports: §1, §5
+- status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
