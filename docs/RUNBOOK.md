@@ -404,6 +404,13 @@ usual windows.
 - Otherwise the row is listed under `corporate_actions.unresolved` with an
   `UNRESOLVED, recorded only` log line, and the session sends.
 
+A party that is a bond by its ISIN is not unresolved at all: the row is listed under
+`corporate_actions.bond_rows` and blocks nothing (`docs/RUNNER.md`, "A bond by its
+ISIN"). A CUSIP in a party field is still unresolved. The refusal and the record's
+`saw` name the value the feed sent, so look it up (step 1) before acknowledging: most
+such values are a right, an escrow or a preferred series that is not one of our funds
+(`results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`).
+
 A missing acquirer or allocated leg halts one session and then clears by
 itself. Any other missing party in a held name's window halts until it is
 acknowledged. Do step 1 for it; if it is not one of our funds, run the step 7

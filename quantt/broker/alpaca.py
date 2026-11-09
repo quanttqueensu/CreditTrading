@@ -1330,6 +1330,29 @@ class AlpacaClient:
         like any other; it names ours, so it halts whenever the gate would halt
         for that fund, and ca-ack clears it on its full raw content (team lead
         2026-11-02: never needs a release to unstick).
+        A BOND'S ISIN IN A PARTY FIELD IS NOT A MISSING PARTY (team lead
+        2026-11-08, "Start the fix"; `_ca_bond_isin`). The feed puts a bond's
+        ISIN where the reference says `symbol`: 58 of the 208 rows the party
+        reader could not read over process dates 2025-11-01 -> 2028-11-08 (57
+        partial calls and one reorganization), every one of them a US ISIN
+        whose check digit holds and whose CUSIP part is the row's own `cusip`.
+        Until this fix `_ca_read` read every value that was not ticker-shaped
+        as "this party is missing", so `corp_actions.blocking_events` judged a
+        partial call on a corporate bond as each of the gate's names in turn
+        and it blocked exactly like a fund's own action (db0847b7, the Office
+        Properties 8.375% 2029 Reg S notes [V: OpenFIGI]). A value that is a
+        bond's ISIN (check digit, US, CUSIP part agreeing with the row's own
+        CUSIP, an alphabetic issue code: `_ca_bond_isin`) is now a BOND, not a
+        missing party. It never enters `parties`, so it cannot be matched
+        against our tickers; the row is recorded, not dropped (`skipped`,
+        carrying `bonds`; the gate's record `bond_rows`), and it blocks nothing.
+        Anything else that is not a ticker is still `missing`, so still judged
+        as each of the gate's names: an ISIN that fails its check digit, a
+        foreign prefix, an equity-format (numeric) issue code, a CUSIP, or a
+        value the CUSIP part disagrees with. Only the ISIN is classified: a
+        CUSIP in a party field cannot be told from one of our funds' CUSIPs here
+        (the live path holds none), so it stays unresolved for the team lead to
+        rule on (results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md).
         EVERY FIELD VALIDATED, NOTHING RAISES (release-check of 1c64638,
         2026-11-02; `_ca_read`). With `skipped`, no value in any field of any
         row can make the read raise: each field the reader knows (the party
@@ -1487,20 +1510,22 @@ class AlpacaClient:
                         continue
                     # EVERY FIELD VALIDATED, NOTHING RAISES (docstring): a value
                     # or a named fault, field by field (`_ca_read`).
-                    parties, unread, bad = _ca_read(r, kind, date_field, fields)
+                    parties, unread, bad, bonds = _ca_read(r, kind, date_field, fields)
                     names_wanted = any(s in wanted for s, _ in parties)
                     if not unread and not names_wanted:
-                        if not bad:
+                        if not bad and not bonds:
                             continue          # well-formed and not one of `symbols`
-                        if not any(s in ours for s, _ in parties):
-                            # SKIPPED AND RECORDED (docstring): every party present,
-                            # none ours, a non-party field malformed.
+                        if bonds and not bad or not any(s in ours for s, _ in parties):
+                            # RECORDED, NOT DROPPED (docstring: A BOND'S ISIN, and
+                            # SKIPPED AND RECORDED): a row naming a bond, or every
+                            # party present, none ours, a non-party field malformed.
                             rid = r.get("id")
                             if isinstance(rid, str) and rid in seen_skipped:
                                 continue      # the same row repeated across pages
                             if isinstance(rid, str):
                                 seen_skipped.add(rid)
-                            skipped.append(_ca_skip_record(r, kind, date_field, bad, parties))
+                            skipped.append(
+                                _ca_skip_record(r, kind, date_field, bad, parties, bonds))
                             continue
                     # IRREGULAR or naming ours: judged by the gate (docstring).
                     cands.append((r.get("id") if isinstance(r, dict) else None,
@@ -1655,6 +1680,13 @@ def _ca_event(r: dict, kind: str, date_field: str, parties, unread: list, bad: d
           "process_date": day("process_date"), "parties": [[s, role] for s, role in parties]}
     if unread:
         ev["missing"] = [{"field": u["field"], "role": u["role"]} for u in unread]
+        # WHAT WAS THERE (team lead 2026-11-08): a field the reader could not read is
+        # not always empty. The real rows carry a CUSIP or an ISIN there, and the record
+        # used to say "missing" with no value, so nobody could tell why a row was
+        # unresolved. Only when a value was sent; a null or empty field shows no key.
+        saw = {u["field"]: u["saw"] for u in unread if u.get("saw")}
+        if saw:
+            ev["saw"] = saw
     undated = {f: v for f, v in bad.items() if f in (date_field, "process_date")}
     if undated:
         ev["undated"] = undated
@@ -1747,6 +1779,7 @@ def _ca_strict(r: dict, kind: str, date_field: str, parties, where: str, seen: d
 # handed. `_ca_read` applies them to every field of a row it knows the
 # meaning of: the party symbols of its type, `id`, every `*_date`, every
 # `rate` / `*_rate` / `price`, every `*cusip`, and each reorganization leg.
+_CA_ISIN_RE = re.compile(r"[A-Z]{2}[A-Z0-9]{9}[0-9]")   # ISO 6166's shape; `_ca_bond_isin`
 _CA_DATE_FULL = re.compile(r"\d{4}-\d{2}-\d{2}")
 _CA_NUMBER_FULL = re.compile(r"\d+(\.\d+)?([eE][+-]?\d+)?")
 
@@ -1762,10 +1795,72 @@ def _ca_date(v):
 
 
 def _ca_symbol(v):
-    """A ticker: a str that FULLY matches _SYMBOL_RE (no trailing newline)."""
+    """A ticker: a str that FULLY matches _SYMBOL_RE (no trailing newline).
+
+    Only that. A fault here says "not a ticker", NOT "the party is missing":
+    the real feed sends a bond's ISIN and a CUSIP in these fields (a CUSIP-format
+    value is 9 characters, an ISIN 12, and `_SYMBOL_RE` allows at most 10 and a
+    leading letter). `_ca_read` decides what a non-ticker means (`_ca_bond_isin`,
+    A BOND'S ISIN IN A PARTY FIELD in `corporate_actions`)."""
     if isinstance(v, str) and _SYMBOL_RE.fullmatch(v):
         return v, None
     return None, f"{v!r:.80} is not a symbol"
+
+
+def _ca_isin_check_digit(v: str) -> bool:
+    """True when `v`'s last digit is its ISIN check digit (ISO 6166): each letter
+    becomes two digits (A=10 .. Z=35), then the Luhn sum over the digit string,
+    the check digit included, must be a multiple of 10."""
+    digits = "".join(str(int(ch, 36)) for ch in v)
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        d = int(ch) * (2 if i % 2 else 1)
+        total += d - 9 if d > 9 else d
+    return total % 10 == 0
+
+
+def _ca_bond_isin(v, cusip):
+    """(isin, None) when `v` is a corporate bond's ISIN, else (None, why). Pure.
+
+    WHY THIS, AND THIS NARROW (`corporate_actions`, A BOND'S ISIN IN A PARTY
+    FIELD). A value classified here leaves the gate, so it must be impossible
+    for it to be a share of one of our funds. Every condition is there for
+    that, and each failure leaves the value `missing`, judged as each of the
+    gate's names: an unreadable value is never classified away (CLAUDE.md, no
+    silent fallbacks; docs/SYSTEM.md §5, the unresolved-row ruling).
+
+      * ISIN-shaped, a checked digit. ISO 6166: 2 letters, 9 alphanumerics, one
+        check digit, and the check digit holds (`_ca_isin_check_digit`), so a
+        garbage 12-character string cannot pass for an ISIN.
+      * US. The only ISINs measured in this feed (58 of 58, process dates
+        2025-11-01 -> 2028-11-08), and the only ones whose NSIN is a CUSIP; a
+        foreign ISIN's issue code means nothing to the check below.
+      * The CUSIP part is the row's own CUSIP: Alpaca's second field for the same
+        party (`cusip`, `new_cusip`, ... or the leg's). 58 of 58 agree [V]. A row
+        that does not corroborate its own ISIN is not read as a bond.
+      * A debt-format issue code: CUSIP positions 7-8, alphabetic. By the CUSIP
+        convention numeric issue codes are equity and alphabetic ones fixed
+        income [S: docs/REFERENCES.md §12pc]. Measured against the universe on
+        Alpaca's own dividend rows (2025-05-01 -> 2026-11-08): all 88 CUSIPs of
+        our 87 funds carry a numeric issue code (84 "10", 3 "20", IGR's second
+        "87") [V], so an alphabetic code cannot be a share of any of them. A
+        numeric code stays unresolved: it could be a share class we hold.
+
+    A US ISIN of this form is 12 characters and can never equal one of our
+    tickers (`_SYMBOL_RE`: at most 10), and the classified party never enters
+    `parties`, so nothing downstream can match it against our names.
+    Standard library only (pytest.ini; the send path never imports `scripts/`)."""
+    if not (isinstance(v, str) and _CA_ISIN_RE.fullmatch(v)):
+        return None, f"{v!r:.80} is not ISIN-shaped"
+    if not _ca_isin_check_digit(v):
+        return None, f"{v!r} fails the ISIN check digit"
+    if v[:2] != "US":
+        return None, f"{v!r}: only a US ISIN's NSIN is a CUSIP"
+    if cusip != v[2:11]:
+        return None, f"{v!r}: its CUSIP part is not the row's CUSIP {cusip!r:.40}"
+    if not v[8:10].isalpha():
+        return None, f"{v!r}: its issue code {v[8:10]!r} is not debt-format (alphabetic)"
+    return v, None
 
 
 def _ca_id(v):
@@ -1824,32 +1919,51 @@ def _ca_check_value(k: str, v, bad: dict) -> None:
             bad[k] = v
 
 
-def _ca_read(r, kind: str, date_field: str, fields) -> tuple[list, list, dict]:
-    """(parties, unread, bad) for one row, and it NEVER raises.
+def _ca_read(r, kind: str, date_field: str, fields) -> tuple[list, list, dict, list]:
+    """(parties, unread, bad, bonds) for one row, and it NEVER raises.
 
     `parties`: [(symbol, role)] for each party symbol that validates.
-    `unread`: each party that does not, as {"field", "role"}: a required party
-    field absent, null, empty or not a ticker; an optional one (a reverse
+    `bonds`: each party that is a bond's ISIN (`_ca_bond_isin`), as {"field",
+    "role", "isin"}: a named security that cannot be a share of ours, so it is
+    NOT `unread` and NOT in `parties`. Only a checked ISIN gets this treatment;
+    anything else that is not a ticker stays `unread` below.
+    `unread`: each party that does not, as {"field", "role", "saw"}: a required
+    party field absent, null, empty or not a ticker; an optional one (a reverse
     split's new_symbol, a cash merger's acquirer) only when present and not a
     ticker (absent, null or "" names nobody, as the reference says); a
     reorganization leg that is not an object, or whose symbol is not a ticker
     unless it is null or "" with a valid CUSIP (ONE MEASURED EXCEPTION); a
-    `stock_movements` that is neither null nor a list.
+    `stock_movements` that is neither null nor a list. `saw`, only when a value
+    was sent, is the fault text (the value and why it was not read), which
+    `_ca_event` keeps so the record says what was there, not just "missing".
     `bad`: {field: raw value} for each NON-party field that is malformed: `id`
     (`_ca_id`), the date field and process_date (required), and, when present
     and not null, every other date, number and CUSIP (`_ca_field_kind`). A row
     that is not an object has every required party unread and both dates bad."""
     if not isinstance(r, dict):
         unread = [{"field": f, "role": role} for f, role, req in fields if req]
-        return [], unread, {"id": None, date_field: None, "process_date": None}
-    parties, unread, bad = [], [], {}
+        return [], unread, {"id": None, date_field: None, "process_date": None}, []
+    parties, unread, bad, bonds = [], [], {}, []
+
+    def not_a_ticker(field, role, value, cusip):
+        """A non-ticker in a party field: a bond by its ISIN, else `unread`."""
+        isin, why = _ca_bond_isin(value, cusip)
+        if isin is not None:
+            bonds.append({"field": field, "role": role, "isin": isin})
+            return
+        u = {"field": field, "role": role}
+        if value is not None and value != "":
+            u["saw"] = f"{_ca_symbol(value)[1]}; {why}"
+        unread.append(u)
+
     for f, role, req in fields:
         v = r.get(f)
         if not req and (v is None or v == ""):
             continue
         sym, fault = _ca_symbol(v)
         if fault:
-            unread.append({"field": f, "role": role})
+            # The field's own CUSIP: `symbol` -> `cusip`, `new_symbol` -> `new_cusip`, ...
+            not_a_ticker(f, role, v, r.get(f.removesuffix("symbol") + "cusip"))
         else:
             parties.append((sym, role))
     if kind == "reorganization":
@@ -1871,7 +1985,7 @@ def _ca_read(r, kind: str, date_field: str, fields) -> tuple[list, list, dict]:
                 continue              # no ticker but a CUSIP: names nobody (measured)
             ok, fault = _ca_symbol(sym)
             if fault:
-                unread.append({"field": f"{leg}.symbol", "role": "allocated"})
+                not_a_ticker(f"{leg}.symbol", "allocated", sym, cusip)
             else:
                 parties.append((ok, "allocated"))
     if _ca_id(r.get("id"))[1]:
@@ -1885,7 +1999,7 @@ def _ca_read(r, kind: str, date_field: str, fields) -> tuple[list, list, dict]:
             continue
         if v is not None:
             _ca_check_value(k, v, bad)
-    return parties, unread, bad
+    return parties, unread, bad, bonds
 
 
 def _ca_nonparty_faults(r: dict, date_field: str) -> dict:
@@ -1903,22 +2017,28 @@ def _ca_nonparty_faults(r: dict, date_field: str) -> dict:
     return bad
 
 
-def _ca_skip_record(r: dict, kind: str, date_field: str, bad: dict, parties) -> dict:
+def _ca_skip_record(r: dict, kind: str, date_field: str, bad: dict, parties, bonds=()) -> dict:
     """The record of one skipped malformed row (`AlpacaClient.corporate_actions`,
-    MALFORMED ROWS): enough for a person to find it and judge it. Raw values,
-    unparsed: the row was not read further. `malformed` is each bad non-party
-    field and its value. CUSIPs are every non-empty string field whose name
-    ends in `cusip`, and each leg's; none is compared with the universe (the
-    live path holds no CUSIP for it), so they are here to be read."""
+    MALFORMED ROWS), or of a row whose party is a bond by its ISIN (A BOND'S ISIN
+    IN A PARTY FIELD: `bonds`, each {"field", "role", "isin"}, present only then,
+    which is how `corp_actions.check` tells the two apart). Enough for a person
+    to find it and judge it. Raw values, unparsed: the row was not read further.
+    `malformed` is each bad non-party field and its value. CUSIPs are every
+    non-empty string field whose name ends in `cusip`, and each leg's; none is
+    compared with the universe (the live path holds no CUSIP for it), so they
+    are here to be read."""
     cusips = {k: v for k, v in sorted(r.items())
               if k.endswith("cusip") and isinstance(v, str) and v}
     if kind == "reorganization":
         for j, m in enumerate(r.get("stock_movements") or []):
             if isinstance(m.get("cusip"), str) and m["cusip"]:
                 cusips[f"stock_movements[{j}].cusip"] = m["cusip"]
-    return {"id": r.get("id"), "type": kind, "malformed": dict(sorted(bad.items())),
-            "present": [[s, role] for s, role in parties], "cusips": cusips,
-            "dates": {f: r.get(f) for f in (date_field, "process_date") if f in r}}
+    rec = {"id": r.get("id"), "type": kind, "malformed": dict(sorted(bad.items())),
+           "present": [[s, role] for s, role in parties], "cusips": cusips,
+           "dates": {f: r.get(f) for f in (date_field, "process_date") if f in r}}
+    if bonds:
+        rec["bonds"] = [dict(b) for b in bonds]
+    return rec
 
 
 def _load_keys(book: str, env_file: Path) -> tuple[str, str]:

@@ -493,6 +493,17 @@ our funds". The second is docs/SYSTEM.md §5, team lead 2026-11-02 (unresolved c
   hash of the raw row (`row-sha256:...`). An unresolved row whose dates
   cannot be read is UNDATED: keyed by its hash and treated as inside every
   window, so it halts until acknowledged.
+- **A bond by its ISIN** (team lead, 2026-11-08, "Start the fix"). A party field
+  holding a bond's ISIN (ISO 6166 check digit, US, its CUSIP part equal to the
+  row's own CUSIP field, an alphabetic issue code) is a bond, not a missing
+  party. It never reaches the party list, so it cannot match one of our
+  tickers. The row is listed under `corporate_actions.bond_rows`, with one log
+  line, and blocks nothing. Anything else that is not a ticker stays
+  unresolved, a CUSIP included, and the record's `saw` says what the field
+  held. *Measured 2026-11-08 (`results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`):
+  on the real feed every unresolved row carries a value there, a CUSIP or
+  (before this fix) an ISIN; none is empty. So "missing" in the record means
+  "not read as a ticker".*
 - **Skipped and recorded.** This applies to a row whose every party symbol is
   present, none in the book's universe, with a non-party field malformed: its
   id, its date field or `process_date`. It goes in

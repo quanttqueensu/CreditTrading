@@ -361,3 +361,9 @@ from a named source; [doc] copied from a named note.
 - **Plans for 11-09.** The core: 13 orders, taking the book to 1.784× and net from +0.177× to +0.055×. C4: 2 orders, at 1.335×.
 - **C4's data.** IGR's history is unchanged and no seed-window close moved. C4's UTF short is no longer shortable; it is an existing position and no new short is planned.
 
+**The corporate-action gate: the bond-ISIN fix and the three unresolved rows** (branch `ca-isin-fix`, not released; `results/ops/CA_UNRESOLVED_ROWS_2026-11-08.md`; E-2026-11-08-30). On the team lead's ruling of 2026-11-08, "Start the fix".
+- **The bug.** `_ca_symbol` accepts only ticker-shaped values, and `_ca_read` turned every other value into a *missing party*, judged as each of the gate's names. The feed's 58 bond ISINs (57 partial calls, one reorganization) therefore read as any fund of ours.
+- **The fix.** A checked, US, CUSIP-corroborated, debt-format ISIN is a bond: it never reaches the party list, the row is recorded under `bond_rows`, and it blocks nothing. Anything else that is not a ticker stays unresolved; a CUSIP among them, and the record now says what the field held.
+- **The three rows.** db0847b7 (the Office Properties 8.375% 2029 bond) is resolved by the fix. e34ddd44 (SNTI's CVRs) and 6abeb209 (the JAGX Series R conversion) are CUSIP-format and stay unresolved; they are for the team lead to acknowledge. None of the three can be one of our funds.
+- **Found:** the fix removes only part of the problem. A flat book would still be refused on 15 of 23 sessions (10-01..11-02, down from 17) and 4 of 5 (11-03..11-09): nearly all the rest are CUSIP-format rows, which needs its own ruling before `halt` returns (the note, §3).
+- **No mode changed, no `ca-ack` run.** Both books stay in report.
