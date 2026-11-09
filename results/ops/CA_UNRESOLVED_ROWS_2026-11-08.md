@@ -268,3 +268,18 @@ release", and the acks for e34ddd44 and 6abeb209 are dropped unless needed. Comm
 sets both books' `mode` to `halt` and moves the two pins. Against a clear feed the session's
 output is unchanged byte for byte apart from the gate's mode string (the re-derived pins in
 `quantt/session/tests/test_panels_noop.py` and `src/deploy/tests/test_level_signal.py`).*
+
+*Added 2026-11-09, after the release-check on dd2c084 returned NO-GO. Four defects in the table,
+all reproduced on a fake session and fixed at 4a3cf51, each with a test that fails on dd2c084:
+a renamed fund's old CUSIP was never held, so a row quoting only it was proved foreign; an
+unreadable field on a CUSIP row raised out of the read, so only a release could clear it; a
+list-valued party on another lookback row turned the table off; and a repeated page token
+made 1,000 GETs. Re-measured after the fix, the feed as read that evening [V]: the table is
+PROVED with 13 funds and 13 CUSIPs for the core and 74 and 75 for C4, unchanged, so no fund
+of ours carries a rename the table had missed; a flat book is refused on 0 of 28 sessions
+and the core as held on 5 (10-01 to 10-07); the reads took 1.22 s and 1.61 s from the laptop.
+The columns before the fix moved by one since the morning's read (22 and 20, were 21 and 19);
+the cause was not examined [U]. **A consequence the first draft understated:** "a day the
+table cannot be proved" lasts as long as its cause. A failed read lasts that read, but one
+fund row with no CUSIP keeps the table unproved until the row leaves the lookback, up to
+about two years, and each row it refuses in that time needs `ca-ack`. None exists today.*

@@ -3907,3 +3907,18 @@ that adds it does not exist when it is written.
 - source: `ops/books/cef_discount_book.json` @ `1aab61d`; `ops/books/c4_families_book.json` @ `1aab61d`; `quantt/session/tests/test_panels_noop.py` @ `a822c44`; `src/deploy/tests/test_level_signal.py` @ `a822c44`; `docs/SYSTEM.md` @ `a822c44`
 - supports: §1, §5
 - status: open. Installs only on release-check GO, after the 2026-11-09 verify; cut from `ca-isin-fix`, so te4's dark code is not in it
+
+### E-2026-11-09-32 · The release-check on dd2c084 returned NO-GO: four defects in the CUSIP table, fixed and re-measured
+- kind: result
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - NO-GO on `dd2c084`: a renamed fund's old CUSIP was not held, so a row quoting only it was proved foreign; an unreadable field on a CUSIP row raised out of the read; a list-valued party on another lookback row turned the table off; a repeated page token made 1,000 GETs. All reproduced on a fake session [V]
+  - 12 new tests in `quantt/session/tests/test_ca_cusip_table.py` fail on `dd2c084` and pass on `4a3cf51` [V]
+  - re-measured at `4a3cf51`: table PROVED, core 13 funds and 13 CUSIPs, C4 74 funds and 75 CUSIPs, unchanged, so no fund of ours carries a rename the table had missed [V]
+  - `halt` over 2026-10-01..11-09 (28 sessions, the table as read that evening): flat 0 of 28, the core as held 5 of 28, 10-01 to 10-07 [V]
+  - the real table read took 1.22 s (core) and 1.61 s (C4) from the laptop; not measured on the VM [V]
+  - one fund row with no CUSIP keeps the table unproved until the row leaves the 731-day lookback; no such row exists today [V]
+- source: `quantt/broker/alpaca.py` @ `4a3cf51`; `quantt/session/tests/test_ca_cusip_table.py` @ `4a3cf51`; `results/ops/ca_unresolved_2026-11-08/measure.py` @ `4a3cf51`
+- supports: §1, §5
+- status: open. A new release-check is needed on the fixed commit, with the preview run on current panels
