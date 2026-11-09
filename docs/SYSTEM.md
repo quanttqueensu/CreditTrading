@@ -706,7 +706,20 @@ Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAN
 | Re-derive the no-trade band from the measured execution cost? (that morning's ruling: "pre-register a re-derivation of the rebalancing band using the measured execution cost") | **"Accept: keep 4.8%, close."** Both books keep `band_width` 0.048. CLOSED at zero trials; CEF stays 55 (`docs/RESEARCH_STATE.md`, CLOSED, BAND-COST). The cube-root law at the measured paper cost gives the core 4.55% and C4 4.07%. Neither beats live beyond its own error: the core's 0.045 − 0.048 has NW t 1.34 against 2.837. Two follow-ups, both measurements: **C4's band is re-measured on its own fill cost after 21 sessions, no earlier than 2026-12-03**; and **the band is re-derived on a measured live auction impact before any real capital**, as part of the real-money cost re-run (2026-10-09) |
 | Post-then-cross on paper? (the execution study's candidate 1: a passive limit at the touch at 15:52, the remainder crossed at 15:58) | **"Not now."** Not built. **Re-test after 60+ sessions of fills**: its −2.2bp against actual (95% CI −4.5 to +0.2) rests on 21 days [S: the study] |
 
+### Team lead, 2026-11-05 — the analysts' roles reopened, and the end-of-November pitch
+
+Answered interactively on 2026-11-05, while the analyst guide was being rewritten. It supersedes the 2026-11-03 rows below on what
+the analysts work on and who does the signal work. `docs/TEAM.md` §1 holds who keeps which paths.
+
+| question | decision |
+|---|---|
+| What the analysts work on | **Recommended starting points, and the work is open-ended.** `ryan` starts on FICC risk, `james` on equity risk, and `lucy` on cross-asset signals and the dashboard. These are not limits. Supersedes 2026-11-03's report-only risk lanes |
+| Who may propose a signal | **Any analyst.** The team lead approves every test, and a trial still needs that approval before any return is computed (`docs/TEAM.md` §4). Supersedes 2026-11-03's "the team lead, on every counter". The PM still keeps every counter's rows |
+| What each analyst delivers | **One pitch to the execs at the end of November:** an addition to the strategy, a signal, or anything else that helps overall. Each analyst pitches separately, as a short talk with slides. The date and length are still to be set |
+
 ### Team lead, 2026-11-03 — the analyst lanes redrawn as risk
+
+*(Superseded 2026-11-05, above, on what the analysts work on and who does the signal work.)*
 
 Answered interactively on 2026-11-03, after C4's arming was set. `docs/TEAM.md` §1 holds who keeps which paths.
 
@@ -841,4 +854,5 @@ Answered interactively on the draft `results/cef/PREREG_VOLTARGET_2026-10-30.md`
 | 2026-11-01 | §5 records the vol-target raise (CEF trial 53: ×1.13 / ×1.27, `sizing_multiplier`), the framework gate waived for paper, the raise's stops, and the correction that the core's 2023+ has been seen. | CEF trial 53, for the team lead |
 | 2026-11-02 | §5's trial-53 table records amendment 1: core ×1.30 (spec v9), C4 ×1.26 (spec v4), the core's stops recalibrated on the live thin-day rule; CEF stays 53. | CEF trial 53 amendment 1, for the team lead |
 | 2026-11-03 | §5 records the evidence pack's live-data ruling: aggregates in the repository, rows in a gitignored cache. | research evidence pack, for the team lead |
+| 2026-11-05 | §5 records the analysts' roles reopened as starting points, any analyst may propose a signal, and the end-of-November pitch. | analyst guide, for the team lead |
 | 2026-11-08 | §5 records that research is not pass or fail; §1's holdout sentence and the 2026-10-27 power and admission rows point at it. | research method, for the team lead |
