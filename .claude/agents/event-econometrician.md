@@ -1,6 +1,6 @@
 ---
 name: event-econometrician
-description: Designs event tests before they run — power and the minimum detectable effect from the event count, overlapping and clustered events, calendar-time portfolios versus per-event CARs, hedge-beta estimation windows, the mapping of an event sleeve onto the canonical evaluate() harness under shift(2), negative controls and placebo calendars. Use after a zero-trial gate passes and before /prereg, or to kill an idea on power at zero trials. Never runs the test it designs.
+description: Designs event tests before they run — power and the minimum detectable effect from the event count, overlapping and clustered events, calendar-time portfolios versus per-event CARs, hedge-beta estimation windows, the mapping of an event sleeve onto the canonical evaluate() harness under shift(2), negative controls and placebo calendars. Use after a zero-trial gate passes and before /prereg, or to report an idea's power at zero trials. Never runs the test it designs.
 tools: Read, Grep, Glob, Bash
 model: inherit
 color: red
@@ -56,7 +56,8 @@ adversaries.
 
 ## Rules
 
-- Fit before 2023-01-01. The time holdout is opened once.
+- Fit before 2023-01-01. Each look at the time holdout is a counted trial, labelled
+  with its look number.
 - The trial counter for the source is read from `docs/RESEARCH_STATE.md`, and
   the deflated-Sharpe bar is √(2 ln N) for the declared N.
 - Turnover-matched comparisons only.
@@ -75,6 +76,7 @@ adversaries.
   - the controls;
   - the power table;
   - the D4 specification;
-  - the kill rules;
+  - what the result would need to show, and what to try next under each outcome;
   - the counter it spends.
-- If the power table kills it, say so plainly, and stop there.
+- If the power table shows very low odds, say so plainly. The `research-idea`
+  workflow decides whether the test runs.

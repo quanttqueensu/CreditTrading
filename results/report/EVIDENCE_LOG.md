@@ -3841,7 +3841,19 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
 
-### E-2026-11-08-04 · Rulings: a VM timer owns the nightly check, with push on fired stops; single-name size is measured, not capped; the corporate-action gate goes back to halt after a fix; HALVE/KILL's read is fixed, report-only
+### E-2026-11-08-04 · Ruling: research is not pass or fail. A failed gate no longer ends an idea, the power check stops only at very low odds, holdouts can be re-opened with each look counted, and entry to the paper account is the team lead's decision on a scorecard
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the team lead: "not a no go no only rules, we need to be dynamic - this is too binary" [S]
+  - the audit behind the re-review, 82 ideas: CORRECT KILL 29, IMPLEMENTATION 26, UNDERPOWERED 20; the 26 and the 20 are re-reviewed, best first on market reasoning [S]
+  - the power check stops below P(pass) 0.10 and warns from 0.10 to 0.50; it stopped below 0.50 before (the 2026-10-27 row of `docs/SYSTEM.md` §5) [S]
+- source: `results/research/DESK_METHOD_2026-10-27.md` @ `a5b94c8`; `docs/SYSTEM.md` @ `a5b94c8` (the rows it changes; the ruling itself is added in this commit)
+- supports: §5
+- status: current; for research agents and the research loop only. The live book's stops, real-capital admission and the analysts' process are unchanged
+
+### E-2026-11-08-05 · Rulings: a VM timer owns the nightly check, with push on fired stops; single-name size is measured, not capped; the corporate-action gate goes back to halt after a fix; HALVE/KILL's read is fixed, report-only
 - kind: ruling
 - era: ALPACA
 - date: 2026-11-08
@@ -3850,4 +3862,3 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
 - supports: §1, §5
 - status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
-
