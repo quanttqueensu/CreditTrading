@@ -3841,6 +3841,30 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
 
+### E-2026-11-08-04 · Ruling: research is not pass or fail. A failed gate no longer ends an idea, the power check stops only at very low odds, holdouts can be re-opened with each look counted, and entry to the paper account is the team lead's decision on a scorecard
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - the team lead: "not a no go no only rules, we need to be dynamic - this is too binary" [S]
+  - the audit behind the re-review, 82 ideas: CORRECT KILL 29, IMPLEMENTATION 26, UNDERPOWERED 20; the 26 and the 20 are re-reviewed, best first on market reasoning [S]
+  - the power check stops below P(pass) 0.10 and warns from 0.10 to 0.50; it stopped below 0.50 before (the 2026-10-27 row of `docs/SYSTEM.md` §5) [S]
+- source: `results/research/DESK_METHOD_2026-10-27.md` @ `a5b94c8`; `docs/SYSTEM.md` @ `a5b94c8` (the rows it changes; the ruling itself is added in this commit)
+- supports: §5
+- status: current; for research agents and the research loop only. The live book's stops, real-capital admission and the analysts' process are unchanged
+
+### E-2026-11-05-31 · Ruling: the analysts' lanes reopen as starting points, any analyst may propose a signal, and each pitches one idea to the execs at the end of November
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-05
+- figures:
+  - no figures; lanes recorded as FICC risk, equity risk, and cross-asset signals with the dashboard, "open ended" [S]
+  - the team lead approves every test, and a trial still needs approval before any return is computed; supersedes the 2026-11-03 report-only lanes [S]
+  - each analyst pitches separately, a short talk with slides, end of November; date and length to be set [S]
+- source: `docs/SYSTEM.md` @ `b63253d`
+- supports: §5
+- status: current
+
 ### E-2026-11-08-20 · Nightly report-only data QA and risk checks built on VM timers; thresholds derived on fit data with recall as measured
 - kind: method
 - era: ALPACA

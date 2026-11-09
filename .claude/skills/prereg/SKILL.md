@@ -92,10 +92,13 @@ Updated in docs/RESEARCH_STATE.md in this same commit: yes/no.
   on them. The holdout booked them on 2026-10-18, at a cost of −10.87% of capital
   (`results/cef/DATA_GUARDS_2026-10-19.md`). A ruling may be "genuine, no action",
   but someone must write it down, with their name and the date.
-- **Kill rules are pre-committed and not softened later.** The CEF book's is
+- **The live book's stop rules are pre-committed and not softened later.** The CEF book's is
   reviewed at 60 live sessions and not before: (a) live net Sharpe < 0; (b) realised
   slippage > 2× modelled for 5 consecutive sessions; (c) top-minus-bottom discount
   spread below 12%. No extension of rope.
+- **A research trial has no rule that ends the idea** (team lead, 2026-11-08,
+  `docs/SYSTEM.md` §5). State what the result would need to show, and what to look
+  at next under each outcome. A re-test is a new pre-registration and a counted trial.
 
 ## Then
 
