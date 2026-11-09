@@ -719,6 +719,19 @@ def _send_state(d, day: dict) -> tuple[bool, str]:
         raise Unmeasured(f"{d}'s plan.json has no `orders` list ({orders!r}): whether its "
                          f"targets were sent cannot be read")
     if not orders:
+        # Empty for one of two reasons, and they differ (the owner's release-check of 78e3483,
+        # 2026-11-09). If the buying-power fit took every order out (`bp_scale` orders_in > 0,
+        # orders_out 0: run.py records them so verify can tell "a missed day" from "nothing to
+        # do"), the account did NOT move to the reduced build's targets.
+        fit = plan.get("bp_scale")
+        if fit is not None:
+            if not isinstance(fit, dict) or not isinstance(fit.get("orders_in"), int) \
+                    or not isinstance(fit.get("orders_out"), int):
+                raise Unmeasured(f"{d}'s plan.json has no orders and a malformed `bp_scale` "
+                                 f"({fit!r}): whether its targets were sent cannot be read")
+            if fit["orders_in"] > 0 and fit["orders_out"] == 0:
+                return False, (f"{d}'s buying-power fit scaled the plan's {fit['orders_in']} "
+                               f"order(s) to none ({fit.get('binding')}): nothing was sent")
         return True, f"{d}'s plan had no orders: the account already held its targets"
     started = day.get("started")
     if not isinstance(started, bool):
