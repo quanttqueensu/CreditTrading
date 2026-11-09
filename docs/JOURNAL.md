@@ -342,6 +342,12 @@ from a named source; [doc] copied from a named note.
 
 ## 2026-11-05 (Thu)
 
+**The analysts' roles reopened** (team lead; `docs/SYSTEM.md` §5; `results/report/EVIDENCE_LOG.md` E-2026-11-05-31).
+- The lanes become recommended starting points: FICC risk, equity risk, and cross-asset signals with the dashboard. The work is open-ended.
+- Any analyst may propose a signal, and the team lead approves every test. This supersedes the 2026-11-03 report-only lanes.
+- Each analyst pitches one idea to the execs at the end of November, as a short talk with slides. The date and length are still to be set.
+- `docs/TEAM.md`, `docs/ONBOARDING.md`, `README.md` and the pull request template now say the same. Nothing on the live path changed.
+
 **Execution-cost study, both paper books (report only, zero trials; `results/cef/EXEC_COST_STUDY_2026-11-05.md`, `results/report/EVIDENCE_LOG.md` E-2026-11-05-30).**
 - **Where the cost comes from.** The core's paper fill vs the auction print is 7.14bp over 21 `late_market` sessions (day t 3.20). 5.90bp of it is the spread paid at send: half a cent a share, set by the tick. The remaining 1.24bp is drift to the close and not significant.
 - **What would cut it.** The spread is flat from 15:51 to 15:59:30, so the send time buys no spread. Posting at the passive touch and crossing the remainder at 15:58 would have cost 4.12bp (−2.2bp, t −1.93; the CI includes zero).
