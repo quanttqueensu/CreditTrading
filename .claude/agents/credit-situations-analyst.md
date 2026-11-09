@@ -77,7 +77,7 @@ You compute no return of any candidate.
 - The prospectus fields that decide it, each with its source.
 - Today's tradable / shortable / ETB counts, true on the day only.
 - The D4 factor and the negative control.
-- The zero-trial gate and its kill number.
+- The zero-trial screen and the number to watch.
 
 Every figure fetched and labelled `[V]`/`[S]`/`[U]`. You run nothing on the
 order path.

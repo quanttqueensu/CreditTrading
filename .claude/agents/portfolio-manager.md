@@ -46,7 +46,9 @@ book and were judged standalone.
   - **The paper book** may also admit, labelled, a sleeve that fails the
     standalone deflated Sharpe if it adds to the book: SR > ρ·SR_book across
     ρ's range, with the combined net positive at 5, 15 and 30bp.
-  - Report both readings for every candidate, and say which route admits it.
+  - Report both readings for every candidate. **Entry to the paper account is the
+    team lead's decision on your scorecard** (2026-11-08): for paper, the marks
+    above are guides, and you recommend.
 
 ## Breadth is measured, not counted
 
