@@ -137,6 +137,10 @@ of 3 (§6.3) counts reduced closes within the open episode only, as §6.3's head
 episode" says; the rule is §6.3's and this note's, and the code (`quantt/session/drawdown.py`, which reads
 the count from the spec's `risk.thin_k3_run_sessions`) implements it and does not define it.
 
+**Two rulings by the team lead, 2026-11-08.**
+- **The code ships dark.** The implementation (PR #55) merges with the key absent, so the book keeps today's flatten rule. Activation stays a separate commit and a separate decision.
+- **The in-place edit is accepted.** This note's §6.3 and §11 compose commands gained `--k3-run-sessions` after approval, with a dated note and no figure changed. The team lead accepted that as it stands, rather than moving it to an addendum.
+
 **What this commit does not do.** It sets no spec key, changes no live-path code and activates nothing.
 The key stays absent until the activation commit, which needs all of:
 - the implementation merged;
