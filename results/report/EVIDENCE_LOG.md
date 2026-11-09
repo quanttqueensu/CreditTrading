@@ -3841,7 +3841,6 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: open. The evening check has no owner outside an open session; the VM timer in the agent-desk draft (PR #46) is the proposed fix
 
-
 ### E-2026-11-08-30 · The corporate-action gate's bond-ISIN misread is fixed on a branch: 58 of the 208 unreadable-party rows are bonds and leave the gate; the other 150 stay unresolved, two of the team lead's three rows among them
 - kind: result
 - era: ALPACA

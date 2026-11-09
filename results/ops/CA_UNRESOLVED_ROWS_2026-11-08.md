@@ -60,8 +60,8 @@ An equity-format ISIN stays unresolved (it could be a share class we hold).
 - Measured against every session's window, flat book (the same measure as the
   17-of-23 figure in the C4 book json, reproduced exactly on today's read): **core
   and C4 alike, 17 of 23 sessions refused → 15 of 23 (2026-10-01..11-02), and 4 of 5
-  → 4 of 5 (11-03..11-09)** [V]. The fix removes the bond rows; what remains is
-  almost entirely CUSIP-format rows (§3).
+  → 4 of 5 (11-03..11-09)** [V]. The fix removes the bond rows. All 22 rows that still
+  block a flat book over 10-01..11-09 hold a CUSIP-format value (§3) [V].
 - In report mode (both books now), sends are unaffected. Nothing here changes
   what trades.
 
@@ -151,8 +151,8 @@ from the frozen specs through `spec_params` [V].
 ## 3. What still stands between these rulings and `halt`
 
 1. **The CUSIP-format rows, by far the largest item.** The fix classifies bonds by
-   ISIN only. The other two rows above are CUSIP-format, and so are almost all rows
-   that keep firing. On today's read, a flat book would still be refused on 15 of the
+   ISIN only. The other two rows above are CUSIP-format, and so is every other row
+   that still blocks a flat book over 10-01..11-09 (22 rows in all) [V]. On today's read, a flat book would still be refused on 15 of the
    23 sessions in 10-01..11-02 and 4 of 5 in 11-03..11-09 [V]; the next-session rows
    include the worthless removals `0147191d` and `0d1c6887` (`929CNT012`, `929CNT020`,
    process date 2026-11-05) and the name change `2babc616` (`ELMES` → `939ESC075`,

@@ -1680,8 +1680,8 @@ def _ca_event(r: dict, kind: str, date_field: str, parties, unread: list, bad: d
           "process_date": day("process_date"), "parties": [[s, role] for s, role in parties]}
     if unread:
         ev["missing"] = [{"field": u["field"], "role": u["role"]} for u in unread]
-        # WHAT WAS THERE (team lead 2026-11-08): a field the reader could not read is
-        # not always empty. The real rows carry a CUSIP or an ISIN there, and the record
+        # WHAT WAS THERE (found while fixing the ISIN misread, 2026-11-08; a record field,
+        # not a ruling): a field the reader could not read is not always empty. The real rows carry a CUSIP or an ISIN there, and the record
         # used to say "missing" with no value, so nobody could tell why a row was
         # unresolved. Only when a value was sent; a null or empty field shows no key.
         saw = {u["field"]: u["saw"] for u in unread if u.get("saw")}

@@ -139,6 +139,12 @@ def classes(old, pages):
     return n, len(rows_un), fields
 
 
+def field_value_from_saw(s: str) -> str:
+    """The value quoted at the start of an event's `saw` text."""
+    m = re.match(r"'([^']*)'", s)
+    return m.group(1) if m else s
+
+
 def sessions(a, b):
     d = a
     while d <= b:
@@ -220,6 +226,13 @@ def main():
     for D in sessions(dt.date(2026, 10, 1), dt.date(2026, 11, 20)):
         ids = sorted({x["id"] for x in flat_blockers(res["c4"]["new"], uni["c4"], D)})
         print(f"    {D} {len(ids)} {[(i[:8], ev[i]['type']) for i in ids]}")
+
+    ids = {x["id"] for D in sessions(dt.date(2026, 10, 1), dt.date(2026, 11, 9))
+           for x in flat_blockers(res["cef"]["new"], uni["cef"], D)}
+    held_by = {e["id"]: e for e in res["cef"]["new"]}
+    vals = [field_value_from_saw(s) for i in ids for s in (held_by[i].get("saw") or {}).values()]
+    print(f"\n    rows still blocking a flat core book over 10-01..11-09: {len(ids)}; their values "
+          f"are CUSIP-format: {sum(bool(re.fullmatch(r'[A-Z0-9]{9}', v)) for v in vals)} of {len(vals)}")
 
     still = [e for e in res["c4"]["new"] if e.get("missing") and e.get("date")]
     span = [e for e in still if dt.date(2026, 7, 1) <= e["date"] <= dt.date(2026, 11, 20)]
