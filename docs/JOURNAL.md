@@ -361,3 +361,8 @@ from a named source; [doc] copied from a named note.
 - **Plans for 11-09.** The core: 13 orders, taking the book to 1.784× and net from +0.177× to +0.055×. C4: 2 orders, at 1.335×.
 - **C4's data.** IGR's history is unchanged and no seed-window close moved. C4's UTF short is no longer shortable; it is an existing position and no new short is planned.
 
+**Research is not pass or fail** (`docs/SYSTEM.md` §5, 2026-11-08; `results/report/EVIDENCE_LOG.md` E-2026-11-08-04). The team lead ruled that a failed gate should not end an idea.
+- **The research line.** The power check now stops only below 0.10 and warns up to 0.50. A new Follow-up station reads every result on economics and market history, then names the next tweak or gives the reasons to set the idea aside.
+- **Counting.** Every re-test and every holdout look is a counted trial, and holdouts can be re-opened. Paper trading on later data is the clean check before real money.
+- **The loop.** Follow-ups come first. It no longer admits anything: it writes a scorecard and the team lead decides.
+- **Not changed.** The live book's stops, real-capital admission, the analysts' process and the guides.

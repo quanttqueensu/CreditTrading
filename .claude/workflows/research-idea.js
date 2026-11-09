@@ -1,14 +1,15 @@
 export const meta = {
   name: 'research-idea',
-  description: 'Research line: take one idea through question, data, power, pre-registration, a single test, two adversaries and the book, to a verdict that names both the evidence and the gate',
+  description: 'Research line: take one idea through question, data, power, pre-registration, a test, two adversaries and the book, to a verdict that names the evidence and the gate, and a review of what to try next',
   whenToUse: 'Two runs. First args = the idea (string) or {idea}: screens, audits the data, computes power and drafts the pre-registration, spending nothing. Then, after the draft is approved as CLAUDE.md and docs/SYSTEM.md §5 require and is committed, args = {idea, stage: "test", prereg: "<path>", prereg_sha: "<commit>", approved: true} runs the test and spends the one trial.',
   phases: [
     { title: 'Screen', detail: 'quant-researcher: graveyard, loser, components' },
     { title: 'Data', detail: 'data-engineer then data-analyst; no returns' },
-    { title: 'Power', detail: 'statistician: design and P(pass); stops if underpowered' },
+    { title: 'Power', detail: 'statistician: design and P(pass); warns on low odds, stops only at very low odds' },
     { title: 'Pre-register', detail: 'draft only; the run stops here for approval' },
     { title: 'Test', detail: 'backtest-engineer or ml-engineer: one run, P&L stored' },
     { title: 'Attack', detail: 'beta-detector, quant-reviewer, statistician, portfolio-manager, quant-trader' },
+    { title: 'Follow-up', detail: 'quant-researcher: what it shows, market history, missing angles, the next tweak or the reasons to set it aside' },
     { title: 'Verdict', detail: 'evidence outcome + D-code + successor entries' },
   ],
 }
@@ -50,11 +51,22 @@ export const meta = {
 // - the approved pre-registration is read at a pinned commit, so no station can
 //   edit what was approved (as release-check.js pins its tree since 2026-10-10).
 
+// CHANGED 2026-11-08 (team lead, docs/SYSTEM.md §5: research is not pass or fail).
+// - The power check warns below 0.5 and stops only below 0.1. A stop before any
+//   result exists was the most binary rule on the line. Point 1 above is why the
+//   estimate itself stays: a result is read knowing what the test could have seen.
+// - A result does not end an idea. The Follow-up station reads every result, on
+//   economics and market history, and names the next tweak or gives the reasons to
+//   set the idea aside and what would reopen it. A re-test is a new run of this
+//   workflow, so it is pre-registered, counted and stored like any other trial.
+// - The screen bans nothing. It asks what is different this time.
+
 const A = typeof args === 'string' ? { idea: args } : (args || {})
 const IDEA = A.idea
 if (!IDEA) throw new Error('research-idea needs args = the idea text, or {idea, ...}')
 const STAGE = A.stage || 'design'
-const DEFAULT_MIN_POWER = 0.5
+const DEFAULT_MIN_POWER = 0.1 // the run stops only below this
+const WARN_POWER = 0.5 // below this the test still runs, with a warning
 const OVERRIDE = A.override_power === true
 if (A.min_power !== undefined && !(typeof A.min_power === 'number' && A.min_power >= 0 && A.min_power <= 1)) {
   throw new Error(`min_power must be a number in [0, 1], got ${JSON.stringify(A.min_power)}`)
@@ -86,11 +98,19 @@ const READ = { type: 'object', properties: {
   finding: { type: 'string' }, defect_or_explanation: { type: 'string' },
   severity: { type: 'string' }, settles_it: { type: 'string' }, notes: { type: 'string' } },
   required: ['finding'] }
+// Every field is required, with "none" and the reason where one does not apply, so
+// that a trial already spent can never end without a reading of what to do next.
+const FOLLOW = { type: 'object', properties: {
+  shows: { type: 'string' }, worked_where: { type: 'string' }, failed_where: { type: 'string' },
+  market_history: { type: 'string' }, missing_angles: { type: 'array', items: { type: 'string' } },
+  decision: { type: 'string', enum: ['CONTINUE', 'SET_ASIDE', 'READY_FOR_TEAM_LEAD'] },
+  next_tweak: { type: 'string' }, why: { type: 'string' }, would_reopen: { type: 'string' } },
+  required: ['shows', 'worked_where', 'failed_where', 'market_history', 'missing_angles', 'decision', 'next_tweak', 'why', 'would_reopen'] }
 
 if (STAGE === 'design') {
   phase('Screen')
   const screen = await agent(`Idea: "${IDEA}".
-Act as the quant-researcher station. Run /graveyard and read docs/RESEARCH_STATE.md. Name the closest dead entry and what its death actually showed: ABSENT (a powered null, an artifact, a control that scored as well), INCONCLUSIVE (too weak to tell), or PRESENT with a failed gate. If it restates an ABSENT idea with no new mechanism or data, set proceed=false. Otherwise give: the mechanism and the loser; the components (effect / expression / conditioner / execution) and which one this test is about; the negative control; a plausible effect size from a cited prior or measured magnitude, labelled [V]/[S]/[U]; the count of independent units likely available; the holding window; the counter it would spend (from python3 -m ops.orient TRIALS).`,
+Act as the quant-researcher station. Run /graveyard and read docs/RESEARCH_STATE.md. Name the closest earlier entry and what its failure actually showed: ABSENT (a powered null, an artifact, a control that scored as well), INCONCLUSIVE (too weak to tell), or PRESENT with a failed gate. Nothing is banned (team lead, 2026-11-08): say what is different this time, in the mechanism, data, expression, design or market conditions. If the earlier failure was a data error such as a stale price, say how this design deals with that error first. Set proceed=false only if you cannot say what is different. Otherwise give: the economic reasoning and how markets have behaved in comparable episodes, cited; the mechanism and the loser; the components (effect / expression / conditioner / execution) and which one this test is about; the negative control; a plausible effect size from a cited prior or measured magnitude, labelled [V]/[S]/[U]; the count of independent units likely available; the holding window; the counter it would spend (from python3 -m ops.orient TRIALS).`,
     { label: 'quant-researcher', phase: 'Screen', agentType: 'quant-researcher', schema: GO })
   if (!screen || !screen.proceed) return { stage: 'screen', outcome: 'STOPPED AT SCREEN', screen }
 
@@ -106,7 +126,7 @@ Act as the data-analyst station on the series available locally. Audit coverage,
 
   phase('Power')
   const power = await agent(`Idea: "${IDEA}". Screen: ${screen.summary}. Data: ${source.summary}. Audit: ${audit.summary}
-Act as the statistician station. Design the test (daily target-weight panel on the harness CLAUDE.md names; calendar-time headline; clustering; controls; the D4 specification; the 'meaningful' effect size). Then, with scripts/research/inference.py only, compute P(pass) at the plausible effect for EVERY gate the pre-registration will apply: the deflated Sharpe on both bars at the Declared N the pre-registration will state, which is at least the minimum that python3 -m scripts.research.registry slate <counter> --pending 1 prints (the counter after this trial, and any standing declared slate): the desk's with p_pass_dsr(bound='upper', n_trials=N), and the paper's with p_pass_dsr(bound='gumbel', n_trials=n_effective, sr_var=sr_var_used) taken from python3 -m scripts.research.registry sr0 <counter> --declared-n N (if it refuses, quote the refusal; never build the paper's bar another way), both with the payoff's expected skew and kurtosis. Which bar gates is docs/SYSTEM.md §5's, read at run time; the D4 alpha t >= 3.0, any net-t gate, and any count gate. Report every gate, the binding one, and p_pass_all: the chance of passing ALL gates together, simulated on the design where the gates are correlated. All probabilities are fractions in [0, 1]. Set proceed=false if any of them is below ${MIN_POWER}, and list redesign options, cheapest first. Never assume a sigma: measure it on pre-2023 non-event windows, or cite it.`,
+Act as the statistician station. Design the test (daily target-weight panel on the harness CLAUDE.md names; calendar-time headline; clustering; controls; the D4 specification; the 'meaningful' effect size). Then, with scripts/research/inference.py only, compute P(pass) at the plausible effect for EVERY gate the pre-registration will apply: the deflated Sharpe on both bars at the Declared N the pre-registration will state, which is at least the minimum that python3 -m scripts.research.registry slate <counter> --pending 1 prints (the counter after this trial, and any standing declared slate): the desk's with p_pass_dsr(bound='upper', n_trials=N), and the paper's with p_pass_dsr(bound='gumbel', n_trials=n_effective, sr_var=sr_var_used) taken from python3 -m scripts.research.registry sr0 <counter> --declared-n N (if it refuses, quote the refusal; never build the paper's bar another way), both with the payoff's expected skew and kurtosis. Which bar gates is docs/SYSTEM.md §5's, read at run time; the D4 alpha t >= 3.0, any net-t gate, and any count gate. Report every gate, the binding one, and p_pass_all: the chance of passing ALL gates together, simulated on the design where the gates are correlated. All probabilities are fractions in [0, 1]. Set proceed=false only if any of them is below ${MIN_POWER}. Below ${WARN_POWER} the test still runs, with a warning. Either way list redesign options, cheapest first. Never assume a sigma: measure it on pre-2023 non-event windows, or cite it.`,
     { label: 'statistician', phase: 'Power', agentType: 'statistician', schema: POWER })
   need(power, 'the statistician (power)')
   const ps = [power.p_pass_binding, power.p_pass_all, ...(power.gates || []).map(g => g.p_pass)]
@@ -121,13 +141,15 @@ Act as the statistician station. Design the test (daily target-weight panel on t
   }
   const loosened = MIN_POWER < DEFAULT_MIN_POWER
   if (under || loosened) log(`POWER GATE OVERRIDDEN by the team lead: min P(pass) ${pMin}, threshold ${MIN_POWER} (default ${DEFAULT_MIN_POWER})`)
+  const lowOdds = !under && pMin < WARN_POWER
+  if (lowOdds) log(`LOW ODDS, testing anyway: min P(pass) ${pMin}, below ${WARN_POWER}`)
 
   phase('Pre-register')
-  const prereg = await agent(`Idea: "${IDEA}". Screen: ${JSON.stringify(screen)}. Data: ${source.summary}. Audit: ${audit.summary}. Design and power: ${JSON.stringify(power)}.${under || loosened ? ` THE POWER GATE WAS OVERRIDDEN by the team lead (min P(pass) ${pMin}, threshold ${MIN_POWER}, default ${DEFAULT_MIN_POWER}): say so at the top.` : ''}
-Use /prereg to DRAFT the pre-registration at results/research/PREREG_DRAFT_<slug>.md. Do not commit it and do not touch docs/RESEARCH_STATE.md. Include: hypothesis, mechanism and loser; the component under test and the successor to try if the effect is PRESENT but a gate fails; the exact test; the power table per gate; the 'meaningful' size and the three-outcome reading (PRESENT / ABSENT / INCONCLUSIVE via read_result, with n_trials = the counter's N at the time of the test); the negative control; fit < 2023-01-01 with a 2023-26 holdout row; where the per-period P&L series will be stored; what kills it; the counter it spends. Return the path and a five-line summary.`,
+  const prereg = await agent(`Idea: "${IDEA}". Screen: ${JSON.stringify(screen)}. Data: ${source.summary}. Audit: ${audit.summary}. Design and power: ${JSON.stringify(power)}.${under || loosened ? ` THE POWER GATE WAS OVERRIDDEN by the team lead (min P(pass) ${pMin}, threshold ${MIN_POWER}, default ${DEFAULT_MIN_POWER}): say so at the top.` : ''}${lowOdds ? ` LOW ODDS: min P(pass) is ${pMin}, below ${WARN_POWER}. Say so at the top: the test is allowed, and its result is read with that in mind.` : ''}
+Use /prereg to DRAFT the pre-registration at results/research/PREREG_DRAFT_<slug>.md. Do not commit it and do not touch docs/RESEARCH_STATE.md. Include: hypothesis, the economic reasoning and market history, mechanism and loser; the component under test and the successor to try if the effect is PRESENT but a gate fails; the exact test; the power table per gate; the 'meaningful' size and the three-outcome reading (PRESENT / ABSENT / INCONCLUSIVE via read_result, with n_trials = the counter's N at the time of the test); the negative control; fit < 2023-01-01 with a 2023-26 holdout row, labelled with its look number if this idea's holdout has been looked at before (each look is a counted trial, and after the first the data is no longer clean); where the per-period P&L series will be stored; what the result would need to show, and the follow-ups to try under each outcome (no rule that ends the idea by itself); the counter it spends. Return the path and a five-line summary.`,
     { label: 'prereg-draft', phase: 'Pre-register' })
   need(prereg, 'the pre-registration drafter')
-  return { stage: 'design-complete', prereg, power, screen, source, audit,
+  return { stage: 'design-complete', low_odds: lowOdds, p_pass_min: pMin, prereg, power, screen, source, audit,
     next: 'Approve the draft as CLAUDE.md and SYSTEM.md §5 require, then commit it (/prereg). To spend the trial: re-run with {idea, stage: "test", prereg: "<path>", prereg_sha: "<that commit>", approved: true}.' }
 }
 
@@ -162,10 +184,18 @@ const [beta, review, stats, book, trade] = await parallel([
 ;[['beta-detector', beta], ['quant-reviewer', review], ['statistician', stats],
   ['portfolio-manager', book], ['quant-trader', trade]].forEach(([who, r]) => need(r, who))
 
+// No gate ends an idea here (team lead, 2026-11-08). The station that frames ideas
+// reads the whole result and says what to do next, in words.
+phase('Follow-up')
+const follow = need(await agent(`${ctx}
+Adversaries: beta-detector: ${JSON.stringify(beta)}; quant-reviewer: ${JSON.stringify(review)}; statistician: ${JSON.stringify(stats)}; portfolio-manager: ${JSON.stringify(book)}; quant-trader: ${JSON.stringify(trade)}.
+Act as the quant-researcher station. A failed gate is a finding to read, never the end of an idea. Say what the result shows; where it worked and where it did not (eras, market conditions, instruments, sides); the economics behind that and how markets have reacted in comparable historical episodes, cited [V]/[S]/[U]; which angles may be missing; and which tweaks remain, cheapest first. Then decide. CONTINUE if a specific tweak has a reason you can state: put it in next_tweak as an idea the next run can take, naming this trial as its parent. Choosing the best of a swept column is not a reason. SET_ASIDE only if, on those reasons, more tweaks would not help: say why, and what would reopen it. READY_FOR_TEAM_LEAD if the result is good enough to put on the scorecard as it stands. There is no fixed number of rounds. Where a field does not apply, write "none" and the reason. Every re-test is a new pre-registered, counted trial.`,
+  { label: 'follow-up', phase: 'Follow-up', agentType: 'quant-researcher', schema: FOLLOW }), 'the follow-up review')
+
 phase('Verdict')
 const verdict = await agent(`Write the verdict for the team lead on idea "${IDEA}".
-Inputs: ${PREREG}; test: ${test}; beta-detector: ${JSON.stringify(beta)}; quant-reviewer: ${JSON.stringify(review)}; statistician: ${JSON.stringify(stats)}; portfolio-manager: ${JSON.stringify(book)}; quant-trader: ${JSON.stringify(trade)}.
-The verdict states both: (1) the EVIDENCE outcome, PRESENT / ABSENT / INCONCLUSIVE, from the statistician's read_result; and (2) the D-code from the canonical legend in docs/RESEARCH_STATE.md for the gate that fired, if one did. If quant-reviewer found a correctness defect, the verdict is "not established" until it is fixed. If the effect is PRESENT (at the multiplicity-adjusted level read_result applies) and a gate failed, write the successor entry: the cheapest other expression of the same effect. Give the standalone and marginal readings side by side. Write results/research/<slug>/VERDICT.md, labelling every figure [V]/[S]/[U], and return its text. Do not edit docs/RESEARCH_STATE.md: list the exact ledger edit (counter, verdict row with its evidence outcome, successor row) for approval as CLAUDE.md requires. Report both deflated-Sharpe bars at the Declared N as the statistician station gave them (the registry's bars output, or the paper's marked PENDING until the series is recorded), and say which one gates under docs/SYSTEM.md §5, read at run time.`,
+Inputs: ${PREREG}; test: ${test}; beta-detector: ${JSON.stringify(beta)}; quant-reviewer: ${JSON.stringify(review)}; statistician: ${JSON.stringify(stats)}; portfolio-manager: ${JSON.stringify(book)}; quant-trader: ${JSON.stringify(trade)}; follow-up review: ${JSON.stringify(follow)}.
+The verdict states both: (1) the EVIDENCE outcome, PRESENT / ABSENT / INCONCLUSIVE, from the statistician's read_result; and (2) the D-code from the canonical legend in docs/RESEARCH_STATE.md for the gate that fired, if one did. If quant-reviewer found a correctness defect, the verdict is "not established" until it is fixed. If the effect is PRESENT (at the multiplicity-adjusted level read_result applies) and a gate failed, write the successor entry: the cheapest other expression of the same effect. Report the follow-up review in full, with its decision: the verdict is a reading of this test, and a failed gate never ends the idea by itself. Give the standalone and marginal readings side by side. Write results/research/<slug>/VERDICT.md, labelling every figure [V]/[S]/[U], and return its text. Do not edit docs/RESEARCH_STATE.md: list the exact ledger edit (counter, verdict row with its evidence outcome, successor row, and on SET_ASIDE the reasons and what would reopen it) for approval as CLAUDE.md requires. Report both deflated-Sharpe bars at the Declared N as the statistician station gave them (the registry's bars output, or the paper's marked PENDING until the series is recorded), and say which one gates under docs/SYSTEM.md §5, read at run time.`,
   { label: 'verdict', phase: 'Verdict' })
 need(verdict, 'the verdict writer')
-return { stage: 'test-complete', prereg_sha: A.prereg_sha, test, beta, review, stats, book, trade, verdict }
+return { stage: 'test-complete', prereg_sha: A.prereg_sha, test, beta, review, stats, book, trade, follow, verdict }

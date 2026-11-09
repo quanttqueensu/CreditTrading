@@ -23,6 +23,11 @@ export const meta = {
 // (a real barrier). Several ideas run as a pipeline, so one idea's card does
 // not wait for another's census.
 
+// CHANGED 2026-11-08 (team lead, docs/SYSTEM.md §5: research is not pass or fail).
+// Nothing is banned at the screen, power alone sets an idea aside only at very low
+// odds, and a card that sets an idea aside says what would reopen it and which other
+// angle is worth trying.
+
 const RAW = Array.isArray(args) ? args : [args]
 const IDEAS = RAW.filter(Boolean).map((a, i) =>
   typeof a === 'string' ? { id: `idea${i + 1}`, idea: a } : { id: a.id || `idea${i + 1}`, idea: a.idea })
@@ -36,7 +41,7 @@ const SCREEN = { type: 'object', properties: {
   domain: { type: 'string', enum: ['fund', 'credit', 'deal', 'equity', 'calendar'] }, notes: { type: 'string' } },
   required: ['proceed', 'domain', 'notes'] }
 const CARD = { type: 'object', properties: {
-  verdict: { type: 'string', enum: ['KILL', 'PASS_GATE', 'NEEDS_RULING', 'NOT_ESTABLISHED'] },
+  verdict: { type: 'string', enum: ['SET_ASIDE', 'PASS_GATE', 'NEEDS_RULING', 'NOT_ESTABLISHED'] },
   score_esf: { type: 'string' }, events_per_year: { type: 'string' }, counter: { type: 'string' },
   card_path: { type: 'string' }, summary: { type: 'string' } },
   required: ['verdict', 'summary'] }
@@ -45,7 +50,7 @@ const SPECIALIST = { fund: 'equity-research', credit: 'credit-situations-analyst
 
 const results = await pipeline(IDEAS,
   (x) => agent(`Idea ${x.id}: "${x.idea}".
-Run /graveyard; read docs/RESEARCH_STATE.md, both special-situations catalogues (results/events/SPECIAL_SITUATIONS_CATALOGUE_*_2026-10-15.md), results/events/SS_DESK_EXPANSION_2026-10-19.md and results/cef/EVENT_DRIVEN_POD_2026-10-12.md §4. Is it already dead, or already catalogued (give existing_id)? Name who is forced or slow on the other side, and the event clock with its first point-in-time source. proceed=false if it restates a dead idea with no new mechanism, or duplicates a catalogued id with nothing new. ${ZERO}`,
+Run /graveyard; read docs/RESEARCH_STATE.md, both special-situations catalogues (results/events/SPECIAL_SITUATIONS_CATALOGUE_*_2026-10-15.md), results/events/SS_DESK_EXPANSION_2026-10-19.md and results/cef/EVENT_DRIVEN_POD_2026-10-12.md §4. Has it failed before, or is it already catalogued (give existing_id)? Name who is forced or slow on the other side, and the event clock with its first point-in-time source. Nothing is banned: if it failed before, say what is different this time, and if that failure was a data error, how this deals with it first. proceed=false only if you cannot say what is different, or it duplicates a catalogued id with nothing new. ${ZERO}`,
     { label: `screen:${x.id}`, phase: 'Screen', agentType: 'event-scout', schema: SCREEN }),
 
   async (screen, x) => {
@@ -70,16 +75,16 @@ Run /graveyard; read docs/RESEARCH_STATE.md, both special-situations catalogues 
   async (prev) => {
     if (!prev || prev.stopped) return prev
     const design = await agent(`Idea ${prev.x.id}: "${prev.x.idea}". Screen: ${JSON.stringify(prev.screen)}. Census: ${JSON.stringify(prev.census)}.
-Design the test without running it: the daily target-weight panel for evaluate() in scripts/cef/band_frontier.py under shift(2), windows derived from the mechanism, the hedge and its pre-event beta window, the declared controls, the D4 specification, and a power table (MDE ~ 2.8 sigma / sqrt(N_independent), sigma from a measured or cited source). If the plausible effect is below the MDE at the census count, say KILL ON POWER. ${ZERO}`,
+Design the test without running it: the daily target-weight panel for evaluate() in scripts/cef/band_frontier.py under shift(2), windows derived from the mechanism, the hedge and its pre-event beta window, the declared controls, the D4 specification, and a power table (MDE ~ 2.8 sigma / sqrt(N_independent), sigma from a measured or cited source). If the plausible effect is below the MDE at the census count, say LOW POWER, give the estimated chance of a pass, and list redesign options, cheapest first. ${ZERO}`,
       { label: `design:${prev.x.id}`, phase: 'Design', agentType: 'event-econometrician' })
     return { ...prev, design }
   },
 
   async (prev) => {
     if (!prev) return null
-    if (prev.stopped) return { id: prev.x.id, verdict: 'KILL', summary: `stopped at screen: ${prev.screen ? prev.screen.notes : 'no screen result'}` }
-    const card = await agent(`Write the event card for idea ${prev.x.id}: "${prev.x.idea}" to results/events/cards/${prev.x.id}.md, in the event-scout card format (mechanism and loser; why it persists; why the live book is blind; clock and PIT source; expression and hedge; count; capacity; borrow; graveyard neighbour; D4 prior and negative control; counter; the zero-trial gate with its kill number and its status; E·S·F score; what is not established). Inputs: screen ${JSON.stringify(prev.screen)}; census ${JSON.stringify(prev.census)}; design ${JSON.stringify(prev.design)}.
-Verdict: KILL if any census seat or the power table closed it; NEEDS_RULING if it needs a counter or access ruling from the team lead; PASS_GATE only if every zero-trial gate passed on measured numbers; NOT_ESTABLISHED if a seat could not measure what the gate needs. Do not commit, do not touch docs/RESEARCH_STATE.md. ${ZERO}`,
+    if (prev.stopped) return { id: prev.x.id, verdict: 'SET_ASIDE', summary: `stopped at screen: ${prev.screen ? prev.screen.notes : 'no screen result'}` }
+    const card = await agent(`Write the event card for idea ${prev.x.id}: "${prev.x.idea}" to results/events/cards/${prev.x.id}.md, in the event-scout card format (mechanism and loser; why it persists; why the live book is blind; clock and PIT source; expression and hedge; count; capacity; borrow; graveyard neighbour; D4 prior and negative control; counter; the zero-trial screen with the number to watch and its status; E·S·F score; what is not established). Inputs: screen ${JSON.stringify(prev.screen)}; census ${JSON.stringify(prev.census)}; design ${JSON.stringify(prev.design)}.
+Verdict: SET_ASIDE only if a census seat found something no other angle gets round (no lawful data, a leg nobody will lend) or the chance of a pass is below 0.10 (docs/SYSTEM.md §5, 2026-11-08), and say what would reopen it and which other angle is worth trying; NEEDS_RULING if it needs a counter or access ruling from the team lead; PASS_GATE only if every zero-trial gate passed on measured numbers; NOT_ESTABLISHED if a seat could not measure what the gate needs. Do not commit, do not touch docs/RESEARCH_STATE.md. ${ZERO}`,
       { label: `card:${prev.x.id}`, phase: 'Card', agentType: 'event-scout', schema: CARD })
     return { id: prev.x.id, ...(card || { verdict: 'NOT_ESTABLISHED', summary: 'card agent returned nothing' }) }
   },

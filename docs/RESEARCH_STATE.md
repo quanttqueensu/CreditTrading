@@ -127,6 +127,11 @@ counter (156) covers all ETF-price/PD work done to date.
 >   on all 24 fills. Stage 0 is re-run CLEAR with the input hashes recorded: 649 events. `open` waits only on French's
 >   202610 vintage and the GO row.
 >
+> **2026-11-08: a verdict is a reading of one test, not the end of an idea** (team lead, `docs/SYSTEM.md` §5,
+> 2026-11-08). For research agents and the loop, nothing in the KILLED tables is banned. An idea can return if the agent
+> says what is different, and one that failed on a data error must deal with that error first. Every re-test and every
+> holdout look is a counted trial. Where the note below says "never re-test", read it as history.
+>
 > **2026-10-27: evidence outcomes beside D-codes** (team lead, `docs/SYSTEM.md` §5,
 > 2026-10-27; `results/research/DESK_METHOD_2026-10-27.md`). From today every
 > verdict records what the test could show, beside the gate that fired:
@@ -364,7 +369,8 @@ counter (156) covers all ETF-price/PD work done to date.
 
 > Moved verbatim on 2026-09-13 from §2.2 of `RESEARCH_AND_METHODOLOGY.md`
 > (git tag `pre-clean-slate`: `pre-clean-slate:_archive/docs/RESEARCH_AND_METHODOLOGY.md`, dated 2026-07-31).
-> Every verdict in the tables below uses these codes.
+> Every verdict in the tables below uses these codes. D1's last column was amended on 2026-11-08 (`docs/SYSTEM.md` §5):
+> a code names the gate that fired, and does not end the idea.
 
 "It didn't work" is not a diagnosis and cannot be acted on. We classify every
 failure into one of seven types, because the correct response is different for
@@ -372,7 +378,7 @@ each, and the wrong response wastes weeks.
 
 | code | what happened | what it means | what to do |
 |---|---|---|---|
-| **D1** | No edge even *before* trading costs | The effect does not exist | Kill it. No amount of tuning creates something from nothing |
+| **D1** | No edge even *before* trading costs | The effect does not appear | Check the data and the reasoning, and look for a missing angle. Set it aside, with reasons, if none remains |
 | **D2** | Edge exists but costs eat it | A trading problem, not an idea problem | Trade less often, in bigger, better-chosen bets |
 | **D3** | Great in old data, bad in new | Either overfitted, or the world changed | Check if the *mechanism* still holds. If yes, it's a regime shift. If no, we fooled ourselves |
 | **D4** | Good numbers, but it's just market exposure | A risk premium wearing a costume | Demote it. It is not skill and must never be counted as skill |
@@ -416,7 +422,7 @@ Heston/SABR (we trade no derivatives); Almgren-Chriss scheduling (one auction at
 
 ---
 
-## KILLED — never re-test without new data
+## KILLED so far — may return if the agent says what is different (team lead, 2026-11-08)
 | id | hypothesis | cause of death | evidence | date |
 |---|---|---|---|---|
 | credit_rv | cross-sectional price-residual RV on credit ETFs | **D1** gross edge NEGATIVE before costs (−0.19%/yr) | sealed holdout net SR −1.44, t −2.29 | 2026-07-30 |
