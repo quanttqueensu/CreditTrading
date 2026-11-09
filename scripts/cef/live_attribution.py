@@ -197,9 +197,21 @@ _cache and _out) are gitignored, and both steps refuse to write any file that
 git could see inside the repository (`_refuse_git_visible`, review 2026-11-02:
 the first build's default --out-dir was visible). A directory outside the
 repository is allowed. Whether any output may be committed is the team lead's
-call; until then nothing can be. fetch reads the cef book's keys only through the existing loader
-(`scripts/rv/alpaca_daily.make_client` -> `AlpacaClient.from_environment`, the
-file named by QUANTT_ENV_FILE) and never prints them.
+call; until then nothing can be.
+
+THE FETCH PATH IS INJECTABLE, AND HOLDS NO BROKER CLIENT (team lead, 2026-11-09)
+--------------------------------------------------------------------------------
+`fetch(client=...)` takes the reader it reads through. The report job
+(`scripts/ops/pnl_report.py`) passes `scripts/ops/alpaca_read.AlpacaReader`, built
+from the key the VM's secret service put in the process environment
+(`ALPACA_<BOOK>_KEY_ID` / `_SECRET_KEY`). The default for `python3 ... fetch` on a
+research machine is that same reader: it reads those two variables from the
+environment and never opens a key file (set them for the one command, for example
+`set -a; . <key file>; set +a`). It is GET only and imports nothing from quantt/; so
+this module's import closure holds no order code at all, even at function level, and
+`scripts/ops/tests/test_report_no_order_path.py` pins that. (Until 2026-11-09 the
+default went through `scripts/rv/alpaca_daily.make_client` -> `AlpacaClient`, whose
+module holds `submit_order`; that one edge is why the two reads were split.)
 """
 from __future__ import annotations
 
@@ -225,6 +237,10 @@ if str(REPO) not in sys.path:
 # Prod's distribution rules, reused rather than copied (module docstring). The
 # module imports only the standard library; it holds no order code.
 from quantt.session import dist_score as DS  # noqa: E402
+# The GET-only reader the fetch path uses (module docstring, USAGE). It holds no order
+# code and imports nothing from quantt/; scripts/ops/tests/test_report_no_order_path.py
+# pins that nothing this module imports reaches the broker client.
+from scripts.ops import alpaca_read as AR  # noqa: E402
 
 NY = ZoneInfo("America/New_York")
 BOOK = "cef"
@@ -1284,14 +1300,13 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
     before the source is read, so it errs early: dist_score's "fetched after the
     close of the session following D" can only be judged false too often.
     """
-    from scripts.rv import alpaca_daily as AD
     _refuse_data_dir(cache_dir)
     _refuse_git_visible(Path(cache_dir), list(FILES.values()))
-    client = AD.make_client() if client is None else client
+    client = AR.AlpacaReader.from_environment(BOOK) if client is None else client
     nav_fetcher = yf_navs if nav_fetcher is None else nav_fetcher
     dist_check_fetcher = yf_dividends if dist_check_fetcher is None else dist_check_fetcher
     now = dt.datetime.now(dt.timezone.utc) if now is None else now
-    asof = AD.last_complete_date(now) if asof is None else asof
+    asof = AR.last_complete_date(now) if asof is None else asof
     if asof <= since:
         raise AttributionError(f"asof {asof} must be after since {since}")
 
@@ -1333,7 +1348,7 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
     else:
         flat = flat_by_constant_equity(points, parsed, since)
 
-    bars = AD.fetch_bars(client, syms, first, last)
+    bars = AR.fetch_bars(client, syms, first, last)
     d_lo = first - dt.timedelta(days=DIST_QUERY_PAD_DAYS)
     d_hi = last + dt.timedelta(days=DIST_QUERY_PAD_DAYS)
     dists = [dict(e, ex_date=e["ex_date"].isoformat()) for e in client.distributions(syms, d_lo, d_hi)]
@@ -1346,7 +1361,6 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
     check, check_empty = dist_check_fetcher(syms)
     parse_dist_check(check)                             # raises on a bad row before writing
 
-    from quantt.broker.alpaca import CORPORATE_ACTION_TYPES
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     (cache_dir / FILES["fills"]).write_text(json.dumps(fills, indent=1))
@@ -1362,23 +1376,23 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
         "book": BOOK, "asof": last.isoformat(), "fetched_at_utc": now.isoformat(),
         "flat_start": flat,
         "fills": {"source": "GET /v2/account/activities/FILL, one call per calendar day "
-                            "(AlpacaClient.activities_fills)",
+                            "(AlpacaReader.activities_fills)",
                   "requested_start": since.isoformat(), "requested_end": last.isoformat(),
                   "n": len(fills)},
         "eod": {"source": "GET /v2/account/portfolio/history timeframe=1D "
-                          "(AlpacaClient.eod_equity_history; stamps mapped to NY sessions)",
+                          "(AlpacaReader.eod_equity_history; stamps mapped to NY sessions)",
                 "requested_start": since.isoformat(), "first_point": first.isoformat(),
                 "next_session": next_session.isoformat(),
-                "next_session_source": "GET /v2/calendar (AlpacaClient.calendar)"},
+                "next_session_source": "GET /v2/calendar (AlpacaReader.calendar)"},
         "bars": {"source": "GET data.alpaca.markets/v2/stocks/bars timeframe=1Day feed=sip "
-                           "adjustment=raw (scripts/rv/alpaca_daily.fetch_bars)",
+                           "adjustment=raw (scripts/ops/alpaca_read.fetch_bars)",
                  "range": [first.isoformat(), last.isoformat()]},
         "distributions": {"source": "GET data.alpaca.markets/v1/corporate-actions "
-                                    "(AlpacaClient.distributions)",
+                                    "(AlpacaReader.distributions)",
                           "kinds": list(DIST_KINDS), "query": [d_lo.isoformat(), d_hi.isoformat()]},
         "corporate_actions": {"source": "GET data.alpaca.markets/v1/corporate-actions, no symbols "
-                                        "filter, data_quality=all (AlpacaClient.corporate_actions)",
-                              "types": sorted(CORPORATE_ACTION_TYPES),
+                                        "filter, data_quality=all (AlpacaReader.corporate_actions)",
+                              "types": sorted(AR.CORPORATE_ACTION_TYPES),
                               "query": [c_lo.isoformat(), c_hi.isoformat()]},
         "distributions_check": {"source": "yfinance Ticker.dividends, keyless, every row (the "
                                           "vendor of data/cef/cef_distributions.parquet, prod's "
