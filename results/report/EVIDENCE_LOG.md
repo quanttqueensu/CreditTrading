@@ -4035,6 +4035,59 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: current. Not a prod release: no tag, and prod's units, clone and state were not touched. The figures are from the install's own output, read once over ssh and not stored in the repository
 
+### E-2026-11-10-03 · Result: the equity turn of the month is set aside as a sleeve, because SPY on every other session scores the same Sharpe
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - window (last session of a month and the next three), long SPY: gross Sharpe 0.48, t 2.78, 1993-02-05 to 2026-11-09, 8,498 sessions of which 1,605 active; shift(2), no cost modelled [S]
+  - halves 0.47 and 0.49 [S]
+  - control, SPY on every other session: Sharpe 0.48, t 2.80 [S]
+  - mean return per active day: 7.9bp in the window against 4.0bp outside it [S]
+- source: `results/ideas/2026-11-10_turn_of_month_eq.md` @ `852a0ab` (added by this commit); `results/ideas/turn_of_month_eq/results.json` @ `852a0ab` (added by this commit)
+- supports: §3
+- status: current. One run, not independently re-derived
+
+### E-2026-11-10-04 · Result: the Treasury auction concession is present but modest, a third of it is the month-end trade, and it is flat since 2023; explored, not promoted
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - short IEF or TLT over the two sessions before a 7-, 10-, 20- or 30-year auction and long the two after: gross Sharpe 0.57, t 2.77, 2002-08-14 to 2026-07-22; 482 IEF and 291 TLT auctions; shift(2), no cost modelled [S]
+  - halves 0.59 and 0.57; placebo dates ten sessions later 0.03 [S]
+  - with the last three sessions of each month removed: Sharpe 0.39, t 1.89 [S]
+  - 2023-01-03 to 2026-07-22: Sharpe −0.02 over 890 sessions; 2020–22: 1.40 [S]
+  - announcement dates are not in the panel, so the four-session notice the rule needs is unverified [U]
+- source: `results/ideas/2026-11-10_ust_auction_cycle.md` @ `852a0ab` (added by this commit); `results/ideas/ust_auction_cycle/results.json` @ `852a0ab` (added by this commit)
+- supports: §3
+- status: current. One run, not independently re-derived
+
+### E-2026-11-10-05 · Result: short-term reversal within industry on the 1,500 largest US stocks earns a gross Sharpe of 0.96 over 2000 to 2025, mostly in high-volatility sessions, and clears Explore
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - gross Sharpe 0.96, t 4.90, 6.84%/yr at 7.10% vol, 2000-01-12 to 2025-12-31, 6,532 sessions, about 1,430 names a day; shift(2), unit gross, no cost modelled [S]
+  - early half 1.26; late half 0.67; 2016–19 −0.13 [S]
+  - control, the signal 21 sessions stale: Sharpe 0.04; without the industry step: 0.79 [S]
+  - sessions with market volatility above its median: Sharpe 1.35 (12.36%/yr); below: 0.32 (1.35%/yr) [S]
+  - turnover 160.1 times a year; beta to the equal-weighted market 0.081 [S]
+  - at $10M, the median position is 0.005% of the stock's 21-session average dollar volume and the 95th percentile 0.058% (2024–25) [S]
+- source: `results/ideas/2026-11-10_st_reversal_wide.md` @ `852a0ab` (added by this commit); `results/ideas/st_reversal_wide/results.json` @ `852a0ab` (added by this commit)
+- supports: §3
+- status: current. The reproducer was run three times with identical output; not independently re-derived. Not on shadow: no live equity panel exists
+
+### E-2026-11-10-06 · Incident: numexpr corrupted the first wide-universe run's weights on the laptop, differently on each run; it is now off for every Explore script
+- kind: incident
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - the frame was 6,539 sessions by 6,882 stocks, about 45 million cells, above numexpr's one-million-cell threshold [S]
+  - one call of the same function returned 0 non-finite weights and the next returned some, on identical inputs [S]
+- source: `scripts/research/explore.py` @ `852a0ab` (the option and its comment are added by this commit); `scripts/events/numexpr_fault.py` @ `852a0ab`
+- supports: §5
+- status: current. No result was recorded from a corrupted run: the harness refused the infinite weight. `CLAUDE.md` landmine 11 is added by this commit
+
 ### E-2026-11-09-60 · CEF trial 55's three pre-activation fixes from the owner's release-check: late_market only, a plan the buying-power fit emptied is not sent, and the drift guard compares the K-line values
 - kind: method
 - era: ALPACA
