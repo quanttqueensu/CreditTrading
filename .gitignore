@@ -114,3 +114,16 @@ results/events/cef_corp_action_events_full.csv
 # This repository is public; the module also refuses any path git can see.
 results/cef/exposure_readout/_cache/
 results/cef/exposure_readout/_out/
+
+# Taken out of the tree on 2026-11-09 because this repository is public. The first four
+# patterns are row-level tables derived from licensed CRSP data (permnos, prices, share
+# codes, CRSP-based liquidity per name). The last two are the table and column listings
+# of the R2 mirror, which scripts/data/r2_catalog.py and
+# scripts/events/ssx/ssx_data_r2_inventory.py rebuild on disk. Patterns, not single
+# files, so that a re-run with a new date stays out of git as well.
+results/data/cef_crosscheck_crsp_*.nonagree.csv
+results/data/universe_*/universe_map.csv
+results/xasset/**/slate_feasibility_*.csv
+results/cef/c4/c4_crsp_identity_*.csv
+results/data/R2_CATALOG.md
+results/events/ssx/ssx_data/[Rr]2_[Ff][Uu][Ll][Ll]_[Ii][Nn][Vv][Ee][Nn][Tt][Oo][Rr][Yy]*

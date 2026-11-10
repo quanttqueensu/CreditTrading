@@ -3944,3 +3944,23 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
 - supports: §1, §5
 - status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
+
+### E-2026-11-09-01 · Four row-level CRSP tables and the R2 inventories leave the repository and are git-ignored
+- kind: incident
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (a repository clean-up asked for by the team lead; no figure)
+- source: `.gitignore` @ `3595ec8` (the block is added by this commit, on top of that main)
+- supports: §5
+- status: current
+
+### E-2026-11-09-02 · Rulings on the repository's public exposure: secret scanning and push protection on, the halt alert's address moves to config, the admin list stays as it is
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (rulings by the team lead: "Turn both on", "Gmail in ops/halt.py", "Keep all four")
+- source: `.gitignore` @ `3595ec8` (the section is added by this commit, on top of that main)
+- supports: §5
+- status: current. The address change is PR #73

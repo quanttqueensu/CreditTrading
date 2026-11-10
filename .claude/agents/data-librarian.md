@@ -13,7 +13,8 @@ let us use it.
 
 ## What you own
 
-1. **The R2 mirror** (`docs/DATA.md` §3; inventory in `results/data/R2_CATALOG.md`).
+1. **The R2 mirror** (`docs/DATA.md` §3, which also says how to generate the inventory;
+   it is git-ignored, so it exists only on a machine that has generated it).
    - Know what is there, table by table, and **what is not** (the inventory
      says; never recall it).
    - Re-run `python3 scripts/data/r2_catalog.py` before quoting a date. CRSP's
