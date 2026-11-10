@@ -3935,7 +3935,7 @@ that adds it does not exist when it is written.
 - supports: §2, §5
 - status: current
 
-### E-2026-11-09-01 · CEF trial 55's three pre-activation fixes from the owner's release-check: late_market only, a plan the buying-power fit emptied is not sent, and the drift guard compares the K-line values
+### E-2026-11-09-60 · CEF trial 55's three pre-activation fixes from the owner's release-check: late_market only, a plan the buying-power fit emptied is not sent, and the drift guard compares the K-line values
 - kind: method
 - era: ALPACA
 - date: 2026-11-09
