@@ -4007,3 +4007,17 @@ that adds it does not exist when it is written.
 - source: `results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md` @ `d98fa5e` (the amendment is added by this commit); `docs/SYSTEM.md` @ `d98fa5e` (the row is added by this commit); `shadow/sources.py` @ `d98fa5e`
 - supports: §4, §5
 - status: current. Supersedes the "otherwise empty paper account" part of E-2026-11-09-03 (2026-11-09). One run from the laptop, not independently repeated
+
+### E-2026-11-10-01 · Result: month-end Treasury demand (long IEF over the last three sessions of a month) earns a gross Sharpe of 1.07 over 2002-09 to 2026-10-09, in both halves and all five eras, and goes on shadow
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - gross Sharpe 1.07, t 5.26, 2.63%/yr at 2.45% vol, 6,064 sessions of which 861 in the window; shift(2), unit weight, no cost modelled; panel to 2026-10-09 [S]
+  - early half (to 2014-09-19) Sharpe 1.01; late half 1.15 [S]
+  - eras: 2002–08 1.04; 2009–15 0.97; 2016–19 1.76; 2020–22 1.08; 2023 to 2026-10-09 0.88 [S]
+  - control, IEF on every other session: Sharpe 0.10, t 0.49 [S]
+  - position against IEF's 2026 median daily dollar volume: 0.14% at $1M, 0.68% at $5M, 1.35% at $10M [S]
+- source: `results/ideas/2026-11-10_month_end_treasury.md` @ `e36ee83` (added by this commit); `results/ideas/month_end_treasury/results.json` @ `e36ee83` (added by this commit)
+- supports: §3, §4
+- status: current. One run, not independently re-derived. The shadow book `month_end_ief` starts 2026-11-10; its figures will be SIMULATED

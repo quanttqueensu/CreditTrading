@@ -390,3 +390,10 @@ from a named source; [doc] copied from a named note.
 - **Found, later.** The R2 data API reads from the laptop: CRSP's daily file runs to 2025-12-31 [V: `results/mission/PHASE0_2026-11-09.md` §2].
 - **Prod.** No change. The VM is armed at `release-20261104-1` [V: `python3 -m ops.orient`].
 - **Live.** Core: verify PASS, 12 of 12 filled; official pending; snapshot equity $98,838.46 at the 2026-11-09 close [V: `python3 -m ops.orient`].
+
+## 2026-11-10 (Tue)
+
+**The first shadow book** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-01).
+- **Research.** Month-end Treasury demand, long IEF over the last three sessions of each month, re-run gross on the harness (`results/ideas/2026-11-10_month_end_treasury.md`): Sharpe 1.07 over 2002-09 to 2026-10-09, both halves and all five eras positive, and IEF on every other session earns 0.10 [V: `python3 results/ideas/month_end_treasury/explore.py`]. It is the old XASSET-X3 with its rule unchanged.
+- **Shadow.** `shadow/books/month_end_ief.json`, $1M, started 2026-11-10. Its first weighted decisions are 2026-11-23 to 11-25. Simulated: it sends no order.
+- **Prod.** PRs #71 and #72 merged by the team lead on 2026-11-09 and 11-10. No release.
