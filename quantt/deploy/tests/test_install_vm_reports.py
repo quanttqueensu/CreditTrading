@@ -287,6 +287,22 @@ def test_the_pnl_units_read_only_their_own_book_key_file(rw, capsys):
         assert f"OnCalendar=Mon,Tue,Wed,Thu,Fri *-*-* {h:02d}:{m:02d}:00" in timer
 
 
+def test_the_pnl_key_services_cannot_write_the_clone(rw, capsys):
+    """The key services run python from the prod clone. The job they serve uses -B and a
+    read-only clone; these wrote .pyc files into it (review, 2026-11-09; gitignored, so the
+    clean-clone check never said). Fails on the parent commit. The SMTP service is #65's and
+    is untouched, and the books' own key services stay byte-identical (the pin above)."""
+    rc, out = rw.reports("--apply", capsys=capsys)
+    assert rc == 0, out
+    for book in ("cef", "c4"):
+        text = rw.layout.unit_path(iv.REPORT_PNL_KEY_UNITS[book]).read_text()
+        body = [ln for ln in text.splitlines() if not ln.startswith("#")]
+        assert "Environment=PYTHONDONTWRITEBYTECODE=1" in body
+        assert f"ReadOnlyPaths={rw.layout.prod_dir}" in body
+    smtp = rw.layout.unit_path(iv.REPORT_SECRET_UNIT).read_text()
+    assert "ReadOnlyPaths" not in smtp and "PYTHONDONTWRITEBYTECODE" not in smtp
+
+
 def test_the_dataqa_and_risk_units_stay_key_free_and_smtp_is_only_for_risk(rw, capsys):
     rc, out = rw.reports("--apply", capsys=capsys)
     assert rc == 0, out

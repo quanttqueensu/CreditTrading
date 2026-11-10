@@ -1952,6 +1952,12 @@ def build_report_plan(*, tag: str, vault: str, layout: Layout, python: Path, ena
         key_expected["Service"] = [(k, v.replace("/secret.out.log", "/reports-pnl-keys.out.log")
                                     .replace("/secret.err.log", "/reports-pnl-keys.err.log"))
                                    for k, v in key_expected["Service"]]
+        # The pnl job's own promise (-B, a read-only clone) applied to its key service. In these
+        # two units only: the books' own secret services and `secret_command` are not changed.
+        svc = key_expected["Service"]
+        svc.insert(svc.index(("Environment", f"PYTHONUNBUFFERED={env['PYTHONUNBUFFERED']}")) + 1,
+                   ("Environment", "PYTHONDONTWRITEBYTECODE=1"))
+        svc.append(("ReadOnlyPaths", str(prod)))
         unit = key_vm.secret_unit
         expected[unit] = key_expected
         key_values = {"TAG": tag, "PYTHON": python, "PROD_DIR": prod, "USER": SERVICE_USER, "PATH": env["PATH"],
@@ -2037,7 +2043,8 @@ def build_report_plan(*, tag: str, vault: str, layout: Layout, python: Path, ena
     runtime = {REPORT_SECRET_UNIT: {"env": [f"PATH={env['PATH']}", f"PYTHONUNBUFFERED={env['PYTHONUNBUFFERED']}"],
                                     "exec": " ".join(secret_command(python, vault, REPORT_VM))}}
     for book, key_vm in REPORT_PNL_KEYS.items():
-        runtime[key_vm.secret_unit] = {"env": [f"PATH={env['PATH']}", f"PYTHONUNBUFFERED={env['PYTHONUNBUFFERED']}"],
+        runtime[key_vm.secret_unit] = {"env": [f"PATH={env['PATH']}", f"PYTHONUNBUFFERED={env['PYTHONUNBUFFERED']}",
+                                               "PYTHONDONTWRITEBYTECODE=1"],
                                        "exec": " ".join(secret_command(python, vault, key_vm))}
     for vj in REPORT_JOBS:
         book = vj.unit.split("-")[1]
