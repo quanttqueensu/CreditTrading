@@ -1189,6 +1189,41 @@ def test_the_c4_factor_set_reads_c4s_own_spec_never_the_cores():
     assert fam == dict(zip(u["ticker"], u["family"]))
 
 
+def test_the_c4_review_line_moves_with_c4s_own_spec_not_the_cores(tmp_path, monkeypatch):
+    """Pin (no code changes with it): the review line is REVIEW_FRACTION x C4's OWN vol target,
+    read from C4's spec (team lead, 2026-11-09). Both specs hold the same target today, so a
+    build that read the core's constant passed every other test (review, 2026-11-09); here C4's
+    spec is moved alone, and the line, c/target and a REVIEW flag must move with it. Replace
+    `float(f["vol_target_annual"])` in `factor_set` with `VOL_TARGET` and this test fails."""
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    dates = list(SESS[150:152])
+    held = {"AAA": 2000.0, "BBB": -1000.0, "CCC": 500.0}
+    base = _c4_fs()
+    probe = ER.readout(px, _positions(dates, held, equity=250_000.0), C4_NAMES, window=W, fs=base)
+    c0 = probe.exposure.query("factor == 'EQUITY'").iloc[0]["contrib_frac"]
+    # Equity set so that EQUITY sits between the two lines: above REVIEW_FRACTION x the spec's
+    # target, below REVIEW_FRACTION x (the spec's target x 4/3). contrib_frac is linear in 1/equity.
+    aim = ER.REVIEW_FRACTION * base.vol_target * 7 / 6
+    P = _positions(dates, held, equity=250_000.0 * c0 / aim)
+    alt = tmp_path / "c4.json"
+    spec = json.loads(ER.C4_SPEC.read_text())
+    spec["frozen"]["vol_target_annual"] = base.vol_target * 4 / 3
+    alt.write_text(json.dumps(spec))
+
+    before = ER.readout(px, P, C4_NAMES, window=W, fs=base).exposure.query("factor == 'EQUITY'").iloc[0]
+    assert before["contrib_frac"] == pytest.approx(aim) and before["review"] == "REVIEW"
+    monkeypatch.setattr(ER, "C4_SPEC", alt)
+    moved = _c4_fs()
+    assert moved.vol_target == pytest.approx(base.vol_target * 4 / 3) and moved.vol_target != ER.VOL_TARGET
+    after = ER.readout(px, P, C4_NAMES, window=W, fs=moved).exposure.query("factor == 'EQUITY'").iloc[0]
+    assert after["contrib_frac"] == pytest.approx(before["contrib_frac"])     # a fact of the book
+    assert after["contrib_of_target"] == pytest.approx(before["contrib_of_target"] * 3 / 4)
+    assert after["review"] == "within"
+    # and the core's own set never read the C4 spec it was handed nothing about
+    assert ER.factor_set("cef").vol_target == ER.VOL_TARGET
+
+
 def test_c4_without_a_lag_raises_naming_the_rule(monkeypatch):
     R = _c4_returns()
     px = _px_from_returns(R)
