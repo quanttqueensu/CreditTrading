@@ -230,6 +230,34 @@ def test_a_missing_nav_makes_only_the_split_unmeasured_named(tmp_path):
     assert rep["status"] == "OK"                           # the attribution still reconciles
 
 
+def test_the_nav_source_the_job_builds_uses_each_books_own_symbols(monkeypatch):
+    """The job's default NAV source goes through the book's symbols; on the parent commit it
+    asked the core's X rule for C4 too, and 15 funds' split was UNMEASURED for ever."""
+    asked = []
+
+    class YF:
+        def Ticker(self, s):
+            asked.append(s)
+            return self
+
+        def history(self, **kw):
+            return pd.DataFrame({"Close": []})
+
+    monkeypatch.setitem(__import__("sys").modules, "yfinance", YF())
+    P.safe_nav_fetcher([], "c4")(["ADX"], D(2026, 11, 2), D(2026, 11, 3))
+    P.safe_nav_fetcher([], "cef")(["PDI"], D(2026, 11, 2), D(2026, 11, 3))
+    assert asked == ["XADEX", "XPDIX"]
+
+
+def test_an_unknown_name_costs_only_its_nav_named(monkeypatch):
+    """A C4 name outside the map: the NAV source fails, named, and the split is UNMEASURED."""
+    monkeypatch.setitem(__import__("sys").modules, "yfinance", object())
+    gaps: list = []
+    rows, empty = P.safe_nav_fetcher(gaps, "c4")(["ZZZZ"], D(2026, 11, 2), D(2026, 11, 3))
+    assert rows.empty and empty == ["ZZZZ"]
+    assert len(gaps) == 1 and "ZZZZ" in gaps[0] and "c4" in gaps[0]
+
+
 def test_an_unreconciled_session_is_said_loudly(tmp_path):
     rep, code = run(tmp_path, reader=FakeReader(tamper={TRADED[1]: 5.0}))
     att = rep["attribution"]

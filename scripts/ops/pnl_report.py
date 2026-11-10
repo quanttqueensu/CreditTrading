@@ -49,7 +49,9 @@ A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallb
   * a fund's NAV not yet published at 20:30: the NAV/discount split is UNMEASURED for that
     name-day, named; hold, fill, fees and the reconciliation do not need NAV and stay
     complete; a cumulative NAV or discount part covers only sessions with every NAV, and
-    says so.
+    says so. Each book's NAV symbols are its own (`live_attribution.nav_symbols`; C4's come
+    from the committed map, 15 of its 74 funds not being on the core's X rule), so a gap
+    here is a NAV the vendor has not served, never a symbol the wrong book's rule invented.
   * a distribution that cannot be resolved (the second source not current until the next
     session closes, `dist_score`): UNMEASURED, never zero.
   * yfinance unavailable for a held name or a factor ETF: the factor block is UNMEASURED
@@ -343,16 +345,17 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
 
 # ---------------------------------------------------------------- the report
 
-def safe_nav_fetcher(gaps: list):
-    """yfinance NAVs (`live_attribution.yf_navs`), or no rows on a failure, named: a fund's
-    NAV may not be published yet and yfinance can be down; the split is then UNMEASURED for
-    those name-days, and hold, fill, fees and the reconciliation do not depend on it."""
+def safe_nav_fetcher(gaps: list, book: str):
+    """yfinance NAVs (`live_attribution.yf_navs`, at `book`'s own NAV symbols), or no rows on
+    a failure, named: a fund's NAV may not be published yet and yfinance can be down; the split
+    is then UNMEASURED for those name-days, and hold, fill, fees and the reconciliation do not
+    depend on it."""
     def f(symbols, start, end):
         try:
-            return LA.yf_navs(symbols, start, end)
+            return LA.yf_navs(symbols, start, end, book=book)
         except Exception as e:
-            gaps.append(f"NAV source (yfinance X<ticker>X) failed: {type(e).__name__}: {e}; the NAV/discount "
-                        f"split is UNMEASURED on every held name-day")
+            gaps.append(f"NAV source (yfinance, book {book}'s NAV symbols) failed: {type(e).__name__}: {e}; the "
+                        f"NAV/discount split is UNMEASURED on every held name-day")
             return pd.DataFrame(columns=["date", "ticker", "nav"]), list(symbols)
     return f
 
@@ -390,7 +393,7 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
     """One book's report: writes `<state>/reports/pnl/<asof>.{md,json}`. Returns (report, code)."""
     now = now_utc or dt.datetime.now(dt.timezone.utc)
     gaps: list = []
-    nav_f = nav_fetcher or safe_nav_fetcher(gaps)
+    nav_f = nav_fetcher or safe_nav_fetcher(gaps, book)
     div_f = dist_check_fetcher or safe_dist_fetcher(gaps)
     code = EXIT_OK
     att: dict

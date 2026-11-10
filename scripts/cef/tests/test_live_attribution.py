@@ -752,6 +752,91 @@ def test_the_c4_groups_are_the_specs_family_map():
         LA.load_groups_for("xyz")
 
 
+class FakeYF:
+    """yfinance with the network replaced: records every Ticker asked for and returns a row a
+    day, or none when the symbol is in `empty`."""
+
+    def __init__(self, empty=()):
+        self.asked = []
+        self.empty = set(empty)
+
+    def Ticker(self, symbol):
+        self.asked.append(symbol)
+        return self
+
+    def history(self, start, end, auto_adjust):
+        assert auto_adjust is False                  # the raw Close, as fetch_daily reads it
+        if self.asked[-1] in self.empty:
+            return pd.DataFrame({"Close": []})
+        return pd.DataFrame({"Close": [10.0, 10.1]}, index=pd.DatetimeIndex(["2026-11-02", "2026-11-03"]))
+
+
+@pytest.fixture
+def fake_yf(monkeypatch):
+    f = FakeYF()
+    monkeypatch.setitem(sys.modules, "yfinance", f)
+    return f
+
+
+def test_c4_navs_are_read_at_the_maps_symbols_not_the_core_x_rule(fake_yf):
+    """15 of C4's 74 funds are not on the X rule (the review's finding, 2026-11-09). Asking
+    XADXX gets yfinance's nothing, and the name's split is then UNMEASURED for ever. Fails on
+    the parent commit, which asked the X rule of every name."""
+    frame, empty = LA.yf_navs(["ADX", "TY", "BME"], D(2026, 11, 2), D(2026, 11, 3), book="c4")
+    assert fake_yf.asked == ["XADEX", "XBMEX", "XTYCX"]          # sorted by price ticker; the map's symbols
+    assert "XADXX" not in fake_yf.asked and "XTYX" not in fake_yf.asked
+    assert set(frame["ticker"]) == {"ADX", "TY", "BME"} and empty == []      # labelled by the price ticker
+
+
+def test_the_core_keeps_the_x_rule_by_default(fake_yf):
+    """Pin (passes before and after): the core's fetch asks exactly what it always did."""
+    LA.yf_navs(["PDI", "AWF"], D(2026, 11, 2), D(2026, 11, 3))
+    assert fake_yf.asked == ["XAWFX", "XPDIX"]
+
+
+def test_a_c4_name_the_map_lacks_raises_naming_it(fake_yf):
+    with pytest.raises(LA.AttributionError, match="ZZZZ") as e:
+        LA.yf_navs(["ADX", "ZZZZ"], D(2026, 11, 2), D(2026, 11, 3), book="c4")
+    assert "XZZZZX" not in str(e.value) and fake_yf.asked == []        # the X rule is not tried for it
+
+
+def test_the_c4_nav_map_copy_equals_data_books():
+    """The licence for the copy (`c4_nav_symbols` docstring): data_books cannot be imported
+    from the job's closure, so the two read the same committed file and must agree."""
+    from scripts.cef import data_books as DB
+    assert LA.c4_nav_symbols() == DB.c4_nav_symbols()
+    assert sum(1 for t, s in LA.c4_nav_symbols().items() if s != f"X{t}X") == 15
+
+
+@pytest.mark.parametrize("rows,match", [
+    ("ticker,nav_symbol\nADX,XADEX\nADX,XADEX\n", "listed twice"),
+    ("ticker,nav_symbol\nADX,\n", "empty or is the price ticker"),
+    ("ticker,nav_symbol\nADX,ADX\n", "empty or is the price ticker"),
+    ("ticker,other\nADX,XADEX\n", "needs columns"),
+    ("ticker,nav_symbol\nADX,XADEX\n", "does not cover"),
+], ids=["dup", "empty", "self", "columns", "coverage"])
+def test_a_bad_c4_nav_map_raises(tmp_path, rows, match):
+    bad = tmp_path / "map.csv"
+    bad.write_text(rows)
+    with pytest.raises(LA.AttributionError, match=match):
+        LA.c4_nav_symbols(bad)
+
+
+def test_c4_fetch_reads_the_map_and_says_so_in_the_manifest(tmp_path, monkeypatch, fake_yf):
+    """`fetch` with no NAV source injected: book c4 reaches yf_navs for book c4, and the
+    manifest names the map. FakeClient's fills are AAA, BBB and CCC, so the map is swapped for
+    a small one. Fails on the parent commit (no such book argument reaches yf_navs)."""
+    uni = tmp_path / "u.csv"
+    uni.write_text("ticker,nav_symbol\nAAA,XAAPX\nBBB,XBBQX\nCCC,XCCRX\n")
+    monkeypatch.setattr(LA, "C4_NAV_MAP", uni)
+    monkeypatch.setattr(LA, "load_groups_for", lambda book: dict(FAMILIES))
+    LA.fetch(tmp_path / "c4", since=PRE[0], asof=S4, client=FakeClient(), dist_check_fetcher=fake_dividends,
+             now=CHECK_AT, book="c4")
+    assert set(fake_yf.asked) == {"XAAPX", "XBBQX", "XCCRX"}
+    man = json.loads((tmp_path / "c4" / LA.FILES["manifest"]).read_text())
+    assert "u.csv" in man["nav"]["source"] and "X{tk}X" not in man["nav"]["source"]
+
+
 def test_load_cache_reads_the_book_from_the_manifest_and_c4_fetch_needs_c4_keys(tmp_path, monkeypatch):
     # c4's cache records its book; its default groups would be the family map, and an
     # explicit grp is what `analyse` passes through

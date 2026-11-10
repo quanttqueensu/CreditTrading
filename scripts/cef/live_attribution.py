@@ -209,6 +209,15 @@ was measured on the cef account (FEES above). C4's own FEE activities are compar
 session in the nightly report (`scripts/ops/pnl_report.py`). The core's output does not
 move: `analyse` on a cef cache is byte-identical before and after this change.
 
+C4's NAV SYMBOLS ARE NOT THE CORE'S (review, 2026-11-09). The core's NAV rule is `X<TK>X`.
+C4's is the committed map `results/cef/c4/c4_nav_symbols_2026-10-14.csv`, read by
+`scripts/cef/fetch_daily.py` through `data_books.c4_nav_symbols`: 15 of its 74 funds use
+another symbol (ADX XADEX, TY XTYCX, QQQX XQQQX and 12 more), and yfinance returned no
+rows for the X-rule symbol of any of those 15 [V 2026-11-09]. Asking the X rule for them
+made C4's NAV/discount split permanently UNMEASURED whenever one was held, under a
+message that read like a late NAV. `nav_symbols` holds the rule per book, and a C4 name the
+map lacks raises, naming it: the X rule is never tried as a stand-in.
+
 THE FETCH PATH IS INJECTABLE, AND HOLDS NO BROKER CLIENT (team lead, 2026-11-09)
 --------------------------------------------------------------------------------
 `fetch(client=...)` takes the reader it reads through, and `book=` says which account.
@@ -236,6 +245,7 @@ from bisect import bisect_right
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -258,6 +268,7 @@ BOOK = "cef"
 BOOKS = ("cef", "c4")
 C4_SPEC = REPO / "ops" / "specs" / "c4_families.frozen.json"
 C4_GROUP_SOURCE = "ops/specs/c4_families.frozen.json level_signal.family_of"
+C4_NAV_MAP = REPO / "results" / "cef" / "c4" / "c4_nav_symbols_2026-10-14.csv"
 GROUP_SOURCE = {"cef": "data/cef/cef_universe.csv `grp`", "c4": C4_GROUP_SOURCE}
 # Both gitignored (.gitignore); `_refuse_git_visible` enforces it at write time.
 DEFAULT_CACHE = REPO / "results" / "cef" / "live_attribution" / "_cache"
@@ -596,6 +607,57 @@ def load_groups_for(book: str) -> dict:
     if not isinstance(fam, dict) or not fam:
         raise AttributionError(f"{C4_SPEC}: frozen.level_signal.family_of is missing or empty")
     return dict(fam)
+
+
+def c4_nav_symbols(path: Path | None = None) -> dict:
+    """{ticker: yfinance NAV symbol} for C4's frozen universe, from the committed map.
+
+    A COPY OF `scripts/cef/data_books.c4_nav_symbols`, and a test holds the two equal. It
+    cannot be imported: data_books's function-level imports reach `scripts.cef.fetch_daily`
+    and through it `requests`, which the report job's import closure forbids
+    (`scripts/ops/tests/test_report_no_order_path.py`). Refuses the same maps data_books does,
+    so that a bad map fails here and not as a silent NAV gap: a repeated ticker, an empty
+    symbol, the price ticker as its own symbol (a price is not a NAV), two funds on one
+    symbol, or a universe that is not exactly the spec's."""
+    p = C4_NAV_MAP if path is None else Path(path)
+    if not p.is_file():
+        raise AttributionError(f"C4's NAV-symbol map is missing at {p}")
+    t = pd.read_csv(p, dtype=str, keep_default_na=False)
+    missing = {"ticker", "nav_symbol"} - set(t.columns)
+    if missing:
+        raise AttributionError(f"{p.name}: needs columns ticker and nav_symbol; {sorted(missing)} absent")
+    out: dict = {}
+    for tk, sym in zip(t["ticker"].str.strip(), t["nav_symbol"].str.strip()):
+        if tk in out:
+            raise AttributionError(f"{p.name}: {tk} is listed twice")
+        if not sym or sym == tk:
+            raise AttributionError(f"{p.name}: {tk}'s NAV symbol {sym!r} is empty or is the price ticker")
+        out[tk] = sym
+    uni = set(load_groups_for("c4"))
+    if set(out) != uni:
+        raise AttributionError(f"{p.name} does not cover C4's frozen universe: missing {sorted(uni - set(out))}, "
+                               f"extra {sorted(set(out) - uni)}")
+    dup = sorted({s for s in out.values() if list(out.values()).count(s) > 1})
+    if dup:
+        raise AttributionError(f"{p.name}: NAV symbol(s) {dup} are named for more than one fund")
+    return out
+
+
+def nav_symbols(book: str, tickers) -> dict:
+    """{price ticker: the yfinance symbol of its NAV} for `tickers`, by the rule of `book`
+    (module docstring, C4). A C4 name the map lacks raises, naming it: the core's X rule
+    returns no rows for 15 of C4's funds, so it is never used as a stand-in."""
+    tks = sorted(set(tickers))
+    if book == "cef":
+        return {tk: f"X{tk}X" for tk in tks}
+    if book != "c4":
+        raise AttributionError(f"unknown book {book!r} (books: {BOOKS})")
+    mapped = c4_nav_symbols()
+    absent = [tk for tk in tks if tk not in mapped]
+    if absent:
+        raise AttributionError(f"{C4_NAV_MAP.name} has no NAV symbol for {absent}: these are not C4's frozen "
+                               f"names, so their NAV source is unknown")
+    return {tk: mapped[tk] for tk in tks}
 
 
 def load_cache(cache_dir: Path, grp: dict | None = None) -> Inputs:
@@ -1330,17 +1392,19 @@ def yf_dividends(symbols) -> tuple[pd.DataFrame, list]:
     return pd.DataFrame(rows, columns=["ticker", "ex_date", "amount"]), empty
 
 
-def yf_navs(symbols, start: dt.date, end: dt.date) -> tuple[pd.DataFrame, list]:
-    """yfinance X{tk}X daily Close as the NAV, the source and call of
-    scripts/cef/fetch_daily.py (docs/REFERENCES.md §12h). Keyless. Returns the
-    rows dated [start, end] and the symbols for which yfinance returned none (a
-    gap the analysis raises on only if that name was held)."""
+def yf_navs(symbols, start: dt.date, end: dt.date, *, book: str = BOOK) -> tuple[pd.DataFrame, list]:
+    """yfinance daily Close as the NAV, the source and call of
+    scripts/cef/fetch_daily.py (docs/REFERENCES.md §12h), at each book's own NAV
+    symbol (`nav_symbols`). Keyless. Returns the rows dated [start, end], labelled
+    by the price ticker, and the tickers for which yfinance returned none (a gap
+    the analysis raises on only if that name was held)."""
     import yfinance as yf
     rows, empty = [], []
+    symbol_of = nav_symbols(book, symbols)
     for tk in sorted(set(symbols)):
-        h = yf.Ticker(f"X{tk}X").history(start=start.isoformat(),
-                                         end=(end + dt.timedelta(days=1)).isoformat(),
-                                         auto_adjust=False)
+        h = yf.Ticker(symbol_of[tk]).history(start=start.isoformat(),
+                                             end=(end + dt.timedelta(days=1)).isoformat(),
+                                             auto_adjust=False)
         if not len(h):
             empty.append(tk)
             continue
@@ -1373,7 +1437,7 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
     _refuse_data_dir(cache_dir)
     _refuse_git_visible(Path(cache_dir), list(FILES.values()))
     client = AR.AlpacaReader.from_environment(book) if client is None else client
-    nav_fetcher = yf_navs if nav_fetcher is None else nav_fetcher
+    nav_fetcher = partial(yf_navs, book=book) if nav_fetcher is None else nav_fetcher
     dist_check_fetcher = yf_dividends if dist_check_fetcher is None else dist_check_fetcher
     now = dt.datetime.now(dt.timezone.utc) if now is None else now
     asof = AR.last_complete_date(now) if asof is None else asof
@@ -1469,7 +1533,8 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
                                           "second source in quantt/session/dist_score.py)",
                                 "fetched_at_utc": now.isoformat(), "n": len(check),
                                 "no_rows": check_empty},
-        "nav": {"source": "yfinance X{tk}X history(auto_adjust=False) Close, keyless",
+        "nav": {"source": ("yfinance X{tk}X history(auto_adjust=False) Close, keyless" if book == BOOK else
+                           f"yfinance {C4_NAV_MAP.name} symbols, history(auto_adjust=False) Close, keyless"),
                 "no_rows": nav_empty},
     }
     (cache_dir / FILES["manifest"]).write_text(json.dumps(man, indent=1))

@@ -553,7 +553,7 @@ REPORT_VM = ReportVm(
                           "scripts/ops/report_notify.py", "scripts/ops/pnl_report.py", "scripts/ops/alpaca_read.py",
                           "scripts/cef/live_attribution.py", "scripts/cef/exposure_readout.py", "scripts/cef/spec.py",
                           "quantt/session/dist_score.py", "ops/specs/c4_families.frozen.json",
-                          "ops/specs/cef_discount.frozen.json")
+                          "ops/specs/cef_discount.frozen.json", "results/cef/c4/c4_nav_symbols_2026-10-14.csv")
     + tuple(f"{TEMPLATE_DIR}/{t}" for t in REPORT_TEMPLATES.values()),
     "", (), None, (), False, False)
 

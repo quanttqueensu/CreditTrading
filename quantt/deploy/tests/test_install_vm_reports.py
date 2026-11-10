@@ -257,6 +257,12 @@ def test_the_pnl_schedule_is_the_runner_owners():
         assert h * 60 + m + iv.REPORT_TIMEOUT_S / 60 < 21 * 60 + 40        # done before the 21:40 collect
 
 
+def test_the_pnl_job_needs_c4s_nav_map_at_the_tag():
+    """`live_attribution.nav_symbols` reads the committed C4 NAV map; a tag without it would
+    pass planning and then fail on every C4 run. Fails on the parent commit."""
+    assert "results/cef/c4/c4_nav_symbols_2026-10-14.csv" in iv.REPORT_VM.required_at_tag
+
+
 def test_the_pnl_units_read_only_their_own_book_key_file(rw, capsys):
     rc, out = rw.reports("--apply", capsys=capsys)
     assert rc == 0, out
