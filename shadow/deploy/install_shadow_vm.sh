@@ -8,16 +8,16 @@
 # docs/SYSTEM.md section 5, "Team lead, 2026-11-09".
 #
 # WHAT IT MAKES
-#   user shadow                 no login shell, home /home/shadow (0750). Prod's user is
+#   user quantt-shadow          no login shell, home /home/quantt-shadow (0750). Prod's user is
 #                               quantt; neither can read the other's home, state or key file.
-#   /home/shadow/venv           its own Python (the version prod pins) and the packages in the
+#   ~/venv                      its own Python (the version prod pins) and the packages in the
 #                               clone's requirements.txt, wheels only. Prod's venv is untouched.
-#   /home/shadow/quantt-shadow  a clone that FOLLOWS A BRANCH (default `shadow`). Prod is a
+#   ~/quantt-shadow             a clone that FOLLOWS A BRANCH (default `shadow`). Prod is a
 #                               clone at a release tag; this one is not, by design: a new
 #                               shadow book is a commit to that branch and needs no release.
-#   /home/shadow/shadow_state   decisions, marks, scores, the scoreboard. Never under data/.
+#   ~/shadow_state              decisions, marks, scores, the scoreboard. Never under data/.
 #   quantt-shadow-secret.service  the core (cef) account's Alpaca key into /run/quantt-shadow
-#                               (tmpfs, 0700, owned by shadow): a COPY of that one key, fetched
+#                               (tmpfs, 0700, owned by that user): a COPY of that one key, fetched
 #                               from the vault by the same module prod uses.
 #   quantt-shadow.service/.timer  `shadow/deploy/nightly.sh`: update the clone, then
 #                               `python -m shadow nightly`. 18:50 and 20:50 Mon-Fri, 07:20 Tue-Sat
@@ -40,7 +40,10 @@
 set -euo pipefail
 
 ORIGIN="https://github.com/quanttqueensu/CreditTrading.git"
-SVC_USER="shadow"
+# NOT "shadow": Ubuntu ships a system GROUP of that name, which may read /etc/shadow, and
+# useradd refuses the name (first run on the VM, 2026-11-10). Joining that group instead
+# would hand the password file to the shadow runner.
+SVC_USER="quantt-shadow"
 HOME_DIR="/home/${SVC_USER}"
 CLONE="${HOME_DIR}/quantt-shadow"
 VENV="${HOME_DIR}/venv"
@@ -89,6 +92,9 @@ step_checks() {
 
 step_user() {
   step "user ${SVC_USER}"
+  if getent group "${SVC_USER}" >/dev/null && ! id -u "${SVC_USER}" >/dev/null 2>&1; then
+    die "a group named ${SVC_USER} exists without the user; refusing to join a group this script did not make"
+  fi
   id -u "${SVC_USER}" >/dev/null 2>&1 \
     || useradd --create-home --home-dir "${HOME_DIR}" --shell /usr/sbin/nologin "${SVC_USER}"
   chmod 750 "${HOME_DIR}"

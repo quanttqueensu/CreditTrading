@@ -1141,14 +1141,14 @@ vault secrets to the arming go, are in
 
 A second, separate thing on the VM: simulated books on live data, which send no order
 (`results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md`; `docs/SYSTEM.md` §5, 2026-11-09). It
-is **not prod and not a release**. It is a clone under its own unix user, `shadow`, that
+is **not prod and not a release**. It is a clone under its own unix user, `quantt-shadow` (not `shadow`: Ubuntu has a system group of that name, which guards the password file), that
 follows the branch `shadow`, so a new book is a commit to that branch.
 
 | what | prod | the shadow runner |
 |---|---|---|
-| user and home | `quantt`, `/home/quantt` | `shadow`, `/home/shadow` |
-| code | a clone at a release tag | `/home/shadow/quantt-shadow`, following the branch `shadow` |
-| state | `quantt_state/<book>` | `/home/shadow/shadow_state` |
+| user and home | `quantt`, `/home/quantt` | `quantt-shadow`, `/home/quantt-shadow` |
+| code | a clone at a release tag | `/home/quantt-shadow/quantt-shadow`, following the branch `shadow` |
+| state | `quantt_state/<book>` | `/home/quantt-shadow/shadow_state` |
 | key file | `/run/quantt/alpaca.env` | `/run/quantt-shadow/alpaca.env`: a copy of the core account's key, for reading prices |
 | units | `quantt-cef-*`, `quantt-c4-*` | `quantt-shadow-secret.service`, `quantt-shadow.service`, `quantt-shadow.timer` |
 | schedule (New York) | section 8.3 | 18:50 and 20:50 Monday to Friday, 07:20 Tuesday to Saturday |
@@ -1168,12 +1168,12 @@ sudo bash install_shadow_vm.sh --vault <vault-name> --enable
 
 ```bash
 sudo systemctl start quantt-shadow-secret.service && sudo systemctl start quantt-shadow.service
-sudo tail -n 20 /home/shadow/logs/nightly.out.log /home/shadow/logs/nightly.err.log
+sudo tail -n 20 /home/quantt-shadow/logs/nightly.out.log /home/quantt-shadow/logs/nightly.err.log
 systemctl list-timers 'quantt-shadow*'
 ```
 
 With no book file on the branch the run prints "no enabled book" and exits 0. The page for
-every book is `/home/shadow/shadow_state/SCOREBOARD.md`.
+every book is `/home/quantt-shadow/shadow_state/SCOREBOARD.md`.
 
 **Stop it:** `sudo systemctl disable --now quantt-shadow.timer`. Nothing else depends on it.
 
