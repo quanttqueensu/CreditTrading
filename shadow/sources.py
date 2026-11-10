@@ -6,8 +6,11 @@ this module wraps the client in `ReadOnlyData`, which holds it privately and off
 three read calls. `shadow/tests/test_boundary.py` fails if this package ever names an
 order method.
 
-WHICH KEY: the shadow user's own, for an otherwise empty paper account (team lead,
-2026-11-09, docs/SYSTEM.md section 5). `book` names it: the client reads
+WHICH KEY: the core (`cef`) paper account's (team lead, 2026-11-09, docs/SYSTEM.md
+section 5: "use the accounts we already have access to"; the first ruling that day, an
+otherwise empty account, was superseded). That key CAN trade the core's paper account,
+so this facade and the boundary test are the whole defence: keep both. On the VM the
+shadow user holds its own copy of that one key. `book` names it: the client reads
 ALPACA_<BOOK>_KEY_ID / _SECRET_KEY from the file QUANTT_ENV_FILE names, and raises if
 either is missing. Nothing here prints or returns a credential.
 
@@ -24,6 +27,16 @@ import pandas as pd
 # ex-date (the client's `distributions` docstring), so an ex-date window is queried this
 # many days wider at the end and then filtered on ex_date itself.
 DIST_WINDOW_PAD_DAYS = 75
+
+# Asset `exchange` -> SIP exchange NAME, for listings the broker client's own map
+# (ASSET_EXCHANGE_SIP_NAME: NYSE, AMEX, NASDAQ) does not cover. The client's map is the
+# live path's and is not widened from here. Each entry is measured, never assumed:
+#   ARCA -> "NYSE Arca" (SIP code P). [V 2026-11-09: /v2/assets/SPY says ARCA;
+#   /v2/stocks/meta/exchanges names P "NYSE Arca"; SPY's 2026-11-06 closing prints carry
+#   (P, condition M) = the official close.]
+# A listing on any other exchange (Cboe BZX, IEX) raises, naming it, until someone
+# measures its row and adds it here.
+EXTRA_EXCHANGE_SIP_NAME = {"ARCA": "NYSE Arca"}
 
 
 class ReadOnlyData:
@@ -45,7 +58,7 @@ class ReadOnlyData:
             self.__exchanges = c.stock_exchanges()
         for s in symbols:
             if s not in self.__codes:
-                self.__codes[s] = c.primary_sip_code(s, self.__exchanges)
+                self.__codes[s] = self._primary_code(s)
         want = list(symbols)
         try:
             got = c.closing_auction_prints(want, day, exchange_codes={s: self.__codes[s] for s in want})
@@ -56,6 +69,20 @@ class ReadOnlyData:
             # the second call names only symbols the first did not report missing
             got = c.closing_auction_prints(want, day, exchange_codes={s: self.__codes[s] for s in want})
         return {s: float(v["price"]) for s, v in got.items()}
+
+    def _primary_code(self, symbol: str) -> str:
+        """The SIP code of the symbol's primary listing: the client's verified map first,
+        then EXTRA_EXCHANGE_SIP_NAME. Exactly one code must carry the name, else raise."""
+        from quantt.broker.alpaca import ASSET_EXCHANGE_SIP_NAME, UnmappedExchange
+        ex = self.__client.asset(symbol)["exchange"]
+        name = ASSET_EXCHANGE_SIP_NAME.get(ex) or EXTRA_EXCHANGE_SIP_NAME.get(ex)
+        if name is None:
+            raise UnmappedExchange(f"{symbol}: asset exchange {ex!r} has no measured SIP name "
+                                   "(shadow/sources.py EXTRA_EXCHANGE_SIP_NAME)")
+        codes = sorted(k for k, v in self.__exchanges.items() if v == name)
+        if len(codes) != 1:
+            raise UnmappedExchange(f"{symbol}: {len(codes)} SIP codes named {name!r}; need exactly one")
+        return codes[0]
 
     def distributions(self, symbols: list, first: dt.date, last: dt.date) -> list:
         evs = self.__client.distributions(list(symbols), first,

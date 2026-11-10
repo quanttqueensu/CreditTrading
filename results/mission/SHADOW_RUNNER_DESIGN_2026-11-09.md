@@ -4,7 +4,14 @@
 and clone (§5), Alpaca's auction prints with a yfinance check (§6), and $1M per book. **Built so far:** the
 engine, the book file, the scoreboard and their tests, in `shadow/` (reproducer:
 `python3 -m pytest shadow/tests`). **Not built yet:** the marks and panel fetchers, the first book, and the
-VM install, which is the team lead's. The text below is the proposal as approved. `docs/MISSION.md` §8.1 and §8.3 ask
+VM install, which is the team lead's. The text below is the proposal as approved.
+
+**Amended later on 2026-11-09 (team lead):** the runner reads data with the core (`cef`) account's key, not a
+new empty account's. The separate unix user stays and holds its own copy of that one key. §6's "should be a key
+for an otherwise empty paper account" no longer applies. **Measured the same day** [V: `shadow/sources.py`
+run from the laptop]: 88 of 88 auction prints for 8 symbols over 11 sessions (2026-10-26 to 2026-11-09), and
+every one equal to yfinance's close. NYSE Arca listings needed a mapping the broker client lacks; it is
+measured and held in `shadow/sources.py`. `docs/MISSION.md` §8.1 and §8.3 ask
 for a path that can start a new book from a config without a prod release, and
 `docs/SYSTEM.md` §5 (2026-11-09) says no agent starts a paper or shadow book until the team
 lead has approved this design once. The team lead ruled the same day that shadow books come

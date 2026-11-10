@@ -3995,3 +3995,15 @@ that adds it does not exist when it is written.
 - source: `.claude/README.md` @ `d98fa5e` (rewritten by this commit); `CLAUDE.md` @ `d98fa5e` (its desk section is rewritten by this commit)
 - supports: §5
 - status: current. Three scripts still cite the removed pre-registration skill in comments, and `scripts/research/harness.py` `report()` still returns cost columns: both are left for the next change to those files
+
+### E-2026-11-09-06 · Ruling and result: the shadow runner reads data with the core account's key, and its auction-print reader returned every print asked for, each equal to yfinance's close
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - 88 of 88 closing-auction prints returned (8 symbols: SPY IEF PDI PTY QQQ JFR HYG TLT; 11 sessions, 2026-10-26 to 2026-11-09) [S]
+  - 0 of 88 differ from yfinance's unadjusted close (maximum absolute difference 0.00bp) [S]
+  - NYSE Arca maps to SIP code P, official close at condition M (measured on SPY, 2026-11-06) [S]
+- source: `results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md` @ `d98fa5e` (the amendment is added by this commit); `docs/SYSTEM.md` @ `d98fa5e` (the row is added by this commit); `shadow/sources.py` @ `d98fa5e`
+- supports: §4, §5
+- status: current. Supersedes the "otherwise empty paper account" part of E-2026-11-09-03 (2026-11-09). One run from the laptop, not independently repeated
