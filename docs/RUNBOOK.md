@@ -1171,9 +1171,9 @@ has stopped the timers, and it never stops or starts a report timer.
 
 **Reading.** `sudo tail -n 60 /home/quantt/quantt_state/cef/logs/{dataqa,risk}.out.log`
 and the dated reports under `<state>/reports/`. A report that cannot measure a block
-says UNMEASURED and names what is missing (on the VM today: `stops.py`'s fit series,
-the attribution cache, the factor cache; the drawdown reader's freshest-row rule waits
-on PR #55).
+says UNMEASURED and names what is missing (on the VM today: `stops.py`'s fit series;
+the attribution and factor blocks read the daily P&L job's report (8.11) and are
+UNMEASURED until it has run; the drawdown reader's freshest-row rule waits on PR #55).
 
 **Severity.** INFO stays in the file; WATCH is a line near a limit or a data-QA flag on a held name; ACT is a
 pre-registered stop that has fired. Only ACT pushes (risk jobs only). **The team lead's steps
@@ -1202,6 +1202,76 @@ this code has never sent from the VM, so the test above is the first proof.
 `sudo systemctl disable --now quantt-{cef,c4}-{dataqa,risk}.timer` and delete the
 report unit files: an older installer's C4 scan names any other `quantt-` unit file as
 "no unit any book installs" and refuses.
+
+### 8.11 The daily P&L attribution and factor readout (report only)
+
+Team lead, 2026-11-09: a daily VM report for BOTH paper books, the P&L attribution and
+the exposure readout. It is a third report kind under `--reports` (beside dataqa and
+risk), one job per book:
+
+| job | unit | when (Mon-Fri, local) | writes |
+|---|---|---|---|
+| P&L attribution and factor readout | `quantt-{cef,c4}-pnl` | 20:30 cef, 20:35 c4 (after the 20:00 EOD stamp, clear of the 21:40 collect) | `<state>/reports/pnl/<date>.{md,json}` (and its fetch cache `<state>/reports/pnl/_cache/`, the account's fills and equity, outside git) |
+
+What it reports, per book, for the session just closed and cumulative from the book's
+first trade (read from the account's own fills, never written anywhere): official P&L
+(Alpaca EOD history), hold split into NAV part and discount part, fill cost, fees,
+distributions, then factor exposure at the last close against the review line
+(REVIEW_FRACTION x the book's own vol target, read from its spec), headline first, by
+muni/taxable (core) or by family (C4). The rebuild must reconcile to official to the
+cent, or the report says so at its top. **A breach of a review line is report-only: it
+appears in the report and sends NOTHING** (no push, no ACT, no halt, no trade; team lead,
+2026-11-09). `risk_daily`'s attribution and factor blocks read this job's JSON and stay
+UNMEASURED, named, when the job has not run.
+
+**Keys (the only secrets these units touch).** The pnl jobs read the account, so they
+need the account's Alpaca key, and read it from the vault at run time, never from a file
+in the repo or on disk: each book has its own secret service
+(`quantt-reports-{cef,c4}-pnl-keys.service`), writing that book's key to a tmpfs env file
+of its own, `/run/quantt-reports-{cef,c4}-pnl/broker.env`, mode 0600, loaded only by that
+book's `quantt-<book>-pnl.service` through `EnvironmentFile=`. **No new vault secret is
+needed**: they use the same secrets the books' own key services already use (`alpaca-cef-key-id`,
+`alpaca-cef-secret-key`, `alpaca-c4-key-id`, `alpaca-c4-secret-key`). The dataqa and
+risk units stay key-free and the SMTP `alert.env` stays separate (both tested). The job's
+reader is `scripts/ops/alpaca_read.py`: HTTP GET only, the paper and data hosts only, no
+order code; a closure test (`scripts/ops/tests/test_report_no_order_path.py`) pins that
+no import path from the job reaches order-sending code. The job takes no lock, and
+`ReadOnlyPaths=` the clone. A failed key fetch or broker read marks its own unit failed and
+touches nothing else.
+
+**Install** (the team lead's step, after the release is installed; the same command as
+8.10, which also installs and updates the dataqa and risk units):
+
+```bash
+qi --tag <tag> --vault <vault-name> --reports                     # dry run: every check, every unit
+qi --tag <tag> --vault <vault-name> --reports --apply --enable    # writes the units, starts the timers
+```
+
+Its output names the two key services and the two env files. Then start one by hand once
+the day's EOD point exists (after 20:00 ET on a trading day), and read what it wrote:
+
+```bash
+sudo systemctl start quantt-reports-cef-pnl-keys.service
+sudo systemctl start quantt-cef-pnl.service
+sudo tail -n 60 /home/quantt/quantt_state/cef/logs/pnl.out.log /home/quantt/quantt_state/cef/logs/pnl.err.log
+sudo sed -n 1,40p /home/quantt/quantt_state/cef/reports/pnl/<date>.md
+systemctl show quantt-cef-pnl -p MemoryPeak    # MemoryMax=900M is a guess, not a measurement
+```
+
+`MemoryMax=900M` (a generous first setting: the job has not been measured on the VM; the
+report units' measured peaks are in 8.10) should be cut to the measured peak with margin
+after the first week. The job calls yfinance for NAVs, dividends and prices (keyless); the
+VM must be able to reach Yahoo. A missing NAV (a fund not published by 20:30) makes the NAV
+and discount parts UNMEASURED for that name-day, named, and leaves hold, fill, fees and
+the reconciliation complete. A held name yfinance cannot serve makes the factor block
+UNMEASURED, naming it; the attribution above it stays. A book with no Dimson lag (C4,
+until its rule has produced one) has a factor block UNMEASURED, naming the rule.
+
+**Rollback.** As 8.10: on a rollback to a tag older than this section, first
+`sudo systemctl disable --now quantt-{cef,c4}-pnl.timer`, then
+`sudo systemctl stop quantt-reports-{cef,c4}-pnl-keys.service` (its key material goes
+with its runtime directory), and delete the two pnl service files, the two pnl timer files
+and the two key-service unit files.
 
 ## Open questions (for the TL)
 
