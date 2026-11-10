@@ -3944,3 +3944,24 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
 - supports: §1, §5
 - status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
+
+### E-2026-11-09-01 · Ruling: the mission. Scope is open, paper trading is the test, research is judged gross with no cost model, and pre-registration, the trial counters, the holdout ceremony and alpha-only are dropped; prod releases go back to the team lead alone
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (a ruling: the team lead's written brief, kept verbatim as `docs/MISSION.md`, and three answers given interactively: "Team lead only" on prod releases, "Drop it" on alpha-only, "Rewrite to master.md §2" on `CLAUDE.md`'s research rules)
+- source: `docs/SYSTEM.md` @ `3595ec8` (the section "Team lead, 2026-11-09" is added by this commit, on top of that main); `docs/MISSION.md` @ `3595ec8` (added by this commit)
+- supports: §1, §5
+- status: current. Supersedes E-2026-11-08-04 (2026-11-08) where the two differ: re-tests and holdout looks are no longer counted, and entry to paper is the agent's own through a paper/shadow path whose design the team lead approves once. `docs/RESEARCH_STATE.md`'s counters are frozen
+
+### E-2026-11-09-02 · Method: the idea ledger replaces the trial counters, and is backfilled with every idea tested before 2026-11-09; 13 of them had a measured positive gross effect and were stopped by a cost, factor-exposure or deflated-bar gate
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - 13 backfilled ideas with a measured positive gross effect stopped by a retired gate (a count of the ledger's rows, the author's reading of each) [S]
+  - month-end Treasury extension (XASSET-X3): gross Sharpe 1.04, NW t 4.94, 2002-09 to 2022-12 [S]
+- source: `results/IDEA_LEDGER.md` @ `3595ec8` (added by this commit); `docs/RESEARCH_STATE.md` @ `3595ec8`; `results/mission/PHASE0_2026-11-09.md` @ `3595ec8` (added by this commit)
+- supports: §3, §5
+- status: current
