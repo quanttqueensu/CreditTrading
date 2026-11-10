@@ -482,6 +482,24 @@ the core's code, with C4's factor set. `derive --book c4` runs it; `derive_c4` h
             could set T. No diagnostics are run after the result: section 2b of the core's
             `derive` is the core's review, and C4's was not ordered.
 
+THE C4 RULE'S RESULT: L = 2, so C4_DIMSON_LAGS = 2 [V: `derive --book c4`, run 2026-11-09 at
+18:48 ET, one minute after the commit that declared the rule (d37a86d, 18:47:25 -0500), on
+a keyless yfinance cache fetched after that commit (asof C4_RULE_CACHE_ASOF, fetched
+2026-11-09T23:48:19Z, prices.parquet sha256 C4_RULE_CACHE_SHA256); output in
+results/cef/C4_LAG_RULE_RESULT_2026-11-09.txt]. Sample: 72 of the 74 names, 288 pairs (NPFD
+and RLTY excluded with 242 and 195 usable rows < 252); response rows 2010-01-20 .. 2022-12-02,
+the last row whose lead-19 row is on or before FIT_END; 257 to 3,242 sessions per name;
+three recorded splits read as `adjusted` and not applied (NXG 2020-06-15, EMO 2020-07-28,
+and IGR 2026-09-08, after the fit era).
+  lag counts  c(0..10)  254 128 83 41 36 39 48 41 35 38 29                       (of 288 pairs)
+  lead counts p(1..19)  56 42 47 46 24 36 25 20 26 16 44 16 65 61 36 22 25 28 16
+  T = 65, at lead 13. Lags 1 and 2 clear it (128, 83); lag 3's count is 41, not above 65, so the
+  sequence stops at lag 3: L = 2. A lag-4-or-later count above T would not matter (the stop
+  rule). Under THE RULE's outcome table above this makes C4's exposure the Dimson sum over
+  lags 0..2. The caveats of the core's result apply unchanged and unexamined here (the
+  lead counts as null draws, an episode inflating T): the rule was applied as declared and
+  is not re-tuned; the team lead may ask for a different rule, declared first.
+
 USAGE
 -----
     python3 scripts/cef/exposure_readout.py fetch --asof YYYY-MM-DD [--book cef|c4] [--start YYYY-MM-DD] [--cache-dir D] [--symbols S ...]
@@ -620,9 +638,12 @@ C4_SPEC = REPO / "ops" / "specs" / "c4_families.frozen.json"
 C4_FACTORS: tuple[tuple[str, str], ...] = (("EQUITY", "SPY"), ("TERM", "IEF"), ("CREDIT", "HYG"),
                                            ("PREFERRED", "PFF"))
 C4_HEADLINE = "EQUITY"
-C4_DIMSON_LAGS: int | None = None   # no lag rule has been run for C4 yet (module docstring, TWO BOOKS)
+C4_DIMSON_LAGS: int | None = 2      # THE C4 LAG RULE's output on the fit era (module docstring, THE C4 RULE'S
+                                    # RESULT); the rule declared in d37a86d, run after it on keyless public prices
 C4_RULE_MIN_SESSIONS = 252          # THE C4 LAG RULE: a name's regression sample must be at least this many
                                     # rows (one readout window; it has 121 regressors at K = 10, J = 19)
+C4_RULE_CACHE_ASOF = "2026-11-06"
+C4_RULE_CACHE_SHA256 = "d44a6fe83830a90f9642989723b3c8db91bd970ddfe16dcf673ac6ca5cfd3238"  # prices.parquet
 
 
 def c4_frozen() -> dict:
@@ -881,17 +902,19 @@ def cache_sha256(cache_dir: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def cache_provenance_line(sha: str | None) -> str:
+def cache_provenance_line(sha: str | None, recorded_sha: str = RULE_CACHE_SHA256,
+                          recorded_asof: str = RULE_CACHE_ASOF) -> str:
     """The line `derive` prints beside THE RULE's counts: is this the cache the recorded
-    counts (module docstring, THE RULE'S RESULT; the tests' RECORDED_*_COUNTS) came from?"""
+    counts (module docstring, THE RULE'S RESULT; the tests' RECORDED_*_COUNTS) came from?
+    C4's run passes its own recorded cache."""
     if not sha:
         return ("cache prices.parquet sha256 UNMEASURED (no cache path given): whether these counts "
-                f"come from the recorded cache (asof {RULE_CACHE_ASOF}) is unknown")
-    if sha == RULE_CACHE_SHA256:
+                f"come from the recorded cache (asof {recorded_asof}) is unknown")
+    if sha == recorded_sha:
         return (f"cache prices.parquet sha256 {sha[:16]}...: the cache the recorded counts came from "
-                f"(asof {RULE_CACHE_ASOF}); they should reproduce exactly")
+                f"(asof {recorded_asof}); they should reproduce exactly")
     return (f"cache prices.parquet sha256 {sha[:16]}... DIFFERS from the recorded cache's "
-            f"{RULE_CACHE_SHA256[:16]}... (asof {RULE_CACHE_ASOF}): these counts need not match the "
+            f"{recorded_sha[:16]}... (asof {recorded_asof}): these counts need not match the "
             "recorded ones, and a different L here is a different cache, not a different rule")
 
 
@@ -1609,7 +1632,7 @@ def crosscheck(px: pd.DataFrame, data_dir: Path = DATA_DIR, fs: FactorSet = CORE
     nothing. Returns (table, notes): one row per (panel, field, ticker) with the overlap, the
     count above the tolerance, the largest gap, the panel's vendor on that overlap and whether
     that vendor is independent of yfinance; and notes with the panels' last dates."""
-    R, C, _ = returns_panel(px)
+    R, C, _ = returns_panel(px, drop_adjusted_splits=(fs.book == "c4"))
     Dv = px.pivot(index="date", columns="ticker", values="dividend").reindex_like(C)
     rows, notes = [], []
     etfs = [e for e in fs.etfs if e in C.columns]
@@ -1916,7 +1939,7 @@ def derive_c4(px: pd.DataFrame, meta: dict | None = None, *, names=None, fit_end
           f"{E.index.min().date()}..{E.index.max().date()}, {len(E)} sessions (all four ETFs), cut at "
           f"{fit_end.date()} before any shift (H13). K = {max_lag}, J = {leads}, HAC({DERIVE_RULE_HAC}), "
           f"alpha {DERIVE_RULE_ALPHA}.")
-    print("   " + cache_provenance_line(cache_sha).replace("RULE_CACHE", "the core's recorded cache"))
+    print("   " + cache_provenance_line(cache_sha, C4_RULE_CACHE_SHA256, C4_RULE_CACHE_ASOF))
     if meta is not None:
         print(f"   cache asof {meta.get('asof')}, fetched {meta.get('fetched_at_utc')}, excluded at fetch "
               f"(no rows or failed validation): {meta.get('excluded', {})}")

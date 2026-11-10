@@ -1189,10 +1189,11 @@ def test_the_c4_factor_set_reads_c4s_own_spec_never_the_cores():
     assert fam == dict(zip(u["ticker"], u["family"]))
 
 
-def test_c4_without_a_lag_raises_naming_the_rule():
+def test_c4_without_a_lag_raises_naming_the_rule(monkeypatch):
     R = _c4_returns()
     px = _px_from_returns(R)
     P = _positions(list(SESS[150:152]), {"AAA": 1000.0})
+    monkeypatch.setattr(ER, "C4_DIMSON_LAGS", None)     # (the state before the rule's result)
     with pytest.raises(ER.ReadoutError, match="lag rule has not been run"):
         ER.readout(px, P, {"AAA": "equity_domestic"}, fs=ER.factor_set("c4"))
 
@@ -1375,3 +1376,40 @@ def test_fetch_each_excludes_a_failed_name_and_raises_on_a_failed_factor(monkeyp
     assert sorted(px["ticker"].unique()) == ["AAA", "SPY"] and set(failed) == {"BAD"}
     with pytest.raises(ER.ReadoutError, match="BAD"):
         ER.fetch_each(["BAD"], sess[0].date(), asof, required=("BAD",))
+
+
+# The fit-era counts `derive --book c4` recorded on 2026-11-09 (module docstring, THE C4 RULE'S
+# RESULT): keyless public prices, 2010-01-20 .. 2022-12-02, 72 names, 288 pairs. No account
+# data. From the cache whose prices.parquet hashes to ER.C4_RULE_CACHE_SHA256 (asof 2026-11-06).
+RECORDED_C4_LAG_COUNTS = dict(enumerate([254, 128, 83, 41, 36, 39, 48, 41, 35, 38, 29]))
+RECORDED_C4_LEAD_COUNTS = dict(enumerate([56, 42, 47, 46, 24, 36, 25, 20, 26, 16, 44, 16, 65, 61, 36, 22, 25, 28, 16],
+                                         start=1))
+
+
+def test_c4_dimson_lags_is_the_rules_output_on_the_recorded_fit_era_counts():
+    """Pin on a recorded result: the declared rule applied to the recorded counts gives the
+    module constant; the counts are a record (they fail against the old constant None)."""
+    r = ER.placebo_lag_rule(RECORDED_C4_LAG_COUNTS, RECORDED_C4_LEAD_COUNTS)
+    assert r["T"] == 65 and r["stop_lag"] == 3
+    assert ER.C4_DIMSON_LAGS == r["L"] == 2
+    assert ER.factor_set("c4").dimson_lags == 2
+
+
+def test_the_c4_crosscheck_reads_the_split_rule_and_the_core_keeps_its_guard(monkeypatch, tmp_path):
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    day = SESS[100]
+    px.loc[(px["ticker"] == "AAA") & (px["date"] == day), "split"] = 3.0     # an already-adjusted recorded split
+    monkeypatch.setattr(ER, "_panel", lambda path: (_ for _ in ()).throw(ER.ReadoutError("reached the panels")))
+    with pytest.raises(ER.ReadoutError, match="reached the panels"):
+        ER.crosscheck(px, tmp_path, fs=ER.factor_set("c4"))                  # the split does not stop C4's
+    from scripts.cef.data_guards import SplitBasisError
+    with pytest.raises(SplitBasisError, match="already on the post-split"):
+        ER.crosscheck(px, tmp_path, fs=ER.CORE)                              # the core still refuses it
+
+
+def test_cache_provenance_line_compares_the_cache_it_is_given():
+    assert "the cache the recorded counts came from" in ER.cache_provenance_line(ER.C4_RULE_CACHE_SHA256,
+                                                                                ER.C4_RULE_CACHE_SHA256, ER.C4_RULE_CACHE_ASOF)
+    assert "DIFFERS" in ER.cache_provenance_line("0" * 64, ER.C4_RULE_CACHE_SHA256, ER.C4_RULE_CACHE_ASOF)
+    assert ER.C4_RULE_CACHE_SHA256[:16] in ER.cache_provenance_line("0" * 64, ER.C4_RULE_CACHE_SHA256, ER.C4_RULE_CACHE_ASOF)
