@@ -20,7 +20,11 @@ from __future__ import annotations
 
 import ast
 import datetime as dt
+import http.client
+import io
 import json
+import urllib.request
+import urllib.response
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 from zoneinfo import ZoneInfo
@@ -262,6 +266,22 @@ def table():
             "/v2/stocks/bars": bars_response, "/v1/corporate-actions": corporate}
 
 
+# The DST change (2026-11-01): two EDT sessions, stamped 00:00Z the next day, then three EST
+# sessions, stamped 01:00Z the next day. All five are 20:00 New York, by `stamp`.
+WINTER = [D(2026, 10, 29), D(2026, 10, 30), D(2026, 11, 2), D(2026, 11, 3), D(2026, 11, 4)]
+
+
+def _winter_table():
+    def cal(params):
+        lo, hi = D.fromisoformat(params["start"]), D.fromisoformat(params["end"])
+        return [{"date": d.isoformat(), "open": "09:30", "close": "16:00"} for d in WINTER if lo <= d <= hi]
+
+    return {"/v2/calendar": cal,
+            "/v2/account/portfolio/history": {
+                "timestamp": [stamp(d) for d in WINTER], "equity": [str(100000.0 + i) for i in range(5)],
+                "profit_loss": [0.0] * 5, "profit_loss_pct": [0.0] * 5, "base_value": 100000.0, "timeframe": "1D"}}
+
+
 @pytest.fixture
 def both(tmp_path):
     server = Server(table())
@@ -287,6 +307,36 @@ def test_eod_window_filter_equals_the_clients(both):
     got = reader.eod_equity_history(*win)
     assert [tuple(p) for p in got] == [tuple(p) for p in client.eod_equity_history(*win)]
     assert [p.date for p in got] == [D(2026, 9, 29), D(2026, 9, 30)]
+
+
+def test_winter_stamps_are_equal_in_both_and_land_on_their_ny_sessions(tmp_path):
+    """Pin (no code changes with it): the reader's 20:00 New York rule across the DST
+    change. Every EOD stamp since 2026-11-01 is 01:00Z, and all the fixtures above are EDT
+    (00:00Z), so a reader put back on "exactly 00:00 UTC" passed them while it refused every
+    live winter point. Mutating `eod_equity_history` that way fails this test."""
+    server = Server(_winter_table())
+    win = D(2026, 10, 1), D(2026, 11, 6)
+    got = reader_for(server).eod_equity_history(*win)
+    assert [tuple(p) for p in got] == [tuple(p) for p in client_for(server, tmp_path).eod_equity_history(*win)]
+    assert [p.date for p in got] == WINTER
+    assert [p.stamp.hour for p in got] == [0, 0, 1, 1, 1]            # two EDT sessions, then EST
+
+
+@pytest.mark.parametrize("day,shift,why", [
+    (D(2026, 11, 3), -3600, "a winter 00:00Z stamp is 19:00 New York"),
+    (D(2026, 10, 30), +3600, "a summer 01:00Z stamp is 21:00 New York"),
+], ids=["winter-00Z", "summer-01Z"])
+def test_a_stamp_off_20_00_new_york_raises_in_both_either_side_of_dst(tmp_path, day, shift, why):
+    """Pin: as above, the refusal side. A stamp that is 20:00 in the other season's offset
+    is exactly what would file a session under the wrong date."""
+    t = _winter_table()
+    t["/v2/account/portfolio/history"]["timestamp"] = [stamp(d) + (shift if d == day else 0) for d in WINTER]
+    server = Server(t)
+    win = D(2026, 10, 1), D(2026, 11, 6)
+    with pytest.raises(AR.UnexpectedResponse, match="not 20:00:00 local"):
+        reader_for(server).eod_equity_history(*win)
+    with pytest.raises(AL.AlpacaError):
+        client_for(server, tmp_path).eod_equity_history(*win)
 
 
 def test_calendar_equals_the_clients(both):
@@ -471,31 +521,69 @@ def _code_names(path: Path) -> tuple[set, set]:
     return strings, ids
 
 
+def fake_wire(monkeypatch, answers):
+    """urllib with its socket layer replaced, and nothing else: every request is recorded and
+    `answers[host]` (status, headers, body) is what comes back through the real handler chain
+    (redirect handling included). `urlopen`'s cached opener is cleared so that old and new
+    code alike are built on the fake; the root conftest's netguard would refuse a real socket."""
+    seen = []
+
+    def fake_open(self, req):
+        status, headers, body = answers[req.host]
+        seen.append({"host": req.host, "url": req.full_url, "method": req.get_method(), "data": req.data,
+                     "headers": {k.lower(): v for k, v in req.header_items()}})
+        msg = http.client.HTTPMessage()
+        for k, v in headers.items():
+            msg[k] = v
+        resp = urllib.response.addinfourl(io.BytesIO(body), msg, req.full_url, status)
+        resp.msg = "fake"
+        return resp
+
+    monkeypatch.setattr(urllib.request.HTTPSHandler, "https_open", fake_open)
+    monkeypatch.setattr(urllib.request.HTTPHandler, "http_open", fake_open)
+    monkeypatch.setattr(urllib.request, "_opener", None)
+    monkeypatch.setattr(urllib.request, "getproxies", lambda: {})
+    return seen
+
+
 def test_the_default_transport_sends_a_get_and_nothing_else(monkeypatch):
-    seen = {}
-
-    class Resp:
-        status = 200
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-        def read(self):
-            return b"[]"
-
-    def fake_urlopen(req, timeout=None):
-        seen["method"] = req.get_method()
-        seen["data"] = req.data
-        seen["url"] = req.full_url
-        return Resp()
-
-    monkeypatch.setattr(AR.urllib.request, "urlopen", fake_urlopen)
+    seen = fake_wire(monkeypatch, {"paper-api.alpaca.markets": (200, {}, b"[]")})
     status, body = AR.urllib_transport("https://paper-api.alpaca.markets/v2/calendar", {"X": "y"}, 5)
     assert (status, body) == (200, "[]")
-    assert seen == {"method": "GET", "data": None, "url": "https://paper-api.alpaca.markets/v2/calendar"}
+    assert len(seen) == 1
+    assert (seen[0]["method"], seen[0]["data"], seen[0]["url"]) == (
+        "GET", None, "https://paper-api.alpaca.markets/v2/calendar")
+
+
+@pytest.mark.parametrize("code", [301, 302, 303, 307, 308])
+def test_a_redirect_is_refused_and_the_keys_go_nowhere_else(monkeypatch, code):
+    """A 3xx from the paper host, pointing at the live API. The module promises paper only,
+    and the keys are in the headers, so the second host must receive nothing at all.
+    Fails on the parent commit: the default handler followed it and sent both key headers."""
+    answers = {"paper-api.alpaca.markets": (code, {"Location": "https://api.alpaca.markets/v2/calendar"}, b""),
+               "api.alpaca.markets": (200, {}, b"[]")}
+    seen = fake_wire(monkeypatch, answers)
+    reader = AR.AlpacaReader("cef", key_id=KEY, secret=SECRET, sleep=lambda s: None)
+    with pytest.raises(AR.AlpacaHTTPError, match=f"HTTP {code}") as e:
+        reader.calendar(D(2026, 9, 28), D(2026, 9, 29))
+    assert e.value.status == code
+    assert [c["host"] for c in seen] == ["paper-api.alpaca.markets"]
+    assert KEY not in str(e.value) and SECRET not in str(e.value)
+
+
+def test_the_redirect_fixture_can_see_a_followed_redirect(monkeypatch):
+    """The control for the test above: urllib's default handler on the same fake wire does
+    follow the 302 and does send the key to the second host, so "the second host received
+    nothing" is a measurement, not an artifact of the fake."""
+    answers = {"paper-api.alpaca.markets": (302, {"Location": "https://api.alpaca.markets/v2/calendar"}, b""),
+               "api.alpaca.markets": (200, {}, b"[]")}
+    seen = fake_wire(monkeypatch, answers)
+    req = urllib.request.Request("https://paper-api.alpaca.markets/v2/calendar",
+                                 headers={"APCA-API-KEY-ID": KEY}, method="GET")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        assert resp.status == 200
+    assert [c["host"] for c in seen] == ["paper-api.alpaca.markets", "api.alpaca.markets"]
+    assert seen[1]["headers"]["apca-api-key-id"] == KEY
 
 
 def test_no_write_verb_appears_in_the_module():
@@ -505,7 +593,12 @@ def test_no_write_verb_appears_in_the_module():
     assert not (strings & {"POST", "PUT", "PATCH", "DELETE", "post", "put", "patch", "delete"})
     assert not any(s.startswith("/v2/orders") or s == "dotenv" or "QUANTT_ENV_FILE" in s for s in strings)
     assert not (ids & {"submit_order", "cancel_order", "replace_order", "close_position",
-                       "close_all_positions", "dotenv", "open"})
+                       "close_all_positions", "dotenv"})
+    # `open`: no builtin file open, and the only `.open` in the module is urllib_transport's opener
+    tree = ast.parse(READER_FILE.read_text())
+    assert "open" not in {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    attrs = [n for n in ast.walk(tree) if isinstance(n, ast.Attribute) and n.attr == "open"]
+    assert [getattr(n.value, "id", None) for n in attrs] == ["opener"]
 
 
 def test_public_surface_is_exactly_the_reads_attribution_needs():
@@ -594,3 +687,33 @@ def test_invalid_book_and_empty_keys_are_refused():
         AR.AlpacaReader("CEF!", key_id=KEY, secret=SECRET)
     with pytest.raises(AR.MissingCredential):
         AR.AlpacaReader("cef", key_id="", secret=SECRET)
+
+
+@pytest.mark.parametrize("bad", ["FAKE\nSECRETVALUE", "FAKE\rSECRETVALUE", "FAKE\x00SECRETVALUE", "FAKE SECRETVALUE",
+                                 "FAKE\u2028SECRETVALUE"], ids=["lf", "cr", "nul", "space", "non-ascii"])
+def test_a_key_that_is_not_printable_ascii_is_refused_naming_only_the_variable(bad):
+    """http.client's ValueError for a line break in a header quotes the whole header value,
+    and `_get` catches only transport errors, so the secret reached the report's file. Refused
+    here, before any request. Fails on the parent commit: the constructor accepted it."""
+    with pytest.raises(AR.MalformedCredential, match="ALPACA_CEF_SECRET_KEY") as e:
+        AR.AlpacaReader("cef", key_id=KEY, secret=bad)
+    assert "SECRETVALUE" not in str(e.value)
+    with pytest.raises(AR.MalformedCredential, match="ALPACA_C4_KEY_ID") as e:
+        AR.AlpacaReader("c4", key_id=bad, secret=SECRET)
+    assert "SECRETVALUE" not in str(e.value)
+
+
+def test_a_key_with_a_line_break_never_reaches_the_report_files(tmp_path, monkeypatch):
+    """The same input through the job, the path the review found: the report names the
+    variable and holds no part of the value. Fails on the parent commit (`Invalid header
+    value b'FAKE\\nSECRETVALUE'` was written to both files)."""
+    from scripts.ops import pnl_report as P
+    monkeypatch.setenv("ALPACA_CEF_KEY_ID", "FAKEKEYID")
+    monkeypatch.setenv("ALPACA_CEF_SECRET_KEY", "FAKE\nSECRETVALUE")
+    rep, code = P.run_report("cef", tmp_path, D(2026, 11, 6), groups={"AAA": "muni"},
+                             nav_fetcher=lambda *a: None, dist_check_fetcher=lambda *a: None)
+    assert code == P.EXIT_INCOMPLETE and rep["attribution"]["status"] == P.UNMEASURED
+    assert "ALPACA_CEF_SECRET_KEY" in rep["attribution"]["why"]
+    out = tmp_path / "reports" / "pnl"
+    for name in ("2026-11-06.json", "2026-11-06.md"):
+        assert "SECRETVALUE" not in (out / name).read_text(), name

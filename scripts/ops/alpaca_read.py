@@ -21,14 +21,21 @@ the runner either), with four properties:
     test against the request object it builds. There is no POST, PUT, PATCH or
     DELETE here, no order, no cancel and no replace, and no parameter that adds one.
   * PAPER ONLY. The two hosts are this module's own constants, compared with
-    AlpacaClient's by a test. `_get` raises on any other base.
+    AlpacaClient's by a test. `_get` raises on any other base, and a redirect is never
+    followed: urllib would re-send both key headers to whatever host a 3xx names
+    (review, 2026-11-09), so `urllib_transport` refuses the hop and a 3xx comes back as
+    an answer, for `_get`'s non-200 branch to raise on naming it. A host check on the
+    first request only is not a paper-only guarantee.
   * KEYS FROM THE PROCESS ENVIRONMENT ONLY (`AlpacaReader.from_environment`):
     `ALPACA_<BOOK>_KEY_ID` / `_SECRET_KEY`, which systemd loads with
     `EnvironmentFile=` from the tmpfs file the secret service wrote
     (`install_vm --reports`, docs/RUNBOOK.md 8.11). This module opens no key file
     and no `config/.env`, and names no variable but those two. A missing key raises
     naming the variable; it never prints a value, and `_scrub` removes both values
-    from every message.
+    from every message `_get` builds. The one message `_scrub` could not reach is
+    http.client's own, which quotes a header value that holds a line break, so a key
+    that is not printable ASCII is refused in the constructor, naming only the variable
+    (`MalformedCredential`; review, 2026-11-09).
   * EXACTLY THE READS ATTRIBUTION NEEDS (a test pins the public method list).
 
 WHY ITS PARSING IS A COPY, AND WHY THAT IS SAFE
@@ -47,7 +54,8 @@ the original.
 WHAT IT REFUSES (raises, naming what; never a default)
 -------------------------------------------------------
 Everything AlpacaClient refuses on these reads, and: a base URL that is not one of
-the two hosts; a key that is not in the environment; a page that does not advance.
+the two hosts; a redirect; a key that is not in the environment or is not printable
+ASCII; a page that does not advance.
 
 This module is stdlib plus pandas (`fetch_bars` returns a frame, as
 `scripts/rv/alpaca_daily.fetch_bars` does). It imports nothing from `quantt/`.
@@ -91,6 +99,7 @@ _SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9.]{0,9}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
 _BOOK_RE = re.compile(r"[a-z0-9]+")
+_KEY_RE = re.compile(r"[\x21-\x7e]+")      # no space, control character or non-ASCII: `AlpacaReader.__init__`
 
 
 class AlpacaReadError(RuntimeError):
@@ -109,6 +118,10 @@ class AlpacaHTTPError(AlpacaReadError):
 
 class MissingCredential(AlpacaReadError):
     """A book's key is not in the process environment. The message names the variable."""
+
+
+class MalformedCredential(AlpacaReadError):
+    """A book's key cannot be sent as a header. The message names the variable, never the value."""
 
 
 def env_names(book: str) -> tuple[str, str]:
@@ -265,15 +278,28 @@ def _ca_strict(r: dict, kind: str, date_field: str, parties, where: str, seen: d
 Transport = Callable[[str, dict, float], tuple]
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A 3xx is an answer, never a second request. `urlopen`'s default handler follows
+    it and re-sends the request's headers, both API keys among them, to whatever host the
+    response names, so a redirect from the paper host could carry the keys to the live
+    API or to plain http. Returning None makes urllib treat the 3xx like any other error
+    status: it reaches `urllib_transport` as an HTTPError, and `_get` raises naming it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def urllib_transport(url: str, headers: dict, timeout: float) -> tuple[int, str]:
     """One HTTP GET: (status, body text). The only place this module speaks HTTP, and the
-    method is written here, once. An HTTP error status is an answer (returned); a
-    transport failure raises (OSError or http.client.HTTPException) for `_get` to retry.
-    Standard library only: `requests` is what the runner's client uses, and the job's
-    import closure stays away from it (test_report_no_order_path.py)."""
+    method is written here, once. An HTTP error status is an answer (returned), and so is
+    a redirect, which is refused (`_NoRedirect`); a transport failure raises (OSError or
+    http.client.HTTPException) for `_get` to retry. Standard library only: `requests` is
+    what the runner's client uses, and the job's import closure stays away from it
+    (test_report_no_order_path.py)."""
     req = urllib.request.Request(url, headers=headers, method="GET")
+    opener = urllib.request.build_opener(_NoRedirect)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             return resp.status, resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", "replace")
@@ -293,6 +319,11 @@ class AlpacaReader:
             raise ValueError(f"book {book!r} must be a lowercase name like 'cef'")
         if not key_id or not secret:
             raise MissingCredential(f"book {book!r}: an empty key id or secret was passed")
+        for value, name in zip((key_id, secret), env_names(book)):
+            if not isinstance(value, str) or not _KEY_RE.fullmatch(value):
+                raise MalformedCredential(f"book {book!r}: {name} is not one word of printable ASCII (a line "
+                                          f"break, a space or a control character in it?); the value is not shown, "
+                                          f"and no request was made")
         self.book = book
         self._key_id = key_id
         self._secret = secret
