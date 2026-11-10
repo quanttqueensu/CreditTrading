@@ -1182,9 +1182,11 @@ identity, which every local user can reach. File permissions keep shadow code ou
 state and key file, and they cover accidents; they do not stop code on the `shadow` branch
 from asking the vault for a secret. Control who can push to that branch.
 
-**Not measured:** the script has not been run on the VM. Its memory limit (the unit's
-`MemoryMax`) is a guess at what keeps prod safe on this machine, to be read against the first
-runs' logs. **If `requirements.txt` changes on the branch, the nightly run refuses** until
+**Installed 2026-11-10, 11:12 New York**, by an agent at the team lead's request ("can u run
+it"), in the gap between prod's jobs; it took 22 seconds [V: the run's own output]. The first
+attempt, at 10:12, stopped at its first step and created nothing, because the user was then
+named `shadow`. **Still not measured:** the job's memory peak (systemd reported none for the
+first run), so the unit's `MemoryMax` remains a guess to read against later runs. **If `requirements.txt` changes on the branch, the nightly run refuses** until
 this script is re-run.
 
 ## Open questions (for the TL)

@@ -4021,3 +4021,16 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-10_month_end_treasury.md` @ `e36ee83` (added by this commit); `results/ideas/month_end_treasury/results.json` @ `e36ee83` (added by this commit)
 - supports: §3, §4
 - status: current. One run, not independently re-derived. The shadow book `month_end_ief` starts 2026-11-10; its figures will be SIMULATED
+
+### E-2026-11-10-02 · Release: the shadow-book runner is installed on the VM beside prod, as its own user following the branch shadow; its first run exited 0 and its timer is enabled
+- kind: release
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - installed 11:12:14 to 11:12:36 New York (22 seconds), between prod's 11:10 and 11:30 jobs [S]
+  - the first run exited 0 on code `29a7006` and printed "month_end_ief: starts 2026-11-10; as-of 2026-11-09 is before it" [S]
+  - the next timer firing is 2026-11-10 18:50 New York [S]
+  - a first attempt at 10:12 stopped at its first step (`useradd: group shadow exists`) and created nothing [S]
+- source: `docs/RUNBOOK.md` @ `29a7006` (section 8.10; its install note is added by this commit); `shadow/deploy/install_shadow_vm.sh` @ `29a7006`
+- supports: §5
+- status: current. Not a prod release: no tag, and prod's units, clone and state were not touched. The figures are from the install's own output, read once over ssh and not stored in the repository
