@@ -1,0 +1,107 @@
+# Idea ledger
+
+**One line per idea tested: date, idea, data, gross result, status.** It is a record, not a
+gate (team lead, 2026-11-09, `docs/SYSTEM.md` §5; `docs/MISSION.md` §2). It stops an idea
+being re-run blind and shows which families are working. Add the line **in the same commit**
+as the test. A dead idea may be revived with a new angle: new data, a new mechanism, a
+different horizon or a different instrument.
+
+**Status words.** `IDEA` card written, not tested · `EXPLORE` gross test run, see the result ·
+`PAPER` running on a paper account · `SHADOW` running as a simulated book on live data ·
+`PROPOSED` go-live proposal with the team · `LIVE` · `SET ASIDE` no effect found, with what
+would reopen it · `REVIVE?` a pre-2026-11-09 kill whose gross effect was positive and whose
+gate (cost, factor exposure, the deflated bar) no longer applies.
+
+**Figures are gross unless a cell says otherwise**, with the panel's last date where the
+source gives it. Labels: `[V]` verified in the session that wrote the line, `[S]` copied from
+the named source file, `[U]` unverified.
+
+## From 2026-11-09
+
+| date | idea | data (last date) | gross result | status |
+|---|---|---|---|---|
+| 2026-11-10 | `month_end_ief`: long IEF over the last 3 sessions of each month (revival of XASSET-X3, rule unchanged); card `results/ideas/2026-11-10_month_end_treasury.md` | desk ETF panel, IEF total returns (2026-10-09) | gross Sharpe 1.07 (t 5.26), 2002-09 → 2026-10-09; halves 1.01 / 1.15; all five eras positive (0.88 to 1.76); IEF on other sessions 0.10 [V] | SHADOW from 2026-11-10 |
+
+## Backfill: everything tested before 2026-11-09
+
+Copied on 2026-11-09 from `docs/RESEARCH_STATE.md` at `3595ec8` (its KILLED, WATCH, ACTIVE
+and CLOSED tables), so **every figure below is `[S: docs/RESEARCH_STATE.md]`** and none was
+re-run. That file holds the full evidence and the reproducing command for each row. The
+`then` column is the old verdict code (D1 no gross edge, D2 costs, D3 decayed, D4 factor
+exposure, D6 conditional, D7 too few events). The last column re-reads each row under the
+2026-11-09 rules: costs and factor exposure no longer end an idea, so a D2 or D4 row with a
+positive gross effect is a candidate again. **That re-reading is the author's, not a result.**
+
+### Trading on paper
+
+| date | idea | data | gross result | then | status now |
+|---|---|---|---|---|---|
+| 2026-07-31 | CEF-DISC, the core: discount z-score reversion on 13 credit CEFs, no-trade band | CEF prices and NAVs | deployed-set IC −0.033 (t −1.68), 523 dates from 2013-06; factor alpha t 2.94 daily (fit to 2022-12-30) | ACTIVE | PAPER (core account) |
+| 2026-10-14 | C4: the same z-score pooled over five more CEF families, 74 funds | family prices and NAVs | fit gross SR 1.217 (NW t 5.32); holdout 2023-01-03 → 2026-09-30 gross SR 1.434 on the corrected book | PASS, paper only | PAPER (C4 account) |
+| 2026-11-03 | C4-LEVEL: C4's discount level against family peers, blended ½ : ½ by risk with its z | as C4 | holdout level-only gross SR 1.636; blend 14.56%/yr against z-only 10.32% | PASS, K3 overridden | PAPER (inside C4) |
+| 2026-11-01 | VT: size each account at its equal-risk multiplier (core ×1.30, C4 ×1.26) | fit-period book returns | claims no Sharpe; judged on forward stops | APPROVED | PAPER (both accounts) |
+| 2026-11-03 | TE4: on a thin session trade the 4–5 eligible names instead of flattening | core panel | +2.13pp/yr at matched turnover (t 2.34); 87% of it PIMCO; holdout t 0.72 | APPROVED, dark | built, key absent |
+
+### Gross effect present, stopped by a gate that no longer applies
+
+| date | idea | data | gross result | then | status now |
+|---|---|---|---|---|---|
+| 2026-10-14 | XASSET-X3: month-end Treasury extension, long IEF over the last 3 sessions | ETF daily, 2002–22 | SR 1.04, NW t 4.94; placebo passes; holdout SR 0.59 | D4 (TERM β 0.34) and D2 | REVIVE? a part-time term-premium sleeve; futures are the cheap instrument |
+| 2026-10-14 | C5: fill the evening's CEF trade at the t+1 opening auction | CEF panel, opens, 2016–22 | +293bp/yr (SR 1.16, t 2.82); holdout +313.6bp/yr (SR 2.12, t 4.66) | D1 on the lagged placebo (+351bp/yr) | REVIVE? the placebo says the gain is session drift on the book's own trades, which is still a gain: an execution choice to test on paper |
+| 2026-10-20 | NAV tenders: buy a CEF after its NAV tender is announced, tender, ETF-hedge | EDGAR, CRSP, 2010–22, 104 events | +1.08% per event (cluster t 2.80); sleeve gross SR 0.450 | D2, D4, bar | REVIVE? on total return; capacity binds (about half a day's volume at $1m) |
+| 2026-10-27 | Ex-date drift: short a CEF at the ex-date close, cover at +3, peer-hedged | 17 credit CEFs; C4 families | CAR(+1..+3) −34.3bp (t −14.9) on C4's families, −20.5bp (t −6.8) on the credit 17, 2005–22 | approved, 2023+ test never opened | REVIVE? built and off; hundreds of events a year |
+| 2026-10-29 | PCEF reconstitution: trade fund-of-CEF index changes | CRSP MF holdings | PCEF alone +184bp (t 5.5) then −120bp (t −5.6); placebo +8bp; pooled result an artifact from YYY | post-hoc subgroup; built, off | REVIVE? needs announcement dates |
+| 2026-07-31 | pair-reversion: 22 within-class credit ETF pairs | ETF daily | combined gross SR +1.03, mean pairwise correlation +0.027 | D2 and leverage (vol 0.37%) | REVIVE? only where leverage is cheap (futures, portfolio margin) |
+| 2026-10-19 | E1: NAV-for-NAV CEF merger pair, long target / short acquirer | EDGAR, CRSP | alpha t 1.90, every |Σβ| ≤ 0.021; +167bp muni effect | D4 on power; parked, no paper broker converts a merger | REVIVE? as a shadow book |
+| 2026-10-20 | MA-HZ: merger arbitrage on the completion-hazard hump, long high-hazard weeks | CRSP deals 2001–22 | hump holds out of sample (hazard 0.069 vs 0.025) | WATCH, power | REVIVE? as a shadow book; broad, uncorrelated |
+| 2026-07-30 | S3-forced-flow: fallen-angel forced selling and recovery, in the bonds | TRACE bond-day panel to 2025-12-04 | −424bp trough (t −17.5), 82–85% reversal | D6, fires in crises; no wrapper expression | REVIVE? regime-gated, ETF expression (ANGL/FALN) in stress only |
+| 2026-07-30 | S3-wrapper: the same through ANGL/FALN against HYG | ETF daily | unconditional pair SR 0.37; alpha t 1.98 | D4 | REVIVE? a credit-quality premium sleeve |
+| 2026-10-14 | XASSET-X4: multi-asset trend, 14 ETFs | ETF daily, to 2022-12 | SR 0.45, NW t 1.964; holdout 0.19 | D4, spanned by TSMOM | REVIVE? a trend sleeve needs futures breadth, not 14 ETFs |
+| 2026-10-14 | XASSET-X1: credit and rates trend, 9 ETFs | ETF daily, 2008–22 | SR 0.41, NW t 1.62; holdout −0.39 | D1 | SET ASIDE inside X4 |
+| 2026-07-30 | E1-band: HYG vs JNK premium/discount ±2σ band | ETF PD | SR 0.75 → 2.64 → 0.41 → 0.48 by era; return fell 2.54% → 0.05%/yr | WATCH: opportunities vanished | REVIVE? in wrappers not yet industrialised, and in stress |
+| 2026-10-27 | BDC discount z-score | Compustat NAV, 54 BDCs | all BDCs IC +0.0258 (t 5.14); at ADV ≥ $3m the NAV term is t 0.48 beside 5-day reversal | nothing tradable | REVIVE? the tradable part is short-term reversal: test it as that, on a wide universe |
+| 2026-10-20 | A2: insider open-market buying in BDCs | Form 4, 2006–22 | +100bp over 21 sessions (t 3.13); the sales placebo +91bp | closed: it is the post-report window | REVIVE? as a post-report drift, which is what it measured |
+| 2026-10-19 | SSX-1 census: 57 event candidates screened, 8 pass a count gate | EDGAR, CRSP | no returns computed; passes: clustered insider buying (3,485 clusters 2010–22), PFF index additions, earnings-date delays (368 a year), fund issuance, 8-K red flags, S&P 400/600, downgrade flag | 8 pass, none tested | IDEA: the largest untested inventory on the desk |
+| 2026-11-02 | Turn-of-month on the CEF book | CEF panel | not quoted in the ledger | WATCH | IDEA: test anchored on pay dates, on a wide universe |
+
+### No gross effect found
+
+| date | idea | data | gross result | then | status now |
+|---|---|---|---|---|---|
+| 2026-07-30 | credit_rv: cross-sectional price-residual RV on credit ETFs | ETF daily | −0.19%/yr before costs; holdout net SR −1.44 | D1 | SET ASIDE |
+| 2026-07-30 | S1: per-bond staleness from cross-issuer price disagreement | ETF holdings | median disagreement 0.09bp: all issuers use one vendor | D1 | SET ASIDE |
+| 2026-07-31 | single-fund PD: ETF premium/discount as dislocation | ETF PD | it is NAV staleness; the ETF leads the NAV (EMB +15.3, LQD +11.7) | D1 | SET ASIDE (the lead itself is information: see the diagnosis) |
+| 2026-07-31 | leadlag: thin wrappers lag liquid ones | ETF OHLC | executable mean t −0.50; Treasury control higher | D1 | SET ASIDE |
+| 2026-07-31 | nport-trace-nav: rebuild daily NAV from N-PORT × TRACE | N-PORT, TRACE | TRACE covers 17–30% of weight | D7 | SET ASIDE |
+| 2026-07-31 | dealer-constraint: primary-dealer inventory predicts credit returns | NY Fed PD | best t 1.59; UST control the same size | D1 | SET ASIDE |
+| 2026-07-31 | short-pressure: crowded credit ETF shorts unwind | FINRA short volume | credit mean t 0.28 at 1d; rates control higher | D1 | SET ASIDE |
+| 2026-07-30 | raw-flow-z: ETF creation/redemption z-score | iShares shares outstanding | 28,025 obs, all |t| < 0.8 | D1 | SET ASIDE |
+| 2026-09-13 | gamma-timing C3: CEF discount stress times long credit gamma | Cboe vol indices | in sample β t 2.42; holdout coefficient 24% of fit; no state has a positive mean | D1 holdout | SET ASIDE |
+| 2026-10-14 | XASSET-X2: front-run pension rebalancing, SPY vs IEF | ETF daily, 2002–22 | SR 0.33, NW t 1.59; rates control 0.18 | D1 | SET ASIDE |
+| 2026-10-26 | Macro state filters on the core (HY OAS, SIFMA, repo by fund group) | CEF panel, FRED, 2005–22 | no split reaches |t| 2; mismatched control the same size | closed | SET ASIDE for the core; state conditioning on other sleeves is open |
+| 2026-10-26 | CEF discount moves on FOMC, CPI and NFP days | CEF panel | extra reversion −6.9bp (t −0.36) | closed | SET ASIDE |
+| 2026-10-20 | A2: insider buying in CEFs beyond the z-score | Form 4, 1,179 events | +9.5bp price excess (t 0.44) matched on z | closed | SET ASIDE |
+| 2026-10-28 | A1-BOOK: block the core's shorts inside share-issuance windows | core book, EDGAR | in-window shorts earned more; blocking costs gross SR 0.955 → 0.735 | closed | SET ASIDE |
+| 2026-10-20 | A1: CEF share issuance at a premium as an event | EDGAR, CRSP, 33 events | 7 usable events; unmeasured | D7 | SET ASIDE |
+| 2026-10-20 | Muni hazard flags (EMMA notices, FEMA disasters) on muni CEFs | N-PORT, OpenFEMA | no stale-mark signature (+3.3 ± 14.8bp) | closed | SET ASIDE |
+| 2026-10-19 | SPAC deadline route: buy below trust, take the liquidation | CRSP, 2019–22 | asset class alpha 8.93%/yr (t 2.18), β 0.53 in bad months; below-trust trade +0.93%/yr over bills in 2022 | D4, closed | SET ASIDE (thin; a rate-carry trade) |
+| 2026-10-18 | Equity merger arbitrage as an index | published evidence | α t 2.9, β 0.49 in months below −4% | D4 | see MA-HZ above |
+| 2026-11-02 | NAV hedge: an ETF overlay on the core's NAV moves | core book | not run (factor R² 0.011–0.074) | closed on power | SET ASIDE; an exposure readout replaces it |
+| 2026-11-05 | Re-derive the band from the measured paper cost | core and C4 fits | core 4.55%, C4 4.07% against live 4.8%; neither beats live (t 1.34) | closed | SET ASIDE; re-measure on live auction impact before real capital |
+
+### Core-book construction variants (2026-09-06 and earlier)
+
+| date | idea | gross result | then | status now |
+|---|---|---|---|---|
+| 2026-07-31 | `z_window` 63 instead of 252 | gross SR 1.75, net −0.298 on the holdout | killed on net | REVIVE? on paper the book is scored gross: a faster window is a candidate for a second, faster core sleeve |
+| 2026-09-06 | OU / per-name κ score | κ exposure flat; the z-score already carries κ^½ | withdrawn | SET ASIDE |
+| 2026-09-06 | Combine the discount signal with price reversal | combined |IC| 0.0748 vs 0.0747 | killed | SET ASIDE |
+| 2026-09-06 | Hard muni neutrality | gross SR 0.97 → 0.82 | killed | SET ASIDE |
+| 2026-09-06 | Size up on |z| | SR 0.81 → 0.40 → 0.29 → 0.27 by threshold | killed | SET ASIDE |
+| 2026-09-06 | Size up on dislocation | −12.9% at 35.8% vol in 2008 | killed | SET ASIDE |
+| 2026-09-06 | Distribution data as a filter, and inside a Kalman | 1 of 8 variants beat baseline; Kalman 1.60 → 1.28 | killed | SET ASIDE |
+| 2026-09-06 | Cointegration pairs | gross SR 1.03, needs 32.8× leverage | killed | see pair-reversion above |
+| 2026-09-06 | Sequential Σ⁻¹α with the band | gross 1.07 against plain α's 1.10 | killed | SET ASIDE |
+| 2026-09-11 | Convexity hedge overlay (is the book short vol?) | no | closed | SET ASIDE |
+| 2026-10-12 | Tax-loss (Dec–Jan) as its own sleeve on the core | half the core's summed IC sits on Dec–Jan dates; 9 seasons | D7 on 13 names | REVIVE? on the whole CEF universe, where the season has hundreds of names |
+| 2026-10-12 | Within-group selection against between-group timing | within −9.07bp/z (t −3.02) carries 89% of gross | measured | informs the combined model |

@@ -1137,6 +1137,58 @@ Every guard in this section applies to C4 too. The team lead's steps, from the
 vault secrets to the arming go, are in
 `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
 
+### 8.10 The shadow-book runner on the VM (2026-11-09)
+
+A second, separate thing on the VM: simulated books on live data, which send no order
+(`results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md`; `docs/SYSTEM.md` §5, 2026-11-09). It
+is **not prod and not a release**. It is a clone under its own unix user, `quantt-shadow` (not `shadow`: Ubuntu has a system group of that name, which guards the password file), that
+follows the branch `shadow`, so a new book is a commit to that branch.
+
+| what | prod | the shadow runner |
+|---|---|---|
+| user and home | `quantt`, `/home/quantt` | `quantt-shadow`, `/home/quantt-shadow` |
+| code | a clone at a release tag | `/home/quantt-shadow/quantt-shadow`, following the branch `shadow` |
+| state | `quantt_state/<book>` | `/home/quantt-shadow/shadow_state` |
+| key file | `/run/quantt/alpaca.env` | `/run/quantt-shadow/alpaca.env`: a copy of the core account's key, for reading prices |
+| units | `quantt-cef-*`, `quantt-c4-*` | `quantt-shadow-secret.service`, `quantt-shadow.service`, `quantt-shadow.timer` |
+| schedule (New York) | section 8.3 | 18:50 and 20:50 Monday to Friday, 07:20 Tuesday to Saturday |
+
+**Install (the team lead, once; it needs sudo).** Outside prod's windows (not 15:45–16:00,
+17:25–17:40 or 22:00–01:00, and not at :10 or :40 past an hour); the script refuses while a
+prod job runs. The branch `shadow` must exist on GitHub first.
+
+```bash
+curl -fsSLo install_shadow_vm.sh \
+  https://raw.githubusercontent.com/quanttqueensu/CreditTrading/shadow/shadow/deploy/install_shadow_vm.sh
+less install_shadow_vm.sh            # read it before running it as root
+sudo bash install_shadow_vm.sh --vault <vault-name> --enable
+```
+
+**Check it once by hand:**
+
+```bash
+sudo systemctl start quantt-shadow-secret.service && sudo systemctl start quantt-shadow.service
+sudo tail -n 20 /home/quantt-shadow/logs/nightly.out.log /home/quantt-shadow/logs/nightly.err.log
+systemctl list-timers 'quantt-shadow*'
+```
+
+With no book file on the branch the run prints "no enabled book" and exits 0. The page for
+every book is `/home/quantt-shadow/shadow_state/SCOREBOARD.md`.
+
+**Stop it:** `sudo systemctl disable --now quantt-shadow.timer`. Nothing else depends on it.
+
+**What the separate user does not protect against.** The vault is read through the VM's own
+identity, which every local user can reach. File permissions keep shadow code out of prod's
+state and key file, and they cover accidents; they do not stop code on the `shadow` branch
+from asking the vault for a secret. Control who can push to that branch.
+
+**Installed 2026-11-10, 11:12 New York**, by an agent at the team lead's request ("can u run
+it"), in the gap between prod's jobs; it took 22 seconds [V: the run's own output]. The first
+attempt, at 10:12, stopped at its first step and created nothing, because the user was then
+named `shadow`. **Still not measured:** the job's memory peak (systemd reported none for the
+first run), so the unit's `MemoryMax` remains a guess to read against later runs. **If `requirements.txt` changes on the branch, the nightly run refuses** until
+this script is re-run.
+
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`

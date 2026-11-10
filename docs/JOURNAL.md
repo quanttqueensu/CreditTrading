@@ -372,3 +372,29 @@ from a named source; [doc] copied from a named note.
 - **Counting.** Every re-test and every holdout look is a counted trial, and holdouts can be re-opened. Paper trading on later data is the clean check before real money.
 - **The loop.** Follow-ups come first. It no longer admits anything: it writes a scorecard and the team lead decides.
 - **Not changed.** The live book's stops, real-capital admission, the analysts' process and the guides.
+
+## 2026-11-09 (Mon)
+
+**The mission** (`docs/SYSTEM.md` §5, 2026-11-09; `docs/MISSION.md`; `results/report/EVIDENCE_LOG.md` E-2026-11-09-01, -02).
+- **Rulings.** The team lead gave a standing brief, kept verbatim as `docs/MISSION.md`.
+  - Scope is open, and the CEF book is one sleeve.
+  - Paper trading is the test. Research is judged on gross signal, with no cost model.
+  - Pre-registration, the trial counters, the holdout ceremony, "no sweeping" and alpha-only are dropped.
+  - An agent may start a paper or shadow book itself, through a separate path whose design the team lead approves once. That design is not written yet, so nothing new is on paper.
+  - Prod releases are the team lead's alone again: the 2026-11-02 standing authority is withdrawn.
+- **Research.** No return computed. `results/IDEA_LEDGER.md` replaces the counters and carries a one-line backfill of everything in `docs/RESEARCH_STATE.md`, which is frozen as history. 13 old ideas had a measured positive gross effect and were stopped by a gate that no longer applies.
+- **Found.** `results/mission/PHASE0_2026-11-09.md`: why the book has too few bets (one signal, small universes, one horizon, gates that kept no inventory, a prod release for every sleeve); every laptop panel is stale, from about 17 sessions (the core) to seven months (futures); and the agent layer still describes the old gates. `CLAUDE.md` is rewritten and wins where they differ. The research loop now stops at its own gate until it is rebuilt.
+- **Rulings, later** (`results/report/EVIDENCE_LOG.md` E-2026-11-09-03). The shadow-book runner's design is approved once (`results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md`): shadow books first, on the VM as a separate user, marked on Alpaca's auction prints with a yfinance check, $1M a book. The analysts keep `docs/TEAM.md`'s process. The agent runs the free data fetchers.
+- **Built.** `shadow/`: the engine, the book file and the scoreboard, with tests (E-2026-11-09-04). No book runs yet: the fetchers, the first book and the VM install are next.
+- **The desk.** Rebuilt for the mission (E-2026-11-09-05; `.claude/README.md`): seats `market-historian-economist`, `signal-hunter`, `data-scout`, `portfolio-architect`, `execution-engineer` and `go-live-reviewer`; commands `/hunt`, `/idea`, `/explore`, `/paper`, `/scoreboard`, `/combine` and `/go-live`. `/prereg` and the event census are removed, and the research loop is a stub that stops.
+- **Found, later.** The R2 data API reads from the laptop: CRSP's daily file runs to 2025-12-31 [V: `results/mission/PHASE0_2026-11-09.md` §2].
+- **Prod.** No change. The VM is armed at `release-20261104-1` [V: `python3 -m ops.orient`].
+- **Live.** Core: verify PASS, 12 of 12 filled; official pending; snapshot equity $98,838.46 at the 2026-11-09 close [V: `python3 -m ops.orient`].
+
+## 2026-11-10 (Tue)
+
+**The first shadow book** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-01).
+- **Research.** Month-end Treasury demand, long IEF over the last three sessions of each month, re-run gross on the harness (`results/ideas/2026-11-10_month_end_treasury.md`): Sharpe 1.07 over 2002-09 to 2026-10-09, both halves and all five eras positive, and IEF on every other session earns 0.10 [V: `python3 results/ideas/month_end_treasury/explore.py`]. It is the old XASSET-X3 with its rule unchanged.
+- **Shadow.** `shadow/books/month_end_ief.json`, $1M, started 2026-11-10. Its first weighted decisions are 2026-11-23 to 11-25. Simulated: it sends no order.
+- **Prod.** PRs #71 and #72 merged by the team lead on 2026-11-09 and 11-10. No release.
+- **The VM.** The shadow runner is installed beside prod, at the team lead's request, as user `quantt-shadow` following the branch `shadow` (`docs/RUNBOOK.md` §8.10; E-2026-11-10-02). Its key service is active, its first run exited 0 on code `29a7006`, and its timer next fires at 18:50. Prod's units, clone and state were not touched. A first attempt at 10:12 failed at its first step and created nothing.

@@ -3935,6 +3935,106 @@ that adds it does not exist when it is written.
 - supports: §2, §5
 - status: current
 
+### E-2026-11-08-05 · Rulings: a VM timer owns the nightly check, with push on fired stops; single-name size is measured, not capped; the corporate-action gate goes back to halt after a fix; HALVE/KILL's read is fixed, report-only
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-08
+- figures:
+  - none (rulings by the team lead: "VM timer, push on stops", "Measure it, change nothing", "Start the fix", "Fix the read, stay report-only")
+- source: `docs/SYSTEM.md` @ `a5b94c8` (the section is added by this commit, on top of that main)
+- supports: §1, §5
+- status: current. The builds are in progress on branches `nightly-checks` and `ca-isin-fix`; the HALVE/KILL read follows PR #55
+
+### E-2026-11-09-01 · Ruling: the mission. Scope is open, paper trading is the test, research is judged gross with no cost model, and pre-registration, the trial counters, the holdout ceremony and alpha-only are dropped; prod releases go back to the team lead alone
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (a ruling: the team lead's written brief, kept verbatim as `docs/MISSION.md`, and three answers given interactively: "Team lead only" on prod releases, "Drop it" on alpha-only, "Rewrite to master.md §2" on `CLAUDE.md`'s research rules)
+- source: `docs/SYSTEM.md` @ `3595ec8` (the section "Team lead, 2026-11-09" is added by this commit, on top of that main); `docs/MISSION.md` @ `3595ec8` (added by this commit)
+- supports: §1, §5
+- status: current. Supersedes E-2026-11-08-04 (2026-11-08) where the two differ: re-tests and holdout looks are no longer counted, and entry to paper is the agent's own through a paper/shadow path whose design the team lead approves once. `docs/RESEARCH_STATE.md`'s counters are frozen
+
+### E-2026-11-09-02 · Method: the idea ledger replaces the trial counters, and is backfilled with every idea tested before 2026-11-09; 13 of them had a measured positive gross effect and were stopped by a cost, factor-exposure or deflated-bar gate
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - 13 backfilled ideas with a measured positive gross effect stopped by a retired gate (a count of the ledger's rows, the author's reading of each) [S]
+  - month-end Treasury extension (XASSET-X3): gross Sharpe 1.04, NW t 4.94, 2002-09 to 2022-12 [S]
+- source: `results/IDEA_LEDGER.md` @ `3595ec8` (added by this commit); `docs/RESEARCH_STATE.md` @ `3595ec8`; `results/mission/PHASE0_2026-11-09.md` @ `3595ec8` (added by this commit)
+- supports: §3, §5
+- status: current
+
+### E-2026-11-09-03 · Ruling: the shadow-book runner's design is approved once; it runs on the VM as a separate user, is marked on Alpaca's auction prints with a yfinance check, and simulates each book at $1M; the analysts keep their process
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (a ruling: "Approve", "VM, separate user and clone", "Alpaca auction prints + yfinance check", "$1M per book", "Keep TEAM.md process", "Shadow books first", "I run the free fetchers")
+- source: `docs/SYSTEM.md` @ `d98fa5e` (the rows are added by this commit); `results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md` @ `d98fa5e` (added by this commit)
+- supports: §1, §5
+- status: current. The engine is built in `shadow/` with tests; no book is running, and the VM install is the team lead's
+
+### E-2026-11-09-04 · Method: the shadow engine decides on truncated panels, writes each decision once, scores only decisions written before 13:00 New York on the fill session, and reproduces the harness's shift(2) P&L on synthetic data
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (code and tests on synthetic data: a claim about the code, not the market)
+- source: `shadow/engine.py` @ `d98fa5e` (added by this commit); `shadow/tests/test_engine.py` @ `d98fa5e` (added by this commit)
+- supports: §5
+- status: current
+
+### E-2026-11-09-05 · Method: the agent layer is rebuilt for the mission: six seats and seven commands, the pre-registration skill and the event census removed, and the research loop reduced to a stub that stops
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (agent, skill, workflow and rule files; no return computed)
+- source: `.claude/README.md` @ `d98fa5e` (rewritten by this commit); `CLAUDE.md` @ `d98fa5e` (its desk section is rewritten by this commit)
+- supports: §5
+- status: current. Three scripts still cite the removed pre-registration skill in comments, and `scripts/research/harness.py` `report()` still returns cost columns: both are left for the next change to those files
+
+### E-2026-11-09-06 · Ruling and result: the shadow runner reads data with the core account's key, and its auction-print reader returned every print asked for, each equal to yfinance's close
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - 88 of 88 closing-auction prints returned (8 symbols: SPY IEF PDI PTY QQQ JFR HYG TLT; 11 sessions, 2026-10-26 to 2026-11-09) [S]
+  - 0 of 88 differ from yfinance's unadjusted close (maximum absolute difference 0.00bp) [S]
+  - NYSE Arca maps to SIP code P, official close at condition M (measured on SPY, 2026-11-06) [S]
+- source: `results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md` @ `d98fa5e` (the amendment is added by this commit); `docs/SYSTEM.md` @ `d98fa5e` (the row is added by this commit); `shadow/sources.py` @ `d98fa5e`
+- supports: §4, §5
+- status: current. Supersedes the "otherwise empty paper account" part of E-2026-11-09-03 (2026-11-09). One run from the laptop, not independently repeated
+
+### E-2026-11-10-01 · Result: month-end Treasury demand (long IEF over the last three sessions of a month) earns a gross Sharpe of 1.07 over 2002-09 to 2026-10-09, in both halves and all five eras, and goes on shadow
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - gross Sharpe 1.07, t 5.26, 2.63%/yr at 2.45% vol, 6,064 sessions of which 861 in the window; shift(2), unit weight, no cost modelled; panel to 2026-10-09 [S]
+  - early half (to 2014-09-19) Sharpe 1.01; late half 1.15 [S]
+  - eras: 2002–08 1.04; 2009–15 0.97; 2016–19 1.76; 2020–22 1.08; 2023 to 2026-10-09 0.88 [S]
+  - control, IEF on every other session: Sharpe 0.10, t 0.49 [S]
+  - position against IEF's 2026 median daily dollar volume: 0.14% at $1M, 0.68% at $5M, 1.35% at $10M [S]
+- source: `results/ideas/2026-11-10_month_end_treasury.md` @ `e36ee83` (added by this commit); `results/ideas/month_end_treasury/results.json` @ `e36ee83` (added by this commit)
+- supports: §3, §4
+- status: current. One run, not independently re-derived. The shadow book `month_end_ief` starts 2026-11-10; its figures will be SIMULATED
+
+### E-2026-11-10-02 · Release: the shadow-book runner is installed on the VM beside prod, as its own user following the branch shadow; its first run exited 0 and its timer is enabled
+- kind: release
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - installed 11:12:14 to 11:12:36 New York (22 seconds), between prod's 11:10 and 11:30 jobs [S]
+  - the first run exited 0 on code `29a7006` and printed "month_end_ief: starts 2026-11-10; as-of 2026-11-09 is before it" [S]
+  - the next timer firing is 2026-11-10 18:50 New York [S]
+  - a first attempt at 10:12 stopped at its first step (`useradd: group shadow exists`) and created nothing [S]
+- source: `docs/RUNBOOK.md` @ `29a7006` (section 8.10; its install note is added by this commit); `shadow/deploy/install_shadow_vm.sh` @ `29a7006`
+- supports: §5
+- status: current. Not a prod release: no tag, and prod's units, clone and state were not touched. The figures are from the install's own output, read once over ssh and not stored in the repository
+
 ### E-2026-11-09-60 · CEF trial 55's three pre-activation fixes from the owner's release-check: late_market only, a plan the buying-power fit emptied is not sent, and the drift guard compares the K-line values
 - kind: method
 - era: ALPACA
