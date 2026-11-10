@@ -1,0 +1,306 @@
+"""scripts/ops/pnl_report.py: the session and cumulative sections, the gaps it must name, and
+that a review-line breach only ever appears in the report.
+
+Fixtures are a small synthetic account: a fake reader (duck-typed like AlpacaReader, every
+number invented), fake NAV and dividend sources, and a synthetic price history. The account's
+equity series is computed in this file from cash and closes, never from the attribution's
+own formulas, so the reconciliation test is a real check. Nothing opens a socket; no key file
+is read. Every test fails on the parent commit, where the module does not exist.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import json
+import math
+from fractions import Fraction as F
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from scripts.cef import exposure_readout as ER
+from scripts.cef import live_attribution as LA
+from scripts.ops import alpaca_read as AR
+from scripts.ops import pnl_report as P
+
+D = dt.date
+UTC = dt.timezone.utc
+NOW = dt.datetime(2026, 1, 23, 2, 0, tzinfo=UTC)   # after the 01-22 session's 20:00 NY stamp (01:00Z 01-23)
+PRE_UNFUNDED = [D(2026, 1, 7), D(2026, 1, 8)]
+FUNDED = [D(2026, 1, 12), D(2026, 1, 13), D(2026, 1, 14), D(2026, 1, 15), D(2026, 1, 16)]     # funded, flat
+TRADED = [D(2026, 1, 20), D(2026, 1, 21), D(2026, 1, 22)]   # the book trades (01-19 is a holiday)
+SESSIONS = FUNDED + TRADED
+NEXT = D(2026, 1, 23)
+ASOF = TRADED[-1]
+CASH0 = 100_000.0
+CLOSES = {"AAA": {FUNDED[-1]: "9.90", TRADED[0]: "10.10", TRADED[1]: "10.20", TRADED[2]: "10.05"},
+          "BBB": {FUNDED[-1]: "20.10", TRADED[0]: "19.90", TRADED[1]: "20.20", TRADED[2]: "20.40"}}
+NAVS = {"AAA": {TRADED[0]: "11.00", TRADED[1]: "11.20", TRADED[2]: "11.00"},
+        "BBB": {TRADED[0]: "22.00", TRADED[1]: "22.00", TRADED[2]: "22.40"}}
+# (id, symbol, side, qty, px, session)
+FILLS = [("f1", "AAA", "buy", 5000, "10.00", TRADED[0]),
+         ("f2", "BBB", "sell_short", 2000, "20.00", TRADED[0]),
+         ("f3", "AAA", "sell", 1000, "10.15", TRADED[1])]
+SIGN = {"buy": 1, "sell": -1, "sell_short": -1}
+SEC = F("0.0000206")
+CAT = F("0.000003")
+
+
+def fees_of(rows) -> F:
+    sold = sum((F(q) * F(px) for _, _, s, q, px, _ in rows if SIGN[s] < 0), F(0))
+    shares = sum((F(q) for _, _, _, q, _, _ in rows), F(0))
+    return -(F(math.ceil(SEC * sold * 100), 100) + F(math.ceil(CAT * shares * 100), 100))
+
+
+def equity_series(tamper=None):
+    """Cash + positions at the close - fees, the way the account was measured to behave."""
+    cash = F(str(CASH0))
+    pos = {"AAA": F(0), "BBB": F(0)}
+    out = []
+    for d in SESSIONS:
+        day = [r for r in FILLS if r[5] == d]
+        for fid, s, side, q, px, _ in day:
+            pos[s] += SIGN[side] * q
+            cash -= SIGN[side] * q * F(px)
+        cash += fees_of(day)
+        mkt = sum((pos[s] * F(CLOSES[s].get(d, "0")) for s in pos if pos[s] != 0), F(0))
+        e = cash + mkt
+        out.append((d, float(e) + ((tamper or {}).get(d, 0.0))))
+    return out
+
+
+def stamp(d):
+    return dt.datetime.combine(d + dt.timedelta(days=1), dt.time(1, 0), UTC)
+
+
+class FakeReader:
+    def __init__(self, tamper=None, fee_rows=None, fee_error=None):
+        self.tamper = tamper
+        self.fee_rows = fee_rows
+        self.fee_error = fee_error
+
+    def eod_equity_history(self, start, end):
+        return [AR.EODPoint(d, e, stamp(d)) for d, e in equity_series(self.tamper) if start <= d <= end]
+
+    def calendar(self, start, end):
+        return [{"date": d} for d in PRE_UNFUNDED + SESSIONS + [NEXT] if start <= d <= end]
+
+    def activities_fills(self, date):
+        return [{"id": fid, "activity_type": "FILL", "symbol": s, "side": side, "qty": str(q), "price": px,
+                 "transaction_time": f"{d.isoformat()}T20:55:00.1Z", "type": "fill", "order_id": fid,
+                 "cum_qty": str(q), "leaves_qty": "0", "order_status": "filled"}
+                for fid, s, side, q, px, d in FILLS if d == date]
+
+    def distributions(self, symbols, start, end):
+        return []
+
+    def corporate_actions(self, symbols, start, end):
+        return []
+
+    def fee_activities(self):
+        if self.fee_error:
+            raise AR.AlpacaHTTPError(self.fee_error, status=500)
+        if self.fee_rows is not None:
+            return self.fee_rows
+        return [{"id": f"fee-{d}", "activity_type": "FEE", "date": d.isoformat(),
+                 "net_amount": str(float(fees_of([r for r in FILLS if r[5] == d])))} for d in TRADED]
+
+    def _get(self, base, path, params):
+        assert path == "/v2/stocks/bars"
+        bars = {s: [{"t": f"{d.isoformat()}T05:00:00Z", "o": float(c), "h": float(c), "l": float(c),
+                     "c": float(c), "v": 1000} for d, c in sorted(CLOSES[s].items())]
+                for s in params["symbols"].split(",")}
+        return {"bars": bars, "next_page_token": None}
+
+
+def fake_navs(symbols, start, end, drop=None):
+    rows = [{"date": d.isoformat(), "ticker": s, "nav": v}
+            for s in symbols for d, v in NAVS[s].items() if start <= d <= end and (s, d) != drop]
+    return pd.DataFrame(rows, columns=["date", "ticker", "nav"]), []
+
+
+def fake_dividends(symbols):
+    # one old dividend per name: the source "covers" the name; ex-dates are outside the
+    # traded window, so distributions resolve only where Alpaca's silence can be a zero.
+    return pd.DataFrame([{"ticker": s, "ex_date": "2026-01-02", "amount": "0.05"} for s in symbols],
+                        columns=["ticker", "ex_date", "amount"]), []
+
+
+def price_history(fs, seed=4):
+    sess = ER.nyse_sessions(dt.date(2025, 1, 2), ASOF)
+    rng = np.random.default_rng(seed)
+    n = len(sess)
+    z = rng.normal(0, 0.004, size=(n, 4))
+    etf = {fs.etfs[0]: z[:, 0], fs.etfs[1]: z[:, 1] + 0.2 * z[:, 0],
+           fs.etfs[2]: z[:, 2] + 0.3 * z[:, 1], fs.etfs[3]: z[:, 3] + 0.5 * z[:, 2]}
+    rets = pd.DataFrame(etf, index=sess)
+    # AAA responds to the headline factor one for one, BBB to a mix, with a small residual
+    rets["AAA"] = rets[fs.etfs[-2] if fs.headline == "MUNI" else fs.etfs[0]] + rng.normal(0, 0.0005, n)
+    rets["BBB"] = 0.5 * rets[fs.etfs[1]] + rng.normal(0, 0.0005, n)
+    rows = []
+    for tk in rets.columns:
+        close = 40.0 * np.cumprod(1.0 + rets[tk].to_numpy())
+        rows.append(pd.DataFrame({"date": sess, "ticker": tk, "close": close, "adj_close": close,
+                                  "dividend": 0.0, "split": 0.0}))
+    return pd.concat(rows, ignore_index=True)
+
+
+GROUPS = {"AAA": "muni", "BBB": "hy"}
+FAMILIES = {"AAA": "equity_domestic", "BBB": "preferred"}
+
+
+def run(tmp_path, book="cef", reader=None, navs=fake_navs, price_fetcher="default", monkeypatch=None, groups=None):
+    fs = ER.factor_set(book) if book == "cef" else ER.factor_set(book)
+    if price_fetcher == "default":
+        price_fetcher = lambda t, s, a: (price_history(fs), {}, {})
+    return P.run_report(book, tmp_path / book, ASOF, now_utc=NOW, reader=reader or FakeReader(),
+                        groups=groups or (GROUPS if book == "cef" else FAMILIES),
+                        nav_fetcher=navs, dist_check_fetcher=fake_dividends, price_fetcher=price_fetcher)
+
+
+def test_the_core_report_has_both_sections_and_derives_the_first_trade(tmp_path):
+    rep, code = run(tmp_path)
+    assert code == P.EXIT_OK and rep["status"] == "OK"
+    att = rep["attribution"]
+    assert att["session"]["date"] == ASOF.isoformat()
+    assert att["first_trade"] == TRADED[0].isoformat()         # from the fills, never written here
+    # the official line is Alpaca's EOD change; the book was flat, so the cumulative from the first
+    # trade is the whole history of its equity
+    eq = dict(equity_series())
+    assert att["session"]["eod_change"] == pytest.approx(eq[TRADED[-1]] - eq[TRADED[-2]])
+    cum = att["cumulative"]
+    assert cum["eod_change"] == pytest.approx(eq[TRADED[-1]] - CASH0)
+    assert cum["sessions"] == len(TRADED) and cum["first_trade"] == TRADED[0].isoformat()
+    # the rebuild reconciles to the cent, and hold + fill + fees is what Alpaca showed
+    assert att["reconciled"] is True and cum["residual"] == pytest.approx(0.0, abs=1e-9)
+    assert cum["hold"] + cum["fill"] + cum["fees"] == pytest.approx(cum["eod_change"], abs=0.005)
+    # hold splits into NAV part and discount part (all three sessions carry every NAV except the first)
+    assert cum["nav_part"] + cum["disc_part"] == pytest.approx(cum["hold_on_split_sessions"])
+    # the report files are where the owner said, with the factor section after the attribution
+    out = tmp_path / "cef" / "reports" / "pnl"
+    assert (out / f"{ASOF}.json").is_file() and (out / f"{ASOF}.md").is_file()
+    md = (out / f"{ASOF}.md").read_text()
+    assert md.index("## Attribution") < md.index("## Factor exposure")
+    assert json.loads((out / f"{ASOF}.json").read_text())["book"] == "cef"
+
+
+def test_the_c4_report_uses_its_own_factors_and_family_split(tmp_path, monkeypatch):
+    monkeypatch.setattr(ER, "C4_DIMSON_LAGS", 0)
+    fs = ER.factor_set("c4")
+    rep, code = P.run_report("c4", tmp_path / "c4", ASOF, now_utc=NOW, reader=FakeReader(), groups=FAMILIES,
+                             nav_fetcher=fake_navs, dist_check_fetcher=fake_dividends,
+                             price_fetcher=lambda t, s, a: (price_history(fs), {}, {}))
+    assert code == P.EXIT_OK
+    f = rep["factor"]
+    assert f["headline"] == "EQUITY" and list(f["factors"]) == ["EQUITY", "TERM", "CREDIT", "PREFERRED"]
+    assert f["split"]["kind"] == "by_family" and set(f["split"]["families"]) == {"equity_domestic", "preferred"}
+    assert any("TERM (indicative)" in ln for ln in f["lines"])
+    assert any("REVIEW_FRACTION" in ln and "vol target 0.06" in ln for ln in f["lines"])
+
+
+def test_a_review_breach_shows_in_the_report_and_is_report_only(tmp_path):
+    rep, _ = run(tmp_path)
+    muni = rep["factor"]["factors"]["MUNI"]
+    assert muni["review"] == "REVIEW"
+    assert any("MUNI (headline)" in ln and "REVIEW" in ln for ln in rep["factor"]["lines"])
+    assert not rep.get("notification")
+    for ln in rep["factor"]["lines"] + rep["attribution"]["lines"]:
+        assert not ln.startswith("ACT"), ln                         # risk_daily's push keys on that prefix
+    # the module imports no notifier at any level (docstrings may name it; code cannot)
+    import ast
+    tree = ast.parse(Path(P.__file__).read_text())
+    names = {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
+    froms = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
+    assert not any("report_notify" in m or "ops.halt" in m for m in names | froms)
+    called = {n.func.attr if isinstance(n.func, ast.Attribute) else getattr(n.func, "id", "")
+              for n in ast.walk(tree) if isinstance(n, ast.Call)}
+    assert not called & {"notify_act", "_email", "alert"}
+
+
+def test_a_missing_nav_makes_only_the_split_unmeasured_named(tmp_path):
+    rep, code = run(tmp_path, navs=lambda s, st, e: fake_navs(s, st, e, drop=("AAA", TRADED[2])))
+    assert code == P.EXIT_OK                  # the 20:30 job can run before the NAV posts: a gap, not a failure
+    att = rep["attribution"]
+    assert att["session"]["nav_part"] is None and att["session"]["hold"] is not None
+    assert att["cumulative"]["unmeasured"]["nav_part"] == [TRADED[2].isoformat()]
+    assert att["reconciled"] is True                       # reconciliation does not depend on NAV
+    assert any("UNMEASURED" in g and "AAA" in g for g in rep["gaps"])
+    assert any("NAV part over sessions with every NAV" in ln and "UNMEASURED on 1" in ln for ln in att["lines"])
+    assert rep["status"] == "OK"                           # the attribution still reconciles
+
+
+def test_an_unreconciled_session_is_said_loudly(tmp_path):
+    rep, code = run(tmp_path, reader=FakeReader(tamper={TRADED[1]: 5.0}))
+    att = rep["attribution"]
+    assert att["reconciled"] is False and code == P.EXIT_OK
+    assert any(ln.startswith("RECONCILIATION FAILED") and TRADED[1].isoformat() in ln for ln in att["lines"])
+    md = (tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.md").read_text()
+    assert "RECONCILIATION FAILED" in md
+
+
+def test_missing_keys_mark_the_unit_failed_and_the_report_names_them(tmp_path, monkeypatch):
+    for k in ("ALPACA_CEF_KEY_ID", "ALPACA_CEF_SECRET_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    rep, code = P.run_report("cef", tmp_path / "cef", ASOF, now_utc=NOW, groups=GROUPS,
+                             nav_fetcher=fake_navs, dist_check_fetcher=fake_dividends)
+    assert code == P.EXIT_INCOMPLETE
+    assert rep["status"] == P.UNMEASURED and "ALPACA_CEF_KEY_ID" in rep["attribution"]["why"]
+    assert (tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.md").is_file()
+    assert "the attribution did not run" in rep["factor"]["why"]
+
+
+def test_a_broker_read_failure_marks_the_unit_failed(tmp_path):
+    class Dead(FakeReader):
+        def eod_equity_history(self, start, end):
+            raise AR.AlpacaHTTPError("GET x failed after 5 attempts", status=500)
+    rep, code = run(tmp_path, reader=Dead())
+    assert code == P.EXIT_INCOMPLETE and rep["status"] == P.UNMEASURED and "AlpacaHTTPError" in rep["attribution"]["why"]
+
+
+def test_yfinance_failure_for_a_held_name_costs_only_the_factor_block(tmp_path):
+    def broken(tickers, start, asof):
+        fs = ER.factor_set("cef")
+        px = price_history(fs)
+        return px[px["ticker"] != "BBB"], {}, {"BBB": "ReadoutError: yfinance returned no rows for BBB"}
+    rep, code = run(tmp_path, price_fetcher=broken)
+    assert code == P.EXIT_OK and rep["status"] == "PARTIAL"
+    assert rep["factor"]["status"] == P.UNMEASURED and "BBB" in rep["factor"]["why"]
+    assert rep["attribution"]["status"] == "OK"
+
+
+def test_a_factor_set_with_no_lag_is_unmeasured_named(tmp_path, monkeypatch):
+    monkeypatch.setattr(ER, "C4_DIMSON_LAGS", None)
+    rep, _ = P.run_report("c4", tmp_path / "c4", ASOF, now_utc=NOW, reader=FakeReader(), groups=FAMILIES,
+                          nav_fetcher=fake_navs, dist_check_fetcher=fake_dividends,
+                          price_fetcher=lambda t, s, a: (price_history(ER.factor_set("c4")), {}, {}))
+    assert rep["factor"]["status"] == P.UNMEASURED and "no Dimson lag" in rep["factor"]["why"]
+
+
+def test_the_fee_check_reports_and_never_changes_the_fee_line(tmp_path):
+    good, _ = run(tmp_path)
+    assert any("agree to the cent" in ln and "3 of 3" in ln for ln in good["attribution"]["lines"])
+    bad_rows = [{"id": "fee-1", "activity_type": "FEE", "date": TRADED[0].isoformat(), "net_amount": "-99.0"}]
+    rep, _ = run(tmp_path, reader=FakeReader(fee_rows=bad_rows))
+    assert any("DIFFER" in ln for ln in rep["attribution"]["lines"])
+    assert rep["attribution"]["session"]["fees"] == good["attribution"]["session"]["fees"]
+    rep, _ = run(tmp_path, reader=FakeReader(fee_error="boom"))
+    assert any("FEE activity check UNMEASURED" in ln and "boom" in ln for ln in rep["attribution"]["lines"])
+
+
+def test_an_old_session_row_is_labelled_not_substituted(tmp_path):
+    # the reader has no EOD point for the session asked for: the session section is the
+    # latest point, and the note says so
+    class Early(FakeReader):
+        def eod_equity_history(self, start, end):
+            return [p for p in super().eod_equity_history(start, end) if p.date < ASOF]
+    rep, _ = run(tmp_path, reader=Early())
+    att = rep["attribution"]
+    assert att["session"]["date"] == TRADED[1].isoformat()
+    assert any("has no point" in ln and ASOF.isoformat() in ln for ln in att["lines"])
+
+
+def test_cli_requires_a_state_dir(capsys, monkeypatch):
+    monkeypatch.delenv("QUANTT_STATE_DIR", raising=False)
+    assert P.main(["--book", "cef"]) == 2
+    assert "no --state-dir" in capsys.readouterr().err
