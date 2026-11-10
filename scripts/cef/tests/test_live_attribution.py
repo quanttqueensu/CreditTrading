@@ -697,10 +697,12 @@ def test_fetch_refuses_data_dir_before_any_call(fake_data_dir):
 
 
 def test_default_directories_are_ignored_by_git():
-    # The real repository, read-only: every file either step writes by default.
+    # The real repository, read-only: every file either step writes by default, both books.
     files = ([(LA.DEFAULT_CACHE / n) for n in LA.FILES.values()]
              + [(LA.DEFAULT_OUT / "2026-10-30" / f"{k}.csv") for k in LA.OUTPUT_TABLES]
-             + [LA.DEFAULT_OUT / "2026-10-30" / "summary.md"])
+             + [LA.DEFAULT_OUT / "2026-10-30" / "summary.md"]
+             + [(LA.DEFAULT_CACHE_C4 / n) for n in LA.FILES.values()]
+             + [LA.DEFAULT_OUT_C4 / "2026-10-30" / "summary.md"])
     rel = [p.relative_to(REPO).as_posix() for p in files]
     r = subprocess.run(["git", "-C", str(REPO), "check-ignore", *rel], capture_output=True, text=True)
     assert r.returncode in (0, 1), r.stderr
@@ -735,3 +737,79 @@ def test_fetch_refuses_a_cache_git_can_see(sandbox_repo):
         _fetch(sandbox_repo / "visible_cache", client=client)
     assert client.calls == [] and not (sandbox_repo / "visible_cache").exists()
     _fetch(sandbox_repo / "ignored" / "cache")
+
+
+# --- book c4 (team lead, 2026-11-09) ---------------------------------------------------
+
+FAMILIES = {"AAA": "equity_domestic", "BBB": "preferred", "CCC": "multi_asset"}
+
+
+def test_the_c4_groups_are_the_specs_family_map():
+    frozen = json.loads((REPO / "ops/specs/c4_families.frozen.json").read_text())["frozen"]
+    fam = LA.load_groups_for("c4")
+    assert fam == frozen["level_signal"]["family_of"] and "ADX" in fam
+    with pytest.raises(LA.AttributionError, match="unknown book"):
+        LA.load_groups_for("xyz")
+
+
+def test_load_cache_reads_the_book_from_the_manifest_and_c4_fetch_needs_c4_keys(tmp_path, monkeypatch):
+    # c4's cache records its book; its default groups would be the family map, and an
+    # explicit grp is what `analyse` passes through
+    LA.fetch(tmp_path / "c4", since=PRE[0], asof=S4, client=FakeClient(), nav_fetcher=fake_navs,
+             dist_check_fetcher=fake_dividends, now=CHECK_AT, book="c4")
+    inp = LA.load_cache(tmp_path / "c4", grp=dict(FAMILIES))
+    assert inp.book == "c4" and inp.sources["book"] == "c4"
+    # the default client reads C4's own keys, never the core's
+    for k in ("ALPACA_C4_KEY_ID", "ALPACA_C4_SECRET_KEY", "ALPACA_CEF_KEY_ID", "ALPACA_CEF_SECRET_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    from scripts.ops import alpaca_read as AR
+    with pytest.raises(AR.MissingCredential, match="ALPACA_C4_KEY_ID"):
+        LA.fetch(tmp_path / "c4b", since=PRE[0], asof=S4, nav_fetcher=fake_navs,
+                 dist_check_fetcher=fake_dividends, now=CHECK_AT, book="c4")
+    monkeypatch.setenv("ALPACA_CEF_KEY_ID", "x")
+    monkeypatch.setenv("ALPACA_CEF_SECRET_KEY", "y")
+    with pytest.raises(AR.MissingCredential, match="ALPACA_C4_KEY_ID"):   # never the core's key
+        LA.fetch(tmp_path / "c4c", since=PRE[0], asof=S4, nav_fetcher=fake_navs,
+                 dist_check_fetcher=fake_dividends, now=CHECK_AT, book="c4")
+
+
+def test_c4_summary_names_the_book_and_the_family_grouping(tmp_path):
+    res = LA.attribute(inputs(grp=dict(FAMILIES), book="c4"))
+    assert res.book == "c4"
+    text = LA.write_outputs(res, tmp_path / "out")["summary"].read_text()
+    assert text.startswith("# Live P&L attribution, c4 paper account")
+    assert "## By family (ops/specs/c4_families.frozen.json level_signal.family_of)" in text
+    assert "## By group" not in text
+    assert "measured on the cef account" in text and "equal this schedule on every" not in text
+
+
+def test_the_core_summary_still_says_what_it_said(tmp_path):
+    """Pin (passes before and after this change): the words the MUNI-era outputs were read in."""
+    res = LA.attribute(inputs())
+    text = LA.write_outputs(res, tmp_path / "out")["summary"].read_text()
+    assert text.startswith("# Live P&L attribution, cef paper account")
+    assert "## By group (data/cef/cef_universe.csv `grp`)" in text
+    assert "the cef account's FEE activities are REG and CAT rows that equal this schedule on every" in text
+
+
+def test_nav_missing_unmeasured_keeps_hold_fill_fees_and_the_reconciliation():
+    # AAA has no NAV on S3 (held into S3 and into S4): the report job's 20:30 case
+    navs = _drop(table(NAVS), ("AAA", S3))
+    res = LA.attribute(inputs(navs=navs), nav_missing="unmeasured")
+    full = LA.attribute(inputs())
+    assert res.nav_unmeasured and {(d, s) for d, s, _ in res.nav_unmeasured} == {(S3, "AAA"), (S4, "AAA")}
+    assert row(res, "AAA", S3)["nav_part"] is None and row(res, "AAA", S3)["disc_part"] is None
+    assert row(res, "AAA", S4)["nav_part"] is None            # the p side of S4's return is S3's NAV
+    # a session total over a missing term is UNMEASURED; the other sessions keep theirs
+    assert daily(res, "nav_part")[S3] is None and daily(res, "nav_part")[S2] == daily(full, "nav_part")[S2]
+    # hold, fill, fees, the official change and the reconciliation need no NAV and are complete
+    for c in ("hold", "fill", "fees", "eod_change", "rebuilt", "residual"):
+        assert daily(res, c) == daily(full, c), c
+    t = LA.totals(res)
+    assert t["nav_part"] is None and t["disc_part"] is None
+    assert t["hold"] == LA.totals(full)["hold"] and t["max_abs_residual"] == 0.0
+    # and the gap is said, naming each name-day
+    assert any("NAV/discount split is UNMEASURED" in g and "AAA" in g for g in res.gaps)
+    # the default mode still raises, naming the name and the day
+    with pytest.raises(LA.AttributionError, match=f"missing NAV for AAA on {S3}"):
+        LA.attribute(inputs(navs=navs))

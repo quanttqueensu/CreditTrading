@@ -199,9 +199,20 @@ the first build's default --out-dir was visible). A directory outside the
 repository is allowed. Whether any output may be committed is the team lead's
 call; until then nothing can be.
 
+C4 (team lead, 2026-11-09)
+--------------------------
+`--book c4` reads C4's paper account with the C4 keys (`ALPACA_C4_KEY_ID` / `_SECRET_KEY`),
+and its group labels are the C4 spec's frozen `level_signal.family_of` (`load_groups_for`,
+the five families), read at run time, never retyped. Every line (hold, fill, fees, NAV,
+discount, distributions) and every refusal are the core's; so is the fee schedule, which
+was measured on the cef account (FEES above). C4's own FEE activities are compared per
+session in the nightly report (`scripts/ops/pnl_report.py`). The core's output does not
+move: `analyse` on a cef cache is byte-identical before and after this change.
+
 THE FETCH PATH IS INJECTABLE, AND HOLDS NO BROKER CLIENT (team lead, 2026-11-09)
 --------------------------------------------------------------------------------
-`fetch(client=...)` takes the reader it reads through. The report job
+`fetch(client=...)` takes the reader it reads through, and `book=` says which account.
+The report job
 (`scripts/ops/pnl_report.py`) passes `scripts/ops/alpaca_read.AlpacaReader`, built
 from the key the VM's secret service put in the process environment
 (`ALPACA_<BOOK>_KEY_ID` / `_SECRET_KEY`). The default for `python3 ... fetch` on a
@@ -244,9 +255,16 @@ from scripts.ops import alpaca_read as AR  # noqa: E402
 
 NY = ZoneInfo("America/New_York")
 BOOK = "cef"
+BOOKS = ("cef", "c4")
+C4_SPEC = REPO / "ops" / "specs" / "c4_families.frozen.json"
+C4_GROUP_SOURCE = "ops/specs/c4_families.frozen.json level_signal.family_of"
+GROUP_SOURCE = {"cef": "data/cef/cef_universe.csv `grp`", "c4": C4_GROUP_SOURCE}
 # Both gitignored (.gitignore); `_refuse_git_visible` enforces it at write time.
 DEFAULT_CACHE = REPO / "results" / "cef" / "live_attribution" / "_cache"
 DEFAULT_OUT = REPO / "results" / "cef" / "live_attribution" / "_out"
+# Both books' caches and outputs are gitignored; C4's sit beside the core's (.gitignore).
+DEFAULT_CACHE_C4 = REPO / "results" / "cef" / "live_attribution" / "_cache_c4"
+DEFAULT_OUT_C4 = REPO / "results" / "cef" / "live_attribution" / "_out_c4"
 UNIVERSE_CSV = REPO / "data" / "cef" / "cef_universe.csv"
 DATA_DIR = REPO / "data"
 
@@ -547,6 +565,7 @@ class Inputs:
     bad_navs: dict = field(default_factory=dict)
     sources: dict = field(default_factory=dict)
     cache_dir: str = ""
+    book: str = "cef"
 
 
 def load_grp(path: Path = UNIVERSE_CSV) -> dict:
@@ -560,6 +579,23 @@ def load_grp(path: Path = UNIVERSE_CSV) -> dict:
     if u["grp"].isna().any():
         raise AttributionError(f"{path}: empty grp for {sorted(u.loc[u['grp'].isna(), 'ticker'])}")
     return dict(zip(u["ticker"], u["grp"]))
+
+
+def load_groups_for(book: str) -> dict:
+    """The group labels of `book`: the cef universe table, or C4's frozen family map
+    (`frozen.level_signal.family_of`, read from the spec at run time). Raises naming a
+    missing file or key; a default would mislabel a whole sleeve in silence."""
+    if book == "cef":
+        return load_grp()
+    if book != "c4":
+        raise AttributionError(f"unknown book {book!r} (books: {BOOKS})")
+    if not C4_SPEC.is_file():
+        raise AttributionError(f"C4's frozen spec is missing at {C4_SPEC}")
+    frozen = json.loads(C4_SPEC.read_text()).get("frozen") or {}
+    fam = (frozen.get("level_signal") or {}).get("family_of")
+    if not isinstance(fam, dict) or not fam:
+        raise AttributionError(f"{C4_SPEC}: frozen.level_signal.family_of is missing or empty")
+    return dict(fam)
 
 
 def load_cache(cache_dir: Path, grp: dict | None = None) -> Inputs:
@@ -598,20 +634,21 @@ def load_cache(cache_dir: Path, grp: dict | None = None) -> Inputs:
     nav = pd.read_csv(cache_dir / FILES["nav"], dtype=str, keep_default_na=False)
     closes, bad_closes = _value_map(bars, "close", "bars")
     navs, bad_navs = _value_map(nav, "nav", "nav")
+    book = str(man.get("book") or BOOK)
     return Inputs(
         fills=parse_fills(json.loads((cache_dir / FILES["fills"]).read_text())),
         eod=parse_eod(list(zip(eod["date"], eod["equity"]))),
         closes=closes, bad_closes=bad_closes, navs=navs, bad_navs=bad_navs,
         dists=parse_distributions(json.loads((cache_dir / FILES["dists"]).read_text())),
         corp=parse_corp_actions(json.loads((cache_dir / FILES["corp"]).read_text())),
-        grp=load_grp() if grp is None else grp,
+        grp=load_groups_for(book) if grp is None else grp,
         flat_start=_date(fs["date"], "manifest flat_start.date"),
         fills_from=_date(man["fills"]["requested_start"], "manifest fills.requested_start"),
         corp_types=tuple(man["corporate_actions"].get("types") or ()),
         dist_kinds=tuple(man["distributions"].get("kinds") or ()),
         dist_check=parse_dist_check(check), dist_check_at=check_at,
         next_session=_date(man["eod"]["next_session"], "manifest eod.next_session"),
-        sources=man, cache_dir=str(cache_dir))
+        sources=man, cache_dir=str(cache_dir), book=book)
 
 
 # --------------------------------------------------------------- the attribution
@@ -631,6 +668,8 @@ class Result:
     sources: dict
     dist_kinds: tuple = ()      # the distribution kinds the cache's source was asked for
     dist_unmeasured: list = field(default_factory=list)   # [(date, symbol, q_prev, reason)]
+    book: str = "cef"
+    nav_unmeasured: list = field(default_factory=list)    # [(date, symbol, missing)] nav_missing="unmeasured"
 
 
 def _ceil_cent(x: Fraction) -> Fraction:
@@ -715,9 +754,16 @@ def default_breaks(eod: list, sessions: list) -> tuple[list, str]:
     return [sessions[i + 1]], f"split after the EOD equity peak on {peak} (equity {float(eq[peak]):,.2f})"
 
 
-def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = None) -> Result:
+def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = None,
+              nav_missing: str = "raise") -> Result:
     """The decomposition in the module docstring, for every session after the first
-    EOD point up to `asof` (default: the last EOD point). Raises on any gap."""
+    EOD point up to `asof` (default: the last EOD point). Raises on any gap, except that
+    with `nav_missing="unmeasured"` (the report job only, whose 20:30 run can precede a
+    fund's NAV for the day) a held name-day with no NAV has nav_part and disc_part None,
+    named in `Result.nav_unmeasured`; hold, fill, fees and the reconciliation need no NAV
+    and stay complete, and any sum over a missing term is UNMEASURED, never a smaller sum."""
+    if nav_missing not in ("raise", "unmeasured"):
+        raise AttributionError(f"nav_missing must be 'raise' or 'unmeasured', got {nav_missing!r}")
     sessions_all = [d for d, _ in inp.eod]
     eq = dict(inp.eod)
     s0 = sessions_all[0]
@@ -865,6 +911,7 @@ def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = No
     for f in used:
         by_day[f.date].append(f)
     q: dict = defaultdict(int)          # the flat start, asserted in check_flat_start
+    nav_gaps: list = []                 # (date, symbol, what is missing), nav_missing="unmeasured"
     q_prev_at: dict = {}
     dist_status: dict = {}              # (symbol, date) -> how its dist was resolved
     unmeasured_all = []
@@ -888,16 +935,28 @@ def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = No
             c_t = need(inp.closes, inp.bad_closes, s, d, "close", "held or traded")
             if qp:
                 c_p = need(inp.closes, inp.bad_closes, s, p, "close", f"held into {d}")
-                n_t = need(inp.navs, inp.bad_navs, s, d, "NAV", "held")
-                n_p = need(inp.navs, inp.bad_navs, s, p, "NAV", f"held into {d}")
+                if nav_missing == "raise":
+                    n_t = need(inp.navs, inp.bad_navs, s, d, "NAV", "held")
+                    n_p = need(inp.navs, inp.bad_navs, s, p, "NAV", f"held into {d}")
+                else:
+                    n_t = inp.navs.get((s, d))
+                    n_p = inp.navs.get((s, p))
                 hold = qp * (c_t - c_p)
-                nav_part = qp * c_p * (n_t / n_p - 1)
+                if n_t is None or n_p is None:
+                    nav_part = None              # unmeasured, named in the report below
+                else:
+                    nav_part = qp * c_p * (n_t / n_p - 1)
             else:
                 c_p = n_t = n_p = None
                 hold = nav_part = zero
-            disc = hold - nav_part
-            if nav_part + disc != hold:      # exact in Fraction; a float here would be a bug
-                raise AttributionError(f"{s} {d}: nav_part + disc_part != hold")
+            if nav_part is None:
+                disc = None
+                missing = [x for x, v in (("NAV on " + str(d), n_t), ("NAV on " + str(p), n_p)) if v is None]
+                nav_gaps.append((d, s, " and ".join(missing)))
+            else:
+                disc = hold - nav_part
+                if nav_part + disc != hold:      # exact in Fraction; a float here would be a bug
+                    raise AttributionError(f"{s} {d}: nav_part + disc_part != hold")
             fill = sum((f.signed_qty * (c_t - f.price) for f in fs), zero)
             traded = sum((abs(f.signed_qty) * f.price for f in fs), zero)
             if not qp:
@@ -927,7 +986,8 @@ def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = No
     for i, d in enumerate(sessions[1:], start=1):
         p = sessions[i - 1]
         sub = nd[nd["date"] == d]
-        sums = {k: sum(sub[k], zero) for k in MONEY if k != "dist"}
+        sums = {k: (None if any(x is None for x in sub[k]) else sum(sub[k], zero))
+                for k in MONEY if k != "dist"}
         # A sum with a missing term is not the sum (dist_score, score.py).
         sums["dist"] = None if any(x is None for x in sub["dist"]) else sum(sub["dist"], zero)
         fees, sold, shares = session_fees(by_day.get(d, []))
@@ -957,6 +1017,10 @@ def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = No
     positions_end = pd.DataFrame(pos, columns=["symbol", "grp", "qty", "close", "market_value"])
 
     gaps = []
+    if nav_gaps:
+        gaps.append(f"the NAV/discount split is UNMEASURED on {len(nav_gaps)} held name-day(s): "
+                    + ", ".join(f"{s} {d} ({w})" for d, s, w in nav_gaps[:10])
+                    + (" ..." if len(nav_gaps) > 10 else ""))
     if "capital_gains_distribution" not in inp.dist_kinds:
         gaps.append("capital-gains distributions were NOT queried by the cache's source: the "
                     "distribution line covers cash dividends only")
@@ -970,7 +1034,8 @@ def attribute(inp: Inputs, asof: dt.date | None = None, breaks: list | None = No
     return Result(name_day=nd, daily=daily, events=events, positions_end=positions_end,
                   periods=periods, period_rule=rule, gaps=gaps, excluded_after_asof=later,
                   asof=asof, first_session=window[0], sources=inp.sources,
-                  dist_kinds=tuple(inp.dist_kinds), dist_unmeasured=unmeasured_all)
+                  dist_kinds=tuple(inp.dist_kinds), dist_unmeasured=unmeasured_all,
+                  book=inp.book, nav_unmeasured=nav_gaps)
 
 
 # --------------------------------------------------------------- reporting
@@ -1022,7 +1087,7 @@ def totals(res: Result) -> dict:
     """Window totals as floats. dist and with_dist are None when any session's
     distribution is UNMEASURED: a sum with a missing term is not the sum."""
     d = res.daily
-    t = {k: float(sum(d[k], Fraction(0)))
+    t = {k: (None if any(x is None for x in d[k]) else float(sum(d[k], Fraction(0))))
          for k in (*[m for m in MONEY if m != "dist"], *SESSION_MONEY, "rebuilt", "eod_change",
                    "residual")}
     t["dist"] = None if any(x is None for x in d["dist"]) else float(sum(d["dist"], Fraction(0)))
@@ -1105,7 +1170,12 @@ def summary_markdown(res: Result, tabs: dict) -> str:
     warn = [ln for ln in reconcile_lines(res.daily) if ln.startswith("WARN")]
     neg = sum(1 for x in res.daily["residual"] if x < 0)
     pos = sum(1 for x in res.daily["residual"] if x > 0)
-    L = [f"# Live P&L attribution, cef paper account, {res.first_session} to {res.asof}", "",
+    fee_sentence = ("the cef account's FEE activities are REG and CAT rows that equal this schedule on every "
+                    "session read so far (the module docstring, FEES)." if res.book == "cef" else
+                    "the schedule was measured on the cef account (the module docstring, FEES); this "
+                    "account's own FEE activities are compared per session in the nightly report.")
+    group_word = "group" if res.book == "cef" else "family"
+    L = [f"# Live P&L attribution, {res.book} paper account, {res.first_session} to {res.asof}", "",
          f"Generated {now} by `scripts/cef/live_attribution.py analyse` from the cache "
          f"`{man.get('_cache_dir', '')}` (fetched {man.get('fetched_at_utc', 'time not recorded')}). "
          "Every figure below is computed by that script from that cache [V: computed at "
@@ -1113,9 +1183,8 @@ def summary_markdown(res: Result, tabs: dict) -> str:
          "counter moved, nothing on the live path.", "",
          "Paper charges no borrow and credits no distributions (CLAUDE.md landmine 1). It does "
          "charge Alpaca's live regulatory fees (SEC on the value sold, CAT on shares traded, per "
-         "session, rounded up), although Alpaca's paper page says it does not simulate them: the "
-         "cef account's FEE activities are REG and CAT rows that equal this schedule on every "
-         "session read so far (the module docstring, FEES). The fees line below is that "
+         "session, rounded up), although Alpaca's paper page says it does not simulate them: "
+         f"{fee_sentence} The fees line below is that "
          "schedule, modelled from the fills; the FEE activities are its check. The distribution "
          "line is what a real account would have booked, never part of the reconciliation.", "",
          "## Reconciliation against Alpaca's EOD history (the P&L of record)", "",
@@ -1153,11 +1222,11 @@ def summary_markdown(res: Result, tabs: dict) -> str:
     L += [f"## By period ({res.period_rule})", "", _md_table(tabs["by_period"], money), "",
           "The tables below leave the fees out: they are charged per session, not per name "
           "(daily.csv and the totals carry them).", "",
-          "## By group (data/cef/cef_universe.csv `grp`)", "", _md_table(tabs["by_grp"], money), "",
+          f"## By {group_word} ({GROUP_SOURCE.get(res.book, res.book)})", "", _md_table(tabs["by_grp"], money), "",
           "## By side (the side of q_prev; a name opened that day takes the side it opened)", "",
           _md_table(tabs["by_side"], money), "",
-          "## By group and side", "", _md_table(tabs["by_grp_side"], money), "",
-          "## By period and group", "", _md_table(tabs["by_period_grp"], money), "",
+          f"## By {group_word} and side", "", _md_table(tabs["by_grp_side"], money), "",
+          f"## By period and {group_word}", "", _md_table(tabs["by_period_grp"], money), "",
           "## By name", "", _md_table(tabs["by_name"], money), "",
           "## Distribution events in the window", "",
           (_md_table(tabs["dist_events"], {"dist"}) if len(tabs["dist_events"])
@@ -1283,7 +1352,8 @@ def yf_navs(symbols, start: dt.date, end: dt.date) -> tuple[pd.DataFrame, list]:
 
 
 def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, client=None,
-          nav_fetcher=None, dist_check_fetcher=None, now: dt.datetime | None = None) -> dict:
+          nav_fetcher=None, dist_check_fetcher=None, now: dt.datetime | None = None,
+          book: str = BOOK) -> dict:
     """Read-only GETs on the cef paper account plus keyless yfinance -> the cache.
 
     Order: the EOD history first, because its first funded point fixes where the
@@ -1302,7 +1372,7 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
     """
     _refuse_data_dir(cache_dir)
     _refuse_git_visible(Path(cache_dir), list(FILES.values()))
-    client = AR.AlpacaReader.from_environment(BOOK) if client is None else client
+    client = AR.AlpacaReader.from_environment(book) if client is None else client
     nav_fetcher = yf_navs if nav_fetcher is None else nav_fetcher
     dist_check_fetcher = yf_dividends if dist_check_fetcher is None else dist_check_fetcher
     now = dt.datetime.now(dt.timezone.utc) if now is None else now
@@ -1373,7 +1443,7 @@ def fetch(cache_dir: Path, *, since: dt.date, asof: dt.date | None = None, clien
     nav.to_csv(cache_dir / FILES["nav"], index=False)
     check.to_csv(cache_dir / FILES["dists_check"], index=False)
     man = {
-        "book": BOOK, "asof": last.isoformat(), "fetched_at_utc": now.isoformat(),
+        "book": book, "asof": last.isoformat(), "fetched_at_utc": now.isoformat(),
         "flat_start": flat,
         "fills": {"source": "GET /v2/account/activities/FILL, one call per calendar day "
                             "(AlpacaReader.activities_fills)",
@@ -1425,22 +1495,33 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fetch", help="read-only GETs + keyless yfinance -> cache")
-    f.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
+    f.add_argument("--book", choices=BOOKS, default=BOOK)
+    f.add_argument("--cache-dir", type=Path, default=None)
     f.add_argument("--asof", type=dt.date.fromisoformat, default=None)
     # Any date before the account's first funded session works; the cef paper
     # account opened on 2026-09-28 (quantt/collect/collect.py BOOKS eod_from), and
-    # fetch raises if --since is not before its first funded point.
-    f.add_argument("--since", type=dt.date.fromisoformat, default=dt.date(2026, 9, 21))
+    # fetch raises if --since is not before its first funded point. C4 has no default:
+    # its account's funding date is not this file's to assume.
+    f.add_argument("--since", type=dt.date.fromisoformat, default=None)
     a = sub.add_parser("analyse", help="the cache only -> CSVs + summary.md")
-    a.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE)
-    a.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
+    a.add_argument("--book", choices=BOOKS, default=BOOK)
+    a.add_argument("--cache-dir", type=Path, default=None)
+    a.add_argument("--out-dir", type=Path, default=None)
     a.add_argument("--asof", type=dt.date.fromisoformat, default=None)
     a.add_argument("--break", dest="breaks", type=dt.date.fromisoformat, action="append", default=None)
     args = ap.parse_args(argv)
+    cache = args.cache_dir or (DEFAULT_CACHE if args.book == BOOK else DEFAULT_CACHE_C4)
     if args.cmd == "fetch":
-        fetch(args.cache_dir, since=args.since, asof=args.asof)
+        since = args.since
+        if since is None:
+            if args.book != BOOK:
+                raise AttributionError("--since is required for book c4: a date before its first funded session")
+            since = dt.date(2026, 9, 21)
+        fetch(cache, since=since, asof=args.asof, book=args.book)
         return 0
-    res, paths = analyse(args.cache_dir, args.out_dir, asof=args.asof, breaks=args.breaks)
+    out = args.out_dir or (DEFAULT_OUT if args.book == BOOK else DEFAULT_OUT_C4)
+    res, paths = analyse(cache, out, asof=args.asof, breaks=args.breaks,
+                         grp=None)
     print(report(res))
     print(f"wrote {paths['summary'].parent}")
     return 0
