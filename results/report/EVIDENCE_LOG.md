@@ -4034,3 +4034,30 @@ that adds it does not exist when it is written.
 - source: `docs/RUNBOOK.md` @ `29a7006` (section 8.10; its install note is added by this commit); `shadow/deploy/install_shadow_vm.sh` @ `29a7006`
 - supports: §5
 - status: current. Not a prod release: no tag, and prod's units, clone and state were not touched. The figures are from the install's own output, read once over ssh and not stored in the repository
+
+### E-2026-11-10-03 · Result: the equity turn of the month is set aside as a sleeve, because SPY on every other session scores the same Sharpe
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - window (last session of a month and the next three), long SPY: gross Sharpe 0.48, t 2.78, 1993-02-05 to 2026-11-09, 8,498 sessions of which 1,605 active; shift(2), no cost modelled [S]
+  - halves 0.47 and 0.49 [S]
+  - control, SPY on every other session: Sharpe 0.48, t 2.80 [S]
+  - mean return per active day: 7.9bp in the window against 4.0bp outside it [S]
+- source: `results/ideas/2026-11-10_turn_of_month_eq.md` @ `852a0ab` (added by this commit); `results/ideas/turn_of_month_eq/results.json` @ `852a0ab` (added by this commit)
+- supports: §3
+- status: current. One run, not independently re-derived
+
+### E-2026-11-10-04 · Result: the Treasury auction concession is present but modest, a third of it is the month-end trade, and it is flat since 2023; explored, not promoted
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - short IEF or TLT over the two sessions before a 7-, 10-, 20- or 30-year auction and long the two after: gross Sharpe 0.57, t 2.77, 2002-08-14 to 2026-07-22; 482 IEF and 291 TLT auctions; shift(2), no cost modelled [S]
+  - halves 0.59 and 0.57; placebo dates ten sessions later 0.03 [S]
+  - with the last three sessions of each month removed: Sharpe 0.39, t 1.89 [S]
+  - 2023-01-03 to 2026-07-22: Sharpe −0.02 over 890 sessions; 2020–22: 1.40 [S]
+  - announcement dates are not in the panel, so the four-session notice the rule needs is unverified [U]
+- source: `results/ideas/2026-11-10_ust_auction_cycle.md` @ `852a0ab` (added by this commit); `results/ideas/ust_auction_cycle/results.json` @ `852a0ab` (added by this commit)
+- supports: §3
+- status: current. One run, not independently re-derived
