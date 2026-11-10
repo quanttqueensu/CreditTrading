@@ -3950,3 +3950,35 @@ that adds it does not exist when it is written.
 - source: `results/ops/DATA_QA_CALIBRATION_2026-11-08.md` @ `86a0c08`
 - supports: §5
 - status: built, PR open, not merged or installed; the ACT push needs the team lead's two vault secrets (docs/RUNBOOK.md 8.10); drawdown read marked for follow-up on PR #55
+
+### E-2026-11-09-50 · Rulings: a daily VM report for both paper books, the P&L attribution and factor readout; C4's factors are equity, term, credit and preferred with equity as headline; report only, read through the broker key with read-only code
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (rulings: the job covers the core and C4; C4's factor set is EQUITY=SPY (headline), TERM=IEF, CREDIT=HYG, PREFERRED=PFF with a by-family split; C4 uses the core's method, a lag rule declared in a commit before any C4 price is read; a review-line breach is reported and sends nothing; the account is read with the book's own key from the secret service, by code with no path to an order; the report shows the latest session and the total since the first trade)
+- source: `scripts/ops/pnl_report.py` @ `6387362`; `scripts/cef/exposure_readout.py` @ `6387362`; `docs/RUNBOOK.md` @ `6387362`
+- supports: §4, §5
+- status: current
+
+### E-2026-11-09-51 · Result: C4's declared lag rule, run on public prices one minute after it was committed, gives L = 2, so C4's factor betas sum lags 0 to 2
+- kind: result
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - lag counts of 288 pairs, lag 0 to 3: 254, 128, 83, 41; T = max lead count = 65 (at lead 13); first lag not above T: 3; so L = 2 [S]
+  - names in the pair set 72 of 74 (NPFD 242 and RLTY 195 usable rows, under the 252 required) [S]
+  - fit era 2010-01-05..2022-12-30, 3271 sessions, cut before any shift; nothing dated 2023 or later read [S]
+- source: `results/cef/C4_LAG_RULE_RESULT_2026-11-09.txt` @ `e72e1b7`; rule declared in `scripts/cef/exposure_readout.py` @ `d37a86d`
+- supports: §5
+- status: current
+
+### E-2026-11-10-50 · Method: the daily P&L report job is built and reviewed, not installed. Two reviews found 11 defects and all are fixed: C4's NAVs were read at the wrong symbol for 15 funds, and a redirect could have carried the read key to another host
+- kind: method
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - 15 of C4's 74 funds use a NAV symbol other than the core's X<ticker>X rule, and yfinance returned no rows at the X-rule symbol for any of the 15 [V]
+- source: `scripts/cef/live_attribution.py` @ `c8bf828`; `scripts/ops/alpaca_read.py` @ `2bf1d4d`; `scripts/ops/pnl_report.py` @ `60dee01`
+- supports: §4, §5
+- status: built on branch reports-attribution, no PR yet (it opens after PR #65 merges); not installed; the reader has never read a live account
