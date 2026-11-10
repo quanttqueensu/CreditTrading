@@ -18,6 +18,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+# NUMEXPR IS TURNED OFF FOR EVERY SCRIPT THAT IMPORTS THIS MODULE. On the team lead's laptop
+# numexpr returns wrong cells for BROADCAST arithmetic (`df.sub(series, axis=0)`,
+# `df.div(row_sums, axis=0)`) on any frame above one million cells, differently on each run
+# (scripts/events/numexpr_fault.py; results/events/REPRO_CORP_EVENTS_2026-10-11.md). The
+# first wide-universe Explore run (2026-11-10, a 6,539 x 6,882 frame) hit it: weights that
+# were finite in one run were not in the next, and only the harness's refusal of an
+# infinite weight showed it. A cross-sectional signal on a wide panel is exactly this
+# arithmetic, so the option is set here, once, rather than left to each idea's script.
+pd.set_option("compute.use_numexpr", False)
+
 PERIODS = 252
 ERAS = (("2002-01-01", "2008-12-31"), ("2009-01-01", "2015-12-31"), ("2016-01-01", "2019-12-31"),
         ("2020-01-01", "2022-12-31"), ("2023-01-01", "2030-12-31"))

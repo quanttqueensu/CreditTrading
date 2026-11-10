@@ -4061,3 +4061,29 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-10_ust_auction_cycle.md` @ `852a0ab` (added by this commit); `results/ideas/ust_auction_cycle/results.json` @ `852a0ab` (added by this commit)
 - supports: §3
 - status: current. One run, not independently re-derived
+
+### E-2026-11-10-05 · Result: short-term reversal within industry on the 1,500 largest US stocks earns a gross Sharpe of 0.96 over 2000 to 2025, mostly in high-volatility sessions, and clears Explore
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - gross Sharpe 0.96, t 4.90, 6.84%/yr at 7.10% vol, 2000-01-12 to 2025-12-31, 6,532 sessions, about 1,430 names a day; shift(2), unit gross, no cost modelled [S]
+  - early half 1.26; late half 0.67; 2016–19 −0.13 [S]
+  - control, the signal 21 sessions stale: Sharpe 0.04; without the industry step: 0.79 [S]
+  - sessions with market volatility above its median: Sharpe 1.35 (12.36%/yr); below: 0.32 (1.35%/yr) [S]
+  - turnover 160.1 times a year; beta to the equal-weighted market 0.081 [S]
+  - at $10M, the median position is 0.005% of the stock's 21-session average dollar volume and the 95th percentile 0.058% (2024–25) [S]
+- source: `results/ideas/2026-11-10_st_reversal_wide.md` @ `852a0ab` (added by this commit); `results/ideas/st_reversal_wide/results.json` @ `852a0ab` (added by this commit)
+- supports: §3
+- status: current. The reproducer was run three times with identical output; not independently re-derived. Not on shadow: no live equity panel exists
+
+### E-2026-11-10-06 · Incident: numexpr corrupted the first wide-universe run's weights on the laptop, differently on each run; it is now off for every Explore script
+- kind: incident
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - the frame was 6,539 sessions by 6,882 stocks, about 45 million cells, above numexpr's one-million-cell threshold [S]
+  - one call of the same function returned 0 non-finite weights and the next returned some, on identical inputs [S]
+- source: `scripts/research/explore.py` @ `852a0ab` (the option and its comment are added by this commit); `scripts/events/numexpr_fault.py` @ `852a0ab`
+- supports: §5
+- status: current. No result was recorded from a corrupted run: the harness refused the infinite weight. `CLAUDE.md` landmine 11 is added by this commit
