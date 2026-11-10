@@ -295,6 +295,13 @@ the Alpaca prod. `ibkr-final` tags the last IBKR-era commit.
     tag `pre-clean-slate` — the latter hangs forever on Python 3.12+. orient
     HYGIENE counts unguarded imports by AST.
 
+11. **numexpr returns wrong numbers on this laptop** for broadcast arithmetic
+    (`df.sub(series, axis=0)`, `df.div(row_sums, axis=0)`) on a frame above one
+    million cells, differently on each run (`scripts/events/numexpr_fault.py`).
+    Any wide-universe research script must run with
+    `pd.set_option("compute.use_numexpr", False)`; importing
+    `scripts/research/explore.py` sets it. The CEF panels are too small to hit it.
+
 ## Tests
 
 **Never quote a test count; run `python3 -m pytest`.** A green suite says little
