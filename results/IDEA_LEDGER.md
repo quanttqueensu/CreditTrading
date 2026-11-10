@@ -20,7 +20,7 @@ the named source file, `[U]` unverified.
 
 | date | idea | data (last date) | gross result | status |
 |---|---|---|---|---|
-| | *(none yet: the first hunt is Phase 2 of `docs/MISSION.md` §10)* | | | |
+| 2026-11-10 | `month_end_ief`: long IEF over the last 3 sessions of each month (revival of XASSET-X3, rule unchanged); card `results/ideas/2026-11-10_month_end_treasury.md` | desk ETF panel, IEF total returns (2026-10-09) | gross Sharpe 1.07 (t 5.26), 2002-09 → 2026-10-09; halves 1.01 / 1.15; all five eras positive (0.88 to 1.76); IEF on other sessions 0.10 [V] | SHADOW from 2026-11-10 |
 
 ## Backfill: everything tested before 2026-11-09
 

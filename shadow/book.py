@@ -74,8 +74,10 @@ def load(path: Path) -> Book:
         raise BookError(f"{path}: notional_usd must be a positive number")
     if not isinstance(raw["enabled"], bool):
         raise BookError(f"{path}: enabled must be true or false")
-    if not isinstance(raw["panels"], dict) or not raw["panels"]:
-        raise BookError(f"{path}: panels must name at least one panel")
+    # An empty dict is allowed and says something: the signal reads no data at all (a pure
+    # calendar rule). It must still be written, so that "no panels" is a choice, not an omission.
+    if not isinstance(raw["panels"], dict):
+        raise BookError(f"{path}: panels must be an object (empty for a signal that reads no data)")
     panels = []
     for name, p in sorted(raw["panels"].items()):
         need = [k for k in ("path", "date_col", "required_asof") if k not in p]
