@@ -3965,3 +3965,33 @@ that adds it does not exist when it is written.
 - source: `results/IDEA_LEDGER.md` @ `3595ec8` (added by this commit); `docs/RESEARCH_STATE.md` @ `3595ec8`; `results/mission/PHASE0_2026-11-09.md` @ `3595ec8` (added by this commit)
 - supports: §3, §5
 - status: current
+
+### E-2026-11-09-03 · Ruling: the shadow-book runner's design is approved once; it runs on the VM as a separate user, is marked on Alpaca's auction prints with a yfinance check, and simulates each book at $1M; the analysts keep their process
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (a ruling: "Approve", "VM, separate user and clone", "Alpaca auction prints + yfinance check", "$1M per book", "Keep TEAM.md process", "Shadow books first", "I run the free fetchers")
+- source: `docs/SYSTEM.md` @ `d98fa5e` (the rows are added by this commit); `results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md` @ `d98fa5e` (added by this commit)
+- supports: §1, §5
+- status: current. The engine is built in `shadow/` with tests; no book is running, and the VM install is the team lead's
+
+### E-2026-11-09-04 · Method: the shadow engine decides on truncated panels, writes each decision once, scores only decisions written before 13:00 New York on the fill session, and reproduces the harness's shift(2) P&L on synthetic data
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (code and tests on synthetic data: a claim about the code, not the market)
+- source: `shadow/engine.py` @ `d98fa5e` (added by this commit); `shadow/tests/test_engine.py` @ `d98fa5e` (added by this commit)
+- supports: §5
+- status: current
+
+### E-2026-11-09-05 · Method: the agent layer is rebuilt for the mission: six seats and seven commands, the pre-registration skill and the event census removed, and the research loop reduced to a stub that stops
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - none (agent, skill, workflow and rule files; no return computed)
+- source: `.claude/README.md` @ `d98fa5e` (rewritten by this commit); `CLAUDE.md` @ `d98fa5e` (its desk section is rewritten by this commit)
+- supports: §5
+- status: current. Three scripts still cite the removed pre-registration skill in comments, and `scripts/research/harness.py` `report()` still returns cost columns: both are left for the next change to those files

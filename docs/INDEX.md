@@ -27,12 +27,13 @@ Figures are not owned by any document: `python3 -m ops.orient` produces them.
 | `docs/INDEX.md` | manifest | which file owns which question | `ops.doc_audit` (manifest) |
 | `docs/SYSTEM.md` | canonical | what we trade, how it runs, what we know, standing decisions | `ops.doc_audit` (pointers) |
 | `docs/MISSION.md` | canonical | the team lead's standing brief of 2026-11-09, verbatim: the mission, what stays and what was dropped, how to think about edges, the pipeline from idea to live, the engineering and agent-layer build, the phases | — |
+| `results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md` | reference | the shadow-book runner's approved design: what a shadow book is, how it is kept apart from prod, the book file, the daily cycle and the on-time rule, where it runs, the marks; the package `shadow/` is built against it | `shadow/tests/` |
 | `results/IDEA_LEDGER.md` | ledger | every idea tested, one line each: date, idea, data, gross result, status; a record and not a gate; updated in the same commit as the test | — |
 | `docs/ROADMAP.md` | ledger | every step from here to the Alpaca book in prod, and its status | `ops.doc_audit` (pointers) |
 | `docs/RUNNER.md` | canonical | the Alpaca runner's design: the session, module boundaries, the nine gates | `ops.doc_audit` (pointers) |
 | `docs/RUNBOOK.md` | reference | release, install, arm, disarm and check the laptop prod clone | `ops.doc_audit` (pointers) |
 | `docs/DATA.md` | reference | which data source feeds what (live vs research), the R2 layout | `ops.doc_audit` (pointers) |
-| `.claude/workflows/*.js` | desk | saved multi-agent workflows: research-idea, backtest-request, release-check, daily-ops, ss-census | — |
+| `.claude/workflows/*.js` | desk | saved multi-agent workflows: research-idea (the Explore run), backtest-request, release-check, daily-ops; research-loop is a retired stub | — |
 | `docs/JOURNAL.md` | ledger | the day-by-day desk journal: what was tried, found, ruled, shipped to prod and earned; updated in the same commit as each change; owns nothing (every figure names its owner) | — |
 | `docs/RESEARCH_STATE.md` | reference | the research record before 2026-11-09: the frozen trial counters, the D1–D7 legend, and the evidence behind every row backfilled into `results/IDEA_LEDGER.md` | `ops.orient` TRIALS |
 | `docs/BRIEF.md` | reference | the edge's theory, CEF market structure, and harness rules H1–H15 | `ops.doc_audit` (spec id) |

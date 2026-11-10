@@ -308,22 +308,26 @@ every network connection during tests (`ops/netguard.py`).
 
 `.claude/README.md` is the map. `.claude/hooks/` is **advisory** — the
 SessionStart banner, a post-edit check and the status line; nothing blocks.
+Rebuilt on 2026-11-09 for the mission (`docs/MISSION.md` §9); where a skill,
+agent or workflow disagrees with this file, this file wins.
 
-Skills: `/morning-brief`, `/next-task`, `/graveyard`, `/harness`, `/repro`,
-`/prereg`, `/spec-change`. **`/prereg` is retired for research** (2026-11-09) and
-is kept only until the desk is rebuilt for the mission (`docs/MISSION.md` §9);
-several skills, agents and workflows still describe the old gates, and where one
-disagrees with this file, this file wins. (The IBKR-run skills were deleted 2026-09-28; they are
-at tag `pre-clean-slate` under `pre-clean-slate:_archive/claude_layer/`.)
+Skills, by pipeline stage: `/hunt`, `/idea`, `/explore`, `/paper`,
+`/scoreboard`, `/combine`, `/go-live`; and `/harness`, `/graveyard`, `/repro`,
+`/next-task`, `/morning-brief`, `/spec-change`. `/paper` and `/scoreboard`
+describe a paper/shadow runner that is **not built or approved yet**: `/paper`
+refuses to start a book until `docs/SYSTEM.md` §5 records the design's approval.
+The pre-registration skill was removed on 2026-11-09; the IBKR-run skills were
+deleted on 2026-09-28 (tag `pre-clean-slate`, under
+`pre-clean-slate:_archive/claude_layer/`).
 
-Subagents, in research-line order (`.claude/README.md` has the line; rebuilt
-2026-10-27, `results/research/DESK_METHOD_2026-10-27.md`): `quant-researcher`,
-`data-engineer`, `data-analyst`, `statistician`, `ml-engineer`,
-`backtest-engineer`, `beta-detector`, `quant-reviewer`, `portfolio-manager`,
-`quant-trader`, and `market-structure-analyst` for the domain. The event desk's
-seats (2026-10-19): `event-scout`, `filings-analyst`, `deal-analyst`,
-`credit-situations-analyst`, `data-librarian`, `event-econometrician`; the saved
-workflow `ss-census` chains them from screen to a zero-trial gate verdict.
+Subagents. The mission's six seats: `market-historian-economist`,
+`signal-hunter`, `data-scout`, `portfolio-architect`, `execution-engineer`,
+`go-live-reviewer` (go-live stage only; it does not veto ideas earlier).
+Helpers at any stage: `quant-reviewer` (code), `beta-detector` (exposures and
+artifacts, reported, never a veto), `statistician`, `ml-engineer`,
+`data-analyst`. Domain seats: `market-structure-analyst`, `filings-analyst`,
+`deal-analyst`, `credit-situations-analyst`. The saved workflow `research-idea`
+chains them through one Explore run.
 
 **Scope is open, options and futures included** (team lead, 2026-11-09):
 `docs/SYSTEM.md` §5.
