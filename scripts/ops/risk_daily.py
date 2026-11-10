@@ -26,8 +26,9 @@ It never sends, cancels, arms, disarms, halts, or changes a spec or a book json.
 A MISSING INPUT IS UNMEASURED AND NAMED, never inferred (CLAUDE.md). Blocks whose
 inputs do not exist on the VM say so, with the exact command that would measure
 them on a machine that has them: R1-R3 need `stops.py`'s fit series, the
-attribution needs `live_attribution.py`'s cache, the factor readout needs
-`exposure_readout.py`'s cache. Those are stated gaps, not silent zeros.
+attribution and factor readout read `<state>/reports/pnl/<asof>.json`, written by
+the 20:30 job (`scripts/ops/pnl_report.py`, the team lead's report of 2026-11-09;
+absent, they stay UNMEASURED and named). Those are stated gaps, not silent zeros.
 
 THE DRAWDOWN READ. At 22:15 the as-of day's EOD row is not written yet, so
 `drawdown.check` says UNMEASURED. The team lead ruled (2026-11-08) that this report
@@ -343,16 +344,41 @@ def exposure_block(book: str, state: Path, spec: dict, asof: dt.date) -> dict:
 
 # ------------------------------------------------------------------- the other blocks
 
-def attribution_block(book: str) -> dict:
-    return _unmeasured("the discount/NAV attribution reads a `live_attribution.py fetch` cache (keys and "
-                       "yfinance), which a report job has neither; run scripts/cef/live_attribution.py on a "
-                       "machine holding that cache")
+def _pnl_report(state: Path, asof: dt.date) -> tuple[dict | None, Path]:
+    """The P&L job's JSON for the as-of (`scripts/ops/pnl_report.py`, 20:30 ET), or None."""
+    path = state / "reports" / "pnl" / f"{asof.isoformat()}.json"
+    if not path.is_file():
+        return None, path
+    return json.loads(path.read_text()), path
 
 
-def factor_block(book: str) -> dict:
-    return _unmeasured("the factor readout needs `scripts/cef/exposure_readout.py fetch`'s gitignored "
-                       "price cache, and for C4 the risk lanes' equity/sector readouts; neither exists "
-                       "on this machine")
+def attribution_block(book: str, state: Path, asof: dt.date) -> dict:
+    """The discount/NAV attribution from the P&L job's report, verbatim, or UNMEASURED naming
+    the file. A rebuild that does not reconcile to the official EOD change is a WATCH, not an
+    ACT: it names a data or execution problem, and the report it comes from names the session;
+    a review-line breach has no line here at all. Never an ACT (no ACT line can come from the job)."""
+    rep, path = _pnl_report(state, asof)
+    if rep is None:
+        return _unmeasured(f"no P&L report at {path} (the 20:30 job has not written one for {asof}, or "
+                           f"its key service failed; `systemctl status quantt-{book}-pnl`)")
+    att = rep.get("attribution") or {}
+    lines = list(att.get("lines") or [f"attribution UNMEASURED: {att.get('why')}"])
+    status = UNMEASURED if att.get("status") != "OK" else (WATCH if att.get("reconciled") is False else INFO)
+    return block(status, lines, report=str(path), reconciled=att.get("reconciled"), first_trade=att.get("first_trade"))
+
+
+def factor_block(book: str, state: Path, asof: dt.date) -> dict:
+    """The factor exposure from the P&L job's report, verbatim, or UNMEASURED naming the file.
+    A review-line breach is in these lines and changes nothing: report only (team lead,
+    2026-11-09), so the status is INFO or UNMEASURED, never WATCH or ACT, and no line is
+    an ACT line."""
+    rep, path = _pnl_report(state, asof)
+    if rep is None:
+        return _unmeasured(f"no P&L report at {path} (the 20:30 job has not written one for {asof})")
+    fac = rep.get("factor") or {}
+    lines = list(fac.get("lines") or [f"factor readout UNMEASURED: {fac.get('why')}"])
+    status = UNMEASURED if fac.get("status") != "OK" else INFO
+    return block(status, lines, report=str(path), headline=fac.get("headline"))
 
 
 def execution_block(state: Path, asof: dt.date, plan: dict | None) -> dict:
@@ -476,8 +502,8 @@ def run_report(book: str, state: Path, asof: dt.date, *, stops_output=None,
         "stops": guard(lambda: stops_block(book, spec, stops_output)),
         "kill_rules": guard(lambda: kill_rules_block(book, state, spec, asof)),
         "exposure": guard(lambda: exposure_block(book, state, spec, asof)),
-        "attribution": guard(lambda: attribution_block(book)),
-        "factor_exposure": guard(lambda: factor_block(book)),
+        "attribution": guard(lambda: attribution_block(book, state, asof)),
+        "factor_exposure": guard(lambda: factor_block(book, state, asof)),
         "execution": guard(lambda: execution_block(state, asof, plan)),
         "diversification": guard(lambda: diversification_block(book, state, asof)),
         "data_qa": guard(lambda: data_qa_block(state, asof)),

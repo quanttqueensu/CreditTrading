@@ -224,3 +224,55 @@ def test_a_blocks_own_bug_is_unmeasured_and_the_others_still_run(state, monkeypa
     assert rep["blocks"]["pnl"]["status"] == r.UNMEASURED and "ValueError" in rep["blocks"]["pnl"]["lines"][0]
     assert rep["blocks"]["exposure"]["status"] != r.UNMEASURED
     assert code == 0
+
+
+# --- the P&L job's report (team lead, 2026-11-09) --------------------------------------
+
+def _pnl(state, *, reconciled=True, factor_status="OK", review="REVIEW"):
+    d = state / "reports" / "pnl"
+    d.mkdir(parents=True)
+    rep = {"book": "cef", "asof": ASOF.isoformat(), "status": "OK",
+           "attribution": {"status": "OK", "reconciled": reconciled, "first_trade": "2026-09-29",
+                           "lines": ["Session 2026-11-05: official +12.00; hold +10.00 = NAV part +4.00 + discount part +6.00",
+                                     "Cumulative from the first trade (2026-09-29, 26 sessions): official -100.00"]
+                           + (["RECONCILIATION FAILED on 1 session(s): 2026-10-01 residual +5.00. ..."] if not reconciled else [])},
+           "factor": {"status": factor_status, "headline": "MUNI",
+                      "lines": [f"MUNI (headline): E -30,000 USD (-0.300 of equity), c/target 0.25, t -1.0: {review}; "
+                                "REVIEW on 3 of 20 date(s) so far"]}}
+    (d / f"{ASOF.isoformat()}.json").write_text(json.dumps(rep))
+
+
+def test_attribution_and_factor_blocks_are_unmeasured_and_named_without_the_job_report(state):
+    blocks = {"a": r.attribution_block("cef", state, ASOF), "f": r.factor_block("cef", state, ASOF)}
+    for b in blocks.values():
+        assert b["status"] == r.UNMEASURED and "no P&L report at" in b["lines"][0] and ASOF.isoformat() in b["lines"][0]
+
+
+def test_attribution_and_factor_blocks_read_the_jobs_json(state):
+    _pnl(state)
+    a = r.attribution_block("cef", state, ASOF)
+    f = r.factor_block("cef", state, ASOF)
+    assert a["status"] == r.INFO and a["lines"][0].startswith("Session 2026-11-05")
+    assert f["status"] == r.INFO and "MUNI (headline)" in f["lines"][0] and "REVIEW" in f["lines"][0]
+
+
+def test_a_review_breach_never_reaches_act_or_the_notifier(state, tmp_path):
+    _pnl(state, review="REVIEW")
+    sent = []
+    rep, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 30, tzinfo=dt.timezone.utc),
+                             send=lambda *a: sent.append(a) or True)
+    assert code == 0 and rep["blocks"]["factor_exposure"]["status"] == r.INFO
+    assert "REVIEW" in rep["blocks"]["factor_exposure"]["lines"][0]
+    assert not rep["act_lines"] and rep["notification"] is None and sent == []
+
+
+def test_an_unreconciled_attribution_is_a_watch_not_an_act(state):
+    _pnl(state, reconciled=False)
+    a = r.attribution_block("cef", state, ASOF)
+    assert a["status"] == r.WATCH and any(ln.startswith("RECONCILIATION FAILED") for ln in a["lines"])
+    assert not any(ln.startswith("ACT") for ln in a["lines"])
+
+
+def test_a_factor_block_the_job_could_not_measure_stays_unmeasured_not_info(state):
+    _pnl(state, factor_status="UNMEASURED")
+    assert r.factor_block("cef", state, ASOF)["status"] == r.UNMEASURED

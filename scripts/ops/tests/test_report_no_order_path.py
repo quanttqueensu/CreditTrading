@@ -24,7 +24,8 @@ ENTRY = ["scripts/ops/data_qa.py", "scripts/ops/risk_daily.py", "scripts/ops/rep
 # The daily P&L report's modules: the GET-only reader, and the two research tools it drives,
 # whose fetch path is injectable so that none of them imports the broker client
 # (docs: scripts/ops/alpaca_read.py; the job, scripts/ops/pnl_report.py, joins with its commit).
-JOB_ENTRY = ["scripts/ops/alpaca_read.py", "scripts/cef/live_attribution.py", "scripts/cef/exposure_readout.py"]
+JOB_ENTRY = ["scripts/ops/alpaca_read.py", "scripts/cef/live_attribution.py", "scripts/cef/exposure_readout.py",
+             "scripts/ops/pnl_report.py"]
 FORBIDDEN_MODULES = ("quantt.broker", "quantt.session.run", "quantt.session.__main__", "quantt.session.gate",
                      "quantt.collect", "ops.preflight", "ib_async", "ib_insync", "alpaca_trade_api", "alpaca",
                      "requests")
@@ -153,6 +154,15 @@ def test_the_job_closure_runs_only_git_as_a_subprocess(entry):
             arg = node.args[0] if node.args else None
             assert isinstance(arg, ast.List) and arg.elts and isinstance(arg.elts[0], ast.Constant) \
                 and arg.elts[0].value == "git", f"{f.relative_to(REPO)}:{node.lineno}: runs something other than git"
+
+
+def test_the_pnl_job_cannot_reach_the_notifier_or_a_halt():
+    """A review-line breach is report-only (team lead, 2026-11-09): the job has no path to
+    the ACT push, and no path to ops.halt, at any level of its import closure."""
+    for f, names in closure("scripts/ops/pnl_report.py").items():
+        for name in names:
+            assert not (name == "scripts.ops.report_notify" or name.startswith("scripts.ops.report_notify.")
+                        or name == "ops.halt" or name.startswith("ops.halt.")), f"{f.relative_to(REPO)} imports {name}"
 
 
 def test_the_walk_catches_function_level_and_relative_imports(tmp_path, monkeypatch):

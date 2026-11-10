@@ -1,0 +1,34 @@
+# quantt-reports-${BOOK}-pnl-keys.service : ${BOOK}'s Alpaca keys for the P&L report job, from
+# the vault into ${ENV_FILE} (tmpfs).
+#
+# RENDERED by quantt/deploy/install_vm.py --reports from release tag ${TAG}. Do not
+# hand-edit the installed copy.
+#
+# THE SECRETS (${KEY_ID_SECRET}, ${SECRET_SECRET}) ARE THE ONES THIS BOOK'S OWN KEY SERVICE
+# ALREADY USES (docs/RUNBOOK.md 8.11); no new vault secret is created for this unit. Its env
+# file is separate from the book's runner key file and from the SMTP alert env file, and only
+# quantt-${BOOK}-pnl.service reads it; the dataqa and risk units stay key-free. It holds
+# this one book's keys and nothing else. Reached through Wants= (never Requires=): a failed
+# fetch marks the pnl unit failed with its report naming the missing variable, and
+# nothing else.
+[Unit]
+Description=QUANTT ${BOOK} P&L report keys into /run/${RUNTIME_DIR} (release ${TAG})
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=${USER}
+Group=${USER}
+RuntimeDirectory=${RUNTIME_DIR}
+RuntimeDirectoryMode=0700
+WorkingDirectory=${PROD_DIR}
+Environment=PATH=${PATH}
+Environment=PYTHONUNBUFFERED=1
+ExecStart=${PYTHON} -m quantt.deploy.boot_secrets --provider azure-keyvault --config vault=${VAULT} --secret ${KEY_ID_SECRET}=${KEY_ID_VAR} --secret ${SECRET_SECRET}=${SECRET_VAR} --out ${ENV_FILE}
+StandardOutput=append:${LOG_DIR}/reports-pnl-keys.out.log
+StandardError=append:${LOG_DIR}/reports-pnl-keys.err.log
+
+[Install]
+WantedBy=multi-user.target
