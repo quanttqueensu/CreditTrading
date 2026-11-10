@@ -1211,7 +1211,7 @@ risk), one job per book:
 
 | job | unit | when (Mon-Fri, local) | writes |
 |---|---|---|---|
-| P&L attribution and factor readout | `quantt-{cef,c4}-pnl` | 20:30 cef, 20:35 c4 (after the 20:00 EOD stamp, clear of the 21:40 collect) | `<state>/reports/pnl/<date>.{md,json}` (and its fetch cache `<state>/reports/pnl/_cache/`, the account's fills and equity, outside git) |
+| P&L attribution and factor readout | `quantt-{cef,c4}-pnl` | 20:30 cef, 20:35 c4 (after the 20:00 EOD stamp, clear of the 21:40 collect) | `<state>/reports/pnl/<date>.{md,json}` (and its fetch cache `<state>/reports/pnl/_cache/`, the account's fills and equity, and yfinance's own SQLite caches `<state>/reports/pnl/_yf_cache/`; all outside git) |
 
 What it reports, per book, for the session just closed and cumulative from the book's
 first trade (read from the account's own fills, never written anywhere): official P&L
@@ -1219,7 +1219,7 @@ first trade (read from the account's own fills, never written anywhere): officia
 distributions, then factor exposure at the last close against the review line
 (REVIEW_FRACTION x the book's own vol target, read from its spec), headline first, by
 muni/taxable (core) or by family (C4). The rebuild must reconcile to official to the
-cent, or the report says so at its top. **A breach of a review line is report-only: it
+cent, or the report says so at its top (overall status UNRECONCILED, not OK). **A breach of a review line is report-only: it
 appears in the report and sends NOTHING** (no push, no ACT, no halt, no trade; team lead,
 2026-11-09). `risk_daily`'s attribution and factor blocks read this job's JSON and stay
 UNMEASURED, named, when the job has not run.

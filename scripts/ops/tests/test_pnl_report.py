@@ -12,6 +12,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import math
+import subprocess
+import sys
 from fractions import Fraction as F
 from pathlib import Path
 
@@ -243,7 +245,7 @@ def test_the_nav_source_the_job_builds_uses_each_books_own_symbols(monkeypatch):
         def history(self, **kw):
             return pd.DataFrame({"Close": []})
 
-    monkeypatch.setitem(__import__("sys").modules, "yfinance", YF())
+    monkeypatch.setitem(sys.modules, "yfinance", YF())
     P.safe_nav_fetcher([], "c4")(["ADX"], D(2026, 11, 2), D(2026, 11, 3))
     P.safe_nav_fetcher([], "cef")(["PDI"], D(2026, 11, 2), D(2026, 11, 3))
     assert asked == ["XADEX", "XPDIX"]
@@ -251,20 +253,37 @@ def test_the_nav_source_the_job_builds_uses_each_books_own_symbols(monkeypatch):
 
 def test_an_unknown_name_costs_only_its_nav_named(monkeypatch):
     """A C4 name outside the map: the NAV source fails, named, and the split is UNMEASURED."""
-    monkeypatch.setitem(__import__("sys").modules, "yfinance", object())
+    monkeypatch.setitem(sys.modules, "yfinance", object())
     gaps: list = []
     rows, empty = P.safe_nav_fetcher(gaps, "c4")(["ZZZZ"], D(2026, 11, 2), D(2026, 11, 3))
     assert rows.empty and empty == ["ZZZZ"]
     assert len(gaps) == 1 and "ZZZZ" in gaps[0] and "c4" in gaps[0]
 
 
-def test_an_unreconciled_session_is_said_loudly(tmp_path):
+def test_an_unreconciled_session_is_said_loudly(tmp_path, capsys):
+    """The ruling is "else say so loudly": the overall status, in the report's headline and
+    on the job's stdout line, not only in a body line. Fails on the parent commit, whose
+    overall status was OK. The exit code stays 0 (see the module docstring)."""
     rep, code = run(tmp_path, reader=FakeReader(tamper={TRADED[1]: 5.0}))
     att = rep["attribution"]
     assert att["reconciled"] is False and code == P.EXIT_OK
     assert any(ln.startswith("RECONCILIATION FAILED") and TRADED[1].isoformat() in ln for ln in att["lines"])
+    assert rep["status"] == P.UNRECONCILED
     md = (tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.md").read_text()
     assert "RECONCILIATION FAILED" in md
+    assert "Overall: **UNRECONCILED**" in md and md.index("**RECONCILIATION FAILED") < md.index("## Attribution")
+    assert "UNRECONCILED" in capsys.readouterr().out
+
+
+def test_a_reconciled_report_is_not_called_unreconciled_when_the_factor_block_is_missing(tmp_path):
+    """Pin: PARTIAL stays what it was. Only a failed reconciliation is UNRECONCILED, and it
+    outranks a missing factor block."""
+    def broken(tickers, start, asof):
+        return pd.DataFrame(), {}, {"AAA": "x", "BBB": "y"}
+    rep, _ = run(tmp_path, price_fetcher=broken)
+    assert rep["status"] == "PARTIAL"
+    rep, _ = run(tmp_path, reader=FakeReader(tamper={TRADED[1]: 5.0}), price_fetcher=broken)
+    assert rep["status"] == P.UNRECONCILED
 
 
 def test_missing_keys_mark_the_unit_failed_and_the_report_names_them(tmp_path, monkeypatch):
@@ -314,6 +333,97 @@ def test_the_fee_check_reports_and_never_changes_the_fee_line(tmp_path):
     assert rep["attribution"]["session"]["fees"] == good["attribution"]["session"]["fees"]
     rep, _ = run(tmp_path, reader=FakeReader(fee_error="boom"))
     assert any("FEE activity check UNMEASURED" in ln and "boom" in ln for ln in rep["attribution"]["lines"])
+
+
+def test_a_session_with_no_fee_row_is_unmeasured_not_a_measured_zero(tmp_path):
+    """The FEE rows post after the trade date, so a session's rows may not exist at 20:30.
+    Fails on the parent commit, which printed `account +0.00` for it and called it a
+    difference. TRADED[2] has no fills, so no fee is modelled and no row is owed."""
+    rows = [{"id": "fee-1", "activity_type": "FEE", "date": TRADED[0].isoformat(),
+             "net_amount": str(float(fees_of([r for r in FILLS if r[5] == TRADED[0]])))}]
+    rep, _ = run(tmp_path, reader=FakeReader(fee_rows=rows))
+    line = next(ln for ln in rep["attribution"]["lines"] if ln.startswith("FEE activities"))
+    assert f"no FEE row yet (UNMEASURED) on {TRADED[1].isoformat()}" in line
+    assert "DIFFER" not in line and "account +0.00" not in line
+    assert "2 of 2 session(s) agree" in line                  # TRADED[0] by its row; TRADED[2] owes nothing
+
+
+def test_the_job_refuses_a_state_directory_under_data(tmp_path, monkeypatch):
+    """The report holds the account's equity and P&L; data/ is the panels the book decides
+    on (landmine 9). Fails on the parent commit, which wrote the report there."""
+    d = tmp_path / "data"
+    d.mkdir()
+    monkeypatch.setattr(LA, "DATA_DIR", d)
+    with pytest.raises(LA.AttributionError, match="under data/"):
+        P.run_report("cef", d / "x", ASOF, now_utc=NOW, reader=FakeReader(), groups=GROUPS, nav_fetcher=fake_navs,
+                     dist_check_fetcher=fake_dividends, price_fetcher=lambda *a: (None, {}, {}))
+    assert not any(d.iterdir())
+    assert P.main(["--book", "cef", "--state-dir", str(d / "x"), "--asof", ASOF.isoformat()], now_utc=NOW,
+                  reader=FakeReader()) == 2
+    assert not any(d.iterdir())
+
+
+def test_the_job_refuses_a_state_directory_git_can_see(tmp_path, monkeypatch):
+    """This repository is public, and the report holds the account's equity. Fails on the
+    parent commit. An ignored directory, and one outside the repository, stay allowed."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    (root / ".gitignore").write_text("ignored/\n")
+    monkeypatch.setattr(LA, "REPO", root)
+    kw = dict(now_utc=NOW, reader=FakeReader(), groups=GROUPS, nav_fetcher=fake_navs, dist_check_fetcher=fake_dividends,
+              price_fetcher=lambda t, s, a: (price_history(ER.factor_set("cef")), {}, {}))
+    with pytest.raises(LA.AttributionError, match="git can see them"):
+        P.run_report("cef", root / "visible", ASOF, **kw)
+    assert not (root / "visible").exists()
+    P.run_report("cef", root / "ignored" / "state", ASOF, **kw)
+    assert (root / "ignored" / "state" / "reports" / "pnl" / f"{ASOF}.md").is_file()
+
+
+def test_yfinance_keeps_its_caches_under_the_report_directory(tmp_path, monkeypatch):
+    """yfinance's SQLite caches go beside the report, set before its first fetch. Fails on the
+    parent commit: nothing set the location, and they went to the user cache directory."""
+    calls = []
+
+    class YF:
+        dividends = None
+
+        def set_tz_cache_location(self, d):
+            calls.append(("cache", d))
+
+        def Ticker(self, s):
+            calls.append(("ticker", s))
+            return self
+
+        def history(self, **kw):
+            return pd.DataFrame({"Close": []})
+
+    monkeypatch.setitem(sys.modules, "yfinance", YF())
+    P.run_report("cef", tmp_path / "cef", ASOF, now_utc=NOW, reader=FakeReader(), groups=GROUPS,
+                 price_fetcher=lambda t, s, a: (price_history(ER.factor_set("cef")), {}, {}))
+    where = tmp_path / "cef" / "reports" / "pnl" / "_yf_cache"
+    assert calls[0] == ("cache", str(where)) and where.is_dir()
+    assert any(k == "ticker" for k, _ in calls)                # the fetch did run, after the location
+
+
+def test_a_failed_cache_location_is_named_and_the_report_still_runs(tmp_path, monkeypatch):
+    class YF:
+        dividends = None
+
+        def set_tz_cache_location(self, d):
+            raise OSError("no such thing")
+
+        def Ticker(self, s):
+            return self
+
+        def history(self, **kw):
+            return pd.DataFrame({"Close": []})
+
+    monkeypatch.setitem(sys.modules, "yfinance", YF())
+    rep, _ = P.run_report("cef", tmp_path / "cef", ASOF, now_utc=NOW, reader=FakeReader(), groups=GROUPS,
+                          price_fetcher=lambda t, s, a: (price_history(ER.factor_set("cef")), {}, {}))
+    assert any("yfinance's cache location" in g and "no such thing" in g for g in rep["gaps"])
+    assert rep["attribution"]["status"] == "OK"
 
 
 def test_an_old_session_row_is_labelled_not_substituted(tmp_path):

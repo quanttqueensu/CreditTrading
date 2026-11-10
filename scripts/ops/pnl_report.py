@@ -17,8 +17,13 @@ WHAT IT IS AND IS NOT
 A WRAPPER AND A READER. Every number is computed by `scripts/cef/live_attribution.py` and
 `scripts/cef/exposure_readout.py` (imported, their rules unchanged) from the account's own
 fills and Alpaca's EOD history; this module joins them into one report and writes
-`<state>/reports/pnl/<asof>.{md,json}` (the JSON is what `risk_daily` reads). It holds no
-order code, no broker client and no key file: the account is read through
+`<state>/reports/pnl/<asof>.{md,json}` (the JSON is what `risk_daily` reads) and nothing
+outside that directory: its fetch cache is `_cache` there, yfinance's own SQLite caches are
+kept in `_yf_cache` there (`_keep_yfinance_cache_under`), and a directory under data/ or
+visible to git is refused before anything is read (`LA._refuse_data_dir`,
+`LA._refuse_git_visible`), because the report holds the account's equity and P&L and this
+repository is public. It holds no order code, no broker client and no key file: the
+account is read through
 `scripts/ops/alpaca_read.py` (HTTP GET only, keys from the process environment, which
 systemd loads from the tmpfs file the secret service wrote). No import path reaches
 order-sending code (scripts/ops/tests/test_report_no_order_path.py pins it).
@@ -37,9 +42,12 @@ against the review line (REVIEW_FRACTION x the book's own vol target from its sp
 the headline first and the by-family (C4) or muni/taxable (core) split.
 
 THE RECONCILIATION IS STILL THE POINT. Every session's rebuild (hold + fill + fees) must
-equal the official EOD change to the cent. If it does not, the report says so loudly, in a
-line that names the session and the residual, and the JSON's `reconciled` is false; the
-attribution rows still print, for diagnosis, and are labelled unreconciled.
+equal the official EOD change to the cent. If it does not, the report says so loudly: the
+overall status is UNRECONCILED, in the report's headline and on the job's stdout line, not
+OK, with the line that names the session and the residual at the top; the JSON's
+`reconciled` is false, and `risk_daily` shows WATCH; the attribution rows still print, for
+diagnosis, and are labelled unreconciled. The exit code stays 0 for it: the job did run,
+and a failed unit means the report could not be produced.
 
 A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallbacks).
   * no broker key, a failed broker read, or an attribution refusal: the report says
@@ -54,6 +62,9 @@ A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallb
     here is a NAV the vendor has not served, never a symbol the wrong book's rule invented.
   * a distribution that cannot be resolved (the second source not current until the next
     session closes, `dist_score`): UNMEASURED, never zero.
+  * a session with a modelled fee and no FEE row yet: "no FEE row yet (UNMEASURED)" in the
+    fee check, never a measured 0.00 (the account's FEE rows post later than the trade date:
+    `live_attribution`, FEES).
   * yfinance unavailable for a held name or a factor ETF: the factor block is UNMEASURED
     naming it; the attribution above it is unaffected.
   * a book whose Dimson lag rule has no answer: the factor block says UNMEASURED and why.
@@ -90,6 +101,7 @@ RESIDUAL_CENT = Fraction(1, 200)   # half a cent: "to the cent" per session (liv
 EOD_LOOKBACK_DAYS = 1100           # far enough back to reach any account's funding date
 SINCE_PAD_DAYS = 7                 # sessions before the first funded point, so fetch can show it was flat
 UNMEASURED = "UNMEASURED"
+UNRECONCILED = "UNRECONCILED"      # an overall status: the rebuild missed the official change on a session
 
 
 def _usd(x) -> str:
@@ -165,11 +177,19 @@ def fee_check(res, reader, first: dt.date) -> list[str]:
         except (TypeError, ValueError):
             return [f"FEE activity check UNMEASURED: row {r.get('id')} net_amount {amt!r} is not a number"]
     model = {d.isoformat(): float(f) for d, f in zip(res.daily["date"], res.daily["fees"]) if d >= first}
-    agree = [d for d, f in model.items() if abs(per.get(d, 0.0) - f) < 0.005]
-    worse = [f"{d} account {per.get(d, 0.0):+.2f} vs modelled {f:+.2f}" for d, f in model.items() if d not in agree]
-    line = f"FEE activities against the modelled fees: {len(agree)} of {len(model)} session(s) agree to the cent"
+    # A session with a modelled fee and no FEE row is unposted, not zero: the rows post after
+    # the trade date (`live_attribution`, FEES: 10-30's were missing under until=10-31), and at
+    # 20:30 the session just closed may simply not have them. A session with no modelled fee
+    # and no row owes nothing, so it agrees.
+    pending = [d for d, f in model.items() if d not in per and abs(f) >= 0.005]
+    compared = [d for d in model if d not in pending]
+    agree = [d for d in compared if abs(per.get(d, 0.0) - model[d]) < 0.005]
+    worse = [f"{d} account {per.get(d, 0.0):+.2f} vs modelled {model[d]:+.2f}" for d in compared if d not in agree]
+    line = f"FEE activities against the modelled fees: {len(agree)} of {len(compared)} session(s) agree to the cent"
     if worse:
         line += "; DIFFER on " + "; ".join(worse[:8]) + (" ..." if len(worse) > 8 else "")
+    if pending:
+        line += f"; no FEE row yet (UNMEASURED) on {', '.join(pending[:8])}" + (" ..." if len(pending) > 8 else "")
     return [line]
 
 
@@ -376,7 +396,10 @@ def safe_dist_fetcher(gaps: list):
 def render_md(rep: dict) -> str:
     out = [f"# P&L attribution and factor exposure, {rep['book']}, as-of {rep['asof']}", "",
            f"Generated {rep['generated_at']} (report only; nothing here touches an order; zero trials).",
-           f"Overall: **{rep['status']}**.", "", "## Attribution"]
+           f"Overall: **{rep['status']}**."]
+    if rep["status"] == UNRECONCILED:
+        out += [f"**{ln}**" for ln in (rep["attribution"].get("reconciliation") or {}).get("lines", [])]
+    out += ["", "## Attribution"]
     out.extend(f"- {ln}" for ln in rep["attribution"]["lines"])
     out += ["", f"## Factor exposure against the review line ({rep['factor'].get('status')})"]
     out.extend(f"- {ln}" for ln in rep["factor"]["lines"])
@@ -388,11 +411,37 @@ def render_md(rep: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def _keep_yfinance_cache_under(out_dir: Path, gaps: list) -> None:
+    """Put yfinance's SQLite caches beside the report, before its first fetch.
+
+    By default yfinance writes `tkr-tz.db`, `cookies.db` and `isin-tkr.db` under the user cache
+    directory (`platformdirs.user_cache_dir`, so `~/.cache/py-yfinance` on Linux), which the
+    unit's promise of writing only under `${STATE_DIR}/reports/pnl` did not cover (review,
+    2026-11-09). `set_tz_cache_location` moves all three: `yfinance/cache.py`
+    `set_cache_location` sets the timezone, cookie and ISIN managers, read from the installed
+    0.2.66 that requirements.txt pins. A failure is named and costs only the location: the
+    fetches below report for themselves whether yfinance works at all."""
+    try:
+        import yfinance as yf
+        where = out_dir / "_yf_cache"
+        where.mkdir(parents=True, exist_ok=True)
+        yf.set_tz_cache_location(str(where))
+    except Exception as e:
+        gaps.append(f"yfinance's cache location was not set, so it may write in the user cache directory: "
+                    f"{type(e).__name__}: {e}")
+
+
 def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=None, groups=None,
                nav_fetcher=None, dist_check_fetcher=None, price_fetcher=None) -> tuple[dict, int]:
-    """One book's report: writes `<state>/reports/pnl/<asof>.{md,json}`. Returns (report, code)."""
+    """One book's report: writes `<state>/reports/pnl/<asof>.{md,json}`. Returns (report, code).
+    A directory under data/ or visible to git raises before anything is read or written."""
     now = now_utc or dt.datetime.now(dt.timezone.utc)
+    out_dir = state / "reports" / "pnl"
+    LA._refuse_data_dir(out_dir)
+    LA._refuse_git_visible(out_dir, [f"{asof.isoformat()}.json", f"{asof.isoformat()}.md"])
     gaps: list = []
+    if nav_fetcher is None or dist_check_fetcher is None or price_fetcher is None:
+        _keep_yfinance_cache_under(out_dir, gaps)
     nav_f = nav_fetcher or safe_nav_fetcher(gaps, book)
     div_f = dist_check_fetcher or safe_dist_fetcher(gaps)
     code = EXIT_OK
@@ -419,11 +468,15 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
     except Exception as e:                       # the factor readout's failure costs only its block
         factor = {"status": UNMEASURED, "why": f"{type(e).__name__}: {e}",
                   "lines": [f"Factor exposure UNMEASURED: {type(e).__name__}: {e}"]}
-    status = "OK" if att["status"] == "OK" and factor["status"] == "OK" else "PARTIAL" if att["status"] == "OK" else UNMEASURED
+    if att["status"] != "OK":
+        status = UNMEASURED
+    elif att.get("reconciled") is False:
+        status = UNRECONCILED                    # loudest first: a factor gap is not the headline here
+    else:
+        status = "OK" if factor["status"] == "OK" else "PARTIAL"
     rep = {"book": book, "asof": asof.isoformat(), "generated_at": now.astimezone(ET).isoformat(timespec="seconds"),
            "status": status, "attribution": att, "factor": factor, "gaps": gaps,
            "note": "report only; zero trials; a review-line breach sends nothing"}
-    out_dir = state / "reports" / "pnl"
     write_atomic(out_dir / f"{asof.isoformat()}.json", json.dumps(rep, indent=1, default=str))
     write_atomic(out_dir / f"{asof.isoformat()}.md", render_md(rep))
     print(f"pnl_report {book} {asof}: {status}; wrote {out_dir / f'{asof.isoformat()}.md'}")
@@ -442,7 +495,11 @@ def main(argv=None, *, now_utc=None, reader=None) -> int:
         return 2
     now = now_utc or dt.datetime.now(dt.timezone.utc)
     asof = a.asof or expected_day(now.astimezone(ET))
-    _, code = run_report(a.book, state, asof, now_utc=now, reader=reader)
+    try:
+        _, code = run_report(a.book, state, asof, now_utc=now, reader=reader)
+    except LA.AttributionError as e:             # a refused directory: nothing was read or written
+        print(f"REFUSED: {e}", file=sys.stderr)
+        return 2
     return code
 
 
