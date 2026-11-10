@@ -398,3 +398,9 @@ from a named source; [doc] copied from a named note.
 - **Shadow.** `shadow/books/month_end_ief.json`, $1M, started 2026-11-10. Its first weighted decisions are 2026-11-23 to 11-25. Simulated: it sends no order.
 - **Prod.** PRs #71 and #72 merged by the team lead on 2026-11-09 and 11-10. No release.
 - **The VM.** The shadow runner is installed beside prod, at the team lead's request, as user `quantt-shadow` following the branch `shadow` (`docs/RUNBOOK.md` §8.10; E-2026-11-10-02). Its key service is active, its first run exited 0 on code `29a7006`, and its timer next fires at 18:50. Prod's units, clone and state were not touched. A first attempt at 10:12 failed at its first step and created nothing.
+
+**The first hunt** (`results/ideas/2026-11-10_hunt_all.md`; `results/report/EVIDENCE_LOG.md` E-2026-11-10-03, -04).
+- **Research.** 24 short idea cards across six mechanism types and five asset classes, ranked; each has a ledger line. Two were explored the same day, gross, on the harness:
+  - **Turn of the month in equities: set aside.** Sharpe 0.48 from 1993, and SPY on every other session also scores 0.48. It is market exposure held a fifth of the time [V: `python3 results/ideas/turn_of_month_eq/explore.py`].
+  - **Treasury auction cycle: explored, not promoted.** Sharpe 0.57, placebo 0.03, but 0.39 once the month-end sessions are removed and −0.02 since 2023 [V: `python3 results/ideas/ust_auction_cycle/explore.py`]. The long-bond short into the auction is the part to follow up.
+- **Found.** Yahoo serves today's unfinished bar dated as a close; the new research fetcher drops it. The repo's NYSE calendar is wrong before 1998 (`docs/REFERENCES.md` §12yf).

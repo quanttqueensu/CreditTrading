@@ -21,6 +21,29 @@ the named source file, `[U]` unverified.
 | date | idea | data (last date) | gross result | status |
 |---|---|---|---|---|
 | 2026-11-10 | `month_end_ief`: long IEF over the last 3 sessions of each month (revival of XASSET-X3, rule unchanged); card `results/ideas/2026-11-10_month_end_treasury.md` | desk ETF panel, IEF total returns (2026-10-09) | gross Sharpe 1.07 (t 5.26), 2002-09 → 2026-10-09; halves 1.01 / 1.15; all five eras positive (0.88 to 1.76); IEF on other sessions 0.10 [V] | SHADOW from 2026-11-10 |
+| 2026-11-10 | `turn_of_month_eq`: long SPY on the last session of a month and the next three; card `results/ideas/2026-11-10_turn_of_month_eq.md` | Yahoo SPY total returns (2026-11-09) | Sharpe 0.48 (t 2.78) from 1993; halves 0.47 / 0.49; **SPY on every other session also 0.48**: beta held a fifth of the time [V] | SET ASIDE as a sleeve; reopen on pay dates or a market-neutral form |
+| 2026-11-10 | `ust_auction_cycle`: short IEF/TLT two sessions into a coupon auction, long two after; card `results/ideas/2026-11-10_ust_auction_cycle.md` | Yahoo IEF, TLT; FiscalData auction dates (2026-07-22) | Sharpe 0.57 (t 2.77); halves 0.59 / 0.57; placebo 0.03; 0.39 outside the month-end window; 2023 onward −0.02 [V] | EXPLORE; next: announcement dates, the long-bond pre-auction short scaled by size |
+| 2026-11-10 | `pead_wide` (behavioural under-reaction; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #3 | not tested | none | IDEA |
+| 2026-11-10 | `st_reversal_wide` (liquidity provision; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #4 | not tested | none | IDEA |
+| 2026-11-10 | `cef_exdate_drift` (retail behaviour, structural; CEFs); short card in `results/ideas/2026-11-10_hunt_all.md` #6 | not tested | none | IDEA |
+| 2026-11-10 | `earn_announce_premium` (attention, risk premium; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #7 | not tested | none | IDEA |
+| 2026-11-10 | `insider_clusters` (information; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #8 | not tested | none | IDEA |
+| 2026-11-10 | `vix_term_structure` (risk premium, conditioned; volatility); short card in `results/ideas/2026-11-10_hunt_all.md` #9 | not tested | none | IDEA |
+| 2026-11-10 | `cef_taxloss_universe` (tax-forced selling; CEFs); short card in `results/ideas/2026-11-10_hunt_all.md` #10 | not tested | none | IDEA |
+| 2026-11-10 | `trend_futures` (risk premium, behavioural; futures, multi-asset); short card in `results/ideas/2026-11-10_hunt_all.md` #11 | not tested | none | IDEA |
+| 2026-11-10 | `overnight_intraday` (clientele split; equity index, ETFs); short card in `results/ideas/2026-11-10_hunt_all.md` #12 | not tested | none | IDEA |
+| 2026-11-10 | `fallen_angel_stress` (forced selling (mandates); credit); short card in `results/ideas/2026-11-10_hunt_all.md` #13 | not tested | none | IDEA |
+| 2026-11-10 | `index_adds_midsmall` (forced flow (index); equities); short card in `results/ideas/2026-11-10_hunt_all.md` #14 | not tested | none | IDEA |
+| 2026-11-10 | `pcef_recon` (forced flow (index); CEFs); short card in `results/ideas/2026-11-10_hunt_all.md` #15 | not tested | none | IDEA |
+| 2026-11-10 | `short_interest_xs` (information, limits to arbitrage; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #16 | not tested | none | IDEA |
+| 2026-11-10 | `crowding_13f` (forced de-leveraging; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #17 | not tested | none | IDEA |
+| 2026-11-10 | `low_beta` (leverage constraint; equities); short card in `results/ideas/2026-11-10_hunt_all.md` #18 | not tested | none | IDEA |
+| 2026-11-10 | `cef_fast_z` (retail behaviour; CEFs); short card in `results/ideas/2026-11-10_hunt_all.md` #19 | not tested | none | IDEA |
+| 2026-11-10 | `open_auction_fill` (execution timing; CEFs); short card in `results/ideas/2026-11-10_hunt_all.md` #20 | not tested | none | IDEA |
+| 2026-11-10 | `levered_etf_close` (forced flow (daily rebalance); ETFs, intraday); short card in `results/ideas/2026-11-10_hunt_all.md` #21 | not tested | none | IDEA |
+| 2026-11-10 | `dealer_gamma_intraday` (hedging flow; equity index, intraday); short card in `results/ideas/2026-11-10_hunt_all.md` #22 | not tested | none | IDEA |
+| 2026-11-10 | `pff_index_adds` (forced flow (index); preferreds); short card in `results/ideas/2026-11-10_hunt_all.md` #23 | not tested | none | IDEA |
+| 2026-11-10 | `quarter_end_funding` (balance-sheet constraint; rates, funding); short card in `results/ideas/2026-11-10_hunt_all.md` #24 | not tested | none | IDEA |
 
 ## Backfill: everything tested before 2026-11-09
 
