@@ -4087,3 +4087,19 @@ that adds it does not exist when it is written.
 - source: `scripts/research/explore.py` @ `852a0ab` (the option and its comment are added by this commit); `scripts/events/numexpr_fault.py` @ `852a0ab`
 - supports: §5
 - status: current. No result was recorded from a corrupted run: the harness refused the infinite weight. `CLAUDE.md` landmine 11 is added by this commit
+
+### E-2026-11-10-07 · Result: across every closed-end fund on CRSP, a fund falls about 30bp against other funds in the three sessions after its ex-date; the pre-specified book has a gross Sharpe of 4.18 and is not a stale-price artifact
+- kind: result
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - short for three sessions after the ex-date, long the other eligible funds: gross Sharpe 4.18, t 21.25, 17.85%/yr at 4.27% vol, 2000-02-15 to 2025-12-29; 73,741 eligible ex-dates; shift(2); no cost and no borrow modelled [S]
+  - halves 3.68 and 4.78; eras 4.19, 4.71, 5.53, 4.90, 4.80 [S]
+  - event funds less the eligible universe: X+1 −15.5bp, X+2 −8.7bp, X+3 −6.2bp; X−3 to X−1 +5.8, +6.8, +9.0bp [S]
+  - the ex-day price drop averages 90.8bp against a distribution of 83.8bp; no eligible ex-date had zero volume [S]
+  - three-session drop by average daily dollar volume: −27.9bp at $0.5–2M, −32.1bp at $2–5M, −44.9bp above $5M [S]
+  - variant, not pre-specified: long the three sessions before, short the three after: Sharpe 4.72 [S]
+  - at $5M the median short is 1.9% of the fund's average daily volume and the 95th percentile 15.9% (2024–25) [S]
+- source: `results/ideas/2026-11-10_cef_exdate_drift.md` @ `852a0ab` (added by this commit); `results/ideas/cef_exdate_drift/results.json` @ `852a0ab` (added by this commit)
+- supports: §3, §4
+- status: current. One run of the reproducer and one of the robustness checks; not independently re-derived. The by-liquidity and trading-volume checks were run in the session and their figures are in the card, not in a stored file
