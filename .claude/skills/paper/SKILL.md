@@ -38,7 +38,8 @@ grep -n -i "shadow" docs/SYSTEM.md | tail -12
    as the idea's data card says.
 3. **Write the book file** `shadow/books/<slug>.json`. Every key is required
    (`shadow/book.py`): `slug`, `card`, `signal` (`module:function`), `panels`
-   (each with `path`, `date_col`, `required_asof`), `fill` (`next_close`),
+   (each with `path`, `date_col`, `required_asof`), `refresh` (the commands that
+   fetch its panels each night; may be empty), `fill` (`next_close`),
    `notional_usd` (the team lead ruled $1M per book), `started`, `enabled`.
 4. **Write tests for the signal**, on synthetic data: it returns no NaN, and its
    output for a date does not change when later rows are removed.

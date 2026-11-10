@@ -36,7 +36,7 @@ def _book(tmp_path, days, *, signal="shadow.tests._signals:last_return", started
     f.parent.mkdir(exist_ok=True)
     f.write_text(json.dumps({
         "slug": "t1", "card": "results/ideas/none.md", "signal": signal, "fill": "next_close",
-        "panels": {"px": {"path": "px.parquet", "date_col": "date", "required_asof": True}},
+        "panels": {"px": {"path": "px.parquet", "date_col": "date", "required_asof": True}}, "refresh": [],
         "notional_usd": 1_000_000, "started": (started or days[1]).isoformat(), "enabled": True}))
     return book_mod.load(f)
 

@@ -31,13 +31,18 @@ def _marks(state: Path) -> pd.DataFrame:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python3 -m shadow")
-    ap.add_argument("cmd", choices=("decide", "mark", "scoreboard", "run"))
+    ap.add_argument("cmd", choices=("decide", "mark", "scoreboard", "run", "nightly"))
     ap.add_argument("--asof", type=dt.date.fromisoformat,
                     help="the decision date (required for decide and run: never guessed from the clock)")
     ap.add_argument("--out", type=Path, help="scoreboard: also write the page here")
     a = ap.parse_args(argv)
     state = engine.state_dir()
     books = book_mod.load_all(BOOKS_DIR)
+    if a.cmd == "nightly":
+        # the scheduled entry point: refresh, decide, build marks, mark, scoreboard
+        from . import nightly, sources
+        return nightly.run(state, books, sources.ReadOnlyData(nightly.DATA_BOOK),
+                           check=sources.yfinance_closes)
     if not books:
         print("no book files under shadow/books/: nothing to do")
         return 0

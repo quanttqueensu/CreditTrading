@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-REQUIRED = ("slug", "card", "signal", "panels", "fill", "notional_usd", "started", "enabled")
+REQUIRED = ("slug", "card", "signal", "panels", "refresh", "fill", "notional_usd", "started", "enabled")
 # The fill conventions the engine implements. `next_close` is the harness's shift(2):
 # decide on D, fill at the next session's close, earn from that close on.
 FILLS = ("next_close",)
@@ -42,6 +42,7 @@ class Book:
     card: str
     signal: str
     panels: tuple[Panel, ...]
+    refresh: tuple[tuple[str, ...], ...]   # commands the nightly run executes before deciding; may be empty
     fill: str
     notional_usd: float
     started: dt.date
@@ -83,7 +84,11 @@ def load(path: Path) -> Book:
         if Path(p["path"]).is_absolute() or ".." in Path(p["path"]).parts:
             raise BookError(f"{path}: panel {name!r} path must stay inside <state>/panels/")
         panels.append(Panel(name, p["path"], p["date_col"], bool(p["required_asof"])))
-    return Book(slug, raw["card"], raw["signal"], tuple(panels), raw["fill"], float(notional),
+    refresh = raw["refresh"]
+    if not isinstance(refresh, list) or not all(
+            isinstance(c, list) and c and all(isinstance(a, str) for a in c) for c in refresh):
+        raise BookError(f"{path}: refresh must be a list of commands, each a non-empty list of strings")
+    return Book(slug, raw["card"], raw["signal"], tuple(panels), tuple(tuple(c) for c in refresh), raw["fill"], float(notional),
                 dt.date.fromisoformat(raw["started"]), raw["enabled"])
 
 
