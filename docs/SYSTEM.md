@@ -865,6 +865,12 @@ and are not rewritten. How it changes the agents' rules is `CLAUDE.md`, "Hard ru
 | The size a shadow book is simulated at (asked 2026-11-09) | **$1M per book.** Capacity is shown at $1M, $5M and $10M |
 | Refreshing research data (asked 2026-11-09) | **The agent runs the free-source fetchers** from the laptop into a research data folder, never into the live `data/` panels (`CLAUDE.md` landmine 9). The team lead runs only the R2 pulls that need the token |
 
+### Team lead, 2026-11-11 — event-driven and special situations are part of the mission
+
+| question | ruling |
+|---|---|
+| What the desk is | **An event-driven and special-situations desk as well as a systematic one, in any asset class.** Every idea hunt also looks for niche verticals along those lines. The seed list is `docs/MISSION.md` §5 (the block dated 2026-11-11). Nothing else in the 2026-11-09 ruling changes: shadow books first, no paper account for a new sleeve without the team lead, releases by the team lead only |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |

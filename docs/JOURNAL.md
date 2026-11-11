@@ -419,3 +419,6 @@ from a named source; [doc] copied from a named note.
 - **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
 - **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
 - **Shadow.** Two more books from 2026-11-10, $1M each, on 91 funds: `cef_exdate_after` and `cef_exdate_before_after` (`results/report/EVIDENCE_LOG.md` E-2026-11-10-08). Their ex-dates are stored by the day first seen. Three shadow books now run on the VM.
+
+**Event-driven and special situations added to the mission, 2026-11-11** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-02).
+- **Ruled.** The team lead: the desk is event-driven and special situations as well as systematic, in any asset class, and hunts look for niche verticals there. `docs/SYSTEM.md` §5 records it; `docs/MISSION.md` §5 has the seed list; `/hunt` requires it.
