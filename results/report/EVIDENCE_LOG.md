@@ -3992,3 +3992,13 @@ that adds it does not exist when it is written.
 - source: `scripts/cef/exposure_readout.py` @ `774fd52`; `scripts/ops/pnl_report.py` @ `5c42757`; `scripts/ops/pnl_report.py` @ `2cd374f`; `scripts/ops/risk_daily.py` @ `2cd374f`
 - supports: §4, §5
 - status: current
+
+### E-2026-11-11-50 · Ruling and method: both specs' sizing-multiplier notes now name the report job's factor readout among their readers; no value and no spec id changed, and C4's three sha-pinned artifacts were regenerated and match exactly
+- kind: method
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - none (a note edit: one line in each spec, `json.load` equal on every other key; spec ids stay cef_discount.v9.20261102 and c4_families.v5.20261103. The team lead ruled on 2026-11-11: edit both notes, regenerate C4's pinned artifacts, do not bump the id. Regenerated on the same panels, cut at 2022-12-30: the C4 paper benchmark and trial 54's activation measures differ from the committed ones only in the spec sha256 and run-time fields; the H11 series is byte-identical. Two tests that hash spec content were re-pinned: the trial-54 frozen-block hash, and the core's combine no-op input hash, which had turned a pass into a skip)
+- source: `ops/specs/cef_discount.frozen.json` @ `73c213e`; `ops/specs/c4_families.frozen.json` @ `73c213e`; `results/cef/c4/c4_paper_benchmark_2026-11-03.json` @ `73c213e`; `results/cef/prereg_c4_level/activation_measures_2026-11-03.json` @ `73c213e`
+- supports: §1, §5
+- status: current
