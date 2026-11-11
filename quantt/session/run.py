@@ -1598,6 +1598,9 @@ def thin_rule_for(spec: dict, deps) -> dict | None:
       * the book json without `risk.drawdown` (`deps.drawdown` None; the owner's
         answer 4). K0 reads the drawdown record, and a stop whose input is never
         measured must not fail open: loud and closed;
+      * an execution mode other than late_market (the owner's release-check of 78e3483,
+        2026-11-09). K1-K3 count a reduced decision only if it filled, read from send.json,
+        and a cls set writes none: under cls an episode could open on STARTED alone;
       * a broker client whose `trading_endpoint` is not exactly
         `alpaca.PAPER_BASE` (§1.2), or that does not say what its endpoint is.
     Returns {"rule", "account": "paper", "floor", "min_names", "endpoint"}."""
@@ -1616,6 +1619,13 @@ def thin_rule_for(spec: dict, deps) -> dict | None:
             f"{key} is set but the book json has no risk.drawdown: K0 builds a reduced book "
             f"only on a drawdown record that reads OK, and without the check there is no "
             f"record. Set risk.drawdown to 'report' or delete the key")
+    mode = deps.execution.get("mode")
+    if mode != "late_market":
+        raise SessionError(
+            f"{key} is set and the book's execution mode is {mode!r}, not 'late_market'. "
+            f"Paper runs late_market, and the stop lines read what a set filled from its "
+            f"send.json, which a cls set never writes: an episode could open with no fill "
+            f"known. Nothing decided")
     endpoint = getattr(deps.client, "trading_endpoint", None)
     if endpoint is None:
         raise SessionError(
