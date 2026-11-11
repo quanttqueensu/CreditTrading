@@ -391,6 +391,11 @@ from a named source; [doc] copied from a named note.
 - **Prod.** No change. The VM is armed at `release-20261104-1` [V: `python3 -m ops.orient`].
 - **Live.** Core: verify PASS, 12 of 12 filled; official pending; snapshot equity $98,838.46 at the 2026-11-09 close [V: `python3 -m ops.orient`].
 
+**Nightly report-only checks built** (`results/report/EVIDENCE_LOG.md` E-2026-11-09-40; PR open, not merged, not installed).
+- **What.** `scripts/ops/data_qa.py` (Q1–Q8, per book) and `scripts/ops/risk_daily.py` (per account), wrapping the existing readers, on VM timers installed by a separate `install_vm --reports` (`docs/RUNBOOK.md` 8.11). Book installs and rendered units are byte-identical to before.
+- **Thresholds** are derived on the fit panels to the design's budget; the calibration note says what falls short: Q3 cannot catch one-row stale copies, Q6 13/22 on the core, Q4's split-basis names are not panel steps (`results/ops/DATA_QA_CALIBRATION_2026-11-08.md`).
+- **Push on ACT only** through the existing SMTP path; until the team lead adds the two vault secrets, a fired stop says `ACT: notification NOT delivered` and fails loudly.
+
 ## 2026-11-10 (Tue)
 
 **The first shadow book** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-01).
@@ -413,3 +418,4 @@ from a named source; [doc] copied from a named note.
 - **Research.** On 1,123 CEFs from CRSP (dead funds included, to 2025-12-31), a fund falls about 30bp relative to other funds over the three sessions after its ex-date, after rising about 22bp over the three before. The pre-specified book (short after, long the rest) has a gross Sharpe of 4.18, positive in every era [V: `results/ideas/2026-11-10_cef_exdate_drift.md`].
 - **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
 - **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
+- **Shadow.** Two more books from 2026-11-10, $1M each, on 91 funds: `cef_exdate_after` and `cef_exdate_before_after` (`results/report/EVIDENCE_LOG.md` E-2026-11-10-08). Their ex-dates are stored by the day first seen. Three shadow books now run on the VM.
